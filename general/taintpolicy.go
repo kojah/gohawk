@@ -11,15 +11,32 @@ import (
 )
 
 func taintPolicyAnalyzer() *analysis.Analyzer {
-	return &analysis.Analyzer{
+	config := taintPolicyConfig{sinks: "filesystem,process,terminal,log"}
+	analyzer := &analysis.Analyzer{
 		Name:     "taintpolicy",
 		Doc:      "checks untrusted environment and argument data reaching sensitive sinks",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
-		Run:      runTaintPolicy,
 	}
+	analyzer.Flags.Var(newCommaSeparatedChoice(&config.sinks, "filesystem", "process", "terminal", "log"), "sinks", "comma-separated sink families: filesystem,process,terminal,log")
+	analyzer.Flags.StringVar(&config.sanitizers, "sanitizers", "", "comma-separated fully-qualified sanitizer functions")
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		return runTaintPolicy(pass, config)
+	}
+	return analyzer
 }
 
-func runTaintPolicy(pass *analysis.Pass) (any, error) {
+type taintPolicyConfig struct {
+	sinks      string
+	sanitizers string
+}
+
+type taintPolicySettings struct {
+	sinks      map[string]bool
+	sanitizers map[string]bool
+}
+
+func runTaintPolicy(pass *analysis.Pass, config taintPolicyConfig) (any, error) {
+	settings := taintPolicySettings{sinks: commaSeparatedSet(config.sinks), sanitizers: commaSeparatedSet(config.sanitizers)}
 	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		// Test helpers deliberately echo and persist hostile fixture values. Their
 		// process is isolated; production sinks remain policy-owned here.
@@ -32,9 +49,9 @@ func runTaintPolicy(pass *analysis.Pass) (any, error) {
 				if !ok {
 					continue
 				}
-				kind, display, arguments := taintSink(call.Common())
+				kind, display, arguments := taintSink(call.Common(), settings.sinks)
 				for _, argument := range arguments {
-					if taintedValue(argument, map[ssa.Value]bool{}, map[ssa.Value]bool{}) {
+					if taintedValue(argument, map[ssa.Value]bool{}, map[ssa.Value]bool{}, settings) {
 						pass.Reportf(call.Pos(), "untrusted data reaches %s sink %s", kind, display)
 						break
 					}
@@ -45,17 +62,20 @@ func runTaintPolicy(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-func taintSink(common *ssa.CallCommon) (string, string, []ssa.Value) {
+func taintSink(common *ssa.CallCommon, sinks map[string]bool) (string, string, []ssa.Value) {
 	if common == nil {
 		return "", "", nil
 	}
 	packagePath, name := analysisutil.CallPackage(common), analysisutil.CallName(common)
 	switch packagePath {
 	case "os":
-		if filesystemSink(name) && len(common.Args) > 0 {
+		if sinks["filesystem"] && filesystemSink(name) && len(common.Args) > 0 {
 			return "filesystem", "os." + name, common.Args[:1]
 		}
 	case "os/exec":
+		if !sinks["process"] {
+			break
+		}
 		if name == "Command" {
 			return "process", "exec.Command", common.Args
 		}
@@ -63,11 +83,11 @@ func taintSink(common *ssa.CallCommon) (string, string, []ssa.Value) {
 			return "process", "exec.CommandContext", common.Args[1:]
 		}
 	case "fmt":
-		if strings.HasPrefix(name, "Fprint") && len(common.Args) > 1 && terminalWriter(common.Args[0]) {
+		if sinks["terminal"] && strings.HasPrefix(name, "Fprint") && len(common.Args) > 1 && terminalWriter(common.Args[0]) {
 			return "terminal", "fmt." + name, common.Args[1:]
 		}
 	case "log", "log/slog":
-		if strings.HasPrefix(name, "Print") || strings.HasSuffix(name, "Context") || name == "Log" {
+		if sinks["log"] && (strings.HasPrefix(name, "Print") || strings.HasSuffix(name, "Context") || name == "Log") {
 			return "log", packagePath + "." + name, common.Args
 		}
 	}
@@ -107,13 +127,13 @@ func terminalWriterSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
 	return false
 }
 
-func taintedValue(value ssa.Value, seen, memorySeen map[ssa.Value]bool) bool {
+func taintedValue(value ssa.Value, seen, memorySeen map[ssa.Value]bool, settings taintPolicySettings) bool {
 	if value == nil || seen[value] {
 		return false
 	}
 	seen[value] = true
 	if call, ok := value.(*ssa.Call); ok {
-		if trustedSanitizer(call.Common()) {
+		if trustedSanitizer(call.Common(), settings.sanitizers) {
 			return false
 		}
 		if taintSource(call.Common()) {
@@ -129,15 +149,15 @@ func taintedValue(value ssa.Value, seen, memorySeen map[ssa.Value]bool) bool {
 	if ok {
 		var operands []*ssa.Value
 		for _, operand := range instruction.Operands(operands) {
-			if operand != nil && taintedValue(*operand, seen, memorySeen) {
+			if operand != nil && taintedValue(*operand, seen, memorySeen, settings) {
 				return true
 			}
 		}
 	}
-	return taintedStoredValue(value, seen, memorySeen)
+	return taintedStoredValue(value, seen, memorySeen, settings)
 }
 
-func taintedStoredValue(address ssa.Value, seen, memorySeen map[ssa.Value]bool) bool {
+func taintedStoredValue(address ssa.Value, seen, memorySeen map[ssa.Value]bool, settings taintPolicySettings) bool {
 	if address == nil || memorySeen[address] || address.Referrers() == nil {
 		return false
 	}
@@ -145,15 +165,15 @@ func taintedStoredValue(address ssa.Value, seen, memorySeen map[ssa.Value]bool) 
 	for _, reference := range *address.Referrers() {
 		switch typed := reference.(type) {
 		case *ssa.Store:
-			if taintedValue(typed.Val, seen, memorySeen) {
+			if taintedValue(typed.Val, seen, memorySeen, settings) {
 				return true
 			}
 		case *ssa.FieldAddr:
-			if taintedStoredValue(typed, seen, memorySeen) {
+			if taintedStoredValue(typed, seen, memorySeen, settings) {
 				return true
 			}
 		case *ssa.IndexAddr:
-			if taintedStoredValue(typed, seen, memorySeen) {
+			if taintedStoredValue(typed, seen, memorySeen, settings) {
 				return true
 			}
 		}
@@ -165,9 +185,13 @@ func taintSource(common *ssa.CallCommon) bool {
 	return analysisutil.CallPackage(common) == "os" && (analysisutil.CallName(common) == "Getenv" || analysisutil.CallName(common) == "LookupEnv")
 }
 
-func trustedSanitizer(common *ssa.CallCommon) bool {
+func trustedSanitizer(common *ssa.CallCommon, configured map[string]bool) bool {
 	if common == nil || common.StaticCallee() == nil || common.StaticCallee().Pkg == nil {
 		return false
+	}
+	qualified := analysisutil.CallPackage(common) + "." + analysisutil.CallName(common)
+	if configured[qualified] {
+		return true
 	}
 	name := strings.ToLower(analysisutil.CallName(common))
 	return strings.Contains(name, "validate") || strings.Contains(name, "sanitize") || strings.Contains(name, "escape") || strings.Contains(name, "confine")

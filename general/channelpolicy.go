@@ -15,33 +15,49 @@ import (
 )
 
 func channelPolicyAnalyzer() *analysis.Analyzer {
-	return &analysis.Analyzer{
+	config := channelPolicyConfig{maxUnexplainedCapacity: 1, checkBorrowedClose: true, checkSendAfterClose: true}
+	analyzer := &analysis.Analyzer{
 		Name:     "channelpolicy",
 		Doc:      "checks channel capacity and closing ownership",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
-		Run:      runChannelPolicy,
 	}
+	analyzer.Flags.Int64Var(&config.maxUnexplainedCapacity, "max-unexplained-capacity", 1, "largest channel capacity allowed without a rationale; negative disables the check")
+	analyzer.Flags.BoolVar(&config.checkBorrowedClose, "check-borrowed-close", true, "report closing a channel received from the caller")
+	analyzer.Flags.BoolVar(&config.checkSendAfterClose, "check-send-after-close", true, "report sends proven to follow a close")
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		return runChannelPolicy(pass, config)
+	}
+	return analyzer
 }
 
-func runChannelPolicy(pass *analysis.Pass) (any, error) {
+type channelPolicyConfig struct {
+	maxUnexplainedCapacity int64
+	checkBorrowedClose     bool
+	checkSendAfterClose    bool
+}
+
+func runChannelPolicy(pass *analysis.Pass, config channelPolicyConfig) (any, error) {
 	for _, file := range pass.Files {
 		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {
 			if call, ok := node.(*ast.CallExpr); ok {
-				checkChannelCapacity(pass, file, call)
+				checkChannelCapacity(pass, file, call, config.maxUnexplainedCapacity)
 			}
 			return true
 		})
 	}
 	for _, function := range analysisutil.SourceSSAFunctions(pass) {
-		checkSSAChannelOwnership(pass, function)
+		checkSSAChannelOwnership(pass, function, config)
 	}
 	return nil, nil
 }
 
-func checkChannelCapacity(pass *analysis.Pass, file *ast.File, call *ast.CallExpr) {
+func checkChannelCapacity(pass *analysis.Pass, file *ast.File, call *ast.CallExpr, maximum int64) {
+	if maximum < 0 {
+		return
+	}
 	builtin, ok := call.Fun.(*ast.Ident)
 	if !ok || builtin.Name != "make" || len(call.Args) < 2 {
 		return
@@ -54,7 +70,7 @@ func checkChannelCapacity(pass *analysis.Pass, file *ast.File, call *ast.CallExp
 		return
 	}
 	capacity, exact := constant.Int64Val(value)
-	if !exact || capacity <= 1 || channelRationale(pass, file, call.Pos()) {
+	if !exact || capacity <= maximum || channelRationale(pass, file, call.Pos()) {
 		return
 	}
 	pass.Reportf(call.Args[1].Pos(), "channel capacity %d requires a bounded rationale comment", capacity)
@@ -75,7 +91,7 @@ func channelRationale(pass *analysis.Pass, file *ast.File, position token.Pos) b
 	return false
 }
 
-func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
+func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, config channelPolicyConfig) {
 	var parameters []ssa.Value
 	for _, parameter := range function.Params {
 		if analysisutil.ChannelType(parameter) {
@@ -95,8 +111,11 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
 				continue
 			}
 			channel := common.Args[0]
-			if aliasesAny(channel, parameters) {
+			if config.checkBorrowedClose && aliasesAny(channel, parameters) {
 				pass.Reportf(instruction.Pos(), "do not close a channel received from caller")
+			}
+			if !config.checkSendAfterClose {
+				continue
 			}
 			for _, candidate := range reachableInstructions(instruction) {
 				send, ok := candidate.(*ssa.Send)

@@ -133,22 +133,60 @@ func TestSuggestedFixes(t *testing.T) {
 }
 
 func TestGoroutineOwnershipRequireJoin(t *testing.T) {
-	analyzer := goroutineOwnershipAnalyzerForTest(t)
+	analyzer := configurableAnalyzer(t, "goroutineownership")
 	if err := analyzer.Flags.Set("require-join", "true"); err != nil {
 		t.Fatalf("set require-join: %v", err)
 	}
 	analysistest.Run(t, analysistest.TestData(), analyzer, "goroutineownershipstrict")
 }
 
-func goroutineOwnershipAnalyzerForTest(t *testing.T) *analysis.Analyzer {
+func TestAnalyzerConfiguration(t *testing.T) {
+	tests := []struct {
+		name    string
+		pattern string
+		flags   map[string]string
+	}{
+		{name: "apishape", pattern: "apishapeconfig", flags: map[string]string{
+			"max-parameters": "5", "max-adjacent-same-type": "5", "check-adjacent-optional-scalars": "false", "check-mixed-receivers": "false",
+		}},
+		{name: "channelpolicy", pattern: "channelpolicyconfig", flags: map[string]string{
+			"max-unexplained-capacity": "10", "check-borrowed-close": "false", "check-send-after-close": "false",
+		}},
+		{name: "contextpolicy", pattern: "contextpolicyconfig", flags: map[string]string{
+			"require-first": "false", "forbid-storage": "false", "prefer-test-context": "false", "forbid-nil": "false",
+		}},
+		{name: "globalstate", pattern: "globalstateconfig", flags: map[string]string{
+			"allow-names": "cache", "allow-types": "globalstateconfig.Registry",
+		}},
+		{name: "taintpolicy", pattern: "taintpolicyconfig", flags: map[string]string{
+			"sinks": "process", "sanitizers": "taintpolicyconfig.scrub",
+		}},
+		{name: "resourcelifetime", pattern: "resourcelifetimeconfig", flags: map[string]string{
+			"contracts": "http,compress", "require-reader-close": "false",
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			analyzer := configurableAnalyzer(t, test.name)
+			for name, value := range test.flags {
+				if err := analyzer.Flags.Set(name, value); err != nil {
+					t.Fatalf("set %s=%s: %v", name, value, err)
+				}
+			}
+			analysistest.Run(t, analysistest.TestData(), analyzer, test.pattern)
+		})
+	}
+}
+
+func configurableAnalyzer(t *testing.T, name string) *analysis.Analyzer {
 	t.Helper()
 	for _, group := range AnalyzerGroups() {
 		for _, analyzer := range group.Analyzers {
-			if analyzer.Name == "goroutineownership" {
+			if analyzer.Name == name {
 				return analyzer
 			}
 		}
 	}
-	t.Fatal("goroutineownership analyzer is not registered")
+	t.Fatalf("%s analyzer is not registered", name)
 	return nil
 }

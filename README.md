@@ -53,11 +53,17 @@ gohawk -goroutineownership \
   ./...
 ```
 
-`goroutineownership` accepts context-controlled workers by default. Set
-`-goroutineownership.accept-context-lifecycle=false` to disable only that
-allowance, or use `-goroutineownership.require-join` to require a completion
-signal or wait instead of context or lifecycle ownership. These options also
-work through `go vet -vettool=...`.
+Analyzer-specific options preserve the default policies and also work through
+`go vet -vettool=...`. Each configurable analyzer documents its knobs beside
+its example below.
+
+Boolean options accept explicit values when disabling a policy:
+
+```sh
+gohawk -contextpolicy \
+  -contextpolicy.prefer-test-context=false \
+  ./...
+```
 
 In normal text mode, GoHawk exits with status 0 when the analysis is clean and
 status 3 when it reports diagnostics. Successful JSON and suggested-fix runs
@@ -92,37 +98,37 @@ diagnostic-only.
 
 | Analyzer | Policy |
 | --- | --- |
-| `apishape` | Flags exported APIs with error-prone parameter or receiver shapes. |
-| `contextpolicy` | Checks context placement, storage, nil use, and test ownership. |
-| `closedomain` | Finds builtin strings used as closed semantic domains. |
-| `wirepolicy` | Checks serialized structs and their composite literals. |
+| [`apishape`](#apishape) | Flags exported APIs with error-prone parameter or receiver shapes. |
+| [`contextpolicy`](#contextpolicy) | Checks context placement, storage, nil use, and test ownership. |
+| [`closedomain`](#closedomain) | Finds builtin strings used as closed semantic domains. |
+| [`wirepolicy`](#wirepolicy) | Checks serialized structs and their composite literals. |
 
 ### Ownership and lifecycle
 
 | Analyzer | Policy |
 | --- | --- |
-| `cancellationownership` | Checks that context and signal-derived cancellation functions are called. |
-| `channelpolicy` | Checks channel capacity and closing ownership. |
-| `goroutineownership` | Requires explicit goroutines to have a join handle or lifecycle owner. |
-| `processownership` | Requires started commands to be waited on or transferred with their wait ownership. |
-| `resourcelifetime` | Checks files, HTTP responses, SQL handles, timers, and compressors are released on every path. |
+| [`cancellationownership`](#cancellationownership) | Checks that context and signal-derived cancellation functions are called. |
+| [`channelpolicy`](#channelpolicy) | Checks channel capacity and closing ownership. |
+| [`goroutineownership`](#goroutineownership) | Requires explicit goroutines to have a join handle or lifecycle owner. |
+| [`processownership`](#processownership) | Requires started commands to be waited on or transferred with their wait ownership. |
+| [`resourcelifetime`](#resourcelifetime) | Checks files, HTTP responses, SQL handles, timers, and compressors are released on every path. |
 
 ### Reliability and safety
 
 | Analyzer | Policy |
 | --- | --- |
-| `determinism` | Detects unsorted map iteration reaching ordered output. |
-| `errorownership` | Detects double-handled errors and error-text classification. |
-| `globalstate` | Flags mutable package-level state. |
-| `lockorder` | Detects contradictory mutex acquisition order. |
-| `taintpolicy` | Checks untrusted environment and argument data reaching sensitive sinks. |
+| [`determinism`](#determinism) | Detects unsorted map iteration reaching ordered output. |
+| [`errorownership`](#errorownership) | Detects double-handled errors and error-text classification. |
+| [`globalstate`](#globalstate) | Flags mutable package-level state. |
+| [`lockorder`](#lockorder) | Detects contradictory mutex acquisition order. |
+| [`taintpolicy`](#taintpolicy) | Checks untrusted environment and argument data reaching sensitive sinks. |
 
 ### Testing
 
 | Analyzer | Policy |
 | --- | --- |
-| `blockingtest` | Checks cancellation ownership for blocking test channels. |
-| `testpolicy` | Checks lifecycle ownership in test helpers. |
+| [`blockingtest`](#blockingtest) | Checks cancellation ownership for blocking test channels. |
+| [`testpolicy`](#testpolicy) | Checks lifecycle ownership in test helpers. |
 
 These are intentionally opinionated policy checks. A deliberate error-text
 match can be suppressed immediately above the call with a comment containing
@@ -152,7 +158,18 @@ under Suggested fixes. Each example below shows a representative pattern that
 is flagged and one possible rewrite. Some analyzers enforce additional cases
 summarized in the table above.
 
-### `apishape` — group error-prone parameters
+### API and data contracts
+
+#### `apishape`
+
+Group error-prone parameters.
+
+| Knob | Default | Effect |
+| --- | --- | --- |
+| `max-parameters` | `4` | Maximum parameters on an exported function; `0` disables the check. |
+| `max-adjacent-same-type` | `2` | Maximum adjacent parameters sharing one type; `0` disables the check. |
+| `check-adjacent-optional-scalars` | `true` | Reports adjacent pointer-to-scalar parameters. |
+| `check-mixed-receivers` | `true` | Reports types mixing pointer and value receivers. |
 
 Flagged:
 
@@ -170,7 +187,16 @@ type CreateUserInput struct {
 func CreateUser(input CreateUserInput) error { return nil }
 ```
 
-### `contextpolicy` — put context first
+#### `contextpolicy`
+
+Put context first.
+
+| Knob | Default | Effect |
+| --- | --- | --- |
+| `require-first` | `true` | Requires `context.Context` to be the first parameter. |
+| `forbid-storage` | `true` | Reports contexts stored in struct fields. |
+| `prefer-test-context` | `true` | Prefers `t.Context()` or `b.Context()` over `context.Background()` in tests when supported by the module's Go version. |
+| `forbid-nil` | `true` | Reports definitely nil context arguments. |
 
 Flagged:
 
@@ -184,194 +210,9 @@ Preferred:
 func LoadUser(ctx context.Context, id string) error { return nil }
 ```
 
-### `globalstate` — give mutable state an owner
+#### `closedomain`
 
-Flagged:
-
-```go
-var users = map[string]User{}
-```
-
-Preferred:
-
-```go
-type Store struct {
-	users map[string]User
-}
-
-func NewStore() *Store {
-	return &Store{users: make(map[string]User)}
-}
-```
-
-### `wirepolicy` — tag fields and key literals
-
-Flagged:
-
-```go
-type EventRow struct {
-	ID   string
-	Kind string
-}
-
-var event = EventRow{"42", "created"}
-```
-
-Preferred:
-
-```go
-type EventRow struct {
-	ID   string `json:"id"`
-	Kind string `json:"kind"`
-}
-
-var event = EventRow{ID: "42", Kind: "created"}
-```
-
-### `testpolicy` — mark test helpers
-
-Flagged:
-
-```go
-func requireUser(t *testing.T, user *User) {
-	if user == nil {
-		t.Fatal("expected a user")
-	}
-}
-```
-
-Preferred:
-
-```go
-func requireUser(t *testing.T, user *User) {
-	t.Helper()
-	if user == nil {
-		t.Fatal("expected a user")
-	}
-}
-```
-
-### `blockingtest` — make test waits cancellable
-
-Flagged:
-
-```go
-func waitForEvent(t *testing.T, events <-chan Event) Event {
-	return <-events
-}
-```
-
-Preferred:
-
-```go
-func waitForEvent(t *testing.T, events <-chan Event) Event {
-	t.Helper()
-	select {
-	case event := <-events:
-		return event
-	case <-t.Context().Done():
-		t.Fatal("timed out waiting for event")
-		return Event{}
-	}
-}
-```
-
-### `goroutineownership` — join spawned goroutines
-
-Flagged:
-
-```go
-func refresh() {
-	go updateCache()
-}
-```
-
-Preferred:
-
-```go
-func refresh() {
-	var group sync.WaitGroup
-	group.Add(1)
-	go func() {
-		defer group.Done()
-		updateCache()
-	}()
-	group.Wait()
-}
-```
-
-### `errorownership` — handle an error at one layer
-
-Flagged:
-
-```go
-func load() error {
-	if err := readConfig(); err != nil {
-		log.Print(err)
-		return err
-	}
-	return nil
-}
-```
-
-Preferred:
-
-```go
-func load() error {
-	if err := readConfig(); err != nil {
-		return fmt.Errorf("read config: %w", err)
-	}
-	return nil
-}
-```
-
-### `channelpolicy` — let the creator close the channel
-
-Flagged:
-
-```go
-func consume(events chan Event) {
-	defer close(events)
-	for event := range events {
-		handle(event)
-	}
-}
-```
-
-Preferred:
-
-```go
-func consume(events <-chan Event) {
-	for event := range events {
-		handle(event)
-	}
-}
-```
-
-### `processownership` — wait for started processes
-
-Flagged:
-
-```go
-func run(ctx context.Context) error {
-	command := exec.CommandContext(ctx, "worker")
-	return command.Start()
-}
-```
-
-Preferred:
-
-```go
-func run(ctx context.Context) error {
-	command := exec.CommandContext(ctx, "worker")
-	if err := command.Start(); err != nil {
-		return err
-	}
-	return command.Wait()
-}
-```
-
-### `closedomain` — represent closed sets with named types
+Represent closed sets with named types.
 
 Flagged:
 
@@ -400,45 +241,156 @@ type Job struct {
 }
 ```
 
-### `taintpolicy` — validate untrusted input before a sink
+#### `wirepolicy`
+
+Tag fields and key literals.
 
 Flagged:
 
 ```go
-func runConfiguredTool() error {
-	return exec.Command(os.Getenv("TOOL")).Run()
+type EventRow struct {
+	ID   string
+	Kind string
+}
+
+var event = EventRow{"42", "created"}
+```
+
+Preferred:
+
+```go
+type EventRow struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+}
+
+var event = EventRow{ID: "42", Kind: "created"}
+```
+
+### Ownership and lifecycle
+
+#### `cancellationownership`
+
+Call derived cancel functions.
+
+Flagged:
+
+```go
+func work(parent context.Context) {
+	ctx, _ := context.WithCancel(parent)
+	doWork(ctx)
 }
 ```
 
 Preferred:
 
 ```go
-func runConfiguredTool() error {
-	tool, err := validateTool(os.Getenv("TOOL"))
-	if err != nil {
+func work(parent context.Context) {
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+	doWork(ctx)
+}
+```
+
+#### `channelpolicy`
+
+Let the creator close the channel.
+
+| Knob | Default | Effect |
+| --- | --- | --- |
+| `max-unexplained-capacity` | `1` | Largest constant capacity allowed without a rationale; a negative value disables the check. |
+| `check-borrowed-close` | `true` | Reports closing channels received from callers. |
+| `check-send-after-close` | `true` | Reports sends proven to follow a close. |
+
+Flagged:
+
+```go
+func consume(events chan Event) {
+	defer close(events)
+	for event := range events {
+		handle(event)
+	}
+}
+```
+
+Preferred:
+
+```go
+func consume(events <-chan Event) {
+	for event := range events {
+		handle(event)
+	}
+}
+```
+
+#### `goroutineownership`
+
+Join spawned goroutines.
+
+| Knob | Default | Effect |
+| --- | --- | --- |
+| `accept-context-lifecycle` | `true` | Accepts a passed or captured context as lifecycle ownership. |
+| `require-join` | `false` | Requires a completion signal or wait instead of context or lifecycle ownership. |
+
+Context-controlled workers are accepted by default. Set
+`-goroutineownership.accept-context-lifecycle=false` to disable only that
+allowance, or use `-goroutineownership.require-join` for the strict policy.
+
+Flagged:
+
+```go
+func refresh() {
+	go updateCache()
+}
+```
+
+Preferred:
+
+```go
+func refresh() {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() {
+		defer group.Done()
+		updateCache()
+	}()
+	group.Wait()
+}
+```
+
+#### `processownership`
+
+Wait for started processes.
+
+Flagged:
+
+```go
+func run(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "worker")
+	return command.Start()
+}
+```
+
+Preferred:
+
+```go
+func run(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "worker")
+	if err := command.Start(); err != nil {
 		return err
 	}
-	return exec.Command(tool).Run()
+	return command.Wait()
 }
 ```
 
-### `lockorder` — acquire locks consistently
+#### `resourcelifetime`
 
-Flagged:
+Release owned resources on every path.
 
-```go
-func forward() { first.Lock(); defer first.Unlock(); second.Lock(); defer second.Unlock() }
-func reverse() { second.Lock(); defer second.Unlock(); first.Lock(); defer first.Unlock() }
-```
-
-Preferred:
-
-```go
-func forward() { first.Lock(); defer first.Unlock(); second.Lock(); defer second.Unlock() }
-func reverse() { first.Lock(); defer first.Unlock(); second.Lock(); defer second.Unlock() }
-```
-
-### `resourcelifetime` — release owned resources on every path
+| Knob | Default | Effect |
+| --- | --- | --- |
+| `contracts` | `os,http,sql,time,compress` | Comma-separated resource contract families to check. |
+| `require-reader-close` | `true` | Requires gzip and zlib readers to be closed. |
 
 Built-in contracts cover files, transactions, SQL rows and statements, HTTP
 response bodies, timers and tickers, and gzip/zlib readers and writers.
@@ -468,7 +420,11 @@ func read(path string) error {
 }
 ```
 
-### `determinism` — sort map-derived output
+### Reliability and safety
+
+#### `determinism`
+
+Sort map-derived output.
 
 Flagged:
 
@@ -495,24 +451,167 @@ func names(users map[string]User) []string {
 }
 ```
 
-### `cancellationownership` — call derived cancel functions
+#### `errorownership`
+
+Handle an error at one layer.
 
 Flagged:
 
 ```go
-func work(parent context.Context) {
-	ctx, _ := context.WithCancel(parent)
-	doWork(ctx)
+func load() error {
+	if err := readConfig(); err != nil {
+		log.Print(err)
+		return err
+	}
+	return nil
 }
 ```
 
 Preferred:
 
 ```go
-func work(parent context.Context) {
-	ctx, cancel := context.WithCancel(parent)
-	defer cancel()
-	doWork(ctx)
+func load() error {
+	if err := readConfig(); err != nil {
+		return fmt.Errorf("read config: %w", err)
+	}
+	return nil
+}
+```
+
+#### `globalstate`
+
+Give mutable state an owner.
+
+| Knob | Default | Effect |
+| --- | --- | --- |
+| `allow-names` | empty | Comma-separated package variable names allowed as mutable globals. |
+| `allow-types` | empty | Comma-separated fully-qualified named types allowed as mutable globals. |
+
+Fully-qualified type allowlists include the complete import path:
+
+```sh
+gohawk -globalstate \
+  -globalstate.allow-names=metrics,registry \
+  -globalstate.allow-types=example.com/project.Registry \
+  ./...
+```
+
+Flagged:
+
+```go
+var users = map[string]User{}
+```
+
+Preferred:
+
+```go
+type Store struct {
+	users map[string]User
+}
+
+func NewStore() *Store {
+	return &Store{users: make(map[string]User)}
+}
+```
+
+#### `lockorder`
+
+Acquire locks consistently.
+
+Flagged:
+
+```go
+func forward() { first.Lock(); defer first.Unlock(); second.Lock(); defer second.Unlock() }
+func reverse() { second.Lock(); defer second.Unlock(); first.Lock(); defer first.Unlock() }
+```
+
+Preferred:
+
+```go
+func forward() { first.Lock(); defer first.Unlock(); second.Lock(); defer second.Unlock() }
+func reverse() { first.Lock(); defer first.Unlock(); second.Lock(); defer second.Unlock() }
+```
+
+#### `taintpolicy`
+
+Validate untrusted input before a sink.
+
+| Knob | Default | Effect |
+| --- | --- | --- |
+| `sinks` | `filesystem,process,terminal,log` | Comma-separated sink families to check. |
+| `sanitizers` | empty | Additional comma-separated fully-qualified sanitizer functions. |
+
+Flagged:
+
+```go
+func runConfiguredTool() error {
+	return exec.Command(os.Getenv("TOOL")).Run()
+}
+```
+
+Preferred:
+
+```go
+func runConfiguredTool() error {
+	tool, err := validateTool(os.Getenv("TOOL"))
+	if err != nil {
+		return err
+	}
+	return exec.Command(tool).Run()
+}
+```
+
+### Testing
+
+#### `blockingtest`
+
+Make test waits cancellable.
+
+Flagged:
+
+```go
+func waitForEvent(t *testing.T, events <-chan Event) Event {
+	return <-events
+}
+```
+
+Preferred:
+
+```go
+func waitForEvent(t *testing.T, events <-chan Event) Event {
+	t.Helper()
+	select {
+	case event := <-events:
+		return event
+	case <-t.Context().Done():
+		t.Fatal("timed out waiting for event")
+		return Event{}
+	}
+}
+```
+
+#### `testpolicy`
+
+Mark test helpers.
+
+Flagged:
+
+```go
+func requireUser(t *testing.T, user *User) {
+	if user == nil {
+		t.Fatal("expected a user")
+	}
+}
+```
+
+Preferred:
+
+```go
+func requireUser(t *testing.T, user *User) {
+	t.Helper()
+	if user == nil {
+		t.Fatal("expected a user")
+	}
 }
 ```
 

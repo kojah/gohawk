@@ -1,10 +1,54 @@
 package general
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 )
+
+type commaSeparatedChoice struct {
+	value   *string
+	allowed map[string]bool
+}
+
+func newCommaSeparatedChoice(value *string, allowed ...string) *commaSeparatedChoice {
+	choices := make(map[string]bool, len(allowed))
+	for _, choice := range allowed {
+		choices[choice] = true
+	}
+	return &commaSeparatedChoice{value: value, allowed: choices}
+}
+
+func (choice *commaSeparatedChoice) String() string {
+	if choice == nil || choice.value == nil {
+		return ""
+	}
+	return *choice.value
+}
+
+func (choice *commaSeparatedChoice) Set(value string) error {
+	for item := range commaSeparatedSet(value) {
+		if !choice.allowed[item] {
+			return fmt.Errorf("unknown value %q", item)
+		}
+	}
+	*choice.value = value
+	return nil
+}
+
+func commaSeparatedSet(value string) map[string]bool {
+	result := make(map[string]bool)
+	for item := range strings.SplitSeq(value, ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			result[item] = true
+		}
+	}
+	return result
+}
 
 // AnalyzerGroup is a related set of Go policy analyzers.
 type AnalyzerGroup struct {

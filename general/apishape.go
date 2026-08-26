@@ -11,14 +11,34 @@ import (
 )
 
 func apiShapeAnalyzer() *analysis.Analyzer {
-	return &analysis.Analyzer{
+	config := apiShapeConfig{
+		maxParameters:                4,
+		maxAdjacentSameType:          2,
+		checkAdjacentOptionalScalars: true,
+		checkMixedReceivers:          true,
+	}
+	analyzer := &analysis.Analyzer{
 		Name: "apishape",
 		Doc:  "checks exported API parameter and receiver shape",
-		Run:  runAPIShape,
 	}
+	analyzer.Flags.IntVar(&config.maxParameters, "max-parameters", 4, "maximum exported function parameters; 0 disables the check")
+	analyzer.Flags.IntVar(&config.maxAdjacentSameType, "max-adjacent-same-type", 2, "maximum adjacent parameters of one type; 0 disables the check")
+	analyzer.Flags.BoolVar(&config.checkAdjacentOptionalScalars, "check-adjacent-optional-scalars", true, "report adjacent pointer-to-scalar parameters")
+	analyzer.Flags.BoolVar(&config.checkMixedReceivers, "check-mixed-receivers", true, "report types mixing pointer and value receivers")
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		return runAPIShape(pass, config)
+	}
+	return analyzer
 }
 
-func runAPIShape(pass *analysis.Pass) (any, error) {
+type apiShapeConfig struct {
+	maxParameters                int
+	maxAdjacentSameType          int
+	checkAdjacentOptionalScalars bool
+	checkMixedReceivers          bool
+}
+
+func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 	receivers := map[string]uint8{}
 	receiverPositions := map[string]token.Pos{}
 	for _, file := range pass.Files {
@@ -30,15 +50,17 @@ func runAPIShape(pass *analysis.Pass) (any, error) {
 			if !ok {
 				return true
 			}
-			recordReceiver(declaration, receivers, receiverPositions)
+			if config.checkMixedReceivers {
+				recordReceiver(declaration, receivers, receiverPositions)
+			}
 			if !declaration.Name.IsExported() {
 				return false
 			}
 			parameters := parameterTypes(pass, declaration.Type.Params)
-			if len(parameters) >= 5 {
+			if config.maxParameters > 0 && len(parameters) > config.maxParameters {
 				pass.Reportf(declaration.Name.Pos(), "exported API has %d parameters; use an Input or config struct", len(parameters))
 			}
-			reportAdjacentParameters(pass, declaration.Name.Pos(), parameters)
+			reportAdjacentParameters(pass, declaration.Name.Pos(), parameters, config)
 			return false
 		})
 	}
@@ -89,15 +111,15 @@ func parameterTypes(pass *analysis.Pass, fields *ast.FieldList) []types.Type {
 	return result
 }
 
-func reportAdjacentParameters(pass *analysis.Pass, position token.Pos, parameters []types.Type) {
+func reportAdjacentParameters(pass *analysis.Pass, position token.Pos, parameters []types.Type, config apiShapeConfig) {
 	for start := 0; start < len(parameters); {
 		end := start + 1
 		for end < len(parameters) && types.Identical(parameters[start], parameters[end]) {
 			end++
 		}
-		if end-start >= 3 {
+		if config.maxAdjacentSameType > 0 && end-start > config.maxAdjacentSameType {
 			pass.Reportf(position, "%d adjacent parameters share type %s; use an Input struct", end-start, types.TypeString(parameters[start], nil))
-		} else if end-start >= 2 && optionalScalar(parameters[start]) {
+		} else if config.checkAdjacentOptionalScalars && end-start >= 2 && optionalScalar(parameters[start]) {
 			pass.Reportf(position, "adjacent optional scalar parameters are easy to swap; use an Input struct")
 		}
 		start = end

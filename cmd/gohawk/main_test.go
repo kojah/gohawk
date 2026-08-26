@@ -100,6 +100,45 @@ func TestCLIIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("analyzer flags advertised", func(t *testing.T) {
+		output, exitCode := runCommand(t, module, binary, "-flags")
+		if exitCode != 0 {
+			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
+		}
+		for _, name := range []string{
+			"apishape.max-parameters",
+			"apishape.max-adjacent-same-type",
+			"apishape.check-adjacent-optional-scalars",
+			"apishape.check-mixed-receivers",
+			"channelpolicy.max-unexplained-capacity",
+			"channelpolicy.check-borrowed-close",
+			"channelpolicy.check-send-after-close",
+			"contextpolicy.require-first",
+			"contextpolicy.forbid-storage",
+			"contextpolicy.prefer-test-context",
+			"contextpolicy.forbid-nil",
+			"globalstate.allow-names",
+			"globalstate.allow-types",
+			"goroutineownership.accept-context-lifecycle",
+			"goroutineownership.require-join",
+			"taintpolicy.sinks",
+			"taintpolicy.sanitizers",
+			"resourcelifetime.contracts",
+			"resourcelifetime.require-reader-close",
+		} {
+			if !strings.Contains(output, `"Name": "`+name+`"`) {
+				t.Fatalf("-flags output does not contain %q:\n%s", name, output)
+			}
+		}
+	})
+
+	t.Run("invalid analyzer option", func(t *testing.T) {
+		output, exitCode := runCommand(t, module, binary, "-taintpolicy", "-taintpolicy.sinks=database", "./...")
+		if exitCode != 2 || !strings.Contains(output, `unknown value "database"`) {
+			t.Fatalf("exit code = %d, want 2 with option error\n%s", exitCode, output)
+		}
+	})
+
 	t.Run("JSON output", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-json", "-wirepolicy", "./...")
 		if exitCode != 0 {

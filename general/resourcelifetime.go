@@ -38,15 +38,32 @@ type resourceFlowKey struct {
 }
 
 func resourceLifetimeAnalyzer() *analysis.Analyzer {
-	return &analysis.Analyzer{
+	config := resourceLifetimeConfig{contracts: "os,http,sql,time,compress", requireReaderClose: true}
+	analyzer := &analysis.Analyzer{
 		Name:     "resourcelifetime",
 		Doc:      "checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
-		Run:      runResourceLifetime,
 	}
+	analyzer.Flags.Var(newCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "time", "compress"), "contracts", "comma-separated resource contract families: os,http,sql,time,compress")
+	analyzer.Flags.BoolVar(&config.requireReaderClose, "require-reader-close", true, "require gzip and zlib readers to be closed")
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		return runResourceLifetime(pass, config)
+	}
+	return analyzer
 }
 
-func runResourceLifetime(pass *analysis.Pass) (any, error) {
+type resourceLifetimeConfig struct {
+	contracts          string
+	requireReaderClose bool
+}
+
+type resourceLifetimeSettings struct {
+	contracts          map[string]bool
+	requireReaderClose bool
+}
+
+func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (any, error) {
+	settings := resourceLifetimeSettings{contracts: commaSeparatedSet(config.contracts), requireReaderClose: config.requireReaderClose}
 	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
@@ -54,7 +71,7 @@ func runResourceLifetime(pass *analysis.Pass) (any, error) {
 				if !ok {
 					continue
 				}
-				contract, ok := resourceContractFor(call.Common())
+				contract, ok := resourceContractFor(call.Common(), settings)
 				if !ok {
 					continue
 				}
@@ -71,18 +88,18 @@ func runResourceLifetime(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-func resourceContractFor(common *ssa.CallCommon) (resourceContract, bool) {
+func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {
 	packagePath, name := analysisutil.CallPackage(common), analysisutil.CallName(common)
-	if packagePath == "os" {
+	if settings.contracts["os"] && packagePath == "os" {
 		switch name {
 		case "Create", "CreateTemp", "Open", "OpenFile":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
 		}
 	}
-	if packagePath == "time" && (name == "NewTicker" || name == "NewTimer") {
+	if settings.contracts["time"] && packagePath == "time" && (name == "NewTicker" || name == "NewTimer") {
 		return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Stop"}, result: -1, consumable: name == "NewTimer"}, true
 	}
-	if packagePath == "database/sql" {
+	if settings.contracts["sql"] && packagePath == "database/sql" {
 		switch name {
 		case "Begin", "BeginTx":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Commit", "Rollback"}, result: 0}, true
@@ -96,23 +113,31 @@ func resourceContractFor(common *ssa.CallCommon) (resourceContract, bool) {
 			}
 		}
 	}
-	if packagePath == "net/http" {
+	if settings.contracts["http"] && packagePath == "net/http" {
 		switch name {
 		case "Get", "Post", "PostForm", "Do":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
 		}
 	}
-	if packagePath == "compress/gzip" {
+	if settings.contracts["compress"] && packagePath == "compress/gzip" {
 		switch name {
-		case "NewReader", "NewWriterLevel":
+		case "NewReader":
+			if settings.requireReaderClose {
+				return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
+			}
+		case "NewWriterLevel":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
 		case "NewWriter":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: -1}, true
 		}
 	}
-	if packagePath == "compress/zlib" {
+	if settings.contracts["compress"] && packagePath == "compress/zlib" {
 		switch name {
-		case "NewReader", "NewReaderDict", "NewWriterLevel", "NewWriterLevelDict":
+		case "NewReader", "NewReaderDict":
+			if settings.requireReaderClose {
+				return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
+			}
+		case "NewWriterLevel", "NewWriterLevelDict":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
 		case "NewWriter":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: -1}, true

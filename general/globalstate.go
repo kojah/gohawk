@@ -14,14 +14,31 @@ import (
 const globalStateDirective = "gohawk:globalstate "
 
 func globalStateAnalyzer() *analysis.Analyzer {
-	return &analysis.Analyzer{
+	config := globalStateConfig{}
+	analyzer := &analysis.Analyzer{
 		Name: "globalstate",
 		Doc:  "checks mutable package-level state",
-		Run:  runGlobalState,
 	}
+	analyzer.Flags.StringVar(&config.allowNames, "allow-names", "", "comma-separated package variable names to allow")
+	analyzer.Flags.StringVar(&config.allowTypes, "allow-types", "", "comma-separated fully-qualified named types to allow")
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		return runGlobalState(pass, config)
+	}
+	return analyzer
 }
 
-func runGlobalState(pass *analysis.Pass) (any, error) {
+type globalStateConfig struct {
+	allowNames string
+	allowTypes string
+}
+
+type globalStateAllowlist struct {
+	names map[string]bool
+	types map[string]bool
+}
+
+func runGlobalState(pass *analysis.Pass, config globalStateConfig) (any, error) {
+	allowlist := globalStateAllowlist{names: commaSeparatedSet(config.allowNames), types: commaSeparatedSet(config.allowTypes)}
 	for _, file := range pass.Files {
 		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
@@ -31,13 +48,13 @@ func runGlobalState(pass *analysis.Pass) (any, error) {
 			if !ok || generic.Tok != token.VAR {
 				continue
 			}
-			checkGlobalDeclaration(pass, file, generic)
+			checkGlobalDeclaration(pass, file, generic, allowlist)
 		}
 	}
 	return nil, nil
 }
 
-func checkGlobalDeclaration(pass *analysis.Pass, file *ast.File, declaration *ast.GenDecl) {
+func checkGlobalDeclaration(pass *analysis.Pass, file *ast.File, declaration *ast.GenDecl, allowlist globalStateAllowlist) {
 	for _, specification := range declaration.Specs {
 		value, ok := specification.(*ast.ValueSpec)
 		if !ok {
@@ -49,12 +66,23 @@ func checkGlobalDeclaration(pass *analysis.Pass, file *ast.File, declaration *as
 				continue
 			}
 			object := pass.TypesInfo.Defs[name]
-			if object == nil || !mutableGlobal(object.Type()) || locallyAllowed || allowedGlobal(pass, name.Name, object.Type(), value, index) {
+			if object == nil || !mutableGlobal(object.Type()) || locallyAllowed || allowlist.names[name.Name] || allowlist.types[qualifiedTypeName(object.Type())] || allowedGlobal(pass, name.Name, object.Type(), value, index) {
 				continue
 			}
 			pass.Reportf(name.Pos(), "mutable package state %s requires an immutable owner or //gohawk:globalstate <rationale>", name.Name)
 		}
 	}
+}
+
+func qualifiedTypeName(value types.Type) string {
+	if pointer, ok := value.(*types.Pointer); ok {
+		value = pointer.Elem()
+	}
+	named, ok := value.(*types.Named)
+	if !ok || named.Obj().Pkg() == nil {
+		return ""
+	}
+	return named.Obj().Pkg().Path() + "." + named.Obj().Name()
 }
 
 func globalStateAllowedAt(pass *analysis.Pass, file *ast.File, position token.Pos) bool {
