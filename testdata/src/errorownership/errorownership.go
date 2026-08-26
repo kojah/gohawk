@@ -1,0 +1,49 @@
+package errorownership
+
+import (
+	"fmt"
+	"log"
+	"strings"
+)
+
+func logAndReturn(err error) error {
+	log.Print(err) // want "error is logged and returned by same function"
+	return err
+}
+
+func logAliasAndReturn(err error) error {
+	alias := err
+	log.Print(alias) // want "error is logged and returned by same function"
+	return err
+}
+
+func logAndReturnWrapped(err error) error {
+	log.Print(err) // want "error is logged and returned by same function"
+	return fmt.Errorf("operation failed: %w", err)
+}
+
+func inspectText(err error) bool {
+	return strings.Contains(err.Error(), "missing") // want "do not classify errors by matching Error text"
+}
+
+func inspectStoredText(err error) bool {
+	message := err.Error()
+	return strings.Contains(message, "missing") // want "do not classify errors by matching Error text"
+}
+
+func exclusiveHandling(err error, returnError bool) error {
+	if returnError {
+		return err
+	}
+	log.Print(err)
+	return nil
+}
+
+func consume(err error) {
+	log.Print(err)
+}
+
+func logAndReturnText(value string) string {
+	log.Print(value)
+	return value
+}

@@ -1,0 +1,125 @@
+package general
+
+import (
+	"go/ast"
+	"go/types"
+	"strings"
+
+	"github.com/kojah/gohawk/internal/checkutil"
+
+	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/analysis/passes/buildssa"
+	"golang.org/x/tools/go/ssa"
+)
+
+func contextPolicyAnalyzer() *analysis.Analyzer {
+	return &analysis.Analyzer{
+		Name:     "contextpolicy",
+		Doc:      "checks context placement, storage, nil use, and test ownership",
+		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Run:      runContextPolicy,
+	}
+}
+
+func runContextPolicy(pass *analysis.Pass) (any, error) {
+	for _, file := range pass.Files {
+		if checkutil.GeneratedFile(file) {
+			continue
+		}
+		isTest := strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
+		ast.Inspect(file, func(node ast.Node) bool {
+			checkContextStructure(pass, node, isTest)
+			return true
+		})
+	}
+	for _, function := range checkutil.SourceSSAFunctions(pass) {
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instrs {
+				call, ok := instruction.(*ssa.Call)
+				if ok {
+					reportNilSSAContextArguments(pass, call)
+				}
+			}
+		}
+	}
+	return nil, nil
+}
+
+func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool) {
+	switch typed := node.(type) {
+	case *ast.FuncDecl:
+		for index, parameter := range parameterTypes(pass, typed.Type.Params) {
+			if isContext(parameter) && index != 0 {
+				pass.Reportf(typed.Name.Pos(), "context.Context must be first parameter")
+				break
+			}
+		}
+	case *ast.StructType:
+		for _, field := range typed.Fields.List {
+			if isContext(pass.TypesInfo.TypeOf(field.Type)) {
+				pass.Reportf(field.Pos(), "do not store context.Context in a struct")
+			}
+		}
+	case *ast.CallExpr:
+		if isTest && checkutil.IsPackageCall(pass, typed, checkutil.FunctionSymbol{Package: "context", Name: "Background"}) {
+			pass.Reportf(typed.Pos(), "use t.Context() or b.Context() instead of context.Background()")
+		}
+	}
+}
+
+func isContext(value types.Type) bool {
+	named, ok := value.(*types.Named)
+	return ok && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == "context" && named.Obj().Name() == "Context"
+}
+
+func reportNilSSAContextArguments(pass *analysis.Pass, call *ssa.Call) {
+	common := call.Common()
+	signature := common.Signature()
+	if signature == nil {
+		return
+	}
+	offset := 0
+	if signature.Recv() != nil && !common.IsInvoke() {
+		offset = 1
+	}
+	for index := range signature.Params().Len() {
+		argumentIndex := index + offset
+		if argumentIndex >= len(common.Args) {
+			break
+		}
+		if isContext(signature.Params().At(index).Type()) && definitelyNil(common.Args[argumentIndex], map[ssa.Value]bool{}) {
+			pass.Reportf(call.Pos(), "do not pass nil context.Context")
+		}
+	}
+}
+
+func definitelyNil(value ssa.Value, seen map[ssa.Value]bool) bool {
+	if value == nil || seen[value] {
+		return false
+	}
+	seen[value] = true
+	if literal, ok := value.(*ssa.Const); ok {
+		return literal.IsNil()
+	}
+	switch typed := value.(type) {
+	case *ssa.ChangeInterface:
+		return definitelyNil(typed.X, seen)
+	case *ssa.ChangeType:
+		return definitelyNil(typed.X, seen)
+	case *ssa.Convert:
+		return definitelyNil(typed.X, seen)
+	case *ssa.MakeInterface:
+		return definitelyNil(typed.X, seen)
+	case *ssa.Phi:
+		if len(typed.Edges) == 0 {
+			return false
+		}
+		for _, edge := range typed.Edges {
+			if !definitelyNil(edge, seen) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
