@@ -22,6 +22,18 @@ It can also run as a `go vet` tool:
 go vet -vettool="$(command -v gohawk)" ./...
 ```
 
+## Analyzer utilities
+
+The public [`analysisutil`](https://pkg.go.dev/github.com/kojah/gohawk/analysisutil)
+package provides the shared AST, type, SSA, alias, control-flow, and ownership
+operations used by GoHawk's analyzers. Other analyzer modules can import it to
+build additional policy checks without maintaining copies of GoHawk's analysis
+machinery.
+
+```go
+import "github.com/kojah/gohawk/analysisutil"
+```
+
 ## Analyzers
 
 | Analyzer | Policy |

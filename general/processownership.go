@@ -4,7 +4,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -21,22 +21,22 @@ func processOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 func runProcessOwnership(pass *analysis.Pass) (any, error) {
-	for _, function := range checkutil.SourceSSAFunctions(pass) {
+	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, ok := instruction.(*ssa.Call)
-				if !ok || checkutil.CallName(start.Common()) != "Start" || !execCommandValue(checkutil.CallReceiver(start.Common())) {
+				if !ok || analysisutil.CallName(start.Common()) != "Start" || !execCommandValue(analysisutil.CallReceiver(start.Common())) {
 					continue
 				}
-				command := checkutil.CallReceiver(start.Common())
+				command := analysisutil.CallReceiver(start.Common())
 				// Caller retains a parameter command after this helper returns, so
 				// helper-local Start does not transfer caller's Wait responsibility.
 				if aliasesAny(command, parameterValues(function.Params)) {
 					continue
 				}
-				if checkutil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
-					common := checkutil.InstructionCall(candidate)
-					return waitsForCommand(candidate, command) || checkutil.DeferredClosureCalls(candidate, "Wait", command) || checkutil.CallPackage(common) == "os" && checkutil.CallName(common) == "Exit"
+				if analysisutil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
+					common := analysisutil.InstructionCall(candidate)
+					return waitsForCommand(candidate, command) || analysisutil.DeferredClosureCalls(candidate, "Wait", command) || analysisutil.CallPackage(common) == "os" && analysisutil.CallName(common) == "Exit"
 				}, func(returned *ssa.Return) bool {
 					return startFailureReturn(returned, start)
 				}) {
@@ -61,23 +61,23 @@ func execCommandValue(value ssa.Value) bool {
 		return false
 	}
 	pointer, ok := value.Type().Underlying().(*types.Pointer)
-	return ok && checkutil.NamedType(pointer.Elem(), "os/exec", "Cmd")
+	return ok && analysisutil.NamedType(pointer.Elem(), "os/exec", "Cmd")
 }
 
 func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
-	common := checkutil.InstructionCall(instruction)
+	common := analysisutil.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
-	if checkutil.CallName(common) == "Wait" && checkutil.AliasesValue(checkutil.CallReceiver(common), command) {
+	if analysisutil.CallName(common) == "Wait" && analysisutil.AliasesValue(analysisutil.CallReceiver(common), command) {
 		return true
 	}
-	lower := strings.ToLower(checkutil.CallName(common))
+	lower := strings.ToLower(analysisutil.CallName(common))
 	if !strings.Contains(lower, "wait") && !strings.Contains(lower, "join") {
 		return false
 	}
 	for _, argument := range common.Args {
-		if checkutil.AliasesValue(argument, command) {
+		if analysisutil.AliasesValue(argument, command) {
 			return true
 		}
 	}

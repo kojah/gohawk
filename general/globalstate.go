@@ -6,7 +6,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -21,7 +21,7 @@ func globalStateAnalyzer() *analysis.Analyzer {
 
 func runGlobalState(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
-		if checkutil.GeneratedFile(file) {
+		if analysisutil.GeneratedFile(file) {
 			continue
 		}
 		for _, declaration := range file.Decls {
@@ -61,12 +61,12 @@ func mutableGlobal(value types.Type) bool {
 }
 
 func allowedGlobal(pass *analysis.Pass, name string, value types.Type, specification *ast.ValueSpec, index int) bool {
-	if strings.HasSuffix(name, "Schema") || checkutil.NamedType(value, "sync", "Once") || checkutil.NamedType(value, "regexp", "Regexp") {
+	if strings.HasSuffix(name, "Schema") || analysisutil.NamedType(value, "sync", "Once") || analysisutil.NamedType(value, "regexp", "Regexp") {
 		return true
 	}
 	if index < len(specification.Values) {
 		call, ok := specification.Values[index].(*ast.CallExpr)
-		return ok && checkutil.IsPackageCall(pass, call, checkutil.FunctionSymbol{Package: "errors", Name: "New"})
+		return ok && analysisutil.IsPackageCall(pass, call, analysisutil.FunctionSymbol{Package: "errors", Name: "New"})
 	}
 	return false
 }

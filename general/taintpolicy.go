@@ -3,7 +3,7 @@ package general
 import (
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -20,7 +20,7 @@ func taintPolicyAnalyzer() *analysis.Analyzer {
 }
 
 func runTaintPolicy(pass *analysis.Pass) (any, error) {
-	for _, function := range checkutil.SourceSSAFunctions(pass) {
+	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		// Test helpers deliberately echo and persist hostile fixture values. Their
 		// process is isolated; production sinks remain policy-owned here.
 		if strings.HasSuffix(pass.Fset.Position(function.Pos()).Filename, "_test.go") {
@@ -49,7 +49,7 @@ func taintSink(common *ssa.CallCommon) (string, string, []ssa.Value) {
 	if common == nil {
 		return "", "", nil
 	}
-	packagePath, name := checkutil.CallPackage(common), checkutil.CallName(common)
+	packagePath, name := analysisutil.CallPackage(common), analysisutil.CallName(common)
 	switch packagePath {
 	case "os":
 		if filesystemSink(name) && len(common.Args) > 0 {
@@ -162,13 +162,13 @@ func taintedStoredValue(address ssa.Value, seen, memorySeen map[ssa.Value]bool) 
 }
 
 func taintSource(common *ssa.CallCommon) bool {
-	return checkutil.CallPackage(common) == "os" && (checkutil.CallName(common) == "Getenv" || checkutil.CallName(common) == "LookupEnv")
+	return analysisutil.CallPackage(common) == "os" && (analysisutil.CallName(common) == "Getenv" || analysisutil.CallName(common) == "LookupEnv")
 }
 
 func trustedSanitizer(common *ssa.CallCommon) bool {
 	if common == nil || common.StaticCallee() == nil || common.StaticCallee().Pkg == nil {
 		return false
 	}
-	name := strings.ToLower(checkutil.CallName(common))
+	name := strings.ToLower(analysisutil.CallName(common))
 	return strings.Contains(name, "validate") || strings.Contains(name, "sanitize") || strings.Contains(name, "escape") || strings.Contains(name, "confine")
 }

@@ -4,7 +4,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -21,8 +21,8 @@ func testPolicyAnalyzer() *analysis.Analyzer {
 }
 
 func runTestPolicy(pass *analysis.Pass) (any, error) {
-	for _, function := range checkutil.SourceSSAFunctions(pass) {
-		file := checkutil.FunctionFile(pass, function)
+	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+		file := analysisutil.FunctionFile(pass, function)
 		if file == nil || !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") || testEntryPoint(function.Name()) {
 			continue
 		}
@@ -30,9 +30,9 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 		if handle == nil {
 			continue
 		}
-		if checkutil.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
-			common := checkutil.InstructionCall(instruction)
-			return checkutil.CallName(common) == "Helper" && checkutil.AliasesValue(checkutil.CallReceiver(common), handle)
+		if analysisutil.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
+			common := analysisutil.InstructionCall(instruction)
+			return analysisutil.CallName(common) == "Helper" && analysisutil.AliasesValue(analysisutil.CallReceiver(common), handle)
 		}) {
 			pass.Reportf(function.Pos(), "test helper accepting %s must call %s.Helper() on every return path", handle.Name(), handle.Name())
 		}

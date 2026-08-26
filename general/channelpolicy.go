@@ -7,7 +7,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -25,7 +25,7 @@ func channelPolicyAnalyzer() *analysis.Analyzer {
 
 func runChannelPolicy(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
-		if checkutil.GeneratedFile(file) {
+		if analysisutil.GeneratedFile(file) {
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -35,7 +35,7 @@ func runChannelPolicy(pass *analysis.Pass) (any, error) {
 			return true
 		})
 	}
-	for _, function := range checkutil.SourceSSAFunctions(pass) {
+	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		checkSSAChannelOwnership(pass, function)
 	}
 	return nil, nil
@@ -78,15 +78,15 @@ func channelRationale(pass *analysis.Pass, file *ast.File, position token.Pos) b
 func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
 	var parameters []ssa.Value
 	for _, parameter := range function.Params {
-		if checkutil.ChannelType(parameter) {
+		if analysisutil.ChannelType(parameter) {
 			parameters = append(parameters, parameter)
 		}
 	}
 	reportedSends := map[token.Pos]bool{}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := checkutil.InstructionCall(instruction)
-			if common == nil || checkutil.CallName(common) != checkutil.BuiltinClose || len(common.Args) != 1 {
+			common := analysisutil.InstructionCall(instruction)
+			if common == nil || analysisutil.CallName(common) != analysisutil.BuiltinClose || len(common.Args) != 1 {
 				continue
 			}
 			channel := common.Args[0]
@@ -95,7 +95,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
 			}
 			for _, candidate := range reachableInstructions(instruction) {
 				send, ok := candidate.(*ssa.Send)
-				if !ok || !checkutil.AliasesValue(send.Chan, channel) || reportedSends[send.Pos()] {
+				if !ok || !analysisutil.AliasesValue(send.Chan, channel) || reportedSends[send.Pos()] {
 					continue
 				}
 				reportedSends[send.Pos()] = true
@@ -106,7 +106,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
 }
 
 func reachableInstructions(start ssa.Instruction) []ssa.Instruction {
-	index := checkutil.InstructionIndex(start)
+	index := analysisutil.InstructionIndex(start)
 	if index < 0 {
 		return nil
 	}

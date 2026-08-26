@@ -1,4 +1,4 @@
-package checkutil
+package analysisutil
 
 import (
 	"go/ast"

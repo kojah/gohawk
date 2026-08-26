@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -47,7 +47,7 @@ func resourceLifetimeAnalyzer() *analysis.Analyzer {
 }
 
 func runResourceLifetime(pass *analysis.Pass) (any, error) {
-	for _, function := range checkutil.SourceSSAFunctions(pass) {
+	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)
@@ -72,7 +72,7 @@ func runResourceLifetime(pass *analysis.Pass) (any, error) {
 }
 
 func resourceContractFor(common *ssa.CallCommon) (resourceContract, bool) {
-	packagePath, name := checkutil.CallPackage(common), checkutil.CallName(common)
+	packagePath, name := analysisutil.CallPackage(common), analysisutil.CallName(common)
 	if packagePath == "os" {
 		switch name {
 		case "Create", "CreateTemp", "Open", "OpenFile":
@@ -107,12 +107,12 @@ func resourceResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // S
 }
 
 func releasesResource(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
-	common := checkutil.InstructionCall(instruction)
-	if common != nil && slices.Contains(methods, checkutil.CallName(common)) && valueDerivesFrom(checkutil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
+	common := analysisutil.InstructionCall(instruction)
+	if common != nil && slices.Contains(methods, analysisutil.CallName(common)) && valueDerivesFrom(analysisutil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
 		return true
 	}
 	if common != nil {
-		name := strings.ToLower(checkutil.CallName(common))
+		name := strings.ToLower(analysisutil.CallName(common))
 		if strings.Contains(name, "close") || strings.Contains(name, "release") || strings.Contains(name, "cleanup") {
 			for _, argument := range common.Args {
 				if valueDerivesFrom(argument, resource, map[ssa.Value]bool{}) {
@@ -122,7 +122,7 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, methods [
 		}
 	}
 	for _, method := range methods {
-		if checkutil.DeferredClosureCalls(instruction, method, resource) {
+		if analysisutil.DeferredClosureCalls(instruction, method, resource) {
 			return true
 		}
 	}
@@ -130,7 +130,7 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, methods [
 }
 
 func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract) bool {
-	index := checkutil.InstructionIndex(call)
+	index := analysisutil.InstructionIndex(call)
 	if index < 0 {
 		return false
 	}
@@ -155,7 +155,7 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 				return true
 			}
 		}
-		for _, successor := range checkutil.FeasibleSuccessors(state.block, state.predecessor) {
+		for _, successor := range analysisutil.FeasibleSuccessors(state.block, state.predecessor) {
 			active := state.active
 			if success, known := resourceSuccessBranch(state.block, successor, errorValue); known {
 				active = active && success
@@ -210,7 +210,7 @@ func valueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil || source == nil || seen[value] {
 		return false
 	}
-	if checkutil.AliasesValue(value, source) {
+	if analysisutil.AliasesValue(value, source) {
 		return true
 	}
 	seen[value] = true
@@ -236,7 +236,7 @@ func valueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 
 func returnedValueAliases(returned *ssa.Return, value ssa.Value) bool {
 	for _, result := range returned.Results {
-		if checkutil.AliasesValue(result, value) {
+		if analysisutil.AliasesValue(result, value) {
 			return true
 		}
 	}

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -42,7 +42,7 @@ func lockOrderAnalyzer() *analysis.Analyzer {
 
 func runLockOrder(pass *analysis.Pass) (any, error) {
 	relations := map[lockRelation]token.Pos{}
-	for _, function := range checkutil.SourceSSAFunctions(pass) {
+	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		walkLockOrder(pass, function, relations)
 	}
 	return nil, nil
@@ -110,11 +110,11 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, bool) {
 	if _, deferred := instruction.(*ssa.Defer); deferred {
 		return 0, "", false
 	}
-	common := checkutil.InstructionCall(instruction)
+	common := analysisutil.InstructionCall(instruction)
 	if common == nil {
 		return 0, "", false
 	}
-	name := checkutil.CallName(common)
+	name := analysisutil.CallName(common)
 	var operation mutexOperation
 	switch name {
 	case "Lock", "RLock":
@@ -124,8 +124,8 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, bool) {
 	default:
 		return 0, "", false
 	}
-	receiver := checkutil.CallReceiver(common)
-	if receiver == nil || !(checkutil.NamedType(receiver.Type(), "sync", "Mutex") || checkutil.NamedType(receiver.Type(), "sync", "RWMutex")) {
+	receiver := analysisutil.CallReceiver(common)
+	if receiver == nil || !(analysisutil.NamedType(receiver.Type(), "sync", "Mutex") || analysisutil.NamedType(receiver.Type(), "sync", "RWMutex")) {
 		return 0, "", false
 	}
 	identity := lockIdentity(receiver, map[ssa.Value]bool{})

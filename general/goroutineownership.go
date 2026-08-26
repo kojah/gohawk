@@ -5,7 +5,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -22,7 +22,7 @@ func goroutineOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 func runGoroutineOwnership(pass *analysis.Pass) (any, error) {
-	for _, function := range checkutil.SourceSSAFunctions(pass) {
+	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				spawn, ok := instruction.(*ssa.Go)
@@ -30,7 +30,7 @@ func runGoroutineOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				signals, groups := goroutineJoinValues(spawn)
-				if checkutil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
+				if analysisutil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
 					return joinsGoroutine(candidate, signals, groups)
 				}, nil) {
 					pass.Reportf(spawn.Pos(), "goroutine is not joined on every return path")
@@ -73,25 +73,25 @@ func closureOwnershipValue(function *ssa.Function, closure *ssa.MakeClosure, ins
 	if send, ok := instruction.(*ssa.Send); ok {
 		return closureBinding(function, closure, send.Chan), nil
 	}
-	common := checkutil.InstructionCall(instruction)
+	common := analysisutil.InstructionCall(instruction)
 	if common == nil {
 		return nil, nil
 	}
-	switch checkutil.CallName(common) {
-	case checkutil.BuiltinClose:
+	switch analysisutil.CallName(common) {
+	case analysisutil.BuiltinClose:
 		if len(common.Args) == 1 {
 			return closureBinding(function, closure, common.Args[0]), nil
 		}
 	case "Done":
-		return nil, closureBinding(function, closure, checkutil.CallReceiver(common))
+		return nil, closureBinding(function, closure, analysisutil.CallReceiver(common))
 	}
 	return nil, nil
 }
 
 func closureBinding(function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value) ssa.Value { //nolint:ireturn // Captures retain their concrete SSA value form.
 	for index, free := range function.FreeVars {
-		if checkutil.AliasesValue(value, free) && index < len(closure.Bindings) {
-			return checkutil.CapturedBindingValue(closure.Bindings[index])
+		if analysisutil.AliasesValue(value, free) && index < len(closure.Bindings) {
+			return analysisutil.CapturedBindingValue(closure.Bindings[index])
 		}
 	}
 	return nil
@@ -108,14 +108,14 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 			}
 		}
 	}
-	common := checkutil.InstructionCall(instruction)
+	common := analysisutil.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
-	if checkutil.CallName(common) == "Wait" && aliasesAny(checkutil.CallReceiver(common), groups) {
+	if analysisutil.CallName(common) == "Wait" && aliasesAny(analysisutil.CallReceiver(common), groups) {
 		return true
 	}
-	lower := strings.ToLower(checkutil.CallName(common))
+	lower := strings.ToLower(analysisutil.CallName(common))
 	if !strings.Contains(lower, "wait") && !strings.Contains(lower, "join") {
 		return false
 	}
@@ -129,7 +129,7 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 
 func aliasesAny(value ssa.Value, targets []ssa.Value) bool {
 	for _, target := range targets {
-		if checkutil.AliasesValue(value, target) {
+		if analysisutil.AliasesValue(value, target) {
 			return true
 		}
 	}

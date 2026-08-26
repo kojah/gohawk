@@ -5,7 +5,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -23,7 +23,7 @@ func contextPolicyAnalyzer() *analysis.Analyzer {
 
 func runContextPolicy(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
-		if checkutil.GeneratedFile(file) {
+		if analysisutil.GeneratedFile(file) {
 			continue
 		}
 		isTest := strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
@@ -32,7 +32,7 @@ func runContextPolicy(pass *analysis.Pass) (any, error) {
 			return true
 		})
 	}
-	for _, function := range checkutil.SourceSSAFunctions(pass) {
+	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)
@@ -61,7 +61,7 @@ func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool) {
 			}
 		}
 	case *ast.CallExpr:
-		if isTest && checkutil.IsPackageCall(pass, typed, checkutil.FunctionSymbol{Package: "context", Name: "Background"}) {
+		if isTest && analysisutil.IsPackageCall(pass, typed, analysisutil.FunctionSymbol{Package: "context", Name: "Background"}) {
 			pass.Reportf(typed.Pos(), "use t.Context() or b.Context() instead of context.Background()")
 		}
 	}

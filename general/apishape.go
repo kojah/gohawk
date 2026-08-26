@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -22,7 +22,7 @@ func runAPIShape(pass *analysis.Pass) (any, error) {
 	receivers := map[string]uint8{}
 	receiverPositions := map[string]token.Pos{}
 	for _, file := range pass.Files {
-		if checkutil.GeneratedFile(file) {
+		if analysisutil.GeneratedFile(file) {
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {

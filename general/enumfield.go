@@ -7,7 +7,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -86,7 +86,7 @@ func runEnumField(pass *analysis.Pass) (any, error) {
 func enumProductionFiles(pass *analysis.Pass) []*ast.File {
 	files := make([]*ast.File, 0, len(pass.Files))
 	for _, file := range pass.Files {
-		if checkutil.GeneratedFile(file) || strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
+		if analysisutil.GeneratedFile(file) || strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
 			continue
 		}
 		files = append(files, file)
@@ -342,7 +342,7 @@ func enumStringConversion(pass *analysis.Pass, call *ast.CallExpr) bool {
 
 func enumNamedString(value types.Type) bool {
 	named, ok := types.Unalias(value).(*types.Named)
-	return ok && checkutil.IsStringType(named.Underlying())
+	return ok && analysisutil.IsStringType(named.Underlying())
 }
 
 func enumCalledFunction(pass *analysis.Pass, expression ast.Expr) *types.Func {

@@ -6,7 +6,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -21,7 +21,7 @@ func determinismAnalyzer() *analysis.Analyzer {
 
 func runDeterminism(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
-		if checkutil.GeneratedFile(file) {
+		if analysisutil.GeneratedFile(file) {
 			continue
 		}
 		for _, declaration := range file.Decls {
@@ -76,7 +76,7 @@ func hasOrderedSink(pass *analysis.Pass, body *ast.BlockStmt) bool {
 			return true
 		}
 		name := selector.Sel.Name
-		found = found || checkutil.IsPackageCall(pass, call, checkutil.FunctionSymbol{Package: "encoding/json", Name: "Marshal"}) || strings.HasPrefix(name, "Write") || strings.HasPrefix(name, "Fprint")
+		found = found || analysisutil.IsPackageCall(pass, call, analysisutil.FunctionSymbol{Package: "encoding/json", Name: "Marshal"}) || strings.HasPrefix(name, "Write") || strings.HasPrefix(name, "Fprint")
 		return !found
 	})
 	return found

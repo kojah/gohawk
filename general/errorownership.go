@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/checkutil"
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -24,8 +24,8 @@ func errorOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 func runErrorOwnership(pass *analysis.Pass) (any, error) {
-	for _, function := range checkutil.SourceSSAFunctions(pass) {
-		file := checkutil.FunctionFile(pass, function)
+	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+		file := analysisutil.FunctionFile(pass, function)
 		if file == nil {
 			continue
 		}
@@ -61,30 +61,30 @@ func errorTextMatchAllowedAt(pass *analysis.Pass, file *ast.File, position token
 }
 
 func loggingCall(common *ssa.CallCommon) bool {
-	name := checkutil.CallName(common)
-	if checkutil.CallPackage(common) == "log" {
+	name := analysisutil.CallName(common)
+	if analysisutil.CallPackage(common) == "log" {
 		return name == "Print" || name == "Printf" || name == "Println"
 	}
-	return checkutil.CallPackage(common) == "log/slog" && (name == "Error" || name == "ErrorContext")
+	return analysisutil.CallPackage(common) == "log/slog" && (name == "Error" || name == "ErrorContext")
 }
 
 func loggedErrorIsReturned(call *ssa.Call) bool {
 	var logged []ssa.Value
 	for _, argument := range call.Common().Args {
-		if len(checkutil.ValueSources(argument)) > 0 {
+		if len(analysisutil.ValueSources(argument)) > 0 {
 			logged = append(logged, argument)
 		}
 	}
 	if len(logged) == 0 {
 		return false
 	}
-	for _, returned := range checkutil.ReachableReturns(call) {
+	for _, returned := range analysisutil.ReachableReturns(call) {
 		for _, result := range returned.Results {
-			if !checkutil.IsErrorType(result.Type()) {
+			if !analysisutil.IsErrorType(result.Type()) {
 				continue
 			}
 			for _, argument := range logged {
-				if checkutil.ValuesShareErrorSource(argument, result) {
+				if analysisutil.ValuesShareErrorSource(argument, result) {
 					return true
 				}
 			}
@@ -94,10 +94,10 @@ func loggedErrorIsReturned(call *ssa.Call) bool {
 }
 
 func stringErrorClassificationSSA(call *ssa.Call) bool {
-	if checkutil.CallPackage(call.Common()) != "strings" {
+	if analysisutil.CallPackage(call.Common()) != "strings" {
 		return false
 	}
-	switch checkutil.CallName(call.Common()) {
+	switch analysisutil.CallName(call.Common()) {
 	case "Contains", "HasPrefix", "HasSuffix", "EqualFold":
 	default:
 		return false
@@ -117,8 +117,8 @@ func containsErrorTextCall(value ssa.Value, seen map[ssa.Value]bool) bool {
 	seen[value] = true
 	if call, ok := value.(*ssa.Call); ok {
 		common := call.Common()
-		receiver := checkutil.CallReceiver(common)
-		if checkutil.CallName(common) == "Error" && receiver != nil && checkutil.IsErrorType(receiver.Type()) {
+		receiver := analysisutil.CallReceiver(common)
+		if analysisutil.CallName(common) == "Error" && receiver != nil && analysisutil.IsErrorType(receiver.Type()) {
 			return true
 		}
 	}
