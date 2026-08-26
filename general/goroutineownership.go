@@ -3,6 +3,7 @@ package general
 import (
 	"go/token"
 	"go/types"
+	"slices"
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
@@ -13,15 +14,26 @@ import (
 )
 
 func goroutineOwnershipAnalyzer() *analysis.Analyzer {
-	return &analysis.Analyzer{
+	config := goroutineOwnershipConfig{acceptContextLifecycle: true}
+	analyzer := &analysis.Analyzer{
 		Name:     "goroutineownership",
-		Doc:      "checks that explicit goroutines have a recognizable join owner",
+		Doc:      "checks that explicit goroutines have a recognizable join handle or lifecycle owner",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
-		Run:      runGoroutineOwnership,
 	}
+	analyzer.Flags.BoolVar(&config.acceptContextLifecycle, "accept-context-lifecycle", true, "accept a passed or captured context as lifecycle ownership")
+	analyzer.Flags.BoolVar(&config.requireJoin, "require-join", false, "require an explicit completion signal or wait instead of context or lifecycle ownership")
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		return runGoroutineOwnership(pass, config)
+	}
+	return analyzer
 }
 
-func runGoroutineOwnership(pass *analysis.Pass) (any, error) {
+type goroutineOwnershipConfig struct {
+	acceptContextLifecycle bool
+	requireJoin            bool
+}
+
+func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig) (any, error) {
 	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
@@ -30,9 +42,24 @@ func runGoroutineOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				signals, groups := goroutineJoinValues(spawn)
+				owners := goroutineLifecycleValues(spawn)
+				if !config.requireJoin && config.acceptContextLifecycle && goroutineHasContextLifecycle(spawn) {
+					continue
+				}
+				if !config.requireJoin && (goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners)) || ownershipRegisteredBefore(spawn, signals, groups) {
+					continue
+				}
 				if analysisutil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
-					return joinsGoroutine(candidate, signals, groups)
-				}, nil) {
+					if joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) {
+						return true
+					}
+					if config.requireJoin {
+						return transfersGoroutineOwnership(candidate, signals, groups, nil)
+					}
+					return ownsGoroutineLifecycle(candidate, owners) || transfersGoroutineOwnership(candidate, signals, groups, owners)
+				}, func(returned *ssa.Return) bool {
+					return returnedAliasesAny(returned, signals) || returnedAliasesAny(returned, groups) || !config.requireJoin && returnedAliasesAny(returned, owners)
+				}) {
 					pass.Reportf(spawn.Pos(), "goroutine is not joined on every return path")
 				}
 			}
@@ -41,10 +68,65 @@ func runGoroutineOwnership(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
+func goroutineHasContextLifecycle(spawn *ssa.Go) bool {
+	for _, argument := range spawn.Common().Args {
+		if contextValue(argument) {
+			return true
+		}
+	}
+	closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
+	if !ok {
+		return false
+	}
+	for _, binding := range closure.Bindings {
+		if contextValue(analysisutil.CapturedBindingValue(binding)) {
+			return true
+		}
+	}
+	return false
+}
+
+func contextValue(value ssa.Value) bool {
+	return value != nil && analysisutil.NamedType(value.Type(), "context", "Context")
+}
+
+func externallyOwnedLifecycle(owners []ssa.Value) bool {
+	for _, owner := range owners {
+		if analysisutil.ExternallyOwnedValue(owner) {
+			return true
+		}
+	}
+	return false
+}
+
+func goroutineLifecycleValues(spawn *ssa.Go) []ssa.Value {
+	var owners []ssa.Value
+	receiver := analysisutil.CallReceiver(spawn.Common())
+	if lifecycleOwner(receiver) {
+		owners = append(owners, receiver)
+	}
+	closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
+	if !ok {
+		return owners
+	}
+	for _, binding := range closure.Bindings {
+		value := analysisutil.CapturedBindingValue(binding)
+		if lifecycleOwner(value) {
+			owners = append(owners, value)
+		}
+	}
+	return owners
+}
+
 func goroutineJoinValues(spawn *ssa.Go) (signals, groups []ssa.Value) {
 	function, closure, ok := spawnedClosure(spawn)
 	if !ok {
-		return nil, nil
+		for _, argument := range spawn.Common().Args {
+			if analysisutil.ChannelType(argument) {
+				signals = append(signals, argument)
+			}
+		}
+		return signals, nil
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -58,6 +140,130 @@ func goroutineJoinValues(spawn *ssa.Go) (signals, groups []ssa.Value) {
 		}
 	}
 	return signals, groups
+}
+
+func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
+	for _, owner := range function.Params {
+		if !lifecycleOwner(owner) {
+			continue
+		}
+		if analysisutil.AliasesValue(analysisutil.CallReceiver(spawn.Common()), owner) {
+			return true
+		}
+		closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
+		if !ok {
+			continue
+		}
+		for _, binding := range closure.Bindings {
+			if analysisutil.AliasesValue(analysisutil.CapturedBindingValue(binding), owner) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func lifecycleOwner(value ssa.Value) bool {
+	if value == nil {
+		return false
+	}
+	methods := types.NewMethodSet(value.Type())
+	for index := range methods.Len() {
+		if lifecycleMethod(methods.At(index).Obj().Name()) {
+			return true
+		}
+	}
+	return false
+}
+
+func ownsGoroutineLifecycle(instruction ssa.Instruction, owners []ssa.Value) bool {
+	common := analysisutil.InstructionCall(instruction)
+	if common != nil && lifecycleMethod(analysisutil.CallName(common)) && aliasesAny(analysisutil.CallReceiver(common), owners) {
+		return true
+	}
+	for _, owner := range owners {
+		for _, method := range []string{"Close", "Kill", "Shutdown", "Stop", "Wait"} {
+			if analysisutil.DeferredClosureCalls(instruction, method, owner) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func waitsForLifecycleOwner(instruction ssa.Instruction, owners []ssa.Value) bool {
+	common := analysisutil.InstructionCall(instruction)
+	if common != nil && analysisutil.CallName(common) == "Wait" && aliasesAny(analysisutil.CallReceiver(common), owners) {
+		return true
+	}
+	for _, owner := range owners {
+		if analysisutil.DeferredClosureCalls(instruction, "Wait", owner) {
+			return true
+		}
+	}
+	return false
+}
+
+func lifecycleMethod(name string) bool {
+	switch strings.ToLower(name) {
+	case "close", "kill", "shutdown", "stop", "wait":
+		return true
+	default:
+		return false
+	}
+}
+
+func ownershipRegisteredBefore(spawn *ssa.Go, signals, groups []ssa.Value) bool {
+	index := analysisutil.InstructionIndex(spawn)
+	if index < 0 {
+		return false
+	}
+	for _, instruction := range spawn.Block().Instrs[:index] {
+		common := analysisutil.InstructionCall(instruction)
+		name := strings.ToLower(analysisutil.CallName(common))
+		if common == nil || !ownershipRegistrationName(name) {
+			continue
+		}
+		for _, argument := range common.Args {
+			if aliasesAny(argument, signals) || aliasesAny(argument, groups) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func ownershipRegistrationName(name string) bool {
+	return name == "add" || strings.Contains(name, "register") || strings.Contains(name, "track") || strings.Contains(name, "own")
+}
+
+func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, owners []ssa.Value) bool {
+	values := append(slices.Clone(signals), groups...)
+	values = append(values, owners...)
+	for _, value := range values {
+		if analysisutil.StoresValueInField(instruction, value) || analysisutil.StoresValueInOwnedMap(instruction, value) || analysisutil.CallTransfersValueToField(instruction, value) {
+			return true
+		}
+	}
+	common := analysisutil.InstructionCall(instruction)
+	if common == nil || !ownershipRegistrationName(strings.ToLower(analysisutil.CallName(common))) {
+		return false
+	}
+	for _, argument := range common.Args {
+		if aliasesAny(argument, signals) || aliasesAny(argument, groups) {
+			return true
+		}
+	}
+	return false
+}
+
+func returnedAliasesAny(returned *ssa.Return, values []ssa.Value) bool {
+	for _, result := range returned.Results {
+		if aliasesAny(result, values) {
+			return true
+		}
+	}
+	return false
 }
 
 func spawnedClosure(spawn *ssa.Go) (*ssa.Function, *ssa.MakeClosure, bool) {

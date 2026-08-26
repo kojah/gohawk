@@ -11,6 +11,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+const globalStateDirective = "gohawk:globalstate "
+
 func globalStateAnalyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: "globalstate",
@@ -21,7 +23,7 @@ func globalStateAnalyzer() *analysis.Analyzer {
 
 func runGlobalState(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
-		if analysisutil.GeneratedFile(file) {
+		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
 		}
 		for _, declaration := range file.Decls {
@@ -29,26 +31,46 @@ func runGlobalState(pass *analysis.Pass) (any, error) {
 			if !ok || generic.Tok != token.VAR {
 				continue
 			}
-			checkGlobalDeclaration(pass, generic)
+			checkGlobalDeclaration(pass, file, generic)
 		}
 	}
 	return nil, nil
 }
 
-func checkGlobalDeclaration(pass *analysis.Pass, declaration *ast.GenDecl) {
+func checkGlobalDeclaration(pass *analysis.Pass, file *ast.File, declaration *ast.GenDecl) {
 	for _, specification := range declaration.Specs {
 		value, ok := specification.(*ast.ValueSpec)
 		if !ok {
 			continue
 		}
+		locallyAllowed := globalStateAllowedAt(pass, file, value.Pos())
 		for index, name := range value.Names {
-			object := pass.TypesInfo.Defs[name]
-			if object == nil || !mutableGlobal(object.Type()) || allowedGlobal(pass, name.Name, object.Type(), value, index) {
+			if name.Name == "_" {
 				continue
 			}
-			pass.Reportf(name.Pos(), "mutable package state %s requires a contextual allowlist or immutable owner", name.Name)
+			object := pass.TypesInfo.Defs[name]
+			if object == nil || !mutableGlobal(object.Type()) || locallyAllowed || allowedGlobal(pass, name.Name, object.Type(), value, index) {
+				continue
+			}
+			pass.Reportf(name.Pos(), "mutable package state %s requires an immutable owner or //gohawk:globalstate <rationale>", name.Name)
 		}
 	}
+}
+
+func globalStateAllowedAt(pass *analysis.Pass, file *ast.File, position token.Pos) bool {
+	line := pass.Fset.Position(position).Line
+	for _, group := range file.Comments {
+		if pass.Fset.Position(group.End()).Line != line-1 {
+			continue
+		}
+		for _, comment := range group.List {
+			text := strings.TrimSpace(strings.TrimPrefix(comment.Text, "//"))
+			if strings.HasPrefix(text, globalStateDirective) && strings.TrimSpace(strings.TrimPrefix(text, globalStateDirective)) != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func mutableGlobal(value types.Type) bool {

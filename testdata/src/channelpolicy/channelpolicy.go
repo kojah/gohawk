@@ -45,3 +45,21 @@ func sendAfterBranchedClose(closeNow bool) {
 		events <- 1 // want "send follows close of channel"
 	}
 }
+
+func deferredCloseAfterSends(values []int) <-chan int {
+	events := make(chan int)
+	go func() {
+		defer close(events)
+		for _, value := range values {
+			events <- value
+		}
+	}()
+	return events
+}
+
+func closeEachChannel(channels []chan error, err error) {
+	for _, channel := range channels {
+		channel <- err
+		close(channel)
+	}
+}

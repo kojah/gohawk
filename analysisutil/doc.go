@@ -1,2 +1,3 @@
-// Package analysisutil provides reusable AST and SSA operations for Go analyzers.
+// Package analysisutil contains unsupported implementation details shared with
+// Veritas. Its API may change without notice.
 package analysisutil

@@ -14,7 +14,7 @@ import (
 func processOwnershipAnalyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "processownership",
-		Doc:      "checks that started os/exec commands have a wait owner",
+		Doc:      "checks that started os/exec commands are waited on or transferred to a wait owner",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 		Run:      runProcessOwnership,
 	}
@@ -29,16 +29,28 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				command := analysisutil.CallReceiver(start.Common())
+				// A helper returning *exec.Cmd may already have registered cleanup
+				// or wait ownership. Without interprocedural evidence either way,
+				// reporting here would trade precision for recall.
+				if commandReturnedByHelper(command) {
+					continue
+				}
 				// Caller retains a parameter command after this helper returns, so
 				// helper-local Start does not transfer caller's Wait responsibility.
-				if aliasesAny(command, parameterValues(function.Params)) {
+				if aliasesAny(command, parameterValues(function.Params)) || analysisutil.ExternallyOwnedValue(command) {
 					continue
 				}
 				if analysisutil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
 					common := analysisutil.InstructionCall(candidate)
-					return waitsForCommand(candidate, command) || analysisutil.DeferredClosureCalls(candidate, "Wait", command) || analysisutil.CallPackage(common) == "os" && analysisutil.CallName(common) == "Exit"
+					return waitsForCommand(candidate, command) ||
+						analysisutil.DeferredClosureCalls(candidate, "Wait", command) ||
+						analysisutil.ClosureCallsMethod(candidate, "Wait", command) ||
+						analysisutil.ClosureCapturesValue(candidate, command) ||
+						analysisutil.StoresValueInField(candidate, command) ||
+						analysisutil.CallTransfersValueToField(candidate, command) ||
+						analysisutil.CallPackage(common) == "os" && analysisutil.CallName(common) == "Exit"
 				}, func(returned *ssa.Return) bool {
-					return startFailureReturn(returned, start)
+					return startFailureReturn(returned, start) || returnedValueAliases(returned, command)
 				}) {
 					pass.Reportf(start.Pos(), "started command is not waited on every successful return path")
 				}
@@ -46,6 +58,11 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+func commandReturnedByHelper(command ssa.Value) bool {
+	call, ok := command.(*ssa.Call)
+	return ok && analysisutil.CallPackage(call.Common()) != "os/exec"
 }
 
 func parameterValues(parameters []*ssa.Parameter) []ssa.Value {
@@ -89,35 +106,8 @@ func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
 		return false
 	}
 	for _, predecessor := range returned.Block().Preds {
-		instructions := predecessor.Instrs
-		if len(instructions) == 0 {
-			continue
-		}
-		branch, ok := instructions[len(instructions)-1].(*ssa.If)
-		if ok && valueDependsOn(branch.Cond, start, map[ssa.Value]bool{}) {
-			return true
-		}
-	}
-	return false
-}
-
-func valueDependsOn(value, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || target == nil || seen[value] {
-		return false
-	}
-	if value == target {
-		return true
-	}
-	seen[value] = true
-	instruction, ok := value.(ssa.Instruction)
-	if !ok {
-		return false
-	}
-	var operands []*ssa.Value
-	operands = instruction.Operands(operands)
-	for _, operand := range operands {
-		if operand != nil && valueDependsOn(*operand, target, seen) {
-			return true
+		if success, known := resourceSuccessBranch(predecessor, returned.Block(), start); known {
+			return !success
 		}
 	}
 	return false

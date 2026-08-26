@@ -86,7 +86,7 @@ func runEnumField(pass *analysis.Pass) (any, error) {
 func enumProductionFiles(pass *analysis.Pass) []*ast.File {
 	files := make([]*ast.File, 0, len(pass.Files))
 	for _, file := range pass.Files {
-		if analysisutil.GeneratedFile(file) || strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
+		if !analysisutil.AnalyzeFile(pass, file) || strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
 			continue
 		}
 		files = append(files, file)

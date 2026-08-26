@@ -1,6 +1,13 @@
 package resourcelifetime
 
 import (
+	"bytes"
+	"compress/gzip"
+	"compress/zlib"
+	"context"
+	"database/sql"
+	"io"
+	"net/http"
 	"os"
 	"time"
 )
@@ -35,4 +42,89 @@ func stoppedTimer() {
 
 func transferredFile() (*os.File, error) {
 	return os.CreateTemp("", "transfer")
+}
+
+type owner struct {
+	timer *time.Timer
+}
+
+func transferredTimer(target *owner) {
+	target.timer = time.NewTimer(time.Second)
+}
+
+func timerCommand() func() {
+	timer := time.NewTimer(time.Second)
+	return func() {
+		<-timer.C
+		timer.Stop()
+	}
+}
+
+func leakedResponse(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	_ = response
+	return nil
+}
+
+func closedResponse(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	return nil
+}
+
+func leakedRows(ctx context.Context, database *sql.DB) error {
+	rows, err := database.QueryContext(ctx, "SELECT 1") // want "owned resource from sql.QueryContext is not released on every return path"
+	if err != nil {
+		return err
+	}
+	_ = rows
+	return nil
+}
+
+func closedRows(ctx context.Context, database *sql.DB) error {
+	rows, err := database.QueryContext(ctx, "SELECT 1")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	return nil
+}
+
+func leakedStatement(ctx context.Context, database *sql.DB) error {
+	statement, err := database.PrepareContext(ctx, "SELECT 1") // want "owned resource from sql.PrepareContext is not released on every return path"
+	if err != nil {
+		return err
+	}
+	_ = statement
+	return nil
+}
+
+func transactionOwnsStatement(ctx context.Context, transaction *sql.Tx) error {
+	_, err := transaction.PrepareContext(ctx, "SELECT 1")
+	return err
+}
+
+func leakedGzipWriter(destination io.Writer) {
+	writer := gzip.NewWriter(destination) // want "owned resource from gzip.NewWriter is not released on every return path"
+	_ = writer
+}
+
+func closedGzipReader() error {
+	reader, err := gzip.NewReader(bytes.NewReader(nil))
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return nil
+}
+
+func leakedZlibWriter(destination io.Writer) {
+	writer := zlib.NewWriter(destination) // want "owned resource from zlib.NewWriter is not released on every return path"
+	_ = writer
 }

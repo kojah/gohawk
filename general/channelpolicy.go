@@ -25,7 +25,7 @@ func channelPolicyAnalyzer() *analysis.Analyzer {
 
 func runChannelPolicy(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
-		if analysisutil.GeneratedFile(file) {
+		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -85,6 +85,11 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
 	reportedSends := map[token.Pos]bool{}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
+			// Scheduling a deferred close does not close the channel at this
+			// program point; sends before the function returns remain valid.
+			if _, deferred := instruction.(*ssa.Defer); deferred {
+				continue
+			}
 			common := analysisutil.InstructionCall(instruction)
 			if common == nil || analysisutil.CallName(common) != analysisutil.BuiltinClose || len(common.Args) != 1 {
 				continue
@@ -131,6 +136,12 @@ func reachableInstructions(start ssa.Instruction) []ssa.Instruction {
 		seen[key] = true
 		result = append(result, current.block.Instrs[current.index:]...)
 		for _, successor := range current.block.Succs {
+			// Crossing a backedge may compare two different runtime channel
+			// values represented by the same loop-carried SSA value. Reporting
+			// that as send-after-close is not sufficiently precise.
+			if successor.Dominates(current.block) {
+				continue
+			}
 			queue = append(queue, location{block: successor})
 		}
 	}

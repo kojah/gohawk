@@ -2,7 +2,9 @@ package analysisutil
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -13,6 +15,59 @@ const BuiltinClose = "close"
 // GeneratedFile reports whether file carries Go's generated-file marker.
 func GeneratedFile(file *ast.File) bool {
 	return ast.IsGenerated(file)
+}
+
+// AnalyzeFile reports whether file is the canonical copy to analyze. Test
+// variants contain production files a second time; only their test files are
+// canonical because production files are analyzed with the ordinary package.
+func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
+	if GeneratedFile(file) {
+		return false
+	}
+	if !testVariant(pass) {
+		return true
+	}
+	return strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
+}
+
+func testVariant(pass *analysis.Pass) bool {
+	for _, file := range pass.Files {
+		if strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
+			return true
+		}
+	}
+	return false
+}
+
+// DiagnosticSuppressed reports whether an immediately adjacent comment
+// contains "gohawk:ignore analyzer rationale" for analyzer.
+func DiagnosticSuppressed(pass *analysis.Pass, position token.Pos, analyzer string) bool {
+	line := pass.Fset.Position(position).Line
+	for _, file := range pass.Files {
+		if position < file.Pos() || position > file.End() {
+			continue
+		}
+		for _, group := range file.Comments {
+			first := pass.Fset.Position(group.Pos()).Line
+			last := pass.Fset.Position(group.End()).Line
+			if last != line-1 && (line < first || line > last) {
+				continue
+			}
+			for _, comment := range group.List {
+				if suppressionComment(comment.Text, analyzer) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func suppressionComment(comment, analyzer string) bool {
+	text := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(comment), "//"), "*/"))
+	text = strings.TrimSpace(strings.TrimPrefix(text, "/*"))
+	fields := strings.Fields(text)
+	return len(fields) >= 3 && fields[0] == "gohawk:ignore" && fields[1] == analyzer
 }
 
 // FunctionSymbol identifies one package-level Go function.

@@ -40,7 +40,7 @@ type resourceFlowKey struct {
 func resourceLifetimeAnalyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "resourcelifetime",
-		Doc:      "checks owned files, transactions, responses, timers, and tickers are released on every path",
+		Doc:      "checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 		Run:      runResourceLifetime,
 	}
@@ -82,13 +82,48 @@ func resourceContractFor(common *ssa.CallCommon) (resourceContract, bool) {
 	if packagePath == "time" && (name == "NewTicker" || name == "NewTimer") {
 		return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Stop"}, result: -1, consumable: name == "NewTimer"}, true
 	}
-	if packagePath == "database/sql" && (name == "Begin" || name == "BeginTx") {
-		return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Commit", "Rollback"}, result: 0}, true
+	if packagePath == "database/sql" {
+		switch name {
+		case "Begin", "BeginTx":
+			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Commit", "Rollback"}, result: 0}, true
+		case "Query", "QueryContext":
+			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
+		case "Prepare", "PrepareContext":
+			// Statements prepared on a transaction are closed automatically when
+			// that transaction commits or rolls back.
+			if !receiverNamedType(common, packagePath, "Tx") {
+				return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
+			}
+		}
 	}
-	if packagePath == "net/http" && (name == "Get" || name == "Post" || name == "PostForm") {
-		return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
+	if packagePath == "net/http" {
+		switch name {
+		case "Get", "Post", "PostForm", "Do":
+			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
+		}
+	}
+	if packagePath == "compress/gzip" {
+		switch name {
+		case "NewReader", "NewWriterLevel":
+			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
+		case "NewWriter":
+			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: -1}, true
+		}
+	}
+	if packagePath == "compress/zlib" {
+		switch name {
+		case "NewReader", "NewReaderDict", "NewWriterLevel", "NewWriterLevelDict":
+			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
+		case "NewWriter":
+			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: -1}, true
+		}
 	}
 	return resourceContract{}, false
+}
+
+func receiverNamedType(common *ssa.CallCommon, packagePath, name string) bool {
+	receiver := analysisutil.CallReceiver(common)
+	return receiver != nil && analysisutil.NamedType(receiver.Type(), packagePath, name)
 }
 
 func resourceResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // SSA call results have several concrete forms.
@@ -107,6 +142,9 @@ func resourceResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // S
 }
 
 func releasesResource(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
+	if analysisutil.StoresValueInField(instruction, resource) || analysisutil.StoresValueInOwnedMap(instruction, resource) || analysisutil.ClosureCapturesValue(instruction, resource) || analysisutil.CallTransfersValueToField(instruction, resource) {
+		return true
+	}
 	common := analysisutil.InstructionCall(instruction)
 	if common != nil && slices.Contains(methods, analysisutil.CallName(common)) && valueDerivesFrom(analysisutil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
 		return true

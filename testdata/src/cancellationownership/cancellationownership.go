@@ -1,6 +1,11 @@
 package cancellationownership
 
-import "context"
+import (
+	"context"
+	"os"
+	"os/signal"
+	"testing"
+)
 
 func leaked(parent context.Context) {
 	ctx, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
@@ -22,4 +27,42 @@ func conditional(parent context.Context, stop bool) {
 func transferred(parent context.Context) context.CancelFunc {
 	_, cancel := context.WithCancel(parent)
 	return cancel
+}
+
+func deferredClosure(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	defer func() { cancel() }()
+}
+
+type owner struct {
+	cancel context.CancelFunc
+}
+
+func transferredToField(target *owner, parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	target.cancel = cancel
+}
+
+func leakedSignalContext(parent context.Context) {
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt) // want "cancel function from signal.NotifyContext is not called on every return path"
+	_, _ = ctx, stop
+}
+
+func stoppedSignalContext(parent context.Context) {
+	_, stop := signal.NotifyContext(parent, os.Interrupt)
+	defer stop()
+}
+
+func afterFuncMayRun(parent context.Context) {
+	_ = context.AfterFunc(parent, func() {})
+}
+
+func testCleanupOwnsCancel(t *testing.T, parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	t.Cleanup(cancel)
+}
+
+func mapOwnsCancel(cancels map[string]context.CancelFunc, parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	cancels["worker"] = cancel
 }

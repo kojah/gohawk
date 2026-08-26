@@ -21,7 +21,7 @@ func determinismAnalyzer() *analysis.Analyzer {
 
 func runDeterminism(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
-		if analysisutil.GeneratedFile(file) {
+		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
 		}
 		for _, declaration := range file.Decls {

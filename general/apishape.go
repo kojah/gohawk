@@ -22,7 +22,7 @@ func runAPIShape(pass *analysis.Pass) (any, error) {
 	receivers := map[string]uint8{}
 	receiverPositions := map[string]token.Pos{}
 	for _, file := range pass.Files {
-		if analysisutil.GeneratedFile(file) {
+		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {

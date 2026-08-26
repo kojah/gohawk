@@ -33,21 +33,13 @@ func SourceSSAFunctions(pass *analysis.Pass) []*ssa.Function {
 	}
 	functions := make([]*ssa.Function, 0, len(result.SrcFuncs))
 	for _, function := range result.SrcFuncs {
-		if function.Syntax() == nil || generatedPosition(pass, function.Pos()) {
+		file := FunctionFile(pass, function)
+		if function.Syntax() == nil || file == nil || !AnalyzeFile(pass, file) {
 			continue
 		}
 		functions = append(functions, function)
 	}
 	return functions
-}
-
-func generatedPosition(pass *analysis.Pass, position token.Pos) bool {
-	for _, file := range pass.Files {
-		if file.Pos() <= position && position <= file.End() {
-			return GeneratedFile(file)
-		}
-	}
-	return false
 }
 
 // InstructionCall returns call metadata carried by call-like SSA instructions.
@@ -154,6 +146,243 @@ func DeferredClosureCalls(instruction ssa.Instruction, method string, target ssa
 				continue
 			}
 			receiver := CallReceiver(common)
+			for index, free := range function.FreeVars {
+				if AliasesValue(receiver, free) && index < len(closure.Bindings) && AliasesValue(CapturedBindingValue(closure.Bindings[index]), target) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// DeferredClosureCallsValue reports whether a deferred closure calls target.
+func DeferredClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Defer); !ok {
+		return false
+	}
+	return ClosureCallsValue(instruction, target)
+}
+
+// ClosureCallsValue reports whether a call-like closure or created callback calls target.
+func ClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
+	var closure *ssa.MakeClosure
+	if created, ok := instruction.(*ssa.MakeClosure); ok {
+		if created.Referrers() == nil || len(*created.Referrers()) == 0 {
+			return false
+		}
+		closure = created
+	} else if common := InstructionCall(instruction); common != nil {
+		closure, _ = common.Value.(*ssa.MakeClosure)
+	}
+	if closure == nil {
+		return false
+	}
+	return closureCallsValue(closure, target)
+}
+
+// ClosureOwnsValue reports whether a started closure captures value.
+func ClosureOwnsValue(instruction ssa.Instruction, value ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Go); !ok {
+		return false
+	}
+	common := InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	closure, ok := common.Value.(*ssa.MakeClosure)
+	if !ok {
+		return false
+	}
+	for _, binding := range closure.Bindings {
+		if AliasesValue(CapturedBindingValue(binding), value) {
+			return true
+		}
+	}
+	return false
+}
+
+func closureCallsValue(closure *ssa.MakeClosure, target ssa.Value) bool {
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			common := InstructionCall(candidate)
+			if common == nil {
+				continue
+			}
+			for index, free := range function.FreeVars {
+				if AliasesValue(common.Value, free) && index < len(closure.Bindings) && AliasesValue(CapturedBindingValue(closure.Bindings[index]), target) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// StoresValueInField reports whether instruction transfers value into a struct field.
+func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
+	store, ok := instruction.(*ssa.Store)
+	if !ok || !AliasesValue(store.Val, value) {
+		return false
+	}
+	_, ok = store.Addr.(*ssa.FieldAddr)
+	return ok
+}
+
+// StoresValueInOwnedMap reports whether instruction transfers value into a
+// map that belongs to a caller, receiver, closure, or package owner.
+func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool {
+	update, ok := instruction.(*ssa.MapUpdate)
+	return ok && AliasesValue(update.Value, value) && ExternallyOwnedValue(update.Map)
+}
+
+// ExternallyOwnedValue reports whether value comes from storage that outlives
+// the current function invocation.
+func ExternallyOwnedValue(value ssa.Value) bool {
+	return externallyOwnedValue(value, map[ssa.Value]bool{})
+}
+
+func externallyOwnedValue(value ssa.Value, seen map[ssa.Value]bool) bool {
+	if value == nil || seen[value] {
+		return false
+	}
+	seen[value] = true
+	switch typed := value.(type) {
+	case *ssa.Parameter, *ssa.FreeVar, *ssa.Global:
+		return true
+	case *ssa.Alloc:
+		if typed.Referrers() != nil {
+			for _, reference := range *typed.Referrers() {
+				if store, ok := reference.(*ssa.Store); ok && store.Addr == typed && externallyOwnedValue(store.Val, seen) {
+					return true
+				}
+			}
+		}
+	case *ssa.FieldAddr:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.Field:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.IndexAddr:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.Index:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.UnOp:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.Lookup:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.ChangeInterface:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.ChangeType:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.Convert:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.MakeInterface:
+		return externallyOwnedValue(typed.X, seen)
+	case *ssa.Phi:
+		for _, edge := range typed.Edges {
+			if externallyOwnedValue(edge, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ClosureCapturesValue reports whether instruction creates a closure that owns value.
+func ClosureCapturesValue(instruction ssa.Instruction, value ssa.Value) bool {
+	closure, ok := instruction.(*ssa.MakeClosure)
+	if !ok || !valueTransferred(closure, map[ssa.Value]bool{}) {
+		return false
+	}
+	for _, binding := range closure.Bindings {
+		if AliasesValue(CapturedBindingValue(binding), value) {
+			return true
+		}
+	}
+	return false
+}
+
+func valueTransferred(value ssa.Value, seen map[ssa.Value]bool) bool {
+	if value == nil || seen[value] || value.Referrers() == nil {
+		return false
+	}
+	seen[value] = true
+	for _, reference := range *value.Referrers() {
+		switch typed := reference.(type) {
+		case *ssa.Return:
+			return true
+		case *ssa.Store:
+			if _, ok := typed.Addr.(*ssa.FieldAddr); ok {
+				return true
+			}
+		case *ssa.ChangeInterface:
+			if valueTransferred(typed, seen) {
+				return true
+			}
+		case *ssa.ChangeType:
+			if valueTransferred(typed, seen) {
+				return true
+			}
+		case *ssa.Convert:
+			if valueTransferred(typed, seen) {
+				return true
+			}
+		case *ssa.Extract:
+			if valueTransferred(typed, seen) {
+				return true
+			}
+		case *ssa.MakeInterface:
+			if valueTransferred(typed, seen) {
+				return true
+			}
+		case *ssa.Phi:
+			if valueTransferred(typed, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// CallTransfersValueToField reports whether a call consumes value and stores
+// its result in a struct field, transferring cleanup to the receiving owner.
+func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) bool {
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	usesValue := false
+	for _, argument := range call.Common().Args {
+		usesValue = usesValue || AliasesValue(argument, value)
+	}
+	return usesValue && valueTransferred(call, map[ssa.Value]bool{})
+}
+
+// ClosureCallsMethod reports whether a call-like closure calls method on target.
+func ClosureCallsMethod(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	common := InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	closure, ok := common.Value.(*ssa.MakeClosure)
+	if !ok {
+		return false
+	}
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			called := InstructionCall(candidate)
+			if CallName(called) != method {
+				continue
+			}
+			receiver := CallReceiver(called)
 			for index, free := range function.FreeVars {
 				if AliasesValue(receiver, free) && index < len(closure.Bindings) && AliasesValue(CapturedBindingValue(closure.Bindings[index]), target) {
 					return true

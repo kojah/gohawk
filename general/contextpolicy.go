@@ -3,6 +3,7 @@ package general
 import (
 	"go/ast"
 	"go/types"
+	"go/version"
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
@@ -23,12 +24,12 @@ func contextPolicyAnalyzer() *analysis.Analyzer {
 
 func runContextPolicy(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
-		if analysisutil.GeneratedFile(file) {
+		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
 		}
 		isTest := strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
 		ast.Inspect(file, func(node ast.Node) bool {
-			checkContextStructure(pass, node, isTest)
+			checkContextStructure(pass, node, isTest && supportsTestingContext(pass))
 			return true
 		})
 	}
@@ -43,6 +44,17 @@ func runContextPolicy(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+func supportsTestingContext(pass *analysis.Pass) bool {
+	if pass.Module == nil || pass.Module.GoVersion == "" {
+		return true
+	}
+	moduleVersion := pass.Module.GoVersion
+	if !strings.HasPrefix(moduleVersion, "go") {
+		moduleVersion = "go" + moduleVersion
+	}
+	return version.Compare(moduleVersion, "go1.24") >= 0
 }
 
 func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool) {

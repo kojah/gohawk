@@ -1,4 +1,4 @@
-package contextpolicy
+package contextpolicyprod
 
 import "context"
 

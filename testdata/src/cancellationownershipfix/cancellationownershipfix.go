@@ -1,0 +1,22 @@
+package cancellationownershipfix
+
+import (
+	"context"
+	"os"
+	"os/signal"
+)
+
+func work(parent context.Context) {
+	ctx, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	_, _ = ctx, cancel
+}
+
+func workWithCause(parent context.Context) {
+	ctx, cancel := context.WithCancelCause(parent) // want "cancel function from context.WithCancelCause is not called on every return path"
+	_, _ = ctx, cancel
+}
+
+func workWithSignal(parent context.Context) {
+	ctx, stop := signal.NotifyContext(parent, os.Interrupt) // want "cancel function from signal.NotifyContext is not called on every return path"
+	_, _ = ctx, stop
+}

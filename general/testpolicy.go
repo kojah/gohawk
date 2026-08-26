@@ -1,6 +1,8 @@
 package general
 
 import (
+	"go/ast"
+	"go/token"
 	"go/types"
 	"strings"
 
@@ -34,10 +36,58 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 			common := analysisutil.InstructionCall(instruction)
 			return analysisutil.CallName(common) == "Helper" && analysisutil.AliasesValue(analysisutil.CallReceiver(common), handle)
 		}) {
-			pass.Reportf(function.Pos(), "test helper accepting %s must call %s.Helper() on every return path", handle.Name(), handle.Name())
+			pass.Report(analysis.Diagnostic{
+				Pos:            function.Pos(),
+				Message:        "test helper accepting " + handle.Name() + " must call " + handle.Name() + ".Helper() on every return path",
+				SuggestedFixes: testHelperFix(pass, function, handle),
+			})
 		}
 	}
 	return nil, nil
+}
+
+func testHelperFix(pass *analysis.Pass, function *ssa.Function, handle *ssa.Parameter) []analysis.SuggestedFix {
+	name := handle.Name()
+	if name == "" || name == "_" || !token.IsIdentifier(name) || hasHelperCall(function, handle) {
+		return nil
+	}
+	var body *ast.BlockStmt
+	switch syntax := function.Syntax().(type) {
+	case *ast.FuncDecl:
+		body = syntax.Body
+	case *ast.FuncLit:
+		body = syntax.Body
+	}
+	if body == nil {
+		return nil
+	}
+	position, newText := body.Rbrace, []byte("\n\t"+name+".Helper()\n")
+	if file := pass.Fset.File(body.Lbrace); file != nil {
+		braceLine := file.Line(body.Lbrace)
+		if file.Line(body.Rbrace) > braceLine && braceLine < file.LineCount() {
+			position = file.LineStart(braceLine + 1)
+			newText = []byte("\t" + name + ".Helper()\n")
+		}
+	}
+	return []analysis.SuggestedFix{{
+		Message: "Call " + name + ".Helper() at function entry",
+		TextEdits: []analysis.TextEdit{{
+			Pos:     position,
+			NewText: newText,
+		}},
+	}}
+}
+
+func hasHelperCall(function *ssa.Function, handle *ssa.Parameter) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			common := analysisutil.InstructionCall(instruction)
+			if analysisutil.CallName(common) == "Helper" && analysisutil.AliasesValue(analysisutil.CallReceiver(common), handle) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func testEntryPoint(name string) bool {

@@ -17,14 +17,18 @@ func wirePolicyAnalyzer() *analysis.Analyzer {
 		Doc:  "checks serialized structs and their composite literals",
 		Run: func(pass *analysis.Pass) (any, error) {
 			for _, file := range pass.Files {
-				if analysisutil.GeneratedFile(file) {
+				if !analysisutil.AnalyzeFile(pass, file) {
 					continue
 				}
 				ast.Inspect(file, func(node ast.Node) bool {
 					switch typed := node.(type) {
 					case *ast.CompositeLit:
 						if len(typed.Elts) > 0 && wireStruct(pass.TypesInfo.TypeOf(typed)) && !allKeyed(typed.Elts) {
-							pass.Reportf(typed.Pos(), "persisted or wire struct literal must use field keys")
+							pass.Report(analysis.Diagnostic{
+								Pos:            typed.Pos(),
+								Message:        "persisted or wire struct literal must use field keys",
+								SuggestedFixes: keyedLiteralFix(pass.TypesInfo.TypeOf(typed), typed.Elts),
+							})
 						}
 					case *ast.TypeSpec:
 						structure, ok := typed.Type.(*ast.StructType)
@@ -38,6 +42,29 @@ func wirePolicyAnalyzer() *analysis.Analyzer {
 			return nil, nil
 		},
 	}
+}
+
+func keyedLiteralFix(value types.Type, elements []ast.Expr) []analysis.SuggestedFix {
+	if pointer, ok := value.(*types.Pointer); ok {
+		value = pointer.Elem()
+	}
+	named, ok := value.(*types.Named)
+	if !ok {
+		return nil
+	}
+	structure, ok := named.Underlying().(*types.Struct)
+	if !ok || len(elements) > structure.NumFields() {
+		return nil
+	}
+	edits := make([]analysis.TextEdit, 0, len(elements))
+	for index, element := range elements {
+		name := structure.Field(index).Name()
+		if name == "_" {
+			return nil
+		}
+		edits = append(edits, analysis.TextEdit{Pos: element.Pos(), NewText: []byte(name + ": ")})
+	}
+	return []analysis.SuggestedFix{{Message: "Add field keys", TextEdits: edits}}
 }
 
 func wireStruct(value types.Type) bool {
