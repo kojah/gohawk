@@ -34,11 +34,15 @@ Test fixtures live under `testdata/src`, with analyzer registration and
 configuration coverage in `analyzers_test.go`. CLI behavior belongs in
 `cmd/gohawk/main_test.go`.
 
-Each analyzer also has a `testdata/src/doc<analyzer>` package containing one
-flagged and one accepted example between `//gohawk:example` markers. These are
-ordinary analyzer fixtures. The docs generator runs the analyzer against them
-and publishes their source, messages, and diagnostic ranges, so edit the
-fixture—not the generated Examples section on the analyzer page.
+Each analyzer owns one top-level fixture directory. Specialized packages live
+beneath it: `config/` for alternate flags, `fix/` for suggested-fix golden
+tests, and named subdirectories for policy modes or cross-package cases.
+
+Each analyzer fixture package also contains one flagged and one accepted
+example between `//gohawk:example` markers, usually in `doc_examples.go`. The
+docs generator ignores diagnostics outside those regions and publishes the
+marked source, messages, and diagnostic ranges, so edit the fixture—not the
+generated Examples section on the analyzer page.
 
 ## Before opening a pull request
 

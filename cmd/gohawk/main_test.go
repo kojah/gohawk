@@ -32,8 +32,8 @@ func TestCLIIntegration(t *testing.T) {
 		}
 		for _, summary := range []string{
 			"contracts (API and data contracts): apishape, contextpolicy, closedomain, wirepolicy",
-			"ownership (ownership and lifecycle): cancellationownership, channelpolicy, deferinloop, goroutineownership, processownership, resourcelifetime",
-			"reliability (reliability and safety): concurrentcapture, determinism, errorownership, globalstate, lockorder, taintpolicy",
+			"ownership (ownership and lifecycle): cancellationownership, channelpolicy, deferinloop, exitpolicy, goroutineownership, processownership, resourcelifetime",
+			"reliability (reliability and safety): concurrentcapture, determinism, errorownership, evalorder, globalstate, lockorder, oncepolicy, syncmapatomicity, taintpolicy",
 			"testing (testing): blockingtest, testpolicy",
 		} {
 			if !strings.Contains(output, summary) {

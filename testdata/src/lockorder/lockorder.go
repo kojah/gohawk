@@ -2,30 +2,30 @@ package lockorder
 
 import "sync"
 
-var first sync.Mutex
-var second sync.Mutex
+var regressionFirst sync.Mutex
+var regressionSecond sync.Mutex
 var readLock sync.RWMutex
 
-func forward() {
-	first.Lock()
-	defer first.Unlock()
-	second.Lock()
-	defer second.Unlock()
+func regressionForward() {
+	regressionFirst.Lock()
+	defer regressionFirst.Unlock()
+	regressionSecond.Lock()
+	defer regressionSecond.Unlock()
 }
 
-func reverse() {
-	second.Lock()
-	defer second.Unlock()
-	first.Lock() // want "contradictory lock order: first and second"
-	defer first.Unlock()
+func regressionReverse() {
+	regressionSecond.Lock()
+	defer regressionSecond.Unlock()
+	regressionFirst.Lock() // want "contradictory lock order: regressionFirst and regressionSecond"
+	defer regressionFirst.Unlock()
 }
 
 func missingUnlock(skip bool) {
-	first.Lock()
+	regressionFirst.Lock()
 	if skip {
-		return // want "lock first is not released on this return path"
+		return // want "lock regressionFirst is not released on this return path"
 	}
-	first.Unlock()
+	regressionFirst.Unlock()
 }
 
 func missingReadUnlock(skip bool) {
@@ -48,5 +48,5 @@ func deferredUnlock(skip bool) {
 // critical section to the caller, so the analyzer stays quiet without evidence
 // of a local release policy.
 func intentionallyHeld() {
-	first.Lock()
+	regressionFirst.Lock()
 }

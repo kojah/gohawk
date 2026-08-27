@@ -52,3 +52,28 @@ func logAndReturnText(value string) string {
 	log.Print(value)
 	return value
 }
+
+func regressionReadConfig() error { return nil }
+
+func mismatchedInlineError(previousErr error) error {
+	if err := regressionReadConfig(); previousErr != nil { // want "condition checks previousErr instead of newly declared err"
+		return err
+	}
+	return nil
+}
+
+func matchedInlineError(previousErr error) error {
+	if err := regressionReadConfig(); err != nil {
+		return err
+	}
+	return previousErr
+}
+
+func intentionalValueCondition(previousErr error) error {
+	if value, err := valueAndError(); value != "" {
+		return err
+	}
+	return previousErr
+}
+
+func valueAndError() (string, error) { return "", nil }

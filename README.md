@@ -5,7 +5,7 @@
 [![CI](https://github.com/kojah/gohawk/actions/workflows/ci.yml/badge.svg)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/badge/Coverage-79.0%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 
-gohawk is a focused set of static analyzers for Go. It ships eighteen
+gohawk is a focused set of static analyzers for Go. It ships twenty-two
 framework-neutral checks covering API design, concurrency, resource ownership,
 determinism, serialization, tests, and error handling.
 
@@ -70,6 +70,7 @@ See the [analyzer reference](docs/analyzers/index.md) for in-depth guidance and 
 | [`cancellationownership`](docs/analyzers/ownership-and-lifecycle/cancellationownership.md) | Context and signal cancellation functions that are never called. |
 | [`channelpolicy`](docs/analyzers/ownership-and-lifecycle/channelpolicy.md) | Unexplained channel capacity and broken closing ownership. |
 | [`deferinloop`](docs/analyzers/ownership-and-lifecycle/deferinloop.md) | Cleanup defers that retain per-iteration resources until the function returns. |
+| [`exitpolicy`](docs/analyzers/ownership-and-lifecycle/exitpolicy.md) | Process termination that bypasses already registered deferred cleanup. |
 | [`goroutineownership`](docs/analyzers/ownership-and-lifecycle/goroutineownership.md) | Goroutines without a recognizable lifecycle owner, including producers stranded on sends. |
 | [`processownership`](docs/analyzers/ownership-and-lifecycle/processownership.md) | Started commands that are neither waited on nor transferred with wait ownership. |
 | [`resourcelifetime`](docs/analyzers/ownership-and-lifecycle/resourcelifetime.md) | Files, responses, SQL handles, timers, or compressors left open on some path. |
@@ -81,8 +82,11 @@ See the [analyzer reference](docs/analyzers/index.md) for in-depth guidance and 
 | [`concurrentcapture`](docs/analyzers/reliability-and-safety/concurrentcapture.md) | Locals mutated by goroutines launched repeatedly. |
 | [`determinism`](docs/analyzers/reliability-and-safety/determinism.md) | Unsorted map iteration that reaches ordered output. |
 | [`errorownership`](docs/analyzers/reliability-and-safety/errorownership.md) | Errors handled twice or classified by matching their text. |
+| [`evalorder`](docs/analyzers/reliability-and-safety/evalorder.md) | Later operands that mutate values evaluated earlier. |
 | [`globalstate`](docs/analyzers/reliability-and-safety/globalstate.md) | Mutable package-level state. |
 | [`lockorder`](docs/analyzers/reliability-and-safety/lockorder.md) | Mutexes acquired in contradictory orders or left held on a return path. |
+| [`oncepolicy`](docs/analyzers/reliability-and-safety/oncepolicy.md) | Immediately discarded `sync.Once*` function wrappers. |
+| [`syncmapatomicity`](docs/analyzers/reliability-and-safety/syncmapatomicity.md) | Non-atomic `sync.Map` load-and-delete claims. |
 | [`taintpolicy`](docs/analyzers/reliability-and-safety/taintpolicy.md) | Untrusted environment or argument data reaching sensitive sinks. |
 
 ### Testing

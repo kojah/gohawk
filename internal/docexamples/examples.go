@@ -59,9 +59,10 @@ type region struct {
 	code     string
 }
 
-// Collect loads and analyzes the doc<analyzer> fixture package.
+// Collect loads and analyzes an analyzer's fixture package. Diagnostics outside
+// marked documentation regions are ordinary regression findings and ignored.
 func Collect(root string, analyzer *analysis.Analyzer) (Set, error) {
-	directory := filepath.Join(root, "testdata", "src", "doc"+analyzer.Name)
+	directory := filepath.Join(root, "testdata", "src", analyzer.Name)
 	regions, hasTests, err := readRegions(directory)
 	if err != nil {
 		return Set{}, fmt.Errorf("%s examples: %w", analyzer.Name, err)
@@ -77,7 +78,7 @@ func Collect(root string, analyzer *analysis.Analyzer) (Set, error) {
 		Env:   environment,
 		Tests: hasTests,
 	}
-	loaded, err := packages.Load(config, "doc"+analyzer.Name)
+	loaded, err := packages.Load(config, analyzer.Name)
 	if err != nil {
 		return Set{}, err
 	}
@@ -132,7 +133,13 @@ func readRegions(directory string) ([]region, bool, error) {
 		if err != nil {
 			return err
 		}
-		if entry.IsDir() || filepath.Ext(path) != ".go" {
+		if entry.IsDir() {
+			if path != directory {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(path) != ".go" {
 			return nil
 		}
 		if strings.HasSuffix(path, "_test.go") {
@@ -232,7 +239,7 @@ func attachDiagnostic(files *token.FileSet, regions []region, attached map[strin
 		})
 		return nil
 	}
-	return fmt.Errorf("diagnostic %q at %s is outside a documentation example", raw.Message, start)
+	return nil
 }
 
 func lineColumn(source string, offset int) (line, column int) {

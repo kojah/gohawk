@@ -7,7 +7,7 @@ type Payload struct {
 
 var payload = Payload{"Ada", 36} // want "persisted or wire struct literal must use field keys"
 
-type EventRow struct {
+type RegressionEventRow struct {
 	ID   string // want "serialized field ID requires an explicit json or toml tag"
 	Kind string // want "serialized field Kind requires an explicit json or toml tag"
 }

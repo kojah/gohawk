@@ -134,6 +134,9 @@ func sameExpression(pass *analysis.Pass, first, second ast.Expr) bool {
 	case *ast.StarExpr:
 		right, ok := second.(*ast.StarExpr)
 		return ok && sameExpression(pass, left.X, right.X)
+	case *ast.BasicLit:
+		right, ok := second.(*ast.BasicLit)
+		return ok && left.Kind == right.Kind && left.Value == right.Value
 	default:
 		return false
 	}

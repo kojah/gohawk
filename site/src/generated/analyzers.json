@@ -85,6 +85,13 @@
           "options": []
         },
         {
+          "name": "exitpolicy",
+          "summary": "Checks process termination that bypasses registered defers.",
+          "path": "analyzers/ownership-and-lifecycle/exitpolicy",
+          "suggestedFix": false,
+          "options": []
+        },
+        {
           "name": "goroutineownership",
           "summary": "Checks that explicit goroutines have a recognizable join handle or lifecycle owner.",
           "path": "analyzers/ownership-and-lifecycle/goroutineownership",
@@ -151,6 +158,13 @@
           "options": []
         },
         {
+          "name": "evalorder",
+          "summary": "Checks later operands that mutate values evaluated earlier.",
+          "path": "analyzers/reliability-and-safety/evalorder",
+          "suggestedFix": false,
+          "options": []
+        },
+        {
           "name": "globalstate",
           "summary": "Checks mutable package-level state.",
           "path": "analyzers/reliability-and-safety/globalstate",
@@ -172,6 +186,20 @@
           "name": "lockorder",
           "summary": "Checks contradictory mutex acquisition order and unreleased return paths.",
           "path": "analyzers/reliability-and-safety/lockorder",
+          "suggestedFix": false,
+          "options": []
+        },
+        {
+          "name": "oncepolicy",
+          "summary": "Checks sync.Once function wrappers that are immediately discarded.",
+          "path": "analyzers/reliability-and-safety/oncepolicy",
+          "suggestedFix": false,
+          "options": []
+        },
+        {
+          "name": "syncmapatomicity",
+          "summary": "Checks non-atomic sync.Map load-and-delete claims.",
+          "path": "analyzers/reliability-and-safety/syncmapatomicity",
           "suggestedFix": false,
           "options": []
         },

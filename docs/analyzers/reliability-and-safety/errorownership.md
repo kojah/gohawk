@@ -5,7 +5,9 @@ description: "Handle an error at one layer."
 
 ## Rule details
 
-Handle an error at one layer.
+Handle an error at one layer. The analyzer also catches inline error
+declarations whose condition accidentally checks a different error before
+returning the newly declared one.
 
 ## Examples
 

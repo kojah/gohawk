@@ -1,12 +1,15 @@
 package general
 
 import (
+	"go/ast"
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
+	"golang.org/x/tools/go/analysis/passes/inspect"
+	"golang.org/x/tools/go/ast/inspector"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -14,12 +17,13 @@ func errorOwnershipAnalyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "errorownership",
 		Doc:      "checks that errors are handled once and classified structurally",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Requires: []*analysis.Analyzer{buildssa.Analyzer, inspect.Analyzer},
 		Run:      runErrorOwnership,
 	}
 }
 
 func runErrorOwnership(pass *analysis.Pass) (any, error) {
+	reportMismatchedInlineErrors(pass)
 	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		file := analysisutil.FunctionFile(pass, function)
 		if file == nil {
@@ -42,6 +46,64 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+func reportMismatchedInlineErrors(pass *analysis.Pass) {
+	in := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+	in.Preorder([]ast.Node{(*ast.IfStmt)(nil)}, func(node ast.Node) {
+		statement := node.(*ast.IfStmt)
+		assignment, ok := statement.Init.(*ast.AssignStmt)
+		if !ok || assignment.Tok.String() != ":=" {
+			return
+		}
+		var declared []*ast.Ident
+		for _, expression := range assignment.Lhs {
+			identifier, ok := expression.(*ast.Ident)
+			if !ok || pass.TypesInfo.Defs[identifier] == nil || !analysisutil.IsErrorType(pass.TypesInfo.TypeOf(identifier)) {
+				continue
+			}
+			declared = append(declared, identifier)
+		}
+		for _, fresh := range declared {
+			freshObject := pass.TypesInfo.ObjectOf(fresh)
+			if expressionUsesObject(pass, statement.Cond, freshObject) || !returnsOnlyObject(pass, statement.Body, freshObject) {
+				continue
+			}
+			var mismatched *ast.Ident
+			ast.Inspect(statement.Cond, func(candidate ast.Node) bool {
+				identifier, ok := candidate.(*ast.Ident)
+				if !ok || pass.TypesInfo.ObjectOf(identifier) == freshObject || !analysisutil.IsErrorType(pass.TypesInfo.TypeOf(identifier)) {
+					return true
+				}
+				mismatched = identifier
+				return false
+			})
+			if mismatched != nil {
+				analysisutil.Reportf(pass, mismatched.Pos(), "condition checks %s instead of newly declared %s", mismatched.Name, fresh.Name)
+			}
+		}
+	})
+}
+
+func returnsOnlyObject(pass *analysis.Pass, body *ast.BlockStmt, object any) bool {
+	if body == nil || len(body.List) != 1 {
+		return false
+	}
+	returned, ok := body.List[0].(*ast.ReturnStmt)
+	return ok && len(returned.Results) == 1 && expressionUsesObject(pass, returned.Results[0], object)
+}
+
+func expressionUsesObject(pass *analysis.Pass, node ast.Node, object any) bool {
+	used := false
+	ast.Inspect(node, func(candidate ast.Node) bool {
+		identifier, ok := candidate.(*ast.Ident)
+		if ok && pass.TypesInfo.ObjectOf(identifier) == object {
+			used = true
+			return false
+		}
+		return true
+	})
+	return used
 }
 
 func loggingCall(common *ssa.CallCommon) bool {

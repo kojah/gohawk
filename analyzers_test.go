@@ -25,8 +25,12 @@ func expectedAnalyzerNames() []string {
 		"lockorder",
 		"resourcelifetime",
 		"deferinloop",
+		"exitpolicy",
 		"determinism",
 		"concurrentcapture",
+		"evalorder",
+		"oncepolicy",
+		"syncmapatomicity",
 		"cancellationownership",
 	}
 }
@@ -38,8 +42,8 @@ func TestAnalyzerGroups(t *testing.T) {
 		analyzers []string
 	}{
 		{name: "contracts", doc: "API and data contracts", analyzers: []string{"apishape", "contextpolicy", "closedomain", "wirepolicy"}},
-		{name: "ownership", doc: "ownership and lifecycle", analyzers: []string{"cancellationownership", "channelpolicy", "deferinloop", "goroutineownership", "processownership", "resourcelifetime"}},
-		{name: "reliability", doc: "reliability and safety", analyzers: []string{"concurrentcapture", "determinism", "errorownership", "globalstate", "lockorder", "taintpolicy"}},
+		{name: "ownership", doc: "ownership and lifecycle", analyzers: []string{"cancellationownership", "channelpolicy", "deferinloop", "exitpolicy", "goroutineownership", "processownership", "resourcelifetime"}},
+		{name: "reliability", doc: "reliability and safety", analyzers: []string{"concurrentcapture", "determinism", "errorownership", "evalorder", "globalstate", "lockorder", "oncepolicy", "syncmapatomicity", "taintpolicy"}},
 		{name: "testing", doc: "testing", analyzers: []string{"blockingtest", "testpolicy"}},
 	}
 	groups := AnalyzerGroups()
@@ -105,24 +109,28 @@ func TestAnalyzers(t *testing.T) {
 		name     string
 		packages []string
 	}{
-		{name: "apishape", packages: []string{"apishape", "docapishape"}},
-		{name: "contextpolicy", packages: []string{"contextpolicy", "contextpolicyprod", "doccontextpolicy"}},
-		{name: "globalstate", packages: []string{"globalstate", "docglobalstate"}},
-		{name: "wirepolicy", packages: []string{"wirepolicy", "docwirepolicy"}},
-		{name: "testpolicy", packages: []string{"testpolicy", "doctestpolicy"}},
-		{name: "blockingtest", packages: []string{"blockingtest", "docblockingtest"}},
-		{name: "goroutineownership", packages: []string{"goroutineownership", "docgoroutineownership"}},
-		{name: "errorownership", packages: []string{"errorownership", "docerrorownership"}},
-		{name: "channelpolicy", packages: []string{"channelpolicy", "docchannelpolicy"}},
-		{name: "processownership", packages: []string{"processownership", "docprocessownership"}},
-		{name: "closedomain", packages: []string{"enumfield", "enumfieldsource", "enumfieldconsumer", "docclosedomain"}},
-		{name: "taintpolicy", packages: []string{"taintpolicy", "doctaintpolicy"}},
-		{name: "lockorder", packages: []string{"lockorder", "doclockorder"}},
-		{name: "resourcelifetime", packages: []string{"resourcelifetime", "docresourcelifetime"}},
-		{name: "deferinloop", packages: []string{"deferinloop", "docdeferinloop"}},
-		{name: "determinism", packages: []string{"determinism", "docdeterminism"}},
-		{name: "concurrentcapture", packages: []string{"concurrentcapture", "docconcurrentcapture"}},
-		{name: "cancellationownership", packages: []string{"cancellationownership", "doccancellationownership"}},
+		{name: "apishape", packages: []string{"apishape"}},
+		{name: "contextpolicy", packages: []string{"contextpolicy", "contextpolicy/production"}},
+		{name: "globalstate", packages: []string{"globalstate"}},
+		{name: "wirepolicy", packages: []string{"wirepolicy"}},
+		{name: "testpolicy", packages: []string{"testpolicy"}},
+		{name: "blockingtest", packages: []string{"blockingtest"}},
+		{name: "goroutineownership", packages: []string{"goroutineownership"}},
+		{name: "errorownership", packages: []string{"errorownership"}},
+		{name: "channelpolicy", packages: []string{"channelpolicy"}},
+		{name: "processownership", packages: []string{"processownership"}},
+		{name: "closedomain", packages: []string{"closedomain", "closedomain/cases", "closedomain/source", "closedomain/consumer"}},
+		{name: "taintpolicy", packages: []string{"taintpolicy"}},
+		{name: "lockorder", packages: []string{"lockorder"}},
+		{name: "resourcelifetime", packages: []string{"resourcelifetime"}},
+		{name: "deferinloop", packages: []string{"deferinloop"}},
+		{name: "exitpolicy", packages: []string{"exitpolicy"}},
+		{name: "determinism", packages: []string{"determinism"}},
+		{name: "concurrentcapture", packages: []string{"concurrentcapture"}},
+		{name: "evalorder", packages: []string{"evalorder"}},
+		{name: "oncepolicy", packages: []string{"oncepolicy"}},
+		{name: "syncmapatomicity", packages: []string{"syncmapatomicity"}},
+		{name: "cancellationownership", packages: []string{"cancellationownership"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -155,9 +163,9 @@ func TestSuggestedFixes(t *testing.T) {
 		name    string
 		pattern string
 	}{
-		{name: "wirepolicy", pattern: "wirepolicyfix"},
-		{name: "testpolicy", pattern: "testpolicyfix"},
-		{name: "cancellationownership", pattern: "cancellationownershipfix"},
+		{name: "wirepolicy", pattern: "wirepolicy/fix"},
+		{name: "testpolicy", pattern: "testpolicy/fix"},
+		{name: "cancellationownership", pattern: "cancellationownership/fix"},
 	}
 	tested := make(map[string]bool, len(tests))
 	for _, test := range tests {
@@ -181,7 +189,7 @@ func TestGoroutineOwnershipJoinMode(t *testing.T) {
 	if err := analyzer.Flags.Set("mode", "join"); err != nil {
 		t.Fatalf("set mode: %v", err)
 	}
-	analysistest.Run(t, analysistest.TestData(), analyzer, "goroutineownershipstrict")
+	analysistest.Run(t, analysistest.TestData(), analyzer, "goroutineownership/strict")
 }
 
 func TestGoroutineOwnershipLifecycleMode(t *testing.T) {
@@ -189,7 +197,7 @@ func TestGoroutineOwnershipLifecycleMode(t *testing.T) {
 	if err := analyzer.Flags.Set("mode", "lifecycle"); err != nil {
 		t.Fatalf("set mode: %v", err)
 	}
-	analysistest.Run(t, analysistest.TestData(), analyzer, "goroutineownershiplifecycle")
+	analysistest.Run(t, analysistest.TestData(), analyzer, "goroutineownership/lifecycle")
 }
 
 func TestAnalyzerConfiguration(t *testing.T) {
@@ -198,22 +206,22 @@ func TestAnalyzerConfiguration(t *testing.T) {
 		pattern string
 		flags   map[string]string
 	}{
-		{name: "apishape", pattern: "apishapeconfig", flags: map[string]string{
+		{name: "apishape", pattern: "apishape/config", flags: map[string]string{
 			"max-parameters": "5", "max-adjacent-same-type": "5",
 		}},
-		{name: "channelpolicy", pattern: "channelpolicyconfig", flags: map[string]string{
+		{name: "channelpolicy", pattern: "channelpolicy/config", flags: map[string]string{
 			"max-unexplained-capacity": "10",
 		}},
-		{name: "contextpolicy", pattern: "contextpolicyconfig", flags: map[string]string{
+		{name: "contextpolicy", pattern: "contextpolicy/config", flags: map[string]string{
 			"prefer-test-context": "false",
 		}},
-		{name: "globalstate", pattern: "globalstateconfig", flags: map[string]string{
-			"allow-names": "cache", "allow-types": "globalstateconfig.Registry",
+		{name: "globalstate", pattern: "globalstate/config", flags: map[string]string{
+			"allow-names": "cache", "allow-types": "globalstate/config.Registry",
 		}},
-		{name: "taintpolicy", pattern: "taintpolicyconfig", flags: map[string]string{
-			"sinks": "process", "sanitizers": "taintpolicyconfig.scrub",
+		{name: "taintpolicy", pattern: "taintpolicy/config", flags: map[string]string{
+			"sinks": "process", "sanitizers": "taintpolicy/config.scrub",
 		}},
-		{name: "resourcelifetime", pattern: "resourcelifetimeconfig", flags: map[string]string{
+		{name: "resourcelifetime", pattern: "resourcelifetime/config", flags: map[string]string{
 			"contracts": "http,compress", "require-reader-close": "false",
 		}},
 	}
