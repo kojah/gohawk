@@ -1,6 +1,7 @@
 package general
 
 import (
+	"go/constant"
 	"go/token"
 	"go/types"
 	"slices"
@@ -39,6 +40,7 @@ const (
 
 func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig) (any, error) {
 	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+		reportAbandonedProducerSends(pass, function)
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				spawn, ok := instruction.(*ssa.Go)
@@ -64,12 +66,135 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				}, func(returned *ssa.Return) bool {
 					return returnedAliasesAny(returned, signals) || returnedAliasesAny(returned, groups) || config.mode != goroutineModeJoin && returnedAliasesAny(returned, owners)
 				}) {
-					pass.Reportf(spawn.Pos(), "goroutine is not joined on every return path")
+					analysisutil.Reportf(pass, spawn.Pos(), "goroutine is not joined on every return path")
 				}
 			}
 		}
 	}
 	return nil, nil
+}
+
+type producerSend struct {
+	instruction *ssa.Send
+	channel     ssa.Value
+	repeated    bool
+}
+
+func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
+	var sends []producerSend
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			spawn, ok := instruction.(*ssa.Go)
+			if !ok {
+				continue
+			}
+			spawned := spawn.Common().StaticCallee()
+			closure, closureOK := spawn.Common().Value.(*ssa.MakeClosure)
+			if closureOK {
+				spawned, _ = closure.Fn.(*ssa.Function)
+			}
+			if spawned == nil {
+				continue
+			}
+			for _, spawnedBlock := range spawned.Blocks {
+				for _, candidate := range spawnedBlock.Instrs {
+					send, ok := candidate.(*ssa.Send)
+					if !ok {
+						continue
+					}
+					channel := spawnedValueAtCall(spawn, spawned, closure, send.Chan)
+					if channel != nil && localUnbufferedChannel(function, channel) {
+						sends = append(sends, producerSend{instruction: send, channel: channel, repeated: blockInCycle(spawnedBlock)})
+					}
+				}
+			}
+		}
+	}
+	reported := map[token.Pos]bool{}
+	for _, send := range sends {
+		sendCount := 0
+		for _, candidate := range sends {
+			if analysisutil.AliasesValue(candidate.channel, send.channel) {
+				sendCount++
+			}
+		}
+		receiveCount, draining := channelReceives(function, send.channel)
+		if receiveCount == 0 || draining || !send.repeated && sendCount <= receiveCount || reported[send.instruction.Pos()] {
+			continue
+		}
+		reported[send.instruction.Pos()] = true
+		analysisutil.Reportf(pass, send.instruction.Pos(), "goroutine send can block after the receiver stops waiting")
+	}
+}
+
+func spawnedValueAtCall(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value) ssa.Value { //nolint:ireturn // SSA values retain their concrete representations.
+	if closure != nil {
+		for index, free := range function.FreeVars {
+			if analysisutil.AliasesValue(value, free) && index < len(closure.Bindings) {
+				return analysisutil.CapturedBindingValue(closure.Bindings[index])
+			}
+		}
+	}
+	for index, parameter := range function.Params {
+		if analysisutil.AliasesValue(value, parameter) && index < len(spawn.Common().Args) {
+			return spawn.Common().Args[index]
+		}
+	}
+	return nil
+}
+
+func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			created, ok := instruction.(*ssa.MakeChan)
+			if !ok || !analysisutil.AliasesValue(channel, created) {
+				continue
+			}
+			size, ok := created.Size.(*ssa.Const)
+			return ok && size.Value != nil && constant.Sign(size.Value) == 0
+		}
+	}
+	return false
+}
+
+func channelReceives(function *ssa.Function, channel ssa.Value) (count int, draining bool) {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			switch candidate := instruction.(type) {
+			case *ssa.UnOp:
+				if candidate.Op == token.ARROW && analysisutil.AliasesValue(candidate.X, channel) {
+					count++
+					draining = draining || blockInCycle(block)
+				}
+			case *ssa.Select:
+				for _, state := range candidate.States {
+					if state.Dir == types.RecvOnly && analysisutil.AliasesValue(state.Chan, channel) {
+						count++
+						draining = draining || blockInCycle(block)
+					}
+				}
+			}
+		}
+	}
+	return count, draining
+}
+
+func blockInCycle(start *ssa.BasicBlock) bool {
+	seen := map[*ssa.BasicBlock]bool{}
+	queue := slices.Clone(start.Succs)
+	for len(queue) > 0 {
+		block := queue[0]
+		queue = queue[1:]
+		if block == start {
+			return true
+		}
+		if seen[block] {
+			continue
+		}
+		seen[block] = true
+		queue = append(queue, block.Succs...)
+	}
+	return false
 }
 
 func goroutineHasContextLifecycle(spawn *ssa.Go) bool {

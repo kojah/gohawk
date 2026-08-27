@@ -50,7 +50,7 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 			}
 			parameters := parameterTypes(pass, declaration.Type.Params)
 			if config.maxParameters > 0 && len(parameters) > config.maxParameters {
-				pass.Reportf(declaration.Name.Pos(), "exported API has %d parameters; use an Input or config struct", len(parameters))
+				analysisutil.Reportf(pass, declaration.Name.Pos(), "exported API has %d parameters; use an Input or config struct", len(parameters))
 			}
 			reportAdjacentParameters(pass, declaration.Name.Pos(), parameters, config)
 			return false
@@ -58,7 +58,7 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 	}
 	for name, forms := range receivers {
 		if forms == 3 {
-			pass.Reportf(receiverPositions[name], "type %s mixes pointer and value receivers", name)
+			analysisutil.Reportf(pass, receiverPositions[name], "type %s mixes pointer and value receivers", name)
 		}
 	}
 	return nil, nil
@@ -110,9 +110,9 @@ func reportAdjacentParameters(pass *analysis.Pass, position token.Pos, parameter
 			end++
 		}
 		if config.maxAdjacentSameType > 0 && end-start > config.maxAdjacentSameType {
-			pass.Reportf(position, "%d adjacent parameters share type %s; use an Input struct", end-start, types.TypeString(parameters[start], nil))
+			analysisutil.Reportf(pass, position, "%d adjacent parameters share type %s; use an Input struct", end-start, types.TypeString(parameters[start], nil))
 		} else if end-start >= 2 && optionalScalar(parameters[start]) {
-			pass.Reportf(position, "adjacent optional scalar parameters are easy to swap; use an Input struct")
+			analysisutil.Reportf(pass, position, "adjacent optional scalar parameters are easy to swap; use an Input struct")
 		}
 		start = end
 	}

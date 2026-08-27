@@ -6,6 +6,7 @@ import (
 	"compress/zlib"
 	"context"
 	"database/sql"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -46,10 +47,44 @@ func transferredFile() (*os.File, error) {
 
 type owner struct {
 	timer *time.Timer
+	file  *os.File
 }
 
 func transferredTimer(target *owner) {
 	target.timer = time.NewTimer(time.Second)
+}
+
+func partiallyConstructedOwner(fail bool) (*owner, error) {
+	file, err := os.Open("state") // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return nil, err
+	}
+	result := &owner{file: file}
+	if fail {
+		return nil, errors.New("finish initialization")
+	}
+	return result, nil
+}
+
+func cleanedPartialOwner(fail bool) (*owner, error) {
+	file, err := os.Open("state")
+	if err != nil {
+		return nil, err
+	}
+	result := &owner{file: file}
+	if fail {
+		_ = file.Close()
+		return nil, errors.New("finish initialization")
+	}
+	return result, nil
+}
+
+func returnedOwner() (*owner, error) {
+	file, err := os.Open("state")
+	if err != nil {
+		return nil, err
+	}
+	return &owner{file: file}, nil
 }
 
 func timerCommand() func() {

@@ -69,7 +69,7 @@ func checkChannelCapacity(pass *analysis.Pass, file *ast.File, call *ast.CallExp
 	if !exact || capacity <= maximum || channelRationale(pass, file, call.Pos()) {
 		return
 	}
-	pass.Reportf(call.Args[1].Pos(), "channel capacity %d requires a bounded rationale comment", capacity)
+	analysisutil.Reportf(pass, call.Args[1].Pos(), "channel capacity %d requires a bounded rationale comment", capacity)
 }
 
 func channelRationale(pass *analysis.Pass, file *ast.File, position token.Pos) bool {
@@ -97,18 +97,18 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, confi
 	reportedSends := map[token.Pos]bool{}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			// Scheduling a deferred close does not close the channel at this
-			// program point; sends before the function returns remain valid.
-			if _, deferred := instruction.(*ssa.Defer); deferred {
-				continue
-			}
 			common := analysisutil.InstructionCall(instruction)
 			if common == nil || analysisutil.CallName(common) != analysisutil.BuiltinClose || len(common.Args) != 1 {
 				continue
 			}
 			channel := common.Args[0]
 			if aliasesAny(channel, parameters) {
-				pass.Reportf(instruction.Pos(), "do not close a channel received from caller")
+				analysisutil.Reportf(pass, instruction.Pos(), "do not close a channel received from caller")
+			}
+			// Scheduling a deferred close does not close the channel at this
+			// program point; sends before the function returns remain valid.
+			if _, deferred := instruction.(*ssa.Defer); deferred {
+				continue
 			}
 			for _, candidate := range reachableInstructions(instruction) {
 				send, ok := candidate.(*ssa.Send)
@@ -116,7 +116,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, confi
 					continue
 				}
 				reportedSends[send.Pos()] = true
-				pass.Reportf(send.Pos(), "send follows close of channel")
+				analysisutil.Reportf(pass, send.Pos(), "send follows close of channel")
 			}
 		}
 	}

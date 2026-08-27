@@ -2,6 +2,7 @@ package goroutineownership
 
 import (
 	"context"
+	"errors"
 	"sync"
 )
 
@@ -145,4 +146,61 @@ func runWithContext(ctx context.Context) {
 
 func contextArgumentWorker(ctx context.Context) {
 	go runWithContext(ctx)
+}
+
+func abandonedRepeatedSend() error {
+	errs := make(chan error)
+	go func() {
+		errs <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
+		errs <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
+	}()
+	return <-errs
+}
+
+func abandonedCompetingSends() error {
+	errs := make(chan error)
+	go func() { errs <- errors.New("first") }()  // want "goroutine send can block after the receiver stops waiting"
+	go func() { errs <- errors.New("second") }() // want "goroutine send can block after the receiver stops waiting"
+	return <-errs
+}
+
+func drainedSends() {
+	errs := make(chan error)
+	go func() {
+		errs <- errors.New("first")
+		errs <- errors.New("second")
+	}()
+	<-errs
+	<-errs
+}
+
+func cancellationAwareSend(ctx context.Context) error {
+	errs := make(chan error)
+	go func() {
+		select {
+		case errs <- errors.New("failed"):
+		case <-ctx.Done():
+		}
+	}()
+	return <-errs
+}
+
+func adequatelyBufferedSends() error {
+	errs := make(chan error, 2)
+	go func() {
+		errs <- errors.New("first")
+		errs <- errors.New("second")
+	}()
+	return <-errs
+}
+
+func sendTwice(errs chan<- error) {
+	errs <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
+	errs <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
+}
+
+func abandonedNamedProducer() error {
+	errs := make(chan error)
+	go sendTwice(errs)
+	return <-errs
 }

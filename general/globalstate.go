@@ -66,7 +66,7 @@ func checkGlobalDeclaration(pass *analysis.Pass, declaration *ast.GenDecl, allow
 			if object == nil || !mutableGlobal(object.Type()) || allowlist.names[name.Name] || allowlist.types[qualifiedTypeName(object.Type())] || allowedGlobal(pass, name.Name, object.Type(), value, index) {
 				continue
 			}
-			pass.Reportf(name.Pos(), "mutable package state %s requires an immutable owner or //gohawk:ignore globalstate", name.Name)
+			analysisutil.Reportf(pass, name.Pos(), "mutable package state %s requires an immutable owner or //gohawk:ignore globalstate", name.Name)
 		}
 	}
 }

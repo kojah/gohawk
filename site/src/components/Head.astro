@@ -1,0 +1,88 @@
+---
+import DefaultHead from '@astrojs/starlight/components/Head.astro';
+---
+
+<DefaultHead />
+
+<script>
+	const selector = '.gohawk-diagnostic[data-gohawk-message]';
+	const tooltip = document.createElement('div');
+	tooltip.id = 'gohawk-diagnostic-tooltip';
+	tooltip.className = 'gohawk-diagnostic-tooltip';
+	tooltip.role = 'tooltip';
+	tooltip.hidden = true;
+	document.body.append(tooltip);
+
+	let activeTarget: HTMLElement | undefined;
+
+	function diagnosticTarget(target: EventTarget | null): HTMLElement | undefined {
+		return target instanceof Element
+			? (target.closest(selector) as HTMLElement | null) ?? undefined
+			: undefined;
+	}
+
+	function positionTooltip() {
+		if (!activeTarget || tooltip.hidden) return;
+
+		const gap = 8;
+		const viewportPadding = 8;
+		const targetRect = activeTarget.getBoundingClientRect();
+		const tooltipRect = tooltip.getBoundingClientRect();
+		const maxLeft = window.innerWidth - tooltipRect.width - viewportPadding;
+		const left = Math.min(Math.max(targetRect.left, viewportPadding), Math.max(maxLeft, viewportPadding));
+		const roomAbove = targetRect.top - tooltipRect.height - gap;
+		const top =
+			targetRect.bottom + gap + tooltipRect.height <= window.innerHeight - viewportPadding ||
+			roomAbove < viewportPadding
+				? targetRect.bottom + gap
+				: roomAbove;
+
+		tooltip.style.left = `${left}px`;
+		tooltip.style.top = `${top}px`;
+	}
+
+	function showTooltip(target: HTMLElement) {
+		const message = target.dataset.gohawkMessage;
+		if (!message) return;
+
+		if (activeTarget && activeTarget !== target) {
+			activeTarget.removeAttribute('aria-describedby');
+		}
+		activeTarget = target;
+		tooltip.textContent = message;
+		tooltip.hidden = false;
+		target.setAttribute('aria-describedby', tooltip.id);
+		positionTooltip();
+	}
+
+	function hideTooltip(target?: HTMLElement) {
+		if (target && activeTarget !== target) return;
+		activeTarget?.removeAttribute('aria-describedby');
+		activeTarget = undefined;
+		tooltip.hidden = true;
+	}
+
+	document.addEventListener('pointerover', (event) => {
+		const target = diagnosticTarget(event.target);
+		if (target) showTooltip(target);
+	});
+
+	document.addEventListener('pointerout', (event) => {
+		const target = diagnosticTarget(event.target);
+		if (!target || target.contains(event.relatedTarget as Node | null)) return;
+		hideTooltip(target);
+	});
+
+	document.addEventListener('focusin', (event) => {
+		const target = diagnosticTarget(event.target);
+		if (target) showTooltip(target);
+	});
+
+	document.addEventListener('focusout', (event) => {
+		const target = diagnosticTarget(event.target);
+		if (target) hideTooltip(target);
+	});
+
+	window.addEventListener('resize', positionTooltip);
+	window.addEventListener('scroll', positionTooltip, true);
+</script>

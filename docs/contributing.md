@@ -1,4 +1,9 @@
-# Contributing to gohawk
+---
+title: Contributing
+description: How to make precise, well-tested changes to gohawk.
+sidebar:
+  order: 3
+---
 
 Thanks for helping improve gohawk.
 
@@ -29,17 +34,43 @@ Test fixtures live under `testdata/src`, with analyzer registration and
 configuration coverage in `analyzers_test.go`. CLI behavior belongs in
 `cmd/gohawk/main_test.go`.
 
+Each analyzer also has a `testdata/src/doc<analyzer>` package containing one
+flagged and one accepted example between `//gohawk:example` markers. These are
+ordinary analyzer fixtures. The docs generator runs the analyzer against them
+and publishes their source, messages, and diagnostic ranges, so edit the
+fixture—not the generated Examples section on the analyzer page.
+
 ## Before opening a pull request
+
+If analyzer registration, grouping, documentation, flags, or suggested-fix
+support changed, refresh the generated documentation first:
+
+```sh
+go generate ./...
+```
 
 Run the same core checks as CI:
 
 ```sh
 go mod verify
 test -z "$(gofmt -l .)"
+go run ./internal/cmd/gendocs -check
 go test ./...
 go test -race ./...
 go vet ./...
 go run ./cmd/gohawk ./...
+```
+
+If test coverage changed, refresh the README badge with the same inputs used by
+CI:
+
+```sh
+go test ./... -covermode=count -coverpkg=./... -coverprofile=coverage.out
+go tool cover -func=coverage.out -o=coverage-summary.out
+go run github.com/AlexBeauchemin/gobadge@v0.4.0 \
+  -filename=coverage-summary.out \
+  -target=README.md \
+  -link=https://github.com/kojah/gohawk/actions/workflows/ci.yml
 ```
 
 In the pull request, describe the policy change, the evidence behind it, and

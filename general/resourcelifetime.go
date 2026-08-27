@@ -80,7 +80,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 					continue
 				}
 				if resourceLeaks(call, resource, contract) {
-					pass.Reportf(call.Pos(), "owned resource from %s.%s is not released on every return path", shortPackage(contract.packagePath), contract.name)
+					analysisutil.Reportf(pass, call.Pos(), "owned resource from %s.%s is not released on every return path", shortPackage(contract.packagePath), contract.name)
 				}
 			}
 		}
@@ -166,12 +166,15 @@ func resourceResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // S
 	return nil
 }
 
-func releasesResource(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
-	if analysisutil.StoresValueInField(instruction, resource) || analysisutil.StoresValueInOwnedMap(instruction, resource) || analysisutil.ClosureCapturesValue(instruction, resource) || analysisutil.CallTransfersValueToField(instruction, resource) {
+func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []ssa.Value, methods []string) bool {
+	if resourceTransferredToExternalField(instruction, resource) || analysisutil.StoresValueInOwnedMap(instruction, resource) || analysisutil.ClosureCapturesValue(instruction, resource) || analysisutil.CallTransfersValueToField(instruction, resource) {
 		return true
 	}
 	common := analysisutil.InstructionCall(instruction)
 	if common != nil && slices.Contains(methods, analysisutil.CallName(common)) && valueDerivesFrom(analysisutil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
+		return true
+	}
+	if common != nil && lifecycleMethod(analysisutil.CallName(common)) && aliasesAny(analysisutil.CallReceiver(common), owners) {
 		return true
 	}
 	if common != nil {
@@ -198,6 +201,7 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 		return false
 	}
 	errorValue := resourceResult(call, 1)
+	owners := localResourceOwners(call.Parent(), resource)
 	queue := []resourceFlowState{{block: call.Block(), index: index + 1, active: true}}
 	seen := map[resourceFlowKey]bool{}
 	for len(queue) > 0 {
@@ -213,8 +217,8 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 		}
 		seen[key] = true
 		for _, instruction := range state.block.Instrs[state.index:] {
-			state.released = state.released || releasesResource(instruction, resource, contract.cleanup) || contract.consumable && consumesResource(instruction, resource)
-			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released && !returnedValueAliases(returned, resource) {
+			state.released = state.released || releasesResource(instruction, resource, owners, contract.cleanup) || contract.consumable && consumesResource(instruction, resource)
+			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released && !returnedValueAliases(returned, resource) && !returnedAliasesAny(returned, owners) {
 				return true
 			}
 		}
@@ -227,6 +231,36 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 		}
 	}
 	return false
+}
+
+func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value {
+	var owners []ssa.Value
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			owner := resourceFieldOwner(instruction, resource)
+			if owner != nil && !analysisutil.ExternallyOwnedValue(owner) && !aliasesAny(owner, owners) {
+				owners = append(owners, owner)
+			}
+		}
+	}
+	return owners
+}
+
+func resourceTransferredToExternalField(instruction ssa.Instruction, resource ssa.Value) bool {
+	owner := resourceFieldOwner(instruction, resource)
+	return owner != nil && analysisutil.ExternallyOwnedValue(owner)
+}
+
+func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Value { //nolint:ireturn // Owners retain their concrete SSA value forms.
+	store, ok := instruction.(*ssa.Store)
+	if !ok || !valueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) {
+		return nil
+	}
+	field, ok := store.Addr.(*ssa.FieldAddr)
+	if !ok {
+		return nil
+	}
+	return field.X
 }
 
 func resourceSuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {

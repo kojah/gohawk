@@ -1,6 +1,7 @@
 package analysisutil
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -8,6 +9,59 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 )
+
+// Reportf reports a diagnostic with the source range recovered from position.
+func Reportf(pass *analysis.Pass, position token.Pos, format string, args ...any) {
+	source := SourceRange(pass, position)
+	pass.Report(analysis.Diagnostic{
+		Pos:     source.Pos(),
+		End:     source.End(),
+		Message: fmt.Sprintf(format, args...),
+	})
+}
+
+type sourceRange struct {
+	start token.Pos
+	end   token.Pos
+}
+
+func (source sourceRange) Pos() token.Pos { return source.start }
+func (source sourceRange) End() token.Pos { return source.end }
+
+// SourceRange returns the smallest useful syntax range that starts at or
+// contains position. SSA instructions often retain an operator position but
+// no full range, so analyzers built on SSA use this helper to recover the
+// corresponding source expression or statement.
+func SourceRange(pass *analysis.Pass, position token.Pos) analysis.Range {
+	var exact ast.Node
+	var containing ast.Node
+	for _, file := range pass.Files {
+		if position < file.Pos() || position > file.End() {
+			continue
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			if node == nil || position < node.Pos() || position >= node.End() {
+				return false
+			}
+			if node.Pos() == position {
+				if exact == nil || node.End() > exact.End() {
+					exact = node
+				}
+			} else if containing == nil || node.End()-node.Pos() < containing.End()-containing.Pos() {
+				containing = node
+			}
+			return true
+		})
+		break
+	}
+	if exact != nil {
+		return sourceRange{start: exact.Pos(), end: exact.End()}
+	}
+	if containing != nil {
+		return sourceRange{start: containing.Pos(), end: containing.End()}
+	}
+	return sourceRange{start: position, end: position}
+}
 
 // BuiltinClose names Go's channel-closing builtin.
 const BuiltinClose = "close"

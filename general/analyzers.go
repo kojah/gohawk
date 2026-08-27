@@ -85,6 +85,25 @@ type AnalyzerGroup struct {
 	Analyzers []*analysis.Analyzer
 }
 
+// AnalyzerInfo describes capabilities that are not represented by analysis.Analyzer.
+type AnalyzerInfo struct {
+	SuggestedFix bool
+}
+
+// AnalyzerMetadata returns documentation metadata keyed by analyzer name.
+func AnalyzerMetadata() map[string]AnalyzerInfo {
+	metadata := make(map[string]AnalyzerInfo)
+	for _, group := range AnalyzerGroups() {
+		for _, analyzer := range group.Analyzers {
+			metadata[analyzer.Name] = AnalyzerInfo{}
+		}
+	}
+	for _, name := range []string{"cancellationownership", "testpolicy", "wirepolicy"} {
+		metadata[name] = AnalyzerInfo{SuggestedFix: true}
+	}
+	return metadata
+}
+
 // AnalyzerGroups returns framework-neutral Go policy analyzers grouped by concern.
 func AnalyzerGroups() []AnalyzerGroup {
 	groups := []AnalyzerGroup{
@@ -104,6 +123,7 @@ func AnalyzerGroups() []AnalyzerGroup {
 			Analyzers: []*analysis.Analyzer{
 				cancellationOwnershipAnalyzer(),
 				channelPolicyAnalyzer(),
+				deferInLoopAnalyzer(),
 				goroutineOwnershipAnalyzer(),
 				processOwnershipAnalyzer(),
 				resourceLifetimeAnalyzer(),
@@ -113,6 +133,7 @@ func AnalyzerGroups() []AnalyzerGroup {
 			Name: "reliability",
 			Doc:  "reliability and safety",
 			Analyzers: []*analysis.Analyzer{
+				concurrentCaptureAnalyzer(),
 				determinismAnalyzer(),
 				errorOwnershipAnalyzer(),
 				globalStateAnalyzer(),
@@ -122,7 +143,7 @@ func AnalyzerGroups() []AnalyzerGroup {
 		},
 		{
 			Name: "testing",
-			Doc:  "test infrastructure",
+			Doc:  "testing",
 			Analyzers: []*analysis.Analyzer{
 				blockingTestAnalyzer(),
 				testPolicyAnalyzer(),
@@ -170,7 +191,9 @@ func Analyzers() []*analysis.Analyzer {
 		"taintpolicy",
 		"lockorder",
 		"resourcelifetime",
+		"deferinloop",
 		"determinism",
+		"concurrentcapture",
 		"cancellationownership",
 	}
 	analyzers := make([]*analysis.Analyzer, 0, len(names))

@@ -33,10 +33,10 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				if loggingCall(call.Common()) && loggedErrorIsReturned(call) {
-					pass.Reportf(call.Pos(), "error is logged and returned by same function")
+					analysisutil.Reportf(pass, call.Pos(), "error is logged and returned by same function")
 				}
 				if !isTest && stringErrorClassificationSSA(call) {
-					pass.Reportf(call.Pos(), "do not classify errors by matching Error text")
+					analysisutil.Reportf(pass, call.Pos(), "do not classify errors by matching Error text")
 				}
 			}
 		}

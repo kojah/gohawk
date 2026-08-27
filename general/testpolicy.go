@@ -36,8 +36,10 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 			common := analysisutil.InstructionCall(instruction)
 			return analysisutil.CallName(common) == "Helper" && analysisutil.AliasesValue(analysisutil.CallReceiver(common), handle)
 		}) {
+			source := analysisutil.SourceRange(pass, function.Pos())
 			pass.Report(analysis.Diagnostic{
-				Pos:            function.Pos(),
+				Pos:            source.Pos(),
+				End:            source.End(),
 				Message:        "test helper accepting " + handle.Name() + " must call " + handle.Name() + ".Helper() on every return path",
 				SuggestedFixes: testHelperFix(pass, function, handle),
 			})

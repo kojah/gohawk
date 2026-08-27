@@ -71,19 +71,19 @@ func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool, conf
 	case *ast.FuncDecl:
 		for index, parameter := range parameterTypes(pass, typed.Type.Params) {
 			if isContext(parameter) && index != 0 {
-				pass.Reportf(typed.Name.Pos(), "context.Context must be first parameter")
+				analysisutil.Reportf(pass, typed.Name.Pos(), "context.Context must be first parameter")
 				break
 			}
 		}
 	case *ast.StructType:
 		for _, field := range typed.Fields.List {
 			if isContext(pass.TypesInfo.TypeOf(field.Type)) {
-				pass.Reportf(field.Pos(), "do not store context.Context in a struct")
+				analysisutil.Reportf(pass, field.Pos(), "do not store context.Context in a struct")
 			}
 		}
 	case *ast.CallExpr:
 		if config.preferTestContext && isTest && analysisutil.IsPackageCall(pass, typed, analysisutil.FunctionSymbol{Package: "context", Name: "Background"}) {
-			pass.Reportf(typed.Pos(), "use t.Context() or b.Context() instead of context.Background()")
+			analysisutil.Reportf(pass, typed.Pos(), "use t.Context() or b.Context() instead of context.Background()")
 		}
 	}
 }
@@ -109,7 +109,7 @@ func reportNilSSAContextArguments(pass *analysis.Pass, call *ssa.Call) {
 			break
 		}
 		if isContext(signature.Params().At(index).Type()) && definitelyNil(common.Args[argumentIndex], map[ssa.Value]bool{}) {
-			pass.Reportf(call.Pos(), "do not pass nil context.Context")
+			analysisutil.Reportf(pass, call.Pos(), "do not pass nil context.Context")
 		}
 	}
 }

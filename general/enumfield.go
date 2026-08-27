@@ -77,7 +77,7 @@ func runEnumField(pass *analysis.Pass) (any, error) {
 		if !closed[field] {
 			continue
 		}
-		pass.Reportf(candidate.position.Pos(), "field %s uses a closed string domain; define a named string type and constants", candidate.position.Name)
+		analysisutil.Reportf(pass, candidate.position.Pos(), "field %s uses a closed string domain; define a named string type and constants", candidate.position.Name)
 		pass.ExportObjectFact(field, new(closedStringDomainFact))
 	}
 	return nil, nil

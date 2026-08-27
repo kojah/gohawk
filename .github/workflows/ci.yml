@@ -33,8 +33,22 @@ jobs:
       - name: Check formatting
         run: test -z "$(gofmt -l .)"
 
-      - name: Test
-        run: go test ./...
+      - name: Check generated documentation
+        run: go run ./internal/cmd/gendocs -check
+
+      - name: Test and collect coverage
+        run: |
+          go test ./... -covermode=count -coverpkg=./... -coverprofile=coverage.out
+          go tool cover -func=coverage.out -o=coverage-summary.out
+
+      - name: Generate coverage badge
+        uses: tj-actions/coverage-badge-go@481919ec72da287775fef015fd9011dc75a5db05 # v3
+        with:
+          filename: coverage-summary.out
+          link: https://github.com/kojah/gohawk/actions/workflows/ci.yml
+
+      - name: Check coverage badge
+        run: git diff --exit-code -- README.md
 
       - name: Test with race detector
         run: go test -race ./...

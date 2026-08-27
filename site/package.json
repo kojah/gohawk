@@ -1,0 +1,26 @@
+{
+  "name": "gohawk-docs",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "generate": "go run ../internal/cmd/gendocs",
+    "check": "go run ../internal/cmd/gendocs -check && astro check",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.41.6",
+    "@expressive-code/core": "0.44.1",
+    "astro": "7.2.8",
+    "sharp": "0.35.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^6.0.3"
+  }
+}

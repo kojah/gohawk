@@ -24,7 +24,9 @@ func expectedAnalyzerNames() []string {
 		"taintpolicy",
 		"lockorder",
 		"resourcelifetime",
+		"deferinloop",
 		"determinism",
+		"concurrentcapture",
 		"cancellationownership",
 	}
 }
@@ -36,9 +38,9 @@ func TestAnalyzerGroups(t *testing.T) {
 		analyzers []string
 	}{
 		{name: "contracts", doc: "API and data contracts", analyzers: []string{"apishape", "contextpolicy", "closedomain", "wirepolicy"}},
-		{name: "ownership", doc: "ownership and lifecycle", analyzers: []string{"cancellationownership", "channelpolicy", "goroutineownership", "processownership", "resourcelifetime"}},
-		{name: "reliability", doc: "reliability and safety", analyzers: []string{"determinism", "errorownership", "globalstate", "lockorder", "taintpolicy"}},
-		{name: "testing", doc: "test infrastructure", analyzers: []string{"blockingtest", "testpolicy"}},
+		{name: "ownership", doc: "ownership and lifecycle", analyzers: []string{"cancellationownership", "channelpolicy", "deferinloop", "goroutineownership", "processownership", "resourcelifetime"}},
+		{name: "reliability", doc: "reliability and safety", analyzers: []string{"concurrentcapture", "determinism", "errorownership", "globalstate", "lockorder", "taintpolicy"}},
+		{name: "testing", doc: "testing", analyzers: []string{"blockingtest", "testpolicy"}},
 	}
 	groups := AnalyzerGroups()
 	if len(groups) != len(want) {
@@ -60,6 +62,18 @@ func TestAnalyzerGroups(t *testing.T) {
 	}
 	if len(seen) != len(expectedAnalyzerNames()) {
 		t.Fatalf("grouped analyzer count = %d, want %d", len(seen), len(expectedAnalyzerNames()))
+	}
+}
+
+func TestAnalyzerMetadata(t *testing.T) {
+	metadata := AnalyzerMetadata()
+	if len(metadata) != len(expectedAnalyzerNames()) {
+		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
+	}
+	for _, name := range expectedAnalyzerNames() {
+		if _, ok := metadata[name]; !ok {
+			t.Errorf("metadata missing analyzer %q", name)
+		}
 	}
 }
 
@@ -91,32 +105,52 @@ func TestAnalyzers(t *testing.T) {
 		name     string
 		packages []string
 	}{
-		{name: "apishape", packages: []string{"apishape"}},
-		{name: "contextpolicy", packages: []string{"contextpolicy", "contextpolicyprod"}},
-		{name: "globalstate", packages: []string{"globalstate"}},
-		{name: "wirepolicy", packages: []string{"wirepolicy"}},
-		{name: "testpolicy", packages: []string{"testpolicy"}},
-		{name: "blockingtest", packages: []string{"blockingtest"}},
-		{name: "goroutineownership", packages: []string{"goroutineownership"}},
-		{name: "errorownership", packages: []string{"errorownership"}},
-		{name: "channelpolicy", packages: []string{"channelpolicy"}},
-		{name: "processownership", packages: []string{"processownership"}},
-		{name: "closedomain", packages: []string{"enumfield", "enumfieldsource", "enumfieldconsumer"}},
-		{name: "taintpolicy", packages: []string{"taintpolicy"}},
-		{name: "lockorder", packages: []string{"lockorder"}},
-		{name: "resourcelifetime", packages: []string{"resourcelifetime"}},
-		{name: "determinism", packages: []string{"determinism"}},
-		{name: "cancellationownership", packages: []string{"cancellationownership"}},
+		{name: "apishape", packages: []string{"apishape", "docapishape"}},
+		{name: "contextpolicy", packages: []string{"contextpolicy", "contextpolicyprod", "doccontextpolicy"}},
+		{name: "globalstate", packages: []string{"globalstate", "docglobalstate"}},
+		{name: "wirepolicy", packages: []string{"wirepolicy", "docwirepolicy"}},
+		{name: "testpolicy", packages: []string{"testpolicy", "doctestpolicy"}},
+		{name: "blockingtest", packages: []string{"blockingtest", "docblockingtest"}},
+		{name: "goroutineownership", packages: []string{"goroutineownership", "docgoroutineownership"}},
+		{name: "errorownership", packages: []string{"errorownership", "docerrorownership"}},
+		{name: "channelpolicy", packages: []string{"channelpolicy", "docchannelpolicy"}},
+		{name: "processownership", packages: []string{"processownership", "docprocessownership"}},
+		{name: "closedomain", packages: []string{"enumfield", "enumfieldsource", "enumfieldconsumer", "docclosedomain"}},
+		{name: "taintpolicy", packages: []string{"taintpolicy", "doctaintpolicy"}},
+		{name: "lockorder", packages: []string{"lockorder", "doclockorder"}},
+		{name: "resourcelifetime", packages: []string{"resourcelifetime", "docresourcelifetime"}},
+		{name: "deferinloop", packages: []string{"deferinloop", "docdeferinloop"}},
+		{name: "determinism", packages: []string{"determinism", "docdeterminism"}},
+		{name: "concurrentcapture", packages: []string{"concurrentcapture", "docconcurrentcapture"}},
+		{name: "cancellationownership", packages: []string{"cancellationownership", "doccancellationownership"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			analysistest.Run(t, analysistest.TestData(), analyzerNamed(t, test.name), test.packages...)
+			analysistest.Run(t, analysistest.TestData(), requireDiagnosticRanges(t, analyzerNamed(t, test.name)), test.packages...)
 		})
 	}
 }
 
+func requireDiagnosticRanges(t *testing.T, analyzer *analysis.Analyzer) *analysis.Analyzer {
+	t.Helper()
+	run := analyzer.Run
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		report := pass.Report
+		pass.Report = func(diagnostic analysis.Diagnostic) {
+			if diagnostic.End <= diagnostic.Pos {
+				t.Errorf("%s diagnostic %q has no precise range", analyzer.Name, diagnostic.Message)
+			}
+			report(diagnostic)
+		}
+		defer func() { pass.Report = report }()
+		return run(pass)
+	}
+	return analyzer
+}
+
 func TestSuggestedFixes(t *testing.T) {
+	metadata := AnalyzerMetadata()
 	tests := []struct {
 		name    string
 		pattern string
@@ -125,10 +159,20 @@ func TestSuggestedFixes(t *testing.T) {
 		{name: "testpolicy", pattern: "testpolicyfix"},
 		{name: "cancellationownership", pattern: "cancellationownershipfix"},
 	}
+	tested := make(map[string]bool, len(tests))
 	for _, test := range tests {
+		tested[test.name] = true
+		if !metadata[test.name].SuggestedFix {
+			t.Errorf("analyzer %q has a suggested-fix test but is not marked as offering one", test.name)
+		}
 		t.Run(test.name, func(t *testing.T) {
 			analysistest.RunWithSuggestedFixes(t, analysistest.TestData(), analyzerNamed(t, test.name), test.pattern)
 		})
+	}
+	for name, info := range metadata {
+		if info.SuggestedFix && !tested[name] {
+			t.Errorf("analyzer %q is marked as offering a suggested fix but has no suggested-fix test", name)
+		}
 	}
 }
 

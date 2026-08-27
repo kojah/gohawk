@@ -1,0 +1,21 @@
+---
+import DefaultPageTitle from '@astrojs/starlight/components/PageTitle.astro';
+import manifest from '../generated/analyzers.json';
+
+const { entry } = Astro.locals.starlightRoute;
+const analyzer = manifest.groups
+	.flatMap((group) => group.analyzers.map((analyzer) => ({ ...analyzer, group: group.title })))
+	.find((analyzer) => analyzer.path === entry.id);
+---
+
+<DefaultPageTitle />
+{
+	analyzer && (
+		<div class="rule-meta">
+			<div><span>Category</span><strong>{analyzer.group}</strong></div>
+			<div><span>Default</span><strong>Enabled</strong></div>
+			<div><span>Fix</span><strong>{analyzer.suggestedFix ? 'Suggested fix' : 'Diagnostic only'}</strong></div>
+			<div><span>Options</span><strong>{analyzer.options.length === 0 ? 'None' : `${analyzer.options.length} ${analyzer.options.length === 1 ? 'option' : 'options'}`}</strong></div>
+		</div>
+	)
+}
