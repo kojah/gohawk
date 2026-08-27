@@ -1,10 +1,10 @@
-# Contributing to GoHawk
+# Contributing to gohawk
 
-Thanks for helping improve GoHawk.
+Thanks for helping improve gohawk.
 
 ## Start here
 
-GoHawk values precision over recall. A missed finding is usually less harmful
+gohawk values precision over recall. A missed finding is usually less harmful
 than a false alert that teaches people to ignore the tool. Only report a problem
 when the analyzer has strong evidence that the code is wrong.
 

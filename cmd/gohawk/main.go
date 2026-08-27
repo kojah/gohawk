@@ -1,4 +1,4 @@
-// Command gohawk runs the GoHawk static analyzers.
+// Command gohawk runs the gohawk static analyzers.
 package main
 
 import (
@@ -39,7 +39,7 @@ func generalHelpRequested(arguments []string) bool {
 }
 
 func printAnalyzerGroups() {
-	fmt.Fprintln(os.Stderr, "GoHawk analyzer groups (select checks with individual -NAME flags):")
+	fmt.Fprintln(os.Stderr, "gohawk analyzer groups (select checks with individual -NAME flags):")
 	for _, group := range gohawk.AnalyzerGroups() {
 		names := make([]string, 0, len(group.Analyzers))
 		for _, analyzer := range group.Analyzers {

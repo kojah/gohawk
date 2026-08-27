@@ -1,8 +1,8 @@
-# GoHawk
+# gohawk
 
 [![CI](https://github.com/kojah/gohawk/actions/workflows/ci.yml/badge.svg)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 
-GoHawk is a focused set of static analyzers for Go. It ships sixteen
+gohawk is a focused set of static analyzers for Go. It ships sixteen
 framework-neutral checks covering API design, concurrency, resource ownership,
 determinism, serialization, tests, and error handling.
 
@@ -87,7 +87,7 @@ These checks are opinionated by design. When a finding is intentional, you can
 
 ## Examples
 
-Here is what each check looks like in practice. GoHawk reports every finding
+Here is what each check looks like in practice. gohawk reports every finding
 and offers a fix when it can make the change safely. The examples show one
 common finding and one way to fix it; some checks cover additional cases.
 
@@ -542,7 +542,7 @@ func requireUser(t *testing.T, user *User) {
 
 ## Analyzer configuration
 
-Analyzer options use standard `go/analysis` flags and work with both GoHawk and
+Analyzer options use standard `go/analysis` flags and work with both gohawk and
 `go vet -vettool=...`. Prefix each option with its analyzer name:
 
 ```sh

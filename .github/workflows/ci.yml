@@ -45,5 +45,5 @@ jobs:
       - name: Build CLI
         run: go build -o "$RUNNER_TEMP/gohawk" ./cmd/gohawk
 
-      - name: Dogfood GoHawk
+      - name: Dogfood gohawk
         run: '"$RUNNER_TEMP/gohawk" ./...'

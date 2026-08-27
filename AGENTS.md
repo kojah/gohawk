@@ -1,8 +1,8 @@
-# GoHawk development guidance
+# gohawk development guidance
 
 Value high precision over high recall. Avoiding false alerts is more important
 than detecting every possible violation: users must be able to trust that a
-GoHawk diagnostic is actionable.
+gohawk diagnostic is actionable.
 
 - Report only when the analyzer has strong evidence that the policy is
   violated on a feasible path. When ownership or lifecycle behavior is
