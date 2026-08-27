@@ -14,6 +14,34 @@ type commaSeparatedChoice struct {
 	allowed map[string]bool
 }
 
+type choiceValue struct {
+	value   *string
+	allowed map[string]bool
+}
+
+func newChoiceValue(value *string, allowed ...string) *choiceValue {
+	choices := make(map[string]bool, len(allowed))
+	for _, choice := range allowed {
+		choices[choice] = true
+	}
+	return &choiceValue{value: value, allowed: choices}
+}
+
+func (choice *choiceValue) String() string {
+	if choice == nil || choice.value == nil {
+		return ""
+	}
+	return *choice.value
+}
+
+func (choice *choiceValue) Set(value string) error {
+	if !choice.allowed[value] {
+		return fmt.Errorf("unknown value %q", value)
+	}
+	*choice.value = value
+	return nil
+}
+
 func newCommaSeparatedChoice(value *string, allowed ...string) *commaSeparatedChoice {
 	choices := make(map[string]bool, len(allowed))
 	for _, choice := range allowed {

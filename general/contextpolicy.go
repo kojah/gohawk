@@ -14,16 +14,13 @@ import (
 )
 
 func contextPolicyAnalyzer() *analysis.Analyzer {
-	config := contextPolicyConfig{requireFirst: true, forbidStorage: true, preferTestContext: true, forbidNil: true}
+	config := contextPolicyConfig{preferTestContext: true}
 	analyzer := &analysis.Analyzer{
 		Name:     "contextpolicy",
 		Doc:      "checks context placement, storage, nil use, and test ownership",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 	}
-	analyzer.Flags.BoolVar(&config.requireFirst, "require-first", true, "require context.Context to be the first parameter")
-	analyzer.Flags.BoolVar(&config.forbidStorage, "forbid-storage", true, "report context.Context fields in structs")
 	analyzer.Flags.BoolVar(&config.preferTestContext, "prefer-test-context", true, "prefer t.Context or b.Context over context.Background in tests")
-	analyzer.Flags.BoolVar(&config.forbidNil, "forbid-nil", true, "report definitely nil context arguments")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runContextPolicy(pass, config)
 	}
@@ -31,10 +28,7 @@ func contextPolicyAnalyzer() *analysis.Analyzer {
 }
 
 type contextPolicyConfig struct {
-	requireFirst      bool
-	forbidStorage     bool
 	preferTestContext bool
-	forbidNil         bool
 }
 
 func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, error) {
@@ -47,9 +41,6 @@ func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, err
 			checkContextStructure(pass, node, isTest && supportsTestingContext(pass), config)
 			return true
 		})
-	}
-	if !config.forbidNil {
-		return nil, nil
 	}
 	for _, function := range analysisutil.SourceSSAFunctions(pass) {
 		for _, block := range function.Blocks {
@@ -78,9 +69,6 @@ func supportsTestingContext(pass *analysis.Pass) bool {
 func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool, config contextPolicyConfig) {
 	switch typed := node.(type) {
 	case *ast.FuncDecl:
-		if !config.requireFirst {
-			break
-		}
 		for index, parameter := range parameterTypes(pass, typed.Type.Params) {
 			if isContext(parameter) && index != 0 {
 				pass.Reportf(typed.Name.Pos(), "context.Context must be first parameter")
@@ -88,9 +76,6 @@ func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool, conf
 			}
 		}
 	case *ast.StructType:
-		if !config.forbidStorage {
-			break
-		}
 		for _, field := range typed.Fields.List {
 			if isContext(pass.TypesInfo.TypeOf(field.Type)) {
 				pass.Reportf(field.Pos(), "do not store context.Context in a struct")

@@ -2,163 +2,96 @@
 
 [![CI](https://github.com/kojah/gohawk/actions/workflows/ci.yml/badge.svg)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 
-GoHawk is a focused collection of static analyzers for Go. It currently
-ships sixteen framework-neutral checks for API shape, concurrency and
-resource ownership, determinism, serialization, tests, and error handling.
+GoHawk is a focused set of static analyzers for Go. It ships sixteen
+framework-neutral checks covering API design, concurrency, resource ownership,
+determinism, serialization, tests, and error handling.
 
-## Install
+## Contents
+
+- [Quick Start](#quick-start)
+- [Analyzers](#analyzers)
+  - [API and data contracts](#api-and-data-contracts)
+  - [Ownership and lifecycle](#ownership-and-lifecycle)
+  - [Reliability and safety](#reliability-and-safety)
+  - [Testing](#testing)
+- [Examples](#examples)
+  - [API and data contract examples](#api-and-data-contract-examples)
+  - [Ownership and lifecycle examples](#ownership-and-lifecycle-examples)
+  - [Reliability and safety examples](#reliability-and-safety-examples)
+  - [Testing examples](#testing-examples)
+- [Analyzer configuration](#analyzer-configuration)
+- [Suppressions](#suppressions)
+- [License](#license)
+
+## Quick Start
 
 ```sh
+# Install.
 go install github.com/kojah/gohawk/cmd/gohawk@latest
-```
 
-Run GoHawk directly against package patterns:
-
-```sh
+# Run every check.
 gohawk ./...
-```
 
-It can also run as a `go vet` tool:
-
-```sh
+# Use it with go vet.
 go vet -vettool="$(command -v gohawk)" ./...
-```
 
-## CLI usage
+# Preview safe fixes, then apply them.
+gohawk -fix -diff ./...
+gohawk -fix ./...
 
-With no analyzer flags, GoHawk runs every analyzer. Passing one or more analyzer
-flags runs only the selected checks:
-
-```sh
+# Run selected checks, or exclude one from the defaults.
 gohawk -wirepolicy -globalstate ./...
-```
-
-Set an analyzer flag to `false` to exclude it while leaving the remaining
-analyzers enabled:
-
-```sh
 gohawk -globalstate=false ./...
 ```
-
-Print build and version information with `gohawk -V`.
-
-### Analyzer configuration
-
-Analyzer-specific options use the standard `go/analysis` flag mechanism. In a
-multi-analyzer command, the option is prefixed with the analyzer name:
-
-```sh
-gohawk -goroutineownership \
-  -goroutineownership.require-join \
-  ./...
-```
-
-Analyzer-specific options preserve the default policies and also work through
-`go vet -vettool=...`. Each configurable analyzer documents its knobs beside
-its example below.
-
-Boolean options accept explicit values when disabling a policy:
-
-```sh
-gohawk -contextpolicy \
-  -contextpolicy.prefer-test-context=false \
-  ./...
-```
-
-In normal text mode, GoHawk exits with status 0 when the analysis is clean and
-status 3 when it reports diagnostics. Successful JSON and suggested-fix runs
-exit with status 0 even when their output contains diagnostics or a diff, so
-automation using `-json` or `-fix -diff` must inspect the output. When GoHawk is
-used through `go vet`, the `go` command controls the exit status and normally
-uses status 1 for diagnostics.
-
-## Suggested fixes
-
-GoHawk provides suggested fixes when a diagnostic has one unambiguous,
-behavior-preserving rewrite. Preview the available changes as a diff:
-
-```sh
-gohawk -fix -diff ./...
-```
-
-Or apply them in place:
-
-```sh
-gohawk -fix ./...
-```
-
-Suggested fixes are currently available for unkeyed `wirepolicy` literals,
-missing unconditional `testpolicy` helper calls, and leaked cancel functions
-reported by `cancellationownership`. Design-dependent findings remain
-diagnostic-only.
 
 ## Analyzers
 
 ### API and data contracts
 
-| Analyzer | Policy |
+| Analyzer | What it catches |
 | --- | --- |
-| [`apishape`](#apishape) | Flags exported APIs with error-prone parameter or receiver shapes. |
-| [`contextpolicy`](#contextpolicy) | Checks context placement, storage, nil use, and test ownership. |
-| [`closedomain`](#closedomain) | Finds builtin strings used as closed semantic domains. |
-| [`wirepolicy`](#wirepolicy) | Checks serialized structs and their composite literals. |
+| [`apishape`](#apishape) | Exported APIs with error-prone parameters or receiver shapes. |
+| [`contextpolicy`](#contextpolicy) | Misplaced, stored, or nil contexts, plus test contexts with the wrong owner. |
+| [`closedomain`](#closedomain) | Plain strings standing in for a closed set of values. |
+| [`wirepolicy`](#wirepolicy) | Missing serialization tags and positional wire literals. |
 
 ### Ownership and lifecycle
 
-| Analyzer | Policy |
+| Analyzer | What it catches |
 | --- | --- |
-| [`cancellationownership`](#cancellationownership) | Checks that context and signal-derived cancellation functions are called. |
-| [`channelpolicy`](#channelpolicy) | Checks channel capacity and closing ownership. |
-| [`goroutineownership`](#goroutineownership) | Requires explicit goroutines to have a join handle or lifecycle owner. |
-| [`processownership`](#processownership) | Requires started commands to be waited on or transferred with their wait ownership. |
-| [`resourcelifetime`](#resourcelifetime) | Checks files, HTTP responses, SQL handles, timers, and compressors are released on every path. |
+| [`cancellationownership`](#cancellationownership) | Context and signal cancellation functions that are never called. |
+| [`channelpolicy`](#channelpolicy) | Unexplained channel capacity and broken closing ownership. |
+| [`goroutineownership`](#goroutineownership) | Goroutines without a recognizable join handle or lifecycle owner. |
+| [`processownership`](#processownership) | Started commands that are neither waited on nor transferred with wait ownership. |
+| [`resourcelifetime`](#resourcelifetime) | Files, responses, SQL handles, timers, or compressors left open on some path. |
 
 ### Reliability and safety
 
-| Analyzer | Policy |
+| Analyzer | What it catches |
 | --- | --- |
-| [`determinism`](#determinism) | Detects unsorted map iteration reaching ordered output. |
-| [`errorownership`](#errorownership) | Detects double-handled errors and error-text classification. |
-| [`globalstate`](#globalstate) | Flags mutable package-level state. |
-| [`lockorder`](#lockorder) | Detects contradictory mutex acquisition order. |
-| [`taintpolicy`](#taintpolicy) | Checks untrusted environment and argument data reaching sensitive sinks. |
+| [`determinism`](#determinism) | Unsorted map iteration that reaches ordered output. |
+| [`errorownership`](#errorownership) | Errors handled twice or classified by matching their text. |
+| [`globalstate`](#globalstate) | Mutable package-level state. |
+| [`lockorder`](#lockorder) | Mutexes acquired in contradictory orders. |
+| [`taintpolicy`](#taintpolicy) | Untrusted environment or argument data reaching sensitive sinks. |
 
 ### Testing
 
-| Analyzer | Policy |
+| Analyzer | What it catches |
 | --- | --- |
-| [`blockingtest`](#blockingtest) | Checks cancellation ownership for blocking test channels. |
-| [`testpolicy`](#testpolicy) | Checks lifecycle ownership in test helpers. |
+| [`blockingtest`](#blockingtest) | Blocking test channels without cancellation ownership. |
+| [`testpolicy`](#testpolicy) | Missing lifecycle ownership in test helpers. |
 
-These are intentionally opinionated policy checks. A deliberate error-text
-match can be suppressed immediately above the call with a comment containing
-`gohawk:error-text-match` and a rationale. Intentional mutable package state can
-be suppressed immediately above its declaration with
-`//gohawk:globalstate <rationale>`.
-
-## Suppressions
-
-Any diagnostic can be suppressed on the same line or immediately above it with
-an analyzer-specific directive and a required rationale:
-
-```go
-//gohawk:ignore goroutineownership worker belongs to the process lifecycle
-go serveMetrics()
-```
-
-The form is `//gohawk:ignore <analyzer> <rationale>`. GoHawk deliberately does
-not provide an unscoped ignore directive: the analyzer and reason must remain
-visible in code review. The older `gohawk:error-text-match` and
-`gohawk:globalstate` directives remain supported for their respective checks.
+These checks are opinionated by design. When a finding is intentional, you can
+[suppress it](#suppressions) with a short explanation.
 
 ## Examples
 
-GoHawk reports every violation and can rewrite the unambiguous cases described
-under Suggested fixes. Each example below shows a representative pattern that
-is flagged and one possible rewrite. Some analyzers enforce additional cases
-summarized in the table above.
+Here is what each check looks like in practice. GoHawk reports every finding
+and offers a fix when it can make the change safely. The examples show one
+common finding and one way to fix it; some checks cover additional cases.
 
-### API and data contracts
+### API and data contract examples
 
 #### `apishape`
 
@@ -166,10 +99,8 @@ Group error-prone parameters.
 
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `max-parameters` | `4` | Maximum parameters on an exported function; `0` disables the check. |
-| `max-adjacent-same-type` | `2` | Maximum adjacent parameters sharing one type; `0` disables the check. |
-| `check-adjacent-optional-scalars` | `true` | Reports adjacent pointer-to-scalar parameters. |
-| `check-mixed-receivers` | `true` | Reports types mixing pointer and value receivers. |
+| `max-parameters` | `4` | Largest allowed parameter count on an exported function; `0` turns this off. |
+| `max-adjacent-same-type` | `2` | Largest allowed run of adjacent parameters with one type; `0` turns this off. |
 
 Flagged:
 
@@ -177,7 +108,7 @@ Flagged:
 func CreateUser(name, email, city, country, role string) error { return nil }
 ```
 
-Preferred:
+OK:
 
 ```go
 type CreateUserInput struct {
@@ -193,10 +124,7 @@ Put context first.
 
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `require-first` | `true` | Requires `context.Context` to be the first parameter. |
-| `forbid-storage` | `true` | Reports contexts stored in struct fields. |
-| `prefer-test-context` | `true` | Prefers `t.Context()` or `b.Context()` over `context.Background()` in tests when supported by the module's Go version. |
-| `forbid-nil` | `true` | Reports definitely nil context arguments. |
+| `prefer-test-context` | `true` | Prefer `t.Context()` or `b.Context()` over `context.Background()` when the module's Go version supports it. |
 
 Flagged:
 
@@ -204,7 +132,7 @@ Flagged:
 func LoadUser(id string, ctx context.Context) error { return nil }
 ```
 
-Preferred:
+OK:
 
 ```go
 func LoadUser(ctx context.Context, id string) error { return nil }
@@ -226,7 +154,7 @@ func finished(job Job) bool {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 type JobState string
@@ -256,7 +184,7 @@ type EventRow struct {
 var event = EventRow{"42", "created"}
 ```
 
-Preferred:
+OK:
 
 ```go
 type EventRow struct {
@@ -267,7 +195,7 @@ type EventRow struct {
 var event = EventRow{ID: "42", Kind: "created"}
 ```
 
-### Ownership and lifecycle
+### Ownership and lifecycle examples
 
 #### `cancellationownership`
 
@@ -282,7 +210,7 @@ func work(parent context.Context) {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func work(parent context.Context) {
@@ -298,9 +226,7 @@ Let the creator close the channel.
 
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `max-unexplained-capacity` | `1` | Largest constant capacity allowed without a rationale; a negative value disables the check. |
-| `check-borrowed-close` | `true` | Reports closing channels received from callers. |
-| `check-send-after-close` | `true` | Reports sends proven to follow a close. |
+| `max-unexplained-capacity` | `1` | Largest constant capacity allowed without an explanatory comment; a negative value turns this off. |
 
 Flagged:
 
@@ -313,7 +239,7 @@ func consume(events chan Event) {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func consume(events <-chan Event) {
@@ -329,12 +255,11 @@ Join spawned goroutines.
 
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `accept-context-lifecycle` | `true` | Accepts a passed or captured context as lifecycle ownership. |
-| `require-join` | `false` | Requires a completion signal or wait instead of context or lifecycle ownership. |
+| `mode` | `context` | Choose `context` for context-controlled workers, `lifecycle` to require an owner, or `join` to require a completion signal or wait. |
 
-Context-controlled workers are accepted by default. Set
-`-goroutineownership.accept-context-lifecycle=false` to disable only that
-allowance, or use `-goroutineownership.require-join` for the strict policy.
+By default, a context is enough to own a worker. Use
+`-goroutineownership.mode=lifecycle` to require a lifecycle owner, or
+`-goroutineownership.mode=join` to require an explicit join.
 
 Flagged:
 
@@ -344,7 +269,7 @@ func refresh() {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func refresh() {
@@ -371,7 +296,7 @@ func run(ctx context.Context) error {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func run(ctx context.Context) error {
@@ -389,11 +314,11 @@ Release owned resources on every path.
 
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `contracts` | `os,http,sql,time,compress` | Comma-separated resource contract families to check. |
-| `require-reader-close` | `true` | Requires gzip and zlib readers to be closed. |
+| `contracts` | `os,http,sql,time,compress` | Comma-separated resource families to check. |
+| `require-reader-close` | `true` | Require gzip and zlib readers to be closed. |
 
-Built-in contracts cover files, transactions, SQL rows and statements, HTTP
-response bodies, timers and tickers, and gzip/zlib readers and writers.
+The built-in contracts cover files, transactions, SQL rows and statements,
+HTTP response bodies, timers and tickers, and gzip/zlib readers and writers.
 
 Flagged:
 
@@ -407,7 +332,7 @@ func read(path string) error {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func read(path string) error {
@@ -420,7 +345,7 @@ func read(path string) error {
 }
 ```
 
-### Reliability and safety
+### Reliability and safety examples
 
 #### `determinism`
 
@@ -438,7 +363,7 @@ func names(users map[string]User) []string {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func names(users map[string]User) []string {
@@ -467,7 +392,7 @@ func load() error {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func load() error {
@@ -484,10 +409,10 @@ Give mutable state an owner.
 
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `allow-names` | empty | Comma-separated package variable names allowed as mutable globals. |
-| `allow-types` | empty | Comma-separated fully-qualified named types allowed as mutable globals. |
+| `allow-names` | empty | Comma-separated package variables that may be mutable globals. |
+| `allow-types` | empty | Comma-separated named types that may be mutable globals. Use full import paths. |
 
-Fully-qualified type allowlists include the complete import path:
+Type allowlists use the full import path:
 
 ```sh
 gohawk -globalstate \
@@ -502,7 +427,7 @@ Flagged:
 var users = map[string]User{}
 ```
 
-Preferred:
+OK:
 
 ```go
 type Store struct {
@@ -525,7 +450,7 @@ func forward() { first.Lock(); defer first.Unlock(); second.Lock(); defer second
 func reverse() { second.Lock(); defer second.Unlock(); first.Lock(); defer first.Unlock() }
 ```
 
-Preferred:
+OK:
 
 ```go
 func forward() { first.Lock(); defer first.Unlock(); second.Lock(); defer second.Unlock() }
@@ -539,7 +464,7 @@ Validate untrusted input before a sink.
 | Knob | Default | Effect |
 | --- | --- | --- |
 | `sinks` | `filesystem,process,terminal,log` | Comma-separated sink families to check. |
-| `sanitizers` | empty | Additional comma-separated fully-qualified sanitizer functions. |
+| `sanitizers` | empty | Extra sanitizer functions, comma-separated and fully qualified. |
 
 Flagged:
 
@@ -549,7 +474,7 @@ func runConfiguredTool() error {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func runConfiguredTool() error {
@@ -561,7 +486,7 @@ func runConfiguredTool() error {
 }
 ```
 
-### Testing
+### Testing examples
 
 #### `blockingtest`
 
@@ -575,7 +500,7 @@ func waitForEvent(t *testing.T, events <-chan Event) Event {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func waitForEvent(t *testing.T, events <-chan Event) Event {
@@ -604,7 +529,7 @@ func requireUser(t *testing.T, user *User) {
 }
 ```
 
-Preferred:
+OK:
 
 ```go
 func requireUser(t *testing.T, user *User) {
@@ -614,6 +539,27 @@ func requireUser(t *testing.T, user *User) {
 	}
 }
 ```
+
+## Analyzer configuration
+
+Analyzer options use standard `go/analysis` flags and work with both GoHawk and
+`go vet -vettool=...`. Prefix each option with its analyzer name:
+
+```sh
+gohawk -goroutineownership -goroutineownership.mode=join ./...
+gohawk -contextpolicy -contextpolicy.prefer-test-context=false ./...
+```
+
+## Suppressions
+
+Put `//gohawk:ignore <analyzer> [reason]` on the flagged line or the line above:
+
+```go
+//gohawk:ignore goroutineownership worker belongs to the process lifecycle
+go serveMetrics()
+```
+
+Ignores are always scoped to one analyzer. The reason is optional.
 
 ## License
 

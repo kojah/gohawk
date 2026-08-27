@@ -12,10 +12,8 @@ import (
 
 func apiShapeAnalyzer() *analysis.Analyzer {
 	config := apiShapeConfig{
-		maxParameters:                4,
-		maxAdjacentSameType:          2,
-		checkAdjacentOptionalScalars: true,
-		checkMixedReceivers:          true,
+		maxParameters:       4,
+		maxAdjacentSameType: 2,
 	}
 	analyzer := &analysis.Analyzer{
 		Name: "apishape",
@@ -23,8 +21,6 @@ func apiShapeAnalyzer() *analysis.Analyzer {
 	}
 	analyzer.Flags.IntVar(&config.maxParameters, "max-parameters", 4, "maximum exported function parameters; 0 disables the check")
 	analyzer.Flags.IntVar(&config.maxAdjacentSameType, "max-adjacent-same-type", 2, "maximum adjacent parameters of one type; 0 disables the check")
-	analyzer.Flags.BoolVar(&config.checkAdjacentOptionalScalars, "check-adjacent-optional-scalars", true, "report adjacent pointer-to-scalar parameters")
-	analyzer.Flags.BoolVar(&config.checkMixedReceivers, "check-mixed-receivers", true, "report types mixing pointer and value receivers")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runAPIShape(pass, config)
 	}
@@ -32,10 +28,8 @@ func apiShapeAnalyzer() *analysis.Analyzer {
 }
 
 type apiShapeConfig struct {
-	maxParameters                int
-	maxAdjacentSameType          int
-	checkAdjacentOptionalScalars bool
-	checkMixedReceivers          bool
+	maxParameters       int
+	maxAdjacentSameType int
 }
 
 func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
@@ -50,9 +44,7 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 			if !ok {
 				return true
 			}
-			if config.checkMixedReceivers {
-				recordReceiver(declaration, receivers, receiverPositions)
-			}
+			recordReceiver(declaration, receivers, receiverPositions)
 			if !declaration.Name.IsExported() {
 				return false
 			}
@@ -119,7 +111,7 @@ func reportAdjacentParameters(pass *analysis.Pass, position token.Pos, parameter
 		}
 		if config.maxAdjacentSameType > 0 && end-start > config.maxAdjacentSameType {
 			pass.Reportf(position, "%d adjacent parameters share type %s; use an Input struct", end-start, types.TypeString(parameters[start], nil))
-		} else if config.checkAdjacentOptionalScalars && end-start >= 2 && optionalScalar(parameters[start]) {
+		} else if end-start >= 2 && optionalScalar(parameters[start]) {
 			pass.Reportf(position, "adjacent optional scalar parameters are easy to swap; use an Input struct")
 		}
 		start = end

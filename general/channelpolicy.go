@@ -15,15 +15,13 @@ import (
 )
 
 func channelPolicyAnalyzer() *analysis.Analyzer {
-	config := channelPolicyConfig{maxUnexplainedCapacity: 1, checkBorrowedClose: true, checkSendAfterClose: true}
+	config := channelPolicyConfig{maxUnexplainedCapacity: 1}
 	analyzer := &analysis.Analyzer{
 		Name:     "channelpolicy",
 		Doc:      "checks channel capacity and closing ownership",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 	}
 	analyzer.Flags.Int64Var(&config.maxUnexplainedCapacity, "max-unexplained-capacity", 1, "largest channel capacity allowed without a rationale; negative disables the check")
-	analyzer.Flags.BoolVar(&config.checkBorrowedClose, "check-borrowed-close", true, "report closing a channel received from the caller")
-	analyzer.Flags.BoolVar(&config.checkSendAfterClose, "check-send-after-close", true, "report sends proven to follow a close")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runChannelPolicy(pass, config)
 	}
@@ -32,8 +30,6 @@ func channelPolicyAnalyzer() *analysis.Analyzer {
 
 type channelPolicyConfig struct {
 	maxUnexplainedCapacity int64
-	checkBorrowedClose     bool
-	checkSendAfterClose    bool
 }
 
 func runChannelPolicy(pass *analysis.Pass, config channelPolicyConfig) (any, error) {
@@ -111,11 +107,8 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, confi
 				continue
 			}
 			channel := common.Args[0]
-			if config.checkBorrowedClose && aliasesAny(channel, parameters) {
+			if aliasesAny(channel, parameters) {
 				pass.Reportf(instruction.Pos(), "do not close a channel received from caller")
-			}
-			if !config.checkSendAfterClose {
-				continue
 			}
 			for _, candidate := range reachableInstructions(instruction) {
 				send, ok := candidate.(*ssa.Send)

@@ -31,6 +31,11 @@ func inspectStoredText(err error) bool {
 	return strings.Contains(message, "missing") // want "do not classify errors by matching Error text"
 }
 
+func legacyDirectiveDoesNotSuppress(err error) bool {
+	//gohawk:error-text-match legacy directive is no longer supported
+	return strings.Contains(err.Error(), "missing") // want "do not classify errors by matching Error text"
+}
+
 func exclusiveHandling(err error, returnError bool) error {
 	if returnError {
 		return err

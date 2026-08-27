@@ -1,8 +1,6 @@
 package general
 
 import (
-	"go/ast"
-	"go/token"
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
@@ -11,8 +9,6 @@ import (
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
 )
-
-const errorTextMatchDirective = "gohawk:error-text-match "
 
 func errorOwnershipAnalyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
@@ -39,25 +35,13 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 				if loggingCall(call.Common()) && loggedErrorIsReturned(call) {
 					pass.Reportf(call.Pos(), "error is logged and returned by same function")
 				}
-				if !isTest && stringErrorClassificationSSA(call) && !errorTextMatchAllowedAt(pass, file, call.Pos()) {
+				if !isTest && stringErrorClassificationSSA(call) {
 					pass.Reportf(call.Pos(), "do not classify errors by matching Error text")
 				}
 			}
 		}
 	}
 	return nil, nil
-}
-
-func errorTextMatchAllowedAt(pass *analysis.Pass, file *ast.File, position token.Pos) bool {
-	line := pass.Fset.Position(position).Line
-	for _, group := range file.Comments {
-		firstLine := pass.Fset.Position(group.Pos()).Line
-		lastLine := pass.Fset.Position(group.End()).Line
-		if firstLine <= line && lastLine >= line-1 && strings.Contains(group.Text(), errorTextMatchDirective) {
-			return true
-		}
-	}
-	return false
 }
 
 func loggingCall(common *ssa.CallCommon) bool {

@@ -40,7 +40,7 @@ func testVariant(pass *analysis.Pass) bool {
 }
 
 // DiagnosticSuppressed reports whether an immediately adjacent comment
-// contains "gohawk:ignore analyzer rationale" for analyzer.
+// contains "gohawk:ignore analyzer" for analyzer.
 func DiagnosticSuppressed(pass *analysis.Pass, position token.Pos, analyzer string) bool {
 	line := pass.Fset.Position(position).Line
 	for _, file := range pass.Files {
@@ -67,7 +67,7 @@ func suppressionComment(comment, analyzer string) bool {
 	text := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(comment), "//"), "*/"))
 	text = strings.TrimSpace(strings.TrimPrefix(text, "/*"))
 	fields := strings.Fields(text)
-	return len(fields) >= 3 && fields[0] == "gohawk:ignore" && fields[1] == analyzer
+	return len(fields) >= 2 && fields[0] == "gohawk:ignore" && fields[1] == analyzer
 }
 
 // FunctionSymbol identifies one package-level Go function.

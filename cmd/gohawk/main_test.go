@@ -89,14 +89,14 @@ func TestCLIIntegration(t *testing.T) {
 			t.Fatalf("default policy: exit code = %d, output = %q", exitCode, output)
 		}
 
-		output, exitCode = runCommand(t, goroutineModule, binary, "-goroutineownership", "-goroutineownership.require-join", "./...")
+		output, exitCode = runCommand(t, goroutineModule, binary, "-goroutineownership", "-goroutineownership.mode=join", "./...")
 		if exitCode != 3 || !strings.Contains(output, "goroutine is not joined") {
-			t.Fatalf("require-join policy: exit code = %d\n%s", exitCode, output)
+			t.Fatalf("join policy: exit code = %d\n%s", exitCode, output)
 		}
 
-		output, exitCode = runCommand(t, goroutineModule, "go", "vet", "-vettool="+binary, "-goroutineownership", "-goroutineownership.require-join", "./...")
+		output, exitCode = runCommand(t, goroutineModule, "go", "vet", "-vettool="+binary, "-goroutineownership", "-goroutineownership.mode=join", "./...")
 		if exitCode != 1 || !strings.Contains(output, "goroutine is not joined") {
-			t.Fatalf("vettool require-join policy: exit code = %d\n%s", exitCode, output)
+			t.Fatalf("vettool join policy: exit code = %d\n%s", exitCode, output)
 		}
 	})
 
@@ -108,19 +108,11 @@ func TestCLIIntegration(t *testing.T) {
 		for _, name := range []string{
 			"apishape.max-parameters",
 			"apishape.max-adjacent-same-type",
-			"apishape.check-adjacent-optional-scalars",
-			"apishape.check-mixed-receivers",
 			"channelpolicy.max-unexplained-capacity",
-			"channelpolicy.check-borrowed-close",
-			"channelpolicy.check-send-after-close",
-			"contextpolicy.require-first",
-			"contextpolicy.forbid-storage",
 			"contextpolicy.prefer-test-context",
-			"contextpolicy.forbid-nil",
 			"globalstate.allow-names",
 			"globalstate.allow-types",
-			"goroutineownership.accept-context-lifecycle",
-			"goroutineownership.require-join",
+			"goroutineownership.mode",
 			"taintpolicy.sinks",
 			"taintpolicy.sanitizers",
 			"resourcelifetime.contracts",
@@ -135,6 +127,13 @@ func TestCLIIntegration(t *testing.T) {
 	t.Run("invalid analyzer option", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-taintpolicy", "-taintpolicy.sinks=database", "./...")
 		if exitCode != 2 || !strings.Contains(output, `unknown value "database"`) {
+			t.Fatalf("exit code = %d, want 2 with option error\n%s", exitCode, output)
+		}
+	})
+
+	t.Run("invalid goroutine ownership mode", func(t *testing.T) {
+		output, exitCode := runCommand(t, module, binary, "-goroutineownership", "-goroutineownership.mode=strict", "./...")
+		if exitCode != 2 || !strings.Contains(output, `unknown value "strict"`) {
 			t.Fatalf("exit code = %d, want 2 with option error\n%s", exitCode, output)
 		}
 	})

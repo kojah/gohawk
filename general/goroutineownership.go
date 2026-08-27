@@ -14,14 +14,13 @@ import (
 )
 
 func goroutineOwnershipAnalyzer() *analysis.Analyzer {
-	config := goroutineOwnershipConfig{acceptContextLifecycle: true}
+	config := goroutineOwnershipConfig{mode: goroutineModeContext}
 	analyzer := &analysis.Analyzer{
 		Name:     "goroutineownership",
 		Doc:      "checks that explicit goroutines have a recognizable join handle or lifecycle owner",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 	}
-	analyzer.Flags.BoolVar(&config.acceptContextLifecycle, "accept-context-lifecycle", true, "accept a passed or captured context as lifecycle ownership")
-	analyzer.Flags.BoolVar(&config.requireJoin, "require-join", false, "require an explicit completion signal or wait instead of context or lifecycle ownership")
+	analyzer.Flags.Var(newChoiceValue(&config.mode, goroutineModeContext, goroutineModeLifecycle, goroutineModeJoin), "mode", "ownership policy: context, lifecycle, or join")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runGoroutineOwnership(pass, config)
 	}
@@ -29,9 +28,14 @@ func goroutineOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 type goroutineOwnershipConfig struct {
-	acceptContextLifecycle bool
-	requireJoin            bool
+	mode string
 }
+
+const (
+	goroutineModeContext   = "context"
+	goroutineModeLifecycle = "lifecycle"
+	goroutineModeJoin      = "join"
+)
 
 func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig) (any, error) {
 	for _, function := range analysisutil.SourceSSAFunctions(pass) {
@@ -43,22 +47,22 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				}
 				signals, groups := goroutineJoinValues(spawn)
 				owners := goroutineLifecycleValues(spawn)
-				if !config.requireJoin && config.acceptContextLifecycle && goroutineHasContextLifecycle(spawn) {
+				if config.mode == goroutineModeContext && goroutineHasContextLifecycle(spawn) {
 					continue
 				}
-				if !config.requireJoin && (goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners)) || ownershipRegisteredBefore(spawn, signals, groups) {
+				if (config.mode != goroutineModeJoin && (goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners))) || ownershipRegisteredBefore(spawn, signals, groups) {
 					continue
 				}
 				if analysisutil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
 					if joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) {
 						return true
 					}
-					if config.requireJoin {
+					if config.mode == goroutineModeJoin {
 						return transfersGoroutineOwnership(candidate, signals, groups, nil)
 					}
 					return ownsGoroutineLifecycle(candidate, owners) || transfersGoroutineOwnership(candidate, signals, groups, owners)
 				}, func(returned *ssa.Return) bool {
-					return returnedAliasesAny(returned, signals) || returnedAliasesAny(returned, groups) || !config.requireJoin && returnedAliasesAny(returned, owners)
+					return returnedAliasesAny(returned, signals) || returnedAliasesAny(returned, groups) || config.mode != goroutineModeJoin && returnedAliasesAny(returned, owners)
 				}) {
 					pass.Reportf(spawn.Pos(), "goroutine is not joined on every return path")
 				}

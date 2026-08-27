@@ -132,12 +132,20 @@ func TestSuggestedFixes(t *testing.T) {
 	}
 }
 
-func TestGoroutineOwnershipRequireJoin(t *testing.T) {
+func TestGoroutineOwnershipJoinMode(t *testing.T) {
 	analyzer := configurableAnalyzer(t, "goroutineownership")
-	if err := analyzer.Flags.Set("require-join", "true"); err != nil {
-		t.Fatalf("set require-join: %v", err)
+	if err := analyzer.Flags.Set("mode", "join"); err != nil {
+		t.Fatalf("set mode: %v", err)
 	}
 	analysistest.Run(t, analysistest.TestData(), analyzer, "goroutineownershipstrict")
+}
+
+func TestGoroutineOwnershipLifecycleMode(t *testing.T) {
+	analyzer := configurableAnalyzer(t, "goroutineownership")
+	if err := analyzer.Flags.Set("mode", "lifecycle"); err != nil {
+		t.Fatalf("set mode: %v", err)
+	}
+	analysistest.Run(t, analysistest.TestData(), analyzer, "goroutineownershiplifecycle")
 }
 
 func TestAnalyzerConfiguration(t *testing.T) {
@@ -147,13 +155,13 @@ func TestAnalyzerConfiguration(t *testing.T) {
 		flags   map[string]string
 	}{
 		{name: "apishape", pattern: "apishapeconfig", flags: map[string]string{
-			"max-parameters": "5", "max-adjacent-same-type": "5", "check-adjacent-optional-scalars": "false", "check-mixed-receivers": "false",
+			"max-parameters": "5", "max-adjacent-same-type": "5",
 		}},
 		{name: "channelpolicy", pattern: "channelpolicyconfig", flags: map[string]string{
-			"max-unexplained-capacity": "10", "check-borrowed-close": "false", "check-send-after-close": "false",
+			"max-unexplained-capacity": "10",
 		}},
 		{name: "contextpolicy", pattern: "contextpolicyconfig", flags: map[string]string{
-			"require-first": "false", "forbid-storage": "false", "prefer-test-context": "false", "forbid-nil": "false",
+			"prefer-test-context": "false",
 		}},
 		{name: "globalstate", pattern: "globalstateconfig", flags: map[string]string{
 			"allow-names": "cache", "allow-types": "globalstateconfig.Registry",

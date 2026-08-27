@@ -16,13 +16,13 @@ var _ = func() {}
 var genericallyAllowed = map[string]string{}
 
 //gohawk:ignore globalstate
-var genericMissingRationale = map[string]string{} // want "mutable package state genericMissingRationale"
+var genericWithoutReason = map[string]string{}
 
 //gohawk:globalstate test fixture intentionally exercises shared state
-var allowedForProcessFixture = map[string]string{}
+var legacyWithReason = map[string]string{} // want "mutable package state legacyWithReason"
 
 //gohawk:globalstate
-var missingRationale = map[string]string{} // want "mutable package state missingRationale"
+var legacyWithoutReason = map[string]string{} // want "mutable package state legacyWithoutReason"
 
 var (
 	errSentinel = errors.New("sentinel")
@@ -30,5 +30,5 @@ var (
 	once        sync.Once
 
 	//gohawk:globalstate guarded by fixture lifecycle
-	allowedInGroup = []string{}
+	legacyInGroup = []string{} // want "mutable package state legacyInGroup"
 )

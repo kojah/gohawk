@@ -16,7 +16,7 @@ func documentedBackgroundWorker() {
 
 func undocumentedBackgroundWorker() {
 	//gohawk:ignore goroutineownership
-	go func() {}() // want "goroutine is not joined on every return path"
+	go func() {}()
 }
 
 type lifecycleOwner struct{}
