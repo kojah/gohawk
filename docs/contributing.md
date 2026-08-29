@@ -46,10 +46,11 @@ Update `general/analyzers.go` in two places:
 1. Add the constructor to the right group in `AnalyzerGroups`.
 2. Add its name to the stable order in `Analyzers`.
 
-Add its catalog description and at least one `correctness`, `reliability`, or
-`policy` tag to `AnalyzerMetadata`. New analyzers use the default profile unless
-you explicitly assign the opt-in profile. Record suggested-fix support there as
-well when applicable.
+Give every diagnostic rule a stable check identity and at least one
+`correctness`, `reliability`, or `policy` tag in `analyzerChecks`. Report each
+diagnostic through `report` or `reportf` with that check identity. New analyzers
+use the default profile unless you explicitly assign the opt-in profile in
+`AnalyzerMetadata`. Record suggested-fix support there as well when applicable.
 
 Then update `analyzers/analyzers_test.go`:
 

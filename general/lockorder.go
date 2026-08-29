@@ -115,21 +115,21 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			if position == token.NoPos {
 				position = acquiredAt[identity]
 			}
-			analysisutil.Reportf(pass, position, "lock %s is not released on this return path", identity)
+			reportf(pass, checkLockMissingRelease, position, "lock %s is not released on this return path", identity)
 		}
 	}
 }
 
 func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string, identity string, relations map[lockRelation]token.Pos) []string {
 	if slices.Contains(held, identity) {
-		analysisutil.Reportf(pass, instruction.Pos(), "lock %s is acquired while already held", identity)
+		reportf(pass, checkLockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
 		return held
 	}
 	for _, owner := range held {
 		relation := lockRelation{from: owner, to: identity}
 		reverse := lockRelation{from: identity, to: owner}
 		if _, exists := relations[reverse]; exists {
-			analysisutil.Reportf(pass, instruction.Pos(), "contradictory lock order: %s and %s", identity, owner)
+			reportf(pass, checkLockContradictoryOrder, instruction.Pos(), "contradictory lock order: %s and %s", identity, owner)
 		}
 		relations[relation] = instruction.Pos()
 	}

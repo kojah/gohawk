@@ -22,6 +22,14 @@ func TestCollectManifest(t *testing.T) {
 	if len(data.Groups) != len(gohawk.AnalyzerGroups()) {
 		t.Fatalf("group count = %d, want %d", len(data.Groups), len(gohawk.AnalyzerGroups()))
 	}
+	if len(data.Tags) != len(gohawk.TagCatalog()) {
+		t.Fatalf("tag count = %d, want %d", len(data.Tags), len(gohawk.TagCatalog()))
+	}
+	for _, tag := range data.Tags {
+		if tag.ID == "" || tag.Description == "" {
+			t.Errorf("generated tag is incomplete: %+v", tag)
+		}
+	}
 	var analyzerCount int
 	for _, group := range data.Groups {
 		analyzerCount += len(group.Analyzers)
@@ -44,8 +52,13 @@ func TestCollectManifest(t *testing.T) {
 			if analyzer.Profile != string(info.Profile) {
 				t.Errorf("analyzer %q profile metadata was not copied", analyzer.Name)
 			}
-			if len(analyzer.Tags) != len(info.Tags) {
-				t.Errorf("analyzer %q tag metadata was not copied", analyzer.Name)
+			if len(analyzer.Checks) != len(info.Checks) {
+				t.Errorf("analyzer %q check metadata was not copied", analyzer.Name)
+			}
+			for _, check := range analyzer.Checks {
+				if check.ID == "" || check.Summary == "" || len(check.Tags) == 0 {
+					t.Errorf("analyzer %q generated incomplete check metadata: %+v", analyzer.Name, check)
+				}
 			}
 		}
 	}
@@ -79,7 +92,7 @@ func TestGroupCardsUsesAnalyzerSummaryAndOmitsProfile(t *testing.T) {
 			Name:    "example",
 			Summary: "Checks the complete example problem.",
 			Profile: "default",
-			Tags:    []string{"reliability"},
+			Checks:  []check{{ID: "example/problem", Tags: []string{"reliability"}}},
 		}},
 	})
 	if !strings.Contains(cards, "Checks the complete example problem.") {
@@ -88,8 +101,8 @@ func TestGroupCardsUsesAnalyzerSummaryAndOmitsProfile(t *testing.T) {
 	if strings.Contains(cards, "analyzer-profile") || strings.Contains(cards, ">default<") {
 		t.Fatalf("catalog card contains analyzer profile: %s", cards)
 	}
-	if !strings.Contains(cards, `class="analyzer-tag"`) {
-		t.Fatalf("catalog card lost analyzer tags: %s", cards)
+	if strings.Contains(cards, `class="analyzer-tag"`) {
+		t.Fatalf("catalog card contains projected analyzer tags: %s", cards)
 	}
 }
 
@@ -102,6 +115,37 @@ func TestSynchronizeExamplesAddsGeneratedMarkers(t *testing.T) {
 	want := "## Examples\n\n" + generatedExamplesStart + "\nnew\n" + generatedExamplesEnd + "\n\n## Options"
 	if !strings.Contains(string(got), want) {
 		t.Fatalf("generated examples section missing from %q", got)
+	}
+}
+
+func TestSynchronizeChecksAddsGeneratedSubsection(t *testing.T) {
+	contents := []byte("# Rule\n\n## What it detects\n\nSummary.\n\n## Why this is flagged\n")
+	got, err := synchronizeChecks(contents, "checks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Summary.\n\n### Checks\n\n" + generatedChecksStart + "\nchecks\n" + generatedChecksEnd + "\n\n## Why this is flagged"
+	if !strings.Contains(string(got), want) {
+		t.Fatalf("generated checks subsection missing from %q", got)
+	}
+}
+
+func TestChecksBlockIncludesIDsDescriptionsAndLinkedTags(t *testing.T) {
+	block := checksBlock([]check{{
+		ID:      "example/problem",
+		Summary: "Reports the example problem.",
+		Tags:    []string{"correctness", "reliability"},
+	}})
+	for _, want := range []string{
+		`id="check-example-problem"`,
+		`<code class="analyzer-check-id">example/problem</code>`,
+		"Reports the example problem.",
+		`href="../../../tags-and-profiles/#correctness"`,
+		`href="../../../tags-and-profiles/#reliability"`,
+	} {
+		if !strings.Contains(block, want) {
+			t.Fatalf("checks block is missing %q: %s", want, block)
+		}
 	}
 }
 

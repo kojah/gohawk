@@ -56,7 +56,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				}, func(returned *ssa.Return) bool {
 					return startFailureReturn(returned, start) || returnedValueAliases(returned, command)
 				}) {
-					analysisutil.Reportf(pass, start.Pos(), "started command is not waited on every successful return path")
+					reportf(pass, checkProcessWait, start.Pos(), "started command is not waited on every successful return path")
 				}
 			}
 		}

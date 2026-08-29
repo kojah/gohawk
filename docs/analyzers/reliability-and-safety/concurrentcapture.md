@@ -9,6 +9,20 @@ Goroutines launched from a loop should not mutate the same captured local
 without synchronization. Prefer returning results through a channel or keeping
 the value local to each goroutine.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-concurrentcapture-shared-capture">
+    <code class="analyzer-check-id">concurrentcapture/shared-capture</code>
+    <p>Reports repeatedly launched goroutines that mutate the same captured local.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Those goroutines run at unpredictable times and may read or write the captured
@@ -29,7 +43,7 @@ with the same synchronization mechanism.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6ImNhcHR1cmVkIGxvY2FsIGVyciBpcyBtdXRhdGVkIGJ5IGdvcm91dGluZXMgbGF1bmNoZWQgcmVwZWF0ZWRseSIsInN0YXJ0TGluZSI6NCwic3RhcnRDb2x1bW4iOjYsImVuZExpbmUiOjQsImVuZENvbHVtbiI6MTl9XQ"
+```go gohawk="W3siY2hlY2siOiJjb25jdXJyZW50Y2FwdHVyZS9zaGFyZWQtY2FwdHVyZSIsIm1lc3NhZ2UiOiJjYXB0dXJlZCBsb2NhbCBlcnIgaXMgbXV0YXRlZCBieSBnb3JvdXRpbmVzIGxhdW5jaGVkIHJlcGVhdGVkbHkiLCJzdGFydExpbmUiOjQsInN0YXJ0Q29sdW1uIjo2LCJlbmRMaW5lIjo0LCJlbmRDb2x1bW4iOjE5fV0"
 func collect(items []int) error {
   var err error
   for range items {

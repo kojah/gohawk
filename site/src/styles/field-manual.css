@@ -83,14 +83,6 @@ main:has(.landing) > .content-panel:first-child {
 	display: none;
 }
 
-starlight-toc li:has(> a[href='#_top']) {
-	display: none;
-}
-
-starlight-toc a[href='#_top'] {
-	display: none;
-}
-
 .right-sidebar-panel :where(starlight-toc ul ul) {
 	margin-inline-start: 0.5rem;
 	border-inline-start: 1px solid var(--sl-color-hairline-light);
@@ -334,23 +326,6 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	color: var(--sl-color-gray-1);
 }
 
-.analyzer-card-meta {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.35rem;
-	margin-top: 0.55rem;
-}
-
-.analyzer-tag {
-	padding: 0.15rem 0.45rem;
-	border: 1px solid var(--sl-color-hairline-light);
-	border-radius: 999px;
-	font-family: var(--sl-font-mono);
-	font-size: 0.7rem;
-	line-height: 1.35;
-	color: var(--sl-color-gray-2);
-}
-
 /* ---------------------------------------------------- analyzer fact strip -- */
 
 /* An analyzer page names a code identifier, so its title is set in the mono
@@ -389,7 +364,7 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 
 .rule-meta {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	margin: 0;
 	border: 1px solid var(--sl-color-hairline);
 	border-radius: var(--gh-radius);
@@ -423,21 +398,68 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	color: var(--sl-color-white);
 }
 
-.rule-meta .rule-tags {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 0.35rem;
-	font-weight: 400;
+/* ---------------------------------------------------------- check index -- */
+
+.analyzer-check-list {
+	display: grid;
+	margin-block: 1rem 1.5rem;
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: var(--gh-radius);
+	overflow: hidden;
 }
 
-.rule-meta .analyzer-tag {
-	padding: 0.2rem 0.55rem;
-	border-color: var(--sl-color-hairline);
-	font-family: var(--sl-font);
-	font-size: 0.78rem;
+.analyzer-check {
+	display: grid;
+	grid-template-columns: minmax(12rem, 0.9fr) minmax(14rem, 1.4fr) auto;
+	gap: 0.75rem 1rem;
+	align-items: start;
+	padding: 0.85rem 1rem;
+	border-bottom: 1px solid var(--sl-color-hairline-light);
+}
+
+.analyzer-check:last-child {
+	border-bottom: 0;
+}
+
+.sl-markdown-content .analyzer-check-id {
+	padding: 0;
+	background: transparent;
+	font-size: 0.82rem;
 	font-weight: 600;
+	line-height: 1.5;
+	overflow-wrap: anywhere;
 	color: var(--sl-color-white);
+}
+
+.analyzer-check > p {
+	margin: 0;
+	font-size: 0.95rem;
+	line-height: 1.5;
+	color: var(--sl-color-gray-2);
+}
+
+.analyzer-check-tags {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.35rem;
+}
+
+.sl-markdown-content .analyzer-check-tags a {
+	padding: 0.12rem 0.4rem;
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: 4px;
+	font-family: var(--sl-font-mono);
+	font-size: 0.68rem;
+	line-height: 1.4;
+	text-decoration: none;
+	color: var(--sl-color-gray-2);
+}
+
+.sl-markdown-content .analyzer-check-tags a:hover,
+.sl-markdown-content .analyzer-check-tags a:focus-visible {
+	border-color: var(--sl-color-accent);
+	color: var(--sl-color-accent-high);
 }
 
 /* --------------------------------------------------------------- tables -- */
@@ -533,6 +555,14 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 @media (max-width: 50rem) {
 	.analyzer-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.analyzer-check {
+		grid-template-columns: 1fr;
+	}
+
+	.analyzer-check-tags {
+		justify-content: flex-start;
 	}
 }
 

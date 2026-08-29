@@ -9,6 +9,43 @@ Reports `context.Context` parameters that are not first, contexts stored in
 structs, and calls that pass a definitely nil context. In supported test code,
 it also prefers `t.Context()` or `b.Context()` over `context.Background()`.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-contextpolicy-context-first">
+    <code class="analyzer-check-id">contextpolicy/context-first</code>
+    <p>Reports context.Context parameters that are not first.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-contextpolicy-context-storage">
+    <code class="analyzer-check-id">contextpolicy/context-storage</code>
+    <p>Reports context.Context values stored in structs.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-contextpolicy-test-context">
+    <code class="analyzer-check-id">contextpolicy/test-context</code>
+    <p>Reports tests that use context.Background instead of the testing handle&#39;s context.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-contextpolicy-nil-context">
+    <code class="analyzer-check-id">contextpolicy/nil-context</code>
+    <p>Reports definitely nil context.Context arguments.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Keeping `context.Context` as the first parameter makes cancellation and
@@ -31,7 +68,7 @@ appropriate real context, such as the test's context in test code.
 
 #### Context parameter order
 
-```go gohawk="W3sibWVzc2FnZSI6ImNvbnRleHQuQ29udGV4dCBtdXN0IGJlIGZpcnN0IHBhcmFtZXRlciIsInN0YXJ0TGluZSI6MCwic3RhcnRDb2x1bW4iOjUsImVuZExpbmUiOjAsImVuZENvbHVtbiI6MTN9XQ"
+```go gohawk="W3siY2hlY2siOiJjb250ZXh0cG9saWN5L2NvbnRleHQtZmlyc3QiLCJtZXNzYWdlIjoiY29udGV4dC5Db250ZXh0IG11c3QgYmUgZmlyc3QgcGFyYW1ldGVyIiwic3RhcnRMaW5lIjowLCJzdGFydENvbHVtbiI6NSwiZW5kTGluZSI6MCwiZW5kQ29sdW1uIjoxM31d"
 func LoadUser(id string, ctx context.Context) error {
   return nil
 }
@@ -39,7 +76,7 @@ func LoadUser(id string, ctx context.Context) error {
 
 #### Context stored in a struct
 
-```go gohawk="W3sibWVzc2FnZSI6ImRvIG5vdCBzdG9yZSBjb250ZXh0LkNvbnRleHQgaW4gYSBzdHJ1Y3QiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjI1fV0"
+```go gohawk="W3siY2hlY2siOiJjb250ZXh0cG9saWN5L2NvbnRleHQtc3RvcmFnZSIsIm1lc3NhZ2UiOiJkbyBub3Qgc3RvcmUgY29udGV4dC5Db250ZXh0IGluIGEgc3RydWN0Iiwic3RhcnRMaW5lIjoxLCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MSwiZW5kQ29sdW1uIjoyNX1d"
 type Request struct {
   Context context.Context
 }
@@ -47,7 +84,7 @@ type Request struct {
 
 #### Nil context argument
 
-```go gohawk="W3sibWVzc2FnZSI6ImRvIG5vdCBwYXNzIG5pbCBjb250ZXh0LkNvbnRleHQiLCJzdGFydExpbmUiOjMsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjozLCJlbmRDb2x1bW4iOjIwfV0"
+```go gohawk="W3siY2hlY2siOiJjb250ZXh0cG9saWN5L25pbC1jb250ZXh0IiwibWVzc2FnZSI6ImRvIG5vdCBwYXNzIG5pbCBjb250ZXh0LkNvbnRleHQiLCJzdGFydExpbmUiOjMsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjozLCJlbmRDb2x1bW4iOjIwfV0"
 func acceptContext(context.Context) {}
 
 func loadWithoutContext() {

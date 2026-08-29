@@ -9,6 +9,20 @@ Function arguments and return operands are evaluated from left to right. Split
 an operation into statements when a later operand mutates a value already read
 by an earlier operand.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-evalorder-operand-mutation">
+    <code class="analyzer-check-id">evalorder/operand-mutation</code>
+    <p>Reports expressions whose later operand mutates a value read by an earlier operand.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Combining a read and a mutation in one expression makes the result depend on a
@@ -28,7 +42,7 @@ results in their intended order.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6ImxhdGVyIG9wZXJhbmQgbWF5IG11dGF0ZSB2YWx1ZSBhZnRlciBpdHMgZWFybGllciB2YWx1ZSB3YXMgZXZhbHVhdGVkIiwic3RhcnRMaW5lIjo2LCJzdGFydENvbHVtbiI6MjQsImVuZExpbmUiOjYsImVuZENvbHVtbiI6MzB9XQ"
+```go gohawk="W3siY2hlY2siOiJldmFsb3JkZXIvb3BlcmFuZC1tdXRhdGlvbiIsIm1lc3NhZ2UiOiJsYXRlciBvcGVyYW5kIG1heSBtdXRhdGUgdmFsdWUgYWZ0ZXIgaXRzIGVhcmxpZXIgdmFsdWUgd2FzIGV2YWx1YXRlZCIsInN0YXJ0TGluZSI6Niwic3RhcnRDb2x1bW4iOjI0LCJlbmRMaW5lIjo2LCJlbmRDb2x1bW4iOjMwfV0"
 func refresh(value *int) error {
   *value = 42
   return nil

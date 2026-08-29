@@ -24,12 +24,6 @@ const isLanding = entry.id === 'index' || entry.id === '';
 					<strong>{analyzer.profile}</strong>
 				</div>
 				<div>
-					<span class="rule-meta-label">Tags</span>
-					<strong class="rule-tags">
-						{analyzer.tags.map((tag) => <span class="analyzer-tag">{tag}</span>)}
-					</strong>
-				</div>
-				<div>
 					<span class="rule-meta-label">Fix offered</span>
 					<strong>{analyzer.suggestedFix ? 'Yes' : 'No'}</strong>
 				</div>

@@ -9,6 +9,20 @@ description: "Do not bypass registered cleanup when terminating the process."
 Return an error through the normal call stack when cleanup has already been
 registered on the current path.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-exitpolicy-skipped-defer">
+    <code class="analyzer-check-id">exitpolicy/skipped-defer</code>
+    <p>Reports immediate process termination that bypasses an earlier defer.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Immediate process termination skips deferred cleanup. Buffered output may be
@@ -28,7 +42,7 @@ the cleanup has returned.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6ImxvZy5GYXRhbCBleGl0cyB3aXRob3V0IHJ1bm5pbmcgYW4gZWFybGllciBkZWZlciIsInN0YXJ0TGluZSI6Mywic3RhcnRDb2x1bW4iOjIsImVuZExpbmUiOjMsImVuZENvbHVtbiI6Mjl9XQ"
+```go gohawk="W3siY2hlY2siOiJleGl0cG9saWN5L3NraXBwZWQtZGVmZXIiLCJtZXNzYWdlIjoibG9nLkZhdGFsIGV4aXRzIHdpdGhvdXQgcnVubmluZyBhbiBlYXJsaWVyIGRlZmVyIiwic3RhcnRMaW5lIjozLCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MywiZW5kQ29sdW1uIjoyOX1d"
 func run() {
   file, _ := os.CreateTemp("", "state")
   defer file.Close()

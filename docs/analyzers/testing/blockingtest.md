@@ -9,6 +9,34 @@ Reports blocking channel receives and selects in test code when they have no
 cancellation or timer escape. It also reports unguarded sends in context-aware
 test helpers.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-blockingtest-send">
+    <code class="analyzer-check-id">blockingtest/send</code>
+    <p>Reports unguarded channel sends in context-aware test code.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-blockingtest-receive">
+    <code class="analyzer-check-id">blockingtest/receive</code>
+    <p>Reports blocking channel receives in tests without a cancellation escape.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-blockingtest-select">
+    <code class="analyzer-check-id">blockingtest/select</code>
+    <p>Reports blocking selects in tests without a cancellation escape.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 An unconditional wait can leave a test stuck forever when the expected event
@@ -29,7 +57,7 @@ it was waiting for.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6ImJsb2NraW5nIGNoYW5uZWwgcmVjZWl2ZSBpbiB0ZXN0IGNvZGUgcmVxdWlyZXMgY2FuY2VsbGF0aW9uLWF3YXJlIHNlbGVjdCIsInN0YXJ0TGluZSI6MSwic3RhcnRDb2x1bW4iOjksImVuZExpbmUiOjEsImVuZENvbHVtbiI6MTd9XQ"
+```go gohawk="W3siY2hlY2siOiJibG9ja2luZ3Rlc3QvcmVjZWl2ZSIsIm1lc3NhZ2UiOiJibG9ja2luZyBjaGFubmVsIHJlY2VpdmUgaW4gdGVzdCBjb2RlIHJlcXVpcmVzIGNhbmNlbGxhdGlvbi1hd2FyZSBzZWxlY3QiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjo5LCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjE3fV0"
 func waitForEvent(t *testing.T, events <-chan Event) Event {
   return <-events
 }

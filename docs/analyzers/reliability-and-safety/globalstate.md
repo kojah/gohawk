@@ -9,6 +9,21 @@ Reports mutable package-level variables such as maps, slices, pointers,
 interfaces, channels, and function values. Known immutable patterns and
 explicitly configured names or types are excluded.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-globalstate-mutable-package-state">
+    <code class="analyzer-check-id">globalstate/mutable-package-state</code>
+    <p>Reports mutable package-level state without an explicit owner.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Mutable package state creates hidden dependencies between callers and tests.
@@ -26,7 +41,7 @@ beside it and expose safe operations instead of the raw value.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6Im11dGFibGUgcGFja2FnZSBzdGF0ZSB1c2VycyByZXF1aXJlcyBhbiBpbW11dGFibGUgb3duZXIgb3IgLy9nb2hhd2s6aWdub3JlIGdsb2JhbHN0YXRlIiwic3RhcnRMaW5lIjo0LCJzdGFydENvbHVtbiI6NCwiZW5kTGluZSI6NCwiZW5kQ29sdW1uIjoyOX1d"
+```go gohawk="W3siY2hlY2siOiJnbG9iYWxzdGF0ZS9tdXRhYmxlLXBhY2thZ2Utc3RhdGUiLCJtZXNzYWdlIjoibXV0YWJsZSBwYWNrYWdlIHN0YXRlIHVzZXJzIHJlcXVpcmVzIGFuIGltbXV0YWJsZSBvd25lciBvciAvL2dvaGF3azppZ25vcmUgZ2xvYmFsc3RhdGUiLCJzdGFydExpbmUiOjQsInN0YXJ0Q29sdW1uIjo0LCJlbmRMaW5lIjo0LCJlbmRDb2x1bW4iOjI5fV0"
 type User struct {
   Name string
 }
@@ -71,7 +86,7 @@ func (store *Store) Remember(id string, user StoredUser) {
 Type allowlists use the full import path:
 
 ```sh
-gohawk -globalstate \
+gohawk -enable=globalstate \
   -globalstate.allow-names=metrics,registry \
   -globalstate.allow-types=example.com/project.Registry \
   ./...

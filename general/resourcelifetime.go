@@ -84,7 +84,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 					continue
 				}
 				if resourceLeaks(call, resource, contract) {
-					analysisutil.Reportf(pass, call.Pos(), "owned resource from %s.%s is not released on every return path", shortPackage(contract.packagePath), contract.name)
+					reportf(pass, checkResourceRelease, call.Pos(), "owned resource from %s.%s is not released on every return path", shortPackage(contract.packagePath), contract.name)
 				}
 			}
 		}

@@ -5,8 +5,6 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/analysisutil"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -100,7 +98,7 @@ func reportCapturedMutations(pass *analysis.Pass, closure *ast.FuncLit) {
 				continue
 			}
 			reported[object] = true
-			analysisutil.Reportf(pass, identifier.Pos(), "captured local %s is mutated by goroutines launched repeatedly", identifier.Name)
+			reportf(pass, checkConcurrentCapture, identifier.Pos(), "captured local %s is mutated by goroutines launched repeatedly", identifier.Name)
 		}
 		return true
 	})

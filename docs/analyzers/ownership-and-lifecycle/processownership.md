@@ -9,6 +9,20 @@ Tracks commands successfully started with `os/exec` and reports return paths
 that neither wait for the process nor transfer the command to code that owns
 waiting for it.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-processownership-missing-wait">
+    <code class="analyzer-check-id">processownership/missing-wait</code>
+    <p>Reports successfully started commands that are neither waited on nor transferred.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Starting a process without waiting for it can leave operating-system resources
@@ -28,7 +42,7 @@ exit status or error.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6InN0YXJ0ZWQgY29tbWFuZCBpcyBub3Qgd2FpdGVkIG9uIGV2ZXJ5IHN1Y2Nlc3NmdWwgcmV0dXJuIHBhdGgiLCJzdGFydExpbmUiOjIsInN0YXJ0Q29sdW1uIjo5LCJlbmRMaW5lIjoyLCJlbmRDb2x1bW4iOjI0fV0"
+```go gohawk="W3siY2hlY2siOiJwcm9jZXNzb3duZXJzaGlwL21pc3Npbmctd2FpdCIsIm1lc3NhZ2UiOiJzdGFydGVkIGNvbW1hbmQgaXMgbm90IHdhaXRlZCBvbiBldmVyeSBzdWNjZXNzZnVsIHJldHVybiBwYXRoIiwic3RhcnRMaW5lIjoyLCJzdGFydENvbHVtbiI6OSwiZW5kTGluZSI6MiwiZW5kQ29sdW1uIjoyNH1d"
 func run(ctx context.Context) error {
   command := exec.CommandContext(ctx, "worker")
   return command.Start()

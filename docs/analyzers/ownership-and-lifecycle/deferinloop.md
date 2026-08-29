@@ -9,6 +9,20 @@ A defer inside a loop runs when the surrounding function returns, not when the
 iteration ends. Put cleanup-sensitive work in a helper function so files,
 locks, timers, and similar resources are released after each iteration.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-deferinloop-cleanup-lifetime">
+    <code class="analyzer-check-id">deferinloop/cleanup-lifetime</code>
+    <p>Reports cleanup defers whose lifetime extends across loop iterations.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Deferring cleanup until the whole function returns lets resources accumulate
@@ -28,7 +42,7 @@ released before the next iteration starts.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6ImRlZmVycmVkIGNsZWFudXAgcnVucyBhZnRlciB0aGUgbG9vcCBpbnN0ZWFkIG9mIGFmdGVyIHRoaXMgaXRlcmF0aW9uIiwic3RhcnRMaW5lIjo2LCJzdGFydENvbHVtbiI6NCwiZW5kTGluZSI6NiwiZW5kQ29sdW1uIjoyMn1d"
+```go gohawk="W3siY2hlY2siOiJkZWZlcmlubG9vcC9jbGVhbnVwLWxpZmV0aW1lIiwibWVzc2FnZSI6ImRlZmVycmVkIGNsZWFudXAgcnVucyBhZnRlciB0aGUgbG9vcCBpbnN0ZWFkIG9mIGFmdGVyIHRoaXMgaXRlcmF0aW9uIiwic3RhcnRMaW5lIjo2LCJzdGFydENvbHVtbiI6NCwiZW5kTGluZSI6NiwiZW5kQ29sdW1uIjoyMn1d"
 func readAll(names []string) error {
   for _, name := range names {
     file, err := os.Open(name)

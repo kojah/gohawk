@@ -83,6 +83,7 @@ func commaSeparatedSet(value string) map[string]bool {
 type AnalyzerGroup struct {
 	Name      string
 	Doc       string
+	DocPath   string
 	Analyzers []*analysis.Analyzer
 }
 
@@ -94,8 +95,7 @@ const (
 	AnalyzerProfileOptIn   AnalyzerProfile = "opt-in"
 )
 
-// AnalyzerTag describes the reason an analyzer's findings matter. Tags are
-// composable because one analyzer may report several related kinds of finding.
+// AnalyzerTag identifies a reason that a check's findings matter.
 type AnalyzerTag string
 
 const (
@@ -104,10 +104,27 @@ const (
 	AnalyzerTagPolicy      AnalyzerTag = "policy"
 )
 
+// TagInfo describes one check tag.
+type TagInfo struct {
+	ID          AnalyzerTag
+	Description string
+}
+
+var tagCatalog = []TagInfo{
+	{ID: AnalyzerTagCorrectness, Description: "Strong evidence that the program can behave incorrectly."},
+	{ID: AnalyzerTagReliability, Description: "Code that may work but is vulnerable to meaningful lifecycle, concurrency, or operational failures."},
+	{ID: AnalyzerTagPolicy, Description: "A project convention on which reasonable teams may differ."},
+}
+
+// TagCatalog returns every check tag in stable presentation order.
+func TagCatalog() []TagInfo {
+	return slices.Clone(tagCatalog)
+}
+
 // AnalyzerInfo describes capabilities that are not represented by analysis.Analyzer.
 type AnalyzerInfo struct {
 	Profile      AnalyzerProfile
-	Tags         []AnalyzerTag
+	Checks       []AnalyzerCheckInfo
 	SuggestedFix bool
 }
 
@@ -116,43 +133,19 @@ func (info AnalyzerInfo) EnabledByDefault() bool {
 	return info.Profile == AnalyzerProfileDefault
 }
 
-var analyzerTags = map[string][]AnalyzerTag{
-	"apishape":              {AnalyzerTagPolicy},
-	"contextpolicy":         {AnalyzerTagCorrectness, AnalyzerTagReliability, AnalyzerTagPolicy},
-	"closedomain":           {AnalyzerTagReliability, AnalyzerTagPolicy},
-	"wirepolicy":            {AnalyzerTagReliability, AnalyzerTagPolicy},
-	"cancellationownership": {AnalyzerTagCorrectness},
-	"channelpolicy":         {AnalyzerTagCorrectness, AnalyzerTagReliability, AnalyzerTagPolicy},
-	"deferinloop":           {AnalyzerTagReliability},
-	"exitpolicy":            {AnalyzerTagCorrectness},
-	"goroutineownership":    {AnalyzerTagReliability},
-	"processownership":      {AnalyzerTagCorrectness},
-	"resourcelifetime":      {AnalyzerTagCorrectness},
-	"concurrentcapture":     {AnalyzerTagCorrectness},
-	"determinism":           {AnalyzerTagReliability},
-	"errorownership":        {AnalyzerTagCorrectness, AnalyzerTagReliability},
-	"evalorder":             {AnalyzerTagCorrectness},
-	"globalstate":           {AnalyzerTagReliability, AnalyzerTagPolicy},
-	"lockorder":             {AnalyzerTagCorrectness},
-	"oncepolicy":            {AnalyzerTagCorrectness},
-	"syncmapatomicity":      {AnalyzerTagCorrectness},
-	"taintpolicy":           {AnalyzerTagCorrectness, AnalyzerTagReliability},
-	"blockingtest":          {AnalyzerTagReliability},
-	"testpolicy":            {AnalyzerTagPolicy},
-}
-
 // AnalyzerMetadata returns documentation metadata keyed by analyzer name.
 func AnalyzerMetadata() map[string]AnalyzerInfo {
 	metadata := make(map[string]AnalyzerInfo)
 	for _, group := range AnalyzerGroups() {
 		for _, analyzer := range group.Analyzers {
+			checks := cloneChecks(analyzerChecks[analyzer.Name])
 			metadata[analyzer.Name] = AnalyzerInfo{
 				Profile: AnalyzerProfileDefault,
-				Tags:    slices.Clone(analyzerTags[analyzer.Name]),
+				Checks:  checks,
 			}
 		}
 	}
-	for _, name := range []string{"apishape", "closedomain", "globalstate", "taintpolicy", "testpolicy", "wirepolicy"} {
+	for _, name := range []string{"apishape", "blockingtest", "closedomain", "determinism", "globalstate", "taintpolicy", "testpolicy", "wirepolicy"} {
 		info := metadata[name]
 		info.Profile = AnalyzerProfileOptIn
 		metadata[name] = info
@@ -169,8 +162,9 @@ func AnalyzerMetadata() map[string]AnalyzerInfo {
 func AnalyzerGroups() []AnalyzerGroup {
 	groups := []AnalyzerGroup{
 		{
-			Name: "contracts",
-			Doc:  "API and data contracts",
+			Name:    "contracts",
+			Doc:     "API and data contracts",
+			DocPath: "api-and-data-contracts",
 			Analyzers: []*analysis.Analyzer{
 				apiShapeAnalyzer(),
 				contextPolicyAnalyzer(),
@@ -179,8 +173,9 @@ func AnalyzerGroups() []AnalyzerGroup {
 			},
 		},
 		{
-			Name: "ownership",
-			Doc:  "ownership and lifecycle",
+			Name:    "ownership",
+			Doc:     "ownership and lifecycle",
+			DocPath: "ownership-and-lifecycle",
 			Analyzers: []*analysis.Analyzer{
 				cancellationOwnershipAnalyzer(),
 				channelPolicyAnalyzer(),
@@ -192,8 +187,9 @@ func AnalyzerGroups() []AnalyzerGroup {
 			},
 		},
 		{
-			Name: "reliability",
-			Doc:  "reliability and safety",
+			Name:    "reliability",
+			Doc:     "reliability and safety",
+			DocPath: "reliability-and-safety",
 			Analyzers: []*analysis.Analyzer{
 				concurrentCaptureAnalyzer(),
 				determinismAnalyzer(),
@@ -207,8 +203,9 @@ func AnalyzerGroups() []AnalyzerGroup {
 			},
 		},
 		{
-			Name: "testing",
-			Doc:  "testing",
+			Name:    "testing",
+			Doc:     "testing",
+			DocPath: "testing",
 			Analyzers: []*analysis.Analyzer{
 				blockingTestAnalyzer(),
 				testPolicyAnalyzer(),
@@ -224,10 +221,17 @@ func AnalyzerGroups() []AnalyzerGroup {
 }
 
 func withSuppressions(analyzer *analysis.Analyzer) *analysis.Analyzer {
+	checks := make(map[string]bool, len(analyzerChecks[analyzer.Name]))
+	for _, check := range analyzerChecks[analyzer.Name] {
+		checks[string(check.ID)] = true
+	}
 	run := analyzer.Run
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		report := pass.Report
 		pass.Report = func(diagnostic analysis.Diagnostic) {
+			if !checks[diagnostic.Category] {
+				panic(fmt.Sprintf("analyzer %q reported unknown check %q", analyzer.Name, diagnostic.Category))
+			}
 			if !analysisutil.DiagnosticSuppressed(pass, diagnostic.Pos, analyzer.Name) {
 				report(diagnostic)
 			}

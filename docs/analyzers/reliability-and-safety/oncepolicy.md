@@ -9,6 +9,20 @@ description: "Keep sync.Once function wrappers alive across calls."
 the function value they return. Store that wrapper instead of constructing,
 calling, and discarding it in one expression.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-oncepolicy-discarded-wrapper">
+    <code class="analyzer-check-id">oncepolicy/discarded-wrapper</code>
+    <p>Reports sync.Once function wrappers that are called and immediately discarded.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Each newly created wrapper has fresh once-only state. Recreating it at every
@@ -28,7 +42,7 @@ or action is needed.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6InN5bmMuT25jZUZ1bmMgd3JhcHBlciBpcyBkaXNjYXJkZWQgYWZ0ZXIgb25lIGNhbGwiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjI5fV0"
+```go gohawk="W3siY2hlY2siOiJvbmNlcG9saWN5L2Rpc2NhcmRlZC13cmFwcGVyIiwibWVzc2FnZSI6InN5bmMuT25jZUZ1bmMgd3JhcHBlciBpcyBkaXNjYXJkZWQgYWZ0ZXIgb25lIGNhbGwiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjI5fV0"
 func start() {
   sync.OnceFunc(initialize)()
 }

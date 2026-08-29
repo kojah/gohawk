@@ -9,6 +9,35 @@ Reports channels with large constant capacities that have no nearby rationale,
 code that closes a channel received from its caller, and sends that can happen
 after the channel has been closed.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-channelpolicy-capacity-rationale">
+    <code class="analyzer-check-id">channelpolicy/capacity-rationale</code>
+    <p>Reports large constant channel capacities without a nearby bounded rationale.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-channelpolicy-caller-close">
+    <code class="analyzer-check-id">channelpolicy/caller-close</code>
+    <p>Reports functions that close channels received from their callers.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-channelpolicy-send-after-close">
+    <code class="analyzer-check-id">channelpolicy/send-after-close</code>
+    <p>Reports sends reachable after a channel has been closed.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Closing a channel from the wrong place can race with a sender and panic. Giving
@@ -28,7 +57,7 @@ clear, documented reason.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6ImRvIG5vdCBjbG9zZSBhIGNoYW5uZWwgcmVjZWl2ZWQgZnJvbSBjYWxsZXIiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjIxfV0"
+```go gohawk="W3siY2hlY2siOiJjaGFubmVscG9saWN5L2NhbGxlci1jbG9zZSIsIm1lc3NhZ2UiOiJkbyBub3QgY2xvc2UgYSBjaGFubmVsIHJlY2VpdmVkIGZyb20gY2FsbGVyIiwic3RhcnRMaW5lIjoxLCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MSwiZW5kQ29sdW1uIjoyMX1d"
 func consume(events chan Event) {
   defer close(events)
   for event := range events {

@@ -41,10 +41,10 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				if loggingCall(call.Common()) && loggedErrorIsReturned(call) {
-					analysisutil.Reportf(pass, call.Pos(), "error is logged and returned by same function")
+					reportf(pass, checkErrorLogAndReturn, call.Pos(), "error is logged and returned by same function")
 				}
 				if !isTest && stringErrorClassificationSSA(call) {
-					analysisutil.Reportf(pass, call.Pos(), "do not classify errors by matching Error text")
+					reportf(pass, checkErrorTextClassification, call.Pos(), "do not classify errors by matching Error text")
 				}
 			}
 		}
@@ -83,7 +83,7 @@ func reportMismatchedInlineErrors(pass *analysis.Pass) {
 				return false
 			})
 			if mismatched != nil {
-				analysisutil.Reportf(pass, mismatched.Pos(), "condition checks %s instead of newly declared %s", mismatched.Name, fresh.Name)
+				reportf(pass, checkErrorMismatchedInline, mismatched.Pos(), "condition checks %s instead of newly declared %s", mismatched.Name, fresh.Name)
 			}
 		}
 	})

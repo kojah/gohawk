@@ -37,7 +37,7 @@ func runDeterminism(pass *analysis.Pass) (any, error) {
 					return true
 				}
 				if !hasSortAfter(sortPositions, rangeStatement.Pos()) && !hasSortAfter(orderingHelperPositions, rangeStatement.Pos()) {
-					pass.Report(analysis.Diagnostic{
+					report(pass, checkDeterministicMapOutput, analysis.Diagnostic{
 						Pos:     rangeStatement.Pos(),
 						End:     rangeStatement.X.End(),
 						Message: "map iteration reaches ordered output without sorting",

@@ -9,6 +9,20 @@ Reports map iteration whose order flows directly into ordered output, such as a
 returned slice or string, encoded data, or written text, without an explicit
 sorting step.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-determinism-map-output-order">
+    <code class="analyzer-check-id">determinism/map-output-order</code>
+    <p>Reports map iteration that reaches ordered output without explicit sorting.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Go deliberately does not guarantee map iteration order. Letting that order
@@ -28,7 +42,7 @@ string or numeric order is not the intended result.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6Im1hcCBpdGVyYXRpb24gcmVhY2hlcyBvcmRlcmVkIG91dHB1dCB3aXRob3V0IHNvcnRpbmciLCJzdGFydExpbmUiOjIsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoyLCJlbmRDb2x1bW4iOjI1fV0"
+```go gohawk="W3siY2hlY2siOiJkZXRlcm1pbmlzbS9tYXAtb3V0cHV0LW9yZGVyIiwibWVzc2FnZSI6Im1hcCBpdGVyYXRpb24gcmVhY2hlcyBvcmRlcmVkIG91dHB1dCB3aXRob3V0IHNvcnRpbmciLCJzdGFydExpbmUiOjIsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoyLCJlbmRDb2x1bW4iOjI1fV0"
 func names(users map[string]User) []string {
   var result []string
   for name := range users {

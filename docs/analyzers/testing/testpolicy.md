@@ -8,6 +8,20 @@ description: "Mark test helpers."
 Finds non-entry-point test functions that accept `*testing.T` or `*testing.B`
 and can return without calling the handle's `Helper` method.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-testpolicy-helper-marker">
+    <code class="analyzer-check-id">testpolicy/helper-marker</code>
+    <p>Reports test helpers that do not call Helper on every return path.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Without `t.Helper()`, a failure inside a shared test helper points at the
@@ -27,7 +41,7 @@ the test.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6InRlc3QgaGVscGVyIGFjY2VwdGluZyB0IG11c3QgY2FsbCB0LkhlbHBlcigpIG9uIGV2ZXJ5IHJldHVybiBwYXRoIiwic3RhcnRMaW5lIjowLCJzdGFydENvbHVtbiI6NSwiZW5kTGluZSI6MCwiZW5kQ29sdW1uIjoxNn1d"
+```go gohawk="W3siY2hlY2siOiJ0ZXN0cG9saWN5L2hlbHBlci1tYXJrZXIiLCJtZXNzYWdlIjoidGVzdCBoZWxwZXIgYWNjZXB0aW5nIHQgbXVzdCBjYWxsIHQuSGVscGVyKCkgb24gZXZlcnkgcmV0dXJuIHBhdGgiLCJzdGFydExpbmUiOjAsInN0YXJ0Q29sdW1uIjo1LCJlbmRMaW5lIjowLCJlbmRDb2x1bW4iOjE2fV0"
 func requireUser(t *testing.T, user *User) {
   if user == nil {
     t.Fatal("expected a user")

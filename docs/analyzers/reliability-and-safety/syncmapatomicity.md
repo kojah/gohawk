@@ -9,6 +9,20 @@ A separate `Load` followed by `Delete` allows another goroutine to observe or
 claim the same entry between operations. Use `LoadAndDelete` when the loaded
 value is consumed as the successfully removed entry.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-syncmapatomicity-non-atomic-claim">
+    <code class="analyzer-check-id">syncmapatomicity/non-atomic-claim</code>
+    <p>Reports separate sync.Map Load and Delete operations used to claim one value.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Another goroutine can change the map between two separate operations. The
@@ -28,7 +42,7 @@ entry was present.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6InN5bmMuTWFwIExvYWQgYW5kIERlbGV0ZSBkbyBub3QgYXRvbWljYWxseSBjbGFpbSB0aGUgdmFsdWUiLCJzdGFydExpbmUiOjMsInN0YXJ0Q29sdW1uIjo0LCJlbmRMaW5lIjozLCJlbmRDb2x1bW4iOjIxfV0"
+```go gohawk="W3siY2hlY2siOiJzeW5jbWFwYXRvbWljaXR5L25vbi1hdG9taWMtY2xhaW0iLCJtZXNzYWdlIjoic3luYy5NYXAgTG9hZCBhbmQgRGVsZXRlIGRvIG5vdCBhdG9taWNhbGx5IGNsYWltIHRoZSB2YWx1ZSIsInN0YXJ0TGluZSI6Mywic3RhcnRDb2x1bW4iOjQsImVuZExpbmUiOjMsImVuZENvbHVtbiI6MjF9XQ"
 func take(cache *sync.Map, key string) any {
   value, ok := cache.Load(key)
   if ok {

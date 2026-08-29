@@ -11,6 +11,12 @@ type AnalyzerGroup = general.AnalyzerGroup
 // AnalyzerInfo describes analyzer capabilities used by integrations and documentation.
 type AnalyzerInfo = general.AnalyzerInfo
 
+// AnalyzerCheck identifies one independently taggable diagnostic rule.
+type AnalyzerCheck = general.AnalyzerCheck
+
+// AnalyzerCheckInfo describes why a specific diagnostic rule matters.
+type AnalyzerCheckInfo = general.AnalyzerCheckInfo
+
 // AnalyzerProfile controls whether an analyzer runs without explicit selection.
 type AnalyzerProfile = general.AnalyzerProfile
 
@@ -19,14 +25,22 @@ const (
 	AnalyzerProfileOptIn   = general.AnalyzerProfileOptIn
 )
 
-// AnalyzerTag describes why an analyzer's findings matter.
+// AnalyzerTag describes why a check's findings matter.
 type AnalyzerTag = general.AnalyzerTag
+
+// TagInfo describes one check tag.
+type TagInfo = general.TagInfo
 
 const (
 	AnalyzerTagCorrectness = general.AnalyzerTagCorrectness
 	AnalyzerTagReliability = general.AnalyzerTagReliability
 	AnalyzerTagPolicy      = general.AnalyzerTagPolicy
 )
+
+// TagCatalog returns every check tag in stable presentation order.
+func TagCatalog() []TagInfo {
+	return general.TagCatalog()
+}
 
 // AnalyzerGroups returns all gohawk analyzers grouped by concern.
 func AnalyzerGroups() []AnalyzerGroup {

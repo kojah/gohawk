@@ -9,6 +9,29 @@ Reports exported fields without explicit JSON or TOML tags on types that look
 like serialized data. It also reports positional literals for persisted or
 wire types when their fields should be named explicitly.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-wirepolicy-keyed-literal">
+    <code class="analyzer-check-id">wirepolicy/keyed-literal</code>
+    <p>Reports positional composite literals for persisted or wire structs.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-wirepolicy-serialization-tag">
+    <code class="analyzer-check-id">wirepolicy/serialization-tag</code>
+    <p>Reports exported wire fields without explicit JSON or TOML tags.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Serialized data is a contract with other programs and stored data. Explicit
@@ -28,7 +51,7 @@ the fields' current order.
 
 #### Missing serialization tags
 
-```go gohawk="W3sibWVzc2FnZSI6InNlcmlhbGl6ZWQgZmllbGQgSUQgcmVxdWlyZXMgYW4gZXhwbGljaXQganNvbiBvciB0b21sIHRhZyIsInN0YXJ0TGluZSI6MSwic3RhcnRDb2x1bW4iOjIsImVuZExpbmUiOjEsImVuZENvbHVtbiI6MTN9LHsibWVzc2FnZSI6InNlcmlhbGl6ZWQgZmllbGQgS2luZCByZXF1aXJlcyBhbiBleHBsaWNpdCBqc29uIG9yIHRvbWwgdGFnIiwic3RhcnRMaW5lIjoyLCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MiwiZW5kQ29sdW1uIjoxM31d"
+```go gohawk="W3siY2hlY2siOiJ3aXJlcG9saWN5L3NlcmlhbGl6YXRpb24tdGFnIiwibWVzc2FnZSI6InNlcmlhbGl6ZWQgZmllbGQgSUQgcmVxdWlyZXMgYW4gZXhwbGljaXQganNvbiBvciB0b21sIHRhZyIsInN0YXJ0TGluZSI6MSwic3RhcnRDb2x1bW4iOjIsImVuZExpbmUiOjEsImVuZENvbHVtbiI6MTN9LHsiY2hlY2siOiJ3aXJlcG9saWN5L3NlcmlhbGl6YXRpb24tdGFnIiwibWVzc2FnZSI6InNlcmlhbGl6ZWQgZmllbGQgS2luZCByZXF1aXJlcyBhbiBleHBsaWNpdCBqc29uIG9yIHRvbWwgdGFnIiwic3RhcnRMaW5lIjoyLCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MiwiZW5kQ29sdW1uIjoxM31d"
 type EventRow struct {
   ID   string
   Kind string
@@ -37,7 +60,7 @@ type EventRow struct {
 
 #### Positional wire struct literal
 
-```go gohawk="W3sibWVzc2FnZSI6InBlcnNpc3RlZCBvciB3aXJlIHN0cnVjdCBsaXRlcmFsIG11c3QgdXNlIGZpZWxkIGtleXMiLCJzdGFydExpbmUiOjUsInN0YXJ0Q29sdW1uIjoxMiwiZW5kTGluZSI6NSwiZW5kQ29sdW1uIjo0M31d"
+```go gohawk="W3siY2hlY2siOiJ3aXJlcG9saWN5L2tleWVkLWxpdGVyYWwiLCJtZXNzYWdlIjoicGVyc2lzdGVkIG9yIHdpcmUgc3RydWN0IGxpdGVyYWwgbXVzdCB1c2UgZmllbGQga2V5cyIsInN0YXJ0TGluZSI6NSwic3RhcnRDb2x1bW4iOjEyLCJlbmRMaW5lIjo1LCJlbmRDb2x1bW4iOjQzfV0"
 type TaggedEventRow struct {
   ID   string `json:"id"`
   Kind string `json:"kind"`

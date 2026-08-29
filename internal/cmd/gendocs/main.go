@@ -27,10 +27,20 @@ const (
 	generatedOptionsEnd     = "<!-- gohawk:generated-options:end -->"
 	generatedExamplesStart  = "<!-- gohawk:generated-examples:start -->"
 	generatedExamplesEnd    = "<!-- gohawk:generated-examples:end -->"
+	generatedChecksStart    = "<!-- gohawk:generated-checks:start -->"
+	generatedChecksEnd      = "<!-- gohawk:generated-checks:end -->"
+	generatedTagsStart      = "<!-- gohawk:generated-tags:start -->"
+	generatedTagsEnd        = "<!-- gohawk:generated-tags:end -->"
 )
 
 type manifest struct {
+	Tags   []tag   `json:"tags"`
 	Groups []group `json:"groups"`
+}
+
+type tag struct {
+	ID          string `json:"id"`
+	Description string `json:"description"`
 }
 
 type group struct {
@@ -45,10 +55,16 @@ type analyzer struct {
 	Summary      string          `json:"summary"`
 	Path         string          `json:"path"`
 	Profile      string          `json:"profile"`
-	Tags         []string        `json:"tags"`
+	Checks       []check         `json:"checks"`
 	SuggestedFix bool            `json:"suggestedFix"`
 	Options      []optionFlag    `json:"options"`
 	Examples     docexamples.Set `json:"-"`
+}
+
+type check struct {
+	ID      string   `json:"id"`
+	Summary string   `json:"summary"`
+	Tags    []string `json:"tags"`
 }
 
 type optionFlag struct {
@@ -109,6 +125,10 @@ func synchronize(root string, check bool) error {
 			if !hasFrontmatterTitle(contents, analyzer.Name) {
 				return fmt.Errorf("%s must have frontmatter title %q", relativePath(root, page), analyzer.Name)
 			}
+			contents, err = synchronizeChecks(contents, checksBlock(analyzer.Checks))
+			if err != nil {
+				return fmt.Errorf("update checks for %s: %w", analyzer.Name, err)
+			}
 			contents, err = synchronizeExamples(contents, examplesBlock(analyzer.Examples))
 			if err != nil {
 				return fmt.Errorf("update examples for %s: %w", analyzer.Name, err)
@@ -128,6 +148,16 @@ func synchronize(root string, check bool) error {
 	if err := rejectUnknownPages(root, expectedPages); err != nil {
 		return err
 	}
+	tagsPage := filepath.Join(root, "docs", "tags-and-profiles.md")
+	tagsContents, err := os.ReadFile(tagsPage)
+	if err != nil {
+		return err
+	}
+	tagsContents, err = replaceGeneratedBlock(tagsContents, generatedTagsStart, generatedTagsEnd, tagDescriptionList(data.Tags))
+	if err != nil {
+		return fmt.Errorf("update tag descriptions: %w", err)
+	}
+	updates[tagsPage] = tagsContents
 
 	encoded, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
@@ -152,12 +182,12 @@ func synchronize(root string, check bool) error {
 func collectManifest(root string) (manifest, error) {
 	metadata := gohawk.AnalyzerMetadata()
 	seen := make(map[string]bool)
-	result := manifest{}
+	result := manifest{Tags: tagManifest(gohawk.TagCatalog())}
 	for _, analyzerGroup := range gohawk.AnalyzerGroups() {
 		group := group{
 			Name:  analyzerGroup.Name,
 			Title: heading(analyzerGroup.Doc),
-			Slug:  slugify(analyzerGroup.Doc),
+			Slug:  analyzerGroup.DocPath,
 		}
 		for _, registered := range analyzerGroup.Analyzers {
 			if seen[registered.Name] {
@@ -173,7 +203,7 @@ func collectManifest(root string) (manifest, error) {
 				Summary:      sentence(registered.Doc),
 				Path:         "analyzers/" + group.Slug + "/" + registered.Name,
 				Profile:      string(info.Profile),
-				Tags:         tagStrings(info.Tags),
+				Checks:       checkManifest(info.Checks),
 				SuggestedFix: info.SuggestedFix,
 				Options:      []optionFlag{},
 			}
@@ -199,6 +229,80 @@ func collectManifest(root string) (manifest, error) {
 		}
 	}
 	return result, nil
+}
+
+func tagManifest(tags []gohawk.TagInfo) []tag {
+	result := make([]tag, len(tags))
+	for index, item := range tags {
+		result[index] = tag{ID: string(item.ID), Description: item.Description}
+	}
+	return result
+}
+
+func tagDescriptionList(tags []tag) string {
+	var output strings.Builder
+	for index, item := range tags {
+		if index > 0 {
+			output.WriteByte('\n')
+		}
+		fmt.Fprintf(&output, "- <strong id=\"%s\">%s</strong> — %s", html.EscapeString(item.ID), heading(item.ID), item.Description)
+	}
+	return output.String()
+}
+
+func checkManifest(checks []gohawk.AnalyzerCheckInfo) []check {
+	result := make([]check, len(checks))
+	for index, item := range checks {
+		result[index] = check{ID: string(item.ID), Summary: item.Doc, Tags: tagStrings(item.Tags)}
+	}
+	return result
+}
+
+func synchronizeChecks(contents []byte, block string) ([]byte, error) {
+	if bytes.Contains(contents, []byte(generatedChecksStart)) {
+		return replaceGeneratedBlock(contents, generatedChecksStart, generatedChecksEnd, block)
+	}
+	if bytes.Contains(contents, []byte("\n### Checks\n")) {
+		return nil, errors.New("Checks subsection exists without generated block markers")
+	}
+	const heading = "\n## What it detects\n"
+	start := bytes.Index(contents, []byte(heading))
+	if start < 0 {
+		return nil, errors.New("missing What it detects section")
+	}
+	bodyStart := start + len(heading)
+	end := bytes.Index(contents[bodyStart:], []byte("\n## "))
+	if end < 0 {
+		return nil, errors.New("What it detects must be followed by another section")
+	}
+	end += bodyStart
+	section := []byte("\n### Checks\n\n" + generatedChecksStart + "\n" + block + "\n" + generatedChecksEnd + "\n")
+	result := make([]byte, 0, len(contents)+len(section))
+	result = append(result, contents[:end]...)
+	result = append(result, section...)
+	result = append(result, contents[end:]...)
+	return result, nil
+}
+
+// checksBlock renders stable check identifiers, summaries, and tags as compact
+// rows. It is raw HTML so the list can remain readable at narrow widths.
+func checksBlock(checks []check) string {
+	var output strings.Builder
+	output.WriteString(`<div class="analyzer-check-list">` + "\n")
+	for _, item := range checks {
+		anchor := "check-" + strings.NewReplacer("/", "-").Replace(item.ID)
+		fmt.Fprintf(&output, "  "+`<article class="analyzer-check" id="%s">`+"\n", html.EscapeString(anchor))
+		fmt.Fprintf(&output, "    "+`<code class="analyzer-check-id">%s</code>`+"\n", html.EscapeString(item.ID))
+		fmt.Fprintf(&output, "    "+`<p>%s</p>`+"\n", inlineCode(item.Summary))
+		output.WriteString("    " + `<div class="analyzer-check-tags" aria-label="Tags">` + "\n")
+		for _, tag := range item.Tags {
+			fmt.Fprintf(&output, "      "+`<a href="../../../tags-and-profiles/#%s">%s</a>`+"\n", html.EscapeString(tag), html.EscapeString(tag))
+		}
+		output.WriteString("    </div>\n")
+		output.WriteString("  </article>\n")
+	}
+	output.WriteString("</div>")
+	return output.String()
 }
 
 func synchronizeExamples(contents []byte, examples string) ([]byte, error) {
@@ -351,11 +455,6 @@ func groupCards(group group) string {
 		fmt.Fprintf(&output, "  "+`<a class="analyzer-card" href="%s">`+"\n", html.EscapeString(link))
 		fmt.Fprintf(&output, "    "+`<span class="analyzer-name">%s</span>`+"\n", html.EscapeString(analyzer.Name))
 		fmt.Fprintf(&output, "    "+`<span class="analyzer-detects">%s</span>`+"\n", inlineCode(analyzer.Summary))
-		output.WriteString("    " + `<span class="analyzer-card-meta">` + "\n")
-		for _, tag := range analyzer.Tags {
-			fmt.Fprintf(&output, "      "+`<span class="analyzer-tag">%s</span>`+"\n", html.EscapeString(tag))
-		}
-		output.WriteString("    </span>\n")
 		output.WriteString("  </a>\n")
 	}
 	output.WriteString("</div>")
@@ -439,10 +538,6 @@ func heading(value string) string {
 	runes := []rune(value)
 	runes[0] = unicode.ToUpper(runes[0])
 	return string(runes)
-}
-
-func slugify(value string) string {
-	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(value)), " ", "-")
 }
 
 func relativePath(root, path string) string {

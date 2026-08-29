@@ -9,6 +9,35 @@ Handle an error at one layer. The analyzer also catches inline error
 declarations whose condition accidentally checks a different error before
 returning the newly declared one.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-errorownership-log-and-return">
+    <code class="analyzer-check-id">errorownership/log-and-return</code>
+    <p>Reports functions that both log and return the same error.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-errorownership-text-classification">
+    <code class="analyzer-check-id">errorownership/text-classification</code>
+    <p>Reports production code that classifies errors by matching their text.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-errorownership-mismatched-inline-error">
+    <code class="analyzer-check-id">errorownership/mismatched-inline-error</code>
+    <p>Reports inline error declarations whose condition checks a different error.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Handling the same error at several layers often creates duplicate logs or
@@ -26,7 +55,7 @@ make sure the condition checks that newly declared error.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6ImVycm9yIGlzIGxvZ2dlZCBhbmQgcmV0dXJuZWQgYnkgc2FtZSBmdW5jdGlvbiIsInN0YXJ0TGluZSI6Miwic3RhcnRDb2x1bW4iOjQsImVuZExpbmUiOjIsImVuZENvbHVtbiI6MTh9XQ"
+```go gohawk="W3siY2hlY2siOiJlcnJvcm93bmVyc2hpcC9sb2ctYW5kLXJldHVybiIsIm1lc3NhZ2UiOiJlcnJvciBpcyBsb2dnZWQgYW5kIHJldHVybmVkIGJ5IHNhbWUgZnVuY3Rpb24iLCJzdGFydExpbmUiOjIsInN0YXJ0Q29sdW1uIjo0LCJlbmRMaW5lIjoyLCJlbmRDb2x1bW4iOjE4fV0"
 func load() error {
   if err := readConfig(); err != nil {
     log.Print(err)

@@ -10,6 +10,27 @@ goroutines must also be able to stop sending when their receiver leaves; use a
 cancellation-aware `select`, drain the channel, or provide enough proven buffer
 capacity for every send.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-goroutineownership-unjoined">
+    <code class="analyzer-check-id">goroutineownership/unjoined</code>
+    <p>Reports goroutines without a recognizable join handle or lifecycle owner.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+    </div>
+  </article>
+  <article class="analyzer-check" id="check-goroutineownership-abandoned-send">
+    <code class="analyzer-check-id">goroutineownership/abandoned-send</code>
+    <p>Reports producer goroutines that can block after their receiver stops waiting.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 A goroutine without a clear owner may keep running after its caller is done or
@@ -30,7 +51,7 @@ aware so the goroutine can stop if its receiver leaves.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6Imdvcm91dGluZSBpcyBub3Qgam9pbmVkIG9uIGV2ZXJ5IHJldHVybiBwYXRoIiwic3RhcnRMaW5lIjoxLCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MSwiZW5kQ29sdW1uIjoxOH1d"
+```go gohawk="W3siY2hlY2siOiJnb3JvdXRpbmVvd25lcnNoaXAvdW5qb2luZWQiLCJtZXNzYWdlIjoiZ29yb3V0aW5lIGlzIG5vdCBqb2luZWQgb24gZXZlcnkgcmV0dXJuIHBhdGgiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjE4fV0"
 func refresh() {
   go updateCache()
 }

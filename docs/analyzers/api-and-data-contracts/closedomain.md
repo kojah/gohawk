@@ -9,6 +9,21 @@ Finds exported string fields that are used like a fixed set of choices—for
 example, a status that is repeatedly assigned or compared with the same small
 group of values—but are still declared as plain strings.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-closedomain-closed-string-domain">
+    <code class="analyzer-check-id">closedomain/closed-string-domain</code>
+    <p>Reports exported string fields used as small closed sets of values.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+      <a href="../../../tags-and-profiles/#policy">policy</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 A plain string or integer can hold values that the program does not actually
@@ -26,7 +41,7 @@ rejecting any value that is not part of the set.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6ImZpZWxkIFN0YXRlIHVzZXMgYSBjbG9zZWQgc3RyaW5nIGRvbWFpbjsgZGVmaW5lIGEgbmFtZWQgc3RyaW5nIHR5cGUgYW5kIGNvbnN0YW50cyIsInN0YXJ0TGluZSI6MSwic3RhcnRDb2x1bW4iOjIsImVuZExpbmUiOjEsImVuZENvbHVtbiI6MTR9XQ"
+```go gohawk="W3siY2hlY2siOiJjbG9zZWRvbWFpbi9jbG9zZWQtc3RyaW5nLWRvbWFpbiIsIm1lc3NhZ2UiOiJmaWVsZCBTdGF0ZSB1c2VzIGEgY2xvc2VkIHN0cmluZyBkb21haW47IGRlZmluZSBhIG5hbWVkIHN0cmluZyB0eXBlIGFuZCBjb25zdGFudHMiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjE0fV0"
 type Job struct {
   State string
 }

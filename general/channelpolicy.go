@@ -73,7 +73,7 @@ func checkChannelCapacity(pass *analysis.Pass, file *ast.File, call *ast.CallExp
 	if !exact || capacity <= maximum || channelRationale(pass, file, call.Pos()) {
 		return
 	}
-	analysisutil.Reportf(pass, call.Args[1].Pos(), "channel capacity %d requires a bounded rationale comment", capacity)
+	reportf(pass, checkChannelCapacityRationale, call.Args[1].Pos(), "channel capacity %d requires a bounded rationale comment", capacity)
 }
 
 func channelRationale(pass *analysis.Pass, file *ast.File, position token.Pos) bool {
@@ -107,7 +107,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, confi
 			}
 			channel := common.Args[0]
 			if aliasesAny(channel, parameters) {
-				analysisutil.Reportf(pass, instruction.Pos(), "do not close a channel received from caller")
+				reportf(pass, checkChannelCallerClose, instruction.Pos(), "do not close a channel received from caller")
 			}
 			// Scheduling a deferred close does not close the channel at this
 			// program point; sends before the function returns remain valid.
@@ -120,7 +120,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, confi
 					continue
 				}
 				reportedSends[send.Pos()] = true
-				analysisutil.Reportf(pass, send.Pos(), "send follows close of channel")
+				reportf(pass, checkChannelSendAfterClose, send.Pos(), "send follows close of channel")
 			}
 		}
 	}

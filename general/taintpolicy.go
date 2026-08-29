@@ -56,7 +56,7 @@ func runTaintPolicy(pass *analysis.Pass, config taintPolicyConfig) (any, error) 
 				kind, display, arguments := taintSink(call.Common(), settings.sinks)
 				for _, argument := range arguments {
 					if taintedValue(argument, map[ssa.Value]bool{}, map[ssa.Value]bool{}, settings) {
-						analysisutil.Reportf(pass, call.Pos(), "untrusted data reaches %s sink %s", kind, display)
+						reportf(pass, checkTaintUntrustedSink, call.Pos(), "untrusted data reaches %s sink %s", kind, display)
 						break
 					}
 				}

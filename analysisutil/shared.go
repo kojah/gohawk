@@ -1,7 +1,6 @@
 package analysisutil
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -9,16 +8,6 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 )
-
-// Reportf reports a diagnostic with the source range recovered from position.
-func Reportf(pass *analysis.Pass, position token.Pos, format string, args ...any) {
-	source := SourceRange(pass, position)
-	pass.Report(analysis.Diagnostic{
-		Pos:     source.Pos(),
-		End:     source.End(),
-		Message: fmt.Sprintf(format, args...),
-	})
-}
 
 type sourceRange struct {
 	start token.Pos

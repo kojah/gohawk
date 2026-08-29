@@ -4,8 +4,6 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/kojah/gohawk/analysisutil"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -38,7 +36,7 @@ func runOncePolicy(pass *analysis.Pass) (any, error) {
 		}
 		switch function.Name() {
 		case "OnceFunc", "OnceValue", "OnceValues":
-			analysisutil.Reportf(pass, outer.Pos(), "sync.%s wrapper is discarded after one call", function.Name())
+			reportf(pass, checkOnceDiscardedWrapper, outer.Pos(), "sync.%s wrapper is discarded after one call", function.Name())
 		}
 	})
 	return nil, nil

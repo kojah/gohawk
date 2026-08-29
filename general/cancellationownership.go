@@ -47,7 +47,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 					return returnedValueAliases(returned, cancel)
 				}) {
 					source := analysisutil.SourceRange(pass, call.Pos())
-					pass.Report(analysis.Diagnostic{
+					report(pass, checkCancellationRelease, analysis.Diagnostic{
 						Pos:            source.Pos(),
 						End:            source.End(),
 						Message:        "cancel function from " + shortPackage(contract.packagePath) + "." + contract.name + " is not called on every return path",

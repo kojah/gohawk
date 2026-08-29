@@ -4,8 +4,6 @@ import (
 	"go/ast"
 	"strings"
 
-	"github.com/kojah/gohawk/analysisutil"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -36,7 +34,7 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 				return false
 			case *ast.DeferStmt:
 				if cleanupDefer(pass, body, typed.Call) {
-					analysisutil.Reportf(pass, typed.Pos(), "deferred cleanup runs after the loop instead of after this iteration")
+					reportf(pass, checkDeferCleanupInLoop, typed.Pos(), "deferred cleanup runs after the loop instead of after this iteration")
 				}
 				return false
 			default:

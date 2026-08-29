@@ -1,4 +1,4 @@
-![gohawk logo: a hawk sheltering the Go gopher](site/public/gohawk-logo.png)
+<img src="site/public/gohawk-logo.png" alt="gohawk logo: a hawk sheltering the Go gopher" width="240">
 
 # gohawk
 
@@ -8,6 +8,10 @@
 gohawk is a focused set of static analyzers for Go, designed to run alongside
 `go vet`, Staticcheck, and go-critic. It covers gaps around ownership,
 lifecycle, concurrency, API contracts, and path-aware policy checks.
+
+It draws inspiration from [go-critic](https://github.com/go-critic/go-critic),
+but is deliberately more focused on correctness and reliability, with fewer
+opinionated style checks.
 
 [Read the documentation](https://kojah.github.io/gohawk/)
 
@@ -20,8 +24,12 @@ go install github.com/kojah/gohawk@latest
 # Run the default profile.
 gohawk ./...
 
-# See every analyzer, its profile, and its tags.
+# See every analyzer, its profile, and its group.
 gohawk list
+
+# Inspect an analyzer or one of its checks.
+gohawk doc contextpolicy
+gohawk doc contextpolicy/nil-context
 
 # Use it with go vet.
 go vet -vettool="$(command -v gohawk)" ./...
@@ -31,18 +39,30 @@ gohawk -fix -diff ./...
 gohawk -fix ./...
 
 # Run selected opt-in checks, or exclude one from the defaults.
-gohawk -wirepolicy -globalstate ./...
-gohawk -determinism=false ./...
+gohawk -enable=wirepolicy,globalstate ./...
+gohawk -disable=oncepolicy ./...
+
+# Run complete analyzer groups, including their opt-in checks.
+gohawk -enable-groups=ownership,testing ./...
+
+# Remove groups from the default profile or from -enable-all.
+gohawk -disable-groups=testing ./...
 
 # Run every analyzer, including opt-in checks.
 gohawk -enable-all ./...
 ```
 
-## Documentation
+## Contributing
 
-The [documentation website](https://kojah.github.io/gohawk/) contains the full
-analyzer reference, configuration and suppression guidance, installation
-options, and contributing guide.
+Contributions are welcome. See [How to contribute](https://kojah.github.io/gohawk/contributing/)
+for the development workflow, analyzer requirements, and verification steps.
+
+## Sponsorship
+
+If gohawk is useful to you or your organization, consider sponsoring its
+continued development. Sponsorship helps fund maintenance, new analyzers, and
+improvements to the documentation and developer experience. To discuss
+sponsorship, get in touch with [@kojah](https://github.com/kojah).
 
 ## License
 

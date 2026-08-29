@@ -9,6 +9,20 @@ Tracks cancel functions returned by context and signal helpers and reports any
 successful return path that neither calls the cancel function nor transfers it
 to the caller.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-cancellationownership-release">
+    <code class="analyzer-check-id">cancellationownership/release</code>
+    <p>Reports derived cancel functions that are neither called nor transferred on every return path.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 A derived context can retain timers, memory, and references to its parent until
@@ -28,7 +42,7 @@ explicitly at the point where the derived work is finished.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6ImNhbmNlbCBmdW5jdGlvbiBmcm9tIGNvbnRleHQuV2l0aENhbmNlbCBpcyBub3QgY2FsbGVkIG9uIGV2ZXJ5IHJldHVybiBwYXRoIiwic3RhcnRMaW5lIjoxLCJzdGFydENvbHVtbiI6MTcsImVuZExpbmUiOjEsImVuZENvbHVtbiI6NDN9XQ"
+```go gohawk="W3siY2hlY2siOiJjYW5jZWxsYXRpb25vd25lcnNoaXAvcmVsZWFzZSIsIm1lc3NhZ2UiOiJjYW5jZWwgZnVuY3Rpb24gZnJvbSBjb250ZXh0LldpdGhDYW5jZWwgaXMgbm90IGNhbGxlZCBvbiBldmVyeSByZXR1cm4gcGF0aCIsInN0YXJ0TGluZSI6MSwic3RhcnRDb2x1bW4iOjE3LCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjQzfV0"
 func work(parent context.Context) {
   ctx, cancel := context.WithCancel(parent)
   _ = cancel

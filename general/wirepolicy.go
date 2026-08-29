@@ -24,7 +24,7 @@ func wirePolicyAnalyzer() *analysis.Analyzer {
 					switch typed := node.(type) {
 					case *ast.CompositeLit:
 						if len(typed.Elts) > 0 && wireStruct(pass.TypesInfo.TypeOf(typed)) && !allKeyed(typed.Elts) {
-							pass.Report(analysis.Diagnostic{
+							report(pass, checkWireKeyedLiteral, analysis.Diagnostic{
 								Pos:            typed.Pos(),
 								End:            typed.End(),
 								Message:        "persisted or wire struct literal must use field keys",
@@ -112,7 +112,7 @@ func reportMissingWireTags(pass *analysis.Pass, structure *ast.StructType) {
 		}
 		for _, name := range field.Names {
 			if name.IsExported() && field.Tag == nil {
-				analysisutil.Reportf(pass, name.Pos(), "serialized field %s requires an explicit json or toml tag", name.Name)
+				reportf(pass, checkWireSerializationTag, name.Pos(), "serialized field %s requires an explicit json or toml tag", name.Name)
 			}
 		}
 	}

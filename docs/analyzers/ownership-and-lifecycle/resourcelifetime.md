@@ -12,6 +12,20 @@ without that object.
 The built-in contracts cover files, transactions, SQL rows and statements,
 HTTP response bodies, timers and tickers, and gzip/zlib readers and writers.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-resourcelifetime-missing-release">
+    <code class="analyzer-check-id">resourcelifetime/missing-release</code>
+    <p>Reports owned resources that are not released on every return path.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Owned resources are limited and often hold work open elsewhere. Missing cleanup
@@ -34,7 +48,7 @@ the resource, or transfer it only when the receiver clearly takes ownership.
 
 #### Leaked file
 
-```go gohawk="W3sibWVzc2FnZSI6Im93bmVkIHJlc291cmNlIGZyb20gb3MuT3BlbiBpcyBub3QgcmVsZWFzZWQgb24gZXZlcnkgcmV0dXJuIHBhdGgiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoxNSwiZW5kTGluZSI6MSwiZW5kQ29sdW1uIjoyOH1d"
+```go gohawk="W3siY2hlY2siOiJyZXNvdXJjZWxpZmV0aW1lL21pc3NpbmctcmVsZWFzZSIsIm1lc3NhZ2UiOiJvd25lZCByZXNvdXJjZSBmcm9tIG9zLk9wZW4gaXMgbm90IHJlbGVhc2VkIG9uIGV2ZXJ5IHJldHVybiBwYXRoIiwic3RhcnRMaW5lIjoxLCJzdGFydENvbHVtbiI6MTUsImVuZExpbmUiOjEsImVuZENvbHVtbiI6Mjh9XQ"
 func read(path string) error {
   file, err := os.Open(path)
   if err != nil {
@@ -47,7 +61,7 @@ func read(path string) error {
 
 #### Leaked database rows
 
-```go gohawk="W3sibWVzc2FnZSI6Im93bmVkIHJlc291cmNlIGZyb20gc3FsLlF1ZXJ5Q29udGV4dCBpcyBub3QgcmVsZWFzZWQgb24gZXZlcnkgcmV0dXJuIHBhdGgiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoxNSwiZW5kTGluZSI6MSwiZW5kQ29sdW1uIjo1M31d"
+```go gohawk="W3siY2hlY2siOiJyZXNvdXJjZWxpZmV0aW1lL21pc3NpbmctcmVsZWFzZSIsIm1lc3NhZ2UiOiJvd25lZCByZXNvdXJjZSBmcm9tIHNxbC5RdWVyeUNvbnRleHQgaXMgbm90IHJlbGVhc2VkIG9uIGV2ZXJ5IHJldHVybiBwYXRoIiwic3RhcnRMaW5lIjoxLCJzdGFydENvbHVtbiI6MTUsImVuZExpbmUiOjEsImVuZENvbHVtbiI6NTN9XQ"
 func query(ctx context.Context, database *sql.DB) error {
   rows, err := database.QueryContext(ctx, "SELECT 1")
   if err != nil {

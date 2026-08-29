@@ -3,6 +3,7 @@ package analyzers
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"golang.org/x/tools/go/analysis"
@@ -40,12 +41,13 @@ func TestAnalyzerGroups(t *testing.T) {
 	want := []struct {
 		name      string
 		doc       string
+		docPath   string
 		analyzers []string
 	}{
-		{name: "contracts", doc: "API and data contracts", analyzers: []string{"apishape", "contextpolicy", "closedomain", "wirepolicy"}},
-		{name: "ownership", doc: "ownership and lifecycle", analyzers: []string{"cancellationownership", "channelpolicy", "deferinloop", "exitpolicy", "goroutineownership", "processownership", "resourcelifetime"}},
-		{name: "reliability", doc: "reliability and safety", analyzers: []string{"concurrentcapture", "determinism", "errorownership", "evalorder", "globalstate", "lockorder", "oncepolicy", "syncmapatomicity", "taintpolicy"}},
-		{name: "testing", doc: "testing", analyzers: []string{"blockingtest", "testpolicy"}},
+		{name: "contracts", doc: "API and data contracts", docPath: "api-and-data-contracts", analyzers: []string{"apishape", "contextpolicy", "closedomain", "wirepolicy"}},
+		{name: "ownership", doc: "ownership and lifecycle", docPath: "ownership-and-lifecycle", analyzers: []string{"cancellationownership", "channelpolicy", "deferinloop", "exitpolicy", "goroutineownership", "processownership", "resourcelifetime"}},
+		{name: "reliability", doc: "reliability and safety", docPath: "reliability-and-safety", analyzers: []string{"concurrentcapture", "determinism", "errorownership", "evalorder", "globalstate", "lockorder", "oncepolicy", "syncmapatomicity", "taintpolicy"}},
+		{name: "testing", doc: "testing", docPath: "testing", analyzers: []string{"blockingtest", "testpolicy"}},
 	}
 	groups := AnalyzerGroups()
 	if len(groups) != len(want) {
@@ -61,8 +63,8 @@ func TestAnalyzerGroups(t *testing.T) {
 			seen[analyzer.Name] = true
 			names = append(names, analyzer.Name)
 		}
-		if group.Name != want[index].name || group.Doc != want[index].doc || !slices.Equal(names, want[index].analyzers) {
-			t.Fatalf("group %d = %q (%q) %v, want %q (%q) %v", index, group.Name, group.Doc, names, want[index].name, want[index].doc, want[index].analyzers)
+		if group.Name != want[index].name || group.Doc != want[index].doc || group.DocPath != want[index].docPath || !slices.Equal(names, want[index].analyzers) {
+			t.Fatalf("group %d = %q (%q, %q) %v, want %q (%q, %q) %v", index, group.Name, group.Doc, group.DocPath, names, want[index].name, want[index].doc, want[index].docPath, want[index].analyzers)
 		}
 	}
 	if len(seen) != len(expectedAnalyzerNames()) {
@@ -76,14 +78,15 @@ func TestAnalyzerMetadata(t *testing.T) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
 	optIn := map[string]bool{
-		"apishape": true, "closedomain": true, "globalstate": true,
-		"taintpolicy": true, "testpolicy": true, "wirepolicy": true,
+		"apishape": true, "blockingtest": true, "closedomain": true,
+		"determinism": true, "globalstate": true, "taintpolicy": true,
+		"testpolicy": true, "wirepolicy": true,
 	}
-	validTags := map[AnalyzerTag]bool{
-		AnalyzerTagCorrectness: true,
-		AnalyzerTagReliability: true,
-		AnalyzerTagPolicy:      true,
+	validTags := make(map[AnalyzerTag]bool)
+	for _, tag := range TagCatalog() {
+		validTags[tag.ID] = true
 	}
+	seenChecks := make(map[AnalyzerCheck]string)
 	for _, name := range expectedAnalyzerNames() {
 		info, ok := metadata[name]
 		if !ok {
@@ -91,27 +94,63 @@ func TestAnalyzerMetadata(t *testing.T) {
 		} else if info.EnabledByDefault() == optIn[name] {
 			t.Errorf("analyzer %q profile = %q, want default = %t", name, info.Profile, !optIn[name])
 		}
-		if len(info.Tags) == 0 {
-			t.Errorf("analyzer %q has no tags", name)
+		if len(info.Checks) == 0 {
+			t.Errorf("analyzer %q has no checks", name)
 		}
-		seenTags := make(map[AnalyzerTag]bool, len(info.Tags))
-		for _, tag := range info.Tags {
-			if !validTags[tag] {
-				t.Errorf("analyzer %q has unknown tag %q", name, tag)
+		for _, check := range info.Checks {
+			if check.ID == "" || !strings.HasPrefix(string(check.ID), name+"/") {
+				t.Errorf("analyzer %q has invalid check identity %q", name, check.ID)
 			}
-			if seenTags[tag] {
-				t.Errorf("analyzer %q repeats tag %q", name, tag)
+			if strings.TrimSpace(check.Doc) == "" {
+				t.Errorf("check %q has no description", check.ID)
 			}
-			seenTags[tag] = true
+			if owner, exists := seenChecks[check.ID]; exists {
+				t.Errorf("check %q belongs to both %q and %q", check.ID, owner, name)
+			}
+			seenChecks[check.ID] = name
+			if len(check.Tags) == 0 {
+				t.Errorf("check %q has no tags", check.ID)
+			}
+			seenCheckTags := make(map[AnalyzerTag]bool, len(check.Tags))
+			for _, tag := range check.Tags {
+				if !validTags[tag] {
+					t.Errorf("check %q has unknown tag %q", check.ID, tag)
+				}
+				if seenCheckTags[tag] {
+					t.Errorf("check %q repeats tag %q", check.ID, tag)
+				}
+				seenCheckTags[tag] = true
+			}
 		}
+	}
+}
+
+func TestTagCatalog(t *testing.T) {
+	want := []AnalyzerTag{AnalyzerTagCorrectness, AnalyzerTagReliability, AnalyzerTagPolicy}
+	catalog := TagCatalog()
+	if len(catalog) != len(want) {
+		t.Fatalf("tag count = %d, want %d", len(catalog), len(want))
+	}
+	seen := make(map[AnalyzerTag]bool, len(catalog))
+	for index, tag := range catalog {
+		if tag.ID != want[index] {
+			t.Errorf("tag %d = %q, want %q", index, tag.ID, want[index])
+		}
+		if tag.ID == "" || strings.TrimSpace(tag.Description) == "" {
+			t.Errorf("tag %d is missing an identity or description: %+v", index, tag)
+		}
+		if seen[tag.ID] {
+			t.Errorf("tag %q is defined more than once", tag.ID)
+		}
+		seen[tag.ID] = true
 	}
 }
 
 func TestDefaultAnalyzers(t *testing.T) {
 	want := []string{
-		"contextpolicy", "blockingtest", "goroutineownership", "errorownership",
+		"contextpolicy", "goroutineownership", "errorownership",
 		"channelpolicy", "processownership", "lockorder", "resourcelifetime",
-		"deferinloop", "exitpolicy", "determinism", "concurrentcapture",
+		"deferinloop", "exitpolicy", "concurrentcapture",
 		"evalorder", "oncepolicy", "syncmapatomicity", "cancellationownership",
 	}
 	var names []string
@@ -184,12 +223,19 @@ func TestAnalyzers(t *testing.T) {
 
 func requireDiagnosticRanges(t *testing.T, analyzer *analysis.Analyzer) *analysis.Analyzer {
 	t.Helper()
+	checks := make(map[string]bool)
+	for _, check := range AnalyzerMetadata()[analyzer.Name].Checks {
+		checks[string(check.ID)] = true
+	}
 	run := analyzer.Run
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		report := pass.Report
 		pass.Report = func(diagnostic analysis.Diagnostic) {
 			if diagnostic.End <= diagnostic.Pos {
 				t.Errorf("%s diagnostic %q has no precise range", analyzer.Name, diagnostic.Message)
+			}
+			if !checks[diagnostic.Category] {
+				t.Errorf("%s diagnostic %q has unknown check identity %q", analyzer.Name, diagnostic.Message, diagnostic.Category)
 			}
 			report(diagnostic)
 		}

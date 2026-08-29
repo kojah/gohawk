@@ -9,6 +9,21 @@ Tracks values from environment variables and command-line arguments and reports
 when they reach configured filesystem, process, terminal, or logging operations
 without passing through a recognized validator or sanitizer.
 
+### Checks
+
+<!-- gohawk:generated-checks:start -->
+<div class="analyzer-check-list">
+  <article class="analyzer-check" id="check-taintpolicy-untrusted-sink">
+    <code class="analyzer-check-id">taintpolicy/untrusted-sink</code>
+    <p>Reports untrusted input that reaches a configured sensitive sink without validation.</p>
+    <div class="analyzer-check-tags" aria-label="Tags">
+      <a href="../../../tags-and-profiles/#correctness">correctness</a>
+      <a href="../../../tags-and-profiles/#reliability">reliability</a>
+    </div>
+  </article>
+</div>
+<!-- gohawk:generated-checks:end -->
+
 ## Why this is flagged
 
 Input from the environment or another external source may contain paths,
@@ -29,7 +44,7 @@ pass the value through a trusted sanitizer designed for that specific sink.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3sibWVzc2FnZSI6InVudHJ1c3RlZCBkYXRhIHJlYWNoZXMgcHJvY2VzcyBzaW5rIGV4ZWMuQ29tbWFuZCIsInN0YXJ0TGluZSI6MSwic3RhcnRDb2x1bW4iOjksImVuZExpbmUiOjEsImVuZENvbHVtbiI6NDB9XQ"
+```go gohawk="W3siY2hlY2siOiJ0YWludHBvbGljeS91bnRydXN0ZWQtc2luayIsIm1lc3NhZ2UiOiJ1bnRydXN0ZWQgZGF0YSByZWFjaGVzIHByb2Nlc3Mgc2luayBleGVjLkNvbW1hbmQiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjo5LCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjQwfV0"
 func runConfiguredTool() error {
   return exec.Command(os.Getenv("TOOL")).Run()
 }

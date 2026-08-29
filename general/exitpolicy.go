@@ -59,7 +59,7 @@ func reportExitAfterDefer(pass *analysis.Pass, function *ssa.Function) {
 			common := analysisutil.InstructionCall(instruction)
 			if deferred && exitsWithoutRunningDefers(common) && !reported[instruction] {
 				reported[instruction] = true
-				analysisutil.Reportf(pass, instruction.Pos(), "%s.%s exits without running an earlier defer", shortPackage(analysisutil.CallPackage(common)), analysisutil.CallName(common))
+				reportf(pass, checkExitSkipsDefer, instruction.Pos(), "%s.%s exits without running an earlier defer", shortPackage(analysisutil.CallPackage(common)), analysisutil.CallName(common))
 			}
 		}
 		for _, successor := range state.block.Succs {

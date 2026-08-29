@@ -5,8 +5,6 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/analysisutil"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -62,7 +60,7 @@ func reportEvaluationDependencies(pass *analysis.Pass, expressions []ast.Expr) {
 				if !ok || !earlierObjects[pass.TypesInfo.ObjectOf(identifier)] || !callMutatesArgument(pass, call, argumentIndex) {
 					continue
 				}
-				analysisutil.Reportf(pass, address.Pos(), "later operand may mutate %s after its earlier value was evaluated", identifier.Name)
+				reportf(pass, checkEvaluationOrder, address.Pos(), "later operand may mutate %s after its earlier value was evaluated", identifier.Name)
 			}
 			return true
 		})

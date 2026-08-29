@@ -70,7 +70,7 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				}, func(returned *ssa.Return) bool {
 					return returnedAliasesAny(returned, signals) || returnedAliasesAny(returned, groups) || config.mode != goroutineModeJoin && returnedAliasesAny(returned, owners)
 				}) {
-					analysisutil.Reportf(pass, spawn.Pos(), "goroutine is not joined on every return path")
+					reportf(pass, checkGoroutineJoin, spawn.Pos(), "goroutine is not joined on every return path")
 				}
 			}
 		}
@@ -127,7 +127,7 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 			continue
 		}
 		reported[send.instruction.Pos()] = true
-		analysisutil.Reportf(pass, send.instruction.Pos(), "goroutine send can block after the receiver stops waiting")
+		reportf(pass, checkGoroutineProducerSend, send.instruction.Pos(), "goroutine send can block after the receiver stops waiting")
 	}
 }
 

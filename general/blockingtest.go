@@ -37,15 +37,15 @@ func runBlockingTest(pass *analysis.Pass) (any, error) {
 				switch typed := instruction.(type) {
 				case *ssa.Send:
 					if contextAware {
-						analysisutil.Reportf(pass, typed.Pos(), "channel send in context-aware test code requires cancellation-aware select")
+						reportf(pass, checkBlockingTestSend, typed.Pos(), "channel send in context-aware test code requires cancellation-aware select")
 					}
 				case *ssa.UnOp:
 					if typed.Op == token.ARROW && !cancellationChannel(typed.X) && !timerChannel(typed.X) && !closedBefore(function, typed.X, typed) {
-						analysisutil.Reportf(pass, typed.Pos(), "blocking channel receive in test code requires cancellation-aware select")
+						reportf(pass, checkBlockingTestReceive, typed.Pos(), "blocking channel receive in test code requires cancellation-aware select")
 					}
 				case *ssa.Select:
 					if typed.Blocking && !selectHasCancellation(typed) {
-						analysisutil.Reportf(pass, typed.Pos(), "blocking channel select in test code requires cancellation escape")
+						reportf(pass, checkBlockingTestSelect, typed.Pos(), "blocking channel select in test code requires cancellation escape")
 					}
 				}
 			}

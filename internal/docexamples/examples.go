@@ -44,6 +44,7 @@ type Example struct {
 // Diagnostic is an analyzer message and its zero-based, end-exclusive source
 // range within an example.
 type Diagnostic struct {
+	Check     string `json:"check"`
 	Message   string `json:"message"`
 	StartLine int    `json:"startLine"`
 	StartCol  int    `json:"startColumn"`
@@ -239,6 +240,9 @@ func displayCode(source []byte) string {
 }
 
 func attachDiagnostic(files *token.FileSet, regions []region, attached map[string][]Diagnostic, raw analysis.Diagnostic) error {
+	if raw.Category == "" {
+		return fmt.Errorf("diagnostic %q has no check identity", raw.Message)
+	}
 	start := files.PositionFor(raw.Pos, true)
 	end := files.PositionFor(raw.End, true)
 	if !start.IsValid() || !end.IsValid() || raw.End <= raw.Pos {
@@ -251,6 +255,7 @@ func attachDiagnostic(files *token.FileSet, regions []region, attached map[strin
 		startLine, startColumn := lineColumn(item.source, start.Offset-item.start)
 		endLine, endColumn := lineColumn(item.source, end.Offset-item.start)
 		attached[itemKey(item)] = append(attached[itemKey(item)], Diagnostic{
+			Check:     raw.Category,
 			Message:   raw.Message,
 			StartLine: startLine,
 			StartCol:  startColumn,
