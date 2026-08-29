@@ -36,6 +36,9 @@ jobs:
       - name: Check generated documentation
         run: go run ./internal/cmd/gendocs -check
 
+      - name: Test golangci-lint module plugin
+        run: go test -tags=integration ./plugin/golangci -run '^TestCustomGolangCILint$' -count=1 -v
+
       - name: Test and collect coverage
         run: |
           # Measure product analysis behavior, not CLI and documentation tooling.
