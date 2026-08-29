@@ -12,15 +12,9 @@ value is consumed as the successfully removed entry.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-syncmapatomicity-non-atomic-claim">
-    <code class="analyzer-check-id">syncmapatomicity/non-atomic-claim</code>
-    <p>Reports separate sync.Map Load and Delete operations used to claim one value.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `syncmapatomicity/non-atomic-claim` | Reports separate sync.Map Load and Delete operations used to claim one value. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

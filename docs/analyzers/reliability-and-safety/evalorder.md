@@ -12,15 +12,9 @@ by an earlier operand.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-evalorder-operand-mutation">
-    <code class="analyzer-check-id">evalorder/operand-mutation</code>
-    <p>Reports expressions whose later operand mutates a value read by an earlier operand.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `evalorder/operand-mutation` | Reports expressions whose later operand mutates a value read by an earlier operand. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

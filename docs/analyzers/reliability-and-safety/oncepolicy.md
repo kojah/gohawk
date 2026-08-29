@@ -12,15 +12,9 @@ calling, and discarding it in one expression.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-oncepolicy-discarded-wrapper">
-    <code class="analyzer-check-id">oncepolicy/discarded-wrapper</code>
-    <p>Reports sync.Once function wrappers that are called and immediately discarded.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `oncepolicy/discarded-wrapper` | Reports sync.Once function wrappers that are called and immediately discarded. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

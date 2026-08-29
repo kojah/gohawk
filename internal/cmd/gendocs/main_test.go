@@ -137,11 +137,11 @@ func TestChecksBlockIncludesIDsDescriptionsAndLinkedTags(t *testing.T) {
 		Tags:    []string{"correctness", "reliability"},
 	}})
 	for _, want := range []string{
-		`id="check-example-problem"`,
-		`<code class="analyzer-check-id">example/problem</code>`,
+		"| Check | What it detects | Tags |",
+		"| `example/problem` |",
 		"Reports the example problem.",
-		`href="../../../tags-and-profiles/#correctness"`,
-		`href="../../../tags-and-profiles/#reliability"`,
+		"[correctness](../../../tags-and-profiles/#correctness)",
+		"[reliability](../../../tags-and-profiles/#reliability)",
 	} {
 		if !strings.Contains(block, want) {
 			t.Fatalf("checks block is missing %q: %s", want, block)

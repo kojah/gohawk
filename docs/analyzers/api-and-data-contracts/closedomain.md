@@ -12,16 +12,9 @@ group of values—but are still declared as plain strings.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-closedomain-closed-string-domain">
-    <code class="analyzer-check-id">closedomain/closed-string-domain</code>
-    <p>Reports exported string fields used as small closed sets of values.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `closedomain/closed-string-domain` | Reports exported string fields used as small closed sets of values. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

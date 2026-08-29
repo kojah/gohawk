@@ -284,25 +284,18 @@ func synchronizeChecks(contents []byte, block string) ([]byte, error) {
 	return result, nil
 }
 
-// checksBlock renders stable check identifiers, summaries, and tags as compact
-// rows. It is raw HTML so the list can remain readable at narrow widths.
+// checksBlock renders stable check identifiers, summaries, and tags as a table.
 func checksBlock(checks []check) string {
 	var output strings.Builder
-	output.WriteString(`<div class="analyzer-check-list">` + "\n")
+	output.WriteString("| Check | What it detects | Tags |\n| --- | --- | --- |\n")
 	for _, item := range checks {
-		anchor := "check-" + strings.NewReplacer("/", "-").Replace(item.ID)
-		fmt.Fprintf(&output, "  "+`<article class="analyzer-check" id="%s">`+"\n", html.EscapeString(anchor))
-		fmt.Fprintf(&output, "    "+`<code class="analyzer-check-id">%s</code>`+"\n", html.EscapeString(item.ID))
-		fmt.Fprintf(&output, "    "+`<p>%s</p>`+"\n", inlineCode(item.Summary))
-		output.WriteString("    " + `<div class="analyzer-check-tags" aria-label="Tags">` + "\n")
-		for _, tag := range item.Tags {
-			fmt.Fprintf(&output, "      "+`<a href="../../../tags-and-profiles/#%s">%s</a>`+"\n", html.EscapeString(tag), html.EscapeString(tag))
+		tags := make([]string, len(item.Tags))
+		for index, tag := range item.Tags {
+			tags[index] = fmt.Sprintf("[%s](../../../tags-and-profiles/#%s)", tag, tag)
 		}
-		output.WriteString("    </div>\n")
-		output.WriteString("  </article>\n")
+		fmt.Fprintf(&output, "| `%s` | %s | %s |\n", item.ID, item.Summary, strings.Join(tags, ", "))
 	}
-	output.WriteString("</div>")
-	return output.String()
+	return strings.TrimSuffix(output.String(), "\n")
 }
 
 func synchronizeExamples(contents []byte, examples string) ([]byte, error) {

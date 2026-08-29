@@ -12,24 +12,10 @@ wire types when their fields should be named explicitly.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-wirepolicy-keyed-literal">
-    <code class="analyzer-check-id">wirepolicy/keyed-literal</code>
-    <p>Reports positional composite literals for persisted or wire structs.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-wirepolicy-serialization-tag">
-    <code class="analyzer-check-id">wirepolicy/serialization-tag</code>
-    <p>Reports exported wire fields without explicit JSON or TOML tags.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `wirepolicy/keyed-literal` | Reports positional composite literals for persisted or wire structs. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `wirepolicy/serialization-tag` | Reports exported wire fields without explicit JSON or TOML tags. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

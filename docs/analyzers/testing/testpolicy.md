@@ -11,15 +11,9 @@ and can return without calling the handle's `Helper` method.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-testpolicy-helper-marker">
-    <code class="analyzer-check-id">testpolicy/helper-marker</code>
-    <p>Reports test helpers that do not call Helper on every return path.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `testpolicy/helper-marker` | Reports test helpers that do not call Helper on every return path. | [policy](../../../tags-and-profiles/#policy) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

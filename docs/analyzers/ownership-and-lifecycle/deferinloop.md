@@ -12,15 +12,9 @@ locks, timers, and similar resources are released after each iteration.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-deferinloop-cleanup-lifetime">
-    <code class="analyzer-check-id">deferinloop/cleanup-lifetime</code>
-    <p>Reports cleanup defers whose lifetime extends across loop iterations.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `deferinloop/cleanup-lifetime` | Reports cleanup defers whose lifetime extends across loop iterations. | [reliability](../../../tags-and-profiles/#reliability) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

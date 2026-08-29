@@ -12,30 +12,11 @@ returning the newly declared one.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-errorownership-log-and-return">
-    <code class="analyzer-check-id">errorownership/log-and-return</code>
-    <p>Reports functions that both log and return the same error.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-errorownership-text-classification">
-    <code class="analyzer-check-id">errorownership/text-classification</code>
-    <p>Reports production code that classifies errors by matching their text.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-errorownership-mismatched-inline-error">
-    <code class="analyzer-check-id">errorownership/mismatched-inline-error</code>
-    <p>Reports inline error declarations whose condition checks a different error.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `errorownership/log-and-return` | Reports functions that both log and return the same error. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `errorownership/text-classification` | Reports production code that classifies errors by matching their text. | [reliability](../../../tags-and-profiles/#reliability) |
+| `errorownership/mismatched-inline-error` | Reports inline error declarations whose condition checks a different error. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

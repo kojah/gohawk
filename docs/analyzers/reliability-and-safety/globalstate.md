@@ -12,16 +12,9 @@ explicitly configured names or types are excluded.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-globalstate-mutable-package-state">
-    <code class="analyzer-check-id">globalstate/mutable-package-state</code>
-    <p>Reports mutable package-level state without an explicit owner.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `globalstate/mutable-package-state` | Reports mutable package-level state without an explicit owner. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

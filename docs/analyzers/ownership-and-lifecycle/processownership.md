@@ -12,15 +12,9 @@ waiting for it.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-processownership-missing-wait">
-    <code class="analyzer-check-id">processownership/missing-wait</code>
-    <p>Reports successfully started commands that are neither waited on nor transferred.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `processownership/missing-wait` | Reports successfully started commands that are neither waited on nor transferred. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

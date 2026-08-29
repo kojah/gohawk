@@ -12,38 +12,12 @@ it also prefers `t.Context()` or `b.Context()` over `context.Background()`.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-contextpolicy-context-first">
-    <code class="analyzer-check-id">contextpolicy/context-first</code>
-    <p>Reports context.Context parameters that are not first.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-contextpolicy-context-storage">
-    <code class="analyzer-check-id">contextpolicy/context-storage</code>
-    <p>Reports context.Context values stored in structs.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-contextpolicy-test-context">
-    <code class="analyzer-check-id">contextpolicy/test-context</code>
-    <p>Reports tests that use context.Background instead of the testing handle&#39;s context.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-contextpolicy-nil-context">
-    <code class="analyzer-check-id">contextpolicy/nil-context</code>
-    <p>Reports definitely nil context.Context arguments.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `contextpolicy/context-first` | Reports context.Context parameters that are not first. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `contextpolicy/context-storage` | Reports context.Context values stored in structs. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `contextpolicy/test-context` | Reports tests that use context.Background instead of the testing handle's context. | [policy](../../../tags-and-profiles/#policy) |
+| `contextpolicy/nil-context` | Reports definitely nil context.Context arguments. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

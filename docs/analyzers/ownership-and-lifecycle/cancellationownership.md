@@ -12,15 +12,9 @@ to the caller.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-cancellationownership-release">
-    <code class="analyzer-check-id">cancellationownership/release</code>
-    <p>Reports derived cancel functions that are neither called nor transferred on every return path.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `cancellationownership/release` | Reports derived cancel functions that are neither called nor transferred on every return path. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

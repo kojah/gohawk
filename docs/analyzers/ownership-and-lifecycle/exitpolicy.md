@@ -12,15 +12,9 @@ registered on the current path.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-exitpolicy-skipped-defer">
-    <code class="analyzer-check-id">exitpolicy/skipped-defer</code>
-    <p>Reports immediate process termination that bypasses an earlier defer.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `exitpolicy/skipped-defer` | Reports immediate process termination that bypasses an earlier defer. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

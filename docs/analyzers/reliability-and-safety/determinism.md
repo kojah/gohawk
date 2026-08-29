@@ -12,15 +12,9 @@ sorting step.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-determinism-map-output-order">
-    <code class="analyzer-check-id">determinism/map-output-order</code>
-    <p>Reports map iteration that reaches ordered output without explicit sorting.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `determinism/map-output-order` | Reports map iteration that reaches ordered output without explicit sorting. | [reliability](../../../tags-and-profiles/#reliability) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

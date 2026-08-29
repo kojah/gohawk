@@ -12,15 +12,9 @@ the value local to each goroutine.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-concurrentcapture-shared-capture">
-    <code class="analyzer-check-id">concurrentcapture/shared-capture</code>
-    <p>Reports repeatedly launched goroutines that mutate the same captured local.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `concurrentcapture/shared-capture` | Reports repeatedly launched goroutines that mutate the same captured local. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

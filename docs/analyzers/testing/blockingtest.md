@@ -12,29 +12,11 @@ test helpers.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-blockingtest-send">
-    <code class="analyzer-check-id">blockingtest/send</code>
-    <p>Reports unguarded channel sends in context-aware test code.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-blockingtest-receive">
-    <code class="analyzer-check-id">blockingtest/receive</code>
-    <p>Reports blocking channel receives in tests without a cancellation escape.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-blockingtest-select">
-    <code class="analyzer-check-id">blockingtest/select</code>
-    <p>Reports blocking selects in tests without a cancellation escape.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `blockingtest/send` | Reports unguarded channel sends in context-aware test code. | [reliability](../../../tags-and-profiles/#reliability) |
+| `blockingtest/receive` | Reports blocking channel receives in tests without a cancellation escape. | [reliability](../../../tags-and-profiles/#reliability) |
+| `blockingtest/select` | Reports blocking selects in tests without a cancellation escape. | [reliability](../../../tags-and-profiles/#reliability) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

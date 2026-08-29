@@ -15,15 +15,9 @@ HTTP response bodies, timers and tickers, and gzip/zlib readers and writers.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-resourcelifetime-missing-release">
-    <code class="analyzer-check-id">resourcelifetime/missing-release</code>
-    <p>Reports owned resources that are not released on every return path.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `resourcelifetime/missing-release` | Reports owned resources that are not released on every return path. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

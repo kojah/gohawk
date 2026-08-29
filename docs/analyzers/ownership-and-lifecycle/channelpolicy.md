@@ -12,30 +12,11 @@ after the channel has been closed.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-channelpolicy-capacity-rationale">
-    <code class="analyzer-check-id">channelpolicy/capacity-rationale</code>
-    <p>Reports large constant channel capacities without a nearby bounded rationale.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-channelpolicy-caller-close">
-    <code class="analyzer-check-id">channelpolicy/caller-close</code>
-    <p>Reports functions that close channels received from their callers.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#reliability">reliability</a>
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-channelpolicy-send-after-close">
-    <code class="analyzer-check-id">channelpolicy/send-after-close</code>
-    <p>Reports sends reachable after a channel has been closed.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#correctness">correctness</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `channelpolicy/capacity-rationale` | Reports large constant channel capacities without a nearby bounded rationale. | [policy](../../../tags-and-profiles/#policy) |
+| `channelpolicy/caller-close` | Reports functions that close channels received from their callers. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `channelpolicy/send-after-close` | Reports sends reachable after a channel has been closed. | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

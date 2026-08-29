@@ -12,36 +12,12 @@ swap. It also reports types that mix pointer and value receiver methods.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-<div class="analyzer-check-list">
-  <article class="analyzer-check" id="check-apishape-parameter-count">
-    <code class="analyzer-check-id">apishape/parameter-count</code>
-    <p>Reports exported APIs with more than the configured maximum number of parameters.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-apishape-mixed-receivers">
-    <code class="analyzer-check-id">apishape/mixed-receivers</code>
-    <p>Reports types that mix pointer and value receiver methods.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-apishape-adjacent-same-type">
-    <code class="analyzer-check-id">apishape/adjacent-same-type</code>
-    <p>Reports long adjacent runs of parameters that share one type.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-  <article class="analyzer-check" id="check-apishape-adjacent-optional-scalars">
-    <code class="analyzer-check-id">apishape/adjacent-optional-scalars</code>
-    <p>Reports adjacent optional scalar parameters that are easy to swap.</p>
-    <div class="analyzer-check-tags" aria-label="Tags">
-      <a href="../../../tags-and-profiles/#policy">policy</a>
-    </div>
-  </article>
-</div>
+| Check | What it detects | Tags |
+| --- | --- | --- |
+| `apishape/parameter-count` | Reports exported APIs with more than the configured maximum number of parameters. | [policy](../../../tags-and-profiles/#policy) |
+| `apishape/mixed-receivers` | Reports types that mix pointer and value receiver methods. | [policy](../../../tags-and-profiles/#policy) |
+| `apishape/adjacent-same-type` | Reports long adjacent runs of parameters that share one type. | [policy](../../../tags-and-profiles/#policy) |
+| `apishape/adjacent-optional-scalars` | Reports adjacent optional scalar parameters that are easy to swap. | [policy](../../../tags-and-profiles/#policy) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged
