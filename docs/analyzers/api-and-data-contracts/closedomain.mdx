@@ -3,8 +3,7 @@ title: closedomain
 description: "Represent closed sets with named types."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ group of values—but are still declared as plain strings.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `closed-string-domain` | Reports exported string fields used as small closed sets of values. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="closed-string-domain" profile="default" tags={["reliability","policy"]} /> | Reports exported string fields used as small closed sets of values. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

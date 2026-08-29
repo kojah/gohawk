@@ -3,8 +3,7 @@ title: apishape
 description: "Group error-prone parameters."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,12 +15,12 @@ swap. It also reports types that mix pointer and value receiver methods.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `parameter-count` | Reports exported APIs with more than the configured maximum number of parameters. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
-| `mixed-receivers` | Reports types that mix pointer and value receiver methods. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
-| `adjacent-same-type` | Reports long adjacent runs of parameters that share one type. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
-| `adjacent-optional-scalars` | Reports adjacent optional scalar parameters that are easy to swap. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="parameter-count" profile="default" tags={["policy"]} /> | Reports exported APIs with more than the configured maximum number of parameters. |
+| <CheckIdentity name="mixed-receivers" profile="default" tags={["policy"]} /> | Reports types that mix pointer and value receiver methods. |
+| <CheckIdentity name="adjacent-same-type" profile="default" tags={["policy"]} /> | Reports long adjacent runs of parameters that share one type. |
+| <CheckIdentity name="adjacent-optional-scalars" profile="default" tags={["policy"]} /> | Reports adjacent optional scalar parameters that are easy to swap. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

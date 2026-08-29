@@ -3,8 +3,7 @@ title: determinism
 description: "Sort map-derived output."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ sorting step.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `map-output-order` | Reports map iteration that reaches ordered output without explicit sorting. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="map-output-order" profile="default" tags={["reliability"]} /> | Reports map iteration that reaches ordered output without explicit sorting. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

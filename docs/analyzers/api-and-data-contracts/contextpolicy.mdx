@@ -3,8 +3,7 @@ title: contextpolicy
 description: "Put context first."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,12 +15,12 @@ it also prefers `t.Context()` or `b.Context()` over `context.Background()`.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `context-first` | Reports context.Context parameters that are not first. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
-| `context-storage` | Reports context.Context values stored in structs. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
-| `test-context` | Reports tests that use context.Background instead of the testing handle's context. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["policy"]} /> |
-| `nil-context` | Reports definitely nil context.Context arguments. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="context-first" profile="default" tags={["reliability","policy"]} /> | Reports context.Context parameters that are not first. |
+| <CheckIdentity name="context-storage" profile="default" tags={["reliability","policy"]} /> | Reports context.Context values stored in structs. |
+| <CheckIdentity name="test-context" profile="opt-in" tags={["policy"]} /> | Reports tests that use context.Background instead of the testing handle's context. |
+| <CheckIdentity name="nil-context" profile="default" tags={["correctness"]} /> | Reports definitely nil context.Context arguments. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

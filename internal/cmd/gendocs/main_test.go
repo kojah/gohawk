@@ -145,6 +145,20 @@ func TestSynchronizeAnalyzerComponentsAddsImportsAfterFrontmatter(t *testing.T) 
 	}
 }
 
+func TestSynchronizeAnalyzerComponentsReplacesLegacyImports(t *testing.T) {
+	contents := []byte("---\ntitle: example\n---\n\n" + legacyAnalyzerComponentImports + "\n\n## What it detects\n")
+	got, err := synchronizeAnalyzerComponents(contents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), analyzerComponentImports) {
+		t.Fatalf("component import was not updated: %s", got)
+	}
+	if strings.Contains(string(got), legacyAnalyzerComponentImports) {
+		t.Fatalf("legacy component imports remain: %s", got)
+	}
+}
+
 func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
 	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",
@@ -156,11 +170,9 @@ func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"| Check | What it detects | Profile | Tags |",
-		"| `problem` |",
+		"| Check | What it detects |",
 		"Reports the example problem.",
-		`<CheckProfile profile="opt-in" />`,
-		`<CheckTags tags={["correctness","reliability"]} />`,
+		`<CheckIdentity name="problem" profile="opt-in" tags={["correctness","reliability"]} />`,
 	} {
 		if !strings.Contains(block, want) {
 			t.Fatalf("checks block is missing %q: %s", want, block)

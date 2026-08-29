@@ -3,8 +3,7 @@ title: syncmapatomicity
 description: "Claim sync.Map values atomically."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ value is consumed as the successfully removed entry.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `non-atomic-claim` | Reports separate sync.Map Load and Delete operations used to claim one value. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="non-atomic-claim" profile="default" tags={["correctness"]} /> | Reports separate sync.Map Load and Delete operations used to claim one value. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

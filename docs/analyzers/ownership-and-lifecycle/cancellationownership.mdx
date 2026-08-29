@@ -3,8 +3,7 @@ title: cancellationownership
 description: "Call derived cancel functions."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ to the caller.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `release` | Reports derived cancel functions that are neither called nor transferred on every return path. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="release" profile="default" tags={["correctness"]} /> | Reports derived cancel functions that are neither called nor transferred on every return path. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

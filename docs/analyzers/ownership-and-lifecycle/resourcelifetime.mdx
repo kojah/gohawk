@@ -3,8 +3,7 @@ title: resourcelifetime
 description: "Release owned resources on every path."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -19,9 +18,9 @@ HTTP response bodies, timers and tickers, and gzip/zlib readers and writers.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `missing-release` | Reports owned resources that are not released on every return path. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="missing-release" profile="default" tags={["correctness"]} /> | Reports owned resources that are not released on every return path. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

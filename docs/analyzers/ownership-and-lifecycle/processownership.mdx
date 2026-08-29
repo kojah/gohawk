@@ -3,8 +3,7 @@ title: processownership
 description: "Wait for started processes."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ waiting for it.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `missing-wait` | Reports successfully started commands that are neither waited on nor transferred. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="missing-wait" profile="default" tags={["correctness"]} /> | Reports successfully started commands that are neither waited on nor transferred. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

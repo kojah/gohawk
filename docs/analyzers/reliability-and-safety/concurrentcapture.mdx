@@ -3,8 +3,7 @@ title: concurrentcapture
 description: "Keep repeatedly launched goroutines from mutating the same local."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ the value local to each goroutine.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `shared-capture` | Reports repeatedly launched goroutines that mutate the same captured local. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="shared-capture" profile="default" tags={["correctness"]} /> | Reports repeatedly launched goroutines that mutate the same captured local. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

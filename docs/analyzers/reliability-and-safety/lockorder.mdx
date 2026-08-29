@@ -3,8 +3,7 @@ title: lockorder
 description: "Acquire locks consistently."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,11 +15,11 @@ the corresponding release policy.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `missing-release` | Reports return paths that leave an owned lock held. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
-| `recursive-acquire` | Reports attempts to acquire a lock that is already held. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
-| `contradictory-order` | Reports inconsistent acquisition order for the same pair of locks. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="missing-release" profile="default" tags={["correctness"]} /> | Reports return paths that leave an owned lock held. |
+| <CheckIdentity name="recursive-acquire" profile="default" tags={["correctness"]} /> | Reports attempts to acquire a lock that is already held. |
+| <CheckIdentity name="contradictory-order" profile="default" tags={["correctness"]} /> | Reports inconsistent acquisition order for the same pair of locks. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

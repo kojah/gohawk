@@ -3,8 +3,7 @@ title: blockingtest
 description: "Make test waits cancellable."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,11 +15,11 @@ test helpers.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `send` | Reports unguarded channel sends in context-aware test code. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
-| `receive` | Reports blocking channel receives in tests without a cancellation escape. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
-| `select` | Reports blocking selects in tests without a cancellation escape. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="send" profile="default" tags={["reliability"]} /> | Reports unguarded channel sends in context-aware test code. |
+| <CheckIdentity name="receive" profile="default" tags={["reliability"]} /> | Reports blocking channel receives in tests without a cancellation escape. |
+| <CheckIdentity name="select" profile="default" tags={["reliability"]} /> | Reports blocking selects in tests without a cancellation escape. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

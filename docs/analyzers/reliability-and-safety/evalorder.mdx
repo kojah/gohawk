@@ -3,8 +3,7 @@ title: evalorder
 description: "Make dependencies between evaluated operands explicit."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ by an earlier operand.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `operand-mutation` | Reports expressions whose later operand mutates a value read by an earlier operand. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="operand-mutation" profile="default" tags={["correctness"]} /> | Reports expressions whose later operand mutates a value read by an earlier operand. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

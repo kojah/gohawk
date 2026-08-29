@@ -430,10 +430,11 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	color: var(--sl-color-gray-2);
 }
 
-/* Checks mix long stable IDs with prose and compact metadata. Keep a useful
-   minimum width for every column and let Starlight's block-level table scroll
-   horizontally when the article column cannot accommodate them all. */
+/* Check identity and metadata share the first column, leaving the second for
+   prose. The fixed layout keeps both columns inside the article at every size. */
 .sl-markdown-content h3#checks + table {
+	display: table;
+	table-layout: fixed;
 	width: 100%;
 	font-size: var(--sl-text-sm);
 }
@@ -441,25 +442,12 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 .sl-markdown-content h3#checks + table :is(th, td) {
 	vertical-align: top;
 }
-.sl-markdown-content h3#checks + table td:first-child code {
-	font-size: 0.82em;
-	white-space: nowrap;
-}
-
 .sl-markdown-content h3#checks + table :is(th, td):first-child {
-	min-width: 18rem;
+	width: 34%;
 }
 
 .sl-markdown-content h3#checks + table :is(th, td):nth-child(2) {
-	min-width: 24rem;
-}
-
-.sl-markdown-content h3#checks + table :is(th, td):nth-child(3) {
-	min-width: 7.5rem;
-}
-
-.sl-markdown-content h3#checks + table :is(th, td):nth-child(4) {
-	min-width: 10rem;
+	width: 66%;
 }
 
 /* Option names and defaults are identifiers rather than prose. Keep them

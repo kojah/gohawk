@@ -3,8 +3,7 @@ title: deferinloop
 description: "Release each iteration's resources before starting the next one."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ locks, timers, and similar resources are released after each iteration.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `cleanup-lifetime` | Reports cleanup defers whose lifetime extends across loop iterations. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="cleanup-lifetime" profile="default" tags={["reliability"]} /> | Reports cleanup defers whose lifetime extends across loop iterations. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

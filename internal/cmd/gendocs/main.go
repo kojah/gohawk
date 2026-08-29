@@ -21,17 +21,18 @@ import (
 )
 
 const (
-	generatedAnalyzersStart  = "<!-- gohawk:generated-analyzers:start -->"
-	generatedAnalyzersEnd    = "<!-- gohawk:generated-analyzers:end -->"
-	generatedOptionsStart    = "{/* gohawk:generated-options:start */}"
-	generatedOptionsEnd      = "{/* gohawk:generated-options:end */}"
-	generatedExamplesStart   = "{/* gohawk:generated-examples:start */}"
-	generatedExamplesEnd     = "{/* gohawk:generated-examples:end */}"
-	generatedChecksStart     = "{/* gohawk:generated-checks:start */}"
-	generatedChecksEnd       = "{/* gohawk:generated-checks:end */}"
-	generatedTagsStart       = "<!-- gohawk:generated-tags:start -->"
-	generatedTagsEnd         = "<!-- gohawk:generated-tags:end -->"
-	analyzerComponentImports = "import CheckProfile from '../../../site/src/components/CheckProfile.astro';\nimport CheckTags from '../../../site/src/components/CheckTags.astro';"
+	generatedAnalyzersStart        = "<!-- gohawk:generated-analyzers:start -->"
+	generatedAnalyzersEnd          = "<!-- gohawk:generated-analyzers:end -->"
+	generatedOptionsStart          = "{/* gohawk:generated-options:start */}"
+	generatedOptionsEnd            = "{/* gohawk:generated-options:end */}"
+	generatedExamplesStart         = "{/* gohawk:generated-examples:start */}"
+	generatedExamplesEnd           = "{/* gohawk:generated-examples:end */}"
+	generatedChecksStart           = "{/* gohawk:generated-checks:start */}"
+	generatedChecksEnd             = "{/* gohawk:generated-checks:end */}"
+	generatedTagsStart             = "<!-- gohawk:generated-tags:start -->"
+	generatedTagsEnd               = "<!-- gohawk:generated-tags:end -->"
+	analyzerComponentImports       = "import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';"
+	legacyAnalyzerComponentImports = "import CheckProfile from '../../../site/src/components/CheckProfile.astro';\nimport CheckTags from '../../../site/src/components/CheckTags.astro';"
 )
 
 type manifest struct {
@@ -302,6 +303,9 @@ func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
 	if bytes.Contains(contents, []byte(analyzerComponentImports)) {
 		return contents, nil
 	}
+	if bytes.Contains(contents, []byte(legacyAnalyzerComponentImports)) {
+		return bytes.Replace(contents, []byte(legacyAnalyzerComponentImports), []byte(analyzerComponentImports), 1), nil
+	}
 	if !bytes.HasPrefix(contents, []byte("---\n")) {
 		return nil, errors.New("missing frontmatter")
 	}
@@ -325,8 +329,8 @@ func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
 // preserving Starlight's native table rendering.
 func checksBlock(analyzerName string, checks []check) (string, error) {
 	var output strings.Builder
-	output.WriteString("| Check | What it detects | Profile | Tags |\n")
-	output.WriteString("| --- | --- | --- | --- |\n")
+	output.WriteString("| Check | What it detects |\n")
+	output.WriteString("| --- | --- |\n")
 	for _, item := range checks {
 		localID, ok := strings.CutPrefix(item.ID, analyzerName+"/")
 		if !ok || localID == "" {
@@ -338,11 +342,11 @@ func checksBlock(analyzerName string, checks []check) (string, error) {
 		}
 		fmt.Fprintf(
 			&output,
-			"| `%s` | %s | <CheckProfile profile=\"%s\" /> | <CheckTags tags={%s} /> |\n",
-			localID,
-			markdownTableCell(item.Summary),
+			"| <CheckIdentity name=\"%s\" profile=\"%s\" tags={%s} /> | %s |\n",
+			html.EscapeString(localID),
 			html.EscapeString(item.Profile),
 			tags,
+			markdownTableCell(item.Summary),
 		)
 	}
 	return strings.TrimSuffix(output.String(), "\n"), nil

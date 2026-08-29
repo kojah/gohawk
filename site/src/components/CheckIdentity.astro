@@ -1,0 +1,43 @@
+---
+import CheckProfile from './CheckProfile.astro';
+import CheckTags from './CheckTags.astro';
+
+interface Props {
+	name: string;
+	profile: string;
+	tags: string[];
+}
+
+const { name, profile, tags } = Astro.props;
+---
+
+<div class="check-identity">
+	<code>{name}</code>
+	<span class="check-metadata" aria-label={`Profile ${profile}; tags ${tags.join(', ')}`}>
+		<CheckProfile profile={profile} />
+		<CheckTags tags={tags} />
+	</span>
+</div>
+
+<style>
+	.check-identity {
+		display: flex;
+		min-width: 0;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.5rem;
+	}
+
+	code {
+		max-width: 100%;
+		font-size: 0.82em;
+		overflow-wrap: anywhere;
+	}
+
+	.check-metadata {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.35rem 0.6rem;
+	}
+</style>

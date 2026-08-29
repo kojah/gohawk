@@ -3,8 +3,7 @@ title: errorownership
 description: "Handle an error at one layer."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,11 +15,11 @@ returning the newly declared one.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `log-and-return` | Reports functions that both log and return the same error. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["reliability","policy"]} /> |
-| `text-classification` | Reports production code that classifies errors by matching their text. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
-| `mismatched-inline-error` | Reports inline error declarations whose condition checks a different error. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="log-and-return" profile="opt-in" tags={["reliability","policy"]} /> | Reports functions that both log and return the same error. |
+| <CheckIdentity name="text-classification" profile="default" tags={["reliability"]} /> | Reports production code that classifies errors by matching their text. |
+| <CheckIdentity name="mismatched-inline-error" profile="default" tags={["correctness"]} /> | Reports inline error declarations whose condition checks a different error. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

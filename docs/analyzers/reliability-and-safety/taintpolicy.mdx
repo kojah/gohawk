@@ -3,8 +3,7 @@ title: taintpolicy
 description: "Validate untrusted input before a sink."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ without passing through a recognized validator or sanitizer.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `untrusted-sink` | Reports untrusted input that reaches a configured sensitive sink without validation. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness","reliability"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="untrusted-sink" profile="default" tags={["correctness","reliability"]} /> | Reports untrusted input that reaches a configured sensitive sink without validation. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

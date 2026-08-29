@@ -3,8 +3,7 @@ title: oncepolicy
 description: "Keep sync.Once function wrappers alive across calls."
 ---
 
-import CheckProfile from '../../../site/src/components/CheckProfile.astro';
-import CheckTags from '../../../site/src/components/CheckTags.astro';
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 
 ## What it detects
@@ -16,9 +15,9 @@ calling, and discarding it in one expression.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
-| --- | --- | --- | --- |
-| `discarded-wrapper` | Reports sync.Once function wrappers that are called and immediately discarded. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="discarded-wrapper" profile="default" tags={["correctness"]} /> | Reports sync.Once function wrappers that are called and immediately discarded. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
