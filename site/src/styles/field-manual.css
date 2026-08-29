@@ -461,6 +461,37 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	}
 }
 
+/* Option names and defaults are identifiers rather than prose. Keep them
+   intact and reserve the flexible column for the effect description. */
+.sl-markdown-content h2#options + table {
+	width: 100%;
+	font-size: var(--sl-text-sm);
+}
+
+.sl-markdown-content h2#options + table :is(th, td) {
+	vertical-align: top;
+}
+
+.sl-markdown-content h2#options + table :is(th, td):is(:first-child, :nth-child(2)) {
+	width: 1%;
+	white-space: nowrap;
+}
+
+.sl-markdown-content h2#options + table td:nth-child(3) {
+	width: 100%;
+}
+
+.sl-markdown-content h2#options + table :is(td:first-child, td:nth-child(2)) code {
+	font-size: 0.88em;
+	white-space: nowrap;
+}
+
+@media (min-width: 50rem) {
+	.sl-markdown-content h2#options + table {
+		display: table;
+	}
+}
+
 /* ------------------------------------------------------------ specimens -- */
 
 .expressive-code .frame pre {
