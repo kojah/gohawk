@@ -1,6 +1,6 @@
 ---
 title: Tags and profiles
-description: Understand why a check reports a finding and when its analyzer runs.
+description: Understand why a check reports a finding and when analyzers and checks run.
 ---
 
 Tags belong to individual checks and explain why a finding matters:
@@ -16,16 +16,24 @@ several checks with different tags, but the tags remain properties of those
 checks rather than of the analyzer as a whole. Tags describe the nature of
 findings; they are not severity levels.
 
-Profiles answer a different question: whether an analyzer runs automatically.
-The **default** profile contains broadly applicable analyzers, while an
-**opt-in** analyzer runs only when selected explicitly or when all analyzers are
-enabled. A profile does not indicate how important a finding is, and an opt-in
-analyzer is not necessarily a policy analyzer.
+Profiles answer a different question: whether something runs automatically.
+Analyzer profiles are the outer gate: a **default** analyzer participates in an
+ordinary run, while an **opt-in** analyzer must be selected explicitly. Check
+profiles are the inner gate: a **default** check runs whenever its analyzer is
+selected, while an **opt-in** check must be named explicitly or included by
+`-enable-all`.
 
-Use `gohawk list` to see every analyzer's profile and group.
+These two levels make it possible for a broadly useful analyzer to contain one
+more opinionated check without enabling that check for everyone. Profiles do
+not indicate severity, and an opt-in analyzer or check is not necessarily a
+policy rule.
+
+Use `gohawk list` to see analyzer profiles, or `gohawk list -checks` to see
+check profiles.
 
 ```sh
 gohawk list
+gohawk list -checks
 ```
 
 See [Configuring gohawk](../configuration/) to select analyzers and profiles.

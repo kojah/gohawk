@@ -3,7 +3,7 @@
 # gohawk
 
 [![CI](https://github.com/kojah/gohawk/actions/workflows/ci.yml/badge.svg)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-77.5%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-86.7%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 
 gohawk is a focused set of static analyzers for Go, designed to run alongside
 `go vet`, Staticcheck, and go-critic. It covers gaps around ownership,
@@ -38,17 +38,20 @@ go vet -vettool="$(command -v gohawk)" ./...
 gohawk -fix -diff ./...
 gohawk -fix ./...
 
-# Run selected opt-in checks, or exclude one from the defaults.
+# Run selected opt-in analyzers, or exclude one from the defaults.
 gohawk -enable=wirepolicy,globalstate ./...
 gohawk -disable=oncepolicy ./...
 
-# Run complete analyzer groups, including their opt-in checks.
+# Run complete analyzer groups with their default checks.
 gohawk -enable-groups=ownership,testing ./...
+
+# Run one opt-in check.
+gohawk -enable-checks=contextpolicy/test-context ./...
 
 # Remove groups from the default profile or from -enable-all.
 gohawk -disable-groups=testing ./...
 
-# Run every analyzer, including opt-in checks.
+# Run every analyzer and check.
 gohawk -enable-all ./...
 ```
 

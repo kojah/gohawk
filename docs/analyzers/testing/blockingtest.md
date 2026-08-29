@@ -12,11 +12,11 @@ test helpers.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `blockingtest/send` | Reports unguarded channel sends in context-aware test code. | [reliability](../../../tags-and-profiles/#reliability) |
-| `blockingtest/receive` | Reports blocking channel receives in tests without a cancellation escape. | [reliability](../../../tags-and-profiles/#reliability) |
-| `blockingtest/select` | Reports blocking selects in tests without a cancellation escape. | [reliability](../../../tags-and-profiles/#reliability) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `blockingtest/send` | Reports unguarded channel sends in context-aware test code. | default | [reliability](../../../tags-and-profiles/#reliability) |
+| `blockingtest/receive` | Reports blocking channel receives in tests without a cancellation escape. | default | [reliability](../../../tags-and-profiles/#reliability) |
+| `blockingtest/select` | Reports blocking selects in tests without a cancellation escape. | default | [reliability](../../../tags-and-profiles/#reliability) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

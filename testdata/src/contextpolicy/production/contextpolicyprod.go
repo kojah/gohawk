@@ -19,6 +19,32 @@ func nilContextAlias() {
 	accept(ctx) // want "do not pass nil context.Context"
 }
 
+type extendedContext interface {
+	context.Context
+}
+
+func nilContextThroughInterface() {
+	var ctx extendedContext
+	accept(ctx) // want "do not pass nil context.Context"
+}
+
+func nilContextThroughBranches(useAlias bool) {
+	var ctx context.Context
+	if useAlias {
+		ctx = context.Context(nil)
+	} else {
+		ctx = nil
+	}
+	accept(ctx) // want "do not pass nil context.Context"
+}
+
+func maybeNilContext(ctx context.Context, clear bool) {
+	if clear {
+		ctx = nil
+	}
+	accept(ctx)
+}
+
 func suppliedContext(ctx context.Context) {
 	accept(ctx)
 }

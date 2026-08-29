@@ -1,4 +1,4 @@
-package general
+package ownership
 
 import (
 	"go/ast"
@@ -98,7 +98,7 @@ func loopAcquiresTarget(pass *analysis.Pass, body *ast.BlockStmt, target ast.Exp
 			return true
 		}
 		selector, ok := call.Fun.(*ast.SelectorExpr)
-		if ok && (selector.Sel.Name == "Lock" || selector.Sel.Name == "RLock") && sameExpression(pass, selector.X, target) {
+		if ok && (selector.Sel.Name == "Lock" || selector.Sel.Name == "RLock") && analysisutil.SameExpression(pass, selector.X, target) {
 			found = true
 			return false
 		}
@@ -121,27 +121,5 @@ func expressionRoot(expression ast.Expr) *ast.Ident {
 		return expressionRoot(candidate.X)
 	default:
 		return nil
-	}
-}
-
-func sameExpression(pass *analysis.Pass, first, second ast.Expr) bool {
-	switch left := first.(type) {
-	case *ast.Ident:
-		right, ok := second.(*ast.Ident)
-		return ok && pass.TypesInfo.ObjectOf(left) == pass.TypesInfo.ObjectOf(right)
-	case *ast.SelectorExpr:
-		right, ok := second.(*ast.SelectorExpr)
-		return ok && left.Sel.Name == right.Sel.Name && sameExpression(pass, left.X, right.X)
-	case *ast.ParenExpr:
-		right, ok := second.(*ast.ParenExpr)
-		return ok && sameExpression(pass, left.X, right.X)
-	case *ast.StarExpr:
-		right, ok := second.(*ast.StarExpr)
-		return ok && sameExpression(pass, left.X, right.X)
-	case *ast.BasicLit:
-		right, ok := second.(*ast.BasicLit)
-		return ok && left.Kind == right.Kind && left.Value == right.Value
-	default:
-		return false
 	}
 }

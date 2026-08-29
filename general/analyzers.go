@@ -3,81 +3,15 @@ package general
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/general/contracts"
+	"github.com/kojah/gohawk/general/ownership"
+	"github.com/kojah/gohawk/general/reliability"
+	testingchecks "github.com/kojah/gohawk/general/testing"
 
 	"golang.org/x/tools/go/analysis"
 )
-
-type commaSeparatedChoice struct {
-	value   *string
-	allowed map[string]bool
-}
-
-type choiceValue struct {
-	value   *string
-	allowed map[string]bool
-}
-
-func newChoiceValue(value *string, allowed ...string) *choiceValue {
-	choices := make(map[string]bool, len(allowed))
-	for _, choice := range allowed {
-		choices[choice] = true
-	}
-	return &choiceValue{value: value, allowed: choices}
-}
-
-func (choice *choiceValue) String() string {
-	if choice == nil || choice.value == nil {
-		return ""
-	}
-	return *choice.value
-}
-
-func (choice *choiceValue) Set(value string) error {
-	if !choice.allowed[value] {
-		return fmt.Errorf("unknown value %q", value)
-	}
-	*choice.value = value
-	return nil
-}
-
-func newCommaSeparatedChoice(value *string, allowed ...string) *commaSeparatedChoice {
-	choices := make(map[string]bool, len(allowed))
-	for _, choice := range allowed {
-		choices[choice] = true
-	}
-	return &commaSeparatedChoice{value: value, allowed: choices}
-}
-
-func (choice *commaSeparatedChoice) String() string {
-	if choice == nil || choice.value == nil {
-		return ""
-	}
-	return *choice.value
-}
-
-func (choice *commaSeparatedChoice) Set(value string) error {
-	for item := range commaSeparatedSet(value) {
-		if !choice.allowed[item] {
-			return fmt.Errorf("unknown value %q", item)
-		}
-	}
-	*choice.value = value
-	return nil
-}
-
-func commaSeparatedSet(value string) map[string]bool {
-	result := make(map[string]bool)
-	for item := range strings.SplitSeq(value, ",") {
-		item = strings.TrimSpace(item)
-		if item != "" {
-			result[item] = true
-		}
-	}
-	return result
-}
 
 // AnalyzerGroup is a related set of Go policy analyzers.
 type AnalyzerGroup struct {
@@ -162,54 +96,28 @@ func AnalyzerMetadata() map[string]AnalyzerInfo {
 func AnalyzerGroups() []AnalyzerGroup {
 	groups := []AnalyzerGroup{
 		{
-			Name:    "contracts",
-			Doc:     "API and data contracts",
-			DocPath: "api-and-data-contracts",
-			Analyzers: []*analysis.Analyzer{
-				apiShapeAnalyzer(),
-				contextPolicyAnalyzer(),
-				closedDomainAnalyzer(),
-				wirePolicyAnalyzer(),
-			},
+			Name:      "contracts",
+			Doc:       "API and data contracts",
+			DocPath:   "api-and-data-contracts",
+			Analyzers: contracts.Analyzers(),
 		},
 		{
-			Name:    "ownership",
-			Doc:     "ownership and lifecycle",
-			DocPath: "ownership-and-lifecycle",
-			Analyzers: []*analysis.Analyzer{
-				cancellationOwnershipAnalyzer(),
-				channelPolicyAnalyzer(),
-				deferInLoopAnalyzer(),
-				exitPolicyAnalyzer(),
-				goroutineOwnershipAnalyzer(),
-				processOwnershipAnalyzer(),
-				resourceLifetimeAnalyzer(),
-			},
+			Name:      "ownership",
+			Doc:       "ownership and lifecycle",
+			DocPath:   "ownership-and-lifecycle",
+			Analyzers: ownership.Analyzers(),
 		},
 		{
-			Name:    "reliability",
-			Doc:     "reliability and safety",
-			DocPath: "reliability-and-safety",
-			Analyzers: []*analysis.Analyzer{
-				concurrentCaptureAnalyzer(),
-				determinismAnalyzer(),
-				errorOwnershipAnalyzer(),
-				evalOrderAnalyzer(),
-				globalStateAnalyzer(),
-				lockOrderAnalyzer(),
-				oncePolicyAnalyzer(),
-				syncMapAtomicityAnalyzer(),
-				taintPolicyAnalyzer(),
-			},
+			Name:      "reliability",
+			Doc:       "reliability and safety",
+			DocPath:   "reliability-and-safety",
+			Analyzers: reliability.Analyzers(),
 		},
 		{
-			Name:    "testing",
-			Doc:     "testing",
-			DocPath: "testing",
-			Analyzers: []*analysis.Analyzer{
-				blockingTestAnalyzer(),
-				testPolicyAnalyzer(),
-			},
+			Name:      "testing",
+			Doc:       "testing",
+			DocPath:   "testing",
+			Analyzers: testingchecks.Analyzers(),
 		},
 	}
 	for groupIndex := range groups {

@@ -12,9 +12,9 @@ registered on the current path.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `exitpolicy/skipped-defer` | Reports immediate process termination that bypasses an earlier defer. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `exitpolicy/skipped-defer` | Reports immediate process termination that bypasses an earlier defer. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

@@ -1,9 +1,12 @@
-package general
+package reliability
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
+
+	"github.com/kojah/gohawk/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -100,7 +103,7 @@ func reportConditionalSyncMapClaim(pass *analysis.Pass, conditional *ast.IfStmt,
 		return
 	}
 	selector := deleteCall.Fun.(*ast.SelectorExpr)
-	if !sameExpression(pass, selector.X, load.receiver) || !sameExpression(pass, deleteCall.Args[0], load.key) {
+	if !analysisutil.SameExpression(pass, selector.X, load.receiver) || !analysisutil.SameExpression(pass, deleteCall.Args[0], load.key) {
 		return
 	}
 	usesValue := false
@@ -122,12 +125,18 @@ func conditionRequiresTrue(pass *analysis.Pass, expression ast.Expr, object type
 		if candidate.Op != token.EQL {
 			return false
 		}
-		identifier, ok := candidate.X.(*ast.Ident)
-		truth, truthOK := candidate.Y.(*ast.Ident)
-		return ok && truthOK && pass.TypesInfo.ObjectOf(identifier) == object && truth.Name == "true"
+		left, leftOK := candidate.X.(*ast.Ident)
+		right, rightOK := candidate.Y.(*ast.Ident)
+		return leftOK && pass.TypesInfo.ObjectOf(left) == object && expressionIsTrue(pass, candidate.Y) ||
+			rightOK && pass.TypesInfo.ObjectOf(right) == object && expressionIsTrue(pass, candidate.X)
 	default:
 		return false
 	}
+}
+
+func expressionIsTrue(pass *analysis.Pass, expression ast.Expr) bool {
+	value := pass.TypesInfo.Types[expression].Value
+	return value != nil && value.Kind() == constant.Bool && constant.BoolVal(value)
 }
 
 func expressionStatementCall(statement ast.Stmt) (*ast.CallExpr, bool) {

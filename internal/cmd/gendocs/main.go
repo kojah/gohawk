@@ -64,6 +64,7 @@ type analyzer struct {
 type check struct {
 	ID      string   `json:"id"`
 	Summary string   `json:"summary"`
+	Profile string   `json:"profile"`
 	Tags    []string `json:"tags"`
 }
 
@@ -253,7 +254,7 @@ func tagDescriptionList(tags []tag) string {
 func checkManifest(checks []gohawk.AnalyzerCheckInfo) []check {
 	result := make([]check, len(checks))
 	for index, item := range checks {
-		result[index] = check{ID: string(item.ID), Summary: item.Doc, Tags: tagStrings(item.Tags)}
+		result[index] = check{ID: string(item.ID), Summary: item.Doc, Profile: string(item.Profile), Tags: tagStrings(item.Tags)}
 	}
 	return result
 }
@@ -287,13 +288,13 @@ func synchronizeChecks(contents []byte, block string) ([]byte, error) {
 // checksBlock renders stable check identifiers, summaries, and tags as a table.
 func checksBlock(checks []check) string {
 	var output strings.Builder
-	output.WriteString("| Check | What it detects | Tags |\n| --- | --- | --- |\n")
+	output.WriteString("| Check | What it detects | Profile | Tags |\n| --- | --- | --- | --- |\n")
 	for _, item := range checks {
 		tags := make([]string, len(item.Tags))
 		for index, tag := range item.Tags {
 			tags[index] = fmt.Sprintf("[%s](../../../tags-and-profiles/#%s)", tag, tag)
 		}
-		fmt.Fprintf(&output, "| `%s` | %s | %s |\n", item.ID, item.Summary, strings.Join(tags, ", "))
+		fmt.Fprintf(&output, "| `%s` | %s | %s | %s |\n", item.ID, item.Summary, item.Profile, strings.Join(tags, ", "))
 	}
 	return strings.TrimSuffix(output.String(), "\n")
 }

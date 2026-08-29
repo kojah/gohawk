@@ -12,12 +12,12 @@ it also prefers `t.Context()` or `b.Context()` over `context.Background()`.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `contextpolicy/context-first` | Reports context.Context parameters that are not first. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-| `contextpolicy/context-storage` | Reports context.Context values stored in structs. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-| `contextpolicy/test-context` | Reports tests that use context.Background instead of the testing handle's context. | [policy](../../../tags-and-profiles/#policy) |
-| `contextpolicy/nil-context` | Reports definitely nil context.Context arguments. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `contextpolicy/context-first` | Reports context.Context parameters that are not first. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `contextpolicy/context-storage` | Reports context.Context values stored in structs. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `contextpolicy/test-context` | Reports tests that use context.Background instead of the testing handle's context. | opt-in | [policy](../../../tags-and-profiles/#policy) |
+| `contextpolicy/nil-context` | Reports definitely nil context.Context arguments. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

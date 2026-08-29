@@ -19,6 +19,22 @@ gohawk diagnostic is actionable.
 - Avoid project-name or function-name exemptions unless they represent a
   documented, general API contract.
 
+## Analyzer rationale comments
+
+Add comments at non-obvious precision boundaries: ownership transfers,
+feasible-path assumptions, conservative bailouts, and distinctions between
+default and opt-in diagnostics. Explain why the analyzer accepts or rejects a
+pattern and what evidence makes that decision safe; do not merely restate the
+code.
+
+When dogfooding reveals a representative real-world pattern, include a
+commit-pinned source link in the nearby rationale comment. Keep the minimized
+fixture as the executable regression test. Prefer one durable comment at the
+decision point over repeating the explanation throughout helper functions.
+
+Preserve these comments when refactoring. If behavior or its supporting
+evidence changes, update the rationale, link, and regression fixture together.
+
 The `analysisutil` package is intentionally unsupported and undocumented for
 external consumers. It is exposed only for Veritas's current integration.
 

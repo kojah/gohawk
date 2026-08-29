@@ -61,9 +61,11 @@ Update `general/analyzers.go` in two places:
 
 Give every diagnostic rule a stable check identity and at least one
 `correctness`, `reliability`, or `policy` tag in `analyzerChecks`. Report each
-diagnostic through `report` or `reportf` with that check identity. New analyzers
-use the default profile unless you explicitly assign the opt-in profile in
-`AnalyzerMetadata`. Record suggested-fix support there as well when applicable.
+diagnostic through `report` or `reportf` with that check identity. Checks run by
+default whenever their analyzer is selected; assign `CheckProfileOptIn` only to
+rules that require explicit selection. New analyzers use the default analyzer
+profile unless you explicitly assign the opt-in profile in `AnalyzerMetadata`.
+Record suggested-fix support there as well when applicable.
 
 Then update `analyzers/analyzers_test.go`:
 

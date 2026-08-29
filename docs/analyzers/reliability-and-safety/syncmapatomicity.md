@@ -12,9 +12,9 @@ value is consumed as the successfully removed entry.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `syncmapatomicity/non-atomic-claim` | Reports separate sync.Map Load and Delete operations used to claim one value. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `syncmapatomicity/non-atomic-claim` | Reports separate sync.Map Load and Delete operations used to claim one value. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

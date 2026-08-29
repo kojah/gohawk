@@ -7,8 +7,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
-	"os/exec"
 	"runtime/debug"
 	"slices"
 	"strconv"
@@ -22,59 +22,103 @@ import (
 
 const filteredFlagsChild = "GOHAWK_FILTERED_FLAGS_CHILD"
 
-// Main runs the gohawk command and exits with its result.
+type cliRuntime struct {
+	output        io.Writer
+	errorsOutput  io.Writer
+	getenv        func(string) string
+	filteredFlags func([]string, []*analysis.Analyzer, io.Writer, io.Writer) int
+	richOutput    func([]string, io.Writer) int
+}
+
+type analysisInvocation struct {
+	arguments []string
+	analyzers []*analysis.Analyzer
+}
+
+type cliResult struct {
+	exitCode   int
+	invocation *analysisInvocation
+}
+
+// Main runs the gohawk command and exits with its result. The analyzer engine
+// remains at this boundary because multichecker.Main owns os.Exit as part of
+// the go/analysis driver protocol.
 func Main() {
-	if humanVersionRequested(os.Args) {
-		printHumanVersion(os.Stdout)
-		return
+	runtime := cliRuntime{
+		output:        os.Stdout,
+		errorsOutput:  os.Stderr,
+		getenv:        os.Getenv,
+		filteredFlags: printFilteredFlags,
+		richOutput:    runWithRichOutput,
 	}
-	originalArguments := append([]string(nil), os.Args...)
-	if len(os.Args) > 1 && os.Args[1] == "list" {
-		if err := printAnalyzerList(os.Args[2:], os.Stdout, os.Stderr); err != nil {
+	result := runCLI(os.Args, runtime)
+	if result.invocation != nil {
+		registerSelectionFlags()
+		os.Args = result.invocation.arguments
+		multichecker.Main(result.invocation.analyzers...)
+		panic("unreachable")
+	}
+	if result.exitCode != 0 {
+		os.Exit(result.exitCode)
+	}
+}
+
+func runCLI(arguments []string, runtime cliRuntime) cliResult {
+	if humanVersionRequested(arguments) {
+		printHumanVersion(runtime.output)
+		return cliResult{}
+	}
+	originalArguments := append([]string(nil), arguments...)
+	if len(arguments) > 1 && arguments[1] == "list" {
+		if err := printAnalyzerList(arguments[2:], runtime.output, runtime.errorsOutput); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
-				return
+				return cliResult{}
 			}
-			fmt.Fprintln(os.Stderr, "gohawk list:", err)
-			os.Exit(2)
+			fmt.Fprintln(runtime.errorsOutput, "gohawk list:", err)
+			return cliResult{exitCode: 2}
 		}
-		return
+		return cliResult{}
 	}
-	if len(os.Args) > 1 && os.Args[1] == "doc" {
-		if err := printDocumentation(os.Args[2:], os.Stdout, os.Stderr); err != nil {
+	if len(arguments) > 1 && arguments[1] == "doc" {
+		if err := printDocumentation(arguments[2:], runtime.output, runtime.errorsOutput); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
-				return
+				return cliResult{}
 			}
-			fmt.Fprintln(os.Stderr, "gohawk doc:", err)
-			os.Exit(2)
+			fmt.Fprintln(runtime.errorsOutput, "gohawk doc:", err)
+			return cliResult{exitCode: 2}
 		}
-		return
+		return cliResult{}
 	}
-	flag.Bool("enable-all", false, "enable every analyzer, including opt-in analyzers")
-	flag.String("enable", "", "enable comma-separated analyzers")
-	flag.String("disable", "", "disable comma-separated analyzers")
-	flag.String("disable-checks", "", "disable comma-separated checks by stable ID")
-	flag.String("enable-groups", "", "enable comma-separated analyzer groups, including opt-in analyzers")
-	flag.String("disable-groups", "", "disable comma-separated analyzer groups")
 	analyzers := gohawk.Analyzers()
-	if flagsRequested(os.Args) && os.Getenv(filteredFlagsChild) == "" {
-		os.Exit(printFilteredFlags(os.Args, analyzers, os.Stdout, os.Stderr))
+	if flagsRequested(arguments) && runtime.getenv(filteredFlagsChild) == "" {
+		return cliResult{exitCode: runtime.filteredFlags(arguments, analyzers, runtime.output, runtime.errorsOutput)}
 	}
-	if generalHelpRequested(os.Args) {
-		printGeneralHelp()
-		return
+	if generalHelpRequested(arguments) {
+		printGeneralHelp(runtime.errorsOutput)
+		return cliResult{}
 	}
 	metadata := gohawk.AnalyzerMetadata()
-	disabledChecks, remainingArguments, err := requestedDisabledChecks(os.Args, metadata)
+	checkSelection, remainingArguments, err := requestedChecks(arguments, metadata)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "gohawk:", err)
-		os.Exit(2)
+		fmt.Fprintln(runtime.errorsOutput, "gohawk:", err)
+		return cliResult{exitCode: 2}
 	}
-	selectedArguments, err := withAnalyzerSelection(remainingArguments, analyzers, gohawk.AnalyzerGroups(), metadata, os.Getenv(richOutputChild) != "")
+	selection, err := withAnalyzerCheckSelection(remainingArguments, analyzers, gohawk.AnalyzerGroups(), metadata, checkOwners(checkSelection.enabled, metadata), runtime.getenv(richOutputChild) != "")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "gohawk:", err)
-		os.Exit(2)
+		fmt.Fprintln(runtime.errorsOutput, "gohawk:", err)
+		return cliResult{exitCode: 2}
 	}
-	richOutput := useRichOutput(originalArguments)
+	selectedArguments := selection.arguments
+	disabledChecks := effectiveDisabledChecks(metadata, selection.normallySelected, checkSelection, selection.enableAll)
+	richOutput := useRichOutput(originalArguments, runtime.getenv(richOutputChild) != "")
+	if richOutput && len(checkSelection.enabled) > 0 {
+		checks := make([]string, 0, len(checkSelection.enabled))
+		for check := range checkSelection.enabled {
+			checks = append(checks, check)
+		}
+		slices.Sort(checks)
+		selectedArguments = slices.Insert(selectedArguments, 1, "-enable-checks="+strings.Join(checks, ","))
+	}
 	if richOutput && len(disabledChecks) > 0 {
 		checks := make([]string, 0, len(disabledChecks))
 		for check := range disabledChecks {
@@ -83,12 +127,21 @@ func Main() {
 		slices.Sort(checks)
 		selectedArguments = slices.Insert(selectedArguments, 1, "-disable-checks="+strings.Join(checks, ","))
 	}
-	os.Args = selectedArguments
 	analyzers = withDisabledChecks(analyzers, metadata, disabledChecks)
 	if richOutput {
-		os.Exit(runWithRichOutput(os.Args, os.Stderr))
+		return cliResult{exitCode: runtime.richOutput(selectedArguments, runtime.errorsOutput)}
 	}
-	multichecker.Main(analyzers...)
+	return cliResult{invocation: &analysisInvocation{arguments: selectedArguments, analyzers: analyzers}}
+}
+
+func registerSelectionFlags() {
+	flag.Bool("enable-all", false, "enable every analyzer and check, including opt-in entries")
+	flag.String("enable", "", "enable comma-separated analyzers")
+	flag.String("disable", "", "disable comma-separated analyzers")
+	flag.String("enable-checks", "", "enable comma-separated checks by stable ID")
+	flag.String("disable-checks", "", "disable comma-separated checks by stable ID")
+	flag.String("enable-groups", "", "enable comma-separated analyzer groups, including opt-in analyzers")
+	flag.String("disable-groups", "", "disable comma-separated analyzer groups")
 }
 
 type advertisedFlag struct {
@@ -114,19 +167,21 @@ func flagsRequested(arguments []string) bool {
 }
 
 func printFilteredFlags(arguments []string, analyzers []*analysis.Analyzer, output, errorsOutput io.Writer) int {
-	command := exec.Command(arguments[0], arguments[1:]...)
-	command.Env = append(os.Environ(), filteredFlagsChild+"=1")
-	data, err := command.Output()
+	return printFilteredFlagsUsing(arguments, analyzers, output, errorsOutput, executeProcess)
+}
+
+func printFilteredFlagsUsing(arguments []string, analyzers []*analysis.Analyzer, output, errorsOutput io.Writer, execute processExecutor) int {
+	result, err := execute(arguments[0], arguments[1:], []string{filteredFlagsChild + "=1"})
 	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			_, _ = errorsOutput.Write(exitError.Stderr)
-			return exitError.ExitCode()
+		_, _ = errorsOutput.Write(result.stderr)
+		if result.exitCode >= 0 {
+			return result.exitCode
 		}
 		fmt.Fprintln(errorsOutput, "gohawk: inspect analyzer flags:", err)
 		return 1
 	}
 	var flags []advertisedFlag
-	if err := json.Unmarshal(data, &flags); err != nil {
+	if err := json.Unmarshal(result.stdout, &flags); err != nil {
 		fmt.Fprintln(errorsOutput, "gohawk: decode analyzer flags:", err)
 		return 1
 	}
@@ -177,7 +232,7 @@ func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error
 		for _, analyzer := range group.Analyzers {
 			info := metadata[analyzer.Name]
 			isDefault := info.EnabledByDefault()
-			if (*defaultsOnly && !isDefault) || (*optInOnly && isDefault) {
+			if !*showChecks && ((*defaultsOnly && !isDefault) || (*optInOnly && isDefault)) {
 				continue
 			}
 			profile := "default"
@@ -186,7 +241,11 @@ func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error
 			}
 			if *showChecks {
 				for _, check := range info.Checks {
-					fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", check.ID, profile, group.Name, joinTags(check.Tags))
+					checkDefault := check.EnabledByDefault()
+					if (*defaultsOnly && !checkDefault) || (*optInOnly && checkDefault) {
+						continue
+					}
+					fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", check.ID, check.Profile, group.Name, joinTags(check.Tags))
 				}
 			} else {
 				fmt.Fprintf(table, "%s\t%s\t%s\n", analyzer.Name, profile, group.Name)
@@ -250,6 +309,7 @@ func printAnalyzerDocumentation(output io.Writer, group gohawk.AnalyzerGroup, an
 	for _, check := range info.Checks {
 		fmt.Fprintf(output, "  %s\n", check.ID)
 		fmt.Fprintf(output, "    %s\n", check.Doc)
+		fmt.Fprintf(output, "    Profile: %s\n", check.Profile)
 		fmt.Fprintf(output, "    Tags: %s\n", joinTags(check.Tags))
 	}
 	printAnalyzerOptions(output, analyzer)
@@ -259,7 +319,8 @@ func printCheckDocumentation(output io.Writer, group gohawk.AnalyzerGroup, analy
 	fmt.Fprintln(output, check.ID)
 	fmt.Fprintf(output, "  %s\n\n", check.Doc)
 	fmt.Fprintf(output, "Analyzer: %s\n", analyzer.Name)
-	fmt.Fprintf(output, "Profile: %s\n", info.Profile)
+	fmt.Fprintf(output, "Profile: %s\n", check.Profile)
+	fmt.Fprintf(output, "Analyzer profile: %s\n", info.Profile)
 	fmt.Fprintf(output, "Group: %s (%s)\n", group.Name, group.Doc)
 	fmt.Fprintf(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
 	fmt.Fprintln(output, "\nTags:")
@@ -298,9 +359,20 @@ func yesNo(value bool) string {
 	return "no"
 }
 
+type analyzerCheckSelection struct {
+	arguments        []string
+	normallySelected map[string]bool
+	enableAll        bool
+}
+
 func withAnalyzerSelection(arguments []string, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo, allowAnalyzerFlags bool) ([]string, error) {
+	result, err := withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, allowAnalyzerFlags)
+	return result.arguments, err
+}
+
+func withAnalyzerCheckSelection(arguments []string, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo, checkOwners map[string]bool, allowAnalyzerFlags bool) (analyzerCheckSelection, error) {
 	if len(arguments) > 1 && arguments[1] == "help" {
-		return arguments, nil
+		return analyzerCheckSelection{arguments: arguments}, nil
 	}
 	names := make(map[string]bool, len(analyzers))
 	for _, analyzer := range analyzers {
@@ -308,11 +380,11 @@ func withAnalyzerSelection(arguments []string, analyzers []*analysis.Analyzer, g
 	}
 	nameSelection, remaining, err := requestedAnalyzers(arguments, names)
 	if err != nil {
-		return nil, err
+		return analyzerCheckSelection{}, err
 	}
 	groupSelection, remaining, err := requestedAnalyzerGroups(remaining, groups)
 	if err != nil {
-		return nil, err
+		return analyzerCheckSelection{}, err
 	}
 	enableAll := enableAllRequested(remaining)
 	explicit := make(map[string]bool)
@@ -326,7 +398,7 @@ func withAnalyzerSelection(arguments []string, analyzers []*analysis.Analyzer, g
 			if !enabled {
 				replacement = "-disable=" + name
 			}
-			return nil, fmt.Errorf("analyzer Boolean flag %q is no longer supported; use %s", argument, replacement)
+			return analyzerCheckSelection{}, fmt.Errorf("analyzer Boolean flag %q is no longer supported; use %s", argument, replacement)
 		}
 		explicit[name] = enabled
 	}
@@ -334,10 +406,17 @@ func withAnalyzerSelection(arguments []string, analyzers []*analysis.Analyzer, g
 	for _, enabled := range explicit {
 		hasExplicitEnabled = hasExplicitEnabled || enabled
 	}
-	if len(nameSelection.enabled) == 0 && len(nameSelection.disabled) == 0 && len(groupSelection.enabled) == 0 && len(groupSelection.disabled) == 0 {
-		if enableAll || hasExplicitEnabled {
-			return remaining, nil
+	if len(checkOwners) == 0 && len(nameSelection.enabled) == 0 && len(nameSelection.disabled) == 0 && len(groupSelection.enabled) == 0 && len(groupSelection.disabled) == 0 && (enableAll || hasExplicitEnabled) {
+		normallySelected := make(map[string]bool)
+		if enableAll {
+			for _, analyzer := range analyzers {
+				normallySelected[analyzer.Name] = true
+			}
 		}
+		for name, enabled := range explicit {
+			normallySelected[name] = enabled
+		}
+		return analyzerCheckSelection{arguments: remaining, normallySelected: normallySelected, enableAll: enableAll}, nil
 	}
 	selected := make(map[string]bool)
 	switch {
@@ -363,6 +442,9 @@ func withAnalyzerSelection(arguments []string, analyzers []*analysis.Analyzer, g
 	case hasExplicitEnabled:
 		// Naming an analyzer explicitly selects only named analyzers, preserving
 		// the multichecker convention when no group selector establishes a base.
+	case len(checkOwners) > 0:
+		// An explicit check list establishes its own selection base. Its owning
+		// analyzers are added after ordinary analyzer selection is resolved.
 	default:
 		for _, analyzer := range analyzers {
 			selected[analyzer.Name] = metadata[analyzer.Name].EnabledByDefault()
@@ -385,6 +467,18 @@ func withAnalyzerSelection(arguments []string, analyzers []*analysis.Analyzer, g
 	for name, enabled := range explicit {
 		selected[name] = enabled
 	}
+	normallySelected := maps.Clone(selected)
+	for owner := range checkOwners {
+		selected[owner] = true
+	}
+	for name := range nameSelection.disabled {
+		selected[name] = false
+	}
+	for name, enabled := range explicit {
+		if !enabled {
+			selected[name] = false
+		}
+	}
 
 	enabledFlags := make([]string, 0, len(selected))
 	for _, analyzer := range analyzers {
@@ -395,7 +489,9 @@ func withAnalyzerSelection(arguments []string, analyzers []*analysis.Analyzer, g
 	result := make([]string, 0, len(remaining)+len(enabledFlags))
 	result = append(result, remaining[0])
 	result = append(result, enabledFlags...)
-	return append(result, remaining[1:]...), nil
+	return analyzerCheckSelection{
+		arguments: append(result, remaining[1:]...), normallySelected: normallySelected, enableAll: enableAll,
+	}, nil
 }
 
 type analyzerNameSelection struct {
@@ -403,14 +499,19 @@ type analyzerNameSelection struct {
 	disabled map[string]bool
 }
 
-func requestedDisabledChecks(arguments []string, metadata map[string]gohawk.AnalyzerInfo) (map[string]bool, []string, error) {
+type checkSelection struct {
+	enabled  map[string]bool
+	disabled map[string]bool
+}
+
+func requestedChecks(arguments []string, metadata map[string]gohawk.AnalyzerInfo) (checkSelection, []string, error) {
 	available := make(map[string]bool)
 	for _, info := range metadata {
 		for _, check := range info.Checks {
 			available[string(check.ID)] = true
 		}
 	}
-	disabled := make(map[string]bool)
+	requested := checkSelection{enabled: make(map[string]bool), disabled: make(map[string]bool)}
 	remaining := make([]string, 0, len(arguments))
 	if len(arguments) > 0 {
 		remaining = append(remaining, arguments[0])
@@ -419,35 +520,76 @@ func requestedDisabledChecks(arguments []string, metadata map[string]gohawk.Anal
 		argument := arguments[index]
 		value := strings.TrimLeft(argument, "-")
 		name, raw, hasValue := strings.Cut(value, "=")
-		if value == argument || name != "disable-checks" {
+		if value == argument || name != "enable-checks" && name != "disable-checks" {
 			remaining = append(remaining, argument)
 			continue
 		}
 		if !hasValue {
 			index++
 			if index >= len(arguments) {
-				return nil, nil, errors.New("-disable-checks requires a comma-separated value")
+				return checkSelection{}, nil, fmt.Errorf("-%s requires a comma-separated value", name)
 			}
 			raw = arguments[index]
 		}
 		if raw == "" {
-			return nil, nil, errors.New("-disable-checks requires at least one check")
+			return checkSelection{}, nil, fmt.Errorf("-%s requires at least one check", name)
+		}
+		target, action := requested.enabled, "enabled"
+		if name == "disable-checks" {
+			target, action = requested.disabled, "disabled"
 		}
 		for _, candidate := range strings.Split(raw, ",") {
 			candidate = strings.TrimSpace(candidate)
 			if candidate == "" {
-				return nil, nil, fmt.Errorf("invalid empty check in %q", raw)
+				return checkSelection{}, nil, fmt.Errorf("invalid empty check in %q", raw)
 			}
 			if !available[candidate] {
-				return nil, nil, fmt.Errorf("unknown check %q (run 'gohawk list -checks' to see stable check IDs)", candidate)
+				return checkSelection{}, nil, fmt.Errorf("unknown check %q (run 'gohawk list -checks' to see stable check IDs)", candidate)
 			}
-			if disabled[candidate] {
-				return nil, nil, fmt.Errorf("check %q is disabled more than once", candidate)
+			if target[candidate] {
+				return checkSelection{}, nil, fmt.Errorf("check %q is %s more than once", candidate, action)
 			}
-			disabled[candidate] = true
+			target[candidate] = true
 		}
 	}
-	return disabled, remaining, nil
+	return requested, remaining, nil
+}
+
+func requestedDisabledChecks(arguments []string, metadata map[string]gohawk.AnalyzerInfo) (map[string]bool, []string, error) {
+	requested, remaining, err := requestedChecks(arguments, metadata)
+	return requested.disabled, remaining, err
+}
+
+func checkOwners(checks map[string]bool, metadata map[string]gohawk.AnalyzerInfo) map[string]bool {
+	owners := make(map[string]bool)
+	for analyzer, info := range metadata {
+		for _, check := range info.Checks {
+			if checks[string(check.ID)] {
+				owners[analyzer] = true
+			}
+		}
+	}
+	return owners
+}
+
+func effectiveDisabledChecks(metadata map[string]gohawk.AnalyzerInfo, normallySelected map[string]bool, requested checkSelection, enableAll bool) map[string]bool {
+	disabled := maps.Clone(requested.disabled)
+	for analyzer, info := range metadata {
+		for _, check := range info.Checks {
+			id := string(check.ID)
+			if requested.enabled[id] {
+				continue
+			}
+			if !normallySelected[analyzer] {
+				disabled[id] = true
+				continue
+			}
+			if !enableAll && !check.EnabledByDefault() {
+				disabled[id] = true
+			}
+		}
+	}
+	return disabled
 }
 
 func withDisabledChecks(analyzers []*analysis.Analyzer, metadata map[string]gohawk.AnalyzerInfo, disabled map[string]bool) []*analysis.Analyzer {
@@ -659,19 +801,20 @@ func generalHelpRequested(arguments []string) bool {
 	}
 }
 
-func printGeneralHelp() {
-	fmt.Fprintln(os.Stderr, "usage: gohawk [selection flags] [analysis flags] package...")
-	fmt.Fprintln(os.Stderr, "\nAnalyzer selection:")
-	fmt.Fprintln(os.Stderr, "  -enable=NAME1,NAME2          run only named analyzers")
-	fmt.Fprintln(os.Stderr, "  -disable=NAME1,NAME2         remove analyzers from the default profile")
-	fmt.Fprintln(os.Stderr, "  -disable-checks=CHECK1,CHECK2 suppress checks by stable ID")
-	fmt.Fprintln(os.Stderr, "  -enable-groups=GROUP1,GROUP2 run every analyzer in named groups")
-	fmt.Fprintln(os.Stderr, "  -disable-groups=GROUP1,GROUP2 remove groups from the selected set")
-	fmt.Fprintln(os.Stderr, "  -enable-all                  run every analyzer")
-	fmt.Fprintln(os.Stderr, "\nCommon analysis flags: -json, -fix, -diff, -c=N, -V")
-	fmt.Fprintln(os.Stderr, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
-	fmt.Fprintln(os.Stderr, "Run 'gohawk help ANALYZER' for an analyzer's configuration flags.")
-	fmt.Fprintln(os.Stderr, "\nAnalyzer groups:")
+func printGeneralHelp(output io.Writer) {
+	fmt.Fprintln(output, "usage: gohawk [selection flags] [analysis flags] package...")
+	fmt.Fprintln(output, "\nAnalyzer selection:")
+	fmt.Fprintln(output, "  -enable=NAME1,NAME2          run only named analyzers")
+	fmt.Fprintln(output, "  -disable=NAME1,NAME2         remove analyzers from the default profile")
+	fmt.Fprintln(output, "  -enable-checks=CHECK1,CHECK2 run only named checks, or add them to selected analyzers")
+	fmt.Fprintln(output, "  -disable-checks=CHECK1,CHECK2 suppress checks by stable ID")
+	fmt.Fprintln(output, "  -enable-groups=GROUP1,GROUP2 run every analyzer in named groups")
+	fmt.Fprintln(output, "  -disable-groups=GROUP1,GROUP2 remove groups from the selected set")
+	fmt.Fprintln(output, "  -enable-all                  run every analyzer and check")
+	fmt.Fprintln(output, "\nCommon analysis flags: -json, -fix, -diff, -c=N, -V")
+	fmt.Fprintln(output, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
+	fmt.Fprintln(output, "Run 'gohawk help ANALYZER' for an analyzer's configuration flags.")
+	fmt.Fprintln(output, "\nAnalyzer groups:")
 	metadata := gohawk.AnalyzerMetadata()
 	for _, group := range gohawk.AnalyzerGroups() {
 		names := make([]string, 0, len(group.Analyzers))
@@ -682,8 +825,8 @@ func printGeneralHelp() {
 			}
 			names = append(names, name)
 		}
-		fmt.Fprintf(os.Stderr, "  %s (%s): %s\n", group.Name, group.Doc, strings.Join(names, ", "))
+		fmt.Fprintf(output, "  %s (%s): %s\n", group.Name, group.Doc, strings.Join(names, ", "))
 	}
-	fmt.Fprintln(os.Stderr, "\nRun 'gohawk list' for the full catalog and default status.")
-	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(output, "\nRun 'gohawk list' for the full catalog and default status.")
+	fmt.Fprintln(output)
 }

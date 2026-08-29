@@ -49,3 +49,48 @@ func harmlessTracing(items []int) {
 }
 
 func recordIteration() {}
+
+type resourceOwner struct {
+	resource *os.File
+	mutex    sync.Mutex
+}
+
+func accumulatedNestedResources(names []string) error {
+	for _, name := range names {
+		file, err := os.Open(name)
+		if err != nil {
+			return err
+		}
+		item := &resourceOwner{resource: file}
+		defer item.resource.Close() // want "deferred cleanup runs after the loop instead of after this iteration"
+	}
+	return nil
+}
+
+func accumulatedIndexedResources(names []string) error {
+	for _, name := range names {
+		file, err := os.Open(name)
+		if err != nil {
+			return err
+		}
+		files := []*os.File{file}
+		defer files[0].Close() // want "deferred cleanup runs after the loop instead of after this iteration"
+	}
+	return nil
+}
+
+func accumulatedNestedLocks(items []int) {
+	for range items {
+		item := new(resourceOwner)
+		item.mutex.Lock()
+		defer item.mutex.Unlock() // want "deferred cleanup runs after the loop instead of after this iteration"
+	}
+}
+
+func accumulatedIndexedLocks(items []int) {
+	for range items {
+		locks := []*sync.Mutex{new(sync.Mutex)}
+		locks[0].Lock()
+		defer locks[0].Unlock() // want "deferred cleanup runs after the loop instead of after this iteration"
+	}
+}

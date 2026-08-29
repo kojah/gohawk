@@ -1,64 +1,75 @@
 package general
 
 import (
-	"fmt"
-	"go/token"
 	"slices"
 
-	"github.com/kojah/gohawk/analysisutil"
-
-	"golang.org/x/tools/go/analysis"
+	"github.com/kojah/gohawk/internal/analyzerbase"
 )
 
 // AnalyzerCheck identifies one independently taggable diagnostic rule.
 type AnalyzerCheck string
 
+// CheckProfile controls whether a check runs whenever its analyzer is selected.
+type CheckProfile string
+
+const (
+	CheckProfileDefault CheckProfile = "default"
+	CheckProfileOptIn   CheckProfile = "opt-in"
+)
+
 // AnalyzerCheckInfo describes why a specific diagnostic rule matters.
 type AnalyzerCheckInfo struct {
-	ID   AnalyzerCheck
-	Doc  string
-	Tags []AnalyzerTag
+	ID      AnalyzerCheck
+	Doc     string
+	Profile CheckProfile
+	Tags    []AnalyzerTag
+}
+
+// EnabledByDefault reports whether the check runs when its analyzer is selected.
+func (info AnalyzerCheckInfo) EnabledByDefault() bool {
+	return info.Profile == CheckProfileDefault
 }
 
 const (
-	checkAPIParameterCount        AnalyzerCheck = "apishape/parameter-count"
-	checkAPIMixedReceivers        AnalyzerCheck = "apishape/mixed-receivers"
-	checkAPIAdjacentSameType      AnalyzerCheck = "apishape/adjacent-same-type"
-	checkAPIAdjacentOptional      AnalyzerCheck = "apishape/adjacent-optional-scalars"
-	checkContextFirst             AnalyzerCheck = "contextpolicy/context-first"
-	checkContextStorage           AnalyzerCheck = "contextpolicy/context-storage"
-	checkContextTestOwnership     AnalyzerCheck = "contextpolicy/test-context"
-	checkContextNilArgument       AnalyzerCheck = "contextpolicy/nil-context"
-	checkClosedStringDomain       AnalyzerCheck = "closedomain/closed-string-domain"
-	checkWireKeyedLiteral         AnalyzerCheck = "wirepolicy/keyed-literal"
-	checkWireSerializationTag     AnalyzerCheck = "wirepolicy/serialization-tag"
-	checkCancellationRelease      AnalyzerCheck = "cancellationownership/release"
-	checkChannelCapacityRationale AnalyzerCheck = "channelpolicy/capacity-rationale"
-	checkChannelCallerClose       AnalyzerCheck = "channelpolicy/caller-close"
-	checkChannelSendAfterClose    AnalyzerCheck = "channelpolicy/send-after-close"
-	checkDeferCleanupInLoop       AnalyzerCheck = "deferinloop/cleanup-lifetime"
-	checkExitSkipsDefer           AnalyzerCheck = "exitpolicy/skipped-defer"
-	checkGoroutineJoin            AnalyzerCheck = "goroutineownership/unjoined"
-	checkGoroutineProducerSend    AnalyzerCheck = "goroutineownership/abandoned-send"
-	checkProcessWait              AnalyzerCheck = "processownership/missing-wait"
-	checkResourceRelease          AnalyzerCheck = "resourcelifetime/missing-release"
-	checkConcurrentCapture        AnalyzerCheck = "concurrentcapture/shared-capture"
-	checkDeterministicMapOutput   AnalyzerCheck = "determinism/map-output-order"
-	checkErrorLogAndReturn        AnalyzerCheck = "errorownership/log-and-return"
-	checkErrorTextClassification  AnalyzerCheck = "errorownership/text-classification"
-	checkErrorMismatchedInline    AnalyzerCheck = "errorownership/mismatched-inline-error"
-	checkEvaluationOrder          AnalyzerCheck = "evalorder/operand-mutation"
-	checkMutableGlobalState       AnalyzerCheck = "globalstate/mutable-package-state"
-	checkLockMissingRelease       AnalyzerCheck = "lockorder/missing-release"
-	checkLockRecursiveAcquire     AnalyzerCheck = "lockorder/recursive-acquire"
-	checkLockContradictoryOrder   AnalyzerCheck = "lockorder/contradictory-order"
-	checkOnceDiscardedWrapper     AnalyzerCheck = "oncepolicy/discarded-wrapper"
-	checkSyncMapNonAtomicClaim    AnalyzerCheck = "syncmapatomicity/non-atomic-claim"
-	checkTaintUntrustedSink       AnalyzerCheck = "taintpolicy/untrusted-sink"
-	checkBlockingTestSend         AnalyzerCheck = "blockingtest/send"
-	checkBlockingTestReceive      AnalyzerCheck = "blockingtest/receive"
-	checkBlockingTestSelect       AnalyzerCheck = "blockingtest/select"
-	checkTestHelperMarker         AnalyzerCheck = "testpolicy/helper-marker"
+	checkAPIParameterCount        AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckAPIParameterCount)
+	checkAPIMixedReceivers        AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckAPIMixedReceivers)
+	checkAPIAdjacentSameType      AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckAPIAdjacentSameType)
+	checkAPIAdjacentOptional      AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckAPIAdjacentOptional)
+	checkContextFirst             AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckContextFirst)
+	checkContextStorage           AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckContextStorage)
+	checkContextTestOwnership     AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckContextTestOwnership)
+	checkContextNilArgument       AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckContextNilArgument)
+	checkClosedStringDomain       AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckClosedStringDomain)
+	checkWireKeyedLiteral         AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckWireKeyedLiteral)
+	checkWireSerializationTag     AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckWireSerializationTag)
+	checkCancellationRelease      AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckCancellationRelease)
+	checkChannelCapacityRationale AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckChannelCapacityRationale)
+	checkChannelCallerClose       AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckChannelCallerClose)
+	checkChannelSendAfterClose    AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckChannelSendAfterClose)
+	checkDeferCleanupInLoop       AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckDeferCleanupInLoop)
+	checkExitSkipsDefer           AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckExitSkipsDefer)
+	checkGoroutineJoin            AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckGoroutineJoin)
+	checkGoroutineDetached        AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckGoroutineDetached)
+	checkGoroutineProducerSend    AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckGoroutineProducerSend)
+	checkProcessWait              AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckProcessWait)
+	checkResourceRelease          AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckResourceRelease)
+	checkConcurrentCapture        AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckConcurrentCapture)
+	checkDeterministicMapOutput   AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckDeterministicMapOutput)
+	checkErrorLogAndReturn        AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckErrorLogAndReturn)
+	checkErrorTextClassification  AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckErrorTextClassification)
+	checkErrorMismatchedInline    AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckErrorMismatchedInline)
+	checkEvaluationOrder          AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckEvaluationOrder)
+	checkMutableGlobalState       AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckMutableGlobalState)
+	checkLockMissingRelease       AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckLockMissingRelease)
+	checkLockRecursiveAcquire     AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckLockRecursiveAcquire)
+	checkLockContradictoryOrder   AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckLockContradictoryOrder)
+	checkOnceDiscardedWrapper     AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckOnceDiscardedWrapper)
+	checkSyncMapNonAtomicClaim    AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckSyncMapNonAtomicClaim)
+	checkTaintUntrustedSink       AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckTaintUntrustedSink)
+	checkBlockingTestSend         AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckBlockingTestSend)
+	checkBlockingTestReceive      AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckBlockingTestReceive)
+	checkBlockingTestSelect       AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckBlockingTestSelect)
+	checkTestHelperMarker         AnalyzerCheck = AnalyzerCheck(analyzerbase.CheckTestHelperMarker)
 )
 
 var analyzerChecks = map[string][]AnalyzerCheckInfo{
@@ -71,7 +82,7 @@ var analyzerChecks = map[string][]AnalyzerCheckInfo{
 	"contextpolicy": {
 		{ID: checkContextFirst, Doc: "Reports context.Context parameters that are not first.", Tags: []AnalyzerTag{AnalyzerTagReliability, AnalyzerTagPolicy}},
 		{ID: checkContextStorage, Doc: "Reports context.Context values stored in structs.", Tags: []AnalyzerTag{AnalyzerTagReliability, AnalyzerTagPolicy}},
-		{ID: checkContextTestOwnership, Doc: "Reports tests that use context.Background instead of the testing handle's context.", Tags: []AnalyzerTag{AnalyzerTagPolicy}},
+		{ID: checkContextTestOwnership, Doc: "Reports tests that use context.Background instead of the testing handle's context.", Profile: CheckProfileOptIn, Tags: []AnalyzerTag{AnalyzerTagPolicy}},
 		{ID: checkContextNilArgument, Doc: "Reports definitely nil context.Context arguments.", Tags: []AnalyzerTag{AnalyzerTagCorrectness}},
 	},
 	"closedomain": {
@@ -85,7 +96,7 @@ var analyzerChecks = map[string][]AnalyzerCheckInfo{
 		{ID: checkCancellationRelease, Doc: "Reports derived cancel functions that are neither called nor transferred on every return path.", Tags: []AnalyzerTag{AnalyzerTagCorrectness}},
 	},
 	"channelpolicy": {
-		{ID: checkChannelCapacityRationale, Doc: "Reports large constant channel capacities without a nearby bounded rationale.", Tags: []AnalyzerTag{AnalyzerTagPolicy}},
+		{ID: checkChannelCapacityRationale, Doc: "Reports large constant channel capacities without a nearby bounded rationale.", Profile: CheckProfileOptIn, Tags: []AnalyzerTag{AnalyzerTagPolicy}},
 		{ID: checkChannelCallerClose, Doc: "Reports functions that close channels received from their callers.", Tags: []AnalyzerTag{AnalyzerTagReliability, AnalyzerTagPolicy}},
 		{ID: checkChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed.", Tags: []AnalyzerTag{AnalyzerTagCorrectness}},
 	},
@@ -96,7 +107,8 @@ var analyzerChecks = map[string][]AnalyzerCheckInfo{
 		{ID: checkExitSkipsDefer, Doc: "Reports immediate process termination that bypasses an earlier defer.", Tags: []AnalyzerTag{AnalyzerTagCorrectness}},
 	},
 	"goroutineownership": {
-		{ID: checkGoroutineJoin, Doc: "Reports goroutines without a recognizable join handle or lifecycle owner.", Tags: []AnalyzerTag{AnalyzerTagReliability}},
+		{ID: checkGoroutineJoin, Doc: "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.", Tags: []AnalyzerTag{AnalyzerTagReliability}},
+		{ID: checkGoroutineDetached, Doc: "Reports goroutines without a recognizable join handle or lifecycle owner.", Profile: CheckProfileOptIn, Tags: []AnalyzerTag{AnalyzerTagReliability}},
 		{ID: checkGoroutineProducerSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting.", Tags: []AnalyzerTag{AnalyzerTagReliability}},
 	},
 	"processownership": {
@@ -112,7 +124,7 @@ var analyzerChecks = map[string][]AnalyzerCheckInfo{
 		{ID: checkDeterministicMapOutput, Doc: "Reports map iteration that reaches ordered output without explicit sorting.", Tags: []AnalyzerTag{AnalyzerTagReliability}},
 	},
 	"errorownership": {
-		{ID: checkErrorLogAndReturn, Doc: "Reports functions that both log and return the same error.", Tags: []AnalyzerTag{AnalyzerTagReliability, AnalyzerTagPolicy}},
+		{ID: checkErrorLogAndReturn, Doc: "Reports functions that both log and return the same error.", Profile: CheckProfileOptIn, Tags: []AnalyzerTag{AnalyzerTagReliability, AnalyzerTagPolicy}},
 		{ID: checkErrorTextClassification, Doc: "Reports production code that classifies errors by matching their text.", Tags: []AnalyzerTag{AnalyzerTagReliability}},
 		{ID: checkErrorMismatchedInline, Doc: "Reports inline error declarations whose condition checks a different error.", Tags: []AnalyzerTag{AnalyzerTagCorrectness}},
 	},
@@ -149,21 +161,11 @@ var analyzerChecks = map[string][]AnalyzerCheckInfo{
 func cloneChecks(checks []AnalyzerCheckInfo) []AnalyzerCheckInfo {
 	cloned := make([]AnalyzerCheckInfo, len(checks))
 	for index, check := range checks {
-		cloned[index] = AnalyzerCheckInfo{ID: check.ID, Doc: check.Doc, Tags: slices.Clone(check.Tags)}
+		profile := check.Profile
+		if profile == "" {
+			profile = CheckProfileDefault
+		}
+		cloned[index] = AnalyzerCheckInfo{ID: check.ID, Doc: check.Doc, Profile: profile, Tags: slices.Clone(check.Tags)}
 	}
 	return cloned
-}
-
-func reportf(pass *analysis.Pass, check AnalyzerCheck, position token.Pos, format string, args ...any) {
-	source := analysisutil.SourceRange(pass, position)
-	report(pass, check, analysis.Diagnostic{
-		Pos:     source.Pos(),
-		End:     source.End(),
-		Message: fmt.Sprintf(format, args...),
-	})
-}
-
-func report(pass *analysis.Pass, check AnalyzerCheck, diagnostic analysis.Diagnostic) {
-	diagnostic.Category = string(check)
-	pass.Report(diagnostic)
 }

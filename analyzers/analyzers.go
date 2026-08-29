@@ -17,6 +17,14 @@ type AnalyzerCheck = general.AnalyzerCheck
 // AnalyzerCheckInfo describes why a specific diagnostic rule matters.
 type AnalyzerCheckInfo = general.AnalyzerCheckInfo
 
+// CheckProfile controls whether a check runs whenever its analyzer is selected.
+type CheckProfile = general.CheckProfile
+
+const (
+	CheckProfileDefault = general.CheckProfileDefault
+	CheckProfileOptIn   = general.CheckProfileOptIn
+)
+
 // AnalyzerProfile controls whether an analyzer runs without explicit selection.
 type AnalyzerProfile = general.AnalyzerProfile
 

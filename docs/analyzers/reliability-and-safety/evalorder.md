@@ -12,9 +12,9 @@ by an earlier operand.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `evalorder/operand-mutation` | Reports expressions whose later operand mutates a value read by an earlier operand. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `evalorder/operand-mutation` | Reports expressions whose later operand mutates a value read by an earlier operand. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

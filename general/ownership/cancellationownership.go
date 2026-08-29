@@ -1,4 +1,4 @@
-package general
+package ownership
 
 import (
 	"go/ast"
@@ -41,6 +41,11 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				if cancel == nil {
 					continue
 				}
+				// Cleanup need not occur in this function: returning the cancel,
+				// storing it in an owner, or installing a callback that invokes it
+				// transfers the obligation. Reassigned captured locals are included;
+				// Prometheus installs its current cancel in a scraper callback:
+				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/scrape/scrape_test.go#L1294-L1315
 				if analysisutil.UnownedReturn(call, func(candidate ssa.Instruction) bool {
 					return callsCancel(candidate, cancel)
 				}, func(returned *ssa.Return) bool {

@@ -15,9 +15,9 @@ HTTP response bodies, timers and tickers, and gzip/zlib readers and writers.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `resourcelifetime/missing-release` | Reports owned resources that are not released on every return path. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `resourcelifetime/missing-release` | Reports owned resources that are not released on every return path. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

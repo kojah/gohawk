@@ -13,10 +13,11 @@ capacity for every send.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `goroutineownership/unjoined` | Reports goroutines without a recognizable join handle or lifecycle owner. | [reliability](../../../tags-and-profiles/#reliability) |
-| `goroutineownership/abandoned-send` | Reports producer goroutines that can block after their receiver stops waiting. | [reliability](../../../tags-and-profiles/#reliability) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `goroutineownership/unjoined` | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. | default | [reliability](../../../tags-and-profiles/#reliability) |
+| `goroutineownership/detached` | Reports goroutines without a recognizable join handle or lifecycle owner. | opt-in | [reliability](../../../tags-and-profiles/#reliability) |
+| `goroutineownership/abandoned-send` | Reports producer goroutines that can block after their receiver stops waiting. | default | [reliability](../../../tags-and-profiles/#reliability) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged
@@ -39,7 +40,7 @@ aware so the goroutine can stop if its receiver leaves.
 <!-- gohawk:generated-examples:start -->
 ### Flagged code
 
-```go gohawk="W3siY2hlY2siOiJnb3JvdXRpbmVvd25lcnNoaXAvdW5qb2luZWQiLCJtZXNzYWdlIjoiZ29yb3V0aW5lIGlzIG5vdCBqb2luZWQgb24gZXZlcnkgcmV0dXJuIHBhdGgiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjE4fV0"
+```go gohawk="W3siY2hlY2siOiJnb3JvdXRpbmVvd25lcnNoaXAvZGV0YWNoZWQiLCJtZXNzYWdlIjoiZ29yb3V0aW5lIGlzIG5vdCBqb2luZWQgb24gZXZlcnkgcmV0dXJuIHBhdGgiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjE4fV0"
 func refresh() {
   go updateCache()
 }

@@ -1,4 +1,4 @@
-package general
+package reliability
 
 import (
 	"go/ast"

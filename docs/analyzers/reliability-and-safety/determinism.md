@@ -12,9 +12,9 @@ sorting step.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `determinism/map-output-order` | Reports map iteration that reaches ordered output without explicit sorting. | [reliability](../../../tags-and-profiles/#reliability) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `determinism/map-output-order` | Reports map iteration that reaches ordered output without explicit sorting. | default | [reliability](../../../tags-and-profiles/#reliability) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

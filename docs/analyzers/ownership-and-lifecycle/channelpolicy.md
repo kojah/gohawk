@@ -12,11 +12,11 @@ after the channel has been closed.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `channelpolicy/capacity-rationale` | Reports large constant channel capacities without a nearby bounded rationale. | [policy](../../../tags-and-profiles/#policy) |
-| `channelpolicy/caller-close` | Reports functions that close channels received from their callers. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-| `channelpolicy/send-after-close` | Reports sends reachable after a channel has been closed. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `channelpolicy/capacity-rationale` | Reports large constant channel capacities without a nearby bounded rationale. | opt-in | [policy](../../../tags-and-profiles/#policy) |
+| `channelpolicy/caller-close` | Reports functions that close channels received from their callers. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `channelpolicy/send-after-close` | Reports sends reachable after a channel has been closed. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

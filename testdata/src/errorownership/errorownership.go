@@ -31,6 +31,28 @@ func inspectStoredText(err error) bool {
 	return strings.Contains(message, "missing") // want "do not classify errors by matching Error text"
 }
 
+func inspectConvertedText(err error) bool {
+	message := []byte(err.Error())
+	return strings.HasPrefix(string(message), "missing") // want "do not classify errors by matching Error text"
+}
+
+func inspectNestedText(err error) bool {
+	message := strings.TrimSpace(err.Error())
+	return strings.EqualFold(message, "missing") // want "do not classify errors by matching Error text"
+}
+
+type status string
+
+func (value status) Error(code int) string { return string(value) }
+
+func inspectNonErrorMethod(value status) bool {
+	return strings.Contains(value.Error(0), "missing")
+}
+
+func inspectUnrelatedText(message string) bool {
+	return strings.HasSuffix(message, "missing")
+}
+
 func legacyDirectiveDoesNotSuppress(err error) bool {
 	//gohawk:error-text-match legacy directive is no longer supported
 	return strings.Contains(err.Error(), "missing") // want "do not classify errors by matching Error text"

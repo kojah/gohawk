@@ -105,6 +105,13 @@ func CallReceiver(common *ssa.CallCommon) ssa.Value { //nolint:ireturn // Call r
 
 // CapturedBindingValue recovers value stored through an addressable closure binding.
 func CapturedBindingValue(binding ssa.Value) ssa.Value { //nolint:ireturn // Stored captures may contain any SSA value implementation.
+	if pointer, ok := binding.Type().Underlying().(*types.Pointer); ok {
+		if _, structured := pointer.Elem().Underlying().(*types.Struct); structured {
+			// A captured struct local is represented by its address. Its stores
+			// initialize or mutate the value; they do not replace its identity.
+			return binding
+		}
+	}
 	if binding.Referrers() == nil {
 		return binding
 	}
@@ -117,11 +124,67 @@ func CapturedBindingValue(binding ssa.Value) ssa.Value { //nolint:ireturn // Sto
 	return binding
 }
 
+// CapturedBindingAliases reports whether a closure binding directly contains
+// target or refers to an addressable local that has contained target. Unlike
+// CapturedBindingValue, it handles variables reassigned before a callback is
+// installed without depending on referrer iteration order.
+func CapturedBindingAliases(binding, target ssa.Value) bool {
+	if AliasesValue(binding, target) {
+		return true
+	}
+	if binding == nil || binding.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *binding.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == binding && AliasesValue(store.Val, target) {
+			return true
+		}
+	}
+	return false
+}
+
 // AliasesValue reports conservative SSA identity through common conversion and storage forms.
 func AliasesValue(value, target ssa.Value) bool {
 	// SSA removes ordinary assignments, but captured locals, embedded fields,
 	// and interface conversions still need explicit identity recovery.
 	return aliasesValueSeen(value, target, map[ssa.Value]bool{}) || aliasesValueSeen(target, value, map[ssa.Value]bool{})
+}
+
+// DefinitelyNil reports whether every represented SSA value is nil.
+func DefinitelyNil(value ssa.Value) bool {
+	return definitelyNil(value, map[ssa.Value]bool{})
+}
+
+func definitelyNil(value ssa.Value, seen map[ssa.Value]bool) bool {
+	if value == nil || seen[value] {
+		return false
+	}
+	seen[value] = true
+	if literal, ok := value.(*ssa.Const); ok {
+		return literal.IsNil()
+	}
+	switch typed := value.(type) {
+	case *ssa.ChangeInterface:
+		return definitelyNil(typed.X, seen)
+	case *ssa.ChangeType:
+		return definitelyNil(typed.X, seen)
+	case *ssa.Convert:
+		return definitelyNil(typed.X, seen)
+	case *ssa.MakeInterface:
+		return definitelyNil(typed.X, seen)
+	case *ssa.Phi:
+		if len(typed.Edges) == 0 {
+			return false
+		}
+		for _, edge := range typed.Edges {
+			if !definitelyNil(edge, seen) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // DeferredClosureCalls reports whether deferred closure calls method on target.
@@ -171,7 +234,7 @@ func ClosureOwnsValue(instruction ssa.Instruction, value ssa.Value) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if AliasesValue(CapturedBindingValue(binding), value) {
+		if CapturedBindingAliases(binding, value) {
 			return true
 		}
 	}
@@ -190,7 +253,7 @@ func closureCallsValue(closure *ssa.MakeClosure, target ssa.Value) bool {
 				continue
 			}
 			for index, free := range function.FreeVars {
-				if AliasesValue(common.Value, free) && index < len(closure.Bindings) && AliasesValue(CapturedBindingValue(closure.Bindings[index]), target) {
+				if AliasesValue(common.Value, free) && index < len(closure.Bindings) && CapturedBindingAliases(closure.Bindings[index], target) {
 					return true
 				}
 			}
@@ -275,7 +338,7 @@ func ClosureCapturesValue(instruction ssa.Instruction, value ssa.Value) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if AliasesValue(CapturedBindingValue(binding), value) {
+		if CapturedBindingAliases(binding, value) {
 			return true
 		}
 	}
@@ -336,6 +399,64 @@ func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) boo
 		usesValue = usesValue || AliasesValue(argument, value)
 	}
 	return usesValue && valueTransferred(call, map[ssa.Value]bool{})
+}
+
+// ReturnedValueOwnsValue reports whether a returned aggregate contains value
+// in one of its fields. This recognizes constructors that transfer cleanup to
+// a newly returned owner instead of returning the resource itself.
+func ReturnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
+	for _, result := range returned.Results {
+		if AliasesValue(result, value) || aggregateStoresValue(result, value, map[ssa.Value]bool{}) {
+			return true
+		}
+	}
+	return false
+}
+
+func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) bool {
+	if aggregate == nil || seen[aggregate] {
+		return false
+	}
+	seen[aggregate] = true
+	switch typed := aggregate.(type) {
+	case *ssa.ChangeInterface:
+		return aggregateStoresValue(typed.X, value, seen)
+	case *ssa.ChangeType:
+		return aggregateStoresValue(typed.X, value, seen)
+	case *ssa.Convert:
+		return aggregateStoresValue(typed.X, value, seen)
+	case *ssa.MakeInterface:
+		return aggregateStoresValue(typed.X, value, seen)
+	}
+	if aggregate.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *aggregate.Referrers() {
+		switch typed := reference.(type) {
+		case *ssa.FieldAddr:
+			if addressStoresValue(typed, value) || aggregateStoresValue(typed, value, seen) {
+				return true
+			}
+		case *ssa.IndexAddr:
+			if addressStoresValue(typed, value) || aggregateStoresValue(typed, value, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func addressStoresValue(address ssa.Value, value ssa.Value) bool {
+	if address.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *address.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == address && AliasesValue(store.Val, value) {
+			return true
+		}
+	}
+	return false
 }
 
 // ClosureCallsMethod reports whether a call-like closure calls method on target.
@@ -401,7 +522,7 @@ func calledFunction(instruction ssa.Instruction) (*ssa.CallCommon, *ssa.MakeClos
 func calledReceiverMatches(common *ssa.CallCommon, closure *ssa.MakeClosure, function *ssa.Function, receiver, target ssa.Value) bool {
 	if closure != nil {
 		for index, free := range function.FreeVars {
-			if AliasesValue(receiver, free) && index < len(closure.Bindings) && (AliasesValue(closure.Bindings[index], target) || AliasesValue(CapturedBindingValue(closure.Bindings[index]), target)) {
+			if AliasesValue(receiver, free) && index < len(closure.Bindings) && CapturedBindingAliases(closure.Bindings[index], target) {
 				return true
 			}
 		}
@@ -585,6 +706,20 @@ func branchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool
 	if literal, ok := value.(*ssa.Const); ok && literal.Value != nil && literal.Value.Kind() == constant.Bool {
 		return constant.BoolVal(literal.Value), true
 	}
+	// Resolve the first condition of constant-count loops. Otherwise the flow
+	// engine invents a zero-iteration path and can report workers as unjoined
+	// even when a positive fixed-count receive loop follows them, as in:
+	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/internal/cri/store/stats/timed_store_test.go#L190-L222
+	if comparison, ok := value.(*ssa.BinOp); ok {
+		left, leftOK := branchConstant(comparison.X, block, predecessor)
+		right, rightOK := branchConstant(comparison.Y, block, predecessor)
+		if leftOK && rightOK {
+			switch comparison.Op {
+			case token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ:
+				return constant.Compare(left, comparison.Op, right), true
+			}
+		}
+	}
 	phi, ok := value.(*ssa.Phi)
 	if !ok || phi.Block() != block || predecessor == nil {
 		return false, false
@@ -595,6 +730,22 @@ func branchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool
 		}
 	}
 	return false, false
+}
+
+func branchConstant(value ssa.Value, block, predecessor *ssa.BasicBlock) (constant.Value, bool) {
+	if literal, ok := value.(*ssa.Const); ok && literal.Value != nil {
+		return literal.Value, true
+	}
+	phi, ok := value.(*ssa.Phi)
+	if !ok || phi.Block() != block || predecessor == nil {
+		return nil, false
+	}
+	for index, candidate := range block.Preds {
+		if candidate == predecessor && index < len(phi.Edges) {
+			return branchConstant(phi.Edges[index], block, nil)
+		}
+	}
+	return nil, false
 }
 
 // ReachableReturns returns normal returns reachable after start.

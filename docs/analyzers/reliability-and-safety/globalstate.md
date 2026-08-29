@@ -12,9 +12,9 @@ explicitly configured names or types are excluded.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `globalstate/mutable-package-state` | Reports mutable package-level state without an explicit owner. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `globalstate/mutable-package-state` | Reports mutable package-level state without an explicit owner. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

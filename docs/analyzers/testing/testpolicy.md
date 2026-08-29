@@ -11,9 +11,9 @@ and can return without calling the handle's `Helper` method.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `testpolicy/helper-marker` | Reports test helpers that do not call Helper on every return path. | [policy](../../../tags-and-profiles/#policy) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `testpolicy/helper-marker` | Reports test helpers that do not call Helper on every return path. | default | [policy](../../../tags-and-profiles/#policy) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

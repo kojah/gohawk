@@ -1,8 +1,7 @@
-package general
+package contracts
 
 import (
 	"go/ast"
-	"go/types"
 	"go/version"
 	"strings"
 
@@ -74,14 +73,14 @@ func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool, conf
 	switch typed := node.(type) {
 	case *ast.FuncDecl:
 		for index, parameter := range parameterTypes(pass, typed.Type.Params) {
-			if isContext(parameter) && index != 0 {
+			if analysisutil.NamedType(parameter, "context", "Context") && index != 0 {
 				reportf(pass, checkContextFirst, typed.Name.Pos(), "context.Context must be first parameter")
 				break
 			}
 		}
 	case *ast.StructType:
 		for _, field := range typed.Fields.List {
-			if isContext(pass.TypesInfo.TypeOf(field.Type)) {
+			if analysisutil.NamedType(pass.TypesInfo.TypeOf(field.Type), "context", "Context") {
 				reportf(pass, checkContextStorage, field.Pos(), "do not store context.Context in a struct")
 			}
 		}
@@ -90,11 +89,6 @@ func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool, conf
 			reportf(pass, checkContextTestOwnership, typed.Pos(), "use t.Context() or b.Context() instead of context.Background()")
 		}
 	}
-}
-
-func isContext(value types.Type) bool {
-	named, ok := value.(*types.Named)
-	return ok && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == "context" && named.Obj().Name() == "Context"
 }
 
 func reportNilSSAContextArguments(pass *analysis.Pass, call *ssa.Call) {
@@ -112,39 +106,8 @@ func reportNilSSAContextArguments(pass *analysis.Pass, call *ssa.Call) {
 		if argumentIndex >= len(common.Args) {
 			break
 		}
-		if isContext(signature.Params().At(index).Type()) && definitelyNil(common.Args[argumentIndex], map[ssa.Value]bool{}) {
+		if analysisutil.NamedType(signature.Params().At(index).Type(), "context", "Context") && analysisutil.DefinitelyNil(common.Args[argumentIndex]) {
 			reportf(pass, checkContextNilArgument, call.Pos(), "do not pass nil context.Context")
 		}
 	}
-}
-
-func definitelyNil(value ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
-	if literal, ok := value.(*ssa.Const); ok {
-		return literal.IsNil()
-	}
-	switch typed := value.(type) {
-	case *ssa.ChangeInterface:
-		return definitelyNil(typed.X, seen)
-	case *ssa.ChangeType:
-		return definitelyNil(typed.X, seen)
-	case *ssa.Convert:
-		return definitelyNil(typed.X, seen)
-	case *ssa.MakeInterface:
-		return definitelyNil(typed.X, seen)
-	case *ssa.Phi:
-		if len(typed.Edges) == 0 {
-			return false
-		}
-		for _, edge := range typed.Edges {
-			if !definitelyNil(edge, seen) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
 }

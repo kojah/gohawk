@@ -79,6 +79,23 @@ func joinedByWaitGroup() {
 	group.Wait()
 }
 
+func joinedByCountedReceives() {
+	done := make(chan bool)
+	for range 10 {
+		go func() { done <- true }()
+	}
+	for range 10 {
+		<-done
+	}
+}
+
+func joinedThroughReceiveHelper() {
+	done := make(chan bool)
+	go func() { done <- true }()
+	wait := func() { <-done }
+	wait()
+}
+
 func joinedByClose() {
 	done := make(chan struct{})
 	go func() { close(done) }()
@@ -148,6 +165,18 @@ func contextArgumentWorker(ctx context.Context) {
 	go runWithContext(ctx)
 }
 
+func runUntilStopped(stop <-chan struct{}) {
+	<-stop
+}
+
+func stopChannelWorker(stop <-chan struct{}) {
+	go runUntilStopped(stop)
+}
+
+func stopChannelClosure(stop <-chan struct{}) {
+	go func() { <-stop }()
+}
+
 func abandonedRepeatedSend() error {
 	errs := make(chan error)
 	go func() {
@@ -172,6 +201,57 @@ func drainedSends() {
 	}()
 	<-errs
 	<-errs
+}
+
+func drainedSendsInLoop() {
+	errs := make(chan error)
+	go func() {
+		defer close(errs)
+		errs <- errors.New("first")
+		errs <- errors.New("second")
+	}()
+	for range errs {
+	}
+}
+
+func drainedSendsThroughSelects() {
+	errs := make(chan error)
+	go func() {
+		errs <- errors.New("first")
+		errs <- errors.New("second")
+	}()
+	select {
+	case <-errs:
+	}
+	select {
+	case <-errs:
+	}
+}
+
+func oneSelectDoesNotDrainRepeatedSends() error {
+	errs := make(chan error)
+	go func() {
+		errs <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
+		errs <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
+	}()
+	select {
+	case err := <-errs:
+		return err
+	}
+}
+
+func oneNonBlockingSelectDoesNotDrainRepeatedSends() error {
+	errs := make(chan error)
+	go func() {
+		errs <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
+		errs <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
+	}()
+	select {
+	case err := <-errs:
+		return err
+	default:
+		return nil
+	}
 }
 
 func cancellationAwareSend(ctx context.Context) error {

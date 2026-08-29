@@ -1,4 +1,4 @@
-package general
+package ownership
 
 import (
 	"go/token"
@@ -279,8 +279,8 @@ func resourceSuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Valu
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}
-	comparesErrorToNil := valueDerivesFrom(comparison.X, errorValue, map[ssa.Value]bool{}) && definitelyNil(comparison.Y, map[ssa.Value]bool{}) ||
-		valueDerivesFrom(comparison.Y, errorValue, map[ssa.Value]bool{}) && definitelyNil(comparison.X, map[ssa.Value]bool{})
+	comparesErrorToNil := valueDerivesFrom(comparison.X, errorValue, map[ssa.Value]bool{}) && analysisutil.DefinitelyNil(comparison.Y) ||
+		valueDerivesFrom(comparison.Y, errorValue, map[ssa.Value]bool{}) && analysisutil.DefinitelyNil(comparison.X)
 	if !comparesErrorToNil {
 		return false, false
 	}

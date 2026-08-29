@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +16,7 @@ import (
 	"testing"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
+	"golang.org/x/tools/go/analysis"
 )
 
 func TestPrintAnalyzerList(t *testing.T) {
@@ -27,7 +30,9 @@ func TestPrintAnalyzerList(t *testing.T) {
 		{name: "all", contains: []string{"ANALYZER", "PROFILE", "GROUP", "apishape", "oncepolicy", "contracts", "reliability"}, excludes: []string{"CATEGORY", "CHECK TAGS", "API and data contracts", "correctness,reliability"}},
 		{name: "defaults", arguments: []string{"-defaults"}, contains: []string{"oncepolicy", "default"}, excludes: []string{"wirepolicy", "apishape", "blockingtest", "determinism"}},
 		{name: "opt-in", arguments: []string{"-opt-in"}, contains: []string{"wirepolicy", "blockingtest", "determinism", "opt-in"}, excludes: []string{"oncepolicy", "contextpolicy"}},
-		{name: "checks", arguments: []string{"-checks"}, contains: []string{"CHECK", "GROUP", "TAGS", "contextpolicy/context-first", "oncepolicy/discarded-wrapper", "contracts", "correctness", "reliability,policy"}, excludes: []string{"ANALYZER", "CATEGORY"}},
+		{name: "checks", arguments: []string{"-checks"}, contains: []string{"CHECK", "PROFILE", "GROUP", "TAGS", "contextpolicy/context-first", "contextpolicy/test-context", "opt-in", "oncepolicy/discarded-wrapper", "contracts", "correctness", "reliability,policy"}, excludes: []string{"ANALYZER", "CATEGORY"}},
+		{name: "default checks", arguments: []string{"-checks", "-defaults"}, contains: []string{"contextpolicy/context-first", "default"}, excludes: []string{"contextpolicy/test-context"}},
+		{name: "opt-in checks", arguments: []string{"-checks", "-opt-in"}, contains: []string{"contextpolicy/test-context", "opt-in"}, excludes: []string{"contextpolicy/context-first"}},
 		{name: "conflicting filters", arguments: []string{"-defaults", "-opt-in"}, wantError: true},
 		{name: "unexpected argument", arguments: []string{"extra"}, wantError: true},
 	}
@@ -52,6 +57,183 @@ func TestPrintAnalyzerList(t *testing.T) {
 	}
 }
 
+func TestRunCLIImmediateCommands(t *testing.T) {
+	tests := []struct {
+		name           string
+		arguments      []string
+		wantCode       int
+		outputContains string
+		errorContains  string
+	}{
+		{name: "version", arguments: []string{"gohawk", "-V"}, outputContains: "gohawk "},
+		{name: "list", arguments: []string{"gohawk", "list", "-defaults"}, outputContains: "oncepolicy"},
+		{name: "list error", arguments: []string{"gohawk", "list", "extra"}, wantCode: 2, errorContains: "unexpected argument"},
+		{name: "documentation", arguments: []string{"gohawk", "doc", "contextpolicy/nil-context"}, outputContains: "Reports definitely nil"},
+		{name: "documentation error", arguments: []string{"gohawk", "doc", "unknown"}, wantCode: 2, errorContains: "unknown analyzer or check"},
+		{name: "help", arguments: []string{"gohawk", "help"}, errorContains: "Analyzer selection:"},
+		{name: "invalid check", arguments: []string{"gohawk", "-disable-checks=unknown/check", "./..."}, wantCode: 2, errorContains: "unknown check"},
+		{name: "legacy selection", arguments: []string{"gohawk", "-wirepolicy=false", "./..."}, wantCode: 2, errorContains: "use -disable=wirepolicy"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var output, errorsOutput bytes.Buffer
+			runtime := testCLIRuntime(&output, &errorsOutput, nil)
+			result := runCLI(test.arguments, runtime)
+			if result.exitCode != test.wantCode {
+				t.Fatalf("exit code = %d, want %d", result.exitCode, test.wantCode)
+			}
+			if result.invocation != nil {
+				t.Fatal("immediate command unexpectedly prepared an analysis invocation")
+			}
+			if test.outputContains != "" && !strings.Contains(output.String(), test.outputContains) {
+				t.Errorf("output does not contain %q:\n%s", test.outputContains, output.String())
+			}
+			if test.errorContains != "" && !strings.Contains(errorsOutput.String(), test.errorContains) {
+				t.Errorf("error output does not contain %q:\n%s", test.errorContains, errorsOutput.String())
+			}
+		})
+	}
+}
+
+func TestRunCLIProcessBoundaries(t *testing.T) {
+	t.Run("filtered flags", func(t *testing.T) {
+		var output, errorsOutput bytes.Buffer
+		runtime := testCLIRuntime(&output, &errorsOutput, nil)
+		runtime.filteredFlags = func(arguments []string, analyzers []*analysis.Analyzer, output, errorsOutput io.Writer) int {
+			if !slices.Equal(arguments, []string{"gohawk", "-flags"}) {
+				t.Errorf("arguments = %v", arguments)
+			}
+			if len(analyzers) == 0 {
+				t.Error("no analyzers supplied")
+			}
+			fmt.Fprint(output, "filtered flags")
+			return 7
+		}
+		result := runCLI([]string{"gohawk", "-flags"}, runtime)
+		if result.exitCode != 7 || result.invocation != nil || output.String() != "filtered flags" {
+			t.Fatalf("result = %#v, output = %q", result, output.String())
+		}
+	})
+
+	t.Run("rich output", func(t *testing.T) {
+		var output, errorsOutput bytes.Buffer
+		runtime := testCLIRuntime(&output, &errorsOutput, nil)
+		var childArguments []string
+		runtime.richOutput = func(arguments []string, output io.Writer) int {
+			childArguments = slices.Clone(arguments)
+			return 3
+		}
+		result := runCLI([]string{"gohawk", "-disable-checks=contextpolicy/context-first", "./..."}, runtime)
+		if result.exitCode != 3 || result.invocation != nil {
+			t.Fatalf("result = %#v", result)
+		}
+		joined := strings.Join(childArguments, " ")
+		for _, want := range []string{"-contextpolicy=true", "-disable-checks=", "contextpolicy/context-first", "./..."} {
+			if !strings.Contains(joined, want) {
+				t.Errorf("child arguments do not contain %q: %s", want, joined)
+			}
+		}
+	})
+
+	t.Run("analysis engine", func(t *testing.T) {
+		var output, errorsOutput bytes.Buffer
+		runtime := testCLIRuntime(&output, &errorsOutput, map[string]string{richOutputChild: "1"})
+		result := runCLI([]string{"gohawk", "-disable=oncepolicy", "./..."}, runtime)
+		if result.exitCode != 0 || result.invocation == nil {
+			t.Fatalf("result = %#v", result)
+		}
+		joined := strings.Join(result.invocation.arguments, " ")
+		if !strings.Contains(joined, "-contextpolicy=true") || strings.Contains(joined, "-oncepolicy=true") {
+			t.Fatalf("engine arguments = %s", joined)
+		}
+	})
+}
+
+func TestPrintFilteredFlagsUsing(t *testing.T) {
+	analyzers := gohawk.Analyzers()
+	execute := func(name string, arguments, environment []string) (processOutput, error) {
+		if name != "gohawk" || !slices.Equal(arguments, []string{"-flags"}) {
+			t.Errorf("command = %q %v", name, arguments)
+		}
+		if !slices.Equal(environment, []string{filteredFlagsChild + "=1"}) {
+			t.Errorf("environment = %v", environment)
+		}
+		return processOutput{stdout: []byte(`[
+			{"Name":"wirepolicy","Bool":true,"Usage":"legacy selector"},
+			{"Name":"enable","Bool":false,"Usage":"enable analyzers"}
+		]`)}, nil
+	}
+	var output, errorsOutput bytes.Buffer
+	if code := printFilteredFlagsUsing([]string{"gohawk", "-flags"}, analyzers, &output, &errorsOutput, execute); code != 0 {
+		t.Fatalf("exit code = %d\n%s", code, errorsOutput.String())
+	}
+	if strings.Contains(output.String(), `"Name": "wirepolicy"`) || !strings.Contains(output.String(), `"Name": "enable"`) {
+		t.Fatalf("filtered output:\n%s", output.String())
+	}
+
+	execute = func(string, []string, []string) (processOutput, error) {
+		return processOutput{stderr: []byte("child failed\n"), exitCode: 9}, errors.New("exit status 9")
+	}
+	output.Reset()
+	errorsOutput.Reset()
+	if code := printFilteredFlagsUsing([]string{"gohawk", "-flags"}, analyzers, &output, &errorsOutput, execute); code != 9 || errorsOutput.String() != "child failed\n" {
+		t.Fatalf("exit code = %d, stderr = %q", code, errorsOutput.String())
+	}
+}
+
+func TestRunWithRichOutputUsing(t *testing.T) {
+	tests := []struct {
+		name       string
+		result     processOutput
+		err        error
+		wantCode   int
+		wantOutput string
+	}{
+		{name: "no diagnostics", result: processOutput{stdout: []byte(`{}`)}, wantCode: 0},
+		{name: "diagnostic", result: processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"missing.go:1:1","end":"missing.go:1:2","message":"problem"}]}}`)}, wantCode: 3, wantOutput: "warning[oncepolicy]: problem"},
+		{name: "analysis error", result: processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":{"error":"load failed"}}}`)}, wantCode: 1, wantOutput: "oncepolicy: load failed"},
+		{name: "invalid JSON", result: processOutput{stdout: []byte(`not json`)}, wantCode: 1, wantOutput: "decode analyzer output"},
+		{name: "child exit", result: processOutput{stdout: []byte("child output\n"), stderr: []byte("child error\n"), exitCode: 4}, err: errors.New("exit status 4"), wantCode: 4, wantOutput: "child error\nchild output"},
+		{name: "start error", result: processOutput{exitCode: -1}, err: errors.New("not found"), wantCode: 1, wantOutput: "run analyzer engine: not found"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			execute := func(name string, arguments, environment []string) (processOutput, error) {
+				if name != "gohawk" || !slices.Equal(arguments, []string{"-json", "./..."}) {
+					t.Errorf("command = %q %v", name, arguments)
+				}
+				if !slices.Equal(environment, []string{richOutputChild + "=1"}) {
+					t.Errorf("environment = %v", environment)
+				}
+				return test.result, test.err
+			}
+			var output bytes.Buffer
+			if code := runWithRichOutputUsing([]string{"gohawk", "./..."}, &output, execute); code != test.wantCode {
+				t.Fatalf("exit code = %d, want %d\n%s", code, test.wantCode, output.String())
+			}
+			if test.wantOutput != "" && !strings.Contains(output.String(), test.wantOutput) {
+				t.Errorf("output does not contain %q:\n%s", test.wantOutput, output.String())
+			}
+		})
+	}
+}
+
+func testCLIRuntime(output, errorsOutput io.Writer, environment map[string]string) cliRuntime {
+	return cliRuntime{
+		output:       output,
+		errorsOutput: errorsOutput,
+		getenv: func(name string) string {
+			return environment[name]
+		},
+		filteredFlags: func([]string, []*analysis.Analyzer, io.Writer, io.Writer) int {
+			panic("unexpected filtered-flags subprocess")
+		},
+		richOutput: func([]string, io.Writer) int {
+			panic("unexpected rich-output subprocess")
+		},
+	}
+}
+
 func TestPrintDocumentation(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -65,7 +247,7 @@ func TestPrintDocumentation(t *testing.T) {
 			arguments: []string{"contextpolicy"},
 			contains: []string{
 				"contextpolicy", "Profile: default", "Group: contracts (API and data contracts)",
-				"Suggested fixes: no", "contextpolicy/context-first", "Tags: reliability,policy",
+				"Suggested fixes: no", "contextpolicy/context-first", "Profile: opt-in", "Tags: reliability,policy",
 				"-contextpolicy.prefer-test-context (default true)",
 				"https://kojah.github.io/gohawk/analyzers/api-and-data-contracts/contextpolicy/",
 			},
@@ -75,7 +257,7 @@ func TestPrintDocumentation(t *testing.T) {
 			arguments: []string{"contextpolicy/nil-context"},
 			contains: []string{
 				"contextpolicy/nil-context", "Reports definitely nil context.Context arguments.",
-				"Analyzer: contextpolicy", "Profile: default", "Group: contracts",
+				"Analyzer: contextpolicy", "Profile: default", "Analyzer profile: default", "Group: contracts",
 				"correctness — Strong evidence that the program can behave incorrectly.",
 			},
 			excludes: []string{"\nChecks:", "\nOptions:"},
@@ -278,6 +460,89 @@ func TestRequestedDisabledChecks(t *testing.T) {
 	}
 }
 
+func TestRequestedChecks(t *testing.T) {
+	metadata := gohawk.AnalyzerMetadata()
+	requested, remaining, err := requestedChecks([]string{
+		"gohawk",
+		"-enable-checks=contextpolicy/test-context,contextpolicy/nil-context",
+		"-disable-checks=contextpolicy/context-first",
+		"./...",
+	}, metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, check := range []string{"contextpolicy/test-context", "contextpolicy/nil-context"} {
+		if !requested.enabled[check] {
+			t.Errorf("enabled checks do not contain %q: %v", check, requested.enabled)
+		}
+	}
+	if !requested.disabled["contextpolicy/context-first"] {
+		t.Errorf("disabled checks = %v", requested.disabled)
+	}
+	if want := []string{"gohawk", "./..."}; !slices.Equal(remaining, want) {
+		t.Fatalf("remaining arguments = %v, want %v", remaining, want)
+	}
+
+	for _, arguments := range [][]string{
+		{"gohawk", "-enable-checks=unknown/check", "./..."},
+		{"gohawk", "-enable-checks=contextpolicy/test-context,contextpolicy/test-context", "./..."},
+		{"gohawk", "-enable-checks=contextpolicy/test-context,", "./..."},
+		{"gohawk", "-enable-checks="},
+		{"gohawk", "-enable-checks"},
+	} {
+		if _, _, err := requestedChecks(arguments, metadata); err == nil {
+			t.Errorf("arguments %v unexpectedly succeeded", arguments)
+		}
+	}
+}
+
+func TestCheckSelectionProfiles(t *testing.T) {
+	analyzers := gohawk.Analyzers()
+	groups := gohawk.AnalyzerGroups()
+	metadata := gohawk.AnalyzerMetadata()
+	testContext := "contextpolicy/test-context"
+	nilContext := "contextpolicy/nil-context"
+
+	t.Run("check alone selects only that check", func(t *testing.T) {
+		requested := checkSelection{enabled: map[string]bool{testContext: true}, disabled: map[string]bool{}}
+		selection, err := withAnalyzerCheckSelection([]string{"gohawk", "./..."}, analyzers, groups, metadata, checkOwners(requested.enabled, metadata), false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(strings.Join(selection.arguments, " "), "-contextpolicy=true") || selection.normallySelected["contextpolicy"] {
+			t.Fatalf("selection = %+v", selection)
+		}
+		disabled := effectiveDisabledChecks(metadata, selection.normallySelected, requested, selection.enableAll)
+		if disabled[testContext] || !disabled[nilContext] {
+			t.Fatalf("disabled checks = %v", disabled)
+		}
+	})
+
+	t.Run("check adds to selected analyzer defaults", func(t *testing.T) {
+		requested := checkSelection{enabled: map[string]bool{testContext: true}, disabled: map[string]bool{}}
+		selection, err := withAnalyzerCheckSelection([]string{"gohawk", "-enable=contextpolicy", "./..."}, analyzers, groups, metadata, checkOwners(requested.enabled, metadata), false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		disabled := effectiveDisabledChecks(metadata, selection.normallySelected, requested, selection.enableAll)
+		if disabled[testContext] || disabled[nilContext] {
+			t.Fatalf("disabled checks = %v", disabled)
+		}
+	})
+
+	t.Run("enable all includes opt-in checks and disable wins", func(t *testing.T) {
+		requested := checkSelection{enabled: map[string]bool{}, disabled: map[string]bool{testContext: true}}
+		selection, err := withAnalyzerCheckSelection([]string{"gohawk", "-enable-all", "./..."}, analyzers, groups, metadata, nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		disabled := effectiveDisabledChecks(metadata, selection.normallySelected, requested, selection.enableAll)
+		if !disabled[testContext] || disabled[nilContext] {
+			t.Fatalf("disabled checks = %v", disabled)
+		}
+	})
+}
+
 func TestCLIIntegration(t *testing.T) {
 	binary := buildTestBinary(t)
 	module := writeTestModule(t)
@@ -468,8 +733,18 @@ func TestCLIIntegration(t *testing.T) {
 
 		modernModule := writeContextTestModule(t, "1.24.0")
 		output, exitCode = runCommand(t, modernModule, binary, "-enable=contextpolicy", "./...")
+		if exitCode != 0 || output != "" {
+			t.Fatalf("Go 1.24 default checks: exit code = %d, output = %q", exitCode, output)
+		}
+
+		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=contextpolicy/test-context", "./...")
 		if exitCode != 3 || !strings.Contains(output, "use t.Context() or b.Context()") {
-			t.Fatalf("Go 1.24 module: exit code = %d\n%s", exitCode, output)
+			t.Fatalf("Go 1.24 opt-in check: exit code = %d\n%s", exitCode, output)
+		}
+
+		output, exitCode = runCommand(t, modernModule, binary, "-enable-all", "./...")
+		if exitCode != 3 || !strings.Contains(output, "use t.Context() or b.Context()") {
+			t.Fatalf("Go 1.24 enable-all: exit code = %d\n%s", exitCode, output)
 		}
 	})
 
@@ -519,6 +794,29 @@ func TestCLIIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("enabled check", func(t *testing.T) {
+		checkModule := writeCheckFilterModule(t)
+		output, exitCode := runCommand(t, checkModule, binary, "-enable-checks=contextpolicy/nil-context", "./...")
+		if exitCode != 3 || !strings.Contains(output, "do not pass nil context.Context") {
+			t.Fatalf("exact check: exit code = %d\n%s", exitCode, output)
+		}
+		if strings.Contains(output, "context.Context must be first parameter") {
+			t.Fatalf("exact check ran default sibling:\n%s", output)
+		}
+
+		output, exitCode = runCommand(t, checkModule, "go", "vet", "-vettool="+binary, "-enable-checks=contextpolicy/nil-context", "./...")
+		if exitCode != 1 || !strings.Contains(output, "do not pass nil context.Context") || strings.Contains(output, "context.Context must be first parameter") {
+			t.Fatalf("vettool exact check: exit code = %d\n%s", exitCode, output)
+		}
+
+		output, exitCode = runCommand(t, checkModule, binary,
+			"-enable=contextpolicy", "-enable-checks=contextpolicy/test-context", "./...",
+		)
+		if exitCode != 3 || !strings.Contains(output, "context.Context must be first parameter") || !strings.Contains(output, "do not pass nil context.Context") {
+			t.Fatalf("combined analyzer and check selection: exit code = %d\n%s", exitCode, output)
+		}
+	})
+
 	t.Run("invalid disabled check", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-disable-checks=contextpolicy/not-a-check", "./...")
 		if exitCode != 2 || !strings.Contains(output, `unknown check "contextpolicy/not-a-check"`) {
@@ -536,6 +834,7 @@ func TestCLIIntegration(t *testing.T) {
 			"disable-checks",
 			"disable-groups",
 			"enable",
+			"enable-checks",
 			"enable-groups",
 			"apishape.max-parameters",
 			"apishape.max-adjacent-same-type",

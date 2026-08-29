@@ -12,11 +12,11 @@ returning the newly declared one.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `errorownership/log-and-return` | Reports functions that both log and return the same error. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-| `errorownership/text-classification` | Reports production code that classifies errors by matching their text. | [reliability](../../../tags-and-profiles/#reliability) |
-| `errorownership/mismatched-inline-error` | Reports inline error declarations whose condition checks a different error. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `errorownership/log-and-return` | Reports functions that both log and return the same error. | opt-in | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `errorownership/text-classification` | Reports production code that classifies errors by matching their text. | default | [reliability](../../../tags-and-profiles/#reliability) |
+| `errorownership/mismatched-inline-error` | Reports inline error declarations whose condition checks a different error. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

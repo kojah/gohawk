@@ -120,6 +120,14 @@ type processOwner struct {
 	command *exec.Cmd
 }
 
+func returnedProcessOwner(ctx context.Context) (*processOwner, error) {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return nil, err
+	}
+	return &processOwner{command: command}, nil
+}
+
 func (owner *processOwner) startOwnedCommand() error {
 	return owner.command.Start()
 }
@@ -144,5 +152,11 @@ func preownedCommand(ctx context.Context, cleanup func(func())) *exec.Cmd {
 
 func startsPreownedCommand(ctx context.Context, cleanup func(func())) error {
 	command := preownedCommand(ctx, cleanup)
+	return command.Start()
+}
+
+func startsAddressablePreownedCommand(ctx context.Context, cleanup func(func())) error {
+	command := preownedCommand(ctx, cleanup)
+	cleanup(func() { _ = command.Process.Kill() })
 	return command.Start()
 }

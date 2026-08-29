@@ -1,4 +1,4 @@
-package general
+package testingchecks
 
 import (
 	"go/token"
@@ -74,12 +74,12 @@ func closedBefore(function *ssa.Function, channel ssa.Value, receive ssa.Instruc
 
 func ssaFunctionHasContext(function *ssa.Function) bool {
 	for _, parameter := range function.Params {
-		if isContext(parameter.Type()) {
+		if analysisutil.NamedType(parameter.Type(), "context", "Context") {
 			return true
 		}
 	}
 	for _, free := range function.FreeVars {
-		if isContext(free.Type()) {
+		if analysisutil.NamedType(free.Type(), "context", "Context") {
 			return true
 		}
 	}
@@ -98,7 +98,7 @@ func selectHasCancellation(selection *ssa.Select) bool {
 func cancellationChannel(value ssa.Value) bool {
 	return valueGraphHasCall(value, func(common *ssa.CallCommon) bool {
 		receiver := analysisutil.CallReceiver(common)
-		return analysisutil.CallName(common) == "Done" && receiver != nil && isContext(receiver.Type())
+		return analysisutil.CallName(common) == "Done" && receiver != nil && analysisutil.NamedType(receiver.Type(), "context", "Context")
 	}, map[ssa.Value]bool{})
 }
 

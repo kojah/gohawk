@@ -12,10 +12,10 @@ wire types when their fields should be named explicitly.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `wirepolicy/keyed-literal` | Reports positional composite literals for persisted or wire structs. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-| `wirepolicy/serialization-tag` | Reports exported wire fields without explicit JSON or TOML tags. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `wirepolicy/keyed-literal` | Reports positional composite literals for persisted or wire structs. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| `wirepolicy/serialization-tag` | Reports exported wire fields without explicit JSON or TOML tags. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

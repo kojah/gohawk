@@ -12,9 +12,9 @@ group of values—but are still declared as plain strings.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `closedomain/closed-string-domain` | Reports exported string fields used as small closed sets of values. | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `closedomain/closed-string-domain` | Reports exported string fields used as small closed sets of values. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

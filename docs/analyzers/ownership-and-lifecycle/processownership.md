@@ -12,9 +12,9 @@ waiting for it.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `processownership/missing-wait` | Reports successfully started commands that are neither waited on nor transferred. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `processownership/missing-wait` | Reports successfully started commands that are neither waited on nor transferred. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

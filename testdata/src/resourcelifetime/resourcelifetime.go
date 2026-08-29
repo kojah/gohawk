@@ -41,6 +41,25 @@ func stoppedTimer() {
 	defer timer.Stop()
 }
 
+func consumedTimer() {
+	timer := time.NewTimer(time.Second)
+	<-timer.C
+}
+
+func consumedTimerInSelect() {
+	timer := time.NewTimer(time.Second)
+	select {
+	case <-timer.C:
+	default:
+	}
+}
+
+func unrelatedReceiveDoesNotConsumeTimer(events <-chan time.Time) {
+	timer := time.NewTimer(time.Second) // want "owned resource from time.NewTimer is not released on every return path"
+	<-events
+	_ = timer
+}
+
 func transferredFile() (*os.File, error) {
 	return os.CreateTemp("", "transfer")
 }

@@ -1,4 +1,4 @@
-package general
+package ownership
 
 import (
 	"go/types"
@@ -35,7 +35,9 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				command := analysisutil.CallReceiver(start.Common())
 				// A helper returning *exec.Cmd may already have registered cleanup
 				// or wait ownership. Without interprocedural evidence either way,
-				// reporting here would trade precision for recall.
+				// reporting here would trade precision for recall. containerd wraps
+				// command construction and returns the started command in binaryIO:
+				// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/cmd/containerd-shim-runc-v2/process/io.go#L288-L330
 				if commandReturnedByHelper(command) {
 					continue
 				}
@@ -54,7 +56,9 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 						analysisutil.CallTransfersValueToField(candidate, command) ||
 						analysisutil.CallPackage(common) == "os" && analysisutil.CallName(common) == "Exit"
 				}, func(returned *ssa.Return) bool {
-					return startFailureReturn(returned, start) || returnedValueAliases(returned, command)
+					// Returning an aggregate that contains the command transfers Wait
+					// responsibility just as directly as returning *exec.Cmd itself.
+					return startFailureReturn(returned, start) || analysisutil.ReturnedValueOwnsValue(returned, command)
 				}) {
 					reportf(pass, checkProcessWait, start.Pos(), "started command is not waited on every successful return path")
 				}
@@ -65,8 +69,43 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 }
 
 func commandReturnedByHelper(command ssa.Value) bool {
-	call, ok := command.(*ssa.Call)
-	return ok && analysisutil.CallPackage(call.Common()) != "os/exec"
+	return commandReturnedByHelperSeen(command, map[ssa.Value]bool{})
+}
+
+func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) bool {
+	if command == nil || seen[command] {
+		return false
+	}
+	seen[command] = true
+	switch typed := command.(type) {
+	case *ssa.Call:
+		return analysisutil.CallPackage(typed.Common()) != "os/exec"
+	case *ssa.ChangeInterface:
+		return commandReturnedByHelperSeen(typed.X, seen)
+	case *ssa.ChangeType:
+		return commandReturnedByHelperSeen(typed.X, seen)
+	case *ssa.Convert:
+		return commandReturnedByHelperSeen(typed.X, seen)
+	case *ssa.MakeInterface:
+		return commandReturnedByHelperSeen(typed.X, seen)
+	case *ssa.UnOp:
+		if typed.X.Referrers() == nil {
+			return false
+		}
+		for _, reference := range *typed.X.Referrers() {
+			store, ok := reference.(*ssa.Store)
+			if ok && store.Addr == typed.X && commandReturnedByHelperSeen(store.Val, seen) {
+				return true
+			}
+		}
+	case *ssa.Phi:
+		for _, edge := range typed.Edges {
+			if commandReturnedByHelperSeen(edge, seen) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func parameterValues(parameters []*ssa.Parameter) []ssa.Value {

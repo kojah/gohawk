@@ -40,8 +40,35 @@ type sourcePosition struct {
 	Column   int
 }
 
-func useRichOutput(arguments []string) bool {
-	if os.Getenv(richOutputChild) != "" || len(arguments) < 2 {
+type processOutput struct {
+	stdout   []byte
+	stderr   []byte
+	exitCode int
+}
+
+type processExecutor func(name string, arguments, environment []string) (processOutput, error)
+
+func executeProcess(name string, arguments, environment []string) (processOutput, error) {
+	command := exec.Command(name, arguments...)
+	command.Env = append(os.Environ(), environment...)
+	var stdout, stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	err := command.Run()
+	result := processOutput{stdout: stdout.Bytes(), stderr: stderr.Bytes()}
+	if err == nil {
+		return result, nil
+	}
+	if exitError, ok := err.(*exec.ExitError); ok {
+		result.exitCode = exitError.ExitCode()
+		return result, err
+	}
+	result.exitCode = -1
+	return result, err
+}
+
+func useRichOutput(arguments []string, richOutputChildProcess bool) bool {
+	if richOutputChildProcess || len(arguments) < 2 {
 		return false
 	}
 	for _, argument := range arguments[1:] {
@@ -59,30 +86,29 @@ func useRichOutput(arguments []string) bool {
 }
 
 func runWithRichOutput(arguments []string, output io.Writer) int {
+	return runWithRichOutputUsing(arguments, output, executeProcess)
+}
+
+func runWithRichOutputUsing(arguments []string, output io.Writer, execute processExecutor) int {
 	childArguments := make([]string, 0, len(arguments))
 	childArguments = append(childArguments, "-json")
 	childArguments = append(childArguments, arguments[1:]...)
 
-	command := exec.Command(arguments[0], childArguments...)
-	command.Env = append(os.Environ(), richOutputChild+"=1")
-	var stdout, stderr bytes.Buffer
-	command.Stdout = &stdout
-	command.Stderr = &stderr
-	err := command.Run()
-	_, _ = io.Copy(output, &stderr)
+	result, err := execute(arguments[0], childArguments, []string{richOutputChild + "=1"})
+	_, _ = output.Write(result.stderr)
 	if err != nil {
-		_, _ = io.Copy(output, &stdout)
-		if exitError, ok := err.(*exec.ExitError); ok {
-			return exitError.ExitCode()
+		_, _ = output.Write(result.stdout)
+		if result.exitCode >= 0 {
+			return result.exitCode
 		}
 		fmt.Fprintf(output, "gohawk: run analyzer engine: %v\n", err)
 		return 1
 	}
 
-	diagnostics, analysisErrors, err := decodeDiagnostics(stdout.Bytes())
+	diagnostics, analysisErrors, err := decodeDiagnostics(result.stdout)
 	if err != nil {
 		fmt.Fprintf(output, "gohawk: decode analyzer output: %v\n", err)
-		_, _ = io.Copy(output, &stdout)
+		_, _ = output.Write(result.stdout)
 		return 1
 	}
 	for _, analysisError := range analysisErrors {

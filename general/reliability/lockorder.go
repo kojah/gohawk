@@ -1,9 +1,10 @@
-package general
+package reliability
 
 import (
 	"fmt"
 	"go/token"
 	"go/types"
+	"maps"
 	"slices"
 	"strings"
 
@@ -94,6 +95,9 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 					}
 				}
 			}
+			// An unconditional unlock at the start of a spawned closure transfers
+			// the held lock to that goroutine. Requiring it before any branch keeps
+			// conditional handoffs from hiding a genuinely unreleased return path.
 			if _, ok := instruction.(*ssa.Go); ok {
 				for _, identity := range slices.Clone(held) {
 					for _, value := range lockValues[identity] {
@@ -101,6 +105,21 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 							released[identity] = true
 							held = releaseLock(held, identity)
 							delete(guards, identity)
+							break
+						}
+					}
+				}
+			}
+			// Treat an Unlock inside a deferred closure as return-path cleanup even
+			// when guarded by state. This supports early-unlock patterns where the
+			// defer handles only earlier returns:
+			// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/integration/nri_test.go#L1287-L1300
+			if _, ok := instruction.(*ssa.Defer); ok {
+				for _, identity := range slices.Clone(held) {
+					for _, value := range lockValues[identity] {
+						if analysisutil.DeferredClosureCalls(instruction, "Unlock", value) || analysisutil.DeferredClosureCalls(instruction, "RUnlock", value) {
+							released[identity] = true
+							deferred = append(deferred, identity)
 							break
 						}
 					}
@@ -146,6 +165,9 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			})
 		}
 	}
+	// Lock/Unlock helpers commonly and intentionally return while transferring
+	// the critical section to their caller. Without interprocedural call-site
+	// evidence, reporting those helpers would trade precision for recall.
 	functionName := strings.ToLower(function.Name())
 	if strings.HasPrefix(functionName, "lock") || strings.HasPrefix(functionName, "unlock") {
 		return
@@ -204,11 +226,45 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value
 		return 0, "", nil, false
 	}
 	receiver := analysisutil.CallReceiver(common)
-	if receiver == nil || !(analysisutil.NamedType(receiver.Type(), "sync", "Mutex") || analysisutil.NamedType(receiver.Type(), "sync", "RWMutex")) {
+	receiver = concreteMutexReceiver(receiver, map[ssa.Value]bool{})
+	if receiver == nil {
 		return 0, "", nil, false
 	}
 	identity := lockIdentity(receiver, map[ssa.Value]bool{})
 	return operation, identity, receiver, identity != ""
+}
+
+// concreteMutexReceiver unwraps interface values only when every possible SSA
+// origin proves the same concrete sync mutex identity.
+func concreteMutexReceiver(value ssa.Value, seen map[ssa.Value]bool) ssa.Value { //nolint:ireturn // SSA values have several concrete forms.
+	if value == nil || seen[value] {
+		return nil
+	}
+	seen[value] = true
+	if analysisutil.NamedType(value.Type(), "sync", "Mutex") || analysisutil.NamedType(value.Type(), "sync", "RWMutex") {
+		return value
+	}
+	switch typed := value.(type) {
+	case *ssa.MakeInterface:
+		return concreteMutexReceiver(typed.X, seen)
+	case *ssa.ChangeInterface:
+		return concreteMutexReceiver(typed.X, seen)
+	case *ssa.Phi:
+		var resolved ssa.Value
+		var identity string
+		for _, edge := range typed.Edges {
+			candidate := concreteMutexReceiver(edge, maps.Clone(seen))
+			candidateIdentity := lockIdentity(candidate, map[ssa.Value]bool{})
+			if candidate == nil || candidateIdentity == "" || identity != "" && candidateIdentity != identity {
+				return nil
+			}
+			resolved = candidate
+			identity = candidateIdentity
+		}
+		return resolved
+	default:
+		return nil
+	}
 }
 
 func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
@@ -304,6 +360,18 @@ func lockIdentity(value ssa.Value, seen map[ssa.Value]bool) string {
 			}
 			return types.TypeString(typed.X.Type(), nil) + "." + field.Name()
 		}
+	case *ssa.IndexAddr:
+		owner := lockIdentity(typed.X, seen)
+		index := lockIdentity(typed.Index, seen)
+		if owner != "" && index != "" {
+			return owner + "[" + index + "]"
+		}
+	case *ssa.Index:
+		owner := lockIdentity(typed.X, seen)
+		index := lockIdentity(typed.Index, seen)
+		if owner != "" && index != "" {
+			return owner + "[" + index + "]"
+		}
 	case *ssa.ChangeInterface:
 		return lockIdentity(typed.X, seen)
 	case *ssa.ChangeType:
@@ -316,8 +384,22 @@ func lockIdentity(value ssa.Value, seen map[ssa.Value]bool) string {
 		return lockIdentity(typed.X, seen)
 	case *ssa.Parameter:
 		return typed.Parent().String() + "." + typed.Name()
+	case *ssa.FreeVar:
+		return ""
 	case *ssa.Alloc:
 		return typed.Parent().String() + ":local:" + typed.Comment
+	case *ssa.Const:
+		if typed.Value != nil {
+			return "constant:" + typed.Value.ExactString()
+		}
+	}
+	if parent := value.Parent(); parent != nil && value.Name() != "" {
+		// Dynamic values of the same type can still identify different lock
+		// instances. Keep their SSA identities distinct instead of collapsing
+		// them to the field type. Prometheus transfers state while holding locks
+		// on two alertmanagerSet values of the same type:
+		// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/notifier/manager.go#L165-L180
+		return parent.String() + ":value:" + value.Name()
 	}
 	return ""
 }

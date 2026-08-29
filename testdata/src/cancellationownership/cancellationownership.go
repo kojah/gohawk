@@ -34,13 +34,38 @@ func deferredClosure(parent context.Context) {
 	defer func() { cancel() }()
 }
 
+func cancelCause(parent context.Context) {
+	_, cancel := context.WithCancelCause(parent)
+	defer cancel(nil)
+}
+
+func goroutineOwnsCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	go func() {
+		defer cancel()
+	}()
+}
+
 type owner struct {
-	cancel context.CancelFunc
+	cancel   context.CancelFunc
+	callback func()
 }
 
 func transferredToField(target *owner, parent context.Context) {
 	_, cancel := context.WithCancel(parent)
 	target.cancel = cancel
+}
+
+func transferredThroughCallback(target *owner, parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	target.callback = func() { cancel() }
+}
+
+func reassignedAndTransferredThroughCallback(target *owner, parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	cancel()
+	_, cancel = context.WithCancel(parent)
+	target.callback = func() { cancel() }
 }
 
 func leakedSignalContext(parent context.Context) {

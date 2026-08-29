@@ -12,9 +12,9 @@ the value local to each goroutine.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `concurrentcapture/shared-capture` | Reports repeatedly launched goroutines that mutate the same captured local. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `concurrentcapture/shared-capture` | Reports repeatedly launched goroutines that mutate the same captured local. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

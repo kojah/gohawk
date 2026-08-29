@@ -1,4 +1,4 @@
-package general
+package ownership
 
 import (
 	"go/constant"
@@ -53,7 +53,11 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				}
 				signals, groups := goroutineJoinValues(spawn)
 				owners := goroutineLifecycleValues(spawn)
-				if config.mode == goroutineModeContext && goroutineHasContextLifecycle(spawn) {
+				// A received channel argument is a stop signal, not a completion
+				// handle that the caller must join. Kubernetes informers commonly
+				// express context ownership as Run(ctx.Done()):
+				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/discovery/kubernetes/kubernetes.go#L438-L458
+				if config.mode == goroutineModeContext && (goroutineHasContextLifecycle(spawn) || goroutineHasStopLifecycle(spawn)) {
 					continue
 				}
 				if (config.mode != goroutineModeJoin && (goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners))) || ownershipRegisteredBefore(spawn, signals, groups) {
@@ -70,7 +74,15 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				}, func(returned *ssa.Return) bool {
 					return returnedAliasesAny(returned, signals) || returnedAliasesAny(returned, groups) || config.mode != goroutineModeJoin && returnedAliasesAny(returned, owners)
 				}) {
-					reportf(pass, checkGoroutineJoin, spawn.Pos(), "goroutine is not joined on every return path")
+					check := checkGoroutineJoin
+					// Without a completion signal or wait group, static analysis cannot
+					// reliably distinguish a leak from intentional component work. Keep
+					// that heuristic opt-in; reserve the default check for code that
+					// exposes a recognizable join mechanism and fails to honor it.
+					if len(signals) == 0 && len(groups) == 0 {
+						check = checkGoroutineDetached
+					}
+					reportf(pass, check, spawn.Pos(), "goroutine is not joined on every return path")
 				}
 			}
 		}
@@ -134,17 +146,46 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 func spawnedValueAtCall(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value) ssa.Value { //nolint:ireturn // SSA values retain their concrete representations.
 	if closure != nil {
 		for index, free := range function.FreeVars {
-			if analysisutil.AliasesValue(value, free) && index < len(closure.Bindings) {
+			if passedValueAliases(value, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) {
 				return analysisutil.CapturedBindingValue(closure.Bindings[index])
 			}
 		}
 	}
 	for index, parameter := range function.Params {
-		if analysisutil.AliasesValue(value, parameter) && index < len(spawn.Common().Args) {
+		if passedValueAliases(value, parameter, map[ssa.Value]bool{}) && index < len(spawn.Common().Args) {
 			return spawn.Common().Args[index]
 		}
 	}
 	return nil
+}
+
+func passedValueAliases(value, target ssa.Value, seen map[ssa.Value]bool) bool {
+	if value == nil || target == nil || seen[value] {
+		return false
+	}
+	if value == target {
+		return true
+	}
+	seen[value] = true
+	switch typed := value.(type) {
+	case *ssa.ChangeInterface:
+		return passedValueAliases(typed.X, target, seen)
+	case *ssa.ChangeType:
+		return passedValueAliases(typed.X, target, seen)
+	case *ssa.Convert:
+		return passedValueAliases(typed.X, target, seen)
+	case *ssa.MakeInterface:
+		return passedValueAliases(typed.X, target, seen)
+	case *ssa.UnOp:
+		return typed.Op == token.MUL && passedValueAliases(typed.X, target, seen)
+	case *ssa.Phi:
+		for _, edge := range typed.Edges {
+			if passedValueAliases(edge, target, seen) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
@@ -252,18 +293,20 @@ func goroutineLifecycleValues(spawn *ssa.Go) []ssa.Value {
 }
 
 func goroutineJoinValues(spawn *ssa.Go) (signals, groups []ssa.Value) {
-	function, closure, ok := spawnedClosure(spawn)
-	if !ok {
-		for _, argument := range spawn.Common().Args {
-			if analysisutil.ChannelType(argument) {
-				signals = append(signals, argument)
-			}
-		}
+	// Infer join handles from what the goroutine produces (send, close, Done),
+	// rather than treating every channel argument as completion. A channel the
+	// goroutine only receives from governs its lifetime instead.
+	function := spawn.Common().StaticCallee()
+	closure, _ := spawn.Common().Value.(*ssa.MakeClosure)
+	if closure != nil {
+		function, _ = closure.Fn.(*ssa.Function)
+	}
+	if function == nil {
 		return signals, nil
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			signal, group := closureOwnershipValue(function, closure, instruction)
+			signal, group := spawnedOwnershipValue(spawn, function, closure, instruction)
 			if signal != nil {
 				signals = append(signals, signal)
 			}
@@ -273,6 +316,34 @@ func goroutineJoinValues(spawn *ssa.Go) (signals, groups []ssa.Value) {
 		}
 	}
 	return signals, groups
+}
+
+func goroutineHasStopLifecycle(spawn *ssa.Go) bool {
+	function := spawn.Common().StaticCallee()
+	closure, _ := spawn.Common().Value.(*ssa.MakeClosure)
+	if closure != nil {
+		function, _ = closure.Fn.(*ssa.Function)
+	}
+	if function == nil {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			switch candidate := instruction.(type) {
+			case *ssa.UnOp:
+				if candidate.Op == token.ARROW && spawnedValueAtCall(spawn, function, closure, candidate.X) != nil {
+					return true
+				}
+			case *ssa.Select:
+				for _, state := range candidate.States {
+					if state.Dir == types.RecvOnly && spawnedValueAtCall(spawn, function, closure, state.Chan) != nil {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
@@ -408,9 +479,9 @@ func spawnedClosure(spawn *ssa.Go) (*ssa.Function, *ssa.MakeClosure, bool) {
 	return function, closure, ok
 }
 
-func closureOwnershipValue(function *ssa.Function, closure *ssa.MakeClosure, instruction ssa.Instruction) (signal, group ssa.Value) { //nolint:ireturn // Closure ownership can flow through channels or synchronization values.
+func spawnedOwnershipValue(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, instruction ssa.Instruction) (signal, group ssa.Value) { //nolint:ireturn // Goroutine ownership can flow through channels or synchronization values.
 	if send, ok := instruction.(*ssa.Send); ok {
-		return closureBinding(function, closure, send.Chan), nil
+		return spawnedValueAtCall(spawn, function, closure, send.Chan), nil
 	}
 	common := analysisutil.InstructionCall(instruction)
 	if common == nil {
@@ -419,24 +490,18 @@ func closureOwnershipValue(function *ssa.Function, closure *ssa.MakeClosure, ins
 	switch analysisutil.CallName(common) {
 	case analysisutil.BuiltinClose:
 		if len(common.Args) == 1 {
-			return closureBinding(function, closure, common.Args[0]), nil
+			return spawnedValueAtCall(spawn, function, closure, common.Args[0]), nil
 		}
 	case "Done":
-		return nil, closureBinding(function, closure, analysisutil.CallReceiver(common))
+		return nil, spawnedValueAtCall(spawn, function, closure, analysisutil.CallReceiver(common))
 	}
 	return nil, nil
 }
 
-func closureBinding(function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value) ssa.Value { //nolint:ireturn // Captures retain their concrete SSA value form.
-	for index, free := range function.FreeVars {
-		if analysisutil.AliasesValue(value, free) && index < len(closure.Bindings) {
-			return analysisutil.CapturedBindingValue(closure.Bindings[index])
-		}
-	}
-	return nil
-}
-
 func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bool {
+	if closureReceivesAny(instruction, signals) {
+		return true
+	}
 	if receive, ok := instruction.(*ssa.UnOp); ok && receive.Op == token.ARROW {
 		return aliasesAny(receive.X, signals)
 	}
@@ -461,6 +526,53 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 	for _, argument := range common.Args {
 		if aliasesAny(argument, signals) || aliasesAny(argument, groups) {
 			return true
+		}
+	}
+	return false
+}
+
+func closureReceivesAny(instruction ssa.Instruction, signals []ssa.Value) bool {
+	// Joining through a local helper closure is semantically the same as an
+	// inline receive. Chi uses this shape to collect every request worker:
+	// https://github.com/go-chi/chi/blob/36611d24579aaca3250ed9732e17e085c5026334/middleware/throttle_test.go#L282-L315
+	common := analysisutil.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	closure, ok := common.Value.(*ssa.MakeClosure)
+	if !ok {
+		return false
+	}
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			var channels []ssa.Value
+			switch typed := candidate.(type) {
+			case *ssa.UnOp:
+				if typed.Op == token.ARROW {
+					channels = append(channels, typed.X)
+				}
+			case *ssa.Select:
+				for _, state := range typed.States {
+					if state.Dir == types.RecvOnly {
+						channels = append(channels, state.Chan)
+					}
+				}
+			}
+			for _, channel := range channels {
+				for index, free := range function.FreeVars {
+					if passedValueAliases(channel, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) {
+						for _, signal := range signals {
+							if analysisutil.CapturedBindingAliases(closure.Bindings[index], signal) {
+								return true
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 	return false

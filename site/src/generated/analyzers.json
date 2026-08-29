@@ -28,6 +28,7 @@
             {
               "id": "apishape/parameter-count",
               "summary": "Reports exported APIs with more than the configured maximum number of parameters.",
+              "profile": "default",
               "tags": [
                 "policy"
               ]
@@ -35,6 +36,7 @@
             {
               "id": "apishape/mixed-receivers",
               "summary": "Reports types that mix pointer and value receiver methods.",
+              "profile": "default",
               "tags": [
                 "policy"
               ]
@@ -42,6 +44,7 @@
             {
               "id": "apishape/adjacent-same-type",
               "summary": "Reports long adjacent runs of parameters that share one type.",
+              "profile": "default",
               "tags": [
                 "policy"
               ]
@@ -49,6 +52,7 @@
             {
               "id": "apishape/adjacent-optional-scalars",
               "summary": "Reports adjacent optional scalar parameters that are easy to swap.",
+              "profile": "default",
               "tags": [
                 "policy"
               ]
@@ -77,6 +81,7 @@
             {
               "id": "contextpolicy/context-first",
               "summary": "Reports context.Context parameters that are not first.",
+              "profile": "default",
               "tags": [
                 "reliability",
                 "policy"
@@ -85,6 +90,7 @@
             {
               "id": "contextpolicy/context-storage",
               "summary": "Reports context.Context values stored in structs.",
+              "profile": "default",
               "tags": [
                 "reliability",
                 "policy"
@@ -93,6 +99,7 @@
             {
               "id": "contextpolicy/test-context",
               "summary": "Reports tests that use context.Background instead of the testing handle's context.",
+              "profile": "opt-in",
               "tags": [
                 "policy"
               ]
@@ -100,6 +107,7 @@
             {
               "id": "contextpolicy/nil-context",
               "summary": "Reports definitely nil context.Context arguments.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -123,6 +131,7 @@
             {
               "id": "closedomain/closed-string-domain",
               "summary": "Reports exported string fields used as small closed sets of values.",
+              "profile": "default",
               "tags": [
                 "reliability",
                 "policy"
@@ -141,6 +150,7 @@
             {
               "id": "wirepolicy/keyed-literal",
               "summary": "Reports positional composite literals for persisted or wire structs.",
+              "profile": "default",
               "tags": [
                 "reliability",
                 "policy"
@@ -149,6 +159,7 @@
             {
               "id": "wirepolicy/serialization-tag",
               "summary": "Reports exported wire fields without explicit JSON or TOML tags.",
+              "profile": "default",
               "tags": [
                 "reliability",
                 "policy"
@@ -174,6 +185,7 @@
             {
               "id": "cancellationownership/release",
               "summary": "Reports derived cancel functions that are neither called nor transferred on every return path.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -191,6 +203,7 @@
             {
               "id": "channelpolicy/capacity-rationale",
               "summary": "Reports large constant channel capacities without a nearby bounded rationale.",
+              "profile": "opt-in",
               "tags": [
                 "policy"
               ]
@@ -198,6 +211,7 @@
             {
               "id": "channelpolicy/caller-close",
               "summary": "Reports functions that close channels received from their callers.",
+              "profile": "default",
               "tags": [
                 "reliability",
                 "policy"
@@ -206,6 +220,7 @@
             {
               "id": "channelpolicy/send-after-close",
               "summary": "Reports sends reachable after a channel has been closed.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -229,6 +244,7 @@
             {
               "id": "deferinloop/cleanup-lifetime",
               "summary": "Reports cleanup defers whose lifetime extends across loop iterations.",
+              "profile": "default",
               "tags": [
                 "reliability"
               ]
@@ -246,6 +262,7 @@
             {
               "id": "exitpolicy/skipped-defer",
               "summary": "Reports immediate process termination that bypasses an earlier defer.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -262,7 +279,16 @@
           "checks": [
             {
               "id": "goroutineownership/unjoined",
+              "summary": "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
+              "profile": "default",
+              "tags": [
+                "reliability"
+              ]
+            },
+            {
+              "id": "goroutineownership/detached",
               "summary": "Reports goroutines without a recognizable join handle or lifecycle owner.",
+              "profile": "opt-in",
               "tags": [
                 "reliability"
               ]
@@ -270,6 +296,7 @@
             {
               "id": "goroutineownership/abandoned-send",
               "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
+              "profile": "default",
               "tags": [
                 "reliability"
               ]
@@ -293,6 +320,7 @@
             {
               "id": "processownership/missing-wait",
               "summary": "Reports successfully started commands that are neither waited on nor transferred.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -310,6 +338,7 @@
             {
               "id": "resourcelifetime/missing-release",
               "summary": "Reports owned resources that are not released on every return path.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -345,6 +374,7 @@
             {
               "id": "concurrentcapture/shared-capture",
               "summary": "Reports repeatedly launched goroutines that mutate the same captured local.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -362,6 +392,7 @@
             {
               "id": "determinism/map-output-order",
               "summary": "Reports map iteration that reaches ordered output without explicit sorting.",
+              "profile": "default",
               "tags": [
                 "reliability"
               ]
@@ -379,6 +410,7 @@
             {
               "id": "errorownership/log-and-return",
               "summary": "Reports functions that both log and return the same error.",
+              "profile": "opt-in",
               "tags": [
                 "reliability",
                 "policy"
@@ -387,6 +419,7 @@
             {
               "id": "errorownership/text-classification",
               "summary": "Reports production code that classifies errors by matching their text.",
+              "profile": "default",
               "tags": [
                 "reliability"
               ]
@@ -394,6 +427,7 @@
             {
               "id": "errorownership/mismatched-inline-error",
               "summary": "Reports inline error declarations whose condition checks a different error.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -411,6 +445,7 @@
             {
               "id": "evalorder/operand-mutation",
               "summary": "Reports expressions whose later operand mutates a value read by an earlier operand.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -428,6 +463,7 @@
             {
               "id": "globalstate/mutable-package-state",
               "summary": "Reports mutable package-level state without an explicit owner.",
+              "profile": "default",
               "tags": [
                 "reliability",
                 "policy"
@@ -457,6 +493,7 @@
             {
               "id": "lockorder/missing-release",
               "summary": "Reports return paths that leave an owned lock held.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -464,6 +501,7 @@
             {
               "id": "lockorder/recursive-acquire",
               "summary": "Reports attempts to acquire a lock that is already held.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -471,6 +509,7 @@
             {
               "id": "lockorder/contradictory-order",
               "summary": "Reports inconsistent acquisition order for the same pair of locks.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -488,6 +527,7 @@
             {
               "id": "oncepolicy/discarded-wrapper",
               "summary": "Reports sync.Once function wrappers that are called and immediately discarded.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -505,6 +545,7 @@
             {
               "id": "syncmapatomicity/non-atomic-claim",
               "summary": "Reports separate sync.Map Load and Delete operations used to claim one value.",
+              "profile": "default",
               "tags": [
                 "correctness"
               ]
@@ -522,6 +563,7 @@
             {
               "id": "taintpolicy/untrusted-sink",
               "summary": "Reports untrusted input that reaches a configured sensitive sink without validation.",
+              "profile": "default",
               "tags": [
                 "correctness",
                 "reliability"
@@ -558,6 +600,7 @@
             {
               "id": "blockingtest/send",
               "summary": "Reports unguarded channel sends in context-aware test code.",
+              "profile": "default",
               "tags": [
                 "reliability"
               ]
@@ -565,6 +608,7 @@
             {
               "id": "blockingtest/receive",
               "summary": "Reports blocking channel receives in tests without a cancellation escape.",
+              "profile": "default",
               "tags": [
                 "reliability"
               ]
@@ -572,6 +616,7 @@
             {
               "id": "blockingtest/select",
               "summary": "Reports blocking selects in tests without a cancellation escape.",
+              "profile": "default",
               "tags": [
                 "reliability"
               ]
@@ -589,6 +634,7 @@
             {
               "id": "testpolicy/helper-marker",
               "summary": "Reports test helpers that do not call Helper on every return path.",
+              "profile": "default",
               "tags": [
                 "policy"
               ]

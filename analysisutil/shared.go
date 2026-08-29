@@ -156,3 +156,30 @@ func NamedType(value types.Type, packagePath, name string) bool {
 	named, ok := value.(*types.Named)
 	return ok && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == packagePath && named.Obj().Name() == name
 }
+
+// SameExpression reports whether two expressions identify the same syntactic
+// value, using type information to distinguish identifiers with equal names.
+func SameExpression(pass *analysis.Pass, first, second ast.Expr) bool {
+	switch left := first.(type) {
+	case *ast.Ident:
+		right, ok := second.(*ast.Ident)
+		return ok && pass.TypesInfo.ObjectOf(left) == pass.TypesInfo.ObjectOf(right)
+	case *ast.SelectorExpr:
+		right, ok := second.(*ast.SelectorExpr)
+		return ok && left.Sel.Name == right.Sel.Name && SameExpression(pass, left.X, right.X)
+	case *ast.IndexExpr:
+		right, ok := second.(*ast.IndexExpr)
+		return ok && SameExpression(pass, left.X, right.X) && SameExpression(pass, left.Index, right.Index)
+	case *ast.ParenExpr:
+		right, ok := second.(*ast.ParenExpr)
+		return ok && SameExpression(pass, left.X, right.X)
+	case *ast.StarExpr:
+		right, ok := second.(*ast.StarExpr)
+		return ok && SameExpression(pass, left.X, right.X)
+	case *ast.BasicLit:
+		right, ok := second.(*ast.BasicLit)
+		return ok && left.Kind == right.Kind && left.Value == right.Value
+	default:
+		return false
+	}
+}

@@ -12,11 +12,11 @@ the corresponding release policy.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `lockorder/missing-release` | Reports return paths that leave an owned lock held. | [correctness](../../../tags-and-profiles/#correctness) |
-| `lockorder/recursive-acquire` | Reports attempts to acquire a lock that is already held. | [correctness](../../../tags-and-profiles/#correctness) |
-| `lockorder/contradictory-order` | Reports inconsistent acquisition order for the same pair of locks. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `lockorder/missing-release` | Reports return paths that leave an owned lock held. | default | [correctness](../../../tags-and-profiles/#correctness) |
+| `lockorder/recursive-acquire` | Reports attempts to acquire a lock that is already held. | default | [correctness](../../../tags-and-profiles/#correctness) |
+| `lockorder/contradictory-order` | Reports inconsistent acquisition order for the same pair of locks. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

@@ -56,7 +56,7 @@ func TestCollectManifest(t *testing.T) {
 				t.Errorf("analyzer %q check metadata was not copied", analyzer.Name)
 			}
 			for _, check := range analyzer.Checks {
-				if check.ID == "" || check.Summary == "" || len(check.Tags) == 0 {
+				if check.ID == "" || check.Summary == "" || check.Profile == "" || len(check.Tags) == 0 {
 					t.Errorf("analyzer %q generated incomplete check metadata: %+v", analyzer.Name, check)
 				}
 			}
@@ -134,12 +134,14 @@ func TestChecksBlockIncludesIDsDescriptionsAndLinkedTags(t *testing.T) {
 	block := checksBlock([]check{{
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
+		Profile: "opt-in",
 		Tags:    []string{"correctness", "reliability"},
 	}})
 	for _, want := range []string{
-		"| Check | What it detects | Tags |",
+		"| Check | What it detects | Profile | Tags |",
 		"| `example/problem` |",
 		"Reports the example problem.",
+		"opt-in",
 		"[correctness](../../../tags-and-profiles/#correctness)",
 		"[reliability](../../../tags-and-profiles/#reliability)",
 	} {

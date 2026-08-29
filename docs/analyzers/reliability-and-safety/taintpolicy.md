@@ -12,9 +12,9 @@ without passing through a recognized validator or sanitizer.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `taintpolicy/untrusted-sink` | Reports untrusted input that reaches a configured sensitive sink without validation. | [correctness](../../../tags-and-profiles/#correctness), [reliability](../../../tags-and-profiles/#reliability) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `taintpolicy/untrusted-sink` | Reports untrusted input that reaches a configured sensitive sink without validation. | default | [correctness](../../../tags-and-profiles/#correctness), [reliability](../../../tags-and-profiles/#reliability) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

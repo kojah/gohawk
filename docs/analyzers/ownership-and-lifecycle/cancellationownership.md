@@ -12,9 +12,9 @@ to the caller.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `cancellationownership/release` | Reports derived cancel functions that are neither called nor transferred on every return path. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `cancellationownership/release` | Reports derived cancel functions that are neither called nor transferred on every return path. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

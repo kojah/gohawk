@@ -153,3 +153,134 @@ func conditionalGoroutineUnlock(release, fail bool) {
 	}
 	mutex.Unlock()
 }
+
+type guardedState struct {
+	mutex sync.Mutex
+}
+
+var firstState guardedState
+var secondState guardedState
+
+var interfaceFirst sync.Mutex
+var interfaceSecond sync.Mutex
+
+func nestedFieldForward() {
+	firstState.mutex.Lock()
+	defer firstState.mutex.Unlock()
+	secondState.mutex.Lock()
+	defer secondState.mutex.Unlock()
+}
+
+func nestedFieldReverse() {
+	secondState.mutex.Lock()
+	defer secondState.mutex.Unlock()
+	firstState.mutex.Lock() // want "contradictory lock order: firstState.mutex and secondState.mutex"
+	defer firstState.mutex.Unlock()
+}
+
+func localFieldMissingUnlock(skip bool) {
+	state := new(guardedState)
+	state.mutex.Lock()
+	if skip {
+		return // want "lock lockorder.localFieldMissingUnlock:local:new.mutex is not released on this return path"
+	}
+	state.mutex.Unlock()
+}
+
+func distinctDynamicFieldLocks(first, second *guardedState) {
+	first.mutex.Lock()
+	defer first.mutex.Unlock()
+	second.mutex.Lock()
+	defer second.mutex.Unlock()
+}
+
+func conditionalDeferredUnlock(fail bool) {
+	var mutex sync.Mutex
+	unlocked := false
+	mutex.Lock()
+	defer func() {
+		if !unlocked {
+			mutex.Unlock()
+		}
+	}()
+	if fail {
+		return
+	}
+	mutex.Unlock()
+	unlocked = true
+}
+
+func interfaceForward() {
+	var first sync.Locker = &interfaceFirst
+	var second sync.Locker = &interfaceSecond
+	first.Lock()
+	defer first.Unlock()
+	second.Lock()
+	defer second.Unlock()
+}
+
+func interfaceReverse() {
+	var first sync.Locker = &interfaceFirst
+	var second sync.Locker = &interfaceSecond
+	second.Lock()
+	defer second.Unlock()
+	first.Lock() // want "contradictory lock order: interfaceFirst and interfaceSecond"
+	defer first.Unlock()
+}
+
+func unknownInterfaceLock(lock sync.Locker) {
+	lock.Lock()
+	defer lock.Unlock()
+}
+
+func knownInterfaceMissingUnlock(skip bool) {
+	var lock sync.Locker = &interfaceFirst
+	lock.Lock()
+	if skip {
+		return // want "lock interfaceFirst is not released on this return path"
+	}
+	lock.Unlock()
+}
+
+func ambiguousInterfaceLock(reverse, skip bool) {
+	var lock sync.Locker
+	if reverse {
+		lock = &interfaceFirst
+	} else {
+		lock = &interfaceSecond
+	}
+	lock.Lock()
+	if skip {
+		return
+	}
+	lock.Unlock()
+}
+
+type tryLocker interface {
+	sync.Locker
+	TryLock() bool
+}
+
+func convertedInterfaceMissingUnlock(skip bool) {
+	var extended tryLocker = &interfaceFirst
+	var lock sync.Locker = extended
+	lock.Lock()
+	if skip {
+		return // want "lock interfaceFirst is not released on this return path"
+	}
+	lock.Unlock()
+}
+
+func sameOriginInterfaceLock(branch, skip bool) {
+	var lock sync.Locker
+	if branch {
+		lock = &interfaceFirst
+	} else {
+		lock = &interfaceFirst
+	}
+	lock.Lock()
+	if skip {
+		return // want "lock interfaceFirst is not released on this return path"
+	}
+	lock.Unlock()
+}

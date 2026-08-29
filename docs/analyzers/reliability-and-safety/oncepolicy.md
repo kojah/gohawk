@@ -12,9 +12,9 @@ calling, and discarding it in one expression.
 ### Checks
 
 <!-- gohawk:generated-checks:start -->
-| Check | What it detects | Tags |
-| --- | --- | --- |
-| `oncepolicy/discarded-wrapper` | Reports sync.Once function wrappers that are called and immediately discarded. | [correctness](../../../tags-and-profiles/#correctness) |
+| Check | What it detects | Profile | Tags |
+| --- | --- | --- | --- |
+| `oncepolicy/discarded-wrapper` | Reports sync.Once function wrappers that are called and immediately discarded. | default | [correctness](../../../tags-and-profiles/#correctness) |
 <!-- gohawk:generated-checks:end -->
 
 ## Why this is flagged

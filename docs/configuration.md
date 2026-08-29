@@ -5,11 +5,13 @@ description: Select analyzers, set analyzer flags, and suppress intentional find
 
 ## Select analyzers
 
-Running gohawk without analyzer flags uses the default profile. Checks marked
-"Opt-in" in the analyzer reference are available but do not run automatically.
+Running gohawk without analyzer flags uses the default analyzer profile and
+the default checks within those analyzers. Checks marked "opt-in" in the
+analyzer reference are available but do not run automatically.
 Use `-enable` to run named analyzers or `-disable` to remove analyzers from the
-default profile. Selecting a group runs every analyzer in that group,
-including opt-in analyzers. Disabled groups are removed from the selected
+default profile. Selecting an analyzer runs its default checks. Selecting a
+group runs every analyzer in that group, including opt-in analyzers, but still
+respects each check's profile. Disabled groups are removed from the selected
 profile or group set. Group and individual selections combine, with individual
 analyzer selections taking precedence. See [Tags and profiles](../tags-and-profiles/)
 for the meaning of each tag and how tags differ from profiles.
@@ -22,7 +24,7 @@ gohawk list
 gohawk doc contextpolicy
 gohawk doc contextpolicy/nil-context
 
-# List the stable IDs accepted by -disable-checks.
+# List stable check IDs and their profiles.
 gohawk list -checks
 
 # List only one profile.
@@ -32,7 +34,7 @@ gohawk list -opt-in
 # Run two opt-in analyzers.
 gohawk -enable=wirepolicy,globalstate ./...
 
-# Run every ownership and testing analyzer, including opt-in checks.
+# Run every ownership and testing analyzer with their default checks.
 gohawk -enable-groups=ownership,testing ./...
 
 # Add one analyzer from another group, or exclude one from a selected group.
@@ -50,7 +52,13 @@ gohawk -disable=oncepolicy ./...
 # Keep contextpolicy enabled, but disable its context-storage check.
 gohawk -disable-checks=contextpolicy/context-storage ./...
 
-# Run every analyzer, including opt-in checks.
+# Run one opt-in check by itself.
+gohawk -enable-checks=contextpolicy/test-context ./...
+
+# Add an opt-in check to an analyzer's default checks.
+gohawk -enable=contextpolicy -enable-checks=contextpolicy/test-context ./...
+
+# Run every analyzer and every check, including opt-in checks.
 gohawk -enable-all ./...
 ```
 
@@ -58,10 +66,13 @@ Analyzer names are values of `-enable` and `-disable`, not Boolean flags. Use
 `-disable=wirepolicy` rather than `-wirepolicy=false`. The same selectors are
 available when gohawk runs through `go vet -vettool`.
 
-`-disable-checks` removes individual checks after analyzers have been selected.
-It accepts comma-separated stable check IDs shown by `gohawk list -checks`. If
-all of an analyzer's checks are disabled, gohawk skips that analyzer's analysis.
-Unknown, repeated, and empty check IDs are errors rather than silent typos.
+`-enable-checks` runs exactly the named checks when used alone and implicitly
+activates their owning analyzers. When combined with an analyzer or group
+selection, it adds those checks to the selected analyzers' default checks.
+`-disable-checks` removes individual checks afterward. Both flags accept
+comma-separated stable IDs shown by `gohawk list -checks`. If all of an
+analyzer's checks are disabled, gohawk skips that analyzer's analysis. Unknown,
+repeated, and empty check IDs are errors rather than silent typos.
 
 ## Set analyzer options
 

@@ -87,6 +87,12 @@ func TestAnalyzerMetadata(t *testing.T) {
 		validTags[tag.ID] = true
 	}
 	seenChecks := make(map[AnalyzerCheck]string)
+	optInChecks := map[AnalyzerCheck]bool{
+		"channelpolicy/capacity-rationale": true,
+		"contextpolicy/test-context":       true,
+		"errorownership/log-and-return":    true,
+		"goroutineownership/detached":      true,
+	}
 	for _, name := range expectedAnalyzerNames() {
 		info, ok := metadata[name]
 		if !ok {
@@ -103,6 +109,16 @@ func TestAnalyzerMetadata(t *testing.T) {
 			}
 			if strings.TrimSpace(check.Doc) == "" {
 				t.Errorf("check %q has no description", check.ID)
+			}
+			if check.Profile != CheckProfileDefault && check.Profile != CheckProfileOptIn {
+				t.Errorf("check %q has invalid profile %q", check.ID, check.Profile)
+			}
+			wantProfile := CheckProfileDefault
+			if optInChecks[check.ID] {
+				wantProfile = CheckProfileOptIn
+			}
+			if check.Profile != wantProfile {
+				t.Errorf("check %q profile = %q, want %q", check.ID, check.Profile, wantProfile)
 			}
 			if owner, exists := seenChecks[check.ID]; exists {
 				t.Errorf("check %q belongs to both %q and %q", check.ID, owner, name)
