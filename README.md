@@ -100,6 +100,13 @@ complete analyzer set. Analyzer names are listed by `gohawk list`.
 Contributions are welcome. See [How to contribute](https://kojah.github.io/gohawk/contributing/)
 for the development workflow, analyzer requirements, and verification steps.
 
+## AI policy
+
+gohawk was developed with assistance from LLMs, and AI-assisted contributions
+are welcome. Contributors must disclose AI usage, and every contribution must
+meet the project's strict standards for quality, testing, analyzer precision,
+and human readability. See the full [AI policy](https://kojah.github.io/gohawk/ai-policy/).
+
 ## Sponsorship
 
 If gohawk is useful to you or your organization, consider sponsoring its
