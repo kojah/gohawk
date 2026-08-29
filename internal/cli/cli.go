@@ -40,6 +40,28 @@ type cliResult struct {
 	invocation *analysisInvocation
 }
 
+// selectionRequest is the user's analyzer/check policy before defaults and
+// ownership relationships are resolved.
+type selectionRequest struct {
+	arguments []string
+	analyzers analyzerNameSelection
+	groups    analyzerGroupSelection
+	checks    checkSelection
+	enableAll bool
+	explicit  map[string]bool
+	owners    map[string]bool
+}
+
+// executionPlan is the fully resolved analysis invocation. Keeping selection
+// policy out of runCLI gives the multichecker and rich-output paths one model
+// to execute rather than independently interpreting flags.
+type executionPlan struct {
+	arguments      []string
+	analyzers      []*analysis.Analyzer
+	request        selectionRequest
+	disabledChecks map[string]bool
+}
+
 // Main runs the gohawk command and exits with its result. The analyzer engine
 // remains at this boundary because multichecker.Main owns os.Exit as part of
 // the go/analysis driver protocol.
@@ -98,40 +120,48 @@ func runCLI(arguments []string, runtime cliRuntime) cliResult {
 		return cliResult{}
 	}
 	metadata := gohawk.AnalyzerMetadata()
-	checkSelection, remainingArguments, err := requestedChecks(arguments, metadata)
+	plan, err := buildExecutionPlan(arguments, analyzers, gohawk.AnalyzerGroups(), metadata, runtime.getenv(richOutputChild) != "")
 	if err != nil {
 		fmt.Fprintln(runtime.errorsOutput, "gohawk:", err)
 		return cliResult{exitCode: 2}
 	}
-	selection, err := withAnalyzerCheckSelection(remainingArguments, analyzers, gohawk.AnalyzerGroups(), metadata, checkOwners(checkSelection.enabled, metadata), runtime.getenv(richOutputChild) != "")
-	if err != nil {
-		fmt.Fprintln(runtime.errorsOutput, "gohawk:", err)
-		return cliResult{exitCode: 2}
-	}
-	selectedArguments := selection.arguments
-	disabledChecks := effectiveDisabledChecks(metadata, selection.normallySelected, checkSelection, selection.enableAll)
+	selectedArguments := plan.arguments
 	richOutput := useRichOutput(originalArguments, runtime.getenv(richOutputChild) != "")
-	if richOutput && len(checkSelection.enabled) > 0 {
-		checks := make([]string, 0, len(checkSelection.enabled))
-		for check := range checkSelection.enabled {
+	if richOutput && len(plan.request.checks.enabled) > 0 {
+		checks := make([]string, 0, len(plan.request.checks.enabled))
+		for check := range plan.request.checks.enabled {
 			checks = append(checks, check)
 		}
 		slices.Sort(checks)
 		selectedArguments = slices.Insert(selectedArguments, 1, "-enable-checks="+strings.Join(checks, ","))
 	}
-	if richOutput && len(disabledChecks) > 0 {
-		checks := make([]string, 0, len(disabledChecks))
-		for check := range disabledChecks {
+	if richOutput && len(plan.disabledChecks) > 0 {
+		checks := make([]string, 0, len(plan.disabledChecks))
+		for check := range plan.disabledChecks {
 			checks = append(checks, check)
 		}
 		slices.Sort(checks)
 		selectedArguments = slices.Insert(selectedArguments, 1, "-disable-checks="+strings.Join(checks, ","))
 	}
-	analyzers = withDisabledChecks(analyzers, metadata, disabledChecks)
 	if richOutput {
 		return cliResult{exitCode: runtime.richOutput(selectedArguments, runtime.errorsOutput)}
 	}
-	return cliResult{invocation: &analysisInvocation{arguments: selectedArguments, analyzers: analyzers}}
+	return cliResult{invocation: &analysisInvocation{arguments: selectedArguments, analyzers: plan.analyzers}}
+}
+
+func buildExecutionPlan(arguments []string, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo, allowAnalyzerFlags bool) (executionPlan, error) {
+	request, err := parseSelectionRequest(arguments, analyzers, groups, metadata, allowAnalyzerFlags)
+	if err != nil {
+		return executionPlan{}, err
+	}
+	selection := resolveAnalyzerSelection(request, analyzers, groups, metadata)
+	disabledChecks := effectiveDisabledChecks(metadata, selection.normallySelected, request.checks, selection.enableAll)
+	return executionPlan{
+		arguments:      selection.arguments,
+		analyzers:      withDisabledChecks(analyzers, metadata, disabledChecks),
+		request:        request,
+		disabledChecks: disabledChecks,
+	}, nil
 }
 
 func registerSelectionFlags() {
@@ -371,20 +401,35 @@ func withAnalyzerSelection(arguments []string, analyzers []*analysis.Analyzer, g
 }
 
 func withAnalyzerCheckSelection(arguments []string, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo, checkOwners map[string]bool, allowAnalyzerFlags bool) (analyzerCheckSelection, error) {
+	request, err := parseSelectionRequest(arguments, analyzers, groups, metadata, allowAnalyzerFlags)
+	if err != nil {
+		return analyzerCheckSelection{}, err
+	}
+	if checkOwners != nil {
+		request.owners = checkOwners
+	}
+	return resolveAnalyzerSelection(request, analyzers, groups, metadata), nil
+}
+
+func parseSelectionRequest(arguments []string, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo, allowAnalyzerFlags bool) (selectionRequest, error) {
 	if len(arguments) > 1 && arguments[1] == "help" {
-		return analyzerCheckSelection{arguments: arguments}, nil
+		return selectionRequest{arguments: arguments}, nil
+	}
+	checks, remaining, err := requestedChecks(arguments, metadata)
+	if err != nil {
+		return selectionRequest{}, err
 	}
 	names := make(map[string]bool, len(analyzers))
 	for _, analyzer := range analyzers {
 		names[analyzer.Name] = true
 	}
-	nameSelection, remaining, err := requestedAnalyzers(arguments, names)
+	nameSelection, remaining, err := requestedAnalyzers(remaining, names)
 	if err != nil {
-		return analyzerCheckSelection{}, err
+		return selectionRequest{}, err
 	}
 	groupSelection, remaining, err := requestedAnalyzerGroups(remaining, groups)
 	if err != nil {
-		return analyzerCheckSelection{}, err
+		return selectionRequest{}, err
 	}
 	enableAll := enableAllRequested(remaining)
 	explicit := make(map[string]bool)
@@ -398,10 +443,31 @@ func withAnalyzerCheckSelection(arguments []string, analyzers []*analysis.Analyz
 			if !enabled {
 				replacement = "-disable=" + name
 			}
-			return analyzerCheckSelection{}, fmt.Errorf("analyzer Boolean flag %q is no longer supported; use %s", argument, replacement)
+			return selectionRequest{}, fmt.Errorf("analyzer Boolean flag %q is no longer supported; use %s", argument, replacement)
 		}
 		explicit[name] = enabled
 	}
+	return selectionRequest{
+		arguments: remaining,
+		analyzers: nameSelection,
+		groups:    groupSelection,
+		checks:    checks,
+		enableAll: enableAll,
+		explicit:  explicit,
+		owners:    checkOwners(checks.enabled, metadata),
+	}, nil
+}
+
+func resolveAnalyzerSelection(request selectionRequest, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo) analyzerCheckSelection {
+	if len(request.arguments) > 1 && request.arguments[1] == "help" {
+		return analyzerCheckSelection{arguments: request.arguments}
+	}
+	nameSelection := request.analyzers
+	groupSelection := request.groups
+	remaining := request.arguments
+	enableAll := request.enableAll
+	explicit := request.explicit
+	checkOwners := request.owners
 	hasExplicitEnabled := false
 	for _, enabled := range explicit {
 		hasExplicitEnabled = hasExplicitEnabled || enabled
@@ -416,7 +482,7 @@ func withAnalyzerCheckSelection(arguments []string, analyzers []*analysis.Analyz
 		for name, enabled := range explicit {
 			normallySelected[name] = enabled
 		}
-		return analyzerCheckSelection{arguments: remaining, normallySelected: normallySelected, enableAll: enableAll}, nil
+		return analyzerCheckSelection{arguments: remaining, normallySelected: normallySelected, enableAll: enableAll}
 	}
 	selected := make(map[string]bool)
 	switch {
@@ -491,7 +557,7 @@ func withAnalyzerCheckSelection(arguments []string, analyzers []*analysis.Analyz
 	result = append(result, enabledFlags...)
 	return analyzerCheckSelection{
 		arguments: append(result, remaining[1:]...), normallySelected: normallySelected, enableAll: enableAll,
-	}, nil
+	}
 }
 
 type analyzerNameSelection struct {

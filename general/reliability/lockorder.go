@@ -72,6 +72,7 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 	acquiredAt := map[string]token.Pos{}
 	lockValues := map[string][]ssa.Value{}
 	unreleasedReturns := map[string][]token.Pos{}
+	callerOwned := callerOwnedLocks(function)
 	for len(queue) > 0 {
 		state := queue[0]
 		queue = queue[1:]
@@ -90,8 +91,8 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 		for _, instruction := range state.block.Instrs {
 			if returned, ok := instruction.(*ssa.Return); ok {
 				for _, identity := range held {
-					if !slices.Contains(deferred, identity) {
-						unreleasedReturns[identity] = append(unreleasedReturns[identity], returned.Pos())
+					if !slices.Contains(deferred, identity) && !returnedUnlockOwner(returned, lockValues[identity]) {
+						unreleasedReturns[identity] = appendUniquePosition(unreleasedReturns[identity], returned.Pos())
 					}
 				}
 			}
@@ -117,7 +118,9 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			if _, ok := instruction.(*ssa.Defer); ok {
 				for _, identity := range slices.Clone(held) {
 					for _, value := range lockValues[identity] {
-						if analysisutil.DeferredClosureCalls(instruction, "Unlock", value) || analysisutil.DeferredClosureCalls(instruction, "RUnlock", value) {
+						common := analysisutil.InstructionCall(instruction)
+						if analysisutil.DeferredClosureCalls(instruction, "Unlock", value) || analysisutil.DeferredClosureCalls(instruction, "RUnlock", value) ||
+							common != nil && (analysisutil.ValueCallsMethod(common.Value, "Unlock", value) || analysisutil.ValueCallsMethod(common.Value, "RUnlock", value)) {
 							released[identity] = true
 							deferred = append(deferred, identity)
 							break
@@ -132,13 +135,21 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			switch operation {
 			case mutexAcquire:
 				lockValues[identity] = appendLockValue(lockValues[identity], receiver)
+				// A release before the first acquisition means this helper borrowed
+				// a caller-held lock. Reacquiring restores the caller's state; it does
+				// not make the helper responsible for a subsequent unlock. Kubernetes
+				// drops a device-manager mutex around an RPC using this pattern:
+				// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/kubelet/cm/devicemanager/manager.go#L1065-L1075
+				if callerOwned[identity] {
+					continue
+				}
 				if condition != "" {
 					guards[identity] = lockGuard{condition: condition, value: state.conditionValue}
 				}
 				if acquiredAt[identity] == token.NoPos {
 					acquiredAt[identity] = instruction.Pos()
 				}
-				held = acquireLock(pass, instruction, held, identity, relations)
+				held = acquireLock(pass, instruction, held, identity, relations, dynamicIndexedMutex(receiver))
 			case mutexRelease:
 				released[identity] = true
 				if _, isDefer := instruction.(*ssa.Defer); isDefer {
@@ -185,9 +196,40 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 	}
 }
 
-func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string, identity string, relations map[lockRelation]token.Pos) []string {
+func callerOwnedLocks(function *ssa.Function) map[string]bool {
+	type firstAction struct {
+		operation mutexOperation
+		position  token.Pos
+	}
+	first := map[string]firstAction{}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			operation, identity, _, ok := mutexAction(instruction)
+			if !ok || instruction.Pos() == token.NoPos {
+				continue
+			}
+			current, exists := first[identity]
+			if !exists || instruction.Pos() < current.position {
+				first[identity] = firstAction{operation: operation, position: instruction.Pos()}
+			}
+		}
+	}
+	result := map[string]bool{}
+	for identity, action := range first {
+		result[identity] = action.operation == mutexRelease
+	}
+	return result
+}
+
+func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string, identity string, relations map[lockRelation]token.Pos, dynamicIndex bool) []string {
 	if slices.Contains(held, identity) {
-		reportf(pass, checkLockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
+		// Re-entering one acquisition site while ranging over a lock slice can
+		// represent a different lock on every iteration. Kubernetes' GlobalLock
+		// intentionally acquires every stripe this way:
+		// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/kubelet/images/pullmanager/locks.go#L56-L65
+		if !dynamicIndex {
+			reportf(pass, checkLockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
+		}
 		return held
 	}
 	for _, owner := range held {
@@ -199,6 +241,48 @@ func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string
 		relations[relation] = instruction.Pos()
 	}
 	return append(held, identity)
+}
+
+func appendUniquePosition(positions []token.Pos, candidate token.Pos) []token.Pos {
+	if !slices.Contains(positions, candidate) {
+		return append(positions, candidate)
+	}
+	return positions
+}
+
+func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
+	for _, result := range returned.Results {
+		for _, value := range values {
+			if analysisutil.ValueCallsMethod(result, "Unlock", value) || analysisutil.ValueCallsMethod(result, "RUnlock", value) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func dynamicIndexedMutex(value ssa.Value) bool {
+	if value == nil {
+		return false
+	}
+	switch typed := value.(type) {
+	case *ssa.IndexAddr:
+		_, constant := typed.Index.(*ssa.Const)
+		return !constant
+	case *ssa.FieldAddr:
+		return dynamicIndexedMutex(typed.X)
+	case *ssa.ChangeInterface:
+		return dynamicIndexedMutex(typed.X)
+	case *ssa.ChangeType:
+		return dynamicIndexedMutex(typed.X)
+	case *ssa.Convert:
+		return dynamicIndexedMutex(typed.X)
+	case *ssa.MakeInterface:
+		return dynamicIndexedMutex(typed.X)
+	case *ssa.UnOp:
+		return dynamicIndexedMutex(typed.X)
+	}
+	return false
 }
 
 func releaseLock(held []string, identity string) []string {

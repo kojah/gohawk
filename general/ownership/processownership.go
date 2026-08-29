@@ -46,15 +46,14 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				if aliasesAny(command, parameterValues(function.Params)) || analysisutil.ExternallyOwnedValue(command) {
 					continue
 				}
+				// Cleanup may be registered before Start. This is common when a
+				// constructor builds a teardown closure first, then starts the
+				// process and returns that closure to its caller.
+				if processOwnershipDominatesStart(function, start, command) {
+					continue
+				}
 				if analysisutil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
-					common := analysisutil.InstructionCall(candidate)
-					return waitsForCommand(candidate, command) ||
-						analysisutil.DeferredClosureCalls(candidate, "Wait", command) ||
-						analysisutil.ClosureCallsMethod(candidate, "Wait", command) ||
-						analysisutil.ClosureCapturesValue(candidate, command) ||
-						analysisutil.StoresValueInField(candidate, command) ||
-						analysisutil.CallTransfersValueToField(candidate, command) ||
-						analysisutil.CallPackage(common) == "os" && analysisutil.CallName(common) == "Exit"
+					return processOwnershipAction(candidate, command)
 				}, func(returned *ssa.Return) bool {
 					// Returning an aggregate that contains the command transfers Wait
 					// responsibility just as directly as returning *exec.Cmd itself.
@@ -66,6 +65,37 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+func processOwnershipDominatesStart(function *ssa.Function, start *ssa.Call, command ssa.Value) bool {
+	startIndex := analysisutil.InstructionIndex(start)
+	for _, block := range function.Blocks {
+		if !block.Dominates(start.Block()) {
+			continue
+		}
+		limit := len(block.Instrs)
+		if block == start.Block() {
+			limit = startIndex
+		}
+		for _, instruction := range block.Instrs[:limit] {
+			if analysisutil.DeferredClosureCalls(instruction, "Wait", command) || analysisutil.ClosureCapturesValue(instruction, command) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func processOwnershipAction(instruction ssa.Instruction, command ssa.Value) bool {
+	common := analysisutil.InstructionCall(instruction)
+	return waitsForCommand(instruction, command) ||
+		analysisutil.DeferredClosureCalls(instruction, "Wait", command) ||
+		analysisutil.ClosureCallsMethod(instruction, "Wait", command) ||
+		analysisutil.ClosureCapturesValue(instruction, command) ||
+		analysisutil.StoresValueInField(instruction, command) ||
+		analysisutil.StoresOwnerOfValueInField(instruction, command) ||
+		analysisutil.CallTransfersValueToField(instruction, command) ||
+		analysisutil.CallPackage(common) == "os" && analysisutil.CallName(common) == "Exit"
 }
 
 func commandReturnedByHelper(command ssa.Value) bool {

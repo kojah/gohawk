@@ -3,8 +3,6 @@ package testingchecks
 
 import (
 	"github.com/kojah/gohawk/internal/analyzerbase"
-
-	"golang.org/x/tools/go/analysis"
 )
 
 const (
@@ -17,10 +15,22 @@ const (
 var reportf = analyzerbase.Reportf
 var report = analyzerbase.Report
 
-// Analyzers returns the testing analyzers in stable order.
-func Analyzers() []*analysis.Analyzer {
-	return []*analysis.Analyzer{
-		blockingTestAnalyzer(),
-		testPolicyAnalyzer(),
+// Specs returns the testing analyzer declarations in stable order.
+func Specs() []analyzerbase.AnalyzerSpec {
+	return []analyzerbase.AnalyzerSpec{
+		{
+			Analyzer: blockingTestAnalyzer(), Profile: analyzerbase.AnalyzerProfileOptIn,
+			Checks: []analyzerbase.CheckInfo{
+				{ID: checkBlockingTestSend, Doc: "Reports unguarded channel sends in context-aware test code.", Tags: []analyzerbase.Tag{analyzerbase.TagReliability}},
+				{ID: checkBlockingTestReceive, Doc: "Reports blocking channel receives in tests without a cancellation escape.", Tags: []analyzerbase.Tag{analyzerbase.TagReliability}},
+				{ID: checkBlockingTestSelect, Doc: "Reports blocking selects in tests without a cancellation escape.", Tags: []analyzerbase.Tag{analyzerbase.TagReliability}},
+			},
+		},
+		{
+			Analyzer: testPolicyAnalyzer(), Profile: analyzerbase.AnalyzerProfileOptIn, SuggestedFix: true,
+			Checks: []analyzerbase.CheckInfo{
+				{ID: checkTestHelperMarker, Doc: "Reports test helpers that do not call Helper on every return path.", Tags: []analyzerbase.Tag{analyzerbase.TagPolicy}},
+			},
+		},
 	}
 }

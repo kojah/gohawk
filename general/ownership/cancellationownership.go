@@ -126,7 +126,7 @@ func cancelInvocation(name, constructor string) string {
 }
 
 func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
-	if analysisutil.ClosureCallsValue(instruction, cancel) || analysisutil.ClosureOwnsValue(instruction, cancel) || analysisutil.StoresValueInField(instruction, cancel) || analysisutil.StoresValueInOwnedMap(instruction, cancel) {
+	if analysisutil.ClosureCallsValue(instruction, cancel) || analysisutil.ClosureOwnsValue(instruction, cancel) || analysisutil.StoresValueInField(instruction, cancel) || analysisutil.StoresValueInGlobal(instruction, cancel) || analysisutil.StoresOwnerOfValueInField(instruction, cancel) || analysisutil.StoresValueInOwnedMap(instruction, cancel) || analysisutil.CallReturnsDeferredCleanup(instruction, cancel) {
 		return true
 	}
 	common := analysisutil.InstructionCall(instruction)
@@ -137,6 +137,16 @@ func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
 		return true
 	}
 	name := strings.ToLower(analysisutil.CallName(common))
+	// Cleanup registrars own callbacks they receive, while Add/Register-style
+	// APIs commonly store a cancellation function for a longer-lived owner.
+	// Kubernetes uses both ginkgo.DeferCleanup and AddPodInPreBind this way.
+	registersCallback := strings.Contains(name, "cleanup") || strings.Contains(name, "afterfunc")
+	registersCancel := strings.HasPrefix(name, "add") || strings.Contains(name, "register") || strings.Contains(name, "track") || strings.Contains(name, "own")
+	for _, argument := range common.Args {
+		if registersCallback && analysisutil.ValueCallsValue(argument, cancel) || registersCancel && analysisutil.AliasesValue(argument, cancel) {
+			return true
+		}
+	}
 	if !strings.Contains(name, "cancel") && !strings.Contains(name, "stop") && name != "cleanup" {
 		return false
 	}

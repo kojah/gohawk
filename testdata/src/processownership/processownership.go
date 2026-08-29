@@ -49,8 +49,32 @@ func deferredOwner(ctx context.Context) error {
 	return nil
 }
 
+func ownerRegisteredBeforeStart(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	defer func() { _ = command.Wait() }()
+	return command.Start()
+}
+
+func returnedOwnerRegisteredBeforeStart(ctx context.Context) (func() error, error) {
+	command := exec.CommandContext(ctx, "tool")
+	wait := func() error { return command.Wait() }
+	if err := command.Start(); err != nil {
+		return nil, err
+	}
+	return wait, nil
+}
+
 func callerOwnsWait(command *exec.Cmd) bool {
 	return command.Start() == nil
+}
+
+func callerOwnsSliceWait(commands []*exec.Cmd) error {
+	for _, command := range commands {
+		if err := command.Start(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func processExitOwnsTermination(ctx context.Context) {

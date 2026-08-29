@@ -51,6 +51,47 @@ type owner struct {
 	callback func()
 }
 
+type cleanupRegistrar interface {
+	DeferCleanup(func())
+}
+
+func registeredCleanup(registrar cleanupRegistrar, parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	registrar.DeferCleanup(func() { cancel() })
+}
+
+func registeredNestedCleanup(registrar cleanupRegistrar, parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	registrar.DeferCleanup(func() {
+		func(callback func()) { callback() }(func() { cancel() })
+	})
+}
+
+type cancelRegistry struct{}
+
+func (*cancelRegistry) AddWorker(context.CancelFunc) {}
+
+func registeredCancel(registry *cancelRegistry, parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	registry.AddWorker(cancel)
+}
+
+func wrapCleanup(cancel context.CancelFunc) (int, func()) {
+	return 0, cancel
+}
+
+func transferredToDeferredResult(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	_, cleanup := wrapCleanup(cancel)
+	defer cleanup()
+}
+
+var globalCancel context.CancelFunc
+
+func transferredToGlobal(parent context.Context) {
+	_, globalCancel = context.WithCancel(parent)
+}
+
 func transferredToField(target *owner, parent context.Context) {
 	_, cancel := context.WithCancel(parent)
 	target.cancel = cancel

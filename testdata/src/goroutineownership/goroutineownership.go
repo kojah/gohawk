@@ -89,11 +89,163 @@ func joinedByCountedReceives() {
 	}
 }
 
+func joinedByMatchingDynamicCount(count int) {
+	done := make(chan bool)
+	for range count {
+		go func() { done <- true }()
+	}
+	for range count {
+		<-done
+	}
+}
+
+func joinedByMatchingDynamicCountRepeated(count int) {
+	for range 3 {
+		done := make(chan bool)
+		for range count {
+			go func(value int) { done <- value > 0 }(count)
+		}
+		for range count {
+			<-done
+		}
+		close(done)
+	}
+}
+
+func returnsMatchingDynamicJoin(count int) func() {
+	return func() {
+		for range 3 {
+			done := make(chan bool)
+			for range count {
+				go func(value int) { done <- value > 0 }(count)
+			}
+			for range count {
+				<-done
+			}
+			close(done)
+		}
+	}
+}
+
+func joinedByMatchingSlice(items []int) {
+	done := make(chan bool)
+	for range items {
+		go func() { done <- true }()
+	}
+	for range items {
+		<-done
+	}
+}
+
+func joinedBySliceCountdown(items []int) {
+	done := make(chan bool)
+	for range items {
+		go func() { done <- true }()
+	}
+	for remaining := len(items); remaining > 0; remaining-- {
+		<-done
+	}
+}
+
+func joinTransferredToWaiter() {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { group.Done() }()
+	done := make(chan struct{})
+	go func() {
+		group.Wait()
+		close(done)
+	}()
+	<-done
+}
+
 func joinedThroughReceiveHelper() {
 	done := make(chan bool)
 	go func() { done <- true }()
 	wait := func() { <-done }
 	wait()
+}
+
+func receiveSignal(signal <-chan bool) {
+	<-signal
+}
+
+func joinedThroughStaticReceiveHelper() {
+	done := make(chan bool)
+	go func() { done <- true }()
+	receiveSignal(done)
+}
+
+func receiveGeneric[T any](signal <-chan T) T {
+	return <-signal
+}
+
+func joinedThroughGenericReceiveHelper() {
+	done := make(chan bool)
+	go func() { done <- true }()
+	_ = receiveGeneric(done)
+}
+
+func callerOwnsCompletion(done chan<- bool) {
+	go func() { done <- true }()
+}
+
+type returnedWorker struct {
+	wait func()
+}
+
+func returnedClosureOwnsCompletion() returnedWorker {
+	done := make(chan bool)
+	go func() { done <- true }()
+	wait := func() { <-done }
+	return returnedWorker{wait: wait}
+}
+
+type storedWorker struct {
+	wait func()
+}
+
+func mutableCompletionTransferred(target *storedWorker) {
+	var done chan struct{}
+	wait := func() {
+		if done != nil {
+			<-done
+		}
+	}
+	done = make(chan struct{})
+	go func() { close(done) }()
+	target.wait = wait
+}
+
+func nestedMutableCompletionReturned() (result storedWorker) {
+	var done chan struct{}
+	wait := func() {
+		if done != nil {
+			<-done
+		}
+	}
+	done = make(chan struct{})
+	go func() { close(done) }()
+	result.wait = func() { wait() }
+	return result
+}
+
+func deferredNestedMutableCompletion() (result storedWorker) {
+	var done chan struct{}
+	wait := func() {
+		if done != nil {
+			<-done
+		}
+	}
+	defer func() {
+		if result.wait == nil {
+			wait()
+		}
+	}()
+	done = make(chan struct{})
+	go func() { close(done) }()
+	result.wait = func() { wait() }
+	return result
 }
 
 func joinedByClose() {
@@ -182,6 +334,18 @@ func abandonedRepeatedSend() error {
 	go func() {
 		errs <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
 		errs <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
+	}()
+	return <-errs
+}
+
+func mutuallyExclusiveProducerSend(fail bool) error {
+	errs := make(chan error)
+	go func() {
+		if fail {
+			errs <- errors.New("failed")
+			return
+		}
+		errs <- nil
 	}()
 	return <-errs
 }

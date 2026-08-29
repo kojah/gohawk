@@ -1,6 +1,9 @@
 package lockorder
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 var regressionFirst sync.Mutex
 var regressionSecond sync.Mutex
@@ -208,6 +211,91 @@ func conditionalDeferredUnlock(fail bool) {
 	}
 	mutex.Unlock()
 	unlocked = true
+}
+
+func temporarilyReleaseBorrowed(state *guardedState) {
+	state.mutex.Unlock()
+	computedLock(1)
+	state.mutex.Lock()
+}
+
+func returnedUnlockOwner() func() {
+	var mutex sync.Mutex
+	mutex.Lock()
+	return sync.OnceFunc(func() { mutex.Unlock() })
+}
+
+func returnedUnlockOwnerWithError(fail bool) (release func(), err error) {
+	var mutex sync.Mutex
+	mutex.Lock()
+	release = sync.OnceFunc(func() { mutex.Unlock() })
+	defer func() {
+		if err != nil {
+			release()
+		}
+	}()
+	if fail {
+		return nil, errors.New("failed")
+	}
+	return release, nil
+}
+
+type returnedLockOwner struct {
+	mutex sync.RWMutex
+}
+
+func (owner *returnedLockOwner) returnedFieldUnlockWithError(fail bool) (release func(), err error) {
+	owner.mutex.RLock()
+	release = sync.OnceFunc(func() { owner.mutex.RUnlock() })
+	defer func() {
+		if err != nil {
+			release()
+		}
+	}()
+	if fail {
+		return nil, errors.New("failed")
+	}
+	return release, nil
+}
+
+func (owner *returnedLockOwner) returnedLocalFieldUnlockWithError(fail bool) (_ func(), err error) {
+	owner.mutex.RLock()
+	release := sync.OnceFunc(func() { owner.mutex.RUnlock() })
+	defer func() {
+		if err != nil {
+			release()
+		}
+	}()
+	if fail {
+		return nil, errors.New("failed")
+	}
+	return release, nil
+}
+
+func (owner *returnedLockOwner) returnedLoopFieldUnlockWithError(ready func() bool, fail bool) (_ func(), err error) {
+	for {
+		owner.mutex.RLock()
+		if ready() {
+			break
+		}
+		owner.mutex.RUnlock()
+	}
+	release := sync.OnceFunc(func() { owner.mutex.RUnlock() })
+	defer func() {
+		if err != nil {
+			release()
+		}
+	}()
+	if fail {
+		return nil, errors.New("failed")
+	}
+	return release, nil
+}
+
+func lockEveryStripe(locks []sync.Mutex) {
+	for index := range locks {
+		locks[index].Lock()
+	}
 }
 
 func interfaceForward() {
