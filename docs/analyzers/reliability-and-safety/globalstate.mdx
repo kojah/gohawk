@@ -3,6 +3,10 @@ title: globalstate
 description: "Give mutable state an owner."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Reports mutable package-level variables such as maps, slices, pointers,
@@ -11,11 +15,11 @@ explicitly configured names or types are excluded.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `globalstate/mutable-package-state` | Reports mutable package-level state without an explicit owner. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-<!-- gohawk:generated-checks:end -->
+| `globalstate/mutable-package-state` | Reports mutable package-level state without an explicit owner. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -31,7 +35,7 @@ beside it and expose safe operations instead of the raw value.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 ```go gohawk="W3siY2hlY2siOiJnbG9iYWxzdGF0ZS9tdXRhYmxlLXBhY2thZ2Utc3RhdGUiLCJtZXNzYWdlIjoibXV0YWJsZSBwYWNrYWdlIHN0YXRlIHVzZXJzIHJlcXVpcmVzIGFuIGltbXV0YWJsZSBvd25lciBvciAvL2dvaGF3azppZ25vcmUgZ2xvYmFsc3RhdGUiLCJzdGFydExpbmUiOjQsInN0YXJ0Q29sdW1uIjo0LCJlbmRMaW5lIjo0LCJlbmRDb2x1bW4iOjI5fV0"
@@ -65,16 +69,16 @@ func (store *Store) Remember(id string, user StoredUser) {
   store.users[id] = user
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}
 
 ## Options
 
-<!-- gohawk:generated-options:start -->
+{/* gohawk:generated-options:start */}
 | Knob | Default | Effect |
 | --- | --- | --- |
 | `allow-names` | empty | Comma-separated package variable names to allow. |
 | `allow-types` | empty | Comma-separated fully-qualified named types to allow. |
-<!-- gohawk:generated-options:end -->
+{/* gohawk:generated-options:end */}
 
 Type allowlists use the full import path:
 

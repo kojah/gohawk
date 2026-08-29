@@ -3,6 +3,10 @@ title: blockingtest
 description: "Make test waits cancellable."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Reports blocking channel receives and selects in test code when they have no
@@ -11,13 +15,13 @@ test helpers.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `blockingtest/send` | Reports unguarded channel sends in context-aware test code. | default | [reliability](../../../tags-and-profiles/#reliability) |
-| `blockingtest/receive` | Reports blocking channel receives in tests without a cancellation escape. | default | [reliability](../../../tags-and-profiles/#reliability) |
-| `blockingtest/select` | Reports blocking selects in tests without a cancellation escape. | default | [reliability](../../../tags-and-profiles/#reliability) |
-<!-- gohawk:generated-checks:end -->
+| `blockingtest/send` | Reports unguarded channel sends in context-aware test code. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+| `blockingtest/receive` | Reports blocking channel receives in tests without a cancellation escape. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+| `blockingtest/select` | Reports blocking selects in tests without a cancellation escape. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -36,7 +40,7 @@ it was waiting for.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 ```go gohawk="W3siY2hlY2siOiJibG9ja2luZ3Rlc3QvcmVjZWl2ZSIsIm1lc3NhZ2UiOiJibG9ja2luZyBjaGFubmVsIHJlY2VpdmUgaW4gdGVzdCBjb2RlIHJlcXVpcmVzIGNhbmNlbGxhdGlvbi1hd2FyZSBzZWxlY3QiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjo5LCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjE3fV0"
@@ -59,4 +63,4 @@ func waitForEventSafely(t *testing.T, events <-chan Event) Event {
   }
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}

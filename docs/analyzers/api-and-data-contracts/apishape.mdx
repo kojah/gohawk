@@ -3,6 +3,10 @@ title: apishape
 description: "Group error-prone parameters."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Reports exported functions with too many parameters, long runs of parameters
@@ -11,14 +15,14 @@ swap. It also reports types that mix pointer and value receiver methods.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `apishape/parameter-count` | Reports exported APIs with more than the configured maximum number of parameters. | default | [policy](../../../tags-and-profiles/#policy) |
-| `apishape/mixed-receivers` | Reports types that mix pointer and value receiver methods. | default | [policy](../../../tags-and-profiles/#policy) |
-| `apishape/adjacent-same-type` | Reports long adjacent runs of parameters that share one type. | default | [policy](../../../tags-and-profiles/#policy) |
-| `apishape/adjacent-optional-scalars` | Reports adjacent optional scalar parameters that are easy to swap. | default | [policy](../../../tags-and-profiles/#policy) |
-<!-- gohawk:generated-checks:end -->
+| `apishape/parameter-count` | Reports exported APIs with more than the configured maximum number of parameters. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
+| `apishape/mixed-receivers` | Reports types that mix pointer and value receiver methods. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
+| `apishape/adjacent-same-type` | Reports long adjacent runs of parameters that share one type. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
+| `apishape/adjacent-optional-scalars` | Reports adjacent optional scalar parameters that are easy to swap. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -35,7 +39,7 @@ group them into a type whose field names explain their purpose.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 #### Too many parameters
@@ -65,13 +69,13 @@ func CreateUserWithInput(input CreateUserInput) error {
   return nil
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}
 
 ## Options
 
-<!-- gohawk:generated-options:start -->
+{/* gohawk:generated-options:start */}
 | Knob | Default | Effect |
 | --- | --- | --- |
 | `max-adjacent-same-type` | `2` | Maximum adjacent parameters of one type; 0 disables the check. |
 | `max-parameters` | `4` | Maximum exported function parameters; 0 disables the check. |
-<!-- gohawk:generated-options:end -->
+{/* gohawk:generated-options:end */}

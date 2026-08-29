@@ -3,6 +3,10 @@ title: resourcelifetime
 description: "Release owned resources on every path."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Release owned resources on every path. Storing a resource in a partially
@@ -14,11 +18,11 @@ HTTP response bodies, timers and tickers, and gzip/zlib readers and writers.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `resourcelifetime/missing-release` | Reports owned resources that are not released on every return path. | default | [correctness](../../../tags-and-profiles/#correctness) |
-<!-- gohawk:generated-checks:end -->
+| `resourcelifetime/missing-release` | Reports owned resources that are not released on every return path. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -37,7 +41,7 @@ the resource, or transfer it only when the receiver clearly takes ownership.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 #### Leaked file
@@ -78,13 +82,13 @@ func readSafely(path string) error {
   return nil
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}
 
 ## Options
 
-<!-- gohawk:generated-options:start -->
+{/* gohawk:generated-options:start */}
 | Knob | Default | Effect |
 | --- | --- | --- |
 | `contracts` | `os,http,sql,time,compress` | Comma-separated resource contract families: os,http,sql,time,compress. |
 | `require-reader-close` | `true` | Require gzip and zlib readers to be closed. |
-<!-- gohawk:generated-options:end -->
+{/* gohawk:generated-options:end */}

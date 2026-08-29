@@ -3,6 +3,10 @@ title: contextpolicy
 description: "Put context first."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Reports `context.Context` parameters that are not first, contexts stored in
@@ -11,14 +15,14 @@ it also prefers `t.Context()` or `b.Context()` over `context.Background()`.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `contextpolicy/context-first` | Reports context.Context parameters that are not first. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-| `contextpolicy/context-storage` | Reports context.Context values stored in structs. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-| `contextpolicy/test-context` | Reports tests that use context.Background instead of the testing handle's context. | opt-in | [policy](../../../tags-and-profiles/#policy) |
-| `contextpolicy/nil-context` | Reports definitely nil context.Context arguments. | default | [correctness](../../../tags-and-profiles/#correctness) |
-<!-- gohawk:generated-checks:end -->
+| `contextpolicy/context-first` | Reports context.Context parameters that are not first. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+| `contextpolicy/context-storage` | Reports context.Context values stored in structs. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+| `contextpolicy/test-context` | Reports tests that use context.Background instead of the testing handle's context. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["policy"]} /> |
+| `contextpolicy/nil-context` | Reports definitely nil context.Context arguments. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -37,7 +41,7 @@ appropriate real context, such as the test's context in test code.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 #### Context parameter order
@@ -73,12 +77,12 @@ func LoadUserCorrectly(ctx context.Context, id string) error {
   return nil
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}
 
 ## Options
 
-<!-- gohawk:generated-options:start -->
+{/* gohawk:generated-options:start */}
 | Knob | Default | Effect |
 | --- | --- | --- |
 | `prefer-test-context` | `true` | Prefer t.Context or b.Context over context.Background in tests. |
-<!-- gohawk:generated-options:end -->
+{/* gohawk:generated-options:end */}

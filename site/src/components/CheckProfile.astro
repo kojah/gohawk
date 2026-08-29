@@ -1,0 +1,15 @@
+---
+import { Badge } from '@astrojs/starlight/components';
+
+interface Props {
+	profile: string;
+}
+
+const { profile } = Astro.props;
+---
+
+<Badge
+	text={profile}
+	variant={profile === 'opt-in' ? 'caution' : 'success'}
+	size="small"
+/>

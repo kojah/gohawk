@@ -3,6 +3,10 @@ title: concurrentcapture
 description: "Keep repeatedly launched goroutines from mutating the same local."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Goroutines launched from a loop should not mutate the same captured local
@@ -11,11 +15,11 @@ the value local to each goroutine.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `concurrentcapture/shared-capture` | Reports repeatedly launched goroutines that mutate the same captured local. | default | [correctness](../../../tags-and-profiles/#correctness) |
-<!-- gohawk:generated-checks:end -->
+| `concurrentcapture/shared-capture` | Reports repeatedly launched goroutines that mutate the same captured local. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -34,7 +38,7 @@ with the same synchronization mechanism.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 ```go gohawk="W3siY2hlY2siOiJjb25jdXJyZW50Y2FwdHVyZS9zaGFyZWQtY2FwdHVyZSIsIm1lc3NhZ2UiOiJjYXB0dXJlZCBsb2NhbCBlcnIgaXMgbXV0YXRlZCBieSBnb3JvdXRpbmVzIGxhdW5jaGVkIHJlcGVhdGVkbHkiLCJzdGFydExpbmUiOjQsInN0YXJ0Q29sdW1uIjo2LCJlbmRMaW5lIjo0LCJlbmRDb2x1bW4iOjE5fV0"
@@ -72,4 +76,4 @@ func collectSafely(items []int) error {
   return nil
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}

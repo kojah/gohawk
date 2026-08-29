@@ -3,6 +3,10 @@ title: channelpolicy
 description: "Let the creator close the channel."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Reports channels with large constant capacities that have no nearby rationale,
@@ -11,13 +15,13 @@ after the channel has been closed.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `channelpolicy/capacity-rationale` | Reports large constant channel capacities without a nearby bounded rationale. | opt-in | [policy](../../../tags-and-profiles/#policy) |
-| `channelpolicy/caller-close` | Reports functions that close channels received from their callers. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-| `channelpolicy/send-after-close` | Reports sends reachable after a channel has been closed. | default | [correctness](../../../tags-and-profiles/#correctness) |
-<!-- gohawk:generated-checks:end -->
+| `channelpolicy/capacity-rationale` | Reports large constant channel capacities without a nearby bounded rationale. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["policy"]} /> |
+| `channelpolicy/caller-close` | Reports functions that close channels received from their callers. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+| `channelpolicy/send-after-close` | Reports sends reachable after a channel has been closed. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -35,7 +39,7 @@ clear, documented reason.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 ```go gohawk="W3siY2hlY2siOiJjaGFubmVscG9saWN5L2NhbGxlci1jbG9zZSIsIm1lc3NhZ2UiOiJkbyBub3QgY2xvc2UgYSBjaGFubmVsIHJlY2VpdmVkIGZyb20gY2FsbGVyIiwic3RhcnRMaW5lIjoxLCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MSwiZW5kQ29sdW1uIjoyMX1d"
@@ -56,12 +60,12 @@ func consumeSafely(events <-chan Event) {
   }
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}
 
 ## Options
 
-<!-- gohawk:generated-options:start -->
+{/* gohawk:generated-options:start */}
 | Knob | Default | Effect |
 | --- | --- | --- |
 | `max-unexplained-capacity` | `1` | Largest channel capacity allowed without a rationale; negative disables the check. |
-<!-- gohawk:generated-options:end -->
+{/* gohawk:generated-options:end */}

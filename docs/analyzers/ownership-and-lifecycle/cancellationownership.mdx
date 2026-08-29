@@ -3,6 +3,10 @@ title: cancellationownership
 description: "Call derived cancel functions."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Tracks cancel functions returned by context and signal helpers and reports any
@@ -11,11 +15,11 @@ to the caller.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `cancellationownership/release` | Reports derived cancel functions that are neither called nor transferred on every return path. | default | [correctness](../../../tags-and-profiles/#correctness) |
-<!-- gohawk:generated-checks:end -->
+| `cancellationownership/release` | Reports derived cancel functions that are neither called nor transferred on every return path. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -33,7 +37,7 @@ explicitly at the point where the derived work is finished.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 ```go gohawk="W3siY2hlY2siOiJjYW5jZWxsYXRpb25vd25lcnNoaXAvcmVsZWFzZSIsIm1lc3NhZ2UiOiJjYW5jZWwgZnVuY3Rpb24gZnJvbSBjb250ZXh0LldpdGhDYW5jZWwgaXMgbm90IGNhbGxlZCBvbiBldmVyeSByZXR1cm4gcGF0aCIsInN0YXJ0TGluZSI6MSwic3RhcnRDb2x1bW4iOjE3LCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjQzfV0"
@@ -53,4 +57,4 @@ func workSafely(parent context.Context) {
   doWork(ctx)
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}

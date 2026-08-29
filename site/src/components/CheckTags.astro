@@ -1,0 +1,41 @@
+---
+import { Badge } from '@astrojs/starlight/components';
+
+interface Props {
+	tags: string[];
+}
+
+const { tags } = Astro.props;
+const variants = {
+	correctness: 'danger',
+	reliability: 'caution',
+	policy: 'note',
+} as const;
+---
+
+<span class="check-tags">
+	{
+		tags.map((tag) => (
+			<a href={`../../../tags-and-profiles/#${tag}`}>
+				<Badge
+					text={tag}
+					variant={variants[tag as keyof typeof variants] ?? 'default'}
+					size="small"
+				/>
+			</a>
+		))
+	}
+</span>
+
+<style>
+	.check-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+	}
+
+	a {
+		display: inline-flex;
+		text-decoration: none;
+	}
+</style>

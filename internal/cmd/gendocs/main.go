@@ -21,16 +21,17 @@ import (
 )
 
 const (
-	generatedAnalyzersStart = "<!-- gohawk:generated-analyzers:start -->"
-	generatedAnalyzersEnd   = "<!-- gohawk:generated-analyzers:end -->"
-	generatedOptionsStart   = "<!-- gohawk:generated-options:start -->"
-	generatedOptionsEnd     = "<!-- gohawk:generated-options:end -->"
-	generatedExamplesStart  = "<!-- gohawk:generated-examples:start -->"
-	generatedExamplesEnd    = "<!-- gohawk:generated-examples:end -->"
-	generatedChecksStart    = "<!-- gohawk:generated-checks:start -->"
-	generatedChecksEnd      = "<!-- gohawk:generated-checks:end -->"
-	generatedTagsStart      = "<!-- gohawk:generated-tags:start -->"
-	generatedTagsEnd        = "<!-- gohawk:generated-tags:end -->"
+	generatedAnalyzersStart  = "<!-- gohawk:generated-analyzers:start -->"
+	generatedAnalyzersEnd    = "<!-- gohawk:generated-analyzers:end -->"
+	generatedOptionsStart    = "{/* gohawk:generated-options:start */}"
+	generatedOptionsEnd      = "{/* gohawk:generated-options:end */}"
+	generatedExamplesStart   = "{/* gohawk:generated-examples:start */}"
+	generatedExamplesEnd     = "{/* gohawk:generated-examples:end */}"
+	generatedChecksStart     = "{/* gohawk:generated-checks:start */}"
+	generatedChecksEnd       = "{/* gohawk:generated-checks:end */}"
+	generatedTagsStart       = "<!-- gohawk:generated-tags:start -->"
+	generatedTagsEnd         = "<!-- gohawk:generated-tags:end -->"
+	analyzerComponentImports = "import CheckProfile from '../../../site/src/components/CheckProfile.astro';\nimport CheckTags from '../../../site/src/components/CheckTags.astro';"
 )
 
 type manifest struct {
@@ -117,7 +118,7 @@ func synchronize(root string, check bool) error {
 	updates := make(map[string][]byte)
 	for _, group := range data.Groups {
 		for _, analyzer := range group.Analyzers {
-			page := filepath.Join(root, "docs", filepath.FromSlash(analyzer.Path+".md"))
+			page := filepath.Join(root, "docs", filepath.FromSlash(analyzer.Path+".mdx"))
 			expectedPages[page] = true
 			contents, err := os.ReadFile(page)
 			if err != nil {
@@ -126,11 +127,23 @@ func synchronize(root string, check bool) error {
 			if !hasFrontmatterTitle(contents, analyzer.Name) {
 				return fmt.Errorf("%s must have frontmatter title %q", relativePath(root, page), analyzer.Name)
 			}
-			contents, err = synchronizeChecks(contents, checksBlock(analyzer.Checks))
+			contents, err = synchronizeAnalyzerComponents(contents)
+			if err != nil {
+				return fmt.Errorf("update components for %s: %w", analyzer.Name, err)
+			}
+			checks, err := checksBlock(analyzer.Checks)
+			if err != nil {
+				return fmt.Errorf("render checks for %s: %w", analyzer.Name, err)
+			}
+			contents, err = synchronizeChecks(contents, checks)
 			if err != nil {
 				return fmt.Errorf("update checks for %s: %w", analyzer.Name, err)
 			}
-			contents, err = synchronizeExamples(contents, examplesBlock(analyzer.Examples))
+			examples, err := examplesBlock(analyzer.Examples)
+			if err != nil {
+				return fmt.Errorf("render examples for %s: %w", analyzer.Name, err)
+			}
+			contents, err = synchronizeExamples(contents, examples)
 			if err != nil {
 				return fmt.Errorf("update examples for %s: %w", analyzer.Name, err)
 			}
@@ -285,18 +298,56 @@ func synchronizeChecks(contents []byte, block string) ([]byte, error) {
 	return result, nil
 }
 
-// checksBlock renders stable check identifiers, summaries, and tags as a table.
-func checksBlock(checks []check) string {
-	var output strings.Builder
-	output.WriteString("| Check | What it detects | Profile | Tags |\n| --- | --- | --- | --- |\n")
-	for _, item := range checks {
-		tags := make([]string, len(item.Tags))
-		for index, tag := range item.Tags {
-			tags[index] = fmt.Sprintf("[%s](../../../tags-and-profiles/#%s)", tag, tag)
-		}
-		fmt.Fprintf(&output, "| `%s` | %s | %s | %s |\n", item.ID, item.Summary, item.Profile, strings.Join(tags, ", "))
+func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
+	if bytes.Contains(contents, []byte(analyzerComponentImports)) {
+		return contents, nil
 	}
-	return strings.TrimSuffix(output.String(), "\n")
+	if !bytes.HasPrefix(contents, []byte("---\n")) {
+		return nil, errors.New("missing frontmatter")
+	}
+	frontmatterEnd := bytes.Index(contents[len("---\n"):], []byte("\n---\n"))
+	if frontmatterEnd < 0 {
+		return nil, errors.New("unterminated frontmatter")
+	}
+	frontmatterEnd += len("---\n") + len("\n---\n")
+
+	result := make([]byte, 0, len(contents)+len(analyzerComponentImports)+2)
+	result = append(result, contents[:frontmatterEnd]...)
+	result = append(result, '\n')
+	result = append(result, analyzerComponentImports...)
+	result = append(result, '\n')
+	result = append(result, contents[frontmatterEnd:]...)
+	return result, nil
+}
+
+// checksBlock renders stable check identifiers and summaries as a standard
+// Markdown table. MDX components provide shared profile and tag styling while
+// preserving Starlight's native table rendering.
+func checksBlock(checks []check) (string, error) {
+	var output strings.Builder
+	output.WriteString("| Check | What it detects | Profile | Tags |\n")
+	output.WriteString("| --- | --- | --- | --- |\n")
+	for _, item := range checks {
+		tags, err := json.Marshal(item.Tags)
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(
+			&output,
+			"| `%s` | %s | <CheckProfile profile=\"%s\" /> | <CheckTags tags={%s} /> |\n",
+			item.ID,
+			markdownTableCell(item.Summary),
+			html.EscapeString(item.Profile),
+			tags,
+		)
+	}
+	return strings.TrimSuffix(output.String(), "\n"), nil
+}
+
+func markdownTableCell(value string) string {
+	value = strings.ReplaceAll(value, "\r\n", " ")
+	value = strings.ReplaceAll(value, "\n", " ")
+	return strings.ReplaceAll(value, "|", "\\|")
 }
 
 func synchronizeExamples(contents []byte, examples string) ([]byte, error) {
@@ -329,7 +380,7 @@ func synchronizeExamples(contents []byte, examples string) ([]byte, error) {
 	return result, nil
 }
 
-func examplesBlock(examples docexamples.Set) string {
+func examplesBlock(examples docexamples.Set) (string, error) {
 	var result strings.Builder
 	result.WriteString("### Flagged code\n")
 	for index, example := range examples.Flagged {
@@ -343,13 +394,13 @@ func examplesBlock(examples docexamples.Set) string {
 		}
 		metadata, err := json.Marshal(example.Diagnostics)
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 		encoded := base64.RawURLEncoding.EncodeToString(metadata)
 		fmt.Fprintf(&result, "```go gohawk=\"%s\"\n%s\n```\n", encoded, example.Code)
 	}
 	fmt.Fprintf(&result, "\n### Accepted code\n\n```go\n%s\n```", examples.OK.Code)
-	return result.String()
+	return result.String(), nil
 }
 
 func rejectUnknownPages(root string, expected map[string]bool) error {
@@ -358,7 +409,11 @@ func rejectUnknownPages(root string, expected map[string]bool) error {
 		if err != nil {
 			return err
 		}
-		if entry.IsDir() || filepath.Ext(path) != ".md" || entry.Name() == "index.md" {
+		if entry.IsDir() || entry.Name() == "index.md" {
+			return nil
+		}
+		extension := filepath.Ext(path)
+		if extension != ".md" && extension != ".mdx" {
 			return nil
 		}
 		if !expected[path] {

@@ -3,6 +3,10 @@ title: closedomain
 description: "Represent closed sets with named types."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Finds exported string fields that are used like a fixed set of choices—for
@@ -11,11 +15,11 @@ group of values—but are still declared as plain strings.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `closedomain/closed-string-domain` | Reports exported string fields used as small closed sets of values. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-<!-- gohawk:generated-checks:end -->
+| `closedomain/closed-string-domain` | Reports exported string fields used as small closed sets of values. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -31,7 +35,7 @@ rejecting any value that is not part of the set.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 ```go gohawk="W3siY2hlY2siOiJjbG9zZWRvbWFpbi9jbG9zZWQtc3RyaW5nLWRvbWFpbiIsIm1lc3NhZ2UiOiJmaWVsZCBTdGF0ZSB1c2VzIGEgY2xvc2VkIHN0cmluZyBkb21haW47IGRlZmluZSBhIG5hbWVkIHN0cmluZyB0eXBlIGFuZCBjb25zdGFudHMiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjE0fV0"
@@ -58,4 +62,4 @@ type Task struct {
   State TaskState
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}

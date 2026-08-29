@@ -3,6 +3,10 @@ title: syncmapatomicity
 description: "Claim sync.Map values atomically."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 A separate `Load` followed by `Delete` allows another goroutine to observe or
@@ -11,11 +15,11 @@ value is consumed as the successfully removed entry.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `syncmapatomicity/non-atomic-claim` | Reports separate sync.Map Load and Delete operations used to claim one value. | default | [correctness](../../../tags-and-profiles/#correctness) |
-<!-- gohawk:generated-checks:end -->
+| `syncmapatomicity/non-atomic-claim` | Reports separate sync.Map Load and Delete operations used to claim one value. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -33,7 +37,7 @@ entry was present.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 ```go gohawk="W3siY2hlY2siOiJzeW5jbWFwYXRvbWljaXR5L25vbi1hdG9taWMtY2xhaW0iLCJtZXNzYWdlIjoic3luYy5NYXAgTG9hZCBhbmQgRGVsZXRlIGRvIG5vdCBhdG9taWNhbGx5IGNsYWltIHRoZSB2YWx1ZSIsInN0YXJ0TGluZSI6Mywic3RhcnRDb2x1bW4iOjQsImVuZExpbmUiOjMsImVuZENvbHVtbiI6MjF9XQ"
@@ -58,4 +62,4 @@ func takeAtomically(cache *sync.Map, key string) any {
   return nil
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}

@@ -3,6 +3,10 @@ title: lockorder
 description: "Acquire locks consistently."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Acquire locks consistently and release them on every return path. A missing
@@ -11,13 +15,13 @@ the corresponding release policy.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `lockorder/missing-release` | Reports return paths that leave an owned lock held. | default | [correctness](../../../tags-and-profiles/#correctness) |
-| `lockorder/recursive-acquire` | Reports attempts to acquire a lock that is already held. | default | [correctness](../../../tags-and-profiles/#correctness) |
-| `lockorder/contradictory-order` | Reports inconsistent acquisition order for the same pair of locks. | default | [correctness](../../../tags-and-profiles/#correctness) |
-<!-- gohawk:generated-checks:end -->
+| `lockorder/missing-release` | Reports return paths that leave an owned lock held. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| `lockorder/recursive-acquire` | Reports attempts to acquire a lock that is already held. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| `lockorder/contradictory-order` | Reports inconsistent acquisition order for the same pair of locks. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -33,7 +37,7 @@ early returns cannot leave it held.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 ```go gohawk="W3siY2hlY2siOiJsb2Nrb3JkZXIvY29udHJhZGljdG9yeS1vcmRlciIsIm1lc3NhZ2UiOiJjb250cmFkaWN0b3J5IGxvY2sgb3JkZXI6IGZpcnN0IGFuZCBzZWNvbmQiLCJzdGFydExpbmUiOjEzLCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MTMsImVuZENvbHVtbiI6MTR9XQ"
@@ -75,4 +79,4 @@ func reverseSafely() {
   defer fourth.Unlock()
 }
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}

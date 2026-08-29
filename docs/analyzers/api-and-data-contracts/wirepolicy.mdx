@@ -3,6 +3,10 @@ title: wirepolicy
 description: "Tag fields and key literals."
 ---
 
+import CheckProfile from '../../../site/src/components/CheckProfile.astro';
+import CheckTags from '../../../site/src/components/CheckTags.astro';
+
+
 ## What it detects
 
 Reports exported fields without explicit JSON or TOML tags on types that look
@@ -11,12 +15,12 @@ wire types when their fields should be named explicitly.
 
 ### Checks
 
-<!-- gohawk:generated-checks:start -->
+{/* gohawk:generated-checks:start */}
 | Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `wirepolicy/keyed-literal` | Reports positional composite literals for persisted or wire structs. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-| `wirepolicy/serialization-tag` | Reports exported wire fields without explicit JSON or TOML tags. | default | [reliability](../../../tags-and-profiles/#reliability), [policy](../../../tags-and-profiles/#policy) |
-<!-- gohawk:generated-checks:end -->
+| `wirepolicy/keyed-literal` | Reports positional composite literals for persisted or wire structs. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+| `wirepolicy/serialization-tag` | Reports exported wire fields without explicit JSON or TOML tags. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
@@ -32,7 +36,7 @@ the fields' current order.
 
 ## Examples
 
-<!-- gohawk:generated-examples:start -->
+{/* gohawk:generated-examples:start */}
 ### Flagged code
 
 #### Missing serialization tags
@@ -65,4 +69,4 @@ type AuditRow struct {
 
 var audit = AuditRow{ID: "42", Kind: "created"}
 ```
-<!-- gohawk:generated-examples:end -->
+{/* gohawk:generated-examples:end */}
