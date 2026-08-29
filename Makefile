@@ -6,11 +6,13 @@ BUILD_DIRECTORY ?= $(CURDIR)/.build
 GOHAWK_BINARY ?= $(BUILD_DIRECTORY)/gohawk
 BENCHMARK_ARGS ?=
 
+VERIFY_TARGETS := mod-verify fmt-check generated-check plugin-test test-race vet dogfood
+
 .DEFAULT_GOAL := help
 
 .PHONY: help build fmt fmt-check generate generated-check mod-verify test \
-	test-race vet coverage plugin-test dogfood verify benchmark site-check \
-	site-build site-review
+	test-race vet coverage plugin-test dogfood verify ci benchmark site-install \
+	site-check site-build site-review
 
 help:
 	@printf '%s\n' \
@@ -67,10 +69,17 @@ plugin-test:
 dogfood: build
 	"$(GOHAWK_BINARY)" ./...
 
-verify: mod-verify fmt-check generated-check plugin-test test test-race vet dogfood
+verify: $(VERIFY_TARGETS) test
+
+# CI substitutes coverage for the ordinary test run so the same tests are not
+# executed twice merely to produce the coverage artifacts used by the badge.
+ci: $(VERIFY_TARGETS) coverage
 
 benchmark:
 	./scripts/benchmark-dogfood.sh $(BENCHMARK_ARGS)
+
+site-install:
+	$(PNPM) --dir site install --frozen-lockfile
 
 site-check:
 	$(PNPM) --dir site check

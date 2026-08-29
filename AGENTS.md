@@ -19,6 +19,12 @@ gohawk diagnostic is actionable.
 - Avoid project-name or function-name exemptions unless they represent a
   documented, general API contract.
 
+## Development commands
+
+Prefer existing Makefile targets for repository-wide validation so local and
+CI workflows use the same commands. Run `make help` to discover available
+targets. Direct commands remain appropriate for focused testing and debugging.
+
 ## Process termination
 
 Production analyzer and reusable library code must not call `panic()`,
@@ -47,6 +53,6 @@ external consumers. It is exposed only for Veritas's current integration.
 
 ## Documentation website
 
-Use `pnpm dev:review` from `site/` when testing the documentation website. It
-starts the Astro development server together with the Agentation services, so
-annotations can be submitted to an agent during review.
+Use `make site-review` when testing the documentation website. It starts the
+Astro development server together with the Agentation services, so annotations
+can be submitted to an agent during review.
