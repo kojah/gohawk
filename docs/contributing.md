@@ -27,8 +27,9 @@ Suppose the new analyzer is called `examplepolicy`.
 
 ### 1. Write the analyzer
 
-Add `general/examplepolicy.go`. Give it a constructor that returns an
-`analysis.Analyzer`, then put the analysis in a separate run function:
+Add `internal/analyzers/<group>/examplepolicy.go` under the matching analyzer
+group. Give it a constructor that returns an `analysis.Analyzer`, then put the
+analysis in a separate run function:
 
 ```go
 func examplePolicyAnalyzer() *analysis.Analyzer {
@@ -46,26 +47,24 @@ func runExamplePolicy(pass *analysis.Pass) (any, error) {
 ```
 
 Add any analysis passes you need to `Requires`. Diagnostics must point at the
-smallest useful source range. `analysisutil.Reportf` is convenient when you
-have a position; use `pass.Report` when you need to provide the range yourself.
+smallest useful source range. Use the group package's `reportf` helper when you
+have a position and `report` when you need to provide the range yourself.
 
 Only add flags for choices that projects may reasonably disagree about, such
 as a threshold or ownership policy. Define them on the analyzer's `Flags` set.
 
 ### 2. Register it
 
-Update `general/analyzers.go` in two places:
-
-1. Add the constructor to the right group in `AnalyzerGroups`.
-2. Add its name to the stable order in `Analyzers`.
+Add an `analyzerbase.AnalyzerSpec` for the analyzer to the matching group's
+`internal/analyzers/<group>/analyzers.go`, including its checks, profiles,
+tags, and suggested-fix support. Then add its analyzer ID to the stable order
+in `analyzers/analyzers.go`.
 
 Give every diagnostic rule a stable check identity and at least one
-`correctness`, `reliability`, or `policy` tag in `analyzerChecks`. Report each
-diagnostic through `report` or `reportf` with that check identity. Checks run by
-default whenever their analyzer is selected; assign `CheckProfileOptIn` only to
-rules that require explicit selection. New analyzers use the default analyzer
-profile unless you explicitly assign the opt-in profile in `AnalyzerMetadata`.
-Record suggested-fix support there as well when applicable.
+`correctness`, `reliability`, or `policy` tag in its `AnalyzerSpec`. Report each
+diagnostic through `report` or `reportf` with that check identity. Checks and
+analyzers use the default profile unless their spec explicitly assigns the
+corresponding opt-in profile.
 
 Then update `analyzers/analyzers_test.go`:
 

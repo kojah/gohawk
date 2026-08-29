@@ -1,4 +1,4 @@
-package general
+package analyzers
 
 // AnalyzerCheck identifies one independently taggable diagnostic rule.
 type AnalyzerCheck string
