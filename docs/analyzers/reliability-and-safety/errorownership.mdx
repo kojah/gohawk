@@ -17,9 +17,9 @@ returning the newly declared one.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="log-and-return" profile="opt-in" tags={["reliability","policy"]} /> | Reports functions that both log and return the same error. |
-| <CheckIdentity name="text-classification" profile="default" tags={["reliability"]} /> | Reports production code that classifies errors by matching their text. |
-| <CheckIdentity name="mismatched-inline-error" profile="default" tags={["correctness"]} /> | Reports inline error declarations whose condition checks a different error. |
+| <CheckIdentity name="log-and-return" optIn tags={["reliability","policy"]} /> | Reports functions that both log and return the same error. |
+| <CheckIdentity name="text-classification" tags={["reliability"]} /> | Reports production code that classifies errors by matching their text. |
+| <CheckIdentity name="mismatched-inline-error" tags={["correctness"]} /> | Reports inline error declarations whose condition checks a different error. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

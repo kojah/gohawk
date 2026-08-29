@@ -1,22 +1,21 @@
 ---
-import CheckProfile from './CheckProfile.astro';
 import CheckTags from './CheckTags.astro';
 
 interface Props {
 	name: string;
-	profile: string;
+	optIn?: boolean;
 	tags: string[];
 }
 
-const { name, profile, tags } = Astro.props;
+const { name, optIn = false, tags } = Astro.props;
 ---
 
 <div class="check-identity">
-	<code>{name}</code>
-	<span class="check-metadata" aria-label={`Profile ${profile}; tags ${tags.join(', ')}`}>
-		<CheckProfile profile={profile} />
-		<CheckTags tags={tags} />
+	<span class="check-name">
+		<code>{name}</code>
+		{optIn && <span class="opt-in" aria-label="opt-in" title="Opt-in check">*</span>}
 	</span>
+	<CheckTags tags={tags} />
 </div>
 
 <style>
@@ -28,16 +27,24 @@ const { name, profile, tags } = Astro.props;
 		gap: 0.5rem;
 	}
 
+	.check-name {
+		display: flex;
+		max-width: 100%;
+		align-items: flex-start;
+		gap: 0.2rem;
+	}
+
 	code {
 		max-width: 100%;
 		font-size: 0.82em;
 		overflow-wrap: anywhere;
 	}
 
-	.check-metadata {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.35rem 0.6rem;
+	.opt-in {
+		font-family: var(--sl-font-mono);
+		font-size: var(--sl-text-sm);
+		font-weight: 700;
+		line-height: 1;
+		color: var(--sl-color-accent-high);
 	}
 </style>

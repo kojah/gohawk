@@ -336,15 +336,23 @@ func checksBlock(analyzerName string, checks []check) (string, error) {
 		if !ok || localID == "" {
 			return "", fmt.Errorf("check ID %q does not use analyzer prefix %q", item.ID, analyzerName+"/")
 		}
+		optIn := ""
+		switch item.Profile {
+		case "default":
+		case "opt-in":
+			optIn = " optIn"
+		default:
+			return "", fmt.Errorf("check ID %q has unsupported profile %q", item.ID, item.Profile)
+		}
 		tags, err := json.Marshal(item.Tags)
 		if err != nil {
 			return "", err
 		}
 		fmt.Fprintf(
 			&output,
-			"| <CheckIdentity name=\"%s\" profile=\"%s\" tags={%s} /> | %s |\n",
+			"| <CheckIdentity name=\"%s\"%s tags={%s} /> | %s |\n",
 			html.EscapeString(localID),
-			html.EscapeString(item.Profile),
+			optIn,
 			tags,
 			markdownTableCell(item.Summary),
 		)

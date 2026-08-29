@@ -172,7 +172,7 @@ func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
 	for _, want := range []string{
 		"| Check | What it detects |",
 		"Reports the example problem.",
-		`<CheckIdentity name="problem" profile="opt-in" tags={["correctness","reliability"]} />`,
+		`<CheckIdentity name="problem" optIn tags={["correctness","reliability"]} />`,
 	} {
 		if !strings.Contains(block, want) {
 			t.Fatalf("checks block is missing %q: %s", want, block)
@@ -180,6 +180,21 @@ func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
 	}
 	if strings.Contains(block, "| `example/problem` |") {
 		t.Fatalf("checks block repeats the analyzer prefix: %s", block)
+	}
+}
+
+func TestChecksBlockOmitsDefaultProfile(t *testing.T) {
+	block, err := checksBlock("example", []check{{
+		ID:      "example/problem",
+		Summary: "Reports the example problem.",
+		Profile: "default",
+		Tags:    []string{"policy"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(block, "optIn") || strings.Contains(block, "default") {
+		t.Fatalf("default profile is visible in checks block: %s", block)
 	}
 }
 

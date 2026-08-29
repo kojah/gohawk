@@ -17,10 +17,10 @@ it also prefers `t.Context()` or `b.Context()` over `context.Background()`.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="context-first" profile="default" tags={["reliability","policy"]} /> | Reports context.Context parameters that are not first. |
-| <CheckIdentity name="context-storage" profile="default" tags={["reliability","policy"]} /> | Reports context.Context values stored in structs. |
-| <CheckIdentity name="test-context" profile="opt-in" tags={["policy"]} /> | Reports tests that use context.Background instead of the testing handle's context. |
-| <CheckIdentity name="nil-context" profile="default" tags={["correctness"]} /> | Reports definitely nil context.Context arguments. |
+| <CheckIdentity name="context-first" tags={["reliability","policy"]} /> | Reports context.Context parameters that are not first. |
+| <CheckIdentity name="context-storage" tags={["reliability","policy"]} /> | Reports context.Context values stored in structs. |
+| <CheckIdentity name="test-context" optIn tags={["policy"]} /> | Reports tests that use context.Background instead of the testing handle's context. |
+| <CheckIdentity name="nil-context" tags={["correctness"]} /> | Reports definitely nil context.Context arguments. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
