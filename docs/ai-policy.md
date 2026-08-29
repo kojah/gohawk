@@ -4,7 +4,7 @@ description: Requirements for AI-assisted contributions to gohawk.
 ---
 
 gohawk was developed with assistance from AI tools. AI-assisted contributions
-are welcome, but contributors must clearly disclose how AI was used in their
+are permitted, but contributors must clearly disclose how AI was used in their
 pull request.
 
 Using AI does not change the project's quality requirements. Contributors

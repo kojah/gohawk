@@ -55,45 +55,11 @@ gohawk -disable-groups=testing ./...
 gohawk -enable-all ./...
 ```
 
-## golangci-lint module plugin
+## golangci-lint integration
 
-gohawk can be included in a custom golangci-lint binary through its recommended
-[module plugin system](https://golangci-lint.run/docs/plugins/module-plugins/).
-Add the plugin to `.custom-gcl.yml`:
-
-```yaml
-version: v2.13.2
-plugins:
-  - module: github.com/kojah/gohawk
-    import: github.com/kojah/gohawk/plugin/golangci
-    version: main
-```
-
-Build the custom binary with `golangci-lint custom`, then configure it in
-`.golangci.yml`:
-
-```yaml
-version: "2"
-
-linters:
-  default: none
-  enable:
-    - gohawk
-  settings:
-    custom:
-      gohawk:
-        type: module
-        description: Correctness-focused ownership, lifecycle, and concurrency checks.
-        settings:
-          enable:
-            - globalstate
-          disable:
-            - contextpolicy
-```
-
-The plugin runs gohawk's conservative default analyzer profile. Use `enable` to
-add analyzers, `disable` to remove them, or `enable-all: true` to start with the
-complete analyzer set. Analyzer names are listed by `gohawk list`.
+gohawk can run as a module plugin inside a custom golangci-lint binary. See the
+[golangci-lint integration guide](https://kojah.github.io/gohawk/golangci-lint/)
+for build and configuration instructions.
 
 ## Contributing
 
@@ -103,7 +69,7 @@ for the development workflow, analyzer requirements, and verification steps.
 ## AI policy
 
 gohawk was developed with assistance from LLMs, and AI-assisted contributions
-are welcome. Contributors must disclose AI usage, and every contribution must
+are permitted. Contributors must disclose AI usage, and every contribution must
 meet the project's strict standards for quality, testing, analyzer precision,
 and human readability. See the full [AI policy](https://kojah.github.io/gohawk/ai-policy/).
 

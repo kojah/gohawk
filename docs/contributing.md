@@ -5,7 +5,7 @@ sidebar:
   order: 3
 ---
 
-AI-assisted contributions are welcome when they follow the same quality
+AI-assisted contributions are permitted when they follow the same quality
 standards as every other contribution. See the [AI policy](../ai-policy/) for
 the disclosure and review requirements.
 
