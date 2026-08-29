@@ -123,7 +123,7 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 						if ssautil.DeferredClosureCalls(instruction, "Unlock", value) || ssautil.DeferredClosureCalls(instruction, "RUnlock", value) ||
 							common != nil && (ssautil.ValueCallsMethod(common.Value, "Unlock", value) || ssautil.ValueCallsMethod(common.Value, "RUnlock", value)) {
 							released[identity] = true
-							deferred = append(deferred, identity)
+							deferred = appendUniqueString(deferred, identity)
 							break
 						}
 					}
@@ -154,7 +154,10 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			case mutexRelease:
 				released[identity] = true
 				if _, isDefer := instruction.(*ssa.Defer); isDefer {
-					deferred = append(deferred, identity)
+					// A deferred unlock remains effective on every later trip around a
+					// control-flow loop. Keeping identities unique lets the dataflow
+					// state reach a fixed point instead of growing without bound.
+					deferred = appendUniqueString(deferred, identity)
 				} else {
 					held = releaseLock(held, identity)
 					delete(guards, identity)
@@ -249,6 +252,13 @@ func appendUniquePosition(positions []token.Pos, candidate token.Pos) []token.Po
 		return append(positions, candidate)
 	}
 	return positions
+}
+
+func appendUniqueString(values []string, candidate string) []string {
+	if !slices.Contains(values, candidate) {
+		return append(values, candidate)
+	}
+	return values
 }
 
 func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {

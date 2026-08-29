@@ -47,6 +47,13 @@ func deferredUnlock(skip bool) {
 	}
 }
 
+func deferredUnlockInLoop(lock *sync.Mutex, values []int) {
+	for range values {
+		lock.Lock() // want "lock lockorder.deferredUnlockInLoop.lock is acquired while already held"
+		defer lock.Unlock()
+	}
+}
+
 // Returning with a lock held on every path may intentionally transfer the
 // critical section to the caller, so the analyzer stays quiet without evidence
 // of a local release policy.
