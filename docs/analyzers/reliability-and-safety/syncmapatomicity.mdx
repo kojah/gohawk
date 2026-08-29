@@ -16,9 +16,9 @@ value is consumed as the successfully removed entry.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
+| Check (`syncmapatomicity/…`) | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `syncmapatomicity/non-atomic-claim` | Reports separate sync.Map Load and Delete operations used to claim one value. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| `non-atomic-claim` | Reports separate sync.Map Load and Delete operations used to claim one value. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

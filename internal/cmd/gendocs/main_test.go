@@ -146,7 +146,7 @@ func TestSynchronizeAnalyzerComponentsAddsImportsAfterFrontmatter(t *testing.T) 
 }
 
 func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
-	block, err := checksBlock([]check{{
+	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
 		Profile: "opt-in",
@@ -156,8 +156,8 @@ func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"| Check | What it detects | Profile | Tags |",
-		"| `example/problem` |",
+		"| Check (`example/…`) | What it detects | Profile | Tags |",
+		"| `problem` |",
 		"Reports the example problem.",
 		`<CheckProfile profile="opt-in" />`,
 		`<CheckTags tags={["correctness","reliability"]} />`,
@@ -165,6 +165,16 @@ func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
 		if !strings.Contains(block, want) {
 			t.Fatalf("checks block is missing %q: %s", want, block)
 		}
+	}
+	if strings.Contains(block, "| `example/problem` |") {
+		t.Fatalf("checks block repeats the analyzer prefix: %s", block)
+	}
+}
+
+func TestChecksBlockRejectsMismatchedAnalyzerPrefix(t *testing.T) {
+	_, err := checksBlock("example", []check{{ID: "different/problem"}})
+	if err == nil {
+		t.Fatal("checks block accepted a mismatched analyzer prefix")
 	}
 }
 

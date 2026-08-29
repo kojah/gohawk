@@ -16,10 +16,10 @@ wire types when their fields should be named explicitly.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
+| Check (`wirepolicy/…`) | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `wirepolicy/keyed-literal` | Reports positional composite literals for persisted or wire structs. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
-| `wirepolicy/serialization-tag` | Reports exported wire fields without explicit JSON or TOML tags. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+| `keyed-literal` | Reports positional composite literals for persisted or wire structs. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+| `serialization-tag` | Reports exported wire fields without explicit JSON or TOML tags. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

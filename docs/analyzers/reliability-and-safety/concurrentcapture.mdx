@@ -16,9 +16,9 @@ the value local to each goroutine.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
+| Check (`concurrentcapture/…`) | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `concurrentcapture/shared-capture` | Reports repeatedly launched goroutines that mutate the same captured local. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| `shared-capture` | Reports repeatedly launched goroutines that mutate the same captured local. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

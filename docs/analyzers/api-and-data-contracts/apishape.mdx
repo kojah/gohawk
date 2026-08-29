@@ -16,12 +16,12 @@ swap. It also reports types that mix pointer and value receiver methods.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
+| Check (`apishape/…`) | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `apishape/parameter-count` | Reports exported APIs with more than the configured maximum number of parameters. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
-| `apishape/mixed-receivers` | Reports types that mix pointer and value receiver methods. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
-| `apishape/adjacent-same-type` | Reports long adjacent runs of parameters that share one type. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
-| `apishape/adjacent-optional-scalars` | Reports adjacent optional scalar parameters that are easy to swap. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
+| `parameter-count` | Reports exported APIs with more than the configured maximum number of parameters. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
+| `mixed-receivers` | Reports types that mix pointer and value receiver methods. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
+| `adjacent-same-type` | Reports long adjacent runs of parameters that share one type. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
+| `adjacent-optional-scalars` | Reports adjacent optional scalar parameters that are easy to swap. | <CheckProfile profile="default" /> | <CheckTags tags={["policy"]} /> |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

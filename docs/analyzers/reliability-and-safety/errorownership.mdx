@@ -16,11 +16,11 @@ returning the newly declared one.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
+| Check (`errorownership/…`) | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `errorownership/log-and-return` | Reports functions that both log and return the same error. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["reliability","policy"]} /> |
-| `errorownership/text-classification` | Reports production code that classifies errors by matching their text. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
-| `errorownership/mismatched-inline-error` | Reports inline error declarations whose condition checks a different error. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| `log-and-return` | Reports functions that both log and return the same error. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["reliability","policy"]} /> |
+| `text-classification` | Reports production code that classifies errors by matching their text. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+| `mismatched-inline-error` | Reports inline error declarations whose condition checks a different error. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

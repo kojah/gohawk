@@ -16,12 +16,12 @@ it also prefers `t.Context()` or `b.Context()` over `context.Background()`.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
+| Check (`contextpolicy/…`) | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `contextpolicy/context-first` | Reports context.Context parameters that are not first. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
-| `contextpolicy/context-storage` | Reports context.Context values stored in structs. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
-| `contextpolicy/test-context` | Reports tests that use context.Background instead of the testing handle's context. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["policy"]} /> |
-| `contextpolicy/nil-context` | Reports definitely nil context.Context arguments. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| `context-first` | Reports context.Context parameters that are not first. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+| `context-storage` | Reports context.Context values stored in structs. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability","policy"]} /> |
+| `test-context` | Reports tests that use context.Background instead of the testing handle's context. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["policy"]} /> |
+| `nil-context` | Reports definitely nil context.Context arguments. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

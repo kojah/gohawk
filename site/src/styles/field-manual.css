@@ -442,9 +442,8 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	vertical-align: top;
 }
 .sl-markdown-content h3#checks + table td:first-child code {
-	font-size: 0.88em;
-	overflow-wrap: break-word;
-	white-space: normal;
+	font-size: 0.82em;
+	white-space: nowrap;
 }
 
 @media (min-width: 50rem) {

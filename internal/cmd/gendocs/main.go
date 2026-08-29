@@ -131,7 +131,7 @@ func synchronize(root string, check bool) error {
 			if err != nil {
 				return fmt.Errorf("update components for %s: %w", analyzer.Name, err)
 			}
-			checks, err := checksBlock(analyzer.Checks)
+			checks, err := checksBlock(analyzer.Name, analyzer.Checks)
 			if err != nil {
 				return fmt.Errorf("render checks for %s: %w", analyzer.Name, err)
 			}
@@ -323,11 +323,15 @@ func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
 // checksBlock renders stable check identifiers and summaries as a standard
 // Markdown table. MDX components provide shared profile and tag styling while
 // preserving Starlight's native table rendering.
-func checksBlock(checks []check) (string, error) {
+func checksBlock(analyzerName string, checks []check) (string, error) {
 	var output strings.Builder
-	output.WriteString("| Check | What it detects | Profile | Tags |\n")
+	fmt.Fprintf(&output, "| Check (`%s/…`) | What it detects | Profile | Tags |\n", analyzerName)
 	output.WriteString("| --- | --- | --- | --- |\n")
 	for _, item := range checks {
+		localID, ok := strings.CutPrefix(item.ID, analyzerName+"/")
+		if !ok || localID == "" {
+			return "", fmt.Errorf("check ID %q does not use analyzer prefix %q", item.ID, analyzerName+"/")
+		}
 		tags, err := json.Marshal(item.Tags)
 		if err != nil {
 			return "", err
@@ -335,7 +339,7 @@ func checksBlock(checks []check) (string, error) {
 		fmt.Fprintf(
 			&output,
 			"| `%s` | %s | <CheckProfile profile=\"%s\" /> | <CheckTags tags={%s} /> |\n",
-			item.ID,
+			localID,
 			markdownTableCell(item.Summary),
 			html.EscapeString(item.Profile),
 			tags,

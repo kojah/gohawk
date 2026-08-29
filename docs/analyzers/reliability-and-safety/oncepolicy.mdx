@@ -16,9 +16,9 @@ calling, and discarding it in one expression.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
+| Check (`oncepolicy/…`) | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `oncepolicy/discarded-wrapper` | Reports sync.Once function wrappers that are called and immediately discarded. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
+| `discarded-wrapper` | Reports sync.Once function wrappers that are called and immediately discarded. | <CheckProfile profile="default" /> | <CheckTags tags={["correctness"]} /> |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

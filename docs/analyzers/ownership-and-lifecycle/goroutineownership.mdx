@@ -17,11 +17,11 @@ capacity for every send.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
+| Check (`goroutineownership/…`) | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `goroutineownership/unjoined` | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
-| `goroutineownership/detached` | Reports goroutines without a recognizable join handle or lifecycle owner. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["reliability"]} /> |
-| `goroutineownership/abandoned-send` | Reports producer goroutines that can block after their receiver stops waiting. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+| `unjoined` | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+| `detached` | Reports goroutines without a recognizable join handle or lifecycle owner. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["reliability"]} /> |
+| `abandoned-send` | Reports producer goroutines that can block after their receiver stops waiting. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

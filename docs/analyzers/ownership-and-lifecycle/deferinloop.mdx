@@ -16,9 +16,9 @@ locks, timers, and similar resources are released after each iteration.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects | Profile | Tags |
+| Check (`deferinloop/…`) | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
-| `deferinloop/cleanup-lifetime` | Reports cleanup defers whose lifetime extends across loop iterations. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
+| `cleanup-lifetime` | Reports cleanup defers whose lifetime extends across loop iterations. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
