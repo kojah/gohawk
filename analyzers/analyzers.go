@@ -1,6 +1,7 @@
 package analyzers
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -67,8 +68,8 @@ func (info AnalyzerInfo) EnabledByDefault() bool {
 	return info.Profile == AnalyzerProfileDefault
 }
 
-func newCatalog() *analyzerbase.Catalog {
-	catalog, err := analyzerbase.NewCatalog([]analyzerbase.GroupSpec{
+func newCatalog() (*analyzerbase.Catalog, error) {
+	return analyzerbase.NewCatalog([]analyzerbase.GroupSpec{
 		{ID: "contracts", Doc: "API and data contracts", DocPath: "api-and-data-contracts", Analyzers: contracts.Specs()},
 		{ID: "ownership", Doc: "ownership and lifecycle", DocPath: "ownership-and-lifecycle", Analyzers: ownership.Specs()},
 		{ID: "reliability", Doc: "reliability and safety", DocPath: "reliability-and-safety", Analyzers: reliability.Specs()},
@@ -97,16 +98,19 @@ func newCatalog() *analyzerbase.Catalog {
 		"syncmapatomicity",
 		"cancellationownership",
 	})
-	if err != nil {
-		panic(fmt.Sprintf("invalid analyzer catalog: %v", err))
-	}
-	return catalog
 }
 
 // AnalyzerMetadata returns documentation metadata keyed by analyzer name.
 func AnalyzerMetadata() map[string]AnalyzerInfo {
 	metadata := make(map[string]AnalyzerInfo)
-	for _, spec := range newCatalog().Analyzers() {
+	catalog, err := newCatalog()
+	if err != nil {
+		// The catalog is compiled-in and covered by validation tests. If a bad
+		// declaration nevertheless ships, expose no analyzers rather than letting
+		// an imported library terminate its host process.
+		return metadata
+	}
+	for _, spec := range catalog.Analyzers() {
 		metadata[spec.Analyzer.Name] = publicAnalyzerInfo(spec)
 	}
 	return metadata
@@ -114,7 +118,11 @@ func AnalyzerMetadata() map[string]AnalyzerInfo {
 
 // AnalyzerGroups returns framework-neutral Go policy analyzers grouped by concern.
 func AnalyzerGroups() []AnalyzerGroup {
-	groups := newCatalog().Groups()
+	catalog, err := newCatalog()
+	if err != nil {
+		return nil
+	}
+	groups := catalog.Groups()
 	result := make([]AnalyzerGroup, len(groups))
 	for groupIndex, group := range groups {
 		result[groupIndex] = AnalyzerGroup{Name: string(group.ID), Doc: group.Doc, DocPath: group.DocPath}
@@ -133,23 +141,30 @@ func withSuppressions(analyzer *analysis.Analyzer, declared []analyzerbase.Check
 	run := analyzer.Run
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		report := pass.Report
+		var reportErr error
 		pass.Report = func(diagnostic analysis.Diagnostic) {
 			if !checks[diagnostic.Category] {
-				panic(fmt.Sprintf("analyzer %q reported unknown check %q", analyzer.Name, diagnostic.Category))
+				reportErr = errors.Join(reportErr, fmt.Errorf("analyzer %q reported unknown check %q", analyzer.Name, diagnostic.Category))
+				return
 			}
 			if !analysisutil.DiagnosticSuppressed(pass, diagnostic.Pos, analyzer.Name) {
 				report(diagnostic)
 			}
 		}
 		defer func() { pass.Report = report }()
-		return run(pass)
+		result, err := run(pass)
+		return result, errors.Join(err, reportErr)
 	}
 	return analyzer
 }
 
 // Analyzers returns all framework-neutral Go policy analyzers in stable execution order.
 func Analyzers() []*analysis.Analyzer {
-	specs := newCatalog().Analyzers()
+	catalog, err := newCatalog()
+	if err != nil {
+		return nil
+	}
+	specs := catalog.Analyzers()
 	analyzers := make([]*analysis.Analyzer, 0, len(specs))
 	for _, spec := range specs {
 		analyzers = append(analyzers, withSuppressions(spec.Analyzer, spec.Checks))
@@ -160,7 +175,11 @@ func Analyzers() []*analysis.Analyzer {
 // DefaultAnalyzers returns the analyzers enabled when no analyzer selection
 // flags are provided.
 func DefaultAnalyzers() []*analysis.Analyzer {
-	specs := newCatalog().Analyzers()
+	catalog, err := newCatalog()
+	if err != nil {
+		return nil
+	}
+	specs := catalog.Analyzers()
 	analyzers := make([]*analysis.Analyzer, 0, len(specs))
 	for _, spec := range specs {
 		if spec.EnabledByDefault() {

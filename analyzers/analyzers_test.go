@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/analyzerbase"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
@@ -34,6 +35,27 @@ func expectedAnalyzerNames() []string {
 		"oncepolicy",
 		"syncmapatomicity",
 		"cancellationownership",
+	}
+}
+
+func TestCatalogDeclaration(t *testing.T) {
+	if _, err := newCatalog(); err != nil {
+		t.Fatalf("invalid analyzer catalog: %v", err)
+	}
+}
+
+func TestUnknownDiagnosticReturnsError(t *testing.T) {
+	analyzer := withSuppressions(&analysis.Analyzer{
+		Name: "example",
+		Run: func(pass *analysis.Pass) (any, error) {
+			pass.Report(analysis.Diagnostic{Category: "example/unknown"})
+			return nil, nil
+		},
+	}, []analyzerbase.CheckInfo{{ID: "example/known"}})
+
+	_, err := analyzer.Run(&analysis.Pass{Report: func(analysis.Diagnostic) {}})
+	if err == nil || !strings.Contains(err.Error(), `analyzer "example" reported unknown check "example/unknown"`) {
+		t.Fatalf("Run() error = %v, want unknown-check error", err)
 	}
 }
 

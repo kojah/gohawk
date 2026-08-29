@@ -19,6 +19,13 @@ gohawk diagnostic is actionable.
 - Avoid project-name or function-name exemptions unless they represent a
   documented, general API contract.
 
+## Process termination
+
+Production analyzer and reusable library code must not call `panic()`,
+`log.Fatal()`, or `os.Exit()`. Return errors to the caller and let the command
+entry point decide how to present failures and choose an exit status. Test
+fixtures may use these operations when they are the behavior being analyzed.
+
 ## Analyzer rationale comments
 
 Add comments at non-obvious precision boundaries: ownership transfers,
