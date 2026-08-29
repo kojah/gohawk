@@ -50,3 +50,106 @@ func deferredUnlock(skip bool) {
 func intentionallyHeld() {
 	regressionFirst.Lock()
 }
+
+func conditionallyAcquired(index, other int) {
+	if index != other {
+		regressionFirst.Lock()
+	}
+	if index != other {
+		regressionFirst.Unlock()
+	}
+}
+
+func conditionalNil(pointer *int) {
+	if pointer != nil {
+		regressionFirst.Lock()
+	}
+	if pointer != nil {
+		regressionFirst.Unlock()
+	}
+}
+
+func conditionFromComputed(hashLock int) {
+	refLock := computedLock(hashLock)
+	if hashLock != refLock {
+		regressionFirst.Lock()
+	}
+	if hashLock != refLock {
+		regressionFirst.Unlock()
+	}
+}
+
+func computedLock(value int) int { return value + 1 }
+
+func transferredUnlock() {
+	var mutex sync.Mutex
+	mutex.Lock()
+	done := make(chan struct{})
+	go func() {
+		mutex.Unlock()
+		close(done)
+	}()
+	mutex.Lock()
+	mutex.Unlock()
+	<-done
+}
+
+func repeatedTransferredUnlock() {
+	var mutex sync.Mutex
+	mutex.Lock()
+	done := make(chan struct{})
+	go func() {
+		for {
+			mutex.Unlock()
+			mutex.Lock()
+			select {
+			case done <- struct{}{}:
+				return
+			default:
+			}
+		}
+	}()
+	for range 10 {
+		mutex.Lock()
+		mutex.Unlock()
+	}
+	<-done
+}
+
+func nestedRepeatedTransferredUnlock() {
+	func() {
+		mutex := sync.Mutex{}
+		mutex.Lock()
+		done := make(chan struct{})
+		go func() {
+			for {
+				mutex.Unlock()
+				mutex.Lock()
+				select {
+				case done <- struct{}{}:
+					return
+				default:
+				}
+			}
+		}()
+		for range 10 {
+			mutex.Lock()
+			mutex.Unlock()
+		}
+		<-done
+	}()
+}
+
+func conditionalGoroutineUnlock(release, fail bool) {
+	var mutex sync.Mutex
+	mutex.Lock()
+	go func() {
+		if release {
+			mutex.Unlock()
+		}
+	}()
+	if fail {
+		return // want "lock lockorder.conditionalGoroutineUnlock:local:mutex is not released on this return path"
+	}
+	mutex.Unlock()
+}

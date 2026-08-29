@@ -4,44 +4,50 @@ import (
 	"go/ast"
 	"strings"
 
+	"github.com/kojah/gohawk/analysisutil"
+
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/inspect"
-	"golang.org/x/tools/go/ast/inspector"
 )
 
 func deferInLoopAnalyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
-		Name:     "deferinloop",
-		Doc:      "checks cleanup defers whose lifetime extends across loop iterations",
-		Requires: []*analysis.Analyzer{inspect.Analyzer},
-		Run:      runDeferInLoop,
+		Name: "deferinloop",
+		Doc:  "checks cleanup defers whose lifetime extends across loop iterations",
+		Run:  runDeferInLoop,
 	}
 }
 
 func runDeferInLoop(pass *analysis.Pass) (any, error) {
-	in := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-	in.Preorder([]ast.Node{(*ast.ForStmt)(nil), (*ast.RangeStmt)(nil)}, func(node ast.Node) {
-		var body *ast.BlockStmt
-		switch loop := node.(type) {
-		case *ast.ForStmt:
-			body = loop.Body
-		case *ast.RangeStmt:
-			body = loop.Body
+	for _, file := range pass.Files {
+		if !analysisutil.AnalyzeFile(pass, file) {
+			continue
 		}
-		ast.Inspect(body, func(candidate ast.Node) bool {
-			switch typed := candidate.(type) {
-			case *ast.FuncLit, *ast.ForStmt, *ast.RangeStmt:
-				return false
-			case *ast.DeferStmt:
-				if cleanupDefer(pass, body, typed.Call) {
-					reportf(pass, checkDeferCleanupInLoop, typed.Pos(), "deferred cleanup runs after the loop instead of after this iteration")
-				}
-				return false
+		ast.Inspect(file, func(node ast.Node) bool {
+			var body *ast.BlockStmt
+			switch loop := node.(type) {
+			case *ast.ForStmt:
+				body = loop.Body
+			case *ast.RangeStmt:
+				body = loop.Body
 			default:
 				return true
 			}
+			ast.Inspect(body, func(candidate ast.Node) bool {
+				switch typed := candidate.(type) {
+				case *ast.FuncLit, *ast.ForStmt, *ast.RangeStmt:
+					return false
+				case *ast.DeferStmt:
+					if cleanupDefer(pass, body, typed.Call) {
+						reportf(pass, checkDeferCleanupInLoop, typed.Pos(), "deferred cleanup runs after the loop instead of after this iteration")
+					}
+					return false
+				default:
+					return true
+				}
+			})
+			return true
 		})
-	})
+	}
 	return nil, nil
 }
 

@@ -126,35 +126,10 @@ func AliasesValue(value, target ssa.Value) bool {
 
 // DeferredClosureCalls reports whether deferred closure calls method on target.
 func DeferredClosureCalls(instruction ssa.Instruction, method string, target ssa.Value) bool {
-	// defer commonly closes over an addressable local. Map closure free variable
-	// back to stored outer value before comparing ownership target.
-	deferred, ok := instruction.(*ssa.Defer)
-	if !ok {
+	if _, ok := instruction.(*ssa.Defer); !ok {
 		return false
 	}
-	closure, ok := deferred.Common().Value.(*ssa.MakeClosure)
-	if !ok {
-		return false
-	}
-	function, ok := closure.Fn.(*ssa.Function)
-	if !ok {
-		return false
-	}
-	for _, block := range function.Blocks {
-		for _, candidate := range block.Instrs {
-			common := InstructionCall(candidate)
-			if CallName(common) != method {
-				continue
-			}
-			receiver := CallReceiver(common)
-			for index, free := range function.FreeVars {
-				if AliasesValue(receiver, free) && index < len(closure.Bindings) && AliasesValue(CapturedBindingValue(closure.Bindings[index]), target) {
-					return true
-				}
-			}
-		}
-	}
-	return false
+	return ClosureCallsMethod(instruction, method, target)
 }
 
 // DeferredClosureCallsValue reports whether a deferred closure calls target.
@@ -364,17 +339,11 @@ func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) boo
 }
 
 // ClosureCallsMethod reports whether a call-like closure calls method on target.
+// It maps both captured free variables and explicit closure parameters back to
+// the values supplied by the enclosing function.
 func ClosureCallsMethod(instruction ssa.Instruction, method string, target ssa.Value) bool {
-	common := InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	closure, ok := common.Value.(*ssa.MakeClosure)
-	if !ok {
-		return false
-	}
-	function, ok := closure.Fn.(*ssa.Function)
-	if !ok {
+	common, closure, function := calledFunction(instruction)
+	if function == nil {
 		return false
 	}
 	for _, block := range function.Blocks {
@@ -384,11 +353,62 @@ func ClosureCallsMethod(instruction ssa.Instruction, method string, target ssa.V
 				continue
 			}
 			receiver := CallReceiver(called)
-			for index, free := range function.FreeVars {
-				if AliasesValue(receiver, free) && index < len(closure.Bindings) && AliasesValue(CapturedBindingValue(closure.Bindings[index]), target) {
-					return true
-				}
+			if calledReceiverMatches(common, closure, function, receiver, target) {
+				return true
 			}
+		}
+	}
+	return false
+}
+
+// ClosureCallsMethodBeforeBranch reports whether a called function invokes
+// method on target along an unconditional path from its entry block.
+func ClosureCallsMethodBeforeBranch(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	common, closure, function := calledFunction(instruction)
+	if function == nil || len(function.Blocks) == 0 {
+		return false
+	}
+	visited := map[*ssa.BasicBlock]bool{}
+	for block := function.Blocks[0]; block != nil && !visited[block]; {
+		visited[block] = true
+		for _, candidate := range block.Instrs {
+			called := InstructionCall(candidate)
+			if CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target) {
+				return true
+			}
+		}
+		if len(block.Succs) != 1 {
+			return false
+		}
+		block = block.Succs[0]
+	}
+	return false
+}
+
+func calledFunction(instruction ssa.Instruction) (*ssa.CallCommon, *ssa.MakeClosure, *ssa.Function) {
+	common := InstructionCall(instruction)
+	if common == nil {
+		return nil, nil, nil
+	}
+	closure, _ := common.Value.(*ssa.MakeClosure)
+	function := common.StaticCallee()
+	if closure != nil {
+		function, _ = closure.Fn.(*ssa.Function)
+	}
+	return common, closure, function
+}
+
+func calledReceiverMatches(common *ssa.CallCommon, closure *ssa.MakeClosure, function *ssa.Function, receiver, target ssa.Value) bool {
+	if closure != nil {
+		for index, free := range function.FreeVars {
+			if AliasesValue(receiver, free) && index < len(closure.Bindings) && (AliasesValue(closure.Bindings[index], target) || AliasesValue(CapturedBindingValue(closure.Bindings[index]), target)) {
+				return true
+			}
+		}
+	}
+	for index, parameter := range function.Params {
+		if AliasesValue(receiver, parameter) && index < len(common.Args) && AliasesValue(common.Args[index], target) {
+			return true
 		}
 	}
 	return false

@@ -159,6 +159,17 @@ func closedGzipReader() error {
 	return nil
 }
 
+func closedFileThroughDeferredParameter() error {
+	file, err := os.CreateTemp("", "closed")
+	if err != nil {
+		return err
+	}
+	defer func(open *os.File) {
+		_ = open.Close()
+	}(file)
+	return nil
+}
+
 func leakedZlibWriter(destination io.Writer) {
 	writer := zlib.NewWriter(destination) // want "owned resource from zlib.NewWriter is not released on every return path"
 	_ = writer
