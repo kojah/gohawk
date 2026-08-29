@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -23,7 +24,10 @@ const filteredFlagsChild = "GOHAWK_FILTERED_FLAGS_CHILD"
 
 // Main runs the gohawk command and exits with its result.
 func Main() {
-	normalizeVersionFlag(os.Args)
+	if humanVersionRequested(os.Args) {
+		printHumanVersion(os.Stdout)
+		return
+	}
 	originalArguments := append([]string(nil), os.Args...)
 	if len(os.Args) > 1 && os.Args[1] == "list" {
 		if err := printAnalyzerList(os.Args[2:], os.Stdout, os.Stderr); err != nil {
@@ -626,12 +630,21 @@ func analyzerSelection(argument string, names map[string]bool) (string, bool, bo
 	return name, enabled, err == nil
 }
 
-func normalizeVersionFlag(arguments []string) {
-	for index, argument := range arguments {
-		if argument == "-V" {
-			arguments[index] = "-V=full"
-		}
+func humanVersionRequested(arguments []string) bool {
+	return len(arguments) == 2 && (arguments[1] == "-V" || arguments[1] == "--version")
+}
+
+func printHumanVersion(output io.Writer) {
+	info, ok := debug.ReadBuildInfo()
+	version := humanVersion(info, ok)
+	fmt.Fprintln(output, "gohawk", version)
+}
+
+func humanVersion(info *debug.BuildInfo, ok bool) string {
+	if ok && info != nil && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
 	}
+	return "devel"
 }
 
 func generalHelpRequested(arguments []string) bool {

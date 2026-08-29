@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"testing"
@@ -286,8 +287,13 @@ func TestCLIIntegration(t *testing.T) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "version") {
-			t.Fatalf("output does not contain version information:\n%s", output)
+		if !strings.HasPrefix(output, "gohawk ") || strings.Contains(output, "buildID=") {
+			t.Fatalf("human version output = %q", output)
+		}
+
+		output, exitCode = runCommand(t, module, binary, "-V=full")
+		if exitCode != 0 || !strings.Contains(output, "version devel") || !strings.Contains(output, "buildID=") {
+			t.Fatalf("vettool version protocol: exit code = %d\n%s", exitCode, output)
 		}
 	})
 
@@ -652,6 +658,25 @@ func TestCLIIntegration(t *testing.T) {
 			t.Fatalf("fixed module: exit code = %d, output = %q", exitCode, output)
 		}
 	})
+}
+
+func TestHumanVersion(t *testing.T) {
+	info := &debug.BuildInfo{Main: debug.Module{Version: "v0.1.1"}}
+	if got := humanVersion(info, true); got != "v0.1.1" {
+		t.Fatalf("humanVersion() = %q, want v0.1.1", got)
+	}
+	for _, test := range []struct {
+		info *debug.BuildInfo
+		ok   bool
+	}{
+		{info: nil, ok: false},
+		{info: &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, ok: true},
+		{info: &debug.BuildInfo{}, ok: true},
+	} {
+		if got := humanVersion(test.info, test.ok); got != "devel" {
+			t.Errorf("humanVersion(%#v, %t) = %q, want devel", test.info, test.ok, got)
+		}
+	}
 }
 
 func buildTestBinary(t *testing.T) string {
