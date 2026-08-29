@@ -39,7 +39,7 @@ jobs:
       - name: Test and collect coverage
         run: |
           # Measure product analysis behavior, not CLI and documentation tooling.
-          go test ./... -covermode=count -coverpkg=./analysisutil,./analyzers,./general/...,./internal/analyzerbase,./internal/docexamples -coverprofile=coverage.out
+          go test ./... -covermode=count -coverpkg=./analysisutil/...,./analyzers,./general/...,./internal/analyzerbase,./internal/docexamples -coverprofile=coverage.out
           go tool cover -func=coverage.out -o=coverage-summary.out
 
       - name: Generate coverage badge

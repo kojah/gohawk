@@ -1,10 +1,11 @@
-package analysisutil
+package ssautil
 
 import (
 	"fmt"
 	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/analysisutil"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
@@ -19,7 +20,7 @@ func SourceSSAFunctions(pass *analysis.Pass) ([]*ssa.Function, error) {
 	functions := make([]*ssa.Function, 0, len(result.SrcFuncs))
 	for _, function := range result.SrcFuncs {
 		file := FunctionFile(pass, function)
-		if function.Syntax() == nil || file == nil || !AnalyzeFile(pass, file) {
+		if function.Syntax() == nil || file == nil || !analysisutil.AnalyzeFile(pass, file) {
 			continue
 		}
 		functions = append(functions, function)

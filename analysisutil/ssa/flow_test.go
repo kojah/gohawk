@@ -1,4 +1,4 @@
-package analysisutil
+package ssautil
 
 import (
 	"go/ast"

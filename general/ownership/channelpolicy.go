@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -33,7 +34,7 @@ type channelPolicyConfig struct {
 }
 
 func runChannelPolicy(pass *analysis.Pass, config channelPolicyConfig) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -94,15 +95,15 @@ func channelRationale(pass *analysis.Pass, file *ast.File, position token.Pos) b
 func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, config channelPolicyConfig) {
 	var parameters []ssa.Value
 	for _, parameter := range function.Params {
-		if analysisutil.ChannelType(parameter) {
+		if ssautil.ChannelType(parameter) {
 			parameters = append(parameters, parameter)
 		}
 	}
 	reportedSends := map[token.Pos]bool{}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := analysisutil.InstructionCall(instruction)
-			if common == nil || analysisutil.CallName(common) != analysisutil.BuiltinClose || len(common.Args) != 1 {
+			common := ssautil.InstructionCall(instruction)
+			if common == nil || ssautil.CallName(common) != analysisutil.BuiltinClose || len(common.Args) != 1 {
 				continue
 			}
 			channel := common.Args[0]
@@ -116,7 +117,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, confi
 			}
 			for _, candidate := range reachableInstructions(instruction) {
 				send, ok := candidate.(*ssa.Send)
-				if !ok || !analysisutil.AliasesValue(send.Chan, channel) || reportedSends[send.Pos()] {
+				if !ok || !ssautil.AliasesValue(send.Chan, channel) || reportedSends[send.Pos()] {
 					continue
 				}
 				reportedSends[send.Pos()] = true
@@ -127,7 +128,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, confi
 }
 
 func reachableInstructions(start ssa.Instruction) []ssa.Instruction {
-	index := analysisutil.InstructionIndex(start)
+	index := ssautil.InstructionIndex(start)
 	if index < 0 {
 		return nil
 	}

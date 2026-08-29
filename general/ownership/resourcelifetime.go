@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -63,7 +64,7 @@ type resourceLifetimeSettings struct {
 }
 
 func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +94,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 }
 
 func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {
-	packagePath, name := analysisutil.CallPackage(common), analysisutil.CallName(common)
+	packagePath, name := ssautil.CallPackage(common), ssautil.CallName(common)
 	if settings.contracts["os"] && packagePath == "os" {
 		switch name {
 		case "Create", "CreateTemp", "Open", "OpenFile":
@@ -151,7 +152,7 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 }
 
 func receiverNamedType(common *ssa.CallCommon, packagePath, name string) bool {
-	receiver := analysisutil.CallReceiver(common)
+	receiver := ssautil.CallReceiver(common)
 	return receiver != nil && analysisutil.NamedType(receiver.Type(), packagePath, name)
 }
 
@@ -171,18 +172,18 @@ func resourceResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // S
 }
 
 func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []ssa.Value, methods []string) bool {
-	if resourceTransferredToExternalField(instruction, resource) || analysisutil.StoresValueInOwnedMap(instruction, resource) || analysisutil.ClosureCapturesValue(instruction, resource) || analysisutil.CallTransfersValueToField(instruction, resource) {
+	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) {
 		return true
 	}
-	common := analysisutil.InstructionCall(instruction)
-	if common != nil && slices.Contains(methods, analysisutil.CallName(common)) && valueDerivesFrom(analysisutil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
+	common := ssautil.InstructionCall(instruction)
+	if common != nil && slices.Contains(methods, ssautil.CallName(common)) && valueDerivesFrom(ssautil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
 		return true
 	}
-	if common != nil && lifecycleMethod(analysisutil.CallName(common)) && aliasesAny(analysisutil.CallReceiver(common), owners) {
+	if common != nil && lifecycleMethod(ssautil.CallName(common)) && aliasesAny(ssautil.CallReceiver(common), owners) {
 		return true
 	}
 	if common != nil {
-		name := strings.ToLower(analysisutil.CallName(common))
+		name := strings.ToLower(ssautil.CallName(common))
 		if strings.Contains(name, "close") || strings.Contains(name, "release") || strings.Contains(name, "cleanup") {
 			for _, argument := range common.Args {
 				if valueDerivesFrom(argument, resource, map[ssa.Value]bool{}) {
@@ -192,7 +193,7 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []
 		}
 	}
 	for _, method := range methods {
-		if analysisutil.DeferredClosureCalls(instruction, method, resource) {
+		if ssautil.DeferredClosureCalls(instruction, method, resource) {
 			return true
 		}
 	}
@@ -200,7 +201,7 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []
 }
 
 func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract) bool {
-	index := analysisutil.InstructionIndex(call)
+	index := ssautil.InstructionIndex(call)
 	if index < 0 {
 		return false
 	}
@@ -226,7 +227,7 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 				return true
 			}
 		}
-		for _, successor := range analysisutil.FeasibleSuccessors(state.block, state.predecessor) {
+		for _, successor := range ssautil.FeasibleSuccessors(state.block, state.predecessor) {
 			active := state.active
 			if success, known := resourceSuccessBranch(state.block, successor, errorValue); known {
 				active = active && success
@@ -242,7 +243,7 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			owner := resourceFieldOwner(instruction, resource)
-			if owner != nil && !analysisutil.ExternallyOwnedValue(owner) && !aliasesAny(owner, owners) {
+			if owner != nil && !ssautil.ExternallyOwnedValue(owner) && !aliasesAny(owner, owners) {
 				owners = append(owners, owner)
 			}
 		}
@@ -252,7 +253,7 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 
 func resourceTransferredToExternalField(instruction ssa.Instruction, resource ssa.Value) bool {
 	owner := resourceFieldOwner(instruction, resource)
-	return owner != nil && analysisutil.ExternallyOwnedValue(owner)
+	return owner != nil && ssautil.ExternallyOwnedValue(owner)
 }
 
 func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Value { //nolint:ireturn // Owners retain their concrete SSA value forms.
@@ -279,8 +280,8 @@ func resourceSuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Valu
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}
-	comparesErrorToNil := valueDerivesFrom(comparison.X, errorValue, map[ssa.Value]bool{}) && analysisutil.DefinitelyNil(comparison.Y) ||
-		valueDerivesFrom(comparison.Y, errorValue, map[ssa.Value]bool{}) && analysisutil.DefinitelyNil(comparison.X)
+	comparesErrorToNil := valueDerivesFrom(comparison.X, errorValue, map[ssa.Value]bool{}) && ssautil.DefinitelyNil(comparison.Y) ||
+		valueDerivesFrom(comparison.Y, errorValue, map[ssa.Value]bool{}) && ssautil.DefinitelyNil(comparison.X)
 	if !comparesErrorToNil {
 		return false, false
 	}
@@ -311,7 +312,7 @@ func valueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil || source == nil || seen[value] {
 		return false
 	}
-	if analysisutil.AliasesValue(value, source) {
+	if ssautil.AliasesValue(value, source) {
 		return true
 	}
 	seen[value] = true
@@ -337,7 +338,7 @@ func valueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 
 func returnedValueAliases(returned *ssa.Return, value ssa.Value) bool {
 	for _, result := range returned.Results {
-		if analysisutil.AliasesValue(result, value) {
+		if ssautil.AliasesValue(result, value) {
 			return true
 		}
 	}

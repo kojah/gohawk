@@ -1,4 +1,4 @@
-package analysisutil
+package ssautil
 
 import "golang.org/x/tools/go/ssa"
 

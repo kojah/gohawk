@@ -3,7 +3,7 @@ package ownership
 import (
 	"fmt"
 
-	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -25,7 +25,7 @@ func exitPolicyAnalyzer() *analysis.Analyzer {
 }
 
 func runExitPolicy(pass *analysis.Pass) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -56,10 +56,10 @@ func reportExitAfterDefer(pass *analysis.Pass, function *ssa.Function) {
 				deferred = true
 				continue
 			}
-			common := analysisutil.InstructionCall(instruction)
+			common := ssautil.InstructionCall(instruction)
 			if deferred && exitsWithoutRunningDefers(common) && !reported[instruction] {
 				reported[instruction] = true
-				reportf(pass, checkExitSkipsDefer, instruction.Pos(), "%s.%s exits without running an earlier defer", shortPackage(analysisutil.CallPackage(common)), analysisutil.CallName(common))
+				reportf(pass, checkExitSkipsDefer, instruction.Pos(), "%s.%s exits without running an earlier defer", shortPackage(ssautil.CallPackage(common)), ssautil.CallName(common))
 			}
 		}
 		for _, successor := range state.block.Succs {
@@ -72,7 +72,7 @@ func exitsWithoutRunningDefers(common *ssa.CallCommon) bool {
 	if common == nil {
 		return false
 	}
-	packagePath, name := analysisutil.CallPackage(common), analysisutil.CallName(common)
+	packagePath, name := ssautil.CallPackage(common), ssautil.CallName(common)
 	if packagePath == "os" && name == "Exit" {
 		return true
 	}

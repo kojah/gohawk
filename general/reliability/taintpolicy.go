@@ -3,7 +3,7 @@ package reliability
 import (
 	"strings"
 
-	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -36,7 +36,7 @@ type taintPolicySettings struct {
 }
 
 func runTaintPolicy(pass *analysis.Pass, config taintPolicyConfig) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func taintSink(common *ssa.CallCommon, sinks map[string]bool) (string, string, [
 	if common == nil {
 		return "", "", nil
 	}
-	packagePath, name := analysisutil.CallPackage(common), analysisutil.CallName(common)
+	packagePath, name := ssautil.CallPackage(common), ssautil.CallName(common)
 	switch packagePath {
 	case "os":
 		if sinks["filesystem"] && filesystemSink(name) && len(common.Args) > 0 {
@@ -186,17 +186,17 @@ func taintedStoredValue(address ssa.Value, seen, memorySeen map[ssa.Value]bool, 
 }
 
 func taintSource(common *ssa.CallCommon) bool {
-	return analysisutil.CallPackage(common) == "os" && (analysisutil.CallName(common) == "Getenv" || analysisutil.CallName(common) == "LookupEnv")
+	return ssautil.CallPackage(common) == "os" && (ssautil.CallName(common) == "Getenv" || ssautil.CallName(common) == "LookupEnv")
 }
 
 func trustedSanitizer(common *ssa.CallCommon, configured map[string]bool) bool {
 	if common == nil || common.StaticCallee() == nil || common.StaticCallee().Pkg == nil {
 		return false
 	}
-	qualified := analysisutil.CallPackage(common) + "." + analysisutil.CallName(common)
+	qualified := ssautil.CallPackage(common) + "." + ssautil.CallName(common)
 	if configured[qualified] {
 		return true
 	}
-	name := strings.ToLower(analysisutil.CallName(common))
+	name := strings.ToLower(ssautil.CallName(common))
 	return strings.Contains(name, "validate") || strings.Contains(name, "sanitize") || strings.Contains(name, "escape") || strings.Contains(name, "confine")
 }

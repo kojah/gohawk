@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -22,12 +23,12 @@ func blockingTestAnalyzer() *analysis.Analyzer {
 }
 
 func runBlockingTest(pass *analysis.Pass) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
 	for _, function := range functions {
-		file := analysisutil.FunctionFile(pass, function)
+		file := ssautil.FunctionFile(pass, function)
 		if file == nil || !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
 			continue
 		}
@@ -57,14 +58,14 @@ func runBlockingTest(pass *analysis.Pass) (any, error) {
 func closedBefore(function *ssa.Function, channel ssa.Value, receive ssa.Instruction) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := analysisutil.InstructionCall(instruction)
-			if common == nil || analysisutil.CallName(common) != analysisutil.BuiltinClose || len(common.Args) != 1 || !analysisutil.AliasesValue(common.Args[0], channel) {
+			common := ssautil.InstructionCall(instruction)
+			if common == nil || ssautil.CallName(common) != analysisutil.BuiltinClose || len(common.Args) != 1 || !ssautil.AliasesValue(common.Args[0], channel) {
 				continue
 			}
 			if block != receive.Block() && block.Dominates(receive.Block()) {
 				return true
 			}
-			if block == receive.Block() && analysisutil.InstructionIndex(instruction) < analysisutil.InstructionIndex(receive) {
+			if block == receive.Block() && ssautil.InstructionIndex(instruction) < ssautil.InstructionIndex(receive) {
 				return true
 			}
 		}
@@ -97,8 +98,8 @@ func selectHasCancellation(selection *ssa.Select) bool {
 
 func cancellationChannel(value ssa.Value) bool {
 	return valueGraphHasCall(value, func(common *ssa.CallCommon) bool {
-		receiver := analysisutil.CallReceiver(common)
-		return analysisutil.CallName(common) == "Done" && receiver != nil && analysisutil.NamedType(receiver.Type(), "context", "Context")
+		receiver := ssautil.CallReceiver(common)
+		return ssautil.CallName(common) == "Done" && receiver != nil && analysisutil.NamedType(receiver.Type(), "context", "Context")
 	}, map[ssa.Value]bool{})
 }
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -22,7 +23,7 @@ func cancellationOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 func runCancellationOwnership(pass *analysis.Pass) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +47,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				// transfers the obligation. Reassigned captured locals are included;
 				// Prometheus installs its current cancel in a scraper callback:
 				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/scrape/scrape_test.go#L1294-L1315
-				if analysisutil.UnownedReturn(call, func(candidate ssa.Instruction) bool {
+				if ssautil.UnownedReturn(call, func(candidate ssa.Instruction) bool {
 					return callsCancel(candidate, cancel)
 				}, func(returned *ssa.Return) bool {
 					return returnedValueAliases(returned, cancel)
@@ -72,7 +73,7 @@ type cancellationContract struct {
 }
 
 func cancellationContractFor(common *ssa.CallCommon) (cancellationContract, bool) {
-	packagePath, name := analysisutil.CallPackage(common), analysisutil.CallName(common)
+	packagePath, name := ssautil.CallPackage(common), ssautil.CallName(common)
 	if packagePath == "context" && strings.HasPrefix(name, "With") {
 		return cancellationContract{packagePath: packagePath, name: name, result: 1}, true
 	}
@@ -126,24 +127,24 @@ func cancelInvocation(name, constructor string) string {
 }
 
 func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
-	if analysisutil.ClosureCallsValue(instruction, cancel) || analysisutil.ClosureOwnsValue(instruction, cancel) || analysisutil.StoresValueInField(instruction, cancel) || analysisutil.StoresValueInGlobal(instruction, cancel) || analysisutil.StoresOwnerOfValueInField(instruction, cancel) || analysisutil.StoresValueInOwnedMap(instruction, cancel) || analysisutil.CallReturnsDeferredCleanup(instruction, cancel) {
+	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) {
 		return true
 	}
-	common := analysisutil.InstructionCall(instruction)
+	common := ssautil.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
-	if analysisutil.AliasesValue(common.Value, cancel) {
+	if ssautil.AliasesValue(common.Value, cancel) {
 		return true
 	}
-	name := strings.ToLower(analysisutil.CallName(common))
+	name := strings.ToLower(ssautil.CallName(common))
 	// Cleanup registrars own callbacks they receive, while Add/Register-style
 	// APIs commonly store a cancellation function for a longer-lived owner.
 	// Kubernetes uses both ginkgo.DeferCleanup and AddPodInPreBind this way.
 	registersCallback := strings.Contains(name, "cleanup") || strings.Contains(name, "afterfunc")
 	registersCancel := strings.HasPrefix(name, "add") || strings.Contains(name, "register") || strings.Contains(name, "track") || strings.Contains(name, "own")
 	for _, argument := range common.Args {
-		if registersCallback && analysisutil.ValueCallsValue(argument, cancel) || registersCancel && analysisutil.AliasesValue(argument, cancel) {
+		if registersCallback && ssautil.ValueCallsValue(argument, cancel) || registersCancel && ssautil.AliasesValue(argument, cancel) {
 			return true
 		}
 	}
@@ -151,7 +152,7 @@ func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
 		return false
 	}
 	for _, argument := range common.Args {
-		if analysisutil.AliasesValue(argument, cancel) {
+		if ssautil.AliasesValue(argument, cancel) {
 			return true
 		}
 	}

@@ -1,9 +1,10 @@
-package analysisutil
+package ssautil
 
 import (
 	"go/ast"
 	"go/types"
 
+	"github.com/kojah/gohawk/analysisutil"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -20,7 +21,7 @@ func collectValueSources(value ssa.Value, sources, seen map[ssa.Value]bool) {
 		return
 	}
 	seen[value] = true
-	if IsErrorType(value.Type()) {
+	if analysisutil.IsErrorType(value.Type()) {
 		sources[value] = true
 	}
 	switch typed := value.(type) {

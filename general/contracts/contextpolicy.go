@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -31,7 +32,7 @@ type contextPolicyConfig struct {
 }
 
 func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +107,7 @@ func reportNilSSAContextArguments(pass *analysis.Pass, call *ssa.Call) {
 		if argumentIndex >= len(common.Args) {
 			break
 		}
-		if analysisutil.NamedType(signature.Params().At(index).Type(), "context", "Context") && analysisutil.DefinitelyNil(common.Args[argumentIndex]) {
+		if analysisutil.NamedType(signature.Params().At(index).Type(), "context", "Context") && ssautil.DefinitelyNil(common.Args[argumentIndex]) {
 			reportf(pass, checkContextNilArgument, call.Pos(), "do not pass nil context.Context")
 		}
 	}

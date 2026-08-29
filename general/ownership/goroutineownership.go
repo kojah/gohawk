@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -39,7 +40,7 @@ const (
 )
 
 func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +71,7 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				if matchingCountedJoin(function, spawn, signals) {
 					continue
 				}
-				if analysisutil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
+				if ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
 					if joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) {
 						return true
 					}
@@ -138,7 +139,7 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 	for _, send := range sends {
 		sendCount := 0
 		for _, candidate := range sends {
-			if analysisutil.AliasesValue(candidate.channel, send.channel) && producerSendsCanCooccur(send, candidate) {
+			if ssautil.AliasesValue(candidate.channel, send.channel) && producerSendsCanCooccur(send, candidate) {
 				sendCount++
 			}
 		}
@@ -166,7 +167,7 @@ func instructionCanReach(from, to ssa.Instruction) bool {
 		return false
 	}
 	if from.Block() == to.Block() {
-		return analysisutil.InstructionIndex(from) < analysisutil.InstructionIndex(to)
+		return ssautil.InstructionIndex(from) < ssautil.InstructionIndex(to)
 	}
 	seen := map[*ssa.BasicBlock]bool{}
 	queue := slices.Clone(from.Block().Succs)
@@ -189,11 +190,11 @@ func spawnedValueAtCall(spawn *ssa.Go, function *ssa.Function, closure *ssa.Make
 	if closure != nil {
 		for index, free := range function.FreeVars {
 			if passedValueAliases(value, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) {
-				captured := analysisutil.CapturedBindingValue(closure.Bindings[index])
+				captured := ssautil.CapturedBindingValue(closure.Bindings[index])
 				// Keep the address when the first observed value is nil. The channel
 				// may be assigned only after an owner closure is created, as in
 				// Kubernetes test-server teardown paths.
-				if analysisutil.DefinitelyNil(captured) {
+				if ssautil.DefinitelyNil(captured) {
 					return closure.Bindings[index]
 				}
 				return captured
@@ -241,7 +242,7 @@ func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			created, ok := instruction.(*ssa.MakeChan)
-			if !ok || !analysisutil.CapturedBindingAliases(channel, created) {
+			if !ok || !ssautil.CapturedBindingAliases(channel, created) {
 				continue
 			}
 			size, ok := created.Size.(*ssa.Const)
@@ -256,13 +257,13 @@ func channelReceives(function *ssa.Function, channel ssa.Value) (count int, drai
 		for _, instruction := range block.Instrs {
 			switch candidate := instruction.(type) {
 			case *ssa.UnOp:
-				if candidate.Op == token.ARROW && analysisutil.AliasesValue(candidate.X, channel) {
+				if candidate.Op == token.ARROW && ssautil.AliasesValue(candidate.X, channel) {
 					count++
 					draining = draining || blockInCycle(block)
 				}
 			case *ssa.Select:
 				for _, state := range candidate.States {
-					if state.Dir == types.RecvOnly && analysisutil.AliasesValue(state.Chan, channel) {
+					if state.Dir == types.RecvOnly && ssautil.AliasesValue(state.Chan, channel) {
 						count++
 						draining = draining || blockInCycle(block)
 					}
@@ -298,7 +299,7 @@ func matchingCountedJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Va
 	}
 	for _, block := range function.Blocks {
 		joinBound := loopBound(function, block)
-		if joinBound == nil || !analysisutil.AliasesValue(spawnBound, joinBound) {
+		if joinBound == nil || !ssautil.AliasesValue(spawnBound, joinBound) {
 			continue
 		}
 		for _, instruction := range block.Instrs {
@@ -332,7 +333,7 @@ func loopBound(function *ssa.Function, body *ssa.BasicBlock) ssa.Value { //nolin
 	}
 	for _, candidate := range candidates {
 		if bound := loopComparisonBound(candidate, selected); bound != nil {
-			if call, ok := bound.(*ssa.Call); ok && analysisutil.CallName(call.Common()) == "len" && len(call.Common().Args) == 1 {
+			if call, ok := bound.(*ssa.Call); ok && ssautil.CallName(call.Common()) == "len" && len(call.Common().Args) == 1 {
 				return call.Common().Args[0]
 			}
 			return bound
@@ -423,7 +424,7 @@ func goroutineHasContextLifecycle(spawn *ssa.Go) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if contextValue(analysisutil.CapturedBindingValue(binding)) {
+		if contextValue(ssautil.CapturedBindingValue(binding)) {
 			return true
 		}
 	}
@@ -436,7 +437,7 @@ func contextValue(value ssa.Value) bool {
 
 func externallyOwnedLifecycle(owners []ssa.Value) bool {
 	for _, owner := range owners {
-		if analysisutil.ExternallyOwnedValue(owner) {
+		if ssautil.ExternallyOwnedValue(owner) {
 			return true
 		}
 	}
@@ -445,7 +446,7 @@ func externallyOwnedLifecycle(owners []ssa.Value) bool {
 
 func externallyOwnedJoin(signals, groups []ssa.Value) bool {
 	for _, value := range append(slices.Clone(signals), groups...) {
-		if analysisutil.ExternallyOwnedValue(value) {
+		if ssautil.ExternallyOwnedValue(value) {
 			// A goroutine that completes through a caller-owned channel or wait
 			// group transfers its join obligation across the call boundary.
 			return true
@@ -456,7 +457,7 @@ func externallyOwnedJoin(signals, groups []ssa.Value) bool {
 
 func goroutineLifecycleValues(spawn *ssa.Go) []ssa.Value {
 	var owners []ssa.Value
-	receiver := analysisutil.CallReceiver(spawn.Common())
+	receiver := ssautil.CallReceiver(spawn.Common())
 	if lifecycleOwner(receiver) {
 		owners = append(owners, receiver)
 	}
@@ -465,7 +466,7 @@ func goroutineLifecycleValues(spawn *ssa.Go) []ssa.Value {
 		return owners
 	}
 	for _, binding := range closure.Bindings {
-		value := analysisutil.CapturedBindingValue(binding)
+		value := ssautil.CapturedBindingValue(binding)
 		if lifecycleOwner(value) {
 			owners = append(owners, value)
 		}
@@ -538,7 +539,7 @@ func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
 		if !lifecycleOwner(owner) {
 			continue
 		}
-		if analysisutil.AliasesValue(analysisutil.CallReceiver(spawn.Common()), owner) {
+		if ssautil.AliasesValue(ssautil.CallReceiver(spawn.Common()), owner) {
 			return true
 		}
 		closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
@@ -546,7 +547,7 @@ func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
 			continue
 		}
 		for _, binding := range closure.Bindings {
-			if analysisutil.AliasesValue(analysisutil.CapturedBindingValue(binding), owner) {
+			if ssautil.AliasesValue(ssautil.CapturedBindingValue(binding), owner) {
 				return true
 			}
 		}
@@ -568,13 +569,13 @@ func lifecycleOwner(value ssa.Value) bool {
 }
 
 func ownsGoroutineLifecycle(instruction ssa.Instruction, owners []ssa.Value) bool {
-	common := analysisutil.InstructionCall(instruction)
-	if common != nil && lifecycleMethod(analysisutil.CallName(common)) && aliasesAny(analysisutil.CallReceiver(common), owners) {
+	common := ssautil.InstructionCall(instruction)
+	if common != nil && lifecycleMethod(ssautil.CallName(common)) && aliasesAny(ssautil.CallReceiver(common), owners) {
 		return true
 	}
 	for _, owner := range owners {
 		for _, method := range []string{"Close", "Kill", "Shutdown", "Stop", "Wait"} {
-			if analysisutil.DeferredClosureCalls(instruction, method, owner) {
+			if ssautil.DeferredClosureCalls(instruction, method, owner) {
 				return true
 			}
 		}
@@ -583,12 +584,12 @@ func ownsGoroutineLifecycle(instruction ssa.Instruction, owners []ssa.Value) boo
 }
 
 func waitsForLifecycleOwner(instruction ssa.Instruction, owners []ssa.Value) bool {
-	common := analysisutil.InstructionCall(instruction)
-	if common != nil && analysisutil.CallName(common) == "Wait" && aliasesAny(analysisutil.CallReceiver(common), owners) {
+	common := ssautil.InstructionCall(instruction)
+	if common != nil && ssautil.CallName(common) == "Wait" && aliasesAny(ssautil.CallReceiver(common), owners) {
 		return true
 	}
 	for _, owner := range owners {
-		if analysisutil.DeferredClosureCalls(instruction, "Wait", owner) {
+		if ssautil.DeferredClosureCalls(instruction, "Wait", owner) {
 			return true
 		}
 	}
@@ -605,7 +606,7 @@ func lifecycleMethod(name string) bool {
 }
 
 func ownershipRegisteredBefore(spawn *ssa.Go, signals, groups []ssa.Value) bool {
-	index := analysisutil.InstructionIndex(spawn)
+	index := ssautil.InstructionIndex(spawn)
 	if index < 0 {
 		return false
 	}
@@ -621,8 +622,8 @@ func ownershipRegisteredBefore(spawn *ssa.Go, signals, groups []ssa.Value) bool 
 			if _, deferred := instruction.(*ssa.Defer); deferred && callReceivesAny(instruction, signals) {
 				return true
 			}
-			common := analysisutil.InstructionCall(instruction)
-			name := strings.ToLower(analysisutil.CallName(common))
+			common := ssautil.InstructionCall(instruction)
+			name := strings.ToLower(ssautil.CallName(common))
 			if common == nil || !ownershipRegistrationName(name) {
 				continue
 			}
@@ -644,19 +645,19 @@ func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, o
 	values := append(slices.Clone(signals), groups...)
 	values = append(values, owners...)
 	for _, value := range values {
-		if analysisutil.StoresValueInField(instruction, value) || analysisutil.StoresOwnerOfValueInField(instruction, value) || analysisutil.StoresValueInOwnedMap(instruction, value) || analysisutil.CallTransfersValueToField(instruction, value) {
+		if ssautil.StoresValueInField(instruction, value) || ssautil.StoresOwnerOfValueInField(instruction, value) || ssautil.StoresValueInOwnedMap(instruction, value) || ssautil.CallTransfersValueToField(instruction, value) {
 			return true
 		}
 	}
 	if _, ok := instruction.(*ssa.Go); ok {
 		for _, group := range groups {
-			if analysisutil.ClosureCallsMethod(instruction, "Wait", group) {
+			if ssautil.ClosureCallsMethod(instruction, "Wait", group) {
 				return true
 			}
 		}
 	}
-	common := analysisutil.InstructionCall(instruction)
-	if common == nil || !ownershipRegistrationName(strings.ToLower(analysisutil.CallName(common))) {
+	common := ssautil.InstructionCall(instruction)
+	if common == nil || !ownershipRegistrationName(strings.ToLower(ssautil.CallName(common))) {
 		return false
 	}
 	for _, argument := range common.Args {
@@ -689,17 +690,17 @@ func spawnedOwnershipValue(spawn *ssa.Go, function *ssa.Function, closure *ssa.M
 	if send, ok := instruction.(*ssa.Send); ok {
 		return spawnedValueAtCall(spawn, function, closure, send.Chan), nil
 	}
-	common := analysisutil.InstructionCall(instruction)
+	common := ssautil.InstructionCall(instruction)
 	if common == nil {
 		return nil, nil
 	}
-	switch analysisutil.CallName(common) {
+	switch ssautil.CallName(common) {
 	case analysisutil.BuiltinClose:
 		if len(common.Args) == 1 {
 			return spawnedValueAtCall(spawn, function, closure, common.Args[0]), nil
 		}
 	case "Done":
-		receiver := analysisutil.CallReceiver(common)
+		receiver := ssautil.CallReceiver(common)
 		if receiver != nil && analysisutil.NamedType(receiver.Type(), "sync", "WaitGroup") {
 			return nil, spawnedValueAtCall(spawn, function, closure, receiver)
 		}
@@ -721,14 +722,14 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 			}
 		}
 	}
-	common := analysisutil.InstructionCall(instruction)
+	common := ssautil.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
-	if analysisutil.CallName(common) == "Wait" && aliasesAny(analysisutil.CallReceiver(common), groups) {
+	if ssautil.CallName(common) == "Wait" && aliasesAny(ssautil.CallReceiver(common), groups) {
 		return true
 	}
-	lower := strings.ToLower(analysisutil.CallName(common))
+	lower := strings.ToLower(ssautil.CallName(common))
 	if !strings.Contains(lower, "wait") && !strings.Contains(lower, "join") {
 		return false
 	}
@@ -744,7 +745,7 @@ func callReceivesAny(instruction ssa.Instruction, signals []ssa.Value) bool {
 	// Joining through a local helper closure is semantically the same as an
 	// inline receive. Chi uses this shape to collect every request worker:
 	// https://github.com/go-chi/chi/blob/36611d24579aaca3250ed9732e17e085c5026334/middleware/throttle_test.go#L282-L315
-	common := analysisutil.InstructionCall(instruction)
+	common := ssautil.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
@@ -769,7 +770,7 @@ func callReceivesAny(instruction ssa.Instruction, signals []ssa.Value) bool {
 	if closure != nil {
 		for _, binding := range closure.Bindings {
 			for _, signal := range signals {
-				usesSignal = usesSignal || analysisutil.CapturedBindingAliases(binding, signal)
+				usesSignal = usesSignal || ssautil.CapturedBindingAliases(binding, signal)
 			}
 		}
 	}
@@ -800,7 +801,7 @@ func callReceivesAny(instruction ssa.Instruction, signals []ssa.Value) bool {
 				for index, free := range function.FreeVars {
 					if closure != nil && passedValueAliases(channel, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) {
 						for _, signal := range signals {
-							if analysisutil.CapturedBindingAliases(closure.Bindings[index], signal) {
+							if ssautil.CapturedBindingAliases(closure.Bindings[index], signal) {
 								return true
 							}
 						}
@@ -836,10 +837,10 @@ func valueReceivesAny(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]b
 				if nested, ok := instruction.(*ssa.MakeClosure); ok && valueReceivesAny(nested, signals, seen) {
 					return true
 				}
-				common := analysisutil.InstructionCall(instruction)
+				common := ssautil.InstructionCall(instruction)
 				if common != nil {
 					for index, free := range function.FreeVars {
-						if index < len(typed.Bindings) && analysisutil.AliasesValue(common.Value, free) && valueReceivesAny(typed.Bindings[index], signals, seen) {
+						if index < len(typed.Bindings) && ssautil.AliasesValue(common.Value, free) && valueReceivesAny(typed.Bindings[index], signals, seen) {
 							return true
 						}
 					}
@@ -863,7 +864,7 @@ func valueReceivesAny(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]b
 							continue
 						}
 						for _, signal := range signals {
-							if analysisutil.CapturedBindingAliases(typed.Bindings[index], signal) {
+							if ssautil.CapturedBindingAliases(typed.Bindings[index], signal) {
 								return true
 							}
 						}
@@ -877,7 +878,7 @@ func valueReceivesAny(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]b
 
 func aliasesAny(value ssa.Value, targets []ssa.Value) bool {
 	for _, target := range targets {
-		if analysisutil.AliasesValue(value, target) {
+		if ssautil.AliasesValue(value, target) {
 			return true
 		}
 	}

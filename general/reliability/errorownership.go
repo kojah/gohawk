@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -23,13 +24,13 @@ func errorOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 func runErrorOwnership(pass *analysis.Pass) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
 	reportMismatchedInlineErrors(pass)
 	for _, function := range functions {
-		file := analysisutil.FunctionFile(pass, function)
+		file := ssautil.FunctionFile(pass, function)
 		if file == nil {
 			continue
 		}
@@ -111,30 +112,30 @@ func expressionUsesObject(pass *analysis.Pass, node ast.Node, object any) bool {
 }
 
 func loggingCall(common *ssa.CallCommon) bool {
-	name := analysisutil.CallName(common)
-	if analysisutil.CallPackage(common) == "log" {
+	name := ssautil.CallName(common)
+	if ssautil.CallPackage(common) == "log" {
 		return name == "Print" || name == "Printf" || name == "Println"
 	}
-	return analysisutil.CallPackage(common) == "log/slog" && (name == "Error" || name == "ErrorContext")
+	return ssautil.CallPackage(common) == "log/slog" && (name == "Error" || name == "ErrorContext")
 }
 
 func loggedErrorIsReturned(call *ssa.Call) bool {
 	var logged []ssa.Value
 	for _, argument := range call.Common().Args {
-		if len(analysisutil.ValueSources(argument)) > 0 {
+		if len(ssautil.ValueSources(argument)) > 0 {
 			logged = append(logged, argument)
 		}
 	}
 	if len(logged) == 0 {
 		return false
 	}
-	for _, returned := range analysisutil.ReachableReturns(call) {
+	for _, returned := range ssautil.ReachableReturns(call) {
 		for _, result := range returned.Results {
 			if !analysisutil.IsErrorType(result.Type()) {
 				continue
 			}
 			for _, argument := range logged {
-				if analysisutil.ValuesShareErrorSource(argument, result) {
+				if ssautil.ValuesShareErrorSource(argument, result) {
 					return true
 				}
 			}
@@ -144,10 +145,10 @@ func loggedErrorIsReturned(call *ssa.Call) bool {
 }
 
 func stringErrorClassificationSSA(call *ssa.Call) bool {
-	if analysisutil.CallPackage(call.Common()) != "strings" {
+	if ssautil.CallPackage(call.Common()) != "strings" {
 		return false
 	}
-	switch analysisutil.CallName(call.Common()) {
+	switch ssautil.CallName(call.Common()) {
 	case "Contains", "HasPrefix", "HasSuffix", "EqualFold":
 	default:
 		return false
@@ -167,8 +168,8 @@ func containsErrorTextCall(value ssa.Value, seen map[ssa.Value]bool) bool {
 	seen[value] = true
 	if call, ok := value.(*ssa.Call); ok {
 		common := call.Common()
-		receiver := analysisutil.CallReceiver(common)
-		if analysisutil.CallName(common) == "Error" && receiver != nil && analysisutil.IsErrorType(receiver.Type()) {
+		receiver := ssautil.CallReceiver(common)
+		if ssautil.CallName(common) == "Error" && receiver != nil && analysisutil.IsErrorType(receiver.Type()) {
 			return true
 		}
 	}

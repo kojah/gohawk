@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -23,12 +24,12 @@ func testPolicyAnalyzer() *analysis.Analyzer {
 }
 
 func runTestPolicy(pass *analysis.Pass) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
 	for _, function := range functions {
-		file := analysisutil.FunctionFile(pass, function)
+		file := ssautil.FunctionFile(pass, function)
 		if file == nil || !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") || testEntryPoint(function.Name()) {
 			continue
 		}
@@ -36,9 +37,9 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 		if handle == nil {
 			continue
 		}
-		if analysisutil.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
-			common := analysisutil.InstructionCall(instruction)
-			return analysisutil.CallName(common) == "Helper" && analysisutil.AliasesValue(analysisutil.CallReceiver(common), handle)
+		if ssautil.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
+			common := ssautil.InstructionCall(instruction)
+			return ssautil.CallName(common) == "Helper" && ssautil.AliasesValue(ssautil.CallReceiver(common), handle)
 		}) {
 			source := analysisutil.SourceRange(pass, function.Pos())
 			report(pass, checkTestHelperMarker, analysis.Diagnostic{
@@ -87,8 +88,8 @@ func testHelperFix(pass *analysis.Pass, function *ssa.Function, handle *ssa.Para
 func hasHelperCall(function *ssa.Function, handle *ssa.Parameter) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := analysisutil.InstructionCall(instruction)
-			if analysisutil.CallName(common) == "Helper" && analysisutil.AliasesValue(analysisutil.CallReceiver(common), handle) {
+			common := ssautil.InstructionCall(instruction)
+			if ssautil.CallName(common) == "Helper" && ssautil.AliasesValue(ssautil.CallReceiver(common), handle) {
 				return true
 			}
 		}

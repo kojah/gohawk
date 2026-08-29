@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -51,7 +52,7 @@ func lockOrderAnalyzer() *analysis.Analyzer {
 }
 
 func runLockOrder(pass *analysis.Pass) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +103,7 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			if _, ok := instruction.(*ssa.Go); ok {
 				for _, identity := range slices.Clone(held) {
 					for _, value := range lockValues[identity] {
-						if analysisutil.ClosureCallsMethodBeforeBranch(instruction, "Unlock", value) || analysisutil.ClosureCallsMethodBeforeBranch(instruction, "RUnlock", value) {
+						if ssautil.ClosureCallsMethodBeforeBranch(instruction, "Unlock", value) || ssautil.ClosureCallsMethodBeforeBranch(instruction, "RUnlock", value) {
 							released[identity] = true
 							held = releaseLock(held, identity)
 							delete(guards, identity)
@@ -118,9 +119,9 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			if _, ok := instruction.(*ssa.Defer); ok {
 				for _, identity := range slices.Clone(held) {
 					for _, value := range lockValues[identity] {
-						common := analysisutil.InstructionCall(instruction)
-						if analysisutil.DeferredClosureCalls(instruction, "Unlock", value) || analysisutil.DeferredClosureCalls(instruction, "RUnlock", value) ||
-							common != nil && (analysisutil.ValueCallsMethod(common.Value, "Unlock", value) || analysisutil.ValueCallsMethod(common.Value, "RUnlock", value)) {
+						common := ssautil.InstructionCall(instruction)
+						if ssautil.DeferredClosureCalls(instruction, "Unlock", value) || ssautil.DeferredClosureCalls(instruction, "RUnlock", value) ||
+							common != nil && (ssautil.ValueCallsMethod(common.Value, "Unlock", value) || ssautil.ValueCallsMethod(common.Value, "RUnlock", value)) {
 							released[identity] = true
 							deferred = append(deferred, identity)
 							break
@@ -253,7 +254,7 @@ func appendUniquePosition(positions []token.Pos, candidate token.Pos) []token.Po
 func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
 	for _, result := range returned.Results {
 		for _, value := range values {
-			if analysisutil.ValueCallsMethod(result, "Unlock", value) || analysisutil.ValueCallsMethod(result, "RUnlock", value) {
+			if ssautil.ValueCallsMethod(result, "Unlock", value) || ssautil.ValueCallsMethod(result, "RUnlock", value) {
 				return true
 			}
 		}
@@ -295,11 +296,11 @@ func releaseLock(held []string, identity string) []string {
 }
 
 func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value, bool) {
-	common := analysisutil.InstructionCall(instruction)
+	common := ssautil.InstructionCall(instruction)
 	if common == nil {
 		return 0, "", nil, false
 	}
-	name := analysisutil.CallName(common)
+	name := ssautil.CallName(common)
 	var operation mutexOperation
 	switch name {
 	case "Lock", "RLock":
@@ -309,7 +310,7 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value
 	default:
 		return 0, "", nil, false
 	}
-	receiver := analysisutil.CallReceiver(common)
+	receiver := ssautil.CallReceiver(common)
 	receiver = concreteMutexReceiver(receiver, map[ssa.Value]bool{})
 	if receiver == nil {
 		return 0, "", nil, false
@@ -353,7 +354,7 @@ func concreteMutexReceiver(value ssa.Value, seen map[ssa.Value]bool) ssa.Value {
 
 func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
 	for _, value := range values {
-		if analysisutil.AliasesValue(value, candidate) {
+		if ssautil.AliasesValue(value, candidate) {
 			return values
 		}
 	}

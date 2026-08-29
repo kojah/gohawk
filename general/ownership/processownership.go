@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -21,7 +22,7 @@ func processOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 func runProcessOwnership(pass *analysis.Pass) (any, error) {
-	functions, err := analysisutil.SourceSSAFunctions(pass)
+	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -29,10 +30,10 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, ok := instruction.(*ssa.Call)
-				if !ok || analysisutil.CallName(start.Common()) != "Start" || !execCommandValue(analysisutil.CallReceiver(start.Common())) {
+				if !ok || ssautil.CallName(start.Common()) != "Start" || !execCommandValue(ssautil.CallReceiver(start.Common())) {
 					continue
 				}
-				command := analysisutil.CallReceiver(start.Common())
+				command := ssautil.CallReceiver(start.Common())
 				// A helper returning *exec.Cmd may already have registered cleanup
 				// or wait ownership. Without interprocedural evidence either way,
 				// reporting here would trade precision for recall. containerd wraps
@@ -43,7 +44,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				}
 				// Caller retains a parameter command after this helper returns, so
 				// helper-local Start does not transfer caller's Wait responsibility.
-				if aliasesAny(command, parameterValues(function.Params)) || analysisutil.ExternallyOwnedValue(command) {
+				if aliasesAny(command, parameterValues(function.Params)) || ssautil.ExternallyOwnedValue(command) {
 					continue
 				}
 				// Cleanup may be registered before Start. This is common when a
@@ -52,12 +53,12 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				if processOwnershipDominatesStart(function, start, command) {
 					continue
 				}
-				if analysisutil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
+				if ssautil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
 					return processOwnershipAction(candidate, command)
 				}, func(returned *ssa.Return) bool {
 					// Returning an aggregate that contains the command transfers Wait
 					// responsibility just as directly as returning *exec.Cmd itself.
-					return startFailureReturn(returned, start) || analysisutil.ReturnedValueOwnsValue(returned, command)
+					return startFailureReturn(returned, start) || ssautil.ReturnedValueOwnsValue(returned, command)
 				}) {
 					reportf(pass, checkProcessWait, start.Pos(), "started command is not waited on every successful return path")
 				}
@@ -68,7 +69,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 }
 
 func processOwnershipDominatesStart(function *ssa.Function, start *ssa.Call, command ssa.Value) bool {
-	startIndex := analysisutil.InstructionIndex(start)
+	startIndex := ssautil.InstructionIndex(start)
 	for _, block := range function.Blocks {
 		if !block.Dominates(start.Block()) {
 			continue
@@ -78,7 +79,7 @@ func processOwnershipDominatesStart(function *ssa.Function, start *ssa.Call, com
 			limit = startIndex
 		}
 		for _, instruction := range block.Instrs[:limit] {
-			if analysisutil.DeferredClosureCalls(instruction, "Wait", command) || analysisutil.ClosureCapturesValue(instruction, command) {
+			if ssautil.DeferredClosureCalls(instruction, "Wait", command) || ssautil.ClosureCapturesValue(instruction, command) {
 				return true
 			}
 		}
@@ -87,15 +88,15 @@ func processOwnershipDominatesStart(function *ssa.Function, start *ssa.Call, com
 }
 
 func processOwnershipAction(instruction ssa.Instruction, command ssa.Value) bool {
-	common := analysisutil.InstructionCall(instruction)
+	common := ssautil.InstructionCall(instruction)
 	return waitsForCommand(instruction, command) ||
-		analysisutil.DeferredClosureCalls(instruction, "Wait", command) ||
-		analysisutil.ClosureCallsMethod(instruction, "Wait", command) ||
-		analysisutil.ClosureCapturesValue(instruction, command) ||
-		analysisutil.StoresValueInField(instruction, command) ||
-		analysisutil.StoresOwnerOfValueInField(instruction, command) ||
-		analysisutil.CallTransfersValueToField(instruction, command) ||
-		analysisutil.CallPackage(common) == "os" && analysisutil.CallName(common) == "Exit"
+		ssautil.DeferredClosureCalls(instruction, "Wait", command) ||
+		ssautil.ClosureCallsMethod(instruction, "Wait", command) ||
+		ssautil.ClosureCapturesValue(instruction, command) ||
+		ssautil.StoresValueInField(instruction, command) ||
+		ssautil.StoresOwnerOfValueInField(instruction, command) ||
+		ssautil.CallTransfersValueToField(instruction, command) ||
+		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Exit"
 }
 
 func commandReturnedByHelper(command ssa.Value) bool {
@@ -109,7 +110,7 @@ func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) boo
 	seen[command] = true
 	switch typed := command.(type) {
 	case *ssa.Call:
-		return analysisutil.CallPackage(typed.Common()) != "os/exec"
+		return ssautil.CallPackage(typed.Common()) != "os/exec"
 	case *ssa.ChangeInterface:
 		return commandReturnedByHelperSeen(typed.X, seen)
 	case *ssa.ChangeType:
@@ -155,19 +156,19 @@ func execCommandValue(value ssa.Value) bool {
 }
 
 func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
-	common := analysisutil.InstructionCall(instruction)
+	common := ssautil.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
-	if analysisutil.CallName(common) == "Wait" && analysisutil.AliasesValue(analysisutil.CallReceiver(common), command) {
+	if ssautil.CallName(common) == "Wait" && ssautil.AliasesValue(ssautil.CallReceiver(common), command) {
 		return true
 	}
-	lower := strings.ToLower(analysisutil.CallName(common))
+	lower := strings.ToLower(ssautil.CallName(common))
 	if !strings.Contains(lower, "wait") && !strings.Contains(lower, "join") {
 		return false
 	}
 	for _, argument := range common.Args {
-		if analysisutil.AliasesValue(argument, command) {
+		if ssautil.AliasesValue(argument, command) {
 			return true
 		}
 	}
