@@ -1,6 +1,4 @@
 ---
-import { Badge } from '@astrojs/starlight/components';
-
 interface Props {
 	profile: string;
 }
@@ -8,22 +6,16 @@ interface Props {
 const { profile } = Astro.props;
 ---
 
-<span class="check-profile">
-	<Badge
-		text={profile}
-		variant={profile === 'opt-in' ? 'caution' : 'success'}
-		size="small"
-	/>
-</span>
+<span class="check-profile">{profile}</span>
 
 <style>
 	.check-profile {
-		display: inline-flex;
-		vertical-align: top;
-	}
-
-	.check-profile :global(.sl-badge) {
-		overflow-wrap: normal;
+		display: inline-block;
+		font-family: var(--sl-font-mono);
+		font-size: var(--sl-text-xs);
+		line-height: 1.5;
+		color: var(--sl-color-gray-2);
 		white-space: nowrap;
+		vertical-align: top;
 	}
 </style>

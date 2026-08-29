@@ -454,11 +454,11 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	}
 
 	.sl-markdown-content h3#checks + table th:first-child {
-		width: 34%;
+		width: 32%;
 	}
 
 	.sl-markdown-content h3#checks + table th:nth-child(2) {
-		width: 41%;
+		width: 39%;
 	}
 
 	.sl-markdown-content h3#checks + table th:nth-child(3) {
@@ -466,7 +466,7 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	}
 
 	.sl-markdown-content h3#checks + table th:nth-child(4) {
-		width: 15%;
+		width: 19%;
 	}
 }
 
