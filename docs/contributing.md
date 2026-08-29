@@ -5,6 +5,19 @@ sidebar:
   order: 3
 ---
 
+## Want to add an analyzer?
+
+Before getting started, consider a few questions:
+
+1. Does the analyzer catch a correctness or reliability issue, or is it mainly
+   enforcing an opinionated style preference?
+2. Does a popular Go linter already provide the same check?
+3. How much noise or how many false positives is it likely to create in real
+   codebases?
+4. If possible, can you link to real-world bugs the analyzer would have caught,
+   either in your own code or in other Go projects? This evidence is optional,
+   but it helps demonstrate the check's value and shape realistic test cases.
+
 ## Adding an analyzer
 
 An analyzer should report a real problem that a developer can act on. gohawk
