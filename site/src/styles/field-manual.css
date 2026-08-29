@@ -430,8 +430,9 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	color: var(--sl-color-gray-2);
 }
 
-/* Check metadata is compact and indivisible. Give those columns their
-   intrinsic width and let the diagnostic summary use the remaining space. */
+/* Checks mix long stable IDs with prose and compact metadata. Fixed desktop
+   proportions keep intrinsic widths from squeezing the prose or escaping the
+   article column; Starlight's block table remains scrollable below this size. */
 .sl-markdown-content h3#checks + table {
 	width: 100%;
 	font-size: var(--sl-text-sm);
@@ -440,24 +441,32 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 .sl-markdown-content h3#checks + table :is(th, td) {
 	vertical-align: top;
 }
-
-.sl-markdown-content h3#checks + table :is(th, td):is(:first-child, :nth-child(3), :nth-child(4)) {
-	width: 1%;
-	white-space: nowrap;
-}
-
-.sl-markdown-content h3#checks + table td:nth-child(2) {
-	width: 100%;
-}
-
 .sl-markdown-content h3#checks + table td:first-child code {
 	font-size: 0.88em;
-	white-space: nowrap;
+	overflow-wrap: break-word;
+	white-space: normal;
 }
 
 @media (min-width: 50rem) {
 	.sl-markdown-content h3#checks + table {
 		display: table;
+		table-layout: fixed;
+	}
+
+	.sl-markdown-content h3#checks + table th:first-child {
+		width: 34%;
+	}
+
+	.sl-markdown-content h3#checks + table th:nth-child(2) {
+		width: 41%;
+	}
+
+	.sl-markdown-content h3#checks + table th:nth-child(3) {
+		width: 10%;
+	}
+
+	.sl-markdown-content h3#checks + table th:nth-child(4) {
+		width: 15%;
 	}
 }
 
@@ -472,15 +481,6 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	vertical-align: top;
 }
 
-.sl-markdown-content h2#options + table :is(th, td):is(:first-child, :nth-child(2)) {
-	width: 1%;
-	white-space: nowrap;
-}
-
-.sl-markdown-content h2#options + table td:nth-child(3) {
-	width: 100%;
-}
-
 .sl-markdown-content h2#options + table :is(td:first-child, td:nth-child(2)) code {
 	font-size: 0.88em;
 	white-space: nowrap;
@@ -489,6 +489,19 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 @media (min-width: 50rem) {
 	.sl-markdown-content h2#options + table {
 		display: table;
+		table-layout: fixed;
+	}
+
+	.sl-markdown-content h2#options + table th:first-child {
+		width: 27%;
+	}
+
+	.sl-markdown-content h2#options + table th:nth-child(2) {
+		width: 28%;
+	}
+
+	.sl-markdown-content h2#options + table th:nth-child(3) {
+		width: 45%;
 	}
 }
 
