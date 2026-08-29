@@ -3,3 +3,11 @@ coverage-summary.out
 site/.agentation-runtime/
 benchmark-results/
 .build/
+
+# Go tooling
+*.test
+*.prof
+*.pprof
+
+# OS metadata
+.DS_Store
