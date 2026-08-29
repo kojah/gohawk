@@ -1,4 +1,6 @@
-<img src="site/public/gohawk-logo.png" alt="gohawk logo: a hawk sheltering the Go gopher" width="280">
+<p align="center">
+  <img src="site/public/gohawk-logo.png" alt="gohawk logo: a hawk sheltering the Go gopher" width="400">
+</p>
 
 # gohawk
 
