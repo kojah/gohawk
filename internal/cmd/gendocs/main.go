@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"html"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -15,7 +16,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/kojah/gohawk"
+	gohawk "github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/docexamples"
 )
 
@@ -43,6 +44,8 @@ type analyzer struct {
 	Name         string          `json:"name"`
 	Summary      string          `json:"summary"`
 	Path         string          `json:"path"`
+	Profile      string          `json:"profile"`
+	Tags         []string        `json:"tags"`
 	SuggestedFix bool            `json:"suggestedFix"`
 	Options      []optionFlag    `json:"options"`
 	Examples     docexamples.Set `json:"-"`
@@ -96,17 +99,6 @@ func synchronize(root string, check bool) error {
 	expectedPages := make(map[string]bool)
 	updates := make(map[string][]byte)
 	for _, group := range data.Groups {
-		groupIndex := filepath.Join(root, "docs", "analyzers", group.Slug, "index.md")
-		contents, err := os.ReadFile(groupIndex)
-		if err != nil {
-			return fmt.Errorf("read group page %s: %w", relativePath(root, groupIndex), err)
-		}
-		contents, err = replaceGeneratedBlock(contents, generatedAnalyzersStart, generatedAnalyzersEnd, groupTable(group, false))
-		if err != nil {
-			return fmt.Errorf("update %s: %w", relativePath(root, groupIndex), err)
-		}
-		updates[groupIndex] = contents
-
 		for _, analyzer := range group.Analyzers {
 			page := filepath.Join(root, "docs", filepath.FromSlash(analyzer.Path+".md"))
 			expectedPages[page] = true
@@ -180,6 +172,8 @@ func collectManifest(root string) (manifest, error) {
 				Name:         registered.Name,
 				Summary:      sentence(registered.Doc),
 				Path:         "analyzers/" + group.Slug + "/" + registered.Name,
+				Profile:      string(info.Profile),
+				Tags:         tagStrings(info.Tags),
 				SuggestedFix: info.SuggestedFix,
 				Options:      []optionFlag{},
 			}
@@ -238,12 +232,26 @@ func synchronizeExamples(contents []byte, examples string) ([]byte, error) {
 }
 
 func examplesBlock(examples docexamples.Set) string {
-	metadata, err := json.Marshal(examples.Flagged.Diagnostics)
-	if err != nil {
-		panic(err)
+	var result strings.Builder
+	result.WriteString("### Flagged code\n")
+	for index, example := range examples.Flagged {
+		result.WriteString("\n")
+		if len(examples.Flagged) > 1 {
+			title := example.Title
+			if title == "" {
+				title = fmt.Sprintf("Case %d", index+1)
+			}
+			fmt.Fprintf(&result, "#### %s\n\n", title)
+		}
+		metadata, err := json.Marshal(example.Diagnostics)
+		if err != nil {
+			panic(err)
+		}
+		encoded := base64.RawURLEncoding.EncodeToString(metadata)
+		fmt.Fprintf(&result, "```go gohawk=\"%s\"\n%s\n```\n", encoded, example.Code)
 	}
-	encoded := base64.RawURLEncoding.EncodeToString(metadata)
-	return fmt.Sprintf("### Flagged\n\n```go gohawk=\"%s\"\n%s\n```\n\n### OK\n\n```go\n%s\n```", encoded, examples.Flagged.Code, examples.OK.Code)
+	fmt.Fprintf(&result, "\n### Accepted code\n\n```go\n%s\n```", examples.OK.Code)
+	return result.String()
 }
 
 func rejectUnknownPages(root string, expected map[string]bool) error {
@@ -306,32 +314,74 @@ func hasFrontmatterTitle(contents []byte, title string) bool {
 	return false
 }
 
+// groupIntros carries each group's one-sentence introduction, shown under its
+// heading on the catalog page. Keyed by group name.
+var groupIntros = map[string]string{
+	"contracts":   "These analyzers make contracts visible in Go types and APIs, where callers and tools can rely on them.",
+	"ownership":   "These analyzers look for work or resources whose owner cannot be identified on every relevant path.",
+	"reliability": "These analyzers cover failure modes that often survive ordinary type checking and code review.",
+	"testing":     "These analyzers keep test failures bounded and make helper behavior visible at the call site.",
+}
+
 func analyzerIndex(data manifest) string {
 	var output strings.Builder
 	output.WriteString("---\ntitle: Analyzers\ndescription: The gohawk analyzer catalog, generated from the registered Go analyzers.\n---\n\n")
 	output.WriteString("<!-- Run go generate ./... to update this page; do not edit it by hand. -->\n\n")
 	output.WriteString("gohawk ships a focused set of analyzers rather than a general-purpose lint\n")
-	output.WriteString("catalog. Every analyzer is enabled by default; select individual analyzers when\n")
-	output.WriteString("you want a narrower run.\n")
+	output.WriteString("catalog.\n")
 	for _, group := range data.Groups {
 		fmt.Fprintf(&output, "\n## %s\n\n", group.Title)
-		output.WriteString(groupTable(group, true))
+		if intro := groupIntros[group.Name]; intro != "" {
+			output.WriteString(intro + "\n\n")
+		}
+		output.WriteString(groupCards(group))
 		output.WriteByte('\n')
 	}
 	return output.String()
 }
 
-func groupTable(group group, includeGroup bool) string {
+// groupCards renders a group's analyzers as a grid of linked cards. The output
+// is raw HTML because Markdown tables cannot carry the card layout; anything
+// inside it is therefore escaped here rather than by the Markdown renderer.
+func groupCards(group group) string {
 	var output strings.Builder
-	output.WriteString("| Analyzer | What it catches |\n| --- | --- |\n")
+	output.WriteString(`<div class="analyzer-grid">` + "\n")
 	for _, analyzer := range group.Analyzers {
-		link := analyzer.Name + "/"
-		if includeGroup {
-			link = group.Slug + "/" + link
+		link := group.Slug + "/" + analyzer.Name + "/"
+		fmt.Fprintf(&output, "  "+`<a class="analyzer-card" href="%s">`+"\n", html.EscapeString(link))
+		fmt.Fprintf(&output, "    "+`<span class="analyzer-name">%s</span>`+"\n", html.EscapeString(analyzer.Name))
+		fmt.Fprintf(&output, "    "+`<span class="analyzer-detects">%s</span>`+"\n", inlineCode(analyzer.Summary))
+		output.WriteString("    " + `<span class="analyzer-card-meta">` + "\n")
+		for _, tag := range analyzer.Tags {
+			fmt.Fprintf(&output, "      "+`<span class="analyzer-tag">%s</span>`+"\n", html.EscapeString(tag))
 		}
-		fmt.Fprintf(&output, "| [`%s`](%s) | %s |\n", analyzer.Name, link, analyzer.Summary)
+		output.WriteString("    </span>\n")
+		output.WriteString("  </a>\n")
 	}
-	return strings.TrimSuffix(output.String(), "\n")
+	output.WriteString("</div>")
+	return output.String()
+}
+
+func tagStrings(tags []gohawk.AnalyzerTag) []string {
+	values := make([]string, len(tags))
+	for index, tag := range tags {
+		values[index] = string(tag)
+	}
+	return values
+}
+
+// inlineCode escapes text for HTML and renders `backtick` spans as code, which
+// the Markdown renderer would otherwise leave alone inside a raw HTML block.
+func inlineCode(text string) string {
+	var output strings.Builder
+	for index, segment := range strings.Split(text, "`") {
+		if index%2 == 1 {
+			output.WriteString("<code>" + html.EscapeString(segment) + "</code>")
+			continue
+		}
+		output.WriteString(html.EscapeString(segment))
+	}
+	return output.String()
 }
 
 func optionsTable(options []optionFlag) string {

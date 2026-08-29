@@ -33,6 +33,10 @@ type channelPolicyConfig struct {
 }
 
 func runChannelPolicy(pass *analysis.Pass, config channelPolicyConfig) (any, error) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
 	for _, file := range pass.Files {
 		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
@@ -44,7 +48,7 @@ func runChannelPolicy(pass *analysis.Pass, config channelPolicyConfig) (any, err
 			return true
 		})
 	}
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	for _, function := range functions {
 		checkSSAChannelOwnership(pass, function, config)
 	}
 	return nil, nil

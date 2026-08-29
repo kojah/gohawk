@@ -21,3 +21,9 @@ gohawk diagnostic is actionable.
 
 The `analysisutil` package is intentionally unsupported and undocumented for
 external consumers. It is exposed only for Veritas's current integration.
+
+## Documentation website
+
+Use `pnpm dev:review` from `site/` when testing the documentation website. It
+starts the Astro development server together with the Agentation services, so
+annotations can be submitted to an agent during review.

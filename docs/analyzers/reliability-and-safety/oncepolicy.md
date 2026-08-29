@@ -3,16 +3,30 @@ title: oncepolicy
 description: "Keep sync.Once function wrappers alive across calls."
 ---
 
-## Rule details
+## What it detects
 
 `sync.OnceFunc`, `sync.OnceValue`, and `sync.OnceValues` preserve their state in
 the function value they return. Store that wrapper instead of constructing,
 calling, and discarding it in one expression.
 
+## Why this is flagged
+
+Each newly created wrapper has fresh once-only state. Recreating it at every
+call means the wrapped work can run repeatedly, defeating the guarantee that
+made `sync.Once` useful in the first place.
+
+Further reading: [`sync.OnceFunc`](https://pkg.go.dev/sync#OnceFunc).
+
+## How to fix it
+
+Create the wrapper once and store the returned function in a variable or field
+that lives across calls. Call that stored function whenever the once-only value
+or action is needed.
+
 ## Examples
 
 <!-- gohawk:generated-examples:start -->
-### Flagged
+### Flagged code
 
 ```go gohawk="W3sibWVzc2FnZSI6InN5bmMuT25jZUZ1bmMgd3JhcHBlciBpcyBkaXNjYXJkZWQgYWZ0ZXIgb25lIGNhbGwiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjI5fV0"
 func start() {
@@ -20,7 +34,7 @@ func start() {
 }
 ```
 
-### OK
+### Accepted code
 
 ```go
 func startOnce() {

@@ -9,6 +9,10 @@
           "name": "apishape",
           "summary": "Checks exported API parameter and receiver shape.",
           "path": "analyzers/api-and-data-contracts/apishape",
+          "profile": "opt-in",
+          "tags": [
+            "policy"
+          ],
           "suggestedFix": false,
           "options": [
             {
@@ -27,6 +31,12 @@
           "name": "contextpolicy",
           "summary": "Checks context placement, storage, nil use, and test ownership.",
           "path": "analyzers/api-and-data-contracts/contextpolicy",
+          "profile": "default",
+          "tags": [
+            "correctness",
+            "reliability",
+            "policy"
+          ],
           "suggestedFix": false,
           "options": [
             {
@@ -40,6 +50,11 @@
           "name": "closedomain",
           "summary": "Finds builtin-string fields used as closed semantic domains.",
           "path": "analyzers/api-and-data-contracts/closedomain",
+          "profile": "opt-in",
+          "tags": [
+            "reliability",
+            "policy"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -47,6 +62,11 @@
           "name": "wirepolicy",
           "summary": "Checks serialized structs and their composite literals.",
           "path": "analyzers/api-and-data-contracts/wirepolicy",
+          "profile": "opt-in",
+          "tags": [
+            "reliability",
+            "policy"
+          ],
           "suggestedFix": true,
           "options": []
         }
@@ -61,6 +81,10 @@
           "name": "cancellationownership",
           "summary": "Checks context and signal-derived cancellation functions are called on every return path.",
           "path": "analyzers/ownership-and-lifecycle/cancellationownership",
+          "profile": "default",
+          "tags": [
+            "correctness"
+          ],
           "suggestedFix": true,
           "options": []
         },
@@ -68,6 +92,12 @@
           "name": "channelpolicy",
           "summary": "Checks channel capacity and closing ownership.",
           "path": "analyzers/ownership-and-lifecycle/channelpolicy",
+          "profile": "default",
+          "tags": [
+            "correctness",
+            "reliability",
+            "policy"
+          ],
           "suggestedFix": false,
           "options": [
             {
@@ -81,6 +111,10 @@
           "name": "deferinloop",
           "summary": "Checks cleanup defers whose lifetime extends across loop iterations.",
           "path": "analyzers/ownership-and-lifecycle/deferinloop",
+          "profile": "default",
+          "tags": [
+            "reliability"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -88,6 +122,10 @@
           "name": "exitpolicy",
           "summary": "Checks process termination that bypasses registered defers.",
           "path": "analyzers/ownership-and-lifecycle/exitpolicy",
+          "profile": "default",
+          "tags": [
+            "correctness"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -95,6 +133,10 @@
           "name": "goroutineownership",
           "summary": "Checks that explicit goroutines have a recognizable join handle or lifecycle owner.",
           "path": "analyzers/ownership-and-lifecycle/goroutineownership",
+          "profile": "default",
+          "tags": [
+            "reliability"
+          ],
           "suggestedFix": false,
           "options": [
             {
@@ -108,6 +150,10 @@
           "name": "processownership",
           "summary": "Checks that started os/exec commands are waited on or transferred to a wait owner.",
           "path": "analyzers/ownership-and-lifecycle/processownership",
+          "profile": "default",
+          "tags": [
+            "correctness"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -115,6 +161,10 @@
           "name": "resourcelifetime",
           "summary": "Checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path.",
           "path": "analyzers/ownership-and-lifecycle/resourcelifetime",
+          "profile": "default",
+          "tags": [
+            "correctness"
+          ],
           "suggestedFix": false,
           "options": [
             {
@@ -140,6 +190,10 @@
           "name": "concurrentcapture",
           "summary": "Checks locals mutated by goroutines launched repeatedly.",
           "path": "analyzers/reliability-and-safety/concurrentcapture",
+          "profile": "default",
+          "tags": [
+            "correctness"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -147,6 +201,10 @@
           "name": "determinism",
           "summary": "Checks map iteration reaching ordered output without explicit sorting.",
           "path": "analyzers/reliability-and-safety/determinism",
+          "profile": "default",
+          "tags": [
+            "reliability"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -154,6 +212,11 @@
           "name": "errorownership",
           "summary": "Checks that errors are handled once and classified structurally.",
           "path": "analyzers/reliability-and-safety/errorownership",
+          "profile": "default",
+          "tags": [
+            "correctness",
+            "reliability"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -161,6 +224,10 @@
           "name": "evalorder",
           "summary": "Checks later operands that mutate values evaluated earlier.",
           "path": "analyzers/reliability-and-safety/evalorder",
+          "profile": "default",
+          "tags": [
+            "correctness"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -168,6 +235,11 @@
           "name": "globalstate",
           "summary": "Checks mutable package-level state.",
           "path": "analyzers/reliability-and-safety/globalstate",
+          "profile": "opt-in",
+          "tags": [
+            "reliability",
+            "policy"
+          ],
           "suggestedFix": false,
           "options": [
             {
@@ -186,6 +258,10 @@
           "name": "lockorder",
           "summary": "Checks contradictory mutex acquisition order and unreleased return paths.",
           "path": "analyzers/reliability-and-safety/lockorder",
+          "profile": "default",
+          "tags": [
+            "correctness"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -193,6 +269,10 @@
           "name": "oncepolicy",
           "summary": "Checks sync.Once function wrappers that are immediately discarded.",
           "path": "analyzers/reliability-and-safety/oncepolicy",
+          "profile": "default",
+          "tags": [
+            "correctness"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -200,6 +280,10 @@
           "name": "syncmapatomicity",
           "summary": "Checks non-atomic sync.Map load-and-delete claims.",
           "path": "analyzers/reliability-and-safety/syncmapatomicity",
+          "profile": "default",
+          "tags": [
+            "correctness"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -207,6 +291,11 @@
           "name": "taintpolicy",
           "summary": "Checks untrusted environment and argument data reaching sensitive sinks.",
           "path": "analyzers/reliability-and-safety/taintpolicy",
+          "profile": "opt-in",
+          "tags": [
+            "correctness",
+            "reliability"
+          ],
           "suggestedFix": false,
           "options": [
             {
@@ -232,6 +321,10 @@
           "name": "blockingtest",
           "summary": "Checks cancellation ownership for blocking test channels.",
           "path": "analyzers/testing/blockingtest",
+          "profile": "default",
+          "tags": [
+            "reliability"
+          ],
           "suggestedFix": false,
           "options": []
         },
@@ -239,6 +332,10 @@
           "name": "testpolicy",
           "summary": "Checks lifecycle ownership in test helpers.",
           "path": "analyzers/testing/testpolicy",
+          "profile": "opt-in",
+          "tags": [
+            "policy"
+          ],
           "suggestedFix": true,
           "options": []
         }

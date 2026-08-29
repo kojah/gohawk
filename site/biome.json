@@ -1,0 +1,59 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": [
+			"**",
+			"!.agentation-runtime",
+			"!dist",
+			"!.astro",
+			"!node_modules",
+			"!pnpm-lock.yaml",
+			"!**/*.svg",
+			"!src/generated"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended"
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"semicolons": "always"
+		}
+	},
+	"css": {
+		"formatter": {
+			"enabled": true,
+			"quoteStyle": "single"
+		},
+		"linter": {
+			"enabled": true
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.astro"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUnusedImports": "off",
+						"noUnusedVariables": "off"
+					}
+				}
+			}
+		}
+	]
+}

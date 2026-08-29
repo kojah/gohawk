@@ -1,6 +1,7 @@
-package gohawk
+package analyzers
 
 import (
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -74,10 +75,51 @@ func TestAnalyzerMetadata(t *testing.T) {
 	if len(metadata) != len(expectedAnalyzerNames()) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
+	optIn := map[string]bool{
+		"apishape": true, "closedomain": true, "globalstate": true,
+		"taintpolicy": true, "testpolicy": true, "wirepolicy": true,
+	}
+	validTags := map[AnalyzerTag]bool{
+		AnalyzerTagCorrectness: true,
+		AnalyzerTagReliability: true,
+		AnalyzerTagPolicy:      true,
+	}
 	for _, name := range expectedAnalyzerNames() {
-		if _, ok := metadata[name]; !ok {
+		info, ok := metadata[name]
+		if !ok {
 			t.Errorf("metadata missing analyzer %q", name)
+		} else if info.EnabledByDefault() == optIn[name] {
+			t.Errorf("analyzer %q profile = %q, want default = %t", name, info.Profile, !optIn[name])
 		}
+		if len(info.Tags) == 0 {
+			t.Errorf("analyzer %q has no tags", name)
+		}
+		seenTags := make(map[AnalyzerTag]bool, len(info.Tags))
+		for _, tag := range info.Tags {
+			if !validTags[tag] {
+				t.Errorf("analyzer %q has unknown tag %q", name, tag)
+			}
+			if seenTags[tag] {
+				t.Errorf("analyzer %q repeats tag %q", name, tag)
+			}
+			seenTags[tag] = true
+		}
+	}
+}
+
+func TestDefaultAnalyzers(t *testing.T) {
+	want := []string{
+		"contextpolicy", "blockingtest", "goroutineownership", "errorownership",
+		"channelpolicy", "processownership", "lockorder", "resourcelifetime",
+		"deferinloop", "exitpolicy", "determinism", "concurrentcapture",
+		"evalorder", "oncepolicy", "syncmapatomicity", "cancellationownership",
+	}
+	var names []string
+	for _, analyzer := range DefaultAnalyzers() {
+		names = append(names, analyzer.Name)
+	}
+	if !slices.Equal(names, want) {
+		t.Fatalf("default analyzers = %v, want %v", names, want)
 	}
 }
 
@@ -135,7 +177,7 @@ func TestAnalyzers(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			analysistest.Run(t, analysistest.TestData(), requireDiagnosticRanges(t, analyzerNamed(t, test.name)), test.packages...)
+			analysistest.Run(t, testData(t), requireDiagnosticRanges(t, analyzerNamed(t, test.name)), test.packages...)
 		})
 	}
 }
@@ -174,7 +216,7 @@ func TestSuggestedFixes(t *testing.T) {
 			t.Errorf("analyzer %q has a suggested-fix test but is not marked as offering one", test.name)
 		}
 		t.Run(test.name, func(t *testing.T) {
-			analysistest.RunWithSuggestedFixes(t, analysistest.TestData(), analyzerNamed(t, test.name), test.pattern)
+			analysistest.RunWithSuggestedFixes(t, testData(t), analyzerNamed(t, test.name), test.pattern)
 		})
 	}
 	for name, info := range metadata {
@@ -189,7 +231,7 @@ func TestGoroutineOwnershipJoinMode(t *testing.T) {
 	if err := analyzer.Flags.Set("mode", "join"); err != nil {
 		t.Fatalf("set mode: %v", err)
 	}
-	analysistest.Run(t, analysistest.TestData(), analyzer, "goroutineownership/strict")
+	analysistest.Run(t, testData(t), analyzer, "goroutineownership/strict")
 }
 
 func TestGoroutineOwnershipLifecycleMode(t *testing.T) {
@@ -197,7 +239,7 @@ func TestGoroutineOwnershipLifecycleMode(t *testing.T) {
 	if err := analyzer.Flags.Set("mode", "lifecycle"); err != nil {
 		t.Fatalf("set mode: %v", err)
 	}
-	analysistest.Run(t, analysistest.TestData(), analyzer, "goroutineownership/lifecycle")
+	analysistest.Run(t, testData(t), analyzer, "goroutineownership/lifecycle")
 }
 
 func TestAnalyzerConfiguration(t *testing.T) {
@@ -233,7 +275,7 @@ func TestAnalyzerConfiguration(t *testing.T) {
 					t.Fatalf("set %s=%s: %v", name, value, err)
 				}
 			}
-			analysistest.Run(t, analysistest.TestData(), analyzer, test.pattern)
+			analysistest.Run(t, testData(t), analyzer, test.pattern)
 		})
 	}
 }
@@ -249,4 +291,13 @@ func configurableAnalyzer(t *testing.T, name string) *analysis.Analyzer {
 	}
 	t.Fatalf("%s analyzer is not registered", name)
 	return nil
+}
+
+func testData(t *testing.T) string {
+	t.Helper()
+	path, err := filepath.Abs(filepath.Join("..", "testdata"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

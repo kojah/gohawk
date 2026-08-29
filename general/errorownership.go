@@ -23,8 +23,12 @@ func errorOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 func runErrorOwnership(pass *analysis.Pass) (any, error) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
 	reportMismatchedInlineErrors(pass)
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	for _, function := range functions {
 		file := analysisutil.FunctionFile(pass, function)
 		if file == nil {
 			continue

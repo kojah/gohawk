@@ -29,13 +29,14 @@ var wantComment = regexp.MustCompile(`[ \t]+// want .*$`)
 
 // Set contains the incorrect and correct examples for an analyzer.
 type Set struct {
-	Flagged Example
+	Flagged []Example
 	OK      Example
 }
 
 // Example is source displayed in the documentation and the diagnostics that
 // apply to it.
 type Example struct {
+	Title       string
 	Code        string
 	Diagnostics []Diagnostic
 }
@@ -52,6 +53,7 @@ type Diagnostic struct {
 
 type region struct {
 	kind     string
+	title    string
 	filename string
 	start    int
 	end      int
@@ -106,22 +108,24 @@ func Collect(root string, analyzer *analysis.Analyzer) (Set, error) {
 
 	var result Set
 	for _, item := range regions {
-		example := Example{Code: item.code}
+		example := Example{Title: item.title, Code: item.code}
 		for _, attached := range attachedDiagnostics[itemKey(item)] {
 			example.Diagnostics = append(example.Diagnostics, attached)
 		}
 		switch item.kind {
 		case "flagged":
-			result.Flagged = example
+			result.Flagged = append(result.Flagged, example)
 		case "ok":
 			result.OK = example
 		}
 	}
-	if len(result.Flagged.Diagnostics) == 0 {
-		return Set{}, fmt.Errorf("flagged example produced no diagnostics")
+	for index, example := range result.Flagged {
+		if len(example.Diagnostics) == 0 {
+			return Set{}, fmt.Errorf("%s: flagged example %d produced no diagnostics", analyzer.Name, index+1)
+		}
 	}
 	if len(result.OK.Diagnostics) > 0 {
-		return Set{}, fmt.Errorf("OK example produced %d diagnostics", len(result.OK.Diagnostics))
+		return Set{}, fmt.Errorf("%s: OK example produced %d diagnostics", analyzer.Name, len(result.OK.Diagnostics))
 	}
 	return result, nil
 }
@@ -163,8 +167,8 @@ func readRegions(directory string) ([]region, bool, error) {
 	for _, item := range result {
 		counts[item.kind]++
 	}
-	if counts["flagged"] != 1 || counts["ok"] != 1 {
-		return nil, false, fmt.Errorf("need exactly one flagged and one OK region; found %d and %d", counts["flagged"], counts["ok"])
+	if counts["flagged"] < 1 || counts["ok"] != 1 {
+		return nil, false, fmt.Errorf("need at least one flagged and exactly one OK region; found %d and %d", counts["flagged"], counts["ok"])
 	}
 	return result, hasTests, nil
 }
@@ -177,17 +181,15 @@ func parseRegions(filename string, contents []byte) ([]region, error) {
 	for scanner.Scan() {
 		text := scanner.Text()
 		lineBytes := len(scanner.Bytes())
-		switch strings.TrimSpace(text) {
-		case flaggedMarker, okMarker:
+		trimmed := strings.TrimSpace(text)
+		kind, title, startsRegion := exampleMarker(trimmed)
+		switch {
+		case startsRegion:
 			if active != nil {
 				return nil, fmt.Errorf("%s:%d: nested example marker", filename, line)
 			}
-			kind := "flagged"
-			if strings.TrimSpace(text) == okMarker {
-				kind = "ok"
-			}
-			active = &region{kind: kind, filename: filename, start: offset + lineBytes + 1}
-		case endMarker:
+			active = &region{kind: kind, title: title, filename: filename, start: offset + lineBytes + 1}
+		case trimmed == endMarker:
 			if active == nil {
 				return nil, fmt.Errorf("%s:%d: unmatched end marker", filename, line)
 			}
@@ -207,6 +209,24 @@ func parseRegions(filename string, contents []byte) ([]region, error) {
 		return nil, fmt.Errorf("%s: unclosed %s example", filename, active.kind)
 	}
 	return result, nil
+}
+
+func exampleMarker(text string) (kind, title string, ok bool) {
+	for _, marker := range []struct {
+		prefix string
+		kind   string
+	}{
+		{prefix: flaggedMarker, kind: "flagged"},
+		{prefix: okMarker, kind: "ok"},
+	} {
+		if text == marker.prefix {
+			return marker.kind, "", true
+		}
+		if strings.HasPrefix(text, marker.prefix+" ") {
+			return marker.kind, strings.TrimSpace(strings.TrimPrefix(text, marker.prefix)), true
+		}
+	}
+	return "", "", false
 }
 
 func displayCode(source []byte) string {

@@ -1,3 +1,3 @@
-package gohawk
+package main
 
 //go:generate go run ./internal/cmd/gendocs

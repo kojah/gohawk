@@ -3,14 +3,30 @@ title: determinism
 description: "Sort map-derived output."
 ---
 
-## Rule details
+## What it detects
 
-Sort map-derived output.
+Reports map iteration whose order flows directly into ordered output, such as a
+returned slice or string, encoded data, or written text, without an explicit
+sorting step.
+
+## Why this is flagged
+
+Go deliberately does not guarantee map iteration order. Letting that order
+reach output can produce flaky tests, noisy generated files, and unstable
+hashes even when the underlying data has not changed.
+
+Further reading: [The Go specification: Range clauses](https://go.dev/ref/spec#For_range).
+
+## How to fix it
+
+Copy the map keys or output values into a slice, sort that slice, and produce
+the output from the sorted order. Choose an explicit comparison when ordinary
+string or numeric order is not the intended result.
 
 ## Examples
 
 <!-- gohawk:generated-examples:start -->
-### Flagged
+### Flagged code
 
 ```go gohawk="W3sibWVzc2FnZSI6Im1hcCBpdGVyYXRpb24gcmVhY2hlcyBvcmRlcmVkIG91dHB1dCB3aXRob3V0IHNvcnRpbmciLCJzdGFydExpbmUiOjIsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoyLCJlbmRDb2x1bW4iOjI1fV0"
 func names(users map[string]User) []string {
@@ -22,7 +38,7 @@ func names(users map[string]User) []string {
 }
 ```
 
-### OK
+### Accepted code
 
 ```go
 func sortedNames(users map[string]User) []string {

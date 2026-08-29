@@ -1,20 +1,32 @@
 ---
-title: Configuration and suppressions
+title: Configuring gohawk
 description: Select analyzers, set analyzer flags, and suppress intentional findings.
 ---
 
 ## Select analyzers
 
-Running gohawk without analyzer flags enables every check. Name one or more
-analyzers to run only those checks, or set a default analyzer to `false` to
-exclude it.
+Running gohawk without analyzer flags uses the default profile. Checks marked
+"Opt-in" in the analyzer reference are available but do not run automatically.
+Name one or more analyzers to run only those checks, or set a default analyzer
+to `false` to exclude it. See [Tags and profiles](../tags-and-profiles/)
+for the meaning of each tag and how tags differ from profiles.
 
 ```sh
-# Run two analyzers.
+# List every analyzer with its profile and tags.
+gohawk list
+
+# List only one profile.
+gohawk list -defaults
+gohawk list -opt-in
+
+# Run two opt-in analyzers.
 gohawk -wirepolicy -globalstate ./...
 
-# Run the defaults except globalstate.
-gohawk -globalstate=false ./...
+# Run the default profile except determinism.
+gohawk -determinism=false ./...
+
+# Run every analyzer, including opt-in checks.
+gohawk -enable-all ./...
 ```
 
 ## Set analyzer options

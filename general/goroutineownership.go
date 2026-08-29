@@ -39,7 +39,11 @@ const (
 )
 
 func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig) (any, error) {
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
+	for _, function := range functions {
 		reportAbandonedProducerSends(pass, function)
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {

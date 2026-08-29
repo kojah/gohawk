@@ -21,7 +21,11 @@ func processOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 func runProcessOwnership(pass *analysis.Pass) (any, error) {
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
+	for _, function := range functions {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, ok := instruction.(*ssa.Call)

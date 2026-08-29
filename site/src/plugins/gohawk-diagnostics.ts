@@ -1,11 +1,11 @@
 import {
-	ExpressiveCodeAnnotation,
 	type AnnotationRenderOptions,
+	ExpressiveCodeAnnotation,
 	type ExpressiveCodeInlineRange,
 	type ExpressiveCodeLine,
 	type ExpressiveCodePlugin,
 } from '@expressive-code/core';
-import { addClassName, h, setProperty } from '@expressive-code/core/hast';
+import { addClassName, h } from '@expressive-code/core/hast';
 
 type Diagnostic = {
 	message: string;
@@ -34,8 +34,6 @@ class GohawkDiagnosticAnnotation extends ExpressiveCodeAnnotation {
 		return nodesToTransform.map((node) => {
 			const marked = h('span', node);
 			addClassName(marked, 'gohawk-diagnostic');
-			setProperty(marked, 'data-gohawk-message', this.messages.join('\n'));
-			setProperty(marked, 'tabIndex', '0');
 			return marked;
 		});
 	}
@@ -65,19 +63,21 @@ function decodedDiagnostics(value: string): Diagnostic[] {
 
 export function pluginGohawkDiagnostics(): ExpressiveCodePlugin {
 	return {
-		name: 'gohawk diagnostics v2',
+		name: 'gohawk diagnostics v4',
 		hooks: {
-			annotateCode: ({ codeBlock }) => {
+			preprocessCode: ({ codeBlock }) => {
 				const encoded = codeBlock.metaOptions.getString('gohawk');
 				if (!encoded) return;
 
+				const diagnostics = decodedDiagnostics(encoded);
 				const ranges = new Map<string, DiagnosticRange>();
-				for (const diagnostic of decodedDiagnostics(encoded)) {
+				for (const diagnostic of diagnostics) {
 					for (let lineIndex = diagnostic.startLine; lineIndex <= diagnostic.endLine; lineIndex++) {
 						const line = codeBlock.getLine(lineIndex);
 						if (!line) continue;
 						const columnStart = lineIndex === diagnostic.startLine ? diagnostic.startColumn : 0;
-						const columnEnd = lineIndex === diagnostic.endLine ? diagnostic.endColumn : line.text.length;
+						const columnEnd =
+							lineIndex === diagnostic.endLine ? diagnostic.endColumn : line.text.length;
 						if (columnEnd <= columnStart) continue;
 						const key = `${lineIndex}:${columnStart}:${columnEnd}`;
 						const range = ranges.get(key) ?? { line, columnStart, columnEnd, messages: [] };
@@ -87,9 +87,23 @@ export function pluginGohawkDiagnostics(): ExpressiveCodePlugin {
 				}
 
 				for (const { line, columnStart, columnEnd, messages } of ranges.values()) {
-					line.addAnnotation(
-						new GohawkDiagnosticAnnotation({ columnStart, columnEnd }, messages),
-					);
+					line.addAnnotation(new GohawkDiagnosticAnnotation({ columnStart, columnEnd }, messages));
+				}
+
+				const comments = new Map<number, string[]>();
+				for (const diagnostic of diagnostics) {
+					const line = codeBlock.getLine(diagnostic.startLine);
+					if (!line) continue;
+					const indent = line.text.match(/^\s*/)?.[0] ?? '';
+					const message = diagnostic.message.replace(/\s+/g, ' ').trim();
+					const lineComments = comments.get(diagnostic.startLine) ?? [];
+					lineComments.push(`${indent}// gohawk: ${message}`);
+					comments.set(diagnostic.startLine, lineComments);
+				}
+				for (const [lineIndex, lineComments] of [...comments].sort(
+					(left, right) => right[0] - left[0],
+				)) {
+					codeBlock.insertLines(lineIndex, lineComments);
 				}
 			},
 		},

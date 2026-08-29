@@ -1,11 +1,11 @@
 package evalorder
 
+//gohawk:example flagged
 func refresh(value *int) error {
 	*value = 42
 	return nil
 }
 
-//gohawk:example flagged
 func load(value int) (int, error) {
 	return value, refresh(&value) // want "later operand may mutate value after its earlier value was evaluated"
 }
@@ -13,8 +13,13 @@ func load(value int) (int, error) {
 //gohawk:example end
 
 //gohawk:example ok
+func refreshSafely(value *int) error {
+	*value = 42
+	return nil
+}
+
 func loadInOrder(value int) (int, error) {
-	err := refresh(&value)
+	err := refreshSafely(&value)
 	return value, err
 }
 

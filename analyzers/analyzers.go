@@ -1,4 +1,4 @@
-package gohawk
+package analyzers
 
 import (
 	"github.com/kojah/gohawk/general"
@@ -10,6 +10,23 @@ type AnalyzerGroup = general.AnalyzerGroup
 
 // AnalyzerInfo describes analyzer capabilities used by integrations and documentation.
 type AnalyzerInfo = general.AnalyzerInfo
+
+// AnalyzerProfile controls whether an analyzer runs without explicit selection.
+type AnalyzerProfile = general.AnalyzerProfile
+
+const (
+	AnalyzerProfileDefault = general.AnalyzerProfileDefault
+	AnalyzerProfileOptIn   = general.AnalyzerProfileOptIn
+)
+
+// AnalyzerTag describes why an analyzer's findings matter.
+type AnalyzerTag = general.AnalyzerTag
+
+const (
+	AnalyzerTagCorrectness = general.AnalyzerTagCorrectness
+	AnalyzerTagReliability = general.AnalyzerTagReliability
+	AnalyzerTagPolicy      = general.AnalyzerTagPolicy
+)
 
 // AnalyzerGroups returns all gohawk analyzers grouped by concern.
 func AnalyzerGroups() []AnalyzerGroup {
@@ -24,4 +41,9 @@ func AnalyzerMetadata() map[string]AnalyzerInfo {
 // Analyzers returns all gohawk analyzers in stable execution order.
 func Analyzers() []*analysis.Analyzer {
 	return general.Analyzers()
+}
+
+// DefaultAnalyzers returns the analyzers enabled when none are selected explicitly.
+func DefaultAnalyzers() []*analysis.Analyzer {
+	return general.DefaultAnalyzers()
 }

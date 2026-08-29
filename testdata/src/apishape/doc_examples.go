@@ -1,7 +1,14 @@
 package apishape
 
-//gohawk:example flagged
-func CreateUser(name, email, city, country, role string) error { // want "exported API has 5 parameters" "5 adjacent parameters share type string"
+//gohawk:example flagged Too many parameters
+func CreateUser(name string, age int, active bool, score float64, role byte) error { // want "exported API has 5 parameters"
+	return nil
+}
+
+//gohawk:example end
+
+//gohawk:example flagged Adjacent optional parameters
+func FindUser(firstName, lastName *string) error { // want "adjacent optional scalar parameters are easy to swap"
 	return nil
 }
 
@@ -12,6 +19,8 @@ type CreateUserInput struct {
 	Name, Email, City, Country, Role string
 }
 
-func CreateUserWithInput(input CreateUserInput) error { return nil }
+func CreateUserWithInput(input CreateUserInput) error {
+	return nil
+}
 
 //gohawk:example end

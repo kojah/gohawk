@@ -25,7 +25,11 @@ func exitPolicyAnalyzer() *analysis.Analyzer {
 }
 
 func runExitPolicy(pass *analysis.Pass) (any, error) {
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
+	for _, function := range functions {
 		reportExitAfterDefer(pass, function)
 	}
 	return nil, nil

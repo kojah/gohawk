@@ -1,15 +1,85 @@
-package main
+package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
+
+	gohawk "github.com/kojah/gohawk/analyzers"
 )
+
+func TestPrintAnalyzerList(t *testing.T) {
+	tests := []struct {
+		name      string
+		arguments []string
+		contains  []string
+		excludes  []string
+		wantError bool
+	}{
+		{name: "all", contains: []string{"ANALYZER", "PROFILE", "TAGS", "apishape", "policy", "oncepolicy", "correctness"}},
+		{name: "defaults", arguments: []string{"-defaults"}, contains: []string{"oncepolicy", "default", "correctness"}, excludes: []string{"wirepolicy", "apishape"}},
+		{name: "opt-in", arguments: []string{"-opt-in"}, contains: []string{"wirepolicy", "opt-in", "reliability,policy"}, excludes: []string{"oncepolicy", "contextpolicy"}},
+		{name: "conflicting filters", arguments: []string{"-defaults", "-opt-in"}, wantError: true},
+		{name: "unexpected argument", arguments: []string{"extra"}, wantError: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var output, errorsOutput bytes.Buffer
+			err := printAnalyzerList(test.arguments, &output, &errorsOutput)
+			if (err != nil) != test.wantError {
+				t.Fatalf("error = %v, wantError %t", err, test.wantError)
+			}
+			for _, value := range test.contains {
+				if !strings.Contains(output.String(), value) {
+					t.Errorf("output does not contain %q:\n%s", value, output.String())
+				}
+			}
+			for _, value := range test.excludes {
+				if strings.Contains(output.String(), value) {
+					t.Errorf("output unexpectedly contains %q:\n%s", value, output.String())
+				}
+			}
+		})
+	}
+}
+
+func TestWithDefaultAnalyzerSelection(t *testing.T) {
+	analyzers := gohawk.Analyzers()
+	metadata := gohawk.AnalyzerMetadata()
+
+	selected := []string{"gohawk", "-wirepolicy", "./..."}
+	if got := withDefaultAnalyzerSelection(selected, analyzers, metadata); !slices.Equal(got, selected) {
+		t.Fatalf("selected arguments = %v, want %v", got, selected)
+	}
+	help := []string{"gohawk", "help", "wirepolicy"}
+	if got := withDefaultAnalyzerSelection(help, analyzers, metadata); !slices.Equal(got, help) {
+		t.Fatalf("help arguments = %v, want %v", got, help)
+	}
+	all := []string{"gohawk", "-enable-all", "./..."}
+	if got := withDefaultAnalyzerSelection(all, analyzers, metadata); !slices.Equal(got, all) {
+		t.Fatalf("enable-all arguments = %v, want %v", got, all)
+	}
+
+	got := withDefaultAnalyzerSelection([]string{"gohawk", "-determinism=false", "./..."}, analyzers, metadata)
+	joined := strings.Join(got, " ")
+	for _, value := range []string{"-contextpolicy=true", "-oncepolicy=true"} {
+		if !strings.Contains(joined, value) {
+			t.Errorf("default arguments do not contain %q: %v", value, got)
+		}
+	}
+	for _, value := range []string{"-determinism=true", "-wirepolicy=true", "-globalstate=true"} {
+		if strings.Contains(joined, value) {
+			t.Errorf("default arguments unexpectedly contain %q: %v", value, got)
+		}
+	}
+}
 
 func TestCLIIntegration(t *testing.T) {
 	binary := buildTestBinary(t)
@@ -31,13 +101,55 @@ func TestCLIIntegration(t *testing.T) {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
 		for _, summary := range []string{
-			"contracts (API and data contracts): apishape, contextpolicy, closedomain, wirepolicy",
+			"contracts (API and data contracts): apishape (opt-in), contextpolicy, closedomain (opt-in), wirepolicy (opt-in)",
 			"ownership (ownership and lifecycle): cancellationownership, channelpolicy, deferinloop, exitpolicy, goroutineownership, processownership, resourcelifetime",
-			"reliability (reliability and safety): concurrentcapture, determinism, errorownership, evalorder, globalstate, lockorder, oncepolicy, syncmapatomicity, taintpolicy",
-			"testing (testing): blockingtest, testpolicy",
+			"reliability (reliability and safety): concurrentcapture, determinism, errorownership, evalorder, globalstate (opt-in), lockorder, oncepolicy, syncmapatomicity, taintpolicy (opt-in)",
+			"testing (testing): blockingtest, testpolicy (opt-in)",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
+			}
+		}
+	})
+
+	t.Run("list analyzers", func(t *testing.T) {
+		output, exitCode := runCommand(t, module, binary, "list")
+		if exitCode != 0 {
+			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
+		}
+		for _, value := range []string{"apishape", "opt-in", "oncepolicy", "default"} {
+			if !strings.Contains(output, value) {
+				t.Fatalf("list output does not contain %q:\n%s", value, output)
+			}
+		}
+
+		output, exitCode = runCommand(t, module, binary, "list", "-defaults")
+		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || strings.Contains(output, "wirepolicy") {
+			t.Fatalf("default list: exit code = %d\n%s", exitCode, output)
+		}
+
+		output, exitCode = runCommand(t, module, binary, "list", "-opt-in")
+		if exitCode != 0 || !strings.Contains(output, "wirepolicy") || strings.Contains(output, "oncepolicy") {
+			t.Fatalf("opt-in list: exit code = %d\n%s", exitCode, output)
+		}
+	})
+
+	t.Run("default profile", func(t *testing.T) {
+		output, exitCode := runCommand(t, module, binary, "./...")
+		if exitCode != 3 {
+			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
+		}
+		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("default analyzer did not run:\n%s", output)
+		}
+		for _, value := range []string{"warning[oncepolicy]", "-->", "sample.go:", "^"} {
+			if !strings.Contains(output, value) {
+				t.Fatalf("rich diagnostic does not contain %q:\n%s", value, output)
+			}
+		}
+		for _, diagnostic := range []string{"persisted or wire struct literal", "mutable package state"} {
+			if strings.Contains(output, diagnostic) {
+				t.Fatalf("opt-in analyzer unexpectedly reported %q:\n%s", diagnostic, output)
 			}
 		}
 	})
@@ -55,16 +167,41 @@ func TestCLIIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("disabled analyzer", func(t *testing.T) {
+	t.Run("all analyzers", func(t *testing.T) {
+		output, exitCode := runCommand(t, module, binary, "-enable-all", "./...")
+		if exitCode != 3 {
+			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
+		}
+		for _, diagnostic := range []string{
+			"sync.OnceFunc wrapper is discarded",
+			"persisted or wire struct literal",
+			"mutable package state cache",
+		} {
+			if !strings.Contains(output, diagnostic) {
+				t.Fatalf("all-analyzer output does not contain %q:\n%s", diagnostic, output)
+			}
+		}
+	})
+
+	t.Run("disabling opt-in analyzer keeps default profile", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-globalstate=false", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
-			t.Fatalf("remaining analyzers did not run:\n%s", output)
+		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("default analyzers did not run:\n%s", output)
 		}
-		if strings.Contains(output, "mutable package state") {
-			t.Fatalf("disabled analyzer unexpectedly ran:\n%s", output)
+		for _, diagnostic := range []string{"persisted or wire struct literal", "mutable package state"} {
+			if strings.Contains(output, diagnostic) {
+				t.Fatalf("opt-in analyzer unexpectedly reported %q:\n%s", diagnostic, output)
+			}
+		}
+	})
+
+	t.Run("disabled default analyzer", func(t *testing.T) {
+		output, exitCode := runCommand(t, module, binary, "-oncepolicy=false", "./...")
+		if exitCode != 0 || output != "" {
+			t.Fatalf("exit code = %d, output = %q", exitCode, output)
 		}
 	})
 
@@ -164,13 +301,21 @@ func TestCLIIntegration(t *testing.T) {
 		if exitCode != 1 {
 			t.Fatalf("exit code = %d, want 1\n%s", exitCode, output)
 		}
-		for _, diagnostic := range []string{
-			"persisted or wire struct literal must use field keys",
-			"mutable package state cache",
-		} {
-			if !strings.Contains(output, diagnostic) {
-				t.Fatalf("output does not contain %q:\n%s", diagnostic, output)
+		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("output does not contain default diagnostic:\n%s", output)
+		}
+		for _, diagnostic := range []string{"persisted or wire struct literal", "mutable package state"} {
+			if strings.Contains(output, diagnostic) {
+				t.Fatalf("opt-in analyzer unexpectedly reported %q:\n%s", diagnostic, output)
 			}
+		}
+
+		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-wirepolicy", "./...")
+		if exitCode != 1 || !strings.Contains(output, "persisted or wire struct literal") {
+			t.Fatalf("vettool opt-in analyzer: exit code = %d\n%s", exitCode, output)
+		}
+		if strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("vettool selected analyzer unexpectedly ran defaults:\n%s", output)
 		}
 	})
 
@@ -204,7 +349,12 @@ func buildTestBinary(t *testing.T) string {
 		name += ".exe"
 	}
 	binary := filepath.Join(t.TempDir(), name)
-	output, exitCode := runCommand(t, "", "go", "build", "-o", binary, ".")
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repositoryRoot := filepath.Clean(filepath.Join(workingDirectory, "..", ".."))
+	output, exitCode := runCommand(t, repositoryRoot, "go", "build", "-o", binary, ".")
 	if exitCode != 0 {
 		t.Fatalf("build CLI: exit code = %d\n%s", exitCode, output)
 	}
@@ -217,6 +367,8 @@ func writeTestModule(t *testing.T) string {
 	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/gohawkcli\n\ngo 1.25.0\n")
 	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), `package sample
 
+import "sync"
+
 type EventRow struct {
 	ID   string `+"`json:\"id\"`"+`
 	Kind string `+"`json:\"kind\"`"+`
@@ -225,6 +377,10 @@ type EventRow struct {
 var event = EventRow{"42", "created"}
 
 var cache = map[string]string{}
+
+func initialize() {
+	sync.OnceFunc(func() {})()
+}
 `)
 	return directory
 }

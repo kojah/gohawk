@@ -32,6 +32,10 @@ type contextPolicyConfig struct {
 }
 
 func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, error) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
 	for _, file := range pass.Files {
 		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
@@ -42,7 +46,7 @@ func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, err
 			return true
 		})
 	}
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	for _, function := range functions {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)

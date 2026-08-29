@@ -2,6 +2,8 @@ package concurrentcapture
 
 import "sync"
 
+func fetch() error { return nil }
+
 //gohawk:example flagged
 func collect(items []int) error {
 	var err error
@@ -37,5 +39,3 @@ func collectSafely(items []int) error {
 }
 
 //gohawk:example end
-
-func fetch() error { return nil }

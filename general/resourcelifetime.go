@@ -63,8 +63,12 @@ type resourceLifetimeSettings struct {
 }
 
 func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (any, error) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
 	settings := resourceLifetimeSettings{contracts: commaSeparatedSet(config.contracts), requireReaderClose: config.requireReaderClose}
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	for _, function := range functions {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)

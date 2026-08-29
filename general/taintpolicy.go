@@ -36,8 +36,12 @@ type taintPolicySettings struct {
 }
 
 func runTaintPolicy(pass *analysis.Pass, config taintPolicyConfig) (any, error) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
 	settings := taintPolicySettings{sinks: commaSeparatedSet(config.sinks), sanitizers: commaSeparatedSet(config.sanitizers)}
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	for _, function := range functions {
 		// Test helpers deliberately echo and persist hostile fixture values. Their
 		// process is isolated; production sinks remain policy-owned here.
 		if strings.HasSuffix(pass.Fset.Position(function.Pos()).Filename, "_test.go") {

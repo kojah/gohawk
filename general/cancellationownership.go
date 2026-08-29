@@ -22,7 +22,11 @@ func cancellationOwnershipAnalyzer() *analysis.Analyzer {
 }
 
 func runCancellationOwnership(pass *analysis.Pass) (any, error) {
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
+	for _, function := range functions {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)

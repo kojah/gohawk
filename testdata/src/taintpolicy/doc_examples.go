@@ -6,13 +6,6 @@ import (
 	"os/exec"
 )
 
-func validateTool(tool string) (string, error) {
-	if tool != "compiler" {
-		return "", errors.New("unsupported tool")
-	}
-	return tool, nil
-}
-
 //gohawk:example flagged
 func runConfiguredTool() error {
 	return exec.Command(os.Getenv("TOOL")).Run() // want "untrusted data reaches process sink exec.Command"
@@ -21,6 +14,13 @@ func runConfiguredTool() error {
 //gohawk:example end
 
 //gohawk:example ok
+func validateTool(tool string) (string, error) {
+	if tool != "compiler" {
+		return "", errors.New("unsupported tool")
+	}
+	return tool, nil
+}
+
 func runValidatedTool() error {
 	tool, err := validateTool(os.Getenv("TOOL"))
 	if err != nil {

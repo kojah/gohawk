@@ -2,6 +2,7 @@ package general
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
@@ -85,9 +86,59 @@ type AnalyzerGroup struct {
 	Analyzers []*analysis.Analyzer
 }
 
+// AnalyzerProfile controls whether an analyzer runs without explicit selection.
+type AnalyzerProfile string
+
+const (
+	AnalyzerProfileDefault AnalyzerProfile = "default"
+	AnalyzerProfileOptIn   AnalyzerProfile = "opt-in"
+)
+
+// AnalyzerTag describes the reason an analyzer's findings matter. Tags are
+// composable because one analyzer may report several related kinds of finding.
+type AnalyzerTag string
+
+const (
+	AnalyzerTagCorrectness AnalyzerTag = "correctness"
+	AnalyzerTagReliability AnalyzerTag = "reliability"
+	AnalyzerTagPolicy      AnalyzerTag = "policy"
+)
+
 // AnalyzerInfo describes capabilities that are not represented by analysis.Analyzer.
 type AnalyzerInfo struct {
+	Profile      AnalyzerProfile
+	Tags         []AnalyzerTag
 	SuggestedFix bool
+}
+
+// EnabledByDefault reports whether the analyzer belongs to the default profile.
+func (info AnalyzerInfo) EnabledByDefault() bool {
+	return info.Profile == AnalyzerProfileDefault
+}
+
+var analyzerTags = map[string][]AnalyzerTag{
+	"apishape":              {AnalyzerTagPolicy},
+	"contextpolicy":         {AnalyzerTagCorrectness, AnalyzerTagReliability, AnalyzerTagPolicy},
+	"closedomain":           {AnalyzerTagReliability, AnalyzerTagPolicy},
+	"wirepolicy":            {AnalyzerTagReliability, AnalyzerTagPolicy},
+	"cancellationownership": {AnalyzerTagCorrectness},
+	"channelpolicy":         {AnalyzerTagCorrectness, AnalyzerTagReliability, AnalyzerTagPolicy},
+	"deferinloop":           {AnalyzerTagReliability},
+	"exitpolicy":            {AnalyzerTagCorrectness},
+	"goroutineownership":    {AnalyzerTagReliability},
+	"processownership":      {AnalyzerTagCorrectness},
+	"resourcelifetime":      {AnalyzerTagCorrectness},
+	"concurrentcapture":     {AnalyzerTagCorrectness},
+	"determinism":           {AnalyzerTagReliability},
+	"errorownership":        {AnalyzerTagCorrectness, AnalyzerTagReliability},
+	"evalorder":             {AnalyzerTagCorrectness},
+	"globalstate":           {AnalyzerTagReliability, AnalyzerTagPolicy},
+	"lockorder":             {AnalyzerTagCorrectness},
+	"oncepolicy":            {AnalyzerTagCorrectness},
+	"syncmapatomicity":      {AnalyzerTagCorrectness},
+	"taintpolicy":           {AnalyzerTagCorrectness, AnalyzerTagReliability},
+	"blockingtest":          {AnalyzerTagReliability},
+	"testpolicy":            {AnalyzerTagPolicy},
 }
 
 // AnalyzerMetadata returns documentation metadata keyed by analyzer name.
@@ -95,11 +146,21 @@ func AnalyzerMetadata() map[string]AnalyzerInfo {
 	metadata := make(map[string]AnalyzerInfo)
 	for _, group := range AnalyzerGroups() {
 		for _, analyzer := range group.Analyzers {
-			metadata[analyzer.Name] = AnalyzerInfo{}
+			metadata[analyzer.Name] = AnalyzerInfo{
+				Profile: AnalyzerProfileDefault,
+				Tags:    slices.Clone(analyzerTags[analyzer.Name]),
+			}
 		}
 	}
+	for _, name := range []string{"apishape", "closedomain", "globalstate", "taintpolicy", "testpolicy", "wirepolicy"} {
+		info := metadata[name]
+		info.Profile = AnalyzerProfileOptIn
+		metadata[name] = info
+	}
 	for _, name := range []string{"cancellationownership", "testpolicy", "wirepolicy"} {
-		metadata[name] = AnalyzerInfo{SuggestedFix: true}
+		info := metadata[name]
+		info.SuggestedFix = true
+		metadata[name] = info
 	}
 	return metadata
 }
@@ -217,4 +278,13 @@ func Analyzers() []*analysis.Analyzer {
 		}
 	}
 	return analyzers
+}
+
+// DefaultAnalyzers returns the analyzers enabled when no analyzer selection
+// flags are provided.
+func DefaultAnalyzers() []*analysis.Analyzer {
+	metadata := AnalyzerMetadata()
+	return slices.DeleteFunc(Analyzers(), func(analyzer *analysis.Analyzer) bool {
+		return !metadata[analyzer.Name].EnabledByDefault()
+	})
 }

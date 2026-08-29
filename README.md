@@ -3,11 +3,15 @@
 # gohawk
 
 [![CI](https://github.com/kojah/gohawk/actions/workflows/ci.yml/badge.svg)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-80.5%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-80.3%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 
 gohawk is a focused set of static analyzers for Go. It ships twenty-two
 framework-neutral checks covering API design, concurrency, resource ownership,
 determinism, serialization, tests, and error handling.
+
+Sixteen broadly applicable checks run by default. Six policy-heavy checks are
+opt-in and remain available through the same CLI: `apishape`, `closedomain`,
+`globalstate`, `taintpolicy`, `testpolicy`, and `wirepolicy`.
 
 gohawk is designed to run alongside
 `go vet`, Staticcheck, and go-critic, filling gaps around ownership, lifecycle,
@@ -33,10 +37,13 @@ API contracts, and path-aware policy checks.
 
 ```sh
 # Install.
-go install github.com/kojah/gohawk/cmd/gohawk@latest
+go install github.com/kojah/gohawk@latest
 
-# Run every check.
+# Run the default profile.
 gohawk ./...
+
+# See every analyzer, its profile, and its tags.
+gohawk list
 
 # Use it with go vet.
 go vet -vettool="$(command -v gohawk)" ./...
@@ -45,9 +52,12 @@ go vet -vettool="$(command -v gohawk)" ./...
 gohawk -fix -diff ./...
 gohawk -fix ./...
 
-# Run selected checks, or exclude one from the defaults.
+# Run selected opt-in checks, or exclude one from the defaults.
 gohawk -wirepolicy -globalstate ./...
-gohawk -globalstate=false ./...
+gohawk -determinism=false ./...
+
+# Run every analyzer, including opt-in checks.
+gohawk -enable-all ./...
 ```
 
 ## Analyzers
@@ -96,8 +106,13 @@ See the [analyzer reference](docs/analyzers/index.md) for in-depth guidance and 
 | [`blockingtest`](docs/analyzers/testing/blockingtest.md) | Blocking test channels without cancellation ownership. |
 | [`testpolicy`](docs/analyzers/testing/testpolicy.md) | Missing lifecycle ownership in test helpers. |
 
-These checks are opinionated by design. When a finding is intentional, you can
-[suppress it](#suppressions) with a short explanation.
+Analyzer tags distinguish correctness defects, reliability risks, and
+project-specific policy; see [Tags and profiles](docs/tags-and-profiles.md)
+for the definitions. When a finding is intentional, you can [suppress it](#suppressions)
+with a short explanation.
+
+The analyzer reference marks policy-heavy checks as opt-in. Selecting any
+analyzer by name runs only the analyzers named on that command line.
 
 ## Analyzer configuration
 

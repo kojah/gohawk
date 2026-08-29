@@ -1,6 +1,7 @@
 package analysisutil
 
 import (
+	"fmt"
 	"go/ast"
 	"go/constant"
 	"go/token"
@@ -26,10 +27,10 @@ type flowKey struct {
 }
 
 // SourceSSAFunctions returns non-generated source functions from buildssa results.
-func SourceSSAFunctions(pass *analysis.Pass) []*ssa.Function {
+func SourceSSAFunctions(pass *analysis.Pass) ([]*ssa.Function, error) {
 	result, ok := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 	if !ok {
-		panic("buildssa prerequisite returned unexpected result")
+		return nil, fmt.Errorf("buildssa prerequisite returned unexpected result")
 	}
 	functions := make([]*ssa.Function, 0, len(result.SrcFuncs))
 	for _, function := range result.SrcFuncs {
@@ -39,7 +40,7 @@ func SourceSSAFunctions(pass *analysis.Pass) []*ssa.Function {
 		}
 		functions = append(functions, function)
 	}
-	return functions
+	return functions, nil
 }
 
 // InstructionCall returns call metadata carried by call-like SSA instructions.

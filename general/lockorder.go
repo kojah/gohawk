@@ -42,8 +42,12 @@ func lockOrderAnalyzer() *analysis.Analyzer {
 }
 
 func runLockOrder(pass *analysis.Pass) (any, error) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
 	relations := map[lockRelation]token.Pos{}
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	for _, function := range functions {
 		walkLockOrder(pass, function, relations)
 	}
 	return nil, nil

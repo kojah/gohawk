@@ -6,16 +6,36 @@ const { entry } = Astro.locals.starlightRoute;
 const analyzer = manifest.groups
 	.flatMap((group) => group.analyzers.map((analyzer) => ({ ...analyzer, group: group.title })))
 	.find((analyzer) => analyzer.path === entry.id);
+
+// The landing page supplies its own title inside the hero, so suppress
+// Starlight's; rendering both leaves the page with two <h1>s.
+const isLanding = entry.id === 'index' || entry.id === '';
 ---
 
-<DefaultPageTitle />
 {
-	analyzer && (
-		<div class="rule-meta">
-			<div><span>Category</span><strong>{analyzer.group}</strong></div>
-			<div><span>Default</span><strong>Enabled</strong></div>
-			<div><span>Fix</span><strong>{analyzer.suggestedFix ? 'Suggested fix' : 'Diagnostic only'}</strong></div>
-			<div><span>Options</span><strong>{analyzer.options.length === 0 ? 'None' : `${analyzer.options.length} ${analyzer.options.length === 1 ? 'option' : 'options'}`}</strong></div>
+	analyzer ? (
+		<div class="analyzer-header">
+			<div class="analyzer-eyebrow">{analyzer.group}</div>
+			<DefaultPageTitle />
+			<p class="analyzer-summary">{analyzer.summary}</p>
+			<div class="rule-meta">
+				<div>
+					<span class="rule-meta-label">Profile</span>
+					<strong>{analyzer.profile}</strong>
+				</div>
+				<div>
+					<span class="rule-meta-label">Tags</span>
+					<strong class="rule-tags">
+						{analyzer.tags.map((tag) => <span class="analyzer-tag">{tag}</span>)}
+					</strong>
+				</div>
+				<div>
+					<span class="rule-meta-label">Fix offered</span>
+					<strong>{analyzer.suggestedFix ? 'Yes' : 'No'}</strong>
+				</div>
+			</div>
 		</div>
+	) : (
+		!isLanding && <DefaultPageTitle />
 	)
 }

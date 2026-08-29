@@ -22,7 +22,11 @@ func blockingTestAnalyzer() *analysis.Analyzer {
 }
 
 func runBlockingTest(pass *analysis.Pass) (any, error) {
-	for _, function := range analysisutil.SourceSSAFunctions(pass) {
+	functions, err := analysisutil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
+	for _, function := range functions {
 		file := analysisutil.FunctionFile(pass, function)
 		if file == nil || !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
 			continue
