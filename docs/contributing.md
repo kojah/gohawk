@@ -155,13 +155,15 @@ do not edit generated example blocks by hand.
 Format and test the repository:
 
 ```sh
-gofmt -w $(git ls-files '*.go')
-go generate ./...
-go test ./...
-go test -race ./...
-go vet ./...
-go run . ./...
+make fmt
+make generate
+make verify
 ```
+
+`make verify` checks formatting and generated documentation, runs the unit,
+race, and golangci-lint plugin tests, vets and builds the project, and dogfoods
+the resulting gohawk binary. Run `make help` to see the focused targets for
+individual checks, documentation development, and dogfooding benchmarks.
 
 Run the analyzer on a few real Go projects too. Investigate every new finding
 and fix recurring false-positive patterns before enabling broader coverage.
@@ -169,10 +171,7 @@ and fix recurring false-positive patterns before enabling broader coverage.
 Finally, refresh the coverage badge so the CI check agrees with the new tests:
 
 ```sh
-go test ./... -covermode=count \
-  -coverpkg=./analysisutil/...,./analyzers,./internal/analyzerbase,./internal/analyzers/...,./internal/docexamples \
-  -coverprofile=coverage.out
-go tool cover -func=coverage.out -o=coverage-summary.out
+make coverage
 go run github.com/AlexBeauchemin/gobadge@v0.4.0 \
   -filename=coverage-summary.out \
   -target=README.md \

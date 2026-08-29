@@ -2,3 +2,4 @@ coverage.out
 coverage-summary.out
 site/.agentation-runtime/
 benchmark-results/
+.build/
