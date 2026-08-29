@@ -55,6 +55,46 @@ gohawk -disable-groups=testing ./...
 gohawk -enable-all ./...
 ```
 
+## golangci-lint module plugin
+
+gohawk can be included in a custom golangci-lint binary through its recommended
+[module plugin system](https://golangci-lint.run/docs/plugins/module-plugins/).
+Add the plugin to `.custom-gcl.yml`:
+
+```yaml
+version: v2.13.2
+plugins:
+  - module: github.com/kojah/gohawk
+    import: github.com/kojah/gohawk/plugin/golangci
+    version: main
+```
+
+Build the custom binary with `golangci-lint custom`, then configure it in
+`.golangci.yml`:
+
+```yaml
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - gohawk
+  settings:
+    custom:
+      gohawk:
+        type: module
+        description: Correctness-focused ownership, lifecycle, and concurrency checks.
+        settings:
+          enable:
+            - globalstate
+          disable:
+            - contextpolicy
+```
+
+The plugin runs gohawk's conservative default analyzer profile. Use `enable` to
+add analyzers, `disable` to remove them, or `enable-all: true` to start with the
+complete analyzer set. Analyzer names are listed by `gohawk list`.
+
 ## Contributing
 
 Contributions are welcome. See [How to contribute](https://kojah.github.io/gohawk/contributing/)
