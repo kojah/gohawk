@@ -77,7 +77,7 @@ func TestRunCLIImmediateCommands(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var output, errorsOutput bytes.Buffer
-			runtime := testCLIRuntime(&output, &errorsOutput, nil)
+			runtime := testCLIRuntime(t, &output, &errorsOutput, nil)
 			result := runCLI(test.arguments, runtime)
 			if result.exitCode != test.wantCode {
 				t.Fatalf("exit code = %d, want %d", result.exitCode, test.wantCode)
@@ -98,7 +98,7 @@ func TestRunCLIImmediateCommands(t *testing.T) {
 func TestRunCLIProcessBoundaries(t *testing.T) {
 	t.Run("filtered flags", func(t *testing.T) {
 		var output, errorsOutput bytes.Buffer
-		runtime := testCLIRuntime(&output, &errorsOutput, nil)
+		runtime := testCLIRuntime(t, &output, &errorsOutput, nil)
 		runtime.filteredFlags = func(arguments []string, analyzers []*analysis.Analyzer, output, errorsOutput io.Writer) int {
 			if !slices.Equal(arguments, []string{"gohawk", "-flags"}) {
 				t.Errorf("arguments = %v", arguments)
@@ -117,7 +117,7 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 
 	t.Run("rich output", func(t *testing.T) {
 		var output, errorsOutput bytes.Buffer
-		runtime := testCLIRuntime(&output, &errorsOutput, nil)
+		runtime := testCLIRuntime(t, &output, &errorsOutput, nil)
 		var childArguments []string
 		runtime.richOutput = func(arguments []string, output io.Writer) int {
 			childArguments = slices.Clone(arguments)
@@ -137,7 +137,7 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 
 	t.Run("analysis engine", func(t *testing.T) {
 		var output, errorsOutput bytes.Buffer
-		runtime := testCLIRuntime(&output, &errorsOutput, map[string]string{richOutputChild: "1"})
+		runtime := testCLIRuntime(t, &output, &errorsOutput, map[string]string{richOutputChild: "1"})
 		result := runCLI([]string{"gohawk", "-disable=oncepolicy", "./..."}, runtime)
 		if result.exitCode != 0 || result.invocation == nil {
 			t.Fatalf("result = %#v", result)
@@ -218,7 +218,8 @@ func TestRunWithRichOutputUsing(t *testing.T) {
 	}
 }
 
-func testCLIRuntime(output, errorsOutput io.Writer, environment map[string]string) cliRuntime {
+func testCLIRuntime(t *testing.T, output, errorsOutput io.Writer, environment map[string]string) cliRuntime {
+	t.Helper()
 	return cliRuntime{
 		output:       output,
 		errorsOutput: errorsOutput,
@@ -226,10 +227,12 @@ func testCLIRuntime(output, errorsOutput io.Writer, environment map[string]strin
 			return environment[name]
 		},
 		filteredFlags: func([]string, []*analysis.Analyzer, io.Writer, io.Writer) int {
-			panic("unexpected filtered-flags subprocess")
+			t.Fatal("unexpected filtered-flags subprocess")
+			return 0
 		},
 		richOutput: func([]string, io.Writer) int {
-			panic("unexpected rich-output subprocess")
+			t.Fatal("unexpected rich-output subprocess")
+			return 0
 		},
 	}
 }

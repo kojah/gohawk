@@ -25,3 +25,24 @@ complexity that makes the implementation harder to review or modify.
 The project owner may close low-effort or insufficiently reviewed pull requests
 that do not follow the contribution guidelines, regardless of whether AI was
 used.
+
+## How AI was used to develop gohawk
+
+gohawk has been developed with substantial assistance from LLM-based coding
+tools, primarily OpenAI Codex. AI assistance has been used to:
+
+- Explore analyzer designs and implementation approaches.
+- Write and refactor portions of the codebase.
+- Draft tests, documentation, and diagnostic wording.
+- Review suspected bugs and potential false positives.
+- Construct reproductions and investigate behavior in real-world projects.
+- Run and interpret validation, dogfooding, and integration tests.
+
+AI-generated output is not accepted without review. The project owner
+determines the project's direction, reviews changes, evaluates whether
+diagnostics are sufficiently precise, and remains responsible for the
+resulting code.
+
+Analyzer behavior must be supported by focused fixtures, appropriate
+regression tests, representative dogfooding, and CI validation regardless of
+whether AI contributed to the implementation.

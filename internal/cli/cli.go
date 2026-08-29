@@ -37,7 +37,7 @@ type cliResult struct {
 
 // selectionRequest is the user's analyzer/check policy before defaults and
 // ownership relationships are resolved.
-func Main() {
+func Main() int {
 	runtime := cliRuntime{
 		output:        os.Stdout,
 		errorsOutput:  os.Stderr,
@@ -50,11 +50,9 @@ func Main() {
 		registerSelectionFlags()
 		os.Args = result.invocation.arguments
 		multichecker.Main(result.invocation.analyzers...)
-		panic("unreachable")
+		return 0
 	}
-	if result.exitCode != 0 {
-		os.Exit(result.exitCode)
-	}
+	return result.exitCode
 }
 
 func runCLI(arguments []string, runtime cliRuntime) cliResult {
