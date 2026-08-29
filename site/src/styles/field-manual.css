@@ -430,9 +430,9 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	color: var(--sl-color-gray-2);
 }
 
-/* Checks mix long stable IDs with prose and compact metadata. Fixed desktop
-   proportions keep intrinsic widths from squeezing the prose or escaping the
-   article column; Starlight's block table remains scrollable below this size. */
+/* Checks mix long stable IDs with prose and compact metadata. Keep a useful
+   minimum width for every column and let Starlight's block-level table scroll
+   horizontally when the article column cannot accommodate them all. */
 .sl-markdown-content h3#checks + table {
 	width: 100%;
 	font-size: var(--sl-text-sm);
@@ -446,27 +446,20 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	white-space: nowrap;
 }
 
-@media (min-width: 50rem) {
-	.sl-markdown-content h3#checks + table {
-		display: table;
-		table-layout: fixed;
-	}
+.sl-markdown-content h3#checks + table :is(th, td):first-child {
+	min-width: 18rem;
+}
 
-	.sl-markdown-content h3#checks + table th:first-child {
-		width: 32%;
-	}
+.sl-markdown-content h3#checks + table :is(th, td):nth-child(2) {
+	min-width: 24rem;
+}
 
-	.sl-markdown-content h3#checks + table th:nth-child(2) {
-		width: 39%;
-	}
+.sl-markdown-content h3#checks + table :is(th, td):nth-child(3) {
+	min-width: 7.5rem;
+}
 
-	.sl-markdown-content h3#checks + table th:nth-child(3) {
-		width: 10%;
-	}
-
-	.sl-markdown-content h3#checks + table th:nth-child(4) {
-		width: 19%;
-	}
+.sl-markdown-content h3#checks + table :is(th, td):nth-child(4) {
+	min-width: 10rem;
 }
 
 /* Option names and defaults are identifiers rather than prose. Keep them
