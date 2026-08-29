@@ -9,7 +9,7 @@ gohawk is a focused set of static analyzers for Go. It ships twenty-two
 framework-neutral checks covering API design, concurrency, resource ownership,
 determinism, serialization, tests, and error handling.
 
-gohawk is not a general-purpose lint suite. It is designed to run alongside
+gohawk is designed to run alongside
 `go vet`, Staticcheck, and go-critic, filling gaps around ownership, lifecycle,
 API contracts, and path-aware policy checks.
 
