@@ -430,6 +430,37 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 	color: var(--sl-color-gray-2);
 }
 
+/* Check metadata is compact and indivisible. Give those columns their
+   intrinsic width and let the diagnostic summary use the remaining space. */
+.sl-markdown-content h3#checks + table {
+	width: 100%;
+	font-size: var(--sl-text-sm);
+}
+
+.sl-markdown-content h3#checks + table :is(th, td) {
+	vertical-align: top;
+}
+
+.sl-markdown-content h3#checks + table :is(th, td):is(:first-child, :nth-child(3), :nth-child(4)) {
+	width: 1%;
+	white-space: nowrap;
+}
+
+.sl-markdown-content h3#checks + table td:nth-child(2) {
+	width: 100%;
+}
+
+.sl-markdown-content h3#checks + table td:first-child code {
+	font-size: 0.88em;
+	white-space: nowrap;
+}
+
+@media (min-width: 50rem) {
+	.sl-markdown-content h3#checks + table {
+		display: table;
+	}
+}
+
 /* ------------------------------------------------------------ specimens -- */
 
 .expressive-code .frame pre {

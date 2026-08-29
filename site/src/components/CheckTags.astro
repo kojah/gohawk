@@ -29,13 +29,19 @@ const variants = {
 
 <style>
 	.check-tags {
-		display: flex;
-		flex-wrap: wrap;
+		display: inline-flex;
+		flex-wrap: nowrap;
 		gap: 0.35rem;
+		vertical-align: top;
 	}
 
 	a {
 		display: inline-flex;
 		text-decoration: none;
+	}
+
+	.check-tags :global(.sl-badge) {
+		overflow-wrap: normal;
+		white-space: nowrap;
 	}
 </style>
