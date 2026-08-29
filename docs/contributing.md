@@ -22,6 +22,8 @@ Before getting started, consider a few questions:
 
 An analyzer should report a real problem that a developer can act on. gohawk
 prefers missing an unusual bug over producing false alerts on valid code.
+See [Architecture](../architecture/) for the package map and the relationship
+between analyzer declarations, fixtures, and generated documentation.
 
 Suppose the new analyzer is called `examplepolicy`.
 
@@ -59,6 +61,10 @@ Add an `analyzerbase.AnalyzerSpec` for the analyzer to the matching group's
 `internal/analyzers/<group>/analyzers.go`, including its checks, profiles,
 tags, and suggested-fix support. Then add its analyzer ID to the stable order
 in `analyzers/analyzers.go`.
+
+Define each stable check identity alongside the existing check constants in
+`internal/analyzerbase/base.go`, then alias it with the other checks in the
+group's `analyzers.go`.
 
 Give every diagnostic rule a stable check identity and at least one
 `correctness`, `reliability`, or `policy` tag in its `AnalyzerSpec`. Report each
@@ -145,7 +151,7 @@ do not edit generated example blocks by hand.
 Format and test the repository:
 
 ```sh
-gofmt -w general testdata/src
+gofmt -w $(git ls-files '*.go')
 go generate ./...
 go test ./...
 go test -race ./...
@@ -159,7 +165,9 @@ and fix recurring false-positive patterns before enabling broader coverage.
 Finally, refresh the coverage badge so the CI check agrees with the new tests:
 
 ```sh
-go test ./... -covermode=count -coverpkg=./... -coverprofile=coverage.out
+go test ./... -covermode=count \
+  -coverpkg=./analysisutil/...,./analyzers,./internal/analyzerbase,./internal/analyzers/...,./internal/docexamples \
+  -coverprofile=coverage.out
 go tool cover -func=coverage.out -o=coverage-summary.out
 go run github.com/AlexBeauchemin/gobadge@v0.4.0 \
   -filename=coverage-summary.out \

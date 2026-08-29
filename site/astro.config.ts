@@ -93,7 +93,10 @@ export default defineConfig({
 				},
 				{
 					label: 'Contributing',
-					items: [{ label: 'Overview', slug: 'contributing' }],
+					items: [
+						{ label: 'Overview', slug: 'contributing' },
+						{ label: 'Architecture', slug: 'architecture' },
+					],
 				},
 				{
 					label: 'Analyzer reference',
