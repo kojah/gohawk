@@ -5,6 +5,10 @@ sidebar:
   order: 3
 ---
 
+AI-assisted contributions are welcome when they follow the same quality
+standards as every other contribution. See the [AI policy](../ai-policy/) for
+the disclosure and review requirements.
+
 ## Want to add an analyzer?
 
 Before getting started, consider a few questions:
