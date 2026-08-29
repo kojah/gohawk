@@ -3,7 +3,7 @@ title: Installation
 description: Install gohawk and run your first analysis.
 ---
 
-gohawk requires Go 1.25 or newer.
+gohawk requires Go 1.26 or newer.
 
 ## Install the CLI
 

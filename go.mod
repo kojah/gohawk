@@ -1,8 +1,8 @@
 module github.com/kojah/gohawk
 
-go 1.25.0
+go 1.26.0
 
-toolchain go1.25.13
+toolchain go1.26.7
 
 require (
 	github.com/golangci/plugin-module-register v0.1.2
