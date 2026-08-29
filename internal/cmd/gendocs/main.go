@@ -325,7 +325,7 @@ func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
 // preserving Starlight's native table rendering.
 func checksBlock(analyzerName string, checks []check) (string, error) {
 	var output strings.Builder
-	fmt.Fprintf(&output, "| Check (`%s/…`) | What it detects | Profile | Tags |\n", analyzerName)
+	output.WriteString("| Check | What it detects | Profile | Tags |\n")
 	output.WriteString("| --- | --- | --- | --- |\n")
 	for _, item := range checks {
 		localID, ok := strings.CutPrefix(item.ID, analyzerName+"/")

@@ -17,7 +17,7 @@ capacity for every send.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check (`goroutineownership/…`) | What it detects | Profile | Tags |
+| Check | What it detects | Profile | Tags |
 | --- | --- | --- | --- |
 | `unjoined` | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. | <CheckProfile profile="default" /> | <CheckTags tags={["reliability"]} /> |
 | `detached` | Reports goroutines without a recognizable join handle or lifecycle owner. | <CheckProfile profile="opt-in" /> | <CheckTags tags={["reliability"]} /> |

@@ -156,7 +156,7 @@ func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"| Check (`example/…`) | What it detects | Profile | Tags |",
+		"| Check | What it detects | Profile | Tags |",
 		"| `problem` |",
 		"Reports the example problem.",
 		`<CheckProfile profile="opt-in" />`,
