@@ -6,3 +6,8 @@ type Payload struct {
 }
 
 var payload = Payload{Name: "Ada", Age: 36} // want "persisted or wire struct literal must use field keys"
+
+var payloadWithComments = Payload{ // want "persisted or wire struct literal must use field keys"
+	Name: "Grace", // preserve the name comment
+	Age:  42,      // preserve the age comment
+}

@@ -121,6 +121,38 @@ gohawk -enable=contextpolicy -contextpolicy.prefer-test-context=false ./...
 Each configurable analyzer lists its options on its own page in the
 [analyzer reference](../analyzers/).
 
+## Preview and apply suggested fixes
+
+Some diagnostics include a source edit that gohawk can apply automatically.
+Use `gohawk doc <analyzer>` to check the `Suggested fixes` field for an
+analyzer:
+
+```sh
+gohawk doc wirepolicy
+```
+
+Preview the edits as a unified diff without changing any files:
+
+```sh
+gohawk -enable=wirepolicy -fix -diff ./...
+```
+
+Apply those edits by omitting `-diff`:
+
+```sh
+gohawk -enable=wirepolicy -fix ./...
+```
+
+Analyzer, group, check, and option flags select diagnostics in the same way as
+an ordinary run. A fix-capable analyzer may still omit a fix when it cannot
+produce one safely for a particular finding. Review the resulting diff and run
+the project's tests after applying changes:
+
+```sh
+git diff
+go test ./...
+```
+
 ## Suppress a finding
 
 Put `//gohawk:ignore <analyzer> [reason]` on the flagged line or the line above:

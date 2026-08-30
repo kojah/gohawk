@@ -959,6 +959,41 @@ func TestCLIIntegration(t *testing.T) {
 		if exitCode != 0 || output != "" {
 			t.Fatalf("fixed module: exit code = %d, output = %q", exitCode, output)
 		}
+		output, exitCode = runCommand(t, module, "go", "test", "./...")
+		if exitCode != 0 {
+			t.Fatalf("test fixed module: exit code = %d\n%s", exitCode, output)
+		}
+	})
+
+	t.Run("test helper suggested fixes", func(t *testing.T) {
+		module := writeTestPolicyFixModule(t)
+		const relativePath = "sample/helper_test.go"
+
+		output, exitCode := runCommand(t, module, binary, "-enable=testpolicy", "-fix", "-diff", "./...")
+		if exitCode != 0 || strings.Count(output, "t.Helper()") != 2 {
+			t.Fatalf("preview exit code = %d, want two helper insertions\n%s", exitCode, output)
+		}
+		if contents := moduleFileContents(t, module, relativePath); strings.Contains(contents, "t.Helper()") {
+			t.Fatalf("preview modified fixture:\n%s", contents)
+		}
+
+		output, exitCode = runCommand(t, module, binary, "-enable=testpolicy", "-fix", "./...")
+		if exitCode != 0 {
+			t.Fatalf("fix exit code = %d, want 0\n%s", exitCode, output)
+		}
+		contents := moduleFileContents(t, module, relativePath)
+		if strings.Count(contents, "t.Helper()") != 2 || !strings.Contains(contents, "// Keep this setup comment.") {
+			t.Fatalf("fixed fixture does not contain both helpers and the existing comment:\n%s", contents)
+		}
+
+		output, exitCode = runCommand(t, module, binary, "-enable=testpolicy", "./...")
+		if exitCode != 0 || output != "" {
+			t.Fatalf("fixed module: exit code = %d, output = %q", exitCode, output)
+		}
+		output, exitCode = runCommand(t, module, "go", "test", "./...")
+		if exitCode != 0 {
+			t.Fatalf("test fixed module: exit code = %d\n%s", exitCode, output)
+		}
 	})
 
 	t.Run("cancellation ownership through CLI and vet tool", func(t *testing.T) {
@@ -994,6 +1029,10 @@ func TestCLIIntegration(t *testing.T) {
 		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "./...")
 		if exitCode != 0 || output != "" {
 			t.Fatalf("fixed vettool module: exit code = %d, output = %q", exitCode, output)
+		}
+		output, exitCode = runCommand(t, module, "go", "test", "./...")
+		if exitCode != 0 {
+			t.Fatalf("test fixed module: exit code = %d\n%s", exitCode, output)
 		}
 	})
 }
@@ -1084,6 +1123,29 @@ func TestWork(t *testing.T) {
 	return directory
 }
 
+func writeTestPolicyFixModule(t *testing.T) string {
+	t.Helper()
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/testpolicyfix\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "sample", "helper_test.go"), `package sample
+
+import "testing"
+
+func requireUser(t *testing.T) {
+	// Keep this setup comment.
+	t.Log("require user")
+}
+
+func emptyHelper(t *testing.T) {}
+
+func TestHelpers(t *testing.T) {
+	requireUser(t)
+	emptyHelper(t)
+}
+`)
+	return directory
+}
+
 func writeContextTestModule(t *testing.T, goVersion string) string {
 	t.Helper()
 	directory := t.TempDir()
@@ -1152,13 +1214,19 @@ func writeTestFile(t *testing.T, path, contents string) {
 
 func assertFixtureContains(t *testing.T, module, want string) {
 	t.Helper()
-	contents, err := os.ReadFile(filepath.Join(module, "sample", "sample.go"))
+	contents := moduleFileContents(t, module, filepath.Join("sample", "sample.go"))
+	if !strings.Contains(contents, want) {
+		t.Fatalf("fixture does not contain %q:\n%s", want, contents)
+	}
+}
+
+func moduleFileContents(t *testing.T, module, relativePath string) string {
+	t.Helper()
+	contents, err := os.ReadFile(filepath.Join(module, relativePath))
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
-	if !strings.Contains(string(contents), want) {
-		t.Fatalf("fixture does not contain %q:\n%s", want, contents)
-	}
+	return string(contents)
 }
 
 func runCommand(t *testing.T, directory, name string, arguments ...string) (string, int) {
