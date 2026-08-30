@@ -163,7 +163,7 @@ func synchronize(root string, check bool) error {
 	if err := rejectUnknownPages(root, expectedPages); err != nil {
 		return err
 	}
-	tagsPage := filepath.Join(root, "docs", "tags-and-profiles.md")
+	tagsPage := filepath.Join(root, "docs", "configuration.md")
 	tagsContents, err := os.ReadFile(tagsPage)
 	if err != nil {
 		return err

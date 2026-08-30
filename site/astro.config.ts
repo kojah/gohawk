@@ -47,6 +47,7 @@ export default defineConfig({
 		'/analyzers/ownership-and-lifecycle': '/analyzers/',
 		'/analyzers/reliability-and-safety': '/analyzers/',
 		'/analyzers/testing': '/analyzers/',
+		'/tags-and-profiles': '/configuration/#tags-and-profiles',
 	},
 	integrations: [
 		...(isDevelopment ? [react()] : []),
@@ -88,13 +89,7 @@ export default defineConfig({
 					label: 'Getting started',
 					items: [
 						{ label: 'Installation', slug: 'installation' },
-						{
-							label: 'Configuration',
-							items: [
-								{ label: 'Overview', slug: 'configuration' },
-								{ label: 'Tags and profiles', slug: 'tags-and-profiles' },
-							],
-						},
+						{ label: 'Configuration', slug: 'configuration' },
 						{ slug: 'golangci-lint' },
 					],
 				},
@@ -102,7 +97,7 @@ export default defineConfig({
 					label: 'Contributing',
 					items: [
 						{ label: 'How to contribute', slug: 'contributing' },
-						{ label: "gohawk's architecture", slug: 'architecture' },
+						{ label: 'Understanding the codebase', slug: 'architecture' },
 						{ label: 'AI policy', slug: 'ai-policy' },
 					],
 				},
