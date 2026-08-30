@@ -92,7 +92,7 @@ export default defineConfig({
 							items: [
 								{ label: 'Overview', slug: 'configuration' },
 								{ label: 'Tags and profiles', slug: 'tags-and-profiles' },
-								{ label: 'GolangCI integration', slug: 'golangci-lint' },
+								{ slug: 'golangci-lint' },
 							],
 						},
 					],
