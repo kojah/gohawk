@@ -7,6 +7,7 @@ import (
 	"github.com/golangci/plugin-module-register/register"
 	"github.com/kojah/gohawk/analyzers"
 	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/analysis/analysistest"
 )
 
 func TestPluginRegistration(t *testing.T) {
@@ -65,6 +66,47 @@ func TestPluginRejectsUnknownAnalyzer(t *testing.T) {
 	if _, err := New(map[string]any{"enable": []string{"not-an-analyzer"}}); err == nil {
 		t.Fatal("New accepted an unknown analyzer")
 	}
+}
+
+func TestPluginDefaultProfileSuppressesOptInChecks(t *testing.T) {
+	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, nil, "contextpolicy"), "defaultchecks", "suppressedoptin")
+}
+
+func TestPluginEnablesIndividualCheck(t *testing.T) {
+	settings := map[string]any{"enable-checks": []string{"contextpolicy/test-context"}}
+	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, settings, "contextpolicy"), "enabledcheck")
+}
+
+func TestPluginDisablesIndividualCheck(t *testing.T) {
+	settings := map[string]any{"disable-checks": []string{"contextpolicy/context-first"}}
+	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, settings, "contextpolicy"), "disabledcheck")
+}
+
+func TestPluginRejectsUnknownCheck(t *testing.T) {
+	for _, setting := range []string{"enable-checks", "disable-checks"} {
+		if _, err := New(map[string]any{setting: []string{"contextpolicy/not-a-check"}}); err == nil {
+			t.Fatalf("New accepted an unknown check in %s", setting)
+		}
+	}
+}
+
+func pluginAnalyzer(t *testing.T, settings any, name string) *analysis.Analyzer {
+	t.Helper()
+	linter, err := New(settings)
+	if err != nil {
+		t.Fatalf("construct plugin: %v", err)
+	}
+	values, err := linter.BuildAnalyzers()
+	if err != nil {
+		t.Fatalf("build analyzers: %v", err)
+	}
+	for _, analyzer := range values {
+		if analyzer.Name == name {
+			return analyzer
+		}
+	}
+	t.Fatalf("analyzer %q is not enabled", name)
+	return nil
 }
 
 func analyzerNames(values []*analysis.Analyzer) []string {

@@ -28,22 +28,6 @@ plugins:
     import: github.com/kojah/gohawk/plugin/golangci
     path: %q
 `, golangCILintVersion, repository))
-	writeTestFile(t, workspace, ".golangci.yml", `version: "2"
-linters:
-  default: none
-  enable:
-    - gohawk
-  settings:
-    custom:
-      gohawk:
-        type: module
-        description: gohawk end-to-end test
-        settings:
-          enable:
-            - globalstate
-          disable:
-            - lockorder
-`)
 	writeTestFile(t, workspace, "go.mod", `module example.com/gohawk-golangci-integration
 
 go 1.25.0
@@ -61,6 +45,18 @@ func deferredUnlockInLoop(mu *sync.Mutex, values []int) {
 	}
 }
 `)
+	writeTestFile(t, workspace, "optin/optin_test.go", `package optin
+
+import (
+	"context"
+	"testing"
+)
+
+func TestBackground(t *testing.T) {
+	_ = t
+	_ = context.Background()
+}
+`)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -75,26 +71,80 @@ func deferredUnlockInLoop(mu *sync.Mutex, values []int) {
 	if runtime.GOOS == "windows" {
 		binary += ".exe"
 	}
-	run := exec.CommandContext(ctx, binary, "run")
-	run.Dir = workspace
-	run.Env = append(os.Environ(), "GOWORK=off")
-	outputBytes, err := run.CombinedOutput()
-	output := string(outputBytes)
-	var exitError *exec.ExitError
-	if !errors.As(err, &exitError) || exitError.ExitCode() != 1 {
-		t.Fatalf("run custom golangci-lint error = %v, want finding exit code 1\n%s", err, output)
+	tests := []struct {
+		name    string
+		config  string
+		want    []string
+		exclude []string
+	}{
+		{
+			name: "default profile",
+			config: pluginConfig(`          enable:
+            - globalstate
+          disable:
+            - lockorder`),
+			want: []string{
+				"globalstate: mutable package state values",
+				"deferinloop: deferred cleanup runs after the loop",
+			},
+			exclude: []string{"lockorder:", "contextpolicy: use t.Context()"},
+		},
+		{
+			name: "individual checks",
+			config: pluginConfig(`          enable:
+            - globalstate
+          disable:
+            - lockorder
+          enable-checks:
+            - contextpolicy/test-context
+          disable-checks:
+            - deferinloop/cleanup-lifetime`),
+			want: []string{
+				"globalstate: mutable package state values",
+				"contextpolicy: use t.Context()",
+			},
+			exclude: []string{"lockorder:", "deferinloop:"},
+		},
 	}
-	for _, expected := range []string{
-		"globalstate: mutable package state values",
-		"deferinloop: deferred cleanup runs after the loop",
-	} {
-		if !strings.Contains(output, expected) {
-			t.Errorf("output does not contain %q:\n%s", expected, output)
-		}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			writeTestFile(t, workspace, ".golangci.yml", test.config)
+			run := exec.CommandContext(ctx, binary, "run")
+			run.Dir = workspace
+			run.Env = append(os.Environ(), "GOWORK=off")
+			outputBytes, err := run.CombinedOutput()
+			output := string(outputBytes)
+			var exitError *exec.ExitError
+			if !errors.As(err, &exitError) || exitError.ExitCode() != 1 {
+				t.Fatalf("run custom golangci-lint error = %v, want finding exit code 1\n%s", err, output)
+			}
+			for _, expected := range test.want {
+				if !strings.Contains(output, expected) {
+					t.Errorf("output does not contain %q:\n%s", expected, output)
+				}
+			}
+			for _, excluded := range test.exclude {
+				if strings.Contains(output, excluded) {
+					t.Errorf("output unexpectedly contains %q:\n%s", excluded, output)
+				}
+			}
+		})
 	}
-	if strings.Contains(output, "lockorder:") {
-		t.Errorf("disabled lockorder analyzer reported a finding:\n%s", output)
-	}
+}
+
+func pluginConfig(settings string) string {
+	return `version: "2"
+linters:
+  default: none
+  enable:
+    - gohawk
+  settings:
+    custom:
+      gohawk:
+        type: module
+        description: gohawk end-to-end test
+        settings:
+` + settings + "\n"
 }
 
 func repositoryRoot(t *testing.T) string {
@@ -108,7 +158,11 @@ func repositoryRoot(t *testing.T) string {
 
 func writeTestFile(t *testing.T, directory, name, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
+	path := filepath.Join(directory, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create directory for %s: %v", name, err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", name, err)
 	}
 }

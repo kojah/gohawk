@@ -53,12 +53,20 @@ linters:
           enable:
             - globalstate
           disable:
-            - contextpolicy
+            - lockorder
+          enable-checks:
+            - contextpolicy/test-context
+          disable-checks:
+            - errorownership/text-classification
 ```
 
-The plugin runs gohawk's conservative default analyzer profile. Its settings
-accept `enable` and `disable` lists, or `enable-all: true` to start with the
-complete analyzer set. Run `gohawk list` to see valid analyzer names.
+The plugin runs gohawk's conservative default analyzer and check profiles;
+opt-in analyzers and checks are suppressed unless explicitly enabled. Its
+settings accept `enable` and `disable` analyzer lists, `enable-checks` and
+`disable-checks` lists of stable check IDs, or `enable-all: true` to start with
+every analyzer and check. Explicitly enabling a check also enables its owning
+analyzer, unless that analyzer is explicitly disabled. Run `gohawk list` and
+`gohawk list -checks` to see valid names and check IDs.
 
 See [Configuring gohawk](../configuration/) for profile and analyzer-selection
 behavior.
