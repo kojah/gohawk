@@ -1,0 +1,81 @@
+name: Documentation links
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "site/**"
+      - "general/**"
+      - "analyzers/**"
+      - "go.mod"
+      - "go.sum"
+      - "internal/cmd/gendocs/**"
+      - "Makefile"
+      - ".github/workflows/links.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "site/**"
+      - "general/**"
+      - "analyzers/**"
+      - "go.mod"
+      - "go.sum"
+      - "internal/cmd/gendocs/**"
+      - "Makefile"
+      - ".github/workflows/links.yml"
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-links-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: site/pnpm-lock.yaml
+      - run: make site-install
+      - run: make site-build
+      - name: Check internal links and anchors
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --offline
+            --include-fragments
+            --index-files index.html
+            --exclude '#_top$'
+            --root-dir '${{ github.workspace }}/site/dist'
+            'site/dist/**/*.html'
+      - name: Check external links
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --include-fragments
+            --index-files index.html
+            --exclude '#_top$'
+            --exclude 'https://gohawk\.dev/404/$'
+            --exclude-all-private
+            --max-concurrency 12
+            --timeout 20
+            --root-dir '${{ github.workspace }}/site/dist'
+            'site/dist/**/*.html'

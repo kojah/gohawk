@@ -1,6 +1,7 @@
 GO ?= go
 GOFMT ?= gofmt
 PNPM ?= corepack pnpm
+LYCHEE ?= lychee
 
 BUILD_DIRECTORY ?= $(CURDIR)/.build
 GOHAWK_BINARY ?= $(BUILD_DIRECTORY)/gohawk
@@ -13,7 +14,7 @@ VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test plugin-test test-race
 
 .PHONY: help build fmt fmt-check generate generated-check mod-verify test \
 	test-race vet coverage plugin-test dogfood verify-static verify ci benchmark site-install \
-	site-check site-build site-review
+	site-check site-build site-links site-links-external site-review
 
 help:
 	@printf '%s\n' \
@@ -27,6 +28,7 @@ help:
 		'  make benchmark       Run pinned dogfooding benchmarks' \
 		'  make site-check      Check the documentation website' \
 		'  make site-build      Build the documentation website' \
+		'  make site-links      Check internal links in the built website' \
 		'  make site-review     Start the documentation review server'
 
 build:
@@ -91,6 +93,17 @@ site-check:
 
 site-build:
 	$(PNPM) --dir site build
+
+site-links: site-build
+	$(LYCHEE) --offline --include-fragments --index-files index.html \
+		--exclude '#_top$$' --root-dir "$(CURDIR)/site/dist" \
+		'site/dist/**/*.html'
+
+site-links-external: site-build
+	$(LYCHEE) --include-fragments --index-files index.html \
+		--exclude '#_top$$' --exclude 'https://gohawk\.dev/404/$$' \
+		--exclude-all-private --max-concurrency 12 --timeout 20 \
+		--root-dir "$(CURDIR)/site/dist" 'site/dist/**/*.html'
 
 site-review:
 	$(PNPM) --dir site dev:review
