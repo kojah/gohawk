@@ -1,5 +1,5 @@
 ---
-title: Configuring gohawk
+title: Configuration
 description: Select analyzers, set analyzer flags, and suppress intentional findings.
 ---
 

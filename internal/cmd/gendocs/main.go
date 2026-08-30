@@ -494,7 +494,7 @@ var groupIntros = map[string]string{
 
 func analyzerIndex(data manifest) string {
 	var output strings.Builder
-	output.WriteString("---\ntitle: Analyzers\ndescription: The gohawk analyzer catalog, generated from the registered Go analyzers.\n---\n\n")
+	output.WriteString("---\ntitle: All analyzers\ndescription: The gohawk analyzer catalog, generated from the registered Go analyzers.\n---\n\n")
 	output.WriteString("<!-- Run go generate ./... to update this page; do not edit it by hand. -->\n\n")
 	output.WriteString("gohawk ships a focused set of analyzers rather than a general-purpose lint\n")
 	output.WriteString("catalog.\n")

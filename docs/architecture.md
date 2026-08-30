@@ -1,5 +1,5 @@
 ---
-title: Architecture
+title: Understanding the codebase
 description: How gohawk's command, catalog, analyzers, tests, and documentation fit together.
 sidebar:
   order: 2

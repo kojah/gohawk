@@ -1,5 +1,5 @@
 ---
-title: Analyzers
+title: All analyzers
 description: The gohawk analyzer catalog, generated from the registered Go analyzers.
 ---
 

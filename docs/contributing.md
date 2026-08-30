@@ -1,5 +1,5 @@
 ---
-title: Contributing
+title: How to contribute
 description: How to add an analyzer to gohawk.
 sidebar:
   order: 3
