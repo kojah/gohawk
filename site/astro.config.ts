@@ -101,7 +101,7 @@ export default defineConfig({
 				{
 					label: 'Contributing',
 					items: [
-						{ label: 'Overview', slug: 'contributing' },
+						{ label: 'How to contribute', slug: 'contributing' },
 						{ label: 'Architecture', slug: 'architecture' },
 						{ label: 'AI policy', slug: 'ai-policy' },
 					],
