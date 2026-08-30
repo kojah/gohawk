@@ -15,7 +15,7 @@ It draws inspiration from [go-critic](https://github.com/go-critic/go-critic),
 but is deliberately more focused on correctness and reliability, with fewer
 opinionated style checks.
 
-[Read the documentation](https://kojah.github.io/gohawk/)
+[Read the documentation](https://gohawk.dev/)
 
 ## Quick Start
 
@@ -60,12 +60,12 @@ gohawk -enable-all ./...
 ## golangci-lint integration
 
 gohawk can run as a module plugin inside a custom golangci-lint binary. See the
-[golangci-lint integration guide](https://kojah.github.io/gohawk/golangci-lint/)
+[golangci-lint integration guide](https://gohawk.dev/golangci-lint/)
 for build and configuration instructions.
 
 ## Contributing
 
-Contributions are welcome. See [How to contribute](https://kojah.github.io/gohawk/contributing/)
+Contributions are welcome. See [How to contribute](https://gohawk.dev/contributing/)
 for the development workflow, analyzer requirements, and verification steps.
 
 ## AI policy
@@ -73,7 +73,7 @@ for the development workflow, analyzer requirements, and verification steps.
 gohawk was developed with assistance from LLMs, and AI-assisted contributions
 are permitted. Contributors must disclose AI usage, and every contribution must
 meet the project's strict standards for quality, testing, analyzer precision,
-and human readability. See the full [AI policy](https://kojah.github.io/gohawk/ai-policy/).
+and human readability. See the full [AI policy](https://gohawk.dev/ai-policy/).
 
 ## Sponsorship
 

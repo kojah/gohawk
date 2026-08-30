@@ -39,5 +39,5 @@ go vet -vettool="$(command -v gohawk)" ./...
 To include gohawk in a custom golangci-lint binary instead, follow the
 [golangci-lint integration guide](../golangci-lint/).
 
-Continue to [Configuring gohawk](/gohawk/configuration/) to select analyzers, enable
+Continue to [Configuring gohawk](/configuration/) to select analyzers, enable
 opt-in checks, and configure suppressions.

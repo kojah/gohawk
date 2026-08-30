@@ -23,8 +23,8 @@ const viteCacheDir = process.env.GOHAWK_ASTRO_CHECK
 		: 'node_modules/.vite-build';
 
 export default defineConfig({
-	site: 'https://kojah.github.io',
-	base: '/gohawk/',
+	site: 'https://gohawk.dev',
+	base: '/',
 	vite: {
 		cacheDir: viteCacheDir,
 		server: {
@@ -41,12 +41,12 @@ export default defineConfig({
 		},
 	},
 	redirects: {
-		'/analyzer-reference': '/gohawk/analyzers/',
+		'/analyzer-reference': '/analyzers/',
 		// The per-group index pages were folded into the catalog.
-		'/analyzers/api-and-data-contracts': '/gohawk/analyzers/',
-		'/analyzers/ownership-and-lifecycle': '/gohawk/analyzers/',
-		'/analyzers/reliability-and-safety': '/gohawk/analyzers/',
-		'/analyzers/testing': '/gohawk/analyzers/',
+		'/analyzers/api-and-data-contracts': '/analyzers/',
+		'/analyzers/ownership-and-lifecycle': '/analyzers/',
+		'/analyzers/reliability-and-safety': '/analyzers/',
+		'/analyzers/testing': '/analyzers/',
 	},
 	integrations: [
 		...(isDevelopment ? [react()] : []),

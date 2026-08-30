@@ -10,7 +10,7 @@ editUrl: false
 
 <div class="landing-hero">
   <figure class="landing-figure">
-    <img src="/gohawk/gohawk-logo.png" width="1536" height="1024" alt="A hawk sheltering the Go gopher" />
+    <img src="/gohawk-logo.png" width="1536" height="1024" alt="A hawk sheltering the Go gopher" />
   </figure>
   <div class="landing-copy">
     <h1 class="landing-title">gohawk</h1>
