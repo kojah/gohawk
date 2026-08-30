@@ -23,10 +23,10 @@ opinionated style checks.
 # Install.
 go install github.com/kojah/gohawk@latest
 
-# Run the default profile.
+# Run the conservative default set.
 gohawk ./...
 
-# See every analyzer, its profile, and its group.
+# See every analyzer and its group; * means opt-in.
 gohawk list
 
 # Inspect an analyzer or one of its checks.
@@ -50,7 +50,7 @@ gohawk -enable-groups=ownership,testing ./...
 # Run one opt-in check.
 gohawk -enable-checks=contextpolicy/test-context ./...
 
-# Remove groups from the default profile or from -enable-all.
+# Remove groups from the ordinary run or from -enable-all.
 gohawk -disable-groups=testing ./...
 
 # Run every analyzer and check.

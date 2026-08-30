@@ -17,7 +17,9 @@ explicitly configured names or types are excluded.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="mutable-package-state" tags={["reliability","policy"]} /> | Reports mutable package-level state without an explicit owner. |
+| <CheckIdentity name="mutable-package-state" optIn /> | Reports mutable package-level state without an explicit owner. |
+
+\* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

@@ -81,7 +81,7 @@ func TestBackground(t *testing.T) {
 		exclude []string
 	}{
 		{
-			name: "default profile",
+			name: "ordinary run",
 			config: pluginConfig(`          enable:
             - globalstate
           disable:

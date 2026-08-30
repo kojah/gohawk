@@ -17,9 +17,11 @@ returning the newly declared one.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="log-and-return" optIn tags={["reliability","policy"]} /> | Reports functions that both log and return the same error. |
-| <CheckIdentity name="text-classification" tags={["reliability"]} /> | Reports production code that classifies errors by matching their text. |
-| <CheckIdentity name="mismatched-inline-error" tags={["correctness"]} /> | Reports inline error declarations whose condition checks a different error. |
+| <CheckIdentity name="log-and-return" optIn /> | Reports functions that both log and return the same error. |
+| <CheckIdentity name="text-classification" /> | Reports production code that classifies errors by matching their text. |
+| <CheckIdentity name="mismatched-inline-error" /> | Reports inline error declarations whose condition checks a different error. |
+
+\* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

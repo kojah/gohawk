@@ -22,14 +22,6 @@ func TestCollectManifest(t *testing.T) {
 	if len(data.Groups) != len(gohawk.AnalyzerGroups()) {
 		t.Fatalf("group count = %d, want %d", len(data.Groups), len(gohawk.AnalyzerGroups()))
 	}
-	if len(data.Tags) != len(gohawk.TagCatalog()) {
-		t.Fatalf("tag count = %d, want %d", len(data.Tags), len(gohawk.TagCatalog()))
-	}
-	for _, tag := range data.Tags {
-		if tag.ID == "" || tag.Description == "" {
-			t.Errorf("generated tag is incomplete: %+v", tag)
-		}
-	}
 	var analyzerCount int
 	for _, group := range data.Groups {
 		analyzerCount += len(group.Analyzers)
@@ -49,14 +41,14 @@ func TestCollectManifest(t *testing.T) {
 				t.Errorf("analyzer %q OK example has %d diagnostics", analyzer.Name, len(analyzer.Examples.OK.Diagnostics))
 			}
 			info := gohawk.AnalyzerMetadata()[analyzer.Name]
-			if analyzer.Profile != string(info.Profile) {
-				t.Errorf("analyzer %q profile metadata was not copied", analyzer.Name)
+			if analyzer.OptIn != info.OptIn {
+				t.Errorf("analyzer %q opt-in metadata was not copied", analyzer.Name)
 			}
 			if len(analyzer.Checks) != len(info.Checks) {
 				t.Errorf("analyzer %q check metadata was not copied", analyzer.Name)
 			}
 			for _, check := range analyzer.Checks {
-				if check.ID == "" || check.Summary == "" || check.Profile == "" || len(check.Tags) == 0 {
+				if check.ID == "" || check.Summary == "" {
 					t.Errorf("analyzer %q generated incomplete check metadata: %+v", analyzer.Name, check)
 				}
 			}
@@ -88,24 +80,20 @@ func TestExamplesBlockTitlesMultipleFlaggedCases(t *testing.T) {
 	}
 }
 
-func TestGroupCardsUsesAnalyzerSummaryAndOmitsProfile(t *testing.T) {
+func TestGroupCardsUsesAnalyzerSummaryAndOmitsActivationMetadata(t *testing.T) {
 	cards := groupCards(group{
 		Slug: "reliability",
 		Analyzers: []analyzer{{
 			Name:    "example",
 			Summary: "Checks the complete example problem.",
-			Profile: "default",
-			Checks:  []check{{ID: "example/problem", Tags: []string{"reliability"}}},
+			Checks:  []check{{ID: "example/problem"}},
 		}},
 	})
 	if !strings.Contains(cards, "Checks the complete example problem.") {
 		t.Fatalf("catalog card lost analyzer summary: %s", cards)
 	}
 	if strings.Contains(cards, "analyzer-profile") || strings.Contains(cards, ">default<") {
-		t.Fatalf("catalog card contains analyzer profile: %s", cards)
-	}
-	if strings.Contains(cards, `class="analyzer-tag"`) {
-		t.Fatalf("catalog card contains projected analyzer tags: %s", cards)
+		t.Fatalf("catalog card contains activation metadata: %s", cards)
 	}
 }
 
@@ -145,26 +133,11 @@ func TestSynchronizeAnalyzerComponentsAddsImportsAfterFrontmatter(t *testing.T) 
 	}
 }
 
-func TestSynchronizeAnalyzerComponentsReplacesLegacyImports(t *testing.T) {
-	contents := []byte("---\ntitle: example\n---\n\n" + legacyAnalyzerComponentImports + "\n\n## What it detects\n")
-	got, err := synchronizeAnalyzerComponents(contents)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(got), analyzerComponentImports) {
-		t.Fatalf("component import was not updated: %s", got)
-	}
-	if strings.Contains(string(got), legacyAnalyzerComponentImports) {
-		t.Fatalf("legacy component imports remain: %s", got)
-	}
-}
-
-func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
+func TestChecksBlockIncludesIDsDescriptionsAndOptInMarker(t *testing.T) {
 	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
-		Profile: "opt-in",
-		Tags:    []string{"correctness", "reliability"},
+		OptIn:   true,
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +145,8 @@ func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
 	for _, want := range []string{
 		"| Check | What it detects |",
 		"Reports the example problem.",
-		`<CheckIdentity name="problem" optIn tags={["correctness","reliability"]} />`,
+		`<CheckIdentity name="problem" optIn />`,
+		`\* Opt-in; requires explicit selection.`,
 	} {
 		if !strings.Contains(block, want) {
 			t.Fatalf("checks block is missing %q: %s", want, block)
@@ -183,18 +157,16 @@ func TestChecksBlockIncludesIDsDescriptionsAndTagComponents(t *testing.T) {
 	}
 }
 
-func TestChecksBlockOmitsDefaultProfile(t *testing.T) {
+func TestChecksBlockOmitsDefaultActivation(t *testing.T) {
 	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
-		Profile: "default",
-		Tags:    []string{"policy"},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(block, "optIn") || strings.Contains(block, "default") {
-		t.Fatalf("default profile is visible in checks block: %s", block)
+		t.Fatalf("default activation is visible in checks block: %s", block)
 	}
 }
 

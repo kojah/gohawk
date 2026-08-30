@@ -62,19 +62,18 @@ as a threshold or ownership policy. Define them on the analyzer's `Flags` set.
 ### 2. Register it
 
 Add an `analyzerbase.AnalyzerSpec` for the analyzer to the matching group's
-`internal/analyzers/<group>/analyzers.go`, including its checks, profiles,
-tags, and suggested-fix support. Then add its analyzer ID to the stable order
+`internal/analyzers/<group>/analyzers.go`, including its checks, opt-in status,
+and suggested-fix support. Then add its analyzer ID to the stable order
 in `analyzers/analyzers.go`.
 
 Define each stable check identity alongside the existing check constants in
 `internal/analyzerbase/base.go`, then alias it with the other checks in the
 group's `analyzers.go`.
 
-Give every diagnostic rule a stable check identity and at least one
-`correctness`, `reliability`, or `policy` tag in its `AnalyzerSpec`. Report each
-diagnostic through `report` or `reportf` with that check identity. Checks and
-analyzers use the default profile unless their spec explicitly assigns the
-corresponding opt-in profile.
+Give every diagnostic rule a stable check identity in its `AnalyzerSpec`.
+Report each diagnostic through `report` or `reportf` with that check identity.
+Analyzers and checks run by default unless their spec explicitly sets
+`OptIn: true`.
 
 Then update `analyzers/analyzers_test.go`:
 

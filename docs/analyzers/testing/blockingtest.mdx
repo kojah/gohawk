@@ -17,9 +17,11 @@ test helpers.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="send" tags={["reliability"]} /> | Reports unguarded channel sends in context-aware test code. |
-| <CheckIdentity name="receive" tags={["reliability"]} /> | Reports blocking channel receives in tests without a cancellation escape. |
-| <CheckIdentity name="select" tags={["reliability"]} /> | Reports blocking selects in tests without a cancellation escape. |
+| <CheckIdentity name="send" optIn /> | Reports unguarded channel sends in context-aware test code. |
+| <CheckIdentity name="receive" optIn /> | Reports blocking channel receives in tests without a cancellation escape. |
+| <CheckIdentity name="select" optIn /> | Reports blocking selects in tests without a cancellation escape. |
+
+\* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

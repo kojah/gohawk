@@ -28,7 +28,7 @@ and standard library they analyze.
 
 ## Run gohawk
 
-Run the default analyzer profile across the current module:
+Run gohawk's conservative default set across the current module:
 
 ```sh
 gohawk ./...

@@ -16,7 +16,9 @@ and can return without calling the handle's `Helper` method.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="helper-marker" tags={["policy"]} /> | Reports test helpers that do not call Helper on every return path. |
+| <CheckIdentity name="helper-marker" optIn /> | Reports test helpers that do not call Helper on every return path. |
+
+\* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

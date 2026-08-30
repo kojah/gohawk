@@ -17,10 +17,12 @@ swap. It also reports types that mix pointer and value receiver methods.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="parameter-count" tags={["policy"]} /> | Reports exported APIs with more than the configured maximum number of parameters. |
-| <CheckIdentity name="mixed-receivers" tags={["policy"]} /> | Reports types that mix pointer and value receiver methods. |
-| <CheckIdentity name="adjacent-same-type" tags={["policy"]} /> | Reports long adjacent runs of parameters that share one type. |
-| <CheckIdentity name="adjacent-optional-scalars" tags={["policy"]} /> | Reports adjacent optional scalar parameters that are easy to swap. |
+| <CheckIdentity name="parameter-count" optIn /> | Reports exported APIs with more than the configured maximum number of parameters. |
+| <CheckIdentity name="mixed-receivers" optIn /> | Reports types that mix pointer and value receiver methods. |
+| <CheckIdentity name="adjacent-same-type" optIn /> | Reports long adjacent runs of parameters that share one type. |
+| <CheckIdentity name="adjacent-optional-scalars" optIn /> | Reports adjacent optional scalar parameters that are easy to swap. |
+
+\* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

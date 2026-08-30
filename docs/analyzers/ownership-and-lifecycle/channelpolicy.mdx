@@ -17,9 +17,11 @@ after the channel has been closed.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="capacity-rationale" optIn tags={["policy"]} /> | Reports large constant channel capacities without a nearby bounded rationale. |
-| <CheckIdentity name="caller-close" tags={["reliability","policy"]} /> | Reports functions that close channels received from their callers. |
-| <CheckIdentity name="send-after-close" tags={["correctness"]} /> | Reports sends reachable after a channel has been closed. |
+| <CheckIdentity name="capacity-rationale" optIn /> | Reports large constant channel capacities without a nearby bounded rationale. |
+| <CheckIdentity name="caller-close" /> | Reports functions that close channels received from their callers. |
+| <CheckIdentity name="send-after-close" /> | Reports sends reachable after a channel has been closed. |
+
+\* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

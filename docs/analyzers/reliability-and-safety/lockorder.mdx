@@ -17,9 +17,9 @@ the corresponding release policy.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="missing-release" tags={["correctness"]} /> | Reports return paths that leave an owned lock held. |
-| <CheckIdentity name="recursive-acquire" tags={["correctness"]} /> | Reports attempts to acquire a lock that is already held. |
-| <CheckIdentity name="contradictory-order" tags={["correctness"]} /> | Reports inconsistent acquisition order for the same pair of locks. |
+| <CheckIdentity name="missing-release" /> | Reports return paths that leave an owned lock held. |
+| <CheckIdentity name="recursive-acquire" /> | Reports attempts to acquire a lock that is already held. |
+| <CheckIdentity name="contradictory-order" /> | Reports inconsistent acquisition order for the same pair of locks. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

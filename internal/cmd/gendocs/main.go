@@ -21,28 +21,19 @@ import (
 )
 
 const (
-	generatedAnalyzersStart        = "<!-- gohawk:generated-analyzers:start -->"
-	generatedAnalyzersEnd          = "<!-- gohawk:generated-analyzers:end -->"
-	generatedOptionsStart          = "{/* gohawk:generated-options:start */}"
-	generatedOptionsEnd            = "{/* gohawk:generated-options:end */}"
-	generatedExamplesStart         = "{/* gohawk:generated-examples:start */}"
-	generatedExamplesEnd           = "{/* gohawk:generated-examples:end */}"
-	generatedChecksStart           = "{/* gohawk:generated-checks:start */}"
-	generatedChecksEnd             = "{/* gohawk:generated-checks:end */}"
-	generatedTagsStart             = "<!-- gohawk:generated-tags:start -->"
-	generatedTagsEnd               = "<!-- gohawk:generated-tags:end -->"
-	analyzerComponentImports       = "import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';"
-	legacyAnalyzerComponentImports = "import CheckProfile from '../../../site/src/components/CheckProfile.astro';\nimport CheckTags from '../../../site/src/components/CheckTags.astro';"
+	generatedAnalyzersStart  = "<!-- gohawk:generated-analyzers:start -->"
+	generatedAnalyzersEnd    = "<!-- gohawk:generated-analyzers:end -->"
+	generatedOptionsStart    = "{/* gohawk:generated-options:start */}"
+	generatedOptionsEnd      = "{/* gohawk:generated-options:end */}"
+	generatedExamplesStart   = "{/* gohawk:generated-examples:start */}"
+	generatedExamplesEnd     = "{/* gohawk:generated-examples:end */}"
+	generatedChecksStart     = "{/* gohawk:generated-checks:start */}"
+	generatedChecksEnd       = "{/* gohawk:generated-checks:end */}"
+	analyzerComponentImports = "import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';"
 )
 
 type manifest struct {
-	Tags   []tag   `json:"tags"`
 	Groups []group `json:"groups"`
-}
-
-type tag struct {
-	ID          string `json:"id"`
-	Description string `json:"description"`
 }
 
 type group struct {
@@ -56,7 +47,7 @@ type analyzer struct {
 	Name         string          `json:"name"`
 	Summary      string          `json:"summary"`
 	Path         string          `json:"path"`
-	Profile      string          `json:"profile"`
+	OptIn        bool            `json:"optIn"`
 	Checks       []check         `json:"checks"`
 	SuggestedFix bool            `json:"suggestedFix"`
 	Options      []optionFlag    `json:"options"`
@@ -64,10 +55,9 @@ type analyzer struct {
 }
 
 type check struct {
-	ID      string   `json:"id"`
-	Summary string   `json:"summary"`
-	Profile string   `json:"profile"`
-	Tags    []string `json:"tags"`
+	ID      string `json:"id"`
+	Summary string `json:"summary"`
+	OptIn   bool   `json:"optIn"`
 }
 
 type optionFlag struct {
@@ -163,17 +153,6 @@ func synchronize(root string, check bool) error {
 	if err := rejectUnknownPages(root, expectedPages); err != nil {
 		return err
 	}
-	tagsPage := filepath.Join(root, "docs", "configuration.md")
-	tagsContents, err := os.ReadFile(tagsPage)
-	if err != nil {
-		return err
-	}
-	tagsContents, err = replaceGeneratedBlock(tagsContents, generatedTagsStart, generatedTagsEnd, tagDescriptionList(data.Tags))
-	if err != nil {
-		return fmt.Errorf("update tag descriptions: %w", err)
-	}
-	updates[tagsPage] = tagsContents
-
 	encoded, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return err
@@ -197,7 +176,7 @@ func synchronize(root string, check bool) error {
 func collectManifest(root string) (manifest, error) {
 	metadata := gohawk.AnalyzerMetadata()
 	seen := make(map[string]bool)
-	result := manifest{Tags: tagManifest(gohawk.TagCatalog())}
+	result := manifest{}
 	for _, analyzerGroup := range gohawk.AnalyzerGroups() {
 		group := group{
 			Name:  analyzerGroup.Name,
@@ -217,8 +196,8 @@ func collectManifest(root string) (manifest, error) {
 				Name:         registered.Name,
 				Summary:      sentence(registered.Doc),
 				Path:         "analyzers/" + group.Slug + "/" + registered.Name,
-				Profile:      string(info.Profile),
-				Checks:       checkManifest(info.Checks),
+				OptIn:        info.OptIn,
+				Checks:       checkManifest(info.OptIn, info.Checks),
 				SuggestedFix: info.SuggestedFix,
 				Options:      []optionFlag{},
 			}
@@ -246,29 +225,10 @@ func collectManifest(root string) (manifest, error) {
 	return result, nil
 }
 
-func tagManifest(tags []gohawk.TagInfo) []tag {
-	result := make([]tag, len(tags))
-	for index, item := range tags {
-		result[index] = tag{ID: string(item.ID), Description: item.Description}
-	}
-	return result
-}
-
-func tagDescriptionList(tags []tag) string {
-	var output strings.Builder
-	for index, item := range tags {
-		if index > 0 {
-			output.WriteByte('\n')
-		}
-		fmt.Fprintf(&output, "- <strong id=\"%s\">%s</strong> — %s", html.EscapeString(item.ID), heading(item.ID), item.Description)
-	}
-	return output.String()
-}
-
-func checkManifest(checks []gohawk.AnalyzerCheckInfo) []check {
+func checkManifest(analyzerOptIn bool, checks []gohawk.AnalyzerCheckInfo) []check {
 	result := make([]check, len(checks))
 	for index, item := range checks {
-		result[index] = check{ID: string(item.ID), Summary: item.Doc, Profile: string(item.Profile), Tags: tagStrings(item.Tags)}
+		result[index] = check{ID: string(item.ID), Summary: item.Doc, OptIn: analyzerOptIn || item.OptIn}
 	}
 	return result
 }
@@ -303,9 +263,6 @@ func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
 	if bytes.Contains(contents, []byte(analyzerComponentImports)) {
 		return contents, nil
 	}
-	if bytes.Contains(contents, []byte(legacyAnalyzerComponentImports)) {
-		return bytes.Replace(contents, []byte(legacyAnalyzerComponentImports), []byte(analyzerComponentImports), 1), nil
-	}
 	if !bytes.HasPrefix(contents, []byte("---\n")) {
 		return nil, errors.New("missing frontmatter")
 	}
@@ -325,10 +282,11 @@ func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
 }
 
 // checksBlock renders stable check identifiers and summaries as a standard
-// Markdown table. MDX components provide shared profile and tag styling while
+// Markdown table. The MDX component provides shared opt-in styling while
 // preserving Starlight's native table rendering.
 func checksBlock(analyzerName string, checks []check) (string, error) {
 	var output strings.Builder
+	hasOptIn := false
 	output.WriteString("| Check | What it detects |\n")
 	output.WriteString("| --- | --- |\n")
 	for _, item := range checks {
@@ -337,25 +295,20 @@ func checksBlock(analyzerName string, checks []check) (string, error) {
 			return "", fmt.Errorf("check ID %q does not use analyzer prefix %q", item.ID, analyzerName+"/")
 		}
 		optIn := ""
-		switch item.Profile {
-		case "default":
-		case "opt-in":
+		if item.OptIn {
 			optIn = " optIn"
-		default:
-			return "", fmt.Errorf("check ID %q has unsupported profile %q", item.ID, item.Profile)
-		}
-		tags, err := json.Marshal(item.Tags)
-		if err != nil {
-			return "", err
+			hasOptIn = true
 		}
 		fmt.Fprintf(
 			&output,
-			"| <CheckIdentity name=\"%s\"%s tags={%s} /> | %s |\n",
+			"| <CheckIdentity name=\"%s\"%s /> | %s |\n",
 			html.EscapeString(localID),
 			optIn,
-			tags,
 			markdownTableCell(item.Summary),
 		)
+	}
+	if hasOptIn {
+		output.WriteString("\n\\* Opt-in; requires explicit selection.\n")
 	}
 	return strings.TrimSuffix(output.String(), "\n"), nil
 }
@@ -524,14 +477,6 @@ func groupCards(group group) string {
 	}
 	output.WriteString("</div>")
 	return output.String()
-}
-
-func tagStrings(tags []gohawk.AnalyzerTag) []string {
-	values := make([]string, len(tags))
-	for index, tag := range tags {
-		values[index] = string(tag)
-	}
-	return values
 }
 
 // inlineCode escapes text for HTML and renders `backtick` spans as code, which

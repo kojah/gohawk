@@ -27,12 +27,12 @@ func TestPrintAnalyzerList(t *testing.T) {
 		excludes  []string
 		wantError bool
 	}{
-		{name: "all", contains: []string{"ANALYZER", "PROFILE", "GROUP", "apishape", "oncepolicy", "contracts", "reliability"}, excludes: []string{"CATEGORY", "CHECK TAGS", "API and data contracts", "correctness,reliability"}},
-		{name: "defaults", arguments: []string{"-defaults"}, contains: []string{"oncepolicy", "default"}, excludes: []string{"wirepolicy", "apishape", "blockingtest", "determinism"}},
-		{name: "opt-in", arguments: []string{"-opt-in"}, contains: []string{"wirepolicy", "blockingtest", "determinism", "opt-in"}, excludes: []string{"oncepolicy", "contextpolicy"}},
-		{name: "checks", arguments: []string{"-checks"}, contains: []string{"CHECK", "PROFILE", "GROUP", "TAGS", "contextpolicy/context-first", "contextpolicy/test-context", "opt-in", "oncepolicy/discarded-wrapper", "contracts", "correctness", "reliability,policy"}, excludes: []string{"ANALYZER", "CATEGORY"}},
-		{name: "default checks", arguments: []string{"-checks", "-defaults"}, contains: []string{"contextpolicy/context-first", "default"}, excludes: []string{"contextpolicy/test-context"}},
-		{name: "opt-in checks", arguments: []string{"-checks", "-opt-in"}, contains: []string{"contextpolicy/test-context", "opt-in"}, excludes: []string{"contextpolicy/context-first"}},
+		{name: "all", contains: []string{"ANALYZER", "GROUP", "apishape*", "oncepolicy", "contracts", "reliability", "* opt-in"}, excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts"}},
+		{name: "defaults", arguments: []string{"-defaults"}, contains: []string{"oncepolicy"}, excludes: []string{"*", "wirepolicy", "apishape", "blockingtest", "determinism"}},
+		{name: "opt-in", arguments: []string{"-opt-in"}, contains: []string{"wirepolicy*", "blockingtest*", "determinism*", "* opt-in"}, excludes: []string{"oncepolicy", "contextpolicy"}},
+		{name: "checks", arguments: []string{"-checks"}, contains: []string{"CHECK", "GROUP", "contextpolicy/context-first", "contextpolicy/test-context*", "oncepolicy/discarded-wrapper", "contracts", "* opt-in"}, excludes: []string{"ANALYZER", "PROFILE", "TAGS", "CATEGORY"}},
+		{name: "default checks", arguments: []string{"-checks", "-defaults"}, contains: []string{"contextpolicy/context-first"}, excludes: []string{"*", "contextpolicy/test-context", "apishape/parameter-count"}},
+		{name: "opt-in checks", arguments: []string{"-checks", "-opt-in"}, contains: []string{"contextpolicy/test-context*", "apishape/parameter-count*", "* opt-in"}, excludes: []string{"contextpolicy/context-first"}},
 		{name: "conflicting filters", arguments: []string{"-defaults", "-opt-in"}, wantError: true},
 		{name: "unexpected argument", arguments: []string{"extra"}, wantError: true},
 	}
@@ -249,8 +249,8 @@ func TestPrintDocumentation(t *testing.T) {
 			name:      "analyzer",
 			arguments: []string{"contextpolicy"},
 			contains: []string{
-				"contextpolicy", "Profile: default", "Group: contracts (API and data contracts)",
-				"Suggested fixes: no", "contextpolicy/context-first", "Profile: opt-in", "Tags: reliability,policy",
+				"contextpolicy", "Group: contracts (API and data contracts)",
+				"Suggested fixes: no", "contextpolicy/context-first", "contextpolicy/test-context*", "* opt-in",
 				"-contextpolicy.prefer-test-context (default true)",
 				"https://gohawk.dev/analyzers/api-and-data-contracts/contextpolicy/",
 			},
@@ -260,10 +260,9 @@ func TestPrintDocumentation(t *testing.T) {
 			arguments: []string{"contextpolicy/nil-context"},
 			contains: []string{
 				"contextpolicy/nil-context", "Reports definitely nil context.Context arguments.",
-				"Analyzer: contextpolicy", "Profile: default", "Analyzer profile: default", "Group: contracts",
-				"correctness — Strong evidence that the program can behave incorrectly.",
+				"Analyzer: contextpolicy", "Group: contracts",
 			},
-			excludes: []string{"\nChecks:", "\nOptions:"},
+			excludes: []string{"Profile:", "Tags:", "Opt-in:", "\nChecks:", "\nOptions:"},
 		},
 		{name: "missing target", wantError: true},
 		{name: "extra target", arguments: []string{"contextpolicy", "wirepolicy"}, wantError: true},
@@ -571,10 +570,10 @@ func TestCLIIntegration(t *testing.T) {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
 		for _, summary := range []string{
-			"contracts (API and data contracts): apishape (opt-in), contextpolicy, closedomain (opt-in), wirepolicy (opt-in)",
+			"contracts (API and data contracts): apishape*, contextpolicy, closedomain*, wirepolicy*",
 			"ownership (ownership and lifecycle): cancellationownership, channelpolicy, deferinloop, exitpolicy, goroutineownership, processownership, resourcelifetime",
-			"reliability (reliability and safety): concurrentcapture, determinism (opt-in), errorownership, evalorder, globalstate (opt-in), lockorder, oncepolicy, syncmapatomicity, taintpolicy (opt-in)",
-			"testing (testing): blockingtest (opt-in), testpolicy (opt-in)",
+			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership, evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, taintpolicy*",
+			"testing (testing): blockingtest*, testpolicy*",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
@@ -587,7 +586,7 @@ func TestCLIIntegration(t *testing.T) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"apishape", "opt-in", "oncepolicy", "default"} {
+		for _, value := range []string{"apishape*", "* opt-in", "oncepolicy"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("list output does not contain %q:\n%s", value, output)
 			}
@@ -609,7 +608,7 @@ func TestCLIIntegration(t *testing.T) {
 		if exitCode != 0 {
 			t.Fatalf("analyzer documentation: exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"Profile: default", "contextpolicy/nil-context", "-contextpolicy.prefer-test-context"} {
+		for _, value := range []string{"contextpolicy/nil-context", "contextpolicy/test-context*", "-contextpolicy.prefer-test-context"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("analyzer documentation does not contain %q:\n%s", value, output)
 			}
@@ -619,14 +618,14 @@ func TestCLIIntegration(t *testing.T) {
 		if exitCode != 0 {
 			t.Fatalf("check documentation: exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"Reports definitely nil context.Context arguments.", "correctness — Strong evidence"} {
+		for _, value := range []string{"Reports definitely nil context.Context arguments.", "Analyzer: contextpolicy"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("check documentation does not contain %q:\n%s", value, output)
 			}
 		}
 	})
 
-	t.Run("default profile", func(t *testing.T) {
+	t.Run("ordinary run", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
@@ -705,7 +704,7 @@ func TestCLIIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("disabling opt-in analyzer keeps default profile", func(t *testing.T) {
+	t.Run("disabling opt-in analyzer keeps ordinary set", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-disable=globalstate", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)

@@ -1,13 +1,10 @@
 ---
-import CheckTags from './CheckTags.astro';
-
 interface Props {
 	name: string;
 	optIn?: boolean;
-	tags: string[];
 }
 
-const { name, optIn = false, tags } = Astro.props;
+const { name, optIn = false } = Astro.props;
 ---
 
 <div class="check-identity">
@@ -16,16 +13,13 @@ const { name, optIn = false, tags } = Astro.props;
 			{name}{optIn ? '*' : ''}
 		</code>
 	</span>
-	<CheckTags tags={tags} />
 </div>
 
 <style>
 	.check-identity {
 		display: flex;
 		min-width: 0;
-		flex-direction: column;
 		align-items: flex-start;
-		gap: 0.5rem;
 	}
 
 	.check-name {

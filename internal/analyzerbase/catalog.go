@@ -14,72 +14,29 @@ type AnalyzerID string
 // GroupID identifies a related set of analyzers.
 type GroupID string
 
-// AnalyzerProfile controls whether an analyzer runs without explicit selection.
-type AnalyzerProfile string
-
-const (
-	AnalyzerProfileDefault AnalyzerProfile = "default"
-	AnalyzerProfileOptIn   AnalyzerProfile = "opt-in"
-)
-
-// CheckProfile controls whether a check runs whenever its analyzer is selected.
-type CheckProfile string
-
-const (
-	CheckProfileDefault CheckProfile = "default"
-	CheckProfileOptIn   CheckProfile = "opt-in"
-)
-
-// Tag identifies a reason that a check's findings matter.
-type Tag string
-
-const (
-	TagCorrectness Tag = "correctness"
-	TagReliability Tag = "reliability"
-	TagPolicy      Tag = "policy"
-)
-
-// TagInfo describes one check tag.
-type TagInfo struct {
-	ID          Tag
-	Description string
-}
-
-var tagCatalog = []TagInfo{
-	{ID: TagCorrectness, Description: "Strong evidence that the program can behave incorrectly."},
-	{ID: TagReliability, Description: "Code that may work but is vulnerable to meaningful lifecycle, concurrency, or operational failures."},
-	{ID: TagPolicy, Description: "A project convention on which reasonable teams may differ."},
-}
-
-// Tags returns every check tag in stable presentation order.
-func Tags() []TagInfo {
-	return slices.Clone(tagCatalog)
-}
-
 // CheckInfo describes one independently configurable diagnostic rule.
 type CheckInfo struct {
-	ID      Check
-	Doc     string
-	Profile CheckProfile
-	Tags    []Tag
+	ID    Check
+	Doc   string
+	OptIn bool
 }
 
 // EnabledByDefault reports whether the check runs when its analyzer is selected.
 func (info CheckInfo) EnabledByDefault() bool {
-	return normalizedCheckProfile(info.Profile) == CheckProfileDefault
+	return !info.OptIn
 }
 
 // AnalyzerSpec is the complete declaration of one analyzer.
 type AnalyzerSpec struct {
 	Analyzer     *analysis.Analyzer
-	Profile      AnalyzerProfile
+	OptIn        bool
 	Checks       []CheckInfo
 	SuggestedFix bool
 }
 
-// EnabledByDefault reports whether the analyzer belongs to the default profile.
+// EnabledByDefault reports whether the analyzer runs without explicit selection.
 func (spec AnalyzerSpec) EnabledByDefault() bool {
-	return normalizedAnalyzerProfile(spec.Profile) == AnalyzerProfileDefault
+	return !spec.OptIn
 }
 
 // GroupSpec declares a catalog group and its analyzers.
@@ -106,10 +63,6 @@ func NewCatalog(groups []GroupSpec, executionOrder []AnalyzerID) (*Catalog, erro
 		byAnalyzer:     make(map[AnalyzerID]AnalyzerSpec),
 		checkOwner:     make(map[Check]AnalyzerID),
 	}
-	knownTags := make(map[Tag]bool, len(tagCatalog))
-	for _, tag := range tagCatalog {
-		knownTags[tag.ID] = true
-	}
 	seenGroups := make(map[GroupID]bool)
 	seenPaths := make(map[string]bool)
 	for groupIndex := range catalog.groups {
@@ -133,40 +86,19 @@ func NewCatalog(groups []GroupSpec, executionOrder []AnalyzerID) (*Catalog, erro
 			if _, exists := catalog.byAnalyzer[id]; exists {
 				return nil, fmt.Errorf("analyzer %q is declared more than once", id)
 			}
-			spec.Profile = normalizedAnalyzerProfile(spec.Profile)
-			if spec.Profile != AnalyzerProfileDefault && spec.Profile != AnalyzerProfileOptIn {
-				return nil, fmt.Errorf("analyzer %q has invalid profile %q", id, spec.Profile)
-			}
 			if len(spec.Checks) == 0 {
 				return nil, fmt.Errorf("analyzer %q declares no checks", id)
 			}
 			for checkIndex := range spec.Checks {
 				check := &spec.Checks[checkIndex]
-				check.Profile = normalizedCheckProfile(check.Profile)
 				if check.ID == "" || !strings.HasPrefix(string(check.ID), string(id)+"/") {
 					return nil, fmt.Errorf("analyzer %q has invalid check identity %q", id, check.ID)
 				}
 				if strings.TrimSpace(check.Doc) == "" {
 					return nil, fmt.Errorf("check %q has no description", check.ID)
 				}
-				if check.Profile != CheckProfileDefault && check.Profile != CheckProfileOptIn {
-					return nil, fmt.Errorf("check %q has invalid profile %q", check.ID, check.Profile)
-				}
 				if owner, exists := catalog.checkOwner[check.ID]; exists {
 					return nil, fmt.Errorf("check %q belongs to both %q and %q", check.ID, owner, id)
-				}
-				if len(check.Tags) == 0 {
-					return nil, fmt.Errorf("check %q has no tags", check.ID)
-				}
-				seenCheckTags := make(map[Tag]bool)
-				for _, tag := range check.Tags {
-					if !knownTags[tag] {
-						return nil, fmt.Errorf("check %q has unknown tag %q", check.ID, tag)
-					}
-					if seenCheckTags[tag] {
-						return nil, fmt.Errorf("check %q repeats tag %q", check.ID, tag)
-					}
-					seenCheckTags[tag] = true
 				}
 				catalog.checkOwner[check.ID] = id
 			}
@@ -215,20 +147,6 @@ func (catalog *Catalog) CheckOwner(check Check) (AnalyzerID, bool) {
 	return owner, ok
 }
 
-func normalizedAnalyzerProfile(profile AnalyzerProfile) AnalyzerProfile {
-	if profile == "" {
-		return AnalyzerProfileDefault
-	}
-	return profile
-}
-
-func normalizedCheckProfile(profile CheckProfile) CheckProfile {
-	if profile == "" {
-		return CheckProfileDefault
-	}
-	return profile
-}
-
 func cloneGroups(groups []GroupSpec) []GroupSpec {
 	cloned := make([]GroupSpec, len(groups))
 	for index, group := range groups {
@@ -243,7 +161,7 @@ func cloneGroups(groups []GroupSpec) []GroupSpec {
 func cloneAnalyzerSpec(spec AnalyzerSpec) AnalyzerSpec {
 	checks := make([]CheckInfo, len(spec.Checks))
 	for index, check := range spec.Checks {
-		checks[index] = CheckInfo{ID: check.ID, Doc: check.Doc, Profile: check.Profile, Tags: slices.Clone(check.Tags)}
+		checks[index] = check
 	}
 	spec.Checks = checks
 	return spec

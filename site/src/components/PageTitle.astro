@@ -19,10 +19,12 @@ const isLanding = entry.id === 'index' || entry.id === '';
 			<DefaultPageTitle />
 			<p class="analyzer-summary">{analyzer.summary}</p>
 			<div class="rule-meta">
-				<div>
-					<span class="rule-meta-label">Profile</span>
-					<strong>{analyzer.profile}</strong>
-				</div>
+				{analyzer.optIn && (
+					<div>
+						<span class="rule-meta-label">Availability</span>
+						<strong>Opt-in</strong>
+					</div>
+				)}
 				<div>
 					<span class="rule-meta-label">Fix offered</span>
 					<strong>{analyzer.suggestedFix ? 'Yes' : 'No'}</strong>

@@ -22,7 +22,7 @@ main.go
 - `main.go` is a thin executable entry point.
 - `internal/cli` parses selection flags, resolves an execution plan, and hands
   the selected analyzers to Go's analysis driver.
-- `analyzers` is the public catalog. It defines groups, profiles, tags, stable
+- `analyzers` is the public catalog. It defines groups, opt-in status, stable
   execution order, and the metadata used by the CLI and documentation.
 - `internal/analyzers` contains the analyzer implementations, grouped by
   contracts, ownership, reliability, and testing.
@@ -41,12 +41,12 @@ Each analyzer has three connected pieces:
 
 1. Its implementation file defines an `analysis.Analyzer` and run function.
 2. Its group's `analyzers.go` declares an `analyzerbase.AnalyzerSpec` with the
-   analyzer profile, checks, check profiles, tags, and suggested-fix support.
+   analyzer activation, checks, check activation, and suggested-fix support.
 3. `analyzers/analyzers.go` places the analyzer in the stable execution order.
 
 `analyzerbase.NewCatalog` validates these declarations at construction time.
-It rejects missing checks, duplicate identities, unknown tags, invalid
-profiles, and incomplete execution order rather than allowing catalog drift.
+It rejects missing checks, duplicate identities, and incomplete execution
+order rather than allowing catalog drift.
 
 ## Tests and documentation
 

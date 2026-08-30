@@ -1,18 +1,4 @@
 {
-  "tags": [
-    {
-      "id": "correctness",
-      "description": "Strong evidence that the program can behave incorrectly."
-    },
-    {
-      "id": "reliability",
-      "description": "Code that may work but is vulnerable to meaningful lifecycle, concurrency, or operational failures."
-    },
-    {
-      "id": "policy",
-      "description": "A project convention on which reasonable teams may differ."
-    }
-  ],
   "groups": [
     {
       "name": "contracts",
@@ -23,39 +9,27 @@
           "name": "apishape",
           "summary": "Checks exported API parameter and receiver shape.",
           "path": "analyzers/api-and-data-contracts/apishape",
-          "profile": "opt-in",
+          "optIn": true,
           "checks": [
             {
               "id": "apishape/parameter-count",
               "summary": "Reports exported APIs with more than the configured maximum number of parameters.",
-              "profile": "default",
-              "tags": [
-                "policy"
-              ]
+              "optIn": true
             },
             {
               "id": "apishape/mixed-receivers",
               "summary": "Reports types that mix pointer and value receiver methods.",
-              "profile": "default",
-              "tags": [
-                "policy"
-              ]
+              "optIn": true
             },
             {
               "id": "apishape/adjacent-same-type",
               "summary": "Reports long adjacent runs of parameters that share one type.",
-              "profile": "default",
-              "tags": [
-                "policy"
-              ]
+              "optIn": true
             },
             {
               "id": "apishape/adjacent-optional-scalars",
               "summary": "Reports adjacent optional scalar parameters that are easy to swap.",
-              "profile": "default",
-              "tags": [
-                "policy"
-              ]
+              "optIn": true
             }
           ],
           "suggestedFix": false,
@@ -76,41 +50,27 @@
           "name": "contextpolicy",
           "summary": "Checks context placement, storage, nil use, and test ownership.",
           "path": "analyzers/api-and-data-contracts/contextpolicy",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "contextpolicy/context-first",
               "summary": "Reports context.Context parameters that are not first.",
-              "profile": "default",
-              "tags": [
-                "reliability",
-                "policy"
-              ]
+              "optIn": false
             },
             {
               "id": "contextpolicy/context-storage",
               "summary": "Reports context.Context values stored in structs.",
-              "profile": "default",
-              "tags": [
-                "reliability",
-                "policy"
-              ]
+              "optIn": false
             },
             {
               "id": "contextpolicy/test-context",
               "summary": "Reports tests that use context.Background instead of the testing handle's context.",
-              "profile": "opt-in",
-              "tags": [
-                "policy"
-              ]
+              "optIn": true
             },
             {
               "id": "contextpolicy/nil-context",
               "summary": "Reports definitely nil context.Context arguments.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -126,16 +86,12 @@
           "name": "closedomain",
           "summary": "Finds builtin-string fields used as closed semantic domains.",
           "path": "analyzers/api-and-data-contracts/closedomain",
-          "profile": "opt-in",
+          "optIn": true,
           "checks": [
             {
               "id": "closedomain/closed-string-domain",
               "summary": "Reports exported string fields used as small closed sets of values.",
-              "profile": "default",
-              "tags": [
-                "reliability",
-                "policy"
-              ]
+              "optIn": true
             }
           ],
           "suggestedFix": false,
@@ -145,25 +101,17 @@
           "name": "wirepolicy",
           "summary": "Checks serialized structs and their composite literals.",
           "path": "analyzers/api-and-data-contracts/wirepolicy",
-          "profile": "opt-in",
+          "optIn": true,
           "checks": [
             {
               "id": "wirepolicy/keyed-literal",
               "summary": "Reports positional composite literals for persisted or wire structs.",
-              "profile": "default",
-              "tags": [
-                "reliability",
-                "policy"
-              ]
+              "optIn": true
             },
             {
               "id": "wirepolicy/serialization-tag",
               "summary": "Reports exported wire fields without explicit JSON or TOML tags.",
-              "profile": "default",
-              "tags": [
-                "reliability",
-                "policy"
-              ]
+              "optIn": true
             }
           ],
           "suggestedFix": true,
@@ -180,15 +128,12 @@
           "name": "cancellationownership",
           "summary": "Checks context and signal-derived cancellation functions are called on every return path.",
           "path": "analyzers/ownership-and-lifecycle/cancellationownership",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "cancellationownership/release",
               "summary": "Reports derived cancel functions that are neither called nor transferred on every return path.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": true,
@@ -198,32 +143,22 @@
           "name": "channelpolicy",
           "summary": "Checks channel capacity and closing ownership.",
           "path": "analyzers/ownership-and-lifecycle/channelpolicy",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "channelpolicy/capacity-rationale",
               "summary": "Reports large constant channel capacities without a nearby bounded rationale.",
-              "profile": "opt-in",
-              "tags": [
-                "policy"
-              ]
+              "optIn": true
             },
             {
               "id": "channelpolicy/caller-close",
               "summary": "Reports functions that close channels received from their callers.",
-              "profile": "default",
-              "tags": [
-                "reliability",
-                "policy"
-              ]
+              "optIn": false
             },
             {
               "id": "channelpolicy/send-after-close",
               "summary": "Reports sends reachable after a channel has been closed.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -239,15 +174,12 @@
           "name": "deferinloop",
           "summary": "Checks cleanup defers whose lifetime extends across loop iterations.",
           "path": "analyzers/ownership-and-lifecycle/deferinloop",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "deferinloop/cleanup-lifetime",
               "summary": "Reports cleanup defers whose lifetime extends across loop iterations.",
-              "profile": "default",
-              "tags": [
-                "reliability"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -257,15 +189,12 @@
           "name": "exitpolicy",
           "summary": "Checks process termination that bypasses registered defers.",
           "path": "analyzers/ownership-and-lifecycle/exitpolicy",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "exitpolicy/skipped-defer",
               "summary": "Reports immediate process termination that bypasses an earlier defer.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -275,31 +204,22 @@
           "name": "goroutineownership",
           "summary": "Checks that explicit goroutines have a recognizable join handle or lifecycle owner.",
           "path": "analyzers/ownership-and-lifecycle/goroutineownership",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "goroutineownership/unjoined",
               "summary": "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
-              "profile": "default",
-              "tags": [
-                "reliability"
-              ]
+              "optIn": false
             },
             {
               "id": "goroutineownership/detached",
               "summary": "Reports goroutines without a recognizable join handle or lifecycle owner.",
-              "profile": "opt-in",
-              "tags": [
-                "reliability"
-              ]
+              "optIn": true
             },
             {
               "id": "goroutineownership/abandoned-send",
               "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
-              "profile": "default",
-              "tags": [
-                "reliability"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -315,15 +235,12 @@
           "name": "processownership",
           "summary": "Checks that started os/exec commands are waited on or transferred to a wait owner.",
           "path": "analyzers/ownership-and-lifecycle/processownership",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "processownership/missing-wait",
               "summary": "Reports successfully started commands that are neither waited on nor transferred.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -333,15 +250,12 @@
           "name": "resourcelifetime",
           "summary": "Checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path.",
           "path": "analyzers/ownership-and-lifecycle/resourcelifetime",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "resourcelifetime/missing-release",
               "summary": "Reports owned resources that are not released on every return path.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -369,15 +283,12 @@
           "name": "concurrentcapture",
           "summary": "Checks locals mutated by goroutines launched repeatedly.",
           "path": "analyzers/reliability-and-safety/concurrentcapture",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "concurrentcapture/shared-capture",
               "summary": "Reports repeatedly launched goroutines that mutate the same captured local.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -387,15 +298,12 @@
           "name": "determinism",
           "summary": "Checks map iteration reaching ordered output without explicit sorting.",
           "path": "analyzers/reliability-and-safety/determinism",
-          "profile": "opt-in",
+          "optIn": true,
           "checks": [
             {
               "id": "determinism/map-output-order",
               "summary": "Reports map iteration that reaches ordered output without explicit sorting.",
-              "profile": "default",
-              "tags": [
-                "reliability"
-              ]
+              "optIn": true
             }
           ],
           "suggestedFix": false,
@@ -405,32 +313,22 @@
           "name": "errorownership",
           "summary": "Checks that errors are handled once and classified structurally.",
           "path": "analyzers/reliability-and-safety/errorownership",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "errorownership/log-and-return",
               "summary": "Reports functions that both log and return the same error.",
-              "profile": "opt-in",
-              "tags": [
-                "reliability",
-                "policy"
-              ]
+              "optIn": true
             },
             {
               "id": "errorownership/text-classification",
               "summary": "Reports production code that classifies errors by matching their text.",
-              "profile": "default",
-              "tags": [
-                "reliability"
-              ]
+              "optIn": false
             },
             {
               "id": "errorownership/mismatched-inline-error",
               "summary": "Reports inline error declarations whose condition checks a different error.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -440,15 +338,12 @@
           "name": "evalorder",
           "summary": "Checks later operands that mutate values evaluated earlier.",
           "path": "analyzers/reliability-and-safety/evalorder",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "evalorder/operand-mutation",
               "summary": "Reports expressions whose later operand mutates a value read by an earlier operand.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -458,16 +353,12 @@
           "name": "globalstate",
           "summary": "Checks mutable package-level state.",
           "path": "analyzers/reliability-and-safety/globalstate",
-          "profile": "opt-in",
+          "optIn": true,
           "checks": [
             {
               "id": "globalstate/mutable-package-state",
               "summary": "Reports mutable package-level state without an explicit owner.",
-              "profile": "default",
-              "tags": [
-                "reliability",
-                "policy"
-              ]
+              "optIn": true
             }
           ],
           "suggestedFix": false,
@@ -488,31 +379,22 @@
           "name": "lockorder",
           "summary": "Checks contradictory mutex acquisition order and unreleased return paths.",
           "path": "analyzers/reliability-and-safety/lockorder",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "lockorder/missing-release",
               "summary": "Reports return paths that leave an owned lock held.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             },
             {
               "id": "lockorder/recursive-acquire",
               "summary": "Reports attempts to acquire a lock that is already held.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             },
             {
               "id": "lockorder/contradictory-order",
               "summary": "Reports inconsistent acquisition order for the same pair of locks.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -522,15 +404,12 @@
           "name": "oncepolicy",
           "summary": "Checks sync.Once function wrappers that are immediately discarded.",
           "path": "analyzers/reliability-and-safety/oncepolicy",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "oncepolicy/discarded-wrapper",
               "summary": "Reports sync.Once function wrappers that are called and immediately discarded.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -540,15 +419,12 @@
           "name": "syncmapatomicity",
           "summary": "Checks non-atomic sync.Map load-and-delete claims.",
           "path": "analyzers/reliability-and-safety/syncmapatomicity",
-          "profile": "default",
+          "optIn": false,
           "checks": [
             {
               "id": "syncmapatomicity/non-atomic-claim",
               "summary": "Reports separate sync.Map Load and Delete operations used to claim one value.",
-              "profile": "default",
-              "tags": [
-                "correctness"
-              ]
+              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -558,16 +434,12 @@
           "name": "taintpolicy",
           "summary": "Checks untrusted environment and argument data reaching sensitive sinks.",
           "path": "analyzers/reliability-and-safety/taintpolicy",
-          "profile": "opt-in",
+          "optIn": true,
           "checks": [
             {
               "id": "taintpolicy/untrusted-sink",
               "summary": "Reports untrusted input that reaches a configured sensitive sink without validation.",
-              "profile": "default",
-              "tags": [
-                "correctness",
-                "reliability"
-              ]
+              "optIn": true
             }
           ],
           "suggestedFix": false,
@@ -595,31 +467,22 @@
           "name": "blockingtest",
           "summary": "Checks cancellation ownership for blocking test channels.",
           "path": "analyzers/testing/blockingtest",
-          "profile": "opt-in",
+          "optIn": true,
           "checks": [
             {
               "id": "blockingtest/send",
               "summary": "Reports unguarded channel sends in context-aware test code.",
-              "profile": "default",
-              "tags": [
-                "reliability"
-              ]
+              "optIn": true
             },
             {
               "id": "blockingtest/receive",
               "summary": "Reports blocking channel receives in tests without a cancellation escape.",
-              "profile": "default",
-              "tags": [
-                "reliability"
-              ]
+              "optIn": true
             },
             {
               "id": "blockingtest/select",
               "summary": "Reports blocking selects in tests without a cancellation escape.",
-              "profile": "default",
-              "tags": [
-                "reliability"
-              ]
+              "optIn": true
             }
           ],
           "suggestedFix": false,
@@ -629,15 +492,12 @@
           "name": "testpolicy",
           "summary": "Checks lifecycle ownership in test helpers.",
           "path": "analyzers/testing/testpolicy",
-          "profile": "opt-in",
+          "optIn": true,
           "checks": [
             {
               "id": "testpolicy/helper-marker",
               "summary": "Reports test helpers that do not call Helper on every return path.",
-              "profile": "default",
-              "tags": [
-                "policy"
-              ]
+              "optIn": true
             }
           ],
           "suggestedFix": true,

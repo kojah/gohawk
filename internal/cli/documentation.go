@@ -76,8 +76,8 @@ func printFilteredFlagsUsing(arguments []string, analyzers []*analysis.Analyzer,
 func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("list", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
-	defaultsOnly := flags.Bool("defaults", false, "show only analyzers enabled by default")
-	optInOnly := flags.Bool("opt-in", false, "show only opt-in analyzers")
+	defaultsOnly := flags.Bool("defaults", false, "show only entries included in an ordinary run")
+	optInOnly := flags.Bool("opt-in", false, "show only entries requiring explicit selection")
 	showChecks := flags.Bool("checks", false, "show stable check IDs instead of analyzer names")
 	flags.Usage = func() {
 		fmt.Fprintln(errorsOutput, "usage: gohawk list [-checks] [-defaults | -opt-in]")
@@ -96,10 +96,11 @@ func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error
 	metadata := gohawk.AnalyzerMetadata()
 	table := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
 	if *showChecks {
-		fmt.Fprintln(table, "CHECK\tPROFILE\tGROUP\tTAGS")
+		fmt.Fprintln(table, "CHECK\tGROUP")
 	} else {
-		fmt.Fprintln(table, "ANALYZER\tPROFILE\tGROUP")
+		fmt.Fprintln(table, "ANALYZER\tGROUP")
 	}
+	shownOptIn := false
 	for _, group := range gohawk.AnalyzerGroups() {
 		for _, analyzer := range group.Analyzers {
 			info := metadata[analyzer.Name]
@@ -107,32 +108,35 @@ func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error
 			if !*showChecks && ((*defaultsOnly && !isDefault) || (*optInOnly && isDefault)) {
 				continue
 			}
-			profile := "default"
-			if !isDefault {
-				profile = "opt-in"
-			}
 			if *showChecks {
 				for _, check := range info.Checks {
-					checkDefault := check.EnabledByDefault()
+					checkDefault := info.EnabledByDefault() && check.EnabledByDefault()
 					if (*defaultsOnly && !checkDefault) || (*optInOnly && checkDefault) {
 						continue
 					}
-					fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", check.ID, check.Profile, group.Name, joinTags(check.Tags))
+					fmt.Fprintf(table, "%s\t%s\n", optInName(string(check.ID), !checkDefault), group.Name)
+					shownOptIn = shownOptIn || !checkDefault
 				}
 			} else {
-				fmt.Fprintf(table, "%s\t%s\t%s\n", analyzer.Name, profile, group.Name)
+				fmt.Fprintf(table, "%s\t%s\n", optInName(analyzer.Name, !isDefault), group.Name)
+				shownOptIn = shownOptIn || !isDefault
 			}
 		}
 	}
-	return table.Flush()
+	if err := table.Flush(); err != nil {
+		return err
+	}
+	if shownOptIn {
+		fmt.Fprintln(output, "\n* opt-in; requires explicit selection")
+	}
+	return nil
 }
 
-func joinTags(tags []gohawk.AnalyzerTag) string {
-	values := make([]string, len(tags))
-	for index, tag := range tags {
-		values[index] = string(tag)
+func optInName(name string, optIn bool) string {
+	if optIn {
+		return name + "*"
 	}
-	return strings.Join(values, ",")
+	return name
 }
 
 const analyzerDocumentationBaseURL = "https://gohawk.dev/analyzers/"
@@ -173,16 +177,19 @@ func printDocumentation(arguments []string, output, errorsOutput io.Writer) erro
 func printAnalyzerDocumentation(output io.Writer, group gohawk.AnalyzerGroup, analyzer *analysis.Analyzer, info gohawk.AnalyzerInfo) {
 	fmt.Fprintln(output, analyzer.Name)
 	fmt.Fprintf(output, "  %s\n\n", analyzer.Doc)
-	fmt.Fprintf(output, "Profile: %s\n", info.Profile)
+	if info.OptIn {
+		fmt.Fprintln(output, "Opt-in: yes")
+	}
 	fmt.Fprintf(output, "Group: %s (%s)\n", group.Name, group.Doc)
 	fmt.Fprintf(output, "Suggested fixes: %s\n", yesNo(info.SuggestedFix))
 	fmt.Fprintf(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
 	fmt.Fprintln(output, "\nChecks:")
 	for _, check := range info.Checks {
-		fmt.Fprintf(output, "  %s\n", check.ID)
+		fmt.Fprintf(output, "  %s\n", optInName(string(check.ID), info.OptIn || check.OptIn))
 		fmt.Fprintf(output, "    %s\n", check.Doc)
-		fmt.Fprintf(output, "    Profile: %s\n", check.Profile)
-		fmt.Fprintf(output, "    Tags: %s\n", joinTags(check.Tags))
+	}
+	if info.OptIn || slices.ContainsFunc(info.Checks, func(check gohawk.AnalyzerCheckInfo) bool { return check.OptIn }) {
+		fmt.Fprintln(output, "  * opt-in; requires explicit selection")
 	}
 	printAnalyzerOptions(output, analyzer)
 }
@@ -191,18 +198,11 @@ func printCheckDocumentation(output io.Writer, group gohawk.AnalyzerGroup, analy
 	fmt.Fprintln(output, check.ID)
 	fmt.Fprintf(output, "  %s\n\n", check.Doc)
 	fmt.Fprintf(output, "Analyzer: %s\n", analyzer.Name)
-	fmt.Fprintf(output, "Profile: %s\n", check.Profile)
-	fmt.Fprintf(output, "Analyzer profile: %s\n", info.Profile)
+	if info.OptIn || check.OptIn {
+		fmt.Fprintln(output, "Opt-in: yes")
+	}
 	fmt.Fprintf(output, "Group: %s (%s)\n", group.Name, group.Doc)
 	fmt.Fprintf(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
-	fmt.Fprintln(output, "\nTags:")
-	tagDescriptions := make(map[gohawk.AnalyzerTag]string)
-	for _, tag := range gohawk.TagCatalog() {
-		tagDescriptions[tag.ID] = tag.Description
-	}
-	for _, tag := range check.Tags {
-		fmt.Fprintf(output, "  %s — %s\n", tag, tagDescriptions[tag])
-	}
 }
 
 func printAnalyzerOptions(output io.Writer, analyzer *analysis.Analyzer) {
@@ -264,7 +264,7 @@ func printGeneralHelp(output io.Writer) {
 	fmt.Fprintln(output, "usage: gohawk [selection flags] [analysis flags] package...")
 	fmt.Fprintln(output, "\nAnalyzer selection:")
 	fmt.Fprintln(output, "  -enable=NAME1,NAME2          run only named analyzers")
-	fmt.Fprintln(output, "  -disable=NAME1,NAME2         remove analyzers from the default profile")
+	fmt.Fprintln(output, "  -disable=NAME1,NAME2         remove analyzers from the ordinary run")
 	fmt.Fprintln(output, "  -enable-checks=CHECK1,CHECK2 run only named checks, or add them to selected analyzers")
 	fmt.Fprintln(output, "  -disable-checks=CHECK1,CHECK2 suppress checks by stable ID")
 	fmt.Fprintln(output, "  -enable-groups=GROUP1,GROUP2 run every analyzer in named groups")
@@ -278,14 +278,11 @@ func printGeneralHelp(output io.Writer) {
 	for _, group := range gohawk.AnalyzerGroups() {
 		names := make([]string, 0, len(group.Analyzers))
 		for _, analyzer := range group.Analyzers {
-			name := analyzer.Name
-			if !metadata[analyzer.Name].EnabledByDefault() {
-				name += " (opt-in)"
-			}
-			names = append(names, name)
+			names = append(names, optInName(analyzer.Name, !metadata[analyzer.Name].EnabledByDefault()))
 		}
 		fmt.Fprintf(output, "  %s (%s): %s\n", group.Name, group.Doc, strings.Join(names, ", "))
 	}
-	fmt.Fprintln(output, "\nRun 'gohawk list' for the full catalog and default status.")
+	fmt.Fprintln(output, "\n* opt-in; requires explicit selection")
+	fmt.Fprintln(output, "Run 'gohawk list' for the full catalog.")
 	fmt.Fprintln(output)
 }

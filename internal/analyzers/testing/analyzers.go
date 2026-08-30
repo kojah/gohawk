@@ -19,17 +19,17 @@ var report = analyzerbase.Report
 func Specs() []analyzerbase.AnalyzerSpec {
 	return []analyzerbase.AnalyzerSpec{
 		{
-			Analyzer: blockingTestAnalyzer(), Profile: analyzerbase.AnalyzerProfileOptIn,
+			Analyzer: blockingTestAnalyzer(), OptIn: true,
 			Checks: []analyzerbase.CheckInfo{
-				{ID: checkBlockingTestSend, Doc: "Reports unguarded channel sends in context-aware test code.", Tags: []analyzerbase.Tag{analyzerbase.TagReliability}},
-				{ID: checkBlockingTestReceive, Doc: "Reports blocking channel receives in tests without a cancellation escape.", Tags: []analyzerbase.Tag{analyzerbase.TagReliability}},
-				{ID: checkBlockingTestSelect, Doc: "Reports blocking selects in tests without a cancellation escape.", Tags: []analyzerbase.Tag{analyzerbase.TagReliability}},
+				{ID: checkBlockingTestSend, Doc: "Reports unguarded channel sends in context-aware test code."},
+				{ID: checkBlockingTestReceive, Doc: "Reports blocking channel receives in tests without a cancellation escape."},
+				{ID: checkBlockingTestSelect, Doc: "Reports blocking selects in tests without a cancellation escape."},
 			},
 		},
 		{
-			Analyzer: testPolicyAnalyzer(), Profile: analyzerbase.AnalyzerProfileOptIn, SuggestedFix: true,
+			Analyzer: testPolicyAnalyzer(), OptIn: true, SuggestedFix: true,
 			Checks: []analyzerbase.CheckInfo{
-				{ID: checkTestHelperMarker, Doc: "Reports test helpers that do not call Helper on every return path.", Tags: []analyzerbase.Tag{analyzerbase.TagPolicy}},
+				{ID: checkTestHelperMarker, Doc: "Reports test helpers that do not call Helper on every return path."},
 			},
 		},
 	}

@@ -17,8 +17,10 @@ wire types when their fields should be named explicitly.
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="keyed-literal" tags={["reliability","policy"]} /> | Reports positional composite literals for persisted or wire structs. |
-| <CheckIdentity name="serialization-tag" tags={["reliability","policy"]} /> | Reports exported wire fields without explicit JSON or TOML tags. |
+| <CheckIdentity name="keyed-literal" optIn /> | Reports positional composite literals for persisted or wire structs. |
+| <CheckIdentity name="serialization-tag" optIn /> | Reports exported wire fields without explicit JSON or TOML tags. |
+
+\* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

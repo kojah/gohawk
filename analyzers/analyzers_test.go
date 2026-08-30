@@ -104,10 +104,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"determinism": true, "globalstate": true, "taintpolicy": true,
 		"testpolicy": true, "wirepolicy": true,
 	}
-	validTags := make(map[AnalyzerTag]bool)
-	for _, tag := range TagCatalog() {
-		validTags[tag.ID] = true
-	}
 	seenChecks := make(map[AnalyzerCheck]string)
 	optInChecks := map[AnalyzerCheck]bool{
 		"channelpolicy/capacity-rationale": true,
@@ -119,8 +115,8 @@ func TestAnalyzerMetadata(t *testing.T) {
 		info, ok := metadata[name]
 		if !ok {
 			t.Errorf("metadata missing analyzer %q", name)
-		} else if info.EnabledByDefault() == optIn[name] {
-			t.Errorf("analyzer %q profile = %q, want default = %t", name, info.Profile, !optIn[name])
+		} else if info.OptIn != optIn[name] {
+			t.Errorf("analyzer %q opt-in = %t, want %t", name, info.OptIn, optIn[name])
 		}
 		if len(info.Checks) == 0 {
 			t.Errorf("analyzer %q has no checks", name)
@@ -132,55 +128,14 @@ func TestAnalyzerMetadata(t *testing.T) {
 			if strings.TrimSpace(check.Doc) == "" {
 				t.Errorf("check %q has no description", check.ID)
 			}
-			if check.Profile != CheckProfileDefault && check.Profile != CheckProfileOptIn {
-				t.Errorf("check %q has invalid profile %q", check.ID, check.Profile)
-			}
-			wantProfile := CheckProfileDefault
-			if optInChecks[check.ID] {
-				wantProfile = CheckProfileOptIn
-			}
-			if check.Profile != wantProfile {
-				t.Errorf("check %q profile = %q, want %q", check.ID, check.Profile, wantProfile)
+			if check.OptIn != optInChecks[check.ID] {
+				t.Errorf("check %q opt-in = %t, want %t", check.ID, check.OptIn, optInChecks[check.ID])
 			}
 			if owner, exists := seenChecks[check.ID]; exists {
 				t.Errorf("check %q belongs to both %q and %q", check.ID, owner, name)
 			}
 			seenChecks[check.ID] = name
-			if len(check.Tags) == 0 {
-				t.Errorf("check %q has no tags", check.ID)
-			}
-			seenCheckTags := make(map[AnalyzerTag]bool, len(check.Tags))
-			for _, tag := range check.Tags {
-				if !validTags[tag] {
-					t.Errorf("check %q has unknown tag %q", check.ID, tag)
-				}
-				if seenCheckTags[tag] {
-					t.Errorf("check %q repeats tag %q", check.ID, tag)
-				}
-				seenCheckTags[tag] = true
-			}
 		}
-	}
-}
-
-func TestTagCatalog(t *testing.T) {
-	want := []AnalyzerTag{AnalyzerTagCorrectness, AnalyzerTagReliability, AnalyzerTagPolicy}
-	catalog := TagCatalog()
-	if len(catalog) != len(want) {
-		t.Fatalf("tag count = %d, want %d", len(catalog), len(want))
-	}
-	seen := make(map[AnalyzerTag]bool, len(catalog))
-	for index, tag := range catalog {
-		if tag.ID != want[index] {
-			t.Errorf("tag %d = %q, want %q", index, tag.ID, want[index])
-		}
-		if tag.ID == "" || strings.TrimSpace(tag.Description) == "" {
-			t.Errorf("tag %d is missing an identity or description: %+v", index, tag)
-		}
-		if seen[tag.ID] {
-			t.Errorf("tag %q is defined more than once", tag.ID)
-		}
-		seen[tag.ID] = true
 	}
 }
 

@@ -3,35 +3,15 @@ title: Configuration
 description: Select analyzers, set analyzer flags, and suppress intentional findings.
 ---
 
-## Tags and profiles
+## Default and opt-in checks
 
-Tags belong to individual checks and explain why a finding matters:
+An ordinary run uses gohawk's conservative default set. The analyzer catalog
+marks anything outside that set with `*`. Opt-in analyzers can be selected by
+name, as part of a group, or with `-enable-all`. An individually opt-in check
+can be selected by its stable ID or with `-enable-all`.
 
-<!-- gohawk:generated-tags:start -->
-- <strong id="correctness">Correctness</strong> — Strong evidence that the program can behave incorrectly.
-- <strong id="reliability">Reliability</strong> — Code that may work but is vulnerable to meaningful lifecycle, concurrency, or operational failures.
-- <strong id="policy">Policy</strong> — A project convention on which reasonable teams may differ.
-<!-- gohawk:generated-tags:end -->
-
-Tags are composable: one check can have more than one tag. An analyzer may run
-several checks with different tags, but the tags remain properties of those
-checks rather than of the analyzer as a whole. Tags describe the nature of
-findings; they are not severity levels.
-
-Profiles answer a different question: whether something runs automatically.
-Analyzer profiles are the outer gate: a **default** analyzer participates in an
-ordinary run, while an **opt-in** analyzer must be selected explicitly. Check
-profiles are the inner gate: a **default** check runs whenever its analyzer is
-selected, while an **opt-in** check must be named explicitly or included by
-`-enable-all`.
-
-These two levels make it possible for a broadly useful analyzer to contain one
-more opinionated check without enabling that check for everyone. Profiles do
-not indicate severity, and an opt-in analyzer or check is not necessarily a
-policy rule.
-
-Use `gohawk list` to see analyzer profiles, or `gohawk list -checks` to see
-check profiles.
+Use `gohawk list` to see analyzers, or `gohawk list -checks` to see stable check
+IDs. Default entries have no marker.
 
 ```sh
 gohawk list
@@ -40,47 +20,46 @@ gohawk list -checks
 
 ## Select analyzers
 
-Running gohawk without analyzer flags uses the default analyzer profile and
-the default checks within those analyzers. Checks marked "opt-in" in the
-analyzer reference are available but do not run automatically.
+Running gohawk without selection flags uses the default set. Entries marked
+`*` in the analyzer reference are available but do not run automatically.
 Use `-enable` to run named analyzers or `-disable` to remove analyzers from the
-default profile. Selecting an analyzer runs its default checks. Selecting a
+ordinary run. Selecting an analyzer runs its ordinary checks. Selecting a
 group runs every analyzer in that group, including opt-in analyzers, but still
-respects each check's profile. Disabled groups are removed from the selected
-profile or group set. Group and individual selections combine, with individual
+excludes checks that require individual selection. Disabled groups are removed
+from the selected set. Group and individual selections combine, with individual
 analyzer selections taking precedence.
 
 ```sh
-# List every analyzer with its profile and group.
+# List every analyzer with its group; * means opt-in.
 gohawk list
 
 # Inspect an analyzer or one stable check.
 gohawk doc contextpolicy
 gohawk doc contextpolicy/nil-context
 
-# List stable check IDs and their profiles.
+# List stable check IDs; * means opt-in.
 gohawk list -checks
 
-# List only one profile.
+# List only defaults or only opt-in entries.
 gohawk list -defaults
 gohawk list -opt-in
 
 # Run two opt-in analyzers.
 gohawk -enable=wirepolicy,globalstate ./...
 
-# Run every ownership and testing analyzer with their default checks.
+# Run every ownership and testing analyzer with their ordinary checks.
 gohawk -enable-groups=ownership,testing ./...
 
 # Add one analyzer from another group, or exclude one from a selected group.
 gohawk -enable-groups=ownership -enable=wirepolicy -disable=channelpolicy ./...
 
-# Run the default profile without the reliability and testing groups.
+# Run the ordinary set without the reliability and testing groups.
 gohawk -disable-groups=reliability,testing ./...
 
 # Run everything except testing analyzers.
 gohawk -enable-all -disable-groups=testing ./...
 
-# Run the default profile except oncepolicy.
+# Run the ordinary set except oncepolicy.
 gohawk -disable=oncepolicy ./...
 
 # Keep contextpolicy enabled, but disable its context-storage check.
@@ -89,7 +68,7 @@ gohawk -disable-checks=contextpolicy/context-storage ./...
 # Run one opt-in check by itself.
 gohawk -enable-checks=contextpolicy/test-context ./...
 
-# Add an opt-in check to an analyzer's default checks.
+# Add an opt-in check to an analyzer's ordinary checks.
 gohawk -enable=contextpolicy -enable-checks=contextpolicy/test-context ./...
 
 # Run every analyzer and every check, including opt-in checks.
@@ -102,7 +81,7 @@ available when gohawk runs through `go vet -vettool`.
 
 `-enable-checks` runs exactly the named checks when used alone and implicitly
 activates their owning analyzers. When combined with an analyzer or group
-selection, it adds those checks to the selected analyzers' default checks.
+selection, it adds those checks to the selected analyzers' ordinary checks.
 `-disable-checks` removes individual checks afterward. Both flags accept
 comma-separated stable IDs shown by `gohawk list -checks`. If all of an
 analyzer's checks are disabled, gohawk skips that analyzer's analysis. Unknown,
