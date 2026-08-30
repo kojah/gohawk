@@ -45,7 +45,10 @@ func deferredUnlockInLoop(mu *sync.Mutex, values []int) {
 	}
 }
 `)
-	writeTestFile(t, workspace, "optin/optin_test.go", `package optin
+	// Keep the test in the production package. golangci-lint analyzes this as an
+	// augmented test variant rather than also running the ordinary package, so
+	// production files must remain visible to gohawk in the combined pass.
+	writeTestFile(t, workspace, "main_test.go", `package fixture
 
 import (
 	"context"

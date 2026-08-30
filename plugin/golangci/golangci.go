@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/golangci/plugin-module-register/register"
+	"github.com/kojah/gohawk/analysisutil"
 	"github.com/kojah/gohawk/analyzers"
 	"golang.org/x/tools/go/analysis"
 )
@@ -107,7 +108,8 @@ func selectAnalyzers(settings pluginSettings) ([]*analysis.Analyzer, error) {
 				disabled[id] = true
 			}
 		}
-		selected = append(selected, withDisabledChecks(analyzer, disabled, len(metadata[analyzer.Name].Checks)))
+		configured := withDisabledChecks(analyzer, disabled, len(metadata[analyzer.Name].Checks))
+		selected = append(selected, analysisutil.IncludeProductionFilesInTestVariants(configured))
 	}
 	return selected, nil
 }

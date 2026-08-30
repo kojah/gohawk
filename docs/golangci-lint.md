@@ -65,7 +65,7 @@ every analyzer and check. Explicitly enabling a check also enables its owning
 analyzer, unless that analyzer is explicitly disabled. Run `gohawk list` and
 `gohawk list -checks` to see valid names and check IDs.
 
-See [Configuring gohawk](../configuration/) for profile and analyzer-selection
+See [Configuration](../configuration/) for profile and analyzer-selection
 behavior.
 
 ## Run it

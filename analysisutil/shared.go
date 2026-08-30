@@ -5,10 +5,20 @@ import (
 	"go/token"
 	"go/types"
 	"os"
+	"reflect"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
 )
+
+var analyzeProductionFilesInTestVariants = &analysis.Analyzer{
+	Name:       "gohawk_test_variant_files",
+	Doc:        "marks a driver whose test variant is its canonical package pass",
+	ResultType: reflect.TypeFor[bool](),
+	Run: func(*analysis.Pass) (any, error) {
+		return true, nil
+	},
+}
 
 type sourceRange struct {
 	start token.Pos
@@ -62,17 +72,29 @@ func GeneratedFile(file *ast.File) bool {
 }
 
 // AnalyzeFile reports whether file is the canonical copy to analyze. Package-
-// loading drivers analyze production files once normally and again in a test
-// variant. In contrast, go vet combines production and test files in its only
-// pass, identified by the standardized unitchecker configuration argument.
+// loading drivers commonly analyze production files once normally and again in
+// a test variant. Other drivers expose the augmented test variant as their only
+// pass, so every file in that pass is canonical.
 func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 	if GeneratedFile(file) {
 		return false
 	}
-	if !testVariant(pass) || vetToolInvocation(os.Args) {
+	_, driverUsesTestVariant := pass.ResultOf[analyzeProductionFilesInTestVariants]
+	if !testVariant(pass) || vetToolInvocation(os.Args) || driverUsesTestVariant {
 		return true
 	}
 	return strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
+}
+
+// IncludeProductionFilesInTestVariants returns an analyzer copy configured for
+// an embedding driver that does not also run the ordinary production package.
+// Without this marker, production files in the driver's augmented test package
+// would be mistaken for duplicate copies and skipped.
+func IncludeProductionFilesInTestVariants(analyzer *analysis.Analyzer) *analysis.Analyzer {
+	wrapper := *analyzer
+	wrapper.Requires = append([]*analysis.Analyzer(nil), analyzer.Requires...)
+	wrapper.Requires = append(wrapper.Requires, analyzeProductionFilesInTestVariants)
+	return &wrapper
 }
 
 func testVariant(pass *analysis.Pass) bool {
