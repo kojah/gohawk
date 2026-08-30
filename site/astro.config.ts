@@ -59,6 +59,7 @@ export default defineConfig({
 					? './src/components/Footer.astro'
 					: './src/components/EmptyFooter.astro',
 				Head: './src/components/Head.astro',
+				PageSidebar: './src/components/PageSidebar.astro',
 				PageTitle: './src/components/PageTitle.astro',
 				ThemeSelect: './src/components/ThemeToggle.astro',
 			},
