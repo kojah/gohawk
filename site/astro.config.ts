@@ -85,11 +85,14 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: 'Getting started',
+					items: [{ label: 'Installation', slug: 'installation' }],
+				},
+				{
+					label: 'Configuring gohawk',
 					items: [
-						{ label: 'Installation', slug: 'installation' },
-						{ label: 'golangci-lint', slug: 'golangci-lint' },
-						{ label: 'Configuring gohawk', slug: 'configuration' },
+						{ label: 'Overview', slug: 'configuration' },
 						{ label: 'Tags and profiles', slug: 'tags-and-profiles' },
+						{ label: 'GolangCI integration', slug: 'golangci-lint' },
 					],
 				},
 				{

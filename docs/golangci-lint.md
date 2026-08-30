@@ -1,5 +1,5 @@
 ---
-title: golangci-lint integration
+title: GolangCI integration
 description: Run gohawk as a module plugin in a custom golangci-lint binary.
 ---
 
