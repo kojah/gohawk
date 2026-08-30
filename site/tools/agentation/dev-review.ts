@@ -1,12 +1,28 @@
 import { type ChildProcess, spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { type FSWatcher, watch } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const TOOL_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const SITE_DIRECTORY = resolve(TOOL_DIRECTORY, '../..');
+const DOCS_DIRECTORY = resolve(SITE_DIRECTORY, '../docs');
 const BIN_DIRECTORY = resolve(SITE_DIRECTORY, 'node_modules/.bin');
 const children = new Set<ChildProcess>();
+const watchers = new Set<FSWatcher>();
 let stopping = false;
+let astro: ChildProcess | undefined;
+let restartTimer: ReturnType<typeof setTimeout> | undefined;
+let restarting = false;
+
+type WatchScope = 'docs' | 'site' | 'src';
+
+export function shouldRestartAstro(scope: WatchScope, filename: string | null): boolean {
+	if (filename === null) return true;
+	if (scope === 'docs') return /\.mdx?$/.test(filename);
+	if (scope === 'site') return filename === 'astro.config.ts';
+	return filename === 'content.config.ts';
+}
 
 async function isHealthy(url: string): Promise<boolean> {
 	try {
@@ -26,8 +42,8 @@ async function waitForHealth(url: string, child: ChildProcess): Promise<void> {
 	throw new Error(`timed out waiting for ${url}`);
 }
 
-function start(command: string, args: string[]): ChildProcess {
-	const child = spawn(command, args, { cwd: SITE_DIRECTORY, env: process.env, stdio: 'inherit' });
+function start(command: string, args: string[], env = process.env): ChildProcess {
+	const child = spawn(command, args, { cwd: SITE_DIRECTORY, env, stdio: 'inherit' });
 	children.add(child);
 	child.on('exit', () => children.delete(child));
 	return child;
@@ -36,8 +52,69 @@ function start(command: string, args: string[]): ChildProcess {
 function stop(exitCode = 0): void {
 	if (stopping) return;
 	stopping = true;
+	if (restartTimer) clearTimeout(restartTimer);
+	for (const watcher of watchers) watcher.close();
 	for (const child of children) child.kill('SIGTERM');
 	process.exitCode = exitCode;
+}
+
+async function run(command: string, args: string[]): Promise<void> {
+	const child = spawn(command, args, { cwd: SITE_DIRECTORY, env: process.env, stdio: 'inherit' });
+	const [code] = (await once(child, 'exit')) as [number | null];
+	if (code !== 0) throw new Error(`${command} exited with code ${code}`);
+}
+
+function startAstro(astroArguments: string[]): void {
+	const child = start(resolve(BIN_DIRECTORY, 'astro'), ['dev', ...astroArguments], {
+		...process.env,
+		// Astro otherwise auto-detaches in detected AI environments. Keeping it in
+		// the foreground lets this supervisor restart the exact process it owns.
+		ASTRO_DEV_BACKGROUND: '1',
+	});
+	astro = child;
+	child.on('exit', (code) => {
+		if (astro === child) astro = undefined;
+		if (!stopping && !restarting) stop(code ?? 1);
+	});
+}
+
+async function restartAstro(astroArguments: string[]): Promise<void> {
+	if (stopping || restarting) return;
+	restarting = true;
+	try {
+		const previous = astro;
+		if (previous && previous.exitCode === null && previous.signalCode === null) {
+			const exited = once(previous, 'exit');
+			previous.kill('SIGTERM');
+			await exited;
+		}
+		startAstro(astroArguments);
+		console.log('Restarted Astro after documentation or configuration changes.');
+	} finally {
+		restarting = false;
+	}
+}
+
+function watchForRestarts(astroArguments: string[]): void {
+	const scheduleRestart = () => {
+		if (restartTimer) clearTimeout(restartTimer);
+		restartTimer = setTimeout(() => {
+			restartAstro(astroArguments).catch((error: unknown) => {
+				console.error(error);
+				stop(1);
+			});
+		}, 200);
+	};
+	const watchDirectory = (directory: string, scope: WatchScope, recursive = false) => {
+		const watcher = watch(directory, { recursive }, (_event, filename) => {
+			if (shouldRestartAstro(scope, filename)) scheduleRestart();
+		});
+		watchers.add(watcher);
+	};
+
+	watchDirectory(DOCS_DIRECTORY, 'docs', true);
+	watchDirectory(SITE_DIRECTORY, 'site');
+	watchDirectory(resolve(SITE_DIRECTORY, 'src'), 'src');
 }
 
 async function ensureService(options: {
@@ -70,21 +147,18 @@ async function main(): Promise<void> {
 
 	const astroArguments = process.argv.slice(2);
 	if (astroArguments[0] === '--') astroArguments.shift();
-	const astro = start(resolve(BIN_DIRECTORY, 'astro'), ['dev', ...astroArguments]);
-	astro.on('exit', (code) => {
-		if (stopping) return;
-		if (code === 0 && children.size > 0) {
-			console.log('Astro is running in the background; review services remain attached here.');
-			return;
-		}
-		stop(code ?? 1);
-	});
+	// Replace a detached server left by an earlier agent-aware Astro invocation.
+	await run(resolve(BIN_DIRECTORY, 'astro'), ['dev', 'stop']);
+	startAstro(astroArguments);
+	watchForRestarts(astroArguments);
 }
 
 process.on('SIGINT', () => stop(0));
 process.on('SIGTERM', () => stop(0));
 
-main().catch((error: unknown) => {
-	console.error(error);
-	stop(1);
-});
+if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
+	main().catch((error: unknown) => {
+		console.error(error);
+		stop(1);
+	});
+}
