@@ -9,10 +9,9 @@ import { pluginGohawkDiagnostics } from './src/plugins/gohawk-diagnostics.ts';
 // where Starlight indents them and stacks two disclosure carets.
 const analyzerSidebar = analyzerManifest.groups.map((group) => ({
 	label: group.title,
-	items: group.analyzers.map((analyzer) => ({
-		label: analyzer.name,
-		slug: analyzer.path,
-	})),
+	// Omit item labels so Starlight derives them from the same frontmatter title
+	// used for the page heading. This keeps sidebar labels and <h1>s identical.
+	items: group.analyzers.map((analyzer) => ({ slug: analyzer.path })),
 }));
 
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -86,23 +85,15 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: 'Getting started',
-					items: [
-						{ label: 'Installation', slug: 'installation' },
-						{ label: 'Configuration', slug: 'configuration' },
-						{ slug: 'golangci-lint' },
-					],
+					items: [{ slug: 'installation' }, { slug: 'configuration' }, { slug: 'golangci-lint' }],
 				},
 				{
 					label: 'Contributing',
-					items: [
-						{ label: 'How to contribute', slug: 'contributing' },
-						{ label: 'Understanding the codebase', slug: 'architecture' },
-						{ label: 'AI policy', slug: 'ai-policy' },
-					],
+					items: [{ slug: 'contributing' }, { slug: 'architecture' }, { slug: 'ai-policy' }],
 				},
 				{
 					label: 'Analyzer reference',
-					items: [{ label: 'Overview', slug: 'analyzers' }, ...analyzerSidebar],
+					items: [{ slug: 'analyzers' }, ...analyzerSidebar],
 				},
 			],
 		}),
