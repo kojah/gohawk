@@ -81,8 +81,8 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      - name: Run race-enabled tests
-        run: make test-race
+      - name: Run Go tests
+        run: make test test-race
 
   plugin:
     needs: validate

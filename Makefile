@@ -7,7 +7,7 @@ GOHAWK_BINARY ?= $(BUILD_DIRECTORY)/gohawk
 BENCHMARK_ARGS ?=
 
 VERIFY_STATIC_TARGETS := mod-verify fmt-check generated-check vet dogfood
-VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) plugin-test test-race
+VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test plugin-test test-race
 
 .DEFAULT_GOAL := help
 
@@ -52,7 +52,9 @@ test:
 	$(GO) test ./...
 
 test-race:
-	$(GO) test -race ./...
+	# TestAnalyzers runs every analyzer concurrently, which is the race-sensitive
+	# part of the suite. The ordinary test target covers all packages and modes.
+	$(GO) test -race ./analyzers -run '^TestAnalyzers$$'
 
 vet:
 	$(GO) vet ./...
@@ -72,9 +74,6 @@ dogfood: build
 
 verify-static: $(VERIFY_STATIC_TARGETS)
 
-# The race suite executes the complete Go test suite, so verify does not repeat
-# the same tests in a second non-race invocation. Use make test for the faster
-# ordinary development loop.
 verify: $(VERIFY_TARGETS)
 
 # The aggregate CI target adds coverage to the release verification targets.
