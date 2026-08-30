@@ -12,8 +12,9 @@ const { name, optIn = false, tags } = Astro.props;
 
 <div class="check-identity">
 	<span class="check-name">
-		<code>{name}</code>
-		{optIn && <span class="opt-in" aria-label="opt-in" title="Opt-in check">*</span>}
+		<code aria-label={optIn ? `${name}, opt-in check` : undefined} title={optIn ? 'Opt-in check' : undefined}>
+			{name}{optIn ? '*' : ''}
+		</code>
 	</span>
 	<CheckTags tags={tags} />
 </div>
@@ -36,15 +37,8 @@ const { name, optIn = false, tags } = Astro.props;
 
 	code {
 		max-width: 100%;
-		font-size: 0.82em;
+		font-size: var(--sl-text-xs);
 		overflow-wrap: anywhere;
 	}
 
-	.opt-in {
-		font-family: var(--sl-font-mono);
-		font-size: var(--sl-text-sm);
-		font-weight: 700;
-		line-height: 1;
-		color: var(--sl-color-accent-high);
-	}
 </style>

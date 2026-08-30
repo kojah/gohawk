@@ -41,7 +41,36 @@ const variants = {
 	}
 
 	.check-tags :global(.sl-badge) {
+		font-size: 0.82em;
 		overflow-wrap: normal;
 		white-space: nowrap;
+	}
+
+	.check-tags :global(.sl-badge.caution) {
+		--sl-color-border-badge: color-mix(
+			in srgb,
+			var(--sl-color-orange) 55%,
+			var(--sl-color-hairline)
+		);
+		--sl-color-bg-badge: color-mix(
+			in srgb,
+			var(--sl-color-orange-low) 50%,
+			var(--sl-color-bg)
+		);
+		--sl-color-text-badge: var(--sl-color-gray-1);
+	}
+
+	.check-tags :global(.sl-badge.danger) {
+		--sl-color-border-badge: color-mix(
+			in srgb,
+			var(--sl-color-red) 55%,
+			var(--sl-color-hairline)
+		);
+		--sl-color-bg-badge: color-mix(
+			in srgb,
+			var(--sl-color-red-low) 50%,
+			var(--sl-color-bg)
+		);
+		--sl-color-text-badge: var(--sl-color-gray-1);
 	}
 </style>

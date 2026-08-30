@@ -407,6 +407,7 @@ main > .content-panel:has(.analyzer-header) + .content-panel .sl-markdown-conten
 }
 
 .sl-markdown-content :is(th, td) {
+	padding: 0.5rem 1rem;
 	border: 0;
 	border-inline-end: 1px solid var(--sl-color-hairline);
 	border-bottom: 1px solid var(--sl-color-hairline);
