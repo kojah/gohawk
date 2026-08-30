@@ -16,10 +16,17 @@ let restartTimer: ReturnType<typeof setTimeout> | undefined;
 let restarting = false;
 
 type WatchScope = 'docs' | 'site' | 'src';
+type WatchEvent = 'change' | 'rename';
 
-export function shouldRestartAstro(scope: WatchScope, filename: string | null): boolean {
+export function shouldRestartAstro(
+	scope: WatchScope,
+	event: WatchEvent,
+	filename: string | null,
+): boolean {
 	if (filename === null) return true;
-	if (scope === 'docs') return /\.mdx?$/.test(filename);
+	// Astro's content loader hot-reloads edits to existing documents. Structural
+	// changes need a restart so its out-of-root glob is rebuilt reliably.
+	if (scope === 'docs') return event === 'rename' && /\.mdx?$/.test(filename);
 	if (scope === 'site') return filename === 'astro.config.ts';
 	return filename === 'content.config.ts';
 }
@@ -106,8 +113,8 @@ function watchForRestarts(astroArguments: string[]): void {
 		}, 200);
 	};
 	const watchDirectory = (directory: string, scope: WatchScope, recursive = false) => {
-		const watcher = watch(directory, { recursive }, (_event, filename) => {
-			if (shouldRestartAstro(scope, filename)) scheduleRestart();
+		const watcher = watch(directory, { recursive }, (event, filename) => {
+			if (shouldRestartAstro(scope, event, filename)) scheduleRestart();
 		});
 		watchers.add(watcher);
 	};
