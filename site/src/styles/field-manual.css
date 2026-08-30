@@ -97,12 +97,6 @@ main:has(.landing) > .content-panel:first-child {
 	padding-inline-start: 0.75rem;
 }
 
-mobile-starlight-toc li:has(> a[href='#_top']),
-mobile-starlight-toc a[href='#_top'],
-mobile-starlight-toc .display-current {
-	display: none;
-}
-
 /* ---------------------------------------------------------------- chrome -- */
 
 header.header {
