@@ -88,7 +88,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Installation', slug: 'installation' },
 						{
-							label: 'Configuring gohawk',
+							label: 'Configuration',
 							items: [
 								{ label: 'Overview', slug: 'configuration' },
 								{ label: 'Tags and profiles', slug: 'tags-and-profiles' },
