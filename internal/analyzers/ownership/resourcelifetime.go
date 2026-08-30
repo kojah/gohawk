@@ -276,6 +276,14 @@ func resourceSuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Valu
 	if !ok {
 		return false, false
 	}
+	// A true errors.Is check against the documented non-nil missing-file
+	// sentinel proves that os.Open did not produce an owned file. This commonly
+	// appears before the generic err != nil check when callers skip missing
+	// inputs. Do not carry a live resource around that continue edge.
+	// https://github.com/heymaikol/network-doctor/blob/6d0df6eaba1de237077e0a1f8224fd8d5c3d083a/internal/simulation/evidence.go#L407-L415
+	if errorsIsMissingFile(branch.Cond, errorValue) && successor == block.Succs[0] {
+		return false, true
+	}
 	comparison, ok := branch.Cond.(*ssa.BinOp)
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
@@ -290,6 +298,49 @@ func resourceSuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Valu
 		return trueBranch, true
 	}
 	return !trueBranch, true
+}
+
+func errorsIsMissingFile(condition, errorValue ssa.Value) bool {
+	call, ok := condition.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	common := call.Common()
+	if ssautil.CallPackage(common) != "errors" || ssautil.CallName(common) != "Is" || len(common.Args) != 2 {
+		return false
+	}
+	if !valueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
+		return false
+	}
+	return isMissingFileSentinel(common.Args[1])
+}
+
+func isMissingFileSentinel(value ssa.Value) bool {
+	for {
+		switch typed := value.(type) {
+		case *ssa.ChangeInterface:
+			value = typed.X
+		case *ssa.ChangeType:
+			value = typed.X
+		case *ssa.Convert:
+			value = typed.X
+		case *ssa.MakeInterface:
+			value = typed.X
+		case *ssa.UnOp:
+			if typed.Op != token.MUL {
+				return false
+			}
+			value = typed.X
+		case *ssa.Global:
+			if typed.Pkg == nil || typed.Pkg.Pkg == nil || typed.Name() != "ErrNotExist" {
+				return false
+			}
+			packagePath := typed.Pkg.Pkg.Path()
+			return packagePath == "os" || packagePath == "io/fs"
+		default:
+			return false
+		}
+	}
 }
 
 func consumesResource(instruction ssa.Instruction, resource ssa.Value) bool {

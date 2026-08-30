@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"time"
@@ -29,6 +30,33 @@ func closedFile() error {
 	}
 	defer file.Close()
 	return nil
+}
+
+func closedFileAfterIgnoredMissingPath(paths []string) error {
+	for _, path := range paths {
+		file, err := os.Open(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := file.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func closedFileAfterIgnoredFSMissingPath(path string) error {
+	file, err := os.Open(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return file.Close()
 }
 
 func leakedTimer() {
