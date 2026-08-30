@@ -135,7 +135,7 @@ func joinTags(tags []gohawk.AnalyzerTag) string {
 	return strings.Join(values, ",")
 }
 
-const analyzerDocumentationBaseURL = "https://kojah.github.io/gohawk/analyzers/"
+const analyzerDocumentationBaseURL = "https://gohawk.dev/analyzers/"
 
 func printDocumentation(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("doc", flag.ContinueOnError)

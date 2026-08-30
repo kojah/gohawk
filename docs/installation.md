@@ -22,6 +22,10 @@ Verify the installation:
 gohawk -V
 ```
 
+Reinstall gohawk after upgrading the Go toolchain used by the project. Go
+analysis binaries must be built with a toolchain at least as new as the code
+and standard library they analyze.
+
 ## Run gohawk
 
 Run the default analyzer profile across the current module:

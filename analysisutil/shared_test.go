@@ -30,3 +30,20 @@ func TestSourceRangeRecoversCallFromLeftParenthesis(t *testing.T) {
 		t.Fatalf("range = %v..%v, want %v..%v", rangeAtCall.Pos(), rangeAtCall.End(), call.Pos(), call.End())
 	}
 }
+
+func TestVetToolInvocation(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		arguments []string
+		want      bool
+	}{
+		{name: "unitchecker config", arguments: []string{"gohawk", "-json", "/tmp/vet.cfg"}, want: true},
+		{name: "standalone packages", arguments: []string{"gohawk", "-json", "./..."}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := vetToolInvocation(test.arguments); got != test.want {
+				t.Fatalf("vetToolInvocation(%v) = %t, want %t", test.arguments, got, test.want)
+			}
+		})
+	}
+}

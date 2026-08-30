@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"os"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -60,14 +61,15 @@ func GeneratedFile(file *ast.File) bool {
 	return ast.IsGenerated(file)
 }
 
-// AnalyzeFile reports whether file is the canonical copy to analyze. Test
-// variants contain production files a second time; only their test files are
-// canonical because production files are analyzed with the ordinary package.
+// AnalyzeFile reports whether file is the canonical copy to analyze. Package-
+// loading drivers analyze production files once normally and again in a test
+// variant. In contrast, go vet combines production and test files in its only
+// pass, identified by the standardized unitchecker configuration argument.
 func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 	if GeneratedFile(file) {
 		return false
 	}
-	if !testVariant(pass) {
+	if !testVariant(pass) || vetToolInvocation(os.Args) {
 		return true
 	}
 	return strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
@@ -76,6 +78,15 @@ func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 func testVariant(pass *analysis.Pass) bool {
 	for _, file := range pass.Files {
 		if strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
+			return true
+		}
+	}
+	return false
+}
+
+func vetToolInvocation(arguments []string) bool {
+	for _, argument := range arguments[1:] {
+		if strings.HasSuffix(argument, ".cfg") {
 			return true
 		}
 	}

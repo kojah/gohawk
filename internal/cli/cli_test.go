@@ -252,7 +252,7 @@ func TestPrintDocumentation(t *testing.T) {
 				"contextpolicy", "Profile: default", "Group: contracts (API and data contracts)",
 				"Suggested fixes: no", "contextpolicy/context-first", "Profile: opt-in", "Tags: reliability,policy",
 				"-contextpolicy.prefer-test-context (default true)",
-				"https://kojah.github.io/gohawk/analyzers/api-and-data-contracts/contextpolicy/",
+				"https://gohawk.dev/analyzers/api-and-data-contracts/contextpolicy/",
 			},
 		},
 		{
@@ -960,6 +960,42 @@ func TestCLIIntegration(t *testing.T) {
 			t.Fatalf("fixed module: exit code = %d, output = %q", exitCode, output)
 		}
 	})
+
+	t.Run("cancellation ownership through CLI and vet tool", func(t *testing.T) {
+		module := writeCancellationFixModule(t)
+		const diagnostic = "cancel function from context.WithCancel is not called on every return path"
+
+		output, exitCode := runCommand(t, module, binary, "-enable=cancellationownership", "./...")
+		if exitCode != 3 || !strings.Contains(output, diagnostic) {
+			t.Fatalf("standalone cancellation diagnostic: exit code = %d\n%s", exitCode, output)
+		}
+
+		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-enable=cancellationownership", "./...")
+		if exitCode != 1 || !strings.Contains(output, diagnostic) {
+			t.Fatalf("vettool cancellation diagnostic: exit code = %d\n%s", exitCode, output)
+		}
+
+		output, exitCode = runCommand(t, module, binary, "-fix", "-diff", "./...")
+		if exitCode != 0 || !strings.Contains(output, "defer cancel()") {
+			t.Fatalf("cancellation fix preview: exit code = %d\n%s", exitCode, output)
+		}
+		assertFixtureContains(t, module, "_, _ = ctx, cancel")
+
+		output, exitCode = runCommand(t, module, binary, "-fix", "./...")
+		if exitCode != 0 {
+			t.Fatalf("cancellation fix: exit code = %d\n%s", exitCode, output)
+		}
+		assertFixtureContains(t, module, "defer cancel()")
+
+		output, exitCode = runCommand(t, module, binary, "./...")
+		if exitCode != 0 || output != "" {
+			t.Fatalf("fixed standalone module: exit code = %d, output = %q", exitCode, output)
+		}
+		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "./...")
+		if exitCode != 0 || output != "" {
+			t.Fatalf("fixed vettool module: exit code = %d, output = %q", exitCode, output)
+		}
+	})
 }
 
 func TestHumanVersion(t *testing.T) {
@@ -1019,6 +1055,30 @@ var cache = map[string]string{}
 
 func initialize() {
 	sync.OnceFunc(func() {})()
+}
+`)
+	return directory
+}
+
+func writeCancellationFixModule(t *testing.T) string {
+	t.Helper()
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/cancellationfix\n\ngo 1.26.0\n")
+	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), `package cancellationfix
+
+import "context"
+
+func work(parent context.Context) {
+	ctx, cancel := context.WithCancel(parent)
+	_, _ = ctx, cancel
+}
+`)
+	writeTestFile(t, filepath.Join(directory, "sample", "sample_test.go"), `package cancellationfix
+
+import "testing"
+
+func TestWork(t *testing.T) {
+	_ = t
 }
 `)
 	return directory
