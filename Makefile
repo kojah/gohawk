@@ -6,12 +6,13 @@ BUILD_DIRECTORY ?= $(CURDIR)/.build
 GOHAWK_BINARY ?= $(BUILD_DIRECTORY)/gohawk
 BENCHMARK_ARGS ?=
 
-VERIFY_TARGETS := mod-verify fmt-check generated-check plugin-test test-race vet dogfood
+VERIFY_STATIC_TARGETS := mod-verify fmt-check generated-check vet dogfood
+VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) plugin-test test-race
 
 .DEFAULT_GOAL := help
 
 .PHONY: help build fmt fmt-check generate generated-check mod-verify test \
-	test-race vet coverage plugin-test dogfood verify ci benchmark site-install \
+	test-race vet coverage plugin-test dogfood verify-static verify ci benchmark site-install \
 	site-check site-build site-review
 
 help:
@@ -69,10 +70,15 @@ plugin-test:
 dogfood: build
 	"$(GOHAWK_BINARY)" ./...
 
-verify: $(VERIFY_TARGETS) test
+verify-static: $(VERIFY_STATIC_TARGETS)
 
-# CI substitutes coverage for the ordinary test run so the same tests are not
-# executed twice merely to produce the coverage artifacts used by the badge.
+# The race suite executes the complete Go test suite, so verify does not repeat
+# the same tests in a second non-race invocation. Use make test for the faster
+# ordinary development loop.
+verify: $(VERIFY_TARGETS)
+
+# The aggregate CI target adds coverage to the release verification targets.
+# GitHub Actions invokes these targets in separate parallel jobs.
 ci: $(VERIFY_TARGETS) coverage
 
 benchmark:

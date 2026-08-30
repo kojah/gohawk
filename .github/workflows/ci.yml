@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  static:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -27,9 +27,60 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      - name: Verify and collect coverage
+      - name: Run static checks and dogfood
+        run: make verify-static
+
+  race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Run race-enabled tests
+        run: make test-race
+
+  plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Test the golangci-lint plugin
+        run: make plugin-test
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Collect coverage
         # Measure product analysis behavior, not CLI and documentation tooling.
-        run: make ci
+        run: make coverage
 
       - name: Generate coverage badge
         uses: tj-actions/coverage-badge-go@481919ec72da287775fef015fd9011dc75a5db05 # v3
@@ -39,3 +90,23 @@ jobs:
 
       - name: Check coverage badge
         run: git diff --exit-code -- README.md
+
+  # Preserve the existing aggregate check name while the expensive verification
+  # work runs concurrently in the jobs above.
+  test:
+    if: ${{ always() }}
+    needs: [static, race, plugin, coverage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check verification results
+        env:
+          STATIC_RESULT: ${{ needs.static.result }}
+          RACE_RESULT: ${{ needs.race.result }}
+          PLUGIN_RESULT: ${{ needs.plugin.result }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
+        run: |
+          for result in "$STATIC_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT"; do
+            if [[ "$result" != "success" ]]; then
+              exit 1
+            fi
+          done
