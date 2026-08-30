@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"testing"
 	"time"
 )
 
@@ -57,6 +58,28 @@ func closedFileAfterIgnoredFSMissingPath(path string) error {
 		return err
 	}
 	return file.Close()
+}
+
+func fileClosedByTestCleanup(t *testing.T) error {
+	file, err := os.CreateTemp(t.TempDir(), "cleanup")
+	if err != nil {
+		return err
+	}
+	t.Cleanup(func() { _ = file.Close() })
+	return nil
+}
+
+func fileConditionallyClosedByTestCleanup(t *testing.T, closeFile bool) error {
+	file, err := os.CreateTemp(t.TempDir(), "conditional-cleanup") // want "owned resource from os.CreateTemp is not released on every return path"
+	if err != nil {
+		return err
+	}
+	t.Cleanup(func() {
+		if closeFile {
+			_ = file.Close()
+		}
+	})
+	return nil
 }
 
 func leakedTimer() {

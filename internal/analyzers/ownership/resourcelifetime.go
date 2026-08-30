@@ -179,6 +179,9 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []
 	if common != nil && slices.Contains(methods, ssautil.CallName(common)) && valueDerivesFrom(ssautil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
 		return true
 	}
+	if common != nil && testingCleanupReleases(common, resource, methods) {
+		return true
+	}
 	if common != nil && lifecycleMethod(ssautil.CallName(common)) && aliasesAny(ssautil.CallReceiver(common), owners) {
 		return true
 	}
@@ -195,6 +198,28 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []
 	for _, method := range methods {
 		if ssautil.DeferredClosureCalls(instruction, method, resource) {
 			return true
+		}
+	}
+	return false
+}
+
+func testingCleanupReleases(common *ssa.CallCommon, resource ssa.Value, methods []string) bool {
+	if ssautil.CallPackage(common) != "testing" || ssautil.CallName(common) != "Cleanup" {
+		return false
+	}
+	// testing.TB guarantees that Cleanup callbacks run when the test and its
+	// subtests complete. Require an unconditional cleanup call inside the
+	// callback rather than treating arbitrary capture as ownership transfer.
+	// https://github.com/heymaikol/network-doctor/blob/6d0df6eaba1de237077e0a1f8224fd8d5c3d083a/internal/app/app_test.go#L1298-L1303
+	for _, argument := range common.Args {
+		instruction, ok := argument.(ssa.Instruction)
+		if !ok {
+			continue
+		}
+		for _, method := range methods {
+			if ssautil.ClosureCallsMethodBeforeBranch(instruction, method, resource) {
+				return true
+			}
 		}
 	}
 	return false
