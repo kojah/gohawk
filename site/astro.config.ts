@@ -102,7 +102,7 @@ export default defineConfig({
 					label: 'Contributing',
 					items: [
 						{ label: 'How to contribute', slug: 'contributing' },
-						{ label: 'Architecture of gohawk', slug: 'architecture' },
+						{ label: "gohawk's architecture", slug: 'architecture' },
 						{ label: 'AI policy', slug: 'ai-policy' },
 					],
 				},
