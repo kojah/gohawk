@@ -74,6 +74,11 @@ body {
 	line-height: 1.6;
 }
 
+a,
+.sl-markdown-content a {
+	text-decoration: none;
+}
+
 .content-panel:has(.landing) {
 	padding-block-start: 0;
 	border-top: 0;
