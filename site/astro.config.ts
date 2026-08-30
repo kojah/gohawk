@@ -27,6 +27,13 @@ export default defineConfig({
 	vite: {
 		cacheDir: viteCacheDir,
 		server: {
+			// The docs collection lives outside the Astro project root. Polling keeps
+			// hot reload reliable when an editor or Git replaces a Markdown file
+			// atomically instead of emitting an ordinary in-place change event.
+			watch: {
+				usePolling: true,
+				interval: 300,
+			},
 			proxy: {
 				'/__agentation-review': {
 					target: 'http://127.0.0.1:4848',
