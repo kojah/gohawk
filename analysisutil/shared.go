@@ -86,6 +86,43 @@ func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 	return strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
 }
 
+// ParameterTypes expands a field list into one entry per declared parameter.
+func ParameterTypes(pass *analysis.Pass, fields *ast.FieldList) []types.Type {
+	if fields == nil {
+		return nil
+	}
+	var result []types.Type
+	for _, field := range fields.List {
+		count := max(1, len(field.Names))
+		for range count {
+			result = append(result, pass.TypesInfo.TypeOf(field.Type))
+		}
+	}
+	return result
+}
+
+// ExpressionUsesObject reports whether node refers to object.
+func ExpressionUsesObject(pass *analysis.Pass, node ast.Node, object types.Object) bool {
+	used := false
+	ast.Inspect(node, func(candidate ast.Node) bool {
+		identifier, ok := candidate.(*ast.Ident)
+		if ok && pass.TypesInfo.ObjectOf(identifier) == object {
+			used = true
+			return false
+		}
+		return true
+	})
+	return used
+}
+
+// ShortPackageName returns the final component of an import path.
+func ShortPackageName(packagePath string) string {
+	if index := strings.LastIndexByte(packagePath, '/'); index >= 0 {
+		return packagePath[index+1:]
+	}
+	return packagePath
+}
+
 // IncludeProductionFilesInTestVariants returns an analyzer copy configured for
 // an embedding driver that does not also run the ordinary production package.
 // Without this marker, production files in the driver's augmented test package

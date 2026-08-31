@@ -6,10 +6,6 @@ import (
 
 	"github.com/kojah/gohawk/analysisutil"
 	"github.com/kojah/gohawk/internal/analyzerbase"
-	"github.com/kojah/gohawk/internal/analyzers/contracts"
-	"github.com/kojah/gohawk/internal/analyzers/ownership"
-	"github.com/kojah/gohawk/internal/analyzers/reliability"
-	testingchecks "github.com/kojah/gohawk/internal/analyzers/testing"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -36,10 +32,10 @@ func (info AnalyzerInfo) EnabledByDefault() bool {
 
 func newCatalog() (*analyzerbase.Catalog, error) {
 	return analyzerbase.NewCatalog([]analyzerbase.GroupSpec{
-		{ID: "contracts", Doc: "API and data contracts", DocPath: "api-and-data-contracts", Analyzers: contracts.Specs()},
-		{ID: "ownership", Doc: "ownership and lifecycle", DocPath: "ownership-and-lifecycle", Analyzers: ownership.Specs()},
-		{ID: "reliability", Doc: "reliability and safety", DocPath: "reliability-and-safety", Analyzers: reliability.Specs()},
-		{ID: "testing", Doc: "testing", DocPath: "testing", Analyzers: testingchecks.Specs()},
+		{ID: "contracts", Doc: "API and data contracts", DocPath: "api-and-data-contracts", Analyzers: contractSpecs()},
+		{ID: "ownership", Doc: "ownership and lifecycle", DocPath: "ownership-and-lifecycle", Analyzers: ownershipSpecs()},
+		{ID: "reliability", Doc: "reliability and safety", DocPath: "reliability-and-safety", Analyzers: reliabilitySpecs()},
+		{ID: "testing", Doc: "testing", DocPath: "testing", Analyzers: testingSpecs()},
 	}, []analyzerbase.AnalyzerID{
 		"apishape",
 		"contextpolicy",

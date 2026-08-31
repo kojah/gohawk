@@ -2,6 +2,7 @@ package ssautil
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
 
 	"github.com/kojah/gohawk/analysisutil"
@@ -75,6 +76,109 @@ func ValuesShareErrorSource(left, right ssa.Value) bool {
 		}
 	}
 	return false
+}
+
+// AliasesAny reports whether value aliases any candidate.
+func AliasesAny(value ssa.Value, candidates []ssa.Value) bool {
+	for _, candidate := range candidates {
+		if AliasesValue(value, candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+// ReturnedAliasesAny reports whether a return transfers any candidate value.
+func ReturnedAliasesAny(returned *ssa.Return, candidates []ssa.Value) bool {
+	for _, result := range returned.Results {
+		if AliasesAny(result, candidates) {
+			return true
+		}
+	}
+	return false
+}
+
+// ReturnAliasesValue reports whether a return transfers value.
+func ReturnAliasesValue(returned *ssa.Return, value ssa.Value) bool {
+	for _, result := range returned.Results {
+		if AliasesValue(result, value) {
+			return true
+		}
+	}
+	return false
+}
+
+// CallResult returns the selected SSA result of call. A negative index denotes
+// a single-result call represented by the call instruction itself.
+func CallResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // SSA call results have several concrete forms.
+	if index < 0 {
+		return call
+	}
+	if call.Referrers() == nil {
+		return nil
+	}
+	for _, reference := range *call.Referrers() {
+		if extract, ok := reference.(*ssa.Extract); ok && extract.Index == index {
+			return extract
+		}
+	}
+	return nil
+}
+
+// ValueDerivesFrom reports whether source contributes to value through SSA
+// operands or a local load/store pair.
+func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
+	if value == nil || source == nil || seen[value] {
+		return false
+	}
+	if AliasesValue(value, source) {
+		return true
+	}
+	seen[value] = true
+	if load, ok := value.(*ssa.UnOp); ok && load.X.Referrers() != nil {
+		for _, reference := range *load.X.Referrers() {
+			if store, storeOK := reference.(*ssa.Store); storeOK && ValueDerivesFrom(store.Val, source, seen) {
+				return true
+			}
+		}
+	}
+	instruction, ok := value.(ssa.Instruction)
+	if !ok {
+		return false
+	}
+	var operands []*ssa.Value
+	for _, operand := range instruction.Operands(operands) {
+		if operand != nil && ValueDerivesFrom(*operand, source, seen) {
+			return true
+		}
+	}
+	return false
+}
+
+// SuccessBranch reports whether successor is the branch where errorValue is
+// nil, when block ends in a recognizable nil comparison.
+func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {
+	if errorValue == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
+		return false, false
+	}
+	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
+	if !ok {
+		return false, false
+	}
+	comparison, ok := branch.Cond.(*ssa.BinOp)
+	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
+		return false, false
+	}
+	comparesErrorToNil := ValueDerivesFrom(comparison.X, errorValue, map[ssa.Value]bool{}) && DefinitelyNil(comparison.Y) ||
+		ValueDerivesFrom(comparison.Y, errorValue, map[ssa.Value]bool{}) && DefinitelyNil(comparison.X)
+	if !comparesErrorToNil {
+		return false, false
+	}
+	trueBranch := successor == block.Succs[0]
+	if comparison.Op == token.EQL {
+		return trueBranch, true
+	}
+	return !trueBranch, true
 }
 
 // FunctionFile returns source file containing function.

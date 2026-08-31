@@ -57,24 +57,22 @@ evidence engines behind focused implementation files.
 - Start an analyzer in one file. Split it only when a concern has distinct
   vocabulary or invariants, such as source-level API contracts versus SSA flow
   analysis; file length alone is not a reason to split.
-- Keep those files in the analyzer's existing group package and name them by
-  analyzer plus concern, such as `resourcetimer.go` or
-  `globalstateimmutability.go`. Do not create a package per helper or analysis
-  phase.
+- Give every analyzer its own package under `internal/analyzers/<name>`. Name
+  focused files by their concern, such as `timer.go`, `contracts.go`, or
+  `immutability.go`; do not create a package per helper or analysis phase.
 - Keep registry and runner code small. It should select configuration,
   construct shared inputs, invoke evidence helpers, and report diagnostics—not
   contain the full proof itself.
 - Promote a helper to `analysisutil` only after multiple analyzers need the
   same general contract. Analyzer-specific precision policy belongs beside the
   analyzer even when its implementation looks reusable.
-- Mirror the analyzer groups and names under `testdata`. Keep minimized
-  accepted and diagnostic cases together; place fixture-only dependency stubs
-  under that analyzer's fixture tree rather than at the group root.
+- Keep each analyzer's minimized accepted and diagnostic cases under its local
+  `testdata` tree. Place fixture-only dependency stubs there as well.
 
-This deliberately sits between the one-package-per-pass layouts used by
-`x/tools` and Staticcheck and the focused same-package analyzer files used by
-gosec: gohawk's group packages remain cohesive without letting complex
-analyzers become monolithic files.
+This follows the one-package-per-pass layouts used by `x/tools` and
+Staticcheck while retaining gosec's practice of splitting a substantial
+analyzer into focused files within its package. Analyzer groups are catalog
+metadata, not Go package boundaries.
 
 The `analysisutil` package is intentionally unsupported and undocumented for
 external consumers. It is exposed only for Veritas's current integration.

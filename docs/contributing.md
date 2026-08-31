@@ -33,12 +33,11 @@ Suppose the new analyzer is called `examplepolicy`.
 
 ### 1. Write the analyzer
 
-Add `internal/analyzers/<group>/examplepolicy.go` under the matching analyzer
-group. Give it a constructor that returns an `analysis.Analyzer`, then put the
-analysis in a separate run function:
+Create `internal/analyzers/examplepolicy/analyzer.go`. Export an `Analyzer`
+constructor, then put the analysis in a separate run function:
 
 ```go
-func examplePolicyAnalyzer() *analysis.Analyzer {
+func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: "examplepolicy",
 		Doc:  "checks ...",
@@ -53,39 +52,39 @@ func runExamplePolicy(pass *analysis.Pass) (any, error) {
 ```
 
 Add any analysis passes you need to `Requires`. Diagnostics must point at the
-smallest useful source range. Use the group package's `reportf` helper when you
-have a position and `report` when you need to provide the range yourself.
+smallest useful source range. Use `analyzerbase.Reportf` when you have a
+position and `analyzerbase.Report` when you need to provide the range yourself.
 
 Only add flags for choices that projects may reasonably disagree about, such
 as a threshold or ownership policy. Define them on the analyzer's `Flags` set.
 
 ### 2. Register it
 
-Add an `analyzerbase.AnalyzerSpec` for the analyzer to the matching group's
-`internal/analyzers/<group>/analyzers.go`, including its checks, opt-in status,
-and suggested-fix support. Then add its analyzer ID to the stable order
-in `analyzers/analyzers.go`.
+Add an `analyzerbase.AnalyzerSpec` for the analyzer to the matching group in
+`analyzers/catalog_specs.go`, including its checks, opt-in status, and
+suggested-fix support. Then add its analyzer ID to the stable order in
+`analyzers/analyzers.go`.
 
 Define each stable check identity alongside the existing check constants in
-`internal/analyzerbase/base.go`, then alias it with the other checks in the
-group's `analyzers.go`.
+`internal/analyzerbase/base.go`.
 
 Give every diagnostic rule a stable check identity in its `AnalyzerSpec`.
-Report each diagnostic through `report` or `reportf` with that check identity.
-Analyzers and checks run by default unless their spec explicitly sets
-`OptIn: true`.
+Report each diagnostic through `analyzerbase.Report` or
+`analyzerbase.Reportf` with that check identity. Analyzers and checks run by
+default unless their spec explicitly sets `OptIn: true`.
 
 Then update `analyzers/analyzers_test.go`:
 
 1. Add the name to `expectedAnalyzerNames`.
 2. Add it to the expected group.
-3. Add its fixture package to `TestAnalyzers`.
 
 ### 3. Add fixtures
 
-Create `testdata/<group>/src/examplepolicy/examplepolicy.go`, using the same
-group as the implementation. Put small examples that should be reported there
-and mark each expected diagnostic with a `want` comment:
+Create
+`internal/analyzers/examplepolicy/testdata/src/examplepolicy/examplepolicy.go`.
+Add a package-local `analyzer_test.go` that runs it through the shared
+`internal/analyzertest` harness. Put small examples that should be reported in
+the fixture and mark each expected diagnostic with a `want` comment:
 
 ```go
 func flagged() {
@@ -103,9 +102,11 @@ behavior, put those packages beneath its fixture directory. Existing
 
 ### 4. Add the living documentation example
 
-Add `testdata/<group>/src/examplepolicy/doc_examples.go` with one or more
-flagged regions and exactly one OK region. Give multiple flagged regions short
-titles that distinguish the behavior each snippet demonstrates:
+Add
+`internal/analyzers/examplepolicy/testdata/src/examplepolicy/doc_examples.go`
+with one or more flagged regions and exactly one OK region. Give multiple
+flagged regions short titles that distinguish the behavior each snippet
+demonstrates:
 
 ```go
 //gohawk:example flagged Direct policy violation

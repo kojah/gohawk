@@ -201,7 +201,7 @@ func collectManifest(root string) (manifest, error) {
 				SuggestedFix: info.SuggestedFix,
 				Options:      []optionFlag{},
 			}
-			testRoot := filepath.Join(root, "testdata", analyzerGroup.Name)
+			testRoot := filepath.Join(root, "internal", "analyzers", registered.Name, "testdata")
 			examples, err := docexamples.Collect(testRoot, registered)
 			if err != nil {
 				return manifest{}, err

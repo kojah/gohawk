@@ -62,9 +62,9 @@ test:
 	$(GO) test ./...
 
 test-race:
-	# TestAnalyzers runs every analyzer concurrently, which is the race-sensitive
-	# part of the suite. The ordinary test target covers all packages and modes.
-	$(GO) test -race ./analyzers -run '^TestAnalyzers$$'
+	# Analyzer fixture packages are independent, so Go can exercise them in
+	# parallel while the race detector covers every analyzer implementation.
+	$(GO) test -race ./analyzers ./internal/analyzers/...
 
 vet:
 	$(GO) vet ./...
