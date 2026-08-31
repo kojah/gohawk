@@ -108,15 +108,6 @@ jobs:
       - name: Build one compatibility binary
         run: go build -o "$RUNNER_TEMP/gohawk" .
 
-      - name: Set up Go 1.25
-        uses: actions/setup-go@v7
-        with:
-          go-version: 1.25.x
-          cache: false
-
-      - name: Analyze with Go 1.25
-        run: scripts/test-toolchain-compatibility.sh "$RUNNER_TEMP/gohawk" 1.25
-
       - name: Set up Go 1.26
         uses: actions/setup-go@v7
         with:
