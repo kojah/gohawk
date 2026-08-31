@@ -38,6 +38,10 @@ import "sync"
 
 var values = map[string]string{}
 
+func remember(key, value string) {
+	values[key] = value
+}
+
 func deferredUnlockInLoop(mu *sync.Mutex, values []int) {
 	for range values {
 		mu.Lock()

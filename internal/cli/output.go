@@ -101,24 +101,24 @@ func runWithRichOutputUsing(arguments []string, output io.Writer, execute proces
 		if result.exitCode >= 0 {
 			return result.exitCode
 		}
-		fmt.Fprintf(output, "gohawk: run analyzer engine: %v\n", err)
+		writeFormatted(output, "gohawk: run analyzer engine: %v\n", err)
 		return 1
 	}
 
 	diagnostics, analysisErrors, err := decodeDiagnostics(result.stdout)
 	if err != nil {
-		fmt.Fprintf(output, "gohawk: decode analyzer output: %v\n", err)
+		writeFormatted(output, "gohawk: decode analyzer output: %v\n", err)
 		_, _ = output.Write(result.stdout)
 		return 1
 	}
 	for _, analysisError := range analysisErrors {
-		fmt.Fprintln(output, analysisError)
+		writeLine(output, analysisError)
 	}
 	contextLines := requestedContext(arguments)
 	colors := terminalColors(output)
 	for index, diagnostic := range diagnostics {
 		if index > 0 {
-			fmt.Fprintln(output)
+			writeLine(output)
 		}
 		renderDiagnostic(output, diagnostic, contextLines, colors)
 	}
@@ -255,18 +255,18 @@ func terminalColors(output io.Writer) colorPalette {
 }
 
 func renderDiagnostic(output io.Writer, diagnostic positionedDiagnostic, contextLines int, colors colorPalette) {
-	fmt.Fprintf(output, "%s%swarning%s[%s%s%s]: %s%s%s\n",
+	writeFormatted(output, "%s%swarning%s[%s%s%s]: %s%s%s\n",
 		colors.bold, colors.yellow, colors.reset,
 		colors.bold, diagnostic.Analyzer, colors.reset,
 		colors.bold, diagnostic.Message, colors.reset)
-	fmt.Fprintf(output, "  %s-->%s %s:%d:%d\n", colors.cyan, colors.reset,
+	writeFormatted(output, "  %s-->%s %s:%d:%d\n", colors.cyan, colors.reset,
 		diagnostic.Start.Filename, diagnostic.Start.Line, diagnostic.Start.Column)
 
 	if contextLines >= 0 {
 		renderSource(output, diagnostic.Start, diagnostic.End, contextLines, colors)
 	}
 	for _, related := range diagnostic.Related {
-		fmt.Fprintf(output, "  = note: %s: %s\n", related.Posn, related.Message)
+		writeFormatted(output, "  = note: %s: %s\n", related.Posn, related.Message)
 	}
 }
 
@@ -288,15 +288,15 @@ func renderSource(output io.Writer, start, end sourcePosition, contextLines int,
 	first := max(1, start.Line-contextLines)
 	last := min(len(lines), end.Line+contextLines)
 	width := len(strconv.Itoa(last))
-	fmt.Fprintf(output, "%*s %s|%s\n", width, "", colors.cyan, colors.reset)
+	writeFormatted(output, "%*s %s|%s\n", width, "", colors.cyan, colors.reset)
 	for lineNumber := first; lineNumber <= last; lineNumber++ {
 		line := lines[lineNumber-1]
-		fmt.Fprintf(output, "%s%*d |%s %s\n", colors.cyan, width, lineNumber, colors.reset, line)
+		writeFormatted(output, "%s%*d |%s %s\n", colors.cyan, width, lineNumber, colors.reset, line)
 		if lineNumber < start.Line || lineNumber > end.Line {
 			continue
 		}
 		column, length := markerRange(line, lineNumber, start, end)
-		fmt.Fprintf(output, "%*s %s|%s %s%s%s%s\n", width, "", colors.cyan, colors.reset,
+		writeFormatted(output, "%*s %s|%s %s%s%s%s\n", width, "", colors.cyan, colors.reset,
 			markerIndent(line, column), colors.red, "^"+strings.Repeat("~", length-1), colors.reset)
 	}
 }

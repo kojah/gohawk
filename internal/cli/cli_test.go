@@ -106,7 +106,7 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 			if len(analyzers) == 0 {
 				t.Error("no analyzers supplied")
 			}
-			fmt.Fprint(output, "filtered flags")
+			_, _ = fmt.Fprint(output, "filtered flags")
 			return 7
 		}
 		result := runCLI([]string{"gohawk", "-flags"}, runtime)

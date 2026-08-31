@@ -11,15 +11,6 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-func spawnedClosure(spawn *ssa.Go) (*ssa.Function, *ssa.MakeClosure, bool) {
-	closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
-	if !ok {
-		return nil, nil, false
-	}
-	function, ok := closure.Fn.(*ssa.Function)
-	return function, closure, ok
-}
-
 func spawnedOwnershipValue(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, instruction ssa.Instruction) (signal, group ssa.Value) { //nolint:ireturn // Goroutine ownership can flow through channels or synchronization values.
 	if send, ok := instruction.(*ssa.Send); ok {
 		return spawnedValueAtCall(spawn, function, closure, send.Chan), nil

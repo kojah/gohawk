@@ -110,9 +110,7 @@ func Collect(root string, analyzer *analysis.Analyzer) (Set, error) {
 	var result Set
 	for _, item := range regions {
 		example := Example{Title: item.title, Code: item.code}
-		for _, attached := range attachedDiagnostics[itemKey(item)] {
-			example.Diagnostics = append(example.Diagnostics, attached)
-		}
+		example.Diagnostics = append(example.Diagnostics, attachedDiagnostics[itemKey(item)]...)
 		switch item.kind {
 		case "flagged":
 			result.Flagged = append(result.Flagged, example)
