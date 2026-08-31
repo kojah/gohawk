@@ -136,7 +136,7 @@ trap cleanup EXIT
 gohawk_binary="$work_directory/gohawk"
 measure_binary="$work_directory/measure"
 go build -trimpath -o "$gohawk_binary" "$repository_root"
-go build -trimpath -o "$measure_binary" "$repository_root/internal/cmd/measure"
+go build -trimpath -o "$measure_binary" "$repository_root/tools/measure"
 
 gohawk_revision=$(git -C "$repository_root" rev-parse HEAD)
 if [[ -n $(git -C "$repository_root" status --porcelain) ]]; then

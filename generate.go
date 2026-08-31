@@ -1,3 +1,3 @@
 package main
 
-//go:generate go run ./internal/cmd/gendocs
+//go:generate go run ./tools/gendocs

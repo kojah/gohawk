@@ -53,7 +53,7 @@ generate:
 	$(GO) generate ./...
 
 generated-check:
-	$(GO) run ./internal/cmd/gendocs -check
+	$(GO) run ./tools/gendocs -check
 
 mod-verify:
 	$(GO) mod verify

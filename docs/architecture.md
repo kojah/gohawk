@@ -31,6 +31,9 @@ main.go
   identities, diagnostic helpers, and shared flag value types.
 - `analysisutil` contains syntax and type helpers. `analysisutil/ssa` contains
   control-flow, call, value, and ownership helpers for SSA-backed analyzers.
+- `tools` contains repository-development commands such as documentation
+  generation and dogfood benchmark measurement; these are not shipped as part
+  of the gohawk application.
 
 The dependency direction is deliberate: implementations depend on shared
 analysis helpers, and the public catalog depends on implementations. Shared

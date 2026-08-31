@@ -39,13 +39,13 @@ linters:
           - gosec
       # These command boundaries intentionally execute the current gohawk
       # process or a command supplied by the measurement caller.
-      - path: ^internal/(cli/output|cmd/measure/main)\.go$
+      - path: ^(internal/cli/output|tools/measure/main)\.go$
         text: "G(204|702):"
         linters:
           - gosec
       # Documentation tooling reads discovered source paths and writes
       # shareable repository assets with ordinary directory/file modes.
-      - path: ^internal/cmd/gendocs/main\.go$
+      - path: ^tools/gendocs/main\.go$
         text: "G30(1|4|6):"
         linters:
           - gosec

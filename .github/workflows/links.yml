@@ -10,7 +10,7 @@ on:
       - "analyzers/**"
       - "go.mod"
       - "go.sum"
-      - "internal/cmd/gendocs/**"
+      - "tools/gendocs/**"
       - "Makefile"
       - ".github/workflows/links.yml"
   pull_request:
@@ -21,7 +21,7 @@ on:
       - "analyzers/**"
       - "go.mod"
       - "go.sum"
-      - "internal/cmd/gendocs/**"
+      - "tools/gendocs/**"
       - "Makefile"
       - ".github/workflows/links.yml"
   schedule:
