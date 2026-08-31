@@ -126,11 +126,25 @@ jobs:
       - name: Analyze with Go 1.27
         run: scripts/test-toolchain-compatibility.sh "$RUNNER_TEMP/gohawk" 1.27
 
+  skills:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Check installed skill revisions
+        env:
+          GH_TOKEN: ${{ secrets.SKILL_VAULT_TOKEN }}
+        run: make skills-check
+
   # Preserve the existing aggregate check name while the expensive verification
   # work runs concurrently in the jobs above.
   test:
     if: ${{ always() }}
-    needs: [static, race, plugin, coverage, compatibility]
+    needs: [static, race, plugin, coverage, compatibility, skills]
     runs-on: ubuntu-latest
     steps:
       - name: Check verification results
@@ -140,9 +154,13 @@ jobs:
           PLUGIN_RESULT: ${{ needs.plugin.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           COMPATIBILITY_RESULT: ${{ needs.compatibility.result }}
+          SKILLS_RESULT: ${{ needs.skills.result }}
         run: |
           for result in "$STATIC_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT" "$COMPATIBILITY_RESULT"; do
             if [[ "$result" != "success" ]]; then
               exit 1
             fi
           done
+          if [[ "$SKILLS_RESULT" != "success" && "$SKILLS_RESULT" != "skipped" ]]; then
+            exit 1
+          fi

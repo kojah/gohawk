@@ -14,7 +14,7 @@ VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test plugin-test test-race
 .DEFAULT_GOAL := help
 
 .PHONY: help build fmt fmt-check generate generated-check mod-verify lint test \
-	test-race vet coverage plugin-test dogfood verify-static verify ci benchmark site-install \
+	test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
 	site-check site-build site-links site-links-external site-review
 
 help:
@@ -26,6 +26,7 @@ help:
 		'  make test            Run the Go test suite' \
 		'  make verify          Run the complete local verification suite' \
 		'  make dogfood         Build and run gohawk on itself' \
+		'  make skills-check    Check installed skills against their upstream repositories' \
 		'  make plugin-test     Test the golangci-lint module plugin end to end' \
 		'  make benchmark       Run pinned dogfooding benchmarks' \
 		'  make site-check      Check the documentation website' \
@@ -78,6 +79,9 @@ plugin-test:
 
 dogfood: build
 	"$(GOHAWK_BINARY)" ./...
+
+skills-check:
+	./scripts/check-skills-current.sh
 
 verify-static: $(VERIFY_STATIC_TARGETS)
 
