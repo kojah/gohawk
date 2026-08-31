@@ -3,6 +3,9 @@ title: Configuration
 description: Select analyzers, set analyzer flags, and suppress intentional findings.
 ---
 
+This page explains how to choose which analyzers and checks run, configure
+analyzer-specific options, and document intentional exceptions.
+
 ## Default and opt-in checks
 
 An ordinary run uses gohawk's conservative default set. The analyzer catalog

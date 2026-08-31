@@ -64,7 +64,7 @@ export default defineConfig({
 			components: {
 				Footer: isDevelopment
 					? './src/components/Footer.astro'
-					: './src/components/EmptyFooter.astro',
+					: './src/components/PaginationFooter.astro',
 				Head: './src/components/Head.astro',
 				PageTitle: './src/components/PageTitle.astro',
 				ThemeSelect: './src/components/ThemeToggle.astro',
