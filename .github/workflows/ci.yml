@@ -91,11 +91,55 @@ jobs:
       - name: Check coverage badge
         run: git diff --exit-code -- README.md
 
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up build toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Build one compatibility binary
+        run: go build -o "$RUNNER_TEMP/gohawk" .
+
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v7
+        with:
+          go-version: 1.25.x
+          cache: false
+
+      - name: Analyze with Go 1.25
+        run: scripts/test-toolchain-compatibility.sh "$RUNNER_TEMP/gohawk" 1.25
+
+      - name: Set up Go 1.26
+        uses: actions/setup-go@v7
+        with:
+          go-version: 1.26.x
+          cache: false
+
+      - name: Analyze with Go 1.26
+        run: scripts/test-toolchain-compatibility.sh "$RUNNER_TEMP/gohawk" 1.26
+
+      - name: Set up Go 1.27
+        uses: actions/setup-go@v7
+        with:
+          go-version: 1.27.x
+          cache: false
+
+      - name: Analyze with Go 1.27
+        run: scripts/test-toolchain-compatibility.sh "$RUNNER_TEMP/gohawk" 1.27
+
   # Preserve the existing aggregate check name while the expensive verification
   # work runs concurrently in the jobs above.
   test:
     if: ${{ always() }}
-    needs: [static, race, plugin, coverage]
+    needs: [static, race, plugin, coverage, compatibility]
     runs-on: ubuntu-latest
     steps:
       - name: Check verification results
@@ -104,8 +148,9 @@ jobs:
           RACE_RESULT: ${{ needs.race.result }}
           PLUGIN_RESULT: ${{ needs.plugin.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
+          COMPATIBILITY_RESULT: ${{ needs.compatibility.result }}
         run: |
-          for result in "$STATIC_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT"; do
+          for result in "$STATIC_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT" "$COMPATIBILITY_RESULT"; do
             if [[ "$result" != "success" ]]; then
               exit 1
             fi
