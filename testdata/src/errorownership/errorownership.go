@@ -3,6 +3,7 @@ package errorownership
 import (
 	"fmt"
 	"log"
+	"os/exec"
 	"strings"
 )
 
@@ -51,6 +52,30 @@ func inspectNonErrorMethod(value status) bool {
 
 func inspectUnrelatedText(message string) bool {
 	return strings.HasSuffix(message, "missing")
+}
+
+func inspectMixedExternalText(err error, stderr string) bool {
+	message := stderr
+	if message == "" {
+		message = err.Error()
+	}
+	return strings.Contains(message, "missing")
+}
+
+func runExternalCommand() error {
+	if err := exec.Command("fixture-command").Run(); err != nil {
+		return fmt.Errorf("command failed")
+	}
+	return nil
+}
+
+func externalCommandHasMissingDevice(err error) bool {
+	return strings.Contains(err.Error(), "missing device")
+}
+
+func inspectWrappedExternalCommandError() bool {
+	err := runExternalCommand()
+	return err != nil && externalCommandHasMissingDevice(err)
 }
 
 func legacyDirectiveDoesNotSuppress(err error) bool {

@@ -218,3 +218,26 @@ func aliasesAny(value ssa.Value, targets []ssa.Value) bool {
 	}
 	return false
 }
+
+func nestedCallbackReceivesAny(function *ssa.Function, signals []ssa.Value) bool {
+	if len(signals) == 0 {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			closure, ok := instruction.(*ssa.MakeClosure)
+			if !ok {
+				continue
+			}
+			if valueReceivesAny(closure, signals, map[ssa.Value]bool{}) {
+				// A completion channel consumed by a callback has transferred its
+				// join obligation to the callback's owner. Without proving that the
+				// callback is abandoned, reporting the spawning function is not
+				// actionable. Network Doctor uses this for probe callbacks:
+				// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/diagnostic/runall_test.go#L112-L126
+				return true
+			}
+		}
+	}
+	return false
+}

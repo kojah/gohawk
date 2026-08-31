@@ -64,6 +64,9 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				if matchingCountedJoin(function, spawn, signals) {
 					continue
 				}
+				if nestedCallbackReceivesAny(function, signals) {
+					continue
+				}
 				if ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
 					if joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) {
 						return true

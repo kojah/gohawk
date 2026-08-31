@@ -186,6 +186,16 @@ func joinedThroughGenericReceiveHelper() {
 	_ = receiveGeneric(done)
 }
 
+type callbackOwner struct {
+	run func()
+}
+
+func completionTransferredToCallback(register func(callbackOwner)) {
+	done := make(chan struct{})
+	go func() { close(done) }()
+	register(callbackOwner{run: func() { <-done }})
+}
+
 func callerOwnsCompletion(done chan<- bool) {
 	go func() { done <- true }()
 }
