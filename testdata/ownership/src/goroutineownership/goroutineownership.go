@@ -196,6 +196,43 @@ func completionTransferredToCallback(register func(callbackOwner)) {
 	register(callbackOwner{run: func() { <-done }})
 }
 
+type barrierTask struct {
+	run func()
+}
+
+func completionTransferredThroughNestedWorkers() {
+	var arrived sync.WaitGroup
+	arrived.Add(2)
+	both := make(chan struct{})
+	go func() { arrived.Wait(); close(both) }()
+
+	run := func(done chan<- struct{}) {
+		task := barrierTask{run: func() {
+			arrived.Done()
+			<-both
+		}}
+		task.run()
+		done <- struct{}{}
+	}
+	done := make(chan struct{}, 2)
+	go run(done)
+	go run(done)
+	<-done
+	<-done
+}
+
+func unrelatedNestedWorkerDoesNotJoin() {
+	done := make(chan struct{})
+	unrelated := make(chan struct{})
+	go func() { close(done) }() // want "goroutine is not joined on every return path"
+	run := func() {
+		task := barrierTask{run: func() { <-unrelated }}
+		task.run()
+	}
+	_ = run
+	_ = done
+}
+
 func callerOwnsCompletion(done chan<- bool) {
 	go func() { done <- true }()
 }

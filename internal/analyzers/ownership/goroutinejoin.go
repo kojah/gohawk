@@ -139,6 +139,10 @@ func callReceivesAny(instruction ssa.Instruction, signals []ssa.Value) bool {
 }
 
 func valueReceivesAny(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]bool) bool {
+	return valueReceivesAnyWithBindings(value, signals, seen, nil)
+}
+
+func valueReceivesAnyWithBindings(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]bool, enclosingBindings map[ssa.Value]ssa.Value) bool {
 	if value == nil || seen[value] {
 		return false
 	}
@@ -147,7 +151,7 @@ func valueReceivesAny(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]b
 	case *ssa.Alloc:
 		if typed.Referrers() != nil {
 			for _, reference := range *typed.Referrers() {
-				if store, ok := reference.(*ssa.Store); ok && store.Addr == typed && valueReceivesAny(store.Val, signals, seen) {
+				if store, ok := reference.(*ssa.Store); ok && store.Addr == typed && valueReceivesAnyWithBindings(store.Val, signals, seen, enclosingBindings) {
 					return true
 				}
 			}
@@ -157,15 +161,28 @@ func valueReceivesAny(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]b
 		if function == nil {
 			return false
 		}
+		// A nested closure captures its parent's FreeVar SSA node, not the
+		// concrete binding held by the outer closure. Carry that environment
+		// forward so a receive several closures deep can still be tied to the
+		// exact completion channel produced by the goroutine.
+		bindings := make(map[ssa.Value]ssa.Value, len(enclosingBindings)+len(function.FreeVars))
+		for free, binding := range enclosingBindings {
+			bindings[free] = binding
+		}
+		for index, free := range function.FreeVars {
+			if index < len(typed.Bindings) {
+				bindings[free] = resolveClosureBinding(typed.Bindings[index], enclosingBindings)
+			}
+		}
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
-				if nested, ok := instruction.(*ssa.MakeClosure); ok && valueReceivesAny(nested, signals, seen) {
+				if nested, ok := instruction.(*ssa.MakeClosure); ok && valueReceivesAnyWithBindings(nested, signals, seen, bindings) {
 					return true
 				}
 				common := ssautil.InstructionCall(instruction)
 				if common != nil {
 					for index, free := range function.FreeVars {
-						if index < len(typed.Bindings) && ssautil.AliasesValue(common.Value, free) && valueReceivesAny(typed.Bindings[index], signals, seen) {
+						if index < len(typed.Bindings) && ssautil.AliasesValue(common.Value, free) && valueReceivesAnyWithBindings(bindings[free], signals, seen, bindings) {
 							return true
 						}
 					}
@@ -189,7 +206,7 @@ func valueReceivesAny(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]b
 							continue
 						}
 						for _, signal := range signals {
-							if ssautil.CapturedBindingAliases(typed.Bindings[index], signal) {
+							if ssautil.CapturedBindingAliases(bindings[free], signal) {
 								return true
 							}
 						}
@@ -199,6 +216,19 @@ func valueReceivesAny(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]b
 		}
 	}
 	return false
+}
+
+func resolveClosureBinding(value ssa.Value, enclosingBindings map[ssa.Value]ssa.Value) ssa.Value { //nolint:ireturn // Closure bindings retain their concrete SSA representation.
+	seen := make(map[ssa.Value]bool)
+	for value != nil && !seen[value] {
+		seen[value] = true
+		resolved, ok := enclosingBindings[value]
+		if !ok {
+			return value
+		}
+		value = resolved
+	}
+	return value
 }
 
 func aliasesAny(value ssa.Value, targets []ssa.Value) bool {
