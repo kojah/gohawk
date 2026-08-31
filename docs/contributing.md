@@ -83,9 +83,9 @@ Then update `analyzers/analyzers_test.go`:
 
 ### 3. Add fixtures
 
-Create `testdata/src/examplepolicy/examplepolicy.go`. Put small examples that
-should be reported there and mark each expected diagnostic with a `want`
-comment:
+Create `testdata/<group>/src/examplepolicy/examplepolicy.go`, using the same
+group as the implementation. Put small examples that should be reported there
+and mark each expected diagnostic with a `want` comment:
 
 ```go
 func flagged() {
@@ -103,9 +103,9 @@ behavior, put those packages beneath its fixture directory. Existing
 
 ### 4. Add the living documentation example
 
-Add `testdata/src/examplepolicy/doc_examples.go` with one or more flagged
-regions and exactly one OK region. Give multiple flagged regions short titles
-that distinguish the behavior each snippet demonstrates:
+Add `testdata/<group>/src/examplepolicy/doc_examples.go` with one or more
+flagged regions and exactly one OK region. Give multiple flagged regions short
+titles that distinguish the behavior each snippet demonstrates:
 
 ```go
 //gohawk:example flagged Direct policy violation

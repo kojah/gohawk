@@ -63,10 +63,11 @@ type region struct {
 	code     string
 }
 
-// Collect loads and analyzes an analyzer's fixture package. Diagnostics outside
-// marked documentation regions are ordinary regression findings and ignored.
-func Collect(root string, analyzer *analysis.Analyzer) (Set, error) {
-	directory := filepath.Join(root, "testdata", "src", analyzer.Name)
+// Collect loads and analyzes an analyzer's fixture package from an analysistest
+// GOPATH root. Diagnostics outside marked documentation regions are ordinary
+// regression findings and ignored.
+func Collect(testRoot string, analyzer *analysis.Analyzer) (Set, error) {
+	directory := filepath.Join(testRoot, "src", analyzer.Name)
 	regions, hasTests, err := readRegions(directory)
 	if err != nil {
 		return Set{}, fmt.Errorf("%s examples: %w", analyzer.Name, err)
@@ -75,7 +76,7 @@ func Collect(root string, analyzer *analysis.Analyzer) (Set, error) {
 	environment := slices.DeleteFunc(os.Environ(), func(value string) bool {
 		return strings.HasPrefix(value, "GO111MODULE=") || strings.HasPrefix(value, "GOPATH=")
 	})
-	environment = append(environment, "GO111MODULE=off", "GOPATH="+filepath.Join(root, "testdata"))
+	environment = append(environment, "GO111MODULE=off", "GOPATH="+testRoot)
 	config := &packages.Config{
 		Mode:  packages.LoadAllSyntax,
 		Dir:   directory,
