@@ -48,6 +48,34 @@ decision point over repeating the explanation throughout helper functions.
 Preserve these comments when refactoring. If behavior or its supporting
 evidence changes, update the rationale, link, and regression fixture together.
 
+## Analyzer organization
+
+Follow the layering common in mature Go analyzer projects: keep analyzer
+registration and top-level traversal easy to find, and isolate substantial
+evidence engines behind focused implementation files.
+
+- Start an analyzer in one file. Split it only when a concern has distinct
+  vocabulary or invariants, such as source-level API contracts versus SSA flow
+  analysis; file length alone is not a reason to split.
+- Keep those files in the analyzer's existing group package and name them by
+  analyzer plus concern, such as `resourcetimer.go` or
+  `globalstateimmutability.go`. Do not create a package per helper or analysis
+  phase.
+- Keep registry and runner code small. It should select configuration,
+  construct shared inputs, invoke evidence helpers, and report diagnostics—not
+  contain the full proof itself.
+- Promote a helper to `analysisutil` only after multiple analyzers need the
+  same general contract. Analyzer-specific precision policy belongs beside the
+  analyzer even when its implementation looks reusable.
+- Mirror the analyzer groups and names under `testdata`. Keep minimized
+  accepted and diagnostic cases together; place fixture-only dependency stubs
+  under that analyzer's fixture tree rather than at the group root.
+
+This deliberately sits between the one-package-per-pass layouts used by
+`x/tools` and Staticcheck and the focused same-package analyzer files used by
+gosec: gohawk's group packages remain cohesive without letting complex
+analyzers become monolithic files.
+
 The `analysisutil` package is intentionally unsupported and undocumented for
 external consumers. It is exposed only for Veritas's current integration.
 
