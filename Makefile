@@ -7,9 +7,14 @@ GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lin
 BUILD_DIRECTORY ?= $(CURDIR)/.build
 GOHAWK_BINARY ?= $(BUILD_DIRECTORY)/gohawk
 BENCHMARK_ARGS ?=
+VERIFY_JOBS ?= 4
 
 VERIFY_STATIC_TARGETS := mod-verify fmt-check generated-check vet lint dogfood
 VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test plugin-test test-race
+# GNU Make before 4.0, including the version shipped with macOS, does not
+# support grouped parallel output. Parallel scheduling itself remains required.
+VERIFY_OUTPUT_SYNC := $(if $(filter output-sync,$(.FEATURES)),--output-sync=target)
+VERIFY_MAKE_ARGS := --no-print-directory $(VERIFY_OUTPUT_SYNC) --jobs=$(VERIFY_JOBS)
 
 .DEFAULT_GOAL := help
 
@@ -24,7 +29,7 @@ help:
 		'  make generate        Regenerate analyzer documentation' \
 		'  make lint            Run the standard golangci-lint suite' \
 		'  make test            Run the Go test suite' \
-		'  make verify          Run the complete local verification suite' \
+		'  make verify          Run the complete local verification suite in parallel' \
 		'  make dogfood         Build and run gohawk on itself' \
 		'  make skills-check    Check installed skills against their upstream repositories' \
 		'  make plugin-test     Test the golangci-lint module plugin end to end' \
@@ -83,13 +88,16 @@ dogfood: build
 skills-check:
 	./scripts/check-skills-current.sh
 
-verify-static: $(VERIFY_STATIC_TARGETS)
+verify-static:
+	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_STATIC_TARGETS)
 
-verify: $(VERIFY_TARGETS)
+verify:
+	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS)
 
 # The aggregate CI target adds coverage to the release verification targets.
 # GitHub Actions invokes these targets in separate parallel jobs.
-ci: $(VERIFY_TARGETS) coverage
+ci:
+	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS) coverage
 
 benchmark:
 	./scripts/benchmark-dogfood.sh $(BENCHMARK_ARGS)

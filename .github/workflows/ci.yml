@@ -28,7 +28,7 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Run fast static checks
-        run: make mod-verify fmt-check generated-check vet
+        run: make verify-static
 
   lint:
     runs-on: ubuntu-latest

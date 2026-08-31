@@ -159,11 +159,13 @@ make generate
 make verify
 ```
 
-`make verify` checks gofumpt formatting and generated documentation, runs the
-standard and curated golangci-lint suite, unit, race, and golangci-lint plugin
-tests, vets and builds the project, and dogfoods the resulting gohawk binary.
-Run `make help` to see the focused targets for individual checks, documentation
-development, and dogfooding benchmarks.
+`make verify` runs its checks in parallel: it checks gofumpt formatting and
+generated documentation, runs the standard and curated golangci-lint suite,
+unit, race, and golangci-lint plugin tests, vets and builds the project, and
+dogfoods the resulting gohawk binary. It uses four concurrent jobs by default;
+set `VERIFY_JOBS` to tune that bound for the machine. Run `make help` to see the
+focused targets for individual checks, documentation development, and
+dogfooding benchmarks.
 
 Run the analyzer on a few real Go projects too. Investigate every new finding
 and fix recurring false-positive patterns before enabling broader coverage.
