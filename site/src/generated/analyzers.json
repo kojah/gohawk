@@ -54,7 +54,7 @@
           "checks": [
             {
               "id": "contextpolicy/context-first",
-              "summary": "Reports context.Context parameters that are not first.",
+              "summary": "Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle.",
               "optIn": false
             },
             {

@@ -39,7 +39,7 @@ func Specs() []analyzerbase.AnalyzerSpec {
 		{
 			Analyzer: contextPolicyAnalyzer(),
 			Checks: []analyzerbase.CheckInfo{
-				{ID: checkContextFirst, Doc: "Reports context.Context parameters that are not first."},
+				{ID: checkContextFirst, Doc: "Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle."},
 				{ID: checkContextStorage, Doc: "Reports context.Context values stored in structs."},
 				{ID: checkContextTestOwnership, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.", OptIn: true},
 				{ID: checkContextNilArgument, Doc: "Reports definitely nil context.Context arguments."},
