@@ -8,16 +8,17 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 ## What it detects
 
-Reports `context.Context` parameters that are not first, contexts stored in
-structs, and calls that pass a definitely nil context. In supported test code,
-it also prefers `t.Context()` or `b.Context()` over `context.Background()`.
+Reports functions whose first `context.Context` parameter follows another
+parameter, contexts stored in structs, and calls that pass a definitely nil
+context. In supported test code, it also prefers `t.Context()` or `b.Context()`
+over `context.Background()`.
 
 ### Checks
 
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="context-first" /> | Reports context.Context parameters that are not first. |
+| <CheckIdentity name="context-first" /> | Reports functions whose first context.Context parameter follows another parameter. |
 | <CheckIdentity name="context-storage" /> | Reports context.Context values stored in structs. |
 | <CheckIdentity name="test-context" optIn /> | Reports tests that use context.Background instead of the testing handle's context. |
 | <CheckIdentity name="nil-context" /> | Reports definitely nil context.Context arguments. |

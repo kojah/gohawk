@@ -4,6 +4,8 @@ import "context"
 
 func misplaced(value string, ctx context.Context) {} // want "context.Context must be first parameter"
 
+func multipleContexts(first, second context.Context) {}
+
 type stored struct {
 	ctx context.Context // want "do not store context.Context in a struct"
 }

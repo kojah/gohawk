@@ -73,9 +73,15 @@ func supportsTestingContext(pass *analysis.Pass) bool {
 func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool, config contextPolicyConfig) {
 	switch typed := node.(type) {
 	case *ast.FuncDecl:
+		// The rule constrains the first context's position, not the number of
+		// independent contexts a function accepts. Once the first parameter is
+		// a context, a later context does not violate the ordering contract.
+		// https://github.com/heymaikol/network-doctor/blob/6d0df6eaba1de237077e0a1f8224fd8d5c3d083a/internal/peer/session.go#L858
 		for index, parameter := range parameterTypes(pass, typed.Type.Params) {
-			if analysisutil.NamedType(parameter, "context", "Context") && index != 0 {
-				reportf(pass, checkContextFirst, typed.Name.Pos(), "context.Context must be first parameter")
+			if analysisutil.NamedType(parameter, "context", "Context") {
+				if index != 0 {
+					reportf(pass, checkContextFirst, typed.Name.Pos(), "context.Context must be first parameter")
+				}
 				break
 			}
 		}
