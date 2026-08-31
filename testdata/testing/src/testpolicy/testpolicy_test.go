@@ -24,3 +24,13 @@ func conditionalHelper(t *testing.T, enabled bool) { // want "on every return pa
 func TestEntryPoint(t *testing.T) {
 	_ = t
 }
+
+func TestCallbacksAreNotHelpers(t *testing.T) {
+	t.Run("callback", func(t *testing.T) {
+		_ = t
+	})
+	builders := []func(*testing.T){
+		func(t *testing.T) { _ = t },
+	}
+	builders[0](t)
+}

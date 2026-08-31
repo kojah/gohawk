@@ -30,7 +30,11 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 	}
 	for _, function := range functions {
 		file := ssautil.FunctionFile(pass, function)
-		if file == nil || !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") || testEntryPoint(function.Name()) {
+		_, declaration := function.Syntax().(*ast.FuncDecl)
+		// Function literals that accept *testing.T are callbacks, not helpers:
+		// t.Run bodies and table-driven builders should retain the caller's
+		// location rather than marking themselves as reusable helper boundaries.
+		if !declaration || file == nil || !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") || testEntryPoint(function.Name()) {
 			continue
 		}
 		handle := testingSSAParameter(function)

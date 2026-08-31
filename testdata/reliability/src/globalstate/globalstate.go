@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 	"slices"
+	"strings"
 	"sync"
 )
 
@@ -33,6 +34,50 @@ var immutableStandardCall = []string{"first", "second"}
 
 func standardListContains(value string) bool {
 	return slices.Contains(immutableStandardCall, value)
+}
+
+var immutableCloneSource = []string{"first", "second"}
+
+func clonedList() []string {
+	return slices.Clone(immutableCloneSource)
+}
+
+var immutableAppendSource = []string{"first", "second"}
+
+func appendedCopy() []string {
+	return append([]string(nil), immutableAppendSource...)
+}
+
+var immutableJoinedList = []string{"first", "second"}
+
+func joinedList() string {
+	return strings.Join(immutableJoinedList, ",")
+}
+
+var immutableHandlers = map[string]func(){"first": func() {}}
+
+func runHandler(name string) {
+	immutableHandlers[name]()
+}
+
+var immutableNestedLookup = map[string][]string{"first": {"value"}}
+
+func clonedNestedValue(name string) []string {
+	return slices.Clone(immutableNestedLookup[name])
+}
+
+var escapedNestedLookup = map[string][]string{"first": {"value"}} // want "mutable package state escapedNestedLookup"
+
+func escapedNestedValue(name string) []string {
+	return escapedNestedLookup[name]
+}
+
+var rangedNestedLookup = map[string][]string{"first": {"value"}} // want "mutable package state rangedNestedLookup"
+
+func mutateRangedNestedValue() {
+	for _, values := range rangedNestedLookup {
+		values[0] = "changed"
+	}
 }
 
 var immutableViaHelper = map[string]string{"key": "value"}
@@ -65,6 +110,15 @@ var ExportedLookup = map[string]string{"key": "value"} // want "mutable package 
 var nestedMutableLookup = map[string][]string{"key": {"value"}} // want "mutable package state nestedMutableLookup"
 
 var replaceable = func() {} // want "mutable package state replaceable"
+
+// testClock is a seam tests replace with a deterministic clock.
+var testClock = func() {}
+
+// testInput is stubbed in tests that exercise terminal behavior.
+var testInput any = struct{}{}
+
+// testedFunction is called by tests but remains mutable application state.
+var testedFunction = func() {} // want "mutable package state testedFunction"
 
 var _ = func() {}
 

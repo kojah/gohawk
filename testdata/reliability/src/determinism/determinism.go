@@ -19,6 +19,34 @@ func stable(input map[string]string) []string {
 	return result
 }
 
+func sortValues(values []string) {
+	slices.Sort(values)
+}
+
+func stableThroughHelper(input map[string]string) []string {
+	result := make([]string, 0, len(input))
+	for key := range input {
+		result = append(result, key)
+	}
+	sortValues(result)
+	return result
+}
+
+func conditionallySortValues(values []string, enabled bool) {
+	if enabled {
+		slices.Sort(values)
+	}
+}
+
+func unstableThroughConditionalHelper(input map[string]string, sortResult bool) []string {
+	result := make([]string, 0, len(input))
+	for key := range input { // want "map iteration reaches ordered output without sorting"
+		result = append(result, key)
+	}
+	conditionallySortValues(result, sortResult)
+	return result
+}
+
 func firstValue(input map[string]string) string {
 	for _, value := range input { // want "map iteration reaches ordered output without sorting"
 		return value

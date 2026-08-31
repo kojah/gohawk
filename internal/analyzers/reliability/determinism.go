@@ -313,7 +313,17 @@ func directSortOf(pass *analysis.Pass, statement ast.Stmt, object types.Object) 
 		return false
 	}
 	call, ok := expression.X.(*ast.CallExpr)
-	if !ok || len(call.Args) == 0 || !determinismUsesObject(pass, call.Args[0], object) {
+	if !ok {
+		return false
+	}
+	if directSortCall(pass, call, object) {
+		return true
+	}
+	return localSortHelperCall(pass, call, object)
+}
+
+func directSortCall(pass *analysis.Pass, call *ast.CallExpr, object types.Object) bool {
+	if len(call.Args) == 0 || !determinismUsesObject(pass, call.Args[0], object) {
 		return false
 	}
 	selector, ok := call.Fun.(*ast.SelectorExpr)
@@ -326,6 +336,55 @@ func directSortOf(pass *analysis.Pass, statement ast.Stmt, object types.Object) 
 	}
 	imported, ok := pass.TypesInfo.Uses[identifier].(*types.PkgName)
 	return ok && (imported.Imported().Path() == "sort" || imported.Imported().Path() == "slices" && strings.HasPrefix(selector.Sel.Name, "Sort"))
+}
+
+func localSortHelperCall(pass *analysis.Pass, call *ast.CallExpr, object types.Object) bool {
+	identifier, ok := call.Fun.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	callee := pass.TypesInfo.ObjectOf(identifier)
+	for argumentIndex, argument := range call.Args {
+		if !determinismUsesObject(pass, argument, object) {
+			continue
+		}
+		for _, file := range pass.Files {
+			for _, declaration := range file.Decls {
+				function, functionOK := declaration.(*ast.FuncDecl)
+				if !functionOK || pass.TypesInfo.Defs[function.Name] != callee || function.Body == nil || len(function.Body.List) != 1 {
+					continue
+				}
+				parameter := functionParameterAt(pass, function, argumentIndex)
+				if parameter == nil {
+					continue
+				}
+				expression, expressionOK := function.Body.List[0].(*ast.ExprStmt)
+				if !expressionOK {
+					continue
+				}
+				sortCall, callOK := expression.X.(*ast.CallExpr)
+				if callOK && directSortCall(pass, sortCall, parameter) {
+					// Requiring a single direct sort statement avoids treating helpers
+					// with conditional or subsequent mutation as a stable boundary.
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func functionParameterAt(pass *analysis.Pass, function *ast.FuncDecl, target int) types.Object {
+	index := 0
+	for _, field := range function.Type.Params.List {
+		for _, name := range field.Names {
+			if index == target {
+				return pass.TypesInfo.Defs[name]
+			}
+			index++
+		}
+	}
+	return nil
 }
 
 func statementMutatesObject(pass *analysis.Pass, statement ast.Stmt, object types.Object) bool {

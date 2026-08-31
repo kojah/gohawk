@@ -70,7 +70,7 @@ func checkGlobalDeclaration(pass *analysis.Pass, declaration *ast.GenDecl, allow
 				continue
 			}
 			object := pass.TypesInfo.Defs[name]
-			if object == nil || !mutableGlobal(object.Type()) || allowlist.names[name.Name] || allowlist.types[qualifiedTypeName(object.Type())] || allowedGlobal(pass, name, object, value, index, usage) {
+			if object == nil || !mutableGlobal(object.Type()) || allowlist.names[name.Name] || allowlist.types[qualifiedTypeName(object.Type())] || allowedGlobal(pass, name, object, declaration, value, index, usage) {
 				continue
 			}
 			reportf(pass, checkMutableGlobalState, name.Pos(), "mutable package state %s requires an immutable owner or //gohawk:ignore globalstate", name.Name)
@@ -98,9 +98,12 @@ func mutableGlobal(value types.Type) bool {
 	}
 }
 
-func allowedGlobal(pass *analysis.Pass, name *ast.Ident, object types.Object, specification *ast.ValueSpec, index int, usage globalStateUsage) bool {
+func allowedGlobal(pass *analysis.Pass, name *ast.Ident, object types.Object, declaration *ast.GenDecl, specification *ast.ValueSpec, index int, usage globalStateUsage) bool {
 	value := object.Type()
 	if strings.HasSuffix(name.Name, "Schema") || analysisutil.NamedType(value, "sync", "Once") || analysisutil.NamedType(value, "regexp", "Regexp") {
+		return true
+	}
+	if documentedTestSeam(name, object, declaration, specification) {
 		return true
 	}
 	if index < len(specification.Values) {
@@ -110,6 +113,44 @@ func allowedGlobal(pass *analysis.Pass, name *ast.Ident, object types.Object, sp
 		}
 	}
 	return effectivelyImmutableComposite(pass, name, object, specification, index, usage)
+}
+
+func documentedTestSeam(name *ast.Ident, object types.Object, declaration *ast.GenDecl, specification *ast.ValueSpec) bool {
+	if name.IsExported() {
+		return false
+	}
+	switch object.Type().Underlying().(type) {
+	case *types.Signature, *types.Interface:
+	default:
+		return false
+	}
+	comment := strings.ToLower(globalDeclarationComment(declaration, specification))
+	if !strings.Contains(comment, "test") {
+		return false
+	}
+	for _, contract := range []string{"fake", "override", "pin", "replace", "seam", "stub"} {
+		if strings.Contains(comment, contract) {
+			// A documented, unexported function or interface replacement is an
+			// intentional dependency-injection boundary rather than ambient
+			// application state. Network Doctor uses this contract for testable
+			// OS integration:
+			// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/cmd/netdoc-sim/clipboard.go#L25-L29
+			return true
+		}
+	}
+	return false
+}
+
+func globalDeclarationComment(declaration *ast.GenDecl, specification *ast.ValueSpec) string {
+	var result strings.Builder
+	for _, group := range []*ast.CommentGroup{declaration.Doc, specification.Doc, specification.Comment} {
+		if group == nil {
+			continue
+		}
+		result.WriteString(group.Text())
+		result.WriteByte('\n')
+	}
+	return result.String()
 }
 
 func effectivelyImmutableComposite(pass *analysis.Pass, name *ast.Ident, object types.Object, specification *ast.ValueSpec, index int, usage globalStateUsage) bool {
@@ -132,13 +173,14 @@ func effectivelyImmutableComposite(pass *analysis.Pass, name *ast.Ident, object 
 	default:
 		return false
 	}
-	if pass.TypesInfo.TypeOf(literal) == nil || !deeplyImmutableGlobalValue(element, map[types.Type]bool{}) {
+	if pass.TypesInfo.TypeOf(literal) == nil {
 		return false
 	}
 	// An unexported composite literal whose every use is a direct read has no
 	// mutation or escaping alias for callers to exploit. Network Doctor uses
 	// this shape for stable operating-system lookup data:
 	// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/diagnostic/route.go#L192-L200
+	sawUse := false
 	for _, file := range usage.files {
 		immutable := true
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -146,6 +188,7 @@ func effectivelyImmutableComposite(pass *analysis.Pass, name *ast.Ident, object 
 			if !ok || pass.TypesInfo.Uses[identifier] != object {
 				return true
 			}
+			sawUse = true
 			if !readOnlyCollectionUse(pass, identifier, usage, map[types.Object]bool{object: true}) {
 				immutable = false
 				return false
@@ -156,7 +199,7 @@ func effectivelyImmutableComposite(pass *analysis.Pass, name *ast.Ident, object 
 			return false
 		}
 	}
-	return true
+	return deeplyImmutableGlobalValue(element, map[types.Type]bool{}) || sawUse
 }
 
 func deeplyImmutableGlobalValue(value types.Type, seen map[types.Type]bool) bool {
@@ -166,6 +209,12 @@ func deeplyImmutableGlobalValue(value types.Type, seen map[types.Type]bool) bool
 	seen[value] = true
 	switch underlying := value.Underlying().(type) {
 	case *types.Basic:
+		return true
+	case *types.Signature:
+		// A function value stored inside a read-only collection is itself
+		// immutable. This differs from a package variable of function type,
+		// whose slot can be replaced and is still reported unless it is a
+		// documented test seam.
 		return true
 	case *types.Array:
 		return deeplyImmutableGlobalValue(underlying.Elem(), seen)
@@ -181,8 +230,8 @@ func deeplyImmutableGlobalValue(value types.Type, seen map[types.Type]bool) bool
 	}
 }
 
-func readOnlyCollectionUse(pass *analysis.Pass, identifier *ast.Ident, usage globalStateUsage, seen map[types.Object]bool) bool {
-	var current ast.Node = identifier
+func readOnlyCollectionUse(pass *analysis.Pass, value ast.Expr, usage globalStateUsage, seen map[types.Object]bool) bool {
+	var current ast.Node = value
 	parent := usage.parents[current]
 	for {
 		if _, ok := parent.(*ast.ParenExpr); !ok {
@@ -193,11 +242,20 @@ func readOnlyCollectionUse(pass *analysis.Pass, identifier *ast.Ident, usage glo
 	}
 	switch typed := parent.(type) {
 	case *ast.IndexExpr:
-		return typed.X == current && !globalIndexIsWritten(typed, usage.parents)
+		if typed.X != current || globalIndexIsWritten(typed, usage.parents) {
+			return false
+		}
+		if deeplyImmutableGlobalValue(collectionIndexValueType(pass.TypesInfo.TypeOf(typed)), map[types.Type]bool{}) {
+			return true
+		}
+		// Follow a nested mutable value through the expression that consumes
+		// it. This proves patterns such as cloning m[key] before returning it,
+		// without treating a returned or assigned alias as read-only.
+		return readOnlyCollectionUse(pass, typed, usage, seen)
 	case *ast.RangeStmt:
-		return typed.X == current
+		return typed.X == current && collectionElementsDeeplyImmutable(pass.TypesInfo.TypeOf(value))
 	case *ast.CallExpr:
-		if readOnlyCollectionBuiltin(pass, typed) || readOnlyCollectionPackageCall(pass, typed) {
+		if collectionElementsDeeplyImmutable(pass.TypesInfo.TypeOf(value)) && (readOnlyCollectionBuiltin(pass, typed, current) || readOnlyCollectionPackageCall(pass, typed)) {
 			return true
 		}
 		argument := collectionArgumentIndex(typed, current)
@@ -216,6 +274,31 @@ func readOnlyCollectionUse(pass *analysis.Pass, identifier *ast.Ident, usage glo
 	default:
 		return false
 	}
+}
+
+func collectionIndexValueType(value types.Type) types.Type {
+	if tuple, ok := value.(*types.Tuple); ok && tuple.Len() > 0 {
+		return tuple.At(0).Type()
+	}
+	return value
+}
+
+func collectionElementsDeeplyImmutable(value types.Type) bool {
+	if value == nil {
+		return false
+	}
+	var element types.Type
+	switch underlying := value.Underlying().(type) {
+	case *types.Map:
+		element = underlying.Elem()
+	case *types.Slice:
+		element = underlying.Elem()
+	case *types.Array:
+		element = underlying.Elem()
+	default:
+		return false
+	}
+	return deeplyImmutableGlobalValue(element, map[types.Type]bool{})
 }
 
 func collectionObjectReadOnly(pass *analysis.Pass, object types.Object, usage globalStateUsage, seen map[types.Object]bool) bool {
@@ -239,10 +322,24 @@ func collectionObjectReadOnly(pass *analysis.Pass, object types.Object, usage gl
 	return true
 }
 
-func readOnlyCollectionBuiltin(pass *analysis.Pass, call *ast.CallExpr) bool {
+func readOnlyCollectionBuiltin(pass *analysis.Pass, call *ast.CallExpr, target ast.Node) bool {
 	function, ok := call.Fun.(*ast.Ident)
 	builtin, builtinOK := pass.TypesInfo.Uses[function].(*types.Builtin)
-	return ok && builtinOK && (builtin.Name() == "len" || builtin.Name() == "cap")
+	if !ok || !builtinOK {
+		return false
+	}
+	switch builtin.Name() {
+	case "len", "cap":
+		return true
+	case "append":
+		// Reading a global through append's variadic inputs copies its
+		// elements; using it as the destination may mutate its backing array.
+		return collectionArgumentIndex(call, target) > 0
+	case "copy":
+		return collectionArgumentIndex(call, target) == 1
+	default:
+		return false
+	}
 }
 
 func readOnlyCollectionPackageCall(pass *analysis.Pass, call *ast.CallExpr) bool {
@@ -257,6 +354,12 @@ func readOnlyCollectionPackageCall(pass *analysis.Pass, call *ast.CallExpr) bool
 		{Package: "slices", Name: "CompareFunc"},
 		{Package: "slices", Name: "IsSorted"},
 		{Package: "slices", Name: "IsSortedFunc"},
+		{Package: "slices", Name: "Clone"},
+		{Package: "strings", Name: "Join"},
+		{Package: "sort", Name: "SearchStrings"},
+		{Package: "bytes", Name: "Equal"},
+		{Package: "bytes", Name: "HasPrefix"},
+		{Package: "bytes", Name: "HasSuffix"},
 		{Package: "maps", Name: "Clone"},
 		{Package: "maps", Name: "Equal"},
 		{Package: "maps", Name: "EqualFunc"},
