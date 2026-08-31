@@ -21,7 +21,7 @@ func contextPolicyAnalyzer() *analysis.Analyzer {
 		Doc:      "checks context placement, storage, nil use, and test ownership",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 	}
-	analyzer.Flags.BoolVar(&config.preferTestContext, "prefer-test-context", true, "prefer t.Context or b.Context over context.Background in tests")
+	analyzer.Flags.BoolVar(&config.preferTestContext, "prefer-test-context", true, "check detached test-owned goroutines rooted in a never-cancelled context")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runContextPolicy(pass, config)
 	}
@@ -41,9 +41,8 @@ func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, err
 		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
 		}
-		isTest := strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
 		ast.Inspect(file, func(node ast.Node) bool {
-			checkContextStructure(pass, node, isTest && supportsTestingContext(pass), config)
+			checkContextStructure(pass, node)
 			return true
 		})
 	}
@@ -55,6 +54,9 @@ func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, err
 					reportNilSSAContextArguments(pass, call)
 				}
 			}
+		}
+		if config.preferTestContext && supportsTestingContext(pass) {
+			reportDetachedTestBackground(pass, function)
 		}
 	}
 	return nil, nil
@@ -71,7 +73,7 @@ func supportsTestingContext(pass *analysis.Pass) bool {
 	return version.Compare(moduleVersion, "go1.24") >= 0
 }
 
-func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool, config contextPolicyConfig) {
+func checkContextStructure(pass *analysis.Pass, node ast.Node) {
 	switch typed := node.(type) {
 	case *ast.FuncDecl:
 		parameters := parameterTypes(pass, typed.Type.Params)
@@ -89,10 +91,6 @@ func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool, conf
 			if analysisutil.NamedType(pass.TypesInfo.TypeOf(field.Type), "context", "Context") {
 				reportf(pass, checkContextStorage, field.Pos(), "do not store context.Context in a struct")
 			}
-		}
-	case *ast.CallExpr:
-		if config.preferTestContext && isTest && analysisutil.IsPackageCall(pass, typed, analysisutil.FunctionSymbol{Package: "context", Name: "Background"}) {
-			reportf(pass, checkContextTestOwnership, typed.Pos(), "use t.Context() or b.Context() instead of context.Background()")
 		}
 	}
 }

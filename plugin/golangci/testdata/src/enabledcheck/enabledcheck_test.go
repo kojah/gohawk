@@ -7,5 +7,5 @@ import (
 
 func TestBackground(t *testing.T) {
 	_ = t
-	_ = context.Background() // want "use t.Context"
+	go func(ctx context.Context) { <-ctx.Done() }(context.Background()) // want "test-owned goroutine uses a never-cancelled context"
 }

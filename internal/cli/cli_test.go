@@ -740,12 +740,12 @@ func TestCLIIntegration(t *testing.T) {
 		}
 
 		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=contextpolicy/test-context", "./...")
-		if exitCode != 3 || !strings.Contains(output, "use t.Context() or b.Context()") {
+		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 opt-in check: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, modernModule, binary, "-enable-all", "./...")
-		if exitCode != 3 || !strings.Contains(output, "use t.Context() or b.Context()") {
+		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 enable-all: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -1159,7 +1159,7 @@ import (
 
 func TestBackground(t *testing.T) {
 	_ = t
-	_ = context.Background()
+	go func(ctx context.Context) { <-ctx.Done() }(context.Background())
 }
 `)
 	return directory

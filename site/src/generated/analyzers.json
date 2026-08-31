@@ -64,7 +64,7 @@
             },
             {
               "id": "contextpolicy/test-context",
-              "summary": "Reports tests that use context.Background instead of the testing handle's context.",
+              "summary": "Reports detached test-owned goroutines rooted in a never-cancelled context.",
               "optIn": true
             },
             {
@@ -78,7 +78,7 @@
             {
               "name": "prefer-test-context",
               "default": "true",
-              "usage": "Prefer t.Context or b.Context over context.Background in tests."
+              "usage": "Check detached test-owned goroutines rooted in a never-cancelled context."
             }
           ]
         },
