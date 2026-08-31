@@ -1092,6 +1092,7 @@ var event = EventRow{"42", "created"}
 var cache = map[string]string{}
 
 func initialize() {
+	cache["ready"] = "true"
 	sync.OnceFunc(func() {})()
 }
 `)

@@ -12,6 +12,11 @@ Reports mutable package-level variables such as maps, slices, pointers,
 interfaces, channels, and function values. Known immutable patterns and
 explicitly configured names or types are excluded.
 
+An unexported map or slice initialized with a composite literal is also
+accepted when its keys and elements are deeply immutable and package-wide use
+proves that it is only read. Mutation, exporting, passing to an unproven
+callee, or storing mutable values keeps the diagnostic.
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}
