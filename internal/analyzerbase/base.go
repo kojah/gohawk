@@ -51,9 +51,6 @@ const (
 	CheckOnceDiscardedWrapper     Check = "oncepolicy/discarded-wrapper"
 	CheckSyncMapNonAtomicClaim    Check = "syncmapatomicity/non-atomic-claim"
 	CheckTaintUntrustedSink       Check = "taintpolicy/untrusted-sink"
-	CheckBlockingTestSend         Check = "blockingtest/send"
-	CheckBlockingTestReceive      Check = "blockingtest/receive"
-	CheckBlockingTestSelect       Check = "blockingtest/select"
 	CheckTestHelperMarker         Check = "testpolicy/helper-marker"
 )
 

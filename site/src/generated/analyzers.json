@@ -464,31 +464,6 @@
       "slug": "testing",
       "analyzers": [
         {
-          "name": "blockingtest",
-          "summary": "Checks cancellation ownership for blocking test channels.",
-          "path": "analyzers/testing/blockingtest",
-          "optIn": true,
-          "checks": [
-            {
-              "id": "blockingtest/send",
-              "summary": "Reports unguarded channel sends in context-aware test code.",
-              "optIn": true
-            },
-            {
-              "id": "blockingtest/receive",
-              "summary": "Reports blocking channel receives in tests without a cancellation escape.",
-              "optIn": true
-            },
-            {
-              "id": "blockingtest/select",
-              "summary": "Reports blocking selects in tests without a cancellation escape.",
-              "optIn": true
-            }
-          ],
-          "suggestedFix": false,
-          "options": []
-        },
-        {
           "name": "testpolicy",
           "summary": "Checks lifecycle ownership in test helpers.",
           "path": "analyzers/testing/testpolicy",

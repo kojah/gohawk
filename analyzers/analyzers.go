@@ -46,7 +46,6 @@ func newCatalog() (*analyzerbase.Catalog, error) {
 		"globalstate",
 		"wirepolicy",
 		"testpolicy",
-		"blockingtest",
 		"goroutineownership",
 		"errorownership",
 		"channelpolicy",

@@ -19,7 +19,6 @@ func expectedAnalyzerNames() []string {
 		"globalstate",
 		"wirepolicy",
 		"testpolicy",
-		"blockingtest",
 		"goroutineownership",
 		"errorownership",
 		"channelpolicy",
@@ -70,7 +69,7 @@ func TestAnalyzerGroups(t *testing.T) {
 		{name: "contracts", doc: "API and data contracts", docPath: "api-and-data-contracts", analyzers: []string{"apishape", "contextpolicy", "closedomain", "wirepolicy"}},
 		{name: "ownership", doc: "ownership and lifecycle", docPath: "ownership-and-lifecycle", analyzers: []string{"cancellationownership", "channelpolicy", "deferinloop", "exitpolicy", "goroutineownership", "processownership", "resourcelifetime"}},
 		{name: "reliability", doc: "reliability and safety", docPath: "reliability-and-safety", analyzers: []string{"concurrentcapture", "determinism", "errorownership", "evalorder", "globalstate", "lockorder", "oncepolicy", "syncmapatomicity", "taintpolicy"}},
-		{name: "testing", doc: "testing", docPath: "testing", analyzers: []string{"blockingtest", "testpolicy"}},
+		{name: "testing", doc: "testing", docPath: "testing", analyzers: []string{"testpolicy"}},
 	}
 	groups := AnalyzerGroups()
 	if len(groups) != len(want) {
@@ -101,7 +100,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
 	optIn := map[string]bool{
-		"apishape": true, "blockingtest": true, "closedomain": true,
+		"apishape": true, "closedomain": true,
 		"determinism": true, "globalstate": true, "taintpolicy": true,
 		"testpolicy": true, "wirepolicy": true,
 	}
@@ -189,7 +188,6 @@ func TestAnalyzers(t *testing.T) {
 		{name: "globalstate", packages: []string{"globalstate"}},
 		{name: "wirepolicy", packages: []string{"wirepolicy"}},
 		{name: "testpolicy", packages: []string{"testpolicy"}},
-		{name: "blockingtest", packages: []string{"blockingtest"}},
 		{name: "goroutineownership", packages: []string{"goroutineownership"}},
 		{name: "errorownership", packages: []string{"errorownership"}},
 		{name: "channelpolicy", packages: []string{"channelpolicy"}},

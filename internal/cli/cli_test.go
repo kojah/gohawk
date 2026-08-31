@@ -28,8 +28,8 @@ func TestPrintAnalyzerList(t *testing.T) {
 		wantError bool
 	}{
 		{name: "all", contains: []string{"ANALYZER", "GROUP", "apishape*", "oncepolicy", "contracts", "reliability", "* opt-in"}, excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts"}},
-		{name: "defaults", arguments: []string{"-defaults"}, contains: []string{"oncepolicy"}, excludes: []string{"*", "wirepolicy", "apishape", "blockingtest", "determinism"}},
-		{name: "opt-in", arguments: []string{"-opt-in"}, contains: []string{"wirepolicy*", "blockingtest*", "determinism*", "* opt-in"}, excludes: []string{"oncepolicy", "contextpolicy"}},
+		{name: "defaults", arguments: []string{"-defaults"}, contains: []string{"oncepolicy"}, excludes: []string{"*", "wirepolicy", "apishape", "determinism"}},
+		{name: "opt-in", arguments: []string{"-opt-in"}, contains: []string{"wirepolicy*", "determinism*", "* opt-in"}, excludes: []string{"oncepolicy", "contextpolicy"}},
 		{name: "checks", arguments: []string{"-checks"}, contains: []string{"CHECK", "GROUP", "contextpolicy/context-first", "contextpolicy/test-context*", "oncepolicy/discarded-wrapper", "contracts", "* opt-in"}, excludes: []string{"ANALYZER", "PROFILE", "TAGS", "CATEGORY"}},
 		{name: "default checks", arguments: []string{"-checks", "-defaults"}, contains: []string{"contextpolicy/context-first"}, excludes: []string{"*", "contextpolicy/test-context", "apishape/parameter-count"}},
 		{name: "opt-in checks", arguments: []string{"-checks", "-opt-in"}, contains: []string{"contextpolicy/test-context*", "apishape/parameter-count*", "* opt-in"}, excludes: []string{"contextpolicy/context-first"}},
@@ -322,7 +322,7 @@ func TestWithAnalyzerSelection(t *testing.T) {
 			t.Errorf("default arguments do not contain %q: %v", value, got)
 		}
 	}
-	for _, value := range []string{"-oncepolicy=true", "-blockingtest=true", "-determinism=true", "-wirepolicy=true", "-globalstate=true"} {
+	for _, value := range []string{"-oncepolicy=true", "-determinism=true", "-wirepolicy=true", "-globalstate=true"} {
 		if strings.Contains(joined, value) {
 			t.Errorf("default arguments unexpectedly contain %q: %v", value, got)
 		}
@@ -330,7 +330,7 @@ func TestWithAnalyzerSelection(t *testing.T) {
 
 	t.Run("groups include opt-in analyzers", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups=testing,contracts", "./..."}), " ")
-		for _, value := range []string{"-apishape=true", "-contextpolicy=true", "-closedomain=true", "-wirepolicy=true", "-blockingtest=true", "-testpolicy=true"} {
+		for _, value := range []string{"-apishape=true", "-contextpolicy=true", "-closedomain=true", "-wirepolicy=true", "-testpolicy=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("group arguments do not contain %q: %s", value, got)
 			}
@@ -375,7 +375,7 @@ func TestWithAnalyzerSelection(t *testing.T) {
 				t.Errorf("enable-all exclusion does not contain %q: %s", value, got)
 			}
 		}
-		for _, value := range []string{"-blockingtest=true", "-testpolicy=true", "-disable-groups"} {
+		for _, value := range []string{"-testpolicy=true", "-disable-groups"} {
 			if strings.Contains(got, value) {
 				t.Errorf("enable-all exclusion unexpectedly contains %q: %s", value, got)
 			}
@@ -573,7 +573,7 @@ func TestCLIIntegration(t *testing.T) {
 			"contracts (API and data contracts): apishape*, contextpolicy, closedomain*, wirepolicy*",
 			"ownership (ownership and lifecycle): cancellationownership, channelpolicy, deferinloop, exitpolicy, goroutineownership, processownership, resourcelifetime",
 			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership, evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, taintpolicy*",
-			"testing (testing): blockingtest*, testpolicy*",
+			"testing (testing): testpolicy*",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
