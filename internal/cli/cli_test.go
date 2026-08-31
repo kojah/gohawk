@@ -645,6 +645,39 @@ func TestCLIIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("one binary supports Go 1.26 and Go 1.27 modules", func(t *testing.T) {
+		for _, fixture := range []struct {
+			version string
+			source  string
+		}{
+			{version: "1.26.0", source: `package sample
+
+func identity[T any](value T) T { return value }
+
+func answer() int { return identity(42) }
+`},
+			// Generic methods require Go 1.27. Keeping one here proves that the
+			// analyzer process itself understands the newer language version, not
+			// merely that its go command can load a module declaring it.
+			{version: "1.27.0", source: `package sample
+
+type identity struct{}
+
+func (identity) value[T any](input T) T { return input }
+
+func answer() int { return identity{}.value(42) }
+`},
+		} {
+			t.Run("go"+fixture.version, func(t *testing.T) {
+				compatibilityModule := writeLanguageVersionModule(t, fixture.version, fixture.source)
+				output, exitCode := runCommand(t, compatibilityModule, binary, "./...")
+				if exitCode != 0 || output != "" {
+					t.Fatalf("analyze Go %s module: exit code = %d, output = %q", fixture.version, exitCode, output)
+				}
+			})
+		}
+	})
+
 	t.Run("selected analyzer", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-enable=wirepolicy", "./...")
 		if exitCode != 3 {
@@ -1096,6 +1129,14 @@ func initialize() {
 	sync.OnceFunc(func() {})()
 }
 `)
+	return directory
+}
+
+func writeLanguageVersionModule(t *testing.T, version, source string) string {
+	t.Helper()
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/languageversion\n\ngo "+version+"\n")
+	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), source)
 	return directory
 }
 

@@ -3,7 +3,8 @@ title: Installation
 description: Install gohawk and run your first analysis.
 ---
 
-gohawk requires Go 1.26 or newer.
+gohawk requires Go 1.27 or newer to build. A binary built with Go 1.27 can
+analyze modules that declare Go 1.27 or an older language version.
 
 ## Install the CLI
 
