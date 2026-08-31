@@ -138,6 +138,8 @@ func branchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool
 			switch comparison.Op {
 			case token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ:
 				return constant.Compare(left, comparison.Op, right), true
+			default:
+				return false, false
 			}
 		}
 	}

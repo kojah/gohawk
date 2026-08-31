@@ -8,19 +8,19 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 ## What it detects
 
-Reports functions whose first `context.Context` parameter follows another
-parameter, contexts stored in structs, and calls that pass a definitely nil
-context. In supported test code, it also prefers `t.Context()` or `b.Context()`
-over `context.Background()`.
+Reports `context.Context` parameters that are not first, contexts stored in
+structs, and calls that pass a definitely nil context. In supported test code,
+the opt-in test check reports detached goroutines whose cancellation path is
+rooted in `context.Background()` or `context.TODO()`.
 
 ### Checks
 
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="context-first" /> | Reports functions whose first context.Context parameter follows another parameter. |
+| <CheckIdentity name="context-first" /> | Reports context.Context parameters that are not first. |
 | <CheckIdentity name="context-storage" /> | Reports context.Context values stored in structs. |
-| <CheckIdentity name="test-context" optIn /> | Reports tests that use context.Background instead of the testing handle's context. |
+| <CheckIdentity name="test-context" optIn /> | Reports detached test-owned goroutines rooted in a never-cancelled context. |
 | <CheckIdentity name="nil-context" /> | Reports definitely nil context.Context arguments. |
 
 \* Opt-in; requires explicit selection.
@@ -31,6 +31,8 @@ over `context.Background()`.
 Keeping `context.Context` as the first parameter makes cancellation and
 deadlines easy to pass through a call chain. Storing a context or passing nil
 can give it the wrong lifetime or cause failures far from the call site.
+Detached test work rooted in a never-cancelled context can survive the test;
+`t.Context()` and `b.Context()` are cancelled automatically during teardown.
 
 Further reading: [Package context](https://pkg.go.dev/context),
 [Contexts and structs](https://go.dev/blog/context-and-structs).
@@ -39,7 +41,10 @@ Further reading: [Package context](https://pkg.go.dev/context),
 
 Accept the context as the function's first parameter and pass it directly to
 the work that needs it. Do not store it in a struct or pass nil; use an
-appropriate real context, such as the test's context in test code.
+appropriate real context. For a detached test-owned goroutine that observes
+cancellation, use `t.Context()` or `b.Context()`, explicitly cancel and join
+the worker, or give it another proven stop lifecycle. Synchronous calls using
+`context.Background()` are accepted.
 
 ## Examples
 
@@ -72,11 +77,23 @@ func loadWithoutContext() {
 }
 ```
 
+#### Detached test goroutine
+
+```go gohawk="W3siY2hlY2siOiJjb250ZXh0cG9saWN5L3Rlc3QtY29udGV4dCIsIm1lc3NhZ2UiOiJ0ZXN0LW93bmVkIGdvcm91dGluZSB1c2VzIGEgbmV2ZXItY2FuY2VsbGVkIGNvbnRleHQ7IHVzZSB0aGUgdGVzdGluZyBoYW5kbGUncyBDb250ZXh0KCkiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyNCwiZW5kTGluZSI6MSwiZW5kQ29sdW1uIjo0NH1d"
+func TestDetachedWorker(t *testing.T) {
+  go waitForTestContext(context.Background())
+}
+```
+
 ### Accepted code
 
 ```go
 func LoadUserCorrectly(ctx context.Context, id string) error {
   return nil
+}
+
+func TestOwnedWorker(t *testing.T) {
+  go waitForTestContext(t.Context())
 }
 ```
 {/* gohawk:generated-examples:end */}
@@ -86,5 +103,5 @@ func LoadUserCorrectly(ctx context.Context, id string) error {
 {/* gohawk:generated-options:start */}
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `prefer-test-context` | `true` | Prefer t.Context or b.Context over context.Background in tests. |
+| `prefer-test-context` | `true` | Check detached test-owned goroutines rooted in a never-cancelled context. |
 {/* gohawk:generated-options:end */}

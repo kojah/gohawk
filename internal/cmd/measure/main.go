@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -30,7 +31,7 @@ func run(arguments []string) int {
 		return 2
 	}
 
-	command := exec.Command(commandArguments[0], commandArguments[1:]...)
+	command := exec.CommandContext(context.Background(), commandArguments[0], commandArguments[1:]...)
 	command.Stdin = os.Stdin
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr

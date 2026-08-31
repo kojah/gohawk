@@ -7,5 +7,5 @@ import (
 
 func TestBackground(t *testing.T) {
 	_ = t
-	_ = context.Background()
+	go func(ctx context.Context) { <-ctx.Done() }(context.Background())
 }

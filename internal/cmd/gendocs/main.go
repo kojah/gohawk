@@ -201,7 +201,8 @@ func collectManifest(root string) (manifest, error) {
 				SuggestedFix: info.SuggestedFix,
 				Options:      []optionFlag{},
 			}
-			examples, err := docexamples.Collect(root, registered)
+			testRoot := filepath.Join(root, "testdata", analyzerGroup.Name)
+			examples, err := docexamples.Collect(testRoot, registered)
 			if err != nil {
 				return manifest{}, err
 			}
@@ -238,7 +239,7 @@ func synchronizeChecks(contents []byte, block string) ([]byte, error) {
 		return replaceGeneratedBlock(contents, generatedChecksStart, generatedChecksEnd, block)
 	}
 	if bytes.Contains(contents, []byte("\n### Checks\n")) {
-		return nil, errors.New("Checks subsection exists without generated block markers")
+		return nil, errors.New("checks subsection exists without generated block markers")
 	}
 	const heading = "\n## What it detects\n"
 	start := bytes.Index(contents, []byte(heading))
@@ -248,7 +249,7 @@ func synchronizeChecks(contents []byte, block string) ([]byte, error) {
 	bodyStart := start + len(heading)
 	end := bytes.Index(contents[bodyStart:], []byte("\n## "))
 	if end < 0 {
-		return nil, errors.New("What it detects must be followed by another section")
+		return nil, errors.New("what it detects must be followed by another section")
 	}
 	end += bodyStart
 	section := []byte("\n### Checks\n\n" + generatedChecksStart + "\n" + block + "\n" + generatedChecksEnd + "\n")
@@ -413,7 +414,7 @@ func synchronizeOptions(contents []byte, table string) ([]byte, error) {
 		return replaceGeneratedBlock(contents, generatedOptionsStart, generatedOptionsEnd, table)
 	}
 	if bytes.Contains(contents, []byte("\n## Options\n")) {
-		return nil, errors.New("Options section exists without generated block markers")
+		return nil, errors.New("options section exists without generated block markers")
 	}
 	contents = bytes.TrimRight(contents, "\n")
 	contents = append(contents, []byte("\n\n## Options\n\n"+generatedOptionsStart+"\n"+table+"\n"+generatedOptionsEnd+"\n")...)

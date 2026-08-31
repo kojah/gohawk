@@ -1,19 +1,20 @@
 GO ?= go
-GOFMT ?= gofmt
 PNPM ?= corepack pnpm
 LYCHEE ?= lychee
+GOLANGCI_LINT_VERSION ?= v2.13.2
+GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 BUILD_DIRECTORY ?= $(CURDIR)/.build
 GOHAWK_BINARY ?= $(BUILD_DIRECTORY)/gohawk
 BENCHMARK_ARGS ?=
 
-VERIFY_STATIC_TARGETS := mod-verify fmt-check generated-check vet dogfood
+VERIFY_STATIC_TARGETS := mod-verify fmt-check generated-check vet lint dogfood
 VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test plugin-test test-race
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build fmt fmt-check generate generated-check mod-verify test \
-	test-race vet coverage plugin-test dogfood verify-static verify ci benchmark site-install \
+.PHONY: help build fmt fmt-check generate generated-check mod-verify lint test \
+	test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
 	site-check site-build site-links site-links-external site-review
 
 help:
@@ -21,9 +22,11 @@ help:
 		'Common targets:' \
 		'  make fmt             Format tracked Go source files' \
 		'  make generate        Regenerate analyzer documentation' \
+		'  make lint            Run the standard golangci-lint suite' \
 		'  make test            Run the Go test suite' \
 		'  make verify          Run the complete local verification suite' \
 		'  make dogfood         Build and run gohawk on itself' \
+		'  make skills-check    Check installed skills against their upstream repositories' \
 		'  make plugin-test     Test the golangci-lint module plugin end to end' \
 		'  make benchmark       Run pinned dogfooding benchmarks' \
 		'  make site-check      Check the documentation website' \
@@ -36,10 +39,10 @@ build:
 	$(GO) build -o "$(GOHAWK_BINARY)" .
 
 fmt:
-	$(GOFMT) -w $$(git ls-files '*.go')
+	$(GOLANGCI_LINT) fmt
 
 fmt-check:
-	@test -z "$$($(GOFMT) -l .)"
+	$(GOLANGCI_LINT) fmt --diff
 
 generate:
 	$(GO) generate ./...
@@ -61,6 +64,9 @@ test-race:
 vet:
 	$(GO) vet ./...
 
+lint:
+	$(GOLANGCI_LINT) run ./...
+
 coverage:
 	$(GO) test ./... -covermode=count \
 		-coverpkg=./analysisutil/...,./analyzers,./internal/analyzerbase,./internal/analyzers/...,./internal/docexamples \
@@ -73,6 +79,9 @@ plugin-test:
 
 dogfood: build
 	"$(GOHAWK_BINARY)" ./...
+
+skills-check:
+	./scripts/check-skills-current.sh
 
 verify-static: $(VERIFY_STATIC_TARGETS)
 

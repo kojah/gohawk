@@ -19,8 +19,10 @@ const (
 	checkWireSerializationTag = analyzerbase.CheckWireSerializationTag
 )
 
-var reportf = analyzerbase.Reportf
-var report = analyzerbase.Report
+var (
+	reportf = analyzerbase.Reportf
+	report  = analyzerbase.Report
+)
 
 // Specs returns the API and data contract analyzer declarations in stable order.
 func Specs() []analyzerbase.AnalyzerSpec {
@@ -37,9 +39,9 @@ func Specs() []analyzerbase.AnalyzerSpec {
 		{
 			Analyzer: contextPolicyAnalyzer(),
 			Checks: []analyzerbase.CheckInfo{
-				{ID: checkContextFirst, Doc: "Reports functions whose first context.Context parameter follows another parameter."},
+				{ID: checkContextFirst, Doc: "Reports context.Context parameters that are not first."},
 				{ID: checkContextStorage, Doc: "Reports context.Context values stored in structs."},
-				{ID: checkContextTestOwnership, Doc: "Reports tests that use context.Background instead of the testing handle's context.", OptIn: true},
+				{ID: checkContextTestOwnership, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.", OptIn: true},
 				{ID: checkContextNilArgument, Doc: "Reports definitely nil context.Context arguments."},
 			},
 		},

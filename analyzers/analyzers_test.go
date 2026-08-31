@@ -1,6 +1,7 @@
 package analyzers
 
 import (
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -18,7 +19,6 @@ func expectedAnalyzerNames() []string {
 		"globalstate",
 		"wirepolicy",
 		"testpolicy",
-		"blockingtest",
 		"goroutineownership",
 		"errorownership",
 		"channelpolicy",
@@ -69,7 +69,7 @@ func TestAnalyzerGroups(t *testing.T) {
 		{name: "contracts", doc: "API and data contracts", docPath: "api-and-data-contracts", analyzers: []string{"apishape", "contextpolicy", "closedomain", "wirepolicy"}},
 		{name: "ownership", doc: "ownership and lifecycle", docPath: "ownership-and-lifecycle", analyzers: []string{"cancellationownership", "channelpolicy", "deferinloop", "exitpolicy", "goroutineownership", "processownership", "resourcelifetime"}},
 		{name: "reliability", doc: "reliability and safety", docPath: "reliability-and-safety", analyzers: []string{"concurrentcapture", "determinism", "errorownership", "evalorder", "globalstate", "lockorder", "oncepolicy", "syncmapatomicity", "taintpolicy"}},
-		{name: "testing", doc: "testing", docPath: "testing", analyzers: []string{"blockingtest", "testpolicy"}},
+		{name: "testing", doc: "testing", docPath: "testing", analyzers: []string{"testpolicy"}},
 	}
 	groups := AnalyzerGroups()
 	if len(groups) != len(want) {
@@ -100,7 +100,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
 	optIn := map[string]bool{
-		"apishape": true, "blockingtest": true, "closedomain": true,
+		"apishape": true, "closedomain": true,
 		"determinism": true, "globalstate": true, "taintpolicy": true,
 		"testpolicy": true, "wirepolicy": true,
 	}
@@ -188,7 +188,6 @@ func TestAnalyzers(t *testing.T) {
 		{name: "globalstate", packages: []string{"globalstate"}},
 		{name: "wirepolicy", packages: []string{"wirepolicy"}},
 		{name: "testpolicy", packages: []string{"testpolicy"}},
-		{name: "blockingtest", packages: []string{"blockingtest"}},
 		{name: "goroutineownership", packages: []string{"goroutineownership"}},
 		{name: "errorownership", packages: []string{"errorownership"}},
 		{name: "channelpolicy", packages: []string{"channelpolicy"}},
@@ -209,7 +208,7 @@ func TestAnalyzers(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			analysistest.Run(t, testData(t), requireDiagnosticRanges(t, analyzerNamed(t, test.name)), test.packages...)
+			analysistest.Run(t, testData(t, test.name), requireDiagnosticRanges(t, analyzerNamed(t, test.name)), test.packages...)
 		})
 	}
 }
@@ -255,7 +254,7 @@ func TestSuggestedFixes(t *testing.T) {
 			t.Errorf("analyzer %q has a suggested-fix test but is not marked as offering one", test.name)
 		}
 		t.Run(test.name, func(t *testing.T) {
-			analysistest.RunWithSuggestedFixes(t, testData(t), analyzerNamed(t, test.name), test.pattern)
+			analysistest.RunWithSuggestedFixes(t, testData(t, test.name), analyzerNamed(t, test.name), test.pattern)
 		})
 	}
 	for name, info := range metadata {
@@ -270,7 +269,7 @@ func TestGoroutineOwnershipJoinMode(t *testing.T) {
 	if err := analyzer.Flags.Set("mode", "join"); err != nil {
 		t.Fatalf("set mode: %v", err)
 	}
-	analysistest.Run(t, testData(t), analyzer, "goroutineownership/strict")
+	analysistest.Run(t, testData(t, "goroutineownership"), analyzer, "goroutineownership/strict")
 }
 
 func TestGoroutineOwnershipLifecycleMode(t *testing.T) {
@@ -278,7 +277,7 @@ func TestGoroutineOwnershipLifecycleMode(t *testing.T) {
 	if err := analyzer.Flags.Set("mode", "lifecycle"); err != nil {
 		t.Fatalf("set mode: %v", err)
 	}
-	analysistest.Run(t, testData(t), analyzer, "goroutineownership/lifecycle")
+	analysistest.Run(t, testData(t, "goroutineownership"), analyzer, "goroutineownership/lifecycle")
 }
 
 func TestAnalyzerConfiguration(t *testing.T) {
@@ -314,7 +313,7 @@ func TestAnalyzerConfiguration(t *testing.T) {
 					t.Fatalf("set %s=%s: %v", name, value, err)
 				}
 			}
-			analysistest.Run(t, testData(t), analyzer, test.pattern)
+			analysistest.Run(t, testData(t, test.name), analyzer, test.pattern)
 		})
 	}
 }
@@ -332,11 +331,75 @@ func configurableAnalyzer(t *testing.T, name string) *analysis.Analyzer {
 	return nil
 }
 
-func testData(t *testing.T) string {
+func testData(t *testing.T, analyzerName string) string {
+	t.Helper()
+	root := fixtureRoot(t)
+	for _, group := range fixtureGroups(t) {
+		for _, analyzer := range group.Analyzers {
+			if analyzer.Analyzer.Name == analyzerName {
+				return filepath.Join(root, string(group.ID))
+			}
+		}
+	}
+	t.Fatalf("analyzer %q has no fixture group", analyzerName)
+	return ""
+}
+
+func fixtureRoot(t *testing.T) string {
 	t.Helper()
 	path, err := filepath.Abs(filepath.Join("..", "testdata"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestAnalyzerFixtureAreas(t *testing.T) {
+	root := fixtureRoot(t)
+	wantGroups := make(map[string]bool)
+	for _, group := range fixtureGroups(t) {
+		groupName := string(group.ID)
+		wantGroups[groupName] = true
+		wantAnalyzers := make(map[string]bool)
+		for _, analyzer := range group.Analyzers {
+			wantAnalyzers[analyzer.Analyzer.Name] = true
+		}
+		entries, err := os.ReadDir(filepath.Join(root, groupName, "src"))
+		if err != nil {
+			t.Fatalf("read %s fixture area: %v", groupName, err)
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() || !wantAnalyzers[entry.Name()] {
+				t.Errorf("unexpected entry testdata/%s/src/%s", groupName, entry.Name())
+				continue
+			}
+			delete(wantAnalyzers, entry.Name())
+		}
+		for analyzerName := range wantAnalyzers {
+			t.Errorf("analyzer %q has no testdata/%s/src fixture", analyzerName, groupName)
+		}
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() || !wantGroups[entry.Name()] {
+			t.Errorf("unexpected testdata root entry %s", entry.Name())
+			continue
+		}
+		delete(wantGroups, entry.Name())
+	}
+	for groupName := range wantGroups {
+		t.Errorf("analyzer group %q has no fixture area", groupName)
+	}
+}
+
+func fixtureGroups(t *testing.T) []analyzerbase.GroupSpec {
+	t.Helper()
+	catalog, err := newCatalog()
+	if err != nil {
+		t.Fatalf("build analyzer catalog: %v", err)
+	}
+	return catalog.Groups()
 }

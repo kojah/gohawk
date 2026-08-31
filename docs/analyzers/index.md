@@ -114,10 +114,6 @@ These analyzers cover failure modes that often survive ordinary type checking an
 These analyzers keep test failures bounded and make helper behavior visible at the call site.
 
 <div class="analyzer-grid">
-  <a class="analyzer-card" href="testing/blockingtest/">
-    <span class="analyzer-name">blockingtest</span>
-    <span class="analyzer-detects">Checks cancellation ownership for blocking test channels.</span>
-  </a>
   <a class="analyzer-card" href="testing/testpolicy/">
     <span class="analyzer-name">testpolicy</span>
     <span class="analyzer-detects">Checks lifecycle ownership in test helpers.</span>

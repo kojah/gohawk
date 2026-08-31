@@ -260,11 +260,12 @@ func requestedChecks(arguments []string, metadata map[string]gohawk.AnalyzerInfo
 			continue
 		}
 		if !hasValue {
-			index++
-			if index >= len(arguments) {
+			trailing := arguments[index+1:]
+			if len(trailing) == 0 {
 				return checkSelection{}, nil, fmt.Errorf("-%s requires a comma-separated value", name)
 			}
-			raw = arguments[index]
+			raw = trailing[0]
+			index++
 		}
 		if raw == "" {
 			return checkSelection{}, nil, fmt.Errorf("-%s requires at least one check", name)

@@ -26,6 +26,27 @@ type goroutineOwnershipConfig struct {
 	mode string
 }
 
+// HasExplicitGoroutineOwnership reports whether spawn has a recognized join,
+// stop signal, lifecycle owner, or transfer independent of context cancellation.
+// Context-policy uses this distinction because context.Background satisfies the
+// Context interface but cannot actually stop test-owned asynchronous work.
+func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
+	if spawn == nil || spawn.Parent() == nil {
+		return false
+	}
+	function := spawn.Parent()
+	signals, groups := goroutineJoinValues(spawn)
+	owners := goroutineLifecycleValues(spawn)
+	if goroutineHasStopLifecycle(spawn) || goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) || externallyOwnedJoin(signals, groups) || ownershipRegisteredBefore(spawn, signals, groups) || matchingCountedJoin(function, spawn, signals) || nestedCallbackReceivesAny(function, signals) {
+		return true
+	}
+	return !ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
+		return joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) || ownsGoroutineLifecycle(candidate, owners) || transfersGoroutineOwnership(candidate, signals, groups, owners)
+	}, func(returned *ssa.Return) bool {
+		return returnedAliasesAny(returned, signals) || returnedAliasesAny(returned, groups) || returnedAliasesAny(returned, owners)
+	})
+}
+
 const (
 	goroutineModeContext   = "context"
 	goroutineModeLifecycle = "lifecycle"
@@ -62,6 +83,9 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				// iteration. This covers the common "N workers, then N receives"
 				// pattern without assuming unrelated loops have matching counts.
 				if matchingCountedJoin(function, spawn, signals) {
+					continue
+				}
+				if nestedCallbackReceivesAny(function, signals) {
 					continue
 				}
 				if ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {

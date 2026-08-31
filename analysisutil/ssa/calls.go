@@ -1,7 +1,7 @@
 package ssautil
 
 import (
-	"fmt"
+	"errors"
 	"go/token"
 	"go/types"
 
@@ -15,7 +15,7 @@ import (
 func SourceSSAFunctions(pass *analysis.Pass) ([]*ssa.Function, error) {
 	result, ok := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 	if !ok {
-		return nil, fmt.Errorf("buildssa prerequisite returned unexpected result")
+		return nil, errors.New("buildssa prerequisite returned unexpected result")
 	}
 	functions := make([]*ssa.Function, 0, len(result.SrcFuncs))
 	for _, function := range result.SrcFuncs {

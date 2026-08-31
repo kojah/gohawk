@@ -12,6 +12,11 @@ Reports map iteration whose order flows directly into ordered output, such as a
 returned slice or string, encoded data, or written text, without an explicit
 sorting step.
 
+The check follows values derived from the range into ordered accumulators. It
+does not report iteration used only for membership, independently processed
+items, or a map proven to contain exactly one entry, and it recognizes sorting
+performed on every path before the accumulated value is observed.
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}

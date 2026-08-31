@@ -21,10 +21,12 @@ const (
 	checkTaintUntrustedSink      = analyzerbase.CheckTaintUntrustedSink
 )
 
-var reportf = analyzerbase.Reportf
-var report = analyzerbase.Report
-var newCommaSeparatedChoice = analyzerbase.NewCommaSeparatedChoice
-var commaSeparatedSet = analyzerbase.CommaSeparatedSet
+var (
+	reportf                 = analyzerbase.Reportf
+	report                  = analyzerbase.Report
+	newCommaSeparatedChoice = analyzerbase.NewCommaSeparatedChoice
+	commaSeparatedSet       = analyzerbase.CommaSeparatedSet
+)
 
 // Specs returns the reliability and safety analyzer declarations in stable order.
 func Specs() []analyzerbase.AnalyzerSpec {

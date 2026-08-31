@@ -50,9 +50,10 @@ order rather than allowing catalog drift.
 
 ## Tests and documentation
 
-`analyzers/analyzers_test.go` runs analyzers against packages under
-`testdata/src`. A `// want "message"` comment marks a diagnostic that must be
-reported; unmarked code is an accepted form that must remain quiet.
+`analyzers/analyzers_test.go` runs analyzers against group-specific GOPATH
+roots under `testdata/<group>/src`. A `// want "message"` comment marks a
+diagnostic that must be reported; unmarked code is an accepted form that must
+remain quiet.
 
 Documentation examples live in the same fixture packages between
 `//gohawk:example` markers. `go generate ./...` runs the documentation

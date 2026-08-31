@@ -38,6 +38,10 @@ import "sync"
 
 var values = map[string]string{}
 
+func remember(key, value string) {
+	values[key] = value
+}
+
 func deferredUnlockInLoop(mu *sync.Mutex, values []int) {
 	for range values {
 		mu.Lock()
@@ -57,7 +61,7 @@ import (
 
 func TestBackground(t *testing.T) {
 	_ = t
-	_ = context.Background()
+	go func(ctx context.Context) { <-ctx.Done() }(context.Background())
 }
 `)
 
@@ -90,7 +94,7 @@ func TestBackground(t *testing.T) {
 				"globalstate: mutable package state values",
 				"deferinloop: deferred cleanup runs after the loop",
 			},
-			exclude: []string{"lockorder:", "contextpolicy: use t.Context()"},
+			exclude: []string{"lockorder:", "contextpolicy: test-owned goroutine"},
 		},
 		{
 			name: "individual checks",
@@ -104,7 +108,7 @@ func TestBackground(t *testing.T) {
             - deferinloop/cleanup-lifetime`),
 			want: []string{
 				"globalstate: mutable package state values",
-				"contextpolicy: use t.Context()",
+				"contextpolicy: test-owned goroutine",
 			},
 			exclude: []string{"lockorder:", "deferinloop:"},
 		},

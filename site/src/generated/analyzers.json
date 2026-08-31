@@ -54,7 +54,7 @@
           "checks": [
             {
               "id": "contextpolicy/context-first",
-              "summary": "Reports functions whose first context.Context parameter follows another parameter.",
+              "summary": "Reports context.Context parameters that are not first.",
               "optIn": false
             },
             {
@@ -64,7 +64,7 @@
             },
             {
               "id": "contextpolicy/test-context",
-              "summary": "Reports tests that use context.Background instead of the testing handle's context.",
+              "summary": "Reports detached test-owned goroutines rooted in a never-cancelled context.",
               "optIn": true
             },
             {
@@ -78,7 +78,7 @@
             {
               "name": "prefer-test-context",
               "default": "true",
-              "usage": "Prefer t.Context or b.Context over context.Background in tests."
+              "usage": "Check detached test-owned goroutines rooted in a never-cancelled context."
             }
           ]
         },
@@ -463,31 +463,6 @@
       "title": "Testing",
       "slug": "testing",
       "analyzers": [
-        {
-          "name": "blockingtest",
-          "summary": "Checks cancellation ownership for blocking test channels.",
-          "path": "analyzers/testing/blockingtest",
-          "optIn": true,
-          "checks": [
-            {
-              "id": "blockingtest/send",
-              "summary": "Reports unguarded channel sends in context-aware test code.",
-              "optIn": true
-            },
-            {
-              "id": "blockingtest/receive",
-              "summary": "Reports blocking channel receives in tests without a cancellation escape.",
-              "optIn": true
-            },
-            {
-              "id": "blockingtest/select",
-              "summary": "Reports blocking selects in tests without a cancellation escape.",
-              "optIn": true
-            }
-          ],
-          "suggestedFix": false,
-          "options": []
-        },
         {
           "name": "testpolicy",
           "summary": "Checks lifecycle ownership in test helpers.",

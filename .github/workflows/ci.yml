@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  static:
+  static-fast:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -27,8 +27,42 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      - name: Run static checks and dogfood
-        run: make verify-static
+      - name: Run fast static checks
+        run: make mod-verify fmt-check generated-check vet
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Run golangci-lint
+        run: make lint
+
+  dogfood:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Build and dogfood gohawk
+        run: make dogfood
 
   race:
     runs-on: ubuntu-latest
@@ -91,22 +125,74 @@ jobs:
       - name: Check coverage badge
         run: git diff --exit-code -- README.md
 
+  compatibility:
+    name: compatibility (${{ matrix.go-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ['1.26', '1.27']
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up build toolchain
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Build compatibility binary
+        run: go build -o "$RUNNER_TEMP/gohawk" .
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v7
+        with:
+          go-version: "${{ matrix.go-version }}.x"
+          cache: false
+
+      - name: Analyze with Go ${{ matrix.go-version }}
+        run: scripts/test-toolchain-compatibility.sh "$RUNNER_TEMP/gohawk" "${{ matrix.go-version }}"
+
+  skills:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Check installed skill revisions
+        env:
+          GH_TOKEN: ${{ secrets.SKILL_VAULT_TOKEN }}
+        run: make skills-check
+
   # Preserve the existing aggregate check name while the expensive verification
   # work runs concurrently in the jobs above.
   test:
     if: ${{ always() }}
-    needs: [static, race, plugin, coverage]
+    needs: [static-fast, lint, dogfood, race, plugin, coverage, compatibility, skills]
     runs-on: ubuntu-latest
     steps:
       - name: Check verification results
         env:
-          STATIC_RESULT: ${{ needs.static.result }}
+          STATIC_FAST_RESULT: ${{ needs.static-fast.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          DOGFOOD_RESULT: ${{ needs.dogfood.result }}
           RACE_RESULT: ${{ needs.race.result }}
           PLUGIN_RESULT: ${{ needs.plugin.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
+          COMPATIBILITY_RESULT: ${{ needs.compatibility.result }}
+          SKILLS_RESULT: ${{ needs.skills.result }}
         run: |
-          for result in "$STATIC_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT"; do
+          for result in "$STATIC_FAST_RESULT" "$LINT_RESULT" "$DOGFOOD_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT" "$COMPATIBILITY_RESULT"; do
             if [[ "$result" != "success" ]]; then
               exit 1
             fi
           done
+          if [[ "$SKILLS_RESULT" != "success" && "$SKILLS_RESULT" != "skipped" ]]; then
+            exit 1
+          fi

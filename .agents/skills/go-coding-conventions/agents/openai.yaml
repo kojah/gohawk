@@ -1,0 +1,4 @@
+interface:
+  display_name: "Go Coding Conventions"
+  short_description: "Write clear, testable Go"
+  default_prompt: "Use $go-coding-conventions to write or review this Go change for clear APIs, deliberate errors, explicit dependencies, concurrency ownership, and testability."

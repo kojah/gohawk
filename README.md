@@ -5,7 +5,7 @@
 # gohawk
 
 [![CI](https://github.com/kojah/gohawk/actions/workflows/ci.yml/badge.svg)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-86.2%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-85.9%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 
 gohawk is a focused set of static analyzers for Go, designed to run alongside
 `go vet`, Staticcheck, and go-critic. It covers gaps around ownership,

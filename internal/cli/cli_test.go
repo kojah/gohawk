@@ -28,8 +28,8 @@ func TestPrintAnalyzerList(t *testing.T) {
 		wantError bool
 	}{
 		{name: "all", contains: []string{"ANALYZER", "GROUP", "apishape*", "oncepolicy", "contracts", "reliability", "* opt-in"}, excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts"}},
-		{name: "defaults", arguments: []string{"-defaults"}, contains: []string{"oncepolicy"}, excludes: []string{"*", "wirepolicy", "apishape", "blockingtest", "determinism"}},
-		{name: "opt-in", arguments: []string{"-opt-in"}, contains: []string{"wirepolicy*", "blockingtest*", "determinism*", "* opt-in"}, excludes: []string{"oncepolicy", "contextpolicy"}},
+		{name: "defaults", arguments: []string{"-defaults"}, contains: []string{"oncepolicy"}, excludes: []string{"*", "wirepolicy", "apishape", "determinism"}},
+		{name: "opt-in", arguments: []string{"-opt-in"}, contains: []string{"wirepolicy*", "determinism*", "* opt-in"}, excludes: []string{"oncepolicy", "contextpolicy"}},
 		{name: "checks", arguments: []string{"-checks"}, contains: []string{"CHECK", "GROUP", "contextpolicy/context-first", "contextpolicy/test-context*", "oncepolicy/discarded-wrapper", "contracts", "* opt-in"}, excludes: []string{"ANALYZER", "PROFILE", "TAGS", "CATEGORY"}},
 		{name: "default checks", arguments: []string{"-checks", "-defaults"}, contains: []string{"contextpolicy/context-first"}, excludes: []string{"*", "contextpolicy/test-context", "apishape/parameter-count"}},
 		{name: "opt-in checks", arguments: []string{"-checks", "-opt-in"}, contains: []string{"contextpolicy/test-context*", "apishape/parameter-count*", "* opt-in"}, excludes: []string{"contextpolicy/context-first"}},
@@ -106,7 +106,7 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 			if len(analyzers) == 0 {
 				t.Error("no analyzers supplied")
 			}
-			fmt.Fprint(output, "filtered flags")
+			_, _ = fmt.Fprint(output, "filtered flags")
 			return 7
 		}
 		result := runCLI([]string{"gohawk", "-flags"}, runtime)
@@ -322,7 +322,7 @@ func TestWithAnalyzerSelection(t *testing.T) {
 			t.Errorf("default arguments do not contain %q: %v", value, got)
 		}
 	}
-	for _, value := range []string{"-oncepolicy=true", "-blockingtest=true", "-determinism=true", "-wirepolicy=true", "-globalstate=true"} {
+	for _, value := range []string{"-oncepolicy=true", "-determinism=true", "-wirepolicy=true", "-globalstate=true"} {
 		if strings.Contains(joined, value) {
 			t.Errorf("default arguments unexpectedly contain %q: %v", value, got)
 		}
@@ -330,7 +330,7 @@ func TestWithAnalyzerSelection(t *testing.T) {
 
 	t.Run("groups include opt-in analyzers", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups=testing,contracts", "./..."}), " ")
-		for _, value := range []string{"-apishape=true", "-contextpolicy=true", "-closedomain=true", "-wirepolicy=true", "-blockingtest=true", "-testpolicy=true"} {
+		for _, value := range []string{"-apishape=true", "-contextpolicy=true", "-closedomain=true", "-wirepolicy=true", "-testpolicy=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("group arguments do not contain %q: %s", value, got)
 			}
@@ -375,7 +375,7 @@ func TestWithAnalyzerSelection(t *testing.T) {
 				t.Errorf("enable-all exclusion does not contain %q: %s", value, got)
 			}
 		}
-		for _, value := range []string{"-blockingtest=true", "-testpolicy=true", "-disable-groups"} {
+		for _, value := range []string{"-testpolicy=true", "-disable-groups"} {
 			if strings.Contains(got, value) {
 				t.Errorf("enable-all exclusion unexpectedly contains %q: %s", value, got)
 			}
@@ -573,7 +573,7 @@ func TestCLIIntegration(t *testing.T) {
 			"contracts (API and data contracts): apishape*, contextpolicy, closedomain*, wirepolicy*",
 			"ownership (ownership and lifecycle): cancellationownership, channelpolicy, deferinloop, exitpolicy, goroutineownership, processownership, resourcelifetime",
 			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership, evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, taintpolicy*",
-			"testing (testing): blockingtest*, testpolicy*",
+			"testing (testing): testpolicy*",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
@@ -642,6 +642,39 @@ func TestCLIIntegration(t *testing.T) {
 			if strings.Contains(output, diagnostic) {
 				t.Fatalf("opt-in analyzer unexpectedly reported %q:\n%s", diagnostic, output)
 			}
+		}
+	})
+
+	t.Run("one binary supports Go 1.26 and Go 1.27 modules", func(t *testing.T) {
+		for _, fixture := range []struct {
+			version string
+			source  string
+		}{
+			{version: "1.26.0", source: `package sample
+
+func identity[T any](value T) T { return value }
+
+func answer() int { return identity(42) }
+`},
+			// Generic methods require Go 1.27. Keeping one here proves that the
+			// analyzer process itself understands the newer language version, not
+			// merely that its go command can load a module declaring it.
+			{version: "1.27.0", source: `package sample
+
+type identity struct{}
+
+func (identity) value[T any](input T) T { return input }
+
+func answer() int { return identity{}.value(42) }
+`},
+		} {
+			t.Run("go"+fixture.version, func(t *testing.T) {
+				compatibilityModule := writeLanguageVersionModule(t, fixture.version, fixture.source)
+				output, exitCode := runCommand(t, compatibilityModule, binary, "./...")
+				if exitCode != 0 || output != "" {
+					t.Fatalf("analyze Go %s module: exit code = %d, output = %q", fixture.version, exitCode, output)
+				}
+			})
 		}
 	})
 
@@ -740,12 +773,12 @@ func TestCLIIntegration(t *testing.T) {
 		}
 
 		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=contextpolicy/test-context", "./...")
-		if exitCode != 3 || !strings.Contains(output, "use t.Context() or b.Context()") {
+		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 opt-in check: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, modernModule, binary, "-enable-all", "./...")
-		if exitCode != 3 || !strings.Contains(output, "use t.Context() or b.Context()") {
+		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 enable-all: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -1092,9 +1125,18 @@ var event = EventRow{"42", "created"}
 var cache = map[string]string{}
 
 func initialize() {
+	cache["ready"] = "true"
 	sync.OnceFunc(func() {})()
 }
 `)
+	return directory
+}
+
+func writeLanguageVersionModule(t *testing.T, version, source string) string {
+	t.Helper()
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/languageversion\n\ngo "+version+"\n")
+	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), source)
 	return directory
 }
 
@@ -1159,7 +1201,7 @@ import (
 
 func TestBackground(t *testing.T) {
 	_ = t
-	_ = context.Background()
+	go func(ctx context.Context) { <-ctx.Done() }(context.Background())
 }
 `)
 	return directory
@@ -1230,7 +1272,7 @@ func moduleFileContents(t *testing.T, module, relativePath string) string {
 
 func runCommand(t *testing.T, directory, name string, arguments ...string) (string, int) {
 	t.Helper()
-	command := exec.Command(name, arguments...)
+	command := exec.CommandContext(t.Context(), name, arguments...)
 	command.Dir = directory
 	command.Env = append(os.Environ(), "GOWORK=off")
 	output, err := command.CombinedOutput()

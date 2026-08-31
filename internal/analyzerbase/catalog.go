@@ -160,9 +160,7 @@ func cloneGroups(groups []GroupSpec) []GroupSpec {
 
 func cloneAnalyzerSpec(spec AnalyzerSpec) AnalyzerSpec {
 	checks := make([]CheckInfo, len(spec.Checks))
-	for index, check := range spec.Checks {
-		checks[index] = check
-	}
+	copy(checks, spec.Checks)
 	spec.Checks = checks
 	return spec
 }

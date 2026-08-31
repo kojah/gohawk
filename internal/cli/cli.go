@@ -4,7 +4,6 @@ package cli
 import (
 	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"os"
 	"slices"
@@ -66,7 +65,7 @@ func runCLI(arguments []string, runtime cliRuntime) cliResult {
 			if errors.Is(err, flag.ErrHelp) {
 				return cliResult{}
 			}
-			fmt.Fprintln(runtime.errorsOutput, "gohawk list:", err)
+			writeLine(runtime.errorsOutput, "gohawk list:", err)
 			return cliResult{exitCode: 2}
 		}
 		return cliResult{}
@@ -76,7 +75,7 @@ func runCLI(arguments []string, runtime cliRuntime) cliResult {
 			if errors.Is(err, flag.ErrHelp) {
 				return cliResult{}
 			}
-			fmt.Fprintln(runtime.errorsOutput, "gohawk doc:", err)
+			writeLine(runtime.errorsOutput, "gohawk doc:", err)
 			return cliResult{exitCode: 2}
 		}
 		return cliResult{}
@@ -92,7 +91,7 @@ func runCLI(arguments []string, runtime cliRuntime) cliResult {
 	metadata := gohawk.AnalyzerMetadata()
 	plan, err := buildExecutionPlan(arguments, analyzers, gohawk.AnalyzerGroups(), metadata, runtime.getenv(richOutputChild) != "")
 	if err != nil {
-		fmt.Fprintln(runtime.errorsOutput, "gohawk:", err)
+		writeLine(runtime.errorsOutput, "gohawk:", err)
 		return cliResult{exitCode: 2}
 	}
 	selectedArguments := plan.arguments

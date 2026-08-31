@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"go/ast"
+	"go/types"
 	"go/version"
 	"strings"
 
@@ -20,7 +21,7 @@ func contextPolicyAnalyzer() *analysis.Analyzer {
 		Doc:      "checks context placement, storage, nil use, and test ownership",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 	}
-	analyzer.Flags.BoolVar(&config.preferTestContext, "prefer-test-context", true, "prefer t.Context or b.Context over context.Background in tests")
+	analyzer.Flags.BoolVar(&config.preferTestContext, "prefer-test-context", true, "check detached test-owned goroutines rooted in a never-cancelled context")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runContextPolicy(pass, config)
 	}
@@ -40,9 +41,8 @@ func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, err
 		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
 		}
-		isTest := strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
 		ast.Inspect(file, func(node ast.Node) bool {
-			checkContextStructure(pass, node, isTest && supportsTestingContext(pass), config)
+			checkContextStructure(pass, node)
 			return true
 		})
 	}
@@ -54,6 +54,9 @@ func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, err
 					reportNilSSAContextArguments(pass, call)
 				}
 			}
+		}
+		if config.preferTestContext && supportsTestingContext(pass) {
+			reportDetachedTestBackground(pass, function)
 		}
 	}
 	return nil, nil
@@ -70,32 +73,58 @@ func supportsTestingContext(pass *analysis.Pass) bool {
 	return version.Compare(moduleVersion, "go1.24") >= 0
 }
 
-func checkContextStructure(pass *analysis.Pass, node ast.Node, isTest bool, config contextPolicyConfig) {
+func checkContextStructure(pass *analysis.Pass, node ast.Node) {
 	switch typed := node.(type) {
 	case *ast.FuncDecl:
-		// The rule constrains the first context's position, not the number of
-		// independent contexts a function accepts. Once the first parameter is
-		// a context, a later context does not violate the ordering contract.
-		// https://github.com/heymaikol/network-doctor/blob/6d0df6eaba1de237077e0a1f8224fd8d5c3d083a/internal/peer/session.go#L858
-		for index, parameter := range parameterTypes(pass, typed.Type.Params) {
-			if analysisutil.NamedType(parameter, "context", "Context") {
-				if index != 0 {
-					reportf(pass, checkContextFirst, typed.Name.Pos(), "context.Context must be first parameter")
-				}
+		parameters := parameterTypes(pass, typed.Type.Params)
+		for index, parameter := range parameters {
+			if analysisutil.NamedType(parameter, "context", "Context") && !validContextPosition(parameters, index) {
+				reportf(pass, checkContextFirst, typed.Name.Pos(), "context.Context must be first parameter")
 				break
 			}
 		}
 	case *ast.StructType:
+		if ownsStoredContext(pass, typed) {
+			return
+		}
 		for _, field := range typed.Fields.List {
 			if analysisutil.NamedType(pass.TypesInfo.TypeOf(field.Type), "context", "Context") {
 				reportf(pass, checkContextStorage, field.Pos(), "do not store context.Context in a struct")
 			}
 		}
-	case *ast.CallExpr:
-		if config.preferTestContext && isTest && analysisutil.IsPackageCall(pass, typed, analysisutil.FunctionSymbol{Package: "context", Name: "Background"}) {
-			reportf(pass, checkContextTestOwnership, typed.Pos(), "use t.Context() or b.Context() instead of context.Background()")
-		}
 	}
+}
+
+func validContextPosition(parameters []types.Type, index int) bool {
+	if index == 0 {
+		return true
+	}
+	// Once a context leads the API, a second context can represent a distinct
+	// lifecycle rather than misplaced plumbing. Network Doctor uses parent and
+	// server contexts this way:
+	// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/peer/session.go#L858
+	if analysisutil.NamedType(parameters[0], "context", "Context") {
+		return true
+	}
+	// Testing handles conventionally lead helper signatures because they own
+	// failures and cleanup. Treat the following context as the first application
+	// parameter instead of asking helpers to put ctx before t or b.
+	return index == 1 && (analysisutil.NamedType(parameters[0], "testing", "T") || analysisutil.NamedType(parameters[0], "testing", "B"))
+}
+
+func ownsStoredContext(pass *analysis.Pass, structure *ast.StructType) bool {
+	hasContext := false
+	hasCancel := false
+	for _, field := range structure.Fields.List {
+		fieldType := pass.TypesInfo.TypeOf(field.Type)
+		hasContext = hasContext || analysisutil.NamedType(fieldType, "context", "Context")
+		hasCancel = hasCancel || analysisutil.NamedType(fieldType, "context", "CancelFunc")
+	}
+	// A typed cancel handle is strong evidence that the struct owns a bounded
+	// component lifecycle rather than retaining a request context as data. This
+	// pattern is paired with Close/Wait machinery in Network Doctor's servers:
+	// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/simulation/httpconnect.go#L40-L57
+	return hasContext && hasCancel
 }
 
 func reportNilSSAContextArguments(pass *analysis.Pass, call *ssa.Call) {

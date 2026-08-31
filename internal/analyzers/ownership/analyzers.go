@@ -19,11 +19,13 @@ const (
 	checkResourceRelease          = analyzerbase.CheckResourceRelease
 )
 
-var reportf = analyzerbase.Reportf
-var report = analyzerbase.Report
-var newChoiceValue = analyzerbase.NewChoiceValue
-var newCommaSeparatedChoice = analyzerbase.NewCommaSeparatedChoice
-var commaSeparatedSet = analyzerbase.CommaSeparatedSet
+var (
+	reportf                 = analyzerbase.Reportf
+	report                  = analyzerbase.Report
+	newChoiceValue          = analyzerbase.NewChoiceValue
+	newCommaSeparatedChoice = analyzerbase.NewCommaSeparatedChoice
+	commaSeparatedSet       = analyzerbase.CommaSeparatedSet
+)
 
 // Specs returns the ownership and lifecycle analyzer declarations in stable order.
 func Specs() []analyzerbase.AnalyzerSpec {
