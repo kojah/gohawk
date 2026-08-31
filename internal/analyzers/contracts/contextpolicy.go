@@ -85,7 +85,7 @@ func checkContextStructure(pass *analysis.Pass, file *ast.File, node ast.Node) {
 		}
 	case *ast.TypeSpec:
 		structure, ok := typed.Type.(*ast.StructType)
-		if !ok || dedicatedContextCarrier(typed.Name.Name) || testContextFixture(pass, file, typed.Name.Name) || ownsStoredContext(pass, structure) {
+		if !ok || dedicatedContextCarrier(typed.Name.Name) || testOwnedContextCarrier(pass, file, typed.Name.Name) || ownsStoredContext(pass, structure) {
 			return
 		}
 		for _, field := range structure.Fields.List {
@@ -105,12 +105,13 @@ func dedicatedContextCarrier(name string) bool {
 	return strings.HasSuffix(name, "Context") || strings.HasSuffix(name, "Transition")
 }
 
-func testContextFixture(pass *analysis.Pass, file *ast.File, name string) bool {
+func testOwnedContextCarrier(pass *analysis.Pass, file *ast.File, name string) bool {
 	if !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
 		return false
 	}
-	// Private test structs are fixture implementation details with a test-owned
-	// lifetime. Keep exported examples and contracts visible to the rule.
+	// Private test structs and explicitly named TestCase/Fixture carriers have a
+	// lifetime owned by the test binary. Other exported test types remain visible
+	// so examples of production contracts are still checked.
 	return !ast.IsExported(name) || strings.HasSuffix(name, "TestCase") || strings.HasSuffix(name, "Fixture")
 }
 

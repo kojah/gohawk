@@ -143,6 +143,9 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 				// before reasoning about its lifecycle. ccLoad coordinates a dynamic
 				// set of pending calls this way:
 				// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/sdk_runner.go#L410-L470
+				// Kubernetes likewise acquires a dynamically selected set of lock
+				// stripes:
+				// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/kubelet/images/pullmanager/locks.go#L56-L65
 				if dynamicIndexedMutex(receiver) {
 					continue
 				}
@@ -160,7 +163,7 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 				if acquiredAt[identity] == token.NoPos {
 					acquiredAt[identity] = instruction.Pos()
 				}
-				held = acquireLock(pass, instruction, held, identity, relations, false)
+				held = acquireLock(pass, instruction, held, identity, relations)
 			case mutexRelease:
 				released[identity] = true
 				if _, isDefer := instruction.(*ssa.Defer); isDefer {
@@ -235,15 +238,9 @@ func callerOwnedLocks(function *ssa.Function) map[string]bool {
 	return result
 }
 
-func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string, identity string, relations map[lockRelation]token.Pos, dynamicIndex bool) []string {
+func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string, identity string, relations map[lockRelation]token.Pos) []string {
 	if slices.Contains(held, identity) {
-		// Re-entering one acquisition site while ranging over a lock slice can
-		// represent a different lock on every iteration. Kubernetes' GlobalLock
-		// intentionally acquires every stripe this way:
-		// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/kubelet/images/pullmanager/locks.go#L56-L65
-		if !dynamicIndex {
-			reportf(pass, checkLockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
-		}
+		reportf(pass, checkLockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
 		return held
 	}
 	for _, owner := range held {
