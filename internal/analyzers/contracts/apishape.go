@@ -35,6 +35,8 @@ type apiShapeConfig struct {
 func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 	receivers := map[string]uint8{}
 	receiverPositions := map[string]token.Pos{}
+	interfaces := apiShapeInterfaces(pass)
+	callbacks := apiShapeCallbacks(pass)
 	for _, file := range pass.Files {
 		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
@@ -46,6 +48,9 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 			}
 			recordReceiver(declaration, receivers, receiverPositions)
 			if !declaration.Name.IsExported() {
+				return false
+			}
+			if constrainedSignature(pass, declaration, interfaces, callbacks) {
 				return false
 			}
 			parameters := parameterTypes(pass, declaration.Type.Params)
@@ -62,6 +67,146 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+func constrainedSignature(pass *analysis.Pass, declaration *ast.FuncDecl, interfaces []*types.Interface, callbacks map[types.Object]bool) bool {
+	if hasBlankParameter(declaration.Type.Params) || methodRequiredByInterface(pass, declaration, interfaces) {
+		return true
+	}
+	return callbacks[pass.TypesInfo.Defs[declaration.Name]]
+}
+
+func apiShapeCallbacks(pass *analysis.Pass) map[types.Object]bool {
+	result := map[types.Object]bool{}
+	for _, file := range pass.Files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			functionType := pass.TypesInfo.TypeOf(call.Fun)
+			if functionType == nil {
+				return true
+			}
+			signature, signatureOK := functionType.Underlying().(*types.Signature)
+			if !signatureOK {
+				return true
+			}
+			for index, argument := range call.Args {
+				if !functionParameterIsCallback(signature, index) {
+					continue
+				}
+				identifier, identifierOK := unparenthesizedAPIShapeExpression(argument).(*ast.Ident)
+				if !identifierOK {
+					continue
+				}
+				if function, functionOK := pass.TypesInfo.Uses[identifier].(*types.Func); functionOK {
+					// An actual function-value use is stronger evidence than a matching
+					// shape alone: changing this declaration would break its callback
+					// consumer. ccLoad's protocol adapter uses this contract:
+					// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/protocol/builtin/cliproxy_adapter.go#L143
+					result[function] = true
+				}
+			}
+			return true
+		})
+	}
+	return result
+}
+
+func unparenthesizedAPIShapeExpression(expression ast.Expr) ast.Expr {
+	for {
+		parenthesized, ok := expression.(*ast.ParenExpr)
+		if !ok {
+			return expression
+		}
+		expression = parenthesized.X
+	}
+}
+
+func hasBlankParameter(parameters *ast.FieldList) bool {
+	if parameters == nil {
+		return false
+	}
+	for _, field := range parameters.List {
+		for _, name := range field.Names {
+			if name.Name == "_" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func methodRequiredByInterface(pass *analysis.Pass, declaration *ast.FuncDecl, interfaces []*types.Interface) bool {
+	if declaration.Recv == nil {
+		return false
+	}
+	function, ok := pass.TypesInfo.Defs[declaration.Name].(*types.Func)
+	if !ok {
+		return false
+	}
+	receiver := function.Signature().Recv().Type()
+	for _, iface := range interfaces {
+		if apiShapeInterfaceMethod(iface, function.Name()) != nil && types.Implements(receiver, iface) {
+			return true
+		}
+	}
+	return false
+}
+
+func apiShapeInterfaceMethod(iface *types.Interface, name string) *types.Func {
+	iface.Complete()
+	for index := range iface.NumMethods() {
+		method := iface.Method(index)
+		if method.Name() == name {
+			return method
+		}
+	}
+	return nil
+}
+
+func apiShapeInterfaces(pass *analysis.Pass) []*types.Interface {
+	seen := map[*types.Interface]bool{}
+	var result []*types.Interface
+	add := func(value types.Type) {
+		if value == nil {
+			return
+		}
+		iface, ok := value.Underlying().(*types.Interface)
+		if !ok || seen[iface] {
+			return
+		}
+		seen[iface] = true
+		result = append(result, iface)
+	}
+	for _, object := range pass.TypesInfo.Defs {
+		if object != nil {
+			add(object.Type())
+		}
+	}
+	for expression := range pass.TypesInfo.Types {
+		add(pass.TypesInfo.TypeOf(expression))
+	}
+	return result
+}
+
+func functionParameterIsCallback(signature *types.Signature, argument int) bool {
+	parameters := signature.Params()
+	if signature.Variadic() && argument >= parameters.Len()-1 {
+		argument = parameters.Len() - 1
+	}
+	if argument < 0 || argument >= parameters.Len() {
+		return false
+	}
+	parameter := parameters.At(argument).Type()
+	if signature.Variadic() {
+		if slice, ok := parameter.(*types.Slice); ok {
+			parameter = slice.Elem()
+		}
+	}
+	_, ok := parameter.Underlying().(*types.Signature)
+	return ok
 }
 
 func recordReceiver(declaration *ast.FuncDecl, receivers map[string]uint8, positions map[string]token.Pos) {

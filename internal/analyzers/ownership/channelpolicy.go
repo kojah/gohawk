@@ -59,6 +59,14 @@ func checkChannelCapacity(pass *analysis.Pass, file *ast.File, call *ast.CallExp
 	if maximum < 0 {
 		return
 	}
+	// Capacity rationale is an operational ownership policy for production
+	// queues. A channel created in a test file is fixture synchronization with a
+	// test-scoped lifetime; the caller-close and send-after-close checks still
+	// analyze it. ccLoad uses fixed buffers to collect known concurrent results:
+	// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/app/admin_codex_auth_test.go#L3768-L3784
+	if strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
+		return
+	}
 	builtin, ok := call.Fun.(*ast.Ident)
 	if !ok || builtin.Name != "make" || len(call.Args) < 2 {
 		return

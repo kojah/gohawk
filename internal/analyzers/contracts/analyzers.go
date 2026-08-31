@@ -30,10 +30,10 @@ func Specs() []analyzerbase.AnalyzerSpec {
 		{
 			Analyzer: apiShapeAnalyzer(), OptIn: true,
 			Checks: []analyzerbase.CheckInfo{
-				{ID: checkAPIParameterCount, Doc: "Reports exported APIs with more than the configured maximum number of parameters."},
+				{ID: checkAPIParameterCount, Doc: "Reports unconstrained exported APIs with more than the configured maximum number of parameters."},
 				{ID: checkAPIMixedReceivers, Doc: "Reports types that mix pointer and value receiver methods."},
-				{ID: checkAPIAdjacentSameType, Doc: "Reports long adjacent runs of parameters that share one type."},
-				{ID: checkAPIAdjacentOptional, Doc: "Reports adjacent optional scalar parameters that are easy to swap."},
+				{ID: checkAPIAdjacentSameType, Doc: "Reports long adjacent runs of parameters in unconstrained signatures that share one type."},
+				{ID: checkAPIAdjacentOptional, Doc: "Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap."},
 			},
 		},
 		{

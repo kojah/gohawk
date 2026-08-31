@@ -39,7 +39,7 @@ func Specs() []analyzerbase.AnalyzerSpec {
 		{
 			Analyzer: channelPolicyAnalyzer(),
 			Checks: []analyzerbase.CheckInfo{
-				{ID: checkChannelCapacityRationale, Doc: "Reports large constant channel capacities without a nearby bounded rationale.", OptIn: true},
+				{ID: checkChannelCapacityRationale, Doc: "Reports large constant channel capacities in production files without a nearby bounded rationale.", OptIn: true},
 				{ID: checkChannelCallerClose, Doc: "Reports functions that close channels received from their callers."},
 				{ID: checkChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed."},
 			},

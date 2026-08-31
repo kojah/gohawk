@@ -10,17 +10,19 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 Reports exported functions with too many parameters, long runs of parameters
 that share one type, and adjacent optional scalar parameters that are easy to
-swap. It also reports types that mix pointer and value receiver methods.
+swap. Signatures constrained by an implemented interface, an observed callback
+use, or explicit blank compatibility parameters are accepted. It also reports
+types that mix pointer and value receiver methods.
 
 ### Checks
 
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="parameter-count" optIn /> | Reports exported APIs with more than the configured maximum number of parameters. |
+| <CheckIdentity name="parameter-count" optIn /> | Reports unconstrained exported APIs with more than the configured maximum number of parameters. |
 | <CheckIdentity name="mixed-receivers" optIn /> | Reports types that mix pointer and value receiver methods. |
-| <CheckIdentity name="adjacent-same-type" optIn /> | Reports long adjacent runs of parameters that share one type. |
-| <CheckIdentity name="adjacent-optional-scalars" optIn /> | Reports adjacent optional scalar parameters that are easy to swap. |
+| <CheckIdentity name="adjacent-same-type" optIn /> | Reports long adjacent runs of parameters in unconstrained signatures that share one type. |
+| <CheckIdentity name="adjacent-optional-scalars" optIn /> | Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap. |
 
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}

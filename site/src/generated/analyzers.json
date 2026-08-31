@@ -13,7 +13,7 @@
           "checks": [
             {
               "id": "apishape/parameter-count",
-              "summary": "Reports exported APIs with more than the configured maximum number of parameters.",
+              "summary": "Reports unconstrained exported APIs with more than the configured maximum number of parameters.",
               "optIn": true
             },
             {
@@ -23,12 +23,12 @@
             },
             {
               "id": "apishape/adjacent-same-type",
-              "summary": "Reports long adjacent runs of parameters that share one type.",
+              "summary": "Reports long adjacent runs of parameters in unconstrained signatures that share one type.",
               "optIn": true
             },
             {
               "id": "apishape/adjacent-optional-scalars",
-              "summary": "Reports adjacent optional scalar parameters that are easy to swap.",
+              "summary": "Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap.",
               "optIn": true
             }
           ],
@@ -147,7 +147,7 @@
           "checks": [
             {
               "id": "channelpolicy/capacity-rationale",
-              "summary": "Reports large constant channel capacities without a nearby bounded rationale.",
+              "summary": "Reports large constant channel capacities in production files without a nearby bounded rationale.",
               "optIn": true
             },
             {

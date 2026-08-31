@@ -190,7 +190,7 @@ func TestAnalyzers(t *testing.T) {
 		{name: "testpolicy", packages: []string{"testpolicy"}},
 		{name: "goroutineownership", packages: []string{"goroutineownership"}},
 		{name: "errorownership", packages: []string{"errorownership"}},
-		{name: "channelpolicy", packages: []string{"channelpolicy"}},
+		{name: "channelpolicy", packages: []string{"channelpolicy", "channelpolicy/testfiles"}},
 		{name: "processownership", packages: []string{"processownership"}},
 		{name: "closedomain", packages: []string{"closedomain", "closedomain/cases", "closedomain/source", "closedomain/consumer"}},
 		{name: "taintpolicy", packages: []string{"taintpolicy"}},
