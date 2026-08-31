@@ -103,16 +103,89 @@ func allowedGlobal(pass *analysis.Pass, name *ast.Ident, object types.Object, de
 	if strings.HasSuffix(name.Name, "Schema") || analysisutil.NamedType(value, "sync", "Once") || analysisutil.NamedType(value, "regexp", "Regexp") {
 		return true
 	}
+	if conventionalErrorSentinel(pass, name, object, specification, index, usage) {
+		return true
+	}
 	if documentedTestSeam(name, object, declaration, specification) {
 		return true
 	}
-	if index < len(specification.Values) {
-		call, ok := specification.Values[index].(*ast.CallExpr)
-		if ok && analysisutil.IsPackageCall(pass, call, analysisutil.FunctionSymbol{Package: "errors", Name: "New"}) {
+	return effectivelyImmutableComposite(pass, name, object, specification, index, usage)
+}
+
+func conventionalErrorSentinel(pass *analysis.Pass, name *ast.Ident, object types.Object, specification *ast.ValueSpec, index int, usage globalStateUsage) bool {
+	if index >= len(specification.Values) || !errorSentinelName(name.Name) || !analysisutil.IsErrorType(object.Type()) {
+		return false
+	}
+	initializer := specification.Values[index]
+	if !analysisutil.IsErrorType(pass.TypesInfo.TypeOf(initializer)) {
+		return false
+	}
+	// ErrFoo and errFoo are Go's conventional names for stable sentinel
+	// identities. Recognizing the contract rather than individual constructors
+	// covers standard and third-party error packages without an expanding
+	// allowlist. ElasticKV uses github.com/cockroachdb/errors this way:
+	// https://github.com/bootjp/elastickv/blob/ddbb0a5b60a691890cb5595c185cdb16fee478b3/adapter/admin_backup.go#L45-L46
+	// A later assignment or taking the variable's address invalidates that
+	// evidence and makes it ordinary mutable package state again.
+	return !globalObjectReassignedOrAddressed(pass, object, usage)
+}
+
+func errorSentinelName(name string) bool {
+	if name == "Err" || name == "err" {
+		return true
+	}
+	return len(name) > 3 && (strings.HasPrefix(name, "Err") || strings.HasPrefix(name, "err")) && name[3] >= 'A' && name[3] <= 'Z'
+}
+
+func globalObjectReassignedOrAddressed(pass *analysis.Pass, object types.Object, usage globalStateUsage) bool {
+	for _, file := range usage.files {
+		unsafe := false
+		ast.Inspect(file, func(node ast.Node) bool {
+			if unsafe {
+				return false
+			}
+			identifier, ok := node.(*ast.Ident)
+			if !ok || pass.TypesInfo.Uses[identifier] != object {
+				return true
+			}
+			var current ast.Node = identifier
+			parent := usage.parents[current]
+			for {
+				parenthesized, parenthesizedOK := parent.(*ast.ParenExpr)
+				if !parenthesizedOK {
+					break
+				}
+				current = parenthesized
+				parent = usage.parents[current]
+			}
+			switch typed := parent.(type) {
+			case *ast.AssignStmt:
+				for _, left := range typed.Lhs {
+					if left == current {
+						unsafe = true
+						return false
+					}
+				}
+			case *ast.IncDecStmt:
+				if typed.X == current {
+					unsafe = true
+				}
+			case *ast.RangeStmt:
+				if typed.Key == current || typed.Value == current {
+					unsafe = true
+				}
+			case *ast.UnaryExpr:
+				if typed.Op == token.AND {
+					unsafe = true
+				}
+			}
+			return !unsafe
+		})
+		if unsafe {
 			return true
 		}
 	}
-	return effectivelyImmutableComposite(pass, name, object, specification, index, usage)
+	return false
 }
 
 func documentedTestSeam(name *ast.Ident, object types.Object, declaration *ast.GenDecl, specification *ast.ValueSpec) bool {

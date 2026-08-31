@@ -109,6 +109,30 @@ var ExportedLookup = map[string]string{"key": "value"} // want "mutable package 
 
 var nestedMutableLookup = map[string][]string{"key": {"value"}} // want "mutable package state nestedMutableLookup"
 
+type fixtureSentinelError string
+
+func (e fixtureSentinelError) Error() string { return string(e) }
+
+func newFixtureSentinel(message string) error { return fixtureSentinelError(message) }
+
+var ErrExternalStyle = newFixtureSentinel("external")
+
+var errInternalStyle = newFixtureSentinel("internal")
+
+var currentError = errors.New("mutable slot") // want "mutable package state currentError"
+
+var errorState = errors.New("not conventionally named") // want "mutable package state errorState"
+
+var ErrReassigned = errors.New("initial") // want "mutable package state ErrReassigned"
+
+func replaceSentinel() { ErrReassigned = errors.New("replacement") }
+
+var ErrAddressed = errors.New("initial") // want "mutable package state ErrAddressed"
+
+func sentinelAddress() *error { return &ErrAddressed }
+
+var ErrNil error // want "mutable package state ErrNil"
+
 var replaceable = func() {} // want "mutable package state replaceable"
 
 // testClock is a seam tests replace with a deterministic clock.
