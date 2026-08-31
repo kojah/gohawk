@@ -295,8 +295,10 @@ func orderedObjectObservation(pass *analysis.Pass, expression ast.Expr, object t
 
 func orderInsensitiveCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 	for _, symbol := range []analysisutil.FunctionSymbol{
-		{Package: "slices", Name: "Contains"}, {Package: "slices", Name: "ContainsFunc"},
-		{Package: "slices", Name: "Equal"}, {Package: "slices", Name: "EqualFunc"},
+		{Package: "slices", Name: "Contains"},
+		{Package: "slices", Name: "ContainsFunc"},
+		{Package: "slices", Name: "Equal"},
+		{Package: "slices", Name: "EqualFunc"},
 	} {
 		if analysisutil.IsPackageCall(pass, call, symbol) {
 			return true
@@ -408,8 +410,12 @@ func orderedFunctionResult(pass *analysis.Pass, function *ast.FuncDecl) bool {
 
 func orderedSinkCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 	for _, symbol := range []analysisutil.FunctionSymbol{
-		{Package: "fmt", Name: "Print"}, {Package: "fmt", Name: "Printf"}, {Package: "fmt", Name: "Println"},
-		{Package: "fmt", Name: "Fprint"}, {Package: "fmt", Name: "Fprintf"}, {Package: "fmt", Name: "Fprintln"},
+		{Package: "fmt", Name: "Print"},
+		{Package: "fmt", Name: "Printf"},
+		{Package: "fmt", Name: "Println"},
+		{Package: "fmt", Name: "Fprint"},
+		{Package: "fmt", Name: "Fprintf"},
+		{Package: "fmt", Name: "Fprintln"},
 	} {
 		if analysisutil.IsPackageCall(pass, call, symbol) {
 			return true

@@ -1,4 +1,55 @@
 version: "2"
 
+formatters:
+  enable:
+    - gofumpt
+
 linters:
   default: standard
+  enable:
+    - contextcheck
+    - copyloopvar
+    - errorlint
+    - exhaustive
+    - gocritic
+    - gosec
+    - intrange
+    - misspell
+    - nilerr
+    - nilnesserr
+    - noctx
+    - perfsprint
+    - testifylint
+    - thelper
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+  settings:
+    exhaustive:
+      # Analyzer switches intentionally use conservative default branches for
+      # tokens and syntax added by future Go releases.
+      default-signifies-exhaustive: true
+  exclusions:
+    rules:
+      # Test fixtures intentionally execute variable commands and create
+      # ordinary repository files and directories.
+      - path: _test\.go
+        linters:
+          - gosec
+      # These command boundaries intentionally execute the current gohawk
+      # process or a command supplied by the measurement caller.
+      - path: ^internal/(cli/output|cmd/measure/main)\.go$
+        text: "G(204|702):"
+        linters:
+          - gosec
+      # Documentation tooling reads discovered source paths and writes
+      # shareable repository assets with ordinary directory/file modes.
+      - path: ^internal/cmd/gendocs/main\.go$
+        text: "G30(1|4|6):"
+        linters:
+          - gosec
+      - path: ^internal/docexamples/examples\.go$
+        text: "G(122|304):"
+        linters:
+          - gosec

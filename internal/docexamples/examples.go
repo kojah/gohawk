@@ -5,6 +5,7 @@ package docexamples
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"go/token"
 	"io/fs"
@@ -86,7 +87,7 @@ func Collect(root string, analyzer *analysis.Analyzer) (Set, error) {
 		return Set{}, err
 	}
 	if len(loaded) == 0 {
-		return Set{}, fmt.Errorf("no package was loaded")
+		return Set{}, errors.New("no package was loaded")
 	}
 	if count := packages.PrintErrors(loaded); count > 0 {
 		return Set{}, fmt.Errorf("fixture package has %d load errors", count)
@@ -269,7 +270,7 @@ func lineColumn(source string, offset int) (line, column int) {
 	if offset > len(source) {
 		offset = len(source)
 	}
-	for index := 0; index < offset; index++ {
+	for index := range offset {
 		switch source[index] {
 		case '\n':
 			line++

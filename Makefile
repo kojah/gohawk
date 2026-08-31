@@ -1,5 +1,4 @@
 GO ?= go
-GOFMT ?= gofmt
 PNPM ?= corepack pnpm
 LYCHEE ?= lychee
 GOLANGCI_LINT_VERSION ?= v2.13.2
@@ -39,10 +38,10 @@ build:
 	$(GO) build -o "$(GOHAWK_BINARY)" .
 
 fmt:
-	$(GOFMT) -w $$(git ls-files '*.go')
+	$(GOLANGCI_LINT) fmt
 
 fmt-check:
-	@test -z "$$($(GOFMT) -l .)"
+	$(GOLANGCI_LINT) fmt --diff
 
 generate:
 	$(GO) generate ./...

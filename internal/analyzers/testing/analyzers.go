@@ -12,8 +12,10 @@ const (
 	checkTestHelperMarker    = analyzerbase.CheckTestHelperMarker
 )
 
-var reportf = analyzerbase.Reportf
-var report = analyzerbase.Report
+var (
+	reportf = analyzerbase.Reportf
+	report  = analyzerbase.Report
+)
 
 // Specs returns the testing analyzer declarations in stable order.
 func Specs() []analyzerbase.AnalyzerSpec {

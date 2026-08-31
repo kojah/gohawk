@@ -414,28 +414,25 @@ func conditionIdentity(value ssa.Value) (string, bool) {
 	if !ok || (comparison.Op != token.EQL && comparison.Op != token.NEQ) {
 		return "", false
 	}
-	left, leftOK := conditionOperandIdentity(comparison.X)
-	right, rightOK := conditionOperandIdentity(comparison.Y)
-	if !leftOK || !rightOK {
-		return "", false
-	}
+	left := conditionOperandIdentity(comparison.X)
+	right := conditionOperandIdentity(comparison.Y)
 	if right < left {
 		left, right = right, left
 	}
 	return comparison.Op.String() + ":" + left + ":" + right, true
 }
 
-func conditionOperandIdentity(value ssa.Value) (string, bool) {
+func conditionOperandIdentity(value ssa.Value) string {
 	switch typed := value.(type) {
 	case *ssa.Parameter:
-		return fmt.Sprintf("parameter:%p", typed), true
+		return fmt.Sprintf("parameter:%p", typed)
 	case *ssa.Const:
 		if typed.Value == nil {
-			return "constant:nil:" + types.TypeString(typed.Type(), nil), true
+			return "constant:nil:" + types.TypeString(typed.Type(), nil)
 		}
-		return "constant:" + typed.Value.ExactString(), true
+		return "constant:" + typed.Value.ExactString()
 	default:
-		return fmt.Sprintf("%T:%p", value, value), true
+		return fmt.Sprintf("%T:%p", value, value)
 	}
 }
 

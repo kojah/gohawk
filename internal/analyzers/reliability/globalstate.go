@@ -247,14 +247,22 @@ func readOnlyCollectionBuiltin(pass *analysis.Pass, call *ast.CallExpr) bool {
 
 func readOnlyCollectionPackageCall(pass *analysis.Pass, call *ast.CallExpr) bool {
 	for _, symbol := range []analysisutil.FunctionSymbol{
-		{Package: "slices", Name: "Contains"}, {Package: "slices", Name: "ContainsFunc"},
-		{Package: "slices", Name: "Index"}, {Package: "slices", Name: "IndexFunc"},
-		{Package: "slices", Name: "Equal"}, {Package: "slices", Name: "EqualFunc"},
-		{Package: "slices", Name: "Compare"}, {Package: "slices", Name: "CompareFunc"},
-		{Package: "slices", Name: "IsSorted"}, {Package: "slices", Name: "IsSortedFunc"},
-		{Package: "maps", Name: "Clone"}, {Package: "maps", Name: "Equal"},
-		{Package: "maps", Name: "EqualFunc"}, {Package: "maps", Name: "Keys"},
-		{Package: "maps", Name: "Values"}, {Package: "maps", Name: "All"},
+		{Package: "slices", Name: "Contains"},
+		{Package: "slices", Name: "ContainsFunc"},
+		{Package: "slices", Name: "Index"},
+		{Package: "slices", Name: "IndexFunc"},
+		{Package: "slices", Name: "Equal"},
+		{Package: "slices", Name: "EqualFunc"},
+		{Package: "slices", Name: "Compare"},
+		{Package: "slices", Name: "CompareFunc"},
+		{Package: "slices", Name: "IsSorted"},
+		{Package: "slices", Name: "IsSortedFunc"},
+		{Package: "maps", Name: "Clone"},
+		{Package: "maps", Name: "Equal"},
+		{Package: "maps", Name: "EqualFunc"},
+		{Package: "maps", Name: "Keys"},
+		{Package: "maps", Name: "Values"},
+		{Package: "maps", Name: "All"},
 	} {
 		if analysisutil.IsPackageCall(pass, call, symbol) {
 			return true

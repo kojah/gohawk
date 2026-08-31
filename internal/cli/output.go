@@ -2,7 +2,9 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -49,7 +51,7 @@ type processOutput struct {
 type processExecutor func(name string, arguments, environment []string) (processOutput, error)
 
 func executeProcess(name string, arguments, environment []string) (processOutput, error) {
-	command := exec.Command(name, arguments...)
+	command := exec.CommandContext(context.Background(), name, arguments...)
 	command.Env = append(os.Environ(), environment...)
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &stdout
@@ -59,7 +61,8 @@ func executeProcess(name string, arguments, environment []string) (processOutput
 	if err == nil {
 		return result, nil
 	}
-	if exitError, ok := err.(*exec.ExitError); ok {
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) {
 		result.exitCode = exitError.ExitCode()
 		return result, err
 	}

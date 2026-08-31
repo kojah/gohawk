@@ -50,7 +50,7 @@ func runChannelPolicy(pass *analysis.Pass, config channelPolicyConfig) (any, err
 		})
 	}
 	for _, function := range functions {
-		checkSSAChannelOwnership(pass, function, config)
+		checkSSAChannelOwnership(pass, function)
 	}
 	return nil, nil
 }
@@ -92,7 +92,7 @@ func channelRationale(pass *analysis.Pass, file *ast.File, position token.Pos) b
 	return false
 }
 
-func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, config channelPolicyConfig) {
+func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
 	var parameters []ssa.Value
 	for _, parameter := range function.Params {
 		if ssautil.ChannelType(parameter) {

@@ -19,8 +19,10 @@ const (
 	checkWireSerializationTag = analyzerbase.CheckWireSerializationTag
 )
 
-var reportf = analyzerbase.Reportf
-var report = analyzerbase.Report
+var (
+	reportf = analyzerbase.Reportf
+	report  = analyzerbase.Report
+)
 
 // Specs returns the API and data contract analyzer declarations in stable order.
 func Specs() []analyzerbase.AnalyzerSpec {

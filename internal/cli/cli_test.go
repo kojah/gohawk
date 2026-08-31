@@ -1231,7 +1231,7 @@ func moduleFileContents(t *testing.T, module, relativePath string) string {
 
 func runCommand(t *testing.T, directory, name string, arguments ...string) (string, int) {
 	t.Helper()
-	command := exec.Command(name, arguments...)
+	command := exec.CommandContext(t.Context(), name, arguments...)
 	command.Dir = directory
 	command.Env = append(os.Environ(), "GOWORK=off")
 	output, err := command.CombinedOutput()
