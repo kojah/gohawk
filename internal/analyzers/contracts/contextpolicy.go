@@ -42,7 +42,7 @@ func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, err
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {
-			checkContextStructure(pass, node)
+			checkContextStructure(pass, file, node)
 			return true
 		})
 	}
@@ -73,7 +73,7 @@ func supportsTestingContext(pass *analysis.Pass) bool {
 	return version.Compare(moduleVersion, "go1.24") >= 0
 }
 
-func checkContextStructure(pass *analysis.Pass, node ast.Node) {
+func checkContextStructure(pass *analysis.Pass, file *ast.File, node ast.Node) {
 	switch typed := node.(type) {
 	case *ast.FuncDecl:
 		parameters := parameterTypes(pass, typed.Type.Params)
@@ -83,16 +83,35 @@ func checkContextStructure(pass *analysis.Pass, node ast.Node) {
 				break
 			}
 		}
-	case *ast.StructType:
-		if ownsStoredContext(pass, typed) {
+	case *ast.TypeSpec:
+		structure, ok := typed.Type.(*ast.StructType)
+		if !ok || dedicatedContextCarrier(typed.Name.Name) || testContextFixture(pass, file, typed.Name.Name) || ownsStoredContext(pass, structure) {
 			return
 		}
-		for _, field := range typed.Fields.List {
+		for _, field := range structure.Fields.List {
 			if analysisutil.NamedType(pass.TypesInfo.TypeOf(field.Type), "context", "Context") {
 				reportf(pass, checkContextStorage, field.Pos(), "do not store context.Context in a struct")
 			}
 		}
 	}
+}
+
+func dedicatedContextCarrier(name string) bool {
+	// A type explicitly named as a context or operation transition makes the
+	// bounded carrier role visible instead of hiding a request context in
+	// arbitrary state. Garage Operator passes a one-reconcile snapshot between
+	// lifecycle phases using this contract:
+	// https://github.com/rajsinghtech/garage-operator/blob/b2b2b1776e0f344f68f901eae27c2d52b04dfd4e/internal/controller/node_local_pool_lifecycle_phases.go#L55-L83
+	return strings.HasSuffix(name, "Context") || strings.HasSuffix(name, "Transition")
+}
+
+func testContextFixture(pass *analysis.Pass, file *ast.File, name string) bool {
+	if !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
+		return false
+	}
+	// Private test structs are fixture implementation details with a test-owned
+	// lifetime. Keep exported examples and contracts visible to the rule.
+	return !ast.IsExported(name) || strings.HasSuffix(name, "TestCase") || strings.HasSuffix(name, "Fixture")
 }
 
 func validContextPosition(parameters []types.Type, index int) bool {
@@ -114,17 +133,26 @@ func validContextPosition(parameters []types.Type, index int) bool {
 
 func ownsStoredContext(pass *analysis.Pass, structure *ast.StructType) bool {
 	hasContext := false
-	hasCancel := false
+	hasLifecycleHandle := false
 	for _, field := range structure.Fields.List {
 		fieldType := pass.TypesInfo.TypeOf(field.Type)
-		hasContext = hasContext || analysisutil.NamedType(fieldType, "context", "Context")
-		hasCancel = hasCancel || analysisutil.NamedType(fieldType, "context", "CancelFunc")
+		if analysisutil.NamedType(fieldType, "context", "Context") {
+			hasContext = true
+			for _, name := range field.Names {
+				lower := strings.ToLower(name.Name)
+				if strings.Contains(lower, "parent") || strings.Contains(lower, "base") || strings.Contains(lower, "shutdown") || strings.Contains(lower, "lifecycle") {
+					hasLifecycleHandle = true
+				}
+			}
+		}
+		hasLifecycleHandle = hasLifecycleHandle || analysisutil.NamedType(fieldType, "context", "CancelFunc") || analysisutil.NamedType(fieldType, "sync", "WaitGroup")
 	}
-	// A typed cancel handle is strong evidence that the struct owns a bounded
-	// component lifecycle rather than retaining a request context as data. This
-	// pattern is paired with Close/Wait machinery in Network Doctor's servers:
+	// A cancel/join handle or an explicitly lifecycle-named context is strong
+	// evidence that the struct owns a bounded component rather than retaining a
+	// request context as data. This pattern is paired with Close/Wait machinery
+	// in Network Doctor's servers:
 	// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/simulation/httpconnect.go#L40-L57
-	return hasContext && hasCancel
+	return hasContext && hasLifecycleHandle
 }
 
 func reportNilSSAContextArguments(pass *analysis.Pass, call *ssa.Call) {

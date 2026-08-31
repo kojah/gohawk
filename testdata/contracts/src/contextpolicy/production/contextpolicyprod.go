@@ -1,8 +1,10 @@
 package contextpolicyprod
 
-import "context"
-
-import "testing"
+import (
+	"context"
+	"sync"
+	"testing"
+)
 
 func misplaced(value string, ctx context.Context) {} // want "context.Context must be first parameter"
 
@@ -22,6 +24,15 @@ type stored struct {
 type lifecycleOwner struct {
 	ctx    context.Context
 	cancel context.CancelFunc
+}
+
+type joinedLifecycleOwner struct {
+	parentCtx context.Context
+	wg        sync.WaitGroup
+}
+
+type RequestContext struct {
+	ctx context.Context
 }
 
 func accept(context.Context) {}

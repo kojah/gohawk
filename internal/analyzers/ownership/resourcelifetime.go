@@ -1,6 +1,7 @@
 package ownership
 
 import (
+	"go/ast"
 	"go/token"
 	"go/types"
 	"slices"
@@ -69,6 +70,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 		return nil, err
 	}
 	settings := resourceLifetimeSettings{contracts: commaSeparatedSet(config.contracts), requireReaderClose: config.requireReaderClose}
+	stopOrConsumeTimers := timerStopOrConsumeCalls(pass)
 	for _, function := range functions {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
@@ -84,13 +86,126 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				if resource == nil {
 					continue
 				}
-				if resourceLeaks(call, resource, contract) {
+				if resourceLeaks(call, resource, contract) && !stopOrConsumeTimers[call.Pos()] {
 					reportf(pass, checkResourceRelease, call.Pos(), "owned resource from %s.%s is not released on every return path", shortPackage(contract.packagePath), contract.name)
 				}
 			}
 		}
 	}
 	return nil, nil
+}
+
+func timerStopOrConsumeCalls(pass *analysis.Pass) map[token.Pos]bool {
+	result := make(map[token.Pos]bool)
+	for _, file := range pass.Files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			function, ok := node.(*ast.FuncDecl)
+			if !ok || function.Body == nil {
+				return true
+			}
+			acquisitions := make(map[types.Object][]token.Pos)
+			ast.Inspect(function.Body, func(candidate ast.Node) bool {
+				assignment, ok := candidate.(*ast.AssignStmt)
+				if !ok || len(assignment.Lhs) != 1 || len(assignment.Rhs) != 1 {
+					return true
+				}
+				name, nameOK := assignment.Lhs[0].(*ast.Ident)
+				call, callOK := assignment.Rhs[0].(*ast.CallExpr)
+				if nameOK && callOK && analysisutil.IsPackageCall(pass, call, analysisutil.FunctionSymbol{Package: "time", Name: "NewTimer"}) {
+					// SSA records the call position at the opening parenthesis, while
+					// the AST call begins at the package selector. Retain both so the
+					// proven source-level lifecycle can be associated with its SSA call.
+					acquisitions[pass.TypesInfo.ObjectOf(name)] = []token.Pos{call.Pos(), call.Lparen}
+				}
+				return true
+			})
+			for timer, positions := range acquisitions {
+				if timerHasStopDrainAndReceive(pass, function.Body, timer) {
+					// A timer that sets a timeout flag when its channel fires and is
+					// otherwise stopped-and-drained has exactly one cleanup action on
+					// every path. ccLoad uses the canonical form while waiting for two
+					// concurrent identities:
+					// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/app/proxy_responses_websocket_test.go#L3949-L3968
+					for _, position := range positions {
+						result[position] = true
+					}
+				}
+			}
+			return false
+		})
+	}
+	return result
+}
+
+func timerHasStopDrainAndReceive(pass *analysis.Pass, body *ast.BlockStmt, timer types.Object) bool {
+	stopAndDrain := false
+	selected := false
+	ast.Inspect(body, func(node ast.Node) bool {
+		switch typed := node.(type) {
+		case *ast.IfStmt:
+			if expressionCallsTimerStop(pass, typed.Cond, timer) && blockReceivesTimer(pass, typed.Body, timer) {
+				stopAndDrain = true
+			}
+		case *ast.SelectStmt:
+			for _, statement := range typed.Body.List {
+				clause, ok := statement.(*ast.CommClause)
+				if ok && receivesTimer(pass, clause.Comm, timer) {
+					selected = true
+				}
+			}
+		}
+		return !stopAndDrain || !selected
+	})
+	return stopAndDrain && selected
+}
+
+func expressionCallsTimerStop(pass *analysis.Pass, expression ast.Expr, timer types.Object) bool {
+	found := false
+	ast.Inspect(expression, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		selector, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		name, nameOK := selector.X.(*ast.Ident)
+		if nameOK && selector.Sel.Name == "Stop" && pass.TypesInfo.ObjectOf(name) == timer {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func blockReceivesTimer(pass *analysis.Pass, block *ast.BlockStmt, timer types.Object) bool {
+	found := false
+	ast.Inspect(block, func(node ast.Node) bool {
+		if receivesTimer(pass, node, timer) {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func receivesTimer(pass *analysis.Pass, node ast.Node, timer types.Object) bool {
+	if statement, ok := node.(*ast.ExprStmt); ok {
+		node = statement.X
+	}
+	receive, ok := node.(*ast.UnaryExpr)
+	if !ok || receive.Op != token.ARROW {
+		return false
+	}
+	channel, ok := receive.X.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	name, nameOK := channel.X.(*ast.Ident)
+	return nameOK && channel.Sel.Name == "C" && pass.TypesInfo.ObjectOf(name) == timer
 }
 
 func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {
@@ -196,7 +311,12 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []
 		}
 	}
 	for _, method := range methods {
-		if ssautil.DeferredClosureCalls(instruction, method, resource) {
+		// A directly invoked cleanup closure can own an individual error path just
+		// as a defer owns the return path. Require the close before any branch in
+		// the closure so conditional cleanup cannot hide a leak. ccLoad uses this
+		// pattern while constructing verified temporary files:
+		// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/bridge_install.go#L264-L289
+		if ssautil.DeferredClosureCalls(instruction, method, resource) || ssautil.ClosureCallsMethodBeforeBranch(instruction, method, resource) {
 			return true
 		}
 	}
@@ -257,10 +377,41 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 			if success, known := resourceSuccessBranch(state.block, successor, errorValue); known {
 				active = active && success
 			}
+			if present, known := resourcePresenceBranch(state.block, successor, resource); known {
+				active = active && present
+			}
 			queue = append(queue, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released})
 		}
 	}
 	return false
+}
+
+func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value) (bool, bool) {
+	if resource == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
+		return false, false
+	}
+	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
+	if !ok {
+		return false, false
+	}
+	comparison, ok := branch.Cond.(*ssa.BinOp)
+	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
+		return false, false
+	}
+	comparesResourceToNil := valueDerivesFrom(comparison.X, resource, map[ssa.Value]bool{}) && ssautil.DefinitelyNil(comparison.Y) ||
+		valueDerivesFrom(comparison.Y, resource, map[ssa.Value]bool{}) && ssautil.DefinitelyNil(comparison.X)
+	if !comparesResourceToNil {
+		return false, false
+	}
+	trueBranch := successor == block.Succs[0]
+	// On the nil branch there is no owned value to release. This matters when
+	// callers defensively close a response whenever net/http returns one, even
+	// on an error path:
+	// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/app/codex_utls_transport_test.go#L305-L319
+	if comparison.Op == token.NEQ {
+		return trueBranch, true
+	}
+	return !trueBranch, true
 }
 
 func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value {

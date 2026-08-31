@@ -6,9 +6,27 @@ import (
 	"slices"
 	"strings"
 	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/spf13/cobra"
+	"go.uber.org/fx"
+	"k8s.io/apimachinery/pkg/runtime"
+	controllerscheme "sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 var values = map[string]string{} // want "mutable package state values"
+
+var metric = new(prometheus.GaugeVec)
+var rootCommand = new(cobra.Command)
+var module fx.Option
+var runtimeScheme = new(runtime.Scheme)
+var schemeBuilder runtime.SchemeBuilder
+var controllerSchemeBuilder = new(controllerscheme.Builder)
+var addToScheme = controllerSchemeBuilder.AddToScheme
+
+var immutableBytes = []byte("value")
+
+func bytesValue() byte { return immutableBytes[0] }
 
 func mutateValues() { values["key"] = "value" }
 

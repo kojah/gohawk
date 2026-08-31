@@ -185,7 +185,7 @@ func TestAnalyzers(t *testing.T) {
 	}{
 		{name: "apishape", packages: []string{"apishape"}},
 		{name: "contextpolicy", packages: []string{"contextpolicy", "contextpolicy/production"}},
-		{name: "globalstate", packages: []string{"globalstate"}},
+		{name: "globalstate", packages: []string{"globalstate", "globalstate/testfiles"}},
 		{name: "wirepolicy", packages: []string{"wirepolicy"}},
 		{name: "testpolicy", packages: []string{"testpolicy"}},
 		{name: "goroutineownership", packages: []string{"goroutineownership"}},

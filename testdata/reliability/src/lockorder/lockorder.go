@@ -168,6 +168,42 @@ type guardedState struct {
 	mutex sync.Mutex
 }
 
+type pendingCall struct {
+	mutex sync.Mutex
+}
+
+func lockDynamicCalls(ids []string, calls map[string]*pendingCall, fail bool) error {
+	prepared := make([]*pendingCall, 0, len(ids))
+	for _, id := range ids {
+		pending := calls[id]
+		pending.mutex.Lock()
+		if fail {
+			for _, item := range prepared {
+				item.mutex.Unlock()
+			}
+			pending.mutex.Unlock()
+			return errors.New("failed")
+		}
+		prepared = append(prepared, pending)
+	}
+	for _, item := range prepared {
+		item.mutex.Unlock()
+	}
+	return nil
+}
+
+func lockLoopSelectedMutex(mutexes []*sync.Mutex) {
+	var selected *sync.Mutex
+	for _, candidate := range mutexes {
+		selected = candidate
+	}
+	if selected == nil {
+		return
+	}
+	selected.Lock()
+	selected.Unlock()
+}
+
 var firstState guardedState
 var secondState guardedState
 

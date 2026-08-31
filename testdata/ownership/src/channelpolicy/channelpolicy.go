@@ -15,6 +15,15 @@ func closeBorrowedAlias(events chan int) {
 	close(alias) // want "do not close a channel received from caller"
 }
 
+func startOwnedSignal() {
+	done := make(chan struct{})
+	go finishOwnedSignal(done)
+}
+
+func finishOwnedSignal(done chan struct{}) {
+	close(done)
+}
+
 func localSignal() {
 	done := make(chan struct{}, 1)
 	close(done)

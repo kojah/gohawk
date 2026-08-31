@@ -3,6 +3,7 @@ package ownership
 import (
 	"fmt"
 
+	"github.com/kojah/gohawk/analysisutil"
 	"github.com/kojah/gohawk/analysisutil/ssa"
 
 	"golang.org/x/tools/go/analysis"
@@ -53,7 +54,7 @@ func reportExitAfterDefer(pass *analysis.Pass, function *ssa.Function) {
 		deferred := state.deferred
 		for _, instruction := range state.block.Instrs {
 			if _, ok := instruction.(*ssa.Defer); ok {
-				deferred = true
+				deferred = deferred || processExitRelevantDefer(ssautil.InstructionCall(instruction))
 				continue
 			}
 			common := ssautil.InstructionCall(instruction)
@@ -66,6 +67,18 @@ func reportExitAfterDefer(pass *analysis.Pass, function *ssa.Function) {
 			queue = append(queue, exitFlowState{block: successor, deferred: deferred})
 		}
 	}
+}
+
+func processExitRelevantDefer(common *ssa.CallCommon) bool {
+	if common == nil || common.Value == nil {
+		return true
+	}
+	// Canceling an in-process context cannot release an external resource once
+	// the process is already terminating. Treating a deferred CancelFunc as
+	// meaningful cleanup made startup fatal paths noisy without identifying a
+	// lost flush or close. ccLoad initializes bounded startup contexts this way:
+	// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/app/server.go#L166-L199
+	return !analysisutil.NamedType(common.Value.Type(), "context", "CancelFunc")
 }
 
 func exitsWithoutRunningDefers(common *ssa.CallCommon) bool {

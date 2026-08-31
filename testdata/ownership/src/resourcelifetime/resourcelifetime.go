@@ -33,6 +33,54 @@ func closedFile() error {
 	return nil
 }
 
+func closedFileThroughFailureHelper(fail bool) error {
+	file, err := os.CreateTemp("", "closed-helper")
+	if err != nil {
+		return err
+	}
+	cleanup := func(err error) error {
+		_ = file.Close()
+		return err
+	}
+	if fail {
+		return cleanup(errors.New("failed"))
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type compositeReadCloser struct {
+	io.Reader
+	closers []func() error
+}
+
+func (c *compositeReadCloser) Close() error {
+	for _, closeResource := range c.closers {
+		_ = closeResource()
+	}
+	return nil
+}
+
+func transferredGzipReader(source io.Reader) (io.ReadCloser, error) {
+	reader, err := gzip.NewReader(source)
+	if err != nil {
+		return nil, err
+	}
+	return &compositeReadCloser{Reader: reader, closers: []func() error{reader.Close}}, nil
+}
+
+func leakedWriterAsInterface() error {
+	file, err := os.CreateTemp("", "writer") // want "owned resource from os.CreateTemp is not released on every return path"
+	if err != nil {
+		return err
+	}
+	var destination io.Writer = file
+	_, err = destination.Write(nil)
+	return err
+}
+
 func closedFileAfterIgnoredMissingPath(paths []string) error {
 	for _, path := range paths {
 		file, err := os.Open(path)
@@ -181,6 +229,57 @@ func closedResponse(client *http.Client, request *http.Request) error {
 	}
 	defer response.Body.Close()
 	return nil
+}
+
+func conditionallyReturnedResponse(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if response != nil {
+		_ = response.Body.Close()
+	}
+	return err
+}
+
+func stoppedOrConsumedTimer(events <-chan int) {
+	timer := time.NewTimer(time.Second)
+	done := false
+	for !done {
+		select {
+		case <-events:
+			done = true
+		case <-timer.C:
+			return
+		}
+	}
+	if !timer.Stop() {
+		<-timer.C
+	}
+}
+
+func stoppedOrConsumedTimerAfterSeveralEvents(events <-chan string) {
+	identities := make(map[string]bool, 2)
+	timedOut := false
+	timer := time.NewTimer(time.Second)
+	for len(identities) < 2 && !timedOut {
+		select {
+		case identity := <-events:
+			identities[identity] = true
+		case <-timer.C:
+			timedOut = true
+		}
+	}
+	if !timedOut && !timer.Stop() {
+		<-timer.C
+	}
+}
+
+func partiallyHandledTimer(stop, receive bool) {
+	timer := time.NewTimer(time.Second) // want "owned resource from time.NewTimer is not released on every return path"
+	if stop {
+		timer.Stop()
+	}
+	if receive {
+		<-timer.C
+	}
 }
 
 func leakedRows(ctx context.Context, database *sql.DB) error {

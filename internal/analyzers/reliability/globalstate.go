@@ -86,7 +86,15 @@ func qualifiedTypeName(value types.Type) string {
 	if !ok || named.Obj().Pkg() == nil {
 		return ""
 	}
-	return named.Obj().Pkg().Path() + "." + named.Obj().Name()
+	packagePath := named.Obj().Pkg().Path()
+	// GOPATH-style fixtures can expose the physical vendor prefix in the type
+	// path. Production packages normally use the canonical import path, so
+	// normalize both representations before applying package API contracts.
+	if _, suffix, found := strings.Cut(packagePath, "/vendor/"); found {
+		packagePath = suffix
+	}
+	packagePath = strings.TrimPrefix(packagePath, "vendor/")
+	return packagePath + "." + named.Obj().Name()
 }
 
 func mutableGlobal(value types.Type) bool {
@@ -103,13 +111,71 @@ func allowedGlobal(pass *analysis.Pass, name *ast.Ident, object types.Object, de
 	if strings.HasSuffix(name.Name, "Schema") || analysisutil.NamedType(value, "sync", "Once") || analysisutil.NamedType(value, "regexp", "Regexp") {
 		return true
 	}
+	if conventionalFrameworkBinding(pass, specification, index) || benchmarkResultSink(pass, name) {
+		return true
+	}
 	if conventionalErrorSentinel(pass, name, object, specification, index, usage) {
 		return true
 	}
 	if documentedTestSeam(name, object, declaration, specification) {
 		return true
 	}
+	if conventionalFrameworkGlobal(value) {
+		return true
+	}
 	return effectivelyImmutableComposite(pass, name, object, specification, index, usage)
+}
+
+func conventionalFrameworkBinding(pass *analysis.Pass, specification *ast.ValueSpec, index int) bool {
+	if index >= len(specification.Values) {
+		return false
+	}
+	selector, ok := specification.Values[index].(*ast.SelectorExpr)
+	if !ok || selector.Sel.Name != "AddToScheme" {
+		return false
+	}
+	qualified := qualifiedTypeName(pass.TypesInfo.TypeOf(selector.X))
+	// AddToScheme is a method value exported by the controller-runtime
+	// registration builder as the canonical package-level hook; the builder is
+	// the owner already recognized above.
+	return qualified == "k8s.io/apimachinery/pkg/runtime.SchemeBuilder" || qualified == "sigs.k8s.io/controller-runtime/pkg/scheme.Builder"
+}
+
+func benchmarkResultSink(pass *analysis.Pass, name *ast.Ident) bool {
+	lower := strings.ToLower(name.Name)
+	// Benchmark sinks deliberately escape results to defeat dead-code
+	// elimination and are scoped to the test binary. ccLoad uses this standard
+	// pattern for allocation-sensitive storage benchmarks:
+	// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/storage/cache_benchmark_test.go#L10-L15
+	return !name.IsExported() && strings.HasSuffix(pass.Fset.Position(name.Pos()).Filename, "_test.go") && strings.Contains(lower, "benchmark") && strings.HasSuffix(lower, "sink")
+}
+
+func conventionalFrameworkGlobal(value types.Type) bool {
+	qualified := qualifiedTypeName(value)
+	switch qualified {
+	case "github.com/prometheus/client_golang/prometheus.Counter",
+		"github.com/prometheus/client_golang/prometheus.CounterVec",
+		"github.com/prometheus/client_golang/prometheus.Gauge",
+		"github.com/prometheus/client_golang/prometheus.GaugeVec",
+		"github.com/prometheus/client_golang/prometheus.Histogram",
+		"github.com/prometheus/client_golang/prometheus.HistogramVec",
+		"github.com/prometheus/client_golang/prometheus.Summary",
+		"github.com/prometheus/client_golang/prometheus.SummaryVec",
+		"github.com/spf13/cobra.Command",
+		"go.uber.org/fx.Option",
+		"k8s.io/apimachinery/pkg/runtime.Scheme",
+		"k8s.io/apimachinery/pkg/runtime.SchemeBuilder",
+		"sigs.k8s.io/controller-runtime/pkg/scheme.Builder":
+		// These APIs intentionally construct process-wide collectors,
+		// registration trees, or immutable dependency-injection descriptors.
+		// Their packages own synchronization and one-time registration, so a
+		// local wrapper would obscure rather than improve ownership. Prometheus
+		// collectors in FRP Operator are representative:
+		// https://github.com/zufardhiyaulhaq/frp-operator/blob/1864d2a2926edd6396cde9030672bd1a4329c37e/pkg/metrics/metrics.go#L20-L57
+		return true
+	default:
+		return false
+	}
 }
 
 func conventionalErrorSentinel(pass *analysis.Pass, name *ast.Ident, object types.Object, specification *ast.ValueSpec, index int, usage globalStateUsage) bool {
@@ -230,8 +296,8 @@ func effectivelyImmutableComposite(pass *analysis.Pass, name *ast.Ident, object 
 	if name.IsExported() || index >= len(specification.Values) {
 		return false
 	}
-	literal, ok := specification.Values[index].(*ast.CompositeLit)
-	if !ok {
+	initializer := specification.Values[index]
+	if _, ok := initializer.(*ast.CompositeLit); !ok && !immutableCollectionConversion(pass, initializer) {
 		return false
 	}
 	var element types.Type
@@ -246,7 +312,7 @@ func effectivelyImmutableComposite(pass *analysis.Pass, name *ast.Ident, object 
 	default:
 		return false
 	}
-	if pass.TypesInfo.TypeOf(literal) == nil {
+	if pass.TypesInfo.TypeOf(initializer) == nil {
 		return false
 	}
 	// An unexported composite literal whose every use is a direct read has no
@@ -273,6 +339,22 @@ func effectivelyImmutableComposite(pass *analysis.Pass, name *ast.Ident, object 
 		}
 	}
 	return deeplyImmutableGlobalValue(element, map[types.Type]bool{}) || sawUse
+}
+
+func immutableCollectionConversion(pass *analysis.Pass, expression ast.Expr) bool {
+	call, ok := expression.(*ast.CallExpr)
+	if !ok || len(call.Args) != 1 || pass.TypesInfo.Types[call.Args[0]].Value == nil {
+		return false
+	}
+	slice, ok := pass.TypesInfo.TypeOf(call).Underlying().(*types.Slice)
+	if !ok {
+		return false
+	}
+	element, ok := slice.Elem().Underlying().(*types.Basic)
+	// A conversion of a constant string to []byte/[]rune creates fresh backing
+	// storage during package initialization. The ordinary read-only-use proof
+	// below then establishes that no mutable alias escapes.
+	return ok && (element.Kind() == types.Byte || element.Kind() == types.Rune)
 }
 
 func deeplyImmutableGlobalValue(value types.Type, seen map[types.Type]bool) bool {

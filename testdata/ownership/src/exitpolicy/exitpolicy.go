@@ -1,6 +1,7 @@
 package exitpolicy
 
 import (
+	"context"
 	"log"
 	"os"
 )
@@ -10,6 +11,12 @@ func cleanup() {}
 func fatalAfterDefer() {
 	defer cleanup()
 	log.Fatal("failed") // want "log.Fatal exits without running an earlier defer"
+}
+
+func fatalAfterDeferredCancel() {
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	log.Fatal("failed")
 }
 
 func exitAfterConditionalDefer(clean bool) {

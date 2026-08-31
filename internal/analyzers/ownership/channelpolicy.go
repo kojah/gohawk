@@ -49,8 +49,9 @@ func runChannelPolicy(pass *analysis.Pass, config channelPolicyConfig) (any, err
 			return true
 		})
 	}
+	callsites := channelCallsites(functions)
 	for _, function := range functions {
-		checkSSAChannelOwnership(pass, function)
+		checkSSAChannelOwnership(pass, function, callsites)
 	}
 	return nil, nil
 }
@@ -100,7 +101,26 @@ func channelRationale(pass *analysis.Pass, file *ast.File, position token.Pos) b
 	return false
 }
 
-func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
+func channelCallsites(functions []*ssa.Function) map[*ssa.Function][]ssa.CallInstruction {
+	result := make(map[*ssa.Function][]ssa.CallInstruction)
+	for _, function := range functions {
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instrs {
+				common := ssautil.InstructionCall(instruction)
+				if common == nil || common.StaticCallee() == nil {
+					continue
+				}
+				call, ok := instruction.(ssa.CallInstruction)
+				if ok {
+					result[common.StaticCallee()] = append(result[common.StaticCallee()], call)
+				}
+			}
+		}
+	}
+	return result
+}
+
+func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, callsites map[*ssa.Function][]ssa.CallInstruction) {
 	var parameters []ssa.Value
 	for _, parameter := range function.Params {
 		if ssautil.ChannelType(parameter) {
@@ -115,7 +135,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
 				continue
 			}
 			channel := common.Args[0]
-			if aliasesAny(channel, parameters) {
+			if closesBorrowedChannel(channel, parameters, callsites) {
 				reportf(pass, checkChannelCallerClose, instruction.Pos(), "do not close a channel received from caller")
 			}
 			// Scheduling a deferred close does not close the channel at this
@@ -133,6 +153,43 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function) {
 			}
 		}
 	}
+}
+
+func closesBorrowedChannel(channel ssa.Value, parameters []ssa.Value, callsites map[*ssa.Function][]ssa.CallInstruction) bool {
+	for _, parameter := range parameters {
+		if ssautil.AliasesValue(channel, parameter) && !channelOwnershipTransferredToGoroutine(parameter, callsites) {
+			return true
+		}
+	}
+	return false
+}
+
+func channelOwnershipTransferredToGoroutine(parameter ssa.Value, callsites map[*ssa.Function][]ssa.CallInstruction) bool {
+	function := parameter.Parent()
+	if function == nil || function.Object() == nil || function.Object().Exported() {
+		return false
+	}
+	index := -1
+	for candidate, current := range function.Params {
+		if current == parameter {
+			index = candidate
+			break
+		}
+	}
+	calls := callsites[function]
+	if index < 0 || len(calls) == 0 {
+		return false
+	}
+	for _, call := range calls {
+		if _, ok := call.(*ssa.Go); !ok || index >= len(call.Common().Args) {
+			return false
+		}
+	}
+	// A channel passed only through `go helper(ch)` is an explicit producer
+	// handoff: the spawning caller cannot perform the close after the helper
+	// finishes. ElasticKV uses this contract for its refresh completion signal:
+	// https://github.com/bootjp/elastickv/blob/ddbb0a5b60a691890cb5595c185cdb16fee478b3/proxy/leader_aware_backend.go#L195-L218
+	return true
 }
 
 func reachableInstructions(start ssa.Instruction) []ssa.Instruction {

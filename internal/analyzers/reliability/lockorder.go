@@ -136,6 +136,16 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			switch operation {
 			case mutexAcquire:
 				lockValues[identity] = appendLockValue(lockValues[identity], receiver)
+				// A mutex selected from a map, slice, or loop-carried value may
+				// represent a different runtime lock on every iteration. Collapsing
+				// those values into one SSA identity creates both recursive-acquire
+				// and missing-release false positives, so require a stable identity
+				// before reasoning about its lifecycle. ccLoad coordinates a dynamic
+				// set of pending calls this way:
+				// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/sdk_runner.go#L410-L470
+				if dynamicIndexedMutex(receiver) {
+					continue
+				}
 				// A release before the first acquisition means this helper borrowed
 				// a caller-held lock. Reacquiring restores the caller's state; it does
 				// not make the helper responsible for a subsequent unlock. Kubernetes
@@ -150,7 +160,7 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 				if acquiredAt[identity] == token.NoPos {
 					acquiredAt[identity] = instruction.Pos()
 				}
-				held = acquireLock(pass, instruction, held, identity, relations, dynamicIndexedMutex(receiver))
+				held = acquireLock(pass, instruction, held, identity, relations, false)
 			case mutexRelease:
 				released[identity] = true
 				if _, isDefer := instruction.(*ssa.Defer); isDefer {
@@ -273,25 +283,46 @@ func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
 }
 
 func dynamicIndexedMutex(value ssa.Value) bool {
+	return dynamicIndexedMutexSeen(value, make(map[ssa.Value]bool))
+}
+
+func dynamicIndexedMutexSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil {
 		return false
 	}
+	if seen[value] {
+		// Phi nodes and interface conversions can form SSA cycles. Revisiting a
+		// value adds no new evidence; the other reachable edges still determine
+		// whether the mutex originated from a dynamic collection selection.
+		return false
+	}
+	seen[value] = true
 	switch typed := value.(type) {
 	case *ssa.IndexAddr:
 		_, constant := typed.Index.(*ssa.Const)
 		return !constant
+	case *ssa.Index, *ssa.Lookup:
+		return true
+	case *ssa.Extract:
+		return dynamicIndexedMutexSeen(typed.Tuple, seen)
+	case *ssa.Phi:
+		for _, edge := range typed.Edges {
+			if dynamicIndexedMutexSeen(edge, seen) {
+				return true
+			}
+		}
 	case *ssa.FieldAddr:
-		return dynamicIndexedMutex(typed.X)
+		return dynamicIndexedMutexSeen(typed.X, seen)
 	case *ssa.ChangeInterface:
-		return dynamicIndexedMutex(typed.X)
+		return dynamicIndexedMutexSeen(typed.X, seen)
 	case *ssa.ChangeType:
-		return dynamicIndexedMutex(typed.X)
+		return dynamicIndexedMutexSeen(typed.X, seen)
 	case *ssa.Convert:
-		return dynamicIndexedMutex(typed.X)
+		return dynamicIndexedMutexSeen(typed.X, seen)
 	case *ssa.MakeInterface:
-		return dynamicIndexedMutex(typed.X)
+		return dynamicIndexedMutexSeen(typed.X, seen)
 	case *ssa.UnOp:
-		return dynamicIndexedMutex(typed.X)
+		return dynamicIndexedMutexSeen(typed.X, seen)
 	}
 	return false
 }
