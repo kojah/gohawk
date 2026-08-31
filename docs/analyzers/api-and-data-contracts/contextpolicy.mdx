@@ -1,6 +1,6 @@
 ---
 title: contextpolicy
-description: "Put context first."
+description: "Keep contexts in accepted leading positions."
 ---
 
 import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
@@ -8,17 +8,20 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 ## What it detects
 
-Reports `context.Context` parameters that are not first, contexts stored in
-structs, and calls that pass a definitely nil context. In supported test code,
-the opt-in test check reports detached goroutines whose cancellation path is
-rooted in `context.Background()` or `context.TODO()`.
+Reports misplaced `context.Context` parameters. A context is accepted when it
+is first, when another context already leads the signature, or when it
+immediately follows a `*testing.T` or `*testing.B` handle. The analyzer also
+reports contexts stored in structs and calls that pass a definitely nil
+context. In supported test code, the opt-in test check reports detached
+goroutines whose cancellation path is rooted in `context.Background()` or
+`context.TODO()`.
 
 ### Checks
 
 {/* gohawk:generated-checks:start */}
 | Check | What it detects |
 | --- | --- |
-| <CheckIdentity name="context-first" /> | Reports context.Context parameters that are not first. |
+| <CheckIdentity name="context-first" /> | Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle. |
 | <CheckIdentity name="context-storage" /> | Reports context.Context values stored in structs. |
 | <CheckIdentity name="test-context" optIn /> | Reports detached test-owned goroutines rooted in a never-cancelled context. |
 | <CheckIdentity name="nil-context" /> | Reports definitely nil context.Context arguments. |
@@ -39,11 +42,14 @@ Further reading: [Package context](https://pkg.go.dev/context),
 
 ## How to fix it
 
-Accept the context as the function's first parameter and pass it directly to
-the work that needs it. Do not store it in a struct or pass nil; use an
-appropriate real context. For a detached test-owned goroutine that observes
-cancellation, use `t.Context()` or `b.Context()`, explicitly cancel and join
-the worker, or give it another proven stop lifecycle. Synchronous calls using
+Ordinarily, accept the context as the function's first parameter and pass it
+directly to the work that needs it. A testing helper may keep `*testing.T` or
+`*testing.B` first and place its context second. An API representing multiple
+lifecycles should begin with a context; additional contexts are then accepted.
+Do not store a context in a struct or pass nil; use an appropriate real
+context. For a detached test-owned goroutine that observes cancellation, use
+`t.Context()` or `b.Context()`, explicitly cancel and join the worker, or give
+it another proven stop lifecycle. Synchronous calls using
 `context.Background()` are accepted.
 
 ## Examples
