@@ -117,6 +117,30 @@ func transferredUnlock() {
 	<-done
 }
 
+type branchingUnlockOwner struct {
+	mutex sync.Mutex
+	ready bool
+}
+
+func (owner *branchingUnlockOwner) unlockOnEveryReturn() {
+	if !owner.ready {
+		owner.mutex.Unlock()
+		return
+	}
+	owner.ready = false
+	owner.mutex.Unlock()
+}
+
+func transferredBranchingUnlock(owner *branchingUnlockOwner) {
+	owner.mutex.Lock()
+	go owner.unlockOnEveryReturn()
+}
+
+func calledBranchingUnlock(owner *branchingUnlockOwner) {
+	owner.mutex.Lock()
+	owner.unlockOnEveryReturn()
+}
+
 func repeatedTransferredUnlock() {
 	var mutex sync.Mutex
 	mutex.Lock()

@@ -57,6 +57,7 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 		}
 		for _, instruction := range state.block.Instrs {
 			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns)
+			held = transferCalledUnlocks(instruction, held, guards, lockValues, released)
 			// An unconditional unlock at the start of a spawned closure transfers
 			// the held lock to that goroutine. Requiring it before any branch keeps
 			// conditional handoffs from hiding a genuinely unreleased return path.
@@ -116,6 +117,32 @@ func recordUnreleasedLocks(
 	}
 }
 
+func transferCalledUnlocks(
+	instruction ssa.Instruction,
+	held []string,
+	guards map[string]lockGuard,
+	lockValues map[string][]ssa.Value,
+	released map[string]bool,
+) []string {
+	for _, identity := range slices.Clone(held) {
+		for _, value := range lockValues[identity] {
+			if !ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Unlock", value) &&
+				!ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "RUnlock", value) {
+				continue
+			}
+			// A synchronous helper that releases the exact lock on every return
+			// consumes the caller's held-lock obligation. gRPC funnels an
+			// exit-idle failure through updateResolverStateAndUnlock:
+			// https://github.com/grpc/grpc-go/blob/9f8027448a64b6446d0c7256a1efe907b1cb6b1b/clientconn.go#L416-L419
+			released[identity] = true
+			held = releaseLock(held, identity)
+			delete(guards, identity)
+			break
+		}
+	}
+	return held
+}
+
 func transferSpawnedUnlocks(
 	instruction ssa.Instruction,
 	held []string,
@@ -129,7 +156,13 @@ func transferSpawnedUnlocks(
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
 			if ssautil.ClosureCallsMethodBeforeBranch(instruction, "Unlock", value) ||
-				ssautil.ClosureCallsMethodBeforeBranch(instruction, "RUnlock", value) {
+				ssautil.ClosureCallsMethodBeforeBranch(instruction, "RUnlock", value) ||
+				ssautil.StartedClosureCallsMethodOnEveryReturn(instruction, "Unlock", value) ||
+				ssautil.StartedClosureCallsMethodOnEveryReturn(instruction, "RUnlock", value) {
+				// A spawned helper may branch before releasing the caller's lock as
+				// long as every normal return performs the release. gRPC transfers
+				// addrConn.mu to its reconnect worker this way:
+				// https://github.com/grpc/grpc-go/blob/9f8027448a64b6446d0c7256a1efe907b1cb6b1b/clientconn.go#L1071
 				released[identity] = true
 				held = releaseLock(held, identity)
 				delete(guards, identity)

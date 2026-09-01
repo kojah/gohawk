@@ -442,7 +442,13 @@ func calledReceiverMatches(common *ssa.CallCommon, closure *ssa.MakeClosure, fun
 		return false
 	}
 	for index, parameter := range function.Params {
-		if ValueDerivesFrom(receiver, parameter, map[ssa.Value]bool{}) && index < len(common.Args) && SameValue(common.Args[index], target) {
+		if !ValueDerivesFrom(receiver, parameter, map[ssa.Value]bool{}) || index >= len(common.Args) {
+			continue
+		}
+		if SameValue(common.Args[index], target) || SameAccessPath(
+			AccessPath{Value: receiver, Root: parameter},
+			AccessPath{Value: target, Root: common.Args[index]},
+		) {
 			return true
 		}
 	}
