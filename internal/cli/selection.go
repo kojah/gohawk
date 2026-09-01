@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	gohawk "github.com/kojah/gohawk/analyzers"
 	"golang.org/x/tools/go/analysis"
 )
@@ -56,6 +57,7 @@ func registerSelectionFlags() {
 	flag.String("disable-checks", "", "disable comma-separated checks by stable ID")
 	flag.String("enable-groups", "", "enable comma-separated analyzer groups, including opt-in analyzers")
 	flag.String("disable-groups", "", "disable comma-separated analyzer groups")
+	analysisTrace.RegisterFlags(flag.CommandLine)
 }
 
 type analyzerCheckSelection struct {

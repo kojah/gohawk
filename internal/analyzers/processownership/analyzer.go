@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/analysisutil"
 	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 	"github.com/kojah/gohawk/internal/analyzers/lifecyclefacts"
 
@@ -60,19 +61,37 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				if successfulStartCannotReturn(start) {
 					continue
 				}
-				if ssautil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
+				leaks := ssautil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
 					return processOwnershipAction(pass, candidate, command)
 				}, func(returned *ssa.Return) bool {
 					// Returning an aggregate that contains the command transfers Wait
 					// responsibility just as directly as returning *exec.Cmd itself.
 					return startFailureReturn(returned, start) || ssautil.ReturnedValueOwnsValue(returned, command)
-				}) {
+				})
+				emitProcessDecision(pass, function, start, command, leaks)
+				if leaks {
 					analyzerbase.Reportf(pass, analyzerbase.CheckProcessWait, start.Pos(), "started command is not waited on every successful return path")
 				}
 			}
 		}
 	}
 	return nil, nil
+}
+
+func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa.Call, command ssa.Value, leaks bool) {
+	check := string(analyzerbase.CheckProcessWait)
+	if !analysisTrace.Enabled("processownership", check) {
+		return
+	}
+	outcome, reason := analysisTrace.OutcomeAccepted, "wait-ownership-proven"
+	if leaks {
+		outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
+	}
+	details := map[string]string{}
+	if command != nil && command.Type() != nil {
+		details["command_type"] = command.Type().String()
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: check, Phase: "decision", Reason: reason, Outcome: outcome, Pos: start.Pos(), Function: function.String(), Details: details})
 }
 
 func processOwnerDominatesStart(function *ssa.Function, start *ssa.Call, owners []ssa.Value) bool {
@@ -195,8 +214,8 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
-		lifecyclefacts.OwnsArgument(pass, instruction, command, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner | fact.Waited }) ||
-		lifecyclefacts.StoresInEscapingReceiver(pass, instruction, command) ||
+		lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner | fact.Waited }) ||
+		lifecyclefacts.StoresInEscapingReceiver(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command) ||
 		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
 		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Exit"

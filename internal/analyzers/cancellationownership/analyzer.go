@@ -8,6 +8,7 @@ import (
 
 	"github.com/kojah/gohawk/analysisutil"
 	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 	"github.com/kojah/gohawk/internal/analyzers/lifecyclefacts"
 
@@ -51,11 +52,13 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				// transfers the obligation. Reassigned captured locals are included;
 				// Prometheus installs its current cancel in a scraper callback:
 				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/scrape/scrape_test.go#L1294-L1315
-				if ssautil.UnownedReturnAssumingNonNil(call, cancel, func(candidate ssa.Instruction) bool {
+				leaks := ssautil.UnownedReturnAssumingNonNil(call, cancel, func(candidate ssa.Instruction) bool {
 					return callsCancel(pass, candidate, cancel)
 				}, func(returned *ssa.Return) bool {
 					return ssautil.ReturnSameValue(returned, cancel) || ssautil.ReturnedValueOwnsValue(returned, cancel)
-				}) {
+				})
+				emitCancellationDecision(pass, function, call, contract, leaks)
+				if leaks {
 					source := analysisutil.SourceRange(pass, call.Pos())
 					analyzerbase.Report(pass, analyzerbase.CheckCancellationRelease, analysis.Diagnostic{
 						Pos:            source.Pos(),
@@ -68,6 +71,18 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+func emitCancellationDecision(pass *analysis.Pass, function *ssa.Function, call *ssa.Call, contract cancellationContract, leaks bool) {
+	check := string(analyzerbase.CheckCancellationRelease)
+	if !analysisTrace.Enabled("cancellationownership", check) {
+		return
+	}
+	outcome, reason := analysisTrace.OutcomeAccepted, "release-proven"
+	if leaks {
+		outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "cancellationownership", Check: check, Phase: "decision", Reason: reason, Outcome: outcome, Pos: call.Pos(), Function: function.String(), Details: map[string]string{"constructor": contract.packagePath + "." + contract.name}})
 }
 
 type cancellationContract struct {
@@ -155,7 +170,7 @@ func callsCancel(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Va
 	// remains for wrappers which delegate to an interface cleanup method.
 	// Cerberus delegates qcancel through a deferred CloseCursor call:
 	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
-	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || lifecyclefacts.OwnsArgument(pass, instruction, cancel, func(fact ssautil.LifecycleFact) uint64 { return fact.Invoked | fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) || ssautil.CallTransfersArgumentToReceiver(instruction, cancel) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel) || atomicStoreCoupledToWorker(instruction, cancel) {
+	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || lifecyclefacts.OwnsArgument(pass, "cancellationownership", string(analyzerbase.CheckCancellationRelease), instruction, cancel, func(fact ssautil.LifecycleFact) uint64 { return fact.Invoked | fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, "cancellationownership", string(analyzerbase.CheckCancellationRelease), instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) || ssautil.CallTransfersArgumentToReceiver(instruction, cancel) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel) || atomicStoreCoupledToWorker(instruction, cancel) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)

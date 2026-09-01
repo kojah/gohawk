@@ -4,8 +4,10 @@ package lifecyclefacts
 import (
 	"go/types"
 	"reflect"
+	"strconv"
 
 	"github.com/kojah/gohawk/analysisutil/ssa"
+	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -75,20 +77,66 @@ func FactFor(pass *analysis.Pass, instruction gosssa.Instruction) (ssautil.Lifec
 }
 
 // OwnsArgument reports whether a summarized ownership mask covers target.
-func OwnsArgument(pass *analysis.Pass, instruction gosssa.Instruction, target gosssa.Value, selectMask func(ssautil.LifecycleFact) uint64) bool {
+func OwnsArgument(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, selectMask func(ssautil.LifecycleFact) uint64) bool {
 	fact, ok := FactFor(pass, instruction)
-	return ok && ssautil.FactOwnsArgument(instruction, target, selectMask(fact))
+	mask := selectMask(fact)
+	owned := ok && ssautil.FactOwnsArgument(instruction, target, mask)
+	emitSummaryTrace(pass, analyzer, check, instruction, target, mask, owned)
+	return owned
 }
 
 // StoresInEscapingReceiver reports a summarized field transfer only when the
 // caller-visible receiver itself outlives the call.
-func StoresInEscapingReceiver(pass *analysis.Pass, instruction gosssa.Instruction, target gosssa.Value) bool {
+func StoresInEscapingReceiver(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value) bool {
 	common := ssautil.InstructionCall(instruction)
-	receiver := ssautil.CallReceiver(common)
-	if receiver == nil || !ssautil.ExternallyOwnedValue(receiver) && !ssautil.ValueEscapes(receiver) {
+	fact, summarized := FactFor(pass, instruction)
+	if !summarized || !ssautil.FactOwnsArgument(instruction, target, fact.ReceiverStore) {
 		return false
 	}
-	return OwnsArgument(pass, instruction, target, func(fact ssautil.LifecycleFact) uint64 { return fact.ReceiverStore })
+	receiver := ssautil.CallReceiver(common)
+	escapes := receiver != nil && (ssautil.ExternallyOwnedValue(receiver) || ssautil.ValueEscapes(receiver))
+	reason := analysisTrace.ReasonReceiverStoreTransfer
+	outcome := analysisTrace.OutcomeAccepted
+	if !escapes {
+		reason = analysisTrace.ReasonReceiverDoesNotEscape
+		outcome = analysisTrace.OutcomeRejected
+	}
+	if analysisTrace.Enabled(analyzer, check) {
+		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: analyzer, Check: check, Phase: "evidence", Reason: reason, Outcome: outcome, Pos: instruction.Pos(), Function: functionName(instruction), Details: summaryDetails(instruction, target, fact.ReceiverStore)})
+	}
+	if !escapes {
+		return false
+	}
+	return true
+}
+
+func emitSummaryTrace(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, mask uint64, owned bool) {
+	if !analysisTrace.Enabled(analyzer, check) {
+		return
+	}
+	outcome := analysisTrace.OutcomeRejected
+	if owned {
+		outcome = analysisTrace.OutcomeAccepted
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: analyzer, Check: check, Phase: "evidence", Reason: analysisTrace.ReasonLifecycleSummary, Outcome: outcome, Pos: instruction.Pos(), Function: functionName(instruction), Details: summaryDetails(instruction, target, mask)})
+}
+
+func summaryDetails(instruction gosssa.Instruction, target gosssa.Value, mask uint64) map[string]string {
+	details := map[string]string{"mask": strconv.FormatUint(mask, 16)}
+	if target != nil && target.Type() != nil {
+		details["target_type"] = target.Type().String()
+	}
+	if common := ssautil.InstructionCall(instruction); common != nil && common.StaticCallee() != nil {
+		details["callee"] = common.StaticCallee().String()
+	}
+	return details
+}
+
+func functionName(instruction gosssa.Instruction) string {
+	if instruction == nil || instruction.Parent() == nil {
+		return ""
+	}
+	return instruction.Parent().String()
 }
 
 func summarize(pass *analysis.Pass, function *gosssa.Function) ssautil.LifecycleFact {

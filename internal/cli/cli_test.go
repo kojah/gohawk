@@ -1031,8 +1031,34 @@ func answer() int { return identity{}.value(42) }
 	t.Run("cancellation ownership through CLI and vet tool", func(t *testing.T) {
 		module := writeCancellationFixModule(t)
 		const diagnostic = "cancel function from context.WithCancel is not called on every return path"
+		tracePath := filepath.Join(t.TempDir(), "evidence.jsonl")
 
-		output, exitCode := runCommand(t, module, binary, "-enable=cancellationownership", "./...")
+		output, exitCode := runCommand(t, module, binary, "-json", "-enable=cancellationownership", "-gohawk-trace=cancellationownership", "-gohawk-trace-file="+tracePath, "./...")
+		if exitCode != 0 || !json.Valid([]byte(output)) {
+			t.Fatalf("traced JSON run: exit code = %d\n%s", exitCode, output)
+		}
+		traceOutput, err := os.ReadFile(tracePath)
+		if err != nil {
+			t.Fatalf("read evidence trace: %v", err)
+		}
+		foundDecision := false
+		for _, line := range bytes.Split(bytes.TrimSpace(traceOutput), []byte("\n")) {
+			var event struct {
+				Analyzer string `json:"analyzer"`
+				Phase    string `json:"phase"`
+				Reason   string `json:"reason"`
+				Outcome  string `json:"outcome"`
+			}
+			if err := json.Unmarshal(line, &event); err != nil {
+				t.Fatalf("decode evidence trace line %q: %v", line, err)
+			}
+			foundDecision = foundDecision || event.Analyzer == "cancellationownership" && event.Phase == "decision" && event.Reason == "unowned-return" && event.Outcome == "rejected"
+		}
+		if !foundDecision {
+			t.Fatalf("trace does not contain the rejected cancellation decision:\n%s", traceOutput)
+		}
+
+		output, exitCode = runCommand(t, module, binary, "-enable=cancellationownership", "./...")
 		if exitCode != 3 || !strings.Contains(output, diagnostic) {
 			t.Fatalf("standalone cancellation diagnostic: exit code = %d\n%s", exitCode, output)
 		}

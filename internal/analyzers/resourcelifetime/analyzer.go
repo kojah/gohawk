@@ -8,6 +8,7 @@ import (
 
 	"github.com/kojah/gohawk/analysisutil"
 	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 	"github.com/kojah/gohawk/internal/analyzers/lifecyclefacts"
 
@@ -88,13 +89,34 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				if resource == nil {
 					continue
 				}
-				if resourceLeaks(pass, call, resource, contract) && !completeTimers[call.Pos()] {
+				leaks := resourceLeaks(pass, call, resource, contract)
+				completeTimer := completeTimers[call.Pos()]
+				emitResourceDecision(pass, function, call, resource, contract, leaks, completeTimer)
+				if leaks && !completeTimer {
 					analyzerbase.Reportf(pass, analyzerbase.CheckResourceRelease, call.Pos(), "owned resource from %s.%s is not released on every return path", analysisutil.ShortPackageName(contract.packagePath), contract.name)
 				}
 			}
 		}
 	}
 	return nil, nil
+}
+
+func emitResourceDecision(pass *analysis.Pass, function *ssa.Function, call *ssa.Call, resource ssa.Value, contract resourceContract, leaks, completeTimer bool) {
+	check := string(analyzerbase.CheckResourceRelease)
+	if !analysisTrace.Enabled("resourcelifetime", check) {
+		return
+	}
+	outcome, reason := analysisTrace.OutcomeAccepted, "release-proven"
+	if completeTimer {
+		reason = "complete-timer-lifecycle"
+	} else if leaks {
+		outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
+	}
+	details := map[string]string{"acquisition": contract.packagePath + "." + contract.name}
+	if resource != nil && resource.Type() != nil {
+		details["resource_type"] = resource.Type().String()
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "resourcelifetime", Check: check, Phase: "decision", Reason: reason, Outcome: outcome, Pos: call.Pos(), Function: function.String(), Details: details})
 }
 
 func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {
@@ -164,7 +186,7 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
-	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInGlobal(instruction, resource) || ssautil.StoresValueInEnclosingScope(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) || lifecyclefacts.OwnsArgument(pass, instruction, resource, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, instruction, resource) || ssautil.CallTransfersArgumentToReceiver(instruction, resource) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource) {
+	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInGlobal(instruction, resource) || ssautil.StoresValueInEnclosingScope(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) || lifecyclefacts.OwnsArgument(pass, "resourcelifetime", string(analyzerbase.CheckResourceRelease), instruction, resource, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, "resourcelifetime", string(analyzerbase.CheckResourceRelease), instruction, resource) || ssautil.CallTransfersArgumentToReceiver(instruction, resource) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
@@ -192,7 +214,7 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		// performed cleanup. Herdforge's response decoder owns Body.Close this
 		// way, without advertising ownership in the helper name:
 		// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/provider/github.go#L356
-		if lifecyclefacts.OwnsArgument(pass, instruction, resource, func(fact ssautil.LifecycleFact) uint64 { return fact.MethodMask(method) }) || ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, method, resource) {
+		if lifecyclefacts.OwnsArgument(pass, "resourcelifetime", string(analyzerbase.CheckResourceRelease), instruction, resource, func(fact ssautil.LifecycleFact) uint64 { return fact.MethodMask(method) }) || ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, method, resource) {
 			return true
 		}
 		// A directly invoked cleanup closure can own an individual error path just
