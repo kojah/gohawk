@@ -18,14 +18,15 @@ const (
 	EvidenceSameValue      EvidenceReason = "same-value"
 	EvidenceSameAccessPath EvidenceReason = "same-access-path"
 
-	EvidenceDeferredCompletion      EvidenceReason = "deferred-completion"
-	EvidenceClosureCompletion       EvidenceReason = "closure-completion"
-	EvidenceCompletionBeforeBranch  EvidenceReason = "completion-before-branch"
-	EvidenceHelperCompletion        EvidenceReason = "helper-completion"
-	EvidenceStartedCompletion       EvidenceReason = "started-completion"
-	EvidenceStartedHelperCompletion EvidenceReason = "started-helper-completion"
-	EvidenceHelperInvocation        EvidenceReason = "helper-invocation"
-	EvidenceReturnedDeferredCleanup EvidenceReason = "returned-deferred-cleanup"
+	EvidenceDeferredCompletion           EvidenceReason = "deferred-completion"
+	EvidenceClosureCompletion            EvidenceReason = "closure-completion"
+	EvidenceCompletionBeforeBranch       EvidenceReason = "completion-before-branch"
+	EvidenceCalledCompletionBeforeBranch EvidenceReason = "called-closure-completion-before-branch"
+	EvidenceHelperCompletion             EvidenceReason = "helper-completion"
+	EvidenceStartedCompletion            EvidenceReason = "started-completion"
+	EvidenceStartedHelperCompletion      EvidenceReason = "started-helper-completion"
+	EvidenceHelperInvocation             EvidenceReason = "helper-invocation"
+	EvidenceReturnedDeferredCleanup      EvidenceReason = "returned-deferred-cleanup"
 
 	EvidenceStoredInField               EvidenceReason = "stored-in-field"
 	EvidenceOwnerStoredInField          EvidenceReason = "owner-stored-in-field"
@@ -178,6 +179,7 @@ const (
 	CompletionByHelper
 	CompletionInStartedClosure
 	CompletionByStartedHelper
+	CompletionInCalledClosureBeforeBranch
 )
 
 // CompletionRequest describes lifecycle completion to prove for one or more
@@ -230,8 +232,8 @@ func proveCompletion(request CompletionRequest) CompletionProof {
 		if request.Modes&CompletionDeferred != 0 && DeferredClosureCalls(request.Instruction, method, request.Target) {
 			return completionProof(EvidenceDeferredCompletion, method)
 		}
-		if request.Modes&CompletionBeforeBranch != 0 && ClosureCallsMethodBeforeBranch(request.Instruction, method, request.Target) {
-			return completionProof(EvidenceCompletionBeforeBranch, method)
+		if proof := proveBeforeBranchCompletion(request, method); proof.Proven() {
+			return proof
 		}
 		if request.Modes&CompletionByHelper != 0 && CallCallsMethodOnArgumentOnEveryReturn(request.Instruction, method, request.Target) {
 			return completionProof(EvidenceHelperCompletion, method)
@@ -252,13 +254,25 @@ func proveCompletion(request CompletionRequest) CompletionProof {
 	return CompletionProof{Proof{State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA}}
 }
 
+func proveBeforeBranchCompletion(request CompletionRequest, method string) CompletionProof {
+	if request.Modes&CompletionBeforeBranch != 0 && ClosureCallsMethodBeforeBranch(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceCompletionBeforeBranch, method)
+	}
+	if request.Modes&CompletionInCalledClosureBeforeBranch != 0 &&
+		CalledClosureCallsMethodBeforeBranch(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceCalledCompletionBeforeBranch, method)
+	}
+	return CompletionProof{}
+}
+
 func completionProof(reason EvidenceReason, method string) CompletionProof {
 	return CompletionProof{Proof{State: EvidenceProven, Reason: reason, Method: method, Provenance: EvidenceFromLocalSSA}}
 }
 
 func completionEvidenceUnavailable(request CompletionRequest) bool {
 	common, _, function := calledFunction(request.Instruction)
-	if request.Modes&(CompletionDeferred|CompletionInClosure|CompletionBeforeBranch|CompletionInStartedClosure|CompletionByStartedHelper) != 0 &&
+	if request.Modes&(CompletionDeferred|CompletionInClosure|CompletionBeforeBranch|CompletionInStartedClosure|CompletionByStartedHelper|
+		CompletionInCalledClosureBeforeBranch) != 0 &&
 		(function == nil || len(function.Blocks) == 0) {
 		return true
 	}

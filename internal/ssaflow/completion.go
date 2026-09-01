@@ -36,21 +36,22 @@ func StartedClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method 
 		return false
 	}
 	hasReturn, hasCleanup := false, false
+	callsCleanup := func(candidate ssa.Instruction) bool {
+		called := InstructionCall(candidate)
+		return CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target) ||
+			closureDefersMethodOnMappedTarget(candidate, method, common, closure, function, target)
+	}
 	for _, block := range function.Blocks {
 		for _, candidate := range block.Instrs {
 			if _, ok := candidate.(*ssa.Return); ok {
 				hasReturn = true
 			}
-			called := InstructionCall(candidate)
-			if CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target) {
+			if callsCleanup(candidate) {
 				hasCleanup = true
 			}
 		}
 	}
-	return hasReturn && hasCleanup && !UnownedReturnFromEntry(function, func(candidate ssa.Instruction) bool {
-		called := InstructionCall(candidate)
-		return CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target)
-	})
+	return hasReturn && hasCleanup && !UnownedReturnFromEntry(function, callsCleanup)
 }
 
 // CallStartsClosureCallingMethodOnArgument reports whether a source-visible
@@ -131,11 +132,54 @@ func ClosureCallsMethodBeforeBranch(instruction ssa.Instruction, method string, 
 			if CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target) {
 				return true
 			}
+			if closureDefersMethodOnMappedTarget(candidate, method, common, closure, function, target) {
+				return true
+			}
 		}
 		if len(block.Succs) != 1 {
 			return false
 		}
 		block = block.Succs[0]
+	}
+	return false
+}
+
+// CalledClosureCallsMethodBeforeBranch reports whether an immediately invoked
+// closure unconditionally calls method, including through a nested defer.
+func CalledClosureCallsMethodBeforeBranch(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Call); !ok {
+		return false
+	}
+	common := InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	if _, ok := common.Value.(*ssa.MakeClosure); !ok {
+		return false
+	}
+	return ClosureCallsMethodBeforeBranch(instruction, method, target)
+}
+
+func closureDefersMethodOnMappedTarget(
+	instruction ssa.Instruction,
+	method string,
+	common *ssa.CallCommon,
+	closure *ssa.MakeClosure,
+	function *ssa.Function,
+	target ssa.Value,
+) bool {
+	if _, ok := instruction.(*ssa.Defer); !ok {
+		return false
+	}
+	for _, free := range function.FreeVars {
+		if calledReceiverMatches(common, closure, function, free, target) && DeferredClosureCalls(instruction, method, free) {
+			return true
+		}
+	}
+	for _, parameter := range function.Params {
+		if calledReceiverMatches(common, closure, function, parameter, target) && DeferredClosureCalls(instruction, method, parameter) {
+			return true
+		}
 	}
 	return false
 }

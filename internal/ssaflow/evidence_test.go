@@ -84,6 +84,64 @@ func evidence(value *closer) {
 	}
 }
 
+func TestCalledClosureCompletionBeforeBranch(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+type closer struct{}
+
+func (*closer) Close() {}
+
+func nestedDeferred(value *closer) {
+	func() { defer func() { value.Close() }() }()
+}
+
+func conditionalNestedDeferred(value *closer, enabled bool) {
+	func() {
+		if enabled {
+			defer func() { value.Close() }()
+		}
+	}()
+}
+`)
+	nested := pkg.Func("nestedDeferred")
+	nestedCall := findSSAInstruction(t, nested, func(instruction ssa.Instruction) bool {
+		call, ok := instruction.(*ssa.Call)
+		if !ok {
+			return false
+		}
+		_, ok = call.Common().Value.(*ssa.MakeClosure)
+		return ok
+	})
+	nestedProof := ProveCompletion(CompletionRequest{
+		Instruction: nestedCall,
+		Target:      nested.Params[0],
+		Methods:     []string{"Close"},
+		Modes:       CompletionInCalledClosureBeforeBranch,
+	})
+	if !nestedProof.Proven() || nestedProof.Reason != EvidenceCalledCompletionBeforeBranch {
+		t.Fatalf("nested deferred completion = %#v, want called-closure proof", nestedProof)
+	}
+
+	conditional := pkg.Func("conditionalNestedDeferred")
+	conditionalCall := findSSAInstruction(t, conditional, func(instruction ssa.Instruction) bool {
+		call, ok := instruction.(*ssa.Call)
+		if !ok {
+			return false
+		}
+		_, ok = call.Common().Value.(*ssa.MakeClosure)
+		return ok
+	})
+	if proof := ProveCompletion(CompletionRequest{
+		Instruction: conditionalCall,
+		Target:      conditional.Params[0],
+		Methods:     []string{"Close"},
+		Modes:       CompletionInCalledClosureBeforeBranch,
+	}); proof.Proven() {
+		t.Fatalf("conditional nested deferred completion = %#v, want no proof", proof)
+	}
+}
+
 func TestOwnershipTransferEvidenceReason(t *testing.T) {
 	pkg := buildTestSSA(t, `
 package ssaflowtest

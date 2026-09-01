@@ -198,6 +198,57 @@ func waitedInGoroutine(ctx context.Context) error {
 	return <-done
 }
 
+func waitedThroughDirectProcessHandle(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	_, _ = command.Process.Wait()
+	return nil
+}
+
+func conditionallyWaitedThroughDirectProcessHandle(ctx context.Context, wait bool) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return err
+	}
+	if wait {
+		_, _ = command.Process.Wait()
+	}
+	return nil
+}
+
+func reapedByDetachedGoroutine(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	go func() { _ = command.Wait() }()
+	return nil
+}
+
+func reapedByDetachedGoroutineNestedDefer(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	go func() { defer func() { _ = command.Wait() }() }()
+	return nil
+}
+
+func conditionallyReapedByDetachedGoroutine(ctx context.Context, reap bool) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return err
+	}
+	go func() {
+		if reap {
+			defer func() { _ = command.Wait() }()
+		}
+	}()
+	return nil
+}
+
 func startWaiter(command *exec.Cmd) {
 	go func() { _ = command.Wait() }()
 }

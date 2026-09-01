@@ -173,15 +173,16 @@ func releasesResource(
 			return true
 		}
 		// A directly invoked cleanup closure can own an individual error path just
-		// as a defer owns the return path. Require the close before any branch in
-		// the closure so conditional cleanup cannot hide a leak. ccLoad uses this
-		// pattern while constructing verified temporary files:
+		// as a defer owns the return path. Require direct invocation and cleanup
+		// before any branch so a stored closure or conditional defer cannot hide a
+		// leak. ccLoad uses a direct close while uzomuzo uses a nested defer:
 		// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/bridge_install.go#L264-L289
+		// https://github.com/future-architect/uzomuzo-oss/blob/0efb5096879fbb45b81a22d5c80e4c62cb722012/internal/infrastructure/golangresolve/resolve.go#L94-L107
 		completion = ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
-			Modes:       ssaflow.CompletionDeferred | ssaflow.CompletionBeforeBranch,
+			Modes:       ssaflow.CompletionDeferred | ssaflow.CompletionInCalledClosureBeforeBranch,
 		}
 		if evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,

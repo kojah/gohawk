@@ -21,3 +21,10 @@ Round 4 contains the 20 false positives fixed from a 15-repository traced
 audit plus all 23 reviewed true positives. The full audit, including the
 remaining labeled noise families, lives in the companion lead-generation
 study rather than being encoded as accepted benchmark behavior.
+
+Round 5 preserves the first reviewed batch from the 500-repository `-enable-all`
+audit. It covers immediately invoked nested cleanup defers, background process
+waiters, and direct `os.Process.Wait`, together with nearby resource and process
+leaks that must remain reportable. Only repositories contributing a regression
+label are retained in the executable cohort; the broader selection ledger is
+kept separately from the CI-sized precision gate.

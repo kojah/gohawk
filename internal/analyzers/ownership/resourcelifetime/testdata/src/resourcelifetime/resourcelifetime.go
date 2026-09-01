@@ -383,6 +383,40 @@ func closedResponse(client *http.Client, request *http.Request) error {
 	return nil
 }
 
+func responseClosedByImmediateNestedDefer(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	func() {
+		defer func() { _ = response.Body.Close() }()
+	}()
+	return nil
+}
+
+func responseConditionallyClosedByImmediateNestedDefer(client *http.Client, request *http.Request, closeBody bool) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	func() {
+		if closeBody {
+			defer func() { _ = response.Body.Close() }()
+		}
+	}()
+	return nil
+}
+
+func responseCleanupClosureNotCalled(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	cleanup := func() { _ = response.Body.Close() }
+	_ = cleanup
+	return nil
+}
+
 func returnedResponseBody(client *http.Client, request *http.Request) (io.ReadCloser, error) {
 	response, err := client.Do(request)
 	if err != nil {

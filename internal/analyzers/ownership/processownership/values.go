@@ -85,12 +85,15 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 	if common == nil {
 		return false
 	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) &&
-		(ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
-			osProcessDerivedFromCommand(ssaflow.CallReceiver(common), command)) {
-		return true
+	receiver := ssaflow.CallReceiver(common)
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
+		return ssaflow.ValueDerivesFrom(receiver, command, map[ssa.Value]bool{})
 	}
-	return false
+	// Waiting through cmd.Process reaps the same operating-system child. Mache
+	// uses the lower-level handle after signaling an entire process group:
+	// https://github.com/agentic-research/mache/blob/ccaf44c3688c12324af57747b6fb0c6a33ca93e0/internal/leyline/procgroup_unix_test.go#L30-L51
+	return ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Wait"})) &&
+		osProcessDerivedFromCommand(receiver, command)
 }
 
 func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {

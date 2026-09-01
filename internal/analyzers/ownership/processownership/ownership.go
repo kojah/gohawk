@@ -162,7 +162,7 @@ func processOwnershipAction(evidence *lifecyclefacts.EvidenceQuery, instruction 
 		Target:      command,
 		Methods:     []string{"Wait"},
 		Modes: ssaflow.CompletionDeferred | ssaflow.CompletionInClosure |
-			ssaflow.CompletionByHelper,
+			ssaflow.CompletionInStartedClosure | ssaflow.CompletionByHelper,
 	}
 	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
@@ -170,6 +170,11 @@ func processOwnershipAction(evidence *lifecyclefacts.EvidenceQuery, instruction 
 		Modes: ssaflow.TransferStoredInField | ssaflow.TransferOwnerStoredInField |
 			ssaflow.TransferCapturedByClosure | ssaflow.TransferCallResultStoredInField,
 	}
+	// A launched waiter owns reaping when every normal goroutine return waits,
+	// including a nested defer. feint uses both direct and deferred background
+	// waiters for deliberately longer-lived commands:
+	// https://github.com/stephrobert/feint/blob/270aeb83c264ad109af885bb4e52f598265c5e1f/internal/cli/lifecycle.go#L183-L206
+	// https://github.com/stephrobert/feint/blob/270aeb83c264ad109af885bb4e52f598265c5e1f/internal/core/machine/incus_watch.go#L51-L61
 	// os.Process.Release explicitly relinquishes the parent's wait/reap
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
