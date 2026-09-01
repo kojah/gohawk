@@ -50,6 +50,10 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 			emitTestingCallbackDecision(pass, function)
 			continue
 		}
+		if testingHandleUnused(handle) {
+			emitUnusedTestingHandleDecision(pass, function)
+			continue
+		}
 		if testingHandleCapturedOnlyByReturnedClosures(function, handle) {
 			emitReturnedTestingClosureDecision(pass, function)
 			continue
@@ -68,6 +72,40 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+func testingHandleUnused(handle *ssa.Parameter) bool {
+	references := handle.Referrers()
+	if references == nil {
+		return true
+	}
+	for _, reference := range *references {
+		if _, debug := reference.(*ssa.DebugRef); !debug {
+			return false
+		}
+	}
+	return true
+}
+
+func emitUnusedTestingHandleDecision(pass *analysis.Pass, function *ssa.Function) {
+	checkID := string(check.TestHelperMarker)
+	if !analysisTrace.Enabled("testpolicy", checkID) {
+		return
+	}
+	// Helper only changes attribution for operations reached through the testing
+	// handle. Calling it cannot help when the parameter is wholly unused, as in
+	// these Armada and Incus helpers:
+	// https://github.com/armadaproject/armada-operator/blob/2326513ebd93e3cf5153bc4f3fbec7199c0cb30e/internal/controller/install/common_helpers_test.go#L1030
+	// https://github.com/lxc/incus-compose/blob/a7da6db1112780ad83c75a9a5136c111ad1d9b71/cmd/incus-compose/backup_test.go#L63-L71
+	analysisTrace.Emit(pass, analysisTrace.Event{
+		Analyzer: "testpolicy",
+		Check:    checkID,
+		Phase:    "decision",
+		Reason:   "unused-testing-handle",
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      function.Pos(),
+		Function: function.String(),
+	})
 }
 
 func testingHandleCapturedOnlyByReturnedClosures(function *ssa.Function, handle *ssa.Parameter) bool {
@@ -264,12 +302,8 @@ func namedTestingCallbacks(pass *analysis.Pass) map[types.Object]bool {
 				if !testingCallbackParameter(signature, index) {
 					continue
 				}
-				identifier, ok := syntax.Unparen(argument).(*ast.Ident)
-				if !ok {
-					continue
-				}
-				function, ok := pass.TypesInfo.Uses[identifier].(*types.Func)
-				if !ok {
+				function, identifier := testingCallbackFunction(pass, syntax.Unparen(argument))
+				if function == nil {
 					continue
 				}
 				candidates[function] = true
@@ -290,6 +324,23 @@ func namedTestingCallbacks(pass *analysis.Pass) map[types.Object]bool {
 	return candidates
 }
 
+func testingCallbackFunction(pass *analysis.Pass, expression ast.Expr) (*types.Func, *ast.Ident) {
+	switch typed := expression.(type) {
+	case *ast.Ident:
+		function, _ := pass.TypesInfo.Uses[typed].(*types.Func)
+		return function, typed
+	case *ast.SelectorExpr:
+		selection := pass.TypesInfo.Selections[typed]
+		if selection == nil {
+			return nil, nil
+		}
+		function, _ := selection.Obj().(*types.Func)
+		return function, typed.Sel
+	default:
+		return nil, nil
+	}
+}
+
 func testingCallbackParameter(signature *types.Signature, argument int) bool {
 	parameters := signature.Params()
 	if argument < 0 || argument >= parameters.Len() {
@@ -305,9 +356,11 @@ func emitTestingCallbackDecision(pass *analysis.Pass, function *ssa.Function) {
 	if !analysisTrace.Enabled("testpolicy", checkID) {
 		return
 	}
-	// Named callbacks have the same testing-owned boundary as function literals.
-	// Dranet passes namespace test bodies to a runner that invokes them with t.Run:
+	// Named functions and selected methods have the same testing-owned boundary
+	// as function literals. Dranet passes namespace test bodies to a runner, and
+	// Incus does the same with method values:
 	// https://github.com/kubernetes-sigs/dranet/blob/53e6c967d7b0b8e2c46e070c7129f712c631a2ab/pkg/inventory/net_test.go#L32-L39
+	// https://github.com/lxc/incus-compose/blob/a7da6db1112780ad83c75a9a5136c111ad1d9b71/cmd/ic-dns/e2e_visibility_test.go#L74-L81
 	analysisTrace.Emit(pass, analysisTrace.Event{
 		Analyzer: "testpolicy",
 		Check:    checkID,

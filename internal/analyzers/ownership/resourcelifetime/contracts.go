@@ -135,11 +135,28 @@ func releasesResource(
 		return true
 	}
 	for _, method := range methods {
+		// A deferred function literal may receive a field projected from the
+		// acquired owner and close that exact parameter on every return. Webtor
+		// uses this generated shape for response bodies:
+		// https://github.com/webtor-io/web-ui/blob/4d541bb73a322597de7f72401fdb3d5e4b04fd9a/services/tmdb/api.go#L428-L449
+		completion := ssaflow.CompletionRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Methods:     []string{method},
+			Modes:       ssaflow.CompletionByDeferredArgument,
+		}
+		if evidence.Prove(lifecyclefacts.EvidenceRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Completion:  &completion,
+		}).Proven() {
+			return true
+		}
 		// A deferred helper may own cleanup by receiving a bound lifecycle method
 		// and invoking that exact callback on every normal helper return. New
 		// Relic uses this to log Body.Close errors without losing defer semantics:
 		// https://github.com/newrelic/nri-elasticsearch/blob/9d4f88e2b4293b86dffaa82369dc580493f1b424/src/client.go#L99-L115
-		completion := ssaflow.CompletionRequest{
+		completion = ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},

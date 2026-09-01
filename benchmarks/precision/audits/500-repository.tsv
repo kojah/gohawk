@@ -39,3 +39,13 @@
 4	harshalgajjar/Reminal	c4fd9e64b3b1deabaaacd5e10b9090a28792148d	.	reviewed
 4	apache/superset-kubernetes-operator	58e40432575cb63f20e6b5d4df69d8da0908f84d	.	reviewed
 4	owainlewis/machinist	75964acbdb944b4456a51c9bfaa4948e76b0c041	.	reviewed
+5	armadaproject/armada-operator	2326513ebd93e3cf5153bc4f3fbec7199c0cb30e	.	reviewed
+5	couchbasecloud/terraform-provider-couchbase-capella	89ce2874488c31446412ff6fdbd7e676ce44f57c	.	reviewed
+5	cplieger/plex-exporter	b820ffcfa5f02226c892856fa521e8e6b50fb624	.	reviewed
+5	lxc/incus-compose	a7da6db1112780ad83c75a9a5136c111ad1d9b71	.,benchmarks/ic-dns/ecs_view,benchmarks/ic-dns/kubernetes	reviewed
+5	mattermost/mattermost-plugin-demo	b70eb8051b52611210efc8d4f9fb92e51bc5bec3	.	reviewed
+5	nyaruka/courier	56b2093cb6bb53b7560237ae77c0f5fd03e6f657	.	reviewed
+5	pmady/keda-gpu-scaler	f44647b2081430d80ec58b7674fbf1d26cfd2b54	.,tests/terratest	reviewed
+5	tgragnato/snowflake	29b45d7671e92a797ccdc68fab0d1210d37a038d	.,dtls	reviewed
+5	wandb/operator	a51b91faa03f1431f51d223fc16683799df12db1	.	reviewed
+5	webtor-io/web-ui	4d541bb73a322597de7f72401fdb3d5e4b04fd9a	.	reviewed

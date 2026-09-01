@@ -4,7 +4,7 @@ civitai/cli,testpolicy,internal/cmd/app_listing_test.go:321:25,false_positive
 civitai/cli,wirepolicy,internal/cmd/app_status_drift_test.go:111:3,false_positive
 civitai/cli,resourcelifetime,cmd/civitai/fs_not_network_test.go:161:12,true_positive
 civitai/cli,processownership,internal/cmd/login.go:439:9,true_positive
-civitai/cli,testpolicy,internal/cmd/app_listing_help_test.go:255:6,true_positive
+civitai/cli,testpolicy,internal/cmd/app_listing_help_test.go:255:6,false_positive
 newrelic/nri-elasticsearch,resourcelifetime,src/client.go:99:19,false_positive
 newrelic/nri-elasticsearch,testpolicy,src/client_test.go:176:6,true_positive
 harshalgajjar/Reminal,goroutineownership,internal/client/daemon.go:52:3,false_positive

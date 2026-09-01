@@ -25,6 +25,45 @@ func ClosureCallsMethod(instruction ssa.Instruction, method string, target ssa.V
 	return false
 }
 
+// DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn reports whether a
+// deferred function literal receives a value projected from target and calls
+// method on that exact parameter along every normal return path.
+func DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Defer); !ok {
+		return false
+	}
+	common, _, function := calledFunction(instruction)
+	if common == nil || function == nil || function.Parent() == nil || len(function.Blocks) == 0 {
+		return false
+	}
+	callsCleanup := func(candidate ssa.Instruction) bool {
+		called := InstructionCall(candidate)
+		if CallName(called) != method {
+			return false
+		}
+		receiver := CallReceiver(called)
+		for index, parameter := range function.Params {
+			if index < len(common.Args) && ValueDerivesFrom(receiver, parameter, map[ssa.Value]bool{}) &&
+				ValueIsAccessPathFrom(common.Args[index], target) {
+				return true
+			}
+		}
+		return false
+	}
+	hasReturn, hasCleanup := false, false
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			if _, ok := candidate.(*ssa.Return); ok {
+				hasReturn = true
+			}
+			if callsCleanup(candidate) {
+				hasCleanup = true
+			}
+		}
+	}
+	return hasReturn && hasCleanup && !UnownedReturnFromEntry(function, callsCleanup)
+}
+
 // StartedClosureCallsMethodOnEveryReturn reports whether a launched closure
 // calls method on target before each of its normal returns.
 func StartedClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {

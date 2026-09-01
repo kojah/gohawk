@@ -3,7 +3,19 @@ package testpolicy
 import "testing"
 
 func missingHelper(t *testing.T) { // want "test helper accepting t"
-	_ = t
+	t.Log("direct testing use")
+}
+
+func unusedTestingHandle(t *testing.T) {}
+
+func unusedBlankTestingHandle(_ *testing.T) {}
+
+func markedForwardedHelper(t *testing.T) {
+	t.Helper()
+}
+
+func forwardsTestingHandle(t *testing.T) { // want "test helper accepting t"
+	markedForwardedHelper(t)
 }
 
 func hasHelper(t *testing.T) {
@@ -29,8 +41,30 @@ func namedBenchmarkCallback(b *testing.B) {
 	_ = b
 }
 
+type callbackSuite struct{}
+
+func (*callbackSuite) methodCallback(t *testing.T) {
+	t.Error("callback failure")
+}
+
+func (*callbackSuite) mixedMethodCallback(t *testing.T) { // want "test helper accepting t"
+	t.Error("mixed callback failure")
+}
+
+func (*callbackSuite) escapedMethodCallback(t *testing.T) { // want "test helper accepting t"
+	t.Error("escaped callback failure")
+}
+
+func (*callbackSuite) nonTestingMethodCallback(t *testing.T) { // want "test helper accepting t"
+	t.Error("non-testing callback failure")
+}
+
+func retainAnyCallback(callback any) {
+	_ = callback
+}
+
 func mixedCallbackAndHelper(t *testing.T) { // want "test helper accepting t"
-	_ = t
+	t.Error("mixed callback failure")
 }
 
 func returnedTestingCallback(t *testing.T) func() {
@@ -57,10 +91,17 @@ func TestEntryPoint(t *testing.T) {
 }
 
 func TestCallbacksAreNotHelpers(t *testing.T) {
+	suite := &callbackSuite{}
 	_ = returnedTestingCallback(t)
 	_ = mixedReturnedCallbackAndHelper(t)
 	_ = invokedAndReturnedTestingCallback(t)
 	t.Run("named callback", namedTestCallback)
+	t.Run("method callback", suite.methodCallback)
+	t.Run("mixed method callback", suite.mixedMethodCallback)
+	suite.mixedMethodCallback(t)
+	escaped := suite.escapedMethodCallback
+	_ = escaped
+	retainAnyCallback(suite.nonTestingMethodCallback)
 	t.Run("mixed callback", mixedCallbackAndHelper)
 	mixedCallbackAndHelper(t)
 	t.Run("callback", func(t *testing.T) {

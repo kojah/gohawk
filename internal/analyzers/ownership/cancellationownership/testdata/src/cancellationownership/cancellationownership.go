@@ -180,6 +180,106 @@ func conditionalHelperDoesNotOwnCancel(parent context.Context, run bool) {
 	conditionallySettle(cancel, run)
 }
 
+func startCancelWorker(cancel context.CancelFunc) {
+	go func() {
+		cancel()
+	}()
+}
+
+func helperGoroutineOwnsCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	startCancelWorker(cancel)
+}
+
+func startCancelDirectly(cancel context.CancelFunc) {
+	go cancel()
+}
+
+func directHelperGoroutineOwnsCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	startCancelDirectly(cancel)
+}
+
+func StartExportedCancelWorker(cancel context.CancelFunc) {
+	go func() { cancel() }()
+}
+
+func exportedGoroutineHelperDoesNotTransferCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	StartExportedCancelWorker(cancel)
+}
+
+func settleInWorker(cancel context.CancelFunc) {
+	cancel()
+}
+
+func startNestedCancelWorker(cancel context.CancelFunc) {
+	go func() {
+		settleInWorker(cancel)
+	}()
+}
+
+func nestedHelperGoroutineOwnsCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	startNestedCancelWorker(cancel)
+}
+
+func conditionallyStartCancelWorker(cancel context.CancelFunc, run bool) {
+	if run {
+		go func() { cancel() }()
+	}
+}
+
+func conditionalGoroutineHelperDoesNotOwnCancel(parent context.Context, run bool) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	conditionallyStartCancelWorker(cancel, run)
+}
+
+func startConditionalCallbackWorker(cancel context.CancelFunc, run bool) {
+	go func() {
+		if run {
+			cancel()
+		}
+	}()
+}
+
+func conditionalWorkerCallbackDoesNotOwnCancel(parent context.Context, run bool) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	startConditionalCallbackWorker(cancel, run)
+}
+
+func callCancelWithoutWorker(cancel context.CancelFunc) {
+	cancel()
+}
+
+func nonGoroutineHelperStillOwnsCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	callCancelWithoutWorker(cancel)
+}
+
+func observeWithoutWorker(cancel context.CancelFunc) {
+	_ = cancel
+}
+
+func nonGoroutineObserverDoesNotOwnCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	observeWithoutWorker(cancel)
+}
+
+func startUnrelatedCallbackWorker(cancel, other context.CancelFunc) {
+	go func() { other() }()
+}
+
+func unrelatedWorkerCallbackDoesNotOwnCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	startUnrelatedCallbackWorker(cancel, func() {})
+}
+
+func dynamicGoroutineStarterDoesNotOwnCancel(parent context.Context, start func(context.CancelFunc)) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	start(cancel)
+}
+
 func teardown(cancel context.CancelFunc, fast bool) {
 	if fast {
 		if cancel != nil {

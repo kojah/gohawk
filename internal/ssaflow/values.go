@@ -183,6 +183,13 @@ type AccessPath struct {
 	Root  ssa.Value
 }
 
+// ValueIsAccessPathFrom reports whether value is root itself or a statically
+// identifiable field or constant-index projection beneath root.
+func ValueIsAccessPathFrom(value, root ssa.Value) bool {
+	_, ok := accessPath(value, root, map[ssa.Value]bool{})
+	return ok
+}
+
 // SameAccessPath reports whether left and right select the same sequence of
 // fields and constant indexes from their respective roots. It maps a closure's
 // free-variable access back to the captured binding without equating either

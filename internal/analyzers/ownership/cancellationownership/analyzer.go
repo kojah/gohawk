@@ -53,7 +53,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				// Prometheus installs its current cancel in a scraper callback:
 				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/scrape/scrape_test.go#L1294-L1315
 				leaks := ssaflow.UnownedReturnAssumingNonNil(call, cancel, func(candidate ssa.Instruction) bool {
-					return callsCancel(evidence, candidate, cancel)
+					return callsCancel(pass, evidence, candidate, cancel)
 				}, func(returned *ssa.Return) bool {
 					return ssaflow.ReturnSameValue(returned, cancel) || ssaflow.ReturnedValueOwnsValue(returned, cancel)
 				})
@@ -188,7 +188,7 @@ func cancelInvocation(name, constructor string) string {
 	return name + "()"
 }
 
-func callsCancel(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, cancel ssa.Value) bool {
+func callsCancel(pass *analysis.Pass, evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, cancel ssa.Value) bool {
 	// A helper may settle an obligation without a naming convention. Require
 	// invocation on every normal helper return; process-tree tests use this to
 	// centralize cancellation and process cleanup together:
@@ -199,6 +199,10 @@ func callsCancel(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruc
 	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
 	if instructionSettlesCancellation(evidence, instruction, cancel) ||
 		callTakesCancellationOwnership(evidence, instruction, cancel) {
+		return true
+	}
+	if callStartsGoroutineInvokingCallback(instruction, cancel) {
+		emitCancellationEvidence(pass, instruction, "helper-goroutine-invokes-callback")
 		return true
 	}
 	common := ssaflow.InstructionCall(instruction)
@@ -220,6 +224,102 @@ func callsCancel(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruc
 		}
 	}
 	return false
+}
+
+func callStartsGoroutineInvokingCallback(instruction ssa.Instruction, cancel ssa.Value) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	callee := common.StaticCallee()
+	if callee == nil || callee.Syntax() == nil || len(callee.Blocks) == 0 {
+		return false
+	}
+	object := callee.Object()
+	if object == nil || object.Exported() {
+		return false
+	}
+	for index, argument := range common.Args {
+		if index >= len(callee.Params) || !ssaflow.SameValue(argument, cancel) {
+			continue
+		}
+		parameter := callee.Params[index]
+		startsOwner := func(candidate ssa.Instruction) bool {
+			spawn, ok := candidate.(*ssa.Go)
+			return ok && startedGoroutineInvokesCallback(spawn, parameter)
+		}
+		// Starting a worker conditionally is not an ownership transfer. Incus's
+		// private withDrain helper starts one on every normal helper path, and the
+		// worker invokes the exact cancellation callback before it can return:
+		// https://github.com/lxc/incus-compose/blob/a7da6db1112780ad83c75a9a5136c111ad1d9b71/iclient/incus_exec.go#L186-L206
+		if !ssaflow.UnownedReturnFromEntryAssumingNonNil(callee, parameter, startsOwner) {
+			return true
+		}
+	}
+	return false
+}
+
+func startedGoroutineInvokesCallback(spawn *ssa.Go, callback ssa.Value) bool {
+	common := spawn.Common()
+	if common == nil {
+		return false
+	}
+	if ssaflow.SameValue(common.Value, callback) {
+		return true
+	}
+	closure, _ := common.Value.(*ssa.MakeClosure)
+	function := common.StaticCallee()
+	if function == nil || len(function.Blocks) == 0 {
+		return false
+	}
+	// Map callback uses in the worker back through the spawn arguments or
+	// closure bindings. The later return-path check requires this invocation on
+	// every normal exit; merely capturing or forwarding the callback is not
+	// ownership evidence.
+	invokes := func(candidate ssa.Instruction) bool {
+		called := ssaflow.InstructionCall(candidate)
+		if called == nil {
+			return false
+		}
+		if ssaflow.SameValue(ssaflow.SpawnedValueAtCall(spawn, function, closure, called.Value), callback) {
+			return true
+		}
+		for _, argument := range called.Args {
+			if ssaflow.SameValue(ssaflow.SpawnedValueAtCall(spawn, function, closure, argument), callback) &&
+				ssaflow.CallInvokesArgumentOnEveryReturn(candidate, argument) {
+				return true
+			}
+		}
+		return false
+	}
+	hasReturn, hasInvocation := false, false
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			if _, ok := candidate.(*ssa.Return); ok {
+				hasReturn = true
+			}
+			if invokes(candidate) {
+				hasInvocation = true
+			}
+		}
+	}
+	return hasReturn && hasInvocation && !ssaflow.UnownedReturnFromEntry(function, invokes)
+}
+
+func emitCancellationEvidence(pass *analysis.Pass, instruction ssa.Instruction, reason string) {
+	checkID := string(check.CancellationRelease)
+	if !analysisTrace.Enabled("cancellationownership", checkID) {
+		return
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{
+		Analyzer: "cancellationownership",
+		Check:    checkID,
+		Phase:    "evidence",
+		Reason:   reason,
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      instruction.Pos(),
+		Function: instruction.Parent().String(),
+	})
 }
 
 func instructionSettlesCancellation(

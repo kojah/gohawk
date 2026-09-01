@@ -19,6 +19,7 @@ const (
 	EvidenceSameAccessPath EvidenceReason = "same-access-path"
 
 	EvidenceDeferredCompletion           EvidenceReason = "deferred-completion"
+	EvidenceDeferredArgumentCompletion   EvidenceReason = "deferred-argument-completion"
 	EvidenceDeferredHelperCallback       EvidenceReason = "deferred-helper-callback-completion"
 	EvidenceClosureCompletion            EvidenceReason = "closure-completion"
 	EvidenceCompletionBeforeBranch       EvidenceReason = "completion-before-branch"
@@ -171,7 +172,7 @@ func slicesEqual(left, right []string) bool {
 // CompletionMode selects lifecycle-completion relationships accepted by an
 // analyzer. Modes are policy: callers should enable only the relationships
 // that settle their particular ownership obligation.
-type CompletionMode uint8
+type CompletionMode uint16
 
 const (
 	CompletionDeferred CompletionMode = 1 << iota
@@ -182,6 +183,7 @@ const (
 	CompletionByStartedHelper
 	CompletionInCalledClosureBeforeBranch
 	CompletionByDeferredHelperCallback
+	CompletionByDeferredArgument
 )
 
 // CompletionRequest describes lifecycle completion to prove for one or more
@@ -231,33 +233,44 @@ func proveCompletion(request CompletionRequest) CompletionProof {
 		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
 	for _, method := range request.Methods {
-		if request.Modes&CompletionDeferred != 0 && DeferredClosureCalls(request.Instruction, method, request.Target) {
-			return completionProof(EvidenceDeferredCompletion, method)
-		}
-		if request.Modes&CompletionByDeferredHelperCallback != 0 &&
-			DeferredHelperInvokesBoundMethodOnEveryReturn(request.Instruction, method, request.Target) {
-			return completionProof(EvidenceDeferredHelperCallback, method)
-		}
-		if proof := proveBeforeBranchCompletion(request, method); proof.Proven() {
+		if proof := proveMethodCompletion(request, method); proof.Proven() {
 			return proof
-		}
-		if request.Modes&CompletionByHelper != 0 && CallCallsMethodOnArgumentOnEveryReturn(request.Instruction, method, request.Target) {
-			return completionProof(EvidenceHelperCompletion, method)
-		}
-		if request.Modes&CompletionInStartedClosure != 0 && StartedClosureCallsMethodOnEveryReturn(request.Instruction, method, request.Target) {
-			return completionProof(EvidenceStartedCompletion, method)
-		}
-		if request.Modes&CompletionByStartedHelper != 0 && StartedClosureCallsMethodViaHelper(request.Instruction, method, request.Target) {
-			return completionProof(EvidenceStartedHelperCompletion, method)
-		}
-		if request.Modes&CompletionInClosure != 0 && ClosureCallsMethod(request.Instruction, method, request.Target) {
-			return completionProof(EvidenceClosureCompletion, method)
 		}
 	}
 	if completionEvidenceUnavailable(request) {
 		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
 	return CompletionProof{Proof{State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA}}
+}
+
+func proveMethodCompletion(request CompletionRequest, method string) CompletionProof {
+	if request.Modes&CompletionDeferred != 0 && DeferredClosureCalls(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceDeferredCompletion, method)
+	}
+	if request.Modes&CompletionByDeferredArgument != 0 &&
+		DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceDeferredArgumentCompletion, method)
+	}
+	if request.Modes&CompletionByDeferredHelperCallback != 0 &&
+		DeferredHelperInvokesBoundMethodOnEveryReturn(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceDeferredHelperCallback, method)
+	}
+	if proof := proveBeforeBranchCompletion(request, method); proof.Proven() {
+		return proof
+	}
+	if request.Modes&CompletionByHelper != 0 && CallCallsMethodOnArgumentOnEveryReturn(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceHelperCompletion, method)
+	}
+	if request.Modes&CompletionInStartedClosure != 0 && StartedClosureCallsMethodOnEveryReturn(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceStartedCompletion, method)
+	}
+	if request.Modes&CompletionByStartedHelper != 0 && StartedClosureCallsMethodViaHelper(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceStartedHelperCompletion, method)
+	}
+	if request.Modes&CompletionInClosure != 0 && ClosureCallsMethod(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceClosureCompletion, method)
+	}
+	return CompletionProof{}
 }
 
 func proveBeforeBranchCompletion(request CompletionRequest, method string) CompletionProof {
@@ -278,7 +291,7 @@ func completionProof(reason EvidenceReason, method string) CompletionProof {
 func completionEvidenceUnavailable(request CompletionRequest) bool {
 	common, _, function := calledFunction(request.Instruction)
 	if request.Modes&(CompletionDeferred|CompletionInClosure|CompletionBeforeBranch|CompletionInStartedClosure|CompletionByStartedHelper|
-		CompletionInCalledClosureBeforeBranch|CompletionByDeferredHelperCallback) != 0 &&
+		CompletionInCalledClosureBeforeBranch|CompletionByDeferredHelperCallback|CompletionByDeferredArgument) != 0 &&
 		(function == nil || len(function.Blocks) == 0) {
 		return true
 	}

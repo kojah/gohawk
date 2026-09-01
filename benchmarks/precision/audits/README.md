@@ -87,3 +87,29 @@ Field-sensitive channel ownership, receiver registries, returned cleanup
 callbacks, pre-spawn deferred owners, and send-only close ownership remain
 deferred. Precision round 8 retains nearby resource, process, testing, context,
 and goroutine findings.
+
+## Batch 5
+
+Ten repositories and fourteen modules were selected. Twelve modules loaded.
+Mattermost's dependency set did not compile against its selected HTTP/2 API,
+and KEDA's root module needed uncommitted module updates; KEDA's Terratest
+module loaded normally.
+
+Four general evidence gaps were fixed:
+
+- named methods used only as exact testing callbacks are callback boundaries;
+- a wholly unused testing handle cannot affect failure attribution;
+- a private static helper may transfer cancellation to a goroutine that invokes
+  the exact callback on every return; and
+- a deferred function literal may close an exact field projection passed as
+  its formal parameter on every return.
+
+Field-sensitive channels, pipe endpoint contracts, context-bound adapters,
+name-derived producer documentation, and injective-map determinism remain
+deferred until they have compact structural proofs. Precision round 9 retains
+nearby testing, cancellation, resource, and goroutine findings.
+
+This evidence also corrected the earlier round-8 classification of
+`minimalWebP(*testing.T)`: because the testing handle is wholly unused, calling
+`Helper` cannot change failure attribution. The pinned case remains in the
+cohort as a false-positive regression rather than being discarded.

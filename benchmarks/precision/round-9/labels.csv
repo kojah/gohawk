@@ -1,0 +1,11 @@
+repository,analyzer,position,verdict
+armadaproject/armada-operator,testpolicy,internal/controller/install/common_helpers_test.go:1030:6,false_positive
+armadaproject/armada-operator,testpolicy,internal/controller/install/common_helpers_test.go:1020:6,true_positive
+lxc/incus-compose,testpolicy,cmd/ic-dns/e2e_visibility_test.go:171:17,false_positive
+lxc/incus-compose,cancellationownership,iclient/incus_console.go:49:29,false_positive
+lxc/incus-compose,testpolicy,cmd/ic-dns/e2e_multi_test.go:80:6,true_positive
+webtor-io/web-ui,resourcelifetime,services/tmdb/api.go:428:15,false_positive
+webtor-io/web-ui,resourcelifetime,services/web/helper.go:325:12,true_positive
+webtor-io/web-ui,resourcelifetime,handlers/job/handler.go:58:13,true_positive
+webtor-io/web-ui,cancellationownership,services/job/job.go:547:19,true_positive
+webtor-io/web-ui,goroutineownership,jobs/scripts/action.go:570:2,true_positive

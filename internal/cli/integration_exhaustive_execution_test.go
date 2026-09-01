@@ -254,8 +254,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		const relativePath = "sample/helper_test.go"
 
 		output, exitCode := runCommand(t, module, binary, "-enable=testpolicy", "-fix", "-diff", "./...")
-		if exitCode != 0 || strings.Count(output, "t.Helper()") != 2 {
-			t.Fatalf("preview exit code = %d, want two helper insertions\n%s", exitCode, output)
+		if exitCode != 0 || strings.Count(output, "t.Helper()") != 1 {
+			t.Fatalf("preview exit code = %d, want one helper insertion\n%s", exitCode, output)
 		}
 		if contents := moduleFileContents(t, module, relativePath); strings.Contains(contents, "t.Helper()") {
 			t.Fatalf("preview modified fixture:\n%s", contents)
@@ -266,8 +266,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("fix exit code = %d, want 0\n%s", exitCode, output)
 		}
 		contents := moduleFileContents(t, module, relativePath)
-		if strings.Count(contents, "t.Helper()") != 2 || !strings.Contains(contents, "// Keep this setup comment.") {
-			t.Fatalf("fixed fixture does not contain both helpers and the existing comment:\n%s", contents)
+		if strings.Count(contents, "t.Helper()") != 1 || !strings.Contains(contents, "// Keep this setup comment.") {
+			t.Fatalf("fixed fixture does not contain the helper and existing comment:\n%s", contents)
 		}
 
 		output, exitCode = runCommand(t, module, binary, "-enable=testpolicy", "./...")

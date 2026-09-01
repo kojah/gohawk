@@ -46,3 +46,8 @@ an enclosing lifecycle, deferred cleanup callbacks, ambiguous `Row` names,
 returned testing callbacks, and stop channels received through static helpers.
 Nearby resource, process, testing, context, and goroutine findings remain
 reportable.
+
+Round 9 preserves the fifth reviewed batch. It covers unused testing handles,
+method-value testing callbacks, cancellation owned by a helper goroutine, and
+deferred cleanup of an exact resource projection. Nearby test, cancellation,
+resource, and goroutine findings remain reportable.
