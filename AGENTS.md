@@ -125,6 +125,69 @@ reason and test it when practical. Trace output must remain valid JSONL under
 parallel analysis, and enabling tracing must not change which diagnostics are
 reported.
 
+## Proof model cohesion
+
+Keep one authoritative decision path for each analyzer check.
+
+- Do not maintain parallel Boolean lists that independently decide whether the
+  same diagnostic is accepted or rejected. Exported helpers, tracing paths, and
+  reporting paths must delegate to the same proof function, even when a caller
+  only needs the final Boolean result.
+- Represent non-trivial precision decisions with a structured proof containing
+  at least the outcome and stable reason code. Reserve bare `bool` helpers for
+  small mechanical facts whose explanation is supplied by their caller.
+- Before adding another predicate to a top-level condition, identify the
+  evidence family it belongs to and extend that family's proof model. If the
+  predicate introduces different vocabulary or invariants, extract a focused
+  evidence file instead of growing the orchestration function.
+- Keep analyzer entry points limited to collecting inputs, requesting proofs,
+  tracing the returned reason, and reporting. They must not duplicate the
+  evidence rules implemented by lower-level helpers.
+
+## SSA traversal consistency
+
+Treat SSA wrapper, alias, closure, and return traversal as explicit analysis
+policy.
+
+- Do not independently reproduce the same `ChangeInterface`, `ChangeType`,
+  `Convert`, `MakeInterface`, `Phi`, or similar traversal in several analyzers.
+  When multiple analyzers need the same mechanics, add one narrowly named
+  helper under `internal/ssaflow`.
+- Do not create a universal "unwrap everything" helper. Callers must select the
+  exact transparent forms that are sound for their proof, and fixtures must
+  cover a wrapper that remains intentionally opaque.
+- Keep analyzer-specific acceptance policy beside the analyzer. Shared SSA code
+  should provide identity and traversal mechanics, not silently decide whether
+  evidence is sufficient for a diagnostic.
+
+## Semantic heuristics
+
+Names may support a proof but should rarely establish semantics by themselves.
+
+- Do not infer serialization, ownership, lifecycle, synchronization, or
+  cancellation solely from a project-defined type, function, field, or method
+  name.
+- Name-only matching is allowed only for a documented language, standard
+  library, external API, or explicit structural contract. Document that
+  contract at the decision point.
+- Every name-based heuristic must include an accepted fixture using a
+  misleading but plausible name, so ordinary concepts such as rows, contexts,
+  owners, or registries do not become accidental evidence.
+- Prefer type identity, method signatures, data flow, registration structure,
+  and feasible-path evidence over suffixes or name fragments.
+
+## Precision fixture organization
+
+Organize regression fixtures by evidence family rather than maintaining one
+ever-growing scenario catalog.
+
+- When a fixture file covers several independent proof models, split it into
+  focused files within the same testdata package, such as `joins.go`,
+  `returned_owners.go`, or `helper_cleanup.go`.
+- Keep accepted and diagnostic forms for one precision boundary close together.
+- A new fixture should make it obvious which proof function owns the behavior
+  without requiring a search through hundreds of unrelated scenarios.
+
 ## Analyzer organization
 
 ### Well-known symbol identity
