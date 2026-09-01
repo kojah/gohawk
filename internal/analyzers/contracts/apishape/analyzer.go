@@ -35,8 +35,15 @@ type apiShapeConfig struct {
 	maxAdjacentSameType int
 }
 
+type receiverForms uint8
+
+const (
+	valueReceiver receiverForms = 1 << iota
+	pointerReceiver
+)
+
 func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
-	receivers := map[string]uint8{}
+	receivers := map[string]receiverForms{}
 	receiverPositions := map[string]token.Pos{}
 	interfaces := apiShapeInterfaces(pass)
 	callbacks := apiShapeCallbacks(pass)
@@ -65,7 +72,7 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 		})
 	}
 	for name, forms := range receivers {
-		if forms == 3 {
+		if forms == valueReceiver|pointerReceiver {
 			analyzerbase.Reportf(pass, analyzerbase.CheckAPIMixedReceivers, receiverPositions[name], "type %s mixes pointer and value receivers", name)
 		}
 	}
@@ -212,7 +219,7 @@ func functionParameterIsCallback(signature *types.Signature, argument int) bool 
 	return ok
 }
 
-func recordReceiver(declaration *ast.FuncDecl, receivers map[string]uint8, positions map[string]token.Pos) {
+func recordReceiver(declaration *ast.FuncDecl, receivers map[string]receiverForms, positions map[string]token.Pos) {
 	if declaration.Recv == nil || codecMethod(declaration.Name.Name) {
 		return
 	}
@@ -221,9 +228,9 @@ func recordReceiver(declaration *ast.FuncDecl, receivers map[string]uint8, posit
 		return
 	}
 	if pointer {
-		receivers[name] |= 2
+		receivers[name] |= pointerReceiver
 	} else {
-		receivers[name] |= 1
+		receivers[name] |= valueReceiver
 	}
 	positions[name] = declaration.Name.Pos()
 }

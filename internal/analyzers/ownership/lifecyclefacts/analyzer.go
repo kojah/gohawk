@@ -77,7 +77,7 @@ func FactFor(pass *analysis.Pass, instruction gosssa.Instruction) (ssautil.Lifec
 }
 
 // OwnsArgument reports whether a summarized ownership mask covers target.
-func OwnsArgument(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, selectMask func(ssautil.LifecycleFact) uint64) bool {
+func OwnsArgument(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, selectMask func(ssautil.LifecycleFact) ssautil.ParameterMask) bool {
 	fact, ok := FactFor(pass, instruction)
 	mask := selectMask(fact)
 	owned := ok && ssautil.FactOwnsArgument(instruction, target, mask)
@@ -110,7 +110,7 @@ func StoresInEscapingReceiver(pass *analysis.Pass, analyzer, check string, instr
 	return true
 }
 
-func emitSummaryTrace(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, mask uint64, owned bool) {
+func emitSummaryTrace(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, mask ssautil.ParameterMask, owned bool) {
 	if !analysisTrace.Enabled(analyzer, check) {
 		return
 	}
@@ -121,8 +121,8 @@ func emitSummaryTrace(pass *analysis.Pass, analyzer, check string, instruction g
 	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: analyzer, Check: check, Phase: "evidence", Reason: analysisTrace.ReasonLifecycleSummary, Outcome: outcome, Pos: instruction.Pos(), Function: functionName(instruction), Details: summaryDetails(instruction, target, mask)})
 }
 
-func summaryDetails(instruction gosssa.Instruction, target gosssa.Value, mask uint64) map[string]string {
-	details := map[string]string{"mask": strconv.FormatUint(mask, 16)}
+func summaryDetails(instruction gosssa.Instruction, target gosssa.Value, mask ssautil.ParameterMask) map[string]string {
+	details := map[string]string{"mask": strconv.FormatUint(uint64(mask), 16)}
 	if target != nil && target.Type() != nil {
 		details["target_type"] = target.Type().String()
 	}
@@ -145,7 +145,7 @@ func summarize(pass *analysis.Pass, function *gosssa.Function) ssautil.Lifecycle
 		if !ownershipCapableType(parameter.Type()) {
 			continue
 		}
-		bit := uint64(1) << index
+		bit := ssautil.ParameterMaskFor(index)
 		if ownsOnEveryReturn(function, parameter, func(instruction gosssa.Instruction) bool {
 			common := ssautil.InstructionCall(instruction)
 			if common != nil && ssautil.SameValue(common.Value, parameter) {
@@ -156,7 +156,7 @@ func summarize(pass *analysis.Pass, function *gosssa.Function) ssautil.Lifecycle
 		}) {
 			fact.Invoked |= bit
 		}
-		for method, target := range map[string]*uint64{
+		for method, target := range map[string]*ssautil.ParameterMask{
 			"Close": &fact.Closed, "Finalize": &fact.Finalized, "Release": &fact.Released,
 			"Shutdown": &fact.Shutdown, "Stop": &fact.Stopped, "Wait": &fact.Waited,
 		} {

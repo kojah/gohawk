@@ -2,12 +2,13 @@
 description: Use before writing or reviewing Go production code, tests, fixtures, or tools where maintainability, API shape, errors, concurrency, or testability matters.
 metadata:
     github-path: skills/go-coding-conventions
-    github-pinned: a7eb5bb06b025ddbd01e9acc27b8d1390678800b
-    github-ref: a7eb5bb06b025ddbd01e9acc27b8d1390678800b
-    github-repo: https://github.com/jamesqo/skill-vault
-    github-tree-sha: eb9c1859fe590b76668be9a5ac868c528abc8e93
+    github-pinned: 906d407570467b2a27c6cafa25cfc19193f66845
+    github-ref: 906d407570467b2a27c6cafa25cfc19193f66845
+    github-repo: https://github.com/kojah/skill-vault
+    github-tree-sha: 5021401305effbf5467044ee913238f724266307
 name: go-coding-conventions
 ---
+
 # Go coding conventions
 
 Write clear, testable Go with explicit dependencies and predictable failure
@@ -22,7 +23,8 @@ deviate with a stated reason. Prefer clarity over cleverness.
 
 1. Run `gofmt`/`goimports` on changed files plus repository vet, lint, and
    race-enabled test gates.
-2. Use MixedCaps and consistent acronym case; avoid package-name stutter.
+2. Use MixedCaps and consistent acronym case; give domain states, enums, and
+   bitsets defined types instead of passing raw primitives.
 3. Keep packages cohesive; reject both grab bags and package-per-type
    fragmentation.
 4. Return early; keep happy path at left margin.

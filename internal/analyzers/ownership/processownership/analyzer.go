@@ -214,7 +214,7 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
-		lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner | fact.Waited }) ||
+		lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command, func(fact ssautil.LifecycleFact) ssautil.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
 		lifecyclefacts.StoresInEscapingReceiver(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command) ||
 		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
@@ -242,7 +242,7 @@ func processHandleOwnershipAction(pass *analysis.Pass, instruction ssa.Instructi
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
 		}
-		if lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, argument, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner | fact.Waited }) ||
+		if lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, argument, func(fact ssautil.LifecycleFact) ssautil.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
 			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", argument) ||
 			ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
 			if analysisTrace.Enabled("processownership", string(analyzerbase.CheckProcessWait)) {

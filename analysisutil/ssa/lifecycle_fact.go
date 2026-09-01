@@ -9,15 +9,32 @@ import (
 // function. Each bit identifies an SSA parameter position. The analysisutil
 // package is internal infrastructure; this is not a public extension API.
 type LifecycleFact struct {
-	Invoked       uint64
-	Closed        uint64
-	Finalized     uint64
-	Released      uint64
-	Shutdown      uint64
-	Stopped       uint64
-	Waited        uint64
-	ReturnedOwner uint64
-	ReceiverStore uint64
+	Invoked       ParameterMask
+	Closed        ParameterMask
+	Finalized     ParameterMask
+	Released      ParameterMask
+	Shutdown      ParameterMask
+	Stopped       ParameterMask
+	Waited        ParameterMask
+	ReturnedOwner ParameterMask
+	ReceiverStore ParameterMask
+}
+
+// ParameterMask is a set of SSA parameter positions in a lifecycle summary.
+type ParameterMask uint64
+
+// ParameterMaskFor returns the mask containing index, or an empty mask when
+// index cannot be represented by a lifecycle summary.
+func ParameterMaskFor(index int) ParameterMask {
+	if index < 0 || index >= 64 {
+		return 0
+	}
+	return ParameterMask(1) << index
+}
+
+// Contains reports whether mask contains index.
+func (mask ParameterMask) Contains(index int) bool {
+	return mask&ParameterMaskFor(index) != 0
 }
 
 // LifecycleSummaries memoizes source-visible summaries for one package pass.
@@ -43,13 +60,13 @@ func ImportLifecycleFact(pass *analysis.Pass, instruction ssa.Instruction) (Life
 
 // FactOwnsArgument reports whether mask covers the argument which contains
 // target at this callsite.
-func FactOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask uint64) bool {
+func FactOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
 	common := InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
 	for index, argument := range common.Args {
-		if index >= 64 || mask&(uint64(1)<<index) == 0 {
+		if !mask.Contains(index) {
 			continue
 		}
 		if SameValue(argument, target) || ValueContainsValue(argument, target) {
@@ -60,7 +77,7 @@ func FactOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask uint64
 }
 
 // MethodMask selects the parameter mask for a lifecycle method.
-func (fact LifecycleFact) MethodMask(method string) uint64 {
+func (fact LifecycleFact) MethodMask(method string) ParameterMask {
 	switch method {
 	case "Close":
 		return fact.Closed

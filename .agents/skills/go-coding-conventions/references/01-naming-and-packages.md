@@ -7,6 +7,14 @@
 - End one-method interfaces in `-er` when natural.
 - Use consistent one- or two-letter receiver names; never `self` or `this`.
 - Name error variables `ErrNotFound`; name error types `NotFoundError`.
+- Give domain states, closed sets, identifiers, and bitsets defined types when
+  doing so makes invalid interchange harder or operations clearer. Pair enums
+  and flags with named constants, and put repeated bitset operations behind
+  small methods. Keep counts, indexes, offsets, capacities, and other genuinely
+  numeric values primitive unless distinct units would otherwise be confused.
+- Use `type State uint8`, not `type State = uint8`, for semantic separation.
+  Type aliases preserve identity and are primarily for compatibility or
+  re-exporting an existing type.
 
 # §2 Packages
 
