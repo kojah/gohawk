@@ -83,7 +83,34 @@ func UnownedReturn(
 	if index < 0 {
 		return false
 	}
-	queue := []flowState{{block: start.Block(), index: index + 1}}
+	return unownedReturnFrom([]flowState{{block: start.Block(), index: index + 1}}, owns, allowReturn)
+}
+
+// UnownedReturnAfterCallSuccess is UnownedReturn restricted to the branch on
+// which call succeeded. This matters for obligations created by successful
+// calls such as exec.Cmd.Start: a handled failure may rejoin a later return,
+// but no ownership obligation exists on that path.
+func UnownedReturnAfterCallSuccess(
+	call *ssa.Call,
+	owns func(ssa.Instruction) bool,
+	allowReturn func(*ssa.Return) bool,
+) bool {
+	if call == nil {
+		return false
+	}
+	for _, successor := range call.Block().Succs {
+		if success, known := SuccessBranch(call.Block(), successor, call); known && success {
+			return unownedReturnFrom([]flowState{{block: successor, predecessor: call.Block()}}, owns, allowReturn)
+		}
+	}
+	return UnownedReturn(call, owns, allowReturn)
+}
+
+func unownedReturnFrom(
+	queue []flowState,
+	owns func(ssa.Instruction) bool,
+	allowReturn func(*ssa.Return) bool,
+) bool {
 	seen := map[flowKey]bool{}
 	for len(queue) > 0 {
 		state := queue[0]

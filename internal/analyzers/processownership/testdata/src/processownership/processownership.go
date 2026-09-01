@@ -211,6 +211,52 @@ func waitedByHelperGoroutine(ctx context.Context) error {
 	return nil
 }
 
+type osProcessWaiter struct {
+	done chan struct{}
+}
+
+func newOSProcessWaiter(process *os.Process) *osProcessWaiter {
+	waiter := &osProcessWaiter{done: make(chan struct{})}
+	go func() {
+		_, _ = process.Wait()
+		close(waiter.done)
+	}()
+	return waiter
+}
+
+func waitedThroughProcessHandle(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	_ = newOSProcessWaiter(command.Process)
+	return nil
+}
+
+func waitThroughNestedProcessHelper(process *os.Process) {
+	_ = newOSProcessWaiter(process)
+}
+
+func waitedThroughStartedWrapper(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	go waitThroughNestedProcessHelper(command.Process)
+	return nil
+}
+
+func waitedLaterInLoop(ctx context.Context, commands []string) error {
+	for _, name := range commands {
+		command := exec.CommandContext(ctx, name)
+		if err := command.Start(); err != nil {
+			break
+		}
+		_ = command.Wait()
+	}
+	return nil
+}
+
 type processOwner struct {
 	command *exec.Cmd
 }

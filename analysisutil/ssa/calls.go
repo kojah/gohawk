@@ -560,18 +560,56 @@ func StartedClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method 
 // waiter transfers the obligation even when the caller joins it separately.
 // https://github.com/siemens/wfx/blob/392dde941e73ce9560df2c42b2d480eb528bfc96/middleware/plugin/process_unix_test.go#L35-L45
 func CallStartsClosureCallingMethodOnArgument(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	return callStartsClosureCallingMethodOnArgument(instruction, method, target, map[*ssa.Function]bool{})
+}
+
+// StartedClosureCallsMethodViaHelper reports whether a launched closure passes
+// a captured value, or a value derived from it, to a helper chain that starts a
+// goroutine calling method. This covers wrappers that project a process handle
+// from a captured exec.Cmd before handing it to a waiter helper.
+func StartedClosureCallsMethodViaHelper(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Go); !ok {
+		return false
+	}
+	_, closure, function := calledFunction(instruction)
+	if closure == nil || function == nil {
+		return false
+	}
+	for index, free := range function.FreeVars {
+		if index >= len(closure.Bindings) || !CapturedBindingMatches(closure.Bindings[index], target) &&
+			!ValueContainsValue(closure.Bindings[index], target) {
+			continue
+		}
+		for _, block := range function.Blocks {
+			for _, candidate := range block.Instrs {
+				if callStartsClosureCallingMethodOnArgument(candidate, method, free, map[*ssa.Function]bool{}) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func callStartsClosureCallingMethodOnArgument(instruction ssa.Instruction, method string, target ssa.Value, seen map[*ssa.Function]bool) bool {
 	common := InstructionCall(instruction)
-	if common == nil || common.StaticCallee() == nil {
+	if common == nil || common.StaticCallee() == nil || seen[common.StaticCallee()] {
 		return false
 	}
 	callee := common.StaticCallee()
+	seen[callee] = true
+	defer delete(seen, callee)
 	for index, argument := range common.Args {
-		if index >= len(callee.Params) || !SameValue(argument, target) && !ValueContainsValue(argument, target) {
+		if index >= len(callee.Params) || !SameValue(argument, target) && !ValueContainsValue(argument, target) &&
+			!ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) {
 			continue
 		}
 		for _, block := range callee.Blocks {
 			for _, candidate := range block.Instrs {
 				if _, ok := candidate.(*ssa.Go); ok && ClosureCallsMethod(candidate, method, callee.Params[index]) {
+					return true
+				}
+				if callStartsClosureCallingMethodOnArgument(candidate, method, callee.Params[index], seen) {
 					return true
 				}
 			}
@@ -625,7 +663,9 @@ func calledReceiverMatches(common *ssa.CallCommon, closure *ssa.MakeClosure, fun
 	if closure != nil {
 		for index, free := range function.FreeVars {
 			if ValueDerivesFrom(receiver, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) &&
-				(CapturedBindingMatches(closure.Bindings[index], target) || SameAccessPath(receiver, free, target, closure.Bindings[index])) {
+				(CapturedBindingMatches(closure.Bindings[index], target) ||
+					ValueDerivesFrom(CapturedBindingValue(closure.Bindings[index]), target, map[ssa.Value]bool{}) ||
+					SameAccessPath(receiver, free, target, closure.Bindings[index])) {
 				return true
 			}
 		}

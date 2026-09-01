@@ -7,6 +7,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/analysisutil"
+	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -61,13 +62,97 @@ func reportEvaluationDependencies(pass *analysis.Pass, expressions []ast.Expr) {
 					continue
 				}
 				identifier, ok := address.X.(*ast.Ident)
-				if !ok || !earlierObjects[pass.TypesInfo.ObjectOf(identifier)] || !callMutatesArgument(pass, call, argumentIndex) {
+				object := pass.TypesInfo.ObjectOf(identifier)
+				if !ok || !earlierObjects[object] || !callMutatesArgument(pass, call, argumentIndex) ||
+					disjointFieldMutation(pass, expressions[:laterIndex], call, argumentIndex, object) {
 					continue
 				}
 				analyzerbase.Reportf(pass, analyzerbase.CheckEvaluationOrder, address.Pos(), "later operand may mutate %s after its earlier value was evaluated", identifier.Name)
 			}
 			return true
 		})
+	}
+}
+
+func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.CallExpr, argumentIndex int, object types.Object) bool {
+	function := calledFunctionObject(pass, call)
+	if function == nil || function.Pkg() != pass.Pkg {
+		return false
+	}
+	var declaration *ast.FuncDecl
+	for _, file := range pass.Files {
+		for _, candidate := range file.Decls {
+			declared, ok := candidate.(*ast.FuncDecl)
+			if ok && pass.TypesInfo.Defs[declared.Name] == function {
+				declaration = declared
+				break
+			}
+		}
+	}
+	if declaration == nil {
+		return false
+	}
+	parameter := functionParameter(pass, declaration, argumentIndex)
+	if parameter == nil {
+		return false
+	}
+	earlierFields := map[types.Object]bool{}
+	for _, expression := range earlier {
+		selector, ok := unparenthesized(expression).(*ast.SelectorExpr)
+		if !ok || !analysisutil.ExpressionUsesObject(pass, selector.X, object) {
+			if analysisutil.ExpressionUsesObject(pass, expression, object) {
+				return false
+			}
+			continue
+		}
+		earlierFields[pass.TypesInfo.ObjectOf(selector.Sel)] = true
+	}
+	if len(earlierFields) == 0 {
+		return false
+	}
+	mutatedFields := map[types.Object]bool{}
+	wholeMutation := false
+	ast.Inspect(declaration.Body, func(node ast.Node) bool {
+		var targets []ast.Expr
+		switch candidate := node.(type) {
+		case *ast.AssignStmt:
+			targets = candidate.Lhs
+		case *ast.IncDecStmt:
+			targets = []ast.Expr{candidate.X}
+		default:
+			return true
+		}
+		for _, target := range targets {
+			selector, ok := unparenthesized(target).(*ast.SelectorExpr)
+			if ok && analysisutil.ExpressionUsesObject(pass, selector.X, parameter) {
+				mutatedFields[pass.TypesInfo.ObjectOf(selector.Sel)] = true
+			} else if writesThroughObject(pass, target, parameter) {
+				wholeMutation = true
+			}
+		}
+		return true
+	})
+	if wholeMutation || len(mutatedFields) == 0 {
+		return false
+	}
+	for field := range earlierFields {
+		if mutatedFields[field] {
+			return false
+		}
+	}
+	if analysisTrace.Enabled("evalorder", string(analyzerbase.CheckEvaluationOrder)) {
+		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "evalorder", Check: string(analyzerbase.CheckEvaluationOrder), Phase: "evidence", Reason: "disjoint-field-mutation", Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos()})
+	}
+	return true
+}
+
+func unparenthesized(expression ast.Expr) ast.Expr {
+	for {
+		parenthesized, ok := expression.(*ast.ParenExpr)
+		if !ok {
+			return expression
+		}
+		expression = parenthesized.X
 	}
 }
 

@@ -14,8 +14,11 @@ import tempfile
 FOCUSED_ANALYZERS = {
     "cancellationownership",
     "channelpolicy",
+    "concurrentcapture",
     "deferinloop",
+    "evalorder",
     "goroutineownership",
+    "lockorder",
     "processownership",
     "resourcelifetime",
 }

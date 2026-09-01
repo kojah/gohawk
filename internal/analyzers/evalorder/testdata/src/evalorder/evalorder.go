@@ -33,4 +33,27 @@ func readOnlyLater(value int) (int, error) {
 	return value, readOnly(&value)
 }
 
+type fieldState struct {
+	result int
+	other  int
+}
+
+func updateOther(state *fieldState) error {
+	state.other = 42
+	return nil
+}
+
+func disjointFieldUpdate(state fieldState) (int, error) {
+	return state.result, updateOther(&state)
+}
+
+func updateResult(state *fieldState) error {
+	state.result = 42
+	return nil
+}
+
+func staleFieldUpdate(state fieldState) (int, error) {
+	return state.result, updateResult(&state) // want "later operand may mutate state after its earlier value was evaluated"
+}
+
 func consume(int, error) {}

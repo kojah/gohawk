@@ -186,7 +186,7 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
-	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInGlobal(instruction, resource) || ssautil.StoresValueInEnclosingScope(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) || lifecyclefacts.OwnsArgument(pass, "resourcelifetime", string(analyzerbase.CheckResourceRelease), instruction, resource, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, "resourcelifetime", string(analyzerbase.CheckResourceRelease), instruction, resource) || ssautil.CallTransfersArgumentToReceiver(instruction, resource) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource) {
+	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInGlobal(instruction, resource) || ssautil.StoresValueInEnclosingScope(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || startedClosureReleasesResource(instruction, resource, methods) || ssautil.CallTransfersValueToField(instruction, resource) || lifecyclefacts.OwnsArgument(pass, "resourcelifetime", string(analyzerbase.CheckResourceRelease), instruction, resource, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, "resourcelifetime", string(analyzerbase.CheckResourceRelease), instruction, resource) || ssautil.CallTransfersArgumentToReceiver(instruction, resource) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
@@ -223,6 +223,15 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		// pattern while constructing verified temporary files:
 		// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/bridge_install.go#L264-L289
 		if ssautil.DeferredClosureCalls(instruction, method, resource) || ssautil.ClosureCallsMethodBeforeBranch(instruction, method, resource) {
+			return true
+		}
+	}
+	return false
+}
+
+func startedClosureReleasesResource(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
+	for _, method := range methods {
+		if ssautil.StartedClosureCallsMethodOnEveryReturn(instruction, method, resource) {
 			return true
 		}
 	}
@@ -300,7 +309,7 @@ func resourceLeaks(pass *analysis.Pass, call *ssa.Call, resource ssa.Value, cont
 				state.active = false
 				break
 			}
-			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released && !ssautil.ReturnedValueOwnsValue(returned, resource) && !ssautil.ReturnedSameAsAny(returned, owners) {
+			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released && !returnedResourceOwner(pass, returned, resource, contract.cleanup) && !ssautil.ReturnedSameAsAny(returned, owners) {
 				return true
 			}
 		}
@@ -313,6 +322,27 @@ func resourceLeaks(pass *analysis.Pass, call *ssa.Call, resource ssa.Value, cont
 				active = active && present
 			}
 			queue = append(queue, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released})
+		}
+	}
+	return false
+}
+
+func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource ssa.Value, cleanup []string) bool {
+	if ssautil.ReturnedValueOwnsValue(returned, resource) {
+		return true
+	}
+	for _, result := range returned.Results {
+		if !ssautil.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
+			continue
+		}
+		methods := types.NewMethodSet(result.Type())
+		for index := range methods.Len() {
+			if slices.Contains(cleanup, methods.At(index).Obj().Name()) {
+				if analysisTrace.Enabled("resourcelifetime", string(analyzerbase.CheckResourceRelease)) {
+					analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "resourcelifetime", Check: string(analyzerbase.CheckResourceRelease), Phase: "evidence", Reason: "returned-cleanup-projection", Outcome: analysisTrace.OutcomeAccepted, Pos: returned.Pos(), Function: returned.Parent().String()})
+				}
+				return true
+			}
 		}
 	}
 	return false

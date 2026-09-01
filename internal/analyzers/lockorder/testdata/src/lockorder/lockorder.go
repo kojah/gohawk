@@ -9,6 +9,19 @@ var regressionFirst sync.Mutex
 var regressionSecond sync.Mutex
 var readLock sync.RWMutex
 
+type localMutexOwner struct {
+	mutex sync.Mutex
+}
+
+func distinctLocalMutexOwners() {
+	first := &localMutexOwner{}
+	second := &localMutexOwner{}
+	first.mutex.Lock()
+	defer first.mutex.Unlock()
+	second.mutex.Lock()
+	defer second.mutex.Unlock()
+}
+
 func regressionForward() {
 	regressionFirst.Lock()
 	defer regressionFirst.Unlock()
@@ -159,7 +172,7 @@ func conditionalGoroutineUnlock(release, fail bool) {
 		}
 	}()
 	if fail {
-		return // want "lock lockorder.conditionalGoroutineUnlock:local:mutex is not released on this return path"
+		return // want "lock lockorder.conditionalGoroutineUnlock:local:mutex:t1 is not released on this return path"
 	}
 	mutex.Unlock()
 }
@@ -228,7 +241,7 @@ func localFieldMissingUnlock(skip bool) {
 	state := new(guardedState)
 	state.mutex.Lock()
 	if skip {
-		return // want "lock lockorder.localFieldMissingUnlock:local:new.mutex is not released on this return path"
+		return // want "lock lockorder.localFieldMissingUnlock:local:new:t0.mutex is not released on this return path"
 	}
 	state.mutex.Unlock()
 }

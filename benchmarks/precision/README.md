@@ -1,6 +1,6 @@
 # Precision regression cohorts
 
-These cohorts preserve the human review from two 20-repository dogfood runs.
+These cohorts preserve human review from repeatable dogfood runs.
 Each repository is pinned to an exact revision. The gate fails if a reviewed
 false positive returns or a reviewed true positive disappears.
 
@@ -16,3 +16,8 @@ Checkout directories use the `owner__repository` naming convention. The
 harness analyzes the three shallowest Go modules, matching the original pilot.
 New diagnostics are intentionally reported by normal dogfooding review rather
 than guessed to be regressions: only a human can label a new finding.
+
+Round 4 contains the 20 false positives fixed from a 15-repository traced
+audit plus all 23 reviewed true positives. The full audit, including the
+remaining labeled noise families, lives in the companion lead-generation
+study rather than being encoded as accepted benchmark behavior.

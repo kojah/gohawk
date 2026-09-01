@@ -61,7 +61,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				if successfulStartCannotReturn(start) {
 					continue
 				}
-				leaks := ssautil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
+				leaks := ssautil.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
 					return processOwnershipAction(pass, candidate, command)
 				}, func(returned *ssa.Return) bool {
 					// Returning an aggregate that contains the command transfers Wait
@@ -218,7 +218,48 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		lifecyclefacts.StoresInEscapingReceiver(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command) ||
 		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
+		startedWrapperWaits(pass, instruction, command) ||
+		processHandleOwnershipAction(pass, instruction, command) ||
 		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Exit"
+}
+
+func startedWrapperWaits(pass *analysis.Pass, instruction ssa.Instruction, command ssa.Value) bool {
+	if !ssautil.StartedClosureCallsMethodViaHelper(instruction, "Wait", command) {
+		return false
+	}
+	if analysisTrace.Enabled("processownership", string(analyzerbase.CheckProcessWait)) {
+		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: string(analyzerbase.CheckProcessWait), Phase: "evidence", Reason: "started-wrapper-waiter", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(), Function: instruction.Parent().String()})
+	}
+	return true
+}
+
+func processHandleOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, command ssa.Value) bool {
+	common := ssautil.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	for _, argument := range common.Args {
+		if !osProcessDerivedFromCommand(argument, command) {
+			continue
+		}
+		if lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, argument, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner | fact.Waited }) ||
+			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", argument) ||
+			ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
+			if analysisTrace.Enabled("processownership", string(analyzerbase.CheckProcessWait)) {
+				analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: string(analyzerbase.CheckProcessWait), Phase: "evidence", Reason: "process-handle-owner", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(), Function: instruction.Parent().String()})
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func osProcessDerivedFromCommand(value, command ssa.Value) bool {
+	if value == nil || value.Type() == nil {
+		return false
+	}
+	pointer, ok := value.Type().Underlying().(*types.Pointer)
+	return ok && analysisutil.NamedType(pointer.Elem(), "os", "Process") && ssautil.ValueDerivesFrom(value, command, map[ssa.Value]bool{})
 }
 
 func commandReturnedByHelper(command ssa.Value) bool {
@@ -282,7 +323,7 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 	if common == nil {
 		return false
 	}
-	if ssautil.CallName(common) == "Wait" && ssautil.SameValue(ssautil.CallReceiver(common), command) {
+	if ssautil.CallName(common) == "Wait" && (ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) || osProcessDerivedFromCommand(ssautil.CallReceiver(common), command)) {
 		return true
 	}
 	return false

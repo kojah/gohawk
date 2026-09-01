@@ -511,7 +511,10 @@ func lockIdentity(value ssa.Value, seen map[ssa.Value]bool) string {
 	case *ssa.FreeVar:
 		return ""
 	case *ssa.Alloc:
-		return typed.Parent().String() + ":local:" + typed.Comment
+		// SSA uses generic comments such as "complit" for distinct local
+		// allocations of the same type. Include the stable SSA value name so two
+		// local owners do not collapse into one apparent recursive lock.
+		return typed.Parent().String() + ":local:" + typed.Comment + ":" + typed.Name()
 	case *ssa.Const:
 		if typed.Value != nil {
 			return "constant:" + typed.Value.ExactString()

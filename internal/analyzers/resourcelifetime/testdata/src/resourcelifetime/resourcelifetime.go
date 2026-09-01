@@ -383,6 +383,27 @@ func closedResponse(client *http.Client, request *http.Request) error {
 	return nil
 }
 
+func returnedResponseBody(client *http.Client, request *http.Request) (io.ReadCloser, error) {
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	return response.Body, nil
+}
+
+func responseOwnedByWorker(client *http.Client, request *http.Request) (<-chan struct{}, error) {
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer response.Body.Close()
+	}()
+	return done, nil
+}
+
 func conditionallyReturnedResponse(client *http.Client, request *http.Request) error {
 	response, err := client.Do(request)
 	if response != nil {
