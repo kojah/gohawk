@@ -303,6 +303,78 @@ func store(target *owner, value *closer) {
 	}
 }
 
+func TestLifecycleOwnerTransferRequiresStructuralEvidence(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+type resource struct{}
+type owner struct { value *resource }
+
+func (*owner) Close() {}
+func (*owner) Add(*resource) {}
+func (current *owner) With(*resource) *owner { return current }
+func (current *owner) Store(value *resource) { current.value = value }
+func makeOwner(value *resource) *owner { return &owner{value: value} }
+
+func noOpAdd(current *owner, value *resource) { current.Add(value) }
+func noOpWith(current *owner, value *resource) { current.With(value) }
+func visibleStore(current *owner, value *resource) { current.Store(value) }
+func returnedOwner(value *resource) *owner { return makeOwner(value) }
+`)
+	callNamed := func(t *testing.T, function, name string) (*ssa.Call, ssa.Value) {
+		t.Helper()
+		current := pkg.Func(function)
+		instruction := findSSAInstruction(t, current, func(instruction ssa.Instruction) bool {
+			common := InstructionCall(instruction)
+			return common != nil && CallName(common) == name
+		})
+		call, ok := instruction.(*ssa.Call)
+		if !ok {
+			t.Fatalf("%s instruction is %T, want *ssa.Call", function, instruction)
+		}
+		return call, current.Params[len(current.Params)-1]
+	}
+	for _, test := range []struct {
+		function string
+		name     string
+	}{
+		{function: "noOpAdd", name: "Add"},
+		{function: "noOpWith", name: "With"},
+	} {
+		t.Run(test.function, func(t *testing.T) {
+			call, value := callNamed(t, test.function, test.name)
+			proof := ProveOwnershipTransfer(OwnershipTransferRequest{
+				Instruction: call,
+				Value:       value,
+				Modes:       TransferToLifecycleOwner,
+			})
+			if proof.Proven() || proof.State != EvidenceDisproven || proof.Reason != EvidenceNotFound {
+				t.Fatalf("ProveOwnershipTransfer() = %#v, want no lifecycle-owner proof", proof)
+			}
+		})
+	}
+
+	storeCall, stored := callNamed(t, "visibleStore", "Store")
+	storeProof := ProveOwnershipTransfer(OwnershipTransferRequest{
+		Instruction: storeCall,
+		Value:       stored,
+		Modes:       TransferToReceiver,
+	})
+	if !storeProof.Proven() || storeProof.Reason != EvidenceTransferredToReceiver {
+		t.Fatalf("visible store proof = %#v, want receiver transfer", storeProof)
+	}
+
+	ownerCall, owned := callNamed(t, "returnedOwner", "makeOwner")
+	ownerProof := ProveOwnershipTransfer(OwnershipTransferRequest{
+		Instruction: ownerCall,
+		Value:       owned,
+		Modes:       TransferToReturnedOwner,
+	})
+	if !ownerProof.Proven() || ownerProof.Reason != EvidenceTransferredToReturnedOwner {
+		t.Fatalf("returned owner proof = %#v, want returned-owner transfer", ownerProof)
+	}
+}
+
 func TestIdentityEvidenceReasons(t *testing.T) {
 	pkg := buildTestSSA(t, `
 package ssaflowtest

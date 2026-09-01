@@ -105,10 +105,11 @@ func ValueEscapes(value ssa.Value) bool {
 	return valueTransferred(value, map[ssa.Value]bool{})
 }
 
-// CallTransfersArgumentToLifecycleOwner recognizes cross-package boundaries
-// when the consumed value is attached to an escaping object with an explicit
-// cleanup lifecycle. Source bodies are not available to buildssa for imports,
-// so both the transfer and lifecycle evidence must be visible at the callsite.
+// CallTransfersArgumentToLifecycleOwner recognizes a consumed value only when
+// the call returns an escaping object with an explicit cleanup lifecycle.
+// Receiver method names are not ownership evidence. Source-visible receiver
+// stores are proved separately by CallTransfersArgumentToReceiver, while
+// imported receiver stores require an exported lifecycle fact.
 // https://github.com/flowexec/flow/blob/958773d81d410dd71e21460abb77da302617f96c/main.go#L48-L51
 func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ssa.Value) bool {
 	call, ok := instruction.(*ssa.Call)
@@ -120,11 +121,7 @@ func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ss
 	if !callConsumesLifecycleValue(common, name, value) {
 		return false
 	}
-	if callReturnsLifecycleOwner(call, instruction) {
-		return true
-	}
-	receiver := CallReceiver(common)
-	return lifecycleMutator(name) && hasLifecycleMethod(receiver) && lifecycleOwnerEscapes(receiver, instruction)
+	return callReturnsLifecycleOwner(call, instruction)
 }
 
 func callConsumesLifecycleValue(common *ssa.CallCommon, name string, value ssa.Value) bool {
@@ -152,14 +149,6 @@ func lifecycleOwnerEscapes(owner ssa.Value, instruction ssa.Instruction) bool {
 	return ExternallyOwnedValue(owner) ||
 		valueTransferred(owner, map[ssa.Value]bool{}) ||
 		valueLifecycleUsed(owner, instruction)
-}
-
-func lifecycleMutator(name string) bool {
-	return strings.HasPrefix(name, "set") ||
-		strings.HasPrefix(name, "add") ||
-		strings.HasPrefix(name, "register") ||
-		strings.HasPrefix(name, "own") ||
-		strings.HasPrefix(name, "with")
 }
 
 func hasLifecycleMethod(value ssa.Value) bool {

@@ -133,6 +133,32 @@ func returnedOwner() (*owner, error) {
 	return &owner{file: file}, nil
 }
 
+type noOpFileOwner struct{}
+
+func (*noOpFileOwner) Close() error { return nil }
+
+func (*noOpFileOwner) Add(*os.File) {}
+
+func (current *noOpFileOwner) With(*os.File) *noOpFileOwner { return current }
+
+func filePassedToNoOpAdd(current *noOpFileOwner) error {
+	file, err := os.Open("state") // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	current.Add(file)
+	return nil
+}
+
+func filePassedToIgnoredNoOpWith(current *noOpFileOwner) error {
+	file, err := os.Open("state") // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	current.With(file)
+	return nil
+}
+
 type fluentFileOwner struct{ file *os.File }
 
 func (owner *fluentFileOwner) WithFile(file *os.File) *fluentFileOwner {
