@@ -21,7 +21,7 @@ VERIFY_MAKE_ARGS := --no-print-directory $(VERIFY_OUTPUT_SYNC) --jobs=$(VERIFY_J
 .DEFAULT_GOAL := help
 
 .PHONY: help build fmt fmt-check generate generated-check mod-verify lint vuln test \
-	test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
+	test-exhaustive test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
 	precision-regression site-check site-build site-links site-links-external site-review
 
 help:
@@ -32,6 +32,7 @@ help:
 		'  make lint            Run the standard golangci-lint suite' \
 		'  make vuln            Check reachable dependencies for known vulnerabilities' \
 		'  make test            Run the Go test suite' \
+		'  make test-exhaustive Run the CI-only exhaustive CLI subprocess matrix' \
 		'  make verify          Run the complete local verification suite in parallel' \
 		'  make dogfood         Build and run gohawk on itself' \
 		'  make skills-check    Check installed skills against their upstream repositories' \
@@ -64,6 +65,9 @@ mod-verify:
 
 test:
 	$(GO) test ./...
+
+test-exhaustive:
+	$(GO) test -tags=exhaustive ./internal/cli -run '^TestCLIIntegrationExhaustive$$' -count=1
 
 test-race:
 	# Analyzer fixture packages are independent, so Go can exercise them in

@@ -1,3 +1,5 @@
+//go:build exhaustive
+
 package cli
 
 import (

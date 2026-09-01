@@ -173,6 +173,23 @@ jobs:
       - name: Analyze with Go ${{ matrix.go-version }}
         run: scripts/test-toolchain-compatibility.sh "$RUNNER_TEMP/gohawk" "${{ matrix.go-version }}"
 
+  exhaustive-cli:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Run exhaustive CLI subprocess matrix
+        run: make test-exhaustive
+
   skills:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
@@ -191,7 +208,7 @@ jobs:
   # work runs concurrently in the jobs above.
   test:
     if: ${{ always() }}
-    needs: [static-fast, lint, vulnerability, dogfood, race, plugin, coverage, compatibility, skills]
+    needs: [static-fast, lint, vulnerability, dogfood, race, plugin, coverage, compatibility, exhaustive-cli, skills]
     runs-on: ubuntu-latest
     steps:
       - name: Check verification results
@@ -204,9 +221,10 @@ jobs:
           PLUGIN_RESULT: ${{ needs.plugin.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           COMPATIBILITY_RESULT: ${{ needs.compatibility.result }}
+          EXHAUSTIVE_CLI_RESULT: ${{ needs.exhaustive-cli.result }}
           SKILLS_RESULT: ${{ needs.skills.result }}
         run: |
-          for result in "$STATIC_FAST_RESULT" "$LINT_RESULT" "$VULNERABILITY_RESULT" "$DOGFOOD_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT" "$COMPATIBILITY_RESULT"; do
+          for result in "$STATIC_FAST_RESULT" "$LINT_RESULT" "$VULNERABILITY_RESULT" "$DOGFOOD_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT" "$COMPATIBILITY_RESULT" "$EXHAUSTIVE_CLI_RESULT"; do
             if [[ "$result" != "success" ]]; then
               exit 1
             fi
