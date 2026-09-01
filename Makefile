@@ -94,7 +94,7 @@ plugin-test:
 		-run '^TestCustomGolangCILint$$' -count=1 -v
 
 dogfood: build
-	"$(GOHAWK_BINARY)" ./...
+	"$(GOHAWK_BINARY)" -enable-all ./...
 
 skills-check:
 	./scripts/check-skills-current.sh

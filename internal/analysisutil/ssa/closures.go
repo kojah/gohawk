@@ -430,7 +430,10 @@ func calledReceiverMatches(common *ssa.CallCommon, closure *ssa.MakeClosure, fun
 			if ValueDerivesFrom(receiver, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) &&
 				(CapturedBindingMatches(closure.Bindings[index], target) ||
 					ValueDerivesFrom(CapturedBindingValue(closure.Bindings[index]), target, map[ssa.Value]bool{}) ||
-					SameAccessPath(receiver, free, target, closure.Bindings[index])) {
+					SameAccessPath(
+						AccessPath{Value: receiver, Root: free},
+						AccessPath{Value: target, Root: closure.Bindings[index]},
+					)) {
 				return true
 			}
 		}

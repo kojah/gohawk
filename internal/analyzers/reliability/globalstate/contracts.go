@@ -74,13 +74,24 @@ func conventionalFrameworkGlobal(value types.Type) bool {
 		// These APIs intentionally construct process-wide collectors,
 		// registration trees, or immutable dependency-injection descriptors.
 		// Their packages own synchronization and one-time registration, so a
-		// local wrapper would obscure rather than improve ownership. Prometheus
-		// collectors in FRP Operator are representative:
+		// local wrapper would obscure rather than improve ownership.
+		// Prometheus collectors in FRP Operator are representative:
 		// https://github.com/zufardhiyaulhaq/frp-operator/blob/1864d2a2926edd6396cde9030672bd1a4329c37e/pkg/metrics/metrics.go#L20-L57
 		return true
 	default:
 		return false
 	}
+}
+
+func conventionalAnalyzerSingleton(pass *analysis.Pass, object types.Object, value types.Type, usage globalStateUsage) bool {
+	if qualifiedTypeName(value) != "golang.org/x/tools/go/analysis.Analyzer" {
+		return false
+	}
+	// analysis.Analyzer pointers are stable identities used as ResultOf keys by
+	// x/tools prerequisites. Reassignment or taking the binding's address breaks
+	// that singleton evidence and makes it ordinary mutable package state:
+	// https://github.com/golang/tools/blob/18332fec72972efbb8ab9881984fec2d8cfc2b58/go/analysis/passes/buildssa/buildssa.go#L22-L28
+	return !globalObjectReassignedOrAddressed(pass, object, usage)
 }
 
 func conventionalErrorSentinel(

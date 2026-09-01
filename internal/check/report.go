@@ -25,9 +25,13 @@ func Reportf(pass *analysis.Pass, id ID, position token.Pos, format string, args
 func Report(pass *analysis.Pass, id ID, diagnostic analysis.Diagnostic) {
 	diagnostic.Category = string(id)
 	analyzer, _, _ := strings.Cut(string(id), "/")
-	trace.EmitDiagnostic(pass, analyzer, "candidate", "diagnostic-candidate", trace.OutcomeObserved, diagnostic)
+	trace.EmitDiagnostic(pass, trace.DiagnosticEvent{
+		Analyzer: analyzer, Phase: "candidate", Reason: "diagnostic-candidate", Outcome: trace.OutcomeObserved, Diagnostic: diagnostic,
+	})
 	if len(diagnostic.SuggestedFixes) > 0 {
-		trace.EmitDiagnostic(pass, analyzer, "fix", "suggested-fix-available", trace.OutcomeAccepted, diagnostic)
+		trace.EmitDiagnostic(pass, trace.DiagnosticEvent{
+			Analyzer: analyzer, Phase: "fix", Reason: "suggested-fix-available", Outcome: trace.OutcomeAccepted, Diagnostic: diagnostic,
+		})
 	}
 	pass.Report(diagnostic)
 }

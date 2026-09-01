@@ -112,12 +112,16 @@ func withSuppressions(analyzer *analysis.Analyzer, declared []catalog.CheckInfo)
 		var reportErr error
 		pass.Report = func(diagnostic analysis.Diagnostic) {
 			if !checks[diagnostic.Category] {
-				analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "unknown-check", analysisTrace.OutcomeRejected, diagnostic)
+				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
+					Analyzer: analyzer.Name, Phase: "decision", Reason: "unknown-check", Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
+				})
 				reportErr = errors.Join(reportErr, fmt.Errorf("analyzer %q reported unknown check %q", analyzer.Name, diagnostic.Category))
 				return
 			}
 			if check.Suppressed(pass, diagnostic.Pos, analyzer.Name) {
-				analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "suppression-comment", analysisTrace.OutcomeAccepted, diagnostic)
+				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
+					Analyzer: analyzer.Name, Phase: "decision", Reason: "suppression-comment", Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
+				})
 				return
 			}
 			report(diagnostic)

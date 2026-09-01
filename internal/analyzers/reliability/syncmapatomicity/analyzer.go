@@ -155,7 +155,7 @@ func expressionStatementCall(statement ast.Stmt) (*ast.CallExpr, bool) {
 }
 
 func syncMapMethod(pass *analysis.Pass, call *ast.CallExpr, name string) bool {
-	return analysisutil.IsCallTo(pass, call, analysisutil.PackageMethod("sync", "Map", name))
+	return analysisutil.IsCallTo(pass, call, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "sync", Receiver: "Map", Name: name}))
 }
 
 func bodyUsesMutex(body *ast.BlockStmt) bool {

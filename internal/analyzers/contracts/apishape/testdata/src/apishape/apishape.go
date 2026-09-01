@@ -2,6 +2,11 @@ package apishape
 
 func TooMany(one, two, three, four, five int) {} // want "exported API has 5 parameters" "5 adjacent parameters share type int"
 
+func Formattingf(one, two, three int, format string, args ...any) {}
+
+func NotFormatting(one int, two string, three bool, label string, args ...any) { // want "exported API has 5 parameters"
+}
+
 func Optional(one, two *string) {} // want "adjacent optional scalar parameters"
 
 type Callback func(one, two, three int)

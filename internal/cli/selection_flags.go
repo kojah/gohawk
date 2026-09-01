@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -134,10 +135,14 @@ func withDisabledChecks(analyzers []*analysis.Analyzer, metadata map[string]goha
 			report := pass.Report
 			pass.Report = func(diagnostic analysis.Diagnostic) {
 				if analyzerDisabled[diagnostic.Category] {
-					analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "check-disabled", analysisTrace.OutcomeAccepted, diagnostic)
+					analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
+						Analyzer: analyzer.Name, Phase: "decision", Reason: "check-disabled", Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
+					})
 					return
 				}
-				analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "diagnostic-reported", analysisTrace.OutcomeRejected, diagnostic)
+				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
+					Analyzer: analyzer.Name, Phase: "decision", Reason: "diagnostic-reported", Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
+				})
 				report(diagnostic)
 			}
 			defer func() { pass.Report = report }()
@@ -190,7 +195,7 @@ func requestedAnalyzers(arguments []string, available map[string]bool) (analyzer
 			target[candidate] = true
 		}
 	}
-	for name := range requested.enabled {
+	for _, name := range slices.Sorted(maps.Keys(requested.enabled)) {
 		if requested.disabled[name] {
 			return analyzerNameSelection{}, nil, fmt.Errorf("analyzer %q cannot be both enabled and disabled", name)
 		}
@@ -251,7 +256,7 @@ func requestedAnalyzerGroups(arguments []string, groups []gohawk.AnalyzerGroup) 
 			target[candidate] = true
 		}
 	}
-	for name := range requested.enabled {
+	for _, name := range slices.Sorted(maps.Keys(requested.enabled)) {
 		if requested.disabled[name] {
 			return analyzerGroupSelection{}, nil, fmt.Errorf("analyzer group %q cannot be both enabled and disabled", name)
 		}

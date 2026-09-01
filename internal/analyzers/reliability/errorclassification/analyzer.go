@@ -237,7 +237,7 @@ func functionExecutesExternalCommand(function *ssa.Function) bool {
 
 func externalCommandCall(common *ssa.CallCommon) bool {
 	for _, name := range []string{"Run", "Start", "Wait", "Output", "CombinedOutput"} {
-		if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod("os/exec", "Cmd", name)) {
+		if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: name})) {
 			return true
 		}
 	}

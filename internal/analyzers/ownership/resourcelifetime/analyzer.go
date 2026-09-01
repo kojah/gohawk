@@ -40,6 +40,7 @@ type resourceLifetimeConfig struct {
 
 type resourceLifetimeSettings struct {
 	contracts          map[string]bool
+	catalog            []resourceContract
 	requireReaderClose bool
 }
 
@@ -48,7 +49,11 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 	if err != nil {
 		return nil, err
 	}
-	settings := resourceLifetimeSettings{contracts: flagvalue.CommaSeparatedSet(config.contracts), requireReaderClose: config.requireReaderClose}
+	settings := resourceLifetimeSettings{
+		contracts:          flagvalue.CommaSeparatedSet(config.contracts),
+		catalog:            resourceContracts(),
+		requireReaderClose: config.requireReaderClose,
+	}
 	completeTimers := completeTimerLifecyclePositions(pass)
 	// Acquisition contracts identify both the owned result and its required
 	// cleanup action. Reporting is deferred until path analysis proves that the

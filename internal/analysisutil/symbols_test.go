@@ -48,7 +48,7 @@ func calls(local timer) {
 	if IsCallTo(pass, calls[1], PackageFunction("time", "AfterFunc")) {
 		t.Error("same-named local method matched time.AfterFunc")
 	}
-	if !IsCallTo(pass, calls[1], PackageMethod(pkg.Path(), "timer", "AfterFunc")) {
+	if !IsCallTo(pass, calls[1], PackageMethod(MethodSymbol{PackagePath: pkg.Path(), Receiver: "timer", Name: "AfterFunc"})) {
 		t.Error("local method did not match its receiver-qualified identity")
 	}
 	if !IsCallTo(pass, calls[2], Builtin("len")) {

@@ -27,43 +27,45 @@ type resourceContract struct {
 	readerClose bool
 }
 
-var resourceContracts = []resourceContract{
-	resourceFunction("os", "os", "Create", 0, "Close"),
-	resourceFunction("os", "os", "CreateTemp", 0, "Close"),
-	resourceFunction("os", "os", "Open", 0, "Close"),
-	resourceFunction("os", "os", "OpenFile", 0, "Close"),
-	resourceFunction("time", "time", "NewTicker", -1, "Stop"),
-	consumableResource(resourceFunction("time", "time", "NewTimer", -1, "Stop")),
+func resourceContracts() []resourceContract {
+	return []resourceContract{
+		resourceFunction("os", "os", "Create", 0, "Close"),
+		resourceFunction("os", "os", "CreateTemp", 0, "Close"),
+		resourceFunction("os", "os", "Open", 0, "Close"),
+		resourceFunction("os", "os", "OpenFile", 0, "Close"),
+		resourceFunction("time", "time", "NewTicker", -1, "Stop"),
+		consumableResource(resourceFunction("time", "time", "NewTimer", -1, "Stop")),
 
-	resourceMethod("sql", "database/sql", "DB", "Begin", "Commit", "Rollback"),
-	resourceMethod("sql", "database/sql", "DB", "BeginTx", "Commit", "Rollback"),
-	resourceMethod("sql", "database/sql", "Conn", "BeginTx", "Commit", "Rollback"),
-	resourceMethod("sql", "database/sql", "DB", "Query", "Close"),
-	resourceMethod("sql", "database/sql", "DB", "QueryContext", "Close"),
-	resourceMethod("sql", "database/sql", "Conn", "QueryContext", "Close"),
-	resourceMethod("sql", "database/sql", "Tx", "Query", "Close"),
-	resourceMethod("sql", "database/sql", "Tx", "QueryContext", "Close"),
-	resourceMethod("sql", "database/sql", "Stmt", "Query", "Close"),
-	resourceMethod("sql", "database/sql", "Stmt", "QueryContext", "Close"),
-	// Statements prepared on a transaction are closed automatically when that
-	// transaction commits or rolls back, so Tx.Prepare* is deliberately absent.
-	resourceMethod("sql", "database/sql", "DB", "Prepare", "Close"),
-	resourceMethod("sql", "database/sql", "DB", "PrepareContext", "Close"),
-	resourceMethod("sql", "database/sql", "Conn", "PrepareContext", "Close"),
+		resourceMethod("sql", "database/sql", "DB", "Begin", "Commit", "Rollback"),
+		resourceMethod("sql", "database/sql", "DB", "BeginTx", "Commit", "Rollback"),
+		resourceMethod("sql", "database/sql", "Conn", "BeginTx", "Commit", "Rollback"),
+		resourceMethod("sql", "database/sql", "DB", "Query", "Close"),
+		resourceMethod("sql", "database/sql", "DB", "QueryContext", "Close"),
+		resourceMethod("sql", "database/sql", "Conn", "QueryContext", "Close"),
+		resourceMethod("sql", "database/sql", "Tx", "Query", "Close"),
+		resourceMethod("sql", "database/sql", "Tx", "QueryContext", "Close"),
+		resourceMethod("sql", "database/sql", "Stmt", "Query", "Close"),
+		resourceMethod("sql", "database/sql", "Stmt", "QueryContext", "Close"),
+		// Statements prepared on a transaction are closed automatically when that
+		// transaction commits or rolls back, so Tx.Prepare* is deliberately absent.
+		resourceMethod("sql", "database/sql", "DB", "Prepare", "Close"),
+		resourceMethod("sql", "database/sql", "DB", "PrepareContext", "Close"),
+		resourceMethod("sql", "database/sql", "Conn", "PrepareContext", "Close"),
 
-	resourceFunction("http", "net/http", "Get", 0, "Close"),
-	resourceFunction("http", "net/http", "Post", 0, "Close"),
-	resourceFunction("http", "net/http", "PostForm", 0, "Close"),
-	resourceMethod("http", "net/http", "Client", "Do", "Close"),
+		resourceFunction("http", "net/http", "Get", 0, "Close"),
+		resourceFunction("http", "net/http", "Post", 0, "Close"),
+		resourceFunction("http", "net/http", "PostForm", 0, "Close"),
+		resourceMethod("http", "net/http", "Client", "Do", "Close"),
 
-	readerResource(resourceFunction("compress", "compress/gzip", "NewReader", 0, "Close")),
-	resourceFunction("compress", "compress/gzip", "NewWriterLevel", 0, "Close"),
-	resourceFunction("compress", "compress/gzip", "NewWriter", -1, "Close"),
-	readerResource(resourceFunction("compress", "compress/zlib", "NewReader", 0, "Close")),
-	readerResource(resourceFunction("compress", "compress/zlib", "NewReaderDict", 0, "Close")),
-	resourceFunction("compress", "compress/zlib", "NewWriterLevel", 0, "Close"),
-	resourceFunction("compress", "compress/zlib", "NewWriterLevelDict", 0, "Close"),
-	resourceFunction("compress", "compress/zlib", "NewWriter", -1, "Close"),
+		readerResource(resourceFunction("compress", "compress/gzip", "NewReader", 0, "Close")),
+		resourceFunction("compress", "compress/gzip", "NewWriterLevel", 0, "Close"),
+		resourceFunction("compress", "compress/gzip", "NewWriter", -1, "Close"),
+		readerResource(resourceFunction("compress", "compress/zlib", "NewReader", 0, "Close")),
+		readerResource(resourceFunction("compress", "compress/zlib", "NewReaderDict", 0, "Close")),
+		resourceFunction("compress", "compress/zlib", "NewWriterLevel", 0, "Close"),
+		resourceFunction("compress", "compress/zlib", "NewWriterLevelDict", 0, "Close"),
+		resourceFunction("compress", "compress/zlib", "NewWriter", -1, "Close"),
+	}
 }
 
 func resourceFunction(family, packagePath, name string, result int, cleanup ...string) resourceContract {
@@ -74,7 +76,12 @@ func resourceFunction(family, packagePath, name string, result int, cleanup ...s
 
 func resourceMethod(family, packagePath, receiver, name string, cleanup ...string) resourceContract {
 	return resourceContract{
-		symbol: analysisutil.PackageMethod(packagePath, receiver, name), family: family, packagePath: packagePath, name: name, cleanup: cleanup, result: 0,
+		symbol:      analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: packagePath, Receiver: receiver, Name: name}),
+		family:      family,
+		packagePath: packagePath,
+		name:        name,
+		cleanup:     cleanup,
+		result:      0,
 	}
 }
 
@@ -89,7 +96,7 @@ func readerResource(contract resourceContract) resourceContract {
 }
 
 func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {
-	for _, contract := range resourceContracts {
+	for _, contract := range settings.catalog {
 		if !settings.contracts[contract.family] || contract.readerClose && !settings.requireReaderClose {
 			continue
 		}
@@ -135,14 +142,10 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		// performed cleanup. Herdforge's response decoder owns Body.Close this
 		// way, without advertising ownership in the helper name:
 		// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/provider/github.go#L356
-		if lifecyclefacts.OwnsArgument(
-			pass,
-			"resourcelifetime",
-			string(check.ResourceRelease),
-			instruction,
-			resource,
-			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.MethodMask(method) },
-		) ||
+		if lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
+			Pass: pass, Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Instruction: instruction, Target: resource,
+			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.MethodMask(method) },
+		}) ||
 			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, method, resource) {
 			return true
 		}
@@ -171,21 +174,13 @@ func instructionSettlesResourceOwnership(instruction ssa.Instruction, resource s
 
 func callTakesResourceOwnership(pass *analysis.Pass, instruction ssa.Instruction, resource ssa.Value) bool {
 	return ssautil.CallTransfersValueToField(instruction, resource) ||
-		lifecyclefacts.OwnsArgument(
-			pass,
-			"resourcelifetime",
-			string(check.ResourceRelease),
-			instruction,
-			resource,
-			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner },
-		) ||
-		lifecyclefacts.StoresInEscapingReceiver(
-			pass,
-			"resourcelifetime",
-			string(check.ResourceRelease),
-			instruction,
-			resource,
-		) ||
+		lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
+			Pass: pass, Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Instruction: instruction, Target: resource,
+			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner },
+		}) ||
+		lifecyclefacts.StoresInEscapingReceiver(lifecyclefacts.ArgumentEvidence{
+			Pass: pass, Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Instruction: instruction, Target: resource,
+		}) ||
 		ssautil.CallTransfersArgumentToReceiver(instruction, resource) ||
 		ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource)
 }
@@ -210,7 +205,10 @@ func storedResourceAccessReleased(release ssa.Instruction, receiver, resource ss
 				continue
 			}
 			field, ok := store.Addr.(*ssa.FieldAddr)
-			if ok && ssautil.SameAccessPath(receiver, field.X, field, field.X) {
+			if ok && ssautil.SameAccessPath(
+				ssautil.AccessPath{Value: receiver, Root: field.X},
+				ssautil.AccessPath{Value: field, Root: field.X},
+			) {
 				return true
 			}
 		}

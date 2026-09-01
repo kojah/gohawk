@@ -35,7 +35,7 @@ func spawnedOwnershipValue(
 		}
 		return nil, nil
 	}
-	if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod("sync", "WaitGroup", "Done")) {
+	if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Done"})) {
 		receiver := ssautil.CallReceiver(common)
 		return nil, ssautil.SpawnedValueAtCall(spawn, function, closure, receiver)
 	}

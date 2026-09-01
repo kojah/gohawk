@@ -29,12 +29,12 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 	}
 	switch contract {
 	case ContractTestingCleanup:
+		// testing.T and testing.B promote Cleanup from the shared common
+		// implementation type, which is the declaration retained in SSA.
 		return matchesAnySymbol(
 			common,
-			// testing.T and testing.B promote Cleanup from the shared common
-			// implementation type, which is the declaration retained in SSA.
-			analysisutil.PackageMethod("testing", "common", "Cleanup"),
-			analysisutil.PackageMethod("testing", "TB", "Cleanup"),
+			analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "testing", Receiver: "common", Name: "Cleanup"}),
+			analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "testing", Receiver: "TB", Name: "Cleanup"}),
 		)
 	case ContractTestifyAssertion:
 		return testifyAssertion(common, "Error") || testifyAssertion(common, "Nil")
@@ -42,13 +42,13 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 		return matchesAnySymbol(
 			common,
 			analysisutil.PackageFunction("github.com/stretchr/testify/require", "Error"),
-			analysisutil.PackageMethod("github.com/stretchr/testify/require", "Assertions", "Error"),
+			analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "github.com/stretchr/testify/require", Receiver: "Assertions", Name: "Error"}),
 		)
 	case ContractGoMockReturn:
 		return matchesAnySymbol(
 			common,
-			analysisutil.PackageMethod("go.uber.org/mock/gomock", "Call", "Return"),
-			analysisutil.PackageMethod("github.com/golang/mock/gomock", "Call", "Return"),
+			analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "go.uber.org/mock/gomock", Receiver: "Call", Name: "Return"}),
+			analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "github.com/golang/mock/gomock", Receiver: "Call", Name: "Return"}),
 		)
 	case ContractAfterFunc:
 		return matchesAnySymbol(
@@ -66,7 +66,7 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 	case ContractTestingTermination:
 		for _, receiver := range []string{"common", "TB"} {
 			for _, name := range []string{"FailNow", "Fatal", "Fatalf", "Skip", "Skipf", "SkipNow"} {
-				if CallMatchesSymbol(common, analysisutil.PackageMethod("testing", receiver, name)) {
+				if CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "testing", Receiver: receiver, Name: name})) {
 					return true
 				}
 			}
@@ -82,7 +82,7 @@ func testifyAssertion(common *ssa.CallCommon, name string) bool {
 		if matchesAnySymbol(
 			common,
 			analysisutil.PackageFunction(packagePath, name),
-			analysisutil.PackageMethod(packagePath, "Assertions", name),
+			analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: packagePath, Receiver: "Assertions", Name: name}),
 		) {
 			return true
 		}

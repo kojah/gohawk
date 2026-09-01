@@ -144,25 +144,35 @@ func Enabled(analyzer, check string) bool {
 	return global.config.selectors["all"] || global.config.selectors[analyzer] || check != "" && global.config.selectors[check]
 }
 
+// DiagnosticEvent describes one source-level analyzer decision. Named fields
+// keep the analyzer identity, evidence phase, and reason from being transposed.
+type DiagnosticEvent struct {
+	Analyzer   string
+	Phase      string
+	Reason     string
+	Outcome    Outcome
+	Diagnostic analysis.Diagnostic
+}
+
 // EmitDiagnostic records a source-level analyzer decision using the same
 // schema as deeper SSA evidence. Function names are resolved only while the
 // corresponding trace selector is enabled.
-func EmitDiagnostic(pass *analysis.Pass, analyzer, phase, reason string, outcome Outcome, diagnostic analysis.Diagnostic) {
-	if !Enabled(analyzer, diagnostic.Category) {
+func EmitDiagnostic(pass *analysis.Pass, event DiagnosticEvent) {
+	if !Enabled(event.Analyzer, event.Diagnostic.Category) {
 		return
 	}
 	details := map[string]string{}
-	if diagnostic.Message != "" {
-		details["message"] = diagnostic.Message
+	if event.Diagnostic.Message != "" {
+		details["message"] = event.Diagnostic.Message
 	}
 	Emit(pass, Event{
-		Analyzer: analyzer,
-		Check:    diagnostic.Category,
-		Phase:    phase,
-		Reason:   reason,
-		Outcome:  outcome,
-		Pos:      diagnostic.Pos,
-		Function: sourceFunction(pass, diagnostic.Pos),
+		Analyzer: event.Analyzer,
+		Check:    event.Diagnostic.Category,
+		Phase:    event.Phase,
+		Reason:   event.Reason,
+		Outcome:  event.Outcome,
+		Pos:      event.Diagnostic.Pos,
+		Function: sourceFunction(pass, event.Diagnostic.Pos),
 		Details:  details,
 	})
 }

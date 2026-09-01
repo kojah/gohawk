@@ -11,12 +11,6 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-var onceWrappers = []analysisutil.Symbol{
-	analysisutil.PackageFunction("sync", "OnceFunc"),
-	analysisutil.PackageFunction("sync", "OnceValue"),
-	analysisutil.PackageFunction("sync", "OnceValues"),
-}
-
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
@@ -35,7 +29,13 @@ func runOncePolicy(pass *analysis.Pass) (any, error) {
 		if !ok || len(outer.Args) != 0 {
 			return
 		}
-		if !analysisutil.IsCallToAny(pass, inner, onceWrappers...) {
+		if !analysisutil.IsCallToAny(
+			pass,
+			inner,
+			analysisutil.PackageFunction("sync", "OnceFunc"),
+			analysisutil.PackageFunction("sync", "OnceValue"),
+			analysisutil.PackageFunction("sync", "OnceValues"),
+		) {
 			return
 		}
 		var name string

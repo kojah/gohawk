@@ -155,6 +155,40 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 		}
 	})
 
+	t.Run("conflicts are reported deterministically", func(t *testing.T) {
+		_, err := withAnalyzerSelection(
+			[]string{
+				"gohawk",
+				"-enable=oncepolicy,contextpolicy",
+				"-disable=oncepolicy,contextpolicy",
+				"./...",
+			},
+			analyzers,
+			groups,
+			metadata,
+			false,
+		)
+		if got, want := err.Error(), `analyzer "contextpolicy" cannot be both enabled and disabled`; got != want {
+			t.Fatalf("conflict error = %q, want %q", got, want)
+		}
+
+		_, err = withAnalyzerSelection(
+			[]string{
+				"gohawk",
+				"-enable-groups=testing,ownership",
+				"-disable-groups=testing,ownership",
+				"./...",
+			},
+			analyzers,
+			groups,
+			metadata,
+			false,
+		)
+		if got, want := err.Error(), `analyzer group "ownership" cannot be both enabled and disabled`; got != want {
+			t.Fatalf("group conflict error = %q, want %q", got, want)
+		}
+	})
+
 	t.Run("legacy analyzer Boolean flags", func(t *testing.T) {
 		for _, arguments := range [][]string{
 			{"gohawk", "-wirepolicy", "./..."},

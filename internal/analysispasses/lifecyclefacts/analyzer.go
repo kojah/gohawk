@@ -79,21 +79,36 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 	return Fact{}, false
 }
 
+// ArgumentEvidence identifies one analyzer query about ownership of a call
+// argument. Named fields keep the analyzer/check identity and SSA values from
+// being transposed at call sites.
+type ArgumentEvidence struct {
+	Pass        *analysis.Pass
+	Analyzer    string
+	Check       string
+	Instruction ssa.Instruction
+	Target      ssa.Value
+	SelectMask  func(Fact) ParameterMask
+}
+
 // OwnsArgument reports whether a summarized ownership mask covers target.
-func OwnsArgument(pass *analysis.Pass, analyzer, check string, instruction ssa.Instruction, target ssa.Value, selectMask func(Fact) ParameterMask) bool {
-	fact, ok := factFor(pass, instruction)
-	mask := selectMask(fact)
-	owned := ok && factOwnsArgument(instruction, target, mask)
-	emitSummaryTrace(pass, analyzer, check, instruction, target, mask, owned)
+func OwnsArgument(evidence ArgumentEvidence) bool {
+	if evidence.SelectMask == nil {
+		return false
+	}
+	fact, ok := factFor(evidence.Pass, evidence.Instruction)
+	mask := evidence.SelectMask(fact)
+	owned := ok && factOwnsArgument(evidence.Instruction, evidence.Target, mask)
+	emitSummaryTrace(evidence.Pass, evidence.Analyzer, evidence.Check, evidence.Instruction, evidence.Target, mask, owned)
 	return owned
 }
 
 // StoresInEscapingReceiver reports a summarized field transfer only when the
 // caller-visible receiver itself outlives the call.
-func StoresInEscapingReceiver(pass *analysis.Pass, analyzer, check string, instruction ssa.Instruction, target ssa.Value) bool {
-	common := ssautil.InstructionCall(instruction)
-	fact, summarized := factFor(pass, instruction)
-	if !summarized || !factOwnsArgument(instruction, target, fact.ReceiverStore) {
+func StoresInEscapingReceiver(evidence ArgumentEvidence) bool {
+	common := ssautil.InstructionCall(evidence.Instruction)
+	fact, summarized := factFor(evidence.Pass, evidence.Instruction)
+	if !summarized || !factOwnsArgument(evidence.Instruction, evidence.Target, fact.ReceiverStore) {
 		return false
 	}
 	receiver := ssautil.CallReceiver(common)
@@ -104,18 +119,18 @@ func StoresInEscapingReceiver(pass *analysis.Pass, analyzer, check string, instr
 		reason = analysisTrace.ReasonReceiverDoesNotEscape
 		outcome = analysisTrace.OutcomeRejected
 	}
-	if analysisTrace.Enabled(analyzer, check) {
+	if analysisTrace.Enabled(evidence.Analyzer, evidence.Check) {
 		analysisTrace.Emit(
-			pass,
+			evidence.Pass,
 			analysisTrace.Event{
-				Analyzer: analyzer,
-				Check:    check,
+				Analyzer: evidence.Analyzer,
+				Check:    evidence.Check,
 				Phase:    "evidence",
 				Reason:   reason,
 				Outcome:  outcome,
-				Pos:      instruction.Pos(),
-				Function: functionName(instruction),
-				Details:  summaryDetails(instruction, target, fact.ReceiverStore),
+				Pos:      evidence.Instruction.Pos(),
+				Function: functionName(evidence.Instruction),
+				Details:  summaryDetails(evidence.Instruction, evidence.Target, fact.ReceiverStore),
 			},
 		)
 	}

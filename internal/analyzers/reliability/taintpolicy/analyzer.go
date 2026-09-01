@@ -109,7 +109,7 @@ func taintFunction(kind, packagePath, name string, argumentStart, argumentCount 
 
 func logTaintMethod(packagePath, name string) taintSinkContract {
 	contract := taintFunction("log", packagePath, name, 0, 0)
-	contract.symbol = analysisutil.PackageMethod(packagePath, "Logger", name)
+	contract.symbol = analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: packagePath, Receiver: "Logger", Name: name})
 	return contract
 }
 

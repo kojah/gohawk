@@ -176,13 +176,20 @@ func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 	return false
 }
 
+// AccessPath identifies one SSA value relative to the aggregate root from
+// which its fields and indexes are selected.
+type AccessPath struct {
+	Value ssa.Value
+	Root  ssa.Value
+}
+
 // SameAccessPath reports whether left and right select the same sequence of
 // fields and constant indexes from their respective roots. It maps a closure's
 // free-variable access back to the captured binding without equating either
 // selected field with the aggregate that contains it.
-func SameAccessPath(left, leftRoot, right, rightRoot ssa.Value) bool {
-	leftPath, leftOK := accessPath(left, leftRoot, map[ssa.Value]bool{})
-	rightPath, rightOK := accessPath(right, rightRoot, map[ssa.Value]bool{})
+func SameAccessPath(left, right AccessPath) bool {
+	leftPath, leftOK := accessPath(left.Value, left.Root, map[ssa.Value]bool{})
+	rightPath, rightOK := accessPath(right.Value, right.Root, map[ssa.Value]bool{})
 	if !leftOK || !rightOK || len(leftPath) != len(rightPath) {
 		return false
 	}

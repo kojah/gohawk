@@ -124,7 +124,7 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
 	return waitsForCommand(instruction, command) ||
-		ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod("os", "Process", "Release")) &&
+		ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
 			ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 		ssautil.DeferredClosureCalls(instruction, "Wait", command) ||
 		ssautil.ClosureCallsMethod(instruction, "Wait", command) ||
@@ -132,15 +132,13 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
-		lifecyclefacts.OwnsArgument(
-			pass,
-			"processownership",
-			string(check.ProcessWait),
-			instruction,
-			command,
-			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited },
-		) ||
-		lifecyclefacts.StoresInEscapingReceiver(pass, "processownership", string(check.ProcessWait), instruction, command) ||
+		lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
+			Pass: pass, Analyzer: "processownership", Check: string(check.ProcessWait), Instruction: instruction, Target: command,
+			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited },
+		}) ||
+		lifecyclefacts.StoresInEscapingReceiver(lifecyclefacts.ArgumentEvidence{
+			Pass: pass, Analyzer: "processownership", Check: string(check.ProcessWait), Instruction: instruction, Target: command,
+		}) ||
 		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
 		startedWrapperWaits(pass, instruction, command) ||
@@ -178,14 +176,10 @@ func processHandleOwnershipAction(pass *analysis.Pass, instruction ssa.Instructi
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
 		}
-		if lifecyclefacts.OwnsArgument(
-			pass,
-			"processownership",
-			string(check.ProcessWait),
-			instruction,
-			argument,
-			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited },
-		) ||
+		if lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
+			Pass: pass, Analyzer: "processownership", Check: string(check.ProcessWait), Instruction: instruction, Target: argument,
+			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited },
+		}) ||
 			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", argument) ||
 			ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
 			if analysisTrace.Enabled("processownership", string(check.ProcessWait)) {

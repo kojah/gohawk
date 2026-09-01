@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"strings"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
@@ -89,10 +90,33 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 }
 
 func constrainedSignature(pass *analysis.Pass, declaration *ast.FuncDecl, interfaces []*types.Interface, callbacks map[types.Object]bool) bool {
-	if hasBlankParameter(declaration.Type.Params) || methodRequiredByInterface(pass, declaration, interfaces) {
+	if hasBlankParameter(declaration.Type.Params) || methodRequiredByInterface(pass, declaration, interfaces) || printfLikeSignature(pass, declaration) {
 		return true
 	}
 	return callbacks[pass.TypesInfo.Defs[declaration.Name]]
+}
+
+func printfLikeSignature(pass *analysis.Pass, declaration *ast.FuncDecl) bool {
+	function, ok := pass.TypesInfo.Defs[declaration.Name].(*types.Func)
+	if !ok || !strings.HasSuffix(function.Name(), "f") {
+		return false
+	}
+	signature := function.Signature()
+	parameters := signature.Params()
+	if !signature.Variadic() || parameters.Len() < 2 || parameters.At(parameters.Len()-2).Name() != "format" {
+		return false
+	}
+	format, ok := parameters.At(parameters.Len() - 2).Type().Underlying().(*types.Basic)
+	variadic, variadicOK := parameters.At(parameters.Len() - 1).Type().Underlying().(*types.Slice)
+	if !variadicOK {
+		return false
+	}
+	arguments, argumentsOK := variadic.Elem().Underlying().(*types.Interface)
+	// A format string followed by ...any is a positional protocol: replacing it
+	// with an options struct would make the API less idiomatic and would not
+	// prevent argument/verb mismatches. Keep the exemption structural so
+	// arbitrary variadic APIs still receive ordinary parameter-count review.
+	return ok && format.Kind() == types.String && argumentsOK && arguments.Empty()
 }
 
 func apiShapeCallbacks(pass *analysis.Pass) map[types.Object]bool {

@@ -13,19 +13,6 @@ import (
 // each observation. Mutations invalidate earlier sorting, and only an ordered
 // sink reached while unsorted can expose nondeterministic map iteration.
 
-var mutatingSortFunctions = []analysisutil.Symbol{
-	analysisutil.PackageFunction("sort", "Float64s"),
-	analysisutil.PackageFunction("sort", "Ints"),
-	analysisutil.PackageFunction("sort", "Slice"),
-	analysisutil.PackageFunction("sort", "SliceStable"),
-	analysisutil.PackageFunction("sort", "Sort"),
-	analysisutil.PackageFunction("sort", "Stable"),
-	analysisutil.PackageFunction("sort", "Strings"),
-	analysisutil.PackageFunction("slices", "Sort"),
-	analysisutil.PackageFunction("slices", "SortFunc"),
-	analysisutil.PackageFunction("slices", "SortStableFunc"),
-}
-
 func accumulatorObservedWithoutSort(pass *analysis.Pass, statements []ast.Stmt, accumulator types.Object) bool {
 	return blockObservesAccumulatorWithoutSort(pass, statements, accumulator, false)
 }
@@ -144,7 +131,20 @@ func directSortCall(pass *analysis.Pass, call *ast.CallExpr, object types.Object
 	if len(call.Args) == 0 || !determinismUsesObject(pass, call.Args[0], object) {
 		return false
 	}
-	return analysisutil.IsCallToAny(pass, call, mutatingSortFunctions...)
+	return analysisutil.IsCallToAny(
+		pass,
+		call,
+		analysisutil.PackageFunction("sort", "Float64s"),
+		analysisutil.PackageFunction("sort", "Ints"),
+		analysisutil.PackageFunction("sort", "Slice"),
+		analysisutil.PackageFunction("sort", "SliceStable"),
+		analysisutil.PackageFunction("sort", "Sort"),
+		analysisutil.PackageFunction("sort", "Stable"),
+		analysisutil.PackageFunction("sort", "Strings"),
+		analysisutil.PackageFunction("slices", "Sort"),
+		analysisutil.PackageFunction("slices", "SortFunc"),
+		analysisutil.PackageFunction("slices", "SortStableFunc"),
+	)
 }
 
 func localSortHelperCall(pass *analysis.Pass, call *ast.CallExpr, object types.Object) bool {

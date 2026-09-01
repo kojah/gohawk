@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"go.uber.org/fx"
+	"golang.org/x/tools/go/analysis"
 	"k8s.io/apimachinery/pkg/runtime"
 	controllerscheme "sigs.k8s.io/controller-runtime/pkg/scheme"
 )
@@ -23,6 +24,10 @@ var runtimeScheme = new(runtime.Scheme)
 var schemeBuilder runtime.SchemeBuilder
 var controllerSchemeBuilder = new(controllerscheme.Builder)
 var addToScheme = controllerSchemeBuilder.AddToScheme
+var analysisPass = new(analysis.Analyzer)
+var reassignedAnalysisPass = new(analysis.Analyzer) // want "mutable package state reassignedAnalysisPass"
+
+func replaceAnalysisPass() { reassignedAnalysisPass = new(analysis.Analyzer) }
 
 var immutableBytes = []byte("value")
 

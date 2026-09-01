@@ -140,10 +140,14 @@ func withDisabledChecks(analyzer *analysis.Analyzer, disabled map[string]bool, c
 		report := pass.Report
 		pass.Report = func(diagnostic analysis.Diagnostic) {
 			if disabled[diagnostic.Category] {
-				analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "check-disabled", analysisTrace.OutcomeAccepted, diagnostic)
+				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
+					Analyzer: analyzer.Name, Phase: "decision", Reason: "check-disabled", Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
+				})
 				return
 			}
-			analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "diagnostic-reported", analysisTrace.OutcomeRejected, diagnostic)
+			analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
+				Analyzer: analyzer.Name, Phase: "decision", Reason: "diagnostic-reported", Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
+			})
 			report(diagnostic)
 		}
 		defer func() { pass.Report = report }()

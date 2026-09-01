@@ -32,7 +32,8 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, ok := instruction.(*ssa.Call)
-				if !ok || !ssautil.CallMatchesSymbol(start.Common(), analysisutil.PackageMethod("os/exec", "Cmd", "Start")) ||
+				startCall := analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Start"})
+				if !ok || !ssautil.CallMatchesSymbol(start.Common(), startCall) ||
 					!execCommandValue(ssautil.CallReceiver(start.Common())) {
 					continue
 				}

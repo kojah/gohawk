@@ -113,11 +113,13 @@ func TestEmitDiagnosticResolvesSourceFunction(t *testing.T) {
 	pass := &analysis.Pass{Fset: files, Files: []*ast.File{file}}
 	EmitDiagnostic(
 		pass,
-		"oncepolicy",
-		"candidate",
-		"diagnostic-candidate",
-		OutcomeObserved,
-		analysis.Diagnostic{Category: "oncepolicy/discarded-wrapper", Pos: function.Pos(), Message: "discarded"},
+		DiagnosticEvent{
+			Analyzer:   "oncepolicy",
+			Phase:      "candidate",
+			Reason:     "diagnostic-candidate",
+			Outcome:    OutcomeObserved,
+			Diagnostic: analysis.Diagnostic{Category: "oncepolicy/discarded-wrapper", Pos: function.Pos(), Message: "discarded"},
+		},
 	)
 
 	var got record

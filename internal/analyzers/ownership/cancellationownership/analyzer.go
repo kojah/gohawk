@@ -244,23 +244,19 @@ func instructionSettlesCancellation(instruction ssa.Instruction, cancel ssa.Valu
 
 func callTakesCancellationOwnership(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Value) bool {
 	return ssautil.CallReturnsDeferredCleanup(instruction, cancel) ||
-		lifecyclefacts.OwnsArgument(
-			pass,
-			"cancellationownership",
-			string(check.CancellationRelease),
-			instruction,
-			cancel,
-			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
+		lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
+			Pass:        pass,
+			Analyzer:    "cancellationownership",
+			Check:       string(check.CancellationRelease),
+			Instruction: instruction,
+			Target:      cancel,
+			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
 				return fact.Invoked | fact.ReturnedOwner
 			},
-		) ||
-		lifecyclefacts.StoresInEscapingReceiver(
-			pass,
-			"cancellationownership",
-			string(check.CancellationRelease),
-			instruction,
-			cancel,
-		) ||
+		}) ||
+		lifecyclefacts.StoresInEscapingReceiver(lifecyclefacts.ArgumentEvidence{
+			Pass: pass, Analyzer: "cancellationownership", Check: string(check.CancellationRelease), Instruction: instruction, Target: cancel,
+		}) ||
 		ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) ||
 		ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) ||
 		ssautil.CallTransfersArgumentToReceiver(instruction, cancel) ||

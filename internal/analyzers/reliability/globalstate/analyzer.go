@@ -124,6 +124,9 @@ func allowedGlobal(
 	if documentedTestSeam(name, object, declaration, specification) {
 		return true
 	}
+	if conventionalAnalyzerSingleton(pass, object, value, usage) {
+		return true
+	}
 	if conventionalFrameworkGlobal(value) {
 		return true
 	}

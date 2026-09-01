@@ -9,11 +9,6 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-var execCommandConstructors = []analysisutil.Symbol{
-	analysisutil.PackageFunction("os/exec", "Command"),
-	analysisutil.PackageFunction("os/exec", "CommandContext"),
-}
-
 func osProcessDerivedFromCommand(value, command ssa.Value) bool {
 	if value == nil || value.Type() == nil {
 		return false
@@ -36,7 +31,11 @@ func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) boo
 	seen[command] = true
 	switch typed := command.(type) {
 	case *ssa.Call:
-		return !ssautil.CallMatchesAnySymbol(typed.Common(), execCommandConstructors...)
+		return !ssautil.CallMatchesAnySymbol(
+			typed.Common(),
+			analysisutil.PackageFunction("os/exec", "Command"),
+			analysisutil.PackageFunction("os/exec", "CommandContext"),
+		)
 	case *ssa.ChangeInterface:
 		return commandReturnedByHelperSeen(typed.X, seen)
 	case *ssa.ChangeType:
@@ -86,7 +85,7 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 	if common == nil {
 		return false
 	}
-	if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod("os/exec", "Cmd", "Wait")) &&
+	if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) &&
 		(ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 			osProcessDerivedFromCommand(ssautil.CallReceiver(common), command)) {
 		return true

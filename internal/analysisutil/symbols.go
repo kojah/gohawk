@@ -31,10 +31,17 @@ func PackageFunction(packagePath, name string) Symbol {
 	return Symbol{kind: symbolPackageFunction, packagePath: packagePath, name: name}
 }
 
-// PackageMethod identifies a method declared on receiver in packagePath.
+// MethodSymbol names one method by its declaring package, receiver, and name.
 // Receiver is the declared named type without pointer syntax.
-func PackageMethod(packagePath, receiver, name string) Symbol {
-	return Symbol{kind: symbolMethod, packagePath: packagePath, receiver: receiver, name: name}
+type MethodSymbol struct {
+	PackagePath string
+	Receiver    string
+	Name        string
+}
+
+// PackageMethod identifies the declared method.
+func PackageMethod(method MethodSymbol) Symbol {
+	return Symbol{kind: symbolMethod, packagePath: method.PackagePath, receiver: method.Receiver, name: method.Name}
 }
 
 // Builtin identifies a predeclared Go function.

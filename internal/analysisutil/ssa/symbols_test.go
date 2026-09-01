@@ -39,9 +39,13 @@ func calls(t *testing.T, cmd *exec.Cmd, local *command) {
 	calls := functionCalls(pkg.Func("calls"))
 
 	assertSingleCallMatch(t, calls, analysisutil.PackageFunction("strings", "Contains"))
-	assertSingleCallMatch(t, calls, analysisutil.PackageMethod("os/exec", "Cmd", "Wait"))
-	assertSingleCallMatch(t, calls, analysisutil.PackageMethod("example.com/ssaflowtest", "command", "Wait"))
-	assertSingleCallMatch(t, calls, analysisutil.PackageMethod("testing", "common", "Cleanup"))
+	assertSingleCallMatch(t, calls, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"}))
+	assertSingleCallMatch(t, calls, analysisutil.PackageMethod(analysisutil.MethodSymbol{
+		PackagePath: "example.com/ssaflowtest",
+		Receiver:    "command",
+		Name:        "Wait",
+	}))
+	assertSingleCallMatch(t, calls, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "testing", Receiver: "common", Name: "Cleanup"}))
 	assertSingleCallMatch(t, calls, analysisutil.PackageFunction("time", "AfterFunc"))
 	assertSingleCallMatch(t, calls, analysisutil.PackageFunction("runtime", "Goexit"))
 	assertSingleCallMatch(t, calls, analysisutil.Builtin("len"))
