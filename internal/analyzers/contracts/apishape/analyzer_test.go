@@ -9,6 +9,7 @@ import (
 
 func TestAnalyzer(t *testing.T) {
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "apishape")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "apishape/testonly")
 }
 
 func TestConfiguration(t *testing.T) {

@@ -46,6 +46,49 @@ func externallyOwnedJoin(signals, groups []ssa.Value) bool {
 	return slices.ContainsFunc(append(slices.Clone(signals), groups...), ssaflow.ExternallyOwnedValue)
 }
 
+func synctestOwnsGoroutine(function *ssa.Function) bool {
+	if function == nil || function.Parent() == nil {
+		return false
+	}
+	for _, block := range function.Parent().Blocks {
+		for _, instruction := range block.Instrs {
+			common := ssaflow.InstructionCall(instruction)
+			if !ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("testing/synctest", "Test")) {
+				continue
+			}
+			for _, argument := range common.Args {
+				if callbackFunction(argument) == function {
+					// synctest.Test waits for every goroutine in its bubble before
+					// returning, and fails the test if the bubble deadlocks.
+					// https://github.com/golang/go/blob/8af21751f066eced273ca3ce49506b366847c623/src/testing/synctest/synctest.go#L275-L293
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func callbackFunction(value ssa.Value) *ssa.Function {
+	switch typed := value.(type) {
+	case *ssa.Function:
+		return typed
+	case *ssa.MakeClosure:
+		function, _ := typed.Fn.(*ssa.Function)
+		return function
+	case *ssa.ChangeInterface:
+		return callbackFunction(typed.X)
+	case *ssa.ChangeType:
+		return callbackFunction(typed.X)
+	case *ssa.Convert:
+		return callbackFunction(typed.X)
+	case *ssa.MakeInterface:
+		return callbackFunction(typed.X)
+	default:
+		return nil
+	}
+}
+
 func goroutineLifecycleValues(spawn *ssa.Go) []ssa.Value {
 	var owners []ssa.Value
 	receiver := ssaflow.CallReceiver(spawn.Common())

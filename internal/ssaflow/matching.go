@@ -96,16 +96,19 @@ func definitelyNil(value ssa.Value, seen map[ssa.Value]bool) bool {
 // DeferredClosureCalls reports whether deferred closure calls method on target.
 
 func sameValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || target == nil || seen[value] {
+	if value == nil || target == nil {
 		return false
 	}
 	if value == target {
 		return true
 	}
-	seen[value] = true
-	if inner, ok := wrappedValue(value); ok {
-		return sameValueSeen(inner, target, seen)
+	if matched, wrapped := sameWrappedValue(value, target, seen); wrapped {
+		return matched
 	}
+	if seen[value] {
+		return false
+	}
+	seen[value] = true
 	switch typed := value.(type) {
 	case *ssa.FieldAddr:
 		other, ok := target.(*ssa.FieldAddr)
@@ -129,6 +132,25 @@ func sameValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 		}
 	}
 	return false
+}
+
+func sameWrappedValue(value, target ssa.Value, seen map[ssa.Value]bool) (bool, bool) {
+	left, leftWrapped := wrappedValue(value)
+	right, rightWrapped := wrappedValue(target)
+	// Two directional channel conversions can be siblings of the same value:
+	// one producer receives chan<- T while its join helper receives <-chan T.
+	// Both wrappers must be removed before comparing their shared identity.
+	// https://github.com/Consensys/ask-o11y-plugin/blob/b74147d834cfd415caa96f087972a546238168c0/pkg/agent/loop_test.go#L111-L141
+	switch {
+	case leftWrapped && rightWrapped:
+		return sameValueSeen(left, right, seen), true
+	case leftWrapped:
+		return sameValueSeen(left, target, seen), true
+	case rightWrapped:
+		return sameValueSeen(value, right, seen), true
+	default:
+		return false, false
+	}
 }
 
 func storedValueMatches(address, target ssa.Value, seen map[ssa.Value]bool) bool {

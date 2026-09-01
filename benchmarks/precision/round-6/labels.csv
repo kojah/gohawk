@@ -1,0 +1,13 @@
+repository,analyzer,position,verdict
+Consensys/ask-o11y-plugin,testlifecycle,pkg/agent/loop_test.go:141:14,false_positive
+Consensys/ask-o11y-plugin,channelownership,pkg/agent/loop.go:99:2,true_positive
+teradata-labs/loom,goroutineownership,pkg/server/multi_agent_shared_memory_test.go:243:3,false_positive
+teradata-labs/loom,goroutineownership,pkg/storage/shared_memory.go:139:2,true_positive
+teradata-labs/loom,resourcelifetime,pkg/storage/shared_memory.go:413:8,true_positive
+boldsoftware/shelley,goroutineownership,subpub/subpub_test.go:21:3,false_positive
+boldsoftware/shelley,resourcelifetime,gitstate/object.go:72:14,true_positive
+boldsoftware/shelley,resourcelifetime,gitstate/object.go:265:13,true_positive
+guigui-gui/guigui,apishape,basicwidget/export_test.go:8:6,false_positive
+drallgood/audiobookshelf-hardcover-sync,apishape,internal/mismatch/mismatch_test.go:246:31,false_positive
+drallgood/audiobookshelf-hardcover-sync,deferinloop,internal/api/audnex/client.go:183:3,true_positive
+DereC4/internships-and-newgrad,resourcelifetime,go/main.go:24:19,true_positive

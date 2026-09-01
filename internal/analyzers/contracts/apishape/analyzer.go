@@ -52,7 +52,12 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 	// signatures. Excluding them before applying shape limits avoids suggesting
 	// an API change that would break the contract supplying the declaration.
 	for _, file := range pass.Files {
-		if !syntax.AnalyzeFile(pass, file) {
+		filename := pass.Fset.PositionFor(file.Pos(), false).Filename
+		if !syntax.AnalyzeFile(pass, file) || strings.HasSuffix(filename, "_test.go") {
+			// Exported test helpers and external-test bridges are not part of the
+			// package's production API, so changing their shape has no consumer
+			// compatibility cost to review.
+			// https://github.com/guigui-gui/guigui/blob/d53e0fb75c8afe500f08ba4b0b9a7568917f561a/basicwidget/export_test.go#L1-L12
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {

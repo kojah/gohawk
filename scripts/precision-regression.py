@@ -11,19 +11,6 @@ import subprocess
 import sys
 import tempfile
 
-FOCUSED_ANALYZERS = {
-    "cancellationownership",
-    "channelownership",
-    "concurrentcapture",
-    "deferinloop",
-    "evalorder",
-    "goroutineownership",
-    "lockorder",
-    "processownership",
-    "resourcelifetime",
-}
-
-
 def fail(message: str) -> None:
     raise SystemExit(f"precision-regression: {message}")
 
@@ -50,7 +37,7 @@ def checkout_repository(root: Path, repository: str, revision: str) -> Path:
         actual = run(["git", "-C", str(checkout), "rev-parse", "HEAD"], capture_output=True)
         if actual.returncode or actual.stdout.strip() != revision:
             fail(f"{repository}: checkout is not pinned at {revision}")
-        return checkout
+        return checkout.resolve()
     checkout.mkdir(parents=True)
     commands = [
         ["git", "-C", str(checkout), "init", "--quiet"],
@@ -84,7 +71,7 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
     for module in module_directories(checkout):
         try:
             result = run(
-                [str(gohawk), "-json", "./..."],
+                [str(gohawk), "-enable-all", "-json", "./..."],
                 cwd=module,
                 env=environment,
                 capture_output=True,
@@ -102,8 +89,6 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
             if not isinstance(analyzers, dict):
                 continue
             for analyzer, diagnostics in analyzers.items():
-                if analyzer not in FOCUSED_ANALYZERS:
-                    continue
                 for diagnostic in diagnostics:
                     if not isinstance(diagnostic, dict) or diagnostic.get("error"):
                         continue

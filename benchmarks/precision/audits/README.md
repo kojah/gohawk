@@ -22,3 +22,24 @@ no complete reap path remained reportable and are pinned in precision round 5.
 Cloudemu produced no findings. Uzomuzo's CGO-only tree-sitter package did not
 load under the audit's `CGO_ENABLED=0` environment; its other packages were
 still analyzed.
+
+## Batch 2
+
+Ten repositories and twenty-one modules were selected. Twenty modules loaded
+under `CGO_ENABLED=0`; TerraTidy's `examples/go-rule` module was blocked by a
+missing committed `go.sum` entry.
+
+Four general evidence gaps were fixed:
+
+- send-only and receive-only conversions of the same channel now retain one
+  identity;
+- a map-range worker launch may be paired with receives bounded by the stable
+  length of that same map;
+- `testing/synctest.Test` owns goroutines started in its bubble; and
+- declarations compiled only from `_test.go` are not treated as production
+  APIs.
+
+More involved dynamic-lock, guarded-branch, recursive-worker, custom lifecycle,
+and multi-stage resource transfers remain conservative rather than receiving
+project-specific exceptions. Nearby caller-channel ownership, goroutine,
+resource, and defer-in-loop findings remain reportable in precision round 6.

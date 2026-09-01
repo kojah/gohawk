@@ -67,6 +67,7 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 	if goroutineHasStopLifecycle(spawn) || goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) ||
 		externallyOwnedJoin(signals, groups) ||
 		ownershipRegisteredBefore(spawn, signals, groups) ||
+		synctestOwnsGoroutine(function) ||
 		matchingCountedJoin(function, spawn, signals) ||
 		nestedCallbackReceivesAny(function, signals) {
 		return true
@@ -172,6 +173,9 @@ func acceptedGoroutineOwnership(
 	}
 	if ownershipRegisteredBefore(spawn, signals, groups) {
 		return "registration-before-spawn", true
+	}
+	if synctestOwnsGoroutine(function) {
+		return "synctest-bubble-owner", true
 	}
 	// Matching bounds prove that every launched worker has a corresponding
 	// receive without assuming unrelated loops happen to have equal counts.

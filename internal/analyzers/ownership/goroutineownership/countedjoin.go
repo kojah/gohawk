@@ -20,6 +20,9 @@ import (
 func matchingCountedJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Value) bool {
 	spawnBound := loopBound(function, spawn.Block())
 	if spawnBound == nil {
+		spawnBound = stableMapRangeBound(function, spawn)
+	}
+	if spawnBound == nil {
 		return finiteAggregateJoin(function, spawn, signals)
 	}
 	for _, block := range function.Blocks {
@@ -35,6 +38,58 @@ func matchingCountedJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Va
 		}
 	}
 	return matchingCountedHelperJoin(function, spawn, signals, spawnBound) || finiteAggregateJoin(function, spawn, signals)
+}
+
+func stableMapRangeBound(function *ssa.Function, spawn *ssa.Go) ssa.Value { //nolint:ireturn // The map remains an SSA value for bound comparison.
+	header := enclosingLoopHeader(function, spawn.Block())
+	if header == nil {
+		return nil
+	}
+	for _, instruction := range header.Instrs {
+		next, ok := instruction.(*ssa.Next)
+		if !ok {
+			continue
+		}
+		ranged, ok := next.Iter.(*ssa.Range)
+		if !ok {
+			continue
+		}
+		if _, mapType := ranged.X.Type().Underlying().(*types.Map); !mapType || mapMayChangeAfterSpawn(function, spawn, ranged.X) {
+			return nil
+		}
+		// A race-free map range launches exactly len(map) workers when the map is
+		// not changed before the join. Loom uses this shape to receive one terminal
+		// signal for every agent worker.
+		// https://github.com/teradata-labs/loom/blob/9d8c8c672ce22e1d51374bdfb2064fa0d8719968/pkg/server/multi_agent_shared_memory_test.go#L239-L265
+		return ranged.X
+	}
+	return nil
+}
+
+func mapMayChangeAfterSpawn(function *ssa.Function, spawn *ssa.Go, target ssa.Value) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if instruction == spawn || !ssaflow.InstructionMayFollow(spawn, instruction) {
+				continue
+			}
+			if update, ok := instruction.(*ssa.MapUpdate); ok && ssaflow.SameValue(update.Map, target) {
+				return true
+			}
+			common := ssaflow.InstructionCall(instruction)
+			if common == nil {
+				continue
+			}
+			if ssaflow.CallMatchesSymbol(common, syntax.Builtin("len")) {
+				continue
+			}
+			for _, argument := range common.Args {
+				if ssaflow.SameValue(argument, target) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func matchingCountedHelperJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Value, spawnBound ssa.Value) bool {
@@ -164,15 +219,7 @@ func receiveFromAggregate(instruction ssa.Instruction, aggregate ssa.Value) bool
 }
 
 func loopBound(function *ssa.Function, body *ssa.BasicBlock) ssa.Value { //nolint:ireturn // Bounds retain their SSA form for alias comparison.
-	var selected *ssa.BasicBlock
-	for _, header := range function.Blocks {
-		if !header.Dominates(body) || !loopHeader(header) {
-			continue
-		}
-		if selected == nil || selected.Dominates(header) {
-			selected = header
-		}
-	}
+	selected := enclosingLoopHeader(function, body)
 	if selected == nil {
 		return nil
 	}
@@ -191,6 +238,19 @@ func loopBound(function *ssa.Function, body *ssa.BasicBlock) ssa.Value { //nolin
 		}
 	}
 	return nil
+}
+
+func enclosingLoopHeader(function *ssa.Function, body *ssa.BasicBlock) *ssa.BasicBlock {
+	var selected *ssa.BasicBlock
+	for _, header := range function.Blocks {
+		if !header.Dominates(body) || !loopHeader(header) {
+			continue
+		}
+		if selected == nil || selected.Dominates(header) {
+			selected = header
+		}
+	}
+	return selected
 }
 
 func loopComparisonBound(block, header *ssa.BasicBlock) ssa.Value { //nolint:ireturn // Bounds retain their SSA form for alias comparison.

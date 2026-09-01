@@ -4,10 +4,25 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"testing"
+	"testing/synctest"
 )
 
 func detached() {
 	go func() {}() // want "goroutine is not joined on every return path"
+}
+
+func joinedBySynctest(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		go func() {}()
+	})
+}
+
+func unrelatedSynctestName(t *testing.T) {
+	test := func(*testing.T, func(*testing.T)) {}
+	test(t, func(t *testing.T) {
+		go func() {}() // want "goroutine is not joined on every return path"
+	})
 }
 
 func documentedBackgroundWorker() {
@@ -133,6 +148,37 @@ func joinedByMatchingSlice(items []int) {
 		go func() { done <- true }()
 	}
 	for range items {
+		<-done
+	}
+}
+
+func joinedByMatchingMap(items map[string]int) {
+	done := make(chan bool)
+	for range items {
+		go func() { done <- true }()
+	}
+	for range len(items) {
+		<-done
+	}
+}
+
+func differentMapCountDoesNotJoin(items, other map[string]int) {
+	done := make(chan bool)
+	for range items {
+		go func() { done <- true }() // want "goroutine is not joined on every return path"
+	}
+	for range len(other) {
+		<-done
+	}
+}
+
+func changedMapCountDoesNotJoin(items map[string]int) {
+	done := make(chan bool)
+	for key := range items {
+		go func() { done <- true }() // want "goroutine is not joined on every return path"
+		delete(items, key)
+	}
+	for range len(items) {
 		<-done
 	}
 }

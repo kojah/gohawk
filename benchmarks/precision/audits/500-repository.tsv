@@ -9,3 +9,13 @@
 1	R3DRUN3/vermilion	09999551b30a8d6bbad27c6258b65da435b60f7d	.	reviewed
 1	opendatahub-io/models-as-a-service	d6ffd405c97aee7a4e5e42bb3f50ee89618d8557	maas-api,maas-controller	reviewed
 1	stephrobert/feint	270aeb83c264ad109af885bb4e52f598265c5e1f	.	reviewed
+2	guigui-gui/guigui	d53e0fb75c8afe500f08ba4b0b9a7568917f561a	.	reviewed
+2	teradata-labs/loom	9d8c8c672ce22e1d51374bdfb2064fa0d8719968	.	reviewed
+2	santosr2/TerraTidy	4c80dee86554dea6470d22dac7145a4541379db6	.,examples/go-rule	reviewed
+2	lenny-ts/caddy-analyzer	d607c9a9d2a60c3f7ba455b00fbce4a5301519dd	.	reviewed
+2	drallgood/audiobookshelf-hardcover-sync	60106640df841887c584f9cee087366c7ff92d2a	.	reviewed
+2	DereC4/internships-and-newgrad	3593e4c6e5f96b6d6b1dedc2780ca69659b9ae79	go	reviewed
+2	boldsoftware/shelley	0002e53ccc48465535dc75d62d542c10d9862600	.,lazycue,templates/go	reviewed
+2	kubeflow/hub	cf0f88ea6dafec4785d700683d53acfc758ebeec	.,catalog/pkg/openapi,clients/ui/bff,cmd/controller,cmd/csi,gorm-gen,pkg/inferenceservice-controller,pkg/openapi	reviewed
+2	Consensys/ask-o11y-plugin	b74147d834cfd415caa96f087972a546238168c0	.	reviewed
+2	scrapli/scrapligo	8dbbfa5f2bbab895fffebd9b6ad763411e99fda7	.,build/dummy_ssh_server	reviewed

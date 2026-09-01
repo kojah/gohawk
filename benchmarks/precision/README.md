@@ -14,6 +14,8 @@ scripts/precision-regression.py benchmarks/precision/round-3 \
 
 Checkout directories use the `owner__repository` naming convention. The
 harness analyzes the three shallowest Go modules, matching the original pilot.
+Every replay uses `-enable-all`; labels may therefore cover default or opt-in
+checks.
 New diagnostics are intentionally reported by normal dogfooding review rather
 than guessed to be regressions: only a human can label a new finding.
 
@@ -28,3 +30,8 @@ waiters, and direct `os.Process.Wait`, together with nearby resource and process
 leaks that must remain reportable. Only repositories contributing a regression
 label are retained in the executable cohort; the broader selection ledger is
 kept separately from the CI-sized precision gate.
+
+Round 6 preserves the second reviewed batch. It covers channel identity across
+direction conversions, map-sized worker joins, `testing/synctest.Test`
+ownership, and test-only API declarations together with nearby lifecycle and
+resource findings.

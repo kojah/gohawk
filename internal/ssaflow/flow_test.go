@@ -52,6 +52,39 @@ func caller() {
 	}
 }
 
+func TestSameValueAcrossChannelDirections(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+func receive(<-chan int) {}
+func send(chan<- int) {}
+func sendOther(chan<- int) {}
+
+func compare(first, second chan int) {
+	receive(first)
+	send(first)
+	sendOther(second)
+}
+`)
+	function := pkg.Func("compare")
+	callArgument := func(name string) ssa.Value {
+		t.Helper()
+		instruction := findSSAInstruction(t, function, func(instruction ssa.Instruction) bool {
+			common := InstructionCall(instruction)
+			return common != nil && common.StaticCallee() != nil && common.StaticCallee().Name() == name
+		})
+		return InstructionCall(instruction).Args[0]
+	}
+
+	receiveArgument := callArgument("receive")
+	if sendArgument := callArgument("send"); !SameValue(receiveArgument, sendArgument) {
+		t.Error("SameValue did not preserve identity across sibling channel direction conversions")
+	}
+	if otherArgument := callArgument("sendOther"); SameValue(receiveArgument, otherArgument) {
+		t.Error("SameValue equated channel conversions with different sources")
+	}
+}
+
 func TestBlockReachable(t *testing.T) {
 	pkg := buildTestSSA(t, `
 package ssaflowtest
