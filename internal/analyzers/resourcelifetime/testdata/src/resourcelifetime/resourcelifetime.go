@@ -287,6 +287,17 @@ func transferredFile() (*os.File, error) {
 	return os.CreateTemp("", "transfer")
 }
 
+var packageFile *os.File
+
+func transferredFileToPackageOwner() error {
+	file, err := os.Open("state")
+	if err != nil {
+		return err
+	}
+	packageFile = file
+	return nil
+}
+
 type owner struct {
 	timer *time.Timer
 	file  *os.File

@@ -40,6 +40,14 @@ func helperOwnsWait(ctx context.Context) error {
 	return settleCommand(command)
 }
 
+func explicitlyDetached(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	return command.Process.Release()
+}
+
 func orphan(ctx context.Context) error {
 	command := exec.CommandContext(ctx, "tool")
 	return command.Start() // want "started command is not waited on every successful return path"

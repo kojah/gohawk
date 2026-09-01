@@ -105,7 +105,11 @@ func processOwnershipDominatesStart(function *ssa.Function, start *ssa.Call, com
 
 func processOwnershipAction(instruction ssa.Instruction, command ssa.Value) bool {
 	common := ssautil.InstructionCall(instruction)
+	// os.Process.Release explicitly relinquishes the parent's wait/reap
+	// obligation for deliberately detached daemons:
+	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
 	return waitsForCommand(instruction, command) ||
+		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Release" && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 		ssautil.DeferredClosureCalls(instruction, "Wait", command) ||
 		ssautil.ClosureCallsMethod(instruction, "Wait", command) ||
 		ssautil.ClosureCapturesValue(instruction, command) ||

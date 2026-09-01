@@ -81,12 +81,22 @@ func UnownedReturn(
 
 // UnownedReturnFromEntry reports whether any normal return lacks an ownership action.
 func UnownedReturnFromEntry(function *ssa.Function, owns func(ssa.Instruction) bool) bool {
-	return UnownedReturnFromEntryAllow(function, owns, nil)
+	return unownedReturnFromEntry(function, owns, nil, nil)
 }
 
 // UnownedReturnFromEntryAllow reports whether any normal return lacks an
 // ownership action unless allowReturn proves that return needs none.
 func UnownedReturnFromEntryAllow(function *ssa.Function, owns func(ssa.Instruction) bool, allowReturn func(*ssa.Return) bool) bool {
+	return unownedReturnFromEntry(function, owns, allowReturn, nil)
+}
+
+// UnownedReturnFromEntryAssumingNonNil analyzes only paths feasible when value
+// is non-nil at function entry.
+func UnownedReturnFromEntryAssumingNonNil(function *ssa.Function, value ssa.Value, owns func(ssa.Instruction) bool) bool {
+	return unownedReturnFromEntry(function, owns, nil, value)
+}
+
+func unownedReturnFromEntry(function *ssa.Function, owns func(ssa.Instruction) bool, allowReturn func(*ssa.Return) bool, nonNil ssa.Value) bool {
 	if len(function.Blocks) == 0 {
 		return false
 	}
@@ -118,11 +128,41 @@ func UnownedReturnFromEntryAllow(function *ssa.Function, owns func(ssa.Instructi
 		if terminated {
 			continue
 		}
-		for _, successor := range FeasibleSuccessors(state.block, state.predecessor) {
+		for _, successor := range nonNilFeasibleSuccessors(state.block, state.predecessor, nonNil) {
 			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: state.owned})
 		}
 	}
 	return false
+}
+
+func nonNilFeasibleSuccessors(block, predecessor *ssa.BasicBlock, value ssa.Value) []*ssa.BasicBlock {
+	successors := FeasibleSuccessors(block, predecessor)
+	if value == nil || len(block.Succs) != 2 || len(block.Instrs) == 0 {
+		return successors
+	}
+	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
+	if !ok {
+		return successors
+	}
+	comparison, ok := branch.Cond.(*ssa.BinOp)
+	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
+		return successors
+	}
+	comparesNil := ValueDerivesFrom(comparison.X, value, map[ssa.Value]bool{}) && DefinitelyNil(comparison.Y) ||
+		ValueDerivesFrom(comparison.Y, value, map[ssa.Value]bool{}) && DefinitelyNil(comparison.X)
+	if !comparesNil {
+		return successors
+	}
+	nonNil := block.Succs[0]
+	if comparison.Op == token.EQL {
+		nonNil = block.Succs[1]
+	}
+	for _, successor := range successors {
+		if successor == nonNil {
+			return []*ssa.BasicBlock{successor}
+		}
+	}
+	return nil
 }
 
 // FeasibleSuccessors preserves constants selected by predecessor-sensitive

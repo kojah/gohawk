@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"testing"
+	"time"
 )
 
 func leaked(parent context.Context) {
@@ -123,6 +124,11 @@ func afterFuncMayRun(parent context.Context) {
 	_ = context.AfterFunc(parent, func() {})
 }
 
+func afterFuncOwnsCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	time.AfterFunc(time.Millisecond, cancel)
+}
+
 func testCleanupOwnsCancel(t *testing.T, parent context.Context) {
 	_, cancel := context.WithCancel(parent)
 	t.Cleanup(cancel)
@@ -151,4 +157,41 @@ func conditionallySettle(cancel context.CancelFunc, run bool) {
 func conditionalHelperDoesNotOwnCancel(parent context.Context, run bool) {
 	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
 	conditionallySettle(cancel, run)
+}
+
+func teardown(cancel context.CancelFunc, fast bool) {
+	if fast {
+		if cancel != nil {
+			cancel()
+		}
+		return
+	}
+	done := make(chan struct{}, 1)
+	select {
+	case <-done:
+		if cancel != nil {
+			cancel()
+		}
+	case <-time.After(time.Millisecond):
+		if cancel != nil {
+			cancel()
+		}
+	}
+}
+
+func teardownHelperOwnsCancel(parent context.Context, fast bool) {
+	_, cancel := context.WithCancel(parent)
+	teardown(cancel, fast)
+}
+
+func deferredTeardownHelperOwnsCancel(parent context.Context, fast bool) {
+	_, cancel := context.WithCancel(parent)
+	defer func() { teardown(cancel, fast) }()
+}
+
+func observeCallback(context.CancelFunc) {}
+
+func deferredObserverDoesNotOwnCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	defer func() { observeCallback(cancel) }()
 }

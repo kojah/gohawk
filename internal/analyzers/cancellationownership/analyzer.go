@@ -150,7 +150,11 @@ func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
 	// invocation on every normal helper return; process-tree tests use this to
 	// centralize cancellation and process cleanup together:
 	// https://github.com/applicate2628/mcp-local-hub/blob/73fbad63f7f9f0b24caef2239256f53b70a74061/internal/vcpkgmcp/reversedepgraph/process_tree_test.go#L46
-	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
+	// Cross-package cleanup bodies are unavailable to buildssa, so retain the
+	// stronger local all-path summary and a deferred cleanup-name boundary.
+	// Cerberus delegates qcancel through a deferred CloseCursor call:
+	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
+	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
@@ -167,7 +171,10 @@ func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
 	registersCallback := strings.Contains(name, "cleanup") || strings.Contains(name, "afterfunc")
 	registersCancel := strings.HasPrefix(name, "add") || strings.Contains(name, "register") || strings.Contains(name, "track") || strings.Contains(name, "own")
 	for _, argument := range common.Args {
-		if registersCallback && ssautil.ValueCallsValue(argument, cancel) || registersCancel && ssautil.AliasesValue(argument, cancel) {
+		// Registrars accept either a wrapper callback or the cancellation
+		// function itself. Vekil installs cancel directly with time.AfterFunc:
+		// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/launch/runtime_test.go#L379
+		if registersCallback && (ssautil.AliasesValue(argument, cancel) || ssautil.ValueCallsValue(argument, cancel)) || registersCancel && ssautil.AliasesValue(argument, cancel) {
 			return true
 		}
 	}

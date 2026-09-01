@@ -4,6 +4,8 @@ import (
 	"errors"
 	"go/token"
 	"go/types"
+	"slices"
+	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
 	"golang.org/x/tools/go/analysis"
@@ -105,9 +107,19 @@ func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool {
 // CallInvokesArgumentOnEveryReturn reports whether a statically known helper
 // invokes target on every normal path through the helper.
 func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool {
+	return callInvokesArgumentOnEveryReturn(instruction, target, map[*ssa.Function]bool{})
+}
+
+func callInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value, seen map[*ssa.Function]bool) bool {
+	common := InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil || seen[common.StaticCallee()] {
+		return false
+	}
+	seen[common.StaticCallee()] = true
+	defer delete(seen, common.StaticCallee())
 	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
 		common := InstructionCall(candidate)
-		return common != nil && AliasesValue(common.Value, parameter)
+		return common != nil && AliasesValue(common.Value, parameter) || callInvokesArgumentOnEveryReturn(candidate, parameter, seen)
 	})
 }
 
@@ -134,37 +146,9 @@ func callOwnsArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value
 			continue
 		}
 		parameter := callee.Params[index]
-		if !UnownedReturnFromEntryAllow(callee, func(candidate ssa.Instruction) bool {
+		if !UnownedReturnFromEntryAssumingNonNil(callee, parameter, func(candidate ssa.Instruction) bool {
 			return owns(candidate, parameter)
-		}, func(returned *ssa.Return) bool {
-			return returnRequiresNil(returned, parameter)
 		}) {
-			return true
-		}
-	}
-	return false
-}
-
-func returnRequiresNil(returned *ssa.Return, value ssa.Value) bool {
-	for _, predecessor := range returned.Block().Preds {
-		if len(predecessor.Instrs) == 0 || len(predecessor.Succs) != 2 {
-			continue
-		}
-		branch, ok := predecessor.Instrs[len(predecessor.Instrs)-1].(*ssa.If)
-		if !ok {
-			continue
-		}
-		comparison, ok := branch.Cond.(*ssa.BinOp)
-		if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
-			continue
-		}
-		comparesNil := ValueDerivesFrom(comparison.X, value, map[ssa.Value]bool{}) && DefinitelyNil(comparison.Y) ||
-			ValueDerivesFrom(comparison.Y, value, map[ssa.Value]bool{}) && DefinitelyNil(comparison.X)
-		if !comparesNil {
-			continue
-		}
-		trueBranch := returned.Block() == predecessor.Succs[0]
-		if comparison.Op == token.EQL && trueBranch || comparison.Op == token.NEQ && !trueBranch {
 			return true
 		}
 	}
@@ -283,6 +267,69 @@ func DeferredClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bo
 		return false
 	}
 	return ClosureCallsValue(instruction, target)
+}
+
+// DeferredClosureInvokesArgumentOnEveryReturn reports whether a deferred
+// closure delegates target to a helper that invokes it on every normal path.
+func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Defer); !ok {
+		return false
+	}
+	common, closure, function := calledFunction(instruction)
+	if function == nil {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			for index, free := range function.FreeVars {
+				if index < len(closure.Bindings) && CapturedBindingAliases(closure.Bindings[index], target) && CallInvokesArgumentOnEveryReturn(candidate, free) {
+					return true
+				}
+			}
+			for index, parameter := range function.Params {
+				if common != nil && index < len(common.Args) && AliasesValue(common.Args[index], target) && CallInvokesArgumentOnEveryReturn(candidate, parameter) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// DeferredClosurePassesValueToNamedCall reports whether a deferred closure
+// passes target to a call whose name contains one of fragments.
+func DeferredClosurePassesValueToNamedCall(instruction ssa.Instruction, target ssa.Value, fragments ...string) bool {
+	if _, ok := instruction.(*ssa.Defer); !ok {
+		return false
+	}
+	common, closure, function := calledFunction(instruction)
+	if function == nil {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			called := InstructionCall(candidate)
+			name := strings.ToLower(CallName(called))
+			if called == nil || !slices.ContainsFunc(fragments, func(fragment string) bool {
+				return strings.Contains(name, fragment)
+			}) {
+				continue
+			}
+			for _, argument := range called.Args {
+				for index, free := range function.FreeVars {
+					if index < len(closure.Bindings) && ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) && CapturedBindingAliases(closure.Bindings[index], target) {
+						return true
+					}
+				}
+				for index, parameter := range function.Params {
+					if common != nil && index < len(common.Args) && ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) && AliasesValue(common.Args[index], target) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 // ClosureCallsValue reports whether a call-like closure or created callback calls target.
