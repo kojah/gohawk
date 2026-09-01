@@ -6,10 +6,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/passes/testvariant"
-
 	"golang.org/x/tools/go/analysis"
 )
+
+// CanonicalTestVariant marks an analysis result from a driver whose augmented
+// test package is the canonical pass for both production and test files.
+// Source-selection prerequisite passes produce this fact without making
+// syntax depend on the execution-infrastructure package that owns the pass.
+type CanonicalTestVariant struct{}
 
 type sourceRange struct {
 	start token.Pos
@@ -67,22 +71,20 @@ func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 	if GeneratedFile(file) {
 		return false
 	}
-	_, driverUsesTestVariant := pass.ResultOf[testvariant.Analyzer]
+	driverUsesTestVariant := canonicalTestVariant(pass)
 	if !testVariant(pass) || vetToolInvocation(os.Args) || driverUsesTestVariant {
 		return true
 	}
 	return strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go")
 }
 
-// IncludeProductionFilesInTestVariants returns an analyzer copy configured for
-// an embedding driver that does not also run the ordinary production package.
-// Without this marker, production files in the driver's augmented test package
-// would be mistaken for duplicate copies and skipped.
-func IncludeProductionFilesInTestVariants(analyzer *analysis.Analyzer) *analysis.Analyzer {
-	wrapper := *analyzer
-	wrapper.Requires = append([]*analysis.Analyzer(nil), analyzer.Requires...)
-	wrapper.Requires = append(wrapper.Requires, testvariant.Analyzer)
-	return &wrapper
+func canonicalTestVariant(pass *analysis.Pass) bool {
+	for _, result := range pass.ResultOf {
+		if _, ok := result.(CanonicalTestVariant); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func testVariant(pass *analysis.Pass) bool {

@@ -10,7 +10,7 @@ import (
 
 	"github.com/golangci/plugin-module-register/register"
 	"github.com/kojah/gohawk/analyzers"
-	"github.com/kojah/gohawk/internal/syntax"
+	"github.com/kojah/gohawk/internal/passes/testvariant"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 )
@@ -110,7 +110,7 @@ func selectAnalyzers(settings pluginSettings) ([]*analysis.Analyzer, error) {
 			}
 		}
 		configured := withDisabledChecks(analyzer, disabled, len(metadata[analyzer.Name].Checks))
-		selected = append(selected, syntax.IncludeProductionFilesInTestVariants(configured))
+		selected = append(selected, testvariant.IncludeProductionFiles(configured))
 	}
 	return selected, nil
 }

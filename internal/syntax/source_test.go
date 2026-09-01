@@ -4,10 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"slices"
 	"testing"
-
-	"github.com/kojah/gohawk/internal/passes/testvariant"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -51,19 +48,14 @@ func TestVetToolInvocation(t *testing.T) {
 	}
 }
 
-func TestIncludeProductionFilesInTestVariantsAddsMarkerPrerequisite(t *testing.T) {
-	baseRequirement := &analysis.Analyzer{Name: "base", Doc: "base prerequisite", Run: func(*analysis.Pass) (any, error) { return nil, nil }}
-	analyzer := &analysis.Analyzer{Name: "target", Doc: "target analyzer", Requires: []*analysis.Analyzer{baseRequirement}}
-
-	wrapper := IncludeProductionFilesInTestVariants(analyzer)
-
-	if wrapper == analyzer {
-		t.Fatal("IncludeProductionFilesInTestVariants returned the original analyzer")
+func TestCanonicalTestVariantResult(t *testing.T) {
+	marker := &analysis.Analyzer{Name: "marker", Doc: "test marker", Run: func(*analysis.Pass) (any, error) { return nil, nil }}
+	pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{marker: CanonicalTestVariant{}}}
+	if !canonicalTestVariant(pass) {
+		t.Fatal("canonicalTestVariant did not recognize the typed source-selection result")
 	}
-	if !slices.Contains(wrapper.Requires, baseRequirement) || !slices.Contains(wrapper.Requires, testvariant.Analyzer) {
-		t.Fatalf("wrapper requirements = %v, want original requirement and test-variant marker", wrapper.Requires)
-	}
-	if len(analyzer.Requires) != 1 || analyzer.Requires[0] != baseRequirement {
-		t.Fatalf("original requirements changed: %v", analyzer.Requires)
+	pass.ResultOf[marker] = true
+	if canonicalTestVariant(pass) {
+		t.Fatal("canonicalTestVariant accepted an unrelated prerequisite result")
 	}
 }

@@ -5,6 +5,8 @@ package testvariant
 import (
 	"reflect"
 
+	"github.com/kojah/gohawk/internal/syntax"
+
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -14,8 +16,19 @@ import (
 var Analyzer = &analysis.Analyzer{
 	Name:       "gohawk_test_variant_files",
 	Doc:        "marks a driver whose test variant is its canonical package pass",
-	ResultType: reflect.TypeFor[bool](),
+	ResultType: reflect.TypeFor[syntax.CanonicalTestVariant](),
 	Run: func(*analysis.Pass) (any, error) {
-		return true, nil
+		return syntax.CanonicalTestVariant{}, nil
 	},
+}
+
+// IncludeProductionFiles returns an analyzer copy configured for an embedding
+// driver that does not also run the ordinary production package. Without this
+// marker, production files in the driver's augmented test package would be
+// mistaken for duplicate copies and skipped.
+func IncludeProductionFiles(analyzer *analysis.Analyzer) *analysis.Analyzer {
+	wrapper := *analyzer
+	wrapper.Requires = append([]*analysis.Analyzer(nil), analyzer.Requires...)
+	wrapper.Requires = append(wrapper.Requires, Analyzer)
+	return &wrapper
 }
