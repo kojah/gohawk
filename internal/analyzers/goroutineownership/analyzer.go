@@ -2,6 +2,8 @@
 package goroutineownership
 
 import (
+	"strings"
+
 	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
@@ -91,8 +93,12 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				if nestedCallbackReceivesAny(function, signals) {
 					continue
 				}
+				testFunction := strings.HasSuffix(pass.Fset.Position(function.Pos()).Filename, "_test.go")
 				if ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
 					if joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) {
+						return true
+					}
+					if testFunction && causalTestJoin(spawn, candidate) {
 						return true
 					}
 					if config.mode == goroutineModeJoin {

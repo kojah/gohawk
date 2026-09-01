@@ -137,6 +137,43 @@ func joinedByMatchingSlice(items []int) {
 	}
 }
 
+func joinedThroughFiniteChannelMap() {
+	first := make(chan struct{}, 1)
+	second := make(chan struct{}, 1)
+	go func() { first <- struct{}{} }()
+	go func() { second <- struct{}{} }()
+	for _, done := range map[string]<-chan struct{}{"first": first, "second": second} {
+		<-done
+	}
+}
+
+func eventually(check func() bool) { _ = check() }
+
+func collectEventually(done <-chan bool, count int) {
+	seen := 0
+	eventually(func() bool {
+		for {
+			select {
+			case <-done:
+				seen++
+				if seen == count {
+					return true
+				}
+			default:
+				return false
+			}
+		}
+	})
+}
+
+func joinedByEventuallyCount(count int) {
+	done := make(chan bool, count)
+	for range count {
+		go func() { done <- true }()
+	}
+	collectEventually(done, count)
+}
+
 func joinedBySliceCountdown(items []int) {
 	done := make(chan bool)
 	for range items {

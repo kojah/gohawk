@@ -225,3 +225,37 @@ func startsAddressablePreownedCommand(ctx context.Context, cleanup func(func()))
 	cleanup(func() { _ = command.Process.Kill() })
 	return command.Start()
 }
+
+type commandController struct{ command *exec.Cmd }
+
+func newCommandController(command *exec.Cmd) (*commandController, error) {
+	return &commandController{command: command}, nil
+}
+
+func (controller *commandController) close() error { return nil }
+func (controller *commandController) wait() error  { return controller.command.Wait() }
+
+func controllerWatcherOwnsWait(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	controller, err := newCommandController(command)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = controller.close() }()
+	if err := command.Start(); err != nil {
+		return err
+	}
+	done := make(chan error, 1)
+	go func() { done <- controller.wait() }()
+	return <-done
+}
+
+func controllerWithoutWatcher(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	controller, err := newCommandController(command)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = controller.close() }()
+	return command.Start() // want "started command is not waited on every successful return path"
+}

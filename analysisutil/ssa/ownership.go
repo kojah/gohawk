@@ -1,6 +1,10 @@
 package ssautil
 
-import "golang.org/x/tools/go/ssa"
+import (
+	"go/token"
+
+	"golang.org/x/tools/go/ssa"
+)
 
 // ClosureOwnsValue reports whether a started closure captures value.
 func ClosureOwnsValue(instruction ssa.Instruction, value ssa.Value) bool {
@@ -68,6 +72,22 @@ func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 	}
 	_, ok = store.Addr.(*ssa.FieldAddr)
 	return ok
+}
+
+// StoresValueThroughExternalFieldPointer reports assignment through a pointer
+// slot held by an owner outside the current closure, such as
+// `*supervisor.cancel = cancel`.
+func StoresValueThroughExternalFieldPointer(instruction ssa.Instruction, value ssa.Value) bool {
+	store, ok := instruction.(*ssa.Store)
+	if !ok || !AliasesValue(store.Val, value) {
+		return false
+	}
+	load, ok := store.Addr.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return false
+	}
+	field, ok := load.X.(*ssa.FieldAddr)
+	return ok && ExternallyOwnedValue(field.X)
 }
 
 // StoresValueInGlobal reports whether instruction transfers value into
@@ -345,6 +365,9 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) b
 	case *ssa.Slice:
 		return aggregateStoresValue(typed.X, value, seen)
 	}
+	if _, ok := aggregate.(*ssa.Alloc); ok && addressStoresValue(aggregate, value) {
+		return true
+	}
 	if aggregate.Referrers() == nil {
 		return false
 	}
@@ -368,9 +391,18 @@ func addressStoresValue(address ssa.Value, value ssa.Value) bool {
 		return false
 	}
 	for _, reference := range *address.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == address && (AliasesValue(store.Val, value) || aggregateStoresValue(store.Val, value, map[ssa.Value]bool{})) {
-			return true
+		switch typed := reference.(type) {
+		case *ssa.Store:
+			if typed.Addr == address && (AliasesValue(typed.Val, value) || aggregateStoresValue(typed.Val, value, map[ssa.Value]bool{})) {
+				return true
+			}
+		case *ssa.UnOp:
+			// A returned owner may contain a pointer to a callback slot rather
+			// than the callback directly. Follow the load so `*owner.cancel =
+			// cancel` transfers the same obligation as `owner.cancel = cancel`.
+			if typed.Op == token.MUL && addressStoresValue(typed, value) {
+				return true
+			}
 		}
 	}
 	return false

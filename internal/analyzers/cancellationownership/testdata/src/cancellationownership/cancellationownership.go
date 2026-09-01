@@ -195,3 +195,22 @@ func deferredObserverDoesNotOwnCancel(parent context.Context) {
 	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
 	defer func() { observeCallback(cancel) }()
 }
+
+type pointerCancelOwner struct {
+	cancel *context.CancelFunc
+}
+
+func returnedPointerCancelOwner() (func(context.Context), pointerCancelOwner) {
+	owner := pointerCancelOwner{cancel: new(context.CancelFunc)}
+	run := func(parent context.Context) {
+		_, cancel := context.WithCancel(parent)
+		*owner.cancel = cancel
+	}
+	return run, owner
+}
+
+func localPointerDoesNotOwnCancel(parent context.Context) {
+	slot := new(context.CancelFunc)
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	*slot = cancel
+}

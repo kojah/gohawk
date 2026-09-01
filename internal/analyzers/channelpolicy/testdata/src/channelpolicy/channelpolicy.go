@@ -72,3 +72,22 @@ func closeEachChannel(channels []chan error, err error) {
 		close(channel)
 	}
 }
+
+func closeDelegatedSignal(done chan struct{}) {
+	close(done)
+}
+
+func delegateSignalClose() {
+	done := make(chan struct{})
+	closeDelegatedSignal(done)
+}
+
+func closeStillBorrowed(done chan struct{}) {
+	close(done) // want "do not close a channel received from caller"
+}
+
+func callerRetainsClose() {
+	done := make(chan struct{})
+	closeStillBorrowed(done)
+	close(done)
+}

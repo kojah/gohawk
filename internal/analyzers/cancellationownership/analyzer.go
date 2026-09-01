@@ -53,7 +53,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				if ssautil.UnownedReturn(call, func(candidate ssa.Instruction) bool {
 					return callsCancel(candidate, cancel)
 				}, func(returned *ssa.Return) bool {
-					return ssautil.ReturnAliasesValue(returned, cancel)
+					return ssautil.ReturnAliasesValue(returned, cancel) || ssautil.ReturnedValueOwnsValue(returned, cancel)
 				}) {
 					source := analysisutil.SourceRange(pass, call.Pos())
 					analyzerbase.Report(pass, analyzerbase.CheckCancellationRelease, analysis.Diagnostic{
@@ -154,7 +154,7 @@ func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
 	// stronger local all-path summary and a deferred cleanup-name boundary.
 	// Cerberus delegates qcancel through a deferred CloseCursor call:
 	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
-	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
+	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)

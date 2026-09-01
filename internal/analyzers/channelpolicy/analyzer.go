@@ -184,14 +184,42 @@ func channelOwnershipTransferredToGoroutine(parameter ssa.Value, callsites map[*
 		return false
 	}
 	for _, call := range calls {
-		if _, ok := call.(*ssa.Go); !ok || index >= len(call.Common().Args) {
+		if index >= len(call.Common().Args) {
 			return false
 		}
+		if _, ok := call.(*ssa.Go); ok {
+			continue
+		}
+		argument := call.Common().Args[index]
+		if ssautil.DefinitelyNil(argument) || channelRelinquishedAfterCall(call, argument) {
+			continue
+		}
+		return false
 	}
 	// A channel passed only through `go helper(ch)` is an explicit producer
 	// handoff: the spawning caller cannot perform the close after the helper
 	// finishes. ElasticKV uses this contract for its refresh completion signal:
 	// https://github.com/bootjp/elastickv/blob/ddbb0a5b60a691890cb5595c185cdb16fee478b3/proxy/leader_aware_backend.go#L195-L218
+	return true
+}
+
+func channelRelinquishedAfterCall(call ssa.CallInstruction, channel ssa.Value) bool {
+	// A private helper is also a designated close owner when every caller
+	// relinquishes the channel at the call: after the helper returns there is no
+	// send, close, or return of that channel. This covers synchronous acceptance
+	// signals and producer methods invoked from an owned worker closure.
+	for _, instruction := range reachableInstructions(call) {
+		if returned, ok := instruction.(*ssa.Return); ok && ssautil.ReturnAliasesValue(returned, channel) {
+			return false
+		}
+		if send, ok := instruction.(*ssa.Send); ok && ssautil.AliasesValue(send.Chan, channel) {
+			return false
+		}
+		common := ssautil.InstructionCall(instruction)
+		if common != nil && ssautil.CallName(common) == analysisutil.BuiltinClose && len(common.Args) == 1 && ssautil.AliasesValue(common.Args[0], channel) {
+			return false
+		}
+	}
 	return true
 }
 

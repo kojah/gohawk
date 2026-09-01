@@ -37,6 +37,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				command := ssautil.CallReceiver(start.Common())
+				owners := processOwnersRegisteredBefore(function, start, command)
 				// A helper returning *exec.Cmd may already have registered cleanup
 				// or wait ownership. Without interprocedural evidence either way,
 				// reporting here would trade precision for recall. containerd wraps
@@ -53,7 +54,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				// Cleanup may be registered before Start. This is common when a
 				// constructor builds a teardown closure first, then starts the
 				// process and returns that closure to its caller.
-				if processOwnershipDominatesStart(function, start, command) {
+				if processOwnershipDominatesStart(function, start, command) || processOwnerDominatesStart(function, start, owners) {
 					continue
 				}
 				if successfulStartCannotReturn(start) {
@@ -72,6 +73,50 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+func processOwnerDominatesStart(function *ssa.Function, start *ssa.Call, owners []ssa.Value) bool {
+	startIndex := ssautil.InstructionIndex(start)
+	for _, block := range function.Blocks {
+		if !block.Dominates(start.Block()) {
+			continue
+		}
+		limit := len(block.Instrs)
+		if block == start.Block() {
+			limit = startIndex
+		}
+		for _, instruction := range block.Instrs[:limit] {
+			for _, owner := range owners {
+				for _, method := range []string{"close", "Close", "kill", "Kill", "Wait", "wait"} {
+					if ssautil.DeferredClosureCalls(instruction, method, owner) {
+						return laterProcessOwnerWatcher(function, start, owners)
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []ssa.Value) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			spawn, ok := instruction.(*ssa.Go)
+			if !ok || spawn.Pos() <= start.Pos() {
+				continue
+			}
+			closure, _ := spawn.Common().Value.(*ssa.MakeClosure)
+			if closure == nil {
+				continue
+			}
+			for _, owner := range owners {
+				if ssautil.ValueOwnsValue(closure, owner) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func successfulStartCannotReturn(start *ssa.Call) bool {
@@ -101,6 +146,40 @@ func processOwnershipDominatesStart(function *ssa.Function, start *ssa.Call, com
 		}
 	}
 	return false
+}
+
+func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, command ssa.Value) []ssa.Value {
+	var owners []ssa.Value
+	startIndex := ssautil.InstructionIndex(start)
+	for _, block := range function.Blocks {
+		if !block.Dominates(start.Block()) {
+			continue
+		}
+		limit := len(block.Instrs)
+		if block == start.Block() {
+			limit = startIndex
+		}
+		for _, instruction := range block.Instrs[:limit] {
+			call, ok := instruction.(*ssa.Call)
+			if !ok || call.Common().StaticCallee() == nil {
+				continue
+			}
+			for _, argument := range call.Common().Args {
+				if ssautil.AliasesValue(argument, command) {
+					owners = append(owners, call)
+					if call.Referrers() != nil {
+						for _, reference := range *call.Referrers() {
+							if result, ok := reference.(*ssa.Extract); ok {
+								owners = append(owners, result)
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+	return owners
 }
 
 func processOwnershipAction(instruction ssa.Instruction, command ssa.Value) bool {
@@ -204,6 +283,40 @@ func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
 		if success, known := ssautil.SuccessBranch(predecessor, returned.Block(), start); known {
 			return !success
 		}
+	}
+	for _, successor := range start.Block().Succs {
+		success, known := ssautil.SuccessBranch(start.Block(), successor, start)
+		if !known || success {
+			continue
+		}
+		return blockReachable(successor, returned.Block()) && !successBranchReaches(start, returned.Block())
+	}
+	return false
+}
+
+func successBranchReaches(start *ssa.Call, target *ssa.BasicBlock) bool {
+	for _, successor := range start.Block().Succs {
+		if success, known := ssautil.SuccessBranch(start.Block(), successor, start); known && success {
+			return blockReachable(successor, target)
+		}
+	}
+	return false
+}
+
+func blockReachable(from, target *ssa.BasicBlock) bool {
+	seen := map[*ssa.BasicBlock]bool{}
+	queue := []*ssa.BasicBlock{from}
+	for len(queue) > 0 {
+		block := queue[0]
+		queue = queue[1:]
+		if block == target {
+			return true
+		}
+		if seen[block] {
+			continue
+		}
+		seen[block] = true
+		queue = append(queue, block.Succs...)
 	}
 	return false
 }
