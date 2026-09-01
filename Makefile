@@ -12,7 +12,7 @@ BENCHMARK_ARGS ?=
 VERIFY_JOBS ?= 4
 
 VERIFY_STATIC_TARGETS := mod-verify fmt-check generated-check vet lint dogfood
-VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test plugin-test test-race
+VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test test-race
 # GNU Make before 4.0, including the version shipped with macOS, does not
 # support grouped parallel output. Parallel scheduling itself remains required.
 VERIFY_OUTPUT_SYNC := $(if $(filter output-sync,$(.FEATURES)),--output-sync=target)
@@ -105,8 +105,8 @@ verify-static:
 verify:
 	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS)
 
-# The aggregate CI target adds coverage to the release verification targets.
-# GitHub Actions invokes these targets in separate parallel jobs.
+# The aggregate local CI target adds coverage. Hosted CI and release workflows
+# run the custom golangci-lint plugin test as a separate gate.
 ci:
 	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS) coverage
 
