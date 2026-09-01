@@ -19,3 +19,13 @@
 2	kubeflow/hub	cf0f88ea6dafec4785d700683d53acfc758ebeec	.,catalog/pkg/openapi,clients/ui/bff,cmd/controller,cmd/csi,gorm-gen,pkg/inferenceservice-controller,pkg/openapi	reviewed
 2	Consensys/ask-o11y-plugin	b74147d834cfd415caa96f087972a546238168c0	.	reviewed
 2	scrapli/scrapligo	8dbbfa5f2bbab895fffebd9b6ad763411e99fda7	.,build/dummy_ssh_server	reviewed
+3	blackstork-io/blackstork-cli	89984c6871d3a1aff5202e33251f819bb5f1663d	.	reviewed
+3	rsiota/creel	bad17779f3a3beecf08764cbd1915080118cd091	.	reviewed
+3	lihongjie0209/authorization-service	af50ac06f915f2cfe54ab44ef8d82b8c8e2c4f68	.	reviewed
+3	malteehrlen/edifact-ls	7c5f4021367397b21a0802856caebc7a3069688e	.	reviewed
+3	ob-labs/powercontext-go	22c3e09e67805eb8629fe3872e15a747f4199918	.,test/downstream	reviewed
+3	justinstimatze/winze	9e79e98b97ee9f7a3cdeab80d7cfbf3ef04dd28a	.	reviewed
+3	kubernetes-sigs/dranet	53e6c967d7b0b8e2c46e070c7129f712c631a2ab	.,cmd/webhook-whereabouts,site	reviewed
+3	github/gh-aw-mcpg	b6023ebf9e60a7f7c08f6c6f39fdbdb436733051	.,test/serena-mcp-tests/samples/go_project	reviewed
+3	codefly-dev/cli	5d176b95c8e3ad721bdeb0d6c4c3a64dd261caa6	.	reviewed
+3	ranger360ai/posse	291523c0f0eaacce52fd0c833a359398f6696b11	.	reviewed

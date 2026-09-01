@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 )
 
 func misplaced(value string, ctx context.Context) {} // want "context.Context must be first parameter"
@@ -20,6 +21,24 @@ func misplacedAfterOrdinaryParameter(value string, parent, server context.Contex
 type stored struct {
 	ctx context.Context // want "do not store context.Context in a struct"
 }
+
+type pointerContextImplementation struct {
+	delegate context.Context
+}
+
+func (ctx *pointerContextImplementation) Deadline() (time.Time, bool) { return ctx.delegate.Deadline() }
+func (ctx *pointerContextImplementation) Done() <-chan struct{}       { return ctx.delegate.Done() }
+func (ctx *pointerContextImplementation) Err() error                  { return ctx.delegate.Err() }
+func (ctx *pointerContextImplementation) Value(key any) any           { return ctx.delegate.Value(key) }
+
+type valueContextImplementation struct {
+	delegate context.Context
+}
+
+func (ctx valueContextImplementation) Deadline() (time.Time, bool) { return ctx.delegate.Deadline() }
+func (ctx valueContextImplementation) Done() <-chan struct{}       { return ctx.delegate.Done() }
+func (ctx valueContextImplementation) Err() error                  { return ctx.delegate.Err() }
+func (ctx valueContextImplementation) Value(key any) any           { return ctx.delegate.Value(key) }
 
 type lifecycleOwner struct {
 	ctx    context.Context

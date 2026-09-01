@@ -77,7 +77,8 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 			ownsGoroutineLifecycle(&evidence, candidate, owners) ||
 			transfersGoroutineOwnership(&evidence, candidate, signals, groups, owners)
 	}, func(returned *ssa.Return) bool {
-		return ssaflow.ReturnedSameAsAny(returned, signals) || ssaflow.ReturnedSameAsAny(returned, groups) || ssaflow.ReturnedSameAsAny(returned, owners)
+		return goroutineOwnershipReturned(returned, goroutineOwnershipConfig{mode: goroutineModeContext}, signals, groups, owners) ||
+			returnedAggregateOwnsLifecycle(function, spawn, returned, owners)
 	})
 }
 
@@ -129,9 +130,7 @@ func analyzeSpawn(
 	leaks := ssaflow.UnownedReturn(
 		spawn,
 		analysis.instructionOwnsGoroutine,
-		func(returned *ssa.Return) bool {
-			return goroutineOwnershipReturned(returned, config, signals, groups, owners)
-		},
+		analysis.returnOwnsGoroutine,
 	)
 	outcome, reason := analysisTrace.OutcomeAccepted, "join-proven"
 	if leaks {
@@ -207,6 +206,18 @@ func (analysis goroutineAnalysis) instructionOwnsGoroutine(candidate ssa.Instruc
 		return false
 	}
 	emitGoroutineEvidence(analysis.pass, analysis.function, candidate, analysis.checkID, reason)
+	return true
+}
+
+func (analysis goroutineAnalysis) returnOwnsGoroutine(returned *ssa.Return) bool {
+	if goroutineOwnershipReturned(returned, analysis.config, analysis.signals, analysis.groups, analysis.owners) {
+		return true
+	}
+	if analysis.config.mode == goroutineModeJoin ||
+		!returnedAggregateOwnsLifecycle(analysis.function, analysis.spawn, returned, analysis.owners) {
+		return false
+	}
+	emitGoroutineEvidence(analysis.pass, analysis.function, returned, analysis.checkID, "returned-aggregate-lifecycle-owner")
 	return true
 }
 

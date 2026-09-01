@@ -342,6 +342,62 @@ func returnedClosureOwnsCompletion() returnedWorker {
 	return returnedWorker{wait: wait}
 }
 
+type returnedLifecycleAggregate struct {
+	worker *lifecycleOwner
+}
+
+func returnedAggregateOwnsSpawnedLifecycle() *returnedLifecycleAggregate {
+	worker := &lifecycleOwner{}
+	result := &returnedLifecycleAggregate{worker: worker}
+	go worker.run()
+	return result
+}
+
+func localAggregateDoesNotOwnSpawnedLifecycle() {
+	worker := &lifecycleOwner{}
+	result := &returnedLifecycleAggregate{worker: worker}
+	go worker.run() // want "goroutine is not joined on every return path"
+	_ = result
+}
+
+func unrelatedAggregateDoesNotOwnSpawnedLifecycle() *returnedLifecycleAggregate {
+	worker := &lifecycleOwner{}
+	local := &returnedLifecycleAggregate{worker: worker}
+	result := &returnedLifecycleAggregate{}
+	go worker.run() // want "goroutine is not joined on every return path"
+	_ = local
+	return result
+}
+
+func conditionalAggregateDoesNotOwnEveryReturn(useOwner bool) *returnedLifecycleAggregate {
+	worker := &lifecycleOwner{}
+	result := &returnedLifecycleAggregate{worker: worker}
+	other := &returnedLifecycleAggregate{}
+	go worker.run() // want "goroutine is not joined on every return path"
+	if useOwner {
+		return result
+	}
+	return other
+}
+
+func conditionalFieldStoreDoesNotOwnSpawnedLifecycle(install bool) *returnedLifecycleAggregate {
+	worker := &lifecycleOwner{}
+	result := &returnedLifecycleAggregate{}
+	if install {
+		result.worker = worker
+	}
+	go worker.run() // want "goroutine is not joined on every return path"
+	return result
+}
+
+func replacedFieldDoesNotOwnSpawnedLifecycle() *returnedLifecycleAggregate {
+	worker := &lifecycleOwner{}
+	result := &returnedLifecycleAggregate{worker: worker}
+	go worker.run() // want "goroutine is not joined on every return path"
+	result.worker = &lifecycleOwner{}
+	return result
+}
+
 type storedWorker struct {
 	wait func()
 }

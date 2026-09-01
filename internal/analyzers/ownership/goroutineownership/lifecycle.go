@@ -46,6 +46,70 @@ func externallyOwnedJoin(signals, groups []ssa.Value) bool {
 	return slices.ContainsFunc(append(slices.Clone(signals), groups...), ssaflow.ExternallyOwnedValue)
 }
 
+func returnedAggregateOwnsLifecycle(
+	function *ssa.Function,
+	spawn *ssa.Go,
+	returned *ssa.Return,
+	owners []ssa.Value,
+) bool {
+	if function == nil || spawn == nil || returned == nil || len(owners) == 0 {
+		return false
+	}
+	spawnIndex := ssaflow.InstructionIndex(spawn)
+	if spawnIndex < 0 {
+		return false
+	}
+	for _, block := range function.Blocks {
+		if !block.Dominates(spawn.Block()) {
+			continue
+		}
+		limit := len(block.Instrs)
+		if block == spawn.Block() {
+			limit = spawnIndex
+		}
+		for _, instruction := range block.Instrs[:limit] {
+			store, field, ok := lifecycleOwnerFieldStore(instruction, owners)
+			if !ok || lifecycleFieldOverwritten(function, store, field) ||
+				!ssaflow.ReturnedValueOwnsValue(returned, field.X) {
+				continue
+			}
+			// Returning a concrete aggregate that already held the spawned
+			// lifecycle owner transfers the obligation just like returning that
+			// owner directly. Requiring the field store to dominate the spawn and
+			// rejecting later replacement keeps the proof tied to the exact owner.
+			// https://github.com/ob-labs/powercontext-go/blob/22c3e09e67805eb8629fe3872e15a747f4199918/test/downstream/consumer_test.go#L357-L369
+			// https://github.com/ob-labs/powercontext-go/blob/22c3e09e67805eb8629fe3872e15a747f4199918/test/downstream/consumer_test.go#L425-L443
+			return true
+		}
+	}
+	return false
+}
+
+func lifecycleOwnerFieldStore(instruction ssa.Instruction, owners []ssa.Value) (*ssa.Store, *ssa.FieldAddr, bool) {
+	store, ok := instruction.(*ssa.Store)
+	if !ok || !ssaflow.SameAsAny(store.Val, owners) {
+		return nil, nil, false
+	}
+	field, ok := store.Addr.(*ssa.FieldAddr)
+	return store, field, ok
+}
+
+func lifecycleFieldOverwritten(function *ssa.Function, original *ssa.Store, field *ssa.FieldAddr) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			store, ok := instruction.(*ssa.Store)
+			if !ok || store == original || !ssaflow.InstructionMayFollow(original, store) {
+				continue
+			}
+			candidate, ok := store.Addr.(*ssa.FieldAddr)
+			if ok && candidate.Field == field.Field && ssaflow.SameValue(candidate.X, field.X) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func synctestOwnsGoroutine(function *ssa.Function) bool {
 	if function == nil || function.Parent() == nil {
 		return false

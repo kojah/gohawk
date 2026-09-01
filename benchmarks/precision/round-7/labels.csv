@@ -1,0 +1,12 @@
+repository,analyzer,position,verdict
+blackstork-io/blackstork-cli,contextpolicy,pkg/appctx/appctx.go:27:2,false_positive
+blackstork-io/blackstork-cli,contextpolicy,plugins/splunk/data_splunk_search.go:106:6,true_positive
+blackstork-io/blackstork-cli,contextpolicy,specs/dataspec/decode.go:50:2,true_positive
+codefly-dev/cli,resourcelifetime,pkg/executionattestor/file.go:122:15,false_positive
+codefly-dev/cli,resourcelifetime,pkg/daemon/daemon.go:167:18,true_positive
+codefly-dev/cli,processownership,pkg/daemon/daemon.go:186:12,true_positive
+kubernetes-sigs/dranet,testpolicy,pkg/inventory/net_test.go:36:6,false_positive
+kubernetes-sigs/dranet,goroutineownership,cmd/dranet/app.go:125:2,true_positive
+kubernetes-sigs/dranet,deferinloop,pkg/driver/dra_hooks.go:343:4,true_positive
+ob-labs/powercontext-go,goroutineownership,test/downstream/consumer_test.go:366:2,false_positive
+ob-labs/powercontext-go,contextpolicy,internal/httpapi/middleware.go:278:2,true_positive

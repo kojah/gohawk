@@ -4,9 +4,12 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -40,7 +43,7 @@ func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Val
 	return field.X
 }
 
-func resourceSuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {
+func resourceSuccessBranch(pass *analysis.Pass, block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {
 	if errorValue == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
 		return false, false
 	}
@@ -48,34 +51,40 @@ func resourceSuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Valu
 	if !ok {
 		return false, false
 	}
-	// A true errors.Is check against the documented non-nil missing-file
-	// sentinel proves that os.Open did not produce an owned file. This commonly
-	// appears before the generic err != nil check when callers skip missing
-	// inputs. Do not carry a live resource around that continue edge.
+	// A true check against a documented non-nil filesystem error proves that
+	// the acquisition failed and produced no owned file. Callers commonly
+	// inspect a specific error before the generic err != nil check. This covers
+	// both skipped missing inputs and create-if-absent races without treating an
+	// arbitrary package variable as non-nil.
 	// https://github.com/heymaikol/network-doctor/blob/6d0df6eaba1de237077e0a1f8224fd8d5c3d083a/internal/simulation/evidence.go#L407-L415
-	if missingFileCheck(branch.Cond, errorValue) && successor == block.Succs[0] {
+	// https://github.com/codefly-dev/cli/blob/5d176b95c8e3ad721bdeb0d6c4c3a64dd261caa6/pkg/executionattestor/file.go#L122-L130
+	if proof, ok := resourceAbsentErrorCheck(branch.Cond, errorValue); ok && successor == block.Succs[0] {
+		traceAcquisitionErrorProof(pass, branch, proof)
 		return false, true
 	}
 	return ssaflow.SuccessBranch(block, successor, errorValue)
 }
 
-func missingFileCheck(condition, errorValue ssa.Value) bool {
-	if errorsIsMissingFile(condition, errorValue) {
-		return true
+func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
+	if errorsIsNonNilFilesystemSentinel(condition, errorValue) {
+		return "errors-is-non-nil-filesystem-sentinel", true
 	}
 	call, ok := condition.(*ssa.Call)
 	if !ok {
-		return false
+		return "", false
 	}
 	common := call.Common()
 	// os.IsNotExist is the legacy equivalent of errors.Is(err,
 	// fs.ErrNotExist); on its true branch os.Open did not return an owned file.
 	// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/feedback/send.go#L124
-	return ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "IsNotExist")) && len(common.Args) == 1 &&
-		ssaflow.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{})
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "IsNotExist")) && len(common.Args) == 1 &&
+		ssaflow.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
+		return "os-is-not-exist", true
+	}
+	return "", false
 }
 
-func errorsIsMissingFile(condition, errorValue ssa.Value) bool {
+func errorsIsNonNilFilesystemSentinel(condition, errorValue ssa.Value) bool {
 	call, ok := condition.(*ssa.Call)
 	if !ok {
 		return false
@@ -87,10 +96,10 @@ func errorsIsMissingFile(condition, errorValue ssa.Value) bool {
 	if !ssaflow.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
 		return false
 	}
-	return isMissingFileSentinel(common.Args[1])
+	return isNonNilFilesystemSentinel(common.Args[1])
 }
 
-func isMissingFileSentinel(value ssa.Value) bool {
+func isNonNilFilesystemSentinel(value ssa.Value) bool {
 	for {
 		switch typed := value.(type) {
 		case *ssa.ChangeInterface:
@@ -110,12 +119,30 @@ func isMissingFileSentinel(value ssa.Value) bool {
 			return ssaflow.ValueMatchesAnySymbol(
 				typed,
 				syntax.PackageVariable("os", "ErrNotExist"),
+				syntax.PackageVariable("os", "ErrExist"),
 				syntax.PackageVariable("io/fs", "ErrNotExist"),
+				syntax.PackageVariable("io/fs", "ErrExist"),
 			)
 		default:
 			return false
 		}
 	}
+}
+
+func traceAcquisitionErrorProof(pass *analysis.Pass, branch *ssa.If, proof string) {
+	if !analysisTrace.Enabled("resourcelifetime", string(check.ResourceRelease)) {
+		return
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{
+		Analyzer: "resourcelifetime",
+		Check:    string(check.ResourceRelease),
+		Phase:    "evidence",
+		Reason:   "acquisition-error-proven",
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      branch.Cond.Pos(),
+		Function: branch.Parent().String(),
+		Details:  map[string]string{"proof": proof},
+	})
 }
 
 func consumesResource(instruction ssa.Instruction, resource ssa.Value) bool {

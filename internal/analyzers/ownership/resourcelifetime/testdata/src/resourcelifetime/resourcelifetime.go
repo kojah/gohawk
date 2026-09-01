@@ -136,6 +136,38 @@ func closedFileAfterLegacyMissingPath(path string) error {
 	return file.Close()
 }
 
+func closedFileAfterExistingPath(path string) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, fs.ErrExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return file.Close()
+}
+
+func leakedFileAfterExistingPath(path string) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // want "owned resource from os.OpenFile is not released on every return path"
+	if errors.Is(err, os.ErrExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	_ = file
+	return nil
+}
+
+func leakedFileOnNegatedExistingCheck(path string) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // want "owned resource from os.OpenFile is not released on every return path"
+	if !errors.Is(err, fs.ErrExist) {
+		_ = file
+		return nil
+	}
+	return err
+}
+
 func settleFileParameter(file *os.File) {
 	_ = file.Close()
 }

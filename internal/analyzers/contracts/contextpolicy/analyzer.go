@@ -3,12 +3,14 @@ package contextpolicy
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -64,7 +66,14 @@ func checkContextStructure(pass *analysis.Pass, file *ast.File, node ast.Node) {
 		}
 	case *ast.TypeSpec:
 		structure, ok := typed.Type.(*ast.StructType)
-		if !ok || dedicatedContextCarrier(typed.Name.Name) || testOwnedContextCarrier(pass, file, typed.Name.Name) || ownsStoredContext(pass, structure) {
+		if !ok || dedicatedContextCarrier(typed.Name.Name) || testOwnedContextCarrier(pass, file, typed.Name.Name) {
+			return
+		}
+		if implementsContext(pass, typed, structure) {
+			emitContextImplementationDecision(pass, typed.Name.Pos())
+			return
+		}
+		if ownsStoredContext(pass, structure) {
 			return
 		}
 		for _, field := range structure.Fields.List {
@@ -73,6 +82,48 @@ func checkContextStructure(pass *analysis.Pass, file *ast.File, node ast.Node) {
 			}
 		}
 	}
+}
+
+func implementsContext(pass *analysis.Pass, specification *ast.TypeSpec, structure *ast.StructType) bool {
+	object, ok := pass.TypesInfo.Defs[specification.Name].(*types.TypeName)
+	if !ok {
+		return false
+	}
+	var contextInterface *types.Interface
+	for _, field := range structure.Fields.List {
+		fieldType := pass.TypesInfo.TypeOf(field.Type)
+		if !syntax.NamedType(fieldType, "context", "Context") {
+			continue
+		}
+		named, namedOK := fieldType.(*types.Named)
+		if namedOK {
+			contextInterface, _ = named.Underlying().(*types.Interface)
+		}
+		break
+	}
+	if contextInterface == nil {
+		return false
+	}
+	namedType := object.Type()
+	return types.Implements(namedType, contextInterface) || types.Implements(types.NewPointer(namedType), contextInterface)
+}
+
+func emitContextImplementationDecision(pass *analysis.Pass, position token.Pos) {
+	checkID := string(check.ContextStorage)
+	if !analysisTrace.Enabled("contextpolicy", checkID) {
+		return
+	}
+	// A derived Context must retain the Context it delegates to. BlackStork's
+	// AppCtx implements the full interface while adding application values:
+	// https://github.com/blackstork-io/blackstork-cli/blob/89984c6871d3a1aff5202e33251f819bb5f1663d/pkg/appctx/appctx.go#L24-L76
+	analysisTrace.Emit(pass, analysisTrace.Event{
+		Analyzer: "contextpolicy",
+		Check:    checkID,
+		Phase:    "decision",
+		Reason:   "context-implementation",
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      position,
+	})
 }
 
 func dedicatedContextCarrier(name string) bool {

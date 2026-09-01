@@ -43,3 +43,25 @@ More involved dynamic-lock, guarded-branch, recursive-worker, custom lifecycle,
 and multi-stage resource transfers remain conservative rather than receiving
 project-specific exceptions. Nearby caller-channel ownership, goroutine,
 resource, and defer-in-loop findings remain reportable in precision round 6.
+
+## Batch 3
+
+Ten repositories and fourteen modules were selected. Eight modules loaded
+fully. BlackStork, Codefly, gh-aw-mcpg, and PowerContext produced useful partial
+analysis alongside package errors. Dranet's webhook module needed uncommitted
+module updates, and its site module contained no Go packages.
+
+Four general evidence gaps were fixed:
+
+- a true `errors.Is` check against a known non-nil filesystem sentinel proves
+  that the resource acquisition failed;
+- a type implementing `context.Context` may retain the context it delegates to;
+- named testing callbacks used only as `func(*testing.T)` or
+  `func(*testing.B)` arguments are callback boundaries rather than helpers; and
+- returning an aggregate that already contains a goroutine lifecycle owner
+  transfers that ownership to the caller.
+
+Dynamic worker counts, channel fields carried through returned work records,
+framework lifecycle hooks, cleanup containers, and interprocedural close chains
+remain deferred until they have compact general proofs. Precision round 7
+retains nearby context, resource, process, goroutine, and defer-in-loop findings.

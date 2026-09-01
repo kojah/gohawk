@@ -67,7 +67,7 @@ func resourceLeaks(
 		if leaks {
 			return true
 		}
-		queue = append(queue, resourceSuccessorStates(state, errorValue, resource)...)
+		queue = append(queue, resourceSuccessorStates(pass, state, errorValue, resource)...)
 	}
 	return false
 }
@@ -112,12 +112,12 @@ func advanceResourceState(
 	return state, false
 }
 
-func resourceSuccessorStates(state resourceFlowState, errorValue, resource ssa.Value) []resourceFlowState {
+func resourceSuccessorStates(pass *analysis.Pass, state resourceFlowState, errorValue, resource ssa.Value) []resourceFlowState {
 	successors := ssaflow.FeasibleSuccessors(state.block, state.predecessor)
 	result := make([]resourceFlowState, 0, len(successors))
 	for _, successor := range successors {
 		active := state.active
-		if success, known := resourceSuccessBranch(state.block, successor, errorValue); known {
+		if success, known := resourceSuccessBranch(pass, state.block, successor, errorValue); known {
 			active = active && success
 		}
 		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
