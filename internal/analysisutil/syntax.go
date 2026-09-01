@@ -7,9 +7,6 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// BuiltinClose names Go's channel-closing builtin.
-const BuiltinClose = "close"
-
 // ParameterTypes expands a field list into one entry per declared parameter.
 func ParameterTypes(pass *analysis.Pass, fields *ast.FieldList) []types.Type {
 	if fields == nil {

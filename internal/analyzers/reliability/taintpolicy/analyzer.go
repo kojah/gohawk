@@ -44,6 +44,81 @@ type taintPolicySettings struct {
 	sanitizers map[string]bool
 }
 
+type taintSinkContract struct {
+	symbol         analysisutil.Symbol
+	kind           string
+	display        string
+	argumentStart  int
+	argumentCount  int
+	terminalWriter bool
+}
+
+var taintSinkContracts = []taintSinkContract{
+	taintFunction("filesystem", "os", "Chdir", 0, 1),
+	taintFunction("filesystem", "os", "Chmod", 0, 1),
+	taintFunction("filesystem", "os", "Chown", 0, 1),
+	taintFunction("filesystem", "os", "Create", 0, 1),
+	taintFunction("filesystem", "os", "CreateTemp", 0, 1),
+	taintFunction("filesystem", "os", "Lchown", 0, 1),
+	taintFunction("filesystem", "os", "Lstat", 0, 1),
+	taintFunction("filesystem", "os", "Mkdir", 0, 1),
+	taintFunction("filesystem", "os", "MkdirAll", 0, 1),
+	taintFunction("filesystem", "os", "Open", 0, 1),
+	taintFunction("filesystem", "os", "OpenFile", 0, 1),
+	taintFunction("filesystem", "os", "ReadFile", 0, 1),
+	taintFunction("filesystem", "os", "Readlink", 0, 1),
+	taintFunction("filesystem", "os", "Remove", 0, 1),
+	taintFunction("filesystem", "os", "RemoveAll", 0, 1),
+	taintFunction("filesystem", "os", "Rename", 0, 1),
+	taintFunction("filesystem", "os", "Stat", 0, 1),
+	taintFunction("filesystem", "os", "Symlink", 0, 1),
+	taintFunction("filesystem", "os", "Truncate", 0, 1),
+	taintFunction("filesystem", "os", "WriteFile", 0, 1),
+	taintFunction("process", "os/exec", "Command", 0, 0),
+	taintFunction("process", "os/exec", "CommandContext", 1, 0),
+	terminalTaintFunction("fmt", "Fprint"),
+	terminalTaintFunction("fmt", "Fprintf"),
+	terminalTaintFunction("fmt", "Fprintln"),
+	taintFunction("log", "log", "Print", 0, 0),
+	taintFunction("log", "log", "Printf", 0, 0),
+	taintFunction("log", "log", "Println", 0, 0),
+	logTaintMethod("log", "Print"),
+	logTaintMethod("log", "Printf"),
+	logTaintMethod("log", "Println"),
+	taintFunction("log", "log/slog", "DebugContext", 0, 0),
+	taintFunction("log", "log/slog", "InfoContext", 0, 0),
+	taintFunction("log", "log/slog", "WarnContext", 0, 0),
+	taintFunction("log", "log/slog", "ErrorContext", 0, 0),
+	taintFunction("log", "log/slog", "Log", 0, 0),
+	logTaintMethod("log/slog", "DebugContext"),
+	logTaintMethod("log/slog", "InfoContext"),
+	logTaintMethod("log/slog", "WarnContext"),
+	logTaintMethod("log/slog", "ErrorContext"),
+	logTaintMethod("log/slog", "Log"),
+}
+
+func taintFunction(kind, packagePath, name string, argumentStart, argumentCount int) taintSinkContract {
+	return taintSinkContract{
+		symbol:        analysisutil.PackageFunction(packagePath, name),
+		kind:          kind,
+		display:       analysisutil.ShortPackageName(packagePath) + "." + name,
+		argumentStart: argumentStart,
+		argumentCount: argumentCount,
+	}
+}
+
+func logTaintMethod(packagePath, name string) taintSinkContract {
+	contract := taintFunction("log", packagePath, name, 0, 0)
+	contract.symbol = analysisutil.PackageMethod(packagePath, "Logger", name)
+	return contract
+}
+
+func terminalTaintFunction(packagePath, name string) taintSinkContract {
+	contract := taintFunction("terminal", packagePath, name, 1, 0)
+	contract.terminalWriter = true
+	return contract
+}
+
 func runTaintPolicy(pass *analysis.Pass, config taintPolicyConfig) (any, error) {
 	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
@@ -79,82 +154,29 @@ func taintSink(common *ssa.CallCommon, sinks map[string]bool) (string, string, [
 	if common == nil {
 		return "", "", nil
 	}
-	packagePath, name := ssautil.CallPackage(common), ssautil.CallName(common)
-	switch packagePath {
-	case "os":
-		return filesystemTaintSink(common, name, sinks)
-	case "os/exec":
-		return processTaintSink(common, name, sinks)
-	case "fmt":
-		return terminalTaintSink(common, name, sinks)
-	case "log", "log/slog":
-		return logTaintSink(common, packagePath, name, sinks)
-	}
-	return "", "", nil
-}
-
-func filesystemTaintSink(common *ssa.CallCommon, name string, sinks map[string]bool) (string, string, []ssa.Value) {
-	if sinks["filesystem"] && filesystemSink(name) && len(common.Args) > 0 {
-		return "filesystem", "os." + name, common.Args[:1]
-	}
-	return "", "", nil
-}
-
-func processTaintSink(common *ssa.CallCommon, name string, sinks map[string]bool) (string, string, []ssa.Value) {
-	if !sinks["process"] {
-		return "", "", nil
-	}
-	switch name {
-	case "Command":
-		return "process", "exec.Command", common.Args
-	case "CommandContext":
-		if len(common.Args) > 1 {
-			return "process", "exec.CommandContext", common.Args[1:]
+	arguments := sourceCallArguments(common)
+	for _, contract := range taintSinkContracts {
+		if !sinks[contract.kind] || !ssautil.CallMatchesSymbol(common, contract.symbol) || contract.argumentStart >= len(arguments) {
+			continue
 		}
+		if contract.terminalWriter && !terminalWriter(arguments[0]) {
+			continue
+		}
+		end := len(arguments)
+		if contract.argumentCount > 0 {
+			end = min(end, contract.argumentStart+contract.argumentCount)
+		}
+		return contract.kind, contract.display, arguments[contract.argumentStart:end]
 	}
 	return "", "", nil
 }
 
-func terminalTaintSink(common *ssa.CallCommon, name string, sinks map[string]bool) (string, string, []ssa.Value) {
-	if sinks["terminal"] && strings.HasPrefix(name, "Fprint") && len(common.Args) > 1 && terminalWriter(common.Args[0]) {
-		return "terminal", "fmt." + name, common.Args[1:]
+func sourceCallArguments(common *ssa.CallCommon) []ssa.Value {
+	arguments := common.Args
+	if !common.IsInvoke() && common.Signature() != nil && common.Signature().Recv() != nil && len(arguments) > 0 {
+		arguments = arguments[1:]
 	}
-	return "", "", nil
-}
-
-func logTaintSink(common *ssa.CallCommon, packagePath, name string, sinks map[string]bool) (string, string, []ssa.Value) {
-	if sinks["log"] && (strings.HasPrefix(name, "Print") || strings.HasSuffix(name, "Context") || name == "Log") {
-		return "log", packagePath + "." + name, common.Args
-	}
-	return "", "", nil
-}
-
-func filesystemSink(name string) bool {
-	switch name {
-	case "Chdir",
-		"Chmod",
-		"Chown",
-		"Create",
-		"CreateTemp",
-		"Lchown",
-		"Lstat",
-		"Mkdir",
-		"MkdirAll",
-		"Open",
-		"OpenFile",
-		"ReadFile",
-		"Readlink",
-		"Remove",
-		"RemoveAll",
-		"Rename",
-		"Stat",
-		"Symlink",
-		"Truncate",
-		"WriteFile":
-		return true
-	default:
-		return false
-	}
+	return arguments
 }
 
 func terminalWriter(value ssa.Value) bool {

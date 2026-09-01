@@ -137,9 +137,7 @@ func recordOrderedCall(
 }
 
 func appendedRangeValue(pass *analysis.Pass, call *ast.CallExpr, variables map[types.Object]bool) bool {
-	function, ok := call.Fun.(*ast.Ident)
-	builtin, builtinOK := pass.TypesInfo.Uses[function].(*types.Builtin)
-	if !ok || !builtinOK || builtin.Name() != "append" || len(call.Args) < 2 {
+	if !analysisutil.IsCallTo(pass, call, analysisutil.Builtin("append")) || len(call.Args) < 2 {
 		return false
 	}
 	for _, argument := range call.Args[1:] {

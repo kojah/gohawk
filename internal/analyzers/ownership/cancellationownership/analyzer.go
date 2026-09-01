@@ -4,7 +4,6 @@ package cancellationownership
 import (
 	"go/ast"
 	"go/token"
-	"strings"
 
 	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/analysisutil"
@@ -100,18 +99,31 @@ func emitCancellationDecision(pass *analysis.Pass, function *ssa.Function, call 
 }
 
 type cancellationContract struct {
+	symbol      analysisutil.Symbol
 	packagePath string
 	name        string
 	result      int
 }
 
+var cancellationContracts = []cancellationContract{
+	cancellationFunction("context", "WithCancel"),
+	cancellationFunction("context", "WithCancelCause"),
+	cancellationFunction("context", "WithDeadline"),
+	cancellationFunction("context", "WithDeadlineCause"),
+	cancellationFunction("context", "WithTimeout"),
+	cancellationFunction("context", "WithTimeoutCause"),
+	cancellationFunction("os/signal", "NotifyContext"),
+}
+
+func cancellationFunction(packagePath, name string) cancellationContract {
+	return cancellationContract{symbol: analysisutil.PackageFunction(packagePath, name), packagePath: packagePath, name: name, result: 1}
+}
+
 func cancellationContractFor(common *ssa.CallCommon) (cancellationContract, bool) {
-	packagePath, name := ssautil.CallPackage(common), ssautil.CallName(common)
-	if packagePath == "context" && strings.HasPrefix(name, "With") {
-		return cancellationContract{packagePath: packagePath, name: name, result: 1}, true
-	}
-	if packagePath == "os/signal" && name == "NotifyContext" {
-		return cancellationContract{packagePath: packagePath, name: name, result: 1}, true
+	for _, contract := range cancellationContracts {
+		if ssautil.CallMatchesSymbol(common, contract.symbol) {
+			return contract, true
+		}
 	}
 	return cancellationContract{}, false
 }

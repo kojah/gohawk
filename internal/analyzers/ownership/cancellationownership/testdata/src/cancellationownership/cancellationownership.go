@@ -52,6 +52,15 @@ func cancelCause(parent context.Context) {
 	defer cancel(nil)
 }
 
+func leakedTimeout(parent context.Context) {
+	ctx, cancel := context.WithTimeout(parent, time.Second) // want "cancel function from context.WithTimeout is not called on every return path"
+	_, _ = ctx, cancel
+}
+
+func valueContextHasNoCancel(parent context.Context) {
+	_ = context.WithValue(parent, "key", "value")
+}
+
 func goroutineOwnsCancel(parent context.Context) {
 	_, cancel := context.WithCancel(parent)
 	go func() {

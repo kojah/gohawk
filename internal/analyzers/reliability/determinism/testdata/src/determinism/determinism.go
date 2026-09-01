@@ -1,6 +1,9 @@
 package determinism
 
-import "slices"
+import (
+	"slices"
+	"sort"
+)
 
 func unstable(input map[string]string) []string {
 	result := make([]string, 0, len(input))
@@ -29,6 +32,15 @@ func stableThroughHelper(input map[string]string) []string {
 		result = append(result, key)
 	}
 	sortValues(result)
+	return result
+}
+
+func searchDoesNotSort(input map[string]string) []string {
+	result := make([]string, 0, len(input))
+	for key := range input { // want "map iteration reaches ordered output without sorting"
+		result = append(result, key)
+	}
+	sort.Search(len(result), func(index int) bool { return result[index] == "" })
 	return result
 }
 

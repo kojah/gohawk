@@ -224,19 +224,14 @@ func collectionObjectReadOnly(pass *analysis.Pass, object types.Object, usage gl
 }
 
 func readOnlyCollectionBuiltin(pass *analysis.Pass, call *ast.CallExpr, target ast.Node) bool {
-	function, ok := call.Fun.(*ast.Ident)
-	builtin, builtinOK := pass.TypesInfo.Uses[function].(*types.Builtin)
-	if !ok || !builtinOK {
-		return false
-	}
-	switch builtin.Name() {
-	case "len", "cap":
+	switch {
+	case analysisutil.IsCallToAny(pass, call, analysisutil.Builtin("len"), analysisutil.Builtin("cap")):
 		return true
-	case "append":
+	case analysisutil.IsCallTo(pass, call, analysisutil.Builtin("append")):
 		// Reading a global through append's variadic inputs copies its
 		// elements; using it as the destination may mutate its backing array.
 		return collectionArgumentIndex(call, target) > 0
-	case "copy":
+	case analysisutil.IsCallTo(pass, call, analysisutil.Builtin("copy")):
 		return collectionArgumentIndex(call, target) == 1
 	default:
 		return false

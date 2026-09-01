@@ -25,16 +25,15 @@ func spawnedOwnershipValue(
 	if common == nil {
 		return nil, nil
 	}
-	switch ssautil.CallName(common) {
-	case analysisutil.BuiltinClose:
+	if ssautil.CallMatchesSymbol(common, analysisutil.Builtin("close")) {
 		if len(common.Args) == 1 {
 			return ssautil.SpawnedValueAtCall(spawn, function, closure, common.Args[0]), nil
 		}
-	case "Done":
+		return nil, nil
+	}
+	if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod("sync", "WaitGroup", "Done")) {
 		receiver := ssautil.CallReceiver(common)
-		if receiver != nil && analysisutil.NamedType(receiver.Type(), "sync", "WaitGroup") {
-			return nil, ssautil.SpawnedValueAtCall(spawn, function, closure, receiver)
-		}
+		return nil, ssautil.SpawnedValueAtCall(spawn, function, closure, receiver)
 	}
 	return nil, nil
 }

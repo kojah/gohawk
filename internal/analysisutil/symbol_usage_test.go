@@ -20,11 +20,18 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 	// These uses need package metadata rather than one exact declaration. Keep
 	// the expected counts explicit so every new escape prompts architecture review.
 	allowed := map[string]int{
-		"ownership/cancellationownership/analyzer.go": 1, // context.With* is a package API family.
 		"ownership/exitpolicy/analyzer.go":            1, // Package path is diagnostic display metadata.
 		"reliability/errorclassification/analyzer.go": 1, // Text-preserving strings transforms are a package family.
 		"reliability/globalstate/contracts.go":        1, // Framework contracts qualify arbitrary named types.
-		"reliability/taintpolicy/analyzer.go":         2, // Sink families and user-configured sanitizers need package metadata.
+		"reliability/taintpolicy/analyzer.go":         1, // User-configured sanitizers need qualified call metadata.
+	}
+	rawIdentityPatterns := []string{
+		"CallPackage(",
+		".Pkg().Path()",
+		".Pkg.Pkg.Path()",
+		"Imported().Path()",
+		"*types.Builtin",
+		"BuiltinClose",
 	}
 	found := make(map[string]int, len(allowed))
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -45,7 +52,10 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 			return readErr
 		}
 		text := string(source)
-		escapes := strings.Count(text, "CallPackage(") + strings.Count(text, ".Pkg().Path()") + strings.Count(text, ".Pkg.Pkg.Path()")
+		escapes := 0
+		for _, pattern := range rawIdentityPatterns {
+			escapes += strings.Count(text, pattern)
+		}
 		relative, relativeErr := filepath.Rel(root, path)
 		if relativeErr != nil {
 			return relativeErr

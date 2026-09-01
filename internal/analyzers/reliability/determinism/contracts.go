@@ -55,9 +55,7 @@ func lengthOfExpression(pass *analysis.Pass, expression, target ast.Expr) bool {
 	if !ok || len(call.Args) != 1 || !analysisutil.SameExpression(pass, call.Args[0], target) {
 		return false
 	}
-	function, ok := call.Fun.(*ast.Ident)
-	builtin, builtinOK := pass.TypesInfo.Uses[function].(*types.Builtin)
-	return ok && builtinOK && builtin.Name() == "len"
+	return analysisutil.IsCallTo(pass, call, analysisutil.Builtin("len"))
 }
 
 func integerLiteral(expression ast.Expr, value string) bool {

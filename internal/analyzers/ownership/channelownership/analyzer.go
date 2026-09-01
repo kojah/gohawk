@@ -45,7 +45,7 @@ func checkChannelOwnership(pass *analysis.Pass, function *ssa.Function, callsite
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			common := ssautil.InstructionCall(instruction)
-			if common == nil || ssautil.CallName(common) != analysisutil.BuiltinClose || len(common.Args) != 1 {
+			if !ssautil.CallMatchesSymbol(common, analysisutil.Builtin("close")) || len(common.Args) != 1 {
 				continue
 			}
 			channel := common.Args[0]
@@ -141,7 +141,7 @@ func channelRelinquishedAfterCall(call ssa.CallInstruction, channel ssa.Value) b
 			return false
 		}
 		common := ssautil.InstructionCall(instruction)
-		if common != nil && ssautil.CallName(common) == analysisutil.BuiltinClose && len(common.Args) == 1 && ssautil.SameValue(common.Args[0], channel) {
+		if ssautil.CallMatchesSymbol(common, analysisutil.Builtin("close")) && len(common.Args) == 1 && ssautil.SameValue(common.Args[0], channel) {
 			return false
 		}
 	}
