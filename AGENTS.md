@@ -175,6 +175,10 @@ implementation details rather than an external integration API. Cross-cutting
 diagnostic, catalog, flag, and trace infrastructure lives in its own focused
 internal package instead of being folded into analysis utilities.
 
+Repository-wide source conformance tests live under `internal/architecture`.
+Keep behavioral tests for the facilities they enforce, such as symbol matching,
+beside the implementation in its owning package.
+
 ## Documentation website
 
 Use `make site-review` when testing the documentation website. It starts the

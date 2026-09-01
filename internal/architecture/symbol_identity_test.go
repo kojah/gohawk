@@ -1,4 +1,4 @@
-package analysisutil
+package architecture
 
 import (
 	"io/fs"
@@ -13,7 +13,7 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 	t.Parallel()
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
-		t.Fatal("locate symbol usage test")
+		t.Fatal("locate symbol identity architecture test")
 	}
 	root := filepath.Join(filepath.Dir(currentFile), "..", "analyzers")
 
