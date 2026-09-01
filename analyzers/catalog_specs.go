@@ -176,7 +176,7 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 
 func testingSpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
-		{Analyzer: testlifecycle.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+		{Analyzer: testlifecycle.Analyzer(goroutineownership.HasExplicitGoroutineOwnership), OptIn: true, Checks: []catalog.CheckInfo{
 			{ID: check.TestLifecycleContext, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.", Kind: catalog.KindHazard},
 		}},
 		{
