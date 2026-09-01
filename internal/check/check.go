@@ -1,0 +1,44 @@
+// Package check defines gohawk diagnostic identities and reporting behavior.
+package check
+
+// ID identifies one independently configurable diagnostic rule.
+type ID string
+
+const (
+	APIParameterCount        ID = "apishape/parameter-count"
+	APIMixedReceivers        ID = "apishape/mixed-receivers"
+	APIAdjacentSameType      ID = "apishape/adjacent-same-type"
+	APIAdjacentOptional      ID = "apishape/adjacent-optional-scalars"
+	ContextFirst             ID = "contextpolicy/context-first"
+	ContextStorage           ID = "contextpolicy/context-storage"
+	ContextTestOwnership     ID = "contextpolicy/test-context"
+	ContextNilArgument       ID = "contextpolicy/nil-context"
+	ClosedStringDomain       ID = "closedomain/closed-string-domain"
+	WireKeyedLiteral         ID = "wirepolicy/keyed-literal"
+	WireSerializationTag     ID = "wirepolicy/serialization-tag"
+	CancellationRelease      ID = "cancellationownership/release"
+	ChannelCapacityRationale ID = "channelpolicy/capacity-rationale"
+	ChannelCallerClose       ID = "channelpolicy/caller-close"
+	ChannelSendAfterClose    ID = "channelpolicy/send-after-close"
+	DeferCleanupInLoop       ID = "deferinloop/cleanup-lifetime"
+	ExitSkipsDefer           ID = "exitpolicy/skipped-defer"
+	GoroutineJoin            ID = "goroutineownership/unjoined"
+	GoroutineDetached        ID = "goroutineownership/detached"
+	GoroutineProducerSend    ID = "goroutineownership/abandoned-send"
+	ProcessWait              ID = "processownership/missing-wait"
+	ResourceRelease          ID = "resourcelifetime/missing-release"
+	ConcurrentCapture        ID = "concurrentcapture/shared-capture"
+	DeterministicMapOutput   ID = "determinism/map-output-order"
+	ErrorLogAndReturn        ID = "errorownership/log-and-return"
+	ErrorTextClassification  ID = "errorownership/text-classification"
+	ErrorMismatchedInline    ID = "errorownership/mismatched-inline-error"
+	EvaluationOrder          ID = "evalorder/operand-mutation"
+	MutableGlobalState       ID = "globalstate/mutable-package-state"
+	LockMissingRelease       ID = "lockorder/missing-release"
+	LockRecursiveAcquire     ID = "lockorder/recursive-acquire"
+	LockContradictoryOrder   ID = "lockorder/contradictory-order"
+	OnceDiscardedWrapper     ID = "oncepolicy/discarded-wrapper"
+	SyncMapNonAtomicClaim    ID = "syncmapatomicity/non-atomic-claim"
+	TaintUntrustedSink       ID = "taintpolicy/untrusted-sink"
+	TestHelperMarker         ID = "testpolicy/helper-marker"
+)

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -79,7 +79,7 @@ func runEnumField(pass *analysis.Pass) (any, error) {
 		if !closed[field] {
 			continue
 		}
-		analyzerbase.Reportf(pass, analyzerbase.CheckClosedStringDomain, candidate.position.Pos(), "field %s uses a closed string domain; define a named string type and constants", candidate.position.Name)
+		check.Reportf(pass, check.ClosedStringDomain, candidate.position.Pos(), "field %s uses a closed string domain; define a named string type and constants", candidate.position.Name)
 		pass.ExportObjectFact(field, new(closedStringDomainFact))
 	}
 	return nil, nil

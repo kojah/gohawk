@@ -7,7 +7,7 @@ import (
 	"slices"
 
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -63,7 +63,7 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 			continue
 		}
 		reported[send.instruction.Pos()] = true
-		analyzerbase.Reportf(pass, analyzerbase.CheckGoroutineProducerSend, send.instruction.Pos(), "goroutine send can block after the receiver stops waiting")
+		check.Reportf(pass, check.GoroutineProducerSend, send.instruction.Pos(), "goroutine send can block after the receiver stops waiting")
 	}
 }
 

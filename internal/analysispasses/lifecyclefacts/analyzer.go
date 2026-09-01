@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/kojah/gohawk/internal/analysisutil/ssa"
-	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"

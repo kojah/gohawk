@@ -11,7 +11,7 @@ import (
 	"github.com/golangci/plugin-module-register/register"
 	"github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/analysisutil"
-	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 )
 

@@ -1,7 +1,6 @@
 package analyzers
 
 import (
-	"github.com/kojah/gohawk/internal/analyzerbase"
 	"github.com/kojah/gohawk/internal/analyzers/contracts/apishape"
 	"github.com/kojah/gohawk/internal/analyzers/contracts/closedomain"
 	"github.com/kojah/gohawk/internal/analyzers/contracts/contextpolicy"
@@ -23,107 +22,109 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/reliability/syncmapatomicity"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/taintpolicy"
 	"github.com/kojah/gohawk/internal/analyzers/testing/testpolicy"
+	"github.com/kojah/gohawk/internal/catalog"
+	"github.com/kojah/gohawk/internal/check"
 )
 
-func contractSpecs() []analyzerbase.AnalyzerSpec {
-	return []analyzerbase.AnalyzerSpec{
+func contractSpecs() []catalog.AnalyzerSpec {
+	return []catalog.AnalyzerSpec{
 		{
 			Analyzer: apishape.Analyzer(), OptIn: true,
-			Checks: []analyzerbase.CheckInfo{
-				{ID: analyzerbase.CheckAPIParameterCount, Doc: "Reports unconstrained exported APIs with more than the configured maximum number of parameters."},
-				{ID: analyzerbase.CheckAPIMixedReceivers, Doc: "Reports types that mix pointer and value receiver methods."},
-				{ID: analyzerbase.CheckAPIAdjacentSameType, Doc: "Reports long adjacent runs of parameters in unconstrained signatures that share one type."},
-				{ID: analyzerbase.CheckAPIAdjacentOptional, Doc: "Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap."},
+			Checks: []catalog.CheckInfo{
+				{ID: check.APIParameterCount, Doc: "Reports unconstrained exported APIs with more than the configured maximum number of parameters."},
+				{ID: check.APIMixedReceivers, Doc: "Reports types that mix pointer and value receiver methods."},
+				{ID: check.APIAdjacentSameType, Doc: "Reports long adjacent runs of parameters in unconstrained signatures that share one type."},
+				{ID: check.APIAdjacentOptional, Doc: "Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap."},
 			},
 		},
 		{
 			Analyzer: contextpolicy.Analyzer(),
-			Checks: []analyzerbase.CheckInfo{
-				{ID: analyzerbase.CheckContextFirst, Doc: "Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle."},
-				{ID: analyzerbase.CheckContextStorage, Doc: "Reports context.Context values stored in structs."},
-				{ID: analyzerbase.CheckContextTestOwnership, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.", OptIn: true},
-				{ID: analyzerbase.CheckContextNilArgument, Doc: "Reports definitely nil context.Context arguments."},
+			Checks: []catalog.CheckInfo{
+				{ID: check.ContextFirst, Doc: "Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle."},
+				{ID: check.ContextStorage, Doc: "Reports context.Context values stored in structs."},
+				{ID: check.ContextTestOwnership, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.", OptIn: true},
+				{ID: check.ContextNilArgument, Doc: "Reports definitely nil context.Context arguments."},
 			},
 		},
-		{Analyzer: closedomain.Analyzer(), OptIn: true, Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckClosedStringDomain, Doc: "Reports exported string fields used as small closed sets of values."},
+		{Analyzer: closedomain.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+			{ID: check.ClosedStringDomain, Doc: "Reports exported string fields used as small closed sets of values."},
 		}},
-		{Analyzer: wirepolicy.Analyzer(), OptIn: true, SuggestedFix: true, Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckWireKeyedLiteral, Doc: "Reports positional composite literals for persisted or wire structs."},
-			{ID: analyzerbase.CheckWireSerializationTag, Doc: "Reports exported wire fields without explicit JSON or TOML tags."},
-		}},
-	}
-}
-
-func ownershipSpecs() []analyzerbase.AnalyzerSpec {
-	return []analyzerbase.AnalyzerSpec{
-		{Analyzer: cancellationownership.Analyzer(), SuggestedFix: true, Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckCancellationRelease, Doc: "Reports derived cancel functions that are neither called nor transferred on every return path."},
-		}},
-		{Analyzer: channelpolicy.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckChannelCapacityRationale, Doc: "Reports large constant channel capacities in production files without a nearby bounded rationale.", OptIn: true},
-			{ID: analyzerbase.CheckChannelCallerClose, Doc: "Reports functions that close channels received from their callers."},
-			{ID: analyzerbase.CheckChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed."},
-		}},
-		{Analyzer: deferinloop.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckDeferCleanupInLoop, Doc: "Reports cleanup defers whose lifetime extends across loop iterations."},
-		}},
-		{Analyzer: exitpolicy.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckExitSkipsDefer, Doc: "Reports immediate process termination that bypasses an earlier defer."},
-		}},
-		{Analyzer: goroutineownership.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckGoroutineJoin, Doc: "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path."},
-			{ID: analyzerbase.CheckGoroutineDetached, Doc: "Reports goroutines without a recognizable join handle or lifecycle owner.", OptIn: true},
-			{ID: analyzerbase.CheckGoroutineProducerSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting."},
-		}},
-		{Analyzer: processownership.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckProcessWait, Doc: "Reports successfully started commands that are neither waited on nor transferred."},
-		}},
-		{Analyzer: resourcelifetime.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckResourceRelease, Doc: "Reports owned resources that are not released on every return path."},
+		{Analyzer: wirepolicy.Analyzer(), OptIn: true, SuggestedFix: true, Checks: []catalog.CheckInfo{
+			{ID: check.WireKeyedLiteral, Doc: "Reports positional composite literals for persisted or wire structs."},
+			{ID: check.WireSerializationTag, Doc: "Reports exported wire fields without explicit JSON or TOML tags."},
 		}},
 	}
 }
 
-func reliabilitySpecs() []analyzerbase.AnalyzerSpec {
-	return []analyzerbase.AnalyzerSpec{
-		{Analyzer: concurrentcapture.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckConcurrentCapture, Doc: "Reports repeatedly launched goroutines that mutate the same captured local."},
+func ownershipSpecs() []catalog.AnalyzerSpec {
+	return []catalog.AnalyzerSpec{
+		{Analyzer: cancellationownership.Analyzer(), SuggestedFix: true, Checks: []catalog.CheckInfo{
+			{ID: check.CancellationRelease, Doc: "Reports derived cancel functions that are neither called nor transferred on every return path."},
 		}},
-		{Analyzer: determinism.Analyzer(), OptIn: true, Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckDeterministicMapOutput, Doc: "Reports map iteration that reaches ordered output without explicit sorting."},
+		{Analyzer: channelpolicy.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.ChannelCapacityRationale, Doc: "Reports large constant channel capacities in production files without a nearby bounded rationale.", OptIn: true},
+			{ID: check.ChannelCallerClose, Doc: "Reports functions that close channels received from their callers."},
+			{ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed."},
 		}},
-		{Analyzer: errorownership.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckErrorLogAndReturn, Doc: "Reports functions that both log and return the same error.", OptIn: true},
-			{ID: analyzerbase.CheckErrorTextClassification, Doc: "Reports production code that classifies errors by matching their text."},
-			{ID: analyzerbase.CheckErrorMismatchedInline, Doc: "Reports inline error declarations whose condition checks a different error."},
+		{Analyzer: deferinloop.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.DeferCleanupInLoop, Doc: "Reports cleanup defers whose lifetime extends across loop iterations."},
 		}},
-		{Analyzer: evalorder.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckEvaluationOrder, Doc: "Reports expressions whose later operand mutates a value read by an earlier operand."},
+		{Analyzer: exitpolicy.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.ExitSkipsDefer, Doc: "Reports immediate process termination that bypasses an earlier defer."},
 		}},
-		{Analyzer: globalstate.Analyzer(), OptIn: true, Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckMutableGlobalState, Doc: "Reports mutable package-level state without an explicit owner."},
+		{Analyzer: goroutineownership.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.GoroutineJoin, Doc: "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path."},
+			{ID: check.GoroutineDetached, Doc: "Reports goroutines without a recognizable join handle or lifecycle owner.", OptIn: true},
+			{ID: check.GoroutineProducerSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting."},
 		}},
-		{Analyzer: lockorder.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckLockMissingRelease, Doc: "Reports return paths that leave an owned lock held."},
-			{ID: analyzerbase.CheckLockRecursiveAcquire, Doc: "Reports attempts to acquire a lock that is already held."},
-			{ID: analyzerbase.CheckLockContradictoryOrder, Doc: "Reports inconsistent acquisition order for the same pair of locks."},
+		{Analyzer: processownership.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.ProcessWait, Doc: "Reports successfully started commands that are neither waited on nor transferred."},
 		}},
-		{Analyzer: oncepolicy.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckOnceDiscardedWrapper, Doc: "Reports sync.Once function wrappers that are called and immediately discarded."},
-		}},
-		{Analyzer: syncmapatomicity.Analyzer(), Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckSyncMapNonAtomicClaim, Doc: "Reports separate sync.Map Load and Delete operations used to claim one value."},
-		}},
-		{Analyzer: taintpolicy.Analyzer(), OptIn: true, Checks: []analyzerbase.CheckInfo{
-			{ID: analyzerbase.CheckTaintUntrustedSink, Doc: "Reports untrusted input that reaches a configured sensitive sink without validation."},
+		{Analyzer: resourcelifetime.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.ResourceRelease, Doc: "Reports owned resources that are not released on every return path."},
 		}},
 	}
 }
 
-func testingSpecs() []analyzerbase.AnalyzerSpec {
-	return []analyzerbase.AnalyzerSpec{{
+func reliabilitySpecs() []catalog.AnalyzerSpec {
+	return []catalog.AnalyzerSpec{
+		{Analyzer: concurrentcapture.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.ConcurrentCapture, Doc: "Reports repeatedly launched goroutines that mutate the same captured local."},
+		}},
+		{Analyzer: determinism.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+			{ID: check.DeterministicMapOutput, Doc: "Reports map iteration that reaches ordered output without explicit sorting."},
+		}},
+		{Analyzer: errorownership.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.ErrorLogAndReturn, Doc: "Reports functions that both log and return the same error.", OptIn: true},
+			{ID: check.ErrorTextClassification, Doc: "Reports production code that classifies errors by matching their text."},
+			{ID: check.ErrorMismatchedInline, Doc: "Reports inline error declarations whose condition checks a different error."},
+		}},
+		{Analyzer: evalorder.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.EvaluationOrder, Doc: "Reports expressions whose later operand mutates a value read by an earlier operand."},
+		}},
+		{Analyzer: globalstate.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+			{ID: check.MutableGlobalState, Doc: "Reports mutable package-level state without an explicit owner."},
+		}},
+		{Analyzer: lockorder.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.LockMissingRelease, Doc: "Reports return paths that leave an owned lock held."},
+			{ID: check.LockRecursiveAcquire, Doc: "Reports attempts to acquire a lock that is already held."},
+			{ID: check.LockContradictoryOrder, Doc: "Reports inconsistent acquisition order for the same pair of locks."},
+		}},
+		{Analyzer: oncepolicy.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.OnceDiscardedWrapper, Doc: "Reports sync.Once function wrappers that are called and immediately discarded."},
+		}},
+		{Analyzer: syncmapatomicity.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.SyncMapNonAtomicClaim, Doc: "Reports separate sync.Map Load and Delete operations used to claim one value."},
+		}},
+		{Analyzer: taintpolicy.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+			{ID: check.TaintUntrustedSink, Doc: "Reports untrusted input that reaches a configured sensitive sink without validation."},
+		}},
+	}
+}
+
+func testingSpecs() []catalog.AnalyzerSpec {
+	return []catalog.AnalyzerSpec{{
 		Analyzer: testpolicy.Analyzer(), OptIn: true, SuggestedFix: true,
-		Checks: []analyzerbase.CheckInfo{{ID: analyzerbase.CheckTestHelperMarker, Doc: "Reports test helpers that do not call Helper on every return path."}},
+		Checks: []catalog.CheckInfo{{ID: check.TestHelperMarker, Doc: "Reports test helpers that do not call Helper on every return path."}},
 	}}
 }

@@ -8,7 +8,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -114,7 +114,7 @@ func reportConditionalSyncMapClaim(pass *analysis.Pass, conditional *ast.IfStmt,
 		usesValue = usesValue || analysisutil.ExpressionUsesObject(pass, statement, load.value)
 	}
 	if usesValue {
-		analyzerbase.Reportf(pass, analyzerbase.CheckSyncMapNonAtomicClaim, deleteCall.Pos(), "sync.Map Load and Delete do not atomically claim the value")
+		check.Reportf(pass, check.SyncMapNonAtomicClaim, deleteCall.Pos(), "sync.Map Load and Delete do not atomically claim the value")
 	}
 }
 

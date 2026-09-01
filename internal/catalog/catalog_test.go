@@ -1,4 +1,4 @@
-package analyzerbase
+package catalog
 
 import (
 	"strings"

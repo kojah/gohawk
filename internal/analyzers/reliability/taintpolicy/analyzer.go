@@ -5,7 +5,8 @@ import (
 	"strings"
 
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/flagvalue"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -20,7 +21,7 @@ func Analyzer() *analysis.Analyzer {
 		Doc:      "checks untrusted environment and argument data reaching sensitive sinks",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 	}
-	analyzer.Flags.Var(analyzerbase.NewCommaSeparatedChoice(&config.sinks, "filesystem", "process", "terminal", "log"), "sinks", "comma-separated sink families: filesystem,process,terminal,log")
+	analyzer.Flags.Var(flagvalue.NewCommaSeparatedChoice(&config.sinks, "filesystem", "process", "terminal", "log"), "sinks", "comma-separated sink families: filesystem,process,terminal,log")
 	analyzer.Flags.StringVar(&config.sanitizers, "sanitizers", "", "comma-separated fully-qualified sanitizer functions")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runTaintPolicy(pass, config)
@@ -43,7 +44,7 @@ func runTaintPolicy(pass *analysis.Pass, config taintPolicyConfig) (any, error) 
 	if err != nil {
 		return nil, err
 	}
-	settings := taintPolicySettings{sinks: analyzerbase.CommaSeparatedSet(config.sinks), sanitizers: analyzerbase.CommaSeparatedSet(config.sanitizers)}
+	settings := taintPolicySettings{sinks: flagvalue.CommaSeparatedSet(config.sinks), sanitizers: flagvalue.CommaSeparatedSet(config.sanitizers)}
 	for _, function := range functions {
 		// Test helpers deliberately echo and persist hostile fixture values. Their
 		// process is isolated; production sinks remain policy-owned here.
@@ -59,7 +60,7 @@ func runTaintPolicy(pass *analysis.Pass, config taintPolicyConfig) (any, error) 
 				kind, display, arguments := taintSink(call.Common(), settings.sinks)
 				for _, argument := range arguments {
 					if taintedValue(argument, map[ssa.Value]bool{}, map[ssa.Value]bool{}, settings) {
-						analyzerbase.Reportf(pass, analyzerbase.CheckTaintUntrustedSink, call.Pos(), "untrusted data reaches %s sink %s", kind, display)
+						check.Reportf(pass, check.TaintUntrustedSink, call.Pos(), "untrusted data reaches %s sink %s", kind, display)
 						break
 					}
 				}

@@ -1,9 +1,12 @@
-package analyzerbase
+// Package catalog provides the validated internal analyzer registry.
+package catalog
 
 import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -16,7 +19,7 @@ type GroupID string
 
 // CheckInfo describes one independently configurable diagnostic rule.
 type CheckInfo struct {
-	ID    Check
+	ID    check.ID
 	Doc   string
 	OptIn bool
 }
@@ -52,7 +55,7 @@ type Catalog struct {
 	groups         []GroupSpec
 	executionOrder []AnalyzerID
 	byAnalyzer     map[AnalyzerID]AnalyzerSpec
-	checkOwner     map[Check]AnalyzerID
+	checkOwner     map[check.ID]AnalyzerID
 }
 
 // NewCatalog validates and constructs an analyzer catalog.
@@ -61,7 +64,7 @@ func NewCatalog(groups []GroupSpec, executionOrder []AnalyzerID) (*Catalog, erro
 		groups:         cloneGroups(groups),
 		executionOrder: slices.Clone(executionOrder),
 		byAnalyzer:     make(map[AnalyzerID]AnalyzerSpec),
-		checkOwner:     make(map[Check]AnalyzerID),
+		checkOwner:     make(map[check.ID]AnalyzerID),
 	}
 	seenGroups := make(map[GroupID]bool)
 	seenPaths := make(map[string]bool)
@@ -142,7 +145,7 @@ func (catalog *Catalog) Analyzer(id AnalyzerID) (AnalyzerSpec, bool) {
 }
 
 // CheckOwner returns the analyzer that owns check.
-func (catalog *Catalog) CheckOwner(check Check) (AnalyzerID, bool) {
+func (catalog *Catalog) CheckOwner(check check.ID) (AnalyzerID, bool) {
 	owner, ok := catalog.checkOwner[check]
 	return owner, ok
 }

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -157,7 +157,7 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			if position == token.NoPos {
 				position = acquiredAt[identity]
 			}
-			analyzerbase.Reportf(pass, analyzerbase.CheckLockMissingRelease, position, "lock %s is not released on this return path", identity)
+			check.Reportf(pass, check.LockMissingRelease, position, "lock %s is not released on this return path", identity)
 		}
 	}
 }

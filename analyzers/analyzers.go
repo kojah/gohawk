@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/catalog"
+	"github.com/kojah/gohawk/internal/check"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -31,13 +31,13 @@ func (info AnalyzerInfo) EnabledByDefault() bool {
 	return !info.OptIn
 }
 
-func newCatalog() (*analyzerbase.Catalog, error) {
-	return analyzerbase.NewCatalog([]analyzerbase.GroupSpec{
+func newCatalog() (*catalog.Catalog, error) {
+	return catalog.NewCatalog([]catalog.GroupSpec{
 		{ID: "contracts", Doc: "API and data contracts", DocPath: "api-and-data-contracts", Analyzers: contractSpecs()},
 		{ID: "ownership", Doc: "ownership and lifecycle", DocPath: "ownership-and-lifecycle", Analyzers: ownershipSpecs()},
 		{ID: "reliability", Doc: "reliability and safety", DocPath: "reliability-and-safety", Analyzers: reliabilitySpecs()},
 		{ID: "testing", Doc: "testing", DocPath: "testing", Analyzers: testingSpecs()},
-	}, []analyzerbase.AnalyzerID{
+	}, []catalog.AnalyzerID{
 		"apishape",
 		"contextpolicy",
 		"globalstate",
@@ -95,7 +95,7 @@ func AnalyzerGroups() []AnalyzerGroup {
 	return result
 }
 
-func withSuppressions(analyzer *analysis.Analyzer, declared []analyzerbase.CheckInfo) *analysis.Analyzer {
+func withSuppressions(analyzer *analysis.Analyzer, declared []catalog.CheckInfo) *analysis.Analyzer {
 	checks := make(map[string]bool, len(declared))
 	for _, check := range declared {
 		checks[string(check.ID)] = true
@@ -110,7 +110,7 @@ func withSuppressions(analyzer *analysis.Analyzer, declared []analyzerbase.Check
 				reportErr = errors.Join(reportErr, fmt.Errorf("analyzer %q reported unknown check %q", analyzer.Name, diagnostic.Category))
 				return
 			}
-			if analysisutil.DiagnosticSuppressed(pass, diagnostic.Pos, analyzer.Name) {
+			if check.Suppressed(pass, diagnostic.Pos, analyzer.Name) {
 				analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "suppression-comment", analysisTrace.OutcomeAccepted, diagnostic)
 				return
 			}
@@ -154,7 +154,7 @@ func DefaultAnalyzers() []*analysis.Analyzer {
 	return analyzers
 }
 
-func publicAnalyzerInfo(spec analyzerbase.AnalyzerSpec) AnalyzerInfo {
+func publicAnalyzerInfo(spec catalog.AnalyzerSpec) AnalyzerInfo {
 	checks := make([]AnalyzerCheckInfo, len(spec.Checks))
 	for index, check := range spec.Checks {
 		checks[index] = AnalyzerCheckInfo{ID: AnalyzerCheck(check.ID), Doc: check.Doc, OptIn: check.OptIn}

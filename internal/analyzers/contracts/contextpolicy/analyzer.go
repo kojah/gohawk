@@ -9,7 +9,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -82,7 +82,7 @@ func checkContextStructure(pass *analysis.Pass, file *ast.File, node ast.Node) {
 		parameters := analysisutil.ParameterTypes(pass, typed.Type.Params)
 		for index, parameter := range parameters {
 			if analysisutil.NamedType(parameter, "context", "Context") && !validContextPosition(parameters, index) {
-				analyzerbase.Reportf(pass, analyzerbase.CheckContextFirst, typed.Name.Pos(), "context.Context must be first parameter")
+				check.Reportf(pass, check.ContextFirst, typed.Name.Pos(), "context.Context must be first parameter")
 				break
 			}
 		}
@@ -93,7 +93,7 @@ func checkContextStructure(pass *analysis.Pass, file *ast.File, node ast.Node) {
 		}
 		for _, field := range structure.Fields.List {
 			if analysisutil.NamedType(pass.TypesInfo.TypeOf(field.Type), "context", "Context") {
-				analyzerbase.Reportf(pass, analyzerbase.CheckContextStorage, field.Pos(), "do not store context.Context in a struct")
+				check.Reportf(pass, check.ContextStorage, field.Pos(), "do not store context.Context in a struct")
 			}
 		}
 	}
@@ -175,7 +175,7 @@ func reportNilSSAContextArguments(pass *analysis.Pass, call *ssa.Call) {
 			break
 		}
 		if analysisutil.NamedType(signature.Params().At(index).Type(), "context", "Context") && ssautil.DefinitelyNil(common.Args[argumentIndex]) {
-			analyzerbase.Reportf(pass, analyzerbase.CheckContextNilArgument, call.Pos(), "do not pass nil context.Context")
+			check.Reportf(pass, check.ContextNilArgument, call.Pos(), "do not pass nil context.Context")
 		}
 	}
 }

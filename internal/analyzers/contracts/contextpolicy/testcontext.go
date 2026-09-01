@@ -6,8 +6,8 @@ import (
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/goroutineownership"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -36,7 +36,7 @@ func reportDetachedTestBackground(pass *analysis.Pass, function *ssa.Function) {
 			// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/diagnostic/checks_extra_test.go#L120-L130
 			for _, candidate := range detachedTestContexts(spawn) {
 				if functionObservesCancellation(spawnedFunction(spawn), candidate.root, map[contextObservation]bool{}) {
-					analyzerbase.Reportf(pass, analyzerbase.CheckContextTestOwnership, candidate.position, "test-owned goroutine uses a never-cancelled context; use the testing handle's Context()")
+					check.Reportf(pass, check.ContextTestOwnership, candidate.position, "test-owned goroutine uses a never-cancelled context; use the testing handle's Context()")
 					break
 				}
 			}

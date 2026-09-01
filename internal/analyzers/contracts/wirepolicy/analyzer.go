@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -27,7 +27,7 @@ func Analyzer() *analysis.Analyzer {
 					switch typed := node.(type) {
 					case *ast.CompositeLit:
 						if len(typed.Elts) > 0 && wireStruct(pass.TypesInfo.TypeOf(typed)) && !allKeyed(typed.Elts) {
-							analyzerbase.Report(pass, analyzerbase.CheckWireKeyedLiteral, analysis.Diagnostic{
+							check.Report(pass, check.WireKeyedLiteral, analysis.Diagnostic{
 								Pos:            typed.Pos(),
 								End:            typed.End(),
 								Message:        "persisted or wire struct literal must use field keys",
@@ -115,7 +115,7 @@ func reportMissingWireTags(pass *analysis.Pass, structure *ast.StructType) {
 		}
 		for _, name := range field.Names {
 			if name.IsExported() && field.Tag == nil {
-				analyzerbase.Reportf(pass, analyzerbase.CheckWireSerializationTag, name.Pos(), "serialized field %s requires an explicit json or toml tag", name.Name)
+				check.Reportf(pass, check.WireSerializationTag, name.Pos(), "serialized field %s requires an explicit json or toml tag", name.Name)
 			}
 		}
 	}

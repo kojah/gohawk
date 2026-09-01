@@ -8,7 +8,8 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/flagvalue"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -45,7 +46,7 @@ type globalStateUsage struct {
 }
 
 func runGlobalState(pass *analysis.Pass, config globalStateConfig) (any, error) {
-	allowlist := globalStateAllowlist{names: analyzerbase.CommaSeparatedSet(config.allowNames), types: analyzerbase.CommaSeparatedSet(config.allowTypes)}
+	allowlist := globalStateAllowlist{names: flagvalue.CommaSeparatedSet(config.allowNames), types: flagvalue.CommaSeparatedSet(config.allowTypes)}
 	usage := globalStateUsage{files: pass.Files, parents: globalSyntaxParents(pass.Files), calleeParams: globalCalleeParameters(pass)}
 	for _, file := range pass.Files {
 		if !analysisutil.AnalyzeFile(pass, file) {
@@ -76,7 +77,7 @@ func checkGlobalDeclaration(pass *analysis.Pass, declaration *ast.GenDecl, allow
 			if object == nil || !mutableGlobal(object.Type()) || allowlist.names[name.Name] || allowlist.types[qualifiedTypeName(object.Type())] || allowedGlobal(pass, name, object, declaration, value, index, usage) {
 				continue
 			}
-			analyzerbase.Reportf(pass, analyzerbase.CheckMutableGlobalState, name.Pos(), "mutable package state %s requires an immutable owner or //gohawk:ignore globalstate", name.Name)
+			check.Reportf(pass, check.MutableGlobalState, name.Pos(), "mutable package state %s requires an immutable owner or //gohawk:ignore globalstate", name.Name)
 		}
 	}
 }

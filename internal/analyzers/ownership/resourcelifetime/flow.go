@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -90,8 +90,8 @@ func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource s
 		methods := types.NewMethodSet(result.Type())
 		for index := range methods.Len() {
 			if slices.Contains(cleanup, methods.At(index).Obj().Name()) {
-				if analysisTrace.Enabled("resourcelifetime", string(analyzerbase.CheckResourceRelease)) {
-					analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "resourcelifetime", Check: string(analyzerbase.CheckResourceRelease), Phase: "evidence", Reason: "returned-cleanup-projection", Outcome: analysisTrace.OutcomeAccepted, Pos: returned.Pos(), Function: returned.Parent().String()})
+				if analysisTrace.Enabled("resourcelifetime", string(check.ResourceRelease)) {
+					analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Phase: "evidence", Reason: "returned-cleanup-projection", Outcome: analysisTrace.OutcomeAccepted, Pos: returned.Pos(), Function: returned.Parent().String()})
 				}
 				return true
 			}

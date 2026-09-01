@@ -62,7 +62,7 @@ evidence changes, update the rationale, link, and regression fixture together.
 
 Use the structured evidence tracer instead of temporary print statements when
 investigating analyzer behavior. Every diagnostic must flow through
-`analyzerbase.Report` or `analyzerbase.Reportf`, which provide repo-wide
+`check.Report` or `check.Reportf`, which provide repo-wide
 candidate and suggested-fix events. Shared analyzer wrappers trace whether a
 candidate is reported, suppressed by an ignore comment, or removed by check
 selection.
@@ -117,8 +117,10 @@ gosec's practice of splitting a substantial analyzer into focused files within
 its package. Analyzer groups are catalog metadata mirrored by container
 directories, not Go package boundaries.
 
-All shared analysis helpers live under `internal/analysisutil`; they are
-implementation details rather than an external integration API.
+Shared program-analysis helpers live under `internal/analysisutil`; they are
+implementation details rather than an external integration API. Cross-cutting
+diagnostic, catalog, flag, and trace infrastructure lives in its own focused
+internal package instead of being folded into analysis utilities.
 
 ## Documentation website
 

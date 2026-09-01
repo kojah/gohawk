@@ -7,8 +7,8 @@ import (
 	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -70,7 +70,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				})
 				emitProcessDecision(pass, function, start, command, leaks)
 				if leaks {
-					analyzerbase.Reportf(pass, analyzerbase.CheckProcessWait, start.Pos(), "started command is not waited on every successful return path")
+					check.Reportf(pass, check.ProcessWait, start.Pos(), "started command is not waited on every successful return path")
 				}
 			}
 		}
@@ -79,8 +79,8 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 }
 
 func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa.Call, command ssa.Value, leaks bool) {
-	check := string(analyzerbase.CheckProcessWait)
-	if !analysisTrace.Enabled("processownership", check) {
+	checkID := string(check.ProcessWait)
+	if !analysisTrace.Enabled("processownership", checkID) {
 		return
 	}
 	outcome, reason := analysisTrace.OutcomeAccepted, "wait-ownership-proven"
@@ -91,7 +91,7 @@ func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa
 	if command != nil && command.Type() != nil {
 		details["command_type"] = command.Type().String()
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: check, Phase: "decision", Reason: reason, Outcome: outcome, Pos: start.Pos(), Function: function.String(), Details: details})
+	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: checkID, Phase: "decision", Reason: reason, Outcome: outcome, Pos: start.Pos(), Function: function.String(), Details: details})
 }
 
 func processOwnerDominatesStart(function *ssa.Function, start *ssa.Call, owners []ssa.Value) bool {
@@ -214,8 +214,8 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
-		lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
-		lifecyclefacts.StoresInEscapingReceiver(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command) ||
+		lifecyclefacts.OwnsArgument(pass, "processownership", string(check.ProcessWait), instruction, command, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
+		lifecyclefacts.StoresInEscapingReceiver(pass, "processownership", string(check.ProcessWait), instruction, command) ||
 		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
 		startedWrapperWaits(pass, instruction, command) ||
@@ -227,8 +227,8 @@ func startedWrapperWaits(pass *analysis.Pass, instruction ssa.Instruction, comma
 	if !ssautil.StartedClosureCallsMethodViaHelper(instruction, "Wait", command) {
 		return false
 	}
-	if analysisTrace.Enabled("processownership", string(analyzerbase.CheckProcessWait)) {
-		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: string(analyzerbase.CheckProcessWait), Phase: "evidence", Reason: "started-wrapper-waiter", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(), Function: instruction.Parent().String()})
+	if analysisTrace.Enabled("processownership", string(check.ProcessWait)) {
+		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: string(check.ProcessWait), Phase: "evidence", Reason: "started-wrapper-waiter", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(), Function: instruction.Parent().String()})
 	}
 	return true
 }
@@ -242,11 +242,11 @@ func processHandleOwnershipAction(pass *analysis.Pass, instruction ssa.Instructi
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
 		}
-		if lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, argument, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
+		if lifecyclefacts.OwnsArgument(pass, "processownership", string(check.ProcessWait), instruction, argument, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
 			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", argument) ||
 			ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
-			if analysisTrace.Enabled("processownership", string(analyzerbase.CheckProcessWait)) {
-				analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: string(analyzerbase.CheckProcessWait), Phase: "evidence", Reason: "process-handle-owner", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(), Function: instruction.Parent().String()})
+			if analysisTrace.Enabled("processownership", string(check.ProcessWait)) {
+				analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: string(check.ProcessWait), Phase: "evidence", Reason: "process-handle-owner", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(), Function: instruction.Parent().String()})
 			}
 			return true
 		}

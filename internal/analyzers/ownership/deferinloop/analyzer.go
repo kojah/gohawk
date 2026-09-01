@@ -7,7 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -55,7 +55,7 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 				case *ast.DeferStmt:
 					position := pass.Fset.PositionFor(typed.Pos(), false)
 					if cleanupDefer(pass, body, typed.Call) && iteratingDefers[sourceLine{file: position.Filename, line: position.Line}] {
-						analyzerbase.Reportf(pass, analyzerbase.CheckDeferCleanupInLoop, typed.Pos(), "deferred cleanup runs after the loop instead of after this iteration")
+						check.Reportf(pass, check.DeferCleanupInLoop, typed.Pos(), "deferred cleanup runs after the loop instead of after this iteration")
 					}
 					return false
 				default:

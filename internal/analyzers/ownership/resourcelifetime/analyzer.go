@@ -5,8 +5,9 @@ import (
 	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/flagvalue"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -20,7 +21,7 @@ func Analyzer() *analysis.Analyzer {
 		Doc:      "checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
 	}
-	analyzer.Flags.Var(analyzerbase.NewCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "time", "compress"), "contracts", "comma-separated resource contract families: os,http,sql,time,compress")
+	analyzer.Flags.Var(flagvalue.NewCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "time", "compress"), "contracts", "comma-separated resource contract families: os,http,sql,time,compress")
 	analyzer.Flags.BoolVar(&config.requireReaderClose, "require-reader-close", true, "require gzip and zlib readers to be closed")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runResourceLifetime(pass, config)
@@ -43,7 +44,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 	if err != nil {
 		return nil, err
 	}
-	settings := resourceLifetimeSettings{contracts: analyzerbase.CommaSeparatedSet(config.contracts), requireReaderClose: config.requireReaderClose}
+	settings := resourceLifetimeSettings{contracts: flagvalue.CommaSeparatedSet(config.contracts), requireReaderClose: config.requireReaderClose}
 	completeTimers := completeTimerLifecyclePositions(pass)
 	for _, function := range functions {
 		for _, block := range function.Blocks {
@@ -64,7 +65,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				completeTimer := completeTimers[call.Pos()]
 				emitResourceDecision(pass, function, call, resource, contract, leaks, completeTimer)
 				if leaks && !completeTimer {
-					analyzerbase.Reportf(pass, analyzerbase.CheckResourceRelease, call.Pos(), "owned resource from %s.%s is not released on every return path", analysisutil.ShortPackageName(contract.packagePath), contract.name)
+					check.Reportf(pass, check.ResourceRelease, call.Pos(), "owned resource from %s.%s is not released on every return path", analysisutil.ShortPackageName(contract.packagePath), contract.name)
 				}
 			}
 		}
@@ -73,8 +74,8 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 }
 
 func emitResourceDecision(pass *analysis.Pass, function *ssa.Function, call *ssa.Call, resource ssa.Value, contract resourceContract, leaks, completeTimer bool) {
-	check := string(analyzerbase.CheckResourceRelease)
-	if !analysisTrace.Enabled("resourcelifetime", check) {
+	checkID := string(check.ResourceRelease)
+	if !analysisTrace.Enabled("resourcelifetime", checkID) {
 		return
 	}
 	outcome, reason := analysisTrace.OutcomeAccepted, "release-proven"
@@ -87,5 +88,5 @@ func emitResourceDecision(pass *analysis.Pass, function *ssa.Function, call *ssa
 	if resource != nil && resource.Type() != nil {
 		details["resource_type"] = resource.Type().String()
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "resourcelifetime", Check: check, Phase: "decision", Reason: reason, Outcome: outcome, Pos: call.Pos(), Function: function.String(), Details: details})
+	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "resourcelifetime", Check: checkID, Phase: "decision", Reason: reason, Outcome: outcome, Pos: call.Pos(), Function: function.String(), Details: details})
 }

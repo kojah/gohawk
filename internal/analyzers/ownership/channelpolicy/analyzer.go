@@ -10,7 +10,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -86,7 +86,7 @@ func checkChannelCapacity(pass *analysis.Pass, file *ast.File, call *ast.CallExp
 	if !exact || capacity <= maximum || channelRationale(pass, file, call.Pos()) {
 		return
 	}
-	analyzerbase.Reportf(pass, analyzerbase.CheckChannelCapacityRationale, call.Args[1].Pos(), "channel capacity %d requires a bounded rationale comment", capacity)
+	check.Reportf(pass, check.ChannelCapacityRationale, call.Args[1].Pos(), "channel capacity %d requires a bounded rationale comment", capacity)
 }
 
 func channelRationale(pass *analysis.Pass, file *ast.File, position token.Pos) bool {
@@ -120,7 +120,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, calls
 			}
 			channel := common.Args[0]
 			if closesBorrowedChannel(channel, parameters, callsites) {
-				analyzerbase.Reportf(pass, analyzerbase.CheckChannelCallerClose, instruction.Pos(), "do not close a channel received from caller")
+				check.Reportf(pass, check.ChannelCallerClose, instruction.Pos(), "do not close a channel received from caller")
 			}
 			// Scheduling a deferred close does not close the channel at this
 			// program point; sends before the function returns remain valid.
@@ -133,7 +133,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, calls
 					continue
 				}
 				reportedSends[send.Pos()] = true
-				analyzerbase.Reportf(pass, analyzerbase.CheckChannelSendAfterClose, send.Pos(), "send follows close of channel")
+				check.Reportf(pass, check.ChannelSendAfterClose, send.Pos(), "send follows close of channel")
 			}
 		}
 	}

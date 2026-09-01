@@ -5,7 +5,7 @@ import (
 	"go/ast"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -34,7 +34,7 @@ func analyzeDeterministicBlock(pass *analysis.Pass, function *ast.FuncDecl, bloc
 	for index, statement := range block.List {
 		ranged, ok := statement.(*ast.RangeStmt)
 		if ok && isMapType(pass.TypesInfo.TypeOf(ranged.X)) && mapRangeReachesOrderedOutput(pass, function, block, index, ranged) {
-			analyzerbase.Report(pass, analyzerbase.CheckDeterministicMapOutput, analysis.Diagnostic{Pos: ranged.Pos(), End: ranged.X.End(), Message: "map iteration reaches ordered output without sorting"})
+			check.Report(pass, check.DeterministicMapOutput, analysis.Diagnostic{Pos: ranged.Pos(), End: ranged.X.End(), Message: "map iteration reaches ordered output without sorting"})
 		}
 		inspectNestedDeterministicBlocks(pass, function, statement)
 	}

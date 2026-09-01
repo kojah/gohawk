@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/catalog"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -48,7 +48,7 @@ func TestUnknownDiagnosticReturnsError(t *testing.T) {
 			pass.Report(analysis.Diagnostic{Category: "example/unknown"})
 			return nil, nil
 		},
-	}, []analyzerbase.CheckInfo{{ID: "example/known"}})
+	}, []catalog.CheckInfo{{ID: "example/known"}})
 
 	_, err := analyzer.Run(&analysis.Pass{Report: func(analysis.Diagnostic) {}})
 	if err == nil || !strings.Contains(err.Error(), `analyzer "example" reported unknown check "example/unknown"`) {

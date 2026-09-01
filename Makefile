@@ -75,7 +75,7 @@ lint:
 
 coverage:
 	$(GO) test ./... -covermode=count \
-		-coverpkg=./internal/analysisutil/...,./analyzers,./internal/analyzerbase,./internal/analysispasses/...,./internal/analyzers/...,./internal/docexamples \
+		-coverpkg=./internal/analysisutil/...,./internal/catalog,./internal/check,./internal/flagvalue,./internal/trace,./analyzers,./internal/analysispasses/...,./internal/analyzers/...,./internal/docexamples \
 		-coverprofile=coverage.out
 	$(GO) tool cover -func=coverage.out -o=coverage-summary.out
 

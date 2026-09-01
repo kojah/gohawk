@@ -7,8 +7,8 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
-	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -67,7 +67,7 @@ func reportEvaluationDependencies(pass *analysis.Pass, expressions []ast.Expr) {
 					disjointFieldMutation(pass, expressions[:laterIndex], call, argumentIndex, object) {
 					continue
 				}
-				analyzerbase.Reportf(pass, analyzerbase.CheckEvaluationOrder, address.Pos(), "later operand may mutate %s after its earlier value was evaluated", identifier.Name)
+				check.Reportf(pass, check.EvaluationOrder, address.Pos(), "later operand may mutate %s after its earlier value was evaluated", identifier.Name)
 			}
 			return true
 		})
@@ -140,8 +140,8 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 			return false
 		}
 	}
-	if analysisTrace.Enabled("evalorder", string(analyzerbase.CheckEvaluationOrder)) {
-		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "evalorder", Check: string(analyzerbase.CheckEvaluationOrder), Phase: "evidence", Reason: "disjoint-field-mutation", Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos()})
+	if analysisTrace.Enabled("evalorder", string(check.EvaluationOrder)) {
+		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "evalorder", Check: string(check.EvaluationOrder), Phase: "evidence", Reason: "disjoint-field-mutation", Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos()})
 	}
 	return true
 }

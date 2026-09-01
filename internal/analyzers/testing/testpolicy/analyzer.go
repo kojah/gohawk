@@ -9,7 +9,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -49,7 +49,7 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 			return ssautil.CallName(common) == "Helper" && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), handle, map[ssa.Value]bool{})
 		}) {
 			source := analysisutil.SourceRange(pass, function.Pos())
-			analyzerbase.Report(pass, analyzerbase.CheckTestHelperMarker, analysis.Diagnostic{
+			check.Report(pass, check.TestHelperMarker, analysis.Diagnostic{
 				Pos:            source.Pos(),
 				End:            source.End(),
 				Message:        "test helper accepting " + handle.Name() + " must call " + handle.Name() + ".Helper() on every return path",

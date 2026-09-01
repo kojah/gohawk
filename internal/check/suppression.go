@@ -1,4 +1,4 @@
-package analysisutil
+package check
 
 import (
 	"go/token"
@@ -7,9 +7,9 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// DiagnosticSuppressed reports whether an immediately adjacent comment
+// Suppressed reports whether an immediately adjacent comment
 // contains "gohawk:ignore analyzer" for analyzer.
-func DiagnosticSuppressed(pass *analysis.Pass, position token.Pos, analyzer string) bool {
+func Suppressed(pass *analysis.Pass, position token.Pos, analyzer string) bool {
 	line := pass.Fset.Position(position).Line
 	for _, file := range pass.Files {
 		if position < file.Pos() || position > file.End() {

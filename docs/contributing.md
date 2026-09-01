@@ -55,25 +55,25 @@ func runExamplePolicy(pass *analysis.Pass) (any, error) {
 ```
 
 Add any analysis passes you need to `Requires`. Diagnostics must point at the
-smallest useful source range. Use `analyzerbase.Reportf` when you have a
-position and `analyzerbase.Report` when you need to provide the range yourself.
+smallest useful source range. Use `check.Reportf` when you have a position and
+`check.Report` when you need to provide the range yourself.
 
 Only add flags for choices that projects may reasonably disagree about, such
 as a threshold or ownership policy. Define them on the analyzer's `Flags` set.
 
 ### 2. Register it
 
-Add an `analyzerbase.AnalyzerSpec` for the analyzer to the matching group in
+Add a `catalog.AnalyzerSpec` for the analyzer to the matching group in
 `analyzers/catalog_specs.go`, including its checks, opt-in status, and
 suggested-fix support. Then add its analyzer ID to the stable order in
 `analyzers/analyzers.go`.
 
 Define each stable check identity alongside the existing check constants in
-`internal/analyzerbase/base.go`.
+`internal/check/check.go`.
 
 Give every diagnostic rule a stable check identity in its `AnalyzerSpec`.
-Report each diagnostic through `analyzerbase.Report` or
-`analyzerbase.Reportf` with that check identity. Analyzers and checks run by
+Report each diagnostic through `check.Report` or `check.Reportf` with that
+check identity. Analyzers and checks run by
 default unless their spec explicitly sets `OptIn: true`.
 
 Then update `analyzers/analyzers_test.go`:

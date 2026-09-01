@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -35,7 +35,7 @@ func requireDiagnosticContract(t *testing.T, analyzer *analysis.Analyzer) *analy
 			if !strings.HasPrefix(diagnostic.Category, analyzer.Name+"/") {
 				t.Errorf("%s diagnostic %q has invalid check identity %q", analyzer.Name, diagnostic.Message, diagnostic.Category)
 			}
-			if !analysisutil.DiagnosticSuppressed(pass, diagnostic.Pos, analyzer.Name) {
+			if !check.Suppressed(pass, diagnostic.Pos, analyzer.Name) {
 				report(diagnostic)
 			}
 		}

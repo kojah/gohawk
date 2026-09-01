@@ -16,8 +16,7 @@ main.go
   → internal/cli
   → analyzers
   → internal/analyzers/<group>/<analyzer>
-  → internal/analysispasses
-  → internal/analysisutil and internal/analysisutil/ssa
+  → internal/analysispasses and internal/analysisutil/ssa
 ```
 
 - `main.go` is a thin executable entry point.
@@ -28,8 +27,10 @@ main.go
 - `internal/analyzers/<group>/<analyzer>` gives each analyzer an independent
   package. Contracts, ownership, reliability, and testing mirror catalog
   metadata as organizational containers rather than Go package boundaries.
-- `internal/analyzerbase` contains the internal catalog model, stable check
-  identities, diagnostic helpers, and shared flag value types.
+- `internal/catalog` contains the validated internal analyzer registry.
+- `internal/check` contains stable check identities, diagnostic reporting, and
+  suppression policy. `internal/flagvalue` contains shared analyzer flag
+  parsers, while `internal/trace` provides cross-cutting evidence tracing.
 - `internal/analysispasses` contains prerequisite analysis passes shared by
   otherwise independent analyzers, including cross-package lifecycle facts.
 - `internal/analysisutil` contains syntax and type helpers.
@@ -70,7 +71,7 @@ Each analyzer has three connected pieces:
    activation, and suggested-fix support.
 3. `analyzers/analyzers.go` places it in the stable execution order.
 
-`analyzerbase.NewCatalog` validates these declarations at construction time.
+`catalog.NewCatalog` validates these declarations at construction time.
 It rejects missing checks, duplicate identities, and incomplete execution
 order rather than allowing catalog drift.
 

@@ -6,7 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -63,7 +63,7 @@ func reportExitAfterDefer(pass *analysis.Pass, function *ssa.Function) {
 			common := ssautil.InstructionCall(instruction)
 			if deferred && exitsWithoutRunningDefers(common) && !reported[instruction] {
 				reported[instruction] = true
-				analyzerbase.Reportf(pass, analyzerbase.CheckExitSkipsDefer, instruction.Pos(), "%s.%s exits without running an earlier defer", analysisutil.ShortPackageName(ssautil.CallPackage(common)), ssautil.CallName(common))
+				check.Reportf(pass, check.ExitSkipsDefer, instruction.Pos(), "%s.%s exits without running an earlier defer", analysisutil.ShortPackageName(ssautil.CallPackage(common)), ssautil.CallName(common))
 			}
 		}
 		for _, successor := range state.block.Succs {

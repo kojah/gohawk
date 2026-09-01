@@ -8,7 +8,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -47,10 +47,10 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				if loggingCall(call.Common()) && loggedErrorIsReturned(call) {
-					analyzerbase.Reportf(pass, analyzerbase.CheckErrorLogAndReturn, call.Pos(), "error is logged and returned by same function")
+					check.Reportf(pass, check.ErrorLogAndReturn, call.Pos(), "error is logged and returned by same function")
 				}
 				if !isTest && stringErrorClassificationSSA(call, callsites) {
-					analyzerbase.Reportf(pass, analyzerbase.CheckErrorTextClassification, call.Pos(), "do not classify errors by matching Error text")
+					check.Reportf(pass, check.ErrorTextClassification, call.Pos(), "do not classify errors by matching Error text")
 				}
 			}
 		}
@@ -89,7 +89,7 @@ func reportMismatchedInlineErrors(pass *analysis.Pass) {
 				return false
 			})
 			if mismatched != nil {
-				analyzerbase.Reportf(pass, analyzerbase.CheckErrorMismatchedInline, mismatched.Pos(), "condition checks %s instead of newly declared %s", mismatched.Name, fresh.Name)
+				check.Reportf(pass, check.ErrorMismatchedInline, mismatched.Pos(), "condition checks %s instead of newly declared %s", mismatched.Name, fresh.Name)
 			}
 		}
 	})

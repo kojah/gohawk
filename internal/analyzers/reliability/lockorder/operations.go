@@ -7,7 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/check"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -40,14 +40,14 @@ func callerOwnedLocks(function *ssa.Function) map[string]bool {
 
 func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string, identity string, relations map[lockRelation]token.Pos) []string {
 	if slices.Contains(held, identity) {
-		analyzerbase.Reportf(pass, analyzerbase.CheckLockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
+		check.Reportf(pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
 		return held
 	}
 	for _, owner := range held {
 		relation := lockRelation{from: owner, to: identity}
 		reverse := lockRelation{from: identity, to: owner}
 		if _, exists := relations[reverse]; exists {
-			analyzerbase.Reportf(pass, analyzerbase.CheckLockContradictoryOrder, instruction.Pos(), "contradictory lock order: %s and %s", identity, owner)
+			check.Reportf(pass, check.LockContradictoryOrder, instruction.Pos(), "contradictory lock order: %s and %s", identity, owner)
 		}
 		relations[relation] = instruction.Pos()
 	}
