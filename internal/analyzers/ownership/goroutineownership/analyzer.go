@@ -202,7 +202,7 @@ func (analysis goroutineAnalysis) immediateProof() goroutineOwnershipProof {
 			externallyOwnedJoin(analysis.signals, analysis.groups)) {
 		return goroutineOwnershipProof{proven: true, reason: ownershipReasonCallerOrExternalOwner}
 	}
-	if ownershipRegisteredBefore(analysis.spawn, analysis.signals, analysis.groups) {
+	if ownershipRegisteredBefore(analysis.spawn, analysis.signals) {
 		return goroutineOwnershipProof{proven: true, reason: ownershipReasonRegistrationBeforeSpawn}
 	}
 	if synctestOwnsGoroutine(analysis.function) {

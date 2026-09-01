@@ -71,15 +71,9 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 	if ssaflow.CallName(common) == "Wait" && ssaflow.SameAsAny(ssaflow.CallReceiver(common), groups) {
 		return true
 	}
-	lower := strings.ToLower(ssaflow.CallName(common))
-	if !strings.Contains(lower, "wait") && !strings.Contains(lower, "join") {
-		return false
-	}
-	for _, argument := range common.Args {
-		if ssaflow.SameAsAny(argument, signals) || ssaflow.SameAsAny(argument, groups) {
-			return true
-		}
-	}
+	// A wait- or join-shaped name is not completion evidence. Source-visible
+	// helpers are accepted above only when their implementation receives from
+	// the exact signal; opaque or no-op calls remain unproven.
 	return false
 }
 

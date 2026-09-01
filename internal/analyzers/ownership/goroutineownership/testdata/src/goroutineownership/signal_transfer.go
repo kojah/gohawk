@@ -52,7 +52,7 @@ func (*signalRegistry) Register(<-chan struct{}) {}
 
 func registeredAfterSpawn(registry *signalRegistry) {
 	done := make(chan struct{})
-	go func() { close(done) }()
+	go func() { close(done) }() // want "goroutine is not joined on every return path"
 	registry.Register(done)
 }
 

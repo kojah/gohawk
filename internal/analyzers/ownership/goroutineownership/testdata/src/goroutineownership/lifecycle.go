@@ -94,3 +94,11 @@ func joinedByWaitGroup() {
 	}()
 	group.Wait()
 }
+
+func registeredWaitGroupWithoutWait() {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { // want "goroutine is not joined on every return path"
+		defer group.Done()
+	}()
+}

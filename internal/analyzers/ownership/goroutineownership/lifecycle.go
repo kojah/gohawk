@@ -351,7 +351,7 @@ func lifecycleMethod(name string) bool {
 	}
 }
 
-func ownershipRegisteredBefore(spawn *ssa.Go, signals, groups []ssa.Value) bool {
+func ownershipRegisteredBefore(spawn *ssa.Go, signals []ssa.Value) bool {
 	index := ssaflow.InstructionIndex(spawn)
 	if index < 0 {
 		return false
@@ -373,23 +373,9 @@ func ownershipRegisteredBefore(spawn *ssa.Go, signals, groups []ssa.Value) bool 
 			if _, deferred := instruction.(*ssa.Defer); deferred && callReceivesAny(instruction, signals) {
 				return true
 			}
-			common := ssaflow.InstructionCall(instruction)
-			name := strings.ToLower(ssaflow.CallName(common))
-			if common == nil || !ownershipRegistrationName(name) {
-				continue
-			}
-			for _, argument := range common.Args {
-				if ssaflow.SameAsAny(argument, signals) || ssaflow.SameAsAny(argument, groups) {
-					return true
-				}
-			}
 		}
 	}
 	return false
-}
-
-func ownershipRegistrationName(name string) bool {
-	return name == "add" || strings.Contains(name, "register") || strings.Contains(name, "track") || strings.Contains(name, "own")
 }
 
 func transfersGoroutineOwnership(
@@ -430,14 +416,6 @@ func transfersGoroutineOwnership(
 	common := ssaflow.InstructionCall(instruction)
 	if mockReturnOwnsSignal(common, signals) {
 		return true
-	}
-	if common == nil || !ownershipRegistrationName(strings.ToLower(ssaflow.CallName(common))) {
-		return false
-	}
-	for _, argument := range common.Args {
-		if ssaflow.SameAsAny(argument, signals) || ssaflow.SameAsAny(argument, groups) {
-			return true
-		}
 	}
 	return false
 }

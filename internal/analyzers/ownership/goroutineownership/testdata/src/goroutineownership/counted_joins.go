@@ -191,6 +191,20 @@ func joinedThroughGenericReceiveHelper() {
 	_ = receiveGeneric(done)
 }
 
+func waitWithoutReceive(<-chan bool) {}
+
+func joinWithoutReceive(<-chan bool) {}
+
+func namedWaitAndJoinDoNotProveCompletion() {
+	waitDone := make(chan bool)
+	go func() { waitDone <- true }() // want "goroutine is not joined on every return path"
+	waitWithoutReceive(waitDone)
+
+	joinDone := make(chan bool)
+	go func() { joinDone <- true }() // want "goroutine is not joined on every return path"
+	joinWithoutReceive(joinDone)
+}
+
 type callbackOwner struct {
 	run func()
 }
