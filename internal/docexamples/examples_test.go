@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"golang.org/x/tools/go/packages"
 )
 
 func TestParseRegions(t *testing.T) {
@@ -43,5 +45,24 @@ func TestParseRegionsRejectsUnclosedMarker(t *testing.T) {
 	_, err := parseRegions("example.go", []byte("//gohawk:example ok\nfunc ok() {}\n"))
 	if err == nil || !strings.Contains(err.Error(), "unclosed") {
 		t.Fatalf("error = %v, want unclosed marker error", err)
+	}
+}
+
+func TestPackageBelongsToAnalyzer(t *testing.T) {
+	for _, test := range []struct {
+		packagePath string
+		forTest     string
+		want        bool
+	}{
+		{packagePath: "example", want: true},
+		{packagePath: "example.test", want: true},
+		{packagePath: "example_test", forTest: "example", want: true},
+		{packagePath: "example/config", want: false},
+		{packagePath: "another", want: false},
+	} {
+		loaded := &packages.Package{PkgPath: test.packagePath, ForTest: test.forTest}
+		if got := packageBelongsToAnalyzer(loaded, "example"); got != test.want {
+			t.Errorf("packageBelongsToAnalyzer(%q) = %v, want %v", test.packagePath, got, test.want)
+		}
 	}
 }

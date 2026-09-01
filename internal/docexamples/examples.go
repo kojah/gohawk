@@ -53,6 +53,12 @@ type Diagnostic struct {
 	EndCol    int    `json:"endColumn"`
 }
 
+// Target identifies one analyzer and its analysistest GOPATH fixture root.
+type Target struct {
+	TestRoot string
+	Analyzer *analysis.Analyzer
+}
+
 type region struct {
 	kind     string
 	title    string
@@ -67,44 +73,103 @@ type region struct {
 // GOPATH root. Diagnostics outside marked documentation regions are ordinary
 // regression findings and ignored.
 func Collect(testRoot string, analyzer *analysis.Analyzer) (Set, error) {
-	directory := filepath.Join(testRoot, "src", analyzer.Name)
-	regions, hasTests, err := readRegions(directory)
-	if err != nil {
-		return Set{}, fmt.Errorf("%s examples: %w", analyzer.Name, err)
+	sets, err := CollectAll([]Target{{TestRoot: testRoot, Analyzer: analyzer}})
+	return sets[analyzer.Name], err
+}
+
+// CollectAll loads every fixture package in one go/packages invocation, then
+// runs each analyzer only against its own package roots. A shared load avoids
+// paying the go-list and type-checking startup cost once per documentation
+// page while preserving analyzer isolation.
+func CollectAll(targets []Target) (map[string]Set, error) {
+	results := make(map[string]Set, len(targets))
+	if len(targets) == 0 {
+		return results, nil
+	}
+	type preparedTarget struct {
+		Target
+		regions []region
+	}
+	prepared := make([]preparedTarget, 0, len(targets))
+	testRoots := make([]string, 0, len(targets))
+	patterns := make([]string, 0, len(targets))
+	seen := make(map[string]bool, len(targets))
+	hasTests := false
+	for _, target := range targets {
+		if target.Analyzer == nil {
+			return nil, errors.New("nil analyzer target")
+		}
+		if seen[target.Analyzer.Name] {
+			return nil, fmt.Errorf("duplicate analyzer target %q", target.Analyzer.Name)
+		}
+		seen[target.Analyzer.Name] = true
+		directory := filepath.Join(target.TestRoot, "src", target.Analyzer.Name)
+		regions, targetHasTests, err := readRegions(directory)
+		if err != nil {
+			return nil, fmt.Errorf("%s examples: %w", target.Analyzer.Name, err)
+		}
+		prepared = append(prepared, preparedTarget{Target: target, regions: regions})
+		testRoots = append(testRoots, target.TestRoot)
+		patterns = append(patterns, target.Analyzer.Name)
+		hasTests = hasTests || targetHasTests
 	}
 
 	environment := slices.DeleteFunc(os.Environ(), func(value string) bool {
 		return strings.HasPrefix(value, "GO111MODULE=") || strings.HasPrefix(value, "GOPATH=")
 	})
-	environment = append(environment, "GO111MODULE=off", "GOPATH="+testRoot)
+	environment = append(environment, "GO111MODULE=off", "GOPATH="+strings.Join(testRoots, string(os.PathListSeparator)))
 	config := &packages.Config{
 		Mode:  packages.LoadAllSyntax,
-		Dir:   directory,
+		Dir:   filepath.Join(targets[0].TestRoot, "src", targets[0].Analyzer.Name),
 		Env:   environment,
 		Tests: hasTests,
 	}
-	loaded, err := packages.Load(config, analyzer.Name)
+	loaded, err := packages.Load(config, patterns...)
 	if err != nil {
-		return Set{}, err
+		return nil, err
 	}
 	if len(loaded) == 0 {
-		return Set{}, errors.New("no package was loaded")
+		return nil, errors.New("no packages were loaded")
 	}
 	if count := packages.PrintErrors(loaded); count > 0 {
-		return Set{}, fmt.Errorf("fixture package has %d load errors", count)
+		return nil, fmt.Errorf("fixture packages have %d load errors", count)
 	}
-	graph, err := checker.Analyze([]*analysis.Analyzer{analyzer}, loaded, &checker.Options{Sequential: true})
-	if err != nil {
-		return Set{}, err
+	for _, target := range prepared {
+		var roots []*packages.Package
+		for _, loadedPackage := range loaded {
+			if packageBelongsToAnalyzer(loadedPackage, target.Analyzer.Name) {
+				roots = append(roots, loadedPackage)
+			}
+		}
+		if len(roots) == 0 {
+			return nil, fmt.Errorf("%s: no package was loaded", target.Analyzer.Name)
+		}
+		graph, err := checker.Analyze([]*analysis.Analyzer{target.Analyzer}, roots, &checker.Options{Sequential: true})
+		if err != nil {
+			return nil, err
+		}
+		result, err := collectDiagnostics(target.Analyzer.Name, target.regions, graph.Roots)
+		if err != nil {
+			return nil, err
+		}
+		results[target.Analyzer.Name] = result
 	}
+	return results, nil
+}
+
+func packageBelongsToAnalyzer(loaded *packages.Package, analyzerName string) bool {
+	return loaded.PkgPath == analyzerName || loaded.PkgPath == analyzerName+".test" || loaded.ForTest == analyzerName
+}
+
+func collectDiagnostics(analyzerName string, regions []region, roots []*checker.Action) (Set, error) {
 	attachedDiagnostics := make(map[string][]Diagnostic)
-	for _, action := range graph.Roots {
+	for _, action := range roots {
 		if action.Err != nil {
 			return Set{}, action.Err
 		}
 		for _, diagnostic := range action.Diagnostics {
 			if err := attachDiagnostic(action.Package.Fset, regions, attachedDiagnostics, diagnostic); err != nil {
-				return Set{}, fmt.Errorf("%s: %w", analyzer.Name, err)
+				return Set{}, fmt.Errorf("%s: %w", analyzerName, err)
 			}
 		}
 	}
@@ -122,11 +187,11 @@ func Collect(testRoot string, analyzer *analysis.Analyzer) (Set, error) {
 	}
 	for index, example := range result.Flagged {
 		if len(example.Diagnostics) == 0 {
-			return Set{}, fmt.Errorf("%s: flagged example %d produced no diagnostics", analyzer.Name, index+1)
+			return Set{}, fmt.Errorf("%s: flagged example %d produced no diagnostics", analyzerName, index+1)
 		}
 	}
 	if len(result.OK.Diagnostics) > 0 {
-		return Set{}, fmt.Errorf("%s: OK example produced %d diagnostics", analyzer.Name, len(result.OK.Diagnostics))
+		return Set{}, fmt.Errorf("%s: OK example produced %d diagnostics", analyzerName, len(result.OK.Diagnostics))
 	}
 	return result, nil
 }

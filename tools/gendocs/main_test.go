@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,13 +11,19 @@ import (
 	"github.com/kojah/gohawk/internal/docexamples"
 )
 
-func TestCollectManifest(t *testing.T) {
+func TestGeneratedManifestMatchesCatalog(t *testing.T) {
+	// generated-check owns the expensive live analyzer/example validation. This
+	// unit test verifies the serialized catalog without repeating that full run.
 	root, err := repositoryRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := collectManifest(root)
+	contents, err := os.ReadFile(filepath.Join(root, "site", "src", "generated", "analyzers.json"))
 	if err != nil {
+		t.Fatal(err)
+	}
+	var data manifest
+	if err := json.Unmarshal(contents, &data); err != nil {
 		t.Fatal(err)
 	}
 	if len(data.Groups) != len(gohawk.AnalyzerGroups()) {
@@ -28,17 +35,6 @@ func TestCollectManifest(t *testing.T) {
 		for _, analyzer := range group.Analyzers {
 			if !strings.HasPrefix(analyzer.Path, "analyzers/"+group.Slug+"/") {
 				t.Errorf("analyzer %q path %q is outside group %q", analyzer.Name, analyzer.Path, group.Slug)
-			}
-			if len(analyzer.Examples.Flagged) == 0 || analyzer.Examples.OK.Code == "" {
-				t.Errorf("analyzer %q is missing generated examples", analyzer.Name)
-			}
-			for index, example := range analyzer.Examples.Flagged {
-				if len(example.Diagnostics) == 0 {
-					t.Errorf("analyzer %q flagged example %d has no diagnostics", analyzer.Name, index+1)
-				}
-			}
-			if len(analyzer.Examples.OK.Diagnostics) != 0 {
-				t.Errorf("analyzer %q OK example has %d diagnostics", analyzer.Name, len(analyzer.Examples.OK.Diagnostics))
 			}
 			info := gohawk.AnalyzerMetadata()[analyzer.Name]
 			if analyzer.OptIn != info.OptIn {
