@@ -28,6 +28,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # pnpm/action-setup owns the CI version; avoid re-entering it through Corepack.
+      PNPM: pnpm
     steps:
       # Manual reruns also deploy the promoted website branch, never main.
       - name: Check out promoted website source
