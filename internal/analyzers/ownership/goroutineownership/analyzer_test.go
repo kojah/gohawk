@@ -11,6 +11,10 @@ func TestAnalyzer(t *testing.T) {
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "goroutineownership")
 }
 
+func TestCausalJoins(t *testing.T) {
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "goroutineownership/causal")
+}
+
 func TestJoinMode(t *testing.T) {
 	analyzer := Analyzer()
 	if err := analyzer.Flags.Set("mode", "join"); err != nil {

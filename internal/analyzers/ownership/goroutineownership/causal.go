@@ -27,31 +27,20 @@ func causalTestJoin(spawn *ssa.Go, candidate ssa.Instruction) bool {
 	if callee == nil || spawned == nil || !functionMayBlock(callee) {
 		return false
 	}
-	if !closurePerformsLifecycleAction(spawned) {
-		return false
-	}
 	// A blocking call is causal join evidence only when it operates on a value
-	// captured by the worker that performs the lifecycle action. Mere source
-	// order between unrelated blocking work and the spawn is insufficient.
+	// captured by the worker and the worker's lifecycle action operates on that
+	// exact capture. Mere source order, or cleanup of a different captured value,
+	// is insufficient.
 	for index := range spawned.FreeVars {
 		if index >= len(closure.Bindings) {
 			continue
 		}
+		if !functionDirectlyPerformsLifecycleActionOn(spawned, spawned.FreeVars[index]) {
+			continue
+		}
 		binding := ssaflow.CapturedBindingValue(closure.Bindings[index])
-		if relatedValue(ssaflow.CallReceiver(common), binding) {
+		if callUsesRelatedValue(common, binding) {
 			return true
-		}
-		for _, argument := range common.Args {
-			if relatedValue(argument, binding) {
-				return true
-			}
-		}
-		if candidateClosure, ok := common.Value.(*ssa.MakeClosure); ok {
-			for _, candidateBinding := range candidateClosure.Bindings {
-				if relatedValue(ssaflow.CapturedBindingValue(candidateBinding), binding) {
-					return true
-				}
-			}
 		}
 	}
 	return false
@@ -74,7 +63,7 @@ func causallyJoinedByOwnedWorker(spawn *ssa.Go, candidate ssa.Instruction) bool 
 	if workerClosure != nil {
 		worker, _ = workerClosure.Fn.(*ssa.Function)
 	}
-	if spawned == nil || worker == nil || !functionMayBlock(spawned) || !closurePerformsLifecycleAction(worker) {
+	if spawned == nil || worker == nil || !functionMayBlock(spawned) {
 		return false
 	}
 	signals, groups := goroutineJoinValues(joined)
@@ -87,13 +76,11 @@ func causallyJoinedByOwnedWorker(spawn *ssa.Go, candidate ssa.Instruction) bool 
 	if closure, closureOK := spawn.Common().Value.(*ssa.MakeClosure); closureOK {
 		spawnValues = append(spawnValues, closure.Bindings...)
 	}
-	workerValues := append([]ssa.Value{}, joined.Common().Args...)
-	if workerClosure != nil {
-		workerValues = append(workerValues, workerClosure.Bindings...)
-	}
+	workerValues := suppliedWorkerValues(joined, worker, workerClosure)
 	for _, first := range spawnValues {
 		for _, second := range workerValues {
-			if relatedValue(ssaflow.CapturedBindingValue(first), ssaflow.CapturedBindingValue(second)) {
+			if functionPerformsLifecycleActionOn(worker, second.local, map[*ssa.Function]bool{}) &&
+				relatedValue(ssaflow.CapturedBindingValue(first), ssaflow.CapturedBindingValue(second.supplied)) {
 				return true
 			}
 		}
@@ -101,12 +88,104 @@ func causallyJoinedByOwnedWorker(spawn *ssa.Go, candidate ssa.Instruction) bool 
 	return false
 }
 
-func closurePerformsLifecycleAction(function *ssa.Function) bool {
+func functionDirectlyPerformsLifecycleActionOn(function *ssa.Function, target ssa.Value) bool {
+	if function == nil || target == nil {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if lifecycleActionUsesValue(ssaflow.InstructionCall(instruction), target) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+type suppliedWorkerValue struct {
+	local    ssa.Value
+	supplied ssa.Value
+}
+
+func suppliedWorkerValues(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure) []suppliedWorkerValue {
+	values := make([]suppliedWorkerValue, 0, len(function.Params)+len(function.FreeVars))
+	for index, parameter := range function.Params {
+		if index < len(spawn.Common().Args) {
+			values = append(values, suppliedWorkerValue{local: parameter, supplied: spawn.Common().Args[index]})
+		}
+	}
+	if closure == nil {
+		return values
+	}
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) {
+			values = append(values, suppliedWorkerValue{local: free, supplied: closure.Bindings[index]})
+		}
+	}
+	return values
+}
+
+// Lifecycle evidence may cross a source-visible helper only through the exact
+// parameter supplied from the candidate owner. This keeps Nenya's
+// eventLoop(..., srv) -> srv.Shutdown(...) chain while rejecting a helper that
+// cleans a different captured object.
+func functionPerformsLifecycleActionOn(function *ssa.Function, target ssa.Value, seen map[*ssa.Function]bool) bool {
+	if function == nil || target == nil || seen[function] {
+		return false
+	}
+	seen[function] = true
+	defer delete(seen, function)
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			common := ssaflow.InstructionCall(instruction)
-			name := strings.ToLower(ssaflow.CallName(common))
-			if common != nil && (name == "close" || name == "done" || name == "release" || name == "stop" || name == "unlock") {
+			if lifecycleActionUsesValue(common, target) {
+				return true
+			}
+			if common == nil {
+				continue
+			}
+			callee := common.StaticCallee()
+			if callee == nil || len(callee.Blocks) == 0 {
+				continue
+			}
+			for index, argument := range common.Args {
+				if index < len(callee.Params) && relatedValue(argument, target) &&
+					functionPerformsLifecycleActionOn(callee, callee.Params[index], seen) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func lifecycleActionUsesValue(common *ssa.CallCommon, target ssa.Value) bool {
+	if common == nil {
+		return false
+	}
+	switch strings.ToLower(ssaflow.CallName(common)) {
+	case "close", "done", "release", "stop", "unlock":
+	default:
+		return false
+	}
+	return callUsesRelatedValue(common, target)
+}
+
+func callUsesRelatedValue(common *ssa.CallCommon, target ssa.Value) bool {
+	if common == nil || target == nil {
+		return false
+	}
+	if relatedValue(ssaflow.CallReceiver(common), target) {
+		return true
+	}
+	for _, argument := range common.Args {
+		if relatedValue(argument, target) {
+			return true
+		}
+	}
+	if closure, ok := common.Value.(*ssa.MakeClosure); ok {
+		for _, binding := range closure.Bindings {
+			if relatedValue(ssaflow.CapturedBindingValue(binding), target) {
 				return true
 			}
 		}
