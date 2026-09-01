@@ -152,12 +152,7 @@ func expressionStatementCall(statement ast.Stmt) (*ast.CallExpr, bool) {
 }
 
 func syncMapMethod(pass *analysis.Pass, call *ast.CallExpr, name string) bool {
-	selector, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || selector.Sel.Name != name {
-		return false
-	}
-	function, ok := pass.TypesInfo.ObjectOf(selector.Sel).(*types.Func)
-	return ok && function.Pkg() != nil && function.Pkg().Path() == "sync"
+	return analysisutil.IsCallTo(pass, call, analysisutil.PackageMethod("sync", "Map", name))
 }
 
 func bodyUsesMutex(body *ast.BlockStmt) bool {

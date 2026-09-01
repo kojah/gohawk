@@ -112,6 +112,19 @@ reported.
 
 ## Analyzer organization
 
+### Well-known symbol identity
+
+Match known package functions, receiver-qualified methods, builtins, and
+package variables through `analysisutil.Symbol` and the AST or SSA symbol
+matchers. Do not reconstruct declaration identity from package paths and raw
+names. Keep analyzer-specific symbol declarations beside the contract that
+uses them; the shared package owns identity mechanics, not a global catalog.
+
+Name-only matching remains appropriate for documented structural contracts,
+such as cleanup or ownership methods on an already-proven receiver. Package-
+wide API families and user-configured qualified names may use package metadata,
+but each such escape is an explicit architecture-test review point.
+
 Follow the layering common in mature Go analyzer projects: keep analyzer
 registration and top-level traversal easy to find, and isolate substantial
 evidence engines behind focused implementation files.

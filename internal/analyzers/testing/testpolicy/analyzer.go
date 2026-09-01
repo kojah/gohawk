@@ -122,6 +122,5 @@ func testingHandle(value types.Type) bool {
 	if !ok {
 		return false
 	}
-	named, ok := pointer.Elem().(*types.Named)
-	return ok && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == "testing" && (named.Obj().Name() == "T" || named.Obj().Name() == "B")
+	return analysisutil.NamedType(pointer.Elem(), "testing", "T") || analysisutil.NamedType(pointer.Elem(), "testing", "B")
 }

@@ -99,6 +99,16 @@ func IsCallTo(pass *analysis.Pass, call *ast.CallExpr, symbol Symbol) bool {
 	return selection != nil && symbol.MatchesMethod(selection.Obj().Name(), selection.Recv())
 }
 
+// IsCallToAny reports whether call statically resolves to one of symbols.
+func IsCallToAny(pass *analysis.Pass, call *ast.CallExpr, symbols ...Symbol) bool {
+	for _, symbol := range symbols {
+		if IsCallTo(pass, call, symbol) {
+			return true
+		}
+	}
+	return false
+}
+
 func calledObject(pass *analysis.Pass, expression ast.Expr) types.Object {
 	switch typed := expression.(type) {
 	case *ast.Ident:

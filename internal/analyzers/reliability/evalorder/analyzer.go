@@ -14,6 +14,11 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
+var knownArgumentMutators = []analysisutil.Symbol{
+	analysisutil.PackageFunction("encoding/json", "Unmarshal"),
+	analysisutil.PackageFunction("encoding/xml", "Unmarshal"),
+}
+
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
@@ -210,20 +215,7 @@ func calledFunctionObject(pass *analysis.Pass, call *ast.CallExpr) *types.Func {
 }
 
 func knownMutatingArgument(pass *analysis.Pass, call *ast.CallExpr, argumentIndex int) bool {
-	selector, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	function, ok := pass.TypesInfo.ObjectOf(selector.Sel).(*types.Func)
-	if !ok || function.Pkg() == nil {
-		return false
-	}
-	switch function.Pkg().Path() + "." + function.Name() {
-	case "encoding/json.Unmarshal", "encoding/xml.Unmarshal":
-		return argumentIndex == 1
-	default:
-		return false
-	}
+	return argumentIndex == 1 && analysisutil.IsCallToAny(pass, call, knownArgumentMutators...)
 }
 
 func functionBodyMutates(pass *analysis.Pass, body *ast.BlockStmt, parameter types.Object) bool {

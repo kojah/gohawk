@@ -3,13 +3,19 @@ package oncepolicy
 
 import (
 	"go/ast"
-	"go/types"
 
+	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
 )
+
+var onceWrappers = []analysisutil.Symbol{
+	analysisutil.PackageFunction("sync", "OnceFunc"),
+	analysisutil.PackageFunction("sync", "OnceValue"),
+	analysisutil.PackageFunction("sync", "OnceValues"),
+}
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
@@ -29,18 +35,19 @@ func runOncePolicy(pass *analysis.Pass) (any, error) {
 		if !ok || len(outer.Args) != 0 {
 			return
 		}
-		selector, ok := inner.Fun.(*ast.SelectorExpr)
-		if !ok {
+		if !analysisutil.IsCallToAny(pass, inner, onceWrappers...) {
 			return
 		}
-		function, ok := pass.TypesInfo.ObjectOf(selector.Sel).(*types.Func)
-		if !ok || function.Pkg() == nil || function.Pkg().Path() != "sync" {
+		var name string
+		switch function := inner.Fun.(type) {
+		case *ast.Ident:
+			name = function.Name
+		case *ast.SelectorExpr:
+			name = function.Sel.Name
+		default:
 			return
 		}
-		switch function.Name() {
-		case "OnceFunc", "OnceValue", "OnceValues":
-			check.Reportf(pass, check.OnceDiscardedWrapper, outer.Pos(), "sync.%s wrapper is discarded after one call", function.Name())
-		}
+		check.Reportf(pass, check.OnceDiscardedWrapper, outer.Pos(), "sync.%s wrapper is discarded after one call", name)
 	})
 	return nil, nil
 }

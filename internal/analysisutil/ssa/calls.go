@@ -41,7 +41,9 @@ func InstructionCall(instruction ssa.Instruction) *ssa.CallCommon {
 	}
 }
 
-// CallName returns statically known method, function, or builtin name.
+// CallName returns a statically known method, function, or builtin name.
+// Use it only for structural contracts whose receiver or package is established
+// separately. Match well-known declarations with CallMatchesSymbol instead.
 func CallName(common *ssa.CallCommon) string {
 	if common == nil {
 		return ""
@@ -58,7 +60,9 @@ func CallName(common *ssa.CallCommon) string {
 	return ""
 }
 
-// CallPackage returns statically known package path for a call.
+// CallPackage returns a statically known package path for reporting,
+// configuration, or package-wide API families. Match an exact well-known
+// declaration with CallMatchesSymbol instead.
 func CallPackage(common *ssa.CallCommon) string {
 	if common == nil {
 		return ""

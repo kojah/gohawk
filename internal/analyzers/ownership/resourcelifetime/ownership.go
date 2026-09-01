@@ -107,11 +107,11 @@ func isMissingFileSentinel(value ssa.Value) bool {
 			}
 			value = typed.X
 		case *ssa.Global:
-			if typed.Pkg == nil || typed.Pkg.Pkg == nil || typed.Name() != "ErrNotExist" {
-				return false
-			}
-			packagePath := typed.Pkg.Pkg.Path()
-			return packagePath == "os" || packagePath == "io/fs"
+			return ssautil.ValueMatchesAnySymbol(
+				typed,
+				analysisutil.PackageVariable("os", "ErrNotExist"),
+				analysisutil.PackageVariable("io/fs", "ErrNotExist"),
+			)
 		default:
 			return false
 		}

@@ -9,6 +9,11 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+var execCommandConstructors = []analysisutil.Symbol{
+	analysisutil.PackageFunction("os/exec", "Command"),
+	analysisutil.PackageFunction("os/exec", "CommandContext"),
+}
+
 func osProcessDerivedFromCommand(value, command ssa.Value) bool {
 	if value == nil || value.Type() == nil {
 		return false
@@ -28,7 +33,7 @@ func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) boo
 	seen[command] = true
 	switch typed := command.(type) {
 	case *ssa.Call:
-		return ssautil.CallPackage(typed.Common()) != "os/exec"
+		return !ssautil.CallMatchesAnySymbol(typed.Common(), execCommandConstructors...)
 	case *ssa.ChangeInterface:
 		return commandReturnedByHelperSeen(typed.X, seen)
 	case *ssa.ChangeType:

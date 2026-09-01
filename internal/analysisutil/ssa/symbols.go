@@ -33,9 +33,29 @@ func CallMatchesSymbol(common *ssa.CallCommon, symbol analysisutil.Symbol) bool 
 	return receiver != nil && symbol.MatchesMethod(callee.Name(), receiver.Type())
 }
 
+// CallMatchesAnySymbol reports whether common statically resolves to one of symbols.
+func CallMatchesAnySymbol(common *ssa.CallCommon, symbols ...analysisutil.Symbol) bool {
+	for _, symbol := range symbols {
+		if CallMatchesSymbol(common, symbol) {
+			return true
+		}
+	}
+	return false
+}
+
 // ValueMatchesSymbol reports whether value is the exact package declaration
 // identified by symbol.
 func ValueMatchesSymbol(value ssa.Value, symbol analysisutil.Symbol) bool {
 	global, ok := value.(*ssa.Global)
 	return ok && symbol.MatchesObject(global.Object())
+}
+
+// ValueMatchesAnySymbol reports whether value is one of the exact package declarations.
+func ValueMatchesAnySymbol(value ssa.Value, symbols ...analysisutil.Symbol) bool {
+	for _, symbol := range symbols {
+		if ValueMatchesSymbol(value, symbol) {
+			return true
+		}
+	}
+	return false
 }
