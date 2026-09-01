@@ -19,6 +19,7 @@ const (
 	EvidenceSameAccessPath EvidenceReason = "same-access-path"
 
 	EvidenceDeferredCompletion           EvidenceReason = "deferred-completion"
+	EvidenceDeferredHelperCallback       EvidenceReason = "deferred-helper-callback-completion"
 	EvidenceClosureCompletion            EvidenceReason = "closure-completion"
 	EvidenceCompletionBeforeBranch       EvidenceReason = "completion-before-branch"
 	EvidenceCalledCompletionBeforeBranch EvidenceReason = "called-closure-completion-before-branch"
@@ -180,6 +181,7 @@ const (
 	CompletionInStartedClosure
 	CompletionByStartedHelper
 	CompletionInCalledClosureBeforeBranch
+	CompletionByDeferredHelperCallback
 )
 
 // CompletionRequest describes lifecycle completion to prove for one or more
@@ -232,6 +234,10 @@ func proveCompletion(request CompletionRequest) CompletionProof {
 		if request.Modes&CompletionDeferred != 0 && DeferredClosureCalls(request.Instruction, method, request.Target) {
 			return completionProof(EvidenceDeferredCompletion, method)
 		}
+		if request.Modes&CompletionByDeferredHelperCallback != 0 &&
+			DeferredHelperInvokesBoundMethodOnEveryReturn(request.Instruction, method, request.Target) {
+			return completionProof(EvidenceDeferredHelperCallback, method)
+		}
 		if proof := proveBeforeBranchCompletion(request, method); proof.Proven() {
 			return proof
 		}
@@ -272,7 +278,7 @@ func completionProof(reason EvidenceReason, method string) CompletionProof {
 func completionEvidenceUnavailable(request CompletionRequest) bool {
 	common, _, function := calledFunction(request.Instruction)
 	if request.Modes&(CompletionDeferred|CompletionInClosure|CompletionBeforeBranch|CompletionInStartedClosure|CompletionByStartedHelper|
-		CompletionInCalledClosureBeforeBranch) != 0 &&
+		CompletionInCalledClosureBeforeBranch|CompletionByDeferredHelperCallback) != 0 &&
 		(function == nil || len(function.Blocks) == 0) {
 		return true
 	}

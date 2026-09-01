@@ -1,7 +1,7 @@
 package wirepolicy
 
 //gohawk:example flagged Missing serialization tags
-type EventRow struct {
+type EventEnvelope struct {
 	ID   string // want "serialized field ID requires an explicit json or toml tag"
 	Kind string // want "serialized field Kind requires an explicit json or toml tag"
 }

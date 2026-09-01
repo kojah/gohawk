@@ -65,3 +65,25 @@ Dynamic worker counts, channel fields carried through returned work records,
 framework lifecycle hooks, cleanup containers, and interprocedural close chains
 remain deferred until they have compact general proofs. Precision round 7
 retains nearby context, resource, process, goroutine, and defer-in-loop findings.
+
+## Batch 4
+
+Ten repositories and ten root modules were selected. Nine loaded on the host;
+WinTUI loaded under its intended Windows target.
+
+Five general evidence gaps were fixed:
+
+- assigning cancellation into an enclosing captured variable transfers the
+  obligation to that lifecycle;
+- a deferred static helper may invoke an exact bound cleanup callback on every
+  normal return;
+- `Row` alone is not evidence that a struct is serialized;
+- a testing handle used only by a returned callback is not an outer helper
+  boundary; and
+- a receive-only stop channel may be observed through exact, source-visible
+  static helper calls.
+
+Field-sensitive channel ownership, receiver registries, returned cleanup
+callbacks, pre-spawn deferred owners, and send-only close ownership remain
+deferred. Precision round 8 retains nearby resource, process, testing, context,
+and goroutine findings.

@@ -55,6 +55,27 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 	return false
 }
 
+// DeferredHelperInvokesBoundMethodOnEveryReturn reports whether a deferred
+// static helper receives a callback bound to method on target and invokes that
+// exact callback on every normal return. Both the defer and the helper's
+// unconditional invocation are required: merely observing or conditionally
+// invoking a cleanup callback does not settle the lifecycle.
+func DeferredHelperInvokesBoundMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Defer); !ok {
+		return false
+	}
+	common := InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil {
+		return false
+	}
+	for _, argument := range common.Args {
+		if ValueCallsMethod(argument, method, target) && CallInvokesArgumentOnEveryReturn(instruction, argument) {
+			return true
+		}
+	}
+	return false
+}
+
 // DeferredClosurePassesValueToNamedCall reports whether a deferred closure
 // passes target to a call whose name contains one of fragments.
 func DeferredClosurePassesValueToNamedCall(instruction ssa.Instruction, target ssa.Value, fragments ...string) bool {

@@ -135,11 +135,28 @@ func releasesResource(
 		return true
 	}
 	for _, method := range methods {
+		// A deferred helper may own cleanup by receiving a bound lifecycle method
+		// and invoking that exact callback on every normal helper return. New
+		// Relic uses this to log Body.Close errors without losing defer semantics:
+		// https://github.com/newrelic/nri-elasticsearch/blob/9d4f88e2b4293b86dffaa82369dc580493f1b424/src/client.go#L99-L115
+		completion := ssaflow.CompletionRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Methods:     []string{method},
+			Modes:       ssaflow.CompletionByDeferredHelperCallback,
+		}
+		if evidence.Prove(lifecyclefacts.EvidenceRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Completion:  &completion,
+		}).Proven() {
+			return true
+		}
 		// A launched lifecycle goroutine may take cleanup ownership when each
 		// normal exit stops the resource. darkpawns uses this for tickers whose
 		// select exits on either context or component shutdown:
 		// https://github.com/zax0rz/darkpawns/blob/5cdb4679815822a133a051af4c1249ddda800c38/pkg/events/queue.go#L255
-		completion := ssaflow.CompletionRequest{
+		completion = ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},

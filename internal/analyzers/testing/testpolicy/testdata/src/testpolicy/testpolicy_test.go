@@ -33,6 +33,21 @@ func mixedCallbackAndHelper(t *testing.T) { // want "test helper accepting t"
 	_ = t
 }
 
+func returnedTestingCallback(t *testing.T) func() {
+	return func() { t.Error("callback failure") }
+}
+
+func mixedReturnedCallbackAndHelper(t *testing.T) func() { // want "test helper accepting t"
+	t.Log("factory called")
+	return func() { t.Error("callback failure") }
+}
+
+func invokedAndReturnedTestingCallback(t *testing.T) func() { // want "test helper accepting t"
+	callback := func() { t.Error("callback failure") }
+	callback()
+	return callback
+}
+
 func retainBenchmarkCallback(callback func(*testing.B)) {
 	_ = callback
 }
@@ -42,6 +57,9 @@ func TestEntryPoint(t *testing.T) {
 }
 
 func TestCallbacksAreNotHelpers(t *testing.T) {
+	_ = returnedTestingCallback(t)
+	_ = mixedReturnedCallbackAndHelper(t)
+	_ = invokedAndReturnedTestingCallback(t)
 	t.Run("named callback", namedTestCallback)
 	t.Run("mixed callback", mixedCallbackAndHelper)
 	mixedCallbackAndHelper(t)

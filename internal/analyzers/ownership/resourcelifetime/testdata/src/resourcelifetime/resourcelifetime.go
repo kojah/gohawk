@@ -415,6 +415,58 @@ func closedResponse(client *http.Client, request *http.Request) error {
 	return nil
 }
 
+func invokeCleanup(cleanup func() error) { _ = cleanup() }
+
+func maybeInvokeCleanup(cleanup func() error, enabled bool) {
+	if enabled {
+		_ = cleanup()
+	}
+}
+
+func observeCleanup(func() error) {}
+
+func responseClosedByDeferredHelper(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer invokeCleanup(response.Body.Close)
+	return nil
+}
+
+func conditionalDeferredHelperLeaksResponse(client *http.Client, request *http.Request, enabled bool) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	defer maybeInvokeCleanup(response.Body.Close, enabled)
+	return nil
+}
+
+func nonDeferredObserverLeaksResponse(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	observeCleanup(response.Body.Close)
+	return nil
+}
+
+func deferredHelperClosesOnlyItsBoundResponse(client *http.Client, first, second *http.Request) error {
+	closed, err := client.Do(first)
+	if err != nil {
+		return err
+	}
+	leaked, err := client.Do(second) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		_ = closed.Body.Close()
+		return err
+	}
+	defer invokeCleanup(closed.Body.Close)
+	_ = leaked
+	return nil
+}
+
 func responseClosedByImmediateNestedDefer(client *http.Client, request *http.Request) error {
 	response, err := client.Do(request)
 	if err != nil {

@@ -1,0 +1,16 @@
+repository,analyzer,position,verdict
+civitai/cli,cancellationownership,internal/cmd/app_dev_tunnel.go:951:19,false_positive
+civitai/cli,testpolicy,internal/cmd/app_listing_test.go:321:25,false_positive
+civitai/cli,wirepolicy,internal/cmd/app_status_drift_test.go:111:3,false_positive
+civitai/cli,resourcelifetime,cmd/civitai/fs_not_network_test.go:161:12,true_positive
+civitai/cli,processownership,internal/cmd/login.go:439:9,true_positive
+civitai/cli,testpolicy,internal/cmd/app_listing_help_test.go:255:6,true_positive
+newrelic/nri-elasticsearch,resourcelifetime,src/client.go:99:19,false_positive
+newrelic/nri-elasticsearch,testpolicy,src/client_test.go:176:6,true_positive
+harshalgajjar/Reminal,goroutineownership,internal/client/daemon.go:52:3,false_positive
+harshalgajjar/Reminal,wirepolicy,cmd/reminal/main.go:686:3,false_positive
+harshalgajjar/Reminal,goroutineownership,cmd/reminal/mcp.go:351:3,true_positive
+harshalgajjar/Reminal,goroutineownership,internal/client/mirror.go:382:2,true_positive
+tiny-systems/tiny,wirepolicy,internal/sessions/store.go:47:2,false_positive
+tiny-systems/tiny,contextpolicy,internal/sessions/attach.go:119:2,true_positive
+tiny-systems/tiny,goroutineownership,internal/sessions/upload.go:40:2,true_positive

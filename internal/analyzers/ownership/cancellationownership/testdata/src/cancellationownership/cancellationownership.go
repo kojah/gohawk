@@ -236,6 +236,27 @@ func localPointerDoesNotOwnCancel(parent context.Context) {
 	*slot = cancel
 }
 
+func transferredToCapturedOuter(parent context.Context) func() {
+	var current context.CancelFunc
+	start := func() {
+		_, cancel := context.WithCancel(parent)
+		current = cancel
+	}
+	start()
+	return func() {
+		if current != nil {
+			current()
+		}
+	}
+}
+
+func localAssignmentDoesNotTransfer(parent context.Context) {
+	var current context.CancelFunc
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	current = cancel
+	_ = current
+}
+
 func optionalCancelIsCalled(parent context.Context, enabled bool) {
 	var cancel context.CancelFunc
 	if enabled {

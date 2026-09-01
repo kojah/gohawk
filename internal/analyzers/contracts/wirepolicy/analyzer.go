@@ -9,6 +9,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -39,8 +40,13 @@ func Analyzer() *analysis.Analyzer {
 						}
 					case *ast.TypeSpec:
 						structure, ok := typed.Type.(*ast.StructType)
-						if ok && wireName(typed.Name.Name) {
-							reportMissingWireTags(pass, structure)
+						if ok {
+							if ambiguousRowName(pass.TypesInfo.TypeOf(typed.Type), typed.Name.Name) {
+								emitAmbiguousRowDecision(pass, typed)
+							}
+							if wireName(typed.Name.Name) {
+								reportMissingWireTags(pass, structure)
+							}
 						}
 					}
 					return true
@@ -99,7 +105,33 @@ func wireStruct(value types.Type) bool {
 }
 
 func wireName(name string) bool {
-	return strings.HasSuffix(name, "Wire") || strings.HasSuffix(name, "Row") || strings.HasSuffix(name, "Envelope")
+	// Row describes display tables and compact test fixtures at least as often
+	// as persistence. Treating the suffix as wire evidence produced 91 findings
+	// across three unrelated UI/test models:
+	// https://github.com/civitai/cli/blob/bc830b105867ae4234ddd7dd23f3f7680a2cbe3c/internal/cmd/app_status_drift_test.go#L55-L72
+	// https://github.com/harshalgajjar/Reminal/blob/c4fd9e64b3b1deabaaacd5e10b9090a28792148d/cmd/reminal/main.go#L669-L710
+	// https://github.com/tiny-systems/tiny/blob/950f54ee94b5065f7c7c27254e8be5bc09f81d63/internal/sessions/store.go#L43-L63
+	// Concrete json/toml tags still identify an actual serialized Row.
+	return strings.HasSuffix(name, "Wire") || strings.HasSuffix(name, "Envelope")
+}
+
+func ambiguousRowName(value types.Type, name string) bool {
+	return strings.HasSuffix(name, "Row") && !wireStruct(value)
+}
+
+func emitAmbiguousRowDecision(pass *analysis.Pass, specification *ast.TypeSpec) {
+	checkID := string(check.WireSerializationTag)
+	if !analysisTrace.Enabled("wirepolicy", checkID) {
+		return
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{
+		Analyzer: "wirepolicy",
+		Check:    checkID,
+		Phase:    "decision",
+		Reason:   "ambiguous-row-name",
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      specification.Name.Pos(),
+	})
 }
 
 func allKeyed(elements []ast.Expr) bool {

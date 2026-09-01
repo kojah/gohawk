@@ -230,9 +230,13 @@ func instructionSettlesCancellation(
 	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       cancel,
-		Modes: ssaflow.TransferStoredInField | ssaflow.TransferStoredInGlobal |
+		Modes: ssaflow.TransferStoredInField | ssaflow.TransferStoredInGlobal | ssaflow.TransferStoredInEnclosingScope |
 			ssaflow.TransferOwnerStoredInField | ssaflow.TransferStoredInOwnedMap,
 	}
+	// Assigning a cancel function through a closure's free variable transfers
+	// its obligation back to the enclosing lifecycle. Civitai uses this to keep
+	// exactly one active readiness probe and cancel it at each outer exit:
+	// https://github.com/civitai/cli/blob/bc830b105867ae4234ddd7dd23f3f7680a2cbe3c/internal/cmd/app_dev_tunnel.go#L942-L1049
 	return ssaflow.ClosureCallsValue(instruction, cancel) ||
 		ssaflow.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) ||
 		ssaflow.DeferredClosurePassesValueToNamedCall(

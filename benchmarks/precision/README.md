@@ -40,3 +40,9 @@ Round 7 preserves the third reviewed batch. It covers proven acquisition-error
 branches, custom context implementations, named testing callbacks, and
 lifecycle ownership transferred through a returned aggregate. Nearby context,
 resource, process, goroutine, and loop-cleanup findings remain reportable.
+
+Round 8 preserves the fourth reviewed batch. It covers cancellation stored in
+an enclosing lifecycle, deferred cleanup callbacks, ambiguous `Row` names,
+returned testing callbacks, and stop channels received through static helpers.
+Nearby resource, process, testing, context, and goroutine findings remain
+reportable.

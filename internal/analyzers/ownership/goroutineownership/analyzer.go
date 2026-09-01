@@ -64,7 +64,8 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 	var evidence ssaflow.EvidenceQuery
 	signals, groups := goroutineJoinValues(spawn)
 	owners := goroutineLifecycleValues(spawn)
-	if goroutineHasStopLifecycle(spawn) || goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) ||
+	if goroutineHasStopLifecycle(spawn) || goroutineHasHelperStopLifecycle(spawn) ||
+		goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) ||
 		externallyOwnedJoin(signals, groups) ||
 		ownershipRegisteredBefore(spawn, signals, groups) ||
 		synctestOwnsGoroutine(function) ||
@@ -165,6 +166,9 @@ func acceptedGoroutineOwnership(
 	// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/discovery/kubernetes/kubernetes.go#L438-L458
 	if config.mode == goroutineModeContext && (goroutineHasContextLifecycle(spawn) || goroutineHasStopLifecycle(spawn)) {
 		return "context-lifecycle", true
+	}
+	if config.mode == goroutineModeContext && goroutineHasHelperStopLifecycle(spawn) {
+		return "helper-stop-lifecycle", true
 	}
 	if config.mode != goroutineModeJoin &&
 		(goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) || externallyOwnedJoin(signals, groups)) {

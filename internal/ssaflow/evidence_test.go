@@ -18,8 +18,13 @@ func closeHelper(value *closer) {
 	value.Close()
 }
 
+func invoke(callback func()) {
+	callback()
+}
+
 func evidence(value *closer) {
 	defer func() { value.Close() }()
+	defer invoke(value.Close)
 	go func() { value.Close() }()
 	closeHelper(value)
 }
@@ -49,6 +54,15 @@ func evidence(value *closer) {
 			},
 			modes:  CompletionInStartedClosure,
 			reason: EvidenceStartedCompletion,
+		},
+		{
+			name: "deferred helper callback",
+			match: func(instruction ssa.Instruction) bool {
+				common := InstructionCall(instruction)
+				return common != nil && CallName(common) == "invoke"
+			},
+			modes:  CompletionByDeferredHelperCallback,
+			reason: EvidenceDeferredHelperCallback,
 		},
 		{
 			name: "helper",
@@ -81,6 +95,52 @@ func evidence(value *closer) {
 		Methods:     []string{"Close"},
 	}); proof.Proven() || proof.State != EvidenceUnknown || proof.Reason != EvidenceUnavailable {
 		t.Fatalf("ProveCompletion() with no accepted modes = %#v, want unavailable proof", proof)
+	}
+}
+
+func TestDeferredHelperCallbackCompletionBoundaries(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+type closer struct{}
+
+func (*closer) Close() {}
+
+func invoke(callback func()) { callback() }
+
+func maybeInvoke(callback func(), enabled bool) {
+	if enabled {
+		callback()
+	}
+}
+
+func accepted(value *closer) { defer invoke(value.Close) }
+func conditional(value *closer, enabled bool) { defer maybeInvoke(value.Close, enabled) }
+func immediate(value *closer) { invoke(value.Close) }
+func unrelated(value, other *closer) { defer invoke(other.Close) }
+`)
+	tests := []struct {
+		name     string
+		function string
+		want     bool
+	}{
+		{name: "deferred unconditional helper", function: "accepted", want: true},
+		{name: "conditional helper", function: "conditional"},
+		{name: "nondeferred call", function: "immediate"},
+		{name: "unrelated receiver", function: "unrelated"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			function := pkg.Func(test.function)
+			instruction := findSSAInstruction(t, function, func(instruction ssa.Instruction) bool {
+				common := InstructionCall(instruction)
+				return common != nil && (CallName(common) == "invoke" || CallName(common) == "maybeInvoke")
+			})
+			got := DeferredHelperInvokesBoundMethodOnEveryReturn(instruction, "Close", function.Params[0])
+			if got != test.want {
+				t.Fatalf("DeferredHelperInvokesBoundMethodOnEveryReturn() = %v, want %v", got, test.want)
+			}
+		})
 	}
 }
 

@@ -232,6 +232,45 @@ func goroutineHasStopLifecycle(spawn *ssa.Go) bool {
 	return false
 }
 
+func goroutineHasHelperStopLifecycle(spawn *ssa.Go) bool {
+	function := spawn.Common().StaticCallee()
+	closure, _ := spawn.Common().Value.(*ssa.MakeClosure)
+	if closure != nil {
+		function, _ = closure.Fn.(*ssa.Function)
+	}
+	if function == nil {
+		return false
+	}
+	if origin := function.Origin(); origin != nil {
+		function = origin
+	}
+	for index, parameter := range function.Params {
+		if index < len(spawn.Common().Args) && receiveOnlyChannel(parameter) &&
+			functionReceivesParameter(function, parameter, map[*ssa.Function]bool{}) {
+			// A source-visible helper may own the receive while its caller owns
+			// the goroutine. Follow only exact static parameter flow: Reminal's
+			// directory host passes its stop channel through several small helpers.
+			// https://github.com/harshalgajjar/Reminal/blob/c4fd9e64b3b1deabaaacd5e10b9090a28792148d/internal/client/directoryhost.go#L62-L106
+			return true
+		}
+	}
+	if closure == nil {
+		return false
+	}
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) && receiveOnlyChannel(free) &&
+			functionReceivesParameter(function, free, map[*ssa.Function]bool{}) {
+			return true
+		}
+	}
+	return false
+}
+
+func receiveOnlyChannel(value ssa.Value) bool {
+	channel, ok := value.Type().Underlying().(*types.Chan)
+	return ok && channel.Dir() == types.RecvOnly
+}
+
 func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
 	for _, owner := range function.Params {
 		if !lifecycleOwner(owner) {
