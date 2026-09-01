@@ -23,10 +23,13 @@ func processOwnerDominatesStart(function *ssa.Function, start *ssa.Call, owners 
 		}
 		for _, instruction := range block.Instrs[:limit] {
 			for _, owner := range owners {
-				for _, method := range []string{"close", "Close", "kill", "Kill", "Wait", "wait"} {
-					if ssautil.DeferredClosureCalls(instruction, method, owner) {
-						return laterProcessOwnerWatcher(function, start, owners)
-					}
+				if ssautil.ProveCompletion(ssautil.CompletionRequest{
+					Instruction: instruction,
+					Target:      owner,
+					Methods:     []string{"close", "Close", "kill", "Kill", "Wait", "wait"},
+					Modes:       ssautil.CompletionDeferred,
+				}).Proven() {
+					return laterProcessOwnerWatcher(function, start, owners)
 				}
 			}
 		}
@@ -76,7 +79,16 @@ func processOwnershipDominatesStart(function *ssa.Function, start *ssa.Call, com
 			limit = startIndex
 		}
 		for _, instruction := range block.Instrs[:limit] {
-			if ssautil.DeferredClosureCalls(instruction, "Wait", command) || ssautil.ClosureCapturesValue(instruction, command) {
+			if ssautil.ProveCompletion(ssautil.CompletionRequest{
+				Instruction: instruction,
+				Target:      command,
+				Methods:     []string{"Wait"},
+				Modes:       ssautil.CompletionDeferred,
+			}).Proven() || ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+				Instruction: instruction,
+				Value:       command,
+				Modes:       ssautil.TransferCapturedByClosure,
+			}).Proven() {
 				return true
 			}
 		}
@@ -126,13 +138,20 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 	return waitsForCommand(instruction, command) ||
 		ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
 			ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
-		ssautil.DeferredClosureCalls(instruction, "Wait", command) ||
-		ssautil.ClosureCallsMethod(instruction, "Wait", command) ||
-		ssautil.ClosureCapturesValue(instruction, command) ||
-		ssautil.StoresValueInField(instruction, command) ||
-		ssautil.StoresOwnerOfValueInField(instruction, command) ||
+		ssautil.ProveCompletion(ssautil.CompletionRequest{
+			Instruction: instruction,
+			Target:      command,
+			Methods:     []string{"Wait"},
+			Modes: ssautil.CompletionDeferred | ssautil.CompletionInClosure |
+				ssautil.CompletionByHelper,
+		}).Proven() ||
+		ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+			Instruction: instruction,
+			Value:       command,
+			Modes: ssautil.TransferStoredInField | ssautil.TransferOwnerStoredInField |
+				ssautil.TransferCapturedByClosure | ssautil.TransferCallResultStoredInField,
+		}).Proven() ||
 		storesProcessHandleInExternalField(instruction, command) ||
-		ssautil.CallTransfersValueToField(instruction, command) ||
 		lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
 			Pass: pass, Analyzer: "processownership", Check: string(check.ProcessWait), Instruction: instruction, Target: command,
 			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited },
@@ -140,7 +159,6 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		lifecyclefacts.StoresInEscapingReceiver(lifecyclefacts.ArgumentEvidence{
 			Pass: pass, Analyzer: "processownership", Check: string(check.ProcessWait), Instruction: instruction, Target: command,
 		}) ||
-		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
 		startedWrapperWaits(pass, instruction, command) ||
 		processHandleOwnershipAction(pass, instruction, command) ||
@@ -161,7 +179,13 @@ func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa
 }
 
 func startedWrapperWaits(pass *analysis.Pass, instruction ssa.Instruction, command ssa.Value) bool {
-	if !ssautil.StartedClosureCallsMethodViaHelper(instruction, "Wait", command) {
+	proof := ssautil.ProveCompletion(ssautil.CompletionRequest{
+		Instruction: instruction,
+		Target:      command,
+		Methods:     []string{"Wait"},
+		Modes:       ssautil.CompletionByStartedHelper,
+	})
+	if !proof.Proven() {
 		return false
 	}
 	if analysisTrace.Enabled("processownership", string(check.ProcessWait)) {
@@ -193,8 +217,12 @@ func processHandleOwnershipAction(pass *analysis.Pass, instruction ssa.Instructi
 		if lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
 			Pass: pass, Analyzer: "processownership", Check: string(check.ProcessWait), Instruction: instruction, Target: argument,
 			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited },
-		}) ||
-			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", argument) ||
+		}) || ssautil.ProveCompletion(ssautil.CompletionRequest{
+			Instruction: instruction,
+			Target:      argument,
+			Methods:     []string{"Wait"},
+			Modes:       ssautil.CompletionByHelper,
+		}).Proven() ||
 			ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
 			if analysisTrace.Enabled("processownership", string(check.ProcessWait)) {
 				analysisTrace.Emit(

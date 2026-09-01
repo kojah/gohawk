@@ -445,10 +445,15 @@ func calledReceiverMatches(common *ssa.CallCommon, closure *ssa.MakeClosure, fun
 		if !ValueDerivesFrom(receiver, parameter, map[ssa.Value]bool{}) || index >= len(common.Args) {
 			continue
 		}
-		if SameValue(common.Args[index], target) || SameAccessPath(
+		direct := ProveIdentity(
+			AccessPath{Value: common.Args[index]},
+			AccessPath{Value: target},
+		)
+		mapped := ProveIdentity(
 			AccessPath{Value: receiver, Root: parameter},
 			AccessPath{Value: target, Root: common.Args[index]},
-		) {
+		)
+		if direct.Proven() || mapped.Proven() {
 			return true
 		}
 	}

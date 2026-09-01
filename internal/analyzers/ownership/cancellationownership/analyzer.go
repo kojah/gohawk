@@ -234,11 +234,13 @@ func instructionSettlesCancellation(instruction ssa.Instruction, cancel ssa.Valu
 			"teardown",
 		) ||
 		ssautil.ClosureOwnsValue(instruction, cancel) ||
-		ssautil.StoresValueInField(instruction, cancel) ||
 		ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) ||
-		ssautil.StoresValueInGlobal(instruction, cancel) ||
-		ssautil.StoresOwnerOfValueInField(instruction, cancel) ||
-		ssautil.StoresValueInOwnedMap(instruction, cancel) ||
+		ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+			Instruction: instruction,
+			Value:       cancel,
+			Modes: ssautil.TransferStoredInField | ssautil.TransferStoredInGlobal |
+				ssautil.TransferOwnerStoredInField | ssautil.TransferStoredInOwnedMap,
+		}).Proven() ||
 		atomicStoreCoupledToWorker(instruction, cancel)
 }
 
@@ -258,9 +260,12 @@ func callTakesCancellationOwnership(pass *analysis.Pass, instruction ssa.Instruc
 			Pass: pass, Analyzer: "cancellationownership", Check: string(check.CancellationRelease), Instruction: instruction, Target: cancel,
 		}) ||
 		ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) ||
-		ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) ||
-		ssautil.CallTransfersArgumentToReceiver(instruction, cancel) ||
-		ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel)
+		ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+			Instruction: instruction,
+			Value:       cancel,
+			Modes: ssautil.TransferToReturnedOwner | ssautil.TransferToReceiver |
+				ssautil.TransferToLifecycleOwner,
+		}).Proven()
 }
 
 func atomicStoreCoupledToWorker(instruction ssa.Instruction, cancel ssa.Value) bool {

@@ -135,7 +135,12 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		// normal exit stops the resource. darkpawns uses this for tickers whose
 		// select exits on either context or component shutdown:
 		// https://github.com/zax0rz/darkpawns/blob/5cdb4679815822a133a051af4c1249ddda800c38/pkg/events/queue.go#L255
-		if ssautil.StartedClosureCallsMethodOnEveryReturn(instruction, method, resource) {
+		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Methods:     []string{method},
+			Modes:       ssautil.CompletionInStartedClosure,
+		}).Proven() {
 			return true
 		}
 		// Only accept a helper summary when every normal helper return has
@@ -145,8 +150,12 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		if lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
 			Pass: pass, Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Instruction: instruction, Target: resource,
 			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.MethodMask(method) },
-		}) ||
-			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, method, resource) {
+		}) || ssautil.ProveCompletion(ssautil.CompletionRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Methods:     []string{method},
+			Modes:       ssautil.CompletionByHelper,
+		}).Proven() {
 			return true
 		}
 		// A directly invoked cleanup closure can own an individual error path just
@@ -154,7 +163,12 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		// the closure so conditional cleanup cannot hide a leak. ccLoad uses this
 		// pattern while constructing verified temporary files:
 		// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/bridge_install.go#L264-L289
-		if ssautil.DeferredClosureCalls(instruction, method, resource) || ssautil.ClosureCallsMethodBeforeBranch(instruction, method, resource) {
+		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Methods:     []string{method},
+			Modes:       ssautil.CompletionDeferred | ssautil.CompletionBeforeBranch,
+		}).Proven() {
 			return true
 		}
 	}
@@ -163,35 +177,39 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 
 func instructionSettlesResourceOwnership(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
 	return resourceTransferredToExternalField(instruction, resource) ||
-		ssautil.StoresValueInGlobal(instruction, resource) ||
-		ssautil.StoresValueInEnclosingScope(instruction, resource) ||
-		ssautil.StoresOwnerOfValueInExternalField(instruction, resource) ||
-		ssautil.StoresValueInOwnedMap(instruction, resource) ||
-		ssautil.SendsValue(instruction, resource) ||
-		ssautil.ClosureCapturesValue(instruction, resource) ||
+		ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+			Instruction: instruction,
+			Value:       resource,
+			Modes: ssautil.TransferStoredInGlobal | ssautil.TransferStoredInEnclosingScope |
+				ssautil.TransferOwnerStoredInExternalField | ssautil.TransferStoredInOwnedMap |
+				ssautil.TransferSentToReceiver | ssautil.TransferCapturedByClosure,
+		}).Proven() ||
 		startedClosureReleasesResource(instruction, resource, methods)
 }
 
 func callTakesResourceOwnership(pass *analysis.Pass, instruction ssa.Instruction, resource ssa.Value) bool {
-	return ssautil.CallTransfersValueToField(instruction, resource) ||
+	return ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+		Instruction: instruction,
+		Value:       resource,
+		Modes: ssautil.TransferCallResultStoredInField | ssautil.TransferToReceiver |
+			ssautil.TransferToLifecycleOwner,
+	}).Proven() ||
 		lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
 			Pass: pass, Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Instruction: instruction, Target: resource,
 			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner },
 		}) ||
 		lifecyclefacts.StoresInEscapingReceiver(lifecyclefacts.ArgumentEvidence{
 			Pass: pass, Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Instruction: instruction, Target: resource,
-		}) ||
-		ssautil.CallTransfersArgumentToReceiver(instruction, resource) ||
-		ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource)
+		})
 }
 
 func startedClosureReleasesResource(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
-	for _, method := range methods {
-		if ssautil.StartedClosureCallsMethodOnEveryReturn(instruction, method, resource) {
-			return true
-		}
-	}
-	return false
+	return ssautil.ProveCompletion(ssautil.CompletionRequest{
+		Instruction: instruction,
+		Target:      resource,
+		Methods:     methods,
+		Modes:       ssautil.CompletionInStartedClosure,
+	}).Proven()
 }
 
 func storedResourceAccessReleased(release ssa.Instruction, receiver, resource ssa.Value) bool {
@@ -205,10 +223,10 @@ func storedResourceAccessReleased(release ssa.Instruction, receiver, resource ss
 				continue
 			}
 			field, ok := store.Addr.(*ssa.FieldAddr)
-			if ok && ssautil.SameAccessPath(
+			if ok && ssautil.ProveIdentity(
 				ssautil.AccessPath{Value: receiver, Root: field.X},
 				ssautil.AccessPath{Value: field, Root: field.X},
-			) {
+			).Proven() {
 				return true
 			}
 		}
@@ -229,10 +247,13 @@ func testingCleanupReleases(common *ssa.CallCommon, resource ssa.Value, methods 
 		if !ok {
 			continue
 		}
-		for _, method := range methods {
-			if ssautil.ClosureCallsMethodBeforeBranch(instruction, method, resource) {
-				return true
-			}
+		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Methods:     methods,
+			Modes:       ssautil.CompletionBeforeBranch,
+		}).Proven() {
+			return true
 		}
 	}
 	return false

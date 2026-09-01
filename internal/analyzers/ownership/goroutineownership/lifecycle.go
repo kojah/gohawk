@@ -165,10 +165,13 @@ func ownsGoroutineLifecycle(instruction ssa.Instruction, owners []ssa.Value) boo
 		return true
 	}
 	for _, owner := range owners {
-		for _, method := range []string{"Close", "Kill", "Shutdown", "Stop", "Wait"} {
-			if ssautil.DeferredClosureCalls(instruction, method, owner) {
-				return true
-			}
+		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+			Instruction: instruction,
+			Target:      owner,
+			Methods:     []string{"Close", "Kill", "Shutdown", "Stop", "Wait"},
+			Modes:       ssautil.CompletionDeferred,
+		}).Proven() {
+			return true
 		}
 	}
 	return false
@@ -180,7 +183,12 @@ func waitsForLifecycleOwner(instruction ssa.Instruction, owners []ssa.Value) boo
 		return true
 	}
 	for _, owner := range owners {
-		if ssautil.DeferredClosureCalls(instruction, "Wait", owner) {
+		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+			Instruction: instruction,
+			Target:      owner,
+			Methods:     []string{"Wait"},
+			Modes:       ssautil.CompletionDeferred,
+		}).Proven() {
 			return true
 		}
 	}
@@ -241,9 +249,12 @@ func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, o
 	values := append(slices.Clone(signals), groups...)
 	values = append(values, owners...)
 	for _, value := range values {
-		if ssautil.StoresValueInField(instruction, value) || ssautil.StoresOwnerOfValueInField(instruction, value) ||
-			ssautil.StoresValueInOwnedMap(instruction, value) ||
-			ssautil.CallTransfersValueToField(instruction, value) {
+		if ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+			Instruction: instruction,
+			Value:       value,
+			Modes: ssautil.TransferStoredInField | ssautil.TransferOwnerStoredInField |
+				ssautil.TransferStoredInOwnedMap | ssautil.TransferCallResultStoredInField,
+		}).Proven() {
 			return true
 		}
 	}
@@ -255,7 +266,12 @@ func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, o
 			return true
 		}
 		for _, group := range groups {
-			if ssautil.ClosureCallsMethod(instruction, "Wait", group) {
+			if ssautil.ProveCompletion(ssautil.CompletionRequest{
+				Instruction: instruction,
+				Target:      group,
+				Methods:     []string{"Wait"},
+				Modes:       ssautil.CompletionInClosure,
+			}).Proven() {
 				return true
 			}
 		}

@@ -126,8 +126,13 @@ func transferCalledUnlocks(
 ) []string {
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			if !ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Unlock", value) &&
-				!ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "RUnlock", value) {
+			proof := ssautil.ProveCompletion(ssautil.CompletionRequest{
+				Instruction: instruction,
+				Target:      value,
+				Methods:     []string{"Unlock", "RUnlock"},
+				Modes:       ssautil.CompletionByHelper,
+			})
+			if !proof.Proven() {
 				continue
 			}
 			// A synchronous helper that releases the exact lock on every return
@@ -155,10 +160,13 @@ func transferSpawnedUnlocks(
 	}
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			if ssautil.ClosureCallsMethodBeforeBranch(instruction, "Unlock", value) ||
-				ssautil.ClosureCallsMethodBeforeBranch(instruction, "RUnlock", value) ||
-				ssautil.StartedClosureCallsMethodOnEveryReturn(instruction, "Unlock", value) ||
-				ssautil.StartedClosureCallsMethodOnEveryReturn(instruction, "RUnlock", value) {
+			proof := ssautil.ProveCompletion(ssautil.CompletionRequest{
+				Instruction: instruction,
+				Target:      value,
+				Methods:     []string{"Unlock", "RUnlock"},
+				Modes:       ssautil.CompletionBeforeBranch | ssautil.CompletionInStartedClosure,
+			})
+			if proof.Proven() {
 				// A spawned helper may branch before releasing the caller's lock as
 				// long as every normal return performs the release. gRPC transfers
 				// addrConn.mu to its reconnect worker this way:
@@ -185,8 +193,13 @@ func recordDeferredUnlocks(
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
 			common := ssautil.InstructionCall(instruction)
-			if ssautil.DeferredClosureCalls(instruction, "Unlock", value) ||
-				ssautil.DeferredClosureCalls(instruction, "RUnlock", value) ||
+			proof := ssautil.ProveCompletion(ssautil.CompletionRequest{
+				Instruction: instruction,
+				Target:      value,
+				Methods:     []string{"Unlock", "RUnlock"},
+				Modes:       ssautil.CompletionDeferred,
+			})
+			if proof.Proven() ||
 				common != nil && (ssautil.ValueCallsMethod(common.Value, "Unlock", value) ||
 					ssautil.ValueCallsMethod(common.Value, "RUnlock", value)) {
 				released[identity] = true
