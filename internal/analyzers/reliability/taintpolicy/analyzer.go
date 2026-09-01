@@ -198,8 +198,7 @@ func terminalWriterSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
 	); ok {
 		return terminalWriterSeen(inner, seen)
 	}
-	switch typed := value.(type) {
-	case *ssa.UnOp:
+	if typed, ok := value.(*ssa.UnOp); ok {
 		return terminalWriterSeen(typed.X, seen)
 	}
 	return false

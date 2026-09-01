@@ -80,8 +80,7 @@ func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
 	); ok {
 		return valueOwnsValue(inner, value, seen)
 	}
-	switch typed := owner.(type) {
-	case *ssa.MakeClosure:
+	if typed, ok := owner.(*ssa.MakeClosure); ok {
 		for _, binding := range typed.Bindings {
 			if CapturedBindingMatches(binding, value) || valueOwnsValue(CapturedBindingValue(binding), value, seen) {
 				return true

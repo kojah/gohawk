@@ -414,10 +414,7 @@ func transfersGoroutineOwnership(
 		}
 	}
 	common := ssaflow.InstructionCall(instruction)
-	if mockReturnOwnsSignal(common, signals) {
-		return true
-	}
-	return false
+	return mockReturnOwnsSignal(common, signals)
 }
 
 func mockReturnOwnsSignal(common *ssa.CallCommon, signals []ssa.Value) bool {

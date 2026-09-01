@@ -167,8 +167,7 @@ func callbackReceives(value, signal ssa.Value) bool {
 	); ok {
 		return callbackReceives(inner, signal)
 	}
-	switch typed := value.(type) {
-	case *ssa.MakeClosure:
+	if typed, ok := value.(*ssa.MakeClosure); ok {
 		return valueReceivesAny(typed, []ssa.Value{signal}, map[ssa.Value]bool{})
 	}
 	return false

@@ -76,8 +76,7 @@ func definitelyNil(value ssa.Value, seen map[ssa.Value]bool) bool {
 	); ok {
 		return definitelyNil(inner, seen)
 	}
-	switch typed := value.(type) {
-	case *ssa.Phi:
+	if typed, ok := value.(*ssa.Phi); ok {
 		if len(typed.Edges) == 0 {
 			return false
 		}

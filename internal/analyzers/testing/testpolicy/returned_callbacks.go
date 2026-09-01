@@ -152,8 +152,7 @@ func transparentClosureWrapper(reference ssa.Instruction, value ssa.Value) (ssa.
 			return wrapped, ssaflow.SameValue(inner, value)
 		}
 	}
-	switch typed := reference.(type) {
-	case *ssa.Phi:
+	if typed, ok := reference.(*ssa.Phi); ok {
 		for _, edge := range typed.Edges {
 			if ssaflow.SameValue(edge, value) {
 				return typed, true
