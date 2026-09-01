@@ -2,12 +2,7 @@ package architecture
 
 import (
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -31,14 +26,11 @@ type commentaryStats struct {
 
 func TestAnalyzerCommentaryCoverage(t *testing.T) {
 	t.Parallel()
-	_, currentFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("locate commentary architecture test")
-	}
-	internalRoot := filepath.Dir(filepath.Dir(currentFile))
+	inventory := newRepositorySourceInventory(t)
 	findings := make(map[string]commentaryStats)
-	for _, directory := range []string{"analyzers", "passes"} {
-		collectCommentaryFindings(t, internalRoot, directory, findings)
+	for _, source := range inventory.productionGoFiles(t, "internal/analyzers", "internal/passes") {
+		path := strings.TrimPrefix(source.repositoryPath, "internal/")
+		inspectCommentaryFile(path, source, findings)
 	}
 	for key, stats := range findings {
 		t.Errorf(
@@ -52,53 +44,15 @@ func TestAnalyzerCommentaryCoverage(t *testing.T) {
 	}
 }
 
-func collectCommentaryFindings(t *testing.T, internalRoot, directory string, findings map[string]commentaryStats) {
-	t.Helper()
-	root := filepath.Join(internalRoot, directory)
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() {
-			if entry.Name() == "testdata" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		return inspectCommentaryFile(internalRoot, path, findings)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func inspectCommentaryFile(internalRoot, path string, findings map[string]commentaryStats) error {
-	source, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, source, parser.ParseComments)
-	if err != nil {
-		return err
-	}
-	if ast.IsGenerated(file) {
-		return nil
-	}
-	lines := sourceLines(source)
+func inspectCommentaryFile(path string, source productionGoSource, findings map[string]commentaryStats) {
+	fset := source.fileSet
+	file := source.file
+	lines := sourceLines(source.source)
 	comments, rationale := commentLines(fset, file)
-	relative, err := filepath.Rel(internalRoot, path)
-	if err != nil {
-		return err
-	}
-	relative = filepath.ToSlash(relative)
 	start := firstImplementationLine(fset, file)
 	fileStats := spanStats(lines, comments, rationale, start, len(lines))
 	if fileStats.codeLines >= fileCodeTrigger && (fileStats.rationaleLines == 0 || fileStats.maxGap > fileGapLimit) {
-		findings[relative] = fileStats
+		findings[path] = fileStats
 	}
 	for _, declaration := range file.Decls {
 		function, ok := declaration.(*ast.FuncDecl)
@@ -110,10 +64,9 @@ func inspectCommentaryFile(internalRoot, path string, findings map[string]commen
 		stats.branches, stats.maxNesting = complexity.branches, complexity.maxNesting
 		if (stats.codeLines >= functionCodeTrigger || stats.branches >= functionBranchTrigger || stats.maxNesting >= functionNestingTrigger) &&
 			stats.maxGap > functionGapLimit {
-			findings[relative+":"+function.Name.Name] = stats
+			findings[path+":"+function.Name.Name] = stats
 		}
 	}
-	return nil
 }
 
 func sourceLines(source []byte) []string {
