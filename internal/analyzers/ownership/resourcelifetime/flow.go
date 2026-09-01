@@ -36,20 +36,20 @@ type resourceFlowKey struct {
 
 // Analyzer returns this package's configured Go analysis pass.
 
-func resourceLeaks(
+func evaluateResourceFlow(
 	pass *analysis.Pass,
 	evidence *lifecyclefacts.EvidenceQuery,
 	call *ssa.Call,
 	resource ssa.Value,
 	contract resourceContract,
-) bool {
+) resourceLifetimePolicyResult {
 	index := ssaflow.InstructionIndex(call)
 	if index < 0 {
-		return false
+		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
 	errorValue := ssaflow.CallResult(call, 1)
 	if contract.packagePath == "net/http" && testProvesHTTPError(call, resource, errorValue) {
-		return false
+		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
 	owners := localResourceOwners(call.Parent(), resource)
 	queue := []resourceFlowState{{block: call.Block(), index: index + 1, active: true}}
@@ -65,11 +65,11 @@ func resourceLeaks(
 		var leaks bool
 		state, leaks = advanceResourceState(pass, evidence, state, resource, owners, contract)
 		if leaks {
-			return true
+			return reportedResourceLifetime(resourceReasonUnownedReturn)
 		}
 		queue = append(queue, resourceSuccessorStates(pass, state, errorValue, resource)...)
 	}
-	return false
+	return acceptedResourceLifetime(resourceReasonReleaseProven)
 }
 
 func resourceStateKey(state resourceFlowState) resourceFlowKey {

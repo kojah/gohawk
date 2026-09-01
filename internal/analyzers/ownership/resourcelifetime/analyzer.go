@@ -74,10 +74,9 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				if resource == nil {
 					continue
 				}
-				leaks := resourceLeaks(pass, evidence, call, resource, contract)
-				completeTimer := completeTimers[call.Pos()]
-				emitResourceDecision(pass, function, call, resource, contract, leaks, completeTimer)
-				if leaks && !completeTimer {
+				result := evaluateResourceLifetime(pass, evidence, call, resource, contract, completeTimers[call.Pos()])
+				emitResourceDecision(pass, function, call, resource, contract, result)
+				if result.report {
 					check.Reportf(
 						pass,
 						check.ResourceRelease,
@@ -99,17 +98,15 @@ func emitResourceDecision(
 	call *ssa.Call,
 	resource ssa.Value,
 	contract resourceContract,
-	leaks, completeTimer bool,
+	result resourceLifetimePolicyResult,
 ) {
 	checkID := string(check.ResourceRelease)
 	if !analysisTrace.Enabled("resourcelifetime", checkID) {
 		return
 	}
-	outcome, reason := analysisTrace.OutcomeAccepted, "release-proven"
-	if completeTimer {
-		reason = "complete-timer-lifecycle"
-	} else if leaks {
-		outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
+	outcome := analysisTrace.OutcomeAccepted
+	if result.report {
+		outcome = analysisTrace.OutcomeRejected
 	}
 	details := map[string]string{"acquisition": contract.packagePath + "." + contract.name}
 	if resource != nil && resource.Type() != nil {
@@ -121,7 +118,7 @@ func emitResourceDecision(
 			Analyzer: "resourcelifetime",
 			Check:    checkID,
 			Phase:    "decision",
-			Reason:   reason,
+			Reason:   string(result.reason),
 			Outcome:  outcome,
 			Pos:      call.Pos(),
 			Function: function.String(),
