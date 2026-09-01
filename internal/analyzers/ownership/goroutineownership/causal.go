@@ -112,7 +112,8 @@ func closurePerformsLifecycleAction(function *ssa.Function) bool {
 }
 
 func relatedValue(first, second ssa.Value) bool {
-	return ssautil.SameValue(first, second) || ssautil.ValueDerivesFrom(first, second, map[ssa.Value]bool{}) || ssautil.ValueDerivesFrom(second, first, map[ssa.Value]bool{})
+	return ssautil.SameValue(first, second) || ssautil.ValueDerivesFrom(first, second, map[ssa.Value]bool{}) ||
+		ssautil.ValueDerivesFrom(second, first, map[ssa.Value]bool{})
 }
 
 func functionMayBlock(function *ssa.Function) bool {

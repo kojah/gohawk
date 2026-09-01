@@ -10,7 +10,14 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-func effectivelyImmutableComposite(pass *analysis.Pass, name *ast.Ident, object types.Object, specification *ast.ValueSpec, index int, usage globalStateUsage) bool {
+func effectivelyImmutableComposite(
+	pass *analysis.Pass,
+	name *ast.Ident,
+	object types.Object,
+	specification *ast.ValueSpec,
+	index int,
+	usage globalStateUsage,
+) bool {
 	if name.IsExported() || index >= len(specification.Values) {
 		return false
 	}
@@ -128,7 +135,8 @@ func readOnlyCollectionUse(pass *analysis.Pass, value ast.Expr, usage globalStat
 	case *ast.RangeStmt:
 		return typed.X == current && collectionElementsDeeplyImmutable(pass.TypesInfo.TypeOf(value))
 	case *ast.CallExpr:
-		if collectionElementsDeeplyImmutable(pass.TypesInfo.TypeOf(value)) && (readOnlyCollectionBuiltin(pass, typed, current) || readOnlyCollectionPackageCall(pass, typed)) {
+		if collectionElementsDeeplyImmutable(pass.TypesInfo.TypeOf(value)) &&
+			(readOnlyCollectionBuiltin(pass, typed, current) || readOnlyCollectionPackageCall(pass, typed)) {
 			return true
 		}
 		argument := collectionArgumentIndex(typed, current)

@@ -85,7 +85,8 @@ func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Valu
 					continue
 				}
 				field, fieldOK := store.Addr.(*ssa.FieldAddr)
-				if fieldOK && ValueDerivesFrom(field.X, callee.Params[0], map[ssa.Value]bool{}) && ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) {
+				if fieldOK && ValueDerivesFrom(field.X, callee.Params[0], map[ssa.Value]bool{}) &&
+					ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) {
 					return true
 				}
 			}
@@ -128,8 +129,10 @@ func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ss
 		return true
 	}
 	receiver := CallReceiver(common)
-	mutator := strings.HasPrefix(name, "set") || strings.HasPrefix(name, "add") || strings.HasPrefix(name, "register") || strings.HasPrefix(name, "own") || strings.HasPrefix(name, "with")
-	if mutator && hasLifecycleMethod(receiver) && (ExternallyOwnedValue(receiver) || valueTransferred(receiver, map[ssa.Value]bool{}) || valueLifecycleUsed(receiver, instruction)) {
+	mutator := strings.HasPrefix(name, "set") || strings.HasPrefix(name, "add") || strings.HasPrefix(name, "register") || strings.HasPrefix(name, "own") ||
+		strings.HasPrefix(name, "with")
+	if mutator && hasLifecycleMethod(receiver) &&
+		(ExternallyOwnedValue(receiver) || valueTransferred(receiver, map[ssa.Value]bool{}) || valueLifecycleUsed(receiver, instruction)) {
 		return true
 	}
 	return false

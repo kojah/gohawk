@@ -52,7 +52,8 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			if _, ok := instruction.(*ssa.Go); ok {
 				for _, identity := range slices.Clone(held) {
 					for _, value := range lockValues[identity] {
-						if ssautil.ClosureCallsMethodBeforeBranch(instruction, "Unlock", value) || ssautil.ClosureCallsMethodBeforeBranch(instruction, "RUnlock", value) {
+						if ssautil.ClosureCallsMethodBeforeBranch(instruction, "Unlock", value) ||
+							ssautil.ClosureCallsMethodBeforeBranch(instruction, "RUnlock", value) {
 							released[identity] = true
 							held = releaseLock(held, identity)
 							delete(guards, identity)
@@ -70,7 +71,8 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 					for _, value := range lockValues[identity] {
 						common := ssautil.InstructionCall(instruction)
 						if ssautil.DeferredClosureCalls(instruction, "Unlock", value) || ssautil.DeferredClosureCalls(instruction, "RUnlock", value) ||
-							common != nil && (ssautil.ValueCallsMethod(common.Value, "Unlock", value) || ssautil.ValueCallsMethod(common.Value, "RUnlock", value)) {
+							common != nil &&
+								(ssautil.ValueCallsMethod(common.Value, "Unlock", value) || ssautil.ValueCallsMethod(common.Value, "RUnlock", value)) {
 							released[identity] = true
 							deferred = appendUniqueString(deferred, identity)
 							break

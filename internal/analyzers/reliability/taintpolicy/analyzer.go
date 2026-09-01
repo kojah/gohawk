@@ -21,7 +21,11 @@ func Analyzer() *analysis.Analyzer {
 		Doc:      "checks untrusted environment and argument data reaching sensitive sinks",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 	}
-	analyzer.Flags.Var(flagvalue.NewCommaSeparatedChoice(&config.sinks, "filesystem", "process", "terminal", "log"), "sinks", "comma-separated sink families: filesystem,process,terminal,log")
+	analyzer.Flags.Var(
+		flagvalue.NewCommaSeparatedChoice(&config.sinks, "filesystem", "process", "terminal", "log"),
+		"sinks",
+		"comma-separated sink families: filesystem,process,terminal,log",
+	)
 	analyzer.Flags.StringVar(&config.sanitizers, "sanitizers", "", "comma-separated fully-qualified sanitizer functions")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runTaintPolicy(pass, config)
@@ -104,7 +108,26 @@ func taintSink(common *ssa.CallCommon, sinks map[string]bool) (string, string, [
 
 func filesystemSink(name string) bool {
 	switch name {
-	case "Chdir", "Chmod", "Chown", "Create", "CreateTemp", "Lchown", "Lstat", "Mkdir", "MkdirAll", "Open", "OpenFile", "ReadFile", "Readlink", "Remove", "RemoveAll", "Rename", "Stat", "Symlink", "Truncate", "WriteFile":
+	case "Chdir",
+		"Chmod",
+		"Chown",
+		"Create",
+		"CreateTemp",
+		"Lchown",
+		"Lstat",
+		"Mkdir",
+		"MkdirAll",
+		"Open",
+		"OpenFile",
+		"ReadFile",
+		"Readlink",
+		"Remove",
+		"RemoveAll",
+		"Rename",
+		"Stat",
+		"Symlink",
+		"Truncate",
+		"WriteFile":
 		return true
 	default:
 		return false

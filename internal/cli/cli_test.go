@@ -27,12 +27,49 @@ func TestPrintAnalyzerList(t *testing.T) {
 		excludes  []string
 		wantError bool
 	}{
-		{name: "all", contains: []string{"ANALYZER", "GROUP", "apishape*", "oncepolicy", "contracts", "reliability", "* opt-in"}, excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts"}},
-		{name: "defaults", arguments: []string{"-defaults"}, contains: []string{"oncepolicy"}, excludes: []string{"*", "wirepolicy", "apishape", "determinism"}},
-		{name: "opt-in", arguments: []string{"-opt-in"}, contains: []string{"wirepolicy*", "determinism*", "* opt-in"}, excludes: []string{"oncepolicy", "contextpolicy"}},
-		{name: "checks", arguments: []string{"-checks"}, contains: []string{"CHECK", "GROUP", "contextpolicy/context-first", "contextpolicy/test-context*", "oncepolicy/discarded-wrapper", "contracts", "* opt-in"}, excludes: []string{"ANALYZER", "PROFILE", "TAGS", "CATEGORY"}},
-		{name: "default checks", arguments: []string{"-checks", "-defaults"}, contains: []string{"contextpolicy/context-first"}, excludes: []string{"*", "contextpolicy/test-context", "apishape/parameter-count"}},
-		{name: "opt-in checks", arguments: []string{"-checks", "-opt-in"}, contains: []string{"contextpolicy/test-context*", "apishape/parameter-count*", "* opt-in"}, excludes: []string{"contextpolicy/context-first"}},
+		{
+			name:     "all",
+			contains: []string{"ANALYZER", "GROUP", "apishape*", "oncepolicy", "contracts", "reliability", "* opt-in"},
+			excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts"},
+		},
+		{
+			name:      "defaults",
+			arguments: []string{"-defaults"},
+			contains:  []string{"oncepolicy"},
+			excludes:  []string{"*", "wirepolicy", "apishape", "determinism"},
+		},
+		{
+			name:      "opt-in",
+			arguments: []string{"-opt-in"},
+			contains:  []string{"wirepolicy*", "determinism*", "* opt-in"},
+			excludes:  []string{"oncepolicy", "contextpolicy"},
+		},
+		{
+			name:      "checks",
+			arguments: []string{"-checks"},
+			contains: []string{
+				"CHECK",
+				"GROUP",
+				"contextpolicy/context-first",
+				"contextpolicy/test-context*",
+				"oncepolicy/discarded-wrapper",
+				"contracts",
+				"* opt-in",
+			},
+			excludes: []string{"ANALYZER", "PROFILE", "TAGS", "CATEGORY"},
+		},
+		{
+			name:      "default checks",
+			arguments: []string{"-checks", "-defaults"},
+			contains:  []string{"contextpolicy/context-first"},
+			excludes:  []string{"*", "contextpolicy/test-context", "apishape/parameter-count"},
+		},
+		{
+			name:      "opt-in checks",
+			arguments: []string{"-checks", "-opt-in"},
+			contains:  []string{"contextpolicy/test-context*", "apishape/parameter-count*", "* opt-in"},
+			excludes:  []string{"contextpolicy/context-first"},
+		},
 		{name: "conflicting filters", arguments: []string{"-defaults", "-opt-in"}, wantError: true},
 		{name: "unexpected argument", arguments: []string{"extra"}, wantError: true},
 	}
@@ -176,7 +213,8 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 	}
 	output.Reset()
 	errorsOutput.Reset()
-	if code := printFilteredFlagsUsing([]string{"gohawk", "-flags"}, analyzers, &output, &errorsOutput, execute); code != 9 || errorsOutput.String() != "child failed\n" {
+	if code := printFilteredFlagsUsing([]string{"gohawk", "-flags"}, analyzers, &output, &errorsOutput, execute); code != 9 ||
+		errorsOutput.String() != "child failed\n" {
 		t.Fatalf("exit code = %d, stderr = %q", code, errorsOutput.String())
 	}
 }
@@ -190,10 +228,28 @@ func TestRunWithRichOutputUsing(t *testing.T) {
 		wantOutput string
 	}{
 		{name: "no diagnostics", result: processOutput{stdout: []byte(`{}`)}, wantCode: 0},
-		{name: "diagnostic", result: processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"missing.go:1:1","end":"missing.go:1:2","message":"problem"}]}}`)}, wantCode: 3, wantOutput: "warning[oncepolicy]: problem"},
-		{name: "analysis error", result: processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":{"error":"load failed"}}}`)}, wantCode: 1, wantOutput: "oncepolicy: load failed"},
+		{
+			name: "diagnostic",
+			result: processOutput{
+				stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"missing.go:1:1","end":"missing.go:1:2","message":"problem"}]}}`),
+			},
+			wantCode:   3,
+			wantOutput: "warning[oncepolicy]: problem",
+		},
+		{
+			name:       "analysis error",
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":{"error":"load failed"}}}`)},
+			wantCode:   1,
+			wantOutput: "oncepolicy: load failed",
+		},
 		{name: "invalid JSON", result: processOutput{stdout: []byte(`not json`)}, wantCode: 1, wantOutput: "decode analyzer output"},
-		{name: "child exit", result: processOutput{stdout: []byte("child output\n"), stderr: []byte("child error\n"), exitCode: 4}, err: errors.New("exit status 4"), wantCode: 4, wantOutput: "child error\nchild output"},
+		{
+			name:       "child exit",
+			result:     processOutput{stdout: []byte("child output\n"), stderr: []byte("child error\n"), exitCode: 4},
+			err:        errors.New("exit status 4"),
+			wantCode:   4,
+			wantOutput: "child error\nchild output",
+		},
 		{name: "start error", result: processOutput{exitCode: -1}, err: errors.New("not found"), wantCode: 1, wantOutput: "run analyzer engine: not found"},
 	}
 	for _, test := range tests {
@@ -522,7 +578,14 @@ func TestCheckSelectionProfiles(t *testing.T) {
 
 	t.Run("check adds to selected analyzer defaults", func(t *testing.T) {
 		requested := checkSelection{enabled: map[string]bool{testContext: true}, disabled: map[string]bool{}}
-		selection, err := withAnalyzerCheckSelection([]string{"gohawk", "-enable=contextpolicy", "./..."}, analyzers, groups, metadata, checkOwners(requested.enabled, metadata), false)
+		selection, err := withAnalyzerCheckSelection(
+			[]string{"gohawk", "-enable=contextpolicy", "./..."},
+			analyzers,
+			groups,
+			metadata,
+			checkOwners(requested.enabled, metadata),
+			false,
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -645,7 +708,8 @@ func answer() int { return identity{}.value(42) }
 		t.Parallel()
 		module := writeCheckFilterModule(t)
 		output, exitCode := runCommand(t, module, binary, "-enable=contextpolicy", "-disable-checks=contextpolicy/context-first", "./...")
-		if exitCode != 3 || strings.Contains(output, "context.Context must be first parameter") || !strings.Contains(output, "do not pass nil context.Context") {
+		if exitCode != 3 || strings.Contains(output, "context.Context must be first parameter") ||
+			!strings.Contains(output, "do not pass nil context.Context") {
 			t.Fatalf("filtered checks: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -713,7 +777,16 @@ func answer() int { return identity{}.value(42) }
 		const diagnostic = "cancel function from context.WithCancel is not called on every return path"
 		tracePath := filepath.Join(t.TempDir(), "evidence.jsonl")
 
-		output, exitCode := runCommand(t, module, binary, "-json", "-enable=cancellationownership", "-gohawk-trace=cancellationownership", "-gohawk-trace-file="+tracePath, "./...")
+		output, exitCode := runCommand(
+			t,
+			module,
+			binary,
+			"-json",
+			"-enable=cancellationownership",
+			"-gohawk-trace=cancellationownership",
+			"-gohawk-trace-file="+tracePath,
+			"./...",
+		)
 		if exitCode != 0 || !json.Valid([]byte(output)) {
 			t.Fatalf("traced JSON run: exit code = %d\n%s", exitCode, output)
 		}
@@ -757,7 +830,12 @@ func assertCancellationTrace(t *testing.T, tracePath string) {
 			found[event.Phase+"/"+event.Reason+"/"+event.Outcome] = true
 		}
 	}
-	for _, want := range []string{"candidate/diagnostic-candidate/observed", "decision/unowned-return/rejected", "decision/diagnostic-reported/rejected", "fix/suggested-fix-available/accepted"} {
+	for _, want := range []string{
+		"candidate/diagnostic-candidate/observed",
+		"decision/unowned-return/rejected",
+		"decision/diagnostic-reported/rejected",
+		"fix/suggested-fix-available/accepted",
+	} {
 		if !found[want] {
 			t.Fatalf("trace does not contain %s:\n%s", want, traceOutput)
 		}
@@ -793,8 +871,10 @@ func TestCLIIntegrationExhaustive(t *testing.T) {
 		}
 		for _, summary := range []string{
 			"contracts (API and data contracts): apishape*, contextpolicy, closedomain*, wirepolicy*",
-			"ownership (ownership and lifecycle): cancellationownership, channelpolicy, deferinloop, exitpolicy, goroutineownership, processownership, resourcelifetime",
-			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership, evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, taintpolicy*",
+			"ownership (ownership and lifecycle): cancellationownership, channelpolicy, deferinloop, " +
+				"exitpolicy, goroutineownership, processownership, resourcelifetime",
+			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership, " +
+				"evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, taintpolicy*",
 			"testing (testing): testpolicy*",
 		} {
 			if !strings.Contains(output, summary) {
@@ -1017,7 +1097,16 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("join policy: exit code = %d\n%s", exitCode, output)
 		}
 
-		output, exitCode = runCommand(t, goroutineModule, "go", "vet", "-vettool="+binary, "-enable=goroutineownership", "-goroutineownership.mode=join", "./...")
+		output, exitCode = runCommand(
+			t,
+			goroutineModule,
+			"go",
+			"vet",
+			"-vettool="+binary,
+			"-enable=goroutineownership",
+			"-goroutineownership.mode=join",
+			"./...",
+		)
 		if exitCode != 1 || !strings.Contains(output, "goroutine is not joined") {
 			t.Fatalf("vettool join policy: exit code = %d\n%s", exitCode, output)
 		}
@@ -1036,8 +1125,18 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("enabled sibling check did not report:\n%s", output)
 		}
 
-		output, exitCode = runCommand(t, checkModule, "go", "vet", "-vettool="+binary, "-enable=contextpolicy", "-disable-checks=contextpolicy/context-first", "./...")
-		if exitCode != 1 || strings.Contains(output, "context.Context must be first parameter") || !strings.Contains(output, "do not pass nil context.Context") {
+		output, exitCode = runCommand(
+			t,
+			checkModule,
+			"go",
+			"vet",
+			"-vettool="+binary,
+			"-enable=contextpolicy",
+			"-disable-checks=contextpolicy/context-first",
+			"./...",
+		)
+		if exitCode != 1 || strings.Contains(output, "context.Context must be first parameter") ||
+			!strings.Contains(output, "do not pass nil context.Context") {
 			t.Fatalf("vettool disabled check: exit code = %d\n%s", exitCode, output)
 		}
 
@@ -1062,14 +1161,16 @@ func answer() int { return identity{}.value(42) }
 		}
 
 		output, exitCode = runCommand(t, checkModule, "go", "vet", "-vettool="+binary, "-enable-checks=contextpolicy/nil-context", "./...")
-		if exitCode != 1 || !strings.Contains(output, "do not pass nil context.Context") || strings.Contains(output, "context.Context must be first parameter") {
+		if exitCode != 1 || !strings.Contains(output, "do not pass nil context.Context") ||
+			strings.Contains(output, "context.Context must be first parameter") {
 			t.Fatalf("vettool exact check: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, checkModule, binary,
 			"-enable=contextpolicy", "-enable-checks=contextpolicy/test-context", "./...",
 		)
-		if exitCode != 3 || !strings.Contains(output, "context.Context must be first parameter") || !strings.Contains(output, "do not pass nil context.Context") {
+		if exitCode != 3 || !strings.Contains(output, "context.Context must be first parameter") ||
+			!strings.Contains(output, "do not pass nil context.Context") {
 			t.Fatalf("combined analyzer and check selection: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -1255,7 +1356,16 @@ func answer() int { return identity{}.value(42) }
 		const diagnostic = "cancel function from context.WithCancel is not called on every return path"
 		tracePath := filepath.Join(t.TempDir(), "evidence.jsonl")
 
-		output, exitCode := runCommand(t, module, binary, "-json", "-enable=cancellationownership", "-gohawk-trace=cancellationownership", "-gohawk-trace-file="+tracePath, "./...")
+		output, exitCode := runCommand(
+			t,
+			module,
+			binary,
+			"-json",
+			"-enable=cancellationownership",
+			"-gohawk-trace=cancellationownership",
+			"-gohawk-trace-file="+tracePath,
+			"./...",
+		)
 		if exitCode != 0 || !json.Valid([]byte(output)) {
 			t.Fatalf("traced JSON run: exit code = %d\n%s", exitCode, output)
 		}
@@ -1278,7 +1388,12 @@ func answer() int { return identity{}.value(42) }
 				found[event.Phase+"/"+event.Reason+"/"+event.Outcome] = true
 			}
 		}
-		for _, want := range []string{"candidate/diagnostic-candidate/observed", "decision/unowned-return/rejected", "decision/diagnostic-reported/rejected", "fix/suggested-fix-available/accepted"} {
+		for _, want := range []string{
+			"candidate/diagnostic-candidate/observed",
+			"decision/unowned-return/rejected",
+			"decision/diagnostic-reported/rejected",
+			"fix/suggested-fix-available/accepted",
+		} {
 			if !found[want] {
 				t.Fatalf("trace does not contain %s:\n%s", want, traceOutput)
 			}

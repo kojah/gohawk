@@ -51,7 +51,8 @@ func benchmarkResultSink(pass *analysis.Pass, name *ast.Ident) bool {
 	// elimination and are scoped to the test binary. ccLoad uses this standard
 	// pattern for allocation-sensitive storage benchmarks:
 	// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/storage/cache_benchmark_test.go#L10-L15
-	return !name.IsExported() && strings.HasSuffix(pass.Fset.Position(name.Pos()).Filename, "_test.go") && strings.Contains(lower, "benchmark") && strings.HasSuffix(lower, "sink")
+	return !name.IsExported() && strings.HasSuffix(pass.Fset.Position(name.Pos()).Filename, "_test.go") && strings.Contains(lower, "benchmark") &&
+		strings.HasSuffix(lower, "sink")
 }
 
 func conventionalFrameworkGlobal(value types.Type) bool {
@@ -82,7 +83,14 @@ func conventionalFrameworkGlobal(value types.Type) bool {
 	}
 }
 
-func conventionalErrorSentinel(pass *analysis.Pass, name *ast.Ident, object types.Object, specification *ast.ValueSpec, index int, usage globalStateUsage) bool {
+func conventionalErrorSentinel(
+	pass *analysis.Pass,
+	name *ast.Ident,
+	object types.Object,
+	specification *ast.ValueSpec,
+	index int,
+	usage globalStateUsage,
+) bool {
 	if index >= len(specification.Values) || !errorSentinelName(name.Name) || !analysisutil.IsErrorType(object.Type()) {
 		return false
 	}

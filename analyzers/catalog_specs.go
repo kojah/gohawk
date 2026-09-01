@@ -40,7 +40,11 @@ func contractSpecs() []catalog.AnalyzerSpec {
 		{
 			Analyzer: contextpolicy.Analyzer(),
 			Checks: []catalog.CheckInfo{
-				{ID: check.ContextFirst, Doc: "Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle."},
+				{
+					ID: check.ContextFirst,
+					Doc: "Reports misplaced context.Context parameters while allowing additional contexts " +
+						"after a leading context and one context after a testing handle.",
+				},
 				{ID: check.ContextStorage, Doc: "Reports context.Context values stored in structs."},
 				{ID: check.ContextTestOwnership, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.", OptIn: true},
 				{ID: check.ContextNilArgument, Doc: "Reports definitely nil context.Context arguments."},
@@ -62,7 +66,11 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 			{ID: check.CancellationRelease, Doc: "Reports derived cancel functions that are neither called nor transferred on every return path."},
 		}},
 		{Analyzer: channelpolicy.Analyzer(), Checks: []catalog.CheckInfo{
-			{ID: check.ChannelCapacityRationale, Doc: "Reports large constant channel capacities in production files without a nearby bounded rationale.", OptIn: true},
+			{
+				ID:    check.ChannelCapacityRationale,
+				Doc:   "Reports large constant channel capacities in production files without a nearby bounded rationale.",
+				OptIn: true,
+			},
 			{ID: check.ChannelCallerClose, Doc: "Reports functions that close channels received from their callers."},
 			{ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed."},
 		}},

@@ -14,6 +14,7 @@ linters:
     - gocritic
     - gosec
     - intrange
+    - lll
     - misspell
     - nilerr
     - nilnesserr
@@ -30,6 +31,9 @@ linters:
       # Analyzer switches intentionally use conservative default branches for
       # tokens and syntax added by future Go releases.
       default-signifies-exhaustive: true
+    lll:
+      line-length: 160
+      tab-width: 4
   exclusions:
     rules:
       # Test fixtures intentionally execute variable commands and create
@@ -53,3 +57,7 @@ linters:
         text: "G(122|304):"
         linters:
           - gosec
+      # Commit-pinned evidence links are intentionally kept intact.
+      - source: '^\s*// https?://'
+        linters:
+          - lll

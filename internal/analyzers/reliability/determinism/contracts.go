@@ -42,7 +42,8 @@ func singletonMapGuard(pass *analysis.Pass, preceding []ast.Stmt, ranged ast.Exp
 		if !ok || comparison.Op != token.NEQ {
 			continue
 		}
-		if lengthOfExpression(pass, comparison.X, ranged) && integerLiteral(comparison.Y, "1") || lengthOfExpression(pass, comparison.Y, ranged) && integerLiteral(comparison.X, "1") {
+		if lengthOfExpression(pass, comparison.X, ranged) && integerLiteral(comparison.Y, "1") ||
+			lengthOfExpression(pass, comparison.Y, ranged) && integerLiteral(comparison.X, "1") {
 			return true
 		}
 	}

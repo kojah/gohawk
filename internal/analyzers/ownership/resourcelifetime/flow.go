@@ -56,12 +56,15 @@ func resourceLeaks(pass *analysis.Pass, call *ssa.Call, resource ssa.Value, cont
 		}
 		seen[key] = true
 		for _, instruction := range state.block.Instrs[state.index:] {
-			state.released = state.released || releasesResource(pass, instruction, resource, owners, contract.cleanup) || contract.consumable && consumesResource(instruction, resource)
+			state.released = state.released || releasesResource(pass, instruction, resource, owners, contract.cleanup) ||
+				contract.consumable && consumesResource(instruction, resource)
 			if ssautil.InstructionTerminatesControlFlow(instruction) {
 				state.active = false
 				break
 			}
-			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released && !returnedResourceOwner(pass, returned, resource, contract.cleanup) && !ssautil.ReturnedSameAsAny(returned, owners) {
+			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released &&
+				!returnedResourceOwner(pass, returned, resource, contract.cleanup) &&
+				!ssautil.ReturnedSameAsAny(returned, owners) {
 				return true
 			}
 		}
@@ -91,7 +94,18 @@ func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource s
 		for index := range methods.Len() {
 			if slices.Contains(cleanup, methods.At(index).Obj().Name()) {
 				if analysisTrace.Enabled("resourcelifetime", string(check.ResourceRelease)) {
-					analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Phase: "evidence", Reason: "returned-cleanup-projection", Outcome: analysisTrace.OutcomeAccepted, Pos: returned.Pos(), Function: returned.Parent().String()})
+					analysisTrace.Emit(
+						pass,
+						analysisTrace.Event{
+							Analyzer: "resourcelifetime",
+							Check:    string(check.ResourceRelease),
+							Phase:    "evidence",
+							Reason:   "returned-cleanup-projection",
+							Outcome:  analysisTrace.OutcomeAccepted,
+							Pos:      returned.Pos(),
+							Function: returned.Parent().String(),
+						},
+					)
 				}
 				return true
 			}

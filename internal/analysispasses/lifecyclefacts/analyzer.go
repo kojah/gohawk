@@ -102,7 +102,19 @@ func StoresInEscapingReceiver(pass *analysis.Pass, analyzer, check string, instr
 		outcome = analysisTrace.OutcomeRejected
 	}
 	if analysisTrace.Enabled(analyzer, check) {
-		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: analyzer, Check: check, Phase: "evidence", Reason: reason, Outcome: outcome, Pos: instruction.Pos(), Function: functionName(instruction), Details: summaryDetails(instruction, target, fact.ReceiverStore)})
+		analysisTrace.Emit(
+			pass,
+			analysisTrace.Event{
+				Analyzer: analyzer,
+				Check:    check,
+				Phase:    "evidence",
+				Reason:   reason,
+				Outcome:  outcome,
+				Pos:      instruction.Pos(),
+				Function: functionName(instruction),
+				Details:  summaryDetails(instruction, target, fact.ReceiverStore),
+			},
+		)
 	}
 	if !escapes {
 		return false
@@ -118,7 +130,19 @@ func emitSummaryTrace(pass *analysis.Pass, analyzer, check string, instruction g
 	if owned {
 		outcome = analysisTrace.OutcomeAccepted
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: analyzer, Check: check, Phase: "evidence", Reason: analysisTrace.ReasonLifecycleSummary, Outcome: outcome, Pos: instruction.Pos(), Function: functionName(instruction), Details: summaryDetails(instruction, target, mask)})
+	analysisTrace.Emit(
+		pass,
+		analysisTrace.Event{
+			Analyzer: analyzer,
+			Check:    check,
+			Phase:    "evidence",
+			Reason:   analysisTrace.ReasonLifecycleSummary,
+			Outcome:  outcome,
+			Pos:      instruction.Pos(),
+			Function: functionName(instruction),
+			Details:  summaryDetails(instruction, target, mask),
+		},
+	)
 }
 
 func summaryDetails(instruction gosssa.Instruction, target gosssa.Value, mask ParameterMask) map[string]string {
@@ -162,7 +186,8 @@ func summarize(pass *analysis.Pass, function *gosssa.Function) Fact {
 		} {
 			if ownsOnEveryReturn(function, parameter, func(instruction gosssa.Instruction) bool {
 				common := ssautil.InstructionCall(instruction)
-				if common != nil && ssautil.CallName(common) == method && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), parameter, map[gosssa.Value]bool{}) {
+				if common != nil && ssautil.CallName(common) == method &&
+					ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), parameter, map[gosssa.Value]bool{}) {
 					return true
 				}
 				imported, ok := importFact(pass, instruction)

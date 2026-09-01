@@ -24,7 +24,11 @@ func Analyzer() *analysis.Analyzer {
 		Doc:      "checks that explicit goroutines have a recognizable join handle or lifecycle owner",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 	}
-	analyzer.Flags.Var(flagvalue.NewChoice(&config.mode, goroutineModeContext, goroutineModeLifecycle, goroutineModeJoin), "mode", "ownership policy: context, lifecycle, or join")
+	analyzer.Flags.Var(
+		flagvalue.NewChoice(&config.mode, goroutineModeContext, goroutineModeLifecycle, goroutineModeJoin),
+		"mode",
+		"ownership policy: context, lifecycle, or join",
+	)
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runGoroutineOwnership(pass, config)
 	}
@@ -46,11 +50,16 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 	function := spawn.Parent()
 	signals, groups := goroutineJoinValues(spawn)
 	owners := goroutineLifecycleValues(spawn)
-	if goroutineHasStopLifecycle(spawn) || goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) || externallyOwnedJoin(signals, groups) || ownershipRegisteredBefore(spawn, signals, groups) || matchingCountedJoin(function, spawn, signals) || nestedCallbackReceivesAny(function, signals) {
+	if goroutineHasStopLifecycle(spawn) || goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) ||
+		externallyOwnedJoin(signals, groups) ||
+		ownershipRegisteredBefore(spawn, signals, groups) ||
+		matchingCountedJoin(function, spawn, signals) ||
+		nestedCallbackReceivesAny(function, signals) {
 		return true
 	}
 	return !ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
-		return joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) || ownsGoroutineLifecycle(candidate, owners) || transfersGoroutineOwnership(candidate, signals, groups, owners)
+		return joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) || ownsGoroutineLifecycle(candidate, owners) ||
+			transfersGoroutineOwnership(candidate, signals, groups, owners)
 	}, func(returned *ssa.Return) bool {
 		return ssautil.ReturnedSameAsAny(returned, signals) || ssautil.ReturnedSameAsAny(returned, groups) || ssautil.ReturnedSameAsAny(returned, owners)
 	})
@@ -89,12 +98,23 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 					emitGoroutineTrace(pass, function, spawn.Pos(), checkID, "context-lifecycle", analysisTrace.OutcomeAccepted, signals, groups, owners)
 					continue
 				}
-				if config.mode != goroutineModeJoin && (goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) || externallyOwnedJoin(signals, groups)) {
+				if config.mode != goroutineModeJoin &&
+					(goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) || externallyOwnedJoin(signals, groups)) {
 					emitGoroutineTrace(pass, function, spawn.Pos(), checkID, "caller-or-external-owner", analysisTrace.OutcomeAccepted, signals, groups, owners)
 					continue
 				}
 				if ownershipRegisteredBefore(spawn, signals, groups) {
-					emitGoroutineTrace(pass, function, spawn.Pos(), checkID, "registration-before-spawn", analysisTrace.OutcomeAccepted, signals, groups, owners)
+					emitGoroutineTrace(
+						pass,
+						function,
+						spawn.Pos(),
+						checkID,
+						"registration-before-spawn",
+						analysisTrace.OutcomeAccepted,
+						signals,
+						groups,
+						owners,
+					)
 					continue
 				}
 				// If spawning and receiving range over the same unchanged bound, any
@@ -140,7 +160,8 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 					}
 					return transferred
 				}, func(returned *ssa.Return) bool {
-					return ssautil.ReturnedSameAsAny(returned, signals) || ssautil.ReturnedSameAsAny(returned, groups) || config.mode != goroutineModeJoin && ssautil.ReturnedSameAsAny(returned, owners)
+					return ssautil.ReturnedSameAsAny(returned, signals) || ssautil.ReturnedSameAsAny(returned, groups) ||
+						config.mode != goroutineModeJoin && ssautil.ReturnedSameAsAny(returned, owners)
 				})
 				outcome, reason := analysisTrace.OutcomeAccepted, "join-proven"
 				if leaks {
@@ -164,12 +185,43 @@ func emitGoroutineEvidence(pass *analysis.Pass, function *ssa.Function, instruct
 	if !analysisTrace.Enabled("goroutineownership", string(check)) {
 		return
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "goroutineownership", Check: string(check), Phase: "evidence", Reason: reason, Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(), Function: function.String()})
+	analysisTrace.Emit(
+		pass,
+		analysisTrace.Event{
+			Analyzer: "goroutineownership",
+			Check:    string(check),
+			Phase:    "evidence",
+			Reason:   reason,
+			Outcome:  analysisTrace.OutcomeAccepted,
+			Pos:      instruction.Pos(),
+			Function: function.String(),
+		},
+	)
 }
 
-func emitGoroutineTrace(pass *analysis.Pass, function *ssa.Function, position token.Pos, check check.ID, reason string, outcome analysisTrace.Outcome, signals, groups, owners []ssa.Value) {
+func emitGoroutineTrace(
+	pass *analysis.Pass,
+	function *ssa.Function,
+	position token.Pos,
+	check check.ID,
+	reason string,
+	outcome analysisTrace.Outcome,
+	signals, groups, owners []ssa.Value,
+) {
 	if !analysisTrace.Enabled("goroutineownership", string(check)) {
 		return
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "goroutineownership", Check: string(check), Phase: "decision", Reason: reason, Outcome: outcome, Pos: position, Function: function.String(), Details: map[string]string{"signals": strconv.Itoa(len(signals)), "groups": strconv.Itoa(len(groups)), "owners": strconv.Itoa(len(owners))}})
+	analysisTrace.Emit(
+		pass,
+		analysisTrace.Event{
+			Analyzer: "goroutineownership",
+			Check:    string(check),
+			Phase:    "decision",
+			Reason:   reason,
+			Outcome:  outcome,
+			Pos:      position,
+			Function: function.String(),
+			Details:  map[string]string{"signals": strconv.Itoa(len(signals)), "groups": strconv.Itoa(len(groups)), "owners": strconv.Itoa(len(owners))},
+		},
+	)
 }

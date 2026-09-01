@@ -87,14 +87,17 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
-	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInGlobal(instruction, resource) || ssautil.StoresValueInEnclosingScope(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || startedClosureReleasesResource(instruction, resource, methods) || ssautil.CallTransfersValueToField(instruction, resource) || lifecyclefacts.OwnsArgument(pass, "resourcelifetime", string(check.ResourceRelease), instruction, resource, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, "resourcelifetime", string(check.ResourceRelease), instruction, resource) || ssautil.CallTransfersArgumentToReceiver(instruction, resource) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource) {
+	if instructionSettlesResourceOwnership(instruction, resource, methods) ||
+		callTakesResourceOwnership(pass, instruction, resource) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
-	if common != nil && slices.Contains(methods, ssautil.CallName(common)) && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
+	if common != nil && slices.Contains(methods, ssautil.CallName(common)) &&
+		ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
 		return true
 	}
-	if common != nil && slices.Contains(methods, ssautil.CallName(common)) && storedResourceAccessReleased(instruction, ssautil.CallReceiver(common), resource) {
+	if common != nil && slices.Contains(methods, ssautil.CallName(common)) &&
+		storedResourceAccessReleased(instruction, ssautil.CallReceiver(common), resource) {
 		return true
 	}
 	if common != nil && testingCleanupReleases(common, resource, methods) {
@@ -115,7 +118,15 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		// performed cleanup. Herdforge's response decoder owns Body.Close this
 		// way, without advertising ownership in the helper name:
 		// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/provider/github.go#L356
-		if lifecyclefacts.OwnsArgument(pass, "resourcelifetime", string(check.ResourceRelease), instruction, resource, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.MethodMask(method) }) || ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, method, resource) {
+		if lifecyclefacts.OwnsArgument(
+			pass,
+			"resourcelifetime",
+			string(check.ResourceRelease),
+			instruction,
+			resource,
+			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.MethodMask(method) },
+		) ||
+			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, method, resource) {
 			return true
 		}
 		// A directly invoked cleanup closure can own an individual error path just
@@ -128,6 +139,38 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		}
 	}
 	return false
+}
+
+func instructionSettlesResourceOwnership(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
+	return resourceTransferredToExternalField(instruction, resource) ||
+		ssautil.StoresValueInGlobal(instruction, resource) ||
+		ssautil.StoresValueInEnclosingScope(instruction, resource) ||
+		ssautil.StoresOwnerOfValueInExternalField(instruction, resource) ||
+		ssautil.StoresValueInOwnedMap(instruction, resource) ||
+		ssautil.SendsValue(instruction, resource) ||
+		ssautil.ClosureCapturesValue(instruction, resource) ||
+		startedClosureReleasesResource(instruction, resource, methods)
+}
+
+func callTakesResourceOwnership(pass *analysis.Pass, instruction ssa.Instruction, resource ssa.Value) bool {
+	return ssautil.CallTransfersValueToField(instruction, resource) ||
+		lifecyclefacts.OwnsArgument(
+			pass,
+			"resourcelifetime",
+			string(check.ResourceRelease),
+			instruction,
+			resource,
+			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner },
+		) ||
+		lifecyclefacts.StoresInEscapingReceiver(
+			pass,
+			"resourcelifetime",
+			string(check.ResourceRelease),
+			instruction,
+			resource,
+		) ||
+		ssautil.CallTransfersArgumentToReceiver(instruction, resource) ||
+		ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource)
 }
 
 func startedClosureReleasesResource(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {

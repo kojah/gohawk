@@ -27,7 +27,19 @@ func TestEmitFiltersAndEncodesJSONL(t *testing.T) {
 	file.SetLines([]int{0, 10, 20, 30, 40, 50, 60})
 	pass := &analysis.Pass{Fset: files}
 	Emit(pass, Event{Analyzer: "goroutineownership", Phase: "decision", Reason: "ignored", Pos: file.Pos(60), Function: "openFile"})
-	Emit(pass, Event{Analyzer: "resourcelifetime", Check: "resourcelifetime/missing-release", Phase: "decision", Reason: "unowned-return", Outcome: OutcomeRejected, Pos: file.Pos(60), Function: "openFile", Details: map[string]string{"resource": "*os.File"}})
+	Emit(
+		pass,
+		Event{
+			Analyzer: "resourcelifetime",
+			Check:    "resourcelifetime/missing-release",
+			Phase:    "decision",
+			Reason:   "unowned-return",
+			Outcome:  OutcomeRejected,
+			Pos:      file.Pos(60),
+			Function: "openFile",
+			Details:  map[string]string{"resource": "*os.File"},
+		},
+	)
 
 	var got record
 	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &got); err != nil {
@@ -101,7 +113,14 @@ func TestEmitDiagnosticResolvesSourceFunction(t *testing.T) {
 	}
 	function := file.Decls[0]
 	pass := &analysis.Pass{Fset: files, Files: []*ast.File{file}}
-	EmitDiagnostic(pass, "oncepolicy", "candidate", "diagnostic-candidate", OutcomeObserved, analysis.Diagnostic{Category: "oncepolicy/discarded-wrapper", Pos: function.Pos(), Message: "discarded"})
+	EmitDiagnostic(
+		pass,
+		"oncepolicy",
+		"candidate",
+		"diagnostic-candidate",
+		OutcomeObserved,
+		analysis.Diagnostic{Category: "oncepolicy/discarded-wrapper", Pos: function.Pos(), Message: "discarded"},
+	)
 
 	var got record
 	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &got); err != nil {

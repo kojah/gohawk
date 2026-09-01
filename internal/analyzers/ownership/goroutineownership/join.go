@@ -11,7 +11,12 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-func spawnedOwnershipValue(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, instruction ssa.Instruction) (signal, group ssa.Value) { //nolint:ireturn // Goroutine ownership can flow through channels or synchronization values.
+func spawnedOwnershipValue(
+	spawn *ssa.Go,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	instruction ssa.Instruction,
+) (signal, group ssa.Value) { //nolint:ireturn // Goroutine ownership can flow through channels or synchronization values.
 	if send, ok := instruction.(*ssa.Send); ok {
 		return spawnedValueAtCall(spawn, function, closure, send.Chan), nil
 	}
@@ -133,7 +138,8 @@ func functionReceivesParameter(function *ssa.Function, parameter ssa.Value, seen
 			}
 			callee := called.StaticCallee()
 			for index, argument := range called.Args {
-				if index < len(callee.Params) && ssautil.ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) && functionReceivesParameter(callee, callee.Params[index], seen) {
+				if index < len(callee.Params) && ssautil.ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) &&
+					functionReceivesParameter(callee, callee.Params[index], seen) {
 					return true
 				}
 			}
@@ -195,7 +201,8 @@ func callReceivesAny(instruction ssa.Instruction, signals []ssa.Value) bool {
 			}
 			for _, channel := range channels {
 				for index, parameter := range function.Params {
-					if passedValueAliases(channel, parameter, map[ssa.Value]bool{}) && index < len(common.Args) && ssautil.SameAsAny(common.Args[index], signals) {
+					if passedValueAliases(channel, parameter, map[ssa.Value]bool{}) && index < len(common.Args) &&
+						ssautil.SameAsAny(common.Args[index], signals) {
 						return true
 					}
 				}
@@ -259,7 +266,8 @@ func valueReceivesAnyWithBindings(value ssa.Value, signals []ssa.Value, seen map
 				if common != nil {
 					if callee := common.StaticCallee(); callee != nil {
 						for argumentIndex, argument := range common.Args {
-							if argumentIndex >= len(callee.Params) || !functionReceivesParameter(callee, callee.Params[argumentIndex], map[*ssa.Function]bool{}) {
+							if argumentIndex >= len(callee.Params) ||
+								!functionReceivesParameter(callee, callee.Params[argumentIndex], map[*ssa.Function]bool{}) {
 								continue
 							}
 							for freeIndex, free := range function.FreeVars {
@@ -276,7 +284,9 @@ func valueReceivesAnyWithBindings(value ssa.Value, signals []ssa.Value, seen map
 						}
 					}
 					for index, free := range function.FreeVars {
-						if index < len(typed.Bindings) && ssautil.ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) && valueReceivesAnyWithBindings(bindings[free], signals, seen, bindings) {
+						if index < len(typed.Bindings) &&
+							ssautil.ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) &&
+							valueReceivesAnyWithBindings(bindings[free], signals, seen, bindings) {
 							return true
 						}
 					}
@@ -312,7 +322,10 @@ func valueReceivesAnyWithBindings(value ssa.Value, signals []ssa.Value, seen map
 	return false
 }
 
-func resolveClosureBinding(value ssa.Value, enclosingBindings map[ssa.Value]ssa.Value) ssa.Value { //nolint:ireturn // Closure bindings retain their concrete SSA representation.
+func resolveClosureBinding(
+	value ssa.Value,
+	enclosingBindings map[ssa.Value]ssa.Value,
+) ssa.Value { //nolint:ireturn // Closure bindings retain their concrete SSA representation.
 	seen := make(map[ssa.Value]bool)
 	for value != nil && !seen[value] {
 		seen[value] = true

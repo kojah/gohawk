@@ -77,7 +77,12 @@ func producerSendsCanCooccur(first, second producerSend) bool {
 	return ssautil.InstructionMayFollow(first.instruction, second.instruction) || ssautil.InstructionMayFollow(second.instruction, first.instruction)
 }
 
-func spawnedValueAtCall(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value) ssa.Value { //nolint:ireturn // SSA values retain their concrete representations.
+func spawnedValueAtCall(
+	spawn *ssa.Go,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	value ssa.Value,
+) ssa.Value { //nolint:ireturn // SSA values retain their concrete representations.
 	if closure != nil {
 		for index, free := range function.FreeVars {
 			if passedValueAliases(value, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) {

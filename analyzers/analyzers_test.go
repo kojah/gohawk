@@ -63,9 +63,42 @@ func TestAnalyzerGroups(t *testing.T) {
 		docPath   string
 		analyzers []string
 	}{
-		{name: "contracts", doc: "API and data contracts", docPath: "api-and-data-contracts", analyzers: []string{"apishape", "contextpolicy", "closedomain", "wirepolicy"}},
-		{name: "ownership", doc: "ownership and lifecycle", docPath: "ownership-and-lifecycle", analyzers: []string{"cancellationownership", "channelpolicy", "deferinloop", "exitpolicy", "goroutineownership", "processownership", "resourcelifetime"}},
-		{name: "reliability", doc: "reliability and safety", docPath: "reliability-and-safety", analyzers: []string{"concurrentcapture", "determinism", "errorownership", "evalorder", "globalstate", "lockorder", "oncepolicy", "syncmapatomicity", "taintpolicy"}},
+		{
+			name:      "contracts",
+			doc:       "API and data contracts",
+			docPath:   "api-and-data-contracts",
+			analyzers: []string{"apishape", "contextpolicy", "closedomain", "wirepolicy"},
+		},
+		{
+			name:    "ownership",
+			doc:     "ownership and lifecycle",
+			docPath: "ownership-and-lifecycle",
+			analyzers: []string{
+				"cancellationownership",
+				"channelpolicy",
+				"deferinloop",
+				"exitpolicy",
+				"goroutineownership",
+				"processownership",
+				"resourcelifetime",
+			},
+		},
+		{
+			name:    "reliability",
+			doc:     "reliability and safety",
+			docPath: "reliability-and-safety",
+			analyzers: []string{
+				"concurrentcapture",
+				"determinism",
+				"errorownership",
+				"evalorder",
+				"globalstate",
+				"lockorder",
+				"oncepolicy",
+				"syncmapatomicity",
+				"taintpolicy",
+			},
+		},
 		{name: "testing", doc: "testing", docPath: "testing", analyzers: []string{"testpolicy"}},
 	}
 	groups := AnalyzerGroups()
@@ -82,8 +115,20 @@ func TestAnalyzerGroups(t *testing.T) {
 			seen[analyzer.Name] = true
 			names = append(names, analyzer.Name)
 		}
-		if group.Name != want[index].name || group.Doc != want[index].doc || group.DocPath != want[index].docPath || !slices.Equal(names, want[index].analyzers) {
-			t.Fatalf("group %d = %q (%q, %q) %v, want %q (%q, %q) %v", index, group.Name, group.Doc, group.DocPath, names, want[index].name, want[index].doc, want[index].docPath, want[index].analyzers)
+		if group.Name != want[index].name || group.Doc != want[index].doc || group.DocPath != want[index].docPath ||
+			!slices.Equal(names, want[index].analyzers) {
+			t.Fatalf(
+				"group %d = %q (%q, %q) %v, want %q (%q, %q) %v",
+				index,
+				group.Name,
+				group.Doc,
+				group.DocPath,
+				names,
+				want[index].name,
+				want[index].doc,
+				want[index].docPath,
+				want[index].analyzers,
+			)
 		}
 	}
 	if len(seen) != len(expectedAnalyzerNames()) {

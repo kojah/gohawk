@@ -194,7 +194,13 @@ func printAnalyzerDocumentation(output io.Writer, group gohawk.AnalyzerGroup, an
 	printAnalyzerOptions(output, analyzer)
 }
 
-func printCheckDocumentation(output io.Writer, group gohawk.AnalyzerGroup, analyzer *analysis.Analyzer, info gohawk.AnalyzerInfo, check gohawk.AnalyzerCheckInfo) {
+func printCheckDocumentation(
+	output io.Writer,
+	group gohawk.AnalyzerGroup,
+	analyzer *analysis.Analyzer,
+	info gohawk.AnalyzerInfo,
+	check gohawk.AnalyzerCheckInfo,
+) {
 	writeLine(output, check.ID)
 	writeFormatted(output, "  %s\n\n", check.Doc)
 	writeFormatted(output, "Analyzer: %s\n", analyzer.Name)

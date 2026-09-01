@@ -89,7 +89,14 @@ func reportMismatchedInlineErrors(pass *analysis.Pass) {
 				return false
 			})
 			if mismatched != nil {
-				check.Reportf(pass, check.ErrorMismatchedInline, mismatched.Pos(), "condition checks %s instead of newly declared %s", mismatched.Name, fresh.Name)
+				check.Reportf(
+					pass,
+					check.ErrorMismatchedInline,
+					mismatched.Pos(),
+					"condition checks %s instead of newly declared %s",
+					mismatched.Name,
+					fresh.Name,
+				)
 			}
 		}
 	})

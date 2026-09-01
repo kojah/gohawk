@@ -91,7 +91,10 @@ func orderedRangeAccumulators(pass *analysis.Pass, body *ast.BlockStmt, variable
 			if len(typed.Lhs) == 1 && len(typed.Rhs) == 1 {
 				left, leftOK := typed.Lhs[0].(*ast.Ident)
 				appendCall, appendOK := typed.Rhs[0].(*ast.CallExpr)
-				if leftOK && appendOK && appendedRangeValue(pass, appendCall, variables) && len(appendCall.Args) > 0 && analysisutil.SameExpression(pass, left, appendCall.Args[0]) {
+				if leftOK && appendOK &&
+					appendedRangeValue(pass, appendCall, variables) &&
+					len(appendCall.Args) > 0 &&
+					analysisutil.SameExpression(pass, left, appendCall.Args[0]) {
 					result[pass.TypesInfo.ObjectOf(left)] = true
 				}
 			}

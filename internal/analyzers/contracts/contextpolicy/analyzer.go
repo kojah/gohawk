@@ -144,12 +144,14 @@ func ownsStoredContext(pass *analysis.Pass, structure *ast.StructType) bool {
 			hasContext = true
 			for _, name := range field.Names {
 				lower := strings.ToLower(name.Name)
-				if strings.Contains(lower, "parent") || strings.Contains(lower, "base") || strings.Contains(lower, "shutdown") || strings.Contains(lower, "lifecycle") {
+				if strings.Contains(lower, "parent") || strings.Contains(lower, "base") || strings.Contains(lower, "shutdown") ||
+					strings.Contains(lower, "lifecycle") {
 					hasLifecycleHandle = true
 				}
 			}
 		}
-		hasLifecycleHandle = hasLifecycleHandle || analysisutil.NamedType(fieldType, "context", "CancelFunc") || analysisutil.NamedType(fieldType, "sync", "WaitGroup")
+		hasLifecycleHandle = hasLifecycleHandle || analysisutil.NamedType(fieldType, "context", "CancelFunc") ||
+			analysisutil.NamedType(fieldType, "sync", "WaitGroup")
 	}
 	// A cancel/join handle or an explicitly lifecycle-named context is strong
 	// evidence that the struct owns a bounded component rather than retaining a

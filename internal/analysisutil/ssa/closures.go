@@ -35,12 +35,14 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 	for _, block := range function.Blocks {
 		for _, candidate := range block.Instrs {
 			for index, free := range function.FreeVars {
-				if index < len(closure.Bindings) && CapturedBindingMatches(closure.Bindings[index], target) && CallInvokesArgumentOnEveryReturn(candidate, free) {
+				if index < len(closure.Bindings) && CapturedBindingMatches(closure.Bindings[index], target) &&
+					CallInvokesArgumentOnEveryReturn(candidate, free) {
 					return true
 				}
 			}
 			for index, parameter := range function.Params {
-				if common != nil && index < len(common.Args) && SameValue(common.Args[index], target) && CallInvokesArgumentOnEveryReturn(candidate, parameter) {
+				if common != nil && index < len(common.Args) && SameValue(common.Args[index], target) &&
+					CallInvokesArgumentOnEveryReturn(candidate, parameter) {
 					return true
 				}
 			}
@@ -70,12 +72,14 @@ func DeferredClosurePassesValueToNamedCall(instruction ssa.Instruction, target s
 			}
 			for _, argument := range called.Args {
 				for index, free := range function.FreeVars {
-					if index < len(closure.Bindings) && ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) && CapturedBindingMatches(closure.Bindings[index], target) {
+					if index < len(closure.Bindings) && ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) &&
+						CapturedBindingMatches(closure.Bindings[index], target) {
 						return true
 					}
 				}
 				for index, parameter := range function.Params {
-					if common != nil && index < len(common.Args) && ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) && SameValue(common.Args[index], target) {
+					if common != nil && index < len(common.Args) && ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) &&
+						SameValue(common.Args[index], target) {
 						return true
 					}
 				}
@@ -135,7 +139,8 @@ func valueCallsMethod(value ssa.Value, method string, target ssa.Value, seen map
 						continue
 					}
 					for index, free := range function.FreeVars {
-						if index < len(closure.Bindings) && ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) && valueCallsMethod(closure.Bindings[index], method, target, seen) {
+						if index < len(closure.Bindings) && ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) &&
+							valueCallsMethod(closure.Bindings[index], method, target, seen) {
 							return true
 						}
 					}

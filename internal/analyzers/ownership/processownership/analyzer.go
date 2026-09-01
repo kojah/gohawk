@@ -91,7 +91,19 @@ func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa
 	if command != nil && command.Type() != nil {
 		details["command_type"] = command.Type().String()
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: checkID, Phase: "decision", Reason: reason, Outcome: outcome, Pos: start.Pos(), Function: function.String(), Details: details})
+	analysisTrace.Emit(
+		pass,
+		analysisTrace.Event{
+			Analyzer: "processownership",
+			Check:    checkID,
+			Phase:    "decision",
+			Reason:   reason,
+			Outcome:  outcome,
+			Pos:      start.Pos(),
+			Function: function.String(),
+			Details:  details,
+		},
+	)
 }
 
 func processOwnerDominatesStart(function *ssa.Function, start *ssa.Call, owners []ssa.Value) bool {
@@ -207,14 +219,22 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
 	return waitsForCommand(instruction, command) ||
-		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Release" && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
+		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Release" &&
+			ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 		ssautil.DeferredClosureCalls(instruction, "Wait", command) ||
 		ssautil.ClosureCallsMethod(instruction, "Wait", command) ||
 		ssautil.ClosureCapturesValue(instruction, command) ||
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
-		lifecyclefacts.OwnsArgument(pass, "processownership", string(check.ProcessWait), instruction, command, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
+		lifecyclefacts.OwnsArgument(
+			pass,
+			"processownership",
+			string(check.ProcessWait),
+			instruction,
+			command,
+			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited },
+		) ||
 		lifecyclefacts.StoresInEscapingReceiver(pass, "processownership", string(check.ProcessWait), instruction, command) ||
 		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
@@ -228,7 +248,18 @@ func startedWrapperWaits(pass *analysis.Pass, instruction ssa.Instruction, comma
 		return false
 	}
 	if analysisTrace.Enabled("processownership", string(check.ProcessWait)) {
-		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: string(check.ProcessWait), Phase: "evidence", Reason: "started-wrapper-waiter", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(), Function: instruction.Parent().String()})
+		analysisTrace.Emit(
+			pass,
+			analysisTrace.Event{
+				Analyzer: "processownership",
+				Check:    string(check.ProcessWait),
+				Phase:    "evidence",
+				Reason:   "started-wrapper-waiter",
+				Outcome:  analysisTrace.OutcomeAccepted,
+				Pos:      instruction.Pos(),
+				Function: instruction.Parent().String(),
+			},
+		)
 	}
 	return true
 }
@@ -242,11 +273,29 @@ func processHandleOwnershipAction(pass *analysis.Pass, instruction ssa.Instructi
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
 		}
-		if lifecyclefacts.OwnsArgument(pass, "processownership", string(check.ProcessWait), instruction, argument, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
+		if lifecyclefacts.OwnsArgument(
+			pass,
+			"processownership",
+			string(check.ProcessWait),
+			instruction,
+			argument,
+			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited },
+		) ||
 			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", argument) ||
 			ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
 			if analysisTrace.Enabled("processownership", string(check.ProcessWait)) {
-				analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "processownership", Check: string(check.ProcessWait), Phase: "evidence", Reason: "process-handle-owner", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(), Function: instruction.Parent().String()})
+				analysisTrace.Emit(
+					pass,
+					analysisTrace.Event{
+						Analyzer: "processownership",
+						Check:    string(check.ProcessWait),
+						Phase:    "evidence",
+						Reason:   "process-handle-owner",
+						Outcome:  analysisTrace.OutcomeAccepted,
+						Pos:      instruction.Pos(),
+						Function: instruction.Parent().String(),
+					},
+				)
 			}
 			return true
 		}
@@ -323,7 +372,9 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 	if common == nil {
 		return false
 	}
-	if ssautil.CallName(common) == "Wait" && (ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) || osProcessDerivedFromCommand(ssautil.CallReceiver(common), command)) {
+	if ssautil.CallName(common) == "Wait" &&
+		(ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
+			osProcessDerivedFromCommand(ssautil.CallReceiver(common), command)) {
 		return true
 	}
 	return false

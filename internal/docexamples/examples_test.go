@@ -28,7 +28,12 @@ func TestParseRegions(t *testing.T) {
 
 func TestReadRegionsAllowsMultipleFlagged(t *testing.T) {
 	directory := t.TempDir()
-	source := []byte("package p\n\n//gohawk:example flagged First\nfunc first() {}\n//gohawk:example end\n\n//gohawk:example flagged Second\nfunc second() {}\n//gohawk:example end\n\n//gohawk:example ok\nfunc ok() {}\n//gohawk:example end\n")
+	source := []byte(
+		"package p\n\n" +
+			"//gohawk:example flagged First\nfunc first() {}\n//gohawk:example end\n\n" +
+			"//gohawk:example flagged Second\nfunc second() {}\n//gohawk:example end\n\n" +
+			"//gohawk:example ok\nfunc ok() {}\n//gohawk:example end\n",
+	)
 	if err := os.WriteFile(filepath.Join(directory, "examples.go"), source, 0o644); err != nil {
 		t.Fatal(err)
 	}

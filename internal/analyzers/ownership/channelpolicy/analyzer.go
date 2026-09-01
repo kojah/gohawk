@@ -25,7 +25,12 @@ func Analyzer() *analysis.Analyzer {
 		Doc:      "checks channel capacity and closing ownership",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 	}
-	analyzer.Flags.Int64Var(&config.maxUnexplainedCapacity, "max-unexplained-capacity", 1, "largest channel capacity allowed without a rationale; negative disables the check")
+	analyzer.Flags.Int64Var(
+		&config.maxUnexplainedCapacity,
+		"max-unexplained-capacity",
+		1,
+		"largest channel capacity allowed without a rationale; negative disables the check",
+	)
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runChannelPolicy(pass, config)
 	}

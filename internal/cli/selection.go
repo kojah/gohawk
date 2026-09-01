@@ -34,7 +34,13 @@ type executionPlan struct {
 
 // Main runs the gohawk command and exits with its result. The analyzer engine
 // remains at this boundary because multichecker.Main owns os.Exit as part of
-func buildExecutionPlan(arguments []string, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo, allowAnalyzerFlags bool) (executionPlan, error) {
+func buildExecutionPlan(
+	arguments []string,
+	analyzers []*analysis.Analyzer,
+	groups []gohawk.AnalyzerGroup,
+	metadata map[string]gohawk.AnalyzerInfo,
+	allowAnalyzerFlags bool,
+) (executionPlan, error) {
 	request, err := parseSelectionRequest(arguments, analyzers, groups, metadata, allowAnalyzerFlags)
 	if err != nil {
 		return executionPlan{}, err
@@ -66,12 +72,25 @@ type analyzerCheckSelection struct {
 	enableAll        bool
 }
 
-func withAnalyzerSelection(arguments []string, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo, allowAnalyzerFlags bool) ([]string, error) {
+func withAnalyzerSelection(
+	arguments []string,
+	analyzers []*analysis.Analyzer,
+	groups []gohawk.AnalyzerGroup,
+	metadata map[string]gohawk.AnalyzerInfo,
+	allowAnalyzerFlags bool,
+) ([]string, error) {
 	result, err := withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, allowAnalyzerFlags)
 	return result.arguments, err
 }
 
-func withAnalyzerCheckSelection(arguments []string, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo, checkOwners map[string]bool, allowAnalyzerFlags bool) (analyzerCheckSelection, error) {
+func withAnalyzerCheckSelection(
+	arguments []string,
+	analyzers []*analysis.Analyzer,
+	groups []gohawk.AnalyzerGroup,
+	metadata map[string]gohawk.AnalyzerInfo,
+	checkOwners map[string]bool,
+	allowAnalyzerFlags bool,
+) (analyzerCheckSelection, error) {
 	request, err := parseSelectionRequest(arguments, analyzers, groups, metadata, allowAnalyzerFlags)
 	if err != nil {
 		return analyzerCheckSelection{}, err
@@ -82,7 +101,13 @@ func withAnalyzerCheckSelection(arguments []string, analyzers []*analysis.Analyz
 	return resolveAnalyzerSelection(request, analyzers, groups, metadata), nil
 }
 
-func parseSelectionRequest(arguments []string, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo, allowAnalyzerFlags bool) (selectionRequest, error) {
+func parseSelectionRequest(
+	arguments []string,
+	analyzers []*analysis.Analyzer,
+	groups []gohawk.AnalyzerGroup,
+	metadata map[string]gohawk.AnalyzerInfo,
+	allowAnalyzerFlags bool,
+) (selectionRequest, error) {
 	if len(arguments) > 1 && arguments[1] == "help" {
 		return selectionRequest{arguments: arguments}, nil
 	}
@@ -129,7 +154,12 @@ func parseSelectionRequest(arguments []string, analyzers []*analysis.Analyzer, g
 	}, nil
 }
 
-func resolveAnalyzerSelection(request selectionRequest, analyzers []*analysis.Analyzer, groups []gohawk.AnalyzerGroup, metadata map[string]gohawk.AnalyzerInfo) analyzerCheckSelection {
+func resolveAnalyzerSelection(
+	request selectionRequest,
+	analyzers []*analysis.Analyzer,
+	groups []gohawk.AnalyzerGroup,
+	metadata map[string]gohawk.AnalyzerInfo,
+) analyzerCheckSelection {
 	if len(request.arguments) > 1 && request.arguments[1] == "help" {
 		return analyzerCheckSelection{arguments: request.arguments}
 	}
@@ -143,7 +173,9 @@ func resolveAnalyzerSelection(request selectionRequest, analyzers []*analysis.An
 	for _, enabled := range explicit {
 		hasExplicitEnabled = hasExplicitEnabled || enabled
 	}
-	if len(checkOwners) == 0 && len(nameSelection.enabled) == 0 && len(nameSelection.disabled) == 0 && len(groupSelection.enabled) == 0 && len(groupSelection.disabled) == 0 && (enableAll || hasExplicitEnabled) {
+	if len(checkOwners) == 0 && len(nameSelection.enabled) == 0 && len(nameSelection.disabled) == 0 && len(groupSelection.enabled) == 0 &&
+		len(groupSelection.disabled) == 0 &&
+		(enableAll || hasExplicitEnabled) {
 		normallySelected := make(map[string]bool)
 		if enableAll {
 			for _, analyzer := range analyzers {
@@ -310,7 +342,12 @@ func checkOwners(checks map[string]bool, metadata map[string]gohawk.AnalyzerInfo
 	return owners
 }
 
-func effectiveDisabledChecks(metadata map[string]gohawk.AnalyzerInfo, normallySelected map[string]bool, requested checkSelection, enableAll bool) map[string]bool {
+func effectiveDisabledChecks(
+	metadata map[string]gohawk.AnalyzerInfo,
+	normallySelected map[string]bool,
+	requested checkSelection,
+	enableAll bool,
+) map[string]bool {
 	disabled := maps.Clone(requested.disabled)
 	for analyzer, info := range metadata {
 		for _, check := range info.Checks {

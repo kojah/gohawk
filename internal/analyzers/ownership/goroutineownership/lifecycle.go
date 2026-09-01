@@ -249,7 +249,9 @@ func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, o
 	values := append(slices.Clone(signals), groups...)
 	values = append(values, owners...)
 	for _, value := range values {
-		if ssautil.StoresValueInField(instruction, value) || ssautil.StoresOwnerOfValueInField(instruction, value) || ssautil.StoresValueInOwnedMap(instruction, value) || ssautil.CallTransfersValueToField(instruction, value) {
+		if ssautil.StoresValueInField(instruction, value) || ssautil.StoresOwnerOfValueInField(instruction, value) ||
+			ssautil.StoresValueInOwnedMap(instruction, value) ||
+			ssautil.CallTransfersValueToField(instruction, value) {
 			return true
 		}
 	}

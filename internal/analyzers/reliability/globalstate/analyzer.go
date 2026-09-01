@@ -74,10 +74,17 @@ func checkGlobalDeclaration(pass *analysis.Pass, declaration *ast.GenDecl, allow
 				continue
 			}
 			object := pass.TypesInfo.Defs[name]
-			if object == nil || !mutableGlobal(object.Type()) || allowlist.names[name.Name] || allowlist.types[qualifiedTypeName(object.Type())] || allowedGlobal(pass, name, object, declaration, value, index, usage) {
+			if object == nil || !mutableGlobal(object.Type()) || allowlist.names[name.Name] || allowlist.types[qualifiedTypeName(object.Type())] ||
+				allowedGlobal(pass, name, object, declaration, value, index, usage) {
 				continue
 			}
-			check.Reportf(pass, check.MutableGlobalState, name.Pos(), "mutable package state %s requires an immutable owner or //gohawk:ignore globalstate", name.Name)
+			check.Reportf(
+				pass,
+				check.MutableGlobalState,
+				name.Pos(),
+				"mutable package state %s requires an immutable owner or //gohawk:ignore globalstate",
+				name.Name,
+			)
 		}
 	}
 }
@@ -91,7 +98,15 @@ func mutableGlobal(value types.Type) bool {
 	}
 }
 
-func allowedGlobal(pass *analysis.Pass, name *ast.Ident, object types.Object, declaration *ast.GenDecl, specification *ast.ValueSpec, index int, usage globalStateUsage) bool {
+func allowedGlobal(
+	pass *analysis.Pass,
+	name *ast.Ident,
+	object types.Object,
+	declaration *ast.GenDecl,
+	specification *ast.ValueSpec,
+	index int,
+	usage globalStateUsage,
+) bool {
 	value := object.Type()
 	if strings.HasSuffix(name.Name, "Schema") || analysisutil.NamedType(value, "sync", "Once") || analysisutil.NamedType(value, "regexp", "Regexp") {
 		return true

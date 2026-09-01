@@ -26,7 +26,8 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 	case ContractTestingCleanup:
 		return packagePath == "testing" && name == "Cleanup"
 	case ContractTestifyAssertion:
-		return (packagePath == "github.com/stretchr/testify/assert" || packagePath == "github.com/stretchr/testify/require") && (name == "Error" || name == "Nil")
+		return (packagePath == "github.com/stretchr/testify/assert" || packagePath == "github.com/stretchr/testify/require") &&
+			(name == "Error" || name == "Nil")
 	case ContractTestifyFatalError:
 		return packagePath == "github.com/stretchr/testify/require" && name == "Error"
 	case ContractGoMockReturn:

@@ -34,7 +34,11 @@ func analyzeDeterministicBlock(pass *analysis.Pass, function *ast.FuncDecl, bloc
 	for index, statement := range block.List {
 		ranged, ok := statement.(*ast.RangeStmt)
 		if ok && isMapType(pass.TypesInfo.TypeOf(ranged.X)) && mapRangeReachesOrderedOutput(pass, function, block, index, ranged) {
-			check.Report(pass, check.DeterministicMapOutput, analysis.Diagnostic{Pos: ranged.Pos(), End: ranged.X.End(), Message: "map iteration reaches ordered output without sorting"})
+			check.Report(
+				pass,
+				check.DeterministicMapOutput,
+				analysis.Diagnostic{Pos: ranged.Pos(), End: ranged.X.End(), Message: "map iteration reaches ordered output without sorting"},
+			)
 		}
 		inspectNestedDeterministicBlocks(pass, function, statement)
 	}

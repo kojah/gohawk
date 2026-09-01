@@ -79,7 +79,13 @@ func runEnumField(pass *analysis.Pass) (any, error) {
 		if !closed[field] {
 			continue
 		}
-		check.Reportf(pass, check.ClosedStringDomain, candidate.position.Pos(), "field %s uses a closed string domain; define a named string type and constants", candidate.position.Name)
+		check.Reportf(
+			pass,
+			check.ClosedStringDomain,
+			candidate.position.Pos(),
+			"field %s uses a closed string domain; define a named string type and constants",
+			candidate.position.Name,
+		)
 		pass.ExportObjectFact(field, new(closedStringDomainFact))
 	}
 	return nil, nil
@@ -154,7 +160,27 @@ func enumBuiltinStringStorage(value types.Type) bool {
 
 func enumFieldName(name string) bool {
 	switch strings.ToLower(name) {
-	case "action", "adapter", "code", "coverage", "granularity", "kind", "level", "mode", "outcome", "phase", "plugin", "provider", "reason", "requirement", "resultsource", "role", "severity", "state", "status", "trigger", "type":
+	case "action",
+		"adapter",
+		"code",
+		"coverage",
+		"granularity",
+		"kind",
+		"level",
+		"mode",
+		"outcome",
+		"phase",
+		"plugin",
+		"provider",
+		"reason",
+		"requirement",
+		"resultsource",
+		"role",
+		"severity",
+		"state",
+		"status",
+		"trigger",
+		"type":
 		return true
 	default:
 		return false

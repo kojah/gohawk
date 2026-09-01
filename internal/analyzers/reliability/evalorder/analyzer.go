@@ -141,7 +141,17 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 		}
 	}
 	if analysisTrace.Enabled("evalorder", string(check.EvaluationOrder)) {
-		analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "evalorder", Check: string(check.EvaluationOrder), Phase: "evidence", Reason: "disjoint-field-mutation", Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos()})
+		analysisTrace.Emit(
+			pass,
+			analysisTrace.Event{
+				Analyzer: "evalorder",
+				Check:    string(check.EvaluationOrder),
+				Phase:    "evidence",
+				Reason:   "disjoint-field-mutation",
+				Outcome:  analysisTrace.OutcomeAccepted,
+				Pos:      call.Pos(),
+			},
+		)
 	}
 	return true
 }

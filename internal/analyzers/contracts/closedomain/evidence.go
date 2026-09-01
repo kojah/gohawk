@@ -9,7 +9,13 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-func recordEnumFieldAssignment(pass *analysis.Pass, assignment *ast.AssignStmt, locals map[*types.Var]enumFlow, summaries map[*types.Func]enumFlow, fields map[*types.Var]enumFlow) {
+func recordEnumFieldAssignment(
+	pass *analysis.Pass,
+	assignment *ast.AssignStmt,
+	locals map[*types.Var]enumFlow,
+	summaries map[*types.Func]enumFlow,
+	fields map[*types.Var]enumFlow,
+) {
 	if len(assignment.Lhs) != len(assignment.Rhs) {
 		return
 	}
@@ -21,7 +27,13 @@ func recordEnumFieldAssignment(pass *analysis.Pass, assignment *ast.AssignStmt, 
 	}
 }
 
-func recordEnumFieldComposite(pass *analysis.Pass, literal *ast.CompositeLit, locals map[*types.Var]enumFlow, summaries map[*types.Func]enumFlow, fields map[*types.Var]enumFlow) {
+func recordEnumFieldComposite(
+	pass *analysis.Pass,
+	literal *ast.CompositeLit,
+	locals map[*types.Var]enumFlow,
+	summaries map[*types.Func]enumFlow,
+	fields map[*types.Var]enumFlow,
+) {
 	for _, element := range literal.Elts {
 		keyed, ok := element.(*ast.KeyValueExpr)
 		if !ok {
@@ -95,7 +107,13 @@ func selectedField(pass *analysis.Pass, expression ast.Expr) *types.Var {
 	return nil
 }
 
-func closeEnumTaggedUnionFields(pass *analysis.Pass, candidates map[*types.Var]enumCandidate, directValues map[*types.Var]map[string]bool, fieldFlows map[*types.Var]enumFlow, closed map[*types.Var]bool) {
+func closeEnumTaggedUnionFields(
+	pass *analysis.Pass,
+	candidates map[*types.Var]enumCandidate,
+	directValues map[*types.Var]map[string]bool,
+	fieldFlows map[*types.Var]enumFlow,
+	closed map[*types.Var]bool,
+) {
 	interfaces := enumPackageInterfaces(pass)
 	for _, iface := range interfaces {
 		groups := make(map[string][]*types.Var)

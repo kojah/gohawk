@@ -61,9 +61,11 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				if leaks {
 					source := analysisutil.SourceRange(pass, call.Pos())
 					check.Report(pass, check.CancellationRelease, analysis.Diagnostic{
-						Pos:            source.Pos(),
-						End:            source.End(),
-						Message:        "cancel function from " + analysisutil.ShortPackageName(contract.packagePath) + "." + contract.name + " is not called on every return path",
+						Pos: source.Pos(),
+						End: source.End(),
+						Message: "cancel function from " + analysisutil.ShortPackageName(
+							contract.packagePath,
+						) + "." + contract.name + " is not called on every return path",
 						SuggestedFixes: cancellationFix(pass, source.Pos(), contract.name),
 					})
 				}
@@ -82,7 +84,19 @@ func emitCancellationDecision(pass *analysis.Pass, function *ssa.Function, call 
 	if leaks {
 		outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: "cancellationownership", Check: checkID, Phase: "decision", Reason: reason, Outcome: outcome, Pos: call.Pos(), Function: function.String(), Details: map[string]string{"constructor": contract.packagePath + "." + contract.name}})
+	analysisTrace.Emit(
+		pass,
+		analysisTrace.Event{
+			Analyzer: "cancellationownership",
+			Check:    checkID,
+			Phase:    "decision",
+			Reason:   reason,
+			Outcome:  outcome,
+			Pos:      call.Pos(),
+			Function: function.String(),
+			Details:  map[string]string{"constructor": contract.packagePath + "." + contract.name},
+		},
+	)
 }
 
 type cancellationContract struct {
@@ -170,7 +184,8 @@ func callsCancel(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Va
 	// remains for wrappers which delegate to an interface cleanup method.
 	// Cerberus delegates qcancel through a deferred CloseCursor call:
 	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
-	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || lifecyclefacts.OwnsArgument(pass, "cancellationownership", string(check.CancellationRelease), instruction, cancel, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.Invoked | fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, "cancellationownership", string(check.CancellationRelease), instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) || ssautil.CallTransfersArgumentToReceiver(instruction, cancel) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel) || atomicStoreCoupledToWorker(instruction, cancel) {
+	if instructionSettlesCancellation(instruction, cancel) ||
+		callTakesCancellationOwnership(pass, instruction, cancel) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
@@ -194,12 +209,60 @@ func callsCancel(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Va
 	return false
 }
 
+func instructionSettlesCancellation(instruction ssa.Instruction, cancel ssa.Value) bool {
+	return ssautil.ClosureCallsValue(instruction, cancel) ||
+		ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) ||
+		ssautil.DeferredClosurePassesValueToNamedCall(
+			instruction,
+			cancel,
+			"cancel",
+			"cleanup",
+			"close",
+			"stop",
+			"teardown",
+		) ||
+		ssautil.ClosureOwnsValue(instruction, cancel) ||
+		ssautil.StoresValueInField(instruction, cancel) ||
+		ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) ||
+		ssautil.StoresValueInGlobal(instruction, cancel) ||
+		ssautil.StoresOwnerOfValueInField(instruction, cancel) ||
+		ssautil.StoresValueInOwnedMap(instruction, cancel) ||
+		atomicStoreCoupledToWorker(instruction, cancel)
+}
+
+func callTakesCancellationOwnership(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Value) bool {
+	return ssautil.CallReturnsDeferredCleanup(instruction, cancel) ||
+		lifecyclefacts.OwnsArgument(
+			pass,
+			"cancellationownership",
+			string(check.CancellationRelease),
+			instruction,
+			cancel,
+			func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
+				return fact.Invoked | fact.ReturnedOwner
+			},
+		) ||
+		lifecyclefacts.StoresInEscapingReceiver(
+			pass,
+			"cancellationownership",
+			string(check.CancellationRelease),
+			instruction,
+			cancel,
+		) ||
+		ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) ||
+		ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) ||
+		ssautil.CallTransfersArgumentToReceiver(instruction, cancel) ||
+		ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel)
+}
+
 func atomicStoreCoupledToWorker(instruction ssa.Instruction, cancel ssa.Value) bool {
 	// Atomic storage alone is not ownership: require the same external owner to
 	// launch the worker whose lifecycle the slot controls.
 	// https://github.com/jordigilh/kubernaut/blob/528b4f7080bf3522c0fa60f1ce87e48dcbcfe4bb/internal/kubernautagent/workflowcatalog/lazy_catalog.go#L100-L103
 	common := ssautil.InstructionCall(instruction)
-	if common == nil || ssautil.CallName(common) != "Store" || len(common.Args) < 2 || !ssautil.ValueDerivesFrom(common.Args[len(common.Args)-1], cancel, map[ssa.Value]bool{}) && !ssautil.ValueContainsValue(common.Args[len(common.Args)-1], cancel) {
+	if common == nil || ssautil.CallName(common) != "Store" || len(common.Args) < 2 ||
+		!ssautil.ValueDerivesFrom(common.Args[len(common.Args)-1], cancel, map[ssa.Value]bool{}) &&
+			!ssautil.ValueContainsValue(common.Args[len(common.Args)-1], cancel) {
 		return false
 	}
 	field, ok := ssautil.CallReceiver(common).(*ssa.FieldAddr)

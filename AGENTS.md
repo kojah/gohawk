@@ -35,6 +35,10 @@ targets. Direct commands remain appropriate for focused testing and debugging.
 Make the code instructive and easy to follow. Prefer simple, clear English,
 especially in comments.
 
+Keep Go source within the repository's 160-column lint limit. When a condition
+combines distinct kinds of evidence, extract named predicates that expose the
+policy structure instead of merely wrapping a long Boolean expression.
+
 ## Process termination
 
 Production analyzer and reusable library code must not call `panic()`,

@@ -16,7 +16,15 @@ func lockStateKey(state lockFlowState) string {
 		guards = append(guards, fmt.Sprintf("%s:%s=%t", identity, guard.condition, guard.value))
 	}
 	slices.Sort(guards)
-	return fmt.Sprintf("%d:%s:%s:%s:%s=%t", state.block.Index, strings.Join(state.held, ","), strings.Join(state.deferred, ","), strings.Join(guards, ","), state.condition, state.conditionValue)
+	return fmt.Sprintf(
+		"%d:%s:%s:%s:%s=%t",
+		state.block.Index,
+		strings.Join(state.held, ","),
+		strings.Join(state.deferred, ","),
+		strings.Join(guards, ","),
+		state.condition,
+		state.conditionValue,
+	)
 }
 
 func cloneLockGuards(source map[string]lockGuard) map[string]lockGuard {
