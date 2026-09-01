@@ -51,6 +51,9 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 	if common == nil {
 		return false
 	}
+	if strings.Contains(strings.ToLower(ssautil.CallName(common)), "eventually") && eventuallyObservesAny(common, signals) {
+		return true
+	}
 	if ssautil.CallName(common) == "Wait" && ssautil.AliasesAny(ssautil.CallReceiver(common), groups) {
 		return true
 	}
@@ -61,6 +64,79 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 	for _, argument := range common.Args {
 		if ssautil.AliasesAny(argument, signals) || ssautil.AliasesAny(argument, groups) {
 			return true
+		}
+	}
+	return false
+}
+
+func eventuallyObservesAny(common *ssa.CallCommon, signals []ssa.Value) bool {
+	// Eventually owns a polling predicate only when that predicate reaches a
+	// source-visible helper which actually observes the completion channel.
+	// https://github.com/janosmiko/lfk/blob/ca9760842190011f31f9d2079425d3a313fdd4c2/internal/k8s/portforward_supersede_test.go#L50-L58
+	for _, argument := range common.Args {
+		closure, ok := argument.(*ssa.MakeClosure)
+		if !ok {
+			continue
+		}
+		function, _ := closure.Fn.(*ssa.Function)
+		if function == nil {
+			continue
+		}
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instrs {
+				called := ssautil.InstructionCall(instruction)
+				if called == nil || called.StaticCallee() == nil {
+					continue
+				}
+				callee := called.StaticCallee()
+				for argIndex, passed := range called.Args {
+					if argIndex >= len(callee.Params) || !functionReceivesParameter(callee, callee.Params[argIndex], map[*ssa.Function]bool{}) {
+						continue
+					}
+					for freeIndex, free := range function.FreeVars {
+						if freeIndex >= len(closure.Bindings) || !ssautil.ValueDerivesFrom(passed, free, map[ssa.Value]bool{}) {
+							continue
+						}
+						if ssautil.AliasesAny(ssautil.CapturedBindingValue(closure.Bindings[freeIndex]), signals) {
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func functionReceivesParameter(function *ssa.Function, parameter ssa.Value, seen map[*ssa.Function]bool) bool {
+	if function == nil || seen[function] {
+		return false
+	}
+	seen[function] = true
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			switch candidate := instruction.(type) {
+			case *ssa.UnOp:
+				if candidate.Op == token.ARROW && ssautil.ValueDerivesFrom(candidate.X, parameter, map[ssa.Value]bool{}) {
+					return true
+				}
+			case *ssa.Select:
+				for _, state := range candidate.States {
+					if state.Dir == types.RecvOnly && ssautil.ValueDerivesFrom(state.Chan, parameter, map[ssa.Value]bool{}) {
+						return true
+					}
+				}
+			}
+			called := ssautil.InstructionCall(instruction)
+			if called == nil || called.StaticCallee() == nil {
+				continue
+			}
+			callee := called.StaticCallee()
+			for index, argument := range called.Args {
+				if index < len(callee.Params) && ssautil.ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) && functionReceivesParameter(callee, callee.Params[index], seen) {
+					return true
+				}
+			}
 		}
 	}
 	return false

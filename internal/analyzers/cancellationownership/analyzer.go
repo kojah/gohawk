@@ -50,7 +50,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				// transfers the obligation. Reassigned captured locals are included;
 				// Prometheus installs its current cancel in a scraper callback:
 				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/scrape/scrape_test.go#L1294-L1315
-				if ssautil.UnownedReturn(call, func(candidate ssa.Instruction) bool {
+				if ssautil.UnownedReturnAssumingNonNil(call, cancel, func(candidate ssa.Instruction) bool {
 					return callsCancel(candidate, cancel)
 				}, func(returned *ssa.Return) bool {
 					return ssautil.ReturnAliasesValue(returned, cancel) || ssautil.ReturnedValueOwnsValue(returned, cancel)
@@ -154,7 +154,7 @@ func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
 	// stronger local all-path summary and a deferred cleanup-name boundary.
 	// Cerberus delegates qcancel through a deferred CloseCursor call:
 	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
-	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
+	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) || ssautil.CallTransfersArgumentToReceiver(instruction, cancel) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel) || atomicStoreCoupledToWorker(instruction, cancel) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
@@ -184,6 +184,37 @@ func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
 	for _, argument := range common.Args {
 		if ssautil.AliasesValue(argument, cancel) {
 			return true
+		}
+	}
+	return false
+}
+
+func atomicStoreCoupledToWorker(instruction ssa.Instruction, cancel ssa.Value) bool {
+	// Atomic storage alone is not ownership: require the same external owner to
+	// launch the worker whose lifecycle the slot controls.
+	// https://github.com/jordigilh/kubernaut/blob/528b4f7080bf3522c0fa60f1ce87e48dcbcfe4bb/internal/kubernautagent/workflowcatalog/lazy_catalog.go#L100-L103
+	common := ssautil.InstructionCall(instruction)
+	if common == nil || ssautil.CallName(common) != "Store" || len(common.Args) < 2 || !ssautil.ValueDerivesFrom(common.Args[len(common.Args)-1], cancel, map[ssa.Value]bool{}) && !ssautil.ValueOwnsValue(common.Args[len(common.Args)-1], cancel) {
+		return false
+	}
+	field, ok := ssautil.CallReceiver(common).(*ssa.FieldAddr)
+	if !ok || !ssautil.ExternallyOwnedValue(field.X) {
+		return false
+	}
+	for _, block := range instruction.Parent().Blocks {
+		for _, candidate := range block.Instrs {
+			spawn, spawnOK := candidate.(*ssa.Go)
+			if !spawnOK || spawn.Pos() <= instruction.Pos() {
+				continue
+			}
+			if ssautil.ValueOwnsValue(spawn.Common().Value, field.X) {
+				return true
+			}
+			for _, argument := range spawn.Common().Args {
+				if ssautil.AliasesValue(argument, field.X) {
+					return true
+				}
+			}
 		}
 	}
 	return false

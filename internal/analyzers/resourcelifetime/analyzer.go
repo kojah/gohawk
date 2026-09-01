@@ -164,7 +164,7 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
-	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInGlobal(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) {
+	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInGlobal(instruction, resource) || ssautil.StoresValueInEnclosingScope(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, resource) || ssautil.CallTransfersArgumentToReceiver(instruction, resource) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
@@ -242,6 +242,9 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 		return false
 	}
 	errorValue := ssautil.CallResult(call, 1)
+	if contract.packagePath == "net/http" && testProvesHTTPError(call.Parent(), resource, errorValue) {
+		return false
+	}
 	owners := localResourceOwners(call.Parent(), resource)
 	queue := []resourceFlowState{{block: call.Block(), index: index + 1, active: true}}
 	seen := map[resourceFlowKey]bool{}
@@ -276,6 +279,54 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 				active = active && present
 			}
 			queue = append(queue, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released})
+		}
+	}
+	return false
+}
+
+func testProvesHTTPError(function *ssa.Function, resource, errorValue ssa.Value) bool {
+	// Test assertions can prove the owned-response path infeasible even though
+	// the assertion package expresses that fact outside the CFG.
+	// https://github.com/siemens/wfx/blob/392dde941e73ce9560df2c42b2d480eb528bfc96/cmd/wfx/cmd/root/root_test.go#L154-L157
+	assertedError, assertedNil := false, false
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			common := ssautil.InstructionCall(instruction)
+			packagePath := ssautil.CallPackage(common)
+			if common == nil || packagePath != "github.com/stretchr/testify/assert" && packagePath != "github.com/stretchr/testify/require" {
+				continue
+			}
+			if ssautil.CallName(common) == "Error" {
+				for _, argument := range common.Args {
+					assertedError = assertedError || ssautil.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{})
+				}
+			}
+			if ssautil.CallName(common) == "Nil" {
+				for _, argument := range common.Args {
+					assertedNil = assertedNil || ssautil.AliasesValue(argument, resource)
+				}
+			}
+		}
+	}
+	// net/http only returns a non-nil response together with an error for a
+	// failed redirect policy, and its body is already closed. A fatal Error
+	// assertion therefore eliminates the success path; a paired Nil assertion
+	// supplies the same evidence for non-fatal assertion packages.
+	return assertedError && (assertedNil || errorAssertionIsFatal(function, errorValue))
+}
+
+func errorAssertionIsFatal(function *ssa.Function, errorValue ssa.Value) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			common := ssautil.InstructionCall(instruction)
+			if common == nil || ssautil.CallPackage(common) != "github.com/stretchr/testify/require" || ssautil.CallName(common) != "Error" {
+				continue
+			}
+			for _, argument := range common.Args {
+				if ssautil.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
+					return true
+				}
+			}
 		}
 	}
 	return false

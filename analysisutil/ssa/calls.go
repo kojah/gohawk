@@ -126,9 +126,20 @@ func callInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Va
 // CallCallsMethodOnArgumentOnEveryReturn reports whether a statically known
 // helper calls method on target on every normal path through the helper.
 func CallCallsMethodOnArgumentOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	return callCallsMethodOnArgumentOnEveryReturn(instruction, method, target, map[*ssa.Function]bool{})
+}
+
+func callCallsMethodOnArgumentOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value, seen map[*ssa.Function]bool) bool {
+	common := InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil || seen[common.StaticCallee()] {
+		return false
+	}
+	seen[common.StaticCallee()] = true
+	defer delete(seen, common.StaticCallee())
 	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
 		common := InstructionCall(candidate)
-		return common != nil && CallName(common) == method && ValueDerivesFrom(CallReceiver(common), parameter, map[ssa.Value]bool{})
+		return common != nil && CallName(common) == method && ValueDerivesFrom(CallReceiver(common), parameter, map[ssa.Value]bool{}) ||
+			callCallsMethodOnArgumentOnEveryReturn(candidate, method, parameter, seen)
 	})
 }
 
@@ -539,6 +550,31 @@ func StartedClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method 
 		called := InstructionCall(candidate)
 		return CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target)
 	})
+}
+
+// CallStartsClosureCallingMethodOnArgument reports whether a source-visible
+// helper delegates an argument's lifecycle method to a goroutine. Starting the
+// waiter transfers the obligation even when the caller joins it separately.
+// https://github.com/siemens/wfx/blob/392dde941e73ce9560df2c42b2d480eb528bfc96/middleware/plugin/process_unix_test.go#L35-L45
+func CallStartsClosureCallingMethodOnArgument(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	common := InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil {
+		return false
+	}
+	callee := common.StaticCallee()
+	for index, argument := range common.Args {
+		if index >= len(callee.Params) || !AliasesValue(argument, target) && !ValueOwnsValue(argument, target) {
+			continue
+		}
+		for _, block := range callee.Blocks {
+			for _, candidate := range block.Instrs {
+				if _, ok := candidate.(*ssa.Go); ok && ClosureCallsMethod(candidate, method, callee.Params[index]) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // ClosureCallsMethodBeforeBranch reports whether a called function invokes

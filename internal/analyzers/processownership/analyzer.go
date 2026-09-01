@@ -195,7 +195,10 @@ func processOwnershipAction(instruction ssa.Instruction, command ssa.Value) bool
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
+		ssautil.CallTransfersArgumentToReturnedOwner(instruction, command) ||
+		ssautil.CallTransfersArgumentToReceiver(instruction, command) ||
 		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
+		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
 		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Exit"
 }
 

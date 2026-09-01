@@ -91,3 +91,18 @@ func callerRetainsClose() {
 	closeStillBorrowed(done)
 	close(done)
 }
+
+func anonymousWorkerOwnsClose() {
+	done := make(chan struct{})
+	go func(signal chan struct{}) {
+		defer close(signal)
+	}(done)
+}
+
+func guardedSafeClose[T any](channel chan T) {
+	select {
+	case <-channel:
+	default:
+		close(channel)
+	}
+}

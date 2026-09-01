@@ -169,7 +169,10 @@ func closesBorrowedChannel(channel ssa.Value, parameters []ssa.Value, callsites 
 
 func channelOwnershipTransferredToGoroutine(parameter ssa.Value, callsites map[*ssa.Function][]ssa.CallInstruction) bool {
 	function := parameter.Parent()
-	if function == nil || function.Object() == nil || function.Object().Exported() {
+	if guardedCloseContract(function, parameter) {
+		return true
+	}
+	if function == nil || function.Object() != nil && function.Object().Exported() {
 		return false
 	}
 	index := -1
@@ -201,6 +204,30 @@ func channelOwnershipTransferredToGoroutine(parameter ssa.Value, callsites map[*
 	// finishes. ElasticKV uses this contract for its refresh completion signal:
 	// https://github.com/bootjp/elastickv/blob/ddbb0a5b60a691890cb5595c185cdb16fee478b3/proxy/leader_aware_backend.go#L195-L218
 	return true
+}
+
+func guardedCloseContract(function *ssa.Function, parameter ssa.Value) bool {
+	if function == nil {
+		return false
+	}
+	hasGuard := false
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			selection, ok := instruction.(*ssa.Select)
+			if !ok {
+				continue
+			}
+			for _, state := range selection.States {
+				if state.Dir == types.RecvOnly && ssautil.AliasesValue(state.Chan, parameter) {
+					hasGuard = true
+				}
+			}
+		}
+	}
+	// A non-blocking receive immediately guarding close is an explicit safe-close
+	// contract, not an ordinary callee closing a borrowed producer channel.
+	// https://github.com/pancsta/asyncmachine-go/blob/cce9b31145cb07c1262ac0c71a696222b0119b75/internal/utils/utils.go#L44-L52
+	return hasGuard
 }
 
 func channelRelinquishedAfterCall(call ssa.CallInstruction, channel ssa.Value) bool {

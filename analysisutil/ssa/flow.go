@@ -79,6 +79,55 @@ func UnownedReturn(
 	return false
 }
 
+// UnownedReturnAssumingNonNil is UnownedReturn with the additional fact that
+// value is non-nil after start. Constructors such as context.WithTimeout
+// guarantee a callable cleanup even when it flows through an optional local.
+// https://github.com/agenticenv/agent-sdk-go/blob/63f0452159d674d529a6fea91b8d532bed9b774e/internal/runtime/local/agent_loop.go#L828-L841
+func UnownedReturnAssumingNonNil(
+	start ssa.Instruction,
+	value ssa.Value,
+	owns func(ssa.Instruction) bool,
+	allowReturn func(*ssa.Return) bool,
+) bool {
+	index := InstructionIndex(start)
+	if index < 0 {
+		return false
+	}
+	queue := []flowState{{block: start.Block(), index: index + 1}}
+	seen := map[flowKey]bool{}
+	for len(queue) > 0 {
+		state := queue[0]
+		queue = queue[1:]
+		predecessor := -1
+		if state.predecessor != nil {
+			predecessor = state.predecessor.Index
+		}
+		key := flowKey{block: state.block.Index, predecessor: predecessor, index: state.index, owned: state.owned}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		terminated := false
+		for _, instruction := range state.block.Instrs[state.index:] {
+			state.owned = state.owned || owns(instruction)
+			if InstructionTerminatesControlFlow(instruction) {
+				terminated = true
+				break
+			}
+			if returned, ok := instruction.(*ssa.Return); ok && !state.owned && (allowReturn == nil || !allowReturn(returned)) {
+				return true
+			}
+		}
+		if terminated {
+			continue
+		}
+		for _, successor := range nonNilFeasibleSuccessors(state.block, state.predecessor, value) {
+			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: state.owned})
+		}
+	}
+	return false
+}
+
 // UnownedReturnFromEntry reports whether any normal return lacks an ownership action.
 func UnownedReturnFromEntry(function *ssa.Function, owns func(ssa.Instruction) bool) bool {
 	return unownedReturnFromEntry(function, owns, nil, nil)
@@ -148,8 +197,11 @@ func nonNilFeasibleSuccessors(block, predecessor *ssa.BasicBlock, value ssa.Valu
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return successors
 	}
-	comparesNil := ValueDerivesFrom(comparison.X, value, map[ssa.Value]bool{}) && DefinitelyNil(comparison.Y) ||
-		ValueDerivesFrom(comparison.Y, value, map[ssa.Value]bool{}) && DefinitelyNil(comparison.X)
+	// Use identity, not general data derivation: an error returned by a call
+	// that received the context may derive from the constructor result without
+	// being the cleanup function whose non-nilness is known.
+	comparesNil := AliasesValue(comparison.X, value) && DefinitelyNil(comparison.Y) ||
+		AliasesValue(comparison.Y, value) && DefinitelyNil(comparison.X)
 	if !comparesNil {
 		return successors
 	}

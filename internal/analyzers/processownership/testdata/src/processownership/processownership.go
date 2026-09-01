@@ -181,6 +181,19 @@ func waitedInGoroutine(ctx context.Context) error {
 	return <-done
 }
 
+func startWaiter(command *exec.Cmd) {
+	go func() { _ = command.Wait() }()
+}
+
+func waitedByHelperGoroutine(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	startWaiter(command)
+	return nil
+}
+
 type processOwner struct {
 	command *exec.Cmd
 }

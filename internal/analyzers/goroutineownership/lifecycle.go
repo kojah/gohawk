@@ -218,6 +218,11 @@ func ownershipRegisteredBefore(spawn *ssa.Go, signals, groups []ssa.Value) bool 
 			limit = index
 		}
 		for _, instruction := range block.Instrs[:limit] {
+			for _, signal := range signals {
+				if ssautil.StoresValueInEscapingField(instruction, signal) {
+					return true
+				}
+			}
 			if _, deferred := instruction.(*ssa.Defer); deferred && callReceivesAny(instruction, signals) {
 				return true
 			}
@@ -256,12 +261,36 @@ func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, o
 		}
 	}
 	common := ssautil.InstructionCall(instruction)
+	if mockReturnOwnsSignal(common, signals) {
+		return true
+	}
 	if common == nil || !ownershipRegistrationName(strings.ToLower(ssautil.CallName(common))) {
 		return false
 	}
 	for _, argument := range common.Args {
 		if ssautil.AliasesAny(argument, signals) || ssautil.AliasesAny(argument, groups) {
 			return true
+		}
+	}
+	return false
+}
+
+func mockReturnOwnsSignal(common *ssa.CallCommon, signals []ssa.Value) bool {
+	if common == nil || ssautil.CallName(common) != "Return" {
+		return false
+	}
+	packagePath := ssautil.CallPackage(common)
+	if packagePath != "go.uber.org/mock/gomock" && packagePath != "github.com/golang/mock/gomock" {
+		return false
+	}
+	// gomock.Return publishes these values as the configured result of the
+	// mocked call, transferring a produced stream to the code under test.
+	// https://github.com/uber-go/mock/blob/539d81c0f42174d17e8f91abcb869bed37605a15/gomock/call.go#L185-L205
+	for _, argument := range common.Args {
+		for _, signal := range signals {
+			if ssautil.AliasesValue(argument, signal) || ssautil.ValueOwnsValue(argument, signal) {
+				return true
+			}
 		}
 	}
 	return false

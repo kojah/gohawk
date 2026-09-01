@@ -478,3 +478,32 @@ func leakedZlibWriter(destination io.Writer) {
 	writer := zlib.NewWriter(destination) // want "owned resource from zlib.NewWriter is not released on every return path"
 	_ = writer
 }
+
+type fluentFileOwner struct{ file *os.File }
+
+func (owner *fluentFileOwner) WithFile(file *os.File) *fluentFileOwner {
+	owner.file = file
+	return owner
+}
+
+func (owner *fluentFileOwner) Close() error { return owner.file.Close() }
+
+func returnedFluentFileOwner() (*fluentFileOwner, error) {
+	file, err := os.Open("fixture")
+	if err != nil {
+		return nil, err
+	}
+	owner := (&fluentFileOwner{}).WithFile(file)
+	return owner, nil
+}
+
+func acquiredForEnclosingScope() func() error {
+	var file *os.File
+	load := func() error {
+		var err error
+		file, err = os.Open("fixture")
+		return err
+	}
+	_ = load()
+	return file.Close
+}

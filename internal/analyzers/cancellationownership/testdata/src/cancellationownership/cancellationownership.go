@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -213,4 +214,31 @@ func localPointerDoesNotOwnCancel(parent context.Context) {
 	slot := new(context.CancelFunc)
 	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
 	*slot = cancel
+}
+
+func optionalCancelIsCalled(parent context.Context, enabled bool) {
+	var cancel context.CancelFunc
+	if enabled {
+		_, cancel = context.WithTimeout(parent, time.Second)
+	}
+	if cancel != nil {
+		cancel()
+	}
+}
+
+type atomicCancelOwner struct {
+	cancel atomic.Pointer[context.CancelFunc]
+}
+
+func (owner *atomicCancelOwner) start(parent context.Context) {
+	ctx, cancel := context.WithCancel(parent)
+	owner.cancel.Store(&cancel)
+	go owner.run(ctx)
+}
+
+func (*atomicCancelOwner) run(context.Context) {}
+
+func atomicStorageWithoutWorker(parent context.Context, owner *atomicCancelOwner) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	owner.cancel.Store(&cancel)
 }

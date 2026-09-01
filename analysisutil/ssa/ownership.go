@@ -2,6 +2,8 @@ package ssautil
 
 import (
 	"go/token"
+	"go/types"
+	"strings"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -101,6 +103,19 @@ func StoresValueInGlobal(instruction ssa.Instruction, value ssa.Value) bool {
 	return ok
 }
 
+// StoresValueInEnclosingScope reports assignment to a captured local owned by
+// the enclosing synchronous caller. The inner callback has transferred the
+// obligation; the enclosing function is responsible for its later cleanup.
+// https://github.com/shini4i/argo-watcher/blob/283d6c6b618b3ade906728ee12a438fd22a328ef/internal/argocd/argo_api.go#L100-L119
+func StoresValueInEnclosingScope(instruction ssa.Instruction, value ssa.Value) bool {
+	store, ok := instruction.(*ssa.Store)
+	if !ok || !ValueDerivesFrom(store.Val, value, map[ssa.Value]bool{}) {
+		return false
+	}
+	_, ok = store.Addr.(*ssa.FreeVar)
+	return ok
+}
+
 // SendsValue reports whether instruction hands value to a channel receiver.
 func SendsValue(instruction ssa.Instruction, value ssa.Value) bool {
 	send, ok := instruction.(*ssa.Send)
@@ -129,6 +144,17 @@ func StoresOwnerOfValueInExternalField(instruction ssa.Instruction, value ssa.Va
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
 	return ok && ExternallyOwnedValue(field.X) && ValueOwnsValue(store.Val, value)
+}
+
+// StoresValueInEscapingField reports whether value is installed in a field of
+// an owner that already outlives the function or is subsequently transferred.
+func StoresValueInEscapingField(instruction ssa.Instruction, value ssa.Value) bool {
+	store, ok := instruction.(*ssa.Store)
+	if !ok || !AliasesValue(store.Val, value) {
+		return false
+	}
+	field, ok := store.Addr.(*ssa.FieldAddr)
+	return ok && (ExternallyOwnedValue(field.X) || valueTransferred(field.X, map[ssa.Value]bool{}))
 }
 
 // ValueOwnsValue reports whether owner is an aggregate or closure that
@@ -280,9 +306,24 @@ func valueTransferred(value ssa.Value, seen map[ssa.Value]bool) bool {
 		switch typed := reference.(type) {
 		case *ssa.Return:
 			return true
+		case *ssa.Call:
+			// Fluent builders preserve an escaping owner through same-typed links.
+			// https://github.com/erpc/erpc/blob/2b7e807d7d147422cf47c473153eaf9979afdcc9/clients/http_json_rpc_client.go#L755-L771
+			receiver := CallReceiver(typed.Common())
+			if receiver != nil && AliasesValue(receiver, value) && types.Identical(typed.Type(), value.Type()) && valueTransferred(typed, seen) {
+				return true
+			}
 		case *ssa.Store:
 			if _, ok := typed.Addr.(*ssa.FieldAddr); ok {
 				return true
+			}
+			if _, ok := typed.Addr.(*ssa.Alloc); ok && typed.Addr.Referrers() != nil {
+				for _, use := range *typed.Addr.Referrers() {
+					load, loadOK := use.(*ssa.UnOp)
+					if loadOK && load.Op == token.MUL && valueTransferred(load, seen) {
+						return true
+					}
+				}
 			}
 		case *ssa.ChangeInterface:
 			if valueTransferred(typed, seen) {
@@ -324,7 +365,171 @@ func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) boo
 	for _, argument := range call.Common().Args {
 		usesValue = usesValue || AliasesValue(argument, value)
 	}
-	return usesValue && valueTransferred(call, map[ssa.Value]bool{})
+	return usesValue && valueStoredInField(call, map[ssa.Value]bool{})
+}
+
+func valueStoredInField(value ssa.Value, seen map[ssa.Value]bool) bool {
+	if value == nil || seen[value] || value.Referrers() == nil {
+		return false
+	}
+	seen[value] = true
+	for _, reference := range *value.Referrers() {
+		switch typed := reference.(type) {
+		case *ssa.Store:
+			if _, ok := typed.Addr.(*ssa.FieldAddr); ok {
+				return true
+			}
+		case *ssa.ChangeInterface:
+			if valueStoredInField(typed, seen) {
+				return true
+			}
+		case *ssa.ChangeType:
+			if valueStoredInField(typed, seen) {
+				return true
+			}
+		case *ssa.Convert:
+			if valueStoredInField(typed, seen) {
+				return true
+			}
+		case *ssa.Extract:
+			if valueStoredInField(typed, seen) {
+				return true
+			}
+		case *ssa.MakeInterface:
+			if valueStoredInField(typed, seen) {
+				return true
+			}
+		case *ssa.Phi:
+			if valueStoredInField(typed, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// CallTransfersArgumentToReturnedOwner reports whether a source-visible
+// constructor stores an argument in an aggregate it returns.
+func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa.Value) bool {
+	common := InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil {
+		return false
+	}
+	callee := common.StaticCallee()
+	for index, argument := range common.Args {
+		if index >= len(callee.Params) || !ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !ValueOwnsValue(argument, value) {
+			continue
+		}
+		for _, block := range callee.Blocks {
+			for _, candidate := range block.Instrs {
+				if returned, ok := candidate.(*ssa.Return); ok && ReturnedValueOwnsValue(returned, callee.Params[index]) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// CallTransfersArgumentToReceiver reports whether a source-visible method
+// stores an argument in a receiver that outlives the call.
+func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Value) bool {
+	call, ok := instruction.(*ssa.Call)
+	if !ok || call.Common().StaticCallee() == nil {
+		return false
+	}
+	common, callee := call.Common(), call.Common().StaticCallee()
+	receiver := CallReceiver(common)
+	if receiver == nil || len(callee.Params) == 0 || !ExternallyOwnedValue(receiver) && !valueTransferred(receiver, map[ssa.Value]bool{}) {
+		return false
+	}
+	for index, argument := range common.Args {
+		if index == 0 || index >= len(callee.Params) || !ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !ValueOwnsValue(argument, value) {
+			continue
+		}
+		parameter := callee.Params[index]
+		for _, block := range callee.Blocks {
+			for _, candidate := range block.Instrs {
+				store, storeOK := candidate.(*ssa.Store)
+				if !storeOK {
+					continue
+				}
+				field, fieldOK := store.Addr.(*ssa.FieldAddr)
+				if fieldOK && ValueDerivesFrom(field.X, callee.Params[0], map[ssa.Value]bool{}) && ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// CallTransfersArgumentToLifecycleOwner recognizes cross-package boundaries
+// when the consumed value is attached to an escaping object with an explicit
+// cleanup lifecycle. Source bodies are not available to buildssa for imports,
+// so both the transfer and lifecycle evidence must be visible at the callsite.
+// https://github.com/flowexec/flow/blob/958773d81d410dd71e21460abb77da302617f96c/main.go#L48-L51
+func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ssa.Value) bool {
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	common := call.Common()
+	usesValue := false
+	for _, argument := range common.Args {
+		usesValue = usesValue || AliasesValue(argument, value) || ValueOwnsValue(argument, value)
+	}
+	name := strings.ToLower(CallName(common))
+	if !usesValue && strings.HasPrefix(name, "with") {
+		for _, argument := range common.Args {
+			usesValue = usesValue || hasLifecycleMethod(argument) && ValueDerivesFrom(argument, value, map[ssa.Value]bool{})
+		}
+	}
+	if !usesValue {
+		return false
+	}
+	if hasLifecycleMethod(call) && (valueTransferred(call, map[ssa.Value]bool{}) || valueLifecycleUsed(call)) {
+		return true
+	}
+	receiver := CallReceiver(common)
+	mutator := strings.HasPrefix(name, "set") || strings.HasPrefix(name, "add") || strings.HasPrefix(name, "register") || strings.HasPrefix(name, "own") || strings.HasPrefix(name, "with")
+	if mutator && hasLifecycleMethod(receiver) && (ExternallyOwnedValue(receiver) || valueTransferred(receiver, map[ssa.Value]bool{}) || valueLifecycleUsed(receiver)) {
+		return true
+	}
+	return false
+}
+
+func hasLifecycleMethod(value ssa.Value) bool {
+	if value == nil {
+		return false
+	}
+	methods := types.NewMethodSet(value.Type())
+	for index := range methods.Len() {
+		switch methods.At(index).Obj().Name() {
+		case "Cancel", "Close", "Finalize", "Release", "Shutdown", "Stop":
+			return true
+		}
+	}
+	return false
+}
+
+func valueLifecycleUsed(value ssa.Value) bool {
+	if value == nil || value.Parent() == nil {
+		return false
+	}
+	for _, block := range value.Parent().Blocks {
+		for _, instruction := range block.Instrs {
+			common := InstructionCall(instruction)
+			if common == nil || !ValueDerivesFrom(CallReceiver(common), value, map[ssa.Value]bool{}) {
+				continue
+			}
+			switch CallName(common) {
+			case "Cancel", "Close", "Finalize", "Release", "Shutdown", "Stop":
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ReturnedValueOwnsValue reports whether a returned aggregate contains value
@@ -348,6 +553,30 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) b
 	}
 	seen[aggregate] = true
 	switch typed := aggregate.(type) {
+	case *ssa.Call:
+		common := typed.Common()
+		if CallName(common) == "append" {
+			for _, argument := range common.Args {
+				if aggregateStoresValue(argument, value, seen) {
+					return true
+				}
+			}
+		}
+		callee := common.StaticCallee()
+		if callee != nil {
+			for index, argument := range common.Args {
+				if index >= len(callee.Params) || !aggregateStoresValue(argument, value, seen) {
+					continue
+				}
+				for _, block := range callee.Blocks {
+					for _, candidate := range block.Instrs {
+						if returned, ok := candidate.(*ssa.Return); ok && ReturnedValueOwnsValue(returned, callee.Params[index]) {
+							return true
+						}
+					}
+				}
+			}
+		}
 	case *ssa.ChangeInterface:
 		return aggregateStoresValue(typed.X, value, seen)
 	case *ssa.ChangeType:
