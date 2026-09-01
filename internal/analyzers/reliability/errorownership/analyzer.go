@@ -2,9 +2,9 @@
 package errorownership
 
 import (
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -20,7 +20,7 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runErrorOwnership(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -38,14 +38,14 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 }
 
 func loggingCall(common *ssa.CallCommon) bool {
-	for _, symbol := range []analysisutil.Symbol{
-		analysisutil.PackageFunction("log", "Print"),
-		analysisutil.PackageFunction("log", "Printf"),
-		analysisutil.PackageFunction("log", "Println"),
-		analysisutil.PackageFunction("log/slog", "Error"),
-		analysisutil.PackageFunction("log/slog", "ErrorContext"),
+	for _, symbol := range []syntax.Symbol{
+		syntax.PackageFunction("log", "Print"),
+		syntax.PackageFunction("log", "Printf"),
+		syntax.PackageFunction("log", "Println"),
+		syntax.PackageFunction("log/slog", "Error"),
+		syntax.PackageFunction("log/slog", "ErrorContext"),
 	} {
-		if ssautil.CallMatchesSymbol(common, symbol) {
+		if ssaflow.CallMatchesSymbol(common, symbol) {
 			return true
 		}
 	}
@@ -55,17 +55,17 @@ func loggingCall(common *ssa.CallCommon) bool {
 func loggedErrorIsReturned(call *ssa.Call) bool {
 	var logged []ssa.Value
 	for _, argument := range call.Common().Args {
-		if len(ssautil.ValueSources(argument)) > 0 {
+		if len(ssaflow.ValueSources(argument)) > 0 {
 			logged = append(logged, argument)
 		}
 	}
-	for _, returned := range ssautil.ReachableReturns(call) {
+	for _, returned := range ssaflow.ReachableReturns(call) {
 		for _, result := range returned.Results {
-			if !analysisutil.IsErrorType(result.Type()) {
+			if !syntax.IsErrorType(result.Type()) {
 				continue
 			}
 			for _, argument := range logged {
-				if ssautil.ValuesShareErrorSource(argument, result) {
+				if ssaflow.ValuesShareErrorSource(argument, result) {
 					return true
 				}
 			}

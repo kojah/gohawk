@@ -5,8 +5,8 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -31,17 +31,17 @@ func runInlineError(pass *analysis.Pass) (any, error) {
 		}
 		for _, expression := range assignment.Lhs {
 			fresh, ok := expression.(*ast.Ident)
-			if !ok || pass.TypesInfo.Defs[fresh] == nil || !analysisutil.IsErrorType(pass.TypesInfo.TypeOf(fresh)) {
+			if !ok || pass.TypesInfo.Defs[fresh] == nil || !syntax.IsErrorType(pass.TypesInfo.TypeOf(fresh)) {
 				continue
 			}
 			freshObject := pass.TypesInfo.ObjectOf(fresh)
-			if analysisutil.ExpressionUsesObject(pass, statement.Cond, freshObject) || !returnsOnlyObject(pass, statement.Body, freshObject) {
+			if syntax.ExpressionUsesObject(pass, statement.Cond, freshObject) || !returnsOnlyObject(pass, statement.Body, freshObject) {
 				continue
 			}
 			var mismatched *ast.Ident
 			ast.Inspect(statement.Cond, func(candidate ast.Node) bool {
 				identifier, ok := candidate.(*ast.Ident)
-				if ok && pass.TypesInfo.ObjectOf(identifier) != freshObject && analysisutil.IsErrorType(pass.TypesInfo.TypeOf(identifier)) {
+				if ok && pass.TypesInfo.ObjectOf(identifier) != freshObject && syntax.IsErrorType(pass.TypesInfo.TypeOf(identifier)) {
 					mismatched = identifier
 					return false
 				}
@@ -63,5 +63,5 @@ func returnsOnlyObject(pass *analysis.Pass, body *ast.BlockStmt, object types.Ob
 		return false
 	}
 	returned, ok := body.List[0].(*ast.ReturnStmt)
-	return ok && len(returned.Results) == 1 && analysisutil.ExpressionUsesObject(pass, returned.Results[0], object)
+	return ok && len(returned.Results) == 1 && syntax.ExpressionUsesObject(pass, returned.Results[0], object)
 }

@@ -7,8 +7,8 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -109,12 +109,12 @@ func reportConditionalSyncMapClaim(pass *analysis.Pass, conditional *ast.IfStmt,
 		return
 	}
 	selector := deleteCall.Fun.(*ast.SelectorExpr)
-	if !analysisutil.SameExpression(pass, selector.X, load.receiver) || !analysisutil.SameExpression(pass, deleteCall.Args[0], load.key) {
+	if !syntax.SameExpression(pass, selector.X, load.receiver) || !syntax.SameExpression(pass, deleteCall.Args[0], load.key) {
 		return
 	}
 	usesValue := false
 	for _, statement := range conditional.Body.List[1:] {
-		usesValue = usesValue || analysisutil.ExpressionUsesObject(pass, statement, load.value)
+		usesValue = usesValue || syntax.ExpressionUsesObject(pass, statement, load.value)
 	}
 	if usesValue {
 		check.Reportf(pass, check.SyncMapNonAtomicClaim, deleteCall.Pos(), "sync.Map Load and Delete do not atomically claim the value")
@@ -155,7 +155,7 @@ func expressionStatementCall(statement ast.Stmt) (*ast.CallExpr, bool) {
 }
 
 func syncMapMethod(pass *analysis.Pass, call *ast.CallExpr, name string) bool {
-	return analysisutil.IsCallTo(pass, call, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "sync", Receiver: "Map", Name: name}))
+	return syntax.IsCallTo(pass, call, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Map", Name: name}))
 }
 
 func bodyUsesMutex(body *ast.BlockStmt) bool {

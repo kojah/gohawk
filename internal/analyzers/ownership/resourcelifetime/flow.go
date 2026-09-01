@@ -5,9 +5,9 @@ import (
 	"go/types"
 	"slices"
 
-	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -43,11 +43,11 @@ func resourceLeaks(
 	resource ssa.Value,
 	contract resourceContract,
 ) bool {
-	index := ssautil.InstructionIndex(call)
+	index := ssaflow.InstructionIndex(call)
 	if index < 0 {
 		return false
 	}
-	errorValue := ssautil.CallResult(call, 1)
+	errorValue := ssaflow.CallResult(call, 1)
 	if contract.packagePath == "net/http" && testProvesHTTPError(call, resource, errorValue) {
 		return false
 	}
@@ -98,14 +98,14 @@ func advanceResourceState(
 		state.released = state.released ||
 			releasesResource(evidence, instruction, resource, owners, contract.cleanup) ||
 			contract.consumable && consumesResource(instruction, resource)
-		if ssautil.InstructionTerminatesControlFlow(instruction) {
+		if ssaflow.InstructionTerminatesControlFlow(instruction) {
 			state.active = false
 			break
 		}
 		returned, ok := instruction.(*ssa.Return)
 		if ok && state.active && !state.released &&
 			!returnedResourceOwner(pass, returned, resource, contract.cleanup) &&
-			!ssautil.ReturnedSameAsAny(returned, owners) {
+			!ssaflow.ReturnedSameAsAny(returned, owners) {
 			return state, true
 		}
 	}
@@ -113,7 +113,7 @@ func advanceResourceState(
 }
 
 func resourceSuccessorStates(state resourceFlowState, errorValue, resource ssa.Value) []resourceFlowState {
-	successors := ssautil.FeasibleSuccessors(state.block, state.predecessor)
+	successors := ssaflow.FeasibleSuccessors(state.block, state.predecessor)
 	result := make([]resourceFlowState, 0, len(successors))
 	for _, successor := range successors {
 		active := state.active
@@ -129,11 +129,11 @@ func resourceSuccessorStates(state resourceFlowState, errorValue, resource ssa.V
 }
 
 func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource ssa.Value, cleanup []string) bool {
-	if ssautil.ReturnedValueOwnsValue(returned, resource) {
+	if ssaflow.ReturnedValueOwnsValue(returned, resource) {
 		return true
 	}
 	for _, result := range returned.Results {
-		if !ssautil.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
+		if !ssaflow.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
 			continue
 		}
 		methods := types.NewMethodSet(result.Type())
@@ -181,23 +181,23 @@ func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 	var errorAssertions, nilAssertions []ssa.Instruction
 	for _, block := range acquisition.Parent().Blocks {
 		for _, instruction := range block.Instrs {
-			if !ssautil.InstructionMayFollow(acquisition, instruction) {
+			if !ssaflow.InstructionMayFollow(acquisition, instruction) {
 				continue
 			}
-			common := ssautil.InstructionCall(instruction)
-			if !ssautil.HasLibraryContract(common, ssautil.ContractTestifyAssertion) {
+			common := ssaflow.InstructionCall(instruction)
+			if !ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyAssertion) {
 				continue
 			}
-			if ssautil.CallName(common) == "Error" {
+			if ssaflow.CallName(common) == "Error" {
 				for _, argument := range common.Args {
-					if ssautil.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
+					if ssaflow.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
 						errorAssertions = append(errorAssertions, instruction)
 					}
 				}
 			}
-			if ssautil.CallName(common) == "Nil" {
+			if ssaflow.CallName(common) == "Nil" {
 				for _, argument := range common.Args {
-					if ssautil.SameValue(argument, resource) {
+					if ssaflow.SameValue(argument, resource) {
 						nilAssertions = append(nilAssertions, instruction)
 					}
 				}
@@ -209,7 +209,7 @@ func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 
 func errorAssertionDominatesNil(assertedError ssa.Instruction, nilAssertions []ssa.Instruction) bool {
 	for _, assertedNil := range nilAssertions {
-		if ssautil.InstructionDominates(assertedError, assertedNil) {
+		if ssaflow.InstructionDominates(assertedError, assertedNil) {
 			return true
 		}
 	}
@@ -217,8 +217,8 @@ func errorAssertionDominatesNil(assertedError ssa.Instruction, nilAssertions []s
 }
 
 func fatalErrorAssertion(instruction ssa.Instruction) bool {
-	common := ssautil.InstructionCall(instruction)
-	return ssautil.HasLibraryContract(common, ssautil.ContractTestifyFatalError)
+	common := ssaflow.InstructionCall(instruction)
+	return ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyFatalError)
 }
 
 func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value) (bool, bool) {
@@ -233,8 +233,8 @@ func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}
-	comparesResourceToNil := ssautil.ValueDerivesFrom(comparison.X, resource, map[ssa.Value]bool{}) && ssautil.DefinitelyNil(comparison.Y) ||
-		ssautil.ValueDerivesFrom(comparison.Y, resource, map[ssa.Value]bool{}) && ssautil.DefinitelyNil(comparison.X)
+	comparesResourceToNil := ssaflow.ValueDerivesFrom(comparison.X, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.Y) ||
+		ssaflow.ValueDerivesFrom(comparison.Y, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.X)
 	if !comparesResourceToNil {
 		return false, false
 	}

@@ -4,8 +4,8 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -15,7 +15,7 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			owner := resourceFieldOwner(instruction, resource)
-			if owner != nil && !ssautil.ExternallyOwnedValue(owner) && !ssautil.SameAsAny(owner, owners) {
+			if owner != nil && !ssaflow.ExternallyOwnedValue(owner) && !ssaflow.SameAsAny(owner, owners) {
 				owners = append(owners, owner)
 			}
 		}
@@ -25,12 +25,12 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 
 func resourceTransferredToExternalField(instruction ssa.Instruction, resource ssa.Value) bool {
 	owner := resourceFieldOwner(instruction, resource)
-	return owner != nil && ssautil.ExternallyOwnedValue(owner)
+	return owner != nil && ssaflow.ExternallyOwnedValue(owner)
 }
 
 func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Value { //nolint:ireturn // Owners retain their concrete SSA value forms.
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !ssautil.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) {
+	if !ok || !ssaflow.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) {
 		return nil
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
@@ -56,7 +56,7 @@ func resourceSuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Valu
 	if missingFileCheck(branch.Cond, errorValue) && successor == block.Succs[0] {
 		return false, true
 	}
-	return ssautil.SuccessBranch(block, successor, errorValue)
+	return ssaflow.SuccessBranch(block, successor, errorValue)
 }
 
 func missingFileCheck(condition, errorValue ssa.Value) bool {
@@ -71,8 +71,8 @@ func missingFileCheck(condition, errorValue ssa.Value) bool {
 	// os.IsNotExist is the legacy equivalent of errors.Is(err,
 	// fs.ErrNotExist); on its true branch os.Open did not return an owned file.
 	// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/feedback/send.go#L124
-	return ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("os", "IsNotExist")) && len(common.Args) == 1 &&
-		ssautil.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{})
+	return ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "IsNotExist")) && len(common.Args) == 1 &&
+		ssaflow.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{})
 }
 
 func errorsIsMissingFile(condition, errorValue ssa.Value) bool {
@@ -81,10 +81,10 @@ func errorsIsMissingFile(condition, errorValue ssa.Value) bool {
 		return false
 	}
 	common := call.Common()
-	if !ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("errors", "Is")) || len(common.Args) != 2 {
+	if !ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("errors", "Is")) || len(common.Args) != 2 {
 		return false
 	}
-	if !ssautil.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
+	if !ssaflow.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
 		return false
 	}
 	return isMissingFileSentinel(common.Args[1])
@@ -107,10 +107,10 @@ func isMissingFileSentinel(value ssa.Value) bool {
 			}
 			value = typed.X
 		case *ssa.Global:
-			return ssautil.ValueMatchesAnySymbol(
+			return ssaflow.ValueMatchesAnySymbol(
 				typed,
-				analysisutil.PackageVariable("os", "ErrNotExist"),
-				analysisutil.PackageVariable("io/fs", "ErrNotExist"),
+				syntax.PackageVariable("os", "ErrNotExist"),
+				syntax.PackageVariable("io/fs", "ErrNotExist"),
 			)
 		default:
 			return false
@@ -120,14 +120,14 @@ func isMissingFileSentinel(value ssa.Value) bool {
 
 func consumesResource(instruction ssa.Instruction, resource ssa.Value) bool {
 	if receive, ok := instruction.(*ssa.UnOp); ok {
-		return receive.Op == token.ARROW && ssautil.ValueDerivesFrom(receive.X, resource, map[ssa.Value]bool{})
+		return receive.Op == token.ARROW && ssaflow.ValueDerivesFrom(receive.X, resource, map[ssa.Value]bool{})
 	}
 	selection, ok := instruction.(*ssa.Select)
 	if !ok {
 		return false
 	}
 	for _, state := range selection.States {
-		if state.Dir == types.RecvOnly && ssautil.ValueDerivesFrom(state.Chan, resource, map[ssa.Value]bool{}) {
+		if state.Dir == types.RecvOnly && ssaflow.ValueDerivesFrom(state.Chan, resource, map[ssa.Value]bool{}) {
 			return true
 		}
 	}

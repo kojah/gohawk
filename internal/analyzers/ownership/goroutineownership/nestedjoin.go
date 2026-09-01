@@ -1,8 +1,8 @@
 package goroutineownership
 
 import (
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -25,10 +25,10 @@ func nestedClosureOwnershipValue(
 		for _, candidate := range block.Instrs {
 			nestedSignal, nestedGroup := closureOwnershipValue(nested, nestedFunction, candidate)
 			if nestedSignal != nil {
-				return ssautil.SpawnedValueAtCall(spawn, function, closure, nestedSignal), nil
+				return ssaflow.SpawnedValueAtCall(spawn, function, closure, nestedSignal), nil
 			}
 			if nestedGroup != nil {
-				return nil, ssautil.SpawnedValueAtCall(spawn, function, closure, nestedGroup)
+				return nil, ssaflow.SpawnedValueAtCall(spawn, function, closure, nestedGroup)
 			}
 		}
 	}
@@ -44,17 +44,17 @@ func closureOwnershipValue(
 	if send, ok := instruction.(*ssa.Send); ok {
 		nestedValue = send.Chan
 	} else {
-		common := ssautil.InstructionCall(instruction)
+		common := ssaflow.InstructionCall(instruction)
 		if common == nil {
 			return nil, nil
 		}
 		switch {
-		case ssautil.CallMatchesSymbol(common, analysisutil.Builtin("close")) && len(common.Args) == 1:
+		case ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1:
 			nestedValue = common.Args[0]
-		case ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{
+		case ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
 			PackagePath: "sync", Receiver: "WaitGroup", Name: "Done",
 		})):
-			return nil, closureCapturedValue(closure, function, ssautil.CallReceiver(common))
+			return nil, closureCapturedValue(closure, function, ssaflow.CallReceiver(common))
 		default:
 			return nil, nil
 		}
@@ -64,8 +64,8 @@ func closureOwnershipValue(
 
 func closureCapturedValue(closure *ssa.MakeClosure, function *ssa.Function, value ssa.Value) ssa.Value { //nolint:ireturn // SSA values preserve alias identity.
 	for index, free := range function.FreeVars {
-		if index < len(closure.Bindings) && ssautil.ValueAliases(value, free, map[ssa.Value]bool{}) {
-			return ssautil.CapturedBindingValue(closure.Bindings[index])
+		if index < len(closure.Bindings) && ssaflow.ValueAliases(value, free, map[ssa.Value]bool{}) {
+			return ssaflow.CapturedBindingValue(closure.Bindings[index])
 		}
 	}
 	return nil

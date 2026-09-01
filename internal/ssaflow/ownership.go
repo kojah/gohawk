@@ -1,0 +1,97 @@
+package ssaflow
+
+import "golang.org/x/tools/go/ssa"
+
+// ClosureOwnsValue reports whether a started closure captures value.
+func ClosureOwnsValue(instruction ssa.Instruction, value ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Go); !ok {
+		return false
+	}
+	common := InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	closure, ok := common.Value.(*ssa.MakeClosure)
+	if !ok {
+		return false
+	}
+	for _, binding := range closure.Bindings {
+		if CapturedBindingMatches(binding, value) {
+			return true
+		}
+	}
+	return false
+}
+
+func closureCallsValue(closure *ssa.MakeClosure, target ssa.Value) bool {
+	return closureCallsCapturedValue(closure, func(binding ssa.Value) bool {
+		return CapturedBindingMatches(binding, target)
+	})
+}
+
+func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bool) bool {
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			if nested, ok := candidate.(*ssa.MakeClosure); ok && closureCallsCapturedValue(nested, func(binding ssa.Value) bool {
+				for index, free := range function.FreeVars {
+					if index < len(closure.Bindings) && CapturedBindingMatches(binding, free) && owns(closure.Bindings[index]) {
+						return true
+					}
+				}
+				return false
+			}) {
+				return true
+			}
+			common := InstructionCall(candidate)
+			if common == nil {
+				continue
+			}
+			for index, free := range function.FreeVars {
+				if ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) && owns(closure.Bindings[index]) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// StoresValueInField reports whether instruction transfers value into a struct field.
+
+func ValueContainsValue(owner, value ssa.Value) bool {
+	return valueOwnsValue(owner, value, map[ssa.Value]bool{}) || aggregateStoresValue(owner, value, map[ownershipPair]bool{})
+}
+
+func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
+	if owner == nil || seen[owner] {
+		return false
+	}
+	if SameValue(owner, value) {
+		return true
+	}
+	seen[owner] = true
+	switch typed := owner.(type) {
+	case *ssa.MakeClosure:
+		for _, binding := range typed.Bindings {
+			if CapturedBindingMatches(binding, value) || valueOwnsValue(CapturedBindingValue(binding), value, seen) {
+				return true
+			}
+		}
+	case *ssa.ChangeInterface:
+		return valueOwnsValue(typed.X, value, seen)
+	case *ssa.ChangeType:
+		return valueOwnsValue(typed.X, value, seen)
+	case *ssa.Convert:
+		return valueOwnsValue(typed.X, value, seen)
+	case *ssa.MakeInterface:
+		return valueOwnsValue(typed.X, value, seen)
+	}
+	return false
+}
+
+// CallReturnsDeferredCleanup reports whether a call consumes value and one of
+// its function results is subsequently deferred by the caller.

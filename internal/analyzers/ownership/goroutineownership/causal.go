@@ -5,7 +5,7 @@ import (
 	"go/types"
 	"strings"
 
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,7 +14,7 @@ func causalTestJoin(spawn *ssa.Go, candidate ssa.Instruction) bool {
 	if causallyJoinedByOwnedWorker(spawn, candidate) {
 		return true
 	}
-	common := ssautil.InstructionCall(candidate)
+	common := ssaflow.InstructionCall(candidate)
 	if common == nil {
 		return false
 	}
@@ -37,8 +37,8 @@ func causalTestJoin(spawn *ssa.Go, candidate ssa.Instruction) bool {
 		if index >= len(closure.Bindings) {
 			continue
 		}
-		binding := ssautil.CapturedBindingValue(closure.Bindings[index])
-		if relatedValue(ssautil.CallReceiver(common), binding) {
+		binding := ssaflow.CapturedBindingValue(closure.Bindings[index])
+		if relatedValue(ssaflow.CallReceiver(common), binding) {
 			return true
 		}
 		for _, argument := range common.Args {
@@ -48,7 +48,7 @@ func causalTestJoin(spawn *ssa.Go, candidate ssa.Instruction) bool {
 		}
 		if candidateClosure, ok := common.Value.(*ssa.MakeClosure); ok {
 			for _, candidateBinding := range candidateClosure.Bindings {
-				if relatedValue(ssautil.CapturedBindingValue(candidateBinding), binding) {
+				if relatedValue(ssaflow.CapturedBindingValue(candidateBinding), binding) {
 					return true
 				}
 			}
@@ -78,7 +78,7 @@ func causallyJoinedByOwnedWorker(spawn *ssa.Go, candidate ssa.Instruction) bool 
 		return false
 	}
 	signals, groups := goroutineJoinValues(joined)
-	if len(signals)+len(groups) == 0 || ssautil.UnownedReturn(joined, func(next ssa.Instruction) bool {
+	if len(signals)+len(groups) == 0 || ssaflow.UnownedReturn(joined, func(next ssa.Instruction) bool {
 		return joinsGoroutine(next, signals, groups)
 	}, nil) {
 		return false
@@ -93,7 +93,7 @@ func causallyJoinedByOwnedWorker(spawn *ssa.Go, candidate ssa.Instruction) bool 
 	}
 	for _, first := range spawnValues {
 		for _, second := range workerValues {
-			if relatedValue(ssautil.CapturedBindingValue(first), ssautil.CapturedBindingValue(second)) {
+			if relatedValue(ssaflow.CapturedBindingValue(first), ssaflow.CapturedBindingValue(second)) {
 				return true
 			}
 		}
@@ -104,8 +104,8 @@ func causallyJoinedByOwnedWorker(spawn *ssa.Go, candidate ssa.Instruction) bool 
 func closurePerformsLifecycleAction(function *ssa.Function) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := ssautil.InstructionCall(instruction)
-			name := strings.ToLower(ssautil.CallName(common))
+			common := ssaflow.InstructionCall(instruction)
+			name := strings.ToLower(ssaflow.CallName(common))
 			if common != nil && (name == "close" || name == "done" || name == "release" || name == "stop" || name == "unlock") {
 				return true
 			}
@@ -115,8 +115,8 @@ func closurePerformsLifecycleAction(function *ssa.Function) bool {
 }
 
 func relatedValue(first, second ssa.Value) bool {
-	return ssautil.SameValue(first, second) || ssautil.ValueDerivesFrom(first, second, map[ssa.Value]bool{}) ||
-		ssautil.ValueDerivesFrom(second, first, map[ssa.Value]bool{})
+	return ssaflow.SameValue(first, second) || ssaflow.ValueDerivesFrom(first, second, map[ssa.Value]bool{}) ||
+		ssaflow.ValueDerivesFrom(second, first, map[ssa.Value]bool{})
 }
 
 func functionMayBlock(function *ssa.Function) bool {
@@ -129,11 +129,11 @@ func functionMayBlockSeen(function *ssa.Function, seen map[*ssa.Function]bool) b
 	}
 	seen[function] = true
 	for _, block := range function.Blocks {
-		if ssautil.BlockInCycle(block) {
+		if ssaflow.BlockInCycle(block) {
 			return true
 		}
 		for _, instruction := range block.Instrs {
-			if common := ssautil.InstructionCall(instruction); common != nil && functionMayBlockSeen(common.StaticCallee(), seen) {
+			if common := ssaflow.InstructionCall(instruction); common != nil && functionMayBlockSeen(common.StaticCallee(), seen) {
 				return true
 			}
 			switch typed := instruction.(type) {

@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -26,7 +26,7 @@ func completeTimerLifecyclePositions(pass *analysis.Pass) map[token.Pos]bool {
 				}
 				name, nameOK := assignment.Lhs[0].(*ast.Ident)
 				call, callOK := assignment.Rhs[0].(*ast.CallExpr)
-				if nameOK && callOK && analysisutil.IsCallTo(pass, call, analysisutil.PackageFunction("time", "NewTimer")) {
+				if nameOK && callOK && syntax.IsCallTo(pass, call, syntax.PackageFunction("time", "NewTimer")) {
 					// SSA records the call position at the opening parenthesis, while
 					// the AST call begins at the package selector. Retain both so the
 					// proven source-level lifecycle can be associated with its SSA call.

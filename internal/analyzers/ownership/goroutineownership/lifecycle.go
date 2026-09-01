@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -25,7 +25,7 @@ func goroutineHasContextLifecycle(spawn *ssa.Go) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if contextValue(ssautil.CapturedBindingValue(binding)) {
+		if contextValue(ssaflow.CapturedBindingValue(binding)) {
 			return true
 		}
 	}
@@ -33,22 +33,22 @@ func goroutineHasContextLifecycle(spawn *ssa.Go) bool {
 }
 
 func contextValue(value ssa.Value) bool {
-	return value != nil && analysisutil.NamedType(value.Type(), "context", "Context")
+	return value != nil && syntax.NamedType(value.Type(), "context", "Context")
 }
 
 func externallyOwnedLifecycle(owners []ssa.Value) bool {
-	return slices.ContainsFunc(owners, ssautil.ExternallyOwnedValue)
+	return slices.ContainsFunc(owners, ssaflow.ExternallyOwnedValue)
 }
 
 func externallyOwnedJoin(signals, groups []ssa.Value) bool {
 	// A goroutine that completes through a caller-owned channel or wait group
 	// transfers its join obligation across the call boundary.
-	return slices.ContainsFunc(append(slices.Clone(signals), groups...), ssautil.ExternallyOwnedValue)
+	return slices.ContainsFunc(append(slices.Clone(signals), groups...), ssaflow.ExternallyOwnedValue)
 }
 
 func goroutineLifecycleValues(spawn *ssa.Go) []ssa.Value {
 	var owners []ssa.Value
-	receiver := ssautil.CallReceiver(spawn.Common())
+	receiver := ssaflow.CallReceiver(spawn.Common())
 	if lifecycleOwner(receiver) {
 		owners = append(owners, receiver)
 	}
@@ -57,7 +57,7 @@ func goroutineLifecycleValues(spawn *ssa.Go) []ssa.Value {
 		return owners
 	}
 	for _, binding := range closure.Bindings {
-		value := ssautil.CapturedBindingValue(binding)
+		value := ssaflow.CapturedBindingValue(binding)
 		if lifecycleOwner(value) {
 			owners = append(owners, value)
 		}
@@ -110,12 +110,12 @@ func goroutineHasStopLifecycle(spawn *ssa.Go) bool {
 		for _, instruction := range block.Instrs {
 			switch candidate := instruction.(type) {
 			case *ssa.UnOp:
-				if candidate.Op == token.ARROW && ssautil.SpawnedValueAtCall(spawn, function, closure, candidate.X) != nil {
+				if candidate.Op == token.ARROW && ssaflow.SpawnedValueAtCall(spawn, function, closure, candidate.X) != nil {
 					return true
 				}
 			case *ssa.Select:
 				for _, state := range candidate.States {
-					if state.Dir == types.RecvOnly && ssautil.SpawnedValueAtCall(spawn, function, closure, state.Chan) != nil {
+					if state.Dir == types.RecvOnly && ssaflow.SpawnedValueAtCall(spawn, function, closure, state.Chan) != nil {
 						return true
 					}
 				}
@@ -130,7 +130,7 @@ func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
 		if !lifecycleOwner(owner) {
 			continue
 		}
-		if ssautil.SameValue(ssautil.CallReceiver(spawn.Common()), owner) {
+		if ssaflow.SameValue(ssaflow.CallReceiver(spawn.Common()), owner) {
 			return true
 		}
 		closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
@@ -138,7 +138,7 @@ func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
 			continue
 		}
 		for _, binding := range closure.Bindings {
-			if ssautil.SameValue(ssautil.CapturedBindingValue(binding), owner) {
+			if ssaflow.SameValue(ssaflow.CapturedBindingValue(binding), owner) {
 				return true
 			}
 		}
@@ -162,17 +162,17 @@ func lifecycleOwner(value ssa.Value) bool {
 // A lifecycle owner settles the goroutine obligation only through a direct
 // lifecycle method or a deferred completion proof. Merely capturing an object
 // with Close or Wait methods would conflate reachability with cleanup.
-func ownsGoroutineLifecycle(evidence *ssautil.EvidenceQuery, instruction ssa.Instruction, owners []ssa.Value) bool {
-	common := ssautil.InstructionCall(instruction)
-	if common != nil && lifecycleMethod(ssautil.CallName(common)) && ssautil.SameAsAny(ssautil.CallReceiver(common), owners) {
+func ownsGoroutineLifecycle(evidence *ssaflow.EvidenceQuery, instruction ssa.Instruction, owners []ssa.Value) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common != nil && lifecycleMethod(ssaflow.CallName(common)) && ssaflow.SameAsAny(ssaflow.CallReceiver(common), owners) {
 		return true
 	}
 	for _, owner := range owners {
-		if evidence.Completion(ssautil.CompletionRequest{
+		if evidence.Completion(ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      owner,
 			Methods:     []string{"Close", "Kill", "Shutdown", "Stop", "Wait"},
-			Modes:       ssautil.CompletionDeferred,
+			Modes:       ssaflow.CompletionDeferred,
 		}).Proven() {
 			return true
 		}
@@ -180,17 +180,17 @@ func ownsGoroutineLifecycle(evidence *ssautil.EvidenceQuery, instruction ssa.Ins
 	return false
 }
 
-func waitsForLifecycleOwner(evidence *ssautil.EvidenceQuery, instruction ssa.Instruction, owners []ssa.Value) bool {
-	common := ssautil.InstructionCall(instruction)
-	if common != nil && ssautil.CallName(common) == "Wait" && ssautil.SameAsAny(ssautil.CallReceiver(common), owners) {
+func waitsForLifecycleOwner(evidence *ssaflow.EvidenceQuery, instruction ssa.Instruction, owners []ssa.Value) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common != nil && ssaflow.CallName(common) == "Wait" && ssaflow.SameAsAny(ssaflow.CallReceiver(common), owners) {
 		return true
 	}
 	for _, owner := range owners {
-		if evidence.Completion(ssautil.CompletionRequest{
+		if evidence.Completion(ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      owner,
 			Methods:     []string{"Wait"},
-			Modes:       ssautil.CompletionDeferred,
+			Modes:       ssaflow.CompletionDeferred,
 		}).Proven() {
 			return true
 		}
@@ -208,7 +208,7 @@ func lifecycleMethod(name string) bool {
 }
 
 func ownershipRegisteredBefore(spawn *ssa.Go, signals, groups []ssa.Value) bool {
-	index := ssautil.InstructionIndex(spawn)
+	index := ssaflow.InstructionIndex(spawn)
 	if index < 0 {
 		return false
 	}
@@ -222,20 +222,20 @@ func ownershipRegisteredBefore(spawn *ssa.Go, signals, groups []ssa.Value) bool 
 		}
 		for _, instruction := range block.Instrs[:limit] {
 			for _, signal := range signals {
-				if ssautil.StoresValueInEscapingField(instruction, signal) {
+				if ssaflow.StoresValueInEscapingField(instruction, signal) {
 					return true
 				}
 			}
 			if _, deferred := instruction.(*ssa.Defer); deferred && callReceivesAny(instruction, signals) {
 				return true
 			}
-			common := ssautil.InstructionCall(instruction)
-			name := strings.ToLower(ssautil.CallName(common))
+			common := ssaflow.InstructionCall(instruction)
+			name := strings.ToLower(ssaflow.CallName(common))
 			if common == nil || !ownershipRegistrationName(name) {
 				continue
 			}
 			for _, argument := range common.Args {
-				if ssautil.SameAsAny(argument, signals) || ssautil.SameAsAny(argument, groups) {
+				if ssaflow.SameAsAny(argument, signals) || ssaflow.SameAsAny(argument, groups) {
 					return true
 				}
 			}
@@ -249,18 +249,18 @@ func ownershipRegistrationName(name string) bool {
 }
 
 func transfersGoroutineOwnership(
-	evidence *ssautil.EvidenceQuery,
+	evidence *ssaflow.EvidenceQuery,
 	instruction ssa.Instruction,
 	signals, groups, owners []ssa.Value,
 ) bool {
 	values := append(slices.Clone(signals), groups...)
 	values = append(values, owners...)
 	for _, value := range values {
-		if evidence.OwnershipTransfer(ssautil.OwnershipTransferRequest{
+		if evidence.OwnershipTransfer(ssaflow.OwnershipTransferRequest{
 			Instruction: instruction,
 			Value:       value,
-			Modes: ssautil.TransferStoredInField | ssautil.TransferOwnerStoredInField |
-				ssautil.TransferStoredInOwnedMap | ssautil.TransferCallResultStoredInField,
+			Modes: ssaflow.TransferStoredInField | ssaflow.TransferOwnerStoredInField |
+				ssaflow.TransferStoredInOwnedMap | ssaflow.TransferCallResultStoredInField,
 		}).Proven() {
 			return true
 		}
@@ -273,25 +273,25 @@ func transfersGoroutineOwnership(
 			return true
 		}
 		for _, group := range groups {
-			if evidence.Completion(ssautil.CompletionRequest{
+			if evidence.Completion(ssaflow.CompletionRequest{
 				Instruction: instruction,
 				Target:      group,
 				Methods:     []string{"Wait"},
-				Modes:       ssautil.CompletionInClosure,
+				Modes:       ssaflow.CompletionInClosure,
 			}).Proven() {
 				return true
 			}
 		}
 	}
-	common := ssautil.InstructionCall(instruction)
+	common := ssaflow.InstructionCall(instruction)
 	if mockReturnOwnsSignal(common, signals) {
 		return true
 	}
-	if common == nil || !ownershipRegistrationName(strings.ToLower(ssautil.CallName(common))) {
+	if common == nil || !ownershipRegistrationName(strings.ToLower(ssaflow.CallName(common))) {
 		return false
 	}
 	for _, argument := range common.Args {
-		if ssautil.SameAsAny(argument, signals) || ssautil.SameAsAny(argument, groups) {
+		if ssaflow.SameAsAny(argument, signals) || ssaflow.SameAsAny(argument, groups) {
 			return true
 		}
 	}
@@ -299,7 +299,7 @@ func transfersGoroutineOwnership(
 }
 
 func mockReturnOwnsSignal(common *ssa.CallCommon, signals []ssa.Value) bool {
-	if !ssautil.HasLibraryContract(common, ssautil.ContractGoMockReturn) {
+	if !ssaflow.HasLibraryContract(common, ssaflow.ContractGoMockReturn) {
 		return false
 	}
 	// gomock.Return publishes these values as the configured result of the
@@ -307,7 +307,7 @@ func mockReturnOwnsSignal(common *ssa.CallCommon, signals []ssa.Value) bool {
 	// https://github.com/uber-go/mock/blob/539d81c0f42174d17e8f91abcb869bed37605a15/gomock/call.go#L185-L205
 	for _, argument := range common.Args {
 		for _, signal := range signals {
-			if ssautil.SameValue(argument, signal) || ssautil.ValueContainsValue(argument, signal) {
+			if ssaflow.SameValue(argument, signal) || ssaflow.ValueContainsValue(argument, signal) {
 				return true
 			}
 		}

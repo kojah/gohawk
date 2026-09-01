@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -56,10 +56,10 @@ func singletonMapGuard(pass *analysis.Pass, preceding []ast.Stmt, ranged ast.Exp
 
 func lengthOfExpression(pass *analysis.Pass, expression, target ast.Expr) bool {
 	call, ok := expression.(*ast.CallExpr)
-	if !ok || len(call.Args) != 1 || !analysisutil.SameExpression(pass, call.Args[0], target) {
+	if !ok || len(call.Args) != 1 || !syntax.SameExpression(pass, call.Args[0], target) {
 		return false
 	}
-	return analysisutil.IsCallTo(pass, call, analysisutil.Builtin("len"))
+	return syntax.IsCallTo(pass, call, syntax.Builtin("len"))
 }
 
 func integerLiteral(expression ast.Expr, value string) bool {
@@ -94,15 +94,15 @@ func orderedFunctionResult(pass *analysis.Pass, function *ast.FuncDecl) bool {
 }
 
 func orderedSinkCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	for _, symbol := range []analysisutil.Symbol{
-		analysisutil.PackageFunction("fmt", "Print"),
-		analysisutil.PackageFunction("fmt", "Printf"),
-		analysisutil.PackageFunction("fmt", "Println"),
-		analysisutil.PackageFunction("fmt", "Fprint"),
-		analysisutil.PackageFunction("fmt", "Fprintf"),
-		analysisutil.PackageFunction("fmt", "Fprintln"),
+	for _, symbol := range []syntax.Symbol{
+		syntax.PackageFunction("fmt", "Print"),
+		syntax.PackageFunction("fmt", "Printf"),
+		syntax.PackageFunction("fmt", "Println"),
+		syntax.PackageFunction("fmt", "Fprint"),
+		syntax.PackageFunction("fmt", "Fprintf"),
+		syntax.PackageFunction("fmt", "Fprintln"),
 	} {
-		if analysisutil.IsCallTo(pass, call, symbol) {
+		if syntax.IsCallTo(pass, call, symbol) {
 			return true
 		}
 	}

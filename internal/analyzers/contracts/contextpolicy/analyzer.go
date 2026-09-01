@@ -6,9 +6,9 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -26,12 +26,12 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runContextPolicy(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
 	for _, file := range pass.Files {
-		if !analysisutil.AnalyzeFile(pass, file) {
+		if !syntax.AnalyzeFile(pass, file) {
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -55,9 +55,9 @@ func runContextPolicy(pass *analysis.Pass) (any, error) {
 func checkContextStructure(pass *analysis.Pass, file *ast.File, node ast.Node) {
 	switch typed := node.(type) {
 	case *ast.FuncDecl:
-		parameters := analysisutil.ParameterTypes(pass, typed.Type.Params)
+		parameters := syntax.ParameterTypes(pass, typed.Type.Params)
 		for index, parameter := range parameters {
-			if analysisutil.NamedType(parameter, "context", "Context") && !validContextPosition(parameters, index) {
+			if syntax.NamedType(parameter, "context", "Context") && !validContextPosition(parameters, index) {
 				check.Reportf(pass, check.ContextFirst, typed.Name.Pos(), "context.Context must be first parameter")
 				break
 			}
@@ -68,7 +68,7 @@ func checkContextStructure(pass *analysis.Pass, file *ast.File, node ast.Node) {
 			return
 		}
 		for _, field := range structure.Fields.List {
-			if analysisutil.NamedType(pass.TypesInfo.TypeOf(field.Type), "context", "Context") {
+			if syntax.NamedType(pass.TypesInfo.TypeOf(field.Type), "context", "Context") {
 				check.Reportf(pass, check.ContextStorage, field.Pos(), "do not store context.Context in a struct")
 			}
 		}
@@ -102,13 +102,13 @@ func validContextPosition(parameters []types.Type, index int) bool {
 	// lifecycle rather than misplaced plumbing. Network Doctor uses parent and
 	// server contexts this way:
 	// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/peer/session.go#L858
-	if analysisutil.NamedType(parameters[0], "context", "Context") {
+	if syntax.NamedType(parameters[0], "context", "Context") {
 		return true
 	}
 	// Testing handles conventionally lead helper signatures because they own
 	// failures and cleanup. Treat the following context as the first application
 	// parameter instead of asking helpers to put ctx before t or b.
-	return index == 1 && (analysisutil.NamedType(parameters[0], "testing", "T") || analysisutil.NamedType(parameters[0], "testing", "B"))
+	return index == 1 && (syntax.NamedType(parameters[0], "testing", "T") || syntax.NamedType(parameters[0], "testing", "B"))
 }
 
 func ownsStoredContext(pass *analysis.Pass, structure *ast.StructType) bool {
@@ -116,7 +116,7 @@ func ownsStoredContext(pass *analysis.Pass, structure *ast.StructType) bool {
 	hasLifecycleHandle := false
 	for _, field := range structure.Fields.List {
 		fieldType := pass.TypesInfo.TypeOf(field.Type)
-		if analysisutil.NamedType(fieldType, "context", "Context") {
+		if syntax.NamedType(fieldType, "context", "Context") {
 			hasContext = true
 			for _, name := range field.Names {
 				lower := strings.ToLower(name.Name)
@@ -126,8 +126,8 @@ func ownsStoredContext(pass *analysis.Pass, structure *ast.StructType) bool {
 				}
 			}
 		}
-		hasLifecycleHandle = hasLifecycleHandle || analysisutil.NamedType(fieldType, "context", "CancelFunc") ||
-			analysisutil.NamedType(fieldType, "sync", "WaitGroup")
+		hasLifecycleHandle = hasLifecycleHandle || syntax.NamedType(fieldType, "context", "CancelFunc") ||
+			syntax.NamedType(fieldType, "sync", "WaitGroup")
 	}
 	// A cancel/join handle or an explicitly lifecycle-named context is strong
 	// evidence that the struct owns a bounded component rather than retaining a
@@ -152,7 +152,7 @@ func reportNilSSAContextArguments(pass *analysis.Pass, call *ssa.Call) {
 		if argumentIndex >= len(common.Args) {
 			break
 		}
-		if analysisutil.NamedType(signature.Params().At(index).Type(), "context", "Context") && ssautil.DefinitelyNil(common.Args[argumentIndex]) {
+		if syntax.NamedType(signature.Params().At(index).Type(), "context", "Context") && ssaflow.DefinitelyNil(common.Args[argumentIndex]) {
 			check.Reportf(pass, check.ContextNilArgument, call.Pos(), "do not pass nil context.Context")
 		}
 	}

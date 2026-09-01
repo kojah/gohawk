@@ -4,7 +4,7 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -99,13 +99,13 @@ func orderedObjectObservation(pass *analysis.Pass, expression ast.Expr, object t
 }
 
 func orderInsensitiveCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	for _, symbol := range []analysisutil.Symbol{
-		analysisutil.PackageFunction("slices", "Contains"),
-		analysisutil.PackageFunction("slices", "ContainsFunc"),
-		analysisutil.PackageFunction("slices", "Equal"),
-		analysisutil.PackageFunction("slices", "EqualFunc"),
+	for _, symbol := range []syntax.Symbol{
+		syntax.PackageFunction("slices", "Contains"),
+		syntax.PackageFunction("slices", "ContainsFunc"),
+		syntax.PackageFunction("slices", "Equal"),
+		syntax.PackageFunction("slices", "EqualFunc"),
 	} {
-		if analysisutil.IsCallTo(pass, call, symbol) {
+		if syntax.IsCallTo(pass, call, symbol) {
 			return true
 		}
 	}
@@ -131,19 +131,19 @@ func directSortCall(pass *analysis.Pass, call *ast.CallExpr, object types.Object
 	if len(call.Args) == 0 || !determinismUsesObject(pass, call.Args[0], object) {
 		return false
 	}
-	return analysisutil.IsCallToAny(
+	return syntax.IsCallToAny(
 		pass,
 		call,
-		analysisutil.PackageFunction("sort", "Float64s"),
-		analysisutil.PackageFunction("sort", "Ints"),
-		analysisutil.PackageFunction("sort", "Slice"),
-		analysisutil.PackageFunction("sort", "SliceStable"),
-		analysisutil.PackageFunction("sort", "Sort"),
-		analysisutil.PackageFunction("sort", "Stable"),
-		analysisutil.PackageFunction("sort", "Strings"),
-		analysisutil.PackageFunction("slices", "Sort"),
-		analysisutil.PackageFunction("slices", "SortFunc"),
-		analysisutil.PackageFunction("slices", "SortStableFunc"),
+		syntax.PackageFunction("sort", "Float64s"),
+		syntax.PackageFunction("sort", "Ints"),
+		syntax.PackageFunction("sort", "Slice"),
+		syntax.PackageFunction("sort", "SliceStable"),
+		syntax.PackageFunction("sort", "Sort"),
+		syntax.PackageFunction("sort", "Stable"),
+		syntax.PackageFunction("sort", "Strings"),
+		syntax.PackageFunction("slices", "Sort"),
+		syntax.PackageFunction("slices", "SortFunc"),
+		syntax.PackageFunction("slices", "SortStableFunc"),
 	)
 }
 
@@ -163,7 +163,7 @@ func localSortHelperCall(pass *analysis.Pass, call *ast.CallExpr, object types.O
 				if !functionOK || pass.TypesInfo.Defs[function.Name] != callee || function.Body == nil || len(function.Body.List) != 1 {
 					continue
 				}
-				parameter := analysisutil.FunctionParameterObject(pass, function, argumentIndex)
+				parameter := syntax.FunctionParameterObject(pass, function, argumentIndex)
 				if parameter == nil {
 					continue
 				}

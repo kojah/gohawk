@@ -6,8 +6,8 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -86,7 +86,7 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 	if declaration == nil {
 		return false
 	}
-	parameter := analysisutil.FunctionParameterObject(pass, declaration, argumentIndex)
+	parameter := syntax.FunctionParameterObject(pass, declaration, argumentIndex)
 	if parameter == nil {
 		return false
 	}
@@ -137,12 +137,12 @@ func localFunctionDeclaration(pass *analysis.Pass, function *types.Func) *ast.Fu
 func selectedFields(pass *analysis.Pass, expressions []ast.Expr, object types.Object) (map[types.Object]bool, bool) {
 	fields := map[types.Object]bool{}
 	for _, expression := range expressions {
-		selector, ok := analysisutil.Unparen(expression).(*ast.SelectorExpr)
-		if ok && analysisutil.ExpressionUsesObject(pass, selector.X, object) {
+		selector, ok := syntax.Unparen(expression).(*ast.SelectorExpr)
+		if ok && syntax.ExpressionUsesObject(pass, selector.X, object) {
 			fields[pass.TypesInfo.ObjectOf(selector.Sel)] = true
 			continue
 		}
-		if analysisutil.ExpressionUsesObject(pass, expression, object) {
+		if syntax.ExpressionUsesObject(pass, expression, object) {
 			return nil, false
 		}
 	}
@@ -158,8 +158,8 @@ func functionMutatedFields(
 	wholeMutation := false
 	ast.Inspect(declaration.Body, func(node ast.Node) bool {
 		for _, target := range mutationTargets(node) {
-			selector, ok := analysisutil.Unparen(target).(*ast.SelectorExpr)
-			if ok && analysisutil.ExpressionUsesObject(pass, selector.X, parameter) {
+			selector, ok := syntax.Unparen(target).(*ast.SelectorExpr)
+			if ok && syntax.ExpressionUsesObject(pass, selector.X, parameter) {
 				fields[pass.TypesInfo.ObjectOf(selector.Sel)] = true
 			} else if writesThroughObject(pass, target, parameter) {
 				wholeMutation = true
@@ -198,7 +198,7 @@ func callMutatesArgument(pass *analysis.Pass, call *ast.CallExpr, argumentIndex 
 			if !ok || pass.TypesInfo.Defs[declared.Name] != function {
 				continue
 			}
-			parameter := analysisutil.FunctionParameterObject(pass, declared, argumentIndex)
+			parameter := syntax.FunctionParameterObject(pass, declared, argumentIndex)
 			return parameter != nil && functionBodyMutates(pass, declared.Body, parameter)
 		}
 	}
@@ -219,11 +219,11 @@ func calledFunctionObject(pass *analysis.Pass, call *ast.CallExpr) *types.Func {
 }
 
 func knownMutatingArgument(pass *analysis.Pass, call *ast.CallExpr, argumentIndex int) bool {
-	return argumentIndex == 1 && analysisutil.IsCallToAny(
+	return argumentIndex == 1 && syntax.IsCallToAny(
 		pass,
 		call,
-		analysisutil.PackageFunction("encoding/json", "Unmarshal"),
-		analysisutil.PackageFunction("encoding/xml", "Unmarshal"),
+		syntax.PackageFunction("encoding/json", "Unmarshal"),
+		syntax.PackageFunction("encoding/xml", "Unmarshal"),
 	)
 }
 
@@ -256,11 +256,11 @@ func functionBodyMutates(pass *analysis.Pass, body *ast.BlockStmt, parameter typ
 func writesThroughObject(pass *analysis.Pass, expression ast.Expr, parameter types.Object) bool {
 	switch candidate := expression.(type) {
 	case *ast.StarExpr:
-		return analysisutil.ExpressionUsesObject(pass, candidate.X, parameter)
+		return syntax.ExpressionUsesObject(pass, candidate.X, parameter)
 	case *ast.SelectorExpr:
-		return analysisutil.ExpressionUsesObject(pass, candidate.X, parameter)
+		return syntax.ExpressionUsesObject(pass, candidate.X, parameter)
 	case *ast.IndexExpr:
-		return analysisutil.ExpressionUsesObject(pass, candidate.X, parameter)
+		return syntax.ExpressionUsesObject(pass, candidate.X, parameter)
 	case *ast.ParenExpr:
 		return writesThroughObject(pass, candidate.X, parameter)
 	default:

@@ -4,9 +4,9 @@ package channelsafety
 import (
 	"go/token"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -22,7 +22,7 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runChannelSafety(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +36,8 @@ func reportSendsAfterClose(pass *analysis.Pass, function *ssa.Function) {
 	reported := map[token.Pos]bool{}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := ssautil.InstructionCall(instruction)
-			if !ssautil.CallMatchesSymbol(common, analysisutil.Builtin("close")) || len(common.Args) != 1 {
+			common := ssaflow.InstructionCall(instruction)
+			if !ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) || len(common.Args) != 1 {
 				continue
 			}
 			if _, deferred := instruction.(*ssa.Defer); deferred {
@@ -45,7 +45,7 @@ func reportSendsAfterClose(pass *analysis.Pass, function *ssa.Function) {
 			}
 			for _, candidate := range reachableInstructions(instruction) {
 				send, ok := candidate.(*ssa.Send)
-				if !ok || !ssautil.SameValue(send.Chan, common.Args[0]) || reported[send.Pos()] {
+				if !ok || !ssaflow.SameValue(send.Chan, common.Args[0]) || reported[send.Pos()] {
 					continue
 				}
 				reported[send.Pos()] = true
@@ -56,7 +56,7 @@ func reportSendsAfterClose(pass *analysis.Pass, function *ssa.Function) {
 }
 
 func reachableInstructions(start ssa.Instruction) []ssa.Instruction {
-	index := ssautil.InstructionIndex(start)
+	index := ssaflow.InstructionIndex(start)
 	if index < 0 {
 		return nil
 	}

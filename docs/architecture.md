@@ -16,7 +16,7 @@ main.go
   → internal/cli
   → analyzers
   → internal/analyzers/<group>/<analyzer>
-  → internal/analysispasses and internal/analysisutil/ssa
+  → internal/passes and internal/ssaflow
 ```
 
 - `main.go` is a thin executable entry point.
@@ -31,10 +31,10 @@ main.go
 - `internal/check` contains stable check identities, diagnostic reporting, and
   suppression policy. `internal/flagvalue` contains shared analyzer flag
   parsers, while `internal/trace` provides cross-cutting evidence tracing.
-- `internal/analysispasses` contains prerequisite analysis passes shared by
+- `internal/passes` contains prerequisite analysis passes shared by
   otherwise independent analyzers, including cross-package lifecycle facts.
-- `internal/analysisutil` contains syntax and type helpers.
-  `internal/analysisutil/ssa` contains control-flow, call, value, and ownership
+- `internal/syntax` contains syntax and type helpers.
+  `internal/ssaflow` contains control-flow, call, value, and ownership
   helpers for SSA-backed analyzers.
 - `tools` contains repository-development commands such as documentation
   generation and dogfood benchmark measurement; these are not shipped as part

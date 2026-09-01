@@ -4,10 +4,10 @@ package taintpolicy
 import (
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -45,7 +45,7 @@ type taintPolicySettings struct {
 }
 
 type taintSinkContract struct {
-	symbol         analysisutil.Symbol
+	symbol         syntax.Symbol
 	kind           string
 	display        string
 	argumentStart  int
@@ -99,9 +99,9 @@ var taintSinkContracts = []taintSinkContract{
 
 func taintFunction(kind, packagePath, name string, argumentStart, argumentCount int) taintSinkContract {
 	return taintSinkContract{
-		symbol:        analysisutil.PackageFunction(packagePath, name),
+		symbol:        syntax.PackageFunction(packagePath, name),
 		kind:          kind,
-		display:       analysisutil.ShortPackageName(packagePath) + "." + name,
+		display:       syntax.ShortPackageName(packagePath) + "." + name,
 		argumentStart: argumentStart,
 		argumentCount: argumentCount,
 	}
@@ -109,7 +109,7 @@ func taintFunction(kind, packagePath, name string, argumentStart, argumentCount 
 
 func logTaintMethod(packagePath, name string) taintSinkContract {
 	contract := taintFunction("log", packagePath, name, 0, 0)
-	contract.symbol = analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: packagePath, Receiver: "Logger", Name: name})
+	contract.symbol = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: packagePath, Receiver: "Logger", Name: name})
 	return contract
 }
 
@@ -120,7 +120,7 @@ func terminalTaintFunction(packagePath, name string) taintSinkContract {
 }
 
 func runTaintPolicy(pass *analysis.Pass, config taintPolicyConfig) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func taintSink(common *ssa.CallCommon, sinks map[string]bool) (string, string, [
 	}
 	arguments := sourceCallArguments(common)
 	for _, contract := range taintSinkContracts {
-		if !sinks[contract.kind] || !ssautil.CallMatchesSymbol(common, contract.symbol) || contract.argumentStart >= len(arguments) {
+		if !sinks[contract.kind] || !ssaflow.CallMatchesSymbol(common, contract.symbol) || contract.argumentStart >= len(arguments) {
 			continue
 		}
 		if contract.terminalWriter && !terminalWriter(arguments[0]) {
@@ -188,8 +188,8 @@ func terminalWriterSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
 		return false
 	}
 	seen[value] = true
-	if ssautil.ValueMatchesSymbol(value, analysisutil.PackageVariable("os", "Stdout")) ||
-		ssautil.ValueMatchesSymbol(value, analysisutil.PackageVariable("os", "Stderr")) {
+	if ssaflow.ValueMatchesSymbol(value, syntax.PackageVariable("os", "Stdout")) ||
+		ssaflow.ValueMatchesSymbol(value, syntax.PackageVariable("os", "Stderr")) {
 		return true
 	}
 	switch typed := value.(type) {
@@ -217,7 +217,7 @@ func taintedValue(value ssa.Value, seen, memorySeen map[ssa.Value]bool, settings
 		}
 	}
 	if index, ok := value.(*ssa.Index); ok {
-		if ssautil.ValueMatchesSymbol(index.X, analysisutil.PackageVariable("os", "Args")) {
+		if ssaflow.ValueMatchesSymbol(index.X, syntax.PackageVariable("os", "Args")) {
 			return true
 		}
 	}
@@ -258,14 +258,14 @@ func taintedStoredValue(address ssa.Value, seen, memorySeen map[ssa.Value]bool, 
 }
 
 func taintSource(common *ssa.CallCommon) bool {
-	return ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("os", "Getenv")) ||
-		ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("os", "LookupEnv"))
+	return ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Getenv")) ||
+		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "LookupEnv"))
 }
 
 func trustedSanitizer(common *ssa.CallCommon, configured map[string]bool) bool {
 	if common == nil || common.StaticCallee() == nil || common.StaticCallee().Pkg == nil {
 		return false
 	}
-	qualified := ssautil.CallPackage(common) + "." + ssautil.CallName(common)
+	qualified := ssaflow.CallPackage(common) + "." + ssaflow.CallName(common)
 	return configured[qualified]
 }

@@ -4,7 +4,7 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -114,7 +114,7 @@ func recordOrderedAssignment(
 	left, leftOK := assignment.Lhs[0].(*ast.Ident)
 	appendCall, appendOK := assignment.Rhs[0].(*ast.CallExpr)
 	if leftOK && appendOK && appendedRangeValue(pass, appendCall, variables) &&
-		len(appendCall.Args) > 0 && analysisutil.SameExpression(pass, left, appendCall.Args[0]) {
+		len(appendCall.Args) > 0 && syntax.SameExpression(pass, left, appendCall.Args[0]) {
 		result[pass.TypesInfo.ObjectOf(left)] = true
 	}
 }
@@ -141,7 +141,7 @@ func recordOrderedCall(
 }
 
 func appendedRangeValue(pass *analysis.Pass, call *ast.CallExpr, variables map[types.Object]bool) bool {
-	if !analysisutil.IsCallTo(pass, call, analysisutil.Builtin("append")) || len(call.Args) < 2 {
+	if !syntax.IsCallTo(pass, call, syntax.Builtin("append")) || len(call.Args) < 2 {
 		return false
 	}
 	for _, argument := range call.Args[1:] {
@@ -162,5 +162,5 @@ func orderedAccumulatorType(value types.Type) bool {
 	case *types.Basic:
 		return underlying.Kind() == types.String
 	}
-	return analysisutil.NamedType(value, "strings", "Builder") || analysisutil.NamedType(value, "bytes", "Buffer")
+	return syntax.NamedType(value, "strings", "Builder") || syntax.NamedType(value, "bytes", "Buffer")
 }

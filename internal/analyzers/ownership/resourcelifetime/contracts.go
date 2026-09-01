@@ -3,9 +3,9 @@ package resourcelifetime
 import (
 	"slices"
 
-	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -15,7 +15,7 @@ import (
 // are required so similarly named application methods do not imply ownership.
 
 type resourceContract struct {
-	symbol      analysisutil.Symbol
+	symbol      syntax.Symbol
 	family      string
 	packagePath string
 	name        string
@@ -68,13 +68,13 @@ func resourceContracts() []resourceContract {
 
 func resourceFunction(family, packagePath, name string, result int, cleanup ...string) resourceContract {
 	return resourceContract{
-		symbol: analysisutil.PackageFunction(packagePath, name), family: family, packagePath: packagePath, name: name, cleanup: cleanup, result: result,
+		symbol: syntax.PackageFunction(packagePath, name), family: family, packagePath: packagePath, name: name, cleanup: cleanup, result: result,
 	}
 }
 
 func resourceMethod(family, packagePath, receiver, name string, cleanup ...string) resourceContract {
 	return resourceContract{
-		symbol:      analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: packagePath, Receiver: receiver, Name: name}),
+		symbol:      syntax.PackageMethod(syntax.MethodSymbol{PackagePath: packagePath, Receiver: receiver, Name: name}),
 		family:      family,
 		packagePath: packagePath,
 		name:        name,
@@ -98,7 +98,7 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 		if !settings.contracts[contract.family] || contract.readerClose && !settings.requireReaderClose {
 			continue
 		}
-		if ssautil.CallMatchesSymbol(common, contract.symbol) {
+		if ssaflow.CallMatchesSymbol(common, contract.symbol) {
 			return contract, true
 		}
 	}
@@ -119,19 +119,19 @@ func releasesResource(
 		callTakesResourceOwnership(evidence, instruction, resource) {
 		return true
 	}
-	common := ssautil.InstructionCall(instruction)
-	if common != nil && slices.Contains(methods, ssautil.CallName(common)) &&
-		ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
+	common := ssaflow.InstructionCall(instruction)
+	if common != nil && slices.Contains(methods, ssaflow.CallName(common)) &&
+		ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), resource, map[ssa.Value]bool{}) {
 		return true
 	}
-	if common != nil && slices.Contains(methods, ssautil.CallName(common)) &&
-		storedResourceAccessReleased(evidence, instruction, ssautil.CallReceiver(common), resource) {
+	if common != nil && slices.Contains(methods, ssaflow.CallName(common)) &&
+		storedResourceAccessReleased(evidence, instruction, ssaflow.CallReceiver(common), resource) {
 		return true
 	}
 	if common != nil && testingCleanupReleases(evidence, common, resource, methods) {
 		return true
 	}
-	if common != nil && resourceLifecycleMethod(ssautil.CallName(common)) && ssautil.SameAsAny(ssautil.CallReceiver(common), owners) {
+	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssaflow.SameAsAny(ssaflow.CallReceiver(common), owners) {
 		return true
 	}
 	for _, method := range methods {
@@ -139,11 +139,11 @@ func releasesResource(
 		// normal exit stops the resource. darkpawns uses this for tickers whose
 		// select exits on either context or component shutdown:
 		// https://github.com/zax0rz/darkpawns/blob/5cdb4679815822a133a051af4c1249ddda800c38/pkg/events/queue.go#L255
-		completion := ssautil.CompletionRequest{
+		completion := ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
-			Modes:       ssautil.CompletionInStartedClosure,
+			Modes:       ssaflow.CompletionInStartedClosure,
 		}
 		if evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
@@ -156,11 +156,11 @@ func releasesResource(
 		// performed cleanup. Herdforge's response decoder owns Body.Close this
 		// way, without advertising ownership in the helper name:
 		// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/provider/github.go#L356
-		completion = ssautil.CompletionRequest{
+		completion = ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
-			Modes:       ssautil.CompletionByHelper,
+			Modes:       ssaflow.CompletionByHelper,
 		}
 		if evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
@@ -177,11 +177,11 @@ func releasesResource(
 		// the closure so conditional cleanup cannot hide a leak. ccLoad uses this
 		// pattern while constructing verified temporary files:
 		// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/bridge_install.go#L264-L289
-		completion = ssautil.CompletionRequest{
+		completion = ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
-			Modes:       ssautil.CompletionDeferred | ssautil.CompletionBeforeBranch,
+			Modes:       ssaflow.CompletionDeferred | ssaflow.CompletionBeforeBranch,
 		}
 		if evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
@@ -200,12 +200,12 @@ func instructionSettlesResourceOwnership(
 	resource ssa.Value,
 	methods []string,
 ) bool {
-	transfer := ssautil.OwnershipTransferRequest{
+	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,
-		Modes: ssautil.TransferStoredInGlobal | ssautil.TransferStoredInEnclosingScope |
-			ssautil.TransferOwnerStoredInExternalField | ssautil.TransferStoredInOwnedMap |
-			ssautil.TransferSentToReceiver | ssautil.TransferCapturedByClosure,
+		Modes: ssaflow.TransferStoredInGlobal | ssaflow.TransferStoredInEnclosingScope |
+			ssaflow.TransferOwnerStoredInExternalField | ssaflow.TransferStoredInOwnedMap |
+			ssaflow.TransferSentToReceiver | ssaflow.TransferCapturedByClosure,
 	}
 	return resourceTransferredToExternalField(instruction, resource) ||
 		evidence.Prove(lifecyclefacts.EvidenceRequest{
@@ -217,11 +217,11 @@ func instructionSettlesResourceOwnership(
 }
 
 func callTakesResourceOwnership(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, resource ssa.Value) bool {
-	transfer := ssautil.OwnershipTransferRequest{
+	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,
-		Modes: ssautil.TransferCallResultStoredInField | ssautil.TransferToReceiver |
-			ssautil.TransferToLifecycleOwner,
+		Modes: ssaflow.TransferCallResultStoredInField | ssaflow.TransferToReceiver |
+			ssaflow.TransferToLifecycleOwner,
 	}
 	return evidence.Prove(lifecyclefacts.EvidenceRequest{
 		Instruction: instruction,
@@ -240,11 +240,11 @@ func startedClosureReleasesResource(
 	resource ssa.Value,
 	methods []string,
 ) bool {
-	completion := ssautil.CompletionRequest{
+	completion := ssaflow.CompletionRequest{
 		Instruction: instruction,
 		Target:      resource,
 		Methods:     methods,
-		Modes:       ssautil.CompletionInStartedClosure,
+		Modes:       ssaflow.CompletionInStartedClosure,
 	}
 	return evidence.Prove(lifecyclefacts.EvidenceRequest{
 		Instruction: instruction,
@@ -264,14 +264,14 @@ func storedResourceAccessReleased(
 	for _, block := range release.Parent().Blocks {
 		for _, instruction := range block.Instrs {
 			store, ok := instruction.(*ssa.Store)
-			if !ok || !ssautil.InstructionDominates(store, release) || !ssautil.SameValue(store.Val, resource) {
+			if !ok || !ssaflow.InstructionDominates(store, release) || !ssaflow.SameValue(store.Val, resource) {
 				continue
 			}
 			field, ok := store.Addr.(*ssa.FieldAddr)
 			if ok && evidence.Identity(
 				release,
-				ssautil.AccessPath{Value: receiver, Root: field.X},
-				ssautil.AccessPath{Value: field, Root: field.X},
+				ssaflow.AccessPath{Value: receiver, Root: field.X},
+				ssaflow.AccessPath{Value: field, Root: field.X},
 			).Proven() {
 				return true
 			}
@@ -286,7 +286,7 @@ func testingCleanupReleases(
 	resource ssa.Value,
 	methods []string,
 ) bool {
-	if !ssautil.HasLibraryContract(common, ssautil.ContractTestingCleanup) {
+	if !ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) {
 		return false
 	}
 	// testing.TB guarantees that Cleanup callbacks run when the test and its
@@ -298,11 +298,11 @@ func testingCleanupReleases(
 		if !ok {
 			continue
 		}
-		completion := ssautil.CompletionRequest{
+		completion := ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     methods,
-			Modes:       ssautil.CompletionBeforeBranch,
+			Modes:       ssaflow.CompletionBeforeBranch,
 		}
 		if evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,

@@ -3,8 +3,8 @@ package processownership
 import (
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,7 +14,7 @@ func osProcessDerivedFromCommand(value, command ssa.Value) bool {
 		return false
 	}
 	pointer, ok := value.Type().Underlying().(*types.Pointer)
-	return ok && analysisutil.NamedType(pointer.Elem(), "os", "Process") && ssautil.ValueDerivesFrom(value, command, map[ssa.Value]bool{})
+	return ok && syntax.NamedType(pointer.Elem(), "os", "Process") && ssaflow.ValueDerivesFrom(value, command, map[ssa.Value]bool{})
 }
 
 func commandReturnedByHelper(command ssa.Value) bool {
@@ -31,10 +31,10 @@ func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) boo
 	seen[command] = true
 	switch typed := command.(type) {
 	case *ssa.Call:
-		return !ssautil.CallMatchesAnySymbol(
+		return !ssaflow.CallMatchesAnySymbol(
 			typed.Common(),
-			analysisutil.PackageFunction("os/exec", "Command"),
-			analysisutil.PackageFunction("os/exec", "CommandContext"),
+			syntax.PackageFunction("os/exec", "Command"),
+			syntax.PackageFunction("os/exec", "CommandContext"),
 		)
 	case *ssa.ChangeInterface:
 		return commandReturnedByHelperSeen(typed.X, seen)
@@ -77,17 +77,17 @@ func execCommandValue(value ssa.Value) bool {
 		return false
 	}
 	pointer, ok := value.Type().Underlying().(*types.Pointer)
-	return ok && analysisutil.NamedType(pointer.Elem(), "os/exec", "Cmd")
+	return ok && syntax.NamedType(pointer.Elem(), "os/exec", "Cmd")
 }
 
 func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
-	common := ssautil.InstructionCall(instruction)
+	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
-	if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) &&
-		(ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
-			osProcessDerivedFromCommand(ssautil.CallReceiver(common), command)) {
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) &&
+		(ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
+			osProcessDerivedFromCommand(ssaflow.CallReceiver(common), command)) {
 		return true
 	}
 	return false
@@ -101,24 +101,24 @@ func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
 		return false
 	}
 	for _, predecessor := range returned.Block().Preds {
-		if success, known := ssautil.SuccessBranch(predecessor, returned.Block(), start); known {
+		if success, known := ssaflow.SuccessBranch(predecessor, returned.Block(), start); known {
 			return !success
 		}
 	}
 	for _, successor := range start.Block().Succs {
-		success, known := ssautil.SuccessBranch(start.Block(), successor, start)
+		success, known := ssaflow.SuccessBranch(start.Block(), successor, start)
 		if !known || success {
 			continue
 		}
-		return ssautil.BlockReachable(successor, returned.Block()) && !successBranchReaches(start, returned.Block())
+		return ssaflow.BlockReachable(successor, returned.Block()) && !successBranchReaches(start, returned.Block())
 	}
 	return false
 }
 
 func successBranchReaches(start *ssa.Call, target *ssa.BasicBlock) bool {
 	for _, successor := range start.Block().Succs {
-		if success, known := ssautil.SuccessBranch(start.Block(), successor, start); known && success {
-			return ssautil.BlockReachable(successor, target)
+		if success, known := ssaflow.SuccessBranch(start.Block(), successor, start); known && success {
+			return ssaflow.BlockReachable(successor, target)
 		}
 	}
 	return false

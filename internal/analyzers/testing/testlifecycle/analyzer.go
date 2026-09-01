@@ -6,10 +6,10 @@ import (
 	"go/version"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/goroutineownership"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -30,7 +30,7 @@ func runTestLifecycle(pass *analysis.Pass) (any, error) {
 	if !supportsTestingContext(pass) {
 		return nil, nil
 	}
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ type detachedTestContext struct {
 }
 
 func reportDetachedTestBackground(pass *analysis.Pass, function *ssa.Function) {
-	file := ssautil.FunctionFile(pass, function)
+	file := ssaflow.FunctionFile(pass, function)
 	if file == nil || !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") || !functionHasTestingHandle(function) {
 		return
 	}
@@ -89,12 +89,12 @@ func reportDetachedTestBackground(pass *analysis.Pass, function *ssa.Function) {
 
 func functionHasTestingHandle(function *ssa.Function) bool {
 	for _, parameter := range function.Params {
-		if analysisutil.NamedType(parameter.Type(), "testing", "T") || analysisutil.NamedType(parameter.Type(), "testing", "B") {
+		if syntax.NamedType(parameter.Type(), "testing", "T") || syntax.NamedType(parameter.Type(), "testing", "B") {
 			return true
 		}
 	}
 	for _, free := range function.FreeVars {
-		if analysisutil.NamedType(free.Type(), "testing", "T") || analysisutil.NamedType(free.Type(), "testing", "B") {
+		if syntax.NamedType(free.Type(), "testing", "T") || syntax.NamedType(free.Type(), "testing", "B") {
 			return true
 		}
 	}
@@ -112,7 +112,7 @@ func detachedTestContexts(spawn *ssa.Go) []detachedTestContext {
 			if index >= len(function.FreeVars) {
 				break
 			}
-			position, ok := neverCancelledTestContext(ssautil.CapturedBindingValue(binding), map[ssa.Value]bool{})
+			position, ok := neverCancelledTestContext(ssaflow.CapturedBindingValue(binding), map[ssa.Value]bool{})
 			if ok {
 				result = append(result, detachedTestContext{root: function.FreeVars[index], position: position})
 			}
@@ -179,11 +179,11 @@ func contextSource(value ssa.Value) (ssa.Value, bool) {
 
 func neverCancelledContextCall(call *ssa.Call, seen map[ssa.Value]bool) (token.Pos, bool) {
 	common := call.Common()
-	if ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("context", "Background")) ||
-		ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("context", "TODO")) {
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("context", "Background")) ||
+		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("context", "TODO")) {
 		return call.Pos(), true
 	}
-	if ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("context", "WithValue")) {
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("context", "WithValue")) {
 		if len(common.Args) > 0 {
 			return neverCancelledTestContext(common.Args[0], seen)
 		}
@@ -239,12 +239,12 @@ func functionObservesCancellation(function *ssa.Function, value ssa.Value, seen 
 	seen[key] = true
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := ssautil.InstructionCall(instruction)
+			common := ssaflow.InstructionCall(instruction)
 			if common == nil {
 				continue
 			}
-			name := ssautil.CallName(common)
-			if (name == "Done" || name == "Err") && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), value, map[ssa.Value]bool{}) {
+			name := ssaflow.CallName(common)
+			if (name == "Done" || name == "Err") && ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), value, map[ssa.Value]bool{}) {
 				return true
 			}
 			callee := common.StaticCallee()
@@ -252,7 +252,7 @@ func functionObservesCancellation(function *ssa.Function, value ssa.Value, seen 
 				continue
 			}
 			for index, argument := range common.Args {
-				if index < len(callee.Params) && ssautil.SameValue(argument, value) && functionObservesCancellation(callee, callee.Params[index], seen) {
+				if index < len(callee.Params) && ssaflow.SameValue(argument, value) && functionObservesCancellation(callee, callee.Params[index], seen) {
 					return true
 				}
 			}

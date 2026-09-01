@@ -7,8 +7,8 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -97,7 +97,7 @@ func runEnumField(pass *analysis.Pass) (any, error) {
 func enumProductionFiles(pass *analysis.Pass) []*ast.File {
 	files := make([]*ast.File, 0, len(pass.Files))
 	for _, file := range pass.Files {
-		if !analysisutil.AnalyzeFile(pass, file) || strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
+		if !syntax.AnalyzeFile(pass, file) || strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") {
 			continue
 		}
 		files = append(files, file)

@@ -5,9 +5,9 @@ import (
 	"go/ast"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -35,7 +35,7 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	for _, file := range pass.Files {
-		if !analysisutil.AnalyzeFile(pass, file) {
+		if !syntax.AnalyzeFile(pass, file) {
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -69,7 +69,7 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 }
 
 func defersReachingAnotherIteration(pass *analysis.Pass) (map[sourceLine]bool, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func loopAcquiresTarget(pass *analysis.Pass, body *ast.BlockStmt, target ast.Exp
 			return true
 		}
 		selector, ok := call.Fun.(*ast.SelectorExpr)
-		if ok && (selector.Sel.Name == "Lock" || selector.Sel.Name == "RLock") && analysisutil.SameExpression(pass, selector.X, target) {
+		if ok && (selector.Sel.Name == "Lock" || selector.Sel.Name == "RLock") && syntax.SameExpression(pass, selector.X, target) {
 			found = true
 			return false
 		}

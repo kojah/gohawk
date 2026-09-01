@@ -130,7 +130,7 @@ reported.
 ### Well-known symbol identity
 
 Match known package functions, receiver-qualified methods, builtins, and
-package variables through `analysisutil.Symbol` and the AST or SSA symbol
+package variables through `syntax.Symbol` and the AST or SSA symbol
 matchers. Do not reconstruct declaration identity from package paths and raw
 names. Keep analyzer-specific symbol declarations beside the contract that
 uses them; the shared package owns identity mechanics, not a global catalog.
@@ -156,12 +156,12 @@ evidence engines behind focused implementation files.
 - Keep registry and runner code small. It should select configuration,
   construct shared inputs, invoke evidence helpers, and report diagnostics—not
   contain the full proof itself.
-- Promote a helper to `internal/analysisutil` only after multiple analyzers
+- Promote a helper to `internal/syntax` or `internal/ssaflow` only after multiple analyzers
   need the same general contract. Analyzer-specific precision policy belongs
   beside the analyzer even when its implementation looks reusable.
 - Put shared prerequisite `analysis.Analyzer` passes under
-  `internal/analysispasses`; these are execution infrastructure, not catalog
-  analyzers or general-purpose `internal/analysisutil` helpers.
+  `internal/passes`; these are execution infrastructure, not catalog
+  analyzers or general-purpose source and flow helpers.
 - Keep each analyzer's minimized accepted and diagnostic cases under its local
   `testdata` tree. Place fixture-only dependency stubs there as well.
 
@@ -170,8 +170,9 @@ gosec's practice of splitting a substantial analyzer into focused files within
 its package. Analyzer groups are catalog metadata mirrored by container
 directories, not Go package boundaries.
 
-Shared program-analysis helpers live under `internal/analysisutil`; they are
-implementation details rather than an external integration API. Cross-cutting
+Shared source-level helpers live under `internal/syntax`, while SSA flow and
+ownership mechanics live under `internal/ssaflow`; they are implementation
+details rather than an external integration API. Cross-cutting
 diagnostic, catalog, flag, and trace infrastructure lives in its own focused
 internal package instead of being folded into analysis utilities.
 

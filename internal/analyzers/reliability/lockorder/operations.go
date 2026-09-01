@@ -5,9 +5,9 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -71,7 +71,7 @@ func appendUniqueString(values []string, candidate string) []string {
 func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
 	for _, result := range returned.Results {
 		for _, value := range values {
-			if ssautil.ValueCallsMethod(result, "Unlock", value) || ssautil.ValueCallsMethod(result, "RUnlock", value) {
+			if ssaflow.ValueCallsMethod(result, "Unlock", value) || ssaflow.ValueCallsMethod(result, "RUnlock", value) {
 				return true
 			}
 		}
@@ -134,11 +134,11 @@ func releaseLock(held []string, identity string) []string {
 }
 
 func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value, bool) {
-	common := ssautil.InstructionCall(instruction)
+	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return 0, "", nil, false
 	}
-	name := ssautil.CallName(common)
+	name := ssaflow.CallName(common)
 	var operation mutexOperation
 	switch name {
 	case "Lock", "RLock":
@@ -148,7 +148,7 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value
 	default:
 		return 0, "", nil, false
 	}
-	receiver := ssautil.CallReceiver(common)
+	receiver := ssaflow.CallReceiver(common)
 	receiver = concreteMutexReceiver(receiver, map[ssa.Value]bool{})
 	if receiver == nil {
 		return 0, "", nil, false
@@ -164,7 +164,7 @@ func concreteMutexReceiver(value ssa.Value, seen map[ssa.Value]bool) ssa.Value {
 		return nil
 	}
 	seen[value] = true
-	if analysisutil.NamedType(value.Type(), "sync", "Mutex") || analysisutil.NamedType(value.Type(), "sync", "RWMutex") {
+	if syntax.NamedType(value.Type(), "sync", "Mutex") || syntax.NamedType(value.Type(), "sync", "RWMutex") {
 		return value
 	}
 	switch typed := value.(type) {
@@ -193,7 +193,7 @@ func concreteMutexReceiver(value ssa.Value, seen map[ssa.Value]bool) ssa.Value {
 func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
 	candidateIdentity := lockIdentity(candidate, map[ssa.Value]bool{})
 	for _, value := range values {
-		if ssautil.SameValue(value, candidate) || candidateIdentity != "" && lockIdentity(value, map[ssa.Value]bool{}) == candidateIdentity {
+		if ssaflow.SameValue(value, candidate) || candidateIdentity != "" && lockIdentity(value, map[ssa.Value]bool{}) == candidateIdentity {
 			return values
 		}
 	}

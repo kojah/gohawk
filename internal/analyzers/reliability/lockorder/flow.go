@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -25,7 +25,7 @@ func walkLockOrder(
 	pass *analysis.Pass,
 	function *ssa.Function,
 	relations map[lockRelation]token.Pos,
-	evidence *ssautil.EvidenceQuery,
+	evidence *ssaflow.EvidenceQuery,
 ) {
 	if len(function.Blocks) == 0 {
 		return
@@ -123,7 +123,7 @@ func recordUnreleasedLocks(
 }
 
 func transferCalledUnlocks(
-	evidence *ssautil.EvidenceQuery,
+	evidence *ssaflow.EvidenceQuery,
 	instruction ssa.Instruction,
 	held []string,
 	guards map[string]lockGuard,
@@ -132,11 +132,11 @@ func transferCalledUnlocks(
 ) []string {
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			proof := evidence.Completion(ssautil.CompletionRequest{
+			proof := evidence.Completion(ssaflow.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Modes:       ssautil.CompletionByHelper,
+				Modes:       ssaflow.CompletionByHelper,
 			})
 			if !proof.Proven() {
 				continue
@@ -155,7 +155,7 @@ func transferCalledUnlocks(
 }
 
 func transferSpawnedUnlocks(
-	evidence *ssautil.EvidenceQuery,
+	evidence *ssaflow.EvidenceQuery,
 	instruction ssa.Instruction,
 	held []string,
 	guards map[string]lockGuard,
@@ -167,11 +167,11 @@ func transferSpawnedUnlocks(
 	}
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			proof := evidence.Completion(ssautil.CompletionRequest{
+			proof := evidence.Completion(ssaflow.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Modes:       ssautil.CompletionBeforeBranch | ssautil.CompletionInStartedClosure,
+				Modes:       ssaflow.CompletionBeforeBranch | ssaflow.CompletionInStartedClosure,
 			})
 			if proof.Proven() {
 				// A spawned helper may branch before releasing the caller's lock as
@@ -189,7 +189,7 @@ func transferSpawnedUnlocks(
 }
 
 func recordDeferredUnlocks(
-	evidence *ssautil.EvidenceQuery,
+	evidence *ssaflow.EvidenceQuery,
 	instruction ssa.Instruction,
 	held, deferred []string,
 	lockValues map[string][]ssa.Value,
@@ -200,16 +200,16 @@ func recordDeferredUnlocks(
 	}
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			common := ssautil.InstructionCall(instruction)
-			proof := evidence.Completion(ssautil.CompletionRequest{
+			common := ssaflow.InstructionCall(instruction)
+			proof := evidence.Completion(ssaflow.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Modes:       ssautil.CompletionDeferred,
+				Modes:       ssaflow.CompletionDeferred,
 			})
 			if proof.Proven() ||
-				common != nil && (ssautil.ValueCallsMethod(common.Value, "Unlock", value) ||
-					ssautil.ValueCallsMethod(common.Value, "RUnlock", value)) {
+				common != nil && (ssaflow.ValueCallsMethod(common.Value, "Unlock", value) ||
+					ssaflow.ValueCallsMethod(common.Value, "RUnlock", value)) {
 				released[identity] = true
 				deferred = appendUniqueString(deferred, identity)
 				break

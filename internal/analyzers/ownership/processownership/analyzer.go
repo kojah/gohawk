@@ -2,10 +2,10 @@
 package processownership
 
 import (
-	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -24,7 +24,7 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runProcessOwnership(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -33,12 +33,12 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, ok := instruction.(*ssa.Call)
-				startCall := analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Start"})
-				if !ok || !ssautil.CallMatchesSymbol(start.Common(), startCall) ||
-					!execCommandValue(ssautil.CallReceiver(start.Common())) {
+				startCall := syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Start"})
+				if !ok || !ssaflow.CallMatchesSymbol(start.Common(), startCall) ||
+					!execCommandValue(ssaflow.CallReceiver(start.Common())) {
 					continue
 				}
-				command := ssautil.CallReceiver(start.Common())
+				command := ssaflow.CallReceiver(start.Common())
 				owners := processOwnersRegisteredBefore(function, start, command)
 				// A helper returning *exec.Cmd may already have registered cleanup
 				// or wait ownership. Without interprocedural evidence either way,
@@ -50,7 +50,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				}
 				// Caller retains a parameter command after this helper returns, so
 				// helper-local Start does not transfer caller's Wait responsibility.
-				if ssautil.SameAsAny(command, parameterValues(function.Params)) || ssautil.ExternallyOwnedValue(command) {
+				if ssaflow.SameAsAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
 					continue
 				}
 				// Cleanup may be registered before Start. This is common when a
@@ -63,12 +63,12 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				if successfulStartCannotReturn(start) {
 					continue
 				}
-				leaks := ssautil.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
+				leaks := ssaflow.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
 					return processOwnershipAction(evidence, candidate, command)
 				}, func(returned *ssa.Return) bool {
 					// Returning an aggregate that contains the command transfers Wait
 					// responsibility just as directly as returning *exec.Cmd itself.
-					return startFailureReturn(returned, start) || ssautil.ReturnedValueOwnsValue(returned, command)
+					return startFailureReturn(returned, start) || ssaflow.ReturnedValueOwnsValue(returned, command)
 				})
 				emitProcessDecision(pass, function, start, command, leaks)
 				if leaks {

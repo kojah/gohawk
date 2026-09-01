@@ -7,9 +7,9 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -49,7 +49,7 @@ func runGlobalState(pass *analysis.Pass, config globalStateConfig) (any, error) 
 	allowlist := globalStateAllowlist{names: flagvalue.CommaSeparatedSet(config.allowNames), types: flagvalue.CommaSeparatedSet(config.allowTypes)}
 	usage := globalStateUsage{files: pass.Files, parents: globalSyntaxParents(pass.Files), calleeParams: globalCalleeParameters(pass)}
 	for _, file := range pass.Files {
-		if !analysisutil.AnalyzeFile(pass, file) {
+		if !syntax.AnalyzeFile(pass, file) {
 			continue
 		}
 		for _, declaration := range file.Decls {
@@ -112,7 +112,7 @@ func allowedGlobal(
 	usage globalStateUsage,
 ) bool {
 	value := object.Type()
-	if strings.HasSuffix(name.Name, "Schema") || analysisutil.NamedType(value, "sync", "Once") || analysisutil.NamedType(value, "regexp", "Regexp") {
+	if strings.HasSuffix(name.Name, "Schema") || syntax.NamedType(value, "sync", "Once") || syntax.NamedType(value, "regexp", "Regexp") {
 		return true
 	}
 	if conventionalFrameworkBinding(pass, specification, index) || benchmarkResultSink(pass, name) {

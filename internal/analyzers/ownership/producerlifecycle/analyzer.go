@@ -6,8 +6,8 @@ import (
 	"go/token"
 	"go/types"
 
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -25,7 +25,7 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runProducerLifecycle(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -78,9 +78,9 @@ func producerSends(function *ssa.Function) []producerSend {
 					if !ok {
 						continue
 					}
-					channel := ssautil.SpawnedValueAtCall(spawn, spawned, closure, send.Chan)
+					channel := ssaflow.SpawnedValueAtCall(spawn, spawned, closure, send.Chan)
 					if channel != nil && localUnbufferedChannel(function, channel) {
-						sends = append(sends, producerSend{instruction: send, channel: channel, repeated: ssautil.BlockInCycle(spawnedBlock), spawn: spawn})
+						sends = append(sends, producerSend{instruction: send, channel: channel, repeated: ssaflow.BlockInCycle(spawnedBlock), spawn: spawn})
 					}
 				}
 			}
@@ -98,7 +98,7 @@ func abandonedProducerSend(function *ssa.Function, send producerSend, sends []pr
 	}
 	sendCount := 0
 	for _, candidate := range sends {
-		if ssautil.SameValue(candidate.channel, send.channel) && producerSendsCanCooccur(send, candidate) {
+		if ssaflow.SameValue(candidate.channel, send.channel) && producerSendsCanCooccur(send, candidate) {
 			sendCount++
 		}
 	}
@@ -113,14 +113,14 @@ func producerSendsCanCooccur(first, second producerSend) bool {
 	if first.instruction == second.instruction {
 		return true
 	}
-	return ssautil.InstructionMayFollow(first.instruction, second.instruction) || ssautil.InstructionMayFollow(second.instruction, first.instruction)
+	return ssaflow.InstructionMayFollow(first.instruction, second.instruction) || ssaflow.InstructionMayFollow(second.instruction, first.instruction)
 }
 
 func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			created, ok := instruction.(*ssa.MakeChan)
-			if !ok || !ssautil.CapturedBindingMatches(channel, created) {
+			if !ok || !ssaflow.CapturedBindingMatches(channel, created) {
 				continue
 			}
 			size, ok := created.Size.(*ssa.Const)
@@ -135,15 +135,15 @@ func channelReceives(function *ssa.Function, channel ssa.Value) (count int, drai
 		for _, instruction := range block.Instrs {
 			switch candidate := instruction.(type) {
 			case *ssa.UnOp:
-				if candidate.Op == token.ARROW && ssautil.SameValue(candidate.X, channel) {
+				if candidate.Op == token.ARROW && ssaflow.SameValue(candidate.X, channel) {
 					count++
-					draining = draining || ssautil.BlockInCycle(block)
+					draining = draining || ssaflow.BlockInCycle(block)
 				}
 			case *ssa.Select:
 				for _, state := range candidate.States {
-					if state.Dir == types.RecvOnly && ssautil.SameValue(state.Chan, channel) {
+					if state.Dir == types.RecvOnly && ssaflow.SameValue(state.Chan, channel) {
 						count++
-						draining = draining || ssautil.BlockInCycle(block)
+						draining = draining || ssaflow.BlockInCycle(block)
 					}
 				}
 			}

@@ -6,9 +6,9 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -26,11 +26,11 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runChannelOwnership(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
-	callsites := ssautil.StaticCallsites(functions)
+	callsites := ssaflow.StaticCallsites(functions)
 	for _, function := range functions {
 		checkChannelOwnership(pass, function, callsites)
 	}
@@ -40,14 +40,14 @@ func runChannelOwnership(pass *analysis.Pass) (any, error) {
 func checkChannelOwnership(pass *analysis.Pass, function *ssa.Function, callsites map[*ssa.Function][]ssa.CallInstruction) {
 	var parameters []ssa.Value
 	for _, parameter := range function.Params {
-		if ssautil.ChannelType(parameter) {
+		if ssaflow.ChannelType(parameter) {
 			parameters = append(parameters, parameter)
 		}
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := ssautil.InstructionCall(instruction)
-			if !ssautil.CallMatchesSymbol(common, analysisutil.Builtin("close")) || len(common.Args) != 1 {
+			common := ssaflow.InstructionCall(instruction)
+			if !ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) || len(common.Args) != 1 {
 				continue
 			}
 			channel := common.Args[0]
@@ -66,7 +66,7 @@ func closesBorrowedChannel(
 	callsites map[*ssa.Function][]ssa.CallInstruction,
 ) bool {
 	for _, parameter := range parameters {
-		if ssautil.SameValue(channel, parameter) && !documentedCloseOwnership(pass, function, parameter) &&
+		if ssaflow.SameValue(channel, parameter) && !documentedCloseOwnership(pass, function, parameter) &&
 			!channelOwnershipTransferredToGoroutine(parameter, callsites) {
 			return true
 		}
@@ -122,7 +122,7 @@ func channelOwnershipTransferredToGoroutine(parameter ssa.Value, callsites map[*
 			continue
 		}
 		argument := call.Common().Args[index]
-		if ssautil.DefinitelyNil(argument) || channelRelinquishedAfterCall(call, argument) {
+		if ssaflow.DefinitelyNil(argument) || channelRelinquishedAfterCall(call, argument) {
 			continue
 		}
 		return false
@@ -146,7 +146,7 @@ func guardedCloseContract(function *ssa.Function, parameter ssa.Value) bool {
 				continue
 			}
 			for _, state := range selection.States {
-				if state.Dir == types.RecvOnly && ssautil.SameValue(state.Chan, parameter) {
+				if state.Dir == types.RecvOnly && ssaflow.SameValue(state.Chan, parameter) {
 					hasGuard = true
 				}
 			}
@@ -164,14 +164,14 @@ func channelRelinquishedAfterCall(call ssa.CallInstruction, channel ssa.Value) b
 	// send, close, or return of that channel. This covers synchronous acceptance
 	// signals and producer methods invoked from an owned worker closure.
 	for _, instruction := range reachableInstructions(call) {
-		if returned, ok := instruction.(*ssa.Return); ok && ssautil.ReturnSameValue(returned, channel) {
+		if returned, ok := instruction.(*ssa.Return); ok && ssaflow.ReturnSameValue(returned, channel) {
 			return false
 		}
-		if send, ok := instruction.(*ssa.Send); ok && ssautil.SameValue(send.Chan, channel) {
+		if send, ok := instruction.(*ssa.Send); ok && ssaflow.SameValue(send.Chan, channel) {
 			return false
 		}
-		common := ssautil.InstructionCall(instruction)
-		if ssautil.CallMatchesSymbol(common, analysisutil.Builtin("close")) && len(common.Args) == 1 && ssautil.SameValue(common.Args[0], channel) {
+		common := ssaflow.InstructionCall(instruction)
+		if ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1 && ssaflow.SameValue(common.Args[0], channel) {
 			return false
 		}
 	}
@@ -179,7 +179,7 @@ func channelRelinquishedAfterCall(call ssa.CallInstruction, channel ssa.Value) b
 }
 
 func reachableInstructions(start ssa.Instruction) []ssa.Instruction {
-	index := ssautil.InstructionIndex(start)
+	index := ssaflow.InstructionIndex(start)
 	if index < 0 {
 		return nil
 	}

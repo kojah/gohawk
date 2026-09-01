@@ -4,8 +4,8 @@ package oncepolicy
 import (
 	"go/ast"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -29,12 +29,12 @@ func runOncePolicy(pass *analysis.Pass) (any, error) {
 		if !ok || len(outer.Args) != 0 {
 			return
 		}
-		if !analysisutil.IsCallToAny(
+		if !syntax.IsCallToAny(
 			pass,
 			inner,
-			analysisutil.PackageFunction("sync", "OnceFunc"),
-			analysisutil.PackageFunction("sync", "OnceValue"),
-			analysisutil.PackageFunction("sync", "OnceValues"),
+			syntax.PackageFunction("sync", "OnceFunc"),
+			syntax.PackageFunction("sync", "OnceValue"),
+			syntax.PackageFunction("sync", "OnceValues"),
 		) {
 			return
 		}

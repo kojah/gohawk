@@ -7,9 +7,9 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -27,12 +27,12 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runTestPolicy(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
 	for _, function := range functions {
-		file := ssautil.FunctionFile(pass, function)
+		file := ssaflow.FunctionFile(pass, function)
 		_, declaration := function.Syntax().(*ast.FuncDecl)
 		// Function literals that accept *testing.T are callbacks, not helpers:
 		// t.Run bodies and table-driven builders should retain the caller's
@@ -44,11 +44,11 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 		if handle == nil {
 			continue
 		}
-		if ssautil.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
-			common := ssautil.InstructionCall(instruction)
-			return ssautil.CallName(common) == "Helper" && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), handle, map[ssa.Value]bool{})
+		if ssaflow.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
+			common := ssaflow.InstructionCall(instruction)
+			return ssaflow.CallName(common) == "Helper" && ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), handle, map[ssa.Value]bool{})
 		}) {
-			source := analysisutil.SourceRange(pass, function.Pos())
+			source := syntax.SourceRange(pass, function.Pos())
 			check.Report(pass, check.TestHelperMarker, analysis.Diagnostic{
 				Pos:            source.Pos(),
 				End:            source.End(),
@@ -95,8 +95,8 @@ func testHelperFix(pass *analysis.Pass, function *ssa.Function, handle *ssa.Para
 func hasHelperCall(function *ssa.Function, handle *ssa.Parameter) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := ssautil.InstructionCall(instruction)
-			if ssautil.CallName(common) == "Helper" && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), handle, map[ssa.Value]bool{}) {
+			common := ssaflow.InstructionCall(instruction)
+			if ssaflow.CallName(common) == "Helper" && ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), handle, map[ssa.Value]bool{}) {
 				return true
 			}
 		}
@@ -122,5 +122,5 @@ func testingHandle(value types.Type) bool {
 	if !ok {
 		return false
 	}
-	return analysisutil.NamedType(pointer.Elem(), "testing", "T") || analysisutil.NamedType(pointer.Elem(), "testing", "B")
+	return syntax.NamedType(pointer.Elem(), "testing", "T") || syntax.NamedType(pointer.Elem(), "testing", "B")
 }

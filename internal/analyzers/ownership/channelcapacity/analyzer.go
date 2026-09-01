@@ -8,8 +8,8 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -21,7 +21,7 @@ func Analyzer() *analysis.Analyzer {
 	analyzer.Flags.Int64Var(&maximum, "max-unexplained-capacity", 1, "largest channel capacity allowed without a rationale; negative disables the check")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		for _, file := range pass.Files {
-			if !analysisutil.AnalyzeFile(pass, file) {
+			if !syntax.AnalyzeFile(pass, file) {
 				continue
 			}
 			ast.Inspect(file, func(node ast.Node) bool {

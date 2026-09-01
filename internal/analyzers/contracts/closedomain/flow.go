@@ -6,7 +6,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -201,7 +201,7 @@ func enumStringConversion(pass *analysis.Pass, call *ast.CallExpr) bool {
 
 func enumNamedString(value types.Type) bool {
 	named, ok := types.Unalias(value).(*types.Named)
-	return ok && analysisutil.IsStringType(named.Underlying())
+	return ok && syntax.IsStringType(named.Underlying())
 }
 
 func enumCalledFunction(pass *analysis.Pass, expression ast.Expr) *types.Func {

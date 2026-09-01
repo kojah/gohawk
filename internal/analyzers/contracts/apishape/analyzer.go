@@ -7,8 +7,8 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -52,7 +52,7 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 	// signatures. Excluding them before applying shape limits avoids suggesting
 	// an API change that would break the contract supplying the declaration.
 	for _, file := range pass.Files {
-		if !analysisutil.AnalyzeFile(pass, file) {
+		if !syntax.AnalyzeFile(pass, file) {
 			continue
 		}
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -67,7 +67,7 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 			if constrainedSignature(pass, declaration, interfaces, callbacks) {
 				return false
 			}
-			parameters := analysisutil.ParameterTypes(pass, declaration.Type.Params)
+			parameters := syntax.ParameterTypes(pass, declaration.Type.Params)
 			if config.maxParameters > 0 && len(parameters) > config.maxParameters {
 				check.Reportf(
 					pass,
@@ -139,7 +139,7 @@ func apiShapeCallbacks(pass *analysis.Pass) map[types.Object]bool {
 				if !functionParameterIsCallback(signature, index) {
 					continue
 				}
-				identifier, identifierOK := analysisutil.Unparen(argument).(*ast.Ident)
+				identifier, identifierOK := syntax.Unparen(argument).(*ast.Ident)
 				if !identifierOK {
 					continue
 				}

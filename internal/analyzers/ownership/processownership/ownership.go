@@ -1,9 +1,9 @@
 package processownership
 
 import (
-	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -17,7 +17,7 @@ func processOwnerDominatesStart(
 	start *ssa.Call,
 	owners []ssa.Value,
 ) bool {
-	startIndex := ssautil.InstructionIndex(start)
+	startIndex := ssaflow.InstructionIndex(start)
 	for _, block := range function.Blocks {
 		if !block.Dominates(start.Block()) {
 			continue
@@ -28,11 +28,11 @@ func processOwnerDominatesStart(
 		}
 		for _, instruction := range block.Instrs[:limit] {
 			for _, owner := range owners {
-				completion := ssautil.CompletionRequest{
+				completion := ssaflow.CompletionRequest{
 					Instruction: instruction,
 					Target:      owner,
 					Methods:     []string{"close", "Close", "kill", "Kill", "Wait", "wait"},
-					Modes:       ssautil.CompletionDeferred,
+					Modes:       ssaflow.CompletionDeferred,
 				}
 				if evidence.Prove(lifecyclefacts.EvidenceRequest{
 					Instruction: instruction,
@@ -59,7 +59,7 @@ func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []
 				continue
 			}
 			for _, owner := range owners {
-				if ssautil.ValueContainsValue(closure, owner) {
+				if ssaflow.ValueContainsValue(closure, owner) {
 					return true
 				}
 			}
@@ -71,8 +71,8 @@ func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []
 func successfulStartCannotReturn(start *ssa.Call) bool {
 	block := start.Block()
 	for _, successor := range block.Succs {
-		if success, known := ssautil.SuccessBranch(block, successor, start); known && success {
-			return !ssautil.NormalReturnReachableFrom(successor)
+		if success, known := ssaflow.SuccessBranch(block, successor, start); known && success {
+			return !ssaflow.NormalReturnReachableFrom(successor)
 		}
 	}
 	return false
@@ -87,7 +87,7 @@ func processOwnershipDominatesStart(
 	start *ssa.Call,
 	command ssa.Value,
 ) bool {
-	startIndex := ssautil.InstructionIndex(start)
+	startIndex := ssaflow.InstructionIndex(start)
 	for _, block := range function.Blocks {
 		if !block.Dominates(start.Block()) {
 			continue
@@ -97,16 +97,16 @@ func processOwnershipDominatesStart(
 			limit = startIndex
 		}
 		for _, instruction := range block.Instrs[:limit] {
-			completion := ssautil.CompletionRequest{
+			completion := ssaflow.CompletionRequest{
 				Instruction: instruction,
 				Target:      command,
 				Methods:     []string{"Wait"},
-				Modes:       ssautil.CompletionDeferred,
+				Modes:       ssaflow.CompletionDeferred,
 			}
-			transfer := ssautil.OwnershipTransferRequest{
+			transfer := ssaflow.OwnershipTransferRequest{
 				Instruction: instruction,
 				Value:       command,
-				Modes:       ssautil.TransferCapturedByClosure,
+				Modes:       ssaflow.TransferCapturedByClosure,
 			}
 			if evidence.Prove(lifecyclefacts.EvidenceRequest{
 				Instruction: instruction,
@@ -123,7 +123,7 @@ func processOwnershipDominatesStart(
 
 func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, command ssa.Value) []ssa.Value {
 	var owners []ssa.Value
-	startIndex := ssautil.InstructionIndex(start)
+	startIndex := ssaflow.InstructionIndex(start)
 	for _, block := range function.Blocks {
 		if !block.Dominates(start.Block()) {
 			continue
@@ -138,7 +138,7 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 				continue
 			}
 			for _, argument := range call.Common().Args {
-				if ssautil.SameValue(argument, command) {
+				if ssaflow.SameValue(argument, command) {
 					owners = append(owners, call)
 					if call.Referrers() != nil {
 						for _, reference := range *call.Referrers() {
@@ -156,26 +156,26 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 }
 
 func processOwnershipAction(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, command ssa.Value) bool {
-	common := ssautil.InstructionCall(instruction)
-	completion := ssautil.CompletionRequest{
+	common := ssaflow.InstructionCall(instruction)
+	completion := ssaflow.CompletionRequest{
 		Instruction: instruction,
 		Target:      command,
 		Methods:     []string{"Wait"},
-		Modes: ssautil.CompletionDeferred | ssautil.CompletionInClosure |
-			ssautil.CompletionByHelper,
+		Modes: ssaflow.CompletionDeferred | ssaflow.CompletionInClosure |
+			ssaflow.CompletionByHelper,
 	}
-	transfer := ssautil.OwnershipTransferRequest{
+	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       command,
-		Modes: ssautil.TransferStoredInField | ssautil.TransferOwnerStoredInField |
-			ssautil.TransferCapturedByClosure | ssautil.TransferCallResultStoredInField,
+		Modes: ssaflow.TransferStoredInField | ssaflow.TransferOwnerStoredInField |
+			ssaflow.TransferCapturedByClosure | ssaflow.TransferCallResultStoredInField,
 	}
 	// os.Process.Release explicitly relinquishes the parent's wait/reap
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
 	return waitsForCommand(instruction, command) ||
-		ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
-			ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
+		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
+			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 		evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
 			Target:      command,
@@ -187,10 +187,10 @@ func processOwnershipAction(evidence *lifecyclefacts.EvidenceQuery, instruction 
 			ReceiverStore: true,
 		}).Proven() ||
 		storesProcessHandleInExternalField(instruction, command) ||
-		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
+		ssaflow.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
 		startedWrapperWaits(evidence, instruction, command) ||
 		processHandleOwnershipAction(evidence, instruction, command) ||
-		ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("os", "Exit"))
+		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit"))
 }
 
 func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa.Value) bool {
@@ -203,15 +203,15 @@ func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa
 	// reaping obligation without exposing *exec.Cmd itself. GitHub CLI starts a
 	// pager this way and waits from StopPager:
 	// https://github.com/cli/cli/blob/d528f20f2ee02f6703773e9f56c90e3c3f5d46b0/pkg/iostreams/iostreams.go#L256-L274
-	return ok && ssautil.ExternallyOwnedValue(field.X)
+	return ok && ssaflow.ExternallyOwnedValue(field.X)
 }
 
 func startedWrapperWaits(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, command ssa.Value) bool {
-	completion := ssautil.CompletionRequest{
+	completion := ssaflow.CompletionRequest{
 		Instruction: instruction,
 		Target:      command,
 		Methods:     []string{"Wait"},
-		Modes:       ssautil.CompletionByStartedHelper,
+		Modes:       ssaflow.CompletionByStartedHelper,
 	}
 	return evidence.Prove(lifecyclefacts.EvidenceRequest{
 		Instruction: instruction,
@@ -221,7 +221,7 @@ func startedWrapperWaits(evidence *lifecyclefacts.EvidenceQuery, instruction ssa
 }
 
 func processHandleOwnershipAction(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, command ssa.Value) bool {
-	common := ssautil.InstructionCall(instruction)
+	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
@@ -229,11 +229,11 @@ func processHandleOwnershipAction(evidence *lifecyclefacts.EvidenceQuery, instru
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
 		}
-		completion := ssautil.CompletionRequest{
+		completion := ssaflow.CompletionRequest{
 			Instruction: instruction,
 			Target:      argument,
 			Methods:     []string{"Wait"},
-			Modes:       ssautil.CompletionByHelper,
+			Modes:       ssaflow.CompletionByHelper,
 		}
 		if evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
@@ -243,7 +243,7 @@ func processHandleOwnershipAction(evidence *lifecyclefacts.EvidenceQuery, instru
 				return fact.ReturnedOwner | fact.Waited
 			},
 		}).Proven() ||
-			ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
+			ssaflow.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
 			return true
 		}
 	}

@@ -4,8 +4,8 @@ package determinism
 import (
 	"go/ast"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -17,7 +17,7 @@ func Analyzer() *analysis.Analyzer {
 
 func runDeterminism(pass *analysis.Pass) (any, error) {
 	for _, file := range pass.Files {
-		if !analysisutil.AnalyzeFile(pass, file) {
+		if !syntax.AnalyzeFile(pass, file) {
 			continue
 		}
 		for _, declaration := range file.Decls {

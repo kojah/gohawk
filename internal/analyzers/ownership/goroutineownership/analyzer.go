@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
+	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -49,7 +49,7 @@ type goroutineAnalysis struct {
 	groups       []ssa.Value
 	owners       []ssa.Value
 	testFunction bool
-	evidence     *ssautil.EvidenceQuery
+	evidence     *ssaflow.EvidenceQuery
 }
 
 // HasExplicitGoroutineOwnership reports whether spawn has a recognized join,
@@ -61,7 +61,7 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 		return false
 	}
 	function := spawn.Parent()
-	var evidence ssautil.EvidenceQuery
+	var evidence ssaflow.EvidenceQuery
 	signals, groups := goroutineJoinValues(spawn)
 	owners := goroutineLifecycleValues(spawn)
 	if goroutineHasStopLifecycle(spawn) || goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) ||
@@ -71,12 +71,12 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 		nestedCallbackReceivesAny(function, signals) {
 		return true
 	}
-	return !ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
+	return !ssaflow.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
 		return joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(&evidence, candidate, owners) ||
 			ownsGoroutineLifecycle(&evidence, candidate, owners) ||
 			transfersGoroutineOwnership(&evidence, candidate, signals, groups, owners)
 	}, func(returned *ssa.Return) bool {
-		return ssautil.ReturnedSameAsAny(returned, signals) || ssautil.ReturnedSameAsAny(returned, groups) || ssautil.ReturnedSameAsAny(returned, owners)
+		return ssaflow.ReturnedSameAsAny(returned, signals) || ssaflow.ReturnedSameAsAny(returned, groups) || ssaflow.ReturnedSameAsAny(returned, owners)
 	})
 }
 
@@ -87,12 +87,12 @@ const (
 )
 
 func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
 	for _, function := range functions {
-		var evidence ssautil.EvidenceQuery
+		var evidence ssaflow.EvidenceQuery
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				spawn, ok := instruction.(*ssa.Go)
@@ -110,7 +110,7 @@ func analyzeSpawn(
 	function *ssa.Function,
 	spawn *ssa.Go,
 	config goroutineOwnershipConfig,
-	evidence *ssautil.EvidenceQuery,
+	evidence *ssaflow.EvidenceQuery,
 ) {
 	signals, groups := goroutineJoinValues(spawn)
 	owners := goroutineLifecycleValues(spawn)
@@ -125,7 +125,7 @@ func analyzeSpawn(
 		analysis.emitTrace(spawn.Pos(), reason, analysisTrace.OutcomeAccepted)
 		return
 	}
-	leaks := ssautil.UnownedReturn(
+	leaks := ssaflow.UnownedReturn(
 		spawn,
 		analysis.instructionOwnsGoroutine,
 		func(returned *ssa.Return) bool {
@@ -218,9 +218,9 @@ func goroutineOwnershipReturned(
 	config goroutineOwnershipConfig,
 	signals, groups, owners []ssa.Value,
 ) bool {
-	return ssautil.ReturnedSameAsAny(returned, signals) ||
-		ssautil.ReturnedSameAsAny(returned, groups) ||
-		config.mode != goroutineModeJoin && ssautil.ReturnedSameAsAny(returned, owners)
+	return ssaflow.ReturnedSameAsAny(returned, signals) ||
+		ssaflow.ReturnedSameAsAny(returned, groups) ||
+		config.mode != goroutineModeJoin && ssaflow.ReturnedSameAsAny(returned, owners)
 }
 
 func emitGoroutineEvidence(pass *analysis.Pass, function *ssa.Function, instruction ssa.Instruction, check check.ID, reason string) {

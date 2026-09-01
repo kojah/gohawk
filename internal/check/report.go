@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
+	"github.com/kojah/gohawk/internal/syntax"
 	"github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -13,7 +13,7 @@ import (
 
 // Reportf reports a diagnostic with a precise source range.
 func Reportf(pass *analysis.Pass, id ID, position token.Pos, format string, args ...any) {
-	source := analysisutil.SourceRange(pass, position)
+	source := syntax.SourceRange(pass, position)
 	Report(pass, id, analysis.Diagnostic{
 		Pos:     source.Pos(),
 		End:     source.End(),

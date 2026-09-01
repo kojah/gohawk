@@ -4,9 +4,9 @@ package exitpolicy
 import (
 	"fmt"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -29,7 +29,7 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runExitPolicy(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -57,10 +57,10 @@ func reportExitAfterDefer(pass *analysis.Pass, function *ssa.Function) {
 		deferred := state.deferred
 		for _, instruction := range state.block.Instrs {
 			if _, ok := instruction.(*ssa.Defer); ok {
-				deferred = deferred || processExitRelevantDefer(ssautil.InstructionCall(instruction))
+				deferred = deferred || processExitRelevantDefer(ssaflow.InstructionCall(instruction))
 				continue
 			}
-			common := ssautil.InstructionCall(instruction)
+			common := ssaflow.InstructionCall(instruction)
 			if deferred && exitsWithoutRunningDefers(common) && !reported[instruction] {
 				reported[instruction] = true
 				check.Reportf(
@@ -68,8 +68,8 @@ func reportExitAfterDefer(pass *analysis.Pass, function *ssa.Function) {
 					check.ExitSkipsDefer,
 					instruction.Pos(),
 					"%s.%s exits without running an earlier defer",
-					analysisutil.ShortPackageName(ssautil.CallPackage(common)),
-					ssautil.CallName(common),
+					syntax.ShortPackageName(ssaflow.CallPackage(common)),
+					ssaflow.CallName(common),
 				)
 			}
 		}
@@ -88,17 +88,17 @@ func processExitRelevantDefer(common *ssa.CallCommon) bool {
 	// meaningful cleanup made startup fatal paths noisy without identifying a
 	// lost flush or close. ccLoad initializes bounded startup contexts this way:
 	// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/app/server.go#L166-L199
-	return !analysisutil.NamedType(common.Value.Type(), "context", "CancelFunc")
+	return !syntax.NamedType(common.Value.Type(), "context", "CancelFunc")
 }
 
 func exitsWithoutRunningDefers(common *ssa.CallCommon) bool {
-	for _, symbol := range []analysisutil.Symbol{
-		analysisutil.PackageFunction("os", "Exit"),
-		analysisutil.PackageFunction("log", "Fatal"),
-		analysisutil.PackageFunction("log", "Fatalf"),
-		analysisutil.PackageFunction("log", "Fatalln"),
+	for _, symbol := range []syntax.Symbol{
+		syntax.PackageFunction("os", "Exit"),
+		syntax.PackageFunction("log", "Fatal"),
+		syntax.PackageFunction("log", "Fatalf"),
+		syntax.PackageFunction("log", "Fatalln"),
 	} {
-		if ssautil.CallMatchesSymbol(common, symbol) {
+		if ssaflow.CallMatchesSymbol(common, symbol) {
 			return true
 		}
 	}

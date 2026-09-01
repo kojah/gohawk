@@ -37,7 +37,7 @@ func TestAnalyzerCommentaryCoverage(t *testing.T) {
 	}
 	internalRoot := filepath.Dir(filepath.Dir(currentFile))
 	findings := make(map[string]commentaryStats)
-	for _, directory := range []string{"analyzers", "analysispasses"} {
+	for _, directory := range []string{"analyzers", "passes"} {
 		collectCommentaryFindings(t, internalRoot, directory, findings)
 	}
 	for key, stats := range findings {

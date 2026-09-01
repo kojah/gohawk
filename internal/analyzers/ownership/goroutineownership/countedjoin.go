@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -24,12 +24,12 @@ func matchingCountedJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Va
 	}
 	for _, block := range function.Blocks {
 		joinBound := loopBound(function, block)
-		if joinBound == nil || !ssautil.SameValue(spawnBound, joinBound) {
+		if joinBound == nil || !ssaflow.SameValue(spawnBound, joinBound) {
 			continue
 		}
 		for _, instruction := range block.Instrs {
 			receive, ok := instruction.(*ssa.UnOp)
-			if ok && receive.Op == token.ARROW && ssautil.SameAsAny(receive.X, signals) && receive.Pos() > spawn.Pos() {
+			if ok && receive.Op == token.ARROW && ssaflow.SameAsAny(receive.X, signals) && receive.Pos() > spawn.Pos() {
 				return true
 			}
 		}
@@ -49,13 +49,13 @@ func matchingCountedHelperJoin(function *ssa.Function, spawn *ssa.Go, signals []
 }
 
 func callMatchesCountedHelper(instruction ssa.Instruction, signals []ssa.Value, spawnBound ssa.Value) bool {
-	common := ssautil.InstructionCall(instruction)
+	common := ssaflow.InstructionCall(instruction)
 	if common == nil || common.StaticCallee() == nil {
 		return false
 	}
 	callee := common.StaticCallee()
 	for signalIndex, argument := range common.Args {
-		if !ssautil.SameAsAny(argument, signals) || signalIndex >= len(callee.Params) {
+		if !ssaflow.SameAsAny(argument, signals) || signalIndex >= len(callee.Params) {
 			continue
 		}
 		for boundIndex, boundArgument := range common.Args {
@@ -75,12 +75,12 @@ func helperReceivesCount(function *ssa.Function, signalIndex, boundIndex int) bo
 		return true
 	}
 	for _, block := range function.Blocks {
-		if !ssautil.SameValue(loopBound(function, block), bound) {
+		if !ssaflow.SameValue(loopBound(function, block), bound) {
 			continue
 		}
 		for _, instruction := range block.Instrs {
 			receive, ok := instruction.(*ssa.UnOp)
-			if ok && receive.Op == token.ARROW && ssautil.SameValue(receive.X, signal) {
+			if ok && receive.Op == token.ARROW && ssaflow.SameValue(receive.X, signal) {
 				return true
 			}
 		}
@@ -91,12 +91,12 @@ func helperReceivesCount(function *ssa.Function, signalIndex, boundIndex int) bo
 func eventuallyReceivesCount(function *ssa.Function, signal, count ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := ssautil.InstructionCall(instruction)
-			if common == nil || !strings.Contains(strings.ToLower(ssautil.CallName(common)), "eventually") {
+			common := ssaflow.InstructionCall(instruction)
+			if common == nil || !strings.Contains(strings.ToLower(ssaflow.CallName(common)), "eventually") {
 				continue
 			}
 			for _, argument := range common.Args {
-				if callbackReceives(argument, signal) && ssautil.ValueContainsValue(argument, count) {
+				if callbackReceives(argument, signal) && ssaflow.ValueContainsValue(argument, count) {
 					return true
 				}
 			}
@@ -118,7 +118,7 @@ func callbackReceives(value, signal ssa.Value) bool {
 }
 
 func sameBound(first, second ssa.Value) bool {
-	if ssautil.SameValue(first, second) {
+	if ssaflow.SameValue(first, second) {
 		return true
 	}
 	left, leftOK := first.(*ssa.Const)
@@ -133,7 +133,7 @@ func finiteAggregateJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Va
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			update, ok := instruction.(*ssa.MapUpdate)
-			if !ok || !ssautil.SameAsAny(update.Value, signals) {
+			if !ok || !ssaflow.SameAsAny(update.Value, signals) {
 				continue
 			}
 			for _, receiveBlock := range function.Blocks {
@@ -151,11 +151,11 @@ func finiteAggregateJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Va
 
 func receiveFromAggregate(instruction ssa.Instruction, aggregate ssa.Value) bool {
 	if receive, ok := instruction.(*ssa.UnOp); ok && receive.Op == token.ARROW {
-		return ssautil.ValueDerivesFrom(receive.X, aggregate, map[ssa.Value]bool{})
+		return ssaflow.ValueDerivesFrom(receive.X, aggregate, map[ssa.Value]bool{})
 	}
 	if selection, ok := instruction.(*ssa.Select); ok {
 		for _, state := range selection.States {
-			if state.Dir == types.RecvOnly && ssautil.ValueDerivesFrom(state.Chan, aggregate, map[ssa.Value]bool{}) {
+			if state.Dir == types.RecvOnly && ssaflow.ValueDerivesFrom(state.Chan, aggregate, map[ssa.Value]bool{}) {
 				return true
 			}
 		}
@@ -184,7 +184,7 @@ func loopBound(function *ssa.Function, body *ssa.BasicBlock) ssa.Value { //nolin
 	}
 	for _, candidate := range candidates {
 		if bound := loopComparisonBound(candidate, selected); bound != nil {
-			if call, ok := bound.(*ssa.Call); ok && ssautil.CallMatchesSymbol(call.Common(), analysisutil.Builtin("len")) && len(call.Common().Args) == 1 {
+			if call, ok := bound.(*ssa.Call); ok && ssaflow.CallMatchesSymbol(call.Common(), syntax.Builtin("len")) && len(call.Common().Args) == 1 {
 				return call.Common().Args[0]
 			}
 			return bound

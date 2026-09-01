@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -229,13 +229,13 @@ func collectionObjectReadOnly(pass *analysis.Pass, object types.Object, usage gl
 
 func readOnlyCollectionBuiltin(pass *analysis.Pass, call *ast.CallExpr, target ast.Node) bool {
 	switch {
-	case analysisutil.IsCallToAny(pass, call, analysisutil.Builtin("len"), analysisutil.Builtin("cap")):
+	case syntax.IsCallToAny(pass, call, syntax.Builtin("len"), syntax.Builtin("cap")):
 		return true
-	case analysisutil.IsCallTo(pass, call, analysisutil.Builtin("append")):
+	case syntax.IsCallTo(pass, call, syntax.Builtin("append")):
 		// Reading a global through append's variadic inputs copies its
 		// elements; using it as the destination may mutate its backing array.
 		return collectionArgumentIndex(call, target) > 0
-	case analysisutil.IsCallTo(pass, call, analysisutil.Builtin("copy")):
+	case syntax.IsCallTo(pass, call, syntax.Builtin("copy")):
 		return collectionArgumentIndex(call, target) == 1
 	default:
 		return false
@@ -243,31 +243,31 @@ func readOnlyCollectionBuiltin(pass *analysis.Pass, call *ast.CallExpr, target a
 }
 
 func readOnlyCollectionPackageCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	for _, symbol := range []analysisutil.Symbol{
-		analysisutil.PackageFunction("slices", "Contains"),
-		analysisutil.PackageFunction("slices", "ContainsFunc"),
-		analysisutil.PackageFunction("slices", "Index"),
-		analysisutil.PackageFunction("slices", "IndexFunc"),
-		analysisutil.PackageFunction("slices", "Equal"),
-		analysisutil.PackageFunction("slices", "EqualFunc"),
-		analysisutil.PackageFunction("slices", "Compare"),
-		analysisutil.PackageFunction("slices", "CompareFunc"),
-		analysisutil.PackageFunction("slices", "IsSorted"),
-		analysisutil.PackageFunction("slices", "IsSortedFunc"),
-		analysisutil.PackageFunction("slices", "Clone"),
-		analysisutil.PackageFunction("strings", "Join"),
-		analysisutil.PackageFunction("sort", "SearchStrings"),
-		analysisutil.PackageFunction("bytes", "Equal"),
-		analysisutil.PackageFunction("bytes", "HasPrefix"),
-		analysisutil.PackageFunction("bytes", "HasSuffix"),
-		analysisutil.PackageFunction("maps", "Clone"),
-		analysisutil.PackageFunction("maps", "Equal"),
-		analysisutil.PackageFunction("maps", "EqualFunc"),
-		analysisutil.PackageFunction("maps", "Keys"),
-		analysisutil.PackageFunction("maps", "Values"),
-		analysisutil.PackageFunction("maps", "All"),
+	for _, symbol := range []syntax.Symbol{
+		syntax.PackageFunction("slices", "Contains"),
+		syntax.PackageFunction("slices", "ContainsFunc"),
+		syntax.PackageFunction("slices", "Index"),
+		syntax.PackageFunction("slices", "IndexFunc"),
+		syntax.PackageFunction("slices", "Equal"),
+		syntax.PackageFunction("slices", "EqualFunc"),
+		syntax.PackageFunction("slices", "Compare"),
+		syntax.PackageFunction("slices", "CompareFunc"),
+		syntax.PackageFunction("slices", "IsSorted"),
+		syntax.PackageFunction("slices", "IsSortedFunc"),
+		syntax.PackageFunction("slices", "Clone"),
+		syntax.PackageFunction("strings", "Join"),
+		syntax.PackageFunction("sort", "SearchStrings"),
+		syntax.PackageFunction("bytes", "Equal"),
+		syntax.PackageFunction("bytes", "HasPrefix"),
+		syntax.PackageFunction("bytes", "HasSuffix"),
+		syntax.PackageFunction("maps", "Clone"),
+		syntax.PackageFunction("maps", "Equal"),
+		syntax.PackageFunction("maps", "EqualFunc"),
+		syntax.PackageFunction("maps", "Keys"),
+		syntax.PackageFunction("maps", "Values"),
+		syntax.PackageFunction("maps", "All"),
 	} {
-		if analysisutil.IsCallTo(pass, call, symbol) {
+		if syntax.IsCallTo(pass, call, symbol) {
 			return true
 		}
 	}

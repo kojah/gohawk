@@ -5,10 +5,10 @@ import (
 	"go/ast"
 	"go/token"
 
-	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -27,7 +27,7 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runCancellationOwnership(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				if !ok {
 					continue
 				}
-				cancel := ssautil.CallResult(call, contract.result)
+				cancel := ssaflow.CallResult(call, contract.result)
 				if cancel == nil {
 					continue
 				}
@@ -52,18 +52,18 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				// transfers the obligation. Reassigned captured locals are included;
 				// Prometheus installs its current cancel in a scraper callback:
 				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/scrape/scrape_test.go#L1294-L1315
-				leaks := ssautil.UnownedReturnAssumingNonNil(call, cancel, func(candidate ssa.Instruction) bool {
+				leaks := ssaflow.UnownedReturnAssumingNonNil(call, cancel, func(candidate ssa.Instruction) bool {
 					return callsCancel(evidence, candidate, cancel)
 				}, func(returned *ssa.Return) bool {
-					return ssautil.ReturnSameValue(returned, cancel) || ssautil.ReturnedValueOwnsValue(returned, cancel)
+					return ssaflow.ReturnSameValue(returned, cancel) || ssaflow.ReturnedValueOwnsValue(returned, cancel)
 				})
 				emitCancellationDecision(pass, function, call, contract, leaks)
 				if leaks {
-					source := analysisutil.SourceRange(pass, call.Pos())
+					source := syntax.SourceRange(pass, call.Pos())
 					check.Report(pass, check.CancellationRelease, analysis.Diagnostic{
 						Pos: source.Pos(),
 						End: source.End(),
-						Message: "cancel function from " + analysisutil.ShortPackageName(
+						Message: "cancel function from " + syntax.ShortPackageName(
 							contract.packagePath,
 						) + "." + contract.name + " is not called on every return path",
 						SuggestedFixes: cancellationFix(pass, source.Pos(), contract.name),
@@ -100,7 +100,7 @@ func emitCancellationDecision(pass *analysis.Pass, function *ssa.Function, call 
 }
 
 type cancellationContract struct {
-	symbol      analysisutil.Symbol
+	symbol      syntax.Symbol
 	packagePath string
 	name        string
 	result      int
@@ -117,12 +117,12 @@ var cancellationContracts = []cancellationContract{
 }
 
 func cancellationFunction(packagePath, name string) cancellationContract {
-	return cancellationContract{symbol: analysisutil.PackageFunction(packagePath, name), packagePath: packagePath, name: name, result: 1}
+	return cancellationContract{symbol: syntax.PackageFunction(packagePath, name), packagePath: packagePath, name: name, result: 1}
 }
 
 func cancellationContractFor(common *ssa.CallCommon) (cancellationContract, bool) {
 	for _, contract := range cancellationContracts {
-		if ssautil.CallMatchesSymbol(common, contract.symbol) {
+		if ssaflow.CallMatchesSymbol(common, contract.symbol) {
 			return contract, true
 		}
 	}
@@ -201,21 +201,21 @@ func callsCancel(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruc
 		callTakesCancellationOwnership(evidence, instruction, cancel) {
 		return true
 	}
-	common := ssautil.InstructionCall(instruction)
+	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
-	if ssautil.SameValue(common.Value, cancel) {
+	if ssaflow.SameValue(common.Value, cancel) {
 		return true
 	}
-	callbackRegistrar := ssautil.HasLibraryContract(common, ssautil.ContractTestingCleanup) ||
-		ssautil.HasLibraryContract(common, ssautil.ContractAfterFunc) ||
-		ssautil.HasLibraryContract(common, ssautil.ContractDeferredCleanup)
+	callbackRegistrar := ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) ||
+		ssaflow.HasLibraryContract(common, ssaflow.ContractAfterFunc) ||
+		ssaflow.HasLibraryContract(common, ssaflow.ContractDeferredCleanup)
 	for _, argument := range common.Args {
 		// Registrars accept either a wrapper callback or the cancellation
 		// function itself. Vekil installs cancel directly with time.AfterFunc:
 		// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/launch/runtime_test.go#L379
-		if callbackRegistrar && (ssautil.SameValue(argument, cancel) || ssautil.ValueCallsValue(argument, cancel)) {
+		if callbackRegistrar && (ssaflow.SameValue(argument, cancel) || ssaflow.ValueCallsValue(argument, cancel)) {
 			return true
 		}
 	}
@@ -227,15 +227,15 @@ func instructionSettlesCancellation(
 	instruction ssa.Instruction,
 	cancel ssa.Value,
 ) bool {
-	transfer := ssautil.OwnershipTransferRequest{
+	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       cancel,
-		Modes: ssautil.TransferStoredInField | ssautil.TransferStoredInGlobal |
-			ssautil.TransferOwnerStoredInField | ssautil.TransferStoredInOwnedMap,
+		Modes: ssaflow.TransferStoredInField | ssaflow.TransferStoredInGlobal |
+			ssaflow.TransferOwnerStoredInField | ssaflow.TransferStoredInOwnedMap,
 	}
-	return ssautil.ClosureCallsValue(instruction, cancel) ||
-		ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) ||
-		ssautil.DeferredClosurePassesValueToNamedCall(
+	return ssaflow.ClosureCallsValue(instruction, cancel) ||
+		ssaflow.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) ||
+		ssaflow.DeferredClosurePassesValueToNamedCall(
 			instruction,
 			cancel,
 			"cancel",
@@ -244,8 +244,8 @@ func instructionSettlesCancellation(
 			"stop",
 			"teardown",
 		) ||
-		ssautil.ClosureOwnsValue(instruction, cancel) ||
-		ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) ||
+		ssaflow.ClosureOwnsValue(instruction, cancel) ||
+		ssaflow.StoresValueThroughExternalFieldPointer(instruction, cancel) ||
 		evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
 			Target:      cancel,
@@ -259,23 +259,23 @@ func callTakesCancellationOwnership(
 	instruction ssa.Instruction,
 	cancel ssa.Value,
 ) bool {
-	local := ssautil.Proof{State: ssautil.EvidenceDisproven, Reason: ssautil.EvidenceNotFound, Provenance: ssautil.EvidenceFromLocalSSA}
-	if ssautil.CallReturnsDeferredCleanup(instruction, cancel) {
-		local = ssautil.Proof{
-			State: ssautil.EvidenceProven, Reason: ssautil.EvidenceReturnedDeferredCleanup,
-			Provenance: ssautil.EvidenceFromLocalSSA,
+	local := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound, Provenance: ssaflow.EvidenceFromLocalSSA}
+	if ssaflow.CallReturnsDeferredCleanup(instruction, cancel) {
+		local = ssaflow.Proof{
+			State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceReturnedDeferredCleanup,
+			Provenance: ssaflow.EvidenceFromLocalSSA,
 		}
-	} else if ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
-		local = ssautil.Proof{
-			State: ssautil.EvidenceProven, Reason: ssautil.EvidenceHelperInvocation,
-			Provenance: ssautil.EvidenceFromLocalSSA,
+	} else if ssaflow.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
+		local = ssaflow.Proof{
+			State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceHelperInvocation,
+			Provenance: ssaflow.EvidenceFromLocalSSA,
 		}
 	}
-	transfer := ssautil.OwnershipTransferRequest{
+	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       cancel,
-		Modes: ssautil.TransferToReturnedOwner | ssautil.TransferToReceiver |
-			ssautil.TransferToLifecycleOwner,
+		Modes: ssaflow.TransferToReturnedOwner | ssaflow.TransferToReceiver |
+			ssaflow.TransferToLifecycleOwner,
 	}
 	return evidence.Prove(lifecyclefacts.EvidenceRequest{
 		Instruction: instruction,
@@ -293,27 +293,27 @@ func atomicStoreCoupledToWorker(instruction ssa.Instruction, cancel ssa.Value) b
 	// Atomic storage alone is not ownership: require the same external owner to
 	// launch the worker whose lifecycle the slot controls.
 	// https://github.com/jordigilh/kubernaut/blob/528b4f7080bf3522c0fa60f1ce87e48dcbcfe4bb/internal/kubernautagent/workflowcatalog/lazy_catalog.go#L100-L103
-	common := ssautil.InstructionCall(instruction)
-	if common == nil || ssautil.CallName(common) != "Store" || len(common.Args) < 2 ||
-		!ssautil.ValueDerivesFrom(common.Args[len(common.Args)-1], cancel, map[ssa.Value]bool{}) &&
-			!ssautil.ValueContainsValue(common.Args[len(common.Args)-1], cancel) {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil || ssaflow.CallName(common) != "Store" || len(common.Args) < 2 ||
+		!ssaflow.ValueDerivesFrom(common.Args[len(common.Args)-1], cancel, map[ssa.Value]bool{}) &&
+			!ssaflow.ValueContainsValue(common.Args[len(common.Args)-1], cancel) {
 		return false
 	}
-	field, ok := ssautil.CallReceiver(common).(*ssa.FieldAddr)
-	if !ok || !ssautil.ExternallyOwnedValue(field.X) {
+	field, ok := ssaflow.CallReceiver(common).(*ssa.FieldAddr)
+	if !ok || !ssaflow.ExternallyOwnedValue(field.X) {
 		return false
 	}
 	for _, block := range instruction.Parent().Blocks {
 		for _, candidate := range block.Instrs {
 			spawn, spawnOK := candidate.(*ssa.Go)
-			if !spawnOK || !ssautil.InstructionMayFollow(instruction, spawn) {
+			if !spawnOK || !ssaflow.InstructionMayFollow(instruction, spawn) {
 				continue
 			}
-			if ssautil.ValueContainsValue(spawn.Common().Value, field.X) {
+			if ssaflow.ValueContainsValue(spawn.Common().Value, field.X) {
 				return true
 			}
 			for _, argument := range spawn.Common().Args {
-				if ssautil.SameValue(argument, field.X) {
+				if ssaflow.SameValue(argument, field.X) {
 					return true
 				}
 			}

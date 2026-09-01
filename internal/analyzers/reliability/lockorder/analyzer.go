@@ -4,7 +4,7 @@ package lockorder
 import (
 	"go/token"
 
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -48,13 +48,13 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runLockOrder(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
 	relations := map[lockRelation]token.Pos{}
 	for _, function := range functions {
-		var evidence ssautil.EvidenceQuery
+		var evidence ssaflow.EvidenceQuery
 		walkLockOrder(pass, function, relations, &evidence)
 	}
 	return nil, nil

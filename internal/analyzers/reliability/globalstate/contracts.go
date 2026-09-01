@@ -6,7 +6,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -115,11 +115,11 @@ func conventionalErrorSentinel(
 	index int,
 	usage globalStateUsage,
 ) bool {
-	if index >= len(specification.Values) || !errorSentinelName(name.Name) || !analysisutil.IsErrorType(object.Type()) {
+	if index >= len(specification.Values) || !errorSentinelName(name.Name) || !syntax.IsErrorType(object.Type()) {
 		return false
 	}
 	initializer := specification.Values[index]
-	if !analysisutil.IsErrorType(pass.TypesInfo.TypeOf(initializer)) {
+	if !syntax.IsErrorType(pass.TypesInfo.TypeOf(initializer)) {
 		return false
 	}
 	// ErrFoo and errFoo are Go's conventional names for stable sentinel

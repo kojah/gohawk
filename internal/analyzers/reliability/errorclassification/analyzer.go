@@ -4,9 +4,9 @@ package errorclassification
 import (
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -24,13 +24,13 @@ func Analyzer() *analysis.Analyzer {
 }
 
 func runErrorClassification(pass *analysis.Pass) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
-	callsites := ssautil.StaticCalls(functions)
+	callsites := ssaflow.StaticCalls(functions)
 	for _, function := range functions {
-		file := ssautil.FunctionFile(pass, function)
+		file := ssaflow.FunctionFile(pass, function)
 		if file == nil {
 			continue
 		}
@@ -69,18 +69,18 @@ func exclusivelyErrorText(value ssa.Value, seen map[ssa.Value]bool) bool {
 	seen[value] = true
 	if call, ok := value.(*ssa.Call); ok {
 		common := call.Common()
-		receiver := ssautil.CallReceiver(common)
-		if ssautil.CallName(common) == "Error" && receiver != nil && analysisutil.IsErrorType(receiver.Type()) {
+		receiver := ssaflow.CallReceiver(common)
+		if ssaflow.CallName(common) == "Error" && receiver != nil && syntax.IsErrorType(receiver.Type()) {
 			return true
 		}
 		// Only known text-preserving transforms carry error text. An arbitrary
 		// string-producing call, or a phi that also contains such a value, leaves
 		// insufficient evidence that the comparison classifies a Go error.
-		if ssautil.CallPackage(common) != "strings" {
+		if ssaflow.CallPackage(common) != "strings" {
 			return false
 		}
 		for _, argument := range common.Args {
-			if analysisutil.IsStringType(argument.Type()) && exclusivelyErrorText(argument, seen) {
+			if syntax.IsStringType(argument.Type()) && exclusivelyErrorText(argument, seen) {
 				return true
 			}
 		}
@@ -118,13 +118,13 @@ func externalProcessErrorText(value ssa.Value, callsites map[*ssa.Function][]*ss
 	seen[value] = true
 	if call, ok := value.(*ssa.Call); ok {
 		common := call.Common()
-		if ssautil.CallName(common) == "Error" {
+		if ssaflow.CallName(common) == "Error" {
 			// Matching stderr is sometimes the only contract exposed by an external
 			// program; it is not evidence that code is classifying a native Go error.
 			// Require every private-helper caller to carry command provenance before
 			// accepting this boundary. Network Doctor wraps iproute2 stderr this way:
 			// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/simulation/netns_linux.go#L1197-L1225
-			return externalProcessError(ssautil.CallReceiver(common), callsites, map[ssa.Value]bool{})
+			return externalProcessError(ssaflow.CallReceiver(common), callsites, map[ssa.Value]bool{})
 		}
 	}
 	if phi, ok := value.(*ssa.Phi); ok {
@@ -227,7 +227,7 @@ func functionExecutesExternalCommand(function *ssa.Function) bool {
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			if common := ssautil.InstructionCall(instruction); externalCommandCall(common) {
+			if common := ssaflow.InstructionCall(instruction); externalCommandCall(common) {
 				return true
 			}
 		}
@@ -237,7 +237,7 @@ func functionExecutesExternalCommand(function *ssa.Function) bool {
 
 func externalCommandCall(common *ssa.CallCommon) bool {
 	for _, name := range []string{"Run", "Start", "Wait", "Output", "CombinedOutput"} {
-		if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod(analysisutil.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: name})) {
+		if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: name})) {
 			return true
 		}
 	}
@@ -246,7 +246,7 @@ func externalCommandCall(common *ssa.CallCommon) bool {
 
 func matchesAnyFunction(common *ssa.CallCommon, packagePath string, names ...string) bool {
 	for _, name := range names {
-		if ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction(packagePath, name)) {
+		if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction(packagePath, name)) {
 			return true
 		}
 	}

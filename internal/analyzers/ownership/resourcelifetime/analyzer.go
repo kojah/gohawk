@@ -2,11 +2,11 @@
 package resourcelifetime
 
 import (
-	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/analysisutil"
-	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -45,7 +45,7 @@ type resourceLifetimeSettings struct {
 }
 
 func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (any, error) {
-	functions, err := ssautil.SourceSSAFunctions(pass)
+	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				if !ok {
 					continue
 				}
-				resource := ssautil.CallResult(call, contract.result)
+				resource := ssaflow.CallResult(call, contract.result)
 				if resource == nil {
 					continue
 				}
@@ -83,7 +83,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 						check.ResourceRelease,
 						call.Pos(),
 						"owned resource from %s.%s is not released on every return path",
-						analysisutil.ShortPackageName(contract.packagePath),
+						syntax.ShortPackageName(contract.packagePath),
 						contract.name,
 					)
 				}
