@@ -86,7 +86,7 @@ linters:
           - gosec
       # Documentation tooling reads discovered source paths and writes
       # shareable repository assets with ordinary directory/file modes.
-      - path: ^tools/gendocs/main\.go$
+      - path: ^tools/gendocs/(main|synchronize)\.go$
         text: "G30(1|4|6):"
         linters:
           - gosec

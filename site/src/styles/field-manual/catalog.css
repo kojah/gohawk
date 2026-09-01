@@ -1,0 +1,231 @@
+/* -------------------------------------------------------- analyzer grid -- */
+
+.analyzer-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.875rem;
+	margin-block: 1.25rem 2.5rem;
+}
+
+.analyzer-card {
+	display: grid;
+	gap: 0.2rem;
+	padding: 1rem 1.125rem;
+	border: 1px solid var(--sl-color-hairline-light);
+	border-radius: var(--gh-radius);
+	background: var(--gh-surface);
+	text-decoration: none;
+	transition: border-color 160ms ease;
+}
+
+.analyzer-card:hover,
+.analyzer-card:focus-visible {
+	border-color: var(--sl-color-white);
+}
+
+.analyzer-name {
+	font-family: var(--sl-font-mono);
+	font-size: 0.95rem;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--sl-color-white);
+}
+
+.analyzer-detects {
+	font-size: 0.95rem;
+	line-height: 1.5;
+	color: var(--sl-color-gray-2);
+	text-wrap: pretty;
+}
+
+.analyzer-detects code {
+	font-size: 0.88em;
+	background: transparent;
+	padding: 0;
+	color: var(--sl-color-gray-1);
+}
+
+/* ---------------------------------------------------- analyzer fact strip -- */
+
+/* An analyzer page names a code identifier, so its title is set in the mono
+   face and its category is presented as a compact eyebrow. */
+.analyzer-header {
+	margin-bottom: 0;
+}
+
+.analyzer-eyebrow {
+	margin-bottom: 0.75rem;
+	font-family: var(--sl-font-mono);
+	font-size: var(--sl-text-xs);
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--sl-color-gray-3);
+}
+
+.analyzer-header h1 {
+	padding-bottom: 0;
+	border-bottom: 0;
+	font-family: var(--sl-font-mono);
+	font-size: 2.1rem;
+	font-weight: 600;
+	letter-spacing: -0.035em;
+}
+
+.analyzer-summary {
+	margin: 0.625rem 0 1.25rem;
+	max-width: 66ch;
+	font-size: 1.15rem;
+	font-style: italic;
+	line-height: 1.4;
+	color: var(--sl-color-gray-3);
+	text-wrap: pretty;
+}
+
+.rule-meta {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	margin: 0;
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: var(--gh-radius);
+	overflow: hidden;
+}
+
+.rule-meta > div {
+	display: grid;
+	gap: 0.25rem;
+	padding: 0.8rem 1rem;
+	border-inline-end: 1px solid var(--sl-color-hairline-light);
+}
+
+.rule-meta > div:last-child {
+	border-inline-end: 0;
+}
+
+.rule-meta-label {
+	font-family: var(--gh-font-display);
+	font-variation-settings: 'opsz' 32;
+	font-size: var(--sl-text-sm);
+	letter-spacing: 0;
+	text-transform: none;
+	color: var(--sl-color-gray-3);
+}
+
+.rule-meta strong {
+	font-family: var(--sl-font);
+	font-size: 1rem;
+	font-weight: 600;
+	color: var(--sl-color-white);
+}
+
+/* --------------------------------------------------------------- tables -- */
+
+.sl-markdown-content table {
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: var(--gh-radius);
+	font-variant-numeric: tabular-nums;
+}
+
+.sl-markdown-content :is(th, td) {
+	padding: 0.5rem 1rem;
+	border: 0;
+	border-inline-end: 1px solid var(--sl-color-hairline);
+	border-bottom: 1px solid var(--sl-color-hairline);
+}
+
+.sl-markdown-content tr > :last-child {
+	border-inline-end: 0;
+}
+
+.sl-markdown-content tbody tr:last-child > td {
+	border-bottom: 0;
+}
+
+.sl-markdown-content th {
+	font-family: var(--gh-font-display);
+	font-variation-settings: 'opsz' 32;
+	font-size: var(--sl-text-sm);
+	font-weight: 600;
+	letter-spacing: -0.005em;
+	text-transform: none;
+	color: var(--sl-color-gray-2);
+}
+
+/* Check identity and metadata share the first column, leaving the second for
+   prose. The fixed layout keeps both columns inside the article at every size. */
+.sl-markdown-content h3#checks + table {
+	display: table;
+	table-layout: fixed;
+	width: 100%;
+	font-size: var(--sl-text-sm);
+}
+
+.sl-markdown-content h3#checks + table :is(th, td) {
+	vertical-align: top;
+}
+.sl-markdown-content h3#checks + table :is(th, td):first-child {
+	width: 34%;
+}
+
+.sl-markdown-content h3#checks + table :is(th, td):nth-child(2) {
+	width: 66%;
+}
+
+/* Option names and defaults are identifiers rather than prose. Keep them
+   intact and reserve the flexible column for the effect description. */
+.sl-markdown-content h2#options + table {
+	width: 100%;
+	font-size: var(--sl-text-sm);
+}
+
+.sl-markdown-content h2#options + table :is(th, td) {
+	vertical-align: top;
+}
+
+.sl-markdown-content h2#options + table :is(td:first-child, td:nth-child(2)) code {
+	font-size: 0.88em;
+	white-space: nowrap;
+}
+
+@media (min-width: 50rem) {
+	.sl-markdown-content h2#options + table {
+		display: table;
+		table-layout: fixed;
+	}
+
+	.sl-markdown-content h2#options + table th:first-child {
+		width: 27%;
+	}
+
+	.sl-markdown-content h2#options + table th:nth-child(2) {
+		width: 28%;
+	}
+
+	.sl-markdown-content h2#options + table th:nth-child(3) {
+		width: 45%;
+	}
+}
+
+/* ------------------------------------------------------------ specimens -- */
+
+.expressive-code .frame pre {
+	border: 1px solid var(--sl-color-hairline);
+	border-radius: var(--gh-radius);
+	box-shadow: none;
+}
+
+/* Code blocks in the manual do not need decorative window title bars. */
+.sl-markdown-content .expressive-code .frame > figcaption.header {
+	display: none;
+}
+
+.expressive-code .gohawk-diagnostic {
+	padding-bottom: 3px;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 4'%3E%3Cpath d='M0 3.2 2.5 .8 5 3.2 7.5 .8 10 3.2' fill='none' stroke='%23ff7a9c' stroke-width='1.2'/%3E%3C/svg%3E");
+	background-repeat: repeat-x;
+	background-position: left bottom;
+	background-size: 10px 4px;
+}
+
+:root[data-theme='light'] .expressive-code .gohawk-diagnostic {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 4'%3E%3Cpath d='M0 3.2 2.5 .8 5 3.2 7.5 .8 10 3.2' fill='none' stroke='%23ce3262' stroke-width='1.2'/%3E%3C/svg%3E");
+}
