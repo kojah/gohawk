@@ -132,3 +132,23 @@ func mapOwnsCancel(cancels map[string]context.CancelFunc, parent context.Context
 	_, cancel := context.WithCancel(parent)
 	cancels["worker"] = cancel
 }
+
+func settle(cancel context.CancelFunc) {
+	cancel()
+}
+
+func helperOwnsCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	settle(cancel)
+}
+
+func conditionallySettle(cancel context.CancelFunc, run bool) {
+	if run {
+		cancel()
+	}
+}
+
+func conditionalHelperDoesNotOwnCancel(parent context.Context, run bool) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	conditionallySettle(cancel, run)
+}

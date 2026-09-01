@@ -5,7 +5,40 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"testing"
 )
+
+func impossibleSuccessfulStart(t *testing.T, ctx context.Context) {
+	command := exec.CommandContext(ctx, "missing-tool")
+	if err := command.Start(); err == nil {
+		t.Fatal("expected Start to fail")
+	}
+}
+
+func impossibleSuccessfulStartWithPipes(t *testing.T) {
+	command := exec.Command("missing-tool")
+	if _, err := command.StdinPipe(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := command.StdoutPipe(); err != nil {
+		t.Fatal(err)
+	}
+	if err := command.Start(); err == nil {
+		t.Fatal("expected Start to fail")
+	}
+}
+
+func settleCommand(command *exec.Cmd) error {
+	return command.Wait()
+}
+
+func helperOwnsWait(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	return settleCommand(command)
+}
 
 func orphan(ctx context.Context) error {
 	command := exec.CommandContext(ctx, "tool")

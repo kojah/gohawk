@@ -161,7 +161,7 @@ func receiverNamedType(common *ssa.CallCommon, packagePath, name string) bool {
 }
 
 func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []ssa.Value, methods []string) bool {
-	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) {
+	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
@@ -185,6 +185,20 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []
 		}
 	}
 	for _, method := range methods {
+		// A launched lifecycle goroutine may take cleanup ownership when each
+		// normal exit stops the resource. darkpawns uses this for tickers whose
+		// select exits on either context or component shutdown:
+		// https://github.com/zax0rz/darkpawns/blob/5cdb4679815822a133a051af4c1249ddda800c38/pkg/events/queue.go#L255
+		if ssautil.StartedClosureCallsMethodOnEveryReturn(instruction, method, resource) {
+			return true
+		}
+		// Only accept a helper summary when every normal helper return has
+		// performed cleanup. Herdforge's response decoder owns Body.Close this
+		// way, without advertising ownership in the helper name:
+		// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/provider/github.go#L356
+		if ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, method, resource) {
+			return true
+		}
 		// A directly invoked cleanup closure can own an individual error path just
 		// as a defer owns the return path. Require the close before any branch in
 		// the closure so conditional cleanup cannot hide a leak. ccLoad uses this
@@ -242,7 +256,11 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 		seen[key] = true
 		for _, instruction := range state.block.Instrs[state.index:] {
 			state.released = state.released || releasesResource(instruction, resource, owners, contract.cleanup) || contract.consumable && consumesResource(instruction, resource)
-			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released && !ssautil.ReturnAliasesValue(returned, resource) && !ssautil.ReturnedAliasesAny(returned, owners) {
+			if ssautil.InstructionTerminatesControlFlow(instruction) {
+				state.active = false
+				break
+			}
+			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released && !ssautil.ReturnedValueOwnsValue(returned, resource) && !ssautil.ReturnedAliasesAny(returned, owners) {
 				return true
 			}
 		}
@@ -331,10 +349,26 @@ func resourceSuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Valu
 	// appears before the generic err != nil check when callers skip missing
 	// inputs. Do not carry a live resource around that continue edge.
 	// https://github.com/heymaikol/network-doctor/blob/6d0df6eaba1de237077e0a1f8224fd8d5c3d083a/internal/simulation/evidence.go#L407-L415
-	if errorsIsMissingFile(branch.Cond, errorValue) && successor == block.Succs[0] {
+	if missingFileCheck(branch.Cond, errorValue) && successor == block.Succs[0] {
 		return false, true
 	}
 	return ssautil.SuccessBranch(block, successor, errorValue)
+}
+
+func missingFileCheck(condition, errorValue ssa.Value) bool {
+	if errorsIsMissingFile(condition, errorValue) {
+		return true
+	}
+	call, ok := condition.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	common := call.Common()
+	// os.IsNotExist is the legacy equivalent of errors.Is(err,
+	// fs.ErrNotExist); on its true branch os.Open did not return an owned file.
+	// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/feedback/send.go#L124
+	return ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "IsNotExist" && len(common.Args) == 1 &&
+		ssautil.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{})
 }
 
 func errorsIsMissingFile(condition, errorValue ssa.Value) bool {

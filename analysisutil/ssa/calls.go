@@ -68,10 +68,107 @@ func CallPackage(common *ssa.CallCommon) string {
 		return common.Method.Pkg().Path()
 	}
 	callee := common.StaticCallee()
-	if callee == nil || callee.Pkg == nil || callee.Pkg.Pkg == nil {
+	if callee == nil {
+		return ""
+	}
+	if object := callee.Object(); object != nil && object.Pkg() != nil {
+		return object.Pkg().Path()
+	}
+	if callee.Pkg == nil || callee.Pkg.Pkg == nil {
 		return ""
 	}
 	return callee.Pkg.Pkg.Path()
+}
+
+// InstructionTerminatesControlFlow reports calls whose documented behavior
+// prevents execution from continuing in the current goroutine.
+func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool {
+	common := InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	name := CallName(common)
+	if CallPackage(common) == "runtime" && name == "Goexit" {
+		return true
+	}
+	if CallPackage(common) != "testing" {
+		return false
+	}
+	switch name {
+	case "FailNow", "Fatal", "Fatalf", "Skip", "Skipf", "SkipNow":
+		return true
+	default:
+		return false
+	}
+}
+
+// CallInvokesArgumentOnEveryReturn reports whether a statically known helper
+// invokes target on every normal path through the helper.
+func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool {
+	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
+		common := InstructionCall(candidate)
+		return common != nil && AliasesValue(common.Value, parameter)
+	})
+}
+
+// CallCallsMethodOnArgumentOnEveryReturn reports whether a statically known
+// helper calls method on target on every normal path through the helper.
+func CallCallsMethodOnArgumentOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
+		common := InstructionCall(candidate)
+		return common != nil && CallName(common) == method && ValueDerivesFrom(CallReceiver(common), parameter, map[ssa.Value]bool{})
+	})
+}
+
+func callOwnsArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value, owns func(ssa.Instruction, ssa.Value) bool) bool {
+	common := InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil {
+		return false
+	}
+	callee := common.StaticCallee()
+	if len(callee.Blocks) == 0 {
+		return false
+	}
+	for index, argument := range common.Args {
+		if index >= len(callee.Params) || !AliasesValue(argument, target) && !ValueOwnsValue(argument, target) {
+			continue
+		}
+		parameter := callee.Params[index]
+		if !UnownedReturnFromEntryAllow(callee, func(candidate ssa.Instruction) bool {
+			return owns(candidate, parameter)
+		}, func(returned *ssa.Return) bool {
+			return returnRequiresNil(returned, parameter)
+		}) {
+			return true
+		}
+	}
+	return false
+}
+
+func returnRequiresNil(returned *ssa.Return, value ssa.Value) bool {
+	for _, predecessor := range returned.Block().Preds {
+		if len(predecessor.Instrs) == 0 || len(predecessor.Succs) != 2 {
+			continue
+		}
+		branch, ok := predecessor.Instrs[len(predecessor.Instrs)-1].(*ssa.If)
+		if !ok {
+			continue
+		}
+		comparison, ok := branch.Cond.(*ssa.BinOp)
+		if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
+			continue
+		}
+		comparesNil := ValueDerivesFrom(comparison.X, value, map[ssa.Value]bool{}) && DefinitelyNil(comparison.Y) ||
+			ValueDerivesFrom(comparison.Y, value, map[ssa.Value]bool{}) && DefinitelyNil(comparison.X)
+		if !comparesNil {
+			continue
+		}
+		trueBranch := returned.Block() == predecessor.Succs[0]
+		if comparison.Op == token.EQL && trueBranch || comparison.Op == token.NEQ && !trueBranch {
+			return true
+		}
+	}
+	return false
 }
 
 // CallReceiver returns receiver value for method calls and invocations.
@@ -367,6 +464,34 @@ func ClosureCallsMethod(instruction ssa.Instruction, method string, target ssa.V
 		}
 	}
 	return false
+}
+
+// StartedClosureCallsMethodOnEveryReturn reports whether a launched closure
+// calls method on target before each of its normal returns.
+func StartedClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Go); !ok {
+		return false
+	}
+	common, closure, function := calledFunction(instruction)
+	if function == nil || len(function.Blocks) == 0 {
+		return false
+	}
+	hasReturn, hasCleanup := false, false
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			if _, ok := candidate.(*ssa.Return); ok {
+				hasReturn = true
+			}
+			called := InstructionCall(candidate)
+			if CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target) {
+				hasCleanup = true
+			}
+		}
+	}
+	return hasReturn && hasCleanup && !UnownedReturnFromEntry(function, func(candidate ssa.Instruction) bool {
+		called := InstructionCall(candidate)
+		return CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target)
+	})
 }
 
 // ClosureCallsMethodBeforeBranch reports whether a called function invokes

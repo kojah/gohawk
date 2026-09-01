@@ -57,12 +57,20 @@ func UnownedReturn(
 			continue
 		}
 		seen[key] = true
+		terminated := false
 		for _, instruction := range state.block.Instrs[state.index:] {
 			state.owned = state.owned || owns(instruction)
+			if InstructionTerminatesControlFlow(instruction) {
+				terminated = true
+				break
+			}
 			returned, ok := instruction.(*ssa.Return)
 			if ok && !state.owned && (allowReturn == nil || !allowReturn(returned)) {
 				return true
 			}
+		}
+		if terminated {
+			continue
 		}
 		for _, successor := range FeasibleSuccessors(state.block, state.predecessor) {
 			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: state.owned})
@@ -73,6 +81,12 @@ func UnownedReturn(
 
 // UnownedReturnFromEntry reports whether any normal return lacks an ownership action.
 func UnownedReturnFromEntry(function *ssa.Function, owns func(ssa.Instruction) bool) bool {
+	return UnownedReturnFromEntryAllow(function, owns, nil)
+}
+
+// UnownedReturnFromEntryAllow reports whether any normal return lacks an
+// ownership action unless allowReturn proves that return needs none.
+func UnownedReturnFromEntryAllow(function *ssa.Function, owns func(ssa.Instruction) bool, allowReturn func(*ssa.Return) bool) bool {
 	if len(function.Blocks) == 0 {
 		return false
 	}
@@ -90,11 +104,19 @@ func UnownedReturnFromEntry(function *ssa.Function, owns func(ssa.Instruction) b
 			continue
 		}
 		seen[key] = true
+		terminated := false
 		for _, instruction := range state.block.Instrs {
 			state.owned = state.owned || owns(instruction)
-			if _, ok := instruction.(*ssa.Return); ok && !state.owned {
+			if InstructionTerminatesControlFlow(instruction) {
+				terminated = true
+				break
+			}
+			if returned, ok := instruction.(*ssa.Return); ok && !state.owned && (allowReturn == nil || !allowReturn(returned)) {
 				return true
 			}
+		}
+		if terminated {
+			continue
 		}
 		for _, successor := range FeasibleSuccessors(state.block, state.predecessor) {
 			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: state.owned})
@@ -198,4 +220,33 @@ func ReachableReturns(start ssa.Instruction) []*ssa.Return {
 		}
 	}
 	return returns
+}
+
+// NormalReturnReachableFrom reports whether block can reach a normal return
+// without first invoking a control-flow terminating API.
+func NormalReturnReachableFrom(block *ssa.BasicBlock) bool {
+	queue := []*ssa.BasicBlock{block}
+	seen := map[*ssa.BasicBlock]bool{}
+	for len(queue) > 0 {
+		candidate := queue[0]
+		queue = queue[1:]
+		if seen[candidate] {
+			continue
+		}
+		seen[candidate] = true
+		terminated := false
+		for _, instruction := range candidate.Instrs {
+			if InstructionTerminatesControlFlow(instruction) {
+				terminated = true
+				break
+			}
+			if _, ok := instruction.(*ssa.Return); ok {
+				return true
+			}
+		}
+		if !terminated {
+			queue = append(queue, candidate.Succs...)
+		}
+	}
+	return false
 }

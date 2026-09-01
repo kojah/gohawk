@@ -56,6 +56,9 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				if processOwnershipDominatesStart(function, start, command) {
 					continue
 				}
+				if successfulStartCannotReturn(start) {
+					continue
+				}
 				if ssautil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
 					return processOwnershipAction(candidate, command)
 				}, func(returned *ssa.Return) bool {
@@ -69,6 +72,16 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+func successfulStartCannotReturn(start *ssa.Call) bool {
+	block := start.Block()
+	for _, successor := range block.Succs {
+		if success, known := ssautil.SuccessBranch(block, successor, start); known && success {
+			return !ssautil.NormalReturnReachableFrom(successor)
+		}
+	}
+	return false
 }
 
 func processOwnershipDominatesStart(function *ssa.Function, start *ssa.Call, command ssa.Value) bool {
@@ -99,6 +112,7 @@ func processOwnershipAction(instruction ssa.Instruction, command ssa.Value) bool
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
+		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Exit"
 }
 

@@ -108,6 +108,130 @@ func closedFileAfterIgnoredFSMissingPath(path string) error {
 	return file.Close()
 }
 
+func closedFileAfterLegacyMissingPath(path string) error {
+	file, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return file.Close()
+}
+
+func settleFileParameter(file *os.File) {
+	_ = file.Close()
+}
+
+func fileClosedByHelper() error {
+	file, err := os.Open("state")
+	if err != nil {
+		return err
+	}
+	settleFileParameter(file)
+	return nil
+}
+
+type fileSource interface {
+	Close() error
+}
+
+type realFileSource struct {
+	file *os.File
+}
+
+func (source *realFileSource) Close() error {
+	return source.file.Close()
+}
+
+func settleSource(source fileSource) {
+	defer source.Close()
+}
+
+func aggregateClosedByHelper() error {
+	file, err := os.Open("state")
+	if err != nil {
+		return err
+	}
+	settleSource(&realFileSource{file: file})
+	return nil
+}
+
+type closerOwner struct {
+	closers []io.Closer
+}
+
+type outerCloserOwner struct {
+	inner *closerOwner
+}
+
+func transferredNestedOwner(target *outerCloserOwner) error {
+	file, err := os.Open("state")
+	if err != nil {
+		return err
+	}
+	target.inner = &closerOwner{closers: []io.Closer{file}}
+	return nil
+}
+
+func returnedNestedOwner() (*closerOwner, error) {
+	file, err := os.Open("state")
+	if err != nil {
+		return nil, err
+	}
+	return &closerOwner{closers: []io.Closer{file}}, nil
+}
+
+func returnedAppendedOwner(extra bool) (*closerOwner, error) {
+	file, err := os.Open("state")
+	if err != nil {
+		return nil, err
+	}
+	closers := []io.Closer{file}
+	if extra {
+		closers = append(closers, io.NopCloser(bytes.NewReader(nil)))
+	}
+	return &closerOwner{closers: closers}, nil
+}
+
+func tickerOwnedByWorker(stop <-chan struct{}) {
+	ticker := time.NewTicker(time.Second)
+	go func() {
+		defer ticker.Stop()
+		<-stop
+	}()
+}
+
+func tickerStoppedOnWorkerExit(stop <-chan struct{}) {
+	ticker := time.NewTicker(time.Second)
+	go func() {
+		select {
+		case <-ticker.C:
+		case <-stop:
+		}
+		ticker.Stop()
+	}()
+}
+
+func tickerConditionallyStoppedByWorker(stop <-chan struct{}, cleanup bool) {
+	ticker := time.NewTicker(time.Second) // want "owned resource from time.NewTicker is not released on every return path"
+	go func() {
+		<-stop
+		if cleanup {
+			ticker.Stop()
+		}
+	}()
+}
+
+func fileTransferredToReceiver(files chan<- *os.File) error {
+	file, err := os.Open("state")
+	if err != nil {
+		return err
+	}
+	files <- file
+	return nil
+}
+
 func fileClosedByTestCleanup(t *testing.T) error {
 	file, err := os.CreateTemp(t.TempDir(), "cleanup")
 	if err != nil {

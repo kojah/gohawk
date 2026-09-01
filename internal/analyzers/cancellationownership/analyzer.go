@@ -146,7 +146,11 @@ func cancelInvocation(name, constructor string) string {
 }
 
 func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
-	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) {
+	// A helper may settle an obligation without a naming convention. Require
+	// invocation on every normal helper return; process-tree tests use this to
+	// centralize cancellation and process cleanup together:
+	// https://github.com/applicate2628/mcp-local-hub/blob/73fbad63f7f9f0b24caef2239256f53b70a74061/internal/vcpkgmcp/reversedepgraph/process_tree_test.go#L46
+	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)

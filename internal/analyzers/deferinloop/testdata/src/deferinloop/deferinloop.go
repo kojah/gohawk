@@ -94,3 +94,18 @@ func accumulatedIndexedLocks(items []int) {
 		defer locks[0].Unlock() // want "deferred cleanup runs after the loop instead of after this iteration"
 	}
 }
+
+func cleanupOnTerminalMatch(names []string, wanted string) (*os.File, error) {
+	for _, name := range names {
+		file, err := os.Open(name)
+		if err != nil {
+			return nil, err
+		}
+		if name == wanted {
+			defer file.Close()
+			return file, nil
+		}
+		_ = file.Close()
+	}
+	return nil, os.ErrNotExist
+}

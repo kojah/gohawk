@@ -81,6 +81,12 @@ func StoresValueInGlobal(instruction ssa.Instruction, value ssa.Value) bool {
 	return ok
 }
 
+// SendsValue reports whether instruction hands value to a channel receiver.
+func SendsValue(instruction ssa.Instruction, value ssa.Value) bool {
+	send, ok := instruction.(*ssa.Send)
+	return ok && AliasesValue(send.X, value)
+}
+
 // StoresOwnerOfValueInField reports whether instruction stores a callback or
 // aggregate that transitively captures value into a struct field.
 func StoresOwnerOfValueInField(instruction ssa.Instruction, value ssa.Value) bool {
@@ -92,6 +98,23 @@ func StoresOwnerOfValueInField(instruction ssa.Instruction, value ssa.Value) boo
 		return false
 	}
 	return valueOwnsValue(store.Val, value, map[ssa.Value]bool{})
+}
+
+// StoresOwnerOfValueInExternalField reports whether an aggregate containing
+// value is installed on a receiver or caller-owned struct.
+func StoresOwnerOfValueInExternalField(instruction ssa.Instruction, value ssa.Value) bool {
+	store, ok := instruction.(*ssa.Store)
+	if !ok {
+		return false
+	}
+	field, ok := store.Addr.(*ssa.FieldAddr)
+	return ok && ExternallyOwnedValue(field.X) && ValueOwnsValue(store.Val, value)
+}
+
+// ValueOwnsValue reports whether owner is an aggregate or closure that
+// transitively contains value.
+func ValueOwnsValue(owner, value ssa.Value) bool {
+	return valueOwnsValue(owner, value, map[ssa.Value]bool{}) || aggregateStoresValue(owner, value, map[ssa.Value]bool{})
 }
 
 func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
@@ -300,6 +323,9 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) b
 	if aggregate == nil || seen[aggregate] {
 		return false
 	}
+	if AliasesValue(aggregate, value) {
+		return true
+	}
 	seen[aggregate] = true
 	switch typed := aggregate.(type) {
 	case *ssa.ChangeInterface:
@@ -309,6 +335,14 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) b
 	case *ssa.Convert:
 		return aggregateStoresValue(typed.X, value, seen)
 	case *ssa.MakeInterface:
+		return aggregateStoresValue(typed.X, value, seen)
+	case *ssa.Phi:
+		for _, edge := range typed.Edges {
+			if aggregateStoresValue(edge, value, seen) {
+				return true
+			}
+		}
+	case *ssa.Slice:
 		return aggregateStoresValue(typed.X, value, seen)
 	}
 	if aggregate.Referrers() == nil {
@@ -335,7 +369,7 @@ func addressStoresValue(address ssa.Value, value ssa.Value) bool {
 	}
 	for _, reference := range *address.Referrers() {
 		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == address && AliasesValue(store.Val, value) {
+		if ok && store.Addr == address && (AliasesValue(store.Val, value) || aggregateStoresValue(store.Val, value, map[ssa.Value]bool{})) {
 			return true
 		}
 	}

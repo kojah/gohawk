@@ -6,21 +6,34 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/analysis/passes/buildssa"
+	"golang.org/x/tools/go/ssa"
 )
+
+type sourceLine struct {
+	file string
+	line int
+}
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
-		Name: "deferinloop",
-		Doc:  "checks cleanup defers whose lifetime extends across loop iterations",
-		Run:  runDeferInLoop,
+		Name:     "deferinloop",
+		Doc:      "checks cleanup defers whose lifetime extends across loop iterations",
+		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Run:      runDeferInLoop,
 	}
 }
 
 func runDeferInLoop(pass *analysis.Pass) (any, error) {
+	iteratingDefers, err := defersReachingAnotherIteration(pass)
+	if err != nil {
+		return nil, err
+	}
 	for _, file := range pass.Files {
 		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
@@ -40,7 +53,8 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 				case *ast.FuncLit, *ast.ForStmt, *ast.RangeStmt:
 					return false
 				case *ast.DeferStmt:
-					if cleanupDefer(pass, body, typed.Call) {
+					position := pass.Fset.PositionFor(typed.Pos(), false)
+					if cleanupDefer(pass, body, typed.Call) && iteratingDefers[sourceLine{file: position.Filename, line: position.Line}] {
 						analyzerbase.Reportf(pass, analyzerbase.CheckDeferCleanupInLoop, typed.Pos(), "deferred cleanup runs after the loop instead of after this iteration")
 					}
 					return false
@@ -52,6 +66,51 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 		})
 	}
 	return nil, nil
+}
+
+func defersReachingAnotherIteration(pass *analysis.Pass) (map[sourceLine]bool, error) {
+	functions, err := ssautil.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[sourceLine]bool)
+	for _, function := range functions {
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instrs {
+				deferred, ok := instruction.(*ssa.Defer)
+				if !ok {
+					continue
+				}
+				position := pass.Fset.PositionFor(deferred.Pos(), false)
+				key := sourceLine{file: position.Filename, line: position.Line}
+				result[key] = result[key] || reachesLoopBackedge(deferred)
+			}
+		}
+	}
+	return result, nil
+}
+
+func reachesLoopBackedge(deferred *ssa.Defer) bool {
+	// A defer in a terminal match branch is harmless when no path from that
+	// branch reaches a block dominating the defer's block (the next iteration).
+	// Real examples use this pattern to return a matched package immediately:
+	// https://github.com/ruaan-deysel/vault/blob/0676007385e0b5bd31dd27d515951a867ee708fe/internal/diagnostics/package_test.go#L160
+	start := deferred.Block()
+	queue := append([]*ssa.BasicBlock(nil), start.Succs...)
+	seen := map[*ssa.BasicBlock]bool{}
+	for len(queue) > 0 {
+		block := queue[0]
+		queue = queue[1:]
+		if seen[block] {
+			continue
+		}
+		seen[block] = true
+		if block.Dominates(start) {
+			return true
+		}
+		queue = append(queue, block.Succs...)
+	}
+	return false
 }
 
 func cleanupDefer(pass *analysis.Pass, body *ast.BlockStmt, call *ast.CallExpr) bool {
