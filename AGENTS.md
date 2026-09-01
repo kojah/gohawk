@@ -25,6 +25,11 @@ Prefer existing Makefile targets for repository-wide validation so local and
 CI workflows use the same commands. Run `make help` to discover available
 targets. Direct commands remain appropriate for focused testing and debugging.
 
+## Code clarity
+
+Make the code instructive and easy to follow. Prefer simple, clear English,
+especially in comments.
+
 ## Process termination
 
 Production analyzer and reusable library code must not call `panic()`,
