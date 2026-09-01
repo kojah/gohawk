@@ -15,7 +15,7 @@ analyzer package, its fixtures, and its documentation rather than every layer.
 main.go
   → internal/cli
   → analyzers
-  → internal/analyzers/<analyzer>
+  → internal/analyzers/<group>/<analyzer>
   → analysisutil and analysisutil/ssa
 ```
 
@@ -24,9 +24,9 @@ main.go
   the selected analyzers to Go's analysis driver.
 - `analyzers` is the public catalog. It defines groups, opt-in status, stable
   execution order, and the metadata used by the CLI and documentation.
-- `internal/analyzers/<analyzer>` gives each analyzer an independent package.
-  Contracts, ownership, reliability, and testing are catalog metadata rather
-  than Go package boundaries.
+- `internal/analyzers/<group>/<analyzer>` gives each analyzer an independent
+  package. Contracts, ownership, reliability, and testing mirror catalog
+  metadata as organizational containers rather than Go package boundaries.
 - `internal/analyzerbase` contains the internal catalog model, stable check
   identities, diagnostic helpers, and shared flag value types.
 - `analysisutil` contains syntax and type helpers. `analysisutil/ssa` contains
@@ -73,7 +73,7 @@ order rather than allowing catalog drift.
 ## Tests and documentation
 
 Each analyzer package runs against its local GOPATH root under
-`internal/analyzers/<analyzer>/testdata/src`. A `// want "message"` comment
+`internal/analyzers/<group>/<analyzer>/testdata/src`. A `// want "message"` comment
 marks a diagnostic that must be reported; unmarked code is an accepted form
 that must remain quiet.
 
@@ -87,8 +87,8 @@ pseudocode.
 ## Where to start
 
 For a syntax-based analyzer, begin with
-`internal/analyzers/deferinloop/analyzer.go`. For a small SSA-backed analyzer,
-begin with `internal/analyzers/exitpolicy/analyzer.go`. The goroutine,
+`internal/analyzers/ownership/deferinloop/analyzer.go`. For a small SSA-backed
+analyzer, begin with `internal/analyzers/ownership/exitpolicy/analyzer.go`. The goroutine,
 resource-lifetime, closed-domain, and lock-order analyzers model substantially
 more control and data flow and are better approached after reading the shared
 SSA helpers.

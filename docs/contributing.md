@@ -33,8 +33,11 @@ Suppose the new analyzer is called `examplepolicy`.
 
 ### 1. Write the analyzer
 
-Create `internal/analyzers/examplepolicy/analyzer.go`. Export an `Analyzer`
-constructor, then put the analysis in a separate run function:
+Choose the matching catalog group, then create
+`internal/analyzers/<group>/examplepolicy/analyzer.go`. The group directory is
+only an organizational container; `examplepolicy` remains its own Go package.
+Export an `Analyzer` constructor, then put the analysis in a separate run
+function:
 
 ```go
 func Analyzer() *analysis.Analyzer {
@@ -81,7 +84,7 @@ Then update `analyzers/analyzers_test.go`:
 ### 3. Add fixtures
 
 Create
-`internal/analyzers/examplepolicy/testdata/src/examplepolicy/examplepolicy.go`.
+`internal/analyzers/<group>/examplepolicy/testdata/src/examplepolicy/examplepolicy.go`.
 Add a package-local `analyzer_test.go` that runs it through the shared
 `internal/analyzertest` harness. Put small examples that should be reported in
 the fixture and mark each expected diagnostic with a `want` comment:
@@ -103,7 +106,7 @@ behavior, put those packages beneath its fixture directory. Existing
 ### 4. Add the living documentation example
 
 Add
-`internal/analyzers/examplepolicy/testdata/src/examplepolicy/doc_examples.go`
+`internal/analyzers/<group>/examplepolicy/testdata/src/examplepolicy/doc_examples.go`
 with one or more flagged regions and exactly one OK region. Give multiple
 flagged regions short titles that distinguish the behavior each snippet
 demonstrates:

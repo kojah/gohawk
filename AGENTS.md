@@ -94,9 +94,12 @@ evidence engines behind focused implementation files.
 - Start an analyzer in one file. Split it only when a concern has distinct
   vocabulary or invariants, such as source-level API contracts versus SSA flow
   analysis; file length alone is not a reason to split.
-- Give every analyzer its own package under `internal/analyzers/<name>`. Name
-  focused files by their concern, such as `timer.go`, `contracts.go`, or
-  `immutability.go`; do not create a package per helper or analysis phase.
+- Give every analyzer its own package under
+  `internal/analyzers/<group>/<name>`. Group directories mirror the catalog
+  for navigation but remain organizational containers, not shared Go
+  packages. Name focused files by their concern, such as `timer.go`,
+  `contracts.go`, or `immutability.go`; do not create a package per helper or
+  analysis phase.
 - Keep registry and runner code small. It should select configuration,
   construct shared inputs, invoke evidence helpers, and report diagnostics—not
   contain the full proof itself.
@@ -106,10 +109,10 @@ evidence engines behind focused implementation files.
 - Keep each analyzer's minimized accepted and diagnostic cases under its local
   `testdata` tree. Place fixture-only dependency stubs there as well.
 
-This follows the one-package-per-pass layouts used by `x/tools` and
-Staticcheck while retaining gosec's practice of splitting a substantial
-analyzer into focused files within its package. Analyzer groups are catalog
-metadata, not Go package boundaries.
+This follows Staticcheck's grouped one-package-per-pass layout while retaining
+gosec's practice of splitting a substantial analyzer into focused files within
+its package. Analyzer groups are catalog metadata mirrored by container
+directories, not Go package boundaries.
 
 The `analysisutil` package is intentionally unsupported and undocumented for
 external consumers. It is exposed only for Veritas's current integration.

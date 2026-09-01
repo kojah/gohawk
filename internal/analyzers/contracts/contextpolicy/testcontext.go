@@ -7,7 +7,7 @@ import (
 	"github.com/kojah/gohawk/analysisutil"
 	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
-	"github.com/kojah/gohawk/internal/analyzers/goroutineownership"
+	"github.com/kojah/gohawk/internal/analyzers/ownership/goroutineownership"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"

@@ -8,7 +8,7 @@ import (
 	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
 	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
-	"github.com/kojah/gohawk/internal/analyzers/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/analyzers/ownership/lifecyclefacts"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
