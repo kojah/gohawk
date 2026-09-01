@@ -12,10 +12,10 @@ Reports goroutines whose join handle or lifecycle owner is not honored on every 
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects |
-| --- | --- |
-| <CheckIdentity name="unjoined" /> | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. |
-| <CheckIdentity name="detached" optIn /> | Reports goroutines without a recognizable join handle or lifecycle owner. |
+| Check | Kind | What it detects |
+| --- | --- | --- |
+| <CheckIdentity name="unjoined" /> | hazard | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. |
+| <CheckIdentity name="detached" optIn /> | hazard | Reports goroutines without a recognizable join handle or lifecycle owner. |
 
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}

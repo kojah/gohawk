@@ -20,9 +20,9 @@ performed on every path before the accumulated value is observed.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects |
-| --- | --- |
-| <CheckIdentity name="map-output-order" optIn /> | Reports map iteration that reaches ordered output without explicit sorting. |
+| Check | Kind | What it detects |
+| --- | --- | --- |
+| <CheckIdentity name="map-output-order" optIn /> | hazard | Reports map iteration that reaches ordered output without explicit sorting. |
 
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}

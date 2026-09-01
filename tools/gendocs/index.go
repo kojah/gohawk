@@ -20,7 +20,11 @@ func analyzerIndex(data manifest) string {
 	output.WriteString("---\ntitle: All analyzers\ndescription: The gohawk analyzer catalog, generated from the registered Go analyzers.\n---\n\n")
 	output.WriteString("<!-- Run go generate ./... to update this page; do not edit it by hand. -->\n\n")
 	output.WriteString("gohawk ships a focused set of analyzers rather than a general-purpose lint\n")
-	output.WriteString("catalog.\n")
+	output.WriteString("catalog. Every check identifies the kind of claim it makes:\n\n")
+	output.WriteString("- **Defect** means the available evidence establishes broken or ineffective behavior.\n")
+	output.WriteString("- **Hazard** means the behavior is risky, but harm depends on a wider runtime contract.\n")
+	output.WriteString("- **Policy** means valid Go violates an intentionally selected engineering convention.\n\n")
+	output.WriteString("Kind is descriptive metadata and does not change whether a check is enabled by default.\n")
 	for _, group := range data.Groups {
 		fmt.Fprintf(&output, "\n## %s\n\n", group.Title)
 		if intro := groupIntros[group.Name]; intro != "" {

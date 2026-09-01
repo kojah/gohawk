@@ -43,9 +43,12 @@ func TestGeneratedManifestMatchesCatalog(t *testing.T) {
 			if len(analyzer.Checks) != len(info.Checks) {
 				t.Errorf("analyzer %q check metadata was not copied", analyzer.Name)
 			}
-			for _, check := range analyzer.Checks {
-				if check.ID == "" || check.Summary == "" {
+			for checkIndex, check := range analyzer.Checks {
+				if check.ID == "" || check.Summary == "" || check.Kind == "" {
 					t.Errorf("analyzer %q generated incomplete check metadata: %+v", analyzer.Name, check)
+				}
+				if check.Kind != info.Checks[checkIndex].Kind {
+					t.Errorf("check %q kind = %q, want %q", check.ID, check.Kind, info.Checks[checkIndex].Kind)
 				}
 			}
 		}
@@ -82,7 +85,7 @@ func TestGroupCardsUsesAnalyzerSummaryAndOmitsActivationMetadata(t *testing.T) {
 		Analyzers: []analyzer{{
 			Name:    "example",
 			Summary: "Checks the complete example problem.",
-			Checks:  []check{{ID: "example/problem"}},
+			Checks:  []check{{ID: "example/problem", Kind: "defect"}},
 		}},
 	})
 	if !strings.Contains(cards, "Checks the complete example problem.") {
@@ -133,15 +136,16 @@ func TestChecksBlockIncludesIDsDescriptionsAndOptInMarker(t *testing.T) {
 	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
+		Kind:    "hazard",
 		OptIn:   true,
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"| Check | What it detects |",
+		"| Check | Kind | What it detects |",
+		"| <CheckIdentity name=\"problem\" optIn /> | hazard |",
 		"Reports the example problem.",
-		`<CheckIdentity name="problem" optIn />`,
 		`\* Opt-in; requires explicit selection.`,
 	} {
 		if !strings.Contains(block, want) {
@@ -157,6 +161,7 @@ func TestChecksBlockOmitsDefaultActivation(t *testing.T) {
 	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
+		Kind:    "policy",
 	}})
 	if err != nil {
 		t.Fatal(err)

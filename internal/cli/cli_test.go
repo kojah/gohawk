@@ -43,10 +43,14 @@ func TestPrintAnalyzerList(t *testing.T) {
 			arguments: []string{"-checks"},
 			contains: []string{
 				"CHECK",
+				"KIND",
 				"GROUP",
 				"contextpolicy/context-first",
+				"policy",
 				"testlifecycle/context-root*",
+				"hazard",
 				"oncepolicy/discarded-wrapper",
+				"defect",
 				"contracts",
 				"* opt-in",
 			},
@@ -310,7 +314,7 @@ func TestPrintDocumentation(t *testing.T) {
 			arguments: []string{"contextpolicy/nil-context"},
 			contains: []string{
 				"contextpolicy/nil-context", "Reports definitely nil context.Context arguments.",
-				"Analyzer: contextpolicy", "Group: contracts",
+				"Analyzer: contextpolicy", "Kind: defect", "Group: contracts",
 			},
 			excludes: []string{"Profile:", "Tags:", "Opt-in:", "\nChecks:", "\nOptions:"},
 		},

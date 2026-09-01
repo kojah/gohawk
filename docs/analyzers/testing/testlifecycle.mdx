@@ -12,9 +12,9 @@ Reports detached test goroutines rooted in a never-cancelled context when they o
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects |
-| --- | --- |
-| <CheckIdentity name="context-root" optIn /> | Reports detached test-owned goroutines rooted in a never-cancelled context. |
+| Check | Kind | What it detects |
+| --- | --- | --- |
+| <CheckIdentity name="context-root" optIn /> | hazard | Reports detached test-owned goroutines rooted in a never-cancelled context. |
 
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}

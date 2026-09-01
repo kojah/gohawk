@@ -77,7 +77,7 @@ func collectManifest(root string) (manifest, error) {
 func checkManifest(analyzerOptIn bool, checks []gohawk.AnalyzerCheckInfo) []check {
 	result := make([]check, len(checks))
 	for index, item := range checks {
-		result[index] = check{ID: string(item.ID), Summary: item.Doc, OptIn: analyzerOptIn || item.OptIn}
+		result[index] = check{ID: string(item.ID), Summary: item.Doc, Kind: item.Kind, OptIn: analyzerOptIn || item.OptIn}
 	}
 	return result
 }

@@ -17,12 +17,12 @@ types that mix pointer and value receiver methods.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects |
-| --- | --- |
-| <CheckIdentity name="parameter-count" optIn /> | Reports unconstrained exported APIs with more than the configured maximum number of parameters. |
-| <CheckIdentity name="mixed-receivers" optIn /> | Reports types that mix pointer and value receiver methods. |
-| <CheckIdentity name="adjacent-same-type" optIn /> | Reports long adjacent runs of parameters in unconstrained signatures that share one type. |
-| <CheckIdentity name="adjacent-optional-scalars" optIn /> | Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap. |
+| Check | Kind | What it detects |
+| --- | --- | --- |
+| <CheckIdentity name="parameter-count" optIn /> | policy | Reports unconstrained exported APIs with more than the configured maximum number of parameters. |
+| <CheckIdentity name="mixed-receivers" optIn /> | policy | Reports types that mix pointer and value receiver methods. |
+| <CheckIdentity name="adjacent-same-type" optIn /> | policy | Reports long adjacent runs of parameters in unconstrained signatures that share one type. |
+| <CheckIdentity name="adjacent-optional-scalars" optIn /> | policy | Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap. |
 
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}

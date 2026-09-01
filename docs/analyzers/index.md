@@ -6,7 +6,13 @@ description: The gohawk analyzer catalog, generated from the registered Go analy
 <!-- Run go generate ./... to update this page; do not edit it by hand. -->
 
 gohawk ships a focused set of analyzers rather than a general-purpose lint
-catalog.
+catalog. Every check identifies the kind of claim it makes:
+
+- **Defect** means the available evidence establishes broken or ineffective behavior.
+- **Hazard** means the behavior is risky, but harm depends on a wider runtime contract.
+- **Policy** means valid Go violates an intentionally selected engineering convention.
+
+Kind is descriptive metadata and does not change whether a check is enabled by default.
 
 ## API and data contracts
 

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	gohawk "github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/docexamples"
 )
 
@@ -47,9 +48,10 @@ type analyzer struct {
 }
 
 type check struct {
-	ID      string `json:"id"`
-	Summary string `json:"summary"`
-	OptIn   bool   `json:"optIn"`
+	ID      string           `json:"id"`
+	Summary string           `json:"summary"`
+	Kind    gohawk.CheckKind `json:"kind"`
+	OptIn   bool             `json:"optIn"`
 }
 
 type optionFlag struct {

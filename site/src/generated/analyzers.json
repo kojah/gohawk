@@ -14,21 +14,25 @@
             {
               "id": "apishape/parameter-count",
               "summary": "Reports unconstrained exported APIs with more than the configured maximum number of parameters.",
+              "kind": "policy",
               "optIn": true
             },
             {
               "id": "apishape/mixed-receivers",
               "summary": "Reports types that mix pointer and value receiver methods.",
+              "kind": "policy",
               "optIn": true
             },
             {
               "id": "apishape/adjacent-same-type",
               "summary": "Reports long adjacent runs of parameters in unconstrained signatures that share one type.",
+              "kind": "policy",
               "optIn": true
             },
             {
               "id": "apishape/adjacent-optional-scalars",
               "summary": "Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap.",
+              "kind": "policy",
               "optIn": true
             }
           ],
@@ -55,16 +59,19 @@
             {
               "id": "contextpolicy/context-first",
               "summary": "Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle.",
+              "kind": "policy",
               "optIn": false
             },
             {
               "id": "contextpolicy/context-storage",
               "summary": "Reports context.Context values stored in structs.",
+              "kind": "policy",
               "optIn": false
             },
             {
               "id": "contextpolicy/nil-context",
               "summary": "Reports definitely nil context.Context arguments.",
+              "kind": "defect",
               "optIn": false
             }
           ],
@@ -80,6 +87,7 @@
             {
               "id": "closedomain/closed-string-domain",
               "summary": "Reports exported string fields used as small closed sets of values.",
+              "kind": "policy",
               "optIn": true
             }
           ],
@@ -95,11 +103,13 @@
             {
               "id": "wirepolicy/keyed-literal",
               "summary": "Reports positional composite literals for persisted or wire structs.",
+              "kind": "policy",
               "optIn": true
             },
             {
               "id": "wirepolicy/serialization-tag",
               "summary": "Reports exported wire fields without explicit JSON or TOML tags.",
+              "kind": "policy",
               "optIn": true
             }
           ],
@@ -122,6 +132,7 @@
             {
               "id": "cancellationownership/release",
               "summary": "Reports derived cancel functions that are neither called nor transferred on every return path.",
+              "kind": "defect",
               "optIn": false
             }
           ],
@@ -137,6 +148,7 @@
             {
               "id": "channelcapacity/rationale",
               "summary": "Reports large constant channel capacities in production files without a nearby bounded rationale.",
+              "kind": "policy",
               "optIn": true
             }
           ],
@@ -158,6 +170,7 @@
             {
               "id": "channelownership/caller-close",
               "summary": "Reports functions that close channels received from their callers.",
+              "kind": "policy",
               "optIn": false
             }
           ],
@@ -173,6 +186,7 @@
             {
               "id": "channelsafety/send-after-close",
               "summary": "Reports sends reachable after a channel has been closed.",
+              "kind": "defect",
               "optIn": false
             }
           ],
@@ -188,6 +202,7 @@
             {
               "id": "deferinloop/cleanup-lifetime",
               "summary": "Reports cleanup defers whose lifetime extends across loop iterations.",
+              "kind": "hazard",
               "optIn": false
             }
           ],
@@ -203,6 +218,7 @@
             {
               "id": "exitpolicy/skipped-defer",
               "summary": "Reports immediate process termination that bypasses an earlier defer.",
+              "kind": "defect",
               "optIn": false
             }
           ],
@@ -218,11 +234,13 @@
             {
               "id": "goroutineownership/unjoined",
               "summary": "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
+              "kind": "hazard",
               "optIn": false
             },
             {
               "id": "goroutineownership/detached",
               "summary": "Reports goroutines without a recognizable join handle or lifecycle owner.",
+              "kind": "hazard",
               "optIn": true
             }
           ],
@@ -244,6 +262,7 @@
             {
               "id": "producerlifecycle/abandoned-send",
               "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
+              "kind": "hazard",
               "optIn": false
             }
           ],
@@ -259,6 +278,7 @@
             {
               "id": "processownership/missing-wait",
               "summary": "Reports successfully started commands that are neither waited on nor transferred.",
+              "kind": "defect",
               "optIn": false
             }
           ],
@@ -274,6 +294,7 @@
             {
               "id": "resourcelifetime/missing-release",
               "summary": "Reports owned resources that are not released on every return path.",
+              "kind": "defect",
               "optIn": false
             }
           ],
@@ -307,6 +328,7 @@
             {
               "id": "concurrentcapture/shared-capture",
               "summary": "Reports repeatedly launched goroutines that mutate the same captured local.",
+              "kind": "hazard",
               "optIn": false
             }
           ],
@@ -322,6 +344,7 @@
             {
               "id": "determinism/map-output-order",
               "summary": "Reports map iteration that reaches ordered output without explicit sorting.",
+              "kind": "hazard",
               "optIn": true
             }
           ],
@@ -337,6 +360,7 @@
             {
               "id": "errorownership/log-and-return",
               "summary": "Reports functions that both log and return the same error.",
+              "kind": "policy",
               "optIn": true
             }
           ],
@@ -352,6 +376,7 @@
             {
               "id": "errorclassification/text-match",
               "summary": "Reports production code that classifies errors by matching their text.",
+              "kind": "hazard",
               "optIn": false
             }
           ],
@@ -367,6 +392,7 @@
             {
               "id": "inlineerror/mismatched-condition",
               "summary": "Reports inline error declarations whose condition checks a different error.",
+              "kind": "defect",
               "optIn": false
             }
           ],
@@ -382,6 +408,7 @@
             {
               "id": "evalorder/operand-mutation",
               "summary": "Reports expressions whose later operand mutates a value read by an earlier operand.",
+              "kind": "hazard",
               "optIn": false
             }
           ],
@@ -397,6 +424,7 @@
             {
               "id": "globalstate/mutable-package-state",
               "summary": "Reports mutable package-level state without an explicit owner.",
+              "kind": "policy",
               "optIn": true
             }
           ],
@@ -423,16 +451,19 @@
             {
               "id": "lockorder/missing-release",
               "summary": "Reports return paths that leave an owned lock held.",
+              "kind": "defect",
               "optIn": false
             },
             {
               "id": "lockorder/recursive-acquire",
               "summary": "Reports attempts to acquire a lock that is already held.",
+              "kind": "defect",
               "optIn": false
             },
             {
               "id": "lockorder/contradictory-order",
               "summary": "Reports inconsistent acquisition order for the same pair of locks.",
+              "kind": "hazard",
               "optIn": false
             }
           ],
@@ -448,6 +479,7 @@
             {
               "id": "oncepolicy/discarded-wrapper",
               "summary": "Reports sync.Once function wrappers that are called and immediately discarded.",
+              "kind": "defect",
               "optIn": false
             }
           ],
@@ -463,6 +495,7 @@
             {
               "id": "syncmapatomicity/non-atomic-claim",
               "summary": "Reports separate sync.Map Load and Delete operations used to claim one value.",
+              "kind": "hazard",
               "optIn": false
             }
           ],
@@ -478,6 +511,7 @@
             {
               "id": "taintpolicy/untrusted-sink",
               "summary": "Reports untrusted input that reaches a configured sensitive sink without validation.",
+              "kind": "hazard",
               "optIn": true
             }
           ],
@@ -511,6 +545,7 @@
             {
               "id": "testlifecycle/context-root",
               "summary": "Reports detached test-owned goroutines rooted in a never-cancelled context.",
+              "kind": "hazard",
               "optIn": true
             }
           ],
@@ -526,6 +561,7 @@
             {
               "id": "testpolicy/helper-marker",
               "summary": "Reports test helpers that do not call Helper on every return path.",
+              "kind": "policy",
               "optIn": true
             }
           ],

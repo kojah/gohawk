@@ -107,7 +107,7 @@ func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error
 	metadata := gohawk.AnalyzerMetadata()
 	table := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
 	if options.showChecks {
-		writeLine(table, "CHECK\tGROUP")
+		writeLine(table, "CHECK\tKIND\tGROUP")
 	} else {
 		writeLine(table, "ANALYZER\tGROUP")
 	}
@@ -152,7 +152,7 @@ func writeCheckListRows(output io.Writer, groupName string, info gohawk.Analyzer
 		if listEntryFiltered(isDefault, options) {
 			continue
 		}
-		writeFormattedf(output, "%s\t%s\n", optInName(string(check.ID), !isDefault), groupName)
+		writeFormattedf(output, "%s\t%s\t%s\n", optInName(string(check.ID), !isDefault), check.Kind, groupName)
 		shownOptIn = shownOptIn || !isDefault
 	}
 	return shownOptIn
@@ -216,6 +216,7 @@ func printAnalyzerDocumentation(output io.Writer, group gohawk.AnalyzerGroup, an
 	writeLine(output, "\nChecks:")
 	for _, check := range info.Checks {
 		writeFormattedf(output, "  %s\n", optInName(string(check.ID), info.OptIn || check.OptIn))
+		writeFormattedf(output, "    Kind: %s\n", check.Kind)
 		writeFormattedf(output, "    %s\n", check.Doc)
 	}
 	if info.OptIn || slices.ContainsFunc(info.Checks, func(check gohawk.AnalyzerCheckInfo) bool { return check.OptIn }) {
@@ -234,6 +235,7 @@ func printCheckDocumentation(
 	writeLine(output, check.ID)
 	writeFormattedf(output, "  %s\n\n", check.Doc)
 	writeFormattedf(output, "Analyzer: %s\n", analyzer.Name)
+	writeFormattedf(output, "Kind: %s\n", check.Kind)
 	if info.OptIn || check.OptIn {
 		writeLine(output, "Opt-in: yes")
 	}

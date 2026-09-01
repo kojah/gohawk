@@ -14,7 +14,7 @@ func TestCatalogValidatesDeclarations(t *testing.T) {
 			ID: "group", Doc: "group docs", DocPath: "group-docs",
 			Analyzers: []AnalyzerSpec{{
 				Analyzer: &analysis.Analyzer{Name: "sample", Doc: "sample docs", Run: func(*analysis.Pass) (any, error) { return nil, nil }},
-				Checks:   []CheckInfo{{ID: "sample/check", Doc: "check docs"}},
+				Checks:   []CheckInfo{{ID: "sample/check", Doc: "check docs", Kind: KindDefect}},
 			}},
 		}}
 	}
@@ -28,6 +28,10 @@ func TestCatalogValidatesDeclarations(t *testing.T) {
 			groups[0].Analyzers[0].Checks[0].ID = "other/check"
 			return groups, []AnalyzerID{"sample"}
 		}, want: "invalid check identity"},
+		{name: "missing check kind", mutate: func(groups []GroupSpec) ([]GroupSpec, []AnalyzerID) {
+			groups[0].Analyzers[0].Checks[0].Kind = ""
+			return groups, []AnalyzerID{"sample"}
+		}, want: "invalid kind"},
 		{name: "missing execution entry", mutate: func(groups []GroupSpec) ([]GroupSpec, []AnalyzerID) {
 			return groups, nil
 		}, want: "execution order contains 0 analyzers"},
@@ -58,7 +62,7 @@ func TestCatalogReturnsDefensiveCopies(t *testing.T) {
 	analyzer := &analysis.Analyzer{Name: "sample", Doc: "sample docs", Run: func(*analysis.Pass) (any, error) { return nil, nil }}
 	catalog, err := NewCatalog([]GroupSpec{{
 		ID: "group", Doc: "group docs", DocPath: "group-docs",
-		Analyzers: []AnalyzerSpec{{Analyzer: analyzer, Checks: []CheckInfo{{ID: "sample/check", Doc: "check docs"}}}},
+		Analyzers: []AnalyzerSpec{{Analyzer: analyzer, Checks: []CheckInfo{{ID: "sample/check", Doc: "check docs", Kind: KindDefect}}}},
 	}}, []AnalyzerID{"sample"})
 	if err != nil {
 		t.Fatal(err)

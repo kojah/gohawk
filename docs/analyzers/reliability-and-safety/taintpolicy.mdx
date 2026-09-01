@@ -15,9 +15,9 @@ without passing through a recognized validator or sanitizer.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects |
-| --- | --- |
-| <CheckIdentity name="untrusted-sink" optIn /> | Reports untrusted input that reaches a configured sensitive sink without validation. |
+| Check | Kind | What it detects |
+| --- | --- | --- |
+| <CheckIdentity name="untrusted-sink" optIn /> | hazard | Reports untrusted input that reaches a configured sensitive sink without validation. |
 
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}

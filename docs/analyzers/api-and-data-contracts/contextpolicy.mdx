@@ -12,11 +12,11 @@ Reports misplaced `context.Context` parameters, contexts stored in structs, and 
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects |
-| --- | --- |
-| <CheckIdentity name="context-first" /> | Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle. |
-| <CheckIdentity name="context-storage" /> | Reports context.Context values stored in structs. |
-| <CheckIdentity name="nil-context" /> | Reports definitely nil context.Context arguments. |
+| Check | Kind | What it detects |
+| --- | --- | --- |
+| <CheckIdentity name="context-first" /> | policy | Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle. |
+| <CheckIdentity name="context-storage" /> | policy | Reports context.Context values stored in structs. |
+| <CheckIdentity name="nil-context" /> | defect | Reports definitely nil context.Context arguments. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

@@ -167,7 +167,7 @@ func DefaultAnalyzers() []*analysis.Analyzer {
 func publicAnalyzerInfo(spec catalog.AnalyzerSpec) AnalyzerInfo {
 	checks := make([]AnalyzerCheckInfo, len(spec.Checks))
 	for index, check := range spec.Checks {
-		checks[index] = AnalyzerCheckInfo{ID: AnalyzerCheck(check.ID), Doc: check.Doc, OptIn: check.OptIn}
+		checks[index] = AnalyzerCheckInfo{ID: AnalyzerCheck(check.ID), Doc: check.Doc, Kind: CheckKind(check.Kind), OptIn: check.OptIn}
 	}
 	return AnalyzerInfo{OptIn: spec.OptIn, Checks: checks, SuggestedFix: spec.SuggestedFix}
 }

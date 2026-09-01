@@ -54,7 +54,7 @@ func TestUnknownDiagnosticReturnsError(t *testing.T) {
 			pass.Report(analysis.Diagnostic{Category: "example/unknown"})
 			return nil, nil
 		},
-	}, []catalog.CheckInfo{{ID: "example/known"}})
+	}, []catalog.CheckInfo{{ID: "example/known", Kind: catalog.KindDefect}})
 
 	_, err := analyzer.Run(&analysis.Pass{Report: func(analysis.Diagnostic) {}})
 	if err == nil || !strings.Contains(err.Error(), `analyzer "example" reported unknown check "example/unknown"`) {
@@ -161,6 +161,44 @@ func TestAnalyzerMetadata(t *testing.T) {
 	optInChecks := map[AnalyzerCheck]bool{
 		"goroutineownership/detached": true,
 	}
+	kinds := map[AnalyzerCheck]CheckKind{
+		"apishape/parameter-count":           CheckKindPolicy,
+		"apishape/mixed-receivers":           CheckKindPolicy,
+		"apishape/adjacent-same-type":        CheckKindPolicy,
+		"apishape/adjacent-optional-scalars": CheckKindPolicy,
+		"contextpolicy/context-first":        CheckKindPolicy,
+		"contextpolicy/context-storage":      CheckKindPolicy,
+		"contextpolicy/nil-context":          CheckKindDefect,
+		"closedomain/closed-string-domain":   CheckKindPolicy,
+		"wirepolicy/keyed-literal":           CheckKindPolicy,
+		"wirepolicy/serialization-tag":       CheckKindPolicy,
+		"cancellationownership/release":      CheckKindDefect,
+		"channelcapacity/rationale":          CheckKindPolicy,
+		"channelownership/caller-close":      CheckKindPolicy,
+		"channelsafety/send-after-close":     CheckKindDefect,
+		"deferinloop/cleanup-lifetime":       CheckKindHazard,
+		"exitpolicy/skipped-defer":           CheckKindDefect,
+		"goroutineownership/unjoined":        CheckKindHazard,
+		"goroutineownership/detached":        CheckKindHazard,
+		"producerlifecycle/abandoned-send":   CheckKindHazard,
+		"processownership/missing-wait":      CheckKindDefect,
+		"resourcelifetime/missing-release":   CheckKindDefect,
+		"concurrentcapture/shared-capture":   CheckKindHazard,
+		"determinism/map-output-order":       CheckKindHazard,
+		"errorownership/log-and-return":      CheckKindPolicy,
+		"errorclassification/text-match":     CheckKindHazard,
+		"inlineerror/mismatched-condition":   CheckKindDefect,
+		"evalorder/operand-mutation":         CheckKindHazard,
+		"globalstate/mutable-package-state":  CheckKindPolicy,
+		"lockorder/missing-release":          CheckKindDefect,
+		"lockorder/recursive-acquire":        CheckKindDefect,
+		"lockorder/contradictory-order":      CheckKindHazard,
+		"oncepolicy/discarded-wrapper":       CheckKindDefect,
+		"syncmapatomicity/non-atomic-claim":  CheckKindHazard,
+		"taintpolicy/untrusted-sink":         CheckKindHazard,
+		"testlifecycle/context-root":         CheckKindHazard,
+		"testpolicy/helper-marker":           CheckKindPolicy,
+	}
 	for _, name := range expectedAnalyzerNames() {
 		info, ok := metadata[name]
 		if !ok {
@@ -181,11 +219,17 @@ func TestAnalyzerMetadata(t *testing.T) {
 			if check.OptIn != optInChecks[check.ID] {
 				t.Errorf("check %q opt-in = %t, want %t", check.ID, check.OptIn, optInChecks[check.ID])
 			}
+			if check.Kind != kinds[check.ID] {
+				t.Errorf("check %q kind = %q, want %q", check.ID, check.Kind, kinds[check.ID])
+			}
 			if owner, exists := seenChecks[check.ID]; exists {
 				t.Errorf("check %q belongs to both %q and %q", check.ID, owner, name)
 			}
 			seenChecks[check.ID] = name
 		}
+	}
+	if len(seenChecks) != len(kinds) {
+		t.Fatalf("classified check count = %d, want %d", len(seenChecks), len(kinds))
 	}
 }
 

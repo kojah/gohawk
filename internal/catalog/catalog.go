@@ -17,10 +17,23 @@ type AnalyzerID string
 // GroupID identifies a related set of analyzers.
 type GroupID string
 
+// CheckKind describes the semantic claim made by a diagnostic rule.
+type CheckKind string
+
+const (
+	// KindDefect identifies behavior that the available evidence establishes as broken or ineffective.
+	KindDefect CheckKind = "defect"
+	// KindHazard identifies risky behavior whose harm depends on a wider runtime contract.
+	KindHazard CheckKind = "hazard"
+	// KindPolicy identifies valid Go that violates an intentionally selected engineering convention.
+	KindPolicy CheckKind = "policy"
+)
+
 // CheckInfo describes one independently configurable diagnostic rule.
 type CheckInfo struct {
 	ID    check.ID
 	Doc   string
+	Kind  CheckKind
 	OptIn bool
 }
 
@@ -126,11 +139,18 @@ func (catalog *Catalog) addCheck(analyzerID AnalyzerID, info *CheckInfo) error {
 	if strings.TrimSpace(info.Doc) == "" {
 		return fmt.Errorf("check %q has no description", info.ID)
 	}
+	if !validCheckKind(info.Kind) {
+		return fmt.Errorf("check %q has invalid kind %q", info.ID, info.Kind)
+	}
 	if owner, exists := catalog.checkOwner[info.ID]; exists {
 		return fmt.Errorf("check %q belongs to both %q and %q", info.ID, owner, analyzerID)
 	}
 	catalog.checkOwner[info.ID] = analyzerID
 	return nil
+}
+
+func validCheckKind(kind CheckKind) bool {
+	return kind == KindDefect || kind == KindHazard || kind == KindPolicy
 }
 
 func (catalog *Catalog) validateExecutionOrder() error {

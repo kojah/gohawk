@@ -66,8 +66,8 @@ func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
 func checksBlock(analyzerName string, checks []check) (string, error) {
 	var output strings.Builder
 	hasOptIn := false
-	output.WriteString("| Check | What it detects |\n")
-	output.WriteString("| --- | --- |\n")
+	output.WriteString("| Check | Kind | What it detects |\n")
+	output.WriteString("| --- | --- | --- |\n")
 	for _, item := range checks {
 		localID, ok := strings.CutPrefix(item.ID, analyzerName+"/")
 		if !ok || localID == "" {
@@ -80,9 +80,10 @@ func checksBlock(analyzerName string, checks []check) (string, error) {
 		}
 		fmt.Fprintf(
 			&output,
-			"| <CheckIdentity name=\"%s\"%s /> | %s |\n",
+			"| <CheckIdentity name=\"%s\"%s /> | %s | %s |\n",
 			html.EscapeString(localID),
 			optIn,
+			item.Kind,
 			markdownTableCell(item.Summary),
 		)
 	}

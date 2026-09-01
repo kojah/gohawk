@@ -15,9 +15,9 @@ calling, and discarding it in one expression.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | What it detects |
-| --- | --- |
-| <CheckIdentity name="discarded-wrapper" /> | Reports sync.Once function wrappers that are called and immediately discarded. |
+| Check | Kind | What it detects |
+| --- | --- | --- |
+| <CheckIdentity name="discarded-wrapper" /> | defect | Reports sync.Once function wrappers that are called and immediately discarded. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
