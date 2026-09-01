@@ -2,6 +2,7 @@ package globalstate
 
 import (
 	"errors"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -26,8 +27,12 @@ var controllerSchemeBuilder = new(controllerscheme.Builder)
 var addToScheme = controllerSchemeBuilder.AddToScheme
 var analysisPass = new(analysis.Analyzer)
 var reassignedAnalysisPass = new(analysis.Analyzer) // want "mutable package state reassignedAnalysisPass"
+var reflectedType = reflect.TypeFor[int]()
+var reassignedReflectedType = reflect.TypeFor[int]() // want "mutable package state reassignedReflectedType"
 
 func replaceAnalysisPass() { reassignedAnalysisPass = new(analysis.Analyzer) }
+
+func replaceReflectedType() { reassignedReflectedType = reflect.TypeFor[string]() }
 
 var immutableBytes = []byte("value")
 

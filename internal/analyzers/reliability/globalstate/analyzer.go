@@ -124,7 +124,7 @@ func allowedGlobal(
 	if documentedTestSeam(name, object, declaration, specification) {
 		return true
 	}
-	if conventionalAnalyzerSingleton(pass, object, value, usage) {
+	if conventionalAnalyzerSingleton(pass, object, value, usage) || immutableRuntimeDescriptor(pass, object, value, usage) {
 		return true
 	}
 	if conventionalFrameworkGlobal(value) {

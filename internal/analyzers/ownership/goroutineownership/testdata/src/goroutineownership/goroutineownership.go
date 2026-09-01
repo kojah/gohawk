@@ -349,6 +349,18 @@ func joinedByClose() {
 	<-done
 }
 
+func joinedByDeferredSend() {
+	done := make(chan any)
+	// A deferred closure may publish the terminal result while preserving panic
+	// handling. The matching receive is still concrete completion evidence:
+	// https://github.com/uber-go/zap/blob/bb1a55dd13257cf7cbd06b4146674c67ca614dea/logger_test.go#L946-L956
+	go func() {
+		defer func() { done <- recover() }()
+		panic("finished")
+	}()
+	<-done
+}
+
 func joinedThroughAlias() {
 	done := make(chan struct{})
 	alias := done

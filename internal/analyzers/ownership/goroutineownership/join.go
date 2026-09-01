@@ -29,6 +29,11 @@ func spawnedOwnershipValue(
 	if common == nil {
 		return nil, nil
 	}
+	if _, synchronous := instruction.(*ssa.Go); !synchronous {
+		if nestedSignal, nestedGroup := nestedClosureOwnershipValue(spawn, function, closure, common); nestedSignal != nil || nestedGroup != nil {
+			return nestedSignal, nestedGroup
+		}
+	}
 	if ssautil.CallMatchesSymbol(common, analysisutil.Builtin("close")) {
 		if len(common.Args) == 1 {
 			return ssautil.SpawnedValueAtCall(spawn, function, closure, common.Args[0]), nil

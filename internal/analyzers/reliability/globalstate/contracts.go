@@ -94,6 +94,19 @@ func conventionalAnalyzerSingleton(pass *analysis.Pass, object types.Object, val
 	return !globalObjectReassignedOrAddressed(pass, object, usage)
 }
 
+func immutableRuntimeDescriptor(pass *analysis.Pass, object types.Object, value types.Type, usage globalStateUsage) bool {
+	if qualifiedTypeName(value) != "reflect.Type" {
+		return false
+	}
+	// reflect.Type is implemented by the standard library's immutable runtime
+	// descriptors; its unexported methods prevent application implementations.
+	// A stable package binding is therefore immutable evidence, while assignment
+	// or taking its address still invalidates that evidence. Echo caches these
+	// descriptors for multipart binding:
+	// https://github.com/labstack/echo/blob/07b3c4a4d4cc077a653b4e7a5de5d4acb121ce7b/bind.go#L498-L502
+	return !globalObjectReassignedOrAddressed(pass, object, usage)
+}
+
 func conventionalErrorSentinel(
 	pass *analysis.Pass,
 	name *ast.Ident,
