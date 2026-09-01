@@ -51,3 +51,8 @@ Round 9 preserves the fifth reviewed batch. It covers unused testing handles,
 method-value testing callbacks, cancellation owned by a helper goroutine, and
 deferred cleanup of an exact resource projection. Nearby test, cancellation,
 resource, and goroutine findings remain reportable.
+
+Round 10 preserves the sixth reviewed batch. It covers string fields populated
+by external JSON, test cleanup that terminates a launched lifecycle, and
+WaitGroup completion signaled only after a worker's substantive work. Nearby
+closed-domain, resource, and goroutine findings remain reportable.

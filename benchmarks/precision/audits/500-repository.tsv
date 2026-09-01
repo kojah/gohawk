@@ -49,3 +49,13 @@
 5	tgragnato/snowflake	29b45d7671e92a797ccdc68fab0d1210d37a038d	.,dtls	reviewed
 5	wandb/operator	a51b91faa03f1431f51d223fc16683799df12db1	.	reviewed
 5	webtor-io/web-ui	4d541bb73a322597de7f72401fdb3d5e4b04fd9a	.	reviewed
+6	ConSol-Monitoring/snclient	35f77e9733036db52f3da12872ae6c16fc2503ad	.,buildtools	reviewed
+6	jamesread/StencilBox	dd85635278c072e77eb5cb96c48e0607bef22e21	service	reviewed
+6	linode/linode-blockstorage-csi-driver	29e7fd42bc10cdd5168512b4f5d32b2e8e3d7b01	.	reviewed
+6	cloudfoundry-community/go-cfenv	81d387d129ce2277d199d3d55259162943e5b5d0	.	reviewed
+6	googleapis/gapic-generator-go	52617bf72b133fc6a114e1f9dc57aa52dbf63ddb	.,showcase	reviewed
+6	moov-io/rtp20022	0b08f38d0a1341d61a4d1fe7b0a402b5718d3f30	.	reviewed
+6	workos/workos-go	be30f8d82e238934a68fdb0c0193c72351d130bd	.	reviewed
+6	itchio/itch-setup	ed0b2fe08fb091da8c4745aa8ac3f69a654012c3	.	reviewed
+6	doitintl/kubeip	e871b8a0ebec73845e806576e6fa84b7d6c09c60	.	reviewed
+6	hairyhenderson/go-fsimpl	91256fa5116d0a845eebb63be69bc65ee54e9f20	.	reviewed

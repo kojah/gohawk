@@ -113,3 +113,25 @@ This evidence also corrected the earlier round-8 classification of
 `minimalWebP(*testing.T)`: because the testing handle is wholly unused, calling
 `Helper` cannot change failure attribution. The pinned case remains in the
 cohort as a false-positive regression rather than being discarded.
+
+## Batch 6
+
+Ten repositories and twelve modules were selected. Nine modules loaded fully.
+snclient's buildtools module contained no packages; Linode and itch-setup
+produced useful partial analysis while native cryptsetup and GTK packages were
+unavailable under `CGO_ENABLED=0`.
+
+Three general evidence boundaries were improved:
+
+- an exported string field populated through exact `encoding/json.Unmarshal`
+  is not a source-closed domain;
+- exact `testing.T` or `testing.B` cleanup may terminate the sole launched
+  lifecycle on the same receiver; and
+- a WaitGroup completion signal proves a join only when it settles the worker,
+  rather than when `Done` runs before later substantive work.
+
+Cross-type context propagation through `io/fs` adapters remains deferred: the
+reviewed family combines copy-style `WithContext`, constructor-bound adapters,
+and returned file wrappers, so a sound exemption needs more than interface or
+type-name evidence. Precision round 10 retains nearby closed-domain, resource,
+and goroutine findings.
