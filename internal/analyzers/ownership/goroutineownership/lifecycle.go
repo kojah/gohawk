@@ -371,6 +371,27 @@ func testingCleanupOwnsLaunchedLifecycle(instruction ssa.Instruction, spawn *ssa
 	return false
 }
 
+func testingCleanupJoinsGoroutine(instruction ssa.Instruction, groups []ssa.Value) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if !ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) {
+		return false
+	}
+	callback, ok := testingCleanupCallback(common)
+	if !ok {
+		return false
+	}
+	for _, group := range groups {
+		if ssaflow.ClosureCallsMethodBeforeBranch(callback, "Wait", group) {
+			// testing guarantees that Cleanup runs even when the test stops early.
+			// Accept only an unconditional Wait on the exact group whose terminal
+			// Done settles the worker; merely capturing the group is not a join.
+			// https://github.com/charmbracelet/crush/blob/6fa9e6905041c32ffceb1c9b1a3189b3db1eec07/internal/server/socket_test.go#L162-L177
+			return true
+		}
+	}
+	return false
+}
+
 func testingCleanupCallback(common *ssa.CallCommon) (ssa.Instruction, bool) {
 	for _, argument := range common.Args {
 		function := callbackFunction(argument)

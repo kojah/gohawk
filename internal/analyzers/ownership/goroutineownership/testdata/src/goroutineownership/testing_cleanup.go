@@ -1,6 +1,9 @@
 package goroutineownership
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
 
 func (*lifecycleOwner) Observe() {}
 
@@ -40,4 +43,29 @@ func cleanupCannotStopIndependentBlock(t *testing.T) {
 		select {}
 	}()
 	t.Cleanup(func() { owner.Stop() })
+}
+
+func waitGroupJoinedByTestCleanup(t *testing.T) {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { defer group.Done() }()
+	t.Cleanup(func() { group.Wait() })
+}
+
+func differentWaitGroupInTestCleanup(t *testing.T) {
+	var worker, other sync.WaitGroup
+	worker.Add(1)
+	go func() { defer worker.Done() }() // want "goroutine is not joined on every return path"
+	t.Cleanup(func() { other.Wait() })
+}
+
+func conditionalWaitGroupInTestCleanup(t *testing.T, wait bool) {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { defer group.Done() }() // want "goroutine is not joined on every return path"
+	t.Cleanup(func() {
+		if wait {
+			group.Wait()
+		}
+	})
 }
