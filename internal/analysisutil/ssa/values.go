@@ -12,6 +12,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Value evidence normalizes SSA wrappers and proves sources, derivation, and
+// access-path identity. It follows only modeled value forms; an unfamiliar or
+// ambiguous transformation ends the proof instead of guessing equivalence.
+
 func wrappedValue(value ssa.Value) (ssa.Value, bool) {
 	switch typed := value.(type) {
 	case *ssa.ChangeInterface:

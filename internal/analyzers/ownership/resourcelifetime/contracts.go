@@ -12,6 +12,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Resource contracts are the authoritative acquisition, cleanup, and transfer
+// vocabulary for this analyzer. Exact symbols and configured contract families
+// are required so similarly named application methods do not imply ownership.
+
 type resourceContract struct {
 	symbol      analysisutil.Symbol
 	family      string

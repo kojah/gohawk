@@ -7,6 +7,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Closure evidence follows captured values through bindings, stored callbacks,
+// and helper calls. These helpers accept only concrete SSA relationships and
+// stop at cycles or unmodeled indirection so callers can treat a match as proof.
+
 func DeferredClosureCalls(instruction ssa.Instruction, method string, target ssa.Value) bool {
 	if _, ok := instruction.(*ssa.Defer); !ok {
 		return false

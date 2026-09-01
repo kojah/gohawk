@@ -13,6 +13,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Counted-join evidence pairs bounded goroutine launches with the corresponding
+// receives or helper join. Bounds must resolve to the same SSA value or a
+// finite aggregate; dynamic and ambiguous counts deliberately remain unproven.
+
 func matchingCountedJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Value) bool {
 	spawnBound := loopBound(function, spawn.Block())
 	if spawnBound == nil {

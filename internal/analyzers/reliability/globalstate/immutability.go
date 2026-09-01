@@ -10,6 +10,10 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// Immutability evidence proves when a map or slice global is effectively
+// read-only despite its mutable Go type. Every reachable alias and use must be
+// recognized as non-mutating; uncertain calls or escaping values end the proof.
+
 func effectivelyImmutableComposite(
 	pass *analysis.Pass,
 	name *ast.Ident,

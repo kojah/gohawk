@@ -83,6 +83,21 @@ decision point over repeating the explanation throughout helper functions.
 Preserve these comments when refactoring. If behavior or its supporting
 evidence changes, update the rationale, link, and regression fixture together.
 
+## File responsibility comments
+
+Add a short responsibility comment near the top of a non-obvious implementation
+file when its role, evidence boundary, or relationship to the rest of the
+package would otherwise require reading several functions to reconstruct.
+
+- Describe the concern the file owns, the evidence it consumes or produces,
+  and the conservative boundary where analysis stops.
+- Prefer stable invariants and reasoning over inventories of functions or
+  references to neighboring filenames.
+- Do not add a header when the package declaration, filename, and first types
+  already make the responsibility clear.
+- Keep the comment with the implementation when code moves, and update it in
+  the same change when the responsibility or precision boundary changes.
+
 ## Analyzer tracing
 
 Use the structured evidence tracer instead of temporary print statements when

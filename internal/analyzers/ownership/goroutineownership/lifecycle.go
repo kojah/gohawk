@@ -12,6 +12,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Lifecycle evidence identifies caller-owned contexts, stop mechanisms, join
+// handles, and explicit ownership registration. An obligation transfers only
+// when the spawned goroutine and the receiving owner share traceable values.
+
 func goroutineHasContextLifecycle(spawn *ssa.Go) bool {
 	if slices.ContainsFunc(spawn.Common().Args, contextValue) {
 		return true

@@ -9,6 +9,10 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// Propagation evidence connects map range variables to ordered returns, writes,
+// and accumulators. Independent per-key work and commutative reductions are
+// accepted because iteration order is not observable through those paths.
+
 func mapRangeReachesOrderedOutput(pass *analysis.Pass, function *ast.FuncDecl, block *ast.BlockStmt, index int, ranged *ast.RangeStmt) bool {
 	variables := rangeObjects(pass, ranged)
 	// Tie the range variables to an ordered return or sink before reporting.

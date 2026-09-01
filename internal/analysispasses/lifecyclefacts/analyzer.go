@@ -1,4 +1,7 @@
-// Package lifecyclefacts exports cross-package function ownership summaries.
+// Package lifecyclefacts exports conservative cross-package ownership
+// summaries. It records only lifecycle actions that hold on every normal return
+// of an exported function, allowing dependent analyzers to reuse that evidence
+// without treating uncertain dependency behavior as ownership transfer.
 package lifecyclefacts
 
 import (

@@ -10,6 +10,10 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// Determinism contracts describe source-level operations that either expose
+// sequence order or make it irrelevant. They keep API recognition and accepted
+// guard patterns separate from propagation through an individual map range.
+
 func statementMutatesObject(pass *analysis.Pass, statement ast.Stmt, object types.Object) bool {
 	mutated := false
 	ast.Inspect(statement, func(node ast.Node) bool {

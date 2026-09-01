@@ -13,6 +13,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Resource flow tracks an acquired value from the successful call edge to each
+// feasible normal return. State records activation and release separately so
+// error-only resources and path-specific cleanup do not create false leaks.
+
 type resourceFlowState struct {
 	block       *ssa.BasicBlock
 	predecessor *ssa.BasicBlock

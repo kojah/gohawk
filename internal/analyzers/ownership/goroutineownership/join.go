@@ -12,6 +12,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Join evidence ties a completion signal or wait group back to the goroutine
+// that owns it. The search follows concrete closure bindings, helper calls, and
+// stored callbacks; unresolved aliasing is not accepted as a proven join.
+
 func spawnedOwnershipValue(
 	spawn *ssa.Go,
 	function *ssa.Function,

@@ -7,6 +7,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Storage evidence distinguishes local retention from ownership transfers to
+// callers, receivers, closures, globals, and escaping aggregates. The helpers
+// require a traceable stored value or owner so ambiguous aliases remain local.
+
 func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
 	if !ok || !SameValue(store.Val, value) {

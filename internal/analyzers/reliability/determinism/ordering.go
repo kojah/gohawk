@@ -9,6 +9,10 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// Ordering evidence tracks whether a range-derived accumulator is sorted at
+// each observation. Mutations invalidate earlier sorting, and only an ordered
+// sink reached while unsorted can expose nondeterministic map iteration.
+
 var mutatingSortFunctions = []analysisutil.Symbol{
 	analysisutil.PackageFunction("sort", "Float64s"),
 	analysisutil.PackageFunction("sort", "Ints"),

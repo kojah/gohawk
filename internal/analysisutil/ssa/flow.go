@@ -7,6 +7,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Control-flow evidence answers path-sensitive ownership questions shared by
+// several analyzers. Traversal retains the predecessor for phi and branch
+// feasibility, and treats only reachable normal returns as lifecycle exits.
+
 type flowState struct {
 	block       *ssa.BasicBlock
 	predecessor *ssa.BasicBlock

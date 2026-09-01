@@ -7,6 +7,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Transfer evidence recognizes calls that hand a lifecycle obligation to a
+// returned owner, receiver, deferred cleanup, or escaping container. A call is
+// considered consuming only when its value flow and lifecycle use are visible.
+
 func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bool {
 	call, ok := instruction.(*ssa.Call)
 	if !ok {
