@@ -31,3 +31,14 @@ func guardedSafeClose[T any](channel chan T) {
 		close(channel)
 	}
 }
+
+// publish sends one result. results is closed after publication.
+func publish(results chan<- int) {
+	results <- 1
+	close(results)
+}
+
+// undocumentedClose does not promise ownership of results.
+func undocumentedClose(results chan<- int) {
+	close(results) // want "do not close a channel received from caller"
+}

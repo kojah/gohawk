@@ -2,7 +2,9 @@
 package channelownership
 
 import (
+	"go/ast"
 	"go/types"
+	"strings"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
@@ -49,17 +51,45 @@ func checkChannelOwnership(pass *analysis.Pass, function *ssa.Function, callsite
 				continue
 			}
 			channel := common.Args[0]
-			if closesBorrowedChannel(channel, parameters, callsites) {
+			if closesBorrowedChannel(pass, function, channel, parameters, callsites) {
 				check.Reportf(pass, check.ChannelCallerClose, instruction.Pos(), "do not close a channel received from caller")
 			}
 		}
 	}
 }
 
-func closesBorrowedChannel(channel ssa.Value, parameters []ssa.Value, callsites map[*ssa.Function][]ssa.CallInstruction) bool {
+func closesBorrowedChannel(
+	pass *analysis.Pass,
+	function *ssa.Function,
+	channel ssa.Value,
+	parameters []ssa.Value,
+	callsites map[*ssa.Function][]ssa.CallInstruction,
+) bool {
 	for _, parameter := range parameters {
-		if ssautil.SameValue(channel, parameter) && !channelOwnershipTransferredToGoroutine(parameter, callsites) {
+		if ssautil.SameValue(channel, parameter) && !documentedCloseOwnership(pass, function, parameter) &&
+			!channelOwnershipTransferredToGoroutine(parameter, callsites) {
 			return true
+		}
+	}
+	return false
+}
+
+func documentedCloseOwnership(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
+	if function == nil || function.Object() == nil || parameter == nil || parameter.Name() == "" {
+		return false
+	}
+	for _, file := range pass.Files {
+		for _, declaration := range file.Decls {
+			source, ok := declaration.(*ast.FuncDecl)
+			if !ok || pass.TypesInfo.Defs[source.Name] != function.Object() || source.Doc == nil {
+				continue
+			}
+			documentation := strings.ToLower(source.Doc.Text())
+			contract := strings.ToLower(parameter.Name()) + " is closed"
+			// A parameter-specific API promise transfers close ownership to the
+			// callee. Restic documents its producer channel this way:
+			// https://github.com/restic/restic/blob/ba802d42b7294c98b62c16d1157ea3e80820c019/internal/checker/checker.go#L146-L155
+			return strings.Contains(documentation, contract)
 		}
 	}
 	return false
