@@ -126,7 +126,7 @@ func functionMayBlockSeen(function *ssa.Function, seen map[*ssa.Function]bool) b
 	}
 	seen[function] = true
 	for _, block := range function.Blocks {
-		if blockInCycle(block) {
+		if ssautil.BlockInCycle(block) {
 			return true
 		}
 		for _, instruction := range block.Instrs {

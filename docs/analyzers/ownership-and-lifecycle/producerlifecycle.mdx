@@ -1,0 +1,57 @@
+---
+title: producerlifecycle
+description: "Keep goroutine producers bounded by their receivers."
+---
+
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
+
+## What it detects
+
+Reports producer goroutines that can block after their receiver stops waiting.
+
+### Checks
+
+{/* gohawk:generated-checks:start */}
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="abandoned-send" /> | Reports producer goroutines that can block after their receiver stops waiting. |
+{/* gohawk:generated-checks:end */}
+
+## Why this is flagged
+
+An unbuffered producer can leak forever when it emits more results than its consumer receives.
+
+## How to fix it
+
+Drain every result, provide a proven buffer, or make sends cancellation-aware.
+
+## Examples
+
+{/* gohawk:generated-examples:start */}
+### Flagged code
+
+```go gohawk="W3siY2hlY2siOiJwcm9kdWNlcmxpZmVjeWNsZS9hYmFuZG9uZWQtc2VuZCIsIm1lc3NhZ2UiOiJnb3JvdXRpbmUgc2VuZCBjYW4gYmxvY2sgYWZ0ZXIgdGhlIHJlY2VpdmVyIHN0b3BzIHdhaXRpbmciLCJzdGFydExpbmUiOjMsInN0YXJ0Q29sdW1uIjo0LCJlbmRMaW5lIjozLCJlbmRDb2x1bW4iOjM0fSx7ImNoZWNrIjoicHJvZHVjZXJsaWZlY3ljbGUvYWJhbmRvbmVkLXNlbmQiLCJtZXNzYWdlIjoiZ29yb3V0aW5lIHNlbmQgY2FuIGJsb2NrIGFmdGVyIHRoZSByZWNlaXZlciBzdG9wcyB3YWl0aW5nIiwic3RhcnRMaW5lIjo0LCJzdGFydENvbHVtbiI6NCwiZW5kTGluZSI6NCwiZW5kQ29sdW1uIjozNX1d"
+func firstResultOnly() error {
+  results := make(chan error)
+  go func() {
+    results <- errors.New("first")
+    results <- errors.New("second")
+  }()
+  return <-results
+}
+```
+
+### Accepted code
+
+```go
+func drainResults() {
+  results := make(chan error)
+  go func() {
+    results <- errors.New("first")
+    results <- errors.New("second")
+  }()
+  <-results
+  <-results
+}
+```
+{/* gohawk:generated-examples:end */}

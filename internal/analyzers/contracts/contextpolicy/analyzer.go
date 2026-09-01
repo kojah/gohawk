@@ -4,7 +4,6 @@ package contextpolicy
 import (
 	"go/ast"
 	"go/types"
-	"go/version"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
@@ -18,24 +17,15 @@ import (
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
-	config := contextPolicyConfig{preferTestContext: true}
-	analyzer := &analysis.Analyzer{
+	return &analysis.Analyzer{
 		Name:     "contextpolicy",
-		Doc:      "checks context placement, storage, nil use, and test ownership",
+		Doc:      "checks context placement, storage, and nil use",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Run:      runContextPolicy,
 	}
-	analyzer.Flags.BoolVar(&config.preferTestContext, "prefer-test-context", true, "check detached test-owned goroutines rooted in a never-cancelled context")
-	analyzer.Run = func(pass *analysis.Pass) (any, error) {
-		return runContextPolicy(pass, config)
-	}
-	return analyzer
 }
 
-type contextPolicyConfig struct {
-	preferTestContext bool
-}
-
-func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, error) {
+func runContextPolicy(pass *analysis.Pass) (any, error) {
 	functions, err := ssautil.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
@@ -58,22 +48,8 @@ func runContextPolicy(pass *analysis.Pass, config contextPolicyConfig) (any, err
 				}
 			}
 		}
-		if config.preferTestContext && supportsTestingContext(pass) {
-			reportDetachedTestBackground(pass, function)
-		}
 	}
 	return nil, nil
-}
-
-func supportsTestingContext(pass *analysis.Pass) bool {
-	if pass.Module == nil || pass.Module.GoVersion == "" {
-		return true
-	}
-	moduleVersion := pass.Module.GoVersion
-	if !strings.HasPrefix(moduleVersion, "go") {
-		moduleVersion = "go" + moduleVersion
-	}
-	return version.Compare(moduleVersion, "go1.24") >= 0
 }
 
 func checkContextStructure(pass *analysis.Pass, file *ast.File, node ast.Node) {

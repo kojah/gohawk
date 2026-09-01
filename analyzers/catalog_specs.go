@@ -6,21 +6,27 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/contracts/contextpolicy"
 	"github.com/kojah/gohawk/internal/analyzers/contracts/wirepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/cancellationownership"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/channelpolicy"
+	"github.com/kojah/gohawk/internal/analyzers/ownership/channelcapacity"
+	"github.com/kojah/gohawk/internal/analyzers/ownership/channelownership"
+	"github.com/kojah/gohawk/internal/analyzers/ownership/channelsafety"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/deferinloop"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/exitpolicy"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/goroutineownership"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/processownership"
+	"github.com/kojah/gohawk/internal/analyzers/ownership/producerlifecycle"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/resourcelifetime"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/concurrentcapture"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/determinism"
+	"github.com/kojah/gohawk/internal/analyzers/reliability/errorclassification"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/errorownership"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/evalorder"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/globalstate"
+	"github.com/kojah/gohawk/internal/analyzers/reliability/inlineerror"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/lockorder"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/oncepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/syncmapatomicity"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/taintpolicy"
+	"github.com/kojah/gohawk/internal/analyzers/testing/testlifecycle"
 	"github.com/kojah/gohawk/internal/analyzers/testing/testpolicy"
 	"github.com/kojah/gohawk/internal/catalog"
 	"github.com/kojah/gohawk/internal/check"
@@ -46,7 +52,6 @@ func contractSpecs() []catalog.AnalyzerSpec {
 						"after a leading context and one context after a testing handle.",
 				},
 				{ID: check.ContextStorage, Doc: "Reports context.Context values stored in structs."},
-				{ID: check.ContextTestOwnership, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.", OptIn: true},
 				{ID: check.ContextNilArgument, Doc: "Reports definitely nil context.Context arguments."},
 			},
 		},
@@ -65,13 +70,13 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 		{Analyzer: cancellationownership.Analyzer(), SuggestedFix: true, Checks: []catalog.CheckInfo{
 			{ID: check.CancellationRelease, Doc: "Reports derived cancel functions that are neither called nor transferred on every return path."},
 		}},
-		{Analyzer: channelpolicy.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID:    check.ChannelCapacityRationale,
-				Doc:   "Reports large constant channel capacities in production files without a nearby bounded rationale.",
-				OptIn: true,
-			},
+		{Analyzer: channelcapacity.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+			{ID: check.ChannelCapacityRationale, Doc: "Reports large constant channel capacities in production files without a nearby bounded rationale."},
+		}},
+		{Analyzer: channelownership.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.ChannelCallerClose, Doc: "Reports functions that close channels received from their callers."},
+		}},
+		{Analyzer: channelsafety.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed."},
 		}},
 		{Analyzer: deferinloop.Analyzer(), Checks: []catalog.CheckInfo{
@@ -83,7 +88,9 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 		{Analyzer: goroutineownership.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.GoroutineJoin, Doc: "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path."},
 			{ID: check.GoroutineDetached, Doc: "Reports goroutines without a recognizable join handle or lifecycle owner.", OptIn: true},
-			{ID: check.GoroutineProducerSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting."},
+		}},
+		{Analyzer: producerlifecycle.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.ProducerLifecycleSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting."},
 		}},
 		{Analyzer: processownership.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.ProcessWait, Doc: "Reports successfully started commands that are neither waited on nor transferred."},
@@ -102,9 +109,13 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 		{Analyzer: determinism.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
 			{ID: check.DeterministicMapOutput, Doc: "Reports map iteration that reaches ordered output without explicit sorting."},
 		}},
-		{Analyzer: errorownership.Analyzer(), Checks: []catalog.CheckInfo{
-			{ID: check.ErrorLogAndReturn, Doc: "Reports functions that both log and return the same error.", OptIn: true},
+		{Analyzer: errorownership.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+			{ID: check.ErrorLogAndReturn, Doc: "Reports functions that both log and return the same error."},
+		}},
+		{Analyzer: errorclassification.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.ErrorTextClassification, Doc: "Reports production code that classifies errors by matching their text."},
+		}},
+		{Analyzer: inlineerror.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.ErrorMismatchedInline, Doc: "Reports inline error declarations whose condition checks a different error."},
 		}},
 		{Analyzer: evalorder.Analyzer(), Checks: []catalog.CheckInfo{
@@ -131,8 +142,13 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 }
 
 func testingSpecs() []catalog.AnalyzerSpec {
-	return []catalog.AnalyzerSpec{{
-		Analyzer: testpolicy.Analyzer(), OptIn: true, SuggestedFix: true,
-		Checks: []catalog.CheckInfo{{ID: check.TestHelperMarker, Doc: "Reports test helpers that do not call Helper on every return path."}},
-	}}
+	return []catalog.AnalyzerSpec{
+		{Analyzer: testlifecycle.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+			{ID: check.TestLifecycleContext, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context."},
+		}},
+		{
+			Analyzer: testpolicy.Analyzer(), OptIn: true, SuggestedFix: true,
+			Checks: []catalog.CheckInfo{{ID: check.TestHelperMarker, Doc: "Reports test helpers that do not call Helper on every return path."}},
+		},
+	}
 }

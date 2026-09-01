@@ -1,17 +1,13 @@
 ---
 title: goroutineownership
-description: "Join spawned goroutines."
+description: "Give spawned goroutines a recognizable lifecycle owner."
 ---
 
 import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
-
 ## What it detects
 
-Give spawned goroutines a recognizable lifecycle owner. Local producer
-goroutines must also be able to stop sending when their receiver leaves; use a
-cancellation-aware `select`, drain the channel, or provide enough proven buffer
-capacity for every send.
+Reports goroutines whose join handle or lifecycle owner is not honored on every return path.
 
 ### Checks
 
@@ -20,25 +16,17 @@ capacity for every send.
 | --- | --- |
 | <CheckIdentity name="unjoined" /> | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. |
 | <CheckIdentity name="detached" optIn /> | Reports goroutines without a recognizable join handle or lifecycle owner. |
-| <CheckIdentity name="abandoned-send" /> | Reports producer goroutines that can block after their receiver stops waiting. |
 
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
-A goroutine without a clear owner may keep running after its caller is done or
-block forever while sending a result nobody will receive. These leaks consume
-memory and can eventually make shutdowns or the whole program hang.
-
-Further reading: [Go concurrency patterns: Pipelines and cancellation](https://go.dev/blog/pipelines),
-[Go concurrency patterns: Context](https://go.dev/blog/context).
+Unowned goroutines can outlive their inputs, retain resources, and make shutdown nondeterministic.
 
 ## How to fix it
 
-Give the goroutine a clear stopping rule: cancel it with a context, join it
-before returning, or hand it to a longer-lived owner. Make sends cancellation
-aware so the goroutine can stop if its receiver leaves.
+Join the goroutine, transfer its lifecycle explicitly, or connect it to a bounded owner.
 
 ## Examples
 
@@ -73,7 +61,3 @@ func refreshSafely() {
 | --- | --- | --- |
 | `mode` | `context` | Ownership policy: context, lifecycle, or join. |
 {/* gohawk:generated-options:end */}
-
-By default, a context is enough to own a worker. Use
-`-goroutineownership.mode=lifecycle` to require a lifecycle owner, or
-`-goroutineownership.mode=join` to require an explicit join.

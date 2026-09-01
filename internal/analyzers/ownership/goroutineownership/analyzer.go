@@ -89,7 +89,6 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 		return nil, err
 	}
 	for _, function := range functions {
-		reportAbandonedProducerSends(pass, function)
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				spawn, ok := instruction.(*ssa.Go)

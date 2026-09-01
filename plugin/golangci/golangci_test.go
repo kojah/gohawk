@@ -73,8 +73,8 @@ func TestPluginDefaultProfileSuppressesOptInChecks(t *testing.T) {
 }
 
 func TestPluginEnablesIndividualCheck(t *testing.T) {
-	settings := map[string]any{"enable-checks": []string{"contextpolicy/test-context"}}
-	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, settings, "contextpolicy"), "enabledcheck")
+	settings := map[string]any{"enable-checks": []string{"testlifecycle/context-root"}}
+	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, settings, "testlifecycle"), "enabledcheck")
 }
 
 func TestPluginDisablesIndividualCheck(t *testing.T) {

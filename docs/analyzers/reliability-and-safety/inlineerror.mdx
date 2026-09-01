@@ -1,0 +1,52 @@
+---
+title: inlineerror
+description: "Check the error declared by the current condition."
+---
+
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
+
+## What it detects
+
+Reports inline error declarations whose condition accidentally checks a different error.
+
+### Checks
+
+{/* gohawk:generated-checks:start */}
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="mismatched-condition" /> | Reports inline error declarations whose condition checks a different error. |
+{/* gohawk:generated-checks:end */}
+
+## Why this is flagged
+
+Checking an older error can silently ignore the failure that was just returned.
+
+## How to fix it
+
+Reference the newly declared error in the `if` condition.
+
+## Examples
+
+{/* gohawk:generated-examples:start */}
+### Flagged code
+
+```go gohawk="W3siY2hlY2siOiJpbmxpbmVlcnJvci9taXNtYXRjaGVkLWNvbmRpdGlvbiIsIm1lc3NhZ2UiOiJjb25kaXRpb24gY2hlY2tzIHByZXZpb3VzIGluc3RlYWQgb2YgbmV3bHkgZGVjbGFyZWQgZXJyIiwic3RhcnRMaW5lIjoxLCJzdGFydENvbHVtbiI6MjYsImVuZExpbmUiOjEsImVuZENvbHVtbiI6NDF9XQ"
+func mismatched(previous error) error {
+  if err := readConfig(); previous != nil {
+    return err
+  }
+  return nil
+}
+```
+
+### Accepted code
+
+```go
+func matched(previous error) error {
+  if err := readConfig(); err != nil {
+    return err
+  }
+  return previous
+}
+```
+{/* gohawk:generated-examples:end */}

@@ -5,12 +5,9 @@ description: "Handle an error at one layer."
 
 import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
-
 ## What it detects
 
-Handle an error at one layer. The analyzer also catches inline error
-declarations whose condition accidentally checks a different error before
-returning the newly declared one.
+Reports functions that both log and return the same error.
 
 ### Checks
 
@@ -18,47 +15,35 @@ returning the newly declared one.
 | Check | What it detects |
 | --- | --- |
 | <CheckIdentity name="log-and-return" optIn /> | Reports functions that both log and return the same error. |
-| <CheckIdentity name="text-classification" /> | Reports production code that classifies errors by matching their text. |
-| <CheckIdentity name="mismatched-inline-error" /> | Reports inline error declarations whose condition checks a different error. |
 
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
-Handling the same error at several layers often creates duplicate logs or
-reports, while checking the wrong variable can silently ignore a real failure.
-Each layer should either add context and return the error or handle it fully.
+Logging and returning the same error commonly produces duplicate reports at multiple layers.
 
 ## How to fix it
 
-Choose one responsibility at each layer: return the error with useful context,
-or report and fully handle it there. When declaring an error inside an `if`,
-make sure the condition checks that newly declared error.
+Either add context and return the error, or log and fully handle it at the current layer.
 
 ## Examples
 
 {/* gohawk:generated-examples:start */}
 ### Flagged code
 
-```go gohawk="W3siY2hlY2siOiJlcnJvcm93bmVyc2hpcC9sb2ctYW5kLXJldHVybiIsIm1lc3NhZ2UiOiJlcnJvciBpcyBsb2dnZWQgYW5kIHJldHVybmVkIGJ5IHNhbWUgZnVuY3Rpb24iLCJzdGFydExpbmUiOjIsInN0YXJ0Q29sdW1uIjo0LCJlbmRMaW5lIjoyLCJlbmRDb2x1bW4iOjE4fV0"
-func load() error {
-  if err := readConfig(); err != nil {
-    log.Print(err)
-    return err
-  }
-  return nil
+```go gohawk="W3siY2hlY2siOiJlcnJvcm93bmVyc2hpcC9sb2ctYW5kLXJldHVybiIsIm1lc3NhZ2UiOiJlcnJvciBpcyBsb2dnZWQgYW5kIHJldHVybmVkIGJ5IHNhbWUgZnVuY3Rpb24iLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjE2fV0"
+func load(err error) error {
+  log.Print(err)
+  return err
 }
 ```
 
 ### Accepted code
 
 ```go
-func loadWithContext() error {
-  if err := readConfig(); err != nil {
-    return fmt.Errorf("read config: %w", err)
-  }
-  return nil
+func loadWithContext(err error) error {
+  return fmt.Errorf("load: %w", err)
 }
 ```
 {/* gohawk:generated-examples:end */}

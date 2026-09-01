@@ -51,7 +51,7 @@ func TestPrintAnalyzerList(t *testing.T) {
 				"CHECK",
 				"GROUP",
 				"contextpolicy/context-first",
-				"contextpolicy/test-context*",
+				"testlifecycle/context-root*",
 				"oncepolicy/discarded-wrapper",
 				"contracts",
 				"* opt-in",
@@ -62,12 +62,12 @@ func TestPrintAnalyzerList(t *testing.T) {
 			name:      "default checks",
 			arguments: []string{"-checks", "-defaults"},
 			contains:  []string{"contextpolicy/context-first"},
-			excludes:  []string{"*", "contextpolicy/test-context", "apishape/parameter-count"},
+			excludes:  []string{"*", "testlifecycle/context-root", "apishape/parameter-count"},
 		},
 		{
 			name:      "opt-in checks",
 			arguments: []string{"-checks", "-opt-in"},
-			contains:  []string{"contextpolicy/test-context*", "apishape/parameter-count*", "* opt-in"},
+			contains:  []string{"testlifecycle/context-root*", "apishape/parameter-count*", "* opt-in"},
 			excludes:  []string{"contextpolicy/context-first"},
 		},
 		{name: "conflicting filters", arguments: []string{"-defaults", "-opt-in"}, wantError: true},
@@ -306,10 +306,10 @@ func TestPrintDocumentation(t *testing.T) {
 			arguments: []string{"contextpolicy"},
 			contains: []string{
 				"contextpolicy", "Group: contracts (API and data contracts)",
-				"Suggested fixes: no", "contextpolicy/context-first", "contextpolicy/test-context*", "* opt-in",
-				"-contextpolicy.prefer-test-context (default true)",
+				"Suggested fixes: no", "contextpolicy/context-first",
 				"https://gohawk.dev/analyzers/api-and-data-contracts/contextpolicy/",
 			},
+			excludes: []string{"testlifecycle/context-root", "prefer-test-context"},
 		},
 		{
 			name:      "check",
@@ -387,12 +387,14 @@ func TestWithAnalyzerSelection(t *testing.T) {
 
 	t.Run("groups include opt-in analyzers", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups=testing,contracts", "./..."}), " ")
-		for _, value := range []string{"-apishape=true", "-contextpolicy=true", "-closedomain=true", "-wirepolicy=true", "-testpolicy=true"} {
+		for _, value := range []string{
+			"-apishape=true", "-contextpolicy=true", "-closedomain=true", "-wirepolicy=true", "-testlifecycle=true", "-testpolicy=true",
+		} {
 			if !strings.Contains(got, value) {
 				t.Errorf("group arguments do not contain %q: %s", value, got)
 			}
 		}
-		for _, value := range []string{"-oncepolicy=true", "-channelpolicy=true", "-enable-groups"} {
+		for _, value := range []string{"-oncepolicy=true", "-channelownership=true", "-enable-groups"} {
 			if strings.Contains(got, value) {
 				t.Errorf("group arguments unexpectedly contain %q: %s", value, got)
 			}
@@ -400,25 +402,25 @@ func TestWithAnalyzerSelection(t *testing.T) {
 	})
 
 	t.Run("groups combine with individual selection and exclusion", func(t *testing.T) {
-		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups", "ownership", "-enable=wirepolicy", "-disable=channelpolicy", "./..."}), " ")
+		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups", "ownership", "-enable=wirepolicy", "-disable=channelownership", "./..."}), " ")
 		for _, value := range []string{"-cancellationownership=true", "-goroutineownership=true", "-wirepolicy=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("combined arguments do not contain %q: %s", value, got)
 			}
 		}
-		if strings.Contains(got, "-channelpolicy=true") {
-			t.Errorf("explicit exclusion did not remove channelpolicy: %s", got)
+		if strings.Contains(got, "-channelownership=true") {
+			t.Errorf("explicit exclusion did not remove channelownership: %s", got)
 		}
 	})
 
 	t.Run("disabled groups subtract from defaults and allow individual overrides", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-disable-groups=reliability", "-enable=oncepolicy", "./..."}), " ")
-		for _, value := range []string{"-contextpolicy=true", "-channelpolicy=true", "-oncepolicy=true"} {
+		for _, value := range []string{"-contextpolicy=true", "-channelownership=true", "-oncepolicy=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("disabled-group arguments do not contain %q: %s", value, got)
 			}
 		}
-		for _, value := range []string{"-concurrentcapture=true", "-errorownership=true", "-disable-groups"} {
+		for _, value := range []string{"-concurrentcapture=true", "-errorclassification=true", "-disable-groups"} {
 			if strings.Contains(got, value) {
 				t.Errorf("disabled-group arguments unexpectedly contain %q: %s", value, got)
 			}
@@ -523,14 +525,14 @@ func TestRequestedChecks(t *testing.T) {
 	metadata := gohawk.AnalyzerMetadata()
 	requested, remaining, err := requestedChecks([]string{
 		"gohawk",
-		"-enable-checks=contextpolicy/test-context,contextpolicy/nil-context",
+		"-enable-checks=testlifecycle/context-root,contextpolicy/nil-context",
 		"-disable-checks=contextpolicy/context-first",
 		"./...",
 	}, metadata)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, check := range []string{"contextpolicy/test-context", "contextpolicy/nil-context"} {
+	for _, check := range []string{"testlifecycle/context-root", "contextpolicy/nil-context"} {
 		if !requested.enabled[check] {
 			t.Errorf("enabled checks do not contain %q: %v", check, requested.enabled)
 		}
@@ -544,8 +546,8 @@ func TestRequestedChecks(t *testing.T) {
 
 	for _, arguments := range [][]string{
 		{"gohawk", "-enable-checks=unknown/check", "./..."},
-		{"gohawk", "-enable-checks=contextpolicy/test-context,contextpolicy/test-context", "./..."},
-		{"gohawk", "-enable-checks=contextpolicy/test-context,", "./..."},
+		{"gohawk", "-enable-checks=testlifecycle/context-root,testlifecycle/context-root", "./..."},
+		{"gohawk", "-enable-checks=testlifecycle/context-root,", "./..."},
 		{"gohawk", "-enable-checks="},
 		{"gohawk", "-enable-checks"},
 	} {
@@ -559,7 +561,7 @@ func TestCheckSelectionProfiles(t *testing.T) {
 	analyzers := gohawk.Analyzers()
 	groups := gohawk.AnalyzerGroups()
 	metadata := gohawk.AnalyzerMetadata()
-	testContext := "contextpolicy/test-context"
+	testContext := "testlifecycle/context-root"
 	nilContext := "contextpolicy/nil-context"
 
 	t.Run("check alone selects only that check", func(t *testing.T) {
@@ -568,7 +570,7 @@ func TestCheckSelectionProfiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(strings.Join(selection.arguments, " "), "-contextpolicy=true") || selection.normallySelected["contextpolicy"] {
+		if !strings.Contains(strings.Join(selection.arguments, " "), "-testlifecycle=true") || selection.normallySelected["testlifecycle"] {
 			t.Fatalf("selection = %+v", selection)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection.normallySelected, requested, selection.enableAll)
@@ -685,13 +687,13 @@ func answer() int { return identity{}.value(42) }
 	t.Run("target Go version", func(t *testing.T) {
 		t.Parallel()
 		legacyModule := writeContextTestModule(t, "1.23.0")
-		output, exitCode := runCommand(t, legacyModule, binary, "-enable-checks=contextpolicy/test-context", "./...")
+		output, exitCode := runCommand(t, legacyModule, binary, "-enable-checks=testlifecycle/context-root", "./...")
 		if exitCode != 0 || output != "" {
 			t.Fatalf("Go 1.23 module: exit code = %d, output = %q", exitCode, output)
 		}
 
 		modernModule := writeContextTestModule(t, "1.24.0")
-		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=contextpolicy/test-context", "./...")
+		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=testlifecycle/context-root", "./...")
 		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 module: exit code = %d\n%s", exitCode, output)
 		}
@@ -874,11 +876,11 @@ func TestCLIIntegrationExhaustive(t *testing.T) {
 		}
 		for _, summary := range []string{
 			"contracts (API and data contracts): apishape*, contextpolicy, closedomain*, wirepolicy*",
-			"ownership (ownership and lifecycle): cancellationownership, channelpolicy, deferinloop, " +
-				"exitpolicy, goroutineownership, processownership, resourcelifetime",
-			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership, " +
-				"evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, taintpolicy*",
-			"testing (testing): testpolicy*",
+			"ownership (ownership and lifecycle): cancellationownership, channelcapacity*, channelownership, channelsafety, deferinloop, " +
+				"exitpolicy, goroutineownership, producerlifecycle, processownership, resourcelifetime",
+			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership*, errorclassification, " +
+				"inlineerror, evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, taintpolicy*",
+			"testing (testing): testlifecycle*, testpolicy*",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
@@ -913,7 +915,7 @@ func TestCLIIntegrationExhaustive(t *testing.T) {
 		if exitCode != 0 {
 			t.Fatalf("analyzer documentation: exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"contextpolicy/nil-context", "contextpolicy/test-context*", "-contextpolicy.prefer-test-context"} {
+		for _, value := range []string{"contextpolicy/nil-context"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("analyzer documentation does not contain %q:\n%s", value, output)
 			}
@@ -1077,7 +1079,7 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("Go 1.24 default checks: exit code = %d, output = %q", exitCode, output)
 		}
 
-		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=contextpolicy/test-context", "./...")
+		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=testlifecycle/context-root", "./...")
 		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 opt-in check: exit code = %d\n%s", exitCode, output)
 		}
@@ -1145,7 +1147,7 @@ func answer() int { return identity{}.value(42) }
 
 		output, exitCode = runCommand(t, checkModule, binary,
 			"-enable=contextpolicy",
-			"-disable-checks=contextpolicy/context-first,contextpolicy/context-storage,contextpolicy/test-context,contextpolicy/nil-context",
+			"-disable-checks=contextpolicy/context-first,contextpolicy/context-storage,contextpolicy/nil-context",
 			"./...",
 		)
 		if exitCode != 0 || output != "" {
@@ -1170,7 +1172,7 @@ func answer() int { return identity{}.value(42) }
 		}
 
 		output, exitCode = runCommand(t, checkModule, binary,
-			"-enable=contextpolicy", "-enable-checks=contextpolicy/test-context", "./...",
+			"-enable=contextpolicy", "-enable-checks=testlifecycle/context-root", "./...",
 		)
 		if exitCode != 3 || !strings.Contains(output, "context.Context must be first parameter") ||
 			!strings.Contains(output, "do not pass nil context.Context") {
@@ -1199,8 +1201,7 @@ func answer() int { return identity{}.value(42) }
 			"enable-groups",
 			"apishape.max-parameters",
 			"apishape.max-adjacent-same-type",
-			"channelpolicy.max-unexplained-capacity",
-			"contextpolicy.prefer-test-context",
+			"channelcapacity.max-unexplained-capacity",
 			"globalstate.allow-names",
 			"globalstate.allow-types",
 			"goroutineownership.mode",

@@ -48,7 +48,7 @@
         },
         {
           "name": "contextpolicy",
-          "summary": "Checks context placement, storage, nil use, and test ownership.",
+          "summary": "Checks context placement, storage, and nil use.",
           "path": "analyzers/api-and-data-contracts/contextpolicy",
           "optIn": false,
           "checks": [
@@ -63,24 +63,13 @@
               "optIn": false
             },
             {
-              "id": "contextpolicy/test-context",
-              "summary": "Reports detached test-owned goroutines rooted in a never-cancelled context.",
-              "optIn": true
-            },
-            {
               "id": "contextpolicy/nil-context",
               "summary": "Reports definitely nil context.Context arguments.",
               "optIn": false
             }
           ],
           "suggestedFix": false,
-          "options": [
-            {
-              "name": "prefer-test-context",
-              "default": "true",
-              "usage": "Check detached test-owned goroutines rooted in a never-cancelled context."
-            }
-          ]
+          "options": []
         },
         {
           "name": "closedomain",
@@ -140,25 +129,15 @@
           "options": []
         },
         {
-          "name": "channelpolicy",
-          "summary": "Checks channel capacity and closing ownership.",
-          "path": "analyzers/ownership-and-lifecycle/channelpolicy",
-          "optIn": false,
+          "name": "channelcapacity",
+          "summary": "Checks that large channel buffers document their bound.",
+          "path": "analyzers/ownership-and-lifecycle/channelcapacity",
+          "optIn": true,
           "checks": [
             {
-              "id": "channelpolicy/capacity-rationale",
+              "id": "channelcapacity/rationale",
               "summary": "Reports large constant channel capacities in production files without a nearby bounded rationale.",
               "optIn": true
-            },
-            {
-              "id": "channelpolicy/caller-close",
-              "summary": "Reports functions that close channels received from their callers.",
-              "optIn": false
-            },
-            {
-              "id": "channelpolicy/send-after-close",
-              "summary": "Reports sends reachable after a channel has been closed.",
-              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -169,6 +148,36 @@
               "usage": "Largest channel capacity allowed without a rationale; negative disables the check."
             }
           ]
+        },
+        {
+          "name": "channelownership",
+          "summary": "Checks that channel closing remains with the channel owner.",
+          "path": "analyzers/ownership-and-lifecycle/channelownership",
+          "optIn": false,
+          "checks": [
+            {
+              "id": "channelownership/caller-close",
+              "summary": "Reports functions that close channels received from their callers.",
+              "optIn": false
+            }
+          ],
+          "suggestedFix": false,
+          "options": []
+        },
+        {
+          "name": "channelsafety",
+          "summary": "Checks channel operations for reachable use after close.",
+          "path": "analyzers/ownership-and-lifecycle/channelsafety",
+          "optIn": false,
+          "checks": [
+            {
+              "id": "channelsafety/send-after-close",
+              "summary": "Reports sends reachable after a channel has been closed.",
+              "optIn": false
+            }
+          ],
+          "suggestedFix": false,
+          "options": []
         },
         {
           "name": "deferinloop",
@@ -215,11 +224,6 @@
               "id": "goroutineownership/detached",
               "summary": "Reports goroutines without a recognizable join handle or lifecycle owner.",
               "optIn": true
-            },
-            {
-              "id": "goroutineownership/abandoned-send",
-              "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
-              "optIn": false
             }
           ],
           "suggestedFix": false,
@@ -230,6 +234,21 @@
               "usage": "Ownership policy: context, lifecycle, or join."
             }
           ]
+        },
+        {
+          "name": "producerlifecycle",
+          "summary": "Checks that goroutine producers cannot outlive their receivers.",
+          "path": "analyzers/ownership-and-lifecycle/producerlifecycle",
+          "optIn": false,
+          "checks": [
+            {
+              "id": "producerlifecycle/abandoned-send",
+              "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
+              "optIn": false
+            }
+          ],
+          "suggestedFix": false,
+          "options": []
         },
         {
           "name": "processownership",
@@ -311,22 +330,42 @@
         },
         {
           "name": "errorownership",
-          "summary": "Checks that errors are handled once and classified structurally.",
+          "summary": "Checks that one function does not both log and return an error.",
           "path": "analyzers/reliability-and-safety/errorownership",
-          "optIn": false,
+          "optIn": true,
           "checks": [
             {
               "id": "errorownership/log-and-return",
               "summary": "Reports functions that both log and return the same error.",
               "optIn": true
-            },
+            }
+          ],
+          "suggestedFix": false,
+          "options": []
+        },
+        {
+          "name": "errorclassification",
+          "summary": "Checks that native Go errors are classified structurally.",
+          "path": "analyzers/reliability-and-safety/errorclassification",
+          "optIn": false,
+          "checks": [
             {
-              "id": "errorownership/text-classification",
+              "id": "errorclassification/text-match",
               "summary": "Reports production code that classifies errors by matching their text.",
               "optIn": false
-            },
+            }
+          ],
+          "suggestedFix": false,
+          "options": []
+        },
+        {
+          "name": "inlineerror",
+          "summary": "Checks inline error declarations for mismatched conditions.",
+          "path": "analyzers/reliability-and-safety/inlineerror",
+          "optIn": false,
+          "checks": [
             {
-              "id": "errorownership/mismatched-inline-error",
+              "id": "inlineerror/mismatched-condition",
               "summary": "Reports inline error declarations whose condition checks a different error.",
               "optIn": false
             }
@@ -463,6 +502,21 @@
       "title": "Testing",
       "slug": "testing",
       "analyzers": [
+        {
+          "name": "testlifecycle",
+          "summary": "Checks that test-owned asynchronous work inherits the test lifecycle.",
+          "path": "analyzers/testing/testlifecycle",
+          "optIn": true,
+          "checks": [
+            {
+              "id": "testlifecycle/context-root",
+              "summary": "Reports detached test-owned goroutines rooted in a never-cancelled context.",
+              "optIn": true
+            }
+          ],
+          "suggestedFix": false,
+          "options": []
+        },
         {
           "name": "testpolicy",
           "summary": "Checks lifecycle ownership in test helpers.",

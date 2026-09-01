@@ -53,9 +53,9 @@ linters:
           disable:
             - lockorder
           enable-checks:
-            - contextpolicy/test-context
+            - testlifecycle/context-root
           disable-checks:
-            - errorownership/text-classification
+            - errorclassification/text-match
 ```
 
 The plugin runs gohawk's conservative default set;

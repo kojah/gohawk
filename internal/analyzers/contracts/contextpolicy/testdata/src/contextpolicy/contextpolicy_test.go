@@ -18,12 +18,12 @@ func waitForCancellation(ctx context.Context) {
 
 func TestDetachedBackground(t *testing.T) {
 	_ = t
-	go waitForCancellation(context.Background()) // want "test-owned goroutine uses a never-cancelled context"
+	go waitForCancellation(context.Background())
 }
 
 func TestDetachedBackgroundClosure(t *testing.T) {
 	_ = t
-	ctx := context.WithValue(context.Background(), "fixture", true) // want "test-owned goroutine uses a never-cancelled context"
+	ctx := context.WithValue(context.Background(), "fixture", true)
 	go func() { <-ctx.Done() }()
 }
 

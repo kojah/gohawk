@@ -118,12 +118,12 @@ func goroutineHasStopLifecycle(spawn *ssa.Go) bool {
 		for _, instruction := range block.Instrs {
 			switch candidate := instruction.(type) {
 			case *ssa.UnOp:
-				if candidate.Op == token.ARROW && spawnedValueAtCall(spawn, function, closure, candidate.X) != nil {
+				if candidate.Op == token.ARROW && ssautil.SpawnedValueAtCall(spawn, function, closure, candidate.X) != nil {
 					return true
 				}
 			case *ssa.Select:
 				for _, state := range candidate.States {
-					if state.Dir == types.RecvOnly && spawnedValueAtCall(spawn, function, closure, state.Chan) != nil {
+					if state.Dir == types.RecvOnly && ssautil.SpawnedValueAtCall(spawn, function, closure, state.Chan) != nil {
 						return true
 					}
 				}

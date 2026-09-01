@@ -1,5 +1,5 @@
 repository,analyzer,position,verdict
-goforj/queue,channelpolicy,queue_local.go:380:3,false_positive
+goforj/queue,channelownership,queue_local.go:380:3,false_positive
 nextzhou/workpool,cancellationownership,workpool_test.go:473:14,true_positive
 nextzhou/workpool,cancellationownership,workpool_test.go:481:13,true_positive
 nextzhou/workpool,cancellationownership,workpool_test.go:488:13,true_positive
@@ -41,7 +41,7 @@ tsouza/cerberus,cancellationownership,internal/chclient/teardown_test.go:253:17,
 tsouza/cerberus,cancellationownership,internal/chclient/teardown_test.go:296:17,false_positive
 tsouza/cerberus,cancellationownership,internal/chclient/teardown_test.go:310:17,false_positive
 tsouza/cerberus,cancellationownership,internal/solver/executor.go:432:19,false_positive
-tsouza/cerberus,channelpolicy,internal/solver/executor.go:394:2,false_positive
+tsouza/cerberus,channelownership,internal/solver/executor.go:394:2,false_positive
 tsouza/cerberus,resourcelifetime,test/e2e/migration/tiers/tier2-ruler/receiver/main.go:133:15,true_positive
 DeliciousBuding/metapi-go,resourcelifetime,e2e/e2e_shutdown_test.go:566:11,true_positive
 juancavallotti/octo,goroutineownership,runtime/core/internal/engine/agentclaim_test.go:289:2,false_positive

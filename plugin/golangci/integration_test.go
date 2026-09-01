@@ -94,7 +94,7 @@ func TestBackground(t *testing.T) {
 				"globalstate: mutable package state values",
 				"deferinloop: deferred cleanup runs after the loop",
 			},
-			exclude: []string{"lockorder:", "contextpolicy: test-owned goroutine"},
+			exclude: []string{"lockorder:", "testlifecycle: test-owned goroutine"},
 		},
 		{
 			name: "individual checks",
@@ -103,12 +103,12 @@ func TestBackground(t *testing.T) {
           disable:
             - lockorder
           enable-checks:
-            - contextpolicy/test-context
+            - testlifecycle/context-root
           disable-checks:
             - deferinloop/cleanup-lifetime`),
 			want: []string{
 				"globalstate: mutable package state values",
-				"contextpolicy: test-owned goroutine",
+				"testlifecycle: test-owned goroutine",
 			},
 			exclude: []string{"lockorder:", "deferinloop:"},
 		},

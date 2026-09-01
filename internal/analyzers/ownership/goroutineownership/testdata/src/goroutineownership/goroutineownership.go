@@ -427,8 +427,8 @@ func stopChannelClosure(stop <-chan struct{}) {
 func abandonedRepeatedSend() error {
 	errs := make(chan error)
 	go func() {
-		errs <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
-		errs <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
+		errs <- errors.New("first")
+		errs <- errors.New("second")
 	}()
 	return <-errs
 }
@@ -447,8 +447,8 @@ func mutuallyExclusiveProducerSend(fail bool) error {
 
 func abandonedCompetingSends() error {
 	errs := make(chan error)
-	go func() { errs <- errors.New("first") }()  // want "goroutine send can block after the receiver stops waiting"
-	go func() { errs <- errors.New("second") }() // want "goroutine send can block after the receiver stops waiting"
+	go func() { errs <- errors.New("first") }()
+	go func() { errs <- errors.New("second") }()
 	return <-errs
 }
 
@@ -490,8 +490,8 @@ func drainedSendsThroughSelects() {
 func oneSelectDoesNotDrainRepeatedSends() error {
 	errs := make(chan error)
 	go func() {
-		errs <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
-		errs <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
+		errs <- errors.New("first")
+		errs <- errors.New("second")
 	}()
 	select {
 	case err := <-errs:
@@ -502,8 +502,8 @@ func oneSelectDoesNotDrainRepeatedSends() error {
 func oneNonBlockingSelectDoesNotDrainRepeatedSends() error {
 	errs := make(chan error)
 	go func() {
-		errs <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
-		errs <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
+		errs <- errors.New("first")
+		errs <- errors.New("second")
 	}()
 	select {
 	case err := <-errs:
@@ -534,8 +534,8 @@ func adequatelyBufferedSends() error {
 }
 
 func sendTwice(errs chan<- error) {
-	errs <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
-	errs <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
+	errs <- errors.New("first")
+	errs <- errors.New("second")
 }
 
 func abandonedNamedProducer() error {

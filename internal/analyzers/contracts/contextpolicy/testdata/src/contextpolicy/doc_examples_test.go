@@ -2,7 +2,6 @@ package contextpolicy
 
 import (
 	"context"
-	"testing"
 )
 
 //gohawk:example flagged Context parameter order
@@ -28,22 +27,9 @@ func loadWithoutContext() {
 
 //gohawk:example end
 
-func waitForTestContext(ctx context.Context) { <-ctx.Done() }
-
-//gohawk:example flagged Detached test goroutine
-func TestDetachedWorker(t *testing.T) {
-	go waitForTestContext(context.Background()) // want "test-owned goroutine uses a never-cancelled context"
-}
-
-//gohawk:example end
-
 //gohawk:example ok
 func LoadUserCorrectly(ctx context.Context, id string) error {
 	return nil
-}
-
-func TestOwnedWorker(t *testing.T) {
-	go waitForTestContext(t.Context())
 }
 
 //gohawk:example end

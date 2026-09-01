@@ -19,7 +19,7 @@ These analyzers make contracts visible in Go types and APIs, where callers and t
   </a>
   <a class="analyzer-card" href="api-and-data-contracts/contextpolicy/">
     <span class="analyzer-name">contextpolicy</span>
-    <span class="analyzer-detects">Checks context placement, storage, nil use, and test ownership.</span>
+    <span class="analyzer-detects">Checks context placement, storage, and nil use.</span>
   </a>
   <a class="analyzer-card" href="api-and-data-contracts/closedomain/">
     <span class="analyzer-name">closedomain</span>
@@ -40,9 +40,17 @@ These analyzers look for work or resources whose owner cannot be identified on e
     <span class="analyzer-name">cancellationownership</span>
     <span class="analyzer-detects">Checks context and signal-derived cancellation functions are called on every return path.</span>
   </a>
-  <a class="analyzer-card" href="ownership-and-lifecycle/channelpolicy/">
-    <span class="analyzer-name">channelpolicy</span>
-    <span class="analyzer-detects">Checks channel capacity and closing ownership.</span>
+  <a class="analyzer-card" href="ownership-and-lifecycle/channelcapacity/">
+    <span class="analyzer-name">channelcapacity</span>
+    <span class="analyzer-detects">Checks that large channel buffers document their bound.</span>
+  </a>
+  <a class="analyzer-card" href="ownership-and-lifecycle/channelownership/">
+    <span class="analyzer-name">channelownership</span>
+    <span class="analyzer-detects">Checks that channel closing remains with the channel owner.</span>
+  </a>
+  <a class="analyzer-card" href="ownership-and-lifecycle/channelsafety/">
+    <span class="analyzer-name">channelsafety</span>
+    <span class="analyzer-detects">Checks channel operations for reachable use after close.</span>
   </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/deferinloop/">
     <span class="analyzer-name">deferinloop</span>
@@ -55,6 +63,10 @@ These analyzers look for work or resources whose owner cannot be identified on e
   <a class="analyzer-card" href="ownership-and-lifecycle/goroutineownership/">
     <span class="analyzer-name">goroutineownership</span>
     <span class="analyzer-detects">Checks that explicit goroutines have a recognizable join handle or lifecycle owner.</span>
+  </a>
+  <a class="analyzer-card" href="ownership-and-lifecycle/producerlifecycle/">
+    <span class="analyzer-name">producerlifecycle</span>
+    <span class="analyzer-detects">Checks that goroutine producers cannot outlive their receivers.</span>
   </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/processownership/">
     <span class="analyzer-name">processownership</span>
@@ -81,7 +93,15 @@ These analyzers cover failure modes that often survive ordinary type checking an
   </a>
   <a class="analyzer-card" href="reliability-and-safety/errorownership/">
     <span class="analyzer-name">errorownership</span>
-    <span class="analyzer-detects">Checks that errors are handled once and classified structurally.</span>
+    <span class="analyzer-detects">Checks that one function does not both log and return an error.</span>
+  </a>
+  <a class="analyzer-card" href="reliability-and-safety/errorclassification/">
+    <span class="analyzer-name">errorclassification</span>
+    <span class="analyzer-detects">Checks that native Go errors are classified structurally.</span>
+  </a>
+  <a class="analyzer-card" href="reliability-and-safety/inlineerror/">
+    <span class="analyzer-name">inlineerror</span>
+    <span class="analyzer-detects">Checks inline error declarations for mismatched conditions.</span>
   </a>
   <a class="analyzer-card" href="reliability-and-safety/evalorder/">
     <span class="analyzer-name">evalorder</span>
@@ -114,6 +134,10 @@ These analyzers cover failure modes that often survive ordinary type checking an
 These analyzers keep test failures bounded and make helper behavior visible at the call site.
 
 <div class="analyzer-grid">
+  <a class="analyzer-card" href="testing/testlifecycle/">
+    <span class="analyzer-name">testlifecycle</span>
+    <span class="analyzer-detects">Checks that test-owned asynchronous work inherits the test lifecycle.</span>
+  </a>
   <a class="analyzer-card" href="testing/testpolicy/">
     <span class="analyzer-name">testpolicy</span>
     <span class="analyzer-detects">Checks lifecycle ownership in test helpers.</span>

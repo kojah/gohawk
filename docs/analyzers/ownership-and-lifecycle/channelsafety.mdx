@@ -1,0 +1,55 @@
+---
+title: channelsafety
+description: "Do not use channels after close."
+---
+
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
+
+## What it detects
+
+Reports sends reachable after the same channel has been closed.
+
+### Checks
+
+{/* gohawk:generated-checks:start */}
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="send-after-close" /> | Reports sends reachable after a channel has been closed. |
+{/* gohawk:generated-checks:end */}
+
+## Why this is flagged
+
+Sending on a closed channel panics.
+
+## How to fix it
+
+Move the close after the final send or separate the channel lifetimes.
+
+## Examples
+
+{/* gohawk:generated-examples:start */}
+### Flagged code
+
+```go gohawk="W3siY2hlY2siOiJjaGFubmVsc2FmZXR5L3NlbmQtYWZ0ZXItY2xvc2UiLCJtZXNzYWdlIjoic2VuZCBmb2xsb3dzIGNsb3NlIG9mIGNoYW5uZWwiLCJzdGFydExpbmUiOjMsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjozLCJlbmRDb2x1bW4iOjEzfV0"
+func sendAfterClose() {
+  events := make(chan int)
+  close(events)
+  events <- 1
+}
+```
+
+### Accepted code
+
+```go
+func deferredCloseAfterSends(values []int) <-chan int {
+  events := make(chan int)
+  go func() {
+    defer close(events)
+    for _, value := range values {
+      events <- value
+    }
+  }()
+  return events
+}
+```
+{/* gohawk:generated-examples:end */}

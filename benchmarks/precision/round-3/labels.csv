@@ -2,8 +2,8 @@ repository,analyzer,position,verdict
 pancsta/asyncmachine-go,resourcelifetime,examples/arpc/client/main.go:59:7,true_positive
 pancsta/asyncmachine-go,resourcelifetime,examples/arpc/server/main.go:62:7,true_positive
 pancsta/asyncmachine-go,resourcelifetime,examples/tree_state_source/cmd_state_node.go:246:7,true_positive
-pancsta/asyncmachine-go,channelpolicy,internal/utils/utils.go:50:3,false_positive
-pancsta/asyncmachine-go,channelpolicy,pkg/machine/mach_utils.go:941:3,false_positive
+pancsta/asyncmachine-go,channelownership,internal/utils/utils.go:50:3,false_positive
+pancsta/asyncmachine-go,channelownership,pkg/machine/mach_utils.go:941:3,false_positive
 pancsta/asyncmachine-go,resourcelifetime,pkg/telemetry/prometheus/prometheus.go:573:7,true_positive
 pancsta/asyncmachine-go,resourcelifetime,tools/debugger/debugger.go:1272:16,true_positive
 pancsta/asyncmachine-go,resourcelifetime,tools/debugger/diagrams.go:959:15,true_positive
@@ -27,7 +27,7 @@ erpc/erpc,deferinloop,thirdparty/chainstack.go:277:3,true_positive
 erpc/erpc,deferinloop,thirdparty/quicknode.go:432:3,true_positive
 erpc/erpc,cancellationownership,util/initializer.go:344:22,true_positive
 erpc/erpc,cancellationownership,util/initializer.go:601:18,false_positive
-erpc/erpc,channelpolicy,util/initializer.go:335:6,false_positive
+erpc/erpc,channelownership,util/initializer.go:335:6,false_positive
 erpc/erpc,resourcelifetime,util/gzip_pool_test.go:48:14,true_positive
 gumieri/nenya,goroutineownership,cmd/nenya/main_test.go:405:2,false_positive
 gumieri/nenya,goroutineownership,cmd/nenya/main_test.go:577:2,false_positive
@@ -42,7 +42,7 @@ ferama/rospo,resourcelifetime,pkg/sshd/server.go:153:17,true_positive
 ferama/rospo,resourcelifetime,pkg/utils/keys_test.go:23:15,true_positive
 ferama/rospo,resourcelifetime,pkg/utils/keys_test.go:39:14,true_positive
 janosmiko/lfk,goroutineownership,internal/app/commands_logs_multi.go:71:2,false_positive
-janosmiko/lfk,channelpolicy,internal/k8s/informer_cache.go:670:4,false_positive
+janosmiko/lfk,channelownership,internal/k8s/informer_cache.go:670:4,false_positive
 janosmiko/lfk,goroutineownership,internal/k8s/portforward_supersede_test.go:50:2,false_positive
 janosmiko/lfk,resourcelifetime,internal/k8s/capture_test.go:190:15,true_positive
 janosmiko/lfk,processownership,internal/ui/openbrowser.go:17:9,true_positive
@@ -65,7 +65,7 @@ siemens/wfx,resourcelifetime,cmd/wfx/cmd/root/root_test.go:81:16,true_positive
 siemens/wfx,resourcelifetime,cmd/wfx/cmd/root/root_test.go:154:16,false_positive
 siemens/wfx,processownership,middleware/plugin/process_unix_test.go:40:9,false_positive
 siemens/wfx,processownership,middleware/plugin/process_unix_test.go:69:9,false_positive
-dbos-inc/dbos-transact-golang,channelpolicy,dbos/queue.go:567:5,false_positive
+dbos-inc/dbos-transact-golang,channelownership,dbos/queue.go:567:5,false_positive
 dbos-inc/dbos-transact-golang,resourcelifetime,dbos/conductor.go:1308:10,true_positive
 dbos-inc/dbos-transact-golang,deferinloop,dbos/client_test.go:996:4,true_positive
 dbos-inc/dbos-transact-golang,resourcelifetime,dbos/admin_server_test.go:57:12,false_positive

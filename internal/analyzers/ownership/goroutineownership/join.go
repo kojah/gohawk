@@ -18,7 +18,7 @@ func spawnedOwnershipValue(
 	instruction ssa.Instruction,
 ) (signal, group ssa.Value) { //nolint:ireturn // Goroutine ownership can flow through channels or synchronization values.
 	if send, ok := instruction.(*ssa.Send); ok {
-		return spawnedValueAtCall(spawn, function, closure, send.Chan), nil
+		return ssautil.SpawnedValueAtCall(spawn, function, closure, send.Chan), nil
 	}
 	common := ssautil.InstructionCall(instruction)
 	if common == nil {
@@ -27,12 +27,12 @@ func spawnedOwnershipValue(
 	switch ssautil.CallName(common) {
 	case analysisutil.BuiltinClose:
 		if len(common.Args) == 1 {
-			return spawnedValueAtCall(spawn, function, closure, common.Args[0]), nil
+			return ssautil.SpawnedValueAtCall(spawn, function, closure, common.Args[0]), nil
 		}
 	case "Done":
 		receiver := ssautil.CallReceiver(common)
 		if receiver != nil && analysisutil.NamedType(receiver.Type(), "sync", "WaitGroup") {
-			return nil, spawnedValueAtCall(spawn, function, closure, receiver)
+			return nil, ssautil.SpawnedValueAtCall(spawn, function, closure, receiver)
 		}
 	}
 	return nil, nil
@@ -262,7 +262,7 @@ func receivedChannelMatchesSignals(
 ) bool {
 	for index, parameter := range function.Params {
 		if index < len(common.Args) &&
-			passedValueAliases(channel, parameter, map[ssa.Value]bool{}) &&
+			ssautil.ValueAliases(channel, parameter, map[ssa.Value]bool{}) &&
 			ssautil.SameAsAny(common.Args[index], signals) {
 			return true
 		}
@@ -272,7 +272,7 @@ func receivedChannelMatchesSignals(
 	}
 	for index, free := range function.FreeVars {
 		if index < len(closure.Bindings) &&
-			passedValueAliases(channel, free, map[ssa.Value]bool{}) &&
+			ssautil.ValueAliases(channel, free, map[ssa.Value]bool{}) &&
 			bindingMatchesAnySignal(closure.Bindings[index], signals) {
 			return true
 		}
@@ -446,7 +446,7 @@ func closureChannelMatchesSignal(
 ) bool {
 	for index, free := range function.FreeVars {
 		if index < len(closure.Bindings) &&
-			passedValueAliases(channel, free, map[ssa.Value]bool{}) &&
+			ssautil.ValueAliases(channel, free, map[ssa.Value]bool{}) &&
 			bindingMatchesAnySignal(bindings[free], signals) {
 			return true
 		}

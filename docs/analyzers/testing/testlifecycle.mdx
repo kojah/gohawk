@@ -1,0 +1,48 @@
+---
+title: testlifecycle
+description: "Keep asynchronous test work inside the test lifecycle."
+---
+
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
+
+## What it detects
+
+Reports detached test goroutines rooted in a never-cancelled context when they observe cancellation.
+
+### Checks
+
+{/* gohawk:generated-checks:start */}
+| Check | What it detects |
+| --- | --- |
+| <CheckIdentity name="context-root" optIn /> | Reports detached test-owned goroutines rooted in a never-cancelled context. |
+
+\* Opt-in; requires explicit selection.
+{/* gohawk:generated-checks:end */}
+
+## Why this is flagged
+
+Detached work can survive test teardown and interfere with later tests.
+
+## How to fix it
+
+Use `t.Context()` or `b.Context()`, or explicitly cancel and join the worker.
+
+## Examples
+
+{/* gohawk:generated-examples:start */}
+### Flagged code
+
+```go gohawk="W3siY2hlY2siOiJ0ZXN0bGlmZWN5Y2xlL2NvbnRleHQtcm9vdCIsIm1lc3NhZ2UiOiJ0ZXN0LW93bmVkIGdvcm91dGluZSB1c2VzIGEgbmV2ZXItY2FuY2VsbGVkIGNvbnRleHQ7IHVzZSB0aGUgdGVzdGluZyBoYW5kbGUncyBDb250ZXh0KCkiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyNSwiZW5kTGluZSI6MSwiZW5kQ29sdW1uIjo0NX1d"
+func TestDetachedWorker(t *testing.T) {
+  go waitForCancellation(context.Background())
+}
+```
+
+### Accepted code
+
+```go
+func TestOwnedWorker(t *testing.T) {
+  go waitForCancellation(t.Context())
+}
+```
+{/* gohawk:generated-examples:end */}
