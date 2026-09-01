@@ -60,6 +60,36 @@ type ignoredExternalRecord struct {
 	Code string `json:"-"` // want "field Code uses a closed string domain; define a named string type and constants" Code:"closedStringDomain"
 }
 
+type externalEnvelope struct {
+	Results []externalResult `json:"results"`
+}
+
+type externalResult struct {
+	Before struct {
+		Drives []*externalDrive `json:"drives"`
+	} `json:"before"`
+}
+
+type externalDrive struct {
+	State string `json:"state"`
+}
+
+type ignoredExternalEnvelope struct {
+	Result ignoredNestedResult `json:"-"`
+}
+
+type ignoredNestedResult struct {
+	State string `json:"state"` // want "field State uses a closed string domain; define a named string type and constants" State:"closedStringDomain"
+}
+
+type localEnvelope struct {
+	Results []localNestedResult `json:"results"`
+}
+
+type localNestedResult struct {
+	Status string `json:"status"` // want "field Status uses a closed string domain; define a named string type and constants" Status:"closedStringDomain"
+}
+
 type union interface{ decisionKind() }
 
 type approveDecision struct {
@@ -190,6 +220,34 @@ func decodeIgnored(data []byte) ignoredExternalRecord {
 
 func classifyIgnored(value ignoredExternalRecord) bool {
 	return value.Code == "known_one" || value.Code == "known_two"
+}
+
+func decodeExternalEnvelope(data []byte) externalEnvelope {
+	value := externalEnvelope{}
+	_ = stdjson.Unmarshal(data, &value)
+	return value
+}
+
+func classifyExternalDrive(value externalDrive) bool {
+	return value.State == "online" || value.State == "offline"
+}
+
+func decodeIgnoredEnvelope(data []byte) ignoredExternalEnvelope {
+	value := ignoredExternalEnvelope{}
+	_ = stdjson.Unmarshal(data, &value)
+	return value
+}
+
+func classifyIgnoredNested(value ignoredNestedResult) bool {
+	return value.State == "online" || value.State == "offline"
+}
+
+func localNested(first bool) localEnvelope {
+	status := "ready"
+	if !first {
+		status = "done"
+	}
+	return localEnvelope{Results: []localNestedResult{{Status: status}}}
 }
 
 func unionValue(approve bool) union {
