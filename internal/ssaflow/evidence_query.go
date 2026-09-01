@@ -1,0 +1,29 @@
+package ssaflow
+
+import "golang.org/x/tools/go/ssa"
+
+// EvidenceQuery memoizes related SSA proof requests for one analyzer scope.
+// Its zero value is ready to use and is intentionally not safe for concurrent
+// use; each analyzer function owns its query.
+type EvidenceQuery struct {
+	identities  map[identityEvidenceKey]IdentityProof
+	completions map[completionEvidenceKey]CompletionProof
+	transfers   map[transferEvidenceKey]OwnershipTransferProof
+}
+
+type identityEvidenceKey struct {
+	leftValue, leftRoot, rightValue, rightRoot ssa.Value
+}
+
+type completionEvidenceKey struct {
+	instruction ssa.Instruction
+	target      ssa.Value
+	methods     string
+	modes       CompletionMode
+}
+
+type transferEvidenceKey struct {
+	instruction ssa.Instruction
+	value       ssa.Value
+	modes       OwnershipTransferMode
+}
