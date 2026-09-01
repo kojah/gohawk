@@ -98,7 +98,7 @@ func TestForbiddenTerminationIdentity(t *testing.T) {
 	logPackage := types.NewPackage("log", "log")
 	osPackage := types.NewPackage("os", "os")
 	applicationPackage := types.NewPackage("example.com/application", "application")
-	signature := types.NewSignature(nil, nil, nil, false)
+	signature := types.NewSignatureType(nil, nil, nil, nil, nil, false)
 	for name, test := range map[string]struct {
 		object types.Object
 		want   bool
