@@ -119,7 +119,7 @@ func callInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Va
 	defer delete(seen, common.StaticCallee())
 	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
 		common := InstructionCall(candidate)
-		return common != nil && AliasesValue(common.Value, parameter) || callInvokesArgumentOnEveryReturn(candidate, parameter, seen)
+		return common != nil && SameValue(common.Value, parameter) || callInvokesArgumentOnEveryReturn(candidate, parameter, seen)
 	})
 }
 
@@ -153,7 +153,7 @@ func callOwnsArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value
 		return false
 	}
 	for index, argument := range common.Args {
-		if index >= len(callee.Params) || !AliasesValue(argument, target) && !ValueOwnsValue(argument, target) {
+		if index >= len(callee.Params) || !SameValue(argument, target) && !ValueContainsValue(argument, target) {
 			continue
 		}
 		parameter := callee.Params[index]
@@ -201,12 +201,12 @@ func CapturedBindingValue(binding ssa.Value) ssa.Value { //nolint:ireturn // Sto
 	return binding
 }
 
-// CapturedBindingAliases reports whether a closure binding directly contains
+// CapturedBindingMatches reports whether a closure binding directly contains
 // target or refers to an addressable local that has contained target. Unlike
 // CapturedBindingValue, it handles variables reassigned before a callback is
 // installed without depending on referrer iteration order.
-func CapturedBindingAliases(binding, target ssa.Value) bool {
-	if AliasesValue(binding, target) {
+func CapturedBindingMatches(binding, target ssa.Value) bool {
+	if SameValue(binding, target) {
 		return true
 	}
 	if binding == nil || binding.Referrers() == nil {
@@ -214,18 +214,21 @@ func CapturedBindingAliases(binding, target ssa.Value) bool {
 	}
 	for _, reference := range *binding.Referrers() {
 		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == binding && AliasesValue(store.Val, target) {
+		if ok && store.Addr == binding && SameValue(store.Val, target) {
 			return true
 		}
 	}
 	return false
 }
 
-// AliasesValue reports conservative SSA identity through common conversion and storage forms.
-func AliasesValue(value, target ssa.Value) bool {
+// SameValue reports SSA identity through conversions, phis, and local
+// load/store pairs. It deliberately does not equate a field or index with its
+// containing aggregate; callers needing that relationship use ValueDerivesFrom
+// or ValueContainsValue instead.
+func SameValue(value, target ssa.Value) bool {
 	// SSA removes ordinary assignments, but captured locals, embedded fields,
 	// and interface conversions still need explicit identity recovery.
-	return aliasesValueSeen(value, target, map[ssa.Value]bool{}) || aliasesValueSeen(target, value, map[ssa.Value]bool{})
+	return sameValueSeen(value, target, map[ssa.Value]bool{}) || sameValueSeen(target, value, map[ssa.Value]bool{})
 }
 
 // DefinitelyNil reports whether every represented SSA value is nil.
@@ -293,12 +296,12 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 	for _, block := range function.Blocks {
 		for _, candidate := range block.Instrs {
 			for index, free := range function.FreeVars {
-				if index < len(closure.Bindings) && CapturedBindingAliases(closure.Bindings[index], target) && CallInvokesArgumentOnEveryReturn(candidate, free) {
+				if index < len(closure.Bindings) && CapturedBindingMatches(closure.Bindings[index], target) && CallInvokesArgumentOnEveryReturn(candidate, free) {
 					return true
 				}
 			}
 			for index, parameter := range function.Params {
-				if common != nil && index < len(common.Args) && AliasesValue(common.Args[index], target) && CallInvokesArgumentOnEveryReturn(candidate, parameter) {
+				if common != nil && index < len(common.Args) && SameValue(common.Args[index], target) && CallInvokesArgumentOnEveryReturn(candidate, parameter) {
 					return true
 				}
 			}
@@ -328,12 +331,12 @@ func DeferredClosurePassesValueToNamedCall(instruction ssa.Instruction, target s
 			}
 			for _, argument := range called.Args {
 				for index, free := range function.FreeVars {
-					if index < len(closure.Bindings) && ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) && CapturedBindingAliases(closure.Bindings[index], target) {
+					if index < len(closure.Bindings) && ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) && CapturedBindingMatches(closure.Bindings[index], target) {
 						return true
 					}
 				}
 				for index, parameter := range function.Params {
-					if common != nil && index < len(common.Args) && ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) && AliasesValue(common.Args[index], target) {
+					if common != nil && index < len(common.Args) && ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) && SameValue(common.Args[index], target) {
 						return true
 					}
 				}
@@ -393,7 +396,7 @@ func valueCallsMethod(value ssa.Value, method string, target ssa.Value, seen map
 						continue
 					}
 					for index, free := range function.FreeVars {
-						if index < len(closure.Bindings) && AliasesValue(common.Value, free) && valueCallsMethod(closure.Bindings[index], method, target, seen) {
+						if index < len(closure.Bindings) && ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) && valueCallsMethod(closure.Bindings[index], method, target, seen) {
 							return true
 						}
 					}
@@ -563,7 +566,7 @@ func CallStartsClosureCallingMethodOnArgument(instruction ssa.Instruction, metho
 	}
 	callee := common.StaticCallee()
 	for index, argument := range common.Args {
-		if index >= len(callee.Params) || !AliasesValue(argument, target) && !ValueOwnsValue(argument, target) {
+		if index >= len(callee.Params) || !SameValue(argument, target) && !ValueContainsValue(argument, target) {
 			continue
 		}
 		for _, block := range callee.Blocks {
@@ -621,7 +624,8 @@ func calledFunction(instruction ssa.Instruction) (*ssa.CallCommon, *ssa.MakeClos
 func calledReceiverMatches(common *ssa.CallCommon, closure *ssa.MakeClosure, function *ssa.Function, receiver, target ssa.Value) bool {
 	if closure != nil {
 		for index, free := range function.FreeVars {
-			if AliasesValue(receiver, free) && index < len(closure.Bindings) && CapturedBindingAliases(closure.Bindings[index], target) {
+			if ValueDerivesFrom(receiver, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) &&
+				(CapturedBindingMatches(closure.Bindings[index], target) || SameAccessPath(receiver, free, target, closure.Bindings[index])) {
 				return true
 			}
 		}
@@ -630,14 +634,14 @@ func calledReceiverMatches(common *ssa.CallCommon, closure *ssa.MakeClosure, fun
 		return false
 	}
 	for index, parameter := range function.Params {
-		if AliasesValue(receiver, parameter) && index < len(common.Args) && AliasesValue(common.Args[index], target) {
+		if ValueDerivesFrom(receiver, parameter, map[ssa.Value]bool{}) && index < len(common.Args) && SameValue(common.Args[index], target) {
 			return true
 		}
 	}
 	return false
 }
 
-func aliasesValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
+func sameValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil || target == nil || seen[value] {
 		return false
 	}
@@ -647,31 +651,30 @@ func aliasesValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 	seen[value] = true
 	switch typed := value.(type) {
 	case *ssa.ChangeInterface:
-		return aliasesValueSeen(typed.X, target, seen)
+		return sameValueSeen(typed.X, target, seen)
 	case *ssa.ChangeType:
-		return aliasesValueSeen(typed.X, target, seen)
+		return sameValueSeen(typed.X, target, seen)
 	case *ssa.Convert:
-		return aliasesValueSeen(typed.X, target, seen)
+		return sameValueSeen(typed.X, target, seen)
 	case *ssa.MakeInterface:
-		return aliasesValueSeen(typed.X, target, seen)
+		return sameValueSeen(typed.X, target, seen)
 	case *ssa.FieldAddr:
-		return aliasesValueSeen(typed.X, target, seen)
+		other, ok := target.(*ssa.FieldAddr)
+		return ok && typed.Field == other.Field && sameValueSeen(typed.X, other.X, seen)
 	case *ssa.IndexAddr:
-		return aliasesValueSeen(typed.X, target, seen)
+		other, ok := target.(*ssa.IndexAddr)
+		return ok && sameValueSeen(typed.X, other.X, seen) && SameValue(typed.Index, other.Index)
 	case *ssa.UnOp:
 		if typed.Op != token.MUL {
 			return false
 		}
-		if other, ok := target.(*ssa.UnOp); ok && other.Op == token.MUL && aliasesValueSeen(typed.X, other.X, seen) {
+		if other, ok := target.(*ssa.UnOp); ok && other.Op == token.MUL && sameValueSeen(typed.X, other.X, seen) {
 			return true
 		}
-		if aliasesValueSeen(typed.X, target, seen) {
-			return true
-		}
-		return storedValueAliases(typed.X, target, seen)
+		return storedValueMatches(typed.X, target, seen)
 	case *ssa.Phi:
 		for _, edge := range typed.Edges {
-			if aliasesValueSeen(edge, target, seen) {
+			if sameValueSeen(edge, target, seen) {
 				return true
 			}
 		}
@@ -679,22 +682,22 @@ func aliasesValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 	return false
 }
 
-func storedValueAliases(address, target ssa.Value, seen map[ssa.Value]bool) bool {
+func storedValueMatches(address, target ssa.Value, seen map[ssa.Value]bool) bool {
 	if address == nil || address.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *address.Referrers() {
 		switch typed := reference.(type) {
 		case *ssa.Store:
-			if typed.Addr == address && aliasesValueSeen(typed.Val, target, seen) {
+			if typed.Addr == address && sameValueSeen(typed.Val, target, seen) {
 				return true
 			}
 		case *ssa.FieldAddr:
-			if storedValueAliases(typed, target, seen) {
+			if storedValueMatches(typed, target, seen) {
 				return true
 			}
 		case *ssa.IndexAddr:
-			if storedValueAliases(typed, target, seen) {
+			if storedValueMatches(typed, target, seen) {
 				return true
 			}
 		}

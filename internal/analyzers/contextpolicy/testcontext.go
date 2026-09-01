@@ -179,7 +179,7 @@ func functionObservesCancellation(function *ssa.Function, value ssa.Value, seen 
 				continue
 			}
 			name := ssautil.CallName(common)
-			if (name == "Done" || name == "Err") && ssautil.AliasesValue(ssautil.CallReceiver(common), value) {
+			if (name == "Done" || name == "Err") && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), value, map[ssa.Value]bool{}) {
 				return true
 			}
 			callee := common.StaticCallee()
@@ -187,7 +187,7 @@ func functionObservesCancellation(function *ssa.Function, value ssa.Value, seen 
 				continue
 			}
 			for index, argument := range common.Args {
-				if index < len(callee.Params) && ssautil.AliasesValue(argument, value) && functionObservesCancellation(callee, callee.Params[index], seen) {
+				if index < len(callee.Params) && ssautil.SameValue(argument, value) && functionObservesCancellation(callee, callee.Params[index], seen) {
 					return true
 				}
 			}

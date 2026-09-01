@@ -2,8 +2,10 @@ package ssautil
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
+	"strconv"
 
 	"github.com/kojah/gohawk/analysisutil"
 	"golang.org/x/tools/go/analysis"
@@ -78,30 +80,30 @@ func ValuesShareErrorSource(left, right ssa.Value) bool {
 	return false
 }
 
-// AliasesAny reports whether value aliases any candidate.
-func AliasesAny(value ssa.Value, candidates []ssa.Value) bool {
+// SameAsAny reports whether value aliases any candidate.
+func SameAsAny(value ssa.Value, candidates []ssa.Value) bool {
 	for _, candidate := range candidates {
-		if AliasesValue(value, candidate) {
+		if SameValue(value, candidate) {
 			return true
 		}
 	}
 	return false
 }
 
-// ReturnedAliasesAny reports whether a return transfers any candidate value.
-func ReturnedAliasesAny(returned *ssa.Return, candidates []ssa.Value) bool {
+// ReturnedSameAsAny reports whether a return transfers any candidate value.
+func ReturnedSameAsAny(returned *ssa.Return, candidates []ssa.Value) bool {
 	for _, result := range returned.Results {
-		if AliasesAny(result, candidates) {
+		if SameAsAny(result, candidates) {
 			return true
 		}
 	}
 	return false
 }
 
-// ReturnAliasesValue reports whether a return transfers value.
-func ReturnAliasesValue(returned *ssa.Return, value ssa.Value) bool {
+// ReturnSameValue reports whether a return transfers value.
+func ReturnSameValue(returned *ssa.Return, value ssa.Value) bool {
 	for _, result := range returned.Results {
-		if AliasesValue(result, value) {
+		if SameValue(result, value) {
 			return true
 		}
 	}
@@ -131,7 +133,7 @@ func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil || source == nil || seen[value] {
 		return false
 	}
-	if AliasesValue(value, source) {
+	if SameValue(value, source) {
 		return true
 	}
 	seen[value] = true
@@ -153,6 +155,75 @@ func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 		}
 	}
 	return false
+}
+
+// SameAccessPath reports whether left and right select the same sequence of
+// fields and constant indexes from their respective roots. It maps a closure's
+// free-variable access back to the captured binding without equating either
+// selected field with the aggregate that contains it.
+func SameAccessPath(left, leftRoot, right, rightRoot ssa.Value) bool {
+	leftPath, leftOK := accessPath(left, leftRoot, map[ssa.Value]bool{})
+	rightPath, rightOK := accessPath(right, rightRoot, map[ssa.Value]bool{})
+	if !leftOK || !rightOK || len(leftPath) != len(rightPath) {
+		return false
+	}
+	for index := range leftPath {
+		if leftPath[index] != rightPath[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func accessPath(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool) {
+	if value == nil || root == nil || seen[value] {
+		return nil, false
+	}
+	if SameValue(value, root) {
+		return nil, true
+	}
+	seen[value] = true
+	switch typed := value.(type) {
+	case *ssa.FieldAddr:
+		path, ok := accessPath(typed.X, root, seen)
+		return appendAccess(path, "field:"+strconv.Itoa(typed.Field), ok)
+	case *ssa.IndexAddr:
+		index, ok := constantIndex(typed.Index)
+		if !ok {
+			return nil, false
+		}
+		path, baseOK := accessPath(typed.X, root, seen)
+		return appendAccess(path, "index:"+index, baseOK)
+	case *ssa.UnOp:
+		if typed.Op == token.MUL && SameValue(typed.X, root) {
+			return nil, true
+		}
+		return accessPath(typed.X, root, seen)
+	case *ssa.ChangeInterface:
+		return accessPath(typed.X, root, seen)
+	case *ssa.ChangeType:
+		return accessPath(typed.X, root, seen)
+	case *ssa.Convert:
+		return accessPath(typed.X, root, seen)
+	case *ssa.MakeInterface:
+		return accessPath(typed.X, root, seen)
+	}
+	return nil, false
+}
+
+func appendAccess(path []string, component string, ok bool) ([]string, bool) {
+	if !ok {
+		return nil, false
+	}
+	return append(path, component), true
+}
+
+func constantIndex(value ssa.Value) (string, bool) {
+	literal, ok := value.(*ssa.Const)
+	if !ok || literal.Value == nil || literal.Value.Kind() != constant.Int {
+		return "", false
+	}
+	return literal.Value.ExactString(), true
 }
 
 // SuccessBranch reports whether successor is the branch where errorValue is

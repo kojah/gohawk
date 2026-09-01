@@ -197,9 +197,5 @@ func trustedSanitizer(common *ssa.CallCommon, configured map[string]bool) bool {
 		return false
 	}
 	qualified := ssautil.CallPackage(common) + "." + ssautil.CallName(common)
-	if configured[qualified] {
-		return true
-	}
-	name := strings.ToLower(ssautil.CallName(common))
-	return strings.Contains(name, "validate") || strings.Contains(name, "sanitize") || strings.Contains(name, "escape") || strings.Contains(name, "confine")
+	return configured[qualified]
 }

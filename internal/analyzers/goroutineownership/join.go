@@ -38,11 +38,11 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 		return true
 	}
 	if receive, ok := instruction.(*ssa.UnOp); ok && receive.Op == token.ARROW {
-		return ssautil.AliasesAny(receive.X, signals)
+		return ssautil.SameAsAny(receive.X, signals)
 	}
 	if selection, ok := instruction.(*ssa.Select); ok {
 		for _, state := range selection.States {
-			if state.Dir == types.RecvOnly && ssautil.AliasesAny(state.Chan, signals) {
+			if state.Dir == types.RecvOnly && ssautil.SameAsAny(state.Chan, signals) {
 				return true
 			}
 		}
@@ -54,7 +54,7 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 	if strings.Contains(strings.ToLower(ssautil.CallName(common)), "eventually") && eventuallyObservesAny(common, signals) {
 		return true
 	}
-	if ssautil.CallName(common) == "Wait" && ssautil.AliasesAny(ssautil.CallReceiver(common), groups) {
+	if ssautil.CallName(common) == "Wait" && ssautil.SameAsAny(ssautil.CallReceiver(common), groups) {
 		return true
 	}
 	lower := strings.ToLower(ssautil.CallName(common))
@@ -62,7 +62,7 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 		return false
 	}
 	for _, argument := range common.Args {
-		if ssautil.AliasesAny(argument, signals) || ssautil.AliasesAny(argument, groups) {
+		if ssautil.SameAsAny(argument, signals) || ssautil.SameAsAny(argument, groups) {
 			return true
 		}
 	}
@@ -97,7 +97,7 @@ func eventuallyObservesAny(common *ssa.CallCommon, signals []ssa.Value) bool {
 						if freeIndex >= len(closure.Bindings) || !ssautil.ValueDerivesFrom(passed, free, map[ssa.Value]bool{}) {
 							continue
 						}
-						if ssautil.AliasesAny(ssautil.CapturedBindingValue(closure.Bindings[freeIndex]), signals) {
+						if ssautil.SameAsAny(ssautil.CapturedBindingValue(closure.Bindings[freeIndex]), signals) {
 							return true
 						}
 					}
@@ -166,12 +166,12 @@ func callReceivesAny(instruction ssa.Instruction, signals []ssa.Value) bool {
 	}
 	usesSignal := false
 	for _, argument := range common.Args {
-		usesSignal = usesSignal || ssautil.AliasesAny(argument, signals)
+		usesSignal = usesSignal || ssautil.SameAsAny(argument, signals)
 	}
 	if closure != nil {
 		for _, binding := range closure.Bindings {
 			for _, signal := range signals {
-				usesSignal = usesSignal || ssautil.CapturedBindingAliases(binding, signal)
+				usesSignal = usesSignal || ssautil.CapturedBindingMatches(binding, signal)
 			}
 		}
 	}
@@ -195,14 +195,14 @@ func callReceivesAny(instruction ssa.Instruction, signals []ssa.Value) bool {
 			}
 			for _, channel := range channels {
 				for index, parameter := range function.Params {
-					if passedValueAliases(channel, parameter, map[ssa.Value]bool{}) && index < len(common.Args) && ssautil.AliasesAny(common.Args[index], signals) {
+					if passedValueAliases(channel, parameter, map[ssa.Value]bool{}) && index < len(common.Args) && ssautil.SameAsAny(common.Args[index], signals) {
 						return true
 					}
 				}
 				for index, free := range function.FreeVars {
 					if closure != nil && passedValueAliases(channel, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) {
 						for _, signal := range signals {
-							if ssautil.CapturedBindingAliases(closure.Bindings[index], signal) {
+							if ssautil.CapturedBindingMatches(closure.Bindings[index], signal) {
 								return true
 							}
 						}
@@ -257,8 +257,26 @@ func valueReceivesAnyWithBindings(value ssa.Value, signals []ssa.Value, seen map
 				}
 				common := ssautil.InstructionCall(instruction)
 				if common != nil {
+					if callee := common.StaticCallee(); callee != nil {
+						for argumentIndex, argument := range common.Args {
+							if argumentIndex >= len(callee.Params) || !functionReceivesParameter(callee, callee.Params[argumentIndex], map[*ssa.Function]bool{}) {
+								continue
+							}
+							for freeIndex, free := range function.FreeVars {
+								if freeIndex >= len(typed.Bindings) || !ssautil.ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) {
+									continue
+								}
+								binding := resolveClosureBinding(bindings[free], bindings)
+								for _, signal := range signals {
+									if ssautil.SameValue(binding, signal) || ssautil.CapturedBindingMatches(binding, signal) {
+										return true
+									}
+								}
+							}
+						}
+					}
 					for index, free := range function.FreeVars {
-						if index < len(typed.Bindings) && ssautil.AliasesValue(common.Value, free) && valueReceivesAnyWithBindings(bindings[free], signals, seen, bindings) {
+						if index < len(typed.Bindings) && ssautil.ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) && valueReceivesAnyWithBindings(bindings[free], signals, seen, bindings) {
 							return true
 						}
 					}
@@ -282,7 +300,7 @@ func valueReceivesAnyWithBindings(value ssa.Value, signals []ssa.Value, seen map
 							continue
 						}
 						for _, signal := range signals {
-							if ssautil.CapturedBindingAliases(bindings[free], signal) {
+							if ssautil.CapturedBindingMatches(bindings[free], signal) {
 								return true
 							}
 						}

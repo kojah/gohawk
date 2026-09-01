@@ -394,8 +394,9 @@ func concreteMutexReceiver(value ssa.Value, seen map[ssa.Value]bool) ssa.Value {
 }
 
 func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
+	candidateIdentity := lockIdentity(candidate, map[ssa.Value]bool{})
 	for _, value := range values {
-		if ssautil.AliasesValue(value, candidate) {
+		if ssautil.SameValue(value, candidate) || candidateIdentity != "" && lockIdentity(value, map[ssa.Value]bool{}) == candidateIdentity {
 			return values
 		}
 	}

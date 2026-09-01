@@ -22,7 +22,7 @@ func ClosureOwnsValue(instruction ssa.Instruction, value ssa.Value) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if CapturedBindingAliases(binding, value) {
+		if CapturedBindingMatches(binding, value) {
 			return true
 		}
 	}
@@ -31,7 +31,7 @@ func ClosureOwnsValue(instruction ssa.Instruction, value ssa.Value) bool {
 
 func closureCallsValue(closure *ssa.MakeClosure, target ssa.Value) bool {
 	return closureCallsCapturedValue(closure, func(binding ssa.Value) bool {
-		return CapturedBindingAliases(binding, target)
+		return CapturedBindingMatches(binding, target)
 	})
 }
 
@@ -44,7 +44,7 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 		for _, candidate := range block.Instrs {
 			if nested, ok := candidate.(*ssa.MakeClosure); ok && closureCallsCapturedValue(nested, func(binding ssa.Value) bool {
 				for index, free := range function.FreeVars {
-					if index < len(closure.Bindings) && CapturedBindingAliases(binding, free) && owns(closure.Bindings[index]) {
+					if index < len(closure.Bindings) && CapturedBindingMatches(binding, free) && owns(closure.Bindings[index]) {
 						return true
 					}
 				}
@@ -57,7 +57,7 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 				continue
 			}
 			for index, free := range function.FreeVars {
-				if AliasesValue(common.Value, free) && index < len(closure.Bindings) && owns(closure.Bindings[index]) {
+				if ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) && owns(closure.Bindings[index]) {
 					return true
 				}
 			}
@@ -69,7 +69,7 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 // StoresValueInField reports whether instruction transfers value into a struct field.
 func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !AliasesValue(store.Val, value) {
+	if !ok || !SameValue(store.Val, value) {
 		return false
 	}
 	_, ok = store.Addr.(*ssa.FieldAddr)
@@ -81,7 +81,7 @@ func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 // `*supervisor.cancel = cancel`.
 func StoresValueThroughExternalFieldPointer(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !AliasesValue(store.Val, value) {
+	if !ok || !SameValue(store.Val, value) {
 		return false
 	}
 	load, ok := store.Addr.(*ssa.UnOp)
@@ -96,7 +96,7 @@ func StoresValueThroughExternalFieldPointer(instruction ssa.Instruction, value s
 // package-owned storage.
 func StoresValueInGlobal(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !AliasesValue(store.Val, value) {
+	if !ok || !SameValue(store.Val, value) {
 		return false
 	}
 	_, ok = store.Addr.(*ssa.Global)
@@ -119,7 +119,7 @@ func StoresValueInEnclosingScope(instruction ssa.Instruction, value ssa.Value) b
 // SendsValue reports whether instruction hands value to a channel receiver.
 func SendsValue(instruction ssa.Instruction, value ssa.Value) bool {
 	send, ok := instruction.(*ssa.Send)
-	return ok && AliasesValue(send.X, value)
+	return ok && SameValue(send.X, value)
 }
 
 // StoresOwnerOfValueInField reports whether instruction stores a callback or
@@ -143,38 +143,38 @@ func StoresOwnerOfValueInExternalField(instruction ssa.Instruction, value ssa.Va
 		return false
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
-	return ok && ExternallyOwnedValue(field.X) && ValueOwnsValue(store.Val, value)
+	return ok && ExternallyOwnedValue(field.X) && ValueContainsValue(store.Val, value)
 }
 
 // StoresValueInEscapingField reports whether value is installed in a field of
 // an owner that already outlives the function or is subsequently transferred.
 func StoresValueInEscapingField(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !AliasesValue(store.Val, value) {
+	if !ok || !SameValue(store.Val, value) {
 		return false
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
 	return ok && (ExternallyOwnedValue(field.X) || valueTransferred(field.X, map[ssa.Value]bool{}))
 }
 
-// ValueOwnsValue reports whether owner is an aggregate or closure that
+// ValueContainsValue reports whether owner is an aggregate or closure that
 // transitively contains value.
-func ValueOwnsValue(owner, value ssa.Value) bool {
-	return valueOwnsValue(owner, value, map[ssa.Value]bool{}) || aggregateStoresValue(owner, value, map[ssa.Value]bool{})
+func ValueContainsValue(owner, value ssa.Value) bool {
+	return valueOwnsValue(owner, value, map[ssa.Value]bool{}) || aggregateStoresValue(owner, value, map[ownershipPair]bool{})
 }
 
 func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
 	if owner == nil || seen[owner] {
 		return false
 	}
-	if AliasesValue(owner, value) {
+	if SameValue(owner, value) {
 		return true
 	}
 	seen[owner] = true
 	switch typed := owner.(type) {
 	case *ssa.MakeClosure:
 		for _, binding := range typed.Bindings {
-			if CapturedBindingAliases(binding, value) || valueOwnsValue(CapturedBindingValue(binding), value, seen) {
+			if CapturedBindingMatches(binding, value) || valueOwnsValue(CapturedBindingValue(binding), value, seen) {
 				return true
 			}
 		}
@@ -199,13 +199,13 @@ func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bo
 	}
 	usesValue := false
 	for _, argument := range call.Common().Args {
-		usesValue = usesValue || AliasesValue(argument, value)
+		usesValue = usesValue || SameValue(argument, value)
 	}
 	if !usesValue || call.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *call.Referrers() {
-		if deferred, ok := reference.(*ssa.Defer); ok && AliasesValue(deferred.Common().Value, call) {
+		if deferred, ok := reference.(*ssa.Defer); ok && SameValue(deferred.Common().Value, call) {
 			return true
 		}
 		result, ok := reference.(ssa.Value)
@@ -214,7 +214,7 @@ func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bo
 		}
 		for _, use := range *result.Referrers() {
 			deferred, ok := use.(*ssa.Defer)
-			if ok && AliasesValue(deferred.Common().Value, result) {
+			if ok && SameValue(deferred.Common().Value, result) {
 				return true
 			}
 		}
@@ -226,7 +226,7 @@ func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bo
 // map that belongs to a caller, receiver, closure, or package owner.
 func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool {
 	update, ok := instruction.(*ssa.MapUpdate)
-	return ok && AliasesValue(update.Value, value) && ExternallyOwnedValue(update.Map)
+	return ok && SameValue(update.Value, value) && ExternallyOwnedValue(update.Map)
 }
 
 // ExternallyOwnedValue reports whether value comes from storage that outlives
@@ -290,7 +290,7 @@ func ClosureCapturesValue(instruction ssa.Instruction, value ssa.Value) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if CapturedBindingAliases(binding, value) {
+		if CapturedBindingMatches(binding, value) {
 			return true
 		}
 	}
@@ -310,7 +310,7 @@ func valueTransferred(value ssa.Value, seen map[ssa.Value]bool) bool {
 			// Fluent builders preserve an escaping owner through same-typed links.
 			// https://github.com/erpc/erpc/blob/2b7e807d7d147422cf47c473153eaf9979afdcc9/clients/http_json_rpc_client.go#L755-L771
 			receiver := CallReceiver(typed.Common())
-			if receiver != nil && AliasesValue(receiver, value) && types.Identical(typed.Type(), value.Type()) && valueTransferred(typed, seen) {
+			if receiver != nil && SameValue(receiver, value) && types.Identical(typed.Type(), value.Type()) && valueTransferred(typed, seen) {
 				return true
 			}
 		case *ssa.Store:
@@ -363,7 +363,7 @@ func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) boo
 	}
 	usesValue := false
 	for _, argument := range call.Common().Args {
-		usesValue = usesValue || AliasesValue(argument, value)
+		usesValue = usesValue || SameValue(argument, value)
 	}
 	return usesValue && valueStoredInField(call, map[ssa.Value]bool{})
 }
@@ -417,7 +417,7 @@ func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa
 	}
 	callee := common.StaticCallee()
 	for index, argument := range common.Args {
-		if index >= len(callee.Params) || !ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !ValueOwnsValue(argument, value) {
+		if index >= len(callee.Params) || !ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !ValueContainsValue(argument, value) {
 			continue
 		}
 		for _, block := range callee.Blocks {
@@ -444,7 +444,7 @@ func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Valu
 		return false
 	}
 	for index, argument := range common.Args {
-		if index == 0 || index >= len(callee.Params) || !ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !ValueOwnsValue(argument, value) {
+		if index == 0 || index >= len(callee.Params) || !ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !ValueContainsValue(argument, value) {
 			continue
 		}
 		parameter := callee.Params[index]
@@ -464,6 +464,12 @@ func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Valu
 	return false
 }
 
+// ValueEscapes reports whether value is transferred beyond its current
+// function through a return, store, send, or escaping closure.
+func ValueEscapes(value ssa.Value) bool {
+	return valueTransferred(value, map[ssa.Value]bool{})
+}
+
 // CallTransfersArgumentToLifecycleOwner recognizes cross-package boundaries
 // when the consumed value is attached to an escaping object with an explicit
 // cleanup lifecycle. Source bodies are not available to buildssa for imports,
@@ -477,7 +483,7 @@ func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ss
 	common := call.Common()
 	usesValue := false
 	for _, argument := range common.Args {
-		usesValue = usesValue || AliasesValue(argument, value) || ValueOwnsValue(argument, value)
+		usesValue = usesValue || SameValue(argument, value) || ValueContainsValue(argument, value)
 	}
 	name := strings.ToLower(CallName(common))
 	if !usesValue && strings.HasPrefix(name, "with") {
@@ -488,12 +494,12 @@ func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ss
 	if !usesValue {
 		return false
 	}
-	if hasLifecycleMethod(call) && (valueTransferred(call, map[ssa.Value]bool{}) || valueLifecycleUsed(call)) {
+	if hasLifecycleMethod(call) && (valueTransferred(call, map[ssa.Value]bool{}) || valueLifecycleUsed(call, instruction)) {
 		return true
 	}
 	receiver := CallReceiver(common)
 	mutator := strings.HasPrefix(name, "set") || strings.HasPrefix(name, "add") || strings.HasPrefix(name, "register") || strings.HasPrefix(name, "own") || strings.HasPrefix(name, "with")
-	if mutator && hasLifecycleMethod(receiver) && (ExternallyOwnedValue(receiver) || valueTransferred(receiver, map[ssa.Value]bool{}) || valueLifecycleUsed(receiver)) {
+	if mutator && hasLifecycleMethod(receiver) && (ExternallyOwnedValue(receiver) || valueTransferred(receiver, map[ssa.Value]bool{}) || valueLifecycleUsed(receiver, instruction)) {
 		return true
 	}
 	return false
@@ -513,12 +519,15 @@ func hasLifecycleMethod(value ssa.Value) bool {
 	return false
 }
 
-func valueLifecycleUsed(value ssa.Value) bool {
+func valueLifecycleUsed(value ssa.Value, after ssa.Instruction) bool {
 	if value == nil || value.Parent() == nil {
 		return false
 	}
 	for _, block := range value.Parent().Blocks {
 		for _, instruction := range block.Instrs {
+			if !InstructionMayFollow(after, instruction) {
+				continue
+			}
 			common := InstructionCall(instruction)
 			if common == nil || !ValueDerivesFrom(CallReceiver(common), value, map[ssa.Value]bool{}) {
 				continue
@@ -536,22 +545,32 @@ func valueLifecycleUsed(value ssa.Value) bool {
 // in one of its fields. This recognizes constructors that transfer cleanup to
 // a newly returned owner instead of returning the resource itself.
 func ReturnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
+	return returnedValueOwnsValue(returned, value, map[ownershipPair]bool{})
+}
+
+type ownershipPair struct {
+	aggregate ssa.Value
+	value     ssa.Value
+}
+
+func returnedValueOwnsValue(returned *ssa.Return, value ssa.Value, seen map[ownershipPair]bool) bool {
 	for _, result := range returned.Results {
-		if AliasesValue(result, value) || aggregateStoresValue(result, value, map[ssa.Value]bool{}) {
+		if SameValue(result, value) || aggregateStoresValue(result, value, seen) {
 			return true
 		}
 	}
 	return false
 }
 
-func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) bool {
-	if aggregate == nil || seen[aggregate] {
+func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]bool) bool {
+	pair := ownershipPair{aggregate: aggregate, value: value}
+	if aggregate == nil || seen[pair] {
 		return false
 	}
-	if AliasesValue(aggregate, value) {
+	if SameValue(aggregate, value) {
 		return true
 	}
-	seen[aggregate] = true
+	seen[pair] = true
 	switch typed := aggregate.(type) {
 	case *ssa.Call:
 		common := typed.Common()
@@ -570,7 +589,7 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) b
 				}
 				for _, block := range callee.Blocks {
 					for _, candidate := range block.Instrs {
-						if returned, ok := candidate.(*ssa.Return); ok && ReturnedValueOwnsValue(returned, callee.Params[index]) {
+						if returned, ok := candidate.(*ssa.Return); ok && returnedValueOwnsValue(returned, callee.Params[index], seen) {
 							return true
 						}
 					}
@@ -594,7 +613,7 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) b
 	case *ssa.Slice:
 		return aggregateStoresValue(typed.X, value, seen)
 	}
-	if _, ok := aggregate.(*ssa.Alloc); ok && addressStoresValue(aggregate, value) {
+	if _, ok := aggregate.(*ssa.Alloc); ok && addressStoresValue(aggregate, value, seen) {
 		return true
 	}
 	if aggregate.Referrers() == nil {
@@ -603,11 +622,11 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) b
 	for _, reference := range *aggregate.Referrers() {
 		switch typed := reference.(type) {
 		case *ssa.FieldAddr:
-			if addressStoresValue(typed, value) || aggregateStoresValue(typed, value, seen) {
+			if addressStoresValue(typed, value, seen) || aggregateStoresValue(typed, value, seen) {
 				return true
 			}
 		case *ssa.IndexAddr:
-			if addressStoresValue(typed, value) || aggregateStoresValue(typed, value, seen) {
+			if addressStoresValue(typed, value, seen) || aggregateStoresValue(typed, value, seen) {
 				return true
 			}
 		}
@@ -615,21 +634,21 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ssa.Value]bool) b
 	return false
 }
 
-func addressStoresValue(address ssa.Value, value ssa.Value) bool {
+func addressStoresValue(address ssa.Value, value ssa.Value, seen map[ownershipPair]bool) bool {
 	if address.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *address.Referrers() {
 		switch typed := reference.(type) {
 		case *ssa.Store:
-			if typed.Addr == address && (AliasesValue(typed.Val, value) || aggregateStoresValue(typed.Val, value, map[ssa.Value]bool{})) {
+			if typed.Addr == address && (SameValue(typed.Val, value) || aggregateStoresValue(typed.Val, value, seen)) {
 				return true
 			}
 		case *ssa.UnOp:
 			// A returned owner may contain a pointer to a callback slot rather
 			// than the callback directly. Follow the load so `*owner.cancel =
 			// cancel` transfers the same obligation as `owner.cancel = cancel`.
-			if typed.Op == token.MUL && addressStoresValue(typed, value) {
+			if typed.Op == token.MUL && addressStoresValue(typed, value, seen) {
 				return true
 			}
 		}

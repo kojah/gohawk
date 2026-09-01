@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/analysisutil"
 	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/analyzers/lifecyclefacts"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -20,7 +21,7 @@ func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "cancellationownership",
 		Doc:      "checks context and signal-derived cancellation functions are called on every return path",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
 		Run:      runCancellationOwnership,
 	}
 }
@@ -51,9 +52,9 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				// Prometheus installs its current cancel in a scraper callback:
 				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/scrape/scrape_test.go#L1294-L1315
 				if ssautil.UnownedReturnAssumingNonNil(call, cancel, func(candidate ssa.Instruction) bool {
-					return callsCancel(candidate, cancel)
+					return callsCancel(pass, candidate, cancel)
 				}, func(returned *ssa.Return) bool {
-					return ssautil.ReturnAliasesValue(returned, cancel) || ssautil.ReturnedValueOwnsValue(returned, cancel)
+					return ssautil.ReturnSameValue(returned, cancel) || ssautil.ReturnedValueOwnsValue(returned, cancel)
 				}) {
 					source := analysisutil.SourceRange(pass, call.Pos())
 					analyzerbase.Report(pass, analyzerbase.CheckCancellationRelease, analysis.Diagnostic{
@@ -145,44 +146,33 @@ func cancelInvocation(name, constructor string) string {
 	return name + "()"
 }
 
-func callsCancel(instruction ssa.Instruction, cancel ssa.Value) bool {
+func callsCancel(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Value) bool {
 	// A helper may settle an obligation without a naming convention. Require
 	// invocation on every normal helper return; process-tree tests use this to
 	// centralize cancellation and process cleanup together:
 	// https://github.com/applicate2628/mcp-local-hub/blob/73fbad63f7f9f0b24caef2239256f53b70a74061/internal/vcpkgmcp/reversedepgraph/process_tree_test.go#L46
-	// Cross-package cleanup bodies are unavailable to buildssa, so retain the
-	// stronger local all-path summary and a deferred cleanup-name boundary.
+	// Cross-package helpers use exported lifecycle facts; the deferred boundary
+	// remains for wrappers which delegate to an interface cleanup method.
 	// Cerberus delegates qcancel through a deferred CloseCursor call:
 	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
-	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) || ssautil.CallTransfersArgumentToReceiver(instruction, cancel) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel) || atomicStoreCoupledToWorker(instruction, cancel) {
+	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || lifecyclefacts.OwnsArgument(pass, instruction, cancel, func(fact ssautil.LifecycleFact) uint64 { return fact.Invoked | fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) || ssautil.CallTransfersArgumentToReceiver(instruction, cancel) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel) || atomicStoreCoupledToWorker(instruction, cancel) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
-	if ssautil.AliasesValue(common.Value, cancel) {
+	if ssautil.SameValue(common.Value, cancel) {
 		return true
 	}
-	name := strings.ToLower(ssautil.CallName(common))
-	// Cleanup registrars own callbacks they receive, while Add/Register-style
-	// APIs commonly store a cancellation function for a longer-lived owner.
-	// Kubernetes uses both ginkgo.DeferCleanup and AddPodInPreBind this way.
-	registersCallback := strings.Contains(name, "cleanup") || strings.Contains(name, "afterfunc")
-	registersCancel := strings.HasPrefix(name, "add") || strings.Contains(name, "register") || strings.Contains(name, "track") || strings.Contains(name, "own")
+	callbackRegistrar := ssautil.HasLibraryContract(common, ssautil.ContractTestingCleanup) ||
+		ssautil.HasLibraryContract(common, ssautil.ContractAfterFunc) ||
+		ssautil.HasLibraryContract(common, ssautil.ContractDeferredCleanup)
 	for _, argument := range common.Args {
 		// Registrars accept either a wrapper callback or the cancellation
 		// function itself. Vekil installs cancel directly with time.AfterFunc:
 		// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/launch/runtime_test.go#L379
-		if registersCallback && (ssautil.AliasesValue(argument, cancel) || ssautil.ValueCallsValue(argument, cancel)) || registersCancel && ssautil.AliasesValue(argument, cancel) {
-			return true
-		}
-	}
-	if !strings.Contains(name, "cancel") && !strings.Contains(name, "stop") && name != "cleanup" {
-		return false
-	}
-	for _, argument := range common.Args {
-		if ssautil.AliasesValue(argument, cancel) {
+		if callbackRegistrar && (ssautil.SameValue(argument, cancel) || ssautil.ValueCallsValue(argument, cancel)) {
 			return true
 		}
 	}
@@ -194,7 +184,7 @@ func atomicStoreCoupledToWorker(instruction ssa.Instruction, cancel ssa.Value) b
 	// launch the worker whose lifecycle the slot controls.
 	// https://github.com/jordigilh/kubernaut/blob/528b4f7080bf3522c0fa60f1ce87e48dcbcfe4bb/internal/kubernautagent/workflowcatalog/lazy_catalog.go#L100-L103
 	common := ssautil.InstructionCall(instruction)
-	if common == nil || ssautil.CallName(common) != "Store" || len(common.Args) < 2 || !ssautil.ValueDerivesFrom(common.Args[len(common.Args)-1], cancel, map[ssa.Value]bool{}) && !ssautil.ValueOwnsValue(common.Args[len(common.Args)-1], cancel) {
+	if common == nil || ssautil.CallName(common) != "Store" || len(common.Args) < 2 || !ssautil.ValueDerivesFrom(common.Args[len(common.Args)-1], cancel, map[ssa.Value]bool{}) && !ssautil.ValueContainsValue(common.Args[len(common.Args)-1], cancel) {
 		return false
 	}
 	field, ok := ssautil.CallReceiver(common).(*ssa.FieldAddr)
@@ -204,14 +194,14 @@ func atomicStoreCoupledToWorker(instruction ssa.Instruction, cancel ssa.Value) b
 	for _, block := range instruction.Parent().Blocks {
 		for _, candidate := range block.Instrs {
 			spawn, spawnOK := candidate.(*ssa.Go)
-			if !spawnOK || spawn.Pos() <= instruction.Pos() {
+			if !spawnOK || !ssautil.InstructionMayFollow(instruction, spawn) {
 				continue
 			}
-			if ssautil.ValueOwnsValue(spawn.Common().Value, field.X) {
+			if ssautil.ValueContainsValue(spawn.Common().Value, field.X) {
 				return true
 			}
 			for _, argument := range spawn.Common().Args {
-				if ssautil.AliasesValue(argument, field.X) {
+				if ssautil.SameValue(argument, field.X) {
 					return true
 				}
 			}

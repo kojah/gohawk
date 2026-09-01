@@ -31,6 +31,46 @@ func InstructionIndex(instruction ssa.Instruction) int {
 	return -1
 }
 
+// InstructionDominates reports whether every path to after executes before.
+// Instruction order is respected when both values belong to one block.
+func InstructionDominates(before, after ssa.Instruction) bool {
+	if before == nil || after == nil || before.Parent() != after.Parent() {
+		return false
+	}
+	if before.Block() == after.Block() {
+		return InstructionIndex(before) <= InstructionIndex(after)
+	}
+	return before.Block().Dominates(after.Block())
+}
+
+// InstructionMayFollow reports whether after is reachable after before. This
+// is intentionally weaker than dominance and is used only to reject evidence
+// that is earlier than, or disconnected from, the obligation it purports to
+// settle.
+func InstructionMayFollow(before, after ssa.Instruction) bool {
+	if before == nil || after == nil || before.Parent() != after.Parent() {
+		return false
+	}
+	if before.Block() == after.Block() {
+		return InstructionIndex(before) <= InstructionIndex(after)
+	}
+	seen := map[*ssa.BasicBlock]bool{}
+	queue := append([]*ssa.BasicBlock(nil), before.Block().Succs...)
+	for len(queue) > 0 {
+		block := queue[0]
+		queue = queue[1:]
+		if block == after.Block() {
+			return true
+		}
+		if seen[block] {
+			continue
+		}
+		seen[block] = true
+		queue = append(queue, block.Succs...)
+	}
+	return false
+}
+
 // UnownedReturn reports whether any normal return reachable after start lacks
 // an ownership action. Tracking owned state through CFG makes conditional
 // cleanup visible without pretending infeasible branches are impossible.
@@ -200,8 +240,8 @@ func nonNilFeasibleSuccessors(block, predecessor *ssa.BasicBlock, value ssa.Valu
 	// Use identity, not general data derivation: an error returned by a call
 	// that received the context may derive from the constructor result without
 	// being the cleanup function whose non-nilness is known.
-	comparesNil := AliasesValue(comparison.X, value) && DefinitelyNil(comparison.Y) ||
-		AliasesValue(comparison.Y, value) && DefinitelyNil(comparison.X)
+	comparesNil := SameValue(comparison.X, value) && DefinitelyNil(comparison.Y) ||
+		SameValue(comparison.Y, value) && DefinitelyNil(comparison.X)
 	if !comparesNil {
 		return successors
 	}

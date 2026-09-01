@@ -196,6 +196,17 @@ func joinTransferredToWaiter() {
 	<-done
 }
 
+func joinTransferredThroughRelay() {
+	first := make(chan struct{})
+	go func() { close(first) }()
+	second := make(chan struct{})
+	go func() {
+		<-first
+		close(second)
+	}()
+	<-second
+}
+
 func joinedThroughReceiveHelper() {
 	done := make(chan bool)
 	go func() { done <- true }()

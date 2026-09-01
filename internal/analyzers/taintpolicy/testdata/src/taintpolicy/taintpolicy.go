@@ -23,6 +23,8 @@ func badTerminal() {
 
 func goodPath() {
 	path := validatePath(os.Getenv("INPUT_PATH"))
+	_ = path
+	path = "/srv/application/input"
 	_, _ = os.ReadFile(path)
 }
 

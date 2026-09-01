@@ -63,7 +63,10 @@ func runValidatedTool() error {
   if err != nil {
     return err
   }
-  return exec.Command(tool).Run()
+  if tool == "compiler" {
+    return exec.Command("compiler").Run()
+  }
+  return errors.New("unsupported tool")
 }
 ```
 {/* gohawk:generated-examples:end */}

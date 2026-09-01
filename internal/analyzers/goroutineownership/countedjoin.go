@@ -18,12 +18,12 @@ func matchingCountedJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Va
 	}
 	for _, block := range function.Blocks {
 		joinBound := loopBound(function, block)
-		if joinBound == nil || !ssautil.AliasesValue(spawnBound, joinBound) {
+		if joinBound == nil || !ssautil.SameValue(spawnBound, joinBound) {
 			continue
 		}
 		for _, instruction := range block.Instrs {
 			receive, ok := instruction.(*ssa.UnOp)
-			if ok && receive.Op == token.ARROW && ssautil.AliasesAny(receive.X, signals) && receive.Pos() > spawn.Pos() {
+			if ok && receive.Op == token.ARROW && ssautil.SameAsAny(receive.X, signals) && receive.Pos() > spawn.Pos() {
 				return true
 			}
 		}
@@ -43,7 +43,7 @@ func matchingCountedHelperJoin(function *ssa.Function, spawn *ssa.Go, signals []
 				continue
 			}
 			for signalIndex, argument := range common.Args {
-				if !ssautil.AliasesAny(argument, signals) || signalIndex >= len(callee.Params) {
+				if !ssautil.SameAsAny(argument, signals) || signalIndex >= len(callee.Params) {
 					continue
 				}
 				for boundIndex, boundArgument := range common.Args {
@@ -54,12 +54,12 @@ func matchingCountedHelperJoin(function *ssa.Function, spawn *ssa.Go, signals []
 						return true
 					}
 					for _, helperBlock := range callee.Blocks {
-						if !ssautil.AliasesValue(loopBound(callee, helperBlock), callee.Params[boundIndex]) {
+						if !ssautil.SameValue(loopBound(callee, helperBlock), callee.Params[boundIndex]) {
 							continue
 						}
 						for _, candidate := range helperBlock.Instrs {
 							receive, ok := candidate.(*ssa.UnOp)
-							if ok && receive.Op == token.ARROW && ssautil.AliasesValue(receive.X, callee.Params[signalIndex]) {
+							if ok && receive.Op == token.ARROW && ssautil.SameValue(receive.X, callee.Params[signalIndex]) {
 								return true
 							}
 						}
@@ -79,7 +79,7 @@ func eventuallyReceivesCount(function *ssa.Function, signal, count ssa.Value) bo
 				continue
 			}
 			for _, argument := range common.Args {
-				if callbackReceives(argument, signal) && ssautil.ValueOwnsValue(argument, count) {
+				if callbackReceives(argument, signal) && ssautil.ValueContainsValue(argument, count) {
 					return true
 				}
 			}
@@ -101,7 +101,7 @@ func callbackReceives(value, signal ssa.Value) bool {
 }
 
 func sameBound(first, second ssa.Value) bool {
-	if ssautil.AliasesValue(first, second) {
+	if ssautil.SameValue(first, second) {
 		return true
 	}
 	left, leftOK := first.(*ssa.Const)
@@ -113,7 +113,7 @@ func finiteAggregateJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Va
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			update, ok := instruction.(*ssa.MapUpdate)
-			if !ok || !ssautil.AliasesAny(update.Value, signals) {
+			if !ok || !ssautil.SameAsAny(update.Value, signals) {
 				continue
 			}
 			for _, receiveBlock := range function.Blocks {

@@ -11,9 +11,26 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"resourcedep"
 	"testing"
 	"time"
 )
+
+func importedHelperClosesFile() error {
+	file, err := os.Open("fixture")
+	if err != nil {
+		return err
+	}
+	return resourcedep.Close(file)
+}
+
+func conditionalImportedHelperLeaksFile(enabled bool) error {
+	file, err := os.Open("fixture") // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	return resourcedep.MaybeClose(file, enabled)
+}
 
 func leakedFile() error {
 	file, err := os.CreateTemp("", "leak") // want "owned resource from os.CreateTemp is not released on every return path"

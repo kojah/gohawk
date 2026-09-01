@@ -1,6 +1,7 @@
 package cancellationownership
 
 import (
+	"cancellationdep"
 	"context"
 	"os"
 	"os/signal"
@@ -8,6 +9,16 @@ import (
 	"testing"
 	"time"
 )
+
+func importedHelperOwnsCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	cancellationdep.Invoke(cancel)
+}
+
+func conditionalImportedHelperDoesNotOwnCancel(parent context.Context, enabled bool) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	cancellationdep.MaybeInvoke(cancel, enabled)
+}
 
 func leaked(parent context.Context) {
 	ctx, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
@@ -69,9 +80,9 @@ func registeredNestedCleanup(registrar cleanupRegistrar, parent context.Context)
 	})
 }
 
-type cancelRegistry struct{}
+type cancelRegistry struct{ cancel context.CancelFunc }
 
-func (*cancelRegistry) AddWorker(context.CancelFunc) {}
+func (registry *cancelRegistry) AddWorker(cancel context.CancelFunc) { registry.cancel = cancel }
 
 func registeredCancel(registry *cancelRegistry, parent context.Context) {
 	_, cancel := context.WithCancel(parent)

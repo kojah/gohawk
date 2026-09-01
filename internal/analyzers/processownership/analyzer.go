@@ -3,11 +3,11 @@ package processownership
 
 import (
 	"go/types"
-	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
 	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/analyzers/lifecyclefacts"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -19,7 +19,7 @@ func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "processownership",
 		Doc:      "checks that started os/exec commands are waited on or transferred to a wait owner",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
 		Run:      runProcessOwnership,
 	}
 }
@@ -48,7 +48,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				}
 				// Caller retains a parameter command after this helper returns, so
 				// helper-local Start does not transfer caller's Wait responsibility.
-				if ssautil.AliasesAny(command, parameterValues(function.Params)) || ssautil.ExternallyOwnedValue(command) {
+				if ssautil.SameAsAny(command, parameterValues(function.Params)) || ssautil.ExternallyOwnedValue(command) {
 					continue
 				}
 				// Cleanup may be registered before Start. This is common when a
@@ -61,7 +61,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				if ssautil.UnownedReturn(start, func(candidate ssa.Instruction) bool {
-					return processOwnershipAction(candidate, command)
+					return processOwnershipAction(pass, candidate, command)
 				}, func(returned *ssa.Return) bool {
 					// Returning an aggregate that contains the command transfers Wait
 					// responsibility just as directly as returning *exec.Cmd itself.
@@ -110,7 +110,7 @@ func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []
 				continue
 			}
 			for _, owner := range owners {
-				if ssautil.ValueOwnsValue(closure, owner) {
+				if ssautil.ValueContainsValue(closure, owner) {
 					return true
 				}
 			}
@@ -165,7 +165,7 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 				continue
 			}
 			for _, argument := range call.Common().Args {
-				if ssautil.AliasesValue(argument, command) {
+				if ssautil.SameValue(argument, command) {
 					owners = append(owners, call)
 					if call.Referrers() != nil {
 						for _, reference := range *call.Referrers() {
@@ -182,7 +182,7 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 	return owners
 }
 
-func processOwnershipAction(instruction ssa.Instruction, command ssa.Value) bool {
+func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, command ssa.Value) bool {
 	common := ssautil.InstructionCall(instruction)
 	// os.Process.Release explicitly relinquishes the parent's wait/reap
 	// obligation for deliberately detached daemons:
@@ -195,8 +195,8 @@ func processOwnershipAction(instruction ssa.Instruction, command ssa.Value) bool
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
-		ssautil.CallTransfersArgumentToReturnedOwner(instruction, command) ||
-		ssautil.CallTransfersArgumentToReceiver(instruction, command) ||
+		lifecyclefacts.OwnsArgument(pass, instruction, command, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner | fact.Waited }) ||
+		lifecyclefacts.StoresInEscapingReceiver(pass, instruction, command) ||
 		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
 		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Exit"
@@ -263,17 +263,8 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 	if common == nil {
 		return false
 	}
-	if ssautil.CallName(common) == "Wait" && ssautil.AliasesValue(ssautil.CallReceiver(common), command) {
+	if ssautil.CallName(common) == "Wait" && ssautil.SameValue(ssautil.CallReceiver(common), command) {
 		return true
-	}
-	lower := strings.ToLower(ssautil.CallName(common))
-	if !strings.Contains(lower, "wait") && !strings.Contains(lower, "join") {
-		return false
-	}
-	for _, argument := range common.Args {
-		if ssautil.AliasesValue(argument, command) {
-			return true
-		}
 	}
 	return false
 }

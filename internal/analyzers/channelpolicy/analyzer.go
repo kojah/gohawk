@@ -148,7 +148,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, calls
 			}
 			for _, candidate := range reachableInstructions(instruction) {
 				send, ok := candidate.(*ssa.Send)
-				if !ok || !ssautil.AliasesValue(send.Chan, channel) || reportedSends[send.Pos()] {
+				if !ok || !ssautil.SameValue(send.Chan, channel) || reportedSends[send.Pos()] {
 					continue
 				}
 				reportedSends[send.Pos()] = true
@@ -160,7 +160,7 @@ func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, calls
 
 func closesBorrowedChannel(channel ssa.Value, parameters []ssa.Value, callsites map[*ssa.Function][]ssa.CallInstruction) bool {
 	for _, parameter := range parameters {
-		if ssautil.AliasesValue(channel, parameter) && !channelOwnershipTransferredToGoroutine(parameter, callsites) {
+		if ssautil.SameValue(channel, parameter) && !channelOwnershipTransferredToGoroutine(parameter, callsites) {
 			return true
 		}
 	}
@@ -218,7 +218,7 @@ func guardedCloseContract(function *ssa.Function, parameter ssa.Value) bool {
 				continue
 			}
 			for _, state := range selection.States {
-				if state.Dir == types.RecvOnly && ssautil.AliasesValue(state.Chan, parameter) {
+				if state.Dir == types.RecvOnly && ssautil.SameValue(state.Chan, parameter) {
 					hasGuard = true
 				}
 			}
@@ -236,14 +236,14 @@ func channelRelinquishedAfterCall(call ssa.CallInstruction, channel ssa.Value) b
 	// send, close, or return of that channel. This covers synchronous acceptance
 	// signals and producer methods invoked from an owned worker closure.
 	for _, instruction := range reachableInstructions(call) {
-		if returned, ok := instruction.(*ssa.Return); ok && ssautil.ReturnAliasesValue(returned, channel) {
+		if returned, ok := instruction.(*ssa.Return); ok && ssautil.ReturnSameValue(returned, channel) {
 			return false
 		}
-		if send, ok := instruction.(*ssa.Send); ok && ssautil.AliasesValue(send.Chan, channel) {
+		if send, ok := instruction.(*ssa.Send); ok && ssautil.SameValue(send.Chan, channel) {
 			return false
 		}
 		common := ssautil.InstructionCall(instruction)
-		if common != nil && ssautil.CallName(common) == analysisutil.BuiltinClose && len(common.Args) == 1 && ssautil.AliasesValue(common.Args[0], channel) {
+		if common != nil && ssautil.CallName(common) == analysisutil.BuiltinClose && len(common.Args) == 1 && ssautil.SameValue(common.Args[0], channel) {
 			return false
 		}
 	}

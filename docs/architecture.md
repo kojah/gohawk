@@ -39,6 +39,24 @@ The dependency direction is deliberate: implementations depend on shared
 analysis helpers, and the public catalog depends on implementations. Shared
 helpers never import the catalog or an analyzer package.
 
+## Precision infrastructure
+
+SSA value relationships are deliberately separate. Exact identity follows
+conversions and local load/store pairs; derivation follows data flow;
+containment represents aggregates; and escape helpers model ownership transfer.
+An analyzer must choose the narrowest relationship that proves its contract.
+
+Lifecycle analyzers share an internal prerequisite that computes memoized
+all-return-path summaries and exports compact facts for imported functions.
+This lets a helper's behavior cross package boundaries without guessing from
+names such as `CloseThing` or `WaitFor`. Third-party APIs whose bodies are not
+available are matched in the centralized library-contract registry.
+
+Focused fixtures guard individual proofs. The pinned, human-reviewed cohorts
+under `benchmarks/precision` additionally guard repository-scale behavior:
+reviewed false positives must stay absent and reviewed true positives must stay
+present.
+
 ## Analyzer declaration
 
 Each analyzer has three connected pieces:

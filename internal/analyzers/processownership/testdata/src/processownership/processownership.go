@@ -5,8 +5,25 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"processdep"
 	"testing"
 )
+
+func importedHelperOwnsWait(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	return processdep.Wait(command)
+}
+
+func conditionalImportedHelperDoesNotOwnWait(ctx context.Context, enabled bool) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return err
+	}
+	return processdep.MaybeWait(command, enabled)
+}
 
 func impossibleSuccessfulStart(t *testing.T, ctx context.Context) {
 	command := exec.CommandContext(ctx, "missing-tool")

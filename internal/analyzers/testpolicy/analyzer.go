@@ -46,7 +46,7 @@ func runTestPolicy(pass *analysis.Pass) (any, error) {
 		}
 		if ssautil.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
 			common := ssautil.InstructionCall(instruction)
-			return ssautil.CallName(common) == "Helper" && ssautil.AliasesValue(ssautil.CallReceiver(common), handle)
+			return ssautil.CallName(common) == "Helper" && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), handle, map[ssa.Value]bool{})
 		}) {
 			source := analysisutil.SourceRange(pass, function.Pos())
 			analyzerbase.Report(pass, analyzerbase.CheckTestHelperMarker, analysis.Diagnostic{
@@ -96,7 +96,7 @@ func hasHelperCall(function *ssa.Function, handle *ssa.Parameter) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			common := ssautil.InstructionCall(instruction)
-			if ssautil.CallName(common) == "Helper" && ssautil.AliasesValue(ssautil.CallReceiver(common), handle) {
+			if ssautil.CallName(common) == "Helper" && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), handle, map[ssa.Value]bool{}) {
 				return true
 			}
 		}

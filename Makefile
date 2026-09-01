@@ -20,7 +20,7 @@ VERIFY_MAKE_ARGS := --no-print-directory $(VERIFY_OUTPUT_SYNC) --jobs=$(VERIFY_J
 
 .PHONY: help build fmt fmt-check generate generated-check mod-verify lint test \
 	test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
-	site-check site-build site-links site-links-external site-review
+	precision-regression site-check site-build site-links site-links-external site-review
 
 help:
 	@printf '%s\n' \
@@ -34,6 +34,7 @@ help:
 		'  make skills-check    Check installed skills against their upstream repositories' \
 		'  make plugin-test     Test the golangci-lint module plugin end to end' \
 		'  make benchmark       Run pinned dogfooding benchmarks' \
+		'  make precision-regression  Replay reviewed precision cohorts' \
 		'  make site-check      Check the documentation website' \
 		'  make site-build      Build the documentation website' \
 		'  make site-links      Check internal links in the built website' \
@@ -101,6 +102,10 @@ ci:
 
 benchmark:
 	./scripts/benchmark-dogfood.sh $(BENCHMARK_ARGS)
+
+precision-regression:
+	./scripts/precision-regression.py benchmarks/precision/round-2
+	./scripts/precision-regression.py benchmarks/precision/round-3
 
 site-install:
 	$(PNPM) --dir site install --frozen-lockfile

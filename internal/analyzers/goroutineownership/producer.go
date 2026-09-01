@@ -54,7 +54,7 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 	for _, send := range sends {
 		sendCount := 0
 		for _, candidate := range sends {
-			if ssautil.AliasesValue(candidate.channel, send.channel) && producerSendsCanCooccur(send, candidate) {
+			if ssautil.SameValue(candidate.channel, send.channel) && producerSendsCanCooccur(send, candidate) {
 				sendCount++
 			}
 		}
@@ -157,7 +157,7 @@ func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			created, ok := instruction.(*ssa.MakeChan)
-			if !ok || !ssautil.CapturedBindingAliases(channel, created) {
+			if !ok || !ssautil.CapturedBindingMatches(channel, created) {
 				continue
 			}
 			size, ok := created.Size.(*ssa.Const)
@@ -172,13 +172,13 @@ func channelReceives(function *ssa.Function, channel ssa.Value) (count int, drai
 		for _, instruction := range block.Instrs {
 			switch candidate := instruction.(type) {
 			case *ssa.UnOp:
-				if candidate.Op == token.ARROW && ssautil.AliasesValue(candidate.X, channel) {
+				if candidate.Op == token.ARROW && ssautil.SameValue(candidate.X, channel) {
 					count++
 					draining = draining || blockInCycle(block)
 				}
 			case *ssa.Select:
 				for _, state := range candidate.States {
-					if state.Dir == types.RecvOnly && ssautil.AliasesValue(state.Chan, channel) {
+					if state.Dir == types.RecvOnly && ssautil.SameValue(state.Chan, channel) {
 						count++
 						draining = draining || blockInCycle(block)
 					}

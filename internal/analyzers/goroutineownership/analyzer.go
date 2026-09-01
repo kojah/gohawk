@@ -48,7 +48,7 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 	return !ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
 		return joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) || ownsGoroutineLifecycle(candidate, owners) || transfersGoroutineOwnership(candidate, signals, groups, owners)
 	}, func(returned *ssa.Return) bool {
-		return ssautil.ReturnedAliasesAny(returned, signals) || ssautil.ReturnedAliasesAny(returned, groups) || ssautil.ReturnedAliasesAny(returned, owners)
+		return ssautil.ReturnedSameAsAny(returned, signals) || ssautil.ReturnedSameAsAny(returned, groups) || ssautil.ReturnedSameAsAny(returned, owners)
 	})
 }
 
@@ -106,7 +106,7 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 					}
 					return ownsGoroutineLifecycle(candidate, owners) || transfersGoroutineOwnership(candidate, signals, groups, owners)
 				}, func(returned *ssa.Return) bool {
-					return ssautil.ReturnedAliasesAny(returned, signals) || ssautil.ReturnedAliasesAny(returned, groups) || config.mode != goroutineModeJoin && ssautil.ReturnedAliasesAny(returned, owners)
+					return ssautil.ReturnedSameAsAny(returned, signals) || ssautil.ReturnedSameAsAny(returned, groups) || config.mode != goroutineModeJoin && ssautil.ReturnedSameAsAny(returned, owners)
 				}) {
 					check := analyzerbase.CheckGoroutineJoin
 					// Without a completion signal or wait group, static analysis cannot

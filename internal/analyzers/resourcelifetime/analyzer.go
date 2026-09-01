@@ -5,11 +5,11 @@ import (
 	"go/token"
 	"go/types"
 	"slices"
-	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
 	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
+	"github.com/kojah/gohawk/internal/analyzers/lifecyclefacts"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -46,7 +46,7 @@ func Analyzer() *analysis.Analyzer {
 	analyzer := &analysis.Analyzer{
 		Name:     "resourcelifetime",
 		Doc:      "checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
 	}
 	analyzer.Flags.Var(analyzerbase.NewCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "time", "compress"), "contracts", "comma-separated resource contract families: os,http,sql,time,compress")
 	analyzer.Flags.BoolVar(&config.requireReaderClose, "require-reader-close", true, "require gzip and zlib readers to be closed")
@@ -88,7 +88,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				if resource == nil {
 					continue
 				}
-				if resourceLeaks(call, resource, contract) && !completeTimers[call.Pos()] {
+				if resourceLeaks(pass, call, resource, contract) && !completeTimers[call.Pos()] {
 					analyzerbase.Reportf(pass, analyzerbase.CheckResourceRelease, call.Pos(), "owned resource from %s.%s is not released on every return path", analysisutil.ShortPackageName(contract.packagePath), contract.name)
 				}
 			}
@@ -160,32 +160,25 @@ func receiverNamedType(common *ssa.CallCommon, packagePath, name string) bool {
 	return receiver != nil && analysisutil.NamedType(receiver.Type(), packagePath, name)
 }
 
-func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []ssa.Value, methods []string) bool {
+func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource ssa.Value, owners []ssa.Value, methods []string) bool {
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
-	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInGlobal(instruction, resource) || ssautil.StoresValueInEnclosingScope(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, resource) || ssautil.CallTransfersArgumentToReceiver(instruction, resource) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource) {
+	if resourceTransferredToExternalField(instruction, resource) || ssautil.StoresValueInGlobal(instruction, resource) || ssautil.StoresValueInEnclosingScope(instruction, resource) || ssautil.StoresOwnerOfValueInExternalField(instruction, resource) || ssautil.StoresValueInOwnedMap(instruction, resource) || ssautil.SendsValue(instruction, resource) || ssautil.ClosureCapturesValue(instruction, resource) || ssautil.CallTransfersValueToField(instruction, resource) || lifecyclefacts.OwnsArgument(pass, instruction, resource, func(fact ssautil.LifecycleFact) uint64 { return fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, instruction, resource) || ssautil.CallTransfersArgumentToReceiver(instruction, resource) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, resource) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
 	if common != nil && slices.Contains(methods, ssautil.CallName(common)) && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), resource, map[ssa.Value]bool{}) {
 		return true
 	}
+	if common != nil && slices.Contains(methods, ssautil.CallName(common)) && storedResourceAccessReleased(instruction, ssautil.CallReceiver(common), resource) {
+		return true
+	}
 	if common != nil && testingCleanupReleases(common, resource, methods) {
 		return true
 	}
-	if common != nil && resourceLifecycleMethod(ssautil.CallName(common)) && ssautil.AliasesAny(ssautil.CallReceiver(common), owners) {
+	if common != nil && resourceLifecycleMethod(ssautil.CallName(common)) && ssautil.SameAsAny(ssautil.CallReceiver(common), owners) {
 		return true
-	}
-	if common != nil {
-		name := strings.ToLower(ssautil.CallName(common))
-		if strings.Contains(name, "close") || strings.Contains(name, "release") || strings.Contains(name, "cleanup") {
-			for _, argument := range common.Args {
-				if ssautil.ValueDerivesFrom(argument, resource, map[ssa.Value]bool{}) {
-					return true
-				}
-			}
-		}
 	}
 	for _, method := range methods {
 		// A launched lifecycle goroutine may take cleanup ownership when each
@@ -199,7 +192,7 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []
 		// performed cleanup. Herdforge's response decoder owns Body.Close this
 		// way, without advertising ownership in the helper name:
 		// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/provider/github.go#L356
-		if ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, method, resource) {
+		if lifecyclefacts.OwnsArgument(pass, instruction, resource, func(fact ssautil.LifecycleFact) uint64 { return fact.MethodMask(method) }) || ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, method, resource) {
 			return true
 		}
 		// A directly invoked cleanup closure can own an individual error path just
@@ -214,8 +207,27 @@ func releasesResource(instruction ssa.Instruction, resource ssa.Value, owners []
 	return false
 }
 
+func storedResourceAccessReleased(release ssa.Instruction, receiver, resource ssa.Value) bool {
+	if receiver == nil || release.Parent() == nil {
+		return false
+	}
+	for _, block := range release.Parent().Blocks {
+		for _, instruction := range block.Instrs {
+			store, ok := instruction.(*ssa.Store)
+			if !ok || !ssautil.InstructionDominates(store, release) || !ssautil.SameValue(store.Val, resource) {
+				continue
+			}
+			field, ok := store.Addr.(*ssa.FieldAddr)
+			if ok && ssautil.SameAccessPath(receiver, field.X, field, field.X) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func testingCleanupReleases(common *ssa.CallCommon, resource ssa.Value, methods []string) bool {
-	if ssautil.CallPackage(common) != "testing" || ssautil.CallName(common) != "Cleanup" {
+	if !ssautil.HasLibraryContract(common, ssautil.ContractTestingCleanup) {
 		return false
 	}
 	// testing.TB guarantees that Cleanup callbacks run when the test and its
@@ -236,13 +248,13 @@ func testingCleanupReleases(common *ssa.CallCommon, resource ssa.Value, methods 
 	return false
 }
 
-func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract) bool {
+func resourceLeaks(pass *analysis.Pass, call *ssa.Call, resource ssa.Value, contract resourceContract) bool {
 	index := ssautil.InstructionIndex(call)
 	if index < 0 {
 		return false
 	}
 	errorValue := ssautil.CallResult(call, 1)
-	if contract.packagePath == "net/http" && testProvesHTTPError(call.Parent(), resource, errorValue) {
+	if contract.packagePath == "net/http" && testProvesHTTPError(call, resource, errorValue) {
 		return false
 	}
 	owners := localResourceOwners(call.Parent(), resource)
@@ -261,12 +273,12 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 		}
 		seen[key] = true
 		for _, instruction := range state.block.Instrs[state.index:] {
-			state.released = state.released || releasesResource(instruction, resource, owners, contract.cleanup) || contract.consumable && consumesResource(instruction, resource)
+			state.released = state.released || releasesResource(pass, instruction, resource, owners, contract.cleanup) || contract.consumable && consumesResource(instruction, resource)
 			if ssautil.InstructionTerminatesControlFlow(instruction) {
 				state.active = false
 				break
 			}
-			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released && !ssautil.ReturnedValueOwnsValue(returned, resource) && !ssautil.ReturnedAliasesAny(returned, owners) {
+			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released && !ssautil.ReturnedValueOwnsValue(returned, resource) && !ssautil.ReturnedSameAsAny(returned, owners) {
 				return true
 			}
 		}
@@ -284,26 +296,32 @@ func resourceLeaks(call *ssa.Call, resource ssa.Value, contract resourceContract
 	return false
 }
 
-func testProvesHTTPError(function *ssa.Function, resource, errorValue ssa.Value) bool {
+func testProvesHTTPError(acquisition *ssa.Call, resource, errorValue ssa.Value) bool {
 	// Test assertions can prove the owned-response path infeasible even though
 	// the assertion package expresses that fact outside the CFG.
 	// https://github.com/siemens/wfx/blob/392dde941e73ce9560df2c42b2d480eb528bfc96/cmd/wfx/cmd/root/root_test.go#L154-L157
-	assertedError, assertedNil := false, false
-	for _, block := range function.Blocks {
+	var errorAssertions, nilAssertions []ssa.Instruction
+	for _, block := range acquisition.Parent().Blocks {
 		for _, instruction := range block.Instrs {
+			if !ssautil.InstructionMayFollow(acquisition, instruction) {
+				continue
+			}
 			common := ssautil.InstructionCall(instruction)
-			packagePath := ssautil.CallPackage(common)
-			if common == nil || packagePath != "github.com/stretchr/testify/assert" && packagePath != "github.com/stretchr/testify/require" {
+			if !ssautil.HasLibraryContract(common, ssautil.ContractTestifyAssertion) {
 				continue
 			}
 			if ssautil.CallName(common) == "Error" {
 				for _, argument := range common.Args {
-					assertedError = assertedError || ssautil.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{})
+					if ssautil.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
+						errorAssertions = append(errorAssertions, instruction)
+					}
 				}
 			}
 			if ssautil.CallName(common) == "Nil" {
 				for _, argument := range common.Args {
-					assertedNil = assertedNil || ssautil.AliasesValue(argument, resource)
+					if ssautil.SameValue(argument, resource) {
+						nilAssertions = append(nilAssertions, instruction)
+					}
 				}
 			}
 		}
@@ -312,24 +330,22 @@ func testProvesHTTPError(function *ssa.Function, resource, errorValue ssa.Value)
 	// failed redirect policy, and its body is already closed. A fatal Error
 	// assertion therefore eliminates the success path; a paired Nil assertion
 	// supplies the same evidence for non-fatal assertion packages.
-	return assertedError && (assertedNil || errorAssertionIsFatal(function, errorValue))
-}
-
-func errorAssertionIsFatal(function *ssa.Function, errorValue ssa.Value) bool {
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			common := ssautil.InstructionCall(instruction)
-			if common == nil || ssautil.CallPackage(common) != "github.com/stretchr/testify/require" || ssautil.CallName(common) != "Error" {
-				continue
-			}
-			for _, argument := range common.Args {
-				if ssautil.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
-					return true
-				}
+	for _, assertedError := range errorAssertions {
+		if fatalErrorAssertion(assertedError) {
+			return true
+		}
+		for _, assertedNil := range nilAssertions {
+			if ssautil.InstructionDominates(assertedError, assertedNil) {
+				return true
 			}
 		}
 	}
 	return false
+}
+
+func fatalErrorAssertion(instruction ssa.Instruction) bool {
+	common := ssautil.InstructionCall(instruction)
+	return ssautil.HasLibraryContract(common, ssautil.ContractTestifyFatalError)
 }
 
 func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value) (bool, bool) {
@@ -365,7 +381,7 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			owner := resourceFieldOwner(instruction, resource)
-			if owner != nil && !ssautil.ExternallyOwnedValue(owner) && !ssautil.AliasesAny(owner, owners) {
+			if owner != nil && !ssautil.ExternallyOwnedValue(owner) && !ssautil.SameAsAny(owner, owners) {
 				owners = append(owners, owner)
 			}
 		}

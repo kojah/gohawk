@@ -138,7 +138,7 @@ func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
 		if !lifecycleOwner(owner) {
 			continue
 		}
-		if ssautil.AliasesValue(ssautil.CallReceiver(spawn.Common()), owner) {
+		if ssautil.SameValue(ssautil.CallReceiver(spawn.Common()), owner) {
 			return true
 		}
 		closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
@@ -146,7 +146,7 @@ func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
 			continue
 		}
 		for _, binding := range closure.Bindings {
-			if ssautil.AliasesValue(ssautil.CapturedBindingValue(binding), owner) {
+			if ssautil.SameValue(ssautil.CapturedBindingValue(binding), owner) {
 				return true
 			}
 		}
@@ -169,7 +169,7 @@ func lifecycleOwner(value ssa.Value) bool {
 
 func ownsGoroutineLifecycle(instruction ssa.Instruction, owners []ssa.Value) bool {
 	common := ssautil.InstructionCall(instruction)
-	if common != nil && lifecycleMethod(ssautil.CallName(common)) && ssautil.AliasesAny(ssautil.CallReceiver(common), owners) {
+	if common != nil && lifecycleMethod(ssautil.CallName(common)) && ssautil.SameAsAny(ssautil.CallReceiver(common), owners) {
 		return true
 	}
 	for _, owner := range owners {
@@ -184,7 +184,7 @@ func ownsGoroutineLifecycle(instruction ssa.Instruction, owners []ssa.Value) boo
 
 func waitsForLifecycleOwner(instruction ssa.Instruction, owners []ssa.Value) bool {
 	common := ssautil.InstructionCall(instruction)
-	if common != nil && ssautil.CallName(common) == "Wait" && ssautil.AliasesAny(ssautil.CallReceiver(common), owners) {
+	if common != nil && ssautil.CallName(common) == "Wait" && ssautil.SameAsAny(ssautil.CallReceiver(common), owners) {
 		return true
 	}
 	for _, owner := range owners {
@@ -232,7 +232,7 @@ func ownershipRegisteredBefore(spawn *ssa.Go, signals, groups []ssa.Value) bool 
 				continue
 			}
 			for _, argument := range common.Args {
-				if ssautil.AliasesAny(argument, signals) || ssautil.AliasesAny(argument, groups) {
+				if ssautil.SameAsAny(argument, signals) || ssautil.SameAsAny(argument, groups) {
 					return true
 				}
 			}
@@ -254,6 +254,12 @@ func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, o
 		}
 	}
 	if _, ok := instruction.(*ssa.Go); ok {
+		// A second goroutine may take ownership of a completion signal and
+		// publish its own join handle. The original worker is then joined
+		// transitively when the caller joins that relay.
+		if callReceivesAny(instruction, signals) {
+			return true
+		}
 		for _, group := range groups {
 			if ssautil.ClosureCallsMethod(instruction, "Wait", group) {
 				return true
@@ -268,7 +274,7 @@ func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, o
 		return false
 	}
 	for _, argument := range common.Args {
-		if ssautil.AliasesAny(argument, signals) || ssautil.AliasesAny(argument, groups) {
+		if ssautil.SameAsAny(argument, signals) || ssautil.SameAsAny(argument, groups) {
 			return true
 		}
 	}
@@ -276,11 +282,7 @@ func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, o
 }
 
 func mockReturnOwnsSignal(common *ssa.CallCommon, signals []ssa.Value) bool {
-	if common == nil || ssautil.CallName(common) != "Return" {
-		return false
-	}
-	packagePath := ssautil.CallPackage(common)
-	if packagePath != "go.uber.org/mock/gomock" && packagePath != "github.com/golang/mock/gomock" {
+	if !ssautil.HasLibraryContract(common, ssautil.ContractGoMockReturn) {
 		return false
 	}
 	// gomock.Return publishes these values as the configured result of the
@@ -288,7 +290,7 @@ func mockReturnOwnsSignal(common *ssa.CallCommon, signals []ssa.Value) bool {
 	// https://github.com/uber-go/mock/blob/539d81c0f42174d17e8f91abcb869bed37605a15/gomock/call.go#L185-L205
 	for _, argument := range common.Args {
 		for _, signal := range signals {
-			if ssautil.AliasesValue(argument, signal) || ssautil.ValueOwnsValue(argument, signal) {
+			if ssautil.SameValue(argument, signal) || ssautil.ValueContainsValue(argument, signal) {
 				return true
 			}
 		}
