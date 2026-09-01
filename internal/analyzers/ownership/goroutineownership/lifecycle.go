@@ -342,6 +342,89 @@ func waitsForLifecycleOwner(evidence *ssaflow.EvidenceQuery, instruction ssa.Ins
 	return false
 }
 
+func testingCleanupOwnsLaunchedLifecycle(instruction ssa.Instruction, spawn *ssa.Go) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if !ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) {
+		return false
+	}
+	callback, ok := testingCleanupCallback(common)
+	if !ok {
+		return false
+	}
+	for _, receiver := range launchedMethodReceivers(spawn) {
+		for _, method := range []string{"Close", "Kill", "Shutdown", "Stop"} {
+			if ssaflow.ClosureCallsMethodBeforeBranch(callback, method, receiver) {
+				// testing.T guarantees that Cleanup runs after the test completes.
+				// Require the callback's unconditional terminating call to use the
+				// exact receiver used by the launched method; capture alone does not
+				// prove that the goroutine can stop.
+				// https://github.com/ConSol-Monitoring/snclient/blob/35f77e9733036db52f3da12872ae6c16fc2503ad/pkg/snclient/check_dns_test.go#L21-L35
+				// https://github.com/miekg/dns/blob/d854399da1ee385b432e8b07f79e53bbfc1ab1b0/server.go#L366-L445
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func testingCleanupCallback(common *ssa.CallCommon) (ssa.Instruction, bool) {
+	for _, argument := range common.Args {
+		function := callbackFunction(argument)
+		instruction, ok := argument.(ssa.Instruction)
+		if ok && function != nil && function.Signature.Params().Len() == 0 {
+			return instruction, true
+		}
+	}
+	return nil, false
+}
+
+func launchedMethodReceivers(spawn *ssa.Go) []ssa.Value {
+	if spawn == nil {
+		return nil
+	}
+	if receiver := ssaflow.CallReceiver(spawn.Common()); lifecycleOwner(receiver) {
+		return []ssa.Value{receiver}
+	}
+	closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
+	if !ok {
+		return nil
+	}
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok || len(function.Blocks) != 1 {
+		return nil
+	}
+	// The terminating callback is relevant only when the receiver-bound call
+	// defines the launched closure's whole lifetime. A branch, another call, or
+	// independent blocking instruction would break that relationship.
+	var launchedReceiver ssa.Value
+	for _, instruction := range function.Blocks[0].Instrs {
+		switch typed := instruction.(type) {
+		case *ssa.Call:
+			if launchedReceiver != nil {
+				return nil
+			}
+			launchedReceiver = ssaflow.SpawnedValueAtCall(spawn, function, closure, ssaflow.CallReceiver(typed.Common()))
+			if !lifecycleOwner(launchedReceiver) {
+				return nil
+			}
+		case *ssa.UnOp:
+			if typed.Op != token.MUL {
+				return nil
+			}
+		case *ssa.ChangeInterface, *ssa.ChangeType, *ssa.Convert, *ssa.DebugRef, *ssa.Extract, *ssa.MakeInterface, *ssa.Return:
+			// These instructions only expose the captured receiver, adapt its
+			// type, or consume the launched call's result. They cannot extend the
+			// goroutine after that call returns.
+		default:
+			return nil
+		}
+	}
+	if launchedReceiver == nil {
+		return nil
+	}
+	return []ssa.Value{launchedReceiver}
+}
+
 func lifecycleMethod(name string) bool {
 	switch strings.ToLower(name) {
 	case "close", "kill", "shutdown", "stop", "wait":

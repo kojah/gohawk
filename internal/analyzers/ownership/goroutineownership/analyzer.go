@@ -65,6 +65,7 @@ const (
 	ownershipReasonNestedCallbackReceive   goroutineOwnershipReason = "nested-callback-receive"
 	ownershipReasonJoinObserved            goroutineOwnershipReason = "join-observed"
 	ownershipReasonLifecycleWait           goroutineOwnershipReason = "lifecycle-wait"
+	ownershipReasonTestingCleanupLifecycle goroutineOwnershipReason = "testing-cleanup-lifecycle"
 	ownershipReasonCausalTestJoin          goroutineOwnershipReason = "causal-test-join"
 	ownershipReasonLifecycleOwner          goroutineOwnershipReason = "lifecycle-owner"
 	ownershipReasonOwnershipTransfer       goroutineOwnershipReason = "ownership-transfer"
@@ -226,6 +227,8 @@ func (analysis goroutineAnalysis) instructionOwnsGoroutine(candidate ssa.Instruc
 		reason = ownershipReasonJoinObserved
 	case waitsForLifecycleOwner(analysis.evidence, candidate, analysis.owners):
 		reason = ownershipReasonLifecycleWait
+	case analysis.config.mode != goroutineModeJoin && testingCleanupOwnsLaunchedLifecycle(candidate, analysis.spawn):
+		reason = ownershipReasonTestingCleanupLifecycle
 	case analysis.testFunction && causalTestJoin(analysis.spawn, candidate):
 		reason = ownershipReasonCausalTestJoin
 	case analysis.config.mode != goroutineModeJoin && ownsGoroutineLifecycle(analysis.evidence, candidate, analysis.owners):
