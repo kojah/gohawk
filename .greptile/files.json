@@ -1,0 +1,24 @@
+{
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "description": "Repository-wide development and review requirements, including gohawk's high-precision analyzer policy."
+    },
+    {
+      "path": "docs/architecture.md",
+      "description": "Package boundaries, dependency direction, and the responsibilities of shared analysis infrastructure.",
+      "scope": [
+        "**/*.go"
+      ]
+    },
+    {
+      "path": "docs/contributing.md",
+      "description": "Analyzer contribution requirements and the expected validation and dogfooding workflow.",
+      "scope": [
+        "analyzers/**",
+        "internal/analyzers/**",
+        "internal/check/**"
+      ]
+    }
+  ]
+}
