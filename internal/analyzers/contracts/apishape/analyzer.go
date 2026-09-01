@@ -47,6 +47,9 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 	receiverPositions := map[string]token.Pos{}
 	interfaces := apiShapeInterfaces(pass)
 	callbacks := apiShapeCallbacks(pass)
+	// Interface methods and values passed as callbacks have externally imposed
+	// signatures. Excluding them before applying shape limits avoids suggesting
+	// an API change that would break the contract supplying the declaration.
 	for _, file := range pass.Files {
 		if !analysisutil.AnalyzeFile(pass, file) {
 			continue
@@ -173,6 +176,8 @@ func apiShapeInterfaceMethod(iface *types.Interface, name string) *types.Func {
 }
 
 func apiShapeInterfaces(pass *analysis.Pass) []*types.Interface {
+	// Include anonymous interfaces appearing in expressions as well as named
+	// declarations: either can impose a method signature on a concrete receiver.
 	seen := map[*types.Interface]bool{}
 	var result []*types.Interface
 	add := func(value types.Type) {

@@ -114,6 +114,9 @@ func closeEnumTaggedUnionFields(
 	fieldFlows map[*types.Var]enumFlow,
 	closed map[*types.Var]bool,
 ) {
+	// Implementations of one local interface form a tagged-union family. A
+	// shared field name is closed only when the combined family has multiple
+	// known values and no implementation admits an open string source.
 	interfaces := enumPackageInterfaces(pass)
 	for _, iface := range interfaces {
 		groups := make(map[string][]*types.Var)
@@ -165,6 +168,9 @@ func enumImplements(named *types.Named, iface *types.Interface) bool {
 }
 
 func propagateClosedEnumFields(pass *analysis.Pass, candidates map[*types.Var]enumCandidate, fieldFlows map[*types.Var]enumFlow, closed map[*types.Var]bool) {
+	// Closure propagates through field-to-field assignments, including facts
+	// imported from dependencies. The monotone set reaches a fixed point because
+	// fields only transition from unknown to closed.
 	for {
 		changed := false
 		for field := range candidates {

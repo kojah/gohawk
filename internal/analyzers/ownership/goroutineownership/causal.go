@@ -30,6 +30,9 @@ func causalTestJoin(spawn *ssa.Go, candidate ssa.Instruction) bool {
 	if !closurePerformsLifecycleAction(spawned) {
 		return false
 	}
+	// A blocking call is causal join evidence only when it operates on a value
+	// captured by the worker that performs the lifecycle action. Mere source
+	// order between unrelated blocking work and the spawn is insufficient.
 	for index := range spawned.FreeVars {
 		if index >= len(closure.Bindings) {
 			continue

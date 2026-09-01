@@ -294,6 +294,9 @@ func bindingMatchesAnySignal(binding ssa.Value, signals []ssa.Value) bool {
 }
 
 func valueReceivesAny(value ssa.Value, signals []ssa.Value, seen map[ssa.Value]bool) bool {
+	// Callback joins may be stored before invocation or nested in another
+	// closure. Follow only concrete allocation stores and closure environments so
+	// an unrelated callback with a similar shape cannot satisfy the obligation.
 	return valueReceivesAnyWithBindings(value, signals, seen, nil)
 }
 

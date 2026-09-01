@@ -66,6 +66,9 @@ func runEnumField(pass *analysis.Pass) (any, error) {
 	}
 
 	closed := make(map[*types.Var]bool)
+	// Multiple literals prove a closed domain only while every observed source
+	// is itself bounded. Named-string erasure is stronger evidence because it
+	// shows that the builtin string field is hiding an existing domain type.
 	for field := range candidates {
 		flow := fieldFlows[field]
 		if len(directValues[field]) >= 2 || flow.erasedNamed || !flow.open && len(flow.values) >= 2 {

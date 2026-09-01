@@ -15,6 +15,10 @@ func enumLocalFlows(pass *analysis.Pass, files []*ast.File) (map[*types.Var]enum
 	locals := make(map[*types.Var]enumFlow)
 	summaries := make(map[*types.Func]enumFlow)
 	seedEnumOpenParameters(pass, files, locals)
+	// Local assignments and single-result function summaries depend on each
+	// other. Repeated monotone union propagates literals and openness without
+	// pretending that an unresolved value is closed; the cap bounds malformed
+	// or unexpectedly deep source graphs conservatively.
 	for range 32 {
 		changed := false
 		for _, file := range files {
@@ -124,6 +128,9 @@ func enumIdentifierVariable(pass *analysis.Pass, identifier *ast.Ident) *types.V
 }
 
 func enumExpressionFlow(pass *analysis.Pass, expression ast.Expr, locals map[*types.Var]enumFlow, summaries map[*types.Func]enumFlow) enumFlow {
+	// Anything outside the deliberately small expression model is open. This is
+	// the precision boundary that prevents an unfamiliar producer from becoming
+	// evidence for a closed domain merely because no literal was observed.
 	if expression == nil {
 		return enumFlow{open: true}
 	}
@@ -240,6 +247,9 @@ func mergeEnumFlowMap[K comparable](values map[K]enumFlow, key K, addition enumF
 }
 
 func mergeEnumFlow(target *enumFlow, addition enumFlow) bool {
+	// Flow facts form a join-semilattice: known values and source fields grow,
+	// while erasedNamed and open can only become true. That makes convergence
+	// independent of AST visitation order.
 	changed := false
 	before := len(target.values)
 	mergeEnumValuesIntoFlow(target, addition.values)

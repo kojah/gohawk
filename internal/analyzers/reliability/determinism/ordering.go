@@ -31,6 +31,9 @@ func accumulatorObservedWithoutSort(pass *analysis.Pass, statements []ast.Stmt, 
 }
 
 func blockObservesAccumulatorWithoutSort(pass *analysis.Pass, statements []ast.Stmt, accumulator types.Object, sorted bool) bool {
+	// The sorted bit is path-local: a recognized sort establishes it and any
+	// later mutation clears it. Nested control flow inherits the incoming state,
+	// but no branch is allowed to establish sorting for its siblings.
 	for _, statement := range statements {
 		if directSortOf(pass, statement, accumulator) {
 			sorted = true

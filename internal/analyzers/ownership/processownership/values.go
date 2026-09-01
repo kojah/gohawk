@@ -27,6 +27,9 @@ func commandReturnedByHelper(command ssa.Value) bool {
 }
 
 func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) bool {
+	// Commands produced by a helper may carry a lifecycle contract the caller
+	// cannot see. Track only transparent SSA wrappers and merges; a direct
+	// os/exec constructor remains locally owned and must still be waited for.
 	if command == nil || seen[command] {
 		return false
 	}
@@ -92,6 +95,9 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 }
 
 func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
+	// Wait is not required on the path where Start itself failed. Accept that
+	// exception only when SSA branch evidence separates failure from every path
+	// that can reach the same return.
 	if returned.Block() == start.Block() {
 		return false
 	}

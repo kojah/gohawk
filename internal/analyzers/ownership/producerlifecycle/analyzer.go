@@ -54,6 +54,9 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 }
 
 func producerSends(function *ssa.Function) []producerSend {
+	// Only local unbuffered channels expose a direct producer/receiver count.
+	// Buffered or externally supplied channels have capacity and ownership
+	// contracts that this analyzer cannot safely infer.
 	var sends []producerSend
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -87,6 +90,9 @@ func producerSends(function *ssa.Function) []producerSend {
 }
 
 func abandonedProducerSend(function *ssa.Function, send producerSend, sends []producerSend, reported map[token.Pos]bool) bool {
+	// A looped send is potentially unbounded; otherwise compare only sends that
+	// can coexist on the same path. A draining receive loop discharges either
+	// form because it continues to service the producer.
 	if reported[send.instruction.Pos()] {
 		return false
 	}

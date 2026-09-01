@@ -64,6 +64,10 @@ func runGlobalState(pass *analysis.Pass, config globalStateConfig) (any, error) 
 }
 
 func checkGlobalDeclaration(pass *analysis.Pass, declaration *ast.GenDecl, allowlist globalStateAllowlist, usage globalStateUsage) {
+	// Type mutability selects candidates; ownership and observed usage decide
+	// whether the value is effectively immutable. Explicit configuration is
+	// checked before the evidence model so intentional framework globals remain
+	// a stable repository policy rather than name-based analyzer exceptions.
 	for _, specification := range declaration.Specs {
 		value, ok := specification.(*ast.ValueSpec)
 		if !ok {

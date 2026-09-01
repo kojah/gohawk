@@ -139,6 +139,9 @@ func spawnedFunction(spawn *ssa.Go) *ssa.Function {
 }
 
 func neverCancelledTestContext(value ssa.Value, seen map[ssa.Value]bool) (token.Pos, bool) {
+	// Background and TODO remain detached through transparent wrappers, stores,
+	// and phi nodes only when every incoming value is likewise detached. A mixed
+	// merge is not safe evidence for recommending the testing context.
 	if value == nil || seen[value] {
 		return token.NoPos, false
 	}
@@ -223,6 +226,9 @@ type contextObservation struct {
 }
 
 func functionObservesCancellation(function *ssa.Function, value ssa.Value, seen map[contextObservation]bool) bool {
+	// A detached context matters only when the goroutine consults cancellation.
+	// Follow exact arguments into static callees, but stop at dynamic dispatch or
+	// value transformations whose parameter relationship cannot be proved.
 	if function == nil || value == nil {
 		return false
 	}

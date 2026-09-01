@@ -50,6 +50,9 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 	}
 	settings := resourceLifetimeSettings{contracts: flagvalue.CommaSeparatedSet(config.contracts), requireReaderClose: config.requireReaderClose}
 	completeTimers := completeTimerLifecyclePositions(pass)
+	// Acquisition contracts identify both the owned result and its required
+	// cleanup action. Reporting is deferred until path analysis proves that the
+	// action or a recognized ownership transfer is absent on a normal return.
 	for _, function := range functions {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {

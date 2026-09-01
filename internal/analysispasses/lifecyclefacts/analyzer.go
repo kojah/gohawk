@@ -168,6 +168,9 @@ func functionName(instruction ssa.Instruction) string {
 
 func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 	var fact Fact
+	// A fact is exported only when the action is unavoidable on every normal
+	// return. Each mask is therefore proved independently; evidence for Close,
+	// for example, must never make an unrelated Wait or return-transfer claim true.
 	for index, parameter := range function.Params {
 		if !ownershipCapableType(parameter.Type()) {
 			continue

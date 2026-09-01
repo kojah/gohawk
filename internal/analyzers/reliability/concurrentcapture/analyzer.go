@@ -74,6 +74,9 @@ func calledClosure(call *ast.CallExpr) *ast.FuncLit {
 }
 
 func reportCapturedMutations(pass *analysis.Pass, closure *ast.FuncLit) {
+	// A lock anywhere in the launched closure is conservative synchronization
+	// evidence. Without one, report only writes whose root is a local declared
+	// before the closure, which excludes closure-local and package-owned state.
 	if closureUsesLock(closure) {
 		return
 	}

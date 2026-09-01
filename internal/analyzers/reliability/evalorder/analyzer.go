@@ -43,6 +43,9 @@ func runEvalOrder(pass *analysis.Pass) (any, error) {
 }
 
 func reportEvaluationDependencies(pass *analysis.Pass, expressions []ast.Expr) {
+	// Go evaluates operands left to right, so only a later call can invalidate a
+	// value already captured by an earlier expression. Address-taking plus a
+	// proved mutating callee supplies the required alias and write evidence.
 	for laterIndex := 1; laterIndex < len(expressions); laterIndex++ {
 		earlierObjects := map[types.Object]bool{}
 		for _, earlier := range expressions[:laterIndex] {
@@ -97,6 +100,9 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 		return false
 	}
 	mutatedFields, wholeMutation := functionMutatedFields(pass, declaration, parameter)
+	// Suppress only when both sides are field-selective and their field sets are
+	// disjoint. Any whole-object use or write preserves the diagnostic because it
+	// may observe or invalidate the earlier value.
 	if wholeMutation || len(mutatedFields) == 0 {
 		return false
 	}
@@ -181,6 +187,9 @@ func mutationTargets(node ast.Node) []ast.Expr {
 }
 
 func callMutatesArgument(pass *analysis.Pass, call *ast.CallExpr, argumentIndex int) bool {
+	// External calls are mutators only when their contract is explicitly known.
+	// For local functions, inspect the concrete parameter body instead of
+	// inferring mutation from pointer type alone.
 	if knownMutatingArgument(pass, call, argumentIndex) {
 		return true
 	}

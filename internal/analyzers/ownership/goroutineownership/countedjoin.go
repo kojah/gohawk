@@ -127,6 +127,9 @@ func sameBound(first, second ssa.Value) bool {
 }
 
 func finiteAggregateJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Value) bool {
+	// A map populated with each worker's signal is a finite join set.
+	// Accept it only when a later receive derives from that exact aggregate;
+	// merely storing signals does not establish that the caller waits for them.
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			update, ok := instruction.(*ssa.MapUpdate)

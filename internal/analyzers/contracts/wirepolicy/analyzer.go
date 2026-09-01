@@ -19,6 +19,9 @@ func Analyzer() *analysis.Analyzer {
 		Name: "wirepolicy",
 		Doc:  "checks serialized structs and their composite literals",
 		Run: func(pass *analysis.Pass) (any, error) {
+			// Wire identity is established by either a serialization-oriented type
+			// name or an actual json/toml tag. Requiring concrete evidence here keeps
+			// ordinary internal structs outside both checks.
 			for _, file := range pass.Files {
 				if !analysisutil.AnalyzeFile(pass, file) {
 					continue

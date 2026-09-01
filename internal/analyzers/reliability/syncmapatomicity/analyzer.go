@@ -98,6 +98,9 @@ func syncMapLoadAssignment(pass *analysis.Pass, statement ast.Stmt) (syncMapLoad
 }
 
 func reportConditionalSyncMapClaim(pass *analysis.Pass, conditional *ast.IfStmt, load syncMapLoad) {
+	// The unsafe claim is a concrete Load-success/Delete/use sequence for the
+	// same map and key. Requiring the use after Delete avoids diagnosing callers
+	// that merely discard stale entries without claiming exclusive ownership.
 	if load.value == nil || load.ok == nil || !conditionRequiresTrue(pass, conditional.Cond, load.ok) || len(conditional.Body.List) == 0 {
 		return
 	}

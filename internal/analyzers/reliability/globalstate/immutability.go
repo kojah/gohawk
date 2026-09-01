@@ -306,6 +306,9 @@ func calledObject(pass *analysis.Pass, expression ast.Expr) types.Object {
 }
 
 func globalCalleeParameters(pass *analysis.Pass) map[types.Object][]types.Object {
+	// Parameter objects connect a global argument to uses inside local helpers.
+	// Only declarations and directly assigned function literals have a stable
+	// source body; dynamic function values intentionally stop the read-only proof.
 	result := make(map[types.Object][]types.Object)
 	for _, file := range pass.Files {
 		ast.Inspect(file, func(node ast.Node) bool {
