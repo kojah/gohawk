@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kojah/gohawk/analysisutil"
+	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"
@@ -105,12 +106,15 @@ func withSuppressions(analyzer *analysis.Analyzer, declared []analyzerbase.Check
 		var reportErr error
 		pass.Report = func(diagnostic analysis.Diagnostic) {
 			if !checks[diagnostic.Category] {
+				analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "unknown-check", analysisTrace.OutcomeRejected, diagnostic)
 				reportErr = errors.Join(reportErr, fmt.Errorf("analyzer %q reported unknown check %q", analyzer.Name, diagnostic.Category))
 				return
 			}
-			if !analysisutil.DiagnosticSuppressed(pass, diagnostic.Pos, analyzer.Name) {
-				report(diagnostic)
+			if analysisutil.DiagnosticSuppressed(pass, diagnostic.Pos, analyzer.Name) {
+				analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "suppression-comment", analysisTrace.OutcomeAccepted, diagnostic)
+				return
 			}
+			report(diagnostic)
 		}
 		defer func() { pass.Report = report }()
 		result, err := run(pass)

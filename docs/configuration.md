@@ -103,11 +103,14 @@ gohawk -enable=contextpolicy -contextpolicy.prefer-test-context=false ./...
 Each configurable analyzer lists its options on its own page in the
 [analyzer reference](../analyzers/).
 
-## Trace ownership evidence
+## Trace analyzer decisions
 
-Ownership and lifecycle analyzers can emit structured JSON Lines describing
-why an obligation was accepted or rejected. Tracing is disabled by default and
-does not change diagnostics. Select an analyzer, a stable check ID, or `all`:
+Every analyzer can emit structured JSON Lines describing how a finding was
+handled. All checks trace report candidates, final report or suppression
+decisions, and available suggested fixes. Analyzers with deeper evidence
+engines also trace the facts that accepted or rejected a candidate. Tracing is
+disabled by default and does not change diagnostics. Select an analyzer, a
+stable check ID, or `all`:
 
 ```sh
 gohawk -enable=goroutineownership \
@@ -122,6 +125,10 @@ tracing with `-json`. Trace files are opened in append mode because `go vet`
 may launch several analyzer processes. Each record includes the analyzer,
 stable check, phase, reason code, outcome, source position, function, and small
 analyzer-specific details.
+
+The common phases are `candidate`, `evidence`, `decision`, and `fix`. Reason
+codes explain the specific result, such as `diagnostic-reported`,
+`suppression-comment`, `unowned-return`, or `suggested-fix-available`.
 
 The longer flag name is intentional: the underlying Go analysis driver already
 uses `-trace` for runtime execution tracing.

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"go/ast"
+	"go/parser"
 	"go/token"
 	"sync"
 	"testing"
@@ -81,6 +83,32 @@ func TestEnabledUsesAnalyzerAndCheckSelectors(t *testing.T) {
 	}
 	if Enabled("goroutineownership", "goroutineownership/detached") {
 		t.Fatal("unselected check is enabled")
+	}
+}
+
+func TestEmitDiagnosticResolvesSourceFunction(t *testing.T) {
+	resetTrace(t)
+	var output bytes.Buffer
+	global.config.writer = &output
+	global.config.selectors = map[string]bool{"oncepolicy": true}
+	global.config.function = "openFile"
+	global.active.Store(true)
+
+	files := token.NewFileSet()
+	file, err := parser.ParseFile(files, "sample.go", "package sample\nfunc openFile() { println() }\n", 0)
+	if err != nil {
+		t.Fatalf("parse fixture: %v", err)
+	}
+	function := file.Decls[0]
+	pass := &analysis.Pass{Fset: files, Files: []*ast.File{file}}
+	EmitDiagnostic(pass, "oncepolicy", "candidate", "diagnostic-candidate", OutcomeObserved, analysis.Diagnostic{Category: "oncepolicy/discarded-wrapper", Pos: function.Pos(), Message: "discarded"})
+
+	var got record
+	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &got); err != nil {
+		t.Fatalf("decode trace: %v\n%s", err, output.String())
+	}
+	if got.Function != "openFile" || got.Details["message"] != "discarded" {
+		t.Fatalf("trace = %+v", got)
 	}
 }
 

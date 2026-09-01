@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"go/ast"
 	"go/token"
 	"io"
 	"os"
@@ -141,6 +142,47 @@ func Enabled(analyzer, check string) bool {
 	global.Lock()
 	defer global.Unlock()
 	return global.config.selectors["all"] || global.config.selectors[analyzer] || check != "" && global.config.selectors[check]
+}
+
+// EmitDiagnostic records a source-level analyzer decision using the same
+// schema as deeper SSA evidence. Function names are resolved only while the
+// corresponding trace selector is enabled.
+func EmitDiagnostic(pass *analysis.Pass, analyzer, phase, reason string, outcome Outcome, diagnostic analysis.Diagnostic) {
+	if !Enabled(analyzer, diagnostic.Category) {
+		return
+	}
+	details := map[string]string{}
+	if diagnostic.Message != "" {
+		details["message"] = diagnostic.Message
+	}
+	Emit(pass, Event{
+		Analyzer: analyzer,
+		Check:    diagnostic.Category,
+		Phase:    phase,
+		Reason:   reason,
+		Outcome:  outcome,
+		Pos:      diagnostic.Pos,
+		Function: sourceFunction(pass, diagnostic.Pos),
+		Details:  details,
+	})
+}
+
+func sourceFunction(pass *analysis.Pass, position token.Pos) string {
+	if pass == nil || !position.IsValid() {
+		return ""
+	}
+	for _, file := range pass.Files {
+		if position < file.Pos() || position > file.End() {
+			continue
+		}
+		for _, declaration := range file.Decls {
+			function, ok := declaration.(*ast.FuncDecl)
+			if ok && function.Pos() <= position && position <= function.End() {
+				return function.Name.Name
+			}
+		}
+	}
+	return ""
 }
 
 // Emit writes event as one JSON object when it matches the configured filters.

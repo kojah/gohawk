@@ -58,6 +58,33 @@ decision point over repeating the explanation throughout helper functions.
 Preserve these comments when refactoring. If behavior or its supporting
 evidence changes, update the rationale, link, and regression fixture together.
 
+## Analyzer tracing
+
+Use the structured evidence tracer instead of temporary print statements when
+investigating analyzer behavior. Every diagnostic must flow through
+`analyzerbase.Report` or `analyzerbase.Reportf`, which provide repo-wide
+candidate and suggested-fix events. Shared analyzer wrappers trace whether a
+candidate is reported, suppressed by an ignore comment, or removed by check
+selection.
+
+Instrument non-obvious evidence and conservative bailout decisions near the
+policy code that makes them. Use the common phases consistently:
+
+- `candidate` for a potentially reportable construct;
+- `evidence` for facts that support accepting or rejecting it;
+- `decision` for the final report or suppression outcome; and
+- `fix` for the availability or rejection of a suggested edit.
+
+Reason codes are a diagnostic interface: use stable, concise kebab-case names
+that describe why the decision was made. Keep details compact and avoid dumping
+AST or SSA values. Call `trace.Enabled` before allocating maps or computing
+expensive trace-only metadata so disabled tracing remains effectively free.
+
+Analyzer changes that add a new precision boundary should trace the decisive
+reason and test it when practical. Trace output must remain valid JSONL under
+parallel analysis, and enabling tracing must not change which diagnostics are
+reported.
+
 ## Analyzer organization
 
 Follow the layering common in mature Go analyzer projects: keep analyzer

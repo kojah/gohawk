@@ -331,9 +331,6 @@ func effectiveDisabledChecks(metadata map[string]gohawk.AnalyzerInfo, normallySe
 }
 
 func withDisabledChecks(analyzers []*analysis.Analyzer, metadata map[string]gohawk.AnalyzerInfo, disabled map[string]bool) []*analysis.Analyzer {
-	if len(disabled) == 0 {
-		return analyzers
-	}
 	result := make([]*analysis.Analyzer, 0, len(analyzers))
 	for _, analyzer := range analyzers {
 		analyzerDisabled := make(map[string]bool)
@@ -341,10 +338,6 @@ func withDisabledChecks(analyzers []*analysis.Analyzer, metadata map[string]goha
 			if disabled[string(check.ID)] {
 				analyzerDisabled[string(check.ID)] = true
 			}
-		}
-		if len(analyzerDisabled) == 0 {
-			result = append(result, analyzer)
-			continue
 		}
 		wrapped := *analyzer
 		run := analyzer.Run
@@ -355,9 +348,12 @@ func withDisabledChecks(analyzers []*analysis.Analyzer, metadata map[string]goha
 			}
 			report := pass.Report
 			pass.Report = func(diagnostic analysis.Diagnostic) {
-				if !analyzerDisabled[diagnostic.Category] {
-					report(diagnostic)
+				if analyzerDisabled[diagnostic.Category] {
+					analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "check-disabled", analysisTrace.OutcomeAccepted, diagnostic)
+					return
 				}
+				analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "diagnostic-reported", analysisTrace.OutcomeRejected, diagnostic)
+				report(diagnostic)
 			}
 			defer func() { pass.Report = report }()
 			return run(pass)

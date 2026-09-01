@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/analysisutil"
+	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -67,6 +68,11 @@ func Reportf(pass *analysis.Pass, check Check, position token.Pos, format string
 // Report associates diagnostic with check before reporting it.
 func Report(pass *analysis.Pass, check Check, diagnostic analysis.Diagnostic) {
 	diagnostic.Category = string(check)
+	analyzer, _, _ := strings.Cut(string(check), "/")
+	analysisTrace.EmitDiagnostic(pass, analyzer, "candidate", "diagnostic-candidate", analysisTrace.OutcomeObserved, diagnostic)
+	if len(diagnostic.SuggestedFixes) > 0 {
+		analysisTrace.EmitDiagnostic(pass, analyzer, "fix", "suggested-fix-available", analysisTrace.OutcomeAccepted, diagnostic)
+	}
 	pass.Report(diagnostic)
 }
 

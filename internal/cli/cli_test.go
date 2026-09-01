@@ -1041,7 +1041,7 @@ func answer() int { return identity{}.value(42) }
 		if err != nil {
 			t.Fatalf("read evidence trace: %v", err)
 		}
-		foundDecision := false
+		found := map[string]bool{}
 		for _, line := range bytes.Split(bytes.TrimSpace(traceOutput), []byte("\n")) {
 			var event struct {
 				Analyzer string `json:"analyzer"`
@@ -1052,10 +1052,14 @@ func answer() int { return identity{}.value(42) }
 			if err := json.Unmarshal(line, &event); err != nil {
 				t.Fatalf("decode evidence trace line %q: %v", line, err)
 			}
-			foundDecision = foundDecision || event.Analyzer == "cancellationownership" && event.Phase == "decision" && event.Reason == "unowned-return" && event.Outcome == "rejected"
+			if event.Analyzer == "cancellationownership" {
+				found[event.Phase+"/"+event.Reason+"/"+event.Outcome] = true
+			}
 		}
-		if !foundDecision {
-			t.Fatalf("trace does not contain the rejected cancellation decision:\n%s", traceOutput)
+		for _, want := range []string{"candidate/diagnostic-candidate/observed", "decision/unowned-return/rejected", "decision/diagnostic-reported/rejected", "fix/suggested-fix-available/accepted"} {
+			if !found[want] {
+				t.Fatalf("trace does not contain %s:\n%s", want, traceOutput)
+			}
 		}
 
 		output, exitCode = runCommand(t, module, binary, "-enable=cancellationownership", "./...")

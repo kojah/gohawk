@@ -10,6 +10,7 @@ import (
 
 	"github.com/golangci/plugin-module-register/register"
 	"github.com/kojah/gohawk/analysisutil"
+	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	"github.com/kojah/gohawk/analyzers"
 	"golang.org/x/tools/go/analysis"
 )
@@ -129,9 +130,6 @@ func requestedChecks(setting string, values []string, owners map[string]string) 
 }
 
 func withDisabledChecks(analyzer *analysis.Analyzer, disabled map[string]bool, checkCount int) *analysis.Analyzer {
-	if len(disabled) == 0 {
-		return analyzer
-	}
 	wrapper := *analyzer
 	run := analyzer.Run
 	allDisabled := len(disabled) == checkCount
@@ -141,9 +139,12 @@ func withDisabledChecks(analyzer *analysis.Analyzer, disabled map[string]bool, c
 		}
 		report := pass.Report
 		pass.Report = func(diagnostic analysis.Diagnostic) {
-			if !disabled[diagnostic.Category] {
-				report(diagnostic)
+			if disabled[diagnostic.Category] {
+				analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "check-disabled", analysisTrace.OutcomeAccepted, diagnostic)
+				return
 			}
+			analysisTrace.EmitDiagnostic(pass, analyzer.Name, "decision", "diagnostic-reported", analysisTrace.OutcomeRejected, diagnostic)
+			report(diagnostic)
 		}
 		defer func() { pass.Report = report }()
 		return run(pass)
