@@ -18,6 +18,11 @@ gohawk diagnostic is actionable.
   newly introduced findings before enabling broader coverage.
 - Avoid project-name or function-name exemptions unless they represent a
   documented, general API contract.
+- Prefer general evidence models over accumulating special cases. Before
+  adding an exception or API-specific rule, identify the broader contract it
+  represents and implement that contract at one reusable decision point. If a
+  pattern cannot be generalized or explained clearly, conservatively decline
+  to analyze it.
 
 ## Development commands
 
