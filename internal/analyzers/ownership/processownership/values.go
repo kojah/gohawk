@@ -29,6 +29,12 @@ func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) boo
 		return false
 	}
 	seen[command] = true
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		command,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+	); ok {
+		return commandReturnedByHelperSeen(inner, seen)
+	}
 	switch typed := command.(type) {
 	case *ssa.Call:
 		return !ssaflow.CallMatchesAnySymbol(
@@ -36,14 +42,6 @@ func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) boo
 			syntax.PackageFunction("os/exec", "Command"),
 			syntax.PackageFunction("os/exec", "CommandContext"),
 		)
-	case *ssa.ChangeInterface:
-		return commandReturnedByHelperSeen(typed.X, seen)
-	case *ssa.ChangeType:
-		return commandReturnedByHelperSeen(typed.X, seen)
-	case *ssa.Convert:
-		return commandReturnedByHelperSeen(typed.X, seen)
-	case *ssa.MakeInterface:
-		return commandReturnedByHelperSeen(typed.X, seen)
 	case *ssa.UnOp:
 		if typed.X.Referrers() == nil {
 			return false

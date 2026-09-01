@@ -152,7 +152,10 @@ func valueCallsMethod(value ssa.Value, method string, target ssa.Value, seen map
 	if closure, ok := value.(*ssa.MakeClosure); ok && closureValueCallsMethod(closure, method, target, seen) {
 		return true
 	}
-	if inner, ok := wrappedValue(value); ok {
+	if inner, ok := UnwrapTransparentValue(
+		value,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
 		return valueCallsMethod(inner, method, target, seen)
 	}
 	switch typed := value.(type) {
@@ -240,7 +243,10 @@ func valueCallsValue(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 	if closure, ok := value.(*ssa.MakeClosure); ok && closureValueCallsValue(closure, target, seen) {
 		return true
 	}
-	if inner, ok := wrappedValue(value); ok {
+	if inner, ok := UnwrapTransparentValue(
+		value,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
 		return valueCallsValue(inner, target, seen)
 	}
 	switch typed := value.(type) {

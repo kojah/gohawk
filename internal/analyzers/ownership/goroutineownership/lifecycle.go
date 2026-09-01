@@ -134,20 +134,18 @@ func synctestOwnsGoroutine(function *ssa.Function) bool {
 }
 
 func callbackFunction(value ssa.Value) *ssa.Function {
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		value,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+	); ok {
+		return callbackFunction(inner)
+	}
 	switch typed := value.(type) {
 	case *ssa.Function:
 		return typed
 	case *ssa.MakeClosure:
 		function, _ := typed.Fn.(*ssa.Function)
 		return function
-	case *ssa.ChangeInterface:
-		return callbackFunction(typed.X)
-	case *ssa.ChangeType:
-		return callbackFunction(typed.X)
-	case *ssa.Convert:
-		return callbackFunction(typed.X)
-	case *ssa.MakeInterface:
-		return callbackFunction(typed.X)
 	default:
 		return nil
 	}

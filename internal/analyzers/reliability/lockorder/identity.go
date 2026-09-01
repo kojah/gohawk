@@ -3,6 +3,8 @@ package lockorder
 import (
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/ssaflow"
+
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -49,15 +51,13 @@ func lockIdentity(value ssa.Value, seen map[ssa.Value]bool) string {
 }
 
 func lockIdentitySource(value ssa.Value) (ssa.Value, bool) {
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		value,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+	); ok {
+		return inner, true
+	}
 	switch typed := value.(type) {
-	case *ssa.ChangeInterface:
-		return typed.X, true
-	case *ssa.ChangeType:
-		return typed.X, true
-	case *ssa.Convert:
-		return typed.X, true
-	case *ssa.MakeInterface:
-		return typed.X, true
 	case *ssa.UnOp:
 		return typed.X, true
 	default:

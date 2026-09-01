@@ -16,19 +16,41 @@ import (
 // access-path identity. It follows only modeled value forms; an unfamiliar or
 // ambiguous transformation ends the proof instead of guessing equivalence.
 
-func wrappedValue(value ssa.Value) (ssa.Value, bool) {
+// TransparentValueForm identifies an SSA wrapper that a caller has chosen to
+// treat as preserving the evidence it is following. Convert is deliberately
+// opt-in because it may change a value's representation or meaning.
+type TransparentValueForm uint8
+
+const (
+	TransparentChangeInterface TransparentValueForm = 1 << iota
+	TransparentChangeType
+	TransparentConvert
+	TransparentMakeInterface
+)
+
+// UnwrapTransparentValue returns the operand of value only when its concrete
+// SSA form is among forms. There is intentionally no catch-all form: each
+// analysis must select the transformations that preserve its own evidence.
+func UnwrapTransparentValue(value ssa.Value, forms TransparentValueForm) (ssa.Value, bool) {
 	switch typed := value.(type) {
 	case *ssa.ChangeInterface:
-		return typed.X, true
+		return transparentOperand(typed.X, forms, TransparentChangeInterface)
 	case *ssa.ChangeType:
-		return typed.X, true
+		return transparentOperand(typed.X, forms, TransparentChangeType)
 	case *ssa.Convert:
-		return typed.X, true
+		return transparentOperand(typed.X, forms, TransparentConvert)
 	case *ssa.MakeInterface:
-		return typed.X, true
+		return transparentOperand(typed.X, forms, TransparentMakeInterface)
 	default:
 		return nil, false
 	}
+}
+
+func transparentOperand(operand ssa.Value, forms, form TransparentValueForm) (ssa.Value, bool) {
+	if forms&form == 0 {
+		return nil, false
+	}
+	return operand, true
 }
 
 // ValueSources returns error-bearing SSA values contributing to value.
@@ -216,6 +238,12 @@ func accessPath(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool)
 		return nil, true
 	}
 	seen[value] = true
+	if inner, ok := UnwrapTransparentValue(
+		value,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
+		return accessPath(inner, root, seen)
+	}
 	switch typed := value.(type) {
 	case *ssa.FieldAddr:
 		path, ok := accessPath(typed.X, root, seen)
@@ -231,14 +259,6 @@ func accessPath(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool)
 		if typed.Op == token.MUL && SameValue(typed.X, root) {
 			return nil, true
 		}
-		return accessPath(typed.X, root, seen)
-	case *ssa.ChangeInterface:
-		return accessPath(typed.X, root, seen)
-	case *ssa.ChangeType:
-		return accessPath(typed.X, root, seen)
-	case *ssa.Convert:
-		return accessPath(typed.X, root, seen)
-	case *ssa.MakeInterface:
 		return accessPath(typed.X, root, seen)
 	}
 	return nil, false

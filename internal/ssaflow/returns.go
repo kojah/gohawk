@@ -35,7 +35,10 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]boo
 		return true
 	}
 	seen[pair] = true
-	if inner, ok := wrappedValue(aggregate); ok {
+	if inner, ok := UnwrapTransparentValue(
+		aggregate,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
 		return aggregateStoresValue(inner, value, seen)
 	}
 	switch typed := aggregate.(type) {

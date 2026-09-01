@@ -192,11 +192,13 @@ func terminalWriterSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
 		ssaflow.ValueMatchesSymbol(value, syntax.PackageVariable("os", "Stderr")) {
 		return true
 	}
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		value,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentMakeInterface,
+	); ok {
+		return terminalWriterSeen(inner, seen)
+	}
 	switch typed := value.(type) {
-	case *ssa.ChangeInterface:
-		return terminalWriterSeen(typed.X, seen)
-	case *ssa.MakeInterface:
-		return terminalWriterSeen(typed.X, seen)
 	case *ssa.UnOp:
 		return terminalWriterSeen(typed.X, seen)
 	}

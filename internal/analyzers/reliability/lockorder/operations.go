@@ -94,6 +94,12 @@ func dynamicIndexedMutexSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
 		return false
 	}
 	seen[value] = true
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		value,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+	); ok {
+		return dynamicIndexedMutexSeen(inner, seen)
+	}
 	switch typed := value.(type) {
 	case *ssa.IndexAddr:
 		_, constant := typed.Index.(*ssa.Const)
@@ -109,14 +115,6 @@ func dynamicIndexedMutexSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
 			}
 		}
 	case *ssa.FieldAddr:
-		return dynamicIndexedMutexSeen(typed.X, seen)
-	case *ssa.ChangeInterface:
-		return dynamicIndexedMutexSeen(typed.X, seen)
-	case *ssa.ChangeType:
-		return dynamicIndexedMutexSeen(typed.X, seen)
-	case *ssa.Convert:
-		return dynamicIndexedMutexSeen(typed.X, seen)
-	case *ssa.MakeInterface:
 		return dynamicIndexedMutexSeen(typed.X, seen)
 	case *ssa.UnOp:
 		return dynamicIndexedMutexSeen(typed.X, seen)
@@ -167,11 +165,13 @@ func concreteMutexReceiver(value ssa.Value, seen map[ssa.Value]bool) ssa.Value {
 	if syntax.NamedType(value.Type(), "sync", "Mutex") || syntax.NamedType(value.Type(), "sync", "RWMutex") {
 		return value
 	}
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		value,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentMakeInterface,
+	); ok {
+		return concreteMutexReceiver(inner, seen)
+	}
 	switch typed := value.(type) {
-	case *ssa.MakeInterface:
-		return concreteMutexReceiver(typed.X, seen)
-	case *ssa.ChangeInterface:
-		return concreteMutexReceiver(typed.X, seen)
 	case *ssa.Phi:
 		var resolved ssa.Value
 		var identity string

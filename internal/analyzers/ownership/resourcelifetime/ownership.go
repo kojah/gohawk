@@ -101,15 +101,14 @@ func errorsIsNonNilFilesystemSentinel(condition, errorValue ssa.Value) bool {
 
 func isNonNilFilesystemSentinel(value ssa.Value) bool {
 	for {
+		if inner, ok := ssaflow.UnwrapTransparentValue(
+			value,
+			ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+		); ok {
+			value = inner
+			continue
+		}
 		switch typed := value.(type) {
-		case *ssa.ChangeInterface:
-			value = typed.X
-		case *ssa.ChangeType:
-			value = typed.X
-		case *ssa.Convert:
-			value = typed.X
-		case *ssa.MakeInterface:
-			value = typed.X
 		case *ssa.UnOp:
 			if typed.Op != token.MUL {
 				return false

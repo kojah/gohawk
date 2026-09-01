@@ -161,11 +161,13 @@ func eventuallyReceivesCount(function *ssa.Function, signal, count ssa.Value) bo
 }
 
 func callbackReceives(value, signal ssa.Value) bool {
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		value,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentMakeInterface,
+	); ok {
+		return callbackReceives(inner, signal)
+	}
 	switch typed := value.(type) {
-	case *ssa.MakeInterface:
-		return callbackReceives(typed.X, signal)
-	case *ssa.ChangeInterface:
-		return callbackReceives(typed.X, signal)
 	case *ssa.MakeClosure:
 		return valueReceivesAny(typed, []ssa.Value{signal}, map[ssa.Value]bool{})
 	}

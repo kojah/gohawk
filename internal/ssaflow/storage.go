@@ -120,7 +120,10 @@ func externallyOwnedValue(value ssa.Value, seen map[ssa.Value]bool) bool {
 		return false
 	}
 	seen[value] = true
-	if inner, ok := wrappedValue(value); ok {
+	if inner, ok := UnwrapTransparentValue(
+		value,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
 		return externallyOwnedValue(inner, seen)
 	}
 	if source, ok := ownershipSource(value); ok {

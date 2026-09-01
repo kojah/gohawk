@@ -74,6 +74,12 @@ func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
 		return true
 	}
 	seen[owner] = true
+	if inner, ok := UnwrapTransparentValue(
+		owner,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
+		return valueOwnsValue(inner, value, seen)
+	}
 	switch typed := owner.(type) {
 	case *ssa.MakeClosure:
 		for _, binding := range typed.Bindings {
@@ -81,14 +87,6 @@ func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
 				return true
 			}
 		}
-	case *ssa.ChangeInterface:
-		return valueOwnsValue(typed.X, value, seen)
-	case *ssa.ChangeType:
-		return valueOwnsValue(typed.X, value, seen)
-	case *ssa.Convert:
-		return valueOwnsValue(typed.X, value, seen)
-	case *ssa.MakeInterface:
-		return valueOwnsValue(typed.X, value, seen)
 	}
 	return false
 }

@@ -142,15 +142,17 @@ func valueUsedOnlyByReturns(value ssa.Value, seen map[ssa.Value]bool) (bool, boo
 }
 
 func transparentClosureWrapper(reference ssa.Instruction, value ssa.Value) (ssa.Value, bool) { //nolint:ireturn // SSA wrappers have distinct concrete types.
+	wrapped, valueWrapper := reference.(ssa.Value)
+	if valueWrapper {
+		inner, transparent := ssaflow.UnwrapTransparentValue(
+			wrapped,
+			ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+		)
+		if transparent {
+			return wrapped, ssaflow.SameValue(inner, value)
+		}
+	}
 	switch typed := reference.(type) {
-	case *ssa.ChangeInterface:
-		return typed, ssaflow.SameValue(typed.X, value)
-	case *ssa.ChangeType:
-		return typed, ssaflow.SameValue(typed.X, value)
-	case *ssa.Convert:
-		return typed, ssaflow.SameValue(typed.X, value)
-	case *ssa.MakeInterface:
-		return typed, ssaflow.SameValue(typed.X, value)
 	case *ssa.Phi:
 		for _, edge := range typed.Edges {
 			if ssaflow.SameValue(edge, value) {

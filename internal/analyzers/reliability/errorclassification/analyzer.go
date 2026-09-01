@@ -153,6 +153,12 @@ func externalProcessError(value ssa.Value, callsites map[*ssa.Function][]*ssa.Ca
 		return false
 	}
 	seen[value] = true
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		value,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+	); ok {
+		return externalProcessError(inner, callsites, seen)
+	}
 	switch typed := value.(type) {
 	case *ssa.Parameter:
 		return allParameterCallersPassExternalProcessError(typed, callsites, seen)
@@ -161,14 +167,6 @@ func externalProcessError(value ssa.Value, callsites map[*ssa.Function][]*ssa.Ca
 		return ok && functionExecutesExternalCommand(call.Common().StaticCallee())
 	case *ssa.Call:
 		return externalCommandCall(typed.Common()) || functionExecutesExternalCommand(typed.Common().StaticCallee())
-	case *ssa.ChangeInterface:
-		return externalProcessError(typed.X, callsites, seen)
-	case *ssa.ChangeType:
-		return externalProcessError(typed.X, callsites, seen)
-	case *ssa.Convert:
-		return externalProcessError(typed.X, callsites, seen)
-	case *ssa.MakeInterface:
-		return externalProcessError(typed.X, callsites, seen)
 	case *ssa.Phi:
 		if len(typed.Edges) == 0 {
 			return false

@@ -46,15 +46,13 @@ func ValueAliases(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 		return true
 	}
 	seen[value] = true
+	if inner, ok := UnwrapTransparentValue(
+		value,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
+		return ValueAliases(inner, target, seen)
+	}
 	switch typed := value.(type) {
-	case *ssa.ChangeInterface:
-		return ValueAliases(typed.X, target, seen)
-	case *ssa.ChangeType:
-		return ValueAliases(typed.X, target, seen)
-	case *ssa.Convert:
-		return ValueAliases(typed.X, target, seen)
-	case *ssa.MakeInterface:
-		return ValueAliases(typed.X, target, seen)
 	case *ssa.UnOp:
 		return typed.Op == token.MUL && ValueAliases(typed.X, target, seen)
 	case *ssa.Phi:

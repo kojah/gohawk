@@ -70,15 +70,13 @@ func definitelyNil(value ssa.Value, seen map[ssa.Value]bool) bool {
 	if literal, ok := value.(*ssa.Const); ok {
 		return literal.IsNil()
 	}
+	if inner, ok := UnwrapTransparentValue(
+		value,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
+		return definitelyNil(inner, seen)
+	}
 	switch typed := value.(type) {
-	case *ssa.ChangeInterface:
-		return definitelyNil(typed.X, seen)
-	case *ssa.ChangeType:
-		return definitelyNil(typed.X, seen)
-	case *ssa.Convert:
-		return definitelyNil(typed.X, seen)
-	case *ssa.MakeInterface:
-		return definitelyNil(typed.X, seen)
 	case *ssa.Phi:
 		if len(typed.Edges) == 0 {
 			return false
@@ -135,8 +133,9 @@ func sameValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 }
 
 func sameWrappedValue(value, target ssa.Value, seen map[ssa.Value]bool) (bool, bool) {
-	left, leftWrapped := wrappedValue(value)
-	right, rightWrapped := wrappedValue(target)
+	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
+	left, leftWrapped := UnwrapTransparentValue(value, forms)
+	right, rightWrapped := UnwrapTransparentValue(target, forms)
 	// Two directional channel conversions can be siblings of the same value:
 	// one producer receives chan<- T while its join helper receives <-chan T.
 	// Both wrappers must be removed before comparing their shared identity.
