@@ -20,7 +20,7 @@ func nativeSelectionSuffices(request selectionRequest, hasExplicitEnabled bool) 
 	return len(request.owners) == 0 &&
 		len(request.analyzers.enabled) == 0 && len(request.analyzers.disabled) == 0 &&
 		len(request.groups.enabled) == 0 && len(request.groups.disabled) == 0 &&
-		(request.enableAll || hasExplicitEnabled)
+		!request.enableAll && hasExplicitEnabled
 }
 
 func nativeAnalyzerSelection(analyzers []*analysis.Analyzer, explicit map[string]bool, enableAll bool) map[string]bool {

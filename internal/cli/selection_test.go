@@ -29,9 +29,11 @@ func TestWithAnalyzerSelection(t *testing.T) {
 	if got := selectArguments(help); !slices.Equal(got, help) {
 		t.Fatalf("help arguments = %v, want %v", got, help)
 	}
-	all := []string{"gohawk", "-enable-all", "./..."}
-	if got := selectArguments(all); !slices.Equal(got, all) {
-		t.Fatalf("enable-all arguments = %v, want %v", got, all)
+	all := selectArguments([]string{"gohawk", "-enable-all", "./..."})
+	for _, analyzer := range analyzers {
+		if !slices.Contains(all, "-"+analyzer.Name+"=true") {
+			t.Errorf("enable-all arguments do not select %s: %v", analyzer.Name, all)
+		}
 	}
 
 	got := selectArguments([]string{"gohawk", "-disable=oncepolicy", "./..."})

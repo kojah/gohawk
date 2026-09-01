@@ -48,6 +48,25 @@ func TestCLIIntegration(t *testing.T) {
 		if count != 1 {
 			t.Fatalf("wirepolicy JSON diagnostic count = %d, want 1\n%s", count, output)
 		}
+
+		// Analyzer flags must reach the go analysis driver so its action cache
+		// cannot reuse the preceding single-analyzer result for enable-all.
+		output, exitCode = runCommand(t, module, binary, "-json", "-enable-all", "./...")
+		if exitCode != 0 {
+			t.Fatalf("enable-all JSON run: exit code = %d, want 0\n%s", exitCode, output)
+		}
+		diagnostics = nil
+		if err := json.Unmarshal([]byte(output), &diagnostics); err != nil {
+			t.Fatalf("decode enable-all JSON output: %v\n%s", err, output)
+		}
+		var oncePolicy, wirePolicy int
+		for _, analyzers := range diagnostics {
+			oncePolicy += len(analyzers["oncepolicy"])
+			wirePolicy += len(analyzers["wirepolicy"])
+		}
+		if oncePolicy == 0 || wirePolicy == 0 {
+			t.Fatalf("enable-all JSON diagnostics omit oncepolicy or wirepolicy:\n%s", output)
+		}
 	})
 
 	for _, fixture := range []struct {
