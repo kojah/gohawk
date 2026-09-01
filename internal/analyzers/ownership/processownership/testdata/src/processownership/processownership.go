@@ -215,6 +215,29 @@ type osProcessWaiter struct {
 	done chan struct{}
 }
 
+type processFieldOwner struct {
+	process *os.Process
+}
+
+func (owner *processFieldOwner) start(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	owner.process = command.Process
+	return nil
+}
+
+func locallyStoredProcessHandle(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return err
+	}
+	owner := new(processFieldOwner)
+	owner.process = command.Process
+	return nil
+}
+
 func newOSProcessWaiter(process *os.Process) *osProcessWaiter {
 	waiter := &osProcessWaiter{done: make(chan struct{})}
 	go func() {

@@ -131,6 +131,7 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		ssautil.ClosureCapturesValue(instruction, command) ||
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
+		storesProcessHandleInExternalField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
 		lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
 			Pass: pass, Analyzer: "processownership", Check: string(check.ProcessWait), Instruction: instruction, Target: command,
@@ -144,6 +145,19 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		startedWrapperWaits(pass, instruction, command) ||
 		processHandleOwnershipAction(pass, instruction, command) ||
 		ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("os", "Exit"))
+}
+
+func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa.Value) bool {
+	store, ok := instruction.(*ssa.Store)
+	if !ok || !osProcessDerivedFromCommand(store.Val, command) {
+		return false
+	}
+	field, ok := store.Addr.(*ssa.FieldAddr)
+	// Persisting the process handle on a caller-owned receiver transfers the
+	// reaping obligation without exposing *exec.Cmd itself. GitHub CLI starts a
+	// pager this way and waits from StopPager:
+	// https://github.com/cli/cli/blob/d528f20f2ee02f6703773e9f56c90e3c3f5d46b0/pkg/iostreams/iostreams.go#L256-L274
+	return ok && ssautil.ExternallyOwnedValue(field.X)
 }
 
 func startedWrapperWaits(pass *analysis.Pass, instruction ssa.Instruction, command ssa.Value) bool {
