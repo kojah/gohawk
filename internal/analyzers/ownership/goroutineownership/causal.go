@@ -5,7 +5,7 @@ import (
 	"go/types"
 	"strings"
 
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 
 	"golang.org/x/tools/go/ssa"
 )

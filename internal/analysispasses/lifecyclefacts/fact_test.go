@@ -1,9 +1,9 @@
-package ssautil
+package lifecyclefacts
 
 import "testing"
 
 func TestParameterMask(t *testing.T) {
-	mask := ParameterMaskFor(1) | ParameterMaskFor(63)
+	mask := parameterMaskFor(1) | parameterMaskFor(63)
 	for _, test := range []struct {
 		index int
 		want  bool
@@ -14,8 +14,8 @@ func TestParameterMask(t *testing.T) {
 		{index: 63, want: true},
 		{index: 64},
 	} {
-		if got := mask.Contains(test.index); got != test.want {
-			t.Errorf("mask.Contains(%d) = %t, want %t", test.index, got, test.want)
+		if got := mask.contains(test.index); got != test.want {
+			t.Errorf("mask.contains(%d) = %t, want %t", test.index, got, test.want)
 		}
 	}
 }

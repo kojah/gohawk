@@ -103,9 +103,12 @@ evidence engines behind focused implementation files.
 - Keep registry and runner code small. It should select configuration,
   construct shared inputs, invoke evidence helpers, and report diagnostics—not
   contain the full proof itself.
-- Promote a helper to `analysisutil` only after multiple analyzers need the
-  same general contract. Analyzer-specific precision policy belongs beside the
-  analyzer even when its implementation looks reusable.
+- Promote a helper to `internal/analysisutil` only after multiple analyzers
+  need the same general contract. Analyzer-specific precision policy belongs
+  beside the analyzer even when its implementation looks reusable.
+- Put shared prerequisite `analysis.Analyzer` passes under
+  `internal/analysispasses`; these are execution infrastructure, not catalog
+  analyzers or general-purpose `internal/analysisutil` helpers.
 - Keep each analyzer's minimized accepted and diagnostic cases under its local
   `testdata` tree. Place fixture-only dependency stubs there as well.
 
@@ -114,8 +117,8 @@ gosec's practice of splitting a substantial analyzer into focused files within
 its package. Analyzer groups are catalog metadata mirrored by container
 directories, not Go package boundaries.
 
-The `analysisutil` package is intentionally unsupported and undocumented for
-external consumers. It is exposed only for Veritas's current integration.
+All shared analysis helpers live under `internal/analysisutil`; they are
+implementation details rather than an external integration API.
 
 ## Documentation website
 

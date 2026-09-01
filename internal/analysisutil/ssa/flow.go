@@ -71,6 +71,29 @@ func InstructionMayFollow(before, after ssa.Instruction) bool {
 	return false
 }
 
+// BlockReachable reports whether target is reachable from from within their
+// shared function.
+func BlockReachable(from, target *ssa.BasicBlock) bool {
+	if from == nil || target == nil || from.Parent() != target.Parent() {
+		return false
+	}
+	seen := map[*ssa.BasicBlock]bool{}
+	queue := []*ssa.BasicBlock{from}
+	for len(queue) > 0 {
+		block := queue[0]
+		queue = queue[1:]
+		if block == target {
+			return true
+		}
+		if seen[block] {
+			continue
+		}
+		seen[block] = true
+		queue = append(queue, block.Succs...)
+	}
+	return false
+}
+
 // UnownedReturn reports whether any normal return reachable after start lacks
 // an ownership action. Tracking owned state through CFG makes conditional
 // cleanup visible without pretending infeasible branches are impossible.

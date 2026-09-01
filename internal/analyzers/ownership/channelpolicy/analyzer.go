@@ -8,8 +8,8 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/analysisutil"
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"
@@ -52,7 +52,7 @@ func runChannelPolicy(pass *analysis.Pass, config channelPolicyConfig) (any, err
 			return true
 		})
 	}
-	callsites := channelCallsites(functions)
+	callsites := ssautil.StaticCallsites(functions)
 	for _, function := range functions {
 		checkSSAChannelOwnership(pass, function, callsites)
 	}
@@ -102,25 +102,6 @@ func channelRationale(pass *analysis.Pass, file *ast.File, position token.Pos) b
 		}
 	}
 	return false
-}
-
-func channelCallsites(functions []*ssa.Function) map[*ssa.Function][]ssa.CallInstruction {
-	result := make(map[*ssa.Function][]ssa.CallInstruction)
-	for _, function := range functions {
-		for _, block := range function.Blocks {
-			for _, instruction := range block.Instrs {
-				common := ssautil.InstructionCall(instruction)
-				if common == nil || common.StaticCallee() == nil {
-					continue
-				}
-				call, ok := instruction.(ssa.CallInstruction)
-				if ok {
-					result[common.StaticCallee()] = append(result[common.StaticCallee()], call)
-				}
-			}
-		}
-	}
-	return result
 }
 
 func checkSSAChannelOwnership(pass *analysis.Pass, function *ssa.Function, callsites map[*ssa.Function][]ssa.CallInstruction) {

@@ -6,11 +6,11 @@ import (
 	"go/token"
 	"strings"
 
-	"github.com/kojah/gohawk/analysisutil"
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
-	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
+	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/lifecyclefacts"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -170,7 +170,7 @@ func callsCancel(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Va
 	// remains for wrappers which delegate to an interface cleanup method.
 	// Cerberus delegates qcancel through a deferred CloseCursor call:
 	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
-	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || lifecyclefacts.OwnsArgument(pass, "cancellationownership", string(analyzerbase.CheckCancellationRelease), instruction, cancel, func(fact ssautil.LifecycleFact) ssautil.ParameterMask { return fact.Invoked | fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, "cancellationownership", string(analyzerbase.CheckCancellationRelease), instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) || ssautil.CallTransfersArgumentToReceiver(instruction, cancel) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel) || atomicStoreCoupledToWorker(instruction, cancel) {
+	if ssautil.ClosureCallsValue(instruction, cancel) || ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.DeferredClosurePassesValueToNamedCall(instruction, cancel, "cancel", "cleanup", "close", "stop", "teardown") || ssautil.ClosureOwnsValue(instruction, cancel) || ssautil.StoresValueInField(instruction, cancel) || ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) || ssautil.StoresValueInGlobal(instruction, cancel) || ssautil.StoresOwnerOfValueInField(instruction, cancel) || ssautil.StoresValueInOwnedMap(instruction, cancel) || ssautil.CallReturnsDeferredCleanup(instruction, cancel) || lifecyclefacts.OwnsArgument(pass, "cancellationownership", string(analyzerbase.CheckCancellationRelease), instruction, cancel, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.Invoked | fact.ReturnedOwner }) || lifecyclefacts.StoresInEscapingReceiver(pass, "cancellationownership", string(analyzerbase.CheckCancellationRelease), instruction, cancel) || ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) || ssautil.CallTransfersArgumentToReturnedOwner(instruction, cancel) || ssautil.CallTransfersArgumentToReceiver(instruction, cancel) || ssautil.CallTransfersArgumentToLifecycleOwner(instruction, cancel) || atomicStoreCoupledToWorker(instruction, cancel) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)

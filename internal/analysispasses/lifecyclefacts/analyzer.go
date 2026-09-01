@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/kojah/gohawk/analysisutil/ssa"
-	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
+	"github.com/kojah/gohawk/internal/analysisutil/ssa"
+	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -19,8 +19,8 @@ var Analyzer = &analysis.Analyzer{
 	Name:       "gohawklifecyclefacts",
 	Doc:        "exports internal lifecycle ownership summaries",
 	Requires:   []*analysis.Analyzer{buildssa.Analyzer},
-	FactTypes:  []analysis.Fact{new(ssautil.LifecycleFact)},
-	ResultType: reflect.TypeOf(ssautil.LifecycleSummaries{}),
+	FactTypes:  []analysis.Fact{new(Fact)},
+	ResultType: reflect.TypeOf(summarySet{}),
 	Run:        run,
 }
 
@@ -29,7 +29,7 @@ func run(pass *analysis.Pass) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	summaries := make(ssautil.LifecycleSummaries, len(functions))
+	summaries := make(summarySet, len(functions))
 	for _, function := range functions {
 		object := function.Object()
 		// Only exported functions can be called from a package that imports this
@@ -40,7 +40,7 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		fact := summarize(pass, function)
 		summaries[function] = fact
-		if fact != (ssautil.LifecycleFact{}) {
+		if fact != (Fact{}) {
 			pass.ExportObjectFact(object, &fact)
 		}
 	}
@@ -53,7 +53,7 @@ func run(pass *analysis.Pass) (any, error) {
 				if common == nil || common.StaticCallee() == nil {
 					continue
 				}
-				if fact, ok := ssautil.ImportLifecycleFact(pass, instruction); ok {
+				if fact, ok := importFact(pass, instruction); ok {
 					summaries[common.StaticCallee()] = fact
 				}
 			}
@@ -62,25 +62,25 @@ func run(pass *analysis.Pass) (any, error) {
 	return summaries, nil
 }
 
-// FactFor returns a memoized local or previously imported dependency summary.
-func FactFor(pass *analysis.Pass, instruction gosssa.Instruction) (ssautil.LifecycleFact, bool) {
+// factFor returns a memoized local or previously imported dependency summary.
+func factFor(pass *analysis.Pass, instruction gosssa.Instruction) (Fact, bool) {
 	common := ssautil.InstructionCall(instruction)
 	if pass == nil || common == nil || common.StaticCallee() == nil {
-		return ssautil.LifecycleFact{}, false
+		return Fact{}, false
 	}
-	if summaries, ok := pass.ResultOf[Analyzer].(ssautil.LifecycleSummaries); ok {
+	if summaries, ok := pass.ResultOf[Analyzer].(summarySet); ok {
 		if fact, found := summaries[common.StaticCallee()]; found {
 			return fact, true
 		}
 	}
-	return ssautil.LifecycleFact{}, false
+	return Fact{}, false
 }
 
 // OwnsArgument reports whether a summarized ownership mask covers target.
-func OwnsArgument(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, selectMask func(ssautil.LifecycleFact) ssautil.ParameterMask) bool {
-	fact, ok := FactFor(pass, instruction)
+func OwnsArgument(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, selectMask func(Fact) ParameterMask) bool {
+	fact, ok := factFor(pass, instruction)
 	mask := selectMask(fact)
-	owned := ok && ssautil.FactOwnsArgument(instruction, target, mask)
+	owned := ok && factOwnsArgument(instruction, target, mask)
 	emitSummaryTrace(pass, analyzer, check, instruction, target, mask, owned)
 	return owned
 }
@@ -89,8 +89,8 @@ func OwnsArgument(pass *analysis.Pass, analyzer, check string, instruction gosss
 // caller-visible receiver itself outlives the call.
 func StoresInEscapingReceiver(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value) bool {
 	common := ssautil.InstructionCall(instruction)
-	fact, summarized := FactFor(pass, instruction)
-	if !summarized || !ssautil.FactOwnsArgument(instruction, target, fact.ReceiverStore) {
+	fact, summarized := factFor(pass, instruction)
+	if !summarized || !factOwnsArgument(instruction, target, fact.ReceiverStore) {
 		return false
 	}
 	receiver := ssautil.CallReceiver(common)
@@ -110,7 +110,7 @@ func StoresInEscapingReceiver(pass *analysis.Pass, analyzer, check string, instr
 	return true
 }
 
-func emitSummaryTrace(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, mask ssautil.ParameterMask, owned bool) {
+func emitSummaryTrace(pass *analysis.Pass, analyzer, check string, instruction gosssa.Instruction, target gosssa.Value, mask ParameterMask, owned bool) {
 	if !analysisTrace.Enabled(analyzer, check) {
 		return
 	}
@@ -121,7 +121,7 @@ func emitSummaryTrace(pass *analysis.Pass, analyzer, check string, instruction g
 	analysisTrace.Emit(pass, analysisTrace.Event{Analyzer: analyzer, Check: check, Phase: "evidence", Reason: analysisTrace.ReasonLifecycleSummary, Outcome: outcome, Pos: instruction.Pos(), Function: functionName(instruction), Details: summaryDetails(instruction, target, mask)})
 }
 
-func summaryDetails(instruction gosssa.Instruction, target gosssa.Value, mask ssautil.ParameterMask) map[string]string {
+func summaryDetails(instruction gosssa.Instruction, target gosssa.Value, mask ParameterMask) map[string]string {
 	details := map[string]string{"mask": strconv.FormatUint(uint64(mask), 16)}
 	if target != nil && target.Type() != nil {
 		details["target_type"] = target.Type().String()
@@ -139,24 +139,24 @@ func functionName(instruction gosssa.Instruction) string {
 	return instruction.Parent().String()
 }
 
-func summarize(pass *analysis.Pass, function *gosssa.Function) ssautil.LifecycleFact {
-	var fact ssautil.LifecycleFact
+func summarize(pass *analysis.Pass, function *gosssa.Function) Fact {
+	var fact Fact
 	for index, parameter := range function.Params {
 		if !ownershipCapableType(parameter.Type()) {
 			continue
 		}
-		bit := ssautil.ParameterMaskFor(index)
+		bit := parameterMaskFor(index)
 		if ownsOnEveryReturn(function, parameter, func(instruction gosssa.Instruction) bool {
 			common := ssautil.InstructionCall(instruction)
 			if common != nil && ssautil.SameValue(common.Value, parameter) {
 				return true
 			}
-			imported, ok := ssautil.ImportLifecycleFact(pass, instruction)
-			return ok && ssautil.FactOwnsArgument(instruction, parameter, imported.Invoked)
+			imported, ok := importFact(pass, instruction)
+			return ok && factOwnsArgument(instruction, parameter, imported.Invoked)
 		}) {
 			fact.Invoked |= bit
 		}
-		for method, target := range map[string]*ssautil.ParameterMask{
+		for method, target := range map[string]*ParameterMask{
 			"Close": &fact.Closed, "Finalize": &fact.Finalized, "Release": &fact.Released,
 			"Shutdown": &fact.Shutdown, "Stop": &fact.Stopped, "Wait": &fact.Waited,
 		} {
@@ -165,8 +165,8 @@ func summarize(pass *analysis.Pass, function *gosssa.Function) ssautil.Lifecycle
 				if common != nil && ssautil.CallName(common) == method && ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), parameter, map[gosssa.Value]bool{}) {
 					return true
 				}
-				imported, ok := ssautil.ImportLifecycleFact(pass, instruction)
-				return ok && ssautil.FactOwnsArgument(instruction, parameter, imported.MethodMask(method))
+				imported, ok := importFact(pass, instruction)
+				return ok && factOwnsArgument(instruction, parameter, imported.MethodMask(method))
 			}) {
 				*target |= bit
 			}

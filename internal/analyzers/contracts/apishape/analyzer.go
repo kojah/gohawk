@@ -6,7 +6,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"
@@ -106,7 +106,7 @@ func apiShapeCallbacks(pass *analysis.Pass) map[types.Object]bool {
 				if !functionParameterIsCallback(signature, index) {
 					continue
 				}
-				identifier, identifierOK := unparenthesizedAPIShapeExpression(argument).(*ast.Ident)
+				identifier, identifierOK := analysisutil.Unparen(argument).(*ast.Ident)
 				if !identifierOK {
 					continue
 				}
@@ -122,16 +122,6 @@ func apiShapeCallbacks(pass *analysis.Pass) map[types.Object]bool {
 		})
 	}
 	return result
-}
-
-func unparenthesizedAPIShapeExpression(expression ast.Expr) ast.Expr {
-	for {
-		parenthesized, ok := expression.(*ast.ParenExpr)
-		if !ok {
-			return expression
-		}
-		expression = parenthesized.X
-	}
 }
 
 func hasBlankParameter(parameters *ast.FieldList) bool {

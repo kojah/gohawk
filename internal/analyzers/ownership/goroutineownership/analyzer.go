@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
-	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"

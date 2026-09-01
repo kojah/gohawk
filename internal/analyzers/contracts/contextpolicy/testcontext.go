@@ -4,8 +4,8 @@ import (
 	"go/token"
 	"strings"
 
-	"github.com/kojah/gohawk/analysisutil"
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/goroutineownership"
 

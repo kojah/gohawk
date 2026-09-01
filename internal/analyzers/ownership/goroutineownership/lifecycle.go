@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kojah/gohawk/analysisutil"
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 
 	"golang.org/x/tools/go/ssa"
 )

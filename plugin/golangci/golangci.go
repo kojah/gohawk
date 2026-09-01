@@ -9,9 +9,9 @@ import (
 	"slices"
 
 	"github.com/golangci/plugin-module-register/register"
-	"github.com/kojah/gohawk/analysisutil"
-	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	"github.com/kojah/gohawk/analyzers"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
 	"golang.org/x/tools/go/analysis"
 )
 

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/kojah/gohawk/analysisutil"
-	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"

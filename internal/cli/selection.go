@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
 	gohawk "github.com/kojah/gohawk/analyzers"
+	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
 	"golang.org/x/tools/go/analysis"
 )
 

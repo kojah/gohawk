@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/internal/analysisutil"
 
 	"golang.org/x/tools/go/analysis"
 )

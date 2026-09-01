@@ -7,8 +7,8 @@ import (
 	"go/token"
 	"strings"
 
-	"github.com/kojah/gohawk/analysisutil"
-	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
 
 	"golang.org/x/tools/go/analysis"
 )

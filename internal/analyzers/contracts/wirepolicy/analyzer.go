@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/internal/analysisutil"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"

@@ -6,8 +6,8 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/analysisutil"
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"
@@ -32,7 +32,7 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	callsites := errorOwnershipCallsites(functions)
+	callsites := ssautil.StaticCalls(functions)
 	reportMismatchedInlineErrors(pass)
 	for _, function := range functions {
 		file := ssautil.FunctionFile(pass, function)
@@ -56,23 +56,6 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
-}
-
-func errorOwnershipCallsites(functions []*ssa.Function) map[*ssa.Function][]*ssa.Call {
-	result := make(map[*ssa.Function][]*ssa.Call)
-	for _, function := range functions {
-		for _, block := range function.Blocks {
-			for _, instruction := range block.Instrs {
-				call, ok := instruction.(*ssa.Call)
-				if !ok || call.Common().StaticCallee() == nil {
-					continue
-				}
-				callee := call.Common().StaticCallee()
-				result[callee] = append(result[callee], call)
-			}
-		}
-	}
-	return result
 }
 
 func reportMismatchedInlineErrors(pass *analysis.Pass) {

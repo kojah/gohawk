@@ -7,7 +7,7 @@ import (
 	"go/types"
 	"strconv"
 
-	"github.com/kojah/gohawk/analysisutil"
+	"github.com/kojah/gohawk/internal/analysisutil"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )

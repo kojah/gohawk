@@ -4,11 +4,11 @@ package processownership
 import (
 	"go/types"
 
-	"github.com/kojah/gohawk/analysisutil"
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
-	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
+	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
+	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/lifecyclefacts"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -214,7 +214,7 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		ssautil.StoresValueInField(instruction, command) ||
 		ssautil.StoresOwnerOfValueInField(instruction, command) ||
 		ssautil.CallTransfersValueToField(instruction, command) ||
-		lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command, func(fact ssautil.LifecycleFact) ssautil.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
+		lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
 		lifecyclefacts.StoresInEscapingReceiver(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, command) ||
 		ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", command) ||
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
@@ -242,7 +242,7 @@ func processHandleOwnershipAction(pass *analysis.Pass, instruction ssa.Instructi
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
 		}
-		if lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, argument, func(fact ssautil.LifecycleFact) ssautil.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
+		if lifecyclefacts.OwnsArgument(pass, "processownership", string(analyzerbase.CheckProcessWait), instruction, argument, func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner | fact.Waited }) ||
 			ssautil.CallCallsMethodOnArgumentOnEveryReturn(instruction, "Wait", argument) ||
 			ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
 			if analysisTrace.Enabled("processownership", string(analyzerbase.CheckProcessWait)) {
@@ -343,7 +343,7 @@ func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
 		if !known || success {
 			continue
 		}
-		return blockReachable(successor, returned.Block()) && !successBranchReaches(start, returned.Block())
+		return ssautil.BlockReachable(successor, returned.Block()) && !successBranchReaches(start, returned.Block())
 	}
 	return false
 }
@@ -351,26 +351,8 @@ func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
 func successBranchReaches(start *ssa.Call, target *ssa.BasicBlock) bool {
 	for _, successor := range start.Block().Succs {
 		if success, known := ssautil.SuccessBranch(start.Block(), successor, start); known && success {
-			return blockReachable(successor, target)
+			return ssautil.BlockReachable(successor, target)
 		}
-	}
-	return false
-}
-
-func blockReachable(from, target *ssa.BasicBlock) bool {
-	seen := map[*ssa.BasicBlock]bool{}
-	queue := []*ssa.BasicBlock{from}
-	for len(queue) > 0 {
-		block := queue[0]
-		queue = queue[1:]
-		if block == target {
-			return true
-		}
-		if seen[block] {
-			continue
-		}
-		seen[block] = true
-		queue = append(queue, block.Succs...)
 	}
 	return false
 }

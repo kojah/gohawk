@@ -6,8 +6,8 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/analysisutil"
-	analysisTrace "github.com/kojah/gohawk/analysisutil/trace"
+	"github.com/kojah/gohawk/internal/analysisutil"
+	analysisTrace "github.com/kojah/gohawk/internal/analysisutil/trace"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -92,13 +92,13 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 	if declaration == nil {
 		return false
 	}
-	parameter := functionParameter(pass, declaration, argumentIndex)
+	parameter := analysisutil.FunctionParameterObject(pass, declaration, argumentIndex)
 	if parameter == nil {
 		return false
 	}
 	earlierFields := map[types.Object]bool{}
 	for _, expression := range earlier {
-		selector, ok := unparenthesized(expression).(*ast.SelectorExpr)
+		selector, ok := analysisutil.Unparen(expression).(*ast.SelectorExpr)
 		if !ok || !analysisutil.ExpressionUsesObject(pass, selector.X, object) {
 			if analysisutil.ExpressionUsesObject(pass, expression, object) {
 				return false
@@ -123,7 +123,7 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 			return true
 		}
 		for _, target := range targets {
-			selector, ok := unparenthesized(target).(*ast.SelectorExpr)
+			selector, ok := analysisutil.Unparen(target).(*ast.SelectorExpr)
 			if ok && analysisutil.ExpressionUsesObject(pass, selector.X, parameter) {
 				mutatedFields[pass.TypesInfo.ObjectOf(selector.Sel)] = true
 			} else if writesThroughObject(pass, target, parameter) {
@@ -146,16 +146,6 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 	return true
 }
 
-func unparenthesized(expression ast.Expr) ast.Expr {
-	for {
-		parenthesized, ok := expression.(*ast.ParenExpr)
-		if !ok {
-			return expression
-		}
-		expression = parenthesized.X
-	}
-}
-
 func callMutatesArgument(pass *analysis.Pass, call *ast.CallExpr, argumentIndex int) bool {
 	if knownMutatingArgument(pass, call, argumentIndex) {
 		return true
@@ -170,7 +160,7 @@ func callMutatesArgument(pass *analysis.Pass, call *ast.CallExpr, argumentIndex 
 			if !ok || pass.TypesInfo.Defs[declared.Name] != function {
 				continue
 			}
-			parameter := functionParameter(pass, declared, argumentIndex)
+			parameter := analysisutil.FunctionParameterObject(pass, declared, argumentIndex)
 			return parameter != nil && functionBodyMutates(pass, declared.Body, parameter)
 		}
 	}
@@ -205,23 +195,6 @@ func knownMutatingArgument(pass *analysis.Pass, call *ast.CallExpr, argumentInde
 	default:
 		return false
 	}
-}
-
-func functionParameter(pass *analysis.Pass, declaration *ast.FuncDecl, target int) types.Object {
-	index := 0
-	for _, field := range declaration.Type.Params.List {
-		if len(field.Names) == 0 {
-			index++
-			continue
-		}
-		for _, name := range field.Names {
-			if index == target {
-				return pass.TypesInfo.Defs[name]
-			}
-			index++
-		}
-	}
-	return nil
 }
 
 func functionBodyMutates(pass *analysis.Pass, body *ast.BlockStmt, parameter types.Object) bool {

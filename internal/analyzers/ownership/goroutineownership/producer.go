@@ -6,7 +6,7 @@ import (
 	"go/types"
 	"slices"
 
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"
@@ -74,31 +74,7 @@ func producerSendsCanCooccur(first, second producerSend) bool {
 	if first.instruction == second.instruction {
 		return true
 	}
-	return instructionCanReach(first.instruction, second.instruction) || instructionCanReach(second.instruction, first.instruction)
-}
-
-func instructionCanReach(from, to ssa.Instruction) bool {
-	if from.Parent() != to.Parent() {
-		return false
-	}
-	if from.Block() == to.Block() {
-		return ssautil.InstructionIndex(from) < ssautil.InstructionIndex(to)
-	}
-	seen := map[*ssa.BasicBlock]bool{}
-	queue := slices.Clone(from.Block().Succs)
-	for len(queue) > 0 {
-		block := queue[0]
-		queue = queue[1:]
-		if block == to.Block() {
-			return true
-		}
-		if seen[block] {
-			continue
-		}
-		seen[block] = true
-		queue = append(queue, block.Succs...)
-	}
-	return false
+	return ssautil.InstructionMayFollow(first.instruction, second.instruction) || ssautil.InstructionMayFollow(second.instruction, first.instruction)
 }
 
 func spawnedValueAtCall(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value) ssa.Value { //nolint:ireturn // SSA values retain their concrete representations.

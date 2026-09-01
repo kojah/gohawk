@@ -16,7 +16,8 @@ main.go
   → internal/cli
   → analyzers
   → internal/analyzers/<group>/<analyzer>
-  → analysisutil and analysisutil/ssa
+  → internal/analysispasses
+  → internal/analysisutil and internal/analysisutil/ssa
 ```
 
 - `main.go` is a thin executable entry point.
@@ -29,8 +30,11 @@ main.go
   metadata as organizational containers rather than Go package boundaries.
 - `internal/analyzerbase` contains the internal catalog model, stable check
   identities, diagnostic helpers, and shared flag value types.
-- `analysisutil` contains syntax and type helpers. `analysisutil/ssa` contains
-  control-flow, call, value, and ownership helpers for SSA-backed analyzers.
+- `internal/analysispasses` contains prerequisite analysis passes shared by
+  otherwise independent analyzers, including cross-package lifecycle facts.
+- `internal/analysisutil` contains syntax and type helpers.
+  `internal/analysisutil/ssa` contains control-flow, call, value, and ownership
+  helpers for SSA-backed analyzers.
 - `tools` contains repository-development commands such as documentation
   generation and dogfood benchmark measurement; these are not shipped as part
   of the gohawk application.

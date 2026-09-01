@@ -31,6 +31,53 @@ func TestSourceSSAFunctionsRejectsUnexpectedPrerequisiteResult(t *testing.T) {
 	}
 }
 
+func TestStaticCallsiteIndexes(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+func callee() {}
+func caller() {
+	callee()
+	defer callee()
+	go callee()
+}
+`)
+	callee := pkg.Func("callee")
+	functions := []*ssa.Function{pkg.Func("caller"), callee}
+	if got := len(StaticCallsites(functions)[callee]); got != 3 {
+		t.Fatalf("StaticCallsites() count = %d, want 3", got)
+	}
+	if got := len(StaticCalls(functions)[callee]); got != 1 {
+		t.Fatalf("StaticCalls() count = %d, want 1", got)
+	}
+}
+
+func TestBlockReachable(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+func branch(flag bool) int {
+	if flag {
+		return 1
+	}
+	return 2
+}
+`)
+	function := pkg.Func("branch")
+	entry := function.Blocks[0]
+	left := entry.Succs[0]
+	right := entry.Succs[1]
+	if !BlockReachable(entry, left) || !BlockReachable(entry, right) {
+		t.Fatal("BlockReachable() did not find an entry successor")
+	}
+	if BlockReachable(left, right) {
+		t.Fatal("BlockReachable() connected disjoint return branches")
+	}
+	if BlockReachable(nil, right) {
+		t.Fatal("BlockReachable() accepted a nil source")
+	}
+}
+
 func TestClosureOwnershipAndTransfer(t *testing.T) {
 	pkg := buildTestSSA(t, `
 package ssaflowtest

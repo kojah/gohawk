@@ -4,7 +4,7 @@ package taintpolicy
 import (
 	"strings"
 
-	ssautil "github.com/kojah/gohawk/analysisutil/ssa"
+	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/analyzerbase"
 
 	"golang.org/x/tools/go/analysis"
