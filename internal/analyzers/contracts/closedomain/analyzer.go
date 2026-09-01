@@ -45,6 +45,7 @@ func Analyzer() *analysis.Analyzer {
 func runEnumField(pass *analysis.Pass) (any, error) {
 	files := enumProductionFiles(pass)
 	candidates := enumCandidates(pass, files)
+	externallyPopulated := enumExternallyDeserializedFields(pass, files, candidates)
 	locals, summaries := enumLocalFlows(pass, files)
 	directValues := make(map[*types.Var]map[string]bool)
 	fieldFlows := make(map[*types.Var]enumFlow)
@@ -80,6 +81,10 @@ func runEnumField(pass *analysis.Pass) (any, error) {
 
 	for field, candidate := range candidates {
 		if !closed[field] {
+			continue
+		}
+		if proof, ok := externallyPopulated[field]; ok {
+			traceExternalDeserialization(pass, candidate, proof)
 			continue
 		}
 		check.Reportf(

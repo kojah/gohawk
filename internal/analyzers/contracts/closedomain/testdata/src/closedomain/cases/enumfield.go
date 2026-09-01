@@ -1,5 +1,7 @@
 package enumfield
 
+import stdjson "encoding/json"
+
 type record struct {
 	State string // want "field State uses a closed string domain; define a named string type and constants" State:"closedStringDomain"
 }
@@ -44,6 +46,18 @@ type pointerRecord struct {
 
 type openRecord struct {
 	Mode string
+}
+
+type externalRecord struct {
+	Code string `json:"code"`
+}
+
+type taggedLocalRecord struct {
+	Reason string `json:"reason"` // want "field Reason uses a closed string domain; define a named string type and constants" Reason:"closedStringDomain"
+}
+
+type ignoredExternalRecord struct {
+	Code string `json:"-"` // want "field Code uses a closed string domain; define a named string type and constants" Code:"closedStringDomain"
 }
 
 type union interface{ decisionKind() }
@@ -149,6 +163,33 @@ func openHelper(value string) string { return value }
 
 func remainsOpenThroughHelper(value string) openRecord {
 	return openRecord{Mode: openHelper(value)}
+}
+
+func decodeExternal(data []byte) externalRecord {
+	value := externalRecord{}
+	_ = stdjson.Unmarshal(data, &value)
+	return value
+}
+
+func classifyExternal(value externalRecord) bool {
+	return value.Code == "known_one" || value.Code == "known_two"
+}
+
+func taggedLocal(first bool) taggedLocalRecord {
+	if first {
+		return taggedLocalRecord{Reason: "first"}
+	}
+	return taggedLocalRecord{Reason: "second"}
+}
+
+func decodeIgnored(data []byte) ignoredExternalRecord {
+	value := ignoredExternalRecord{}
+	_ = stdjson.Unmarshal(data, &value)
+	return value
+}
+
+func classifyIgnored(value ignoredExternalRecord) bool {
+	return value.Code == "known_one" || value.Code == "known_two"
 }
 
 func unionValue(approve bool) union {
