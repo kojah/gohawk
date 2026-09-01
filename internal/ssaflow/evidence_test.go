@@ -425,7 +425,7 @@ func fields(left, right *owner) {
 	}
 }
 
-func TestEvidenceQueryMemoizesProofs(t *testing.T) {
+func TestLocalEvidenceMemoizesProofs(t *testing.T) {
 	pkg := buildTestSSA(t, `
 package ssaflowtest
 
@@ -452,13 +452,13 @@ func caller(value *closer) {
 		Methods:     []string{"Close"},
 		Modes:       CompletionByHelper,
 	}
-	var query EvidenceQuery
-	first := query.Completion(request)
-	second := query.Completion(request)
+	var evidence LocalEvidence
+	first := evidence.Completion(request)
+	second := evidence.Completion(request)
 	if !first.Proven() || first != second {
 		t.Fatalf("memoized completion proofs differ: first=%#v second=%#v", first, second)
 	}
-	if len(query.completions) != 1 {
-		t.Fatalf("completion cache entries = %d, want 1", len(query.completions))
+	if len(evidence.completions) != 1 {
+		t.Fatalf("completion cache entries = %d, want 1", len(evidence.completions))
 	}
 }

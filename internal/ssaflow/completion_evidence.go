@@ -21,6 +21,7 @@ const (
 	CompletionInCalledClosureBeforeBranch
 	CompletionByDeferredHelperCallback
 	CompletionByDeferredArgument
+	CompletionByDeferredCallback
 )
 
 // CompletionRequest describes lifecycle completion to prove for one or more
@@ -35,26 +36,26 @@ type CompletionRequest struct {
 // ProveCompletion returns the first concrete relationship, in precision-first
 // order, that proves the requested lifecycle completion.
 func ProveCompletion(request CompletionRequest) CompletionProof {
-	var query EvidenceQuery
-	return query.Completion(request)
+	var evidence LocalEvidence
+	return evidence.Completion(request)
 }
 
 // Completion proves and memoizes a lifecycle-completion request.
-func (query *EvidenceQuery) Completion(request CompletionRequest) CompletionProof {
+func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionProof {
 	key := completionEvidenceKey{
 		instruction: request.Instruction,
 		target:      request.Target,
 		methods:     completionMethodsKey(request.Methods),
 		modes:       request.Modes,
 	}
-	if proof, ok := query.completions[key]; ok {
+	if proof, ok := evidence.completions[key]; ok {
 		return proof
 	}
 	proof := proveCompletion(request)
-	if query.completions == nil {
-		query.completions = make(map[completionEvidenceKey]CompletionProof)
+	if evidence.completions == nil {
+		evidence.completions = make(map[completionEvidenceKey]CompletionProof)
 	}
-	query.completions[key] = proof
+	evidence.completions[key] = proof
 	return proof
 }
 
@@ -83,6 +84,9 @@ func proveCompletion(request CompletionRequest) CompletionProof {
 func proveMethodCompletion(request CompletionRequest, method string) CompletionProof {
 	if request.Modes&CompletionDeferred != 0 && DeferredClosureCalls(request.Instruction, method, request.Target) {
 		return completionProof(EvidenceDeferredCompletion, method)
+	}
+	if request.Modes&CompletionByDeferredCallback != 0 && DeferredCallbackCallsMethod(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceDeferredCallback, method)
 	}
 	if request.Modes&CompletionByDeferredArgument != 0 &&
 		DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn(request.Instruction, method, request.Target) {

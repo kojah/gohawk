@@ -310,7 +310,7 @@ func lifecycleOwner(value ssa.Value) bool {
 // A lifecycle owner settles the goroutine obligation only through a direct
 // lifecycle method or a deferred completion proof. Merely capturing an object
 // with Close or Wait methods would conflate reachability with cleanup.
-func ownsGoroutineLifecycle(evidence *ssaflow.EvidenceQuery, instruction ssa.Instruction, owners []ssa.Value) bool {
+func ownsGoroutineLifecycle(evidence *ssaflow.LocalEvidence, instruction ssa.Instruction, owners []ssa.Value) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common != nil && lifecycleMethod(ssaflow.CallName(common)) && ssaflow.SameAsAny(ssaflow.CallReceiver(common), owners) {
 		return true
@@ -328,7 +328,7 @@ func ownsGoroutineLifecycle(evidence *ssaflow.EvidenceQuery, instruction ssa.Ins
 	return false
 }
 
-func waitsForLifecycleOwner(evidence *ssaflow.EvidenceQuery, instruction ssa.Instruction, owners []ssa.Value) bool {
+func waitsForLifecycleOwner(evidence *ssaflow.LocalEvidence, instruction ssa.Instruction, owners []ssa.Value) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common != nil && ssaflow.CallName(common) == "Wait" && ssaflow.SameAsAny(ssaflow.CallReceiver(common), owners) {
 		return true
@@ -466,7 +466,7 @@ func ownershipRegisteredBefore(spawn *ssa.Go, signals []ssa.Value) bool {
 }
 
 func transfersGoroutineOwnership(
-	evidence *ssaflow.EvidenceQuery,
+	evidence *ssaflow.LocalEvidence,
 	instruction ssa.Instruction,
 	signals, groups, owners []ssa.Value,
 ) bool {

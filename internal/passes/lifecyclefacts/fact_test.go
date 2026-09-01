@@ -33,7 +33,7 @@ func TestParameterMask(t *testing.T) {
 	}
 }
 
-func TestEvidenceQueryImportedProvenanceAndUncertainty(t *testing.T) {
+func TestLifecycleEvidenceImportedProvenanceAndUncertainty(t *testing.T) {
 	pkg := buildLifecycleTestSSA(t, `
 package lifecyclefactstest
 
@@ -56,19 +56,19 @@ func caller(value *closer) { helper(value) }
 			return fact.Closed
 		},
 	}
-	proof := NewEvidenceQuery(pass, "test", "test/check").Prove(request)
+	proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
 	if !proof.Proven() || proof.Provenance != ssaflow.EvidenceFromImportedFact || proof.Reason != reasonLifecycleSummary {
 		t.Fatalf("imported proof = %#v, want lifecycle-summary provenance", proof)
 	}
 
 	pass.ResultOf[Analyzer] = summarySet{callee: {}}
-	rejected := NewEvidenceQuery(pass, "test", "test/check").Prove(request)
+	rejected := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
 	if rejected.State != ssaflow.EvidenceDisproven || rejected.Provenance != ssaflow.EvidenceFromImportedFact {
 		t.Fatalf("empty summary proof = %#v, want imported disproof", rejected)
 	}
 
 	pass.ResultOf[Analyzer] = summarySet{}
-	unknown := NewEvidenceQuery(pass, "test", "test/check").Prove(request)
+	unknown := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
 	if unknown.State != ssaflow.EvidenceUnknown || unknown.Reason != ssaflow.EvidenceUnavailable {
 		t.Fatalf("missing summary proof = %#v, want unknown", unknown)
 	}

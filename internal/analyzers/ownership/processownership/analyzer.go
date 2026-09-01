@@ -29,7 +29,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	for _, function := range functions {
-		evidence := lifecyclefacts.NewEvidenceQuery(pass, "processownership", string(check.ProcessWait))
+		evidence := lifecyclefacts.NewLifecycleEvidence(pass, "processownership", string(check.ProcessWait))
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, ok := instruction.(*ssa.Call)

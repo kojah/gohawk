@@ -5,22 +5,22 @@ import "golang.org/x/tools/go/ssa"
 // ProveIdentity reports whether two values denote corresponding access paths
 // beneath roots that the caller has already established as equivalent.
 func ProveIdentity(left, right AccessPath) IdentityProof {
-	var query EvidenceQuery
-	return query.Identity(left, right)
+	var evidence LocalEvidence
+	return evidence.Identity(left, right)
 }
 
 // Identity proves and memoizes whether two values denote corresponding access
 // paths beneath roots already established as equivalent by the caller.
-func (query *EvidenceQuery) Identity(left, right AccessPath) IdentityProof {
+func (evidence *LocalEvidence) Identity(left, right AccessPath) IdentityProof {
 	key := identityEvidenceKey{left.Value, left.Root, right.Value, right.Root}
-	if proof, ok := query.identities[key]; ok {
+	if proof, ok := evidence.identities[key]; ok {
 		return proof
 	}
 	proof := proveIdentity(left, right)
-	if query.identities == nil {
-		query.identities = make(map[identityEvidenceKey]IdentityProof)
+	if evidence.identities == nil {
+		evidence.identities = make(map[identityEvidenceKey]IdentityProof)
 	}
-	query.identities[key] = proof
+	evidence.identities[key] = proof
 	return proof
 }
 

@@ -54,7 +54,7 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	}
 	relations := map[lockRelation]token.Pos{}
 	for _, function := range functions {
-		var evidence ssaflow.EvidenceQuery
+		var evidence ssaflow.LocalEvidence
 		walkLockOrder(pass, function, relations, &evidence)
 	}
 	return nil, nil

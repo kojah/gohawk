@@ -25,7 +25,7 @@ func walkLockOrder(
 	pass *analysis.Pass,
 	function *ssa.Function,
 	relations map[lockRelation]token.Pos,
-	evidence *ssaflow.EvidenceQuery,
+	evidence *ssaflow.LocalEvidence,
 ) {
 	if len(function.Blocks) == 0 {
 		return
@@ -123,7 +123,7 @@ func recordUnreleasedLocks(
 }
 
 func transferCalledUnlocks(
-	evidence *ssaflow.EvidenceQuery,
+	evidence *ssaflow.LocalEvidence,
 	instruction ssa.Instruction,
 	held []string,
 	guards map[string]lockGuard,
@@ -155,7 +155,7 @@ func transferCalledUnlocks(
 }
 
 func transferSpawnedUnlocks(
-	evidence *ssaflow.EvidenceQuery,
+	evidence *ssaflow.LocalEvidence,
 	instruction ssa.Instruction,
 	held []string,
 	guards map[string]lockGuard,
@@ -189,7 +189,7 @@ func transferSpawnedUnlocks(
 }
 
 func recordDeferredUnlocks(
-	evidence *ssaflow.EvidenceQuery,
+	evidence *ssaflow.LocalEvidence,
 	instruction ssa.Instruction,
 	held, deferred []string,
 	lockValues map[string][]ssa.Value,
@@ -200,16 +200,13 @@ func recordDeferredUnlocks(
 	}
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			common := ssaflow.InstructionCall(instruction)
 			proof := evidence.Completion(ssaflow.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Modes:       ssaflow.CompletionDeferred,
+				Modes:       ssaflow.CompletionDeferred | ssaflow.CompletionByDeferredCallback,
 			})
-			if proof.Proven() ||
-				common != nil && (ssaflow.ValueCallsMethod(common.Value, "Unlock", value) ||
-					ssaflow.ValueCallsMethod(common.Value, "RUnlock", value)) {
+			if proof.Proven() {
 				released[identity] = true
 				deferred = appendUniqueString(deferred, identity)
 				break

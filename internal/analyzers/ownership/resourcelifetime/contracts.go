@@ -106,7 +106,7 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 }
 
 func releasesResource(
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -230,7 +230,7 @@ func releasesResource(
 }
 
 func instructionSettlesResourceOwnership(
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	methods []string,
@@ -251,7 +251,7 @@ func instructionSettlesResourceOwnership(
 		startedClosureReleasesResource(evidence, instruction, resource, methods)
 }
 
-func callTakesResourceOwnership(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, resource ssa.Value) bool {
+func callTakesResourceOwnership(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, resource ssa.Value) bool {
 	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,
@@ -270,7 +270,7 @@ func callTakesResourceOwnership(evidence *lifecyclefacts.EvidenceQuery, instruct
 }
 
 func startedClosureReleasesResource(
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	methods []string,
@@ -289,7 +289,7 @@ func startedClosureReleasesResource(
 }
 
 func storedResourceAccessReleased(
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	release ssa.Instruction,
 	receiver, resource ssa.Value,
 ) bool {
@@ -316,7 +316,7 @@ func storedResourceAccessReleased(
 }
 
 func testingCleanupReleases(
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	common *ssa.CallCommon,
 	resource ssa.Value,
 	methods []string,

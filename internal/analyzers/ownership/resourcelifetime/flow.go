@@ -38,7 +38,7 @@ type resourceFlowKey struct {
 
 func evaluateResourceFlow(
 	pass *analysis.Pass,
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	call *ssa.Call,
 	resource ssa.Value,
 	contract resourceContract,
@@ -88,7 +88,7 @@ func resourceStateKey(state resourceFlowState) resourceFlowKey {
 
 func advanceResourceState(
 	pass *analysis.Pass,
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	state resourceFlowState,
 	resource ssa.Value,
 	owners []ssa.Value,

@@ -12,7 +12,7 @@ import (
 // Start. Wrapper owners additionally need a later watcher that captures the
 // same owner; a deferred method alone does not prove the process is observed.
 func processOwnerDominatesStart(
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	function *ssa.Function,
 	start *ssa.Call,
 	owners []ssa.Value,
@@ -82,7 +82,7 @@ func successfulStartCannotReturn(start *ssa.Call) bool {
 // path. A later registration cannot protect an early successful return, so it
 // remains part of the ordinary post-Start flow proof instead.
 func processOwnershipDominatesStart(
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	function *ssa.Function,
 	start *ssa.Call,
 	command ssa.Value,
@@ -155,7 +155,7 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 	return owners
 }
 
-func processOwnershipAction(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, command ssa.Value) bool {
+func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, command ssa.Value) bool {
 	common := ssaflow.InstructionCall(instruction)
 	completion := ssaflow.CompletionRequest{
 		Instruction: instruction,
@@ -211,7 +211,7 @@ func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa
 	return ok && ssaflow.ExternallyOwnedValue(field.X)
 }
 
-func startedWrapperWaits(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, command ssa.Value) bool {
+func startedWrapperWaits(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, command ssa.Value) bool {
 	completion := ssaflow.CompletionRequest{
 		Instruction: instruction,
 		Target:      command,
@@ -225,7 +225,7 @@ func startedWrapperWaits(evidence *lifecyclefacts.EvidenceQuery, instruction ssa
 	}).Proven()
 }
 
-func processHandleOwnershipAction(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, command ssa.Value) bool {
+func processHandleOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, command ssa.Value) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false

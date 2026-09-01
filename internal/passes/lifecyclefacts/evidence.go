@@ -16,27 +16,27 @@ const (
 	reasonReceiverDoesNotEscape ssaflow.EvidenceReason = "receiver-does-not-escape"
 )
 
-// EvidenceQuery combines memoized local SSA evidence with lifecycle summaries
-// imported through the prerequisite analyzer. One query belongs to one source
+// LifecycleEvidence combines memoized local SSA evidence with lifecycle summaries
+// imported through the prerequisite analyzer. One evidence context belongs to one source
 // function and is not safe for concurrent use.
-type EvidenceQuery struct {
+type LifecycleEvidence struct {
 	pass     *analysis.Pass
 	analyzer string
 	check    string
-	local    ssaflow.EvidenceQuery
+	local    ssaflow.LocalEvidence
 }
 
-// NewEvidenceQuery constructs a query whose accepted, rejected, and unknown
+// NewLifecycleEvidence constructs evidence whose accepted, rejected, and unknown
 // results use the supplied analyzer identity for structured tracing.
-func NewEvidenceQuery(pass *analysis.Pass, analyzer, check string) *EvidenceQuery {
-	return &EvidenceQuery{pass: pass, analyzer: analyzer, check: check}
+func NewLifecycleEvidence(pass *analysis.Pass, analyzer, check string) *LifecycleEvidence {
+	return &LifecycleEvidence{pass: pass, analyzer: analyzer, check: check}
 }
 
 // Identity proves a local access-path relationship through the same memoized
-// query and tracing channel used for lifecycle evidence.
-func (query *EvidenceQuery) Identity(instruction ssa.Instruction, left, right ssaflow.AccessPath) ssaflow.IdentityProof {
-	proof := query.local.Identity(left, right)
-	query.emit(EvidenceRequest{Instruction: instruction}, proof.Proof)
+// evidence and tracing channel used for lifecycle evidence.
+func (evidence *LifecycleEvidence) Identity(instruction ssa.Instruction, left, right ssaflow.AccessPath) ssaflow.IdentityProof {
+	proof := evidence.local.Identity(left, right)
+	evidence.emit(EvidenceRequest{Instruction: instruction}, proof.Proof)
 	return proof
 }
 
@@ -57,19 +57,19 @@ type EvidenceRequest struct {
 // Prove returns one lifecycle proof with explicit provenance. Missing imported
 // summaries produce Unknown rather than being conflated with a disproved local
 // relationship.
-func (query *EvidenceQuery) Prove(request EvidenceRequest) ssaflow.Proof {
-	local := query.localProof(request)
+func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) ssaflow.Proof {
+	local := evidence.localProof(request)
 	if local.Proven() {
-		query.emit(request, local)
+		evidence.emit(request, local)
 		return local
 	}
 
-	fact, summarized := factFor(query.pass, request.Instruction)
+	fact, summarized := factFor(evidence.pass, request.Instruction)
 	if request.SelectMask != nil && summarized {
 		mask := request.SelectMask(fact)
 		if factOwnsArgument(request.Instruction, request.Target, mask) {
 			proof := importedProof(reasonLifecycleSummary, requestedMethod(request))
-			query.emit(request, proof)
+			evidence.emit(request, proof)
 			return proof
 		}
 	}
@@ -77,21 +77,21 @@ func (query *EvidenceQuery) Prove(request EvidenceRequest) ssaflow.Proof {
 		receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(request.Instruction))
 		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || ssaflow.ValueEscapes(receiver)) {
 			proof := importedProof(reasonReceiverStoreTransfer, requestedMethod(request))
-			query.emit(request, proof)
+			evidence.emit(request, proof)
 			return proof
 		}
 		proof := ssaflow.Proof{
 			State: ssaflow.EvidenceDisproven, Reason: reasonReceiverDoesNotEscape,
 			Provenance: ssaflow.EvidenceFromImportedFact,
 		}
-		query.emit(request, proof)
+		evidence.emit(request, proof)
 		return proof
 	}
 
 	importedRequested := request.SelectMask != nil || request.ReceiverStore
 	if importedRequested && !summarized {
 		proof := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
-		query.emit(request, proof)
+		evidence.emit(request, proof)
 		return proof
 	}
 	if importedRequested && summarized {
@@ -100,11 +100,11 @@ func (query *EvidenceQuery) Prove(request EvidenceRequest) ssaflow.Proof {
 			Provenance: ssaflow.EvidenceFromImportedFact,
 		}
 	}
-	query.emit(request, local)
+	evidence.emit(request, local)
 	return local
 }
 
-func (query *EvidenceQuery) localProof(request EvidenceRequest) ssaflow.Proof {
+func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) ssaflow.Proof {
 	proof := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
 	if request.Local != nil {
 		proof = *request.Local
@@ -113,14 +113,14 @@ func (query *EvidenceQuery) localProof(request EvidenceRequest) ssaflow.Proof {
 		}
 	}
 	if request.Completion != nil {
-		completion := query.local.Completion(*request.Completion)
+		completion := evidence.local.Completion(*request.Completion)
 		proof = completion.Proof
 		if proof.Proven() {
 			return proof
 		}
 	}
 	if request.Transfer != nil {
-		transfer := query.local.OwnershipTransfer(*request.Transfer)
+		transfer := evidence.local.OwnershipTransfer(*request.Transfer)
 		if transfer.Proven() {
 			return transfer.Proof
 		}
@@ -148,8 +148,8 @@ func requestedMethod(request EvidenceRequest) string {
 	return request.Completion.Methods[0]
 }
 
-func (query *EvidenceQuery) emit(request EvidenceRequest, proof ssaflow.Proof) {
-	if !analysisTrace.Enabled(query.analyzer, query.check) {
+func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof ssaflow.Proof) {
+	if !analysisTrace.Enabled(evidence.analyzer, evidence.check) {
 		return
 	}
 	outcome := analysisTrace.OutcomeUnknown
@@ -171,9 +171,9 @@ func (query *EvidenceQuery) emit(request EvidenceRequest, proof ssaflow.Proof) {
 	if request.Instruction != nil {
 		position = request.Instruction.Pos()
 	}
-	analysisTrace.Emit(query.pass, analysisTrace.Event{
-		Analyzer: query.analyzer,
-		Check:    query.check,
+	analysisTrace.Emit(evidence.pass, analysisTrace.Event{
+		Analyzer: evidence.analyzer,
+		Check:    evidence.check,
 		Phase:    "evidence",
 		Reason:   string(proof.Reason),
 		Outcome:  outcome,

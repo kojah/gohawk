@@ -32,21 +32,21 @@ type OwnershipTransferRequest struct {
 // ProveOwnershipTransfer returns the first concrete relationship that proves
 // ownership escaped to an accepted owner.
 func ProveOwnershipTransfer(request OwnershipTransferRequest) OwnershipTransferProof {
-	var query EvidenceQuery
-	return query.OwnershipTransfer(request)
+	var evidence LocalEvidence
+	return evidence.OwnershipTransfer(request)
 }
 
 // OwnershipTransfer proves and memoizes an ownership-transfer request.
-func (query *EvidenceQuery) OwnershipTransfer(request OwnershipTransferRequest) OwnershipTransferProof {
+func (evidence *LocalEvidence) OwnershipTransfer(request OwnershipTransferRequest) OwnershipTransferProof {
 	key := transferEvidenceKey{instruction: request.Instruction, value: request.Value, modes: request.Modes}
-	if proof, ok := query.transfers[key]; ok {
+	if proof, ok := evidence.transfers[key]; ok {
 		return proof
 	}
 	proof := proveOwnershipTransfer(request)
-	if query.transfers == nil {
-		query.transfers = make(map[transferEvidenceKey]OwnershipTransferProof)
+	if evidence.transfers == nil {
+		evidence.transfers = make(map[transferEvidenceKey]OwnershipTransferProof)
 	}
-	query.transfers[key] = proof
+	evidence.transfers[key] = proof
 	return proof
 }
 

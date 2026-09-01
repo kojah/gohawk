@@ -13,6 +13,7 @@ const (
 	EvidenceSameAccessPath EvidenceReason = "same-access-path"
 
 	EvidenceDeferredCompletion           EvidenceReason = "deferred-completion"
+	EvidenceDeferredCallback             EvidenceReason = "deferred-callback-completion"
 	EvidenceDeferredArgumentCompletion   EvidenceReason = "deferred-argument-completion"
 	EvidenceDeferredHelperCallback       EvidenceReason = "deferred-helper-callback-completion"
 	EvidenceClosureCompletion            EvidenceReason = "closure-completion"

@@ -32,7 +32,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	for _, function := range functions {
-		evidence := lifecyclefacts.NewEvidenceQuery(pass, "cancellationownership", string(check.CancellationRelease))
+		evidence := lifecyclefacts.NewLifecycleEvidence(pass, "cancellationownership", string(check.CancellationRelease))
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)
@@ -188,7 +188,7 @@ func cancelInvocation(name, constructor string) string {
 	return name + "()"
 }
 
-func callsCancel(pass *analysis.Pass, evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, cancel ssa.Value) bool {
+func callsCancel(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, cancel ssa.Value) bool {
 	// A helper may settle an obligation without a naming convention. Require
 	// invocation on every normal helper return; process-tree tests use this to
 	// centralize cancellation and process cleanup together:
@@ -323,7 +323,7 @@ func emitCancellationEvidence(pass *analysis.Pass, instruction ssa.Instruction, 
 }
 
 func instructionSettlesCancellation(
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	instruction ssa.Instruction,
 	cancel ssa.Value,
 ) bool {
@@ -359,7 +359,7 @@ func instructionSettlesCancellation(
 }
 
 func callTakesCancellationOwnership(
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	instruction ssa.Instruction,
 	cancel ssa.Value,
 ) bool {

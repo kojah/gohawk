@@ -26,7 +26,7 @@ const (
 
 func evaluateResourceLifetime(
 	pass *analysis.Pass,
-	evidence *lifecyclefacts.EvidenceQuery,
+	evidence *lifecyclefacts.LifecycleEvidence,
 	call *ssa.Call,
 	resource ssa.Value,
 	contract resourceContract,

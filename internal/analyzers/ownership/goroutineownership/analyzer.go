@@ -51,7 +51,7 @@ type goroutineAnalysis struct {
 	unsettledDone          ssa.Instruction
 	testFunction           bool
 	acceptContextLifecycle bool
-	evidence               *ssaflow.EvidenceQuery
+	evidence               *ssaflow.LocalEvidence
 }
 
 type goroutineOwnershipReason string
@@ -89,7 +89,7 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 	if spawn == nil || spawn.Parent() == nil {
 		return false
 	}
-	var evidence ssaflow.EvidenceQuery
+	var evidence ssaflow.LocalEvidence
 	ownership := newGoroutineAnalysis(
 		nil,
 		spawn.Parent(),
@@ -113,7 +113,7 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 		return nil, err
 	}
 	for _, function := range functions {
-		var evidence ssaflow.EvidenceQuery
+		var evidence ssaflow.LocalEvidence
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				spawn, ok := instruction.(*ssa.Go)
@@ -131,7 +131,7 @@ func analyzeSpawn(
 	function *ssa.Function,
 	spawn *ssa.Go,
 	config goroutineOwnershipConfig,
-	evidence *ssaflow.EvidenceQuery,
+	evidence *ssaflow.LocalEvidence,
 ) {
 	ownership := newGoroutineAnalysis(pass, function, spawn, config, evidence, true)
 	proof := ownership.prove()
@@ -155,7 +155,7 @@ func newGoroutineAnalysis(
 	function *ssa.Function,
 	spawn *ssa.Go,
 	config goroutineOwnershipConfig,
-	evidence *ssaflow.EvidenceQuery,
+	evidence *ssaflow.LocalEvidence,
 	acceptContextLifecycle bool,
 ) goroutineAnalysis {
 	signals, groups, unsettledDone := goroutineJoinValues(spawn)
