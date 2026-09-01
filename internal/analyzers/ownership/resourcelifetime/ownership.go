@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 
 	"golang.org/x/tools/go/ssa"
@@ -70,7 +71,7 @@ func missingFileCheck(condition, errorValue ssa.Value) bool {
 	// os.IsNotExist is the legacy equivalent of errors.Is(err,
 	// fs.ErrNotExist); on its true branch os.Open did not return an owned file.
 	// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/feedback/send.go#L124
-	return ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "IsNotExist" && len(common.Args) == 1 &&
+	return ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("os", "IsNotExist")) && len(common.Args) == 1 &&
 		ssautil.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{})
 }
 
@@ -80,7 +81,7 @@ func errorsIsMissingFile(condition, errorValue ssa.Value) bool {
 		return false
 	}
 	common := call.Common()
-	if ssautil.CallPackage(common) != "errors" || ssautil.CallName(common) != "Is" || len(common.Args) != 2 {
+	if !ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("errors", "Is")) || len(common.Args) != 2 {
 		return false
 	}
 	if !ssautil.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {

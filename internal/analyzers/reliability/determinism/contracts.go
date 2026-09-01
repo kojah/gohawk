@@ -92,15 +92,15 @@ func orderedFunctionResult(pass *analysis.Pass, function *ast.FuncDecl) bool {
 }
 
 func orderedSinkCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	for _, symbol := range []analysisutil.FunctionSymbol{
-		{Package: "fmt", Name: "Print"},
-		{Package: "fmt", Name: "Printf"},
-		{Package: "fmt", Name: "Println"},
-		{Package: "fmt", Name: "Fprint"},
-		{Package: "fmt", Name: "Fprintf"},
-		{Package: "fmt", Name: "Fprintln"},
+	for _, symbol := range []analysisutil.Symbol{
+		analysisutil.PackageFunction("fmt", "Print"),
+		analysisutil.PackageFunction("fmt", "Printf"),
+		analysisutil.PackageFunction("fmt", "Println"),
+		analysisutil.PackageFunction("fmt", "Fprint"),
+		analysisutil.PackageFunction("fmt", "Fprintf"),
+		analysisutil.PackageFunction("fmt", "Fprintln"),
 	} {
-		if analysisutil.IsPackageCall(pass, call, symbol) {
+		if analysisutil.IsCallTo(pass, call, symbol) {
 			return true
 		}
 	}

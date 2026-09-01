@@ -1,11 +1,8 @@
 package analysisutil
 
 import (
-	"go/ast"
 	"go/types"
 	"strings"
-
-	"golang.org/x/tools/go/analysis"
 )
 
 // ShortPackageName returns the final component of an import path.
@@ -14,26 +11,6 @@ func ShortPackageName(packagePath string) string {
 		return packagePath[index+1:]
 	}
 	return packagePath
-}
-
-// FunctionSymbol identifies one package-level Go function.
-type FunctionSymbol struct {
-	Package string
-	Name    string
-}
-
-// IsPackageCall reports whether call statically names symbol.
-func IsPackageCall(pass *analysis.Pass, call *ast.CallExpr, symbol FunctionSymbol) bool {
-	selector, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || selector.Sel.Name != symbol.Name {
-		return false
-	}
-	identifier, ok := selector.X.(*ast.Ident)
-	if !ok {
-		return false
-	}
-	imported, ok := pass.TypesInfo.Uses[identifier].(*types.PkgName)
-	return ok && imported.Imported().Path() == symbol.Package
 }
 
 // IsErrorType reports whether value implements Go's predeclared error interface.

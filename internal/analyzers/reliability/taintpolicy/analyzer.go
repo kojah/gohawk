@@ -4,6 +4,7 @@ package taintpolicy
 import (
 	"strings"
 
+	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
@@ -165,9 +166,9 @@ func terminalWriterSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
 		return false
 	}
 	seen[value] = true
-	global, ok := value.(*ssa.Global)
-	if ok {
-		return global.Pkg != nil && global.Pkg.Pkg.Path() == "os" && (global.Name() == "Stdout" || global.Name() == "Stderr")
+	if ssautil.ValueMatchesSymbol(value, analysisutil.PackageVariable("os", "Stdout")) ||
+		ssautil.ValueMatchesSymbol(value, analysisutil.PackageVariable("os", "Stderr")) {
+		return true
 	}
 	switch typed := value.(type) {
 	case *ssa.ChangeInterface:
@@ -194,7 +195,7 @@ func taintedValue(value ssa.Value, seen, memorySeen map[ssa.Value]bool, settings
 		}
 	}
 	if index, ok := value.(*ssa.Index); ok {
-		if global, globalOK := index.X.(*ssa.Global); globalOK && global.Pkg != nil && global.Pkg.Pkg.Path() == "os" && global.Name() == "Args" {
+		if ssautil.ValueMatchesSymbol(index.X, analysisutil.PackageVariable("os", "Args")) {
 			return true
 		}
 	}
@@ -235,7 +236,8 @@ func taintedStoredValue(address ssa.Value, seen, memorySeen map[ssa.Value]bool, 
 }
 
 func taintSource(common *ssa.CallCommon) bool {
-	return ssautil.CallPackage(common) == "os" && (ssautil.CallName(common) == "Getenv" || ssautil.CallName(common) == "LookupEnv")
+	return ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("os", "Getenv")) ||
+		ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("os", "LookupEnv"))
 }
 
 func trustedSanitizer(common *ssa.CallCommon, configured map[string]bool) bool {

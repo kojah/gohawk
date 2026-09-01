@@ -2,6 +2,7 @@ package processownership
 
 import (
 	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -123,7 +124,7 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
 	return waitsForCommand(instruction, command) ||
-		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Release" &&
+		ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod("os", "Process", "Release")) &&
 			ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 		ssautil.DeferredClosureCalls(instruction, "Wait", command) ||
 		ssautil.ClosureCallsMethod(instruction, "Wait", command) ||
@@ -144,7 +145,7 @@ func processOwnershipAction(pass *analysis.Pass, instruction ssa.Instruction, co
 		ssautil.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
 		startedWrapperWaits(pass, instruction, command) ||
 		processHandleOwnershipAction(pass, instruction, command) ||
-		ssautil.CallPackage(common) == "os" && ssautil.CallName(common) == "Exit"
+		ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("os", "Exit"))
 }
 
 func startedWrapperWaits(pass *analysis.Pass, instruction ssa.Instruction, command ssa.Value) bool {

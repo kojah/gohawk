@@ -3,6 +3,7 @@ package processownership
 
 import (
 	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -31,7 +32,8 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, ok := instruction.(*ssa.Call)
-				if !ok || ssautil.CallName(start.Common()) != "Start" || !execCommandValue(ssautil.CallReceiver(start.Common())) {
+				if !ok || !ssautil.CallMatchesSymbol(start.Common(), analysisutil.PackageMethod("os/exec", "Cmd", "Start")) ||
+					!execCommandValue(ssautil.CallReceiver(start.Common())) {
 					continue
 				}
 				command := ssautil.CallReceiver(start.Common())

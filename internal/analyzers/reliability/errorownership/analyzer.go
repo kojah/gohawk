@@ -38,11 +38,18 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 }
 
 func loggingCall(common *ssa.CallCommon) bool {
-	name := ssautil.CallName(common)
-	if ssautil.CallPackage(common) == "log" {
-		return name == "Print" || name == "Printf" || name == "Println"
+	for _, symbol := range []analysisutil.Symbol{
+		analysisutil.PackageFunction("log", "Print"),
+		analysisutil.PackageFunction("log", "Printf"),
+		analysisutil.PackageFunction("log", "Println"),
+		analysisutil.PackageFunction("log/slog", "Error"),
+		analysisutil.PackageFunction("log/slog", "ErrorContext"),
+	} {
+		if ssautil.CallMatchesSymbol(common, symbol) {
+			return true
+		}
 	}
-	return ssautil.CallPackage(common) == "log/slog" && (name == "Error" || name == "ErrorContext")
+	return false
 }
 
 func loggedErrorIsReturned(call *ssa.Call) bool {

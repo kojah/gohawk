@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 
 	"golang.org/x/tools/go/ssa"
@@ -176,7 +177,7 @@ func loopBound(function *ssa.Function, body *ssa.BasicBlock) ssa.Value { //nolin
 	}
 	for _, candidate := range candidates {
 		if bound := loopComparisonBound(candidate, selected); bound != nil {
-			if call, ok := bound.(*ssa.Call); ok && ssautil.CallName(call.Common()) == "len" && len(call.Common().Args) == 1 {
+			if call, ok := bound.(*ssa.Call); ok && ssautil.CallMatchesSymbol(call.Common(), analysisutil.Builtin("len")) && len(call.Common().Args) == 1 {
 				return call.Common().Args[0]
 			}
 			return bound

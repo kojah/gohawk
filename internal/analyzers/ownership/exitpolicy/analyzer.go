@@ -92,20 +92,15 @@ func processExitRelevantDefer(common *ssa.CallCommon) bool {
 }
 
 func exitsWithoutRunningDefers(common *ssa.CallCommon) bool {
-	if common == nil {
-		return false
+	for _, symbol := range []analysisutil.Symbol{
+		analysisutil.PackageFunction("os", "Exit"),
+		analysisutil.PackageFunction("log", "Fatal"),
+		analysisutil.PackageFunction("log", "Fatalf"),
+		analysisutil.PackageFunction("log", "Fatalln"),
+	} {
+		if ssautil.CallMatchesSymbol(common, symbol) {
+			return true
+		}
 	}
-	packagePath, name := ssautil.CallPackage(common), ssautil.CallName(common)
-	if packagePath == "os" && name == "Exit" {
-		return true
-	}
-	if packagePath != "log" {
-		return false
-	}
-	switch name {
-	case "Fatal", "Fatalf", "Fatalln":
-		return true
-	default:
-		return false
-	}
+	return false
 }

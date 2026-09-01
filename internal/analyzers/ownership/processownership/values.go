@@ -78,7 +78,7 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 	if common == nil {
 		return false
 	}
-	if ssautil.CallName(common) == "Wait" &&
+	if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod("os/exec", "Cmd", "Wait")) &&
 		(ssautil.ValueDerivesFrom(ssautil.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 			osProcessDerivedFromCommand(ssautil.CallReceiver(common), command)) {
 		return true

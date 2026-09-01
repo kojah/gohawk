@@ -93,13 +93,13 @@ func orderedObjectObservation(pass *analysis.Pass, expression ast.Expr, object t
 }
 
 func orderInsensitiveCall(pass *analysis.Pass, call *ast.CallExpr) bool {
-	for _, symbol := range []analysisutil.FunctionSymbol{
-		{Package: "slices", Name: "Contains"},
-		{Package: "slices", Name: "ContainsFunc"},
-		{Package: "slices", Name: "Equal"},
-		{Package: "slices", Name: "EqualFunc"},
+	for _, symbol := range []analysisutil.Symbol{
+		analysisutil.PackageFunction("slices", "Contains"),
+		analysisutil.PackageFunction("slices", "ContainsFunc"),
+		analysisutil.PackageFunction("slices", "Equal"),
+		analysisutil.PackageFunction("slices", "EqualFunc"),
 	} {
-		if analysisutil.IsPackageCall(pass, call, symbol) {
+		if analysisutil.IsCallTo(pass, call, symbol) {
 			return true
 		}
 	}

@@ -51,12 +51,7 @@ func runErrorClassification(pass *analysis.Pass) (any, error) {
 }
 
 func stringErrorClassificationSSA(call *ssa.Call, callsites map[*ssa.Function][]*ssa.Call) bool {
-	if ssautil.CallPackage(call.Common()) != "strings" {
-		return false
-	}
-	switch ssautil.CallName(call.Common()) {
-	case "Contains", "HasPrefix", "HasSuffix", "EqualFold":
-	default:
+	if !matchesAnyFunction(call.Common(), "strings", "Contains", "HasPrefix", "HasSuffix", "EqualFold") {
 		return false
 	}
 	for _, argument := range call.Common().Args {
@@ -241,13 +236,19 @@ func functionExecutesExternalCommand(function *ssa.Function) bool {
 }
 
 func externalCommandCall(common *ssa.CallCommon) bool {
-	if ssautil.CallPackage(common) != "os/exec" {
-		return false
+	for _, name := range []string{"Run", "Start", "Wait", "Output", "CombinedOutput"} {
+		if ssautil.CallMatchesSymbol(common, analysisutil.PackageMethod("os/exec", "Cmd", name)) {
+			return true
+		}
 	}
-	switch ssautil.CallName(common) {
-	case "Run", "Start", "Wait", "Output", "CombinedOutput":
-		return true
-	default:
-		return false
+	return false
+}
+
+func matchesAnyFunction(common *ssa.CallCommon, packagePath string, names ...string) bool {
+	for _, name := range names {
+		if ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction(packagePath, name)) {
+			return true
+		}
 	}
+	return false
 }

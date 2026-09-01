@@ -83,22 +83,7 @@ func CallPackage(common *ssa.CallCommon) string {
 // prevents execution from continuing in the current goroutine.
 func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool {
 	common := InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	name := CallName(common)
-	if CallPackage(common) == "runtime" && name == "Goexit" {
-		return true
-	}
-	if CallPackage(common) != "testing" {
-		return false
-	}
-	switch name {
-	case "FailNow", "Fatal", "Fatalf", "Skip", "Skipf", "SkipNow":
-		return true
-	default:
-		return false
-	}
+	return HasLibraryContract(common, ContractRuntimeGoexit) || HasLibraryContract(common, ContractTestingTermination)
 }
 
 // CallInvokesArgumentOnEveryReturn reports whether a statically known helper

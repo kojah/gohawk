@@ -3,6 +3,8 @@ package ssautil
 import (
 	"go/token"
 
+	"github.com/kojah/gohawk/internal/analysisutil"
+
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -56,7 +58,7 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]boo
 
 func callAggregateStoresValue(call *ssa.Call, value ssa.Value, seen map[ownershipPair]bool) bool {
 	common := call.Common()
-	if CallName(common) == "append" && anyAggregateStoresValue(common.Args, value, seen) {
+	if CallMatchesSymbol(common, analysisutil.Builtin("append")) && anyAggregateStoresValue(common.Args, value, seen) {
 		return true
 	}
 	callee := common.StaticCallee()

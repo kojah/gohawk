@@ -176,13 +176,11 @@ func contextSource(value ssa.Value) (ssa.Value, bool) {
 
 func neverCancelledContextCall(call *ssa.Call, seen map[ssa.Value]bool) (token.Pos, bool) {
 	common := call.Common()
-	if ssautil.CallPackage(common) != "context" {
-		return token.NoPos, false
-	}
-	switch ssautil.CallName(common) {
-	case "Background", "TODO":
+	if ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("context", "Background")) ||
+		ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("context", "TODO")) {
 		return call.Pos(), true
-	case "WithValue":
+	}
+	if ssautil.CallMatchesSymbol(common, analysisutil.PackageFunction("context", "WithValue")) {
 		if len(common.Args) > 0 {
 			return neverCancelledTestContext(common.Args[0], seen)
 		}
