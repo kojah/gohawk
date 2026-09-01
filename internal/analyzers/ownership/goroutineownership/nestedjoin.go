@@ -7,59 +7,51 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-func nestedClosureOwnershipValue(
+func nestedClosureSignalValue(
 	spawn *ssa.Go,
 	function *ssa.Function,
 	closure *ssa.MakeClosure,
 	common *ssa.CallCommon,
-) (signal, group ssa.Value) { //nolint:ireturn // Goroutine ownership flows through concrete SSA values.
+) ssa.Value { //nolint:ireturn // Goroutine ownership flows through concrete SSA values.
 	nested, ok := common.Value.(*ssa.MakeClosure)
 	if !ok {
-		return nil, nil
+		return nil
 	}
 	nestedFunction, _ := nested.Fn.(*ssa.Function)
 	if nestedFunction == nil {
-		return nil, nil
+		return nil
 	}
 	for _, block := range nestedFunction.Blocks {
 		for _, candidate := range block.Instrs {
-			nestedSignal, nestedGroup := closureOwnershipValue(nested, nestedFunction, candidate)
+			nestedSignal := closureSignalValue(nested, nestedFunction, candidate)
 			if nestedSignal != nil {
-				return ssaflow.SpawnedValueAtCall(spawn, function, closure, nestedSignal), nil
-			}
-			if nestedGroup != nil {
-				return nil, ssaflow.SpawnedValueAtCall(spawn, function, closure, nestedGroup)
+				return ssaflow.SpawnedValueAtCall(spawn, function, closure, nestedSignal)
 			}
 		}
 	}
-	return nil, nil
+	return nil
 }
 
-func closureOwnershipValue(
+func closureSignalValue(
 	closure *ssa.MakeClosure,
 	function *ssa.Function,
 	instruction ssa.Instruction,
-) (signal, group ssa.Value) { //nolint:ireturn // Join handles retain their concrete SSA value types.
+) ssa.Value { //nolint:ireturn // Join handles retain their concrete SSA value types.
 	var nestedValue ssa.Value
 	if send, ok := instruction.(*ssa.Send); ok {
 		nestedValue = send.Chan
 	} else {
 		common := ssaflow.InstructionCall(instruction)
 		if common == nil {
-			return nil, nil
+			return nil
 		}
-		switch {
-		case ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1:
+		if ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1 {
 			nestedValue = common.Args[0]
-		case ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
-			PackagePath: "sync", Receiver: "WaitGroup", Name: "Done",
-		})):
-			return nil, closureCapturedValue(closure, function, ssaflow.CallReceiver(common))
-		default:
-			return nil, nil
+		} else {
+			return nil
 		}
 	}
-	return closureCapturedValue(closure, function, nestedValue), nil
+	return closureCapturedValue(closure, function, nestedValue)
 }
 
 func closureCapturedValue(closure *ssa.MakeClosure, function *ssa.Function, value ssa.Value) ssa.Value { //nolint:ireturn // SSA values preserve alias identity.

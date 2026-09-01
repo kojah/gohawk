@@ -66,7 +66,7 @@ func causallyJoinedByOwnedWorker(spawn *ssa.Go, candidate ssa.Instruction) bool 
 	if spawned == nil || worker == nil || !functionMayBlock(spawned) {
 		return false
 	}
-	signals, groups := goroutineJoinValues(joined)
+	signals, groups, _ := goroutineJoinValues(joined)
 	if len(signals)+len(groups) == 0 || ssaflow.UnownedReturn(joined, func(next ssa.Instruction) bool {
 		return joinsGoroutine(next, signals, groups)
 	}, nil) {

@@ -48,6 +48,7 @@ type goroutineAnalysis struct {
 	signals                []ssa.Value
 	groups                 []ssa.Value
 	owners                 []ssa.Value
+	unsettledDone          ssa.Instruction
 	testFunction           bool
 	acceptContextLifecycle bool
 	evidence               *ssaflow.EvidenceQuery
@@ -72,6 +73,7 @@ const (
 	ownershipReasonReturnedAggregateOwner  goroutineOwnershipReason = "returned-aggregate-lifecycle-owner"
 	ownershipReasonJoinProven              goroutineOwnershipReason = "join-proven"
 	ownershipReasonUnownedReturn           goroutineOwnershipReason = "unowned-return"
+	ownershipReasonDoneBeforeCompletion    goroutineOwnershipReason = "waitgroup-done-before-completion"
 )
 
 type goroutineOwnershipProof struct {
@@ -133,6 +135,7 @@ func analyzeSpawn(
 ) {
 	ownership := newGoroutineAnalysis(pass, function, spawn, config, evidence, true)
 	proof := ownership.prove()
+	ownership.emitRejectedDoneEvidence()
 	outcome := analysisTrace.OutcomeAccepted
 	if !proof.proven {
 		outcome = analysisTrace.OutcomeRejected
@@ -155,13 +158,13 @@ func newGoroutineAnalysis(
 	evidence *ssaflow.EvidenceQuery,
 	acceptContextLifecycle bool,
 ) goroutineAnalysis {
-	signals, groups := goroutineJoinValues(spawn)
+	signals, groups, unsettledDone := goroutineJoinValues(spawn)
 	owners := goroutineLifecycleValues(spawn)
 	testFunction := pass != nil && strings.HasSuffix(pass.Fset.Position(function.Pos()).Filename, "_test.go")
 	return goroutineAnalysis{
 		pass: pass, function: function, spawn: spawn, config: config,
 		checkID: goroutineCheck(config, signals, groups),
-		signals: signals, groups: groups, owners: owners,
+		signals: signals, groups: groups, owners: owners, unsettledDone: unsettledDone,
 		testFunction:           testFunction,
 		acceptContextLifecycle: acceptContextLifecycle,
 		evidence:               evidence,
@@ -181,9 +184,28 @@ func (analysis goroutineAnalysis) prove() goroutineOwnershipProof {
 	}
 	leaks := ssaflow.UnownedReturn(analysis.spawn, analysis.instructionOwnsGoroutine, analysis.returnOwnsGoroutine)
 	if leaks {
+		if analysis.unsettledDone != nil {
+			return goroutineOwnershipProof{reason: ownershipReasonDoneBeforeCompletion}
+		}
 		return goroutineOwnershipProof{reason: ownershipReasonUnownedReturn}
 	}
 	return goroutineOwnershipProof{proven: true, reason: ownershipReasonJoinProven}
+}
+
+func (analysis goroutineAnalysis) emitRejectedDoneEvidence() {
+	if analysis.pass == nil || analysis.unsettledDone == nil ||
+		!analysisTrace.Enabled("goroutineownership", string(analysis.checkID)) {
+		return
+	}
+	analysisTrace.Emit(analysis.pass, analysisTrace.Event{
+		Analyzer: "goroutineownership",
+		Check:    string(analysis.checkID),
+		Phase:    "evidence",
+		Reason:   string(ownershipReasonDoneBeforeCompletion),
+		Outcome:  analysisTrace.OutcomeRejected,
+		Pos:      analysis.unsettledDone.Pos(),
+		Function: analysis.function.String(),
+	})
 }
 
 func (analysis goroutineAnalysis) immediateProof() goroutineOwnershipProof {

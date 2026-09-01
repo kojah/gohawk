@@ -16,35 +16,31 @@ import (
 // that owns it. The search follows concrete closure bindings, helper calls, and
 // stored callbacks; unresolved aliasing is not accepted as a proven join.
 
-func spawnedOwnershipValue(
+func spawnedCompletionSignal(
 	spawn *ssa.Go,
 	function *ssa.Function,
 	closure *ssa.MakeClosure,
 	instruction ssa.Instruction,
-) (signal, group ssa.Value) { //nolint:ireturn // Goroutine ownership can flow through channels or synchronization values.
+) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
 	if send, ok := instruction.(*ssa.Send); ok {
-		return ssaflow.SpawnedValueAtCall(spawn, function, closure, send.Chan), nil
+		return ssaflow.SpawnedValueAtCall(spawn, function, closure, send.Chan)
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
-		return nil, nil
+		return nil
 	}
 	if _, synchronous := instruction.(*ssa.Go); !synchronous {
-		if nestedSignal, nestedGroup := nestedClosureOwnershipValue(spawn, function, closure, common); nestedSignal != nil || nestedGroup != nil {
-			return nestedSignal, nestedGroup
+		if nestedSignal := nestedClosureSignalValue(spawn, function, closure, common); nestedSignal != nil {
+			return nestedSignal
 		}
 	}
 	if ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) {
 		if len(common.Args) == 1 {
-			return ssaflow.SpawnedValueAtCall(spawn, function, closure, common.Args[0]), nil
+			return ssaflow.SpawnedValueAtCall(spawn, function, closure, common.Args[0])
 		}
-		return nil, nil
+		return nil
 	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Done"})) {
-		receiver := ssaflow.CallReceiver(common)
-		return nil, ssaflow.SpawnedValueAtCall(spawn, function, closure, receiver)
-	}
-	return nil, nil
+	return nil
 }
 
 func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bool {

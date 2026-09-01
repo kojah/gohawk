@@ -95,6 +95,28 @@ func joinedByWaitGroup() {
 	group.Wait()
 }
 
+func waitGroupWork() {}
+
+func joinedByTerminalWaitGroupDone() {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() {
+		waitGroupWork()
+		group.Done()
+	}()
+	group.Wait()
+}
+
+func earlyWaitGroupDoneDoesNotJoin() {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { // want "goroutine is not joined on every return path"
+		group.Done()
+		waitGroupWork()
+	}()
+	group.Wait()
+}
+
 func registeredWaitGroupWithoutWait() {
 	var group sync.WaitGroup
 	group.Add(1)

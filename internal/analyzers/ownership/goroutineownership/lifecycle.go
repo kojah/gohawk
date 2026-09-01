@@ -170,7 +170,7 @@ func goroutineLifecycleValues(spawn *ssa.Go) []ssa.Value {
 	return owners
 }
 
-func goroutineJoinValues(spawn *ssa.Go) (signals, groups []ssa.Value) {
+func goroutineJoinValues(spawn *ssa.Go) (signals, groups []ssa.Value, unsettledDone ssa.Instruction) {
 	// Infer join handles from what the goroutine produces (send, close, Done),
 	// rather than treating every channel argument as completion. A channel the
 	// goroutine only receives from governs its lifetime instead.
@@ -180,20 +180,18 @@ func goroutineJoinValues(spawn *ssa.Go) (signals, groups []ssa.Value) {
 		function, _ = closure.Fn.(*ssa.Function)
 	}
 	if function == nil {
-		return signals, nil
+		return signals, nil, nil
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			signal, group := spawnedOwnershipValue(spawn, function, closure, instruction)
+			signal := spawnedCompletionSignal(spawn, function, closure, instruction)
 			if signal != nil {
 				signals = append(signals, signal)
 			}
-			if group != nil {
-				groups = append(groups, group)
-			}
 		}
 	}
-	return signals, groups
+	groups, unsettledDone = waitGroupCompletionValues(spawn, function, closure)
+	return signals, groups, unsettledDone
 }
 
 func goroutineHasStopLifecycle(spawn *ssa.Go) bool {
@@ -292,6 +290,12 @@ func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
 
 func lifecycleOwner(value ssa.Value) bool {
 	if value == nil {
+		return false
+	}
+	// WaitGroup completion is proved from settling Done calls in waitgroup.go.
+	// Treating its Wait method as a generic lifecycle owner would bypass that
+	// proof and accept an early progress signal as goroutine completion.
+	if syntax.NamedType(value.Type(), "sync", "WaitGroup") {
 		return false
 	}
 	methods := types.NewMethodSet(value.Type())
