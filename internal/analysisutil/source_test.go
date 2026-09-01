@@ -4,7 +4,10 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"slices"
 	"testing"
+
+	"github.com/kojah/gohawk/internal/analysispasses/testvariant"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -45,5 +48,22 @@ func TestVetToolInvocation(t *testing.T) {
 				t.Fatalf("vetToolInvocation(%v) = %t, want %t", test.arguments, got, test.want)
 			}
 		})
+	}
+}
+
+func TestIncludeProductionFilesInTestVariantsAddsMarkerPrerequisite(t *testing.T) {
+	baseRequirement := &analysis.Analyzer{Name: "base", Doc: "base prerequisite", Run: func(*analysis.Pass) (any, error) { return nil, nil }}
+	analyzer := &analysis.Analyzer{Name: "target", Doc: "target analyzer", Requires: []*analysis.Analyzer{baseRequirement}}
+
+	wrapper := IncludeProductionFilesInTestVariants(analyzer)
+
+	if wrapper == analyzer {
+		t.Fatal("IncludeProductionFilesInTestVariants returned the original analyzer")
+	}
+	if !slices.Contains(wrapper.Requires, baseRequirement) || !slices.Contains(wrapper.Requires, testvariant.Analyzer) {
+		t.Fatalf("wrapper requirements = %v, want original requirement and test-variant marker", wrapper.Requires)
+	}
+	if len(analyzer.Requires) != 1 || analyzer.Requires[0] != baseRequirement {
+		t.Fatalf("original requirements changed: %v", analyzer.Requires)
 	}
 }

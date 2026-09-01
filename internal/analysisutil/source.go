@@ -4,20 +4,12 @@ import (
 	"go/ast"
 	"go/token"
 	"os"
-	"reflect"
 	"strings"
+
+	"github.com/kojah/gohawk/internal/analysispasses/testvariant"
 
 	"golang.org/x/tools/go/analysis"
 )
-
-var analyzeProductionFilesInTestVariants = &analysis.Analyzer{
-	Name:       "gohawk_test_variant_files",
-	Doc:        "marks a driver whose test variant is its canonical package pass",
-	ResultType: reflect.TypeFor[bool](),
-	Run: func(*analysis.Pass) (any, error) {
-		return true, nil
-	},
-}
 
 type sourceRange struct {
 	start token.Pos
@@ -75,7 +67,7 @@ func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 	if GeneratedFile(file) {
 		return false
 	}
-	_, driverUsesTestVariant := pass.ResultOf[analyzeProductionFilesInTestVariants]
+	_, driverUsesTestVariant := pass.ResultOf[testvariant.Analyzer]
 	if !testVariant(pass) || vetToolInvocation(os.Args) || driverUsesTestVariant {
 		return true
 	}
@@ -89,7 +81,7 @@ func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 func IncludeProductionFilesInTestVariants(analyzer *analysis.Analyzer) *analysis.Analyzer {
 	wrapper := *analyzer
 	wrapper.Requires = append([]*analysis.Analyzer(nil), analyzer.Requires...)
-	wrapper.Requires = append(wrapper.Requires, analyzeProductionFilesInTestVariants)
+	wrapper.Requires = append(wrapper.Requires, testvariant.Analyzer)
 	return &wrapper
 }
 
