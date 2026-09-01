@@ -124,6 +124,22 @@
       "slug": "ownership-and-lifecycle",
       "analyzers": [
         {
+          "name": "borrowedstorage",
+          "summary": "Checks borrowed mutable storage transferred to a second owner.",
+          "path": "analyzers/ownership-and-lifecycle/borrowedstorage",
+          "optIn": true,
+          "checks": [
+            {
+              "id": "borrowedstorage/overlapping-owner",
+              "summary": "Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy.",
+              "kind": "hazard",
+              "optIn": true
+            }
+          ],
+          "suggestedFix": false,
+          "options": []
+        },
+        {
           "name": "cancellationownership",
           "summary": "Checks context and signal-derived cancellation functions are called on every return path.",
           "path": "analyzers/ownership-and-lifecycle/cancellationownership",

@@ -42,6 +42,10 @@ These analyzers make contracts visible in Go types and APIs, where callers and t
 These analyzers look for work or resources whose owner cannot be identified on every relevant path.
 
 <div class="analyzer-grid">
+  <a class="analyzer-card" href="ownership-and-lifecycle/borrowedstorage/">
+    <span class="analyzer-name">borrowedstorage</span>
+    <span class="analyzer-detects">Checks borrowed mutable storage transferred to a second owner.</span>
+  </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/cancellationownership/">
     <span class="analyzer-name">cancellationownership</span>
     <span class="analyzer-detects">Checks context and signal-derived cancellation functions are called on every return path.</span>

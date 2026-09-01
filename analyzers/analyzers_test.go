@@ -38,6 +38,7 @@ func expectedAnalyzerNames() []string {
 		"oncepolicy",
 		"syncmapatomicity",
 		"cancellationownership",
+		"borrowedstorage",
 	}
 }
 
@@ -80,6 +81,7 @@ func TestAnalyzerGroups(t *testing.T) {
 			doc:     "ownership and lifecycle",
 			docPath: "ownership-and-lifecycle",
 			analyzers: []string{
+				"borrowedstorage",
 				"cancellationownership",
 				"channelcapacity",
 				"channelownership",
@@ -155,7 +157,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 	optIn := map[string]bool{
 		"apishape": true, "channelcapacity": true, "closedomain": true, "errorownership": true,
 		"determinism": true, "globalstate": true, "taintpolicy": true,
-		"testlifecycle": true, "testpolicy": true, "wirepolicy": true,
+		"testlifecycle": true, "testpolicy": true, "wirepolicy": true, "borrowedstorage": true,
 	}
 	seenChecks := make(map[AnalyzerCheck]string)
 	optInChecks := map[AnalyzerCheck]bool{
@@ -173,6 +175,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"wirepolicy/keyed-literal":           CheckKindPolicy,
 		"wirepolicy/serialization-tag":       CheckKindPolicy,
 		"cancellationownership/release":      CheckKindDefect,
+		"borrowedstorage/overlapping-owner":  CheckKindHazard,
 		"channelcapacity/rationale":          CheckKindPolicy,
 		"channelownership/caller-close":      CheckKindPolicy,
 		"channelsafety/send-after-close":     CheckKindDefect,

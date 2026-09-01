@@ -17,6 +17,7 @@ const (
 	WireKeyedLiteral         ID = "wirepolicy/keyed-literal"
 	WireSerializationTag     ID = "wirepolicy/serialization-tag"
 	CancellationRelease      ID = "cancellationownership/release"
+	BorrowedStorageOwner     ID = "borrowedstorage/overlapping-owner"
 	ChannelCapacityRationale ID = "channelcapacity/rationale"
 	ChannelCallerClose       ID = "channelownership/caller-close"
 	ChannelSendAfterClose    ID = "channelsafety/send-after-close"

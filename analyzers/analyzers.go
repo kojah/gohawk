@@ -65,6 +65,7 @@ func newCatalog() (*catalog.Catalog, error) {
 		"oncepolicy",
 		"syncmapatomicity",
 		"cancellationownership",
+		"borrowedstorage",
 	})
 }
 

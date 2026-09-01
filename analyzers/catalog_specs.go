@@ -5,6 +5,7 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/contracts/closedomain"
 	"github.com/kojah/gohawk/internal/analyzers/contracts/contextpolicy"
 	"github.com/kojah/gohawk/internal/analyzers/contracts/wirepolicy"
+	"github.com/kojah/gohawk/internal/analyzers/ownership/borrowedstorage"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/cancellationownership"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelcapacity"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelownership"
@@ -77,6 +78,13 @@ func contractSpecs() []catalog.AnalyzerSpec {
 
 func ownershipSpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
+		{Analyzer: borrowedstorage.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+			{
+				ID:   check.BorrowedStorageOwner,
+				Doc:  "Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy.",
+				Kind: catalog.KindHazard,
+			},
+		}},
 		{Analyzer: cancellationownership.Analyzer(), SuggestedFix: true, Checks: []catalog.CheckInfo{
 			{
 				ID: check.CancellationRelease, Doc: "Reports derived cancel functions that are neither called nor transferred on every return path.",
