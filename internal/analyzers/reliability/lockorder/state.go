@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/token"
 	"go/types"
+	"maps"
 	"slices"
 	"strings"
 
@@ -29,9 +30,7 @@ func lockStateKey(state lockFlowState) string {
 
 func cloneLockGuards(source map[string]lockGuard) map[string]lockGuard {
 	result := make(map[string]lockGuard, len(source))
-	for identity, guard := range source {
-		result[identity] = guard
-	}
+	maps.Copy(result, source)
 	return result
 }
 

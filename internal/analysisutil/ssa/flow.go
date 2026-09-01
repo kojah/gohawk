@@ -71,7 +71,7 @@ func InstructionMayFollow(before, after ssa.Instruction) bool {
 	return false
 }
 
-// BlockReachable reports whether target is reachable from from within their
+// BlockReachable reports whether target is reachable from within their
 // shared function.
 func BlockReachable(from, target *ssa.BasicBlock) bool {
 	if from == nil || target == nil || from.Parent() != target.Parent() {

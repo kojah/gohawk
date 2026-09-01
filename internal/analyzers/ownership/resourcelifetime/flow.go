@@ -125,8 +125,8 @@ func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource s
 			continue
 		}
 		methods := types.NewMethodSet(result.Type())
-		for index := range methods.Len() {
-			if slices.Contains(cleanup, methods.At(index).Obj().Name()) {
+		for method := range methods.Methods() {
+			if slices.Contains(cleanup, method.Obj().Name()) {
 				if analysisTrace.Enabled("resourcelifetime", string(check.ResourceRelease)) {
 					analysisTrace.Emit(
 						pass,

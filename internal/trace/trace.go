@@ -98,7 +98,7 @@ func (value optionValue) Set(raw string) error {
 	switch value.kind {
 	case optionSelectors:
 		selectors := make(map[string]bool)
-		for _, selector := range strings.Split(raw, ",") {
+		for selector := range strings.SplitSeq(raw, ",") {
 			selector = strings.TrimSpace(selector)
 			if selector == "" {
 				return errors.New("trace selector must not be empty")

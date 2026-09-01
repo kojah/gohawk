@@ -301,7 +301,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("read evidence trace: %v", err)
 		}
 		found := map[string]bool{}
-		for _, line := range bytes.Split(bytes.TrimSpace(traceOutput), []byte("\n")) {
+		for line := range bytes.SplitSeq(bytes.TrimSpace(traceOutput), []byte("\n")) {
 			var event struct {
 				Analyzer string `json:"analyzer"`
 				Phase    string `json:"phase"`

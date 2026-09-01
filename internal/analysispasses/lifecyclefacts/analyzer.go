@@ -20,7 +20,7 @@ var Analyzer = &analysis.Analyzer{
 	Doc:        "exports internal lifecycle ownership summaries",
 	Requires:   []*analysis.Analyzer{buildssa.Analyzer},
 	FactTypes:  []analysis.Fact{new(Fact)},
-	ResultType: reflect.TypeOf(summarySet{}),
+	ResultType: reflect.TypeFor[summarySet](),
 	Run:        run,
 }
 
@@ -220,11 +220,11 @@ func returnedOwnerOnEveryReturn(function *ssa.Function, parameter ssa.Value) boo
 }
 
 func canReturnOwner(results *types.Tuple) bool {
-	for index := range results.Len() {
-		if types.Identical(results.At(index).Type(), types.Universe.Lookup("error").Type()) {
+	for result := range results.Variables() {
+		if types.Identical(result.Type(), types.Universe.Lookup("error").Type()) {
 			continue
 		}
-		if ownershipCapableType(results.At(index).Type()) {
+		if ownershipCapableType(result.Type()) {
 			return true
 		}
 	}

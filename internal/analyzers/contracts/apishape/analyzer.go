@@ -163,8 +163,8 @@ func methodRequiredByInterface(pass *analysis.Pass, declaration *ast.FuncDecl, i
 
 func apiShapeInterfaceMethod(iface *types.Interface, name string) *types.Func {
 	iface.Complete()
-	for index := range iface.NumMethods() {
-		method := iface.Method(index)
+	for selection := range iface.Methods() {
+		method := selection
 		if method.Name() == name {
 			return method
 		}

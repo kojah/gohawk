@@ -10,6 +10,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// selectionRequest is the user's analyzer/check policy before defaults and
+// ownership relationships are resolved.
 type selectionRequest struct {
 	arguments []string
 	analyzers analyzerNameSelection

@@ -47,6 +47,23 @@ jobs:
       - name: Run golangci-lint
         run: make lint
 
+  vulnerability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Check reachable dependencies for vulnerabilities
+        run: make vuln
+
   dogfood:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -174,13 +191,14 @@ jobs:
   # work runs concurrently in the jobs above.
   test:
     if: ${{ always() }}
-    needs: [static-fast, lint, dogfood, race, plugin, coverage, compatibility, skills]
+    needs: [static-fast, lint, vulnerability, dogfood, race, plugin, coverage, compatibility, skills]
     runs-on: ubuntu-latest
     steps:
       - name: Check verification results
         env:
           STATIC_FAST_RESULT: ${{ needs.static-fast.result }}
           LINT_RESULT: ${{ needs.lint.result }}
+          VULNERABILITY_RESULT: ${{ needs.vulnerability.result }}
           DOGFOOD_RESULT: ${{ needs.dogfood.result }}
           RACE_RESULT: ${{ needs.race.result }}
           PLUGIN_RESULT: ${{ needs.plugin.result }}
@@ -188,7 +206,7 @@ jobs:
           COMPATIBILITY_RESULT: ${{ needs.compatibility.result }}
           SKILLS_RESULT: ${{ needs.skills.result }}
         run: |
-          for result in "$STATIC_FAST_RESULT" "$LINT_RESULT" "$DOGFOOD_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT" "$COMPATIBILITY_RESULT"; do
+          for result in "$STATIC_FAST_RESULT" "$LINT_RESULT" "$VULNERABILITY_RESULT" "$DOGFOOD_RESULT" "$RACE_RESULT" "$PLUGIN_RESULT" "$COVERAGE_RESULT" "$COMPATIBILITY_RESULT"; do
             if [[ "$result" != "success" ]]; then
               exit 1
             fi

@@ -17,9 +17,9 @@ import (
 )
 
 type advertisedFlag struct {
-	Name  string
-	Bool  bool
-	Usage string
+	Name  string `json:"Name"`
+	Bool  bool   `json:"Bool"`
+	Usage string `json:"Usage"`
 }
 
 type analyzerListOptions struct {
@@ -138,7 +138,7 @@ func writeAnalyzerListRows(
 				shownOptIn = writeCheckListRows(output, group.Name, info, options) || shownOptIn
 				continue
 			}
-			writeFormatted(output, "%s\t%s\n", optInName(analyzer.Name, !isDefault), group.Name)
+			writeFormattedf(output, "%s\t%s\n", optInName(analyzer.Name, !isDefault), group.Name)
 			shownOptIn = shownOptIn || !isDefault
 		}
 	}
@@ -152,7 +152,7 @@ func writeCheckListRows(output io.Writer, groupName string, info gohawk.Analyzer
 		if listEntryFiltered(isDefault, options) {
 			continue
 		}
-		writeFormatted(output, "%s\t%s\n", optInName(string(check.ID), !isDefault), groupName)
+		writeFormattedf(output, "%s\t%s\n", optInName(string(check.ID), !isDefault), groupName)
 		shownOptIn = shownOptIn || !isDefault
 	}
 	return shownOptIn
@@ -206,17 +206,17 @@ func printDocumentation(arguments []string, output, errorsOutput io.Writer) erro
 
 func printAnalyzerDocumentation(output io.Writer, group gohawk.AnalyzerGroup, analyzer *analysis.Analyzer, info gohawk.AnalyzerInfo) {
 	writeLine(output, analyzer.Name)
-	writeFormatted(output, "  %s\n\n", analyzer.Doc)
+	writeFormattedf(output, "  %s\n\n", analyzer.Doc)
 	if info.OptIn {
 		writeLine(output, "Opt-in: yes")
 	}
-	writeFormatted(output, "Group: %s (%s)\n", group.Name, group.Doc)
-	writeFormatted(output, "Suggested fixes: %s\n", yesNo(info.SuggestedFix))
-	writeFormatted(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
+	writeFormattedf(output, "Group: %s (%s)\n", group.Name, group.Doc)
+	writeFormattedf(output, "Suggested fixes: %s\n", yesNo(info.SuggestedFix))
+	writeFormattedf(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
 	writeLine(output, "\nChecks:")
 	for _, check := range info.Checks {
-		writeFormatted(output, "  %s\n", optInName(string(check.ID), info.OptIn || check.OptIn))
-		writeFormatted(output, "    %s\n", check.Doc)
+		writeFormattedf(output, "  %s\n", optInName(string(check.ID), info.OptIn || check.OptIn))
+		writeFormattedf(output, "    %s\n", check.Doc)
 	}
 	if info.OptIn || slices.ContainsFunc(info.Checks, func(check gohawk.AnalyzerCheckInfo) bool { return check.OptIn }) {
 		writeLine(output, "  * opt-in; requires explicit selection")
@@ -232,13 +232,13 @@ func printCheckDocumentation(
 	check gohawk.AnalyzerCheckInfo,
 ) {
 	writeLine(output, check.ID)
-	writeFormatted(output, "  %s\n\n", check.Doc)
-	writeFormatted(output, "Analyzer: %s\n", analyzer.Name)
+	writeFormattedf(output, "  %s\n\n", check.Doc)
+	writeFormattedf(output, "Analyzer: %s\n", analyzer.Name)
 	if info.OptIn || check.OptIn {
 		writeLine(output, "Opt-in: yes")
 	}
-	writeFormatted(output, "Group: %s (%s)\n", group.Name, group.Doc)
-	writeFormatted(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
+	writeFormattedf(output, "Group: %s (%s)\n", group.Name, group.Doc)
+	writeFormattedf(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
 }
 
 func printAnalyzerOptions(output io.Writer, analyzer *analysis.Analyzer) {
@@ -251,8 +251,8 @@ func printAnalyzerOptions(output io.Writer, analyzer *analysis.Analyzer) {
 	}
 	writeLine(output, "\nOptions:")
 	for _, option := range options {
-		writeFormatted(output, "  -%s.%s (default %s)\n", analyzer.Name, option.Name, option.DefValue)
-		writeFormatted(output, "    %s\n", option.Usage)
+		writeFormattedf(output, "  -%s.%s (default %s)\n", analyzer.Name, option.Name, option.DefValue)
+		writeFormattedf(output, "    %s\n", option.Usage)
 	}
 }
 
@@ -317,7 +317,7 @@ func printGeneralHelp(output io.Writer) {
 		for _, analyzer := range group.Analyzers {
 			names = append(names, optInName(analyzer.Name, !metadata[analyzer.Name].EnabledByDefault()))
 		}
-		writeFormatted(output, "  %s (%s): %s\n", group.Name, group.Doc, strings.Join(names, ", "))
+		writeFormattedf(output, "  %s (%s): %s\n", group.Name, group.Doc, strings.Join(names, ", "))
 	}
 	writeLine(output, "\n* opt-in; requires explicit selection")
 	writeLine(output, "Run 'gohawk list' for the full catalog.")

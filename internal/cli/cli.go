@@ -34,8 +34,6 @@ type cliResult struct {
 	invocation *analysisInvocation
 }
 
-// selectionRequest is the user's analyzer/check policy before defaults and
-// ownership relationships are resolved.
 func Main() int {
 	runtime := cliRuntime{
 		output:        os.Stdout,

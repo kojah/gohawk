@@ -61,8 +61,7 @@ func executeProcess(name string, arguments, environment []string) (processOutput
 	if err == nil {
 		return result, nil
 	}
-	var exitError *exec.ExitError
-	if errors.As(err, &exitError) {
+	if exitError, ok := errors.AsType[*exec.ExitError](err); ok {
 		result.exitCode = exitError.ExitCode()
 		return result, err
 	}
@@ -104,13 +103,13 @@ func runWithRichOutputUsing(arguments []string, output io.Writer, execute proces
 		if result.exitCode >= 0 {
 			return result.exitCode
 		}
-		writeFormatted(output, "gohawk: run analyzer engine: %v\n", err)
+		writeFormattedf(output, "gohawk: run analyzer engine: %v\n", err)
 		return 1
 	}
 
 	diagnostics, analysisErrors, err := decodeDiagnostics(result.stdout)
 	if err != nil {
-		writeFormatted(output, "gohawk: decode analyzer output: %v\n", err)
+		writeFormattedf(output, "gohawk: decode analyzer output: %v\n", err)
 		_, _ = output.Write(result.stdout)
 		return 1
 	}
@@ -222,8 +221,8 @@ func parsePosition(value string) (sourcePosition, error) {
 func requestedContext(arguments []string) int {
 	contextLines := 0
 	for index, argument := range arguments[1:] {
-		if strings.HasPrefix(argument, "-c=") {
-			if value, err := strconv.Atoi(strings.TrimPrefix(argument, "-c=")); err == nil {
+		if after, ok := strings.CutPrefix(argument, "-c="); ok {
+			if value, err := strconv.Atoi(after); err == nil {
 				contextLines = value
 			}
 		} else if argument == "-c" && index+2 < len(arguments) {
@@ -258,18 +257,18 @@ func terminalColors(output io.Writer) colorPalette {
 }
 
 func renderDiagnostic(output io.Writer, diagnostic positionedDiagnostic, contextLines int, colors colorPalette) {
-	writeFormatted(output, "%s%swarning%s[%s%s%s]: %s%s%s\n",
+	writeFormattedf(output, "%s%swarning%s[%s%s%s]: %s%s%s\n",
 		colors.bold, colors.yellow, colors.reset,
 		colors.bold, diagnostic.Analyzer, colors.reset,
 		colors.bold, diagnostic.Message, colors.reset)
-	writeFormatted(output, "  %s-->%s %s:%d:%d\n", colors.cyan, colors.reset,
+	writeFormattedf(output, "  %s-->%s %s:%d:%d\n", colors.cyan, colors.reset,
 		diagnostic.Start.Filename, diagnostic.Start.Line, diagnostic.Start.Column)
 
 	if contextLines >= 0 {
 		renderSource(output, diagnostic.Start, diagnostic.End, contextLines, colors)
 	}
 	for _, related := range diagnostic.Related {
-		writeFormatted(output, "  = note: %s: %s\n", related.Posn, related.Message)
+		writeFormattedf(output, "  = note: %s: %s\n", related.Posn, related.Message)
 	}
 }
 
@@ -291,15 +290,15 @@ func renderSource(output io.Writer, start, end sourcePosition, contextLines int,
 	first := max(1, start.Line-contextLines)
 	last := min(len(lines), end.Line+contextLines)
 	width := len(strconv.Itoa(last))
-	writeFormatted(output, "%*s %s|%s\n", width, "", colors.cyan, colors.reset)
+	writeFormattedf(output, "%*s %s|%s\n", width, "", colors.cyan, colors.reset)
 	for lineNumber := first; lineNumber <= last; lineNumber++ {
 		line := lines[lineNumber-1]
-		writeFormatted(output, "%s%*d |%s %s\n", colors.cyan, width, lineNumber, colors.reset, line)
+		writeFormattedf(output, "%s%*d |%s %s\n", colors.cyan, width, lineNumber, colors.reset, line)
 		if lineNumber < start.Line || lineNumber > end.Line {
 			continue
 		}
 		column, length := markerRange(line, lineNumber, start, end)
-		writeFormatted(output, "%*s %s|%s %s%s%s%s\n", width, "", colors.cyan, colors.reset,
+		writeFormattedf(output, "%*s %s|%s %s%s%s%s\n", width, "", colors.cyan, colors.reset,
 			markerIndent(line, column), colors.red, "^"+strings.Repeat("~", length-1), colors.reset)
 	}
 }

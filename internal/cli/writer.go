@@ -12,6 +12,6 @@ func writeLine(output io.Writer, values ...any) {
 	_, _ = fmt.Fprintln(output, values...)
 }
 
-func writeFormatted(output io.Writer, format string, values ...any) {
+func writeFormattedf(output io.Writer, format string, values ...any) {
 	_, _ = fmt.Fprintf(output, format, values...)
 }

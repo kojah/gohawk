@@ -221,8 +221,7 @@ func runCommand(t *testing.T, directory, name string, arguments ...string) (stri
 	if err == nil {
 		return string(output), 0
 	}
-	var exitError *exec.ExitError
-	if errors.As(err, &exitError) {
+	if exitError, ok := errors.AsType[*exec.ExitError](err); ok {
 		return string(output), exitError.ExitCode()
 	}
 	t.Fatalf("run %s: %v", name, err)

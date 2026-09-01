@@ -44,7 +44,7 @@ type summarySet map[*ssa.Function]Fact
 
 func (*Fact) AFact() {}
 
-func (fact *Fact) String() string { return "lifecycle ownership summary" }
+func (*Fact) String() string { return "lifecycle ownership summary" }
 
 // importFact imports the summary attached to a static callee.
 func importFact(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
@@ -79,7 +79,7 @@ func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask Parame
 }
 
 // MethodMask selects the parameter mask for a lifecycle method.
-func (fact Fact) MethodMask(method string) ParameterMask {
+func (fact *Fact) MethodMask(method string) ParameterMask {
 	switch method {
 	case "Close":
 		return fact.Closed

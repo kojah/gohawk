@@ -163,8 +163,8 @@ func hasLifecycleMethod(value ssa.Value) bool {
 		return false
 	}
 	methods := types.NewMethodSet(value.Type())
-	for index := range methods.Len() {
-		switch methods.At(index).Obj().Name() {
+	for method := range methods.Methods() {
+		switch method.Obj().Name() {
 		case "Cancel", "Close", "Finalize", "Release", "Shutdown", "Stop":
 			return true
 		}

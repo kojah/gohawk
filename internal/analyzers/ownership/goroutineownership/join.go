@@ -3,6 +3,7 @@ package goroutineownership
 import (
 	"go/token"
 	"go/types"
+	"maps"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/analysisutil"
@@ -355,9 +356,7 @@ func closureBindings(
 	enclosing map[ssa.Value]ssa.Value,
 ) map[ssa.Value]ssa.Value {
 	bindings := make(map[ssa.Value]ssa.Value, len(enclosing)+len(function.FreeVars))
-	for free, binding := range enclosing {
-		bindings[free] = binding
-	}
+	maps.Copy(bindings, enclosing)
 	for index, free := range function.FreeVars {
 		if index < len(closure.Bindings) {
 			bindings[free] = resolveClosureBinding(closure.Bindings[index], enclosing)

@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"maps"
+
 	gohawk "github.com/kojah/gohawk/analyzers"
 	"golang.org/x/tools/go/analysis"
 )
@@ -28,9 +30,7 @@ func nativeAnalyzerSelection(analyzers []*analysis.Analyzer, explicit map[string
 			selected[analyzer.Name] = true
 		}
 	}
-	for name, enabled := range explicit {
-		selected[name] = enabled
-	}
+	maps.Copy(selected, explicit)
 	return selected
 }
 
@@ -97,9 +97,7 @@ func applyAnalyzerSelection(
 	for name := range names.enabled {
 		selected[name] = true
 	}
-	for name, enabled := range explicit {
-		selected[name] = enabled
-	}
+	maps.Copy(selected, explicit)
 }
 
 func applyCheckOwners(selected, checkOwners, disabledNames, explicit map[string]bool) {

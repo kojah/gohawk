@@ -56,7 +56,7 @@ func requestedChecks(arguments []string, metadata map[string]gohawk.AnalyzerInfo
 		if name == "disable-checks" {
 			target, action = requested.disabled, "disabled"
 		}
-		for _, candidate := range strings.Split(raw, ",") {
+		for candidate := range strings.SplitSeq(raw, ",") {
 			candidate = strings.TrimSpace(candidate)
 			if candidate == "" {
 				return checkSelection{}, nil, fmt.Errorf("invalid empty check in %q", raw)
@@ -176,7 +176,7 @@ func requestedAnalyzers(arguments []string, available map[string]bool) (analyzer
 		if raw == "" {
 			return analyzerNameSelection{}, nil, fmt.Errorf("-%s requires at least one analyzer", name)
 		}
-		for _, candidate := range strings.Split(raw, ",") {
+		for candidate := range strings.SplitSeq(raw, ",") {
 			candidate = strings.TrimSpace(candidate)
 			if candidate == "" {
 				return analyzerNameSelection{}, nil, fmt.Errorf("invalid empty analyzer in %q", raw)
@@ -237,7 +237,7 @@ func requestedAnalyzerGroups(arguments []string, groups []gohawk.AnalyzerGroup) 
 		if raw == "" {
 			return analyzerGroupSelection{}, nil, fmt.Errorf("-%s requires at least one group", name)
 		}
-		for _, candidate := range strings.Split(raw, ",") {
+		for candidate := range strings.SplitSeq(raw, ",") {
 			candidate = strings.TrimSpace(candidate)
 			if candidate == "" {
 				return analyzerGroupSelection{}, nil, fmt.Errorf("invalid empty group in %q", raw)

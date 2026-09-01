@@ -7,23 +7,32 @@ formatters:
 linters:
   default: standard
   enable:
+    - bidichk
     - contextcheck
     - copyloopvar
     - cyclop
     - dupl
+    - dupword
+    - durationcheck
+    - errname
     - errorlint
     - exhaustive
     - forbidigo
     - funlen
+    - gocheckcompilerdirectives
     - gochecknoinits
     - gocognit
     - gocritic
+    - godoclint
+    - goprintffuncname
     - gosec
     - interfacebloat
     - intrange
     - lll
     - makezero
     - misspell
+    - modernize
+    - musttag
     - nilerr
     - nilnesserr
     - noctx
@@ -31,11 +40,13 @@ linters:
     - nolintlint
     - perfsprint
     - reassign
+    - recvcheck
     - revive
     - testifylint
     - thelper
     - unconvert
     - unparam
+    - usetesting
     - usestdlibvars
     - wastedassign
   settings:

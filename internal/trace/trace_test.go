@@ -59,11 +59,9 @@ func TestEmitSerializesConcurrentEvents(t *testing.T) {
 	pass := &analysis.Pass{Fset: token.NewFileSet()}
 	var workers sync.WaitGroup
 	for range 20 {
-		workers.Add(1)
-		go func() {
-			defer workers.Done()
+		workers.Go(func() {
 			Emit(pass, Event{Analyzer: "test", Phase: "decision", Reason: "concurrent", Outcome: OutcomeObserved})
-		}()
+		})
 	}
 	workers.Wait()
 	lines := bytes.Split(bytes.TrimSpace(output.Bytes()), []byte("\n"))

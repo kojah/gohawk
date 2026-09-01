@@ -4,6 +4,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"slices"
 	"strings"
 
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
@@ -247,10 +248,5 @@ func loopInduction(value ssa.Value, header *ssa.BasicBlock) *ssa.Phi {
 }
 
 func loopHeader(header *ssa.BasicBlock) bool {
-	for _, predecessor := range header.Preds {
-		if header.Dominates(predecessor) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(header.Preds, header.Dominates)
 }

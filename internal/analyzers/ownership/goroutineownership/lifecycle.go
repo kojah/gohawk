@@ -13,10 +13,8 @@ import (
 )
 
 func goroutineHasContextLifecycle(spawn *ssa.Go) bool {
-	for _, argument := range spawn.Common().Args {
-		if contextValue(argument) {
-			return true
-		}
+	if slices.ContainsFunc(spawn.Common().Args, contextValue) {
+		return true
 	}
 	closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
 	if !ok {
@@ -35,23 +33,13 @@ func contextValue(value ssa.Value) bool {
 }
 
 func externallyOwnedLifecycle(owners []ssa.Value) bool {
-	for _, owner := range owners {
-		if ssautil.ExternallyOwnedValue(owner) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(owners, ssautil.ExternallyOwnedValue)
 }
 
 func externallyOwnedJoin(signals, groups []ssa.Value) bool {
-	for _, value := range append(slices.Clone(signals), groups...) {
-		if ssautil.ExternallyOwnedValue(value) {
-			// A goroutine that completes through a caller-owned channel or wait
-			// group transfers its join obligation across the call boundary.
-			return true
-		}
-	}
-	return false
+	// A goroutine that completes through a caller-owned channel or wait group
+	// transfers its join obligation across the call boundary.
+	return slices.ContainsFunc(append(slices.Clone(signals), groups...), ssautil.ExternallyOwnedValue)
 }
 
 func goroutineLifecycleValues(spawn *ssa.Go) []ssa.Value {
@@ -159,8 +147,8 @@ func lifecycleOwner(value ssa.Value) bool {
 		return false
 	}
 	methods := types.NewMethodSet(value.Type())
-	for index := range methods.Len() {
-		if lifecycleMethod(methods.At(index).Obj().Name()) {
+	for method := range methods.Methods() {
+		if lifecycleMethod(method.Obj().Name()) {
 			return true
 		}
 	}

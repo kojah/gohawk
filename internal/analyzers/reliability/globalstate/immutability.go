@@ -99,8 +99,8 @@ func deeplyImmutableGlobalValue(value types.Type, seen map[types.Type]bool) bool
 	case *types.Array:
 		return deeplyImmutableGlobalValue(underlying.Elem(), seen)
 	case *types.Struct:
-		for index := range underlying.NumFields() {
-			if !deeplyImmutableGlobalValue(underlying.Field(index).Type(), seen) {
+		for field := range underlying.Fields() {
+			if !deeplyImmutableGlobalValue(field.Type(), seen) {
 				return false
 			}
 		}
