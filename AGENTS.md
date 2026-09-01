@@ -39,6 +39,27 @@ Keep Go source within the repository's 160-column lint limit. When a condition
 combines distinct kinds of evidence, extract named predicates that expose the
 policy structure instead of merely wrapping a long Boolean expression.
 
+## File cohesion and size
+
+Organize a file around one vocabulary and one reason to change. Split a file
+when it acquires a second evidence model, lifecycle, or external boundary; do
+not split a cohesive implementation merely to satisfy a line-count target.
+Name extracted files for their concern, such as `contracts.go`, `flow.go`, or
+`persistence.go`, rather than creating `helpers.go`, `types.go`, or a package
+per type.
+
+Treat 400 lines for production source, 700 lines for tests, 60 lines for a
+function, and cognitive complexity above 25 as review triggers rather than
+hard limits. When a change crosses one of these thresholds or materially grows
+an existing outlier, either extract a focused responsibility or document why
+the code remains cohesive. Split large test files by behavior and keep shared
+fixture construction separate from the scenarios it supports.
+
+If automated size or complexity checks are added, baseline existing outliers
+and fail only new regressions. Existing debt must not block unrelated changes,
+and generated files, lockfiles, fixtures, and other intentionally mechanical
+content should be excluded or evaluated under separate thresholds.
+
 ## Process termination
 
 Production analyzer and reusable library code must not call `panic()`,
