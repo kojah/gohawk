@@ -34,37 +34,48 @@ func matchingCountedJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Va
 func matchingCountedHelperJoin(function *ssa.Function, spawn *ssa.Go, signals []ssa.Value, spawnBound ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			common := ssautil.InstructionCall(instruction)
-			if common == nil || instruction.Pos() <= spawn.Pos() {
-				continue
+			if instruction.Pos() > spawn.Pos() && callMatchesCountedHelper(instruction, signals, spawnBound) {
+				return true
 			}
-			callee := common.StaticCallee()
-			if callee == nil {
-				continue
+		}
+	}
+	return false
+}
+
+func callMatchesCountedHelper(instruction ssa.Instruction, signals []ssa.Value, spawnBound ssa.Value) bool {
+	common := ssautil.InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil {
+		return false
+	}
+	callee := common.StaticCallee()
+	for signalIndex, argument := range common.Args {
+		if !ssautil.SameAsAny(argument, signals) || signalIndex >= len(callee.Params) {
+			continue
+		}
+		for boundIndex, boundArgument := range common.Args {
+			if boundIndex < len(callee.Params) &&
+				sameBound(boundArgument, spawnBound) &&
+				helperReceivesCount(callee, signalIndex, boundIndex) {
+				return true
 			}
-			for signalIndex, argument := range common.Args {
-				if !ssautil.SameAsAny(argument, signals) || signalIndex >= len(callee.Params) {
-					continue
-				}
-				for boundIndex, boundArgument := range common.Args {
-					if boundIndex >= len(callee.Params) || !sameBound(boundArgument, spawnBound) {
-						continue
-					}
-					if eventuallyReceivesCount(callee, callee.Params[signalIndex], callee.Params[boundIndex]) {
-						return true
-					}
-					for _, helperBlock := range callee.Blocks {
-						if !ssautil.SameValue(loopBound(callee, helperBlock), callee.Params[boundIndex]) {
-							continue
-						}
-						for _, candidate := range helperBlock.Instrs {
-							receive, ok := candidate.(*ssa.UnOp)
-							if ok && receive.Op == token.ARROW && ssautil.SameValue(receive.X, callee.Params[signalIndex]) {
-								return true
-							}
-						}
-					}
-				}
+		}
+	}
+	return false
+}
+
+func helperReceivesCount(function *ssa.Function, signalIndex, boundIndex int) bool {
+	signal, bound := function.Params[signalIndex], function.Params[boundIndex]
+	if eventuallyReceivesCount(function, signal, bound) {
+		return true
+	}
+	for _, block := range function.Blocks {
+		if !ssautil.SameValue(loopBound(function, block), bound) {
+			continue
+		}
+		for _, instruction := range block.Instrs {
+			receive, ok := instruction.(*ssa.UnOp)
+			if ok && receive.Op == token.ARROW && ssautil.SameValue(receive.X, signal) {
+				return true
 			}
 		}
 	}

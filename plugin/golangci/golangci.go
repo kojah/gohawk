@@ -15,7 +15,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-func init() {
+func init() { //nolint:gochecknoinits // Golangci-lint modules require package initialization to register plugins.
 	register.Plugin("gohawk", New)
 }
 

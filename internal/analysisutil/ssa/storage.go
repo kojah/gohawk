@@ -116,6 +116,12 @@ func externallyOwnedValue(value ssa.Value, seen map[ssa.Value]bool) bool {
 		return false
 	}
 	seen[value] = true
+	if inner, ok := wrappedValue(value); ok {
+		return externallyOwnedValue(inner, seen)
+	}
+	if source, ok := ownershipSource(value); ok {
+		return externallyOwnedValue(source, seen)
+	}
 	switch typed := value.(type) {
 	case *ssa.Parameter, *ssa.FreeVar, *ssa.Global:
 		return true
@@ -127,36 +133,35 @@ func externallyOwnedValue(value ssa.Value, seen map[ssa.Value]bool) bool {
 				}
 			}
 		}
-	case *ssa.FieldAddr:
-		return externallyOwnedValue(typed.X, seen)
-	case *ssa.Field:
-		return externallyOwnedValue(typed.X, seen)
-	case *ssa.IndexAddr:
-		return externallyOwnedValue(typed.X, seen)
-	case *ssa.Index:
-		return externallyOwnedValue(typed.X, seen)
-	case *ssa.UnOp:
-		return externallyOwnedValue(typed.X, seen)
-	case *ssa.Lookup:
-		return externallyOwnedValue(typed.X, seen)
-	case *ssa.ChangeInterface:
-		return externallyOwnedValue(typed.X, seen)
-	case *ssa.ChangeType:
-		return externallyOwnedValue(typed.X, seen)
-	case *ssa.Convert:
-		return externallyOwnedValue(typed.X, seen)
-	case *ssa.MakeInterface:
-		return externallyOwnedValue(typed.X, seen)
 	case *ssa.Phi:
 		for _, edge := range typed.Edges {
 			if externallyOwnedValue(edge, seen) {
 				return true
 			}
 		}
-	case *ssa.Slice:
-		return externallyOwnedValue(typed.X, seen)
 	}
 	return false
+}
+
+func ownershipSource(value ssa.Value) (ssa.Value, bool) {
+	switch typed := value.(type) {
+	case *ssa.FieldAddr:
+		return typed.X, true
+	case *ssa.Field:
+		return typed.X, true
+	case *ssa.IndexAddr:
+		return typed.X, true
+	case *ssa.Index:
+		return typed.X, true
+	case *ssa.UnOp:
+		return typed.X, true
+	case *ssa.Lookup:
+		return typed.X, true
+	case *ssa.Slice:
+		return typed.X, true
+	default:
+		return nil, false
+	}
 }
 
 // ClosureCapturesValue reports whether instruction creates a closure that owns value.
@@ -179,52 +184,44 @@ func valueTransferred(value ssa.Value, seen map[ssa.Value]bool) bool {
 	}
 	seen[value] = true
 	for _, reference := range *value.Referrers() {
-		switch typed := reference.(type) {
-		case *ssa.Return:
+		if referenceTransfersValue(reference, value, seen) {
 			return true
-		case *ssa.Call:
-			// Fluent builders preserve an escaping owner through same-typed links.
-			// https://github.com/erpc/erpc/blob/2b7e807d7d147422cf47c473153eaf9979afdcc9/clients/http_json_rpc_client.go#L755-L771
-			receiver := CallReceiver(typed.Common())
-			if receiver != nil && SameValue(receiver, value) && types.Identical(typed.Type(), value.Type()) && valueTransferred(typed, seen) {
-				return true
-			}
-		case *ssa.Store:
-			if _, ok := typed.Addr.(*ssa.FieldAddr); ok {
-				return true
-			}
-			if _, ok := typed.Addr.(*ssa.Alloc); ok && typed.Addr.Referrers() != nil {
-				for _, use := range *typed.Addr.Referrers() {
-					load, loadOK := use.(*ssa.UnOp)
-					if loadOK && load.Op == token.MUL && valueTransferred(load, seen) {
-						return true
-					}
-				}
-			}
-		case *ssa.ChangeInterface:
-			if valueTransferred(typed, seen) {
-				return true
-			}
-		case *ssa.ChangeType:
-			if valueTransferred(typed, seen) {
-				return true
-			}
-		case *ssa.Convert:
-			if valueTransferred(typed, seen) {
-				return true
-			}
-		case *ssa.Extract:
-			if valueTransferred(typed, seen) {
-				return true
-			}
-		case *ssa.MakeInterface:
-			if valueTransferred(typed, seen) {
-				return true
-			}
-		case *ssa.Phi:
-			if valueTransferred(typed, seen) {
-				return true
-			}
+		}
+	}
+	return false
+}
+
+func referenceTransfersValue(reference ssa.Instruction, value ssa.Value, seen map[ssa.Value]bool) bool {
+	switch typed := reference.(type) {
+	case *ssa.Return:
+		return true
+	case *ssa.Call:
+		// Fluent builders preserve an escaping owner through same-typed links.
+		// https://github.com/erpc/erpc/blob/2b7e807d7d147422cf47c473153eaf9979afdcc9/clients/http_json_rpc_client.go#L755-L771
+		receiver := CallReceiver(typed.Common())
+		return receiver != nil && SameValue(receiver, value) &&
+			types.Identical(typed.Type(), value.Type()) && valueTransferred(typed, seen)
+	case *ssa.Store:
+		return storeTransfersValue(typed, seen)
+	case *ssa.ChangeInterface, *ssa.ChangeType, *ssa.Convert, *ssa.Extract, *ssa.MakeInterface, *ssa.Phi:
+		transformed, ok := reference.(ssa.Value)
+		return ok && valueTransferred(transformed, seen)
+	default:
+		return false
+	}
+}
+
+func storeTransfersValue(store *ssa.Store, seen map[ssa.Value]bool) bool {
+	if _, ok := store.Addr.(*ssa.FieldAddr); ok {
+		return true
+	}
+	if _, ok := store.Addr.(*ssa.Alloc); !ok || store.Addr.Referrers() == nil {
+		return false
+	}
+	for _, use := range *store.Addr.Referrers() {
+		load, ok := use.(*ssa.UnOp)
+		if ok && load.Op == token.MUL && valueTransferred(load, seen) {
+			return true
 		}
 	}
 	return false

@@ -12,6 +12,21 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+func wrappedValue(value ssa.Value) (ssa.Value, bool) {
+	switch typed := value.(type) {
+	case *ssa.ChangeInterface:
+		return typed.X, true
+	case *ssa.ChangeType:
+		return typed.X, true
+	case *ssa.Convert:
+		return typed.X, true
+	case *ssa.MakeInterface:
+		return typed.X, true
+	default:
+		return nil, false
+	}
+}
+
 // ValueSources returns error-bearing SSA values contributing to value.
 func ValueSources(value ssa.Value) map[ssa.Value]bool {
 	sources := map[ssa.Value]bool{}

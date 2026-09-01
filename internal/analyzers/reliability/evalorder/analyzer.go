@@ -79,16 +79,7 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 	if function == nil || function.Pkg() != pass.Pkg {
 		return false
 	}
-	var declaration *ast.FuncDecl
-	for _, file := range pass.Files {
-		for _, candidate := range file.Decls {
-			declared, ok := candidate.(*ast.FuncDecl)
-			if ok && pass.TypesInfo.Defs[declared.Name] == function {
-				declaration = declared
-				break
-			}
-		}
-	}
+	declaration := localFunctionDeclaration(pass, function)
 	if declaration == nil {
 		return false
 	}
@@ -96,42 +87,11 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 	if parameter == nil {
 		return false
 	}
-	earlierFields := map[types.Object]bool{}
-	for _, expression := range earlier {
-		selector, ok := analysisutil.Unparen(expression).(*ast.SelectorExpr)
-		if !ok || !analysisutil.ExpressionUsesObject(pass, selector.X, object) {
-			if analysisutil.ExpressionUsesObject(pass, expression, object) {
-				return false
-			}
-			continue
-		}
-		earlierFields[pass.TypesInfo.ObjectOf(selector.Sel)] = true
-	}
-	if len(earlierFields) == 0 {
+	earlierFields, fieldsOnly := selectedFields(pass, earlier, object)
+	if !fieldsOnly || len(earlierFields) == 0 {
 		return false
 	}
-	mutatedFields := map[types.Object]bool{}
-	wholeMutation := false
-	ast.Inspect(declaration.Body, func(node ast.Node) bool {
-		var targets []ast.Expr
-		switch candidate := node.(type) {
-		case *ast.AssignStmt:
-			targets = candidate.Lhs
-		case *ast.IncDecStmt:
-			targets = []ast.Expr{candidate.X}
-		default:
-			return true
-		}
-		for _, target := range targets {
-			selector, ok := analysisutil.Unparen(target).(*ast.SelectorExpr)
-			if ok && analysisutil.ExpressionUsesObject(pass, selector.X, parameter) {
-				mutatedFields[pass.TypesInfo.ObjectOf(selector.Sel)] = true
-			} else if writesThroughObject(pass, target, parameter) {
-				wholeMutation = true
-			}
-		}
-		return true
-	})
+	mutatedFields, wholeMutation := functionMutatedFields(pass, declaration, parameter)
 	if wholeMutation || len(mutatedFields) == 0 {
 		return false
 	}
@@ -154,6 +114,65 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 		)
 	}
 	return true
+}
+
+func localFunctionDeclaration(pass *analysis.Pass, function *types.Func) *ast.FuncDecl {
+	for _, file := range pass.Files {
+		for _, candidate := range file.Decls {
+			declaration, ok := candidate.(*ast.FuncDecl)
+			if ok && pass.TypesInfo.Defs[declaration.Name] == function {
+				return declaration
+			}
+		}
+	}
+	return nil
+}
+
+func selectedFields(pass *analysis.Pass, expressions []ast.Expr, object types.Object) (map[types.Object]bool, bool) {
+	fields := map[types.Object]bool{}
+	for _, expression := range expressions {
+		selector, ok := analysisutil.Unparen(expression).(*ast.SelectorExpr)
+		if ok && analysisutil.ExpressionUsesObject(pass, selector.X, object) {
+			fields[pass.TypesInfo.ObjectOf(selector.Sel)] = true
+			continue
+		}
+		if analysisutil.ExpressionUsesObject(pass, expression, object) {
+			return nil, false
+		}
+	}
+	return fields, true
+}
+
+func functionMutatedFields(
+	pass *analysis.Pass,
+	declaration *ast.FuncDecl,
+	parameter types.Object,
+) (map[types.Object]bool, bool) {
+	fields := map[types.Object]bool{}
+	wholeMutation := false
+	ast.Inspect(declaration.Body, func(node ast.Node) bool {
+		for _, target := range mutationTargets(node) {
+			selector, ok := analysisutil.Unparen(target).(*ast.SelectorExpr)
+			if ok && analysisutil.ExpressionUsesObject(pass, selector.X, parameter) {
+				fields[pass.TypesInfo.ObjectOf(selector.Sel)] = true
+			} else if writesThroughObject(pass, target, parameter) {
+				wholeMutation = true
+			}
+		}
+		return true
+	})
+	return fields, wholeMutation
+}
+
+func mutationTargets(node ast.Node) []ast.Expr {
+	switch candidate := node.(type) {
+	case *ast.AssignStmt:
+		return candidate.Lhs
+	case *ast.IncDecStmt:
+		return []ast.Expr{candidate.X}
+	default:
+		return nil
+	}
 }
 
 func callMutatesArgument(pass *analysis.Pass, call *ast.CallExpr, argumentIndex int) bool {

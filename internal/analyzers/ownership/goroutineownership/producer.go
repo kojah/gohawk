@@ -21,6 +21,17 @@ type producerSend struct {
 }
 
 func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
+	sends := producerSends(function)
+	reported := map[token.Pos]bool{}
+	for _, send := range sends {
+		if abandonedProducerSend(function, send, sends, reported) {
+			reported[send.instruction.Pos()] = true
+			check.Reportf(pass, check.GoroutineProducerSend, send.instruction.Pos(), "goroutine send can block after the receiver stops waiting")
+		}
+	}
+}
+
+func producerSends(function *ssa.Function) []producerSend {
 	var sends []producerSend
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -50,21 +61,21 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 			}
 		}
 	}
-	reported := map[token.Pos]bool{}
-	for _, send := range sends {
-		sendCount := 0
-		for _, candidate := range sends {
-			if ssautil.SameValue(candidate.channel, send.channel) && producerSendsCanCooccur(send, candidate) {
-				sendCount++
-			}
-		}
-		receiveCount, draining := channelReceives(function, send.channel)
-		if receiveCount == 0 || draining || !send.repeated && sendCount <= receiveCount || reported[send.instruction.Pos()] {
-			continue
-		}
-		reported[send.instruction.Pos()] = true
-		check.Reportf(pass, check.GoroutineProducerSend, send.instruction.Pos(), "goroutine send can block after the receiver stops waiting")
+	return sends
+}
+
+func abandonedProducerSend(function *ssa.Function, send producerSend, sends []producerSend, reported map[token.Pos]bool) bool {
+	if reported[send.instruction.Pos()] {
+		return false
 	}
+	sendCount := 0
+	for _, candidate := range sends {
+		if ssautil.SameValue(candidate.channel, send.channel) && producerSendsCanCooccur(send, candidate) {
+			sendCount++
+		}
+	}
+	receiveCount, draining := channelReceives(function, send.channel)
+	return receiveCount > 0 && !draining && (send.repeated || sendCount > receiveCount)
 }
 
 func producerSendsCanCooccur(first, second producerSend) bool {

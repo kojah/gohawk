@@ -122,39 +122,59 @@ func readOnlyCollectionUse(pass *analysis.Pass, value ast.Expr, usage globalStat
 	}
 	switch typed := parent.(type) {
 	case *ast.IndexExpr:
-		if typed.X != current || globalIndexIsWritten(typed, usage.parents) {
-			return false
-		}
-		if deeplyImmutableGlobalValue(collectionIndexValueType(pass.TypesInfo.TypeOf(typed)), map[types.Type]bool{}) {
-			return true
-		}
-		// Follow a nested mutable value through the expression that consumes
-		// it. This proves patterns such as cloning m[key] before returning it,
-		// without treating a returned or assigned alias as read-only.
-		return readOnlyCollectionUse(pass, typed, usage, seen)
+		return readOnlyIndexUse(pass, typed, current, usage, seen)
 	case *ast.RangeStmt:
 		return typed.X == current && collectionElementsDeeplyImmutable(pass.TypesInfo.TypeOf(value))
 	case *ast.CallExpr:
-		if collectionElementsDeeplyImmutable(pass.TypesInfo.TypeOf(value)) &&
-			(readOnlyCollectionBuiltin(pass, typed, current) || readOnlyCollectionPackageCall(pass, typed)) {
-			return true
-		}
-		argument := collectionArgumentIndex(typed, current)
-		parameters := usage.calleeParams[calledObject(pass, typed.Fun)]
-		if argument < 0 || argument >= len(parameters) || parameters[argument] == nil || seen[parameters[argument]] {
-			return false
-		}
-		nextSeen := make(map[types.Object]bool, len(seen)+1)
-		for object := range seen {
-			nextSeen[object] = true
-		}
-		nextSeen[parameters[argument]] = true
-		return collectionObjectReadOnly(pass, parameters[argument], usage, nextSeen)
+		return readOnlyCallUse(pass, typed, current, value, usage, seen)
 	case *ast.BinaryExpr:
 		return typed.Op == token.EQL || typed.Op == token.NEQ
 	default:
 		return false
 	}
+}
+
+func readOnlyIndexUse(
+	pass *analysis.Pass,
+	index *ast.IndexExpr,
+	current ast.Node,
+	usage globalStateUsage,
+	seen map[types.Object]bool,
+) bool {
+	if index.X != current || globalIndexIsWritten(index, usage.parents) {
+		return false
+	}
+	if deeplyImmutableGlobalValue(collectionIndexValueType(pass.TypesInfo.TypeOf(index)), map[types.Type]bool{}) {
+		return true
+	}
+	// Follow a nested mutable value through the expression that consumes it.
+	// This proves cloning m[key] without accepting a returned or assigned alias.
+	return readOnlyCollectionUse(pass, index, usage, seen)
+}
+
+func readOnlyCallUse(
+	pass *analysis.Pass,
+	call *ast.CallExpr,
+	current ast.Node,
+	value ast.Expr,
+	usage globalStateUsage,
+	seen map[types.Object]bool,
+) bool {
+	if collectionElementsDeeplyImmutable(pass.TypesInfo.TypeOf(value)) &&
+		(readOnlyCollectionBuiltin(pass, call, current) || readOnlyCollectionPackageCall(pass, call)) {
+		return true
+	}
+	argument := collectionArgumentIndex(call, current)
+	parameters := usage.calleeParams[calledObject(pass, call.Fun)]
+	if argument < 0 || argument >= len(parameters) || parameters[argument] == nil || seen[parameters[argument]] {
+		return false
+	}
+	nextSeen := make(map[types.Object]bool, len(seen)+1)
+	for object := range seen {
+		nextSeen[object] = true
+	}
+	nextSeen[parameters[argument]] = true
+	return collectionObjectReadOnly(pass, parameters[argument], usage, nextSeen)
 }
 
 func collectionIndexValueType(value types.Type) types.Type {

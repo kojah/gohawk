@@ -46,40 +46,74 @@ func resourceLeaks(pass *analysis.Pass, call *ssa.Call, resource ssa.Value, cont
 	for len(queue) > 0 {
 		state := queue[0]
 		queue = queue[1:]
-		predecessor := -1
-		if state.predecessor != nil {
-			predecessor = state.predecessor.Index
-		}
-		key := resourceFlowKey{block: state.block.Index, predecessor: predecessor, index: state.index, active: state.active, released: state.released}
+		key := resourceStateKey(state)
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
-		for _, instruction := range state.block.Instrs[state.index:] {
-			state.released = state.released || releasesResource(pass, instruction, resource, owners, contract.cleanup) ||
-				contract.consumable && consumesResource(instruction, resource)
-			if ssautil.InstructionTerminatesControlFlow(instruction) {
-				state.active = false
-				break
-			}
-			if returned, ok := instruction.(*ssa.Return); ok && state.active && !state.released &&
-				!returnedResourceOwner(pass, returned, resource, contract.cleanup) &&
-				!ssautil.ReturnedSameAsAny(returned, owners) {
-				return true
-			}
+		var leaks bool
+		state, leaks = advanceResourceState(pass, state, resource, owners, contract)
+		if leaks {
+			return true
 		}
-		for _, successor := range ssautil.FeasibleSuccessors(state.block, state.predecessor) {
-			active := state.active
-			if success, known := resourceSuccessBranch(state.block, successor, errorValue); known {
-				active = active && success
-			}
-			if present, known := resourcePresenceBranch(state.block, successor, resource); known {
-				active = active && present
-			}
-			queue = append(queue, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released})
-		}
+		queue = append(queue, resourceSuccessorStates(state, errorValue, resource)...)
 	}
 	return false
+}
+
+func resourceStateKey(state resourceFlowState) resourceFlowKey {
+	predecessor := -1
+	if state.predecessor != nil {
+		predecessor = state.predecessor.Index
+	}
+	return resourceFlowKey{
+		block:       state.block.Index,
+		predecessor: predecessor,
+		index:       state.index,
+		active:      state.active,
+		released:    state.released,
+	}
+}
+
+func advanceResourceState(
+	pass *analysis.Pass,
+	state resourceFlowState,
+	resource ssa.Value,
+	owners []ssa.Value,
+	contract resourceContract,
+) (resourceFlowState, bool) {
+	for _, instruction := range state.block.Instrs[state.index:] {
+		state.released = state.released ||
+			releasesResource(pass, instruction, resource, owners, contract.cleanup) ||
+			contract.consumable && consumesResource(instruction, resource)
+		if ssautil.InstructionTerminatesControlFlow(instruction) {
+			state.active = false
+			break
+		}
+		returned, ok := instruction.(*ssa.Return)
+		if ok && state.active && !state.released &&
+			!returnedResourceOwner(pass, returned, resource, contract.cleanup) &&
+			!ssautil.ReturnedSameAsAny(returned, owners) {
+			return state, true
+		}
+	}
+	return state, false
+}
+
+func resourceSuccessorStates(state resourceFlowState, errorValue, resource ssa.Value) []resourceFlowState {
+	successors := ssautil.FeasibleSuccessors(state.block, state.predecessor)
+	result := make([]resourceFlowState, 0, len(successors))
+	for _, successor := range successors {
+		active := state.active
+		if success, known := resourceSuccessBranch(state.block, successor, errorValue); known {
+			active = active && success
+		}
+		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
+			active = active && present
+		}
+		result = append(result, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released})
+	}
+	return result
 }
 
 func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource ssa.Value, cleanup []string) bool {
@@ -118,6 +152,20 @@ func testProvesHTTPError(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 	// Test assertions can prove the owned-response path infeasible even though
 	// the assertion package expresses that fact outside the CFG.
 	// https://github.com/siemens/wfx/blob/392dde941e73ce9560df2c42b2d480eb528bfc96/cmd/wfx/cmd/root/root_test.go#L154-L157
+	errorAssertions, nilAssertions := httpErrorAssertions(acquisition, resource, errorValue)
+	// net/http only returns a non-nil response together with an error for a
+	// failed redirect policy, and its body is already closed. A fatal Error
+	// assertion therefore eliminates the success path; a paired Nil assertion
+	// supplies the same evidence for non-fatal assertion packages.
+	for _, assertedError := range errorAssertions {
+		if fatalErrorAssertion(assertedError) || errorAssertionDominatesNil(assertedError, nilAssertions) {
+			return true
+		}
+	}
+	return false
+}
+
+func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) ([]ssa.Instruction, []ssa.Instruction) {
 	var errorAssertions, nilAssertions []ssa.Instruction
 	for _, block := range acquisition.Parent().Blocks {
 		for _, instruction := range block.Instrs {
@@ -144,18 +192,13 @@ func testProvesHTTPError(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 			}
 		}
 	}
-	// net/http only returns a non-nil response together with an error for a
-	// failed redirect policy, and its body is already closed. A fatal Error
-	// assertion therefore eliminates the success path; a paired Nil assertion
-	// supplies the same evidence for non-fatal assertion packages.
-	for _, assertedError := range errorAssertions {
-		if fatalErrorAssertion(assertedError) {
+	return errorAssertions, nilAssertions
+}
+
+func errorAssertionDominatesNil(assertedError ssa.Instruction, nilAssertions []ssa.Instruction) bool {
+	for _, assertedNil := range nilAssertions {
+		if ssautil.InstructionDominates(assertedError, assertedNil) {
 			return true
-		}
-		for _, assertedNil := range nilAssertions {
-			if ssautil.InstructionDominates(assertedError, assertedNil) {
-				return true
-			}
 		}
 	}
 	return false

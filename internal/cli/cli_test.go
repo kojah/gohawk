@@ -345,6 +345,7 @@ func TestPrintDocumentation(t *testing.T) {
 	}
 }
 
+//nolint:cyclop,funlen,gocognit // Independent selection scenarios intentionally remain in one behavioral suite.
 func TestWithAnalyzerSelection(t *testing.T) {
 	analyzers := gohawk.Analyzers()
 	groups := gohawk.AnalyzerGroups()
@@ -608,6 +609,7 @@ func TestCheckSelectionProfiles(t *testing.T) {
 	})
 }
 
+//nolint:cyclop,funlen,gocognit // Independent end-to-end scenarios intentionally remain in one integration suite.
 func TestCLIIntegration(t *testing.T) {
 	binary := buildTestBinary(t)
 
@@ -842,6 +844,7 @@ func assertCancellationTrace(t *testing.T, tracePath string) {
 	}
 }
 
+//nolint:cyclop,funlen,gocognit // The opt-in subprocess matrix is a scenario catalog, not one branching algorithm.
 func TestCLIIntegrationExhaustive(t *testing.T) {
 	if os.Getenv("GOHAWK_EXHAUSTIVE_CLI") == "" {
 		t.Skip("set GOHAWK_EXHAUSTIVE_CLI=1 to run the redundant subprocess matrix")

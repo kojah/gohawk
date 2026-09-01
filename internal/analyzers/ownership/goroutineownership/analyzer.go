@@ -39,6 +39,18 @@ type goroutineOwnershipConfig struct {
 	mode string
 }
 
+type goroutineAnalysis struct {
+	pass         *analysis.Pass
+	function     *ssa.Function
+	spawn        *ssa.Go
+	config       goroutineOwnershipConfig
+	checkID      check.ID
+	signals      []ssa.Value
+	groups       []ssa.Value
+	owners       []ssa.Value
+	testFunction bool
+}
+
 // HasExplicitGoroutineOwnership reports whether spawn has a recognized join,
 // stop signal, lifecycle owner, or transfer independent of context cancellation.
 // Context-policy uses this distinction because context.Background satisfies the
@@ -81,104 +93,124 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				spawn, ok := instruction.(*ssa.Go)
-				if !ok {
-					continue
-				}
-				signals, groups := goroutineJoinValues(spawn)
-				owners := goroutineLifecycleValues(spawn)
-				checkID := check.GoroutineJoin
-				if config.mode != goroutineModeJoin && len(signals) == 0 && len(groups) == 0 {
-					checkID = check.GoroutineDetached
-				}
-				// A received channel argument is a stop signal, not a completion
-				// handle that the caller must join. Kubernetes informers commonly
-				// express context ownership as Run(ctx.Done()):
-				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/discovery/kubernetes/kubernetes.go#L438-L458
-				if config.mode == goroutineModeContext && (goroutineHasContextLifecycle(spawn) || goroutineHasStopLifecycle(spawn)) {
-					emitGoroutineTrace(pass, function, spawn.Pos(), checkID, "context-lifecycle", analysisTrace.OutcomeAccepted, signals, groups, owners)
-					continue
-				}
-				if config.mode != goroutineModeJoin &&
-					(goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) || externallyOwnedJoin(signals, groups)) {
-					emitGoroutineTrace(pass, function, spawn.Pos(), checkID, "caller-or-external-owner", analysisTrace.OutcomeAccepted, signals, groups, owners)
-					continue
-				}
-				if ownershipRegisteredBefore(spawn, signals, groups) {
-					emitGoroutineTrace(
-						pass,
-						function,
-						spawn.Pos(),
-						checkID,
-						"registration-before-spawn",
-						analysisTrace.OutcomeAccepted,
-						signals,
-						groups,
-						owners,
-					)
-					continue
-				}
-				// If spawning and receiving range over the same unchanged bound, any
-				// execution that launches a worker also executes at least one join
-				// iteration. This covers the common "N workers, then N receives"
-				// pattern without assuming unrelated loops have matching counts.
-				if matchingCountedJoin(function, spawn, signals) {
-					emitGoroutineTrace(pass, function, spawn.Pos(), checkID, "matching-counted-join", analysisTrace.OutcomeAccepted, signals, groups, owners)
-					continue
-				}
-				if nestedCallbackReceivesAny(function, signals) {
-					emitGoroutineTrace(pass, function, spawn.Pos(), checkID, "nested-callback-receive", analysisTrace.OutcomeAccepted, signals, groups, owners)
-					continue
-				}
-				testFunction := strings.HasSuffix(pass.Fset.Position(function.Pos()).Filename, "_test.go")
-				leaks := ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
-					if joinsGoroutine(candidate, signals, groups) {
-						emitGoroutineEvidence(pass, function, candidate, checkID, "join-observed")
-						return true
-					}
-					if waitsForLifecycleOwner(candidate, owners) {
-						emitGoroutineEvidence(pass, function, candidate, checkID, "lifecycle-wait")
-						return true
-					}
-					if testFunction && causalTestJoin(spawn, candidate) {
-						emitGoroutineEvidence(pass, function, candidate, checkID, "causal-test-join")
-						return true
-					}
-					if config.mode == goroutineModeJoin {
-						transferred := transfersGoroutineOwnership(candidate, signals, groups, nil)
-						if transferred {
-							emitGoroutineEvidence(pass, function, candidate, checkID, "ownership-transfer")
-						}
-						return transferred
-					}
-					if ownsGoroutineLifecycle(candidate, owners) {
-						emitGoroutineEvidence(pass, function, candidate, checkID, "lifecycle-owner")
-						return true
-					}
-					transferred := transfersGoroutineOwnership(candidate, signals, groups, owners)
-					if transferred {
-						emitGoroutineEvidence(pass, function, candidate, checkID, "ownership-transfer")
-					}
-					return transferred
-				}, func(returned *ssa.Return) bool {
-					return ssautil.ReturnedSameAsAny(returned, signals) || ssautil.ReturnedSameAsAny(returned, groups) ||
-						config.mode != goroutineModeJoin && ssautil.ReturnedSameAsAny(returned, owners)
-				})
-				outcome, reason := analysisTrace.OutcomeAccepted, "join-proven"
-				if leaks {
-					outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
-				}
-				emitGoroutineTrace(pass, function, spawn.Pos(), checkID, reason, outcome, signals, groups, owners)
-				if leaks {
-					// Without a completion signal or wait group, static analysis cannot
-					// reliably distinguish a leak from intentional component work. Keep
-					// that heuristic opt-in; reserve the default check for code that
-					// exposes a recognizable join mechanism and fails to honor it.
-					check.Reportf(pass, checkID, spawn.Pos(), "goroutine is not joined on every return path")
+				if ok {
+					analyzeSpawn(pass, function, spawn, config)
 				}
 			}
 		}
 	}
 	return nil, nil
+}
+
+func analyzeSpawn(pass *analysis.Pass, function *ssa.Function, spawn *ssa.Go, config goroutineOwnershipConfig) {
+	signals, groups := goroutineJoinValues(spawn)
+	owners := goroutineLifecycleValues(spawn)
+	checkID := goroutineCheck(config, signals, groups)
+	analysis := goroutineAnalysis{
+		pass: pass, function: function, spawn: spawn, config: config, checkID: checkID,
+		signals: signals, groups: groups, owners: owners,
+		testFunction: strings.HasSuffix(pass.Fset.Position(function.Pos()).Filename, "_test.go"),
+	}
+	if reason, accepted := acceptedGoroutineOwnership(function, spawn, config, signals, groups, owners); accepted {
+		analysis.emitTrace(spawn.Pos(), reason, analysisTrace.OutcomeAccepted)
+		return
+	}
+	leaks := ssautil.UnownedReturn(
+		spawn,
+		analysis.instructionOwnsGoroutine,
+		func(returned *ssa.Return) bool {
+			return goroutineOwnershipReturned(returned, config, signals, groups, owners)
+		},
+	)
+	outcome, reason := analysisTrace.OutcomeAccepted, "join-proven"
+	if leaks {
+		outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
+	}
+	analysis.emitTrace(spawn.Pos(), reason, outcome)
+	if leaks {
+		// Without a completion signal or wait group, static analysis cannot
+		// reliably distinguish a leak from intentional component work. Keep
+		// that heuristic opt-in; reserve the default check for code that
+		// exposes a recognizable join mechanism and fails to honor it.
+		check.Reportf(pass, checkID, spawn.Pos(), "goroutine is not joined on every return path")
+	}
+}
+
+func goroutineCheck(config goroutineOwnershipConfig, signals, groups []ssa.Value) check.ID {
+	if config.mode != goroutineModeJoin && len(signals) == 0 && len(groups) == 0 {
+		return check.GoroutineDetached
+	}
+	return check.GoroutineJoin
+}
+
+func acceptedGoroutineOwnership(
+	function *ssa.Function,
+	spawn *ssa.Go,
+	config goroutineOwnershipConfig,
+	signals, groups, owners []ssa.Value,
+) (string, bool) {
+	// A received channel argument is a stop signal, not a completion handle
+	// that the caller must join. Kubernetes informers commonly express context
+	// ownership as Run(ctx.Done()):
+	// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/discovery/kubernetes/kubernetes.go#L438-L458
+	if config.mode == goroutineModeContext && (goroutineHasContextLifecycle(spawn) || goroutineHasStopLifecycle(spawn)) {
+		return "context-lifecycle", true
+	}
+	if config.mode != goroutineModeJoin &&
+		(goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) || externallyOwnedJoin(signals, groups)) {
+		return "caller-or-external-owner", true
+	}
+	if ownershipRegisteredBefore(spawn, signals, groups) {
+		return "registration-before-spawn", true
+	}
+	// Matching bounds prove that every launched worker has a corresponding
+	// receive without assuming unrelated loops happen to have equal counts.
+	if matchingCountedJoin(function, spawn, signals) {
+		return "matching-counted-join", true
+	}
+	if nestedCallbackReceivesAny(function, signals) {
+		return "nested-callback-receive", true
+	}
+	return "", false
+}
+
+func (analysis goroutineAnalysis) instructionOwnsGoroutine(candidate ssa.Instruction) bool {
+	var reason string
+	switch {
+	case joinsGoroutine(candidate, analysis.signals, analysis.groups):
+		reason = "join-observed"
+	case waitsForLifecycleOwner(candidate, analysis.owners):
+		reason = "lifecycle-wait"
+	case analysis.testFunction && causalTestJoin(analysis.spawn, candidate):
+		reason = "causal-test-join"
+	case analysis.config.mode != goroutineModeJoin && ownsGoroutineLifecycle(candidate, analysis.owners):
+		reason = "lifecycle-owner"
+	case transfersGoroutineOwnership(
+		candidate, analysis.signals, analysis.groups, ownershipCandidates(analysis.config, analysis.owners),
+	):
+		reason = "ownership-transfer"
+	default:
+		return false
+	}
+	emitGoroutineEvidence(analysis.pass, analysis.function, candidate, analysis.checkID, reason)
+	return true
+}
+
+func ownershipCandidates(config goroutineOwnershipConfig, owners []ssa.Value) []ssa.Value {
+	if config.mode == goroutineModeJoin {
+		return nil
+	}
+	return owners
+}
+
+func goroutineOwnershipReturned(
+	returned *ssa.Return,
+	config goroutineOwnershipConfig,
+	signals, groups, owners []ssa.Value,
+) bool {
+	return ssautil.ReturnedSameAsAny(returned, signals) ||
+		ssautil.ReturnedSameAsAny(returned, groups) ||
+		config.mode != goroutineModeJoin && ssautil.ReturnedSameAsAny(returned, owners)
 }
 
 func emitGoroutineEvidence(pass *analysis.Pass, function *ssa.Function, instruction ssa.Instruction, check check.ID, reason string) {
@@ -199,29 +231,29 @@ func emitGoroutineEvidence(pass *analysis.Pass, function *ssa.Function, instruct
 	)
 }
 
-func emitGoroutineTrace(
-	pass *analysis.Pass,
-	function *ssa.Function,
+func (analysis goroutineAnalysis) emitTrace(
 	position token.Pos,
-	check check.ID,
 	reason string,
 	outcome analysisTrace.Outcome,
-	signals, groups, owners []ssa.Value,
 ) {
-	if !analysisTrace.Enabled("goroutineownership", string(check)) {
+	if !analysisTrace.Enabled("goroutineownership", string(analysis.checkID)) {
 		return
 	}
 	analysisTrace.Emit(
-		pass,
+		analysis.pass,
 		analysisTrace.Event{
 			Analyzer: "goroutineownership",
-			Check:    string(check),
+			Check:    string(analysis.checkID),
 			Phase:    "decision",
 			Reason:   reason,
 			Outcome:  outcome,
 			Pos:      position,
-			Function: function.String(),
-			Details:  map[string]string{"signals": strconv.Itoa(len(signals)), "groups": strconv.Itoa(len(groups)), "owners": strconv.Itoa(len(owners))},
+			Function: analysis.function.String(),
+			Details: map[string]string{
+				"signals": strconv.Itoa(len(analysis.signals)),
+				"groups":  strconv.Itoa(len(analysis.groups)),
+				"owners":  strconv.Itoa(len(analysis.owners)),
+			},
 		},
 	)
 }

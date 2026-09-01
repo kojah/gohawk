@@ -80,34 +80,61 @@ func eventuallyObservesAny(common *ssa.CallCommon, signals []ssa.Value) bool {
 	// https://github.com/janosmiko/lfk/blob/ca9760842190011f31f9d2079425d3a313fdd4c2/internal/k8s/portforward_supersede_test.go#L50-L58
 	for _, argument := range common.Args {
 		closure, ok := argument.(*ssa.MakeClosure)
-		if !ok {
-			continue
+		if ok && closureEventuallyObservesAny(closure, signals) {
+			return true
 		}
-		function, _ := closure.Fn.(*ssa.Function)
-		if function == nil {
-			continue
-		}
-		for _, block := range function.Blocks {
-			for _, instruction := range block.Instrs {
-				called := ssautil.InstructionCall(instruction)
-				if called == nil || called.StaticCallee() == nil {
-					continue
-				}
-				callee := called.StaticCallee()
-				for argIndex, passed := range called.Args {
-					if argIndex >= len(callee.Params) || !functionReceivesParameter(callee, callee.Params[argIndex], map[*ssa.Function]bool{}) {
-						continue
-					}
-					for freeIndex, free := range function.FreeVars {
-						if freeIndex >= len(closure.Bindings) || !ssautil.ValueDerivesFrom(passed, free, map[ssa.Value]bool{}) {
-							continue
-						}
-						if ssautil.SameAsAny(ssautil.CapturedBindingValue(closure.Bindings[freeIndex]), signals) {
-							return true
-						}
-					}
-				}
+	}
+	return false
+}
+
+func closureEventuallyObservesAny(closure *ssa.MakeClosure, signals []ssa.Value) bool {
+	function, _ := closure.Fn.(*ssa.Function)
+	if function == nil {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if callEventuallyObservesAny(ssautil.InstructionCall(instruction), function, closure, signals) {
+				return true
 			}
+		}
+	}
+	return false
+}
+
+func callEventuallyObservesAny(
+	common *ssa.CallCommon,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	signals []ssa.Value,
+) bool {
+	if common == nil || common.StaticCallee() == nil {
+		return false
+	}
+	callee := common.StaticCallee()
+	for argumentIndex, argument := range common.Args {
+		if argumentIndex >= len(callee.Params) ||
+			!functionReceivesParameter(callee, callee.Params[argumentIndex], map[*ssa.Function]bool{}) {
+			continue
+		}
+		if argumentDerivesFromCapturedSignal(argument, function, closure, signals) {
+			return true
+		}
+	}
+	return false
+}
+
+func argumentDerivesFromCapturedSignal(
+	argument ssa.Value,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	signals []ssa.Value,
+) bool {
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) &&
+			ssautil.ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) &&
+			ssautil.SameAsAny(ssautil.CapturedBindingValue(closure.Bindings[index]), signals) {
+			return true
 		}
 	}
 	return false
@@ -170,52 +197,93 @@ func callReceivesAny(instruction ssa.Instruction, signals []ssa.Value) bool {
 	if origin := function.Origin(); origin != nil {
 		function = origin
 	}
-	usesSignal := false
-	for _, argument := range common.Args {
-		usesSignal = usesSignal || ssautil.SameAsAny(argument, signals)
+	if !callUsesSignals(common, closure, signals) {
+		return false
 	}
-	if closure != nil {
-		for _, binding := range closure.Bindings {
-			for _, signal := range signals {
-				usesSignal = usesSignal || ssautil.CapturedBindingMatches(binding, signal)
+	return functionReceivesSignals(function, common, closure, signals)
+}
+
+func callUsesSignals(common *ssa.CallCommon, closure *ssa.MakeClosure, signals []ssa.Value) bool {
+	for _, argument := range common.Args {
+		if ssautil.SameAsAny(argument, signals) {
+			return true
+		}
+	}
+	if closure == nil {
+		return false
+	}
+	for _, binding := range closure.Bindings {
+		for _, signal := range signals {
+			if ssautil.CapturedBindingMatches(binding, signal) {
+				return true
 			}
 		}
 	}
-	if !usesSignal {
-		return false
-	}
+	return false
+}
+
+func functionReceivesSignals(function *ssa.Function, common *ssa.CallCommon, closure *ssa.MakeClosure, signals []ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, candidate := range block.Instrs {
-			var channels []ssa.Value
-			switch typed := candidate.(type) {
-			case *ssa.UnOp:
-				if typed.Op == token.ARROW {
-					channels = append(channels, typed.X)
-				}
-			case *ssa.Select:
-				for _, state := range typed.States {
-					if state.Dir == types.RecvOnly {
-						channels = append(channels, state.Chan)
-					}
+			for _, channel := range receiveChannels(candidate) {
+				if receivedChannelMatchesSignals(channel, function, common, closure, signals) {
+					return true
 				}
 			}
-			for _, channel := range channels {
-				for index, parameter := range function.Params {
-					if passedValueAliases(channel, parameter, map[ssa.Value]bool{}) && index < len(common.Args) &&
-						ssautil.SameAsAny(common.Args[index], signals) {
-						return true
-					}
-				}
-				for index, free := range function.FreeVars {
-					if closure != nil && passedValueAliases(channel, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) {
-						for _, signal := range signals {
-							if ssautil.CapturedBindingMatches(closure.Bindings[index], signal) {
-								return true
-							}
-						}
-					}
-				}
+		}
+	}
+	return false
+}
+
+func receiveChannels(instruction ssa.Instruction) []ssa.Value {
+	switch typed := instruction.(type) {
+	case *ssa.UnOp:
+		if typed.Op == token.ARROW {
+			return []ssa.Value{typed.X}
+		}
+	case *ssa.Select:
+		channels := make([]ssa.Value, 0, len(typed.States))
+		for _, state := range typed.States {
+			if state.Dir == types.RecvOnly {
+				channels = append(channels, state.Chan)
 			}
+		}
+		return channels
+	}
+	return nil
+}
+
+func receivedChannelMatchesSignals(
+	channel ssa.Value,
+	function *ssa.Function,
+	common *ssa.CallCommon,
+	closure *ssa.MakeClosure,
+	signals []ssa.Value,
+) bool {
+	for index, parameter := range function.Params {
+		if index < len(common.Args) &&
+			passedValueAliases(channel, parameter, map[ssa.Value]bool{}) &&
+			ssautil.SameAsAny(common.Args[index], signals) {
+			return true
+		}
+	}
+	if closure == nil {
+		return false
+	}
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) &&
+			passedValueAliases(channel, free, map[ssa.Value]bool{}) &&
+			bindingMatchesAnySignal(closure.Bindings[index], signals) {
+			return true
+		}
+	}
+	return false
+}
+
+func bindingMatchesAnySignal(binding ssa.Value, signals []ssa.Value) bool {
+	for _, signal := range signals {
+		if ssautil.CapturedBindingMatches(binding, signal) {
+			return true
 		}
 	}
 	return false
@@ -232,91 +300,155 @@ func valueReceivesAnyWithBindings(value ssa.Value, signals []ssa.Value, seen map
 	seen[value] = true
 	switch typed := value.(type) {
 	case *ssa.Alloc:
-		if typed.Referrers() != nil {
-			for _, reference := range *typed.Referrers() {
-				if store, ok := reference.(*ssa.Store); ok && store.Addr == typed && valueReceivesAnyWithBindings(store.Val, signals, seen, enclosingBindings) {
-					return true
-				}
-			}
-		}
+		return storedValueReceivesAny(typed, signals, seen, enclosingBindings)
 	case *ssa.MakeClosure:
-		function, _ := typed.Fn.(*ssa.Function)
-		if function == nil {
-			return false
+		return closureReceivesAny(typed, signals, seen, enclosingBindings)
+	}
+	return false
+}
+
+func storedValueReceivesAny(
+	address ssa.Value,
+	signals []ssa.Value,
+	seen map[ssa.Value]bool,
+	bindings map[ssa.Value]ssa.Value,
+) bool {
+	if address.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *address.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == address && valueReceivesAnyWithBindings(store.Val, signals, seen, bindings) {
+			return true
 		}
-		// A nested closure captures its parent's FreeVar SSA node, not the
-		// concrete binding held by the outer closure. Carry that environment
-		// forward so a receive several closures deep can still be tied to the
-		// exact completion channel produced by the goroutine.
-		bindings := make(map[ssa.Value]ssa.Value, len(enclosingBindings)+len(function.FreeVars))
-		for free, binding := range enclosingBindings {
-			bindings[free] = binding
-		}
-		for index, free := range function.FreeVars {
-			if index < len(typed.Bindings) {
-				bindings[free] = resolveClosureBinding(typed.Bindings[index], enclosingBindings)
+	}
+	return false
+}
+
+func closureReceivesAny(
+	closure *ssa.MakeClosure,
+	signals []ssa.Value,
+	seen map[ssa.Value]bool,
+	enclosingBindings map[ssa.Value]ssa.Value,
+) bool {
+	function, _ := closure.Fn.(*ssa.Function)
+	if function == nil {
+		return false
+	}
+	bindings := closureBindings(function, closure, enclosingBindings)
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if closureInstructionReceivesAny(instruction, function, closure, signals, seen, bindings) {
+				return true
 			}
 		}
-		for _, block := range function.Blocks {
-			for _, instruction := range block.Instrs {
-				if nested, ok := instruction.(*ssa.MakeClosure); ok && valueReceivesAnyWithBindings(nested, signals, seen, bindings) {
-					return true
-				}
-				common := ssautil.InstructionCall(instruction)
-				if common != nil {
-					if callee := common.StaticCallee(); callee != nil {
-						for argumentIndex, argument := range common.Args {
-							if argumentIndex >= len(callee.Params) ||
-								!functionReceivesParameter(callee, callee.Params[argumentIndex], map[*ssa.Function]bool{}) {
-								continue
-							}
-							for freeIndex, free := range function.FreeVars {
-								if freeIndex >= len(typed.Bindings) || !ssautil.ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) {
-									continue
-								}
-								binding := resolveClosureBinding(bindings[free], bindings)
-								for _, signal := range signals {
-									if ssautil.SameValue(binding, signal) || ssautil.CapturedBindingMatches(binding, signal) {
-										return true
-									}
-								}
-							}
-						}
-					}
-					for index, free := range function.FreeVars {
-						if index < len(typed.Bindings) &&
-							ssautil.ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) &&
-							valueReceivesAnyWithBindings(bindings[free], signals, seen, bindings) {
-							return true
-						}
-					}
-				}
-				var channels []ssa.Value
-				switch receive := instruction.(type) {
-				case *ssa.UnOp:
-					if receive.Op == token.ARROW {
-						channels = append(channels, receive.X)
-					}
-				case *ssa.Select:
-					for _, state := range receive.States {
-						if state.Dir == types.RecvOnly {
-							channels = append(channels, state.Chan)
-						}
-					}
-				}
-				for _, channel := range channels {
-					for index, free := range function.FreeVars {
-						if index >= len(typed.Bindings) || !passedValueAliases(channel, free, map[ssa.Value]bool{}) {
-							continue
-						}
-						for _, signal := range signals {
-							if ssautil.CapturedBindingMatches(bindings[free], signal) {
-								return true
-							}
-						}
-					}
-				}
+	}
+	return false
+}
+
+// A nested closure captures its parent's FreeVar SSA node, not the concrete
+// binding held by the outer closure. Carry that environment forward so a
+// receive several closures deep remains tied to the exact completion channel.
+func closureBindings(
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	enclosing map[ssa.Value]ssa.Value,
+) map[ssa.Value]ssa.Value {
+	bindings := make(map[ssa.Value]ssa.Value, len(enclosing)+len(function.FreeVars))
+	for free, binding := range enclosing {
+		bindings[free] = binding
+	}
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) {
+			bindings[free] = resolveClosureBinding(closure.Bindings[index], enclosing)
+		}
+	}
+	return bindings
+}
+
+func closureInstructionReceivesAny(
+	instruction ssa.Instruction,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	signals []ssa.Value,
+	seen map[ssa.Value]bool,
+	bindings map[ssa.Value]ssa.Value,
+) bool {
+	if nested, ok := instruction.(*ssa.MakeClosure); ok && valueReceivesAnyWithBindings(nested, signals, seen, bindings) {
+		return true
+	}
+	if closureCallReceivesAny(ssautil.InstructionCall(instruction), function, closure, signals, seen, bindings) {
+		return true
+	}
+	for _, channel := range receiveChannels(instruction) {
+		if closureChannelMatchesSignal(channel, function, closure, signals, bindings) {
+			return true
+		}
+	}
+	return false
+}
+
+func closureCallReceivesAny(
+	common *ssa.CallCommon,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	signals []ssa.Value,
+	seen map[ssa.Value]bool,
+	bindings map[ssa.Value]ssa.Value,
+) bool {
+	if common == nil {
+		return false
+	}
+	if callee := common.StaticCallee(); callee != nil {
+		for index, argument := range common.Args {
+			if index < len(callee.Params) &&
+				functionReceivesParameter(callee, callee.Params[index], map[*ssa.Function]bool{}) &&
+				argumentDerivesFromClosureSignal(argument, function, closure, signals, bindings) {
+				return true
 			}
+		}
+	}
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) &&
+			ssautil.ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) &&
+			valueReceivesAnyWithBindings(bindings[free], signals, seen, bindings) {
+			return true
+		}
+	}
+	return false
+}
+
+func argumentDerivesFromClosureSignal(
+	argument ssa.Value,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	signals []ssa.Value,
+	bindings map[ssa.Value]ssa.Value,
+) bool {
+	for index, free := range function.FreeVars {
+		if index >= len(closure.Bindings) || !ssautil.ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) {
+			continue
+		}
+		binding := resolveClosureBinding(bindings[free], bindings)
+		if ssautil.SameAsAny(binding, signals) || bindingMatchesAnySignal(binding, signals) {
+			return true
+		}
+	}
+	return false
+}
+
+func closureChannelMatchesSignal(
+	channel ssa.Value,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	signals []ssa.Value,
+	bindings map[ssa.Value]ssa.Value,
+) bool {
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) &&
+			passedValueAliases(channel, free, map[ssa.Value]bool{}) &&
+			bindingMatchesAnySignal(bindings[free], signals) {
+			return true
 		}
 	}
 	return false

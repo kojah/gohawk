@@ -60,25 +60,8 @@ func runCLI(arguments []string, runtime cliRuntime) cliResult {
 		return cliResult{}
 	}
 	originalArguments := append([]string(nil), arguments...)
-	if len(arguments) > 1 && arguments[1] == "list" {
-		if err := printAnalyzerList(arguments[2:], runtime.output, runtime.errorsOutput); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return cliResult{}
-			}
-			writeLine(runtime.errorsOutput, "gohawk list:", err)
-			return cliResult{exitCode: 2}
-		}
-		return cliResult{}
-	}
-	if len(arguments) > 1 && arguments[1] == "doc" {
-		if err := printDocumentation(arguments[2:], runtime.output, runtime.errorsOutput); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return cliResult{}
-			}
-			writeLine(runtime.errorsOutput, "gohawk doc:", err)
-			return cliResult{exitCode: 2}
-		}
-		return cliResult{}
+	if result, handled := runInformationalCommand(arguments, runtime); handled {
+		return result
 	}
 	analyzers := gohawk.Analyzers()
 	if flagsRequested(arguments) && runtime.getenv(filteredFlagsChild) == "" {
@@ -94,26 +77,53 @@ func runCLI(arguments []string, runtime cliRuntime) cliResult {
 		writeLine(runtime.errorsOutput, "gohawk:", err)
 		return cliResult{exitCode: 2}
 	}
-	selectedArguments := plan.arguments
 	richOutput := useRichOutput(originalArguments, runtime.getenv(richOutputChild) != "")
-	if richOutput && len(plan.request.checks.enabled) > 0 {
-		checks := make([]string, 0, len(plan.request.checks.enabled))
-		for check := range plan.request.checks.enabled {
-			checks = append(checks, check)
-		}
-		slices.Sort(checks)
-		selectedArguments = slices.Insert(selectedArguments, 1, "-enable-checks="+strings.Join(checks, ","))
-	}
-	if richOutput && len(plan.disabledChecks) > 0 {
-		checks := make([]string, 0, len(plan.disabledChecks))
-		for check := range plan.disabledChecks {
-			checks = append(checks, check)
-		}
-		slices.Sort(checks)
-		selectedArguments = slices.Insert(selectedArguments, 1, "-disable-checks="+strings.Join(checks, ","))
-	}
+	selectedArguments := richOutputArguments(plan, richOutput)
 	if richOutput {
 		return cliResult{exitCode: runtime.richOutput(selectedArguments, runtime.errorsOutput)}
 	}
 	return cliResult{invocation: &analysisInvocation{arguments: selectedArguments, analyzers: plan.analyzers}}
+}
+
+func runInformationalCommand(arguments []string, runtime cliRuntime) (cliResult, bool) {
+	if len(arguments) <= 1 {
+		return cliResult{}, false
+	}
+	var err error
+	switch arguments[1] {
+	case "list":
+		err = printAnalyzerList(arguments[2:], runtime.output, runtime.errorsOutput)
+	case "doc":
+		err = printDocumentation(arguments[2:], runtime.output, runtime.errorsOutput)
+	default:
+		return cliResult{}, false
+	}
+	if err == nil || errors.Is(err, flag.ErrHelp) {
+		return cliResult{}, true
+	}
+	writeLine(runtime.errorsOutput, "gohawk "+arguments[1]+":", err)
+	return cliResult{exitCode: 2}, true
+}
+
+func richOutputArguments(plan executionPlan, richOutput bool) []string {
+	arguments := plan.arguments
+	if !richOutput {
+		return arguments
+	}
+	if len(plan.request.checks.enabled) > 0 {
+		arguments = slices.Insert(arguments, 1, "-enable-checks="+strings.Join(sortedKeys(plan.request.checks.enabled), ","))
+	}
+	if len(plan.disabledChecks) > 0 {
+		arguments = slices.Insert(arguments, 1, "-disable-checks="+strings.Join(sortedKeys(plan.disabledChecks), ","))
+	}
+	return arguments
+}
+
+func sortedKeys(values map[string]bool) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
 }

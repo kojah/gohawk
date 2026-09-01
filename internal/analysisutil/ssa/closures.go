@@ -124,63 +124,23 @@ func valueCallsMethod(value ssa.Value, method string, target ssa.Value, seen map
 		return false
 	}
 	seen[value] = true
-	if closure, ok := value.(*ssa.MakeClosure); ok {
-		if ClosureCallsMethod(closure, method, target) {
-			return true
-		}
-		if function, ok := closure.Fn.(*ssa.Function); ok {
-			for _, block := range function.Blocks {
-				for _, instruction := range block.Instrs {
-					if nested, ok := instruction.(*ssa.MakeClosure); ok && valueCallsMethod(nested, method, target, seen) {
-						return true
-					}
-					common := InstructionCall(instruction)
-					if common == nil {
-						continue
-					}
-					for index, free := range function.FreeVars {
-						if index < len(closure.Bindings) && ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) &&
-							valueCallsMethod(closure.Bindings[index], method, target, seen) {
-							return true
-						}
-					}
-				}
-			}
-		}
+	if closure, ok := value.(*ssa.MakeClosure); ok && closureValueCallsMethod(closure, method, target, seen) {
+		return true
+	}
+	if inner, ok := wrappedValue(value); ok {
+		return valueCallsMethod(inner, method, target, seen)
 	}
 	switch typed := value.(type) {
 	case *ssa.Alloc:
-		if typed.Referrers() != nil {
-			for _, reference := range *typed.Referrers() {
-				store, ok := reference.(*ssa.Store)
-				if ok && store.Addr == typed && valueCallsMethod(store.Val, method, target, seen) {
-					return true
-				}
-			}
-		}
+		return storedCallbackCallsMethod(typed, method, target, seen)
 	case *ssa.Call:
 		for _, argument := range typed.Common().Args {
 			if valueCallsMethod(argument, method, target, seen) {
 				return true
 			}
 		}
-	case *ssa.ChangeInterface:
-		return valueCallsMethod(typed.X, method, target, seen)
-	case *ssa.ChangeType:
-		return valueCallsMethod(typed.X, method, target, seen)
-	case *ssa.Convert:
-		return valueCallsMethod(typed.X, method, target, seen)
-	case *ssa.MakeInterface:
-		return valueCallsMethod(typed.X, method, target, seen)
 	case *ssa.UnOp:
-		if typed.X.Referrers() != nil {
-			for _, reference := range *typed.X.Referrers() {
-				store, ok := reference.(*ssa.Store)
-				if ok && store.Addr == typed.X && valueCallsMethod(store.Val, method, target, seen) {
-					return true
-				}
-			}
-		}
+		return storedCallbackCallsMethod(typed.X, method, target, seen)
 	case *ssa.Phi:
 		for _, edge := range typed.Edges {
 			if valueCallsMethod(edge, method, target, seen) {
@@ -191,58 +151,115 @@ func valueCallsMethod(value ssa.Value, method string, target ssa.Value, seen map
 	return false
 }
 
+func closureValueCallsMethod(closure *ssa.MakeClosure, method string, target ssa.Value, seen map[ssa.Value]bool) bool {
+	if ClosureCallsMethod(closure, method, target) {
+		return true
+	}
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if nested, ok := instruction.(*ssa.MakeClosure); ok && valueCallsMethod(nested, method, target, seen) {
+				return true
+			}
+			if closureBindingCallsMethod(instruction, function, closure, method, target, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func closureBindingCallsMethod(
+	instruction ssa.Instruction,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	method string,
+	target ssa.Value,
+	seen map[ssa.Value]bool,
+) bool {
+	common := InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) &&
+			ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) &&
+			valueCallsMethod(closure.Bindings[index], method, target, seen) {
+			return true
+		}
+	}
+	return false
+}
+
+func storedCallbackCallsMethod(address ssa.Value, method string, target ssa.Value, seen map[ssa.Value]bool) bool {
+	if address.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *address.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == address && valueCallsMethod(store.Val, method, target, seen) {
+			return true
+		}
+	}
+	return false
+}
+
 func valueCallsValue(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil || seen[value] {
 		return false
 	}
 	seen[value] = true
-	if closure, ok := value.(*ssa.MakeClosure); ok {
-		if closureCallsValue(closure, target) {
-			return true
-		}
-		if function, ok := closure.Fn.(*ssa.Function); ok {
-			for _, block := range function.Blocks {
-				for _, instruction := range block.Instrs {
-					inner, ok := instruction.(*ssa.MakeClosure)
-					if ok && valueCallsValue(inner, target, seen) {
-						return true
-					}
-				}
-			}
-		}
+	if closure, ok := value.(*ssa.MakeClosure); ok && closureValueCallsValue(closure, target, seen) {
+		return true
+	}
+	if inner, ok := wrappedValue(value); ok {
+		return valueCallsValue(inner, target, seen)
 	}
 	switch typed := value.(type) {
 	case *ssa.Alloc:
-		if typed.Referrers() != nil {
-			for _, reference := range *typed.Referrers() {
-				store, ok := reference.(*ssa.Store)
-				if ok && store.Addr == typed && valueCallsValue(store.Val, target, seen) {
-					return true
-				}
-			}
-		}
-	case *ssa.ChangeInterface:
-		return valueCallsValue(typed.X, target, seen)
-	case *ssa.ChangeType:
-		return valueCallsValue(typed.X, target, seen)
-	case *ssa.Convert:
-		return valueCallsValue(typed.X, target, seen)
-	case *ssa.MakeInterface:
-		return valueCallsValue(typed.X, target, seen)
+		return storedCallbackCallsValue(typed, target, seen)
 	case *ssa.UnOp:
-		if typed.X.Referrers() != nil {
-			for _, reference := range *typed.X.Referrers() {
-				store, ok := reference.(*ssa.Store)
-				if ok && store.Addr == typed.X && valueCallsValue(store.Val, target, seen) {
-					return true
-				}
-			}
-		}
+		return storedCallbackCallsValue(typed.X, target, seen)
 	case *ssa.Phi:
 		for _, edge := range typed.Edges {
 			if valueCallsValue(edge, target, seen) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func closureValueCallsValue(closure *ssa.MakeClosure, target ssa.Value, seen map[ssa.Value]bool) bool {
+	if closureCallsValue(closure, target) {
+		return true
+	}
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			inner, ok := instruction.(*ssa.MakeClosure)
+			if ok && valueCallsValue(inner, target, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func storedCallbackCallsValue(address, target ssa.Value, seen map[ssa.Value]bool) bool {
+	if address.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *address.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == address && valueCallsValue(store.Val, target, seen) {
+			return true
 		}
 	}
 	return false

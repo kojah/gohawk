@@ -81,27 +81,49 @@ func taintSink(common *ssa.CallCommon, sinks map[string]bool) (string, string, [
 	packagePath, name := ssautil.CallPackage(common), ssautil.CallName(common)
 	switch packagePath {
 	case "os":
-		if sinks["filesystem"] && filesystemSink(name) && len(common.Args) > 0 {
-			return "filesystem", "os." + name, common.Args[:1]
-		}
+		return filesystemTaintSink(common, name, sinks)
 	case "os/exec":
-		if !sinks["process"] {
-			break
-		}
-		if name == "Command" {
-			return "process", "exec.Command", common.Args
-		}
-		if name == "CommandContext" && len(common.Args) > 1 {
+		return processTaintSink(common, name, sinks)
+	case "fmt":
+		return terminalTaintSink(common, name, sinks)
+	case "log", "log/slog":
+		return logTaintSink(common, packagePath, name, sinks)
+	}
+	return "", "", nil
+}
+
+func filesystemTaintSink(common *ssa.CallCommon, name string, sinks map[string]bool) (string, string, []ssa.Value) {
+	if sinks["filesystem"] && filesystemSink(name) && len(common.Args) > 0 {
+		return "filesystem", "os." + name, common.Args[:1]
+	}
+	return "", "", nil
+}
+
+func processTaintSink(common *ssa.CallCommon, name string, sinks map[string]bool) (string, string, []ssa.Value) {
+	if !sinks["process"] {
+		return "", "", nil
+	}
+	switch name {
+	case "Command":
+		return "process", "exec.Command", common.Args
+	case "CommandContext":
+		if len(common.Args) > 1 {
 			return "process", "exec.CommandContext", common.Args[1:]
 		}
-	case "fmt":
-		if sinks["terminal"] && strings.HasPrefix(name, "Fprint") && len(common.Args) > 1 && terminalWriter(common.Args[0]) {
-			return "terminal", "fmt." + name, common.Args[1:]
-		}
-	case "log", "log/slog":
-		if sinks["log"] && (strings.HasPrefix(name, "Print") || strings.HasSuffix(name, "Context") || name == "Log") {
-			return "log", packagePath + "." + name, common.Args
-		}
+	}
+	return "", "", nil
+}
+
+func terminalTaintSink(common *ssa.CallCommon, name string, sinks map[string]bool) (string, string, []ssa.Value) {
+	if sinks["terminal"] && strings.HasPrefix(name, "Fprint") && len(common.Args) > 1 && terminalWriter(common.Args[0]) {
+		return "terminal", "fmt." + name, common.Args[1:]
+	}
+	return "", "", nil
+}
+
+func logTaintSink(common *ssa.CallCommon, packagePath, name string, sinks map[string]bool) (string, string, []ssa.Value) {
+	if sinks["log"] && (strings.HasPrefix(name, "Print") || strings.HasSuffix(name, "Context") || name == "Log") {
+		return "log", packagePath + "." + name, common.Args
 	}
 	return "", "", nil
 }

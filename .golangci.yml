@@ -9,17 +9,29 @@ linters:
   enable:
     - contextcheck
     - copyloopvar
+    - cyclop
+    - dupl
     - errorlint
     - exhaustive
+    - forbidigo
+    - funlen
+    - gochecknoinits
+    - gocognit
     - gocritic
     - gosec
+    - interfacebloat
     - intrange
     - lll
+    - makezero
     - misspell
     - nilerr
     - nilnesserr
     - noctx
+    - nestif
+    - nolintlint
     - perfsprint
+    - reassign
+    - revive
     - testifylint
     - thelper
     - unconvert
@@ -27,13 +39,38 @@ linters:
     - usestdlibvars
     - wastedassign
   settings:
+    cyclop:
+      max-complexity: 20
     exhaustive:
       # Analyzer switches intentionally use conservative default branches for
       # tokens and syntax added by future Go releases.
       default-signifies-exhaustive: true
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^panic$
+          msg: Return an error from reusable code instead of panicking.
+        - pattern: ^log\.Fatal(f|ln)?$
+          msg: Return an error and let the command entry point choose the exit status.
+        - pattern: ^os\.Exit$
+          msg: Return an exit status from reusable code instead of terminating the process.
+    funlen:
+      lines: 100
+      statements: 60
+      ignore-comments: true
+    gocognit:
+      min-complexity: 40
     lll:
       line-length: 160
       tab-width: 4
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+    revive:
+      rules:
+        - name: argument-limit
+          arguments: [8]
   exclusions:
     rules:
       # Test fixtures intentionally execute variable commands and create
@@ -61,3 +98,7 @@ linters:
       - source: '^\s*// https?://'
         linters:
           - lll
+      # Executable entry points own process termination by design.
+      - path: '^(main\.go|tools/.*/main\.go)$'
+        linters:
+          - forbidigo

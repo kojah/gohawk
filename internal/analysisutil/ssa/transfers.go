@@ -112,30 +112,50 @@ func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ss
 		return false
 	}
 	common := call.Common()
-	usesValue := false
-	for _, argument := range common.Args {
-		usesValue = usesValue || SameValue(argument, value) || ValueContainsValue(argument, value)
-	}
 	name := strings.ToLower(CallName(common))
-	if !usesValue && strings.HasPrefix(name, "with") {
-		for _, argument := range common.Args {
-			usesValue = usesValue || hasLifecycleMethod(argument) && ValueDerivesFrom(argument, value, map[ssa.Value]bool{})
-		}
-	}
-	if !usesValue {
+	if !callConsumesLifecycleValue(common, name, value) {
 		return false
 	}
-	if hasLifecycleMethod(call) && (valueTransferred(call, map[ssa.Value]bool{}) || valueLifecycleUsed(call, instruction)) {
+	if callReturnsLifecycleOwner(call, instruction) {
 		return true
 	}
 	receiver := CallReceiver(common)
-	mutator := strings.HasPrefix(name, "set") || strings.HasPrefix(name, "add") || strings.HasPrefix(name, "register") || strings.HasPrefix(name, "own") ||
-		strings.HasPrefix(name, "with")
-	if mutator && hasLifecycleMethod(receiver) &&
-		(ExternallyOwnedValue(receiver) || valueTransferred(receiver, map[ssa.Value]bool{}) || valueLifecycleUsed(receiver, instruction)) {
-		return true
+	return lifecycleMutator(name) && hasLifecycleMethod(receiver) && lifecycleOwnerEscapes(receiver, instruction)
+}
+
+func callConsumesLifecycleValue(common *ssa.CallCommon, name string, value ssa.Value) bool {
+	for _, argument := range common.Args {
+		if SameValue(argument, value) || ValueContainsValue(argument, value) {
+			return true
+		}
+	}
+	if !strings.HasPrefix(name, "with") {
+		return false
+	}
+	for _, argument := range common.Args {
+		if hasLifecycleMethod(argument) && ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) {
+			return true
+		}
 	}
 	return false
+}
+
+func callReturnsLifecycleOwner(call *ssa.Call, instruction ssa.Instruction) bool {
+	return hasLifecycleMethod(call) && lifecycleOwnerEscapes(call, instruction)
+}
+
+func lifecycleOwnerEscapes(owner ssa.Value, instruction ssa.Instruction) bool {
+	return ExternallyOwnedValue(owner) ||
+		valueTransferred(owner, map[ssa.Value]bool{}) ||
+		valueLifecycleUsed(owner, instruction)
+}
+
+func lifecycleMutator(name string) bool {
+	return strings.HasPrefix(name, "set") ||
+		strings.HasPrefix(name, "add") ||
+		strings.HasPrefix(name, "register") ||
+		strings.HasPrefix(name, "own") ||
+		strings.HasPrefix(name, "with")
 }
 
 func hasLifecycleMethod(value ssa.Value) bool {

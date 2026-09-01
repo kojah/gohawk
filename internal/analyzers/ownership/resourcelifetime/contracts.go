@@ -22,39 +22,86 @@ type resourceContract struct {
 
 func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {
 	packagePath, name := ssautil.CallPackage(common), ssautil.CallName(common)
-	if settings.contracts["os"] && packagePath == "os" {
+	if settings.contracts["os"] {
+		if contract, ok := osResourceContract(packagePath, name); ok {
+			return contract, true
+		}
+	}
+	if settings.contracts["time"] {
+		if contract, ok := timeResourceContract(packagePath, name); ok {
+			return contract, true
+		}
+	}
+	if settings.contracts["sql"] {
+		if contract, ok := sqlResourceContract(common, packagePath, name); ok {
+			return contract, true
+		}
+	}
+	if settings.contracts["http"] {
+		if contract, ok := httpResourceContract(packagePath, name); ok {
+			return contract, true
+		}
+	}
+	if settings.contracts["compress"] {
+		if contract, ok := compressionResourceContract(packagePath, name, settings.requireReaderClose); ok {
+			return contract, true
+		}
+	}
+	return resourceContract{}, false
+}
+
+func osResourceContract(packagePath, name string) (resourceContract, bool) {
+	if packagePath == "os" {
 		switch name {
 		case "Create", "CreateTemp", "Open", "OpenFile":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
 		}
 	}
-	if settings.contracts["time"] && packagePath == "time" && (name == "NewTicker" || name == "NewTimer") {
+	return resourceContract{}, false
+}
+
+func timeResourceContract(packagePath, name string) (resourceContract, bool) {
+	if packagePath == "time" && (name == "NewTicker" || name == "NewTimer") {
 		return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Stop"}, result: -1, consumable: name == "NewTimer"}, true
 	}
-	if settings.contracts["sql"] && packagePath == "database/sql" {
-		switch name {
-		case "Begin", "BeginTx":
-			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Commit", "Rollback"}, result: 0}, true
-		case "Query", "QueryContext":
+	return resourceContract{}, false
+}
+
+func sqlResourceContract(common *ssa.CallCommon, packagePath, name string) (resourceContract, bool) {
+	if packagePath != "database/sql" {
+		return resourceContract{}, false
+	}
+	switch name {
+	case "Begin", "BeginTx":
+		return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Commit", "Rollback"}, result: 0}, true
+	case "Query", "QueryContext":
+		return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
+	case "Prepare", "PrepareContext":
+		// Statements prepared on a transaction are closed automatically when
+		// that transaction commits or rolls back.
+		if !receiverNamedType(common, packagePath, "Tx") {
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
-		case "Prepare", "PrepareContext":
-			// Statements prepared on a transaction are closed automatically when
-			// that transaction commits or rolls back.
-			if !receiverNamedType(common, packagePath, "Tx") {
-				return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
-			}
 		}
 	}
-	if settings.contracts["http"] && packagePath == "net/http" {
+	return resourceContract{}, false
+}
+
+func httpResourceContract(packagePath, name string) (resourceContract, bool) {
+	if packagePath == "net/http" {
 		switch name {
 		case "Get", "Post", "PostForm", "Do":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
 		}
 	}
-	if settings.contracts["compress"] && packagePath == "compress/gzip" {
+	return resourceContract{}, false
+}
+
+func compressionResourceContract(packagePath, name string, requireReaderClose bool) (resourceContract, bool) {
+	switch packagePath {
+	case "compress/gzip":
 		switch name {
 		case "NewReader":
-			if settings.requireReaderClose {
+			if requireReaderClose {
 				return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
 			}
 		case "NewWriterLevel":
@@ -62,11 +109,10 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 		case "NewWriter":
 			return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: -1}, true
 		}
-	}
-	if settings.contracts["compress"] && packagePath == "compress/zlib" {
+	case "compress/zlib":
 		switch name {
 		case "NewReader", "NewReaderDict":
-			if settings.requireReaderClose {
+			if requireReaderClose {
 				return resourceContract{packagePath: packagePath, name: name, cleanup: []string{"Close"}, result: 0}, true
 			}
 		case "NewWriterLevel", "NewWriterLevelDict":

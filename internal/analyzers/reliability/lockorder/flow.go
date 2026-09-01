@@ -12,6 +12,15 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+type lockFlowContext struct {
+	pass        *analysis.Pass
+	relations   map[lockRelation]token.Pos
+	lockValues  map[string][]ssa.Value
+	acquiredAt  map[string]token.Pos
+	released    map[string]bool
+	callerOwned map[string]bool
+}
+
 func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lockRelation]token.Pos) {
 	if len(function.Blocks) == 0 {
 		return
@@ -23,6 +32,14 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 	lockValues := map[string][]ssa.Value{}
 	unreleasedReturns := map[string][]token.Pos{}
 	callerOwned := callerOwnedLocks(function)
+	flow := lockFlowContext{
+		pass:        pass,
+		relations:   relations,
+		lockValues:  lockValues,
+		acquiredAt:  acquiredAt,
+		released:    released,
+		callerOwned: callerOwned,
+	}
 	for len(queue) > 0 {
 		state := queue[0]
 		queue = queue[1:]
@@ -39,110 +56,28 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			condition = ""
 		}
 		for _, instruction := range state.block.Instrs {
-			if returned, ok := instruction.(*ssa.Return); ok {
-				for _, identity := range held {
-					if !slices.Contains(deferred, identity) && !returnedUnlockOwner(returned, lockValues[identity]) {
-						unreleasedReturns[identity] = appendUniquePosition(unreleasedReturns[identity], returned.Pos())
-					}
-				}
-			}
+			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns)
 			// An unconditional unlock at the start of a spawned closure transfers
 			// the held lock to that goroutine. Requiring it before any branch keeps
 			// conditional handoffs from hiding a genuinely unreleased return path.
-			if _, ok := instruction.(*ssa.Go); ok {
-				for _, identity := range slices.Clone(held) {
-					for _, value := range lockValues[identity] {
-						if ssautil.ClosureCallsMethodBeforeBranch(instruction, "Unlock", value) ||
-							ssautil.ClosureCallsMethodBeforeBranch(instruction, "RUnlock", value) {
-							released[identity] = true
-							held = releaseLock(held, identity)
-							delete(guards, identity)
-							break
-						}
-					}
-				}
-			}
+			held = transferSpawnedUnlocks(instruction, held, guards, lockValues, released)
 			// Treat an Unlock inside a deferred closure as return-path cleanup even
 			// when guarded by state. This supports early-unlock patterns where the
 			// defer handles only earlier returns:
 			// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/integration/nri_test.go#L1287-L1300
-			if _, ok := instruction.(*ssa.Defer); ok {
-				for _, identity := range slices.Clone(held) {
-					for _, value := range lockValues[identity] {
-						common := ssautil.InstructionCall(instruction)
-						if ssautil.DeferredClosureCalls(instruction, "Unlock", value) || ssautil.DeferredClosureCalls(instruction, "RUnlock", value) ||
-							common != nil &&
-								(ssautil.ValueCallsMethod(common.Value, "Unlock", value) || ssautil.ValueCallsMethod(common.Value, "RUnlock", value)) {
-							released[identity] = true
-							deferred = appendUniqueString(deferred, identity)
-							break
-						}
-					}
-				}
-			}
+			deferred = recordDeferredUnlocks(instruction, held, deferred, lockValues, released)
 			operation, identity, receiver, ok := mutexAction(instruction)
 			if !ok {
 				continue
 			}
-			switch operation {
-			case mutexAcquire:
-				lockValues[identity] = appendLockValue(lockValues[identity], receiver)
-				// A mutex selected from a map, slice, or loop-carried value may
-				// represent a different runtime lock on every iteration. Collapsing
-				// those values into one SSA identity creates both recursive-acquire
-				// and missing-release false positives, so require a stable identity
-				// before reasoning about its lifecycle. ccLoad coordinates a dynamic
-				// set of pending calls this way:
-				// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/sdk_runner.go#L410-L470
-				// Kubernetes likewise acquires a dynamically selected set of lock
-				// stripes:
-				// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/kubelet/images/pullmanager/locks.go#L56-L65
-				if dynamicIndexedMutex(receiver) {
-					continue
-				}
-				// A release before the first acquisition means this helper borrowed
-				// a caller-held lock. Reacquiring restores the caller's state; it does
-				// not make the helper responsible for a subsequent unlock. Kubernetes
-				// drops a device-manager mutex around an RPC using this pattern:
-				// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/kubelet/cm/devicemanager/manager.go#L1065-L1075
-				if callerOwned[identity] {
-					continue
-				}
-				if condition != "" {
-					guards[identity] = lockGuard{condition: condition, value: state.conditionValue}
-				}
-				if acquiredAt[identity] == token.NoPos {
-					acquiredAt[identity] = instruction.Pos()
-				}
-				held = acquireLock(pass, instruction, held, identity, relations)
-			case mutexRelease:
-				released[identity] = true
-				if _, isDefer := instruction.(*ssa.Defer); isDefer {
-					// A deferred unlock remains effective on every later trip around a
-					// control-flow loop. Keeping identities unique lets the dataflow
-					// state reach a fixed point instead of growing without bound.
-					deferred = appendUniqueString(deferred, identity)
-				} else {
-					held = releaseLock(held, identity)
-					delete(guards, identity)
-				}
+			actionState := lockFlowState{
+				held: held, deferred: deferred, guards: guards,
+				condition: condition, conditionValue: state.conditionValue,
 			}
+			actionState = flow.applyMutexAction(instruction, operation, identity, receiver, actionState)
+			held, deferred, guards = actionState.held, actionState.deferred, actionState.guards
 		}
-		for index, successor := range state.block.Succs {
-			nextCondition := ""
-			nextValue := false
-			if condition, ok := blockCondition(state.block); ok && len(state.block.Succs) == 2 {
-				nextCondition = condition
-				nextValue = index == 0
-				if guardConflicts(held, guards, condition, nextValue) {
-					continue
-				}
-			}
-			queue = append(queue, lockFlowState{
-				block: successor, held: held, deferred: deferred, guards: guards,
-				condition: nextCondition, conditionValue: nextValue,
-			})
-		}
+		queue = append(queue, lockSuccessorStates(state.block, held, deferred, guards)...)
 	}
 	// Lock/Unlock helpers commonly and intentionally return while transferring
 	// the critical section to their caller. Without interprocedural call-site
@@ -162,4 +97,134 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 			check.Reportf(pass, check.LockMissingRelease, position, "lock %s is not released on this return path", identity)
 		}
 	}
+}
+
+func recordUnreleasedLocks(
+	instruction ssa.Instruction,
+	held, deferred []string,
+	lockValues map[string][]ssa.Value,
+	unreleased map[string][]token.Pos,
+) {
+	returned, ok := instruction.(*ssa.Return)
+	if !ok {
+		return
+	}
+	for _, identity := range held {
+		if !slices.Contains(deferred, identity) && !returnedUnlockOwner(returned, lockValues[identity]) {
+			unreleased[identity] = appendUniquePosition(unreleased[identity], returned.Pos())
+		}
+	}
+}
+
+func transferSpawnedUnlocks(
+	instruction ssa.Instruction,
+	held []string,
+	guards map[string]lockGuard,
+	lockValues map[string][]ssa.Value,
+	released map[string]bool,
+) []string {
+	if _, ok := instruction.(*ssa.Go); !ok {
+		return held
+	}
+	for _, identity := range slices.Clone(held) {
+		for _, value := range lockValues[identity] {
+			if ssautil.ClosureCallsMethodBeforeBranch(instruction, "Unlock", value) ||
+				ssautil.ClosureCallsMethodBeforeBranch(instruction, "RUnlock", value) {
+				released[identity] = true
+				held = releaseLock(held, identity)
+				delete(guards, identity)
+				break
+			}
+		}
+	}
+	return held
+}
+
+func recordDeferredUnlocks(
+	instruction ssa.Instruction,
+	held, deferred []string,
+	lockValues map[string][]ssa.Value,
+	released map[string]bool,
+) []string {
+	if _, ok := instruction.(*ssa.Defer); !ok {
+		return deferred
+	}
+	for _, identity := range slices.Clone(held) {
+		for _, value := range lockValues[identity] {
+			common := ssautil.InstructionCall(instruction)
+			if ssautil.DeferredClosureCalls(instruction, "Unlock", value) ||
+				ssautil.DeferredClosureCalls(instruction, "RUnlock", value) ||
+				common != nil && (ssautil.ValueCallsMethod(common.Value, "Unlock", value) ||
+					ssautil.ValueCallsMethod(common.Value, "RUnlock", value)) {
+				released[identity] = true
+				deferred = appendUniqueString(deferred, identity)
+				break
+			}
+		}
+	}
+	return deferred
+}
+
+func (flow lockFlowContext) applyMutexAction(
+	instruction ssa.Instruction,
+	operation mutexOperation,
+	identity string,
+	receiver ssa.Value,
+	state lockFlowState,
+) lockFlowState {
+	if operation == mutexRelease {
+		flow.released[identity] = true
+		if _, deferredRelease := instruction.(*ssa.Defer); deferredRelease {
+			// A deferred unlock remains effective on every later trip around a
+			// control-flow loop. Unique identities let the dataflow reach a fixed
+			// point instead of growing without bound.
+			state.deferred = appendUniqueString(state.deferred, identity)
+			return state
+		}
+		delete(state.guards, identity)
+		state.held = releaseLock(state.held, identity)
+		return state
+	}
+	flow.lockValues[identity] = appendLockValue(flow.lockValues[identity], receiver)
+	// A mutex selected from a map, slice, or loop-carried value may represent a
+	// different runtime lock on every iteration. Collapsing those values into one
+	// SSA identity creates recursive-acquire and missing-release false positives:
+	// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/sdk_runner.go#L410-L470
+	// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/kubelet/images/pullmanager/locks.go#L56-L65
+	if dynamicIndexedMutex(receiver) {
+		return state
+	}
+	// A release before the first acquisition means this helper borrowed a
+	// caller-held lock. Reacquiring restores the caller's state; it does not make
+	// the helper responsible for a subsequent unlock:
+	// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/kubelet/cm/devicemanager/manager.go#L1065-L1075
+	if flow.callerOwned[identity] {
+		return state
+	}
+	if state.condition != "" {
+		state.guards[identity] = lockGuard{condition: state.condition, value: state.conditionValue}
+	}
+	if flow.acquiredAt[identity] == token.NoPos {
+		flow.acquiredAt[identity] = instruction.Pos()
+	}
+	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.relations)
+	return state
+}
+
+func lockSuccessorStates(block *ssa.BasicBlock, held, deferred []string, guards map[string]lockGuard) []lockFlowState {
+	states := make([]lockFlowState, 0, len(block.Succs))
+	for index, successor := range block.Succs {
+		nextCondition, nextValue := "", false
+		if condition, ok := blockCondition(block); ok && len(block.Succs) == 2 {
+			nextCondition, nextValue = condition, index == 0
+			if guardConflicts(held, guards, condition, nextValue) {
+				continue
+			}
+		}
+		states = append(states, lockFlowState{
+			block: successor, held: held, deferred: deferred, guards: guards,
+			condition: nextCondition, conditionValue: nextValue,
+		})
+	}
+	return states
 }

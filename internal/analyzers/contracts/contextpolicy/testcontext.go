@@ -105,62 +105,80 @@ func neverCancelledTestContext(value ssa.Value, seen map[ssa.Value]bool) (token.
 		return token.NoPos, false
 	}
 	seen[value] = true
+	if source, ok := contextSource(value); ok {
+		return neverCancelledTestContext(source, seen)
+	}
 	switch typed := value.(type) {
 	case *ssa.Call:
-		common := typed.Common()
-		if ssautil.CallPackage(common) == "context" {
-			switch ssautil.CallName(common) {
-			case "Background", "TODO":
-				return typed.Pos(), true
-			case "WithValue":
-				if len(common.Args) > 0 {
-					return neverCancelledTestContext(common.Args[0], seen)
-				}
-			}
-		}
-	case *ssa.ChangeInterface:
-		return neverCancelledTestContext(typed.X, seen)
-	case *ssa.ChangeType:
-		return neverCancelledTestContext(typed.X, seen)
-	case *ssa.Convert:
-		return neverCancelledTestContext(typed.X, seen)
-	case *ssa.MakeInterface:
-		return neverCancelledTestContext(typed.X, seen)
-	case *ssa.UnOp:
-		return neverCancelledTestContext(typed.X, seen)
+		return neverCancelledContextCall(typed, seen)
 	case *ssa.Alloc:
-		var position token.Pos
-		found := false
-		if typed.Referrers() == nil {
-			return token.NoPos, false
-		}
-		for _, reference := range *typed.Referrers() {
-			store, ok := reference.(*ssa.Store)
-			if !ok || store.Addr != typed {
-				continue
-			}
-			candidate, ok := neverCancelledTestContext(store.Val, cloneContextSeen(seen))
-			if !ok {
-				return token.NoPos, false
-			}
-			position, found = candidate, true
-		}
-		return position, found
+		return neverCancelledStoredContext(typed, seen)
 	case *ssa.Phi:
-		var position token.Pos
-		if len(typed.Edges) == 0 {
-			return token.NoPos, false
-		}
-		for _, edge := range typed.Edges {
-			candidate, ok := neverCancelledTestContext(edge, cloneContextSeen(seen))
-			if !ok {
-				return token.NoPos, false
-			}
-			position = candidate
-		}
-		return position, true
+		return neverCancelledContextEdges(typed.Edges, seen)
 	}
 	return token.NoPos, false
+}
+
+func contextSource(value ssa.Value) (ssa.Value, bool) {
+	switch typed := value.(type) {
+	case *ssa.ChangeInterface:
+		return typed.X, true
+	case *ssa.ChangeType:
+		return typed.X, true
+	case *ssa.Convert:
+		return typed.X, true
+	case *ssa.MakeInterface:
+		return typed.X, true
+	case *ssa.UnOp:
+		return typed.X, true
+	default:
+		return nil, false
+	}
+}
+
+func neverCancelledContextCall(call *ssa.Call, seen map[ssa.Value]bool) (token.Pos, bool) {
+	common := call.Common()
+	if ssautil.CallPackage(common) != "context" {
+		return token.NoPos, false
+	}
+	switch ssautil.CallName(common) {
+	case "Background", "TODO":
+		return call.Pos(), true
+	case "WithValue":
+		if len(common.Args) > 0 {
+			return neverCancelledTestContext(common.Args[0], seen)
+		}
+	}
+	return token.NoPos, false
+}
+
+func neverCancelledStoredContext(address ssa.Value, seen map[ssa.Value]bool) (token.Pos, bool) {
+	if address.Referrers() == nil {
+		return token.NoPos, false
+	}
+	values := make([]ssa.Value, 0)
+	for _, reference := range *address.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == address {
+			values = append(values, store.Val)
+		}
+	}
+	return neverCancelledContextEdges(values, seen)
+}
+
+func neverCancelledContextEdges(values []ssa.Value, seen map[ssa.Value]bool) (token.Pos, bool) {
+	if len(values) == 0 {
+		return token.NoPos, false
+	}
+	var position token.Pos
+	for _, value := range values {
+		candidate, ok := neverCancelledTestContext(value, cloneContextSeen(seen))
+		if !ok {
+			return token.NoPos, false
+		}
+		position = candidate
+	}
+	return position, true
 }
 
 type contextObservation struct {

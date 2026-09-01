@@ -169,49 +169,86 @@ func resolveAnalyzerSelection(
 	enableAll := request.enableAll
 	explicit := request.explicit
 	checkOwners := request.owners
-	hasExplicitEnabled := false
-	for _, enabled := range explicit {
-		hasExplicitEnabled = hasExplicitEnabled || enabled
-	}
-	if len(checkOwners) == 0 && len(nameSelection.enabled) == 0 && len(nameSelection.disabled) == 0 && len(groupSelection.enabled) == 0 &&
-		len(groupSelection.disabled) == 0 &&
-		(enableAll || hasExplicitEnabled) {
-		normallySelected := make(map[string]bool)
-		if enableAll {
-			for _, analyzer := range analyzers {
-				normallySelected[analyzer.Name] = true
-			}
-		}
-		for name, enabled := range explicit {
-			normallySelected[name] = enabled
-		}
+	hasExplicitEnabled := anyEnabled(explicit)
+	if nativeSelectionSuffices(request, hasExplicitEnabled) {
+		normallySelected := nativeAnalyzerSelection(analyzers, explicit, enableAll)
 		return analyzerCheckSelection{arguments: remaining, normallySelected: normallySelected, enableAll: enableAll}
 	}
+	selected := baseAnalyzerSelection(analyzers, groups, metadata, request, hasExplicitEnabled)
+	applyAnalyzerSelection(selected, groups, nameSelection, groupSelection, explicit)
+	normallySelected := maps.Clone(selected)
+	applyCheckOwners(selected, checkOwners, nameSelection.disabled, explicit)
+
+	enabledFlags := enabledAnalyzerFlags(analyzers, selected)
+	result := make([]string, 0, len(remaining)+len(enabledFlags))
+	result = append(result, remaining[0])
+	result = append(result, enabledFlags...)
+	return analyzerCheckSelection{
+		arguments: append(result, remaining[1:]...), normallySelected: normallySelected, enableAll: enableAll,
+	}
+}
+
+func anyEnabled(selection map[string]bool) bool {
+	for _, enabled := range selection {
+		if enabled {
+			return true
+		}
+	}
+	return false
+}
+
+func nativeSelectionSuffices(request selectionRequest, hasExplicitEnabled bool) bool {
+	return len(request.owners) == 0 &&
+		len(request.analyzers.enabled) == 0 && len(request.analyzers.disabled) == 0 &&
+		len(request.groups.enabled) == 0 && len(request.groups.disabled) == 0 &&
+		(request.enableAll || hasExplicitEnabled)
+}
+
+func nativeAnalyzerSelection(analyzers []*analysis.Analyzer, explicit map[string]bool, enableAll bool) map[string]bool {
 	selected := make(map[string]bool)
-	switch {
-	case enableAll:
+	if enableAll {
 		for _, analyzer := range analyzers {
 			selected[analyzer.Name] = true
 		}
-	case len(groupSelection.enabled) > 0:
+	}
+	for name, enabled := range explicit {
+		selected[name] = enabled
+	}
+	return selected
+}
+
+func baseAnalyzerSelection(
+	analyzers []*analysis.Analyzer,
+	groups []gohawk.AnalyzerGroup,
+	metadata map[string]gohawk.AnalyzerInfo,
+	request selectionRequest,
+	hasExplicitEnabled bool,
+) map[string]bool {
+	selected := make(map[string]bool)
+	switch {
+	case request.enableAll:
+		for _, analyzer := range analyzers {
+			selected[analyzer.Name] = true
+		}
+	case len(request.groups.enabled) > 0:
 		for _, group := range groups {
-			if !groupSelection.enabled[group.Name] {
+			if !request.groups.enabled[group.Name] {
 				continue
 			}
 			for _, analyzer := range group.Analyzers {
 				selected[analyzer.Name] = true
 			}
 		}
-	case len(groupSelection.disabled) > 0 || len(nameSelection.disabled) > 0:
+	case len(request.groups.disabled) > 0 || len(request.analyzers.disabled) > 0:
 		for _, analyzer := range analyzers {
 			selected[analyzer.Name] = metadata[analyzer.Name].EnabledByDefault()
 		}
-	case len(nameSelection.enabled) > 0:
+	case len(request.analyzers.enabled) > 0:
 		// A positive analyzer list establishes its own selection base.
 	case hasExplicitEnabled:
 		// Naming an analyzer explicitly selects only named analyzers, preserving
 		// the multichecker convention when no group selector establishes a base.
-	case len(checkOwners) > 0:
+	case len(request.owners) > 0:
 		// An explicit check list establishes its own selection base. Its owning
 		// analyzers are added after ordinary analyzer selection is resolved.
 	default:
@@ -219,6 +256,16 @@ func resolveAnalyzerSelection(
 			selected[analyzer.Name] = metadata[analyzer.Name].EnabledByDefault()
 		}
 	}
+	return selected
+}
+
+func applyAnalyzerSelection(
+	selected map[string]bool,
+	groups []gohawk.AnalyzerGroup,
+	names analyzerNameSelection,
+	groupSelection analyzerGroupSelection,
+	explicit map[string]bool,
+) {
 	for _, group := range groups {
 		if !groupSelection.disabled[group.Name] {
 			continue
@@ -227,20 +274,22 @@ func resolveAnalyzerSelection(
 			selected[analyzer.Name] = false
 		}
 	}
-	for name := range nameSelection.disabled {
+	for name := range names.disabled {
 		selected[name] = false
 	}
-	for name := range nameSelection.enabled {
+	for name := range names.enabled {
 		selected[name] = true
 	}
 	for name, enabled := range explicit {
 		selected[name] = enabled
 	}
-	normallySelected := maps.Clone(selected)
+}
+
+func applyCheckOwners(selected, checkOwners, disabledNames, explicit map[string]bool) {
 	for owner := range checkOwners {
 		selected[owner] = true
 	}
-	for name := range nameSelection.disabled {
+	for name := range disabledNames {
 		selected[name] = false
 	}
 	for name, enabled := range explicit {
@@ -248,19 +297,16 @@ func resolveAnalyzerSelection(
 			selected[name] = false
 		}
 	}
+}
 
-	enabledFlags := make([]string, 0, len(selected))
+func enabledAnalyzerFlags(analyzers []*analysis.Analyzer, selected map[string]bool) []string {
+	flags := make([]string, 0, len(selected))
 	for _, analyzer := range analyzers {
 		if selected[analyzer.Name] {
-			enabledFlags = append(enabledFlags, "-"+analyzer.Name+"=true")
+			flags = append(flags, "-"+analyzer.Name+"=true")
 		}
 	}
-	result := make([]string, 0, len(remaining)+len(enabledFlags))
-	result = append(result, remaining[0])
-	result = append(result, enabledFlags...)
-	return analyzerCheckSelection{
-		arguments: append(result, remaining[1:]...), normallySelected: normallySelected, enableAll: enableAll,
-	}
+	return flags
 }
 
 type analyzerNameSelection struct {

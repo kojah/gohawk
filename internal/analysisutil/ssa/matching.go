@@ -103,15 +103,10 @@ func sameValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 		return true
 	}
 	seen[value] = true
+	if inner, ok := wrappedValue(value); ok {
+		return sameValueSeen(inner, target, seen)
+	}
 	switch typed := value.(type) {
-	case *ssa.ChangeInterface:
-		return sameValueSeen(typed.X, target, seen)
-	case *ssa.ChangeType:
-		return sameValueSeen(typed.X, target, seen)
-	case *ssa.Convert:
-		return sameValueSeen(typed.X, target, seen)
-	case *ssa.MakeInterface:
-		return sameValueSeen(typed.X, target, seen)
 	case *ssa.FieldAddr:
 		other, ok := target.(*ssa.FieldAddr)
 		return ok && typed.Field == other.Field && sameValueSeen(typed.X, other.X, seen)

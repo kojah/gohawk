@@ -122,41 +122,7 @@ func globalObjectReassignedOrAddressed(pass *analysis.Pass, object types.Object,
 			if unsafe {
 				return false
 			}
-			identifier, ok := node.(*ast.Ident)
-			if !ok || pass.TypesInfo.Uses[identifier] != object {
-				return true
-			}
-			var current ast.Node = identifier
-			parent := usage.parents[current]
-			for {
-				parenthesized, parenthesizedOK := parent.(*ast.ParenExpr)
-				if !parenthesizedOK {
-					break
-				}
-				current = parenthesized
-				parent = usage.parents[current]
-			}
-			switch typed := parent.(type) {
-			case *ast.AssignStmt:
-				for _, left := range typed.Lhs {
-					if left == current {
-						unsafe = true
-						return false
-					}
-				}
-			case *ast.IncDecStmt:
-				if typed.X == current {
-					unsafe = true
-				}
-			case *ast.RangeStmt:
-				if typed.Key == current || typed.Value == current {
-					unsafe = true
-				}
-			case *ast.UnaryExpr:
-				if typed.Op == token.AND {
-					unsafe = true
-				}
-			}
+			unsafe = globalUseIsUnsafe(pass, node, object, usage.parents)
 			return !unsafe
 		})
 		if unsafe {
@@ -164,6 +130,46 @@ func globalObjectReassignedOrAddressed(pass *analysis.Pass, object types.Object,
 		}
 	}
 	return false
+}
+
+func globalUseIsUnsafe(pass *analysis.Pass, node ast.Node, object types.Object, parents map[ast.Node]ast.Node) bool {
+	identifier, ok := node.(*ast.Ident)
+	if !ok || pass.TypesInfo.Uses[identifier] != object {
+		return false
+	}
+	current, parent := unparenthesizedUse(identifier, parents)
+	switch typed := parent.(type) {
+	case *ast.AssignStmt:
+		return assignmentTargetsNode(typed, current)
+	case *ast.IncDecStmt:
+		return typed.X == current
+	case *ast.RangeStmt:
+		return typed.Key == current || typed.Value == current
+	case *ast.UnaryExpr:
+		return typed.Op == token.AND
+	default:
+		return false
+	}
+}
+
+func assignmentTargetsNode(assignment *ast.AssignStmt, node ast.Node) bool {
+	for _, target := range assignment.Lhs {
+		if target == node {
+			return true
+		}
+	}
+	return false
+}
+
+func unparenthesizedUse(node ast.Node, parents map[ast.Node]ast.Node) (ast.Node, ast.Node) {
+	current, parent := node, parents[node]
+	for {
+		parenthesized, ok := parent.(*ast.ParenExpr)
+		if !ok {
+			return current, parent
+		}
+		current, parent = parenthesized, parents[parenthesized]
+	}
 }
 
 func documentedTestSeam(name *ast.Ident, object types.Object, declaration *ast.GenDecl, specification *ast.ValueSpec) bool {

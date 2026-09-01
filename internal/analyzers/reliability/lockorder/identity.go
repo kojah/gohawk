@@ -11,39 +11,18 @@ func lockIdentity(value ssa.Value, seen map[ssa.Value]bool) string {
 		return ""
 	}
 	seen[value] = true
+	if source, ok := lockIdentitySource(value); ok {
+		return lockIdentity(source, seen)
+	}
 	switch typed := value.(type) {
 	case *ssa.Global:
 		return typed.Name()
 	case *ssa.FieldAddr:
-		field := structField(typed.X.Type(), typed.Field)
-		if field != nil {
-			if owner := lockIdentity(typed.X, seen); owner != "" {
-				return owner + "." + field.Name()
-			}
-			return types.TypeString(typed.X.Type(), nil) + "." + field.Name()
-		}
+		return fieldLockIdentity(typed, seen)
 	case *ssa.IndexAddr:
-		owner := lockIdentity(typed.X, seen)
-		index := lockIdentity(typed.Index, seen)
-		if owner != "" && index != "" {
-			return owner + "[" + index + "]"
-		}
+		return indexedLockIdentity(typed.X, typed.Index, seen)
 	case *ssa.Index:
-		owner := lockIdentity(typed.X, seen)
-		index := lockIdentity(typed.Index, seen)
-		if owner != "" && index != "" {
-			return owner + "[" + index + "]"
-		}
-	case *ssa.ChangeInterface:
-		return lockIdentity(typed.X, seen)
-	case *ssa.ChangeType:
-		return lockIdentity(typed.X, seen)
-	case *ssa.Convert:
-		return lockIdentity(typed.X, seen)
-	case *ssa.MakeInterface:
-		return lockIdentity(typed.X, seen)
-	case *ssa.UnOp:
-		return lockIdentity(typed.X, seen)
+		return indexedLockIdentity(typed.X, typed.Index, seen)
 	case *ssa.Parameter:
 		return typed.Parent().String() + "." + typed.Name()
 	case *ssa.FreeVar:
@@ -67,6 +46,43 @@ func lockIdentity(value ssa.Value, seen map[ssa.Value]bool) string {
 		return parent.String() + ":value:" + value.Name()
 	}
 	return ""
+}
+
+func lockIdentitySource(value ssa.Value) (ssa.Value, bool) {
+	switch typed := value.(type) {
+	case *ssa.ChangeInterface:
+		return typed.X, true
+	case *ssa.ChangeType:
+		return typed.X, true
+	case *ssa.Convert:
+		return typed.X, true
+	case *ssa.MakeInterface:
+		return typed.X, true
+	case *ssa.UnOp:
+		return typed.X, true
+	default:
+		return nil, false
+	}
+}
+
+func fieldLockIdentity(fieldAddress *ssa.FieldAddr, seen map[ssa.Value]bool) string {
+	field := structField(fieldAddress.X.Type(), fieldAddress.Field)
+	if field == nil {
+		return ""
+	}
+	if owner := lockIdentity(fieldAddress.X, seen); owner != "" {
+		return owner + "." + field.Name()
+	}
+	return types.TypeString(fieldAddress.X.Type(), nil) + "." + field.Name()
+}
+
+func indexedLockIdentity(ownerValue, indexValue ssa.Value, seen map[ssa.Value]bool) string {
+	owner := lockIdentity(ownerValue, seen)
+	index := lockIdentity(indexValue, seen)
+	if owner == "" || index == "" {
+		return ""
+	}
+	return owner + "[" + index + "]"
 }
 
 func structField(value types.Type, index int) *types.Var {

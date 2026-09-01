@@ -33,44 +33,17 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]boo
 		return true
 	}
 	seen[pair] = true
+	if inner, ok := wrappedValue(aggregate); ok {
+		return aggregateStoresValue(inner, value, seen)
+	}
 	switch typed := aggregate.(type) {
 	case *ssa.Call:
-		common := typed.Common()
-		if CallName(common) == "append" {
-			for _, argument := range common.Args {
-				if aggregateStoresValue(argument, value, seen) {
-					return true
-				}
-			}
+		if callAggregateStoresValue(typed, value, seen) {
+			return true
 		}
-		callee := common.StaticCallee()
-		if callee != nil {
-			for index, argument := range common.Args {
-				if index >= len(callee.Params) || !aggregateStoresValue(argument, value, seen) {
-					continue
-				}
-				for _, block := range callee.Blocks {
-					for _, candidate := range block.Instrs {
-						if returned, ok := candidate.(*ssa.Return); ok && returnedValueOwnsValue(returned, callee.Params[index], seen) {
-							return true
-						}
-					}
-				}
-			}
-		}
-	case *ssa.ChangeInterface:
-		return aggregateStoresValue(typed.X, value, seen)
-	case *ssa.ChangeType:
-		return aggregateStoresValue(typed.X, value, seen)
-	case *ssa.Convert:
-		return aggregateStoresValue(typed.X, value, seen)
-	case *ssa.MakeInterface:
-		return aggregateStoresValue(typed.X, value, seen)
 	case *ssa.Phi:
-		for _, edge := range typed.Edges {
-			if aggregateStoresValue(edge, value, seen) {
-				return true
-			}
+		if anyAggregateStoresValue(typed.Edges, value, seen) {
+			return true
 		}
 	case *ssa.Slice:
 		return aggregateStoresValue(typed.X, value, seen)
@@ -78,17 +51,61 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]boo
 	if _, ok := aggregate.(*ssa.Alloc); ok && addressStoresValue(aggregate, value, seen) {
 		return true
 	}
+	return aggregateReferrersStoreValue(aggregate, value, seen)
+}
+
+func callAggregateStoresValue(call *ssa.Call, value ssa.Value, seen map[ownershipPair]bool) bool {
+	common := call.Common()
+	if CallName(common) == "append" && anyAggregateStoresValue(common.Args, value, seen) {
+		return true
+	}
+	callee := common.StaticCallee()
+	if callee == nil {
+		return false
+	}
+	for index, argument := range common.Args {
+		if index < len(callee.Params) &&
+			aggregateStoresValue(argument, value, seen) &&
+			functionReturnsOwner(callee, callee.Params[index], seen) {
+			return true
+		}
+	}
+	return false
+}
+
+func anyAggregateStoresValue(aggregates []ssa.Value, value ssa.Value, seen map[ownershipPair]bool) bool {
+	for _, aggregate := range aggregates {
+		if aggregateStoresValue(aggregate, value, seen) {
+			return true
+		}
+	}
+	return false
+}
+
+func functionReturnsOwner(function *ssa.Function, value ssa.Value, seen map[ownershipPair]bool) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			returned, ok := instruction.(*ssa.Return)
+			if ok && returnedValueOwnsValue(returned, value, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func aggregateReferrersStoreValue(aggregate, value ssa.Value, seen map[ownershipPair]bool) bool {
 	if aggregate.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *aggregate.Referrers() {
-		switch typed := reference.(type) {
-		case *ssa.FieldAddr:
-			if addressStoresValue(typed, value, seen) || aggregateStoresValue(typed, value, seen) {
-				return true
-			}
-		case *ssa.IndexAddr:
-			if addressStoresValue(typed, value, seen) || aggregateStoresValue(typed, value, seen) {
+		address, ok := reference.(ssa.Value)
+		if !ok {
+			continue
+		}
+		switch address.(type) {
+		case *ssa.FieldAddr, *ssa.IndexAddr:
+			if addressStoresValue(address, value, seen) || aggregateStoresValue(address, value, seen) {
 				return true
 			}
 		}

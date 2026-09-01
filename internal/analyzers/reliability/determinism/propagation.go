@@ -79,43 +79,61 @@ func orderedRangeAccumulators(pass *analysis.Pass, body *ast.BlockStmt, variable
 		case *ast.FuncLit:
 			return false
 		case *ast.AssignStmt:
-			for index, right := range typed.Rhs {
-				if index >= len(typed.Lhs) || !expressionUsesAnyObject(pass, right, variables) {
-					continue
-				}
-				left, ok := typed.Lhs[index].(*ast.Ident)
-				if ok && orderedAccumulatorType(pass.TypesInfo.TypeOf(left)) {
-					result[pass.TypesInfo.ObjectOf(left)] = true
-				}
-			}
-			if len(typed.Lhs) == 1 && len(typed.Rhs) == 1 {
-				left, leftOK := typed.Lhs[0].(*ast.Ident)
-				appendCall, appendOK := typed.Rhs[0].(*ast.CallExpr)
-				if leftOK && appendOK &&
-					appendedRangeValue(pass, appendCall, variables) &&
-					len(appendCall.Args) > 0 &&
-					analysisutil.SameExpression(pass, left, appendCall.Args[0]) {
-					result[pass.TypesInfo.ObjectOf(left)] = true
-				}
-			}
+			recordOrderedAssignment(pass, typed, variables, result)
 		case *ast.CallExpr:
-			selector, ok := typed.Fun.(*ast.SelectorExpr)
-			if !ok {
-				return true
-			}
-			receiver, receiverOK := selectorExpressionObject(pass, selector)
-			if receiverOK && orderedAccumulatorType(receiver.Type()) && writeMethod(selector.Sel.Name) {
-				for _, argument := range typed.Args {
-					if expressionUsesAnyObject(pass, argument, variables) {
-						result[receiver] = true
-					}
-				}
-			}
+			recordOrderedCall(pass, typed, variables, result)
 		}
 		return true
 	})
 	delete(result, nil)
 	return result
+}
+
+func recordOrderedAssignment(
+	pass *analysis.Pass,
+	assignment *ast.AssignStmt,
+	variables map[types.Object]bool,
+	result map[types.Object]bool,
+) {
+	for index, right := range assignment.Rhs {
+		if index >= len(assignment.Lhs) || !expressionUsesAnyObject(pass, right, variables) {
+			continue
+		}
+		left, ok := assignment.Lhs[index].(*ast.Ident)
+		if ok && orderedAccumulatorType(pass.TypesInfo.TypeOf(left)) {
+			result[pass.TypesInfo.ObjectOf(left)] = true
+		}
+	}
+	if len(assignment.Lhs) != 1 || len(assignment.Rhs) != 1 {
+		return
+	}
+	left, leftOK := assignment.Lhs[0].(*ast.Ident)
+	appendCall, appendOK := assignment.Rhs[0].(*ast.CallExpr)
+	if leftOK && appendOK && appendedRangeValue(pass, appendCall, variables) &&
+		len(appendCall.Args) > 0 && analysisutil.SameExpression(pass, left, appendCall.Args[0]) {
+		result[pass.TypesInfo.ObjectOf(left)] = true
+	}
+}
+
+func recordOrderedCall(
+	pass *analysis.Pass,
+	call *ast.CallExpr,
+	variables map[types.Object]bool,
+	result map[types.Object]bool,
+) {
+	selector, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return
+	}
+	receiver, ok := selectorExpressionObject(pass, selector)
+	if !ok || !orderedAccumulatorType(receiver.Type()) || !writeMethod(selector.Sel.Name) {
+		return
+	}
+	for _, argument := range call.Args {
+		if expressionUsesAnyObject(pass, argument, variables) {
+			result[receiver] = true
+		}
+	}
 }
 
 func appendedRangeValue(pass *analysis.Pass, call *ast.CallExpr, variables map[types.Object]bool) bool {

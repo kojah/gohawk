@@ -69,59 +69,85 @@ func NewCatalog(groups []GroupSpec, executionOrder []AnalyzerID) (*Catalog, erro
 	seenGroups := make(map[GroupID]bool)
 	seenPaths := make(map[string]bool)
 	for groupIndex := range catalog.groups {
-		group := &catalog.groups[groupIndex]
-		if group.ID == "" || strings.TrimSpace(group.Doc) == "" || strings.TrimSpace(group.DocPath) == "" {
-			return nil, fmt.Errorf("catalog group %d has incomplete identity or documentation", groupIndex)
-		}
-		if seenGroups[group.ID] {
-			return nil, fmt.Errorf("catalog group %q is declared more than once", group.ID)
-		}
-		if seenPaths[group.DocPath] {
-			return nil, fmt.Errorf("catalog documentation path %q is used more than once", group.DocPath)
-		}
-		seenGroups[group.ID], seenPaths[group.DocPath] = true, true
-		for analyzerIndex := range group.Analyzers {
-			spec := &group.Analyzers[analyzerIndex]
-			if spec.Analyzer == nil || spec.Analyzer.Name == "" {
-				return nil, fmt.Errorf("catalog group %q contains an analyzer without an identity", group.ID)
-			}
-			id := AnalyzerID(spec.Analyzer.Name)
-			if _, exists := catalog.byAnalyzer[id]; exists {
-				return nil, fmt.Errorf("analyzer %q is declared more than once", id)
-			}
-			if len(spec.Checks) == 0 {
-				return nil, fmt.Errorf("analyzer %q declares no checks", id)
-			}
-			for checkIndex := range spec.Checks {
-				check := &spec.Checks[checkIndex]
-				if check.ID == "" || !strings.HasPrefix(string(check.ID), string(id)+"/") {
-					return nil, fmt.Errorf("analyzer %q has invalid check identity %q", id, check.ID)
-				}
-				if strings.TrimSpace(check.Doc) == "" {
-					return nil, fmt.Errorf("check %q has no description", check.ID)
-				}
-				if owner, exists := catalog.checkOwner[check.ID]; exists {
-					return nil, fmt.Errorf("check %q belongs to both %q and %q", check.ID, owner, id)
-				}
-				catalog.checkOwner[check.ID] = id
-			}
-			catalog.byAnalyzer[id] = cloneAnalyzerSpec(*spec)
+		if err := catalog.addGroup(groupIndex, seenGroups, seenPaths); err != nil {
+			return nil, err
 		}
 	}
+	if err := catalog.validateExecutionOrder(); err != nil {
+		return nil, err
+	}
+	return catalog, nil
+}
+
+func (catalog *Catalog) addGroup(index int, seenGroups map[GroupID]bool, seenPaths map[string]bool) error {
+	group := &catalog.groups[index]
+	if group.ID == "" || strings.TrimSpace(group.Doc) == "" || strings.TrimSpace(group.DocPath) == "" {
+		return fmt.Errorf("catalog group %d has incomplete identity or documentation", index)
+	}
+	if seenGroups[group.ID] {
+		return fmt.Errorf("catalog group %q is declared more than once", group.ID)
+	}
+	if seenPaths[group.DocPath] {
+		return fmt.Errorf("catalog documentation path %q is used more than once", group.DocPath)
+	}
+	seenGroups[group.ID], seenPaths[group.DocPath] = true, true
+	for analyzerIndex := range group.Analyzers {
+		if err := catalog.addAnalyzer(group.ID, &group.Analyzers[analyzerIndex]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (catalog *Catalog) addAnalyzer(groupID GroupID, spec *AnalyzerSpec) error {
+	if spec.Analyzer == nil || spec.Analyzer.Name == "" {
+		return fmt.Errorf("catalog group %q contains an analyzer without an identity", groupID)
+	}
+	id := AnalyzerID(spec.Analyzer.Name)
+	if _, exists := catalog.byAnalyzer[id]; exists {
+		return fmt.Errorf("analyzer %q is declared more than once", id)
+	}
+	if len(spec.Checks) == 0 {
+		return fmt.Errorf("analyzer %q declares no checks", id)
+	}
+	for checkIndex := range spec.Checks {
+		if err := catalog.addCheck(id, &spec.Checks[checkIndex]); err != nil {
+			return err
+		}
+	}
+	catalog.byAnalyzer[id] = cloneAnalyzerSpec(*spec)
+	return nil
+}
+
+func (catalog *Catalog) addCheck(analyzerID AnalyzerID, info *CheckInfo) error {
+	if info.ID == "" || !strings.HasPrefix(string(info.ID), string(analyzerID)+"/") {
+		return fmt.Errorf("analyzer %q has invalid check identity %q", analyzerID, info.ID)
+	}
+	if strings.TrimSpace(info.Doc) == "" {
+		return fmt.Errorf("check %q has no description", info.ID)
+	}
+	if owner, exists := catalog.checkOwner[info.ID]; exists {
+		return fmt.Errorf("check %q belongs to both %q and %q", info.ID, owner, analyzerID)
+	}
+	catalog.checkOwner[info.ID] = analyzerID
+	return nil
+}
+
+func (catalog *Catalog) validateExecutionOrder() error {
 	seenOrder := make(map[AnalyzerID]bool)
 	for _, id := range catalog.executionOrder {
 		if _, exists := catalog.byAnalyzer[id]; !exists {
-			return nil, fmt.Errorf("execution order contains unknown analyzer %q", id)
+			return fmt.Errorf("execution order contains unknown analyzer %q", id)
 		}
 		if seenOrder[id] {
-			return nil, fmt.Errorf("execution order repeats analyzer %q", id)
+			return fmt.Errorf("execution order repeats analyzer %q", id)
 		}
 		seenOrder[id] = true
 	}
 	if len(seenOrder) != len(catalog.byAnalyzer) {
-		return nil, fmt.Errorf("execution order contains %d analyzers; catalog declares %d", len(seenOrder), len(catalog.byAnalyzer))
+		return fmt.Errorf("execution order contains %d analyzers; catalog declares %d", len(seenOrder), len(catalog.byAnalyzer))
 	}
-	return catalog, nil
+	return nil
 }
 
 // Groups returns catalog groups in stable presentation order.
