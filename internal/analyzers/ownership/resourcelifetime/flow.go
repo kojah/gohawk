@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
 	"github.com/kojah/gohawk/internal/check"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -35,7 +36,13 @@ type resourceFlowKey struct {
 
 // Analyzer returns this package's configured Go analysis pass.
 
-func resourceLeaks(pass *analysis.Pass, call *ssa.Call, resource ssa.Value, contract resourceContract) bool {
+func resourceLeaks(
+	pass *analysis.Pass,
+	evidence *lifecyclefacts.EvidenceQuery,
+	call *ssa.Call,
+	resource ssa.Value,
+	contract resourceContract,
+) bool {
 	index := ssautil.InstructionIndex(call)
 	if index < 0 {
 		return false
@@ -56,7 +63,7 @@ func resourceLeaks(pass *analysis.Pass, call *ssa.Call, resource ssa.Value, cont
 		}
 		seen[key] = true
 		var leaks bool
-		state, leaks = advanceResourceState(pass, state, resource, owners, contract)
+		state, leaks = advanceResourceState(pass, evidence, state, resource, owners, contract)
 		if leaks {
 			return true
 		}
@@ -81,6 +88,7 @@ func resourceStateKey(state resourceFlowState) resourceFlowKey {
 
 func advanceResourceState(
 	pass *analysis.Pass,
+	evidence *lifecyclefacts.EvidenceQuery,
 	state resourceFlowState,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -88,7 +96,7 @@ func advanceResourceState(
 ) (resourceFlowState, bool) {
 	for _, instruction := range state.block.Instrs[state.index:] {
 		state.released = state.released ||
-			releasesResource(pass, instruction, resource, owners, contract.cleanup) ||
+			releasesResource(evidence, instruction, resource, owners, contract.cleanup) ||
 			contract.consumable && consumesResource(instruction, resource)
 		if ssautil.InstructionTerminatesControlFlow(instruction) {
 			state.active = false

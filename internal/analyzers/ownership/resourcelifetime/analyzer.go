@@ -59,6 +59,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 	// cleanup action. Reporting is deferred until path analysis proves that the
 	// action or a recognized ownership transfer is absent on a normal return.
 	for _, function := range functions {
+		evidence := lifecyclefacts.NewEvidenceQuery(pass, "resourcelifetime", string(check.ResourceRelease))
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)
@@ -73,7 +74,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				if resource == nil {
 					continue
 				}
-				leaks := resourceLeaks(pass, call, resource, contract)
+				leaks := resourceLeaks(pass, evidence, call, resource, contract)
 				completeTimer := completeTimers[call.Pos()]
 				emitResourceDecision(pass, function, call, resource, contract, leaks, completeTimer)
 				if leaks && !completeTimer {

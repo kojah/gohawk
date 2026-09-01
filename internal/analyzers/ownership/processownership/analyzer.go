@@ -29,6 +29,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	for _, function := range functions {
+		evidence := lifecyclefacts.NewEvidenceQuery(pass, "processownership", string(check.ProcessWait))
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, ok := instruction.(*ssa.Call)
@@ -55,14 +56,15 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				// Cleanup may be registered before Start. This is common when a
 				// constructor builds a teardown closure first, then starts the
 				// process and returns that closure to its caller.
-				if processOwnershipDominatesStart(function, start, command) || processOwnerDominatesStart(function, start, owners) {
+				if processOwnershipDominatesStart(evidence, function, start, command) ||
+					processOwnerDominatesStart(evidence, function, start, owners) {
 					continue
 				}
 				if successfulStartCannotReturn(start) {
 					continue
 				}
 				leaks := ssautil.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
-					return processOwnershipAction(pass, candidate, command)
+					return processOwnershipAction(evidence, candidate, command)
 				}, func(returned *ssa.Return) bool {
 					// Returning an aggregate that contains the command transfers Wait
 					// responsibility just as directly as returning *exec.Cmd itself.

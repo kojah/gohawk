@@ -21,7 +21,12 @@ type lockFlowContext struct {
 	callerOwned map[string]bool
 }
 
-func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lockRelation]token.Pos) {
+func walkLockOrder(
+	pass *analysis.Pass,
+	function *ssa.Function,
+	relations map[lockRelation]token.Pos,
+	evidence *ssautil.EvidenceQuery,
+) {
 	if len(function.Blocks) == 0 {
 		return
 	}
@@ -57,16 +62,16 @@ func walkLockOrder(pass *analysis.Pass, function *ssa.Function, relations map[lo
 		}
 		for _, instruction := range state.block.Instrs {
 			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns)
-			held = transferCalledUnlocks(instruction, held, guards, lockValues, released)
+			held = transferCalledUnlocks(evidence, instruction, held, guards, lockValues, released)
 			// An unconditional unlock at the start of a spawned closure transfers
 			// the held lock to that goroutine. Requiring it before any branch keeps
 			// conditional handoffs from hiding a genuinely unreleased return path.
-			held = transferSpawnedUnlocks(instruction, held, guards, lockValues, released)
+			held = transferSpawnedUnlocks(evidence, instruction, held, guards, lockValues, released)
 			// Treat an Unlock inside a deferred closure as return-path cleanup even
 			// when guarded by state. This supports early-unlock patterns where the
 			// defer handles only earlier returns:
 			// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/integration/nri_test.go#L1287-L1300
-			deferred = recordDeferredUnlocks(instruction, held, deferred, lockValues, released)
+			deferred = recordDeferredUnlocks(evidence, instruction, held, deferred, lockValues, released)
 			operation, identity, receiver, ok := mutexAction(instruction)
 			if !ok {
 				continue
@@ -118,6 +123,7 @@ func recordUnreleasedLocks(
 }
 
 func transferCalledUnlocks(
+	evidence *ssautil.EvidenceQuery,
 	instruction ssa.Instruction,
 	held []string,
 	guards map[string]lockGuard,
@@ -126,7 +132,7 @@ func transferCalledUnlocks(
 ) []string {
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			proof := ssautil.ProveCompletion(ssautil.CompletionRequest{
+			proof := evidence.Completion(ssautil.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
@@ -149,6 +155,7 @@ func transferCalledUnlocks(
 }
 
 func transferSpawnedUnlocks(
+	evidence *ssautil.EvidenceQuery,
 	instruction ssa.Instruction,
 	held []string,
 	guards map[string]lockGuard,
@@ -160,7 +167,7 @@ func transferSpawnedUnlocks(
 	}
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			proof := ssautil.ProveCompletion(ssautil.CompletionRequest{
+			proof := evidence.Completion(ssautil.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
@@ -182,6 +189,7 @@ func transferSpawnedUnlocks(
 }
 
 func recordDeferredUnlocks(
+	evidence *ssautil.EvidenceQuery,
 	instruction ssa.Instruction,
 	held, deferred []string,
 	lockValues map[string][]ssa.Value,
@@ -193,7 +201,7 @@ func recordDeferredUnlocks(
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
 			common := ssautil.InstructionCall(instruction)
-			proof := ssautil.ProveCompletion(ssautil.CompletionRequest{
+			proof := evidence.Completion(ssautil.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},

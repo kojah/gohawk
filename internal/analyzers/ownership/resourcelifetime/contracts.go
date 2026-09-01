@@ -6,9 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/analysispasses/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/analysisutil"
 	ssautil "github.com/kojah/gohawk/internal/analysisutil/ssa"
-	"github.com/kojah/gohawk/internal/check"
 
-	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -107,12 +105,18 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 	return resourceContract{}, false
 }
 
-func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource ssa.Value, owners []ssa.Value, methods []string) bool {
+func releasesResource(
+	evidence *lifecyclefacts.EvidenceQuery,
+	instruction ssa.Instruction,
+	resource ssa.Value,
+	owners []ssa.Value,
+	methods []string,
+) bool {
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
-	if instructionSettlesResourceOwnership(instruction, resource, methods) ||
-		callTakesResourceOwnership(pass, instruction, resource) {
+	if instructionSettlesResourceOwnership(evidence, instruction, resource, methods) ||
+		callTakesResourceOwnership(evidence, instruction, resource) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
@@ -121,10 +125,10 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		return true
 	}
 	if common != nil && slices.Contains(methods, ssautil.CallName(common)) &&
-		storedResourceAccessReleased(instruction, ssautil.CallReceiver(common), resource) {
+		storedResourceAccessReleased(evidence, instruction, ssautil.CallReceiver(common), resource) {
 		return true
 	}
-	if common != nil && testingCleanupReleases(common, resource, methods) {
+	if common != nil && testingCleanupReleases(evidence, common, resource, methods) {
 		return true
 	}
 	if common != nil && resourceLifecycleMethod(ssautil.CallName(common)) && ssautil.SameAsAny(ssautil.CallReceiver(common), owners) {
@@ -135,11 +139,16 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		// normal exit stops the resource. darkpawns uses this for tickers whose
 		// select exits on either context or component shutdown:
 		// https://github.com/zax0rz/darkpawns/blob/5cdb4679815822a133a051af4c1249ddda800c38/pkg/events/queue.go#L255
-		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+		completion := ssautil.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
 			Modes:       ssautil.CompletionInStartedClosure,
+		}
+		if evidence.Prove(lifecyclefacts.EvidenceRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Completion:  &completion,
 		}).Proven() {
 			return true
 		}
@@ -147,14 +156,19 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		// performed cleanup. Herdforge's response decoder owns Body.Close this
 		// way, without advertising ownership in the helper name:
 		// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/provider/github.go#L356
-		if lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
-			Pass: pass, Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Instruction: instruction, Target: resource,
-			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.MethodMask(method) },
-		}) || ssautil.ProveCompletion(ssautil.CompletionRequest{
+		completion = ssautil.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
 			Modes:       ssautil.CompletionByHelper,
+		}
+		if evidence.Prove(lifecyclefacts.EvidenceRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Completion:  &completion,
+			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
+				return fact.MethodMask(method)
+			},
 		}).Proven() {
 			return true
 		}
@@ -163,11 +177,16 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 		// the closure so conditional cleanup cannot hide a leak. ccLoad uses this
 		// pattern while constructing verified temporary files:
 		// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/bridge_install.go#L264-L289
-		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+		completion = ssautil.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
 			Modes:       ssautil.CompletionDeferred | ssautil.CompletionBeforeBranch,
+		}
+		if evidence.Prove(lifecyclefacts.EvidenceRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Completion:  &completion,
 		}).Proven() {
 			return true
 		}
@@ -175,44 +194,70 @@ func releasesResource(pass *analysis.Pass, instruction ssa.Instruction, resource
 	return false
 }
 
-func instructionSettlesResourceOwnership(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
+func instructionSettlesResourceOwnership(
+	evidence *lifecyclefacts.EvidenceQuery,
+	instruction ssa.Instruction,
+	resource ssa.Value,
+	methods []string,
+) bool {
+	transfer := ssautil.OwnershipTransferRequest{
+		Instruction: instruction,
+		Value:       resource,
+		Modes: ssautil.TransferStoredInGlobal | ssautil.TransferStoredInEnclosingScope |
+			ssautil.TransferOwnerStoredInExternalField | ssautil.TransferStoredInOwnedMap |
+			ssautil.TransferSentToReceiver | ssautil.TransferCapturedByClosure,
+	}
 	return resourceTransferredToExternalField(instruction, resource) ||
-		ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+		evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
-			Value:       resource,
-			Modes: ssautil.TransferStoredInGlobal | ssautil.TransferStoredInEnclosingScope |
-				ssautil.TransferOwnerStoredInExternalField | ssautil.TransferStoredInOwnedMap |
-				ssautil.TransferSentToReceiver | ssautil.TransferCapturedByClosure,
+			Target:      resource,
+			Transfer:    &transfer,
 		}).Proven() ||
-		startedClosureReleasesResource(instruction, resource, methods)
+		startedClosureReleasesResource(evidence, instruction, resource, methods)
 }
 
-func callTakesResourceOwnership(pass *analysis.Pass, instruction ssa.Instruction, resource ssa.Value) bool {
-	return ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+func callTakesResourceOwnership(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, resource ssa.Value) bool {
+	transfer := ssautil.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,
 		Modes: ssautil.TransferCallResultStoredInField | ssautil.TransferToReceiver |
 			ssautil.TransferToLifecycleOwner,
-	}).Proven() ||
-		lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
-			Pass: pass, Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Instruction: instruction, Target: resource,
-			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask { return fact.ReturnedOwner },
-		}) ||
-		lifecyclefacts.StoresInEscapingReceiver(lifecyclefacts.ArgumentEvidence{
-			Pass: pass, Analyzer: "resourcelifetime", Check: string(check.ResourceRelease), Instruction: instruction, Target: resource,
-		})
+	}
+	return evidence.Prove(lifecyclefacts.EvidenceRequest{
+		Instruction: instruction,
+		Target:      resource,
+		Transfer:    &transfer,
+		SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
+			return fact.ReturnedOwner
+		},
+		ReceiverStore: true,
+	}).Proven()
 }
 
-func startedClosureReleasesResource(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
-	return ssautil.ProveCompletion(ssautil.CompletionRequest{
+func startedClosureReleasesResource(
+	evidence *lifecyclefacts.EvidenceQuery,
+	instruction ssa.Instruction,
+	resource ssa.Value,
+	methods []string,
+) bool {
+	completion := ssautil.CompletionRequest{
 		Instruction: instruction,
 		Target:      resource,
 		Methods:     methods,
 		Modes:       ssautil.CompletionInStartedClosure,
+	}
+	return evidence.Prove(lifecyclefacts.EvidenceRequest{
+		Instruction: instruction,
+		Target:      resource,
+		Completion:  &completion,
 	}).Proven()
 }
 
-func storedResourceAccessReleased(release ssa.Instruction, receiver, resource ssa.Value) bool {
+func storedResourceAccessReleased(
+	evidence *lifecyclefacts.EvidenceQuery,
+	release ssa.Instruction,
+	receiver, resource ssa.Value,
+) bool {
 	if receiver == nil || release.Parent() == nil {
 		return false
 	}
@@ -223,7 +268,8 @@ func storedResourceAccessReleased(release ssa.Instruction, receiver, resource ss
 				continue
 			}
 			field, ok := store.Addr.(*ssa.FieldAddr)
-			if ok && ssautil.ProveIdentity(
+			if ok && evidence.Identity(
+				release,
 				ssautil.AccessPath{Value: receiver, Root: field.X},
 				ssautil.AccessPath{Value: field, Root: field.X},
 			).Proven() {
@@ -234,7 +280,12 @@ func storedResourceAccessReleased(release ssa.Instruction, receiver, resource ss
 	return false
 }
 
-func testingCleanupReleases(common *ssa.CallCommon, resource ssa.Value, methods []string) bool {
+func testingCleanupReleases(
+	evidence *lifecyclefacts.EvidenceQuery,
+	common *ssa.CallCommon,
+	resource ssa.Value,
+	methods []string,
+) bool {
 	if !ssautil.HasLibraryContract(common, ssautil.ContractTestingCleanup) {
 		return false
 	}
@@ -247,11 +298,16 @@ func testingCleanupReleases(common *ssa.CallCommon, resource ssa.Value, methods 
 		if !ok {
 			continue
 		}
-		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+		completion := ssautil.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     methods,
 			Modes:       ssautil.CompletionBeforeBranch,
+		}
+		if evidence.Prove(lifecyclefacts.EvidenceRequest{
+			Instruction: instruction,
+			Target:      resource,
+			Completion:  &completion,
 		}).Proven() {
 			return true
 		}

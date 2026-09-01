@@ -24,10 +24,7 @@ const (
 	OutcomeObserved Outcome = "observed"
 	OutcomeAccepted Outcome = "accepted"
 	OutcomeRejected Outcome = "rejected"
-
-	ReasonLifecycleSummary      = "lifecycle-summary"
-	ReasonReceiverStoreTransfer = "receiver-store-transfer"
-	ReasonReceiverDoesNotEscape = "receiver-does-not-escape"
+	OutcomeUnknown  Outcome = "unknown"
 )
 
 // Event is one stable analyzer evidence decision. Details should contain only

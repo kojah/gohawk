@@ -159,13 +159,16 @@ func lifecycleOwner(value ssa.Value) bool {
 	return false
 }
 
-func ownsGoroutineLifecycle(instruction ssa.Instruction, owners []ssa.Value) bool {
+// A lifecycle owner settles the goroutine obligation only through a direct
+// lifecycle method or a deferred completion proof. Merely capturing an object
+// with Close or Wait methods would conflate reachability with cleanup.
+func ownsGoroutineLifecycle(evidence *ssautil.EvidenceQuery, instruction ssa.Instruction, owners []ssa.Value) bool {
 	common := ssautil.InstructionCall(instruction)
 	if common != nil && lifecycleMethod(ssautil.CallName(common)) && ssautil.SameAsAny(ssautil.CallReceiver(common), owners) {
 		return true
 	}
 	for _, owner := range owners {
-		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+		if evidence.Completion(ssautil.CompletionRequest{
 			Instruction: instruction,
 			Target:      owner,
 			Methods:     []string{"Close", "Kill", "Shutdown", "Stop", "Wait"},
@@ -177,13 +180,13 @@ func ownsGoroutineLifecycle(instruction ssa.Instruction, owners []ssa.Value) boo
 	return false
 }
 
-func waitsForLifecycleOwner(instruction ssa.Instruction, owners []ssa.Value) bool {
+func waitsForLifecycleOwner(evidence *ssautil.EvidenceQuery, instruction ssa.Instruction, owners []ssa.Value) bool {
 	common := ssautil.InstructionCall(instruction)
 	if common != nil && ssautil.CallName(common) == "Wait" && ssautil.SameAsAny(ssautil.CallReceiver(common), owners) {
 		return true
 	}
 	for _, owner := range owners {
-		if ssautil.ProveCompletion(ssautil.CompletionRequest{
+		if evidence.Completion(ssautil.CompletionRequest{
 			Instruction: instruction,
 			Target:      owner,
 			Methods:     []string{"Wait"},
@@ -245,11 +248,15 @@ func ownershipRegistrationName(name string) bool {
 	return name == "add" || strings.Contains(name, "register") || strings.Contains(name, "track") || strings.Contains(name, "own")
 }
 
-func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, owners []ssa.Value) bool {
+func transfersGoroutineOwnership(
+	evidence *ssautil.EvidenceQuery,
+	instruction ssa.Instruction,
+	signals, groups, owners []ssa.Value,
+) bool {
 	values := append(slices.Clone(signals), groups...)
 	values = append(values, owners...)
 	for _, value := range values {
-		if ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+		if evidence.OwnershipTransfer(ssautil.OwnershipTransferRequest{
 			Instruction: instruction,
 			Value:       value,
 			Modes: ssautil.TransferStoredInField | ssautil.TransferOwnerStoredInField |
@@ -266,7 +273,7 @@ func transfersGoroutineOwnership(instruction ssa.Instruction, signals, groups, o
 			return true
 		}
 		for _, group := range groups {
-			if ssautil.ProveCompletion(ssautil.CompletionRequest{
+			if evidence.Completion(ssautil.CompletionRequest{
 				Instruction: instruction,
 				Target:      group,
 				Methods:     []string{"Wait"},

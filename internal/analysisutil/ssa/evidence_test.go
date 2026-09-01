@@ -79,8 +79,8 @@ func evidence(value *closer) {
 		Instruction: findSSAInstruction(t, function, tests[0].match),
 		Target:      target,
 		Methods:     []string{"Close"},
-	}); proof.Proven() || proof.Reason != EvidenceNone {
-		t.Fatalf("ProveCompletion() with no accepted modes = %#v, want zero proof", proof)
+	}); proof.Proven() || proof.State != EvidenceUnknown || proof.Reason != EvidenceUnavailable {
+		t.Fatalf("ProveCompletion() with no accepted modes = %#v, want unavailable proof", proof)
 	}
 }
 
@@ -113,8 +113,8 @@ func store(target *owner, value *closer) {
 		Instruction: store,
 		Value:       target,
 		Modes:       TransferStoredInGlobal,
-	}); rejected.Proven() {
-		t.Fatalf("ProveOwnershipTransfer() accepted an unselected relationship: %#v", rejected)
+	}); rejected.Proven() || rejected.State != EvidenceDisproven {
+		t.Fatalf("ProveOwnershipTransfer() = %#v, want disproven relationship", rejected)
 	}
 }
 
@@ -133,6 +133,7 @@ func consume(...*closer) {}
 func fields(left, right *owner) {
 	consume(left.value, right.value, right.other)
 }
+
 `)
 	function := pkg.Func("fields")
 	var fields []*ssa.FieldAddr
@@ -162,7 +163,45 @@ func fields(left, right *owner) {
 		AccessPath{Value: fields[0], Root: function.Params[0]},
 		AccessPath{Value: fields[2], Root: function.Params[1]},
 	)
-	if rejected.Proven() {
-		t.Fatalf("identity accepted different fields: %#v", rejected)
+	if rejected.Proven() || rejected.State != EvidenceDisproven {
+		t.Fatalf("identity = %#v, want different fields disproven", rejected)
+	}
+}
+
+func TestEvidenceQueryMemoizesProofs(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+type closer struct{}
+
+func (*closer) Close() {}
+
+func closeHelper(value *closer) {
+	value.Close()
+}
+
+func caller(value *closer) {
+	closeHelper(value)
+}
+`)
+	function := pkg.Func("caller")
+	instruction := findSSAInstruction(t, function, func(instruction ssa.Instruction) bool {
+		common := InstructionCall(instruction)
+		return common != nil && CallName(common) == "closeHelper"
+	})
+	request := CompletionRequest{
+		Instruction: instruction,
+		Target:      function.Params[0],
+		Methods:     []string{"Close"},
+		Modes:       CompletionByHelper,
+	}
+	var query EvidenceQuery
+	first := query.Completion(request)
+	second := query.Completion(request)
+	if !first.Proven() || first != second {
+		t.Fatalf("memoized completion proofs differ: first=%#v second=%#v", first, second)
+	}
+	if len(query.completions) != 1 {
+		t.Fatalf("completion cache entries = %d, want 1", len(query.completions))
 	}
 }

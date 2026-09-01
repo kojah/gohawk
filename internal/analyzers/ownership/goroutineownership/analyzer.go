@@ -49,6 +49,7 @@ type goroutineAnalysis struct {
 	groups       []ssa.Value
 	owners       []ssa.Value
 	testFunction bool
+	evidence     *ssautil.EvidenceQuery
 }
 
 // HasExplicitGoroutineOwnership reports whether spawn has a recognized join,
@@ -60,6 +61,7 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 		return false
 	}
 	function := spawn.Parent()
+	var evidence ssautil.EvidenceQuery
 	signals, groups := goroutineJoinValues(spawn)
 	owners := goroutineLifecycleValues(spawn)
 	if goroutineHasStopLifecycle(spawn) || goroutineTransferredToCaller(function, spawn) || externallyOwnedLifecycle(owners) ||
@@ -70,8 +72,9 @@ func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
 		return true
 	}
 	return !ssautil.UnownedReturn(spawn, func(candidate ssa.Instruction) bool {
-		return joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(candidate, owners) || ownsGoroutineLifecycle(candidate, owners) ||
-			transfersGoroutineOwnership(candidate, signals, groups, owners)
+		return joinsGoroutine(candidate, signals, groups) || waitsForLifecycleOwner(&evidence, candidate, owners) ||
+			ownsGoroutineLifecycle(&evidence, candidate, owners) ||
+			transfersGoroutineOwnership(&evidence, candidate, signals, groups, owners)
 	}, func(returned *ssa.Return) bool {
 		return ssautil.ReturnedSameAsAny(returned, signals) || ssautil.ReturnedSameAsAny(returned, groups) || ssautil.ReturnedSameAsAny(returned, owners)
 	})
@@ -89,11 +92,12 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 		return nil, err
 	}
 	for _, function := range functions {
+		var evidence ssautil.EvidenceQuery
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				spawn, ok := instruction.(*ssa.Go)
 				if ok {
-					analyzeSpawn(pass, function, spawn, config)
+					analyzeSpawn(pass, function, spawn, config, &evidence)
 				}
 			}
 		}
@@ -101,7 +105,13 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 	return nil, nil
 }
 
-func analyzeSpawn(pass *analysis.Pass, function *ssa.Function, spawn *ssa.Go, config goroutineOwnershipConfig) {
+func analyzeSpawn(
+	pass *analysis.Pass,
+	function *ssa.Function,
+	spawn *ssa.Go,
+	config goroutineOwnershipConfig,
+	evidence *ssautil.EvidenceQuery,
+) {
 	signals, groups := goroutineJoinValues(spawn)
 	owners := goroutineLifecycleValues(spawn)
 	checkID := goroutineCheck(config, signals, groups)
@@ -109,6 +119,7 @@ func analyzeSpawn(pass *analysis.Pass, function *ssa.Function, spawn *ssa.Go, co
 		pass: pass, function: function, spawn: spawn, config: config, checkID: checkID,
 		signals: signals, groups: groups, owners: owners,
 		testFunction: strings.HasSuffix(pass.Fset.Position(function.Pos()).Filename, "_test.go"),
+		evidence:     evidence,
 	}
 	if reason, accepted := acceptedGoroutineOwnership(function, spawn, config, signals, groups, owners); accepted {
 		analysis.emitTrace(spawn.Pos(), reason, analysisTrace.OutcomeAccepted)
@@ -178,14 +189,14 @@ func (analysis goroutineAnalysis) instructionOwnsGoroutine(candidate ssa.Instruc
 	switch {
 	case joinsGoroutine(candidate, analysis.signals, analysis.groups):
 		reason = "join-observed"
-	case waitsForLifecycleOwner(candidate, analysis.owners):
+	case waitsForLifecycleOwner(analysis.evidence, candidate, analysis.owners):
 		reason = "lifecycle-wait"
 	case analysis.testFunction && causalTestJoin(analysis.spawn, candidate):
 		reason = "causal-test-join"
-	case analysis.config.mode != goroutineModeJoin && ownsGoroutineLifecycle(candidate, analysis.owners):
+	case analysis.config.mode != goroutineModeJoin && ownsGoroutineLifecycle(analysis.evidence, candidate, analysis.owners):
 		reason = "lifecycle-owner"
 	case transfersGoroutineOwnership(
-		candidate, analysis.signals, analysis.groups, ownershipCandidates(analysis.config, analysis.owners),
+		analysis.evidence, candidate, analysis.signals, analysis.groups, ownershipCandidates(analysis.config, analysis.owners),
 	):
 		reason = "ownership-transfer"
 	default:

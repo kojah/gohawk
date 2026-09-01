@@ -1,16 +1,13 @@
-// Package lifecyclefacts exports conservative cross-package ownership
-// summaries. It records only lifecycle actions that hold on every normal return
-// of an exported function, allowing dependent analyzers to reuse that evidence
-// without treating uncertain dependency behavior as ownership transfer.
+// Package lifecyclefacts resolves lifecycle evidence across source and package
+// boundaries. It combines memoized local SSA proofs with conservative exported
+// summaries, and keeps missing summaries distinct from disproved ownership.
 package lifecyclefacts
 
 import (
 	"go/types"
 	"reflect"
-	"strconv"
 
 	"github.com/kojah/gohawk/internal/analysisutil/ssa"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -77,108 +74,6 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 		}
 	}
 	return Fact{}, false
-}
-
-// ArgumentEvidence identifies one analyzer query about ownership of a call
-// argument. Named fields keep the analyzer/check identity and SSA values from
-// being transposed at call sites.
-type ArgumentEvidence struct {
-	Pass        *analysis.Pass
-	Analyzer    string
-	Check       string
-	Instruction ssa.Instruction
-	Target      ssa.Value
-	SelectMask  func(Fact) ParameterMask
-}
-
-// OwnsArgument reports whether a summarized ownership mask covers target.
-func OwnsArgument(evidence ArgumentEvidence) bool {
-	if evidence.SelectMask == nil {
-		return false
-	}
-	fact, ok := factFor(evidence.Pass, evidence.Instruction)
-	mask := evidence.SelectMask(fact)
-	owned := ok && factOwnsArgument(evidence.Instruction, evidence.Target, mask)
-	emitSummaryTrace(evidence.Pass, evidence.Analyzer, evidence.Check, evidence.Instruction, evidence.Target, mask, owned)
-	return owned
-}
-
-// StoresInEscapingReceiver reports a summarized field transfer only when the
-// caller-visible receiver itself outlives the call.
-func StoresInEscapingReceiver(evidence ArgumentEvidence) bool {
-	common := ssautil.InstructionCall(evidence.Instruction)
-	fact, summarized := factFor(evidence.Pass, evidence.Instruction)
-	if !summarized || !factOwnsArgument(evidence.Instruction, evidence.Target, fact.ReceiverStore) {
-		return false
-	}
-	receiver := ssautil.CallReceiver(common)
-	escapes := receiver != nil && (ssautil.ExternallyOwnedValue(receiver) || ssautil.ValueEscapes(receiver))
-	reason := analysisTrace.ReasonReceiverStoreTransfer
-	outcome := analysisTrace.OutcomeAccepted
-	if !escapes {
-		reason = analysisTrace.ReasonReceiverDoesNotEscape
-		outcome = analysisTrace.OutcomeRejected
-	}
-	if analysisTrace.Enabled(evidence.Analyzer, evidence.Check) {
-		analysisTrace.Emit(
-			evidence.Pass,
-			analysisTrace.Event{
-				Analyzer: evidence.Analyzer,
-				Check:    evidence.Check,
-				Phase:    "evidence",
-				Reason:   reason,
-				Outcome:  outcome,
-				Pos:      evidence.Instruction.Pos(),
-				Function: functionName(evidence.Instruction),
-				Details:  summaryDetails(evidence.Instruction, evidence.Target, fact.ReceiverStore),
-			},
-		)
-	}
-	if !escapes {
-		return false
-	}
-	return true
-}
-
-func emitSummaryTrace(pass *analysis.Pass, analyzer, check string, instruction ssa.Instruction, target ssa.Value, mask ParameterMask, owned bool) {
-	if !analysisTrace.Enabled(analyzer, check) {
-		return
-	}
-	outcome := analysisTrace.OutcomeRejected
-	if owned {
-		outcome = analysisTrace.OutcomeAccepted
-	}
-	analysisTrace.Emit(
-		pass,
-		analysisTrace.Event{
-			Analyzer: analyzer,
-			Check:    check,
-			Phase:    "evidence",
-			Reason:   analysisTrace.ReasonLifecycleSummary,
-			Outcome:  outcome,
-			Pos:      instruction.Pos(),
-			Function: functionName(instruction),
-			Details:  summaryDetails(instruction, target, mask),
-		},
-	)
-}
-
-func summaryDetails(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) map[string]string {
-	details := map[string]string{"mask": strconv.FormatUint(uint64(mask), 16)}
-	if target != nil && target.Type() != nil {
-		details["target_type"] = target.Type().String()
-	}
-	if common := ssautil.InstructionCall(instruction); common != nil && common.StaticCallee() != nil {
-		details["callee"] = common.StaticCallee().String()
-	}
-	return details
-}
-
-func functionName(instruction ssa.Instruction) string {
-	if instruction == nil || instruction.Parent() == nil {
-		return ""
-	}
-	return instruction.Parent().String()
 }
 
 func summarize(pass *analysis.Pass, function *ssa.Function) Fact {

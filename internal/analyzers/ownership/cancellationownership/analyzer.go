@@ -32,6 +32,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	for _, function := range functions {
+		evidence := lifecyclefacts.NewEvidenceQuery(pass, "cancellationownership", string(check.CancellationRelease))
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)
@@ -52,7 +53,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				// Prometheus installs its current cancel in a scraper callback:
 				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/scrape/scrape_test.go#L1294-L1315
 				leaks := ssautil.UnownedReturnAssumingNonNil(call, cancel, func(candidate ssa.Instruction) bool {
-					return callsCancel(pass, candidate, cancel)
+					return callsCancel(evidence, candidate, cancel)
 				}, func(returned *ssa.Return) bool {
 					return ssautil.ReturnSameValue(returned, cancel) || ssautil.ReturnedValueOwnsValue(returned, cancel)
 				})
@@ -187,7 +188,7 @@ func cancelInvocation(name, constructor string) string {
 	return name + "()"
 }
 
-func callsCancel(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Value) bool {
+func callsCancel(evidence *lifecyclefacts.EvidenceQuery, instruction ssa.Instruction, cancel ssa.Value) bool {
 	// A helper may settle an obligation without a naming convention. Require
 	// invocation on every normal helper return; process-tree tests use this to
 	// centralize cancellation and process cleanup together:
@@ -196,8 +197,8 @@ func callsCancel(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Va
 	// remains for wrappers which delegate to an interface cleanup method.
 	// Cerberus delegates qcancel through a deferred CloseCursor call:
 	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
-	if instructionSettlesCancellation(instruction, cancel) ||
-		callTakesCancellationOwnership(pass, instruction, cancel) {
+	if instructionSettlesCancellation(evidence, instruction, cancel) ||
+		callTakesCancellationOwnership(evidence, instruction, cancel) {
 		return true
 	}
 	common := ssautil.InstructionCall(instruction)
@@ -221,7 +222,17 @@ func callsCancel(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Va
 	return false
 }
 
-func instructionSettlesCancellation(instruction ssa.Instruction, cancel ssa.Value) bool {
+func instructionSettlesCancellation(
+	evidence *lifecyclefacts.EvidenceQuery,
+	instruction ssa.Instruction,
+	cancel ssa.Value,
+) bool {
+	transfer := ssautil.OwnershipTransferRequest{
+		Instruction: instruction,
+		Value:       cancel,
+		Modes: ssautil.TransferStoredInField | ssautil.TransferStoredInGlobal |
+			ssautil.TransferOwnerStoredInField | ssautil.TransferStoredInOwnedMap,
+	}
 	return ssautil.ClosureCallsValue(instruction, cancel) ||
 		ssautil.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) ||
 		ssautil.DeferredClosurePassesValueToNamedCall(
@@ -235,37 +246,47 @@ func instructionSettlesCancellation(instruction ssa.Instruction, cancel ssa.Valu
 		) ||
 		ssautil.ClosureOwnsValue(instruction, cancel) ||
 		ssautil.StoresValueThroughExternalFieldPointer(instruction, cancel) ||
-		ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
+		evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
-			Value:       cancel,
-			Modes: ssautil.TransferStoredInField | ssautil.TransferStoredInGlobal |
-				ssautil.TransferOwnerStoredInField | ssautil.TransferStoredInOwnedMap,
+			Target:      cancel,
+			Transfer:    &transfer,
 		}).Proven() ||
 		atomicStoreCoupledToWorker(instruction, cancel)
 }
 
-func callTakesCancellationOwnership(pass *analysis.Pass, instruction ssa.Instruction, cancel ssa.Value) bool {
-	return ssautil.CallReturnsDeferredCleanup(instruction, cancel) ||
-		lifecyclefacts.OwnsArgument(lifecyclefacts.ArgumentEvidence{
-			Pass:        pass,
-			Analyzer:    "cancellationownership",
-			Check:       string(check.CancellationRelease),
-			Instruction: instruction,
-			Target:      cancel,
-			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
-				return fact.Invoked | fact.ReturnedOwner
-			},
-		}) ||
-		lifecyclefacts.StoresInEscapingReceiver(lifecyclefacts.ArgumentEvidence{
-			Pass: pass, Analyzer: "cancellationownership", Check: string(check.CancellationRelease), Instruction: instruction, Target: cancel,
-		}) ||
-		ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) ||
-		ssautil.ProveOwnershipTransfer(ssautil.OwnershipTransferRequest{
-			Instruction: instruction,
-			Value:       cancel,
-			Modes: ssautil.TransferToReturnedOwner | ssautil.TransferToReceiver |
-				ssautil.TransferToLifecycleOwner,
-		}).Proven()
+func callTakesCancellationOwnership(
+	evidence *lifecyclefacts.EvidenceQuery,
+	instruction ssa.Instruction,
+	cancel ssa.Value,
+) bool {
+	local := ssautil.Proof{State: ssautil.EvidenceDisproven, Reason: ssautil.EvidenceNotFound, Provenance: ssautil.EvidenceFromLocalSSA}
+	if ssautil.CallReturnsDeferredCleanup(instruction, cancel) {
+		local = ssautil.Proof{
+			State: ssautil.EvidenceProven, Reason: ssautil.EvidenceReturnedDeferredCleanup,
+			Provenance: ssautil.EvidenceFromLocalSSA,
+		}
+	} else if ssautil.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
+		local = ssautil.Proof{
+			State: ssautil.EvidenceProven, Reason: ssautil.EvidenceHelperInvocation,
+			Provenance: ssautil.EvidenceFromLocalSSA,
+		}
+	}
+	transfer := ssautil.OwnershipTransferRequest{
+		Instruction: instruction,
+		Value:       cancel,
+		Modes: ssautil.TransferToReturnedOwner | ssautil.TransferToReceiver |
+			ssautil.TransferToLifecycleOwner,
+	}
+	return evidence.Prove(lifecyclefacts.EvidenceRequest{
+		Instruction: instruction,
+		Target:      cancel,
+		Local:       &local,
+		Transfer:    &transfer,
+		SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
+			return fact.Invoked | fact.ReturnedOwner
+		},
+		ReceiverStore: true,
+	}).Proven()
 }
 
 func atomicStoreCoupledToWorker(instruction ssa.Instruction, cancel ssa.Value) bool {

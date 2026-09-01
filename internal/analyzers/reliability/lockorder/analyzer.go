@@ -54,7 +54,8 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	}
 	relations := map[lockRelation]token.Pos{}
 	for _, function := range functions {
-		walkLockOrder(pass, function, relations)
+		var evidence ssautil.EvidenceQuery
+		walkLockOrder(pass, function, relations, &evidence)
 	}
 	return nil, nil
 }
