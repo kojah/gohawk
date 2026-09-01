@@ -71,6 +71,11 @@ linters:
       rules:
         - name: argument-limit
           arguments: [8]
+        - name: file-length-limit
+          arguments:
+            - max: 500
+              skip-comments: true
+              skip-blank-lines: true
   exclusions:
     rules:
       # Test fixtures intentionally execute variable commands and create
