@@ -26,13 +26,22 @@ func Analyzer() *analysis.Analyzer {
 
 func runEvalOrder(pass *analysis.Pass) (any, error) {
 	in := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-	in.Preorder([]ast.Node{(*ast.ReturnStmt)(nil), (*ast.CallExpr)(nil)}, func(node ast.Node) {
+	in.Nodes([]ast.Node{(*ast.File)(nil), (*ast.ReturnStmt)(nil), (*ast.CallExpr)(nil)}, func(node ast.Node, push bool) bool {
+		if !push {
+			return true
+		}
 		switch candidate := node.(type) {
+		case *ast.File:
+			// The standalone driver includes production syntax in both the ordinary package and its augmented test variant.
+			// AnalyzeFile keeps that syntax canonical without dropping diagnostics that originate in _test.go files. This
+			// duplicate was exposed by https://github.com/minio/madmin-go/blob/ef04ea3969c2177b22e13e9e61dfc4ddeccf3feb/user-commands.go#L1157-L1158.
+			return syntax.AnalyzeFile(pass, candidate)
 		case *ast.ReturnStmt:
 			reportEvaluationDependencies(pass, candidate.Results)
 		case *ast.CallExpr:
 			reportEvaluationDependencies(pass, candidate.Args)
 		}
+		return true
 	})
 	return nil, nil
 }

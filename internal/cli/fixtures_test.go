@@ -166,6 +166,40 @@ func Start(ctx context.Context) {
 	return directory
 }
 
+func writeEvalOrderTestModule(t *testing.T) string {
+	t.Helper()
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/evalordertest\n\ngo 1.25.0\n")
+	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), `package sample
+
+func replace(target *int) error {
+	*target = 42
+	return nil
+}
+
+func staleProduction(value int) (int, error) {
+	return value, replace(&value)
+}
+
+func orderedProduction(value int) (int, error) {
+	err := replace(&value)
+	return value, err
+}
+`)
+	writeTestFile(t, filepath.Join(directory, "sample", "sample_test.go"), `package sample
+
+func staleTestOnly(value int) (int, error) {
+	return value, replace(&value)
+}
+
+func orderedTestOnly(value int) (int, error) {
+	err := replace(&value)
+	return value, err
+}
+`)
+	return directory
+}
+
 func writeCheckFilterModule(t *testing.T) string {
 	t.Helper()
 	directory := t.TempDir()

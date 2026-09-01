@@ -69,6 +69,43 @@ func TestCLIIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("canonical production and test files", func(t *testing.T) {
+		t.Parallel()
+		module := writeEvalOrderTestModule(t)
+		output, exitCode := runCommand(t, module, binary, "-json", "-enable=evalorder", "./...")
+		if exitCode != 0 {
+			t.Fatalf("evalorder JSON run: exit code = %d, want 0\n%s", exitCode, output)
+		}
+		var diagnostics map[string]map[string][]struct {
+			Posn string `json:"posn"`
+		}
+		if err := json.Unmarshal([]byte(output), &diagnostics); err != nil {
+			t.Fatalf("decode evalorder JSON output: %v\n%s", err, output)
+		}
+		var productionCount, testCount int
+		for packageName, analyzers := range diagnostics {
+			for _, diagnostic := range analyzers["evalorder"] {
+				switch {
+				case strings.Contains(diagnostic.Posn, "sample.go:"):
+					productionCount++
+					if strings.Contains(packageName, "[") {
+						t.Fatalf("production diagnostic came from augmented test package %q\n%s", packageName, output)
+					}
+				case strings.Contains(diagnostic.Posn, "sample_test.go:"):
+					testCount++
+					if !strings.Contains(packageName, "[") {
+						t.Fatalf("test diagnostic came from ordinary package %q\n%s", packageName, output)
+					}
+				default:
+					t.Fatalf("unexpected evalorder diagnostic at %q\n%s", diagnostic.Posn, output)
+				}
+			}
+		}
+		if productionCount != 1 || testCount != 1 {
+			t.Fatalf("evalorder counts = production %d, test %d; want 1 each\n%s", productionCount, testCount, output)
+		}
+	})
+
 	for _, fixture := range []struct {
 		name    string
 		version string
