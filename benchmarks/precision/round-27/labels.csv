@@ -1,0 +1,15 @@
+repository,analyzer,position,verdict
+hyperledger-labs/fabric-smart-client,resourcelifetime,platform/view/services/storage/driver/sql/common/binding.go:71:15,false_positive
+hyperledger-labs/fabric-smart-client,resourcelifetime,platform/view/services/storage/driver/sql/common/signerinfo.go:63:15,false_positive
+hyperledger-labs/fabric-smart-client,resourcelifetime,node/start/profile/profile.go:156:12,false_positive
+hyperledger-labs/fabric-smart-client,resourcelifetime,integration/nwo/cmd/commands/cryptogen/cryptogen.go:568:13,false_positive
+askie/grix,resourcelifetime,backend/internal/pkg/adapterlog/adapterlog.go:123:13,false_positive
+askie/grix,resourcelifetime,backend/internal/pkg/adapterlog/adapterlog.go:162:12,false_positive
+hyperledger-labs/fabric-smart-client,resourcelifetime,node/start/profile/profile.go:130:12,true_positive
+hyperledger-labs/fabric-smart-client,goroutineownership,platform/view/services/grpc/server_test.go:152:2,true_positive
+hyperledger-labs/fabric-smart-client,resourcelifetime,platform/view/services/web/client/client.go:151:15,true_positive
+hyperledger-labs/fabric-smart-client,resourcelifetime,platform/view/services/storage/driver/sql/common/unversioned_test.go:203:13,true_positive
+duggytuxy/syswarden,resourcelifetime,src/core/syswarden-cli/pkg/integration/webhook.go:128:9,true_positive
+duggytuxy/syswarden,processownership,src/core/syswarden-cli/cmd/alerts.go:139:12,true_positive
+auth0/go-auth0,resourcelifetime,internal/client/client_test.go:1363:13,true_positive
+alpha-omega-security/scrutineer,concurrentcapture,internal/worker/opencode_provider_test.go:480:5,true_positive

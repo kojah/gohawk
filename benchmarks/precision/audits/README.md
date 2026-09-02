@@ -772,3 +772,55 @@ false positives remained absent and all 219 true positives remained present
 after one Kong scan killed by memory pressure under a three-way replay was
 rerun alone. The cumulative suite and larger benchmark are scheduled for
 Batch 25.
+
+## Batch 25
+
+Ten repositories and eighteen modules were selected. Seventeen modules loaded
+and scanned fully; Fabric Smart Client's tools module contained no Go
+packages. Final scans produced 1,850 unique diagnostics after three
+bounded corrections, each a reuse of an existing proof at one more shape:
+
+- a deferred call to an imported helper whose lifecycle summary says it
+  invokes its callback parameter on every return settles the cleanup method
+  value bound to the exact resource, the same evidence the local
+  deferred-helper proof already accepted for source-visible helpers;
+- a source-visible method that appends the argument to a receiver field
+  transfers it even though `append` packs its variadic arguments into an
+  array before the call, which plain operand derivation cannot follow; and
+- a record that holds the resource stored into a receiver-owned map transfers
+  it exactly as storing the resource itself would.
+
+The corrections removed four Fabric Smart Client findings, three deferred
+`utils.IgnoreErrorFunc(rows.Close)` calls and one profile closer, and two
+grix log-file findings. Precision round 27 passed with all six false positives
+absent and all eight nearby true positives present: Fabric's CPU-profile file
+leaked when profiling fails to start, its gRPC stream test that skips its own
+join on a send error, its web client that returns without closing a non-OK
+response, and a test transaction never rolled back; Syswarden's discarded
+webhook response and never-waited log tail; an Auth0 test response discarded
+after the request; and a Scrutineer test that mutates captured flags from
+concurrent goroutines.
+
+Several findings remain reportable or deferred as written. NVIDIA's archive
+writer is closed through a function-typed dependency field, which is
+indistinguishable from any other opaque use of the writer. Syswarden's
+firewall guards return with a mutex deliberately held for a paired release
+function, and Fabric orders two locks by pointer address; both are lock
+handoff idioms that would need a returned-guard contract or an
+address-comparison proof. Fabric's readiness `Done` before subscriber work and
+its polling of a channel closed through a method remain a policy report.
+Opt-in global-state, API-shape, and detached-goroutine findings were sampled
+without expanding default policy.
+
+This is the fifth-batch milestone. The cumulative gate replayed rounds 2
+through 27 two at a time, the parallelism the host's memory allows for the
+largest Kubernetes checkouts: all 186 false positives remained absent and all
+241 true positives remained present.
+
+Five-run Caddy and three-run Moby comparisons used the Batch 24 boundary and
+the final Batch 25 code revision on the same host. Pinned Caddy median wall
+time changed from 3.402 to 3.477 seconds (+2.2%) and peak RSS from
+5,127,312 to 5,036,288 KiB (-1.8%). The periodic pinned Moby checkpoint
+changed from 7.865 to 7.475 seconds (-5.0%) and from 10,340,972 to
+10,280,640 KiB (-0.6%). Run-to-run variance on this host remains wider than
+any of these deltas.

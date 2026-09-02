@@ -146,3 +146,10 @@ Round 26 preserves the twenty-second reviewed batch. It covers a worker that
 signals completion through an element of a captured slice the parent returns,
 and a started command whose os.Process is returned to the caller. Nearby
 ticker, temporary-file, response, and compression findings remain reportable.
+
+Round 27 preserves the twenty-third reviewed batch. It covers an imported
+helper summarized as invoking its callback parameter, applied to a deferred
+call with a cleanup method value; a closure holding the resource appended to a
+receiver's closer list; and a wrapper record stored into a receiver-owned map.
+Nearby resource, goroutine, process, and concurrent-capture findings remain
+reportable.

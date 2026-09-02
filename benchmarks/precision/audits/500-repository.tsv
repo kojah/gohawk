@@ -239,3 +239,13 @@
 24	auth0/auth0-cli	af9e44edfb6c88ff2f58964bce9e092434315825	.	reviewed
 24	charmbracelet/catwalk	1e4e6ddc652db0ec87633b06bfbe702208da2ff1	.	reviewed
 24	c0m4r/kula	c92f914de527bb004a77f1e5162806629cd3fbb3	.	reviewed
+25	auth0/go-auth0	c331543eb13e55062e0c6966139ee9b191d9f76b	.	reviewed
+25	hyperledger-labs/fabric-smart-client	cb202fc2768b3e72b0197bbaf401b9c2287098e8	.,integration,tools,platform/fabric/services/state/cc/query,platform/view/services/comm/host/libp2p	reviewed
+25	sympozium-ai/sympozium	8a09d1b64c25882dc84994a7a6660f002ed08421	.	reviewed
+25	alpha-omega-security/scrutineer	bdc73452f4b6032f8c2d8ec373e0372c4e290795	.	reviewed
+25	txperl/PixivBiu	1e1303238905e9a8d88cd9f5547905e43577b0bd	.	reviewed
+25	locustbaby/trivy-ui	0672212e65534438f4adca315269c83595fb55ba	go-server	reviewed
+25	seatgeek/buildkit-operator	ad25b47f4b3240ae38439d75b93d28fbdb25bfea	.,api	reviewed
+25	askie/grix	dbf8ad10477d7458c7b8c9900ce2e2a6296d4063	backend	reviewed
+25	duggytuxy/syswarden	1aa14c226eee0bae4bdb5565ba02f382d022fcb9	scripts/versionctl,src/core/syswarden-cli,src/core/syswarden-core,src/core/syswarden-tui	reviewed
+25	NVIDIA/aicr	7988e785ac1fbd77ca39a000aa055a47e70c5755	.	reviewed
