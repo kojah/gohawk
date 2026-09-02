@@ -153,3 +153,8 @@ call with a cleanup method value; a closure holding the resource appended to a
 receiver's closer list; and a wrapper record stored into a receiver-owned map.
 Nearby resource, goroutine, process, and concurrent-capture findings remain
 reportable.
+
+Round 28 preserves the twenty-fourth reviewed batch. It covers a producer
+whose channel is drained by worker goroutines launched in the same function
+and two captured mutexes of one type locked inside a closure. Nearby lock,
+resource, concurrent-capture, and defer-in-loop findings remain reportable.

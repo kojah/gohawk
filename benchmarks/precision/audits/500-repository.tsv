@@ -249,3 +249,13 @@
 25	askie/grix	dbf8ad10477d7458c7b8c9900ce2e2a6296d4063	backend	reviewed
 25	duggytuxy/syswarden	1aa14c226eee0bae4bdb5565ba02f382d022fcb9	scripts/versionctl,src/core/syswarden-cli,src/core/syswarden-core,src/core/syswarden-tui	reviewed
 25	NVIDIA/aicr	7988e785ac1fbd77ca39a000aa055a47e70c5755	.	reviewed
+26	kovetskiy/mark	4d07d076e943c415fe628807ae5f303dfbe81708	.	reviewed
+26	trickstercache/trickster	7818ae3c39e725eb998f04fa31e5d315ede84b79	.,integration	reviewed
+26	kOlapsis/maintenant	f7ea6722106dc50561fcceb4a6de8331a3ebc820	.	reviewed
+26	netboxlabs/orb-agent	c469b893c11e105dd79972f604d40777fec3123a	.,orb-discovery/gnmi-discovery,orb-discovery/network-discovery,orb-discovery/snmp-discovery,orb-telemetry/snmp-telemetry	reviewed
+26	traPtitech/traQ	8c25ef376818c7227313fcbff0165f73346085f0	.	reviewed
+26	grafana/alerting	46847d9b586c46b06f8c666a93250ed062e4efb9	.,apps/historian,testing/alerting-gen	reviewed
+26	postfinance/kubelet-csr-approver	3422dc83e7af86d5e3c6ec17aba7c57ee8431922	.	reviewed
+26	qdrant/migration	d91f9eee2ce42e87d523a1720270fefa02043896	.	reviewed
+26	aserto-dev/topaz	73ed45311d4d6e7c5a24fd7ce892a3067e3bd9d6	.	reviewed
+26	firehol/iprange	8246bb09aedab412c88ed868dd39aa1b123aeda0	v4/go	reviewed

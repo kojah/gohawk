@@ -824,3 +824,44 @@ time changed from 3.402 to 3.477 seconds (+2.2%) and peak RSS from
 changed from 7.865 to 7.475 seconds (-5.0%) and from 10,340,972 to
 10,280,640 KiB (-0.6%). Run-to-run variance on this host remains wider than
 any of these deltas.
+
+## Batch 26
+
+Ten repositories and seventeen modules were selected. Fifteen modules loaded
+and scanned fully. Maintenant produced useful partial analysis because its
+pinned revision omits an embedded asset tree, and qdrant's migration tool
+depends on ONNX runtime bindings that are excluded by build constraints on
+this host. Final scans produced 1,193 unique diagnostics after two
+bounded corrections:
+
+- a producer goroutine whose completion channel is captured or received by
+  another goroutine launched anywhere in the same function hands its
+  completion to those workers. Worker pools launch their consumers in a
+  loop, so the existing dominating-launch rule could not credit them, and the
+  parent never established a receive of its own to skip; and
+- a captured mutex now carries a closure-scoped identity built from its
+  free-variable name, so two captured owners of one type are distinct locks
+  inside a closure rather than one apparent recursive acquisition.
+
+The first correction removed three Grafana alerting-generator producer
+findings and one NetBox SNMP probe finding. The second removed two Trickster
+integration-test findings. Precision round 28 passed with all five
+representative false positives absent and all seven nearby true positives
+present: a traQ test repository that returns with its tag lock held, a Topaz
+manifest file never closed, a Grafana WeCom response leaked on a non-2xx
+status, a Grafana worker error assigned from concurrent goroutines, two
+Trickster test responses and readers never closed, and an iprange pin closed
+only after its loop.
+
+Trickster's daemon unlocks through a deferred closure that consults a
+Boolean set later in the function, which remains deferred pending symbolic
+Boolean reasoning, as with Duckgres in Batch 16. Opt-in global-state,
+API-shape, wire-policy, and detached-goroutine findings were sampled without
+expanding default policy.
+
+Per-batch and fifth-batch performance comparisons were discontinued from
+Batch 26 onward: run-to-run variance on the audit host had exceeded every
+delta recorded since Batch 11, so the measurements were not informing
+decisions. The dogfooding benchmark remains available for release gates.
+Batch 26 replayed round 28 and the twenty-three rounds carrying goroutine- or
+lock-order labels.

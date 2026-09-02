@@ -1,0 +1,13 @@
+repository,analyzer,position,verdict
+grafana/alerting,goroutineownership,testing/alerting-gen/pkg/execute/run.go:146:2,false_positive
+grafana/alerting,goroutineownership,testing/alerting-gen/pkg/execute/run.go:264:2,false_positive
+netboxlabs/orb-agent,goroutineownership,orb-discovery/snmp-discovery/policy/runner.go:174:2,false_positive
+trickstercache/trickster,lockorder,integration/alb_request_headers_test.go:95:3,false_positive
+trickstercache/trickster,lockorder,integration/alb_request_headers_test.go:111:3,false_positive
+traPtitech/traQ,lockorder,testutils/test_repository.go:649:3,true_positive
+aserto-dev/topaz,resourcelifetime,topaz-db/cmd/set.go:36:12,true_positive
+grafana/alerting,resourcelifetime,receivers/wecom/v1/wecom.go:138:15,true_positive
+grafana/alerting,concurrentcapture,testing/alerting-gen/pkg/execute/run.go:110:5,true_positive
+trickstercache/trickster,resourcelifetime,pkg/testutil/testing_test.go:35:15,true_positive
+trickstercache/trickster,resourcelifetime,integration/alb_response_headers_test.go:261:13,true_positive
+firehol/iprange,deferinloop,v4/go/zeroalloc_test.go:53:3,true_positive
