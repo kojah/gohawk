@@ -98,7 +98,13 @@ func closureCallsMethodOnEveryReturn(
 	}
 	callsMethod := func(instruction ssa.Instruction) bool {
 		common := InstructionCall(instruction)
-		if CallName(common) == method && calledReceiverMatches(nil, closure, function, CallReceiver(common), target) {
+		receiverMatches := calledReceiverMatches(nil, closure, function, CallReceiver(common), target)
+		// Only deferred callbacks need the binding to remain exact through function
+		// return. An immediately called closure observes its capture at this call.
+		if allowOnceFunc {
+			receiverMatches = deferredReceiverMatches(closure, function, CallReceiver(common), target, invocation)
+		}
+		if CallName(common) == method && receiverMatches {
 			return true
 		}
 		if common == nil {
@@ -126,6 +132,62 @@ func closureCallsMethodOnEveryReturn(
 	return hasReturn && hasCall && !UnownedReturnFromEntry(function, callsMethod)
 }
 
+func deferredReceiverMatches(
+	closure *ssa.MakeClosure,
+	function *ssa.Function,
+	receiver ssa.Value,
+	target ssa.Value,
+	invocation ssa.Instruction,
+) bool {
+	for index, free := range function.FreeVars {
+		if index >= len(closure.Bindings) || !ValueDerivesFrom(receiver, free, map[ssa.Value]bool{}) {
+			continue
+		}
+		binding, ok := deferredBindingValue(closure.Bindings[index], target, invocation)
+		if !ok {
+			continue
+		}
+		if SameValue(binding, target) || ValueDerivesFrom(binding, target, map[ssa.Value]bool{}) || SameAccessPath(
+			AccessPath{Value: receiver, Root: free},
+			AccessPath{Value: target, Root: binding},
+		) {
+			return true
+		}
+	}
+	return false
+}
+
+//nolint:ireturn // SSA bindings have several concrete forms.
+func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction) (ssa.Value, bool) {
+	if valueHasDirectStore(binding) {
+		// Addressable captures must use the unique-store proof below. General
+		// identity traversal may otherwise match one historical value while the
+		// deferred callback observes a later reassignment.
+		return uniquelyStoredValueBefore(binding, invocation)
+	}
+	if SameValue(binding, target) || ValueIsAccessPathFrom(target, binding) {
+		return binding, true
+	}
+	// Reassigned captures are addressable cells with multiple stores. A match
+	// against any historical store is insufficient: deferred closures observe
+	// the cell's value when they run, after assignments following the defer.
+	stored, ok := uniquelyStoredValueBefore(binding, invocation)
+	return stored, ok
+}
+
+func valueHasDirectStore(value ssa.Value) bool {
+	if value == nil || value.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *value.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == value {
+			return true
+		}
+	}
+	return false
+}
+
 func uniquelyStoredCallbackCallsMethod(
 	address ssa.Value,
 	method string,
@@ -134,8 +196,14 @@ func uniquelyStoredCallbackCallsMethod(
 	allowOnceFunc bool,
 	seen map[ssa.Value]bool,
 ) bool {
+	stored, ok := uniquelyStoredValueBefore(address, invocation)
+	return ok && callbackValueCallsMethod(stored, method, target, invocation, allowOnceFunc, seen)
+}
+
+//nolint:ireturn // Stored callbacks and captures may be any SSA value.
+func uniquelyStoredValueBefore(address ssa.Value, invocation ssa.Instruction) (ssa.Value, bool) {
 	if address == nil || address.Referrers() == nil {
-		return false
+		return nil, false
 	}
 	var selected *ssa.Store
 	for _, reference := range *address.Referrers() {
@@ -144,11 +212,14 @@ func uniquelyStoredCallbackCallsMethod(
 			continue
 		}
 		if selected != nil || !InstructionDominates(store, invocation) {
-			return false
+			return nil, false
 		}
 		selected = store
 	}
-	return selected != nil && callbackValueCallsMethod(selected.Val, method, target, invocation, allowOnceFunc, seen)
+	if selected == nil {
+		return nil, false
+	}
+	return selected.Val, true
 }
 
 func cloneValueSet(source map[ssa.Value]bool) map[ssa.Value]bool {

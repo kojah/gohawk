@@ -124,7 +124,14 @@ func callCallsMethodOnArgumentOnEveryReturn(instruction ssa.Instruction, method 
 	defer delete(seen, common.StaticCallee())
 	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
 		common := InstructionCall(candidate)
-		return common != nil && CallName(common) == method && ValueDerivesFrom(CallReceiver(common), parameter, map[ssa.Value]bool{}) ||
+		directCall := common != nil && CallName(common) == method &&
+			ValueDerivesFrom(CallReceiver(common), parameter, map[ssa.Value]bool{})
+		// A static helper can own cleanup by registering a deferred callback on
+		// the exact parameter before every normal return. Blnk uses this shape to
+		// close SQL rows after a shared scanner has consumed them:
+		// https://github.com/blnkfinance/blnk/blob/3356cb4c482c065e96624957a3f4be3ae9739c1a/database/transaction_coalescing.go#L149-L154
+		deferredCall := DeferredCallbackCallsMethod(candidate, method, parameter)
+		return directCall || deferredCall ||
 			callCallsMethodOnArgumentOnEveryReturn(candidate, method, parameter, seen)
 	})
 }
