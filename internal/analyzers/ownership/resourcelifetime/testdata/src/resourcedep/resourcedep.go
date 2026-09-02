@@ -59,3 +59,10 @@ func MaybeIgnoreErrorFunc(cleanup func() error, enabled bool) {
 		_ = cleanup()
 	}
 }
+
+var exitHandlers []func()
+
+// RegisterExit keeps the handler to run at exit.
+func RegisterExit(handler func()) {
+	exitHandlers = append(exitHandlers, handler)
+}

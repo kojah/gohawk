@@ -40,9 +40,10 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		fact := summarize(pass, function)
 		summaries[function] = fact
-		if fact != (Fact{}) {
-			pass.ExportObjectFact(object, &fact)
-		}
+		// Export even an empty summary: an importer must be able to tell a
+		// callee proven to do nothing from one that was never summarized, and
+		// only the latter is unknown.
+		pass.ExportObjectFact(object, &fact)
 	}
 	// Facts belong to this prerequisite analyzer, so import dependency facts
 	// here and expose them through the result consumed by sibling analyzers.
@@ -127,6 +128,9 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 		}
 		if index > 0 && storedInReceiverOnEveryReturn(function, function.Params[0], parameter) {
 			fact.ReceiverStore |= bit
+		}
+		if retainedAnywhere(pass, function, parameter) {
+			fact.Retained |= bit
 		}
 	}
 	return fact

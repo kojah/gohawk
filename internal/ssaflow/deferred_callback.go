@@ -19,9 +19,12 @@ var syncOnceFunc = syntax.PackageFunction("sync", "OnceFunc")
 //nolint:ireturn // SSA bindings have several concrete forms.
 func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction) (ssa.Value, bool) {
 	if valueHasDirectStore(binding) {
-		// Addressable captures must use the store proof below. General identity
-		// traversal may otherwise match one historical value while the deferred
-		// callback observes a later reassignment.
+		// Addressable captures must use the store proofs below. General
+		// identity traversal may otherwise match one historical value while the
+		// deferred callback observes a later reassignment.
+		if targetStoredOnPath(binding, target, invocation) {
+			return target, true
+		}
 		return storedValueAt(binding, invocation)
 	}
 	if SameValue(binding, target) || ValueIsAccessPathFrom(target, binding) {
@@ -38,6 +41,46 @@ func valueHasDirectStore(value ssa.Value) bool {
 	for _, reference := range *value.Referrers() {
 		store, ok := reference.(*ssa.Store)
 		if ok && store.Addr == value {
+			return true
+		}
+	}
+	return false
+}
+
+// targetStoredOnPath reports whether a store of the target itself reaches the
+// observation with no other store between them and none after. The target is
+// defined where it is stored, so every path on which it is live passes that
+// store; a resource acquired in one branch of an if/else and closed by a
+// deferred literal after the merge is settled this way even though the store
+// does not dominate the defer. traefikoidc assigns a response in either a
+// retry callback or a direct call before deferring its close:
+// https://github.com/lukaszraczylo/traefikoidc/blob/61e60733a5be38428dee42eed626490f9609dad6/token_introspection.go#L84-L115
+func targetStoredOnPath(address, target ssa.Value, observation ssa.Instruction) bool {
+	if address == nil || address.Referrers() == nil {
+		return false
+	}
+	var stores []*ssa.Store
+	for _, reference := range *address.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == address {
+			stores = append(stores, store)
+		}
+	}
+	for _, candidate := range stores {
+		if !SameValue(candidate.Val, target) || !InstructionMayFollow(candidate, observation) {
+			continue
+		}
+		intervening := false
+		for _, other := range stores {
+			if other == candidate {
+				continue
+			}
+			if storeMayFollow(address, observation, other) || InstructionMayFollow(candidate, other) && InstructionMayFollow(other, observation) {
+				intervening = true
+				break
+			}
+		}
+		if !intervening {
 			return true
 		}
 	}

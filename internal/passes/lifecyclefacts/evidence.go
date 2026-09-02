@@ -33,6 +33,17 @@ func NewLifecycleEvidence(pass *analysis.Pass, analyzer, check string) *Lifecycl
 	return &LifecycleEvidence{pass: pass, analyzer: analyzer, check: check}
 }
 
+// ArgumentRetained reports whether the summary of the call's static callee
+// marks the argument at index as retained. The second result is false when
+// no summary is available, which callers must treat as unknown.
+func (evidence *LifecycleEvidence) ArgumentRetained(instruction ssa.Instruction, index int) (bool, bool) {
+	fact, ok := factFor(evidence.pass, instruction)
+	if !ok {
+		return false, false
+	}
+	return fact.Retained.contains(index), true
+}
+
 // Identity proves a local access-path relationship through the same memoized
 // evidence and tracing channel used for lifecycle evidence.
 func (evidence *LifecycleEvidence) Identity(instruction ssa.Instruction, left, right ssaflow.AccessPath) ssaflow.IdentityProof {

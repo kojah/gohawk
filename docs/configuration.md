@@ -166,5 +166,6 @@ gohawk facts -func CloseAll ./internal/server
 ```
 
 Each line names a parameter and the masks proven for it on every return, such
-as `Closed` or `Invoked`; `-all` also lists summarized functions with no
-proven mask.
+as `Closed` or `Invoked`. A summarized function always appears, even with no
+proven mask; a function missing from the dump was never summarized, and
+consumers treat calls to it as unknown.

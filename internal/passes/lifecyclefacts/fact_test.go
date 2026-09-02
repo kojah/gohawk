@@ -198,6 +198,26 @@ func Save(tx *transaction, ok bool) error {
 	}
 }
 
+// Retention is over-approximate: storing, capturing, returning, or handing
+// the parameter to an opaque callee marks it, while invoking it does not.
+func TestLifecycleSummaryRetention(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+var handlers []func()
+
+func Register(handler func()) { handlers = append(handlers, handler) }
+func Invoke(handler func()) { handler() }
+func Return(handler func()) func() { return handler }
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	for name, want := range map[string]bool{"Register": true, "Invoke": false, "Return": true} {
+		if got := summarize(pass, pkg.Func(name)).Retained.contains(0); got != want {
+			t.Errorf("%s Retained parameter = %t, want %t", name, got, want)
+		}
+	}
+}
+
 func buildLifecycleTestSSA(t *testing.T, source string) *ssa.Package {
 	t.Helper()
 	files := token.NewFileSet()

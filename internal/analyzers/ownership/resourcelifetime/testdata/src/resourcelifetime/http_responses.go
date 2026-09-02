@@ -344,6 +344,27 @@ func deferredParameterClosesDifferentParameter(client *http.Client, request *htt
 	return nil
 }
 
+// A response assigned in either branch before the deferred close still maps
+// to that close on the path through its own branch.
+func responseAssignedInEitherBranch(client *http.Client, request *http.Request, retry func(func() error) error) error {
+	var response *http.Response
+	var err error
+	if retry != nil {
+		err = retry(func() error {
+			var attemptErr error
+			response, attemptErr = client.Do(request)
+			return attemptErr
+		})
+	} else {
+		response, err = client.Do(request)
+	}
+	if err != nil {
+		return err
+	}
+	defer func() { _ = response.Body.Close() }()
+	return nil
+}
+
 // A response declared inside a retry loop is a fresh variable each iteration,
 // so the deferred literal registered in that iteration closes that response.
 func responseClosedByDeferInsideRetryLoop(client *http.Client, request *http.Request) ([]byte, error) {

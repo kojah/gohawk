@@ -1,6 +1,7 @@
 package resourcelifetime
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/fs"
@@ -8,6 +9,37 @@ import (
 	"resourcedep"
 	"testing"
 )
+
+// A literal that closes the file, registered with a callee whose body is not
+// available, hands the release to that callee's schedule.
+func fileClosedByRegisteredCallback(ctx context.Context, path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	context.AfterFunc(ctx, func() { _ = file.Close() })
+	return nil
+}
+
+// An imported helper summarized as retaining its callback keeps the close.
+func fileClosedByRetainedCallback(path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	resourcedep.RegisterExit(func() { _ = file.Close() })
+	return nil
+}
+
+func fileCapturedByUnregisteredLiteral(path string) error {
+	file, err := os.Create(path) // want "owned resource from os.Create is not released on every return path"
+	if err != nil {
+		return err
+	}
+	closeLater := func() { _ = file.Close() }
+	_ = closeLater
+	return nil
+}
 
 func importedHelperClosesFile() error {
 	file, err := os.Open("fixture")

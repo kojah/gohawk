@@ -33,20 +33,13 @@ func MaybeClose(file *os.File, enabled bool) {
 `)
 	t.Chdir(directory)
 	var output, errorsOutput bytes.Buffer
-	if err := printFacts([]string{"-all", "."}, &output, &errorsOutput); err != nil {
+	if err := printFacts([]string{"."}, &output, &errorsOutput); err != nil {
 		t.Fatalf("printFacts() error = %v, stderr %s", err, errorsOutput.String())
 	}
 	text := output.String()
-	for _, want := range []string{"CloseFile (exported here", "0 file: Closed", "MaybeClose (summarized here)", "no parameter is proven"} {
+	for _, want := range []string{"CloseFile (exported here", "0 file: Closed", "MaybeClose (exported here", "no parameter is proven"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("facts dump lacks %q:\n%s", want, text)
 		}
-	}
-	output.Reset()
-	if err := printFacts([]string{"."}, &output, &errorsOutput); err != nil {
-		t.Fatalf("printFacts() error = %v", err)
-	}
-	if strings.Contains(output.String(), "MaybeClose") {
-		t.Errorf("facts dump without -all printed an empty summary:\n%s", output.String())
 	}
 }

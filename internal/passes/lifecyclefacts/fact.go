@@ -25,6 +25,9 @@ type Fact struct {
 	Committed     ParameterMask
 	RolledBack    ParameterMask
 	ReturnedOwner ParameterMask
+	// Retained marks parameters the callee may keep beyond the call; see
+	// retention.go for the over-approximation it deliberately makes.
+	Retained      ParameterMask
 	ReceiverStore ParameterMask
 }
 
@@ -167,6 +170,7 @@ var lifecycleMasks = []lifecycleMask{
 	{name: "RolledBack", method: "Rollback", field: func(fact *Fact) *ParameterMask { return &fact.RolledBack }},
 	{name: "ReturnedOwner", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedOwner }},
 	{name: "ReceiverStore", field: func(fact *Fact) *ParameterMask { return &fact.ReceiverStore }},
+	{name: "Retained", field: func(fact *Fact) *ParameterMask { return &fact.Retained }},
 }
 
 // MethodMask selects the parameter mask for a lifecycle method.

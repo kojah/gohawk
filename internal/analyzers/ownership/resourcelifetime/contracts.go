@@ -134,7 +134,8 @@ func releasesOrdinaryResource(
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
 	if instructionSettlesResourceOwnership(evidence, instruction, resource) ||
-		callTakesResourceOwnership(evidence, instruction, resource) {
+		callTakesResourceOwnership(evidence, instruction, resource) ||
+		registersCleanupCallback(evidence, instruction, resource, methods) {
 		return true
 	}
 	common := ssaflow.InstructionCall(instruction)
@@ -188,6 +189,35 @@ func releasesOrdinaryResource(
 			SelectMask:               releaseMask(instruction, resource, method),
 		}).Proven() {
 			return true
+		}
+	}
+	return false
+}
+
+// registersCleanupCallback reports whether the call hands a callback that
+// releases the resource to a callee whose body is not available and that is
+// not summarized as dropping it: the callee keeps the callback and decides
+// when it runs, so the release is transferred rather than leaked. A callee
+// summarized as not retaining the callback, such as one that invokes it only
+// under a condition, leaves the obligation open. gvproxy registers its log
+// file's close with logrus's exit handlers:
+// https://github.com/containers/gvisor-tap-vsock/blob/d3d4f055ddc59879003e6d9f89912d575b111e66/cmd/gvproxy/config.go#L171-L180
+func registersCleanupCallback(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil || common.StaticCallee() != nil && len(common.StaticCallee().Blocks) > 0 {
+		return false
+	}
+	for index, argument := range common.Args {
+		if _, ok := argument.(*ssa.MakeClosure); !ok {
+			continue
+		}
+		if retained, summarized := evidence.ArgumentRetained(instruction, index); summarized && !retained {
+			continue
+		}
+		for _, method := range methods {
+			if ssaflow.ValueCallsMethod(argument, method, resource) {
+				return true
+			}
 		}
 	}
 	return false

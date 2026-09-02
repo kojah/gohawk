@@ -19,13 +19,13 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// The facts subcommand prints every fact the analyzers export for a package,
-// as a lifecycle analyzer would import it. Enumeration is generic over fact
-// families; each family renders its own facts through DescribeFact, and a
-// family without a renderer falls back to the fact's String. A function that
-// exports no fact is unknown to consumers, not proven harmless, so the
-// lifecycle view can also list the functions it summarized without proving
-// a mask.
+// The facts subcommand prints the facts a package exports and the imported
+// facts its calls resolve to, as a lifecycle analyzer would see them.
+// Enumeration is generic over fact families; each family renders its own
+// facts through DescribeFact, and a family without a renderer falls back to
+// its String. A summarized function always carries a fact, even an empty one,
+// so a function absent from the dump was never summarized and is unknown to
+// consumers rather than proven harmless.
 
 // factDescriber is implemented by fact types that can decode themselves for
 // the object they are attached to.
@@ -38,9 +38,8 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	flags.SetOutput(errorsOutput)
 	nameFilter := flags.String("func", "", "print only facts attached to the function with this name")
 	includeTests := flags.Bool("tests", false, "also load the package's test variant")
-	all := flags.Bool("all", false, "also list functions summarized without a proven mask")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk facts [-func NAME] [-tests] [-all] package...")
+		writeLine(errorsOutput, "usage: gohawk facts [-func NAME] [-tests] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -67,9 +66,6 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 			return action.Err
 		}
 		writeObjectFacts(&buffer, action, *nameFilter)
-		if *all {
-			writeUnprovenSummaries(&buffer, action, *nameFilter)
-		}
 	}
 	if buffer.Len() == 0 {
 		return fmt.Errorf("no fact matched %q", *nameFilter)
@@ -98,12 +94,18 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 		}
 		return strings.Compare(left.Object.Name(), right.Object.Name())
 	})
+	referenced := referencedCallees(action)
 	for _, fact := range facts {
 		if filter != "" && fact.Object.Name() != filter {
 			continue
 		}
 		origin := "exported here"
 		if fact.Object.Pkg() != action.Package.Types {
+			// Facts of the whole dependency closure are visible; print only
+			// the callees this package actually resolves.
+			if !referenced[fact.Object] {
+				continue
+			}
 			origin = "imported"
 		}
 		fmt.Fprintf(buffer, "%s %s (%s, %s)\n", action.Analyzer.Name, objectName(fact.Object), origin, position(action, fact.Object.Pos()))
@@ -111,34 +113,29 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 		if describer, ok := fact.Fact.(factDescriber); ok {
 			lines = describer.DescribeFact(fact.Object)
 		}
+		if len(lines) == 0 {
+			lines = []string{"no parameter is proven on every return"}
+		}
 		for _, line := range lines {
 			fmt.Fprintf(buffer, "  %s\n", line)
 		}
 	}
 }
 
-// writeUnprovenSummaries lists the exported functions the lifecycle pass
-// summarized without proving any mask. They export no fact, so a consumer
-// treats calls to them as unknown; functions absent from both lists were not
-// summarized at all.
-func writeUnprovenSummaries(buffer *bytes.Buffer, action *checker.Action, filter string) {
+// referencedCallees collects the objects of the static callees the lifecycle
+// pass resolved for this package.
+func referencedCallees(action *checker.Action) map[types.Object]bool {
+	referenced := map[types.Object]bool{}
 	summaries, ok := action.Result.(lifecyclefacts.Summaries)
 	if !ok {
-		return
+		return referenced
 	}
-	var names []string
-	for function, fact := range summaries {
-		if fact != (lifecyclefacts.Fact{}) || function.Pkg == nil || function.Pkg.Pkg != action.Package.Types {
-			continue
-		}
-		if filter == "" || function.Name() == filter {
-			names = append(names, function.String())
+	for function := range summaries {
+		if object := function.Object(); object != nil {
+			referenced[object] = true
 		}
 	}
-	slices.Sort(names)
-	for _, name := range names {
-		fmt.Fprintf(buffer, "%s %s (summarized here)\n  no parameter is proven on every return\n", action.Analyzer.Name, name)
-	}
+	return referenced
 }
 
 func objectName(object types.Object) string {
