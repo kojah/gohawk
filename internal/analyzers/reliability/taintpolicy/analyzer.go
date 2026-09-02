@@ -139,7 +139,7 @@ func runTaintPolicy(pass *analysis.Pass, config taintPolicyConfig) (any, error) 
 				}
 				kind, display, arguments := taintSink(call.Common(), settings.sinks)
 				for _, argument := range arguments {
-					if taintedValue(argument, map[ssa.Value]bool{}, map[ssa.Value]bool{}, settings) {
+					if taintedValue(ssaflow.NewReachingWalk(0), ssaflow.NewReachingWalk(0), argument, settings) {
 						check.Reportf(pass, check.TaintUntrustedSink, call.Pos(), "untrusted data reaches %s sink %s", kind, display)
 						break
 					}
@@ -194,11 +194,13 @@ func terminalWriterLeaf(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	return false
 }
 
-func taintedValue(value ssa.Value, seen, memorySeen map[ssa.Value]bool, settings taintPolicySettings) bool {
-	if value == nil || seen[value] {
+// taintedValue folds over operands with one walk and over the memory an
+// address names with another, so a value and the cell it was loaded from are
+// each examined once.
+func taintedValue(walk, memory ssaflow.ReachingWalk, value ssa.Value, settings taintPolicySettings) bool {
+	if value == nil || !walk.Mark(value) {
 		return false
 	}
-	seen[value] = true
 	if call, ok := value.(*ssa.Call); ok {
 		if trustedSanitizer(call.Common(), settings.sanitizers) {
 			return false
@@ -216,31 +218,30 @@ func taintedValue(value ssa.Value, seen, memorySeen map[ssa.Value]bool, settings
 	if ok {
 		var operands []*ssa.Value
 		for _, operand := range instruction.Operands(operands) {
-			if operand != nil && taintedValue(*operand, seen, memorySeen, settings) {
+			if operand != nil && taintedValue(walk, memory, *operand, settings) {
 				return true
 			}
 		}
 	}
-	return taintedStoredValue(value, seen, memorySeen, settings)
+	return taintedStoredValue(walk, memory, value, settings)
 }
 
-func taintedStoredValue(address ssa.Value, seen, memorySeen map[ssa.Value]bool, settings taintPolicySettings) bool {
-	if address == nil || memorySeen[address] || address.Referrers() == nil {
+func taintedStoredValue(walk, memory ssaflow.ReachingWalk, address ssa.Value, settings taintPolicySettings) bool {
+	if address == nil || address.Referrers() == nil || !memory.Mark(address) {
 		return false
 	}
-	memorySeen[address] = true
 	for _, reference := range *address.Referrers() {
 		switch typed := reference.(type) {
 		case *ssa.Store:
-			if taintedValue(typed.Val, seen, memorySeen, settings) {
+			if taintedValue(walk, memory, typed.Val, settings) {
 				return true
 			}
 		case *ssa.FieldAddr:
-			if taintedStoredValue(typed, seen, memorySeen, settings) {
+			if taintedStoredValue(walk, memory, typed, settings) {
 				return true
 			}
 		case *ssa.IndexAddr:
-			if taintedStoredValue(typed, seen, memorySeen, settings) {
+			if taintedStoredValue(walk, memory, typed, settings) {
 				return true
 			}
 		}

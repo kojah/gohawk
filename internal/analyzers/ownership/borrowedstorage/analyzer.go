@@ -141,10 +141,7 @@ func emitBufferOwnershipDecision(
 	outcome analysisTrace.Outcome,
 ) {
 	checkID := string(check.BorrowedStorageOwner)
-	if !analysisTrace.Enabled(analyzerName, checkID) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
+	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
 		Analyzer: analyzerName,
 		Check:    checkID,
 		Phase:    "decision",

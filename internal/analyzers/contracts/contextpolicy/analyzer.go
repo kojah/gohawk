@@ -110,13 +110,10 @@ func implementsContext(pass *analysis.Pass, specification *ast.TypeSpec, structu
 
 func emitContextImplementationDecision(pass *analysis.Pass, position token.Pos) {
 	checkID := string(check.ContextStorage)
-	if !analysisTrace.Enabled("contextpolicy", checkID) {
-		return
-	}
 	// A derived Context must retain the Context it delegates to. BlackStork's
 	// AppCtx implements the full interface while adding application values:
 	// https://github.com/blackstork-io/blackstork-cli/blob/89984c6871d3a1aff5202e33251f819bb5f1663d/pkg/appctx/appctx.go#L24-L76
-	analysisTrace.Emit(pass, analysisTrace.Event{
+	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
 		Analyzer: "contextpolicy",
 		Check:    checkID,
 		Phase:    "decision",

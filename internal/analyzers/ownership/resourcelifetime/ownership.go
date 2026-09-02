@@ -174,10 +174,7 @@ func isNonNilFilesystemSentinel(value ssa.Value) bool {
 }
 
 func traceAcquisitionErrorProof(pass *analysis.Pass, branch *ssa.If, proof string) {
-	if !analysisTrace.Enabled("resourcelifetime", string(check.ResourceRelease)) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
+	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
 		Analyzer: "resourcelifetime",
 		Check:    string(check.ResourceRelease),
 		Phase:    "evidence",

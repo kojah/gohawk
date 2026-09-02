@@ -234,3 +234,13 @@ func selected(config settings, event Event, position string) bool {
 	}
 	return config.function == "" || strings.Contains(event.Function, config.function)
 }
+
+// EmitIfEnabled records event when tracing selects its analyzer and check.
+// Use it when the event is cheap to build; a caller that must compute
+// expensive details should still test Enabled first.
+func EmitIfEnabled(pass *analysis.Pass, event Event) {
+	if !Enabled(event.Analyzer, event.Check) {
+		return
+	}
+	Emit(pass, event)
+}

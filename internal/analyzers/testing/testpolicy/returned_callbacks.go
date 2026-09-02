@@ -101,7 +101,7 @@ func closureCapturesTestingHandle(closure *ssa.MakeClosure, handle *ssa.Paramete
 }
 
 func closureUsedOnlyByReturns(closure *ssa.MakeClosure) bool {
-	onlyReturned, reachesReturn := valueUsedOnlyByReturns(closure, map[ssa.Value]bool{})
+	onlyReturned, reachesReturn := valueUsedOnlyByReturns(ssaflow.NewReachingWalk(0), closure)
 	return onlyReturned && reachesReturn
 }
 
@@ -109,14 +109,13 @@ func closureUsedOnlyByReturns(closure *ssa.MakeClosure) bool {
 // or phi values before the Return instruction. Follow only those transparent
 // wrappers and reject every operational use: invoking, storing, or passing the
 // callback would make the outer helper part of the eventual failure path.
-func valueUsedOnlyByReturns(value ssa.Value, seen map[ssa.Value]bool) (bool, bool) {
+func valueUsedOnlyByReturns(walk ssaflow.ReachingWalk, value ssa.Value) (bool, bool) {
 	if value == nil || value.Referrers() == nil {
 		return false, false
 	}
-	if seen[value] {
+	if !walk.Mark(value) {
 		return true, false
 	}
-	seen[value] = true
 	reachesReturn := false
 	for _, reference := range *value.Referrers() {
 		if _, debug := reference.(*ssa.DebugRef); debug {
@@ -130,7 +129,7 @@ func valueUsedOnlyByReturns(value ssa.Value, seen map[ssa.Value]bool) (bool, boo
 		if !ok {
 			return false, false
 		}
-		onlyReturned, wrappedReturns := valueUsedOnlyByReturns(wrapped, seen)
+		onlyReturned, wrappedReturns := valueUsedOnlyByReturns(walk, wrapped)
 		if !onlyReturned {
 			return false, false
 		}
@@ -150,12 +149,8 @@ func transparentClosureWrapper(reference ssa.Instruction, value ssa.Value) (ssa.
 			return wrapped, ssaflow.SameValue(inner, value)
 		}
 	}
-	if typed, ok := reference.(*ssa.Phi); ok {
-		for _, edge := range typed.Edges {
-			if ssaflow.SameValue(edge, value) {
-				return typed, true
-			}
-		}
+	if typed, ok := reference.(*ssa.Phi); ok && ssaflow.PhiMergesValue(typed, value) {
+		return typed, true
 	}
 	return nil, false
 }

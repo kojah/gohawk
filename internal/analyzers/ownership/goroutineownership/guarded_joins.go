@@ -3,7 +3,6 @@ package goroutineownership
 import (
 	"go/token"
 	"go/types"
-	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
@@ -39,7 +38,7 @@ func (analysis *spawnAnalysis) flagGuardedJoin() bool {
 			if flag := booleanFlagVariable(branch.Cond); flag != nil && analysis.flagAssignedAroundSpawn(flag) {
 				return true
 			}
-			if counter := integerCounterVariable(branch); counter != nil && analysis.counterAssignedAroundSpawn(counter, map[ssa.Value]bool{}) {
+			if counter := integerCounterVariable(branch); counter != nil && analysis.counterAssignedAroundSpawn(ssaflow.NewReachingWalk(0), counter) {
 				return true
 			}
 		}
@@ -180,18 +179,17 @@ func isIntegerLocal(value ssa.Value) bool {
 
 // counterAssignedAroundSpawn reports whether the counter is set or stepped by
 // a constant in a block that the spawn dominates, is dominated by, or shares.
-func (analysis *spawnAnalysis) counterAssignedAroundSpawn(counter ssa.Value, seen map[ssa.Value]bool) bool {
-	if seen[counter] {
+func (analysis *spawnAnalysis) counterAssignedAroundSpawn(walk ssaflow.ReachingWalk, counter ssa.Value) bool {
+	if !walk.Mark(counter) {
 		return false
 	}
-	seen[counter] = true
 	switch typed := counter.(type) {
 	case *ssa.Phi:
-		for index, edge := range typed.Edges {
-			if index < len(typed.Block().Preds) && isConstantStep(edge) && analysis.blockAroundSpawn(typed.Block().Preds[index]) {
+		for from, edge := range ssaflow.PhiIncoming(typed) {
+			if isConstantStep(edge) && analysis.blockAroundSpawn(from) {
 				return true
 			}
-			if analysis.counterAssignedAroundSpawn(edge, seen) {
+			if analysis.counterAssignedAroundSpawn(walk, edge) {
 				return true
 			}
 		}
@@ -199,7 +197,7 @@ func (analysis *spawnAnalysis) counterAssignedAroundSpawn(counter ssa.Value, see
 		if isConstantStep(typed) && analysis.blockAroundSpawn(typed.Block()) {
 			return true
 		}
-		return analysis.counterAssignedAroundSpawn(typed.X, seen) || analysis.counterAssignedAroundSpawn(typed.Y, seen)
+		return analysis.counterAssignedAroundSpawn(walk, typed.X) || analysis.counterAssignedAroundSpawn(walk, typed.Y)
 	case *ssa.UnOp:
 		if typed.X.Referrers() == nil {
 			return false
@@ -236,7 +234,7 @@ func booleanFlagVariable(condition ssa.Value) ssa.Value { //nolint:ireturn // Fl
 	if negation, ok := condition.(*ssa.UnOp); ok && negation.Op == token.NOT {
 		condition = negation.X
 	}
-	if phi, ok := condition.(*ssa.Phi); ok && phiCarriesBooleanConstant(phi, map[*ssa.Phi]bool{}) {
+	if phi, ok := condition.(*ssa.Phi); ok && phiCarriesBooleanConstant(phi) {
 		return phi
 	}
 	load, ok := condition.(*ssa.UnOp)
@@ -251,15 +249,8 @@ func booleanFlagVariable(condition ssa.Value) ssa.Value { //nolint:ireturn // Fl
 
 // phiCarriesBooleanConstant reports whether a Boolean constant reaches phi,
 // possibly through the nested phis a loop with continue statements creates.
-func phiCarriesBooleanConstant(phi *ssa.Phi, seen map[*ssa.Phi]bool) bool {
-	if seen[phi] {
-		return false
-	}
-	seen[phi] = true
-	return slices.ContainsFunc(phi.Edges, func(edge ssa.Value) bool {
-		if inner, ok := edge.(*ssa.Phi); ok {
-			return phiCarriesBooleanConstant(inner, seen)
-		}
+func phiCarriesBooleanConstant(phi *ssa.Phi) bool {
+	return ssaflow.NewReachingWalk(0).Any(phi, func(_ ssaflow.ReachingWalk, edge ssa.Value) bool {
 		return isBooleanConstant(edge)
 	})
 }
@@ -286,7 +277,7 @@ func isBooleanPointer(value types.Type) bool {
 // block that the spawn dominates, is dominated by, or shares.
 func (analysis *spawnAnalysis) flagAssignedAroundSpawn(flag ssa.Value) bool {
 	if phi, ok := flag.(*ssa.Phi); ok {
-		return analysis.phiConstantAroundSpawn(phi, map[*ssa.Phi]bool{})
+		return analysis.phiConstantAroundSpawn(ssaflow.NewReachingWalk(0), phi)
 	}
 	if flag.Referrers() == nil {
 		return false
@@ -300,19 +291,15 @@ func (analysis *spawnAnalysis) flagAssignedAroundSpawn(flag ssa.Value) bool {
 	return false
 }
 
-func (analysis *spawnAnalysis) phiConstantAroundSpawn(phi *ssa.Phi, seen map[*ssa.Phi]bool) bool {
-	if seen[phi] {
+func (analysis *spawnAnalysis) phiConstantAroundSpawn(walk ssaflow.ReachingWalk, phi *ssa.Phi) bool {
+	if !walk.Mark(phi) {
 		return false
 	}
-	seen[phi] = true
-	for index, edge := range phi.Edges {
-		if index >= len(phi.Block().Preds) {
-			break
-		}
-		if inner, ok := edge.(*ssa.Phi); ok && analysis.phiConstantAroundSpawn(inner, seen) {
+	for from, edge := range ssaflow.PhiIncoming(phi) {
+		if inner, ok := edge.(*ssa.Phi); ok && analysis.phiConstantAroundSpawn(walk, inner) {
 			return true
 		}
-		if isBooleanConstant(edge) && analysis.blockAroundSpawn(phi.Block().Preds[index]) {
+		if isBooleanConstant(edge) && analysis.blockAroundSpawn(from) {
 			return true
 		}
 	}

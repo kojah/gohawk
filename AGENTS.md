@@ -242,13 +242,25 @@ policy.
   `ResolveReachingValue`), passing the analyzer's own transparent forms and
   leaf predicate; the fold owns the visited set and the phi fan-out. Drive a
   path-sensitive work list with `ssaflow.WalkStates`, keeping the state type,
-  the transfer, and the successor policy in the analyzer.
+  the transfer, and the successor policy in the analyzer. Analyzer code must
+  not read `Phi.Edges` or declare a visited set keyed by SSA values; the
+  architecture tests reject both. Pair edges with their predecessor blocks
+  through `ssaflow.PhiIncoming`, and ask use-after questions with
+  `ssaflow.InstructionsReachableAfter`. `ssaflow.IdentitySource` peels a load
+  for identity resolution only; it is deliberately not a fold form, because
+  a loaded value is not the cell it came from.
 - Do not hand-roll a recursive value walk with its own visited set. Fold over
   reaching values with `ssaflow.ReachingWalk` (`Any`, `Every`, `EveryOf`, or
   `ResolveReachingValue`), passing the analyzer's own transparent forms and
   leaf predicate; the fold owns the visited set and the phi fan-out. Drive a
   path-sensitive work list with `ssaflow.WalkStates`, keeping the state type,
-  the transfer, and the successor policy in the analyzer.
+  the transfer, and the successor policy in the analyzer. Analyzer code must
+  not read `Phi.Edges` or declare a visited set keyed by SSA values; the
+  architecture tests reject both. Pair edges with their predecessor blocks
+  through `ssaflow.PhiIncoming`, and ask use-after questions with
+  `ssaflow.InstructionsReachableAfter`. `ssaflow.IdentitySource` peels a load
+  for identity resolution only; it is deliberately not a fold form, because
+  a loaded value is not the cell it came from.
 - Keep analyzer-specific acceptance policy beside the analyzer. Shared SSA code
   should provide identity and traversal mechanics, not silently decide whether
   evidence is sufficient for a diagnostic.

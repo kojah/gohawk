@@ -99,10 +99,7 @@ func emitUnusedTestingHandleDecision(pass *analysis.Pass, function *ssa.Function
 // Helper call.
 func traceHelperMarkerDecision(pass *analysis.Pass, function *ssa.Function, reason string) {
 	checkID := string(check.TestHelperMarker)
-	if !analysisTrace.Enabled("testpolicy", checkID) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
+	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
 		Analyzer: "testpolicy",
 		Check:    checkID,
 		Phase:    "decision",

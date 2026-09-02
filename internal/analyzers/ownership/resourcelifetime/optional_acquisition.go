@@ -99,12 +99,12 @@ func exactOptionalPhi(merge, acquisitionBlock *ssa.BasicBlock, acquired ssa.Valu
 		if !ok {
 			break
 		}
-		if len(phi.Edges) != len(merge.Preds) {
+		if ssaflow.PhiEdgeCount(phi) != len(merge.Preds) {
 			continue
 		}
 		valid := true
-		for index, edge := range phi.Edges {
-			if merge.Preds[index] == acquisitionBlock {
+		for from, edge := range ssaflow.PhiIncoming(phi) {
+			if from == acquisitionBlock {
 				valid = valid && edge == acquired
 			} else {
 				valid = valid && ssaflow.DefinitelyNil(edge)
@@ -156,10 +156,7 @@ func sameExactOperand(left, right ssa.Value) bool {
 
 func traceOptionalAcquisition(pass *analysis.Pass, proof optionalAcquisitionProof) {
 	checkID := string(check.ResourceRelease)
-	if !analysisTrace.Enabled("resourcelifetime", checkID) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
+	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
 		Analyzer: "resourcelifetime",
 		Check:    checkID,
 		Phase:    "evidence",

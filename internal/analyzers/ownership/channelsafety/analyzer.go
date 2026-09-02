@@ -43,7 +43,11 @@ func reportSendsAfterClose(pass *analysis.Pass, function *ssa.Function) {
 			if _, deferred := instruction.(*ssa.Defer); deferred {
 				continue
 			}
-			for _, candidate := range reachableInstructions(instruction) {
+			// Crossing a backedge may compare two different runtime channel
+			// values represented by the same loop-carried SSA value. Reporting
+			// that as send-after-close is not sufficiently precise, so only
+			// instructions reachable without a back edge are candidates.
+			for _, candidate := range ssaflow.InstructionsReachableAfter(instruction) {
 				send, ok := candidate.(*ssa.Send)
 				if !ok || !ssaflow.SameValue(send.Chan, common.Args[0]) || reported[send.Pos()] {
 					continue
@@ -53,39 +57,4 @@ func reportSendsAfterClose(pass *analysis.Pass, function *ssa.Function) {
 			}
 		}
 	}
-}
-
-func reachableInstructions(start ssa.Instruction) []ssa.Instruction {
-	index := ssaflow.InstructionIndex(start)
-	if index < 0 {
-		return nil
-	}
-	type location struct {
-		block *ssa.BasicBlock
-		index int
-	}
-	type flowKey struct{ block, index int }
-	queue := []location{{block: start.Block(), index: index + 1}}
-	seen := map[flowKey]bool{}
-	var result []ssa.Instruction
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
-		key := flowKey{block: current.block.Index, index: current.index}
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		result = append(result, current.block.Instrs[current.index:]...)
-		for _, successor := range current.block.Succs {
-			// Crossing a backedge may compare two different runtime channel
-			// values represented by the same loop-carried SSA value. Reporting
-			// that as send-after-close is not sufficiently precise.
-			if successor.Dominates(current.block) {
-				continue
-			}
-			queue = append(queue, location{block: successor})
-		}
-	}
-	return result
 }

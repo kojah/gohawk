@@ -1,18 +1,15 @@
 package lifecyclefacts
 
 import (
-	"go/ast"
-	"go/importer"
-	"go/parser"
-	"go/token"
 	"go/types"
 	"testing"
+
+	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
-	ssaBuild "golang.org/x/tools/go/ssa/ssautil"
 )
 
 func TestParameterMask(t *testing.T) {
@@ -342,22 +339,7 @@ func (o *Owner) Close() error { return o.file.Close() }
 
 func buildLifecycleTestSSA(t *testing.T, source string) *ssa.Package {
 	t.Helper()
-	files := token.NewFileSet()
-	file, err := parser.ParseFile(files, "lifecyclefacts.go", source, parser.SkipObjectResolution)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkg, _, err := ssaBuild.BuildPackage(
-		&types.Config{Importer: importer.Default()},
-		files,
-		types.NewPackage("example.com/lifecyclefactstest", "lifecyclefactstest"),
-		[]*ast.File{file},
-		ssa.SanityCheckFunctions,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return pkg
+	return ssaflowtest.BuildPackage(t, "example.com/lifecyclefactstest", source)
 }
 
 func findLifecycleCall(t *testing.T, function *ssa.Function, name string) *ssa.Call {

@@ -138,7 +138,7 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value
 	if receiver == nil {
 		return 0, "", nil, false
 	}
-	identity := lockIdentity(receiver, map[ssa.Value]bool{})
+	identity := lockIdentityOf(receiver)
 	return operation, identity, receiver, identity != ""
 }
 
@@ -146,9 +146,7 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value
 // origin proves the same concrete sync mutex identity.
 func concreteMutexReceiver(value ssa.Value) ssa.Value { //nolint:ireturn // SSA values have several concrete forms.
 	walk := ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface | ssaflow.TransparentMakeInterface)
-	receiver, ok := ssaflow.ResolveReachingValue(walk, value, concreteMutexLeaf, func(receiver ssa.Value) string {
-		return lockIdentity(receiver, map[ssa.Value]bool{})
-	})
+	receiver, ok := ssaflow.ResolveReachingValue(walk, value, concreteMutexLeaf, lockIdentityOf)
 	if !ok {
 		return nil
 	}
@@ -159,13 +157,13 @@ func concreteMutexLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (ssa.Value, bool
 	if !syntax.NamedType(value.Type(), "sync", "Mutex") && !syntax.NamedType(value.Type(), "sync", "RWMutex") {
 		return nil, false
 	}
-	return value, lockIdentity(value, map[ssa.Value]bool{}) != ""
+	return value, lockIdentityOf(value) != ""
 }
 
 func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
-	candidateIdentity := lockIdentity(candidate, map[ssa.Value]bool{})
+	candidateIdentity := lockIdentityOf(candidate)
 	for _, value := range values {
-		if ssaflow.SameValue(value, candidate) || candidateIdentity != "" && lockIdentity(value, map[ssa.Value]bool{}) == candidateIdentity {
+		if ssaflow.SameValue(value, candidate) || candidateIdentity != "" && lockIdentityOf(value) == candidateIdentity {
 			return values
 		}
 	}
@@ -179,14 +177,13 @@ func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
 // stays reportable.
 func loopVariantLock(instruction ssa.Instruction) bool {
 	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
-	return receiver != nil && loopVariantValue(receiver, map[ssa.Value]bool{})
+	return receiver != nil && loopVariantValue(ssaflow.NewReachingWalk(0), receiver)
 }
 
-func loopVariantValue(value ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
+func loopVariantValue(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+	if value == nil || !walk.Mark(value) {
 		return false
 	}
-	seen[value] = true
 	switch typed := value.(type) {
 	case *ssa.Phi:
 		return ssaflow.BlockInCycle(typed.Block())
@@ -194,20 +191,20 @@ func loopVariantValue(value ssa.Value, seen map[ssa.Value]bool) bool {
 		if next, ok := typed.Tuple.(*ssa.Next); ok {
 			return ssaflow.BlockInCycle(next.Block())
 		}
-		return loopVariantValue(typed.Tuple, seen)
+		return loopVariantValue(walk, typed.Tuple)
 	case *ssa.UnOp:
-		return loopVariantValue(typed.X, seen)
+		return loopVariantValue(walk, typed.X)
 	case *ssa.IndexAddr:
-		return loopVariantValue(typed.Index, seen) || loopVariantValue(typed.X, seen)
+		return loopVariantValue(walk, typed.Index) || loopVariantValue(walk, typed.X)
 	case *ssa.Index:
-		return loopVariantValue(typed.Index, seen) || loopVariantValue(typed.X, seen)
+		return loopVariantValue(walk, typed.Index) || loopVariantValue(walk, typed.X)
 	case *ssa.FieldAddr:
-		return loopVariantValue(typed.X, seen)
+		return loopVariantValue(walk, typed.X)
 	case *ssa.Field:
-		return loopVariantValue(typed.X, seen)
+		return loopVariantValue(walk, typed.X)
 	case *ssa.BinOp:
 		// A range index is the loop phi plus one.
-		return loopVariantValue(typed.X, seen) || loopVariantValue(typed.Y, seen)
+		return loopVariantValue(walk, typed.X) || loopVariantValue(walk, typed.Y)
 	case *ssa.Call:
 		// A lookup keyed by the iteration, such as the per-session state a
 		// cleanup loop fetches before locking it, selects a different mutex
@@ -215,14 +212,14 @@ func loopVariantValue(value ssa.Value, seen map[ssa.Value]bool) bool {
 		// CodeKanban locks every session's state this way:
 		// https://github.com/fy0/CodeKanban/blob/745699cb67d3d34cec4793168f148eb61e43e766/service/websession/history_cleanup.go#L262-L276
 		return slices.ContainsFunc(typed.Common().Args, func(argument ssa.Value) bool {
-			return loopVariantValue(argument, seen)
+			return loopVariantValue(walk, argument)
 		})
 	case *ssa.ChangeType, *ssa.ChangeInterface, *ssa.Convert, *ssa.MakeInterface:
 		inner, ok := ssaflow.UnwrapTransparentValue(
 			value,
 			ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
 		)
-		return ok && loopVariantValue(inner, seen)
+		return ok && loopVariantValue(walk, inner)
 	}
 	return false
 }

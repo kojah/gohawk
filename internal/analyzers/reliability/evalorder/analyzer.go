@@ -149,10 +149,7 @@ func stableAddressIdentity(pass *analysis.Pass, expression ast.Expr) (types.Obje
 
 func traceStableAddressIdentity(pass *analysis.Pass, position token.Pos) {
 	checkID := string(check.EvaluationOrder)
-	if !analysisTrace.Enabled("evalorder", checkID) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
+	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
 		Analyzer: "evalorder",
 		Check:    checkID,
 		Phase:    "evidence",
@@ -206,10 +203,7 @@ func directlyInvokedFunctionLiteral(literal *ast.FuncLit, ancestors []ast.Node) 
 
 func traceDelayedFunctionBody(pass *analysis.Pass, literal *ast.FuncLit) {
 	checkID := string(check.EvaluationOrder)
-	if !analysisTrace.Enabled("evalorder", checkID) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
+	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
 		Analyzer: "evalorder",
 		Check:    checkID,
 		Phase:    "evidence",

@@ -121,10 +121,7 @@ func ambiguousRowName(value types.Type, name string) bool {
 
 func emitAmbiguousRowDecision(pass *analysis.Pass, specification *ast.TypeSpec) {
 	checkID := string(check.WireSerializationTag)
-	if !analysisTrace.Enabled("wirepolicy", checkID) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
+	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
 		Analyzer: "wirepolicy",
 		Check:    checkID,
 		Phase:    "decision",

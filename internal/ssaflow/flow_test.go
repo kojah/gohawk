@@ -1,18 +1,15 @@
 package ssaflow
 
 import (
-	"go/ast"
 	"go/constant"
-	"go/importer"
-	"go/parser"
-	"go/token"
 	"go/types"
 	"testing"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
+
+	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
 func TestSourceSSAFunctionsRejectsUnexpectedPrerequisiteResult(t *testing.T) {
@@ -281,22 +278,7 @@ func firstIteration() {
 
 func buildTestSSA(t *testing.T, source string) *ssa.Package {
 	t.Helper()
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "ssaflow.go", source, parser.SkipObjectResolution)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkg, _, err := ssautil.BuildPackage(
-		&types.Config{Importer: importer.Default()},
-		fset,
-		types.NewPackage("example.com/ssaflowtest", "ssaflowtest"),
-		[]*ast.File{file},
-		ssa.SanityCheckFunctions,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return pkg
+	return ssaflowtest.BuildPackage(t, "example.com/ssaflowtest", source)
 }
 
 func findMakeClosure(t *testing.T, function *ssa.Function) *ssa.MakeClosure {

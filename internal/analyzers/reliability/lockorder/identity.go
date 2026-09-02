@@ -8,23 +8,28 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-func lockIdentity(value ssa.Value, seen map[ssa.Value]bool) string {
-	if value == nil || seen[value] {
+// lockIdentityOf names the lock a receiver value denotes, or returns the
+// empty string when its origin cannot be told apart from another lock's.
+func lockIdentityOf(value ssa.Value) string {
+	return lockIdentity(ssaflow.NewReachingWalk(0), value)
+}
+
+func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value) string {
+	if value == nil || !walk.Mark(value) {
 		return ""
 	}
-	seen[value] = true
-	if source, ok := lockIdentitySource(value); ok {
-		return lockIdentity(source, seen)
+	if source, ok := ssaflow.IdentitySource(value); ok {
+		return lockIdentity(walk, source)
 	}
 	switch typed := value.(type) {
 	case *ssa.Global:
 		return typed.Name()
 	case *ssa.FieldAddr:
-		return fieldLockIdentity(typed, seen)
+		return fieldLockIdentity(walk, typed)
 	case *ssa.IndexAddr:
-		return indexedLockIdentity(typed.X, typed.Index, seen)
+		return indexedLockIdentity(walk, typed.X, typed.Index)
 	case *ssa.Index:
-		return indexedLockIdentity(typed.X, typed.Index, seen)
+		return indexedLockIdentity(walk, typed.X, typed.Index)
 	case *ssa.Parameter:
 		return typed.Parent().String() + "." + typed.Name()
 	case *ssa.FreeVar:
@@ -54,35 +59,20 @@ func lockIdentity(value ssa.Value, seen map[ssa.Value]bool) string {
 	return ""
 }
 
-func lockIdentitySource(value ssa.Value) (ssa.Value, bool) {
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return inner, true
-	}
-	switch typed := value.(type) {
-	case *ssa.UnOp:
-		return typed.X, true
-	default:
-		return nil, false
-	}
-}
-
-func fieldLockIdentity(fieldAddress *ssa.FieldAddr, seen map[ssa.Value]bool) string {
+func fieldLockIdentity(walk ssaflow.ReachingWalk, fieldAddress *ssa.FieldAddr) string {
 	field := structField(fieldAddress.X.Type(), fieldAddress.Field)
 	if field == nil {
 		return ""
 	}
-	if owner := lockIdentity(fieldAddress.X, seen); owner != "" {
+	if owner := lockIdentity(walk, fieldAddress.X); owner != "" {
 		return owner + "." + field.Name()
 	}
 	return types.TypeString(fieldAddress.X.Type(), nil) + "." + field.Name()
 }
 
-func indexedLockIdentity(ownerValue, indexValue ssa.Value, seen map[ssa.Value]bool) string {
-	owner := lockIdentity(ownerValue, seen)
-	index := lockIdentity(indexValue, seen)
+func indexedLockIdentity(walk ssaflow.ReachingWalk, ownerValue, indexValue ssa.Value) string {
+	owner := lockIdentity(walk, ownerValue)
+	index := lockIdentity(walk, indexValue)
 	if owner == "" || index == "" {
 		return ""
 	}

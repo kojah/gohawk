@@ -159,10 +159,7 @@ func proveCallerRelinquishesChannel(
 
 func emitChannelCloseTrace(pass *analysis.Pass, function *ssa.Function, instruction ssa.Instruction, proof channelCloseProof) {
 	checkID := string(check.ChannelCallerClose)
-	if !analysisTrace.Enabled("channelownership", checkID) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
+	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
 		Analyzer: "channelownership",
 		Check:    checkID,
 		Phase:    "candidate",
