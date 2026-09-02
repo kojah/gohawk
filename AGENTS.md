@@ -163,6 +163,62 @@ Keep default proof systems deliberately bounded:
 Prefer stable false negatives over an analyzer whose precision depends on an
 open-ended catalog of framework and naming conventions.
 
+### Lifecycle analyzers: classify, then ask the flow once
+
+Ownership and lifecycle checks should share one shape, as
+`cancellationownership` and `goroutineownership` do:
+
+1. An obligation finder resolves what the worker or callee promises (a
+   channel it signals, a group it settles, a cancel it must release) back to
+   the caller's exact SSA values.
+2. A classifier labels each instruction after the obligation as `join`,
+   `transfer`, `unknown`, or `none`. `unknown` is any consumption the
+   analysis cannot see through: an opaque call, a send, an `append`, a
+   callback handed to unmodeled code, or a helper that lets the value escape.
+3. One flow query decides the outcome: honored when exact actions cover every
+   return, unknown when only opaque actions do, violated otherwise.
+
+When a reviewed precision label fails, respond in this order and stop at the
+first step that holds: widen `unknown` at the classifier; accept the false
+negative and delete the fixture; add one structural predicate at an existing
+decision point with a fixture and a commit-pinned link. Do not add a new
+proof file, a loop-count argument, a name, or a framework guess. A fixture
+whose diagnostic becomes an accepted false negative must be deleted, with the
+gap recorded in the fixture file's header comment, rather than left as an
+accepted case.
+
+The precision replay runs with every check enabled, so noise from an opt-in
+audit fails the gate like a default check. An audit whose labels keep failing
+should be retired rather than refined.
+
+### Lifecycle analyzers: classify, then ask the flow once
+
+Ownership and lifecycle checks should share one shape, as
+`cancellationownership` and `goroutineownership` do:
+
+1. An obligation finder resolves what the worker or callee promises (a
+   channel it signals, a group it settles, a cancel it must release) back to
+   the caller's exact SSA values.
+2. A classifier labels each instruction after the obligation as `join`,
+   `transfer`, `unknown`, or `none`. `unknown` is any consumption the
+   analysis cannot see through: an opaque call, a send, an `append`, a
+   callback handed to unmodeled code, or a helper that lets the value escape.
+3. One flow query decides the outcome: honored when exact actions cover every
+   return, unknown when only opaque actions do, violated otherwise.
+
+When a reviewed precision label fails, respond in this order and stop at the
+first step that holds: widen `unknown` at the classifier; accept the false
+negative and delete the fixture; add one structural predicate at an existing
+decision point with a fixture and a commit-pinned link. Do not add a new
+proof file, a loop-count argument, a name, or a framework guess. A fixture
+whose diagnostic becomes an accepted false negative must be deleted, with the
+gap recorded in the fixture file's header comment, rather than left as an
+accepted case.
+
+The precision replay runs with every check enabled, so noise from an opt-in
+audit fails the gate like a default check. An audit whose labels keep failing
+should be retired rather than refined.
+
 ## SSA traversal consistency
 
 Treat SSA wrapper, alias, closure, and return traversal as explicit analysis
