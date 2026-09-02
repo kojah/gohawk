@@ -169,7 +169,7 @@ func (analysis *spawnAnalysis) callJoinsDirectly(common *ssa.CallCommon) bool {
 	if ssaflow.CallMatchesSymbol(common, waitGroupWait) && ssaflow.SameAsAny(receiver, analysis.groups) {
 		return true
 	}
-	return lifecycleMethod(ssaflow.CallName(common)) && ssaflow.SameAsAny(receiver, analysis.owners)
+	return lifecycleMethod(ssaflow.CallName(common)) && ownerReceiver(receiver, analysis.owners)
 }
 
 var waitGroupAdd = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Add"})

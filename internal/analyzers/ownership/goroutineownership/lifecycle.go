@@ -207,6 +207,22 @@ func lifecycleOwner(value ssa.Value) bool {
 	return false
 }
 
+// ownerReceiver matches a lifecycle call's receiver against the tracked
+// owners. A type assertion on the captured interface value denotes the same
+// object, so closing the asserted listener stops the worker that captured the
+// interface. NATS asserts its listener before deferring the close:
+// https://github.com/nats-io/nats.go/blob/850f889cf3d63bfd1a549ab9af59f0145146fb41/nats_test.go#L1288-L1301
+func ownerReceiver(receiver ssa.Value, owners []ssa.Value) bool {
+	if ssaflow.SameAsAny(receiver, owners) {
+		return true
+	}
+	if extract, ok := receiver.(*ssa.Extract); ok {
+		receiver = extract.Tuple
+	}
+	asserted, ok := receiver.(*ssa.TypeAssert)
+	return ok && ssaflow.SameAsAny(asserted.X, owners)
+}
+
 func lifecycleMethod(name string) bool {
 	switch strings.ToLower(name) {
 	case "close", "kill", "shutdown", "stop", "wait":

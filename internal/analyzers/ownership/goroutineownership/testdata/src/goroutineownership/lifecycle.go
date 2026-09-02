@@ -204,3 +204,36 @@ func registeredWaitGroupWithoutWait() {
 		defer group.Done()
 	}()
 }
+
+type closingOwner interface {
+	Serve()
+	Close() error
+}
+
+type concreteClosingOwner struct{}
+
+func (*concreteClosingOwner) Serve() {}
+
+func (*concreteClosingOwner) Close() error { return nil }
+
+func deferredCloseOfAssertedOwnerBoundsWorker(owner closingOwner) {
+	concrete := owner.(*concreteClosingOwner)
+	defer concrete.Close()
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() {
+		defer group.Done()
+		owner.Serve()
+	}()
+}
+
+func deferredCloseOfOtherAssertedValueDoesNotBoundWorker(owner, other closingOwner) {
+	concrete := other.(*concreteClosingOwner)
+	defer concrete.Close()
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { // want "goroutine is not joined on every return path"
+		defer group.Done()
+		owner.Serve()
+	}()
+}
