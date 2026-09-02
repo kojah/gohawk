@@ -99,6 +99,7 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 		for method, target := range map[string]*ParameterMask{
 			"Close": &fact.Closed, "Finalize": &fact.Finalized, "Release": &fact.Released,
 			"Shutdown": &fact.Shutdown, "Stop": &fact.Stopped, "Wait": &fact.Waited,
+			"Commit": &fact.Committed, "Rollback": &fact.RolledBack,
 		} {
 			if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
 				common := ssaflow.InstructionCall(instruction)
@@ -110,8 +111,9 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 				// lifecycle proofs. Qist's response helper defers a literal that closes
 				// the Body projected from its response parameter on every return:
 				// https://github.com/qist/tvgate/blob/bb4c889997c68cc607d9ab5bb34710d6baf94aa8/stream/handle.go#L31-L36
-				if _, deferred := instruction.(*ssa.Defer); deferred &&
-					ssaflow.DeferredCallbackCallsMethod(instruction, method, parameter) {
+				if _, deferred := instruction.(*ssa.Defer); deferred && ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+					Instruction: instruction, Target: parameter, Methods: []string{method},
+				}).Proven() {
 					return true
 				}
 				imported, ok := importFact(pass, instruction)

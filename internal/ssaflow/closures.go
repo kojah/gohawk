@@ -8,13 +8,6 @@ import (
 // and helper calls. These helpers accept only concrete SSA relationships and
 // stop at cycles or unmodeled indirection so callers can treat a match as proof.
 
-func DeferredClosureCalls(instruction ssa.Instruction, method string, target ssa.Value) bool {
-	if _, ok := instruction.(*ssa.Defer); !ok {
-		return false
-	}
-	return ClosureCallsMethod(instruction, method, target)
-}
-
 // DeferredClosureCallsValue reports whether a deferred closure calls target.
 func DeferredClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
 	if _, ok := instruction.(*ssa.Defer); !ok {
@@ -52,27 +45,6 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 	return false
 }
 
-// DeferredHelperInvokesBoundMethodOnEveryReturn reports whether a deferred
-// static helper receives a callback bound to method on target and invokes that
-// exact callback on every normal return. Both the defer and the helper's
-// unconditional invocation are required: merely observing or conditionally
-// invoking a cleanup callback does not settle the lifecycle.
-func DeferredHelperInvokesBoundMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
-	if _, ok := instruction.(*ssa.Defer); !ok {
-		return false
-	}
-	common := InstructionCall(instruction)
-	if common == nil || common.StaticCallee() == nil {
-		return false
-	}
-	for _, argument := range common.Args {
-		if ValueCallsMethod(argument, method, target) && CallInvokesArgumentOnEveryReturn(instruction, argument) {
-			return true
-		}
-	}
-	return false
-}
-
 // ClosureCallsValue reports whether a call-like closure or created callback calls target.
 func ClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
 	var closure *ssa.MakeClosure
@@ -90,99 +62,17 @@ func ClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
 	return closureCallsValue(closure, target)
 }
 
-// ValueCallsMethod reports whether value is, or wraps, a callback that invokes
-// method on target.
-func ValueCallsMethod(value ssa.Value, method string, target ssa.Value) bool {
-	return valueCallsMethod(value, method, target, map[ssa.Value]bool{})
-}
-
-func valueCallsMethod(value ssa.Value, method string, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
-	if closure, ok := value.(*ssa.MakeClosure); ok && closureValueCallsMethod(closure, method, target, seen) {
-		return true
-	}
-	if inner, ok := UnwrapTransparentValue(
-		value,
-		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
-	); ok {
-		return valueCallsMethod(inner, method, target, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.Alloc:
-		return storedCallbackCallsMethod(typed, method, target, seen)
-	case *ssa.Call:
-		for _, argument := range typed.Common().Args {
-			if valueCallsMethod(argument, method, target, seen) {
-				return true
-			}
-		}
-	case *ssa.UnOp:
-		return storedCallbackCallsMethod(typed.X, method, target, seen)
-	case *ssa.Phi:
-		for _, edge := range typed.Edges {
-			if valueCallsMethod(edge, method, target, seen) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func closureValueCallsMethod(closure *ssa.MakeClosure, method string, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if ClosureCallsMethod(closure, method, target) {
-		return true
-	}
-	function, ok := closure.Fn.(*ssa.Function)
-	if !ok {
-		return false
-	}
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if nested, ok := instruction.(*ssa.MakeClosure); ok && valueCallsMethod(nested, method, target, seen) {
-				return true
-			}
-			if closureBindingCallsMethod(instruction, function, closure, method, target, seen) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func closureBindingCallsMethod(
-	instruction ssa.Instruction,
-	function *ssa.Function,
-	closure *ssa.MakeClosure,
-	method string,
-	target ssa.Value,
-	seen map[ssa.Value]bool,
-) bool {
+// calledFunction returns the call, the function literal when the callee is
+// one, and the callee body of a call-like instruction.
+func calledFunction(instruction ssa.Instruction) (*ssa.CallCommon, *ssa.MakeClosure, *ssa.Function) {
 	common := InstructionCall(instruction)
 	if common == nil {
-		return false
+		return nil, nil, nil
 	}
-	for index, free := range function.FreeVars {
-		if index < len(closure.Bindings) &&
-			ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) &&
-			valueCallsMethod(closure.Bindings[index], method, target, seen) {
-			return true
-		}
+	closure, _ := common.Value.(*ssa.MakeClosure)
+	function := common.StaticCallee()
+	if closure != nil {
+		function, _ = closure.Fn.(*ssa.Function)
 	}
-	return false
-}
-
-func storedCallbackCallsMethod(address ssa.Value, method string, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if address.Referrers() == nil {
-		return false
-	}
-	for _, reference := range *address.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == address && valueCallsMethod(store.Val, method, target, seen) {
-			return true
-		}
-	}
-	return false
+	return common, closure, function
 }

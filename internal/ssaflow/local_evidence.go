@@ -19,7 +19,7 @@ type completionEvidenceKey struct {
 	instruction ssa.Instruction
 	target      ssa.Value
 	methods     string
-	modes       CompletionMode
+	coverage    CompletionCoverage
 }
 
 type transferEvidenceKey struct {

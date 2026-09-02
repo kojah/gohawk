@@ -355,8 +355,10 @@ func deferredParameterConditionallyCloses(client *http.Client, request *http.Req
 	return nil
 }
 
-func immediateParameterCloseDoesNotSettleReturn(client *http.Client, request *http.Request) error {
-	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+// An immediately invoked literal that closes the exact projected parameter
+// releases the body before the call returns.
+func immediateParameterCloseSettlesReturn(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
 	if err != nil {
 		return err
 	}

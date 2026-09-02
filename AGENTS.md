@@ -101,7 +101,9 @@ package would otherwise require reading several functions to reconstruct.
 ## Analyzer tracing
 
 Use the structured evidence tracer instead of temporary print statements when
-investigating analyzer behavior. Every diagnostic must flow through
+investigating analyzer behavior. Use `gohawk ssa -func NAME PACKAGE` to read
+the SSA the analyzers see instead of reconstructing the lowering by hand; the
+evidence records carry the SSA text of the instruction they judged. Every diagnostic must flow through
 `check.Report` or `check.Reportf`, which provide repo-wide
 candidate and suggested-fix events. Shared analyzer wrappers trace whether a
 candidate is reported, suppressed by an ignore comment, or removed by check
@@ -234,6 +236,12 @@ policy.
 - Keep analyzer-specific acceptance policy beside the analyzer. Shared SSA code
   should provide identity and traversal mechanics, not silently decide whether
   evidence is sufficient for a diagnostic.
+- Lifecycle completion is one search in `internal/ssaflow`: resolve the
+  callee an instruction launches, map the target onto its parameters and
+  captures, and require the cleanup call before every normal return. Callers
+  choose the instructions they submit and whether they need a must-complete
+  or may-complete answer; do not add launch-specific completion modes or
+  reproduce the search for one analyzer.
 
 ## Semantic heuristics
 

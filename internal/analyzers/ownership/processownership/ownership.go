@@ -32,13 +32,12 @@ func processOwnerDominatesStart(
 					Instruction: instruction,
 					Target:      owner,
 					Methods:     []string{"close", "Close", "kill", "Kill", "Wait", "wait"},
-					Modes:       ssaflow.CompletionDeferred,
 				}
-				if evidence.Prove(lifecyclefacts.EvidenceRequest{
+				if proof := evidence.Prove(lifecyclefacts.EvidenceRequest{
 					Instruction: instruction,
 					Target:      owner,
 					Completion:  &completion,
-				}).Proven() {
+				}); proof.Proven() && proof.Reason == ssaflow.EvidenceDeferredCompletion {
 					return laterProcessOwnerWatcher(function, start, owners)
 				}
 			}
@@ -101,19 +100,18 @@ func processOwnershipDominatesStart(
 				Instruction: instruction,
 				Target:      command,
 				Methods:     []string{"Wait"},
-				Modes:       ssaflow.CompletionDeferred,
 			}
 			transfer := ssaflow.OwnershipTransferRequest{
 				Instruction: instruction,
 				Value:       command,
 				Modes:       ssaflow.TransferCapturedByClosure,
 			}
-			if evidence.Prove(lifecyclefacts.EvidenceRequest{
+			if proof := evidence.Prove(lifecyclefacts.EvidenceRequest{
 				Instruction: instruction,
 				Target:      command,
 				Completion:  &completion,
 				Transfer:    &transfer,
-			}).Proven() {
+			}); proof.Proven() && (proof.Reason == ssaflow.EvidenceDeferredCompletion || proof.Reason == ssaflow.EvidenceCapturedByClosure) {
 				return true
 			}
 		}
@@ -161,8 +159,6 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 		Instruction: instruction,
 		Target:      command,
 		Methods:     []string{"Wait"},
-		Modes: ssaflow.CompletionDeferred | ssaflow.CompletionInClosure |
-			ssaflow.CompletionInStartedClosure | ssaflow.CompletionByHelper,
 	}
 	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
@@ -192,8 +188,6 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 			ReceiverStore: true,
 		}).Proven() ||
 		storesProcessHandleInExternalField(instruction, command) ||
-		ssaflow.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", command) ||
-		startedWrapperWaits(evidence, instruction, command) ||
 		processHandleOwnershipAction(evidence, instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit"))
 }
@@ -211,20 +205,6 @@ func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa
 	return ok && ssaflow.ExternallyOwnedValue(field.X)
 }
 
-func startedWrapperWaits(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, command ssa.Value) bool {
-	completion := ssaflow.CompletionRequest{
-		Instruction: instruction,
-		Target:      command,
-		Methods:     []string{"Wait"},
-		Modes:       ssaflow.CompletionByStartedHelper,
-	}
-	return evidence.Prove(lifecyclefacts.EvidenceRequest{
-		Instruction: instruction,
-		Target:      command,
-		Completion:  &completion,
-	}).Proven()
-}
-
 func processHandleOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, command ssa.Value) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
@@ -238,7 +218,6 @@ func processHandleOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, in
 			Instruction: instruction,
 			Target:      argument,
 			Methods:     []string{"Wait"},
-			Modes:       ssaflow.CompletionByHelper,
 		}
 		if evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
@@ -247,8 +226,7 @@ func processHandleOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, in
 			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
 				return fact.ReturnedOwner | fact.Waited
 			},
-		}).Proven() ||
-			ssaflow.CallStartsClosureCallingMethodOnArgument(instruction, "Wait", argument) {
+		}).Proven() {
 			return true
 		}
 	}

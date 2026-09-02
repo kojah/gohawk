@@ -10,141 +10,10 @@ import (
 
 var syncOnceFunc = syntax.PackageFunction("sync", "OnceFunc")
 
-// Deferred callback evidence proves that the function invoked at return owns
-// the requested completion. It follows only unambiguous local storage and the
-// documented sync.OnceFunc callback-preservation contract.
-
-// DeferredCallbackCallsMethod reports whether an exact deferred callback is
-// structurally bound to method on target. Loads require one dominating store,
-// phi edges must all settle the same target, and other call results are opaque.
-func DeferredCallbackCallsMethod(instruction ssa.Instruction, method string, target ssa.Value) bool {
-	if _, ok := instruction.(*ssa.Defer); !ok {
-		return false
-	}
-	common := InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	return callbackValueCallsMethod(common.Value, method, target, instruction, true, map[ssa.Value]bool{})
-}
-
-// CalledCallbackCallsMethodOnEveryReturn reports whether an exact callback
-// invoked now calls method on target before every normal return. Unlike the
-// deferred form, it does not accept OnceFunc because an earlier invocation may
-// already have consumed that wrapper before the current obligation exists.
-func CalledCallbackCallsMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
-	call, ok := instruction.(*ssa.Call)
-	if !ok {
-		return false
-	}
-	return callbackValueCallsMethod(call.Common().Value, method, target, instruction, false, map[ssa.Value]bool{})
-}
-
-func callbackValueCallsMethod(
-	value ssa.Value,
-	method string,
-	target ssa.Value,
-	invocation ssa.Instruction,
-	allowOnceFunc bool,
-	seen map[ssa.Value]bool,
-) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
-	if inner, ok := UnwrapTransparentValue(
-		value,
-		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
-	); ok {
-		return callbackValueCallsMethod(inner, method, target, invocation, allowOnceFunc, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.MakeClosure:
-		return closureCallsMethodOnEveryReturn(typed, method, target, invocation, allowOnceFunc, seen)
-	case *ssa.Call:
-		common := typed.Common()
-		return allowOnceFunc && CallMatchesSymbol(common, syncOnceFunc) && len(common.Args) == 1 &&
-			callbackValueCallsMethod(common.Args[0], method, target, invocation, allowOnceFunc, seen)
-	case *ssa.UnOp:
-		return uniquelyStoredCallbackCallsMethod(typed.X, method, target, invocation, allowOnceFunc, seen)
-	case *ssa.Alloc:
-		return uniquelyStoredCallbackCallsMethod(typed, method, target, invocation, allowOnceFunc, seen)
-	case *ssa.Phi:
-		if len(typed.Edges) == 0 {
-			return false
-		}
-		for _, edge := range typed.Edges {
-			if !callbackValueCallsMethod(edge, method, target, invocation, allowOnceFunc, cloneValueSet(seen)) {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
-	}
-}
-
-func closureCallsMethodOnEveryReturn(
-	closure *ssa.MakeClosure,
-	method string,
-	target ssa.Value,
-	invocation ssa.Instruction,
-	allowOnceFunc bool,
-	seen map[ssa.Value]bool,
-) bool {
-	function, _ := closure.Fn.(*ssa.Function)
-	if function == nil {
-		return false
-	}
-	callsMethod := func(instruction ssa.Instruction) bool {
-		common := InstructionCall(instruction)
-		receiverMatches := calledReceiverMatches(nil, closure, function, CallReceiver(common), target)
-		// Only deferred callbacks need the binding to remain exact through function
-		// return. An immediately called closure observes its capture at this call.
-		if allowOnceFunc {
-			receiverMatches = deferredReceiverMatches(closure, function, CallReceiver(common), target, invocation)
-		}
-		if CallName(common) == method && receiverMatches {
-			return true
-		}
-		if common == nil {
-			return false
-		}
-		for index, free := range function.FreeVars {
-			if index < len(closure.Bindings) && ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) &&
-				callbackValueCallsMethod(closure.Bindings[index], method, target, invocation, allowOnceFunc, cloneValueSet(seen)) {
-				return true
-			}
-		}
-		return false
-	}
-	return MethodCallCoverage(function, callsMethod, CoverageEveryReturn, nil)
-}
-
-func deferredReceiverMatches(
-	closure *ssa.MakeClosure,
-	function *ssa.Function,
-	receiver ssa.Value,
-	target ssa.Value,
-	invocation ssa.Instruction,
-) bool {
-	for index, free := range function.FreeVars {
-		if index >= len(closure.Bindings) || !ValueDerivesFrom(receiver, free, map[ssa.Value]bool{}) {
-			continue
-		}
-		binding, ok := deferredBindingValue(closure.Bindings[index], target, invocation)
-		if !ok {
-			continue
-		}
-		if SameValue(binding, target) || ValueDerivesFrom(binding, target, map[ssa.Value]bool{}) || SameAccessPath(
-			AccessPath{Value: receiver, Root: free},
-			AccessPath{Value: target, Root: binding},
-		) {
-			return true
-		}
-	}
-	return false
-}
+// Deferred bindings are observed when the deferred callee runs, after any
+// assignment that follows the defer. These helpers recover the one value an
+// addressable capture or stored callback can hold at that point, and refuse
+// captures with several stores or a store that does not dominate the defer.
 
 //nolint:ireturn // SSA bindings have several concrete forms.
 func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction) (ssa.Value, bool) {
@@ -157,9 +26,6 @@ func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction)
 	if SameValue(binding, target) || ValueIsAccessPathFrom(target, binding) {
 		return binding, true
 	}
-	// Reassigned captures are addressable cells with multiple stores. A match
-	// against any historical store is insufficient: deferred closures observe
-	// the cell's value when they run, after assignments following the defer.
 	stored, ok := uniquelyStoredValueBefore(binding, invocation)
 	return stored, ok
 }
@@ -175,18 +41,6 @@ func valueHasDirectStore(value ssa.Value) bool {
 		}
 	}
 	return false
-}
-
-func uniquelyStoredCallbackCallsMethod(
-	address ssa.Value,
-	method string,
-	target ssa.Value,
-	invocation ssa.Instruction,
-	allowOnceFunc bool,
-	seen map[ssa.Value]bool,
-) bool {
-	stored, ok := uniquelyStoredValueBefore(address, invocation)
-	return ok && callbackValueCallsMethod(stored, method, target, invocation, allowOnceFunc, seen)
 }
 
 //nolint:ireturn // Stored callbacks and captures may be any SSA value.

@@ -12,20 +12,15 @@ const (
 	EvidenceSameValue      EvidenceReason = "same-value"
 	EvidenceSameAccessPath EvidenceReason = "same-access-path"
 
-	EvidenceDeferredCompletion              EvidenceReason = "deferred-completion"
-	EvidenceDeferredCallback                EvidenceReason = "deferred-callback-completion"
-	EvidenceDeferredArgumentCompletion      EvidenceReason = "deferred-argument-completion"
-	EvidenceDeferredHelperCallback          EvidenceReason = "deferred-helper-callback-completion"
-	EvidenceClosureCompletion               EvidenceReason = "closure-completion"
-	EvidenceCompletionBeforeBranch          EvidenceReason = "completion-before-branch"
-	EvidenceCalledCompletionBeforeBranch    EvidenceReason = "called-closure-completion-before-branch"
-	EvidenceCalledCompletionOnEveryReturn   EvidenceReason = "called-closure-completion-on-every-return"
-	EvidenceHelperCompletion                EvidenceReason = "helper-completion"
-	EvidenceDerivedDeferredHelperCompletion EvidenceReason = "derived-deferred-helper-completion"
-	EvidenceStartedCompletion               EvidenceReason = "started-completion"
-	EvidenceStartedHelperCompletion         EvidenceReason = "started-helper-completion"
-	EvidenceHelperInvocation                EvidenceReason = "helper-invocation"
-	EvidenceReturnedDeferredCleanup         EvidenceReason = "returned-deferred-cleanup"
+	// EvidenceDeferredCompletion and the other completion reasons name the
+	// launch form of the callee that ran the lifecycle method; nested launches
+	// report the outermost form.
+	EvidenceDeferredCompletion      EvidenceReason = "deferred-completion"
+	EvidenceCalledCompletion        EvidenceReason = "called-completion"
+	EvidenceStartedCompletion       EvidenceReason = "started-completion"
+	EvidenceCallbackCompletion      EvidenceReason = "callback-completion"
+	EvidenceHelperInvocation        EvidenceReason = "helper-invocation"
+	EvidenceReturnedDeferredCleanup EvidenceReason = "returned-deferred-cleanup"
 
 	EvidenceStoredInField               EvidenceReason = "stored-in-field"
 	EvidenceOwnerStoredInField          EvidenceReason = "owner-stored-in-field"

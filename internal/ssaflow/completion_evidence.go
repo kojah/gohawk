@@ -6,33 +6,17 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// CompletionMode selects lifecycle-completion relationships accepted by an
-// analyzer. Modes are policy: callers should enable only the relationships
-// that settle their particular ownership obligation.
-type CompletionMode uint16
-
-const (
-	CompletionDeferred CompletionMode = 1 << iota
-	CompletionInClosure
-	CompletionBeforeBranch
-	CompletionByHelper
-	CompletionInStartedClosure
-	CompletionByStartedHelper
-	CompletionInCalledClosureBeforeBranch
-	CompletionByDeferredHelperCallback
-	CompletionByDeferredArgument
-	CompletionByDeferredCallback
-	CompletionInCalledClosureOnEveryReturn
-	CompletionByDerivedDeferredHelperArgument
-)
-
-// CompletionRequest describes lifecycle completion to prove for one or more
-// equivalent cleanup methods.
+// CompletionRequest asks whether the callee launched by Instruction calls one
+// of Methods on Target. The instruction's launch form decides the coverage
+// the call must have; callers that accept only some launch forms, such as
+// deferred releases, select the instructions they submit.
 type CompletionRequest struct {
 	Instruction ssa.Instruction
 	Target      ssa.Value
 	Methods     []string
-	Modes       CompletionMode
+	// Coverage defaults to CoverageEveryReturn. Callers asking only whether a
+	// callee may complete the target select CoverageAnywhere.
+	Coverage CompletionCoverage
 }
 
 // Completion proves and memoizes a lifecycle-completion request.
@@ -40,13 +24,13 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionP
 	key := completionEvidenceKey{
 		instruction: request.Instruction,
 		target:      request.Target,
-		methods:     completionMethodsKey(request.Methods),
-		modes:       request.Modes,
+		methods:     strings.Join(request.Methods, "\x00"),
+		coverage:    request.Coverage,
 	}
 	if proof, ok := evidence.completions[key]; ok {
 		return proof
 	}
-	proof := proveCompletion(request)
+	proof := ProveCompletion(request)
 	if evidence.completions == nil {
 		evidence.completions = make(map[completionEvidenceKey]CompletionProof)
 	}
@@ -54,106 +38,25 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionP
 	return proof
 }
 
-func completionMethodsKey(methods []string) string {
-	if len(methods) == 1 {
-		return methods[0]
-	}
-	return strings.Join(methods, "\x00")
-}
-
-func proveCompletion(request CompletionRequest) CompletionProof {
-	if request.Instruction == nil || request.Target == nil || len(request.Methods) == 0 || request.Modes == 0 {
+// ProveCompletion runs the completion search once without memoization. The
+// proof is Unknown when no callee body was available to search, so callers
+// may consult imported summaries, and Disproven when a searched body does not
+// complete the target.
+func ProveCompletion(request CompletionRequest) CompletionProof {
+	if request.Instruction == nil || request.Target == nil || len(request.Methods) == 0 {
 		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
+	searched := false
 	for _, method := range request.Methods {
-		if proof := proveMethodCompletion(request, method); proof.Proven() {
-			return proof
+		search := newCompletionSearch(method, request.Coverage)
+		launch, proven, available := search.completes(request.Instruction, request.Target)
+		if proven {
+			return CompletionProof{Proof{State: EvidenceProven, Reason: launch.reason(), Method: method, Provenance: EvidenceFromLocalSSA}}
 		}
+		searched = searched || available
 	}
-	if completionEvidenceUnavailable(request) {
+	if !searched {
 		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
 	return CompletionProof{Proof{State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA}}
-}
-
-func proveMethodCompletion(request CompletionRequest, method string) CompletionProof {
-	if request.Modes&CompletionDeferred != 0 && DeferredClosureCalls(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceDeferredCompletion, method)
-	}
-	if request.Modes&CompletionByDeferredCallback != 0 && DeferredCallbackCallsMethod(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceDeferredCallback, method)
-	}
-	if request.Modes&CompletionByDeferredArgument != 0 &&
-		DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceDeferredArgumentCompletion, method)
-	}
-	if request.Modes&CompletionByDeferredHelperCallback != 0 &&
-		DeferredHelperInvokesBoundMethodOnEveryReturn(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceDeferredHelperCallback, method)
-	}
-	if proof := proveBeforeBranchCompletion(request, method); proof.Proven() {
-		return proof
-	}
-	if proof := proveHelperCompletion(request, method); proof.Proven() {
-		return proof
-	}
-	if request.Modes&CompletionInStartedClosure != 0 && StartedClosureCallsMethodOnEveryReturn(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceStartedCompletion, method)
-	}
-	if request.Modes&CompletionInCalledClosureOnEveryReturn != 0 &&
-		CalledClosureCallsMethodOnEveryReturn(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceCalledCompletionOnEveryReturn, method)
-	}
-	if request.Modes&CompletionByStartedHelper != 0 && StartedClosureCallsMethodViaHelper(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceStartedHelperCompletion, method)
-	}
-	if request.Modes&CompletionInClosure != 0 && ClosureCallsMethod(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceClosureCompletion, method)
-	}
-	return CompletionProof{}
-}
-
-func proveHelperCompletion(request CompletionRequest, method string) CompletionProof {
-	if request.Modes&CompletionByHelper != 0 && CallCallsMethodOnArgumentOnEveryReturn(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceHelperCompletion, method)
-	}
-	// A helper called directly, not only deferred, may receive the exact
-	// cleanup-bearing projection of the target and call the method on that
-	// parameter on every return; the call then releases on its own path.
-	// Kubestellar's dashboard closes bodies through closeHTTPBody(resp.Body):
-	// https://github.com/kubestellar/hive/blob/d8427b99764e9fd569e292b0bdde7a65f224ef9f/src/pkg/dashboard/api.go#L861-L866
-	if request.Modes&CompletionByHelper != 0 && helperCallsMethodOnProjectedArgumentOnEveryReturn(request.Instruction, method, request.Target, false) {
-		return completionProof(EvidenceHelperCompletion, method)
-	}
-	if request.Modes&CompletionByDerivedDeferredHelperArgument != 0 &&
-		DeferredHelperCallsMethodOnDerivedArgumentOnEveryReturn(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceDerivedDeferredHelperCompletion, method)
-	}
-	return CompletionProof{}
-}
-
-func proveBeforeBranchCompletion(request CompletionRequest, method string) CompletionProof {
-	if request.Modes&CompletionBeforeBranch != 0 && ClosureCallsMethodBeforeBranch(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceCompletionBeforeBranch, method)
-	}
-	if request.Modes&CompletionInCalledClosureBeforeBranch != 0 &&
-		CalledClosureCallsMethodBeforeBranch(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceCalledCompletionBeforeBranch, method)
-	}
-	return CompletionProof{}
-}
-
-func completionProof(reason EvidenceReason, method string) CompletionProof {
-	return CompletionProof{Proof{State: EvidenceProven, Reason: reason, Method: method, Provenance: EvidenceFromLocalSSA}}
-}
-
-func completionEvidenceUnavailable(request CompletionRequest) bool {
-	common, _, function := calledFunction(request.Instruction)
-	if request.Modes&(CompletionDeferred|CompletionInClosure|CompletionBeforeBranch|CompletionInStartedClosure|CompletionByStartedHelper|
-		CompletionInCalledClosureBeforeBranch|CompletionInCalledClosureOnEveryReturn|CompletionByDeferredHelperCallback|
-		CompletionByDeferredArgument|CompletionByDerivedDeferredHelperArgument) != 0 &&
-		(function == nil || len(function.Blocks) == 0) {
-		return true
-	}
-	return request.Modes&CompletionByHelper != 0 && (common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) == 0)
 }

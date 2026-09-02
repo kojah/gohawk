@@ -155,9 +155,9 @@ func possiblyDeferredUnlock(
 				Instruction: deferred,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Modes:       ssaflow.CompletionDeferred | ssaflow.CompletionByDeferredCallback,
+				Coverage:    ssaflow.CoverageAnywhere,
 			})
-			if proof.Proven() {
+			if proof.Proven() && proof.Reason == ssaflow.EvidenceDeferredCompletion {
 				// A defer registered before acquisition can conditionally release the
 				// exact lock using state established after Lock. Without proving the
 				// deferred guard false, a missing-release defect is uncertain. Telekom's
@@ -184,9 +184,8 @@ func transferCalledUnlocks(
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Modes:       ssaflow.CompletionByHelper | ssaflow.CompletionInCalledClosureOnEveryReturn,
 			})
-			if !proof.Proven() {
+			if !proof.Proven() || proof.Reason != ssaflow.EvidenceCalledCompletion {
 				continue
 			}
 			// A synchronous helper or immediately invoked closure that releases the
@@ -222,9 +221,8 @@ func transferSpawnedUnlocks(
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Modes:       ssaflow.CompletionBeforeBranch | ssaflow.CompletionInStartedClosure,
 			})
-			if proof.Proven() {
+			if proof.Proven() && proof.Reason == ssaflow.EvidenceStartedCompletion {
 				// A spawned helper may branch before releasing the caller's lock as
 				// long as every normal return performs the release. gRPC transfers
 				// addrConn.mu to its reconnect worker this way:
@@ -251,13 +249,17 @@ func recordDeferredUnlocks(
 	}
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
+			// A deferred literal that releases on some path makes the release
+			// data-dependent, typically through an "already unlocked" flag.
+			// Missing-release diagnostics need the release to be impossible, so
+			// this asks only whether the defer may unlock.
 			proof := evidence.Completion(ssaflow.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Modes:       ssaflow.CompletionDeferred | ssaflow.CompletionByDeferredCallback,
+				Coverage:    ssaflow.CoverageAnywhere,
 			})
-			if proof.Proven() {
+			if proof.Proven() && proof.Reason == ssaflow.EvidenceDeferredCompletion {
 				released[identity] = true
 				deferred = appendUniqueString(deferred, identity)
 				break
