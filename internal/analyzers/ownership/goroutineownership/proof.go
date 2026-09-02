@@ -90,10 +90,12 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	if !ssaflow.UnownedReturn(analysis.spawn, any, analysis.returnTransfers) {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}
 	}
-	if analysis.joinInsideLoop() {
-		// A receive loop that may run zero times is not a proven skip: the
-		// spawn loop may have run zero times too. Matching those counts is not
-		// modeled, so counted joins stay unknown rather than reported.
+	if analysis.countedJoin() {
+		// When the spawn itself runs in a loop, a later receive loop that may
+		// run zero times is not a proven skip: the spawn loop may have run zero
+		// times too. Matching those counts is not modeled, so counted joins stay
+		// unknown. A single spawn joined only inside a conditional loop body has
+		// no such symmetry and remains reportable.
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLoopJoinUnproven}
 	}
 	if analysis.checkID == check.GoroutineDetached {
@@ -112,7 +114,10 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonUnownedReturn}
 }
 
-func (analysis *spawnAnalysis) joinInsideLoop() bool {
+func (analysis *spawnAnalysis) countedJoin() bool {
+	if !ssaflow.BlockInCycle(analysis.spawn.Block()) {
+		return false
+	}
 	for _, block := range analysis.function.Blocks {
 		if !ssaflow.BlockInCycle(block) {
 			continue

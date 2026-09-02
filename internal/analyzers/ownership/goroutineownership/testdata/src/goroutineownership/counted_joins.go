@@ -233,3 +233,16 @@ func unrelatedNestedWorkerDoesNotJoin() {
 	_ = run
 	_ = done
 }
+
+func joinedOnlyInsideConditionalLoop(events []int) {
+	lines := make(chan string)
+	go func() { // want "goroutine is not joined on every return path"
+		lines <- "line"
+		close(lines)
+	}()
+	for _, event := range events {
+		if event > 0 {
+			<-lines
+		}
+	}
+}
