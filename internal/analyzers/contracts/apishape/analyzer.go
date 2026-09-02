@@ -65,7 +65,7 @@ func runAPIShape(pass *analysis.Pass, config apiShapeConfig) (any, error) {
 			if !ok {
 				return true
 			}
-			recordReceiver(declaration, receivers, receiverPositions)
+			recordReceiver(pass, declaration, interfaces, receivers, receiverPositions)
 			if !declaration.Name.IsExported() {
 				return false
 			}
@@ -249,8 +249,19 @@ func functionParameterIsCallback(signature *types.Signature, argument int) bool 
 	return ok
 }
 
-func recordReceiver(declaration *ast.FuncDecl, receivers map[string]receiverForms, positions map[string]token.Pos) {
+func recordReceiver(
+	pass *analysis.Pass,
+	declaration *ast.FuncDecl,
+	interfaces []*types.Interface,
+	receivers map[string]receiverForms,
+	positions map[string]token.Pos,
+) {
 	if declaration.Recv == nil || codecMethod(declaration.Name.Name) {
+		return
+	}
+	proof := proveReceiverFormEvidence(pass, declaration, interfaces)
+	if !proof.contributes {
+		traceReceiverFormDecision(pass, declaration, proof)
 		return
 	}
 	name, pointer := receiverName(declaration.Recv.List[0].Type)
