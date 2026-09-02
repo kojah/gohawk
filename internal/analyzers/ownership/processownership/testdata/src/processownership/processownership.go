@@ -67,7 +67,7 @@ func explicitlyDetached(ctx context.Context) error {
 
 func orphan(ctx context.Context) error {
 	command := exec.CommandContext(ctx, "tool")
-	return command.Start() // want "started command is not waited on every successful return path"
+	return command.Start() // want "started command is never waited on or released"
 }
 
 func owned(ctx context.Context) error {
@@ -407,7 +407,7 @@ func controllerWithoutWatcher(ctx context.Context) error {
 		return err
 	}
 	defer func() { _ = controller.close() }()
-	return command.Start() // want "started command is not waited on every successful return path"
+	return command.Start() // want "started command is never waited on or released"
 }
 
 type startedCopy exec.Cmd
@@ -507,7 +507,7 @@ func startWithLocalHolder() error {
 	holder := &envoyDriver{}
 	cmd := exec.Command("envoy")
 	holder.cmd = cmd
-	if err := cmd.Start(); err != nil { // want "started command is not waited on every successful return path"
+	if err := cmd.Start(); err != nil { // want "started command is never waited on or released"
 		return err
 	}
 	return nil

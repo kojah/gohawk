@@ -40,6 +40,20 @@ struct's type has a method proven to release the field; a returned view such
 as a buffered reader leaves the obligation with the caller, even when the
 view's type has a `Close` of its own that releases nothing.
 
+Every instruction after an acquisition is classified once as a release or
+transfer, an opaque use, or nothing, and a leak is reported only when no
+release or transfer covers a return and nothing opaque consumed the resource
+on the way there. Summaries are the analyzer's knowledge: a summarized callee
+that neither releases, stores, nor owns the resource is transparent, so a
+read helper leaves the obligation in place. Opaque uses are real boundaries:
+the resource handed to an interface method or function value, to a callee
+with neither body nor summary, to a launched or deferred literal without a
+proven release, or into a channel, map, or append the analyzer does not
+track. Past such a use the analyzer stays silent rather than guess.
+
+Compression writers over a local in-memory buffer are exempt by default;
+`-require-memory-writer-close=true` reports them like any other writer.
+
 The opt-in `use-after-release` check is the dual of the leak check. After a
 plain (not deferred) release of the acquired value, it reports an operation
 the API documents as failing on a released value, such as a write to a closed
@@ -116,5 +130,6 @@ func readSafely(path string) error {
 | Knob | Default | Effect |
 | --- | --- | --- |
 | `contracts` | `os,http,sql,time,compress,owned` | Comma-separated resource contract families: os,http,sql,time,compress,owned. |
+| `require-memory-writer-close` | `false` | Report gzip and zlib writers over an in-memory buffer that are not closed on every path. |
 | `require-reader-close` | `true` | Require gzip and zlib readers to be closed. |
 {/* gohawk:generated-options:end */}

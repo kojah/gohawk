@@ -56,8 +56,18 @@ func (search *retention) within(function *ssa.Function, parameter ssa.Value) boo
 func (search *retention) instructionRetains(function *ssa.Function, instruction ssa.Instruction, derives func(ssa.Value) bool) bool {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
-		local, ok := typed.Addr.(*ssa.Alloc)
-		return derives(typed.Val) && (!ok || local.Parent() != function)
+		// A store into a local allocation, or into a field or element of one,
+		// keeps the value only as long as the local lives. In strict mode that
+		// is not retention: a local aggregate that escapes is decided where it
+		// escapes. The loose mode keeps counting it.
+		if !derives(typed.Val) {
+			return false
+		}
+		local, ok := localStorage(typed.Addr, function)
+		if !ok || !search.strict {
+			return true
+		}
+		return search.valueEscapes(local, map[ssa.Value]bool{})
 	case *ssa.MakeClosure:
 		if !slices.ContainsFunc(typed.Bindings, func(binding ssa.Value) bool {
 			return derives(binding) || derives(ssaflow.CapturedBindingValue(binding))
@@ -77,6 +87,23 @@ func (search *retention) instructionRetains(function *ssa.Function, instruction 
 		return search.callRetains(ssaflow.InstructionCall(instruction), instruction, derives)
 	}
 	return false
+}
+
+// localStorage returns the local allocation of the function that the
+// address is, or lies beneath through fields and elements.
+func localStorage(address ssa.Value, function *ssa.Function) (*ssa.Alloc, bool) {
+	for {
+		switch typed := address.(type) {
+		case *ssa.Alloc:
+			return typed, typed.Parent() == function
+		case *ssa.FieldAddr:
+			address = typed.X
+		case *ssa.IndexAddr:
+			address = typed.X
+		default:
+			return nil, false
+		}
+	}
 }
 
 // closureEscapes reports whether a literal outlives its creation: it is
@@ -110,10 +137,25 @@ func (search *retention) referenceEscapes(value ssa.Value, reference ssa.Instruc
 		return typed.Common().Value != value && search.callRetains(typed.Common(), typed, isValue)
 	case *ssa.Return:
 		return !search.strict
-	case *ssa.ChangeType, *ssa.Convert, *ssa.MakeInterface, *ssa.ChangeInterface:
+	case *ssa.ChangeType, *ssa.Convert, *ssa.MakeInterface, *ssa.ChangeInterface, *ssa.FieldAddr, *ssa.IndexAddr, *ssa.Slice:
+		// Conversions and projections of an aggregate escape when they do.
 		converted, _ := typed.(ssa.Value)
 		return search.valueEscapes(converted, seen)
-	case *ssa.DebugRef:
+	case *ssa.Store:
+		// Storing into the value is not an escape of the value. Storing the
+		// value into a local cell escapes only if that cell does; storing it
+		// anywhere else is an escape.
+		if typed.Addr == value {
+			return false
+		}
+		if local, ok := localStorage(typed.Addr, typed.Parent()); ok {
+			return search.valueEscapes(local, seen)
+		}
+		return true
+	case *ssa.MakeClosure:
+		// A cell captured by a literal escapes only if the literal does.
+		return search.valueEscapes(typed, seen)
+	case *ssa.UnOp, *ssa.DebugRef:
 		return false
 	default:
 		return true

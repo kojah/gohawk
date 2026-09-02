@@ -79,6 +79,9 @@ func walkLockOrder(
 			// the held lock to that goroutine. Requiring it before any branch keeps
 			// conditional handoffs from hiding a genuinely unreleased return path.
 			held = transferSpawnedUnlocks(evidence, instruction, held, guards, lockValues, released)
+			// A lock whose owner is handed to something the analysis cannot see
+			// through may be released there, so a later return proves nothing.
+			held = transferOpaqueUnlocks(instruction, held, guards, lockValues, released)
 			// Treat an Unlock inside a deferred closure as return-path cleanup even
 			// when guarded by state. This supports early-unlock patterns where the
 			// defer handles only earlier returns:
@@ -425,4 +428,58 @@ func traceRepeatedConditionPruning(pass *analysis.Pass, block *ssa.BasicBlock) {
 		Pos:      branch.Pos(),
 		Function: branch.Parent().String(),
 	})
+}
+
+// transferOpaqueUnlocks drops a held lock whose owner is handed across a
+// boundary the analysis cannot see through: an interface method or a
+// function value. The callee may unlock, so the obligation is unknown rather
+// than violated from that point. A static callee is judged by the completion
+// proof instead.
+func transferOpaqueUnlocks(
+	instruction ssa.Instruction,
+	held []string,
+	guards map[string]lockGuard,
+	lockValues map[string][]ssa.Value,
+	released map[string]bool,
+) []string {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil || !opaqueCallee(common) {
+		return held
+	}
+	for _, identity := range slices.Clone(held) {
+		for _, value := range lockValues[identity] {
+			if !lockHandedTo(common, value) {
+				continue
+			}
+			released[identity] = true
+			held = releaseLock(held, identity)
+			delete(guards, identity)
+			break
+		}
+	}
+	return held
+}
+
+// opaqueCallee reports whether the call is dispatched at run time: an
+// interface method or a function value. A static callee, even one whose body
+// is not loaded, is a known function the completion proof can judge.
+func opaqueCallee(common *ssa.CallCommon) bool {
+	if common.IsInvoke() {
+		return true
+	}
+	if _, ok := common.Value.(*ssa.Builtin); ok {
+		return false
+	}
+	return common.StaticCallee() == nil
+}
+
+// lockHandedTo reports whether an argument is the lock, its owner, or a
+// value the lock derives from, such as the struct whose field it is.
+func lockHandedTo(common *ssa.CallCommon, lock ssa.Value) bool {
+	for _, argument := range common.Args {
+		if ssaflow.SameValue(argument, lock) || ssaflow.ValueDerivesFrom(lock, argument, map[ssa.Value]bool{}) {
+			return true
+		}
+	}
+	return false
 }

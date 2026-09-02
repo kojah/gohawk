@@ -24,6 +24,9 @@ type resourceFlowState struct {
 	index       int
 	active      bool
 	released    bool
+	// unknown records that something the analysis cannot see through
+	// consumed the resource on this path; a return after that proves nothing.
+	unknown bool
 }
 
 type resourceFlowKey struct {
@@ -32,6 +35,7 @@ type resourceFlowKey struct {
 	index       int
 	active      bool
 	released    bool
+	unknown     bool
 }
 
 // Analyzer returns this package's configured Go analysis pass.
@@ -59,6 +63,10 @@ func evaluateResourceFlow(
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
 	owners := localResourceOwners(call.Parent(), resource)
+	analysis := &resourceAnalysis{
+		pass: pass, evidence: evidence, function: call.Parent(), resource: resource, owners: owners,
+		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
+	}
 	// The walk starts on the instruction after the acquisition and keys its
 	// states by block, predecessor, and release status, so the same block is
 	// revisited only when a different path reaches it with a different
@@ -66,6 +74,7 @@ func evaluateResourceFlow(
 	// acquisition be told apart from its error branch.
 	queue := []resourceFlowState{{block: call.Block(), index: index + 1, active: true}}
 	seen := map[resourceFlowKey]bool{}
+	opaque := false
 	for len(queue) > 0 {
 		state := queue[0]
 		queue = queue[1:]
@@ -75,11 +84,15 @@ func evaluateResourceFlow(
 		}
 		seen[key] = true
 		var leaks bool
-		state, leaks = advanceResourceState(pass, evidence, state, resource, owners, contract, optionalAcquisition)
+		state, leaks = advanceResourceState(pass, analysis, state)
 		if leaks {
 			return reportedResourceLifetime(resourceReasonUnownedReturn)
 		}
+		opaque = opaque || state.unknown
 		queue = append(queue, resourceSuccessorStates(pass, state, errorValue, resource, optionalAcquisition)...)
+	}
+	if opaque {
+		return acceptedResourceLifetime(resourceReasonOpaqueConsumption)
 	}
 	return acceptedResourceLifetime(resourceReasonReleaseProven)
 }
@@ -95,33 +108,30 @@ func resourceStateKey(state resourceFlowState) resourceFlowKey {
 		index:       state.index,
 		active:      state.active,
 		released:    state.released,
+		unknown:     state.unknown,
 	}
 }
 
-func advanceResourceState(
-	pass *analysis.Pass,
-	evidence *lifecyclefacts.LifecycleEvidence,
-	state resourceFlowState,
-	resource ssa.Value,
-	owners []ssa.Value,
-	contract resourceContract,
-	optionalAcquisition optionalAcquisitionProof,
-) (resourceFlowState, bool) {
-	// A release anywhere before a return settles the path; a consumable
-	// resource is also settled by the call that consumes it, such as a body
-	// handed to a decoder that closes it.
+func advanceResourceState(pass *analysis.Pass, analysis *resourceAnalysis, state resourceFlowState) (resourceFlowState, bool) {
+	// A release or transfer anywhere before a return settles the path. An
+	// opaque consumption does not settle it but removes the proof: the
+	// return is then neither owned nor a defect.
 	for _, instruction := range state.block.Instrs[state.index:] {
-		state.released = state.released ||
-			releasesResource(evidence, instruction, resource, owners, contract.cleanup, optionalAcquisition) ||
-			contract.consumable && consumesResource(instruction, resource)
+		switch analysis.action(instruction) {
+		case actionSettled:
+			state.released = true
+		case actionUnknown:
+			state.unknown = true
+		case actionNone:
+		}
 		if ssaflow.InstructionTerminatesControlFlow(instruction) {
 			state.active = false
 			break
 		}
 		returned, ok := instruction.(*ssa.Return)
-		if ok && state.active && !state.released &&
-			!returnedResourceOwner(pass, returned, resource, contract.cleanup) &&
-			!ssaflow.ReturnedSameAsAny(returned, owners) {
+		if ok && state.active && !state.released && !state.unknown &&
+			!returnedResourceOwner(pass, returned, analysis.resource, analysis.contract.cleanup) &&
+			!ssaflow.ReturnedSameAsAny(returned, analysis.owners) {
 			return state, true
 		}
 	}

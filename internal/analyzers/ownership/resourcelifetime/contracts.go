@@ -1,6 +1,7 @@
 package resourcelifetime
 
 import (
+	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
@@ -372,4 +373,32 @@ func ownedResultContract(evidence *lifecyclefacts.LifecycleEvidence, call *ssa.C
 		cleanup:     cleanup,
 		result:      index,
 	}, true
+}
+
+// memoryWriterExempt reports whether a compression writer wraps a local
+// in-memory buffer and the caller has not asked for those to be checked.
+// Leaving such a writer unclosed on an error path loses nothing outside the
+// function, so the finding is correct by contract but rarely actionable;
+// it is opt-in through -require-memory-writer-close.
+func memoryWriterExempt(call *ssa.Call, contract resourceContract, settings resourceLifetimeSettings) bool {
+	if settings.requireMemoryWriterClose || contract.family != "compress" || len(call.Common().Args) == 0 {
+		return false
+	}
+	writerMethods := contract.cleanup
+	if len(writerMethods) == 0 || contract.readerClose {
+		return false
+	}
+	underlying := call.Common().Args[0]
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		underlying,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+	); ok {
+		underlying = inner
+	}
+	local, ok := underlying.(*ssa.Alloc)
+	if !ok || local.Parent() != call.Parent() {
+		return false
+	}
+	pointer, ok := local.Type().Underlying().(*types.Pointer)
+	return ok && (syntax.NamedType(pointer.Elem(), "bytes", "Buffer") || syntax.NamedType(pointer.Elem(), "strings", "Builder"))
 }

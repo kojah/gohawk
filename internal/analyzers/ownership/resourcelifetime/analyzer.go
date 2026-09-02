@@ -27,6 +27,12 @@ func Analyzer() *analysis.Analyzer {
 		"comma-separated resource contract families: os,http,sql,time,compress,owned",
 	)
 	analyzer.Flags.BoolVar(&config.requireReaderClose, "require-reader-close", true, "require gzip and zlib readers to be closed")
+	analyzer.Flags.BoolVar(
+		&config.requireMemoryWriterClose,
+		"require-memory-writer-close",
+		false,
+		"report gzip and zlib writers over an in-memory buffer that are not closed on every path",
+	)
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		return runResourceLifetime(pass, config)
 	}
@@ -34,14 +40,16 @@ func Analyzer() *analysis.Analyzer {
 }
 
 type resourceLifetimeConfig struct {
-	contracts          string
-	requireReaderClose bool
+	contracts                string
+	requireReaderClose       bool
+	requireMemoryWriterClose bool
 }
 
 type resourceLifetimeSettings struct {
-	contracts          map[string]bool
-	catalog            []resourceContract
-	requireReaderClose bool
+	contracts                map[string]bool
+	catalog                  []resourceContract
+	requireReaderClose       bool
+	requireMemoryWriterClose bool
 }
 
 func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (any, error) {
@@ -50,9 +58,10 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 		return nil, err
 	}
 	settings := resourceLifetimeSettings{
-		contracts:          flagvalue.CommaSeparatedSet(config.contracts),
-		catalog:            resourceContracts(),
-		requireReaderClose: config.requireReaderClose,
+		contracts:                flagvalue.CommaSeparatedSet(config.contracts),
+		catalog:                  resourceContracts(),
+		requireReaderClose:       config.requireReaderClose,
+		requireMemoryWriterClose: config.requireMemoryWriterClose,
 	}
 	completeTimers := completeTimerLifecyclePositions(pass)
 	// Acquisition contracts identify both the owned result and its required
@@ -74,7 +83,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 					continue
 				}
 				resource := ssaflow.CallResult(call, contract.result)
-				if resource == nil {
+				if resource == nil || memoryWriterExempt(call, contract, settings) {
 					continue
 				}
 				result := evaluateResourceLifetime(pass, evidence, call, resource, contract, completeTimers[call.Pos()])

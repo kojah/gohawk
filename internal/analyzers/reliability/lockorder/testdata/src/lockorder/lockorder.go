@@ -744,3 +744,31 @@ func (m *sessionManager) locksFixedStateInLoop(ids []string) {
 		state.mu.Lock() // want "lock .*mu is acquired while already held"
 	}
 }
+
+type releaser interface{ Release(*guardedConn) }
+
+type guardedConn struct {
+	mu       sync.Mutex
+	releaser releaser
+}
+
+// The connection is handed to an interface method while locked; that method
+// may unlock it, so the return afterwards is unknown rather than a defect.
+func (c *guardedConn) handOffLocked(early bool) {
+	c.mu.Lock()
+	if early {
+		c.mu.Unlock()
+		return
+	}
+	c.releaser.Release(c)
+}
+
+// An unrelated value handed off does not settle the lock.
+func (c *guardedConn) handOffOther(other *guardedConn, early bool) {
+	c.mu.Lock() // want "lock .*mu is not released on this return path"
+	if early {
+		c.mu.Unlock()
+		return
+	}
+	c.releaser.Release(other)
+}

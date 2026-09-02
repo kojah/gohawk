@@ -18,7 +18,16 @@ waiting for it.
 | Check | Kind | What it detects |
 | --- | --- | --- |
 | <CheckIdentity name="missing-wait" /> | defect | Reports successfully started commands that are neither waited on nor transferred. |
+| <CheckIdentity name="detached" optIn /> | policy | Reports started commands whose handle is never used again, the fire-and-forget launch. |
+
+\* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
+
+A started command whose handle is never touched again, the fire-and-forget
+launch of a browser or a detached daemon, is a policy choice rather than a
+defect and is reported only by the opt-in `detached` check. The default
+`missing-wait` check reports handles that are waited on or released on some
+paths but not all.
 
 ## Why this is flagged
 
@@ -39,10 +48,16 @@ exit status or error.
 {/* gohawk:generated-examples:start */}
 ### Flagged code
 
-```go gohawk="W3siY2hlY2siOiJwcm9jZXNzb3duZXJzaGlwL21pc3Npbmctd2FpdCIsIm1lc3NhZ2UiOiJzdGFydGVkIGNvbW1hbmQgaXMgbm90IHdhaXRlZCBvbiBldmVyeSBzdWNjZXNzZnVsIHJldHVybiBwYXRoIiwic3RhcnRMaW5lIjoyLCJzdGFydENvbHVtbiI6OSwiZW5kTGluZSI6MiwiZW5kQ29sdW1uIjoyNH1d"
-func run(ctx context.Context) error {
+```go gohawk="W3siY2hlY2siOiJwcm9jZXNzb3duZXJzaGlwL21pc3Npbmctd2FpdCIsIm1lc3NhZ2UiOiJzdGFydGVkIGNvbW1hbmQgaXMgbm90IHdhaXRlZCBvbiBldmVyeSBzdWNjZXNzZnVsIHJldHVybiBwYXRoIiwic3RhcnRMaW5lIjoyLCJzdGFydENvbHVtbiI6MTIsImVuZExpbmUiOjIsImVuZENvbHVtbiI6Mjd9XQ"
+func run(ctx context.Context, wait bool) error {
   command := exec.CommandContext(ctx, "worker")
-  return command.Start()
+  if err := command.Start(); err != nil {
+    return err
+  }
+  if wait {
+    return command.Wait()
+  }
+  return nil
 }
 ```
 

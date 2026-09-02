@@ -170,7 +170,8 @@ open-ended catalog of framework and naming conventions.
 ### Lifecycle analyzers: classify, then ask the flow once
 
 Ownership and lifecycle checks should share one shape, as
-`cancellationownership` and `goroutineownership` do:
+`cancellationownership`, `goroutineownership`, `resourcelifetime`, and
+`lockorder` do:
 
 1. An obligation finder resolves what the worker or callee promises (a
    channel it signals, a group it settles, a cancel it must release) back to
@@ -198,7 +199,8 @@ should be retired rather than refined.
 ### Lifecycle analyzers: classify, then ask the flow once
 
 Ownership and lifecycle checks should share one shape, as
-`cancellationownership` and `goroutineownership` do:
+`cancellationownership`, `goroutineownership`, `resourcelifetime`, and
+`lockorder` do:
 
 1. An obligation finder resolves what the worker or callee promises (a
    channel it signals, a group it settles, a cancel it must release) back to

@@ -193,6 +193,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 	seenChecks := make(map[AnalyzerCheck]string)
 	optInChecks := map[AnalyzerCheck]bool{
 		"goroutineownership/detached":        true,
+		"processownership/detached":          true,
 		"resourcelifetime/use-after-release": true,
 		"lockorder/contradictory-order":      true,
 	}
@@ -218,6 +219,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"goroutineownership/detached":        CheckKindHazard,
 		"producerlifecycle/abandoned-send":   CheckKindHazard,
 		"processownership/missing-wait":      CheckKindDefect,
+		"processownership/detached":          CheckKindPolicy,
 		"resourcelifetime/missing-release":   CheckKindDefect,
 		"resourcelifetime/use-after-release": CheckKindHazard,
 		"concurrentcapture/shared-capture":   CheckKindHazard,

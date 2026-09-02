@@ -22,6 +22,7 @@ const (
 	resourceReasonReleaseProven          resourceLifetimeReason = "release-proven"
 	resourceReasonCompleteTimerLifecycle resourceLifetimeReason = "complete-timer-lifecycle"
 	resourceReasonUnownedReturn          resourceLifetimeReason = "unowned-return"
+	resourceReasonOpaqueConsumption      resourceLifetimeReason = "opaque-consumption"
 )
 
 func evaluateResourceLifetime(

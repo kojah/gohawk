@@ -6,9 +6,15 @@ import (
 )
 
 //gohawk:example flagged
-func run(ctx context.Context) error {
+func run(ctx context.Context, wait bool) error {
 	command := exec.CommandContext(ctx, "worker")
-	return command.Start() // want "started command is not waited on every successful return path"
+	if err := command.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return err
+	}
+	if wait {
+		return command.Wait()
+	}
+	return nil
 }
 
 //gohawk:example end

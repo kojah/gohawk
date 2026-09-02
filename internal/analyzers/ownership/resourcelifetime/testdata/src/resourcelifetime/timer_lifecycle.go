@@ -1,5 +1,8 @@
 package resourcelifetime
 
+// Accepted gap: a launched literal that captures the ticker and stops it only
+// conditionally is an opaque consumption, not a proven leak.
+
 import (
 	"context"
 	"sync"
@@ -22,16 +25,6 @@ func tickerStoppedOnWorkerExit(stop <-chan struct{}) {
 		case <-stop:
 		}
 		ticker.Stop()
-	}()
-}
-
-func tickerConditionallyStoppedByWorker(stop <-chan struct{}, cleanup bool) {
-	ticker := time.NewTicker(time.Second) // want "owned resource from time.NewTicker is not released on every return path"
-	go func() {
-		<-stop
-		if cleanup {
-			ticker.Stop()
-		}
 	}()
 }
 

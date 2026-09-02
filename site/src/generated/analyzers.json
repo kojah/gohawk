@@ -296,6 +296,12 @@
               "summary": "Reports successfully started commands that are neither waited on nor transferred.",
               "kind": "defect",
               "optIn": false
+            },
+            {
+              "id": "processownership/detached",
+              "summary": "Reports started commands whose handle is never used again, the fire-and-forget launch.",
+              "kind": "policy",
+              "optIn": true
             }
           ],
           "suggestedFix": false,
@@ -326,6 +332,11 @@
               "name": "contracts",
               "default": "os,http,sql,time,compress,owned",
               "usage": "Comma-separated resource contract families: os,http,sql,time,compress,owned."
+            },
+            {
+              "name": "require-memory-writer-close",
+              "default": "false",
+              "usage": "Report gzip and zlib writers over an in-memory buffer that are not closed on every path."
             },
             {
               "name": "require-reader-close",

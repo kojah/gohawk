@@ -354,3 +354,11 @@ func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Inst
 	})
 	return true
 }
+
+// CalleeSummarized reports whether the call's static callee carries a
+// lifecycle summary, so a consumer can distinguish a callee proven to do
+// nothing with an argument from one it knows nothing about.
+func (evidence *LifecycleEvidence) CalleeSummarized(instruction ssa.Instruction) bool {
+	_, ok := factFor(evidence.pass, instruction)
+	return ok
+}

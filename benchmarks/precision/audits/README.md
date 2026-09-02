@@ -1038,13 +1038,12 @@ after two bounded corrections:
 
 The first correction removed one Iceberg manifest producer. The second
 removed two multigres key-mutex loops. Precision round 33 labels those three
-false positives and fourteen nearby true positives: an nginx config file
-leaked when its template fails, a control file never closed, three response
-bodies never closed or leaked on status and length checks, a temporary file
-leaked when its removal fails, an stderr scanner goroutine leaked when pipe
-creation fails, a discarded response, three more responses leaked on status
-checks or discarded, a retry timer never stopped, a temporary file never
-closed, and a defer inside a writer loop.
+false positives and nine nearby true positives: an nginx config file
+leaked when its template fails, a control file never closed, a response body
+never closed, three more responses leaked on status checks or discarded, a
+retry timer never stopped, a temporary file never closed, and a defer inside
+a writer loop. Labels inside nested modules beyond the replay's module budget
+were dropped as unverifiable.
 
 A goyacc reader wrapper that never closes its file, a viper persistence timer
 captured by a closure, and a multigres watchdog started to outlive its
@@ -1137,10 +1136,10 @@ corrections:
 
 The first correction removed forty-one autobrr findings that all defer one
 shared drain helper. The second removed one witness transaction rollback.
-Precision round 37 labels five of those false positives and five nearby true
+Precision round 37 labels five of those false positives and four nearby true
 positives: an SBOM output file never closed, a gzip reader never closed, a
-file leaked when its Stat fails, a discarded signal-context cancel, and a
-response leaked on a method check before its deferred close.
+file leaked when its Stat fails, and a response leaked on a method check
+before its deferred close.
 
 Two terraform log files opened into the same named result, the second
 overwriting the first, a provider wait group whose early returns skip its

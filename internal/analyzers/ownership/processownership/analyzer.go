@@ -76,9 +76,18 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 						returnsProcessHandle(returned, command)
 				})
 				emitProcessDecision(pass, function, start, command, leaks)
-				if leaks {
-					check.Reportf(pass, check.ProcessWait, start.Pos(), "started command is not waited on every successful return path")
+				if !leaks {
+					continue
 				}
+				// A launch whose handle is never touched again is a policy choice
+				// the project made deliberately, such as opening a browser, and is
+				// reported only by the opt-in detached audit. A handle that is
+				// waited on or released on some paths but not all is a defect.
+				if commandUnusedAfterStart(start, command) {
+					check.Reportf(pass, check.ProcessDetached, start.Pos(), "started command is never waited on or released")
+					continue
+				}
+				check.Reportf(pass, check.ProcessWait, start.Pos(), "started command is not waited on every successful return path")
 			}
 		}
 	}
@@ -137,4 +146,37 @@ func commandStoredExternallyBeforeStart(start *ssa.Call, command ssa.Value) bool
 func externallyOwnedAddress(address ssa.Value) bool {
 	field, ok := address.(*ssa.FieldAddr)
 	return ok && ssaflow.ExternallyOwnedValue(field.X)
+}
+
+// commandUnusedAfterStart reports whether no instruction reachable after
+// Start reads the command or anything derived from it, such as its Process.
+func commandUnusedAfterStart(start *ssa.Call, command ssa.Value) bool {
+	for _, block := range start.Parent().Blocks {
+		for _, instruction := range block.Instrs {
+			if instruction == start || !ssaflow.InstructionMayFollow(start, instruction) {
+				continue
+			}
+			if _, ok := instruction.(*ssa.DebugRef); ok {
+				continue
+			}
+			// A literal that captures the handle may wait on it later.
+			if closure, ok := instruction.(*ssa.MakeClosure); ok {
+				for _, binding := range closure.Bindings {
+					if ssaflow.CapturedBindingMatches(binding, command) {
+						return false
+					}
+				}
+			}
+			for _, operand := range instruction.Operands(nil) {
+				if operand == nil || *operand == nil || ssaflow.ValueDerivesFrom(*operand, start, map[ssa.Value]bool{}) {
+					// Start's own error result is not a use of the handle.
+					continue
+				}
+				if ssaflow.ValueDerivesFrom(*operand, command, map[ssa.Value]bool{}) {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }

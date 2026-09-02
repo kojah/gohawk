@@ -127,6 +127,12 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 		}},
 		{Analyzer: processownership.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.ProcessWait, Doc: "Reports successfully started commands that are neither waited on nor transferred.", Kind: catalog.KindDefect},
+			{
+				ID:    check.ProcessDetached,
+				Doc:   "Reports started commands whose handle is never used again, the fire-and-forget launch.",
+				Kind:  catalog.KindPolicy,
+				OptIn: true,
+			},
 		}},
 		{Analyzer: resourcelifetime.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.ResourceRelease, Doc: "Reports owned resources that are not released on every return path.", Kind: catalog.KindDefect},

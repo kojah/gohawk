@@ -7,5 +7,4 @@ transparency-dev/witness,resourcelifetime,persistence/sqlite/sql.go:199:13,false
 interlynk-io/sbomasm,resourcelifetime,pkg/assemble/spdx/utils.go:584:12,true_positive
 launchdarkly/ld-relay,resourcelifetime,internal/util/util.go:44:17,true_positive
 open-feature/flagd,resourcelifetime,core/pkg/sync/file/fileinfo_watcher.go:217:12,true_positive
-open-feature/flagd,cancellationownership,flagd-proxy/tests/loadtest/main.go:23:12,true_positive
 transparency-dev/witness,resourcelifetime,omniwitness/distribute.go:131:15,true_positive

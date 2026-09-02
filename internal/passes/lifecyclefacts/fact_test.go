@@ -222,6 +222,10 @@ func ViaKeeper(handler func()) { keep(handler) }
 func ViaReader(handler func()) { read(handler) }
 func DeferCapture(handler func()) { defer func() { handler() }() }
 
+type holder struct{ run func() }
+
+func IntoLocalStruct(handler func()) { h := holder{run: handler}; h.run() }
+
 type sink interface{ Add(func()) }
 
 var registry sink
@@ -239,7 +243,7 @@ func ViaInterface(handler func()) { registry.Add(handler) }
 	}
 	// Deferring a literal that captured the parameter, or handing it to an
 	// interface, retains loosely but does not store.
-	for name, want := range map[string][2]bool{"DeferCapture": {true, false}, "ViaInterface": {true, false}} {
+	for name, want := range map[string][2]bool{"DeferCapture": {true, false}, "ViaInterface": {true, false}, "IntoLocalStruct": {true, false}} {
 		retained, stored := want[0], want[1]
 		fact := summarize(pass, pkg.Func(name))
 		if got := fact.Retained.contains(0); got != retained {

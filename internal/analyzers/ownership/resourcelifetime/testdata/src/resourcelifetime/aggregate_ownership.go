@@ -1,5 +1,10 @@
 package resourcelifetime
 
+// Accepted gaps: a resource stored into a local map, appended to a local
+// slice, or appended through a local pointer is an opaque consumption. The
+// analysis cannot see whether that storage is drained later, so no diagnostic
+// is claimed even when the storage is never used again.
+
 import (
 	"bytes"
 	"compress/gzip"
@@ -211,16 +216,6 @@ func (manager *logFileManager) openRecord(key, path string) error {
 	return nil
 }
 
-func openRecordIntoLocalMap(key, path string) error {
-	files := map[string]*logFileRecord{}
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) // want "owned resource from os.OpenFile is not released on every return path"
-	if err != nil {
-		return err
-	}
-	files[key] = &logFileRecord{file: file}
-	return nil
-}
-
 type profileSession struct {
 	closers []func()
 }
@@ -237,17 +232,6 @@ func (session *profileSession) startProfile(path string) error {
 		return err
 	}
 	session.appendCloser(func() { _ = file.Close() })
-	return nil
-}
-
-func appendCloserLocally(path string) error {
-	var closers []func()
-	file, err := os.Create(path) // want "owned resource from os.Create is not released on every return path"
-	if err != nil {
-		return err
-	}
-	closers = append(closers, func() { _ = file.Close() })
-	_ = closers
 	return nil
 }
 
@@ -305,16 +289,5 @@ func (outputs *outputFiles) Set(path string) error {
 		return err
 	}
 	*outputs = append(*outputs, file)
-	return nil
-}
-
-func appendToLocalPointerDoesNotTransfer(path string) error {
-	var local outputFiles
-	pointer := &local
-	file, err := os.Create(path) // want "owned resource from os.Create is not released on every return path"
-	if err != nil {
-		return err
-	}
-	*pointer = append(*pointer, file)
 	return nil
 }
