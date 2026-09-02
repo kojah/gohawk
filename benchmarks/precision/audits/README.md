@@ -1326,3 +1326,26 @@ each send on one unbuffered channel it receives from once, and kubectl-gs's
 device-token wait, whose timeout goroutine sends after the select has
 returned. Five fire-and-forget browser launches appear only under the
 opt-in detached-process audit.
+
+## Batch 44
+
+Twenty-five repositories and sixty-four modules were selected. Fifty-two
+modules loaded and scanned; the rest need module downloads the scan forbids
+or hold no packages. Final scans produced 1,008 unique diagnostics after one
+bounded correction:
+
+- the detached-process audit now decides "handed on" by whether the handle,
+  a projection of it, a pipe it returned, or an aggregate holding one of
+  those reaches a call, store, return, or send; derivation stops at a scalar,
+  so logging or returning the child's PID no longer turns a fire-and-forget
+  launch into a default missing-wait report.
+
+The correction moved an agent-filesystem daemon re-exec, which prints the
+child's PID and returns, from the default check to the opt-in detached
+audit; it is not labelled because the audit still reports the same position
+under the same analyzer. Precision round 46 pins seven true positives across
+five repositories. A PID-only benchmark helper, a TTY handle leaked when the
+device is not a terminal, and a heartbeat ticker never stopped are true
+positives in modules beyond the replay's module budget and are not
+labelled. Four fire-and-forget browser launches appear only under the opt-in
+detached-process audit.

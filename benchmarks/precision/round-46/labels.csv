@@ -1,0 +1,8 @@
+repository,analyzer,position,verdict
+Southclaws/sampctl,resourcelifetime,src/pkg/runtime/manifest.go:183:13,true_positive
+cirruslabs/packer-plugin-tart,resourcelifetime,builder/tart/recoverypartition/relocate.go:63:18,true_positive
+cirruslabs/packer-plugin-tart,resourcelifetime,builder/tart/recoverypartition/relocate.go:104:24,true_positive
+cirruslabs/packer-plugin-tart,resourcelifetime,builder/tart/recoverypartition/relocate.go:119:19,true_positive
+omarluq/cc-relay,cancellationownership,cmd/cc-relay/main.go:51:12,true_positive
+timoknapp/soundcloud-cli,resourcelifetime,pkg/tag/tag.go:20:16,true_positive
+conductor-oss/go-sdk,goroutineownership,examples/workflow/lifecycle/main.go:90:2,true_positive

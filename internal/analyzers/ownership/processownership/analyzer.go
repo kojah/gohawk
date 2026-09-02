@@ -2,6 +2,8 @@
 package processownership
 
 import (
+	"go/types"
+
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -192,16 +194,68 @@ func commandUnusedAfterStart(start *ssa.Call, command ssa.Value) bool {
 					}
 				}
 			}
+			// Only handing the handle on counts as a use: a call receiving it, a
+			// store, a return, or a send. Reading a field such as the child's
+			// PID for a log line touches nothing that could wait on or release
+			// the process. agent-filesystem daemonizes itself this way:
+			// https://github.com/redis/agent-filesystem/blob/62aebf8f4d4b3a3866f4034fc6501af7d5d4a133/mount/cmd/agent-filesystem-mount/main.go#L70-L90
+			if !handsValueOn(instruction) {
+				continue
+			}
 			for _, operand := range instruction.Operands(nil) {
 				if operand == nil || *operand == nil || ssaflow.ValueDerivesFrom(*operand, start, map[ssa.Value]bool{}) {
 					// Start's own error result is not a use of the handle.
 					continue
 				}
-				if ssaflow.ValueDerivesFrom(*operand, command, map[ssa.Value]bool{}) {
+				if handleCarried(*operand, command) {
 					return false
 				}
 			}
 		}
 	}
 	return true
+}
+
+// handsValueOn reports whether an instruction can pass a value it consumes
+// to code or storage that outlives the instruction.
+func handsValueOn(instruction ssa.Instruction) bool {
+	switch instruction.(type) {
+	case ssa.CallInstruction, *ssa.Store, *ssa.Return, *ssa.Send, *ssa.MapUpdate, *ssa.Panic:
+		return true
+	}
+	return false
+}
+
+// handleCarried reports whether value is the command handle or something
+// bound to it: a projection such as cmd.Process, a pipe the command returned,
+// or an aggregate holding either. Derivation stops at a scalar, because a PID
+// or a name read from the handle is data the recipient cannot wait on or
+// release.
+func handleCarried(value, command ssa.Value) bool {
+	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+	return ssaflow.NewReachingWalk(forms).Any(value, func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+		if _, scalar := value.Type().Underlying().(*types.Basic); scalar {
+			return false
+		}
+		if ssaflow.SameValue(value, command) {
+			return true
+		}
+		if load, ok := value.(*ssa.UnOp); ok {
+			for stored := range ssaflow.StoredInto(load.X) {
+				if walk.Any(stored, func(walk ssaflow.ReachingWalk, stored ssa.Value) bool { return handleCarried(stored, command) }) {
+					return true
+				}
+			}
+		}
+		instruction, ok := value.(ssa.Instruction)
+		if !ok {
+			return false
+		}
+		for _, operand := range instruction.Operands(nil) {
+			if operand != nil && *operand != nil && handleCarried(*operand, command) {
+				return true
+			}
+		}
+		return false
+	})
 }

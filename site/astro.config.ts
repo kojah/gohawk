@@ -4,9 +4,8 @@ import { defineConfig } from 'astro/config';
 import analyzerManifest from './src/generated/analyzers.json' with { type: 'json' };
 import { pluginGohawkDiagnostics } from './src/plugins/gohawk-diagnostics.ts';
 
-// The sidebar is deliberately two levels deep: a label and its pages. Nesting
-// the analyzer groups under an 'Analyzers' parent pushed them to a third level,
-// where Starlight indents them and stacks two disclosure carets.
+// Each analyzer group is a label and its pages, nested under the 'Analyzer
+// reference' section alongside the catalog overview.
 const analyzerSidebar = analyzerManifest.groups.map((group) => ({
 	label: group.title,
 	// Omit item labels so Starlight derives them from the same frontmatter title
@@ -96,14 +95,21 @@ export default defineConfig({
 				},
 				{
 					label: 'Contributing',
-					items: [{ slug: 'contributing' }, { slug: 'architecture' }, { slug: 'ai-policy' }],
-				},
-				{
-					label: 'Development',
 					items: [
-						{ slug: 'development/shared-helpers' },
-						{ slug: 'development/fact-model' },
-						{ slug: 'development/debugging-reference' },
+						{ slug: 'contributing' },
+						{ slug: 'architecture' },
+						{ slug: 'ai-policy' },
+						// The development references are contributor material, so they sit
+						// inside Contributing rather than beside it. This is the same
+						// group-within-a-section shape the analyzer groups use.
+						{
+							label: 'Development',
+							items: [
+								{ slug: 'development/shared-helpers' },
+								{ slug: 'development/fact-model' },
+								{ slug: 'development/debugging-reference' },
+							],
+						},
 					],
 				},
 				{

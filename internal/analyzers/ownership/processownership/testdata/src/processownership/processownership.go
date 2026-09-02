@@ -2,6 +2,7 @@ package processownership
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -438,9 +439,11 @@ func returnedProcessHandle(ctx context.Context) (*os.Process, error) {
 	return command.Process, nil
 }
 
+// Returning only the PID hands the caller a number it cannot wait on, so
+// the launch is detached rather than partially handled.
 func returnedProcessPidOnly(ctx context.Context) (int, error) {
 	command := exec.CommandContext(ctx, "tool")
-	if err := command.Start(); err != nil { // want "started command is not waited on every successful return path"
+	if err := command.Start(); err != nil { // want "started command is never waited on or released"
 		return 0, err
 	}
 	return command.Process.Pid, nil
@@ -517,6 +520,17 @@ func startedAndWaitedThroughSlice(ctx context.Context) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// Printing the child's PID after Start reads a field; it hands the handle to
+// nothing, so the launch is detached rather than partially waited.
+func daemonizeAndReportPID(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "self", "--daemon")
+	if err := command.Start(); err != nil { // want "started command is never waited on or released"
+		return err
+	}
+	fmt.Println("started", command.Process.Pid)
 	return nil
 }
 

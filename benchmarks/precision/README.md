@@ -257,3 +257,10 @@ goroutines sending on an unbuffered channel that is received from once, a
 mounted file and a binding response leaked on later error paths, a device
 token timeout sent on a channel the select has already left, an import file
 never closed, and a source file leaked when its Stat fails.
+
+Round 46 preserves the forty-second reviewed batch. It pins a source file
+leaked when closing its destination fails, a temporary file created only
+for its name and two partition files never closed, a discarded
+NotifyContext stop function, an artwork response never closed, and a
+monitoring goroutine left blocked on an unbuffered completion channel by
+early error returns.

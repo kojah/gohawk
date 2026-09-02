@@ -23,11 +23,12 @@ waiting for it.
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
-A started command whose handle is never touched again, the fire-and-forget
-launch of a browser or a detached daemon, is a policy choice rather than a
-defect and is reported only by the opt-in `detached` check. The default
-`missing-wait` check reports handles that are waited on or released on some
-paths but not all.
+A started command whose handle is never handed to anything again, the
+fire-and-forget launch of a browser or a detached daemon, is a policy choice
+rather than a defect and is reported only by the opt-in `detached` check.
+Reading a field of the handle, such as logging the child's PID, does not
+count as handing it on. The default `missing-wait` check reports handles
+that are waited on or released on some paths but not all.
 
 ## Why this is flagged
 

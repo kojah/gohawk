@@ -150,11 +150,11 @@
 	color: var(--sl-color-gray-2);
 }
 
-/* Check identity and metadata share the first column, leaving the second for
-   prose. The fixed layout keeps both columns inside the article at every size. */
+/* A check row is an identifier, a one-word kind, and prose. Give the first two
+   only what their content needs so the description keeps the rest. Below the
+   article breakpoint the fixed layout would crush the kind column, so the table
+   falls back to Starlight's scrollable default there. */
 .sl-markdown-content h3#checks + table {
-	display: table;
-	table-layout: fixed;
 	width: 100%;
 	font-size: var(--sl-text-sm);
 }
@@ -162,12 +162,24 @@
 .sl-markdown-content h3#checks + table :is(th, td) {
 	vertical-align: top;
 }
-.sl-markdown-content h3#checks + table :is(th, td):first-child {
-	width: 34%;
-}
 
-.sl-markdown-content h3#checks + table :is(th, td):nth-child(2) {
-	width: 66%;
+@media (min-width: 50rem) {
+	.sl-markdown-content h3#checks + table {
+		display: table;
+		table-layout: fixed;
+	}
+
+	.sl-markdown-content h3#checks + table :is(th, td):first-child {
+		width: 32%;
+	}
+
+	.sl-markdown-content h3#checks + table :is(th, td):nth-child(2) {
+		width: 14%;
+	}
+
+	.sl-markdown-content h3#checks + table :is(th, td):nth-child(3) {
+		width: 54%;
+	}
 }
 
 /* Option names and defaults are identifiers rather than prose. Keep them
