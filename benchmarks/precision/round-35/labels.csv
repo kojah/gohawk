@@ -1,0 +1,5 @@
+repository,analyzer,position,verdict
+driftlessaf/go-driftlessaf,resourcelifetime,workqueue/conformance/concurrency.go:57:11,true_positive
+petoju/terraform-provider-mysql,resourcelifetime,mysql/resource_global_variable.go:84:15,true_positive
+petoju/terraform-provider-mysql,resourcelifetime,mysql/resource_rds_config.go:90:15,true_positive
+petoju/terraform-provider-mysql,resourcelifetime,mysql/resource_user_password.go:116:18,true_positive

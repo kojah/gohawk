@@ -1072,3 +1072,17 @@ that returns its zero value before decoding into it, and a gzip writer left
 open on a write error. Two fire-and-forget launchers remain policy reports.
 Opt-in global-state, API-shape, and detached-goroutine findings were sampled
 without expanding default policy.
+
+## Batch 33
+
+Ten repositories and 14 modules were selected. All loaded and scanned
+fully. Final scans produced 383 unique diagnostics and needed no correction.
+Precision round 35 pins four true positives: a ticker never stopped inside a
+dispatch goroutine, a prepared statement never closed, and two row sets
+leaked on scan errors.
+
+A grant query that returns early through an error-classifying helper before
+its deferred close, and a jq pipeline waited on under a nil check of its own
+handle variable, remain reportable pending nil-correlation evidence. Opt-in
+global-state, API-shape, and detached-goroutine findings were sampled without
+expanding default policy.

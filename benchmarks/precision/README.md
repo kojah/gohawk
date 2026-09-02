@@ -193,3 +193,8 @@ Round 34 preserves the thirtieth reviewed batch. It covers an operand list in
 which every earlier operand takes a variable's address rather than reading
 its value. A return that copies a value before a later operand decodes into
 it, and a gzip writer left open on a write error, remain reportable.
+
+Round 35 preserves the thirty-first reviewed batch, which needed no
+correction. It pins a ticker never stopped inside a dispatch goroutine, a
+prepared statement never closed, and two row sets leaked on scan errors as
+reportable.

@@ -319,3 +319,13 @@
 32	sandbox0-ai/sandbox0	926af10c21266020aa08a6967c3fee7ae25a9ed2	.,nomad-driver-sandbox0	reviewed
 32	danieljustus/symaira-vault	3f5e199927f90a9a33e8bd1236f62328b4ef77b5	.	reviewed
 32	eclipse-enclave/enclave	8a89634b22280fa322c8037d8c46be7d32d72fbf	.	reviewed
+33	Adversis/tailsnitch	720a7111bb8ec3fde3f065d9cd39a60234d9ae42	.	reviewed
+33	stepbrobd/rfm	461da168ab34f4230d7e1cc55af9efb786a2dc59	.	reviewed
+33	josuebrunel/ezauth	1378dafb50cd0c817f83f324d99fbc28d1e66341	.,_example/go-server,_example/javascript-client	reviewed
+33	haowang02/cpa-plugin-key-billing	8caa713b85198271b87b5c37e63dc4787887b8a0	.	reviewed
+33	bingosuite/bingo	e74bd55f289ab5c7ac320b161ad7c167ad062254	.	reviewed
+33	Zuplu/postfix-tlspol	68a766d720afcc9b13bcedc0a53a654d1fb167f6	.	reviewed
+33	petoju/terraform-provider-mysql	ed8cc43b86dcd997e16286ec8553cfb555bcddf9	.	reviewed
+33	driftlessaf/go-driftlessaf	5fc3f8232de580ab94d570069891c4e8b5c032eb	.,examples	reviewed
+33	prehisle/relay-pulse	e12c1d42e355e7d2cbd814701944a735f35cd482	.,notifier	reviewed
+33	Bronya0/ally-agent	60001b87b18cd65d847dcc497d5fbbd2551f9af4	.	reviewed
