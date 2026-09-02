@@ -109,3 +109,13 @@
 11	github/github-mcp-server	12d16ed05310876a1e6988701b109da63d69dd49	.	reviewed
 11	google/osv-scanner	6f4bfa3254da08adb35c6ff7f806801b3f0e4dc4	.,cmd/osv-scanner/mcp/testdata/go-project,cmd/osv-scanner/scan/image/testdata/package-tracing-fixture,cmd/osv-scanner/scan/source/testdata/call-analysis-go-project-all-uncalled,cmd/osv-scanner/scan/source/testdata/call-analysis-go-project,cmd/osv-scanner/scan/source/testdata/go-project,cmd/osv-scanner/scan/source/testdata/go-project/nested,internal/scalibrenricher/govulncheck/source/testdata,internal/sourceanalysis/testdata/go-integration/test-project	reviewed
 11	grafana/pyroscope	d1212251265e7dab4b03ef0d80af565f6d519e1b	.,api,examples/golang-pgo,examples/language-sdk-instrumentation/golang-push/rideshare-alloy,examples/language-sdk-instrumentation/golang-push/rideshare-k6,examples/language-sdk-instrumentation/golang-push/rideshare,examples/language-sdk-instrumentation/golang-push/simple,examples/tracing/golang-push,lidia	reviewed
+12	logto-io/go	6f73ec61efb98b154ab522ea801937f06b8321a6	.	reviewed
+12	buildkite/buildkite-mcp-server	98c6290c5d6fd8d1f21fc366dd2a7d871585b257	.	reviewed
+12	cloudspannerecosystem/memefish	e6a536f2179df084186a61698deafcdf27a686ea	.,docs	reviewed
+12	sholdee/crd-schema-publisher	39f845ba64020d80ec31699a1620cab2353a4155	.	reviewed
+12	moov-io/watchman	e4f96c19571e6d57d382d533578999324ea59b5d	.	reviewed
+12	fclairamb/ftpserverlib	e6a24183e0664dbd265bbb9d01b21c8a91c98f51	.	reviewed
+12	topolvm/pvc-autoresizer	254fe56d5641c542c83b0868328ff9eaacc889f6	.	reviewed
+12	caddyserver/caddy	62a72977e58c87fad7e7726c18b58f10c653f2d3	.	reviewed
+12	zeromicro/go-zero	411181e701363e8117685104293d8972c4f50088	.,tools/goctl	reviewed
+12	jesseduffield/lazygit	3f6be3b3ee7b69c0dbed429669134fd04e1e9e35	.	reviewed

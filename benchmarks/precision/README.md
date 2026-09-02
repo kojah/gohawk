@@ -89,3 +89,8 @@ byte data, deliberate prior-error precedence, and independent error-producing
 calls that consume the same ordinary payload. Nearby global-state,
 closed-domain, resource, error-ownership, and determinism findings remain
 reportable.
+
+Round 16 preserves the twelfth reviewed batch. It covers empty private
+interface-marker methods and injective constant-map reverse lookups. Nearby
+testing, global-state, resource, lock, process, loop-cleanup, and ordered-output
+findings remain reportable.

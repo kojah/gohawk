@@ -1,0 +1,14 @@
+repository,analyzer,position,verdict
+cloudspannerecosystem/memefish,apishape,ast/sql.go:177:24,false_positive
+cloudspannerecosystem/memefish,apishape,ast/sql.go:408:22,false_positive
+cloudspannerecosystem/memefish,apishape,ast/sql.go:978:32,false_positive
+cloudspannerecosystem/memefish,testpolicy,parser_test.go:58:6,true_positive
+cloudspannerecosystem/memefish,globalstate,token/keywords.go:7:5,true_positive
+buildkite/buildkite-mcp-server,resourcelifetime,pkg/recording/transport_test.go:444:16,true_positive
+moov-io/watchman,lockorder,internal/geocoding/service.go:215:2,true_positive
+moov-io/watchman,resourcelifetime,internal/compress/gzip.go:28:7,true_positive
+moov-io/watchman,processownership,internal/postalpool/service.go:68:11,true_positive
+caddyserver/caddy,deferinloop,modules/caddyhttp/reverseproxy/fastcgi/client.go:342:3,true_positive
+zeromicro/go-zero,processownership,tools/goctl/bug/bug.go:50:9,true_positive
+fclairamb/ftpserverlib,determinism,client_handler.go:82:2,false_positive
+fclairamb/ftpserverlib,determinism,handle_misc.go:256:3,true_positive

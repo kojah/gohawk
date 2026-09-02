@@ -265,3 +265,36 @@ pinned Caddy before and after the code changes. Median wall time changed from
 3.445 to 3.425 seconds (-0.6%), while median peak RSS changed from 4,963,904 to
 5,255,104 KiB (+5.9%). This fixed cohort is used per batch; the complete
 benchmark remains a periodic and release gate.
+
+## Batch 12
+
+Ten repositories and twelve modules were selected. Ten modules loaded and
+scanned fully. Watchman produced useful partial analysis across 52 of 54
+packages because its native Fyne/OpenGL packages were unavailable under
+`CGO_ENABLED=0`; Memefish's docs module contained no Go packages.
+
+Two general evidence boundaries were improved:
+
+- empty, unexported value-receiver methods used only as interface markers no
+  longer establish mixed receiver semantics; and
+- a reverse lookup over a fresh constant map is order-independent when every
+  value is distinct and the loop selects only the matching key.
+
+The fixes removed all 250 Memefish API-shape findings and the injective
+ftpserverlib lookup while retaining ftpserverlib's unordered HASH protocol
+output. Precision round 16 passed with all four reviewed false positives absent
+and all nine retained true positives present.
+
+Opaque assertion-gated cleanup, fresh-lock publication, callback registries,
+count-coupled process waits, and dynamically accumulated returned resource maps
+remain deferred until they have compact structural proofs. Nearby resource,
+lock, process, context, error-classification, defer-in-loop, and determinism
+findings remain reportable. The final scans produced 1,614 diagnostics, down
+from 1,849 before the Batch 12 changes.
+
+A constant-size performance check compared three warmed `-enable-all` runs on
+pinned Caddy at the Batch 11 boundary and after Batch 12. Median wall time
+changed from 3.370 to 3.402 seconds (+0.9%), while median peak RSS changed from
+5,224,444 to 5,079,464 KiB (-2.8%). The complete cumulative precision suite is
+reserved for every fifth batch; Batch 12 replayed only its new cohort and
+directly affected ownership repositories.
