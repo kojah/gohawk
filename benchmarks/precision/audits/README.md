@@ -1232,3 +1232,36 @@ consumed by a launched goroutine remains reportable until resourcelifetime
 classifies launched consumers. Six daemon and worker launchers remain policy
 reports. Opt-in global-state, API-shape, and detached-goroutine findings were
 sampled without expanding default policy.
+
+## Batch 40
+
+Ten repositories and sixteen modules were selected. Eleven modules loaded and
+scanned; ksail's root and desktop modules exhaust memory under their
+Kubernetes and Wails dependency trees, two go-sdk examples need go.mod
+updates, and a tree-sitter cgo harness and kandev's sqlite tests do not
+build here. Final scans produced 2,310 unique diagnostics after three
+bounded corrections:
+
+- the resourcelifetime flow now carries its unknown mark across block
+  boundaries, so an opaque consumption keeps every later return unknown
+  instead of only returns in the same block;
+- lockorder reads Go's comma-ok convention when judging acquire-for-caller
+  contracts: a return whose trailing Boolean result is the constant false is
+  not a successful return, so a claim helper that unlocks before returning
+  false and holds on returning true is acquiring for its caller; and
+- the resourcelifetime classifier treats a struct literal holding a value
+  derived from the resource, such as a type-asserted response body, as
+  carrying it when the literal is handed to a function value.
+
+The corrections removed a spirit checksum finding, a kandev lock finding,
+and a kandev SPDY upgrade finding. The first correction also retires a
+routatic catalog finding that was a genuine leak, a row set overwritten by
+a second query before its deferred close: the deferred closure closes
+whichever value the cell holds at exit, which the model records as unknown
+rather than proven. Precision round 42 labels the three false positives and
+four nearby true positives: a transaction leaked when its connection-id
+query fails, a row set leaked on an iteration error, an email file never
+closed, and a cancel deferred inside a ticker loop. Four fire-and-forget
+editor and browser launches appear only under the opt-in detached-process
+audit. Opt-in global-state, API-shape, and detached-goroutine findings were
+sampled without expanding default policy.

@@ -1,6 +1,7 @@
 package lockorder
 
 import (
+	"go/constant"
 	"go/token"
 	"go/types"
 	"slices"
@@ -175,18 +176,32 @@ func appendUniqueInstruction(instructions []ssa.Instruction, instruction ssa.Ins
 	return append(instructions, instruction)
 }
 
-// successfulReturn reports whether the return carries no error result or a
-// nil one.
+// successfulReturn reports whether the return signals success by Go's
+// result conventions: a trailing error result must be nil, and a trailing
+// Boolean result, the comma-ok shape, must not be the constant false. A
+// claim helper that returns (claim, false) after releasing the lock and
+// (claim, true) while holding it is acquiring for its caller. kandev claims
+// prompt completions this way:
+// https://github.com/kdlbs/kandev/blob/17da0aafe33df01828e21fc79cc9dd156dc088dc/apps/backend/internal/agent/runtime/lifecycle/manager_events.go#L238-L272
 func successfulReturn(function *ssa.Function, returned *ssa.Return) bool {
 	results := function.Signature.Results()
-	if results.Len() == 0 {
+	if results.Len() == 0 || len(returned.Results) == 0 {
 		return true
 	}
 	last := results.At(results.Len() - 1).Type()
-	if !types.Identical(last, types.Universe.Lookup("error").Type()) {
-		return true
+	result := returned.Results[len(returned.Results)-1]
+	if types.Identical(last, types.Universe.Lookup("error").Type()) {
+		return ssaflow.DefinitelyNil(result)
 	}
-	return len(returned.Results) > 0 && ssaflow.DefinitelyNil(returned.Results[len(returned.Results)-1])
+	if basic, ok := last.Underlying().(*types.Basic); ok && basic.Kind() == types.Bool {
+		return !constantFalse(result)
+	}
+	return true
+}
+
+func constantFalse(value ssa.Value) bool {
+	literal, ok := value.(*ssa.Const)
+	return ok && literal.Value != nil && literal.Value.Kind() == constant.Bool && !constant.BoolVal(literal.Value)
 }
 
 func possiblyDeferredUnlock(

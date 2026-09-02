@@ -1,0 +1,8 @@
+repository,analyzer,position,verdict
+block/spirit,resourcelifetime,pkg/checksum/single.go:493:15,false_positive
+kdlbs/kandev,lockorder,apps/backend/internal/agent/runtime/lifecycle/manager_events.go:264:3,false_positive
+kdlbs/kandev,resourcelifetime,apps/backend/internal/agent/kubernetes/portforward.go:464:19,false_positive
+block/spirit,resourcelifetime,pkg/dbconn/dbconn.go:454:14,true_positive
+kdlbs/kandev,resourcelifetime,apps/backend/internal/github/store.go:777:15,true_positive
+soulteary/owlmail,resourcelifetime,internal/outgoing/outgoing.go:160:20,true_positive
+modelcontextprotocol/go-sdk,deferinloop,examples/client/loadtest/main.go:87:5,true_positive

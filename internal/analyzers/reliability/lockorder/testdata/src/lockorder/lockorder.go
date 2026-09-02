@@ -159,6 +159,33 @@ func intentionallyHeld() {
 	regressionFirst.Lock()
 }
 
+// A trailing false result marks a return as unsuccessful, so a claim helper
+// that releases before returning false and holds on returning true is
+// acquiring for its caller.
+func claimOrRelease(claimed bool) (int, bool) {
+	regressionFirst.Lock()
+	if claimed {
+		return 1, true
+	}
+	regressionFirst.Unlock()
+	return 0, false
+}
+
+// The convention does not excuse a successful return that forgot the unlock
+// when another successful return released it.
+func claimForgetsUnlock(claimed, other bool) (int, bool) {
+	regressionFirst.Lock()
+	if claimed {
+		return 1, true // want "lock .*regressionFirst is not released on this return path"
+	}
+	if other {
+		regressionFirst.Unlock()
+		return 2, true
+	}
+	regressionFirst.Unlock()
+	return 0, false
+}
+
 func conditionallyAcquired(index, other int) {
 	if index != other {
 		regressionFirst.Lock()

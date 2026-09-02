@@ -134,10 +134,29 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	return !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
 }
 
+// carries reports whether value is the resource, derives from it, or is an
+// aggregate holding it or a projection of it. A struct literal wrapping a
+// type-asserted response body and handed to a function value is such an
+// aggregate; kandev upgrades an SPDY response this way:
+// https://github.com/kdlbs/kandev/blob/17da0aafe33df01828e21fc79cc9dd156dc088dc/apps/backend/internal/agent/kubernetes/portforward.go#L464-L491
 func (analysis *resourceAnalysis) carries(value ssa.Value) bool {
-	return ssaflow.SameValue(value, analysis.resource) ||
+	if ssaflow.SameValue(value, analysis.resource) ||
 		ssaflow.ValueDerivesFrom(value, analysis.resource, map[ssa.Value]bool{}) ||
-		ssaflow.ValueContainsValue(value, analysis.resource)
+		ssaflow.ValueContainsValue(value, analysis.resource) {
+		return true
+	}
+	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+	return ssaflow.NewReachingWalk(forms).Any(value, func(_ ssaflow.ReachingWalk, value ssa.Value) bool {
+		if _, ok := value.(*ssa.Alloc); !ok {
+			return false
+		}
+		for stored := range ssaflow.StoredInto(value) {
+			if ssaflow.ValueDerivesFrom(stored, analysis.resource, map[ssa.Value]bool{}) {
+				return true
+			}
+		}
+		return false
+	})
 }
 
 func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool {

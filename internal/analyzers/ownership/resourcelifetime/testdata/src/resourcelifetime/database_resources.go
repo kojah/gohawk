@@ -170,6 +170,22 @@ func rowsPassedToOpaqueConsumer(ctx context.Context, database *sql.DB, consumer 
 	return nil
 }
 
+// An opaque consumption keeps every later return unknown, including returns
+// in blocks after a branch. spirit hands rows to a guarded deferred closure
+// and returns from a scan loop several blocks later:
+// https://github.com/block/spirit/blob/c554eae8c56166ad9199fc73556b29ed581ca575/pkg/checksum/single.go#L493-L560
+func rowsPassedToInterfaceAcrossBranch(ctx context.Context, database *sql.DB, consumer rowsConsumer, verify bool) error {
+	rows, err := database.QueryContext(ctx, "SELECT 1")
+	if err != nil {
+		return err
+	}
+	consumer.Consume(rows)
+	if verify {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func leakedStatement(ctx context.Context, database *sql.DB) error {
 	statement, err := database.PrepareContext(ctx, "SELECT 1") // want "owned resource from sql.PrepareContext is not released on every return path"
 	if err != nil {

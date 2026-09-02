@@ -7,6 +7,7 @@ package resourcelifetime
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"resourcedep"
@@ -574,4 +575,28 @@ func bodyMaybeClosedByDirectHelper(client *http.Client, request *http.Request, e
 	}
 	maybeCloseBody(response.Body, enabled)
 	return response.StatusCode, nil
+}
+
+type upgradedConn struct {
+	io.ReadWriteCloser
+	remote string
+}
+
+// A body narrowed by a type assertion and wrapped in a struct literal handed
+// to a function value is consumed opaquely: the callee may own the stream.
+func bodyWrappedIntoFunctionValue(client *http.Client, request *http.Request, connect func(io.ReadWriteCloser) error) error {
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	stream, ok := response.Body.(io.ReadWriteCloser)
+	if !ok {
+		_ = response.Body.Close()
+		return errors.New("response is not a stream")
+	}
+	if err := connect(&upgradedConn{ReadWriteCloser: stream, remote: request.Host}); err != nil {
+		_ = stream.Close()
+		return err
+	}
+	return nil
 }

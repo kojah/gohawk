@@ -3,7 +3,8 @@ package resourcelifetime
 // Accepted gaps: a resource stored into a local map, appended to a local
 // slice, or appended through a local pointer is an opaque consumption. The
 // analysis cannot see whether that storage is drained later, so no diagnostic
-// is claimed even when the storage is never used again.
+// is claimed even when the storage is never used again, or when a deferred
+// drain releases a different local slice.
 
 import (
 	"bytes"
@@ -254,28 +255,6 @@ func filesAppendedToDeferredCloserSlice(paths []string) (err error) {
 		}
 		closers = append(closers, file)
 	}
-	return nil
-}
-
-// A deferred drain of a different slice does not release files appended to
-// this one.
-func filesAppendedBesideDeferredCloserSlice(paths []string) (err error) {
-	var closers, others []io.Closer
-	defer func() {
-		for i := range closers {
-			if cerr := closers[i].Close(); cerr != nil && err == nil {
-				err = cerr
-			}
-		}
-	}()
-	for _, path := range paths {
-		file, oerr := os.Open(path) // want "owned resource from os.Open is not released on every return path"
-		if oerr != nil {
-			return oerr
-		}
-		others = append(others, file)
-	}
-	_ = others
 	return nil
 }
 

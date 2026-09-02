@@ -230,3 +230,10 @@ Round 41 preserves the thirty-seventh reviewed batch. It covers a command
 stored on its receiver before Start and waited through that field, and a
 goroutine that closes a channel ranged from a receiver-owned map. Nearby
 response, row, file, and ticker findings remain reportable.
+
+Round 42 preserves the thirty-eighth reviewed batch. It covers rows handed
+to a guarded deferred closure and returned from several blocks later, a
+claim helper that returns holding its lock only alongside a true result, and
+a type-asserted response body wrapped in a struct for a function value.
+Nearby transaction, row, file, and loop-deferred cancel findings remain
+reportable.

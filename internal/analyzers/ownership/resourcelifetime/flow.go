@@ -152,7 +152,7 @@ func resourceSuccessorStates(
 		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
 			active = active && present
 		}
-		result = append(result, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released})
+		result = append(result, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released, unknown: state.unknown})
 	}
 	return result
 }
