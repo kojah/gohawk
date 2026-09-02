@@ -286,6 +286,12 @@ func instructionSettlesResourceOwnership(
 }
 
 func callTakesResourceOwnership(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, resource ssa.Value) bool {
+	// A summarized callee that returns a view over the resource keeps the
+	// obligation with the caller even when the view's type has a Close of its
+	// own: the summary proves that method releases nothing.
+	if evidence.ArgumentReturnedAsView(instruction, resource) {
+		return false
+	}
 	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,
@@ -296,8 +302,11 @@ func callTakesResourceOwnership(evidence *lifecyclefacts.LifecycleEvidence, inst
 		Instruction: instruction,
 		Target:      resource,
 		Transfer:    &transfer,
+		// A callee that stores the resource in its returned struct transfers
+		// it only when that struct's type can release it; a returned view such
+		// as a buffered reader leaves the obligation with the caller.
 		SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
-			return fact.ReturnedOwner
+			return fact.ReturnedOwner &^ fact.ReturnedView
 		},
 		ReceiverStore: true,
 	}).Proven()

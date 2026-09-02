@@ -280,3 +280,61 @@ func (evidence *LifecycleEvidence) OwnedResult(call *ssa.Call) ([]string, int, b
 	})
 	return cleanup, index, len(cleanup) > 0
 }
+
+// returnedViews narrows the function's ReturnedOwner mask to the parameters
+// that are stored in the returned struct but that no method of the result
+// type releases: the result is a view over the caller's resource, and the
+// caller keeps the obligation. A parameter of a type this vocabulary does not
+// know is never a view, because there is no obligation to keep. Method
+// summaries come from this package's own summaries or from imported facts.
+func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summaries Summaries) ParameterMask {
+	if fact.ReturnedOwner == 0 {
+		return 0
+	}
+	structure, _, ok := returnedStruct(function)
+	if !ok {
+		return 0
+	}
+	var released ParameterMask
+	for _, method := range resultMethods(function) {
+		summary, ok := summaries[method]
+		if !ok {
+			var imported Fact
+			if object := method.Object(); object == nil || !pass.ImportObjectFact(object, &imported) {
+				continue
+			}
+			summary = imported
+		}
+		released |= summary.ReleasedFields
+	}
+	var views ParameterMask
+	for index, parameter := range function.Params {
+		if !fact.ReturnedOwner.contains(index) {
+			continue
+		}
+		if _, ok := ResourceCleanup(parameter.Type()); !ok {
+			continue
+		}
+		for _, field := range storedFieldIndices(parameter, structure) {
+			if !released.contains(field) {
+				views |= parameterMaskFor(index)
+			}
+		}
+	}
+	return views
+}
+
+// ArgumentReturnedAsView reports whether the call's static callee is
+// summarized as returning a view over the argument that contains target: the
+// argument is stored in the returned struct and nothing on that type releases
+// it. The proof outranks a lifecycle-looking method name on the result type.
+func (evidence *LifecycleEvidence) ArgumentReturnedAsView(instruction ssa.Instruction, target ssa.Value) bool {
+	return CallReturnsView(evidence.pass, instruction, target)
+}
+
+// CallReturnsView is ArgumentReturnedAsView for callers that hold the pass
+// rather than an evidence context.
+func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ssa.Value) bool {
+	fact, ok := factFor(pass, instruction)
+	return ok && factOwnsArgument(instruction, target, fact.ReturnedView)
+}

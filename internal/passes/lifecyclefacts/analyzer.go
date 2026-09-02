@@ -38,12 +38,17 @@ func run(pass *analysis.Pass) (any, error) {
 		if object == nil || !object.Exported() || len(function.Params) > 64 || len(function.Blocks) == 0 {
 			continue
 		}
-		fact := summarize(pass, function)
+		summaries[function] = summarize(pass, function)
+	}
+	// A returned view is decided once every method of this package is
+	// summarized, because the releasing method usually lives beside the
+	// constructor. Export afterwards, and export even an empty summary: an
+	// importer must be able to tell a callee proven to do nothing from one that
+	// was never summarized, and only the latter is unknown.
+	for function, fact := range summaries {
+		fact.ReturnedView = returnedViews(pass, function, fact, summaries)
 		summaries[function] = fact
-		// Export even an empty summary: an importer must be able to tell a
-		// callee proven to do nothing from one that was never summarized, and
-		// only the latter is unknown.
-		pass.ExportObjectFact(object, &fact)
+		pass.ExportObjectFact(function.Object(), &fact)
 	}
 	// Facts belong to this prerequisite analyzer, so import dependency facts
 	// here and expose them through the result consumed by sibling analyzers.

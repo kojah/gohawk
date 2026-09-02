@@ -269,6 +269,40 @@ func (j *Journal) MaybeClose(ok bool) error {
 	}
 }
 
+// A parameter stored in a returned struct is a view when no method of that
+// type releases the field, and an owner otherwise.
+func TestLifecycleSummaryReturnedViews(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+import "os"
+
+type Reader struct{ file *os.File }
+
+func NewReader(file *os.File) *Reader { return &Reader{file: file} }
+
+type Owner struct{ file *os.File }
+
+func Adopt(file *os.File) *Owner { return &Owner{file: file} }
+
+func (o *Owner) Close() error { return o.file.Close() }
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	summaries := Summaries{}
+	for _, name := range []string{"NewReader", "Adopt"} {
+		summaries[pkg.Func(name)] = summarize(pass, pkg.Func(name))
+	}
+	owner := pkg.Type("Owner").Type()
+	closeMethod := pkg.Prog.LookupMethod(types.NewPointer(owner), pkg.Pkg, "Close")
+	summaries[closeMethod] = summarize(pass, closeMethod)
+	if got := returnedViews(pass, pkg.Func("NewReader"), summaries[pkg.Func("NewReader")], summaries); !got.contains(0) {
+		t.Errorf("NewReader ReturnedView = %#x, want parameter 0", uint64(got))
+	}
+	if got := returnedViews(pass, pkg.Func("Adopt"), summaries[pkg.Func("Adopt")], summaries); got != 0 {
+		t.Errorf("Adopt ReturnedView = %#x, want none", uint64(got))
+	}
+}
+
 func buildLifecycleTestSSA(t *testing.T, source string) *ssa.Package {
 	t.Helper()
 	files := token.NewFileSet()

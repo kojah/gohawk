@@ -65,3 +65,23 @@ func sinkWithoutRelease(path string) error {
 	}
 	return sink.Flush()
 }
+
+// A view stored the caller's file and nothing on the view can release it, so
+// returning the view does not transfer the file.
+func viewReturnedWithoutClosing(path string) (*resourcedep.View, error) {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return nil, err
+	}
+	return resourcedep.NewView(file), nil
+}
+
+// An adopted file is stored in a struct whose Close releases it, so the
+// returned struct owns the file.
+func fileAdoptedByOwner(path string) (*resourcedep.Journal, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return resourcedep.AdoptJournal(file), nil
+}

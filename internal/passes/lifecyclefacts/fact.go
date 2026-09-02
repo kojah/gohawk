@@ -25,6 +25,10 @@ type Fact struct {
 	Committed     ParameterMask
 	RolledBack    ParameterMask
 	ReturnedOwner ParameterMask
+	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
+	// returned struct, but no method of that type releases the field, so the
+	// caller keeps the obligation. See fields.go.
+	ReturnedView ParameterMask
 	// Retained marks parameters the callee may keep beyond the call; see
 	// retention.go for the over-approximation it deliberately makes.
 	Retained ParameterMask
@@ -220,6 +224,7 @@ var lifecycleMasks = []lifecycleMask{
 	{name: "Committed", method: "Commit", field: func(fact *Fact) *ParameterMask { return &fact.Committed }},
 	{name: "RolledBack", method: "Rollback", field: func(fact *Fact) *ParameterMask { return &fact.RolledBack }},
 	{name: "ReturnedOwner", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedOwner }},
+	{name: "ReturnedView", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedView }},
 	{name: "ReceiverStore", field: func(fact *Fact) *ParameterMask { return &fact.ReceiverStore }},
 	{name: "Retained", field: func(fact *Fact) *ParameterMask { return &fact.Retained }},
 }

@@ -118,3 +118,6 @@ func OpenSink(path string) (*Sink, error) {
 
 // Flush syncs without closing.
 func (s *Sink) Flush() error { return s.file.Sync() }
+
+// AdoptJournal stores the caller's file in a journal, whose Close releases it.
+func AdoptJournal(file *os.File) *Journal { return &Journal{file: file} }

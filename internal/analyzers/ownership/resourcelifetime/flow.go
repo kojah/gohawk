@@ -161,6 +161,12 @@ func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource s
 		if !ssaflow.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
 			continue
 		}
+		// A returned view is summarized as releasing nothing, whatever its
+		// method names suggest; the caller of this function cannot close the
+		// resource through it.
+		if call, ok := result.(*ssa.Call); ok && lifecyclefacts.CallReturnsView(pass, call, resource) {
+			continue
+		}
 		methods := types.NewMethodSet(result.Type())
 		for method := range methods.Methods() {
 			if slices.Contains(cleanup, method.Obj().Name()) {

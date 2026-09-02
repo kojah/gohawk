@@ -34,6 +34,12 @@ exactly as they owe `Close` to `os.Open`. A wrapper that stores a caller's
 resource, or a type whose methods never release the field, produces no
 contract.
 
+The same summaries decide the other direction. A call that stores the caller's
+resource in its returned struct transfers the obligation only when that
+struct's type has a method proven to release the field; a returned view such
+as a buffered reader leaves the obligation with the caller, even when the
+view's type has a `Close` of its own that releases nothing.
+
 The opt-in `use-after-release` check is the dual of the leak check. After a
 plain (not deferred) release of the acquired value, it reports an operation
 the API documents as failing on a released value, such as a write to a closed
