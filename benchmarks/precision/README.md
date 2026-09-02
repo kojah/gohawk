@@ -62,3 +62,8 @@ nested JSON aggregates, WaitGroups joined by testing cleanup, feasible error
 returns in deferred functions, and canonical production/test syntax. Nearby
 closed-domain, evaluation-order, resource, producer, error, and
 goroutine findings remain reportable.
+
+Round 12 preserves the eighth reviewed batch. It covers exact typed acquisition
+errors, legacy existing-file checks, deferred WaitGroup joins, channel-range
+lifecycles, and lock release through directly invoked callbacks. Nearby lock,
+resource, process, and goroutine findings remain reportable.

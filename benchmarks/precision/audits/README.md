@@ -155,3 +155,29 @@ Complex Restic and Temporal lifecycle flows, receiver registries, and
 cross-method ownership and join chains remain deferred rather than receiving
 project-specific exceptions. Precision round 11 retains nearby closed-domain,
 evaluation-order, resource, producer, error, and goroutine findings.
+
+## Batch 8
+
+Ten repositories and thirteen modules were selected. Twelve modules contained
+Go packages and loaded fully; Zap's assets module contained no Go files. NATS'
+optional test dependencies were resolved through a disposable module file so
+the pinned checkout remained unchanged while its complete test tree was
+analyzed.
+
+Five general evidence boundaries were improved:
+
+- a successful comma-ok assertion on the exact acquisition error proves that
+  the acquisition failed;
+- `os.IsExist` is recognized as the legacy counterpart of an existing-file
+  error check;
+- a deferred `WaitGroup.Wait` registered on every path before a spawn joins
+  workers whose exact group is settled by terminal `Done` calls;
+- ranging an exact channel is an explicit stop lifecycle, just like receiving
+  from it directly; and
+- an immediately invoked closure may release an exact lock on every normal
+  return even when branches precede the release.
+
+Cross-method worker-pool ownership, callback registries, returned server
+cleanup closures, and API- or protocol-dependent test goroutine completion
+remain deferred rather than receiving name-based exceptions. Precision round
+12 retains nearby lock, resource, producer, process, and goroutine findings.

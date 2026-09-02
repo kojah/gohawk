@@ -69,3 +69,13 @@
 7	minio/madmin-go	ef04ea3969c2177b22e13e9e61dfc4ddeccf3feb	.	reviewed
 7	restic/restic	ba802d42b7294c98b62c16d1157ea3e80820c019	.	reviewed
 7	temporalio/sdk-go	16a677b3d27171d56e2d11bb274fdc212264ef56	.,test,contrib/datadog	reviewed
+8	cli/cli	d528f20f2ee02f6703773e9f56c90e3c3f5d46b0	.,.github/codeql/tests/unsanitized-response-to-terminal	reviewed
+8	derailed/k9s	a9e6fc48a854bd53fae3e2825d7e49290217ad32	.	reviewed
+8	uber-go/zap	bb1a55dd13257cf7cbd06b4146674c67ca614dea	.,assets,benchmarks	reviewed
+8	nats-io/nats.go	850f889cf3d63bfd1a549ab9af59f0145146fb41	.	reviewed
+8	grpc-ecosystem/grpc-gateway	1877320b4c973cde1924e8b0eb4dbe8c7f5247af	.	reviewed
+8	argoproj/argo-rollouts	fefaac3d0741381f10286775c69bf2f2b6629d73	.	reviewed
+8	pocketbase/pocketbase	bc8ffed4e7265a70a6e8de76c0b0b48b945e19ef	.	reviewed
+8	prometheus/node_exporter	a4e08d1d9a152f67ef781469eade6b0bf431994d	.	reviewed
+8	charmbracelet/wishlist	3404a9e6f1d3e544a59e95302bfbe575bf1cf75e	.	reviewed
+8	getsops/sops	13442bb98183887d7a9ac09ec8ab0564673a59d8	.	reviewed
