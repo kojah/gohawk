@@ -2,6 +2,7 @@ package goroutineownership
 
 import (
 	"go/constant"
+	"go/token"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -118,7 +119,7 @@ func spawnedCompletionSignal(
 	instruction ssa.Instruction,
 ) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
 	if send, ok := instruction.(*ssa.Send); ok {
-		return ssaflow.SpawnedValueAtCall(spawn, function, closure, send.Chan)
+		return signalSuppliedAtCall(spawn, function, closure, send.Chan)
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
@@ -127,14 +128,70 @@ func spawnedCompletionSignal(
 	if _, launched := instruction.(*ssa.Go); !launched {
 		if nested, ok := common.Value.(*ssa.MakeClosure); ok {
 			if signal := nestedClosureSignal(nested); signal != nil {
-				return ssaflow.SpawnedValueAtCall(spawn, function, closure, signal)
+				return signalSuppliedAtCall(spawn, function, closure, signal)
 			}
 		}
 	}
 	if ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1 {
-		return ssaflow.SpawnedValueAtCall(spawn, function, closure, common.Args[0])
+		return signalSuppliedAtCall(spawn, function, closure, common.Args[0])
 	}
 	return nil
+}
+
+// signalSuppliedAtCall maps a worker-side channel back to the parent's value.
+// A channel selected from a captured aggregate, such as chans[index] in a
+// per-shard snapshot, resolves to the aggregate itself: the parent then joins
+// by receiving from any part of it and transfers it by handing the aggregate
+// on. Matching any element over-approximates joins, which only widens what the
+// analyzer accepts.
+// https://github.com/nacos-group/nacos-sdk-go/blob/002486583df5ad370ab809cd19dfd97e71b2ef6d/clients/cache/concurrent_map.go#L199-L219
+func signalSuppliedAtCall(
+	spawn *ssa.Go,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	channel ssa.Value,
+) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
+	if supplied := ssaflow.SpawnedValueAtCall(spawn, function, closure, channel); supplied != nil {
+		return supplied
+	}
+	root := aggregateRoot(channel)
+	if root == channel {
+		return nil
+	}
+	for _, pair := range suppliedValues(spawn.Common(), function, closure) {
+		if ssaflow.ValueAliases(root, pair.local, map[ssa.Value]bool{}) {
+			return ssaflow.CapturedBindingValue(pair.supplied)
+		}
+	}
+	return nil
+}
+
+// aggregateRoot strips element, field, and map selections and the loads
+// between them, returning the aggregate a projected value was read from. The
+// index operands are deliberately not followed: a loop counter used to select
+// an element is not the aggregate that owns it.
+func aggregateRoot(value ssa.Value) ssa.Value { //nolint:ireturn // Roots retain their concrete SSA forms.
+	for {
+		switch typed := value.(type) {
+		case *ssa.UnOp:
+			if typed.Op != token.MUL {
+				return value
+			}
+			value = typed.X
+		case *ssa.IndexAddr:
+			value = typed.X
+		case *ssa.FieldAddr:
+			value = typed.X
+		case *ssa.Index:
+			value = typed.X
+		case *ssa.Field:
+			value = typed.X
+		case *ssa.Lookup:
+			value = typed.X
+		default:
+			return value
+		}
+	}
 }
 
 // nestedClosureSignal returns the worker-level value that a synchronously

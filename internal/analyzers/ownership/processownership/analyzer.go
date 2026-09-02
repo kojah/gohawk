@@ -67,8 +67,12 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 					return processOwnershipAction(evidence, candidate, command)
 				}, func(returned *ssa.Return) bool {
 					// Returning an aggregate that contains the command transfers Wait
-					// responsibility just as directly as returning *exec.Cmd itself.
-					return startFailureReturn(returned, start) || ssaflow.ReturnedValueOwnsValue(returned, command)
+					// responsibility just as directly as returning *exec.Cmd itself, and
+					// so does returning the started os.Process, which the caller can
+					// Wait on directly. Casbin's daemon launcher returns cmd.Process:
+					// https://github.com/apache/casbin-gateway/blob/e3606894348d8cd52d85abc29cfb4d3ae99595cb/util/daemon.go#L121-L131
+					return startFailureReturn(returned, start) || ssaflow.ReturnedValueOwnsValue(returned, command) ||
+						returnsProcessHandle(returned, command)
 				})
 				emitProcessDecision(pass, function, start, command, leaks)
 				if leaks {

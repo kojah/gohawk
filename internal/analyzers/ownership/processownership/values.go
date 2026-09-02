@@ -17,6 +17,17 @@ func osProcessDerivedFromCommand(value, command ssa.Value) bool {
 	return ok && syntax.NamedType(pointer.Elem(), "os", "Process") && ssaflow.ValueDerivesFrom(value, command, map[ssa.Value]bool{})
 }
 
+// returnsProcessHandle reports whether a return hands the caller the exact
+// os.Process projected from the started command.
+func returnsProcessHandle(returned *ssa.Return, command ssa.Value) bool {
+	for _, result := range returned.Results {
+		if osProcessDerivedFromCommand(result, command) {
+			return true
+		}
+	}
+	return false
+}
+
 func commandReturnedByHelper(command ssa.Value) bool {
 	return commandReturnedByHelperSeen(command, map[ssa.Value]bool{})
 }

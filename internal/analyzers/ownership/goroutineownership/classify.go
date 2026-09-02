@@ -253,8 +253,16 @@ func receivesFrom(instruction ssa.Instruction, matches func(ssa.Value) bool) boo
 	return false
 }
 
+// isSignal matches a received channel against the tracked signals, including
+// an element or field selected from a signal aggregate.
 func (analysis *spawnAnalysis) isSignal(value ssa.Value) bool {
-	return ssaflow.SameAsAny(value, analysis.signals)
+	if ssaflow.SameAsAny(value, analysis.signals) {
+		return true
+	}
+	root := aggregateRoot(value)
+	return root != value && slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
+		return !ssaflow.ChannelType(signal) && ssaflow.SameValue(root, signal)
+	})
 }
 
 func (analysis *spawnAnalysis) anyArgumentConsumes(common *ssa.CallCommon) bool {

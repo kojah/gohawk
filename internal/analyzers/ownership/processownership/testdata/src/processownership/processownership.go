@@ -427,3 +427,21 @@ func returnedCommandCopy(ctx context.Context) *startedCopy {
 	copy := startedCopy(*command)
 	return &copy
 }
+
+// Returning the started os.Process hands the caller a handle it can Wait on,
+// so the reap obligation moves with it.
+func returnedProcessHandle(ctx context.Context) (*os.Process, error) {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return nil, err
+	}
+	return command.Process, nil
+}
+
+func returnedProcessPidOnly(ctx context.Context) (int, error) {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return 0, err
+	}
+	return command.Process.Pid, nil
+}

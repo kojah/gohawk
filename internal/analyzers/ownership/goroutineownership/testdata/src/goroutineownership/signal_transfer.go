@@ -1,5 +1,7 @@
 package goroutineownership
 
+import "sync"
+
 // This file covers direct signal observation and ownership transferred through
 // fields, registries, maps, and caller-owned lifecycle aggregates.
 
@@ -117,4 +119,39 @@ func answersOnAssertedEventChannel(event any) {
 	if channel != nil {
 		go func(reply chan bool) { reply <- true }(channel)
 	}
+}
+
+// A worker that closes an element of a captured slice signals through that
+// slice. Returning the slice transfers every element's completion to the
+// caller, so a readiness-only Done before the work is not a broken join.
+func snapshotShardsIntoReturnedChannels(shards []map[string]int) []chan int {
+	channels := make([]chan int, len(shards))
+	var ready sync.WaitGroup
+	ready.Add(len(shards))
+	for index, shard := range shards {
+		go func(index int, shard map[string]int) {
+			channels[index] = make(chan int, len(shard))
+			ready.Done()
+			for _, value := range shard {
+				channels[index] <- value
+			}
+			close(channels[index])
+		}(index, shard)
+	}
+	ready.Wait()
+	return channels
+}
+
+func snapshotShardsIntoLocalChannels(shards []map[string]int) {
+	channels := make([]chan int, len(shards))
+	var ready sync.WaitGroup
+	ready.Add(len(shards))
+	for index, shard := range shards {
+		go func(index int, shard map[string]int) { // want "goroutine is not joined on every return path"
+			channels[index] = make(chan int, len(shard))
+			ready.Done()
+			close(channels[index])
+		}(index, shard)
+	}
+	ready.Wait()
 }
