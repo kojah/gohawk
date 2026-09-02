@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"sort"
@@ -92,7 +93,10 @@ func runViaGoVet(invocation *analysisInvocation, runtime cliRuntime) int {
 	}
 	arguments := append([]string{"vet", "-vettool=" + self, "-json"}, invocation.arguments...)
 	result, execErr := runtime.execute("go", arguments, nil)
-	if !json.Valid(bytes.TrimSpace(result.stdout)) {
+	merged, mergeErr := mergeVetOutput(result.stdout)
+	// go vet prints nothing to stdout when the packages fail to build, so a
+	// failing exit with no analysis output means stderr holds the real error.
+	if mergeErr != nil || execErr != nil && len(bytes.TrimSpace(result.stdout)) == 0 {
 		_, _ = runtime.errorsOutput.Write(result.stderr)
 		if execErr != nil && result.exitCode > 0 {
 			return result.exitCode
@@ -107,13 +111,34 @@ func runViaGoVet(invocation *analysisInvocation, runtime cliRuntime) int {
 	}
 	switch invocation.render {
 	case renderJSON:
-		_, _ = runtime.output.Write(result.stdout)
+		_, _ = runtime.output.Write(merged)
 		return 0
 	case renderFix:
-		return applySuggestedFixes(result.stdout, invocation.diff, runtime.output, runtime.errorsOutput)
+		return applySuggestedFixes(merged, invocation.diff, runtime.output, runtime.errorsOutput)
 	default:
-		return renderDelegatedDiagnostics(result.stdout, invocation.contextLines, runtime.output)
+		return renderDelegatedDiagnostics(merged, invocation.contextLines, runtime.output)
 	}
+}
+
+// mergeVetOutput folds the JSON objects go vet prints, one per analyzed
+// package, into the single document the renderers decode. A package pattern
+// that matches several packages, or one package with a test variant, yields
+// several objects, so treating stdout as one document would mistake every
+// multi-package run for a build failure. Empty output is an empty document.
+func mergeVetOutput(data []byte) ([]byte, error) {
+	merged := map[string]json.RawMessage{}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	for {
+		var object map[string]json.RawMessage
+		if err := decoder.Decode(&object); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+		maps.Copy(merged, object)
+	}
+	return json.MarshalIndent(merged, "", "\t")
 }
 
 func renderDelegatedDiagnostics(data []byte, contextLines int, output io.Writer) int {

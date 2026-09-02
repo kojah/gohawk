@@ -276,6 +276,18 @@ func TestRunViaGoVet(t *testing.T) {
 			wantOutput: "warning[oncepolicy]: problem",
 		},
 		{
+			// go vet prints one object per package; a pattern matching several
+			// packages must render every diagnostic rather than read as a build
+			// failure.
+			name:   "several packages",
+			render: renderRich,
+			result: processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"p.go:1:1","message":"first"}]}}
+{"example.com/q":{"oncepolicy":[{"posn":"q.go:1:1","message":"second"}]}}
+`)},
+			wantCode:   3,
+			wantOutput: "warning[oncepolicy]: second",
+		},
+		{
 			name:       "analysis error",
 			render:     renderRich,
 			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":{"error":"load failed"}}}`)},
