@@ -52,6 +52,12 @@ linters:
   settings:
     cyclop:
       max-complexity: 20
+    dupl:
+      # The default 150-token threshold hides the duplication that actually
+      # recurs here: copied SSA traversal walkers, forward worklists, and
+      # guarded trace-emit wrappers. Sixty tokens surfaces them so the
+      # mechanics get extracted into shared helpers rather than re-copied.
+      threshold: 60
     exhaustive:
       # Analyzer switches intentionally use conservative default branches for
       # tokens and syntax added by future Go releases.
