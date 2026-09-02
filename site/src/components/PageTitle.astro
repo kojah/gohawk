@@ -10,6 +10,14 @@ const analyzer = manifest.groups
 // The landing page supplies its own title inside the hero, so suppress
 // Starlight's; rendering both leaves the page with two <h1>s.
 const isLanding = entry.id === 'index' || entry.id === '';
+
+// A tier belongs to a check, not the analyzer, and an analyzer's checks can
+// span tiers. Show the distinct set its checks use, most trusted first, so the
+// header states them exactly instead of collapsing them to a single tier.
+const tierOrder = ['core', 'extended', 'experimental'];
+const tiers = analyzer
+	? tierOrder.filter((tier) => analyzer.checks.some((check) => check.tier === tier))
+	: [];
 ---
 
 {
@@ -20,8 +28,8 @@ const isLanding = entry.id === 'index' || entry.id === '';
 			<p class="analyzer-summary">{analyzer.summary}</p>
 			<div class="rule-meta">
 				<div>
-					<span class="rule-meta-label">Tier</span>
-					<strong>{analyzer.tier}</strong>
+					<span class="rule-meta-label">{tiers.length > 1 ? 'Tiers' : 'Tier'}</span>
+					<strong>{tiers.join(', ')}</strong>
 				</div>
 				<div>
 					<span class="rule-meta-label">Fix offered</span>
