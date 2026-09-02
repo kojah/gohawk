@@ -653,3 +653,45 @@ func closureLocksSameCaptureTwice(capA *capture, run func(func())) {
 		capA.mu.Unlock()
 	})
 }
+
+type operationClient struct {
+	operationMu sync.Mutex
+	oidcLock    *sync.Mutex
+	reload      func() error
+}
+
+// beginOperation returns with operationMu held on every successful return and
+// releases it on every error return; endOperation is its counterpart.
+func (c *operationClient) beginOperation() error {
+	c.operationMu.Lock()
+	if c.oidcLock == nil {
+		return nil
+	}
+	c.oidcLock.Lock()
+	if c.reload != nil {
+		if err := c.reload(); err != nil {
+			c.oidcLock.Unlock()
+			c.operationMu.Unlock()
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *operationClient) endOperation() {
+	if c.oidcLock != nil {
+		c.oidcLock.Unlock()
+	}
+	c.operationMu.Unlock()
+}
+
+// A successful return that forgets the unlock while another successful return
+// releases is not an acquisition contract.
+func (c *operationClient) forgetsUnlockOnOnePath(skip bool) error {
+	c.operationMu.Lock()
+	if skip {
+		return nil // want "lock .*operationMu is not released on this return path"
+	}
+	c.operationMu.Unlock()
+	return nil
+}

@@ -1,6 +1,7 @@
 package ssaflow
 
 import (
+	"go/token"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/syntax"
@@ -359,6 +360,18 @@ type completionSearch struct {
 	// variable that holds itself, so both guards are needed to terminate.
 	seen       map[*ssa.Function]bool
 	seenValues map[ssa.Value]bool
+	// invokeTarget marks a nested search whose target is a callback already
+	// known to call the method: invoking a local mapped exactly to it is
+	// then the completion, wherever the invocation sits.
+	invokeTarget bool
+}
+
+// forCallback returns a nested search for a callback value that shares the
+// cycle guards of this search.
+func (search *completionSearch) forCallback() *completionSearch {
+	nested := *search
+	nested.invokeTarget = true
+	return &nested
 }
 
 func newCompletionSearch(method string, coverage CompletionCoverage) *completionSearch {
@@ -430,18 +443,38 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 	}
 	for _, local := range locals {
 		// A callback bound to the method on the target, such as rows.Close,
-		// completes when the callee invokes that exact local.
+		// completes when the callee invokes that exact local, directly or in
+		// a nested launch. crabbox hands cmd.Wait to a helper that invokes it
+		// on a waiter goroutine:
+		// https://github.com/openclaw/crabbox/blob/3ef3f98cbe27e6ddc814c11fde15b89c1639bcbe/internal/cli/ssh_forward_startup.go#L15-L22
 		if local.kind == localCallback {
-			if called != nil && SameValue(called.Value, local.local) {
+			if called != nil && invokesLocal(called.Value, local.local) {
+				return true
+			}
+			if _, proven, _ := search.forCallback().completes(candidate, local.local); proven {
 				return true
 			}
 			continue
+		}
+		if search.invokeTarget && local.kind == localExact && called != nil && invokesLocal(called.Value, local.local) {
+			return true
 		}
 		if _, proven, _ := search.completes(candidate, local.local); proven {
 			return true
 		}
 	}
 	return false
+}
+
+// invokesLocal reports whether a call's function value is the local itself or
+// a load of it; a parameter captured by a literal is spilled to a cell and
+// invoked through a load.
+func invokesLocal(value, local ssa.Value) bool {
+	if SameValue(value, local) {
+		return true
+	}
+	load, ok := value.(*ssa.UnOp)
+	return ok && load.Op == token.MUL && load.X == local
 }
 
 // ValueCallsMethod reports whether value is, or carries, a callback that

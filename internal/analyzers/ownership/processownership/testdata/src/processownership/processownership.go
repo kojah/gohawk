@@ -445,3 +445,41 @@ func returnedProcessPidOnly(ctx context.Context) (int, error) {
 	}
 	return command.Process.Pid, nil
 }
+
+type forwardWait struct {
+	done chan struct{}
+	err  error
+}
+
+// startForwardWait invokes the wait callback on its own goroutine.
+func startForwardWait(wait func() error) *forwardWait {
+	w := &forwardWait{done: make(chan struct{})}
+	go func() {
+		w.err = wait()
+		close(w.done)
+	}()
+	return w
+}
+
+func storeForwardWait(wait func() error) *forwardWait {
+	return &forwardWait{done: make(chan struct{}), err: nil}
+}
+
+// A helper that invokes the bound Wait on a launched goroutine owns reaping.
+func commandWaitedByStartedCallback() error {
+	cmd := exec.Command("ssh", "-N")
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	_ = startForwardWait(cmd.Wait)
+	return nil
+}
+
+func commandWaitDroppedByHelper() error {
+	cmd := exec.Command("ssh", "-N")
+	if err := cmd.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return err
+	}
+	_ = storeForwardWait(cmd.Wait)
+	return nil
+}

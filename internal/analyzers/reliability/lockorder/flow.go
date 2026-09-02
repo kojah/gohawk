@@ -2,8 +2,8 @@ package lockorder
 
 import (
 	"go/token"
+	"go/types"
 	"slices"
-	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -33,12 +33,18 @@ func walkLockOrder(
 	if len(function.Blocks) == 0 {
 		return
 	}
+	// The walk is a work list over (block, held locks, deferred releases,
+	// guards); a state is revisited only when that tuple is new, which bounds
+	// the walk on loops while still separating the path that acquired a lock
+	// from the path that did not.
 	queue := []lockFlowState{{block: function.Blocks[0]}}
 	seen := map[string]bool{}
 	released := map[string]bool{}
 	acquiredAt := map[string]token.Pos{}
 	lockValues := map[string][]ssa.Value{}
 	unreleasedReturns := map[string][]token.Pos{}
+	heldAtReturn := map[string]map[*ssa.Return]bool{}
+	acquisitions := map[string][]ssa.Instruction{}
 	callerOwned := callerOwnedLocks(function)
 	functionDefers := deferredInstructions(function)
 	flow := lockFlowContext{
@@ -67,7 +73,7 @@ func walkLockOrder(
 			condition = ""
 		}
 		for _, instruction := range state.block.Instrs {
-			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns)
+			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns, heldAtReturn)
 			held = transferCalledUnlocks(evidence, instruction, held, guards, lockValues, released)
 			// An unconditional unlock at the start of a spawned closure transfers
 			// the held lock to that goroutine. Requiring it before any branch keeps
@@ -82,6 +88,11 @@ func walkLockOrder(
 			if !ok {
 				continue
 			}
+			// Acquisitions are remembered so the acquire-for-caller contract can
+			// ask which returns an acquisition dominates.
+			if operation == mutexAcquire {
+				acquisitions[identity] = appendUniqueInstruction(acquisitions[identity], instruction)
+			}
 			actionState := lockFlowState{
 				held: held, deferred: deferred, guards: guards,
 				condition: condition, conditionValue: state.conditionValue,
@@ -91,15 +102,14 @@ func walkLockOrder(
 		}
 		queue = append(queue, lockSuccessorStates(pass, state.block, held, deferred, guards)...)
 	}
-	// Lock/Unlock helpers commonly and intentionally return while transferring
-	// the critical section to their caller. Without interprocedural call-site
-	// evidence, reporting those helpers would trade precision for recall.
-	functionName := strings.ToLower(function.Name())
-	if strings.HasPrefix(functionName, "lock") || strings.HasPrefix(functionName, "unlock") {
-		return
-	}
+	// A lock is reported only when some path releases it and another returns
+	// with it held: a lock never released anywhere is either transferred to a
+	// caller or held for the function's whole life, and both are contracts the
+	// flow cannot distinguish from a leak. A function whose successful returns
+	// all hold the lock is acquiring it for its caller, so its held returns are
+	// the contract rather than the defect.
 	for identity, returns := range unreleasedReturns {
-		if !released[identity] {
+		if !released[identity] || acquiresForCaller(function, acquisitions[identity], heldAtReturn[identity]) {
 			continue
 		}
 		for _, position := range returns {
@@ -116,6 +126,7 @@ func recordUnreleasedLocks(
 	held, deferred []string,
 	lockValues map[string][]ssa.Value,
 	unreleased map[string][]token.Pos,
+	heldAtReturn map[string]map[*ssa.Return]bool,
 ) {
 	returned, ok := instruction.(*ssa.Return)
 	if !ok {
@@ -124,8 +135,64 @@ func recordUnreleasedLocks(
 	for _, identity := range held {
 		if !slices.Contains(deferred, identity) && !returnedUnlockOwner(returned, lockValues[identity]) {
 			unreleased[identity] = appendUniquePosition(unreleased[identity], returned.Pos())
+			if heldAtReturn[identity] == nil {
+				heldAtReturn[identity] = map[*ssa.Return]bool{}
+			}
+			heldAtReturn[identity][returned] = true
 		}
 	}
+}
+
+// acquiresForCaller reports whether the function's contract is to return with
+// the lock held: every successful return that an acquisition dominates, one
+// that returns no error or a nil error, still holds it, and at least one such
+// return exists. A helper that begins a critical section for its caller, with
+// a matching helper that ends it, has this shape; a function that forgets an
+// unlock on one successful path, or acquires only conditionally, does not.
+// crabbox pairs beginOperation with endOperation:
+// https://github.com/openclaw/crabbox/blob/3ef3f98cbe27e6ddc814c11fde15b89c1639bcbe/internal/providers/incus/client.go#L161-L185
+func acquiresForCaller(function *ssa.Function, acquisitions []ssa.Instruction, heldAt map[*ssa.Return]bool) bool {
+	successful := 0
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			returned, ok := instruction.(*ssa.Return)
+			if !ok || !successfulReturn(function, returned) {
+				continue
+			}
+			dominated := slices.ContainsFunc(acquisitions, func(acquisition ssa.Instruction) bool {
+				return ssaflow.InstructionDominates(acquisition, returned)
+			})
+			if !dominated {
+				continue
+			}
+			successful++
+			if !heldAt[returned] {
+				return false
+			}
+		}
+	}
+	return successful > 0
+}
+
+func appendUniqueInstruction(instructions []ssa.Instruction, instruction ssa.Instruction) []ssa.Instruction {
+	if slices.Contains(instructions, instruction) {
+		return instructions
+	}
+	return append(instructions, instruction)
+}
+
+// successfulReturn reports whether the return carries no error result or a
+// nil one.
+func successfulReturn(function *ssa.Function, returned *ssa.Return) bool {
+	results := function.Signature.Results()
+	if results.Len() == 0 {
+		return true
+	}
+	last := results.At(results.Len() - 1).Type()
+	if !types.Identical(last, types.Universe.Lookup("error").Type()) {
+		return true
+	}
+	return len(returned.Results) > 0 && ssaflow.DefinitelyNil(returned.Results[len(returned.Results)-1])
 }
 
 func deferredInstructions(function *ssa.Function) []ssa.Instruction {

@@ -20,6 +20,8 @@ func (*closer) Close() {}
 
 type owner struct{ body *closer }
 
+var stored func()
+
 func closeHelper(value *closer)                  { value.Close() }
 func closeOwner(value *owner)                    { value.body.Close() }
 func closeOther(other, value *closer)            { other.Close() }
@@ -89,6 +91,12 @@ func calledLiteral(value *closer)              { func() { value.Close() }() }
 func calledStarter(value *closer)              { startWaiter(value) }
 func calledRegistrar(t *testing.T, value *closer) { register(t, value) }
 func calledOpaque(value *closer, callback func(*closer)) { opaque(value, callback) }
+func startInvoker(callback func()) {
+	go func() { callback() }()
+}
+func storeInvoker(callback func()) { stored = callback }
+func calledStartedCallback(value *closer)  { startInvoker(value.Close) }
+func calledStoredCallback(value *closer)   { storeInvoker(value.Close) }
 func startedLiteral(value *closer)             { go func() { value.Close() }() }
 func startedGroup(value *closer) {
 	var group sync.WaitGroup
@@ -151,6 +159,8 @@ var completionCases = []struct {
 	{function: "calledStarter", proven: true, reason: EvidenceCalledCompletion},
 	{function: "calledRegistrar", proven: true, reason: EvidenceCalledCompletion},
 	{function: "calledOpaque"},
+	{function: "calledStartedCallback", proven: true, reason: EvidenceCalledCompletion},
+	{function: "calledStoredCallback"},
 	{function: "startedLiteral", proven: true, reason: EvidenceStartedCompletion},
 	{function: "startedGroup", proven: true, reason: EvidenceStartedCompletion},
 	{function: "registeredCleanup", proven: true, reason: EvidenceDeferredCompletion},
