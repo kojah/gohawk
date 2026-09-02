@@ -369,3 +369,13 @@
 37	goern/forgejo-mcp	cc8f8a5400e9fdb98c0da0de74ddd3d92f1800f7	.	reviewed
 37	jurkovic-nikola/OpenLinkHub	602226c7fc40d9ebcd09f124efdd73d8c7ccef03	.	reviewed
 37	etcd-io/etcd-operator	c1014f6c293b5005b4ef380748a436182de3ebb7	.,tools/mod	reviewed
+38	hismailbulut/Neoray	1d54b50ca95da10f62aa4803a30d570624a350e8	.	reviewed
+38	supabase/auth	7bd9954ae60a2fc9d210a15e107bea4e3121b063	.,tools,internal/forks/godotenv	reviewed
+38	fy0/CodeKanban	745699cb67d3d34cec4793168f148eb61e43e766	.,tools/filetime,tools/proctime	reviewed
+38	fabriziosalmi/caddy-waf	5c7c3609b176e81fa136a1929abeb0e4ebef993a	.	reviewed
+38	scip-code/scip	15d7c127152bbe5515aef8c82ec6452d4c8b20e5	.,reprolang,bindings/go/scip	reviewed
+38	NVIDIA/cluster-readiness-engine	7c2daf24ec42344924f8ab095ab4106ced6eea71	.	reviewed
+38	localstack/lstk	92bf86d54677ed80b2c3fdb676eb04467557c9b1	.,test/integration	reviewed
+38	scylladb/gemini	2efa3c2a3bd7934ef7c72cbc1a5f5bc275b364c6	.	reviewed
+38	cloudflare/cf-terraforming	739dcf37bf9b7d694819d10be2b4dc81d70f1a11	.	reviewed
+38	aws/eks-node-monitoring-agent	504eb244e807b228bc300a28ba4f061774628384	.	reviewed

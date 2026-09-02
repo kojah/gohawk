@@ -221,3 +221,7 @@ directory handle and a destination file leaked on read and copy errors, a
 gzip reader never closed, a file opened only to test existence, a temporary
 update file leaked when its source fails to open, and a null device never
 closed as reportable.
+
+Round 40 preserves the thirty-sixth reviewed batch. It covers a mutex fetched
+by a lookup keyed on the loop iteration. Nearby file, response, and
+inline-error findings remain reportable.

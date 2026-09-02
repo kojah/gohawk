@@ -1184,3 +1184,26 @@ its returned closure, and log files assigned to a daemon's output before it
 starts, remain reportable. Nine fire-and-forget launchers remain policy
 reports. Opt-in global-state, API-shape, and detached-goroutine findings were
 sampled without expanding default policy.
+
+## Batch 38
+
+Ten repositories and seventeen modules were selected. Thirteen modules loaded
+and scanned fully; Neoray and the node monitoring agent produced useful
+partial analysis around dependencies that exclude the host platform, and two
+directories hold no buildable package.
+Final scans produced 579 unique diagnostics after one bounded
+correction:
+
+- lockorder's loop-variant rule follows a call whose argument is selected by
+  the iteration, such as the per-session state a cleanup loop fetches before
+  locking it, so locking a different state each time is not recursion; a
+  lookup with a fixed key still returns the same mutex and stays reportable.
+
+The correction removed one CodeKanban session-cleanup finding. Precision
+round 40 labels it and five nearby true positives: a file leaked on a copy
+error inside an archive walk, a response leaked on a status check, a
+testdata directory never closed, an error check that tests the wrong
+variable, and a response leaked on provider error statuses. Four
+fire-and-forget launchers remain policy reports. Opt-in global-state,
+API-shape, and detached-goroutine findings were sampled without expanding
+default policy.
