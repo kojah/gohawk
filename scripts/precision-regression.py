@@ -57,6 +57,22 @@ def module_directories(checkout: Path) -> list[Path]:
     return sorted(modules, key=lambda path: (len(path.relative_to(checkout).parts), str(path)))[:3]
 
 
+def merge_json_stream(text: str) -> dict:
+    """Merge the JSON objects go vet prints, one per package, into one document."""
+    decoder = json.JSONDecoder()
+    merged: dict = {}
+    index = 0
+    while True:
+        while index < len(text) and text[index].isspace():
+            index += 1
+        if index >= len(text):
+            return merged
+        payload, end = decoder.raw_decode(text, index)
+        if isinstance(payload, dict):
+            merged.update(payload)
+        index = end
+
+
 def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, str]]:
     findings: set[tuple[str, str, str]] = set()
     environment = os.environ | {
@@ -73,7 +89,10 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
             result = run(
                 # Reviewed labels include findings in _test.go files, which the
                 # default policy skips; replay them so the labels stay meaningful.
-                [str(gohawk), "-enable-all", "-gohawk-include-tests", "-json", "./..."],
+                # Running through go vet analyzes one package at a time from
+                # export data, so a module with a large dependency graph does not
+                # need every dependency type-checked from source at once.
+                ["go", "vet", f"-vettool={gohawk}", "-enable-all", "-gohawk-include-tests", "-json", "./..."],
                 cwd=module,
                 env=environment,
                 capture_output=True,
@@ -87,7 +106,7 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
         # payload, however, means the scan did not run at all (for example an
         # out-of-memory kill under a parallel replay), and treating that as
         # "no findings" would report reviewed true positives as lost.
-        if not result.stdout.strip():
+        if not result.stdout.strip() and result.returncode:
             print(
                 f"warning: {repository}: no output from {module.relative_to(checkout)} "
                 f"(exit {result.returncode}): {result.stderr.strip()[:200]}",
@@ -95,7 +114,7 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
             )
             continue
         try:
-            payload = json.loads(result.stdout or "{}")
+            payload = merge_json_stream(result.stdout)
         except json.JSONDecodeError:
             print(f"warning: {repository}: invalid JSON in {module.relative_to(checkout)}", file=sys.stderr)
             continue
