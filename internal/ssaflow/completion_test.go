@@ -44,6 +44,12 @@ func deferredReassignedBefore(value, other *closer) {
 	other = value
 	defer func() { other.Close() }()
 }
+func deferredInsideLoop(value *closer) {
+	for range 3 {
+		current := value
+		defer func() { current.Close() }()
+	}
+}
 func deferredStoredCallback(value *closer) {
 	callback := func() { value.Close() }
 	defer callback()
@@ -116,6 +122,7 @@ var completionCases = []struct {
 	{function: "deferredOtherReceiver"},
 	{function: "deferredReassignedAfter"},
 	{function: "deferredReassignedBefore", proven: true, reason: EvidenceDeferredCompletion},
+	{function: "deferredInsideLoop", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredStoredCallback", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredOnceCallback", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredPhiCallback"},

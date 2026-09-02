@@ -344,6 +344,23 @@ func deferredParameterClosesDifferentParameter(client *http.Client, request *htt
 	return nil
 }
 
+// A response declared inside a retry loop is a fresh variable each iteration,
+// so the deferred literal registered in that iteration closes that response.
+func responseClosedByDeferInsideRetryLoop(client *http.Client, request *http.Request) ([]byte, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		response, err := client.Do(request)
+		if err != nil {
+			continue
+		}
+		defer func() { _ = response.Body.Close() }()
+		if response.StatusCode != http.StatusOK {
+			continue
+		}
+		return io.ReadAll(response.Body)
+	}
+	return nil, nil
+}
+
 // A deferred literal that may close the body leaves the release data-dependent;
 // the analyzer does not claim a leak.
 func deferredParameterConditionallyCloses(client *http.Client, request *http.Request, enabled bool) error {
