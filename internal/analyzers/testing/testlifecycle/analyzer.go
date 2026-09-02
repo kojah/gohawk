@@ -17,22 +17,22 @@ import (
 )
 
 // Analyzer returns this package's configured Go analysis pass. The registry
-// supplies the ownership policy through explicitlyOwned at composition time.
-func Analyzer(explicitlyOwned func(*ssa.Go) bool) *analysis.Analyzer {
+// supplies the conservative ownership query at composition time.
+func Analyzer(ownershipMayBeHandled func(*ssa.Go) bool) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "testlifecycle",
 		Doc:      "checks that test-owned asynchronous work inherits the test lifecycle",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 		Run: func(pass *analysis.Pass) (any, error) {
-			if explicitlyOwned == nil {
+			if ownershipMayBeHandled == nil {
 				return nil, errors.New("testlifecycle requires a goroutine ownership proof")
 			}
-			return runTestLifecycle(pass, explicitlyOwned)
+			return runTestLifecycle(pass, ownershipMayBeHandled)
 		},
 	}
 }
 
-func runTestLifecycle(pass *analysis.Pass, explicitlyOwned func(*ssa.Go) bool) (any, error) {
+func runTestLifecycle(pass *analysis.Pass, ownershipMayBeHandled func(*ssa.Go) bool) (any, error) {
 	if !supportsTestingContext(pass) {
 		return nil, nil
 	}
@@ -41,7 +41,7 @@ func runTestLifecycle(pass *analysis.Pass, explicitlyOwned func(*ssa.Go) bool) (
 		return nil, err
 	}
 	for _, function := range functions {
-		reportDetachedTestBackground(pass, function, explicitlyOwned)
+		reportDetachedTestBackground(pass, function, ownershipMayBeHandled)
 	}
 	return nil, nil
 }
@@ -62,7 +62,7 @@ type detachedTestContext struct {
 	position token.Pos
 }
 
-func reportDetachedTestBackground(pass *analysis.Pass, function *ssa.Function, explicitlyOwned func(*ssa.Go) bool) {
+func reportDetachedTestBackground(pass *analysis.Pass, function *ssa.Function, ownershipMayBeHandled func(*ssa.Go) bool) {
 	file := ssaflow.FunctionFile(pass, function)
 	if file == nil || !strings.HasSuffix(pass.Fset.Position(file.Pos()).Filename, "_test.go") || !functionHasTestingHandle(function) {
 		return
@@ -70,7 +70,7 @@ func reportDetachedTestBackground(pass *analysis.Pass, function *ssa.Function, e
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			spawn, ok := instruction.(*ssa.Go)
-			if !ok || explicitlyOwned(spawn) {
+			if !ok || ownershipMayBeHandled(spawn) {
 				continue
 			}
 			// A synchronous call with Background has no test-teardown lifetime to

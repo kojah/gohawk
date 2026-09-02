@@ -15,8 +15,8 @@ func importedHelperOwnsCancel(parent context.Context) {
 	cancellationdep.Invoke(cancel)
 }
 
-func conditionalImportedHelperDoesNotOwnCancel(parent context.Context, enabled bool) {
-	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+func conditionalImportedHelperIsUnknown(parent context.Context, enabled bool) {
+	_, cancel := context.WithCancel(parent)
 	cancellationdep.MaybeInvoke(cancel, enabled)
 }
 
@@ -45,6 +45,49 @@ func transferred(parent context.Context) context.CancelFunc {
 func deferredClosure(parent context.Context) {
 	_, cancel := context.WithCancel(parent)
 	defer func() { cancel() }()
+}
+
+func invokeSecond(_ context.CancelFunc, second context.CancelFunc) {
+	second()
+}
+
+func exactSiblingArgumentDoesNotRelease(parent context.Context) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	invokeSecond(cancel, func() {})
+}
+
+func invokeThroughHelper(cancel context.CancelFunc) {
+	teardown(cancel, true)
+}
+
+func nestedExactHelperIsUnknown(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	invokeThroughHelper(cancel)
+}
+
+func invokeCallback(callback func()) {
+	callback()
+}
+
+func capturedCallbackArgumentIsUnknown(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	invokeCallback(func() { cancel() })
+}
+
+func deferredReassignedCaptureIsUnknown(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	callback := cancel
+	defer func() { callback() }()
+	callback = func() {}
+}
+
+func deferredMixedCallbackIsUnknown(parent context.Context, release bool) {
+	_, cancel := context.WithCancel(parent)
+	callback := context.CancelFunc(func() {})
+	if release {
+		callback = cancel
+	}
+	defer callback()
 }
 
 func cancelCause(parent context.Context) {
@@ -112,6 +155,15 @@ var globalCancel context.CancelFunc
 
 func transferredToGlobal(parent context.Context) {
 	_, globalCancel = context.WithCancel(parent)
+}
+
+func storeGlobal(cancel context.CancelFunc) {
+	globalCancel = cancel
+}
+
+func helperGlobalStorageIsUnknown(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
+	storeGlobal(cancel)
 }
 
 func transferredToField(target *owner, parent context.Context) {
@@ -204,8 +256,8 @@ func StartExportedCancelWorker(cancel context.CancelFunc) {
 	go func() { cancel() }()
 }
 
-func exportedGoroutineHelperDoesNotTransferCancel(parent context.Context) {
-	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+func exportedGoroutineTransferIsUnknown(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
 	StartExportedCancelWorker(cancel)
 }
 
@@ -230,8 +282,8 @@ func conditionallyStartCancelWorker(cancel context.CancelFunc, run bool) {
 	}
 }
 
-func conditionalGoroutineHelperDoesNotOwnCancel(parent context.Context, run bool) {
-	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+func conditionalGoroutineTransferIsUnknown(parent context.Context, run bool) {
+	_, cancel := context.WithCancel(parent)
 	conditionallyStartCancelWorker(cancel, run)
 }
 
@@ -243,8 +295,8 @@ func startConditionalCallbackWorker(cancel context.CancelFunc, run bool) {
 	}()
 }
 
-func conditionalWorkerCallbackDoesNotOwnCancel(parent context.Context, run bool) {
-	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+func conditionalWorkerCallbackIsUnknown(parent context.Context, run bool) {
+	_, cancel := context.WithCancel(parent)
 	startConditionalCallbackWorker(cancel, run)
 }
 
@@ -261,6 +313,24 @@ func observeWithoutWorker(cancel context.CancelFunc) {
 	_ = cancel
 }
 
+func passToOpaqueHelper(cancel context.CancelFunc, enabled bool) {
+	cancellationdep.MaybeInvoke(cancel, enabled)
+}
+
+func opaqueNestedHelperIsUnknown(parent context.Context, enabled bool) {
+	_, cancel := context.WithCancel(parent)
+	passToOpaqueHelper(cancel, enabled)
+}
+
+func cleanupByNameOnly(cancel context.CancelFunc) {
+	_ = cancel
+}
+
+func namedCleanupDoesNotOwnCancel(parent context.Context) {
+	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+	cleanupByNameOnly(cancel)
+}
+
 func nonGoroutineObserverDoesNotOwnCancel(parent context.Context) {
 	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
 	observeWithoutWorker(cancel)
@@ -275,8 +345,8 @@ func unrelatedWorkerCallbackDoesNotOwnCancel(parent context.Context) {
 	startUnrelatedCallbackWorker(cancel, func() {})
 }
 
-func dynamicGoroutineStarterDoesNotOwnCancel(parent context.Context, start func(context.CancelFunc)) {
-	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+func dynamicGoroutineStarterIsUnknown(parent context.Context, start func(context.CancelFunc)) {
+	_, cancel := context.WithCancel(parent)
 	start(cancel)
 }
 
@@ -312,8 +382,8 @@ func deferredTeardownHelperOwnsCancel(parent context.Context, fast bool) {
 
 func observeCallback(context.CancelFunc) {}
 
-func deferredObserverDoesNotOwnCancel(parent context.Context) {
-	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+func deferredObserverIsUnknown(parent context.Context) {
+	_, cancel := context.WithCancel(parent)
 	defer func() { observeCallback(cancel) }()
 }
 
@@ -379,7 +449,7 @@ func (owner *atomicCancelOwner) start(parent context.Context) {
 
 func (*atomicCancelOwner) run(context.Context) {}
 
-func atomicStorageWithoutWorker(parent context.Context, owner *atomicCancelOwner) {
-	_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+func atomicStorageIsUnknown(parent context.Context, owner *atomicCancelOwner) {
+	_, cancel := context.WithCancel(parent)
 	owner.cancel.Store(&cancel)
 }

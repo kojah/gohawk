@@ -2,9 +2,7 @@
 package channelownership
 
 import (
-	"go/ast"
 	"go/types"
-	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -20,7 +18,7 @@ import (
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "channelownership",
-		Doc:      "checks that channel closing remains with the channel owner",
+		Doc:      "audits callees that close channels exact callers continue to use",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 		Run:      runChannelOwnership,
 	}
@@ -41,9 +39,17 @@ func runChannelOwnership(pass *analysis.Pass) (any, error) {
 
 type channelCloseReason string
 
+type channelCloseOutcome uint8
+
+const (
+	channelCloseUnknown channelCloseOutcome = iota
+	channelCloseLocal
+	channelCloseTransferred
+	channelCloseCallerRetained
+)
+
 const (
 	channelReasonLocal                   channelCloseReason = "locally-owned-channel"
-	channelReasonDocumented              channelCloseReason = "documented-close-owner"
 	channelReasonGuarded                 channelCloseReason = "guarded-close-owner"
 	channelReasonCallerRelinquished      channelCloseReason = "caller-relinquished"
 	channelReasonFiniteBoundRelinquished channelCloseReason = "finite-bound-callers-relinquished"
@@ -53,8 +59,8 @@ const (
 )
 
 type channelCloseProof struct {
-	report bool
-	reason channelCloseReason
+	outcome channelCloseOutcome
+	reason  channelCloseReason
 }
 
 func checkChannelOwnership(pass *analysis.Pass, function *ssa.Function, callsites map[*ssa.Function]*channelCalleeCalls) {
@@ -71,17 +77,16 @@ func checkChannelOwnership(pass *analysis.Pass, function *ssa.Function, callsite
 				continue
 			}
 			channel := common.Args[0]
-			proof := proveBorrowedChannelClose(pass, function, channel, parameters, callsites)
+			proof := proveBorrowedChannelClose(function, channel, parameters, callsites)
 			emitChannelCloseTrace(pass, function, instruction, proof)
-			if proof.report {
-				check.Reportf(pass, check.ChannelCallerClose, instruction.Pos(), "do not close a channel received from caller")
+			if proof.outcome == channelCloseCallerRetained {
+				check.Reportf(pass, check.ChannelCallerClose, instruction.Pos(), "callee closes a channel that its caller continues to use")
 			}
 		}
 	}
 }
 
 func proveBorrowedChannelClose(
-	pass *analysis.Pass,
 	function *ssa.Function,
 	channel ssa.Value,
 	parameters []ssa.Value,
@@ -91,36 +96,12 @@ func proveBorrowedChannelClose(
 		if !ssaflow.SameValue(channel, parameter) {
 			continue
 		}
-		if documentedCloseOwnership(pass, function, parameter) {
-			return channelCloseProof{reason: channelReasonDocumented}
-		}
 		if guardedCloseContract(function, parameter) {
-			return channelCloseProof{reason: channelReasonGuarded}
+			return channelCloseProof{outcome: channelCloseTransferred, reason: channelReasonGuarded}
 		}
 		return proveCallerRelinquishesChannel(parameter, callsites)
 	}
-	return channelCloseProof{reason: channelReasonLocal}
-}
-
-func documentedCloseOwnership(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	if function == nil || function.Object() == nil || parameter == nil || parameter.Name() == "" {
-		return false
-	}
-	for _, file := range pass.Files {
-		for _, declaration := range file.Decls {
-			source, ok := declaration.(*ast.FuncDecl)
-			if !ok || pass.TypesInfo.Defs[source.Name] != function.Object() || source.Doc == nil {
-				continue
-			}
-			documentation := strings.ToLower(source.Doc.Text())
-			contract := strings.ToLower(parameter.Name()) + " is closed"
-			// A parameter-specific API promise transfers close ownership to the
-			// callee. Restic documents its producer channel this way:
-			// https://github.com/restic/restic/blob/ba802d42b7294c98b62c16d1157ea3e80820c019/internal/checker/checker.go#L146-L155
-			return strings.Contains(documentation, contract)
-		}
-	}
-	return false
+	return channelCloseProof{outcome: channelCloseLocal, reason: channelReasonLocal}
 }
 
 func proveCallerRelinquishesChannel(
@@ -129,7 +110,7 @@ func proveCallerRelinquishesChannel(
 ) channelCloseProof {
 	function := parameter.Parent()
 	if function == nil || function.Object() != nil && function.Object().Exported() {
-		return channelCloseProof{report: true, reason: channelReasonNoCallsites}
+		return channelCloseProof{reason: channelReasonNoCallsites}
 	}
 	index := -1
 	for candidate, current := range function.Params {
@@ -140,17 +121,17 @@ func proveCallerRelinquishesChannel(
 	}
 	calleeCalls := callsites[function]
 	if index < 0 || calleeCalls == nil {
-		return channelCloseProof{report: true, reason: channelReasonNoCallsites}
+		return channelCloseProof{reason: channelReasonNoCallsites}
 	}
 	if !calleeCalls.complete {
-		return channelCloseProof{report: true, reason: channelReasonUnresolved}
+		return channelCloseProof{reason: channelReasonUnresolved}
 	}
 	if len(calleeCalls.calls) == 0 {
-		return channelCloseProof{report: true, reason: channelReasonNoCallsites}
+		return channelCloseProof{reason: channelReasonNoCallsites}
 	}
 	for _, callsite := range calleeCalls.calls {
 		if index >= len(callsite.arguments) {
-			return channelCloseProof{report: true, reason: channelReasonUnresolved}
+			return channelCloseProof{reason: channelReasonUnresolved}
 		}
 		if _, ok := callsite.instruction.(*ssa.Go); ok {
 			continue
@@ -159,7 +140,7 @@ func proveCallerRelinquishesChannel(
 		if ssaflow.DefinitelyNil(argument) || channelRelinquishedAfterCall(callsite.instruction, argument) {
 			continue
 		}
-		return channelCloseProof{report: true, reason: channelReasonCallerRetains}
+		return channelCloseProof{outcome: channelCloseCallerRetained, reason: channelReasonCallerRetains}
 	}
 	if calleeCalls.finiteBound {
 		// A finite phi of exact bound producer methods transfers close ownership
@@ -167,13 +148,13 @@ func proveCallerRelinquishesChannel(
 		// relinquishes the channel. Buildkite selects literal/glob producers this
 		// way; the synthetic wrapper itself is not sufficient caller evidence:
 		// https://github.com/buildkite/agent/blob/e206ddf806af50a1ba8c9a6dd501dfda0b730818/internal/artifact/uploader.go#L258-L338
-		return channelCloseProof{reason: channelReasonFiniteBoundRelinquished}
+		return channelCloseProof{outcome: channelCloseTransferred, reason: channelReasonFiniteBoundRelinquished}
 	}
 	// A channel passed only through `go helper(ch)` is an explicit producer
 	// handoff: the spawning caller cannot perform the close after the helper
 	// finishes. ElasticKV uses this contract for its refresh completion signal:
 	// https://github.com/bootjp/elastickv/blob/ddbb0a5b60a691890cb5595c185cdb16fee478b3/proxy/leader_aware_backend.go#L195-L218
-	return channelCloseProof{reason: channelReasonCallerRelinquished}
+	return channelCloseProof{outcome: channelCloseTransferred, reason: channelReasonCallerRelinquished}
 }
 
 func emitChannelCloseTrace(pass *analysis.Pass, function *ssa.Function, instruction ssa.Instruction, proof channelCloseProof) {
@@ -190,9 +171,14 @@ func emitChannelCloseTrace(pass *analysis.Pass, function *ssa.Function, instruct
 		Pos:      instruction.Pos(),
 		Function: function.String(),
 	})
-	outcome := analysisTrace.OutcomeAccepted
-	if proof.report {
+	var outcome analysisTrace.Outcome
+	switch proof.outcome {
+	case channelCloseCallerRetained:
 		outcome = analysisTrace.OutcomeRejected
+	case channelCloseUnknown:
+		outcome = analysisTrace.OutcomeUnknown
+	case channelCloseLocal, channelCloseTransferred:
+		outcome = analysisTrace.OutcomeAccepted
 	}
 	analysisTrace.Emit(pass, analysisTrace.Event{
 		Analyzer: "channelownership",

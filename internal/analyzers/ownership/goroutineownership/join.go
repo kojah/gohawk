@@ -61,9 +61,6 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 	if common == nil {
 		return false
 	}
-	if strings.Contains(strings.ToLower(ssaflow.CallName(common)), "eventually") && eventuallyObservesAny(common, signals) {
-		return true
-	}
 	if ssaflow.CallName(common) == "Wait" && ssaflow.SameAsAny(ssaflow.CallReceiver(common), groups) {
 		return true
 	}
@@ -71,6 +68,12 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 	// helpers are accepted above only when their implementation receives from
 	// the exact signal; opaque or no-op calls remain unproven.
 	return false
+}
+
+func eventuallyJoinsGoroutine(instruction ssa.Instruction, signals []ssa.Value) bool {
+	common := ssaflow.InstructionCall(instruction)
+	return common != nil && strings.Contains(strings.ToLower(ssaflow.CallName(common)), "eventually") &&
+		eventuallyObservesAny(common, signals)
 }
 
 func eventuallyObservesAny(common *ssa.CallCommon, signals []ssa.Value) bool {

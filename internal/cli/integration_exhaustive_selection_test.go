@@ -33,7 +33,7 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		}
 		for _, summary := range []string{
 			"contracts (API and data contracts): apishape*, contextpolicy, closedomain*, wirepolicy*",
-			"ownership (ownership and lifecycle): borrowedstorage*, cancellationownership, channelcapacity*, channelownership, channelsafety, deferinloop, " +
+			"ownership (ownership and lifecycle): borrowedstorage*, cancellationownership, channelcapacity*, channelownership*, channelsafety, deferinloop, " +
 				"exitpolicy, goroutineownership, producerlifecycle, processownership, resourcelifetime",
 			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership*, errorclassification, " +
 				"inlineerror, evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, taintpolicy*",

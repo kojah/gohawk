@@ -290,7 +290,7 @@ func assertCancellationTrace(t *testing.T, tracePath string) {
 	}
 	for _, want := range []string{
 		"candidate/diagnostic-candidate/observed",
-		"evidence/evidence-unavailable/unknown",
+		"decision/ambiguous-cancellation-use/unknown",
 		"decision/unowned-return/rejected",
 		"decision/diagnostic-reported/rejected",
 		"fix/suggested-fix-available/accepted",

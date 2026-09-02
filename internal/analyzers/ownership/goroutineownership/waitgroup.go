@@ -29,7 +29,8 @@ func waitGroupCompletionValues(
 	closure *ssa.MakeClosure,
 ) (groups []ssa.Value, unsettled ssa.Instruction) {
 	for _, candidate := range waitGroupDoneReceivers(function) {
-		if containsSameValue(groups, ssaflow.SpawnedValueAtCall(spawn, function, closure, candidate.receiver)) {
+		group := ssaflow.SpawnedValueAtCall(spawn, function, closure, candidate.receiver)
+		if group == nil || containsSameValue(groups, group) {
 			continue
 		}
 		if !waitGroupSettlesFunction(function, candidate.receiver) {
@@ -38,10 +39,7 @@ func waitGroupCompletionValues(
 			}
 			continue
 		}
-		group := ssaflow.SpawnedValueAtCall(spawn, function, closure, candidate.receiver)
-		if group != nil {
-			groups = append(groups, group)
-		}
+		groups = append(groups, group)
 	}
 	return groups, unsettled
 }
@@ -80,6 +78,13 @@ func waitGroupDoneReceivers(function *ssa.Function) []waitGroupDoneCall {
 	var result []waitGroupDoneCall
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
+			if _, launched := instruction.(*ssa.Go); launched {
+				// `go group.Done()` is a readiness notification detached from the
+				// worker's own completion, not a join obligation for that worker.
+				// Asyncmachine uses this shape before waiting for long-lived events:
+				// https://github.com/pancsta/asyncmachine-go/blob/cce9b31145cb07c1262ac0c71a696222b0119b75/examples/subscriptions/example_subscriptions.go#L34-L79
+				continue
+			}
 			common := ssaflow.InstructionCall(instruction)
 			if common != nil && ssaflow.CallMatchesSymbol(common, waitGroupDone) {
 				result = append(result, waitGroupDoneCall{instruction: instruction, receiver: ssaflow.CallReceiver(common)})

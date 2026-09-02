@@ -31,6 +31,11 @@ func stopChannelClosure(stop <-chan struct{}) {
 	go func() { <-stop }()
 }
 
+func localUnclosedStopDoesNotOwnWorker() {
+	stop := make(chan struct{})
+	go func() { <-stop }() // want "goroutine is not joined on every return path"
+}
+
 func receiveStopThroughHelper(stop <-chan struct{}) {
 	runUntilStopped(stop)
 }

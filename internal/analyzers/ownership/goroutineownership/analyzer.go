@@ -18,7 +18,7 @@ import (
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
-	config := goroutineOwnershipConfig{mode: goroutineModeContext}
+	config := goroutineOwnershipConfig{mode: goroutineModeContext, acceptContextLifecycle: true}
 	analyzer := &analysis.Analyzer{
 		Name:     "goroutineownership",
 		Doc:      "checks that explicit goroutines have a recognizable join handle or lifecycle owner",
@@ -36,72 +36,43 @@ func Analyzer() *analysis.Analyzer {
 }
 
 type goroutineOwnershipConfig struct {
-	mode string
+	mode                   string
+	acceptContextLifecycle bool
 }
 
 type goroutineAnalysis struct {
-	pass                   *analysis.Pass
-	function               *ssa.Function
-	spawn                  *ssa.Go
-	config                 goroutineOwnershipConfig
-	checkID                check.ID
-	signals                []ssa.Value
-	groups                 []ssa.Value
-	owners                 []ssa.Value
-	unsettledDone          ssa.Instruction
-	testFunction           bool
-	acceptContextLifecycle bool
-	evidence               *ssaflow.LocalEvidence
+	pass          *analysis.Pass
+	function      *ssa.Function
+	spawn         *ssa.Go
+	config        goroutineOwnershipConfig
+	checkID       check.ID
+	signals       []ssa.Value
+	groups        []ssa.Value
+	owners        []ssa.Value
+	unsettledDone ssa.Instruction
+	testFunction  bool
+	evidence      *ssaflow.LocalEvidence
 }
 
 type goroutineOwnershipReason string
 
 const (
 	ownershipReasonContextLifecycle        goroutineOwnershipReason = "context-lifecycle"
+	ownershipReasonStopLifecycle           goroutineOwnershipReason = "stop-lifecycle"
 	ownershipReasonHelperStopLifecycle     goroutineOwnershipReason = "helper-stop-lifecycle"
 	ownershipReasonCallerOrExternalOwner   goroutineOwnershipReason = "caller-or-external-owner"
 	ownershipReasonRegistrationBeforeSpawn goroutineOwnershipReason = "registration-before-spawn"
 	ownershipReasonSynctestBubbleOwner     goroutineOwnershipReason = "synctest-bubble-owner"
-	ownershipReasonMatchingCountedJoin     goroutineOwnershipReason = "matching-counted-join"
-	ownershipReasonNestedCallbackReceive   goroutineOwnershipReason = "nested-callback-receive"
 	ownershipReasonJoinObserved            goroutineOwnershipReason = "join-observed"
-	ownershipReasonLifecycleWait           goroutineOwnershipReason = "lifecycle-wait"
-	ownershipReasonTestingCleanupLifecycle goroutineOwnershipReason = "testing-cleanup-lifecycle"
 	ownershipReasonTestingCleanupJoin      goroutineOwnershipReason = "testing-cleanup-join"
 	ownershipReasonDeferredWaitGroupJoin   goroutineOwnershipReason = "deferred-waitgroup-join"
-	ownershipReasonCausalTestJoin          goroutineOwnershipReason = "causal-test-join"
-	ownershipReasonLifecycleOwner          goroutineOwnershipReason = "lifecycle-owner"
 	ownershipReasonOwnershipTransfer       goroutineOwnershipReason = "ownership-transfer"
-	ownershipReasonReturnedAggregateOwner  goroutineOwnershipReason = "returned-aggregate-lifecycle-owner"
 	ownershipReasonJoinProven              goroutineOwnershipReason = "join-proven"
 	ownershipReasonUnownedReturn           goroutineOwnershipReason = "unowned-return"
 	ownershipReasonDoneBeforeCompletion    goroutineOwnershipReason = "waitgroup-done-before-completion"
+	ownershipReasonDetachedUnknown         goroutineOwnershipReason = "detached-lifecycle-unknown"
+	ownershipReasonOpaqueTransfer          goroutineOwnershipReason = "opaque-ownership-transfer"
 )
-
-type goroutineOwnershipProof struct {
-	proven bool
-	reason goroutineOwnershipReason
-}
-
-// HasExplicitGoroutineOwnership reports whether spawn has a recognized join,
-// stop signal, lifecycle owner, or transfer independent of context cancellation.
-// Context-policy uses this distinction because context.Background satisfies the
-// Context interface but cannot actually stop test-owned asynchronous work.
-func HasExplicitGoroutineOwnership(spawn *ssa.Go) bool {
-	if spawn == nil || spawn.Parent() == nil {
-		return false
-	}
-	var evidence ssaflow.LocalEvidence
-	ownership := newGoroutineAnalysis(
-		nil,
-		spawn.Parent(),
-		spawn,
-		goroutineOwnershipConfig{mode: goroutineModeContext},
-		&evidence,
-		false,
-	)
-	return ownership.prove().proven
-}
 
 const (
 	goroutineModeContext   = "context"
@@ -135,15 +106,15 @@ func analyzeSpawn(
 	config goroutineOwnershipConfig,
 	evidence *ssaflow.LocalEvidence,
 ) {
-	ownership := newGoroutineAnalysis(pass, function, spawn, config, evidence, true)
+	ownership := newGoroutineAnalysis(pass, function, spawn, config, evidence)
 	proof := ownership.prove()
-	ownership.emitRejectedDoneEvidence()
-	outcome := analysisTrace.OutcomeAccepted
-	if !proof.proven {
-		outcome = analysisTrace.OutcomeRejected
+	if proof.Outcome == GoroutineLifecycleViolated {
+		ownership.emitRejectedDoneEvidence()
 	}
-	ownership.emitTrace(spawn.Pos(), proof.reason, outcome)
-	if !proof.proven {
+	ownership.emitTrace(spawn.Pos(), proof)
+	report := proof.Outcome == GoroutineLifecycleViolated ||
+		ownership.checkID == check.GoroutineDetached && proof.Reason == ownershipReasonDetachedUnknown
+	if report {
 		// Without a completion signal or wait group, static analysis cannot
 		// reliably distinguish a leak from intentional component work. Keep
 		// that heuristic opt-in; reserve the default check for code that
@@ -158,40 +129,24 @@ func newGoroutineAnalysis(
 	spawn *ssa.Go,
 	config goroutineOwnershipConfig,
 	evidence *ssaflow.LocalEvidence,
-	acceptContextLifecycle bool,
 ) goroutineAnalysis {
 	signals, groups, unsettledDone := goroutineJoinValues(spawn)
 	owners := goroutineLifecycleValues(spawn)
 	testFunction := pass != nil && strings.HasSuffix(pass.Fset.Position(function.Pos()).Filename, "_test.go")
 	return goroutineAnalysis{
 		pass: pass, function: function, spawn: spawn, config: config,
-		checkID: goroutineCheck(config, signals, groups),
+		checkID: goroutineCheck(config, signals, groups, unsettledDone),
 		signals: signals, groups: groups, owners: owners, unsettledDone: unsettledDone,
-		testFunction:           testFunction,
-		acceptContextLifecycle: acceptContextLifecycle,
-		evidence:               evidence,
+		testFunction: testFunction,
+		evidence:     evidence,
 	}
 }
 
-func goroutineCheck(config goroutineOwnershipConfig, signals, groups []ssa.Value) check.ID {
-	if config.mode != goroutineModeJoin && len(signals) == 0 && len(groups) == 0 {
+func goroutineCheck(config goroutineOwnershipConfig, signals, groups []ssa.Value, unsettledDone ssa.Instruction) check.ID {
+	if config.mode != goroutineModeJoin && len(signals) == 0 && len(groups) == 0 && unsettledDone == nil {
 		return check.GoroutineDetached
 	}
 	return check.GoroutineJoin
-}
-
-func (analysis goroutineAnalysis) prove() goroutineOwnershipProof {
-	if proof := analysis.immediateProof(); proof.proven {
-		return proof
-	}
-	leaks := ssaflow.UnownedReturn(analysis.spawn, analysis.instructionOwnsGoroutine, analysis.returnOwnsGoroutine)
-	if leaks {
-		if analysis.unsettledDone != nil {
-			return goroutineOwnershipProof{reason: ownershipReasonDoneBeforeCompletion}
-		}
-		return goroutineOwnershipProof{reason: ownershipReasonUnownedReturn}
-	}
-	return goroutineOwnershipProof{proven: true, reason: ownershipReasonJoinProven}
 }
 
 func (analysis goroutineAnalysis) emitRejectedDoneEvidence() {
@@ -210,42 +165,36 @@ func (analysis goroutineAnalysis) emitRejectedDoneEvidence() {
 	})
 }
 
-func (analysis goroutineAnalysis) immediateProof() goroutineOwnershipProof {
+func (analysis goroutineAnalysis) immediateProof() GoroutineProof {
 	// A received channel argument is a stop signal, not a completion handle
 	// that the caller must join. Kubernetes informers commonly express context
 	// ownership as Run(ctx.Done()):
 	// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/discovery/kubernetes/kubernetes.go#L438-L458
-	if analysis.config.mode == goroutineModeContext &&
-		(analysis.acceptContextLifecycle && goroutineHasContextLifecycle(analysis.spawn) || goroutineHasStopLifecycle(analysis.spawn)) {
-		return goroutineOwnershipProof{proven: true, reason: ownershipReasonContextLifecycle}
+	if analysis.config.mode == goroutineModeContext && goroutineHasStopLifecycle(analysis.spawn) {
+		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: ownershipReasonStopLifecycle}
+	}
+	if analysis.config.mode == goroutineModeContext && analysis.config.acceptContextLifecycle &&
+		goroutineConsumesContextLifecycle(analysis.spawn) {
+		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: ownershipReasonContextLifecycle}
 	}
 	if analysis.config.mode == goroutineModeContext && goroutineHasHelperStopLifecycle(analysis.spawn) {
-		return goroutineOwnershipProof{proven: true, reason: ownershipReasonHelperStopLifecycle}
+		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: ownershipReasonHelperStopLifecycle}
 	}
 	if analysis.config.mode != goroutineModeJoin &&
-		(goroutineTransferredToCaller(analysis.function, analysis.spawn) || externallyOwnedLifecycle(analysis.owners) ||
-			externallyOwnedJoin(analysis.signals, analysis.groups)) {
-		return goroutineOwnershipProof{proven: true, reason: ownershipReasonCallerOrExternalOwner}
+		externallyOwnedJoin(analysis.signals, analysis.groups) {
+		return GoroutineProof{Outcome: GoroutineTransferred, Reason: ownershipReasonCallerOrExternalOwner}
 	}
 	if ownershipRegisteredBefore(analysis.spawn, analysis.signals) {
-		return goroutineOwnershipProof{proven: true, reason: ownershipReasonRegistrationBeforeSpawn}
+		return GoroutineProof{Outcome: GoroutineTransferred, Reason: ownershipReasonRegistrationBeforeSpawn}
 	}
 	if synctestOwnsGoroutine(analysis.function) {
-		return goroutineOwnershipProof{proven: true, reason: ownershipReasonSynctestBubbleOwner}
+		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: ownershipReasonSynctestBubbleOwner}
 	}
 	if deferred := dominatingDeferredWaitGroupJoin(analysis.function, analysis.spawn, analysis.groups); deferred != nil {
 		analysis.emitEvidence(deferred, ownershipReasonDeferredWaitGroupJoin)
-		return goroutineOwnershipProof{proven: true, reason: ownershipReasonDeferredWaitGroupJoin}
+		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: ownershipReasonDeferredWaitGroupJoin}
 	}
-	// Matching bounds prove that every launched worker has a corresponding
-	// receive without assuming unrelated loops happen to have equal counts.
-	if matchingCountedJoin(analysis.function, analysis.spawn, analysis.signals) {
-		return goroutineOwnershipProof{proven: true, reason: ownershipReasonMatchingCountedJoin}
-	}
-	if nestedCallbackReceivesAny(analysis.function, analysis.signals) {
-		return goroutineOwnershipProof{proven: true, reason: ownershipReasonNestedCallbackReceive}
-	}
-	return goroutineOwnershipProof{}
+	return GoroutineProof{}
 }
 
 func (analysis goroutineAnalysis) instructionOwnsGoroutine(candidate ssa.Instruction) bool {
@@ -253,17 +202,9 @@ func (analysis goroutineAnalysis) instructionOwnsGoroutine(candidate ssa.Instruc
 	switch {
 	case joinsGoroutine(candidate, analysis.signals, analysis.groups):
 		reason = ownershipReasonJoinObserved
-	case waitsForLifecycleOwner(analysis.evidence, candidate, analysis.owners):
-		reason = ownershipReasonLifecycleWait
 	case testingCleanupJoinsGoroutine(candidate, analysis.groups):
 		reason = ownershipReasonTestingCleanupJoin
-	case analysis.config.mode != goroutineModeJoin && testingCleanupOwnsLaunchedLifecycle(candidate, analysis.spawn):
-		reason = ownershipReasonTestingCleanupLifecycle
-	case analysis.testFunction && causalTestJoin(analysis.spawn, candidate):
-		reason = ownershipReasonCausalTestJoin
-	case analysis.config.mode != goroutineModeJoin && ownsGoroutineLifecycle(analysis.evidence, candidate, analysis.owners):
-		reason = ownershipReasonLifecycleOwner
-	case transfersGoroutineOwnership(
+	case transfersGoroutineOwnershipExactly(
 		analysis.evidence, candidate, analysis.signals, analysis.groups, ownershipCandidates(analysis.config, analysis.owners),
 	):
 		reason = ownershipReasonOwnershipTransfer
@@ -274,16 +215,33 @@ func (analysis goroutineAnalysis) instructionOwnsGoroutine(candidate ssa.Instruc
 	return true
 }
 
+func (analysis goroutineAnalysis) instructionOwnsOrAmbiguouslyTransfers(candidate ssa.Instruction) bool {
+	return analysis.instructionOwnsGoroutine(candidate) || analysis.instructionMayOwnGoroutine(candidate)
+}
+
+func (analysis goroutineAnalysis) instructionMayOwnGoroutine(candidate ssa.Instruction) bool {
+	return analysis.config.mode != goroutineModeJoin &&
+		(waitsForLifecycleOwner(analysis.evidence, candidate, analysis.owners) ||
+			testingCleanupOwnsLaunchedLifecycle(candidate, analysis.spawn) ||
+			ownsGoroutineLifecycle(analysis.evidence, candidate, analysis.owners)) ||
+		analysis.testFunction && causalTestJoin(analysis.spawn, candidate) ||
+		eventuallyJoinsGoroutine(candidate, analysis.signals) ||
+		ambiguouslyTransfersGoroutineOwnership(
+			analysis.evidence, candidate, analysis.signals, analysis.groups, ownershipCandidates(analysis.config, analysis.owners),
+		)
+}
+
 func (analysis goroutineAnalysis) returnOwnsGoroutine(returned *ssa.Return) bool {
-	if goroutineOwnershipReturned(returned, analysis.config, analysis.signals, analysis.groups, analysis.owners) {
+	return ssaflow.ReturnedSameAsAny(returned, analysis.signals) || ssaflow.ReturnedSameAsAny(returned, analysis.groups)
+}
+
+func (analysis goroutineAnalysis) returnMayOwnGoroutine(returned *ssa.Return) bool {
+	if analysis.returnOwnsGoroutine(returned) {
 		return true
 	}
-	if analysis.config.mode == goroutineModeJoin ||
-		!returnedAggregateOwnsLifecycle(analysis.function, analysis.spawn, returned, analysis.owners) {
-		return false
-	}
-	analysis.emitEvidence(returned, ownershipReasonReturnedAggregateOwner)
-	return true
+	return analysis.config.mode != goroutineModeJoin &&
+		(ssaflow.ReturnedSameAsAny(returned, analysis.owners) ||
+			returnedAggregateOwnsLifecycle(analysis.function, analysis.spawn, returned, analysis.owners))
 }
 
 func ownershipCandidates(config goroutineOwnershipConfig, owners []ssa.Value) []ssa.Value {
@@ -291,16 +249,6 @@ func ownershipCandidates(config goroutineOwnershipConfig, owners []ssa.Value) []
 		return nil
 	}
 	return owners
-}
-
-func goroutineOwnershipReturned(
-	returned *ssa.Return,
-	config goroutineOwnershipConfig,
-	signals, groups, owners []ssa.Value,
-) bool {
-	return ssaflow.ReturnedSameAsAny(returned, signals) ||
-		ssaflow.ReturnedSameAsAny(returned, groups) ||
-		config.mode != goroutineModeJoin && ssaflow.ReturnedSameAsAny(returned, owners)
 }
 
 func (analysis goroutineAnalysis) emitEvidence(instruction ssa.Instruction, reason goroutineOwnershipReason) {
@@ -334,13 +282,17 @@ func emitGoroutineEvidence(
 	)
 }
 
-func (analysis goroutineAnalysis) emitTrace(
-	position token.Pos,
-	reason goroutineOwnershipReason,
-	outcome analysisTrace.Outcome,
-) {
+func (analysis goroutineAnalysis) emitTrace(position token.Pos, proof GoroutineProof) {
 	if !analysisTrace.Enabled("goroutineownership", string(analysis.checkID)) {
 		return
+	}
+	outcome := analysisTrace.OutcomeUnknown
+	switch proof.Outcome {
+	case GoroutineLifecycleHonored, GoroutineTransferred:
+		outcome = analysisTrace.OutcomeAccepted
+	case GoroutineLifecycleViolated:
+		outcome = analysisTrace.OutcomeRejected
+	case GoroutineUnknown:
 	}
 	analysisTrace.Emit(
 		analysis.pass,
@@ -348,7 +300,7 @@ func (analysis goroutineAnalysis) emitTrace(
 			Analyzer: "goroutineownership",
 			Check:    string(analysis.checkID),
 			Phase:    "decision",
-			Reason:   string(reason),
+			Reason:   string(proof.Reason),
 			Outcome:  outcome,
 			Pos:      position,
 			Function: analysis.function.String(),

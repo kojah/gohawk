@@ -87,7 +87,7 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 		}},
 		{Analyzer: cancellationownership.Analyzer(), SuggestedFix: true, Checks: []catalog.CheckInfo{
 			{
-				ID: check.CancellationRelease, Doc: "Reports derived cancel functions that are neither called nor transferred on every return path.",
+				ID: check.CancellationRelease, Doc: "Reports derived cancel functions proved lost on a feasible normal return path.",
 				Kind: catalog.KindDefect,
 			},
 		}},
@@ -97,8 +97,11 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindPolicy,
 			},
 		}},
-		{Analyzer: channelownership.Analyzer(), Checks: []catalog.CheckInfo{
-			{ID: check.ChannelCallerClose, Doc: "Reports functions that close channels received from their callers.", Kind: catalog.KindPolicy},
+		{Analyzer: channelownership.Analyzer(), OptIn: true, Checks: []catalog.CheckInfo{
+			{
+				ID: check.ChannelCallerClose, Doc: "Reports callees that close a channel an exact caller continues to use.",
+				Kind: catalog.KindPolicy,
+			},
 		}},
 		{Analyzer: channelsafety.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed.", Kind: catalog.KindDefect},
@@ -157,7 +160,10 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 		{Analyzer: lockorder.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.LockMissingRelease, Doc: "Reports return paths that leave an owned lock held.", Kind: catalog.KindDefect},
 			{ID: check.LockRecursiveAcquire, Doc: "Reports attempts to acquire a lock that is already held.", Kind: catalog.KindDefect},
-			{ID: check.LockContradictoryOrder, Doc: "Reports inconsistent acquisition order for the same pair of locks.", Kind: catalog.KindHazard},
+			{
+				ID: check.LockContradictoryOrder, Doc: "Reports inconsistent acquisition order for the same pair of locks.",
+				Kind: catalog.KindHazard, OptIn: true,
+			},
 		}},
 		{Analyzer: oncepolicy.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.OnceDiscardedWrapper, Doc: "Reports sync.Once function wrappers that are called and immediately discarded.", Kind: catalog.KindDefect},
@@ -176,7 +182,7 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 
 func testingSpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
-		{Analyzer: testlifecycle.Analyzer(goroutineownership.HasExplicitGoroutineOwnership), OptIn: true, Checks: []catalog.CheckInfo{
+		{Analyzer: testlifecycle.Analyzer(goroutineownership.GoroutineOwnershipMayBeHandledInTest), OptIn: true, Checks: []catalog.CheckInfo{
 			{ID: check.TestLifecycleContext, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.", Kind: catalog.KindHazard},
 		}},
 		{

@@ -117,6 +117,11 @@ func adequatelyBufferedSends() error {
 	return <-errs
 }
 
+func bufferedCompletionWithoutJoinIsUnknown() {
+	done := make(chan struct{}, 1)
+	go func() { done <- struct{}{} }()
+}
+
 func sendTwice(errs chan<- error) {
 	errs <- errors.New("first")
 	errs <- errors.New("second")

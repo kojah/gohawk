@@ -63,6 +63,30 @@ func TestUnknownDiagnosticReturnsError(t *testing.T) {
 	}
 }
 
+func TestDefaultSuppressionsExcludeOptInChecks(t *testing.T) {
+	analyzer := withDefaultSuppressions(&analysis.Analyzer{
+		Name: "example",
+		Run: func(pass *analysis.Pass) (any, error) {
+			pass.Report(analysis.Diagnostic{Category: "example/default"})
+			pass.Report(analysis.Diagnostic{Category: "example/optional"})
+			return nil, nil
+		},
+	}, []catalog.CheckInfo{
+		{ID: "example/default", Kind: catalog.KindDefect},
+		{ID: "example/optional", Kind: catalog.KindHazard, OptIn: true},
+	})
+	var categories []string
+	_, err := analyzer.Run(&analysis.Pass{Report: func(diagnostic analysis.Diagnostic) {
+		categories = append(categories, diagnostic.Category)
+	}})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !slices.Equal(categories, []string{"example/default"}) {
+		t.Fatalf("reported categories = %v, want only default check", categories)
+	}
+}
+
 func TestAnalyzerGroups(t *testing.T) {
 	want := []struct {
 		name      string
@@ -156,12 +180,13 @@ func TestAnalyzerMetadata(t *testing.T) {
 	}
 	optIn := map[string]bool{
 		"apishape": true, "channelcapacity": true, "closedomain": true, "errorownership": true,
-		"determinism": true, "globalstate": true, "taintpolicy": true,
+		"determinism": true, "globalstate": true, "taintpolicy": true, "channelownership": true,
 		"testlifecycle": true, "testpolicy": true, "wirepolicy": true, "borrowedstorage": true,
 	}
 	seenChecks := make(map[AnalyzerCheck]string)
 	optInChecks := map[AnalyzerCheck]bool{
-		"goroutineownership/detached": true,
+		"goroutineownership/detached":   true,
+		"lockorder/contradictory-order": true,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
 		"apishape/parameter-count":           CheckKindPolicy,
@@ -239,7 +264,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 func TestDefaultAnalyzers(t *testing.T) {
 	want := []string{
 		"contextpolicy", "goroutineownership", "producerlifecycle",
-		"errorclassification", "inlineerror", "channelownership", "channelsafety",
+		"errorclassification", "inlineerror", "channelsafety",
 		"processownership", "lockorder", "resourcelifetime",
 		"deferinloop", "exitpolicy", "concurrentcapture",
 		"evalorder", "oncepolicy", "syncmapatomicity", "cancellationownership",

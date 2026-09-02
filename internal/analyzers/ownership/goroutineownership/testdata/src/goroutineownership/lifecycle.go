@@ -43,19 +43,27 @@ func (*lifecycleOwner) run() {}
 func (*lifecycleOwner) Wait() {}
 
 func (owner *lifecycleOwner) startMethod() {
-	go owner.run()
+	go owner.run() // want "goroutine is not joined on every return path"
 }
 
 func (owner *lifecycleOwner) startClosure() {
-	go func() { owner.run() }()
+	go func() { owner.run() }() // want "goroutine is not joined on every return path"
+}
+
+func (owner *lifecycleOwner) startWithAmbiguousOwnerSignal() {
+	done := make(chan struct{})
+	go func() {
+		owner.run()
+		close(done)
+	}()
 }
 
 func startCallerOwned(owner *lifecycleOwner) {
-	go owner.run()
+	go owner.run() // want "goroutine is not joined on every return path"
 }
 
 func startCallerOwnedClosure(owner *lifecycleOwner) {
-	go func() { owner.run() }()
+	go func() { owner.run() }() // want "goroutine is not joined on every return path"
 }
 
 func startLocallyOwned() {
@@ -70,6 +78,12 @@ func conditionallyStopLocal(stop bool) {
 	if stop {
 		owner.Stop()
 	}
+}
+
+func stoppedBeforeSpawnDoesNotOwnLaterWorker() {
+	owner := &lifecycleOwner{}
+	owner.Stop()
+	go owner.run() // want "goroutine is not joined on every return path"
 }
 
 func (*lifecycleOwner) Stop() {}
@@ -159,6 +173,25 @@ func earlyWaitGroupDoneDoesNotJoin() {
 	group.Add(1)
 	go func() { // want "goroutine is not joined on every return path"
 		group.Done()
+		waitGroupWork()
+	}()
+	group.Wait()
+}
+
+func workerLocalWaitGroupDoesNotCreateJoinObligation() {
+	go func() { // want "goroutine is not joined on every return path"
+		var local sync.WaitGroup
+		local.Add(1)
+		local.Done()
+		waitGroupWork()
+	}()
+}
+
+func launchedWaitGroupDoneIsReadinessOnly() {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { // want "goroutine is not joined on every return path"
+		go group.Done() // want "goroutine is not joined on every return path"
 		waitGroupWork()
 	}()
 	group.Wait()

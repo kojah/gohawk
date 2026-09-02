@@ -56,14 +56,15 @@ func goroutineHasStopLifecycle(spawn *ssa.Go) bool {
 }
 
 func spawnedLifecycleValueAtCall(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value) bool {
-	if ssaflow.SpawnedValueAtCall(spawn, function, closure, value) != nil {
-		return true
+	if supplied := ssaflow.SpawnedValueAtCall(spawn, function, closure, value); supplied != nil {
+		return ssaflow.ExternallyOwnedValue(supplied)
 	}
 	if closure == nil {
 		return false
 	}
 	for index, free := range function.FreeVars {
-		if index < len(closure.Bindings) && ssaflow.ValueIsAccessPathFrom(value, free) {
+		if index < len(closure.Bindings) && ssaflow.ValueIsAccessPathFrom(value, free) &&
+			ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValue(closure.Bindings[index])) {
 			// A closure may receive through a channel field of a captured aggregate.
 			// Keep the proof tied to the exact field path rooted at that capture;
 			// unrelated local ranges do not establish an external stop lifecycle.
@@ -87,7 +88,7 @@ func goroutineHasHelperStopLifecycle(spawn *ssa.Go) bool {
 		function = origin
 	}
 	for index, parameter := range function.Params {
-		if index < len(spawn.Common().Args) && receiveOnlyChannel(parameter) &&
+		if index < len(spawn.Common().Args) && receiveOnlyChannel(parameter) && ssaflow.ExternallyOwnedValue(spawn.Common().Args[index]) &&
 			functionReceivesParameter(function, parameter, map[*ssa.Function]bool{}) {
 			// A source-visible helper may own the receive while its caller owns
 			// the goroutine. Follow only exact static parameter flow: Reminal's
@@ -101,6 +102,37 @@ func goroutineHasHelperStopLifecycle(spawn *ssa.Go) bool {
 	}
 	for index, free := range function.FreeVars {
 		if index < len(closure.Bindings) && receiveOnlyChannel(free) &&
+			ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValue(closure.Bindings[index])) &&
+			functionReceivesParameter(function, free, map[*ssa.Function]bool{}) {
+			return true
+		}
+	}
+	return false
+}
+
+func goroutineConsumesContextLifecycle(spawn *ssa.Go) bool {
+	function := spawn.Common().StaticCallee()
+	closure, _ := spawn.Common().Value.(*ssa.MakeClosure)
+	if closure != nil {
+		function, _ = closure.Fn.(*ssa.Function)
+	}
+	if function == nil {
+		return false
+	}
+	if origin := function.Origin(); origin != nil {
+		function = origin
+	}
+	for index, parameter := range function.Params {
+		if index < len(spawn.Common().Args) && contextValue(parameter) &&
+			functionReceivesParameter(function, parameter, map[*ssa.Function]bool{}) {
+			return true
+		}
+	}
+	if closure == nil {
+		return false
+	}
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) && contextValue(free) &&
 			functionReceivesParameter(function, free, map[*ssa.Function]bool{}) {
 			return true
 		}

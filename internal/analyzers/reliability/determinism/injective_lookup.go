@@ -106,6 +106,11 @@ func returnsSelectedKey(pass *analysis.Pass, returned *ast.ReturnStmt, key types
 	return nilOK && pass.TypesInfo.ObjectOf(nilName) == types.Universe.Lookup("nil")
 }
 
+// Source evidence is intentionally limited to a literal or a private,
+// parameter-free helper that returns one fresh literal. Mutable maps, imported
+// helpers, and values assembled through control flow remain ordinary
+// nondeterministic iteration because uniqueness cannot be established here.
+
 func injectiveRangeSource(pass *analysis.Pass, block *ast.BlockStmt, index int, expression ast.Expr) bool {
 	if injectiveMapExpression(pass, expression) {
 		return true

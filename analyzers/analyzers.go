@@ -103,9 +103,23 @@ func AnalyzerGroups() []AnalyzerGroup {
 }
 
 func withSuppressions(analyzer *analysis.Analyzer, declared []catalog.CheckInfo) *analysis.Analyzer {
+	return withCheckFilter(analyzer, declared, nil)
+}
+
+func withDefaultSuppressions(analyzer *analysis.Analyzer, declared []catalog.CheckInfo) *analysis.Analyzer {
+	disabled := make(map[string]bool)
+	for _, declaredCheck := range declared {
+		if !declaredCheck.EnabledByDefault() {
+			disabled[string(declaredCheck.ID)] = true
+		}
+	}
+	return withCheckFilter(analyzer, declared, disabled)
+}
+
+func withCheckFilter(analyzer *analysis.Analyzer, declared []catalog.CheckInfo, disabled map[string]bool) *analysis.Analyzer {
 	checks := make(map[string]bool, len(declared))
-	for _, check := range declared {
-		checks[string(check.ID)] = true
+	for _, declaredCheck := range declared {
+		checks[string(declaredCheck.ID)] = true
 	}
 	run := analyzer.Run
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
@@ -117,6 +131,13 @@ func withSuppressions(analyzer *analysis.Analyzer, declared []catalog.CheckInfo)
 					Analyzer: analyzer.Name, Phase: "decision", Reason: "unknown-check", Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
 				})
 				reportErr = errors.Join(reportErr, fmt.Errorf("analyzer %q reported unknown check %q", analyzer.Name, diagnostic.Category))
+				return
+			}
+			if disabled[diagnostic.Category] {
+				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
+					Analyzer: analyzer.Name, Phase: "decision", Reason: "check-not-selected", Outcome: analysisTrace.OutcomeAccepted,
+					Diagnostic: diagnostic,
+				})
 				return
 			}
 			if check.Suppressed(pass, diagnostic.Pos, analyzer.Name) {
@@ -159,7 +180,7 @@ func DefaultAnalyzers() []*analysis.Analyzer {
 	analyzers := make([]*analysis.Analyzer, 0, len(specs))
 	for _, spec := range specs {
 		if spec.EnabledByDefault() {
-			analyzers = append(analyzers, withSuppressions(spec.Analyzer, spec.Checks))
+			analyzers = append(analyzers, withDefaultSuppressions(spec.Analyzer, spec.Checks))
 		}
 	}
 	return analyzers

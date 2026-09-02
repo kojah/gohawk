@@ -56,6 +56,39 @@ func registeredAfterSpawn(registry *signalRegistry) {
 	registry.Register(done)
 }
 
+type opaqueSignalRegistry interface {
+	Register(<-chan struct{})
+	RegisterOwner(signalOwner)
+}
+
+func opaqueRegistrationBeforeSpawn(registry opaqueSignalRegistry) {
+	done := make(chan struct{})
+	registry.Register(done)
+	go func() { close(done) }()
+}
+
+func wrapSignal(done <-chan struct{}) signalOwner {
+	return signalOwner{done: done}
+}
+
+func opaqueWrappedRegistrationAfterSpawn(registry opaqueSignalRegistry) {
+	done := make(chan struct{})
+	go func() { close(done) }()
+	registry.RegisterOwner(wrapSignal(done))
+}
+
+func opaqueWrappedRegistrationBeforeSpawn(registry opaqueSignalRegistry) {
+	done := make(chan struct{})
+	registry.RegisterOwner(wrapSignal(done))
+	go func() { close(done) }()
+}
+
+func transferredSignalBeforeSpawn(owner *signalOwner) {
+	done := make(chan struct{})
+	owner.done = done
+	go func() { close(done) }()
+}
+
 func transferredLifecycleMap(owners map[string]*lifecycleOwner) {
 	owner := &lifecycleOwner{}
 	go owner.run()
@@ -67,5 +100,5 @@ type nestedLifecycleOwner struct {
 }
 
 func startsNestedCallerOwner(owner nestedLifecycleOwner) {
-	go owner.worker.run()
+	go owner.worker.run() // want "goroutine is not joined on every return path"
 }

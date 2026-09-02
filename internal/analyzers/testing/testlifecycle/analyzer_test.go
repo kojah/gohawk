@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/analyzers/ownership/goroutineownership"
 	"github.com/kojah/gohawk/internal/analyzertest"
 	"golang.org/x/tools/go/analysis/analysistest"
 	"golang.org/x/tools/go/ssa"
@@ -11,6 +12,15 @@ import (
 
 func TestAnalyzer(t *testing.T) {
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(func(*ssa.Go) bool { return false }), "testlifecycle")
+}
+
+func TestAnalyzerUsesGoroutineOwnershipProof(t *testing.T) {
+	analyzertest.Run(
+		t,
+		analysistest.TestData(),
+		Analyzer(goroutineownership.GoroutineOwnershipMayBeHandledInTest),
+		"testlifecycle", "testlifecycle/ownershipproof",
+	)
 }
 
 func TestAnalyzerUsesInjectedOwnershipProof(t *testing.T) {

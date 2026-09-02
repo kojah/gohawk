@@ -93,7 +93,7 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 
 	t.Run("disabled groups subtract from defaults and allow individual overrides", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-disable-groups=reliability", "-enable=oncepolicy", "./..."}), " ")
-		for _, value := range []string{"-contextpolicy=true", "-channelownership=true", "-oncepolicy=true"} {
+		for _, value := range []string{"-contextpolicy=true", "-channelsafety=true", "-oncepolicy=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("disabled-group arguments do not contain %q: %s", value, got)
 			}

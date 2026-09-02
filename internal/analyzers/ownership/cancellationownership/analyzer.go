@@ -2,11 +2,7 @@
 package cancellationownership
 
 import (
-	"go/ast"
-	"go/token"
-
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -20,8 +16,8 @@ import (
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "cancellationownership",
-		Doc:      "checks context and signal-derived cancellation functions are called on every return path",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
+		Doc:      "checks context and signal-derived cancellation functions proved lost on a normal return path",
+		Requires: []*analysis.Analyzer{buildssa.Analyzer},
 		Run:      runCancellationOwnership,
 	}
 }
@@ -32,7 +28,6 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	for _, function := range functions {
-		evidence := lifecyclefacts.NewLifecycleEvidence(pass, "cancellationownership", string(check.CancellationRelease))
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)
@@ -47,18 +42,9 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				if cancel == nil {
 					continue
 				}
-				// Cleanup need not occur in this function: returning the cancel,
-				// storing it in an owner, or installing a callback that invokes it
-				// transfers the obligation. Reassigned captured locals are included;
-				// Prometheus installs its current cancel in a scraper callback:
-				// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/scrape/scrape_test.go#L1294-L1315
-				leaks := ssaflow.UnownedReturnAssumingNonNil(call, cancel, func(candidate ssa.Instruction) bool {
-					return callsCancel(pass, evidence, candidate, cancel)
-				}, func(returned *ssa.Return) bool {
-					return ssaflow.ReturnSameValue(returned, cancel) || ssaflow.ReturnedValueOwnsValue(returned, cancel)
-				})
-				emitCancellationDecision(pass, function, call, contract, leaks)
-				if leaks {
+				proof := proveCancellation(call, cancel)
+				emitCancellationDecision(pass, function, call, contract, proof)
+				if proof.Outcome == CancellationLost {
 					source := syntax.SourceRange(pass, call.Pos())
 					check.Report(pass, check.CancellationRelease, analysis.Diagnostic{
 						Pos: source.Pos(),
@@ -75,14 +61,24 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-func emitCancellationDecision(pass *analysis.Pass, function *ssa.Function, call *ssa.Call, contract cancellationContract, leaks bool) {
+func emitCancellationDecision(
+	pass *analysis.Pass,
+	function *ssa.Function,
+	call *ssa.Call,
+	contract cancellationContract,
+	proof CancellationProof,
+) {
 	checkID := string(check.CancellationRelease)
 	if !analysisTrace.Enabled("cancellationownership", checkID) {
 		return
 	}
-	outcome, reason := analysisTrace.OutcomeAccepted, "release-proven"
-	if leaks {
-		outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
+	outcome := analysisTrace.OutcomeAccepted
+	switch proof.Outcome {
+	case CancellationLost:
+		outcome = analysisTrace.OutcomeRejected
+	case CancellationUnknown:
+		outcome = analysisTrace.OutcomeUnknown
+	case CancellationReleased, CancellationTransferred:
 	}
 	analysisTrace.Emit(
 		pass,
@@ -90,7 +86,7 @@ func emitCancellationDecision(pass *analysis.Pass, function *ssa.Function, call 
 			Analyzer: "cancellationownership",
 			Check:    checkID,
 			Phase:    "decision",
-			Reason:   reason,
+			Reason:   string(proof.Reason),
 			Outcome:  outcome,
 			Pos:      call.Pos(),
 			Function: function.String(),
@@ -98,6 +94,11 @@ func emitCancellationDecision(pass *analysis.Pass, function *ssa.Function, call 
 		},
 	)
 }
+
+// Constructor contracts are the source of the cancellation obligation. Keep
+// this list limited to standard APIs whose second result is documented as a
+// release function; project wrappers remain ordinary, potentially ambiguous
+// data flow handled by the proof layer.
 
 type cancellationContract struct {
 	symbol      syntax.Symbol
@@ -127,301 +128,4 @@ func cancellationContractFor(common *ssa.CallCommon) (cancellationContract, bool
 		}
 	}
 	return cancellationContract{}, false
-}
-
-func cancellationFix(pass *analysis.Pass, callPosition token.Pos, constructor string) []analysis.SuggestedFix {
-	for _, file := range pass.Files {
-		var fix []analysis.SuggestedFix
-		ast.Inspect(file, func(node ast.Node) bool {
-			block, ok := node.(*ast.BlockStmt)
-			if !ok {
-				return fix == nil
-			}
-			for _, statement := range block.List {
-				assignment, assignmentOK := statement.(*ast.AssignStmt)
-				if !assignmentOK || len(assignment.Rhs) != 1 || len(assignment.Lhs) < 2 {
-					continue
-				}
-				call, callOK := assignment.Rhs[0].(*ast.CallExpr)
-				cancel, cancelOK := assignment.Lhs[1].(*ast.Ident)
-				if !callOK || !cancelOK || call.Pos() != callPosition || cancel.Name == "_" {
-					continue
-				}
-				insertAt, ok := nextLineStart(pass.Fset, assignment)
-				if !ok {
-					continue
-				}
-				fix = []analysis.SuggestedFix{{
-					Message: "Defer " + cancel.Name + " immediately after creation",
-					TextEdits: []analysis.TextEdit{{
-						Pos:     insertAt,
-						NewText: []byte("\tdefer " + cancelInvocation(cancel.Name, constructor) + "\n"),
-					}},
-				}}
-				return false
-			}
-			return true
-		})
-		if fix != nil {
-			return fix
-		}
-	}
-	return nil
-}
-
-func nextLineStart(files *token.FileSet, node ast.Node) (token.Pos, bool) {
-	file := files.File(node.End())
-	if file == nil {
-		return token.NoPos, false
-	}
-	line := file.Line(node.End())
-	if line >= file.LineCount() {
-		return token.NoPos, false
-	}
-	return file.LineStart(line + 1), true
-}
-
-func cancelInvocation(name, constructor string) string {
-	if constructor == "WithCancelCause" {
-		return name + "(nil)"
-	}
-	return name + "()"
-}
-
-func callsCancel(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, cancel ssa.Value) bool {
-	// A helper may settle an obligation without a naming convention. Require
-	// invocation on every normal helper return; process-tree tests use this to
-	// centralize cancellation and process cleanup together:
-	// https://github.com/applicate2628/mcp-local-hub/blob/73fbad63f7f9f0b24caef2239256f53b70a74061/internal/vcpkgmcp/reversedepgraph/process_tree_test.go#L46
-	// Cross-package helpers use exported lifecycle facts; the deferred boundary
-	// remains for wrappers which delegate to an interface cleanup method.
-	// Cerberus delegates qcancel through a deferred CloseCursor call:
-	// https://github.com/tsouza/cerberus/blob/4d90ae7ec1061a357964795d5718ef0a40d06139/internal/solver/executor.go#L432
-	if instructionSettlesCancellation(evidence, instruction, cancel) ||
-		callTakesCancellationOwnership(evidence, instruction, cancel) {
-		return true
-	}
-	if callStartsGoroutineInvokingCallback(instruction, cancel) {
-		emitCancellationEvidence(pass, instruction, "helper-goroutine-invokes-callback")
-		return true
-	}
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	if ssaflow.SameValue(common.Value, cancel) {
-		return true
-	}
-	callbackRegistrar := ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) ||
-		ssaflow.HasLibraryContract(common, ssaflow.ContractAfterFunc) ||
-		ssaflow.HasLibraryContract(common, ssaflow.ContractDeferredCleanup)
-	for _, argument := range common.Args {
-		// Registrars accept either a wrapper callback or the cancellation
-		// function itself. Vekil installs cancel directly with time.AfterFunc:
-		// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/launch/runtime_test.go#L379
-		if callbackRegistrar && (ssaflow.SameValue(argument, cancel) || ssaflow.ValueCallsValue(argument, cancel)) {
-			return true
-		}
-	}
-	return false
-}
-
-func callStartsGoroutineInvokingCallback(instruction ssa.Instruction, cancel ssa.Value) bool {
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	callee := common.StaticCallee()
-	if callee == nil || callee.Syntax() == nil || len(callee.Blocks) == 0 {
-		return false
-	}
-	object := callee.Object()
-	if object == nil || object.Exported() {
-		return false
-	}
-	for index, argument := range common.Args {
-		if index >= len(callee.Params) || !ssaflow.SameValue(argument, cancel) {
-			continue
-		}
-		parameter := callee.Params[index]
-		startsOwner := func(candidate ssa.Instruction) bool {
-			spawn, ok := candidate.(*ssa.Go)
-			return ok && startedGoroutineInvokesCallback(spawn, parameter)
-		}
-		// Starting a worker conditionally is not an ownership transfer. Incus's
-		// private withDrain helper starts one on every normal helper path, and the
-		// worker invokes the exact cancellation callback before it can return:
-		// https://github.com/lxc/incus-compose/blob/a7da6db1112780ad83c75a9a5136c111ad1d9b71/iclient/incus_exec.go#L186-L206
-		if !ssaflow.UnownedReturnFromEntryAssumingNonNil(callee, parameter, startsOwner) {
-			return true
-		}
-	}
-	return false
-}
-
-func startedGoroutineInvokesCallback(spawn *ssa.Go, callback ssa.Value) bool {
-	common := spawn.Common()
-	if common == nil {
-		return false
-	}
-	if ssaflow.SameValue(common.Value, callback) {
-		return true
-	}
-	closure, _ := common.Value.(*ssa.MakeClosure)
-	function := common.StaticCallee()
-	if function == nil || len(function.Blocks) == 0 {
-		return false
-	}
-	// Map callback uses in the worker back through the spawn arguments or
-	// closure bindings. The later return-path check requires this invocation on
-	// every normal exit; merely capturing or forwarding the callback is not
-	// ownership evidence.
-	invokes := func(candidate ssa.Instruction) bool {
-		called := ssaflow.InstructionCall(candidate)
-		if called == nil {
-			return false
-		}
-		if ssaflow.SameValue(ssaflow.SpawnedValueAtCall(spawn, function, closure, called.Value), callback) {
-			return true
-		}
-		for _, argument := range called.Args {
-			if ssaflow.SameValue(ssaflow.SpawnedValueAtCall(spawn, function, closure, argument), callback) &&
-				ssaflow.CallInvokesArgumentOnEveryReturn(candidate, argument) {
-				return true
-			}
-		}
-		return false
-	}
-	hasReturn, hasInvocation := false, false
-	for _, block := range function.Blocks {
-		for _, candidate := range block.Instrs {
-			if _, ok := candidate.(*ssa.Return); ok {
-				hasReturn = true
-			}
-			if invokes(candidate) {
-				hasInvocation = true
-			}
-		}
-	}
-	return hasReturn && hasInvocation && !ssaflow.UnownedReturnFromEntry(function, invokes)
-}
-
-func emitCancellationEvidence(pass *analysis.Pass, instruction ssa.Instruction, reason string) {
-	checkID := string(check.CancellationRelease)
-	if !analysisTrace.Enabled("cancellationownership", checkID) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
-		Analyzer: "cancellationownership",
-		Check:    checkID,
-		Phase:    "evidence",
-		Reason:   reason,
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      instruction.Pos(),
-		Function: instruction.Parent().String(),
-	})
-}
-
-func instructionSettlesCancellation(
-	evidence *lifecyclefacts.LifecycleEvidence,
-	instruction ssa.Instruction,
-	cancel ssa.Value,
-) bool {
-	transfer := ssaflow.OwnershipTransferRequest{
-		Instruction: instruction,
-		Value:       cancel,
-		Modes: ssaflow.TransferStoredInField | ssaflow.TransferStoredInGlobal | ssaflow.TransferStoredInEnclosingScope |
-			ssaflow.TransferOwnerStoredInField | ssaflow.TransferStoredInOwnedMap,
-	}
-	// Assigning a cancel function through a closure's free variable transfers
-	// its obligation back to the enclosing lifecycle. Civitai uses this to keep
-	// exactly one active readiness probe and cancel it at each outer exit:
-	// https://github.com/civitai/cli/blob/bc830b105867ae4234ddd7dd23f3f7680a2cbe3c/internal/cmd/app_dev_tunnel.go#L942-L1049
-	return ssaflow.ClosureCallsValue(instruction, cancel) ||
-		ssaflow.DeferredClosureInvokesArgumentOnEveryReturn(instruction, cancel) ||
-		ssaflow.DeferredClosurePassesValueToNamedCall(
-			instruction,
-			cancel,
-			"cancel",
-			"cleanup",
-			"close",
-			"stop",
-			"teardown",
-		) ||
-		ssaflow.ClosureOwnsValue(instruction, cancel) ||
-		ssaflow.StoresValueThroughExternalFieldPointer(instruction, cancel) ||
-		evidence.Prove(lifecyclefacts.EvidenceRequest{
-			Instruction: instruction,
-			Target:      cancel,
-			Transfer:    &transfer,
-		}).Proven() ||
-		atomicStoreCoupledToWorker(instruction, cancel)
-}
-
-func callTakesCancellationOwnership(
-	evidence *lifecyclefacts.LifecycleEvidence,
-	instruction ssa.Instruction,
-	cancel ssa.Value,
-) bool {
-	local := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound, Provenance: ssaflow.EvidenceFromLocalSSA}
-	if ssaflow.CallReturnsDeferredCleanup(instruction, cancel) {
-		local = ssaflow.Proof{
-			State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceReturnedDeferredCleanup,
-			Provenance: ssaflow.EvidenceFromLocalSSA,
-		}
-	} else if ssaflow.CallInvokesArgumentOnEveryReturn(instruction, cancel) {
-		local = ssaflow.Proof{
-			State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceHelperInvocation,
-			Provenance: ssaflow.EvidenceFromLocalSSA,
-		}
-	}
-	transfer := ssaflow.OwnershipTransferRequest{
-		Instruction: instruction,
-		Value:       cancel,
-		Modes: ssaflow.TransferToReturnedOwner | ssaflow.TransferToReceiver |
-			ssaflow.TransferToLifecycleOwner,
-	}
-	return evidence.Prove(lifecyclefacts.EvidenceRequest{
-		Instruction: instruction,
-		Target:      cancel,
-		Local:       &local,
-		Transfer:    &transfer,
-		SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
-			return fact.Invoked | fact.ReturnedOwner
-		},
-		ReceiverStore: true,
-	}).Proven()
-}
-
-func atomicStoreCoupledToWorker(instruction ssa.Instruction, cancel ssa.Value) bool {
-	// Atomic storage alone is not ownership: require the same external owner to
-	// launch the worker whose lifecycle the slot controls.
-	// https://github.com/jordigilh/kubernaut/blob/528b4f7080bf3522c0fa60f1ce87e48dcbcfe4bb/internal/kubernautagent/workflowcatalog/lazy_catalog.go#L100-L103
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil || ssaflow.CallName(common) != "Store" || len(common.Args) < 2 ||
-		!ssaflow.ValueDerivesFrom(common.Args[len(common.Args)-1], cancel, map[ssa.Value]bool{}) &&
-			!ssaflow.ValueContainsValue(common.Args[len(common.Args)-1], cancel) {
-		return false
-	}
-	field, ok := ssaflow.CallReceiver(common).(*ssa.FieldAddr)
-	if !ok || !ssaflow.ExternallyOwnedValue(field.X) {
-		return false
-	}
-	for _, block := range instruction.Parent().Blocks {
-		for _, candidate := range block.Instrs {
-			spawn, spawnOK := candidate.(*ssa.Go)
-			if !spawnOK || !ssaflow.InstructionMayFollow(instruction, spawn) {
-				continue
-			}
-			if ssaflow.ValueContainsValue(spawn.Common().Value, field.X) {
-				return true
-			}
-			for _, argument := range spawn.Common().Args {
-				if ssaflow.SameValue(argument, field.X) {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }

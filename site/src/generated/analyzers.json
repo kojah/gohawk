@@ -141,13 +141,13 @@
         },
         {
           "name": "cancellationownership",
-          "summary": "Checks context and signal-derived cancellation functions are called on every return path.",
+          "summary": "Checks context and signal-derived cancellation functions proved lost on a normal return path.",
           "path": "analyzers/ownership-and-lifecycle/cancellationownership",
           "optIn": false,
           "checks": [
             {
               "id": "cancellationownership/release",
-              "summary": "Reports derived cancel functions that are neither called nor transferred on every return path.",
+              "summary": "Reports derived cancel functions proved lost on a feasible normal return path.",
               "kind": "defect",
               "optIn": false
             }
@@ -179,15 +179,15 @@
         },
         {
           "name": "channelownership",
-          "summary": "Checks that channel closing remains with the channel owner.",
+          "summary": "Audits callees that close channels exact callers continue to use.",
           "path": "analyzers/ownership-and-lifecycle/channelownership",
-          "optIn": false,
+          "optIn": true,
           "checks": [
             {
               "id": "channelownership/caller-close",
-              "summary": "Reports functions that close channels received from their callers.",
+              "summary": "Reports callees that close a channel an exact caller continues to use.",
               "kind": "policy",
-              "optIn": false
+              "optIn": true
             }
           ],
           "suggestedFix": false,
@@ -480,7 +480,7 @@
               "id": "lockorder/contradictory-order",
               "summary": "Reports inconsistent acquisition order for the same pair of locks.",
               "kind": "hazard",
-              "optIn": false
+              "optIn": true
             }
           ],
           "suggestedFix": false,

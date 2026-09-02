@@ -1,6 +1,7 @@
 package goroutineownership
 
 import (
+	"go/constant"
 	"go/token"
 	"go/types"
 	"slices"
@@ -34,10 +35,6 @@ func goroutineHasContextLifecycle(spawn *ssa.Go) bool {
 
 func contextValue(value ssa.Value) bool {
 	return value != nil && syntax.NamedType(value.Type(), "context", "Context")
-}
-
-func externallyOwnedLifecycle(owners []ssa.Value) bool {
-	return slices.ContainsFunc(owners, ssaflow.ExternallyOwnedValue)
 }
 
 func externallyOwnedJoin(signals, groups []ssa.Value) bool {
@@ -194,22 +191,21 @@ func goroutineJoinValues(spawn *ssa.Go) (signals, groups []ssa.Value, unsettledD
 	return signals, groups, unsettledDone
 }
 
-func goroutineTransferredToCaller(function *ssa.Function, spawn *ssa.Go) bool {
-	for _, owner := range function.Params {
-		if !lifecycleOwner(owner) {
-			continue
-		}
-		if ssaflow.SameValue(ssaflow.CallReceiver(spawn.Common()), owner) {
-			return true
-		}
-		closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
-		if !ok {
-			continue
-		}
-		for _, binding := range closure.Bindings {
-			if ssaflow.SameValue(ssaflow.CapturedBindingValue(binding), owner) {
-				return true
+func localBufferedCompletionSignal(function *ssa.Function, signals []ssa.Value) bool {
+	// A buffered completion send can let the worker finish after the caller
+	// stops receiving, so it does not prove a join obligation. Buildkite uses a
+	// one-slot result channel specifically to let its collector finish:
+	// https://github.com/buildkite/agent/blob/e206ddf806af50a1ba8c9a6dd501dfda0b730818/internal/artifact/downloader.go#L96-L177
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			created, ok := instruction.(*ssa.MakeChan)
+			if !ok || !slices.ContainsFunc(signals, func(signal ssa.Value) bool {
+				return ssaflow.CapturedBindingMatches(signal, created)
+			}) {
+				continue
 			}
+			size, constantSize := created.Size.(*ssa.Const)
+			return !constantSize || size.Value == nil || constant.Sign(size.Value) > 0
 		}
 	}
 	return false
@@ -413,7 +409,7 @@ func ownershipRegisteredBefore(spawn *ssa.Go, signals []ssa.Value) bool {
 	return false
 }
 
-func transfersGoroutineOwnership(
+func ambiguouslyTransfersGoroutineOwnership(
 	evidence *ssaflow.LocalEvidence,
 	instruction ssa.Instruction,
 	signals, groups, owners []ssa.Value,
@@ -429,11 +425,11 @@ func transfersGoroutineOwnership(
 		}).Proven() {
 			return true
 		}
+		if opaqueOwnershipUse(instruction, value) {
+			return true
+		}
 	}
 	if _, ok := instruction.(*ssa.Go); ok {
-		// A second goroutine may take ownership of a completion signal and
-		// publish its own join handle. The original worker is then joined
-		// transitively when the caller joins that relay.
 		if callReceivesAny(instruction, signals) {
 			return true
 		}
@@ -448,6 +444,69 @@ func transfersGoroutineOwnership(
 			}
 		}
 	}
+	return false
+}
+
+func opaqueOwnershipUse(instruction ssa.Instruction, value ssa.Value) bool {
+	if common := ssaflow.InstructionCall(instruction); common != nil {
+		if ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) {
+			return false
+		}
+		callee := common.StaticCallee()
+		if callee != nil && callee.Syntax() != nil && len(callee.Blocks) > 0 {
+			return false
+		}
+		return slices.ContainsFunc(common.Args, func(argument ssa.Value) bool {
+			return opaqueArgumentMayOwnValue(argument, value, map[ssa.Value]bool{})
+		})
+	}
+	switch typed := instruction.(type) {
+	case *ssa.Store:
+		return ssaflow.SameValue(typed.Val, value)
+	case *ssa.MapUpdate:
+		return ssaflow.SameValue(typed.Value, value)
+	case *ssa.Send:
+		return ssaflow.SameValue(typed.X, value)
+	default:
+		return false
+	}
+}
+
+func opaqueArgumentMayOwnValue(argument, value ssa.Value, seen map[ssa.Value]bool) bool {
+	if argument == nil || seen[argument] {
+		return false
+	}
+	seen[argument] = true
+	if ssaflow.SameValue(argument, value) || ssaflow.ValueContainsValue(argument, value) {
+		return true
+	}
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		argument,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+	); ok {
+		return opaqueArgumentMayOwnValue(inner, value, seen)
+	}
+	switch typed := argument.(type) {
+	case *ssa.Call:
+		return slices.ContainsFunc(typed.Common().Args, func(callArgument ssa.Value) bool {
+			return opaqueArgumentMayOwnValue(callArgument, value, seen)
+		})
+	case *ssa.Extract:
+		return opaqueArgumentMayOwnValue(typed.Tuple, value, seen)
+	case *ssa.Phi:
+		return slices.ContainsFunc(typed.Edges, func(edge ssa.Value) bool {
+			return opaqueArgumentMayOwnValue(edge, value, seen)
+		})
+	default:
+		return false
+	}
+}
+
+func transfersGoroutineOwnershipExactly(
+	_ *ssaflow.LocalEvidence,
+	instruction ssa.Instruction,
+	signals, _, _ []ssa.Value,
+) bool {
 	common := ssaflow.InstructionCall(instruction)
 	return mockReturnOwnsSignal(common, signals)
 }

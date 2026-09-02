@@ -48,7 +48,7 @@ These analyzers look for work or resources whose owner cannot be identified on e
   </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/cancellationownership/">
     <span class="analyzer-name">cancellationownership</span>
-    <span class="analyzer-detects">Checks context and signal-derived cancellation functions are called on every return path.</span>
+    <span class="analyzer-detects">Checks context and signal-derived cancellation functions proved lost on a normal return path.</span>
   </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/channelcapacity/">
     <span class="analyzer-name">channelcapacity</span>
@@ -56,7 +56,7 @@ These analyzers look for work or resources whose owner cannot be identified on e
   </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/channelownership/">
     <span class="analyzer-name">channelownership</span>
-    <span class="analyzer-detects">Checks that channel closing remains with the channel owner.</span>
+    <span class="analyzer-detects">Audits callees that close channels exact callers continue to use.</span>
   </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/channelsafety/">
     <span class="analyzer-name">channelsafety</span>

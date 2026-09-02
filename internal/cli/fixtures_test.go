@@ -94,6 +94,15 @@ func work(parent context.Context) {
 	ctx, cancel := context.WithCancel(parent)
 	_, _ = ctx, cancel
 }
+
+type cancelOwner interface {
+	Store(context.CancelFunc)
+}
+
+func handOff(parent context.Context, owner cancelOwner) {
+	_, cancel := context.WithCancel(parent)
+	owner.Store(cancel)
+}
 `)
 	writeTestFile(t, filepath.Join(directory, "sample", "sample_test.go"), `package cancellationfix
 

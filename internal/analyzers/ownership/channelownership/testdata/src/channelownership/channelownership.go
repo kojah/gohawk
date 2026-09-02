@@ -1,13 +1,10 @@
 package channelownership
 
-//gohawk:example flagged
 func consume(events chan int) {
-	defer close(events) // want "do not close a channel received from caller"
+	defer close(events)
 	for range events {
 	}
 }
-
-//gohawk:example end
 
 //gohawk:example ok
 func consumeSafely(events <-chan int) {
@@ -40,8 +37,21 @@ func publish(results chan<- int) {
 
 // undocumentedClose does not promise ownership of results.
 func undocumentedClose(results chan<- int) {
-	close(results) // want "do not close a channel received from caller"
+	close(results)
 }
+
+//gohawk:example flagged
+func callerRetainsCloseOwnership(results chan<- int) {
+	close(results) // want "callee closes a channel that its caller continues to use"
+}
+
+func retainAfterStaticCall() {
+	results := make(chan int)
+	callerRetainsCloseOwnership(results)
+	results <- 1
+}
+
+//gohawk:example end
 
 type boundedProducer struct{}
 
@@ -61,7 +71,7 @@ func collectWithBoundProducer(producer *boundedProducer, literal bool) {
 type retainedBoundProducer struct{}
 
 func (*retainedBoundProducer) produce(results chan<- int) {
-	close(results) // want "do not close a channel received from caller"
+	close(results) // want "callee closes a channel that its caller continues to use"
 }
 
 func retainAfterBoundCall(producer *retainedBoundProducer) {
@@ -74,7 +84,7 @@ func retainAfterBoundCall(producer *retainedBoundProducer) {
 type storedBoundProducer struct{}
 
 func (*storedBoundProducer) produce(results chan<- int) {
-	close(results) // want "do not close a channel received from caller"
+	close(results)
 }
 
 var storedBoundProducerCall func(chan<- int)
@@ -86,7 +96,7 @@ func storeBoundCall(producer *storedBoundProducer) {
 type returnedBoundProducer struct{}
 
 func (*returnedBoundProducer) produce(results chan<- int) {
-	close(results) // want "do not close a channel received from caller"
+	close(results)
 }
 
 func returnBoundCall(producer *returnedBoundProducer) func(chan<- int) {
@@ -96,7 +106,7 @@ func returnBoundCall(producer *returnedBoundProducer) func(chan<- int) {
 type opaqueBoundProducer struct{}
 
 func (*opaqueBoundProducer) produce(results chan<- int) {
-	close(results) // want "do not close a channel received from caller"
+	close(results)
 }
 
 func acceptOpaqueBoundCall(func(chan<- int)) {}
@@ -108,7 +118,7 @@ func passBoundCallToOpaqueHelper(producer *opaqueBoundProducer) {
 type unsupportedBoundProducer struct{}
 
 func (*unsupportedBoundProducer) produce(results chan<- int) (int, int) {
-	close(results) // want "do not close a channel received from caller"
+	close(results)
 	return 0, 0
 }
 
@@ -124,7 +134,7 @@ func useUnsupportedBoundCall(producer *unsupportedBoundProducer) {
 type packageBoundProducer struct{}
 
 func (*packageBoundProducer) produce(results chan<- int) {
-	close(results) // want "do not close a channel received from caller"
+	close(results)
 }
 
 var packageBoundProducerCall = (&packageBoundProducer{}).produce
@@ -137,7 +147,7 @@ func callPackageBoundProducerDirectly(producer *packageBoundProducer) {
 type methodExpressionProducer struct{}
 
 func (*methodExpressionProducer) produce(results chan<- int) {
-	close(results) // want "do not close a channel received from caller"
+	close(results)
 }
 
 var storedMethodExpression = (*methodExpressionProducer).produce

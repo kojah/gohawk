@@ -144,6 +144,25 @@ Keep one authoritative decision path for each analyzer check.
   tracing the returned reason, and reporting. They must not duplicate the
   evidence rules implemented by lower-level helpers.
 
+Keep default proof systems deliberately bounded:
+
+- A default diagnostic requires positive structural evidence of both an
+  obligation and its violation. The absence of a recognized cleanup, join, or
+  owner is not itself proof of a defect.
+- Treat opaque callbacks, registries, receiver storage, framework handoffs,
+  and other ambiguous ownership as `unknown`, and suppress the default
+  diagnostic. Do not accumulate project, function-name, or lifecycle-name
+  exceptions to guess beyond the proven boundary.
+- Add a proof family only for a reusable structural contract with exact value
+  provenance and feasible-path semantics. A dogfood false positive alone is
+  not sufficient reason to expand the model.
+- Keep heuristic audits explicitly opt-in. Do not make a heuristic
+  increasingly elaborate in an attempt to support a default correctness
+  claim.
+
+Prefer stable false negatives over an analyzer whose precision depends on an
+open-ended catalog of framework and naming conventions.
+
 ## SSA traversal consistency
 
 Treat SSA wrapper, alias, closure, and return traversal as explicit analysis
