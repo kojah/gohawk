@@ -1,0 +1,6 @@
+repository,analyzer,position,verdict
+infercrane/infercrane,cancellationownership,internal/asyncinference/service_lease_test.go:46:17,false_positive
+strelov1/freehire,goroutineownership,internal/api/handler/match_analysis_stream.go:329:2,false_positive
+strelov1/freehire,errorownership,internal/platform/llm/llm.go:324:2,true_positive
+Insajin/autopus-adk,processownership,pkg/worker/setup/auth.go:39:9,true_positive
+hjxwz123/Aivory,resourcelifetime,server/internal/store/kbs.go:244:15,true_positive

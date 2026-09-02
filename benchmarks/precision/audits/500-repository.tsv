@@ -129,3 +129,13 @@
 13	reviewdog/reviewdog	57eb8d3d2457f6e4fd2395867cb75318d4a8bf88	.,scripts/trigger-depup	reviewed
 13	entireio/cli	ee6d53f3d3398267358e8f9d306267c87a088101	.,tools/complexity	reviewed
 13	ome-projects/ome	0fcf9b42b336410727f4dc6b7c2887e2bdf64385	.,scheduler,hack/internal/doctools,hack/internal/tools,site	reviewed
+14	Insajin/autopus-adk	70a337dd640649b1f11d2d7bd867c30719b6a528	.	reviewed
+14	strelov1/freehire	d697a62b5ce272dd5aebccf056e9f9bd2c8851ca	.	reviewed
+14	hjxwz123/Aivory	874041a00940e90e0a53a3429565428e63d80359	server	reviewed
+14	bigmangos/chrome-offline-installer	57d4ee4df9ecda66a180a8bbbe8ce69fe0daa78a	.	reviewed
+14	find-xposed-magisk/go_proxy_pool	df26072a8c3bd24715317a5c27b3647c35086959	.	reviewed
+14	devsy-org/devsy	544d50bac0531f8f99f7e11313971483ffa67017	.	reviewed
+14	infercrane/infercrane	93a43cebe36e01c68c1517d5f1eb97417d01588d	.,integrations/terraform	reviewed
+14	kenn-io/forge	42c7ccc4a8f8cd636405c39413d3b7726870ec2f	.	reviewed
+14	oneclickvirt/backtrace	fcfd6f4beea9d4b0dd3369b4203d669df9069c05	.	reviewed
+14	Clov614/SteamHostSync	a28875bc161d924e7fecd0d7bcfe4db4024f4f29	.	reviewed

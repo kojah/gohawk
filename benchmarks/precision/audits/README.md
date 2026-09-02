@@ -334,3 +334,36 @@ pinned Caddy before and after Batch 13. Median wall time changed from 3.309 to
 3.393 seconds (+2.5%), while median peak RSS changed from 5,038,796 to 5,214,088
 KiB (+3.5%). The complete cumulative precision suite remains reserved for
 Batch 15; Batch 13 replayed only round 17 and directly affected repositories.
+
+## Batch 14
+
+Ten repositories and eleven modules were selected. Ten modules loaded and
+scanned fully. go_proxy_pool's single package could be listed, but its committed
+module sums omit required Gin and YAML entries, so the read-only scan produced
+no usable diagnostics. Final scans produced 2,421 diagnostics.
+
+Two narrow ownership boundaries were corrected:
+
+- passing the exact cancel function to a source-visible helper launched with
+  `go` is now an explicit but ambiguous handoff. Conditional invocation in that
+  worker is not proof of release, and ambiguity suppresses the default loss
+  diagnostic; and
+- returning an exact callback that invokes `Wait` on the WaitGroup settled by
+  a worker transfers the join obligation to the caller.
+
+The corrections removed Infercrane's conditional lease-cancellation finding
+and Freehire's returned SSE-heartbeat stop finding. Precision round 18 passed
+with both false positives absent and all three retained true positives present.
+
+Receiver-held process reaping, interface-dispatched response ownership,
+multi-field returned resource aggregates, error-correlated SQL cleanup, and
+loop-iteration error identity remain deferred until they have compact
+result-sensitive proofs. Mocked HTTP error paths and opt-in policy findings
+were sampled without expanding default correctness policy.
+
+A constant-size performance check compared three warmed `-enable-all` runs on
+pinned Caddy at the Batch 13 boundary and after Batch 14. Median wall time
+changed from 3.174 to 3.049 seconds (-3.9%), while median peak RSS changed from
+5,267,632 to 5,016,372 KiB (-4.8%). The complete cumulative precision suite is
+scheduled for Batch 15; Batch 14 replayed only round 18 and affected
+repositories.

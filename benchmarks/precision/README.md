@@ -98,3 +98,8 @@ findings remain reportable.
 Round 17 preserves the thirteenth reviewed batch. It covers WaitGroup joins
 owned by exact deferred callbacks, including `sync.OnceFunc`, and keeps nearby
 resource, error-ownership, and early-completion findings reportable.
+
+Round 18 preserves the fourteenth reviewed batch. It covers cancellation
+handed to a launched static helper and WaitGroup ownership returned through an
+exact join callback. Nearby process, resource, and error-ownership findings
+remain reportable.
