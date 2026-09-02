@@ -208,3 +208,24 @@ cannot prove all callers or termination. Orchard's map iteration remains
 reportable because it can return a key-dependent validation error before its
 later sort. Precision round 13 retains nearby resource, process,
 defer-in-loop, determinism, and goroutine findings.
+
+## Batch 10
+
+Ten repositories and thirty modules were selected. Sixteen modules loaded
+fully, three contained no Go packages, and the remainder produced useful
+partial analysis despite generated assets, native dependencies, target-specific
+code, or readonly module metadata gaps.
+
+Two general evidence boundaries were improved:
+
+- lock acquisition and release guarded by the same stable Boolean parameter
+  now share one feasible-path condition; and
+- a deferred static helper may close an exact field or constant-index
+  projection when that projection maps to the helper parameter and cleanup
+  occurs on every normal return.
+
+Nested returned process owners, aggregate lifecycle registries, conditional
+resource replacement, parameter-sensitive process termination, and temporal
+idempotent-cleanup state remain deferred because sound proofs require broader
+alias, cross-method, or state-transition evidence. Precision round 14 retains
+nearby lock, resource, determinism, and concurrent-capture findings.
