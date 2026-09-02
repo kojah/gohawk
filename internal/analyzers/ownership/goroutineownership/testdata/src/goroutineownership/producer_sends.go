@@ -176,3 +176,27 @@ func producerDrainedByWorkerPool(items []int, workers int) {
 	}()
 	group.Wait()
 }
+
+type workerGroup struct{}
+
+func (g *workerGroup) Go(work func() error) {}
+
+// A producer whose jobs channel is drained by literals handed to a runner is
+// consumed by workers the analysis cannot see.
+func producerDrainedByRunnerWorkers(g *workerGroup, items []int) {
+	jobs := make(chan int)
+	for range 4 {
+		g.Go(func() error {
+			for job := range jobs {
+				_ = job
+			}
+			return nil
+		})
+	}
+	go func() {
+		defer close(jobs)
+		for _, item := range items {
+			jobs <- item
+		}
+	}()
+}

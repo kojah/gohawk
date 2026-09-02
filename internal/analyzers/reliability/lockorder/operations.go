@@ -40,7 +40,14 @@ func callerOwnedLocks(function *ssa.Function) map[string]bool {
 
 func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string, identity string, relations map[lockRelation]token.Pos) []string {
 	if slices.Contains(held, identity) {
-		check.Reportf(pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
+		// A lock selected by a loop iteration is a different mutex each time
+		// the same instruction runs, so re-acquiring its identity on the next
+		// iteration is not recursion. multigres locks every key mutex in a
+		// loop and defers the unlocks:
+		// https://github.com/multigres/multigres/blob/360b8f123dff8ad6bcc721acaec103c52081bebd/go/tools/viperutil/internal/sync/sync.go#L236-L240
+		if !loopVariantLock(instruction) {
+			check.Reportf(pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
+		}
 		return held
 	}
 	for _, owner := range held {
@@ -198,4 +205,47 @@ func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
 		}
 	}
 	return append(values, candidate)
+}
+
+// loopVariantLock reports whether the acquisition's receiver is selected by a
+// loop iteration: it is defined inside a cycle and derives from a phi or map
+// iterator in that cycle, as a range element does. A field of a receiver or
+// a package variable locked inside a loop is the same mutex every time and
+// stays reportable.
+func loopVariantLock(instruction ssa.Instruction) bool {
+	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
+	return receiver != nil && loopVariantValue(receiver, map[ssa.Value]bool{})
+}
+
+func loopVariantValue(value ssa.Value, seen map[ssa.Value]bool) bool {
+	if value == nil || seen[value] {
+		return false
+	}
+	seen[value] = true
+	switch typed := value.(type) {
+	case *ssa.Phi:
+		return ssaflow.BlockInCycle(typed.Block())
+	case *ssa.Extract:
+		if next, ok := typed.Tuple.(*ssa.Next); ok {
+			return ssaflow.BlockInCycle(next.Block())
+		}
+		return loopVariantValue(typed.Tuple, seen)
+	case *ssa.UnOp:
+		return loopVariantValue(typed.X, seen)
+	case *ssa.IndexAddr:
+		return loopVariantValue(typed.Index, seen) || loopVariantValue(typed.X, seen)
+	case *ssa.Index:
+		return loopVariantValue(typed.Index, seen) || loopVariantValue(typed.X, seen)
+	case *ssa.FieldAddr:
+		return loopVariantValue(typed.X, seen)
+	case *ssa.Field:
+		return loopVariantValue(typed.X, seen)
+	case *ssa.ChangeType, *ssa.ChangeInterface, *ssa.Convert, *ssa.MakeInterface:
+		inner, ok := ssaflow.UnwrapTransparentValue(
+			value,
+			ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+		)
+		return ok && loopVariantValue(inner, seen)
+	}
+	return false
 }

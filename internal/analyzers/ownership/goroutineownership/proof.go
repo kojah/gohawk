@@ -133,22 +133,34 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonUnownedReturn}
 }
 
-// otherWorkerConsumesSignal reports whether a goroutine other than the spawn,
-// launched anywhere in the function, captures or receives a tracked signal.
+// otherWorkerConsumesSignal reports whether a worker other than the spawn
+// captures or receives a tracked signal: a goroutine launched anywhere in the
+// function, or a literal handed to a call, since a runner such as
+// errgroup.Go executes it as a worker the analysis cannot see. Iceberg feeds
+// a jobs channel from one goroutine and drains it from errgroup workers:
+// https://github.com/apache/iceberg-go/blob/aa76a28c34787f23f8eee1c5648271fc0ee6042f/table/table.go#L380-L415
 func (analysis *spawnAnalysis) otherWorkerConsumesSignal() bool {
 	if len(analysis.signals) == 0 {
 		return false
 	}
 	for _, block := range analysis.function.Blocks {
 		for _, instruction := range block.Instrs {
-			launched, ok := instruction.(*ssa.Go)
-			if !ok || launched == analysis.spawn {
+			if instruction == analysis.spawn {
 				continue
 			}
-			common := launched.Common()
-			closure, _ := common.Value.(*ssa.MakeClosure)
-			if analysis.anyArgumentConsumes(common) || analysis.closureConsumes(closure) {
-				return true
+			switch typed := instruction.(type) {
+			case *ssa.Go:
+				common := typed.Common()
+				closure, _ := common.Value.(*ssa.MakeClosure)
+				if analysis.anyArgumentConsumes(common) || analysis.closureConsumes(closure) {
+					return true
+				}
+			case *ssa.Call:
+				for _, argument := range typed.Common().Args {
+					if closure, ok := argument.(*ssa.MakeClosure); ok && analysis.closureConsumes(closure) {
+						return true
+					}
+				}
 			}
 		}
 	}

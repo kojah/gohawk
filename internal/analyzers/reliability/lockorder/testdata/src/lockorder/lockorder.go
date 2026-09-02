@@ -695,3 +695,26 @@ func (c *operationClient) forgetsUnlockOnOnePath(skip bool) error {
 	c.operationMu.Unlock()
 	return nil
 }
+
+// Each iteration locks a different mutex, so the repeated acquisition through
+// the same instruction is not recursive.
+func locksEveryKeyMutex(keys map[string]*sync.Mutex, entries []*sync.Mutex) {
+	for _, m := range keys {
+		m.Lock()
+		defer m.Unlock()
+	}
+	for _, m := range entries {
+		m.Lock()
+		defer m.Unlock()
+	}
+}
+
+type loopedLocker struct{ mu sync.Mutex }
+
+// The same receiver field locked on every iteration is recursive.
+func (l *loopedLocker) locksSameMutexInLoop(items []int) {
+	for range items {
+		l.mu.Lock() // want "lock .*mu is acquired while already held"
+	}
+	l.mu.Unlock()
+}
