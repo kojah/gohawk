@@ -34,14 +34,17 @@ func resourceTransferredToExternalField(instruction ssa.Instruction, resource ss
 
 func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Value { //nolint:ireturn // Owners retain their concrete SSA value forms.
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !ssaflow.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) {
+	if !ok || !ssaflow.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) && !ssaflow.ValueContainsValue(store.Val, resource) {
 		return nil
 	}
-	field, ok := store.Addr.(*ssa.FieldAddr)
-	if !ok {
-		return nil
+	if field, ok := store.Addr.(*ssa.FieldAddr); ok {
+		return field.X
 	}
-	return field.X
+	// A store through a pointer the caller supplied, such as appending to the
+	// slice a pointer receiver points at, lands in caller-owned storage.
+	// rules_img collects output files through a flag value this way:
+	// https://github.com/bazel-contrib/rules_img/blob/af5e1452f0cb68b1ed64dc6095210f1eb4ae625f/img_tool/cmd/validate/layer-presence/flags.go#L83-L94
+	return store.Addr
 }
 
 func resourceSuccessBranch(pass *analysis.Pass, block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {

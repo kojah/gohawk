@@ -1,6 +1,7 @@
 package ssaflow
 
 import (
+	"go/token"
 	"maps"
 
 	"github.com/kojah/gohawk/internal/syntax"
@@ -162,4 +163,38 @@ func cloneValueSet(source map[ssa.Value]bool) map[ssa.Value]bool {
 	result := make(map[ssa.Value]bool, len(source))
 	maps.Copy(result, source)
 	return result
+}
+
+// appendOnlyCell reports whether every store into the cell writes the result
+// of appending to the cell's own current value, so the cell only grows. Such
+// a cell holds, at any later point, everything ever appended to it.
+func appendOnlyCell(address ssa.Value) bool {
+	if address == nil || address.Referrers() == nil {
+		return false
+	}
+	stores := 0
+	for _, reference := range *address.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if !ok || store.Addr != address {
+			continue
+		}
+		stores++
+		if !appendsToCell(store.Val, address) {
+			return false
+		}
+	}
+	return stores > 0
+}
+
+func appendsToCell(value, address ssa.Value) bool {
+	call, ok := value.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	builtin, ok := call.Common().Value.(*ssa.Builtin)
+	if !ok || builtin.Name() != "append" || len(call.Common().Args) == 0 {
+		return false
+	}
+	load, ok := call.Common().Args[0].(*ssa.UnOp)
+	return ok && load.Op == token.MUL && load.X == address
 }

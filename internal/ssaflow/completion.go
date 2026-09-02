@@ -278,6 +278,14 @@ func (search *completionSearch) capturedLocal(
 	if callee.launch == launchDeferred && invocation != nil {
 		stable, ok := deferredBindingValue(binding, target, invocation)
 		if !ok {
+			// A captured slice that only ever grows by append still contains
+			// everything appended after the defer when the deferred literal
+			// runs, so the target appended to it is reachable from the local.
+			// rules_img drains such a closer slice in a deferred loop:
+			// https://github.com/bazel-contrib/rules_img/blob/af5e1452f0cb68b1ed64dc6095210f1eb4ae625f/img_tool/cmd/mtree/mtree.go#L110-L128
+			if !exact && appendOnlyCell(binding) && ValueContainsValue(binding, target) {
+				return mappedLocal{local: free, supplied: binding, kind: localExact}, true
+			}
 			return mappedLocal{}, false
 		}
 		value, exact = stable, SameValue(stable, target)
@@ -293,6 +301,12 @@ func (search *completionSearch) capturedLocal(
 		return mappedLocal{local: free, supplied: value, kind: localExact}, true
 	case ValueIsAccessPathFrom(target, value):
 		return mappedLocal{local: free, supplied: value, kind: localOwner}, true
+	case !CapturedBindingMatches(binding, target) && ValueContainsValue(binding, target):
+		// The closure captured an aggregate that stores the target, such as a
+		// local closer slice the target was appended to; a lifecycle call on
+		// anything selected from that local reaches the target. A cell that
+		// held the target directly is decided by the exact rules above.
+		return mappedLocal{local: free, supplied: binding, kind: localExact}, true
 	}
 	return mappedLocal{}, false
 }

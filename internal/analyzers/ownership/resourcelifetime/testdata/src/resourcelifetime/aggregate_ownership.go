@@ -250,3 +250,71 @@ func appendCloserLocally(path string) error {
 	_ = closers
 	return nil
 }
+
+// Files appended to a local closer slice that a deferred literal drains are
+// released by that literal; the deferred release may run zero times only when
+// nothing was appended.
+func filesAppendedToDeferredCloserSlice(paths []string) (err error) {
+	var closers []io.Closer
+	defer func() {
+		for i := range closers {
+			if cerr := closers[i].Close(); cerr != nil && err == nil {
+				err = cerr
+			}
+		}
+	}()
+	for _, path := range paths {
+		file, oerr := os.Open(path)
+		if oerr != nil {
+			return oerr
+		}
+		closers = append(closers, file)
+	}
+	return nil
+}
+
+// A deferred drain of a different slice does not release files appended to
+// this one.
+func filesAppendedBesideDeferredCloserSlice(paths []string) (err error) {
+	var closers, others []io.Closer
+	defer func() {
+		for i := range closers {
+			if cerr := closers[i].Close(); cerr != nil && err == nil {
+				err = cerr
+			}
+		}
+	}()
+	for _, path := range paths {
+		file, oerr := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+		if oerr != nil {
+			return oerr
+		}
+		others = append(others, file)
+	}
+	_ = others
+	return nil
+}
+
+type outputFiles []io.Closer
+
+// Appending the file to the slice a pointer receiver points at stores it in
+// caller-owned storage, which owns the release.
+func (outputs *outputFiles) Set(path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	*outputs = append(*outputs, file)
+	return nil
+}
+
+func appendToLocalPointerDoesNotTransfer(path string) error {
+	var local outputFiles
+	pointer := &local
+	file, err := os.Create(path) // want "owned resource from os.Create is not released on every return path"
+	if err != nil {
+		return err
+	}
+	*pointer = append(*pointer, file)
+	return nil
+}

@@ -55,7 +55,15 @@ func evaluateResourceFlow(
 	if optionalAcquisition.Proven() {
 		resource = optionalAcquisition.resourcePhi
 	}
+	if deferredBeforeAcquisitionMayRelease(evidence, call, resource, contract.cleanup) {
+		return acceptedResourceLifetime(resourceReasonReleaseProven)
+	}
 	owners := localResourceOwners(call.Parent(), resource)
+	// The walk starts on the instruction after the acquisition and keys its
+	// states by block, predecessor, and release status, so the same block is
+	// revisited only when a different path reaches it with a different
+	// obligation state; the predecessor lets the successful branch of the
+	// acquisition be told apart from its error branch.
 	queue := []resourceFlowState{{block: call.Block(), index: index + 1, active: true}}
 	seen := map[resourceFlowKey]bool{}
 	for len(queue) > 0 {
@@ -99,6 +107,9 @@ func advanceResourceState(
 	contract resourceContract,
 	optionalAcquisition optionalAcquisitionProof,
 ) (resourceFlowState, bool) {
+	// A release anywhere before a return settles the path; a consumable
+	// resource is also settled by the call that consumes it, such as a body
+	// handed to a decoder that closes it.
 	for _, instruction := range state.block.Instrs[state.index:] {
 		state.released = state.released ||
 			releasesResource(evidence, instruction, resource, owners, contract.cleanup, optionalAcquisition) ||
@@ -262,4 +273,38 @@ func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value
 		return trueBranch, true
 	}
 	return !trueBranch, true
+}
+
+// deferredBeforeAcquisitionMayRelease reports whether a defer registered on
+// every path to the acquisition may release the resource: typically a literal
+// that drains a captured closer slice the resource is appended to later. The
+// walk below only classifies instructions after the acquisition, so such a
+// defer is asked here, with may-release coverage because the deferred
+// literal decides at return time how many entries it closes. rules_img opens
+// inputs into a closer slice under one deferred drain loop:
+// https://github.com/bazel-contrib/rules_img/blob/af5e1452f0cb68b1ed64dc6095210f1eb4ae625f/img_tool/cmd/mtree/mtree.go#L110-L128
+func deferredBeforeAcquisitionMayRelease(
+	evidence *lifecyclefacts.LifecycleEvidence,
+	call *ssa.Call,
+	resource ssa.Value,
+	methods []string,
+) bool {
+	for _, block := range call.Parent().Blocks {
+		for _, instruction := range block.Instrs {
+			deferred, ok := instruction.(*ssa.Defer)
+			if !ok || !ssaflow.InstructionDominates(deferred, call) {
+				continue
+			}
+			completion := ssaflow.CompletionRequest{
+				Instruction: deferred,
+				Target:      resource,
+				Methods:     methods,
+				Coverage:    ssaflow.CoverageAnywhere,
+			}
+			if evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion}).Proven() {
+				return true
+			}
+		}
+	}
+	return false
 }
