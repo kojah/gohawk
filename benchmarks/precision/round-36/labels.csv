@@ -1,0 +1,4 @@
+repository,analyzer,position,verdict
+charmbracelet/x,resourcelifetime,examples/cellbuf/main.go:121:12,false_positive
+charmbracelet/x,resourcelifetime,examples/layout/main.go:513:12,false_positive
+imroc/req,deferinloop,transport.go:3528:5,true_positive

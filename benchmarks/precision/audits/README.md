@@ -1089,3 +1089,30 @@ its deferred close, and a jq pipeline waited on under a nil check of its own
 handle variable, remain reportable pending nil-correlation evidence. Opt-in
 global-state, API-shape, and detached-goroutine findings were sampled without
 expanding default policy.
+
+## Batch 34
+
+Ten repositories and sixty-nine modules were selected, most of them example
+programs. Sixty modules loaded and scanned fully; ainovel-cli produced useful
+partial analysis around a dependency that excludes the host platform, the
+ROCm device plugin could not build its driver bindings here, and seven
+example directories hold no buildable package. Final scans produced 399 unique diagnostics after one bounded
+correction:
+
+- lifecycle summaries gain a strict Stored mask beside the loose Retained
+  one: positive structural evidence that a callee keeps a parameter in a
+  global, a field, a map, a channel, an append, or an escaping literal, with
+  same-package helper bodies followed rather than assumed and returns left to
+  the returned-owner summaries. resourcelifetime treats a resource passed to
+  a callee summarized as storing it outside its returned value as
+  transferred, so a file installed with `log.SetOutput` in an `init` is
+  owned by the logger from then on, while a copy helper that only reads
+  through the file leaves the obligation in place.
+
+The correction removed two charmbracelet example log files. Precision round
+36 labels both and one nearby true positive, a defer inside a transport retry
+loop. A request dump file stored through an accessor on the receiver, a
+critical section released by a helper that reports whether it unlocked, and
+a ripgrep pipeline not waited on scanner errors remain reportable. Opt-in
+global-state, API-shape, and detached-goroutine findings were sampled without
+expanding default policy.

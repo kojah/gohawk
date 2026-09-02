@@ -329,3 +329,13 @@
 33	driftlessaf/go-driftlessaf	5fc3f8232de580ab94d570069891c4e8b5c032eb	.,examples	reviewed
 33	prehisle/relay-pulse	e12c1d42e355e7d2cbd814701944a735f35cd482	.,notifier	reviewed
 33	Bronya0/ally-agent	60001b87b18cd65d847dcc497d5fbbd2551f9af4	.	reviewed
+34	sightmap/sightmap	be65c68318345f5fbb36878469ec25e75ff22186	go	reviewed
+34	redhat-appstudio/infra-deployments	6a4df91f5f56c25c9272428b8e1c0035c352e4ae	infra-tools,tests	reviewed
+34	imroc/req	2676dac99e6423013792bc5835cbb878151cf5f6	.,examples/find-popular-repo,examples/opentelemetry-jaeger-tracing,examples/upload/uploadclient,examples/upload/uploadserver,examples/uploadcallback/uploadclient,examples/uploadcallback/uploadserver	reviewed
+34	FairwindsOps/goldilocks	f02ff9d9f2c30f6574bd179a84870ff30a168c26	.	reviewed
+34	charmbracelet/x	6f6ad8b37b0af7e0765bcf38bac6aafaecb9a7d6	ansi,cellbuf,colors,conpty,editor,errors,etag,examples,gitignore,input,json,mosaic,pony,powernap,sshkey,term,termios,vcr,vt,vttest,wcwidth,windows,xpty,examples/charmtone,exp/charmtone,exp/golden,exp/higherorder,exp/maps,exp/open,exp/ordered,exp/slice,exp/strings,exp/teatest,exp/toner,exp/teatest/v2,pony/examples/advanced,pony/examples/alignment,pony/examples/bubbletea,pony/examples/buttons,pony/examples/components,pony/examples/custom,pony/examples/dynamic,pony/examples/hello,pony/examples/helpers,pony/examples/interactive-form,pony/examples/layout,pony/examples/scrolling,pony/examples/scrolling-markup,pony/examples/scrolling-with-clicks,pony/examples/simple-bubbletea,pony/examples/stateful,pony/examples/styled	reviewed
+34	Mag1cFall/AIStudio2API	eee87c770888514bb41c019dfde5f573d64c9228	.	reviewed
+34	NVIDIA/k8s-driver-manager	762fb560793b12ace1ddb224835ae0cee7257eab	.,deployments/devel	reviewed
+34	voocel/agentcore	d3a0f8112ae4764bf5b548e712074404791326b2	.	reviewed
+34	voocel/ainovel-cli	e954fe6f7cda2041779ffbcd0bac7767eaacf740	.	reviewed
+34	ROCm/k8s-device-plugin	19d4d9f475071bfe4e14e5078ac7e60efb5b3270	.	reviewed

@@ -198,3 +198,7 @@ Round 35 preserves the thirty-first reviewed batch, which needed no
 correction. It pins a ticker never stopped inside a dispatch goroutine, a
 prepared statement never closed, and two row sets leaked on scan errors as
 reportable.
+
+Round 36 preserves the thirty-second reviewed batch. It covers a file
+installed as the standard logger's output, which the logger's summary proves
+it keeps. A defer inside a transport retry loop remains reportable.
