@@ -141,3 +141,8 @@ switch cases on an acquisition error, fatal `require.Error` and
 `require.NotNil` assertions after any acquisition, a returned struct literal
 carrying a captured method value, and buffered result channels stored in a
 slice. Nearby resource, goroutine, and inline-error findings remain reportable.
+
+Round 26 preserves the twenty-second reviewed batch. It covers a worker that
+signals completion through an element of a captured slice the parent returns,
+and a started command whose os.Process is returned to the caller. Nearby
+ticker, temporary-file, response, and compression findings remain reportable.

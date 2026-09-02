@@ -729,3 +729,46 @@ from 3.265 to 3.366 seconds (+3.1%), while median peak RSS changed from
 round carrying labels for the changed analyzers, which is all of them; all 178
 false positives remained absent and all 227 true positives remained present.
 The cumulative suite and larger benchmark remain scheduled for Batch 25.
+
+## Batch 24
+
+Ten repositories and twenty-seven modules were selected. Twenty-four modules
+loaded and scanned fully. The Arduino flasher and Probo root modules produced
+useful partial analysis because a pinned gRPC dependency and an embedded
+frontend tree were unavailable, and Casbin Gateway's desktop module is
+excluded by build constraints on this host. Final scans produced
+2,169 unique diagnostics after two bounded corrections:
+
+- a worker that sends on or closes an element selected from a captured
+  aggregate signals through that aggregate. The parent joins by receiving
+  from any part of it and transfers it by returning or handing it on, so a
+  readiness-only `Done` before the shard work is no longer a broken join; and
+- returning the exact `os.Process` projected from a started command hands the
+  caller a handle it can wait on, which transfers the reap obligation like
+  returning the command itself.
+
+The first correction removed one Nacos goroutine-ownership false positive in
+its concurrent map snapshot. The second removed one Casbin Gateway
+process-ownership false positive in its daemon launcher. Precision round 26
+passed with both false positives absent and all six nearby true positives
+present: Auth0's login ticker never stopped, its quickstart temporary file
+left open on a copy error, test temporary files created and only removed,
+and Chatto's compression writer leaked on a write error and a discarded test
+response.
+
+Eight `open`, `xdg-open`, and `rundll32` browser launches in Probo and two
+development servers started by the Auth0 CLI remain reportable: the process
+policy requires a wait or an explicit release, and a name-based exemption for
+launcher commands is not a structural contract. Opt-in API-shape,
+global-state, and wire-policy findings, most of them in Probo's and
+Gouroboros' generated code, were sampled without expanding default policy.
+
+A five-run performance check compared warmed `-enable-all` runs on pinned
+Caddy at the Batch 23 boundary and after Batch 24. Median wall time changed
+from 3.539 to 3.169 seconds (-10.5%), while median peak RSS changed from
+4,985,968 to 4,945,412 KiB (-0.8%). Batch 24 replayed round 26 and the
+twenty-three rounds carrying goroutine- or process-ownership labels; all 174
+false positives remained absent and all 219 true positives remained present
+after one Kong scan killed by memory pressure under a three-way replay was
+rerun alone. The cumulative suite and larger benchmark are scheduled for
+Batch 25.

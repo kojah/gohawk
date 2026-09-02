@@ -1,0 +1,9 @@
+repository,analyzer,position,verdict
+nacos-group/nacos-sdk-go,goroutineownership,clients/cache/concurrent_map.go:205:3,false_positive
+apache/casbin-gateway,processownership,util/daemon.go:127:12,false_positive
+auth0/auth0-cli,resourcelifetime,internal/auth/auth.go:65:7,true_positive
+auth0/auth0-cli,resourcelifetime,internal/auth0/quickstart.go:98:18,true_positive
+auth0/auth0-cli,resourcelifetime,internal/config/config_test.go:858:19,true_positive
+auth0/auth0-cli,resourcelifetime,internal/cli/terraform_test.go:157:12,true_positive
+chattocorp/chatto,resourcelifetime,cli/internal/projectionsnapshot/repository.go:524:12,true_positive
+chattocorp/chatto,resourcelifetime,cli/internal/http_server/server_test.go:331:10,true_positive

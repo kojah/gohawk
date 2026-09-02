@@ -229,3 +229,13 @@
 23	soulteary/owlmail	ec8a1a6f2e00459de8e8995edc946f2c6a29fcf4	.	reviewed
 23	shopware/shopware-cli	61fdc0092a7ab4e2758731ebe7ef487d83ace303	.	reviewed
 23	kubernetes-sigs/hydrophone	622f40fdea73362ca57bcdfe3a9dc534fdc36905	.	reviewed
+24	arduino/arduino-flasher-cli	679f9886d53f7c260c9a1bda6c38ede1b9a63a7b	.	reviewed
+24	blinklabs-io/gouroboros	ec8104f06208c391723656357b8bcef9275fae09	.,examples/block-fetch,examples/chain-sync,examples/chain-tip,examples/peer-sharing,examples/ping,examples/state-query,examples/tx-monitor,examples/tx-submission	reviewed
+24	redpanda-data/ai-sdk-go	7e2941b9545a4b49149023ff6b29d71389e4ed7a	.,examples/agent_as_tool,examples/agent_interceptors,examples/web_research_agent	reviewed
+24	apache/casbin-gateway	e3606894348d8cd52d85abc29cfb4d3ae99595cb	.,desktop	reviewed
+24	getprobo/probo	1f1a4d6ed31b5aab56c063c77f6afcb7c21befde	.	reviewed
+24	chattocorp/chatto	71f49913148b3e2013ffefb02d74e6fb88f06d6c	authling,cli,pkg/appconfig,pkg/datacrypto,pkg/events,pkg/natsruntime	reviewed
+24	nacos-group/nacos-sdk-go	002486583df5ad370ab809cd19dfd97e71b2ef6d	.	reviewed
+24	auth0/auth0-cli	af9e44edfb6c88ff2f58964bce9e092434315825	.	reviewed
+24	charmbracelet/catwalk	1e4e6ddc652db0ec87633b06bfbe702208da2ff1	.	reviewed
+24	c0m4r/kula	c92f914de527bb004a77f1e5162806629cd3fbb3	.	reviewed
