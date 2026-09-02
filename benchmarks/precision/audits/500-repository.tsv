@@ -269,3 +269,13 @@
 27	nebius/soperator	3f5635c08fab3578db574a55b293b5aa32042bd3	.,e2e	reviewed
 27	hezhijie0327/ZJDNS	a3e8787e31c30dafbb66d28d324a24cc5abcd9f4	.	reviewed
 27	nezhahq/agent	6df74da8a766612e52875332d7b29ed317013f6e	.	reviewed
+28	bazel-contrib/rules_img	af5e1452f0cb68b1ed64dc6095210f1eb4ae625f	.,img_tool,modules/rules_img_internal_tools,modules/rules_img_signer_cosign,modules/rules_img_signer_notation	reviewed
+28	HexmosTech/LiveReview	800607474deb720b01ee057928a821da32a09fe6	.	reviewed
+28	networkservicemesh/sdk	50b0c64456a7a85702015c01d8e56bc7e03791b1	.	reviewed
+28	PerpetualSoftware/pad	ebd1886ada1eca1f0c5ed39f9dc3ad629d0a0cd7	.	reviewed
+28	marcus/sidecar	9b8739f753ab235dda2630676833e9b46a52696c	.	reviewed
+28	celenium-io/celestia-indexer	6ecd94d356789c60d5f3a72ef622882596248995	.	reviewed
+28	cloud-barista/cb-spider	5aa6bd8a8a09003dc168ac78f6ea987617de9d31	.,cli,spiderwatch	reviewed
+28	operator-framework/operator-controller	77170601c342f6f6ad56bdc55718b8badf44da67	.,.bingo,hack/tools/test-profiling	reviewed
+28	xmdhs/clash2singbox	0a8eafe6d1eddfc8d2cc0f12b5710541cd47ff08	.	reviewed
+28	miladtahanian/Config-Collector	6a10e752f574f3c68a88fb3ab14efef833984b16	.	reviewed

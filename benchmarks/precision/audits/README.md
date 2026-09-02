@@ -902,3 +902,50 @@ Its victim processes started and only killed, and Nezha's intentionally
 orphaned test helpers, remain policy reports. Opt-in global-state, API-shape,
 determinism, and detached-goroutine findings were sampled without expanding
 default policy. Batch 27 replayed round 29 and every earlier round.
+
+## Batch 28
+
+Ten repositories and eighteen modules were selected. Seventeen modules loaded
+and scanned; cb-spider, LiveReview, and operator-controller produced useful
+partial analysis around packages whose dependencies exclude the host
+platform, and one operator-controller tool directory holds no packages. Final
+scans produced 2,712 unique diagnostics after the completion-engine
+unification and five bounded corrections:
+
+- a deferred callee that releases the resource on some path leaves the
+  release data-dependent, so resourcelifetime asks only whether the defer
+  may release; the transaction idiom that rolls back unless a committed flag
+  was set no longer reports, and three conditional-defer fixtures became
+  accepted forms;
+- a captured variable resolves to its latest dominating store, so a rows
+  variable re-queried before its deferred Close still maps to that Close,
+  while a variable declared inside a retry loop is a fresh cell each
+  iteration rather than a reassignment;
+- a select statement that offers a tracked value on a send case is an opaque
+  handoff, as a plain send already was;
+- a receive from any element of the slice a signal element was loaded from
+  counts as a join of that signal, which makes a drain loop over a locally
+  built channel slice an unproven counted join; and
+- an integer counter stepped beside the launch and compared in a guard, such
+  as `started++` before `go` and `if started == 0 { return }` or a receive
+  loop bounded by the count, correlates the guard with the launch the way a
+  Boolean flag does.
+
+The corrections removed four transaction rollbacks in LiveReview and pad, one
+sidecar re-query, one sidecar launched waiter, two cb-spider fan-out joins,
+and one rules_img prefetch handoff. Precision round 30 labels those nine
+false positives and thirteen nearby true positives: a discarded
+`WithTimeout` cancel that cb-spider repeats in thirty-three connectors, a
+celestials cancel never deferred, a dispatcher that returns with its mutex
+held, two rules_img archive copies that never close the destination, a gzip
+reader and two response bodies never closed, an unstopped hourly ticker, an
+unbuffered result channel whose sender blocks after the receiver leaves, a
+shared error written by parallel goroutines, a defer inside a pod-log loop,
+and a server launcher that leaks the child on its PID-file error path.
+
+rules_img's files appended to a local closer slice that a deferred loop
+closes, and its flag value appended through a pointer receiver, remain
+reportable pending a slice-drain release proof. Nine fire-and-forget browser
+launches remain policy reports. Opt-in global-state, API-shape, and
+detached-goroutine findings were sampled without expanding default policy.
+Batch 28 replayed round 30 and rounds 3, 23, and 29.

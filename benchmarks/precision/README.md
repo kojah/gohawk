@@ -164,3 +164,11 @@ that receives a response body and closes it, whether launched on a goroutine
 or called directly, and a WaitGroup join guarded by a local Boolean assigned
 alongside the launch. Nearby response, compression, lock, and file findings
 remain reportable.
+
+Round 30 preserves the twenty-sixth reviewed batch. It covers a deferred
+literal that rolls a transaction back unless a committed flag was set, a rows
+variable re-queried before its deferred Close, a completion channel handed off
+through a select send, receives from the elements of a locally built channel
+slice, and joins guarded by an integer counter stepped beside the launch.
+Nearby context, lock, file, response, compression, producer, capture, defer,
+and process findings remain reportable.
