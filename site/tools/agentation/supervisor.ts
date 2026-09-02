@@ -6,13 +6,16 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
+	type AgentName,
 	type Annotation,
 	annotationRevision,
+	buildClaudeCommand,
 	buildCodexCommand,
 	buildPrompt,
 	type CodexResult,
 	isRecord,
 	type PersistedState,
+	parseAgentName,
 	parseCodexResult,
 	parsePersistedState,
 	parseSubmitPayload,
@@ -24,10 +27,18 @@ import {
 	type WorkerStatus,
 } from './supervisor-protocol.ts';
 
+// The worker CLI defaults to codex, or to the GOHAWK_AGENTATION_AGENT override,
+// and is switchable at runtime through the supervisor's /agent endpoint.
+const DEFAULT_AGENT: AgentName =
+	parseAgentName(process.env.GOHAWK_AGENTATION_AGENT?.toLowerCase()) ?? 'codex';
+const AVAILABLE_AGENTS: readonly AgentName[] = ['codex', 'claude'];
+
 export type { ReviewJob, WorkerPhase, WorkerStatus } from './supervisor-protocol.ts';
 export {
 	annotationRevision,
+	buildClaudeCommand,
 	buildCodexCommand,
+	parseAgentName,
 	parseCodexResult,
 	parsePersistedState,
 	parseSubmitPayload,
@@ -137,6 +148,17 @@ class ReviewSupervisor {
 		return this.status;
 	}
 
+	resolveAgent(): AgentName {
+		return this.state.agent ?? DEFAULT_AGENT;
+	}
+
+	async setAgent(agent: AgentName): Promise<void> {
+		this.state.agent = agent;
+		await writeState(this.state);
+		// Republish status so review clients reflect the change immediately.
+		this.setStatus(this.status);
+	}
+
 	async enqueue(payload: SubmitPayload): Promise<{ job?: ReviewJob; duplicate: boolean }> {
 		const selected = selectNewRevisions(payload, this.state.queue, this.state.completedRevisions);
 		if (!selected) return { duplicate: true };
@@ -160,8 +182,8 @@ class ReviewSupervisor {
 	}
 
 	private setStatus(status: WorkerStatus): void {
-		this.status = status;
-		const event = `data: ${JSON.stringify(status)}\n\n`;
+		this.status = { ...status, agent: this.resolveAgent() };
+		const event = `data: ${JSON.stringify(this.status)}\n\n`;
 		for (const client of this.clients) client.write(event);
 	}
 
@@ -197,13 +219,20 @@ class ReviewSupervisor {
 		await updateAnnotations(job.annotations, 'acknowledged');
 
 		const resultFile = resolve(RUNTIME_DIRECTORY, `result-${job.id}.json`);
-		const command = buildCodexCommand({
-			threadId: this.state.threadId,
-			prompt: buildPrompt(job),
-			projectDirectory: PROJECT_DIRECTORY,
-			resultSchemaFile: RESULT_SCHEMA_FILE,
-			resultFile,
-		});
+		const agent = this.resolveAgent();
+		const command =
+			agent === 'claude'
+				? buildClaudeCommand({
+						threadId: this.state.threadId,
+						prompt: buildPrompt(job, resultFile),
+					})
+				: buildCodexCommand({
+						threadId: this.state.threadId,
+						prompt: buildPrompt(job),
+						projectDirectory: PROJECT_DIRECTORY,
+						resultSchemaFile: RESULT_SCHEMA_FILE,
+						resultFile,
+					});
 		await log(
 			`starting ${this.state.threadId ? `thread ${this.state.threadId}` : 'new thread'} for job ${job.id}`,
 		);
@@ -231,7 +260,7 @@ class ReviewSupervisor {
 			});
 			child.stderr.on('data', (chunk: Buffer) => void appendFile(LOG_FILE, chunk));
 			child.on('error', (error) => {
-				void log(`failed to start Codex: ${error.message}`);
+				void log(`failed to start ${agent}: ${error.message}`);
 				resolveExit(-1);
 			});
 			child.on('exit', (code) => resolveExit(code ?? -1));
@@ -258,7 +287,7 @@ class ReviewSupervisor {
 		}
 
 		await updateAnnotations(job.annotations, 'pending');
-		const detail = result?.summary ?? `Codex exited with code ${exitCode}`;
+		const detail = result?.summary ?? `${agent} exited with code ${exitCode}`;
 		this.setStatus({
 			phase: 'failed',
 			jobId: job.id,
@@ -289,6 +318,31 @@ export async function startSupervisor(): Promise<void> {
 				Connection: 'keep-alive',
 			});
 			supervisor.addClient(response);
+			return;
+		}
+		if (request.method === 'GET' && url.pathname === '/agent') {
+			sendJson(response, 200, {
+				agent: supervisor.resolveAgent(),
+				available: AVAILABLE_AGENTS,
+				default: DEFAULT_AGENT,
+			});
+			return;
+		}
+		if (request.method === 'POST' && url.pathname === '/agent') {
+			try {
+				const body = await readRequestBody(request);
+				const agent = parseAgentName(isRecord(body) ? body.agent : undefined);
+				if (!agent) {
+					sendJson(response, 400, { error: 'agent must be "codex" or "claude"' });
+					return;
+				}
+				await supervisor.setAgent(agent);
+				sendJson(response, 200, { agent });
+			} catch (error) {
+				sendJson(response, 400, {
+					error: error instanceof Error ? error.message : 'invalid request',
+				});
+			}
 			return;
 		}
 		if (request.method === 'POST' && url.pathname === '/webhook') {

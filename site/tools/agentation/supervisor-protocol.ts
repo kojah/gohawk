@@ -19,14 +19,22 @@ export type ReviewJob = {
 	annotations: Annotation[];
 };
 
+export type AgentName = 'codex' | 'claude';
+
+export function parseAgentName(value: unknown): AgentName | undefined {
+	return value === 'codex' || value === 'claude' ? value : undefined;
+}
+
 export type PersistedState = {
 	threadId?: string;
+	agent?: AgentName;
 	queue: ReviewJob[];
 	completedRevisions: string[];
 };
 
 export type WorkerStatus = {
 	phase: WorkerPhase;
+	agent?: AgentName;
 	jobId?: string;
 	annotationCount?: number;
 	queueLength: number;
@@ -140,6 +148,7 @@ export function parsePersistedState(value: unknown): PersistedState | null {
 	if (!isRecord(value) || !Array.isArray(value.queue)) return null;
 	return {
 		threadId: typeof value.threadId === 'string' ? value.threadId : undefined,
+		agent: parseAgentName(value.agent),
 		queue: value.queue as ReviewJob[],
 		completedRevisions: Array.isArray(value.completedRevisions)
 			? value.completedRevisions.filter(
@@ -152,9 +161,18 @@ export function parsePersistedState(value: unknown): PersistedState | null {
 export function parseThreadId(line: string): string | undefined {
 	try {
 		const event: unknown = JSON.parse(line);
-		if (!isRecord(event) || event.type !== 'thread.started') return undefined;
-		const threadId = event.thread_id ?? event.threadId;
-		return typeof threadId === 'string' && threadId.length > 0 ? threadId : undefined;
+		if (!isRecord(event)) return undefined;
+		// Codex streams a thread.started event; Claude Code streams a system/init
+		// event whose session_id identifies the resumable conversation.
+		let id: unknown;
+		if (event.type === 'thread.started') {
+			id = event.thread_id ?? event.threadId;
+		} else if (event.type === 'system' && event.subtype === 'init') {
+			id = event.session_id;
+		} else {
+			return undefined;
+		}
+		return typeof id === 'string' && id.length > 0 ? id : undefined;
 	} catch {
 		return undefined;
 	}
@@ -205,8 +223,8 @@ export function buildCodexCommand(options: {
 	};
 }
 
-export function buildPrompt(job: ReviewJob): string {
-	return `You are the dedicated UI feedback worker for the gohawk repository.
+export function buildPrompt(job: ReviewJob, resultFile?: string): string {
+	const base = `You are the dedicated UI feedback worker for the gohawk repository.
 
 Address the submitted Agentation feedback batch below. Work only inside this repository. Preserve unrelated working-tree changes. Do not commit or push. Do not modify the Agentation review tooling unless the feedback explicitly concerns that tooling. Inspect the current source rather than assuming a framework or file location. Make the requested changes, run focused checks appropriate to the files you touched, and verify the result as far as the local environment allows.
 
@@ -215,4 +233,28 @@ Return status "completed" only when every annotation in this batch has been addr
 <submitted_feedback>
 ${job.output}
 </submitted_feedback>`;
+	if (!resultFile) return base;
+	// Codex writes its structured last message to a file via a CLI flag; an
+	// agent without that flag is told to write the same result itself.
+	return `${base}
+
+When you have finished, write your result as your final action to the file ${resultFile}: a single JSON object with exactly two fields, "status" (either "completed" or "blocked") and "summary" (a short explanation). Write only that JSON object to that file.`;
+}
+
+export function buildClaudeCommand(options: { threadId?: string; prompt: string }): CodexCommand {
+	// Claude Code runs in the supervisor's working directory. Streaming JSON is
+	// required so the system/init event exposes the session id parseThreadId
+	// reads, and skipping permission prompts keeps the batch non-interactive.
+	const base = [
+		'--output-format',
+		'stream-json',
+		'--verbose',
+		'--dangerously-skip-permissions',
+		'-p',
+		options.prompt,
+	];
+	if (options.threadId) {
+		return { command: 'claude', args: ['--resume', options.threadId, ...base] };
+	}
+	return { command: 'claude', args: base };
 }

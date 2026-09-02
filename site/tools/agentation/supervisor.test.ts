@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
 	annotationRevision,
+	buildClaudeCommand,
 	buildCodexCommand,
+	parseAgentName,
 	parseCodexResult,
 	parsePersistedState,
 	parseSubmitPayload,
@@ -74,14 +76,19 @@ test('rejects revisions that are already queued or completed', () => {
 test('preserves completed revisions across state reloads and migrates legacy state', () => {
 	assert.deepEqual(parsePersistedState({ threadId: 'thread-1', queue: [] }), {
 		threadId: 'thread-1',
+		agent: undefined,
 		queue: [],
 		completedRevisions: [],
 	});
-	assert.deepEqual(parsePersistedState({ queue: [], completedRevisions: ['revision-1', 42] }), {
-		threadId: undefined,
-		queue: [],
-		completedRevisions: ['revision-1'],
-	});
+	assert.deepEqual(
+		parsePersistedState({ agent: 'claude', queue: [], completedRevisions: ['revision-1', 42] }),
+		{
+			threadId: undefined,
+			agent: 'claude',
+			queue: [],
+			completedRevisions: ['revision-1'],
+		},
+	);
 });
 
 test('rejects annotation events and incomplete submissions', () => {
@@ -115,4 +122,34 @@ test('starts a sandboxed thread, then resumes the same thread', () => {
 	const resumed = buildCodexCommand({ ...base, threadId: 'thread-123' });
 	assert.deepEqual(resumed.args.slice(0, 3), ['exec', 'resume', '--json']);
 	assert.ok(resumed.args.includes('thread-123'));
+});
+
+test('extracts Claude Code session IDs from the init event', () => {
+	assert.equal(
+		parseThreadId(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'session-abc' })),
+		'session-abc',
+	);
+	// A non-init system event carries no resumable id.
+	assert.equal(
+		parseThreadId(JSON.stringify({ type: 'system', subtype: 'hook_started', session_id: 'x' })),
+		undefined,
+	);
+});
+
+test('builds a Claude Code command and resumes its session', () => {
+	const initial = buildClaudeCommand({ prompt: 'Fix the feedback.' });
+	assert.equal(initial.command, 'claude');
+	assert.ok(initial.args.includes('--dangerously-skip-permissions'));
+	assert.deepEqual(initial.args.slice(-2), ['-p', 'Fix the feedback.']);
+	assert.equal(initial.args.includes('--resume'), false);
+
+	const resumed = buildClaudeCommand({ prompt: 'More feedback.', threadId: 'session-abc' });
+	assert.deepEqual(resumed.args.slice(0, 2), ['--resume', 'session-abc']);
+});
+
+test('parses the configurable agent name', () => {
+	assert.equal(parseAgentName('codex'), 'codex');
+	assert.equal(parseAgentName('claude'), 'claude');
+	assert.equal(parseAgentName('gemini'), undefined);
+	assert.equal(parseAgentName(undefined), undefined);
 });
