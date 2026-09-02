@@ -130,5 +130,5 @@ func allowedGlobal(
 	if conventionalFrameworkGlobal(value) {
 		return true
 	}
-	return effectivelyImmutableComposite(pass, name, object, specification, index, usage)
+	return effectivelyImmutableComposite(pass, name, object, declaration, specification, index, usage)
 }

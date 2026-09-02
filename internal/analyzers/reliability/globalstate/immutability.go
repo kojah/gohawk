@@ -18,10 +18,14 @@ func effectivelyImmutableComposite(
 	pass *analysis.Pass,
 	name *ast.Ident,
 	object types.Object,
+	declaration *ast.GenDecl,
 	specification *ast.ValueSpec,
 	index int,
 	usage globalStateUsage,
 ) bool {
+	if recognized, readOnly := embeddedByteSliceReadOnly(pass, name, object, declaration, specification, index, usage); recognized {
+		return readOnly
+	}
 	if name.IsExported() || index >= len(specification.Values) {
 		return false
 	}
@@ -165,7 +169,8 @@ func readOnlyCallUse(
 	seen map[types.Object]bool,
 ) bool {
 	if collectionElementsDeeplyImmutable(pass.TypesInfo.TypeOf(value)) &&
-		(readOnlyCollectionBuiltin(pass, call, current) || readOnlyCollectionPackageCall(pass, call)) {
+		(readOnlyCollectionBuiltin(pass, call, current) || readOnlyCollectionPackageCall(pass, call) ||
+			readOnlyCollectionMethodCall(pass, call, current)) {
 		return true
 	}
 	argument := collectionArgumentIndex(call, current)

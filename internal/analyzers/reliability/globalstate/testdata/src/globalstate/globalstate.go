@@ -1,7 +1,10 @@
 package globalstate
 
 import (
+	"bytes"
+	_ "embed"
 	"errors"
+	"net/http"
 	"reflect"
 	"regexp"
 	"slices"
@@ -37,6 +40,48 @@ func replaceReflectedType() { reassignedReflectedType = reflect.TypeFor[string](
 var immutableBytes = []byte("value")
 
 func bytesValue() byte { return immutableBytes[0] }
+
+//go:embed embedded.txt
+var embeddedBytes []byte
+
+func writeEmbeddedBytes(response http.ResponseWriter) {
+	_, _ = response.Write(embeddedBytes)
+}
+
+//go:embed embedded.txt
+var ExportedEmbeddedBytes []byte // want "mutable package state ExportedEmbeddedBytes"
+
+//go:embed embedded.txt
+var reassignedEmbeddedBytes []byte // want "mutable package state reassignedEmbeddedBytes"
+
+func reassignEmbeddedBytes() { reassignedEmbeddedBytes = []byte("replacement") }
+
+//go:embed embedded.txt
+var mutatedEmbeddedBytes []byte // want "mutable package state mutatedEmbeddedBytes"
+
+func mutateEmbeddedBytes() { mutatedEmbeddedBytes[0] = 'x' }
+
+//go:embed embedded.txt
+var appendedEmbeddedBytes []byte // want "mutable package state appendedEmbeddedBytes"
+
+func appendEmbeddedBytes() { _ = append(appendedEmbeddedBytes, 'x') }
+
+//go:embed embedded.txt
+var indirectlyMutatedEmbeddedBytes []byte // want "mutable package state indirectlyMutatedEmbeddedBytes"
+
+func mutateByteSlice(value []byte) { value[0] = 'x' }
+
+func mutateEmbeddedBytesIndirectly() { mutateByteSlice(indirectlyMutatedEmbeddedBytes) }
+
+//go:embed embedded.txt
+var opaqueEmbeddedBytes []byte // want "mutable package state opaqueEmbeddedBytes"
+
+func retainEmbeddedBytes() *bytes.Buffer { return bytes.NewBuffer(opaqueEmbeddedBytes) }
+
+//go:embed embedded.txt
+var addressedEmbeddedBytes []byte // want "mutable package state addressedEmbeddedBytes"
+
+func embeddedBytesAddress() *[]byte { return &addressedEmbeddedBytes }
 
 func mutateValues() { values["key"] = "value" }
 

@@ -30,6 +30,17 @@ func qualifiedTypeName(value types.Type) string {
 	return packagePath + "." + named.Obj().Name()
 }
 
+func readOnlyCollectionMethodCall(pass *analysis.Pass, call *ast.CallExpr, target ast.Node) bool {
+	// ResponseWriter.Write follows the io.Writer contract: it neither modifies
+	// nor retains its byte-slice argument. Keep exact receiver identity so an
+	// application-defined Write method cannot establish immutability by name.
+	return collectionArgumentIndex(call, target) == 0 && syntax.IsCallTo(pass, call, syntax.PackageMethod(syntax.MethodSymbol{
+		PackagePath: "net/http",
+		Receiver:    "ResponseWriter",
+		Name:        "Write",
+	}))
+}
+
 func conventionalFrameworkBinding(pass *analysis.Pass, specification *ast.ValueSpec, index int) bool {
 	if index >= len(specification.Values) {
 		return false
