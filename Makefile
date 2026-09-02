@@ -24,7 +24,7 @@ VERIFY_MAKE_ARGS := --no-print-directory $(VERIFY_OUTPUT_SYNC) --jobs=$(VERIFY_J
 
 .PHONY: help build fmt fmt-check generate generated-check mod-verify lint deadcode vuln test \
 	test-exhaustive test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
-	precision-regression site-check site-build site-links site-links-external site-review
+	precision-regression site-check site-build site-links site-links-external site-review generated-sync
 
 help:
 	@printf '%s\n' \
@@ -107,15 +107,27 @@ dogfood: build
 skills-check:
 	./scripts/check-skills-current.sh
 
-verify-static:
+# Regenerate derived documentation before the local gates fan out, so
+# mechanical drift is repaired in place instead of reported and then fixed by
+# hand. It runs as a prerequisite, ahead of the parallel checks, so nothing
+# reads a page while it is being rewritten. Hosted CI keeps the strict
+# generated-check: it cannot commit a fix, and a stale committed page must
+# fail there.
+ifndef CI
+generated-sync: generate
+else
+generated-sync:
+endif
+
+verify-static: generated-sync
 	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_STATIC_TARGETS)
 
-verify:
+verify: generated-sync
 	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS)
 
 # The aggregate local CI target adds coverage. Hosted CI and release workflows
 # run the custom golangci-lint plugin test as a separate gate.
-ci:
+ci: generated-sync
 	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS) coverage
 
 benchmark:

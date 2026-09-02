@@ -75,6 +75,11 @@ for what a fact can prove and the polarity each mask must keep.
 
 ## 5. Validate
 
+- `make verify` — the local gate. It regenerates the derived documentation
+  first, so a helper you added or renamed updates the generated index in
+  place instead of failing `generated-check`; commit the regenerated pages
+  with your change. Only prose that cites renamed code still fails, and that
+  needs a human edit.
 - `make lint` — includes `funlen`, `gocognit`, `cyclop`, `lll`, and `dupl` at
   60 tokens.
 - `go test ./internal/architecture/` — the enforced invariants.
