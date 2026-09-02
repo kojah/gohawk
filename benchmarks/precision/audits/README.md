@@ -1311,3 +1311,18 @@ times out, a containerd stdout file and process leaked when the client
 fails to connect, and a temporary file created only for its name. Nine
 logged-and-returned errors and four fire-and-forget browser launches are
 policy and opt-in reports respectively.
+
+## Batch 43
+
+Twenty-five repositories and thirty-eight modules were selected, the first
+batch at the wider size. Twenty-seven modules loaded and scanned; the rest
+need module downloads the scan forbids or hold no packages. Final scans
+produced 3,422 unique diagnostics, two thirds of them opt-in global-state
+reports from operator codebases, with no bounded correction: all
+twenty-four default ownership findings reviewed were defects or policy
+reports. Precision round 45 pins eight of them across five repositories,
+including diecast's Serve, which launches several server goroutines that
+each send on one unbuffered channel it receives from once, and kubectl-gs's
+device-token wait, whose timeout goroutine sends after the select has
+returned. Five fire-and-forget browser launches appear only under the
+opt-in detached-process audit.

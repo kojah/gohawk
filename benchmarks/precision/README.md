@@ -249,3 +249,11 @@ It pins a struct returned beside the Unmarshal that fills it, a file closed
 by a defer inside a copy loop, accept-loop workers left unjoined on an error
 return, a log file and a command leaked when a follow-up step fails, a
 command killed without being reaped, and a temporary file never closed.
+
+Round 45 preserves the forty-first reviewed batch, the first of twenty-five
+repositories, which needed no correction. It pins a discarded NotifyContext
+stop function, an include file closed by a defer inside a loop, server
+goroutines sending on an unbuffered channel that is received from once, a
+mounted file and a binding response leaked on later error paths, a device
+token timeout sent on a channel the select has already left, an import file
+never closed, and a source file leaked when its Stat fails.

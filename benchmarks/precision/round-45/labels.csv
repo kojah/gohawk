@@ -1,0 +1,9 @@
+repository,analyzer,position,verdict
+OpenPrinting/go-mfp,cancellationownership,argv/command.go:280:11,true_positive
+ghetzel/diecast,deferinloop,server.go:2429:5,true_positive
+ghetzel/diecast,producerlifecycle,server.go:1019:5,true_positive
+ghetzel/diecast,resourcelifetime,mount_file.go:50:15,true_positive
+ghetzel/diecast,resourcelifetime,protocol_http.go:291:18,true_positive
+giantswarm/kubectl-gs,producerlifecycle,pkg/oidc/device_auth.go:138:3,true_positive
+noborus/trdsql,resourcelifetime,importer.go:419:15,true_positive
+speakeasy-api/gram,resourcelifetime,cli/internal/deploy/read.go:17:12,true_positive
