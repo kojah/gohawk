@@ -478,3 +478,44 @@ func conditionallyReturnedResponse(client *http.Client, request *http.Request) e
 	}
 	return err
 }
+
+// wrapBody returns an iterator that owns the body and closes it when the
+// consumer finishes.
+func wrapBody(body io.ReadCloser) func(yield func([]byte) bool) {
+	return func(yield func([]byte) bool) {
+		defer body.Close()
+		yield(nil)
+	}
+}
+
+func wrapBodyConditionally(body io.ReadCloser, wrap bool) func(yield func([]byte) bool) {
+	if !wrap {
+		return nil
+	}
+	return wrapBody(body)
+}
+
+func responseReturnedThroughWrappingHelper(client *http.Client, request *http.Request) (func(yield func([]byte) bool), error) {
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	return wrapBody(response.Body), nil
+}
+
+func responseWrappedButDiscarded(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	_ = wrapBody(response.Body)
+	return nil
+}
+
+func responseWrappedOnSomePathsOnly(client *http.Client, request *http.Request, wrap bool) (func(yield func([]byte) bool), error) {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return nil, err
+	}
+	return wrapBodyConditionally(response.Body, wrap), nil
+}

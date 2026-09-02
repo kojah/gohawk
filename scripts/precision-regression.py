@@ -80,6 +80,17 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
         except subprocess.TimeoutExpired:
             print(f"warning: {repository}: timed out in {module.relative_to(checkout)}", file=sys.stderr)
             continue
+        # gohawk exits 0 without findings and 3 with findings. Anything else, or
+        # an empty payload, means the scan did not run to completion (for
+        # example an out-of-memory kill under a parallel replay), and treating
+        # that as "no findings" would report reviewed true positives as lost.
+        if result.returncode not in (0, 3) or not result.stdout.strip():
+            print(
+                f"warning: {repository}: scan failed in {module.relative_to(checkout)} "
+                f"(exit {result.returncode}): {result.stderr.strip()[:200]}",
+                file=sys.stderr,
+            )
+            continue
         try:
             payload = json.loads(result.stdout or "{}")
         except json.JSONDecodeError:

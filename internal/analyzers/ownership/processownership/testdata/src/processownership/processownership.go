@@ -409,3 +409,21 @@ func controllerWithoutWatcher(ctx context.Context) error {
 	defer func() { _ = controller.close() }()
 	return command.Start() // want "started command is not waited on every successful return path"
 }
+
+type startedCopy exec.Cmd
+
+func (copy *startedCopy) Close() {
+	_ = (*exec.Cmd)(copy).Process.Kill()
+	_ = (*exec.Cmd)(copy).Wait()
+}
+
+// Returning a by-value copy of the started command hands the same process
+// state, and therefore the wait obligation, to the caller.
+func returnedCommandCopy(ctx context.Context) *startedCopy {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		panic(err)
+	}
+	copy := startedCopy(*command)
+	return &copy
+}

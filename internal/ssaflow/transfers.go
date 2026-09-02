@@ -41,28 +41,57 @@ func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bo
 	return false
 }
 
-// StoresValueInOwnedMap reports whether instruction transfers value into a
-// map that belongs to a caller, receiver, closure, or package owner.
-
+// CallTransfersArgumentToReturnedOwner reports whether a source-visible
+// callee hands the argument back inside every value it returns, and the
+// caller then lets that result escape. Both halves are required: a callee
+// that returns the owner on only some paths may drop it on the others, and a
+// result the caller keeps local is still the caller's to release. Cilium's
+// statedb wraps a response body in a returned iterator this way:
+// https://github.com/cilium/statedb/blob/3546c463bfbb8afa5263b692be472bfb958bedcf/http_client.go#L78-L89
 func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa.Value) bool {
-	common := InstructionCall(instruction)
-	if common == nil || common.StaticCallee() == nil {
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
 		return false
 	}
-	callee := common.StaticCallee()
-	for index, argument := range common.Args {
+	callee := staticCalleeBody(call.Common())
+	if callee == nil || !valueTransferred(call, map[ssa.Value]bool{}) {
+		return false
+	}
+	for index, argument := range call.Common().Args {
 		if index >= len(callee.Params) || !ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !ValueContainsValue(argument, value) {
 			continue
 		}
-		for _, block := range callee.Blocks {
-			for _, candidate := range block.Instrs {
-				if returned, ok := candidate.(*ssa.Return); ok && ReturnedValueOwnsValue(returned, callee.Params[index]) {
-					return true
-				}
+		parameter := callee.Params[index]
+		owned := false
+		unowned := UnownedReturnFromEntryAllow(callee, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
+			if ReturnedValueOwnsValue(returned, parameter) {
+				owned = true
+				return true
 			}
+			return false
+		})
+		if owned && !unowned {
+			return true
 		}
 	}
 	return false
+}
+
+// staticCalleeBody returns the callee whose body can be analyzed. Generic
+// instantiations may carry no blocks of their own; the origin has the same
+// parameter positions and the source body.
+func staticCalleeBody(common *ssa.CallCommon) *ssa.Function {
+	callee := common.StaticCallee()
+	if callee == nil {
+		return nil
+	}
+	if len(callee.Blocks) == 0 && callee.Origin() != nil {
+		callee = callee.Origin()
+	}
+	if len(callee.Blocks) == 0 {
+		return nil
+	}
+	return callee
 }
 
 // CallTransfersArgumentToReceiver reports whether a source-visible method

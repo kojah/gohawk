@@ -150,6 +150,13 @@ func ownershipSource(value ssa.Value) (ssa.Value, bool) {
 		return typed.X, true
 	case *ssa.Slice:
 		return typed.X, true
+	case *ssa.TypeAssert:
+		// A type assertion denotes the same object as the interface value it
+		// narrows, so a channel field read through an asserted event is owned
+		// by whoever owns the event.
+		return typed.X, true
+	case *ssa.Extract:
+		return typed.Tuple, true
 	default:
 		return nil, false
 	}

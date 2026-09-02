@@ -102,3 +102,19 @@ type nestedLifecycleOwner struct {
 func startsNestedCallerOwner(owner nestedLifecycleOwner) {
 	go owner.worker.run() // want "goroutine is not joined on every return path"
 }
+
+type resultEvent struct {
+	Channel chan bool
+}
+
+// A channel read from a type-asserted event is owned by the event's producer,
+// so a worker that answers on it transfers completion to that owner.
+func answersOnAssertedEventChannel(event any) {
+	var channel chan bool
+	if typed, ok := event.(*resultEvent); ok {
+		channel = typed.Channel
+	}
+	if channel != nil {
+		go func(reply chan bool) { reply <- true }(channel)
+	}
+}

@@ -52,6 +52,21 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]boo
 		}
 	case *ssa.Slice:
 		return aggregateStoresValue(typed.X, value, seen)
+	case *ssa.MakeClosure:
+		// A returned callback that captured the value keeps it alive and is the
+		// only thing that can still release it, so the caller receives the
+		// obligation with the callback.
+		for _, binding := range typed.Bindings {
+			if CapturedBindingMatches(binding, value) || aggregateStoresValue(CapturedBindingValue(binding), value, seen) {
+				return true
+			}
+		}
+	case *ssa.UnOp:
+		// Copying the owner by value, as in ephemeral(*cmd), carries the same
+		// process or handle state, so returning the copy transfers it.
+		if typed.Op == token.MUL && SameValue(typed.X, value) {
+			return true
+		}
 	}
 	if _, ok := aggregate.(*ssa.Alloc); ok && addressStoresValue(aggregate, value, seen) {
 		return true

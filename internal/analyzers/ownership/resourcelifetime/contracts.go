@@ -285,7 +285,7 @@ func callTakesResourceOwnership(evidence *lifecyclefacts.LifecycleEvidence, inst
 		Instruction: instruction,
 		Value:       resource,
 		Modes: ssaflow.TransferCallResultStoredInField | ssaflow.TransferToReceiver |
-			ssaflow.TransferToLifecycleOwner,
+			ssaflow.TransferToLifecycleOwner | ssaflow.TransferToReturnedOwner,
 	}
 	return evidence.Prove(lifecyclefacts.EvidenceRequest{
 		Instruction: instruction,
