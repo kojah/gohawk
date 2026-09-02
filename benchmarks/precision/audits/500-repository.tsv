@@ -339,3 +339,13 @@
 34	voocel/agentcore	d3a0f8112ae4764bf5b548e712074404791326b2	.	reviewed
 34	voocel/ainovel-cli	e954fe6f7cda2041779ffbcd0bac7767eaacf740	.	reviewed
 34	ROCm/k8s-device-plugin	19d4d9f475071bfe4e14e5078ac7e60efb5b3270	.	reviewed
+35	launchdarkly/ld-relay	9b18652b81208fdb32353422c0145204ca170643	.	reviewed
+35	autobrr/autobrr	31a08a55a4539d846f1c68bfef43798659e05596	.	reviewed
+35	stmcginnis/gofish	ee27ce41163efada9aa148c5bb8d2908d02952a1	.,tools/generator	reviewed
+35	hashicorp/terraform-plugin-sdk	8ecd721f69b892fe64f0e0335a666bc52ba403c9	.,tools	reviewed
+35	open-feature/flagd	48be8de6209e15fe8a8aa7c57ff93ea770ec74cd	core,flagd,flagd-proxy,test/integration,test/loadtest,test/zero-downtime-flagd-proxy,flagd-proxy/tests/loadtest	reviewed
+35	interlynk-io/sbomasm	342d5fcb66adc636d5b92518a2535311cd9bc1bb	.	reviewed
+35	transparency-dev/witness	f8056f8fa0d33469be430dac2982e1f3cf745322	.	reviewed
+35	dbtrail/dbtrail	f0870ad9813a5719126d2cb33fbabd4de7dfb676	.	reviewed
+35	terraform-lxd/terraform-provider-lxd	c0f202ab3c0574f5738131f268220c614cb0b332	.	reviewed
+35	Yandex-Practicum/go-autotests	3f58c7c9e86c608b8cb4597183cea2d912900bb4	.	reviewed

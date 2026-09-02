@@ -1116,3 +1116,34 @@ critical section released by a helper that reports whether it unlocked, and
 a ripgrep pipeline not waited on scanner errors remain reportable. Opt-in
 global-state, API-shape, and detached-goroutine findings were sampled without
 expanding default policy.
+
+## Batch 35
+
+Ten repositories and eighteen modules were selected. Thirteen modules loaded
+and scanned fully; flagd-proxy and dbtrail produced useful partial analysis
+around dependencies that exclude the host platform, and three directories
+hold no buildable package. Final scans produced 589 unique diagnostics after two bounded
+corrections:
+
+- the non-nil assumption that summaries and completion proofs make about a
+  parameter extends to a nil-comparable field loaded from it, such as
+  `resp.Body`: when the field is nil there is nothing to release, so a helper
+  that closes the body under `resp != nil && resp.Body != nil` is summarized
+  as closing it; and
+- a captured variable that only ever holds the acquired value or nil, cleared
+  after a successful settlement and checked by the deferred literal, still
+  reaches the value on every path that did not settle it, so the deferred
+  literal may release it.
+
+The first correction removed forty-one autobrr findings that all defer one
+shared drain helper. The second removed one witness transaction rollback.
+Precision round 37 labels five of those false positives and five nearby true
+positives: an SBOM output file never closed, a gzip reader never closed, a
+file leaked when its Stat fails, a discarded signal-context cancel, and a
+response leaked on a method check before its deferred close.
+
+Two terraform log files opened into the same named result, the second
+overwriting the first, a provider wait group whose early returns skip its
+Wait, and a helper that reads a log file into a returned writer remain
+reportable. Opt-in global-state, API-shape, and detached-goroutine findings
+were sampled without expanding default policy.

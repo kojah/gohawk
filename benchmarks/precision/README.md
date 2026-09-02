@@ -202,3 +202,9 @@ reportable.
 Round 36 preserves the thirty-second reviewed batch. It covers a file
 installed as the standard logger's output, which the logger's summary proves
 it keeps. A defer inside a transport retry loop remains reportable.
+
+Round 37 preserves the thirty-third reviewed batch. It covers a deferred
+imported helper that closes a response body under a nil check of the body,
+and a transaction variable cleared after Commit and checked by its deferred
+rollback. Nearby file, compression, cancel, and response findings remain
+reportable.
