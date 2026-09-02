@@ -65,12 +65,9 @@ func synchronize(root string, check bool) error {
 	if err := rejectUnknownPages(root, expectedPages); err != nil {
 		return err
 	}
-	encoded, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
+	if err := collectSharedUpdates(root, data, updates); err != nil {
 		return err
 	}
-	updates[filepath.Join(root, "site", "src", "generated", "analyzers.json")] = append(encoded, '\n')
-	updates[filepath.Join(root, "docs", "analyzers", "index.md")] = []byte(analyzerIndex(data))
 
 	paths := make([]string, 0, len(updates))
 	for path := range updates {
@@ -83,6 +80,19 @@ func synchronize(root string, check bool) error {
 		}
 	}
 	return nil
+}
+
+// collectSharedUpdates adds the pages that are not tied to one analyzer: the
+// site's analyzer manifest, the catalog index, and the generated blocks in the
+// development guides.
+func collectSharedUpdates(root string, data manifest, updates map[string][]byte) error {
+	encoded, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+	updates[filepath.Join(root, "site", "src", "generated", "analyzers.json")] = append(encoded, '\n')
+	updates[filepath.Join(root, "docs", "analyzers", "index.md")] = []byte(analyzerIndex(data))
+	return synchronizeDevelopmentDocs(root, updates)
 }
 
 func rejectUnknownPages(root string, expected map[string]bool) error {

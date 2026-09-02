@@ -17,15 +17,44 @@ positions**, each **proven on every normal return path**, computed
 **context-insensitively**, and attached to a **static callee**. Every
 capability and every limit below follows from one of those clauses.
 
+The declaration below is regenerated from
+`internal/passes/lifecyclefacts/fact.go` by `go generate ./...`, so the mask
+list is always the one the code has; do not edit it by hand.
+
+<!-- gohawk:generated-fact-fields:start -->
 ```go
+// Fact is the compact cross-package ownership summary exported for a
+// function. Each bit identifies an SSA parameter position. This package is
+// internal analysis infrastructure, not a public extension API.
 type Fact struct {
-    Invoked, Closed, Finalized, Released, Shutdown, Stopped, Waited,
-    Committed, RolledBack                      ParameterMask // discharge verbs
-    ReturnedOwner, ReturnedView, ReceiverStore ParameterMask // where the value went
-    Retained, Stored                           ParameterMask // kept beyond the call
-    OwnedFields, ReleasedFields                ParameterMask // indexed by field
+	Invoked		ParameterMask
+	Closed		ParameterMask
+	Finalized	ParameterMask
+	Released	ParameterMask
+	Shutdown	ParameterMask
+	Stopped		ParameterMask
+	Waited		ParameterMask
+	Committed	ParameterMask
+	RolledBack	ParameterMask
+	ReturnedOwner	ParameterMask
+	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
+	// returned struct, but no method of that type releases the field, so the
+	// caller keeps the obligation. See fields.go.
+	ReturnedView	ParameterMask
+	// Retained marks parameters the callee may keep beyond the call; see
+	// retention.go for the over-approximation it deliberately makes.
+	Retained	ParameterMask
+	// Stored is the strict form of Retained: positive structural evidence that
+	// the callee keeps the parameter, safe to treat as an ownership transfer.
+	Stored	ParameterMask
+	// OwnedFields and ReleasedFields are indexed by struct field, not
+	// parameter; see fields.go for the constructor and method summaries.
+	OwnedFields	ParameterMask
+	ReleasedFields	ParameterMask
+	ReceiverStore	ParameterMask
 }
 ```
+<!-- gohawk:generated-fact-fields:end -->
 
 A `ParameterMask` is a bitset over the first 64 parameter positions; the
 receiver is position 0. `OwnedFields` and `ReleasedFields` are indexed by
@@ -114,7 +143,8 @@ dogfood false positive is not sufficient reason.
 
 ## Where facts live
 
-Facts are imported and exported only inside the package that defines the fact
+Facts are imported and exported (`analysis.Pass.ImportObjectFact` and
+`analysis.Pass.ExportObjectFact`) only inside the package that defines the fact
 type. Consumers use `lifecyclefacts.LifecycleEvidence`, which consults local
 evidence first and imported facts second along one decision path. A second
 fact family with a different evidence model — `closedomain`'s field marker —

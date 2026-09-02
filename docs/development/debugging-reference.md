@@ -40,13 +40,18 @@ gohawk -gohawk-trace=ANALYZER[,CHECK,...] package...
 gohawk -gohawk-trace=all package...
 ```
 
-Emits one JSONL event per evidence decision to stderr. Scope it with:
+Emits one JSONL event per evidence decision to stderr. The flags below are
+regenerated from the flag set the analyzers register, by `go generate ./...`;
+do not edit them by hand.
 
+<!-- gohawk:generated-trace-flags:start -->
 | flag | effect |
 |---|---|
-| `-gohawk-trace-source=path[:line]` | only events at positions containing this path or line |
-| `-gohawk-trace-function=TEXT` | only events in functions whose name contains TEXT |
-| `-gohawk-trace-file=FILE` | append to FILE instead of stderr |
+| `-gohawk-trace` | emit JSONL evidence for comma-separated analyzers/checks, or all |
+| `-gohawk-trace-file` | append trace JSONL to this file instead of stderr |
+| `-gohawk-trace-function` | limit evidence tracing to functions containing this text |
+| `-gohawk-trace-source` | limit evidence tracing to positions containing this path[:line] |
+<!-- gohawk:generated-trace-flags:end -->
 
 The flags carry a `gohawk-` prefix because `x/tools` owns the generic `-trace`
 flag. Enabling tracing must never change which diagnostics are reported.
