@@ -29,13 +29,6 @@ type OwnershipTransferRequest struct {
 	Modes       OwnershipTransferMode
 }
 
-// ProveOwnershipTransfer returns the first concrete relationship that proves
-// ownership escaped to an accepted owner.
-func ProveOwnershipTransfer(request OwnershipTransferRequest) OwnershipTransferProof {
-	var evidence LocalEvidence
-	return evidence.OwnershipTransfer(request)
-}
-
 // OwnershipTransfer proves and memoizes an ownership-transfer request.
 func (evidence *LocalEvidence) OwnershipTransfer(request OwnershipTransferRequest) OwnershipTransferProof {
 	key := transferEvidenceKey{instruction: request.Instruction, value: request.Value, modes: request.Modes}

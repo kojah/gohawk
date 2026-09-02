@@ -1,9 +1,6 @@
 package ssaflow
 
 import (
-	"slices"
-	"strings"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -76,44 +73,6 @@ func DeferredHelperInvokesBoundMethodOnEveryReturn(instruction ssa.Instruction, 
 	return false
 }
 
-// DeferredClosurePassesValueToNamedCall reports whether a deferred closure
-// passes target to a call whose name contains one of fragments.
-func DeferredClosurePassesValueToNamedCall(instruction ssa.Instruction, target ssa.Value, fragments ...string) bool {
-	if _, ok := instruction.(*ssa.Defer); !ok {
-		return false
-	}
-	common, closure, function := calledFunction(instruction)
-	if function == nil {
-		return false
-	}
-	for _, block := range function.Blocks {
-		for _, candidate := range block.Instrs {
-			called := InstructionCall(candidate)
-			name := strings.ToLower(CallName(called))
-			if called == nil || !slices.ContainsFunc(fragments, func(fragment string) bool {
-				return strings.Contains(name, fragment)
-			}) {
-				continue
-			}
-			for _, argument := range called.Args {
-				for index, free := range function.FreeVars {
-					if index < len(closure.Bindings) && ValueDerivesFrom(argument, free, map[ssa.Value]bool{}) &&
-						CapturedBindingMatches(closure.Bindings[index], target) {
-						return true
-					}
-				}
-				for index, parameter := range function.Params {
-					if common != nil && index < len(common.Args) && ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) &&
-						SameValue(common.Args[index], target) {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
 // ClosureCallsValue reports whether a call-like closure or created callback calls target.
 func ClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
 	var closure *ssa.MakeClosure
@@ -129,13 +88,6 @@ func ClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
 		return false
 	}
 	return closureCallsValue(closure, target)
-}
-
-// ValueCallsValue reports whether value is, or wraps, a callback that invokes
-// target. It follows common callback wrappers and addressable locals so callers
-// can recognize cleanup registered through higher-order APIs.
-func ValueCallsValue(value, target ssa.Value) bool {
-	return valueCallsValue(value, target, map[ssa.Value]bool{})
 }
 
 // ValueCallsMethod reports whether value is, or wraps, a callback that invokes
@@ -229,67 +181,6 @@ func storedCallbackCallsMethod(address ssa.Value, method string, target ssa.Valu
 	for _, reference := range *address.Referrers() {
 		store, ok := reference.(*ssa.Store)
 		if ok && store.Addr == address && valueCallsMethod(store.Val, method, target, seen) {
-			return true
-		}
-	}
-	return false
-}
-
-func valueCallsValue(value, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
-	if closure, ok := value.(*ssa.MakeClosure); ok && closureValueCallsValue(closure, target, seen) {
-		return true
-	}
-	if inner, ok := UnwrapTransparentValue(
-		value,
-		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
-	); ok {
-		return valueCallsValue(inner, target, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.Alloc:
-		return storedCallbackCallsValue(typed, target, seen)
-	case *ssa.UnOp:
-		return storedCallbackCallsValue(typed.X, target, seen)
-	case *ssa.Phi:
-		for _, edge := range typed.Edges {
-			if valueCallsValue(edge, target, seen) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func closureValueCallsValue(closure *ssa.MakeClosure, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if closureCallsValue(closure, target) {
-		return true
-	}
-	function, ok := closure.Fn.(*ssa.Function)
-	if !ok {
-		return false
-	}
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			inner, ok := instruction.(*ssa.MakeClosure)
-			if ok && valueCallsValue(inner, target, seen) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func storedCallbackCallsValue(address, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if address.Referrers() == nil {
-		return false
-	}
-	for _, reference := range *address.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == address && valueCallsValue(store.Val, target, seen) {
 			return true
 		}
 	}

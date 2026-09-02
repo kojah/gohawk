@@ -2,27 +2,6 @@ package ssaflow
 
 import "golang.org/x/tools/go/ssa"
 
-// ClosureOwnsValue reports whether a started closure captures value.
-func ClosureOwnsValue(instruction ssa.Instruction, value ssa.Value) bool {
-	if _, ok := instruction.(*ssa.Go); !ok {
-		return false
-	}
-	common := InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	closure, ok := common.Value.(*ssa.MakeClosure)
-	if !ok {
-		return false
-	}
-	for _, binding := range closure.Bindings {
-		if CapturedBindingMatches(binding, value) {
-			return true
-		}
-	}
-	return false
-}
-
 func closureCallsValue(closure *ssa.MakeClosure, target ssa.Value) bool {
 	return closureCallsCapturedValue(closure, func(binding ssa.Value) bool {
 		return CapturedBindingMatches(binding, target)

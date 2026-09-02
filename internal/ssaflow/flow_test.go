@@ -155,18 +155,6 @@ func converted(value *int) callback {
 		t.Error("DeferredClosureCallsValue accepted a closure creation that was not deferred")
 	}
 
-	launched := pkg.Func("launched")
-	goInstruction := findSSAInstruction(t, launched, func(instruction ssa.Instruction) bool {
-		_, ok := instruction.(*ssa.Go)
-		return ok
-	})
-	if !ClosureOwnsValue(goInstruction, launched.Params[0]) {
-		t.Error("ClosureOwnsValue did not recognize a goroutine's captured value")
-	}
-	if ClosureOwnsValue(findMakeClosure(t, launched), launched.Params[0]) {
-		t.Error("ClosureOwnsValue accepted a closure that was not launched")
-	}
-
 	for _, name := range []string{"returned", "stored", "boxed", "converted"} {
 		function := pkg.Func(name)
 		if !ClosureCapturesValue(findMakeClosure(t, function), function.Params[0]) {

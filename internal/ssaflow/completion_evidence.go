@@ -35,13 +35,6 @@ type CompletionRequest struct {
 	Modes       CompletionMode
 }
 
-// ProveCompletion returns the first concrete relationship, in precision-first
-// order, that proves the requested lifecycle completion.
-func ProveCompletion(request CompletionRequest) CompletionProof {
-	var evidence LocalEvidence
-	return evidence.Completion(request)
-}
-
 // Completion proves and memoizes a lifecycle-completion request.
 func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionProof {
 	key := completionEvidenceKey{

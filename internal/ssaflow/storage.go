@@ -20,22 +20,6 @@ func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 	return ok
 }
 
-// StoresValueThroughExternalFieldPointer reports assignment through a pointer
-// slot held by an owner outside the current closure, such as
-// `*supervisor.cancel = cancel`.
-func StoresValueThroughExternalFieldPointer(instruction ssa.Instruction, value ssa.Value) bool {
-	store, ok := instruction.(*ssa.Store)
-	if !ok || !SameValue(store.Val, value) {
-		return false
-	}
-	load, ok := store.Addr.(*ssa.UnOp)
-	if !ok || load.Op != token.MUL {
-		return false
-	}
-	field, ok := load.X.(*ssa.FieldAddr)
-	return ok && ExternallyOwnedValue(field.X)
-}
-
 // StoresValueInGlobal reports whether instruction transfers value into
 // package-owned storage.
 func StoresValueInGlobal(instruction ssa.Instruction, value ssa.Value) bool {
