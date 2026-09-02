@@ -528,3 +528,44 @@ func discardedResponseRequiredToFail(t *testing.T, client *http.Client, request 
 	_, err := client.Do(request)
 	require.NotNil(t, err)
 }
+
+func drainAndCloseBody(body io.ReadCloser) {
+	_, _ = io.Copy(io.Discard, body)
+	_ = body.Close()
+}
+
+func maybeCloseBody(body io.Closer, enabled bool) {
+	if enabled {
+		_ = body.Close()
+	}
+}
+
+// A helper launched with the response's body closes that exact parameter on
+// every return, which releases the response.
+func bodyStreamedByStartedHelper(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	go drainAndCloseBody(response.Body)
+	return nil
+}
+
+// A helper called directly with the body closes it on that path.
+func bodyClosedByDirectHelper(client *http.Client, request *http.Request) (int, error) {
+	response, err := client.Do(request)
+	if err != nil {
+		return 0, err
+	}
+	drainAndCloseBody(response.Body)
+	return response.StatusCode, nil
+}
+
+func bodyMaybeClosedByDirectHelper(client *http.Client, request *http.Request, enabled bool) (int, error) {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return 0, err
+	}
+	maybeCloseBody(response.Body, enabled)
+	return response.StatusCode, nil
+}

@@ -112,3 +112,67 @@ func repeatedStopStoreDoesNotJoin(next func() bool) {
 		group.Wait()
 	}
 }
+
+// A join guarded by a local flag assigned alongside the launch is correlated
+// with the launch in a way the proof does not model, so it stays unknown.
+func flagGuardedWait(items []func()) {
+	var group sync.WaitGroup
+	started := false
+	for _, item := range items {
+		started = true
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			item()
+		}()
+	}
+	if started {
+		group.Wait()
+	}
+}
+
+func parameterGuardedWait(item func(), wait bool) {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { // want "goroutine is not joined on every return path"
+		defer group.Done()
+		item()
+	}()
+	if wait {
+		group.Wait()
+	}
+}
+
+// The same correlation inside a deferred closure: the flag assigned beside
+// the launch decides whether the deferred Wait runs.
+func deferredFlagGuardedWait(items []func(), fail func() bool) error {
+	var group sync.WaitGroup
+	var launched bool
+	defer func() {
+		if launched {
+			group.Wait()
+		}
+	}()
+	for _, item := range items {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			item()
+		}()
+		launched = true
+		if fail() {
+			return errNoWait
+		}
+	}
+	launched = false
+	group.Wait()
+	return nil
+}
+
+var errNoWait = errorf("failed")
+
+func errorf(text string) error { return &textError{text} }
+
+type textError struct{ text string }
+
+func (e *textError) Error() string { return e.text }

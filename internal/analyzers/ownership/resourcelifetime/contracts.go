@@ -194,12 +194,7 @@ func releasesOrdinaryResource(
 			// every return settles the bound cleanup method the same way. Fabric
 			// defers utils.IgnoreErrorFunc(rows.Close) throughout its storage code:
 			// https://github.com/hyperledger-labs/fabric-smart-client/blob/cb202fc2768b3e72b0197bbaf401b9c2287098e8/platform/view/services/storage/driver/sql/common/binding.go#L71-L75
-			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
-				if !invokesBoundCleanup(instruction, resource, method) {
-					return 0
-				}
-				return fact.Invoked
-			},
+			SelectMask: invokedCallbackMask(instruction, resource, method),
 		}).Proven() {
 			return true
 		}
@@ -266,6 +261,17 @@ func releasesOrdinaryResource(
 		}
 	}
 	return false
+}
+
+// invokedCallbackMask selects the imported Invoked summary only when the call
+// passes a callback bound to method on the exact resource.
+func invokedCallbackMask(instruction ssa.Instruction, resource ssa.Value, method string) func(lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
+	return func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
+		if !invokesBoundCleanup(instruction, resource, method) {
+			return 0
+		}
+		return fact.Invoked
+	}
 }
 
 // invokesBoundCleanup reports whether some argument of the call is a callback

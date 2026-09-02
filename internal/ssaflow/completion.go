@@ -132,10 +132,20 @@ func DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn(instruction ssa.In
 // Add(1) followed by go f() with a deferred Done, so the closure body runs on
 // its own goroutine exactly as a go statement would run it.
 func StartedClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
-	if launched, ok := LaunchedClosure(instruction); ok {
-		return mappedCompletion(launched, method, target, CoverageEveryReturn)
+	launched, ok := LaunchedClosure(instruction)
+	if !ok {
+		return false
 	}
-	return false
+	if mappedCompletion(launched, method, target, CoverageEveryReturn) {
+		return true
+	}
+	// A named helper launched with the cleanup-bearing projection of the
+	// target, such as a response body, settles it by calling the method on
+	// exactly that parameter before every return. Duragraph streams a body
+	// through `go readSSEStream(resp.Body, ch)`:
+	// https://github.com/Duragraph/duragraph/blob/b01be300aa8c4fa75e621bbd2e86539c1ad0bf4b/go-sdk/llm/openai/openai.go#L118-L119
+	_, isGo := instruction.(*ssa.Go)
+	return isGo && helperCallsMethodOnProjectedArgumentOnEveryReturn(instruction, method, target, true)
 }
 
 var waitGroupGoMethod = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Go"})

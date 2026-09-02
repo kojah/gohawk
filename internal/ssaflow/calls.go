@@ -139,6 +139,31 @@ func DeferredHelperCallsMethodOnDerivedArgumentOnEveryReturn(instruction ssa.Ins
 	return false
 }
 
+// helperCallsMethodOnProjectedArgumentOnEveryReturn is the derived-argument
+// helper proof for a named helper that is called directly or, when launched
+// is set, started on a goroutine. Function literals are excluded: an
+// immediately invoked literal that takes the projection as a parameter keeps
+// its existing conservative boundary.
+func helperCallsMethodOnProjectedArgumentOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value, launched bool) bool {
+	if _, isGo := instruction.(*ssa.Go); isGo != launched {
+		return false
+	}
+	common := InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) == 0 {
+		return false
+	}
+	if common.StaticCallee().Parent() != nil {
+		// Function literals, captured or not, keep the conservative boundary.
+		return false
+	}
+	for _, argument := range common.Args {
+		if strictNonEmptyAccessPath(argument, target) && callCallsMethodOnExactArgumentOnEveryReturn(instruction, method, argument) {
+			return true
+		}
+	}
+	return false
+}
+
 func strictNonEmptyAccessPath(value, root ssa.Value) bool {
 	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{})
 	return ok && depth > 0

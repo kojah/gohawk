@@ -117,6 +117,14 @@ func proveHelperCompletion(request CompletionRequest, method string) CompletionP
 	if request.Modes&CompletionByHelper != 0 && CallCallsMethodOnArgumentOnEveryReturn(request.Instruction, method, request.Target) {
 		return completionProof(EvidenceHelperCompletion, method)
 	}
+	// A helper called directly, not only deferred, may receive the exact
+	// cleanup-bearing projection of the target and call the method on that
+	// parameter on every return; the call then releases on its own path.
+	// Kubestellar's dashboard closes bodies through closeHTTPBody(resp.Body):
+	// https://github.com/kubestellar/hive/blob/d8427b99764e9fd569e292b0bdde7a65f224ef9f/src/pkg/dashboard/api.go#L861-L866
+	if request.Modes&CompletionByHelper != 0 && helperCallsMethodOnProjectedArgumentOnEveryReturn(request.Instruction, method, request.Target, false) {
+		return completionProof(EvidenceHelperCompletion, method)
+	}
 	if request.Modes&CompletionByDerivedDeferredHelperArgument != 0 &&
 		DeferredHelperCallsMethodOnDerivedArgumentOnEveryReturn(request.Instruction, method, request.Target) {
 		return completionProof(EvidenceDerivedDeferredHelperCompletion, method)

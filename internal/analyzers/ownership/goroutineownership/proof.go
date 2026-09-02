@@ -2,6 +2,8 @@ package goroutineownership
 
 import (
 	"go/token"
+	"go/types"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -42,6 +44,7 @@ const (
 	reasonOpaqueTransfer          goroutineOwnershipReason = "opaque-ownership-transfer"
 	reasonLoopJoinUnproven        goroutineOwnershipReason = "loop-join-unproven"
 	reasonWorkerConsumesSignal    goroutineOwnershipReason = "signal-consumed-by-worker"
+	reasonFlagGuardedJoin         goroutineOwnershipReason = "flag-guarded-join"
 	reasonBufferedSignal          goroutineOwnershipReason = "buffered-completion-signal"
 	reasonDetachedUnknown         goroutineOwnershipReason = "detached-lifecycle-unknown"
 	reasonUnownedReturn           goroutineOwnershipReason = "unowned-return"
@@ -100,6 +103,14 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	if !ssaflow.UnownedReturn(analysis.spawn, any, analysis.returnTransfers) {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}
 	}
+	if analysis.flagGuardedJoin() {
+		// A join guarded by a local Boolean that the function assigns around
+		// the spawn, such as `started = true` before launching and `if started
+		// { wg.Wait() }` after, correlates the guard with the launch in a way
+		// this proof does not model. Soperator and gocoin both use the shape:
+		// https://github.com/nebius/soperator/blob/3f5635c08fab3578db574a55b293b5aa32042bd3/internal/exporter/exporter.go#L157-L193
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonFlagGuardedJoin}
+	}
 	if analysis.countedJoin() {
 		// When the spawn itself runs in a loop, a later receive loop that may
 		// run zero times is not a proven skip: the spawn loop may have run zero
@@ -144,6 +155,211 @@ func (analysis *spawnAnalysis) otherWorkerConsumesSignal() bool {
 		}
 	}
 	return false
+}
+
+// flagGuardedJoin reports whether a join reachable from the spawn sits under a
+// branch on a local Boolean flag that receives a constant on a path through
+// the spawn. The assignment may run before or after the launch; what matters
+// is that the guard's value is decided by the same control flow that decided
+// to launch.
+func (analysis *spawnAnalysis) flagGuardedJoin() bool {
+	for _, block := range analysis.function.Blocks {
+		for _, instruction := range block.Instrs {
+			if deferred, ok := instruction.(*ssa.Defer); ok && analysis.deferredClosureFlagGuardsJoin(deferred) {
+				return true
+			}
+			branch, ok := instruction.(*ssa.If)
+			if !ok || !ssaflow.InstructionMayFollow(analysis.spawn, branch) || !analysis.branchGuardsJoin(branch) {
+				continue
+			}
+			if flag := booleanFlagVariable(branch.Cond); flag != nil && analysis.flagAssignedAroundSpawn(flag) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// deferredClosureFlagGuardsJoin recognizes the same correlation inside a
+// deferred closure: `defer func() { if wait4compl { wg.Wait() } }()` with
+// wait4compl assigned beside the launch. gocoin verifies transaction scripts
+// this way:
+// https://github.com/piotrnar/gocoin/blob/467131d21dd0c9252f99c00d99ba9ca74f60ca1e/lib/chain/chain_accept.go#L125-L133
+func (analysis *spawnAnalysis) deferredClosureFlagGuardsJoin(deferred *ssa.Defer) bool {
+	callee, closure := calledFunction(deferred.Common())
+	if closure == nil || callee == nil {
+		return false
+	}
+	pairs := suppliedValues(deferred.Common(), callee, closure)
+	for _, block := range callee.Blocks {
+		for _, instruction := range block.Instrs {
+			branch, ok := instruction.(*ssa.If)
+			if !ok {
+				continue
+			}
+			flag := capturedFlagVariable(branch.Cond, pairs)
+			if flag == nil || !analysis.flagAssignedAroundSpawn(flag) {
+				continue
+			}
+			for _, successor := range branch.Block().Succs {
+				if analysis.closureBlockJoins(successor, pairs) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// capturedFlagVariable maps a branch on a loaded free variable back to the
+// Boolean local it was bound to.
+func capturedFlagVariable(condition ssa.Value, pairs []suppliedValue) ssa.Value { //nolint:ireturn // Flags are allocations.
+	if negation, ok := condition.(*ssa.UnOp); ok && negation.Op == token.NOT {
+		condition = negation.X
+	}
+	load, ok := condition.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return nil
+	}
+	for _, pair := range pairs {
+		if pair.local == load.X {
+			if flag, ok := pair.supplied.(*ssa.Alloc); ok && isBooleanPointer(flag.Type()) {
+				return flag
+			}
+		}
+	}
+	return nil
+}
+
+// closureBlockJoins reports whether block joins a tracked value through one of
+// the closure's captured variables.
+func (analysis *spawnAnalysis) closureBlockJoins(block *ssa.BasicBlock, pairs []suppliedValue) bool {
+	for _, pair := range pairs {
+		for _, tracked := range analysis.tracked {
+			if !bindingCarries(pair.supplied, tracked.value) {
+				continue
+			}
+			derives := func(value ssa.Value) bool {
+				return ssaflow.ValueDerivesFrom(value, pair.local, map[ssa.Value]bool{})
+			}
+			for _, instruction := range block.Instrs {
+				if instructionJoins(instruction, tracked.kind, derives, map[*ssa.Function]bool{}) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// branchGuardsJoin reports whether a successor of branch contains a join,
+// transfer, or opaque handoff of a tracked value that the other successor can
+// skip. A launched waiter counts: the guard decides whether the parent hands
+// the group to it.
+func (analysis *spawnAnalysis) branchGuardsJoin(branch *ssa.If) bool {
+	for _, successor := range branch.Block().Succs {
+		for _, instruction := range successor.Instrs {
+			if analysis.action(instruction) != actionNone {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// booleanFlagVariable returns the Boolean flag a branch condition reads,
+// following one negation. A flag that no closure captures is an SSA phi of
+// constants; a captured one is an addressable local.
+func booleanFlagVariable(condition ssa.Value) ssa.Value { //nolint:ireturn // Flags are phis or allocations.
+	if negation, ok := condition.(*ssa.UnOp); ok && negation.Op == token.NOT {
+		condition = negation.X
+	}
+	if phi, ok := condition.(*ssa.Phi); ok && phiCarriesBooleanConstant(phi, map[*ssa.Phi]bool{}) {
+		return phi
+	}
+	load, ok := condition.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return nil
+	}
+	if flag, ok := load.X.(*ssa.Alloc); ok && isBooleanPointer(flag.Type()) {
+		return flag
+	}
+	return nil
+}
+
+// phiCarriesBooleanConstant reports whether a Boolean constant reaches phi,
+// possibly through the nested phis a loop with continue statements creates.
+func phiCarriesBooleanConstant(phi *ssa.Phi, seen map[*ssa.Phi]bool) bool {
+	if seen[phi] {
+		return false
+	}
+	seen[phi] = true
+	return slices.ContainsFunc(phi.Edges, func(edge ssa.Value) bool {
+		if inner, ok := edge.(*ssa.Phi); ok {
+			return phiCarriesBooleanConstant(inner, seen)
+		}
+		return isBooleanConstant(edge)
+	})
+}
+
+func isBooleanConstant(value ssa.Value) bool {
+	literal, ok := value.(*ssa.Const)
+	if !ok || literal.Value == nil {
+		return false
+	}
+	basic, ok := literal.Type().Underlying().(*types.Basic)
+	return ok && basic.Kind() == types.Bool
+}
+
+func isBooleanPointer(value types.Type) bool {
+	pointer, ok := value.Underlying().(*types.Pointer)
+	if !ok {
+		return false
+	}
+	basic, ok := pointer.Elem().Underlying().(*types.Basic)
+	return ok && basic.Kind() == types.Bool
+}
+
+// flagAssignedAroundSpawn reports whether a constant reaches the flag from a
+// block that the spawn dominates, is dominated by, or shares.
+func (analysis *spawnAnalysis) flagAssignedAroundSpawn(flag ssa.Value) bool {
+	if phi, ok := flag.(*ssa.Phi); ok {
+		return analysis.phiConstantAroundSpawn(phi, map[*ssa.Phi]bool{})
+	}
+	if flag.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *flag.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == flag && isBooleanConstant(store.Val) && analysis.blockAroundSpawn(store.Block()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (analysis *spawnAnalysis) phiConstantAroundSpawn(phi *ssa.Phi, seen map[*ssa.Phi]bool) bool {
+	if seen[phi] {
+		return false
+	}
+	seen[phi] = true
+	for index, edge := range phi.Edges {
+		if index >= len(phi.Block().Preds) {
+			break
+		}
+		if inner, ok := edge.(*ssa.Phi); ok && analysis.phiConstantAroundSpawn(inner, seen) {
+			return true
+		}
+		if isBooleanConstant(edge) && analysis.blockAroundSpawn(phi.Block().Preds[index]) {
+			return true
+		}
+	}
+	return false
+}
+
+func (analysis *spawnAnalysis) blockAroundSpawn(block *ssa.BasicBlock) bool {
+	spawnBlock := analysis.spawn.Block()
+	return block == spawnBlock || block.Dominates(spawnBlock) || spawnBlock.Dominates(block)
 }
 
 func (analysis *spawnAnalysis) countedJoin() bool {
