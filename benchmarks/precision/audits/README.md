@@ -642,9 +642,13 @@ errors, and llm-d's non-atomic `sync.Map` load-and-delete remain reportable
 as written. Opt-in detached-goroutine, API-shape, and context-policy findings
 were sampled without expanding default correctness policy.
 
-A constant-size performance check compared three warmed `-enable-all` runs on
-pinned Caddy at the Batch 20 boundary and after Batch 21. Median wall time
-changed from 3.360 to 3.970 seconds (+18.1%), while median peak RSS changed from
-5,052,084 to 5,141,224 KiB (+1.8%). The cumulative precision suite remains
-reserved for Batch 25; Batch 21 replayed round 24 and the affected ownership
-cohorts.
+A five-run performance check compared warmed `-enable-all` runs on pinned
+Caddy at the Batch 20 boundary and after Batch 21. Median wall time changed
+from 3.824 to 3.385 seconds (-11.5%), while median peak RSS changed from
+4,875,948 to 4,892,836 KiB (+0.3%). An earlier three-run comparison taken
+immediately after a full rescan showed an eighteen percent slowdown that the
+idle-host re-measurement did not reproduce. Batch 21 also replayed rounds 2
+through 24 in full, and all 170 false positives remained absent and all 214
+true positives remained present; ordinary batches from Batch 22 on replay only
+the new cohort and the rounds whose labels involve the analyzers the batch
+changed, with the cumulative suite reserved for Batch 25.
