@@ -1,0 +1,6 @@
+repository,analyzer,position,verdict
+versity/versitygw,resourcelifetime,s3event/webhook.go:59:11,true_positive
+versity/versitygw,resourcelifetime,tests/integration/sigv4_auth.go:41:16,true_positive
+temporalio/cli,resourcelifetime,internal/tracer/workflow_tracer.go:102:12,true_positive
+temporalio/cli,cancellationownership,internal/temporalcli/commands.go:743:21,true_positive
+puck-security/geiger,evalorder,internal/modules/jwt.go:99:31,true_positive

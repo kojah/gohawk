@@ -349,3 +349,13 @@
 35	dbtrail/dbtrail	f0870ad9813a5719126d2cb33fbabd4de7dfb676	.	reviewed
 35	terraform-lxd/terraform-provider-lxd	c0f202ab3c0574f5738131f268220c614cb0b332	.	reviewed
 35	Yandex-Practicum/go-autotests	3f58c7c9e86c608b8cb4597183cea2d912900bb4	.	reviewed
+36	paketo-buildpacks/nodejs	904b1c72b07e31fc961ba336d008f9b2ec8fc764	.	reviewed
+36	puck-security/geiger	54b3ec330a69caee6e30928fbf9b80f8a39218ca	.	reviewed
+36	sj14/dbbench	9adb3c4760b2d28ee17d0818cf5c4ddc667b0682	.	reviewed
+36	paketo-buildpacks/php	2562bd88e99af882c0d361cbf846ec9d7b68005d	.	reviewed
+36	versity/versitygw	d2b53687ef0666d4a6e28c50db90a17d979c660d	.	reviewed
+36	paketo-buildpacks/python	b925783fb366aff764708c2019862b6df06deddc	.	reviewed
+36	scigolib/hdf5	25e5e9e27450ad7a4cb8252acb98be2933829858	.	reviewed
+36	temporalio/cli	a46e993d17e89bd81e5e8eb8fd331edf4c9bc15d	.,cliext	reviewed
+36	kubernetes-sigs/lws	cf7c42e01fc6b96a8b75313ff9b88fb20bf95470	.,site,hack/tools/yaml-processor,docs/examples/llamacpp/tools/blobserver,docs/examples/llamacpp/tools/clichat,docs/examples/llamacpp/tools/llamacpp-leader	reviewed
+36	Kong/deck	316fee5e6523b4170b0c5be32ccbcef3aca0ecbd	.	reviewed

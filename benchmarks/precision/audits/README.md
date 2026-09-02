@@ -1147,3 +1147,21 @@ overwriting the first, a provider wait group whose early returns skip its
 Wait, and a helper that reads a log file into a returned writer remain
 reportable. Opt-in global-state, API-shape, and detached-goroutine findings
 were sampled without expanding default policy.
+
+## Batch 36
+
+Ten repositories and sixteen modules were selected. Thirteen modules loaded
+and scanned fully; deck produced useful partial analysis around a dependency
+that excludes the host platform, and two lws tool directories hold no
+buildable package. Final scans produced 557 unique diagnostics and needed no correction.
+Ninety of them are one versitygw integration helper that reads a response
+body and returns before closing it when the read fails, so every caller
+leaks on that path; precision round 38 pins one of those callers together
+with a discarded webhook response, a ticker whose channel is taken without
+keeping the ticker, a discarded timeout cancel, and a return that decodes
+into a value after copying it.
+
+A gateway root directory handle stored into the returned backend remains
+reportable pending field-level ownership of that struct. Opt-in
+global-state, API-shape, and detached-goroutine findings were sampled without
+expanding default policy.

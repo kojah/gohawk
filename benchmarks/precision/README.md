@@ -208,3 +208,9 @@ imported helper that closes a response body under a nil check of the body,
 and a transaction variable cleared after Commit and checked by its deferred
 rollback. Nearby file, compression, cancel, and response findings remain
 reportable.
+
+Round 38 preserves the thirty-fourth reviewed batch, which needed no
+correction. It pins a discarded webhook response, a response whose shared
+checker returns before closing the body when its read fails, a ticker whose
+channel is taken without keeping the ticker, a discarded timeout cancel, and
+a return that decodes into a value after copying it as reportable.
