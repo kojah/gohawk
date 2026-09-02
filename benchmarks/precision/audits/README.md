@@ -607,3 +607,44 @@ from 3.388 to 3.206 seconds (-5.4%) and peak RSS from 4,879,300 to
 7.187 to 7.067 seconds (-1.7%) and from 10,174,812 to 10,216,948 KiB
 (+0.4%). The interval includes the goroutineownership rebuild and the
 ssaflow completion collapse as well as this batch's corrections.
+
+## Batch 21
+
+Ten repositories and forty-two modules were selected; the Binance connector
+alone contributed twenty-nine per-product client modules. Thirty-five modules
+loaded and scanned fully. Blockbook, kuberpult's root module, pkimetal, and the
+Mattermost agents plugin produced useful partial analysis because of a native
+ZeroMQ binding, an unpublished sibling module, Linux-only build constraints,
+and a pinned gRPC dependency that no longer type-checks; the Binance and
+Interuss example modules contained no analyzable packages. Final scans
+produced 5,722 unique diagnostics, dominated by API-shape and
+context-policy findings in Binance's generated client code.
+
+Two bounded corrections were made:
+
+- a closure passed to `sync.WaitGroup.Go` is launched exactly like a go
+  statement, so a resource released on every return of that closure is
+  settled by it; and
+- a cancel function stored into a local that another closure captures is an
+  ambiguous handoff rather than private retention, because a deferred guard
+  may release it on every return through code the proof does not follow.
+
+The corrections removed one Safebucket ticker false positive and one
+Safebucket cancellation false positive. Precision round 24 passed with both
+false positives absent and all five nearby true positives present: two
+decoder files left open in Blockbook's build tool, an ffmpeg process skipped
+on transcription errors in the Mattermost plugin, an unread response body in
+a kuberpult health test, and a per-iteration close deferred across a loop in
+llm-d's metrics test. No default goroutine-ownership false positive appeared.
+
+Kuberpult's conditionally cancelled test context, gob's logged-and-returned
+errors, and llm-d's non-atomic `sync.Map` load-and-delete remain reportable
+as written. Opt-in detached-goroutine, API-shape, and context-policy findings
+were sampled without expanding default correctness policy.
+
+A constant-size performance check compared three warmed `-enable-all` runs on
+pinned Caddy at the Batch 20 boundary and after Batch 21. Median wall time
+changed from 3.360 to 3.970 seconds (+18.1%), while median peak RSS changed from
+5,052,084 to 5,141,224 KiB (+1.8%). The cumulative precision suite remains
+reserved for Batch 25; Batch 21 replayed round 24 and the affected ownership
+cohorts.

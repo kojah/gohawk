@@ -199,3 +199,13 @@
 20	temporalio/temporal-worker-controller	6fa7b683dcc6e65999566d0d62aeb1444a25f384	.,internal/demo,internal/tests	reviewed
 20	datarhei/core	b6d7fc7d0f95fb4ae7837aa09a5205d3616ef4d8	.	reviewed
 20	gopherium/gouncer	3ac985945af3afac67e65a4d01341d7d44b8645e	.,authkit,react-auth,authkit/postgres,authkit/ratelimit	reviewed
+21	titpetric/atkins	f5904a7e6f3885c950718fe35215fdfec6541190	.	reviewed
+21	safebucket/safebucket	f35560194cb6ea01a4607c2fe36ead2c7db51b9d	.	reviewed
+21	llm-d/llm-d-router	31bc02c2f1dc8c118ea89f535a928672e81d0613	.	reviewed
+21	binance/binance-connector-go	a10fe3c33999a7a345b302717e94743c14e1013d	.,common,clients/algo,clients/alpha,clients/c2c,clients/convert,clients/copytrading,clients/cryptoloan,clients/derivativestradingcoinfutures,clients/derivativestradingoptions,clients/derivativestradingportfoliomargin,clients/derivativestradingportfoliomarginpro,clients/derivativestradingusdsfutures,clients/dualinvestment,clients/fiat,clients/giftcard,clients/margintrading,clients/mining,clients/pay,clients/rebate,clients/simpleearn,clients/spot,clients/staking,clients/stocks,clients/subaccount,clients/viploan,clients/w3wprediction,clients/wallet	reviewed
+21	trezor/blockbook	60ef2a14afabd96660e655a0cad26373d70c2de4	.	reviewed
+21	freiheit-com/kuberpult	8621cc8a2e9c870502fdb1c463e79b79c8cb8979	.,cli,charts/kuberpult/tests	reviewed
+21	interuss/dss	541948637729ab083b1dc9df6b5b1c158312ba11	.,interfaces/openapi-to-go-server/example	reviewed
+21	pkimetal/pkimetal	40300d8043df7fd69abfa4e74c883023ca528f60	.	reviewed
+21	juanibiapina/gob	8cc2bf516d94fcff5dd881bb21df37c6438f7164	.	reviewed
+21	mattermost/mattermost-plugin-agents	ecbcace309de620d3bc27de2d4b8d09c6decb740	.,cmd/evalviewer,loadtest/controller	reviewed

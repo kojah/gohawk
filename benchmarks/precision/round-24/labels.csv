@@ -1,0 +1,8 @@
+repository,analyzer,position,verdict
+safebucket/safebucket,cancellationownership,internal/core/bootstrap.go:289:26,false_positive
+safebucket/safebucket,resourcelifetime,internal/events/notification_buffer.go:190:12,false_positive
+trezor/blockbook,resourcelifetime,build/tools/templates.go:396:12,true_positive
+trezor/blockbook,resourcelifetime,build/tools/templates.go:406:11,true_positive
+mattermost/mattermost-plugin-agents,processownership,meetings/meeting_summarization.go:89:11,true_positive
+freiheit-com/kuberpult,resourcelifetime,pkg/setup/health_test.go:380:16,true_positive
+llm-d/llm-d-router,deferinloop,pkg/epp/metrics/metrics_test.go:1553:3,true_positive

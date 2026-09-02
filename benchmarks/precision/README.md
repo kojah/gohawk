@@ -129,3 +129,8 @@ channel read from a type-asserted event, a started command returned as a
 by-value copy, and response bodies handed to an unexported helper that returns
 an owning iterator. Nearby resource findings on unauthorized, error, and
 temporary-file paths remain reportable.
+
+Round 24 preserves the twentieth reviewed batch. It covers a cancel function
+stored into a local that a deferred guard closure captures and a ticker stopped
+inside a closure launched by `sync.WaitGroup.Go`. Nearby resource, process,
+and defer-in-loop findings remain reportable.
