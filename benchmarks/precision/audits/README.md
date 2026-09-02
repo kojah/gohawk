@@ -367,3 +367,50 @@ changed from 3.174 to 3.049 seconds (-3.9%), while median peak RSS changed from
 5,267,632 to 5,016,372 KiB (-4.8%). The complete cumulative precision suite is
 scheduled for Batch 15; Batch 14 replayed only round 18 and affected
 repositories.
+
+## Batch 15
+
+Ten repositories and fourteen maintained modules were selected. Ten modules
+loaded and scanned fully. Gala lacked its Bazel-generated grammar and embedded
+standard-library declarations; GGCode's desktop module lacked generated web
+assets; Tongstock lacked a replaced sibling module, generated web assets, and
+CGO-backed tray symbols; and Pulumi Docker's provider required unapplied
+upstream patches and a generated schema. Those four checkouts still produced
+useful partial analysis from their independently loadable packages. Final
+scans produced 1,541 reliable diagnostics.
+
+Two bounded lifecycle corrections were made:
+
+- exported lifecycle summaries now reuse the exact deferred-callback proof
+  when a deferred literal closes a field projected from the summarized
+  parameter on every return; and
+- a defer that dominates a later lock acquisition and may unlock that exact
+  lock makes a missing-release claim uncertain. The defer is checked once at
+  acquisition and carried through the existing lock-flow state.
+
+The first correction removed two Qist response-lifetime false positives. The
+second removed twelve return-path reports caused by one Telekom guarded
+rollback defer. Precision round 19 passed with all three representative false
+positives absent and all three nearby true positives present.
+
+GGCode's response cleanup through `safego.Go`, receiver-held resource and
+process lifecycles, result-sensitive aggregate ownership, and policy-only API
+and determinism findings remain deferred. In particular, the audit did not add
+a multi-hop helper/trampoline/callback proof merely to recognize two sites.
+Batch 15 found no default goroutine- or cancellation-ownership family that
+justified expanding either proof system.
+
+The five-batch cumulative gate replayed rounds 2 through 19. It also reconciled
+older labels with the conservative ownership policy introduced before this
+batch: thirteen former correctness labels now represent ambiguous handoffs and
+are false positives, while one intentionally detached daemon is a true
+positive only for the opt-in detached audit. After that review, all 158 false
+positives remained absent and all 198 true positives remained present.
+
+Five-run performance comparisons used the Batch 14 boundary and the final
+Batch 15 code revision on the same host. Pinned Caddy median wall time changed
+from 3.035 to 3.172 seconds (+4.5%) and peak RSS from 4,964,780 to 5,160,124
+KiB (+3.9%). The periodic pinned Moby checkpoint changed from 7.106 to 7.426
+seconds (+4.5%) and from 10,631,592 to 10,649,680 KiB (+0.2%). Repeated runs
+showed comparable host variance in both directions; focused Caddy runs for the
+changed resource and lock analyzers were faster than the Batch 14 boundary.

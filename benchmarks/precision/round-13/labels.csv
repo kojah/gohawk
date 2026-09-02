@@ -13,7 +13,7 @@ blnkfinance/blnk,resourcelifetime,database/account.go:74:13,true_positive
 blnkfinance/blnk,resourcelifetime,config/config.go:274:13,true_positive
 blnkfinance/blnk,resourcelifetime,cmd/server.go:163:12,true_positive
 blnkfinance/blnk,determinism,model/transaction.go:256:2,true_positive
-blnkfinance/blnk,goroutineownership,transaction_batch_processing.go:84:2,true_positive
+blnkfinance/blnk,goroutineownership,transaction_batch_processing.go:84:2,false_positive
 stacklok/toolhive,evalorder,pkg/skills/skillsvc/install.go:94:33,false_positive
 stacklok/toolhive,evalorder,pkg/skills/skillsvc/install.go:97:41,false_positive
 stacklok/toolhive,resourcelifetime,pkg/oauthproto/dcr.go:200:15,false_positive

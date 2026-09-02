@@ -1,6 +1,6 @@
 repository,analyzer,position,verdict
 Consensys/ask-o11y-plugin,testlifecycle,pkg/agent/loop_test.go:141:14,false_positive
-Consensys/ask-o11y-plugin,channelownership,pkg/agent/loop.go:99:2,true_positive
+Consensys/ask-o11y-plugin,channelownership,pkg/agent/loop.go:99:2,false_positive
 teradata-labs/loom,goroutineownership,pkg/server/multi_agent_shared_memory_test.go:243:3,false_positive
 teradata-labs/loom,goroutineownership,pkg/storage/shared_memory.go:139:2,true_positive
 teradata-labs/loom,resourcelifetime,pkg/storage/shared_memory.go:413:8,true_positive

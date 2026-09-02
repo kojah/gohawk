@@ -8,7 +8,7 @@ pancsta/asyncmachine-go,resourcelifetime,pkg/telemetry/prometheus/prometheus.go:
 pancsta/asyncmachine-go,resourcelifetime,tools/debugger/debugger.go:1272:16,true_positive
 pancsta/asyncmachine-go,resourcelifetime,tools/debugger/diagrams.go:959:15,true_positive
 pancsta/asyncmachine-go,resourcelifetime,tools/visualizer/visualizer.go:153:16,true_positive
-creachadair/taskgroup,cancellationownership,examples/copytree/copytree.go:39:17,true_positive
+creachadair/taskgroup,cancellationownership,examples/copytree/copytree.go:39:17,false_positive
 tanaikech/ggsrun,processownership,internal/tui/fd.go:3379:11,true_positive
 tanaikech/ggsrun,processownership,internal/tui/fd.go:3382:11,true_positive
 tanaikech/ggsrun,processownership,internal/tui/fd.go:3386:11,true_positive
@@ -20,12 +20,12 @@ erpc/erpc,resourcelifetime,cmd/erpc/main_test.go:47:15,true_positive
 erpc/erpc,resourcelifetime,cmd/erpc/main_test.go:75:15,true_positive
 erpc/erpc,resourcelifetime,cmd/erpc/main_test.go:101:15,true_positive
 erpc/erpc,resourcelifetime,cmd/erpc/main_test.go:127:15,true_positive
-erpc/erpc,cancellationownership,consensus/executor.go:208:32,true_positive
-erpc/erpc,cancellationownership,consensus/executor.go:250:32,true_positive
+erpc/erpc,cancellationownership,consensus/executor.go:208:32,false_positive
+erpc/erpc,cancellationownership,consensus/executor.go:250:32,false_positive
 erpc/erpc,resourcelifetime,test/fake_erpc.go:391:15,true_positive
 erpc/erpc,deferinloop,thirdparty/chainstack.go:277:3,true_positive
 erpc/erpc,deferinloop,thirdparty/quicknode.go:432:3,true_positive
-erpc/erpc,cancellationownership,util/initializer.go:344:22,true_positive
+erpc/erpc,cancellationownership,util/initializer.go:344:22,false_positive
 erpc/erpc,cancellationownership,util/initializer.go:601:18,false_positive
 erpc/erpc,channelownership,util/initializer.go:335:6,false_positive
 erpc/erpc,resourcelifetime,util/gzip_pool_test.go:48:14,true_positive
@@ -46,7 +46,7 @@ janosmiko/lfk,channelownership,internal/k8s/informer_cache.go:670:4,false_positi
 janosmiko/lfk,goroutineownership,internal/k8s/portforward_supersede_test.go:50:2,false_positive
 janosmiko/lfk,resourcelifetime,internal/k8s/capture_test.go:190:15,true_positive
 janosmiko/lfk,processownership,internal/ui/openbrowser.go:17:9,true_positive
-jordigilh/kubernaut,goroutineownership,docs/spikes/a2a-v2-migration/channel_merge_test.go:310:2,true_positive
+jordigilh/kubernaut,goroutineownership,docs/spikes/a2a-v2-migration/channel_merge_test.go:310:2,false_positive
 jordigilh/kubernaut,processownership,docs/spikes/multi-cluster-mcp-gateway/spike-s15-fmc-multiformat-parse/main.go:40:12,true_positive
 jordigilh/kubernaut,processownership,docs/spikes/multi-cluster-mcp-gateway/spike-s15-fmc-multiformat-parse/e2e_spike_test.go:35:12,true_positive
 jordigilh/kubernaut,cancellationownership,internal/kubernautagent/workflowcatalog/lazy_catalog.go:101:17,false_positive
@@ -78,9 +78,9 @@ flowexec/flow,resourcelifetime,tests/utils/context.go:169:15,false_positive
 flowexec/flow,cancellationownership,tools/docsgen/main.go:23:24,false_positive
 flowexec/flow,deferinloop,tools/docsgen/markdown.go:76:4,true_positive
 agenticenv/agent-sdk-go,processownership,benchmarks/worker_manager.go:37:13,false_positive
-agenticenv/agent-sdk-go,goroutineownership,examples/agent_with_nonblocking_run/main.go:39:2,true_positive
+agenticenv/agent-sdk-go,goroutineownership,examples/agent_with_nonblocking_run/main.go:39:2,false_positive
 agenticenv/agent-sdk-go,goroutineownership,examples/agent_with_subagents/main.go:41:2,true_positive
-agenticenv/agent-sdk-go,goroutineownership,examples/agent_with_tools/approval/main.go:35:2,true_positive
+agenticenv/agent-sdk-go,goroutineownership,examples/agent_with_tools/approval/main.go:35:2,false_positive
 agenticenv/agent-sdk-go,cancellationownership,internal/runtime/local/agent_loop.go:834:25,false_positive
 agenticenv/agent-sdk-go,cancellationownership,internal/runtime/local/runtime.go:123:23,false_positive
 agenticenv/agent-sdk-go,cancellationownership,internal/runtime/local/runtime.go:252:23,false_positive

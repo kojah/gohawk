@@ -12,7 +12,7 @@ mongodb/amboy,resourcelifetime,rest/client_queue.go:339:15,true_positive
 sozercan/vekil,processownership,launch/runtime.go:270:12,false_positive
 sozercan/vekil,processownership,launch/version.go:35:12,false_positive
 sozercan/vekil,cancellationownership,launch/runtime_test.go:379:17,false_positive
-sozercan/vekil,goroutineownership,proxy/responses_websocket.go:562:3,true_positive
+sozercan/vekil,goroutineownership,proxy/responses_websocket.go:562:3,false_positive
 sozercan/vekil,goroutineownership,proxy/responses_websocket.go:601:2,true_positive
 sozercan/vekil,goroutineownership,proxy/openai_codex_auth_test.go:1023:2,false_positive
 sozercan/vekil,goroutineownership,proxy/openai_codex_auth_test.go:1046:2,false_positive
@@ -56,4 +56,4 @@ MUKE-coder/grit,processownership,cmd/grit/main.go:1901:3,true_positive
 jentfoo/ajent,goroutineownership,pkg/permit/classifier_test.go:197:4,false_positive
 jentfoo/ajent,goroutineownership,pkg/permit/classifier_test.go:239:4,false_positive
 jentfoo/ajent,processownership,pkg/tools/bash.go:137:12,false_positive
-johnnybravo-xyz/suchi,goroutineownership,core/ingest/emailwatch/emailwatch.go:419:2,true_positive
+johnnybravo-xyz/suchi,goroutineownership,core/ingest/emailwatch/emailwatch.go:419:2,false_positive

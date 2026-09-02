@@ -1,0 +1,7 @@
+repository,analyzer,position,verdict
+qist/tvgate,resourcelifetime,handler/http_handler.go:358:23,false_positive
+qist/tvgate,resourcelifetime,player/handler.go:356:15,false_positive
+telekom/k8s-breakglass,lockorder,pkg/artifacts/storage/local/local.go:289:3,false_positive
+qist/tvgate,deferinloop,updater/github_updater.go:103:3,true_positive
+telekom/k8s-breakglass,resourcelifetime,cmd/kubeconfig_test.go:15:25,true_positive
+telekom/k8s-breakglass,processownership,pkg/bgctl/auth/oidc.go:212:9,true_positive

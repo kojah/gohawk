@@ -7,5 +7,5 @@ lxc/incus-compose,testpolicy,cmd/ic-dns/e2e_multi_test.go:80:6,true_positive
 webtor-io/web-ui,resourcelifetime,services/tmdb/api.go:428:15,false_positive
 webtor-io/web-ui,resourcelifetime,services/web/helper.go:325:12,true_positive
 webtor-io/web-ui,resourcelifetime,handlers/job/handler.go:58:13,true_positive
-webtor-io/web-ui,cancellationownership,services/job/job.go:547:19,true_positive
+webtor-io/web-ui,cancellationownership,services/job/job.go:547:19,false_positive
 webtor-io/web-ui,goroutineownership,jobs/scripts/action.go:570:2,true_positive
