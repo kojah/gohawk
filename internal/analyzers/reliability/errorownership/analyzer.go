@@ -92,7 +92,7 @@ func loggedErrorReturnEvidence(call *ssa.Call) logReturnProof {
 				if ssaflow.ValuesShareErrorSource(argument, result) {
 					sharedSource = true
 				}
-				if ssaflow.ValuesShareErrorSource(argument, reachingReturnValue(returned, result)) {
+				if ssaflow.ValuesShareErrorSource(argument, reachingReturnValue(result)) {
 					return logReturnProof{report: true, reason: "feasible-log-return-path", outcome: analysisTrace.OutcomeObserved}
 				}
 			}
@@ -112,13 +112,18 @@ func loggedErrorReturnEvidence(call *ssa.Call) logReturnProof {
 // mutually exclusive error-return branch. Use the store in this concrete
 // return block instead. This pattern occurs in CertMagic:
 // https://github.com/caddyserver/certmagic/blob/ff600dc62b9bbfc6ba8f18784a2b79000c5e4c75/solvers.go#L794-L800
-func reachingReturnValue(returned *ssa.Return, result ssa.Value) ssa.Value {
+func reachingReturnValue(result ssa.Value) ssa.Value {
 	load, ok := result.(*ssa.UnOp)
 	if !ok || load.Op != token.MUL {
 		return result
 	}
+	// ReachableReturns may expose a load produced in a predecessor block. Search
+	// the load's own block: its instruction index has no meaning in the concrete
+	// return block, and indexing that unrelated block can panic. EcoHub's
+	// repository control flow exercises this shape:
+	// https://github.com/fe-spark/EcoHub/tree/f7baa3e7c1978586965d4c1416667c3e9b924597/server/internal/repository
 	for index := ssaflow.InstructionIndex(load) - 1; index >= 0; index-- {
-		store, ok := returned.Block().Instrs[index].(*ssa.Store)
+		store, ok := load.Block().Instrs[index].(*ssa.Store)
 		if ok && ssaflow.SameValue(store.Addr, load.X) {
 			return store.Val
 		}

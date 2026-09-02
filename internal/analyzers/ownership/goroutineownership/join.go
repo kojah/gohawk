@@ -70,6 +70,29 @@ func joinsGoroutine(instruction ssa.Instruction, signals, groups []ssa.Value) bo
 	return false
 }
 
+func deferredCallbackJoinsGoroutine(evidence *ssaflow.LocalEvidence, instruction ssa.Instruction, groups []ssa.Value) bool {
+	if evidence == nil {
+		return false
+	}
+	for _, group := range groups {
+		proof := evidence.Completion(ssaflow.CompletionRequest{
+			Instruction: instruction,
+			Target:      group,
+			Methods:     []string{"Wait"},
+			Modes:       ssaflow.CompletionByDeferredCallback,
+		})
+		if proof.Proven() {
+			// A deferred callback runs on every return path, but capture alone is
+			// insufficient: require its exact callback value to unconditionally
+			// wait for the group settled by this worker. This also covers the
+			// documented sync.OnceFunc wrapper used by Entire's token tailer:
+			// https://github.com/entireio/cli/blob/ee6d53f3d3398267358e8f9d306267c87a088101/cmd/entire/cli/agent/codex/reviewer.go#L137-L146
+			return true
+		}
+	}
+	return false
+}
+
 func eventuallyJoinsGoroutine(instruction ssa.Instruction, signals []ssa.Value) bool {
 	common := ssaflow.InstructionCall(instruction)
 	return common != nil && strings.Contains(strings.ToLower(ssaflow.CallName(common)), "eventually") &&

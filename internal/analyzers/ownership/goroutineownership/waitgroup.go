@@ -44,7 +44,12 @@ func waitGroupCompletionValues(
 	return groups, unsettled
 }
 
-func dominatingDeferredWaitGroupJoin(function *ssa.Function, spawn *ssa.Go, groups []ssa.Value) ssa.Instruction {
+func dominatingDeferredWaitGroupJoin(
+	evidence *ssaflow.LocalEvidence,
+	function *ssa.Function,
+	spawn *ssa.Go,
+	groups []ssa.Value,
+) ssa.Instruction {
 	if function == nil || spawn == nil || len(groups) == 0 {
 		return nil
 	}
@@ -55,8 +60,9 @@ func dominatingDeferredWaitGroupJoin(function *ssa.Function, spawn *ssa.Go, grou
 				continue
 			}
 			common := deferred.Common()
-			if !ssaflow.CallMatchesSymbol(common, waitGroupWait) ||
-				!ssaflow.SameAsAny(ssaflow.CallReceiver(common), groups) {
+			directWait := ssaflow.CallMatchesSymbol(common, waitGroupWait) &&
+				ssaflow.SameAsAny(ssaflow.CallReceiver(common), groups)
+			if !directWait && !deferredCallbackJoinsGoroutine(evidence, deferred, groups) {
 				continue
 			}
 			// A defer registered before every path to the spawn runs after all

@@ -64,6 +64,7 @@ const (
 	ownershipReasonRegistrationBeforeSpawn goroutineOwnershipReason = "registration-before-spawn"
 	ownershipReasonSynctestBubbleOwner     goroutineOwnershipReason = "synctest-bubble-owner"
 	ownershipReasonJoinObserved            goroutineOwnershipReason = "join-observed"
+	ownershipReasonDeferredCallbackJoin    goroutineOwnershipReason = "deferred-callback-join"
 	ownershipReasonTestingCleanupJoin      goroutineOwnershipReason = "testing-cleanup-join"
 	ownershipReasonDeferredWaitGroupJoin   goroutineOwnershipReason = "deferred-waitgroup-join"
 	ownershipReasonOwnershipTransfer       goroutineOwnershipReason = "ownership-transfer"
@@ -190,7 +191,7 @@ func (analysis goroutineAnalysis) immediateProof() GoroutineProof {
 	if synctestOwnsGoroutine(analysis.function) {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: ownershipReasonSynctestBubbleOwner}
 	}
-	if deferred := dominatingDeferredWaitGroupJoin(analysis.function, analysis.spawn, analysis.groups); deferred != nil {
+	if deferred := dominatingDeferredWaitGroupJoin(analysis.evidence, analysis.function, analysis.spawn, analysis.groups); deferred != nil {
 		analysis.emitEvidence(deferred, ownershipReasonDeferredWaitGroupJoin)
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: ownershipReasonDeferredWaitGroupJoin}
 	}
@@ -202,6 +203,8 @@ func (analysis goroutineAnalysis) instructionOwnsGoroutine(candidate ssa.Instruc
 	switch {
 	case joinsGoroutine(candidate, analysis.signals, analysis.groups):
 		reason = ownershipReasonJoinObserved
+	case deferredCallbackJoinsGoroutine(analysis.evidence, candidate, analysis.groups):
+		reason = ownershipReasonDeferredCallbackJoin
 	case testingCleanupJoinsGoroutine(candidate, analysis.groups):
 		reason = ownershipReasonTestingCleanupJoin
 	case transfersGoroutineOwnershipExactly(

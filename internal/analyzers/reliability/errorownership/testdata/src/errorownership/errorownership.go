@@ -46,6 +46,16 @@ func sharedReturnPath(err error, handled bool) error {
 	return err
 }
 
+func predecessorLoadedLogAndReturn(err error, handled bool) (returned error) {
+	defer func() {}()
+	for handled {
+		log.Print(err) // want "error is logged and returned by same function"
+		returned = err
+		break
+	}
+	return
+}
+
 func logVariadicAndReturn(err error) error {
 	slog.Error("operation failed", "error", err) // want "error is logged and returned by same function"
 	return err
