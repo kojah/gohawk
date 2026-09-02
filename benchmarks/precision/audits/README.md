@@ -1292,3 +1292,22 @@ later prepare fails. A vault readiness probe that returns without closing a
 healthy response is a true positive in a module too deep for the replay's
 module budget and is not labelled. Opt-in global-state, API-shape, and
 detached-goroutine findings were sampled without expanding default policy.
+
+## Batch 42
+
+Ten repositories and thirty-nine modules were selected after a generated
+client library of several hundred modules was swapped out; the scan driver
+now keeps at most the shallowest two dozen modules of a repository. Twenty
+modules loaded and scanned; hoop's services and several substrate tool
+directories need module downloads or hold no packages, and the GPU exporter
+requires a newer toolchain. Final scans produced 1,716 unique diagnostics
+with no bounded correction: every default ownership finding reviewed was a
+defect or a policy report. Precision round 44 pins eight of them: a struct
+returned in the same statement as the Unmarshal that fills it, a file
+closed by a defer inside a copy loop, accept-loop workers left unjoined when
+Accept fails for another reason than shutdown, a virtiofsd log file leaked
+and a virtiofsd command killed without being reaped when socket readiness
+times out, a containerd stdout file and process leaked when the client
+fails to connect, and a temporary file created only for its name. Nine
+logged-and-returned errors and four fire-and-forget browser launches are
+policy and opt-in reports respectively.

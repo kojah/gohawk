@@ -408,3 +408,13 @@
 41	LFDT-Panurus/panurus	c834d3eb8ee16a9ae4bc6bb9db0668bc9d64c03f	.,integration,tools,cmd/artifactgen,cmd/node,cmd/skicleanup,cmd/token_validation_service,cmd/tokengen,token/services/storage/db/kvs/hashicorp	reviewed
 41	ThomasHabets/cmdg	169227681985f70908be3b0cc3b2e1e599fc35a2	.	reviewed
 41	SecOps-7/MikroDash	fb859d40ea22a2e46fb5a51d5b4ee7940bce6c9a	.	reviewed
+42	hoophq/hoop	86345dbd7a7af3a3f96f15b45fa867a24060bb50	agent,client,common,gateway,sidecar,tunnel,sidecar/cmd,sidecar/e2e,sidecar/analyzer/vertex,sidecar/config/yaml,sidecar/lexer/conformance,sidecar/pii/alcatraz,sidecar/store/sqlite	reviewed
+42	awslabs/soci-snapshotter	cfae695e36c19fbee8034f2ff008cad7f8d059f9	.,cmd	reviewed
+42	Containerpak/cpak	a099acd8f446ba6ef4e5d36f855eb6c4c4c3b1ab	.	reviewed
+42	Asymptote-Labs/agent-beacon	5764a65f3534f141a1a31f1572e57acae9cea7e8	beacon-sandbox,cli/beacon,cli/beacon-hooks,pkg/asymptoteobserve,collector-builder/exporter/beaconjsonexporter	reviewed
+42	assaio/assaio	0069529bafb69492b12500c17490a18db30da192	.	reviewed
+42	faradey/madock	ffbdcfa386f80593d3be8a5566bbd727739118d0	.	reviewed
+42	utkuozdemir/nvidia_gpu_exporter	410cb37b5429428b3adbd244214d985b668efa43	.	reviewed
+42	agent-substrate/substrate	09bd348c58d8d8bbb96e25a497fa7cb53887b41a	.,tools/apitool,hack/tools/code-generator,hack/tools/controller-gen,hack/tools/go-licenses,hack/tools/golangci-lint,hack/tools/kind,hack/tools/ko,hack/tools/kube-api-linter,hack/tools/protoc-gen-go,hack/tools/protoc-gen-go-grpc,hack/tools/setup-envtest,third_party/k8s.io/apimachinery,_LICENSES/github.com/myzhan/gomq/zmtp,hack/tools/code-generator/third_party/k8s.io/apimachinery,hack/tools/code-generator/third_party/k8s.io/code-generator,hack/tools/code-generator/third_party/k8s.io/code-generator/examples	reviewed
+42	terraform-redhat/terraform-provider-rhcs	d8d4c0bf4c0cd746b5ab762e43bef52b6ee05922	.	reviewed
+42	hackclub/arker	ab58612f497ac77b7ff65f4db233c71fa27087ac	.	reviewed

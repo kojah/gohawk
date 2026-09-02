@@ -243,3 +243,9 @@ commands started from one loop over a local slice and waited on from
 another, and pool sessions launched from a slice whose done channels the
 pool's registry also holds. Nearby file, ticker, statement, and unjoined
 broadcast findings remain reportable.
+
+Round 44 preserves the fortieth reviewed batch, which needed no correction.
+It pins a struct returned beside the Unmarshal that fills it, a file closed
+by a defer inside a copy loop, accept-loop workers left unjoined on an error
+return, a log file and a command leaked when a follow-up step fails, a
+command killed without being reaped, and a temporary file never closed.

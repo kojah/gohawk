@@ -1,0 +1,9 @@
+repository,analyzer,position,verdict
+Asymptote-Labs/agent-beacon,evalorder,beacon-sandbox/check/fingerprint.go:105:30,true_positive
+Containerpak/cpak,deferinloop,pkg/tools/files.go:97:4,true_positive
+Containerpak/cpak,goroutineownership,pkg/systemauthority/socket.go:127:3,true_positive
+agent-substrate/substrate,resourcelifetime,cmd/ateom-microvm/run.go:719:16,true_positive
+agent-substrate/substrate,processownership,cmd/ateom-microvm/internal/kata/overlay_linux.go:129:12,true_positive
+awslabs/soci-snapshotter,resourcelifetime,benchmark/framework/containerd_utils.go:71:21,true_positive
+awslabs/soci-snapshotter,processownership,benchmark/framework/containerd_utils.go:81:8,true_positive
+terraform-redhat/terraform-provider-rhcs,resourcelifetime,tests/utils/helper/file.go:34:12,true_positive
