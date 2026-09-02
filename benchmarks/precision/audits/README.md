@@ -1207,3 +1207,29 @@ variable, and a response leaked on provider error statuses. Four
 fire-and-forget launchers remain policy reports. Opt-in global-state,
 API-shape, and detached-goroutine findings were sampled without expanding
 default policy.
+
+## Batch 39
+
+Ten repositories and eleven modules were selected. Nine modules loaded and
+scanned fully; autobump could not build here and one terraform tools
+directory holds no buildable package.
+Final scans produced 882 unique diagnostics after two bounded
+corrections:
+
+- processownership treats a command stored into caller-owned storage on
+  every path to Start, such as a receiver field a later goroutine waits
+  through, as transferred to that owner; a command held only by a local
+  struct stays reportable; and
+- a value ranged from a map or slice that the caller owns is itself
+  caller-owned, so a goroutine that closes a channel taken from a receiver's
+  map transfers its obligation across the call boundary.
+
+The corrections removed one Istio Envoy driver finding and two policyserv
+pubsub findings. Precision round 41 labels two of them and six nearby true
+positives: two responses leaked on status checks or decoded without a close,
+a row set leaked on a scan error, a file leaked on a write error, a ticker
+never stopped, and a test response never closed. A test-deadline timer
+consumed by a launched goroutine remains reportable until resourcelifetime
+classifies launched consumers. Six daemon and worker launchers remain policy
+reports. Opt-in global-state, API-shape, and detached-goroutine findings were
+sampled without expanding default policy.

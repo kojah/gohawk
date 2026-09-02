@@ -1,0 +1,9 @@
+repository,analyzer,position,verdict
+istio/proxy,processownership,test/envoye2e/driver/envoy.go:142:11,false_positive
+matrix-org/policyserv,goroutineownership,pubsub/psql.go:65:4,false_positive
+GoogleCloudPlatform/cloud-image-tests,resourcelifetime,utils/metadata.go:113:15,true_positive
+matrix-org/policyserv,resourcelifetime,content/hma.go:196:15,true_positive
+matrix-org/policyserv,resourcelifetime,storage/psql.go:212:15,true_positive
+hashicorp/terraform-provider-corner,resourcelifetime,internal/framework5provider/modify_file_action.go:84:13,true_positive
+BJS-kr/animalized-server,resourcelifetime,users/dist_session.go:63:12,true_positive
+istio/proxy,resourcelifetime,test/envoye2e/driver/check.go:98:15,true_positive

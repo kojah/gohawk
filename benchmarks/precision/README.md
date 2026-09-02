@@ -225,3 +225,8 @@ closed as reportable.
 Round 40 preserves the thirty-sixth reviewed batch. It covers a mutex fetched
 by a lookup keyed on the loop iteration. Nearby file, response, and
 inline-error findings remain reportable.
+
+Round 41 preserves the thirty-seventh reviewed batch. It covers a command
+stored on its receiver before Start and waited through that field, and a
+goroutine that closes a channel ranged from a receiver-owned map. Nearby
+response, row, file, and ticker findings remain reportable.

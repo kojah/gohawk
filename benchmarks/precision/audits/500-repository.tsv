@@ -379,3 +379,13 @@
 38	scylladb/gemini	2efa3c2a3bd7934ef7c72cbc1a5f5bc275b364c6	.	reviewed
 38	cloudflare/cf-terraforming	739dcf37bf9b7d694819d10be2b4dc81d70f1a11	.	reviewed
 38	aws/eks-node-monitoring-agent	504eb244e807b228bc300a28ba4f061774628384	.	reviewed
+39	BJS-kr/animalized-server	4a69a7d30ebe1492ac93679ec716a88b59c310fc	.	reviewed
+39	defenseunicorns/go-oscal	0b50a2636704ca467827d686310ce79983bee91c	.	reviewed
+39	GoogleCloudPlatform/cloud-image-tests	94e916ed174215c541458d3a4665766771d4e4b1	.	reviewed
+39	hashicorp/terraform-provider-corner	5baaa3b2a84b60f626afe2e289150c2b9b3f0abb	.,tools	reviewed
+39	istio/proxy	1bdb025a454d26a55ffa11a50e5c0a70dff7d853	.	reviewed
+39	kernel/hypeman	840d6235dbb3e2378d00fb099b922dd4c7a9d82b	.	reviewed
+39	matrix-org/policyserv	16995e82a8518f66c5bdc5b6d6d3be04a7640f33	.	reviewed
+39	rios0rios0/autobump	3047cddc636c39d3f02bfe3c20846d89c2064d16	.	reviewed
+39	Xeltra233/Antigravity-gateway	49518b544fba576bb722b96548233dae9409365f	.	reviewed
+39	zaneGittins/bifract	27d4c6e015cb410a4ef4d7903c20644adc4ea350	.	reviewed
