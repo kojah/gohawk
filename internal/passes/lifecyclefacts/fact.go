@@ -76,23 +76,8 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 
 func (fact *Fact) parameterMasks(index int) []string {
 	var names []string
-	for _, mask := range []struct {
-		name string
-		mask ParameterMask
-	}{
-		{"Invoked", fact.Invoked},
-		{"Closed", fact.Closed},
-		{"Finalized", fact.Finalized},
-		{"Released", fact.Released},
-		{"Shutdown", fact.Shutdown},
-		{"Stopped", fact.Stopped},
-		{"Waited", fact.Waited},
-		{"Committed", fact.Committed},
-		{"RolledBack", fact.RolledBack},
-		{"ReturnedOwner", fact.ReturnedOwner},
-		{"ReceiverStore", fact.ReceiverStore},
-	} {
-		if mask.mask.contains(index) {
+	for _, mask := range lifecycleMasks {
+		if mask.field(fact).contains(index) {
 			names = append(names, mask.name)
 		}
 	}
@@ -101,7 +86,20 @@ func (fact *Fact) parameterMasks(index int) []string {
 
 func (*Fact) AFact() {}
 
-func (*Fact) String() string { return "lifecycle ownership summary" }
+// String decodes the masks by parameter position so the fact is readable in
+// analysis debug output.
+func (fact *Fact) String() string {
+	var parts []string
+	for index := range 64 {
+		if masks := fact.parameterMasks(index); len(masks) > 0 {
+			parts = append(parts, fmt.Sprintf("%d:%s", index, strings.Join(masks, "+")))
+		}
+	}
+	if len(parts) == 0 {
+		return "lifecycle summary: none"
+	}
+	return "lifecycle summary: " + strings.Join(parts, " ")
+}
 
 // importFact imports the summary attached to a static callee.
 func importFact(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
@@ -148,26 +146,35 @@ func factOwnsProjectedArgument(instruction ssa.Instruction, target ssa.Value, ma
 	return false
 }
 
+// lifecycleMask names one mask and, for method masks, the lifecycle method
+// whose call on every return sets it. This table is the one catalog shared by
+// summarization, imported-mask selection, and the fact dump.
+type lifecycleMask struct {
+	name   string
+	method string
+	field  func(*Fact) *ParameterMask
+}
+
+var lifecycleMasks = []lifecycleMask{
+	{name: "Invoked", field: func(fact *Fact) *ParameterMask { return &fact.Invoked }},
+	{name: "Closed", method: "Close", field: func(fact *Fact) *ParameterMask { return &fact.Closed }},
+	{name: "Finalized", method: "Finalize", field: func(fact *Fact) *ParameterMask { return &fact.Finalized }},
+	{name: "Released", method: "Release", field: func(fact *Fact) *ParameterMask { return &fact.Released }},
+	{name: "Shutdown", method: "Shutdown", field: func(fact *Fact) *ParameterMask { return &fact.Shutdown }},
+	{name: "Stopped", method: "Stop", field: func(fact *Fact) *ParameterMask { return &fact.Stopped }},
+	{name: "Waited", method: "Wait", field: func(fact *Fact) *ParameterMask { return &fact.Waited }},
+	{name: "Committed", method: "Commit", field: func(fact *Fact) *ParameterMask { return &fact.Committed }},
+	{name: "RolledBack", method: "Rollback", field: func(fact *Fact) *ParameterMask { return &fact.RolledBack }},
+	{name: "ReturnedOwner", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedOwner }},
+	{name: "ReceiverStore", field: func(fact *Fact) *ParameterMask { return &fact.ReceiverStore }},
+}
+
 // MethodMask selects the parameter mask for a lifecycle method.
 func (fact *Fact) MethodMask(method string) ParameterMask {
-	switch method {
-	case "Close":
-		return fact.Closed
-	case "Finalize":
-		return fact.Finalized
-	case "Release":
-		return fact.Released
-	case "Shutdown":
-		return fact.Shutdown
-	case "Stop":
-		return fact.Stopped
-	case "Wait":
-		return fact.Waited
-	case "Commit":
-		return fact.Committed
-	case "Rollback":
-		return fact.RolledBack
-	default:
-		return 0
+	for _, mask := range lifecycleMasks {
+		if mask.method == method && mask.method != "" {
+			return *mask.field(fact)
+		}
 	}
+	return 0
 }

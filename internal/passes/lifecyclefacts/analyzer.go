@@ -96,11 +96,11 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 		}) {
 			fact.Invoked |= bit
 		}
-		for method, target := range map[string]*ParameterMask{
-			"Close": &fact.Closed, "Finalize": &fact.Finalized, "Release": &fact.Released,
-			"Shutdown": &fact.Shutdown, "Stop": &fact.Stopped, "Wait": &fact.Waited,
-			"Commit": &fact.Committed, "Rollback": &fact.RolledBack,
-		} {
+		for _, mask := range lifecycleMasks {
+			if mask.method == "" {
+				continue
+			}
+			method, target := mask.method, mask.field(&fact)
 			if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
 				common := ssaflow.InstructionCall(instruction)
 				if common != nil && ssaflow.CallName(common) == method &&
