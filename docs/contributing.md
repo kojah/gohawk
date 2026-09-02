@@ -64,8 +64,10 @@ as a threshold or ownership policy. Define them on the analyzer's `Flags` set.
 ### 2. Register it
 
 Add a `catalog.AnalyzerSpec` for the analyzer to the matching group in
-`analyzers/catalog_specs.go`, including its checks, opt-in status, and
-suggested-fix support. Then add its analyzer ID to the stable order in
+`analyzers/catalog_specs.go`, including its checks, each check's tier, and
+suggested-fix support. A new check starts experimental; it moves to extended
+once it has fixtures, a doc page, and an audit batch without a false-positive
+class, and to core after consecutive clean batches with a bounded proof model. Then add its analyzer ID to the stable order in
 `analyzers/analyzers.go`.
 
 Define each stable check identity alongside the existing check constants in

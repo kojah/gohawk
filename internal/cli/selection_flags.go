@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -83,11 +84,14 @@ func checkOwners(checks map[string]bool, metadata map[string]gohawk.AnalyzerInfo
 	return owners
 }
 
+// effectiveDisabledChecks decides which checks of the selected analyzers
+// stay silent. A check runs when it was named, when every tier is enabled,
+// when its tier is within the ceiling, or when its analyzer was asked for by
+// name and the check is no more than extended.
 func effectiveDisabledChecks(
 	metadata map[string]gohawk.AnalyzerInfo,
-	normallySelected map[string]bool,
+	selection analyzerCheckSelection,
 	requested checkSelection,
-	enableAll bool,
 ) map[string]bool {
 	disabled := maps.Clone(requested.disabled)
 	for analyzer, info := range metadata {
@@ -96,16 +100,50 @@ func effectiveDisabledChecks(
 			if requested.enabled[id] {
 				continue
 			}
-			if !normallySelected[analyzer] {
+			if !selection.normallySelected[analyzer] {
 				disabled[id] = true
 				continue
 			}
-			if !enableAll && !check.EnabledByDefault() {
+			admitted := selection.enableAll || check.EnabledAt(selection.ceiling) ||
+				selection.named[analyzer] && check.EnabledAt(gohawk.CheckTierExtended)
+			if !admitted {
 				disabled[id] = true
 			}
 		}
 	}
 	return disabled
+}
+
+// requestedTier consumes a -tier flag and returns the ceiling it names,
+// defaulting to core.
+func requestedTier(arguments []string) (gohawk.CheckTier, []string, error) {
+	ceiling := gohawk.CheckTierCore
+	remaining := make([]string, 0, len(arguments))
+	if len(arguments) > 0 {
+		remaining = append(remaining, arguments[0])
+	}
+	for index := 1; index < len(arguments); index++ {
+		argument := arguments[index]
+		value := strings.TrimLeft(argument, "-")
+		name, raw, hasValue := strings.Cut(value, "=")
+		if value == argument || name != "tier" {
+			remaining = append(remaining, argument)
+			continue
+		}
+		if !hasValue {
+			index++
+			if index >= len(arguments) {
+				return "", nil, errors.New("-tier requires a value: core, extended, or experimental")
+			}
+			raw = arguments[index]
+		}
+		parsed, err := gohawk.ParseCheckTier(raw)
+		if err != nil {
+			return "", nil, err
+		}
+		ceiling = parsed
+	}
+	return ceiling, remaining, nil
 }
 
 func withDisabledChecks(analyzers []*analysis.Analyzer, metadata map[string]gohawk.AnalyzerInfo, disabled map[string]bool) []*analysis.Analyzer {

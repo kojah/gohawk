@@ -37,8 +37,8 @@ func TestGeneratedManifestMatchesCatalog(t *testing.T) {
 				t.Errorf("analyzer %q path %q is outside group %q", analyzer.Name, analyzer.Path, group.Slug)
 			}
 			info := gohawk.AnalyzerMetadata()[analyzer.Name]
-			if analyzer.OptIn != info.OptIn {
-				t.Errorf("analyzer %q opt-in metadata was not copied", analyzer.Name)
+			if analyzer.Tier != info.Tier() {
+				t.Errorf("analyzer %q tier metadata was not copied", analyzer.Name)
 			}
 			if len(analyzer.Checks) != len(info.Checks) {
 				t.Errorf("analyzer %q check metadata was not copied", analyzer.Name)
@@ -141,21 +141,20 @@ func TestSynchronizeAnalyzerComponentsAddsImportsAfterFrontmatter(t *testing.T) 
 	}
 }
 
-func TestChecksBlockIncludesIDsDescriptionsAndOptInMarker(t *testing.T) {
+func TestChecksBlockIncludesIDsDescriptionsAndTier(t *testing.T) {
 	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
 		Kind:    "hazard",
-		OptIn:   true,
+		Tier:    gohawk.CheckTierExtended,
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"| Check | Kind | What it detects |",
-		"| <CheckIdentity name=\"problem\" optIn /> | hazard |",
+		"| Check | Kind | Tier | What it detects |",
+		"| <CheckIdentity name=\"problem\" tier=\"extended\" /> | hazard | extended |",
 		"Reports the example problem.",
-		`\* Opt-in; requires explicit selection.`,
 	} {
 		if !strings.Contains(block, want) {
 			t.Fatalf("checks block is missing %q: %s", want, block)
@@ -171,6 +170,7 @@ func TestChecksBlockOmitsDefaultActivation(t *testing.T) {
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
 		Kind:    "policy",
+		Tier:    gohawk.CheckTierCore,
 	}})
 	if err != nil {
 		t.Fatal(err)

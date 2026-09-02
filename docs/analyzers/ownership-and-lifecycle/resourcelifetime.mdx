@@ -18,12 +18,10 @@ HTTP response bodies, timers and tickers, and gzip/zlib readers and writers.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="missing-release" /> | defect | Reports owned resources that are not released on every return path. |
-| <CheckIdentity name="use-after-release" optIn /> | hazard | Reports an invalidating operation on a resource that a direct release dominates. |
-
-\* Opt-in; requires explicit selection.
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports owned resources that are not released on every return path. |
+| <CheckIdentity name="use-after-release" tier="experimental" /> | hazard | experimental | Reports an invalidating operation on a resource that a direct release dominates. |
 {/* gohawk:generated-checks:end */}
 
 The `owned` contract family is not a table. A constructor in another package
@@ -54,7 +52,7 @@ track. Past such a use the analyzer stays silent rather than guess.
 Compression writers over a local in-memory buffer are exempt by default;
 `-require-memory-writer-close=true` reports them like any other writer.
 
-The opt-in `use-after-release` check is the dual of the leak check. After a
+The experimental `use-after-release` check is the dual of the leak check. After a
 plain (not deferred) release of the acquired value, it reports an operation
 the API documents as failing on a released value, such as a write to a closed
 file, a scan of closed rows, a statement on a committed transaction, or a read

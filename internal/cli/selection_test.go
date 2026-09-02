@@ -291,7 +291,7 @@ func TestCheckSelectionProfiles(t *testing.T) {
 		if !strings.Contains(strings.Join(selection.arguments, " "), "-testlifecycle=true") || selection.normallySelected["testlifecycle"] {
 			t.Fatalf("selection = %+v", selection)
 		}
-		disabled := effectiveDisabledChecks(metadata, selection.normallySelected, requested, selection.enableAll)
+		disabled := effectiveDisabledChecks(metadata, selection, requested)
 		if disabled[testContext] || !disabled[nilContext] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
@@ -310,21 +310,71 @@ func TestCheckSelectionProfiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		disabled := effectiveDisabledChecks(metadata, selection.normallySelected, requested, selection.enableAll)
+		disabled := effectiveDisabledChecks(metadata, selection, requested)
 		if disabled[testContext] || disabled[nilContext] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 	})
 
-	t.Run("enable all includes opt-in checks and disable wins", func(t *testing.T) {
+	t.Run("enable all includes every tier and disable wins", func(t *testing.T) {
 		requested := checkSelection{enabled: map[string]bool{}, disabled: map[string]bool{testContext: true}}
 		selection, err := withAnalyzerCheckSelection([]string{"gohawk", "-enable-all", "./..."}, analyzers, groups, metadata, nil, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		disabled := effectiveDisabledChecks(metadata, selection.normallySelected, requested, selection.enableAll)
+		disabled := effectiveDisabledChecks(metadata, selection, requested)
 		if !disabled[testContext] || disabled[nilContext] {
 			t.Fatalf("disabled checks = %v", disabled)
+		}
+	})
+}
+
+func TestCheckSelectionTiers(t *testing.T) {
+	analyzers := gohawk.Analyzers()
+	groups := gohawk.AnalyzerGroups()
+	metadata := gohawk.AnalyzerMetadata()
+	nilContext := "contextpolicy/nil-context"
+
+	t.Run("tier ceiling admits extended checks", func(t *testing.T) {
+		requested := checkSelection{enabled: map[string]bool{}, disabled: map[string]bool{}}
+		selection, err := withAnalyzerCheckSelection([]string{"gohawk", "-tier=extended", "./..."}, analyzers, groups, metadata, nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !selection.normallySelected["apishape"] || selection.normallySelected["taintpolicy"] {
+			t.Fatalf("selected analyzers = %v", selection.normallySelected)
+		}
+		disabled := effectiveDisabledChecks(metadata, selection, requested)
+		if disabled["apishape/parameter-count"] || disabled[nilContext] || !disabled["goroutineownership/detached"] {
+			t.Fatalf("disabled checks = %v", disabled)
+		}
+	})
+
+	t.Run("naming an analyzer admits extended but not experimental checks", func(t *testing.T) {
+		requested := checkSelection{enabled: map[string]bool{}, disabled: map[string]bool{}}
+		arguments := []string{"gohawk", "-enable=goroutineownership,lockorder", "./..."}
+		selection, err := withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		disabled := effectiveDisabledChecks(metadata, selection, requested)
+		if disabled["lockorder/contradictory-order"] || !disabled["goroutineownership/detached"] || disabled["goroutineownership/unjoined"] {
+			t.Fatalf("disabled checks = %v", disabled)
+		}
+
+		arguments = []string{"gohawk", "-tier=experimental", "-enable=goroutineownership", "./..."}
+		selection, err = withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["goroutineownership/detached"] {
+			t.Fatalf("experimental ceiling did not admit detached: %v", disabled)
+		}
+	})
+
+	t.Run("unknown tier is rejected", func(t *testing.T) {
+		if _, err := withAnalyzerCheckSelection([]string{"gohawk", "-tier=stable", "./..."}, analyzers, groups, metadata, nil, false); err == nil {
+			t.Fatal("expected an error for an unknown tier")
 		}
 	})
 }

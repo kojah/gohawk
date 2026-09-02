@@ -58,7 +58,7 @@ func TestUnknownDiagnosticReturnsError(t *testing.T) {
 				return nil, nil
 			},
 		},
-		Checks: []catalog.CheckInfo{{ID: "example/known", Kind: catalog.KindDefect}},
+		Checks: []catalog.CheckInfo{{ID: "example/known", Kind: catalog.KindDefect, Tier: catalog.TierCore}},
 	})
 
 	_, err := analyzer.Run(&analysis.Pass{Report: func(analysis.Diagnostic) {}})
@@ -67,7 +67,17 @@ func TestUnknownDiagnosticReturnsError(t *testing.T) {
 	}
 }
 
-func TestDefaultSuppressionsExcludeOptInChecks(t *testing.T) {
+func analyzerTier(name string, extended, experimental map[string]bool) CheckTier {
+	switch {
+	case experimental[name]:
+		return CheckTierExperimental
+	case extended[name]:
+		return CheckTierExtended
+	}
+	return CheckTierCore
+}
+
+func TestDefaultSuppressionsExcludeSelectedTierChecks(t *testing.T) {
 	analyzer := withDefaultSuppressions("", catalog.AnalyzerSpec{
 		Analyzer: &analysis.Analyzer{
 			Name: "example",
@@ -78,8 +88,8 @@ func TestDefaultSuppressionsExcludeOptInChecks(t *testing.T) {
 			},
 		},
 		Checks: []catalog.CheckInfo{
-			{ID: "example/default", Kind: catalog.KindDefect},
-			{ID: "example/optional", Kind: catalog.KindHazard, OptIn: true},
+			{ID: "example/default", Kind: catalog.KindDefect, Tier: catalog.TierCore},
+			{ID: "example/optional", Kind: catalog.KindHazard, Tier: catalog.TierExtended},
 		},
 	})
 	var categories []string
@@ -185,17 +195,18 @@ func TestAnalyzerMetadata(t *testing.T) {
 	if len(metadata) != len(expectedAnalyzerNames()) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
-	optIn := map[string]bool{
+	extended := map[string]bool{
 		"apishape": true, "channelcapacity": true, "closedomain": true, "errorownership": true,
-		"determinism": true, "globalstate": true, "taintpolicy": true, "channelownership": true,
-		"testlifecycle": true, "testpolicy": true, "wirepolicy": true, "borrowedstorage": true,
+		"determinism": true, "globalstate": true, "channelownership": true,
+		"testlifecycle": true, "testpolicy": true, "wirepolicy": true,
 	}
+	experimental := map[string]bool{"taintpolicy": true, "borrowedstorage": true}
 	seenChecks := make(map[AnalyzerCheck]string)
-	optInChecks := map[AnalyzerCheck]bool{
-		"goroutineownership/detached":        true,
-		"processownership/detached":          true,
-		"resourcelifetime/use-after-release": true,
-		"lockorder/contradictory-order":      true,
+	checkTiers := map[AnalyzerCheck]CheckTier{
+		"goroutineownership/detached":        CheckTierExperimental,
+		"processownership/detached":          CheckTierExperimental,
+		"resourcelifetime/use-after-release": CheckTierExperimental,
+		"lockorder/contradictory-order":      CheckTierExtended,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
 		"apishape/parameter-count":           CheckKindPolicy,
@@ -242,8 +253,8 @@ func TestAnalyzerMetadata(t *testing.T) {
 		info, ok := metadata[name]
 		if !ok {
 			t.Errorf("metadata missing analyzer %q", name)
-		} else if info.OptIn != optIn[name] {
-			t.Errorf("analyzer %q opt-in = %t, want %t", name, info.OptIn, optIn[name])
+		} else if want := analyzerTier(name, extended, experimental); info.Tier() != want {
+			t.Errorf("analyzer %q tier = %q, want %q", name, info.Tier(), want)
 		}
 		if len(info.Checks) == 0 {
 			t.Errorf("analyzer %q has no checks", name)
@@ -255,8 +266,12 @@ func TestAnalyzerMetadata(t *testing.T) {
 			if strings.TrimSpace(check.Doc) == "" {
 				t.Errorf("check %q has no description", check.ID)
 			}
-			if check.OptIn != optInChecks[check.ID] {
-				t.Errorf("check %q opt-in = %t, want %t", check.ID, check.OptIn, optInChecks[check.ID])
+			wantTier, named := checkTiers[check.ID]
+			if !named {
+				wantTier = analyzerTier(name, extended, experimental)
+			}
+			if check.Tier != wantTier {
+				t.Errorf("check %q tier = %q, want %q", check.ID, check.Tier, wantTier)
 			}
 			if check.Kind != kinds[check.ID] {
 				t.Errorf("check %q kind = %q, want %q", check.ID, check.Kind, kinds[check.ID])
@@ -312,7 +327,7 @@ func TestTestFileDiagnosticsSkippedOutsideTestingGroup(t *testing.T) {
 		pass.Report(analysis.Diagnostic{Category: "example/check", Pos: productionFile.Pos(0)})
 		return nil, nil
 	}
-	checks := []catalog.CheckInfo{{ID: "example/check", Kind: catalog.KindDefect}}
+	checks := []catalog.CheckInfo{{ID: "example/check", Kind: catalog.KindDefect, Tier: catalog.TierCore}}
 	for _, test := range []struct {
 		name  string
 		group catalog.GroupID

@@ -15,9 +15,9 @@ value is consumed as the successfully removed entry.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="non-atomic-claim" /> | hazard | Reports separate sync.Map Load and Delete operations used to claim one value. |
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="non-atomic-claim" tier="core" /> | hazard | core | Reports separate sync.Map Load and Delete operations used to claim one value. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

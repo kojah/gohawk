@@ -14,7 +14,7 @@ func TestCatalogValidatesDeclarations(t *testing.T) {
 			ID: "group", Doc: "group docs", DocPath: "group-docs",
 			Analyzers: []AnalyzerSpec{{
 				Analyzer: &analysis.Analyzer{Name: "sample", Doc: "sample docs", Run: func(*analysis.Pass) (any, error) { return nil, nil }},
-				Checks:   []CheckInfo{{ID: "sample/check", Doc: "check docs", Kind: KindDefect}},
+				Checks:   []CheckInfo{{ID: "sample/check", Doc: "check docs", Kind: KindDefect, Tier: TierCore}},
 			}},
 		}}
 	}
@@ -62,7 +62,7 @@ func TestCatalogReturnsDefensiveCopies(t *testing.T) {
 	analyzer := &analysis.Analyzer{Name: "sample", Doc: "sample docs", Run: func(*analysis.Pass) (any, error) { return nil, nil }}
 	catalog, err := NewCatalog([]GroupSpec{{
 		ID: "group", Doc: "group docs", DocPath: "group-docs",
-		Analyzers: []AnalyzerSpec{{Analyzer: analyzer, Checks: []CheckInfo{{ID: "sample/check", Doc: "check docs", Kind: KindDefect}}}},
+		Analyzers: []AnalyzerSpec{{Analyzer: analyzer, Checks: []CheckInfo{{ID: "sample/check", Doc: "check docs", Kind: KindDefect, Tier: TierCore}}}},
 	}}, []AnalyzerID{"sample"})
 	if err != nil {
 		t.Fatal(err)

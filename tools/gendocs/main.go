@@ -37,21 +37,21 @@ type group struct {
 }
 
 type analyzer struct {
-	Name         string          `json:"name"`
-	Summary      string          `json:"summary"`
-	Path         string          `json:"path"`
-	OptIn        bool            `json:"optIn"`
-	Checks       []check         `json:"checks"`
-	SuggestedFix bool            `json:"suggestedFix"`
-	Options      []optionFlag    `json:"options"`
-	Examples     docexamples.Set `json:"-"`
+	Name         string           `json:"name"`
+	Summary      string           `json:"summary"`
+	Path         string           `json:"path"`
+	Tier         gohawk.CheckTier `json:"tier"`
+	Checks       []check          `json:"checks"`
+	SuggestedFix bool             `json:"suggestedFix"`
+	Options      []optionFlag     `json:"options"`
+	Examples     docexamples.Set  `json:"-"`
 }
 
 type check struct {
 	ID      string           `json:"id"`
 	Summary string           `json:"summary"`
 	Kind    gohawk.CheckKind `json:"kind"`
-	OptIn   bool             `json:"optIn"`
+	Tier    gohawk.CheckTier `json:"tier"`
 }
 
 type optionFlag struct {

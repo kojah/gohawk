@@ -21,14 +21,30 @@ type AnalyzerGroup struct {
 
 // AnalyzerInfo describes capabilities that are not represented by analysis.Analyzer.
 type AnalyzerInfo struct {
-	OptIn        bool
 	Checks       []AnalyzerCheckInfo
 	SuggestedFix bool
 }
 
+// Tier is the most trusted tier among the analyzer's checks: the analyzer
+// runs whenever a check at that tier is selected.
+func (info AnalyzerInfo) Tier() CheckTier {
+	tier := CheckTierExperimental
+	for _, check := range info.Checks {
+		if check.Tier.Within(tier) {
+			tier = check.Tier
+		}
+	}
+	return tier
+}
+
+// EnabledAt reports whether the analyzer has a check that runs under ceiling.
+func (info AnalyzerInfo) EnabledAt(ceiling CheckTier) bool {
+	return info.Tier().Within(ceiling)
+}
+
 // EnabledByDefault reports whether the analyzer runs without explicit selection.
 func (info AnalyzerInfo) EnabledByDefault() bool {
-	return !info.OptIn
+	return info.EnabledAt(CheckTierCore)
 }
 
 func newCatalog() (*catalog.Catalog, error) {
@@ -201,7 +217,7 @@ func DefaultAnalyzers() []*analysis.Analyzer {
 func publicAnalyzerInfo(spec catalog.AnalyzerSpec) AnalyzerInfo {
 	checks := make([]AnalyzerCheckInfo, len(spec.Checks))
 	for index, check := range spec.Checks {
-		checks[index] = AnalyzerCheckInfo{ID: AnalyzerCheck(check.ID), Doc: check.Doc, Kind: CheckKind(check.Kind), OptIn: check.OptIn}
+		checks[index] = AnalyzerCheckInfo{ID: AnalyzerCheck(check.ID), Doc: check.Doc, Kind: CheckKind(check.Kind), Tier: CheckTier(check.Tier)}
 	}
-	return AnalyzerInfo{OptIn: spec.OptIn, Checks: checks, SuggestedFix: spec.SuggestedFix}
+	return AnalyzerInfo{Checks: checks, SuggestedFix: spec.SuggestedFix}
 }

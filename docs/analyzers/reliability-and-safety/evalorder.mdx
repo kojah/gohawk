@@ -15,9 +15,9 @@ by an earlier operand.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="operand-mutation" /> | hazard | Reports expressions whose later operand mutates a value read by an earlier operand. |
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="operand-mutation" tier="core" /> | hazard | core | Reports expressions whose later operand mutates a value read by an earlier operand. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

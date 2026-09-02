@@ -15,17 +15,15 @@ waiting for it.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="missing-wait" /> | defect | Reports successfully started commands that are neither waited on nor transferred. |
-| <CheckIdentity name="detached" optIn /> | policy | Reports started commands whose handle is never used again, the fire-and-forget launch. |
-
-\* Opt-in; requires explicit selection.
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="missing-wait" tier="core" /> | defect | core | Reports successfully started commands that are neither waited on nor transferred. |
+| <CheckIdentity name="detached" tier="experimental" /> | policy | experimental | Reports started commands whose handle is never used again, the fire-and-forget launch. |
 {/* gohawk:generated-checks:end */}
 
 A started command whose handle is never handed to anything again, the
 fire-and-forget launch of a browser or a detached daemon, is a policy choice
-rather than a defect and is reported only by the opt-in `detached` check.
+rather than a defect and is reported only by the experimental `detached` check.
 Reading a field of the handle, such as logging the child's PID, does not
 count as handing it on. The default `missing-wait` check reports handles
 that are waited on or released on some paths but not all.

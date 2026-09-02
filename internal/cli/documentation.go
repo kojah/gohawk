@@ -69,8 +69,8 @@ func printFilteredFlagsUsing(arguments []string, analyzers []*analysis.Analyzer,
 func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("list", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
-	defaultsOnly := flags.Bool("defaults", false, "show only entries included in an ordinary run")
-	optInOnly := flags.Bool("opt-in", false, "show only entries requiring explicit selection")
+	defaultsOnly := flags.Bool("defaults", false, "show only core entries, which run without selection")
+	optInOnly := flags.Bool("opt-in", false, "show only extended and experimental entries, which require selection")
 	showChecks := flags.Bool("checks", false, "show stable check IDs instead of analyzer names")
 	flags.Usage = func() {
 		writeLine(errorsOutput, "usage: gohawk list [-checks] [-defaults | -opt-in]")
@@ -94,64 +94,57 @@ func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error
 	metadata := gohawk.AnalyzerMetadata()
 	table := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
 	if options.showChecks {
-		writeLine(table, "CHECK\tKIND\tGROUP")
+		writeLine(table, "CHECK\tKIND\tTIER\tGROUP")
 	} else {
-		writeLine(table, "ANALYZER\tGROUP")
+		writeLine(table, "ANALYZER\tTIER\tGROUP")
 	}
-	shownOptIn := writeAnalyzerListRows(table, metadata, options)
+	writeAnalyzerListRows(table, metadata, options)
 	if err := table.Flush(); err != nil {
 		return err
 	}
-	if shownOptIn {
-		writeLine(output, "\n* opt-in; requires explicit selection")
-	}
+	writeLine(output, "\ncore runs by default; extended and experimental require selection (see -tier)")
 	return nil
 }
 
-func writeAnalyzerListRows(
-	output io.Writer,
-	metadata map[string]gohawk.AnalyzerInfo,
-	options analyzerListOptions,
-) bool {
-	shownOptIn := false
+func writeAnalyzerListRows(output io.Writer, metadata map[string]gohawk.AnalyzerInfo, options analyzerListOptions) {
 	for _, group := range gohawk.AnalyzerGroups() {
 		for _, analyzer := range group.Analyzers {
 			info := metadata[analyzer.Name]
-			isDefault := info.EnabledByDefault()
-			if !options.showChecks && listEntryFiltered(isDefault, options) {
-				continue
-			}
 			if options.showChecks {
-				shownOptIn = writeCheckListRows(output, group.Name, info, options) || shownOptIn
+				writeCheckListRows(output, group.Name, info, options)
 				continue
 			}
-			writeFormattedf(output, "%s\t%s\n", optInName(analyzer.Name, !isDefault), group.Name)
-			shownOptIn = shownOptIn || !isDefault
+			if listEntryFiltered(info.EnabledByDefault(), options) {
+				continue
+			}
+			writeFormattedf(output, "%s\t%s\t%s\n", analyzer.Name, info.Tier(), group.Name)
 		}
 	}
-	return shownOptIn
 }
 
-func writeCheckListRows(output io.Writer, groupName string, info gohawk.AnalyzerInfo, options analyzerListOptions) bool {
-	shownOptIn := false
+func writeCheckListRows(output io.Writer, groupName string, info gohawk.AnalyzerInfo, options analyzerListOptions) {
 	for _, check := range info.Checks {
-		isDefault := info.EnabledByDefault() && check.EnabledByDefault()
-		if listEntryFiltered(isDefault, options) {
+		if listEntryFiltered(check.EnabledByDefault(), options) {
 			continue
 		}
-		writeFormattedf(output, "%s\t%s\t%s\n", optInName(string(check.ID), !isDefault), check.Kind, groupName)
-		shownOptIn = shownOptIn || !isDefault
+		writeFormattedf(output, "%s\t%s\t%s\t%s\n", check.ID, check.Kind, check.Tier, groupName)
 	}
-	return shownOptIn
 }
 
 func listEntryFiltered(isDefault bool, options analyzerListOptions) bool {
 	return options.defaultsOnly && !isDefault || options.optInOnly && isDefault
 }
 
-func optInName(name string, optIn bool) string {
-	if optIn {
-		return name + "*"
+// tierName marks an analyzer that does not run by default: + for extended,
+// ~ for experimental.
+func tierName(name string, tier gohawk.CheckTier) string {
+	switch tier {
+	case gohawk.CheckTierExtended:
+		return name + "+"
+	case gohawk.CheckTierExperimental:
+		return name + "~"
+	case gohawk.CheckTierCore:
+		return name
 	}
 	return name
 }
@@ -194,20 +187,16 @@ func printDocumentation(arguments []string, output, errorsOutput io.Writer) erro
 func printAnalyzerDocumentation(output io.Writer, group gohawk.AnalyzerGroup, analyzer *analysis.Analyzer, info gohawk.AnalyzerInfo) {
 	writeLine(output, analyzer.Name)
 	writeFormattedf(output, "  %s\n\n", analyzer.Doc)
-	if info.OptIn {
-		writeLine(output, "Opt-in: yes")
-	}
+	writeFormattedf(output, "Tier: %s\n", info.Tier())
 	writeFormattedf(output, "Group: %s (%s)\n", group.Name, group.Doc)
 	writeFormattedf(output, "Suggested fixes: %s\n", yesNo(info.SuggestedFix))
 	writeFormattedf(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
 	writeLine(output, "\nChecks:")
 	for _, check := range info.Checks {
-		writeFormattedf(output, "  %s\n", optInName(string(check.ID), info.OptIn || check.OptIn))
+		writeFormattedf(output, "  %s\n", check.ID)
 		writeFormattedf(output, "    Kind: %s\n", check.Kind)
+		writeFormattedf(output, "    Tier: %s\n", check.Tier)
 		writeFormattedf(output, "    %s\n", check.Doc)
-	}
-	if info.OptIn || slices.ContainsFunc(info.Checks, func(check gohawk.AnalyzerCheckInfo) bool { return check.OptIn }) {
-		writeLine(output, "  * opt-in; requires explicit selection")
 	}
 	printAnalyzerOptions(output, analyzer)
 }
@@ -216,16 +205,14 @@ func printCheckDocumentation(
 	output io.Writer,
 	group gohawk.AnalyzerGroup,
 	analyzer *analysis.Analyzer,
-	info gohawk.AnalyzerInfo,
+	_ gohawk.AnalyzerInfo,
 	check gohawk.AnalyzerCheckInfo,
 ) {
 	writeLine(output, check.ID)
 	writeFormattedf(output, "  %s\n\n", check.Doc)
 	writeFormattedf(output, "Analyzer: %s\n", analyzer.Name)
 	writeFormattedf(output, "Kind: %s\n", check.Kind)
-	if info.OptIn || check.OptIn {
-		writeLine(output, "Opt-in: yes")
-	}
+	writeFormattedf(output, "Tier: %s\n", check.Tier)
 	writeFormattedf(output, "Group: %s (%s)\n", group.Name, group.Doc)
 	writeFormattedf(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
 }
@@ -307,11 +294,11 @@ func printGeneralHelp(output io.Writer) {
 	for _, group := range gohawk.AnalyzerGroups() {
 		names := make([]string, 0, len(group.Analyzers))
 		for _, analyzer := range group.Analyzers {
-			names = append(names, optInName(analyzer.Name, !metadata[analyzer.Name].EnabledByDefault()))
+			names = append(names, tierName(analyzer.Name, metadata[analyzer.Name].Tier()))
 		}
 		writeFormattedf(output, "  %s (%s): %s\n", group.Name, group.Doc, strings.Join(names, ", "))
 	}
-	writeLine(output, "\n* opt-in; requires explicit selection")
+	writeLine(output, "\nTiers: core runs by default; extended (+) and experimental (~) require selection or -tier.")
 	writeLine(output, "Run 'gohawk list' for the full catalog.")
 	writeLine(output)
 }

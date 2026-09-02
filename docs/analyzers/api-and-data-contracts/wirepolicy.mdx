@@ -15,12 +15,10 @@ wire types when their fields should be named explicitly.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="keyed-literal" optIn /> | policy | Reports positional composite literals for persisted or wire structs. |
-| <CheckIdentity name="serialization-tag" optIn /> | policy | Reports exported wire fields without explicit JSON or TOML tags. |
-
-\* Opt-in; requires explicit selection.
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="keyed-literal" tier="extended" /> | policy | extended | Reports positional composite literals for persisted or wire structs. |
+| <CheckIdentity name="serialization-tag" tier="extended" /> | policy | extended | Reports exported wire fields without explicit JSON or TOML tags. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

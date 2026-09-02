@@ -60,35 +60,27 @@ func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
 	return result, nil
 }
 
-// checksBlock renders stable check identifiers and summaries as a standard
-// Markdown table. The MDX component provides shared opt-in styling while
-// preserving Starlight's native table rendering.
+// checksBlock renders stable check identifiers, kinds, tiers, and summaries
+// as a standard Markdown table. The MDX component provides shared styling
+// while preserving Starlight's native table rendering.
 func checksBlock(analyzerName string, checks []check) (string, error) {
 	var output strings.Builder
-	hasOptIn := false
-	output.WriteString("| Check | Kind | What it detects |\n")
-	output.WriteString("| --- | --- | --- |\n")
+	output.WriteString("| Check | Kind | Tier | What it detects |\n")
+	output.WriteString("| --- | --- | --- | --- |\n")
 	for _, item := range checks {
 		localID, ok := strings.CutPrefix(item.ID, analyzerName+"/")
 		if !ok || localID == "" {
 			return "", fmt.Errorf("check ID %q does not use analyzer prefix %q", item.ID, analyzerName+"/")
 		}
-		optIn := ""
-		if item.OptIn {
-			optIn = " optIn"
-			hasOptIn = true
-		}
 		fmt.Fprintf(
 			&output,
-			"| <CheckIdentity name=\"%s\"%s /> | %s | %s |\n",
+			"| <CheckIdentity name=\"%s\" tier=\"%s\" /> | %s | %s | %s |\n",
 			html.EscapeString(localID),
-			optIn,
+			item.Tier,
 			item.Kind,
+			item.Tier,
 			markdownTableCell(item.Summary),
 		)
-	}
-	if hasOptIn {
-		output.WriteString("\n\\* Opt-in; requires explicit selection.\n")
 	}
 	return strings.TrimSuffix(output.String(), "\n"), nil
 }

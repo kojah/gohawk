@@ -13,11 +13,9 @@ first making a copy.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="overlapping-owner" optIn /> | hazard | Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy. |
-
-\* Opt-in; requires explicit selection.
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="overlapping-owner" tier="experimental" /> | hazard | experimental | Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

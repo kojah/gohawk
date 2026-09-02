@@ -9,31 +9,31 @@
           "name": "apishape",
           "summary": "Checks exported API parameter and receiver shape.",
           "path": "analyzers/api-and-data-contracts/apishape",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "apishape/parameter-count",
               "summary": "Reports unconstrained exported APIs with more than the configured maximum number of parameters.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             },
             {
               "id": "apishape/mixed-receivers",
               "summary": "Reports types that mix pointer and value receiver methods.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             },
             {
               "id": "apishape/adjacent-same-type",
               "summary": "Reports long adjacent runs of parameters in unconstrained signatures that share one type.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             },
             {
               "id": "apishape/adjacent-optional-scalars",
               "summary": "Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
@@ -54,25 +54,25 @@
           "name": "contextpolicy",
           "summary": "Checks context placement, storage, and nil use.",
           "path": "analyzers/api-and-data-contracts/contextpolicy",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "contextpolicy/context-first",
               "summary": "Reports misplaced context.Context parameters while allowing additional contexts after a leading context and one context after a testing handle.",
               "kind": "policy",
-              "optIn": false
+              "tier": "core"
             },
             {
               "id": "contextpolicy/context-storage",
               "summary": "Reports context.Context values stored in structs.",
               "kind": "policy",
-              "optIn": false
+              "tier": "core"
             },
             {
               "id": "contextpolicy/nil-context",
               "summary": "Reports definitely nil context.Context arguments.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -82,13 +82,13 @@
           "name": "closedomain",
           "summary": "Finds builtin-string fields used as closed semantic domains.",
           "path": "analyzers/api-and-data-contracts/closedomain",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "closedomain/closed-string-domain",
               "summary": "Reports exported string fields used as small closed sets of values.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
@@ -98,19 +98,19 @@
           "name": "wirepolicy",
           "summary": "Checks serialized structs and their composite literals.",
           "path": "analyzers/api-and-data-contracts/wirepolicy",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "wirepolicy/keyed-literal",
               "summary": "Reports positional composite literals for persisted or wire structs.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             },
             {
               "id": "wirepolicy/serialization-tag",
               "summary": "Reports exported wire fields without explicit JSON or TOML tags.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": true,
@@ -127,13 +127,13 @@
           "name": "borrowedstorage",
           "summary": "Checks borrowed mutable storage transferred to a second owner.",
           "path": "analyzers/ownership-and-lifecycle/borrowedstorage",
-          "optIn": true,
+          "tier": "experimental",
           "checks": [
             {
               "id": "borrowedstorage/overlapping-owner",
               "summary": "Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy.",
               "kind": "hazard",
-              "optIn": true
+              "tier": "experimental"
             }
           ],
           "suggestedFix": false,
@@ -143,13 +143,13 @@
           "name": "cancellationownership",
           "summary": "Checks context and signal-derived cancellation functions proved lost on a normal return path.",
           "path": "analyzers/ownership-and-lifecycle/cancellationownership",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "cancellationownership/release",
               "summary": "Reports derived cancel functions proved lost on a feasible normal return path.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": true,
@@ -159,13 +159,13 @@
           "name": "channelcapacity",
           "summary": "Checks that large channel buffers document their bound.",
           "path": "analyzers/ownership-and-lifecycle/channelcapacity",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "channelcapacity/rationale",
               "summary": "Reports large constant channel capacities in production files without a nearby bounded rationale.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
@@ -181,13 +181,13 @@
           "name": "channelownership",
           "summary": "Audits callees that close channels exact callers continue to use.",
           "path": "analyzers/ownership-and-lifecycle/channelownership",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "channelownership/caller-close",
               "summary": "Reports callees that close a channel an exact caller continues to use.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
@@ -197,13 +197,13 @@
           "name": "channelsafety",
           "summary": "Checks channel operations for reachable use after close.",
           "path": "analyzers/ownership-and-lifecycle/channelsafety",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "channelsafety/send-after-close",
               "summary": "Reports sends reachable after a channel has been closed.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -213,13 +213,13 @@
           "name": "deferinloop",
           "summary": "Checks cleanup defers whose lifetime extends across loop iterations.",
           "path": "analyzers/ownership-and-lifecycle/deferinloop",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "deferinloop/cleanup-lifetime",
               "summary": "Reports cleanup defers whose lifetime extends across loop iterations.",
               "kind": "hazard",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -229,13 +229,13 @@
           "name": "exitpolicy",
           "summary": "Checks process termination that bypasses registered defers.",
           "path": "analyzers/ownership-and-lifecycle/exitpolicy",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "exitpolicy/skipped-defer",
               "summary": "Reports immediate process termination that bypasses an earlier defer.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -245,19 +245,19 @@
           "name": "goroutineownership",
           "summary": "Checks that explicit goroutines have a recognizable join handle or lifecycle owner.",
           "path": "analyzers/ownership-and-lifecycle/goroutineownership",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "goroutineownership/unjoined",
               "summary": "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
               "kind": "hazard",
-              "optIn": false
+              "tier": "core"
             },
             {
               "id": "goroutineownership/detached",
               "summary": "Reports goroutines without a recognizable join handle or lifecycle owner.",
               "kind": "hazard",
-              "optIn": true
+              "tier": "experimental"
             }
           ],
           "suggestedFix": false,
@@ -273,13 +273,13 @@
           "name": "producerlifecycle",
           "summary": "Checks that goroutine producers cannot outlive their receivers.",
           "path": "analyzers/ownership-and-lifecycle/producerlifecycle",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "producerlifecycle/abandoned-send",
               "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
               "kind": "hazard",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -289,19 +289,19 @@
           "name": "processownership",
           "summary": "Checks that started os/exec commands are waited on or transferred to a wait owner.",
           "path": "analyzers/ownership-and-lifecycle/processownership",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "processownership/missing-wait",
               "summary": "Reports successfully started commands that are neither waited on nor transferred.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             },
             {
               "id": "processownership/detached",
               "summary": "Reports started commands whose handle is never used again, the fire-and-forget launch.",
               "kind": "policy",
-              "optIn": true
+              "tier": "experimental"
             }
           ],
           "suggestedFix": false,
@@ -311,19 +311,19 @@
           "name": "resourcelifetime",
           "summary": "Checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path.",
           "path": "analyzers/ownership-and-lifecycle/resourcelifetime",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "resourcelifetime/missing-release",
               "summary": "Reports owned resources that are not released on every return path.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             },
             {
               "id": "resourcelifetime/use-after-release",
               "summary": "Reports an invalidating operation on a resource that a direct release dominates.",
               "kind": "hazard",
-              "optIn": true
+              "tier": "experimental"
             }
           ],
           "suggestedFix": false,
@@ -356,13 +356,13 @@
           "name": "concurrentcapture",
           "summary": "Checks locals mutated by goroutines launched repeatedly.",
           "path": "analyzers/reliability-and-safety/concurrentcapture",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "concurrentcapture/shared-capture",
               "summary": "Reports repeatedly launched goroutines that mutate the same captured local.",
               "kind": "hazard",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -372,13 +372,13 @@
           "name": "determinism",
           "summary": "Checks map iteration reaching ordered output without explicit sorting.",
           "path": "analyzers/reliability-and-safety/determinism",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "determinism/map-output-order",
               "summary": "Reports map iteration that reaches ordered output without explicit sorting.",
               "kind": "hazard",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
@@ -388,13 +388,13 @@
           "name": "errorownership",
           "summary": "Checks that one function does not both log and return an error.",
           "path": "analyzers/reliability-and-safety/errorownership",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "errorownership/log-and-return",
               "summary": "Reports functions that both log and return the same error.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
@@ -404,13 +404,13 @@
           "name": "errorclassification",
           "summary": "Checks that native Go errors are classified structurally.",
           "path": "analyzers/reliability-and-safety/errorclassification",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "errorclassification/text-match",
               "summary": "Reports production code that classifies errors by matching their text.",
               "kind": "hazard",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -420,13 +420,13 @@
           "name": "inlineerror",
           "summary": "Checks inline error declarations for mismatched conditions.",
           "path": "analyzers/reliability-and-safety/inlineerror",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "inlineerror/mismatched-condition",
               "summary": "Reports inline error declarations whose condition checks a different error.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -436,13 +436,13 @@
           "name": "evalorder",
           "summary": "Checks later operands that mutate values evaluated earlier.",
           "path": "analyzers/reliability-and-safety/evalorder",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "evalorder/operand-mutation",
               "summary": "Reports expressions whose later operand mutates a value read by an earlier operand.",
               "kind": "hazard",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -452,13 +452,13 @@
           "name": "globalstate",
           "summary": "Checks mutable package-level state.",
           "path": "analyzers/reliability-and-safety/globalstate",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "globalstate/mutable-package-state",
               "summary": "Reports mutable package-level state without an explicit owner.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
@@ -479,25 +479,25 @@
           "name": "lockorder",
           "summary": "Checks contradictory mutex acquisition order and unreleased return paths.",
           "path": "analyzers/reliability-and-safety/lockorder",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "lockorder/missing-release",
               "summary": "Reports return paths that leave an owned lock held.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             },
             {
               "id": "lockorder/recursive-acquire",
               "summary": "Reports attempts to acquire a lock that is already held.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             },
             {
               "id": "lockorder/contradictory-order",
               "summary": "Reports inconsistent acquisition order for the same pair of locks.",
               "kind": "hazard",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
@@ -507,13 +507,13 @@
           "name": "oncepolicy",
           "summary": "Checks sync.Once function wrappers that are immediately discarded.",
           "path": "analyzers/reliability-and-safety/oncepolicy",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "oncepolicy/discarded-wrapper",
               "summary": "Reports sync.Once function wrappers that are called and immediately discarded.",
               "kind": "defect",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -523,13 +523,13 @@
           "name": "syncmapatomicity",
           "summary": "Checks non-atomic sync.Map load-and-delete claims.",
           "path": "analyzers/reliability-and-safety/syncmapatomicity",
-          "optIn": false,
+          "tier": "core",
           "checks": [
             {
               "id": "syncmapatomicity/non-atomic-claim",
               "summary": "Reports separate sync.Map Load and Delete operations used to claim one value.",
               "kind": "hazard",
-              "optIn": false
+              "tier": "core"
             }
           ],
           "suggestedFix": false,
@@ -539,13 +539,13 @@
           "name": "taintpolicy",
           "summary": "Checks untrusted environment and argument data reaching sensitive sinks.",
           "path": "analyzers/reliability-and-safety/taintpolicy",
-          "optIn": true,
+          "tier": "experimental",
           "checks": [
             {
               "id": "taintpolicy/untrusted-sink",
               "summary": "Reports untrusted input that reaches a configured sensitive sink without validation.",
               "kind": "hazard",
-              "optIn": true
+              "tier": "experimental"
             }
           ],
           "suggestedFix": false,
@@ -573,13 +573,13 @@
           "name": "testlifecycle",
           "summary": "Checks that test-owned asynchronous work inherits the test lifecycle.",
           "path": "analyzers/testing/testlifecycle",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "testlifecycle/context-root",
               "summary": "Reports detached test-owned goroutines rooted in a never-cancelled context.",
               "kind": "hazard",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
@@ -589,13 +589,13 @@
           "name": "testpolicy",
           "summary": "Checks lifecycle ownership in test helpers.",
           "path": "analyzers/testing/testpolicy",
-          "optIn": true,
+          "tier": "extended",
           "checks": [
             {
               "id": "testpolicy/helper-marker",
               "summary": "Reports test helpers that do not call Helper on every return path.",
               "kind": "policy",
-              "optIn": true
+              "tier": "extended"
             }
           ],
           "suggestedFix": true,

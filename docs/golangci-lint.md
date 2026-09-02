@@ -58,15 +58,15 @@ linters:
             - errorclassification/text-match
 ```
 
-The plugin runs gohawk's conservative default set;
-opt-in analyzers and checks are suppressed unless explicitly enabled. Its
+The plugin runs gohawk's core checks; extended and experimental checks are
+suppressed unless explicitly enabled. Its
 settings accept `enable` and `disable` analyzer lists, `enable-checks` and
 `disable-checks` lists of stable check IDs, or `enable-all: true` to start with
 every analyzer and check. Explicitly enabling a check also enables its owning
 analyzer, unless that analyzer is explicitly disabled. Run `gohawk list` and
 `gohawk list -checks` to see valid names and check IDs.
 
-See [Configuration](../configuration/) for opt-in checks and analyzer-selection
+See [Configuration](../configuration/) for tiers and analyzer-selection
 behavior.
 
 ## Run it

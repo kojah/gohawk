@@ -20,11 +20,9 @@ callee, or storing mutable values keeps the diagnostic.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="mutable-package-state" optIn /> | policy | Reports mutable package-level state without an explicit owner. |
-
-\* Opt-in; requires explicit selection.
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="mutable-package-state" tier="extended" /> | policy | extended | Reports mutable package-level state without an explicit owner. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

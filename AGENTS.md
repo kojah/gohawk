@@ -98,7 +98,7 @@ fixtures may use these operations when they are the behavior being analyzed.
 
 Add comments at non-obvious precision boundaries: ownership transfers,
 feasible-path assumptions, conservative bailouts, and distinctions between
-default and opt-in diagnostics. Explain why the analyzer accepts or rejects a
+core and lower-tier diagnostics. Explain why the analyzer accepts or rejects a
 pattern and what evidence makes that decision safe; do not merely restate the
 code.
 
@@ -187,9 +187,10 @@ Keep default proof systems deliberately bounded:
 - Add a proof family only for a reusable structural contract with exact value
   provenance and feasible-path semantics. A dogfood false positive alone is
   not sufficient reason to expand the model.
-- Keep heuristic audits explicitly opt-in. Do not make a heuristic
-  increasingly elaborate in an attempt to support a default correctness
-  claim.
+- Keep heuristic audits in the experimental tier. Do not make a heuristic
+  increasingly elaborate in an attempt to support a core correctness claim.
+  A check earns extended with fixtures, a doc page, and one clean audit
+  batch, and core with consecutive clean batches and a bounded proof model.
 
 Prefer stable false negatives over an analyzer whose precision depends on an
 open-ended catalog of framework and naming conventions.
@@ -219,8 +220,8 @@ whose diagnostic becomes an accepted false negative must be deleted, with the
 gap recorded in the fixture file's header comment, rather than left as an
 accepted case.
 
-The precision replay runs with every check enabled, so noise from an opt-in
-audit fails the gate like a default check. An audit whose labels keep failing
+The precision replay runs with every check enabled, so noise from an
+experimental audit fails the gate like a core check. An audit whose labels keep failing
 should be retired rather than refined.
 
 ## SSA traversal consistency

@@ -12,11 +12,9 @@ Reports a callee close only when an exact caller continues to send, close, or re
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="caller-close" optIn /> | policy | Reports callees that close a channel an exact caller continues to use. |
-
-\* Opt-in; requires explicit selection.
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="caller-close" tier="extended" /> | policy | extended | Reports callees that close a channel an exact caller continues to use. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

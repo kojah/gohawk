@@ -15,13 +15,11 @@ the corresponding release policy.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="missing-release" /> | defect | Reports return paths that leave an owned lock held. |
-| <CheckIdentity name="recursive-acquire" /> | defect | Reports attempts to acquire a lock that is already held. |
-| <CheckIdentity name="contradictory-order" optIn /> | hazard | Reports inconsistent acquisition order for the same pair of locks. |
-
-\* Opt-in; requires explicit selection.
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports return paths that leave an owned lock held. |
+| <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
+| <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports inconsistent acquisition order for the same pair of locks. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

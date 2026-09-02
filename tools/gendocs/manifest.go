@@ -54,8 +54,8 @@ func collectManifest(root string) (manifest, error) {
 				Name:         registered.Name,
 				Summary:      sentence(registered.Doc),
 				Path:         "analyzers/" + group.Slug + "/" + registered.Name,
-				OptIn:        info.OptIn,
-				Checks:       checkManifest(info.OptIn, info.Checks),
+				Tier:         info.Tier(),
+				Checks:       checkManifest(info.Checks),
 				SuggestedFix: info.SuggestedFix,
 				Options:      []optionFlag{},
 				Examples:     examples[registered.Name],
@@ -74,10 +74,10 @@ func collectManifest(root string) (manifest, error) {
 	return result, nil
 }
 
-func checkManifest(analyzerOptIn bool, checks []gohawk.AnalyzerCheckInfo) []check {
+func checkManifest(checks []gohawk.AnalyzerCheckInfo) []check {
 	result := make([]check, len(checks))
 	for index, item := range checks {
-		result[index] = check{ID: string(item.ID), Summary: item.Doc, Kind: item.Kind, OptIn: analyzerOptIn || item.OptIn}
+		result[index] = check{ID: string(item.ID), Summary: item.Doc, Kind: item.Kind, Tier: item.Tier}
 	}
 	return result
 }

@@ -14,11 +14,9 @@ and can return without calling the handle's `Helper` method.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="helper-marker" optIn /> | policy | Reports test helpers that do not call Helper on every return path. |
-
-\* Opt-in; requires explicit selection.
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="helper-marker" tier="extended" /> | policy | extended | Reports test helpers that do not call Helper on every return path. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

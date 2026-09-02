@@ -12,9 +12,9 @@ Reports producer goroutines that can block after their receiver stops waiting.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="abandoned-send" /> | hazard | Reports producer goroutines that can block after their receiver stops waiting. |
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="abandoned-send" tier="core" /> | hazard | core | Reports producer goroutines that can block after their receiver stops waiting. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

@@ -97,19 +97,23 @@ export default defineConfig({
 					label: 'Contributing',
 					items: [
 						{ slug: 'contributing' },
-						{ slug: 'architecture' },
-						{ slug: 'ai-policy' },
 						// The development references are contributor material, so they sit
 						// inside Contributing rather than beside it. This is the same
-						// group-within-a-section shape the analyzer groups use.
+						// group-within-a-section shape the analyzer groups use. The codebase
+						// tour opens the group because it orients a reader before the
+						// helper, fact, and debugging references answer specific questions.
 						{
 							label: 'Development',
 							items: [
+								{ slug: 'architecture' },
 								{ slug: 'development/shared-helpers' },
 								{ slug: 'development/fact-model' },
 								{ slug: 'development/debugging-reference' },
 							],
 						},
+						// Policy for contributors, so it closes the section rather than
+						// sitting among the development references.
+						{ slug: 'ai-policy' },
 					],
 				},
 				{

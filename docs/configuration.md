@@ -3,18 +3,37 @@ title: Configuration
 description: Choose checks, set options, and handle intentional findings.
 ---
 
-Running gohawk without selection flags uses its conservative default checks:
+Running gohawk without selection flags runs its core checks:
 
 ```sh
 gohawk ./...
 ```
 
-Use `gohawk list` to see available analyzers. Entries marked with `*` are
-opt-in and do not run by default.
+Every check carries a tier that records how much trust it has earned:
+
+| Tier | Runs by default | Meaning |
+| --- | --- | --- |
+| core | yes | precision demonstrated on the repository audit and guarded by the precision replay |
+| extended | no | stable checks that encode a house rule a team may reasonably decline |
+| experimental | no | heuristic audits that may change or be retired |
+
+Use `gohawk list` to see every analyzer with its tier, and `gohawk list
+-checks` for the checks themselves. An analyzer's tier is the most trusted
+tier among its checks; it runs whenever one of its checks is selected.
 
 ```sh
 gohawk list
 gohawk list -checks
+```
+
+Raise the tier ceiling to run every check at or below a tier:
+
+```sh
+# Run core and extended checks.
+gohawk -tier=extended ./...
+
+# Run everything, including experimental audits.
+gohawk -tier=experimental ./...
 ```
 
 ## Choose what runs
@@ -22,15 +41,18 @@ gohawk list -checks
 Use analyzer names with `-enable` and `-disable`:
 
 ```sh
-# Run two opt-in analyzers.
+# Run two extended analyzers.
 gohawk -enable=wirepolicy,globalstate ./...
 
 # Keep the default set, except oncepolicy.
 gohawk -disable=oncepolicy ./...
 
-# Run every analyzer and check, including opt-in checks.
+# Run every analyzer and check at every tier.
 gohawk -enable-all ./...
 ```
+
+Naming an analyzer admits its core and extended checks. Its experimental
+checks join only under `-tier=experimental` or when named by check ID.
 
 You can also select a whole group:
 
@@ -46,8 +68,11 @@ To select one check rather than its whole analyzer, use the stable ID shown by
 `gohawk list -checks`:
 
 ```sh
-# Run one opt-in check.
+# Run one extended check, whatever the tier ceiling.
 gohawk -enable-checks=testlifecycle/context-root ./...
+
+# Run one experimental audit alongside the core checks.
+gohawk -enable-checks=goroutineownership/detached ./...
 
 # Keep contextpolicy enabled, but omit one of its checks.
 gohawk -disable-checks=contextpolicy/context-storage ./...

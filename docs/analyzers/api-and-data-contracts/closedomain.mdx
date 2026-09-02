@@ -15,11 +15,9 @@ group of values—but are still declared as plain strings.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="closed-string-domain" optIn /> | policy | Reports exported string fields used as small closed sets of values. |
-
-\* Opt-in; requires explicit selection.
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="closed-string-domain" tier="extended" /> | policy | extended | Reports exported string fields used as small closed sets of values. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

@@ -50,7 +50,7 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"apishape*", "* opt-in", "oncepolicy"} {
+		for _, value := range []string{"apishape", "extended", "core runs by default", "oncepolicy"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("list output does not contain %q:\n%s", value, output)
 			}

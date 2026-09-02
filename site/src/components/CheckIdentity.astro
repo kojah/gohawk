@@ -1,16 +1,17 @@
 ---
 interface Props {
 	name: string;
-	optIn?: boolean;
+	tier?: 'core' | 'extended' | 'experimental';
 }
 
-const { name, optIn = false } = Astro.props;
+const { name, tier = 'core' } = Astro.props;
+const selected = tier !== 'core';
 ---
 
 <div class="check-identity">
 	<span class="check-name">
-		<code aria-label={optIn ? `${name}, opt-in check` : undefined} title={optIn ? 'Opt-in check' : undefined}>
-			{name}{optIn ? '*' : ''}
+		<code aria-label={selected ? `${name}, ${tier} check` : undefined} title={selected ? `${tier} check; requires selection` : undefined}>
+			{name}
 		</code>
 	</span>
 </div>

@@ -14,7 +14,7 @@ already provides. Read this before writing any traversal or ownership code.
 
 ## Read the map first
 
-- [Understanding the codebase](../../../docs/architecture.md): the layers, how
+- [Codebase architecture](../../../docs/architecture.md): the layers, how
   a run works, and the architectural invariants that tests enforce.
 - [Shared helpers](../../../docs/development/shared-helpers.md): every
   exported `ssaflow` and `lifecyclefacts` helper, indexed by the question it

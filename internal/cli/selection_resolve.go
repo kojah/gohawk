@@ -58,7 +58,7 @@ func baseAnalyzerSelection(
 		}
 	case len(request.groups.disabled) > 0 || len(request.analyzers.disabled) > 0:
 		for _, analyzer := range analyzers {
-			selected[analyzer.Name] = metadata[analyzer.Name].EnabledByDefault()
+			selected[analyzer.Name] = metadata[analyzer.Name].EnabledAt(request.ceiling)
 		}
 	case len(request.analyzers.enabled) > 0:
 		// A positive analyzer list establishes its own selection base.
@@ -70,7 +70,7 @@ func baseAnalyzerSelection(
 		// analyzers are added after ordinary analyzer selection is resolved.
 	default:
 		for _, analyzer := range analyzers {
-			selected[analyzer.Name] = metadata[analyzer.Name].EnabledByDefault()
+			selected[analyzer.Name] = metadata[analyzer.Name].EnabledAt(request.ceiling)
 		}
 	}
 	return selected

@@ -15,9 +15,9 @@ the value local to each goroutine.
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | What it detects |
-| --- | --- | --- |
-| <CheckIdentity name="shared-capture" /> | hazard | Reports repeatedly launched goroutines that mutate the same captured local. |
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="shared-capture" tier="core" /> | hazard | core | Reports repeatedly launched goroutines that mutate the same captured local. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

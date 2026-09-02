@@ -29,32 +29,97 @@ const (
 	KindPolicy CheckKind = "policy"
 )
 
+// CheckTier records how much trust a check has earned and therefore whether
+// it runs without being asked for. Tiers are ordered: core is enabled by
+// default, extended must be selected, and experimental must be selected under
+// an explicit experimental ceiling or by check ID.
+type CheckTier string
+
+const (
+	// TierCore identifies checks whose precision is demonstrated on the
+	// repository audit and guarded by the precision replay; they run by default.
+	TierCore CheckTier = "core"
+	// TierExtended identifies stable checks that encode a house rule a team
+	// may reasonably decline; they run only when selected.
+	TierExtended CheckTier = "extended"
+	// TierExperimental identifies heuristic audits that may change or be
+	// retired; they run only under an experimental ceiling or by check ID.
+	TierExperimental CheckTier = "experimental"
+)
+
+// Tiers lists the tiers from most to least trusted.
+func Tiers() []CheckTier {
+	return []CheckTier{TierCore, TierExtended, TierExperimental}
+}
+
+// ParseTier returns the tier named by value.
+func ParseTier(value string) (CheckTier, error) {
+	for _, tier := range Tiers() {
+		if string(tier) == value {
+			return tier, nil
+		}
+	}
+	return "", fmt.Errorf("unknown tier %q (expected core, extended, or experimental)", value)
+}
+
+// Within reports whether tier is at or above the trust of ceiling, so a
+// ceiling of extended admits core and extended checks.
+func (tier CheckTier) Within(ceiling CheckTier) bool {
+	return tierRank(tier) <= tierRank(ceiling)
+}
+
+func tierRank(tier CheckTier) int {
+	return slices.Index(Tiers(), tier)
+}
+
 // CheckInfo describes one independently configurable diagnostic rule.
 type CheckInfo struct {
-	ID    check.ID
-	Doc   string
-	Kind  CheckKind
-	OptIn bool
+	ID   check.ID
+	Doc  string
+	Kind CheckKind
+	Tier CheckTier
+}
+
+// EnabledAt reports whether the check runs when its analyzer is selected
+// under ceiling.
+func (info CheckInfo) EnabledAt(ceiling CheckTier) bool {
+	return info.Tier.Within(ceiling)
 }
 
 // EnabledByDefault reports whether the check runs when its analyzer is selected.
 func (info CheckInfo) EnabledByDefault() bool {
-	return !info.OptIn
+	return info.EnabledAt(TierCore)
 }
 
 // AnalyzerSpec is the complete declaration of one analyzer.
 type AnalyzerSpec struct {
 	Analyzer     *analysis.Analyzer
-	OptIn        bool
 	Checks       []CheckInfo
 	SuggestedFix bool
 	// Group is the catalog group the analyzer was declared in.
 	Group GroupID
 }
 
+// Tier is the most trusted tier among the analyzer's checks: the analyzer
+// runs whenever a check at that tier is selected.
+func (spec AnalyzerSpec) Tier() CheckTier {
+	tier := TierExperimental
+	for _, info := range spec.Checks {
+		if info.Tier.Within(tier) {
+			tier = info.Tier
+		}
+	}
+	return tier
+}
+
+// EnabledAt reports whether the analyzer has a check that runs under ceiling.
+func (spec AnalyzerSpec) EnabledAt(ceiling CheckTier) bool {
+	return spec.Tier().Within(ceiling)
+}
+
 // EnabledByDefault reports whether the analyzer runs without explicit selection.
 func (spec AnalyzerSpec) EnabledByDefault() bool {
-	return !spec.OptIn
+	return spec.EnabledAt(TierCore)
 }
 
 // GroupSpec declares a catalog group and its analyzers.
@@ -144,6 +209,9 @@ func (catalog *Catalog) addCheck(analyzerID AnalyzerID, info *CheckInfo) error {
 	}
 	if !validCheckKind(info.Kind) {
 		return fmt.Errorf("check %q has invalid kind %q", info.ID, info.Kind)
+	}
+	if tierRank(info.Tier) < 0 {
+		return fmt.Errorf("check %q has invalid tier %q", info.ID, info.Tier)
 	}
 	if owner, exists := catalog.checkOwner[info.ID]; exists {
 		return fmt.Errorf("check %q belongs to both %q and %q", info.ID, owner, analyzerID)
