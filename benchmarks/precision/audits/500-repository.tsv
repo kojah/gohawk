@@ -179,3 +179,13 @@
 18	shinagawa-web/gomarklint	e80b266e76cbb9db4ce6986e17c800061042ce6c	.	reviewed
 18	x-way/vtysock	293a9d57e0283341c2f6ac098c0be73c6500458a	.	reviewed
 18	harn3ss/open-infra	bbd6d1791a1870d56782669ee6e5ab4e99e9a8cf	apply-sink,cfn,console-api,dynamodb,featurestore,hpo,open-appsync,statemachine,tds-proxy,tds-proxy/harness/fault,test/render,tools/chainforge,tools/chaosdoc	reviewed
+19	web-infra-dev/rslint	043e9404a96947bc43df428f26435a20ba85742f	.,shim/*	reviewed
+19	ashishb/wp2hugo	3158040ab96ee9e5680c058561f28cdc16955e41	src/wp2hugo	reviewed
+19	alayacore/alayacore	db0a13890ce9aebd7e34ea1c06d201219a04a96f	.	reviewed
+19	newrelic/newrelic-client-go	6773d0a89ff741d7e4e1a1abb28e2d9769ccf090	.,tools	reviewed
+19	zephyraoss/haitatsu	db6c785ea421bd61aeb61c1045f3c1ea8735a807	.	reviewed
+19	kubescape/kubevuln	d909c8817850b455807ff1a9ccbc842fd8bfcb9a	.	reviewed
+19	SafetyCulture/s12-proto	5fcc76c36a1bb9f27193282c79382ac7ccd0c4c5	.,protobuf/protoc-gen-cruxclient-go	reviewed
+19	vmware-tanzu/nsx-operator	273e64587050474fcfa8f3164e5deae07c8451ed	.,pkg/apis,pkg/client	reviewed
+19	kubernetes-sigs/node-ipam-controller	e43ff3a9d0e316932fa687a1ab3d7f626be29abf	.	reviewed
+19	vmware/terraform-provider-nsxt	65eca2da599c4a927a3e03c349f1a89cf2899dae	.	reviewed

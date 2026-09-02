@@ -526,3 +526,28 @@ changed from 3.373 to 3.318 seconds (-1.6%), while median peak RSS changed from
 4,910,616 to 5,015,196 KiB (+2.1%). The cumulative precision suite remains
 reserved for Batch 20; Batch 18 replayed only round 22 and affected
 repositories.
+
+## Batch 19
+
+Ten repositories and forty-two maintained modules were reviewed. Forty modules
+loaded and scanned fully; New Relic's tools module intentionally contains no Go
+packages, while one rslint shim could not verify a missing upstream checksum in
+read-only module mode. Final scans produced 2,624 unique diagnostics. No
+analyzer change met the batch's boundedness threshold.
+
+Several candidates remain deliberately deferred. Rslint's worker is joined by
+a callback selected on the launch branch and invoked through `sync.Once.Do`,
+but suppressing it safely would require temporal Once state plus writes through
+captured variables. Proving New Relic's in-memory compression error path
+infeasible would require a four-constructor catalog of compositional standard-
+library I/O behavior. A duplicate NSX capture finding appears only in
+the per-analysis-action JSON tree; ordinary text already deduplicates it, and
+the audit counts it once. Rslint's same-key map projection can emit failures to
+stderr in map order, while wp2hugo's apparently commutative aggregation can
+return the first map-selected URL error, so both remain credible determinism
+findings. No name exceptions or open-ended proof families were added.
+
+Batch 19 made no analyzer or runtime changes, so its Caddy binary is identical
+to the Batch 18 boundary and no new performance comparison was necessary. The
+cumulative precision replay and larger benchmark remain scheduled for Batch
+20.
