@@ -72,7 +72,7 @@ func TestCLIIntegration(t *testing.T) {
 	t.Run("canonical production and test files", func(t *testing.T) {
 		t.Parallel()
 		module := writeEvalOrderTestModule(t)
-		output, exitCode := runCommand(t, module, binary, "-json", "-enable=evalorder", "./...")
+		output, exitCode := runCommand(t, module, binary, "-json", "-enable=evalorder", "-gohawk-include-tests", "./...")
 		if exitCode != 0 {
 			t.Fatalf("evalorder JSON run: exit code = %d, want 0\n%s", exitCode, output)
 		}
@@ -103,6 +103,21 @@ func TestCLIIntegration(t *testing.T) {
 		}
 		if productionCount != 1 || testCount != 1 {
 			t.Fatalf("evalorder counts = production %d, test %d; want 1 each\n%s", productionCount, testCount, output)
+		}
+	})
+
+	t.Run("test files skipped by default", func(t *testing.T) {
+		t.Parallel()
+		module := writeEvalOrderTestModule(t)
+		output, exitCode := runCommand(t, module, binary, "-json", "-enable=evalorder", "./...")
+		if exitCode != 0 {
+			t.Fatalf("evalorder JSON run: exit code = %d, want 0\n%s", exitCode, output)
+		}
+		if strings.Contains(output, "sample_test.go:") {
+			t.Fatalf("test-file diagnostic reported without -gohawk-include-tests\n%s", output)
+		}
+		if !strings.Contains(output, "sample.go:") {
+			t.Fatalf("production diagnostic missing\n%s", output)
 		}
 	})
 

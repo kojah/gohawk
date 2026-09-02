@@ -71,7 +71,9 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
     for module in module_directories(checkout):
         try:
             result = run(
-                [str(gohawk), "-enable-all", "-json", "./..."],
+                # Reviewed labels include findings in _test.go files, which the
+                # default policy skips; replay them so the labels stay meaningful.
+                [str(gohawk), "-enable-all", "-gohawk-include-tests", "-json", "./..."],
                 cwd=module,
                 env=environment,
                 capture_output=True,

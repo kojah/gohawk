@@ -1,6 +1,7 @@
 package analyzers
 
 import (
+	"go/token"
 	"slices"
 	"strings"
 	"testing"
@@ -49,13 +50,16 @@ func TestCatalogDeclaration(t *testing.T) {
 }
 
 func TestUnknownDiagnosticReturnsError(t *testing.T) {
-	analyzer := withSuppressions(&analysis.Analyzer{
-		Name: "example",
-		Run: func(pass *analysis.Pass) (any, error) {
-			pass.Report(analysis.Diagnostic{Category: "example/unknown"})
-			return nil, nil
+	analyzer := withSuppressions("", catalog.AnalyzerSpec{
+		Analyzer: &analysis.Analyzer{
+			Name: "example",
+			Run: func(pass *analysis.Pass) (any, error) {
+				pass.Report(analysis.Diagnostic{Category: "example/unknown"})
+				return nil, nil
+			},
 		},
-	}, []catalog.CheckInfo{{ID: "example/known", Kind: catalog.KindDefect}})
+		Checks: []catalog.CheckInfo{{ID: "example/known", Kind: catalog.KindDefect}},
+	})
 
 	_, err := analyzer.Run(&analysis.Pass{Report: func(analysis.Diagnostic) {}})
 	if err == nil || !strings.Contains(err.Error(), `analyzer "example" reported unknown check "example/unknown"`) {
@@ -64,16 +68,19 @@ func TestUnknownDiagnosticReturnsError(t *testing.T) {
 }
 
 func TestDefaultSuppressionsExcludeOptInChecks(t *testing.T) {
-	analyzer := withDefaultSuppressions(&analysis.Analyzer{
-		Name: "example",
-		Run: func(pass *analysis.Pass) (any, error) {
-			pass.Report(analysis.Diagnostic{Category: "example/default"})
-			pass.Report(analysis.Diagnostic{Category: "example/optional"})
-			return nil, nil
+	analyzer := withDefaultSuppressions("", catalog.AnalyzerSpec{
+		Analyzer: &analysis.Analyzer{
+			Name: "example",
+			Run: func(pass *analysis.Pass) (any, error) {
+				pass.Report(analysis.Diagnostic{Category: "example/default"})
+				pass.Report(analysis.Diagnostic{Category: "example/optional"})
+				return nil, nil
+			},
 		},
-	}, []catalog.CheckInfo{
-		{ID: "example/default", Kind: catalog.KindDefect},
-		{ID: "example/optional", Kind: catalog.KindHazard, OptIn: true},
+		Checks: []catalog.CheckInfo{
+			{ID: "example/default", Kind: catalog.KindDefect},
+			{ID: "example/optional", Kind: catalog.KindHazard, OptIn: true},
+		},
 	})
 	var categories []string
 	_, err := analyzer.Run(&analysis.Pass{Report: func(diagnostic analysis.Diagnostic) {
@@ -287,5 +294,38 @@ func TestAnalyzerRegistry(t *testing.T) {
 	want := expectedAnalyzerNames()
 	if !slices.Equal(names, want) {
 		t.Fatalf("registered analyzers = %v, want %v", names, want)
+	}
+}
+
+func TestTestFileDiagnosticsSkippedOutsideTestingGroup(t *testing.T) {
+	fset := token.NewFileSet()
+	testFile := fset.AddFile("example_test.go", -1, 100)
+	testFile.SetLinesForContent([]byte("package example\n"))
+	productionFile := fset.AddFile("example.go", -1, 100)
+	productionFile.SetLinesForContent([]byte("package example\n"))
+	run := func(pass *analysis.Pass) (any, error) { //nolint:unparam // analysis.Analyzer.Run fixes the signature.
+		pass.Report(analysis.Diagnostic{Category: "example/check", Pos: testFile.Pos(0)})
+		pass.Report(analysis.Diagnostic{Category: "example/check", Pos: productionFile.Pos(0)})
+		return nil, nil
+	}
+	checks := []catalog.CheckInfo{{ID: "example/check", Kind: catalog.KindDefect}}
+	for _, test := range []struct {
+		name  string
+		group catalog.GroupID
+		want  int
+	}{
+		{name: "production analyzer skips the test file", group: "ownership", want: 1},
+		{name: "testing analyzer keeps the test file", group: testingGroup, want: 2},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			analyzer := withSuppressions(test.group, catalog.AnalyzerSpec{Analyzer: &analysis.Analyzer{Name: "example", Run: run}, Checks: checks})
+			reported := 0
+			if _, err := analyzer.Run(&analysis.Pass{Fset: fset, Report: func(analysis.Diagnostic) { reported++ }}); err != nil {
+				t.Fatalf("Run() error = %v", err)
+			}
+			if reported != test.want {
+				t.Fatalf("reported %d diagnostics, want %d", reported, test.want)
+			}
+		})
 	}
 }

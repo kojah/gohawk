@@ -8,5 +8,5 @@ import (
 )
 
 func TestAnalyzer(t *testing.T) {
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "contextpolicy", "contextpolicy/production")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "contextpolicy", "contextpolicy/tests", "contextpolicy/production")
 }

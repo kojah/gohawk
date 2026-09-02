@@ -6,7 +6,9 @@ import (
 	"maps"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
+	"github.com/kojah/gohawk/internal/check"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
+
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -64,6 +66,7 @@ func registerSelectionFlags() {
 	flag.String("enable-groups", "", "enable comma-separated analyzer groups, including opt-in analyzers")
 	flag.String("disable-groups", "", "disable comma-separated analyzer groups")
 	analysisTrace.RegisterFlags(flag.CommandLine)
+	check.RegisterFlags(flag.CommandLine)
 }
 
 type analyzerCheckSelection struct {

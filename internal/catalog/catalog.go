@@ -48,6 +48,8 @@ type AnalyzerSpec struct {
 	OptIn        bool
 	Checks       []CheckInfo
 	SuggestedFix bool
+	// Group is the catalog group the analyzer was declared in.
+	Group GroupID
 }
 
 // EnabledByDefault reports whether the analyzer runs without explicit selection.
@@ -113,6 +115,7 @@ func (catalog *Catalog) addGroup(index int, seenGroups map[GroupID]bool, seenPat
 }
 
 func (catalog *Catalog) addAnalyzer(groupID GroupID, spec *AnalyzerSpec) error {
+	spec.Group = groupID
 	if spec.Analyzer == nil || spec.Analyzer.Name == "" {
 		return fmt.Errorf("catalog group %q contains an analyzer without an identity", groupID)
 	}

@@ -309,6 +309,7 @@ func printGeneralHelp(output io.Writer) {
 	writeLine(output, "  -disable-groups=GROUP1,GROUP2 remove groups from the selected set")
 	writeLine(output, "  -enable-all                  run every analyzer and check")
 	writeLine(output, "\nCommon analysis flags: -json, -fix, -diff, -c=N, -V")
+	writeLine(output, "Test files: -gohawk-include-tests reports findings in _test.go files for analyzers that do not target tests")
 	writeLine(output, "Evidence tracing: -gohawk-trace=ANALYZER[,CHECK...] [-gohawk-trace-file=PATH]")
 	writeLine(output, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
 	writeLine(output, "Run 'gohawk help ANALYZER' for an analyzer's configuration flags.")

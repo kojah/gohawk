@@ -66,6 +66,20 @@ gohawk doc contextpolicy/nil-context
 
 These selection flags also work when gohawk runs through `go vet -vettool`.
 
+### Test files
+
+Findings in `_test.go` files are skipped by default, except from the testing
+group, whose analyzers take tests as their subject. Fixture files, table-driven
+tests, and intentionally orphaned helper processes are usually true by the
+letter of a policy and rarely worth acting on. To report them anyway:
+
+```sh
+gohawk -gohawk-include-tests ./...
+```
+
+The reviewed precision cohorts replay with this flag so labels inside test
+files stay meaningful.
+
 ## Set analyzer options
 
 Options are prefixed with the analyzer name:
