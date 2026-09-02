@@ -56,3 +56,9 @@ Round 10 preserves the sixth reviewed batch. It covers string fields populated
 by external JSON, test cleanup that terminates a launched lifecycle, and
 WaitGroup completion signaled only after a worker's substantive work. Nearby
 closed-domain, resource, and goroutine findings remain reportable.
+
+Round 11 preserves the seventh reviewed batch. It covers fields reached through
+nested JSON aggregates, WaitGroups joined by testing cleanup, feasible error
+returns in deferred functions, and canonical production/test syntax. Nearby
+closed-domain, evaluation-order, resource, producer, error, and
+goroutine findings remain reportable.

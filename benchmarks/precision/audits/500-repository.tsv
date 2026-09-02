@@ -59,3 +59,13 @@
 6	itchio/itch-setup	ed0b2fe08fb091da8c4745aa8ac3f69a654012c3	.	reviewed
 6	doitintl/kubeip	e871b8a0ebec73845e806576e6fa84b7d6c09c60	.	reviewed
 6	hairyhenderson/go-fsimpl	91256fa5116d0a845eebb63be69bc65ee54e9f20	.	reviewed
+7	charmbracelet/crush	6fa9e6905041c32ffceb1c9b1a3189b3db1eec07	.	reviewed
+7	go-task/task	385e5ad92af02877b6d7cf9dcc963b5ed916e70a	.	reviewed
+7	caddyserver/certmagic	ff600dc62b9bbfc6ba8f18784a2b79000c5e4c75	.	reviewed
+7	go-chi/chi	ae6be7469132cf471ca099d8c7bda4010c4ff7b2	.,_examples/rest,_examples/versions	reviewed
+7	external-secrets/external-secrets	4bca4b87f97280982988751fc880cd22ccebdfd7	.,apis,e2e	reviewed
+7	prometheus-community/windows_exporter	ceb647ac8d0ce31b4daf5fe471122b85c92d5dc4	.	reviewed
+7	grafana/beyla	5d15f437f27d22c69cb3948686659a268045e61d	.,internal/tools	reviewed
+7	minio/madmin-go	ef04ea3969c2177b22e13e9e61dfc4ddeccf3feb	.	reviewed
+7	restic/restic	ba802d42b7294c98b62c16d1157ea3e80820c019	.	reviewed
+7	temporalio/sdk-go	16a677b3d27171d56e2d11bb274fdc212264ef56	.,test,contrib/datadog	reviewed

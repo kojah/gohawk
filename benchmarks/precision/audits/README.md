@@ -135,3 +135,23 @@ reviewed family combines copy-style `WithContext`, constructor-bound adapters,
 and returned file wrappers, so a sound exemption needs more than interface or
 type-name evidence. Precision round 10 retains nearby closed-domain, resource,
 and goroutine findings.
+
+## Batch 7
+
+Ten repositories and seventeen modules were selected. Fifteen modules loaded
+fully under the host configuration. Windows Exporter loaded under its intended
+Windows target, while Beyla's root module produced useful partial analysis
+because generated eBPF declarations were unavailable; its tools module loaded
+normally.
+
+Four general evidence boundaries were improved:
+
+- external JSON population follows nested aggregates to their reachable fields;
+- a `testing.T` cleanup that waits for the exact WaitGroup joins its goroutine;
+- deferred functions use the concrete return-slot value on the feasible log-to-return path; and
+- production and test variants share one canonical syntax source, avoiding duplicate evaluation-order diagnostics.
+
+Complex Restic and Temporal lifecycle flows, receiver registries, and
+cross-method ownership and join chains remain deferred rather than receiving
+project-specific exceptions. Precision round 11 retains nearby closed-domain,
+evaluation-order, resource, producer, error, and goroutine findings.

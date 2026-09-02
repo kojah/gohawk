@@ -1,0 +1,14 @@
+repository,analyzer,position,verdict
+charmbracelet/crush,goroutineownership,internal/server/socket_test.go:164:2,false_positive
+charmbracelet/crush,errorownership,internal/agent/aws_sso_refresh.go:74:3,true_positive
+charmbracelet/crush,resourcelifetime,internal/agent/tools/crush_logs_test.go:134:12,true_positive
+caddyserver/certmagic,errorownership,solvers.go:796:4,false_positive
+caddyserver/certmagic,goroutineownership,solvers.go:196:4,true_positive
+caddyserver/certmagic,resourcelifetime,internal/atomicfile/file.go:78:12,true_positive
+minio/madmin-go,closedomain,heal-commands.go:142:2,false_positive
+minio/madmin-go,closedomain,cordon-commands.go:65:2,true_positive
+minio/madmin-go,evalorder,user-commands.go:1158:38,true_positive
+restic/restic,producerlifecycle,internal/backend/rest/rest_test.go:105:6,true_positive
+restic/restic,resourcelifetime,internal/backend/cache/cache.go:166:12,true_positive
+temporalio/sdk-go,resourcelifetime,test/nexus_test.go:2077:15,true_positive
+temporalio/sdk-go,resourcelifetime,internal/internal_worker_base.go:1026:12,true_positive
