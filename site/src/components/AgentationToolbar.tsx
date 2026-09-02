@@ -90,6 +90,9 @@ export default function AgentationToolbar() {
 		<>
 			{ready && available.length > 1 && (
 				<fieldset
+					// Mark our own review controls the way agentation marks its UI, so its
+					// element picker excludes them (it guards on closest [data-agentation-root]).
+					data-agentation-root=""
 					aria-label="Review agent"
 					title={
 						busy ? 'Applies to the next batch; a run is in progress' : 'Agent that applies feedback'
@@ -140,6 +143,7 @@ export default function AgentationToolbar() {
 			)}
 			{status.phase !== 'idle' && (
 				<div
+					data-agentation-root=""
 					role="status"
 					title={status.detail}
 					style={{
