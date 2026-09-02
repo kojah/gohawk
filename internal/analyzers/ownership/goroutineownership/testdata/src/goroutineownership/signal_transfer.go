@@ -171,3 +171,20 @@ func handedOffThroughSelectSend(queue chan<- *pendingWork, stop <-chan struct{})
 		<-work.done
 	}
 }
+
+type subscriberHub struct {
+	channels map[string][]chan string
+}
+
+// Channels ranged from the receiver's map are receiver-owned, so goroutines
+// that close them transfer the obligation across the call boundary.
+func (hub *subscriberHub) closeAll() {
+	for _, chans := range hub.channels {
+		for _, ch := range chans {
+			go func(ch chan string) {
+				ch <- "closing"
+				close(ch)
+			}(ch)
+		}
+	}
+}

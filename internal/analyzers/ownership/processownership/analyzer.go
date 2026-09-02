@@ -57,7 +57,8 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				// constructor builds a teardown closure first, then starts the
 				// process and returns that closure to its caller.
 				if processOwnershipDominatesStart(evidence, function, start, command) ||
-					processOwnerDominatesStart(evidence, function, start, owners) {
+					processOwnerDominatesStart(evidence, function, start, owners) ||
+					commandStoredExternallyBeforeStart(start, command) {
 					continue
 				}
 				if successfulStartCannotReturn(start) {
@@ -110,4 +111,30 @@ func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa
 			Details:  details,
 		},
 	)
+}
+
+// commandStoredExternallyBeforeStart reports whether the command was stored
+// into caller-owned storage on every path to Start, typically a receiver
+// field that a later method or goroutine waits through. The walk after Start
+// cannot see that store, so it is asked here. Istio's Envoy driver keeps the
+// command on the receiver and waits on e.cmd from a goroutine:
+// https://github.com/istio/proxy/blob/1bdb025a454d26a55ffa11a50e5c0a70dff7d853/test/envoye2e/driver/envoy.go#L135-L154
+func commandStoredExternallyBeforeStart(start *ssa.Call, command ssa.Value) bool {
+	for _, block := range start.Parent().Blocks {
+		for _, instruction := range block.Instrs {
+			store, ok := instruction.(*ssa.Store)
+			if !ok || !ssaflow.InstructionDominates(store, start) || !ssaflow.SameValue(store.Val, command) {
+				continue
+			}
+			if storesProcessHandleInExternalField(store, command) || externallyOwnedAddress(store.Addr) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func externallyOwnedAddress(address ssa.Value) bool {
+	field, ok := address.(*ssa.FieldAddr)
+	return ok && ssaflow.ExternallyOwnedValue(field.X)
 }

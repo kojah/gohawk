@@ -483,3 +483,32 @@ func commandWaitDroppedByHelper() error {
 	_ = storeForwardWait(cmd.Wait)
 	return nil
 }
+
+type envoyDriver struct {
+	cmd  *exec.Cmd
+	done chan error
+}
+
+// A command stored on the receiver before Start belongs to the receiver,
+// which waits through the field later.
+func (e *envoyDriver) start() error {
+	cmd := exec.Command("envoy")
+	e.cmd = cmd
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	e.done = make(chan error, 1)
+	go func() { e.done <- e.cmd.Wait() }()
+	return nil
+}
+
+// A command stored only in a local struct before Start is not transferred.
+func startWithLocalHolder() error {
+	holder := &envoyDriver{}
+	cmd := exec.Command("envoy")
+	holder.cmd = cmd
+	if err := cmd.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return err
+	}
+	return nil
+}

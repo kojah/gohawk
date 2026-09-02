@@ -160,6 +160,15 @@ func ownershipSource(value ssa.Value) (ssa.Value, bool) {
 		return typed.X, true
 	case *ssa.Extract:
 		return typed.Tuple, true
+	case *ssa.Next:
+		// An element produced by ranging over a map or string belongs to the
+		// aggregate being ranged, so a channel taken from a receiver's map is
+		// owned by the receiver. policyserv closes such channels from a
+		// goroutine in its pubsub Close:
+		// https://github.com/matrix-org/policyserv/blob/16995e82a8518f66c5bdc5b6d6d3be04a7640f33/pubsub/psql.go#L62-L72
+		return typed.Iter, true
+	case *ssa.Range:
+		return typed.X, true
 	default:
 		return nil, false
 	}
