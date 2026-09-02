@@ -169,3 +169,13 @@
 17	nao1215/prompt	a809747fcd3aa43752a54c4887f5d186d950f67d	.	reviewed
 17	openkruise/agents	3ae8b7d1216efc60be5f455bc85a577e54aaf7f1	.	reviewed
 17	wso2/gateway-controllers	338d4c31c729088c38573f0dc02ef54f665f7649	policies/*	reviewed
+18	cimnine/shelly-openmetrics-exporter	51422eabe5ca7d1275f110bc7fcca702229db977	.	reviewed
+18	Haslab-dev/forge-ade	735faa18faebf2105832bce1d0bdeed1a1231144	.	reviewed
+18	aclerici38/pocket-id-operator	f7ee51be1afda71a10e96f680f4c968b0c0bd53a	.	reviewed
+18	tokencanopy/rainier	855b2e7c276a60a2f65f141d1071cf03be38d6e3	.	reviewed
+18	IBM/project-ai-services	7f5e30b300819abc2cc8a9307327ca78a145d5cb	ai-services,mcp	reviewed
+18	sholdee/adguard-exporter	1846081123b781a7edaa0ff84167671b664fbca0	.	reviewed
+18	retroenv/retrogolib	f7320bcd5bc4d8d1660bda51effc743e87a327d2	.	reviewed
+18	shinagawa-web/gomarklint	e80b266e76cbb9db4ce6986e17c800061042ce6c	.	reviewed
+18	x-way/vtysock	293a9d57e0283341c2f6ac098c0be73c6500458a	.	reviewed
+18	harn3ss/open-infra	bbd6d1791a1870d56782669ee6e5ab4e99e9a8cf	apply-sink,cfn,console-api,dynamodb,featurestore,hpo,open-appsync,statemachine,tds-proxy,tds-proxy/harness/fault,test/render,tools/chainforge,tools/chaosdoc	reviewed

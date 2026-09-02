@@ -1,0 +1,7 @@
+repository,analyzer,position,verdict
+tokencanopy/rainier,goroutineownership,internal/attachio/attachio.go:275:3,false_positive
+IBM/project-ai-services,resourcelifetime,ai-services/tests/e2e/catalog_configure_test.go:66:15,false_positive
+IBM/project-ai-services,resourcelifetime,ai-services/tests/e2e/digitization/digitize.go:250:16,false_positive
+tokencanopy/rainier,exitpolicy,cmd/controld/main.go:74:3,true_positive
+tokencanopy/rainier,exitpolicy,cmd/vtcap/main.go:37:4,true_positive
+IBM/project-ai-services,resourcelifetime,ai-services/tests/e2e/similarity/similarity.go:289:15,true_positive

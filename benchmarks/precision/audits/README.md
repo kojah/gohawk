@@ -486,3 +486,43 @@ changed from 3.187 to 3.176 seconds (-0.4%), while median peak RSS changed from
 4,929,632 to 4,925,924 KiB (-0.1%). The cumulative precision suite remains
 reserved for Batch 20; Batch 17 replayed only round 21 and affected
 repositories.
+
+## Batch 18
+
+Ten repositories and twenty-four maintained modules were reviewed. Twenty-
+three modules loaded and scanned fully. Forge ADE produced a useful partial
+scan because its pinned revision omits the embedded `frontend/dist` tree and
+the available JavaScript lockfile could not reproduce it. Final scans produced
+1,257 diagnostics after two bounded ownership corrections.
+
+- An optional worker created with one exact local stop channel and WaitGroup is
+  accepted when the launch proves the channel non-nil and a later exact nil
+  guard dominates both `close` of that channel and `Wait` on that group. The
+  proof rejects rebinding, related sentinels, different groups, and general
+  branch correlation.
+- An imported cleanup fact may settle an acquired resource through one exact
+  stable projection only when the original owner has not been mutated or
+  allowed to escape before the call. Conditional facts, sibling values,
+  reassigned fields, phis, and opaque aliases remain unproven.
+
+The first correction removed one Rainier goroutine-ownership false positive.
+The second removed two IBM resource-lifetime false positives. Precision round
+22 passed with all three representative false positives absent and all three
+nearby true positives present, including Rainier's skipped-defer exits and
+IBM's unreleased similarity response.
+
+Several broader candidates remain deliberately deferred. Retrogolib's custom
+assertion helper would require interprocedural dominance proofs across a
+structural testing handle. Pocket ID's sorted result passes through two
+transforming helpers and would require a recursive ordered-return summary.
+Rainier's package-wide child reaper and receiver-owned resource map likewise
+lack compact local ownership proofs. None justified a name exemption or a new
+open-ended proof family. Opt-in policy and detached-worker findings were
+sampled without changing their default status.
+
+A constant-size performance check compared three warmed `-enable-all` runs on
+pinned Caddy at the Batch 17 boundary and after Batch 18. Median wall time
+changed from 3.373 to 3.318 seconds (-1.6%), while median peak RSS changed from
+4,910,616 to 5,015,196 KiB (+2.1%). The cumulative precision suite remains
+reserved for Batch 20; Batch 18 replayed only round 22 and affected
+repositories.

@@ -118,3 +118,8 @@ Round 21 preserves the seventeenth reviewed batch. It covers exact optional
 resource acquisitions that merge with nil and stable standard-library string
 replacers used only through their documented operations. Nearby resource,
 process, global-state, and determinism findings remain reportable.
+
+Round 22 preserves the eighteenth reviewed batch. It covers optional local
+workers joined beneath the exact stop-channel guard and imported cleanup facts
+applied to an exact stable resource projection. Nearby resource and
+process-termination findings remain reportable.
