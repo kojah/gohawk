@@ -1,0 +1,20 @@
+# Internal functions that were unreachable when scripts/check-deadcode.sh was
+# introduced. Each line is `file name`, as printed by that script. Remove a
+# line when its function is deleted; the gate fails on stale entries so this
+# list can only shrink. Do not add entries: new unreachable code should be
+# deleted instead.
+internal/catalog/catalog.go Catalog.Analyzer
+internal/catalog/catalog.go Catalog.CheckOwner
+internal/cli/selection.go withAnalyzerCheckSelection
+internal/cli/selection.go withAnalyzerSelection
+internal/cli/selection_flags.go requestedDisabledChecks
+internal/docexamples/examples.go Collect
+internal/ssaflow/closures.go DeferredClosurePassesValueToNamedCall
+internal/ssaflow/closures.go ValueCallsValue
+internal/ssaflow/closures.go closureValueCallsValue
+internal/ssaflow/closures.go storedCallbackCallsValue
+internal/ssaflow/closures.go valueCallsValue
+internal/ssaflow/completion_evidence.go ProveCompletion
+internal/ssaflow/ownership.go ClosureOwnsValue
+internal/ssaflow/storage.go StoresValueThroughExternalFieldPointer
+internal/ssaflow/transfer_evidence.go ProveOwnershipTransfer

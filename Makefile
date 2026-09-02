@@ -5,6 +5,8 @@ GOLANGCI_LINT_VERSION ?= v2.13.2
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 GOVULNCHECK_VERSION ?= v1.7.0
 GOVULNCHECK ?= $(GO) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+DEADCODE_VERSION ?= v0.49.0
+DEADCODE ?= $(GO) run golang.org/x/tools/cmd/deadcode@$(DEADCODE_VERSION)
 
 BUILD_DIRECTORY ?= $(CURDIR)/.build
 GOHAWK_BINARY ?= $(BUILD_DIRECTORY)/gohawk
@@ -20,7 +22,7 @@ VERIFY_MAKE_ARGS := --no-print-directory $(VERIFY_OUTPUT_SYNC) --jobs=$(VERIFY_J
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build fmt fmt-check generate generated-check mod-verify lint vuln test \
+.PHONY: help build fmt fmt-check generate generated-check mod-verify lint deadcode vuln test \
 	test-exhaustive test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
 	precision-regression site-check site-build site-links site-links-external site-review
 
@@ -29,7 +31,8 @@ help:
 		'Common targets:' \
 		'  make fmt             Format tracked Go source files' \
 		'  make generate        Regenerate analyzer documentation' \
-		'  make lint            Run the standard golangci-lint suite' \
+		'  make lint            Run the golangci-lint suite and the dead-code gate' \
+		'  make deadcode        Fail on internal functions unreachable from any entry point' \
 		'  make vuln            Check reachable dependencies for known vulnerabilities' \
 		'  make test            Run the Go test suite' \
 		'  make test-exhaustive Run the CI-only exhaustive CLI subprocess matrix' \
@@ -77,8 +80,13 @@ test-race:
 vet:
 	$(GO) vet ./...
 
-lint:
+lint: deadcode
 	$(GOLANGCI_LINT) run ./...
+
+# golangci-lint's unused check skips exported identifiers, so internal helpers
+# that lose their last caller survive it. See scripts/check-deadcode.sh.
+deadcode:
+	DEADCODE="$(DEADCODE)" ./scripts/check-deadcode.sh
 
 vuln:
 	$(GOVULNCHECK) ./...

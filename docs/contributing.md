@@ -165,11 +165,16 @@ make verify
 
 `make verify` runs its checks in parallel: it checks gofumpt formatting and
 generated documentation, runs the standard and curated golangci-lint suite,
-unit and race tests, vets and builds the project, and dogfoods the resulting
-gohawk binary with every analyzer and check enabled. It uses four concurrent
-jobs by default; set `VERIFY_JOBS` to tune that bound for the machine. The
-custom golangci-lint plugin integration test remains a dedicated CI and release
-gate and can be run locally with `make plugin-test`. Run `make help` to see the
+fails on internal functions that no entry point can reach, runs unit and race
+tests, vets and builds the project, and dogfoods the resulting gohawk binary
+with every analyzer and check enabled. The dead-code gate exists because
+golangci-lint's `unused` check ignores exported identifiers, even under
+`internal/`; delete unreachable code rather than adding it to
+`.deadcode-baseline`, which only records findings that predate the gate. It
+uses four concurrent jobs by default; set `VERIFY_JOBS` to tune that bound for
+the machine. The custom golangci-lint plugin integration test remains a
+dedicated CI and release gate and can be run locally with `make plugin-test`.
+Run `make help` to see the
 focused targets for individual checks, documentation development, and
 dogfooding benchmarks.
 
