@@ -5,8 +5,10 @@ import (
 	"io"
 	"net/http"
 	"resourcedep"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func leakedResponse(client *http.Client, request *http.Request) error {
@@ -518,4 +520,11 @@ func responseWrappedOnSomePathsOnly(client *http.Client, request *http.Request, 
 		return nil, err
 	}
 	return wrapBodyConditionally(response.Body, wrap), nil
+}
+
+// require.NotNil on the error is the same fatal claim as require.Error: the
+// test stops unless the request failed, so no response was owned.
+func discardedResponseRequiredToFail(t *testing.T, client *http.Client, request *http.Request) {
+	_, err := client.Do(request)
+	require.NotNil(t, err)
 }

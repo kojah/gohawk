@@ -48,7 +48,7 @@ func evaluateResourceFlow(
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
 	errorValue := ssaflow.CallResult(call, 1)
-	if contract.packagePath == "net/http" && testProvesHTTPError(call, resource, errorValue) {
+	if testProvesAcquisitionError(call, resource, errorValue, contract.packagePath == "net/http") {
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
 	optionalAcquisition := proveOptionalAcquisition(call, resource, errorValue)
@@ -174,17 +174,18 @@ func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource s
 	return false
 }
 
-func testProvesHTTPError(acquisition *ssa.Call, resource, errorValue ssa.Value) bool {
-	// Test assertions can prove the owned-response path infeasible even though
+func testProvesAcquisitionError(acquisition *ssa.Call, resource, errorValue ssa.Value, httpResponse bool) bool {
+	// Test assertions can prove the owned-resource path infeasible even though
 	// the assertion package expresses that fact outside the CFG.
 	// https://github.com/siemens/wfx/blob/392dde941e73ce9560df2c42b2d480eb528bfc96/cmd/wfx/cmd/root/root_test.go#L154-L157
 	errorAssertions, nilAssertions := httpErrorAssertions(acquisition, resource, errorValue)
-	// net/http only returns a non-nil response together with an error for a
-	// failed redirect policy, and its body is already closed. A fatal Error
-	// assertion therefore eliminates the success path; a paired Nil assertion
-	// supplies the same evidence for non-fatal assertion packages.
+	// A fatal Error assertion stops the test unless the acquisition failed,
+	// which is the same evidence as an `if err != nil { return }` guard for any
+	// acquisition. The non-fatal form is accepted only for net/http, whose
+	// paired Nil assertion carries the extra fact that a response returned
+	// together with an error has an already-closed body.
 	for _, assertedError := range errorAssertions {
-		if fatalErrorAssertion(assertedError) || errorAssertionDominatesNil(assertedError, nilAssertions) {
+		if fatalErrorAssertion(assertedError) || httpResponse && errorAssertionDominatesNil(assertedError, nilAssertions) {
 			return true
 		}
 	}
@@ -202,7 +203,7 @@ func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 			if !ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyAssertion) {
 				continue
 			}
-			if ssaflow.CallName(common) == "Error" {
+			if ssaflow.CallName(common) == "Error" || ssaflow.CallName(common) == "NotNil" {
 				for _, argument := range common.Args {
 					if ssaflow.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
 						errorAssertions = append(errorAssertions, instruction)

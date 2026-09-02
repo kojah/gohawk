@@ -176,3 +176,18 @@ func returnedFluentFileOwner() (*fluentFileOwner, error) {
 	owner := (&fluentFileOwner{}).WithFile(file)
 	return owner, nil
 }
+
+type readCloserWithHook struct {
+	closeFn func() error
+}
+
+// A struct literal returned by value carries the file whose Close method
+// value its callback captured, so the caller owns the file through it.
+func returnedLiteralCarriesMethodValue(path string) (readCloserWithHook, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return readCloserWithHook{}, err
+	}
+	fileClose := file.Close
+	return readCloserWithHook{closeFn: func() error { return fileClose() }}, nil
+}

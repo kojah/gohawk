@@ -226,9 +226,29 @@ func callCallsMethodOnArgumentOnEveryReturn(instruction ssa.Instruction, method 
 		// close SQL rows after a shared scanner has consumed them:
 		// https://github.com/blnkfinance/blnk/blob/3356cb4c482c065e96624957a3f4be3ae9739c1a/database/transaction_coalescing.go#L149-L154
 		deferredCall := DeferredCallbackCallsMethod(candidate, method, parameter)
-		return directCall || deferredCall ||
+		// A helper may also hand cleanup to testing's Cleanup, which runs after
+		// the test regardless of how the helper returns. The callback must call
+		// method on the exact parameter unconditionally. filesql closes fixture
+		// files this way:
+		// https://github.com/nao1215/filesql/blob/60ff1b62eace61b6a0d9da6b55aaf8e053bf89f2/internal/parser/parser_test.go#L18-L26
+		return directCall || deferredCall || testingCleanupCallsMethod(candidate, method, parameter) ||
 			callCallsMethodOnArgumentOnEveryReturn(candidate, method, parameter, seen)
 	})
+}
+
+// testingCleanupCallsMethod reports whether instruction registers a testing
+// Cleanup callback that unconditionally calls method on target.
+func testingCleanupCallsMethod(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	common := InstructionCall(instruction)
+	if !HasLibraryContract(common, ContractTestingCleanup) {
+		return false
+	}
+	for _, argument := range common.Args {
+		if closure, ok := argument.(*ssa.MakeClosure); ok && ClosureCallsMethodBeforeBranch(closure, method, target) {
+			return true
+		}
+	}
+	return false
 }
 
 func callCallsMethodOnExactArgumentOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {

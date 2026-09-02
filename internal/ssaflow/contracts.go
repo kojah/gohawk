@@ -38,14 +38,18 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "testing", Receiver: "TB", Name: "Cleanup"}),
 		)
 	case ContractTestifyAssertion:
-		return testifyAssertion(common, "Error") || testifyAssertion(common, "Nil")
+		return testifyAssertion(common, "Error") || testifyAssertion(common, "Nil") || testifyAssertion(common, "NotNil")
 	case ContractTestifyNoError:
 		return CallMatchesSymbol(common, syntax.PackageFunction("github.com/stretchr/testify/assert", "NoError"))
 	case ContractTestifyFatalError:
+		// require.NotNil applied to an error value is the same fatal claim as
+		// require.Error; callers must check that the argument is the error.
 		return matchesAnySymbol(
 			common,
 			syntax.PackageFunction("github.com/stretchr/testify/require", "Error"),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "github.com/stretchr/testify/require", Receiver: "Assertions", Name: "Error"}),
+			syntax.PackageFunction("github.com/stretchr/testify/require", "NotNil"),
+			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "github.com/stretchr/testify/require", Receiver: "Assertions", Name: "NotNil"}),
 		)
 	case ContractGoMockReturn:
 		return matchesAnySymbol(

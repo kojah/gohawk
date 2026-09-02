@@ -132,3 +132,23 @@ func abandonedNamedProducer() error {
 	go sendTwice(errs)
 	return <-errs
 }
+
+type producerResult struct{ err error }
+
+// Buffered result channels stored in a slice let each producer finish without
+// a receiver, so returning early from the receive loop is not a proven skip.
+func bufferedResultsInSliceReturnEarly(producers []func() error) error {
+	results := make([]chan producerResult, len(producers))
+	for i, produce := range producers {
+		results[i] = make(chan producerResult, 1)
+		go func(ch chan producerResult, produce func() error) {
+			ch <- producerResult{err: produce()}
+		}(results[i], produce)
+	}
+	for _, ch := range results {
+		if r := <-ch; r.err != nil {
+			return r.err
+		}
+	}
+	return nil
+}

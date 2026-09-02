@@ -3,6 +3,9 @@ package resourcelifetime
 import (
 	"context"
 	"database/sql"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func leakedRows(ctx context.Context, database *sql.DB) error {
@@ -177,5 +180,17 @@ func leakedStatement(ctx context.Context, database *sql.DB) error {
 
 func transactionOwnsStatement(ctx context.Context, transaction *sql.Tx) error {
 	_, err := transaction.PrepareContext(ctx, "SELECT 1")
+	return err
+}
+
+// A fatal Error assertion on the acquisition error stops the test unless the
+// transaction failed to begin, so the discarded result never owns anything.
+func transactionRequiredToFail(t *testing.T, ctx context.Context, database *sql.DB) {
+	_, err := database.BeginTx(ctx, nil)
+	require.Error(t, err)
+}
+
+func transactionDiscardedWithoutAssertion(ctx context.Context, database *sql.DB) error {
+	_, err := database.BeginTx(ctx, nil) // want "owned resource from sql.BeginTx is not released on every return path"
 	return err
 }

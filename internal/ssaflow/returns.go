@@ -63,8 +63,10 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]boo
 		}
 	case *ssa.UnOp:
 		// Copying the owner by value, as in ephemeral(*cmd), carries the same
-		// process or handle state, so returning the copy transfers it.
-		if typed.Op == token.MUL && SameValue(typed.X, value) {
+		// process or handle state, so returning the copy transfers it. A struct
+		// literal returned by value is likewise loaded from the local that
+		// assembled it, so the load carries whatever that local's fields hold.
+		if typed.Op == token.MUL && (SameValue(typed.X, value) || aggregateStoresValue(typed.X, value, seen)) {
 			return true
 		}
 	}

@@ -285,7 +285,7 @@ func bufferedLocalChannel(function *ssa.Function, signal ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			created, ok := instruction.(*ssa.MakeChan)
-			if !ok || !ssaflow.CapturedBindingMatches(signal, created) {
+			if !ok || !carries(signal, created, map[ssa.Value]bool{}) {
 				continue
 			}
 			size, constantSize := created.Size.(*ssa.Const)

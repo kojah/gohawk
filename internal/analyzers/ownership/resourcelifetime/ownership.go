@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"go/token"
 	"go/types"
+	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -106,11 +107,12 @@ func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
 	if len(common.Args) != 1 || !ssaflow.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
 		return "", false
 	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "IsNotExist")) {
-		return "os-is-not-exist", true
-	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "IsExist")) {
-		return "os-is-exist", true
+	// os.IsPermission and os.IsTimeout are documented to report false for a
+	// nil error, so their true branches carry the same proof.
+	for _, predicate := range []string{"IsNotExist", "IsExist", "IsPermission", "IsTimeout"} {
+		if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", predicate)) {
+			return "os-" + strings.ToLower(predicate), true
+		}
 	}
 	return "", false
 }

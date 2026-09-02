@@ -79,8 +79,23 @@ func callResultCarries(call *ssa.Call, target ssa.Value, seen map[ssa.Value]bool
 }
 
 // storedCarries follows stores into an addressable local and into the fields
-// and elements selected from it.
+// and elements selected from it. Every `results[i]` expression is its own
+// IndexAddr, so an element read through one is matched against stores made
+// through any element address of the same slice; that over-approximation only
+// ever makes an instruction opaque or a signal buffered.
 func storedCarries(address, target ssa.Value, seen map[ssa.Value]bool) bool {
+	if element, ok := address.(*ssa.IndexAddr); ok && element.X.Referrers() != nil {
+		for _, sibling := range *element.X.Referrers() {
+			other, ok := sibling.(*ssa.IndexAddr)
+			if !ok || other == element || seen[other] {
+				continue
+			}
+			seen[other] = true
+			if storedCarries(other, target, seen) {
+				return true
+			}
+		}
+	}
 	if address.Referrers() == nil {
 		return false
 	}

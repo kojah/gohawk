@@ -281,3 +281,56 @@ func acquiredForEnclosingScope() func() error {
 	_ = load()
 	return file.Close
 }
+
+// os.IsPermission and os.IsTimeout report false for a nil error, so their true
+// branches prove that no file was opened, just as os.IsNotExist does.
+func openSwitchOnOSPredicates(path string) error {
+	file, err := os.Open(path)
+	switch {
+	case os.IsNotExist(err):
+		return errors.New("missing")
+	case os.IsPermission(err):
+		return errors.New("denied")
+	case os.IsTimeout(err):
+		return errors.New("timed out")
+	case err != nil:
+		return err
+	}
+	defer file.Close()
+	return nil
+}
+
+func closeOnCleanup(t *testing.T, file *os.File) {
+	t.Helper()
+	t.Cleanup(func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
+}
+
+func closeOnCleanupConditionally(t *testing.T, file *os.File, close bool) {
+	t.Cleanup(func() {
+		if close {
+			_ = file.Close()
+		}
+	})
+}
+
+// A helper that registers testing cleanup for its exact argument owns that
+// argument: Cleanup runs after the test regardless of how the helper returns.
+func fileClosedByCleanupHelper(t *testing.T, path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeOnCleanup(t, file)
+}
+
+func fileConditionallyClosedByCleanupHelper(t *testing.T, path string, close bool) {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeOnCleanupConditionally(t, file, close)
+}
