@@ -20,7 +20,7 @@ var Analyzer = &analysis.Analyzer{
 	Doc:        "exports internal lifecycle ownership summaries",
 	Requires:   []*analysis.Analyzer{buildssa.Analyzer},
 	FactTypes:  []analysis.Fact{new(Fact)},
-	ResultType: reflect.TypeFor[summarySet](),
+	ResultType: reflect.TypeFor[Summaries](),
 	Run:        run,
 }
 
@@ -29,7 +29,7 @@ func run(pass *analysis.Pass) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	summaries := make(summarySet, len(functions))
+	summaries := make(Summaries, len(functions))
 	for _, function := range functions {
 		object := function.Object()
 		// Only exported functions can be called from a package that imports this
@@ -68,7 +68,7 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 	if pass == nil || common == nil || common.StaticCallee() == nil {
 		return Fact{}, false
 	}
-	if summaries, ok := pass.ResultOf[Analyzer].(summarySet); ok {
+	if summaries, ok := pass.ResultOf[Analyzer].(Summaries); ok {
 		if fact, found := summaries[common.StaticCallee()]; found {
 			return fact, true
 		}

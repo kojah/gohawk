@@ -102,8 +102,10 @@ package would otherwise require reading several functions to reconstruct.
 
 Use the structured evidence tracer instead of temporary print statements when
 investigating analyzer behavior. Use `gohawk ssa -func NAME PACKAGE` to read
-the SSA the analyzers see instead of reconstructing the lowering by hand; the
-evidence records carry the SSA text of the instruction they judged. Every diagnostic must flow through
+the SSA the analyzers see instead of reconstructing the lowering by hand, and
+`gohawk facts PACKAGE` to read the lifecycle summaries a package exports and
+imports; the evidence records carry the SSA text of the instruction they
+judged. Every diagnostic must flow through
 `check.Report` or `check.Reportf`, which provide repo-wide
 candidate and suggested-fix events. Shared analyzer wrappers trace whether a
 candidate is reported, suppressed by an ignore comment, or removed by check

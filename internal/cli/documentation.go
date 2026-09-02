@@ -314,6 +314,7 @@ func printGeneralHelp(output io.Writer) {
 	writeLine(output, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
 	writeLine(output, "Run 'gohawk help ANALYZER' for an analyzer's configuration flags.")
 	writeLine(output, "Run 'gohawk ssa [-func NAME] PACKAGE' to print the SSA form the analyzers see.")
+	writeLine(output, "Run 'gohawk facts [-func NAME] PACKAGE' to print the lifecycle summaries the analyzers import.")
 	writeLine(output, "\nAnalyzer groups:")
 	metadata := gohawk.AnalyzerMetadata()
 	for _, group := range gohawk.AnalyzerGroups() {

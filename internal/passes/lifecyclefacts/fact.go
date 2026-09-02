@@ -1,6 +1,10 @@
 package lifecyclefacts
 
 import (
+	"fmt"
+	"go/types"
+	"strings"
+
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/analysis"
@@ -41,8 +45,59 @@ func (mask ParameterMask) contains(index int) bool {
 	return mask&parameterMaskFor(index) != 0
 }
 
-// summarySet memoizes source-visible summaries for one package pass.
-type summarySet map[*ssa.Function]Fact
+// Summaries is the pass result: the summary of every exported source function
+// in the package plus the imported summary of every static callee.
+type Summaries map[*ssa.Function]Fact
+
+// DescribeFact renders the summary for the fact dump: one line per parameter
+// that some mask covers, named from the function's signature. Mask positions
+// follow SSA parameters, so a method's receiver is position zero.
+func (fact *Fact) DescribeFact(object types.Object) []string {
+	function, ok := object.(*types.Func)
+	if !ok {
+		return nil
+	}
+	var names []string
+	signature := function.Signature()
+	if signature.Recv() != nil {
+		names = append(names, signature.Recv().Name())
+	}
+	for parameter := range signature.Params().Variables() {
+		names = append(names, parameter.Name())
+	}
+	var lines []string
+	for index, name := range names {
+		if masks := fact.parameterMasks(index); len(masks) > 0 {
+			lines = append(lines, fmt.Sprintf("%d %s: %s", index, name, strings.Join(masks, ", ")))
+		}
+	}
+	return lines
+}
+
+func (fact *Fact) parameterMasks(index int) []string {
+	var names []string
+	for _, mask := range []struct {
+		name string
+		mask ParameterMask
+	}{
+		{"Invoked", fact.Invoked},
+		{"Closed", fact.Closed},
+		{"Finalized", fact.Finalized},
+		{"Released", fact.Released},
+		{"Shutdown", fact.Shutdown},
+		{"Stopped", fact.Stopped},
+		{"Waited", fact.Waited},
+		{"Committed", fact.Committed},
+		{"RolledBack", fact.RolledBack},
+		{"ReturnedOwner", fact.ReturnedOwner},
+		{"ReceiverStore", fact.ReceiverStore},
+	} {
+		if mask.mask.contains(index) {
+			names = append(names, mask.name)
+		}
+	}
+	return names
+}
 
 func (*Fact) AFact() {}
 

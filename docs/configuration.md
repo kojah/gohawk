@@ -156,3 +156,15 @@ The dump uses the same builder as the analyzers, includes the function
 literals created inside the selected function, and accepts `-tests` to load a
 package's test variant. It is a debugging aid; SSA text changes across Go
 versions, so do not pin it in fixtures.
+
+Cross-package lifecycle evidence comes from summaries of exported functions.
+To see what a package's functions are proven to do with their parameters, and
+which imported summaries its calls resolve to, print the facts:
+
+```sh
+gohawk facts -func CloseAll ./internal/server
+```
+
+Each line names a parameter and the masks proven for it on every return, such
+as `Closed` or `Invoked`; `-all` also lists summarized functions with no
+proven mask.

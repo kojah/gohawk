@@ -47,7 +47,7 @@ func caller(value *closer) { helper(value) }
 	instruction := findLifecycleCall(t, caller, "helper")
 	callee := instruction.Common().StaticCallee()
 	pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
-		Analyzer: summarySet{callee: {Closed: parameterMaskFor(0)}},
+		Analyzer: Summaries{callee: {Closed: parameterMaskFor(0)}},
 	}}
 	request := EvidenceRequest{
 		Instruction: instruction,
@@ -61,13 +61,13 @@ func caller(value *closer) { helper(value) }
 		t.Fatalf("imported proof = %#v, want lifecycle-summary provenance", proof)
 	}
 
-	pass.ResultOf[Analyzer] = summarySet{callee: {}}
+	pass.ResultOf[Analyzer] = Summaries{callee: {}}
 	rejected := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
 	if rejected.State != ssaflow.EvidenceDisproven || rejected.Provenance != ssaflow.EvidenceFromImportedFact {
 		t.Fatalf("empty summary proof = %#v, want imported disproof", rejected)
 	}
 
-	pass.ResultOf[Analyzer] = summarySet{}
+	pass.ResultOf[Analyzer] = Summaries{}
 	unknown := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
 	if unknown.State != ssaflow.EvidenceUnknown || unknown.Reason != ssaflow.EvidenceUnavailable {
 		t.Fatalf("missing summary proof = %#v, want unknown", unknown)
@@ -99,7 +99,7 @@ func reassigned() {
 		acquisition := findLifecycleCall(t, function, "acquire")
 		instruction := findLifecycleCall(t, function, "helper")
 		pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
-			Analyzer: summarySet{instruction.Common().StaticCallee(): {Closed: parameterMaskFor(0)}},
+			Analyzer: Summaries{instruction.Common().StaticCallee(): {Closed: parameterMaskFor(0)}},
 		}}
 		return NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
 			Instruction:              instruction,
