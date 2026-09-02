@@ -1,0 +1,13 @@
+repository,analyzer,position,verdict
+Duragraph/duragraph,resourcelifetime,go-sdk/llm/openai/openai.go:109:15,false_positive
+kubestellar/hive,resourcelifetime,src/pkg/dashboard/api.go:861:15,false_positive
+kubestellar/hive,resourcelifetime,src/pkg/dashboard/copilot_auth.go:237:16,false_positive
+nebius/soperator,goroutineownership,internal/exporter/exporter.go:168:4,false_positive
+piotrnar/gocoin,goroutineownership,lib/chain/chain_accept.go:256:6,false_positive
+kubestellar/hive,resourcelifetime,src/pkg/dashboard/api_contribute.go:8134:15,true_positive
+kubestellar/hive,resourcelifetime,src/pkg/hub/saas.go:1352:15,true_positive
+kubestellar/hive,resourcelifetime,src/pkg/dashboard/static_index.go:51:13,true_positive
+piotrnar/gocoin,lockorder,client/network/cblk.go:326:5,true_positive
+piotrnar/gocoin,resourcelifetime,lib/others/utils/fetchbl.go:14:11,true_positive
+piotrnar/gocoin,resourcelifetime,client/wallet/disk.go:93:13,true_positive
+piotrnar/gocoin,resourcelifetime,lib/others/utils/unspent.go:82:10,true_positive

@@ -158,3 +158,9 @@ Round 28 preserves the twenty-fourth reviewed batch. It covers a producer
 whose channel is drained by worker goroutines launched in the same function
 and two captured mutexes of one type locked inside a closure. Nearby lock,
 resource, concurrent-capture, and defer-in-loop findings remain reportable.
+
+Round 29 preserves the twenty-fifth reviewed batch. It covers a named helper
+that receives a response body and closes it, whether launched on a goroutine
+or called directly, and a WaitGroup join guarded by a local Boolean assigned
+alongside the launch. Nearby response, compression, lock, and file findings
+remain reportable.

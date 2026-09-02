@@ -259,3 +259,13 @@
 26	qdrant/migration	d91f9eee2ce42e87d523a1720270fefa02043896	.	reviewed
 26	aserto-dev/topaz	73ed45311d4d6e7c5a24fd7ce892a3067e3bd9d6	.	reviewed
 26	firehol/iprange	8246bb09aedab412c88ed868dd39aa1b123aeda0	v4/go	reviewed
+27	kubestellar/hive	d8427b99764e9fd569e292b0bdde7a65f224ef9f	src	reviewed
+27	trefeon/freebuff-proxy	9a42ad9ea36414ea3958a48aa42dc6d2df25b4c8	.	reviewed
+27	piotrnar/gocoin	467131d21dd0c9252f99c00d99ba9ca74f60ca1e	.	reviewed
+27	knights-analytics/hugot	5261d174673ec98898c9384503e94a42eb1beaca	.	reviewed
+27	leaktk/leaktk	34b41197d206e52de6527a74135203ff877a37e4	.	reviewed
+27	Duragraph/duragraph	b01be300aa8c4fa75e621bbd2e86539c1ad0bf4b	.,go-sdk,tests/e2e,examples/go/01-hello-world,tests/e2e/go_worker	reviewed
+27	gin-contrib/location	2de3c984d19bc868817e26d94c83dc40c91bb802	.	reviewed
+27	nebius/soperator	3f5635c08fab3578db574a55b293b5aa32042bd3	.,e2e	reviewed
+27	hezhijie0327/ZJDNS	a3e8787e31c30dafbb66d28d324a24cc5abcd9f4	.	reviewed
+27	nezhahq/agent	6df74da8a766612e52875332d7b29ed317013f6e	.	reviewed

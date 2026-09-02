@@ -865,3 +865,40 @@ delta recorded since Batch 11, so the measurements were not informing
 decisions. The dogfooding benchmark remains available for release gates.
 Batch 26 replayed round 28 and the twenty-three rounds carrying goroutine- or
 lock-order labels.
+
+## Batch 27
+
+Ten repositories and fifteen modules were selected. Thirteen modules loaded
+and scanned fully. Gocoin's root module produced useful partial analysis
+because its pinned revision references an unpublished sibling package, and a
+Duragraph example module could not build against its own SDK. Final scans
+produced 1,534 unique diagnostics after two bounded corrections:
+
+- a named helper that receives the cleanup-bearing projection of a resource,
+  such as a response body, and calls the lifecycle method on exactly that
+  parameter before every return settles the resource whether it is launched
+  with `go` or called directly. Function literals keep their existing
+  conservative boundary; and
+- a WaitGroup join guarded by a local Boolean that the function assigns a
+  constant alongside the launch, such as `started = true` before spawning and
+  `if started { wg.Wait() }` after, correlates the guard with the launch in a
+  way the proof does not model, so the worker is unknown rather than
+  reported.
+
+The first correction removed one Duragraph streaming-body finding and two
+Kubestellar dashboard findings. The second removed one Soperator collector
+finding and one gocoin script-verification finding. Precision round 29 passed
+with all five false positives absent and all seven nearby true positives
+present: two Kubestellar token checks that leak the response on a non-200
+status because the status test shares the error branch, a gzip writer left
+open on a write error, a gocoin short-ID loop that returns with the
+transaction mutex held, and three gocoin block, wallet, and UTXO fetches that
+leak on non-200 or read paths.
+
+Kubestellar's test that starts helper processes in one loop and waits for
+them in a later loop, and its descriptor-gauge test that opens files into a
+slice, remain reportable pending count-matched process and resource joins.
+Its victim processes started and only killed, and Nezha's intentionally
+orphaned test helpers, remain policy reports. Opt-in global-state, API-shape,
+determinism, and detached-goroutine findings were sampled without expanding
+default policy. Batch 27 replayed round 29 and every earlier round.
