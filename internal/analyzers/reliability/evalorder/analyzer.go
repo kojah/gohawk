@@ -53,7 +53,7 @@ func reportEvaluationDependencies(pass *analysis.Pass, expressions []ast.Expr) {
 	for laterIndex := 1; laterIndex < len(expressions); laterIndex++ {
 		earlierObjects := map[types.Object]bool{}
 		for _, earlier := range expressions[:laterIndex] {
-			ast.Inspect(earlier, func(node ast.Node) bool {
+			walkEvaluatedExpression(earlier, func(node ast.Node) bool {
 				identifier, ok := node.(*ast.Ident)
 				if ok {
 					if object := pass.TypesInfo.ObjectOf(identifier); object != nil {
@@ -61,9 +61,9 @@ func reportEvaluationDependencies(pass *analysis.Pass, expressions []ast.Expr) {
 					}
 				}
 				return true
-			})
+			}, nil)
 		}
-		ast.Inspect(expressions[laterIndex], func(node ast.Node) bool {
+		walkEvaluatedExpression(expressions[laterIndex], func(node ast.Node) bool {
 			call, ok := node.(*ast.CallExpr)
 			if !ok {
 				return true
@@ -82,8 +82,67 @@ func reportEvaluationDependencies(pass *analysis.Pass, expressions []ast.Expr) {
 				check.Reportf(pass, check.EvaluationOrder, address.Pos(), "later operand may mutate %s after its earlier value was evaluated", identifier.Name)
 			}
 			return true
+		}, func(literal *ast.FuncLit) {
+			traceDelayedFunctionBody(pass, literal)
 		})
 	}
+}
+
+func walkEvaluatedExpression(expression ast.Expr, visit func(ast.Node) bool, delayed func(*ast.FuncLit)) {
+	var ancestors []ast.Node
+	ast.Inspect(expression, func(node ast.Node) bool {
+		if node == nil {
+			ancestors = ancestors[:len(ancestors)-1]
+			return true
+		}
+		literal, ok := node.(*ast.FuncLit)
+		if ok && !directlyInvokedFunctionLiteral(literal, ancestors) {
+			// Constructing a function value captures variables but does not run
+			// its body. Only a direct or parenthesized invocation supplies exact
+			// evidence that body effects occur while this operand is evaluated.
+			// ToolHive passes mutating callbacks as data in this form:
+			// https://github.com/stacklok/toolhive/blob/d859bfe06e62443cf9767f864ba06d294faf24fd/pkg/skills/skillsvc/install.go#L92-L105
+			if delayed != nil {
+				delayed(literal)
+			}
+			return false
+		}
+		if !visit(node) {
+			return false
+		}
+		ancestors = append(ancestors, node)
+		return true
+	})
+}
+
+func directlyInvokedFunctionLiteral(literal *ast.FuncLit, ancestors []ast.Node) bool {
+	index := len(ancestors) - 1
+	for index >= 0 {
+		if _, ok := ancestors[index].(*ast.ParenExpr); !ok {
+			break
+		}
+		index--
+	}
+	if index < 0 {
+		return false
+	}
+	call, ok := ancestors[index].(*ast.CallExpr)
+	return ok && syntax.Unparen(call.Fun) == literal
+}
+
+func traceDelayedFunctionBody(pass *analysis.Pass, literal *ast.FuncLit) {
+	checkID := string(check.EvaluationOrder)
+	if !analysisTrace.Enabled("evalorder", checkID) {
+		return
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{
+		Analyzer: "evalorder",
+		Check:    checkID,
+		Phase:    "evidence",
+		Reason:   "delayed-function-body",
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      literal.Pos(),
+	})
 }
 
 func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.CallExpr, argumentIndex int, object types.Object) bool {

@@ -15,6 +15,22 @@ func staleCall(value int) {
 	consume(value, replace(&value)) // want "later operand may mutate value after its earlier value was evaluated"
 }
 
+func staleNestedCall(value int) {
+	consume(value, wrap(replace(&value))) // want "later operand may mutate value after its earlier value was evaluated"
+}
+
+func staleImmediateClosure(value int) {
+	consume(value, func() error {
+		return replace(&value) // want "later operand may mutate value after its earlier value was evaluated"
+	}())
+}
+
+func staleParenthesizedImmediateClosure(value int) {
+	consume(value, (func() error {
+		return replace(&value) // want "later operand may mutate value after its earlier value was evaluated"
+	})())
+}
+
 func staleDecode(value map[string]int, data []byte) (map[string]int, error) {
 	return value, json.Unmarshal(data, &value) // want "later operand may mutate value after its earlier value was evaluated"
 }
@@ -57,3 +73,40 @@ func staleFieldUpdate(state fieldState) (int, error) {
 }
 
 func consume(int, error) {}
+
+func wrap(err error) error { return err }
+
+type installOptions struct {
+	Name string
+}
+
+type sourceOperations struct {
+	git func() error
+	oci func() error
+}
+
+func updateInstallOptions(options *installOptions) error {
+	options.Name = "resolved"
+	return nil
+}
+
+func dispatchSource(string, sourceOperations) {}
+
+func delayedSourceCallbacks(options installOptions) {
+	dispatchSource(options.Name, sourceOperations{
+		git: func() error {
+			return updateInstallOptions(&options)
+		},
+		oci: func() error {
+			return updateInstallOptions(&options)
+		},
+	})
+}
+
+func consumeCallback(func(), error) {}
+
+func delayedEarlierRead(value int) {
+	consumeCallback(func() {
+		_ = value
+	}, replace(&value))
+}
