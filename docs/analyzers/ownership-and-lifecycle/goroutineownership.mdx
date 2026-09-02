@@ -20,7 +20,13 @@ Reports goroutines whose join handle or lifecycle owner is not honored on every 
 
 ## Why this is flagged
 
-Unowned goroutines can outlive their inputs, retain resources, and make shutdown nondeterministic.
+A goroutine with no clear owner can keep running after its caller returns, or
+block forever trying to send a result nobody will receive. These leaks hold
+memory and other resources, and they can make shutdown nondeterministic or hang
+the program outright.
+
+Further reading: [Go concurrency patterns: Pipelines and cancellation](https://go.dev/blog/pipelines),
+[Go concurrency patterns: Context](https://go.dev/blog/context).
 
 ## How to fix it
 

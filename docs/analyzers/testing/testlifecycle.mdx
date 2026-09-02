@@ -19,7 +19,13 @@ Reports detached test goroutines rooted in a never-cancelled context when they o
 
 ## Why this is flagged
 
-Detached work can survive test teardown and interfere with later tests.
+A goroutine a test starts but never stops can outlive the test that created it.
+Rooted in a context that is never cancelled, it runs on into later tests, where
+it can race on shared state, leak resources, or make an unrelated test fail
+intermittently. Tying the work to the test's own context, or joining it before
+the test returns, keeps each test self-contained.
+
+Further reading: [Package testing: T.Cleanup](https://pkg.go.dev/testing#T.Cleanup).
 
 ## How to fix it
 

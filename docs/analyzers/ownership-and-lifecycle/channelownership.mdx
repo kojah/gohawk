@@ -19,7 +19,12 @@ Reports a callee close only when an exact caller continues to send, close, or re
 
 ## Why this is flagged
 
-Closing while the caller still uses the channel can race with a send and panic.
+Only the code that owns a channel should close it. When a callee closes a
+channel that its caller still sends on, closes, or returns, the close can race
+with the caller's send — and a send on a closed channel panics. By convention
+the sender decides when a channel is done, not a helper it calls.
+
+Further reading: [Go concurrency patterns: Pipelines and cancellation](https://go.dev/blog/pipelines).
 
 ## How to fix it
 

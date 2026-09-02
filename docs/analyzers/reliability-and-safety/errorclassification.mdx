@@ -19,7 +19,13 @@ Reports production code that classifies native errors by matching `Error()` text
 
 ## Why this is flagged
 
-Error text is unstable and intended for people rather than program control flow.
+Matching an error's `Error()` string to decide what to do couples control flow
+to text meant for people. That text is not part of any API contract: a library
+can reword, wrap, or localize it, and the match silently stops working.
+`errors.Is` and `errors.As` compare against sentinel values and types, which are
+stable, instead.
+
+Further reading: [Working with Errors in Go 1.13](https://go.dev/blog/go1.13-errors).
 
 ## How to fix it
 

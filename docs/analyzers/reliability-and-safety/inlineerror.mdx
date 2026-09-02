@@ -19,7 +19,10 @@ Reports inline error declarations whose condition accidentally checks a differen
 
 ## Why this is flagged
 
-Checking an older error can silently ignore the failure that was just returned.
+An inline declaration such as `if err := f(); errPrev != nil` reads like an
+error check but tests the wrong variable, so the error `f` just returned is
+never examined. The failure is silently dropped, and the mistake is easy to miss
+because the line looks like ordinary error handling.
 
 ## How to fix it
 

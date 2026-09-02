@@ -19,7 +19,13 @@ Reports producer goroutines that can block after their receiver stops waiting.
 
 ## Why this is flagged
 
-An unbuffered producer can leak forever when it emits more results than its consumer receives.
+A producer goroutine that sends on an unbuffered channel blocks until something
+receives. If the consumer stops early — an error, an early return, a cancelled
+context — a producer that keeps trying to send has no one to receive it and
+blocks forever, leaking the goroutine and whatever it holds. Making the send
+cancellation-aware, or draining the channel, gives the producer a way to stop.
+
+Further reading: [Go concurrency patterns: Pipelines and cancellation](https://go.dev/blog/pipelines).
 
 ## How to fix it
 

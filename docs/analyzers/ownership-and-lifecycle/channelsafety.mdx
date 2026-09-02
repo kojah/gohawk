@@ -19,7 +19,12 @@ Reports sends reachable after the same channel has been closed.
 
 ## Why this is flagged
 
-Sending on a closed channel panics.
+Sending on a closed channel is a run-time panic, not an error a caller can
+recover from in the normal flow, so a reachable send-after-close is a latent
+crash. It usually means two parts of the code disagree about which one owns
+closing the channel.
+
+Further reading: [The Go Programming Language Specification: Close](https://go.dev/ref/spec#Close).
 
 ## How to fix it
 

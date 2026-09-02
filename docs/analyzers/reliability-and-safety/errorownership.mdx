@@ -19,7 +19,10 @@ Reports functions that both log and return the same error.
 
 ## Why this is flagged
 
-Logging and returning the same error commonly produces duplicate reports at multiple layers.
+Logging an error and also returning it means the same failure is usually
+reported again by a caller, so one problem surfaces as several log lines at
+different layers. Each layer should do one of two things: add context and return
+the error, or handle it fully and stop.
 
 ## How to fix it
 

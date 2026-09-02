@@ -19,7 +19,13 @@ Reports large constant channel capacities without a nearby bounded rationale.
 
 ## Why this is flagged
 
-An unexplained buffer can hide backpressure and encode an undocumented operational bound.
+A channel's buffer size is a design decision: it sets how many sends can outrun
+their receiver before the sender blocks. A large constant with no explanation
+hides that backpressure and quietly bakes in an operational bound nobody wrote
+down, so a later reader cannot tell whether the number is deliberate or
+arbitrary.
+
+Further reading: [Effective Go: Channels](https://go.dev/doc/effective_go#channels).
 
 ## How to fix it
 

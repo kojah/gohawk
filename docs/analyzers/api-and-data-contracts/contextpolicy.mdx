@@ -21,7 +21,13 @@ Reports misplaced `context.Context` parameters, contexts stored in structs, and 
 
 ## Why this is flagged
 
-Context placement and lifetime are API contracts. Consistent leading parameters make cancellation easy to propagate, while stored or nil contexts obscure ownership.
+Context placement and lifetime are API contracts. Keeping `context.Context` as
+the leading parameter lets cancellation and deadlines flow down a call chain
+without ceremony. Storing a context in a struct gives it the wrong lifetime, and
+passing a nil context can cause failures far from the call site.
+
+Further reading: [Package context](https://pkg.go.dev/context),
+[Contexts and structs](https://go.dev/blog/context-and-structs).
 
 ## How to fix it
 
