@@ -329,3 +329,30 @@ func storedResourceAccessReleased(
 	}
 	return false
 }
+
+// ownedResultContract synthesizes a contract for a call whose callee is
+// summarized as returning a struct that owns resource fields and whose result
+// type has a method releasing them. The caller then owes that method exactly
+// as it owes Close to os.Open; the summaries are proven from the constructor
+// and method bodies, so no name enters the decision. A constructor that
+// stores a caller's resource, or a type whose methods never release the
+// field, produces no contract.
+func ownedResultContract(evidence *lifecyclefacts.LifecycleEvidence, call *ssa.Call, settings resourceLifetimeSettings) (resourceContract, bool) {
+	if !settings.contracts["owned"] {
+		return resourceContract{}, false
+	}
+	cleanup, index, ok := evidence.OwnedResult(call)
+	if !ok {
+		return resourceContract{}, false
+	}
+	callee := call.Common().StaticCallee()
+	// The package name only labels the diagnostic; identity was decided by
+	// the imported summaries above.
+	return resourceContract{
+		family:      "owned",
+		packagePath: callee.Pkg.Pkg.Name(),
+		name:        callee.Name(),
+		cleanup:     cleanup,
+		result:      index,
+	}, true
+}

@@ -26,6 +26,14 @@ HTTP response bodies, timers and tickers, and gzip/zlib readers and writers.
 \* Opt-in; requires explicit selection.
 {/* gohawk:generated-checks:end */}
 
+The `owned` contract family is not a table. A constructor in another package
+whose returned struct holds a resource it acquired itself, and whose type has
+a method that releases that field on every return, is summarized by the
+lifecycle facts pass, and callers of that constructor then owe the method
+exactly as they owe `Close` to `os.Open`. A wrapper that stores a caller's
+resource, or a type whose methods never release the field, produces no
+contract.
+
 The opt-in `use-after-release` check is the dual of the leak check. After a
 plain (not deferred) release of the acquired value, it reports an operation
 the API documents as failing on a released value, such as a write to a closed
@@ -101,6 +109,6 @@ func readSafely(path string) error {
 {/* gohawk:generated-options:start */}
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `contracts` | `os,http,sql,time,compress` | Comma-separated resource contract families: os,http,sql,time,compress. |
+| `contracts` | `os,http,sql,time,compress,owned` | Comma-separated resource contract families: os,http,sql,time,compress,owned. |
 | `require-reader-close` | `true` | Require gzip and zlib readers to be closed. |
 {/* gohawk:generated-options:end */}

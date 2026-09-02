@@ -66,3 +66,55 @@ var exitHandlers []func()
 func RegisterExit(handler func()) {
 	exitHandlers = append(exitHandlers, handler)
 }
+
+// Journal owns the file its constructor opened; Close releases it.
+type Journal struct {
+	file *os.File
+	name string
+}
+
+// OpenJournal acquires the file and hands ownership to the caller.
+func OpenJournal(path string) (*Journal, error) {
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return nil, err
+	}
+	return &Journal{file: file, name: path}, nil
+}
+
+// Append writes without releasing anything.
+func (j *Journal) Append(line string) error {
+	_, err := j.file.WriteString(line)
+	return err
+}
+
+// Close releases the file on every return.
+func (j *Journal) Close() error { return j.file.Close() }
+
+// View wraps a caller's file without owning it.
+type View struct {
+	file *os.File
+}
+
+// NewView stores the caller's file, so the caller still owns it.
+func NewView(file *os.File) *View { return &View{file: file} }
+
+// Close of a view does not release the caller's file.
+func (v *View) Close() error { return nil }
+
+// Sink owns a file but no method releases it.
+type Sink struct {
+	file *os.File
+}
+
+// OpenSink acquires the file but its type offers no release.
+func OpenSink(path string) (*Sink, error) {
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Sink{file: file}, nil
+}
+
+// Flush syncs without closing.
+func (s *Sink) Flush() error { return s.file.Sync() }

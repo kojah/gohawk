@@ -1,0 +1,282 @@
+package lifecyclefacts
+
+import (
+	"go/types"
+
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
+
+	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/ssa"
+)
+
+// Field summaries let a user-defined type carry a resource obligation across
+// packages. A constructor exports OwnedFields: the fields of its returned
+// struct that, on every successful return, hold a resource the function
+// acquired itself, as a call result rather than a parameter. A method exports
+// ReleasedFields: the receiver fields whose resource cleanup it calls on every
+// return. A consumer that sees a constructor with OwnedFields and a method
+// whose ReleasedFields covers them synthesizes the contract "result of the
+// constructor, released by that method". Either half alone proves nothing:
+// a wrapper that stores a caller's file is not an owner, and an owner whose
+// type never releases the field has no cleanup the caller could be asked for.
+// Positions are struct field indices, so the 64-position mask cap applies.
+
+// resourceType names a type whose values carry a lifecycle obligation and the
+// method that discharges it. This is a type vocabulary, distinct from the
+// acquisition contracts an analyzer matches at call sites.
+type resourceType struct {
+	packagePath string
+	name        string
+	cleanup     []string
+}
+
+func resourceTypes() []resourceType {
+	return []resourceType{
+		{"os", "File", []string{"Close"}},
+		{"database/sql", "Tx", []string{"Commit", "Rollback"}},
+		{"database/sql", "Rows", []string{"Close"}},
+		{"database/sql", "Stmt", []string{"Close"}},
+		{"net/http", "Response", []string{"Close"}},
+		{"compress/gzip", "Reader", []string{"Close"}},
+		{"compress/gzip", "Writer", []string{"Close"}},
+		{"compress/zlib", "Writer", []string{"Close"}},
+		{"time", "Ticker", []string{"Stop"}},
+		{"time", "Timer", []string{"Stop"}},
+	}
+}
+
+// ResourceCleanup returns the cleanup methods of a resource type, or false
+// when the type carries no obligation this vocabulary knows.
+func ResourceCleanup(value types.Type) ([]string, bool) {
+	for _, entry := range resourceTypes() {
+		if syntax.NamedType(value, entry.packagePath, entry.name) {
+			return entry.cleanup, true
+		}
+	}
+	return nil, false
+}
+
+// returnedStruct returns the struct type behind the function's first
+// non-error pointer result, with that result's index.
+func returnedStruct(function *ssa.Function) (*types.Struct, int, bool) {
+	results := function.Signature.Results()
+	for index := range results.Len() {
+		pointer, ok := results.At(index).Type().Underlying().(*types.Pointer)
+		if !ok {
+			continue
+		}
+		if structure, ok := pointer.Elem().Underlying().(*types.Struct); ok {
+			return structure, index, true
+		}
+	}
+	return nil, 0, false
+}
+
+// ownedFields returns the mask of returned struct fields that hold, on every
+// successful return, a resource value acquired in this function.
+func ownedFields(function *ssa.Function) ParameterMask {
+	structure, _, ok := returnedStruct(function)
+	if !ok {
+		return 0
+	}
+	var owned ParameterMask
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			acquired, ok := instruction.(ssa.Value)
+			if !ok || !acquiredResource(acquired) {
+				continue
+			}
+			for _, index := range storedFieldIndices(acquired, structure) {
+				if returnedOwnerOnEveryReturn(function, acquired) {
+					owned |= parameterMaskFor(index)
+				}
+			}
+		}
+	}
+	return owned
+}
+
+// acquiredResource reports whether the value is the result of a call in this
+// function whose type carries an obligation. Parameters, loads, and globals
+// are excluded: a resource that arrived from elsewhere is borrowed.
+func acquiredResource(value ssa.Value) bool {
+	switch typed := value.(type) {
+	case *ssa.Call:
+		_, ok := ResourceCleanup(typed.Type())
+		return ok
+	case *ssa.Extract:
+		_, call := typed.Tuple.(*ssa.Call)
+		_, ok := ResourceCleanup(typed.Type())
+		return call && ok
+	}
+	return false
+}
+
+// storedFieldIndices returns the indices of the struct's fields the value is
+// stored into, through field addresses of an allocation of that struct.
+func storedFieldIndices(value ssa.Value, structure *types.Struct) []int {
+	if value.Referrers() == nil {
+		return nil
+	}
+	var indices []int
+	for _, reference := range *value.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if !ok || store.Val != value {
+			continue
+		}
+		field, ok := store.Addr.(*ssa.FieldAddr)
+		if !ok {
+			continue
+		}
+		pointer, ok := field.X.Type().Underlying().(*types.Pointer)
+		if ok && types.Identical(pointer.Elem().Underlying(), structure) {
+			indices = append(indices, field.Field)
+		}
+	}
+	return indices
+}
+
+// releasedFields returns the mask of receiver fields whose resource cleanup
+// the method calls on every return, directly or through a completion the
+// engine can prove for the loaded field.
+func releasedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
+	if function.Signature.Recv() == nil || len(function.Params) == 0 {
+		return 0
+	}
+	receiver := function.Params[0]
+	pointer, ok := receiver.Type().Underlying().(*types.Pointer)
+	if !ok {
+		return 0
+	}
+	structure, ok := pointer.Elem().Underlying().(*types.Struct)
+	if !ok {
+		return 0
+	}
+	var released ParameterMask
+	for index := range structure.NumFields() {
+		cleanup, ok := ResourceCleanup(structure.Field(index).Type())
+		if !ok {
+			continue
+		}
+		if !ssaflow.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
+			return releasesField(pass, instruction, receiver, index, cleanup)
+		}) {
+			released |= parameterMaskFor(index)
+		}
+	}
+	return released
+}
+
+// releasesField reports whether the instruction discharges the receiver's
+// field: a cleanup call whose receiver derives from a load of that field, or
+// a completion proven for such a load handed to a helper, defer, or launch.
+func releasesField(pass *analysis.Pass, instruction ssa.Instruction, receiver ssa.Value, index int, cleanup []string) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	for _, load := range fieldLoads(receiver, index) {
+		for _, method := range cleanup {
+			if ssaflow.CallName(common) == method && ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), load, map[ssa.Value]bool{}) {
+				return true
+			}
+		}
+		if ssaflow.ProveCompletion(ssaflow.CompletionRequest{Instruction: instruction, Target: load, Methods: cleanup}).Proven() {
+			return true
+		}
+		if imported, ok := importFact(pass, instruction); ok {
+			for _, method := range cleanup {
+				if factOwnsArgument(instruction, load, imported.MethodMask(method)) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// fieldLoads returns every load of the receiver's field in the method.
+func fieldLoads(receiver ssa.Value, index int) []ssa.Value {
+	var loads []ssa.Value
+	if receiver.Referrers() == nil {
+		return nil
+	}
+	for _, reference := range *receiver.Referrers() {
+		field, ok := reference.(*ssa.FieldAddr)
+		if !ok || field.Field != index || field.Referrers() == nil {
+			continue
+		}
+		for _, use := range *field.Referrers() {
+			if load, ok := use.(*ssa.UnOp); ok && load.X == field {
+				loads = append(loads, load)
+			}
+		}
+	}
+	return loads
+}
+
+// importResultMethods records the imported summaries of the methods of the
+// callee's returned struct type, so a consumer can ask which of them release
+// the owned fields.
+func importResultMethods(pass *analysis.Pass, callee *ssa.Function, summaries Summaries) {
+	for _, method := range resultMethods(callee) {
+		var fact Fact
+		if object := method.Object(); object != nil && pass.ImportObjectFact(object, &fact) {
+			summaries[method] = fact
+		}
+	}
+}
+
+// resultMethods returns the declared methods of the callee's first pointer
+// struct result.
+func resultMethods(callee *ssa.Function) []*ssa.Function {
+	_, index, ok := returnedStruct(callee)
+	if !ok || callee.Pkg == nil {
+		return nil
+	}
+	pointer := callee.Signature.Results().At(index).Type()
+	var methods []*ssa.Function
+	for selection := range types.NewMethodSet(pointer).Methods() {
+		function, ok := selection.Obj().(*types.Func)
+		if !ok || function.Pkg() == nil {
+			continue
+		}
+		if method := callee.Prog.LookupMethod(pointer, function.Pkg(), function.Name()); method != nil && method.Object() == function {
+			methods = append(methods, method)
+		}
+	}
+	return methods
+}
+
+// OwnedResult reports whether the call's static callee is summarized as
+// returning a struct that owns resource fields, and returns the methods of
+// the result type whose ReleasedFields cover every owned field together with
+// the index of that result. A type with no covering method yields false: the
+// caller cannot be asked for a cleanup that does not exist.
+func (evidence *LifecycleEvidence) OwnedResult(call *ssa.Call) ([]string, int, bool) {
+	fact, ok := factFor(evidence.pass, call)
+	if !ok || fact.OwnedFields == 0 {
+		return nil, 0, false
+	}
+	callee := call.Common().StaticCallee()
+	_, index, ok := returnedStruct(callee)
+	if !ok {
+		return nil, 0, false
+	}
+	summaries, _ := evidence.pass.ResultOf[Analyzer].(Summaries)
+	var cleanup []string
+	for _, method := range resultMethods(callee) {
+		if summary, ok := summaries[method]; ok && summary.ReleasedFields&fact.OwnedFields == fact.OwnedFields {
+			cleanup = append(cleanup, method.Name())
+		}
+	}
+	reason := reasonOwnedResultContract
+	if len(cleanup) == 0 {
+		reason = reasonOwnedResultUnreleasable
+	}
+	evidence.emit(EvidenceRequest{Instruction: call, Target: call}, ssaflow.Proof{
+		State: ssaflow.EvidenceProven, Reason: reason, Provenance: ssaflow.EvidenceFromImportedFact,
+	})
+	return cleanup, index, len(cleanup) > 0
+}

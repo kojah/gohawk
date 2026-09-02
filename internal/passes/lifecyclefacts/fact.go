@@ -27,8 +27,12 @@ type Fact struct {
 	ReturnedOwner ParameterMask
 	// Retained marks parameters the callee may keep beyond the call; see
 	// retention.go for the over-approximation it deliberately makes.
-	Retained      ParameterMask
-	ReceiverStore ParameterMask
+	Retained ParameterMask
+	// OwnedFields and ReleasedFields are indexed by struct field, not
+	// parameter; see fields.go for the constructor and method summaries.
+	OwnedFields    ParameterMask
+	ReleasedFields ParameterMask
+	ReceiverStore  ParameterMask
 }
 
 // ParameterMask is a set of SSA parameter positions in a lifecycle summary.
@@ -74,7 +78,49 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 			lines = append(lines, fmt.Sprintf("%d %s: %s", index, name, strings.Join(masks, ", ")))
 		}
 	}
+	for _, mask := range fieldMasks {
+		if fields := fact.fieldNames(*mask.field(fact), signature); len(fields) > 0 {
+			lines = append(lines, fmt.Sprintf("%s: %s", mask.name, strings.Join(fields, ", ")))
+		}
+	}
 	return lines
+}
+
+// fieldNames renders a field mask against the method's receiver struct or,
+// for a function, the struct behind its first pointer result.
+func (fact *Fact) fieldNames(mask ParameterMask, signature *types.Signature) []string {
+	if mask == 0 {
+		return nil
+	}
+	var structure *types.Struct
+	if signature.Recv() != nil {
+		structure = structBehind(signature.Recv().Type())
+	} else {
+		for result := range signature.Results().Variables() {
+			if structure = structBehind(result.Type()); structure != nil {
+				break
+			}
+		}
+	}
+	if structure == nil {
+		return nil
+	}
+	var names []string
+	for index := range structure.NumFields() {
+		if mask.contains(index) {
+			names = append(names, structure.Field(index).Name())
+		}
+	}
+	return names
+}
+
+func structBehind(value types.Type) *types.Struct {
+	pointer, ok := value.Underlying().(*types.Pointer)
+	if !ok {
+		return nil
+	}
+	structure, _ := pointer.Elem().Underlying().(*types.Struct)
+	return structure
 }
 
 func (fact *Fact) parameterMasks(index int) []string {
@@ -96,6 +142,11 @@ func (fact *Fact) String() string {
 	for index := range 64 {
 		if masks := fact.parameterMasks(index); len(masks) > 0 {
 			parts = append(parts, fmt.Sprintf("%d:%s", index, strings.Join(masks, "+")))
+		}
+	}
+	for _, mask := range fieldMasks {
+		if value := *mask.field(fact); value != 0 {
+			parts = append(parts, fmt.Sprintf("%s:%#x", mask.name, uint64(value)))
 		}
 	}
 	if len(parts) == 0 {
@@ -171,6 +222,12 @@ var lifecycleMasks = []lifecycleMask{
 	{name: "ReturnedOwner", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedOwner }},
 	{name: "ReceiverStore", field: func(fact *Fact) *ParameterMask { return &fact.ReceiverStore }},
 	{name: "Retained", field: func(fact *Fact) *ParameterMask { return &fact.Retained }},
+}
+
+// fieldMasks are indexed by struct field of the result or receiver type.
+var fieldMasks = []lifecycleMask{
+	{name: "OwnedFields", field: func(fact *Fact) *ParameterMask { return &fact.OwnedFields }},
+	{name: "ReleasedFields", field: func(fact *Fact) *ParameterMask { return &fact.ReleasedFields }},
 }
 
 // MethodMask selects the parameter mask for a lifecycle method.

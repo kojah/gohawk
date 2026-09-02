@@ -15,16 +15,16 @@ import (
 )
 
 func Analyzer() *analysis.Analyzer {
-	config := resourceLifetimeConfig{contracts: "os,http,sql,time,compress", requireReaderClose: true}
+	config := resourceLifetimeConfig{contracts: "os,http,sql,time,compress,owned", requireReaderClose: true}
 	analyzer := &analysis.Analyzer{
 		Name:     "resourcelifetime",
 		Doc:      "checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
 	}
 	analyzer.Flags.Var(
-		flagvalue.NewCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "time", "compress"),
+		flagvalue.NewCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "time", "compress", "owned"),
 		"contracts",
-		"comma-separated resource contract families: os,http,sql,time,compress",
+		"comma-separated resource contract families: os,http,sql,time,compress,owned",
 	)
 	analyzer.Flags.BoolVar(&config.requireReaderClose, "require-reader-close", true, "require gzip and zlib readers to be closed")
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
@@ -67,6 +67,9 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 					continue
 				}
 				contract, ok := resourceContractFor(call.Common(), settings)
+				if !ok {
+					contract, ok = ownedResultContract(evidence, call, settings)
+				}
 				if !ok {
 					continue
 				}

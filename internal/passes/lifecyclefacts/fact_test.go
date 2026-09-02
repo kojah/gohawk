@@ -218,6 +218,57 @@ func Return(handler func()) func() { return handler }
 	}
 }
 
+// A constructor owns the fields it fills with resources it acquired, not
+// with resources it received; a method releases the fields it closes on every
+// return.
+func TestLifecycleSummaryFieldMasks(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+import "os"
+
+type Journal struct {
+	file *os.File
+	name string
+}
+
+func Open(path string) (*Journal, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Journal{file: file, name: path}, nil
+}
+
+func Wrap(file *os.File) *Journal { return &Journal{file: file} }
+
+func (j *Journal) Close() error { return j.file.Close() }
+
+func (j *Journal) MaybeClose(ok bool) error {
+	if ok {
+		return j.file.Close()
+	}
+	return nil
+}
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	if got := summarize(pass, pkg.Func("Open")).OwnedFields; !got.contains(0) || got.contains(1) {
+		t.Errorf("Open OwnedFields = %#x, want field 0 only", uint64(got))
+	}
+	if got := summarize(pass, pkg.Func("Wrap")).OwnedFields; got != 0 {
+		t.Errorf("Wrap OwnedFields = %#x, want none", uint64(got))
+	}
+	journal := pkg.Type("Journal").Type()
+	closeMethod := pkg.Prog.LookupMethod(types.NewPointer(journal), pkg.Pkg, "Close")
+	if got := summarize(pass, closeMethod).ReleasedFields; !got.contains(0) {
+		t.Errorf("Close ReleasedFields = %#x, want field 0", uint64(got))
+	}
+	maybe := pkg.Prog.LookupMethod(types.NewPointer(journal), pkg.Pkg, "MaybeClose")
+	if got := summarize(pass, maybe).ReleasedFields; got != 0 {
+		t.Errorf("MaybeClose ReleasedFields = %#x, want none", uint64(got))
+	}
+}
+
 func buildLifecycleTestSSA(t *testing.T, source string) *ssa.Package {
 	t.Helper()
 	files := token.NewFileSet()

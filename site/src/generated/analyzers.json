@@ -324,8 +324,8 @@
           "options": [
             {
               "name": "contracts",
-              "default": "os,http,sql,time,compress",
-              "usage": "Comma-separated resource contract families: os,http,sql,time,compress."
+              "default": "os,http,sql,time,compress,owned",
+              "usage": "Comma-separated resource contract families: os,http,sql,time,compress,owned."
             },
             {
               "name": "require-reader-close",

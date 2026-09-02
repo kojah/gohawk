@@ -56,6 +56,12 @@ func run(pass *analysis.Pass) (any, error) {
 				}
 				if fact, ok := importFact(pass, instruction); ok {
 					summaries[common.StaticCallee()] = fact
+					// A callee that returns an owned struct is only useful together
+					// with the summaries of that struct's methods, which no sibling
+					// analyzer can import itself.
+					if fact.OwnedFields != 0 {
+						importResultMethods(pass, common.StaticCallee(), summaries)
+					}
 				}
 			}
 		}
@@ -79,6 +85,8 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 
 func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 	var fact Fact
+	fact.OwnedFields = ownedFields(function)
+	fact.ReleasedFields = releasedFields(pass, function)
 	// A fact is exported only when the action is unavoidable on every normal
 	// return. Each mask is therefore proved independently; evidence for Close,
 	// for example, must never make an unrelated Wait or return-transfer claim true.
