@@ -126,3 +126,23 @@ func tickerLeakedInWaitGroupGo(ctx context.Context, group *sync.WaitGroup) {
 		<-ticker.C
 	})
 }
+
+// A loop that ranges over the ticker's own channel exits only when that
+// channel closes, which time documents never happens, so the return after
+// the loop is unreachable and the ticker is not reported.
+func tickerRangedForever(interval time.Duration, work func()) {
+	ticker := time.NewTicker(interval)
+	for range ticker.C {
+		work()
+	}
+}
+
+// A break makes the exit reachable, and the ticker is then leaked.
+func tickerRangedUntilDone(interval time.Duration, done func() bool) {
+	ticker := time.NewTicker(interval) // want "owned resource from time.NewTicker is not released on every return path"
+	for range ticker.C {
+		if done() {
+			break
+		}
+	}
+}

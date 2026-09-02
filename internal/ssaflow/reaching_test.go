@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -183,5 +184,44 @@ func TestWalkStatesExpandsEachKeyOnce(t *testing.T) {
 		if s.node != index || s.count != index {
 			t.Fatalf("expansion %d should be the first state reaching node %d, got %v", index, index, s)
 		}
+	}
+}
+
+func TestReturnedResultResolvesDeferredResultCells(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+import "errors"
+
+var errClosed = errors.New("closed")
+
+func open(closed bool, cleanup func()) (int, error) {
+	defer cleanup()
+	if closed {
+		return 0, errClosed
+	}
+	return 1, nil
+}
+`)
+	var nilReturns, closedReturns int
+	for _, returned := range InstructionsOf[*ssa.Return](pkg.Func("open")) {
+		if returned.Block().Comment == "recover" {
+			// The recover block returns whatever the cells hold after a panic;
+			// no store on that path is the right answer.
+			continue
+		}
+		result := ReturnedResult(returned, 1)
+		load, isLoad := result.(*ssa.UnOp)
+		switch {
+		case DefinitelyNil(result):
+			nilReturns++
+		case isLoad && ValueMatchesSymbol(load.X, syntax.PackageVariable("example.com/ssaflowtest", "errClosed")):
+			closedReturns++
+		default:
+			t.Errorf("unexpected resolved result: %s", result)
+		}
+	}
+	if nilReturns != 1 || closedReturns != 1 {
+		t.Fatalf("resolved %d nil and %d closed returns, want one each", nilReturns, closedReturns)
 	}
 }

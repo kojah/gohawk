@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -151,6 +152,14 @@ func resourceSuccessorStates(
 		}
 		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
 			active = active && present
+		}
+		if timerChannelClosedBranch(state.block, successor, resource) {
+			// Ranging over a ticker's or timer's channel exits only when the
+			// channel closes, and time documents that Stop never closes it, so
+			// the loop's exit block is unreachable and its return proves no
+			// leak. coroot's scrape loop ranges a ticker forever:
+			// https://github.com/coroot/coroot-node-agent/blob/ee62018e73b90b1549f5b81ba0d3d6e28851a1df/prom/remote_writer.go#L101-L111
+			continue
 		}
 		result = append(result, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released, unknown: state.unknown})
 	}
@@ -311,4 +320,30 @@ func deferredBeforeAcquisitionMayRelease(
 		}
 	}
 	return false
+}
+
+// timerChannelClosedBranch reports whether successor is the branch taken when
+// a receive from the resource's own C channel reports the channel closed,
+// where the resource is a time.Ticker or time.Timer whose channel is
+// documented never to close.
+func timerChannelClosedBranch(block, successor *ssa.BasicBlock, resource ssa.Value) bool {
+	if resource == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 || successor != block.Succs[1] {
+		return false
+	}
+	if !syntax.NamedType(resource.Type(), "time", "Ticker") && !syntax.NamedType(resource.Type(), "time", "Timer") {
+		return false
+	}
+	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
+	if !ok {
+		return false
+	}
+	okFlag, ok := branch.Cond.(*ssa.Extract)
+	if !ok || okFlag.Index != 1 {
+		return false
+	}
+	receive, ok := okFlag.Tuple.(*ssa.UnOp)
+	if !ok || receive.Op != token.ARROW || !receive.CommaOk {
+		return false
+	}
+	return ssaflow.ValueDerivesFrom(receive.X, resource, map[ssa.Value]bool{})
 }

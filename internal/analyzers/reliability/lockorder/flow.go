@@ -189,7 +189,13 @@ func successfulReturn(function *ssa.Function, returned *ssa.Return) bool {
 		return true
 	}
 	last := results.At(results.Len() - 1).Type()
-	result := returned.Results[len(returned.Results)-1]
+	// A function with a defer returns loads of its result cells; resolve the
+	// value stored on this path, or a nil error behind a defer reads as
+	// unknown and the acquire-for-caller contract is never recognized.
+	// libocr's transaction constructor holds a serialization lock for its
+	// caller while deferring another unlock:
+	// https://github.com/smartcontractkit/libocr/blob/618b5bf7f342075a81ca1273a04abce15529a101/offchainreporting2plus/ocrintegrationtesthelpers/in_memory_key_value_database.go#L196-L215
+	result := ssaflow.ReturnedResult(returned, len(returned.Results)-1)
 	if types.Identical(last, types.Universe.Lookup("error").Type()) {
 		return ssaflow.DefinitelyNil(result)
 	}

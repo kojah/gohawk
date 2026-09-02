@@ -181,3 +181,31 @@ func storedInto(address ssa.Value, yield func(ssa.Value) bool, seen map[ssa.Valu
 	}
 	return true
 }
+
+// ReturnedResult returns the value a return statement hands back at index.
+// A function with a defer keeps its results in cells so deferred calls can
+// observe them: each return stores into the cell, runs the defers, and
+// returns a load. The load names the cell, not the value, so this resolves
+// it to the store made on the returning path, the last store into the cell
+// in the return's own block.
+func ReturnedResult(returned *ssa.Return, index int) ssa.Value { //nolint:ireturn // SSA values have several concrete forms.
+	if index < 0 || index >= len(returned.Results) {
+		return nil
+	}
+	result := returned.Results[index]
+	load, ok := result.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return result
+	}
+	cell, ok := load.X.(*ssa.Alloc)
+	if !ok {
+		return result
+	}
+	instructions := returned.Block().Instrs
+	for position := InstructionIndex(returned) - 1; position >= 0; position-- {
+		if store, ok := instructions[position].(*ssa.Store); ok && store.Addr == cell {
+			return store.Val
+		}
+	}
+	return result
+}

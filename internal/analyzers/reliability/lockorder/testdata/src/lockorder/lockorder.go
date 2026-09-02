@@ -186,6 +186,36 @@ func claimForgetsUnlock(claimed, other bool) (int, bool) {
 	return 0, false
 }
 
+type serializedStore struct {
+	serial sync.Mutex
+	mu     sync.Mutex
+	closed bool
+}
+
+type serializedTransaction struct {
+	store *serializedStore
+}
+
+var errStoreClosed = errors.New("store closed")
+
+// A constructor that holds a lock for the transaction it returns, releasing
+// it only on the closed path, still acquires for its caller when a deferred
+// unlock of another lock turns its results into cells.
+func (store *serializedStore) begin() (*serializedTransaction, error) {
+	store.serial.Lock()
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if store.closed {
+		store.serial.Unlock()
+		return nil, errStoreClosed
+	}
+	return &serializedTransaction{store}, nil
+}
+
+func (transaction *serializedTransaction) commit() {
+	transaction.store.serial.Unlock()
+}
+
 func conditionallyAcquired(index, other int) {
 	if index != other {
 		regressionFirst.Lock()

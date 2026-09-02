@@ -264,3 +264,10 @@ for its name and two partition files never closed, a discarded
 NotifyContext stop function, an artwork response never closed, and a
 monitoring goroutine left blocked on an unbuffered completion channel by
 early error returns.
+
+Round 47 preserves the forty-third reviewed batch. It covers a ticker ranged
+forever, whose loop exits only when a channel that time documents never
+closes does, and a transaction constructor that holds a serialization lock
+for its caller while a deferred unlock turns its results into cells. Nearby
+file, response, reader, lexer goroutine, server-send, deferred-in-loop,
+and unwaited-command findings remain reportable.

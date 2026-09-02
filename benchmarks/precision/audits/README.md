@@ -1349,3 +1349,33 @@ device is not a terminal, and a heartbeat ticker never stopped are true
 positives in modules beyond the replay's module budget and are not
 labelled. Four fire-and-forget browser launches appear only under the opt-in
 detached-process audit.
+
+## Batch 45
+
+Twenty-five repositories and fifty-one modules were selected. Thirty-five
+modules loaded and scanned; the rest need module downloads the scan forbids,
+hold no packages, or fail to build. Final scans produced 980 unique
+diagnostics after two bounded corrections:
+
+- resourcelifetime treats the closed branch of a receive from a ticker's or
+  timer's own channel as infeasible, since time documents that Stop never
+  closes the channel, so a loop ranging that channel forever has no
+  reachable exit to leak on; and
+- lockorder resolves a deferred function's result cells to the value stored
+  on the returning path, so a nil error behind a defer counts as a
+  successful return and the acquire-for-caller contract is recognized.
+
+The corrections removed a coroot scrape loop finding and a libocr
+transaction-constructor finding. Precision round 47 labels them and eleven
+nearby true positives: a probe that opens a device without closing it, a
+server goroutine sending on an unbuffered channel received from once, a lexer
+goroutine left blocked by an early error return, three responses and a gzip
+reader leaked on error paths, a generated file and a key file never closed,
+a temp file created only for its name, a deferred close inside a loop, and
+an SSH command left running when its archive peer fails to start. One infra
+finding is a known gap rather than a labelled false positive: a transaction
+whose Rollback method releases only when a completion flag is unset is
+summarized as releasing nothing, so a deferred rollback helper does not
+settle it; a conditional-release summary would need a new fact mask.
+Fifteen logged-and-returned errors are policy reports and one fire-and-forget
+agent launch appears only under the experimental detached audit.

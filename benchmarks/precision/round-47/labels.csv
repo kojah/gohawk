@@ -1,0 +1,14 @@
+repository,analyzer,position,verdict
+coroot/coroot-node-agent,resourcelifetime,prom/remote_writer.go:105:12,false_positive
+smartcontractkit/libocr,lockorder,offchainreporting2plus/ocrintegrationtesthelpers/in_memory_key_value_database.go:207:2,false_positive
+CrowdStrike/falcon-installer,resourcelifetime,pkg/utils/osutils/osutils.go:89:12,true_positive
+boreq/plum,producerlifecycle,plum-backend/cmd/plum/commands/run.go:106:3,true_positive
+boreq/plum,goroutineownership,plum-backend/domain/parser/format/format.go:139:2,true_positive
+coroot/coroot-node-agent,resourcelifetime,node/metadata/aws.go:20:15,true_positive
+coroot/coroot-node-agent,resourcelifetime,node/metadata/metadata.go:95:15,true_positive
+coroot/coroot-node-agent,resourcelifetime,ebpftracer/tracer.go:284:17,true_positive
+google/gnostic,deferinloop,plugins/environment.go:194:4,true_positive
+infrahq/infra,resourcelifetime,internal/server/data/table/generate.go:183:13,true_positive
+infrahq/infra,resourcelifetime,internal/cmd/ssh.go:314:13,true_positive
+number571/hidden-lake,resourcelifetime,internal/services/filesharer/internal/handler/stream/reader.go:131:13,true_positive
+perfgo/perfgo,processownership,cli/ssh/client.go:364:12,true_positive
