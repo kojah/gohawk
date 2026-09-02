@@ -41,6 +41,7 @@ const (
 	reasonOwnershipTransfer       goroutineOwnershipReason = "ownership-transfer"
 	reasonOpaqueTransfer          goroutineOwnershipReason = "opaque-ownership-transfer"
 	reasonLoopJoinUnproven        goroutineOwnershipReason = "loop-join-unproven"
+	reasonWorkerConsumesSignal    goroutineOwnershipReason = "signal-consumed-by-worker"
 	reasonBufferedSignal          goroutineOwnershipReason = "buffered-completion-signal"
 	reasonDetachedUnknown         goroutineOwnershipReason = "detached-lifecycle-unknown"
 	reasonUnownedReturn           goroutineOwnershipReason = "unowned-return"
@@ -73,6 +74,15 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	}
 	if proof, decided := analysis.dominatingProof(); decided {
 		return proof
+	}
+	if analysis.otherWorkerConsumesSignal() {
+		// A producer whose channel is drained by worker goroutines launched in
+		// the same function hands its completion to those workers: the parent
+		// never established a receive of its own to skip. Worker pools launch
+		// the consumers in a loop, so dominance cannot credit them. Grafana's
+		// alert generator and NetBox's SNMP probe runner use this shape:
+		// https://github.com/grafana/alerting/blob/46847d9b586c46b06f8c666a93250ed062e4efb9/testing/alerting-gen/pkg/execute/run.go#L95-L160
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonWorkerConsumesSignal}
 	}
 	exact := func(instruction ssa.Instruction) bool {
 		action := analysis.action(instruction)
@@ -112,6 +122,28 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonDoneBeforeCompletion}
 	}
 	return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonUnownedReturn}
+}
+
+// otherWorkerConsumesSignal reports whether a goroutine other than the spawn,
+// launched anywhere in the function, captures or receives a tracked signal.
+func (analysis *spawnAnalysis) otherWorkerConsumesSignal() bool {
+	if len(analysis.signals) == 0 {
+		return false
+	}
+	for _, block := range analysis.function.Blocks {
+		for _, instruction := range block.Instrs {
+			launched, ok := instruction.(*ssa.Go)
+			if !ok || launched == analysis.spawn {
+				continue
+			}
+			common := launched.Common()
+			closure, _ := common.Value.(*ssa.MakeClosure)
+			if analysis.anyArgumentConsumes(common) || analysis.closureConsumes(closure) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (analysis *spawnAnalysis) countedJoin() bool {

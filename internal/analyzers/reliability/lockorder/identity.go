@@ -28,7 +28,11 @@ func lockIdentity(value ssa.Value, seen map[ssa.Value]bool) string {
 	case *ssa.Parameter:
 		return typed.Parent().String() + "." + typed.Name()
 	case *ssa.FreeVar:
-		return ""
+		// Two captured owners of the same type are distinct locks inside the
+		// closure, just as two parameters are; the closure's own name keeps the
+		// identity from colliding with any other function's captures.
+		// https://github.com/trickstercache/trickster/blob/7818ae3c39e725eb998f04fa31e5d315ede84b79/integration/alb_request_headers_test.go#L93-L99
+		return typed.Parent().String() + ":free:" + typed.Name()
 	case *ssa.Alloc:
 		// SSA uses generic comments such as "complit" for distinct local
 		// allocations of the same type. Include the stable SSA value name so two

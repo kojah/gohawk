@@ -627,3 +627,29 @@ func sameOriginInterfaceLock(branch, skip bool) {
 	}
 	lock.Unlock()
 }
+
+type capture struct {
+	mu   sync.Mutex
+	seen int
+}
+
+// Two captured owners of the same type are distinct locks inside a closure.
+func closureLocksDistinctCaptures(capA, capB *capture, run func(func())) {
+	run(func() {
+		capA.mu.Lock()
+		capB.mu.Lock()
+		capA.seen++
+		capB.seen++
+		capA.mu.Unlock()
+		capB.mu.Unlock()
+	})
+}
+
+func closureLocksSameCaptureTwice(capA *capture, run func(func())) {
+	run(func() {
+		capA.mu.Lock()
+		capA.mu.Lock() // want "lock lockorder.closureLocksSameCaptureTwice\\$1:free:capA.mu is acquired while already held"
+		capA.mu.Unlock()
+		capA.mu.Unlock()
+	})
+}

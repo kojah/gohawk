@@ -3,6 +3,7 @@ package goroutineownership
 import (
 	"context"
 	"errors"
+	"sync"
 )
 
 // This file covers producer completion through channel sends, distinguishing
@@ -151,4 +152,27 @@ func bufferedResultsInSliceReturnEarly(producers []func() error) error {
 		}
 	}
 	return nil
+}
+
+// A producer whose channel is drained by workers launched in the same
+// function hands its completion to those workers; the parent joins the
+// workers, not the producer.
+func producerDrainedByWorkerPool(items []int, workers int) {
+	work := make(chan int)
+	var group sync.WaitGroup
+	for range workers {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			for range work {
+			}
+		}()
+	}
+	go func() {
+		defer close(work)
+		for _, item := range items {
+			work <- item
+		}
+	}()
+	group.Wait()
 }

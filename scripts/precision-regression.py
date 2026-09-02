@@ -97,15 +97,28 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
         except json.JSONDecodeError:
             print(f"warning: {repository}: invalid JSON in {module.relative_to(checkout)}", file=sys.stderr)
             continue
+        errors = 0
         for analyzers in payload.values():
             if not isinstance(analyzers, dict):
                 continue
             for analyzer, diagnostics in analyzers.items():
                 for diagnostic in diagnostics:
-                    if not isinstance(diagnostic, dict) or diagnostic.get("error"):
+                    if not isinstance(diagnostic, dict):
+                        continue
+                    if diagnostic.get("error"):
+                        errors += 1
                         continue
                     position = str(diagnostic.get("posn", "")).replace(str(checkout) + os.sep, "")
                     findings.add((repository, analyzer, position))
+        if errors:
+            # A package that failed to load contributes no findings, so a lost
+            # label from a module with load errors may be an environment problem
+            # (a transient module fetch, or memory pressure under a parallel
+            # replay) rather than an analyzer regression. Say so.
+            print(
+                f"warning: {repository}: {errors} package error(s) in {module.relative_to(checkout)}",
+                file=sys.stderr,
+            )
     return findings
 
 
