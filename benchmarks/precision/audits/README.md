@@ -447,3 +447,42 @@ changed from 3.789 to 3.254 seconds (-14.1%), while median peak RSS changed from
 4,955,976 to 4,930,464 KiB (-0.5%). The cumulative precision suite remains
 reserved for Batch 20; Batch 16 replayed only round 20 and affected
 repositories.
+
+## Batch 17
+
+Ten repositories and sixty-three maintained modules loaded and scanned fully.
+WSO2 Gateway Controllers contributed fifty-four small policy modules; the
+remaining repositories each contributed one root module. Final scans produced
+867 diagnostics after two bounded corrections.
+
+- A guarded resource acquisition may merge its exact resource and error with
+  nil before rechecking the same guard. One local structured proof now follows
+  only that direct acyclic diamond, prunes the impossible non-acquisition
+  branch, and accepts cleanup through the exact resource phi. Other non-nil
+  edges and loop-carried phis remain unproven.
+- An unexported `strings.Replacer` constructed by the exact standard-library
+  function is accepted only when every use is a direct exact `Replace` or
+  `WriteString` call. Reassignment, addressing, aliasing, passing, returning,
+  method values, alternate constructors, and lookalikes remain reportable.
+
+The first correction removed one CortexDB resource-lifetime false positive.
+The second removed one Aerospike global-state false positive. Precision round
+21 passed with both representative false positives absent and all four nearby
+true positives present, including CortexDB's discarded HTTP response and
+unwaited process and Aerospike's mutable slice and map-order output.
+
+An all-callers sorting proof for Docket's private `mapKeys` helper remains
+deferred: one policy finding did not justify a new package-wide caller analysis
+and its large negative-fixture surface. Kubewarden's apparent deletion-set
+case remains reportable because the producer logs malformed entries in map
+order before returning. Read-only collections passed through helpers and
+opt-in component-lifetime goroutines were also sampled without expanding
+default correctness proofs. No default goroutine- or cancellation-ownership
+false-positive family appeared.
+
+A constant-size performance check compared three warmed `-enable-all` runs on
+pinned Caddy at the Batch 16 boundary and after Batch 17. Median wall time
+changed from 3.187 to 3.176 seconds (-0.4%), while median peak RSS changed from
+4,929,632 to 4,925,924 KiB (-0.1%). The cumulative precision suite remains
+reserved for Batch 20; Batch 17 replayed only round 21 and affected
+repositories.

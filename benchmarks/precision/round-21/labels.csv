@@ -1,0 +1,7 @@
+repository,analyzer,position,verdict
+liliang-cn/cortexdb,resourcelifetime,pkg/core/advanced_search.go:140:16,false_positive
+aerospike/aerospike-kubernetes-operator,globalstate,pkg/jsonpatch/jsonpatch.go:153:5,false_positive
+liliang-cn/cortexdb,resourcelifetime,pkg/liveview/server_test.go:355:15,true_positive
+liliang-cn/cortexdb,processownership,pkg/liveview/server.go:433:9,true_positive
+aerospike/aerospike-kubernetes-operator,globalstate,api/v1/access_control_validate.go:56:5,true_positive
+aerospike/aerospike-kubernetes-operator,determinism,pkg/jsonpatch/jsonpatch.go:172:2,true_positive

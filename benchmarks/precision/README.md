@@ -113,3 +113,8 @@ Round 20 preserves the sixteenth reviewed batch. It distinguishes stable
 address identity from stale value snapshots and recognizes exact Testify
 `assert.NoError` success guards. Nearby resource and goroutine findings remain
 reportable.
+
+Round 21 preserves the seventeenth reviewed batch. It covers exact optional
+resource acquisitions that merge with nil and stable standard-library string
+replacers used only through their documented operations. Nearby resource,
+process, global-state, and determinism findings remain reportable.

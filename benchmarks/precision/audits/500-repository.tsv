@@ -159,3 +159,13 @@
 16	googleapis/librarian	2844b45d922565089b2760aafcd0df16e5d33f72	.	reviewed
 16	longhorn/longhorn-manager	1a7ca4b86bb58d5d6e7ac2ef499d949d86f9021b	.	reviewed
 16	promhippie/prometheus-hetzner-sd	a95c01bd96b1caa3629b05b0f51c59408fe9a8c0	.	reviewed
+17	OpenAyame/ayame	9e15c182efe562d33634b0e0e0428706ae0c8d4e	.	reviewed
+17	SAP/go-generics	8fce65bcff8cdfb880f90f0d082aca8d9834b7e3	.	reviewed
+17	aerospike/aerospike-kubernetes-operator	7c00e3a9d57d7fc65f00930e32d7540bf4a9a18f	.	reviewed
+17	ca-risken/core	8c6c31fe493b9694e0755175fbb0e34b18923059	.	reviewed
+17	dokku/docket	4a8ca72cb7cb25cbda6412c79187b61ed57cd232	.	reviewed
+17	kubewarden/sbomscanner	def19887678509919c21e4ec3e212e597fb38d2c	.	reviewed
+17	liliang-cn/cortexdb	2486ab7a7d560f5351b626ba813afba5442d1b3d	.	reviewed
+17	nao1215/prompt	a809747fcd3aa43752a54c4887f5d186d950f67d	.	reviewed
+17	openkruise/agents	3ae8b7d1216efc60be5f455bc85a577e54aaf7f1	.	reviewed
+17	wso2/gateway-controllers	338d4c31c729088c38573f0dc02ef54f665f7649	policies/*	reviewed
