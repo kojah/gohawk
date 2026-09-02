@@ -43,14 +43,42 @@ func TestAnalyzersUseSharedReporting(t *testing.T) {
 					return true
 				}
 				position := pkg.Fset.Position(selector.Sel.Pos())
-				t.Errorf("%s:%d calls analysis.Pass.Report directly; use check.Report or check.Reportf", repositoryPath, position.Line)
+				t.Errorf("%s:%d reports through analysis.Pass directly; use check.Report or check.Reportf", repositoryPath, position.Line)
 				return true
 			})
 		}
 	}
 }
 
+// analysisPassReport reports whether the selector reads one of the reporting
+// members of analysis.Pass: the Report field, which is a func-typed field and
+// so resolves to a variable rather than a method, or the Reportf and
+// ReportRangef methods.
 func analysisPassReport(info *types.Info, selector *ast.SelectorExpr) bool {
-	object, ok := info.Uses[selector.Sel].(*types.Func)
-	return ok && object.Name() == "Report" && object.Pkg() != nil && object.Pkg().Path() == "golang.org/x/tools/go/analysis"
+	name, ok := analysisPassMember(info, selector)
+	return ok && (name == "Report" || name == "Reportf" || name == "ReportRangef")
+}
+
+// analysisPassMember resolves a selector to a field or method of analysis.Pass
+// and returns its name. Fields resolve to *types.Var and methods to
+// *types.Func; both must be accepted, or a guard on a func-typed field such as
+// Pass.Report silently never matches.
+func analysisPassMember(info *types.Info, selector *ast.SelectorExpr) (string, bool) {
+	selection, ok := info.Selections[selector]
+	if !ok {
+		return "", false
+	}
+	receiver := selection.Recv()
+	if pointer, ok := receiver.(*types.Pointer); ok {
+		receiver = pointer.Elem()
+	}
+	named, ok := receiver.(*types.Named)
+	if !ok || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != "golang.org/x/tools/go/analysis" || named.Obj().Name() != "Pass" {
+		return "", false
+	}
+	switch object := selection.Obj().(type) {
+	case *types.Var, *types.Func:
+		return object.Name(), true
+	}
+	return "", false
 }
