@@ -90,7 +90,10 @@ func StoresValueInEscapingField(instruction ssa.Instruction, value ssa.Value) bo
 
 func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool {
 	update, ok := instruction.(*ssa.MapUpdate)
-	return ok && SameValue(update.Value, value) && ExternallyOwnedValue(update.Map)
+	// A wrapper that holds the value, such as a log-file record keyed by
+	// session, transfers it to the map's owner exactly as the value would.
+	// https://github.com/askie/grix/blob/dbf8ad10477d7458c7b8c9900ce2e2a6296d4063/backend/internal/pkg/adapterlog/adapterlog.go#L115-L129
+	return ok && (SameValue(update.Value, value) || ValueContainsValue(update.Value, value)) && ExternallyOwnedValue(update.Map)
 }
 
 // ExternallyOwnedValue reports whether value comes from storage that outlives

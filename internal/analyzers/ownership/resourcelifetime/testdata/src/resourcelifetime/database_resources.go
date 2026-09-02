@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"context"
 	"database/sql"
+	"resourcedep"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -193,4 +194,26 @@ func transactionRequiredToFail(t *testing.T, ctx context.Context, database *sql.
 func transactionDiscardedWithoutAssertion(ctx context.Context, database *sql.DB) error {
 	_, err := database.BeginTx(ctx, nil) // want "owned resource from sql.BeginTx is not released on every return path"
 	return err
+}
+
+// A deferred imported helper summarized as invoking its callback parameter on
+// every return runs the bound Close, so the rows are released.
+func rowsClosedByImportedInvoker(ctx context.Context, database *sql.DB) error {
+	rows, err := database.QueryContext(ctx, "SELECT 1")
+	if err != nil {
+		return err
+	}
+	defer resourcedep.IgnoreErrorFunc(rows.Close)
+	for rows.Next() {
+	}
+	return rows.Err()
+}
+
+func rowsMaybeClosedByImportedInvoker(ctx context.Context, database *sql.DB, enabled bool) error {
+	rows, err := database.QueryContext(ctx, "SELECT 1") // want "owned resource from sql.QueryContext is not released on every return path"
+	if err != nil {
+		return err
+	}
+	defer resourcedep.MaybeIgnoreErrorFunc(rows.Close, enabled)
+	return rows.Err()
 }

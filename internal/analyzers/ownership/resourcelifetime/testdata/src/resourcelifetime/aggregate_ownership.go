@@ -191,3 +191,62 @@ func returnedLiteralCarriesMethodValue(path string) (readCloserWithHook, error) 
 	fileClose := file.Close
 	return readCloserWithHook{closeFn: func() error { return fileClose() }}, nil
 }
+
+type logFileRecord struct {
+	file *os.File
+}
+
+type logFileManager struct {
+	files map[string]*logFileRecord
+}
+
+// Storing a record that holds the file into the receiver's map transfers the
+// file to the manager, just as storing the file itself would.
+func (manager *logFileManager) openRecord(key, path string) error {
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	manager.files[key] = &logFileRecord{file: file}
+	return nil
+}
+
+func openRecordIntoLocalMap(key, path string) error {
+	files := map[string]*logFileRecord{}
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) // want "owned resource from os.OpenFile is not released on every return path"
+	if err != nil {
+		return err
+	}
+	files[key] = &logFileRecord{file: file}
+	return nil
+}
+
+type profileSession struct {
+	closers []func()
+}
+
+func (session *profileSession) appendCloser(closer func()) {
+	session.closers = append(session.closers, closer)
+}
+
+// A closer that closes the file, appended to the receiver's closer list
+// through a source-visible method, transfers the file to the session.
+func (session *profileSession) startProfile(path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	session.appendCloser(func() { _ = file.Close() })
+	return nil
+}
+
+func appendCloserLocally(path string) error {
+	var closers []func()
+	file, err := os.Create(path) // want "owned resource from os.Create is not released on every return path"
+	if err != nil {
+		return err
+	}
+	closers = append(closers, func() { _ = file.Close() })
+	_ = closers
+	return nil
+}

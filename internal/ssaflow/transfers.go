@@ -113,19 +113,31 @@ func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Valu
 		parameter := callee.Params[index]
 		for _, block := range callee.Blocks {
 			for _, candidate := range block.Instrs {
-				store, storeOK := candidate.(*ssa.Store)
-				if !storeOK {
-					continue
-				}
-				field, fieldOK := store.Addr.(*ssa.FieldAddr)
-				if fieldOK && ValueDerivesFrom(field.X, callee.Params[0], map[ssa.Value]bool{}) &&
-					ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) {
+				if storesParameterInReceiverField(candidate, callee.Params[0], parameter) {
 					return true
 				}
 			}
 		}
 	}
 	return false
+}
+
+// storesParameterInReceiverField reports whether candidate stores parameter,
+// or an aggregate holding it, into a field reached from receiver. append packs
+// its variadic arguments into an array before the call, so a stored slice
+// contains the parameter without deriving from it operand by operand. Fabric
+// appends profile closers this way:
+// https://github.com/hyperledger-labs/fabric-smart-client/blob/cb202fc2768b3e72b0197bbaf401b9c2287098e8/node/start/profile/profile.go#L150-L152
+func storesParameterInReceiverField(candidate ssa.Instruction, receiver, parameter ssa.Value) bool {
+	store, ok := candidate.(*ssa.Store)
+	if !ok {
+		return false
+	}
+	field, ok := store.Addr.(*ssa.FieldAddr)
+	if !ok || !ValueDerivesFrom(field.X, receiver, map[ssa.Value]bool{}) {
+		return false
+	}
+	return ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) || ValueContainsValue(store.Val, parameter)
 }
 
 // ValueEscapes reports whether value is transferred beyond its current
