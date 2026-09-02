@@ -78,6 +78,19 @@ func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask Parame
 	return false
 }
 
+func factOwnsProjectedArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	for index, argument := range common.Args {
+		if mask.contains(index) && ssaflow.UnmodifiedNonEmptyAccessPathAt(argument, target, instruction) {
+			return true
+		}
+	}
+	return false
+}
+
 // MethodMask selects the parameter mask for a lifecycle method.
 func (fact *Fact) MethodMask(method string) ParameterMask {
 	switch method {

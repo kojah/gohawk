@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	reasonLifecycleSummary      ssaflow.EvidenceReason = "lifecycle-summary"
-	reasonReceiverStoreTransfer ssaflow.EvidenceReason = "receiver-store-transfer"
-	reasonReceiverDoesNotEscape ssaflow.EvidenceReason = "receiver-does-not-escape"
+	reasonLifecycleSummary                  ssaflow.EvidenceReason = "lifecycle-summary"
+	reasonLifecycleSummaryProjectedArgument ssaflow.EvidenceReason = "lifecycle-summary-projected-argument"
+	reasonReceiverStoreTransfer             ssaflow.EvidenceReason = "receiver-store-transfer"
+	reasonReceiverDoesNotEscape             ssaflow.EvidenceReason = "receiver-does-not-escape"
 )
 
 // LifecycleEvidence combines memoized local SSA evidence with lifecycle summaries
@@ -45,13 +46,17 @@ func (evidence *LifecycleEvidence) Identity(instruction ssa.Instruction, left, r
 // optional; imported selectors are consulted only when local evidence does not
 // prove the obligation.
 type EvidenceRequest struct {
-	Instruction   ssa.Instruction
-	Target        ssa.Value
-	Completion    *ssaflow.CompletionRequest
-	Transfer      *ssaflow.OwnershipTransferRequest
-	Local         *ssaflow.Proof
-	SelectMask    func(Fact) ParameterMask
-	ReceiverStore bool
+	Instruction ssa.Instruction
+	Target      ssa.Value
+	Completion  *ssaflow.CompletionRequest
+	Transfer    *ssaflow.OwnershipTransferRequest
+	Local       *ssaflow.Proof
+	SelectMask  func(Fact) ParameterMask
+	// StrictImportedProjection lets one analyzer map a summary parameter to an
+	// exact, stable field/index path beneath its target. Ordinary fact matching
+	// remains identity/containment-only.
+	StrictImportedProjection bool
+	ReceiverStore            bool
 }
 
 // Prove returns one lifecycle proof with explicit provenance. Missing imported
@@ -64,44 +69,51 @@ func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) ssaflow.Proof 
 		return local
 	}
 
+	if imported, consulted := evidence.importedProof(request); consulted {
+		evidence.emit(request, imported)
+		return imported
+	}
+	evidence.emit(request, local)
+	return local
+}
+
+func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssaflow.Proof, bool) {
+	// Imported summaries are consulted only after local source-visible evidence
+	// fails, and each accepted mask must map back to the exact caller value.
+	// Projection matching is a stricter opt-in because a field selected from an
+	// owner can be reassigned or exposed independently.
 	fact, summarized := factFor(evidence.pass, request.Instruction)
 	if request.SelectMask != nil && summarized {
 		mask := request.SelectMask(fact)
 		if factOwnsArgument(request.Instruction, request.Target, mask) {
-			proof := importedProof(reasonLifecycleSummary, requestedMethod(request))
-			evidence.emit(request, proof)
-			return proof
+			return importedProof(reasonLifecycleSummary, requestedMethod(request)), true
+		}
+		if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask) {
+			return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
 		}
 	}
 	if request.ReceiverStore && summarized && factOwnsArgument(request.Instruction, request.Target, fact.ReceiverStore) {
 		receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(request.Instruction))
 		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || ssaflow.ValueEscapes(receiver)) {
-			proof := importedProof(reasonReceiverStoreTransfer, requestedMethod(request))
-			evidence.emit(request, proof)
-			return proof
+			return importedProof(reasonReceiverStoreTransfer, requestedMethod(request)), true
 		}
-		proof := ssaflow.Proof{
+		return ssaflow.Proof{
 			State: ssaflow.EvidenceDisproven, Reason: reasonReceiverDoesNotEscape,
 			Provenance: ssaflow.EvidenceFromImportedFact,
-		}
-		evidence.emit(request, proof)
-		return proof
+		}, true
 	}
 
 	importedRequested := request.SelectMask != nil || request.ReceiverStore
 	if importedRequested && !summarized {
-		proof := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
-		evidence.emit(request, proof)
-		return proof
+		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true
 	}
 	if importedRequested && summarized {
-		local = ssaflow.Proof{
+		return ssaflow.Proof{
 			State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound,
 			Provenance: ssaflow.EvidenceFromImportedFact,
-		}
+		}, true
 	}
-	evidence.emit(request, local)
-	return local
+	return ssaflow.Proof{}, false
 }
 
 func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) ssaflow.Proof {

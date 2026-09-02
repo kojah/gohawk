@@ -45,6 +45,99 @@ func responseConditionallyClosedByImportedDeferredCallback(client *http.Client, 
 	return nil
 }
 
+func responseBodyClosedByImportedHelper(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	resourcedep.CloseBody(response.Body)
+	return nil
+}
+
+func responseBodyClosedByDeferredImportedHelper(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer resourcedep.CloseBody(response.Body)
+	return nil
+}
+
+func responseBodyConditionallyClosedByImportedHelper(client *http.Client, request *http.Request, enabled bool) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	resourcedep.MaybeCloseBody(response.Body, enabled)
+	return nil
+}
+
+func importedHelperClosesSiblingBody(client *http.Client, first, second *http.Request) error {
+	leaked, err := client.Do(first) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	other, err := client.Do(second)
+	if err != nil {
+		_ = leaked.Body.Close()
+		return err
+	}
+	resourcedep.CloseBody(other.Body)
+	return nil
+}
+
+func importedHelperSelectedOwnerMayDiffer(client *http.Client, request *http.Request, choose bool) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	other := &http.Response{Body: io.NopCloser(bytes.NewReader(nil))}
+	selected := other
+	if choose {
+		selected = response
+	}
+	resourcedep.CloseBody(selected.Body)
+	return nil
+}
+
+func reassignedResponseBodyDoesNotSettleImportedProjection(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	response.Body = io.NopCloser(bytes.NewReader(nil))
+	resourcedep.CloseBody(response.Body)
+	return nil
+}
+
+func opaqueResponseMutationDoesNotSettleImportedProjection(
+	client *http.Client,
+	request *http.Request,
+	mutate func(*http.Response),
+) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	mutate(response)
+	resourcedep.CloseBody(response.Body)
+	return nil
+}
+
+func opaqueBodyAddressMutationDoesNotSettleImportedProjection(
+	client *http.Client,
+	request *http.Request,
+	mutate func(*io.ReadCloser),
+) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	mutate(&response.Body)
+	resourcedep.CloseBody(response.Body)
+	return nil
+}
+
 func responseClosedAfterNoErrorGuard(t assert.TestingT, client *http.Client, request *http.Request) error {
 	response, err := client.Do(request)
 	if !assert.NoError(t, err) {

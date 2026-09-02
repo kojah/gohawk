@@ -67,6 +67,7 @@ const (
 	ownershipReasonDeferredCallbackJoin    goroutineOwnershipReason = "deferred-callback-join"
 	ownershipReasonTestingCleanupJoin      goroutineOwnershipReason = "testing-cleanup-join"
 	ownershipReasonDeferredWaitGroupJoin   goroutineOwnershipReason = "deferred-waitgroup-join"
+	ownershipReasonGuardedLocalStopJoin    goroutineOwnershipReason = "guarded-local-stop-join"
 	ownershipReasonOwnershipTransfer       goroutineOwnershipReason = "ownership-transfer"
 	ownershipReasonJoinProven              goroutineOwnershipReason = "join-proven"
 	ownershipReasonUnownedReturn           goroutineOwnershipReason = "unowned-return"
@@ -194,6 +195,10 @@ func (analysis goroutineAnalysis) immediateProof() GoroutineProof {
 	if deferred := dominatingDeferredWaitGroupJoin(analysis.evidence, analysis.function, analysis.spawn, analysis.groups); deferred != nil {
 		analysis.emitEvidence(deferred, ownershipReasonDeferredWaitGroupJoin)
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: ownershipReasonDeferredWaitGroupJoin}
+	}
+	if joined := analysis.guardedLocalStopJoin(); joined != nil {
+		analysis.emitEvidence(joined, ownershipReasonGuardedLocalStopJoin)
+		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: ownershipReasonGuardedLocalStopJoin}
 	}
 	return GoroutineProof{}
 }

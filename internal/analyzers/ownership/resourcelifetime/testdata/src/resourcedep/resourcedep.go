@@ -1,6 +1,7 @@
 package resourcedep
 
 import (
+	"io"
 	"net/http"
 	"os"
 )
@@ -24,4 +25,14 @@ func MaybeCloseResponse(response *http.Response, enabled bool) {
 			_ = response.Body.Close()
 		}
 	}()
+}
+
+func CloseBody(body io.ReadCloser) {
+	_ = body.Close()
+}
+
+func MaybeCloseBody(body io.ReadCloser, enabled bool) {
+	if enabled {
+		_ = body.Close()
+	}
 }

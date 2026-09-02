@@ -224,6 +224,11 @@ func releasesOrdinaryResource(
 			Instruction: instruction,
 			Target:      resource,
 			Completion:  &completion,
+			// Imported summaries may close the cleanup-bearing projection of an
+			// acquired owner. Require an exact stable access path; IBM AI Services
+			// drains response bodies through an exported helper with this shape:
+			// https://github.com/IBM/project-ai-services/blob/7f5e30b300819abc2cc8a9307327ca78a145d5cb/ai-services/tests/e2e/catalog_configure_test.go#L66-L70
+			StrictImportedProjection: true,
 			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
 				return fact.MethodMask(method)
 			},

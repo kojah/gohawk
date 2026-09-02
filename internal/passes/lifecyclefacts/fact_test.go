@@ -74,6 +74,58 @@ func caller(value *closer) { helper(value) }
 	}
 }
 
+func TestLifecycleEvidenceStrictImportedProjectionIsOptIn(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type closer struct{}
+type owner struct { body *closer }
+
+func acquire() *owner { return nil }
+func helper(*closer) {}
+func accepted() {
+	value := acquire()
+	helper(value.body)
+}
+func reassigned() {
+	value := acquire()
+	value.body = &closer{}
+	helper(value.body)
+}
+`)
+	prove := func(t *testing.T, functionName string, enabled bool) ssaflow.Proof {
+		t.Helper()
+		function := pkg.Func(functionName)
+		acquisition := findLifecycleCall(t, function, "acquire")
+		instruction := findLifecycleCall(t, function, "helper")
+		pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
+			Analyzer: summarySet{instruction.Common().StaticCallee(): {Closed: parameterMaskFor(0)}},
+		}}
+		return NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
+			Instruction:              instruction,
+			Target:                   acquisition,
+			StrictImportedProjection: enabled,
+			SelectMask: func(fact Fact) ParameterMask {
+				return fact.Closed
+			},
+		})
+	}
+
+	withoutOptIn := prove(t, "accepted", false)
+	if withoutOptIn.Proven() {
+		t.Fatalf("ordinary imported proof = %#v, want projection rejected", withoutOptIn)
+	}
+	projected := prove(t, "accepted", true)
+	if !projected.Proven() || projected.Reason != reasonLifecycleSummaryProjectedArgument ||
+		projected.Provenance != ssaflow.EvidenceFromImportedFact {
+		t.Fatalf("projected imported proof = %#v, want strict projected lifecycle summary", projected)
+	}
+	reassigned := prove(t, "reassigned", true)
+	if reassigned.Proven() {
+		t.Fatalf("reassigned projection proof = %#v, want rejected", reassigned)
+	}
+}
+
 func TestLifecycleSummaryDeferredCallbackBoundaries(t *testing.T) {
 	pkg := buildLifecycleTestSSA(t, `
 package lifecyclefactstest
