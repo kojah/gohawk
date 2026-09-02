@@ -949,3 +949,40 @@ reportable pending a slice-drain release proof. Nine fire-and-forget browser
 launches remain policy reports. Opt-in global-state, API-shape, and
 detached-goroutine findings were sampled without expanding default policy.
 Batch 28 replayed round 30 and rounds 3, 23, and 29.
+
+## Batch 29
+
+Ten repositories and fourteen modules were selected. Twelve modules loaded
+and scanned fully; Ignition produced useful partial analysis around a package
+that excludes the host platform, and one gvisor-tap-vsock tools directory
+imports a program rather than a package. Final scans produced 751 unique
+diagnostics after two bounded corrections:
+
+- lifecycle summaries gain a Retained mask, over-approximate on the retaining
+  side, and are exported even when empty so an importer can tell a callee
+  proven to do nothing from one never summarized. A literal that releases the
+  resource, handed to an opaque callee that retains it, transfers the release
+  to that callee's schedule; a callee summarized as dropping the callback,
+  such as one that invokes it only under a condition, leaves the obligation
+  open; and
+- a deferred capture also resolves to a store of the target itself on the
+  path to the defer, so a response assigned in either branch of an if/else,
+  one of them inside a retry callback, still maps to its deferred close.
+
+The first correction removed one gvproxy log-file finding whose close is
+registered with logrus's exit handlers. The second removed two traefikoidc
+response findings. Precision round 31 labels those three false positives and
+fifteen nearby true positives: a PID file never closed, a stream response
+read before its deferred close, an uncompressed image writer never closed,
+two gzip writers left open on write errors, a partition tool that returns
+before waiting on read errors, a cluster dump file never closed, a retry
+timer never stopped, a temporary file leaked on a write error, two responses
+that return on status checks before their deferred close, two return
+statements whose later operand reassigns the earlier value, a defer inside a
+form-file loop, a profile file leaked when profiling fails to start, and a
+map written by parallel snapshot workers.
+
+A stdio dialer that stores the process's Kill in a returned connection, and a
+keep-alive ticker inside an endless loop, remain reportable. Opt-in
+global-state, API-shape, and detached-goroutine findings were sampled without
+expanding default policy. Batch 29 replayed round 31 and rounds 23 and 30.

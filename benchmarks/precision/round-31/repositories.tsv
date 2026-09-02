@@ -1,0 +1,7 @@
+# repository	revision
+containers/gvisor-tap-vsock	d3d4f055ddc59879003e6d9f89912d575b111e66
+lukaszraczylo/traefikoidc	61e60733a5be38428dee42eed626490f9609dad6
+openshift-online/ocm-cli	2fec117fa6619f5d9abc0aa344eaa066c89f9c0c
+coreos/ignition	958b26570b0d54f463f87c7cf5ed8751eda7f703
+stripe/stripe-cli	d5e6fae67c574763f9be73c5f88df400ac2372ae
+xataio/pgstream	40d15d872b1a0920db72d7b41d702200e745faf0

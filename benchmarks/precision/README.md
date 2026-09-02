@@ -172,3 +172,9 @@ through a select send, receives from the elements of a locally built channel
 slice, and joins guarded by an integer counter stepped beside the launch.
 Nearby context, lock, file, response, compression, producer, capture, defer,
 and process findings remain reportable.
+
+Round 31 preserves the twenty-seventh reviewed batch. It covers a literal that
+closes a file, registered with an imported callee summarized as retaining
+it, and a response assigned in either branch of an if/else before its
+deferred close. Nearby file, response, compression, timer, process,
+evaluation-order, defer, and capture findings remain reportable.
