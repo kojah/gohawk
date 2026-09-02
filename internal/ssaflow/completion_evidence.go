@@ -22,6 +22,7 @@ const (
 	CompletionByDeferredHelperCallback
 	CompletionByDeferredArgument
 	CompletionByDeferredCallback
+	CompletionInCalledClosureOnEveryReturn
 )
 
 // CompletionRequest describes lifecycle completion to prove for one or more
@@ -105,6 +106,10 @@ func proveMethodCompletion(request CompletionRequest, method string) CompletionP
 	if request.Modes&CompletionInStartedClosure != 0 && StartedClosureCallsMethodOnEveryReturn(request.Instruction, method, request.Target) {
 		return completionProof(EvidenceStartedCompletion, method)
 	}
+	if request.Modes&CompletionInCalledClosureOnEveryReturn != 0 &&
+		CalledClosureCallsMethodOnEveryReturn(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceCalledCompletionOnEveryReturn, method)
+	}
 	if request.Modes&CompletionByStartedHelper != 0 && StartedClosureCallsMethodViaHelper(request.Instruction, method, request.Target) {
 		return completionProof(EvidenceStartedHelperCompletion, method)
 	}
@@ -132,7 +137,8 @@ func completionProof(reason EvidenceReason, method string) CompletionProof {
 func completionEvidenceUnavailable(request CompletionRequest) bool {
 	common, _, function := calledFunction(request.Instruction)
 	if request.Modes&(CompletionDeferred|CompletionInClosure|CompletionBeforeBranch|CompletionInStartedClosure|CompletionByStartedHelper|
-		CompletionInCalledClosureBeforeBranch|CompletionByDeferredHelperCallback|CompletionByDeferredArgument) != 0 &&
+		CompletionInCalledClosureBeforeBranch|CompletionInCalledClosureOnEveryReturn|CompletionByDeferredHelperCallback|
+		CompletionByDeferredArgument) != 0 &&
 		(function == nil || len(function.Blocks) == 0) {
 		return true
 	}

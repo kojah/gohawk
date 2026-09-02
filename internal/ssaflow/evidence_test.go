@@ -269,6 +269,90 @@ func conditionalNestedDeferred(value *closer, enabled bool) {
 	}
 }
 
+func TestCalledClosureCompletionOnEveryReturn(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+import "sync"
+
+type closer struct{}
+
+func (*closer) Close() {}
+func observe() {}
+
+func branchedBeforeClose(value *closer, notify bool) {
+	func() {
+		if notify {
+			observe()
+		}
+		value.Close()
+	}()
+}
+
+func storedBranchedBeforeClose(value *closer, notify bool) {
+	callback := func() {
+		if notify {
+			observe()
+		}
+		value.Close()
+	}
+	callback()
+}
+
+func conditionalClose(value *closer, enabled bool) {
+	func() {
+		if enabled {
+			value.Close()
+		}
+	}()
+}
+
+func differentReceiver(value, other *closer) {
+	func() { other.Close() }()
+}
+
+func onceWrapped(value *closer) {
+	callback := sync.OnceFunc(func() { value.Close() })
+	callback()
+}
+
+func closeNamed(value *closer) { value.Close() }
+func namedCall(value *closer) { closeNamed(value) }
+`)
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{name: "branchedBeforeClose", want: true},
+		{name: "storedBranchedBeforeClose", want: true},
+		{name: "conditionalClose", want: false},
+		{name: "differentReceiver", want: false},
+		{name: "onceWrapped", want: false},
+		{name: "namedCall", want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			function := pkg.Func(test.name)
+			call := findSSAInstruction(t, function, func(instruction ssa.Instruction) bool {
+				call, ok := instruction.(*ssa.Call)
+				return ok && !CallMatchesSymbol(call.Common(), syncOnceFunc)
+			})
+			proof := ProveCompletion(CompletionRequest{
+				Instruction: call,
+				Target:      function.Params[0],
+				Methods:     []string{"Close"},
+				Modes:       CompletionInCalledClosureOnEveryReturn,
+			})
+			if proof.Proven() != test.want {
+				t.Fatalf("ProveCompletion() = %#v, want proven %v", proof, test.want)
+			}
+			if test.want && proof.Reason != EvidenceCalledCompletionOnEveryReturn {
+				t.Fatalf("ProveCompletion() reason = %q, want %q", proof.Reason, EvidenceCalledCompletionOnEveryReturn)
+			}
+		})
+	}
+}
+
 func TestOwnershipTransferEvidenceReason(t *testing.T) {
 	pkg := buildTestSSA(t, `
 package ssaflowtest

@@ -74,6 +74,22 @@ func StartedClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method 
 	if function == nil || len(function.Blocks) == 0 {
 		return false
 	}
+	return mappedClosureCallsMethodOnEveryReturn(common, closure, function, method, target)
+}
+
+// CalledClosureCallsMethodOnEveryReturn reports whether an immediately
+// invoked function literal calls method on target before every normal return.
+func CalledClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	return CalledCallbackCallsMethodOnEveryReturn(instruction, method, target)
+}
+
+func mappedClosureCallsMethodOnEveryReturn(
+	common *ssa.CallCommon,
+	closure *ssa.MakeClosure,
+	function *ssa.Function,
+	method string,
+	target ssa.Value,
+) bool {
 	hasReturn, hasCleanup := false, false
 	callsCleanup := func(candidate ssa.Instruction) bool {
 		called := InstructionCall(candidate)

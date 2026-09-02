@@ -25,14 +25,27 @@ func DeferredCallbackCallsMethod(instruction ssa.Instruction, method string, tar
 	if common == nil {
 		return false
 	}
-	return deferredCallbackValueCallsMethod(common.Value, method, target, instruction, map[ssa.Value]bool{})
+	return callbackValueCallsMethod(common.Value, method, target, instruction, true, map[ssa.Value]bool{})
 }
 
-func deferredCallbackValueCallsMethod(
+// CalledCallbackCallsMethodOnEveryReturn reports whether an exact callback
+// invoked now calls method on target before every normal return. Unlike the
+// deferred form, it does not accept OnceFunc because an earlier invocation may
+// already have consumed that wrapper before the current obligation exists.
+func CalledCallbackCallsMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	return callbackValueCallsMethod(call.Common().Value, method, target, instruction, false, map[ssa.Value]bool{})
+}
+
+func callbackValueCallsMethod(
 	value ssa.Value,
 	method string,
 	target ssa.Value,
-	deferred ssa.Instruction,
+	invocation ssa.Instruction,
+	allowOnceFunc bool,
 	seen map[ssa.Value]bool,
 ) bool {
 	if value == nil || seen[value] {
@@ -43,25 +56,25 @@ func deferredCallbackValueCallsMethod(
 		value,
 		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
 	); ok {
-		return deferredCallbackValueCallsMethod(inner, method, target, deferred, seen)
+		return callbackValueCallsMethod(inner, method, target, invocation, allowOnceFunc, seen)
 	}
 	switch typed := value.(type) {
 	case *ssa.MakeClosure:
-		return closureCallsMethodOnEveryReturn(typed, method, target, deferred, seen)
+		return closureCallsMethodOnEveryReturn(typed, method, target, invocation, allowOnceFunc, seen)
 	case *ssa.Call:
 		common := typed.Common()
-		return CallMatchesSymbol(common, syncOnceFunc) && len(common.Args) == 1 &&
-			deferredCallbackValueCallsMethod(common.Args[0], method, target, deferred, seen)
+		return allowOnceFunc && CallMatchesSymbol(common, syncOnceFunc) && len(common.Args) == 1 &&
+			callbackValueCallsMethod(common.Args[0], method, target, invocation, allowOnceFunc, seen)
 	case *ssa.UnOp:
-		return uniquelyStoredCallbackCallsMethod(typed.X, method, target, deferred, seen)
+		return uniquelyStoredCallbackCallsMethod(typed.X, method, target, invocation, allowOnceFunc, seen)
 	case *ssa.Alloc:
-		return uniquelyStoredCallbackCallsMethod(typed, method, target, deferred, seen)
+		return uniquelyStoredCallbackCallsMethod(typed, method, target, invocation, allowOnceFunc, seen)
 	case *ssa.Phi:
 		if len(typed.Edges) == 0 {
 			return false
 		}
 		for _, edge := range typed.Edges {
-			if !deferredCallbackValueCallsMethod(edge, method, target, deferred, cloneValueSet(seen)) {
+			if !callbackValueCallsMethod(edge, method, target, invocation, allowOnceFunc, cloneValueSet(seen)) {
 				return false
 			}
 		}
@@ -75,7 +88,8 @@ func closureCallsMethodOnEveryReturn(
 	closure *ssa.MakeClosure,
 	method string,
 	target ssa.Value,
-	deferred ssa.Instruction,
+	invocation ssa.Instruction,
+	allowOnceFunc bool,
 	seen map[ssa.Value]bool,
 ) bool {
 	function, _ := closure.Fn.(*ssa.Function)
@@ -92,7 +106,7 @@ func closureCallsMethodOnEveryReturn(
 		}
 		for index, free := range function.FreeVars {
 			if index < len(closure.Bindings) && ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) &&
-				deferredCallbackValueCallsMethod(closure.Bindings[index], method, target, deferred, cloneValueSet(seen)) {
+				callbackValueCallsMethod(closure.Bindings[index], method, target, invocation, allowOnceFunc, cloneValueSet(seen)) {
 				return true
 			}
 		}
@@ -116,7 +130,8 @@ func uniquelyStoredCallbackCallsMethod(
 	address ssa.Value,
 	method string,
 	target ssa.Value,
-	deferred ssa.Instruction,
+	invocation ssa.Instruction,
+	allowOnceFunc bool,
 	seen map[ssa.Value]bool,
 ) bool {
 	if address == nil || address.Referrers() == nil {
@@ -128,12 +143,12 @@ func uniquelyStoredCallbackCallsMethod(
 		if !ok || store.Addr != address {
 			continue
 		}
-		if selected != nil || !InstructionDominates(store, deferred) {
+		if selected != nil || !InstructionDominates(store, invocation) {
 			return false
 		}
 		selected = store
 	}
-	return selected != nil && deferredCallbackValueCallsMethod(selected.Val, method, target, deferred, seen)
+	return selected != nil && callbackValueCallsMethod(selected.Val, method, target, invocation, allowOnceFunc, seen)
 }
 
 func cloneValueSet(source map[ssa.Value]bool) map[ssa.Value]bool {

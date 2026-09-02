@@ -180,6 +180,69 @@ func calledBranchingUnlock(owner *branchingUnlockOwner) {
 	owner.unlockOnEveryReturn()
 }
 
+func calledClosureUnlock(fail, notify bool) {
+	var mutex sync.Mutex
+	mutex.Lock()
+	release := func() {
+		if notify {
+			computedLock(1)
+		}
+		mutex.Unlock()
+	}
+	if fail {
+		release()
+		return
+	}
+	mutex.Unlock()
+}
+
+type calledClosureOwner struct {
+	mutex sync.Mutex
+	errCh chan error
+}
+
+func calledClosureFieldUnlock(owner *calledClosureOwner, fail bool) {
+	owner.mutex.Lock()
+	release := func(err error) {
+		if owner.errCh != nil {
+			owner.errCh <- err
+		}
+		owner.mutex.Unlock()
+	}
+	if fail {
+		release(errors.New("failed"))
+		return
+	}
+	owner.mutex.Unlock()
+}
+
+func calledClosureUnlocksDifferentMutex(fail bool) {
+	var mutex sync.Mutex
+	var other sync.Mutex
+	mutex.Lock()
+	release := func() { other.Unlock() }
+	if fail {
+		release()
+		return // want "lock lockorder.calledClosureUnlocksDifferentMutex:local:mutex:t0 is not released on this return path"
+	}
+	mutex.Unlock()
+}
+
+func calledClosureConditionallyUnlocks(fail, release bool) {
+	var mutex sync.Mutex
+	mutex.Lock()
+	conditionalRelease := func() {
+		if release {
+			mutex.Unlock()
+		}
+	}
+	if fail {
+		conditionalRelease()
+		return // want "lock lockorder.calledClosureConditionallyUnlocks:local:mutex:t1 is not released on this return path"
+	}
+	mutex.Unlock()
+}
+
 func repeatedTransferredUnlock() {
 	var mutex sync.Mutex
 	mutex.Lock()

@@ -136,15 +136,18 @@ func transferCalledUnlocks(
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Modes:       ssaflow.CompletionByHelper,
+				Modes:       ssaflow.CompletionByHelper | ssaflow.CompletionInCalledClosureOnEveryReturn,
 			})
 			if !proof.Proven() {
 				continue
 			}
-			// A synchronous helper that releases the exact lock on every return
-			// consumes the caller's held-lock obligation. gRPC funnels an
-			// exit-idle failure through updateResolverStateAndUnlock:
+			// A synchronous helper or immediately invoked closure that releases the
+			// exact lock unconditionally consumes the caller's held-lock obligation.
+			// gRPC funnels an exit-idle failure through updateResolverStateAndUnlock:
 			// https://github.com/grpc/grpc-go/blob/9f8027448a64b6446d0c7256a1efe907b1cb6b1b/clientconn.go#L416-L419
+			// NATS funnels publish failures through a local closure that may notify
+			// an error callback first but still unlocks on every normal return:
+			// https://github.com/nats-io/nats.go/blob/850f889cf3d63bfd1a549ab9af59f0145146fb41/js.go#L906-L976
 			released[identity] = true
 			held = releaseLock(held, identity)
 			delete(guards, identity)
