@@ -94,3 +94,7 @@ Round 16 preserves the twelfth reviewed batch. It covers empty private
 interface-marker methods and injective constant-map reverse lookups. Nearby
 testing, global-state, resource, lock, process, loop-cleanup, and ordered-output
 findings remain reportable.
+
+Round 17 preserves the thirteenth reviewed batch. It covers WaitGroup joins
+owned by exact deferred callbacks, including `sync.OnceFunc`, and keeps nearby
+resource, error-ownership, and early-completion findings reportable.

@@ -298,3 +298,39 @@ changed from 3.370 to 3.402 seconds (+0.9%), while median peak RSS changed from
 5,224,444 to 5,079,464 KiB (-2.8%). The complete cumulative precision suite is
 reserved for every fifth batch; Batch 12 replayed only its new cohort and
 directly affected ownership repositories.
+
+## Batch 13
+
+Ten repositories and seventeen modules were selected. Cast produced useful
+partial analysis because stale tests call a changed constructor signature. OME
+required CGO for its root module and Go 1.25 for its scheduler module; three
+auxiliary modules contained no Go packages. All other selected modules loaded
+and scanned fully. Final scans produced 1,350 diagnostics.
+
+Two bounded evidence corrections were made:
+
+- a deferred callback now proves a goroutine join only when its exact callback
+  unconditionally waits for the WaitGroup settled by that worker; the existing
+  `sync.OnceFunc` contract covers the wrapped form; and
+- error-return refinement now searches the basic block that owns the SSA load,
+  avoiding an out-of-bounds access when a reachable return consumes a load from
+  a predecessor block.
+
+The first correction removed two Entire CLI goroutine false positives. The
+second allowed EcoHub's full `errorownership` scan to complete and retained its
+exact log-and-return findings. Precision round 17 passed with both false
+positives absent and all four retained true positives present.
+
+Notifiarr's apparent helper joins remain reportable because `WaitGroup.Add`
+runs after the worker is launched, allowing `Done` to race ahead of `Add`.
+Returned dynamic resource maps, tuple-returned cleanup closures, paired pipe
+endpoints, response retry ownership, error-correlated SQL helper cleanup, and
+cross-branch acquisition guards remain deferred until they have compact
+result-sensitive proofs. Opt-in detached-goroutine and API-shape findings were
+sampled but did not expand default correctness policy.
+
+A constant-size performance check compared three warmed `-enable-all` runs on
+pinned Caddy before and after Batch 13. Median wall time changed from 3.309 to
+3.393 seconds (+2.5%), while median peak RSS changed from 5,038,796 to 5,214,088
+KiB (+3.5%). The complete cumulative precision suite remains reserved for
+Batch 15; Batch 13 replayed only round 17 and directly affected repositories.

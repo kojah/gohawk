@@ -1,0 +1,7 @@
+repository,analyzer,position,verdict
+entireio/cli,goroutineownership,cmd/entire/cli/uninstall_output.go:147:2,false_positive
+entireio/cli,goroutineownership,cmd/entire/cli/agent/codex/reviewer.go:184:6,false_positive
+entireio/cli,resourcelifetime,cmd/entire/cli/login.go:872:14,true_positive
+fe-spark/EcoHub,errorownership,server/internal/repository/spider_repo.go:58:3,true_positive
+fe-spark/EcoHub,errorownership,server/internal/repository/film/admin_repo.go:79:3,true_positive
+jizhuozhi/go-future,goroutineownership,api_test.go:164:3,true_positive
