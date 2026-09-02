@@ -53,7 +53,7 @@ export default defineConfig({
 		'/analyzers/ownership-and-lifecycle': '/analyzers/',
 		'/analyzers/reliability-and-safety': '/analyzers/',
 		'/analyzers/testing': '/analyzers/',
-		'/tags-and-profiles': '/configuration/#default-and-opt-in-checks',
+		'/tags-and-profiles': '/configuration/#choose-what-runs',
 	},
 	integrations: [
 		...(isDevelopment ? [react()] : []),
