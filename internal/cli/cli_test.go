@@ -124,7 +124,7 @@ func TestRunCLIImmediateCommands(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var output, errorsOutput bytes.Buffer
-			runtime := testCLIRuntime(t, &output, &errorsOutput, nil)
+			runtime := testCLIRuntime(t, &output, &errorsOutput)
 			result := runCLI(test.arguments, runtime)
 			if result.exitCode != test.wantCode {
 				t.Fatalf("exit code = %d, want %d", result.exitCode, test.wantCode)
@@ -145,7 +145,7 @@ func TestRunCLIImmediateCommands(t *testing.T) {
 func TestRunCLIProcessBoundaries(t *testing.T) {
 	t.Run("filtered flags", func(t *testing.T) {
 		var output, errorsOutput bytes.Buffer
-		runtime := testCLIRuntime(t, &output, &errorsOutput, nil)
+		runtime := testCLIRuntime(t, &output, &errorsOutput)
 		runtime.filteredFlags = func(arguments []string, analyzers []*analysis.Analyzer, output, errorsOutput io.Writer) int {
 			if !slices.Equal(arguments, []string{"gohawk", "-flags"}) {
 				t.Errorf("arguments = %v", arguments)
@@ -162,36 +162,44 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 		}
 	})
 
-	t.Run("rich output", func(t *testing.T) {
+	t.Run("delegated run forwards selection verbatim", func(t *testing.T) {
 		var output, errorsOutput bytes.Buffer
-		runtime := testCLIRuntime(t, &output, &errorsOutput, nil)
-		var childArguments []string
-		runtime.richOutput = func(arguments []string, output io.Writer) int {
-			childArguments = slices.Clone(arguments)
-			return 3
-		}
+		runtime := testCLIRuntime(t, &output, &errorsOutput)
 		result := runCLI([]string{"gohawk", "-disable-checks=contextpolicy/context-first", "./..."}, runtime)
-		if result.exitCode != 3 || result.invocation != nil {
+		invocation := result.invocation
+		if invocation == nil || !invocation.delegate || invocation.render != renderRich {
 			t.Fatalf("result = %#v", result)
 		}
-		joined := strings.Join(childArguments, " ")
-		for _, want := range []string{"-contextpolicy=true", "-disable-checks=", "contextpolicy/context-first", "./..."} {
+		joined := strings.Join(invocation.arguments, " ")
+		for _, want := range []string{"-disable-checks=contextpolicy/context-first", "./..."} {
 			if !strings.Contains(joined, want) {
-				t.Errorf("child arguments do not contain %q: %s", want, joined)
+				t.Errorf("forwarded arguments do not contain %q: %s", want, joined)
 			}
+		}
+		// The vet-tool children resolve selection; the parent must not expand it
+		// into per-analyzer flags go vet would not recognize.
+		if strings.Contains(joined, "-contextpolicy=true") {
+			t.Errorf("forwarded arguments must not resolve selection: %s", joined)
 		}
 	})
 
-	t.Run("analysis engine", func(t *testing.T) {
+	t.Run("vet-tool handshake stays in process", func(t *testing.T) {
 		var output, errorsOutput bytes.Buffer
-		runtime := testCLIRuntime(t, &output, &errorsOutput, map[string]string{richOutputChild: "1"})
-		result := runCLI([]string{"gohawk", "-disable=oncepolicy", "./..."}, runtime)
-		if result.exitCode != 0 || result.invocation == nil {
+		runtime := testCLIRuntime(t, &output, &errorsOutput)
+		result := runCLI([]string{"gohawk", "-disable=oncepolicy", "/tmp/unit.cfg"}, runtime)
+		invocation := result.invocation
+		if invocation == nil || invocation.delegate {
 			t.Fatalf("result = %#v", result)
 		}
-		joined := strings.Join(result.invocation.arguments, " ")
+		joined := strings.Join(invocation.arguments, " ")
+		if !strings.Contains(joined, "/tmp/unit.cfg") {
+			t.Errorf("handshake arguments lost the unit file: %v", invocation.arguments)
+		}
+		// Selection is resolved into per-analyzer flags for the unit driver,
+		// which is how go vet forwards it to this same handshake: the other
+		// analyzers are enabled and the disabled one is left out.
 		if !strings.Contains(joined, "-contextpolicy=true") || strings.Contains(joined, "-oncepolicy=true") {
-			t.Fatalf("engine arguments = %s", joined)
+			t.Errorf("handshake did not disable oncepolicy for the unit driver: %v", invocation.arguments)
 		}
 	})
 }
@@ -229,77 +237,111 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 	}
 }
 
-func TestRunWithRichOutputUsing(t *testing.T) {
-	tests := []struct {
-		name       string
-		result     processOutput
-		err        error
-		wantCode   int
-		wantOutput string
+func TestRenderModeFollowsFlags(t *testing.T) {
+	for _, test := range []struct {
+		arguments []string
+		want      renderMode
+		diff      bool
 	}{
-		{name: "no diagnostics", result: processOutput{stdout: []byte(`{}`)}, wantCode: 0},
+		{[]string{"gohawk", "./..."}, renderRich, false},
+		{[]string{"gohawk", "-json", "./..."}, renderJSON, false},
+		{[]string{"gohawk", "-fix", "./..."}, renderFix, false},
+		{[]string{"gohawk", "-fix", "-diff", "./..."}, renderFix, true},
+	} {
+		var output, errorsOutput bytes.Buffer
+		runtime := testCLIRuntime(t, &output, &errorsOutput)
+		invocation := runCLI(test.arguments, runtime).invocation
+		if invocation == nil || !invocation.delegate || invocation.render != test.want || invocation.diff != test.diff {
+			t.Errorf("runCLI(%v) invocation = %#v", test.arguments, invocation)
+		}
+	}
+}
+
+func TestRunViaGoVet(t *testing.T) {
+	tests := []struct {
+		name          string
+		render        renderMode
+		result        processOutput
+		err           error
+		wantCode      int
+		wantOutput    string
+		wantErrOutput string
+	}{
+		{name: "no diagnostics", render: renderRich, result: processOutput{stdout: []byte(`{}`)}, wantCode: 0},
 		{
-			name: "diagnostic",
-			result: processOutput{
-				stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"missing.go:1:1","end":"missing.go:1:2","message":"problem"}]}}`),
-			},
+			name:       "diagnostic",
+			render:     renderRich,
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"missing.go:1:1","message":"problem"}]}}`)},
 			wantCode:   3,
 			wantOutput: "warning[oncepolicy]: problem",
 		},
 		{
 			name:       "analysis error",
+			render:     renderRich,
 			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":{"error":"load failed"}}}`)},
 			wantCode:   1,
 			wantOutput: "oncepolicy: load failed",
 		},
-		{name: "invalid JSON", result: processOutput{stdout: []byte(`not json`)}, wantCode: 1, wantOutput: "decode analyzer output"},
 		{
-			name:       "child exit",
-			result:     processOutput{stdout: []byte("child output\n"), stderr: []byte("child error\n"), exitCode: 4},
-			err:        errors.New("exit status 4"),
-			wantCode:   4,
-			wantOutput: "child error\nchild output",
+			name:       "json passthrough",
+			render:     renderJSON,
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"a.go:1:1","end":"a.go:1:2","message":"m"}]}}`)},
+			wantCode:   0,
+			wantOutput: `"oncepolicy"`,
 		},
-		{name: "start error", result: processOutput{exitCode: -1}, err: errors.New("not found"), wantCode: 1, wantOutput: "run analyzer engine: not found"},
+		{
+			name:          "build failure surfaces stderr",
+			render:        renderRich,
+			result:        processOutput{stderr: []byte("# p\nbad.go:1: oops\n"), exitCode: 1},
+			err:           errors.New("exit status 1"),
+			wantCode:      1,
+			wantErrOutput: "bad.go:1: oops",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			var output, errorsOutput bytes.Buffer
 			execute := func(name string, arguments, environment []string) (processOutput, error) {
-				if name != "gohawk" || !slices.Equal(arguments, []string{"-json", "./..."}) {
+				if name != "go" || !slices.Equal(arguments, []string{"vet", "-vettool=gohawk", "-json", "./..."}) {
 					t.Errorf("command = %q %v", name, arguments)
-				}
-				if !slices.Equal(environment, []string{richOutputChild + "=1"}) {
-					t.Errorf("environment = %v", environment)
 				}
 				return test.result, test.err
 			}
-			var output bytes.Buffer
-			if code := runWithRichOutputUsing([]string{"gohawk", "./..."}, &output, execute); code != test.wantCode {
-				t.Fatalf("exit code = %d, want %d\n%s", code, test.wantCode, output.String())
+			runtime := cliRuntime{
+				output:       &output,
+				errorsOutput: &errorsOutput,
+				execute:      execute,
+				executable:   func() (string, error) { return "gohawk", nil },
+			}
+			invocation := &analysisInvocation{delegate: true, arguments: []string{"./..."}, render: test.render}
+			if code := runViaGoVet(invocation, runtime); code != test.wantCode {
+				t.Fatalf("exit code = %d, want %d\nout=%s\nerr=%s", code, test.wantCode, output.String(), errorsOutput.String())
 			}
 			if test.wantOutput != "" && !strings.Contains(output.String(), test.wantOutput) {
-				t.Errorf("output does not contain %q:\n%s", test.wantOutput, output.String())
+				t.Errorf("stdout does not contain %q:\n%s", test.wantOutput, output.String())
+			}
+			if test.wantErrOutput != "" && !strings.Contains(errorsOutput.String(), test.wantErrOutput) {
+				t.Errorf("stderr does not contain %q:\n%s", test.wantErrOutput, errorsOutput.String())
 			}
 		})
 	}
 }
 
-func testCLIRuntime(t *testing.T, output, errorsOutput io.Writer, environment map[string]string) cliRuntime {
+func testCLIRuntime(t *testing.T, output, errorsOutput io.Writer) cliRuntime {
 	t.Helper()
 	return cliRuntime{
 		output:       output,
 		errorsOutput: errorsOutput,
-		getenv: func(name string) string {
-			return environment[name]
-		},
+		getenv:       func(string) string { return "" },
 		filteredFlags: func([]string, []*analysis.Analyzer, io.Writer, io.Writer) int {
 			t.Fatal("unexpected filtered-flags subprocess")
 			return 0
 		},
-		richOutput: func([]string, io.Writer) int {
-			t.Fatal("unexpected rich-output subprocess")
-			return 0
+		execute: func(string, []string, []string) (processOutput, error) {
+			t.Fatal("unexpected analysis subprocess")
+			return processOutput{}, nil
 		},
+		executable: func() (string, error) { return "gohawk", nil },
 	}
 }
 

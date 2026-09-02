@@ -3,6 +3,7 @@ module github.com/kojah/gohawk
 go 1.27.0
 
 require (
+	github.com/aymanbagabas/go-udiff v0.4.1
 	github.com/golangci/plugin-module-register v0.1.2
 	golang.org/x/tools v0.49.0
 )

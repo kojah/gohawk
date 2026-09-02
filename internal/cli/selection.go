@@ -25,8 +25,8 @@ type selectionRequest struct {
 }
 
 // executionPlan is the fully resolved analysis invocation. Keeping selection
-// policy out of runCLI gives the multichecker and rich-output paths one model
-// to execute rather than independently interpreting flags.
+// policy out of runCLI gives the vet-tool handshake and the delegated run one
+// model to execute rather than independently interpreting flags.
 type executionPlan struct {
 	arguments      []string
 	analyzers      []*analysis.Analyzer
@@ -34,8 +34,8 @@ type executionPlan struct {
 	disabledChecks map[string]bool
 }
 
-// Main runs the gohawk command and exits with its result. The analyzer engine
-// remains at this boundary because multichecker.Main owns os.Exit as part of
+// buildExecutionPlan resolves selection flags into the analyzers to run and the
+// arguments the vet-tool driver should see.
 func buildExecutionPlan(
 	arguments []string,
 	analyzers []*analysis.Analyzer,

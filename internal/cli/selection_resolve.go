@@ -64,7 +64,7 @@ func baseAnalyzerSelection(
 		// A positive analyzer list establishes its own selection base.
 	case hasExplicitEnabled:
 		// Naming an analyzer explicitly selects only named analyzers, preserving
-		// the multichecker convention when no group selector establishes a base.
+		// the analysis-driver convention when no group selector establishes a base.
 	case len(request.owners) > 0:
 		// An explicit check list establishes its own selection base. Its owning
 		// analyzers are added after ordinary analyzer selection is resolved.

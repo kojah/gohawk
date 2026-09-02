@@ -94,14 +94,23 @@ query does not change.
   tracing. Every diagnostic flows through `check.Report`, which is what lets
   the tracer record whether a candidate was reported, suppressed, or removed.
 
-## Two ways to run
+## How a run is driven
 
-`gohawk ./...` is a standalone driver: it loads the whole program and
-analyzes it in one process on every run, which is what gives it its rich
-output and check selection. The same binary also works as a `go vet` tool
-(`go vet -vettool=gohawk ./...`), where the `go` command drives it one package
-at a time and caches each package's facts and diagnostics, so a rerun after
-an edit re-analyzes only the changed package and its importers.
+`gohawk ./...` does not load a whole program into one process. It runs the
+analyzers through `go vet -vettool=<gohawk> -json`, so the `go` command drives
+the analysis one package at a time: dependencies are type-checked from export
+data, each package's SSA is built and freed before the next, and results and
+facts are cached. That keeps memory bounded on projects with large
+dependencies, where loading the entire closure at once would exhaust it, and it
+makes a rerun after an edit re-analyze only the changed package and its
+importers. gohawk then post-processes go vet's JSON to produce its rich output,
+apply suggested fixes, or pass the JSON through, and it validates selection and
+analyzer flags up front so a bad name fails once.
+
+The same binary is the tool go vet invokes: when go vet runs it with a unit
+configuration file, the unitchecker driver analyzes that one package in
+process. So the standalone command and the vet-tool invocation are the same
+program in its two roles.
 
 ## Invariants the tests enforce
 

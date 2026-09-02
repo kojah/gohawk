@@ -84,13 +84,12 @@ opaque consumption is a shape the classifier ought to recognize.
 
 ## Incremental analysis
 
-`gohawk ./...` reloads and re-analyzes the whole program on every run. For a
-change-and-rerun loop, run it as a `go vet` tool instead:
+`gohawk ./...` already runs the analyzers through `go vet` under the hood, so
+the `go` command type-checks dependencies from export data and caches each
+package's analysis and facts. A rerun after an edit re-analyzes only the
+changed package and its importers; there is no whole-program reload to avoid.
 
-```text
-go vet -vettool=$(which gohawk) ./...
-```
-
-The `go` command then caches each package's analysis and facts, so a rerun
-after an edit re-analyzes only the changed package and its importers. Output
-uses `go vet`'s format rather than gohawk's rich rendering.
+Running `go vet -vettool=$(which gohawk) ./...` directly is equivalent for the
+analysis and is what a build system that already integrates `go vet` would use;
+the only difference is that go vet renders the diagnostics in its own terse
+format instead of gohawk's.

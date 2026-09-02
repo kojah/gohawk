@@ -116,6 +116,12 @@ linters:
         text: "G(122|304):"
         linters:
           - gosec
+      # Applying a suggested fix reads and rewrites the source files the user
+      # asked to fix, with the ordinary source file mode.
+      - path: ^internal/cli/fix\.go$
+        text: "G30(4|6):"
+        linters:
+          - gosec
       # Commit-pinned evidence links are intentionally kept intact.
       - source: '^\s*// https?://'
         linters:

@@ -14,18 +14,29 @@ import (
 	"strings"
 )
 
-const richOutputChild = "GOHAWK_RICH_OUTPUT_CHILD"
-
 type jsonDiagnostic struct {
-	Posn    string        `json:"posn"`
-	End     string        `json:"end"`
-	Message string        `json:"message"`
-	Related []jsonRelated `json:"related"`
+	Posn           string             `json:"posn"`
+	End            string             `json:"end"`
+	Message        string             `json:"message"`
+	Related        []jsonRelated      `json:"related"`
+	SuggestedFixes []jsonSuggestedFix `json:"suggested_fixes"`
 }
 
 type jsonRelated struct {
 	Posn    string `json:"posn"`
 	Message string `json:"message"`
+}
+
+type jsonSuggestedFix struct {
+	Message string         `json:"message"`
+	Edits   []jsonTextEdit `json:"edits"`
+}
+
+type jsonTextEdit struct {
+	Filename string `json:"filename"`
+	Start    int    `json:"start"`
+	End      int    `json:"end"`
+	New      string `json:"new"`
 }
 
 type positionedDiagnostic struct {
@@ -69,54 +80,52 @@ func executeProcess(name string, arguments, environment []string) (processOutput
 	return result, err
 }
 
-func useRichOutput(arguments []string, richOutputChildProcess bool) bool {
-	if richOutputChildProcess || len(arguments) < 2 {
-		return false
-	}
-	for _, argument := range arguments[1:] {
-		name := strings.TrimLeft(argument, "-")
-		name, _, _ = strings.Cut(name, "=")
-		switch name {
-		case "json", "fix", "diff", "flags", "V", "h", "help":
-			return false
-		}
-		if strings.HasSuffix(argument, ".cfg") {
-			return false // invocation by go vet -vettool
-		}
-	}
-	return arguments[1] != "help" && arguments[1] != "list" && arguments[1] != "ssa" && arguments[1] != "facts"
-}
-
-func runWithRichOutput(arguments []string, output io.Writer) int {
-	return runWithRichOutputUsing(arguments, output, executeProcess)
-}
-
-func runWithRichOutputUsing(arguments []string, output io.Writer, execute processExecutor) int {
-	childArguments := make([]string, 0, len(arguments))
-	childArguments = append(childArguments, "-json")
-	childArguments = append(childArguments, arguments[1:]...)
-
-	result, err := execute(arguments[0], childArguments, []string{richOutputChild + "=1"})
-	_, _ = output.Write(result.stderr)
+// runViaGoVet analyzes the requested packages by invoking `go vet` with this
+// binary as its tool. go vet writes analysis results as JSON to stdout and
+// build or load failures to stderr, so a stdout that is not valid JSON means
+// the packages did not compile and its stderr is the real error.
+func runViaGoVet(invocation *analysisInvocation, runtime cliRuntime) int {
+	self, err := runtime.executable()
 	if err != nil {
-		_, _ = output.Write(result.stdout)
-		if result.exitCode >= 0 {
-			return result.exitCode
-		}
-		writeFormattedf(output, "gohawk: run analyzer engine: %v\n", err)
+		writeFormattedf(runtime.errorsOutput, "gohawk: locate executable: %v\n", err)
 		return 1
 	}
+	arguments := append([]string{"vet", "-vettool=" + self, "-json"}, invocation.arguments...)
+	result, execErr := runtime.execute("go", arguments, nil)
+	if !json.Valid(bytes.TrimSpace(result.stdout)) {
+		_, _ = runtime.errorsOutput.Write(result.stderr)
+		if execErr != nil && result.exitCode > 0 {
+			return result.exitCode
+		}
+		if execErr != nil {
+			writeFormattedf(runtime.errorsOutput, "gohawk: run go vet: %v\n", execErr)
+		}
+		return 1
+	}
+	if len(result.stderr) > 0 {
+		_, _ = runtime.errorsOutput.Write(result.stderr)
+	}
+	switch invocation.render {
+	case renderJSON:
+		_, _ = runtime.output.Write(result.stdout)
+		return 0
+	case renderFix:
+		return applySuggestedFixes(result.stdout, invocation.diff, runtime.output, runtime.errorsOutput)
+	default:
+		return renderDelegatedDiagnostics(result.stdout, invocation.contextLines, runtime.output)
+	}
+}
 
-	diagnostics, analysisErrors, err := decodeDiagnostics(result.stdout)
+func renderDelegatedDiagnostics(data []byte, contextLines int, output io.Writer) int {
+	diagnostics, analysisErrors, err := decodeDiagnostics(data)
 	if err != nil {
 		writeFormattedf(output, "gohawk: decode analyzer output: %v\n", err)
-		_, _ = output.Write(result.stdout)
+		_, _ = output.Write(data)
 		return 1
 	}
 	for _, analysisError := range analysisErrors {
 		writeLine(output, analysisError)
 	}
-	contextLines := requestedContext(arguments)
 	colors := terminalColors(output)
 	for index, diagnostic := range diagnostics {
 		if index > 0 {
