@@ -167,6 +167,14 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 		return cancellationActionUnknown, true
 	}
 	if common != nil && commonHasExactArgument(common, classifier.cancel) {
+		if _, launched := instruction.(*ssa.Go); launched {
+			// Passing the exact cancel function to a source-visible helper launched
+			// concurrently is an explicit handoff, but conditional invocation inside
+			// that worker is not proof of release. Treat it as Unknown so the default
+			// check does not turn an event-driven cancellation contract into a leak.
+			// https://github.com/infercrane/infercrane/blob/93a43cebe36e01c68c1517d5f1eb97417d01588d/internal/asyncinference/service_lease_test.go#L43-L54
+			return cancellationActionUnknown, true
+		}
 		if callDirectlyInvokesExactArgumentOnEveryReturn(instruction, classifier.cancel) {
 			return cancellationActionRelease, true
 		}

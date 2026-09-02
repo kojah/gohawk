@@ -232,6 +232,11 @@ func conditionalHelperDoesNotOwnCancel(parent context.Context, run bool) {
 	conditionallySettle(cancel, run)
 }
 
+func launchedConditionalHelperIsUnknown(parent context.Context, run bool) {
+	_, cancel := context.WithCancel(parent)
+	go conditionallySettle(cancel, run)
+}
+
 func startCancelWorker(cancel context.CancelFunc) {
 	go func() {
 		cancel()

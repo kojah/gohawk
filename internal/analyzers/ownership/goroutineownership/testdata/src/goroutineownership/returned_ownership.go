@@ -1,5 +1,7 @@
 package goroutineownership
 
+import "sync"
+
 // This file covers completion ownership transferred through returned closures,
 // aggregates, and mutable fields, including incomplete transfer counterexamples.
 
@@ -16,6 +18,21 @@ func returnedClosureOwnsCompletion() returnedWorker {
 	go func() { done <- true }()
 	wait := func() { <-done }
 	return returnedWorker{wait: wait}
+}
+
+func returnedWaitGroupCallbackOwnsCompletion() func() {
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { defer group.Done() }()
+	return func() { group.Wait() }
+}
+
+func returnedCallbackWaitingForOtherGroupDoesNotOwnCompletion() func() {
+	var workerGroup sync.WaitGroup
+	var otherGroup sync.WaitGroup
+	workerGroup.Add(1)
+	go func() { defer workerGroup.Done() }() // want "goroutine is not joined on every return path"
+	return func() { otherGroup.Wait() }
 }
 
 type returnedLifecycleAggregate struct {

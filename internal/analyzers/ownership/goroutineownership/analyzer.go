@@ -235,7 +235,23 @@ func (analysis goroutineAnalysis) instructionMayOwnGoroutine(candidate ssa.Instr
 }
 
 func (analysis goroutineAnalysis) returnOwnsGoroutine(returned *ssa.Return) bool {
-	return ssaflow.ReturnedSameAsAny(returned, analysis.signals) || ssaflow.ReturnedSameAsAny(returned, analysis.groups)
+	return ssaflow.ReturnedSameAsAny(returned, analysis.signals) || ssaflow.ReturnedSameAsAny(returned, analysis.groups) ||
+		returnedCallbackJoinsGroup(returned, analysis.groups)
+}
+
+func returnedCallbackJoinsGroup(returned *ssa.Return, groups []ssa.Value) bool {
+	for _, result := range returned.Results {
+		for _, group := range groups {
+			if ssaflow.ValueCallsMethod(result, "Wait", group) {
+				// Returning the exact callback transfers the join obligation to its
+				// caller only when that callback waits for the group settled by the
+				// worker. Freehire uses this contract for its SSE heartbeat:
+				// https://github.com/strelov1/freehire/blob/d697a62b5ce272dd5aebccf056e9f9bd2c8851ca/internal/api/handler/match_analysis_stream.go#L317-L343
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (analysis goroutineAnalysis) returnMayOwnGoroutine(returned *ssa.Return) bool {
