@@ -1075,8 +1075,11 @@ without expanding default policy.
 
 ## Batch 33
 
-Ten repositories and 14 modules were selected. All loaded and scanned
-fully. Final scans produced 383 unique diagnostics and needed no correction.
+Ten repositories and fourteen modules were selected. Eleven modules loaded
+and scanned fully; ally-agent produced useful partial analysis around a
+dependency that excludes the host platform, and two ezauth example
+directories hold no buildable package. Final scans produced 383 unique
+diagnostics and needed no correction.
 Precision round 35 pins four true positives: a ticker never stopped inside a
 dispatch goroutine, a prepared statement never closed, and two row sets
 leaked on scan errors.
