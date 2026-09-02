@@ -93,6 +93,8 @@ func runInformationalCommand(arguments []string, runtime cliRuntime) (cliResult,
 		err = printAnalyzerList(arguments[2:], runtime.output, runtime.errorsOutput)
 	case "doc":
 		err = printDocumentation(arguments[2:], runtime.output, runtime.errorsOutput)
+	case "ssa":
+		err = printSSA(arguments[2:], runtime.output, runtime.errorsOutput)
 	default:
 		return cliResult{}, false
 	}

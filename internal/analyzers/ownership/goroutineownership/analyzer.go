@@ -110,6 +110,7 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 			Outcome:  analysisTrace.OutcomeAccepted,
 			Pos:      instruction.Pos(),
 			Function: analysis.function.String(),
+			Details:  map[string]string{"instruction": instruction.String()},
 		})
 	}
 	analysisTrace.Emit(pass, analysisTrace.Event{

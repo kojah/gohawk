@@ -84,7 +84,7 @@ func useRichOutput(arguments []string, richOutputChildProcess bool) bool {
 			return false // invocation by go vet -vettool
 		}
 	}
-	return arguments[1] != "help" && arguments[1] != "list"
+	return arguments[1] != "help" && arguments[1] != "list" && arguments[1] != "ssa"
 }
 
 func runWithRichOutput(arguments []string, output io.Writer) int {

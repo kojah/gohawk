@@ -313,6 +313,7 @@ func printGeneralHelp(output io.Writer) {
 	writeLine(output, "Evidence tracing: -gohawk-trace=ANALYZER[,CHECK...] [-gohawk-trace-file=PATH]")
 	writeLine(output, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
 	writeLine(output, "Run 'gohawk help ANALYZER' for an analyzer's configuration flags.")
+	writeLine(output, "Run 'gohawk ssa [-func NAME] PACKAGE' to print the SSA form the analyzers see.")
 	writeLine(output, "\nAnalyzer groups:")
 	metadata := gohawk.AnalyzerMetadata()
 	for _, group := range gohawk.AnalyzerGroups() {

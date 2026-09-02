@@ -143,3 +143,16 @@ gohawk -gohawk-trace=all \
 
 Tracing is off by default and does not change which diagnostics are reported.
 Without `-gohawk-trace-file`, trace records are written to standard error.
+
+Evidence records carry the SSA text of the instruction they judged. To see the
+surrounding SSA form, which is what the analyzers reason over, print it for a
+package or one function:
+
+```sh
+gohawk ssa -func serveWorker ./internal/server
+```
+
+The dump uses the same builder as the analyzers, includes the function
+literals created inside the selected function, and accepts `-tests` to load a
+package's test variant. It is a debugging aid; SSA text changes across Go
+versions, so do not pin it in fixtures.
