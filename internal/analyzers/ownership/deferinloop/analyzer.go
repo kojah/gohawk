@@ -75,16 +75,10 @@ func defersReachingAnotherIteration(pass *analysis.Pass) (map[sourceLine]bool, e
 	}
 	result := make(map[sourceLine]bool)
 	for _, function := range functions {
-		for _, block := range function.Blocks {
-			for _, instruction := range block.Instrs {
-				deferred, ok := instruction.(*ssa.Defer)
-				if !ok {
-					continue
-				}
-				position := pass.Fset.PositionFor(deferred.Pos(), false)
-				key := sourceLine{file: position.Filename, line: position.Line}
-				result[key] = result[key] || reachesLoopBackedge(deferred)
-			}
+		for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](function) {
+			position := pass.Fset.PositionFor(deferred.Pos(), false)
+			key := sourceLine{file: position.Filename, line: position.Line}
+			result[key] = result[key] || reachesLoopBackedge(deferred)
 		}
 	}
 	return result, nil

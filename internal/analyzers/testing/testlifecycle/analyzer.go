@@ -118,7 +118,7 @@ func detachedTestContexts(spawn *ssa.Go) []detachedTestContext {
 			if index >= len(function.FreeVars) {
 				break
 			}
-			position, ok := neverCancelledTestContext(ssaflow.CapturedBindingValue(binding), map[ssa.Value]bool{})
+			position, ok := neverCancelledTestContext(ssaflow.CapturedBindingValue(binding))
 			if ok {
 				result = append(result, detachedTestContext{root: function.FreeVars[index], position: position})
 			}
@@ -128,7 +128,7 @@ func detachedTestContexts(spawn *ssa.Go) []detachedTestContext {
 		if index >= len(function.Params) {
 			break
 		}
-		position, ok := neverCancelledTestContext(argument, map[ssa.Value]bool{})
+		position, ok := neverCancelledTestContext(argument)
 		if ok {
 			result = append(result, detachedTestContext{root: function.Params[index], position: position})
 		}
@@ -144,60 +144,54 @@ func spawnedFunction(spawn *ssa.Go) *ssa.Function {
 	return spawn.Common().StaticCallee()
 }
 
-func neverCancelledTestContext(value ssa.Value, seen map[ssa.Value]bool) (token.Pos, bool) {
-	// Background and TODO remain detached through transparent wrappers, stores,
-	// and phi nodes only when every incoming value is likewise detached. A mixed
-	// merge is not safe evidence for recommending the testing context.
-	if value == nil || seen[value] {
-		return token.NoPos, false
-	}
-	seen[value] = true
-	if source, ok := contextSource(value); ok {
-		return neverCancelledTestContext(source, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.Call:
-		return neverCancelledContextCall(typed, seen)
-	case *ssa.Alloc:
-		return neverCancelledStoredContext(typed, seen)
-	case *ssa.Phi:
-		return neverCancelledContextEdges(typed.Edges, seen)
-	}
-	return token.NoPos, false
+// contextForms are the wrappers a context keeps its origin through.
+const contextForms = ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+
+// neverCancelledTestContext reports whether value is a detached context and
+// where it was created. Background and TODO remain detached through
+// transparent wrappers, stores, and phi nodes only when every incoming value
+// is likewise detached. A mixed merge is not safe evidence for recommending
+// the testing context.
+func neverCancelledTestContext(value ssa.Value) (token.Pos, bool) {
+	proof := &detachedContextProof{}
+	ok := ssaflow.NewReachingWalk(contextForms).Every(value, proof.detached)
+	return proof.position, ok
 }
 
-func contextSource(value ssa.Value) (ssa.Value, bool) {
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return inner, true
-	}
+// detachedContextProof remembers where the last detached context it accepted
+// was created.
+type detachedContextProof struct {
+	position token.Pos
+}
+
+func (proof *detachedContextProof) detached(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	switch typed := value.(type) {
 	case *ssa.UnOp:
-		return typed.X, true
-	default:
-		return nil, false
+		return walk.Every(typed.X, proof.detached)
+	case *ssa.Call:
+		return proof.detachedCall(walk, typed)
+	case *ssa.Alloc:
+		return walk.EveryOf(storedContextValues(typed), proof.detached)
 	}
+	return false
 }
 
-func neverCancelledContextCall(call *ssa.Call, seen map[ssa.Value]bool) (token.Pos, bool) {
+func (proof *detachedContextProof) detachedCall(walk ssaflow.ReachingWalk, call *ssa.Call) bool {
 	common := call.Common()
 	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("context", "Background")) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("context", "TODO")) {
-		return call.Pos(), true
+		proof.position = call.Pos()
+		return true
 	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("context", "WithValue")) {
-		if len(common.Args) > 0 {
-			return neverCancelledTestContext(common.Args[0], seen)
-		}
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("context", "WithValue")) && len(common.Args) > 0 {
+		return walk.Every(common.Args[0], proof.detached)
 	}
-	return token.NoPos, false
+	return false
 }
 
-func neverCancelledStoredContext(address ssa.Value, seen map[ssa.Value]bool) (token.Pos, bool) {
+func storedContextValues(address ssa.Value) []ssa.Value {
 	if address.Referrers() == nil {
-		return token.NoPos, false
+		return nil
 	}
 	values := make([]ssa.Value, 0)
 	for _, reference := range *address.Referrers() {
@@ -206,22 +200,7 @@ func neverCancelledStoredContext(address ssa.Value, seen map[ssa.Value]bool) (to
 			values = append(values, store.Val)
 		}
 	}
-	return neverCancelledContextEdges(values, seen)
-}
-
-func neverCancelledContextEdges(values []ssa.Value, seen map[ssa.Value]bool) (token.Pos, bool) {
-	if len(values) == 0 {
-		return token.NoPos, false
-	}
-	var position token.Pos
-	for _, value := range values {
-		candidate, ok := neverCancelledTestContext(value, cloneContextSeen(seen))
-		if !ok {
-			return token.NoPos, false
-		}
-		position = candidate
-	}
-	return position, true
+	return values
 }
 
 type contextObservation struct {
@@ -263,12 +242,4 @@ func functionObservesCancellation(function *ssa.Function, value ssa.Value, seen 
 		}
 	}
 	return false
-}
-
-func cloneContextSeen(source map[ssa.Value]bool) map[ssa.Value]bool {
-	result := make(map[ssa.Value]bool, len(source))
-	for value := range source {
-		result[value] = true
-	}
-	return result
 }

@@ -241,14 +241,9 @@ const (
 
 func (search *completionSearch) mappedLocals(callee completionCallee, target ssa.Value, invocation ssa.Instruction) []mappedLocal {
 	var result []mappedLocal
-	if callee.closure != nil {
-		for index, free := range callee.function.FreeVars {
-			if index >= len(callee.closure.Bindings) {
-				break
-			}
-			if local, ok := search.capturedLocal(callee, free, callee.closure.Bindings[index], target, invocation); ok {
-				result = append(result, local)
-			}
+	for _, captured := range ClosureBindingPairs(callee.function, callee.closure) {
+		if local, ok := search.capturedLocal(callee, captured.Free, captured.Binding, target, invocation); ok {
+			result = append(result, local)
 		}
 	}
 	if callee.common != nil {

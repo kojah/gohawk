@@ -237,6 +237,18 @@ policy.
 - Do not create a universal "unwrap everything" helper. Callers must select the
   exact transparent forms that are sound for their proof, and fixtures must
   cover a wrapper that remains intentionally opaque.
+- Do not hand-roll a recursive value walk with its own visited set. Fold over
+  reaching values with `ssaflow.ReachingWalk` (`Any`, `Every`, `EveryOf`, or
+  `ResolveReachingValue`), passing the analyzer's own transparent forms and
+  leaf predicate; the fold owns the visited set and the phi fan-out. Drive a
+  path-sensitive work list with `ssaflow.WalkStates`, keeping the state type,
+  the transfer, and the successor policy in the analyzer.
+- Do not hand-roll a recursive value walk with its own visited set. Fold over
+  reaching values with `ssaflow.ReachingWalk` (`Any`, `Every`, `EveryOf`, or
+  `ResolveReachingValue`), passing the analyzer's own transparent forms and
+  leaf predicate; the fold owns the visited set and the phi fan-out. Drive a
+  path-sensitive work list with `ssaflow.WalkStates`, keeping the state type,
+  the transfer, and the successor policy in the analyzer.
 - Keep analyzer-specific acceptance policy beside the analyzer. Shared SSA code
   should provide identity and traversal mechanics, not silently decide whether
   evidence is sufficient for a diagnostic.

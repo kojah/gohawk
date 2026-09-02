@@ -21,7 +21,7 @@ type lockFlowContext struct {
 	acquiredAt  map[string]token.Pos
 	released    map[string]bool
 	callerOwned map[string]bool
-	defers      []ssa.Instruction
+	defers      []*ssa.Defer
 }
 
 func walkLockOrder(
@@ -37,8 +37,6 @@ func walkLockOrder(
 	// guards); a state is revisited only when that tuple is new, which bounds
 	// the walk on loops while still separating the path that acquired a lock
 	// from the path that did not.
-	queue := []lockFlowState{{block: function.Blocks[0]}}
-	seen := map[string]bool{}
 	released := map[string]bool{}
 	acquiredAt := map[string]token.Pos{}
 	lockValues := map[string][]ssa.Value{}
@@ -46,7 +44,7 @@ func walkLockOrder(
 	heldAtReturn := map[string]map[*ssa.Return]bool{}
 	acquisitions := map[string][]ssa.Instruction{}
 	callerOwned := callerOwnedLocks(function)
-	functionDefers := deferredInstructions(function)
+	functionDefers := ssaflow.InstructionsOf[*ssa.Defer](function)
 	flow := lockFlowContext{
 		pass:        pass,
 		evidence:    evidence,
@@ -57,14 +55,7 @@ func walkLockOrder(
 		callerOwned: callerOwned,
 		defers:      functionDefers,
 	}
-	for len(queue) > 0 {
-		state := queue[0]
-		queue = queue[1:]
-		key := lockStateKey(state)
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
+	ssaflow.WalkStates([]lockFlowState{{block: function.Blocks[0]}}, lockStateKey, func(state lockFlowState) ([]lockFlowState, bool) {
 		held := slices.Clone(state.held)
 		deferred := slices.Clone(state.deferred)
 		guards := cloneLockGuards(state.guards)
@@ -103,8 +94,8 @@ func walkLockOrder(
 			actionState = flow.applyMutexAction(instruction, operation, identity, receiver, actionState)
 			held, deferred, guards = actionState.held, actionState.deferred, actionState.guards
 		}
-		queue = append(queue, lockSuccessorStates(pass, state.block, held, deferred, guards)...)
-	}
+		return lockSuccessorStates(pass, state.block, held, deferred, guards), true
+	})
 	// A lock is reported only when some path releases it and another returns
 	// with it held: a lock never released anywhere is either transferred to a
 	// caller or held for the function's whole life, and both are contracts the
@@ -198,22 +189,10 @@ func successfulReturn(function *ssa.Function, returned *ssa.Return) bool {
 	return len(returned.Results) > 0 && ssaflow.DefinitelyNil(returned.Results[len(returned.Results)-1])
 }
 
-func deferredInstructions(function *ssa.Function) []ssa.Instruction {
-	var result []ssa.Instruction
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if _, ok := instruction.(*ssa.Defer); ok {
-				result = append(result, instruction)
-			}
-		}
-	}
-	return result
-}
-
 func possiblyDeferredUnlock(
 	evidence *ssaflow.LocalEvidence,
 	acquisition ssa.Instruction,
-	functionDefers []ssa.Instruction,
+	functionDefers []*ssa.Defer,
 	values []ssa.Value,
 ) bool {
 	for _, deferred := range functionDefers {

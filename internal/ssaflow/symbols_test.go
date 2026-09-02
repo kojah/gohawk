@@ -62,15 +62,7 @@ func calls(t *testing.T, cmd *exec.Cmd, local *command) {
 }
 
 func functionCalls(function *ssa.Function) []*ssa.Call {
-	var calls []*ssa.Call
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if call, ok := instruction.(*ssa.Call); ok {
-				calls = append(calls, call)
-			}
-		}
-	}
-	return calls
+	return InstructionsOf[*ssa.Call](function)
 }
 
 func assertSingleCallMatch(t *testing.T, calls []*ssa.Call, symbol syntax.Symbol) {

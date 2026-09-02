@@ -55,18 +55,21 @@ func stringErrorClassificationSSA(call *ssa.Call, callsites map[*ssa.Function][]
 		return false
 	}
 	for _, argument := range call.Common().Args {
-		if exclusivelyErrorText(argument, map[ssa.Value]bool{}) && !externalProcessErrorText(argument, callsites, map[ssa.Value]bool{}) {
+		if exclusivelyErrorText(ssaflow.NewReachingWalk(0), argument) && !externalProcessErrorText(ssaflow.NewReachingWalk(0), argument, callsites) {
 			return true
 		}
 	}
 	return false
 }
 
-func exclusivelyErrorText(value ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
+// exclusivelyErrorText reports whether every value merged into value is the
+// text of a Go error. No SSA wrapper is transparent here: a conversion of an
+// error's text is no longer evidence that the comparison classifies the error.
+func exclusivelyErrorText(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+	return walk.Every(value, exclusivelyErrorTextLeaf)
+}
+
+func exclusivelyErrorTextLeaf(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	if call, ok := value.(*ssa.Call); ok {
 		common := call.Common()
 		receiver := ssaflow.CallReceiver(common)
@@ -80,22 +83,11 @@ func exclusivelyErrorText(value ssa.Value, seen map[ssa.Value]bool) bool {
 			return false
 		}
 		for _, argument := range common.Args {
-			if syntax.IsStringType(argument.Type()) && exclusivelyErrorText(argument, seen) {
+			if syntax.IsStringType(argument.Type()) && exclusivelyErrorText(walk, argument) {
 				return true
 			}
 		}
 		return false
-	}
-	if phi, ok := value.(*ssa.Phi); ok {
-		if len(phi.Edges) == 0 {
-			return false
-		}
-		for _, edge := range phi.Edges {
-			if !exclusivelyErrorText(edge, cloneSSASeen(seen)) {
-				return false
-			}
-		}
-		return true
 	}
 	instruction, ok := value.(ssa.Instruction)
 	if !ok {
@@ -104,84 +96,64 @@ func exclusivelyErrorText(value ssa.Value, seen map[ssa.Value]bool) bool {
 	var operands []*ssa.Value
 	operands = instruction.Operands(operands)
 	for _, operand := range operands {
-		if operand != nil && exclusivelyErrorText(*operand, seen) {
+		if operand != nil && exclusivelyErrorText(walk, *operand) {
 			return true
 		}
 	}
 	return false
 }
 
-func externalProcessErrorText(value ssa.Value, callsites map[*ssa.Function][]*ssa.Call, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
-	if call, ok := value.(*ssa.Call); ok {
-		common := call.Common()
-		if ssaflow.CallName(common) == "Error" {
-			// Matching stderr is sometimes the only contract exposed by an external
-			// program; it is not evidence that code is classifying a native Go error.
-			// Require every private-helper caller to carry command provenance before
-			// accepting this boundary. Network Doctor wraps iproute2 stderr this way:
-			// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/simulation/netns_linux.go#L1197-L1225
-			return externalProcessError(ssaflow.CallReceiver(common), callsites, map[ssa.Value]bool{})
+// externalProcessErrorText reports whether some value merged into value is
+// the text of an error produced by an external command.
+func externalProcessErrorText(walk ssaflow.ReachingWalk, value ssa.Value, callsites map[*ssa.Function][]*ssa.Call) bool {
+	return walk.Any(value, func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+		if call, ok := value.(*ssa.Call); ok {
+			common := call.Common()
+			if ssaflow.CallName(common) == "Error" {
+				// Matching stderr is sometimes the only contract exposed by an external
+				// program; it is not evidence that code is classifying a native Go error.
+				// Require every private-helper caller to carry command provenance before
+				// accepting this boundary. Network Doctor wraps iproute2 stderr this way:
+				// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/internal/simulation/netns_linux.go#L1197-L1225
+				return externalProcessError(ssaflow.NewReachingWalk(externalErrorForms), ssaflow.CallReceiver(common), callsites)
+			}
 		}
-	}
-	if phi, ok := value.(*ssa.Phi); ok {
-		for _, edge := range phi.Edges {
-			if externalProcessErrorText(edge, callsites, seen) {
+		instruction, ok := value.(ssa.Instruction)
+		if !ok {
+			return false
+		}
+		var operands []*ssa.Value
+		for _, operand := range instruction.Operands(operands) {
+			if operand != nil && externalProcessErrorText(walk, *operand, callsites) {
 				return true
 			}
 		}
 		return false
-	}
-	instruction, ok := value.(ssa.Instruction)
-	if !ok {
-		return false
-	}
-	var operands []*ssa.Value
-	for _, operand := range instruction.Operands(operands) {
-		if operand != nil && externalProcessErrorText(*operand, callsites, seen) {
-			return true
-		}
-	}
-	return false
+	})
 }
 
-func externalProcessError(value ssa.Value, callsites map[*ssa.Function][]*ssa.Call, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
+// externalErrorForms are the wrappers an external command's error keeps its
+// provenance through.
+const externalErrorForms = ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+
+// externalProcessError reports whether every value merged into value is an
+// error produced by an external command.
+func externalProcessError(walk ssaflow.ReachingWalk, value ssa.Value, callsites map[*ssa.Function][]*ssa.Call) bool {
+	return walk.Every(value, func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+		switch typed := value.(type) {
+		case *ssa.Parameter:
+			return allParameterCallersPassExternalProcessError(walk, typed, callsites)
+		case *ssa.Extract:
+			call, ok := typed.Tuple.(*ssa.Call)
+			return ok && functionExecutesExternalCommand(call.Common().StaticCallee())
+		case *ssa.Call:
+			return externalCommandCall(typed.Common()) || functionExecutesExternalCommand(typed.Common().StaticCallee())
+		}
 		return false
-	}
-	seen[value] = true
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return externalProcessError(inner, callsites, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.Parameter:
-		return allParameterCallersPassExternalProcessError(typed, callsites, seen)
-	case *ssa.Extract:
-		call, ok := typed.Tuple.(*ssa.Call)
-		return ok && functionExecutesExternalCommand(call.Common().StaticCallee())
-	case *ssa.Call:
-		return externalCommandCall(typed.Common()) || functionExecutesExternalCommand(typed.Common().StaticCallee())
-	case *ssa.Phi:
-		if len(typed.Edges) == 0 {
-			return false
-		}
-		for _, edge := range typed.Edges {
-			if !externalProcessError(edge, callsites, cloneSSASeen(seen)) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
+	})
 }
 
-func allParameterCallersPassExternalProcessError(parameter *ssa.Parameter, callsites map[*ssa.Function][]*ssa.Call, seen map[ssa.Value]bool) bool {
+func allParameterCallersPassExternalProcessError(walk ssaflow.ReachingWalk, parameter *ssa.Parameter, callsites map[*ssa.Function][]*ssa.Call) bool {
 	function := parameter.Parent()
 	if function == nil || function.Object() == nil || function.Object().Exported() {
 		return false
@@ -200,23 +172,16 @@ func allParameterCallersPassExternalProcessError(parameter *ssa.Parameter, calls
 	if len(calls) == 0 {
 		return false
 	}
+	arguments := make([]ssa.Value, 0, len(calls))
 	for _, call := range calls {
 		if index >= len(call.Common().Args) {
 			return false
 		}
-		if !externalProcessError(call.Common().Args[index], callsites, cloneSSASeen(seen)) {
-			return false
-		}
+		arguments = append(arguments, call.Common().Args[index])
 	}
-	return true
-}
-
-func cloneSSASeen(source map[ssa.Value]bool) map[ssa.Value]bool {
-	result := make(map[ssa.Value]bool, len(source))
-	for value := range source {
-		result[value] = true
-	}
-	return result
+	return walk.EveryOf(arguments, func(walk ssaflow.ReachingWalk, argument ssa.Value) bool {
+		return externalProcessError(walk, argument, callsites)
+	})
 }
 
 func functionExecutesExternalCommand(function *ssa.Function) bool {

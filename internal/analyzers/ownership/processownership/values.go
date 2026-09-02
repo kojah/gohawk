@@ -28,24 +28,17 @@ func returnsProcessHandle(returned *ssa.Return, command ssa.Value) bool {
 	return false
 }
 
-func commandReturnedByHelper(command ssa.Value) bool {
-	return commandReturnedByHelperSeen(command, map[ssa.Value]bool{})
-}
+// commandForms are the wrappers a command keeps its provenance through.
+const commandForms = ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
 
-func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) bool {
+func commandReturnedByHelper(command ssa.Value) bool {
 	// Commands produced by a helper may carry a lifecycle contract the caller
 	// cannot see. Track only transparent SSA wrappers and merges; a direct
 	// os/exec constructor remains locally owned and must still be waited for.
-	if command == nil || seen[command] {
-		return false
-	}
-	seen[command] = true
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		command,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return commandReturnedByHelperSeen(inner, seen)
-	}
+	return ssaflow.NewReachingWalk(commandForms).Any(command, commandReturnedByHelperLeaf)
+}
+
+func commandReturnedByHelperLeaf(walk ssaflow.ReachingWalk, command ssa.Value) bool {
 	switch typed := command.(type) {
 	case *ssa.Call:
 		return !ssaflow.CallMatchesAnySymbol(
@@ -59,13 +52,7 @@ func commandReturnedByHelperSeen(command ssa.Value, seen map[ssa.Value]bool) boo
 		}
 		for _, reference := range *typed.X.Referrers() {
 			store, ok := reference.(*ssa.Store)
-			if ok && store.Addr == typed.X && commandReturnedByHelperSeen(store.Val, seen) {
-				return true
-			}
-		}
-	case *ssa.Phi:
-		for _, edge := range typed.Edges {
-			if commandReturnedByHelperSeen(edge, seen) {
+			if ok && store.Addr == typed.X && walk.Any(store.Val, commandReturnedByHelperLeaf) {
 				return true
 			}
 		}

@@ -2,7 +2,6 @@ package lockorder
 
 import (
 	"go/token"
-	"maps"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -86,27 +85,14 @@ func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
 	return false
 }
 
+// mutexForms are the wrappers a mutex keeps its origin through.
+const mutexForms = ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+
 func dynamicIndexedMutex(value ssa.Value) bool {
-	return dynamicIndexedMutexSeen(value, make(map[ssa.Value]bool))
+	return ssaflow.NewReachingWalk(mutexForms).Any(value, dynamicIndexedMutexLeaf)
 }
 
-func dynamicIndexedMutexSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil {
-		return false
-	}
-	if seen[value] {
-		// Phi nodes and interface conversions can form SSA cycles. Revisiting a
-		// value adds no new evidence; the other reachable edges still determine
-		// whether the mutex originated from a dynamic collection selection.
-		return false
-	}
-	seen[value] = true
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return dynamicIndexedMutexSeen(inner, seen)
-	}
+func dynamicIndexedMutexLeaf(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	switch typed := value.(type) {
 	case *ssa.IndexAddr:
 		_, constant := typed.Index.(*ssa.Const)
@@ -114,17 +100,11 @@ func dynamicIndexedMutexSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
 	case *ssa.Index, *ssa.Lookup:
 		return true
 	case *ssa.Extract:
-		return dynamicIndexedMutexSeen(typed.Tuple, seen)
-	case *ssa.Phi:
-		for _, edge := range typed.Edges {
-			if dynamicIndexedMutexSeen(edge, seen) {
-				return true
-			}
-		}
+		return walk.Any(typed.Tuple, dynamicIndexedMutexLeaf)
 	case *ssa.FieldAddr:
-		return dynamicIndexedMutexSeen(typed.X, seen)
+		return walk.Any(typed.X, dynamicIndexedMutexLeaf)
 	case *ssa.UnOp:
-		return dynamicIndexedMutexSeen(typed.X, seen)
+		return walk.Any(typed.X, dynamicIndexedMutexLeaf)
 	}
 	return false
 }
@@ -154,7 +134,7 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value
 		return 0, "", nil, false
 	}
 	receiver := ssaflow.CallReceiver(common)
-	receiver = concreteMutexReceiver(receiver, map[ssa.Value]bool{})
+	receiver = concreteMutexReceiver(receiver)
 	if receiver == nil {
 		return 0, "", nil, false
 	}
@@ -164,37 +144,22 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value
 
 // concreteMutexReceiver unwraps interface values only when every possible SSA
 // origin proves the same concrete sync mutex identity.
-func concreteMutexReceiver(value ssa.Value, seen map[ssa.Value]bool) ssa.Value { //nolint:ireturn // SSA values have several concrete forms.
-	if value == nil || seen[value] {
+func concreteMutexReceiver(value ssa.Value) ssa.Value { //nolint:ireturn // SSA values have several concrete forms.
+	walk := ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface | ssaflow.TransparentMakeInterface)
+	receiver, ok := ssaflow.ResolveReachingValue(walk, value, concreteMutexLeaf, func(receiver ssa.Value) string {
+		return lockIdentity(receiver, map[ssa.Value]bool{})
+	})
+	if !ok {
 		return nil
 	}
-	seen[value] = true
-	if syntax.NamedType(value.Type(), "sync", "Mutex") || syntax.NamedType(value.Type(), "sync", "RWMutex") {
-		return value
+	return receiver
+}
+
+func concreteMutexLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (ssa.Value, bool) { //nolint:ireturn // SSA values have several concrete forms.
+	if !syntax.NamedType(value.Type(), "sync", "Mutex") && !syntax.NamedType(value.Type(), "sync", "RWMutex") {
+		return nil, false
 	}
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentMakeInterface,
-	); ok {
-		return concreteMutexReceiver(inner, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.Phi:
-		var resolved ssa.Value
-		var identity string
-		for _, edge := range typed.Edges {
-			candidate := concreteMutexReceiver(edge, maps.Clone(seen))
-			candidateIdentity := lockIdentity(candidate, map[ssa.Value]bool{})
-			if candidate == nil || candidateIdentity == "" || identity != "" && candidateIdentity != identity {
-				return nil
-			}
-			resolved = candidate
-			identity = candidateIdentity
-		}
-		return resolved
-	default:
-		return nil
-	}
+	return value, lockIdentity(value, map[ssa.Value]bool{}) != ""
 }
 
 func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {

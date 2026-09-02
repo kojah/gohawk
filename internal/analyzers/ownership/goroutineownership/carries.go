@@ -16,65 +16,60 @@ import (
 // only ever widens what counts as consumption, so an over-approximation makes
 // an instruction opaque and suppresses a diagnostic rather than inventing one.
 
+// carryForms are the wrappers through which a carried value keeps its
+// identity for containment evidence.
+const carryForms = ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+
 // consumes reports whether value is a tracked value or something that carries
 // one: a closure capturing it, an aggregate holding it, a loaded composite, or
 // the result of a call that received it.
 func (analysis *spawnAnalysis) consumes(value ssa.Value) bool {
 	return slices.ContainsFunc(analysis.tracked, func(tracked trackedValue) bool {
-		return carries(value, tracked.value, map[ssa.Value]bool{})
+		return carries(ssaflow.NewReachingWalk(carryForms), value, tracked.value)
 	})
 }
 
-func carries(value, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	if ssaflow.SameValue(value, target) {
+func carries(walk ssaflow.ReachingWalk, value, target ssa.Value) bool {
+	if value != nil && ssaflow.SameValue(value, target) {
 		return true
 	}
-	seen[value] = true
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return carries(inner, target, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.MakeClosure:
-		// A closure carries whatever it captured, including an addressable
-		// local that held the target at any point.
-		return slices.ContainsFunc(typed.Bindings, func(binding ssa.Value) bool {
-			return ssaflow.CapturedBindingMatches(binding, target) || carries(binding, target, seen)
-		})
-	case *ssa.UnOp:
-		// A struct passed or returned by value is loaded from the local that
-		// assembled it, so the load carries what the local's fields hold.
-		return typed.Op == token.MUL && carries(typed.X, target, seen)
-	case *ssa.Alloc, *ssa.FieldAddr, *ssa.IndexAddr:
-		return storedCarries(value, target, seen)
-	case *ssa.Slice:
-		return carries(typed.X, target, seen)
-	case *ssa.Extract:
-		return carries(typed.Tuple, target, seen)
-	case *ssa.Phi:
-		return slices.ContainsFunc(typed.Edges, func(edge ssa.Value) bool {
-			return carries(edge, target, seen)
-		})
-	case *ssa.Call:
-		return callResultCarries(typed, target, seen)
-	}
-	return false
+	return walk.Any(value, func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+		if ssaflow.SameValue(value, target) {
+			return true
+		}
+		switch typed := value.(type) {
+		case *ssa.MakeClosure:
+			// A closure carries whatever it captured, including an addressable
+			// local that held the target at any point.
+			return slices.ContainsFunc(typed.Bindings, func(binding ssa.Value) bool {
+				return ssaflow.CapturedBindingMatches(binding, target) || carries(walk, binding, target)
+			})
+		case *ssa.UnOp:
+			// A struct passed or returned by value is loaded from the local that
+			// assembled it, so the load carries what the local's fields hold.
+			return typed.Op == token.MUL && carries(walk, typed.X, target)
+		case *ssa.Alloc, *ssa.FieldAddr, *ssa.IndexAddr:
+			return storedCarries(walk, value, target)
+		case *ssa.Slice:
+			return carries(walk, typed.X, target)
+		case *ssa.Extract:
+			return carries(walk, typed.Tuple, target)
+		case *ssa.Call:
+			return callResultCarries(walk, typed, target)
+		}
+		return false
+	})
 }
 
 // callResultCarries assumes a non-builtin call retains its arguments, because
 // wrapSignal(done) may return the owner that later escapes. Builtins other
 // than append only observe their arguments.
-func callResultCarries(call *ssa.Call, target ssa.Value, seen map[ssa.Value]bool) bool {
+func callResultCarries(walk ssaflow.ReachingWalk, call *ssa.Call, target ssa.Value) bool {
 	if builtin, ok := call.Common().Value.(*ssa.Builtin); ok && builtin.Name() != "append" {
 		return false
 	}
 	return slices.ContainsFunc(call.Common().Args, func(argument ssa.Value) bool {
-		return carries(argument, target, seen)
+		return carries(walk, argument, target)
 	})
 }
 
@@ -83,15 +78,14 @@ func callResultCarries(call *ssa.Call, target ssa.Value, seen map[ssa.Value]bool
 // IndexAddr, so an element read through one is matched against stores made
 // through any element address of the same slice; that over-approximation only
 // ever makes an instruction opaque or a signal buffered.
-func storedCarries(address, target ssa.Value, seen map[ssa.Value]bool) bool {
+func storedCarries(walk ssaflow.ReachingWalk, address, target ssa.Value) bool {
 	if element, ok := address.(*ssa.IndexAddr); ok && element.X.Referrers() != nil {
 		for _, sibling := range *element.X.Referrers() {
 			other, ok := sibling.(*ssa.IndexAddr)
-			if !ok || other == element || seen[other] {
+			if !ok || other == element || !walk.Mark(other) {
 				continue
 			}
-			seen[other] = true
-			if storedCarries(other, target, seen) {
+			if storedCarries(walk, other, target) {
 				return true
 			}
 		}
@@ -102,15 +96,15 @@ func storedCarries(address, target ssa.Value, seen map[ssa.Value]bool) bool {
 	for _, reference := range *address.Referrers() {
 		switch typed := reference.(type) {
 		case *ssa.Store:
-			if typed.Addr == address && carries(typed.Val, target, seen) {
+			if typed.Addr == address && carries(walk, typed.Val, target) {
 				return true
 			}
 		case *ssa.FieldAddr:
-			if storedCarries(typed, target, seen) {
+			if storedCarries(walk, typed, target) {
 				return true
 			}
 		case *ssa.IndexAddr:
-			if storedCarries(typed, target, seen) {
+			if storedCarries(walk, typed, target) {
 				return true
 			}
 		}
@@ -121,5 +115,5 @@ func storedCarries(address, target ssa.Value, seen map[ssa.Value]bool) bool {
 // bindingCarries matches a closure binding or call argument against a tracked
 // value, including an addressable local that has contained it.
 func bindingCarries(binding, target ssa.Value) bool {
-	return ssaflow.CapturedBindingMatches(binding, target) || carries(binding, target, map[ssa.Value]bool{})
+	return ssaflow.CapturedBindingMatches(binding, target) || carries(ssaflow.NewReachingWalk(carryForms), binding, target)
 }

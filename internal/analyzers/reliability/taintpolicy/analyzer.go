@@ -180,26 +180,16 @@ func sourceCallArguments(common *ssa.CallCommon) []ssa.Value {
 }
 
 func terminalWriter(value ssa.Value) bool {
-	return terminalWriterSeen(value, map[ssa.Value]bool{})
+	return ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface|ssaflow.TransparentMakeInterface).Any(value, terminalWriterLeaf)
 }
 
-func terminalWriterSeen(value ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
+func terminalWriterLeaf(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	if ssaflow.ValueMatchesSymbol(value, syntax.PackageVariable("os", "Stdout")) ||
 		ssaflow.ValueMatchesSymbol(value, syntax.PackageVariable("os", "Stderr")) {
 		return true
 	}
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentMakeInterface,
-	); ok {
-		return terminalWriterSeen(inner, seen)
-	}
 	if typed, ok := value.(*ssa.UnOp); ok {
-		return terminalWriterSeen(typed.X, seen)
+		return walk.Any(typed.X, terminalWriterLeaf)
 	}
 	return false
 }

@@ -349,7 +349,7 @@ func bufferedLocalChannel(function *ssa.Function, signal ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			created, ok := instruction.(*ssa.MakeChan)
-			if !ok || !carries(signal, created, map[ssa.Value]bool{}) {
+			if !ok || !carries(ssaflow.NewReachingWalk(carryForms), signal, created) {
 				continue
 			}
 			size, constantSize := created.Size.(*ssa.Const)

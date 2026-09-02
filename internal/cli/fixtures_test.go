@@ -84,9 +84,7 @@ func writeLanguageVersionModule(t *testing.T, version, source string) string {
 
 func writeCancellationFixModule(t *testing.T) string {
 	t.Helper()
-	directory := t.TempDir()
-	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/cancellationfix\n\ngo 1.26.0\n")
-	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), `package cancellationfix
+	return writeSampleModule(t, "module example.com/cancellationfix\n\ngo 1.26.0\n", `package cancellationfix
 
 import "context"
 
@@ -103,8 +101,7 @@ func handOff(parent context.Context, owner cancelOwner) {
 	_, cancel := context.WithCancel(parent)
 	owner.Store(cancel)
 }
-`)
-	writeTestFile(t, filepath.Join(directory, "sample", "sample_test.go"), `package cancellationfix
+`, `package cancellationfix
 
 import "testing"
 
@@ -112,7 +109,6 @@ func TestWork(t *testing.T) {
 	_ = t
 }
 `)
-	return directory
 }
 
 func writeTestPolicyFixModule(t *testing.T) string {
@@ -140,10 +136,7 @@ func TestHelpers(t *testing.T) {
 
 func writeContextTestModule(t *testing.T, goVersion string) string {
 	t.Helper()
-	directory := t.TempDir()
-	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/contexttest\n\ngo "+goVersion+"\n")
-	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), "package sample\n")
-	writeTestFile(t, filepath.Join(directory, "sample", "sample_test.go"), `package sample
+	return writeSampleModule(t, "module example.com/contexttest\n\ngo "+goVersion+"\n", "package sample\n", `package sample
 
 import (
 	"context"
@@ -155,7 +148,6 @@ func TestBackground(t *testing.T) {
 	go func(ctx context.Context) { <-ctx.Done() }(context.Background())
 }
 `)
-	return directory
 }
 
 func writeGoroutineTestModule(t *testing.T) string {
@@ -177,9 +169,7 @@ func Start(ctx context.Context) {
 
 func writeEvalOrderTestModule(t *testing.T) string {
 	t.Helper()
-	directory := t.TempDir()
-	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/evalordertest\n\ngo 1.25.0\n")
-	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), `package sample
+	return writeSampleModule(t, "module example.com/evalordertest\n\ngo 1.25.0\n", `package sample
 
 func replace(target *int) error {
 	*target = 42
@@ -194,8 +184,7 @@ func orderedProduction(value int) (int, error) {
 	err := replace(&value)
 	return value, err
 }
-`)
-	writeTestFile(t, filepath.Join(directory, "sample", "sample_test.go"), `package sample
+`, `package sample
 
 func staleTestOnly(value int) (int, error) {
 	return value, replace(&value)
@@ -206,14 +195,11 @@ func orderedTestOnly(value int) (int, error) {
 	return value, err
 }
 `)
-	return directory
 }
 
 func writeCheckFilterModule(t *testing.T) string {
 	t.Helper()
-	directory := t.TempDir()
-	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/checkfilter\n\ngo 1.25.0\n")
-	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), `package sample
+	return writeSampleModule(t, "module example.com/checkfilter\n\ngo 1.25.0\n", `package sample
 
 import "context"
 
@@ -224,7 +210,19 @@ func accept(ctx context.Context) {}
 func call() {
 	accept(nil)
 }
-`)
+`, "")
+}
+
+// writeSampleModule writes a module whose go.mod line is goMod, with source in
+// sample/sample.go and, when testSource is not empty, sample/sample_test.go.
+func writeSampleModule(t *testing.T, goMod, source, testSource string) string {
+	t.Helper()
+	directory := t.TempDir()
+	writeTestFile(t, filepath.Join(directory, "go.mod"), goMod)
+	writeTestFile(t, filepath.Join(directory, "sample", "sample.go"), source)
+	if testSource != "" {
+		writeTestFile(t, filepath.Join(directory, "sample", "sample_test.go"), testSource)
+	}
 	return directory
 }
 

@@ -72,24 +72,18 @@ func evaluateResourceFlow(
 	// revisited only when a different path reaches it with a different
 	// obligation state; the predecessor lets the successful branch of the
 	// acquisition be told apart from its error branch.
-	queue := []resourceFlowState{{block: call.Block(), index: index + 1, active: true}}
-	seen := map[resourceFlowKey]bool{}
-	opaque := false
-	for len(queue) > 0 {
-		state := queue[0]
-		queue = queue[1:]
-		key := resourceStateKey(state)
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		var leaks bool
+	initial := []resourceFlowState{{block: call.Block(), index: index + 1, active: true}}
+	opaque, leaks := false, false
+	ssaflow.WalkStates(initial, resourceStateKey, func(state resourceFlowState) ([]resourceFlowState, bool) {
 		state, leaks = advanceResourceState(pass, analysis, state)
 		if leaks {
-			return reportedResourceLifetime(resourceReasonUnownedReturn)
+			return nil, false
 		}
 		opaque = opaque || state.unknown
-		queue = append(queue, resourceSuccessorStates(pass, state, errorValue, resource, optionalAcquisition)...)
+		return resourceSuccessorStates(pass, state, errorValue, resource, optionalAcquisition), true
+	})
+	if leaks {
+		return reportedResourceLifetime(resourceReasonUnownedReturn)
 	}
 	if opaque {
 		return acceptedResourceLifetime(resourceReasonOpaqueConsumption)
@@ -227,17 +221,14 @@ func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 				continue
 			}
 			common := ssaflow.InstructionCall(instruction)
-			if !ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyAssertion) {
-				continue
-			}
-			if ssaflow.CallName(common) == "Error" || ssaflow.CallName(common) == "NotNil" {
+			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyErrorClaim) {
 				for _, argument := range common.Args {
 					if ssaflow.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
 						errorAssertions = append(errorAssertions, instruction)
 					}
 				}
 			}
-			if ssaflow.CallName(common) == "Nil" {
+			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyNilClaim) {
 				for _, argument := range common.Args {
 					if ssaflow.SameValue(argument, resource) {
 						nilAssertions = append(nilAssertions, instruction)
@@ -305,21 +296,18 @@ func deferredBeforeAcquisitionMayRelease(
 	resource ssa.Value,
 	methods []string,
 ) bool {
-	for _, block := range call.Parent().Blocks {
-		for _, instruction := range block.Instrs {
-			deferred, ok := instruction.(*ssa.Defer)
-			if !ok || !ssaflow.InstructionDominates(deferred, call) {
-				continue
-			}
-			completion := ssaflow.CompletionRequest{
-				Instruction: deferred,
-				Target:      resource,
-				Methods:     methods,
-				Coverage:    ssaflow.CoverageAnywhere,
-			}
-			if evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion}).Proven() {
-				return true
-			}
+	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](call.Parent()) {
+		if !ssaflow.InstructionDominates(deferred, call) {
+			continue
+		}
+		completion := ssaflow.CompletionRequest{
+			Instruction: deferred,
+			Target:      resource,
+			Methods:     methods,
+			Coverage:    ssaflow.CoverageAnywhere,
+		}
+		if evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion}).Proven() {
+			return true
 		}
 	}
 	return false

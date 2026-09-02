@@ -2,8 +2,6 @@
 package exitpolicy
 
 import (
-	"fmt"
-
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -43,17 +41,9 @@ func reportExitAfterDefer(pass *analysis.Pass, function *ssa.Function) {
 	if len(function.Blocks) == 0 {
 		return
 	}
-	queue := []exitFlowState{{block: function.Blocks[0]}}
-	seen := map[string]bool{}
 	reported := map[ssa.Instruction]bool{}
-	for len(queue) > 0 {
-		state := queue[0]
-		queue = queue[1:]
-		key := fmt.Sprintf("%d:%t", state.block.Index, state.deferred)
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
+	identity := func(state exitFlowState) exitFlowState { return state }
+	ssaflow.WalkStates([]exitFlowState{{block: function.Blocks[0]}}, identity, func(state exitFlowState) ([]exitFlowState, bool) {
 		deferred := state.deferred
 		for _, instruction := range state.block.Instrs {
 			if _, ok := instruction.(*ssa.Defer); ok {
@@ -73,10 +63,12 @@ func reportExitAfterDefer(pass *analysis.Pass, function *ssa.Function) {
 				)
 			}
 		}
+		successors := make([]exitFlowState, 0, len(state.block.Succs))
 		for _, successor := range state.block.Succs {
-			queue = append(queue, exitFlowState{block: successor, deferred: deferred})
+			successors = append(successors, exitFlowState{block: successor, deferred: deferred})
 		}
-	}
+		return successors, true
+	})
 }
 
 func processExitRelevantDefer(common *ssa.CallCommon) bool {

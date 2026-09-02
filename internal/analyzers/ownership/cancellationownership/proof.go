@@ -270,22 +270,20 @@ func instructionReferencesCancellation(instruction ssa.Instruction, cancel ssa.V
 // release proofs. A broad match here can only suppress a diagnostic; it can
 // never establish that cancellation was released or transferred.
 
+// cancellationForms are the wrappers a cancel function keeps its identity
+// through while the analysis looks for the address it is stored into.
+const cancellationForms = ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+
 func addressStoresCancellation(value, cancel ssa.Value) bool {
-	return addressStoresCancellationSeen(value, cancel, map[ssa.Value]bool{})
+	return ssaflow.NewReachingWalk(cancellationForms).Any(value, func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+		return addressStoresCancellationLeaf(walk, value, cancel)
+	})
 }
 
-func addressStoresCancellationSeen(value, cancel ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok && addressStoresCancellationSeen(inner, cancel, seen) {
-		return true
-	}
-	if loaded, ok := value.(*ssa.UnOp); ok && addressStoresCancellationSeen(loaded.X, cancel, seen) {
+func addressStoresCancellationLeaf(walk ssaflow.ReachingWalk, value, cancel ssa.Value) bool {
+	if loaded, ok := value.(*ssa.UnOp); ok && walk.Any(loaded.X, func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+		return addressStoresCancellationLeaf(walk, value, cancel)
+	}) {
 		return true
 	}
 	if value.Referrers() == nil {
@@ -317,12 +315,12 @@ func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa
 		return false
 	}
 	found := false
-	for index, free := range function.FreeVars {
-		if index >= len(closure.Bindings) || !ssaflow.CapturedBindingMatches(closure.Bindings[index], cancel) {
+	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
+		if !ssaflow.CapturedBindingMatches(captured.Binding, cancel) {
 			continue
 		}
 		found = true
-		if !localParameterUseIsResolved(function, free, map[*ssa.Function]bool{}) {
+		if !localParameterUseIsResolved(function, captured.Free, map[*ssa.Function]bool{}) {
 			return false
 		}
 	}

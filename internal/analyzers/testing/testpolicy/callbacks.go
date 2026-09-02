@@ -4,9 +4,7 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/syntax"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -92,22 +90,10 @@ func testingCallbackParameter(signature *types.Signature, argument int) bool {
 }
 
 func emitTestingCallbackDecision(pass *analysis.Pass, function *ssa.Function) {
-	checkID := string(check.TestHelperMarker)
-	if !analysisTrace.Enabled("testpolicy", checkID) {
-		return
-	}
 	// Named functions and selected methods have the same testing-owned boundary
 	// as function literals. Dranet passes namespace test bodies to a runner, and
 	// Incus does the same with method values:
 	// https://github.com/kubernetes-sigs/dranet/blob/53e6c967d7b0b8e2c46e070c7129f712c631a2ab/pkg/inventory/net_test.go#L32-L39
 	// https://github.com/lxc/incus-compose/blob/a7da6db1112780ad83c75a9a5136c111ad1d9b71/cmd/ic-dns/e2e_visibility_test.go#L74-L81
-	analysisTrace.Emit(pass, analysisTrace.Event{
-		Analyzer: "testpolicy",
-		Check:    checkID,
-		Phase:    "decision",
-		Reason:   "testing-callback",
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      function.Pos(),
-		Function: function.String(),
-	})
+	traceHelperMarkerDecision(pass, function, "testing-callback")
 }

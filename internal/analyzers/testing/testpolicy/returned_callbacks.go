@@ -1,9 +1,7 @@
 package testpolicy
 
 import (
-	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -163,20 +161,8 @@ func transparentClosureWrapper(reference ssa.Instruction, value ssa.Value) (ssa.
 }
 
 func emitReturnedTestingClosureDecision(pass *analysis.Pass, function *ssa.Function) {
-	checkID := string(check.TestHelperMarker)
-	if !analysisTrace.Enabled("testpolicy", checkID) {
-		return
-	}
 	// Calling Helper in an outer factory cannot affect a failure raised later by
 	// its returned callback. Civitai uses this shape for an HTTP test handler:
 	// https://github.com/civitai/cli/blob/bc830b105867ae4234ddd7dd23f3f7680a2cbe3c/internal/cmd/app_listing_test.go#L321-L348
-	analysisTrace.Emit(pass, analysisTrace.Event{
-		Analyzer: "testpolicy",
-		Check:    checkID,
-		Phase:    "decision",
-		Reason:   "returned-testing-callback",
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      function.Pos(),
-		Function: function.String(),
-	})
+	traceHelperMarkerDecision(pass, function, "returned-testing-callback")
 }

@@ -187,6 +187,12 @@ func directStringReplacerCall(pass *analysis.Pass, identifier *ast.Ident, parent
 }
 
 func traceImmutableStringReplacer(pass *analysis.Pass, name *ast.Ident) {
+	traceAcceptedGlobal(pass, name, "immutable-stdlib-replacer")
+}
+
+// traceAcceptedGlobal records why a package-level variable is accepted as
+// effectively immutable.
+func traceAcceptedGlobal(pass *analysis.Pass, name *ast.Ident, reason string) {
 	checkID := string(check.MutableGlobalState)
 	if !analysisTrace.Enabled("globalstate", checkID) {
 		return
@@ -195,7 +201,7 @@ func traceImmutableStringReplacer(pass *analysis.Pass, name *ast.Ident) {
 		Analyzer: "globalstate",
 		Check:    checkID,
 		Phase:    "evidence",
-		Reason:   "immutable-stdlib-replacer",
+		Reason:   reason,
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      name.Pos(),
 	})

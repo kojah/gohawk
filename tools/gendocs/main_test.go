@@ -96,27 +96,36 @@ func TestGroupCardsUsesAnalyzerSummaryAndOmitsActivationMetadata(t *testing.T) {
 	}
 }
 
-func TestSynchronizeExamplesAddsGeneratedMarkers(t *testing.T) {
-	contents := []byte("# Rule\n\n## Examples\n\nold\n\n## Options\n")
-	got, err := synchronizeExamples(contents, "new")
-	if err != nil {
-		t.Fatal(err)
+func TestSynchronizeGeneratedSections(t *testing.T) {
+	tests := []struct {
+		name        string
+		contents    string
+		synchronize func([]byte, string) ([]byte, error)
+		want        string
+	}{
+		{
+			name:        "examples markers",
+			contents:    "# Rule\n\n## Examples\n\nold\n\n## Options\n",
+			synchronize: synchronizeExamples,
+			want:        "## Examples\n\n" + generatedExamplesStart + "\nnew\n" + generatedExamplesEnd + "\n\n## Options",
+		},
+		{
+			name:        "checks subsection",
+			contents:    "# Rule\n\n## What it detects\n\nSummary.\n\n## Why this is flagged\n",
+			synchronize: synchronizeChecks,
+			want:        "Summary.\n\n### Checks\n\n" + generatedChecksStart + "\nnew\n" + generatedChecksEnd + "\n\n## Why this is flagged",
+		},
 	}
-	want := "## Examples\n\n" + generatedExamplesStart + "\nnew\n" + generatedExamplesEnd + "\n\n## Options"
-	if !strings.Contains(string(got), want) {
-		t.Fatalf("generated examples section missing from %q", got)
-	}
-}
-
-func TestSynchronizeChecksAddsGeneratedSubsection(t *testing.T) {
-	contents := []byte("# Rule\n\n## What it detects\n\nSummary.\n\n## Why this is flagged\n")
-	got, err := synchronizeChecks(contents, "checks")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "Summary.\n\n### Checks\n\n" + generatedChecksStart + "\nchecks\n" + generatedChecksEnd + "\n\n## Why this is flagged"
-	if !strings.Contains(string(got), want) {
-		t.Fatalf("generated checks subsection missing from %q", got)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := test.synchronize([]byte(test.contents), "new")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(got), test.want) {
+				t.Fatalf("generated section missing from %q", got)
+			}
+		})
 	}
 }
 

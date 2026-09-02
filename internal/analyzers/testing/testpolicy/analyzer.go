@@ -87,20 +87,26 @@ func testingHandleUnused(handle *ssa.Parameter) bool {
 }
 
 func emitUnusedTestingHandleDecision(pass *analysis.Pass, function *ssa.Function) {
-	checkID := string(check.TestHelperMarker)
-	if !analysisTrace.Enabled("testpolicy", checkID) {
-		return
-	}
 	// Helper only changes attribution for operations reached through the testing
 	// handle. Calling it cannot help when the parameter is wholly unused, as in
 	// these Armada and Incus helpers:
 	// https://github.com/armadaproject/armada-operator/blob/2326513ebd93e3cf5153bc4f3fbec7199c0cb30e/internal/controller/install/common_helpers_test.go#L1030
 	// https://github.com/lxc/incus-compose/blob/a7da6db1112780ad83c75a9a5136c111ad1d9b71/cmd/incus-compose/backup_test.go#L63-L71
+	traceHelperMarkerDecision(pass, function, "unused-testing-handle")
+}
+
+// traceHelperMarkerDecision records why a function is accepted without a
+// Helper call.
+func traceHelperMarkerDecision(pass *analysis.Pass, function *ssa.Function, reason string) {
+	checkID := string(check.TestHelperMarker)
+	if !analysisTrace.Enabled("testpolicy", checkID) {
+		return
+	}
 	analysisTrace.Emit(pass, analysisTrace.Event{
 		Analyzer: "testpolicy",
 		Check:    checkID,
 		Phase:    "decision",
-		Reason:   "unused-testing-handle",
+		Reason:   reason,
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      function.Pos(),
 		Function: function.String(),

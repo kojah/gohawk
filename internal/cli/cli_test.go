@@ -73,22 +73,34 @@ func TestPrintAnalyzerList(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var output, errorsOutput bytes.Buffer
-			err := printAnalyzerList(test.arguments, &output, &errorsOutput)
-			if (err != nil) != test.wantError {
-				t.Fatalf("error = %v, wantError %t", err, test.wantError)
-			}
-			for _, value := range test.contains {
-				if !strings.Contains(output.String(), value) {
-					t.Errorf("output does not contain %q:\n%s", value, output.String())
-				}
-			}
-			for _, value := range test.excludes {
-				if strings.Contains(output.String(), value) {
-					t.Errorf("output unexpectedly contains %q:\n%s", value, output.String())
-				}
-			}
+			checkPrintedOutput(t, printAnalyzerList, test.arguments, test.contains, test.excludes, test.wantError)
 		})
+	}
+}
+
+// checkPrintedOutput runs a printing command and checks its error outcome
+// and which fragments its output contains.
+func checkPrintedOutput(
+	t *testing.T,
+	print func([]string, io.Writer, io.Writer) error,
+	arguments, contains, excludes []string,
+	wantError bool,
+) {
+	t.Helper()
+	var output, errorsOutput bytes.Buffer
+	err := print(arguments, &output, &errorsOutput)
+	if (err != nil) != wantError {
+		t.Fatalf("error = %v, wantError %t", err, wantError)
+	}
+	for _, value := range contains {
+		if !strings.Contains(output.String(), value) {
+			t.Errorf("output does not contain %q:\n%s", value, output.String())
+		}
+	}
+	for _, value := range excludes {
+		if strings.Contains(output.String(), value) {
+			t.Errorf("output unexpectedly contains %q:\n%s", value, output.String())
+		}
 	}
 }
 
@@ -324,21 +336,7 @@ func TestPrintDocumentation(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var output, errorsOutput bytes.Buffer
-			err := printDocumentation(test.arguments, &output, &errorsOutput)
-			if (err != nil) != test.wantError {
-				t.Fatalf("error = %v, wantError %t", err, test.wantError)
-			}
-			for _, value := range test.contains {
-				if !strings.Contains(output.String(), value) {
-					t.Errorf("output does not contain %q:\n%s", value, output.String())
-				}
-			}
-			for _, value := range test.excludes {
-				if strings.Contains(output.String(), value) {
-					t.Errorf("output unexpectedly contains %q:\n%s", value, output.String())
-				}
-			}
+			checkPrintedOutput(t, printDocumentation, test.arguments, test.contains, test.excludes, test.wantError)
 		})
 	}
 }

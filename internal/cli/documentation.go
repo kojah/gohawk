@@ -8,7 +8,6 @@ import (
 	"io"
 	"runtime/debug"
 	"slices"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -29,19 +28,7 @@ type analyzerListOptions struct {
 }
 
 func flagsRequested(arguments []string) bool {
-	for _, argument := range arguments[1:] {
-		value := strings.TrimLeft(argument, "-")
-		name, raw, hasValue := strings.Cut(value, "=")
-		if name != "flags" {
-			continue
-		}
-		if !hasValue {
-			return true
-		}
-		enabled, err := strconv.ParseBool(raw)
-		return err == nil && enabled
-	}
-	return false
+	return booleanFlagRequested(arguments, "flags")
 }
 
 func printFilteredFlags(arguments []string, analyzers []*analysis.Analyzer, output, errorsOutput io.Writer) int {

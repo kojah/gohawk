@@ -57,18 +57,10 @@ func requestedChecks(arguments []string, metadata map[string]gohawk.AnalyzerInfo
 		if name == "disable-checks" {
 			target, action = requested.disabled, "disabled"
 		}
-		for candidate := range strings.SplitSeq(raw, ",") {
-			candidate = strings.TrimSpace(candidate)
-			if candidate == "" {
-				return checkSelection{}, nil, fmt.Errorf("invalid empty check in %q", raw)
-			}
-			if !available[candidate] {
-				return checkSelection{}, nil, fmt.Errorf("unknown check %q (run 'gohawk list -checks' to see stable check IDs)", candidate)
-			}
-			if target[candidate] {
-				return checkSelection{}, nil, fmt.Errorf("check %q is %s more than once", candidate, action)
-			}
-			target[candidate] = true
+		if err := addSelectedNames(raw, available, target, selectedNameKind{
+			kind: "check", action: action, hint: "run 'gohawk list -checks' to see stable check IDs",
+		}); err != nil {
+			return checkSelection{}, nil, err
 		}
 	}
 	return requested, remaining, nil
@@ -181,18 +173,10 @@ func requestedAnalyzers(arguments []string, available map[string]bool) (analyzer
 		if raw == "" {
 			return analyzerNameSelection{}, nil, fmt.Errorf("-%s requires at least one analyzer", name)
 		}
-		for candidate := range strings.SplitSeq(raw, ",") {
-			candidate = strings.TrimSpace(candidate)
-			if candidate == "" {
-				return analyzerNameSelection{}, nil, fmt.Errorf("invalid empty analyzer in %q", raw)
-			}
-			if !available[candidate] {
-				return analyzerNameSelection{}, nil, fmt.Errorf("unknown analyzer %q (run 'gohawk list' to see available analyzers)", candidate)
-			}
-			if target[candidate] {
-				return analyzerNameSelection{}, nil, fmt.Errorf("analyzer %q is %s more than once", candidate, action)
-			}
-			target[candidate] = true
+		if err := addSelectedNames(raw, available, target, selectedNameKind{
+			kind: "analyzer", action: action, hint: "run 'gohawk list' to see available analyzers",
+		}); err != nil {
+			return analyzerNameSelection{}, nil, err
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(requested.enabled)) {
@@ -264,11 +248,44 @@ func requestedAnalyzerGroups(arguments []string, groups []gohawk.AnalyzerGroup) 
 	return requested, remaining, nil
 }
 
+// selectedNameKind words the errors for one kind of comma-separated
+// selection list.
+type selectedNameKind struct {
+	kind   string
+	action string
+	hint   string
+}
+
+// addSelectedNames adds the comma-separated names in raw to target, rejecting
+// an empty, unknown, or repeated entry.
+func addSelectedNames(raw string, available, target map[string]bool, words selectedNameKind) error {
+	for candidate := range strings.SplitSeq(raw, ",") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			return fmt.Errorf("invalid empty %s in %q", words.kind, raw)
+		}
+		if !available[candidate] {
+			return fmt.Errorf("unknown %s %q (%s)", words.kind, candidate, words.hint)
+		}
+		if target[candidate] {
+			return fmt.Errorf("%s %q is %s more than once", words.kind, candidate, words.action)
+		}
+		target[candidate] = true
+	}
+	return nil
+}
+
 func enableAllRequested(arguments []string) bool {
+	return booleanFlagRequested(arguments, "enable-all")
+}
+
+// booleanFlagRequested reports whether a bare -name or an explicit -name=true
+// appears among arguments, stopping at the first occurrence.
+func booleanFlagRequested(arguments []string, flag string) bool {
 	for _, argument := range arguments[1:] {
 		value := strings.TrimLeft(argument, "-")
 		name, raw, hasValue := strings.Cut(value, "=")
-		if name != "enable-all" {
+		if name != flag {
 			continue
 		}
 		if !hasValue {

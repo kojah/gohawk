@@ -33,12 +33,8 @@ func suppliedValues(common *ssa.CallCommon, callee *ssa.Function, closure *ssa.M
 			}
 		}
 	}
-	if closure != nil {
-		for index, free := range callee.FreeVars {
-			if index < len(closure.Bindings) {
-				pairs = append(pairs, suppliedValue{local: free, supplied: closure.Bindings[index]})
-			}
-		}
+	for _, captured := range ssaflow.ClosureBindingPairs(callee, closure) {
+		pairs = append(pairs, suppliedValue{local: captured.Free, supplied: captured.Binding})
 	}
 	return pairs
 }

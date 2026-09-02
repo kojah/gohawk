@@ -13,7 +13,12 @@ type LibraryContract uint8
 
 const (
 	ContractTestingCleanup LibraryContract = iota + 1
-	ContractTestifyAssertion
+	// ContractTestifyErrorClaim is a testify assertion that the test fails
+	// unless its argument is a non-nil value: Error or NotNil in either package.
+	ContractTestifyErrorClaim
+	// ContractTestifyNilClaim is a testify assertion that the test fails
+	// unless its argument is nil.
+	ContractTestifyNilClaim
 	ContractTestifyNoError
 	ContractTestifyFatalError
 	ContractGoMockReturn
@@ -37,8 +42,10 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "testing", Receiver: "common", Name: "Cleanup"}),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "testing", Receiver: "TB", Name: "Cleanup"}),
 		)
-	case ContractTestifyAssertion:
-		return testifyAssertion(common, "Error") || testifyAssertion(common, "Nil") || testifyAssertion(common, "NotNil")
+	case ContractTestifyErrorClaim:
+		return testifyAssertion(common, "Error") || testifyAssertion(common, "NotNil")
+	case ContractTestifyNilClaim:
+		return testifyAssertion(common, "Nil")
 	case ContractTestifyNoError:
 		return CallMatchesSymbol(common, syntax.PackageFunction("github.com/stretchr/testify/assert", "NoError"))
 	case ContractTestifyFatalError:

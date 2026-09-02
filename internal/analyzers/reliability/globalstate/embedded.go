@@ -5,9 +5,6 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/check"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
-
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -67,16 +64,5 @@ func hasEmbedDirective(comments *ast.CommentGroup) bool {
 }
 
 func emitEmbeddedByteSliceReadOnly(pass *analysis.Pass, name *ast.Ident) {
-	checkID := string(check.MutableGlobalState)
-	if !analysisTrace.Enabled("globalstate", checkID) {
-		return
-	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
-		Analyzer: "globalstate",
-		Check:    checkID,
-		Phase:    "evidence",
-		Reason:   "embedded-byte-slice-read-only",
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      name.Pos(),
-	})
+	traceAcceptedGlobal(pass, name, "embedded-byte-slice-read-only")
 }
