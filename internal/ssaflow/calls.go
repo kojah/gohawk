@@ -2,6 +2,7 @@ package ssaflow
 
 import (
 	"errors"
+	"go/token"
 
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -115,6 +116,100 @@ func CallCallsMethodOnArgumentOnEveryReturn(instruction ssa.Instruction, method 
 	return callCallsMethodOnArgumentOnEveryReturn(instruction, method, target, map[*ssa.Function]bool{})
 }
 
+// DeferredHelperCallsMethodOnDerivedArgumentOnEveryReturn reports whether a
+// deferred, statically known helper receives a non-trivial access path
+// projected from target and calls method on that exact parameter on every
+// normal return path.
+func DeferredHelperCallsMethodOnDerivedArgumentOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Defer); !ok {
+		return false
+	}
+	common := InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) == 0 {
+		return false
+	}
+	for _, argument := range common.Args {
+		if !strictNonEmptyAccessPath(argument, target) {
+			continue
+		}
+		if callCallsMethodOnExactArgumentOnEveryReturn(instruction, method, argument) {
+			return true
+		}
+	}
+	return false
+}
+
+func strictNonEmptyAccessPath(value, root ssa.Value) bool {
+	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{})
+	return ok && depth > 0
+}
+
+func strictAccessPathDepth(value, root ssa.Value, seen map[ssa.Value]bool) (int, bool) {
+	if value == nil || root == nil || seen[value] {
+		return 0, false
+	}
+	if value == root {
+		return 0, true
+	}
+	seen[value] = true
+	if inner, ok := UnwrapTransparentValue(
+		value,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
+		return strictAccessPathDepth(inner, root, seen)
+	}
+	switch typed := value.(type) {
+	case *ssa.FieldAddr:
+		depth, ok := strictAccessPathDepth(typed.X, root, seen)
+		return depth + 1, ok
+	case *ssa.IndexAddr:
+		if _, ok := constantIndex(typed.Index); !ok {
+			return 0, false
+		}
+		depth, ok := strictAccessPathDepth(typed.X, root, seen)
+		return depth + 1, ok
+	case *ssa.UnOp:
+		if typed.Op == token.MUL {
+			if depth, ok := strictAccessPathDepth(typed.X, root, seen); ok {
+				return depth, true
+			}
+			if !storageAddressUnaliasedBeforeLoad(typed.X, typed) {
+				return 0, false
+			}
+			stored, ok := uniquelyStoredValueBefore(typed.X, typed)
+			if !ok {
+				return 0, false
+			}
+			return strictAccessPathDepth(stored, root, map[ssa.Value]bool{})
+		}
+	}
+	return 0, false
+}
+
+func storageAddressUnaliasedBeforeLoad(address ssa.Value, observation *ssa.UnOp) bool {
+	if address == nil || address.Referrers() == nil || observation == nil {
+		return false
+	}
+	for _, reference := range *address.Referrers() {
+		switch typed := reference.(type) {
+		case *ssa.DebugRef:
+			continue
+		case *ssa.Store:
+			if typed.Addr == address {
+				continue
+			}
+		case *ssa.UnOp:
+			if typed.Op == token.MUL && typed.X == address {
+				continue
+			}
+		}
+		if InstructionMayFollow(reference, observation) {
+			return false
+		}
+	}
+	return true
+}
+
 func callCallsMethodOnArgumentOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value, seen map[*ssa.Function]bool) bool {
 	common := InstructionCall(instruction)
 	if common == nil || common.StaticCallee() == nil || seen[common.StaticCallee()] {
@@ -134,6 +229,43 @@ func callCallsMethodOnArgumentOnEveryReturn(instruction ssa.Instruction, method 
 		return directCall || deferredCall ||
 			callCallsMethodOnArgumentOnEveryReturn(candidate, method, parameter, seen)
 	})
+}
+
+func callCallsMethodOnExactArgumentOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	common := InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) == 0 {
+		return false
+	}
+	callee := common.StaticCallee()
+	for index, argument := range common.Args {
+		if index >= len(callee.Params) || argument != target {
+			continue
+		}
+		parameter := callee.Params[index]
+		if !UnownedReturnFromEntryAssumingNonNil(callee, parameter, func(candidate ssa.Instruction) bool {
+			called := InstructionCall(candidate)
+			return called != nil && CallName(called) == method && exactCleanupReceiver(CallReceiver(called), parameter)
+		}) {
+			return true
+		}
+	}
+	return false
+}
+
+func exactCleanupReceiver(receiver, parameter ssa.Value) bool {
+	if receiver == nil || parameter == nil {
+		return false
+	}
+	if inner, ok := UnwrapTransparentValue(
+		receiver,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+	); ok {
+		return exactCleanupReceiver(inner, parameter)
+	}
+	// The derived caller projection is already mapped to this parameter. Only
+	// the parameter itself may discharge the obligation; phis, loads, aliases,
+	// and further projections remain opaque.
+	return receiver == parameter
 }
 
 func callOwnsArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value, owns func(ssa.Instruction, ssa.Value) bool) bool {

@@ -135,6 +135,11 @@ func releasesResource(
 		return true
 	}
 	for _, method := range methods {
+		// A deferred static helper may receive the cleanup-bearing projection of
+		// an acquired owner rather than the owner itself. Require an exact access
+		// path into the helper and cleanup on every normal helper return. Notifiarr
+		// drains and closes an HTTP response body with this shape:
+		// https://github.com/Notifiarr/notifiarr/blob/63b3c072a1b6df73f676f37b367d75f0299458fc/pkg/services/checks.go#L243-L278
 		// A deferred function literal may receive a field projected from the
 		// acquired owner and close that exact parameter on every return. Webtor
 		// uses this generated shape for response bodies:
@@ -143,7 +148,8 @@ func releasesResource(
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
-			Modes:       ssaflow.CompletionByDeferredArgument,
+			Modes: ssaflow.CompletionByDeferredArgument |
+				ssaflow.CompletionByDerivedDeferredHelperArgument,
 		}
 		if evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,

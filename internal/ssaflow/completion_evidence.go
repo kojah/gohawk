@@ -23,6 +23,7 @@ const (
 	CompletionByDeferredArgument
 	CompletionByDeferredCallback
 	CompletionInCalledClosureOnEveryReturn
+	CompletionByDerivedDeferredHelperArgument
 )
 
 // CompletionRequest describes lifecycle completion to prove for one or more
@@ -100,8 +101,8 @@ func proveMethodCompletion(request CompletionRequest, method string) CompletionP
 	if proof := proveBeforeBranchCompletion(request, method); proof.Proven() {
 		return proof
 	}
-	if request.Modes&CompletionByHelper != 0 && CallCallsMethodOnArgumentOnEveryReturn(request.Instruction, method, request.Target) {
-		return completionProof(EvidenceHelperCompletion, method)
+	if proof := proveHelperCompletion(request, method); proof.Proven() {
+		return proof
 	}
 	if request.Modes&CompletionInStartedClosure != 0 && StartedClosureCallsMethodOnEveryReturn(request.Instruction, method, request.Target) {
 		return completionProof(EvidenceStartedCompletion, method)
@@ -115,6 +116,17 @@ func proveMethodCompletion(request CompletionRequest, method string) CompletionP
 	}
 	if request.Modes&CompletionInClosure != 0 && ClosureCallsMethod(request.Instruction, method, request.Target) {
 		return completionProof(EvidenceClosureCompletion, method)
+	}
+	return CompletionProof{}
+}
+
+func proveHelperCompletion(request CompletionRequest, method string) CompletionProof {
+	if request.Modes&CompletionByHelper != 0 && CallCallsMethodOnArgumentOnEveryReturn(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceHelperCompletion, method)
+	}
+	if request.Modes&CompletionByDerivedDeferredHelperArgument != 0 &&
+		DeferredHelperCallsMethodOnDerivedArgumentOnEveryReturn(request.Instruction, method, request.Target) {
+		return completionProof(EvidenceDerivedDeferredHelperCompletion, method)
 	}
 	return CompletionProof{}
 }
@@ -138,7 +150,7 @@ func completionEvidenceUnavailable(request CompletionRequest) bool {
 	common, _, function := calledFunction(request.Instruction)
 	if request.Modes&(CompletionDeferred|CompletionInClosure|CompletionBeforeBranch|CompletionInStartedClosure|CompletionByStartedHelper|
 		CompletionInCalledClosureBeforeBranch|CompletionInCalledClosureOnEveryReturn|CompletionByDeferredHelperCallback|
-		CompletionByDeferredArgument) != 0 &&
+		CompletionByDeferredArgument|CompletionByDerivedDeferredHelperArgument) != 0 &&
 		(function == nil || len(function.Blocks) == 0) {
 		return true
 	}

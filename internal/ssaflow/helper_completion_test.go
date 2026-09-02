@@ -159,3 +159,113 @@ func returnedProjection(value *owner) {
 		})
 	}
 }
+
+func derivedDeferredHelperTestPackage(t *testing.T) *ssa.Package {
+	t.Helper()
+	return buildTestSSA(t, `
+package ssaflowtest
+
+type closer struct{}
+func (*closer) Close() {}
+
+type owner struct { body *closer }
+
+var escaped *closer
+var mutateOwner func(**owner)
+
+func cleanup(value *closer) { value.Close() }
+func cleanupSecond(other, value *closer) { other.Close() }
+func partialCleanup(value *closer, enabled bool) {
+	if enabled { value.Close() }
+}
+func reassignedCleanup(value, other *closer) {
+	value = other
+	value.Close()
+}
+func indirectlyReassignedCleanup(value, other *closer) {
+	slot := &value
+	*slot = other
+	(*slot).Close()
+}
+func phiCleanup(value, other *closer, choose bool) {
+	chosen := other
+	if choose { chosen = value }
+	chosen.Close()
+}
+func escape(value *closer) { escaped = value }
+
+func accepted(value *owner) { defer cleanup(value.body) }
+func addressableAccepted(value *owner) {
+	slot := &value
+	defer cleanup((*slot).body)
+}
+func capturedAfterObservation(value *owner) {
+	defer cleanup(value.body)
+	observe := func() { _ = value }
+	_ = observe
+}
+func sibling(value, other *owner) { defer cleanupSecond(other.body, value.body) }
+func partial(value *owner, enabled bool) { defer partialCleanup(value.body, enabled) }
+func reassigned(value, other *owner) { defer reassignedCleanup(value.body, other.body) }
+func indirectlyReassigned(value, other *owner) { defer indirectlyReassignedCleanup(value.body, other.body) }
+func phi(value, other *owner, choose bool) { defer phiCleanup(value.body, other.body, choose) }
+func selectedOwner(value, other *owner, choose bool) {
+	selected := other
+	if choose { selected = value }
+	defer cleanup(selected.body)
+}
+func addressableSelectedOwner(value, other *owner, choose bool) {
+	selected := other
+	slot := &selected
+	if choose { *slot = value }
+	defer cleanup((*slot).body)
+}
+func mutatedOwner(value *owner) {
+	mutateOwner(&value)
+	defer cleanup(value.body)
+}
+func escapedArgument(value *owner) { defer escape(value.body) }
+`)
+}
+
+func TestDerivedDeferredHelperArgumentCompletionBoundaries(t *testing.T) {
+	pkg := derivedDeferredHelperTestPackage(t)
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{name: "accepted", want: true},
+		{name: "addressableAccepted", want: true},
+		{name: "capturedAfterObservation", want: true},
+		{name: "sibling"},
+		{name: "partial"},
+		{name: "reassigned"},
+		{name: "indirectlyReassigned"},
+		{name: "phi"},
+		{name: "selectedOwner"},
+		{name: "addressableSelectedOwner"},
+		{name: "mutatedOwner"},
+		{name: "escapedArgument"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			function := pkg.Func(test.name)
+			instruction := findSSAInstruction(t, function, func(instruction ssa.Instruction) bool {
+				common := InstructionCall(instruction)
+				return common != nil && common.StaticCallee() != nil
+			})
+			proof := ProveCompletion(CompletionRequest{
+				Instruction: instruction,
+				Target:      function.Params[0],
+				Methods:     []string{"Close"},
+				Modes:       CompletionByDerivedDeferredHelperArgument,
+			})
+			if proof.Proven() != test.want {
+				t.Fatalf("ProveCompletion() = %#v, want proven %v", proof, test.want)
+			}
+			if test.want && proof.Reason != EvidenceDerivedDeferredHelperCompletion {
+				t.Fatalf("ProveCompletion() reason = %q, want %q", proof.Reason, EvidenceDerivedDeferredHelperCompletion)
+			}
+		})
+	}
+}
