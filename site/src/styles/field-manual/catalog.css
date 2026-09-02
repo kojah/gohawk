@@ -150,10 +150,11 @@
 	color: var(--sl-color-gray-2);
 }
 
-/* A check row is an identifier, a one-word kind, and prose. Give the first two
-   only what their content needs so the description keeps the rest. Below the
-   article breakpoint the fixed layout would crush the kind column, so the table
-   falls back to Starlight's scrollable default there. */
+/* A check row is an identifier, a one-word kind, a one-word tier, and prose.
+   Give the first three only what their content needs so the description keeps
+   the rest. Below the article breakpoint the fixed layout would crush the
+   narrow columns, so the table falls back to Starlight's scrollable default
+   there. */
 .sl-markdown-content h3#checks + table {
 	width: 100%;
 	font-size: var(--sl-text-sm);
@@ -170,15 +171,15 @@
 	}
 
 	.sl-markdown-content h3#checks + table :is(th, td):first-child {
-		width: 32%;
+		width: 28%;
 	}
 
 	.sl-markdown-content h3#checks + table :is(th, td):nth-child(2) {
-		width: 14%;
+		width: 12%;
 	}
 
 	.sl-markdown-content h3#checks + table :is(th, td):nth-child(3) {
-		width: 54%;
+		width: 16%;
 	}
 }
 
