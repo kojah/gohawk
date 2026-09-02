@@ -30,6 +30,33 @@ Prefer existing Makefile targets for repository-wide validation so local and
 CI workflows use the same commands. Run `make help` to discover available
 targets. Direct commands remain appropriate for focused testing and debugging.
 
+## Development skills and references
+
+Task procedures live as project-local skills under `.agents/skills/`, and the
+knowledge they depend on lives in `docs/`. Load the skill that matches the
+task rather than re-deriving the procedure:
+
+- `.agents/skills/gohawk-codebase/SKILL.md` — orientation, where new code
+  belongs, and whether a shared helper already exists.
+- `.agents/skills/gohawk-analyzer-change/SKILL.md` — changing an analyzer,
+  fixing a false positive or negative, responding to a failed precision label.
+- `.agents/skills/gohawk-precision-audit/SKILL.md` — running a precision
+  round, labelling findings, recording a batch audit.
+- `.agents/skills/gohawk-debugging/SKILL.md` — reading SSA dumps, fact dumps,
+  and evidence traces to explain a diagnostic.
+
+References: `docs/architecture.md` (layers and enforced invariants),
+`docs/development/shared-helpers.md` (every shared helper by the question it
+answers), `docs/development/fact-model.md`, and
+`docs/development/debugging-reference.md`. This file states policy; those
+files hold the procedures and inventories, so keep procedural detail there.
+
+## Shared working tree
+
+Several agent sessions commit from this checkout at once. Do not switch
+branches in it, run `git add -A`, or revert a file you did not change. Read
+`git status` before staging, and stage and commit only your own files.
+
 ## Code clarity
 
 Make the code instructive and easy to follow. Prefer simple, clear English,
@@ -196,35 +223,6 @@ The precision replay runs with every check enabled, so noise from an opt-in
 audit fails the gate like a default check. An audit whose labels keep failing
 should be retired rather than refined.
 
-### Lifecycle analyzers: classify, then ask the flow once
-
-Ownership and lifecycle checks should share one shape, as
-`cancellationownership`, `goroutineownership`, `resourcelifetime`, and
-`lockorder` do:
-
-1. An obligation finder resolves what the worker or callee promises (a
-   channel it signals, a group it settles, a cancel it must release) back to
-   the caller's exact SSA values.
-2. A classifier labels each instruction after the obligation as `join`,
-   `transfer`, `unknown`, or `none`. `unknown` is any consumption the
-   analysis cannot see through: an opaque call, a send, an `append`, a
-   callback handed to unmodeled code, or a helper that lets the value escape.
-3. One flow query decides the outcome: honored when exact actions cover every
-   return, unknown when only opaque actions do, violated otherwise.
-
-When a reviewed precision label fails, respond in this order and stop at the
-first step that holds: widen `unknown` at the classifier; accept the false
-negative and delete the fixture; add one structural predicate at an existing
-decision point with a fixture and a commit-pinned link. Do not add a new
-proof file, a loop-count argument, a name, or a framework guess. A fixture
-whose diagnostic becomes an accepted false negative must be deleted, with the
-gap recorded in the fixture file's header comment, rather than left as an
-accepted case.
-
-The precision replay runs with every check enabled, so noise from an opt-in
-audit fails the gate like a default check. An audit whose labels keep failing
-should be retired rather than refined.
-
 ## SSA traversal consistency
 
 Treat SSA wrapper, alias, closure, and return traversal as explicit analysis
@@ -237,18 +235,6 @@ policy.
 - Do not create a universal "unwrap everything" helper. Callers must select the
   exact transparent forms that are sound for their proof, and fixtures must
   cover a wrapper that remains intentionally opaque.
-- Do not hand-roll a recursive value walk with its own visited set. Fold over
-  reaching values with `ssaflow.ReachingWalk` (`Any`, `Every`, `EveryOf`, or
-  `ResolveReachingValue`), passing the analyzer's own transparent forms and
-  leaf predicate; the fold owns the visited set and the phi fan-out. Drive a
-  path-sensitive work list with `ssaflow.WalkStates`, keeping the state type,
-  the transfer, and the successor policy in the analyzer. Analyzer code must
-  not read `Phi.Edges` or declare a visited set keyed by SSA values; the
-  architecture tests reject both. Pair edges with their predecessor blocks
-  through `ssaflow.PhiIncoming`, and ask use-after questions with
-  `ssaflow.InstructionsReachableAfter`. `ssaflow.IdentitySource` peels a load
-  for identity resolution only; it is deliberately not a fold form, because
-  a loaded value is not the cell it came from.
 - Do not hand-roll a recursive value walk with its own visited set. Fold over
   reaching values with `ssaflow.ReachingWalk` (`Any`, `Every`, `EveryOf`, or
   `ResolveReachingValue`), passing the analyzer's own transparent forms and

@@ -99,6 +99,14 @@ export default defineConfig({
 					items: [{ slug: 'contributing' }, { slug: 'architecture' }, { slug: 'ai-policy' }],
 				},
 				{
+					label: 'Development',
+					items: [
+						{ slug: 'development/shared-helpers' },
+						{ slug: 'development/fact-model' },
+						{ slug: 'development/debugging-reference' },
+					],
+				},
+				{
 					label: 'Analyzer reference',
 					items: [{ slug: 'analyzers' }, ...analyzerSidebar],
 				},

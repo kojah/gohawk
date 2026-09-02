@@ -26,6 +26,15 @@ failed=0
 while IFS= read -r -d '' skill_file; do
   relative_file=${skill_file#"$root/"}
   skill_name=$(basename "$(dirname "$skill_file")")
+
+  # Project-local skills are authored in this repository and have no upstream
+  # to be current against. They opt out with `source: project` in their
+  # metadata; everything else must be a vault-managed skill with pinned source.
+  if [[ "$(metadata_value source "$skill_file")" == "project" ]]; then
+    echo "$skill_name is project-local; not a managed skill"
+    continue
+  fi
+
   source_repo=$(metadata_value github-repo "$skill_file")
   source_path=$(metadata_value github-path "$skill_file")
   installed_tree=$(metadata_value github-tree-sha "$skill_file")
