@@ -414,3 +414,36 @@ KiB (+3.9%). The periodic pinned Moby checkpoint changed from 7.106 to 7.426
 seconds (+4.5%) and from 10,631,592 to 10,649,680 KiB (+0.2%). Repeated runs
 showed comparable host variance in both directions; focused Caddy runs for the
 changed resource and lock analyzers were faster than the Batch 14 boundary.
+
+## Batch 16
+
+Ten repositories and fourteen maintained modules loaded and scanned fully.
+Final scans produced 1,883 diagnostics after two bounded corrections:
+
+- taking an exact identifier's address in an earlier operand establishes stable
+  storage identity, not a stale value snapshot. Mixed address and value
+  operands remain reportable; and
+- an exact Testify `assert.NoError` condition tied by SSA identity to the
+  acquisition error establishes that the true successor is the success path.
+
+The first correction removed 46 Open Next Router evaluation-order false
+positives while retaining a nearby Redis stale-value diagnostic. The second
+removed 22 Kong resource-lifetime false positives while retaining unrelated
+resource and goroutine findings. Precision round 20 passed with all three
+representative false positives absent and all three retained true positives
+present.
+
+Five Duckgres missing-release findings remain deferred. Three require symbolic
+reasoning about Boolean phi values, while two pass returned cleanup closures
+through a nested `sync.Once.Do` callback. Adding either multi-hop proof family
+for these isolated findings would make the default lock proof substantially
+more open-ended. A post-start process failure in the same repository remains a
+confirmed missing-wait diagnostic. Opt-in detached-goroutine and policy findings
+were sampled without expanding default correctness proofs.
+
+A constant-size performance check compared three warmed `-enable-all` runs on
+pinned Caddy at the Batch 15 boundary and after Batch 16. Median wall time
+changed from 3.789 to 3.254 seconds (-14.1%), while median peak RSS changed from
+4,955,976 to 4,930,464 KiB (-0.5%). The cumulative precision suite remains
+reserved for Batch 20; Batch 16 replayed only round 20 and affected
+repositories.

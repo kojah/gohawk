@@ -1,0 +1,7 @@
+repository,analyzer,position,verdict
+r9s-ai/open-next-router,evalorder,onr-core/pkg/apitypes/claude.go:4202:38,false_positive
+Kong/kong-operator,resourcelifetime,ingress-controller/test/helpers/http.go:173:16,false_positive
+Kong/kong-operator,resourcelifetime,test/envtest/multiinstance_manager_diagnostics_test.go:47:16,false_positive
+r9s-ai/open-next-router,evalorder,pkg/controlplane/redis.go:383:44,true_positive
+Kong/kong-operator,resourcelifetime,ingress-controller/test/util/controller_manager.go:164:17,true_positive
+Kong/kong-operator,goroutineownership,ingress-controller/internal/diagnostics/server_test.go:38:2,true_positive

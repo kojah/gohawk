@@ -108,3 +108,8 @@ Round 19 preserves the fifteenth reviewed batch. It covers exact cleanup
 exported through a deferred lifecycle callback and suppresses missing-unlock
 claims when a dominating earlier defer may release that exact lock. Nearby
 resource, process, loop-cleanup, and termination findings remain reportable.
+
+Round 20 preserves the sixteenth reviewed batch. It distinguishes stable
+address identity from stale value snapshots and recognizes exact Testify
+`assert.NoError` success guards. Nearby resource and goroutine findings remain
+reportable.

@@ -149,3 +149,13 @@
 15	qist/tvgate	bb4c889997c68cc607d9ab5bb34710d6baf94aa8	.	reviewed
 15	sjzsdu/tongstock	685dbc882e625a8c4f3e1feda443e286fa6bbd21	.	reviewed
 15	pulumi/pulumi-docker	ba521090d4d3f63cfa70de405f96752501076446	provider,sdk,examples	reviewed
+16	ClashKingInc/ClashKingAPI	cf7371e4a32b4a37afd7c80ff83c72ef29b425e4	.	reviewed
+16	goplus/spx	e11edaa584739d7e50ade362386f54f74d5e4082	.,cmd/ispx,internal/cmd/codegen	reviewed
+16	apache/doris-operator	a5f62c107d7a22e6f9ffbe6a0a6b2d7dafd30035	.	reviewed
+16	Kong/kong-operator	1adc910f31b5a6bf65d20dbf0698c85f3dbb87b1	.,crd-from-oas	reviewed
+16	getstackit/stackit	cbbd7de7486c16e54abd1b4a599a978a542a7b57	.	reviewed
+16	r9s-ai/open-next-router	84e1fd334386352c9c3943562ef085ea17592d8a	.,onr-core	reviewed
+16	PostHog/duckgres	366d201dbf949732dc1cd27fcab4c6f483367522	.	reviewed
+16	googleapis/librarian	2844b45d922565089b2760aafcd0df16e5d33f72	.	reviewed
+16	longhorn/longhorn-manager	1a7ca4b86bb58d5d6e7ac2ef499d949d86f9021b	.	reviewed
+16	promhippie/prometheus-hetzner-sd	a95c01bd96b1caa3629b05b0f51c59408fe9a8c0	.	reviewed
