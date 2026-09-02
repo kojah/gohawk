@@ -67,3 +67,9 @@ Round 12 preserves the eighth reviewed batch. It covers exact typed acquisition
 errors, legacy existing-file checks, deferred WaitGroup joins, channel-range
 lifecycles, and lock release through directly invoked callbacks. Nearby lock,
 resource, process, and goroutine findings remain reportable.
+
+Round 13 preserves the ninth reviewed batch. It covers delayed function-literal
+bodies during operand evaluation, cleanup deferred by exact static helpers,
+positive singleton-map guards, and close ownership through completely resolved
+bound-method callsites. Nearby resource, process, loop-cleanup,
+determinism, and goroutine findings remain reportable.

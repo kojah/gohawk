@@ -181,3 +181,30 @@ Cross-method worker-pool ownership, callback registries, returned server
 cleanup closures, and API- or protocol-dependent test goroutine completion
 remain deferred rather than receiving name-based exceptions. Precision round
 12 retains nearby lock, resource, producer, process, and goroutine findings.
+
+## Batch 9
+
+Ten repositories and twenty-one modules were selected. Twelve modules loaded
+fully. CEL's root and security modules, PeerDB's flow module, and OTel Desktop
+Viewer produced useful partial analysis because of upstream source, generated
+code, or native dependency constraints. Four CEL utility modules did not load,
+and Loop's tools module contained no buildable packages.
+
+Four general evidence boundaries were improved:
+
+- constructing a function literal does not execute mutations in its delayed
+  body, while directly invoked literals remain part of operand evaluation;
+- a static helper may own an exact resource by registering a deferred cleanup
+  callback on every normal return;
+- a map range directly inside an exact `len(map) == 1` branch has no observable
+  iteration-order choice; and
+- a finite set of exact bound methods may receive close ownership when every
+  function-value reference resolves and every outer caller relinquishes the
+  channel.
+
+Exported cross-package channel ownership and returned cleanup closures for
+opaque server lifecycles remain deferred because the available local evidence
+cannot prove all callers or termination. Orchard's map iteration remains
+reportable because it can return a key-dependent validation error before its
+later sort. Precision round 13 retains nearby resource, process,
+defer-in-loop, determinism, and goroutine findings.

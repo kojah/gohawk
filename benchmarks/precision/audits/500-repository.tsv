@@ -79,3 +79,13 @@
 8	prometheus/node_exporter	a4e08d1d9a152f67ef781469eade6b0bf431994d	.	reviewed
 8	charmbracelet/wishlist	3404a9e6f1d3e544a59e95302bfbe575bf1cf75e	.	reviewed
 8	getsops/sops	13442bb98183887d7a9ac09ec8ab0564673a59d8	.	reviewed
+9	buildkite/agent	e206ddf806af50a1ba8c9a6dd501dfda0b730818	.	reviewed
+9	editorconfig-checker/editorconfig-checker	d42bcb7af0ba6e633a662467d8137a2ce6244e83	.	reviewed
+9	cel-expr/cel-go	972ae198291af5cd21dadfd80def6d3f755201b1	.,codelab,conformance,ext/security,policy,repl,tools	reviewed
+9	pulumi/kubespy	abb05f49eff40bb661602c3627fb2d5bae073826	.	reviewed
+9	CtrlSpice/otel-desktop-viewer	dcde3a95fb4d6b19e0505aa23ad04aaf79a89772	.	reviewed
+9	openai/orchard	f0bdf3a1516965f178e5f5ed0bddd738b97ee1a1	.	reviewed
+9	blnkfinance/blnk	3356cb4c482c065e96624957a3f4be3ae9739c1a	.	reviewed
+9	stacklok/toolhive	d859bfe06e62443cf9767f864ba06d294faf24fd	.	reviewed
+9	lightninglabs/loop	13b89d577624afa75fcef8733e574288764ce1cd	.,looprpc,swapserverrpc,tools	reviewed
+9	PeerDB-io/peerdb	05bdad59ae3cb5eef8cc150aaf68cca7a1a32de0	e2e_cleanup,flow,flow/pkg	reviewed
