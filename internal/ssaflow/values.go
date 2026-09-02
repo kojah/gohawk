@@ -53,7 +53,9 @@ func transparentOperand(operand ssa.Value, forms, form TransparentValueForm) (ss
 	return operand, true
 }
 
-// ValueSources returns error-bearing SSA values contributing to value.
+// ValueSources returns error identities contributing to value. Non-error
+// observations may derive from their operands, but an error-producing call is
+// a new identity unless it is an exactly modeled wrapper.
 func ValueSources(value ssa.Value) map[ssa.Value]bool {
 	sources := map[ssa.Value]bool{}
 	collectValueSources(value, sources, map[ssa.Value]bool{})
@@ -67,9 +69,14 @@ func collectValueSources(value ssa.Value, sources, seen map[ssa.Value]bool) {
 	seen[value] = true
 	if syntax.IsErrorType(value.Type()) {
 		sources[value] = true
+		collectErrorIdentitySources(value, sources, seen)
+		return
 	}
 	switch typed := value.(type) {
 	case *ssa.Call:
+		if typed.Common().IsInvoke() {
+			collectValueSources(typed.Common().Value, sources, seen)
+		}
 		for _, argument := range typed.Common().Args {
 			collectValueSources(argument, sources, seen)
 		}

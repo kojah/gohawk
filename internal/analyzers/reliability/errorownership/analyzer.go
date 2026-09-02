@@ -34,15 +34,14 @@ func runErrorOwnership(pass *analysis.Pass) (any, error) {
 				if !ok || !loggingCall(call.Common()) {
 					continue
 				}
-				sharedSource, feasiblePath := loggedErrorReturnEvidence(call)
-				if !sharedSource {
+				proof := loggedErrorReturnEvidence(call)
+				if proof.reason == "" {
 					continue
 				}
-				if !feasiblePath {
-					traceLogReturnDecision(pass, call, "no-feasible-log-return-path", analysisTrace.OutcomeAccepted)
+				traceLogReturnDecision(pass, call, proof.reason, proof.outcome)
+				if !proof.report {
 					continue
 				}
-				traceLogReturnDecision(pass, call, "feasible-log-return-path", analysisTrace.OutcomeObserved)
 				check.Reportf(pass, check.ErrorLogAndReturn, call.Pos(), "error is logged and returned by same function")
 			}
 		}
@@ -65,29 +64,47 @@ func loggingCall(common *ssa.CallCommon) bool {
 	return false
 }
 
-func loggedErrorReturnEvidence(call *ssa.Call) (sharedSource, feasiblePath bool) {
+type logReturnProof struct {
+	report  bool
+	reason  string
+	outcome analysisTrace.Outcome
+}
+
+func loggedErrorReturnEvidence(call *ssa.Call) logReturnProof {
 	var logged []ssa.Value
 	for _, argument := range call.Common().Args {
 		if len(ssaflow.ValueSources(argument)) > 0 {
 			logged = append(logged, argument)
 		}
 	}
+	if len(logged) == 0 {
+		return logReturnProof{}
+	}
+	sharedSource := false
+	hasErrorReturn := false
 	for _, returned := range ssaflow.ReachableReturns(call) {
 		for _, result := range returned.Results {
 			if !syntax.IsErrorType(result.Type()) {
 				continue
 			}
+			hasErrorReturn = true
 			for _, argument := range logged {
 				if ssaflow.ValuesShareErrorSource(argument, result) {
 					sharedSource = true
 				}
 				if ssaflow.ValuesShareErrorSource(argument, reachingReturnValue(returned, result)) {
-					feasiblePath = true
+					return logReturnProof{report: true, reason: "feasible-log-return-path", outcome: analysisTrace.OutcomeObserved}
 				}
 			}
 		}
 	}
-	return sharedSource, feasiblePath
+	if sharedSource {
+		return logReturnProof{reason: "no-feasible-log-return-path", outcome: analysisTrace.OutcomeAccepted}
+	}
+	if hasErrorReturn {
+		return logReturnProof{reason: "independent-error-results", outcome: analysisTrace.OutcomeAccepted}
+	}
+	return logReturnProof{}
 }
 
 // Functions containing a defer use shared SSA return slots. Looking at every
