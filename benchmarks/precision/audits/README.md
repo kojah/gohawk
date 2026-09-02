@@ -652,3 +652,33 @@ through 24 in full, and all 170 false positives remained absent and all 214
 true positives remained present; ordinary batches from Batch 22 on replay only
 the new cohort and the rounds whose labels involve the analyzers the batch
 changed, with the cumulative suite reserved for Batch 25.
+
+## Batch 22
+
+Ten repositories and twenty modules were selected. Seventeen modules loaded
+and scanned fully. Sync Gateway's root module produced useful partial analysis
+because its pinned Rosmar dependency no longer type-checks against SQLite
+bindings; taskyou's `ty-qmd` extension needed uncommitted module updates; and
+the openperouter website and Sync Gateway tooling modules contained no Go
+packages. Final scans produced 1,784 unique diagnostics. No analyzer change
+met the batch's boundedness threshold, and no default false positive was
+found.
+
+The default correctness findings were confirmed on inspection. Openperouter's
+host controller closes a completion channel in its static reconciler worker
+and waits on it before starting the Kubernetes reconciler, but returns early
+without that wait when the API never becomes reachable, which is the first
+real unjoined-goroutine report since the classifier rebuild. GoModel's
+benchmark tool reads and never closes response bodies; jx-gitops passes freshly
+opened files to a helper that closes them only after a successful encode and
+sync, creates release-notes and temporary files it never closes, and leaves a
+test temporary file open; Ramen, openperouter, and gowaves leak gzip readers,
+temporary files, profile files, and block files on error paths; and a
+crossplane provider mutates a captured error from goroutines launched in a
+loop. Taskyou's seven unwaited `open` and daemon launches are deliberate
+fire-and-forget processes that the process-ownership policy still reports.
+
+Opt-in exit-policy, error-ownership, API-shape, and global-state findings were
+sampled without expanding default correctness policy. Batch 22 made no
+analyzer or runtime changes, so its binary is identical to the Batch 21
+boundary and no performance comparison was necessary.

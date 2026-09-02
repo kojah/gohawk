@@ -209,3 +209,13 @@
 21	pkimetal/pkimetal	40300d8043df7fd69abfa4e74c883023ca528f60	.	reviewed
 21	juanibiapina/gob	8cc2bf516d94fcff5dd881bb21df37c6438f7164	.	reviewed
 21	mattermost/mattermost-plugin-agents	ecbcace309de620d3bc27de2d4b8d09c6decb740	.,cmd/evalviewer,loadtest/controller	reviewed
+22	opentofu/registry	9872eb6e65cdaee2fb5f8eed6b3214e76a10398c	src	reviewed
+22	jenkins-x-plugins/jx-gitops	4bc2866a53475e7db14d3ff76487e4ab4858b7a6	.	reviewed
+22	ionos-cloud/crossplane-provider-ionoscloud	849f6afd0eb9cddd7571703d476492584958842e	.	reviewed
+22	RamenDR/ramen	6322aa8c9afc8b3f9be9dc528e33980e47dddb57	.,api,e2e,test/timestamp	reviewed
+22	openperouter/openperouter	c866030f4d4599f1fec5308ca71a239b5251db05	.,e2etests,website	reviewed
+22	aiven/aiven-operator	ef3b83763b5eebe3c4e88f9985fba83fa14c9c14	.	reviewed
+22	wavesplatform/gowaves	74f61b7bc17bc70d0399a9ab729f499a73e77e94	.	reviewed
+22	bborn/taskyou	e71e0eace0fce30668a0f72390f917eb2d7c2064	.,extensions/ty-email,extensions/ty-on,extensions/ty-qmd,extensions/ty-web	reviewed
+22	ENTERPILOT/GoModel	f731e01657dda88c43f52bc60f1c44e4200ddb6a	.	reviewed
+22	couchbase/sync_gateway	fe5f4e4d6d92c4e50661ba950765242221f52bc2	.,integration-test/tools	reviewed
