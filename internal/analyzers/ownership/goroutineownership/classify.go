@@ -77,6 +77,9 @@ func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) ownershipAc
 		if receivesFrom(instruction, analysis.isSignal) {
 			return actionJoin
 		}
+		if analysis.selectSends(instruction) {
+			return actionUnknown
+		}
 	case *ssa.Store:
 		return analysis.storeAction(typed)
 	case *ssa.Send:
@@ -253,15 +256,34 @@ func receivesFrom(instruction ssa.Instruction, matches func(ssa.Value) bool) boo
 	return false
 }
 
+// selectSends reports whether a select statement offers a tracked value on a
+// send case; like a plain send, the receiver may retain it.
+func (analysis *spawnAnalysis) selectSends(instruction ssa.Instruction) bool {
+	choice, ok := instruction.(*ssa.Select)
+	if !ok {
+		return false
+	}
+	return slices.ContainsFunc(choice.States, func(state *ssa.SelectState) bool {
+		return state.Dir == types.SendOnly && analysis.consumes(state.Send)
+	})
+}
+
 // isSignal matches a received channel against the tracked signals, including
-// an element or field selected from a signal aggregate.
+// an element or field selected from a signal aggregate. A receive from any
+// element of the slice a signal element was loaded from also counts: element
+// addresses are not distinguished by index, and the over-approximation can
+// only make a join unproven or accepted, never reported.
 func (analysis *spawnAnalysis) isSignal(value ssa.Value) bool {
 	if ssaflow.SameAsAny(value, analysis.signals) {
 		return true
 	}
 	root := aggregateRoot(value)
 	return root != value && slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
-		return !ssaflow.ChannelType(signal) && ssaflow.SameValue(root, signal)
+		if !ssaflow.ChannelType(signal) {
+			return ssaflow.SameValue(root, signal)
+		}
+		signalRoot := aggregateRoot(signal)
+		return signalRoot != signal && ssaflow.SameValue(root, signalRoot)
 	})
 }
 

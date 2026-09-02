@@ -246,3 +246,21 @@ func joinedOnlyInsideConditionalLoop(events []int) {
 		}
 	}
 }
+
+// Workers receive one channel each from a local slice and the caller drains
+// every element afterwards. Element loads are matched by their slice, so the
+// receive loop counts as an unproven counted join rather than a leak.
+func produceName(name string, out chan<- string) { out <- name }
+
+func joinedThroughSliceElementChannels(names []string) {
+	var results []chan string
+	for range names {
+		results = append(results, make(chan string))
+	}
+	for index, name := range names {
+		go produceName(name, results[index])
+	}
+	for _, result := range results {
+		<-result
+	}
+}

@@ -170,6 +170,7 @@ func releasesOrdinaryResource(
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
+			Coverage:    deferredReleaseCoverage(instruction),
 		}
 		if evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
@@ -190,6 +191,19 @@ func releasesOrdinaryResource(
 		}
 	}
 	return false
+}
+
+// deferredReleaseCoverage asks only whether a deferred callee may release the
+// resource. The transaction idiom defers a literal that rolls back unless a
+// committed flag was set, so the release is data-dependent and a leak cannot
+// be proven; a called or launched callee must still release on every return.
+// pad applies migrations this way:
+// https://github.com/PerpetualSoftware/pad/blob/ebd1886ada1eca1f0c5ed39f9dc3ad629d0a0cd7/internal/store/store.go#L862-L871
+func deferredReleaseCoverage(instruction ssa.Instruction) ssaflow.CompletionCoverage {
+	if _, ok := instruction.(*ssa.Defer); ok {
+		return ssaflow.CoverageAnywhere
+	}
+	return ssaflow.CoverageEveryReturn
 }
 
 // releaseMask selects the imported summaries that release the resource: the

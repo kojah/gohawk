@@ -224,8 +224,10 @@ func partiallyCloseResponseBody(body io.ReadCloser, enabled bool) {
 	}
 }
 
-func deferredStaticHelperPartiallyClosesBody(client *http.Client, request *http.Request, enabled bool) error {
-	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+// A deferred helper that closes on some path may release the body; the
+// analyzer does not claim a leak for a data-dependent deferred release.
+func deferredStaticHelperMayCloseBody(client *http.Client, request *http.Request, enabled bool) error {
+	response, err := client.Do(request)
 	if err != nil {
 		return err
 	}
@@ -342,8 +344,10 @@ func deferredParameterClosesDifferentParameter(client *http.Client, request *htt
 	return nil
 }
 
+// A deferred literal that may close the body leaves the release data-dependent;
+// the analyzer does not claim a leak.
 func deferredParameterConditionallyCloses(client *http.Client, request *http.Request, enabled bool) error {
-	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	response, err := client.Do(request)
 	if err != nil {
 		return err
 	}
@@ -387,8 +391,8 @@ func responseClosedByDeferredHelper(client *http.Client, request *http.Request) 
 	return nil
 }
 
-func conditionalDeferredHelperLeaksResponse(client *http.Client, request *http.Request, enabled bool) error {
-	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+func conditionalDeferredHelperMayCloseResponse(client *http.Client, request *http.Request, enabled bool) error {
+	response, err := client.Do(request)
 	if err != nil {
 		return err
 	}

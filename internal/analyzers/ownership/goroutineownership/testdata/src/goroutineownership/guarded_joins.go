@@ -176,3 +176,55 @@ func errorf(text string) error { return &textError{text} }
 type textError struct{ text string }
 
 func (e *textError) Error() string { return e.text }
+
+// A counter stepped beside each launch guards the join the same way a flag
+// does: the early return runs only when nothing was launched.
+func counterGuardedWaiter(paths []string, merged chan<- string) {
+	var group sync.WaitGroup
+	started := 0
+	for _, path := range paths {
+		started++
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			merged <- path
+		}()
+	}
+	if started == 0 {
+		return
+	}
+	go func() {
+		group.Wait()
+		close(merged)
+	}()
+}
+
+func counterGuardedReceiveLoop(work func() int) int {
+	pending := 0
+	first := make(chan int)
+	pending++
+	go func() { first <- work() }()
+	second := make(chan int)
+	pending++
+	go func() { second <- work() }()
+	total := 0
+	for i := 0; i < pending; i++ {
+		select {
+		case value := <-first:
+			total += value
+		case value := <-second:
+			total += value
+		}
+	}
+	return total
+}
+
+func unrelatedCounterDoesNotGuard(items []int) {
+	done := make(chan bool)
+	pending := len(items)
+	go func() { done <- true }() // want "goroutine is not joined on every return path"
+	if pending == 0 {
+		return
+	}
+	<-done
+}

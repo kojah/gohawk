@@ -172,6 +172,13 @@ func signalSuppliedAtCall(
 // an element is not the aggregate that owns it.
 func aggregateRoot(value ssa.Value) ssa.Value { //nolint:ireturn // Roots retain their concrete SSA forms.
 	for {
+		if inner, ok := ssaflow.UnwrapTransparentValue(
+			value,
+			ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+		); ok {
+			value = inner
+			continue
+		}
 		switch typed := value.(type) {
 		case *ssa.UnOp:
 			if typed.Op != token.MUL {

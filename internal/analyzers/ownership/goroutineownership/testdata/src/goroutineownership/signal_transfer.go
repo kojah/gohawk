@@ -155,3 +155,19 @@ func snapshotShardsIntoLocalChannels(shards []map[string]int) {
 	}
 	ready.Wait()
 }
+
+type pendingWork struct {
+	done chan struct{}
+}
+
+// A select that offers the pending work on a queue hands its completion to
+// the receiver exactly as a plain send does.
+func handedOffThroughSelectSend(queue chan<- *pendingWork, stop <-chan struct{}) {
+	work := &pendingWork{done: make(chan struct{})}
+	go func() { close(work.done) }()
+	select {
+	case queue <- work:
+	case <-stop:
+		<-work.done
+	}
+}

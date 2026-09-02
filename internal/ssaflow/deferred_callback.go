@@ -12,21 +12,22 @@ var syncOnceFunc = syntax.PackageFunction("sync", "OnceFunc")
 
 // Deferred bindings are observed when the deferred callee runs, after any
 // assignment that follows the defer. These helpers recover the one value an
-// addressable capture or stored callback can hold at that point, and refuse
-// captures with several stores or a store that does not dominate the defer.
+// addressable capture or stored callback holds at that point: the latest
+// store that dominates the observation, provided no store may run after it
+// and no store sits on a branch before it.
 
 //nolint:ireturn // SSA bindings have several concrete forms.
 func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction) (ssa.Value, bool) {
 	if valueHasDirectStore(binding) {
-		// Addressable captures must use the unique-store proof below. General
-		// identity traversal may otherwise match one historical value while the
-		// deferred callback observes a later reassignment.
-		return uniquelyStoredValueBefore(binding, invocation)
+		// Addressable captures must use the store proof below. General identity
+		// traversal may otherwise match one historical value while the deferred
+		// callback observes a later reassignment.
+		return storedValueAt(binding, invocation)
 	}
 	if SameValue(binding, target) || ValueIsAccessPathFrom(target, binding) {
 		return binding, true
 	}
-	stored, ok := uniquelyStoredValueBefore(binding, invocation)
+	stored, ok := storedValueAt(binding, invocation)
 	return stored, ok
 }
 
@@ -43,26 +44,42 @@ func valueHasDirectStore(value ssa.Value) bool {
 	return false
 }
 
+// storedValueAt returns the value address holds when observation runs. A
+// reassigned local such as `rows, err = query()` after an earlier query is
+// resolved to its latest dominating store; a store that may run after the
+// observation, or one on a branch before it, leaves the value ambiguous.
+// Sidecar re-queries into the same rows variable before deferring its Close:
+// https://github.com/marcus/sidecar/blob/9b8739f753ab235dda2630676833e9b46a52696c/internal/adapter/warp/adapter.go#L337-L341
+//
 //nolint:ireturn // Stored callbacks and captures may be any SSA value.
-func uniquelyStoredValueBefore(address ssa.Value, invocation ssa.Instruction) (ssa.Value, bool) {
+func storedValueAt(address ssa.Value, observation ssa.Instruction) (ssa.Value, bool) {
 	if address == nil || address.Referrers() == nil {
 		return nil, false
 	}
-	var selected *ssa.Store
+	var stores []*ssa.Store
 	for _, reference := range *address.Referrers() {
 		store, ok := reference.(*ssa.Store)
 		if !ok || store.Addr != address {
 			continue
 		}
-		if selected != nil || !InstructionDominates(store, invocation) {
+		if !InstructionDominates(store, observation) || InstructionMayFollow(observation, store) {
 			return nil, false
 		}
-		selected = store
+		stores = append(stores, store)
 	}
-	if selected == nil {
-		return nil, false
+	for _, candidate := range stores {
+		latest := true
+		for _, other := range stores {
+			if other != candidate && !InstructionDominates(other, candidate) {
+				latest = false
+				break
+			}
+		}
+		if latest {
+			return candidate.Val, true
+		}
 	}
-	return selected.Val, true
+	return nil, false
 }
 
 func cloneValueSet(source map[ssa.Value]bool) map[ssa.Value]bool {

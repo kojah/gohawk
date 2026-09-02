@@ -175,6 +175,9 @@ func (analysis *spawnAnalysis) flagGuardedJoin() bool {
 			if flag := booleanFlagVariable(branch.Cond); flag != nil && analysis.flagAssignedAroundSpawn(flag) {
 				return true
 			}
+			if counter := integerCounterVariable(branch); counter != nil && analysis.counterAssignedAroundSpawn(counter, map[ssa.Value]bool{}) {
+				return true
+			}
 		}
 	}
 	return false
@@ -259,12 +262,107 @@ func (analysis *spawnAnalysis) closureBlockJoins(block *ssa.BasicBlock, pairs []
 func (analysis *spawnAnalysis) branchGuardsJoin(branch *ssa.If) bool {
 	for _, successor := range branch.Block().Succs {
 		for _, instruction := range successor.Instrs {
-			if analysis.action(instruction) != actionNone {
+			if instruction != analysis.spawn && analysis.action(instruction) != actionNone {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// integerCounterVariable returns the integer local a comparison reads, such
+// as the pending count in `if pending == 0` or the loop bound in
+// `i < started`. A counter incremented beside the spawn correlates the guarded
+// join with the launch the same way a Boolean flag does. sidecar counts its
+// watchers and skips the launched waiter when none started:
+// https://github.com/marcus/sidecar/blob/9b8739f753ab235dda2630676833e9b46a52696c/internal/plugins/conversations/plugin_loading.go#L568-L602
+func integerCounterVariable(branch *ssa.If) ssa.Value { //nolint:ireturn // Counters are phis, loads, or arithmetic.
+	comparison, ok := branch.Cond.(*ssa.BinOp)
+	if !ok {
+		return nil
+	}
+	switch comparison.Op {
+	case token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ:
+	default:
+		return nil
+	}
+	for _, operand := range []ssa.Value{comparison.X, comparison.Y} {
+		// The loop's own induction variable is a phi in the branch's block; it
+		// counts iterations, not launches, so it never correlates with the spawn.
+		if phi, ok := operand.(*ssa.Phi); ok && phi.Block() == branch.Block() {
+			continue
+		}
+		if isIntegerLocal(operand) {
+			return operand
+		}
+	}
+	return nil
+}
+
+func isIntegerLocal(value ssa.Value) bool {
+	basic, ok := value.Type().Underlying().(*types.Basic)
+	if !ok || basic.Info()&types.IsInteger == 0 {
+		return false
+	}
+	switch typed := value.(type) {
+	case *ssa.Phi, *ssa.BinOp:
+		return true
+	case *ssa.UnOp:
+		_, addressable := typed.X.(*ssa.Alloc)
+		return typed.Op == token.MUL && addressable
+	}
+	return false
+}
+
+// counterAssignedAroundSpawn reports whether the counter is set or stepped by
+// a constant in a block that the spawn dominates, is dominated by, or shares.
+func (analysis *spawnAnalysis) counterAssignedAroundSpawn(counter ssa.Value, seen map[ssa.Value]bool) bool {
+	if seen[counter] {
+		return false
+	}
+	seen[counter] = true
+	switch typed := counter.(type) {
+	case *ssa.Phi:
+		for index, edge := range typed.Edges {
+			if index < len(typed.Block().Preds) && isConstantStep(edge) && analysis.blockAroundSpawn(typed.Block().Preds[index]) {
+				return true
+			}
+			if analysis.counterAssignedAroundSpawn(edge, seen) {
+				return true
+			}
+		}
+	case *ssa.BinOp:
+		if isConstantStep(typed) && analysis.blockAroundSpawn(typed.Block()) {
+			return true
+		}
+		return analysis.counterAssignedAroundSpawn(typed.X, seen) || analysis.counterAssignedAroundSpawn(typed.Y, seen)
+	case *ssa.UnOp:
+		if typed.X.Referrers() == nil {
+			return false
+		}
+		for _, reference := range *typed.X.Referrers() {
+			store, ok := reference.(*ssa.Store)
+			if ok && store.Addr == typed.X && isConstantStep(store.Val) && analysis.blockAroundSpawn(store.Block()) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// isConstantStep accepts an integer constant or an addition or subtraction of
+// one, the forms `count = 0` and `count++` lower to.
+func isConstantStep(value ssa.Value) bool {
+	if _, ok := value.(*ssa.Const); ok {
+		return true
+	}
+	step, ok := value.(*ssa.BinOp)
+	if !ok || step.Op != token.ADD && step.Op != token.SUB {
+		return false
+	}
+	_, left := step.X.(*ssa.Const)
+	_, right := step.Y.(*ssa.Const)
+	return left || right
 }
 
 // booleanFlagVariable returns the Boolean flag a branch condition reads,

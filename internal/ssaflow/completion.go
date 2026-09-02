@@ -188,11 +188,11 @@ func exactCallbacks(value ssa.Value, invocation ssa.Instruction, allowOnceFunc b
 			return exactCallbacks(common.Args[0], invocation, allowOnceFunc, seen)
 		}
 	case *ssa.UnOp:
-		if stored, ok := uniquelyStoredValueBefore(typed.X, invocation); ok {
+		if stored, ok := storedValueAt(typed.X, invocation); ok {
 			return exactCallbacks(stored, invocation, allowOnceFunc, seen)
 		}
 	case *ssa.Alloc:
-		if stored, ok := uniquelyStoredValueBefore(typed, invocation); ok {
+		if stored, ok := storedValueAt(typed, invocation); ok {
 			return exactCallbacks(stored, invocation, allowOnceFunc, seen)
 		}
 	case *ssa.Phi:

@@ -147,7 +147,7 @@ func strictAccessPathDepth(value, root ssa.Value, seen map[ssa.Value]bool) (int,
 			if !storageAddressUnaliasedBeforeLoad(typed.X, typed) {
 				return 0, false
 			}
-			stored, ok := uniquelyStoredValueBefore(typed.X, typed)
+			stored, ok := storedValueAt(typed.X, typed)
 			if !ok {
 				return 0, false
 			}

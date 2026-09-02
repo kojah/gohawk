@@ -196,6 +196,45 @@ func transactionDiscardedWithoutAssertion(ctx context.Context, database *sql.DB)
 	return err
 }
 
+// A deferred literal that rolls back unless a committed flag was set may
+// release the transaction, so no leak is proven.
+func transactionRolledBackUnlessCommitted(ctx context.Context, database *sql.DB) error {
+	transaction, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = transaction.Rollback()
+		}
+	}()
+	if _, err := transaction.ExecContext(ctx, "INSERT"); err != nil {
+		return err
+	}
+	if err := transaction.Commit(); err != nil {
+		return err
+	}
+	committed = true
+	return nil
+}
+
+// A rows variable re-queried after its first result was closed holds the
+// second result when the deferred Close runs.
+func rowsReassignedBeforeDeferredClose(ctx context.Context, database *sql.DB) error {
+	rows, err := database.QueryContext(ctx, "SELECT 1")
+	if err != nil {
+		return err
+	}
+	_ = rows.Close()
+	rows, err = database.QueryContext(ctx, "SELECT 2")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	return rows.Err()
+}
+
 // An imported helper summarized as rolling back its transaction parameter on
 // every return settles the Commit/Rollback pair through the RolledBack fact.
 func transactionFinishedByImportedHelper(ctx context.Context, database *sql.DB) error {
