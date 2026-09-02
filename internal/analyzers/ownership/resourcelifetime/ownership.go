@@ -58,6 +58,8 @@ func resourceSuccessBranch(pass *analysis.Pass, block, successor *ssa.BasicBlock
 	// arbitrary package variable as non-nil.
 	// https://github.com/heymaikol/network-doctor/blob/6d0df6eaba1de237077e0a1f8224fd8d5c3d083a/internal/simulation/evidence.go#L407-L415
 	// https://github.com/codefly-dev/cli/blob/5d176b95c8e3ad721bdeb0d6c4c3a64dd261caa6/pkg/executionattestor/file.go#L122-L130
+	// https://github.com/prometheus/node_exporter/blob/a4e08d1d9a152f67ef781469eade6b0bf431994d/collector/ethtool_linux_test.go#L62-L74
+	// https://github.com/pocketbase/pocketbase/blob/bc8ffed4e7265a70a6e8de76c0b0b48b945e19ef/tools/filesystem/internal/fileblob/fileblob.go#L428-L436
 	if proof, ok := resourceAbsentErrorCheck(branch.Cond, errorValue); ok && successor == block.Succs[0] {
 		traceAcquisitionErrorProof(pass, branch, proof)
 		return false, true
@@ -66,6 +68,9 @@ func resourceSuccessBranch(pass *analysis.Pass, block, successor *ssa.BasicBlock
 }
 
 func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
+	if errorTypeAssertionSucceeded(condition, errorValue) {
+		return "error-type-assertion-succeeded", true
+	}
 	if errorsIsNonNilFilesystemSentinel(condition, errorValue) {
 		return "errors-is-non-nil-filesystem-sentinel", true
 	}
@@ -74,14 +79,29 @@ func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
 		return "", false
 	}
 	common := call.Common()
-	// os.IsNotExist is the legacy equivalent of errors.Is(err,
-	// fs.ErrNotExist); on its true branch os.Open did not return an owned file.
+	// os.IsNotExist and os.IsExist are the legacy equivalents of errors.Is with
+	// the corresponding filesystem sentinel. Their true branches prove that
+	// the acquisition returned a non-nil error and no owned file.
 	// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/feedback/send.go#L124
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "IsNotExist")) && len(common.Args) == 1 &&
-		ssaflow.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
+	if len(common.Args) != 1 || !ssaflow.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
+		return "", false
+	}
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "IsNotExist")) {
 		return "os-is-not-exist", true
 	}
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "IsExist")) {
+		return "os-is-exist", true
+	}
 	return "", false
+}
+
+func errorTypeAssertionSucceeded(condition, errorValue ssa.Value) bool {
+	okResult, ok := condition.(*ssa.Extract)
+	if !ok || okResult.Index != 1 {
+		return false
+	}
+	assertion, ok := okResult.Tuple.(*ssa.TypeAssert)
+	return ok && assertion.CommaOk && ssaflow.ValueDerivesFrom(assertion.X, errorValue, map[ssa.Value]bool{})
 }
 
 func errorsIsNonNilFilesystemSentinel(condition, errorValue ssa.Value) bool {

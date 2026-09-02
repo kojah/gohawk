@@ -109,6 +109,41 @@ func closedFileAfterLegacyMissingPath(path string) error {
 	return file.Close()
 }
 
+func closedFileAfterTypedErrorCheck(path string) error {
+	file, err := os.Open(path)
+	if pathError, ok := err.(*os.PathError); ok && errors.Is(pathError.Err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return file.Close()
+}
+
+func leakedFileAfterTypedErrorCheck(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if _, ok := err.(*os.PathError); ok {
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	_ = file
+	return nil
+}
+
+func unrelatedTypedErrorDoesNotSettleFile(path string, other error) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if _, ok := other.(*os.PathError); ok {
+		return other
+	}
+	if err != nil {
+		return err
+	}
+	_ = file
+	return nil
+}
+
 func closedFileAfterExistingPath(path string) error {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if errors.Is(err, fs.ErrExist) {
@@ -118,6 +153,31 @@ func closedFileAfterExistingPath(path string) error {
 		return err
 	}
 	return file.Close()
+}
+
+func transferredFileAfterLegacyExistingPath(path string) (*os.File, error) {
+	for attempts := 0; ; attempts++ {
+		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if os.IsExist(err) {
+			if attempts < 2 {
+				continue
+			}
+			return nil, err
+		}
+		return file, err
+	}
+}
+
+func leakedFileAfterLegacyExistingPath(path string) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // want "owned resource from os.OpenFile is not released on every return path"
+	if os.IsExist(err) {
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	_ = file
+	return nil
 }
 
 func leakedFileAfterExistingPath(path string) error {
