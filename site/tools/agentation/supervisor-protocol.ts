@@ -25,8 +25,24 @@ export function parseAgentName(value: unknown): AgentName | undefined {
 	return value === 'codex' || value === 'claude' ? value : undefined;
 }
 
+// parseThreadIds reads the per-agent thread map, migrating a legacy single
+// threadId (which only ever came from Codex, the previous sole agent) into the
+// codex slot so a switch to Claude starts a fresh session instead of failing.
+export function parseThreadIds(value: Record<string, unknown>): Partial<Record<AgentName, string>> {
+	const threadIds: Partial<Record<AgentName, string>> = {};
+	if (isRecord(value.threadIds)) {
+		if (typeof value.threadIds.codex === 'string') threadIds.codex = value.threadIds.codex;
+		if (typeof value.threadIds.claude === 'string') threadIds.claude = value.threadIds.claude;
+	} else if (typeof value.threadId === 'string') {
+		threadIds.codex = value.threadId;
+	}
+	return threadIds;
+}
+
 export type PersistedState = {
-	threadId?: string;
+	// Thread ids are per agent: a Codex thread id is not a valid Claude session
+	// and vice versa, so resuming across a switch would fail.
+	threadIds?: Partial<Record<AgentName, string>>;
 	agent?: AgentName;
 	queue: ReviewJob[];
 	completedRevisions: string[];
@@ -147,7 +163,7 @@ export function selectNewRevisions(
 export function parsePersistedState(value: unknown): PersistedState | null {
 	if (!isRecord(value) || !Array.isArray(value.queue)) return null;
 	return {
-		threadId: typeof value.threadId === 'string' ? value.threadId : undefined,
+		threadIds: parseThreadIds(value),
 		agent: parseAgentName(value.agent),
 		queue: value.queue as ReviewJob[],
 		completedRevisions: Array.isArray(value.completedRevisions)

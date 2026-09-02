@@ -220,21 +220,22 @@ class ReviewSupervisor {
 
 		const resultFile = resolve(RUNTIME_DIRECTORY, `result-${job.id}.json`);
 		const agent = this.resolveAgent();
+		const threadId = this.state.threadIds?.[agent];
 		const command =
 			agent === 'claude'
 				? buildClaudeCommand({
-						threadId: this.state.threadId,
+						threadId,
 						prompt: buildPrompt(job, resultFile),
 					})
 				: buildCodexCommand({
-						threadId: this.state.threadId,
+						threadId,
 						prompt: buildPrompt(job),
 						projectDirectory: PROJECT_DIRECTORY,
 						resultSchemaFile: RESULT_SCHEMA_FILE,
 						resultFile,
 					});
 		await log(
-			`starting ${this.state.threadId ? `thread ${this.state.threadId}` : 'new thread'} for job ${job.id}`,
+			`starting ${threadId ? `${agent} thread ${threadId}` : `new ${agent} thread`} for job ${job.id}`,
 		);
 
 		const exitCode = await new Promise<number>((resolveExit) => {
@@ -251,9 +252,9 @@ class ReviewSupervisor {
 				const lines = stdoutBuffer.split('\n');
 				stdoutBuffer = lines.pop() ?? '';
 				for (const line of lines) {
-					const threadId = parseThreadId(line);
-					if (threadId && threadId !== this.state.threadId) {
-						this.state.threadId = threadId;
+					const parsed = parseThreadId(line);
+					if (parsed && parsed !== this.state.threadIds?.[agent]) {
+						this.state.threadIds = { ...this.state.threadIds, [agent]: parsed };
 						void writeState(this.state);
 					}
 				}

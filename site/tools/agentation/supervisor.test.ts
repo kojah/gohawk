@@ -74,16 +74,22 @@ test('rejects revisions that are already queued or completed', () => {
 });
 
 test('preserves completed revisions across state reloads and migrates legacy state', () => {
+	// A legacy single threadId came only from Codex; it migrates to that slot.
 	assert.deepEqual(parsePersistedState({ threadId: 'thread-1', queue: [] }), {
-		threadId: 'thread-1',
+		threadIds: { codex: 'thread-1' },
 		agent: undefined,
 		queue: [],
 		completedRevisions: [],
 	});
 	assert.deepEqual(
-		parsePersistedState({ agent: 'claude', queue: [], completedRevisions: ['revision-1', 42] }),
+		parsePersistedState({
+			agent: 'claude',
+			threadIds: { codex: 'c-1', claude: 'cl-1' },
+			queue: [],
+			completedRevisions: ['revision-1', 42],
+		}),
 		{
-			threadId: undefined,
+			threadIds: { codex: 'c-1', claude: 'cl-1' },
 			agent: 'claude',
 			queue: [],
 			completedRevisions: ['revision-1'],
