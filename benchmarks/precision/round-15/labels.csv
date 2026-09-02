@@ -1,0 +1,11 @@
+repository,analyzer,position,verdict
+circa10a/dead-mans-switch,globalstate,internal/server/server.go:42:5,false_positive
+circa10a/dead-mans-switch,globalstate,internal/server/server.go:45:5,false_positive
+circa10a/dead-mans-switch,globalstate,cmd/switch.go:21:2,true_positive
+circa10a/dead-mans-switch,closedomain,cmd/root.go:67:2,true_positive
+grafana/pyroscope,inlineerror,pkg/metastore/fsm/boltdb.go:236:28,false_positive
+grafana/pyroscope,resourcelifetime,pkg/embedded/grafana/assets.go:95:15,true_positive
+grafana/pyroscope,resourcelifetime,pkg/phlaredb/block/metadata.go:310:12,true_positive
+esnet/gdg,errorownership,internal/adapter/grafana/api/alerting_contactpoints.go:88:4,false_positive
+esnet/gdg,errorownership,cli/backup/team.go:178:5,true_positive
+esnet/gdg,determinism,pkg/encode/encode.go:40:2,true_positive

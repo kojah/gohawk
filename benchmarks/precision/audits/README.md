@@ -229,3 +229,39 @@ resource replacement, parameter-sensitive process termination, and temporal
 idempotent-cleanup state remain deferred because sound proofs require broader
 alias, cross-method, or state-transition evidence. Precision round 14 retains
 nearby lock, resource, determinism, and concurrent-capture findings.
+
+## Batch 11
+
+Ten repositories and twenty-seven modules were selected. Twenty-one modules
+loaded and scanned fully, five produced useful partial analysis, and gdg's
+tools module contained no Go packages. Collector was partial under
+`CGO_ENABLED=0` because native PostgreSQL parser APIs were unavailable. Four
+Pyroscope example modules were partial because two source files declared
+`main`; eight OSV testdata modules loaded fully and produced no findings.
+
+Three general evidence boundaries were improved:
+
+- unexported compiler-initialized `//go:embed []byte` data may reuse the
+  package-wide read-only collection proof, including exact
+  `net/http.ResponseWriter.Write` consumption;
+- an inline cleanup error returned only when an exact prior error is nil
+  preserves deliberate prior-error precedence; and
+- independent error-producing calls no longer share identity merely because
+  they consume the same ordinary payload, while exact `%w` wrapping and
+  error-derived observations retain provenance.
+
+The gdg correction removed the reviewed contact-points false positive and
+surfaced a separate true positive where `DeleteTeam` logs `err.Error()` and
+returns that exact error. Order-insensitive DSN sinks, immutable-after-build
+templates, uniqueness-guarded map selection, mutually exclusive prefix
+predicates, receiver-managed cancellation and channel lifecycles, returned
+goroutine owners, and opaque externally observed joins remain deferred until
+they have compact structural proofs. Precision round 15 retains nearby
+global-state, closed-domain, resource, error-ownership, and determinism
+findings.
+
+A constant-size performance check compared three warmed `-enable-all` runs on
+pinned Caddy before and after the code changes. Median wall time changed from
+3.445 to 3.425 seconds (-0.6%), while median peak RSS changed from 4,963,904 to
+5,255,104 KiB (+5.9%). This fixed cohort is used per batch; the complete
+benchmark remains a periodic and release gate.

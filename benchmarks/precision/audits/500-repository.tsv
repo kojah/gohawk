@@ -99,3 +99,13 @@
 10	thomaspoignant/go-feature-flag	d58d734452140d02c31684be4c3a239491ce2b96	.,.github/ci-scripts/bump-wasm-contrib,cmd/wasm,examples/lint_flag_programmatically,modules/core,openfeature/provider_tests/go-integration-tests,website/.ci	reviewed
 10	google/pprof	ca85771921e4d23ebb56030bf1e488f215f26d36	.,browsertests	reviewed
 10	shenwei356/seqkit	6adc2d921a7d35214f121655373df5ac95746d2d	.	reviewed
+11	arduino/arduinoOTA	e3fb536b64b48cac05214df2570e149185268f9c	.	reviewed
+11	promhippie/github_exporter	05f49bbe11ad4eb86ea82e6d2dd7a09be1e17d87	.	reviewed
+11	circa10a/dead-mans-switch	9be8307d6709f559ff97004dedfbb6e7ea22f350	.	reviewed
+11	bluesky-social/beyond	75836ac6239891d5a3af6612a19b250c0cd58e05	.	reviewed
+11	pganalyze/collector	8e3d7499622dd2b059f0b8b395766e0266ff145f	.	reviewed
+11	esnet/gdg	9476ad07b076f8cbda713342b7c34854ec4e5d4c	.,tools	reviewed
+11	home-operations/tuppr	aa712dbdcab3ff5d2cfbb3513bd74ec09ea511ff	.	reviewed
+11	github/github-mcp-server	12d16ed05310876a1e6988701b109da63d69dd49	.	reviewed
+11	google/osv-scanner	6f4bfa3254da08adb35c6ff7f806801b3f0e4dc4	.,cmd/osv-scanner/mcp/testdata/go-project,cmd/osv-scanner/scan/image/testdata/package-tracing-fixture,cmd/osv-scanner/scan/source/testdata/call-analysis-go-project-all-uncalled,cmd/osv-scanner/scan/source/testdata/call-analysis-go-project,cmd/osv-scanner/scan/source/testdata/go-project,cmd/osv-scanner/scan/source/testdata/go-project/nested,internal/scalibrenricher/govulncheck/source/testdata,internal/sourceanalysis/testdata/go-integration/test-project	reviewed
+11	grafana/pyroscope	d1212251265e7dab4b03ef0d80af565f6d519e1b	.,api,examples/golang-pgo,examples/language-sdk-instrumentation/golang-push/rideshare-alloy,examples/language-sdk-instrumentation/golang-push/rideshare-k6,examples/language-sdk-instrumentation/golang-push/rideshare,examples/language-sdk-instrumentation/golang-push/simple,examples/tracing/golang-push,lidia	reviewed

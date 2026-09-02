@@ -19,6 +19,11 @@ checks.
 New diagnostics are intentionally reported by normal dogfooding review rather
 than guessed to be regressions: only a human can label a new finding.
 
+During the 500-repository audit, replay only the new cohort and any directly
+affected analyzer controls for ordinary batches. Run the complete cumulative
+suite after every fifth batch and at release or CI gates. This keeps routine
+audit work incremental while still providing regular integration checkpoints.
+
 Round 4 contains the 20 false positives fixed from a 15-repository traced
 audit plus all 23 reviewed true positives. The full audit, including the
 remaining labeled noise families, lives in the companion lead-generation
@@ -78,3 +83,9 @@ Round 14 preserves the tenth reviewed batch. It covers lock acquisition and
 release guarded by the same stable Boolean parameter, plus resource cleanup by
 a deferred static helper receiving an exact field projection. Nearby lock,
 resource, determinism, and concurrent-capture findings remain reportable.
+
+Round 15 preserves the eleventh reviewed batch. It covers read-only embedded
+byte data, deliberate prior-error precedence, and independent error-producing
+calls that consume the same ordinary payload. Nearby global-state,
+closed-domain, resource, error-ownership, and determinism findings remain
+reportable.
