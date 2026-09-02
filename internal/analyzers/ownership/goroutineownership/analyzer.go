@@ -68,6 +68,7 @@ const (
 	ownershipReasonLifecycleWait           goroutineOwnershipReason = "lifecycle-wait"
 	ownershipReasonTestingCleanupLifecycle goroutineOwnershipReason = "testing-cleanup-lifecycle"
 	ownershipReasonTestingCleanupJoin      goroutineOwnershipReason = "testing-cleanup-join"
+	ownershipReasonDeferredWaitGroupJoin   goroutineOwnershipReason = "deferred-waitgroup-join"
 	ownershipReasonCausalTestJoin          goroutineOwnershipReason = "causal-test-join"
 	ownershipReasonLifecycleOwner          goroutineOwnershipReason = "lifecycle-owner"
 	ownershipReasonOwnershipTransfer       goroutineOwnershipReason = "ownership-transfer"
@@ -231,6 +232,10 @@ func (analysis goroutineAnalysis) immediateProof() goroutineOwnershipProof {
 	}
 	if synctestOwnsGoroutine(analysis.function) {
 		return goroutineOwnershipProof{proven: true, reason: ownershipReasonSynctestBubbleOwner}
+	}
+	if deferred := dominatingDeferredWaitGroupJoin(analysis.function, analysis.spawn, analysis.groups); deferred != nil {
+		analysis.emitEvidence(deferred, ownershipReasonDeferredWaitGroupJoin)
+		return goroutineOwnershipProof{proven: true, reason: ownershipReasonDeferredWaitGroupJoin}
 	}
 	// Matching bounds prove that every launched worker has a corresponding
 	// receive without assuming unrelated loops happen to have equal counts.

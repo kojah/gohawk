@@ -13,6 +13,12 @@ var waitGroupDone = syntax.PackageMethod(syntax.MethodSymbol{
 	Name:        "Done",
 })
 
+var waitGroupWait = syntax.PackageMethod(syntax.MethodSymbol{
+	PackagePath: "sync",
+	Receiver:    "WaitGroup",
+	Name:        "Wait",
+})
+
 // WaitGroup completion evidence distinguishes a goroutine's settlement from
 // an earlier progress signal. A direct Done must be terminal on every normal
 // path; a deferred Done must be registered on every normal path.
@@ -38,6 +44,31 @@ func waitGroupCompletionValues(
 		}
 	}
 	return groups, unsettled
+}
+
+func dominatingDeferredWaitGroupJoin(function *ssa.Function, spawn *ssa.Go, groups []ssa.Value) ssa.Instruction {
+	if function == nil || spawn == nil || len(groups) == 0 {
+		return nil
+	}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			deferred, ok := instruction.(*ssa.Defer)
+			if !ok || !ssaflow.InstructionDominates(deferred, spawn) {
+				continue
+			}
+			common := deferred.Common()
+			if !ssaflow.CallMatchesSymbol(common, waitGroupWait) ||
+				!ssaflow.SameAsAny(ssaflow.CallReceiver(common), groups) {
+				continue
+			}
+			// A defer registered before every path to the spawn runs after all
+			// subsequently registered workers have called Done. This is the shape
+			// used by Zap's pool race test:
+			// https://github.com/uber-go/zap/blob/bb1a55dd13257cf7cbd06b4146674c67ca614dea/internal/pool/pool_test.go#L85-L105
+			return deferred
+		}
+	}
+	return nil
 }
 
 type waitGroupDoneCall struct {

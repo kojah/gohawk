@@ -86,6 +86,24 @@ func joinedBySignal() {
 	<-done
 }
 
+type channelLifecycleConfig struct {
+	updates <-chan int
+}
+
+func channelRangeOwnsLifecycle(config *channelLifecycleConfig) {
+	go func() {
+		for range config.updates {
+		}
+	}()
+}
+
+func nonChannelRangeDoesNotOwnLifecycle(items []int) {
+	go func() { // want "goroutine is not joined on every return path"
+		for range items {
+		}
+	}()
+}
+
 func joinedByWaitGroup() {
 	var group sync.WaitGroup
 	group.Add(1)
@@ -93,6 +111,35 @@ func joinedByWaitGroup() {
 		defer group.Done()
 	}()
 	group.Wait()
+}
+
+func joinedByDominatingDeferredWaitGroup() {
+	var group sync.WaitGroup
+	defer group.Wait()
+	group.Add(1)
+	go func() {
+		defer group.Done()
+	}()
+}
+
+func differentDeferredWaitGroupDoesNotJoin() {
+	var group, other sync.WaitGroup
+	defer other.Wait()
+	group.Add(1)
+	go func() { // want "goroutine is not joined on every return path"
+		defer group.Done()
+	}()
+}
+
+func conditionalDeferredWaitGroupDoesNotJoin(wait bool) {
+	var group sync.WaitGroup
+	if wait {
+		defer group.Wait()
+	}
+	group.Add(1)
+	go func() { // want "goroutine is not joined on every return path"
+		defer group.Done()
+	}()
 }
 
 func waitGroupWork() {}
