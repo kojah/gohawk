@@ -99,6 +99,52 @@ func wrongDeferredCallback(skip bool) {
 	regressionFirst.Unlock()
 }
 
+func deferredGuardEstablishedAfterLock(skip bool) {
+	locked := false
+	defer func() {
+		if locked {
+			regressionFirst.Unlock()
+		}
+	}()
+	regressionFirst.Lock()
+	locked = true
+	if skip {
+		return
+	}
+}
+
+func earlierDeferUnlocksDifferentLock(skip bool) {
+	locked := false
+	defer func() {
+		if locked {
+			regressionSecond.Unlock()
+		}
+	}()
+	regressionFirst.Lock()
+	locked = true
+	if skip {
+		return // want "lock regressionFirst is not released on this return path"
+	}
+	regressionFirst.Unlock()
+}
+
+func conditionallyRegisteredEarlierDefer(install, skip bool) {
+	locked := false
+	if install {
+		defer func() {
+			if locked {
+				regressionFirst.Unlock()
+			}
+		}()
+	}
+	regressionFirst.Lock()
+	locked = true
+	if skip {
+		return // want "lock regressionFirst is not released on this return path"
+	}
+	regressionFirst.Unlock()
+}
+
 func deferredUnlockInLoop(lock *sync.Mutex, values []int) {
 	for range values {
 		lock.Lock() // want "lock lockorder.deferredUnlockInLoop.lock is acquired while already held"

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"resourcedep"
 )
 
 func leakedResponse(client *http.Client, request *http.Request) error {
@@ -21,6 +22,24 @@ func closedResponse(client *http.Client, request *http.Request) error {
 		return err
 	}
 	defer response.Body.Close()
+	return nil
+}
+
+func responseClosedByImportedDeferredCallback(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	resourcedep.CloseResponse(response)
+	return nil
+}
+
+func responseConditionallyClosedByImportedDeferredCallback(client *http.Client, request *http.Request, enabled bool) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	resourcedep.MaybeCloseResponse(response, enabled)
 	return nil
 }
 

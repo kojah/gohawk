@@ -15,11 +15,13 @@ import (
 
 type lockFlowContext struct {
 	pass        *analysis.Pass
+	evidence    *ssaflow.LocalEvidence
 	relations   map[lockRelation]token.Pos
 	lockValues  map[string][]ssa.Value
 	acquiredAt  map[string]token.Pos
 	released    map[string]bool
 	callerOwned map[string]bool
+	defers      []ssa.Instruction
 }
 
 func walkLockOrder(
@@ -38,13 +40,16 @@ func walkLockOrder(
 	lockValues := map[string][]ssa.Value{}
 	unreleasedReturns := map[string][]token.Pos{}
 	callerOwned := callerOwnedLocks(function)
+	functionDefers := deferredInstructions(function)
 	flow := lockFlowContext{
 		pass:        pass,
+		evidence:    evidence,
 		relations:   relations,
 		lockValues:  lockValues,
 		acquiredAt:  acquiredAt,
 		released:    released,
 		callerOwned: callerOwned,
+		defers:      functionDefers,
 	}
 	for len(queue) > 0 {
 		state := queue[0]
@@ -121,6 +126,48 @@ func recordUnreleasedLocks(
 			unreleased[identity] = appendUniquePosition(unreleased[identity], returned.Pos())
 		}
 	}
+}
+
+func deferredInstructions(function *ssa.Function) []ssa.Instruction {
+	var result []ssa.Instruction
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if _, ok := instruction.(*ssa.Defer); ok {
+				result = append(result, instruction)
+			}
+		}
+	}
+	return result
+}
+
+func possiblyDeferredUnlock(
+	evidence *ssaflow.LocalEvidence,
+	acquisition ssa.Instruction,
+	functionDefers []ssa.Instruction,
+	values []ssa.Value,
+) bool {
+	for _, deferred := range functionDefers {
+		if !ssaflow.InstructionDominates(deferred, acquisition) {
+			continue
+		}
+		for _, value := range values {
+			proof := evidence.Completion(ssaflow.CompletionRequest{
+				Instruction: deferred,
+				Target:      value,
+				Methods:     []string{"Unlock", "RUnlock"},
+				Modes:       ssaflow.CompletionDeferred | ssaflow.CompletionByDeferredCallback,
+			})
+			if proof.Proven() {
+				// A defer registered before acquisition can conditionally release the
+				// exact lock using state established after Lock. Without proving the
+				// deferred guard false, a missing-release defect is uncertain. Telekom's
+				// artifact store uses this rollback shape:
+				// https://github.com/telekom/k8s-breakglass/blob/9b078a5e78c5663cfdf8b7711ff24fc2a6aaee59/pkg/artifacts/storage/local/local.go#L265-L329
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func transferCalledUnlocks(
@@ -261,6 +308,10 @@ func (flow lockFlowContext) applyMutexAction(
 	}
 	if flow.acquiredAt[identity] == token.NoPos {
 		flow.acquiredAt[identity] = instruction.Pos()
+	}
+	if possiblyDeferredUnlock(flow.evidence, instruction, flow.defers, flow.lockValues[identity]) {
+		flow.released[identity] = true
+		state.deferred = appendUniqueString(state.deferred, identity)
 	}
 	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.relations)
 	return state

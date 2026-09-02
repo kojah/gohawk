@@ -106,6 +106,14 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 					ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), parameter, map[ssa.Value]bool{}) {
 					return true
 				}
+				// Export the same exact deferred-callback evidence accepted by local
+				// lifecycle proofs. Qist's response helper defers a literal that closes
+				// the Body projected from its response parameter on every return:
+				// https://github.com/qist/tvgate/blob/bb4c889997c68cc607d9ab5bb34710d6baf94aa8/stream/handle.go#L31-L36
+				if _, deferred := instruction.(*ssa.Defer); deferred &&
+					ssaflow.DeferredCallbackCallsMethod(instruction, method, parameter) {
+					return true
+				}
 				imported, ok := importFact(pass, instruction)
 				return ok && factOwnsArgument(instruction, parameter, imported.MethodMask(method))
 			}) {

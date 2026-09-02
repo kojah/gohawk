@@ -74,6 +74,47 @@ func caller(value *closer) { helper(value) }
 	}
 }
 
+func TestLifecycleSummaryDeferredCallbackBoundaries(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type closer struct{}
+func (*closer) Close() {}
+
+type owner struct { body *closer }
+
+func Exported(value *owner) {
+	defer func() { value.body.Close() }()
+}
+
+func Conditional(value *owner, enabled bool) {
+	defer func() {
+		if enabled {
+			value.body.Close()
+		}
+	}()
+}
+
+func Sibling(value, other *owner) {
+	defer func() { other.body.Close() }()
+}
+`)
+	for _, test := range []struct {
+		name string
+		want bool
+	}{
+		{name: "Exported", want: true},
+		{name: "Conditional"},
+		{name: "Sibling"},
+	} {
+		function := pkg.Func(test.name)
+		fact := summarize(&analysis.Pass{}, function)
+		if got := fact.Closed.contains(0); got != test.want {
+			t.Errorf("%s Closed parameter = %t, want %t", test.name, got, test.want)
+		}
+	}
+}
+
 func buildLifecycleTestSSA(t *testing.T, source string) *ssa.Package {
 	t.Helper()
 	files := token.NewFileSet()
