@@ -1,28 +1,99 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	"slices"
 
-// ClosureCallsMethod reports whether a call-like closure calls method on target.
-// It maps both captured free variables and explicit closure parameters back to
-// the values supplied by the enclosing function.
-func ClosureCallsMethod(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	"golang.org/x/tools/go/ssa"
+)
+
+// Completion evidence proves that a callee invokes a lifecycle method on the
+// caller's target. Every variant is the same search over the callee's body:
+// a receiver mapping decides which callee-local receiver stands for the
+// caller's target, and a coverage kind decides how much of the callee's
+// control flow the call must dominate. Modes differ only in those two choices
+// plus the launch form (deferred, called, or started) they accept.
+
+// CompletionCoverage selects how much of a callee's control flow a lifecycle
+// call must cover before it counts as completion.
+type CompletionCoverage uint8
+
+const (
+	// CoverageAnywhere accepts a call on any path; a deferred callee already
+	// runs on every return of its parent, so this settles a deferred closure.
+	CoverageAnywhere CompletionCoverage = iota
+	// CoverageBeforeBranch accepts a call on the unconditional path from the
+	// callee's entry block.
+	CoverageBeforeBranch
+	// CoverageEveryReturn accepts a call that precedes every normal return; a
+	// callee that never returns or never calls proves nothing.
+	CoverageEveryReturn
+)
+
+// MethodCallCoverage reports whether calls holds over function's normal paths
+// with the requested coverage. nonNil, when set, restricts every-return
+// analysis to paths feasible when that value is non-nil at entry.
+func MethodCallCoverage(function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, nonNil ssa.Value) bool {
+	if function == nil || len(function.Blocks) == 0 {
+		return false
+	}
+	switch coverage {
+	case CoverageBeforeBranch:
+		visited := map[*ssa.BasicBlock]bool{}
+		for block := function.Blocks[0]; block != nil && !visited[block]; {
+			visited[block] = true
+			if slices.ContainsFunc(block.Instrs, calls) {
+				return true
+			}
+			if len(block.Succs) != 1 {
+				return false
+			}
+			block = block.Succs[0]
+		}
+		return false
+	case CoverageEveryReturn:
+		hasReturn, hasCall := false, false
+		for _, block := range function.Blocks {
+			for _, candidate := range block.Instrs {
+				if _, ok := candidate.(*ssa.Return); ok {
+					hasReturn = true
+				}
+				hasCall = hasCall || calls(candidate)
+			}
+		}
+		return hasReturn && hasCall && !unownedReturnFromEntry(function, calls, nil, nonNil)
+	case CoverageAnywhere:
+	}
+	return slices.ContainsFunc(function.Blocks, func(block *ssa.BasicBlock) bool {
+		return slices.ContainsFunc(block.Instrs, calls)
+	})
+}
+
+// mappedCompletion is the shared search for a call-like instruction whose
+// callee's receivers are mapped back to target through closure bindings and
+// call arguments. Path-sensitive coverage also accepts a nested deferred
+// closure on the same mapping, because that defer runs when the callee
+// returns; anywhere coverage does not, since a conditionally registered defer
+// would otherwise settle a started worker on a path that never registers it.
+func mappedCompletion(instruction ssa.Instruction, method string, target ssa.Value, coverage CompletionCoverage) bool {
 	common, closure, function := calledFunction(instruction)
 	if function == nil {
 		return false
 	}
-	for _, block := range function.Blocks {
-		for _, candidate := range block.Instrs {
-			called := InstructionCall(candidate)
-			if CallName(called) != method {
-				continue
-			}
-			receiver := CallReceiver(called)
-			if calledReceiverMatches(common, closure, function, receiver, target) {
-				return true
-			}
+	calls := func(candidate ssa.Instruction) bool {
+		called := InstructionCall(candidate)
+		if CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target) {
+			return true
 		}
+		return coverage != CoverageAnywhere && closureDefersMethodOnMappedTarget(candidate, method, common, closure, function, target)
 	}
-	return false
+	return MethodCallCoverage(function, calls, coverage, nil)
+}
+
+// ClosureCallsMethod reports whether a call-like closure calls method on target
+// on any path. It maps both captured free variables and explicit closure
+// parameters back to the values supplied by the enclosing function.
+func ClosureCallsMethod(instruction ssa.Instruction, method string, target ssa.Value) bool {
+	return mappedCompletion(instruction, method, target, CoverageAnywhere)
 }
 
 // DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn reports whether a
@@ -33,10 +104,10 @@ func DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn(instruction ssa.In
 		return false
 	}
 	common, _, function := calledFunction(instruction)
-	if common == nil || function == nil || function.Parent() == nil || len(function.Blocks) == 0 {
+	if common == nil || function == nil || function.Parent() == nil {
 		return false
 	}
-	callsCleanup := func(candidate ssa.Instruction) bool {
+	calls := func(candidate ssa.Instruction) bool {
 		called := InstructionCall(candidate)
 		if CallName(called) != method {
 			return false
@@ -50,18 +121,7 @@ func DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn(instruction ssa.In
 		}
 		return false
 	}
-	hasReturn, hasCleanup := false, false
-	for _, block := range function.Blocks {
-		for _, candidate := range block.Instrs {
-			if _, ok := candidate.(*ssa.Return); ok {
-				hasReturn = true
-			}
-			if callsCleanup(candidate) {
-				hasCleanup = true
-			}
-		}
-	}
-	return hasReturn && hasCleanup && !UnownedReturnFromEntry(function, callsCleanup)
+	return MethodCallCoverage(function, calls, CoverageEveryReturn, nil)
 }
 
 // StartedClosureCallsMethodOnEveryReturn reports whether a launched closure
@@ -70,43 +130,13 @@ func StartedClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method 
 	if _, ok := instruction.(*ssa.Go); !ok {
 		return false
 	}
-	common, closure, function := calledFunction(instruction)
-	if function == nil || len(function.Blocks) == 0 {
-		return false
-	}
-	return mappedClosureCallsMethodOnEveryReturn(common, closure, function, method, target)
+	return mappedCompletion(instruction, method, target, CoverageEveryReturn)
 }
 
 // CalledClosureCallsMethodOnEveryReturn reports whether an immediately
 // invoked function literal calls method on target before every normal return.
 func CalledClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
 	return CalledCallbackCallsMethodOnEveryReturn(instruction, method, target)
-}
-
-func mappedClosureCallsMethodOnEveryReturn(
-	common *ssa.CallCommon,
-	closure *ssa.MakeClosure,
-	function *ssa.Function,
-	method string,
-	target ssa.Value,
-) bool {
-	hasReturn, hasCleanup := false, false
-	callsCleanup := func(candidate ssa.Instruction) bool {
-		called := InstructionCall(candidate)
-		return CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target) ||
-			closureDefersMethodOnMappedTarget(candidate, method, common, closure, function, target)
-	}
-	for _, block := range function.Blocks {
-		for _, candidate := range block.Instrs {
-			if _, ok := candidate.(*ssa.Return); ok {
-				hasReturn = true
-			}
-			if callsCleanup(candidate) {
-				hasCleanup = true
-			}
-		}
-	}
-	return hasReturn && hasCleanup && !UnownedReturnFromEntry(function, callsCleanup)
 }
 
 // CallStartsClosureCallingMethodOnArgument reports whether a source-visible
@@ -175,28 +205,7 @@ func callStartsClosureCallingMethodOnArgument(instruction ssa.Instruction, metho
 // ClosureCallsMethodBeforeBranch reports whether a called function invokes
 // method on target along an unconditional path from its entry block.
 func ClosureCallsMethodBeforeBranch(instruction ssa.Instruction, method string, target ssa.Value) bool {
-	common, closure, function := calledFunction(instruction)
-	if function == nil || len(function.Blocks) == 0 {
-		return false
-	}
-	visited := map[*ssa.BasicBlock]bool{}
-	for block := function.Blocks[0]; block != nil && !visited[block]; {
-		visited[block] = true
-		for _, candidate := range block.Instrs {
-			called := InstructionCall(candidate)
-			if CallName(called) == method && calledReceiverMatches(common, closure, function, CallReceiver(called), target) {
-				return true
-			}
-			if closureDefersMethodOnMappedTarget(candidate, method, common, closure, function, target) {
-				return true
-			}
-		}
-		if len(block.Succs) != 1 {
-			return false
-		}
-		block = block.Succs[0]
-	}
-	return false
+	return mappedCompletion(instruction, method, target, CoverageBeforeBranch)
 }
 
 // CalledClosureCallsMethodBeforeBranch reports whether an immediately invoked

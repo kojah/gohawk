@@ -93,7 +93,7 @@ func closureCallsMethodOnEveryReturn(
 	seen map[ssa.Value]bool,
 ) bool {
 	function, _ := closure.Fn.(*ssa.Function)
-	if function == nil || len(function.Blocks) == 0 {
+	if function == nil {
 		return false
 	}
 	callsMethod := func(instruction ssa.Instruction) bool {
@@ -118,18 +118,7 @@ func closureCallsMethodOnEveryReturn(
 		}
 		return false
 	}
-	hasReturn, hasCall := false, false
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if _, ok := instruction.(*ssa.Return); ok {
-				hasReturn = true
-			}
-			if callsMethod(instruction) {
-				hasCall = true
-			}
-		}
-	}
-	return hasReturn && hasCall && !UnownedReturnFromEntry(function, callsMethod)
+	return MethodCallCoverage(function, callsMethod, CoverageEveryReturn, nil)
 }
 
 func deferredReceiverMatches(

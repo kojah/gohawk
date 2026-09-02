@@ -242,10 +242,11 @@ func callCallsMethodOnExactArgumentOnEveryReturn(instruction ssa.Instruction, me
 			continue
 		}
 		parameter := callee.Params[index]
-		if !UnownedReturnFromEntryAssumingNonNil(callee, parameter, func(candidate ssa.Instruction) bool {
+		calls := func(candidate ssa.Instruction) bool {
 			called := InstructionCall(candidate)
 			return called != nil && CallName(called) == method && exactCleanupReceiver(CallReceiver(called), parameter)
-		}) {
+		}
+		if MethodCallCoverage(callee, calls, CoverageEveryReturn, parameter) {
 			return true
 		}
 	}
@@ -282,9 +283,10 @@ func callOwnsArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value
 			continue
 		}
 		parameter := callee.Params[index]
-		if !UnownedReturnFromEntryAssumingNonNil(callee, parameter, func(candidate ssa.Instruction) bool {
+		calls := func(candidate ssa.Instruction) bool {
 			return owns(candidate, parameter)
-		}) {
+		}
+		if MethodCallCoverage(callee, calls, CoverageEveryReturn, parameter) {
 			return true
 		}
 	}
