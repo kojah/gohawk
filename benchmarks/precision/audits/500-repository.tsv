@@ -359,3 +359,13 @@
 36	temporalio/cli	a46e993d17e89bd81e5e8eb8fd331edf4c9bc15d	.,cliext	reviewed
 36	kubernetes-sigs/lws	cf7c42e01fc6b96a8b75313ff9b88fb20bf95470	.,site,hack/tools/yaml-processor,docs/examples/llamacpp/tools/blobserver,docs/examples/llamacpp/tools/clichat,docs/examples/llamacpp/tools/llamacpp-leader	reviewed
 36	Kong/deck	316fee5e6523b4170b0c5be32ccbcef3aca0ecbd	.	reviewed
+37	junkerderprovinz/bombvault	074b1f0ff986898b454e10c17d29214acfafc971	.	reviewed
+37	langchain-ai/langsmith-cli	40b596e4de21902bc947f64332255942bc247add	.	reviewed
+37	Altinity/clickhouse-backup	629ac4cce88f8daf3a2aa08daa83edfbfe887bb1	.	reviewed
+37	DataDog/orchestrion	184393214bc6b4103bad88feda410e2c424d4303	.,_docs,_tools,instrument,samples	reviewed
+37	dannybouwers/trala	380ef0faeebfb5f33776a0776d3d5124a47b13fc	.	reviewed
+37	vshulcz/deja-vu	af3cc20cfc02925ad068e6bffa5905b332e0e83a	.	reviewed
+37	unxed/f4	04421977d92f1b7925a7c8ac3da35826f0e2137b	.,internal/hideconsole,tools/conptyreconcile,tools/icons,tools/wine_syscall_probe,tools/icons/third_party/oksvg	reviewed
+37	goern/forgejo-mcp	cc8f8a5400e9fdb98c0da0de74ddd3d92f1800f7	.	reviewed
+37	jurkovic-nikola/OpenLinkHub	602226c7fc40d9ebcd09f124efdd73d8c7ccef03	.	reviewed
+37	etcd-io/etcd-operator	c1014f6c293b5005b4ef380748a436182de3ebb7	.,tools/mod	reviewed

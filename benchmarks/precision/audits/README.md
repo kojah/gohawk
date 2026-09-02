@@ -1165,3 +1165,22 @@ A gateway root directory handle stored into the returned backend remains
 reportable pending field-level ownership of that struct. Opt-in
 global-state, API-shape, and detached-goroutine findings were sampled without
 expanding default policy.
+
+## Batch 37
+
+Ten repositories and twenty modules were selected. Seventeen modules loaded
+and scanned fully; OpenLinkHub produced useful partial analysis around a
+dependency that excludes the host platform, and two directories hold no
+buildable package.
+Final scans produced 908 unique diagnostics and needed no correction.
+Precision round 39 pins eight true positives: two returns that hold a named
+or package lock, a directory handle and a destination file leaked on read
+and copy errors, a gzip reader never closed, a file opened only to test
+existence, a temporary update file leaked when its source fails to open, and
+a null device never closed.
+
+A destination file closed through a hand-written once wrapper deferred by
+its returned closure, and log files assigned to a daemon's output before it
+starts, remain reportable. Nine fire-and-forget launchers remain policy
+reports. Opt-in global-state, API-shape, and detached-goroutine findings were
+sampled without expanding default policy.

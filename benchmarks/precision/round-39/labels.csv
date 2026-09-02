@@ -1,0 +1,9 @@
+repository,analyzer,position,verdict
+Altinity/clickhouse-backup,lockorder,pkg/backup/download.go:1769:5,true_positive
+Altinity/clickhouse-backup,lockorder,pkg/filesystemhelper/filesystemhelper.go:41:4,true_positive
+Altinity/clickhouse-backup,resourcelifetime,pkg/backup/list.go:404:18,true_positive
+Altinity/clickhouse-backup,resourcelifetime,pkg/storage/general.go:551:21,true_positive
+Altinity/clickhouse-backup,resourcelifetime,pkg/storage/manifest.go:274:13,true_positive
+DataDog/orchestrion,resourcelifetime,internal/report/report.go:213:15,true_positive
+langchain-ai/langsmith-cli,resourcelifetime,internal/cmd/update.go:418:14,true_positive
+unxed/f4,resourcelifetime,cmd/f4/detach_unix.go:27:13,true_positive

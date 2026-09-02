@@ -214,3 +214,10 @@ correction. It pins a discarded webhook response, a response whose shared
 checker returns before closing the body when its read fails, a ticker whose
 channel is taken without keeping the ticker, a discarded timeout cancel, and
 a return that decodes into a value after copying it as reportable.
+
+Round 39 preserves the thirty-fifth reviewed batch, which needed no
+correction. It pins two returns that hold a named or package lock, a
+directory handle and a destination file leaked on read and copy errors, a
+gzip reader never closed, a file opened only to test existence, a temporary
+update file leaked when its source fails to open, and a null device never
+closed as reportable.
