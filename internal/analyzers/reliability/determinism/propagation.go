@@ -28,6 +28,7 @@ func evaluateMapRange(
 ) mapRangeDecision {
 	variables := rangeObjects(pass, ranged)
 	singleton := singletonMapGuard(pass, block.List[:index], ranged, guardedMap)
+	injectiveLookup := injectiveMapValueLookup(pass, block, index, ranged)
 	// Tie the range variables to an ordered return or sink before reporting.
 	// Independent file creation, table-driven subtests, set construction, and
 	// commutative reductions do not expose iteration order merely because the
@@ -35,6 +36,9 @@ func evaluateMapRange(
 	// site fixture is a representative independent-per-key loop:
 	// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/cmd/docsite/verify_test.go#L12-L28
 	if directRangeOutput(pass, function, ranged.Body, variables) {
+		if injectiveLookup.reason != "" {
+			return mapRangeDecision{reason: injectiveLookup.reason}
+		}
 		if singleton.proven {
 			return mapRangeDecision{reason: singleton.reason}
 		}
@@ -42,6 +46,9 @@ func evaluateMapRange(
 	}
 	for accumulator := range orderedRangeAccumulators(pass, ranged.Body, variables) {
 		if accumulatorObservedWithoutSort(pass, block.List[index+1:], accumulator) {
+			if injectiveLookup.reason != "" {
+				return mapRangeDecision{reason: injectiveLookup.reason}
+			}
 			if singleton.proven {
 				return mapRangeDecision{reason: singleton.reason}
 			}
