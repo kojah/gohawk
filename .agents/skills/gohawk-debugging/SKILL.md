@@ -57,4 +57,4 @@ apply the failure ladder.
 
 `gohawk facts` shows only functions that were summarized. A function with no
 fact is `unknown` to consumers, not disproven; do not read absence as "does
-nothing". See [inferred facts](../../../docs/development/fact-model.md).
+nothing". See [Inferred facts](../../../docs/development/fact-model.md).

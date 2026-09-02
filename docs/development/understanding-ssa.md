@@ -50,20 +50,21 @@ function exits". Each of those is a question about a specific value along
 every path, and SSA is the form in which such questions have exact answers.
 
 - **Identity is structural.** Because each value has one definition, asking
-  whether two expressions denote the same file is a question about
-  instructions, not names. `SameValue` and the transparent-form helpers
-  answer it by following conversions, phis, and local load/store pairs, and
-  nothing else, so an alias the analysis cannot see through is simply a
-  different value rather than a guess.
+  whether two expressions mean the same file is a question about instructions,
+  not names. `SameValue` and the transparent-form helpers answer it by
+  following conversions, phis, and local load/store pairs, and nothing else,
+  so an alias the analysis cannot see through is just a different value rather
+  than a guess.
 - **Every path is explicit.** Blocks and edges are the control-flow graph, so
-  "on every return path" is a walk over successors from the acquisition to
-  each `return`. Feasibility comes from the same graph: an `if` on `err !=
-  nil` has one successor where the error is nil and one where it is not, and
-  the flow follows only the branch the evidence admits.
-- **Merges are honest.** A phi says outright that a value has several
-  origins. A proof that needs every origin to satisfy a property, such as a
-  context that must be detached on every edge, checks each edge; a proof that
-  needs only one uses the fold's any-edge form. Nothing has to reason about
+  "on every return path" is just a walk over successors from where the value
+  is acquired to each `return`. Whether a branch can actually run comes from
+  the same graph: an `if` on `err != nil` has one successor where the error is
+  nil and one where it is not, and the flow follows only the branch the
+  evidence allows.
+- **Merges are honest.** A phi says plainly that a value came from more than
+  one place. A proof that needs every origin to hold some property — a context
+  that must be detached on every edge, say — checks each edge; a proof that
+  needs only one uses the any-edge form of the walk. Nothing has to work out
   which assignment "won".
 - **Cells separate the holder from the held.** A loaded value is what the
   cell contained at that load, not the cell. That distinction is why

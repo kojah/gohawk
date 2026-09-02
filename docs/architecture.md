@@ -60,23 +60,23 @@ in the repository) lists the tools themselves.
 
 ## How a lifecycle analyzer is shaped
 
-Ownership and lifecycle analyzers share one proof shape, and it reverses the
-usual burden of evidence: the analyzer must prove that something was promised
-before it may complain that nothing honors the promise.
+Ownership and lifecycle analyzers all share one shape, and it flips the usual
+burden of proof: before the analyzer may complain that nothing cleans a value
+up, it first has to show that something promised to.
 
-1. An **obligation finder** resolves what a worker or callee promises — a
-   channel it signals, a group it settles, a cancel it must release — back to
-   exact SSA values in the caller.
-2. A **classifier** labels every later instruction once as `join`,
-   `transfer`, `unknown`, or `none`. `unknown` is any consumption the analysis
-   cannot see through, and it suppresses the diagnostic rather than acting as
-   a weaker join.
-3. **One flow query** decides the outcome: honored when exact actions cover
-   every return, unknown when only opaque actions do, violated otherwise.
+1. An **obligation finder** works out what a worker or callee promises — a
+   channel it signals, a group it settles, a cancel it must release — and ties
+   that back to exact values in the caller.
+2. A **classifier** labels each later instruction once as `join`, `transfer`,
+   `unknown`, or `none`. `unknown` is anything the analysis cannot see
+   through; it hides the diagnostic rather than counting as a weaker join.
+3. A single **flow query** decides the outcome: honored when exact actions
+   cover every return, unknown when only opaque ones do, and violated
+   otherwise.
 
-A default diagnostic therefore needs positive evidence of both an obligation
-and its violation. New patterns are almost always classifier rules; the flow
-query does not change.
+So a default diagnostic needs real evidence of both a promise and a broken
+one. New patterns are almost always new classifier rules; the flow query
+itself does not change.
 
 ## Shared engine
 
@@ -89,7 +89,7 @@ query does not change.
   callee does to its parameters, so an analyzer can see through a call into
   another package. Consumers use `LifecycleEvidence`, which consults local
   evidence first and imported facts second. See
-  [inferred facts](../development/fact-model/).
+  [Inferred facts](../development/fact-model/).
 - `internal/check` and `internal/trace` provide reporting and evidence
   tracing. Every diagnostic flows through `check.Report`, which is what lets
   the tracer record whether a candidate was reported, suppressed, or removed.

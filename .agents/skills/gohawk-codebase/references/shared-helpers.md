@@ -107,7 +107,7 @@ identity from package paths and raw names.
 Consumers go through `LifecycleEvidence`. Raw `analysis.Pass.ImportObjectFact`
 and `analysis.Pass.ExportObjectFact` calls belong only in the package that
 defines the fact type; `TestObjectFactsStayInTheirDefiningPackage` enforces it. See
-[inferred facts](../../../../docs/development/fact-model.md) for what a fact can express.
+[Inferred facts](../../../../docs/development/fact-model.md) for what a fact can express.
 
 ## Adding a helper
 

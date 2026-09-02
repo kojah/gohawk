@@ -31,7 +31,7 @@ Prints the exported lifecycle summaries for the given packages, decoded per
 parameter. Only summarized functions appear: a function that is missing has
 no fact and is `unknown` to every consumer, which is different from a
 function whose fact shows a clear bit. See
-[inferred facts](../fact-model/).
+[Inferred facts](../fact-model/).
 
 ## Evidence trace
 
