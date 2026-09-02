@@ -76,6 +76,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				}
 				result := evaluateResourceLifetime(pass, evidence, call, resource, contract, completeTimers[call.Pos()])
 				emitResourceDecision(pass, function, call, resource, contract, result)
+				reportUsesAfterRelease(pass, function, call, resource, contract)
 				if result.report {
 					check.Reportf(
 						pass,

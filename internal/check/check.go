@@ -28,6 +28,7 @@ const (
 	ProducerLifecycleSend    ID = "producerlifecycle/abandoned-send"
 	ProcessWait              ID = "processownership/missing-wait"
 	ResourceRelease          ID = "resourcelifetime/missing-release"
+	ResourceUseAfterRelease  ID = "resourcelifetime/use-after-release"
 	ConcurrentCapture        ID = "concurrentcapture/shared-capture"
 	DeterministicMapOutput   ID = "determinism/map-output-order"
 	ErrorLogAndReturn        ID = "errorownership/log-and-return"

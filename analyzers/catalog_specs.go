@@ -130,6 +130,12 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 		}},
 		{Analyzer: resourcelifetime.Analyzer(), Checks: []catalog.CheckInfo{
 			{ID: check.ResourceRelease, Doc: "Reports owned resources that are not released on every return path.", Kind: catalog.KindDefect},
+			{
+				ID:    check.ResourceUseAfterRelease,
+				Doc:   "Reports an invalidating operation on a resource that a direct release dominates.",
+				Kind:  catalog.KindHazard,
+				OptIn: true,
+			},
 		}},
 	}
 }

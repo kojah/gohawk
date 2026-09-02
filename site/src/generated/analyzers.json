@@ -312,6 +312,12 @@
               "summary": "Reports owned resources that are not released on every return path.",
               "kind": "defect",
               "optIn": false
+            },
+            {
+              "id": "resourcelifetime/use-after-release",
+              "summary": "Reports an invalidating operation on a resource that a direct release dominates.",
+              "kind": "hazard",
+              "optIn": true
             }
           ],
           "suggestedFix": false,

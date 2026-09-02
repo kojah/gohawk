@@ -8,7 +8,7 @@ import (
 )
 
 func TestAnalyzer(t *testing.T) {
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "resourcelifetime")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "resourcelifetime", "resourcelifetime/useafter")
 }
 
 func TestConfiguration(t *testing.T) {
