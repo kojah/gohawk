@@ -1,6 +1,7 @@
 package determinism
 
 import (
+	"fmt"
 	"slices"
 	"sort"
 )
@@ -74,6 +75,131 @@ func soleValue(input map[string]string) string {
 		return value
 	}
 	return ""
+}
+
+func soleValueInPositiveBranch(input map[string]string) string {
+	if len(input) == 1 {
+		for _, value := range input {
+			return value
+		}
+	}
+	return ""
+}
+
+func differentPositiveGuard(input, other map[string]string) string {
+	if len(other) == 1 {
+		for _, value := range input { // want "map iteration reaches ordered output without sorting"
+			return value
+		}
+	}
+	return ""
+}
+
+func nonSingletonPositiveGuard(input map[string]string) string {
+	if len(input) > 0 {
+		for _, value := range input { // want "map iteration reaches ordered output without sorting"
+			return value
+		}
+	}
+	return ""
+}
+
+func compoundPositiveGuard(input map[string]string, enabled bool) string {
+	if len(input) == 1 || enabled {
+		for _, value := range input { // want "map iteration reaches ordered output without sorting"
+			return value
+		}
+	}
+	return ""
+}
+
+func mutatedAfterPositiveGuard(input map[string]string) string {
+	if len(input) == 1 {
+		input["another"] = "value"
+		for _, value := range input { // want "map iteration reaches ordered output without sorting"
+			return value
+		}
+	}
+	return ""
+}
+
+func reassignedAfterSingletonGuard(input, other map[string]string) string {
+	if len(input) != 1 {
+		return ""
+	}
+	input = other
+	for _, value := range input { // want "map iteration reaches ordered output without sorting"
+		return value
+	}
+	return ""
+}
+
+func mutatedInsidePositiveRange(input map[string]string) {
+	if len(input) == 1 {
+		for key := range input { // want "map iteration reaches ordered output without sorting"
+			fmt.Print(key)
+			input["another"] = "value"
+		}
+	}
+}
+
+func mutatedThroughAlias(input map[string]string) {
+	alias := input
+	if len(input) == 1 {
+		for key := range input { // want "map iteration reaches ordered output without sorting"
+			fmt.Print(key)
+			alias["another"] = "value"
+		}
+	}
+}
+
+func deletedInsidePositiveRange(input map[string]string) string {
+	if len(input) == 1 {
+		for key, value := range input {
+			delete(input, key)
+			return value
+		}
+	}
+	return ""
+}
+
+func mutateMap(input map[string]string) {
+	input["another"] = "value"
+}
+
+func helperMutatesPositiveRange(input map[string]string) []string {
+	var result []string
+	if len(input) == 1 {
+		for _, value := range input { // want "map iteration reaches ordered output without sorting"
+			mutateMap(input)
+			result = append(result, value)
+		}
+		return result
+	}
+	return nil
+}
+
+func singletonAccumulator(input map[string]string) []string {
+	var result []string
+	if len(input) == 1 {
+		for _, value := range input {
+			result = append(result, value)
+		}
+		return result
+	}
+	return nil
+}
+
+func mutatedSingletonAccumulator(input map[string]string) []string {
+	var result []string
+	if len(input) == 1 {
+		for _, value := range input { // want "map iteration reaches ordered output without sorting"
+			input["another"] = "value"
+			result = append(result, value)
+		}
+		return result
+	}
+	return nil
 }
 
 func branchDoesNotProveSingleton(input map[string]string) string {

@@ -13,23 +13,42 @@ import (
 // and accumulators. Independent per-key work and commutative reductions are
 // accepted because iteration order is not observable through those paths.
 
-func mapRangeReachesOrderedOutput(pass *analysis.Pass, function *ast.FuncDecl, block *ast.BlockStmt, index int, ranged *ast.RangeStmt) bool {
+type mapRangeDecision struct {
+	report bool
+	reason string
+}
+
+func evaluateMapRange(
+	pass *analysis.Pass,
+	function *ast.FuncDecl,
+	block *ast.BlockStmt,
+	index int,
+	ranged *ast.RangeStmt,
+	guardedMap ast.Expr,
+) mapRangeDecision {
 	variables := rangeObjects(pass, ranged)
+	singleton := singletonMapGuard(pass, block.List[:index], ranged, guardedMap)
 	// Tie the range variables to an ordered return or sink before reporting.
 	// Independent file creation, table-driven subtests, set construction, and
 	// commutative reductions do not expose iteration order merely because the
 	// surrounding function also returns or writes ordered data. Network Doctor's
 	// site fixture is a representative independent-per-key loop:
 	// https://github.com/heymaikol/network-doctor/blob/336bff5c1fff3f4ed7e703e218b093a9be6dabfe/cmd/docsite/verify_test.go#L12-L28
-	if directRangeOutput(pass, function, ranged.Body, variables) && !singletonMapGuard(pass, block.List[:index], ranged.X) {
-		return true
+	if directRangeOutput(pass, function, ranged.Body, variables) {
+		if singleton.proven {
+			return mapRangeDecision{reason: singleton.reason}
+		}
+		return mapRangeDecision{report: true}
 	}
 	for accumulator := range orderedRangeAccumulators(pass, ranged.Body, variables) {
 		if accumulatorObservedWithoutSort(pass, block.List[index+1:], accumulator) {
-			return true
+			if singleton.proven {
+				return mapRangeDecision{reason: singleton.reason}
+			}
+			return mapRangeDecision{report: true}
 		}
 	}
-	return false
+	return mapRangeDecision{}
 }
 
 func rangeObjects(pass *analysis.Pass, ranged *ast.RangeStmt) map[types.Object]bool {
