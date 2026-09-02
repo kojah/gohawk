@@ -11,6 +11,18 @@ func staleReturn(value int) (int, error) {
 	return value, replace(&value) // want "later operand may mutate value after its earlier value was evaluated"
 }
 
+func stableAddressReturn(value int) (*int, error) {
+	return &value, replace(&value)
+}
+
+func parenthesizedStableAddressReturn(value int) (*int, bool, error) {
+	return (&value), true, replace(&value)
+}
+
+func mixedAddressAndSnapshotReturn(value int) (*int, int, error) {
+	return &value, value, replace(&value) // want "later operand may mutate value after its earlier value was evaluated"
+}
+
 func staleCall(value int) {
 	consume(value, replace(&value)) // want "later operand may mutate value after its earlier value was evaluated"
 }

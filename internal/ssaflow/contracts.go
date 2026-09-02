@@ -14,6 +14,7 @@ type LibraryContract uint8
 const (
 	ContractTestingCleanup LibraryContract = iota + 1
 	ContractTestifyAssertion
+	ContractTestifyNoError
 	ContractTestifyFatalError
 	ContractGoMockReturn
 	ContractAfterFunc
@@ -38,6 +39,8 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 		)
 	case ContractTestifyAssertion:
 		return testifyAssertion(common, "Error") || testifyAssertion(common, "Nil")
+	case ContractTestifyNoError:
+		return CallMatchesSymbol(common, syntax.PackageFunction("github.com/stretchr/testify/assert", "NoError"))
 	case ContractTestifyFatalError:
 		return matchesAnySymbol(
 			common,

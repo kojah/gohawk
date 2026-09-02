@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"resourcedep"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func leakedResponse(client *http.Client, request *http.Request) error {
@@ -41,6 +43,41 @@ func responseConditionallyClosedByImportedDeferredCallback(client *http.Client, 
 	}
 	resourcedep.MaybeCloseResponse(response, enabled)
 	return nil
+}
+
+func responseClosedAfterNoErrorGuard(t assert.TestingT, client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if !assert.NoError(t, err) {
+		return err
+	}
+	defer response.Body.Close()
+	return nil
+}
+
+func responseClosedInsideNoErrorGuard(t assert.TestingT, client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if assert.NoError(t, err) {
+		_ = response.Body.Close()
+	}
+	return nil
+}
+
+func noErrorGuardChecksDifferentError(t assert.TestingT, client *http.Client, request *http.Request, other error) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if !assert.NoError(t, other) {
+		return other
+	}
+	defer response.Body.Close()
+	return err
+}
+
+func reversedNoErrorGuardLeaksResponse(t assert.TestingT, client *http.Client, request *http.Request) error {
+	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if assert.NoError(t, err) {
+		return nil
+	}
+	defer response.Body.Close()
+	return err
 }
 
 func responseBodyClosedThroughDeferredParameter(client *http.Client, request *http.Request) error {

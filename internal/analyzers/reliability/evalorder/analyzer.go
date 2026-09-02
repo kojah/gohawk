@@ -51,41 +51,101 @@ func reportEvaluationDependencies(pass *analysis.Pass, expressions []ast.Expr) {
 	// value already captured by an earlier expression. Address-taking plus a
 	// proved mutating callee supplies the required alias and write evidence.
 	for laterIndex := 1; laterIndex < len(expressions); laterIndex++ {
-		earlierObjects := map[types.Object]bool{}
-		for _, earlier := range expressions[:laterIndex] {
-			walkEvaluatedExpression(earlier, func(node ast.Node) bool {
-				identifier, ok := node.(*ast.Ident)
-				if ok {
-					if object := pass.TypesInfo.ObjectOf(identifier); object != nil {
-						earlierObjects[object] = true
-					}
-				}
-				return true
-			}, nil)
-		}
+		earlierObjects, stableAddresses := evaluatedObjectEvidence(pass, expressions[:laterIndex])
 		walkEvaluatedExpression(expressions[laterIndex], func(node ast.Node) bool {
 			call, ok := node.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
-			for argumentIndex, argument := range call.Args {
-				address, ok := argument.(*ast.UnaryExpr)
-				if !ok || address.Op != token.AND {
-					continue
-				}
-				identifier, ok := address.X.(*ast.Ident)
-				object := pass.TypesInfo.ObjectOf(identifier)
-				if !ok || !earlierObjects[object] || !callMutatesArgument(pass, call, argumentIndex) ||
-					disjointFieldMutation(pass, expressions[:laterIndex], call, argumentIndex, object) {
-					continue
-				}
-				check.Reportf(pass, check.EvaluationOrder, address.Pos(), "later operand may mutate %s after its earlier value was evaluated", identifier.Name)
+			if ok {
+				reportCallEvaluationDependencies(pass, expressions[:laterIndex], call, earlierObjects, stableAddresses)
 			}
 			return true
 		}, func(literal *ast.FuncLit) {
 			traceDelayedFunctionBody(pass, literal)
 		})
 	}
+}
+
+func evaluatedObjectEvidence(pass *analysis.Pass, expressions []ast.Expr) (map[types.Object]bool, map[types.Object]token.Pos) {
+	earlierObjects := map[types.Object]bool{}
+	stableAddresses := map[types.Object]token.Pos{}
+	for _, expression := range expressions {
+		if object, position := stableAddressIdentity(pass, expression); object != nil {
+			stableAddresses[object] = position
+			continue
+		}
+		walkEvaluatedExpression(expression, func(node ast.Node) bool {
+			identifier, ok := node.(*ast.Ident)
+			if ok {
+				if object := pass.TypesInfo.ObjectOf(identifier); object != nil {
+					earlierObjects[object] = true
+				}
+			}
+			return true
+		}, nil)
+	}
+	return earlierObjects, stableAddresses
+}
+
+func reportCallEvaluationDependencies(
+	pass *analysis.Pass,
+	earlierExpressions []ast.Expr,
+	call *ast.CallExpr,
+	earlierObjects map[types.Object]bool,
+	stableAddresses map[types.Object]token.Pos,
+) {
+	for argumentIndex, argument := range call.Args {
+		address, ok := argument.(*ast.UnaryExpr)
+		if !ok || address.Op != token.AND {
+			continue
+		}
+		identifier, ok := address.X.(*ast.Ident)
+		if !ok {
+			continue
+		}
+		object := pass.TypesInfo.ObjectOf(identifier)
+		if !callMutatesArgument(pass, call, argumentIndex) {
+			continue
+		}
+		if position := stableAddresses[object]; position != token.NoPos && !earlierObjects[object] {
+			traceStableAddressIdentity(pass, position)
+			continue
+		}
+		if !earlierObjects[object] || disjointFieldMutation(pass, earlierExpressions, call, argumentIndex, object) {
+			continue
+		}
+		check.Reportf(pass, check.EvaluationOrder, address.Pos(), "later operand may mutate %s after its earlier value was evaluated", identifier.Name)
+	}
+}
+
+func stableAddressIdentity(pass *analysis.Pass, expression ast.Expr) (types.Object, token.Pos) {
+	address, ok := syntax.Unparen(expression).(*ast.UnaryExpr)
+	if !ok || address.Op != token.AND {
+		return nil, token.NoPos
+	}
+	identifier, ok := syntax.Unparen(address.X).(*ast.Ident)
+	if !ok {
+		return nil, token.NoPos
+	}
+	// Taking the exact variable's address computes stable storage identity; it
+	// does not snapshot the stored value. A later mutation through the same
+	// address is therefore visible through the pointer already evaluated. Open
+	// Next Router decodes tagged JSON values directly into returned pointers:
+	// https://github.com/r9s-ai/open-next-router/blob/84e1fd334386352c9c3943562ef085ea17592d8a/onr-core/pkg/apitypes/claude.go#L4199-L4212
+	return pass.TypesInfo.ObjectOf(identifier), address.Pos()
+}
+
+func traceStableAddressIdentity(pass *analysis.Pass, position token.Pos) {
+	checkID := string(check.EvaluationOrder)
+	if !analysisTrace.Enabled("evalorder", checkID) {
+		return
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{
+		Analyzer: "evalorder",
+		Check:    checkID,
+		Phase:    "evidence",
+		Reason:   "stable-address-identity",
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      position,
+	})
 }
 
 func walkEvaluatedExpression(expression ast.Expr, visit func(ast.Node) bool, delayed func(*ast.FuncLit)) {

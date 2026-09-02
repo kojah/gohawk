@@ -64,7 +64,27 @@ func resourceSuccessBranch(pass *analysis.Pass, block, successor *ssa.BasicBlock
 		traceAcquisitionErrorProof(pass, branch, proof)
 		return false, true
 	}
+	if success, ok := testifyNoErrorSuccessBranch(branch, successor, errorValue); ok {
+		if success {
+			traceAcquisitionErrorProof(pass, branch, "testify-no-error-guard")
+		}
+		return success, true
+	}
 	return ssaflow.SuccessBranch(block, successor, errorValue)
+}
+
+func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {
+	call, ok := branch.Cond.(*ssa.Call)
+	if !ok || !ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestifyNoError) || len(call.Common().Args) < 2 ||
+		!ssaflow.SameValue(call.Common().Args[1], errorValue) {
+		return false, false
+	}
+	// Testify's exact boolean contract is true precisely when the supplied
+	// error is nil. Go's SSA canonicalizes both `if NoError` and
+	// `if !NoError { return }` so the true successor is the success path. Kong
+	// uses both forms around HTTP response cleanup:
+	// https://github.com/Kong/kong-operator/blob/1adc910f31b5a6bf65d20dbf0698c85f3dbb87b1/ingress-controller/test/helpers/http.go#L173-L177
+	return successor == branch.Block().Succs[0], true
 }
 
 func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
