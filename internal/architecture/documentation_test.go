@@ -25,12 +25,12 @@ import (
 // pointing at nothing. A qualifier that is not a known package (`t.Helper`,
 // where t is a variable) is skipped rather than guessed at. Test names and
 // `make` targets are resolved the same way. Bare identifiers are resolved only
-// in the shared-helpers index, where every code span names a helper; other
+// in the generated helper index, where every code span names a helper; other
 // pages use identifiers from many packages in ordinary prose, and flagging a
 // bare `Close` there would cry wolf.
 //
 // The inventories those pages promise to be complete must be complete: every
-// exported ssaflow and lifecyclefacts function appears in the shared-helpers
+// exported ssaflow and lifecyclefacts function appears in the generated helper
 // index, every Fact field appears in the fact-model page, and every
 // architecture test appears in the invariants table of the architecture
 // guide, so a new helper or test cannot be added without being documented.
@@ -61,8 +61,8 @@ var documentedPackagePatterns = []string{
 	"log",
 }
 
-// inventoryPackages are the packages whose exported functions the
-// shared-helpers index promises to list completely, and against which bare
+// inventoryPackages are the packages whose exported functions the generated
+// helper index promises to list completely, and against which bare
 // identifiers in that index are resolved.
 var inventoryPackages = []string{"ssaflow", "lifecyclefacts"}
 
@@ -235,7 +235,7 @@ func makefileTargets(t *testing.T, root string) map[string]bool {
 type documentationPage struct {
 	relative string
 	text     string
-	// helperIndex marks the shared-helpers page, where every bare code span
+	// helperIndex marks the generated helper index, where every bare code span
 	// names a helper and is therefore resolved.
 	helperIndex bool
 }
@@ -261,6 +261,7 @@ func documentationPages(t *testing.T, root string) []documentationPage {
 			paths = append(paths, skill)
 		}
 	}
+	paths = append(paths, filepath.Join(root, filepath.FromSlash(helperIndexPage)))
 	pages := make([]documentationPage, 0, len(paths))
 	for _, path := range paths {
 		relative, err := filepath.Rel(root, path)
@@ -270,11 +271,16 @@ func documentationPages(t *testing.T, root string) []documentationPage {
 		pages = append(pages, documentationPage{
 			relative:    filepath.ToSlash(relative),
 			text:        readFile(t, path),
-			helperIndex: filepath.Base(path) == "shared-helpers.md",
+			helperIndex: filepath.ToSlash(relative) == helperIndexPage,
 		})
 	}
 	return pages
 }
+
+// helperIndexPage is the generated inventory of every exported helper. It
+// lives with the codebase skill because it is searched by name rather than
+// read; the website page keeps the curated map from questions to helpers.
+const helperIndexPage = ".agents/skills/gohawk-codebase/references/shared-helpers.md"
 
 // projectLocalSkill reports whether a skill declares `source: project` in its
 // front matter. Vault-managed skills describe other codebases and are not
@@ -351,11 +357,11 @@ func checkQualifiedReference(t *testing.T, page documentationPage, line int, tok
 // promises, so additions to the code cannot go undocumented.
 func checkInventoryCoverage(t *testing.T, root string, symbols *documentedSymbols, tests map[string]bool) {
 	t.Helper()
-	helperIndex := readFile(t, filepath.Join(root, "docs", "development", "shared-helpers.md"))
+	helperIndex := readFile(t, filepath.Join(root, filepath.FromSlash(helperIndexPage)))
 	for _, pkg := range inventoryPackages {
 		for _, function := range symbols.functions[pkg] {
 			if !mentionsIdentifier(helperIndex, function) {
-				t.Errorf("docs/development/shared-helpers.md does not document %s.%s", pkg, function)
+				t.Errorf("%s does not document %s.%s", helperIndexPage, pkg, function)
 			}
 		}
 	}

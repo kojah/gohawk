@@ -46,9 +46,10 @@ task rather than re-deriving the procedure:
   and evidence traces to explain a diagnostic.
 
 References: `docs/architecture.md` (layers and enforced invariants),
-`docs/development/shared-helpers.md` (every shared helper by the question it
-answers), `docs/development/fact-model.md`, and
-`docs/development/debugging-reference.md`. This file states policy; those
+`docs/development/shared-helpers.md` (the shared helpers by the question each
+answers), `.agents/skills/gohawk-codebase/references/shared-helpers.md` (the
+generated index of every exported helper), `docs/development/fact-model.md`,
+and `docs/development/debugging-reference.md`. This file states policy; those
 files hold the procedures and inventories, so keep procedural detail there.
 
 ## Shared working tree

@@ -2,7 +2,10 @@
 // so the helper index, the Fact declaration, and the trace flags cannot drift
 // from the source. The curated prose around each block stays hand-written;
 // only the inventory between the markers is regenerated, and the -check mode
-// fails when a committed page no longer matches the code.
+// fails when a committed page no longer matches the code. The helper index is
+// written into the codebase skill rather than the website: it is an
+// exhaustive list for searching by name, which is agent material, while the
+// website page keeps the curated map from questions to helpers.
 
 package main
 
@@ -37,8 +40,11 @@ const (
 // index inventories.
 var helperPackages = []string{"internal/ssaflow", "internal/passes/lifecyclefacts"}
 
-// developmentBlock is one generated region inside a hand-written page under
-// docs/development.
+// developmentBlock is one generated region inside a hand-written page. The
+// page is a repository-relative path: the contract pages live under
+// docs/development, while the exhaustive helper index lives with the codebase
+// skill, because its audience is an agent searching by name rather than a
+// reader of the website.
 type developmentBlock struct {
 	page   string
 	start  string
@@ -46,11 +52,14 @@ type developmentBlock struct {
 	render func(root string) (string, error)
 }
 
+// helperIndexPage is the generated inventory of every exported helper.
+const helperIndexPage = ".agents/skills/gohawk-codebase/references/shared-helpers.md"
+
 var developmentBlocks = []developmentBlock{
-	{page: "shared-helpers.md", start: generatedHelpersStart, end: generatedHelpersEnd, render: helpersIndexBlock},
-	{page: "fact-model.md", start: generatedFactFieldsStart, end: generatedFactFieldsEnd, render: factFieldsBlock},
+	{page: helperIndexPage, start: generatedHelpersStart, end: generatedHelpersEnd, render: helpersIndexBlock},
+	{page: "docs/development/fact-model.md", start: generatedFactFieldsStart, end: generatedFactFieldsEnd, render: factFieldsBlock},
 	{
-		page: "debugging-reference.md", start: generatedTraceFlagsStart, end: generatedTraceFlagsEnd,
+		page: "docs/development/debugging-reference.md", start: generatedTraceFlagsStart, end: generatedTraceFlagsEnd,
 		render: func(string) (string, error) { return traceFlagsBlock(), nil },
 	},
 }
@@ -59,7 +68,7 @@ var developmentBlocks = []developmentBlock{
 // the resulting page contents in updates for the shared write-or-check step.
 func synchronizeDevelopmentDocs(root string, updates map[string][]byte) error {
 	for _, block := range developmentBlocks {
-		page := filepath.Join(root, "docs", "development", block.page)
+		page := filepath.Join(root, filepath.FromSlash(block.page))
 		contents, err := os.ReadFile(page)
 		if err != nil {
 			return err
@@ -81,7 +90,7 @@ func synchronizeDevelopmentDocs(root string, updates map[string][]byte) error {
 // packages with the synopsis of its doc comment, sorted by name. Constructors
 // that go/doc files under their result type are listed by their own name, so
 // the index matches the package-level functions the architecture test
-// requires the page to cover.
+// requires the inventory to cover.
 func helpersIndexBlock(root string) (string, error) {
 	var rows []string
 	for _, directory := range helperPackages {

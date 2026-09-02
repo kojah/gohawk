@@ -14,11 +14,13 @@ already provides. Read this before writing any traversal or ownership code.
 
 ## Read the map first
 
-- [Codebase architecture](../../../docs/architecture.md): the layers, how
+- [Codebase layout](../../../docs/architecture.md): the layers, how
   a run works, and the architectural invariants that tests enforce.
-- [Shared helpers](../../../docs/development/shared-helpers.md): every
-  exported `ssaflow` and `lifecyclefacts` helper, indexed by the question it
-  answers.
+- [Shared helpers](../../../docs/development/shared-helpers.md): the
+  `ssaflow` and `lifecyclefacts` helpers indexed by the question each answers.
+- [Exported helper index](references/shared-helpers.md): every exported
+  helper with its doc synopsis, generated from the source, for searching by
+  name.
 - [The fact model](../../../docs/development/fact-model.md): what cross-package
   lifecycle facts can and cannot express.
 

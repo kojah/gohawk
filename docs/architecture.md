@@ -1,5 +1,5 @@
 ---
-title: Codebase architecture
+title: Codebase layout
 description: A short guide to how gohawk is organized.
 sidebar:
   order: 2

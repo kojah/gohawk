@@ -99,15 +99,18 @@ export default defineConfig({
 						{ slug: 'contributing' },
 						// The development references are contributor material, so they sit
 						// inside Contributing rather than beside it. This is the same
-						// group-within-a-section shape the analyzer groups use. The codebase
-						// tour opens the group because it orients a reader before the
-						// helper, fact, and debugging references answer specific questions.
+						// group-within-a-section shape the analyzer groups use.
 						{
 							label: 'Development',
 							items: [
-								{ slug: 'architecture' },
+								// What the analysis is built out of comes first: the layers a run
+								// moves through, then what a cross-package fact may claim. The
+								// pages below answer questions that arise while writing a check.
+								{
+									label: 'Architecture',
+									items: [{ slug: 'architecture' }, { slug: 'development/fact-model' }],
+								},
 								{ slug: 'development/shared-helpers' },
-								{ slug: 'development/fact-model' },
 								{ slug: 'development/debugging-reference' },
 							],
 						},
