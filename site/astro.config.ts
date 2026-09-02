@@ -108,7 +108,11 @@ export default defineConfig({
 								// pages below answer questions that arise while writing a check.
 								{
 									label: 'Architecture',
-									items: [{ slug: 'architecture' }, { slug: 'development/fact-model' }],
+									items: [
+										{ slug: 'architecture' },
+										{ slug: 'development/understanding-ssa' },
+										{ slug: 'development/fact-model' },
+									],
 								},
 								{ slug: 'development/debugging-reference' },
 							],

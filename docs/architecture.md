@@ -89,7 +89,7 @@ query does not change.
   callee does to its parameters, so an analyzer can see through a call into
   another package. Consumers use `LifecycleEvidence`, which consults local
   evidence first and imported facts second. See
-  [the fact model](../development/fact-model/).
+  [inferred facts](../development/fact-model/).
 - `internal/check` and `internal/trace` provide reporting and evidence
   tracing. Every diagnostic flows through `check.Report`, which is what lets
   the tracer record whether a candidate was reported, suppressed, or removed.

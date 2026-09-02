@@ -23,6 +23,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/cli"
 	"github.com/kojah/gohawk/internal/trace"
 )
 
@@ -33,6 +34,8 @@ const (
 	generatedFactFieldsEnd   = "<!-- gohawk:generated-fact-fields:end -->"
 	generatedTraceFlagsStart = "<!-- gohawk:generated-trace-flags:start -->"
 	generatedTraceFlagsEnd   = "<!-- gohawk:generated-trace-flags:end -->"
+	generatedSSAStart        = "<!-- gohawk:generated-ssa-example:start -->"
+	generatedSSAEnd          = "<!-- gohawk:generated-ssa-example:end -->"
 	modulePath               = "github.com/kojah/gohawk"
 )
 
@@ -57,6 +60,7 @@ const helperIndexPage = ".agents/skills/gohawk-codebase/references/shared-helper
 
 var developmentBlocks = []developmentBlock{
 	{page: helperIndexPage, start: generatedHelpersStart, end: generatedHelpersEnd, render: helpersIndexBlock},
+	{page: "docs/development/understanding-ssa.md", start: generatedSSAStart, end: generatedSSAEnd, render: ssaExampleBlock},
 	{page: "docs/development/fact-model.md", start: generatedFactFieldsStart, end: generatedFactFieldsEnd, render: factFieldsBlock},
 	{
 		page: "docs/development/debugging-reference.md", start: generatedTraceFlagsStart, end: generatedTraceFlagsEnd,
@@ -190,4 +194,17 @@ func traceFlagsBlock() string {
 		rows = append(rows, "| `-"+item.Name+"` | "+markdownTableCell(item.Usage)+" |")
 	})
 	return strings.Join(rows, "\n")
+}
+
+// ssaExampleBlock prints the SSA of the example function exactly as
+// `gohawk ssa` does, with the repository root stripped from positions so the
+// page does not depend on where the checkout lives. The annotations on the
+// page describe this output, and -check fails when a builder change alters it.
+func ssaExampleBlock(root string) (string, error) {
+	dump, err := cli.RenderSSA([]string{filepath.Join(root, "tools", "gendocs", "ssaexample")}, "CopyHeader", false)
+	if err != nil {
+		return "", err
+	}
+	dump = strings.ReplaceAll(dump, root+string(filepath.Separator), "")
+	return "```text\n" + strings.TrimRight(dump, "\n") + "\n```", nil
 }

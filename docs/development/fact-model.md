@@ -1,8 +1,8 @@
 ---
-title: The fact model
+title: Inferred facts
 description: What cross-package lifecycle facts can and cannot express, and the polarity each mask must keep.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 `internal/passes/lifecyclefacts` lets an analyzer see through a call into

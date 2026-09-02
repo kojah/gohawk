@@ -30,6 +30,18 @@ func TestDevelopmentBlocksRenderFromSource(t *testing.T) {
 			t.Errorf("helper index lacks %q", want)
 		}
 	}
+	example, err := ssaExampleBlock(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"func CopyHeader(", "defer (*os.File).Close", "make closure CopyHeader$1"} {
+		if !strings.Contains(example, want) {
+			t.Errorf("ssa example block lacks %q:\n%s", want, example)
+		}
+	}
+	if strings.Contains(example, root) {
+		t.Errorf("ssa example block leaks the repository root:\n%s", example)
+	}
 	fields, err := factFieldsBlock(root)
 	if err != nil {
 		t.Fatal(err)

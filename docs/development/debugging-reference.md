@@ -2,7 +2,7 @@
 title: Debugging reference
 description: The SSA, fact, and evidence-trace dumps, and how to read them.
 sidebar:
-  order: 3
+  order: 4
 ---
 
 The analyzers reason over SSA, and the mapping from Go source to SSA is not
@@ -31,7 +31,7 @@ Prints the exported lifecycle summaries for the given packages, decoded per
 parameter. Only summarized functions appear: a function that is missing has
 no fact and is `unknown` to every consumer, which is different from a
 function whose fact shows a clear bit. See
-[the fact model](../fact-model/).
+[inferred facts](../fact-model/).
 
 ## Evidence trace
 

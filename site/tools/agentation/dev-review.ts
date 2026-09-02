@@ -1,13 +1,22 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { type FSWatcher, watch } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const TOOL_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const SITE_DIRECTORY = resolve(TOOL_DIRECTORY, '../..');
 const BIN_DIRECTORY = resolve(SITE_DIRECTORY, 'node_modules/.bin');
+const DOCS_DIRECTORY = resolve(SITE_DIRECTORY, '../docs');
+const CONTENT_STORE = resolve(SITE_DIRECTORY, '.astro/data-store.json');
 const children = new Set<ChildProcess>();
 let stopping = false;
+let astroChild: ChildProcess | null = null;
+let restartingAstro = false;
+let restartQueued = false;
+let restartRunning = false;
+let docsWatcher: FSWatcher | null = null;
 
 async function isHealthy(url: string): Promise<boolean> {
 	try {

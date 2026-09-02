@@ -36,13 +36,26 @@ func printSSA(arguments []string, output, errorsOutput io.Writer) error {
 	if len(patterns) == 0 {
 		return errors.New("at least one package pattern is required")
 	}
-	functions, fset, err := loadSSAFunctions(patterns, *includeTests)
+	rendered, err := RenderSSA(patterns, *functionFilter, *includeTests)
 	if err != nil {
 		return err
 	}
+	_, err = io.WriteString(output, rendered)
+	return err
+}
+
+// RenderSSA returns the SSA form of the source functions in the matched
+// packages whose name matches functionFilter, exactly as the ssa subcommand
+// prints it. The documentation generator uses it so the dump on the
+// Understanding SSA page is the real output rather than a transcript.
+func RenderSSA(patterns []string, functionFilter string, includeTests bool) (string, error) {
+	functions, fset, err := loadSSAFunctions(patterns, includeTests)
+	if err != nil {
+		return "", err
+	}
 	var buffer bytes.Buffer
 	for _, function := range functions {
-		if !ssaFunctionSelected(function, *functionFilter) {
+		if !ssaFunctionSelected(function, functionFilter) {
 			continue
 		}
 		fmt.Fprintf(&buffer, "// %s\n", fset.Position(function.Pos()))
@@ -50,10 +63,9 @@ func printSSA(arguments []string, output, errorsOutput io.Writer) error {
 		buffer.WriteString("\n")
 	}
 	if buffer.Len() == 0 {
-		return fmt.Errorf("no function matched %q", *functionFilter)
+		return "", fmt.Errorf("no function matched %q", functionFilter)
 	}
-	_, err = output.Write(buffer.Bytes())
-	return err
+	return buffer.String(), nil
 }
 
 // loadSSAFunctions builds SSA for the matched packages and returns their

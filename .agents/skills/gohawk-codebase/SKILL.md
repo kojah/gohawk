@@ -19,7 +19,7 @@ already provides. Read this before writing any traversal or ownership code.
 - [Shared helpers](references/shared-helpers.md): the `ssaflow` and
   `lifecyclefacts` helpers indexed by the question each answers, followed by
   the generated index of every exported helper for searching by name.
-- [The fact model](../../../docs/development/fact-model.md): what cross-package
+- [Inferred facts](../../../docs/development/fact-model.md): what cross-package
   lifecycle facts can and cannot express.
 
 ## Where does this code belong?

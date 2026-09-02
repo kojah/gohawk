@@ -59,7 +59,7 @@ nothing.
 Read [gohawk-codebase](../gohawk-codebase/SKILL.md) and the
 [shared helpers](../gohawk-codebase/references/shared-helpers.md) before writing
 traversal code. Facts are consumed through `lifecyclefacts.LifecycleEvidence`,
-never by importing raw facts; see [the fact model](../../../docs/development/fact-model.md)
+never by importing raw facts; see [inferred facts](../../../docs/development/fact-model.md)
 for what a fact can prove and the polarity each mask must keep.
 
 ## 4. Fixtures
