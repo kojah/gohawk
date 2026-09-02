@@ -189,3 +189,13 @@
 19	vmware-tanzu/nsx-operator	273e64587050474fcfa8f3164e5deae07c8451ed	.,pkg/apis,pkg/client	reviewed
 19	kubernetes-sigs/node-ipam-controller	e43ff3a9d0e316932fa687a1ab3d7f626be29abf	.	reviewed
 19	vmware/terraform-provider-nsxt	65eca2da599c4a927a3e03c349f1a89cf2899dae	.	reviewed
+20	spegel-org/spegel	49627fae4f22e87c007b6ac1286d8f294598bc50	.,test/integration/containerd,test/integration/kubernetes	reviewed
+20	alicebob/miniredis	3e1aaf044a9135f558f67283674b2a1e592b9e6b	.	reviewed
+20	cilium/statedb	3546c463bfbb8afa5263b692be472bfb958bedcf	.	reviewed
+20	apache/yunikorn-core	6340f2b97c49e84bf8ab7f0c033ad6000e8f744f	.	reviewed
+20	pouriyajamshidi/tcping	d3c54fa6be096dbfa758b0fbef26236a16ec1138	.	reviewed
+20	git-pkgs/proxy	cad1a9226a2817073c00ca7f548c086913fcc61d	.	reviewed
+20	semihalev/sdns	0dd8146d20088cd23fbd4fa87271761742efdf69	.	reviewed
+20	temporalio/temporal-worker-controller	6fa7b683dcc6e65999566d0d62aeb1444a25f384	.,internal/demo,internal/tests	reviewed
+20	datarhei/core	b6d7fc7d0f95fb4ae7837aa09a5205d3616ef4d8	.	reviewed
+20	gopherium/gouncer	3ac985945af3afac67e65a4d01341d7d44b8645e	.,authkit,react-auth,authkit/postgres,authkit/ratelimit	reviewed

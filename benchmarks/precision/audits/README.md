@@ -551,3 +551,59 @@ Batch 19 made no analyzer or runtime changes, so its Caddy binary is identical
 to the Batch 18 boundary and no new performance comparison was necessary. The
 cumulative precision replay and larger benchmark remain scheduled for Batch
 20.
+
+## Batch 20
+
+Ten repositories and eighteen modules were selected. Twelve modules loaded
+and scanned fully. Gouncer's five modules require Go 1.27.1 and did not load
+under the audit's pinned local toolchain, so that repository contributed no
+findings; the Temporal worker controller's `internal/tests` module produced a
+useful partial scan because a pinned controller-runtime dependency no longer
+type-checks against its own cache package. Final scans produced 919 unique diagnostics after three shared
+value-mechanics corrections.
+
+- External ownership now sees through a type assertion, so a channel read
+  from an asserted event parameter belongs to the event's producer. This
+  removed one YuniKorn goroutine-ownership false positive in a test mock.
+- A returned closure that captured the owner, and a by-value copy of the
+  owner, now carry it. Returning `ephemeral(*cmd)` transfers a started
+  process, which removed one miniredis process-ownership false positive.
+- A source-visible callee that returns the owner on every normal path, with
+  a result the caller lets escape, transfers the obligation. Lifecycle facts
+  summarize only exported functions, so this local proof covers unexported
+  helpers such as statedb's iterator wrapper. It removed two resource-lifetime
+  false positives.
+
+Precision round 23 passed with all four false positives absent and all six
+nearby true positives present: response bodies leaked on unauthorized and
+error paths in Spegel and datarhei, a temporary file leaked on a write error
+in datarhei, and gzip readers and writers leaked on error paths in git-pkgs.
+
+Two candidates remain deliberately deferred. YuniKorn stores a gzip writer in
+a response wrapper whose deferred method closes it only when compression was
+chosen, which would need a proof over a method on a local aggregate. An sdns
+ticker feeds a `for range` loop that never exits, so its missing `Stop` is
+unreachable rather than leaked; proving that would need a never-closed-channel
+contract for `time.Ticker`. Opt-in detached-goroutine, global-state, API-shape,
+and test-policy findings were sampled without expanding default correctness
+policy.
+
+The replay harness now warns when a scan exits abnormally or returns no
+payload. Under an eight-way parallel replay, several large repositories had
+been killed silently and their reviewed true positives reported as lost; the
+sequential replay confirmed every label.
+
+This is the fifth-batch milestone. The cumulative gate replayed rounds 2
+through 23: all 170 false positives remained absent and all 214 true positives
+remained present. Batch 20 also followed the goroutineownership rebuild, which
+replaced the analyzer's proof ladder with one instruction classifier and one
+flow query; that change was replayed against the same cumulative gate before
+this batch began.
+
+Three-run performance comparisons used the Batch 19 boundary and the final
+Batch 20 code revision on the same host. Pinned Caddy median wall time changed
+from 3.388 to 3.206 seconds (-5.4%) and peak RSS from 4,879,300 to
+5,065,572 KiB (+3.8%). The periodic pinned Moby checkpoint changed from
+7.187 to 7.067 seconds (-1.7%) and from 10,174,812 to 10,216,948 KiB
+(+0.4%). The interval includes the goroutineownership rebuild and the
+ssaflow completion collapse as well as this batch's corrections.

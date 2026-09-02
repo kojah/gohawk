@@ -123,3 +123,9 @@ Round 22 preserves the eighteenth reviewed batch. It covers optional local
 workers joined beneath the exact stop-channel guard and imported cleanup facts
 applied to an exact stable resource projection. Nearby resource and
 process-termination findings remain reportable.
+
+Round 23 preserves the nineteenth reviewed batch. It covers a completion
+channel read from a type-asserted event, a started command returned as a
+by-value copy, and response bodies handed to an unexported helper that returns
+an owning iterator. Nearby resource findings on unauthorized, error, and
+temporary-file paths remain reportable.

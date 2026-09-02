@@ -1,0 +1,11 @@
+repository,analyzer,position,verdict
+cilium/statedb,resourcelifetime,http_client.go:78:15,false_positive
+cilium/statedb,resourcelifetime,http_client.go:143:15,false_positive
+apache/yunikorn-core,goroutineownership,pkg/rmproxy/rmproxy_mock.go:55:3,false_positive
+alicebob/miniredis,processownership,integration/ephemeral.go:82:12,false_positive
+spegel-org/spegel,resourcelifetime,pkg/oci/client.go:339:16,true_positive
+datarhei/core,resourcelifetime,service/api/api.go:150:14,true_positive
+datarhei/core,resourcelifetime,update/update.go:173:14,true_positive
+datarhei/core,resourcelifetime,io/fs/disk.go:372:18,true_positive
+git-pkgs/proxy,resourcelifetime,internal/handler/hex.go:259:13,true_positive
+git-pkgs/proxy,resourcelifetime,internal/handler/hex.go:288:8,true_positive
