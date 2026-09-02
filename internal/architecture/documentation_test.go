@@ -64,7 +64,7 @@ var documentedPackagePatterns = []string{
 // inventoryPackages are the packages whose exported functions the generated
 // helper index promises to list completely, and against which bare
 // identifiers in that index are resolved.
-var inventoryPackages = []string{"ssaflow", "lifecyclefacts"}
+var inventoryPackages = []string{"syntax", "ssaflow", "lifecyclefacts"}
 
 // documentedSymbols is the exported surface of the packages the documentation
 // may cite, indexed by package name.

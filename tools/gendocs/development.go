@@ -41,7 +41,7 @@ const (
 
 // helperPackages are the packages whose exported surface the helper index
 // inventories.
-var helperPackages = []string{"internal/ssaflow", "internal/passes/lifecyclefacts"}
+var helperPackages = []string{"internal/syntax", "internal/ssaflow", "internal/passes/lifecyclefacts"}
 
 // developmentBlock is one generated region inside a hand-written page. The
 // page is a repository-relative path: the contract pages live under
