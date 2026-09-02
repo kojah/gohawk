@@ -188,3 +188,8 @@ Round 33 preserves the twenty-ninth reviewed batch. It covers a jobs channel
 drained by literals handed to an errgroup runner, and mutexes selected by a
 loop iteration that are locked through one instruction. Nearby file,
 response, timer, goroutine, and defer findings remain reportable.
+
+Round 34 preserves the thirtieth reviewed batch. It covers an operand list in
+which every earlier operand takes a variable's address rather than reading
+its value. A return that copies a value before a later operand decodes into
+it, and a gzip writer left open on a write error, remain reportable.

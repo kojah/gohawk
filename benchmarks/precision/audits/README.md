@@ -1050,3 +1050,25 @@ A goyacc reader wrapper that never closes its file, a viper persistence timer
 captured by a closure, and a multigres watchdog started to outlive its
 parent remain reportable or unlabeled. Opt-in global-state, API-shape, and
 detached-goroutine findings were sampled without expanding default policy.
+
+## Batch 32
+
+Ten repositories and thirty-one modules were selected, many of them
+OpenTelemetry example services. Twenty-six modules loaded and scanned fully;
+tootik and goapi produced useful partial analysis around dependencies that
+exclude the host platform, and three directories hold no buildable package.
+Final scans produced 1,132 unique diagnostics after one bounded
+correction:
+
+- evalorder treats an address taken inside an earlier operand, such as the
+  `&res` handed to each command constructor in a cobra `AddCommand` list, as
+  storage identity rather than an evaluated value, so a later constructor
+  that mutates the state through the same address cannot stale it. An
+  earlier operand that copies the value stays reportable.
+
+The correction removed fifteen enclave command-tree findings. Precision
+round 34 labels two of them and two nearby true positives: a generic reader
+that returns its zero value before decoding into it, and a gzip writer left
+open on a write error. Two fire-and-forget launchers remain policy reports.
+Opt-in global-state, API-shape, and detached-goroutine findings were sampled
+without expanding default policy.

@@ -154,6 +154,7 @@ precision-regression:
 	./scripts/precision-regression.py benchmarks/precision/round-31
 	./scripts/precision-regression.py benchmarks/precision/round-32
 	./scripts/precision-regression.py benchmarks/precision/round-33
+	./scripts/precision-regression.py benchmarks/precision/round-34
 
 site-install:
 	$(PNPM) --dir site install --frozen-lockfile

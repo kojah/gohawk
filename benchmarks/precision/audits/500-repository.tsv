@@ -309,3 +309,13 @@
 31	multigres/multigres	360b8f123dff8ad6bcc721acaec103c52081bebd	.	reviewed
 31	gofiber/storage	7971e906522a42f0938861c940e20585156660bc	.,aerospike,arangodb,azureblob,badger,bbolt,cassandra,clickhouse,cloudflarekv,coherence,couchbase,dynamodb,etcd,firestore,leveldb,memcache,memory,minio,mockstorage,mongodb,mssql,mysql,nats,neo4j,pebble,postgres,redis,ristretto,rueidis,s3,scylladb,sqlite3,surrealdb,valkey,testhelpers/redis,testhelpers/tck	reviewed
 31	apache/iceberg-go	aa76a28c34787f23f8eee1c5648271fc0ee6042f	.	reviewed
+32	roman-16/proton-cli	cacd92ab412d04a7fae78f2eeced4ef59a19f7e0	.	reviewed
+32	dimkr/tootik	57c19b9d8704dafa419f0772ecf9ef2724cf3614	.	reviewed
+32	neochaotic/leoflow	4a0f02e6495a92c06a4fb6f5804b6570734f5c4c	.,website	reviewed
+32	caigee-cmd/cli2api	dac2c7cf9bdb1a3ad997e097fc309f20994174ed	.	reviewed
+32	fullsend-ai/fullsend	9f10cac80818e71e57e92eabd7c71470c1e1f55d	.,cmd/mint,cmd/mint-wasm,internal/mint,internal/mintcore	reviewed
+32	sirini/goapi	3c7e03ece50e7b58e77095a35c4f2f6995044363	.	reviewed
+32	DataDog/opentelemetry-examples	c5e81403c856f2505a0cd5d661a2992d42cc76a8	apps/astronomy-store/checkout,apps/log-trace-correlation/app_client,apps/log-trace-correlation/app_server,apps/manual-container-metrics/app,apps/game-of-life/go/game-of-life-dd,apps/game-of-life/go/game-of-life-otel,apps/game-of-life/go/pb,apps/kafka-redis-messages/dd/calendar-consumer-go-dd,apps/kafka-redis-messages/otel-api-with-dd/calendar-consumer-go-otel,apps/kafka-redis-messages/otel/calendar-consumer-go-otel,apps/rest-services/golang/calendar,apps/rpc/golang/calendar-client,apps/rpc/golang/calendar-dd,apps/rpc/golang/calendar-otel,apps/rpc/golang/protos,apps/span-links/otel/words-consumer-go-otel	reviewed
+32	sandbox0-ai/sandbox0	926af10c21266020aa08a6967c3fee7ae25a9ed2	.,nomad-driver-sandbox0	reviewed
+32	danieljustus/symaira-vault	3f5e199927f90a9a33e8bd1236f62328b4ef77b5	.	reviewed
+32	eclipse-enclave/enclave	8a89634b22280fa322c8037d8c46be7d32d72fbf	.	reviewed
