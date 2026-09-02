@@ -57,7 +57,7 @@ nothing.
 ## 3. Implement with the shared vocabulary
 
 Read [gohawk-codebase](../gohawk-codebase/SKILL.md) and the
-[shared helpers](../../../docs/development/shared-helpers.md) before writing
+[shared helpers](../gohawk-codebase/references/shared-helpers.md) before writing
 traversal code. Facts are consumed through `lifecyclefacts.LifecycleEvidence`,
 never by importing raw facts; see [the fact model](../../../docs/development/fact-model.md)
 for what a fact can prove and the polarity each mask must keep.

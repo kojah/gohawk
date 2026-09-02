@@ -24,7 +24,7 @@ func TestDevelopmentBlocksRenderFromSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A package-level function, a constructor go/doc files under its type, and
-	// a method must all appear by the names the shared-helpers page cites.
+	// a method must all appear by the names the helper index cites.
 	for _, want := range []string{"| `WalkStates` |", "| `NewLifecycleEvidence` |", "| `ReachingWalk.Any` |"} {
 		if !strings.Contains(helpers, want) {
 			t.Errorf("helper index lacks %q", want)

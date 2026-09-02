@@ -54,9 +54,9 @@ the generated documentation. This keeps examples and behavior in sync.
 
 Larger analyzers use shared control-flow and data-flow tools to decide whether
 a diagnostic is safe to report. The sections below describe how those tools
-are layered and which rules the tests enforce; the
-[development references](../development/shared-helpers/) list the tools
-themselves.
+are layered and which rules the tests enforce; the codebase skill's
+shared-helpers reference (`.agents/skills/gohawk-codebase/references/shared-helpers.md`
+in the repository) lists the tools themselves.
 
 ## How a lifecycle analyzer is shaped
 

@@ -110,7 +110,6 @@ export default defineConfig({
 									label: 'Architecture',
 									items: [{ slug: 'architecture' }, { slug: 'development/fact-model' }],
 								},
-								{ slug: 'development/shared-helpers' },
 								{ slug: 'development/debugging-reference' },
 							],
 						},

@@ -36,8 +36,8 @@ const (
 	modulePath               = "github.com/kojah/gohawk"
 )
 
-// helperPackages are the packages whose exported surface the shared-helpers
-// index inventories.
+// helperPackages are the packages whose exported surface the helper index
+// inventories.
 var helperPackages = []string{"internal/ssaflow", "internal/passes/lifecyclefacts"}
 
 // developmentBlock is one generated region inside a hand-written page. The

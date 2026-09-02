@@ -16,11 +16,9 @@ already provides. Read this before writing any traversal or ownership code.
 
 - [Codebase layout](../../../docs/architecture.md): the layers, how
   a run works, and the architectural invariants that tests enforce.
-- [Shared helpers](../../../docs/development/shared-helpers.md): the
-  `ssaflow` and `lifecyclefacts` helpers indexed by the question each answers.
-- [Exported helper index](references/shared-helpers.md): every exported
-  helper with its doc synopsis, generated from the source, for searching by
-  name.
+- [Shared helpers](references/shared-helpers.md): the `ssaflow` and
+  `lifecyclefacts` helpers indexed by the question each answers, followed by
+  the generated index of every exported helper for searching by name.
 - [The fact model](../../../docs/development/fact-model.md): what cross-package
   lifecycle facts can and cannot express.
 
@@ -46,7 +44,7 @@ general mechanic. One consumer is not a reason to share.
 
 ## Before writing traversal code
 
-Check the [shared helpers](../../../docs/development/shared-helpers.md) table
+Check the [shared helpers](references/shared-helpers.md) table
 first. In particular:
 
 - Walking what flows into a value: `ssaflow.NewReachingWalk` with Any, Every,
