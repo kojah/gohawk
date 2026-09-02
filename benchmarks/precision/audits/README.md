@@ -655,7 +655,7 @@ changed, with the cumulative suite reserved for Batch 25.
 
 ## Batch 22
 
-Ten repositories and twenty modules were selected. Seventeen modules loaded
+Ten repositories and twenty modules were selected. Sixteen modules loaded
 and scanned fully. Sync Gateway's root module produced useful partial analysis
 because its pinned Rosmar dependency no longer type-checks against SQLite
 bindings; taskyou's `ty-qmd` extension needed uncommitted module updates; and
