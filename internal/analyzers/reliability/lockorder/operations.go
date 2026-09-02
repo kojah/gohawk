@@ -240,6 +240,18 @@ func loopVariantValue(value ssa.Value, seen map[ssa.Value]bool) bool {
 		return loopVariantValue(typed.X, seen)
 	case *ssa.Field:
 		return loopVariantValue(typed.X, seen)
+	case *ssa.BinOp:
+		// A range index is the loop phi plus one.
+		return loopVariantValue(typed.X, seen) || loopVariantValue(typed.Y, seen)
+	case *ssa.Call:
+		// A lookup keyed by the iteration, such as the per-session state a
+		// cleanup loop fetches before locking it, selects a different mutex
+		// each time; a call with no loop-variant argument returns the same one.
+		// CodeKanban locks every session's state this way:
+		// https://github.com/fy0/CodeKanban/blob/745699cb67d3d34cec4793168f148eb61e43e766/service/websession/history_cleanup.go#L262-L276
+		return slices.ContainsFunc(typed.Common().Args, func(argument ssa.Value) bool {
+			return loopVariantValue(argument, seen)
+		})
 	case *ssa.ChangeType, *ssa.ChangeInterface, *ssa.Convert, *ssa.MakeInterface:
 		inner, ok := ssaflow.UnwrapTransparentValue(
 			value,

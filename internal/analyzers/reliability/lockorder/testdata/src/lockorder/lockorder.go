@@ -718,3 +718,29 @@ func (l *loopedLocker) locksSameMutexInLoop(items []int) {
 	}
 	l.mu.Unlock()
 }
+
+type sessionState struct{ mu sync.Mutex }
+
+type sessionManager struct {
+	states map[string]*sessionState
+}
+
+func (m *sessionManager) state(id string) *sessionState { return m.states[id] }
+
+// A state looked up by the iteration key is a different mutex each time.
+func (m *sessionManager) locksEverySessionState(ids []string) {
+	for _, id := range ids {
+		state := m.state(id)
+		state.mu.Lock()
+		defer state.mu.Unlock()
+	}
+}
+
+// A lookup with a fixed key returns the same state, so locking it on every
+// iteration is recursive.
+func (m *sessionManager) locksFixedStateInLoop(ids []string) {
+	for range ids {
+		state := m.state("fixed")
+		state.mu.Lock() // want "lock .*mu is acquired while already held"
+	}
+}
