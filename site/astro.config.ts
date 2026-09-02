@@ -91,12 +91,7 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: 'Getting started',
-					items: [
-						{ slug: 'installation' },
-						{ slug: 'configuration' },
-						{ slug: 'check-tiers' },
-						{ slug: 'golangci-lint' },
-					],
+					items: [{ slug: 'installation' }, { slug: 'configuration' }, { slug: 'golangci-lint' }],
 				},
 				{
 					label: 'Contributing',
