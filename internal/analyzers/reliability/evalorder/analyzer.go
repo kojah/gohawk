@@ -73,6 +73,20 @@ func evaluatedObjectEvidence(pass *analysis.Pass, expressions []ast.Expr) (map[t
 			continue
 		}
 		walkEvaluatedExpression(expression, func(node ast.Node) bool {
+			// An address taken inside an earlier operand, such as the &res
+			// handed to each command constructor in a cobra AddCommand list,
+			// evaluates storage identity rather than a value, so a later
+			// mutation through the same address cannot stale it. enclave builds
+			// its command tree this way:
+			// https://github.com/eclipse-enclave/enclave/blob/8a89634b22280fa322c8037d8c46be7d32d72fbf/internal/cli/parse.go#L75-L102
+			if address, ok := node.(*ast.UnaryExpr); ok && address.Op == token.AND {
+				if identifier, ok := syntax.Unparen(address.X).(*ast.Ident); ok {
+					if object := pass.TypesInfo.ObjectOf(identifier); object != nil && stableAddresses[object] == token.NoPos {
+						stableAddresses[object] = address.Pos()
+					}
+					return false
+				}
+			}
 			identifier, ok := node.(*ast.Ident)
 			if ok {
 				if object := pass.TypesInfo.ObjectOf(identifier); object != nil {

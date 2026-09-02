@@ -122,3 +122,36 @@ func delayedEarlierRead(value int) {
 		_ = value
 	}, replace(&value))
 }
+
+type commandState struct {
+	verbose bool
+	name    string
+}
+
+type command struct{ state *commandState }
+
+func withVerbose(state *commandState) command {
+	state.verbose = true
+	return command{state: state}
+}
+
+func withName(state *commandState) command {
+	state.name = "named"
+	return command{state: state}
+}
+
+func register(commands ...command) int { return len(commands) }
+
+// Every earlier operand took the state's address rather than reading its
+// value, so a later constructor mutating the state cannot stale anything.
+func addressesInEveryOperand() int {
+	var state commandState
+	return register(withVerbose(&state), withName(&state), withVerbose(&state))
+}
+
+// An earlier operand that copies the state by value is staled by a later
+// mutation through its address.
+func valueThenAddress() (commandState, command) {
+	var state commandState
+	return state, withName(&state) // want "later operand may mutate state after its earlier value was evaluated"
+}
