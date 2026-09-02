@@ -412,11 +412,30 @@ func exactLocalValueUse(value, parameter ssa.Value) bool {
 	return ok && loaded.Op == token.MUL && exactLocalValueUse(loaded.X, parameter)
 }
 
+// localStorageOnly accepts a store into a local that no other code can read.
+// A local captured by a closure is not private: a deferred guard such as
+// `if cancelWorker != nil { cancelWorker() }` may release the stored cancel
+// on every return, and this proof does not follow that closure, so the store
+// is an ambiguous handoff rather than plain retention. Safebucket's worker
+// lock loop uses exactly that shape:
+// https://github.com/safebucket/safebucket/blob/f35560194cb6ea01a4607c2fe36ead2c7db51b9d/internal/core/bootstrap.go#L256-L297
 func localStorageOnly(instruction ssa.Instruction) bool {
 	store, ok := instruction.(*ssa.Store)
 	if !ok {
 		return false
 	}
-	_, local := store.Addr.(*ssa.Alloc)
-	return local && !ssaflow.ValueEscapes(store.Addr)
+	local, ok := store.Addr.(*ssa.Alloc)
+	return ok && !ssaflow.ValueEscapes(local) && !capturedByClosure(local)
+}
+
+func capturedByClosure(local *ssa.Alloc) bool {
+	if local.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *local.Referrers() {
+		if _, ok := reference.(*ssa.MakeClosure); ok {
+			return true
+		}
+	}
+	return false
 }

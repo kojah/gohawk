@@ -3,6 +3,8 @@ package ssaflow
 import (
 	"slices"
 
+	"github.com/kojah/gohawk/internal/syntax"
+
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -125,12 +127,35 @@ func DeferredClosureCallsMethodOnDerivedArgumentOnEveryReturn(instruction ssa.In
 }
 
 // StartedClosureCallsMethodOnEveryReturn reports whether a launched closure
-// calls method on target before each of its normal returns.
+// calls method on target before each of its normal returns. A closure handed
+// to sync.WaitGroup.Go is launched the same way: the documented contract is
+// Add(1) followed by go f() with a deferred Done, so the closure body runs on
+// its own goroutine exactly as a go statement would run it.
 func StartedClosureCallsMethodOnEveryReturn(instruction ssa.Instruction, method string, target ssa.Value) bool {
-	if _, ok := instruction.(*ssa.Go); !ok {
-		return false
+	if launched, ok := LaunchedClosure(instruction); ok {
+		return mappedCompletion(launched, method, target, CoverageEveryReturn)
 	}
-	return mappedCompletion(instruction, method, target, CoverageEveryReturn)
+	return false
+}
+
+var waitGroupGoMethod = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Go"})
+
+// LaunchedClosure returns the instruction whose callee runs on a new
+// goroutine: the go statement itself, or the function literal passed to
+// sync.WaitGroup.Go. Other launchers are not modeled.
+func LaunchedClosure(instruction ssa.Instruction) (ssa.Instruction, bool) {
+	switch typed := instruction.(type) {
+	case *ssa.Go:
+		return typed, true
+	case *ssa.Call:
+		common := typed.Common()
+		if CallMatchesSymbol(common, waitGroupGoMethod) && len(common.Args) == 2 {
+			if closure, ok := common.Args[1].(*ssa.MakeClosure); ok {
+				return closure, true
+			}
+		}
+	}
+	return nil, false
 }
 
 // CalledClosureCallsMethodOnEveryReturn reports whether an immediately

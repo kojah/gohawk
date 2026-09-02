@@ -458,3 +458,28 @@ func atomicStorageIsUnknown(parent context.Context, owner *atomicCancelOwner) {
 	_, cancel := context.WithCancel(parent)
 	owner.cancel.Store(&cancel)
 }
+
+// A cancel stored into a local that a deferred guard closure captures is an
+// ambiguous handoff: the guard may release it on every return, and the proof
+// does not follow the closure.
+func cancelStoredInCapturedLocal(parent context.Context, acquire func() bool) {
+	var cancelWorker context.CancelFunc
+	defer func() {
+		if cancelWorker != nil {
+			cancelWorker()
+		}
+	}()
+	if acquire() {
+		_, cancel := context.WithCancel(parent)
+		cancelWorker = cancel
+	}
+}
+
+func cancelStoredInPrivateLocal(parent context.Context, acquire func() bool) {
+	var stored context.CancelFunc
+	if acquire() {
+		_, cancel := context.WithCancel(parent) // want "cancel function from context.WithCancel is not called on every return path"
+		stored = cancel
+	}
+	_ = stored
+}

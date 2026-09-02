@@ -1,6 +1,10 @@
 package resourcelifetime
 
-import "time"
+import (
+	"context"
+	"sync"
+	"time"
+)
 
 func tickerOwnedByWorker(stop <-chan struct{}) {
 	ticker := time.NewTicker(time.Second)
@@ -109,4 +113,23 @@ func partiallyHandledTimer(stop, receive bool) {
 	if receive {
 		<-timer.C
 	}
+}
+
+// sync.WaitGroup.Go launches its argument on a new goroutine, so a ticker
+// stopped on every return of that closure is settled exactly like one stopped
+// in a go statement.
+func tickerStoppedInWaitGroupGo(ctx context.Context, group *sync.WaitGroup) {
+	ticker := time.NewTicker(time.Second)
+	group.Go(func() {
+		defer ticker.Stop()
+		<-ctx.Done()
+	})
+}
+
+func tickerLeakedInWaitGroupGo(ctx context.Context, group *sync.WaitGroup) {
+	ticker := time.NewTicker(time.Second) // want "owned resource from time.NewTicker is not released on every return path"
+	group.Go(func() {
+		<-ctx.Done()
+		<-ticker.C
+	})
 }
