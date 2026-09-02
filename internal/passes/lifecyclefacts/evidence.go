@@ -17,6 +17,7 @@ const (
 	reasonReceiverDoesNotEscape             ssaflow.EvidenceReason = "receiver-does-not-escape"
 	reasonOwnedResultContract               ssaflow.EvidenceReason = "owned-result-contract"
 	reasonOwnedResultUnreleasable           ssaflow.EvidenceReason = "owned-result-unreleasable"
+	reasonStoredByCallee                    ssaflow.EvidenceReason = "stored-by-callee"
 )
 
 // LifecycleEvidence combines memoized local SSA evidence with lifecycle summaries

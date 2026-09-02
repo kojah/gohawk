@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"resourcedep"
 	"testing"
@@ -365,4 +366,25 @@ func fileConditionallyClosedByCleanupHelper(t *testing.T, path string, close boo
 		t.Fatal(err)
 	}
 	closeOnCleanupConditionally(t, file, close)
+}
+
+// A file installed as the logger's output is kept by the logger for the
+// process lifetime; the summary of log.SetOutput marks it retained.
+func fileInstalledAsLogOutput(path string) error {
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+	if err != nil {
+		return err
+	}
+	log.SetOutput(file)
+	return nil
+}
+
+// A helper that only reads through the file does not retain it.
+func fileCopiedThroughHelper(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(io.Discard, file)
+	return err
 }

@@ -136,17 +136,27 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 				*target |= bit
 			}
 		}
-		if returnedOwnerOnEveryReturn(function, parameter) {
-			fact.ReturnedOwner |= bit
-		}
-		if index > 0 && storedInReceiverOnEveryReturn(function, function.Params[0], parameter) {
-			fact.ReceiverStore |= bit
-		}
-		if retainedAnywhere(pass, function, parameter) {
-			fact.Retained |= bit
-		}
+		summarizeTransfers(pass, function, index, parameter, &fact)
 	}
 	return fact
+}
+
+// summarizeTransfers records where a parameter goes: into the returned
+// owner, into the receiver, or kept somewhere by the callee.
+func summarizeTransfers(pass *analysis.Pass, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) {
+	bit := parameterMaskFor(index)
+	if returnedOwnerOnEveryReturn(function, parameter) {
+		fact.ReturnedOwner |= bit
+	}
+	if index > 0 && storedInReceiverOnEveryReturn(function, function.Params[0], parameter) {
+		fact.ReceiverStore |= bit
+	}
+	if retainedAnywhere(pass, function, parameter) {
+		fact.Retained |= bit
+	}
+	if storedAnywhere(pass, function, parameter) {
+		fact.Stored |= bit
+	}
 }
 
 func ownsOnEveryReturn(function *ssa.Function, parameter ssa.Value, owns func(ssa.Instruction) bool) bool {

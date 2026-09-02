@@ -32,6 +32,9 @@ type Fact struct {
 	// Retained marks parameters the callee may keep beyond the call; see
 	// retention.go for the over-approximation it deliberately makes.
 	Retained ParameterMask
+	// Stored is the strict form of Retained: positive structural evidence that
+	// the callee keeps the parameter, safe to treat as an ownership transfer.
+	Stored ParameterMask
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields    ParameterMask
@@ -175,6 +178,22 @@ func importFact(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 
 // factOwnsArgument reports whether mask covers the argument which contains
 // target at this callsite.
+// factOwnsExactArgument is factOwnsArgument without containment: only the
+// target itself passed as the masked argument counts, so a literal that
+// captured the target is not mistaken for it.
+func factOwnsExactArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	for index, argument := range common.Args {
+		if mask.contains(index) && ssaflow.SameValue(argument, target) {
+			return true
+		}
+	}
+	return false
+}
+
 func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
@@ -227,6 +246,7 @@ var lifecycleMasks = []lifecycleMask{
 	{name: "ReturnedView", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedView }},
 	{name: "ReceiverStore", field: func(fact *Fact) *ParameterMask { return &fact.ReceiverStore }},
 	{name: "Retained", field: func(fact *Fact) *ParameterMask { return &fact.Retained }},
+	{name: "Stored", field: func(fact *Fact) *ParameterMask { return &fact.Stored }},
 }
 
 // fieldMasks are indexed by struct field of the result or receiver type.

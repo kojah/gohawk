@@ -292,6 +292,14 @@ func callTakesResourceOwnership(evidence *lifecyclefacts.LifecycleEvidence, inst
 	if evidence.ArgumentReturnedAsView(instruction, resource) {
 		return false
 	}
+	// A summarized callee that keeps the resource outside its returned value,
+	// such as log.SetOutput installing a file as the process-wide logger
+	// sink, owns the release from then on. charmbracelet's examples log to a
+	// file this way:
+	// https://github.com/charmbracelet/x/blob/6f6ad8b37b0af7e0765bcf38bac6aafaecb9a7d6/examples/cellbuf/main.go#L120-L126
+	if evidence.ArgumentRetainedByCallee(instruction, resource) {
+		return true
+	}
 	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,

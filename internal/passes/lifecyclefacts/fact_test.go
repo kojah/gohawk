@@ -209,11 +209,37 @@ var handlers []func()
 func Register(handler func()) { handlers = append(handlers, handler) }
 func Invoke(handler func()) { handler() }
 func Return(handler func()) func() { return handler }
+func keep(handler func()) { handlers = append(handlers, handler) }
+func read(handler func()) { _ = handler == nil }
+func ViaKeeper(handler func()) { keep(handler) }
+func ViaReader(handler func()) { read(handler) }
+func DeferCapture(handler func()) { defer func() { handler() }() }
+
+type sink interface{ Add(func()) }
+
+var registry sink
+
+func ViaInterface(handler func()) { registry.Add(handler) }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	for name, want := range map[string]bool{"Register": true, "Invoke": false, "Return": true} {
+	for name, want := range map[string]bool{"Register": true, "Invoke": false, "Return": true, "ViaKeeper": true, "ViaReader": false} {
 		if got := summarize(pass, pkg.Func(name)).Retained.contains(0); got != want {
 			t.Errorf("%s Retained parameter = %t, want %t", name, got, want)
+		}
+		if got := summarize(pass, pkg.Func(name)).Stored.contains(0); got != (want && name != "Return") {
+			t.Errorf("%s Stored parameter = %t, want %t", name, got, want && name != "Return")
+		}
+	}
+	// Deferring a literal that captured the parameter, or handing it to an
+	// interface, retains loosely but does not store.
+	for name, want := range map[string][2]bool{"DeferCapture": {true, false}, "ViaInterface": {true, false}} {
+		retained, stored := want[0], want[1]
+		fact := summarize(pass, pkg.Func(name))
+		if got := fact.Retained.contains(0); got != retained {
+			t.Errorf("%s Retained parameter = %t, want %t", name, got, retained)
+		}
+		if got := fact.Stored.contains(0); got != stored {
+			t.Errorf("%s Stored parameter = %t, want %t", name, got, stored)
 		}
 	}
 }

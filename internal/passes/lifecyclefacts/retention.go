@@ -9,22 +9,43 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// Retention evidence records that a callee may keep a parameter beyond the
-// call: it stores the parameter itself outside its own locals, captures it in
-// a literal, sends or returns it, appends it, or hands it to a callee that is
-// opaque or itself retains. Values merely derived from the parameter, such as
-// a loaded field, do not count, so a getter is not a retainer. The mask is
-// over-approximate on the retaining side: consumers use it only to widen
-// "unknown", never to prove ownership, so an extra Retained bit can suppress
-// a diagnostic but cannot create one.
+// Retention evidence comes in two strengths because its consumers pull in
+// opposite directions. Retained may over-approximate: an opaque callee, an
+// interface invoke, or any literal capture counts, so a consumer that widens
+// "unknown" errs toward suppression. Stored must under-approximate: only a
+// store into a global, a field, a map, a channel, an append, a return, an
+// escaping literal, or a callee proven to store counts, so a consumer that
+// treats it as an ownership transfer never transfers on a guess. Both follow
+// same-package helpers with bodies rather than assuming, so a copy loop that
+// only reads through its argument marks nothing. Values merely derived from
+// the parameter, such as a loaded field, never count.
+
+type retention struct {
+	pass   *analysis.Pass
+	strict bool
+	seen   map[*ssa.Function]bool
+}
 
 func retainedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
+	return (&retention{pass: pass, seen: map[*ssa.Function]bool{}}).within(function, parameter)
+}
+
+func storedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
+	return (&retention{pass: pass, strict: true, seen: map[*ssa.Function]bool{}}).within(function, parameter)
+}
+
+func (search *retention) within(function *ssa.Function, parameter ssa.Value) bool {
+	if search.seen[function] {
+		return false
+	}
+	search.seen[function] = true
+	defer delete(search.seen, function)
 	derives := func(value ssa.Value) bool {
 		return ssaflow.SameValue(value, parameter)
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			if instructionRetains(pass, function, instruction, derives) {
+			if search.instructionRetains(function, instruction, derives) {
 				return true
 			}
 		}
@@ -32,49 +53,107 @@ func retainedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa
 	return false
 }
 
-func instructionRetains(pass *analysis.Pass, function *ssa.Function, instruction ssa.Instruction, derives func(ssa.Value) bool) bool {
+func (search *retention) instructionRetains(function *ssa.Function, instruction ssa.Instruction, derives func(ssa.Value) bool) bool {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
 		local, ok := typed.Addr.(*ssa.Alloc)
 		return derives(typed.Val) && (!ok || local.Parent() != function)
 	case *ssa.MakeClosure:
-		for _, binding := range typed.Bindings {
-			if derives(binding) || derives(ssaflow.CapturedBindingValue(binding)) {
-				return true
-			}
+		if !slices.ContainsFunc(typed.Bindings, func(binding ssa.Value) bool {
+			return derives(binding) || derives(ssaflow.CapturedBindingValue(binding))
+		}) {
+			return false
 		}
+		return !search.strict || search.closureEscapes(typed)
 	case *ssa.Send:
 		return derives(typed.X)
 	case *ssa.MapUpdate:
 		return derives(typed.Value)
 	case *ssa.Return:
-		return slices.ContainsFunc(typed.Results, derives)
+		// Returning the value hands it to the caller, which the returned-owner
+		// and view summaries describe; strict retention leaves it to them.
+		return !search.strict && slices.ContainsFunc(typed.Results, derives)
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
-		return callRetains(pass, ssaflow.InstructionCall(instruction), instruction, derives)
+		return search.callRetains(ssaflow.InstructionCall(instruction), instruction, derives)
 	}
 	return false
 }
 
-// callRetains treats an opaque callee as retaining every argument, and a
-// summarized callee as retaining the arguments its own summary marks.
-func callRetains(pass *analysis.Pass, common *ssa.CallCommon, instruction ssa.Instruction, derives func(ssa.Value) bool) bool {
+// closureEscapes reports whether a literal outlives its creation: it is
+// launched, stored, sent, appended, or handed to a callee that keeps it, or
+// returned in the loose mode. A literal only deferred or called in place does
+// not escape, and a conversion to a named function type is followed to the
+// converted value's own uses.
+func (search *retention) closureEscapes(closure *ssa.MakeClosure) bool {
+	return search.valueEscapes(closure, map[ssa.Value]bool{})
+}
+
+func (search *retention) valueEscapes(value ssa.Value, seen map[ssa.Value]bool) bool {
+	if seen[value] || value.Referrers() == nil {
+		return false
+	}
+	seen[value] = true
+	for _, reference := range *value.Referrers() {
+		if search.referenceEscapes(value, reference, seen) {
+			return true
+		}
+	}
+	return false
+}
+
+func (search *retention) referenceEscapes(value ssa.Value, reference ssa.Instruction, seen map[ssa.Value]bool) bool {
+	isValue := func(candidate ssa.Value) bool { return candidate == value }
+	switch typed := reference.(type) {
+	case *ssa.Defer:
+		return typed.Common().Value != value && search.callRetains(typed.Common(), typed, isValue)
+	case *ssa.Call:
+		return typed.Common().Value != value && search.callRetains(typed.Common(), typed, isValue)
+	case *ssa.Return:
+		return !search.strict
+	case *ssa.ChangeType, *ssa.Convert, *ssa.MakeInterface, *ssa.ChangeInterface:
+		converted, _ := typed.(ssa.Value)
+		return search.valueEscapes(converted, seen)
+	case *ssa.DebugRef:
+		return false
+	default:
+		return true
+	}
+}
+
+// callRetains treats a summarized callee as retaining what its summary marks
+// and a same-package callee with a body as retaining what its body retains.
+// An opaque callee or an interface invoke retains in the loose mode and does
+// not in the strict one.
+func (search *retention) callRetains(common *ssa.CallCommon, instruction ssa.Instruction, derives func(ssa.Value) bool) bool {
 	if common == nil {
 		return false
 	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
 		return builtin.Name() == "append" && anyArgument(common, derives)
 	}
+	if imported, ok := importFact(search.pass, instruction); ok {
+		mask := imported.Retained
+		if search.strict {
+			mask = imported.Stored
+		}
+		return argumentInMask(common, mask, derives)
+	}
 	callee := common.StaticCallee()
 	if callee == nil || len(callee.Blocks) == 0 {
-		if imported, ok := importFact(pass, instruction); ok {
-			return argumentInMask(common, imported.Retained, derives)
+		return !search.strict && anyArgument(common, derives)
+	}
+	for index, argument := range common.Args {
+		if index >= len(callee.Params) || !derives(argument) {
+			continue
 		}
-		return anyArgument(common, derives)
+		if search.seen[callee] {
+			return !search.strict
+		}
+		if search.within(callee, callee.Params[index]) {
+			return true
+		}
 	}
-	if imported, ok := importFact(pass, instruction); ok {
-		return argumentInMask(common, imported.Retained, derives)
-	}
-	return anyArgument(common, derives)
+	return false
 }
 
 func anyArgument(common *ssa.CallCommon, derives func(ssa.Value) bool) bool {

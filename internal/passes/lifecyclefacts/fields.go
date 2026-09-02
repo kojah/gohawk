@@ -338,3 +338,19 @@ func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ss
 	fact, ok := factFor(pass, instruction)
 	return ok && factOwnsArgument(instruction, target, fact.ReturnedView)
 }
+
+// ArgumentRetainedByCallee reports whether the call's static callee is
+// summarized as keeping the argument that contains target somewhere other
+// than its returned value: a logger sink, a registry, a receiver field. The
+// callee then owns the value's release. A parameter kept only inside the
+// returned aggregate is decided by the returned-owner and view rules instead.
+func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Instruction, target ssa.Value) bool {
+	fact, ok := factFor(evidence.pass, instruction)
+	if !ok || !factOwnsExactArgument(instruction, target, fact.Stored&^fact.ReturnedOwner) {
+		return false
+	}
+	evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, ssaflow.Proof{
+		State: ssaflow.EvidenceProven, Reason: reasonStoredByCallee, Provenance: ssaflow.EvidenceFromImportedFact,
+	})
+	return true
+}
