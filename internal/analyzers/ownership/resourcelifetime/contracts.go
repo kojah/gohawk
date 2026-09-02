@@ -111,6 +111,24 @@ func releasesResource(
 	resource ssa.Value,
 	owners []ssa.Value,
 	methods []string,
+	optionalAcquisition optionalAcquisitionProof,
+) bool {
+	if optionalAcquisition.Proven() {
+		// The optional-acquisition proof deliberately authorizes only cleanup
+		// through its exact resource phi. Letting the ordinary existential
+		// derivation rules inspect a later phi could mistake cleanup of another
+		// non-nil resource for cleanup of the acquired one.
+		return optionalAcquisitionReleases(instruction, resource, methods)
+	}
+	return releasesOrdinaryResource(evidence, instruction, resource, owners, methods)
+}
+
+func releasesOrdinaryResource(
+	evidence *lifecyclefacts.LifecycleEvidence,
+	instruction ssa.Instruction,
+	resource ssa.Value,
+	owners []ssa.Value,
+	methods []string,
 ) bool {
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:

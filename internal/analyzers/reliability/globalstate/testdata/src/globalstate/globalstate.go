@@ -245,3 +245,44 @@ var (
 )
 
 func mutateLegacyInGroup() { legacyInGroup = append(legacyInGroup, "value") }
+
+var stableReplacer = strings.NewReplacer("~", "~0", "/", "~1")
+
+func replaceStable(value string) string { return stableReplacer.Replace(value) }
+
+var stableWriterReplacer = strings.NewReplacer("old", "new")
+
+func writeStable(value string) string {
+	var output strings.Builder
+	_, _ = stableWriterReplacer.WriteString(&output, value)
+	return output.String()
+}
+
+var ExportedReplacer = strings.NewReplacer("old", "new") // want "mutable package state ExportedReplacer"
+
+var reassignedReplacer = strings.NewReplacer("old", "new") // want "mutable package state reassignedReplacer"
+
+func reassignReplacer() { reassignedReplacer = strings.NewReplacer("new", "old") }
+
+var addressedReplacer = strings.NewReplacer("old", "new") // want "mutable package state addressedReplacer"
+
+func replacerAddress() **strings.Replacer { return &addressedReplacer }
+
+var alternateReplacer = new(strings.Replacer) // want "mutable package state alternateReplacer"
+
+var aliasedReplacer = strings.NewReplacer("old", "new") // want "mutable package state aliasedReplacer"
+
+func replaceThroughAlias(value string) string {
+	alias := aliasedReplacer
+	return alias.Replace(value)
+}
+
+var passedReplacer = strings.NewReplacer("old", "new") // want "mutable package state passedReplacer"
+
+func useReplacer(replacer *strings.Replacer, value string) string { return replacer.Replace(value) }
+
+func replaceThroughParameter(value string) string { return useReplacer(passedReplacer, value) }
+
+var replacerMethodValue = strings.NewReplacer("old", "new") // want "mutable package state replacerMethodValue"
+
+var replaceValue = replacerMethodValue.Replace // want "mutable package state replaceValue"

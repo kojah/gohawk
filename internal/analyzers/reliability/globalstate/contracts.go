@@ -6,7 +6,9 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -116,6 +118,87 @@ func immutableRuntimeDescriptor(pass *analysis.Pass, object types.Object, value 
 	// descriptors for multipart binding:
 	// https://github.com/labstack/echo/blob/07b3c4a4d4cc077a653b4e7a5de5d4acb121ce7b/bind.go#L498-L502
 	return !globalObjectReassignedOrAddressed(pass, object, usage)
+}
+
+func immutableStringReplacer(
+	pass *analysis.Pass,
+	name *ast.Ident,
+	object types.Object,
+	specification *ast.ValueSpec,
+	index int,
+	usage globalStateUsage,
+) bool {
+	if name.IsExported() || index >= len(specification.Values) {
+		return false
+	}
+	initializer, ok := syntax.Unparen(specification.Values[index]).(*ast.CallExpr)
+	if !ok || !syntax.IsCallTo(pass, initializer, syntax.PackageFunction("strings", "NewReplacer")) ||
+		globalObjectReassignedOrAddressed(pass, object, usage) {
+		return false
+	}
+	used := false
+	for _, file := range usage.files {
+		unsafe := false
+		ast.Inspect(file, func(node ast.Node) bool {
+			identifier, identifierOK := node.(*ast.Ident)
+			if !identifierOK || pass.TypesInfo.Uses[identifier] != object {
+				return true
+			}
+			used = true
+			if !directStringReplacerCall(pass, identifier, usage.parents) {
+				unsafe = true
+				return false
+			}
+			return true
+		})
+		if unsafe {
+			return false
+		}
+	}
+	if !used {
+		return false
+	}
+	// strings.Replacer copies its constructor input and documents concurrent
+	// safety. Restrict acceptance to its two exact observational operations so
+	// aliases or future API expansion cannot silently widen this contract.
+	// Aerospike uses one stable replacer to encode JSON Pointer components:
+	// https://github.com/aerospike/aerospike-kubernetes-operator/blob/7c00e3a9d57d7fc65f00930e32d7540bf4a9a18f/pkg/jsonpatch/jsonpatch.go#L153-L156
+	traceImmutableStringReplacer(pass, name)
+	return true
+}
+
+func directStringReplacerCall(pass *analysis.Pass, identifier *ast.Ident, parents map[ast.Node]ast.Node) bool {
+	receiver, parent := unparenthesizedUse(identifier, parents)
+	selector, ok := parent.(*ast.SelectorExpr)
+	if !ok || selector.X != receiver {
+		return false
+	}
+	selected, parent := unparenthesizedUse(selector, parents)
+	call, ok := parent.(*ast.CallExpr)
+	if !ok || call.Fun != selected {
+		return false
+	}
+	for _, method := range []string{"Replace", "WriteString"} {
+		if syntax.IsCallTo(pass, call, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "strings", Receiver: "Replacer", Name: method})) {
+			return true
+		}
+	}
+	return false
+}
+
+func traceImmutableStringReplacer(pass *analysis.Pass, name *ast.Ident) {
+	checkID := string(check.MutableGlobalState)
+	if !analysisTrace.Enabled("globalstate", checkID) {
+		return
+	}
+	analysisTrace.Emit(pass, analysisTrace.Event{
+		Analyzer: "globalstate",
+		Check:    checkID,
+		Phase:    "evidence",
+		Reason:   "immutable-stdlib-replacer",
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      name.Pos(),
+	})
 }
 
 func conventionalErrorSentinel(

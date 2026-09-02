@@ -23,6 +23,60 @@ func closedRows(ctx context.Context, database *sql.DB) error {
 	return nil
 }
 
+func optionallyQueriedRows(ctx context.Context, database *sql.DB, query string) error {
+	var rows *sql.Rows
+	var err error
+	if query != "" {
+		rows, err = database.QueryContext(ctx, query)
+	}
+	switch {
+	case query == "":
+		return nil
+	case err != nil:
+		return err
+	default:
+		defer rows.Close()
+		return nil
+	}
+}
+
+func optionallyQueriedRowsWithoutCleanup(ctx context.Context, database *sql.DB, query string) error {
+	var rows *sql.Rows
+	var err error
+	if query != "" {
+		rows, err = database.QueryContext(ctx, query) // want "owned resource from sql.QueryContext is not released on every return path"
+	}
+	switch {
+	case query == "":
+		return nil
+	case err != nil:
+		return err
+	default:
+		_ = rows
+		return nil
+	}
+}
+
+func optionalRowsClosedThroughAmbiguousPhi(ctx context.Context, database *sql.DB, other *sql.Rows, query string, choose bool) error {
+	var rows *sql.Rows
+	var err error
+	if query != "" {
+		rows, err = database.QueryContext(ctx, query) // want "owned resource from sql.QueryContext is not released on every return path"
+	}
+	if query == "" {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	selected := other
+	if choose {
+		selected = rows
+	}
+	defer selected.Close()
+	return nil
+}
+
 func scanAndCloseRows(rows *sql.Rows) error {
 	defer func() { _ = rows.Close() }()
 	for rows.Next() {

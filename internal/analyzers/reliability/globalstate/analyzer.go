@@ -127,6 +127,9 @@ func allowedGlobal(
 	if conventionalAnalyzerSingleton(pass, object, value, usage) || immutableRuntimeDescriptor(pass, object, value, usage) {
 		return true
 	}
+	if immutableStringReplacer(pass, name, object, specification, index, usage) {
+		return true
+	}
 	if conventionalFrameworkGlobal(value) {
 		return true
 	}

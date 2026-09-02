@@ -51,6 +51,10 @@ func evaluateResourceFlow(
 	if contract.packagePath == "net/http" && testProvesHTTPError(call, resource, errorValue) {
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
+	optionalAcquisition := proveOptionalAcquisition(call, resource, errorValue)
+	if optionalAcquisition.Proven() {
+		resource = optionalAcquisition.resourcePhi
+	}
 	owners := localResourceOwners(call.Parent(), resource)
 	queue := []resourceFlowState{{block: call.Block(), index: index + 1, active: true}}
 	seen := map[resourceFlowKey]bool{}
@@ -63,11 +67,11 @@ func evaluateResourceFlow(
 		}
 		seen[key] = true
 		var leaks bool
-		state, leaks = advanceResourceState(pass, evidence, state, resource, owners, contract)
+		state, leaks = advanceResourceState(pass, evidence, state, resource, owners, contract, optionalAcquisition)
 		if leaks {
 			return reportedResourceLifetime(resourceReasonUnownedReturn)
 		}
-		queue = append(queue, resourceSuccessorStates(pass, state, errorValue, resource)...)
+		queue = append(queue, resourceSuccessorStates(pass, state, errorValue, resource, optionalAcquisition)...)
 	}
 	return acceptedResourceLifetime(resourceReasonReleaseProven)
 }
@@ -93,10 +97,11 @@ func advanceResourceState(
 	resource ssa.Value,
 	owners []ssa.Value,
 	contract resourceContract,
+	optionalAcquisition optionalAcquisitionProof,
 ) (resourceFlowState, bool) {
 	for _, instruction := range state.block.Instrs[state.index:] {
 		state.released = state.released ||
-			releasesResource(evidence, instruction, resource, owners, contract.cleanup) ||
+			releasesResource(evidence, instruction, resource, owners, contract.cleanup, optionalAcquisition) ||
 			contract.consumable && consumesResource(instruction, resource)
 		if ssaflow.InstructionTerminatesControlFlow(instruction) {
 			state.active = false
@@ -112,8 +117,17 @@ func advanceResourceState(
 	return state, false
 }
 
-func resourceSuccessorStates(pass *analysis.Pass, state resourceFlowState, errorValue, resource ssa.Value) []resourceFlowState {
+func resourceSuccessorStates(
+	pass *analysis.Pass,
+	state resourceFlowState,
+	errorValue, resource ssa.Value,
+	optionalAcquisition optionalAcquisitionProof,
+) []resourceFlowState {
 	successors := ssaflow.FeasibleSuccessors(state.block, state.predecessor)
+	if optionalAcquisition.Proven() && state.block == optionalAcquisition.merge && state.predecessor == optionalAcquisition.acquisitionBlock {
+		successors = []*ssa.BasicBlock{optionalAcquisition.acquiredSuccessor}
+		traceOptionalAcquisition(pass, optionalAcquisition)
+	}
 	result := make([]resourceFlowState, 0, len(successors))
 	for _, successor := range successors {
 		active := state.active
