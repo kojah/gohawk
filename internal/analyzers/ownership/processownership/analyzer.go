@@ -32,66 +32,91 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		evidence := lifecyclefacts.NewLifecycleEvidence(pass, "processownership", string(check.ProcessWait))
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
-				start, ok := instruction.(*ssa.Call)
-				startCall := syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Start"})
-				if !ok || !ssaflow.CallMatchesSymbol(start.Common(), startCall) ||
-					!execCommandValue(ssaflow.CallReceiver(start.Common())) {
+				start, command, ok := startedCommand(instruction)
+				if !ok || commandOwnedElsewhere(evidence, function, start, command) {
 					continue
 				}
-				command := ssaflow.CallReceiver(start.Common())
-				owners := processOwnersRegisteredBefore(function, start, command)
-				// A helper returning *exec.Cmd may already have registered cleanup
-				// or wait ownership. Without interprocedural evidence either way,
-				// reporting here would trade precision for recall. containerd wraps
-				// command construction and returns the started command in binaryIO:
-				// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/cmd/containerd-shim-runc-v2/process/io.go#L288-L330
-				if commandReturnedByHelper(command) {
-					continue
-				}
-				// Caller retains a parameter command after this helper returns, so
-				// helper-local Start does not transfer caller's Wait responsibility.
-				if ssaflow.SameAsAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
-					continue
-				}
-				// Cleanup may be registered before Start. This is common when a
-				// constructor builds a teardown closure first, then starts the
-				// process and returns that closure to its caller.
-				if processOwnershipDominatesStart(evidence, function, start, command) ||
-					processOwnerDominatesStart(evidence, function, start, owners) ||
-					commandStoredExternallyBeforeStart(start, command) {
-					continue
-				}
-				if successfulStartCannotReturn(start) {
-					continue
-				}
-				leaks := ssaflow.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
-					return processOwnershipAction(evidence, candidate, command)
-				}, func(returned *ssa.Return) bool {
-					// Returning an aggregate that contains the command transfers Wait
-					// responsibility just as directly as returning *exec.Cmd itself, and
-					// so does returning the started os.Process, which the caller can
-					// Wait on directly. Casbin's daemon launcher returns cmd.Process:
-					// https://github.com/apache/casbin-gateway/blob/e3606894348d8cd52d85abc29cfb4d3ae99595cb/util/daemon.go#L121-L131
-					return startFailureReturn(returned, start) || ssaflow.ReturnedValueOwnsValue(returned, command) ||
-						returnsProcessHandle(returned, command)
-				})
-				emitProcessDecision(pass, function, start, command, leaks)
-				if !leaks {
-					continue
-				}
-				// A launch whose handle is never touched again is a policy choice
-				// the project made deliberately, such as opening a browser, and is
-				// reported only by the opt-in detached audit. A handle that is
-				// waited on or released on some paths but not all is a defect.
-				if commandUnusedAfterStart(start, command) {
-					check.Reportf(pass, check.ProcessDetached, start.Pos(), "started command is never waited on or released")
-					continue
-				}
-				check.Reportf(pass, check.ProcessWait, start.Pos(), "started command is not waited on every successful return path")
+				reportStartedCommand(pass, evidence, function, start, command)
 			}
 		}
 	}
 	return nil, nil
+}
+
+// startedCommand returns the Start call and the *exec.Cmd it starts.
+func startedCommand(instruction ssa.Instruction) (*ssa.Call, ssa.Value, bool) { //nolint:ireturn // Commands retain their concrete SSA forms.
+	start, ok := instruction.(*ssa.Call)
+	startCall := syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Start"})
+	if !ok || !ssaflow.CallMatchesSymbol(start.Common(), startCall) || !execCommandValue(ssaflow.CallReceiver(start.Common())) {
+		return nil, nil, false
+	}
+	return start, ssaflow.CallReceiver(start.Common()), true
+}
+
+// commandOwnedElsewhere reports whether the started command's Wait
+// responsibility provably or possibly lies outside this function, so the
+// flow after Start is not asked about it.
+func commandOwnedElsewhere(evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, start *ssa.Call, command ssa.Value) bool {
+	owners := processOwnersRegisteredBefore(function, start, command)
+	// A helper returning *exec.Cmd may already have registered cleanup
+	// or wait ownership. Without interprocedural evidence either way,
+	// reporting here would trade precision for recall. containerd wraps
+	// command construction and returns the started command in binaryIO:
+	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/cmd/containerd-shim-runc-v2/process/io.go#L288-L330
+	if commandReturnedByHelper(command) {
+		return true
+	}
+	// Caller retains a parameter command after this helper returns, so
+	// helper-local Start does not transfer caller's Wait responsibility.
+	if ssaflow.SameAsAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
+		return true
+	}
+	// A command loaded from an element of an aggregate is shared with
+	// every other reader of that aggregate, which may wait on it through
+	// a different element load the flow cannot link back. cocoon starts
+	// worker commands from one loop over a slice and waits in another:
+	// https://github.com/cocoonstack/cocoon/blob/51ff88bcf8f175a2d82b162d9bf9f65604a607b5/cmd/storebench/main.go#L123-L138
+	if ssaflow.ElementOfAggregate(command) {
+		return true
+	}
+	// Cleanup may be registered before Start. This is common when a
+	// constructor builds a teardown closure first, then starts the
+	// process and returns that closure to its caller.
+	if processOwnershipDominatesStart(evidence, function, start, command) ||
+		processOwnerDominatesStart(evidence, function, start, owners) ||
+		commandStoredExternallyBeforeStart(start, command) {
+		return true
+	}
+	return successfulStartCannotReturn(start)
+}
+
+// reportStartedCommand asks the flow whether every successful return waits on
+// or transfers the command, and reports the defect or the detached launch.
+func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, start *ssa.Call, command ssa.Value) {
+	leaks := ssaflow.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
+		return processOwnershipAction(evidence, candidate, command)
+	}, func(returned *ssa.Return) bool {
+		// Returning an aggregate that contains the command transfers Wait
+		// responsibility just as directly as returning *exec.Cmd itself, and
+		// so does returning the started os.Process, which the caller can
+		// Wait on directly. Casbin's daemon launcher returns cmd.Process:
+		// https://github.com/apache/casbin-gateway/blob/e3606894348d8cd52d85abc29cfb4d3ae99595cb/util/daemon.go#L121-L131
+		return startFailureReturn(returned, start) || ssaflow.ReturnedValueOwnsValue(returned, command) ||
+			returnsProcessHandle(returned, command)
+	})
+	emitProcessDecision(pass, function, start, command, leaks)
+	if !leaks {
+		return
+	}
+	// A launch whose handle is never touched again is a policy choice
+	// the project made deliberately, such as opening a browser, and is
+	// reported only by the opt-in detached audit. A handle that is
+	// waited on or released on some paths but not all is a defect.
+	if commandUnusedAfterStart(start, command) {
+		check.Reportf(pass, check.ProcessDetached, start.Pos(), "started command is never waited on or released")
+		return
+	}
+	check.Reportf(pass, check.ProcessWait, start.Pos(), "started command is not waited on every successful return path")
 }
 
 func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa.Call, command ssa.Value, leaks bool) {

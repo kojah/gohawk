@@ -334,6 +334,22 @@ func waitGroupDoneIsTerminal(done ssa.Instruction) bool {
 	return true
 }
 
+// sharedStorageSignals reports whether every completion signal was reached
+// through an element of an aggregate. Such a signal belongs to whatever else
+// holds that aggregate, such as a session the caller already stored in its
+// registry, so an unjoined launch is not proven to be this function's
+// obligation. MikroDash starts sessions ranged from a slice it filled while
+// registering them:
+// https://github.com/SecOps-7/MikroDash/blob/fb859d40ea22a2e46fb5a51d5b4ee7940bce6c9a/internal/alertpool/pool.go#L200-L223
+func (analysis *spawnAnalysis) sharedStorageSignals() bool {
+	if len(analysis.signals) == 0 || len(analysis.groups) > 0 {
+		return false
+	}
+	return !slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
+		return !ssaflow.ElementOfAggregate(signal)
+	})
+}
+
 // bufferedSignals reports whether every completion signal is a locally created
 // channel with a non-zero buffer.
 func (analysis *spawnAnalysis) bufferedSignals() bool {

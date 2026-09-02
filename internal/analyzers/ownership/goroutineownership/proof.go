@@ -44,6 +44,7 @@ const (
 	reasonWorkerConsumesSignal    goroutineOwnershipReason = "signal-consumed-by-worker"
 	reasonFlagGuardedJoin         goroutineOwnershipReason = "flag-guarded-join"
 	reasonBufferedSignal          goroutineOwnershipReason = "buffered-completion-signal"
+	reasonSharedStorageSignal     goroutineOwnershipReason = "shared-storage-signal"
 	reasonDetachedUnknown         goroutineOwnershipReason = "detached-lifecycle-unknown"
 	reasonUnownedReturn           goroutineOwnershipReason = "unowned-return"
 	reasonDoneBeforeCompletion    goroutineOwnershipReason = "waitgroup-done-before-completion"
@@ -119,6 +120,9 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	}
 	if analysis.checkID == check.GoroutineDetached {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonDetachedUnknown}
+	}
+	if analysis.sharedStorageSignals() {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonSharedStorageSignal}
 	}
 	if analysis.bufferedSignals() {
 		// A buffered completion send lets the worker finish after the caller

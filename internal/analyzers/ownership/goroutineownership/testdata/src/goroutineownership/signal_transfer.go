@@ -188,3 +188,26 @@ func (hub *subscriberHub) closeAll() {
 		}
 	}
 }
+
+type pooledSession struct {
+	done chan struct{}
+}
+
+func (session *pooledSession) run() {
+	defer close(session.done)
+}
+
+// A session's done channel reached through an element of a local slice is
+// shared with the registry that also holds the session, so launching the
+// session is not this function's obligation to join.
+func launchSessionsFromSlice(registry map[string]*pooledSession, names []string) {
+	var starting []*pooledSession
+	for _, name := range names {
+		session := &pooledSession{done: make(chan struct{})}
+		registry[name] = session
+		starting = append(starting, session)
+	}
+	for _, session := range starting {
+		go session.run()
+	}
+}

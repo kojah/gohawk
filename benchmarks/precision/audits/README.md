@@ -1265,3 +1265,30 @@ closed, and a cancel deferred inside a ticker loop. Four fire-and-forget
 editor and browser launches appear only under the opt-in detached-process
 audit. Opt-in global-state, API-shape, and detached-goroutine findings were
 sampled without expanding default policy.
+
+## Batch 41
+
+Nine repositories and twenty-three modules were selected and scanned
+through , the first batch on that path. Twenty modules loaded and
+scanned; nuon's root module and maglev need module downloads the scan
+forbids, and one panurus tools directory holds no buildable package. Final
+scans produced 993 unique diagnostics after one bounded correction:
+
+- a value selected from an element of a slice, array, map, or range
+  iteration is shared with whatever else holds that aggregate, so a started
+  command loaded from a local slice and a worker whose completion signal is
+  reached through such an element are unknown rather than violated.
+  processownership skips the command before asking the flow, and
+  goroutineownership records a shared-storage-signal outcome after the exact
+  join proofs fail.
+
+The correction removed a cocoon benchmark launcher finding under the opt-in
+detached audit and two MikroDash session launches. Precision round 43 labels
+the three and five nearby true positives: a broadcast goroutine that sends
+on an unbuffered result channel after the caller returned on error, two
+attachment files never closed when a write fails, a calendar poll ticker
+leaked when a follow-up lookup fails, and a prepared statement leaked when a
+later prepare fails. A vault readiness probe that returns without closing a
+healthy response is a true positive in a module too deep for the replay's
+module budget and is not labelled. Opt-in global-state, API-shape, and
+detached-goroutine findings were sampled without expanding default policy.

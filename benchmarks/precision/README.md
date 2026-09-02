@@ -237,3 +237,9 @@ claim helper that returns holding its lock only alongside a true result, and
 a type-asserted response body wrapped in a struct for a function value.
 Nearby transaction, row, file, and loop-deferred cancel findings remain
 reportable.
+
+Round 43 preserves the thirty-ninth reviewed batch. It covers worker
+commands started from one loop over a local slice and waited on from
+another, and pool sessions launched from a slice whose done channels the
+pool's registry also holds. Nearby file, ticker, statement, and unjoined
+broadcast findings remain reportable.

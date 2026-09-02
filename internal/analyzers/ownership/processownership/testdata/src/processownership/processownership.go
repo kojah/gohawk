@@ -502,6 +502,24 @@ func (e *envoyDriver) start() error {
 	return nil
 }
 
+// Commands started from one loop over a local slice and waited on from
+// another are shared through the slice, which the flow cannot link element by
+// element, so their lifecycle is unknown rather than violated.
+func startedAndWaitedThroughSlice(ctx context.Context) error {
+	commands := []*exec.Cmd{exec.CommandContext(ctx, "worker", "1"), exec.CommandContext(ctx, "worker", "2")}
+	for _, command := range commands {
+		if err := command.Start(); err != nil {
+			return err
+		}
+	}
+	for _, command := range commands {
+		if err := command.Wait(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // A command stored only in a local struct before Start is not transferred.
 func startWithLocalHolder() error {
 	holder := &envoyDriver{}

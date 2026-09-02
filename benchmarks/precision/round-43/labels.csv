@@ -1,0 +1,9 @@
+repository,analyzer,position,verdict
+cocoonstack/cocoon,processownership,cmd/storebench/main.go:130:13,false_positive
+SecOps-7/MikroDash,goroutineownership,internal/alertpool/pool.go:222:3,false_positive
+SecOps-7/MikroDash,goroutineownership,internal/routers/pool.go:416:3,false_positive
+LFDT-Panurus/panurus,goroutineownership,token/services/network/fabricx/tms/common.go:105:2,true_positive
+ThomasHabets/cmdg,resourcelifetime,cmd/cmdg/view_attachments.go:79:12,true_positive
+ThomasHabets/cmdg,resourcelifetime,cmd/cmdg/view_attachments.go:99:12,true_positive
+basecamp/hey-cli,resourcelifetime,internal/cmd/watch_calendar.go:105:15,true_positive
+cocoonstack/cocoon,resourcelifetime,meta/sqlite/store.go:425:21,true_positive

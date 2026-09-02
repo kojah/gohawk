@@ -137,6 +137,29 @@ func externallyOwnedValue(value ssa.Value, seen map[ssa.Value]bool) bool {
 	return false
 }
 
+// ElementOfAggregate reports whether value was selected from an element of
+// a slice, array, map, or range iteration, directly or through fields and
+// loads. Such a value is shared with whatever else holds the aggregate, so a
+// lifecycle obligation attached to it cannot be attributed to the current
+// function alone; callers treat it as unknown rather than violated.
+func ElementOfAggregate(value ssa.Value) bool {
+	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
+	return NewReachingWalk(forms).Any(value, aggregateElementLeaf)
+}
+
+func aggregateElementLeaf(walk ReachingWalk, value ssa.Value) bool {
+	switch typed := value.(type) {
+	case *ssa.IndexAddr, *ssa.Index, *ssa.Lookup:
+		return true
+	case *ssa.Extract:
+		if _, ok := typed.Tuple.(*ssa.Next); ok {
+			return true
+		}
+	}
+	source, ok := ownershipSource(value)
+	return ok && walk.Any(source, aggregateElementLeaf)
+}
+
 func ownershipSource(value ssa.Value) (ssa.Value, bool) {
 	switch typed := value.(type) {
 	case *ssa.FieldAddr:
