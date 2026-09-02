@@ -1,0 +1,13 @@
+repository,analyzer,position,verdict
+openclaw/crabbox,processownership,internal/cli/vnc.go:456:12,false_positive
+openclaw/crabbox,lockorder,internal/providers/incus/client.go:164:3,false_positive
+openclaw/crabbox,lockorder,internal/providers/incus/client.go:177:2,false_positive
+micro/mu,resourcelifetime,internal/app/app.go:1634:12,true_positive
+micro/mu,resourcelifetime,service/mail/display.go:76:24,true_positive
+micro/mu,deferinloop,service/mail/smtp.go:348:3,true_positive
+openclaw/crabbox,resourcelifetime,internal/cli/aws.go:639:13,true_positive
+openclaw/crabbox,resourcelifetime,internal/cli/azure.go:1728:17,true_positive
+openclaw/crabbox,resourcelifetime,internal/cli/cp_archive.go:625:13,true_positive
+perforce/p4prometheus,resourcelifetime,cmd/p4metrics/p4metrics.go:3251:12,true_positive
+patriceckhart/zot,processownership,examples/rpc/go/main.go:31:7,true_positive
+markus-wa/demoinfocs-golang,deferinloop,pkg/demoinfocs/cstv/cstv.go:52:3,true_positive

@@ -178,3 +178,8 @@ closes a file, registered with an imported callee summarized as retaining
 it, and a response assigned in either branch of an if/else before its
 deferred close. Nearby file, response, compression, timer, process,
 evaluation-order, defer, and capture findings remain reportable.
+
+Round 32 preserves the twenty-eighth reviewed batch. It covers a bound Wait
+handed to a helper that invokes it on a launched goroutine, and a helper
+whose contract is to return with its mutex held on every successful return.
+Nearby compression, ticker, process, and defer findings remain reportable.

@@ -289,3 +289,13 @@
 29	valkey-io/valkey-operator	d52b7823a42b8e59e42182bc64f718a29780efb6	.	reviewed
 29	argoproj-labs/gitops-promoter	1a017d53d8de0cb3d1baf4e87a54a34d808d9d8d	.,hack/celcost	reviewed
 29	coreos/ignition	958b26570b0d54f463f87c7cf5ed8751eda7f703	.	reviewed
+30	markus-wa/demoinfocs-golang	409f5b4e1b949eef9fbf994ff36016fe38799cee	.	reviewed
+30	Basekick-Labs/arc	bfd757708cd50745306f083f5de9d2d3fcfc88c2	.	reviewed
+30	micro/mu	ae641d9e5dbd2000d1c33280215cb31162ece26f	.,examples/imap-client,examples/x402-agent	reviewed
+30	patriceckhart/zot	169b025fa8f784e48cd0c11415c936d037605b91	.,examples/extensions/mcp-bridge,examples/extensions/todo	reviewed
+30	jpillora/velox	7336435ee05a9b8d95175c5544e6501c82aa9c91	.,example/go	reviewed
+30	suzuki-shunsuke/ghtkn	9bddc9baaaff966646bb2fa5b62618b17ea62c3e	.	reviewed
+30	massive-com/client-go	ade90c8e25a219b57e78a1e587a8dfc705df6136	.	reviewed
+30	perforce/p4prometheus	7c787b682fee3b7b7c009bd373cf7357f00cb10a	.	reviewed
+30	ludo-technologies/pyscn	2c1ff9187ffb0a03a23d426c2d9f694ccdb86a0e	.	reviewed
+30	openclaw/crabbox	3ef3f98cbe27e6ddc814c11fde15b89c1639bcbe	.,worker/cloudflare-container-runner	reviewed

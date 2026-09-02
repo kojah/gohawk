@@ -986,3 +986,36 @@ A stdio dialer that stores the process's Kill in a returned connection, and a
 keep-alive ticker inside an endless loop, remain reportable. Opt-in
 global-state, API-shape, and detached-goroutine findings were sampled without
 expanding default policy. Batch 29 replayed round 31 and rounds 23 and 30.
+
+## Batch 30
+
+Ten repositories and sixteen modules were selected. Twelve modules loaded
+and scanned fully; arc, p4prometheus, and pyscn produced useful partial
+analysis around dependencies that exclude the host platform, and one zot
+example module points at a replacement directory that does not exist here. Final
+scans produced 1,675 unique diagnostics after two bounded
+corrections:
+
+- a callback bound to the lifecycle method, handed to a helper, completes
+  when the helper invokes it inside a nested launch as well as directly, and
+  a callback spilled to a cell is recognized through its load; and
+- lockorder no longer exempts functions by a lock or unlock name prefix.
+  Instead, a function whose every successful return that an acquisition
+  dominates still holds the lock has the contract of acquiring for its
+  caller, while a function that forgets one unlock or acquires only
+  conditionally remains reportable.
+
+The first correction removed one crabbox SSH forwarder whose cmd.Wait runs
+on a helper's waiter goroutine. The second removed two crabbox
+beginOperation findings paired with endOperation. Precision round 32 labels
+those three false positives and nine nearby true positives: a gzip writer
+whose close is skipped by short-circuit evaluation, a gzip reader left open on
+a read error, two gzip writers left open on write errors, an archive reader
+never closed, an update ticker never stopped, an RPC client that never waits
+on its child, and two defers inside retry loops.
+
+zot's detached bot that kills the child on a PID-file error without waiting,
+and micro/mu's news handler that re-acquires a read lock, remain
+reportable. Opt-in global-state, API-shape, and detached-goroutine findings
+were sampled without expanding default policy. Round 32 was confirmed by
+rescanning the cohort; the cumulative milestone replay was deferred.
