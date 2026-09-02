@@ -122,6 +122,33 @@ func conditionallyAcquired(index, other int) {
 	}
 }
 
+func conditionallyAcquiredByBareBool(lock bool) {
+	if lock {
+		regressionFirst.Lock()
+	}
+	if lock {
+		regressionFirst.Unlock()
+	}
+}
+
+func conditionallyAcquiredByDifferentBools(acquire, release bool) {
+	if acquire {
+		regressionFirst.Lock() // want "lock regressionFirst is not released on this return path"
+	}
+	if release {
+		regressionFirst.Unlock()
+	}
+}
+
+func conditionallyAcquiredByOppositeGuard(lock bool) {
+	if lock {
+		regressionFirst.Lock() // want "lock regressionFirst is not released on this return path"
+	}
+	if !lock {
+		regressionFirst.Unlock()
+	}
+}
+
 func conditionalNil(pointer *int) {
 	if pointer != nil {
 		regressionFirst.Lock()

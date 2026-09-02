@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -83,7 +84,7 @@ func walkLockOrder(
 			actionState = flow.applyMutexAction(instruction, operation, identity, receiver, actionState)
 			held, deferred, guards = actionState.held, actionState.deferred, actionState.guards
 		}
-		queue = append(queue, lockSuccessorStates(state.block, held, deferred, guards)...)
+		queue = append(queue, lockSuccessorStates(pass, state.block, held, deferred, guards)...)
 	}
 	// Lock/Unlock helpers commonly and intentionally return while transferring
 	// the critical section to their caller. Without interprocedural call-site
@@ -265,13 +266,19 @@ func (flow lockFlowContext) applyMutexAction(
 	return state
 }
 
-func lockSuccessorStates(block *ssa.BasicBlock, held, deferred []string, guards map[string]lockGuard) []lockFlowState {
+func lockSuccessorStates(
+	pass *analysis.Pass,
+	block *ssa.BasicBlock,
+	held, deferred []string,
+	guards map[string]lockGuard,
+) []lockFlowState {
 	states := make([]lockFlowState, 0, len(block.Succs))
 	for index, successor := range block.Succs {
 		nextCondition, nextValue := "", false
 		if condition, ok := blockCondition(block); ok && len(block.Succs) == 2 {
 			nextCondition, nextValue = condition, index == 0
 			if guardConflicts(held, guards, condition, nextValue) {
+				traceRepeatedConditionPruning(pass, block)
 				continue
 			}
 		}
@@ -281,4 +288,21 @@ func lockSuccessorStates(block *ssa.BasicBlock, held, deferred []string, guards 
 		})
 	}
 	return states
+}
+
+func traceRepeatedConditionPruning(pass *analysis.Pass, block *ssa.BasicBlock) {
+	checkID := string(check.LockMissingRelease)
+	if !analysisTrace.Enabled("lockorder", checkID) || len(block.Instrs) == 0 {
+		return
+	}
+	branch := block.Instrs[len(block.Instrs)-1]
+	analysisTrace.Emit(pass, analysisTrace.Event{
+		Analyzer: "lockorder",
+		Check:    checkID,
+		Phase:    "evidence",
+		Reason:   "repeated-condition-infeasible",
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      branch.Pos(),
+		Function: branch.Parent().String(),
+	})
 }

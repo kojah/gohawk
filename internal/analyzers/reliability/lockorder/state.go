@@ -56,6 +56,16 @@ func blockCondition(block *ssa.BasicBlock) (string, bool) {
 }
 
 func conditionIdentity(value ssa.Value) (string, bool) {
+	if parameter, ok := value.(*ssa.Parameter); ok {
+		basic, boolean := parameter.Type().Underlying().(*types.Basic)
+		if boolean && basic.Info()&types.IsBoolean != 0 {
+			// A bare Boolean parameter is stable for the function invocation, so
+			// repeated branches on that exact SSA value cannot disagree. Keep this
+			// narrower than general derivation: loads and phis may change between
+			// the acquisition and release checks.
+			return "boolean:" + conditionOperandIdentity(parameter), true
+		}
+	}
 	comparison, ok := value.(*ssa.BinOp)
 	if !ok || (comparison.Op != token.EQL && comparison.Op != token.NEQ) {
 		return "", false
