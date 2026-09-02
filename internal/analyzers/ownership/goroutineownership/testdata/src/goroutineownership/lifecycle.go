@@ -50,9 +50,9 @@ func (owner *lifecycleOwner) startClosure() {
 	go func() { owner.run() }() // want "goroutine is not joined on every return path"
 }
 
-func (owner *lifecycleOwner) startWithAmbiguousOwnerSignal() {
+func (owner *lifecycleOwner) startWithUnobservedSignal() {
 	done := make(chan struct{})
-	go func() {
+	go func() { // want "goroutine is not joined on every return path"
 		owner.run()
 		close(done)
 	}()

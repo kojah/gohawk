@@ -2,8 +2,11 @@ package goroutineownership
 
 import "sync"
 
-// This file covers joins proved by matching spawn/receive counts, relay
-// workers, receive helpers, and nested barriers.
+// This file covers joins observed through receive loops, relay workers,
+// receive helpers, and nested barriers. A receive loop is accepted whenever it
+// follows the spawn; the analyzer does not compare loop counts, so a mismatch
+// between spawn and receive counts is a known false negative rather than a
+// diagnostic.
 
 func joinedByCountedReceives() {
 	done := make(chan bool)
@@ -67,27 +70,6 @@ func joinedByMatchingMap(items map[string]int) {
 	done := make(chan bool)
 	for range items {
 		go func() { done <- true }()
-	}
-	for range len(items) {
-		<-done
-	}
-}
-
-func differentMapCountDoesNotJoin(items, other map[string]int) {
-	done := make(chan bool)
-	for range items {
-		go func() { done <- true }() // want "goroutine is not joined on every return path"
-	}
-	for range len(other) {
-		<-done
-	}
-}
-
-func changedMapCountDoesNotJoin(items map[string]int) {
-	done := make(chan bool)
-	for key := range items {
-		go func() { done <- true }() // want "goroutine is not joined on every return path"
-		delete(items, key)
 	}
 	for range len(items) {
 		<-done

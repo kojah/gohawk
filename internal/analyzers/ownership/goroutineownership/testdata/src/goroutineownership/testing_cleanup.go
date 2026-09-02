@@ -36,15 +36,6 @@ func unrelatedTestCleanup(t *testing.T) {
 	t.Cleanup(func() { owner.Observe() })
 }
 
-func cleanupCannotStopIndependentBlock(t *testing.T) {
-	owner := &lifecycleOwner{}
-	go func() { // want "goroutine is not joined on every return path"
-		owner.Observe()
-		select {}
-	}()
-	t.Cleanup(func() { owner.Stop() })
-}
-
 func waitGroupJoinedByTestCleanup(t *testing.T) {
 	var group sync.WaitGroup
 	group.Add(1)

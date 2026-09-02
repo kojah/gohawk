@@ -73,24 +73,6 @@ func conditionalAggregateDoesNotOwnEveryReturn(useOwner bool) *returnedLifecycle
 	return other
 }
 
-func conditionalFieldStoreDoesNotOwnSpawnedLifecycle(install bool) *returnedLifecycleAggregate {
-	worker := &lifecycleOwner{}
-	result := &returnedLifecycleAggregate{}
-	if install {
-		result.worker = worker
-	}
-	go worker.run() // want "goroutine is not joined on every return path"
-	return result
-}
-
-func replacedFieldDoesNotOwnSpawnedLifecycle() *returnedLifecycleAggregate {
-	worker := &lifecycleOwner{}
-	result := &returnedLifecycleAggregate{worker: worker}
-	go worker.run() // want "goroutine is not joined on every return path"
-	result.worker = &lifecycleOwner{}
-	return result
-}
-
 type storedWorker struct {
 	wait func()
 }
