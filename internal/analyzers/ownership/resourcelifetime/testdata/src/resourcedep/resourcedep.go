@@ -121,3 +121,11 @@ func (s *Sink) Flush() error { return s.file.Sync() }
 
 // AdoptJournal stores the caller's file in a journal, whose Close releases it.
 func AdoptJournal(file *os.File) *Journal { return &Journal{file: file} }
+
+// DrainResponse drains and closes the body of a response that has one.
+func DrainResponse(resp *http.Response) {
+	if resp != nil && resp.Body != nil {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}
+}

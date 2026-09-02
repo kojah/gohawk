@@ -235,6 +235,28 @@ func rowsReassignedBeforeDeferredClose(ctx context.Context, database *sql.DB) er
 	return rows.Err()
 }
 
+// A transaction variable cleared after Commit and checked by the deferred
+// rollback still holds the transaction on every path that did not commit.
+func transactionClearedAfterCommit(ctx context.Context, database *sql.DB) error {
+	transaction, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if transaction != nil {
+			_ = transaction.Rollback()
+		}
+	}()
+	if _, err := transaction.ExecContext(ctx, "INSERT"); err != nil {
+		return err
+	}
+	if err := transaction.Commit(); err != nil {
+		return err
+	}
+	transaction = nil
+	return nil
+}
+
 // An imported helper summarized as rolling back its transaction parameter on
 // every return settles the Commit/Rollback pair through the RolledBack fact.
 func transactionFinishedByImportedHelper(ctx context.Context, database *sql.DB) error {

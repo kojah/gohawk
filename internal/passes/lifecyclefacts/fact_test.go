@@ -150,6 +150,12 @@ func Conditional(value *owner, enabled bool) {
 func Sibling(value, other *owner) {
 	defer func() { other.body.Close() }()
 }
+
+func Guarded(value *owner) {
+	if value != nil && value.body != nil {
+		value.body.Close()
+	}
+}
 `)
 	for _, test := range []struct {
 		name string
@@ -158,9 +164,10 @@ func Sibling(value, other *owner) {
 		{name: "Exported", want: true},
 		{name: "Conditional"},
 		{name: "Sibling"},
+		{name: "Guarded", want: true},
 	} {
 		function := pkg.Func(test.name)
-		fact := summarize(&analysis.Pass{}, function)
+		fact := summarize(&analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}, function)
 		if got := fact.Closed.contains(0); got != test.want {
 			t.Errorf("%s Closed parameter = %t, want %t", test.name, got, test.want)
 		}

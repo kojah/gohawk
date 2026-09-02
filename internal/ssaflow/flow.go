@@ -293,9 +293,14 @@ func nonNilFeasibleSuccessors(block, predecessor *ssa.BasicBlock, value ssa.Valu
 	}
 	// Use identity, not general data derivation: an error returned by a call
 	// that received the context may derive from the constructor result without
-	// being the cleanup function whose non-nilness is known.
-	comparesNil := SameValue(comparison.X, value) && DefinitelyNil(comparison.Y) ||
-		SameValue(comparison.Y, value) && DefinitelyNil(comparison.X)
+	// being the cleanup function whose non-nilness is known. A nil-comparable
+	// field loaded from the value, such as resp.Body, is assumed non-nil with
+	// it: when the field is nil there is nothing to release, so the branch
+	// that skips the release on that account proves no leak. autobrr's shared
+	// drain helper guards on both:
+	// https://github.com/autobrr/autobrr/blob/31a08a55a4539d846f1c68bfef43798659e05596/pkg/sharedhttp/http.go#L109-L114
+	comparesNil := assumedNonNil(comparison.X, value) && DefinitelyNil(comparison.Y) ||
+		assumedNonNil(comparison.Y, value) && DefinitelyNil(comparison.X)
 	if !comparesNil {
 		return successors
 	}
@@ -309,6 +314,20 @@ func nonNilFeasibleSuccessors(block, predecessor *ssa.BasicBlock, value ssa.Valu
 		}
 	}
 	return nil
+}
+
+// assumedNonNil reports whether operand is the assumed value itself or a
+// field loaded directly from it.
+func assumedNonNil(operand, value ssa.Value) bool {
+	if SameValue(operand, value) {
+		return true
+	}
+	load, ok := operand.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return false
+	}
+	field, ok := load.X.(*ssa.FieldAddr)
+	return ok && SameValue(field.X, value)
 }
 
 // FeasibleSuccessors preserves constants selected by predecessor-sensitive

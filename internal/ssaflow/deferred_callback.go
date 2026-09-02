@@ -198,3 +198,26 @@ func appendsToCell(value, address ssa.Value) bool {
 	load, ok := call.Common().Args[0].(*ssa.UnOp)
 	return ok && load.Op == token.MUL && load.X == address
 }
+
+// targetOrNilCell reports whether every store into the cell writes the target
+// or a nil constant, with at least one store of the target.
+func targetOrNilCell(address, target ssa.Value) bool {
+	if address == nil || address.Referrers() == nil {
+		return false
+	}
+	storesTarget := false
+	for _, reference := range *address.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if !ok || store.Addr != address {
+			continue
+		}
+		switch {
+		case SameValue(store.Val, target):
+			storesTarget = true
+		case DefinitelyNil(store.Val):
+		default:
+			return false
+		}
+	}
+	return storesTarget
+}

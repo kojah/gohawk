@@ -278,15 +278,7 @@ func (search *completionSearch) capturedLocal(
 	if callee.launch == launchDeferred && invocation != nil {
 		stable, ok := deferredBindingValue(binding, target, invocation)
 		if !ok {
-			// A captured slice that only ever grows by append still contains
-			// everything appended after the defer when the deferred literal
-			// runs, so the target appended to it is reachable from the local.
-			// rules_img drains such a closer slice in a deferred loop:
-			// https://github.com/bazel-contrib/rules_img/blob/af5e1452f0cb68b1ed64dc6095210f1eb4ae625f/img_tool/cmd/mtree/mtree.go#L110-L128
-			if !exact && appendOnlyCell(binding) && ValueContainsValue(binding, target) {
-				return mappedLocal{local: free, supplied: binding, kind: localExact}, true
-			}
-			return mappedLocal{}, false
+			return deferredCellLocal(free, binding, target, exact)
 		}
 		value, exact = stable, SameValue(stable, target)
 	}
@@ -306,6 +298,29 @@ func (search *completionSearch) capturedLocal(
 		// local closer slice the target was appended to; a lifecycle call on
 		// anything selected from that local reaches the target. A cell that
 		// held the target directly is decided by the exact rules above.
+		return mappedLocal{local: free, supplied: binding, kind: localExact}, true
+	}
+	return mappedLocal{}, false
+}
+
+// deferredCellLocal maps a captured cell whose value at the defer is not a
+// single stable store but is still known to reach the target when the
+// deferred literal runs.
+func deferredCellLocal(free, binding, target ssa.Value, exact bool) (mappedLocal, bool) {
+	// A captured slice that only ever grows by append still contains
+	// everything appended after the defer when the deferred literal runs, so
+	// the target appended to it is reachable from the local. rules_img drains
+	// such a closer slice in a deferred loop:
+	// https://github.com/bazel-contrib/rules_img/blob/af5e1452f0cb68b1ed64dc6095210f1eb4ae625f/img_tool/cmd/mtree/mtree.go#L110-L128
+	if !exact && appendOnlyCell(binding) && ValueContainsValue(binding, target) {
+		return mappedLocal{local: free, supplied: binding, kind: localExact}, true
+	}
+	// A cell that only ever holds the target or nil, cleared after a
+	// successful settlement and checked by the deferred literal, still
+	// reaches the target on every path where it was not settled. witness
+	// rolls back a transaction this way:
+	// https://github.com/transparency-dev/witness/blob/f8056f8fa0d33469be430dac2982e1f3cf745322/persistence/sqlite/sql.go#L199-L207
+	if targetOrNilCell(binding, target) {
 		return mappedLocal{local: free, supplied: binding, kind: localExact}, true
 	}
 	return mappedLocal{}, false

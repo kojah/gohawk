@@ -61,6 +61,17 @@ func deferredAssignedInBranches(value, other *closer, pick bool) {
 	}
 	defer func() { current.Close() }()
 }
+func deferredClearedAfterUse(value *closer, ok bool) {
+	var current *closer = value
+	defer func() {
+		if current != nil {
+			current.Close()
+		}
+	}()
+	if ok {
+		current = nil
+	}
+}
 func deferredStoredCallback(value *closer) {
 	callback := func() { value.Close() }
 	defer callback()
@@ -141,6 +152,8 @@ var completionCases = []struct {
 	{function: "deferredReassignedBefore", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredInsideLoop", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredAssignedInBranches", proven: true, reason: EvidenceDeferredCompletion},
+	{function: "deferredClearedAfterUse", proven: true, reason: EvidenceDeferredCompletion, coverage: CoverageAnywhere},
+	{function: "deferredClearedAfterUse"},
 	{function: "deferredStoredCallback", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredOnceCallback", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredPhiCallback"},

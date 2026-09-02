@@ -344,6 +344,18 @@ func deferredParameterClosesDifferentParameter(client *http.Client, request *htt
 	return nil
 }
 
+// A deferred imported helper that closes the body whenever the response and
+// its body are non-nil is summarized as closing it: a nil body has nothing to
+// release.
+func responseDrainedByGuardedImportedHelper(client *http.Client, request *http.Request) error {
+	response, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer resourcedep.DrainResponse(response)
+	return nil
+}
+
 // A response assigned in either branch before the deferred close still maps
 // to that close on the path through its own branch.
 func responseAssignedInEitherBranch(client *http.Client, request *http.Request, retry func(func() error) error) error {
