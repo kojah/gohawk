@@ -73,3 +73,8 @@ bodies during operand evaluation, cleanup deferred by exact static helpers,
 positive singleton-map guards, and close ownership through completely resolved
 bound-method callsites. Nearby resource, process, loop-cleanup,
 determinism, and goroutine findings remain reportable.
+
+Round 14 preserves the tenth reviewed batch. It covers lock acquisition and
+release guarded by the same stable Boolean parameter, plus resource cleanup by
+a deferred static helper receiving an exact field projection. Nearby lock,
+resource, determinism, and concurrent-capture findings remain reportable.

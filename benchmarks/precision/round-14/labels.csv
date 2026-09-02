@@ -1,0 +1,11 @@
+repository,analyzer,position,verdict
+Gnosil/semantix,lockorder,harness/recovery/gate.go:250:2,false_positive
+Gnosil/semantix,resourcelifetime,harness/serve/serve_test.go:157:18,true_positive
+Gnosil/semantix,resourcelifetime,harness/serve/serve_test.go:161:16,true_positive
+Gnosil/semantix,resourcelifetime,harness/serve/serve_test.go:165:15,true_positive
+Gnosil/semantix,determinism,kernel/fingerprint/fingerprint.go:51:2,true_positive
+Notifiarr/notifiarr,resourcelifetime,pkg/services/checks.go:243:15,false_positive
+Notifiarr/notifiarr,resourcelifetime,pkg/bindata/bindata.go:21:13,true_positive
+Notifiarr/notifiarr,concurrentcapture,pkg/checkapp/checkall.go:214:5,true_positive
+orneryd/NornicDB,lockorder,pkg/storage/schema_knowledgepolicy.go:246:4,true_positive
+orneryd/NornicDB,lockorder,pkg/storage/schema_knowledgepolicy.go:248:3,true_positive

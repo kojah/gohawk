@@ -89,3 +89,13 @@
 9	stacklok/toolhive	d859bfe06e62443cf9767f864ba06d294faf24fd	.	reviewed
 9	lightninglabs/loop	13b89d577624afa75fcef8733e574288764ce1cd	.,looprpc,swapserverrpc,tools	reviewed
 9	PeerDB-io/peerdb	05bdad59ae3cb5eef8cc150aaf68cca7a1a32de0	e2e_cleanup,flow,flow/pkg	reviewed
+10	tingly-dev/tingly-box	dc4cec11c290f1864c7e87b05c31df85d4c59e66	.,afk,agentboot,ai,gui/wails3,imbot,swagger	reviewed
+10	Notifiarr/notifiarr	63b3c072a1b6df73f676f37b367d75f0299458fc	.	reviewed
+10	openai/openai-go	d8a7e6c70d1bf67e744ea8e4fb617b622372ca0e	.,api_reference,examples,internal/testdata/consumer,tools	reviewed
+10	orneryd/NornicDB	2feb8dc484e29f880860b61b06c84ffa410cc160	.	reviewed
+10	Gnosil/semantix	e35c29f2ff65e7b6de46042dd6739736427e17eb	.,harness/lsp/testdata/lsp/golang,harness/sdk/go	reviewed
+10	github/gh-aw	fdc333ce7ce2141656629030afbfbaaaf9df7b3b	.,.github/workflows	reviewed
+10	turbolytics/sql-flow	47e4e6fa9bf6f912aefd3f402ea0fc20430a147f	.	reviewed
+10	thomaspoignant/go-feature-flag	d58d734452140d02c31684be4c3a239491ce2b96	.,.github/ci-scripts/bump-wasm-contrib,cmd/wasm,examples/lint_flag_programmatically,modules/core,openfeature/provider_tests/go-integration-tests,website/.ci	reviewed
+10	google/pprof	ca85771921e4d23ebb56030bf1e488f215f26d36	.,browsertests	reviewed
+10	shenwei356/seqkit	6adc2d921a7d35214f121655373df5ac95746d2d	.	reviewed
