@@ -18,6 +18,8 @@ type Fact struct {
 	Shutdown      ParameterMask
 	Stopped       ParameterMask
 	Waited        ParameterMask
+	Committed     ParameterMask
+	RolledBack    ParameterMask
 	ReturnedOwner ParameterMask
 	ReceiverStore ParameterMask
 }
@@ -106,6 +108,10 @@ func (fact *Fact) MethodMask(method string) ParameterMask {
 		return fact.Stopped
 	case "Wait":
 		return fact.Waited
+	case "Commit":
+		return fact.Committed
+	case "Rollback":
+		return fact.RolledBack
 	default:
 		return 0
 	}

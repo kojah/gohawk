@@ -167,6 +167,37 @@ func Sibling(value, other *owner) {
 	}
 }
 
+// Commit and Rollback are the cleanup pair of a transaction; each is
+// summarized independently, so a helper that settles the transaction one way
+// or the other on different paths exports neither mask.
+func TestLifecycleSummaryTransactionMasks(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type transaction struct{}
+func (*transaction) Commit() error { return nil }
+func (*transaction) Rollback() error { return nil }
+
+func Finish(tx *transaction) { _ = tx.Rollback() }
+
+func Save(tx *transaction, ok bool) error {
+	if ok {
+		return tx.Commit()
+	}
+	return tx.Rollback()
+}
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	finish := summarize(pass, pkg.Func("Finish"))
+	if !finish.RolledBack.contains(0) || finish.Committed.contains(0) {
+		t.Errorf("Finish masks = committed %t rolled back %t, want rolled back only", finish.Committed.contains(0), finish.RolledBack.contains(0))
+	}
+	save := summarize(pass, pkg.Func("Save"))
+	if save.RolledBack.contains(0) || save.Committed.contains(0) {
+		t.Errorf("Save masks = committed %t rolled back %t, want neither", save.Committed.contains(0), save.RolledBack.contains(0))
+	}
+}
+
 func buildLifecycleTestSSA(t *testing.T, source string) *ssa.Package {
 	t.Helper()
 	files := token.NewFileSet()

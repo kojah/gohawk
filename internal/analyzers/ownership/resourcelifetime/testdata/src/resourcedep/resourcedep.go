@@ -1,10 +1,21 @@
 package resourcedep
 
 import (
+	"database/sql"
 	"io"
 	"net/http"
 	"os"
 )
+
+// FinishTransaction rolls the transaction back on every return.
+func FinishTransaction(tx *sql.Tx) { _ = tx.Rollback() }
+
+// MaybeFinishTransaction rolls back only when enabled.
+func MaybeFinishTransaction(tx *sql.Tx, enabled bool) {
+	if enabled {
+		_ = tx.Rollback()
+	}
+}
 
 func Close(file *os.File) error { return file.Close() }
 

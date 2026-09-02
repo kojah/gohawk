@@ -196,6 +196,28 @@ func transactionDiscardedWithoutAssertion(ctx context.Context, database *sql.DB)
 	return err
 }
 
+// An imported helper summarized as rolling back its transaction parameter on
+// every return settles the Commit/Rollback pair through the RolledBack fact.
+func transactionFinishedByImportedHelper(ctx context.Context, database *sql.DB) error {
+	transaction, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer resourcedep.FinishTransaction(transaction)
+	_, err = transaction.ExecContext(ctx, "INSERT")
+	return err
+}
+
+func transactionMaybeFinishedByImportedHelper(ctx context.Context, database *sql.DB, enabled bool) error {
+	transaction, err := database.BeginTx(ctx, nil) // want "owned resource from sql.BeginTx is not released on every return path"
+	if err != nil {
+		return err
+	}
+	defer resourcedep.MaybeFinishTransaction(transaction, enabled)
+	_, err = transaction.ExecContext(ctx, "INSERT")
+	return err
+}
+
 // A deferred imported helper summarized as invoking its callback parameter on
 // every return runs the bound Close, so the rows are released.
 func rowsClosedByImportedInvoker(ctx context.Context, database *sql.DB) error {

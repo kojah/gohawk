@@ -197,8 +197,16 @@ func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof ssaflow.P
 
 func evidenceDetails(instruction ssa.Instruction, target ssa.Value) map[string]string {
 	details := map[string]string{}
-	if target != nil && target.Type() != nil {
-		details["target_type"] = target.Type().String()
+	if instruction != nil {
+		// The SSA text of the instruction lets a reader follow the trace as an
+		// annotated SSA walk without rebuilding the lowering by hand.
+		details["instruction"] = instruction.String()
+	}
+	if target != nil {
+		details["target"] = target.Name()
+		if target.Type() != nil {
+			details["target_type"] = target.Type().String()
+		}
 	}
 	if common := ssaflow.InstructionCall(instruction); common != nil && common.StaticCallee() != nil {
 		details["callee"] = common.StaticCallee().String()
