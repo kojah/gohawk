@@ -183,3 +183,8 @@ Round 32 preserves the twenty-eighth reviewed batch. It covers a bound Wait
 handed to a helper that invokes it on a launched goroutine, and a helper
 whose contract is to return with its mutex held on every successful return.
 Nearby compression, ticker, process, and defer findings remain reportable.
+
+Round 33 preserves the twenty-ninth reviewed batch. It covers a jobs channel
+drained by literals handed to an errgroup runner, and mutexes selected by a
+loop iteration that are locked through one instruction. Nearby file,
+response, timer, goroutine, and defer findings remain reportable.

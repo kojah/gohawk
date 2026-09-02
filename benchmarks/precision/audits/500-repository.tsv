@@ -299,3 +299,13 @@
 30	perforce/p4prometheus	7c787b682fee3b7b7c009bd373cf7357f00cb10a	.	reviewed
 30	ludo-technologies/pyscn	2c1ff9187ffb0a03a23d426c2d9f694ccdb86a0e	.	reviewed
 30	openclaw/crabbox	3ef3f98cbe27e6ddc814c11fde15b89c1639bcbe	.,worker/cloudflare-container-runner	reviewed
+31	ClickHouse/clickhouse-operator	7ca9b749f4faef56ee4a4735b3e9efd1ce63bf77	.	reviewed
+31	compose-spec/compose-go	95dbfdf7b39d6952252e3f7e1d8f0ca7d9158e08	.	reviewed
+31	kimdre/doco-cd	6185d5228c2bb7289581de9c023fe87c76ca8671	.	reviewed
+31	l7mp/stunner	da853c7c9c11ce2ff97387e750d38c84492b0128	.	reviewed
+31	GoogleCloudPlatform/buildpacks	77e5873cfe5ac69186aded518bbe6230236ab7bb	.,cmd/go/functions_framework/converter/without-framework	reviewed
+31	go-gorm/gen	52b585b1e8d82bed24a9152b07e49bae81b906b7	.,examples,tests,tools/gentool	reviewed
+31	backube/volsync	e757f3889c44171c5626955edf83823c5bb7ed64	.,custom-scorecard-tests,mover-restic/minio-go,mover-restic/restic,mover-restic/minio-go/examples/minio,mover-restic/minio-go/examples/s3	reviewed
+31	multigres/multigres	360b8f123dff8ad6bcc721acaec103c52081bebd	.	reviewed
+31	gofiber/storage	7971e906522a42f0938861c940e20585156660bc	.,aerospike,arangodb,azureblob,badger,bbolt,cassandra,clickhouse,cloudflarekv,coherence,couchbase,dynamodb,etcd,firestore,leveldb,memcache,memory,minio,mockstorage,mongodb,mssql,mysql,nats,neo4j,pebble,postgres,redis,ristretto,rueidis,s3,scylladb,sqlite3,surrealdb,valkey,testhelpers/redis,testhelpers/tck	reviewed
+31	apache/iceberg-go	aa76a28c34787f23f8eee1c5648271fc0ee6042f	.	reviewed
