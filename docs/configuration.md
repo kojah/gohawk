@@ -17,8 +17,9 @@ Every check carries a tier that records how much trust it has earned:
 | extended | no | stable checks that encode a house rule a team may reasonably decline |
 | experimental | no | heuristic audits that may change or be retired |
 
-Use `gohawk list` to see every analyzer with its tier, and `gohawk list
--checks` for the checks themselves. An analyzer's tier is the most trusted
+See [Check tiers](../check-tiers/) for what each tier promises and how a
+check moves between them. Use `gohawk list` to see every analyzer with its
+tier, and `gohawk list -checks` for the checks themselves. An analyzer's tier is the most trusted
 tier among its checks; it runs whenever one of its checks is selected.
 
 ```sh
