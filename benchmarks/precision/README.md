@@ -134,3 +134,10 @@ Round 24 preserves the twentieth reviewed batch. It covers a cancel function
 stored into a local that a deferred guard closure captures and a ticker stopped
 inside a closure launched by `sync.WaitGroup.Go`. Nearby resource, process,
 and defer-in-loop findings remain reportable.
+
+Round 25 preserves the twenty-first reviewed batch. It covers a test helper
+that registers `testing.Cleanup` for its file argument, `os.IsPermission`
+switch cases on an acquisition error, fatal `require.Error` and
+`require.NotNil` assertions after any acquisition, a returned struct literal
+carrying a captured method value, and buffered result channels stored in a
+slice. Nearby resource, goroutine, and inline-error findings remain reportable.

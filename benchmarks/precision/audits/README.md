@@ -682,3 +682,50 @@ Opt-in exit-policy, error-ownership, API-shape, and global-state findings were
 sampled without expanding default correctness policy. Batch 22 made no
 analyzer or runtime changes, so its binary is identical to the Batch 21
 boundary and no performance comparison was necessary.
+
+## Batch 23
+
+Ten repositories and twenty modules were selected. Nineteen modules loaded
+and scanned fully; Kolide's launcher produced useful partial analysis because
+its pinned fscrypt dependency needs CGO. Final scans produced 1,248
+unique diagnostics after five bounded corrections, all of them shared value
+or contract mechanics rather than new proof families:
+
+- a source-visible helper that registers `testing.Cleanup` calling the
+  lifecycle method on its exact argument owns that argument, since Cleanup
+  runs after the test regardless of how the helper returns;
+- `os.IsPermission` and `os.IsTimeout` join `os.IsNotExist` as documented
+  predicates that report false for a nil error;
+- a fatal `require.Error`, or `require.NotNil` applied to the error, stops the
+  test unless the acquisition failed, for any acquisition rather than only
+  `net/http`;
+- a struct literal returned by value carries whatever the local that
+  assembled it holds, including a method value bound to the resource; and
+- a channel read through one slice element is matched against channels stored
+  through any element of the same slice, so buffered per-producer results do
+  not become a proven skipped join.
+
+The corrections removed seven filesql fixture-file findings, two filesql and
+two Kolide test findings, one warp reader wrapper finding, and one Shopware
+goroutine finding. Precision round 25 passed with all six representative false
+positives absent and all eight nearby true positives present: Kolide's ticker
+created before a failing constructor step, its transaction abandoned by a
+size guard, and its file created before a failing chmod; warp's ticker
+leaked on the stability exit and its CSV loader that skips its join on a
+parse error; and Shopware's mis-checked scan error and unclosed icon file.
+
+Several findings remain reportable as written: gzip and zlib writers left
+open on write errors, response bodies read but never closed, temporary files
+created and only removed, a transaction begun inside a goroutine and never
+rolled back on the unexpected-success path, and the `open` and `xdg-open`
+launches that warp and resterm deliberately never wait for. Opt-in
+exit-policy, global-state, and API-shape findings were sampled without
+expanding default correctness policy.
+
+A five-run performance check compared warmed `-enable-all` runs on pinned
+Caddy at the Batch 22 boundary and after Batch 23. Median wall time changed
+from 3.265 to 3.366 seconds (+3.1%), while median peak RSS changed from
+5,138,656 to 4,969,540 KiB (-3.3%). Batch 23 replayed round 25 and every
+round carrying labels for the changed analyzers, which is all of them; all 178
+false positives remained absent and all 227 true positives remained present.
+The cumulative suite and larger benchmark remain scheduled for Batch 25.

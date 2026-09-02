@@ -1,0 +1,15 @@
+repository,analyzer,position,verdict
+nao1215/filesql,resourcelifetime,internal/parser/parser_test.go:440:13,false_positive
+nao1215/filesql,resourcelifetime,transaction_test.go:607:12,false_positive
+kolide/launcher,resourcelifetime,ee/debug/checkups/enroll-secret.go:117:19,false_positive
+kolide/launcher,resourcelifetime,pkg/debug/debug_test.go:91:11,false_positive
+minio/warp,resourcelifetime,cli/analyze.go:289:13,false_positive
+shopware/shopware-cli,goroutineownership,internal/account-api/producer.go:108:3,false_positive
+kolide/launcher,resourcelifetime,ee/desktop/runner/runner.go:202:24,true_positive
+kolide/launcher,resourcelifetime,ee/agent/storage/sqlite/keyvalue_store_sqlite.go:299:12,true_positive
+kolide/launcher,resourcelifetime,ee/desktop/runner/runner.go:705:15,true_positive
+minio/warp,resourcelifetime,pkg/aggregate/collector.go:86:13,true_positive
+minio/warp,goroutineownership,pkg/bench/ops.go:1093:2,true_positive
+shopware/shopware-cli,inlineerror,internal/mysqldump/mysql.go:570:38,true_positive
+shopware/shopware-cli,resourcelifetime,internal/extension/icon.go:52:20,true_positive
+nao1215/filesql,resourcelifetime,stream_test.go:745:10,true_positive
