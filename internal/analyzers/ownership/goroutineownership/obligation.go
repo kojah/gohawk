@@ -286,7 +286,12 @@ func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value) bool {
 	if !hasReturn {
 		return false
 	}
-	return !ssaflow.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
+	// Paths reachable only when the group is nil carry no obligation: without a
+	// WaitGroup nothing was added and nothing waits, so a Done guarded by a nil
+	// check on the group itself still settles every path that has a group.
+	// Vitess passes a group only on the shutdown path that waits for it:
+	// https://github.com/vitessio/vitess/blob/44321d8ca0e2b2689e869bc680b6ce6402bba977/go/vt/vttablet/tabletserver/state_manager.go#L605-L631
+	return !ssaflow.UnownedReturnFromEntryAssumingNonNil(function, receiver, func(instruction ssa.Instruction) bool {
 		common := ssaflow.InstructionCall(instruction)
 		if common == nil || !ssaflow.CallMatchesSymbol(common, waitGroupDone) ||
 			!ssaflow.ValueAliases(ssaflow.CallReceiver(common), receiver, map[ssa.Value]bool{}) {

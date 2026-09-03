@@ -228,3 +228,31 @@ func unrelatedCounterDoesNotGuard(items []int) {
 	}
 	<-done
 }
+
+// nilGuardedDoneSettles gives the worker a group only on the path that waits
+// for it. A nil group means nothing was added and nothing waits, so the guard
+// tracks whether the obligation exists rather than skipping it, and the
+// deferred Done still settles every path that has a group. Vitess terminates
+// queries this way, passing a group only on the shutdown path:
+// https://github.com/vitessio/vitess/blob/44321d8ca0e2b2689e869bc680b6ce6402bba977/go/vt/vttablet/tabletserver/state_manager.go#L605-L631
+func nilGuardedDoneSettles(group *sync.WaitGroup, work func()) {
+	go func() {
+		if group != nil {
+			defer group.Done()
+		}
+		work()
+	}()
+}
+
+// flagGuardedDoneDoesNotSettle guards the same Done with an unrelated flag, so
+// the group can be waited on while the worker still runs.
+func flagGuardedDoneDoesNotSettle(group *sync.WaitGroup, work func(), settle bool) {
+	group.Add(1)
+	go func() { // want "goroutine is not joined on every return path"
+		if settle {
+			defer group.Done()
+		}
+		work()
+	}()
+	group.Wait()
+}
