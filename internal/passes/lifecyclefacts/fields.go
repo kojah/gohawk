@@ -137,6 +137,42 @@ func parameterMayBeReleased(function *ssa.Function, parameter ssa.Value) bool {
 	return false
 }
 
+// fieldCleanup returns the methods that release a value held in a field. The
+// listed resource types answer for a concrete field, but a wrapper holds what
+// it was given behind an interface, and io.Closer is as much a statement that
+// the value can be closed as *os.File is. Without this a wrapper's own Close
+// is never seen to release the field, the summary says the caller still owns
+// the argument, and handing that wrapper back is reported as a leak.
+func fieldCleanup(value types.Type) ([]string, bool) {
+	if cleanup, ok := ResourceCleanup(value); ok {
+		return cleanup, true
+	}
+	// Only the closing contract is taken from a method set. It is documented
+	// as io.Closer and carries a signature to check, where a bare Stop or
+	// Shutdown on a project type would be a guess about what the name means.
+	if implementsCloser(value) {
+		return []string{"Close"}, true
+	}
+	return nil, false
+}
+
+func implementsCloser(value types.Type) bool {
+	for selection := range types.NewMethodSet(value).Methods() {
+		method, ok := selection.Obj().(*types.Func)
+		if !ok || method.Name() != "Close" {
+			continue
+		}
+		signature, ok := method.Type().(*types.Signature)
+		if !ok || signature.Params().Len() != 0 || signature.Results().Len() != 1 {
+			continue
+		}
+		if types.Identical(signature.Results().At(0).Type(), types.Universe.Lookup("error").Type()) {
+			return true
+		}
+	}
+	return false
+}
+
 // typeCanRelease reports whether a value of this type carries any method that
 // could release what it holds. The names are the cleanup vocabulary used
 // throughout the lifecycle proofs; a type with none of them offers the caller
@@ -191,7 +227,7 @@ func releasedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 	}
 	var released ParameterMask
 	for index := range structure.NumFields() {
-		cleanup, ok := ResourceCleanup(structure.Field(index).Type())
+		cleanup, ok := fieldCleanup(structure.Field(index).Type())
 		if !ok {
 			continue
 		}

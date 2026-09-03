@@ -49,3 +49,14 @@ func NewCloser(source io.Closer) *Closer {
 	return wrapped
 }
 
+
+// DirectCloser stores its argument directly and closes it, so every step is
+// provable: the argument can be closed, the field holds it, and Close closes
+// that field. The field is an interface, which is how a wrapper holds what it
+// was given, and a summary that cannot read a cleanup method there says the
+// caller still owns the argument.
+type DirectCloser struct{ inner io.Closer }
+
+func NewDirectCloser(source io.Closer) *DirectCloser { return &DirectCloser{inner: source} }
+
+func (d *DirectCloser) Close() error { return d.inner.Close() }

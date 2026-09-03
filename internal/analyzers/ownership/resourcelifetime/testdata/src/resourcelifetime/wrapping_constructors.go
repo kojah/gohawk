@@ -106,3 +106,15 @@ func fileAdoptedByAssertingConstructor(path string) error {
 	_ = outer.NewAdopting(file)
 	return nil
 }
+
+// fileHandedToReturnedCloser is accepted: the wrapper closes the file, and
+// this function hands the wrapper to its own caller, so the obligation goes
+// with it. Reporting here would blame a function that transferred ownership
+// correctly.
+func fileHandedToReturnedCloser(path string) (*wrapping.DirectCloser, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return wrapping.NewDirectCloser(file), nil
+}
