@@ -94,3 +94,15 @@ func fileWrappedAcrossTwoPackagesBySealed(path string) error {
 	_ = outer.NewSealed(file)
 	return nil
 }
+
+// fileAdoptedByAssertingConstructor is accepted: the constructor asserts the
+// reader to a closer and closes it, so the parameter type understates what it
+// did and the caller is not left holding the obligation.
+func fileAdoptedByAssertingConstructor(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	_ = outer.NewAdopting(file)
+	return nil
+}

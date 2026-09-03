@@ -27,3 +27,23 @@ func (s *Sealed) Close() error { return nil }
 
 func NewSealed(source io.Reader) *Sealed { return &Sealed{inner: wrapping.NewReader(source)} }
 
+// Adopting delegates the store and carries a Close of its own, so neither the
+// field the reader lands in nor the returned type decides the answer. What is
+// left is whether the constructor discharged the obligation despite being
+// handed a plain reader, which it did by asserting the reader to a closer.
+// Without that question this reads as a view, and a caller that correctly
+// handed its file over is reported.
+type Adopting struct{ inner io.Reader }
+
+func (a *Adopting) reset(source io.Reader) { a.inner = source }
+
+func (a *Adopting) Close() error { return nil }
+
+func NewAdopting(source io.Reader) *Adopting {
+	if closer, ok := source.(io.Closer); ok {
+		_ = closer.Close()
+	}
+	adopted := new(Adopting)
+	adopted.reset(source)
+	return adopted
+}

@@ -115,12 +115,16 @@ func acquiredResource(value ssa.Value) bool {
 
 // storedFieldIndices returns the indices of the struct's fields the value is
 // stored into, through field addresses of an allocation of that struct.
-// parameterMayBeReleased reports whether the function gives the parameter to
-// something that could release it despite its type offering no way to: an
-// assertion to a type that carries a cleanup method, or a callee summarized as
-// settling it. Without this guard the rule above would claim the caller keeps
-// an obligation that the callee had in fact discharged.
-func parameterMayBeReleased(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
+// parameterMayBeReleased reports whether the function releases the parameter
+// despite its type offering no way to, by asserting it to a type that carries
+// a cleanup method. A callee may know more about its argument than the
+// parameter type admits, and without this the rule above would claim the
+// caller keeps an obligation the constructor had already discharged.
+//
+// Handing the parameter to a callee that settles it needs no separate
+// question: a callee proven to settle it on every return makes this function
+// proven to settle it too, and that is what suppresses the diagnostic.
+func parameterMayBeReleased(function *ssa.Function, parameter ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if assertion, ok := instruction.(*ssa.TypeAssert); ok &&
@@ -128,34 +132,6 @@ func parameterMayBeReleased(pass *analysis.Pass, function *ssa.Function, paramet
 				typeCanRelease(assertion.AssertedType) {
 				return true
 			}
-			if callReleasesParameter(pass, instruction, parameter) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func callReleasesParameter(pass *analysis.Pass, instruction ssa.Instruction, parameter ssa.Value) bool {
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil || common.StaticCallee() == nil {
-		return false
-	}
-	imported, known := factForFunction(pass, ssaflow.ResolvedCallee(common))
-	if !known {
-		// An unsummarized callee is not evidence that the argument survives.
-		// It is also not evidence that it was released, and reading silence as
-		// release would withdraw the rule wherever a constructor delegates to
-		// an unexported helper, which is most of them. The parameter type is
-		// what carries this boundary: releasing a value whose type has no
-		// cleanup method takes an assertion, and an assertion is visible where
-		// it happens.
-		return false
-	}
-	settles := imported.Claim(ClaimReleases)
-	for index, argument := range common.Args {
-		if settles.contains(index) && ssaflow.ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) {
-			return true
 		}
 	}
 	return false
@@ -372,7 +348,7 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 		if !fact.ReturnedOwner.contains(index) {
 			continue
 		}
-		if parameterIsView(pass, function, parameter, result, structure, released) {
+		if parameterIsView(function, parameter, result, structure, released) {
 			views |= parameterMaskFor(index)
 		}
 	}
@@ -395,7 +371,6 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 // view. When the type can release, the answer depends on which field this is,
 // so an unreadable store stays conservative and claims no view.
 func parameterIsView(
-	pass *analysis.Pass,
 	function *ssa.Function,
 	parameter ssa.Value,
 	result types.Type,
@@ -409,7 +384,7 @@ func parameterIsView(
 	// reader rather than a ReadCloser is the API saying so. Asking the
 	// returned type instead gets that case wrong, because *gzip.Reader has a
 	// Close that closes its own decompressor.
-	if !typeCanRelease(parameter.Type()) && !parameterMayBeReleased(pass, function, parameter) {
+	if !typeCanRelease(parameter.Type()) && !parameterMayBeReleased(function, parameter) {
 		return true
 	}
 	if !typeCanRelease(result) {
