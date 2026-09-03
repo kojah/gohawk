@@ -42,7 +42,7 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 // StoresValueInField reports whether instruction transfers value into a struct field.
 
 func ValueContainsValue(owner, value ssa.Value) bool {
-	return valueOwnsValue(owner, value, map[ssa.Value]bool{}) || aggregateStoresValue(owner, value, map[ownershipPair]bool{})
+	return valueOwnsValue(owner, value, map[ssa.Value]bool{}) || newOwnershipSearch(nil).aggregateStoresValue(owner, value)
 }
 
 func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {

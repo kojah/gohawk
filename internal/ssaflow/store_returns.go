@@ -10,7 +10,33 @@ import (
 )
 
 func ReturnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
-	return returnedValueOwnsValue(returned, value, map[ownershipPair]bool{})
+	return newOwnershipSearch(nil).returnedValueOwnsValue(returned, value)
+}
+
+// ReturnsOwner reports whether callee returns a value that owns its parameter
+// at index. A callee in another package has no body to read here, so the
+// answer comes from its summary, which lives above this package.
+type ReturnsOwner func(callee *ssa.Function, index int) bool
+
+// ReturnedValueOwnsValueSummarized is ReturnedValueOwnsValue for a caller that
+// can answer for a callee whose body is unavailable. A wrapping constructor
+// commonly delegates across a package boundary, as encoding/csv reaches its
+// reader through bufio and encoding/json reaches its through jsontext, and
+// without the summary the search stops at that boundary and concludes the
+// callee kept the argument for itself.
+func ReturnedValueOwnsValueSummarized(returned *ssa.Return, value ssa.Value, summarized ReturnsOwner) bool {
+	return newOwnershipSearch(summarized).returnedValueOwnsValue(returned, value)
+}
+
+// ownershipSearch carries the cycle guard and the summary hook through the
+// walk that asks whether a returned value holds another value.
+type ownershipSearch struct {
+	seen       map[ownershipPair]bool
+	summarized ReturnsOwner
+}
+
+func newOwnershipSearch(summarized ReturnsOwner) *ownershipSearch {
+	return &ownershipSearch{seen: map[ownershipPair]bool{}, summarized: summarized}
 }
 
 type ownershipPair struct {
@@ -18,24 +44,24 @@ type ownershipPair struct {
 	value     ssa.Value
 }
 
-func returnedValueOwnsValue(returned *ssa.Return, value ssa.Value, seen map[ownershipPair]bool) bool {
+func (search *ownershipSearch) returnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
 	for _, result := range returned.Results {
-		if SameValue(result, value) || aggregateStoresValue(result, value, seen) {
+		if SameValue(result, value) || search.aggregateStoresValue(result, value) {
 			return true
 		}
 	}
 	return false
 }
 
-func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]bool) bool {
+func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) bool {
 	pair := ownershipPair{aggregate: aggregate, value: value}
-	if aggregate == nil || seen[pair] {
+	if aggregate == nil || search.seen[pair] {
 		return false
 	}
 	if SameValue(aggregate, value) {
 		return true
 	}
-	seen[pair] = true
+	search.seen[pair] = true
 	// A constructor with a fast path returns the argument itself once it is
 	// already the type it would wrap, as bufio.NewReaderSize does with
 	// rd.(*Reader). The assertion selects the same object, so the caller
@@ -45,25 +71,25 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]boo
 		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface|
 			TransparentTypeAssert,
 	); ok {
-		return aggregateStoresValue(inner, value, seen)
+		return search.aggregateStoresValue(inner, value)
 	}
 	switch typed := aggregate.(type) {
 	case *ssa.Call:
-		if callAggregateStoresValue(typed, value, seen) {
+		if search.callAggregateStoresValue(typed, value) {
 			return true
 		}
 	case *ssa.Phi:
-		if anyAggregateStoresValue(typed.Edges, value, seen) {
+		if search.anyAggregateStoresValue(typed.Edges, value) {
 			return true
 		}
 	case *ssa.Slice:
-		return aggregateStoresValue(typed.X, value, seen)
+		return search.aggregateStoresValue(typed.X, value)
 	case *ssa.MakeClosure:
 		// A returned callback that captured the value keeps it alive and is the
 		// only thing that can still release it, so the caller receives the
 		// obligation with the callback.
 		for _, binding := range typed.Bindings {
-			if CapturedBindingMatches(binding, value) || aggregateStoresValue(CapturedBindingValue(binding), value, seen) {
+			if CapturedBindingMatches(binding, value) || search.aggregateStoresValue(CapturedBindingValue(binding), value) {
 				return true
 			}
 		}
@@ -72,19 +98,19 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]boo
 		// process or handle state, so returning the copy transfers it. A struct
 		// literal returned by value is likewise loaded from the local that
 		// assembled it, so the load carries whatever that local's fields hold.
-		if typed.Op == token.MUL && (SameValue(typed.X, value) || aggregateStoresValue(typed.X, value, seen)) {
+		if typed.Op == token.MUL && (SameValue(typed.X, value) || search.aggregateStoresValue(typed.X, value)) {
 			return true
 		}
 	}
-	if _, ok := aggregate.(*ssa.Alloc); ok && addressStoresValue(aggregate, value, seen) {
+	if _, ok := aggregate.(*ssa.Alloc); ok && search.addressStoresValue(aggregate, value) {
 		return true
 	}
-	return aggregateReferrersStoreValue(aggregate, value, seen)
+	return search.aggregateReferrersStoreValue(aggregate, value)
 }
 
-func callAggregateStoresValue(call *ssa.Call, value ssa.Value, seen map[ownershipPair]bool) bool {
+func (search *ownershipSearch) callAggregateStoresValue(call *ssa.Call, value ssa.Value) bool {
 	common := call.Common()
-	if CallMatchesSymbol(common, syntax.Builtin("append")) && anyAggregateStoresValue(common.Args, value, seen) {
+	if CallMatchesSymbol(common, syntax.Builtin("append")) && search.anyAggregateStoresValue(common.Args, value) {
 		return true
 	}
 	callee := common.StaticCallee()
@@ -92,29 +118,37 @@ func callAggregateStoresValue(call *ssa.Call, value ssa.Value, seen map[ownershi
 		return false
 	}
 	for index, argument := range common.Args {
-		if index < len(callee.Params) &&
-			aggregateStoresValue(argument, value, seen) &&
-			functionReturnsOwner(callee, callee.Params[index], seen) {
+		if !search.aggregateStoresValue(argument, value) {
+			continue
+		}
+		if index < len(callee.Params) && search.functionReturnsOwner(callee, callee.Params[index]) {
+			return true
+		}
+		// A callee in another package has neither a body nor parameter values
+		// here, so its summary is the only account of what it did with the
+		// argument. Index the summary by the argument position, which is how
+		// the summary counts parameters, receiver included.
+		if search.summarized != nil && search.summarized(callee, index) {
 			return true
 		}
 	}
 	return false
 }
 
-func anyAggregateStoresValue(aggregates []ssa.Value, value ssa.Value, seen map[ownershipPair]bool) bool {
+func (search *ownershipSearch) anyAggregateStoresValue(aggregates []ssa.Value, value ssa.Value) bool {
 	for _, aggregate := range aggregates {
-		if aggregateStoresValue(aggregate, value, seen) {
+		if search.aggregateStoresValue(aggregate, value) {
 			return true
 		}
 	}
 	return false
 }
 
-func functionReturnsOwner(function *ssa.Function, value ssa.Value, seen map[ownershipPair]bool) bool {
+func (search *ownershipSearch) functionReturnsOwner(function *ssa.Function, value ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			returned, ok := instruction.(*ssa.Return)
-			if ok && returnedValueOwnsValue(returned, value, seen) {
+			if ok && search.returnedValueOwnsValue(returned, value) {
 				return true
 			}
 		}
@@ -122,13 +156,13 @@ func functionReturnsOwner(function *ssa.Function, value ssa.Value, seen map[owne
 	return false
 }
 
-func aggregateReferrersStoreValue(aggregate, value ssa.Value, seen map[ownershipPair]bool) bool {
+func (search *ownershipSearch) aggregateReferrersStoreValue(aggregate, value ssa.Value) bool {
 	if aggregate.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *aggregate.Referrers() {
 		if call, ok := reference.(ssa.CallInstruction); ok {
-			if callStoresValueIntoAggregate(call, aggregate, value, seen) {
+			if search.callStoresValueIntoAggregate(call, aggregate, value) {
 				return true
 			}
 			continue
@@ -139,7 +173,7 @@ func aggregateReferrersStoreValue(aggregate, value ssa.Value, seen map[ownership
 		}
 		switch address.(type) {
 		case *ssa.FieldAddr, *ssa.IndexAddr:
-			if addressStoresValue(address, value, seen) || aggregateStoresValue(address, value, seen) {
+			if search.addressStoresValue(address, value) || search.aggregateStoresValue(address, value) {
 				return true
 			}
 		}
@@ -160,7 +194,7 @@ func aggregateReferrersStoreValue(aggregate, value ssa.Value, seen map[ownership
 // helper is often unexported, so its summary is never exported and the answer
 // has to come from its body, which is available here for a callee in the same
 // package.
-func callStoresValueIntoAggregate(call ssa.CallInstruction, aggregate, value ssa.Value, seen map[ownershipPair]bool) bool {
+func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruction, aggregate, value ssa.Value) bool {
 	common := call.Common()
 	if common == nil {
 		return false
@@ -194,19 +228,19 @@ func callStoresValueIntoAggregate(call ssa.CallInstruction, aggregate, value ssa
 		if _, closure := argument.(*ssa.MakeClosure); closure {
 			continue
 		}
-		if !SameValue(argument, value) && !aggregateStoresValue(argument, value, seen) {
+		if !SameValue(argument, value) && !search.aggregateStoresValue(argument, value) {
 			continue
 		}
-		if aggregateStoresValue(callee.Params[holder], callee.Params[index], seen) {
+		if search.aggregateStoresValue(callee.Params[holder], callee.Params[index]) {
 			return true
 		}
 	}
 	return false
 }
 
-func addressStoresValue(address ssa.Value, value ssa.Value, seen map[ownershipPair]bool) bool {
+func (search *ownershipSearch) addressStoresValue(address ssa.Value, value ssa.Value) bool {
 	for stored := range StoredInto(address) {
-		if SameValue(stored, value) || aggregateStoresValue(stored, value, seen) {
+		if SameValue(stored, value) || search.aggregateStoresValue(stored, value) {
 			return true
 		}
 	}

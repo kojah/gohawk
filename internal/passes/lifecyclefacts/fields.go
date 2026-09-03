@@ -75,7 +75,7 @@ func returnedStruct(function *ssa.Function) (*types.Struct, int, bool) {
 
 // ownedFields returns the mask of returned struct fields that hold, on every
 // successful return, a resource value acquired in this function.
-func ownedFields(function *ssa.Function) ParameterMask {
+func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 	structure, _, ok := returnedStruct(function)
 	if !ok {
 		return 0
@@ -88,7 +88,7 @@ func ownedFields(function *ssa.Function) ParameterMask {
 				continue
 			}
 			for _, index := range storedFieldIndices(acquired, structure) {
-				if returnedOwnerOnEveryReturn(function, acquired) {
+				if returnedOwnerOnEveryReturn(pass, function, acquired) {
 					owned |= parameterMaskFor(index)
 				}
 			}

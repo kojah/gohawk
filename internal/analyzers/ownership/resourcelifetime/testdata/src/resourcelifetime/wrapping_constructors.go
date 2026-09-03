@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"resourcelifetime/wrapping"
+	"resourcelifetime/wrapping/outer"
 )
 
 // A constructor that keeps its argument in the value it returns has not taken
@@ -67,5 +68,28 @@ func fileWrappedByReleasingConstructorWithoutClose(path string) error {
 		return err
 	}
 	_ = wrapping.NewCloser(file)
+	return nil
+}
+
+// fileWrappedAcrossTwoPackages hands the file to a constructor whose own store
+// happens in a third package. The summary carries that across the boundary, so
+// the file is still this function's to close and leaks.
+func fileWrappedAcrossTwoPackages(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	_, err = io.ReadAll(outer.NewOuter(file))
+	return err
+}
+
+// fileWrappedAcrossTwoPackagesBySealed is accepted: the outer type carries a
+// Close, so it may release the file and the proof declines to report.
+func fileWrappedAcrossTwoPackagesBySealed(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	_ = outer.NewSealed(file)
 	return nil
 }

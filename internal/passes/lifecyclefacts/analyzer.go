@@ -116,7 +116,7 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 
 func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Function) Fact {
 	var fact Fact
-	fact.OwnedFields = ownedFields(function)
+	fact.OwnedFields = ownedFields(pass, function)
 	fact.ReleasedFields = releasedFields(pass, function)
 	// A fact is exported only when the action is unavoidable on every normal
 	// return. Each mask is therefore proved independently; evidence for Close,
@@ -178,7 +178,7 @@ func summarizeTransfers(
 	fact *Fact,
 ) {
 	bit := parameterMaskFor(index)
-	if returnedOwnerOnEveryReturn(function, parameter) {
+	if returnedOwnerOnEveryReturn(pass, function, parameter) {
 		fact.ReturnedOwner |= bit
 	}
 	if index > 0 && storedInReceiverOnEveryReturn(function, function.Params[0], parameter) {
@@ -196,12 +196,25 @@ func ownsOnEveryReturn(function *ssa.Function, parameter ssa.Value, owns func(ss
 	return !ssaflow.UnownedReturnFromEntryAssumingNonNil(function, parameter, owns)
 }
 
-func returnedOwnerOnEveryReturn(function *ssa.Function, parameter ssa.Value) bool {
+func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
 	if !canReturnOwner(function.Signature.Results()) {
 		return false
 	}
+	// A constructor commonly delegates across a package boundary, so the
+	// search needs the callee's summary where its body is unavailable.
+	summarized := func(callee *ssa.Function, index int) bool {
+		object := callee.Object()
+		if object == nil {
+			return false
+		}
+		var imported Fact
+		if !pass.ImportObjectFact(object, &imported) {
+			return false
+		}
+		return imported.ReturnedOwner.contains(index)
+	}
 	return !ssaflow.UnownedReturnFromEntryAllow(function, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
-		return ssaflow.ReturnedValueOwnsValue(returned, parameter) || allResultsNil(returned)
+		return ssaflow.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)
 	})
 }
 
