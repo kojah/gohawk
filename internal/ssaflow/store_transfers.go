@@ -81,12 +81,9 @@ func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa
 // instantiations may carry no blocks of their own; the origin has the same
 // parameter positions and the source body.
 func staticCalleeBody(common *ssa.CallCommon) *ssa.Function {
-	callee := common.StaticCallee()
+	callee := ResolvedCallee(common)
 	if callee == nil {
 		return nil
-	}
-	if len(callee.Blocks) == 0 && callee.Origin() != nil {
-		callee = callee.Origin()
 	}
 	if len(callee.Blocks) == 0 {
 		return nil

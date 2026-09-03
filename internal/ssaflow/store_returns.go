@@ -113,7 +113,7 @@ func (search *ownershipSearch) callAggregateStoresValue(call *ssa.Call, value ss
 	if CallMatchesSymbol(common, syntax.Builtin("append")) && search.anyAggregateStoresValue(common.Args, value) {
 		return true
 	}
-	callee := common.StaticCallee()
+	callee := ResolvedCallee(common)
 	if callee == nil {
 		return false
 	}
@@ -199,7 +199,7 @@ func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruc
 	if common == nil {
 		return false
 	}
-	callee := common.StaticCallee()
+	callee := ResolvedCallee(common)
 	if callee == nil || len(callee.Blocks) == 0 {
 		return false
 	}

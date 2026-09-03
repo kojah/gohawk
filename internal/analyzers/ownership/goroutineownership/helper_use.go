@@ -45,13 +45,7 @@ func calledFunction(common *ssa.CallCommon) (*ssa.Function, *ssa.MakeClosure) {
 	if closure != nil {
 		function, _ = closure.Fn.(*ssa.Function)
 	}
-	// Generic calls may point at an instantiated wrapper whose body does not
-	// expose the receive. The origin has the same parameter positions and the
-	// source body needed to prove that the helper joins the signal.
-	if function != nil && function.Origin() != nil {
-		function = function.Origin()
-	}
-	return function, closure
+	return ssaflow.ResolvedFunction(function), closure
 }
 
 // helperUse classifies how a callee treats one parameter or captured variable.
