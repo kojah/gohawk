@@ -147,9 +147,8 @@ func callReleasesParameter(pass *analysis.Pass, instruction ssa.Instruction, par
 	if common == nil || common.StaticCallee() == nil {
 		return false
 	}
-	var imported Fact
-	object := common.StaticCallee().Object()
-	if object == nil || !pass.ImportObjectFact(object, &imported) {
+	imported, ok := factForFunction(pass, ssaflow.ResolvedCallee(common))
+	if !ok {
 		return false
 	}
 	settles := releasingMasks(imported)
@@ -281,8 +280,7 @@ func fieldLoads(receiver ssa.Value, index int) []ssa.Value {
 // the owned fields.
 func importResultMethods(pass *analysis.Pass, callee *ssa.Function, summaries Summaries) {
 	for _, method := range resultMethods(callee) {
-		var fact Fact
-		if object := method.Object(); object != nil && pass.ImportObjectFact(object, &fact) {
+		if fact, ok := factForFunction(pass, method); ok {
 			summaries[method] = fact
 		}
 	}
@@ -360,8 +358,8 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 	for _, method := range resultMethods(function) {
 		summary, ok := summaries[method]
 		if !ok {
-			var imported Fact
-			if object := method.Object(); object == nil || !pass.ImportObjectFact(object, &imported) {
+			imported, found := factForFunction(pass, method)
+			if !found {
 				continue
 			}
 			summary = imported

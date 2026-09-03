@@ -203,15 +203,8 @@ func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, par
 	// A constructor commonly delegates across a package boundary, so the
 	// search needs the callee's summary where its body is unavailable.
 	summarized := func(callee *ssa.Function, index int) bool {
-		object := callee.Object()
-		if object == nil {
-			return false
-		}
-		var imported Fact
-		if !pass.ImportObjectFact(object, &imported) {
-			return false
-		}
-		return imported.ReturnedOwner.contains(index)
+		imported, ok := factForFunction(pass, callee)
+		return ok && imported.ReturnedOwner.contains(index)
 	}
 	return !ssaflow.UnownedReturnFromEntryAllow(function, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
 		return ssaflow.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)

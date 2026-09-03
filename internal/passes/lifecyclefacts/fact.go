@@ -200,11 +200,20 @@ func (fact *Fact) String() string {
 
 // importFact imports the summary attached to a static callee.
 func importFact(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
-	common := ssaflow.InstructionCall(instruction)
-	if pass == nil || common == nil || common.StaticCallee() == nil {
+	return factForFunction(pass, ssaflow.ResolvedCallee(ssaflow.InstructionCall(instruction)))
+}
+
+// factForFunction returns the summary recorded for a function. It is the one
+// place that reads an imported summary, so every proof asks the question the
+// same way: a generic instantiation is answered by its origin, which is the
+// object the summary was recorded against, and a function with no object,
+// such as a literal, has no summary to find.
+func factForFunction(pass *analysis.Pass, function *ssa.Function) (Fact, bool) {
+	resolved := ssaflow.ResolvedFunction(function)
+	if pass == nil || resolved == nil {
 		return Fact{}, false
 	}
-	object := common.StaticCallee().Object()
+	object := resolved.Object()
 	if object == nil {
 		return Fact{}, false
 	}
