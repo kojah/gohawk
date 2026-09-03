@@ -115,6 +115,52 @@ func acquiredResource(value ssa.Value) bool {
 
 // storedFieldIndices returns the indices of the struct's fields the value is
 // stored into, through field addresses of an allocation of that struct.
+// releasingMasks are the summary claims that a callee settled a parameter.
+func releasingMasks(fact Fact) ParameterMask {
+	return fact.Closed | fact.Finalized | fact.Released | fact.Shutdown | fact.Stopped |
+		fact.Committed | fact.RolledBack
+}
+
+// parameterMayBeReleased reports whether the function gives the parameter to
+// something that could release it despite its type offering no way to: an
+// assertion to a type that carries a cleanup method, or a callee summarized as
+// settling it. Without this guard the rule above would claim the caller keeps
+// an obligation that the callee had in fact discharged.
+func parameterMayBeReleased(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if assertion, ok := instruction.(*ssa.TypeAssert); ok &&
+				ssaflow.ValueDerivesFrom(assertion.X, parameter, map[ssa.Value]bool{}) &&
+				typeCanRelease(assertion.AssertedType) {
+				return true
+			}
+			if callReleasesParameter(pass, instruction, parameter) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func callReleasesParameter(pass *analysis.Pass, instruction ssa.Instruction, parameter ssa.Value) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil || common.StaticCallee() == nil {
+		return false
+	}
+	var imported Fact
+	object := common.StaticCallee().Object()
+	if object == nil || !pass.ImportObjectFact(object, &imported) {
+		return false
+	}
+	settles := releasingMasks(imported)
+	for index, argument := range common.Args {
+		if settles.contains(index) && ssaflow.ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) {
+			return true
+		}
+	}
+	return false
+}
+
 // typeCanRelease reports whether a value of this type carries any method that
 // could release what it holds. The names are the cleanup vocabulary used
 // throughout the lifecycle proofs; a type with none of them offers the caller
@@ -327,7 +373,7 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 		if !fact.ReturnedOwner.contains(index) {
 			continue
 		}
-		if parameterIsView(parameter, result, structure, released) {
+		if parameterIsView(pass, function, parameter, result, structure, released) {
 			views |= parameterMaskFor(index)
 		}
 	}
@@ -349,7 +395,24 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 // releases nothing" would turn a wrapper that does close its argument into a
 // view. When the type can release, the answer depends on which field this is,
 // so an unreadable store stays conservative and claims no view.
-func parameterIsView(parameter ssa.Value, result types.Type, structure *types.Struct, released ParameterMask) bool {
+func parameterIsView(
+	pass *analysis.Pass,
+	function *ssa.Function,
+	parameter ssa.Value,
+	result types.Type,
+	structure *types.Struct,
+	released ParameterMask,
+) bool {
+	// A callee cannot release what it was handed if the parameter's own type
+	// offers no way to. compress/gzip takes an io.Reader and documents that
+	// its Close does not close it, which is the standard convention: a wrapper
+	// closes what it constructed, never what it was given, and taking a plain
+	// reader rather than a ReadCloser is the API saying so. Asking the
+	// returned type instead gets that case wrong, because *gzip.Reader has a
+	// Close that closes its own decompressor.
+	if !typeCanRelease(parameter.Type()) && !parameterMayBeReleased(pass, function, parameter) {
+		return true
+	}
 	if !typeCanRelease(result) {
 		return true
 	}

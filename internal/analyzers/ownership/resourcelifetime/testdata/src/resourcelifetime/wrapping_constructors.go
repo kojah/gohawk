@@ -83,10 +83,11 @@ func fileWrappedAcrossTwoPackages(path string) error {
 	return err
 }
 
-// fileWrappedAcrossTwoPackagesBySealed is accepted: the outer type carries a
-// Close, so it may release the file and the proof declines to report.
+// fileWrappedAcrossTwoPackagesBySealed reports even though the outer type
+// carries a Close. It was handed an io.Reader, which offers no way to close
+// the file, so that Close cannot be the one that releases it.
 func fileWrappedAcrossTwoPackagesBySealed(path string) error {
-	file, err := os.Open(path)
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
 	if err != nil {
 		return err
 	}

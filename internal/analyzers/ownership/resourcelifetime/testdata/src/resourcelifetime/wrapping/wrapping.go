@@ -48,3 +48,4 @@ func NewCloser(source io.Closer) *Closer {
 	wrapped.reset(source)
 	return wrapped
 }
+

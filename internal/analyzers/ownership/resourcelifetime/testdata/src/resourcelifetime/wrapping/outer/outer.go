@@ -18,10 +18,12 @@ func (o *Outer) Read(p []byte) (int, error) { return o.inner.Read(p) }
 
 func NewOuter(source io.Reader) *Outer { return &Outer{inner: wrapping.NewReader(source)} }
 
-// Sealed holds the same wrapper but offers a Close, so it may release what it
-// holds and the proof stops rather than guess which field that is.
+// Sealed holds the same wrapper and offers a Close, but it was handed a plain
+// reader, so that Close cannot be closing the caller's file. This is the shape
+// compress/gzip takes: a Close that settles what the type constructed itself.
 type Sealed struct{ inner *wrapping.Reader }
 
 func (s *Sealed) Close() error { return nil }
 
 func NewSealed(source io.Reader) *Sealed { return &Sealed{inner: wrapping.NewReader(source)} }
+
