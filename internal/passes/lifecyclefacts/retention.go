@@ -37,11 +37,10 @@ const retentionBudget = 250_000
 type retention struct {
 	pass   *analysis.Pass
 	strict bool
-	// budget counts down the instructions this question may still examine.
-	budget int
-	// exhausted records that the budget ran out, so the caller can trace the
-	// bailout instead of presenting a guess as a proof.
-	exhausted bool
+	// budget bounds the instructions this question may examine. The shared
+	// type owns the counting; the polarity a bailout takes stays here, because
+	// only this walk knows which answer refuses to invent evidence.
+	budget *ssaflow.SearchBudget
 	// memo owns the cycle guard and the rule that an answer the guard or the
 	// budget cut short is not retained. It is shared for the whole package:
 	// summarizing every exported function asks about the same helpers again
@@ -70,18 +69,18 @@ func newRetentionCache() *retentionCache {
 }
 
 func (cache *retentionCache) retainedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	return (&retention{pass: pass, budget: retentionBudget, memo: cache.memo}).answer(function, parameter)
+	return (&retention{pass: pass, budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo}).answer(function, parameter)
 }
 
 func (cache *retentionCache) storedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	return (&retention{pass: pass, strict: true, budget: retentionBudget, memo: cache.memo}).answer(function, parameter)
+	return (&retention{pass: pass, strict: true, budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo}).answer(function, parameter)
 }
 
 // answer runs one top-level retention question and traces a budget bailout,
 // which is a conservative boundary rather than a proof.
 func (search *retention) answer(function *ssa.Function, parameter ssa.Value) bool {
 	retained := search.within(function, parameter)
-	if !search.exhausted {
+	if !search.budget.Exhausted() {
 		return retained
 	}
 	analysisTrace.For(search.pass, traceAnalyzer, "", function.Pos()).Considered(analysisTrace.Step{
@@ -111,12 +110,10 @@ func (search *retention) searchWithin(function *ssa.Function, parameter ssa.Valu
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			if search.budget <= 0 {
-				search.exhausted = true
+			if !search.budget.Spend() {
 				search.memo.Cut()
 				return !search.strict
 			}
-			search.budget--
 			if search.instructionRetains(function, instruction, derives) {
 				return true
 			}

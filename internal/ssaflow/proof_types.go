@@ -15,10 +15,13 @@ const (
 	// EvidenceDeferredCompletion and the other completion reasons name the
 	// launch form of the callee that ran the lifecycle method; nested launches
 	// report the outermost form.
-	EvidenceDeferredCompletion      EvidenceReason = "deferred-completion"
-	EvidenceCalledCompletion        EvidenceReason = "called-completion"
-	EvidenceStartedCompletion       EvidenceReason = "started-completion"
-	EvidenceCallbackCompletion      EvidenceReason = "callback-completion"
+	EvidenceDeferredCompletion EvidenceReason = "deferred-completion"
+	EvidenceCalledCompletion   EvidenceReason = "called-completion"
+	EvidenceStartedCompletion  EvidenceReason = "started-completion"
+	EvidenceCallbackCompletion EvidenceReason = "callback-completion"
+	// EvidenceBudgetExhausted marks a question abandoned before it could be
+	// decided, so a caller can tell "not proven" from "not searched".
+	EvidenceBudgetExhausted         EvidenceReason = "budget-exhausted"
 	EvidenceHelperInvocation        EvidenceReason = "helper-invocation"
 	EvidenceReturnedDeferredCleanup EvidenceReason = "returned-deferred-cleanup"
 

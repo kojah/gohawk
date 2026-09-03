@@ -14,6 +14,24 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// lockCompletionBudget bounds one "does this callee release my lock?" question
+// by the instructions it may examine. Mutually recursive helpers make the
+// number of routes through a call graph explode, and an answer the cycle guard
+// cuts short cannot be memoized, so an unbounded search re-walks the graph once
+// per route. A package of eighteen mutually recursive methods with four calls
+// each took over seven seconds before this bound and is instant with it.
+const lockCompletionBudget = 250_000
+
+// releaseSettled reports whether the analyzer may treat the lock as released
+// at this instruction: the search proved the release with the launch form the
+// rule accepts, or it was abandoned before it could decide. missing-release
+// reports a lock the analysis proves is still held, so an undecided release
+// has to suppress. Leaving it held would let a walk the analyzer gave up on
+// produce a defect-tier diagnostic.
+func releaseSettled(proof ssaflow.CompletionProof, reason ssaflow.EvidenceReason) bool {
+	return proof.Reason == ssaflow.EvidenceBudgetExhausted || proof.Proven() && proof.Reason == reason
+}
+
 type lockFlowContext struct {
 	pass        *analysis.Pass
 	evidence    *ssaflow.LocalEvidence
@@ -233,8 +251,9 @@ func possiblyDeferredUnlock(
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
 				Coverage:    ssaflow.CoverageAnywhere,
+				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
 			})
-			if proof.Proven() && proof.Reason == ssaflow.EvidenceDeferredCompletion {
+			if releaseSettled(proof, ssaflow.EvidenceDeferredCompletion) {
 				// A defer registered before acquisition can conditionally release the
 				// exact lock using state established after Lock. Without proving the
 				// deferred guard false, a missing-release defect is uncertain. Telekom's
@@ -261,8 +280,9 @@ func transferCalledUnlocks(
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
+				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
 			})
-			if !proof.Proven() || proof.Reason != ssaflow.EvidenceCalledCompletion {
+			if !releaseSettled(proof, ssaflow.EvidenceCalledCompletion) {
 				continue
 			}
 			// A synchronous helper or immediately invoked closure that releases the
@@ -298,8 +318,9 @@ func transferSpawnedUnlocks(
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
+				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
 			})
-			if proof.Proven() && proof.Reason == ssaflow.EvidenceStartedCompletion {
+			if releaseSettled(proof, ssaflow.EvidenceStartedCompletion) {
 				// A spawned helper may branch before releasing the caller's lock as
 				// long as every normal return performs the release. gRPC transfers
 				// addrConn.mu to its reconnect worker this way:
@@ -335,8 +356,9 @@ func recordDeferredUnlocks(
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
 				Coverage:    ssaflow.CoverageAnywhere,
+				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
 			})
-			if proof.Proven() && proof.Reason == ssaflow.EvidenceDeferredCompletion {
+			if releaseSettled(proof, ssaflow.EvidenceDeferredCompletion) {
 				released[identity] = true
 				deferred = appendUniqueString(deferred, identity)
 				break

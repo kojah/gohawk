@@ -392,6 +392,8 @@ type completionSearch struct {
 	// memo owns the cycle guard for callee bodies and the rule that an answer
 	// the guard cut short is not retained.
 	memo *CallGraphMemo[completionKey, completionAnswer]
+	// budget, when set, bounds this question; nil leaves the search unbounded.
+	budget *SearchBudget
 }
 
 // completionKey identifies one completion question. The method and coverage
@@ -417,10 +419,11 @@ func (search *completionSearch) forCallback() *completionSearch {
 	return &nested
 }
 
-func newCompletionSearch(method string, coverage CompletionCoverage) *completionSearch {
+func newCompletionSearch(method string, coverage CompletionCoverage, budget *SearchBudget) *completionSearch {
 	return &completionSearch{
 		method:     method,
 		coverage:   coverage,
+		budget:     budget,
 		seenValues: map[ssa.Value]bool{},
 		memo:       NewCallGraphMemo[completionKey, completionAnswer](),
 	}
@@ -487,6 +490,14 @@ func (search *completionSearch) calleeCompletes(callee completionCallee, target 
 // parameter that was bound to the method on the target, or it launches a
 // nested callee that completes the local by the same proof.
 func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, locals []mappedLocal, target ssa.Value) bool {
+	if !search.budget.Spend() {
+		// Every coverage form treats a false here as "this instruction does not
+		// complete", so an exhausted budget can only fail to find a completion,
+		// never invent one. The memo must not retain an answer shortened this
+		// way, exactly as it does not retain one the cycle guard cut.
+		search.memo.Cut()
+		return false
+	}
 	called := InstructionCall(candidate)
 	if called != nil && CallName(called) == search.method {
 		receiver := CallReceiver(called)
@@ -537,7 +548,7 @@ func invokesLocal(value, local ssa.Value) bool {
 // completes the target, a bound method value, or such a callback held in a
 // local, passed through a call result, or merged by a phi.
 func ValueCallsMethod(value ssa.Value, method string, target ssa.Value) bool {
-	return newCompletionSearch(method, CoverageEveryReturn).valueCallsMethod(value, target)
+	return newCompletionSearch(method, CoverageEveryReturn, nil).valueCallsMethod(value, target)
 }
 
 func (search *completionSearch) valueCallsMethod(value, target ssa.Value) bool {
