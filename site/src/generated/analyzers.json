@@ -495,7 +495,7 @@
             },
             {
               "id": "lockorder/contradictory-order",
-              "summary": "Reports inconsistent acquisition order for the same pair of locks.",
+              "summary": "Reports two locks acquired in opposite orders in different places.",
               "kind": "hazard",
               "tier": "extended"
             }

@@ -19,7 +19,7 @@ the corresponding release policy.
 | --- | --- | --- | --- |
 | <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports return paths that leave an owned lock held. |
 | <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
-| <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports inconsistent acquisition order for the same pair of locks. |
+| <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports two locks acquired in opposite orders in different places. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
@@ -27,6 +27,21 @@ the corresponding release policy.
 Two goroutines that acquire the same locks in different orders can wait on each
 other forever. Failing to unlock on one return path can similarly block every
 later caller that needs the lock.
+
+### Which locks are compared
+
+Two mutexes held in a package variable are compared as the individual locks
+they are. A mutex held in a struct field is compared by the field it is
+declared in, because there is no way to tell whether the receiver in one
+method is the object another method locks. Ordering is therefore reported
+against the declaration: taking one field before another in one place and the
+reverse elsewhere leaves the program without a consistent order, even where
+today's callers happen to pass different objects.
+
+Two locks of the same declaration are not compared. Whether
+`transfer(from, to *Account)` conflicts with a caller passing the same pair in
+the other order depends on the objects involved, and nothing in the code
+settles that, so the pattern is accepted.
 
 ## How to fix it
 

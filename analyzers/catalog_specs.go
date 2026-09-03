@@ -227,7 +227,7 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
 			},
 			{
-				ID: check.LockContradictoryOrder, Doc: "Reports inconsistent acquisition order for the same pair of locks.",
+				ID: check.LockContradictoryOrder, Doc: "Reports two locks acquired in opposite orders in different places.",
 				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
 			},
 		}},
