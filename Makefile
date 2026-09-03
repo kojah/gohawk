@@ -42,7 +42,7 @@ help:
 		'  make plugin-test     Test the golangci-lint module plugin end to end' \
 		'  make benchmark       Run pinned dogfooding benchmarks' \
 		'  make precision-regression  Replay reviewed precision cohorts' \
-		'                            (scope with ANALYZER=, ROUND=, REPOSITORY=)' \
+		'                            (scope with ANALYZER=, ROUND=, REPOSITORY=; STAMP=1 records provenance)' \
 		'  make site-check      Check the documentation website' \
 		'  make site-build      Build the documentation website' \
 		'  make site-links      Check internal links in the built website' \
@@ -140,11 +140,15 @@ benchmark:
 # REPOSITORY=<owner/name> replays one repository. CHECKOUT_ROOT=<directory>
 # reuses clones between runs and GOHAWK=<binary> skips rebuilding, which is
 # what makes a scoped replay quick enough to run beside the unit tests.
+# STAMP=1 records the running revision on every label that still holds, so a
+# later failure reports when the label was last confirmed instead of leaving
+# a drifted label indistinguishable from a fresh regression.
 PRECISION_ROUNDS := $(if $(ROUND),benchmarks/precision/$(ROUND),$(wildcard benchmarks/precision/round-*))
 PRECISION_SCOPE := $(foreach analyzer,$(ANALYZER),--analyzer $(analyzer)) \
 	$(foreach repository,$(REPOSITORY),--only $(repository)) \
 	$(if $(CHECKOUT_ROOT),--checkout-root $(CHECKOUT_ROOT)) \
-	$(if $(GOHAWK),--gohawk $(GOHAWK))
+	$(if $(GOHAWK),--gohawk $(GOHAWK)) \
+	$(if $(STAMP),--stamp)
 
 precision-regression:
 	@for cohort in $$(printf '%s\n' $(PRECISION_ROUNDS) | sort -V); do \

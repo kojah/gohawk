@@ -3,6 +3,7 @@
 
 import argparse
 import csv
+import datetime
 import json
 import os
 from pathlib import Path
@@ -143,12 +144,69 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
     return findings
 
 
+# A label records a human verdict about one finding. The repository revision is
+# pinned in the manifest, so the input is reproducible, but without the gohawk
+# revision that produced the verdict a failure cannot distinguish "this change
+# broke it" from "this drifted some releases ago". LABEL_PROVENANCE carries
+# that, and --stamp refreshes it for every label that still holds, so the
+# recorded revision means "last confirmed at", not "first written at".
+LABEL_FIELDS = ["repository", "analyzer", "position", "verdict"]
+LABEL_PROVENANCE = ["gohawk_revision", "confirmed_at"]
+
+
+def describe_provenance(row: dict) -> str:
+    revision = (row.get("gohawk_revision") or "").strip()
+    confirmed = (row.get("confirmed_at") or "").strip()
+    if not revision:
+        return "provenance unknown"
+    return f"last confirmed at {revision}" + (f" on {confirmed}" if confirmed else "")
+
+
+def current_revision(repository_root: Path) -> str:
+    revision = run(
+        ["git", "-C", str(repository_root), "rev-parse", "--short", "HEAD"], capture_output=True
+    ).stdout.strip()
+    if not revision:
+        return "unknown"
+    dirty = run(
+        ["git", "-C", str(repository_root), "status", "--porcelain"], capture_output=True
+    ).stdout.strip()
+    # A stamp from a modified tree names a revision that does not contain the
+    # behaviour it certifies, so say so rather than record a revision that
+    # cannot be checked out and reproduced.
+    return revision + ("-dirty" if dirty else "")
+
+
+def stamp_labels(cohort: Path, labels: list[dict], held: set[tuple[str, str, str]], revision: str) -> int:
+    """Record the running revision on every label that still holds."""
+    today = datetime.date.today().isoformat()
+    stamped = 0
+    for row in labels:
+        if (row["repository"], row["analyzer"], row["position"]) not in held:
+            continue
+        row["gohawk_revision"] = revision
+        row["confirmed_at"] = today
+        stamped += 1
+    path = cohort / "labels.csv"
+    with path.open("w", newline="") as target:
+        writer = csv.DictWriter(target, fieldnames=LABEL_FIELDS + LABEL_PROVENANCE)
+        writer.writeheader()
+        for row in labels:
+            writer.writerow({field: row.get(field) or "" for field in LABEL_FIELDS + LABEL_PROVENANCE})
+    return stamped
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("cohort", type=Path, help="directory containing repositories.tsv and labels.csv")
     parser.add_argument("--checkout-root", type=Path, help="reuse checkouts named owner__repository")
     parser.add_argument("--gohawk", type=Path, help="existing gohawk binary")
     parser.add_argument("--only", action="append", default=[], help="run one repository (repeatable)")
+    parser.add_argument(
+        "--stamp",
+        action="store_true",
+        help="record the running gohawk revision on every label that still holds",
+    )
     parser.add_argument(
         "--analyzer",
         action="append",
@@ -206,15 +264,22 @@ def main() -> None:
         }
         returned_noise = sorted(false_positives & findings)
         lost_signal = sorted(true_positives - findings)
+        provenance = {
+            (row["repository"], row["analyzer"], row["position"]): describe_provenance(row) for row in labels
+        }
         for finding in returned_noise:
-            print("returned false positive:", *finding, file=sys.stderr)
+            print("returned false positive:", *finding, f"({provenance[finding]})", file=sys.stderr)
         for finding in lost_signal:
-            print("lost true positive:", *finding, file=sys.stderr)
+            print("lost true positive:", *finding, f"({provenance[finding]})", file=sys.stderr)
         print(
             f"checked {len(labels)} labels: {len(false_positives) - len(returned_noise)} of "
             f"{len(false_positives)} false positives remain absent; "
             f"{len(true_positives) - len(lost_signal)} of {len(true_positives)} true positives remain present"
         )
+        if args.stamp:
+            held = (false_positives - findings) | (true_positives & findings)
+            revision = current_revision(repository_root)
+            print(f"stamped {stamp_labels(cohort, labels, held, revision)} holding labels at {revision}")
         if returned_noise or lost_signal:
             raise SystemExit(1)
     finally:

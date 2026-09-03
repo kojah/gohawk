@@ -44,12 +44,27 @@ around them.
 ## Reading a replay failure
 
 The replay runs with every check enabled, so an opt-in audit that becomes
-noisy fails the gate exactly like a default check. When a label fails:
+noisy fails the gate exactly like a default check.
+
+Read the provenance first. Every failure prints when its label was last
+confirmed, such as `(last confirmed at af2b29b on 2026-08-14)`, or
+`(provenance unknown)` for a label written before the field existed. A label
+confirmed on the commit you branched from is evidence your change broke it. A
+label last confirmed long ago, or one whose provenance is unknown, may have
+drifted for reasons that have nothing to do with your change, so establish
+that before bisecting: replay the cohort with a binary built from the commit
+you started from, and compare. Then:
 
 - If the analyzer changed, decide whether the new behaviour is the intended
   precision improvement (update the label) or a regression (fix the analyzer).
 - If the label was wrong, correct it and say why in the audit record.
 - An audit whose labels keep failing should be retired, not refined.
+
+`make precision-regression STAMP=1` records the running revision on every
+label that still holds, so provenance means "last confirmed at" rather than
+"first written at". Stamp from a clean tree: a stamp taken from a modified
+worktree is recorded as `<revision>-dirty`, because it names a commit that
+does not contain the behaviour it certifies.
 
 ## Guard rails
 
