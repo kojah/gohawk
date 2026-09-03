@@ -455,3 +455,25 @@ func NormalReturnReachableFrom(block *ssa.BasicBlock) bool {
 	}
 	return false
 }
+
+func ReturnedResult(returned *ssa.Return, index int) ssa.Value { //nolint:ireturn // SSA values have several concrete forms.
+	if index < 0 || index >= len(returned.Results) {
+		return nil
+	}
+	result := returned.Results[index]
+	load, ok := result.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return result
+	}
+	cell, ok := load.X.(*ssa.Alloc)
+	if !ok {
+		return result
+	}
+	instructions := returned.Block().Instrs
+	for position := InstructionIndex(returned) - 1; position >= 0; position-- {
+		if store, ok := instructions[position].(*ssa.Store); ok && store.Addr == cell {
+			return store.Val
+		}
+	}
+	return result
+}

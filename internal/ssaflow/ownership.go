@@ -2,7 +2,9 @@ package ssaflow
 
 import "golang.org/x/tools/go/ssa"
 
-func closureCallsValue(closure *ssa.MakeClosure, target ssa.Value) bool {
+// MakeClosureCallsValue reports whether the function a closure wraps calls
+// target through one of its captured bindings.
+func MakeClosureCallsValue(closure *ssa.MakeClosure, target ssa.Value) bool {
 	return closureCallsCapturedValue(closure, func(binding ssa.Value) bool {
 		return CapturedBindingMatches(binding, target)
 	})

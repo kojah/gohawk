@@ -23,7 +23,7 @@ func UnmodifiedNonEmptyAccessPathAt(value, root ssa.Value, observation ssa.Instr
 	if !ok || origin.Block() == nil {
 		return false
 	}
-	if _, ambiguous := root.(*ssa.Phi); ambiguous || !strictNonEmptyAccessPath(value, root) {
+	if _, ambiguous := root.(*ssa.Phi); ambiguous || !StrictNonEmptyAccessPath(value, root) {
 		return false
 	}
 	address := projectedStorageAddress(value)

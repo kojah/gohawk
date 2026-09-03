@@ -1,10 +1,6 @@
 package ssaflow
 
-import (
-	"strings"
-
-	"golang.org/x/tools/go/ssa"
-)
+import "golang.org/x/tools/go/ssa"
 
 // CompletionRequest asks whether the callee launched by Instruction calls one
 // of Methods on Target. The instruction's launch form decides the coverage
@@ -20,23 +16,6 @@ type CompletionRequest struct {
 }
 
 // Completion proves and memoizes a lifecycle-completion request.
-func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionProof {
-	key := completionEvidenceKey{
-		instruction: request.Instruction,
-		target:      request.Target,
-		methods:     strings.Join(request.Methods, "\x00"),
-		coverage:    request.Coverage,
-	}
-	if proof, ok := evidence.completions[key]; ok {
-		return proof
-	}
-	proof := ProveCompletion(request)
-	if evidence.completions == nil {
-		evidence.completions = make(map[completionEvidenceKey]CompletionProof)
-	}
-	evidence.completions[key] = proof
-	return proof
-}
 
 // ProveCompletion runs the completion search once without memoization. The
 // proof is Unknown when no callee body was available to search, so callers

@@ -53,7 +53,7 @@ func MethodCallCoverage(function *ssa.Function, calls func(ssa.Instruction) bool
 				hasCall = hasCall || calls(candidate)
 			}
 		}
-		return hasReturn && hasCall && !unownedReturnFromEntry(function, calls, nil, nonNil)
+		return hasReturn && hasCall && !UnownedReturnFromEntryAssumingNonNil(function, nonNil, calls)
 	case CoverageAnywhere:
 	}
 	return slices.ContainsFunc(function.Blocks, func(block *ssa.BasicBlock) bool {
@@ -327,7 +327,7 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
 	case search.valueCallsMethod(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localCallback}, true
-	case strictNonEmptyAccessPath(argument, target):
+	case StrictNonEmptyAccessPath(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
 	case ValueContainsValue(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
