@@ -75,20 +75,13 @@ func callResultCarries(walk ssaflow.ReachingWalk, call *ssa.Call, target ssa.Val
 
 // storedCarries follows stores into an addressable local and into the fields
 // and elements selected from it. Every `results[i]` expression is its own
-// IndexAddr, so an element read through one is matched against stores made
-// through any element address of the same slice; that over-approximation only
-// ever makes an instruction opaque or a signal buffered.
+// IndexAddr, and every `w.field` expression its own FieldAddr, so a read
+// through one is matched against stores made through any other address of the
+// same element or field; that over-approximation only ever makes an
+// instruction opaque or a signal buffered.
 func storedCarries(walk ssaflow.ReachingWalk, address, target ssa.Value) bool {
-	if element, ok := address.(*ssa.IndexAddr); ok && element.X.Referrers() != nil {
-		for _, sibling := range *element.X.Referrers() {
-			other, ok := sibling.(*ssa.IndexAddr)
-			if !ok || other == element || !walk.Mark(other) {
-				continue
-			}
-			if storedCarries(walk, other, target) {
-				return true
-			}
-		}
+	if siblingSelectionCarries(walk, address, target) {
+		return true
 	}
 	if address.Referrers() == nil {
 		return false
@@ -110,6 +103,46 @@ func storedCarries(walk ssaflow.ReachingWalk, address, target ssa.Value) bool {
 		}
 	}
 	return false
+}
+
+// siblingSelectionCarries matches a read address against stores made through
+// any other address selecting the same element or field of the same aggregate.
+// A composite literal stores through one field address while a later read
+// selects that field through another, so the store is only visible from the
+// sibling.
+func siblingSelectionCarries(walk ssaflow.ReachingWalk, address, target ssa.Value) bool {
+	base, selectsSame := siblingSelection(address)
+	if base == nil || base.Referrers() == nil {
+		return false
+	}
+	for _, sibling := range *base.Referrers() {
+		other, ok := sibling.(ssa.Value)
+		if !ok || other == address || !selectsSame(sibling) || !walk.Mark(other) {
+			continue
+		}
+		if storedCarries(walk, other, target) {
+			return true
+		}
+	}
+	return false
+}
+
+// siblingSelection returns the aggregate an address selects from and a
+// predicate matching other addresses that select the same element or field.
+func siblingSelection(address ssa.Value) (ssa.Value, func(ssa.Instruction) bool) {
+	switch typed := address.(type) {
+	case *ssa.IndexAddr:
+		return typed.X, func(instruction ssa.Instruction) bool {
+			_, ok := instruction.(*ssa.IndexAddr)
+			return ok
+		}
+	case *ssa.FieldAddr:
+		return typed.X, func(instruction ssa.Instruction) bool {
+			other, ok := instruction.(*ssa.FieldAddr)
+			return ok && other.Field == typed.Field
+		}
+	}
+	return nil, nil
 }
 
 // bindingCarries matches a closure binding or call argument against a tracked

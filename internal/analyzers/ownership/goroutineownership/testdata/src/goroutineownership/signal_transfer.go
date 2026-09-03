@@ -211,3 +211,47 @@ func launchSessionsFromSlice(registry map[string]*pooledSession, names []string)
 		go session.run()
 	}
 }
+
+// replyItem holds the channel its worker answers on.
+type replyItem struct{ replyCh chan int }
+
+func answer(ch chan int) { ch <- 1 }
+
+// bufferedReplyThroughField gives each worker a one-slot channel held in a
+// struct field and receives the replies in a later loop that may stop early.
+// The composite literal stores through one field address while the spawn reads
+// the same field through another, so the buffer is only visible once stores are
+// matched across sibling field addresses. The worker's single send cannot block,
+// so an unreceived reply is not a leak. Nomad fetches server stats this way:
+// https://github.com/hashicorp/nomad/blob/482b49bf1aec006f089bcfc7e632d8f6ac303e5e/nomad/stats_fetcher.go#L105-L126
+func bufferedReplyThroughField(stop <-chan struct{}, count int) {
+	var work []*replyItem
+	for index := 0; index < count; index++ {
+		item := &replyItem{replyCh: make(chan int, 1)}
+		work = append(work, item)
+		go answer(item.replyCh)
+	}
+	for _, item := range work {
+		select {
+		case <-item.replyCh:
+		case <-stop:
+		}
+	}
+}
+
+// unbufferedReplyThroughField is the same shape without the buffer, so a worker
+// whose reply is never received blocks forever.
+func unbufferedReplyThroughField(stop <-chan struct{}, count int) {
+	var work []*replyItem
+	for index := 0; index < count; index++ {
+		item := &replyItem{replyCh: make(chan int)}
+		work = append(work, item)
+		go answer(item.replyCh) // want "goroutine is not joined on every return path"
+	}
+	for _, item := range work {
+		select {
+		case <-item.replyCh:
+		case <-stop:
+		}
+	}
+}
