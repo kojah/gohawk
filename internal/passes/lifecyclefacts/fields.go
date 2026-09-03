@@ -115,6 +115,20 @@ func acquiredResource(value ssa.Value) bool {
 
 // storedFieldIndices returns the indices of the struct's fields the value is
 // stored into, through field addresses of an allocation of that struct.
+// typeCanRelease reports whether a value of this type carries any method that
+// could release what it holds. The names are the cleanup vocabulary used
+// throughout the lifecycle proofs; a type with none of them offers the caller
+// no way to release a field, whatever that field holds.
+func typeCanRelease(value types.Type) bool {
+	for selection := range types.NewMethodSet(value).Methods() {
+		switch selection.Obj().Name() {
+		case "Cancel", "Close", "Finalize", "Release", "Shutdown", "Stop":
+			return true
+		}
+	}
+	return false
+}
+
 func storedFieldIndices(value ssa.Value, structure *types.Struct) []int {
 	if value.Referrers() == nil {
 		return nil
@@ -291,10 +305,11 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 	if fact.ReturnedOwner == 0 {
 		return 0
 	}
-	structure, _, ok := returnedStruct(function)
+	structure, resultIndex, ok := returnedStruct(function)
 	if !ok {
 		return 0
 	}
+	result := function.Signature.Results().At(resultIndex).Type()
 	var released ParameterMask
 	for _, method := range resultMethods(function) {
 		summary, ok := summaries[method]
@@ -312,16 +327,38 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 		if !fact.ReturnedOwner.contains(index) {
 			continue
 		}
-		if _, ok := ResourceCleanup(parameter.Type()); !ok {
-			continue
-		}
-		for _, field := range storedFieldIndices(parameter, structure) {
-			if !released.contains(field) {
-				views |= parameterMaskFor(index)
-			}
+		if parameterIsView(parameter, result, structure, released) {
+			views |= parameterMaskFor(index)
 		}
 	}
 	return views
+}
+
+// parameterIsView reports whether the returned struct keeps the parameter in a
+// field that nothing on that type releases.
+//
+// The field holding the parameter is only needed to ask whether some method
+// releases it, so a type carrying no cleanup method at all answers the
+// question without it: nothing on it can release anything. That case is the
+// one this rule exists for, because a constructor commonly delegates the
+// store to a helper and leaves no store to read here, and because neither
+// *bufio.Reader nor *json.Decoder closes the reader it was given.
+//
+// The test is on the type rather than on the computed mask. An empty mask
+// also means the methods could not be summarized, and reading that as "this
+// releases nothing" would turn a wrapper that does close its argument into a
+// view. When the type can release, the answer depends on which field this is,
+// so an unreadable store stays conservative and claims no view.
+func parameterIsView(parameter ssa.Value, result types.Type, structure *types.Struct, released ParameterMask) bool {
+	if !typeCanRelease(result) {
+		return true
+	}
+	for _, field := range storedFieldIndices(parameter, structure) {
+		if !released.contains(field) {
+			return true
+		}
+	}
+	return false
 }
 
 // ArgumentReturnedAsView reports whether the call's static callee is
