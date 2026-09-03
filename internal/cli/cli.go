@@ -2,7 +2,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"io"
@@ -83,141 +82,9 @@ func Main() int {
 	// A vet-tool handshake: unitchecker owns os.Exit, so this returns only in
 	// tests that stub the process boundary.
 	registerSelectionFlags()
-	analyzers, arguments := unitAnalyzers(result.invocation.arguments, result.invocation.analyzers)
-	os.Args = arguments
-	unitchecker.Main(analyzers...)
+	os.Args = result.invocation.arguments
+	unitchecker.Main(result.invocation.analyzers...)
 	return 0
-}
-
-// unitAnalyzers narrows the analyzers run on a dependency unit to the fact
-// producers. go vet analyzes a dependency package only for the facts it
-// exports and marks that unit VetxOnly; unitchecker keeps every analyzer that
-// transitively requires a fact producer, which pulls in resourcelifetime and
-// processownership and runs them in full only to discard their diagnostics.
-// The one thing a dependency contributes upward is facts, so running the
-// fact-producer closure and nothing else leaves every diagnostic on the
-// analyzed source identical while skipping that work. On a Kubernetes tree it
-// removes several CPU-minutes per run.
-func unitAnalyzers(arguments []string, analyzers []*analysis.Analyzer) ([]*analysis.Analyzer, []string) {
-	if !factsOnlyUnit(arguments) {
-		return analyzers, arguments
-	}
-	keep := factProducerClosure(analyzers)
-	// unitchecker runs whatever it is given plus their prerequisites, so the
-	// kept set is the closure itself, which includes the fact producers that
-	// were only reachable through the dropped consumers.
-	kept := make([]*analysis.Analyzer, 0, len(keep))
-	for analyzer := range keep {
-		kept = append(kept, analyzer)
-	}
-	slices.SortFunc(kept, func(left, right *analysis.Analyzer) int {
-		return strings.Compare(left.Name, right.Name)
-	})
-	dropped := make(map[string]bool, len(analyzers))
-	for _, analyzer := range analyzers {
-		if !keep[analyzer] {
-			dropped[analyzer.Name] = true
-		}
-	}
-	// unitchecker registers one Boolean flag per analyzer it is given, and go
-	// vet forwards gohawk's per-analyzer selection flags to every unit, so the
-	// flag of a dropped analyzer would be undefined. Drop those flags too.
-	filtered := make([]string, 0, len(arguments))
-	for _, argument := range arguments {
-		if name, ok := flagName(argument); ok && dropped[name] {
-			continue
-		}
-		filtered = append(filtered, argument)
-	}
-	return kept, filtered
-}
-
-// factProducerClosure returns the analyzers that must run on a facts-only
-// unit: every analyzer reachable through Requires that exports a fact type,
-// together with the prerequisites those producers need. lifecyclefacts is
-// itself reachable only as a prerequisite of its consumers, so the walk must
-// follow Requires rather than inspect the selected list alone.
-func factProducerClosure(selected []*analysis.Analyzer) map[*analysis.Analyzer]bool {
-	reachable := map[*analysis.Analyzer]bool{}
-	var visit func(*analysis.Analyzer)
-	visit = func(analyzer *analysis.Analyzer) {
-		if reachable[analyzer] {
-			return
-		}
-		reachable[analyzer] = true
-		for _, required := range analyzer.Requires {
-			visit(required)
-		}
-	}
-	for _, analyzer := range selected {
-		visit(analyzer)
-	}
-	keep := map[*analysis.Analyzer]bool{}
-	var require func(*analysis.Analyzer)
-	require = func(analyzer *analysis.Analyzer) {
-		if keep[analyzer] {
-			return
-		}
-		keep[analyzer] = true
-		for _, prerequisite := range analyzer.Requires {
-			require(prerequisite)
-		}
-	}
-	for analyzer := range reachable {
-		if len(analyzer.FactTypes) > 0 {
-			require(analyzer)
-		}
-	}
-	return keep
-}
-
-// factsOnlyUnit reports whether the vet-tool arguments name a .cfg unit that
-// is analyzed only for the facts it exports and never for user-facing
-// diagnostics. That is true for an external dependency go vet marked
-// VetxOnly. It is deliberately NOT true for a first-party package, because go
-// vet analyzes a first-party package both as a VetxOnly dependency of its
-// siblings and as a root that produces diagnostics; dropping the diagnostic
-// analyzers on its VetxOnly pass would lose the finding its root pass reports.
-// First-party source lives under the working tree; a dependency's source
-// lives under the module cache or GOROOT.
-func factsOnlyUnit(arguments []string) bool {
-	for _, argument := range arguments[1:] {
-		if !strings.HasSuffix(argument, ".cfg") {
-			continue
-		}
-		data, err := os.ReadFile(argument) //nolint:gosec // go vet supplies the path of the unit it is asking about.
-		if err != nil {
-			return false
-		}
-		var unit struct {
-			VetxOnly bool     `json:"VetxOnly"`
-			GoFiles  []string `json:"GoFiles"`
-		}
-		if json.Unmarshal(data, &unit) != nil || !unit.VetxOnly {
-			return false
-		}
-		return externalDependencySources(unit.GoFiles)
-	}
-	return false
-}
-
-// externalDependencySources reports whether every source file lives outside
-// the working tree, under the module cache or GOROOT. A single file under the
-// working tree marks the package first-party, so it is not filtered.
-func externalDependencySources(files []string) bool {
-	if len(files) == 0 {
-		return false
-	}
-	working, err := os.Getwd()
-	if err != nil {
-		return false
-	}
-	for _, file := range files {
-		if strings.HasPrefix(file, working+string(os.PathSeparator)) {
-			return false
-		}
-	}
-	return true
 }
 
 func runCLI(arguments []string, runtime cliRuntime) cliResult {
