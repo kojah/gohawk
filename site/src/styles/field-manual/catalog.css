@@ -196,7 +196,18 @@
 
 .sl-markdown-content h2#options + table :is(td:first-child, td:nth-child(2)) code {
 	font-size: 0.88em;
+}
+
+/* An option name is a short identifier, so keep it on one line. A default value
+   can be a long comma-list, so let it wrap inside its fixed-width cell rather
+   than overflow into the effect column. */
+.sl-markdown-content h2#options + table td:first-child code {
 	white-space: nowrap;
+}
+
+.sl-markdown-content h2#options + table td:nth-child(2) code {
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
 @media (min-width: 50rem) {
