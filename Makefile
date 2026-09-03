@@ -42,6 +42,7 @@ help:
 		'  make plugin-test     Test the golangci-lint module plugin end to end' \
 		'  make benchmark       Run pinned dogfooding benchmarks' \
 		'  make precision-regression  Replay reviewed precision cohorts' \
+		'                            (scope with ANALYZER=, ROUND=, REPOSITORY=)' \
 		'  make site-check      Check the documentation website' \
 		'  make site-build      Build the documentation website' \
 		'  make site-links      Check internal links in the built website' \
@@ -133,54 +134,22 @@ ci: generated-sync
 benchmark:
 	./scripts/benchmark-dogfood.sh $(BENCHMARK_ARGS)
 
+# Replay reviewed precision cohorts. Scope a run while iterating on one
+# analyzer: ANALYZER=<name> replays only that analyzer's labels and skips the
+# repositories that carry none, ROUND=<round-13> replays one cohort, and
+# REPOSITORY=<owner/name> replays one repository. CHECKOUT_ROOT=<directory>
+# reuses clones between runs and GOHAWK=<binary> skips rebuilding, which is
+# what makes a scoped replay quick enough to run beside the unit tests.
+PRECISION_ROUNDS := $(if $(ROUND),benchmarks/precision/$(ROUND),$(wildcard benchmarks/precision/round-*))
+PRECISION_SCOPE := $(foreach analyzer,$(ANALYZER),--analyzer $(analyzer)) \
+	$(foreach repository,$(REPOSITORY),--only $(repository)) \
+	$(if $(CHECKOUT_ROOT),--checkout-root $(CHECKOUT_ROOT)) \
+	$(if $(GOHAWK),--gohawk $(GOHAWK))
+
 precision-regression:
-	./scripts/precision-regression.py benchmarks/precision/round-2
-	./scripts/precision-regression.py benchmarks/precision/round-3
-	./scripts/precision-regression.py benchmarks/precision/round-4
-	./scripts/precision-regression.py benchmarks/precision/round-5
-	./scripts/precision-regression.py benchmarks/precision/round-6
-	./scripts/precision-regression.py benchmarks/precision/round-7
-	./scripts/precision-regression.py benchmarks/precision/round-8
-	./scripts/precision-regression.py benchmarks/precision/round-9
-	./scripts/precision-regression.py benchmarks/precision/round-10
-	./scripts/precision-regression.py benchmarks/precision/round-11
-	./scripts/precision-regression.py benchmarks/precision/round-12
-	./scripts/precision-regression.py benchmarks/precision/round-13
-	./scripts/precision-regression.py benchmarks/precision/round-14
-	./scripts/precision-regression.py benchmarks/precision/round-15
-	./scripts/precision-regression.py benchmarks/precision/round-16
-	./scripts/precision-regression.py benchmarks/precision/round-17
-	./scripts/precision-regression.py benchmarks/precision/round-18
-	./scripts/precision-regression.py benchmarks/precision/round-19
-	./scripts/precision-regression.py benchmarks/precision/round-20
-	./scripts/precision-regression.py benchmarks/precision/round-21
-	./scripts/precision-regression.py benchmarks/precision/round-22
-	./scripts/precision-regression.py benchmarks/precision/round-23
-	./scripts/precision-regression.py benchmarks/precision/round-24
-	./scripts/precision-regression.py benchmarks/precision/round-25
-	./scripts/precision-regression.py benchmarks/precision/round-26
-	./scripts/precision-regression.py benchmarks/precision/round-27
-	./scripts/precision-regression.py benchmarks/precision/round-28
-	./scripts/precision-regression.py benchmarks/precision/round-29
-	./scripts/precision-regression.py benchmarks/precision/round-30
-	./scripts/precision-regression.py benchmarks/precision/round-31
-	./scripts/precision-regression.py benchmarks/precision/round-32
-	./scripts/precision-regression.py benchmarks/precision/round-33
-	./scripts/precision-regression.py benchmarks/precision/round-34
-	./scripts/precision-regression.py benchmarks/precision/round-35
-	./scripts/precision-regression.py benchmarks/precision/round-36
-	./scripts/precision-regression.py benchmarks/precision/round-37
-	./scripts/precision-regression.py benchmarks/precision/round-38
-	./scripts/precision-regression.py benchmarks/precision/round-39
-	./scripts/precision-regression.py benchmarks/precision/round-40
-	./scripts/precision-regression.py benchmarks/precision/round-41
-	./scripts/precision-regression.py benchmarks/precision/round-42
-	./scripts/precision-regression.py benchmarks/precision/round-43
-	./scripts/precision-regression.py benchmarks/precision/round-44
-	./scripts/precision-regression.py benchmarks/precision/round-45
-	./scripts/precision-regression.py benchmarks/precision/round-46
-	./scripts/precision-regression.py benchmarks/precision/round-47
-	./scripts/precision-regression.py benchmarks/precision/round-48
+	@for cohort in $$(printf '%s\n' $(PRECISION_ROUNDS) | sort -V); do \
+		./scripts/precision-regression.py "$$cohort" $(PRECISION_SCOPE) || exit 1; \
+	done
 
 site-install:
 	$(PNPM) --dir site install --frozen-lockfile

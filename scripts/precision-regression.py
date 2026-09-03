@@ -149,6 +149,12 @@ def main() -> None:
     parser.add_argument("--checkout-root", type=Path, help="reuse checkouts named owner__repository")
     parser.add_argument("--gohawk", type=Path, help="existing gohawk binary")
     parser.add_argument("--only", action="append", default=[], help="run one repository (repeatable)")
+    parser.add_argument(
+        "--analyzer",
+        action="append",
+        default=[],
+        help="replay only labels for this analyzer, skipping repositories that have none (repeatable)",
+    )
     args = parser.parse_args()
 
     repository_root = Path(__file__).resolve().parents[1]
@@ -156,6 +162,21 @@ def main() -> None:
     manifest = read_manifest(cohort / "repositories.tsv")
     selected = set(args.only)
     manifest = [row for row in manifest if not selected or row[0] in selected]
+
+    with (cohort / "labels.csv").open(newline="") as source:
+        labels = list(csv.DictReader(source))
+    labels = [row for row in labels if not selected or row["repository"] in selected]
+    analyzers = set(args.analyzer)
+    if analyzers:
+        # Scoping to an analyzer only has to scan the repositories that carry a
+        # label for it, which is what makes a single-analyzer replay quick
+        # enough to run beside the unit tests.
+        labels = [row for row in labels if row["analyzer"] in analyzers]
+        labelled = {row["repository"] for row in labels}
+        manifest = [row for row in manifest if row[0] in labelled]
+        if not manifest:
+            print(f"{cohort.name}: no labels for {', '.join(sorted(analyzers))}")
+            return
     if not manifest:
         fail("no repositories selected")
 
@@ -173,9 +194,6 @@ def main() -> None:
             print(f"scanning {repository}@{revision[:12]}", flush=True)
             findings |= scan(gohawk, repository, checkout_repository(checkout_root, repository, revision))
 
-        with (cohort / "labels.csv").open(newline="") as source:
-            labels = list(csv.DictReader(source))
-        labels = [row for row in labels if not selected or row["repository"] in selected]
         false_positives = {
             (row["repository"], row["analyzer"], row["position"])
             for row in labels
