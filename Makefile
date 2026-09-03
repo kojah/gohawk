@@ -93,7 +93,7 @@ vuln:
 
 coverage:
 	$(GO) test ./... -covermode=count \
-		-coverpkg=./internal/syntax/...,./internal/ssaflow,./internal/catalog,./internal/check,./internal/flagvalue,./internal/trace,./internal/cli,./analyzers,./internal/passes/...,./internal/analyzers/...,./internal/docexamples,./plugin/golangci,./tools/gendocs,./tools/measure \
+		-coverpkg=./internal/syntax/...,./internal/ssaflow,./internal/catalog,./internal/check,./internal/flagvalue,./internal/trace,./internal/cli,./analyzers,./internal/passes/...,./internal/analyzers/...,./internal/docexamples,./plugin/golangci \
 		-coverprofile=coverage.out
 	$(GO) tool cover -func=coverage.out -o=coverage-summary.out
 
