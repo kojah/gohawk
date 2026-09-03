@@ -53,9 +53,13 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	relations := map[lockRelation]token.Pos{}
+	// Ordering compares lock classes, so the key each identity maps to must
+	// outlive the function that acquired it: the contradicting order is
+	// usually in another method of the same type.
+	keys := map[string]string{}
 	for _, function := range functions {
 		var evidence ssaflow.LocalEvidence
-		walkLockOrder(pass, function, relations, &evidence)
+		walkLockOrder(pass, function, relations, keys, &evidence)
 	}
 	return nil, nil
 }

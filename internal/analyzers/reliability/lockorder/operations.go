@@ -37,7 +37,14 @@ func callerOwnedLocks(function *ssa.Function) map[string]bool {
 	return result
 }
 
-func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string, identity string, relations map[lockRelation]token.Pos) []string {
+func acquireLock(
+	pass *analysis.Pass,
+	instruction ssa.Instruction,
+	held []string,
+	identity string,
+	keys map[string]string,
+	relations map[lockRelation]token.Pos,
+) []string {
 	if slices.Contains(held, identity) {
 		// A lock selected by a loop iteration is a different mutex each time
 		// the same instruction runs, so re-acquiring its identity on the next
@@ -49,13 +56,25 @@ func acquireLock(pass *analysis.Pass, instruction ssa.Instruction, held []string
 		}
 		return held
 	}
+	// recursive-acquire above stays on instance identity, where re-locking the
+	// same object is the defect. Ordering below compares lock classes, so a
+	// mutex held in a struct field is comparable across the methods that take
+	// it; see lockClassOf for why the class claim is sound.
+	key := keys[identity]
 	for _, owner := range held {
-		relation := lockRelation{from: owner, to: identity}
-		reverse := lockRelation{from: identity, to: owner}
-		if _, exists := relations[reverse]; exists {
-			check.Reportf(pass, check.LockContradictoryOrder, instruction.Pos(), "contradictory lock order: %s and %s", identity, owner)
+		ownerKey := keys[owner]
+		if key == "" || ownerKey == "" || ownerKey == key {
+			// Two locks of one class are ordered by which object holds them,
+			// and that evidence does not exist here. Reporting the pair would
+			// flag every routine that locks two peers at once, such as
+			// transfer(from, to *Account) taking from.mu then to.mu while
+			// another caller passes the same accounts the other way around.
+			continue
 		}
-		relations[relation] = instruction.Pos()
+		if _, exists := relations[lockRelation{from: key, to: ownerKey}]; exists {
+			check.Reportf(pass, check.LockContradictoryOrder, instruction.Pos(), "contradictory lock order: %s and %s", key, ownerKey)
+		}
+		relations[lockRelation{from: ownerKey, to: key}] = instruction.Pos()
 	}
 	return append(held, identity)
 }

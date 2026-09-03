@@ -18,6 +18,7 @@ type lockFlowContext struct {
 	pass        *analysis.Pass
 	evidence    *ssaflow.LocalEvidence
 	relations   map[lockRelation]token.Pos
+	keys        map[string]string
 	lockValues  map[string][]ssa.Value
 	acquiredAt  map[string]token.Pos
 	released    map[string]bool
@@ -29,6 +30,7 @@ func walkLockOrder(
 	pass *analysis.Pass,
 	function *ssa.Function,
 	relations map[lockRelation]token.Pos,
+	keys map[string]string,
 	evidence *ssaflow.LocalEvidence,
 ) {
 	if len(function.Blocks) == 0 {
@@ -50,6 +52,7 @@ func walkLockOrder(
 		pass:        pass,
 		evidence:    evidence,
 		relations:   relations,
+		keys:        keys,
 		lockValues:  lockValues,
 		acquiredAt:  acquiredAt,
 		released:    released,
@@ -385,7 +388,8 @@ func (flow lockFlowContext) applyMutexAction(
 		flow.released[identity] = true
 		state.deferred = appendUniqueString(state.deferred, identity)
 	}
-	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.relations)
+	flow.keys[identity] = lockComparisonKey(identity, receiver)
+	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.keys, flow.relations)
 	return state
 }
 
