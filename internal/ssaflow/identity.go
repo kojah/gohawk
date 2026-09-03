@@ -5,7 +5,6 @@ import "golang.org/x/tools/go/ssa"
 // ProveIdentity reports whether two values denote corresponding access paths
 // beneath roots that the caller has already established as equivalent.
 func ProveIdentity(left, right AccessPath) IdentityProof {
-
 	// Identity proves and memoizes whether two values denote corresponding access
 	// paths beneath roots already established as equivalent by the caller.
 	if left.Value == nil || right.Value == nil {
