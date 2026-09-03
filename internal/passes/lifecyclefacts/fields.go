@@ -103,11 +103,11 @@ func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 func acquiredResource(value ssa.Value) bool {
 	switch typed := value.(type) {
 	case *ssa.Call:
-		_, ok := ResourceCleanup(typed.Type())
+		_, ok := typeCleanup(typed.Type())
 		return ok
 	case *ssa.Extract:
 		_, call := typed.Tuple.(*ssa.Call)
-		_, ok := ResourceCleanup(typed.Type())
+		_, ok := typeCleanup(typed.Type())
 		return call && ok
 	}
 	return false
@@ -137,13 +137,13 @@ func parameterMayBeReleased(function *ssa.Function, parameter ssa.Value) bool {
 	return false
 }
 
-// fieldCleanup returns the methods that release a value held in a field. The
-// listed resource types answer for a concrete field, but a wrapper holds what
-// it was given behind an interface, and io.Closer is as much a statement that
-// the value can be closed as *os.File is. Without this a wrapper's own Close
-// is never seen to release the field, the summary says the caller still owns
-// the argument, and handing that wrapper back is reported as a leak.
-func fieldCleanup(value types.Type) ([]string, bool) {
+// typeCleanup returns the methods that release a value of this type. The
+// listed resource types answer for a concrete value, but Go says an obligation
+// through an interface just as often: a field holding what a wrapper was given
+// is an io.Closer, and a constructor hands back an io.ReadCloser rather than
+// naming the thing it opened. io.Closer is as much a statement that the value
+// can be closed as *os.File is.
+func typeCleanup(value types.Type) ([]string, bool) {
 	if cleanup, ok := ResourceCleanup(value); ok {
 		return cleanup, true
 	}
@@ -227,7 +227,7 @@ func releasedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 	}
 	var released ParameterMask
 	for index := range structure.NumFields() {
-		cleanup, ok := fieldCleanup(structure.Field(index).Type())
+		cleanup, ok := typeCleanup(structure.Field(index).Type())
 		if !ok {
 			continue
 		}
