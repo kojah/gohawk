@@ -118,3 +118,16 @@ func fileHandedToReturnedCloser(path string) (*wrapping.DirectCloser, error) {
 	}
 	return wrapping.NewDirectCloser(file), nil
 }
+
+// fileHandedToSplitOwner reports: the wrapper keeps the file in a field that
+// nothing on it closes, and this function drops the wrapper, so the file is
+// never released. Finding that field means following the store into the
+// helper the constructor delegates to.
+func fileHandedToSplitOwner(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	_ = wrapping.NewSplitOwner(file)
+	return nil
+}

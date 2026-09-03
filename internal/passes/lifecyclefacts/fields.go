@@ -188,23 +188,70 @@ func typeCanRelease(value types.Type) bool {
 }
 
 func storedFieldIndices(value ssa.Value, structure *types.Struct) []int {
-	if value.Referrers() == nil {
+	return storedFieldIndicesVia(value, structure, ssaflow.NewCallGraphMemo[ssa.Value, []int]())
+}
+
+// storedFieldIndicesVia follows a delegated store into the callee performing
+// it. A constructor commonly hands the value to a helper rather than writing
+// the field itself, and reading only this body then finds no field at all,
+// which leaves the proof unable to say whether anything releases it. The
+// callee writes a field of the same struct, so the index it uses is the index
+// here; the struct type is what ties the two together, and a value reaching a
+// callee that writes a different type contributes nothing.
+func storedFieldIndicesVia(
+	value ssa.Value,
+	structure *types.Struct,
+	memo *ssaflow.CallGraphMemo[ssa.Value, []int],
+) []int {
+	return memo.Answer(value, func() []int {
+		if value.Referrers() == nil {
+			return nil
+		}
+		var indices []int
+		for _, reference := range *value.Referrers() {
+			if store, ok := reference.(*ssa.Store); ok {
+				indices = append(indices, directFieldIndex(store, value, structure)...)
+				continue
+			}
+			indices = append(indices, delegatedFieldIndices(reference, value, structure, memo)...)
+		}
+		return indices
+	})
+}
+
+func directFieldIndex(store *ssa.Store, value ssa.Value, structure *types.Struct) []int {
+	if store.Val != value {
 		return nil
 	}
+	field, ok := store.Addr.(*ssa.FieldAddr)
+	if !ok {
+		return nil
+	}
+	pointer, ok := field.X.Type().Underlying().(*types.Pointer)
+	if ok && types.Identical(pointer.Elem().Underlying(), structure) {
+		return []int{field.Field}
+	}
+	return nil
+}
+
+func delegatedFieldIndices(
+	reference ssa.Instruction,
+	value ssa.Value,
+	structure *types.Struct,
+	memo *ssaflow.CallGraphMemo[ssa.Value, []int],
+) []int {
+	common := ssaflow.InstructionCall(reference)
+	callee := ssaflow.ResolvedCallee(common)
+	if callee == nil || len(callee.Blocks) == 0 || !memo.Enter(callee) {
+		return nil
+	}
+	defer memo.Leave(callee)
 	var indices []int
-	for _, reference := range *value.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if !ok || store.Val != value {
+	for index, argument := range common.Args {
+		if index >= len(callee.Params) || argument != value {
 			continue
 		}
-		field, ok := store.Addr.(*ssa.FieldAddr)
-		if !ok {
-			continue
-		}
-		pointer, ok := field.X.Type().Underlying().(*types.Pointer)
-		if ok && types.Identical(pointer.Elem().Underlying(), structure) {
-			indices = append(indices, field.Field)
-		}
+		indices = append(indices, storedFieldIndicesVia(callee.Params[index], structure, memo)...)
 	}
 	return indices
 }
@@ -413,6 +460,11 @@ func parameterIsView(
 	structure *types.Struct,
 	released ParameterMask,
 ) bool {
+	// A constructor that released the argument itself leaves the caller
+	// nothing to keep, whatever becomes of the field afterwards.
+	if parameterMayBeReleased(function, parameter) {
+		return false
+	}
 	// A callee cannot release what it was handed if the parameter's own type
 	// offers no way to. compress/gzip takes an io.Reader and documents that
 	// its Close does not close it, which is the standard convention: a wrapper
@@ -420,7 +472,7 @@ func parameterIsView(
 	// reader rather than a ReadCloser is the API saying so. Asking the
 	// returned type instead gets that case wrong, because *gzip.Reader has a
 	// Close that closes its own decompressor.
-	if !typeCanRelease(parameter.Type()) && !parameterMayBeReleased(function, parameter) {
+	if !typeCanRelease(parameter.Type()) {
 		return true
 	}
 	if !typeCanRelease(result) {

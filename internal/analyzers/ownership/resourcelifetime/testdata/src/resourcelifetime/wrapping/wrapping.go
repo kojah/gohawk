@@ -60,3 +60,22 @@ type DirectCloser struct{ inner io.Closer }
 func NewDirectCloser(source io.Closer) *DirectCloser { return &DirectCloser{inner: source} }
 
 func (d *DirectCloser) Close() error { return d.inner.Close() }
+
+// SplitOwner keeps what it was given in borrowed and something of its own in
+// owned, closing only owned. The store into borrowed is delegated, so reading
+// the constructor alone finds no field and cannot say whether anything
+// releases what the caller handed over.
+type SplitOwner struct {
+	borrowed io.Closer
+	owned    io.Closer
+}
+
+func (s *SplitOwner) reset(source io.Closer) { s.borrowed = source }
+
+func (s *SplitOwner) Close() error { return s.owned.Close() }
+
+func NewSplitOwner(source io.Closer) *SplitOwner {
+	split := new(SplitOwner)
+	split.reset(source)
+	return split
+}
