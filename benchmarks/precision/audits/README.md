@@ -1379,3 +1379,25 @@ summarized as releasing nothing, so a deferred rollback helper does not
 settle it; a conditional-release summary would need a new fact mask.
 Fifteen logged-and-returned errors are policy reports and one fire-and-forget
 agent launch appears only under the experimental detached audit.
+
+## Batch 46
+
+The final six repositories bring the audit to five hundred. Eight modules
+were selected and five loaded and scanned; rtlamr, signatory's root, and the
+CloudStack provider's root need module downloads the scan forbids. Final
+scans produced 232 unique diagnostics with no bounded correction: the three
+default ownership findings reviewed are defects, and precision round 48 pins
+all of them: a key file created only for its path, a button-press response
+never closed, and a pipe reader goroutine left blocked when closing the
+writer fails. One logged-and-returned error is a policy report.
+
+## Audit summary
+
+Five hundred repositories were reviewed across forty-six batches. The
+recorded rounds pin every corrected false positive and a sample of true
+positives, and `make precision-regression` replays them all. The last five
+batches, one hundred and one repositories at the wider batch size, needed
+three bounded corrections between them, each a structural predicate at an
+existing decision point with a fixture and a pinned link, and no correction
+in three of the five. The remaining known gap is a conditional-release
+method summarized as releasing nothing, recorded under batch 45.

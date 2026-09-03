@@ -1,0 +1,4 @@
+repository,analyzer,position,verdict
+MusicDin/kubitect,resourcelifetime,pkg/models/config/mock.go:20:11,true_positive
+ecadlabs/signatory,resourcelifetime,integration_test/tests/speculos.go:79:11,true_positive
+kashav/fsql,goroutineownership,terminal/terminal.go:114:2,true_positive

@@ -493,3 +493,9 @@
 45	boreq/plum	778729606f0231de2ba62c5d2d1f2e8a4c3eced8	plum-backend	reviewed
 45	32463991/ZCR521-AI-MCP	19813ea7b98873340ddc1c932c1fc6f61dcc6939	.	reviewed
 45	alexklibisz/terraform-provider-terrifi	4cc4947bd8ce7be69c51079380d9be8c57620210	.	reviewed
+46	bemasher/rtlamr	f7505779db642da0b2d97d10cb8327258ca52868	.	reviewed
+46	uefi2333/m365-native	7a0b09e45954b309215d60bf9d9e3a18f0f120ed	.	reviewed
+46	kashav/fsql	5cfe17e9b3c69aee6e65cc5d73b7c40cc1ffa87e	.	reviewed
+46	ecadlabs/signatory	1199064c48a6a38238d81213fc96f5da5c50f014	.	reviewed
+46	MusicDin/kubitect	44c384d0cfaf9aa34e65f11860fdf9d273ebb304	.	reviewed
+46	kubernetes-sigs/cluster-api-provider-cloudstack	bfc732740c02300560cf84f5ff398ebad9e401eb	.,hack/tools,test/e2e	reviewed

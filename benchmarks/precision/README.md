@@ -271,3 +271,8 @@ closes does, and a transaction constructor that holds a serialization lock
 for its caller while a deferred unlock turns its results into cells. Nearby
 file, response, reader, lexer goroutine, server-send, deferred-in-loop,
 and unwaited-command findings remain reportable.
+
+Round 48 preserves the forty-fourth reviewed batch, the last of the
+500-repository audit, which needed no correction. It pins a key file
+created only for its path, a button-press response never closed, and a pipe
+reader goroutine left blocked when closing the writer fails.
