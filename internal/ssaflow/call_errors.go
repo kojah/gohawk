@@ -156,3 +156,74 @@ func valuesStoredAtAddress(address ssa.Value, seen map[ssa.Value]bool) ([]ssa.Va
 	}
 	return values, len(values) > 0
 }
+
+func ValueSources(value ssa.Value) map[ssa.Value]bool {
+	sources := map[ssa.Value]bool{}
+	collectValueSources(value, sources, map[ssa.Value]bool{})
+	return sources
+}
+
+func ValuesShareErrorSource(left, right ssa.Value) bool {
+	leftSources := ValueSources(left)
+	for source := range ValueSources(right) {
+		if leftSources[source] {
+			return true
+		}
+	}
+	return false
+}
+
+func collectValueSources(value ssa.Value, sources, seen map[ssa.Value]bool) {
+	if value == nil || seen[value] {
+		return
+	}
+	seen[value] = true
+	if syntax.IsErrorType(value.Type()) {
+		sources[value] = true
+		collectErrorIdentitySources(value, sources, seen)
+		return
+	}
+	switch typed := value.(type) {
+	case *ssa.Call:
+		if typed.Common().IsInvoke() {
+			collectValueSources(typed.Common().Value, sources, seen)
+		}
+		for _, argument := range typed.Common().Args {
+			collectValueSources(argument, sources, seen)
+		}
+		return
+	case *ssa.Parameter, *ssa.FreeVar:
+		return
+	}
+	instruction, ok := value.(ssa.Instruction)
+	if !ok {
+		return
+	}
+	var operands []*ssa.Value
+	operands = instruction.Operands(operands)
+	for _, operand := range operands {
+		if operand != nil {
+			collectValueSources(*operand, sources, seen)
+		}
+	}
+	collectStoredSources(value, sources, seen, map[ssa.Value]bool{})
+}
+
+func collectStoredSources(address ssa.Value, sources, seen, memorySeen map[ssa.Value]bool) {
+	// Variadic logging and wrapping calls lower arguments into temporary arrays.
+	// Following stores recovers original error value instead of losing identity.
+	if address == nil || memorySeen[address] || address.Referrers() == nil {
+		return
+	}
+	memorySeen[address] = true
+	for _, reference := range *address.Referrers() {
+		switch typed := reference.(type) {
+		case *ssa.Store:
+			collectValueSources(typed.Val, sources, seen)
+		case *ssa.FieldAddr:
+			collectStoredSources(typed, sources, seen, memorySeen)
+		case *ssa.IndexAddr:
+			collectStoredSources(typed, sources, seen, memorySeen)
+		}
+	}
+}

@@ -327,7 +327,7 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
 	case search.valueCallsMethod(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localCallback}, true
-	case StrictNonEmptyAccessPath(argument, target):
+	case strictNonEmptyAccessPath(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
 	case ValueContainsValue(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true

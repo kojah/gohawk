@@ -2,7 +2,6 @@ package ssaflow
 
 import (
 	"errors"
-	"go/token"
 
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -94,79 +93,9 @@ func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool {
 // CallInvokesArgumentOnEveryReturn reports whether a statically known helper
 // invokes target on every normal path through the helper.
 
-// StrictNonEmptyAccessPath reports whether value is a field or constant-index
+// strictNonEmptyAccessPath reports whether value is a field or constant-index
 // path strictly beneath root whose selected storage was not replaced before
 // the load that observes it.
-func StrictNonEmptyAccessPath(value, root ssa.Value) bool {
-	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{})
-	return ok && depth > 0
-}
-
-func strictAccessPathDepth(value, root ssa.Value, seen map[ssa.Value]bool) (int, bool) {
-	if value == nil || root == nil || seen[value] {
-		return 0, false
-	}
-	if value == root {
-		return 0, true
-	}
-	seen[value] = true
-	if inner, ok := UnwrapTransparentValue(
-		value,
-		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
-	); ok {
-		return strictAccessPathDepth(inner, root, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.FieldAddr:
-		depth, ok := strictAccessPathDepth(typed.X, root, seen)
-		return depth + 1, ok
-	case *ssa.IndexAddr:
-		if _, ok := constantIndex(typed.Index); !ok {
-			return 0, false
-		}
-		depth, ok := strictAccessPathDepth(typed.X, root, seen)
-		return depth + 1, ok
-	case *ssa.UnOp:
-		if typed.Op == token.MUL {
-			if depth, ok := strictAccessPathDepth(typed.X, root, seen); ok {
-				return depth, true
-			}
-			if !storageAddressUnaliasedBeforeLoad(typed.X, typed) {
-				return 0, false
-			}
-			stored, ok := storedValueAt(typed.X, typed)
-			if !ok {
-				return 0, false
-			}
-			return strictAccessPathDepth(stored, root, map[ssa.Value]bool{})
-		}
-	}
-	return 0, false
-}
-
-func storageAddressUnaliasedBeforeLoad(address ssa.Value, observation *ssa.UnOp) bool {
-	if address == nil || address.Referrers() == nil || observation == nil {
-		return false
-	}
-	for _, reference := range *address.Referrers() {
-		switch typed := reference.(type) {
-		case *ssa.DebugRef:
-			continue
-		case *ssa.Store:
-			if typed.Addr == address {
-				continue
-			}
-		case *ssa.UnOp:
-			if typed.Op == token.MUL && typed.X == address {
-				continue
-			}
-		}
-		if InstructionMayFollow(reference, observation) {
-			return false
-		}
-	}
-	return true
-}
 
 // CallReceiver returns receiver value for method calls and invocations.
 func CallReceiver(common *ssa.CallCommon) ssa.Value { //nolint:ireturn // Call receivers have several concrete SSA value forms.

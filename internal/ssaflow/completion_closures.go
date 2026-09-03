@@ -70,7 +70,7 @@ func ClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
 	if closure == nil {
 		return false
 	}
-	return MakeClosureCallsValue(closure, target)
+	return closureCallsValue(closure, target)
 }
 
 // calledFunction returns the call, the function literal when the callee is

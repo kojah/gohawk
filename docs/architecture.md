@@ -129,6 +129,7 @@ the code cannot drift apart silently.
 | `TestAnalyzerCommentaryCoverage` | non-obvious spans of analyzer code carry model-level rationale |
 | `TestObjectFactsStayInTheirDefiningPackage` | object facts imported and exported only in the package that defines the fact type |
 | `TestAnalyzersUseSharedTraversal` | value-provenance recursion — phi fan-out and visited sets — lives only in `ssaflow` |
+| `TestSSAFlowFamiliesLayerDownward` | `ssaflow` files are named by family — proof, value, call, flow, store, completion, evidence — and a file references declarations only from its own family or a lower one |
 | `TestDocumentationReferencesResolve` | the development docs and project skills cite only code that exists, and their helper, `Fact` field, and test inventories are complete |
 
 Conventions that are not yet enforced by a test are described in the
