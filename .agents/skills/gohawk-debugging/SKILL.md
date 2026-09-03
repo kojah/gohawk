@@ -29,6 +29,15 @@ every analyzer.
 Full detail in the
 [debugging reference](../../../docs/development/debugging-reference.md).
 
+## When a phase is silent
+
+If the code you are studying emits no trace events, add them rather than
+reaching for print statements or a stack dump. The absence is the finding: an
+uninstrumented phase cannot be located when it stalls, and the next question
+about it starts from nothing again. Announce a candidate before a long walk as
+well as after it, so a run that stops making progress names the work it was
+on. Keep the events.
+
 ## Reading a trace
 
 Every event carries a phase and a stable kebab-case reason code:

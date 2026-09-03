@@ -139,6 +139,17 @@ candidate and suggested-fix events. Shared analyzer wrappers trace whether a
 candidate is reported, suppressed by an ignore comment, or removed by check
 selection.
 
+When a section of code is hard to follow, add tracing to it and keep the
+tracing. Temporary print statements are worse than they look: they must be
+added and removed for each question, they are lost the moment the next person
+asks something similar, and reverting them is one more chance to disturb
+working code. A phase that emits nothing is itself the finding, because a run
+that stops making progress there can then only be located with a stack dump.
+Adding the events is usually the shorter path to the answer as well as the one
+that leaves the next reader better off. Prefer a temporary print only when the
+question is genuinely single-use, such as counting how often a cache is hit
+while sizing a fix.
+
 Instrument non-obvious evidence and conservative bailout decisions near the
 policy code that makes them. Use the common phases consistently:
 
