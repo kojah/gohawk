@@ -74,8 +74,16 @@ def merge_json_stream(text: str) -> dict:
         index = end
 
 
-def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, str]]:
+def scan(gohawk: Path, repository: str, checkout: Path) -> tuple[set[tuple[str, str, str]], list[str]]:
+    """Return the findings, and the reasons any module could not be analysed.
+
+    A module that fails to build contributes no findings, so every reviewed
+    label in it reads as a lost true positive. That failure can only invent
+    regressions, never hide one, so the caller must be able to tell it apart
+    from a real change rather than see it as missing signal.
+    """
     findings: set[tuple[str, str, str]] = set()
+    incomplete: list[str] = []
     environment = os.environ | {
         "CGO_ENABLED": "0",
         "GOFLAGS": "-mod=readonly",
@@ -100,7 +108,7 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
                 timeout=180,
             )
         except subprocess.TimeoutExpired:
-            print(f"warning: {repository}: timed out in {module.relative_to(checkout)}", file=sys.stderr)
+            incomplete.append(f"timed out in {module.relative_to(checkout)}")
             continue
         # gohawk still emits findings for the packages that loaded when others
         # fail, and several cohorts depend on those partial scans. An empty
@@ -108,16 +116,15 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
         # out-of-memory kill under a parallel replay), and treating that as
         # "no findings" would report reviewed true positives as lost.
         if not result.stdout.strip() and result.returncode:
-            print(
-                f"warning: {repository}: no output from {module.relative_to(checkout)} "
-                f"(exit {result.returncode}): {result.stderr.strip()[:200]}",
-                file=sys.stderr,
+            incomplete.append(
+                f"no output from {module.relative_to(checkout)} "
+                f"(exit {result.returncode}): {result.stderr.strip()[:160]}"
             )
             continue
         try:
             payload = merge_json_stream(result.stdout)
         except json.JSONDecodeError:
-            print(f"warning: {repository}: invalid JSON in {module.relative_to(checkout)}", file=sys.stderr)
+            incomplete.append(f"invalid JSON in {module.relative_to(checkout)}")
             continue
         errors = 0
         for analyzers in payload.values():
@@ -137,11 +144,8 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> set[tuple[str, str, s
             # label from a module with load errors may be an environment problem
             # (a transient module fetch, or memory pressure under a parallel
             # replay) rather than an analyzer regression. Say so.
-            print(
-                f"warning: {repository}: {errors} package error(s) in {module.relative_to(checkout)}",
-                file=sys.stderr,
-            )
-    return findings
+            incomplete.append(f"{errors} package error(s) in {module.relative_to(checkout)}")
+    return findings, incomplete
 
 
 # A label records a human verdict about one finding. The repository revision is
@@ -203,6 +207,11 @@ def main() -> None:
     parser.add_argument("--gohawk", type=Path, help="existing gohawk binary")
     parser.add_argument("--only", action="append", default=[], help="run one repository (repeatable)")
     parser.add_argument(
+        "--require-scannable",
+        action="store_true",
+        help="fail when a repository could not be analysed, rather than only reporting it",
+    )
+    parser.add_argument(
         "--stamp",
         action="store_true",
         help="record the running gohawk revision on every label that still holds",
@@ -248,9 +257,13 @@ def main() -> None:
         checkout_root = args.checkout_root.resolve() if args.checkout_root else temporary / "repositories"
         checkout_root.mkdir(parents=True, exist_ok=True)
         findings: set[tuple[str, str, str]] = set()
+        unscannable: dict[str, list[str]] = {}
         for repository, revision in manifest:
             print(f"scanning {repository}@{revision[:12]}", flush=True)
-            findings |= scan(gohawk, repository, checkout_repository(checkout_root, repository, revision))
+            found, incomplete = scan(gohawk, repository, checkout_repository(checkout_root, repository, revision))
+            findings |= found
+            if incomplete:
+                unscannable[repository] = incomplete
 
         false_positives = {
             (row["repository"], row["analyzer"], row["position"])
@@ -264,6 +277,19 @@ def main() -> None:
         }
         returned_noise = sorted(false_positives & findings)
         lost_signal = sorted(true_positives - findings)
+        # A label in a repository that did not analyse cleanly proves nothing.
+        # Counting it as lost turns a checkout that needs a build step into a
+        # phantom regression, which is the failure this partition prevents.
+        blocked = sorted(finding for finding in lost_signal if finding[0] in unscannable)
+        lost_signal = [finding for finding in lost_signal if finding[0] not in unscannable]
+        # A false positive in an unscannable repository is equally unchecked. It
+        # would otherwise read as "remains absent", which is a pass the run did
+        # not earn, so drop it from the denominator too.
+        blocked_noise = sorted(finding for finding in false_positives if finding[0] in unscannable)
+        checked_noise = len(false_positives) - len(blocked_noise)
+        checked_signal = len(true_positives) - len(blocked)
+        for repository, reasons in sorted(unscannable.items()):
+            print(f"unscannable: {repository}: {reasons[0]}", file=sys.stderr)
         provenance = {
             (row["repository"], row["analyzer"], row["position"]): describe_provenance(row) for row in labels
         }
@@ -272,12 +298,23 @@ def main() -> None:
         for finding in lost_signal:
             print("lost true positive:", *finding, f"({provenance[finding]})", file=sys.stderr)
         print(
-            f"checked {len(labels)} labels: {len(false_positives) - len(returned_noise)} of "
-            f"{len(false_positives)} false positives remain absent; "
-            f"{len(true_positives) - len(lost_signal)} of {len(true_positives)} true positives remain present"
+            f"checked {len(labels) - len(blocked) - len(blocked_noise)} labels: "
+            f"{checked_noise - len(returned_noise)} of {checked_noise} false positives remain absent; "
+            f"{checked_signal - len(lost_signal)} of {checked_signal} true positives remain present"
         )
+        if blocked or blocked_noise:
+            print(
+                f"not checked: {len(blocked) + len(blocked_noise)} label(s) in {len(unscannable)} "
+                "repository(ies) that could not be analysed; fix or drop those repositories to "
+                "restore the coverage"
+            )
+        # Unscannable repositories are pre-existing corpus debt, so they do not
+        # fail the gate by default; --require-scannable enforces it once a
+        # cohort is clean, which keeps the debt from growing silently.
+        if args.require_scannable and unscannable:
+            raise SystemExit(1)
         if args.stamp:
-            held = (false_positives - findings) | (true_positives & findings)
+            held = ((false_positives - findings) | (true_positives & findings)) - set(blocked)
             revision = current_revision(repository_root)
             print(f"stamped {stamp_labels(cohort, labels, held, revision)} holding labels at {revision}")
         if returned_noise or lost_signal:

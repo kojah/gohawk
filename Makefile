@@ -143,12 +143,16 @@ benchmark:
 # STAMP=1 records the running revision on every label that still holds, so a
 # later failure reports when the label was last confirmed instead of leaving
 # a drifted label indistinguishable from a fresh regression.
+# REQUIRE_SCANNABLE=1 fails when a repository could not be analysed at all,
+# which is reported but tolerated by default because the corpus already
+# carries repositories that need a build step before they compile.
 PRECISION_ROUNDS := $(if $(ROUND),benchmarks/precision/$(ROUND),$(wildcard benchmarks/precision/round-*))
 PRECISION_SCOPE := $(foreach analyzer,$(ANALYZER),--analyzer $(analyzer)) \
 	$(foreach repository,$(REPOSITORY),--only $(repository)) \
 	$(if $(CHECKOUT_ROOT),--checkout-root $(CHECKOUT_ROOT)) \
 	$(if $(GOHAWK),--gohawk $(GOHAWK)) \
-	$(if $(STAMP),--stamp)
+	$(if $(STAMP),--stamp) \
+	$(if $(REQUIRE_SCANNABLE),--require-scannable)
 
 precision-regression:
 	@for cohort in $$(printf '%s\n' $(PRECISION_ROUNDS) | sort -V); do \

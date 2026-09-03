@@ -46,6 +46,14 @@ around them.
 The replay runs with every check enabled, so an opt-in audit that becomes
 noisy fails the gate exactly like a default check.
 
+A repository that could not be analysed is reported as `unscannable:` and its
+labels are excluded from the counts rather than reported as lost. A module
+that fails to build contributes no findings, so every label in it would
+otherwise read as a lost true positive, and every false-positive label in it
+would read as a pass nobody earned. Such a repository needs its checkout
+fixed or its labels dropped; `REQUIRE_SCANNABLE=1` turns it into a failure
+once a cohort is clean.
+
 Read the provenance first. Every failure prints when its label was last
 confirmed, such as `(last confirmed at af2b29b on 2026-08-14)`, or
 `(provenance unknown)` for a label written before the field existed. A label
