@@ -42,7 +42,8 @@ help:
 		'  make plugin-test     Test the golangci-lint module plugin end to end' \
 		'  make benchmark       Run pinned dogfooding benchmarks' \
 		'  make precision-regression  Replay reviewed precision cohorts' \
-		'                            (scope with ANALYZER=, ROUND=, REPOSITORY=; STAMP=1 records provenance)' \
+		'                            (scope with ANALYZER=, ROUND=, REPOSITORY=; STAMP=1 records provenance;' \
+		'                             CONTINUE=1 replays every cohort)' \
 		'  make site-check      Check the documentation website' \
 		'  make site-build      Build the documentation website' \
 		'  make site-links      Check internal links in the built website' \
@@ -143,6 +144,10 @@ benchmark:
 # STAMP=1 records the running revision on every label that still holds, so a
 # later failure reports when the label was last confirmed instead of leaving
 # a drifted label indistinguishable from a fresh regression.
+# CONTINUE=1 replays every cohort instead of stopping at the first failure,
+# which is what an audit wants: one stale label in an early cohort otherwise
+# hides the state of every cohort after it. The exit status still reports
+# whether anything failed.
 # REQUIRE_SCANNABLE=1 fails when a repository could not be analysed at all,
 # which is reported but tolerated by default because the corpus already
 # carries repositories that need a build step before they compile.
@@ -155,9 +160,10 @@ PRECISION_SCOPE := $(foreach analyzer,$(ANALYZER),--analyzer $(analyzer)) \
 	$(if $(REQUIRE_SCANNABLE),--require-scannable)
 
 precision-regression:
-	@for cohort in $$(printf '%s\n' $(PRECISION_ROUNDS) | sort -V); do \
-		./scripts/precision-regression.py "$$cohort" $(PRECISION_SCOPE) || exit 1; \
-	done
+	@failed=0; for cohort in $$(printf '%s\n' $(PRECISION_ROUNDS) | sort -V); do \
+		./scripts/precision-regression.py "$$cohort" $(PRECISION_SCOPE) || failed=1; \
+		if [ "$$failed" = 1 ] && [ -z "$(CONTINUE)" ]; then exit 1; fi; \
+	done; exit $$failed
 
 site-install:
 	$(PNPM) --dir site install --frozen-lockfile
