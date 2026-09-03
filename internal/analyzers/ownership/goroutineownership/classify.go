@@ -212,7 +212,7 @@ func (analysis *spawnAnalysis) helperAction(common *ssa.CallCommon, callee *ssa.
 	for _, pair := range suppliedValues(common, callee, closure) {
 		for _, tracked := range analysis.tracked {
 			if bindingCarries(pair.supplied, tracked.value) {
-				result = strongerAction(result, helperUse(callee, pair.local, tracked.kind, map[*ssa.Function]bool{}))
+				result = strongerAction(result, newHelperSearch().use(callee, pair.local, tracked.kind))
 			}
 		}
 	}

@@ -42,6 +42,42 @@ type Fact struct {
 	ReceiverStore  ParameterMask
 }
 
+// traceDetails names the claims a summary makes, so a trace shows what a
+// function was summarized as without printing every mask.
+func (fact *Fact) traceDetails() map[string]string {
+	named := []struct {
+		name string
+		mask ParameterMask
+	}{
+		{"invoked", fact.Invoked},
+		{"closed", fact.Closed},
+		{"finalized", fact.Finalized},
+		{"released", fact.Released},
+		{"shutdown", fact.Shutdown},
+		{"stopped", fact.Stopped},
+		{"waited", fact.Waited},
+		{"committed", fact.Committed},
+		{"rolled-back", fact.RolledBack},
+		{"returned-owner", fact.ReturnedOwner},
+		{"returned-view", fact.ReturnedView},
+		{"retained", fact.Retained},
+		{"stored", fact.Stored},
+		{"owned-fields", fact.OwnedFields},
+		{"released-fields", fact.ReleasedFields},
+		{"receiver-store", fact.ReceiverStore},
+	}
+	claims := make([]string, 0, len(named))
+	for _, claim := range named {
+		if claim.mask != 0 {
+			claims = append(claims, claim.name)
+		}
+	}
+	if len(claims) == 0 {
+		return map[string]string{"claims": "none"}
+	}
+	return map[string]string{"claims": strings.Join(claims, ",")}
+}
+
 // ParameterMask is a set of SSA parameter positions in a lifecycle summary.
 type ParameterMask uint64
 

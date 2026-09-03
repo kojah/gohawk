@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -24,12 +25,18 @@ var Analyzer = &analysis.Analyzer{
 	Run:        run,
 }
 
+// traceAnalyzer names this prerequisite in a trace. It is not a catalog
+// analyzer, but a reader selects its events the same way: -gohawk-trace=
+// lifecyclefacts shows which function the fact pass is working on.
+const traceAnalyzer = "lifecyclefacts"
+
 func run(pass *analysis.Pass) (any, error) {
 	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
 	summaries := make(Summaries, len(functions))
+	retentions := newRetentionCache()
 	for _, function := range functions {
 		object := function.Object()
 		// Only exported functions can be called from a package that imports this
@@ -38,7 +45,26 @@ func run(pass *analysis.Pass) (any, error) {
 		if object == nil || !object.Exported() || len(function.Params) > 64 || len(function.Blocks) == 0 {
 			continue
 		}
-		summaries[function] = summarize(pass, function)
+		// Summarizing walks the callee graph, so a pathological package can
+		// spend a long time on one function. Announce the function before the
+		// walk as well as after it: a run that stops making progress is then
+		// located by its last candidate rather than by a stack dump.
+		probe := analysisTrace.For(pass, traceAnalyzer, "", function.Pos())
+		probe.Candidate(analysisTrace.Step{
+			Reason:   "summarizing-function",
+			Outcome:  analysisTrace.OutcomeObserved,
+			Pos:      function.Pos(),
+			Function: function.String(),
+		})
+		fact := summarize(pass, retentions, function)
+		summaries[function] = fact
+		probe.Decision(analysisTrace.Step{
+			Reason:   "function-summarized",
+			Outcome:  analysisTrace.OutcomeAccepted,
+			Pos:      function.Pos(),
+			Function: function.String(),
+			Details:  fact.traceDetails(),
+		})
 	}
 	// A returned view is decided once every method of this package is
 	// summarized, because the releasing method usually lives beside the
@@ -88,7 +114,7 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 	return Fact{}, false
 }
 
-func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
+func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Function) Fact {
 	var fact Fact
 	fact.OwnedFields = ownedFields(function)
 	fact.ReleasedFields = releasedFields(pass, function)
@@ -136,14 +162,21 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 				*target |= bit
 			}
 		}
-		summarizeTransfers(pass, function, index, parameter, &fact)
+		summarizeTransfers(pass, retentions, function, index, parameter, &fact)
 	}
 	return fact
 }
 
 // summarizeTransfers records where a parameter goes: into the returned
 // owner, into the receiver, or kept somewhere by the callee.
-func summarizeTransfers(pass *analysis.Pass, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) {
+func summarizeTransfers(
+	pass *analysis.Pass,
+	retentions *retentionCache,
+	function *ssa.Function,
+	index int,
+	parameter ssa.Value,
+	fact *Fact,
+) {
 	bit := parameterMaskFor(index)
 	if returnedOwnerOnEveryReturn(function, parameter) {
 		fact.ReturnedOwner |= bit
@@ -151,10 +184,10 @@ func summarizeTransfers(pass *analysis.Pass, function *ssa.Function, index int, 
 	if index > 0 && storedInReceiverOnEveryReturn(function, function.Params[0], parameter) {
 		fact.ReceiverStore |= bit
 	}
-	if retainedAnywhere(pass, function, parameter) {
+	if retentions.retainedAnywhere(pass, function, parameter) {
 		fact.Retained |= bit
 	}
-	if storedAnywhere(pass, function, parameter) {
+	if retentions.storedAnywhere(pass, function, parameter) {
 		fact.Stored |= bit
 	}
 }

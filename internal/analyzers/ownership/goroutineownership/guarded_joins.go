@@ -108,8 +108,9 @@ func (analysis *spawnAnalysis) closureBlockJoins(block *ssa.BasicBlock, pairs []
 			derives := func(value ssa.Value) bool {
 				return ssaflow.ValueDerivesFrom(value, pair.local, map[ssa.Value]bool{})
 			}
+			search := newHelperSearch()
 			for _, instruction := range block.Instrs {
-				if instructionJoins(instruction, tracked.kind, derives, map[*ssa.Function]bool{}) {
+				if search.instructionJoins(instruction, tracked.kind, derives) {
 					return true
 				}
 			}

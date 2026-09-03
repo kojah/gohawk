@@ -6,19 +6,40 @@ import "golang.org/x/tools/go/ssa"
 // every normal return, the shape a deferred cleanup helper takes.
 
 func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool {
-	return callInvokesArgumentOnEveryReturn(instruction, target, map[*ssa.Function]bool{})
+	search := &callbackSearch{memo: NewCallGraphMemo[callbackKey, bool]()}
+	return search.invokes(instruction, target)
 }
 
-func callInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value, seen map[*ssa.Function]bool) bool {
+// callbackSearch answers one callback-completion question. The memo owns the
+// cycle guard and the rule that an answer cut short by it is not retained.
+type callbackSearch struct {
+	memo *CallGraphMemo[callbackKey, bool]
+}
+
+type callbackKey struct {
+	instruction ssa.Instruction
+	target      ssa.Value
+}
+
+func (search *callbackSearch) invokes(instruction ssa.Instruction, target ssa.Value) bool {
+	return search.memo.Answer(callbackKey{instruction: instruction, target: target}, func() bool {
+		return search.searchInvokes(instruction, target)
+	})
+}
+
+func (search *callbackSearch) searchInvokes(instruction ssa.Instruction, target ssa.Value) bool {
 	common := InstructionCall(instruction)
-	if common == nil || common.StaticCallee() == nil || seen[common.StaticCallee()] {
+	if common == nil || common.StaticCallee() == nil {
 		return false
 	}
-	seen[common.StaticCallee()] = true
-	defer delete(seen, common.StaticCallee())
+	callee := common.StaticCallee()
+	if !search.memo.Enter(callee) {
+		return false
+	}
+	defer search.memo.Leave(callee)
 	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
 		common := InstructionCall(candidate)
-		return common != nil && SameValue(common.Value, parameter) || callInvokesArgumentOnEveryReturn(candidate, parameter, seen)
+		return common != nil && SameValue(common.Value, parameter) || search.invokes(candidate, parameter)
 	})
 }
 

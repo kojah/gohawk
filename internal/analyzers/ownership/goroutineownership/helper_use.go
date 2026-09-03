@@ -60,23 +60,48 @@ func calledFunction(common *ssa.CallCommon) (*ssa.Function, *ssa.MakeClosure) {
 // equivalent to an inline join. Storing, sending, returning, capturing, or
 // passing the value to an opaque call ends the proof as unknown. A callee that
 // merely reads the value, or joins it on some paths, proves nothing.
-func helperUse(function *ssa.Function, local ssa.Value, kind trackedKind, seen map[*ssa.Function]bool) ownershipAction {
-	if function == nil || seen[function] || len(function.Blocks) == 0 {
+// helperSearch answers one helper-use question. The memo owns the cycle guard
+// and the rule that an answer cut short by it is not retained.
+type helperSearch struct {
+	memo *ssaflow.CallGraphMemo[helperKey, ownershipAction]
+}
+
+type helperKey struct {
+	function *ssa.Function
+	local    ssa.Value
+	kind     trackedKind
+}
+
+func newHelperSearch() *helperSearch {
+	return &helperSearch{memo: ssaflow.NewCallGraphMemo[helperKey, ownershipAction]()}
+}
+
+func (search *helperSearch) use(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {
+	key := helperKey{function: function, local: local, kind: kind}
+	return search.memo.Answer(key, func() ownershipAction {
+		return search.searchUse(function, local, kind)
+	})
+}
+
+func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {
+	if function == nil || len(function.Blocks) == 0 {
 		return actionNone
 	}
-	seen[function] = true
-	defer delete(seen, function)
+	if !search.memo.Enter(function) {
+		return actionNone
+	}
+	defer search.memo.Leave(function)
 	derives := func(value ssa.Value) bool {
 		return ssaflow.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
 	}
 	joins := func(instruction ssa.Instruction) bool {
-		return instructionJoins(instruction, kind, derives, seen)
+		return search.instructionJoins(instruction, kind, derives)
 	}
 	joined, escaped := false, false
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			joined = joined || joins(instruction)
-			escaped = escaped || instructionEscapes(instruction, local, kind, derives, seen)
+			escaped = escaped || search.instructionEscapes(instruction, local, kind, derives)
 		}
 	}
 	if joined && !ssaflow.UnownedReturnFromEntry(function, joins) {
@@ -88,7 +113,7 @@ func helperUse(function *ssa.Function, local ssa.Value, kind trackedKind, seen m
 	return actionNone
 }
 
-func instructionJoins(instruction ssa.Instruction, kind trackedKind, derives func(ssa.Value) bool, seen map[*ssa.Function]bool) bool {
+func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind trackedKind, derives func(ssa.Value) bool) bool {
 	if kind == trackedSignal && receivesFrom(instruction, derives) {
 		return true
 	}
@@ -104,7 +129,7 @@ func instructionJoins(instruction ssa.Instruction, kind trackedKind, derives fun
 		return false
 	}
 	return slices.ContainsFunc(suppliedValues(common, callee, closure), func(pair suppliedValue) bool {
-		return derives(pair.supplied) && helperUse(callee, pair.local, kind, seen) == actionJoin
+		return derives(pair.supplied) && search.use(callee, pair.local, kind) == actionJoin
 	})
 }
 
@@ -125,12 +150,11 @@ func receiverJoins(common *ssa.CallCommon, kind trackedKind, derives func(ssa.Va
 	return false
 }
 
-func instructionEscapes(
+func (search *helperSearch) instructionEscapes(
 	instruction ssa.Instruction,
 	local ssa.Value,
 	kind trackedKind,
 	derives func(ssa.Value) bool,
-	seen map[*ssa.Function]bool,
 ) bool {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
@@ -144,13 +168,13 @@ func instructionEscapes(
 	case *ssa.Return:
 		return ssaflow.ReturnedValueOwnsValue(typed, local)
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
-		return callEscapes(instruction, kind, derives, seen)
+		return search.callEscapes(instruction, kind, derives)
 	default:
 		return false
 	}
 }
 
-func callEscapes(instruction ssa.Instruction, kind trackedKind, derives func(ssa.Value) bool, seen map[*ssa.Function]bool) bool {
+func (search *helperSearch) callEscapes(instruction ssa.Instruction, kind trackedKind, derives func(ssa.Value) bool) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
 		return builtin.Name() == "append" && slices.ContainsFunc(common.Args, derives)
@@ -169,7 +193,7 @@ func callEscapes(instruction ssa.Instruction, kind trackedKind, derives func(ssa
 		return slices.ContainsFunc(common.Args, derives) || closure != nil && slices.ContainsFunc(closure.Bindings, derives)
 	}
 	return slices.ContainsFunc(suppliedValues(common, callee, closure), func(pair suppliedValue) bool {
-		return derives(pair.supplied) && helperUse(callee, pair.local, kind, seen) == actionUnknown
+		return derives(pair.supplied) && search.use(callee, pair.local, kind) == actionUnknown
 	})
 }
 

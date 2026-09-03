@@ -320,7 +320,7 @@ func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa
 			continue
 		}
 		found = true
-		if !localParameterUseIsResolved(function, captured.Free, map[*ssa.Function]bool{}) {
+		if !newCancellationUse().parameterResolved(function, captured.Free) {
 			return false
 		}
 	}
@@ -343,23 +343,44 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value) bool {
 			continue
 		}
 		found = true
-		if !localParameterUseIsResolved(callee, callee.Params[index], map[*ssa.Function]bool{}) {
+		if !newCancellationUse().parameterResolved(callee, callee.Params[index]) {
 			return false
 		}
 	}
 	return found
 }
 
-func localParameterUseIsResolved(function *ssa.Function, parameter ssa.Value, seen map[*ssa.Function]bool) bool {
-	if function == nil || seen[function] {
+// cancellationUse answers whether every use of a cancel value inside a callee
+// is resolved. The memo owns the cycle guard and the rule that an answer cut
+// short by it is not retained.
+type cancellationUse struct {
+	memo *ssaflow.CallGraphMemo[cancellationUseKey, bool]
+}
+
+type cancellationUseKey struct {
+	function  *ssa.Function
+	parameter ssa.Value
+}
+
+func newCancellationUse() *cancellationUse {
+	return &cancellationUse{memo: ssaflow.NewCallGraphMemo[cancellationUseKey, bool]()}
+}
+
+func (search *cancellationUse) parameterResolved(function *ssa.Function, parameter ssa.Value) bool {
+	return search.memo.Answer(cancellationUseKey{function: function, parameter: parameter}, func() bool {
+		return search.searchParameterResolved(function, parameter)
+	})
+}
+
+func (search *cancellationUse) searchParameterResolved(function *ssa.Function, parameter ssa.Value) bool {
+	if !search.memo.Enter(function) {
 		return false
 	}
-	seen[function] = true
-	defer delete(seen, function)
+	defer search.memo.Leave(function)
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if instructionReferencesCancellation(instruction, parameter) &&
-				!localInstructionUseIsResolved(instruction, parameter, seen) {
+				!search.instructionResolved(instruction, parameter) {
 				return false
 			}
 		}
@@ -367,7 +388,7 @@ func localParameterUseIsResolved(function *ssa.Function, parameter ssa.Value, se
 	return true
 }
 
-func localInstructionUseIsResolved(instruction ssa.Instruction, parameter ssa.Value, seen map[*ssa.Function]bool) bool {
+func (search *cancellationUse) instructionResolved(instruction ssa.Instruction, parameter ssa.Value) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		if _, ok := instruction.(*ssa.DebugRef); ok || localStorageOnly(instruction) {
@@ -389,7 +410,7 @@ func localInstructionUseIsResolved(instruction ssa.Instruction, parameter ssa.Va
 			continue
 		}
 		matched = true
-		if !localParameterUseIsResolved(callee, callee.Params[index], seen) {
+		if !search.parameterResolved(callee, callee.Params[index]) {
 			return false
 		}
 	}

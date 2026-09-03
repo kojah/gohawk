@@ -15,12 +15,11 @@ type CompletionRequest struct {
 	Coverage CompletionCoverage
 }
 
-// Completion proves and memoizes a lifecycle-completion request.
-
-// ProveCompletion runs the completion search once without memoization. The
-// proof is Unknown when no callee body was available to search, so callers
-// may consult imported summaries, and Disproven when a searched body does not
-// complete the target.
+// ProveCompletion answers one completion request. Each call runs its own
+// search, which memoizes the questions it asks itself; nothing is cached
+// between requests. The proof is Unknown when no callee body was available to
+// search, so callers may consult imported summaries, and Disproven when a
+// searched body does not complete the target.
 func ProveCompletion(request CompletionRequest) CompletionProof {
 	if request.Instruction == nil || request.Target == nil || len(request.Methods) == 0 {
 		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}

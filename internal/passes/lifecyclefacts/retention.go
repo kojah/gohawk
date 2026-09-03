@@ -2,8 +2,10 @@ package lifecyclefacts
 
 import (
 	"slices"
+	"strconv"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -20,31 +22,101 @@ import (
 // only reads through its argument marks nothing. Values merely derived from
 // the parameter, such as a loaded field, never count.
 
+// retentionBudget bounds one retention question by the number of instructions
+// it may examine. The walk descends the callee graph, and a cycle guard cuts
+// an answer short without letting it be memoized, so a mutually recursive
+// package can otherwise re-walk the same helpers indefinitely. Exhausting the
+// budget returns what the cycle guard returns, and the two walks answer with
+// opposite polarity so that neither invents evidence. The loose walk
+// over-approximates what a callee may keep, so it bails to "maybe retained"
+// and leaves a suppression available. The strict walk claims a proven store,
+// so it bails to "not proven" rather than fabricate an ownership transfer. A
+// callee graph too large to walk is declined rather than analyzed halfway.
+const retentionBudget = 250_000
+
 type retention struct {
 	pass   *analysis.Pass
 	strict bool
-	seen   map[*ssa.Function]bool
+	// budget counts down the instructions this question may still examine.
+	budget int
+	// exhausted records that the budget ran out, so the caller can trace the
+	// bailout instead of presenting a guess as a proof.
+	exhausted bool
+	// memo owns the cycle guard and the rule that an answer the guard or the
+	// budget cut short is not retained. It is shared for the whole package:
+	// summarizing every exported function asks about the same helpers again
+	// and again, and the guard is empty between questions.
+	memo *ssaflow.CallGraphMemo[retentionKey, bool]
 }
 
-func retainedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	return (&retention{pass: pass, seen: map[*ssa.Function]bool{}}).within(function, parameter)
+// retentionKey identifies one retention question. The strict and loose walks
+// answer differently, so the mode is part of the key and both share one memo.
+type retentionKey struct {
+	function  *ssa.Function
+	parameter ssa.Value
+	strict    bool
 }
 
-func storedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	return (&retention{pass: pass, strict: true, seen: map[*ssa.Function]bool{}}).within(function, parameter)
+// retentionCache shares retention answers across one package. A single walk
+// descends the callee graph, and summarizing every exported function asks
+// about the same helpers again and again, so the answers must outlive one
+// question.
+type retentionCache struct {
+	memo *ssaflow.CallGraphMemo[retentionKey, bool]
+}
+
+func newRetentionCache() *retentionCache {
+	return &retentionCache{memo: ssaflow.NewCallGraphMemo[retentionKey, bool]()}
+}
+
+func (cache *retentionCache) retainedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
+	return (&retention{pass: pass, budget: retentionBudget, memo: cache.memo}).answer(function, parameter)
+}
+
+func (cache *retentionCache) storedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
+	return (&retention{pass: pass, strict: true, budget: retentionBudget, memo: cache.memo}).answer(function, parameter)
+}
+
+// answer runs one top-level retention question and traces a budget bailout,
+// which is a conservative boundary rather than a proof.
+func (search *retention) answer(function *ssa.Function, parameter ssa.Value) bool {
+	retained := search.within(function, parameter)
+	if !search.exhausted {
+		return retained
+	}
+	analysisTrace.For(search.pass, traceAnalyzer, "", function.Pos()).Considered(analysisTrace.Step{
+		Reason:   "retention-budget-exhausted",
+		Outcome:  analysisTrace.OutcomeUnknown,
+		Pos:      function.Pos(),
+		Function: function.String(),
+		Details:  map[string]string{"strict": strconv.FormatBool(search.strict)},
+	})
+	return retained
 }
 
 func (search *retention) within(function *ssa.Function, parameter ssa.Value) bool {
-	if search.seen[function] {
+	key := retentionKey{function: function, parameter: parameter, strict: search.strict}
+	return search.memo.Answer(key, func() bool {
+		return search.searchWithin(function, parameter)
+	})
+}
+
+func (search *retention) searchWithin(function *ssa.Function, parameter ssa.Value) bool {
+	if !search.memo.Enter(function) {
 		return false
 	}
-	search.seen[function] = true
-	defer delete(search.seen, function)
+	defer search.memo.Leave(function)
 	derives := func(value ssa.Value) bool {
 		return ssaflow.SameValue(value, parameter)
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
+			if search.budget <= 0 {
+				search.exhausted = true
+				search.memo.Cut()
+				return !search.strict
+			}
+			search.budget--
 			if search.instructionRetains(function, instruction, derives) {
 				return true
 			}
@@ -188,7 +260,8 @@ func (search *retention) callRetains(common *ssa.CallCommon, instruction ssa.Ins
 		if index >= len(callee.Params) || !derives(argument) {
 			continue
 		}
-		if search.seen[callee] {
+		if search.memo.Entered(callee) {
+			search.memo.Cut()
 			return !search.strict
 		}
 		if search.within(callee, callee.Params[index]) {

@@ -374,20 +374,39 @@ func exactCleanupReceiver(receiver, parameter ssa.Value) bool {
 	return receiver == parameter
 }
 
-// completionSearch proves one method for one instruction and target. seen
-// stops recursion through helper cycles.
+// completionSearch proves one method for one instruction and target. Its memo
+// stops recursion through helper cycles and keeps the search over the call
+// graph rather than over every call path through it.
 type completionSearch struct {
 	method   string
 	coverage CompletionCoverage
-	// seen holds the callee bodies on the current search path and the
-	// callback values already examined. A recursive literal captures the
-	// variable that holds itself, so both guards are needed to terminate.
-	seen       map[*ssa.Function]bool
+	// seenValues holds the callback values already examined. A recursive
+	// literal captures the variable that holds itself, so this guard is
+	// needed alongside the memo's callee guard to terminate. It only ever
+	// marks, so an answer that depends on it is recorded with Cut.
 	seenValues map[ssa.Value]bool
 	// invokeTarget marks a nested search whose target is a callback already
 	// known to call the method: invoking a local mapped exactly to it is
 	// then the completion, wherever the invocation sits.
 	invokeTarget bool
+	// memo owns the cycle guard for callee bodies and the rule that an answer
+	// the guard cut short is not retained.
+	memo *CallGraphMemo[completionKey, completionAnswer]
+}
+
+// completionKey identifies one completion question. The method and coverage
+// are fixed for a search, but a callback search shares the parent's guards
+// while answering a different question, so invokeTarget belongs in the key.
+type completionKey struct {
+	instruction  ssa.Instruction
+	target       ssa.Value
+	invokeTarget bool
+}
+
+type completionAnswer struct {
+	launch    launchKind
+	proven    bool
+	available bool
 }
 
 // forCallback returns a nested search for a callback value that shares the
@@ -402,8 +421,8 @@ func newCompletionSearch(method string, coverage CompletionCoverage) *completion
 	return &completionSearch{
 		method:     method,
 		coverage:   coverage,
-		seen:       map[*ssa.Function]bool{},
 		seenValues: map[ssa.Value]bool{},
+		memo:       NewCallGraphMemo[completionKey, completionAnswer](),
 	}
 }
 
@@ -411,13 +430,26 @@ func newCompletionSearch(method string, coverage CompletionCoverage) *completion
 // target with the coverage their launch demands. The second result is false
 // when no callee body was available to search.
 func (search *completionSearch) completes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
+	key := completionKey{instruction: instruction, target: target, invokeTarget: search.invokeTarget}
+	answer := search.memo.Answer(key, func() completionAnswer {
+		launch, proven, available := search.searchCompletes(instruction, target)
+		return completionAnswer{launch: launch, proven: proven, available: available}
+	})
+	return answer.launch, answer.proven, answer.available
+}
+
+func (search *completionSearch) searchCompletes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
 	callees, ok := resolveCallees(instruction)
 	if !ok || len(callees) == 0 {
 		return launchNone, false, false
 	}
 	searched := false
 	for _, callee := range callees {
-		if callee.function == nil || len(callee.function.Blocks) == 0 || search.seen[callee.function] {
+		if callee.function == nil || len(callee.function.Blocks) == 0 {
+			return callee.launch, false, searched
+		}
+		if search.memo.Entered(callee.function) {
+			search.memo.Cut()
 			return callee.launch, false, searched
 		}
 		searched = true
@@ -429,11 +461,10 @@ func (search *completionSearch) completes(instruction ssa.Instruction, target ss
 }
 
 func (search *completionSearch) calleeCompletes(callee completionCallee, target ssa.Value, invocation ssa.Instruction) bool {
-	if search.seen[callee.function] {
+	if !search.memo.Enter(callee.function) {
 		return false
 	}
-	search.seen[callee.function] = true
-	defer delete(search.seen, callee.function)
+	defer search.memo.Leave(callee.function)
 	locals := search.mappedLocals(callee, target, invocation)
 	if len(locals) == 0 {
 		return false
@@ -510,7 +541,11 @@ func ValueCallsMethod(value ssa.Value, method string, target ssa.Value) bool {
 }
 
 func (search *completionSearch) valueCallsMethod(value, target ssa.Value) bool {
-	if value == nil || search.seenValues[value] {
+	if value == nil {
+		return false
+	}
+	if search.seenValues[value] {
+		search.memo.Cut()
 		return false
 	}
 	search.seenValues[value] = true
