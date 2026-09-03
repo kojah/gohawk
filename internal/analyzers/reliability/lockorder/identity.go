@@ -11,7 +11,7 @@ import (
 // lockIdentityOf names the lock a receiver value denotes, or returns the
 // empty string when its origin cannot be told apart from another lock's.
 func lockIdentityOf(value ssa.Value) string {
-	return lockIdentity(ssaflow.NewReachingWalk(0), value)
+	return lockIdentity(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value)
 }
 
 func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value) string {

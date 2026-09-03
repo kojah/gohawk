@@ -359,3 +359,65 @@ func findLifecycleCall(t *testing.T, function *ssa.Function, name string) *ssa.C
 	t.Fatalf("call %s not found", name)
 	return nil
 }
+
+// A constructor that keeps its argument in the value it returns has not taken
+// over releasing it, and the summary has to say so. The store is commonly
+// performed by an unexported helper rather than by the constructor itself, as
+// bufio.NewReader reaches its reader through (*bufio.Reader).reset. That
+// helper is never summarized, so the answer has to come from following the
+// call into its body, and until it did the constructor was summarized as
+// keeping the argument for itself.
+func TestLifecycleSummaryDelegatingConstructorReturnsOwner(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+import "io"
+
+type reader struct{ source io.Reader }
+
+func (r *reader) reset(source io.Reader) { r.source = source }
+
+func (r *reader) Read(p []byte) (int, error) { return r.source.Read(p) }
+
+func Inline(source io.Reader) *reader { return &reader{source: source} }
+
+func Delegating(source io.Reader) *reader {
+	wrapped := new(reader)
+	wrapped.reset(source)
+	return wrapped
+}
+
+func TwoLevel(source io.Reader) *reader { return Delegating(source) }
+
+func FastPath(source io.Reader) *reader {
+	if already, ok := source.(*reader); ok {
+		return already
+	}
+	wrapped := new(reader)
+	wrapped.reset(source)
+	return wrapped
+}
+
+var sink []io.Reader
+
+// Elsewhere keeps the argument where the caller cannot reach it, which is a
+// transfer rather than a view over the returned value.
+func Elsewhere(source io.Reader) *reader {
+	sink = append(sink, source)
+	return new(reader)
+}
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	for name, want := range map[string]bool{
+		"Inline":     true,
+		"Delegating": true,
+		"TwoLevel":   true,
+		"FastPath":   true,
+		"Elsewhere":  false,
+	} {
+		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		if got := fact.ReturnedOwner.contains(0); got != want {
+			t.Errorf("%s returned owner = %t, want %t", name, got, want)
+		}
+	}
+}

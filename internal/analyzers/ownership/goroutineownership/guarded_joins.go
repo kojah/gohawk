@@ -38,7 +38,9 @@ func (analysis *spawnAnalysis) flagGuardedJoin() bool {
 			if flag := booleanFlagVariable(branch.Cond); flag != nil && analysis.flagAssignedAroundSpawn(flag) {
 				return true
 			}
-			if counter := integerCounterVariable(branch); counter != nil && analysis.counterAssignedAroundSpawn(ssaflow.NewReachingWalk(0), counter) {
+			counter := integerCounterVariable(branch)
+			if counter != nil &&
+				analysis.counterAssignedAroundSpawn(ssaflow.NewReachingWalk(ssaflow.TransparentNone), counter) {
 				return true
 			}
 		}
@@ -251,7 +253,7 @@ func booleanFlagVariable(condition ssa.Value) ssa.Value { //nolint:ireturn // Fl
 // phiCarriesBooleanConstant reports whether a Boolean constant reaches phi,
 // possibly through the nested phis a loop with continue statements creates.
 func phiCarriesBooleanConstant(phi *ssa.Phi) bool {
-	return ssaflow.NewReachingWalk(0).Any(phi, func(_ ssaflow.ReachingWalk, edge ssa.Value) bool {
+	return ssaflow.NewReachingWalk(ssaflow.TransparentNone).Any(phi, func(_ ssaflow.ReachingWalk, edge ssa.Value) bool {
 		return isBooleanConstant(edge)
 	})
 }
@@ -278,7 +280,7 @@ func isBooleanPointer(value types.Type) bool {
 // block that the spawn dominates, is dominated by, or shares.
 func (analysis *spawnAnalysis) flagAssignedAroundSpawn(flag ssa.Value) bool {
 	if phi, ok := flag.(*ssa.Phi); ok {
-		return analysis.phiConstantAroundSpawn(ssaflow.NewReachingWalk(0), phi)
+		return analysis.phiConstantAroundSpawn(ssaflow.NewReachingWalk(ssaflow.TransparentNone), phi)
 	}
 	if flag.Referrers() == nil {
 		return false

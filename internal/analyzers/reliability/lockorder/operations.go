@@ -177,7 +177,7 @@ func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
 // stays reportable.
 func loopVariantLock(instruction ssa.Instruction) bool {
 	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
-	return receiver != nil && loopVariantValue(ssaflow.NewReachingWalk(0), receiver)
+	return receiver != nil && loopVariantValue(ssaflow.NewReachingWalk(ssaflow.TransparentNone), receiver)
 }
 
 func loopVariantValue(walk ssaflow.ReachingWalk, value ssa.Value) bool {

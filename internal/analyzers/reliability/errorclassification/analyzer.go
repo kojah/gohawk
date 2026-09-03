@@ -55,7 +55,8 @@ func stringErrorClassificationSSA(call *ssa.Call, callsites map[*ssa.Function][]
 		return false
 	}
 	for _, argument := range call.Common().Args {
-		if exclusivelyErrorText(ssaflow.NewReachingWalk(0), argument) && !externalProcessErrorText(ssaflow.NewReachingWalk(0), argument, callsites) {
+		exclusive := exclusivelyErrorText(ssaflow.NewReachingWalk(ssaflow.TransparentNone), argument)
+		if exclusive && !externalProcessErrorText(ssaflow.NewReachingWalk(ssaflow.TransparentNone), argument, callsites) {
 			return true
 		}
 	}

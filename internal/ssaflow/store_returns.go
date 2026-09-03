@@ -36,9 +36,14 @@ func aggregateStoresValue(aggregate, value ssa.Value, seen map[ownershipPair]boo
 		return true
 	}
 	seen[pair] = true
+	// A constructor with a fast path returns the argument itself once it is
+	// already the type it would wrap, as bufio.NewReaderSize does with
+	// rd.(*Reader). The assertion selects the same object, so the caller
+	// receives back what it passed in and still owns it.
 	if inner, ok := UnwrapTransparentValue(
 		aggregate,
-		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
+		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface|
+			TransparentTypeAssert,
 	); ok {
 		return aggregateStoresValue(inner, value, seen)
 	}
@@ -122,6 +127,12 @@ func aggregateReferrersStoreValue(aggregate, value ssa.Value, seen map[ownership
 		return false
 	}
 	for _, reference := range *aggregate.Referrers() {
+		if call, ok := reference.(ssa.CallInstruction); ok {
+			if callStoresValueIntoAggregate(call, aggregate, value, seen) {
+				return true
+			}
+			continue
+		}
 		address, ok := reference.(ssa.Value)
 		if !ok {
 			continue
@@ -131,6 +142,63 @@ func aggregateReferrersStoreValue(aggregate, value ssa.Value, seen map[ownership
 			if addressStoresValue(address, value, seen) || aggregateStoresValue(address, value, seen) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// callStoresValueIntoAggregate reports whether a call hands a callee both the
+// aggregate and the value, and that callee stores the value into it.
+//
+// A constructor commonly delegates the assembly of the value it returns rather
+// than writing the field itself: bufio.NewReader reaches its buffer through
+// (*Reader).reset, and encoding/json's NewDecoder reaches its reader through
+// jsontext.NewDecoder and then (*Decoder).Reset. The parameter is stored into
+// the returned aggregate only inside those callees, so a search that stops at
+// the caller's own stores concludes the callee kept the value for itself, and
+// the caller is then wrongly credited with handing over the release. The
+// helper is often unexported, so its summary is never exported and the answer
+// has to come from its body, which is available here for a callee in the same
+// package.
+func callStoresValueIntoAggregate(call ssa.CallInstruction, aggregate, value ssa.Value, seen map[ownershipPair]bool) bool {
+	common := call.Common()
+	if common == nil {
+		return false
+	}
+	callee := common.StaticCallee()
+	if callee == nil || len(callee.Blocks) == 0 {
+		return false
+	}
+	// The aggregate may be handed over as a field of itself, as jsontext does
+	// when Reset passes d.s to the state's own reset.
+	holder := -1
+	for index, argument := range common.Args {
+		if index < len(callee.Params) &&
+			(SameValue(argument, aggregate) || ValueIsAccessPathFrom(argument, aggregate)) {
+			holder = index
+			break
+		}
+	}
+	if holder < 0 {
+		return false
+	}
+	for index, argument := range common.Args {
+		if index == holder || index >= len(callee.Params) {
+			continue
+		}
+		// A callback that captured the value is not the value being stored.
+		// Registering one, as t.Cleanup does, keeps the callback alive without
+		// proving the callback releases anything, and the closure rules decide
+		// that separately. Reading it as a store would accept a cleanup that
+		// only conditionally releases.
+		if _, closure := argument.(*ssa.MakeClosure); closure {
+			continue
+		}
+		if !SameValue(argument, value) && !aggregateStoresValue(argument, value, seen) {
+			continue
+		}
+		if aggregateStoresValue(callee.Params[holder], callee.Params[index], seen) {
+			return true
 		}
 	}
 	return false

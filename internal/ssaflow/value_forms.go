@@ -20,11 +20,22 @@ import (
 // opt-in because it may change a value's representation or meaning.
 type TransparentValueForm uint8
 
+// TransparentNone is the empty set of forms: it follows no wrapper. A proof
+// that must see a value exactly as it was written names it rather than
+// passing a bare zero.
+const TransparentNone TransparentValueForm = 0
+
 const (
 	TransparentChangeInterface TransparentValueForm = 1 << iota
 	TransparentChangeType
 	TransparentConvert
 	TransparentMakeInterface
+	// TransparentTypeAssert unwraps a type assertion. The asserted value is
+	// the same object seen through a different static type, so a proof about
+	// identity or ownership may follow it. A proof about what a value can do,
+	// such as whether a method is reachable, must not: the assertion is the
+	// point where that changes.
+	TransparentTypeAssert
 )
 
 // UnwrapTransparentValue returns the operand of value only when its concrete
@@ -40,6 +51,19 @@ func UnwrapTransparentValue(value ssa.Value, forms TransparentValueForm) (ssa.Va
 		return transparentOperand(typed.X, forms, TransparentConvert)
 	case *ssa.MakeInterface:
 		return transparentOperand(typed.X, forms, TransparentMakeInterface)
+	case *ssa.TypeAssert:
+		if typed.CommaOk {
+			// The comma-ok form yields a tuple; the caller reaches the asserted
+			// value through the Extract that selects element zero.
+			return nil, false
+		}
+		return transparentOperand(typed.X, forms, TransparentTypeAssert)
+	case *ssa.Extract:
+		assertion, ok := typed.Tuple.(*ssa.TypeAssert)
+		if !ok || typed.Index != 0 {
+			return nil, false
+		}
+		return transparentOperand(assertion.X, forms, TransparentTypeAssert)
 	default:
 		return nil, false
 	}

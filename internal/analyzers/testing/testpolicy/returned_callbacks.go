@@ -101,7 +101,7 @@ func closureCapturesTestingHandle(closure *ssa.MakeClosure, handle *ssa.Paramete
 }
 
 func closureUsedOnlyByReturns(closure *ssa.MakeClosure) bool {
-	onlyReturned, reachesReturn := valueUsedOnlyByReturns(ssaflow.NewReachingWalk(0), closure)
+	onlyReturned, reachesReturn := valueUsedOnlyByReturns(ssaflow.NewReachingWalk(ssaflow.TransparentNone), closure)
 	return onlyReturned && reachesReturn
 }
 
