@@ -66,47 +66,51 @@ func (analysis *resourceAnalysis) action(instruction ssa.Instruction) resourceAc
 	if action, ok := analysis.actions[instruction]; ok {
 		return action
 	}
-	action := analysis.classify(instruction)
+	action, reason := analysis.classify(instruction)
 	analysis.actions[instruction] = action
-	analysis.emitAction(instruction, action)
+	analysis.emitAction(instruction, action, reason)
 	return action
 }
 
-func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) resourceAction {
+// classify labels the instruction and names why. The reason is the label for
+// a settled or untouched resource, and for an opaque one it is the boundary
+// that stopped the proof, so a reader can tell an interface call from a
+// callee with no body without rereading this code.
+func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourceAction, string) {
 	if releasesResource(analysis.evidence, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional) ||
 		analysis.contract.consumable && consumesResource(instruction, analysis.resource) {
-		return actionSettled
+		return actionSettled, actionSettled.String()
 	}
-	if analysis.opaqueConsumption(instruction) {
-		return actionUnknown
+	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {
+		return actionUnknown, boundary
 	}
-	return actionNone
+	return actionNone, actionNone.String()
 }
 
 // opaqueConsumption reports whether the instruction hands the resource to
 // something the analysis cannot see through.
-func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction) bool {
+func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction) (string, bool) {
 	switch typed := instruction.(type) {
 	case *ssa.Send:
-		return analysis.carries(typed.X)
+		return "sent-to-channel", analysis.carries(typed.X)
 	case *ssa.MapUpdate:
-		return analysis.carries(typed.Value)
+		return "stored-in-map", analysis.carries(typed.Value)
 	case *ssa.Select:
 		for _, state := range typed.States {
 			if state.Send != nil && analysis.carries(state.Send) {
-				return true
+				return "sent-to-channel", true
 			}
 		}
-		return false
+		return "", false
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
 		return analysis.opaqueCall(instruction, ssaflow.InstructionCall(instruction))
 	}
-	return false
+	return "", false
 }
 
-func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common *ssa.CallCommon) bool {
+func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common *ssa.CallCommon) (string, bool) {
 	if common == nil {
-		return false
+		return "", false
 	}
 	carried := false
 	for _, argument := range common.Args {
@@ -114,24 +118,25 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	}
 	if common.IsInvoke() {
 		// The receiver of an interface method is not consumed by being the
-		// receiver; only the resource handed to the method is.
-		return carried
+		// receiver; only the resource handed to the method is. The body behind
+		// an interface method is chosen at run time, so no summary describes it.
+		return "interface-method", carried
 	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
-		return builtin.Name() == "append" && carried
+		return "appended", builtin.Name() == "append" && carried
 	}
 	if closure, ok := common.Value.(*ssa.MakeClosure); ok {
 		// A literal that captures the resource and was not proven to release
 		// it may release it later or on another path.
-		return carried || analysis.closureCarries(closure)
+		return "captured-by-literal", carried || analysis.closureCarries(closure)
 	}
 	callee := common.StaticCallee()
 	if callee == nil {
 		// A function value: the callee is decided at run time.
-		return carried
+		return "dynamic-callee", carried
 	}
 	if !carried {
-		return false
+		return "", false
 	}
 	// A resource that reaches the callee only inside an aggregate argument is
 	// beyond a parameter-level completion proof: that proof follows the
@@ -143,14 +148,14 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	// zip reader in an fs.FS wrapper and returns the loader's result:
 	// https://github.com/google/oss-rebuild/blob/9ce0528dd68bf209b52cc9fdc90bd63742cbb3a0/pkg/sysgraph/sgstorage/loader.go#L173-L179
 	if analysis.carriedOnlyWithinAggregate(common) && callResultReachesReturn(instruction) {
-		return true
+		return "nested-in-transferred-argument", true
 	}
 	// A summarized callee proven to release, store, or own the resource was
 	// classified as settled above; one summarized as doing none of those is
 	// transparent. A callee with a body but no summary is judged by its body
 	// through the completion proof already consulted; without either, the
 	// callee is a boundary.
-	return !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
+	return "unsummarized-callee", !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
 }
 
 // carriedOnlyWithinAggregate reports whether the resource reaches the call only
@@ -256,12 +261,12 @@ func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool 
 	return false
 }
 
-func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction) {
+func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction, reason string) {
 	if action == actionNone || !analysis.probe.Enabled() {
 		return
 	}
 	analysis.probe.Evidence(analysisTrace.Step{
-		Reason:   action.String(),
+		Reason:   reason,
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      instruction.Pos(),
 		Function: analysis.function.String(),
