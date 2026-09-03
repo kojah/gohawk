@@ -1,6 +1,8 @@
 package resourcelifetime
 
 import (
+	"go/types"
+
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -126,6 +128,18 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	if !carried {
 		return false
 	}
+	// A resource that reaches the callee only inside an aggregate argument is
+	// beyond a parameter-level completion proof: that proof follows the
+	// parameter value, not a resource nested in one of its fields. Treat such a
+	// call as a boundary only when its own result reaches a return, because
+	// only then can the resource have been transferred to the value the caller
+	// receives; a call whose result is discarded transfers nothing, so a
+	// resource left behind in its argument is still leaked. oss-rebuild wraps a
+	// zip reader in an fs.FS wrapper and returns the loader's result:
+	// https://github.com/google/oss-rebuild/blob/9ce0528dd68bf209b52cc9fdc90bd63742cbb3a0/pkg/sysgraph/sgstorage/loader.go#L173-L179
+	if analysis.carriedOnlyWithinAggregate(common) && callResultReachesReturn(instruction) {
+		return true
+	}
 	// A summarized callee proven to release, store, or own the resource was
 	// classified as settled above; one summarized as doing none of those is
 	// transparent. A callee with a body but no summary is judged by its body
@@ -134,15 +148,84 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	return !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
 }
 
+// carriedOnlyWithinAggregate reports whether the resource reaches the call only
+// as a field of an aggregate argument, never as an argument value in its own
+// right. A resource passed directly stays visible to the callee's completion
+// proof; one buried in a struct does not.
+func (analysis *resourceAnalysis) carriedOnlyWithinAggregate(common *ssa.CallCommon) bool {
+	within := false
+	for _, argument := range common.Args {
+		if analysis.carriesDirectly(argument) {
+			return false
+		}
+		// A closure that captures the resource is not a struct aggregate; the
+		// launch and closure analyses already decide its fate, so this rule
+		// must not intercept it.
+		if analysis.carriedWithinClosure(argument) {
+			return false
+		}
+		within = within || analysis.carriesWithin(argument)
+	}
+	return within
+}
+
+// carriedWithinClosure reports whether the argument is a closure value that
+// captures the resource.
+func (analysis *resourceAnalysis) carriedWithinClosure(argument ssa.Value) bool {
+	value := argument
+	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+	if inner, ok := ssaflow.UnwrapTransparentValue(value, forms); ok {
+		value = inner
+	}
+	closure, ok := value.(*ssa.MakeClosure)
+	return ok && analysis.closureCarries(closure)
+}
+
+// callResultReachesReturn reports whether a value the call produces, other than
+// an error, flows to a return of the enclosing function. Only such a result can
+// hold the resource nested in one of the call's arguments, so a call whose
+// error alone is propagated has transferred nothing.
+func callResultReachesReturn(instruction ssa.Instruction) bool {
+	result, ok := instruction.(ssa.Value)
+	if !ok || instruction.Parent() == nil {
+		return false
+	}
+	errorType := types.Universe.Lookup("error").Type()
+	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](instruction.Parent()) {
+		for _, value := range returned.Results {
+			if types.Identical(value.Type(), errorType) {
+				continue
+			}
+			if ssaflow.ValueDerivesFrom(value, result, map[ssa.Value]bool{}) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // carries reports whether value is the resource, derives from it, or is an
 // aggregate holding it or a projection of it. A struct literal wrapping a
 // type-asserted response body and handed to a function value is such an
 // aggregate; kandev upgrades an SPDY response this way:
 // https://github.com/kdlbs/kandev/blob/17da0aafe33df01828e21fc79cc9dd156dc088dc/apps/backend/internal/agent/kubernetes/portforward.go#L464-L491
 func (analysis *resourceAnalysis) carries(value ssa.Value) bool {
-	if ssaflow.SameValue(value, analysis.resource) ||
-		ssaflow.ValueDerivesFrom(value, analysis.resource, map[ssa.Value]bool{}) ||
-		ssaflow.ValueContainsValue(value, analysis.resource) {
+	return analysis.carriesDirectly(value) || analysis.carriesWithin(value)
+}
+
+// carriesDirectly reports whether value is the resource itself or is produced
+// from it by a transparent value step, so a callee receives the resource as an
+// argument in its own right.
+func (analysis *resourceAnalysis) carriesDirectly(value ssa.Value) bool {
+	return ssaflow.SameValue(value, analysis.resource) ||
+		ssaflow.ValueDerivesFrom(value, analysis.resource, map[ssa.Value]bool{})
+}
+
+// carriesWithin reports whether value is an aggregate that holds the resource
+// in one of its fields, so a callee receives the resource only nested inside a
+// parameter.
+func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
+	if ssaflow.ValueContainsValue(value, analysis.resource) {
 		return true
 	}
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
