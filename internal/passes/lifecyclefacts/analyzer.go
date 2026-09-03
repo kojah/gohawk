@@ -204,7 +204,7 @@ func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, par
 	// search needs the callee's summary where its body is unavailable.
 	summarized := func(callee *ssa.Function, index int) bool {
 		imported, ok := factForFunction(pass, callee)
-		return ok && imported.ReturnedOwner.contains(index)
+		return ok && imported.Claim(ClaimReturnsOwner).contains(index)
 	}
 	return !ssaflow.UnownedReturnFromEntryAllow(function, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
 		return ssaflow.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)

@@ -246,9 +246,9 @@ func (search *retention) callRetains(common *ssa.CallCommon, instruction ssa.Ins
 		return builtin.Name() == "append" && anyArgument(common, derives)
 	}
 	if imported, ok := importFact(search.pass, instruction); ok {
-		mask := imported.Retained
+		mask := imported.Claim(ClaimRetains)
 		if search.strict {
-			mask = imported.Stored
+			mask = imported.Claim(ClaimStores)
 		}
 		return argumentInMask(common, mask, derives)
 	}

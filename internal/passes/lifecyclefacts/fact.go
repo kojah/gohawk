@@ -78,6 +78,39 @@ func (fact *Fact) traceDetails() map[string]string {
 	return map[string]string{"claims": strings.Join(claims, ",")}
 }
 
+// Claim names what a summary can say about one parameter. The masks it
+// selects are the vocabulary every proof shares, so a proof asks for the claim
+// it needs rather than knowing which fields spell it. Releasing is a union
+// because the settling action depends on the resource: a file is closed, a
+// ticker stopped, a transaction committed or rolled back.
+type Claim uint8
+
+const (
+	ClaimReturnsOwner Claim = iota
+	ClaimReturnsView
+	ClaimRetains
+	ClaimStores
+	ClaimReleases
+)
+
+// Claim returns the parameters this summary makes the claim about.
+func (fact *Fact) Claim(claim Claim) ParameterMask {
+	switch claim {
+	case ClaimReturnsOwner:
+		return fact.ReturnedOwner
+	case ClaimReturnsView:
+		return fact.ReturnedView
+	case ClaimRetains:
+		return fact.Retained
+	case ClaimStores:
+		return fact.Stored
+	case ClaimReleases:
+		return fact.Closed | fact.Finalized | fact.Released | fact.Shutdown | fact.Stopped |
+			fact.Committed | fact.RolledBack
+	}
+	return 0
+}
+
 // ParameterMask is a set of SSA parameter positions in a lifecycle summary.
 type ParameterMask uint64
 

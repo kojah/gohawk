@@ -53,11 +53,7 @@ func (evidence *LifecycleEvidence) ForCandidate(candidate token.Pos) {
 // marks the argument at index as retained. The second result is false when
 // no summary is available, which callers must treat as unknown.
 func (evidence *LifecycleEvidence) ArgumentRetained(instruction ssa.Instruction, index int) (bool, bool) {
-	fact, ok := factFor(evidence.pass, instruction)
-	if !ok {
-		return false, false
-	}
-	return fact.Retained.contains(index), true
+	return evidence.CalleeClaims(instruction, index, ClaimRetains)
 }
 
 // Identity proves a local access-path relationship through the same memoized

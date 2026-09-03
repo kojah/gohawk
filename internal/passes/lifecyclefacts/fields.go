@@ -115,12 +115,6 @@ func acquiredResource(value ssa.Value) bool {
 
 // storedFieldIndices returns the indices of the struct's fields the value is
 // stored into, through field addresses of an allocation of that struct.
-// releasingMasks are the summary claims that a callee settled a parameter.
-func releasingMasks(fact Fact) ParameterMask {
-	return fact.Closed | fact.Finalized | fact.Released | fact.Shutdown | fact.Stopped |
-		fact.Committed | fact.RolledBack
-}
-
 // parameterMayBeReleased reports whether the function gives the parameter to
 // something that could release it despite its type offering no way to: an
 // assertion to a type that carries a cleanup method, or a callee summarized as
@@ -147,11 +141,18 @@ func callReleasesParameter(pass *analysis.Pass, instruction ssa.Instruction, par
 	if common == nil || common.StaticCallee() == nil {
 		return false
 	}
-	imported, ok := factForFunction(pass, ssaflow.ResolvedCallee(common))
-	if !ok {
+	imported, known := factForFunction(pass, ssaflow.ResolvedCallee(common))
+	if !known {
+		// An unsummarized callee is not evidence that the argument survives.
+		// It is also not evidence that it was released, and reading silence as
+		// release would withdraw the rule wherever a constructor delegates to
+		// an unexported helper, which is most of them. The parameter type is
+		// what carries this boundary: releasing a value whose type has no
+		// cleanup method takes an assertion, and an assertion is visible where
+		// it happens.
 		return false
 	}
-	settles := releasingMasks(imported)
+	settles := imported.Claim(ClaimReleases)
 	for index, argument := range common.Args {
 		if settles.contains(index) && ssaflow.ValueDerivesFrom(argument, parameter, map[ssa.Value]bool{}) {
 			return true
@@ -451,6 +452,23 @@ func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Inst
 		State: ssaflow.EvidenceProven, Reason: reasonStoredByCallee, Provenance: ssaflow.EvidenceFromImportedFact,
 	})
 	return true
+}
+
+// CalleeClaims reports what the call's static callee is summarized as doing
+// with the argument at index. The second result separates a callee proven not
+// to do it from one that carries no summary at all, which a proof must decide
+// about for itself: a rule looking for evidence that an obligation was
+// discharged must not read silence as proof that it was not.
+func (evidence *LifecycleEvidence) CalleeClaims(
+	instruction ssa.Instruction,
+	index int,
+	claim Claim,
+) (holds bool, known bool) {
+	fact, ok := factFor(evidence.pass, instruction)
+	if !ok {
+		return false, false
+	}
+	return fact.Claim(claim).contains(index), true
 }
 
 // CalleeSummarized reports whether the call's static callee carries a
