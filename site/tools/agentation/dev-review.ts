@@ -10,6 +10,8 @@ const SITE_DIRECTORY = resolve(TOOL_DIRECTORY, '../..');
 const BIN_DIRECTORY = resolve(SITE_DIRECTORY, 'node_modules/.bin');
 const DOCS_DIRECTORY = resolve(SITE_DIRECTORY, '../docs');
 const CONTENT_STORE = resolve(SITE_DIRECTORY, '.astro/data-store.json');
+const TERMINATION_GRACE_MILLISECONDS = 5_000;
+const ORPHAN_CHECK_MILLISECONDS = 5_000;
 const children = new Set<ChildProcess>();
 let stopping = false;
 let astroChild: ChildProcess | null = null;
@@ -47,7 +49,25 @@ function stop(exitCode = 0): void {
 	if (stopping) return;
 	stopping = true;
 	for (const child of children) child.kill('SIGTERM');
+	// A service that ignores SIGTERM, or one whose own child holds the port,
+	// would otherwise outlive this supervisor and be adopted by the next run,
+	// which reuses anything already answering its health check.
+	const escalation = setTimeout(() => {
+		for (const child of children) child.kill('SIGKILL');
+	}, TERMINATION_GRACE_MILLISECONDS);
+	escalation.unref();
 	process.exitCode = exitCode;
+}
+
+// The supervisor is meant to live exactly as long as the review session that
+// started it. Nothing signals it when that session simply goes away, so it
+// watches for being reparented and stops itself; without this a dev server and
+// its sync server keep running, and every later run adopts them.
+function stopWhenOrphaned(): void {
+	const watchdog = setInterval(() => {
+		if (process.ppid === 1) stop(0);
+	}, ORPHAN_CHECK_MILLISECONDS);
+	watchdog.unref();
 }
 
 async function run(command: string, args: string[]): Promise<void> {
@@ -105,6 +125,7 @@ async function main(): Promise<void> {
 
 process.on('SIGINT', () => stop(0));
 process.on('SIGTERM', () => stop(0));
+stopWhenOrphaned();
 
 if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
 	main().catch((error: unknown) => {
