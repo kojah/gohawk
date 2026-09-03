@@ -58,6 +58,7 @@ type settings struct {
 	function  string
 	writer    io.Writer
 	file      *os.File
+	timing    *os.File
 }
 
 var global = struct {
@@ -74,6 +75,10 @@ func RegisterFlags(flags *flag.FlagSet) {
 	flags.Var(optionValue{kind: optionSource}, "gohawk-trace-source", "limit evidence tracing to positions containing this path[:line]")
 	flags.Var(optionValue{kind: optionFunction}, "gohawk-trace-function", "limit evidence tracing to functions containing this text")
 	flags.Var(optionValue{kind: optionFile}, "gohawk-trace-file", "append trace JSONL to this file instead of stderr")
+	flags.Var(
+		optionValue{kind: optionTimingFile}, "gohawk-timing-file",
+		"append one JSONL record per analyzer and package with wall time and allocation to this file",
+	)
 }
 
 type optionKind uint8
@@ -83,6 +88,7 @@ const (
 	optionSource
 	optionFunction
 	optionFile
+	optionTimingFile
 )
 
 type optionValue struct{ kind optionKind }
@@ -124,10 +130,59 @@ func (value optionValue) Set(raw string) error {
 		}
 		global.config.file = file
 		global.config.writer = file
+	case optionTimingFile:
+		if raw == "" {
+			return errors.New("timing file must not be empty")
+		}
+		//nolint:gosec // User-selected output path is the intended interface.
+		file, err := os.OpenFile(raw, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			return fmt.Errorf("open timing file: %w", err)
+		}
+		if global.config.timing != nil {
+			_ = global.config.timing.Close()
+		}
+		global.config.timing = file
+		timingActive.Store(true)
 	default:
 		return errors.New("unknown trace option")
 	}
 	return nil
+}
+
+var timingActive atomic.Bool
+
+// TimingEnabled reports whether analyzer timings are being recorded, so the
+// driver can skip reading memory statistics when they are not.
+func TimingEnabled() bool {
+	return timingActive.Load()
+}
+
+// Timing is one analyzer run over one package.
+type Timing struct {
+	Package    string `json:"package"`
+	Analyzer   string `json:"analyzer"`
+	DurationNS int64  `json:"duration_ns"`
+	AllocBytes uint64 `json:"alloc_bytes"`
+}
+
+// RecordTiming appends one timing record. Each record is written in one call
+// so the file stays valid JSONL when go vet runs several analyzer processes
+// against the same file.
+func RecordTiming(timing Timing) {
+	if !timingActive.Load() {
+		return
+	}
+	encoded, err := json.Marshal(timing)
+	if err != nil {
+		return
+	}
+	encoded = append(encoded, '\n')
+	global.Lock()
+	defer global.Unlock()
+	if global.config.timing != nil {
+		_, _ = global.config.timing.Write(encoded)
+	}
 }
 
 // Enabled reports whether an event for analyzer or check can pass the selector

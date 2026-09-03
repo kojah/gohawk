@@ -7,6 +7,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -152,3 +155,32 @@ func resetTrace(t *testing.T) {
 type osStderrForTest struct{}
 
 func (osStderrForTest) Write(value []byte) (int, error) { return len(value), nil }
+
+func TestTimingFileRecordsOneLinePerRun(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "timing.jsonl")
+	flags := flag.NewFlagSet("timing", flag.ContinueOnError)
+	RegisterFlags(flags)
+	if err := flags.Parse([]string{"-gohawk-timing-file=" + path}); err != nil {
+		t.Fatal(err)
+	}
+	if !TimingEnabled() {
+		t.Fatal("timing should be enabled after the flag is set")
+	}
+	RecordTiming(Timing{Package: "example.com/p", Analyzer: "resourcelifetime", DurationNS: 42, AllocBytes: 1024})
+	RecordTiming(Timing{Package: "example.com/q", Analyzer: "lockorder", DurationNS: 7, AllocBytes: 0})
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("timing file has %d lines, want 2:\n%s", len(lines), data)
+	}
+	var first Timing
+	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
+		t.Fatal(err)
+	}
+	if first.Analyzer != "resourcelifetime" || first.DurationNS != 42 || first.AllocBytes != 1024 {
+		t.Fatalf("first record = %+v", first)
+	}
+}

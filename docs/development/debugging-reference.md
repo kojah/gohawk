@@ -47,6 +47,7 @@ do not edit them by hand.
 <!-- gohawk:generated-trace-flags:start -->
 | flag | effect |
 |---|---|
+| `-gohawk-timing-file` | append one JSONL record per analyzer and package with wall time and allocation to this file |
 | `-gohawk-trace` | emit JSONL evidence for comma-separated analyzers/checks, or all |
 | `-gohawk-trace-file` | append trace JSONL to this file instead of stderr |
 | `-gohawk-trace-function` | limit evidence tracing to functions containing this text |
@@ -55,6 +56,17 @@ do not edit them by hand.
 
 The flags carry a `gohawk-` prefix because `x/tools` owns the generic `-trace`
 flag. Enabling tracing must never change which diagnostics are reported.
+
+### Timing
+
+`-gohawk-timing-file=PATH` records cost rather than evidence: one JSON line
+per analyzer per package with the wall time and the bytes allocated while
+that analyzer ran. Under `go vet` each package is analyzed in its own
+process and the records are appended, so one file covers a whole module.
+Summing by analyzer shows which proof dominates a run, and sorting by package
+shows where a large dependency graph spends its time. Timing is measured
+around the analyzer's `Run` only; building SSA and loading types are the
+driver's cost and appear in the process time instead.
 
 ### Phases
 

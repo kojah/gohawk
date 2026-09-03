@@ -3,6 +3,8 @@ package analyzers
 import (
 	"errors"
 	"fmt"
+	"runtime"
+	"time"
 
 	"github.com/kojah/gohawk/internal/catalog"
 	"github.com/kojah/gohawk/internal/check"
@@ -177,10 +179,32 @@ func withCheckFilter(analyzer *analysis.Analyzer, declared []catalog.CheckInfo, 
 			report(diagnostic)
 		}
 		defer func() { pass.Report = report }()
-		result, err := run(pass)
+		result, err := timedRun(pass, analyzer.Name, run)
 		return result, errors.Join(err, reportErr)
 	}
 	return analyzer
+}
+
+// timedRun runs one analyzer over one package and, when a timing file is
+// configured, records its wall time and the bytes it allocated. Memory
+// statistics are read only when timing is on; reading them stops the world.
+func timedRun(pass *analysis.Pass, name string, run func(*analysis.Pass) (any, error)) (any, error) {
+	if !analysisTrace.TimingEnabled() {
+		return run(pass)
+	}
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	started := time.Now()
+	result, err := run(pass)
+	elapsed := time.Since(started)
+	runtime.ReadMemStats(&after)
+	analysisTrace.RecordTiming(analysisTrace.Timing{
+		Package:    pass.Pkg.Path(),
+		Analyzer:   name,
+		DurationNS: elapsed.Nanoseconds(),
+		AllocBytes: after.TotalAlloc - before.TotalAlloc,
+	})
+	return result, err
 }
 
 // Analyzers returns all framework-neutral Go policy analyzers in stable execution order.
