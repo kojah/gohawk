@@ -132,8 +132,10 @@ func reachingReturnValue(result ssa.Value) ssa.Value {
 }
 
 func traceLogReturnDecision(pass *analysis.Pass, call *ssa.Call, reason string, outcome analysisTrace.Outcome) {
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "errorownership", Check: string(check.ErrorLogAndReturn), Phase: "evidence", Reason: reason, Outcome: outcome,
-		Pos: call.Pos(), Function: call.Parent().String(),
+	analysisTrace.For(pass, "errorownership", string(check.ErrorLogAndReturn), call.Pos()).Evidence(analysisTrace.Step{
+		Reason:   reason,
+		Outcome:  outcome,
+		Pos:      call.Pos(),
+		Function: call.Parent().String(),
 	})
 }

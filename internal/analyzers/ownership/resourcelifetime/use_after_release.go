@@ -130,10 +130,7 @@ func operatesOnResource(common *ssa.CallCommon, resource ssa.Value) bool {
 }
 
 func emitUseAfterRelease(pass *analysis.Pass, function *ssa.Function, acquisition *ssa.Call, release, use *ssa.Call) {
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "resourcelifetime",
-		Check:    string(check.ResourceUseAfterRelease),
-		Phase:    "evidence",
+	analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), acquisition.Pos()).Evidence(analysisTrace.Step{
 		Reason:   "release-dominates-use",
 		Outcome:  analysisTrace.OutcomeRejected,
 		Pos:      use.Pos(),

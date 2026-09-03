@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -50,6 +51,10 @@ type spawnAnalysis struct {
 	tracked       []trackedValue
 	unsettledDone ssa.Instruction
 	actions       map[ssa.Instruction]ownershipAction
+	// tracing gates the record of ruled-out steps, which is worth keeping only
+	// when a reader will see it.
+	tracing    bool
+	considered []goroutineOwnershipReason
 }
 
 func newSpawnAnalysis(function *ssa.Function, spawn *ssa.Go, config goroutineOwnershipConfig) *spawnAnalysis {
@@ -76,6 +81,7 @@ func newSpawnAnalysis(function *ssa.Function, spawn *ssa.Go, config goroutineOwn
 	if config.mode != goroutineModeJoin && len(analysis.signals) == 0 && len(analysis.groups) == 0 && analysis.unsettledDone == nil {
 		analysis.checkID = check.GoroutineDetached
 	}
+	analysis.tracing = analysisTrace.Enabled("goroutineownership", string(analysis.checkID))
 	return analysis
 }
 

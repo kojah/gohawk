@@ -123,6 +123,7 @@ the code cannot drift apart silently.
 | `TestInternalPackagesRespectDependencyDirection` | analyzers may use shared tools; shared tools never depend on analyzers or the catalog |
 | `TestAnalyzerPackageLayout` | one package per analyzer under `internal/analyzers/<group>/<name>` |
 | `TestAnalyzersUseSharedReporting` | diagnostics only through `check.Report` or `check.Reportf`, never `analysis.Pass.Report` directly |
+| `TestTraceEventsAreAttributedToACandidate` | every trace event names the candidate whose proof it serves, so one finding's evidence can be selected out of a package's trace |
 | `TestAnalyzersUseSymbolIdentity` | well-known functions matched through `syntax.Symbol`, not reconstructed from package paths and names |
 | `TestProductionCodeReturnsTerminationDecisions` | no `panic`, `log.Fatal`, or `os.Exit` in analyzer or library code |
 | `TestForbiddenTerminationIdentity` | the termination rule's matcher recognizes exactly the builtin `panic`, the `log.Fatal` variants, and `os.Exit`, and nothing else |

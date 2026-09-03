@@ -194,13 +194,10 @@ func traceImmutableStringReplacer(pass *analysis.Pass, name *ast.Ident) {
 // effectively immutable.
 func traceAcceptedGlobal(pass *analysis.Pass, name *ast.Ident, reason string) {
 	checkID := string(check.MutableGlobalState)
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "globalstate",
-		Check:    checkID,
-		Phase:    "evidence",
-		Reason:   reason,
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      name.Pos(),
+	analysisTrace.For(pass, "globalstate", checkID, name.Pos()).Evidence(analysisTrace.Step{
+		Reason:  reason,
+		Outcome: analysisTrace.OutcomeAccepted,
+		Pos:     name.Pos(),
 	})
 }
 

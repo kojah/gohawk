@@ -66,10 +66,7 @@ func traceReceiverFormDecision(pass *analysis.Pass, declaration *ast.FuncDecl, p
 		return
 	}
 	receiver, _ := receiverName(declaration.Recv.List[0].Type)
-	trace.Emit(pass, trace.Event{
-		Analyzer: "apishape",
-		Check:    checkID,
-		Phase:    "evidence",
+	trace.For(pass, "apishape", checkID, declaration.Name.Pos()).Evidence(trace.Step{
 		Reason:   proof.reason,
 		Outcome:  trace.OutcomeAccepted,
 		Pos:      declaration.Name.Pos(),

@@ -157,12 +157,14 @@ gohawk -enable=goroutineownership \
   -gohawk-trace-file=trace.jsonl ./...
 ```
 
-For a large run, narrow the output to a source location or function:
+For a large run, narrow the output to the proof of one finding. Selection
+follows the candidate a proof serves rather than the position of each step, so
+the whole chain is kept, including the steps that judge a callee in another
+file and those that carry no position of their own:
 
 ```sh
 gohawk -gohawk-trace=all \
-  -gohawk-trace-source=path/to/file.go:42 \
-  -gohawk-trace-function=serveWorker \
+  -gohawk-trace-candidate=path/to/file.go:42 \
   -gohawk-trace-file=trace.jsonl ./...
 ```
 

@@ -103,13 +103,10 @@ func jsonAggregateReachesField(current types.Type, target *types.Var, seen map[t
 }
 
 func traceExternalDeserialization(pass *analysis.Pass, candidate enumCandidate, proof token.Pos) {
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "closedomain",
-		Check:    string(check.ClosedStringDomain),
-		Phase:    "evidence",
-		Reason:   "external-deserialization",
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      proof,
-		Details:  map[string]string{"field": candidate.position.Name},
+	analysisTrace.For(pass, "closedomain", string(check.ClosedStringDomain), proof).Evidence(analysisTrace.Step{
+		Reason:  "external-deserialization",
+		Outcome: analysisTrace.OutcomeAccepted,
+		Pos:     proof,
+		Details: map[string]string{"field": candidate.position.Name},
 	})
 }

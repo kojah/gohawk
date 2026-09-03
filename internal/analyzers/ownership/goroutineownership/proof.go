@@ -70,6 +70,17 @@ func GoroutineOwnershipMayBeHandledInTest(spawn *ssa.Go) bool {
 		proof.Outcome == GoroutineUnknown && proof.Reason != reasonDetachedUnknown
 }
 
+// ruledOut records a proof step that was evaluated and did not hold. The
+// reason names the conclusion that failed, so a trace reader can see which
+// suppressions were tried before the reported one won. The two grouped
+// helpers above record only the outcomes they prove, because each covers
+// several conclusions and a single failure code would not say which.
+func (analysis *spawnAnalysis) ruledOut(reason goroutineOwnershipReason) {
+	if analysis.tracing {
+		analysis.considered = append(analysis.considered, reason)
+	}
+}
+
 func (analysis *spawnAnalysis) prove() GoroutineProof {
 	if proof, decided := analysis.lifecycleProof(); decided {
 		return proof
@@ -86,6 +97,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		// https://github.com/grafana/alerting/blob/46847d9b586c46b06f8c666a93250ed062e4efb9/testing/alerting-gen/pkg/execute/run.go#L95-L160
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonWorkerConsumesSignal}
 	}
+	analysis.ruledOut(reasonWorkerConsumesSignal)
 	exact := func(instruction ssa.Instruction) bool {
 		action := analysis.action(instruction)
 		return action == actionJoin || action == actionTransfer
@@ -93,15 +105,18 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	if !ssaflow.UnownedReturn(analysis.spawn, exact, analysis.returnTransfers) {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonJoinProven}
 	}
+	analysis.ruledOut(reasonJoinProven)
 	if analysis.guardedLocalJoin(exact) {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonGuardedLocalJoin}
 	}
+	analysis.ruledOut(reasonGuardedLocalJoin)
 	any := func(instruction ssa.Instruction) bool {
 		return analysis.action(instruction) != actionNone
 	}
 	if !ssaflow.UnownedReturn(analysis.spawn, any, analysis.returnTransfers) {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}
 	}
+	analysis.ruledOut(reasonOpaqueTransfer)
 	if analysis.flagGuardedJoin() {
 		// A join guarded by a local Boolean that the function assigns around
 		// the spawn, such as `started = true` before launching and `if started
@@ -110,6 +125,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		// https://github.com/nebius/soperator/blob/3f5635c08fab3578db574a55b293b5aa32042bd3/internal/exporter/exporter.go#L157-L193
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonFlagGuardedJoin}
 	}
+	analysis.ruledOut(reasonFlagGuardedJoin)
 	if analysis.countedJoin() {
 		// When the spawn itself runs in a loop, a later receive loop that may
 		// run zero times is not a proven skip: the spawn loop may have run zero
@@ -118,12 +134,14 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		// no such symmetry and remains reportable.
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLoopJoinUnproven}
 	}
+	analysis.ruledOut(reasonLoopJoinUnproven)
 	if analysis.checkID == check.GoroutineDetached {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonDetachedUnknown}
 	}
 	if analysis.sharedStorageSignals() {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonSharedStorageSignal}
 	}
+	analysis.ruledOut(reasonSharedStorageSignal)
 	if analysis.bufferedSignals() {
 		// A buffered completion send lets the worker finish after the caller
 		// stops receiving, so it does not by itself establish a join protocol.
@@ -131,6 +149,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		// https://github.com/buildkite/agent/blob/e206ddf806af50a1ba8c9a6dd501dfda0b730818/internal/artifact/downloader.go#L96-L177
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonBufferedSignal}
 	}
+	analysis.ruledOut(reasonBufferedSignal)
 	if analysis.unsettledDone != nil && len(analysis.groups) == 0 && len(analysis.signals) == 0 {
 		return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonDoneBeforeCompletion}
 	}

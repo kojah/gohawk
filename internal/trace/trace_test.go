@@ -16,39 +16,43 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-func TestEmitFiltersAndEncodesJSONL(t *testing.T) {
+func TestEmitSelectsByCandidateNotEventPosition(t *testing.T) {
 	resetTrace(t)
 	var output bytes.Buffer
 	global.config.writer = &output
 	global.config.selectors = map[string]bool{"resourcelifetime": true}
-	global.config.source = "resource.go:7"
-	global.config.function = "openFile"
+	global.config.candidate = "resource.go:7"
 	global.active.Store(true)
 
 	files := token.NewFileSet()
 	file := files.AddFile("resource.go", -1, 100)
 	file.SetLines([]int{0, 10, 20, 30, 40, 50, 60})
+	callee := files.AddFile("callee.go", -1, 100)
+	callee.SetLines([]int{0, 10, 20})
 	pass := &analysis.Pass{Fset: files}
-	Emit(pass, Event{Analyzer: "goroutineownership", Phase: "decision", Reason: "ignored", Pos: file.Pos(60), Function: "openFile"})
-	Emit(
-		pass,
-		Event{
-			Analyzer: "resourcelifetime",
-			Check:    "resourcelifetime/missing-release",
-			Phase:    "decision",
-			Reason:   "unowned-return",
-			Outcome:  OutcomeRejected,
-			Pos:      file.Pos(60),
-			Function: "openFile",
-			Details:  map[string]string{"resource": "*os.File"},
-		},
-	)
 
+	// An analyzer selector still excludes another analyzer's events.
+	For(pass, "goroutineownership", "", file.Pos(60)).Decision(Step{Reason: "ignored"})
+	// A step about a callee body in another file belongs to the candidate under
+	// study, so it survives selection even though its own position does not match.
+	For(pass, "resourcelifetime", "resourcelifetime/missing-release", file.Pos(60)).Evidence(Step{
+		Reason:  "evidence-unavailable",
+		Outcome: OutcomeUnknown,
+		Pos:     callee.Pos(10),
+		Details: map[string]string{"resource": "*os.File"},
+	})
+	// A step at the selected position that serves a different candidate does not.
+	For(pass, "resourcelifetime", "", callee.Pos(10)).Decision(Step{Reason: "other-candidate", Pos: file.Pos(60)})
+
+	if lines := bytes.Count(output.Bytes(), []byte("\n")); lines != 1 {
+		t.Fatalf("expected one selected record, got %d: %s", lines, output.String())
+	}
 	var got record
 	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &got); err != nil {
 		t.Fatalf("decode trace: %v\n%s", err, output.String())
 	}
-	if got.Analyzer != "resourcelifetime" || got.Reason != "unowned-return" || got.Position != "resource.go:7:1" || got.Details["resource"] != "*os.File" {
+	if got.Reason != "evidence-unavailable" || got.Candidate != "resource.go:7:1" ||
+		got.Position != "callee.go:2:1" || got.Details["resource"] != "*os.File" {
 		t.Fatalf("trace = %+v", got)
 	}
 }
@@ -63,7 +67,7 @@ func TestEmitSerializesConcurrentEvents(t *testing.T) {
 	var workers sync.WaitGroup
 	for range 20 {
 		workers.Go(func() {
-			Emit(pass, Event{Analyzer: "test", Phase: "decision", Reason: "concurrent", Outcome: OutcomeObserved})
+			For(pass, "test", "", token.NoPos).Decision(Step{Reason: "concurrent", Outcome: OutcomeObserved})
 		})
 	}
 	workers.Wait()
@@ -99,12 +103,11 @@ func TestEnabledUsesAnalyzerAndCheckSelectors(t *testing.T) {
 	}
 }
 
-func TestEmitDiagnosticResolvesSourceFunction(t *testing.T) {
+func TestEmitDiagnosticResolvesEnclosingFunction(t *testing.T) {
 	resetTrace(t)
 	var output bytes.Buffer
 	global.config.writer = &output
 	global.config.selectors = map[string]bool{"oncepolicy": true}
-	global.config.function = "openFile"
 	global.active.Store(true)
 
 	files := token.NewFileSet()

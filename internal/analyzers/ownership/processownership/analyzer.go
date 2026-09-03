@@ -35,7 +35,11 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, command, ok := startedCommand(instruction)
-				if !ok || commandOwnedElsewhere(evidence, function, start, command) {
+				if !ok {
+					continue
+				}
+				evidence.ForCandidate(start.Pos())
+				if commandOwnedElsewhere(evidence, function, start, command) {
 					continue
 				}
 				reportStartedCommand(pass, evidence, function, start, command)
@@ -134,19 +138,13 @@ func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa
 	if command != nil && command.Type() != nil {
 		details["command_type"] = command.Type().String()
 	}
-	analysisTrace.Emit(
-		pass,
-		analysisTrace.Event{
-			Analyzer: "processownership",
-			Check:    checkID,
-			Phase:    "decision",
-			Reason:   reason,
-			Outcome:  outcome,
-			Pos:      start.Pos(),
-			Function: function.String(),
-			Details:  details,
-		},
-	)
+	analysisTrace.For(pass, "processownership", checkID, start.Pos()).Decision(analysisTrace.Step{
+		Reason:   reason,
+		Outcome:  outcome,
+		Pos:      start.Pos(),
+		Function: function.String(),
+		Details:  details,
+	})
 }
 
 // commandStoredExternallyBeforeStart reports whether the command was stored

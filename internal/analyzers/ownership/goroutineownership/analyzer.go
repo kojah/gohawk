@@ -87,7 +87,10 @@ func (analysis *spawnAnalysis) reportable(proof GoroutineProof, testFile bool) b
 }
 
 func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutineProof) {
-	if !analysisTrace.Enabled("goroutineownership", string(analysis.checkID)) {
+	// The spawn is the candidate every step of this proof serves, so selecting
+	// it once here skips the whole walk for spawns the reader did not ask about.
+	probe := analysisTrace.For(pass, "goroutineownership", string(analysis.checkID), analysis.spawn.Pos())
+	if !probe.Enabled() {
 		return
 	}
 	outcome := analysisTrace.OutcomeUnknown
@@ -102,10 +105,7 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 		if action == actionNone {
 			continue
 		}
-		analysisTrace.Emit(pass, analysisTrace.Event{
-			Analyzer: "goroutineownership",
-			Check:    string(analysis.checkID),
-			Phase:    "evidence",
+		probe.Evidence(analysisTrace.Step{
 			Reason:   action.String(),
 			Outcome:  analysisTrace.OutcomeAccepted,
 			Pos:      instruction.Pos(),
@@ -113,10 +113,17 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 			Details:  map[string]string{"instruction": instruction.String()},
 		})
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
-		Analyzer: "goroutineownership",
-		Check:    string(analysis.checkID),
-		Phase:    "decision",
+	// The steps that were tried and did not hold come first, so a reader sees
+	// the suppressions this proof ruled out before the reported reason won.
+	for _, reason := range analysis.considered {
+		probe.Considered(analysisTrace.Step{
+			Reason:   string(reason),
+			Outcome:  analysisTrace.OutcomeRejected,
+			Pos:      analysis.spawn.Pos(),
+			Function: analysis.function.String(),
+		})
+	}
+	probe.Decision(analysisTrace.Step{
 		Reason:   string(proof.Reason),
 		Outcome:  outcome,
 		Pos:      analysis.spawn.Pos(),

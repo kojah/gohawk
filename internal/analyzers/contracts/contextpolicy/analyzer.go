@@ -113,13 +113,10 @@ func emitContextImplementationDecision(pass *analysis.Pass, position token.Pos) 
 	// A derived Context must retain the Context it delegates to. BlackStork's
 	// AppCtx implements the full interface while adding application values:
 	// https://github.com/blackstork-io/blackstork-cli/blob/89984c6871d3a1aff5202e33251f819bb5f1663d/pkg/appctx/appctx.go#L24-L76
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "contextpolicy",
-		Check:    checkID,
-		Phase:    "decision",
-		Reason:   "context-implementation",
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      position,
+	analysisTrace.For(pass, "contextpolicy", checkID, position).Decision(analysisTrace.Step{
+		Reason:  "context-implementation",
+		Outcome: analysisTrace.OutcomeAccepted,
+		Pos:     position,
 	})
 }
 

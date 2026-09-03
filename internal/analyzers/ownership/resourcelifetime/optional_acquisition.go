@@ -154,12 +154,9 @@ func sameExactOperand(left, right ssa.Value) bool {
 		types.Identical(leftConstant.Type(), rightConstant.Type()) && constant.Compare(leftConstant.Value, token.EQL, rightConstant.Value)
 }
 
-func traceOptionalAcquisition(pass *analysis.Pass, proof optionalAcquisitionProof) {
+func traceOptionalAcquisition(pass *analysis.Pass, proof optionalAcquisitionProof, candidate token.Pos) {
 	checkID := string(check.ResourceRelease)
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "resourcelifetime",
-		Check:    checkID,
-		Phase:    "evidence",
+	analysisTrace.For(pass, "resourcelifetime", checkID, candidate).Evidence(analysisTrace.Step{
 		Reason:   string(proof.proof.Reason),
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      proof.resourcePhi.Pos(),

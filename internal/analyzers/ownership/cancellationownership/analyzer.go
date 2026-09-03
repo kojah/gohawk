@@ -80,19 +80,13 @@ func emitCancellationDecision(
 		outcome = analysisTrace.OutcomeUnknown
 	case CancellationReleased, CancellationTransferred:
 	}
-	analysisTrace.Emit(
-		pass,
-		analysisTrace.Event{
-			Analyzer: "cancellationownership",
-			Check:    checkID,
-			Phase:    "decision",
-			Reason:   string(proof.Reason),
-			Outcome:  outcome,
-			Pos:      call.Pos(),
-			Function: function.String(),
-			Details:  map[string]string{"constructor": contract.packagePath + "." + contract.name},
-		},
-	)
+	analysisTrace.For(pass, "cancellationownership", checkID, call.Pos()).Decision(analysisTrace.Step{
+		Reason:   string(proof.Reason),
+		Outcome:  outcome,
+		Pos:      call.Pos(),
+		Function: function.String(),
+		Details:  map[string]string{"constructor": contract.packagePath + "." + contract.name},
+	})
 }
 
 // Constructor contracts are the source of the cancellation obligation. Keep

@@ -159,10 +159,7 @@ func proveCallerRelinquishesChannel(
 
 func emitChannelCloseTrace(pass *analysis.Pass, function *ssa.Function, instruction ssa.Instruction, proof channelCloseProof) {
 	checkID := string(check.ChannelCallerClose)
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "channelownership",
-		Check:    checkID,
-		Phase:    "candidate",
+	analysisTrace.For(pass, "channelownership", checkID, instruction.Pos()).Candidate(analysisTrace.Step{
 		Reason:   "channel-close",
 		Outcome:  analysisTrace.OutcomeObserved,
 		Pos:      instruction.Pos(),
@@ -177,10 +174,7 @@ func emitChannelCloseTrace(pass *analysis.Pass, function *ssa.Function, instruct
 	case channelCloseLocal, channelCloseTransferred:
 		outcome = analysisTrace.OutcomeAccepted
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
-		Analyzer: "channelownership",
-		Check:    checkID,
-		Phase:    "decision",
+	analysisTrace.For(pass, "channelownership", checkID, instruction.Pos()).Decision(analysisTrace.Step{
 		Reason:   string(proof.reason),
 		Outcome:  outcome,
 		Pos:      instruction.Pos(),

@@ -149,13 +149,10 @@ func stableAddressIdentity(pass *analysis.Pass, expression ast.Expr) (types.Obje
 
 func traceStableAddressIdentity(pass *analysis.Pass, position token.Pos) {
 	checkID := string(check.EvaluationOrder)
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "evalorder",
-		Check:    checkID,
-		Phase:    "evidence",
-		Reason:   "stable-address-identity",
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      position,
+	analysisTrace.For(pass, "evalorder", checkID, position).Evidence(analysisTrace.Step{
+		Reason:  "stable-address-identity",
+		Outcome: analysisTrace.OutcomeAccepted,
+		Pos:     position,
 	})
 }
 
@@ -203,13 +200,10 @@ func directlyInvokedFunctionLiteral(literal *ast.FuncLit, ancestors []ast.Node) 
 
 func traceDelayedFunctionBody(pass *analysis.Pass, literal *ast.FuncLit) {
 	checkID := string(check.EvaluationOrder)
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "evalorder",
-		Check:    checkID,
-		Phase:    "evidence",
-		Reason:   "delayed-function-body",
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      literal.Pos(),
+	analysisTrace.For(pass, "evalorder", checkID, literal.Pos()).Evidence(analysisTrace.Step{
+		Reason:  "delayed-function-body",
+		Outcome: analysisTrace.OutcomeAccepted,
+		Pos:     literal.Pos(),
 	})
 }
 
@@ -243,17 +237,11 @@ func disjointFieldMutation(pass *analysis.Pass, earlier []ast.Expr, call *ast.Ca
 		}
 	}
 	if analysisTrace.Enabled("evalorder", string(check.EvaluationOrder)) {
-		analysisTrace.Emit(
-			pass,
-			analysisTrace.Event{
-				Analyzer: "evalorder",
-				Check:    string(check.EvaluationOrder),
-				Phase:    "evidence",
-				Reason:   "disjoint-field-mutation",
-				Outcome:  analysisTrace.OutcomeAccepted,
-				Pos:      call.Pos(),
-			},
-		)
+		analysisTrace.For(pass, "evalorder", string(check.EvaluationOrder), call.Pos()).Evidence(analysisTrace.Step{
+			Reason:  "disjoint-field-mutation",
+			Outcome: analysisTrace.OutcomeAccepted,
+			Pos:     call.Pos(),
+		})
 	}
 	return true
 }

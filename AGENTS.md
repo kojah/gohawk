@@ -144,6 +144,7 @@ policy code that makes them. Use the common phases consistently:
 
 - `candidate` for a potentially reportable construct;
 - `evidence` for facts that support accepting or rejecting it;
+- `considered` for a proof step that was evaluated and did not hold;
 - `decision` for the final report or suppression outcome; and
 - `fix` for the availability or rejection of a suggested edit.
 

@@ -147,9 +147,10 @@ func immediateFollowingStatements(files []*ast.File) map[*ast.IfStmt]ast.Stmt {
 
 func emitInlineErrorDecision(pass *analysis.Pass, statement *ast.IfStmt, proof inlineErrorProof) {
 	checkID := string(check.ErrorMismatchedInline)
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "inlineerror", Check: checkID, Phase: "evidence", Reason: proof.reason,
-		Outcome: analysisTrace.OutcomeAccepted, Pos: statement.Pos(),
+	analysisTrace.For(pass, "inlineerror", checkID, statement.Pos()).Evidence(analysisTrace.Step{
+		Reason:  proof.reason,
+		Outcome: analysisTrace.OutcomeAccepted,
+		Pos:     statement.Pos(),
 	})
 }
 

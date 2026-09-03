@@ -27,35 +27,40 @@ const (
 	OutcomeUnknown  Outcome = "unknown"
 )
 
-// Event is one stable analyzer evidence decision. Details should contain only
+// event is one stable analyzer evidence decision. Details should contain only
 // compact identifiers and counts; tracing is diagnostic metadata, not an SSA
 // serialization format.
-type Event struct {
+type event struct {
 	Analyzer string
 	Check    string
 	Phase    string
 	Reason   string
 	Outcome  Outcome
 	Pos      token.Pos
-	Function string
-	Details  map[string]string
+	// Candidate is the construct whose proof this event serves: the acquisition,
+	// the spawn, the site a diagnostic would name. Much of a proof is evidence
+	// about callee bodies in other files, or carries no position of its own, so
+	// the candidate is what ties an event to the finding a reader is studying.
+	Candidate token.Pos
+	Function  string
+	Details   map[string]string
 }
 
 type record struct {
-	Analyzer string            `json:"analyzer"`
-	Check    string            `json:"check,omitempty"`
-	Phase    string            `json:"phase"`
-	Reason   string            `json:"reason"`
-	Outcome  Outcome           `json:"outcome"`
-	Position string            `json:"position,omitempty"`
-	Function string            `json:"function,omitempty"`
-	Details  map[string]string `json:"details,omitempty"`
+	Analyzer  string            `json:"analyzer"`
+	Check     string            `json:"check,omitempty"`
+	Phase     string            `json:"phase"`
+	Reason    string            `json:"reason"`
+	Outcome   Outcome           `json:"outcome"`
+	Position  string            `json:"position,omitempty"`
+	Candidate string            `json:"candidate,omitempty"`
+	Function  string            `json:"function,omitempty"`
+	Details   map[string]string `json:"details,omitempty"`
 }
 
 type settings struct {
 	selectors map[string]bool
-	source    string
-	function  string
+	candidate string
 	writer    io.Writer
 	file      *os.File
 	timing    *os.File
@@ -72,8 +77,10 @@ func RegisterFlags(flags *flag.FlagSet) {
 	// x/tools owns the generic -trace flag for runtime tracing, so gohawk's
 	// evidence flags use an explicit prefix and can coexist with the driver.
 	flags.Var(optionValue{kind: optionSelectors}, "gohawk-trace", "emit JSONL evidence for comma-separated analyzers/checks, or all")
-	flags.Var(optionValue{kind: optionSource}, "gohawk-trace-source", "limit evidence tracing to positions containing this path[:line]")
-	flags.Var(optionValue{kind: optionFunction}, "gohawk-trace-function", "limit evidence tracing to functions containing this text")
+	flags.Var(
+		optionValue{kind: optionCandidate}, "gohawk-trace-candidate",
+		"limit evidence tracing to the proof of candidates whose position contains this path[:line]",
+	)
 	flags.Var(optionValue{kind: optionFile}, "gohawk-trace-file", "append trace JSONL to this file instead of stderr")
 	flags.Var(
 		optionValue{kind: optionTimingFile}, "gohawk-timing-file",
@@ -85,8 +92,7 @@ type optionKind uint8
 
 const (
 	optionSelectors optionKind = iota
-	optionSource
-	optionFunction
+	optionCandidate
 	optionFile
 	optionTimingFile
 )
@@ -110,10 +116,8 @@ func (value optionValue) Set(raw string) error {
 		}
 		global.config.selectors = selectors
 		global.active.Store(len(selectors) > 0)
-	case optionSource:
-		global.config.source = raw
-	case optionFunction:
-		global.config.function = raw
+	case optionCandidate:
+		global.config.candidate = raw
 	case optionFile:
 		if raw == "" {
 			return errors.New("trace file must not be empty")
@@ -209,23 +213,26 @@ type DiagnosticEvent struct {
 // EmitDiagnostic records a source-level analyzer decision using the same
 // schema as deeper SSA evidence. Function names are resolved only while the
 // corresponding trace selector is enabled.
-func EmitDiagnostic(pass *analysis.Pass, event DiagnosticEvent) {
-	if !Enabled(event.Analyzer, event.Diagnostic.Category) {
+func EmitDiagnostic(pass *analysis.Pass, diagnostic DiagnosticEvent) {
+	if !Enabled(diagnostic.Analyzer, diagnostic.Diagnostic.Category) {
 		return
 	}
 	details := map[string]string{}
-	if event.Diagnostic.Message != "" {
-		details["message"] = event.Diagnostic.Message
+	if diagnostic.Diagnostic.Message != "" {
+		details["message"] = diagnostic.Diagnostic.Message
 	}
-	Emit(pass, Event{
-		Analyzer: event.Analyzer,
-		Check:    event.Diagnostic.Category,
-		Phase:    event.Phase,
-		Reason:   event.Reason,
-		Outcome:  event.Outcome,
-		Pos:      event.Diagnostic.Pos,
-		Function: sourceFunction(pass, event.Diagnostic.Pos),
-		Details:  details,
+	// A diagnostic names its own candidate, so the position a reader copies out
+	// of a finding selects the report alongside the proof that produced it.
+	write(pass, event{
+		Analyzer:  diagnostic.Analyzer,
+		Check:     diagnostic.Diagnostic.Category,
+		Phase:     diagnostic.Phase,
+		Reason:    diagnostic.Reason,
+		Outcome:   diagnostic.Outcome,
+		Pos:       diagnostic.Diagnostic.Pos,
+		Candidate: diagnostic.Diagnostic.Pos,
+		Function:  sourceFunction(pass, diagnostic.Diagnostic.Pos),
+		Details:   details,
 	})
 }
 
@@ -247,31 +254,36 @@ func sourceFunction(pass *analysis.Pass, position token.Pos) string {
 	return ""
 }
 
-// Emit writes event as one JSON object when it matches the configured filters.
-// Each event is marshaled and written in one call so append-mode trace files
+// write records one event as a JSON object when it matches the configured
+// filters. Each event is marshaled and written in one call so append-mode trace files
 // remain usable when go vet launches several analyzer processes.
-func Emit(pass *analysis.Pass, event Event) {
+func write(pass *analysis.Pass, entry event) {
 	if !global.active.Load() || pass == nil {
 		return
 	}
 	position := ""
-	if event.Pos.IsValid() {
-		position = pass.Fset.Position(event.Pos).String()
+	if entry.Pos.IsValid() {
+		position = pass.Fset.Position(entry.Pos).String()
+	}
+	candidate := ""
+	if entry.Candidate.IsValid() {
+		candidate = pass.Fset.Position(entry.Candidate).String()
 	}
 	global.Lock()
 	defer global.Unlock()
-	if !selected(global.config, event, position) {
+	if !selected(global.config, entry, candidate) {
 		return
 	}
 	encoded, err := json.Marshal(record{
-		Analyzer: event.Analyzer,
-		Check:    event.Check,
-		Phase:    event.Phase,
-		Reason:   event.Reason,
-		Outcome:  event.Outcome,
-		Position: position,
-		Function: event.Function,
-		Details:  event.Details,
+		Analyzer:  entry.Analyzer,
+		Check:     entry.Check,
+		Phase:     entry.Phase,
+		Reason:    entry.Reason,
+		Outcome:   entry.Outcome,
+		Position:  position,
+		Candidate: candidate,
+		Function:  entry.Function,
+		Details:   entry.Details,
 	})
 	if err != nil {
 		return
@@ -280,22 +292,102 @@ func Emit(pass *analysis.Pass, event Event) {
 	_, _ = global.config.writer.Write(encoded)
 }
 
-func selected(config settings, event Event, position string) bool {
-	if !config.selectors["all"] && !config.selectors[event.Analyzer] && (event.Check == "" || !config.selectors[event.Check]) {
+func selected(config settings, entry event, candidate string) bool {
+	if !config.selectors["all"] && !config.selectors[entry.Analyzer] && (entry.Check == "" || !config.selectors[entry.Check]) {
 		return false
 	}
-	if config.source != "" && !strings.Contains(position, config.source) {
-		return false
-	}
-	return config.function == "" || strings.Contains(event.Function, config.function)
+	// Selection keys on the candidate a proof serves rather than on the event's
+	// own position. A proof spends most of its evidence on callee bodies in
+	// other files, and many steps carry no position at all, so filtering by
+	// event position discards the chain the reader asked to see.
+	return config.candidate == "" || strings.Contains(candidate, config.candidate)
 }
 
-// EmitIfEnabled records event when tracing selects its analyzer and check.
-// Use it when the event is cheap to build; a caller that must compute
-// expensive details should still test Enabled first.
-func EmitIfEnabled(pass *analysis.Pass, event Event) {
-	if !Enabled(event.Analyzer, event.Check) {
+// enabledFor reports whether tracing selects this analyzer, check, and
+// candidate. Analyzers call it once per candidate, so the evidence walk and the
+// metadata it builds are skipped for candidates the selector excludes.
+func enabledFor(pass *analysis.Pass, analyzer, check string, candidate token.Pos) bool {
+	if !Enabled(analyzer, check) {
+		return false
+	}
+	global.Lock()
+	defer global.Unlock()
+	if global.config.candidate == "" {
+		return true
+	}
+	if pass == nil || !candidate.IsValid() {
+		return false
+	}
+	return strings.Contains(pass.Fset.Position(candidate).String(), global.config.candidate)
+}
+
+// Step is the part of a trace event that varies between emissions. The
+// analyzer, check, phase, and candidate come from the Probe, so no caller can
+// emit a step that is not attributed to the proof it belongs to.
+type Step struct {
+	Reason   string
+	Outcome  Outcome
+	Pos      token.Pos
+	Function string
+	Details  map[string]string
+}
+
+// Probe emits the steps of one candidate's proof. Construct it once per
+// candidate: it resolves selection up front, so a probe for a candidate the
+// reader did not ask about is inert and its caller can skip building metadata.
+type Probe struct {
+	pass      *analysis.Pass
+	analyzer  string
+	check     string
+	candidate token.Pos
+	enabled   bool
+}
+
+// For binds tracing to the candidate whose proof the caller is about to build.
+func For(pass *analysis.Pass, analyzer, check string, candidate token.Pos) Probe {
+	return Probe{
+		pass: pass, analyzer: analyzer, check: check, candidate: candidate,
+		enabled: enabledFor(pass, analyzer, check, candidate),
+	}
+}
+
+// ForPackage binds tracing to work that belongs to no single candidate, such as
+// a decision to skip a package. It is the deliberate exception to attribution,
+// and a candidate selector never matches it.
+func ForPackage(pass *analysis.Pass, analyzer, check string) Probe {
+	return Probe{pass: pass, analyzer: analyzer, check: check, enabled: Enabled(analyzer, check)}
+}
+
+// Enabled reports whether this probe emits, so a caller can skip metadata that
+// is only worth building for a traced candidate.
+func (probe Probe) Enabled() bool { return probe.enabled }
+
+// Evidence records a fact that supports or rejects the candidate.
+func (probe Probe) Evidence(step Step) { probe.emit("evidence", step) }
+
+// Decision records the outcome the proof reached for the candidate.
+func (probe Probe) Decision(step Step) { probe.emit("decision", step) }
+
+// Candidate records that a potentially reportable construct was observed.
+func (probe Probe) Candidate(step Step) { probe.emit("candidate", step) }
+
+// Considered records a proof step that was evaluated and did not hold, so a
+// reader can see which suppressions were tried before the reported reason won.
+func (probe Probe) Considered(step Step) { probe.emit("considered", step) }
+
+func (probe Probe) emit(phase string, step Step) {
+	if !probe.enabled {
 		return
 	}
-	Emit(pass, event)
+	write(probe.pass, event{
+		Analyzer:  probe.analyzer,
+		Check:     probe.check,
+		Phase:     phase,
+		Reason:    step.Reason,
+		Outcome:   step.Outcome,
+		Pos:       step.Pos,
+		Candidate: probe.candidate,
+		Function:  step.Function,
+		Details:   step.Details,
+	})
 }

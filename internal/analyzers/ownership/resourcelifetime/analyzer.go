@@ -86,6 +86,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				if resource == nil || memoryWriterExempt(call, contract, settings) {
 					continue
 				}
+				evidence.ForCandidate(call.Pos())
 				result := evaluateResourceLifetime(pass, evidence, call, resource, contract, completeTimers[call.Pos()])
 				emitResourceDecision(pass, function, call, resource, contract, result)
 				reportUsesAfterRelease(pass, function, call, resource, contract)
@@ -113,8 +114,8 @@ func emitResourceDecision(
 	contract resourceContract,
 	result resourceLifetimePolicyResult,
 ) {
-	checkID := string(check.ResourceRelease)
-	if !analysisTrace.Enabled("resourcelifetime", checkID) {
+	probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos())
+	if !probe.Enabled() {
 		return
 	}
 	outcome := analysisTrace.OutcomeAccepted
@@ -125,17 +126,11 @@ func emitResourceDecision(
 	if resource != nil && resource.Type() != nil {
 		details["resource_type"] = resource.Type().String()
 	}
-	analysisTrace.Emit(
-		pass,
-		analysisTrace.Event{
-			Analyzer: "resourcelifetime",
-			Check:    checkID,
-			Phase:    "decision",
-			Reason:   string(result.reason),
-			Outcome:  outcome,
-			Pos:      call.Pos(),
-			Function: function.String(),
-			Details:  details,
-		},
-	)
+	probe.Decision(analysisTrace.Step{
+		Reason:   string(result.reason),
+		Outcome:  outcome,
+		Pos:      call.Pos(),
+		Function: function.String(),
+		Details:  details,
+	})
 }

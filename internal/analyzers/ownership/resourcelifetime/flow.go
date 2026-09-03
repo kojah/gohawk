@@ -65,8 +65,9 @@ func evaluateResourceFlow(
 	}
 	owners := localResourceOwners(call.Parent(), resource)
 	analysis := &resourceAnalysis{
-		pass: pass, evidence: evidence, function: call.Parent(), resource: resource, owners: owners,
+		pass: pass, evidence: evidence, function: call.Parent(), resource: resource, candidate: call.Pos(), owners: owners,
 		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
+		probe: analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()),
 	}
 	// The walk starts on the instruction after the acquisition and keys its
 	// states by block, predecessor, and release status, so the same block is
@@ -81,7 +82,7 @@ func evaluateResourceFlow(
 			return nil, false
 		}
 		opaque = opaque || state.unknown
-		return resourceSuccessorStates(pass, state, errorValue, resource, optionalAcquisition), true
+		return resourceSuccessorStates(pass, state, errorValue, resource, optionalAcquisition, analysis.candidate), true
 	})
 	if leaks {
 		return reportedResourceLifetime(resourceReasonUnownedReturn)
@@ -138,16 +139,17 @@ func resourceSuccessorStates(
 	state resourceFlowState,
 	errorValue, resource ssa.Value,
 	optionalAcquisition optionalAcquisitionProof,
+	candidate token.Pos,
 ) []resourceFlowState {
 	successors := ssaflow.FeasibleSuccessors(state.block, state.predecessor)
 	if optionalAcquisition.Proven() && state.block == optionalAcquisition.merge && state.predecessor == optionalAcquisition.acquisitionBlock {
 		successors = []*ssa.BasicBlock{optionalAcquisition.acquiredSuccessor}
-		traceOptionalAcquisition(pass, optionalAcquisition)
+		traceOptionalAcquisition(pass, optionalAcquisition, candidate)
 	}
 	result := make([]resourceFlowState, 0, len(successors))
 	for _, successor := range successors {
 		active := state.active
-		if success, known := resourceSuccessBranch(pass, state.block, successor, errorValue); known {
+		if success, known := resourceSuccessBranch(pass, state.block, successor, errorValue, candidate); known {
 			active = active && success
 		}
 		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
@@ -184,18 +186,12 @@ func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource s
 		for method := range methods.Methods() {
 			if slices.Contains(cleanup, method.Obj().Name()) {
 				if analysisTrace.Enabled("resourcelifetime", string(check.ResourceRelease)) {
-					analysisTrace.Emit(
-						pass,
-						analysisTrace.Event{
-							Analyzer: "resourcelifetime",
-							Check:    string(check.ResourceRelease),
-							Phase:    "evidence",
-							Reason:   "returned-cleanup-projection",
-							Outcome:  analysisTrace.OutcomeAccepted,
-							Pos:      returned.Pos(),
-							Function: returned.Parent().String(),
-						},
-					)
+					analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), resource.Pos()).Evidence(analysisTrace.Step{
+						Reason:   "returned-cleanup-projection",
+						Outcome:  analysisTrace.OutcomeAccepted,
+						Pos:      returned.Pos(),
+						Function: returned.Parent().String(),
+					})
 				}
 				return true
 			}

@@ -27,13 +27,26 @@ type LifecycleEvidence struct {
 	pass     *analysis.Pass
 	analyzer string
 	check    string
-	local    ssaflow.LocalEvidence
+	// probe attributes each traced proof step to the candidate being judged.
+	// It starts unattributed so an analyzer that never scopes still traces.
+	probe analysisTrace.Probe
+	local ssaflow.LocalEvidence
 }
 
 // NewLifecycleEvidence constructs evidence whose accepted, rejected, and unknown
 // results use the supplied analyzer identity for structured tracing.
 func NewLifecycleEvidence(pass *analysis.Pass, analyzer, check string) *LifecycleEvidence {
-	return &LifecycleEvidence{pass: pass, analyzer: analyzer, check: check}
+	return &LifecycleEvidence{
+		pass: pass, analyzer: analyzer, check: check,
+		probe: analysisTrace.ForPackage(pass, analyzer, check),
+	}
+}
+
+// ForCandidate attributes the evidence traced from here on to candidate, so a
+// trace selector retrieves the whole proof built for it. Analyzers call this
+// once before judging each candidate.
+func (evidence *LifecycleEvidence) ForCandidate(candidate token.Pos) {
+	evidence.probe = analysisTrace.For(evidence.pass, evidence.analyzer, evidence.check, candidate)
 }
 
 // ArgumentRetained reports whether the summary of the call's static callee
@@ -175,7 +188,7 @@ func requestedMethod(request EvidenceRequest) string {
 }
 
 func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof ssaflow.Proof) {
-	if !analysisTrace.Enabled(evidence.analyzer, evidence.check) {
+	if !evidence.probe.Enabled() {
 		return
 	}
 	outcome := analysisTrace.OutcomeUnknown
@@ -197,10 +210,7 @@ func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof ssaflow.P
 	if request.Instruction != nil {
 		position = request.Instruction.Pos()
 	}
-	analysisTrace.Emit(evidence.pass, analysisTrace.Event{
-		Analyzer: evidence.analyzer,
-		Check:    evidence.check,
-		Phase:    "evidence",
+	evidence.probe.Evidence(analysisTrace.Step{
 		Reason:   string(proof.Reason),
 		Outcome:  outcome,
 		Pos:      position,

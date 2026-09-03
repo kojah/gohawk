@@ -49,9 +49,8 @@ do not edit them by hand.
 |---|---|
 | `-gohawk-timing-file` | append one JSONL record per analyzer and package with wall time and allocation to this file |
 | `-gohawk-trace` | emit JSONL evidence for comma-separated analyzers/checks, or all |
+| `-gohawk-trace-candidate` | limit evidence tracing to the proof of candidates whose position contains this path[:line] |
 | `-gohawk-trace-file` | append trace JSONL to this file instead of stderr |
-| `-gohawk-trace-function` | limit evidence tracing to functions containing this text |
-| `-gohawk-trace-source` | limit evidence tracing to positions containing this path[:line] |
 <!-- gohawk:generated-trace-flags:end -->
 
 The flags carry a `gohawk-` prefix because `x/tools` owns the generic `-trace`
@@ -74,12 +73,16 @@ driver's cost and appear in the process time instead.
 |---|---|
 | `candidate` | a construct the analyzer might report — the obligation it found |
 | `evidence` | a fact for or against reporting it — typically one classifier label |
+| `considered` | a proof step that was evaluated and did not hold |
 | `decision` | the outcome: reported, suppressed by an ignore comment, removed by check selection, or unknown |
 | `fix` | a suggested edit was offered or rejected |
 
-Every event names its analyzer and check and carries a stable kebab-case
-reason code. Events include the SSA text they concern, so a trace for one
-candidate reads as an annotated SSA walk.
+Every event names its analyzer, its check, the candidate whose proof it
+serves, and a stable kebab-case reason code. The candidate is what
+`-gohawk-trace-candidate` selects on, so one proof can be read whole even
+where its steps run inside a callee body in another file. Events include the
+SSA text they concern, so a trace for one candidate reads as an annotated SSA
+walk.
 
 ### Reading one candidate
 
@@ -88,7 +91,10 @@ candidate reads as an annotated SSA walk.
 2. Follow its `evidence` events in order. Each consumption of the tracked
    value appears once with the label the classifier gave it. An `unknown`
    label ends the proof conservatively.
-3. Read the `decision` and its reason code.
+3. Read its `considered` events. Each names a suppression that was tried and
+   did not hold, so a suppression you expected is either absent, meaning the
+   proof never reached it, or present, meaning its rule did not match.
+4. Read the `decision` and its reason code.
 
 A `decision` of unknown means some consumption was opaque and the analyzer
 declined to report. That is the design working, not a defect, unless the

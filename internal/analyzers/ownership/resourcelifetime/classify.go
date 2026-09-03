@@ -1,9 +1,9 @@
 package resourcelifetime
 
 import (
+	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -51,10 +51,15 @@ type resourceAnalysis struct {
 	evidence *lifecyclefacts.LifecycleEvidence
 	function *ssa.Function
 	resource ssa.Value
-	owners   []ssa.Value
-	contract resourceContract
-	optional optionalAcquisitionProof
-	actions  map[ssa.Instruction]resourceAction
+	// candidate identifies the acquisition every step of this proof serves, and
+	// probe tags every trace event with it so one acquisition's proof can be
+	// read without the interleaved steps of the others in the same function.
+	candidate token.Pos
+	probe     analysisTrace.Probe
+	owners    []ssa.Value
+	contract  resourceContract
+	optional  optionalAcquisitionProof
+	actions   map[ssa.Instruction]resourceAction
 }
 
 func (analysis *resourceAnalysis) action(instruction ssa.Instruction) resourceAction {
@@ -252,13 +257,10 @@ func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool 
 }
 
 func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction) {
-	if action == actionNone || !analysisTrace.Enabled("resourcelifetime", string(check.ResourceRelease)) {
+	if action == actionNone || !analysis.probe.Enabled() {
 		return
 	}
-	analysisTrace.Emit(analysis.pass, analysisTrace.Event{
-		Analyzer: "resourcelifetime",
-		Check:    string(check.ResourceRelease),
-		Phase:    "evidence",
+	analysis.probe.Evidence(analysisTrace.Step{
 		Reason:   action.String(),
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      instruction.Pos(),

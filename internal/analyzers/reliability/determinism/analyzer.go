@@ -55,13 +55,10 @@ func emitMapRangeDecision(pass *analysis.Pass, ranged *ast.RangeStmt, decision m
 	if decision.reason == "" || !analysisTrace.Enabled("determinism", string(check.DeterministicMapOutput)) {
 		return
 	}
-	analysisTrace.Emit(pass, analysisTrace.Event{
-		Analyzer: "determinism",
-		Check:    string(check.DeterministicMapOutput),
-		Phase:    "evidence",
-		Reason:   decision.reason,
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      ranged.Pos(),
+	analysisTrace.For(pass, "determinism", string(check.DeterministicMapOutput), ranged.Pos()).Evidence(analysisTrace.Step{
+		Reason:  decision.reason,
+		Outcome: analysisTrace.OutcomeAccepted,
+		Pos:     ranged.Pos(),
 	})
 }
 

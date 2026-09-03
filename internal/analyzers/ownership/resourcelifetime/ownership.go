@@ -47,7 +47,12 @@ func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Val
 	return store.Addr
 }
 
-func resourceSuccessBranch(pass *analysis.Pass, block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {
+func resourceSuccessBranch(
+	pass *analysis.Pass,
+	block, successor *ssa.BasicBlock,
+	errorValue ssa.Value,
+	candidate token.Pos,
+) (bool, bool) {
 	if errorValue == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
 		return false, false
 	}
@@ -65,12 +70,12 @@ func resourceSuccessBranch(pass *analysis.Pass, block, successor *ssa.BasicBlock
 	// https://github.com/prometheus/node_exporter/blob/a4e08d1d9a152f67ef781469eade6b0bf431994d/collector/ethtool_linux_test.go#L62-L74
 	// https://github.com/pocketbase/pocketbase/blob/bc8ffed4e7265a70a6e8de76c0b0b48b945e19ef/tools/filesystem/internal/fileblob/fileblob.go#L428-L436
 	if proof, ok := resourceAbsentErrorCheck(branch.Cond, errorValue); ok && successor == block.Succs[0] {
-		traceAcquisitionErrorProof(pass, branch, proof)
+		traceAcquisitionErrorProof(pass, branch, proof, candidate)
 		return false, true
 	}
 	if success, ok := testifyNoErrorSuccessBranch(branch, successor, errorValue); ok {
 		if success {
-			traceAcquisitionErrorProof(pass, branch, "testify-no-error-guard")
+			traceAcquisitionErrorProof(pass, branch, "testify-no-error-guard", candidate)
 		}
 		return success, true
 	}
@@ -173,11 +178,8 @@ func isNonNilFilesystemSentinel(value ssa.Value) bool {
 	}
 }
 
-func traceAcquisitionErrorProof(pass *analysis.Pass, branch *ssa.If, proof string) {
-	analysisTrace.EmitIfEnabled(pass, analysisTrace.Event{
-		Analyzer: "resourcelifetime",
-		Check:    string(check.ResourceRelease),
-		Phase:    "evidence",
+func traceAcquisitionErrorProof(pass *analysis.Pass, branch *ssa.If, proof string, candidate token.Pos) {
+	analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), candidate).Evidence(analysisTrace.Step{
 		Reason:   "acquisition-error-proven",
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      branch.Cond.Pos(),

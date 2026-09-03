@@ -419,10 +419,7 @@ func traceRepeatedConditionPruning(pass *analysis.Pass, block *ssa.BasicBlock) {
 		return
 	}
 	branch := block.Instrs[len(block.Instrs)-1]
-	analysisTrace.Emit(pass, analysisTrace.Event{
-		Analyzer: "lockorder",
-		Check:    checkID,
-		Phase:    "evidence",
+	analysisTrace.For(pass, "lockorder", checkID, branch.Pos()).Evidence(analysisTrace.Step{
 		Reason:   "repeated-condition-infeasible",
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      branch.Pos(),

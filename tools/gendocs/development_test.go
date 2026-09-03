@@ -7,7 +7,7 @@ import (
 
 func TestTraceFlagsBlockListsRegisteredFlags(t *testing.T) {
 	block := traceFlagsBlock()
-	for _, name := range []string{"`-gohawk-trace`", "`-gohawk-trace-source`", "`-gohawk-trace-function`", "`-gohawk-trace-file`"} {
+	for _, name := range []string{"`-gohawk-trace`", "`-gohawk-trace-candidate`", "`-gohawk-trace-file`"} {
 		if !strings.Contains(block, name) {
 			t.Errorf("trace flags block lacks %s:\n%s", name, block)
 		}

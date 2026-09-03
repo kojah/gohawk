@@ -20,9 +20,11 @@ your head is slow and error-prone. Dump the real thing instead.
 | What did lifecyclefacts conclude about exported functions? | `gohawk facts [-func NAME] [-tests] ./pkg` |
 | What did the analyzer decide, and why? | `gohawk -gohawk-trace=ANALYZER[,CHECK] ./pkg` |
 
-Trace scoping flags: `-gohawk-trace-source=path[:line]`,
-`-gohawk-trace-function=TEXT`, `-gohawk-trace-file=FILE` (append JSONL to a
-file instead of stderr). Use `-gohawk-trace=all` to trace every analyzer.
+Trace scoping flags: `-gohawk-trace-candidate=path[:line]` limits output to the
+proof built for one candidate, which is what a diagnostic names, and keeps the
+steps that judge a callee elsewhere or carry no position; `-gohawk-trace-file=FILE`
+appends JSONL to a file instead of stderr. Use `-gohawk-trace=all` to trace
+every analyzer.
 
 Full detail in the
 [debugging reference](../../../docs/development/debugging-reference.md).
@@ -33,19 +35,24 @@ Every event carries a phase and a stable kebab-case reason code:
 
 - `candidate` — a construct the analyzer might report.
 - `evidence` — a fact that supports accepting or rejecting it.
+- `considered` — a proof step that was tried and did not hold.
 - `decision` — the final outcome: reported, suppressed, or unknown.
 - `fix` — whether a suggested edit was offered or rejected.
 
-Events include the SSA text they are about, so a trace reads as an annotated
-SSA walk. Follow one candidate's events in order to see which instruction the
-classifier labelled `unknown` and the reason it gave.
+Every event also names the candidate whose proof it serves, so
+`-gohawk-trace-candidate=file.go:41` returns that one proof and nothing else,
+including steps taken inside a callee body in another file. Events include the
+SSA text they are about, so a trace reads as an annotated SSA walk.
 
 ## Mapping a finding to its cause
 
 1. Find the `candidate` event: this is the obligation the analyzer found.
 2. Find the `evidence` events that consumed the tracked value: each is one
    classifier label. An `unknown` label ends the proof conservatively.
-3. Read the `decision`: honored, unknown, or violated, with its reason code.
+3. Read the `considered` events: each names a suppression that was tried and
+   did not hold. If the one you expected is missing, the proof never reached
+   it; if it is there, its rule did not match.
+4. Read the `decision`: honored, unknown, or violated, with its reason code.
 
 If the decision is `unknown`, the analyzer is declining to report because some
 consumption is opaque to it. That is the intended behaviour, not a bug, unless
