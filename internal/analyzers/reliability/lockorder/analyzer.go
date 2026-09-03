@@ -57,9 +57,12 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	// outlive the function that acquired it: the contradicting order is
 	// usually in another method of the same type.
 	keys := map[string]string{}
+	// One search serves every function: a helper reached from many call sites
+	// is summarized once rather than once per site.
+	calleeLocks := newCalleeLockSearch()
 	for _, function := range functions {
 		var evidence ssaflow.LocalEvidence
-		walkLockOrder(pass, function, relations, keys, &evidence)
+		walkLockOrder(pass, function, relations, keys, calleeLocks, &evidence)
 	}
 	return nil, nil
 }

@@ -19,6 +19,7 @@ type lockFlowContext struct {
 	evidence    *ssaflow.LocalEvidence
 	relations   map[lockRelation]token.Pos
 	keys        map[string]string
+	calleeLocks *calleeLockSearch
 	lockValues  map[string][]ssa.Value
 	acquiredAt  map[string]token.Pos
 	released    map[string]bool
@@ -31,6 +32,7 @@ func walkLockOrder(
 	function *ssa.Function,
 	relations map[lockRelation]token.Pos,
 	keys map[string]string,
+	calleeLocks *calleeLockSearch,
 	evidence *ssaflow.LocalEvidence,
 ) {
 	if len(function.Blocks) == 0 {
@@ -53,6 +55,7 @@ func walkLockOrder(
 		evidence:    evidence,
 		relations:   relations,
 		keys:        keys,
+		calleeLocks: calleeLocks,
 		lockValues:  lockValues,
 		acquiredAt:  acquiredAt,
 		released:    released,
@@ -84,6 +87,7 @@ func walkLockOrder(
 			deferred = recordDeferredUnlocks(evidence, instruction, held, deferred, lockValues, released)
 			operation, identity, receiver, ok := mutexAction(instruction)
 			if !ok {
+				flow.recordCalledOrder(instruction, held)
 				continue
 			}
 			// Acquisitions are remembered so the acquire-for-caller contract can
@@ -340,6 +344,26 @@ func recordDeferredUnlocks(
 		}
 	}
 	return deferred
+}
+
+// recordCalledOrder orders the locks held at a call before every lock the
+// callee takes. The held set is the one the transfer rules above already
+// adjusted, so a lock handed to a goroutine or to code the analysis cannot see
+// through is no longer held here and orders nothing.
+func (flow lockFlowContext) recordCalledOrder(instruction ssa.Instruction, held []string) {
+	if len(held) == 0 {
+		return
+	}
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
+		return
+	}
+	locks := flow.calleeLocks.locks(call.Common().StaticCallee())
+	for _, owner := range held {
+		for _, class := range locks.acquires {
+			recordOrder(flow.pass, instruction.Pos(), flow.relations, flow.keys[owner], class)
+		}
+	}
 }
 
 func (flow lockFlowContext) applyMutexAction(

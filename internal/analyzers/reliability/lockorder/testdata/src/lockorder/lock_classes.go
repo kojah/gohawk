@@ -45,9 +45,18 @@ type classCache struct {
 	mu sync.Mutex
 }
 
+// The cache lock is taken two calls away, through a helper that locks nothing
+// itself. cockroach#7504 deadlocked exactly this way, so the indirection is the
+// point of the fixture rather than an accident of it.
 func (c *classCache) evict(lease *classLease) {
 	lease.mu.Lock()
 	defer lease.mu.Unlock()
+	c.removeLease()
+}
+
+func (c *classCache) removeLease() { c.remove() }
+
+func (c *classCache) remove() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 }
@@ -124,4 +133,92 @@ func classLocalReverse() {
 	defer second.Unlock()
 	first.Lock()
 	defer first.Unlock()
+}
+
+// Accepted: an interface call has no resolvable body, so the locks behind it
+// are unknown and order nothing. The reverse order below would contradict the
+// call if the callee were followed.
+type classSink interface{ Store() }
+
+type classWriter struct {
+	mu   sync.Mutex
+	sink classSink
+}
+
+func (w *classWriter) publish() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.sink.Store()
+}
+
+type classBuffer struct {
+	mu sync.Mutex
+}
+
+func (b *classBuffer) drainInto(w *classWriter) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+}
+
+func (b *classBuffer) Store() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+}
+
+// Accepted: a goroutine runs on its own stack, so the launching function's
+// held locks are not held while the spawned callee acquires anything.
+type classWorker struct {
+	mu    sync.Mutex
+	queue classQueue
+}
+
+type classQueue struct {
+	mu sync.Mutex
+}
+
+func (w *classWorker) start() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	go w.queue.fill()
+}
+
+func (q *classQueue) fill() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+}
+
+func (q *classQueue) drain(w *classWorker) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+}
+
+// Accepted: the helper unlocks the caller's own lock before taking another, so
+// the two are never held together. The held set is already emptied by the
+// exact-value release proof before a call is ordered against its callee, which
+// is why no order is recorded here. sync.Cond.Wait has this shape.
+type classGate struct {
+	mu   sync.Mutex
+	next sync.Mutex
+}
+
+func (g *classGate) handoff() {
+	g.mu.Lock()
+	g.step()
+}
+
+func (g *classGate) step() {
+	g.mu.Unlock()
+	g.next.Lock()
+	g.next.Unlock()
+}
+
+func (g *classGate) reverse() {
+	g.next.Lock()
+	defer g.next.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 }

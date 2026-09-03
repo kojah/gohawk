@@ -60,23 +60,30 @@ func acquireLock(
 	// same object is the defect. Ordering below compares lock classes, so a
 	// mutex held in a struct field is comparable across the methods that take
 	// it; see lockClassOf for why the class claim is sound.
-	key := keys[identity]
 	for _, owner := range held {
-		ownerKey := keys[owner]
-		if key == "" || ownerKey == "" || ownerKey == key {
-			// Two locks of one class are ordered by which object holds them,
-			// and that evidence does not exist here. Reporting the pair would
-			// flag every routine that locks two peers at once, such as
-			// transfer(from, to *Account) taking from.mu then to.mu while
-			// another caller passes the same accounts the other way around.
-			continue
-		}
-		if _, exists := relations[lockRelation{from: key, to: ownerKey}]; exists {
-			check.Reportf(pass, check.LockContradictoryOrder, instruction.Pos(), "contradictory lock order: %s and %s", key, ownerKey)
-		}
-		relations[lockRelation{from: ownerKey, to: key}] = instruction.Pos()
+		recordOrder(pass, instruction.Pos(), relations, keys[owner], keys[identity])
 	}
 	return append(held, identity)
+}
+
+// recordOrder records that ownerKey was held while key was acquired, and
+// reports when the opposite order was already seen somewhere in this package.
+// Both the direct acquisition and the order a call implies come through here,
+// so one place decides what an ordering claim requires.
+func recordOrder(pass *analysis.Pass, position token.Pos, relations map[lockRelation]token.Pos, ownerKey, key string) {
+	if ownerKey == "" || key == "" || ownerKey == key {
+		// An unclassified lock compares with nothing, and two locks of one
+		// class are ordered by which object holds them -- evidence this
+		// analysis does not have. Reporting the latter would flag every routine
+		// that locks two peers at once, such as transfer(from, to *Account)
+		// taking from.mu then to.mu while another caller passes the same
+		// accounts the other way around.
+		return
+	}
+	if _, exists := relations[lockRelation{from: key, to: ownerKey}]; exists {
+		check.Reportf(pass, check.LockContradictoryOrder, position, "contradictory lock order: %s and %s", key, ownerKey)
+	}
+	relations[lockRelation{from: ownerKey, to: key}] = position
 }
 
 func appendUniquePosition(positions []token.Pos, candidate token.Pos) []token.Pos {
