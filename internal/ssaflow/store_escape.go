@@ -171,7 +171,11 @@ func ownershipSource(value ssa.Value) (ssa.Value, bool) {
 	case *ssa.Index:
 		return typed.X, true
 	case *ssa.UnOp:
-		return typed.X, true
+		// A load and a receive both take a value out of something that holds
+		// it, so the holder is a candidate owner. The arithmetic and logical
+		// operators produce a new value from an operand and carry no such
+		// claim: negating a counter does not make the counter its owner.
+		return typed.X, typed.Op == token.MUL || typed.Op == token.ARROW
 	case *ssa.Lookup:
 		return typed.X, true
 	case *ssa.Slice:
