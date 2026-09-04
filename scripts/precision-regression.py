@@ -74,6 +74,39 @@ def merge_json_stream(text: str) -> dict:
         index = end
 
 
+
+def loadable_packages(module: Path, environment: dict[str, str]) -> list[str]:
+    """Return the packages in the module whose own and dependency imports resolve."""
+    try:
+        listed = run(
+            ["go", "list", "-e", "-f",
+             "{{if and (not .Error) (not .DepsErrors)}}{{.ImportPath}}{{end}}", "./..."],
+            cwd=module,
+            env=environment,
+            capture_output=True,
+            timeout=180,
+        )
+    except subprocess.TimeoutExpired:
+        return []
+    return [line for line in listed.stdout.split("\n") if line.strip()]
+
+
+def retry_scan(
+    gohawk: Path, module: Path, environment: dict[str, str], packages: list[str]
+) -> subprocess.CompletedProcess[str]:
+    """Re-run the scan over an explicit package list."""
+    try:
+        return run(
+            ["go", "vet", f"-vettool={gohawk}", "-enable-all", "-gohawk-include-tests", "-json", *packages],
+            cwd=module,
+            env=environment,
+            capture_output=True,
+            timeout=180,
+        )
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="timed out")
+
+
 def scan(gohawk: Path, repository: str, checkout: Path) -> tuple[set[tuple[str, str, str]], list[str]]:
     """Return the findings, and the reasons any module could not be analysed.
 
@@ -115,6 +148,15 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> tuple[set[tuple[str, 
         # payload, however, means the scan did not run at all (for example an
         # out-of-memory kill under a parallel replay), and treating that as
         # "no findings" would report reviewed true positives as lost.
+        if not result.stdout.strip() and result.returncode:
+            # One package whose imports do not resolve aborts loading for the
+            # whole ./... pattern, so a repository loses every label over a
+            # single unbuildable corner. nats.go carries an encoders/protobuf
+            # package whose import is absent from its own go.mod, and the other
+            # thirty packages build. Retry with the packages that do load, so
+            # only the broken corner is lost.
+            loadable = loadable_packages(module, environment)
+            result = retry_scan(gohawk, module, environment, loadable) if loadable else result
         if not result.stdout.strip() and result.returncode:
             incomplete.append(
                 f"no output from {module.relative_to(checkout)} "
