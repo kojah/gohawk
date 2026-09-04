@@ -587,6 +587,7 @@ uber-go/zap	globalstate	zapcore/json_encoder.go:37:5
 uber-go/zap	globalstate	zapcore/level_strings.go:37:2
 uber-go/zap	globalstate	zapcore/level_strings.go:38:2
 uber-go/zap	globalstate	zapcore/sampler_bench_test.go:36:5
+uber-go/zap	resourcelifetime	zapcore/write_syncer_bench_test.go:88:16
 uber-go/zap	testpolicy	encoder_test.go:79:6
 uber-go/zap	testpolicy	global_test.go:270:6
 uber-go/zap	testpolicy	logger_bench_test.go:223:6

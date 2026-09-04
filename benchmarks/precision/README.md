@@ -73,6 +73,18 @@ errors, legacy existing-file checks, deferred WaitGroup joins, channel-range
 lifecycles, and lock release through directly invoked callbacks. Nearby lock,
 resource, process, and goroutine findings remain reportable.
 
+Round 12 lost one label. `uber-go/zap zapcore/core_test.go:71:15` was a real
+leak: `os.CreateTemp` whose handle is handed to `NewCore` and never closed,
+where `t.TempDir` removes the directory but not the descriptor. No gohawk
+build reproduces it, including the one contemporaneous with the batch that
+recorded it, which reports the neighbouring `write_syncer_bench_test.go:88:16`
+and nothing in `core_test.go` at all. `NewCore` now summarizes its writer
+parameter as `ReturnedOwner, ReturnedView, Retained`, so the fact is right and
+the silence is downstream of it, where `Retained` falls back to unknown. The
+label is removed as an accepted false negative rather than left failing; the
+gap is the call site that consumes a constructor result through an interface
+method instead of binding it.
+
 Round 13 preserves the ninth reviewed batch. It covers delayed function-literal
 bodies during operand evaluation, cleanup deferred by exact static helpers,
 positive singleton-map guards, and close ownership through completely resolved
