@@ -95,8 +95,34 @@ func writeTargetsOwner(instruction ssa.Instruction, owner ssa.Value) bool {
 		// name the cell it came from before requiring the field path.
 		source, ok := ssaflow.IdentitySource(typed.Map)
 		return ok && addressWithinOwner(source, owner)
+	case *ssa.Call:
+		return mutatingBuiltinTargetsOwner(typed.Common(), owner)
 	}
 	return false
+}
+
+// mutatingBuiltinTargetsOwner reports whether a builtin that mutates its
+// argument writes into the owner. These are calls rather than stores, so they
+// reach none of the cases above, and a map emptied or a slice overwritten
+// under a read lock races exactly as an assignment to it does.
+//
+// copy takes its destination first and reads its source, so only the first
+// argument is a write: counting the source would report a copy out of the
+// owner, which is the read a read lock permits.
+func mutatingBuiltinTargetsOwner(common *ssa.CallCommon, owner ssa.Value) bool {
+	builtin, ok := common.Value.(*ssa.Builtin)
+	if !ok || len(common.Args) == 0 {
+		return false
+	}
+	switch builtin.Name() {
+	case "delete", "clear", "copy":
+	default:
+		return false
+	}
+	// The container is loaded out of the owner's field, so peel that one load
+	// to name the cell it came from, exactly as the map update does.
+	source, found := ssaflow.IdentitySource(common.Args[0])
+	return found && addressWithinOwner(source, owner)
 }
 
 // addressWithinOwner reports whether address selects a field or a constant

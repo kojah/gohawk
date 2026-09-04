@@ -156,3 +156,52 @@ func (s *readSliced) bumpEntry() {
 		s.entries[0].n++
 	}
 }
+
+// A builtin that mutates its argument is a call rather than a store, so it
+// reaches none of the store cases. Emptying a map or overwriting a slice under
+// a read lock races exactly as assigning to it does.
+type builtinCache struct {
+	mu    sync.RWMutex
+	items map[string]int
+	buf   []byte
+}
+
+func (c *builtinCache) drop(k string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	delete(c.items, k) // want "write while only the read lock \\(\\*lockorder.builtinCache\\).drop.c.mu is held"
+}
+
+func (c *builtinCache) empty() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	clear(c.items) // want "write while only the read lock \\(\\*lockorder.builtinCache\\).empty.c.mu is held"
+}
+
+func (c *builtinCache) overwrite(src []byte) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	copy(c.buf, src) // want "write while only the read lock \\(\\*lockorder.builtinCache\\).overwrite.c.mu is held"
+}
+
+// copy takes its destination first, so reading the owner's slice into a
+// caller's buffer is the read a read lock permits.
+func (c *builtinCache) readInto(dst []byte) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	copy(dst, c.buf)
+}
+
+// A builtin mutating something other than the owner is not a write to it.
+func (c *builtinCache) dropElsewhere(other map[string]int, k string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	delete(other, k)
+}
+
+// The write lock is the correct one to hold for a builtin that mutates.
+func (c *builtinCache) dropLocked(k string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.items, k)
+}
