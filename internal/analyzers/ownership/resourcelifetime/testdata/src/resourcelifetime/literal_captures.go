@@ -71,3 +71,47 @@ func fileClosedByStartedLiteral(path string) error {
 	go func() { _ = file.Close() }()
 	return nil
 }
+
+// closeThroughHelper releases the file it is given. It is a local function so
+// the walk reads its body here rather than depending on whether a dependency's
+// bodies happen to be available.
+func closeThroughHelper(file *os.File) error { return file.Close() }
+
+// parkThroughHelper keeps the file where the caller cannot reach it.
+func parkThroughHelper(file *os.File) { literalSink.file = file }
+
+// fileClosedByDeferredLiteralHelper is accepted: the deferred literal releases
+// the file through a helper rather than closing it inline.
+func fileClosedByDeferredLiteralHelper(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = closeThroughHelper(file) }()
+	return nil
+}
+
+// fileParkedByDeferredLiteralHelper is accepted for the other reason: the
+// literal hands the file to a helper that keeps it, so the obligation moved.
+func fileParkedByDeferredLiteralHelper(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer func() { parkThroughHelper(file) }()
+	return nil
+}
+
+// readThroughHelper neither releases the file nor keeps it.
+func readThroughHelper(file *os.File) bool { return file != nil }
+
+// fileReadByDeferredLiteralHelper leaks: neither the literal nor the helper it
+// calls releases or keeps the file, so this function still owns it.
+func fileReadByDeferredLiteralHelper(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	defer func() { _ = readThroughHelper(file) }()
+	return nil
+}
