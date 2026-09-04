@@ -106,6 +106,14 @@ linters:
         text: "G(204|702):"
         linters:
           - gosec
+      # The catalog is declaration data: one entry per check, each naming an
+      # identity, a description, a kind, and a tier. Two analyzers with the
+      # same number of checks are structurally identical by construction, and
+      # the repetition is the point -- every check is declared the same way.
+      # Extracting a helper would hide the metadata the catalog exists to show.
+      - path: ^analyzers/catalog_specs\.go$
+        linters:
+          - dupl
       # Documentation tooling reads discovered source paths and writes
       # shareable repository assets with ordinary directory/file modes.
       - path: ^tools/gendocs/(main|synchronize|development)\.go$

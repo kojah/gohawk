@@ -18,9 +18,10 @@ func lockStateKey(state lockFlowState) string {
 	}
 	slices.Sort(guards)
 	return fmt.Sprintf(
-		"%d:%s:%s:%s:%s=%t",
+		"%d:%s:%s:%s:%s:%s=%t",
 		state.block.Index,
 		strings.Join(state.held, ","),
+		strings.Join(state.readHeld, ","),
 		strings.Join(state.deferred, ","),
 		strings.Join(guards, ","),
 		state.condition,

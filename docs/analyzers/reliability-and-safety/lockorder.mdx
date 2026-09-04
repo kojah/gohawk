@@ -20,6 +20,7 @@ the corresponding release policy.
 | <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports return paths that leave an owned lock held. |
 | <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
 | <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports two locks acquired in opposite orders in different places. |
+| <CheckIdentity name="read-lock-write" tier="experimental" /> | hazard | experimental | Reports writes to an object while only its read lock is held. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
@@ -42,6 +43,18 @@ Two locks of the same declaration are not compared. Whether
 `transfer(from, to *Account)` conflicts with a caller passing the same pair in
 the other order depends on the objects involved, and nothing in the code
 settles that, so the pattern is accepted.
+
+### Writes under a read lock
+
+A read lock is shared: any number of readers may hold it at once. Writing to
+the object it protects while holding only the read lock therefore races with
+every other reader, and it needs nothing unusual from a second goroutine.
+
+The report is about the object rather than about which field a lock guards.
+Working out which of several mutexes covers a particular field is not something
+this analyzer attempts, so a write is left alone when another lock on the same
+object is held for writing, when the value being written was loaded out of the
+object and is a separate cell, or when the field is updated atomically.
 
 ## How to fix it
 

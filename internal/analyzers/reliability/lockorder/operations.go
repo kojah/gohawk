@@ -135,6 +135,13 @@ func dynamicIndexedMutexLeaf(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	return false
 }
 
+// readModeAcquisition reports whether the instruction takes a lock for reading.
+// sync.Mutex has no RLock, so the name alone identifies the shared mode.
+func readModeAcquisition(instruction ssa.Instruction) bool {
+	common := ssaflow.InstructionCall(instruction)
+	return common != nil && ssaflow.CallName(common) == "RLock"
+}
+
 func releaseLock(held []string, identity string) []string {
 	for index, candidate := range slices.Backward(held) {
 		if candidate == identity {

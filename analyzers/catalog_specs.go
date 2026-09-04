@@ -230,6 +230,10 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 				ID: check.LockContradictoryOrder, Doc: "Reports two locks acquired in opposite orders in different places.",
 				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
 			},
+			{
+				ID: check.LockReadLockWrite, Doc: "Reports writes to an object while only its read lock is held.",
+				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
+			},
 		}},
 		{Analyzer: oncepolicy.Analyzer(), Checks: []catalog.CheckInfo{
 			{

@@ -82,6 +82,7 @@ func walkLockOrder(
 	}
 	ssaflow.WalkStates([]lockFlowState{{block: function.Blocks[0]}}, lockStateKey, func(state lockFlowState) ([]lockFlowState, bool) {
 		held := slices.Clone(state.held)
+		readHeld := slices.Clone(state.readHeld)
 		deferred := slices.Clone(state.deferred)
 		guards := cloneLockGuards(state.guards)
 		condition := state.condition
@@ -106,6 +107,7 @@ func walkLockOrder(
 			operation, identity, receiver, ok := mutexAction(instruction)
 			if !ok {
 				flow.recordCalledOrder(instruction, held)
+				reportReadLockWrites(pass, instruction, held, readHeld, lockValues)
 				continue
 			}
 			// Acquisitions are remembered so the acquire-for-caller contract can
@@ -114,13 +116,14 @@ func walkLockOrder(
 				acquisitions[identity] = appendUniqueInstruction(acquisitions[identity], instruction)
 			}
 			actionState := lockFlowState{
-				held: held, deferred: deferred, guards: guards,
+				held: held, readHeld: readHeld, deferred: deferred, guards: guards,
 				condition: condition, conditionValue: state.conditionValue,
 			}
 			actionState = flow.applyMutexAction(instruction, operation, identity, receiver, actionState)
-			held, deferred, guards = actionState.held, actionState.deferred, actionState.guards
+			held, readHeld, guards = actionState.held, actionState.readHeld, actionState.guards
+			deferred = actionState.deferred
 		}
-		return lockSuccessorStates(pass, state.block, held, deferred, guards), true
+		return lockSuccessorStates(pass, state.block, held, readHeld, deferred, guards), true
 	})
 	// A lock is reported only when some path releases it and another returns
 	// with it held: a lock never released anywhere is either transferred to a
@@ -406,6 +409,7 @@ func (flow lockFlowContext) applyMutexAction(
 		}
 		delete(state.guards, identity)
 		state.held = releaseLock(state.held, identity)
+		state.readHeld = releaseLock(state.readHeld, identity)
 		return state
 	}
 	flow.lockValues[identity] = appendLockValue(flow.lockValues[identity], receiver)
@@ -435,6 +439,9 @@ func (flow lockFlowContext) applyMutexAction(
 		state.deferred = appendUniqueString(state.deferred, identity)
 	}
 	flow.keys[identity] = lockComparisonKey(identity, receiver)
+	if readModeAcquisition(instruction) {
+		state.readHeld = appendUniqueString(state.readHeld, identity)
+	}
 	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.keys, flow.relations)
 	return state
 }
@@ -442,7 +449,7 @@ func (flow lockFlowContext) applyMutexAction(
 func lockSuccessorStates(
 	pass *analysis.Pass,
 	block *ssa.BasicBlock,
-	held, deferred []string,
+	held, readHeld, deferred []string,
 	guards map[string]lockGuard,
 ) []lockFlowState {
 	states := make([]lockFlowState, 0, len(block.Succs))
@@ -456,7 +463,7 @@ func lockSuccessorStates(
 			}
 		}
 		states = append(states, lockFlowState{
-			block: successor, held: held, deferred: deferred, guards: guards,
+			block: successor, held: held, readHeld: readHeld, deferred: deferred, guards: guards,
 			condition: nextCondition, conditionValue: nextValue,
 		})
 	}

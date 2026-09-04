@@ -40,6 +40,7 @@ const (
 	LockMissingRelease       ID = "lockorder/missing-release"
 	LockRecursiveAcquire     ID = "lockorder/recursive-acquire"
 	LockContradictoryOrder   ID = "lockorder/contradictory-order"
+	LockReadLockWrite        ID = "lockorder/read-lock-write"
 	OnceDiscardedWrapper     ID = "oncepolicy/discarded-wrapper"
 	SyncMapNonAtomicClaim    ID = "syncmapatomicity/non-atomic-claim"
 	TaintUntrustedSink       ID = "taintpolicy/untrusted-sink"

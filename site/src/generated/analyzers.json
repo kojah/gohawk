@@ -498,6 +498,12 @@
               "summary": "Reports two locks acquired in opposite orders in different places.",
               "kind": "hazard",
               "tier": "extended"
+            },
+            {
+              "id": "lockorder/read-lock-write",
+              "summary": "Reports writes to an object while only its read lock is held.",
+              "kind": "hazard",
+              "tier": "experimental"
             }
           ],
           "suggestedFix": false,
