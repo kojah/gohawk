@@ -137,12 +137,25 @@ func addressWithinOwner(address, owner ssa.Value) bool {
 		case *ssa.FieldAddr:
 			address = typed.X
 		case *ssa.IndexAddr:
+			// A read lock is shared, so two readers race only where they write
+			// the SAME cell. Distinct elements are distinct memory, so an
+			// element write at a caller-supplied index races only if two
+			// readers can pass the same index -- which this analysis cannot
+			// establish, and which a per-consumer cursor deliberately never
+			// does. pyroscope's Tee hands each consumer its own index and
+			// advances that cursor under the read lock:
+			// https://github.com/grafana/pyroscope/blob/d1212251265e7dab4b03ef0d80af565f6d519e1b/pkg/iter/tee.go#L68-L76
+			//
+			// A constant index names one cell every reader shares, so it stays
+			// reportable, as does a map update, which races whatever the key,
+			// and a store to the field itself.
+			if _, constant := typed.Index.(*ssa.Const); !constant {
+				return false
+			}
 			// A slice header loaded out of the owner shares the owner's backing
-			// array, so writing through it writes the owner, exactly as a map
-			// update does. A pointer loaded out of the owner is a different
-			// object, which is why only the slice case peels its load. The index
-			// need not be constant: every element of the owner's own slice is
-			// covered by whatever covers the field.
+			// array, so writing through it writes the owner. A pointer loaded
+			// out of the owner is a different object, which is why only the
+			// slice case peels its load.
 			address = typed.X
 			if _, slice := address.Type().Underlying().(*types.Slice); slice {
 				if source, ok := ssaflow.IdentitySource(address); ok {

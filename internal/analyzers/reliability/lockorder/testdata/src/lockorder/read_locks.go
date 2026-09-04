@@ -136,7 +136,9 @@ func (o *readOuter) record() {
 }
 
 // A slice header loaded out of the owner shares the owner's backing array, so
-// writing an element writes the owner. The index need not be constant.
+// writing through it writes the owner. Which cell is written decides whether
+// two readers can collide: a read lock is shared, so they race only where they
+// write the SAME cell.
 type readSliced struct {
 	mu      sync.RWMutex
 	list    []int
@@ -149,10 +151,27 @@ func (s *readSliced) first() {
 	s.list[0] = 1 // want "write while only the read lock \\(\\*lockorder.readSliced\\).first.s.mu is held"
 }
 
+// Replacing the slice writes the header field itself, which is one cell every
+// reader shares however the elements are divided up.
+func (s *readSliced) grow() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	s.list = append(s.list, 1) // want "write while only the read lock \\(\\*lockorder.readSliced\\).grow.s.mu is held"
+}
+
+// Accepted: an element at a caller-supplied index. Distinct elements are
+// distinct memory, so this races only if two readers pass the same index,
+// which this analysis cannot establish -- and which the per-consumer cursor
+// pattern deliberately never does, as pyroscope's Tee does by giving each
+// consumer its own slot.
+//
+// Known gap: two readers that do pass the same index race here and are not
+// reported. That false negative is preferred over reporting every per-slot
+// cursor, which is what the previous rule did.
 func (s *readSliced) at(index int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	s.list[index] = 1 // want "write while only the read lock \\(\\*lockorder.readSliced\\).at.s.mu is held"
+	s.list[index] = 1
 }
 
 // Accepted: an element pointer loaded out of the slice names a different
