@@ -31,6 +31,57 @@ type LifecycleEvidence struct {
 	// It starts unattributed so an analyzer that never scopes still traces.
 	probe analysisTrace.Probe
 	local ssaflow.LocalEvidence
+	// retentions answers retention questions about function literals, which
+	// carry no summary of their own. It is built on first use because most
+	// analyzers never ask.
+	retentions *retentionCache
+}
+
+// ClosureRetainsValue reports whether a function literal may keep the value it
+// captured, judged by reading its body.
+//
+// A named callee answers this from its summary, but a literal has no object
+// and is never summarized, so the same question has to be asked of the body
+// directly. The loose walk is the right one: this decides whether to suppress,
+// so a literal that may keep the value must say yes. A literal with no body to
+// read says yes for the same reason.
+func (evidence *LifecycleEvidence) ClosureRetainsValue(closure *ssa.MakeClosure, target ssa.Value) bool {
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok || len(function.Blocks) == 0 {
+		return true
+	}
+	if evidence.retentions == nil {
+		evidence.retentions = newRetentionCache()
+	}
+	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
+		if !ssaflow.CapturedBindingMatches(captured.Binding, target) &&
+			!ssaflow.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
+			continue
+		}
+		for _, held := range capturedUses(captured.Free) {
+			if evidence.retentions.retainedAnywhere(evidence.pass, function, held) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// capturedUses returns the values a literal's body actually handles for a
+// captured variable. A capture is a cell, and the body loads it before use, so
+// asking the retention walk about the cell alone finds nothing: that walk
+// matches values exactly, unlike the traversal that follows a value forward.
+func capturedUses(free *ssa.FreeVar) []ssa.Value {
+	uses := []ssa.Value{free}
+	if free.Referrers() == nil {
+		return uses
+	}
+	for _, reference := range *free.Referrers() {
+		if load, ok := reference.(*ssa.UnOp); ok && load.Op == token.MUL && load.X == free {
+			uses = append(uses, load)
+		}
+	}
+	return uses
 }
 
 // NewLifecycleEvidence constructs evidence whose accepted, rejected, and unknown

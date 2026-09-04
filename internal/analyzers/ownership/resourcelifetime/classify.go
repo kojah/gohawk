@@ -126,9 +126,21 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 		return "appended", builtin.Name() == "append" && carried
 	}
 	if closure, ok := common.Value.(*ssa.MakeClosure); ok {
-		// A literal that captures the resource and was not proven to release
-		// it may release it later or on another path.
-		return "captured-by-literal", carried || analysis.closureCarries(closure)
+		if !carried && !analysis.closureCarries(closure) {
+			return "", false
+		}
+		// A started literal runs on another goroutine, so a release inside it
+		// cannot be ordered against this function's returns and the resource
+		// is beyond what this flow can judge.
+		if _, started := instruction.(*ssa.Go); started {
+			return "captured-by-started-literal", true
+		}
+		// A called or deferred literal runs in this frame, so its body is as
+		// readable as a named callee's. A release inside it was already proved
+		// before this point, so what is left to ask is whether it keeps the
+		// resource: if it does the obligation moved, and if it does not the
+		// literal is transparent and this function still owns the resource.
+		return "captured-by-retaining-literal", analysis.evidence.ClosureRetainsValue(closure, analysis.resource)
 	}
 	callee := common.StaticCallee()
 	if callee == nil {
