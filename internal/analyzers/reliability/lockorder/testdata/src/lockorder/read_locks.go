@@ -97,3 +97,62 @@ func (d *readDomains) tally() {
 	defer d.other.Unlock()
 	d.counted++
 }
+
+// An embedded mutex promotes RLock onto the struct, and the object it protects
+// is still the struct.
+type readEmbedded struct {
+	sync.RWMutex
+	routes map[string]int
+}
+
+func (e *readEmbedded) touch(k string) {
+	e.RLock()
+	defer e.RUnlock()
+	e.routes[k] = 1 // want "write while only the read lock \\(\\*lockorder.readEmbedded\\).touch.e.RWMutex is held"
+}
+
+// The owner is whichever value holds the lock, which need not be the receiver.
+type readInner struct {
+	mu    sync.RWMutex
+	count int
+}
+
+type readOuter struct{ in readInner }
+
+func (o *readOuter) record() {
+	o.in.mu.RLock()
+	defer o.in.mu.RUnlock()
+	o.in.count++ // want "write while only the read lock \\(\\*lockorder.readOuter\\).record.o.in.mu is held"
+}
+
+// A slice header loaded out of the owner shares the owner's backing array, so
+// writing an element writes the owner. The index need not be constant.
+type readSliced struct {
+	mu      sync.RWMutex
+	list    []int
+	entries []*readEntry
+}
+
+func (s *readSliced) first() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	s.list[0] = 1 // want "write while only the read lock \\(\\*lockorder.readSliced\\).first.s.mu is held"
+}
+
+func (s *readSliced) at(index int) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	s.list[index] = 1 // want "write while only the read lock \\(\\*lockorder.readSliced\\).at.s.mu is held"
+}
+
+// Accepted: an element pointer loaded out of the slice names a different
+// object, so mutating what it points at is not a write to the owner. This is
+// the same boundary the map case keeps, and it is why only the slice header
+// itself is followed through its load.
+func (s *readSliced) bumpEntry() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.entries) > 0 {
+		s.entries[0].n++
+	}
+}

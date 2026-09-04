@@ -1,6 +1,7 @@
 package lockorder
 
 import (
+	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -110,12 +111,18 @@ func addressWithinOwner(address, owner ssa.Value) bool {
 		case *ssa.FieldAddr:
 			address = typed.X
 		case *ssa.IndexAddr:
-			// A dynamic index may select an element of a shared aggregate the
-			// lock does not cover, so only a constant path stays provable.
-			if _, constant := typed.Index.(*ssa.Const); !constant {
-				return false
-			}
+			// A slice header loaded out of the owner shares the owner's backing
+			// array, so writing through it writes the owner, exactly as a map
+			// update does. A pointer loaded out of the owner is a different
+			// object, which is why only the slice case peels its load. The index
+			// need not be constant: every element of the owner's own slice is
+			// covered by whatever covers the field.
 			address = typed.X
+			if _, slice := address.Type().Underlying().(*types.Slice); slice {
+				if source, ok := ssaflow.IdentitySource(address); ok {
+					address = source
+				}
+			}
 		default:
 			return false
 		}
