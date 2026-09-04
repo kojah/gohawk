@@ -74,6 +74,42 @@ label that still holds, so provenance means "last confirmed at" rather than
 worktree is recorded as `<revision>-dirty`, because it names a commit that
 does not contain the behaviour it certifies.
 
+## Measuring what the analyzer missed
+
+A cohort labels findings the analyzer reported, so it measures precision and
+cannot measure recall: silence is never labelled. That matters most for a
+conservative check, where dogfooding produces a zero and the zero has two very
+different meanings.
+
+Separate them before drawing any conclusion:
+
+- **No candidates seen.** The corpus had nothing to look at. A repository with
+  no `sync.RWMutex` says nothing about a read-lock check, and a clean run on it
+  is empty rather than clean.
+- **Candidates seen and all declined.** The check is systematically blind, and
+  the `considered` trace reasons say which rule is eating them.
+
+Counting `considered` events by reason across a corpus turns silence into a
+distribution and costs nothing beyond the tracing already required at a
+precision boundary.
+
+For real ground truth, `scripts/mine-race-fixes.py` replays a check against the
+revision before a fix commit, where the message states what the defect was.
+Two rules keep the result honest:
+
+- **Seed on the symptom, never the mechanism.** Searching for the syntax a
+  check keys on -- an `RLock` that became a `Lock` -- pre-filters the corpus to
+  bugs shaped like the detector, and the resulting number restates the
+  detector's own assumptions. Search for fixed races; let the shapes fall where
+  they fall.
+- **Label, then count.** Review says whether each candidate is in the check's
+  class. That yields prevalence, which decides whether the check is worth
+  having, alongside recall, which decides whether it works.
+
+Mutation testing -- injecting the defect into correct code -- measures whether
+an implementation holds up across code shapes. It cannot measure class coverage,
+because the mutation generates exactly the pattern the check looks for.
+
 ## Guard rails
 
 - Prefer stable false negatives over an analyzer whose precision depends on an
