@@ -32,6 +32,74 @@ def read_manifest(path: Path) -> list[tuple[str, str]]:
     return rows
 
 
+
+def check_label_count(cohort: Path, actual: int) -> None:
+    """Fail when a cohort carries fewer labels than the count recorded beside it.
+
+    Adding labels is how an audit round grows a cohort, so a larger file is
+    fine and only updates the record. Losing them is the case worth catching:
+    a deleted label silently shrinks the denominator, and the run still passes
+    because nothing is left to contradict.
+    """
+    record = cohort / "labels.expected"
+    if not record.exists():
+        return
+    expected = int(record.read_text().strip())
+    if actual < expected:
+        fail(
+            f"{cohort.name}: labels.csv holds {actual} labels but labels.expected records "
+            f"{expected}; a reviewed label was removed. Restore it, or lower the recorded "
+            "count in the same change so the loss is deliberate and visible."
+        )
+    if actual > expected:
+        record.write_text(f"{actual}\n")
+
+
+def baseline_path(cohort: Path) -> Path:
+    return cohort / "findings.tsv"
+
+
+def write_baseline(cohort: Path, findings: set[tuple[str, str, str]]) -> None:
+    lines = ["\t".join(finding) for finding in sorted(findings)]
+    baseline_path(cohort).write_text("\n".join(lines) + "\n" if lines else "")
+
+
+def report_baseline_drift(
+    cohort: Path, findings: set[tuple[str, str, str]], unscannable: dict[str, list[str]]
+) -> None:
+    """Print the findings that appeared or vanished since the baseline was taken.
+
+    This reports rather than fails. A new finding may be a real defect the
+    analyzer only just learned to see, and the cohort README is explicit that
+    only a human can label one. Silence, though, is what let a new check add
+    noise across the corpus without the gate noticing.
+    """
+    baseline = baseline_path(cohort)
+    if not baseline.exists():
+        return
+    recorded = {
+        tuple(line.split("\t")) for line in baseline.read_text().split("\n") if line.strip()
+    }
+    # A repository that did not analyse contributes nothing, so every finding
+    # it held would read as vanished.
+    live = {finding for finding in recorded if finding[0] not in unscannable}
+    appeared = sorted(findings - recorded)
+    vanished = sorted(live - findings)
+    for finding in appeared[:20]:
+        print("new finding:", *finding, file=sys.stderr)
+    if len(appeared) > 20:
+        print(f"new finding: ... and {len(appeared) - 20} more", file=sys.stderr)
+    for finding in vanished[:20]:
+        print("finding no longer reported:", *finding, file=sys.stderr)
+    if len(vanished) > 20:
+        print(f"finding no longer reported: ... and {len(vanished) - 20} more", file=sys.stderr)
+    if appeared or vanished:
+        print(
+            f"baseline drift: {len(appeared)} new, {len(vanished)} gone; review them and "
+            "re-record with --update-baseline once judged"
+        )
+
+
 def checkout_repository(root: Path, repository: str, revision: str) -> Path:
     checkout = root / repository.replace("/", "__")
     if checkout.exists():
@@ -73,6 +141,22 @@ def merge_json_stream(text: str) -> dict:
             merged.update(payload)
         index = end
 
+
+
+
+def module_has_packages(module: Path, environment: dict[str, str]) -> bool:
+    """Report whether the module contains any Go package, broken or not."""
+    try:
+        listed = run(
+            ["go", "list", "-e", "-f", "{{.ImportPath}}", "./..."],
+            cwd=module,
+            env=environment,
+            capture_output=True,
+            timeout=180,
+        )
+    except subprocess.TimeoutExpired:
+        return True
+    return bool(listed.stdout.strip())
 
 
 def loadable_packages(module: Path, environment: dict[str, str]) -> list[str]:
@@ -156,6 +240,12 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> tuple[set[tuple[str, 
             # thirty packages build. Retry with the packages that do load, so
             # only the broken corner is lost.
             loadable = loadable_packages(module, environment)
+            if not loadable and not module_has_packages(module, environment):
+                # A module holding no Go packages has nothing to analyse, and
+                # go vet exits non-zero saying so. zap keeps its logo in an
+                # assets module for exactly this reason. Reading that as a
+                # failed scan costs the repository every label it carries.
+                continue
             result = retry_scan(gohawk, module, environment, loadable) if loadable else result
         if not result.stdout.strip() and result.returncode:
             incomplete.append(
@@ -259,6 +349,11 @@ def main() -> None:
         help="record the running gohawk revision on every label that still holds",
     )
     parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help="rewrite the cohort's findings baseline from this run instead of comparing against it",
+    )
+    parser.add_argument(
         "--analyzer",
         action="append",
         default=[],
@@ -274,6 +369,9 @@ def main() -> None:
 
     with (cohort / "labels.csv").open(newline="") as source:
         labels = list(csv.DictReader(source))
+    # The recorded size is checked before any scoping, so a narrowed replay
+    # still notices that reviewed labels have gone missing from the file.
+    check_label_count(cohort, len(labels))
     labels = [row for row in labels if not selected or row["repository"] in selected]
     analyzers = set(args.analyzer)
     if analyzers:
@@ -350,6 +448,17 @@ def main() -> None:
                 "repository(ies) that could not be analysed; fix or drop those repositories to "
                 "restore the coverage"
             )
+        # A label is a reviewed verdict, not a census: a cohort repository
+        # reports far more findings than it carries labels, so an unlabelled
+        # finding is usually one nobody had reason to write down rather than a
+        # new one. Only a recorded baseline of every finding at the pin can
+        # tell those apart, which is why the comparison needs one and says
+        # nothing without it.
+        if args.update_baseline:
+            write_baseline(cohort, findings)
+            print(f"baseline updated: {len(findings)} finding(s) recorded")
+        elif not selected and not analyzers:
+            report_baseline_drift(cohort, findings, unscannable)
         # Unscannable repositories are pre-existing corpus debt, so they do not
         # fail the gate by default; --require-scannable enforces it once a
         # cohort is clean, which keeps the debt from growing silently.
