@@ -26,10 +26,16 @@ func TestAnalyzerPackageLayout(t *testing.T) {
 	packages, catalogPackage, modulePath, loaded := loadAnalyzerLayoutPackages(t, inventory)
 	assertAnalyzerSourceDepth(t, inventory, packages)
 	assertInfrastructureAnalyzerPlacement(t, loaded, modulePath)
-	runtimeAnalyzers := assertAnalyzerRuntimeBijection(t, packages)
+	withdrawn := withdrawnAnalyzerNames()
+	runtimeAnalyzers := assertAnalyzerRuntimeBijection(t, packages, withdrawn)
 	assertCatalogFactories(t, inventory, catalogPackage, modulePath, packages)
 	for _, analyzerPackage := range packages {
 		assertLocalTestdata(t, analyzerPackage)
+		if withdrawn[analyzerPackage.name] {
+			// A withdrawn analyzer has no runtime entry to compare against, so
+			// its prerequisites are checked by its own package tests instead.
+			continue
+		}
 		prerequisites := 0
 		if analyzer := runtimeAnalyzers[analyzerPackage.name]; analyzer != nil {
 			prerequisites = len(analyzer.Requires)
@@ -162,7 +168,29 @@ func analysisAnalyzerPointer(value types.Type) bool {
 		named.Obj().Pkg().Path() == "golang.org/x/tools/go/analysis"
 }
 
-func assertAnalyzerRuntimeBijection(t *testing.T, layout []analyzerLayoutPackage) map[string]*analysis.Analyzer {
+// withdrawnAnalyzerPackages are analyzers whose checks are all delisted in
+// analyzers/catalog_specs.go. Their packages and tests remain, so the
+// package-to-catalog bijection has to know they are deliberately absent rather
+// than accidentally unregistered. See
+// https://github.com/kojah/gohawk/issues/34.
+//
+// The list is checked in both directions: a package here that turns out to be
+// registered fails, so relisting an analyzer cannot leave a stale entry behind.
+var withdrawnAnalyzerPackages = map[string]bool{
+	"apishape":      true,
+	"contextpolicy": true,
+	"closedomain":   true,
+	"wirepolicy":    true,
+	"taintpolicy":   true,
+	"testlifecycle": true,
+	"testpolicy":    true,
+}
+
+func withdrawnAnalyzerNames() map[string]bool {
+	return withdrawnAnalyzerPackages
+}
+
+func assertAnalyzerRuntimeBijection(t *testing.T, layout []analyzerLayoutPackage, withdrawn map[string]bool) map[string]*analysis.Analyzer {
 	t.Helper()
 	byName := make(map[string]analyzerLayoutPackage, len(layout))
 	for _, analyzerPackage := range layout {
@@ -204,6 +232,12 @@ func assertAnalyzerRuntimeBijection(t *testing.T, layout []analyzerLayoutPackage
 	}
 	metadata := publicanalyzers.AnalyzerMetadata()
 	for name := range byName {
+		if withdrawn[name] {
+			if grouped[name] {
+				t.Errorf("analyzer %q is registered but listed as withdrawn; remove it from withdrawnAnalyzerPackages", name)
+			}
+			continue
+		}
 		if !grouped[name] {
 			t.Errorf("analyzer package %q is absent from AnalyzerGroups", name)
 		}

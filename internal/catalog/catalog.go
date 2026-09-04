@@ -78,6 +78,18 @@ type CheckInfo struct {
 	Doc  string
 	Kind CheckKind
 	Tier CheckTier
+	// Delisted withdraws the check from the catalog while leaving its
+	// implementation in the tree. A delisted check is not listed, not
+	// documented, and cannot be selected by any means, including -enable-all
+	// and an explicit check ID. The analyzer still computes and reports it, so
+	// the reporting boundary drops it; every other path sees a catalog in which
+	// it does not appear. An analyzer whose checks are all delisted is
+	// withdrawn with them, and so is a group left with no analyzers.
+	//
+	// This is for a rule that no longer fits what gohawk claims to be, kept in
+	// the tree because the implementation and its fixtures are worth preserving
+	// even when the diagnostic is not one the tool wants to make.
+	Delisted bool
 }
 
 // EnabledAt reports whether the check runs when its analyzer is selected
@@ -93,8 +105,14 @@ func (info CheckInfo) EnabledByDefault() bool {
 
 // AnalyzerSpec is the complete declaration of one analyzer.
 type AnalyzerSpec struct {
-	Analyzer     *analysis.Analyzer
-	Checks       []CheckInfo
+	Analyzer *analysis.Analyzer
+	Checks   []CheckInfo
+	// Withdrawn names the checks delisted from this analyzer. They are absent
+	// from Checks, so nothing can select or document them, but the analyzer
+	// still contains their implementation and still reports them, so the
+	// reporting boundary needs to recognise and drop them rather than treat
+	// them as an identity it has never heard of.
+	Withdrawn    []check.ID
 	SuggestedFix bool
 	// Group is the catalog group the analyzer was declared in.
 	Group GroupID
@@ -136,6 +154,10 @@ type Catalog struct {
 	executionOrder []AnalyzerID
 	byAnalyzer     map[AnalyzerID]AnalyzerSpec
 	checkOwner     map[check.ID]AnalyzerID
+	// withdrawn records analyzers declared in a group whose checks were all
+	// delisted, so the execution order can drop them while still rejecting an
+	// identity that was never declared.
+	withdrawn map[AnalyzerID]bool
 }
 
 // NewCatalog validates and constructs an analyzer catalog.
@@ -145,6 +167,7 @@ func NewCatalog(groups []GroupSpec, executionOrder []AnalyzerID) (*Catalog, erro
 		executionOrder: slices.Clone(executionOrder),
 		byAnalyzer:     make(map[AnalyzerID]AnalyzerSpec),
 		checkOwner:     make(map[check.ID]AnalyzerID),
+		withdrawn:      make(map[AnalyzerID]bool),
 	}
 	seenGroups := make(map[GroupID]bool)
 	seenPaths := make(map[string]bool)
@@ -153,6 +176,15 @@ func NewCatalog(groups []GroupSpec, executionOrder []AnalyzerID) (*Catalog, erro
 			return nil, err
 		}
 	}
+	// A group whose analyzers are all delisted is withdrawn with them, so it
+	// cannot be selected and does not appear as an empty heading.
+	populated := make([]GroupSpec, 0, len(catalog.groups))
+	for _, group := range catalog.groups {
+		if len(group.Analyzers) > 0 {
+			populated = append(populated, group)
+		}
+	}
+	catalog.groups = populated
 	if err := catalog.validateExecutionOrder(); err != nil {
 		return nil, err
 	}
@@ -171,33 +203,55 @@ func (catalog *Catalog) addGroup(index int, seenGroups map[GroupID]bool, seenPat
 		return fmt.Errorf("catalog documentation path %q is used more than once", group.DocPath)
 	}
 	seenGroups[group.ID], seenPaths[group.DocPath] = true, true
+	listed := make([]AnalyzerSpec, 0, len(group.Analyzers))
 	for analyzerIndex := range group.Analyzers {
-		if err := catalog.addAnalyzer(group.ID, &group.Analyzers[analyzerIndex]); err != nil {
+		spec := group.Analyzers[analyzerIndex]
+		added, err := catalog.addAnalyzer(group.ID, &spec)
+		if err != nil {
 			return err
 		}
+		if added {
+			listed = append(listed, spec)
+		}
 	}
+	group.Analyzers = listed
 	return nil
 }
 
-func (catalog *Catalog) addAnalyzer(groupID GroupID, spec *AnalyzerSpec) error {
+// addAnalyzer registers spec unless every one of its checks is delisted, and
+// reports whether the analyzer remains in the catalog.
+func (catalog *Catalog) addAnalyzer(groupID GroupID, spec *AnalyzerSpec) (bool, error) {
 	spec.Group = groupID
 	if spec.Analyzer == nil || spec.Analyzer.Name == "" {
-		return fmt.Errorf("catalog group %q contains an analyzer without an identity", groupID)
+		return false, fmt.Errorf("catalog group %q contains an analyzer without an identity", groupID)
 	}
 	id := AnalyzerID(spec.Analyzer.Name)
 	if _, exists := catalog.byAnalyzer[id]; exists {
-		return fmt.Errorf("analyzer %q is declared more than once", id)
+		return false, fmt.Errorf("analyzer %q is declared more than once", id)
 	}
 	if len(spec.Checks) == 0 {
-		return fmt.Errorf("analyzer %q declares no checks", id)
+		return false, fmt.Errorf("analyzer %q declares no checks", id)
 	}
+	listed := make([]CheckInfo, 0, len(spec.Checks))
+	var withdrawn []check.ID
 	for checkIndex := range spec.Checks {
-		if err := catalog.addCheck(id, &spec.Checks[checkIndex]); err != nil {
-			return err
+		if spec.Checks[checkIndex].Delisted {
+			withdrawn = append(withdrawn, spec.Checks[checkIndex].ID)
+			continue
 		}
+		if err := catalog.addCheck(id, &spec.Checks[checkIndex]); err != nil {
+			return false, err
+		}
+		listed = append(listed, spec.Checks[checkIndex])
 	}
+	if len(listed) == 0 {
+		catalog.withdrawn[id] = true
+		return false, nil
+	}
+	spec.Checks = listed
+	spec.Withdrawn = withdrawn
 	catalog.byAnalyzer[id] = cloneAnalyzerSpec(*spec)
-	return nil
+	return true, nil
 }
 
 func (catalog *Catalog) addCheck(analyzerID AnalyzerID, info *CheckInfo) error {
@@ -225,6 +279,17 @@ func validCheckKind(kind CheckKind) bool {
 }
 
 func (catalog *Catalog) validateExecutionOrder() error {
+	// A fully delisted analyzer stays in the declared order so withdrawing one
+	// does not require editing the order, and is dropped here. An identity that
+	// was never declared at all is still an error: silently ignoring it would
+	// turn a typo into a missing analyzer.
+	ordered := make([]AnalyzerID, 0, len(catalog.executionOrder))
+	for _, id := range catalog.executionOrder {
+		if !catalog.withdrawn[id] {
+			ordered = append(ordered, id)
+		}
+	}
+	catalog.executionOrder = ordered
 	seenOrder := make(map[AnalyzerID]bool)
 	for _, id := range catalog.executionOrder {
 		if _, exists := catalog.byAnalyzer[id]; !exists {
@@ -282,5 +347,6 @@ func cloneAnalyzerSpec(spec AnalyzerSpec) AnalyzerSpec {
 	checks := make([]CheckInfo, len(spec.Checks))
 	copy(checks, spec.Checks)
 	spec.Checks = checks
+	spec.Withdrawn = slices.Clone(spec.Withdrawn)
 	return spec
 }

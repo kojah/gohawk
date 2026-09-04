@@ -27,10 +27,10 @@ func TestCLIIntegration(t *testing.T) {
 			}
 		}
 		if strings.Contains(output, "persisted or wire struct literal") {
-			t.Fatalf("default run included opt-in wirepolicy:\n%s", output)
+			t.Fatalf("default run included opt-in determinism:\n%s", output)
 		}
 
-		output, exitCode = runCommand(t, module, binary, "-json", "-enable=wirepolicy", "./...")
+		output, exitCode = runCommand(t, module, binary, "-json", "-enable=determinism", "./...")
 		if exitCode != 0 {
 			t.Fatalf("selected JSON run: exit code = %d, want 0\n%s", exitCode, output)
 		}
@@ -40,13 +40,13 @@ func TestCLIIntegration(t *testing.T) {
 		}
 		count := 0
 		for _, analyzers := range diagnostics {
-			count += len(analyzers["wirepolicy"])
+			count += len(analyzers["determinism"])
 			if len(analyzers["oncepolicy"]) != 0 {
 				t.Fatalf("selected analyzer unexpectedly ran defaults:\n%s", output)
 			}
 		}
 		if count != 1 {
-			t.Fatalf("wirepolicy JSON diagnostic count = %d, want 1\n%s", count, output)
+			t.Fatalf("determinism JSON diagnostic count = %d, want 1\n%s", count, output)
 		}
 
 		// Analyzer flags must reach the go analysis driver so its action cache
@@ -62,10 +62,10 @@ func TestCLIIntegration(t *testing.T) {
 		var oncePolicy, wirePolicy int
 		for _, analyzers := range diagnostics {
 			oncePolicy += len(analyzers["oncepolicy"])
-			wirePolicy += len(analyzers["wirepolicy"])
+			wirePolicy += len(analyzers["determinism"])
 		}
 		if oncePolicy == 0 || wirePolicy == 0 {
-			t.Fatalf("enable-all JSON diagnostics omit oncepolicy or wirepolicy:\n%s", output)
+			t.Fatalf("enable-all JSON diagnostics omit oncepolicy or determinism:\n%s", output)
 		}
 	})
 
@@ -152,13 +152,13 @@ func answer() int { return identity{}.value(42) }
 	t.Run("target Go version", func(t *testing.T) {
 		t.Parallel()
 		legacyModule := writeContextTestModule(t, "1.23.0")
-		output, exitCode := runCommand(t, legacyModule, binary, "-enable-checks=testlifecycle/context-root", "./...")
+		output, exitCode := runCommand(t, legacyModule, binary, "-enable-checks=channelcapacity/rationale", "./...")
 		if exitCode != 0 || output != "" {
 			t.Fatalf("Go 1.23 module: exit code = %d, output = %q", exitCode, output)
 		}
 
 		modernModule := writeContextTestModule(t, "1.24.0")
-		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=testlifecycle/context-root", "./...")
+		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=channelcapacity/rationale", "./...")
 		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 module: exit code = %d\n%s", exitCode, output)
 		}
@@ -176,7 +176,7 @@ func answer() int { return identity{}.value(42) }
 	t.Run("check filtering", func(t *testing.T) {
 		t.Parallel()
 		module := writeCheckFilterModule(t)
-		output, exitCode := runCommand(t, module, binary, "-enable=contextpolicy", "-disable-checks=contextpolicy/context-first", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable=lockorder", "-disable-checks=lockorder/missing-release", "./...")
 		if exitCode != 3 || strings.Contains(output, "context.Context must be first parameter") ||
 			!strings.Contains(output, "do not pass nil context.Context") {
 			t.Fatalf("filtered checks: exit code = %d\n%s", exitCode, output)
@@ -186,57 +186,9 @@ func answer() int { return identity{}.value(42) }
 	t.Run("invalid analyzer option", func(t *testing.T) {
 		t.Parallel()
 		module := writeTestModule(t)
-		output, exitCode := runCommand(t, module, binary, "-enable=taintpolicy", "-taintpolicy.sinks=database", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable=borrowedstorage", "-borrowedstorage.sinks=database", "./...")
 		if exitCode != 2 || !strings.Contains(output, `unknown value "database"`) {
 			t.Fatalf("invalid option: exit code = %d, want 2\n%s", exitCode, output)
-		}
-	})
-
-	t.Run("wire suggested fix", func(t *testing.T) {
-		t.Parallel()
-		module := writeTestModule(t)
-
-		output, exitCode := runCommand(t, module, binary, "-enable=wirepolicy", "-fix", "-diff", "./...")
-		if exitCode != 0 || !strings.Contains(output, `EventRow{ID: "42", Kind: "created"}`) {
-			t.Fatalf("preview fix: exit code = %d\n%s", exitCode, output)
-		}
-		assertFixtureContains(t, module, `EventRow{"42", "created"}`)
-
-		output, exitCode = runCommand(t, module, binary, "-enable=wirepolicy", "-fix", "./...")
-		if exitCode != 0 {
-			t.Fatalf("apply fix: exit code = %d\n%s", exitCode, output)
-		}
-		assertFixtureContains(t, module, `EventRow{ID: "42", Kind: "created"}`)
-		output, exitCode = runCommand(t, module, "go", "test", "./...")
-		if exitCode != 0 {
-			t.Fatalf("test fixed module: exit code = %d\n%s", exitCode, output)
-		}
-	})
-
-	t.Run("test helper suggested fixes", func(t *testing.T) {
-		t.Parallel()
-		module := writeTestPolicyFixModule(t)
-		const relativePath = "sample/helper_test.go"
-
-		output, exitCode := runCommand(t, module, binary, "-enable=testpolicy", "-fix", "-diff", "./...")
-		if exitCode != 0 || strings.Count(output, "t.Helper()") != 1 {
-			t.Fatalf("preview exit code = %d, want one helper insertion\n%s", exitCode, output)
-		}
-		if contents := moduleFileContents(t, module, relativePath); strings.Contains(contents, "t.Helper()") {
-			t.Fatalf("preview modified fixture:\n%s", contents)
-		}
-
-		output, exitCode = runCommand(t, module, binary, "-enable=testpolicy", "-fix", "./...")
-		if exitCode != 0 {
-			t.Fatalf("apply fix: exit code = %d\n%s", exitCode, output)
-		}
-		contents := moduleFileContents(t, module, relativePath)
-		if strings.Count(contents, "t.Helper()") != 1 || !strings.Contains(contents, "// Keep this setup comment.") {
-			t.Fatalf("fixed fixture does not contain the helper and existing comment:\n%s", contents)
-		}
-		output, exitCode = runCommand(t, module, "go", "test", "./...")
-		if exitCode != 0 {
-			t.Fatalf("test fixed module: exit code = %d\n%s", exitCode, output)
 		}
 	})
 

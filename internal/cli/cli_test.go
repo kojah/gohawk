@@ -23,20 +23,20 @@ func TestPrintAnalyzerList(t *testing.T) {
 	}{
 		{
 			name:     "all",
-			contains: []string{"ANALYZER", "TIER", "GROUP", "apishape", "extended", "oncepolicy", "core", "contracts", "reliability", "core runs by default"},
+			contains: []string{"ANALYZER", "TIER", "GROUP", "determinism", "extended", "oncepolicy", "core", "reliability", "reliability", "core runs by default"},
 			excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts", "*"},
 		},
 		{
 			name:      "defaults",
 			arguments: []string{"-defaults"},
 			contains:  []string{"oncepolicy", "core"},
-			excludes:  []string{"wirepolicy", "apishape", "determinism", "taintpolicy"},
+			excludes:  []string{"determinism", "borrowedstorage"},
 		},
 		{
 			name:      "opt-in",
 			arguments: []string{"-opt-in"},
-			contains:  []string{"wirepolicy", "determinism", "extended", "taintpolicy", "experimental"},
-			excludes:  []string{"oncepolicy", "contextpolicy"},
+			contains:  []string{"determinism", "extended", "borrowedstorage", "experimental"},
+			excludes:  []string{"oncepolicy", "lockorder"},
 		},
 		{
 			name:      "checks",
@@ -46,9 +46,7 @@ func TestPrintAnalyzerList(t *testing.T) {
 				"KIND",
 				"TIER",
 				"GROUP",
-				"contextpolicy/context-first",
 				"policy",
-				"testlifecycle/context-root",
 				"hazard",
 				"extended",
 				"oncepolicy/discarded-wrapper",
@@ -56,21 +54,21 @@ func TestPrintAnalyzerList(t *testing.T) {
 				"core",
 				"goroutineownership/detached",
 				"experimental",
-				"contracts",
+				"reliability",
 			},
 			excludes: []string{"ANALYZER", "PROFILE", "TAGS", "CATEGORY", "*"},
 		},
 		{
 			name:      "default checks",
 			arguments: []string{"-checks", "-defaults"},
-			contains:  []string{"contextpolicy/context-first"},
-			excludes:  []string{"testlifecycle/context-root", "apishape/parameter-count", "goroutineownership/detached"},
+			contains:  []string{"lockorder/missing-release"},
+			excludes:  []string{"goroutineownership/detached"},
 		},
 		{
 			name:      "opt-in checks",
 			arguments: []string{"-checks", "-opt-in"},
-			contains:  []string{"testlifecycle/context-root", "apishape/parameter-count", "goroutineownership/detached"},
-			excludes:  []string{"contextpolicy/context-first"},
+			contains:  []string{"goroutineownership/detached"},
+			excludes:  []string{"lockorder/missing-release"},
 		},
 		{name: "conflicting filters", arguments: []string{"-defaults", "-opt-in"}, wantError: true},
 		{name: "unexpected argument", arguments: []string{"extra"}, wantError: true},
@@ -119,11 +117,11 @@ func TestRunCLIImmediateCommands(t *testing.T) {
 		{name: "version", arguments: []string{"gohawk", "-V"}, outputContains: "gohawk "},
 		{name: "list", arguments: []string{"gohawk", "list", "-defaults"}, outputContains: "oncepolicy"},
 		{name: "list error", arguments: []string{"gohawk", "list", "extra"}, wantCode: 2, errorContains: "unexpected argument"},
-		{name: "documentation", arguments: []string{"gohawk", "doc", "contextpolicy/nil-context"}, outputContains: "Reports definitely nil"},
+		{name: "documentation", arguments: []string{"gohawk", "doc", "lockorder/missing-release"}, outputContains: "Reports definitely nil"},
 		{name: "documentation error", arguments: []string{"gohawk", "doc", "unknown"}, wantCode: 2, errorContains: "unknown analyzer or check"},
 		{name: "help", arguments: []string{"gohawk", "help"}, errorContains: "Analyzer selection:"},
 		{name: "invalid check", arguments: []string{"gohawk", "-disable-checks=unknown/check", "./..."}, wantCode: 2, errorContains: "unknown check"},
-		{name: "legacy selection", arguments: []string{"gohawk", "-wirepolicy=false", "./..."}, wantCode: 2, errorContains: "use -disable=wirepolicy"},
+		{name: "legacy selection", arguments: []string{"gohawk", "-determinism=false", "./..."}, wantCode: 2, errorContains: "use -disable=determinism"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -169,20 +167,20 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 	t.Run("delegated run forwards selection verbatim", func(t *testing.T) {
 		var output, errorsOutput bytes.Buffer
 		runtime := testCLIRuntime(t, &output, &errorsOutput)
-		result := runCLI([]string{"gohawk", "-disable-checks=contextpolicy/context-first", "./..."}, runtime)
+		result := runCLI([]string{"gohawk", "-disable-checks=lockorder/missing-release", "./..."}, runtime)
 		invocation := result.invocation
 		if invocation == nil || !invocation.delegate || invocation.render != renderRich {
 			t.Fatalf("result = %#v", result)
 		}
 		joined := strings.Join(invocation.arguments, " ")
-		for _, want := range []string{"-disable-checks=contextpolicy/context-first", "./..."} {
+		for _, want := range []string{"-disable-checks=lockorder/missing-release", "./..."} {
 			if !strings.Contains(joined, want) {
 				t.Errorf("forwarded arguments do not contain %q: %s", want, joined)
 			}
 		}
 		// The vet-tool children resolve selection; the parent must not expand it
 		// into per-analyzer flags go vet would not recognize.
-		if strings.Contains(joined, "-contextpolicy=true") {
+		if strings.Contains(joined, "-lockorder=true") {
 			t.Errorf("forwarded arguments must not resolve selection: %s", joined)
 		}
 	})
@@ -202,7 +200,7 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 		// Selection is resolved into per-analyzer flags for the unit driver,
 		// which is how go vet forwards it to this same handshake: the other
 		// analyzers are enabled and the disabled one is left out.
-		if !strings.Contains(joined, "-contextpolicy=true") || strings.Contains(joined, "-oncepolicy=true") {
+		if !strings.Contains(joined, "-lockorder=true") || strings.Contains(joined, "-oncepolicy=true") {
 			t.Errorf("handshake did not disable oncepolicy for the unit driver: %v", invocation.arguments)
 		}
 	})
@@ -218,7 +216,7 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 			t.Errorf("environment = %v", environment)
 		}
 		return processOutput{stdout: []byte(`[
-			{"Name":"wirepolicy","Bool":true,"Usage":"legacy selector"},
+			{"Name":"determinism","Bool":true,"Usage":"legacy selector"},
 			{"Name":"enable","Bool":false,"Usage":"enable analyzers"}
 		]`)}, nil
 	}
@@ -226,7 +224,7 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 	if code := printFilteredFlagsUsing([]string{"gohawk", "-flags"}, analyzers, &output, &errorsOutput, execute); code != 0 {
 		t.Fatalf("exit code = %d\n%s", code, errorsOutput.String())
 	}
-	if strings.Contains(output.String(), `"Name": "wirepolicy"`) || !strings.Contains(output.String(), `"Name": "enable"`) {
+	if strings.Contains(output.String(), `"Name": "determinism"`) || !strings.Contains(output.String(), `"Name": "enable"`) {
 		t.Fatalf("filtered output:\n%s", output.String())
 	}
 
@@ -371,25 +369,25 @@ func TestPrintDocumentation(t *testing.T) {
 	}{
 		{
 			name:      "analyzer",
-			arguments: []string{"contextpolicy"},
+			arguments: []string{"lockorder"},
 			contains: []string{
-				"contextpolicy", "Group: contracts (API and data contracts)",
-				"Suggested fixes: no", "contextpolicy/context-first",
-				"https://gohawk.dev/analyzers/api-and-data-contracts/contextpolicy/",
+				"lockorder", "Group: contracts (API and data contracts)",
+				"Suggested fixes: no", "lockorder/missing-release",
+				"https://gohawk.dev/analyzers/api-and-data-contracts/lockorder/",
 			},
-			excludes: []string{"testlifecycle/context-root", "prefer-test-context"},
+			excludes: []string{"channelcapacity/rationale", "prefer-test-context"},
 		},
 		{
 			name:      "check",
-			arguments: []string{"contextpolicy/nil-context"},
+			arguments: []string{"lockorder/missing-release"},
 			contains: []string{
-				"contextpolicy/nil-context", "Reports definitely nil context.Context arguments.",
-				"Analyzer: contextpolicy", "Kind: defect", "Group: contracts",
+				"lockorder/missing-release", "Reports definitely nil context.Context arguments.",
+				"Analyzer: lockorder", "Kind: defect", "Group: contracts",
 			},
 			excludes: []string{"Profile:", "Tags:", "Opt-in:", "\nChecks:", "\nOptions:"},
 		},
 		{name: "missing target", wantError: true},
-		{name: "extra target", arguments: []string{"contextpolicy", "wirepolicy"}, wantError: true},
+		{name: "extra target", arguments: []string{"lockorder", "determinism"}, wantError: true},
 		{name: "unknown target", arguments: []string{"unknown"}, wantError: true},
 	}
 	for _, test := range tests {

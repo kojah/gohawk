@@ -44,7 +44,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 
 	t.Run("disabled check", func(t *testing.T) {
 		checkModule := writeCheckFilterModule(t)
-		output, exitCode := runCommand(t, checkModule, binary, "-enable=contextpolicy", "-disable-checks=contextpolicy/context-first", "./...")
+		output, exitCode := runCommand(t, checkModule, binary, "-enable=lockorder", "-disable-checks=lockorder/context-first", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
@@ -61,8 +61,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			"go",
 			"vet",
 			"-vettool="+binary,
-			"-enable=contextpolicy",
-			"-disable-checks=contextpolicy/context-first",
+			"-enable=lockorder",
+			"-disable-checks=lockorder/context-first",
 			"./...",
 		)
 		if exitCode != 1 || strings.Contains(output, "context.Context must be first parameter") ||
@@ -71,8 +71,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		}
 
 		output, exitCode = runCommand(t, checkModule, binary,
-			"-enable=contextpolicy",
-			"-disable-checks=contextpolicy/context-first,contextpolicy/context-storage,contextpolicy/nil-context",
+			"-enable=lockorder",
+			"-disable-checks=lockorder/context-first,lockorder/context-storage,lockorder/missing-release",
 			"./...",
 		)
 		if exitCode != 0 || output != "" {
@@ -82,7 +82,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 
 	t.Run("enabled check", func(t *testing.T) {
 		checkModule := writeCheckFilterModule(t)
-		output, exitCode := runCommand(t, checkModule, binary, "-enable-checks=contextpolicy/nil-context", "./...")
+		output, exitCode := runCommand(t, checkModule, binary, "-enable-checks=lockorder/missing-release", "./...")
 		if exitCode != 3 || !strings.Contains(output, "do not pass nil context.Context") {
 			t.Fatalf("exact check: exit code = %d\n%s", exitCode, output)
 		}
@@ -90,14 +90,14 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("exact check ran default sibling:\n%s", output)
 		}
 
-		output, exitCode = runCommand(t, checkModule, "go", "vet", "-vettool="+binary, "-enable-checks=contextpolicy/nil-context", "./...")
+		output, exitCode = runCommand(t, checkModule, "go", "vet", "-vettool="+binary, "-enable-checks=lockorder/missing-release", "./...")
 		if exitCode != 1 || !strings.Contains(output, "do not pass nil context.Context") ||
 			strings.Contains(output, "context.Context must be first parameter") {
 			t.Fatalf("vettool exact check: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, checkModule, binary,
-			"-enable=contextpolicy", "-enable-checks=testlifecycle/context-root", "./...",
+			"-enable=lockorder", "-enable-checks=testlifecycle/context-root", "./...",
 		)
 		if exitCode != 3 || !strings.Contains(output, "context.Context must be first parameter") ||
 			!strings.Contains(output, "do not pass nil context.Context") {
@@ -106,8 +106,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 	})
 
 	t.Run("invalid disabled check", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-disable-checks=contextpolicy/not-a-check", "./...")
-		if exitCode != 2 || !strings.Contains(output, `unknown check "contextpolicy/not-a-check"`) {
+		output, exitCode := runCommand(t, module, binary, "-disable-checks=lockorder/not-a-check", "./...")
+		if exitCode != 2 || !strings.Contains(output, `unknown check "lockorder/not-a-check"`) {
 			t.Fatalf("exit code = %d, want 2 with check error\n%s", exitCode, output)
 		}
 	})
@@ -139,7 +139,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 				t.Fatalf("-flags output does not contain %q:\n%s", name, output)
 			}
 		}
-		for _, name := range []string{"wirepolicy", "oncepolicy", "contextpolicy"} {
+		for _, name := range []string{"wirepolicy", "oncepolicy", "lockorder"} {
 			if strings.Contains(output, `"Name": "`+name+`"`) {
 				t.Fatalf("-flags output still advertises analyzer Boolean %q:\n%s", name, output)
 			}

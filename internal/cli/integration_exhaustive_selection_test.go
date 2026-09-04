@@ -32,12 +32,12 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
 		for _, summary := range []string{
-			"contracts (API and data contracts): apishape*, contextpolicy, closedomain*, wirepolicy*",
+			"contracts (API and data contracts): globalstate*, lockorder, closedomain*, determinism*",
 			"ownership (ownership and lifecycle): borrowedstorage*, cancellationownership, channelcapacity*, channelownership*, channelsafety, deferinloop, " +
 				"exitpolicy, goroutineownership, producerlifecycle, processownership, resourcelifetime",
 			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership*, errorclassification, " +
-				"inlineerror, evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, taintpolicy*",
-			"testing (testing): testlifecycle*, testpolicy*",
+				"inlineerror, evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, borrowedstorage*",
+			"testing (testing): channelcapacity*, channelownership*",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
@@ -50,39 +50,39 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"apishape", "extended", "core runs by default", "oncepolicy"} {
+		for _, value := range []string{"globalstate", "extended", "core runs by default", "oncepolicy"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("list output does not contain %q:\n%s", value, output)
 			}
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-defaults")
-		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || strings.Contains(output, "wirepolicy") {
+		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || strings.Contains(output, "determinism") {
 			t.Fatalf("default list: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-opt-in")
-		if exitCode != 0 || !strings.Contains(output, "wirepolicy") || strings.Contains(output, "oncepolicy") {
+		if exitCode != 0 || !strings.Contains(output, "determinism") || strings.Contains(output, "oncepolicy") {
 			t.Fatalf("opt-in list: exit code = %d\n%s", exitCode, output)
 		}
 	})
 
 	t.Run("analyzer and check documentation", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "doc", "contextpolicy")
+		output, exitCode := runCommand(t, module, binary, "doc", "lockorder")
 		if exitCode != 0 {
 			t.Fatalf("analyzer documentation: exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"contextpolicy/nil-context"} {
+		for _, value := range []string{"lockorder/missing-release"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("analyzer documentation does not contain %q:\n%s", value, output)
 			}
 		}
 
-		output, exitCode = runCommand(t, module, binary, "doc", "contextpolicy/nil-context")
+		output, exitCode = runCommand(t, module, binary, "doc", "lockorder/missing-release")
 		if exitCode != 0 {
 			t.Fatalf("check documentation: exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"Reports definitely nil context.Context arguments.", "Analyzer: contextpolicy"} {
+		for _, value := range []string{"Reports definitely nil context.Context arguments.", "Analyzer: lockorder"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("check documentation does not contain %q:\n%s", value, output)
 			}
@@ -143,12 +143,12 @@ func answer() int { return identity{}.value(42) }
 	})
 
 	t.Run("selected analyzer", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable=wirepolicy", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable=determinism", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
-			t.Fatalf("output does not contain wirepolicy diagnostic:\n%s", output)
+			t.Fatalf("output does not contain determinism diagnostic:\n%s", output)
 		}
 		if strings.Contains(output, "mutable package state") {
 			t.Fatalf("selected analyzer unexpectedly ran globalstate:\n%s", output)
@@ -156,12 +156,12 @@ func answer() int { return identity{}.value(42) }
 	})
 
 	t.Run("selected analyzer group", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable-groups=contracts", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable-groups=reliability", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
-			t.Fatalf("contracts group did not run opt-in wirepolicy:\n%s", output)
+			t.Fatalf("contracts group did not run opt-in determinism:\n%s", output)
 		}
 		for _, diagnostic := range []string{"sync.OnceFunc wrapper is discarded", "mutable package state"} {
 			if strings.Contains(output, diagnostic) {
@@ -176,7 +176,7 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
-			t.Fatalf("enable-all minus reliability did not run wirepolicy:\n%s", output)
+			t.Fatalf("enable-all minus reliability did not run determinism:\n%s", output)
 		}
 		for _, diagnostic := range []string{"sync.OnceFunc wrapper is discarded", "mutable package state"} {
 			if strings.Contains(output, diagnostic) {
@@ -225,18 +225,18 @@ func answer() int { return identity{}.value(42) }
 
 	t.Run("target Go version", func(t *testing.T) {
 		legacyModule := writeContextTestModule(t, "1.23.0")
-		output, exitCode := runCommand(t, legacyModule, binary, "-enable=contextpolicy", "./...")
+		output, exitCode := runCommand(t, legacyModule, binary, "-enable=lockorder", "./...")
 		if exitCode != 0 || output != "" {
 			t.Fatalf("Go 1.23 module: exit code = %d, output = %q", exitCode, output)
 		}
 
 		modernModule := writeContextTestModule(t, "1.24.0")
-		output, exitCode = runCommand(t, modernModule, binary, "-enable=contextpolicy", "./...")
+		output, exitCode = runCommand(t, modernModule, binary, "-enable=lockorder", "./...")
 		if exitCode != 0 || output != "" {
 			t.Fatalf("Go 1.24 default checks: exit code = %d, output = %q", exitCode, output)
 		}
 
-		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=testlifecycle/context-root", "./...")
+		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=channelcapacity/rationale", "./...")
 		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 opt-in check: exit code = %d\n%s", exitCode, output)
 		}

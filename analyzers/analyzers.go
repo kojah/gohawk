@@ -125,7 +125,7 @@ func AnalyzerGroups() []AnalyzerGroup {
 const testingGroup = "testing"
 
 func withSuppressions(group catalog.GroupID, spec catalog.AnalyzerSpec) *analysis.Analyzer {
-	return withCheckFilter(spec.Analyzer, spec.Checks, nil, group == testingGroup)
+	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, nil, group == testingGroup)
 }
 
 func withDefaultSuppressions(group catalog.GroupID, spec catalog.AnalyzerSpec) *analysis.Analyzer {
@@ -135,19 +135,38 @@ func withDefaultSuppressions(group catalog.GroupID, spec catalog.AnalyzerSpec) *
 			disabled[string(declaredCheck.ID)] = true
 		}
 	}
-	return withCheckFilter(spec.Analyzer, spec.Checks, disabled, group == testingGroup)
+	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, disabled, group == testingGroup)
 }
 
-func withCheckFilter(analyzer *analysis.Analyzer, declared []catalog.CheckInfo, disabled map[string]bool, targetsTests bool) *analysis.Analyzer {
+func withCheckFilter(
+	analyzer *analysis.Analyzer,
+	declared []catalog.CheckInfo,
+	withdrawn []check.ID,
+	disabled map[string]bool,
+	targetsTests bool,
+) *analysis.Analyzer {
 	checks := make(map[string]bool, len(declared))
 	for _, declaredCheck := range declared {
 		checks[string(declaredCheck.ID)] = true
+	}
+	// A delisted check is still computed by the analyzer that owns it, because
+	// only its catalog entry was withdrawn. Recognising it here keeps it out of
+	// the output without mistaking it for an identity nobody declared.
+	delisted := make(map[string]bool, len(withdrawn))
+	for _, id := range withdrawn {
+		delisted[string(id)] = true
 	}
 	run := analyzer.Run
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		report := pass.Report
 		var reportErr error
 		pass.Report = func(diagnostic analysis.Diagnostic) {
+			if delisted[diagnostic.Category] {
+				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
+					Analyzer: analyzer.Name, Phase: "decision", Reason: "check-delisted", Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
+				})
+				return
+			}
 			if !checks[diagnostic.Category] {
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
 					Analyzer: analyzer.Name, Phase: "decision", Reason: "unknown-check", Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,

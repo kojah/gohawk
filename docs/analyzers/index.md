@@ -14,29 +14,6 @@ catalog. Every check identifies the kind of claim it makes:
 
 Kind is descriptive metadata and does not change whether a check is enabled by default.
 
-## API and data contracts
-
-These analyzers make contracts visible in Go types and APIs, where callers and tools can rely on them.
-
-<div class="analyzer-grid">
-  <a class="analyzer-card" href="api-and-data-contracts/apishape/">
-    <span class="analyzer-name">apishape</span>
-    <span class="analyzer-detects">Checks exported API parameter and receiver shape.</span>
-  </a>
-  <a class="analyzer-card" href="api-and-data-contracts/contextpolicy/">
-    <span class="analyzer-name">contextpolicy</span>
-    <span class="analyzer-detects">Checks context placement, storage, and nil use.</span>
-  </a>
-  <a class="analyzer-card" href="api-and-data-contracts/closedomain/">
-    <span class="analyzer-name">closedomain</span>
-    <span class="analyzer-detects">Finds builtin-string fields used as closed semantic domains.</span>
-  </a>
-  <a class="analyzer-card" href="api-and-data-contracts/wirepolicy/">
-    <span class="analyzer-name">wirepolicy</span>
-    <span class="analyzer-detects">Checks serialized structs and their composite literals.</span>
-  </a>
-</div>
-
 ## Ownership and lifecycle
 
 These analyzers look for work or resources whose owner cannot be identified on every relevant path.
@@ -132,24 +109,5 @@ These analyzers cover failure modes that often survive ordinary type checking an
   <a class="analyzer-card" href="reliability-and-safety/syncmapatomicity/">
     <span class="analyzer-name">syncmapatomicity</span>
     <span class="analyzer-detects">Checks non-atomic sync.Map load-and-delete claims.</span>
-  </a>
-  <a class="analyzer-card" href="reliability-and-safety/taintpolicy/">
-    <span class="analyzer-name">taintpolicy</span>
-    <span class="analyzer-detects">Checks untrusted environment and argument data reaching sensitive sinks.</span>
-  </a>
-</div>
-
-## Testing
-
-These analyzers keep test failures bounded and make helper behavior visible at the call site.
-
-<div class="analyzer-grid">
-  <a class="analyzer-card" href="testing/testlifecycle/">
-    <span class="analyzer-name">testlifecycle</span>
-    <span class="analyzer-detects">Checks that test-owned asynchronous work inherits the test lifecycle.</span>
-  </a>
-  <a class="analyzer-card" href="testing/testpolicy/">
-    <span class="analyzer-name">testpolicy</span>
-    <span class="analyzer-detects">Checks lifecycle ownership in test helpers.</span>
   </a>
 </div>

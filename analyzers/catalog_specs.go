@@ -40,19 +40,19 @@ func contractSpecs() []catalog.AnalyzerSpec {
 			Checks: []catalog.CheckInfo{
 				{
 					ID: check.APIParameterCount, Doc: "Reports unconstrained exported APIs with more than the configured maximum number of parameters.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+					Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 				},
 				{
 					ID: check.APIMixedReceivers, Doc: "Reports types that mix pointer and value receiver methods.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+					Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 				},
 				{
 					ID: check.APIAdjacentSameType, Doc: "Reports long adjacent runs of parameters in unconstrained signatures that share one type.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+					Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 				},
 				{
 					ID: check.APIAdjacentOptional, Doc: "Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+					Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 				},
 			},
 		},
@@ -63,26 +63,26 @@ func contractSpecs() []catalog.AnalyzerSpec {
 					ID: check.ContextFirst,
 					Doc: "Reports misplaced context.Context parameters while allowing additional contexts " +
 						"after a leading context and one context after a testing handle.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierCore,
+					Kind: catalog.KindPolicy, Tier: catalog.TierCore, Delisted: true,
 				},
-				{ID: check.ContextStorage, Doc: "Reports context.Context values stored in structs.", Kind: catalog.KindPolicy, Tier: catalog.TierCore},
-				{ID: check.ContextNilArgument, Doc: "Reports definitely nil context.Context arguments.", Kind: catalog.KindDefect, Tier: catalog.TierCore},
+				{ID: check.ContextStorage, Doc: "Reports context.Context values stored in structs.", Kind: catalog.KindPolicy, Tier: catalog.TierCore, Delisted: true},
+				{ID: check.ContextNilArgument, Doc: "Reports definitely nil context.Context arguments.", Kind: catalog.KindDefect, Tier: catalog.TierCore, Delisted: true},
 			},
 		},
 		{Analyzer: closedomain.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ClosedStringDomain, Doc: "Reports exported string fields used as small closed sets of values.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 		{Analyzer: wirepolicy.Analyzer(), SuggestedFix: true, Checks: []catalog.CheckInfo{
 			{
 				ID: check.WireKeyedLiteral, Doc: "Reports positional composite literals for persisted or wire structs.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 			{
 				ID: check.WireSerializationTag, Doc: "Reports exported wire fields without explicit JSON or TOML tags.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 	}
@@ -258,7 +258,7 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 		{Analyzer: taintpolicy.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.TaintUntrustedSink, Doc: "Reports untrusted input that reaches a configured sensitive sink without validation.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
+				Kind: catalog.KindHazard, Tier: catalog.TierExperimental, Delisted: true,
 			},
 		}},
 	}
@@ -269,14 +269,14 @@ func testingSpecs() []catalog.AnalyzerSpec {
 		{Analyzer: testlifecycle.Analyzer(goroutineownership.GoroutineOwnershipMayBeHandledInTest), Checks: []catalog.CheckInfo{
 			{
 				ID: check.TestLifecycleContext, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
+				Kind: catalog.KindHazard, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 		{
 			Analyzer: testpolicy.Analyzer(), SuggestedFix: true,
 			Checks: []catalog.CheckInfo{{
 				ID: check.TestHelperMarker, Doc: "Reports test helpers that do not call Helper on every return path.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			}},
 		},
 	}

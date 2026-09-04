@@ -12,12 +12,7 @@ import (
 
 func expectedAnalyzerNames() []string {
 	return []string{
-		"apishape",
-		"contextpolicy",
-		"testlifecycle",
 		"globalstate",
-		"wirepolicy",
-		"testpolicy",
 		"goroutineownership",
 		"producerlifecycle",
 		"errorownership",
@@ -27,8 +22,6 @@ func expectedAnalyzerNames() []string {
 		"channelownership",
 		"channelsafety",
 		"processownership",
-		"closedomain",
-		"taintpolicy",
 		"lockorder",
 		"resourcelifetime",
 		"deferinloop",
@@ -112,12 +105,6 @@ func TestAnalyzerGroups(t *testing.T) {
 		analyzers []string
 	}{
 		{
-			name:      "contracts",
-			doc:       "API and data contracts",
-			docPath:   "api-and-data-contracts",
-			analyzers: []string{"apishape", "contextpolicy", "closedomain", "wirepolicy"},
-		},
-		{
 			name:    "ownership",
 			doc:     "ownership and lifecycle",
 			docPath: "ownership-and-lifecycle",
@@ -150,10 +137,8 @@ func TestAnalyzerGroups(t *testing.T) {
 				"lockorder",
 				"oncepolicy",
 				"syncmapatomicity",
-				"taintpolicy",
 			},
 		},
-		{name: "testing", doc: "testing", docPath: "testing", analyzers: []string{"testlifecycle", "testpolicy"}},
 	}
 	groups := AnalyzerGroups()
 	if len(groups) != len(want) {
@@ -196,11 +181,10 @@ func TestAnalyzerMetadata(t *testing.T) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
 	extended := map[string]bool{
-		"apishape": true, "channelcapacity": true, "closedomain": true, "errorownership": true,
+		"channelcapacity": true, "errorownership": true,
 		"determinism": true, "globalstate": true, "channelownership": true,
-		"testlifecycle": true, "testpolicy": true, "wirepolicy": true,
 	}
-	experimental := map[string]bool{"taintpolicy": true, "borrowedstorage": true}
+	experimental := map[string]bool{"borrowedstorage": true}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"goroutineownership/detached":        CheckTierExperimental,
@@ -212,16 +196,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/discarded-trylock":        CheckTierExperimental,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
-		"apishape/parameter-count":           CheckKindPolicy,
-		"apishape/mixed-receivers":           CheckKindPolicy,
-		"apishape/adjacent-same-type":        CheckKindPolicy,
-		"apishape/adjacent-optional-scalars": CheckKindPolicy,
-		"contextpolicy/context-first":        CheckKindPolicy,
-		"contextpolicy/context-storage":      CheckKindPolicy,
-		"contextpolicy/nil-context":          CheckKindDefect,
-		"closedomain/closed-string-domain":   CheckKindPolicy,
-		"wirepolicy/keyed-literal":           CheckKindPolicy,
-		"wirepolicy/serialization-tag":       CheckKindPolicy,
 		"cancellationownership/release":      CheckKindDefect,
 		"borrowedstorage/overlapping-owner":  CheckKindHazard,
 		"channelcapacity/rationale":          CheckKindPolicy,
@@ -251,9 +225,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/discarded-trylock":        CheckKindDefect,
 		"oncepolicy/discarded-wrapper":       CheckKindDefect,
 		"syncmapatomicity/non-atomic-claim":  CheckKindHazard,
-		"taintpolicy/untrusted-sink":         CheckKindHazard,
-		"testlifecycle/context-root":         CheckKindHazard,
-		"testpolicy/helper-marker":           CheckKindPolicy,
 	}
 	for _, name := range expectedAnalyzerNames() {
 		info, ok := metadata[name]
@@ -295,7 +266,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 
 func TestDefaultAnalyzers(t *testing.T) {
 	want := []string{
-		"contextpolicy", "goroutineownership", "producerlifecycle",
+		"goroutineownership", "producerlifecycle",
 		"errorclassification", "inlineerror", "channelsafety",
 		"processownership", "lockorder", "resourcelifetime",
 		"deferinloop", "exitpolicy", "concurrentcapture",
