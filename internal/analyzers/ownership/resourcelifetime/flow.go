@@ -310,8 +310,9 @@ func deferredBeforeAcquisitionMayRelease(
 			Target:      resource,
 			Methods:     methods,
 			Coverage:    ssaflow.CoverageAnywhere,
+			Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
 		}
-		if evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion}).Proven() {
+		if releaseSettled(evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion})) {
 			return true
 		}
 	}

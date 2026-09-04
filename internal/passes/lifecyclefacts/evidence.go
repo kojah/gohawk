@@ -92,6 +92,15 @@ func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) ssaflow.Proof 
 		return local
 	}
 
+	if local.Reason == ssaflow.EvidenceBudgetExhausted {
+		// The local walk was abandoned before it could decide, so an imported
+		// summary that disproves the release would turn a boundary the analysis
+		// gave up on into a decision. Keep the undecided answer; a caller that
+		// must not report on a guess checks for this reason.
+		evidence.emit(request, local)
+		return local
+	}
+
 	if imported, consulted := evidence.importedProof(request); consulted {
 		evidence.emit(request, imported)
 		return imported

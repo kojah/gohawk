@@ -173,8 +173,9 @@ func releasesOrdinaryResource(
 			Target:      resource,
 			Methods:     []string{method},
 			Coverage:    deferredReleaseCoverage(instruction),
+			Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
 		}
-		if evidence.Prove(lifecyclefacts.EvidenceRequest{
+		if releaseSettled(evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Completion:  &completion,
@@ -188,7 +189,7 @@ func releasesOrdinaryResource(
 			// https://github.com/hyperledger-labs/fabric-smart-client/blob/cb202fc2768b3e72b0197bbaf401b9c2287098e8/platform/view/services/storage/driver/sql/common/binding.go#L71-L75
 			StrictImportedProjection: true,
 			SelectMask:               releaseMask(instruction, resource, method),
-		}).Proven() {
+		})) {
 			return true
 		}
 	}
@@ -203,6 +204,25 @@ func releasesOrdinaryResource(
 // under a condition, leaves the obligation open. gvproxy registers its log
 // file's close with logrus's exit handlers:
 // https://github.com/containers/gvisor-tap-vsock/blob/d3d4f055ddc59879003e6d9f89912d575b111e66/cmd/gvproxy/config.go#L171-L180
+// releaseSearchBudget bounds one "does this callee release the resource?"
+// question by the instructions it may examine. Mutually recursive helpers make
+// the number of routes through a call graph explode, and an answer the cycle
+// guard cuts short cannot be memoized, so an unbounded search re-walks the
+// graph once per route. Twenty-two mutually recursive functions with four calls
+// each, and one resource held across a single call into them, took over thirty
+// seconds before this bound.
+const releaseSearchBudget = 250_000
+
+// releaseSettled reports whether the analyzer may treat the resource as
+// released here: the evidence proved a release, or the search was abandoned
+// before it could decide. A leak diagnostic claims the resource is provably
+// never released, so an undecided release has to suppress. Leaving the
+// obligation open would let a walk the analyzer gave up on produce a
+// defect-tier report.
+func releaseSettled(proof ssaflow.Proof) bool {
+	return proof.Proven() || proof.Reason == ssaflow.EvidenceBudgetExhausted
+}
+
 func registersCleanupCallback(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil || common.StaticCallee() != nil && len(common.StaticCallee().Blocks) > 0 {
