@@ -10,6 +10,16 @@ import (
 //
 // The claim is about the object, not about which field the lock guards, so a
 // struct with more than one guard domain is left alone rather than guessed at.
+//
+// Known gap: only a write in this frame is judged. A helper called under the
+// read lock that mutates the object races exactly as an inline write does, but
+// following the owner into a callee was tried and reverted: the relation that
+// carried the owner across the call boundary crossed a load, so a value read
+// OUT of the owner counted as the owner itself. That reported a sort of a
+// local copy, a refcount guarded by the callee's own mutex, and a per-counter
+// field a single reporter goroutine owns. The exclusion at the top of
+// readlock.go is the rule that was violated, and any future attempt has to
+// keep it.
 
 type readEntry struct{ n int }
 
@@ -204,44 +214,4 @@ func (c *builtinCache) dropLocked(k string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.items, k)
-}
-
-// A helper called under a read lock races exactly as an inline write does, and
-// the caller cannot see that from its own frame.
-type helperCache struct {
-	mu    sync.RWMutex
-	items map[string]int
-}
-
-// record writes the object and takes no lock of its own.
-func (c *helperCache) record(k string) { c.items[k] = 0 }
-
-func (c *helperCache) touchThroughHelper(k string) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	c.record(k) // want "write while only the read lock \\(\\*lockorder.helperCache\\).touchThroughHelper.c.mu is held"
-}
-
-// setLocked takes the write lock itself. Calling it while the read lock is
-// held is a recursive acquisition, which is reported by its own check, so this
-// one stops rather than naming the same line twice.
-func (c *helperCache) setLocked(k string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.items[k] = 1
-}
-
-func (c *helperCache) callLockingHelper(k string) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	c.setLocked(k)
-}
-
-// peek only reads, which is what a read lock is for.
-func (c *helperCache) peek(k string) int { return c.items[k] }
-
-func (c *helperCache) readThroughHelper(k string) int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.peek(k)
 }
