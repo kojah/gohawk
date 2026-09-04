@@ -421,3 +421,67 @@ func Elsewhere(source io.Reader) *reader {
 		}
 	}
 }
+
+// A constructor whose result cannot release the parameter leaves the caller
+// holding the obligation, and the result does not have to be a struct to say
+// so. zap's AddSync returns its argument as a WriteSyncer, which has Write and
+// Sync but no Close, and a file handed to it was credited as transferred until
+// the view narrowing learned to answer for a non-struct result.
+func TestLifecycleSummaryInterfaceResultIsAView(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+import "io"
+
+type Syncer interface {
+	io.Writer
+	Sync() error
+}
+
+type wrapper struct{ w io.Writer }
+
+func (wrapper) Sync() error { return nil }
+
+func (o wrapper) Write(p []byte) (int, error) { return o.w.Write(p) }
+
+// AddSync hands the argument back, wrapped or as itself, through a type that
+// cannot close it.
+func AddSync(w io.Writer) Syncer {
+	if s, ok := w.(Syncer); ok {
+		return s
+	}
+	return wrapper{w}
+}
+
+type closerSyncer interface {
+	Syncer
+	Close() error
+}
+
+type closingWrapper struct{ w io.Writer }
+
+func (closingWrapper) Sync() error  { return nil }
+func (closingWrapper) Close() error { return nil }
+
+func (o closingWrapper) Write(p []byte) (int, error) { return o.w.Write(p) }
+
+// AddClosing returns a type that CAN close, so the obligation genuinely moves.
+func AddClosing(w io.Writer) closerSyncer { return closingWrapper{w} }
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	summaries := Summaries{}
+	for _, name := range []string{"AddSync", "AddClosing"} {
+		function := pkg.Func(name)
+		summaries[function] = summarize(pass, newRetentionCache(), function)
+	}
+	addSync := pkg.Func("AddSync")
+	views := returnedViews(pass, addSync, summaries[addSync], summaries)
+	if !views.contains(0) {
+		t.Errorf("AddSync ReturnedView = %#x, want the parameter narrowed to a view: "+
+			"Syncer cannot close what it was handed", uint64(views))
+	}
+	addClosing := pkg.Func("AddClosing")
+	if got := returnedViews(pass, addClosing, summaries[addClosing], summaries); got.contains(0) {
+		t.Errorf("AddClosing ReturnedView = %#x, want no view: its result can close the parameter", uint64(got))
+	}
+}

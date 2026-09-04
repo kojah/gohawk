@@ -405,13 +405,52 @@ func (evidence *LifecycleEvidence) OwnedResult(call *ssa.Call) ([]string, int, b
 // caller keeps the obligation. A parameter of a type this vocabulary does not
 // know is never a view, because there is no obligation to keep. Method
 // summaries come from this package's own summaries or from imported facts.
+// viewsFromResultsAlone narrows every returned owner to a view when no result
+// of the function can release anything. It is the answer for a result that is
+// not a struct, such as an interface, where there is no field to attribute the
+// obligation to.
+func viewsFromResultsAlone(function *ssa.Function, fact Fact) ParameterMask {
+	results := function.Signature.Results()
+	if results.Len() == 0 {
+		return 0
+	}
+	for result := range results.Variables() {
+		// One result that can release is enough for the obligation to have
+		// somewhere to go, and deciding which one needs the field analysis
+		// this path does not have.
+		if typeCanRelease(result.Type()) {
+			return 0
+		}
+	}
+	var views ParameterMask
+	for index, parameter := range function.Params {
+		if !fact.ReturnedOwner.contains(index) {
+			continue
+		}
+		// A constructor that released the argument itself leaves the caller
+		// nothing to keep, exactly as in the struct case.
+		if parameterMayBeReleased(function, parameter) {
+			continue
+		}
+		views |= parameterMaskFor(index)
+	}
+	return views
+}
+
 func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summaries Summaries) ParameterMask {
 	if fact.ReturnedOwner == 0 {
 		return 0
 	}
 	structure, resultIndex, ok := returnedStruct(function)
 	if !ok {
-		return 0
+		// The result does not have to be a struct to answer this. A struct is
+		// only needed to ask which field holds the parameter and whether some
+		// method releases that field; when no result can release anything at
+		// all, there is nothing to ask and the caller keeps the obligation.
+		// zap's AddSync hands its argument back as a WriteSyncer, which has
+		// Write and Sync but no Close, so a file passed to it stays the
+		// caller's to close.
+		return viewsFromResultsAlone(function, fact)
 	}
 	result := function.Signature.Results().At(resultIndex).Type()
 	var released ParameterMask
