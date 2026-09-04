@@ -135,7 +135,7 @@ func releasesOrdinaryResource(
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
 	if instructionSettlesResourceOwnership(evidence, instruction, resource) ||
-		callTakesResourceOwnership(evidence, instruction, resource) ||
+		callTakesResourceOwnership(evidence, instruction, resource, methods) ||
 		registersCleanupCallback(evidence, instruction, resource, methods) {
 		return true
 	}
@@ -306,7 +306,34 @@ func instructionSettlesResourceOwnership(
 		}).Proven()
 }
 
-func callTakesResourceOwnership(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, resource ssa.Value) bool {
+// functionReleasesResource reports whether the function calls one of the
+// resource's cleanup methods on it anywhere, on any path. It answers who the
+// owner is, not whether the obligation is discharged, which is the flow's
+// question.
+func functionReleasesResource(function *ssa.Function, resource ssa.Value, methods []string) bool {
+	if function == nil {
+		return false
+	}
+	for _, block := range function.Blocks {
+		for _, candidate := range block.Instrs {
+			common := ssaflow.InstructionCall(candidate)
+			if common == nil || !slices.Contains(methods, ssaflow.CallName(common)) {
+				continue
+			}
+			if ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), resource, map[ssa.Value]bool{}) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func callTakesResourceOwnership(
+	evidence *lifecyclefacts.LifecycleEvidence,
+	instruction ssa.Instruction,
+	resource ssa.Value,
+	methods []string,
+) bool {
 	// A summarized callee that returns a view over the resource keeps the
 	// obligation with the caller even when the view's type has a Close of its
 	// own: the summary proves that method releases nothing.
@@ -318,7 +345,16 @@ func callTakesResourceOwnership(evidence *lifecyclefacts.LifecycleEvidence, inst
 	// sink, owns the release from then on. charmbracelet's examples log to a
 	// file this way:
 	// https://github.com/charmbracelet/x/blob/6f6ad8b37b0af7e0765bcf38bac6aafaecb9a7d6/examples/cellbuf/main.go#L120-L126
-	if evidence.ArgumentRetainedByCallee(instruction, resource) {
+	// Keeping the resource is only a handover when this function does not
+	// release it itself. png.Encoder.Encode keeps the writer it is given and
+	// its summary says so, but a function that closes that writer on its
+	// success path is the owner, and the store describes a use rather than a
+	// handover; treating it as one settles the resource at the call and hides
+	// an error return that never closes it. A function that never releases the
+	// resource anywhere, as when installing it as the process-wide logger
+	// sink, has no such claim and the handover stands.
+	if evidence.ArgumentRetainedByCallee(instruction, resource) &&
+		!functionReleasesResource(instruction.Parent(), resource, methods) {
 		return true
 	}
 	transfer := ssaflow.OwnershipTransferRequest{

@@ -3,6 +3,8 @@ package resourcelifetime
 import (
 	"context"
 	"errors"
+	"image"
+	"image/png"
 	"io"
 	"io/fs"
 	"log"
@@ -387,4 +389,22 @@ func fileCopiedThroughHelper(path string) error {
 	}
 	_, err = io.Copy(io.Discard, file)
 	return err
+}
+
+// A callee that keeps the file is not necessarily taking over its release.
+// image/png's Encode stores the writer it is given and its summary says so,
+// but a function that closes that writer itself is the owner, and the store
+// describes a use. Reading it as a handover settles the file at the call and
+// hides an error return that never closes it. shopware-cli writes an icon this
+// way:
+// https://github.com/shopware/shopware-cli/blob/0c4d3e4d95f0b0b70dd4c9c5ff1e88b6bd9dd0f3/internal/extension/icon.go#L52-L65
+func fileEncodedThenClosedOnlyOnSuccess(path string) error {
+	file, err := os.Create(path) // want "owned resource from os.Create is not released on every return path"
+	if err != nil {
+		return err
+	}
+	if err := png.Encode(file, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		return err
+	}
+	return file.Close()
 }
