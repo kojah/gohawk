@@ -21,6 +21,7 @@ the corresponding release policy.
 | <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
 | <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports two locks acquired in opposite orders in different places. |
 | <CheckIdentity name="read-lock-write" tier="experimental" /> | hazard | experimental | Reports writes to an object while only its read lock is held. |
+| <CheckIdentity name="mismatched-release" tier="experimental" /> | defect | experimental | Reports a lock released with the wrong method for how it was acquired. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
@@ -55,6 +56,16 @@ Working out which of several mutexes covers a particular field is not something
 this analyzer attempts, so a write is left alone when another lock on the same
 object is held for writing, when the value being written was loaded out of the
 object and is a separate cell, or when the field is updated atomically.
+
+### Releasing with the wrong method
+
+A `sync.RWMutex` keeps separate reader and writer state, so a lock taken with
+`Lock` must be released with `Unlock`, and one taken with `RLock` with
+`RUnlock`. Mixing them is not untidy but fatal: the runtime reports an unlock
+of an unlocked mutex and stops the process.
+
+The acquisition has to be visible on the same path for the mode to be known, so
+a helper that releases a lock its caller took is left alone.
 
 ## How to fix it
 

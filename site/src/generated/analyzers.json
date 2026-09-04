@@ -504,6 +504,12 @@
               "summary": "Reports writes to an object while only its read lock is held.",
               "kind": "hazard",
               "tier": "experimental"
+            },
+            {
+              "id": "lockorder/mismatched-release",
+              "summary": "Reports a lock released with the wrong method for how it was acquired.",
+              "kind": "defect",
+              "tier": "experimental"
             }
           ],
           "suggestedFix": false,

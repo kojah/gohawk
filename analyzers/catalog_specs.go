@@ -234,6 +234,10 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 				ID: check.LockReadLockWrite, Doc: "Reports writes to an object while only its read lock is held.",
 				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
 			},
+			{
+				ID: check.LockMismatchedRelease, Doc: "Reports a lock released with the wrong method for how it was acquired.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
 		}},
 		{Analyzer: oncepolicy.Analyzer(), Checks: []catalog.CheckInfo{
 			{

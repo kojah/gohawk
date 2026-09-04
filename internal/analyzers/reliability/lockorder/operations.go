@@ -142,6 +142,38 @@ func readModeAcquisition(instruction ssa.Instruction) bool {
 	return common != nil && ssaflow.CallName(common) == "RLock"
 }
 
+// readModeRelease reports whether the instruction releases a lock held for
+// reading.
+func readModeRelease(instruction ssa.Instruction) bool {
+	common := ssaflow.InstructionCall(instruction)
+	return common != nil && ssaflow.CallName(common) == "RUnlock"
+}
+
+// reportMismatchedRelease reports a release whose method does not match the way
+// the lock was acquired. sync.RWMutex keeps separate reader and writer state,
+// so RUnlock on a write-held mutex and Unlock on a read-held one are both
+// fatal at run time rather than merely wrong: the runtime reports an unlock of
+// an unlocked mutex and stops the process.
+//
+// The acquisition has to be visible on this path for the mode to be known. A
+// helper that releases a lock its caller took holds no acquisition here, and
+// the flow already treats that as a borrowed lock rather than an error.
+func reportMismatchedRelease(pass *analysis.Pass, instruction ssa.Instruction, identity string, state lockFlowState) {
+	if !slices.Contains(state.held, identity) {
+		return
+	}
+	acquiredForReading := slices.Contains(state.readHeld, identity)
+	if acquiredForReading == readModeRelease(instruction) {
+		return
+	}
+	acquire, release := "Lock", "RUnlock"
+	if acquiredForReading {
+		acquire, release = "RLock", "Unlock"
+	}
+	check.Reportf(pass, check.LockMismatchedRelease, instruction.Pos(),
+		"lock %s is acquired with %s and released with %s", identity, acquire, release)
+}
+
 func releaseLock(held []string, identity string) []string {
 	for index, candidate := range slices.Backward(held) {
 		if candidate == identity {

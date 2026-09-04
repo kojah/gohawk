@@ -208,6 +208,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"resourcelifetime/use-after-release": CheckTierExperimental,
 		"lockorder/contradictory-order":      CheckTierExtended,
 		"lockorder/read-lock-write":          CheckTierExperimental,
+		"lockorder/mismatched-release":       CheckTierExperimental,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
 		"apishape/parameter-count":           CheckKindPolicy,
@@ -245,6 +246,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/recursive-acquire":        CheckKindDefect,
 		"lockorder/contradictory-order":      CheckKindHazard,
 		"lockorder/read-lock-write":          CheckKindHazard,
+		"lockorder/mismatched-release":       CheckKindDefect,
 		"oncepolicy/discarded-wrapper":       CheckKindDefect,
 		"syncmapatomicity/non-atomic-claim":  CheckKindHazard,
 		"taintpolicy/untrusted-sink":         CheckKindHazard,
