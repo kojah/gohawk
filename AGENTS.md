@@ -14,6 +14,10 @@ gohawk diagnostic is actionable.
 - Give every analyzer change focused regression fixtures for both the
   diagnostic and accepted forms. Minimize patterns found through dogfooding
   rather than copying external repositories into the test suite.
+- A new analyzer or check owes accepted fixtures far more than diagnostic
+  ones. Enumerate the ways the check could be wrong before implementing it,
+  and write an accepted fixture for each; see the fixture organization
+  section.
 - Dogfood changes on representative real-world repositories and investigate
   newly introduced findings before enabling broader coverage.
 - Avoid project-name or function-name exemptions unless they represent a
@@ -298,6 +302,34 @@ ever-growing scenario catalog.
 - Keep accepted and diagnostic forms for one precision boundary close together.
 - A new fixture should make it obvious which proof function owns the behavior
   without requiring a search through hundreds of unrelated scenarios.
+
+### A new check owes accepted fixtures first
+
+One diagnostic fixture proves a check fires. It says nothing about what else it
+fires on, and that is the only question that decides whether the check can be
+trusted. So before implementing a new analyzer or check, write down the ways it
+could be wrong, and give each one an accepted fixture.
+
+Ask what else matches the structure the check keys on:
+
+- the same syntax with a different meaning, such as a second mutex in a struct
+  guarding its own field, or a value that was loaded out of the owner rather
+  than being part of it;
+- the safe idiom that resembles the defect, such as releasing before the write
+  rather than after, or a value that is not shared at all;
+- a neighbouring mechanism that makes the construct sound, such as an atomic
+  update, a channel handoff, or a lock the check does not model;
+- the construct in code that cannot run concurrently, or on a value that never
+  escapes its function.
+
+Write these before the implementation, not after. A class you predict becomes a
+fixture that documents the boundary; a class you discover during dogfooding
+becomes a bug report against a check users have already stopped trusting. Where
+a predicted class turns out to be reported, either narrow the check or record
+the accepted form and the reason it is accepted at the decision point.
+
+Prefer an accepted fixture over a suppression comment, and never satisfy one by
+special-casing a project, package, or function name.
 
 ## Analyzer organization
 
