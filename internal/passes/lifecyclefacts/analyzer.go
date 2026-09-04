@@ -20,7 +20,7 @@ var Analyzer = &analysis.Analyzer{
 	Name:       "gohawklifecyclefacts",
 	Doc:        "exports internal lifecycle ownership summaries",
 	Requires:   []*analysis.Analyzer{buildssa.Analyzer},
-	FactTypes:  []analysis.Fact{new(Fact)},
+	FactTypes:  []analysis.Fact{new(Fact), new(CleanupFact)},
 	ResultType: reflect.TypeFor[Summaries](),
 	Run:        run,
 }
@@ -76,6 +76,9 @@ func run(pass *analysis.Pass) (any, error) {
 		summaries[function] = fact
 		pass.ExportObjectFact(function.Object(), &fact)
 	}
+	// A type's contract needs its constructor and its methods, so it is joined
+	// once both are summarized rather than while either is being proved.
+	exportCleanupContracts(pass, summaries)
 	// Facts belong to this prerequisite analyzer, so import dependency facts
 	// here and expose them through the result consumed by sibling analyzers.
 	for _, function := range functions {

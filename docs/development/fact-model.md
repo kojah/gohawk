@@ -153,6 +153,35 @@ fixed for all time. Only extend the model for a real, reusable pattern whose
 values and paths the analyzer can pin down exactly — a single false positive
 found while dogfooding is not reason enough.
 
+## A contract on a type, not a function
+
+`CleanupFact` is the one fact attached to a named type rather than to a
+function. It exists because only the closing contract can be read from a method
+set: `io.Closer` is documented and carries a signature to check, while a bare
+`Stop`, `Shutdown`, or `Release` on a project type is a guess about what the
+name means.
+
+The release itself is not a guess, and it is visible in the package that
+defines the type — a constructor takes ownership of resource fields, and a
+method releases them. Those are already proved as `OwnedFields` on the
+constructor and `ReleasedFields` on the method, so the contract only joins them
+onto the type:
+
+- `Owned` is what the type's constructors took ownership of.
+- `Released` is what its methods release together.
+- `Methods` names the methods that release anything.
+
+A contract is exported only when `Released` covers `Owned`. A partial release
+is not a contract: reading one as complete would discharge an obligation that
+still stands. A type whose methods could not be summarized claims nothing,
+which is the same answer as a type that releases nothing — absence is not
+disproof here either.
+
+The direction matters. This fact is provable because it flows the way facts
+flow, from the defining package to its importers. A question that needs
+information from a package's *callers*, such as whether a method can run in
+more than one goroutine, cannot be a fact at all.
+
 ## Where facts live
 
 Facts are imported and exported (`analysis.Pass.ImportObjectFact` and
