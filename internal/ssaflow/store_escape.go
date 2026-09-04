@@ -135,12 +135,9 @@ func referenceTransfersValue(reference ssa.Instruction, value ssa.Value, seen ma
 			types.Identical(typed.Type(), value.Type()) && valueTransferred(typed, seen)
 	case *ssa.Store:
 		return storeTransfersValue(typed, seen)
-	case *ssa.ChangeInterface, *ssa.ChangeType, *ssa.Convert, *ssa.Extract, *ssa.MakeInterface, *ssa.Phi:
-		transformed, ok := reference.(ssa.Value)
-		return ok && valueTransferred(transformed, seen)
-	default:
-		return false
 	}
+	forwarded, ok := forwardedValue(reference)
+	return ok && valueTransferred(forwarded, seen)
 }
 
 func storeTransfersValue(store *ssa.Store, seen map[ssa.Value]bool) bool {
@@ -182,35 +179,14 @@ func valueStoredInField(value ssa.Value, seen map[ssa.Value]bool) bool {
 	}
 	seen[value] = true
 	for _, reference := range *value.Referrers() {
-		switch typed := reference.(type) {
-		case *ssa.Store:
-			if _, ok := typed.Addr.(*ssa.FieldAddr); ok {
+		if store, isStore := reference.(*ssa.Store); isStore {
+			if _, isField := store.Addr.(*ssa.FieldAddr); isField {
 				return true
 			}
-		case *ssa.ChangeInterface:
-			if valueStoredInField(typed, seen) {
-				return true
-			}
-		case *ssa.ChangeType:
-			if valueStoredInField(typed, seen) {
-				return true
-			}
-		case *ssa.Convert:
-			if valueStoredInField(typed, seen) {
-				return true
-			}
-		case *ssa.Extract:
-			if valueStoredInField(typed, seen) {
-				return true
-			}
-		case *ssa.MakeInterface:
-			if valueStoredInField(typed, seen) {
-				return true
-			}
-		case *ssa.Phi:
-			if valueStoredInField(typed, seen) {
-				return true
-			}
+			continue
+		}
+		if forwarded, ok := forwardedValue(reference); ok && valueStoredInField(forwarded, seen) {
+			return true
 		}
 	}
 	return false

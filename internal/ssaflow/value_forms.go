@@ -69,6 +69,26 @@ func UnwrapTransparentValue(value ssa.Value, forms TransparentValueForm) (ssa.Va
 	}
 }
 
+// forwardedValue reports the value a reference produces when it only carries
+// its operand onward: a wrapper conversion, a tuple extraction, or a phi that
+// merges it. It is the forward companion of UnwrapTransparentValue, which
+// peels a value back to the operand it came from. A walk over referrers needs
+// the step in this direction, and writing it out at each such walk is how two
+// of them came to spell the same set differently.
+//
+// The set is fixed rather than selected, because a forward walk asks where a
+// value ends up rather than what evidence survives a wrapper: every form here
+// carries the same value onward, and a caller that must stop at one of them is
+// asking a different question.
+func forwardedValue(reference ssa.Instruction) (ssa.Value, bool) {
+	switch reference.(type) {
+	case *ssa.ChangeInterface, *ssa.ChangeType, *ssa.Convert, *ssa.Extract, *ssa.MakeInterface, *ssa.Phi:
+		value, ok := reference.(ssa.Value)
+		return value, ok
+	}
+	return nil, false
+}
+
 func transparentOperand(operand ssa.Value, forms, form TransparentValueForm) (ssa.Value, bool) {
 	if forms&form == 0 {
 		return nil, false
