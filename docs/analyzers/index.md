@@ -27,14 +27,6 @@ These analyzers look for work or resources whose owner cannot be identified on e
     <span class="analyzer-name">cancellationownership</span>
     <span class="analyzer-detects">Checks context and signal-derived cancellation functions proved lost on a normal return path.</span>
   </a>
-  <a class="analyzer-card" href="ownership-and-lifecycle/channelcapacity/">
-    <span class="analyzer-name">channelcapacity</span>
-    <span class="analyzer-detects">Checks that large channel buffers document their bound.</span>
-  </a>
-  <a class="analyzer-card" href="ownership-and-lifecycle/channelownership/">
-    <span class="analyzer-name">channelownership</span>
-    <span class="analyzer-detects">Audits callees that close channels exact callers continue to use.</span>
-  </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/channelsafety/">
     <span class="analyzer-name">channelsafety</span>
     <span class="analyzer-detects">Checks channel operations for reachable use after close.</span>
@@ -78,10 +70,6 @@ These analyzers cover failure modes that often survive ordinary type checking an
     <span class="analyzer-name">determinism</span>
     <span class="analyzer-detects">Checks map iteration reaching ordered output without explicit sorting.</span>
   </a>
-  <a class="analyzer-card" href="reliability-and-safety/errorownership/">
-    <span class="analyzer-name">errorownership</span>
-    <span class="analyzer-detects">Checks that one function does not both log and return an error.</span>
-  </a>
   <a class="analyzer-card" href="reliability-and-safety/errorclassification/">
     <span class="analyzer-name">errorclassification</span>
     <span class="analyzer-detects">Checks that native Go errors are classified structurally.</span>
@@ -93,10 +81,6 @@ These analyzers cover failure modes that often survive ordinary type checking an
   <a class="analyzer-card" href="reliability-and-safety/evalorder/">
     <span class="analyzer-name">evalorder</span>
     <span class="analyzer-detects">Checks later operands that mutate values evaluated earlier.</span>
-  </a>
-  <a class="analyzer-card" href="reliability-and-safety/globalstate/">
-    <span class="analyzer-name">globalstate</span>
-    <span class="analyzer-detects">Checks mutable package-level state.</span>
   </a>
   <a class="analyzer-card" href="reliability-and-safety/lockorder/">
     <span class="analyzer-name">lockorder</span>

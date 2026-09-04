@@ -38,44 +38,6 @@
           "options": []
         },
         {
-          "name": "channelcapacity",
-          "summary": "Checks that large channel buffers document their bound.",
-          "path": "analyzers/ownership-and-lifecycle/channelcapacity",
-          "tier": "extended",
-          "checks": [
-            {
-              "id": "channelcapacity/rationale",
-              "summary": "Reports large constant channel capacities in production files without a nearby bounded rationale.",
-              "kind": "policy",
-              "tier": "extended"
-            }
-          ],
-          "suggestedFix": false,
-          "options": [
-            {
-              "name": "max-unexplained-capacity",
-              "default": "1",
-              "usage": "Largest channel capacity allowed without a rationale; negative disables the check."
-            }
-          ]
-        },
-        {
-          "name": "channelownership",
-          "summary": "Audits callees that close channels exact callers continue to use.",
-          "path": "analyzers/ownership-and-lifecycle/channelownership",
-          "tier": "extended",
-          "checks": [
-            {
-              "id": "channelownership/caller-close",
-              "summary": "Reports callees that close a channel an exact caller continues to use.",
-              "kind": "policy",
-              "tier": "extended"
-            }
-          ],
-          "suggestedFix": false,
-          "options": []
-        },
-        {
           "name": "channelsafety",
           "summary": "Checks channel operations for reachable use after close.",
           "path": "analyzers/ownership-and-lifecycle/channelsafety",
@@ -178,12 +140,6 @@
               "summary": "Reports successfully started commands that are neither waited on nor transferred.",
               "kind": "defect",
               "tier": "core"
-            },
-            {
-              "id": "processownership/detached",
-              "summary": "Reports started commands whose handle is never used again, the fire-and-forget launch.",
-              "kind": "policy",
-              "tier": "experimental"
             }
           ],
           "suggestedFix": false,
@@ -267,22 +223,6 @@
           "options": []
         },
         {
-          "name": "errorownership",
-          "summary": "Checks that one function does not both log and return an error.",
-          "path": "analyzers/reliability-and-safety/errorownership",
-          "tier": "extended",
-          "checks": [
-            {
-              "id": "errorownership/log-and-return",
-              "summary": "Reports functions that both log and return the same error.",
-              "kind": "policy",
-              "tier": "extended"
-            }
-          ],
-          "suggestedFix": false,
-          "options": []
-        },
-        {
           "name": "errorclassification",
           "summary": "Checks that native Go errors are classified structurally.",
           "path": "analyzers/reliability-and-safety/errorclassification",
@@ -329,33 +269,6 @@
           ],
           "suggestedFix": false,
           "options": []
-        },
-        {
-          "name": "globalstate",
-          "summary": "Checks mutable package-level state.",
-          "path": "analyzers/reliability-and-safety/globalstate",
-          "tier": "extended",
-          "checks": [
-            {
-              "id": "globalstate/mutable-package-state",
-              "summary": "Reports mutable package-level state without an explicit owner.",
-              "kind": "policy",
-              "tier": "extended"
-            }
-          ],
-          "suggestedFix": false,
-          "options": [
-            {
-              "name": "allow-names",
-              "default": "",
-              "usage": "Comma-separated package variable names to allow."
-            },
-            {
-              "name": "allow-types",
-              "default": "",
-              "usage": "Comma-separated fully-qualified named types to allow."
-            }
-          ]
         },
         {
           "name": "lockorder",

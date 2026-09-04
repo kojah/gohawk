@@ -152,13 +152,13 @@ func answer() int { return identity{}.value(42) }
 	t.Run("target Go version", func(t *testing.T) {
 		t.Parallel()
 		legacyModule := writeContextTestModule(t, "1.23.0")
-		output, exitCode := runCommand(t, legacyModule, binary, "-enable-checks=channelcapacity/rationale", "./...")
+		output, exitCode := runCommand(t, legacyModule, binary, "-enable-checks=lockorder/contradictory-order", "./...")
 		if exitCode != 0 || output != "" {
 			t.Fatalf("Go 1.23 module: exit code = %d, output = %q", exitCode, output)
 		}
 
 		modernModule := writeContextTestModule(t, "1.24.0")
-		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=channelcapacity/rationale", "./...")
+		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=lockorder/contradictory-order", "./...")
 		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 module: exit code = %d\n%s", exitCode, output)
 		}

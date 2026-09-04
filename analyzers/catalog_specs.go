@@ -106,13 +106,13 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 		{Analyzer: channelcapacity.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ChannelCapacityRationale, Doc: "Reports large constant channel capacities in production files without a nearby bounded rationale.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 		{Analyzer: channelownership.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ChannelCallerClose, Doc: "Reports callees that close a channel an exact caller continues to use.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 		{Analyzer: channelsafety.Analyzer(), Checks: []catalog.CheckInfo{
@@ -158,7 +158,7 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 				ID:   check.ProcessDetached,
 				Doc:  "Reports started commands whose handle is never used again, the fire-and-forget launch.",
 				Kind: catalog.KindPolicy,
-				Tier: catalog.TierExperimental,
+				Tier: catalog.TierExperimental, Delisted: true,
 			},
 		}},
 		{Analyzer: resourcelifetime.Analyzer(), Checks: []catalog.CheckInfo{
@@ -193,7 +193,7 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 		{Analyzer: errorownership.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ErrorLogAndReturn, Doc: "Reports functions that both log and return the same error.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 		{Analyzer: errorclassification.Analyzer(), Checks: []catalog.CheckInfo{
@@ -217,7 +217,7 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 		{Analyzer: globalstate.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.MutableGlobalState, Doc: "Reports mutable package-level state without an explicit owner.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended,
+				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 		{Analyzer: lockorder.Analyzer(), Checks: []catalog.CheckInfo{

@@ -12,14 +12,10 @@ import (
 
 func expectedAnalyzerNames() []string {
 	return []string{
-		"globalstate",
 		"goroutineownership",
 		"producerlifecycle",
-		"errorownership",
 		"errorclassification",
 		"inlineerror",
-		"channelcapacity",
-		"channelownership",
 		"channelsafety",
 		"processownership",
 		"lockorder",
@@ -111,8 +107,6 @@ func TestAnalyzerGroups(t *testing.T) {
 			analyzers: []string{
 				"borrowedstorage",
 				"cancellationownership",
-				"channelcapacity",
-				"channelownership",
 				"channelsafety",
 				"deferinloop",
 				"exitpolicy",
@@ -129,11 +123,9 @@ func TestAnalyzerGroups(t *testing.T) {
 			analyzers: []string{
 				"concurrentcapture",
 				"determinism",
-				"errorownership",
 				"errorclassification",
 				"inlineerror",
 				"evalorder",
-				"globalstate",
 				"lockorder",
 				"oncepolicy",
 				"syncmapatomicity",
@@ -180,15 +172,11 @@ func TestAnalyzerMetadata(t *testing.T) {
 	if len(metadata) != len(expectedAnalyzerNames()) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
-	extended := map[string]bool{
-		"channelcapacity": true, "errorownership": true,
-		"determinism": true, "globalstate": true, "channelownership": true,
-	}
+	extended := map[string]bool{"determinism": true}
 	experimental := map[string]bool{"borrowedstorage": true}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"goroutineownership/detached":        CheckTierExperimental,
-		"processownership/detached":          CheckTierExperimental,
 		"resourcelifetime/use-after-release": CheckTierExperimental,
 		"lockorder/contradictory-order":      CheckTierExtended,
 		"lockorder/read-lock-write":          CheckTierExperimental,
@@ -198,8 +186,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 	kinds := map[AnalyzerCheck]CheckKind{
 		"cancellationownership/release":      CheckKindDefect,
 		"borrowedstorage/overlapping-owner":  CheckKindHazard,
-		"channelcapacity/rationale":          CheckKindPolicy,
-		"channelownership/caller-close":      CheckKindPolicy,
 		"channelsafety/send-after-close":     CheckKindDefect,
 		"deferinloop/cleanup-lifetime":       CheckKindHazard,
 		"exitpolicy/skipped-defer":           CheckKindDefect,
@@ -207,16 +193,13 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"goroutineownership/detached":        CheckKindHazard,
 		"producerlifecycle/abandoned-send":   CheckKindHazard,
 		"processownership/missing-wait":      CheckKindDefect,
-		"processownership/detached":          CheckKindPolicy,
 		"resourcelifetime/missing-release":   CheckKindDefect,
 		"resourcelifetime/use-after-release": CheckKindHazard,
 		"concurrentcapture/shared-capture":   CheckKindHazard,
 		"determinism/map-output-order":       CheckKindHazard,
-		"errorownership/log-and-return":      CheckKindPolicy,
 		"errorclassification/text-match":     CheckKindHazard,
 		"inlineerror/mismatched-condition":   CheckKindDefect,
 		"evalorder/operand-mutation":         CheckKindHazard,
-		"globalstate/mutable-package-state":  CheckKindPolicy,
 		"lockorder/missing-release":          CheckKindDefect,
 		"lockorder/recursive-acquire":        CheckKindDefect,
 		"lockorder/contradictory-order":      CheckKindHazard,

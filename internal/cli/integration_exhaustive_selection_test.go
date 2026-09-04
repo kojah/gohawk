@@ -32,12 +32,12 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
 		for _, summary := range []string{
-			"contracts (API and data contracts): globalstate*, lockorder, closedomain*, determinism*",
-			"ownership (ownership and lifecycle): borrowedstorage*, cancellationownership, channelcapacity*, channelownership*, channelsafety, deferinloop, " +
+			"contracts (API and data contracts): determinism*, lockorder, closedomain*, determinism*",
+			"ownership (ownership and lifecycle): borrowedstorage*, cancellationownership, determinism*, determinism*, channelsafety, deferinloop, " +
 				"exitpolicy, goroutineownership, producerlifecycle, processownership, resourcelifetime",
-			"reliability (reliability and safety): concurrentcapture, determinism*, errorownership*, errorclassification, " +
-				"inlineerror, evalorder, globalstate*, lockorder, oncepolicy, syncmapatomicity, borrowedstorage*",
-			"testing (testing): channelcapacity*, channelownership*",
+			"reliability (reliability and safety): concurrentcapture, determinism*, determinism*, errorclassification, " +
+				"inlineerror, evalorder, determinism*, lockorder, oncepolicy, syncmapatomicity, borrowedstorage*",
+			"testing (testing): determinism*, determinism*",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
@@ -50,7 +50,7 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"globalstate", "extended", "core runs by default", "oncepolicy"} {
+		for _, value := range []string{"determinism", "extended", "core runs by default", "oncepolicy"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("list output does not contain %q:\n%s", value, output)
 			}
@@ -82,7 +82,7 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 0 {
 			t.Fatalf("check documentation: exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"Reports definitely nil context.Context arguments.", "Analyzer: lockorder"} {
+		for _, value := range []string{"Reports return paths that leave an owned lock held.", "Analyzer: lockorder"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("check documentation does not contain %q:\n%s", value, output)
 			}
@@ -151,7 +151,7 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("output does not contain determinism diagnostic:\n%s", output)
 		}
 		if strings.Contains(output, "mutable package state") {
-			t.Fatalf("selected analyzer unexpectedly ran globalstate:\n%s", output)
+			t.Fatalf("selected analyzer unexpectedly ran determinism:\n%s", output)
 		}
 	})
 
@@ -202,7 +202,7 @@ func answer() int { return identity{}.value(42) }
 	})
 
 	t.Run("disabling opt-in analyzer keeps ordinary set", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-disable=globalstate", "./...")
+		output, exitCode := runCommand(t, module, binary, "-disable=determinism", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
@@ -236,7 +236,7 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("Go 1.24 default checks: exit code = %d, output = %q", exitCode, output)
 		}
 
-		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=channelcapacity/rationale", "./...")
+		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=lockorder/contradictory-order", "./...")
 		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
 			t.Fatalf("Go 1.24 opt-in check: exit code = %d\n%s", exitCode, output)
 		}
