@@ -140,6 +140,12 @@
               "summary": "Reports successfully started commands that are neither waited on nor transferred.",
               "kind": "defect",
               "tier": "core"
+            },
+            {
+              "id": "processownership/detached",
+              "summary": "Reports started commands whose handle is never used again, the fire-and-forget launch.",
+              "kind": "policy",
+              "tier": "experimental"
             }
           ],
           "suggestedFix": false,
@@ -199,38 +205,6 @@
             {
               "id": "concurrentcapture/shared-capture",
               "summary": "Reports repeatedly launched goroutines that mutate the same captured local.",
-              "kind": "hazard",
-              "tier": "core"
-            }
-          ],
-          "suggestedFix": false,
-          "options": []
-        },
-        {
-          "name": "determinism",
-          "summary": "Checks map iteration reaching ordered output without explicit sorting.",
-          "path": "analyzers/reliability-and-safety/determinism",
-          "tier": "extended",
-          "checks": [
-            {
-              "id": "determinism/map-output-order",
-              "summary": "Reports map iteration that reaches ordered output without explicit sorting.",
-              "kind": "hazard",
-              "tier": "extended"
-            }
-          ],
-          "suggestedFix": false,
-          "options": []
-        },
-        {
-          "name": "errorclassification",
-          "summary": "Checks that native Go errors are classified structurally.",
-          "path": "analyzers/reliability-and-safety/errorclassification",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "errorclassification/text-match",
-              "summary": "Reports production code that classifies errors by matching their text.",
               "kind": "hazard",
               "tier": "core"
             }

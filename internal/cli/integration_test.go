@@ -27,10 +27,10 @@ func TestCLIIntegration(t *testing.T) {
 			}
 		}
 		if strings.Contains(output, "persisted or wire struct literal") {
-			t.Fatalf("default run included opt-in determinism:\n%s", output)
+			t.Fatalf("default run included opt-in channelsafety:\n%s", output)
 		}
 
-		output, exitCode = runCommand(t, module, binary, "-json", "-enable=determinism", "./...")
+		output, exitCode = runCommand(t, module, binary, "-json", "-enable=channelsafety", "./...")
 		if exitCode != 0 {
 			t.Fatalf("selected JSON run: exit code = %d, want 0\n%s", exitCode, output)
 		}
@@ -40,13 +40,13 @@ func TestCLIIntegration(t *testing.T) {
 		}
 		count := 0
 		for _, analyzers := range diagnostics {
-			count += len(analyzers["determinism"])
+			count += len(analyzers["channelsafety"])
 			if len(analyzers["oncepolicy"]) != 0 {
 				t.Fatalf("selected analyzer unexpectedly ran defaults:\n%s", output)
 			}
 		}
 		if count != 1 {
-			t.Fatalf("determinism JSON diagnostic count = %d, want 1\n%s", count, output)
+			t.Fatalf("channelsafety JSON diagnostic count = %d, want 1\n%s", count, output)
 		}
 
 		// Analyzer flags must reach the go analysis driver so its action cache
@@ -62,10 +62,10 @@ func TestCLIIntegration(t *testing.T) {
 		var oncePolicy, wirePolicy int
 		for _, analyzers := range diagnostics {
 			oncePolicy += len(analyzers["oncepolicy"])
-			wirePolicy += len(analyzers["determinism"])
+			wirePolicy += len(analyzers["channelsafety"])
 		}
 		if oncePolicy == 0 || wirePolicy == 0 {
-			t.Fatalf("enable-all JSON diagnostics omit oncepolicy or determinism:\n%s", output)
+			t.Fatalf("enable-all JSON diagnostics omit oncepolicy or channelsafety:\n%s", output)
 		}
 	})
 

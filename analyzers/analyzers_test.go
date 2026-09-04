@@ -14,7 +14,6 @@ func expectedAnalyzerNames() []string {
 	return []string{
 		"goroutineownership",
 		"producerlifecycle",
-		"errorclassification",
 		"inlineerror",
 		"channelsafety",
 		"processownership",
@@ -22,7 +21,6 @@ func expectedAnalyzerNames() []string {
 		"resourcelifetime",
 		"deferinloop",
 		"exitpolicy",
-		"determinism",
 		"concurrentcapture",
 		"evalorder",
 		"oncepolicy",
@@ -122,8 +120,6 @@ func TestAnalyzerGroups(t *testing.T) {
 			docPath: "reliability-and-safety",
 			analyzers: []string{
 				"concurrentcapture",
-				"determinism",
-				"errorclassification",
 				"inlineerror",
 				"evalorder",
 				"lockorder",
@@ -172,11 +168,12 @@ func TestAnalyzerMetadata(t *testing.T) {
 	if len(metadata) != len(expectedAnalyzerNames()) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
-	extended := map[string]bool{"determinism": true}
+	extended := map[string]bool{}
 	experimental := map[string]bool{"borrowedstorage": true}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"goroutineownership/detached":        CheckTierExperimental,
+		"processownership/detached":          CheckTierExperimental,
 		"resourcelifetime/use-after-release": CheckTierExperimental,
 		"lockorder/contradictory-order":      CheckTierExtended,
 		"lockorder/read-lock-write":          CheckTierExperimental,
@@ -191,13 +188,12 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"exitpolicy/skipped-defer":           CheckKindDefect,
 		"goroutineownership/unjoined":        CheckKindHazard,
 		"goroutineownership/detached":        CheckKindHazard,
+		"processownership/detached":          CheckKindPolicy,
 		"producerlifecycle/abandoned-send":   CheckKindHazard,
 		"processownership/missing-wait":      CheckKindDefect,
 		"resourcelifetime/missing-release":   CheckKindDefect,
 		"resourcelifetime/use-after-release": CheckKindHazard,
 		"concurrentcapture/shared-capture":   CheckKindHazard,
-		"determinism/map-output-order":       CheckKindHazard,
-		"errorclassification/text-match":     CheckKindHazard,
 		"inlineerror/mismatched-condition":   CheckKindDefect,
 		"evalorder/operand-mutation":         CheckKindHazard,
 		"lockorder/missing-release":          CheckKindDefect,
@@ -250,7 +246,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 func TestDefaultAnalyzers(t *testing.T) {
 	want := []string{
 		"goroutineownership", "producerlifecycle",
-		"errorclassification", "inlineerror", "channelsafety",
+		"inlineerror", "channelsafety",
 		"processownership", "lockorder", "resourcelifetime",
 		"deferinloop", "exitpolicy", "concurrentcapture",
 		"evalorder", "oncepolicy", "syncmapatomicity", "cancellationownership",

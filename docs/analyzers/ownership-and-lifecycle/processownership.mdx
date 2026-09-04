@@ -18,6 +18,7 @@ waiting for it.
 | Check | Kind | Tier | What it detects |
 | --- | --- | --- | --- |
 | <CheckIdentity name="missing-wait" tier="core" /> | defect | core | Reports successfully started commands that are neither waited on nor transferred. |
+| <CheckIdentity name="detached" tier="experimental" /> | policy | experimental | Reports started commands whose handle is never used again, the fire-and-forget launch. |
 {/* gohawk:generated-checks:end */}
 
 A started command whose handle is never handed to anything again, the

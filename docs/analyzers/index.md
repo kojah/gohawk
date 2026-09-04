@@ -66,14 +66,6 @@ These analyzers cover failure modes that often survive ordinary type checking an
     <span class="analyzer-name">concurrentcapture</span>
     <span class="analyzer-detects">Checks locals mutated by goroutines launched repeatedly.</span>
   </a>
-  <a class="analyzer-card" href="reliability-and-safety/determinism/">
-    <span class="analyzer-name">determinism</span>
-    <span class="analyzer-detects">Checks map iteration reaching ordered output without explicit sorting.</span>
-  </a>
-  <a class="analyzer-card" href="reliability-and-safety/errorclassification/">
-    <span class="analyzer-name">errorclassification</span>
-    <span class="analyzer-detects">Checks that native Go errors are classified structurally.</span>
-  </a>
   <a class="analyzer-card" href="reliability-and-safety/inlineerror/">
     <span class="analyzer-name">inlineerror</span>
     <span class="analyzer-detects">Checks inline error declarations for mismatched conditions.</span>

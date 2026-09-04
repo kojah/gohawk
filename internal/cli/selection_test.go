@@ -21,11 +21,11 @@ func TestWithAnalyzerSelection(t *testing.T) {
 		return selected
 	}
 
-	selected := strings.Join(selectArguments([]string{"gohawk", "-enable=determinism", "./..."}), " ")
-	if !strings.Contains(selected, "-determinism=true") || strings.Contains(selected, "-enable=") {
+	selected := strings.Join(selectArguments([]string{"gohawk", "-enable=channelsafety", "./..."}), " ")
+	if !strings.Contains(selected, "-channelsafety=true") || strings.Contains(selected, "-enable=") {
 		t.Fatalf("selected arguments = %s", selected)
 	}
-	help := []string{"gohawk", "help", "determinism"}
+	help := []string{"gohawk", "help", "channelsafety"}
 	if got := selectArguments(help); !slices.Equal(got, help) {
 		t.Fatalf("help arguments = %v, want %v", got, help)
 	}
@@ -43,7 +43,7 @@ func TestWithAnalyzerSelection(t *testing.T) {
 			t.Errorf("default arguments do not contain %q: %v", value, got)
 		}
 	}
-	for _, value := range []string{"-oncepolicy=true", "-determinism=true", "-determinism=true", "-determinism=true"} {
+	for _, value := range []string{"-oncepolicy=true", "-channelsafety=true", "-channelsafety=true", "-channelsafety=true"} {
 		if strings.Contains(joined, value) {
 			t.Errorf("default arguments unexpectedly contain %q: %v", value, got)
 		}
@@ -66,13 +66,13 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 	t.Run("groups include opt-in analyzers", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups=ownership,reliability", "./..."}), " ")
 		for _, value := range []string{
-			"-lockorder=true", "-determinism=true", "-determinism=true", "-borrowedstorage=true",
+			"-lockorder=true", "-channelsafety=true", "-channelsafety=true", "-borrowedstorage=true",
 		} {
 			if !strings.Contains(got, value) {
 				t.Errorf("group arguments do not contain %q: %s", value, got)
 			}
 		}
-		for _, value := range []string{"-oncepolicy=true", "-determinism=true", "-enable-groups"} {
+		for _, value := range []string{"-oncepolicy=true", "-channelsafety=true", "-enable-groups"} {
 			if strings.Contains(got, value) {
 				t.Errorf("group arguments unexpectedly contain %q: %s", value, got)
 			}
@@ -80,14 +80,14 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 	})
 
 	t.Run("groups combine with individual selection and exclusion", func(t *testing.T) {
-		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups", "ownership", "-enable=determinism", "-disable=determinism", "./..."}), " ")
-		for _, value := range []string{"-cancellationownership=true", "-goroutineownership=true", "-determinism=true"} {
+		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups", "ownership", "-enable=channelsafety", "-disable=channelsafety", "./..."}), " ")
+		for _, value := range []string{"-cancellationownership=true", "-goroutineownership=true", "-channelsafety=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("combined arguments do not contain %q: %s", value, got)
 			}
 		}
-		if strings.Contains(got, "-determinism=true") {
-			t.Errorf("explicit exclusion did not remove determinism: %s", got)
+		if strings.Contains(got, "-channelsafety=true") {
+			t.Errorf("explicit exclusion did not remove channelsafety: %s", got)
 		}
 	})
 
@@ -98,7 +98,7 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 				t.Errorf("disabled-group arguments do not contain %q: %s", value, got)
 			}
 		}
-		for _, value := range []string{"-concurrentcapture=true", "-errorclassification=true", "-disable-groups"} {
+		for _, value := range []string{"-concurrentcapture=true", "-channelsafety=true", "-disable-groups"} {
 			if strings.Contains(got, value) {
 				t.Errorf("disabled-group arguments unexpectedly contain %q: %s", value, got)
 			}
@@ -107,12 +107,12 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 
 	t.Run("disabled groups subtract from enable-all", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-enable-all", "-disable-groups=reliability", "./..."}), " ")
-		for _, value := range []string{"-determinism=true", "-oncepolicy=true"} {
+		for _, value := range []string{"-channelsafety=true", "-oncepolicy=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("enable-all exclusion does not contain %q: %s", value, got)
 			}
 		}
-		for _, value := range []string{"-determinism=true", "-disable-groups"} {
+		for _, value := range []string{"-channelsafety=true", "-disable-groups"} {
 			if strings.Contains(got, value) {
 				t.Errorf("enable-all exclusion unexpectedly contains %q: %s", value, got)
 			}
@@ -145,9 +145,9 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 	t.Run("invalid analyzer lists", func(t *testing.T) {
 		for _, arguments := range [][]string{
 			{"gohawk", "-enable=unknown", "./..."},
-			{"gohawk", "-enable=determinism,determinism", "./..."},
+			{"gohawk", "-enable=channelsafety,channelsafety", "./..."},
 			{"gohawk", "-disable=oncepolicy,oncepolicy", "./..."},
-			{"gohawk", "-enable=determinism", "-disable=determinism", "./..."},
+			{"gohawk", "-enable=channelsafety", "-disable=channelsafety", "./..."},
 			{"gohawk", "-enable="},
 			{"gohawk", "-disable"},
 		} {
@@ -193,14 +193,14 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 
 	t.Run("legacy analyzer Boolean flags", func(t *testing.T) {
 		for _, arguments := range [][]string{
-			{"gohawk", "-determinism", "./..."},
+			{"gohawk", "-channelsafety", "./..."},
 			{"gohawk", "-oncepolicy=false", "./..."},
 		} {
 			if _, err := withAnalyzerSelection(arguments, analyzers, groups, metadata, false); err == nil {
 				t.Errorf("legacy arguments %v unexpectedly succeeded", arguments)
 			}
 		}
-		if _, err := withAnalyzerSelection([]string{"gohawk", "-determinism=true", "./..."}, analyzers, groups, metadata, true); err != nil {
+		if _, err := withAnalyzerSelection([]string{"gohawk", "-channelsafety=true", "./..."}, analyzers, groups, metadata, true); err != nil {
 			t.Fatalf("internal analyzer selection failed: %v", err)
 		}
 	})
@@ -288,7 +288,7 @@ func TestCheckSelectionProfiles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(strings.Join(selection.arguments, " "), "-determinism=true") || selection.normallySelected["determinism"] {
+		if !strings.Contains(strings.Join(selection.arguments, " "), "-channelsafety=true") || selection.normallySelected["channelsafety"] {
 			t.Fatalf("selection = %+v", selection)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
@@ -341,11 +341,11 @@ func TestCheckSelectionTiers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !selection.normallySelected["determinism"] || selection.normallySelected["borrowedstorage"] {
+		if !selection.normallySelected["channelsafety"] || selection.normallySelected["borrowedstorage"] {
 			t.Fatalf("selected analyzers = %v", selection.normallySelected)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["determinism/map-output-order"] || disabled[nilContext] || !disabled["goroutineownership/detached"] {
+		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["goroutineownership/detached"] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 	})

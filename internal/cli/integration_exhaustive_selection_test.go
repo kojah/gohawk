@@ -32,12 +32,12 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
 		for _, summary := range []string{
-			"contracts (API and data contracts): determinism*, lockorder, closedomain*, determinism*",
-			"ownership (ownership and lifecycle): borrowedstorage*, cancellationownership, determinism*, determinism*, channelsafety, deferinloop, " +
+			"contracts (API and data contracts): channelsafety*, lockorder, closedomain*, channelsafety*",
+			"ownership (ownership and lifecycle): borrowedstorage*, cancellationownership, channelsafety*, channelsafety*, channelsafety, deferinloop, " +
 				"exitpolicy, goroutineownership, producerlifecycle, processownership, resourcelifetime",
-			"reliability (reliability and safety): concurrentcapture, determinism*, determinism*, errorclassification, " +
-				"inlineerror, evalorder, determinism*, lockorder, oncepolicy, syncmapatomicity, borrowedstorage*",
-			"testing (testing): determinism*, determinism*",
+			"reliability (reliability and safety): concurrentcapture, channelsafety*, channelsafety*, channelsafety, " +
+				"inlineerror, evalorder, channelsafety*, lockorder, oncepolicy, syncmapatomicity, borrowedstorage*",
+			"testing (testing): channelsafety*, channelsafety*",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
@@ -50,19 +50,19 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"determinism", "extended", "core runs by default", "oncepolicy"} {
+		for _, value := range []string{"channelsafety", "extended", "core runs by default", "oncepolicy"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("list output does not contain %q:\n%s", value, output)
 			}
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-defaults")
-		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || strings.Contains(output, "determinism") {
+		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || strings.Contains(output, "channelsafety") {
 			t.Fatalf("default list: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-opt-in")
-		if exitCode != 0 || !strings.Contains(output, "determinism") || strings.Contains(output, "oncepolicy") {
+		if exitCode != 0 || !strings.Contains(output, "channelsafety") || strings.Contains(output, "oncepolicy") {
 			t.Fatalf("opt-in list: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -143,15 +143,15 @@ func answer() int { return identity{}.value(42) }
 	})
 
 	t.Run("selected analyzer", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable=determinism", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable=channelsafety", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
-			t.Fatalf("output does not contain determinism diagnostic:\n%s", output)
+			t.Fatalf("output does not contain channelsafety diagnostic:\n%s", output)
 		}
 		if strings.Contains(output, "mutable package state") {
-			t.Fatalf("selected analyzer unexpectedly ran determinism:\n%s", output)
+			t.Fatalf("selected analyzer unexpectedly ran channelsafety:\n%s", output)
 		}
 	})
 
@@ -161,7 +161,7 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
-			t.Fatalf("contracts group did not run opt-in determinism:\n%s", output)
+			t.Fatalf("contracts group did not run opt-in channelsafety:\n%s", output)
 		}
 		for _, diagnostic := range []string{"sync.OnceFunc wrapper is discarded", "mutable package state"} {
 			if strings.Contains(output, diagnostic) {
@@ -176,7 +176,7 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
-			t.Fatalf("enable-all minus reliability did not run determinism:\n%s", output)
+			t.Fatalf("enable-all minus reliability did not run channelsafety:\n%s", output)
 		}
 		for _, diagnostic := range []string{"sync.OnceFunc wrapper is discarded", "mutable package state"} {
 			if strings.Contains(output, diagnostic) {
@@ -202,7 +202,7 @@ func answer() int { return identity{}.value(42) }
 	})
 
 	t.Run("disabling opt-in analyzer keeps ordinary set", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-disable=determinism", "./...")
+		output, exitCode := runCommand(t, module, binary, "-disable=channelsafety", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}

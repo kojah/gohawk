@@ -177,17 +177,19 @@ func analysisAnalyzerPointer(value types.Type) bool {
 // The list is checked in both directions: a package here that turns out to be
 // registered fails, so relisting an analyzer cannot leave a stale entry behind.
 var withdrawnAnalyzerPackages = map[string]bool{
-	"apishape":         true,
-	"contextpolicy":    true,
-	"channelcapacity":  true,
-	"channelownership": true,
-	"errorownership":   true,
-	"globalstate":      true,
-	"closedomain":      true,
-	"wirepolicy":       true,
-	"taintpolicy":      true,
-	"testlifecycle":    true,
-	"testpolicy":       true,
+	"apishape":            true,
+	"contextpolicy":       true,
+	"channelcapacity":     true,
+	"channelownership":    true,
+	"errorownership":      true,
+	"globalstate":         true,
+	"determinism":         true,
+	"errorclassification": true,
+	"closedomain":         true,
+	"wirepolicy":          true,
+	"taintpolicy":         true,
+	"testlifecycle":       true,
+	"testpolicy":          true,
 }
 
 func withdrawnAnalyzerNames() map[string]bool {

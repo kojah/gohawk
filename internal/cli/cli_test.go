@@ -23,19 +23,19 @@ func TestPrintAnalyzerList(t *testing.T) {
 	}{
 		{
 			name:     "all",
-			contains: []string{"ANALYZER", "TIER", "GROUP", "determinism", "extended", "oncepolicy", "core", "reliability", "reliability", "core runs by default"},
+			contains: []string{"ANALYZER", "TIER", "GROUP", "channelsafety", "extended", "oncepolicy", "core", "reliability", "reliability", "core runs by default"},
 			excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts", "*"},
 		},
 		{
 			name:      "defaults",
 			arguments: []string{"-defaults"},
 			contains:  []string{"oncepolicy", "core"},
-			excludes:  []string{"determinism", "borrowedstorage"},
+			excludes:  []string{"channelsafety", "borrowedstorage"},
 		},
 		{
 			name:      "opt-in",
 			arguments: []string{"-opt-in"},
-			contains:  []string{"determinism", "extended", "borrowedstorage", "experimental"},
+			contains:  []string{"channelsafety", "extended", "borrowedstorage", "experimental"},
 			excludes:  []string{"oncepolicy", "lockorder"},
 		},
 		{
@@ -121,7 +121,7 @@ func TestRunCLIImmediateCommands(t *testing.T) {
 		{name: "documentation error", arguments: []string{"gohawk", "doc", "unknown"}, wantCode: 2, errorContains: "unknown analyzer or check"},
 		{name: "help", arguments: []string{"gohawk", "help"}, errorContains: "Analyzer selection:"},
 		{name: "invalid check", arguments: []string{"gohawk", "-disable-checks=unknown/check", "./..."}, wantCode: 2, errorContains: "unknown check"},
-		{name: "legacy selection", arguments: []string{"gohawk", "-determinism=false", "./..."}, wantCode: 2, errorContains: "use -disable=determinism"},
+		{name: "legacy selection", arguments: []string{"gohawk", "-channelsafety=false", "./..."}, wantCode: 2, errorContains: "use -disable=channelsafety"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -216,7 +216,7 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 			t.Errorf("environment = %v", environment)
 		}
 		return processOutput{stdout: []byte(`[
-			{"Name":"determinism","Bool":true,"Usage":"legacy selector"},
+			{"Name":"channelsafety","Bool":true,"Usage":"legacy selector"},
 			{"Name":"enable","Bool":false,"Usage":"enable analyzers"}
 		]`)}, nil
 	}
@@ -224,7 +224,7 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 	if code := printFilteredFlagsUsing([]string{"gohawk", "-flags"}, analyzers, &output, &errorsOutput, execute); code != 0 {
 		t.Fatalf("exit code = %d\n%s", code, errorsOutput.String())
 	}
-	if strings.Contains(output.String(), `"Name": "determinism"`) || !strings.Contains(output.String(), `"Name": "enable"`) {
+	if strings.Contains(output.String(), `"Name": "channelsafety"`) || !strings.Contains(output.String(), `"Name": "enable"`) {
 		t.Fatalf("filtered output:\n%s", output.String())
 	}
 
@@ -387,7 +387,7 @@ func TestPrintDocumentation(t *testing.T) {
 			excludes: []string{"Profile:", "Tags:", "Opt-in:", "\nChecks:", "\nOptions:"},
 		},
 		{name: "missing target", wantError: true},
-		{name: "extra target", arguments: []string{"lockorder", "determinism"}, wantError: true},
+		{name: "extra target", arguments: []string{"lockorder", "channelsafety"}, wantError: true},
 		{name: "unknown target", arguments: []string{"unknown"}, wantError: true},
 	}
 	for _, test := range tests {

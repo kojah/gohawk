@@ -158,7 +158,7 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 				ID:   check.ProcessDetached,
 				Doc:  "Reports started commands whose handle is never used again, the fire-and-forget launch.",
 				Kind: catalog.KindPolicy,
-				Tier: catalog.TierExperimental, Delisted: true,
+				Tier: catalog.TierExperimental,
 			},
 		}},
 		{Analyzer: resourcelifetime.Analyzer(), Checks: []catalog.CheckInfo{
@@ -187,7 +187,7 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 		{Analyzer: determinism.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.DeterministicMapOutput, Doc: "Reports map iteration that reaches ordered output without explicit sorting.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
+				Kind: catalog.KindHazard, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 		{Analyzer: errorownership.Analyzer(), Checks: []catalog.CheckInfo{
@@ -199,7 +199,7 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 		{Analyzer: errorclassification.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ErrorTextClassification, Doc: "Reports production code that classifies errors by matching their text.",
-				Kind: catalog.KindHazard, Tier: catalog.TierCore,
+				Kind: catalog.KindHazard, Tier: catalog.TierCore, Delisted: true,
 			},
 		}},
 		{Analyzer: inlineerror.Analyzer(), Checks: []catalog.CheckInfo{
