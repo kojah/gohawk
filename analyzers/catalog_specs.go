@@ -238,6 +238,10 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 				ID: check.LockMismatchedRelease, Doc: "Reports a lock released with the wrong method for how it was acquired.",
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
+			{
+				ID: check.LockDiscardedTryLock, Doc: "Reports a TryLock whose result is discarded, leaving the lock possibly unheld.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
 		}},
 		{Analyzer: oncepolicy.Analyzer(), Checks: []catalog.CheckInfo{
 			{

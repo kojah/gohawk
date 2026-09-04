@@ -42,6 +42,7 @@ const (
 	LockContradictoryOrder   ID = "lockorder/contradictory-order"
 	LockReadLockWrite        ID = "lockorder/read-lock-write"
 	LockMismatchedRelease    ID = "lockorder/mismatched-release"
+	LockDiscardedTryLock     ID = "lockorder/discarded-trylock"
 	OnceDiscardedWrapper     ID = "oncepolicy/discarded-wrapper"
 	SyncMapNonAtomicClaim    ID = "syncmapatomicity/non-atomic-claim"
 	TaintUntrustedSink       ID = "taintpolicy/untrusted-sink"

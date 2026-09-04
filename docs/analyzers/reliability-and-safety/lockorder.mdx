@@ -22,6 +22,7 @@ the corresponding release policy.
 | <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports two locks acquired in opposite orders in different places. |
 | <CheckIdentity name="read-lock-write" tier="experimental" /> | hazard | experimental | Reports writes to an object while only its read lock is held. |
 | <CheckIdentity name="mismatched-release" tier="experimental" /> | defect | experimental | Reports a lock released with the wrong method for how it was acquired. |
+| <CheckIdentity name="discarded-trylock" tier="experimental" /> | defect | experimental | Reports a TryLock whose result is discarded, leaving the lock possibly unheld. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

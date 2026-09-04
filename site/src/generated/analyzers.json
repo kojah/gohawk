@@ -510,6 +510,12 @@
               "summary": "Reports a lock released with the wrong method for how it was acquired.",
               "kind": "defect",
               "tier": "experimental"
+            },
+            {
+              "id": "lockorder/discarded-trylock",
+              "summary": "Reports a TryLock whose result is discarded, leaving the lock possibly unheld.",
+              "kind": "defect",
+              "tier": "experimental"
             }
           ],
           "suggestedFix": false,
