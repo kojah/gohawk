@@ -34,6 +34,10 @@ import (
 // reportReadLockWrites reports a write to an object whose read lock is the only
 // one held at this instruction.
 func reportReadLockWrites(pass *analysis.Pass, instruction ssa.Instruction, held, readHeld []string, lockValues map[string][]ssa.Value) {
+	search := &writeSearch{
+		budget: ssaflow.NewSearchBudget(readLockWriteBudget),
+		memo:   ssaflow.NewCallGraphMemo[ssa.Value, bool](),
+	}
 	for _, identity := range readHeld {
 		// A lock the flow already transferred or released is no longer held,
 		// even if it was taken for reading earlier on this path.
@@ -42,7 +46,7 @@ func reportReadLockWrites(pass *analysis.Pass, instruction ssa.Instruction, held
 		}
 		for _, value := range lockValues[identity] {
 			owner, ok := lockOwner(value)
-			if !ok || !writeTargetsOwner(instruction, owner) {
+			if !ok || !writeTargetsOwner(instruction, owner, search) {
 				continue
 			}
 			// One struct may hold several independent guard domains: a mutex
@@ -86,7 +90,23 @@ func lockOwner(value ssa.Value) (ssa.Value, bool) { //nolint:ireturn // SSA valu
 	return field.X, true
 }
 
-func writeTargetsOwner(instruction ssa.Instruction, owner ssa.Value) bool {
+// readLockWriteBudget bounds one "does this write the object?" question by the
+// instructions it may examine. The search follows a call into its callee, and
+// mutually recursive helpers otherwise make the number of routes explode, the
+// shape that has cost this repository an unbounded search more than once. An
+// exhausted search reports nothing, which is the conservative direction here:
+// the check reports a write it has proved.
+const readLockWriteBudget = 250_000
+
+// writeSearch carries the state of one "does this write the object?" question
+// across the calls it follows: the budget that bounds it and the memo that
+// keeps its cycle guard from re-walking a helper once per route to it.
+type writeSearch struct {
+	budget *ssaflow.SearchBudget
+	memo   *ssaflow.CallGraphMemo[ssa.Value, bool]
+}
+
+func writeTargetsOwner(instruction ssa.Instruction, owner ssa.Value, search *writeSearch) bool {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
 		return addressWithinOwner(typed.Addr, owner)
@@ -96,7 +116,69 @@ func writeTargetsOwner(instruction ssa.Instruction, owner ssa.Value) bool {
 		source, ok := ssaflow.IdentitySource(typed.Map)
 		return ok && addressWithinOwner(source, owner)
 	case *ssa.Call:
-		return mutatingBuiltinTargetsOwner(typed.Common(), owner)
+		return mutatingBuiltinTargetsOwner(typed.Common(), owner) ||
+			calleeWritesOwner(typed.Common(), owner, search)
+	}
+	return false
+}
+
+// calleeWritesOwner reports whether a call hands the owner to a callee that
+// writes it. A helper called under a read lock races exactly as an inline
+// write does, and the caller cannot see that by looking at its own frame.
+//
+// A callee that takes the same lock itself is not this defect: acquiring it
+// while it is already held is a recursive acquisition, which the analyzer
+// reports separately, and naming the same line twice would explain it worse.
+// The search stops there rather than following the write beyond it.
+func calleeWritesOwner(common *ssa.CallCommon, owner ssa.Value, search *writeSearch) bool {
+	callee := ssaflow.ResolvedCallee(common)
+	if callee == nil || len(callee.Blocks) == 0 || !search.memo.Enter(callee) {
+		return false
+	}
+	defer search.memo.Leave(callee)
+	for index, argument := range common.Args {
+		if index >= len(callee.Params) || !ssaflow.ValueDerivesFrom(argument, owner, map[ssa.Value]bool{}) {
+			continue
+		}
+		if calleeAcquiresLockOn(callee, callee.Params[index]) {
+			continue
+		}
+		held := callee.Params[index]
+		if search.memo.Answer(held, func() bool { return functionWritesValue(callee, held, search) }) {
+			return true
+		}
+	}
+	return false
+}
+
+func functionWritesValue(callee *ssa.Function, held ssa.Value, search *writeSearch) bool {
+	for _, block := range callee.Blocks {
+		for _, candidate := range block.Instrs {
+			if !search.budget.Spend() {
+				return false
+			}
+			if writeTargetsOwner(candidate, held, search) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// calleeAcquiresLockOn reports whether the callee takes a lock belonging to the
+// value it was handed, which makes its writes that lock's business rather than
+// the caller's.
+func calleeAcquiresLockOn(callee *ssa.Function, parameter ssa.Value) bool {
+	for _, block := range callee.Blocks {
+		for _, instruction := range block.Instrs {
+			_, _, receiver, ok := mutexAction(instruction)
+			if !ok || receiver == nil {
+				continue
+			}
+			if holder, found := lockOwner(receiver); found && ssaflow.ValueDerivesFrom(holder, parameter, map[ssa.Value]bool{}) {
+				return true
+			}
+		}
 	}
 	return false
 }

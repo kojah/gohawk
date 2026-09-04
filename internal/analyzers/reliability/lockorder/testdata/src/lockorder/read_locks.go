@@ -205,3 +205,43 @@ func (c *builtinCache) dropLocked(k string) {
 	defer c.mu.Unlock()
 	delete(c.items, k)
 }
+
+// A helper called under a read lock races exactly as an inline write does, and
+// the caller cannot see that from its own frame.
+type helperCache struct {
+	mu    sync.RWMutex
+	items map[string]int
+}
+
+// record writes the object and takes no lock of its own.
+func (c *helperCache) record(k string) { c.items[k] = 0 }
+
+func (c *helperCache) touchThroughHelper(k string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	c.record(k) // want "write while only the read lock \\(\\*lockorder.helperCache\\).touchThroughHelper.c.mu is held"
+}
+
+// setLocked takes the write lock itself. Calling it while the read lock is
+// held is a recursive acquisition, which is reported by its own check, so this
+// one stops rather than naming the same line twice.
+func (c *helperCache) setLocked(k string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.items[k] = 1
+}
+
+func (c *helperCache) callLockingHelper(k string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	c.setLocked(k)
+}
+
+// peek only reads, which is what a read lock is for.
+func (c *helperCache) peek(k string) int { return c.items[k] }
+
+func (c *helperCache) readThroughHelper(k string) int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.peek(k)
+}
