@@ -144,7 +144,7 @@
             {
               "id": "processownership/detached",
               "summary": "Reports started commands whose handle is never used again, the fire-and-forget launch.",
-              "kind": "policy",
+              "kind": "hazard",
               "tier": "experimental"
             }
           ],

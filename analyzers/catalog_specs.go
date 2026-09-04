@@ -157,7 +157,7 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 			{
 				ID:   check.ProcessDetached,
 				Doc:  "Reports started commands whose handle is never used again, the fire-and-forget launch.",
-				Kind: catalog.KindPolicy,
+				Kind: catalog.KindHazard,
 				Tier: catalog.TierExperimental,
 			},
 		}},

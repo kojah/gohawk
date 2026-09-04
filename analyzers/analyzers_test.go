@@ -188,7 +188,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"exitpolicy/skipped-defer":           CheckKindDefect,
 		"goroutineownership/unjoined":        CheckKindHazard,
 		"goroutineownership/detached":        CheckKindHazard,
-		"processownership/detached":          CheckKindPolicy,
+		"processownership/detached":          CheckKindHazard,
 		"producerlifecycle/abandoned-send":   CheckKindHazard,
 		"processownership/missing-wait":      CheckKindDefect,
 		"resourcelifetime/missing-release":   CheckKindDefect,
