@@ -41,6 +41,9 @@ import time
 # Phrasings that describe a fixed race without naming a synchronisation
 # primitive. Adding a query that names one reintroduces the selection bias this
 # script exists to avoid.
+# Commit search has no language qualifier, so several queries mention a Go
+# concept instead. That narrows by LANGUAGE, which is legitimate, and not by
+# synchronisation mechanism, which would not be.
 SEED_QUERIES = [
     "fix data race",
     "fix race condition",
@@ -48,6 +51,9 @@ SEED_QUERIES = [
     "resolve data race",
     "data race detected",
     "race detector reported",
+    "data race goroutine",
+    "race condition goroutine",
+    "go test -race",
 ]
 
 COMMIT_URL = re.compile(r"github\.com/([^/]+/[^/]+)/commit/([0-9a-f]{7,40})")
@@ -90,6 +96,19 @@ def parse_hits(payload: str) -> list[tuple[str, str, str]]:
         subject = (entry.get("commit", {}).get("message") or "").splitlines()[:1]
         hits.append((match.group(1), entry.get("sha", match.group(2)), subject[0] if subject else ""))
     return hits
+
+
+def commit_touches_go(repository: str, sha: str) -> bool:
+    """Ask the API which files a commit changed, so a repository whose fix has
+    no Go in it is never cloned. Commit search cannot filter by language, and
+    most of what it returns is not Go."""
+    result = run(["gh", "api", f"repos/{repository}/commits/{sha}",
+                  "--jq", "[.files[]?.filename] | .[]"])
+    if result.returncode != 0:
+        # An unanswerable question is not a no: fall through and let the clone
+        # decide, rather than dropping a candidate because the API was busy.
+        return True
+    return any(name.strip().endswith(".go") for name in result.stdout.splitlines())
 
 
 def clone(repository: str, work: Path) -> Path | None:
@@ -160,15 +179,20 @@ def main() -> int:
     with arguments.out.open("w", newline="") as sheet:
         sheet.write("repository\tsha\toutcome\tfindings\tlabel\tsubject\n")
         for (repository, sha), subject in sorted(candidates.items()):
-            checkout = clone(repository, arguments.work)
-            if checkout is None:
-                continue
-            try:
-                outcome, findings = replay(checkout, sha, arguments.check, arguments.gohawk, arguments.timeout)
-            except subprocess.TimeoutExpired:
-                outcome, findings = "timeout", 0
+            if not commit_touches_go(repository, sha):
+                outcome, findings, checkout = "not-go", 0, None
+            else:
+                checkout = clone(repository, arguments.work)
+                outcome, findings = ("clone-failed", 0) if checkout is None else ("", 0)
+            if checkout is not None:
+                try:
+                    outcome, findings = replay(checkout, sha, arguments.check, arguments.gohawk, arguments.timeout)
+                except subprocess.TimeoutExpired:
+                    outcome, findings = "timeout", 0
             print(f"  {repository}@{sha[:9]}: {outcome}", file=sys.stderr)
             sheet.write(f"{repository}\t{sha}\t{outcome}\t{findings}\t\t{subject}\n")
+            # Flush per row so a long run is readable, and survives being stopped.
+            sheet.flush()
 
     print(f"\nwrote {arguments.out}. Label each row before counting:", file=sys.stderr)
     print("  in-class    the parent really does have the defect this check targets", file=sys.stderr)
