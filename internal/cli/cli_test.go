@@ -22,8 +22,10 @@ func TestPrintAnalyzerList(t *testing.T) {
 		wantError bool
 	}{
 		{
-			name:     "all",
-			contains: []string{"ANALYZER", "TIER", "GROUP", "channelsafety", "extended", "oncepolicy", "core", "reliability", "reliability", "core runs by default"},
+			name: "all",
+			contains: []string{
+				"ANALYZER", "TIER", "GROUP", "channelsafety", "oncepolicy", "core", "reliability", "core runs by default",
+			},
 			excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts", "*"},
 		},
 		{

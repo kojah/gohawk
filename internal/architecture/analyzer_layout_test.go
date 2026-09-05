@@ -192,6 +192,20 @@ var withdrawnAnalyzerPackages = map[string]bool{
 	"testpolicy":          true,
 }
 
+// assertWithdrawnStaysUnregistered reports whether name is deliberately absent
+// from the catalog, failing when a withdrawn package turns out to be
+// registered after all so relisting cannot leave a stale entry behind.
+func assertWithdrawnStaysUnregistered(t *testing.T, name string, withdrawn, grouped map[string]bool) bool {
+	t.Helper()
+	if !withdrawn[name] {
+		return false
+	}
+	if grouped[name] {
+		t.Errorf("analyzer %q is registered but listed as withdrawn; remove it from withdrawnAnalyzerPackages", name)
+	}
+	return true
+}
+
 func withdrawnAnalyzerNames() map[string]bool {
 	return withdrawnAnalyzerPackages
 }
@@ -238,10 +252,7 @@ func assertAnalyzerRuntimeBijection(t *testing.T, layout []analyzerLayoutPackage
 	}
 	metadata := publicanalyzers.AnalyzerMetadata()
 	for name := range byName {
-		if withdrawn[name] {
-			if grouped[name] {
-				t.Errorf("analyzer %q is registered but listed as withdrawn; remove it from withdrawnAnalyzerPackages", name)
-			}
+		if assertWithdrawnStaysUnregistered(t, name, withdrawn, grouped) {
 			continue
 		}
 		if !grouped[name] {

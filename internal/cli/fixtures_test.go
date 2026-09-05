@@ -111,29 +111,6 @@ func TestWork(t *testing.T) {
 `)
 }
 
-func writeTestPolicyFixModule(t *testing.T) string {
-	t.Helper()
-	directory := t.TempDir()
-	writeTestFile(t, filepath.Join(directory, "go.mod"), "module example.com/testpolicyfix\n\ngo 1.26.0\n")
-	writeTestFile(t, filepath.Join(directory, "sample", "helper_test.go"), `package sample
-
-import "testing"
-
-func requireUser(t *testing.T) {
-	// Keep this setup comment.
-	t.Log("require user")
-}
-
-func emptyHelper(t *testing.T) {}
-
-func TestHelpers(t *testing.T) {
-	requireUser(t)
-	emptyHelper(t)
-}
-`)
-	return directory
-}
-
 func writeContextTestModule(t *testing.T, goVersion string) string {
 	t.Helper()
 	return writeSampleModule(t, "module example.com/contexttest\n\ngo "+goVersion+"\n", "package sample\n", `package sample

@@ -65,8 +65,14 @@ func contractSpecs() []catalog.AnalyzerSpec {
 						"after a leading context and one context after a testing handle.",
 					Kind: catalog.KindPolicy, Tier: catalog.TierCore, Delisted: true,
 				},
-				{ID: check.ContextStorage, Doc: "Reports context.Context values stored in structs.", Kind: catalog.KindPolicy, Tier: catalog.TierCore, Delisted: true},
-				{ID: check.ContextNilArgument, Doc: "Reports definitely nil context.Context arguments.", Kind: catalog.KindDefect, Tier: catalog.TierCore, Delisted: true},
+				{
+					ID: check.ContextStorage, Doc: "Reports context.Context values stored in structs.",
+					Kind: catalog.KindPolicy, Tier: catalog.TierCore, Delisted: true,
+				},
+				{
+					ID: check.ContextNilArgument, Doc: "Reports definitely nil context.Context arguments.",
+					Kind: catalog.KindDefect, Tier: catalog.TierCore, Delisted: true,
+				},
 			},
 		},
 		{Analyzer: closedomain.Analyzer(), Checks: []catalog.CheckInfo{
