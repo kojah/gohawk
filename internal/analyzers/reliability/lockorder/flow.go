@@ -41,8 +41,13 @@ type lockFlowContext struct {
 	lockValues  map[string][]ssa.Value
 	acquiredAt  map[string]token.Pos
 	released    map[string]bool
-	callerOwned map[string]bool
-	defers      []*ssa.Defer
+	// unprovenRelease marks locks a callee may release without proving it does
+	// so on every path. The lock stays held, because a return that leaves it
+	// held is still worth reporting, but it is no longer proven held, which is
+	// what a recursive acquisition has to claim.
+	unprovenRelease map[string]bool
+	callerOwned     map[string]bool
+	defers          []*ssa.Defer
 }
 
 func walkLockOrder(
@@ -69,16 +74,17 @@ func walkLockOrder(
 	callerOwned := callerOwnedLocks(function)
 	functionDefers := ssaflow.InstructionsOf[*ssa.Defer](function)
 	flow := lockFlowContext{
-		pass:        pass,
-		evidence:    evidence,
-		relations:   relations,
-		keys:        keys,
-		calleeLocks: calleeLocks,
-		lockValues:  lockValues,
-		acquiredAt:  acquiredAt,
-		released:    released,
-		callerOwned: callerOwned,
-		defers:      functionDefers,
+		pass:            pass,
+		evidence:        evidence,
+		relations:       relations,
+		keys:            keys,
+		calleeLocks:     calleeLocks,
+		lockValues:      lockValues,
+		acquiredAt:      acquiredAt,
+		released:        released,
+		unprovenRelease: map[string]bool{},
+		callerOwned:     callerOwned,
+		defers:          functionDefers,
 	}
 	ssaflow.WalkStates([]lockFlowState{{block: function.Blocks[0]}}, lockStateKey, func(state lockFlowState) ([]lockFlowState, bool) {
 		held := slices.Clone(state.held)
@@ -91,7 +97,7 @@ func walkLockOrder(
 		}
 		for _, instruction := range state.block.Instrs {
 			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns, heldAtReturn)
-			held = transferCalledUnlocks(evidence, instruction, held, guards, lockValues, released)
+			held = transferCalledUnlocks(evidence, instruction, held, guards, lockValues, released, flow.unprovenRelease)
 			// An unconditional unlock at the start of a spawned closure transfers
 			// the held lock to that goroutine. Requiring it before any branch keeps
 			// conditional handoffs from hiding a genuinely unreleased return path.
@@ -276,6 +282,7 @@ func transferCalledUnlocks(
 	guards map[string]lockGuard,
 	lockValues map[string][]ssa.Value,
 	released map[string]bool,
+	unproven map[string]bool,
 ) []string {
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
@@ -286,6 +293,19 @@ func transferCalledUnlocks(
 				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
 			})
 			if !releaseSettled(proof, ssaflow.EvidenceCalledCompletion) {
+				// A callee that releases the lock on some paths and not others
+				// leaves it held but no longer proven held. A return that still
+				// holds it stays reportable, deliberately, so a conditional
+				// handoff cannot hide a leak. A later acquisition of it must
+				// not be called recursive, because that claim needs positive
+				// evidence the lock IS held. vekil wraps its mutex in a type
+				// whose Unlock returns early on a nil receiver, which left a
+				// Lock and Unlock paired inside a loop body reported as a
+				// recursive acquisition on the next iteration:
+				// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/proxy/route_executor.go#L697
+				if mayRelease(evidence, instruction, value) {
+					unproven[identity] = true
+				}
 				continue
 			}
 			// A synchronous helper or immediately invoked closure that releases the
@@ -443,7 +463,7 @@ func (flow lockFlowContext) applyMutexAction(
 	if readModeAcquisition(instruction) {
 		state.readHeld = appendUniqueString(state.readHeld, identity)
 	}
-	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.keys, flow.relations)
+	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.keys, flow.relations, flow.unprovenRelease[identity])
 	return state
 }
 
@@ -490,6 +510,20 @@ func traceRepeatedConditionPruning(pass *analysis.Pass, block *ssa.BasicBlock) {
 // function value. The callee may unlock, so the obligation is unknown rather
 // than violated from that point. A static callee is judged by the completion
 // proof instead.
+// mayRelease reports whether the call releases the lock on at least one path.
+// It is the weaker companion to the proof transferCalledUnlocks requires, and
+// answers only whether the caller may still claim the lock is held.
+func mayRelease(evidence *ssaflow.LocalEvidence, instruction ssa.Instruction, value ssa.Value) bool {
+	proof := evidence.Completion(ssaflow.CompletionRequest{
+		Instruction: instruction,
+		Target:      value,
+		Methods:     []string{"Unlock", "RUnlock"},
+		Coverage:    ssaflow.CoverageAnywhere,
+		Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
+	})
+	return proof.Proven() && proof.Reason == ssaflow.EvidenceCalledCompletion
+}
+
 func transferOpaqueUnlocks(
 	instruction ssa.Instruction,
 	held []string,

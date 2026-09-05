@@ -44,6 +44,7 @@ func acquireLock(
 	identity string,
 	keys map[string]string,
 	relations map[lockRelation]token.Pos,
+	releaseUnproven bool,
 ) []string {
 	if slices.Contains(held, identity) {
 		// A lock selected by a loop iteration is a different mutex each time
@@ -51,7 +52,9 @@ func acquireLock(
 		// iteration is not recursion. multigres locks every key mutex in a
 		// loop and defers the unlocks:
 		// https://github.com/multigres/multigres/blob/360b8f123dff8ad6bcc721acaec103c52081bebd/go/tools/viperutil/internal/sync/sync.go#L236-L240
-		if !loopVariantLock(instruction) {
+		// A lock a callee may already have released is not proven held, and a
+		// recursive acquisition has to claim that it is.
+		if !loopVariantLock(instruction) && !releaseUnproven {
 			check.Reportf(pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
 		}
 		return held
