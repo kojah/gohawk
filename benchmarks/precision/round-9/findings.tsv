@@ -1,0 +1,14 @@
+lxc/incus-compose	goroutineownership	client/client_events.go:26:3
+lxc/incus-compose	goroutineownership	client/resource_storage_volume_lock.go:117:3
+webtor-io/web-ui	goroutineownership	handlers/discover_ai/handler.go:279:2
+webtor-io/web-ui	goroutineownership	handlers/discover_ai/handler.go:345:2
+webtor-io/web-ui	goroutineownership	handlers/resource/status.go:146:2
+webtor-io/web-ui	goroutineownership	jobs/scripts/action.go:570:2
+webtor-io/web-ui	goroutineownership	jobs/scripts/action.go:887:2
+webtor-io/web-ui	goroutineownership	serve.go:630:3
+webtor-io/web-ui	goroutineownership	services/link_resolver/backends/webtor.go:61:4
+webtor-io/web-ui	goroutineownership	services/release_subscription/service.go:384:2
+webtor-io/web-ui	resourcelifetime	handlers/job/handler.go:58:13
+webtor-io/web-ui	resourcelifetime	handlers/resource/status.go:149:13
+webtor-io/web-ui	resourcelifetime	services/web/helper.go:325:12
+webtor-io/web-ui	resourcelifetime	services/web/helper.go:338:13

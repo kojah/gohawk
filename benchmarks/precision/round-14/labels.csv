@@ -1,10 +1,10 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-Gnosil/semantix,lockorder,,harness/recovery/gate.go:250:2,false_positive,,
-Gnosil/semantix,resourcelifetime,,harness/serve/serve_test.go:157:18,true_positive,,
-Gnosil/semantix,resourcelifetime,,harness/serve/serve_test.go:161:16,true_positive,,
-Gnosil/semantix,resourcelifetime,,harness/serve/serve_test.go:165:15,true_positive,,
-Notifiarr/notifiarr,resourcelifetime,,pkg/services/checks.go:243:15,false_positive,,
-Notifiarr/notifiarr,resourcelifetime,,pkg/bindata/bindata.go:21:13,true_positive,,
+Gnosil/semantix,lockorder,,harness/recovery/gate.go:250:2,false_positive,9613f2d,2026-09-06
+Gnosil/semantix,resourcelifetime,resourcelifetime/missing-release,harness/serve/serve_test.go:157:18,true_positive,9613f2d,2026-09-06
+Gnosil/semantix,resourcelifetime,resourcelifetime/missing-release,harness/serve/serve_test.go:161:16,true_positive,9613f2d,2026-09-06
+Gnosil/semantix,resourcelifetime,resourcelifetime/missing-release,harness/serve/serve_test.go:165:15,true_positive,9613f2d,2026-09-06
+Notifiarr/notifiarr,resourcelifetime,,pkg/services/checks.go:243:15,false_positive,9613f2d,2026-09-06
+Notifiarr/notifiarr,resourcelifetime,resourcelifetime/missing-release,pkg/bindata/bindata.go:21:13,true_positive,9613f2d,2026-09-06
 Notifiarr/notifiarr,concurrentcapture,concurrentcapture/shared-capture,pkg/checkapp/checkall.go:214:5,true_positive,,
 orneryd/NornicDB,lockorder,,pkg/storage/schema_knowledgepolicy.go:246:4,true_positive,,
 orneryd/NornicDB,lockorder,,pkg/storage/schema_knowledgepolicy.go:248:3,true_positive,,

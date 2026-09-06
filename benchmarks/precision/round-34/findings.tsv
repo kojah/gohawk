@@ -1,0 +1,10 @@
+eclipse-enclave/enclave	processownership	internal/theia/launcher.go:122:12
+neochaotic/leoflow	goroutineownership	internal/scheduler/scheduler.go:912:3
+neochaotic/leoflow	goroutineownership	internal/storage/redis_observability.go:197:2
+neochaotic/leoflow	resourcelifetime	cmd/leoflow-server/main.go:818:17
+neochaotic/leoflow	resourcelifetime	internal/logs/object_gcs_test.go:29:16
+roman-16/proton-cli	evalorder	scripts/stats/main.go:766:39
+roman-16/proton-cli	exitpolicy	scripts/seed/main.go:127:3
+roman-16/proton-cli	exitpolicy	scripts/seed/main.go:79:3
+roman-16/proton-cli	exitpolicy	scripts/seed/main.go:83:3
+roman-16/proton-cli	resourcelifetime	internal/cli/kit/destination_test.go:167:15

@@ -1,0 +1,17 @@
+imroc/req	deferinloop	internal/socks/dial_test.go:346:4
+imroc/req	deferinloop	transport.go:3528:5
+imroc/req	exitpolicy	transport.go:1445:4
+imroc/req	goroutineownership	internal/http2/transport.go:1319:2
+imroc/req	goroutineownership	internal/http3/client.go:115:2
+imroc/req	goroutineownership	internal/http3/conn.go:317:3
+imroc/req	goroutineownership	internal/http3/transport.go:482:2
+imroc/req	goroutineownership	internal/http3/transport.go:488:4
+imroc/req	goroutineownership	internal/transport/option.go:181:3
+imroc/req	goroutineownership	middleware.go:206:2
+imroc/req	goroutineownership	parallel_download.go:225:3
+imroc/req	goroutineownership	transport.go:1019:3
+imroc/req	goroutineownership	transport.go:1911:2
+imroc/req	goroutineownership	transport.go:669:3
+imroc/req	goroutineownership	transport.go:890:6
+imroc/req	resourcelifetime	client.go:616:15
+imroc/req	resourcelifetime	request.go:1166:15

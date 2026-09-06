@@ -1,7 +1,7 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-fy0/CodeKanban,lockorder,,service/websession/history_cleanup.go:264:3,false_positive,,
-aws/eks-node-monitoring-agent,resourcelifetime,,pkg/util/file/archive.go:86:16,true_positive,,
-aws/eks-node-monitoring-agent,resourcelifetime,,pkg/util/net/http.go:23:14,true_positive,,
-cloudflare/cf-terraforming,resourcelifetime,,internal/app/cf-terraforming/cmd/util.go:76:14,true_positive,,
-supabase/auth,inlineerror,inlineerror/mismatched-condition,internal/api/verify.go:180:31,true_positive,,
-supabase/auth,resourcelifetime,,internal/api/sms_provider/messagebird.go:85:14,true_positive,,
+fy0/CodeKanban,lockorder,,service/websession/history_cleanup.go:264:3,false_positive,9613f2d,2026-09-06
+aws/eks-node-monitoring-agent,resourcelifetime,resourcelifetime/missing-release,pkg/util/file/archive.go:86:16,true_positive,9613f2d,2026-09-06
+aws/eks-node-monitoring-agent,resourcelifetime,resourcelifetime/missing-release,pkg/util/net/http.go:23:14,true_positive,9613f2d,2026-09-06
+cloudflare/cf-terraforming,resourcelifetime,resourcelifetime/missing-release,internal/app/cf-terraforming/cmd/util.go:76:14,true_positive,9613f2d,2026-09-06
+supabase/auth,inlineerror,inlineerror/mismatched-condition,internal/api/verify.go:180:31,true_positive,9613f2d,2026-09-06
+supabase/auth,resourcelifetime,resourcelifetime/missing-release,internal/api/sms_provider/messagebird.go:85:14,true_positive,9613f2d,2026-09-06

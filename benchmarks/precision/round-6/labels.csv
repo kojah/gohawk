@@ -1,9 +1,9 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-teradata-labs/loom,goroutineownership,,pkg/server/multi_agent_shared_memory_test.go:243:3,false_positive,,
-teradata-labs/loom,goroutineownership,,pkg/storage/shared_memory.go:139:2,true_positive,,
+teradata-labs/loom,goroutineownership,,pkg/server/multi_agent_shared_memory_test.go:243:3,false_positive,9613f2d,2026-09-06
+teradata-labs/loom,goroutineownership,goroutineownership/detached,pkg/storage/shared_memory.go:139:2,true_positive,9613f2d,2026-09-06
 teradata-labs/loom,resourcelifetime,,pkg/storage/shared_memory.go:413:8,true_positive,,
-boldsoftware/shelley,goroutineownership,,subpub/subpub_test.go:21:3,false_positive,,
-boldsoftware/shelley,resourcelifetime,,gitstate/object.go:72:14,true_positive,,
-boldsoftware/shelley,resourcelifetime,,gitstate/object.go:265:13,true_positive,,
-drallgood/audiobookshelf-hardcover-sync,deferinloop,deferinloop/cleanup-lifetime,internal/api/audnex/client.go:183:3,true_positive,,
-DereC4/internships-and-newgrad,resourcelifetime,,go/main.go:24:19,true_positive,,
+boldsoftware/shelley,goroutineownership,,subpub/subpub_test.go:21:3,false_positive,9613f2d,2026-09-06
+boldsoftware/shelley,resourcelifetime,resourcelifetime/missing-release,gitstate/object.go:72:14,true_positive,9613f2d,2026-09-06
+boldsoftware/shelley,resourcelifetime,resourcelifetime/missing-release,gitstate/object.go:265:13,true_positive,9613f2d,2026-09-06
+drallgood/audiobookshelf-hardcover-sync,deferinloop,deferinloop/cleanup-lifetime,internal/api/audnex/client.go:183:3,true_positive,9613f2d,2026-09-06
+DereC4/internships-and-newgrad,resourcelifetime,resourcelifetime/missing-release,go/main.go:24:19,true_positive,9613f2d,2026-09-06

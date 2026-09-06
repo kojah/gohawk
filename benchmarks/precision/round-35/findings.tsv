@@ -1,0 +1,15 @@
+driftlessaf/go-driftlessaf	resourcelifetime	agents/rag/client.go:88:20
+driftlessaf/go-driftlessaf	resourcelifetime	agents/rag/client_test.go:134:12
+driftlessaf/go-driftlessaf	resourcelifetime	workqueue/conformance/concurrency.go:57:11
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_global_variable.go:84:15
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_global_variable_test.go:148:15
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_grant.go:1004:15
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_grant_test.go:739:16
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_rds_config.go:90:15
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_rds_config_test.go:127:15
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_rds_config_test.go:132:15
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_rds_config_test.go:165:16
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_rds_config_test.go:69:16
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_ti_config_variable_test.go:168:15
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_ti_config_variable_test.go:188:15
+petoju/terraform-provider-mysql	resourcelifetime	mysql/resource_user_password.go:116:18

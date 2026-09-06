@@ -1,0 +1,15 @@
+Southclaws/sampctl	resourcelifetime	src/pkg/runtime/manifest.go:183:13
+cirruslabs/packer-plugin-tart	resourcelifetime	builder/tart/recoverypartition/relocate.go:104:24
+cirruslabs/packer-plugin-tart	resourcelifetime	builder/tart/recoverypartition/relocate.go:119:19
+cirruslabs/packer-plugin-tart	resourcelifetime	builder/tart/recoverypartition/relocate.go:63:18
+conductor-oss/go-sdk	exitpolicy	examples/api_gateway/main.go:102:3
+conductor-oss/go-sdk	exitpolicy	examples/api_gateway/main.go:153:3
+conductor-oss/go-sdk	exitpolicy	test/backward_compatibility/shared/compatibility.go:57:3
+conductor-oss/go-sdk	exitpolicy	test/backward_compatibility/shared/compatibility.go:60:3
+conductor-oss/go-sdk	goroutineownership	examples/workflow/lifecycle/main.go:90:2
+conductor-oss/go-sdk	goroutineownership	harness/main.go:45:2
+conductor-oss/go-sdk	goroutineownership	harness/main.go:76:2
+conductor-oss/go-sdk	goroutineownership	harness/main.go:77:2
+conductor-oss/go-sdk	goroutineownership	sdk/workflow/executor/monitor.go:43:2
+omarluq/cc-relay	cancellationownership	cmd/cc-relay/main.go:51:12
+timoknapp/soundcloud-cli	resourcelifetime	pkg/tag/tag.go:20:16

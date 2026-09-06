@@ -1,4 +1,4 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-liliang-cn/cortexdb,resourcelifetime,,pkg/core/advanced_search.go:140:16,false_positive,,
-liliang-cn/cortexdb,resourcelifetime,,pkg/liveview/server_test.go:355:15,true_positive,,
-liliang-cn/cortexdb,processownership,,pkg/liveview/server.go:433:9,true_positive,,
+liliang-cn/cortexdb,resourcelifetime,,pkg/core/advanced_search.go:140:16,false_positive,9613f2d,2026-09-06
+liliang-cn/cortexdb,resourcelifetime,resourcelifetime/missing-release,pkg/liveview/server_test.go:355:15,true_positive,9613f2d,2026-09-06
+liliang-cn/cortexdb,processownership,processownership/detached,pkg/liveview/server.go:433:9,true_positive,9613f2d,2026-09-06

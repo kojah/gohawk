@@ -1,9 +1,9 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-future-architect/uzomuzo-oss,resourcelifetime,,internal/infrastructure/golangresolve/resolve.go:94:16,false_positive,,
-SumoLogic/terraform-provider-sumologic,resourcelifetime,,sumologic/provider.go:172:15,true_positive,,
-agentic-research/mache,processownership,,internal/leyline/procgroup_unix_test.go:30:12,false_positive,,
-agentic-research/mache,resourcelifetime,,tools/mcp-fetch/main.go:74:13,true_positive,,
-agentic-research/mache,resourcelifetime,,tools/notion-fetch/main.go:73:13,true_positive,,
-stephrobert/feint,processownership,,internal/core/machine/incus_watch.go:51:12,false_positive,,
-stephrobert/feint,processownership,,internal/cli/lifecycle.go:183:12,true_positive,,
-stephrobert/feint,processownership,,internal/cli/ui.go:169:9,true_positive,,
+future-architect/uzomuzo-oss,resourcelifetime,,internal/infrastructure/golangresolve/resolve.go:94:16,false_positive,9613f2d,2026-09-06
+SumoLogic/terraform-provider-sumologic,resourcelifetime,resourcelifetime/missing-release,sumologic/provider.go:172:15,true_positive,9613f2d,2026-09-06
+agentic-research/mache,processownership,,internal/leyline/procgroup_unix_test.go:30:12,false_positive,9613f2d,2026-09-06
+agentic-research/mache,resourcelifetime,resourcelifetime/missing-release,tools/mcp-fetch/main.go:74:13,true_positive,9613f2d,2026-09-06
+agentic-research/mache,resourcelifetime,resourcelifetime/missing-release,tools/notion-fetch/main.go:73:13,true_positive,9613f2d,2026-09-06
+stephrobert/feint,processownership,,internal/core/machine/incus_watch.go:51:12,false_positive,9613f2d,2026-09-06
+stephrobert/feint,processownership,processownership/missing-wait,internal/cli/lifecycle.go:183:12,true_positive,9613f2d,2026-09-06
+stephrobert/feint,processownership,processownership/detached,internal/cli/ui.go:169:9,true_positive,9613f2d,2026-09-06

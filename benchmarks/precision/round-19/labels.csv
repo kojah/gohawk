@@ -1,7 +1,7 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-qist/tvgate,resourcelifetime,,handler/http_handler.go:358:23,false_positive,,
-qist/tvgate,resourcelifetime,,player/handler.go:356:15,false_positive,,
-telekom/k8s-breakglass,lockorder,,pkg/artifacts/storage/local/local.go:289:3,false_positive,,
-qist/tvgate,deferinloop,deferinloop/cleanup-lifetime,updater/github_updater.go:103:3,true_positive,,
+qist/tvgate,resourcelifetime,,handler/http_handler.go:358:23,false_positive,9613f2d,2026-09-06
+qist/tvgate,resourcelifetime,,player/handler.go:356:15,false_positive,9613f2d,2026-09-06
+telekom/k8s-breakglass,lockorder,,pkg/artifacts/storage/local/local.go:289:3,false_positive,9613f2d,2026-09-06
+qist/tvgate,deferinloop,deferinloop/cleanup-lifetime,updater/github_updater.go:103:3,true_positive,9613f2d,2026-09-06
 telekom/k8s-breakglass,resourcelifetime,,cmd/kubeconfig_test.go:15:25,true_positive,,
-telekom/k8s-breakglass,processownership,,pkg/bgctl/auth/oidc.go:212:9,true_positive,,
+telekom/k8s-breakglass,processownership,processownership/detached,pkg/bgctl/auth/oidc.go:212:9,true_positive,9613f2d,2026-09-06

@@ -1,0 +1,12 @@
+SumoLogic/terraform-provider-sumologic	resourcelifetime	sumologic/provider.go:172:15
+agentic-research/mache	goroutineownership	graph/arena_writer.go:71:2
+agentic-research/mache	goroutineownership	internal/lltest/lltest.go:48:2
+agentic-research/mache	goroutineownership	internal/lltest/lltest.go:54:4
+agentic-research/mache	goroutineownership	internal/mcpserve/serve_registry.go:951:3
+agentic-research/mache	processownership	internal/leyline/sheaf_e2e_test.go:86:21
+agentic-research/mache	resourcelifetime	tools/mcp-fetch/main.go:74:13
+agentic-research/mache	resourcelifetime	tools/notion-fetch/main.go:73:13
+stephrobert/feint	goroutineownership	internal/cli/cli.go:1031:4
+stephrobert/feint	goroutineownership	internal/core/machine/serialise_test.go:59:3
+stephrobert/feint	processownership	internal/cli/lifecycle.go:183:12
+stephrobert/feint	processownership	internal/cli/ui.go:169:9

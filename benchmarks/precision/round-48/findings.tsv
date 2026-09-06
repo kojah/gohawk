@@ -1,0 +1,8 @@
+MusicDin/kubitect	resourcelifetime	pkg/cluster/cluster_test.go:57:12
+MusicDin/kubitect	resourcelifetime	pkg/cluster/provisioner/terraform/terraform_test.go:52:12
+MusicDin/kubitect	resourcelifetime	pkg/models/config/mock.go:20:11
+MusicDin/kubitect	resourcelifetime	pkg/utils/file/file.go:89:15
+MusicDin/kubitect	resourcelifetime	pkg/utils/template/templates_test.go:110:12
+ecadlabs/signatory	goroutineownership	pkg/middlewares/jwt.go:261:3
+ecadlabs/signatory	resourcelifetime	integration_test/tests/speculos.go:79:11
+kashav/fsql	goroutineownership	terminal/terminal.go:114:2

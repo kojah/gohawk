@@ -1,4 +1,4 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-charmbracelet/x,resourcelifetime,,examples/cellbuf/main.go:121:12,false_positive,,
-charmbracelet/x,resourcelifetime,,examples/layout/main.go:513:12,false_positive,,
-imroc/req,deferinloop,deferinloop/cleanup-lifetime,transport.go:3528:5,true_positive,,
+charmbracelet/x,resourcelifetime,,examples/cellbuf/main.go:121:12,false_positive,9613f2d,2026-09-06
+charmbracelet/x,resourcelifetime,,examples/layout/main.go:513:12,false_positive,9613f2d,2026-09-06
+imroc/req,deferinloop,deferinloop/cleanup-lifetime,transport.go:3528:5,true_positive,9613f2d,2026-09-06
