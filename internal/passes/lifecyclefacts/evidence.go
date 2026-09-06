@@ -67,6 +67,67 @@ func (evidence *LifecycleEvidence) ClosureRetainsValue(closure *ssa.MakeClosure,
 	return false
 }
 
+// ClosureHandsValueToUnreadableCallee reports whether a literal passes the
+// value it captured to a callee whose body this pass cannot read.
+//
+// Reading a literal's body decides whether the literal is transparent, and a
+// transparent literal leaves the resource owned by the enclosing function. That
+// is only sound for a body the pass can judge. A capture is a cell the body
+// loads first, so the argument at such a call is the load rather than the
+// value the caller acquired, and a summary matched on exact value identity
+// never recognizes it: block/spirit closes rows through utils.CloseAndLog
+// inside a deferred literal, and the release went uncredited while the literal
+// was judged transparent.
+//
+// Rather than credit a release it cannot see, say the literal is not readable
+// and let the caller keep the old opaque answer.
+func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCallee(
+	closure *ssa.MakeClosure, target ssa.Value,
+) bool {
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok || len(function.Blocks) == 0 {
+		return true
+	}
+	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
+		if !ssaflow.CapturedBindingMatches(captured.Binding, target) &&
+			!ssaflow.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
+			continue
+		}
+		held := capturedUses(captured.Free)
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instrs {
+				if callHandsValueToUnreadableCallee(instruction, held) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// callHandsValueToUnreadableCallee reports whether the instruction passes one
+// of the held values to a callee with no body here. A dynamic callee and a
+// callee in another package both qualify: go vet analyses one package at a
+// time, so an imported body is absent and only its summary is available.
+func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Value) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	callee := common.StaticCallee()
+	if callee != nil && len(callee.Blocks) > 0 {
+		return false
+	}
+	for _, argument := range common.Args {
+		for _, value := range held {
+			if ssaflow.SameValue(argument, value) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // capturedUses returns the values a literal's body actually handles for a
 // captured variable. A capture is a cell, and the body loads it before use, so
 // asking the retention walk about the cell alone finds nothing: that walk

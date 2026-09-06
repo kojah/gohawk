@@ -1,6 +1,10 @@
 package resourcelifetime
 
-import "os"
+import (
+	"os"
+
+	"resourcedep"
+)
 
 // A function literal that captures a resource is judged by where it runs. One
 // that is called or deferred runs in this frame, so its body is as readable as
@@ -113,5 +117,32 @@ func fileReadByDeferredLiteralHelper(path string) error {
 		return err
 	}
 	defer func() { _ = readThroughHelper(file) }()
+	return nil
+}
+
+// fileClosedByImportedHelperInLiteral is accepted because the release is real
+// and this pass cannot see it. A capture is a cell the literal's body loads
+// first, so the argument at the call is the load rather than the file this
+// function opened, and an imported summary matched on exact value identity
+// does not recognize it. Calling the literal transparent on that basis reports
+// a leak that is not there; block/spirit closes rows through such a helper:
+// https://github.com/block/spirit/blob/c554eae/pkg/checksum/single.go#L493-L503
+func fileClosedByImportedHelperInLiteral(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resourcedep.Close(file) }()
+	return nil
+}
+
+// fileClosedByImportedHelperDirectly stays accepted: without the literal the
+// argument is the file itself, so the summary matches and the release is seen.
+func fileClosedByImportedHelperDirectly(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer resourcedep.Close(file)
 	return nil
 }

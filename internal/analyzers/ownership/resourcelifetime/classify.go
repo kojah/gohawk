@@ -140,6 +140,18 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 		// before this point, so what is left to ask is whether it keeps the
 		// resource: if it does the obligation moved, and if it does not the
 		// literal is transparent and this function still owns the resource.
+		//
+		// That holds only for a body this pass can judge. A capture is a cell
+		// the body loads first, so the argument at a call inside the literal is
+		// the load rather than the acquired value, and a summary matched on
+		// exact identity does not recognize it. block/spirit closes rows
+		// through a helper in another package from inside a deferred literal,
+		// and the release went uncredited while the literal was called
+		// transparent:
+		// https://github.com/block/spirit/blob/c554eae/pkg/checksum/single.go#L493-L503
+		if analysis.evidence.ClosureHandsValueToUnreadableCallee(closure, analysis.resource) {
+			return "captured-by-literal-calling-unreadable-callee", true
+		}
 		return "captured-by-retaining-literal", analysis.evidence.ClosureRetainsValue(closure, analysis.resource)
 	}
 	callee := common.StaticCallee()
