@@ -425,6 +425,10 @@ def main() -> None:
                 fail("gohawk build failed")
         checkout_root = args.checkout_root.resolve() if args.checkout_root else temporary / "repositories"
         checkout_root.mkdir(parents=True, exist_ok=True)
+        # The revision names the code that produced these findings, so read it
+        # before the run writes a baseline or a stamp. Reading it afterwards
+        # sees the run's own output and records every label as -dirty.
+        scanned_revision = current_revision(repository_root)
         findings: set[tuple[str, str, str]] = set()
         checks: dict[tuple[str, str, str], set[str]] = {}
         unscannable: dict[str, list[str]] = {}
@@ -529,7 +533,7 @@ def main() -> None:
             raise SystemExit(1)
         if args.stamp:
             held = ((false_positives - findings) | (true_positives & findings)) - set(blocked)
-            revision = current_revision(repository_root)
+            revision = scanned_revision
             print(f"stamped {stamp_labels(cohort, labels, held, revision, checks)} holding labels at {revision}")
         if returned_noise or lost_signal:
             raise SystemExit(1)
