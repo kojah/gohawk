@@ -24,6 +24,31 @@ affected analyzer controls for ordinary batches. Run the complete cumulative
 suite after every fifth batch and at release or CI gates. This keeps routine
 audit work incremental while still providing regular integration checkpoints.
 
+## Labels retired with their analyzers
+
+Fifty-nine labels named analyzers the project has since withdrawn:
+channelownership (10), testpolicy (9), errorownership (7), determinism (7),
+closedomain (6), globalstate (6), apishape (5), contextpolicy (5),
+wirepolicy (3), and testlifecycle (1).
+
+They are removed rather than left in place. A true-positive label for a
+withdrawn analyzer can never be present again, so it fails every replay for a
+reason no change can fix; a false-positive label for one trivially remains
+absent, which is a pass nobody earned. Twenty-five and thirty-four
+respectively. The verdicts were real reviews, and the audit records that
+describe them are kept; what is gone is the executable claim, because the code
+that made it no longer ships.
+
+## Which check a label names
+
+A label records the check that earned it, not only the analyzer, because an
+analyzer holds checks in different tiers. Ninety-nine labels were filled in
+from analyzers that hold exactly one check, where the answer is a lookup
+rather than a guess. The rest are filled in by a replay that confirms them,
+which can only see the check for a label whose finding is present: a
+false-positive label describes a finding that is absent, so its check has to
+be recorded when the label is written.
+
 Round 4 contains the 20 false positives fixed from a 15-repository traced
 audit plus all 23 reviewed true positives. The full audit, including the
 remaining labeled noise families, lives in the companion lead-generation

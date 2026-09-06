@@ -1,5 +1,5 @@
-repository,analyzer,position,verdict
-eclipse-enclave/enclave,evalorder,internal/cli/parse.go:77:13,false_positive
-eclipse-enclave/enclave,evalorder,internal/cli/parse.go:101:23,false_positive
-roman-16/proton-cli,evalorder,scripts/stats/main.go:766:39,true_positive
-neochaotic/leoflow,resourcelifetime,internal/ui/handler.go:203:8,true_positive
+repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
+eclipse-enclave/enclave,evalorder,evalorder/operand-mutation,internal/cli/parse.go:77:13,false_positive,,
+eclipse-enclave/enclave,evalorder,evalorder/operand-mutation,internal/cli/parse.go:101:23,false_positive,,
+roman-16/proton-cli,evalorder,evalorder/operand-mutation,scripts/stats/main.go:766:39,true_positive,,
+neochaotic/leoflow,resourcelifetime,,internal/ui/handler.go:203:8,true_positive,,
