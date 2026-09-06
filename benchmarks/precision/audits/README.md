@@ -1391,6 +1391,36 @@ all of them: a key file created only for its path, a button-press response
 never closed, and a pipe reader goroutine left blocked when closing the
 writer fails. One logged-and-returned error is a policy report.
 
+## Batch 47
+
+Forty-nine repositories already cloned but outside the five-hundred selection,
+scanned at a777a05. Eight failed to build. Enabling every check produced 718
+diagnostics and the default tier produced 226, of which 80 sit in test files;
+the 146 production findings across twenty-six repositories are what a user
+sees. The gap matters: sixty-three per cent of the wider number is
+goroutineownership/detached, an experimental check, and reading it as the core
+unjoined check would have made the corpus look far noisier than it is.
+
+Twenty-two findings were reviewed in detail across every check that fired.
+One bounded correction: lockorder/recursive-acquire reported a Lock and Unlock
+paired inside a loop body in sozercan/vekil, whose mutex is wrapped in a type
+whose Unlock returns early on a nil receiver. The release is real and, for a
+receiver taken from a field, the guarded path is unreachable, but it is not
+provable on every path, so the lock stayed proven held into the next
+iteration. Recording the weaker answer separately keeps a return that still
+holds the lock reportable while declining the recursion claim, which is the
+one that needs the lock to be proven held.
+
+The rest were defects. exitpolicy reports only exits that follow a registered
+defer, and skips the ones that precede any, which is what leaves a temporary
+directory and a Postgres container behind on the paths it names. deferinloop
+named a pagination loop accumulating response bodies. concurrentcapture named
+a batch handler whose per-request goroutines take index and body as parameters
+but capture and write two enclosing strings, and a goroutine that assigns a
+captured error with = where the line above it uses :=. Resource findings named
+bodies left open on non-200 paths, a file never closed at all, and a ticker
+never stopped.
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
