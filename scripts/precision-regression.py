@@ -191,7 +191,9 @@ def retry_scan(
         return subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="timed out")
 
 
-def scan(gohawk: Path, repository: str, checkout: Path) -> tuple[set[tuple[str, str, str]], list[str]]:
+def scan(
+    gohawk: Path, repository: str, checkout: Path
+) -> tuple[set[tuple[str, str, str]], dict[tuple[str, str, str], set[str]], list[str]]:
     """Return the findings, and the reasons any module could not be analysed.
 
     A module that fails to build contributes no findings, so every reviewed
@@ -200,6 +202,7 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> tuple[set[tuple[str, 
     from a real change rather than see it as missing signal.
     """
     findings: set[tuple[str, str, str]] = set()
+    checks: dict[tuple[str, str, str], set[str]] = {}
     incomplete: list[str] = []
     environment = os.environ | {
         "CGO_ENABLED": "0",
@@ -270,14 +273,23 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> tuple[set[tuple[str, 
                         errors += 1
                         continue
                     position = str(diagnostic.get("posn", "")).replace(str(checkout) + os.sep, "")
-                    findings.add((repository, analyzer, position))
+                    finding = (repository, analyzer, position)
+                    findings.add(finding)
+                    # The diagnostic names the check that made it. An analyzer
+                    # can hold checks in different tiers -- goroutineownership
+                    # reports both a core join and an experimental detachment --
+                    # so a label naming only the analyzer cannot say which was
+                    # reviewed. Keep it beside the finding so a label can.
+                    check = str(diagnostic.get("category", ""))
+                    if check:
+                        checks.setdefault(finding, set()).add(check)
         if errors:
             # A package that failed to load contributes no findings, so a lost
             # label from a module with load errors may be an environment problem
             # (a transient module fetch, or memory pressure under a parallel
             # replay) rather than an analyzer regression. Say so.
             incomplete.append(f"{errors} package error(s) in {module.relative_to(checkout)}")
-    return findings, incomplete
+    return findings, checks, incomplete
 
 
 # A label records a human verdict about one finding. The repository revision is
@@ -286,7 +298,7 @@ def scan(gohawk: Path, repository: str, checkout: Path) -> tuple[set[tuple[str, 
 # broke it" from "this drifted some releases ago". LABEL_PROVENANCE carries
 # that, and --stamp refreshes it for every label that still holds, so the
 # recorded revision means "last confirmed at", not "first written at".
-LABEL_FIELDS = ["repository", "analyzer", "position", "verdict"]
+LABEL_FIELDS = ["repository", "analyzer", "check", "position", "verdict"]
 LABEL_PROVENANCE = ["gohawk_revision", "confirmed_at"]
 
 
@@ -313,13 +325,30 @@ def current_revision(repository_root: Path) -> str:
     return revision + ("-dirty" if dirty else "")
 
 
-def stamp_labels(cohort: Path, labels: list[dict], held: set[tuple[str, str, str]], revision: str) -> int:
-    """Record the running revision on every label that still holds."""
+def stamp_labels(
+    cohort: Path,
+    labels: list[dict],
+    held: set[tuple[str, str, str]],
+    revision: str,
+    checks: dict[tuple[str, str, str], set[str]],
+) -> int:
+    """Record the running revision on every label that still holds.
+
+    A label that names no check is filled in from the run that just confirmed
+    it, but only when exactly one check reported at that position. Two checks
+    of one analyzer firing there is precisely the ambiguity the column exists
+    to remove, and guessing between them would record a verdict nobody gave.
+    """
     today = datetime.date.today().isoformat()
     stamped = 0
     for row in labels:
-        if (row["repository"], row["analyzer"], row["position"]) not in held:
+        key = (row["repository"], row["analyzer"], row["position"])
+        if key not in held:
             continue
+        if not (row.get("check") or "").strip():
+            observed = sorted(checks.get(key, set()))
+            if len(observed) == 1:
+                row["check"] = observed[0]
         row["gohawk_revision"] = revision
         row["confirmed_at"] = today
         stamped += 1
@@ -397,13 +426,31 @@ def main() -> None:
         checkout_root = args.checkout_root.resolve() if args.checkout_root else temporary / "repositories"
         checkout_root.mkdir(parents=True, exist_ok=True)
         findings: set[tuple[str, str, str]] = set()
+        checks: dict[tuple[str, str, str], set[str]] = {}
         unscannable: dict[str, list[str]] = {}
         for repository, revision in manifest:
             print(f"scanning {repository}@{revision[:12]}", flush=True)
-            found, incomplete = scan(gohawk, repository, checkout_repository(checkout_root, repository, revision))
+            found, found_checks, incomplete = scan(
+                gohawk, repository, checkout_repository(checkout_root, repository, revision)
+            )
             findings |= found
+            for finding, names in found_checks.items():
+                checks.setdefault(finding, set()).update(names)
             if incomplete:
                 unscannable[repository] = incomplete
+
+        # A label that names a check is matched on it as well, so a verdict
+        # reviewed for one check is not satisfied by a different check of the
+        # same analyzer firing at that position. A label written before the
+        # column existed names no check and still matches on the analyzer.
+        def label_key(row: dict[str, str]) -> tuple[str, str, str]:
+            return (row["repository"], row["analyzer"], row["position"])
+
+        def check_matches(row: dict[str, str]) -> bool:
+            wanted = (row.get("check") or "").strip()
+            if not wanted:
+                return True
+            return wanted in checks.get(label_key(row), set())
 
         false_positives = {
             (row["repository"], row["analyzer"], row["position"])
@@ -415,8 +462,20 @@ def main() -> None:
             for row in labels
             if row["verdict"] == "true_positive"
         }
-        returned_noise = sorted(false_positives & findings)
-        lost_signal = sorted(true_positives - findings)
+        # A labelled false positive has returned when the finding is back AND,
+        # where the label names a check, that check produced it.
+        returned_noise = sorted(
+            label_key(row)
+            for row in labels
+            if row["verdict"] == "false_positive" and label_key(row) in findings and check_matches(row)
+        )
+        # A labelled true positive is lost when the finding is gone, or when the
+        # check that earned the verdict is no longer the one reporting there.
+        lost_signal = sorted(
+            label_key(row)
+            for row in labels
+            if row["verdict"] == "true_positive" and (label_key(row) not in findings or not check_matches(row))
+        )
         # A label in a repository that did not analyse cleanly proves nothing.
         # Counting it as lost turns a checkout that needs a build step into a
         # phantom regression, which is the failure this partition prevents.
@@ -433,10 +492,14 @@ def main() -> None:
         provenance = {
             (row["repository"], row["analyzer"], row["position"]): describe_provenance(row) for row in labels
         }
+        def describe(finding: tuple[str, str, str]) -> str:
+            names = sorted(checks.get(finding, set()))
+            return f" [{', '.join(names)}]" if names else ""
+
         for finding in returned_noise:
-            print("returned false positive:", *finding, f"({provenance[finding]})", file=sys.stderr)
+            print("returned false positive:", *finding, describe(finding), f"({provenance[finding]})", file=sys.stderr)
         for finding in lost_signal:
-            print("lost true positive:", *finding, f"({provenance[finding]})", file=sys.stderr)
+            print("lost true positive:", *finding, describe(finding), f"({provenance[finding]})", file=sys.stderr)
         print(
             f"checked {len(labels) - len(blocked) - len(blocked_noise)} labels: "
             f"{checked_noise - len(returned_noise)} of {checked_noise} false positives remain absent; "
@@ -467,7 +530,7 @@ def main() -> None:
         if args.stamp:
             held = ((false_positives - findings) | (true_positives & findings)) - set(blocked)
             revision = current_revision(repository_root)
-            print(f"stamped {stamp_labels(cohort, labels, held, revision)} holding labels at {revision}")
+            print(f"stamped {stamp_labels(cohort, labels, held, revision, checks)} holding labels at {revision}")
         if returned_noise or lost_signal:
             raise SystemExit(1)
     finally:
