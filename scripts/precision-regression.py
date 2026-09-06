@@ -316,8 +316,14 @@ def current_revision(repository_root: Path) -> str:
     ).stdout.strip()
     if not revision:
         return "unknown"
+    # The benchmark tree is this run's own output: a replay rewrites labels and
+    # baselines as it goes, and a cohort's writes would otherwise make every
+    # later cohort read as dirty. What a stamp certifies is analyzer behaviour,
+    # which those files cannot change, so judge dirtiness on everything else.
     dirty = run(
-        ["git", "-C", str(repository_root), "status", "--porcelain"], capture_output=True
+        ["git", "-C", str(repository_root), "status", "--porcelain", "--",
+         ".", ":(exclude)benchmarks/precision"],
+        capture_output=True,
     ).stdout.strip()
     # A stamp from a modified tree names a revision that does not contain the
     # behaviour it certifies, so say so rather than record a revision that
