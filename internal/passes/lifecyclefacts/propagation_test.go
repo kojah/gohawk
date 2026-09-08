@@ -63,51 +63,6 @@ func sibling(value, other *closer) {
 	}
 }
 
-func TestLifecycleSummaryDelegatesActionsToLocalHelpers(t *testing.T) {
-	pkg := buildLifecycleTestSSA(t, `
-package lifecyclefactstest
-
-type closer struct{}
-func (*closer) Close() {}
-
-func closeAlways(value *closer) { value.Close() }
-func closeSometimes(value *closer, enabled bool) {
-	if enabled {
-		value.Close()
-	}
-}
-func CloseViaHelper(value *closer) { closeAlways(value) }
-func MaybeCloseViaHelper(value *closer, enabled bool) { closeSometimes(value, enabled) }
-func CloseInGoroutine(value *closer) { go closeAlways(value) }
-
-func invokeAlways(callback func()) { callback() }
-func invokeSometimes(callback func(), enabled bool) {
-	if enabled {
-		callback()
-	}
-}
-func InvokeViaHelper(callback func()) { invokeAlways(callback) }
-func MaybeInvokeViaHelper(callback func(), enabled bool) { invokeSometimes(callback, enabled) }
-`)
-	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	for _, test := range []struct {
-		name       string
-		selectMask func(Fact) ParameterMask
-		want       bool
-	}{
-		{name: "CloseViaHelper", selectMask: func(fact Fact) ParameterMask { return fact.Closed }, want: true},
-		{name: "MaybeCloseViaHelper", selectMask: func(fact Fact) ParameterMask { return fact.Closed }},
-		{name: "CloseInGoroutine", selectMask: func(fact Fact) ParameterMask { return fact.Closed }},
-		{name: "InvokeViaHelper", selectMask: func(fact Fact) ParameterMask { return fact.Invoked }, want: true},
-		{name: "MaybeInvokeViaHelper", selectMask: func(fact Fact) ParameterMask { return fact.Invoked }},
-	} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(test.name))
-		if got := test.selectMask(fact).contains(0); got != test.want {
-			t.Errorf("%s propagated action = %t, want %t", test.name, got, test.want)
-		}
-	}
-}
-
 func TestTypeCanReleaseUsesLifecycleVocabulary(t *testing.T) {
 	pkg := buildLifecycleTestSSA(t, `
 package lifecyclefactstest

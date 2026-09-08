@@ -181,7 +181,7 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 		// A nested static helper may settle the callback, but the shared helper
 		// traversal intentionally accepts aliases that are too broad for an
 		// exact release proof. Preserve it only as conservative Unknown evidence.
-		if ssaflow.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel, nil) {
+		if ssaflow.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel) {
 			return cancellationActionUnknown, true
 		}
 		if ssaflow.CallReturnsDeferredCleanup(instruction, classifier.cancel) {

@@ -90,6 +90,9 @@ func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool {
 	return HasLibraryContract(common, ContractRuntimeGoexit) || HasLibraryContract(common, ContractTestingTermination)
 }
 
+// CallInvokesArgumentOnEveryReturn reports whether a statically known helper
+// invokes target on every normal path through the helper.
+
 // strictNonEmptyAccessPath reports whether value is a field or constant-index
 // path strictly beneath root whose selected storage was not replaced before
 // the load that observes it.

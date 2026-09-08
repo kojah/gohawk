@@ -41,13 +41,13 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 	for _, block := range function.Blocks {
 		for _, candidate := range block.Instrs {
 			for _, captured := range ClosureBindingPairs(function, closure) {
-				if CapturedBindingMatches(captured.Binding, target) && CallInvokesArgumentOnEveryReturn(candidate, captured.Free, nil) {
+				if CapturedBindingMatches(captured.Binding, target) && CallInvokesArgumentOnEveryReturn(candidate, captured.Free) {
 					return true
 				}
 			}
 			for index, parameter := range function.Params {
 				if common != nil && index < len(common.Args) && SameValue(common.Args[index], target) &&
-					CallInvokesArgumentOnEveryReturn(candidate, parameter, nil) {
+					CallInvokesArgumentOnEveryReturn(candidate, parameter) {
 					return true
 				}
 			}

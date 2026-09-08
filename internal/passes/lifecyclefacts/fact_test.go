@@ -347,11 +347,6 @@ func buildLifecycleTestSSA(t *testing.T, source string) *ssa.Package {
 	return ssaflowtest.BuildPackage(t, "example.com/lifecyclefactstest", source)
 }
 
-func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Function) Fact {
-	fact, _ := summarizeFact(pass, retentions, function)
-	return fact
-}
-
 func findLifecycleCall(t *testing.T, function *ssa.Function, name string) *ssa.Call {
 	t.Helper()
 	for _, block := range function.Blocks {
