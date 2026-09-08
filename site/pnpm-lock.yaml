@@ -39,9 +39,9 @@ importers:
       agentation:
         specifier: 3.0.2
         version: 3.0.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      agentation-mcp:
-        specifier: 1.2.0
-        version: 1.2.0
+      agentation-review:
+        specifier: github:kojah/agentation-review#e0687c52e28ea8e89080eb7ee1a7be1bf174d4bd
+        version: https://codeload.github.com/kojah/agentation-review/tar.gz/e0687c52e28ea8e89080eb7ee1a7be1bf174d4bd
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -1156,6 +1156,12 @@ packages:
   agentation-mcp@1.2.0:
     resolution: {integrity: sha512-BRHVm/YRyAHzJFM8i+ZbgpLgpnVptyKeUyauYd2pkOBX/oVFYGOjjLU+YtpNZD1Np+5/jJAp9xFbv1SE112Wwg==}
     engines: {node: '>=18.0.0'}
+    hasBin: true
+
+  agentation-review@https://codeload.github.com/kojah/agentation-review/tar.gz/e0687c52e28ea8e89080eb7ee1a7be1bf174d4bd:
+    resolution: {gitHosted: true, integrity: sha512-Z0c47uMuNNqy5NdAbEEOPiZduOOjOrm+fk38c1RjZ5RieM86Zwk3auv7S395Lv1emy0vsxJC2F8KKLQFa6s3rQ==, tarball: https://codeload.github.com/kojah/agentation-review/tar.gz/e0687c52e28ea8e89080eb7ee1a7be1bf174d4bd}
+    version: 0.1.0
+    engines: {node: '>=20.0.0'}
     hasBin: true
 
   agentation@3.0.2:
@@ -4188,6 +4194,13 @@ snapshots:
       '@modelcontextprotocol/sdk': 1.30.0(zod@3.25.76)
       better-sqlite3: 12.11.1
       zod: 3.25.76
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - supports-color
+
+  agentation-review@https://codeload.github.com/kojah/agentation-review/tar.gz/e0687c52e28ea8e89080eb7ee1a7be1bf174d4bd:
+    dependencies:
+      agentation-mcp: 1.2.0
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color

@@ -1,4 +1,5 @@
 allowBuilds:
+  agentation-review@https://codeload.github.com/kojah/agentation-review/tar.gz/e0687c52e28ea8e89080eb7ee1a7be1bf174d4bd: true
   better-sqlite3: true
   esbuild: true
 minimumReleaseAgeExclude:

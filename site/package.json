@@ -6,10 +6,10 @@
 	"packageManager": "pnpm@11.24.0",
 	"scripts": {
 		"dev": "astro dev",
-		"dev:review": "node tools/agentation/dev-review.ts",
+		"dev:review": "astro dev stop && agentation-review",
 		"start": "astro dev",
 		"generate": "go run ../tools/gendocs",
-		"check": "go run ../tools/gendocs -check && biome check . && node --test tools/**/*.test.ts && GOHAWK_ASTRO_CHECK=1 astro check",
+		"check": "go run ../tools/gendocs -check && biome check . && GOHAWK_ASTRO_CHECK=1 astro check",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"build": "astro build",
@@ -29,7 +29,7 @@
 		"@types/react": "19.2.18",
 		"@types/react-dom": "19.2.5",
 		"agentation": "3.0.2",
-		"agentation-mcp": "1.2.0",
+		"agentation-review": "github:kojah/agentation-review#e0687c52e28ea8e89080eb7ee1a7be1bf174d4bd",
 		"react": "19.2.8",
 		"react-dom": "19.2.8",
 		"typescript": "^6.0.3"
