@@ -5,15 +5,20 @@ import "golang.org/x/tools/go/ssa"
 // Callback completion asks whether a helper invokes a function argument on
 // every normal return, the shape a deferred cleanup helper takes.
 
-func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool {
-	search := &callbackSearch{memo: NewCallGraphMemo[callbackKey, bool]()}
+// CallInvokesArgumentOnEveryReturn reports whether a statically known helper
+// invokes target on every normal path through the helper. A non-nil budget
+// bounds the call-graph walk; callers that need to distinguish exhaustion
+// from disproof inspect budget.Exhausted after a false result.
+func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value, budget *SearchBudget) bool {
+	search := &callbackSearch{budget: budget, memo: NewCallGraphMemo[callbackKey, bool]()}
 	return search.invokes(instruction, target)
 }
 
 // callbackSearch answers one callback-completion question. The memo owns the
 // cycle guard and the rule that an answer cut short by it is not retained.
 type callbackSearch struct {
-	memo *CallGraphMemo[callbackKey, bool]
+	budget *SearchBudget
+	memo   *CallGraphMemo[callbackKey, bool]
 }
 
 type callbackKey struct {
@@ -38,6 +43,10 @@ func (search *callbackSearch) searchInvokes(instruction ssa.Instruction, target 
 	}
 	defer search.memo.Leave(callee)
 	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
+		if !search.budget.Spend() {
+			search.memo.Cut()
+			return false
+		}
 		common := InstructionCall(candidate)
 		return common != nil && SameValue(common.Value, parameter) || search.invokes(candidate, parameter)
 	})

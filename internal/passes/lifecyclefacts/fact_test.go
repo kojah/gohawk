@@ -84,6 +84,7 @@ func accepted() {
 	value := acquire()
 	helper(value.body)
 }
+
 func reassigned() {
 	value := acquire()
 	value.body = &closer{}
@@ -346,6 +347,11 @@ func buildLifecycleTestSSA(t *testing.T, source string) *ssa.Package {
 	return ssaflowtest.BuildPackage(t, "example.com/lifecyclefactstest", source)
 }
 
+func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Function) Fact {
+	fact, _ := summarizeFact(pass, retentions, function)
+	return fact
+}
+
 func findLifecycleCall(t *testing.T, function *ssa.Function, name string) *ssa.Call {
 	t.Helper()
 	for _, block := range function.Blocks {
@@ -389,6 +395,15 @@ func Delegating(source io.Reader) *reader {
 
 func TwoLevel(source io.Reader) *reader { return Delegating(source) }
 
+func Sometimes(source io.Reader, wrap bool) *reader {
+	if wrap {
+		return &reader{source: source}
+	}
+	return new(reader)
+}
+
+func ThroughSometimes(source io.Reader, wrap bool) *reader { return Sometimes(source, wrap) }
+
 func FastPath(source io.Reader) *reader {
 	if already, ok := source.(*reader); ok {
 		return already
@@ -409,11 +424,12 @@ func Elsewhere(source io.Reader) *reader {
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	for name, want := range map[string]bool{
-		"Inline":     true,
-		"Delegating": true,
-		"TwoLevel":   true,
-		"FastPath":   true,
-		"Elsewhere":  false,
+		"Inline":           true,
+		"Delegating":       true,
+		"TwoLevel":         true,
+		"FastPath":         true,
+		"Elsewhere":        false,
+		"ThroughSometimes": false,
 	} {
 		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
 		if got := fact.ReturnedOwner.contains(0); got != want {

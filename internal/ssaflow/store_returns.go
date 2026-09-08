@@ -2,6 +2,7 @@ package ssaflow
 
 import (
 	"go/token"
+	"go/types"
 	"iter"
 
 	"github.com/kojah/gohawk/internal/syntax"
@@ -145,15 +146,42 @@ func (search *ownershipSearch) anyAggregateStoresValue(aggregates []ssa.Value, v
 }
 
 func (search *ownershipSearch) functionReturnsOwner(function *ssa.Function, value ssa.Value) bool {
+	// Returned-owner summaries carry an every-return guarantee. Preserve it
+	// while following a delegated constructor: one branch returning an owner
+	// cannot justify transferring the parameter on a sibling branch that
+	// returns an unrelated value. Nil/error-only returns carry no owner and are
+	// the same unsuccessful-construction exception used by the outer proof.
+	owners := map[*ssa.Return]bool{}
+	hasOwner := false
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			returned, ok := instruction.(*ssa.Return)
-			if ok && search.returnedValueOwnsValue(returned, value) {
-				return true
+			if !ok {
+				continue
 			}
+			owners[returned] = search.returnedValueOwnsValue(returned, value)
+			hasOwner = hasOwner || owners[returned]
 		}
 	}
-	return false
+	if !hasOwner {
+		return false
+	}
+	return !UnownedReturnFromEntryAllow(function, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
+		return owners[returned] || returnHasOnlyNilValuesAndErrors(returned)
+	})
+}
+
+func returnHasOnlyNilValuesAndErrors(returned *ssa.Return) bool {
+	if len(returned.Results) == 0 {
+		return false
+	}
+	errorType := types.Universe.Lookup("error").Type()
+	for _, result := range returned.Results {
+		if !DefinitelyNil(result) && !types.Identical(result.Type(), errorType) {
+			return false
+		}
+	}
+	return true
 }
 
 func (search *ownershipSearch) aggregateReferrersStoreValue(aggregate, value ssa.Value) bool {

@@ -6,6 +6,7 @@ package lifecyclefacts
 import (
 	"go/types"
 	"reflect"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -29,6 +30,8 @@ var Analyzer = &analysis.Analyzer{
 // analyzer, but a reader selects its events the same way: -gohawk-trace=
 // lifecyclefacts shows which function the fact pass is working on.
 const traceAnalyzer = "lifecyclefacts"
+
+const factCompletionBudget = 10_000
 
 func run(pass *analysis.Pass) (any, error) {
 	functions, err := ssaflow.SourceSSAFunctions(pass)
@@ -56,7 +59,16 @@ func run(pass *analysis.Pass) (any, error) {
 			Pos:      function.Pos(),
 			Function: function.String(),
 		})
-		fact := summarize(pass, retentions, function)
+		fact, complete := summarizeFact(pass, retentions, function)
+		if !complete {
+			probe.Decision(analysisTrace.Step{
+				Reason:   "function-summary-incomplete",
+				Outcome:  analysisTrace.OutcomeUnknown,
+				Pos:      function.Pos(),
+				Function: function.String(),
+			})
+			continue
+		}
 		summaries[function] = fact
 		probe.Decision(analysisTrace.Step{
 			Reason:   "function-summarized",
@@ -117,7 +129,10 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 	return Fact{}, false
 }
 
-func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Function) Fact {
+// summarizeFact returns complete=false when an exact proof was abandoned.
+// Exporting a partial fact would turn its clear bits into positive disproofs
+// for importers, so the caller must omit the whole summary instead.
+func summarizeFact(pass *analysis.Pass, retentions *retentionCache, function *ssa.Function) (Fact, bool) {
 	var fact Fact
 	fact.OwnedFields = ownedFields(pass, function)
 	fact.ReleasedFields = releasedFields(pass, function)
@@ -128,46 +143,96 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 		if !ownershipCapableType(parameter.Type()) {
 			continue
 		}
-		bit := parameterMaskFor(index)
-		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
-			common := ssaflow.InstructionCall(instruction)
-			if common != nil && ssaflow.SameValue(common.Value, parameter) {
-				return true
-			}
-			imported, ok := importFact(pass, instruction)
-			return ok && factOwnsArgument(instruction, parameter, imported.Invoked)
-		}) {
-			fact.Invoked |= bit
-		}
-		for _, mask := range lifecycleMasks {
-			if mask.method == "" {
-				continue
-			}
-			method, target := mask.method, mask.field(&fact)
-			if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
-				common := ssaflow.InstructionCall(instruction)
-				if common != nil && ssaflow.CallName(common) == method &&
-					ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), parameter, map[ssa.Value]bool{}) {
-					return true
-				}
-				// Export the same exact deferred-callback evidence accepted by local
-				// lifecycle proofs. Qist's response helper defers a literal that closes
-				// the Body projected from its response parameter on every return:
-				// https://github.com/qist/tvgate/blob/bb4c889997c68cc607d9ab5bb34710d6baf94aa8/stream/handle.go#L31-L36
-				if _, deferred := instruction.(*ssa.Defer); deferred && ssaflow.ProveCompletion(ssaflow.CompletionRequest{
-					Instruction: instruction, Target: parameter, Methods: []string{method},
-				}).Proven() {
-					return true
-				}
-				imported, ok := importFact(pass, instruction)
-				return ok && factOwnsArgument(instruction, parameter, imported.MethodMask(method))
-			}) {
-				*target |= bit
-			}
+		if !summarizeParameterActions(pass, function, index, parameter, &fact) {
+			return fact, false
 		}
 		summarizeTransfers(pass, retentions, function, index, parameter, &fact)
 	}
-	return fact
+	return fact, true
+}
+
+func summarizeParameterActions(pass *analysis.Pass, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) bool {
+	bit := parameterMaskFor(index)
+	complete := true
+	if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
+		common := ssaflow.InstructionCall(instruction)
+		if common != nil && ssaflow.SameValue(common.Value, parameter) {
+			return true
+		}
+		budget := ssaflow.NewSearchBudget(factCompletionBudget)
+		if ssaflow.CallInvokesArgumentOnEveryReturn(instruction, parameter, budget) {
+			return true
+		}
+		if budget.Exhausted() {
+			complete = false
+			return false
+		}
+		imported, ok := importFact(pass, instruction)
+		return ok && factOwnsArgument(instruction, parameter, imported.Invoked)
+	}) {
+		fact.Invoked |= bit
+	}
+	if !complete {
+		return false
+	}
+	for _, mask := range lifecycleMasks {
+		if mask.method == "" {
+			continue
+		}
+		method, target := mask.method, mask.field(fact)
+		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
+			common := ssaflow.InstructionCall(instruction)
+			if common != nil && ssaflow.CallName(common) == method &&
+				ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), parameter, map[ssa.Value]bool{}) {
+				return true
+			}
+			// Export the same exact deferred-callback evidence accepted by local
+			// lifecycle proofs. Qist's response helper defers a literal that closes
+			// the Body projected from its response parameter on every return:
+			// https://github.com/qist/tvgate/blob/bb4c889997c68cc607d9ab5bb34710d6baf94aa8/stream/handle.go#L31-L36
+			// The same exact completion proof applies to a synchronous helper:
+			// its cleanup has finished before the exported wrapper returns. A
+			// conditional helper still proves nothing because completion requires
+			// coverage of every normal return in the callee.
+			proven, decided := completionBeforeFunctionReturn(instruction, parameter, method)
+			if !decided {
+				complete = false
+				return false
+			}
+			if proven {
+				return true
+			}
+			imported, ok := importFact(pass, instruction)
+			return ok && factOwnsArgument(instruction, parameter, imported.MethodMask(method))
+		}) {
+			*target |= bit
+		}
+		if !complete {
+			return false
+		}
+	}
+	return true
+}
+
+func completionBeforeFunctionReturn(instruction ssa.Instruction, target ssa.Value, method string) (proven, decided bool) {
+	_, deferred := instruction.(*ssa.Defer)
+	if _, called := instruction.(*ssa.Call); !called && !deferred {
+		return false, true
+	}
+	common := ssaflow.InstructionCall(instruction)
+	if !deferred && (common == nil || !slices.ContainsFunc(common.Args, func(argument ssa.Value) bool {
+		return ssaflow.ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) || ssaflow.ValueContainsValue(argument, target)
+	})) {
+		return false, true
+	}
+	proof := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+		Instruction: instruction, Target: target, Methods: []string{method},
+		Budget: ssaflow.NewSearchBudget(factCompletionBudget),
+	})
+	if proof.Reason == ssaflow.EvidenceBudgetExhausted {
+		return false, false
+	}
+	return proof.Proven() && (deferred || proof.Reason == ssaflow.EvidenceCalledCompletion), true
 }
 
 // summarizeTransfers records where a parameter goes: into the returned

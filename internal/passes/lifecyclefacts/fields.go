@@ -179,9 +179,14 @@ func implementsCloser(value types.Type) bool {
 // no way to release a field, whatever that field holds.
 func typeCanRelease(value types.Type) bool {
 	for selection := range types.NewMethodSet(value).Methods() {
-		switch selection.Obj().Name() {
-		case "Cancel", "Close", "Finalize", "Release", "Shutdown", "Stop":
+		name := selection.Obj().Name()
+		if name == "Cancel" {
 			return true
+		}
+		for _, mask := range lifecycleMasks {
+			if mask.method != "" && mask.method == name {
+				return true
+			}
 		}
 	}
 	return false

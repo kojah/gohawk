@@ -26,15 +26,14 @@ import (
 
 // unbudgetedCompletionRequests are the construction sites that predate the
 // bound. They are recorded rather than fixed because each needs its own
-// decision about what an abandoned search permits, and for the lifecyclefacts
-// pair that decision is a fact-model question: a mask left clear by an
-// abandoned walk reads to an importer as a positive disproof, not as absence of
-// evidence. See https://github.com/kojah/gohawk/issues/32.
+// decision about what an abandoned search permits, and for the remaining
+// lifecyclefacts request that decision is a fact-model question: a mask left
+// clear by an abandoned walk reads to an importer as a positive disproof, not
+// as absence of evidence. See https://github.com/kojah/gohawk/issues/32.
 //
 // Do not add entries. A new completion request names its own budget.
 var unbudgetedCompletionRequests = map[string]int{
 	"internal/analyzers/ownership/processownership/ownership.go": 4,
-	"internal/passes/lifecyclefacts/analyzer.go":                 1,
 	"internal/passes/lifecyclefacts/fields.go":                   1,
 }
 

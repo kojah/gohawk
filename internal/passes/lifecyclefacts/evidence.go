@@ -2,6 +2,7 @@ package lifecyclefacts
 
 import (
 	"go/token"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -13,6 +14,7 @@ import (
 const (
 	reasonLifecycleSummary                  ssaflow.EvidenceReason = "lifecycle-summary"
 	reasonLifecycleSummaryProjectedArgument ssaflow.EvidenceReason = "lifecycle-summary-projected-argument"
+	reasonLifecycleSummaryCapturedArgument  ssaflow.EvidenceReason = "lifecycle-summary-captured-argument"
 	reasonReceiverStoreTransfer             ssaflow.EvidenceReason = "receiver-store-transfer"
 	reasonReceiverDoesNotEscape             ssaflow.EvidenceReason = "receiver-does-not-escape"
 	reasonOwnedResultContract               ssaflow.EvidenceReason = "owned-result-contract"
@@ -145,6 +147,91 @@ func capturedUses(free *ssa.FreeVar) []ssa.Value {
 	return uses
 }
 
+// factOwnsImmutableCapturedArgument maps an imported fact back through one
+// literal capture. The capture cell must contain only target: if the enclosing
+// function can replace it before the literal runs, the load in the literal no
+// longer proves which value the imported callee receives. block/spirit closes
+// rows through an imported CloseAndLog helper inside a deferred literal:
+// https://github.com/block/spirit/blob/c554eae8c56166ad9199fc73556b29ed581ca575/pkg/checksum/single.go#L493-L503
+func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
+	if instruction == nil {
+		return false
+	}
+	common := ssaflow.InstructionCall(instruction)
+	function := instruction.Parent()
+	if common == nil || function == nil || function.Parent() == nil {
+		return false
+	}
+	for _, block := range function.Parent().Blocks {
+		for _, candidate := range block.Instrs {
+			closure, ok := candidate.(*ssa.MakeClosure)
+			if !ok || closure.Fn != function {
+				continue
+			}
+			for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
+				if !immutableCapturedTarget(captured.Binding, target) {
+					continue
+				}
+				for index, argument := range common.Args {
+					if mask.contains(index) && slices.ContainsFunc(capturedUses(captured.Free), func(held ssa.Value) bool {
+						return ssaflow.SameValue(argument, held)
+					}) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func immutableCapturedTarget(binding, target ssa.Value) bool {
+	if ssaflow.SameValue(binding, target) {
+		return true
+	}
+	if binding == nil || binding.Referrers() == nil {
+		return false
+	}
+	found := false
+	for _, reference := range *binding.Referrers() {
+		store, ok := reference.(*ssa.Store)
+		if !ok || store.Addr != binding {
+			continue
+		}
+		if !ssaflow.SameValue(store.Val, target) {
+			return false
+		}
+		found = true
+	}
+	return found
+}
+
+func (evidence *LifecycleEvidence) capturedImportedCompletion(request EvidenceRequest) ssaflow.Proof {
+	if request.Completion == nil || request.SelectMask == nil {
+		return ssaflow.Proof{}
+	}
+	common := ssaflow.InstructionCall(request.Instruction)
+	if common == nil {
+		return ssaflow.Proof{}
+	}
+	closure, ok := common.Value.(*ssa.MakeClosure)
+	if !ok {
+		return ssaflow.Proof{}
+	}
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok || len(function.Blocks) == 0 {
+		return ssaflow.Proof{}
+	}
+	completes := func(instruction ssa.Instruction) bool {
+		fact, summarized := factFor(evidence.pass, instruction)
+		return summarized && factOwnsImmutableCapturedArgument(instruction, request.Target, request.SelectMask(fact))
+	}
+	if !ssaflow.MethodCallCoverage(function, completes, request.Completion.Coverage, nil) {
+		return ssaflow.Proof{}
+	}
+	return importedProof(reasonLifecycleSummaryCapturedArgument, requestedMethod(request))
+}
+
 // NewLifecycleEvidence constructs evidence whose accepted, rejected, and unknown
 // results use the supplied analyzer identity for structured tracing.
 func NewLifecycleEvidence(pass *analysis.Pass, analyzer, check string) *LifecycleEvidence {
@@ -232,6 +319,9 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 		if factOwnsArgument(request.Instruction, request.Target, mask) {
 			return importedProof(reasonLifecycleSummary, requestedMethod(request)), true
 		}
+		if factOwnsImmutableCapturedArgument(request.Instruction, request.Target, mask) {
+			return importedProof(reasonLifecycleSummaryCapturedArgument, requestedMethod(request)), true
+		}
 		if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask) {
 			return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
 		}
@@ -273,6 +363,9 @@ func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) ssaflow.P
 		proof = completion.Proof
 		if proof.Proven() {
 			return proof
+		}
+		if captured := evidence.capturedImportedCompletion(request); captured.Proven() {
+			return captured
 		}
 	}
 	if request.Transfer != nil {
