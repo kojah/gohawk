@@ -1,9 +1,24 @@
 ---
 title: gohawk
-description: High-signal static analysis for Go.
+description: "Find concurrency and resource management bugs at compile-time using gohawk’s advanced suite of static analyzers."
 template: splash
 tableOfContents: false
 editUrl: false
+head:
+  - tag: title
+    content: "gohawk | Resource-focused static analysis for Go"
+  - tag: meta
+    attrs:
+      property: og:title
+      content: "gohawk | Resource-focused static analysis for Go"
+  - tag: meta
+    attrs:
+      name: twitter:title
+      content: "gohawk | Resource-focused static analysis for Go"
+  - tag: meta
+    attrs:
+      name: twitter:description
+      content: "Find concurrency and resource management bugs at compile-time using gohawk’s advanced suite of static analyzers."
 ---
 
 <div id="_top" class="landing">
