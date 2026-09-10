@@ -42,8 +42,8 @@ func TestPluginRejectsSettings(t *testing.T) {
 
 func TestPluginAnalyzerSelection(t *testing.T) {
 	linter, err := New(map[string]any{
-		"enable":  []string{"globalstate"},
-		"disable": []string{"contextpolicy"},
+		"enable":  []string{"borrowedstorage"},
+		"disable": []string{"oncepolicy"},
 	})
 	if err != nil {
 		t.Fatalf("construct configured plugin: %v", err)
@@ -54,10 +54,10 @@ func TestPluginAnalyzerSelection(t *testing.T) {
 		t.Fatalf("build analyzers: %v", err)
 	}
 	names := analyzerNames(got)
-	if slices.Contains(names, "contextpolicy") {
+	if slices.Contains(names, "oncepolicy") {
 		t.Fatalf("disabled analyzer is present: %v", names)
 	}
-	if !slices.Contains(names, "globalstate") {
+	if !slices.Contains(names, "borrowedstorage") {
 		t.Fatalf("enabled analyzer is absent: %v", names)
 	}
 }
@@ -69,22 +69,22 @@ func TestPluginRejectsUnknownAnalyzer(t *testing.T) {
 }
 
 func TestPluginDefaultProfileSuppressesOptInChecks(t *testing.T) {
-	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, nil, "contextpolicy"), "defaultchecks", "suppressedoptin")
+	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, nil, "lockorder"), "defaultchecks", "suppressedoptin")
 }
 
 func TestPluginEnablesIndividualCheck(t *testing.T) {
-	settings := map[string]any{"enable-checks": []string{"testlifecycle/context-root"}}
-	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, settings, "testlifecycle"), "enabledcheck")
+	settings := map[string]any{"enable-checks": []string{"lockorder/contradictory-order"}}
+	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, settings, "lockorder"), "enabledcheck")
 }
 
 func TestPluginDisablesIndividualCheck(t *testing.T) {
-	settings := map[string]any{"disable-checks": []string{"contextpolicy/context-first"}}
-	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, settings, "contextpolicy"), "disabledcheck")
+	settings := map[string]any{"disable-checks": []string{"lockorder/missing-release"}}
+	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, settings, "lockorder"), "disabledcheck")
 }
 
 func TestPluginRejectsUnknownCheck(t *testing.T) {
 	for _, setting := range []string{"enable-checks", "disable-checks"} {
-		if _, err := New(map[string]any{setting: []string{"contextpolicy/not-a-check"}}); err == nil {
+		if _, err := New(map[string]any{setting: []string{"lockorder/not-a-check"}}); err == nil {
 			t.Fatalf("New accepted an unknown check in %s", setting)
 		}
 	}

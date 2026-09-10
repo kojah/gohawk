@@ -1,5 +1,13 @@
 package defaultchecks
 
-import "context"
+import "sync"
 
-func misplaced(value string, ctx context.Context) {} // want "context.Context must be first parameter"
+var mu sync.Mutex
+
+func missingRelease(skip bool) {
+	mu.Lock()
+	if skip {
+		return // want "is not released on this return path"
+	}
+	mu.Unlock()
+}

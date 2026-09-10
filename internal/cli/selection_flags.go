@@ -94,6 +94,9 @@ func effectiveDisabledChecks(
 	requested checkSelection,
 ) map[string]bool {
 	disabled := maps.Clone(requested.disabled)
+	if disabled == nil {
+		disabled = make(map[string]bool)
+	}
 	for analyzer, info := range metadata {
 		for _, check := range info.Checks {
 			id := string(check.ID)

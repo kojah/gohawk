@@ -19,7 +19,7 @@ destination: .
 plugins:
   - module: github.com/kojah/gohawk
     import: github.com/kojah/gohawk/plugin/golangci
-    version: v0.2.1
+    version: v0.3.0
 ```
 
 Build the custom binary with Go 1.27 or newer. The build toolchain must be at
@@ -49,13 +49,13 @@ linters:
         description: Correctness-focused ownership, lifecycle, and concurrency checks.
         settings:
           enable:
-            - globalstate
+            - borrowedstorage
           disable:
             - lockorder
           enable-checks:
-            - testlifecycle/context-root
+            - goroutineownership/detached
           disable-checks:
-            - errorclassification/text-match
+            - deferinloop/cleanup-lifetime
 ```
 
 The plugin runs gohawk's core checks; extended and experimental checks are

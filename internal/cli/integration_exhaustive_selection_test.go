@@ -32,12 +32,9 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
 		for _, summary := range []string{
-			"contracts (API and data contracts): channelsafety*, lockorder, closedomain*, channelsafety*",
-			"ownership (ownership and lifecycle): borrowedstorage*, cancellationownership, channelsafety*, channelsafety*, channelsafety, deferinloop, " +
+			"ownership (ownership and lifecycle): borrowedstorage~, cancellationownership, channelsafety, deferinloop, " +
 				"exitpolicy, goroutineownership, producerlifecycle, processownership, resourcelifetime",
-			"reliability (reliability and safety): concurrentcapture, channelsafety*, channelsafety*, channelsafety, " +
-				"inlineerror, evalorder, channelsafety*, lockorder, oncepolicy, syncmapatomicity, borrowedstorage*",
-			"testing (testing): channelsafety*, channelsafety*",
+			"reliability (reliability and safety): concurrentcapture, inlineerror, evalorder, lockorder, oncepolicy, syncmapatomicity",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
@@ -50,19 +47,19 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"channelsafety", "extended", "core runs by default", "oncepolicy"} {
+		for _, value := range []string{"channelsafety", "borrowedstorage", "experimental", "core runs by default", "oncepolicy"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("list output does not contain %q:\n%s", value, output)
 			}
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-defaults")
-		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || strings.Contains(output, "channelsafety") {
+		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || !strings.Contains(output, "channelsafety") || strings.Contains(output, "borrowedstorage") {
 			t.Fatalf("default list: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-opt-in")
-		if exitCode != 0 || !strings.Contains(output, "channelsafety") || strings.Contains(output, "oncepolicy") {
+		if exitCode != 0 || !strings.Contains(output, "borrowedstorage") || strings.Contains(output, "oncepolicy") || strings.Contains(output, "channelsafety") {
 			t.Fatalf("opt-in list: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -100,11 +97,6 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		for _, value := range []string{"warning[oncepolicy]", "-->", "sample.go:", "^"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("rich diagnostic does not contain %q:\n%s", value, output)
-			}
-		}
-		for _, diagnostic := range []string{"persisted or wire struct literal", "mutable package state"} {
-			if strings.Contains(output, diagnostic) {
-				t.Fatalf("opt-in analyzer unexpectedly reported %q:\n%s", diagnostic, output)
 			}
 		}
 	})
@@ -147,26 +139,24 @@ func answer() int { return identity{}.value(42) }
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
+		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("output does not contain channelsafety diagnostic:\n%s", output)
 		}
-		if strings.Contains(output, "mutable package state") {
-			t.Fatalf("selected analyzer unexpectedly ran channelsafety:\n%s", output)
+		if strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("selected analyzer unexpectedly ran oncepolicy:\n%s", output)
 		}
 	})
 
 	t.Run("selected analyzer group", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable-groups=reliability", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable-groups=ownership", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
-			t.Fatalf("contracts group did not run opt-in channelsafety:\n%s", output)
+		if !strings.Contains(output, "send follows close of channel") {
+			t.Fatalf("ownership group did not run channelsafety:\n%s", output)
 		}
-		for _, diagnostic := range []string{"sync.OnceFunc wrapper is discarded", "mutable package state"} {
-			if strings.Contains(output, diagnostic) {
-				t.Fatalf("contracts group unexpectedly reported %q:\n%s", diagnostic, output)
-			}
+		if strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("ownership group unexpectedly ran oncepolicy:\n%s", output)
 		}
 	})
 
@@ -175,13 +165,11 @@ func answer() int { return identity{}.value(42) }
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "persisted or wire struct literal must use field keys") {
+		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("enable-all minus reliability did not run channelsafety:\n%s", output)
 		}
-		for _, diagnostic := range []string{"sync.OnceFunc wrapper is discarded", "mutable package state"} {
-			if strings.Contains(output, diagnostic) {
-				t.Fatalf("disabled reliability group unexpectedly reported %q:\n%s", diagnostic, output)
-			}
+		if strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("disabled reliability group unexpectedly ran oncepolicy:\n%s", output)
 		}
 	})
 
@@ -192,8 +180,7 @@ func answer() int { return identity{}.value(42) }
 		}
 		for _, diagnostic := range []string{
 			"sync.OnceFunc wrapper is discarded",
-			"persisted or wire struct literal",
-			"mutable package state cache",
+			"send follows close of channel",
 		} {
 			if !strings.Contains(output, diagnostic) {
 				t.Fatalf("all-analyzer output does not contain %q:\n%s", diagnostic, output)
@@ -201,7 +188,7 @@ func answer() int { return identity{}.value(42) }
 		}
 	})
 
-	t.Run("disabling opt-in analyzer keeps ordinary set", func(t *testing.T) {
+	t.Run("disabling one default analyzer keeps the rest", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-disable=channelsafety", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
@@ -209,41 +196,15 @@ func answer() int { return identity{}.value(42) }
 		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
 			t.Fatalf("default analyzers did not run:\n%s", output)
 		}
-		for _, diagnostic := range []string{"persisted or wire struct literal", "mutable package state"} {
-			if strings.Contains(output, diagnostic) {
-				t.Fatalf("opt-in analyzer unexpectedly reported %q:\n%s", diagnostic, output)
-			}
+		if strings.Contains(output, "send follows close of channel") {
+			t.Fatalf("disabled channelsafety unexpectedly reported:\n%s", output)
 		}
 	})
 
 	t.Run("disabled default analyzer", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-disable=oncepolicy", "./...")
-		if exitCode != 0 || output != "" {
-			t.Fatalf("exit code = %d, output = %q", exitCode, output)
-		}
-	})
-
-	t.Run("target Go version", func(t *testing.T) {
-		legacyModule := writeContextTestModule(t, "1.23.0")
-		output, exitCode := runCommand(t, legacyModule, binary, "-enable=lockorder", "./...")
-		if exitCode != 0 || output != "" {
-			t.Fatalf("Go 1.23 module: exit code = %d, output = %q", exitCode, output)
-		}
-
-		modernModule := writeContextTestModule(t, "1.24.0")
-		output, exitCode = runCommand(t, modernModule, binary, "-enable=lockorder", "./...")
-		if exitCode != 0 || output != "" {
-			t.Fatalf("Go 1.24 default checks: exit code = %d, output = %q", exitCode, output)
-		}
-
-		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=lockorder/contradictory-order", "./...")
-		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
-			t.Fatalf("Go 1.24 opt-in check: exit code = %d\n%s", exitCode, output)
-		}
-
-		output, exitCode = runCommand(t, modernModule, binary, "-enable-all", "./...")
-		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
-			t.Fatalf("Go 1.24 enable-all: exit code = %d\n%s", exitCode, output)
+		if exitCode != 3 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("disabled analyzer run: exit code = %d\n%s", exitCode, output)
 		}
 	})
 }

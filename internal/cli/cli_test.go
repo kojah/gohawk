@@ -31,14 +31,14 @@ func TestPrintAnalyzerList(t *testing.T) {
 		{
 			name:      "defaults",
 			arguments: []string{"-defaults"},
-			contains:  []string{"oncepolicy", "core"},
-			excludes:  []string{"channelsafety", "borrowedstorage"},
+			contains:  []string{"oncepolicy", "channelsafety", "core"},
+			excludes:  []string{"borrowedstorage"},
 		},
 		{
 			name:      "opt-in",
 			arguments: []string{"-opt-in"},
-			contains:  []string{"channelsafety", "extended", "borrowedstorage", "experimental"},
-			excludes:  []string{"oncepolicy", "lockorder"},
+			contains:  []string{"borrowedstorage", "experimental"},
+			excludes:  []string{"channelsafety", "oncepolicy", "lockorder"},
 		},
 		{
 			name:      "checks",
@@ -48,7 +48,6 @@ func TestPrintAnalyzerList(t *testing.T) {
 				"KIND",
 				"TIER",
 				"GROUP",
-				"policy",
 				"hazard",
 				"extended",
 				"oncepolicy/discarded-wrapper",
@@ -147,6 +146,19 @@ func TestRunCLIImmediateCommands(t *testing.T) {
 }
 
 func TestRunCLIProcessBoundaries(t *testing.T) {
+	t.Run("analyzer help stays in process", func(t *testing.T) {
+		var output, errorsOutput bytes.Buffer
+		runtime := testCLIRuntime(t, &output, &errorsOutput)
+		result := runCLI([]string{"gohawk", "help", "goroutineownership"}, runtime)
+		invocation := result.invocation
+		if invocation == nil || invocation.delegate {
+			t.Fatalf("result = %#v", result)
+		}
+		if !slices.Equal(invocation.arguments, []string{"gohawk", "help", "goroutineownership"}) {
+			t.Fatalf("arguments = %v", invocation.arguments)
+		}
+	})
+
 	t.Run("filtered flags", func(t *testing.T) {
 		var output, errorsOutput bytes.Buffer
 		runtime := testCLIRuntime(t, &output, &errorsOutput)
@@ -377,7 +389,7 @@ func TestPrintDocumentation(t *testing.T) {
 				"Suggested fixes: no", "lockorder/missing-release",
 				"https://gohawk.dev/analyzers/reliability-and-safety/lockorder/",
 			},
-			excludes: []string{"lockorder/contradictory-order", "prefer-test-context"},
+			excludes: []string{"channelsafety/send-after-close", "prefer-test-context"},
 		},
 		{
 			name:      "check",

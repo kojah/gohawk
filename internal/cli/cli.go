@@ -160,6 +160,9 @@ func runInformationalCommand(arguments []string, runtime cliRuntime) (cliResult,
 // machine-readable flag list, or a version query. These are answered by
 // unitchecker in this process; everything else delegates to go vet.
 func vetToolHandshake(arguments []string) bool {
+	if len(arguments) > 1 && arguments[1] == "help" {
+		return true
+	}
 	for _, argument := range arguments[1:] {
 		if strings.HasSuffix(argument, ".cfg") {
 			return true

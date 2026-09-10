@@ -70,6 +70,11 @@ func initialize() {
 	cache["ready"] = "true"
 	sync.OnceFunc(func() {})()
 }
+
+func sendAfterClose(ch chan int) {
+	close(ch)
+	ch <- 1
+}
 `)
 	return directory
 }
@@ -107,22 +112,6 @@ import "testing"
 
 func TestWork(t *testing.T) {
 	_ = t
-}
-`)
-}
-
-func writeContextTestModule(t *testing.T, goVersion string) string {
-	t.Helper()
-	return writeSampleModule(t, "module example.com/contexttest\n\ngo "+goVersion+"\n", "package sample\n", `package sample
-
-import (
-	"context"
-	"testing"
-)
-
-func TestBackground(t *testing.T) {
-	_ = t
-	go func(ctx context.Context) { <-ctx.Done() }(context.Background())
 }
 `)
 }
@@ -178,14 +167,19 @@ func writeCheckFilterModule(t *testing.T) string {
 	t.Helper()
 	return writeSampleModule(t, "module example.com/checkfilter\n\ngo 1.25.0\n", `package sample
 
-import "context"
+import "sync"
 
-func misplaced(value string, ctx context.Context) {}
+func lockTwice(mu *sync.Mutex) {
+	lock := mu
+	lock.Lock()
+	mu.Lock()
+}
 
-func accept(ctx context.Context) {}
-
-func call() {
-	accept(nil)
+func sometimesUnlock(mu *sync.Mutex, unlock bool) {
+	mu.Lock()
+	if unlock {
+		mu.Unlock()
+	}
 }
 `, "")
 }

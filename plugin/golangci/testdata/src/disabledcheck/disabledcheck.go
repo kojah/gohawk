@@ -1,11 +1,13 @@
 package disabledcheck
 
-import "context"
+import "sync"
 
-func misplaced(value string, ctx context.Context) {}
+var mu sync.Mutex
 
-func accept(context.Context) {}
-
-func nilContext() {
-	accept(nil) // want "do not pass nil context.Context"
+func missingRelease(skip bool) {
+	mu.Lock()
+	if skip {
+		return
+	}
+	mu.Unlock()
 }

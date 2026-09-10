@@ -26,10 +26,6 @@ func TestCLIIntegration(t *testing.T) {
 				t.Fatalf("rich diagnostic does not contain %q:\n%s", value, output)
 			}
 		}
-		if strings.Contains(output, "persisted or wire struct literal") {
-			t.Fatalf("default run included opt-in channelsafety:\n%s", output)
-		}
-
 		output, exitCode = runCommand(t, module, binary, "-json", "-enable=channelsafety", "./...")
 		if exitCode != 0 {
 			t.Fatalf("selected JSON run: exit code = %d, want 0\n%s", exitCode, output)
@@ -59,12 +55,12 @@ func TestCLIIntegration(t *testing.T) {
 		if err := json.Unmarshal([]byte(output), &diagnostics); err != nil {
 			t.Fatalf("decode enable-all JSON output: %v\n%s", err, output)
 		}
-		var oncePolicy, wirePolicy int
+		var oncePolicy, channelSafety int
 		for _, analyzers := range diagnostics {
 			oncePolicy += len(analyzers["oncepolicy"])
-			wirePolicy += len(analyzers["channelsafety"])
+			channelSafety += len(analyzers["channelsafety"])
 		}
-		if oncePolicy == 0 || wirePolicy == 0 {
+		if oncePolicy == 0 || channelSafety == 0 {
 			t.Fatalf("enable-all JSON diagnostics omit oncepolicy or channelsafety:\n%s", output)
 		}
 	})
@@ -149,21 +145,6 @@ func answer() int { return identity{}.value(42) }
 		})
 	}
 
-	t.Run("target Go version", func(t *testing.T) {
-		t.Parallel()
-		legacyModule := writeContextTestModule(t, "1.23.0")
-		output, exitCode := runCommand(t, legacyModule, binary, "-enable-checks=lockorder/contradictory-order", "./...")
-		if exitCode != 0 || output != "" {
-			t.Fatalf("Go 1.23 module: exit code = %d, output = %q", exitCode, output)
-		}
-
-		modernModule := writeContextTestModule(t, "1.24.0")
-		output, exitCode = runCommand(t, modernModule, binary, "-enable-checks=lockorder/contradictory-order", "./...")
-		if exitCode != 3 || !strings.Contains(output, "test-owned goroutine uses a never-cancelled context") {
-			t.Fatalf("Go 1.24 module: exit code = %d\n%s", exitCode, output)
-		}
-	})
-
 	t.Run("analyzer option through vettool", func(t *testing.T) {
 		t.Parallel()
 		module := writeGoroutineTestModule(t)
@@ -177,8 +158,8 @@ func answer() int { return identity{}.value(42) }
 		t.Parallel()
 		module := writeCheckFilterModule(t)
 		output, exitCode := runCommand(t, module, binary, "-enable=lockorder", "-disable-checks=lockorder/missing-release", "./...")
-		if exitCode != 3 || strings.Contains(output, "context.Context must be first parameter") ||
-			!strings.Contains(output, "do not pass nil context.Context") {
+		if exitCode != 3 || strings.Contains(output, "is not released on this return path") ||
+			!strings.Contains(output, "is acquired while already held") {
 			t.Fatalf("filtered checks: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -186,7 +167,7 @@ func answer() int { return identity{}.value(42) }
 	t.Run("invalid analyzer option", func(t *testing.T) {
 		t.Parallel()
 		module := writeTestModule(t)
-		output, exitCode := runCommand(t, module, binary, "-enable=borrowedstorage", "-borrowedstorage.sinks=database", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable=goroutineownership", "-goroutineownership.mode=database", "./...")
 		if exitCode != 2 || !strings.Contains(output, `unknown value "database"`) {
 			t.Fatalf("invalid option: exit code = %d, want 2\n%s", exitCode, output)
 		}

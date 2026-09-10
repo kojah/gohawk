@@ -48,6 +48,15 @@ func deferredUnlockInLoop(mu *sync.Mutex, values []int) {
 		defer mu.Unlock()
 	}
 }
+
+func sendAfterClose(ch chan int) {
+	close(ch)
+	ch <- 1
+}
+
+func detached() {
+	go func() {}()
+}
 `)
 	// Keep the test in the production package. golangci-lint analyzes this as an
 	// augmented test variant rather than also running the ordinary package, so
@@ -87,28 +96,28 @@ func TestBackground(t *testing.T) {
 		{
 			name: "ordinary run",
 			config: pluginConfig(`          enable:
-            - globalstate
+            - channelsafety
           disable:
             - lockorder`),
 			want: []string{
-				"globalstate: mutable package state values",
+				"channelsafety: send follows close of channel",
 				"deferinloop: deferred cleanup runs after the loop",
 			},
-			exclude: []string{"lockorder:", "testlifecycle: test-owned goroutine"},
+			exclude: []string{"lockorder:", "goroutineownership: goroutine is not joined"},
 		},
 		{
 			name: "individual checks",
 			config: pluginConfig(`          enable:
-            - globalstate
+            - channelsafety
           disable:
             - lockorder
           enable-checks:
-            - testlifecycle/context-root
+            - goroutineownership/detached
           disable-checks:
             - deferinloop/cleanup-lifetime`),
 			want: []string{
-				"globalstate: mutable package state values",
-				"testlifecycle: test-owned goroutine",
+				"channelsafety: send follows close of channel",
+				"goroutineownership: goroutine is not joined on every return path",
 			},
 			exclude: []string{"lockorder:", "deferinloop:"},
 		},

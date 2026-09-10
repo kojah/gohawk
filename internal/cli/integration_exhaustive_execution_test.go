@@ -44,14 +44,14 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 
 	t.Run("disabled check", func(t *testing.T) {
 		checkModule := writeCheckFilterModule(t)
-		output, exitCode := runCommand(t, checkModule, binary, "-enable=lockorder", "-disable-checks=lockorder/context-first", "./...")
+		output, exitCode := runCommand(t, checkModule, binary, "-enable=lockorder", "-disable-checks=lockorder/missing-release", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if strings.Contains(output, "context.Context must be first parameter") {
+		if strings.Contains(output, "is not released on this return path") {
 			t.Fatalf("disabled check still reported:\n%s", output)
 		}
-		if !strings.Contains(output, "do not pass nil context.Context") {
+		if !strings.Contains(output, "is acquired while already held") {
 			t.Fatalf("enabled sibling check did not report:\n%s", output)
 		}
 
@@ -62,17 +62,17 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			"vet",
 			"-vettool="+binary,
 			"-enable=lockorder",
-			"-disable-checks=lockorder/context-first",
+			"-disable-checks=lockorder/missing-release",
 			"./...",
 		)
-		if exitCode != 1 || strings.Contains(output, "context.Context must be first parameter") ||
-			!strings.Contains(output, "do not pass nil context.Context") {
+		if exitCode != 1 || strings.Contains(output, "is not released on this return path") ||
+			!strings.Contains(output, "is acquired while already held") {
 			t.Fatalf("vettool disabled check: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, checkModule, binary,
 			"-enable=lockorder",
-			"-disable-checks=lockorder/context-first,lockorder/context-storage,lockorder/missing-release",
+			"-disable-checks=lockorder/missing-release,lockorder/recursive-acquire",
 			"./...",
 		)
 		if exitCode != 0 || output != "" {
@@ -82,25 +82,25 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 
 	t.Run("enabled check", func(t *testing.T) {
 		checkModule := writeCheckFilterModule(t)
-		output, exitCode := runCommand(t, checkModule, binary, "-enable-checks=lockorder/missing-release", "./...")
-		if exitCode != 3 || !strings.Contains(output, "do not pass nil context.Context") {
+		output, exitCode := runCommand(t, checkModule, binary, "-enable-checks=lockorder/recursive-acquire", "./...")
+		if exitCode != 3 || !strings.Contains(output, "is acquired while already held") {
 			t.Fatalf("exact check: exit code = %d\n%s", exitCode, output)
 		}
-		if strings.Contains(output, "context.Context must be first parameter") {
+		if strings.Contains(output, "is not released on this return path") {
 			t.Fatalf("exact check ran default sibling:\n%s", output)
 		}
 
-		output, exitCode = runCommand(t, checkModule, "go", "vet", "-vettool="+binary, "-enable-checks=lockorder/missing-release", "./...")
-		if exitCode != 1 || !strings.Contains(output, "do not pass nil context.Context") ||
-			strings.Contains(output, "context.Context must be first parameter") {
+		output, exitCode = runCommand(t, checkModule, "go", "vet", "-vettool="+binary, "-enable-checks=lockorder/recursive-acquire", "./...")
+		if exitCode != 1 || !strings.Contains(output, "is acquired while already held") ||
+			strings.Contains(output, "is not released on this return path") {
 			t.Fatalf("vettool exact check: exit code = %d\n%s", exitCode, output)
 		}
 
-		output, exitCode = runCommand(t, checkModule, binary,
-			"-enable=lockorder", "-enable-checks=testlifecycle/context-root", "./...",
+		output, exitCode = runCommand(t, module, binary,
+			"-enable=oncepolicy", "-enable-checks=channelsafety/send-after-close", "./...",
 		)
-		if exitCode != 3 || !strings.Contains(output, "context.Context must be first parameter") ||
-			!strings.Contains(output, "do not pass nil context.Context") {
+		if exitCode != 3 || !strings.Contains(output, "sync.OnceFunc wrapper is discarded") ||
+			!strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("combined analyzer and check selection: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -124,14 +124,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			"enable",
 			"enable-checks",
 			"enable-groups",
-			"apishape.max-parameters",
-			"apishape.max-adjacent-same-type",
-			"channelsafety.max-unexplained-capacity",
-			"channelsafety.allow-names",
-			"channelsafety.allow-types",
 			"goroutineownership.mode",
-			"taintpolicy.sinks",
-			"taintpolicy.sanitizers",
 			"resourcelifetime.contracts",
 			"resourcelifetime.require-reader-close",
 		} {
@@ -139,7 +132,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 				t.Fatalf("-flags output does not contain %q:\n%s", name, output)
 			}
 		}
-		for _, name := range []string{"wirepolicy", "oncepolicy", "lockorder"} {
+		for _, name := range []string{"channelsafety", "oncepolicy", "lockorder"} {
 			if strings.Contains(output, `"Name": "`+name+`"`) {
 				t.Fatalf("-flags output still advertises analyzer Boolean %q:\n%s", name, output)
 			}
@@ -147,8 +140,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 	})
 
 	t.Run("legacy analyzer Boolean selection", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-wirepolicy=false", "./...")
-		if exitCode != 2 || !strings.Contains(output, "use -disable=wirepolicy") {
+		output, exitCode := runCommand(t, module, binary, "-channelsafety=false", "./...")
+		if exitCode != 2 || !strings.Contains(output, "use -disable=channelsafety") {
 			t.Fatalf("exit code = %d, want 2 with migration error\n%s", exitCode, output)
 		}
 	})
@@ -161,7 +154,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 	})
 
 	t.Run("invalid analyzer option", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable=taintpolicy", "-taintpolicy.sinks=database", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable=goroutineownership", "-goroutineownership.mode=database", "./...")
 		if exitCode != 2 || !strings.Contains(output, `unknown value "database"`) {
 			t.Fatalf("exit code = %d, want 2 with option error\n%s", exitCode, output)
 		}
@@ -175,7 +168,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 	})
 
 	t.Run("JSON output", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-json", "-enable=wirepolicy", "./...")
+		output, exitCode := runCommand(t, module, binary, "-json", "-enable=channelsafety", "./...")
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
@@ -188,10 +181,10 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		}
 		count := 0
 		for _, analyzers := range diagnostics {
-			count += len(analyzers["wirepolicy"])
+			count += len(analyzers["channelsafety"])
 		}
 		if count != 1 {
-			t.Fatalf("wirepolicy JSON diagnostic count = %d, want 1\n%s", count, output)
+			t.Fatalf("channelsafety JSON diagnostic count = %d, want 1\n%s", count, output)
 		}
 	})
 
@@ -203,80 +196,18 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
 			t.Fatalf("output does not contain default diagnostic:\n%s", output)
 		}
-		for _, diagnostic := range []string{"persisted or wire struct literal", "mutable package state"} {
-			if strings.Contains(output, diagnostic) {
-				t.Fatalf("opt-in analyzer unexpectedly reported %q:\n%s", diagnostic, output)
-			}
-		}
 
-		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-enable=wirepolicy", "./...")
-		if exitCode != 1 || !strings.Contains(output, "persisted or wire struct literal") {
-			t.Fatalf("vettool opt-in analyzer: exit code = %d\n%s", exitCode, output)
+		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-enable=channelsafety", "./...")
+		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") {
+			t.Fatalf("vettool selected analyzer: exit code = %d\n%s", exitCode, output)
 		}
 		if strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
 			t.Fatalf("vettool selected analyzer unexpectedly ran defaults:\n%s", output)
 		}
 
 		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-disable=oncepolicy", "./...")
-		if exitCode != 0 || output != "" {
-			t.Fatalf("vettool disabled analyzer: exit code = %d, output = %q", exitCode, output)
-		}
-	})
-
-	t.Run("suggested fix", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable=wirepolicy", "-fix", "-diff", "./...")
-		if exitCode != 0 {
-			t.Fatalf("preview exit code = %d, want 0\n%s", exitCode, output)
-		}
-		if !strings.Contains(output, `EventRow{ID: "42", Kind: "created"}`) {
-			t.Fatalf("preview does not contain keyed literal:\n%s", output)
-		}
-		assertFixtureContains(t, module, `EventRow{"42", "created"}`)
-
-		output, exitCode = runCommand(t, module, binary, "-enable=wirepolicy", "-fix", "./...")
-		if exitCode != 0 {
-			t.Fatalf("fix exit code = %d, want 0\n%s", exitCode, output)
-		}
-		assertFixtureContains(t, module, `EventRow{ID: "42", Kind: "created"}`)
-
-		output, exitCode = runCommand(t, module, binary, "-enable=wirepolicy", "./...")
-		if exitCode != 0 || output != "" {
-			t.Fatalf("fixed module: exit code = %d, output = %q", exitCode, output)
-		}
-		output, exitCode = runCommand(t, module, "go", "test", "./...")
-		if exitCode != 0 {
-			t.Fatalf("test fixed module: exit code = %d\n%s", exitCode, output)
-		}
-	})
-
-	t.Run("test helper suggested fixes", func(t *testing.T) {
-		module := writeTestPolicyFixModule(t)
-		const relativePath = "sample/helper_test.go"
-
-		output, exitCode := runCommand(t, module, binary, "-enable=testpolicy", "-fix", "-diff", "./...")
-		if exitCode != 0 || strings.Count(output, "t.Helper()") != 1 {
-			t.Fatalf("preview exit code = %d, want one helper insertion\n%s", exitCode, output)
-		}
-		if contents := moduleFileContents(t, module, relativePath); strings.Contains(contents, "t.Helper()") {
-			t.Fatalf("preview modified fixture:\n%s", contents)
-		}
-
-		output, exitCode = runCommand(t, module, binary, "-enable=testpolicy", "-fix", "./...")
-		if exitCode != 0 {
-			t.Fatalf("fix exit code = %d, want 0\n%s", exitCode, output)
-		}
-		contents := moduleFileContents(t, module, relativePath)
-		if strings.Count(contents, "t.Helper()") != 1 || !strings.Contains(contents, "// Keep this setup comment.") {
-			t.Fatalf("fixed fixture does not contain the helper and existing comment:\n%s", contents)
-		}
-
-		output, exitCode = runCommand(t, module, binary, "-enable=testpolicy", "./...")
-		if exitCode != 0 || output != "" {
-			t.Fatalf("fixed module: exit code = %d, output = %q", exitCode, output)
-		}
-		output, exitCode = runCommand(t, module, "go", "test", "./...")
-		if exitCode != 0 {
-			t.Fatalf("test fixed module: exit code = %d\n%s", exitCode, output)
+		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("vettool disabled analyzer: exit code = %d\n%s", exitCode, output)
 		}
 	})
 
