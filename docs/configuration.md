@@ -41,8 +41,8 @@ gohawk -tier=experimental ./...
 Use analyzer names with `-enable` and `-disable`:
 
 ```sh
-# Run two extended analyzers.
-gohawk -enable=wirepolicy,globalstate ./...
+# Run two analyzers explicitly.
+gohawk -enable=channelsafety,lockorder ./...
 
 # Keep the default set, except oncepolicy.
 gohawk -disable=oncepolicy ./...
@@ -69,13 +69,13 @@ To select one check rather than its whole analyzer, use the stable ID shown by
 
 ```sh
 # Run one extended check, whatever the tier ceiling.
-gohawk -enable-checks=testlifecycle/context-root ./...
+gohawk -enable-checks=lockorder/contradictory-order ./...
 
 # Run one experimental audit alongside the core checks.
 gohawk -enable-checks=goroutineownership/detached ./...
 
-# Keep contextpolicy enabled, but omit one of its checks.
-gohawk -disable-checks=contextpolicy/context-storage ./...
+# Keep lockorder enabled, but omit one of its checks.
+gohawk -disable-checks=lockorder/recursive-acquire ./...
 ```
 
 Selections combine. Individual analyzer choices take precedence over group
@@ -85,8 +85,8 @@ its analyzer. Unknown or repeated names are reported as errors.
 Use `gohawk doc` when you want to inspect an analyzer or check:
 
 ```sh
-gohawk doc contextpolicy
-gohawk doc contextpolicy/nil-context
+gohawk doc lockorder
+gohawk doc lockorder/contradictory-order
 ```
 
 These selection flags also work when gohawk runs through `go vet -vettool`.
@@ -111,7 +111,7 @@ Options are prefixed with the analyzer name:
 
 ```sh
 gohawk -enable=goroutineownership -goroutineownership.mode=join ./...
-gohawk -enable=channelcapacity -channelcapacity.max-unexplained-capacity=4 ./...
+gohawk -enable=resourcelifetime -resourcelifetime.require-reader-close=false ./...
 ```
 
 Each configurable analyzer lists its options in the
@@ -122,13 +122,13 @@ Each configurable analyzer lists its options in the
 Some diagnostics include a safe source edit. Preview edits as a diff:
 
 ```sh
-gohawk -enable=wirepolicy -fix -diff ./...
+gohawk -enable=cancellationownership -fix -diff ./...
 ```
 
 Apply them by leaving off `-diff`:
 
 ```sh
-gohawk -enable=wirepolicy -fix ./...
+gohawk -enable=cancellationownership -fix ./...
 ```
 
 Not every finding can be fixed automatically. Review the resulting changes

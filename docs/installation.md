@@ -16,6 +16,15 @@ Install the latest release with Go:
 go install github.com/kojah/gohawk@latest
 ```
 
+For a reproducible toolchain or CI setup, pin the current stable release:
+
+```sh
+go install github.com/kojah/gohawk@v0.3.0
+```
+
+See [GitHub Releases](https://github.com/kojah/gohawk/releases) for release
+notes and newer versions.
+
 Go writes the executable to `GOBIN`, or to `GOPATH/bin` when `GOBIN` is not
 set. Make sure that directory is included in your `PATH`.
 
