@@ -102,8 +102,74 @@ jobs:
       - name: Test the golangci-lint plugin
         run: make plugin-test
 
+  binaries:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Build release archive
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          release_name="gohawk_${VERSION#v}_${GOOS}_${GOARCH}"
+          staging="$RUNNER_TEMP/$release_name"
+          binary="gohawk"
+          if [[ "$GOOS" == "windows" ]]; then
+            binary="gohawk.exe"
+          fi
+
+          mkdir -p dist "$staging"
+          CGO_ENABLED=0 go build \
+            -trimpath \
+            -ldflags="-s -w -X=github.com/kojah/gohawk/internal/cli.buildVersion=$VERSION" \
+            -o "$staging/$binary" \
+            .
+          cp LICENSE README.md "$staging/"
+
+          if [[ "$GOOS" == "windows" ]]; then
+            (cd "$RUNNER_TEMP" && zip -qr "$GITHUB_WORKSPACE/dist/$release_name.zip" "$release_name")
+          else
+            tar -C "$RUNNER_TEMP" -czf "dist/$release_name.tar.gz" "$release_name"
+          fi
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
   release:
-    needs: [static, race, plugin]
+    needs: [static, race, plugin, binaries]
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -112,6 +178,17 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Download release archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum gohawk_* > checksums.txt
 
       - name: Publish GitHub release
         env:
@@ -128,4 +205,4 @@ jobs:
           if [[ "$PRERELEASE" == "true" ]]; then
             arguments+=(--prerelease)
           fi
-          gh release create "${arguments[@]}"
+          gh release create "${arguments[@]}" dist/*

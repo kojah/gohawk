@@ -12,21 +12,24 @@ import (
 )
 
 func TestHumanVersion(t *testing.T) {
-	info := &debug.BuildInfo{Main: debug.Module{Version: "v0.1.1"}}
-	if got := humanVersion(info, true); got != "v0.1.1" {
-		t.Fatalf("humanVersion() = %q, want v0.1.1", got)
-	}
 	for _, test := range []struct {
-		info *debug.BuildInfo
-		ok   bool
+		name          string
+		linkedVersion string
+		info          *debug.BuildInfo
+		ok            bool
+		want          string
 	}{
-		{info: nil, ok: false},
-		{info: &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, ok: true},
-		{info: &debug.BuildInfo{}, ok: true},
+		{name: "release workflow", linkedVersion: "v0.3.1", info: &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, ok: true, want: "v0.3.1"},
+		{name: "go install", info: &debug.BuildInfo{Main: debug.Module{Version: "v0.1.1"}}, ok: true, want: "v0.1.1"},
+		{name: "missing build info", info: nil, ok: false, want: "devel"},
+		{name: "development module", info: &debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, ok: true, want: "devel"},
+		{name: "empty module version", info: &debug.BuildInfo{}, ok: true, want: "devel"},
 	} {
-		if got := humanVersion(test.info, test.ok); got != "devel" {
-			t.Errorf("humanVersion(%#v, %t) = %q, want devel", test.info, test.ok, got)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			if got := humanVersion(test.linkedVersion, test.info, test.ok); got != test.want {
+				t.Errorf("humanVersion(%q, %#v, %t) = %q, want %q", test.linkedVersion, test.info, test.ok, got, test.want)
+			}
+		})
 	}
 }
 

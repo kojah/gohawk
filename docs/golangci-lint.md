@@ -19,7 +19,7 @@ destination: .
 plugins:
   - module: github.com/kojah/gohawk
     import: github.com/kojah/gohawk/plugin/golangci
-    version: v0.3.0
+    version: v0.3.1
 ```
 
 Build the custom binary with Go 1.27 or newer. The build toolchain must be at

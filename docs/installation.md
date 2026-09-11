@@ -19,11 +19,13 @@ go install github.com/kojah/gohawk@latest
 For a reproducible toolchain or CI setup, pin the current stable release:
 
 ```sh
-go install github.com/kojah/gohawk@v0.3.0
+go install github.com/kojah/gohawk@v0.3.1
 ```
 
-See [GitHub Releases](https://github.com/kojah/gohawk/releases) for release
-notes and newer versions.
+Prebuilt archives for Linux, macOS, and Windows on AMD64 and ARM64 are also
+available from [GitHub Releases](https://github.com/kojah/gohawk/releases).
+Each release includes SHA-256 checksums for verifying the downloads. The
+prebuilt CLI still requires a supported Go command to analyze projects.
 
 Go writes the executable to `GOBIN`, or to `GOPATH/bin` when `GOBIN` is not
 set. Make sure that directory is included in your `PATH`.

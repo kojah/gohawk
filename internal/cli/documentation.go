@@ -15,6 +15,10 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// buildVersion is set by the release workflow. Builds made through `go install
+// module@version` continue to use the module version recorded by the Go tool.
+var buildVersion string
+
 type advertisedFlag struct {
 	Name  string `json:"Name"`
 	Bool  bool   `json:"Bool"`
@@ -249,11 +253,14 @@ func humanVersionRequested(arguments []string) bool {
 
 func printHumanVersion(output io.Writer) {
 	info, ok := debug.ReadBuildInfo()
-	version := humanVersion(info, ok)
+	version := humanVersion(buildVersion, info, ok)
 	writeLine(output, "gohawk", version)
 }
 
-func humanVersion(info *debug.BuildInfo, ok bool) string {
+func humanVersion(linkedVersion string, info *debug.BuildInfo, ok bool) string {
+	if linkedVersion != "" {
+		return linkedVersion
+	}
 	if ok && info != nil && info.Main.Version != "" && info.Main.Version != "(devel)" {
 		return info.Main.Version
 	}
