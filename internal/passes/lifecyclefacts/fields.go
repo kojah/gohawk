@@ -38,7 +38,6 @@ func resourceTypes() []resourceType {
 		{"database/sql", "Rows", []string{"Close"}},
 		{"database/sql", "Stmt", []string{"Close"}},
 		{"net/http", "Response", []string{"Close"}},
-		{"github.com/jackc/pgx/v5", "Rows", []string{"Close"}},
 		{"compress/gzip", "Reader", []string{"Close"}},
 		{"compress/gzip", "Writer", []string{"Close"}},
 		{"compress/zlib", "Writer", []string{"Close"}},

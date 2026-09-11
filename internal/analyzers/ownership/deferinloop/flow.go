@@ -5,7 +5,6 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -23,10 +22,6 @@ type deferFlowState struct {
 	predecessor *ssa.BasicBlock
 	index       int
 	status      resourceStatus
-}
-
-var exhaustingIteratorMethods = []syntax.Symbol{
-	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "github.com/jackc/pgx/v5", Receiver: "Rows", Name: "Next"}),
 }
 
 // resourceLiveAtNextIteration asks the narrow reporting question directly:
@@ -65,13 +60,9 @@ func resourceLiveAtNextIteration(
 	return liveAtBackedge
 }
 
-// Iterator exhaustion is a branch contract, not a method-name heuristic. An
-// exact pgx Rows.Next false branch closes the rows. For database/sql (whose
-// result-set behavior is conditional) or a project-defined Next, complete
-// iteration is unknown and suppresses a claim. The true branch stays live,
-// so an early break can still reach the outer
-// backedge and report. DBOS exercises the interface form here:
-// https://github.com/dbos-inc/dbos-transact-golang/blob/878987af9f156ac69cd24bfbd0821f07b3a5f348/dbos/client_test.go#L994-L1013
+// Without a general contract proving what Next does on exhaustion, its false
+// branch leaves the lifetime unknown and suppresses a claim. The true branch
+// stays live, so an early break can still reach the outer backedge and report.
 func iteratorSuccessorStatus(
 	state deferFlowState,
 	successor *ssa.BasicBlock,
@@ -88,12 +79,6 @@ func iteratorSuccessorStatus(
 	if iterator == nil || ssaflow.CallName(iterator.Common()) != "Next" ||
 		!sameObligationValue(ssaflow.CallReceiver(iterator.Common()), obligation.target) {
 		return state.status
-	}
-	for _, method := range exhaustingIteratorMethods {
-		receiver := ssaflow.CallReceiver(iterator.Common())
-		if receiver != nil && method.MatchesMethod("Next", receiver.Type()) {
-			return resourceSettled
-		}
 	}
 	return resourceUnknown
 }

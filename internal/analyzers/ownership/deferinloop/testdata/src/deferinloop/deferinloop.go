@@ -5,7 +5,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/jackc/pgx/v5"
 	"iteratorowner"
 )
 
@@ -146,33 +145,6 @@ func sqlRowsExhaustedBeforeNextIteration(db *sql.DB, items []int) error {
 func sqlRowsMayBreakBeforeExhaustion(db *sql.DB, items []int) error {
 	for range items {
 		rows, err := db.Query("SELECT 1")
-		if err != nil {
-			return err
-		}
-		defer rows.Close() // want "deferred cleanup runs after the loop instead of after this iteration"
-		for rows.Next() {
-			break
-		}
-	}
-	return nil
-}
-
-func pgxRowsExhaustedBeforeNextIteration(connection *pgx.Conn, items []int) error {
-	for range items {
-		rows, err := connection.Query()
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-		}
-	}
-	return nil
-}
-
-func pgxRowsMayBreakBeforeExhaustion(connection *pgx.Conn, items []int) error {
-	for range items {
-		rows, err := connection.Query()
 		if err != nil {
 			return err
 		}
