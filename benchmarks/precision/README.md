@@ -27,9 +27,9 @@ audit work incremental while still providing regular integration checkpoints.
 ## Labels retired with their analyzers
 
 Labels named analyzers the project has since withdrawn:
-channelownership (10), testpolicy (9), errorownership (7), determinism (7),
+channelownership (10), errorownership (7), determinism (7),
 closedomain (6), apishape (5), contextpolicy (5),
-wirepolicy (3), and testlifecycle (1).
+and wirepolicy (3).
 
 They are removed rather than left in place. A true-positive label for a
 withdrawn analyzer can never be present again, so it fails every replay for a

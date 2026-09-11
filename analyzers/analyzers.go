@@ -54,13 +54,10 @@ func newCatalog() (*catalog.Catalog, error) {
 		{ID: "contracts", Doc: "API and data contracts", DocPath: "api-and-data-contracts", Analyzers: contractSpecs()},
 		{ID: "ownership", Doc: "ownership and lifecycle", DocPath: "ownership-and-lifecycle", Analyzers: ownershipSpecs()},
 		{ID: "reliability", Doc: "reliability and safety", DocPath: "reliability-and-safety", Analyzers: reliabilitySpecs()},
-		{ID: "testing", Doc: "testing", DocPath: "testing", Analyzers: testingSpecs()},
 	}, []catalog.AnalyzerID{
 		"apishape",
 		"contextpolicy",
-		"testlifecycle",
 		"wirepolicy",
-		"testpolicy",
 		"goroutineownership",
 		"producerlifecycle",
 		"errorownership",
@@ -113,28 +110,24 @@ func AnalyzerGroups() []AnalyzerGroup {
 	for groupIndex, group := range groups {
 		result[groupIndex] = AnalyzerGroup{Name: string(group.ID), Doc: group.Doc, DocPath: group.DocPath}
 		for _, spec := range group.Analyzers {
-			result[groupIndex].Analyzers = append(result[groupIndex].Analyzers, withSuppressions(group.ID, spec))
+			result[groupIndex].Analyzers = append(result[groupIndex].Analyzers, withSuppressions(spec))
 		}
 	}
 	return result
 }
 
-// testingGroup is the catalog group whose analyzers take tests as their
-// subject; only they report inside _test.go files by default.
-const testingGroup = "testing"
-
-func withSuppressions(group catalog.GroupID, spec catalog.AnalyzerSpec) *analysis.Analyzer {
-	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, nil, group == testingGroup)
+func withSuppressions(spec catalog.AnalyzerSpec) *analysis.Analyzer {
+	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, nil)
 }
 
-func withDefaultSuppressions(group catalog.GroupID, spec catalog.AnalyzerSpec) *analysis.Analyzer {
+func withDefaultSuppressions(spec catalog.AnalyzerSpec) *analysis.Analyzer {
 	disabled := make(map[string]bool)
 	for _, declaredCheck := range spec.Checks {
 		if !declaredCheck.EnabledByDefault() {
 			disabled[string(declaredCheck.ID)] = true
 		}
 	}
-	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, disabled, group == testingGroup)
+	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, disabled)
 }
 
 func withCheckFilter(
@@ -142,7 +135,6 @@ func withCheckFilter(
 	declared []catalog.CheckInfo,
 	withdrawn []check.ID,
 	disabled map[string]bool,
-	targetsTests bool,
 ) *analysis.Analyzer {
 	checks := make(map[string]bool, len(declared))
 	for _, declaredCheck := range declared {
@@ -186,9 +178,8 @@ func withCheckFilter(
 				})
 				return
 			}
-			if !targetsTests && !check.IncludeTests() && check.TestFilePosition(pass, diagnostic.Pos) {
-				// Test files are skipped by default for every analyzer whose
-				// subject is production code; see internal/check/testfiles.go.
+			if !check.IncludeTests() && check.TestFilePosition(pass, diagnostic.Pos) {
+				// Test files are skipped by default; see internal/check/testfiles.go.
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
 					Analyzer: analyzer.Name, Phase: "decision", Reason: "test-file-skipped", Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
 				})
@@ -234,7 +225,7 @@ func Analyzers() []*analysis.Analyzer {
 	specs := catalog.Analyzers()
 	analyzers := make([]*analysis.Analyzer, 0, len(specs))
 	for _, spec := range specs {
-		analyzers = append(analyzers, withSuppressions(spec.Group, spec))
+		analyzers = append(analyzers, withSuppressions(spec))
 	}
 	return analyzers
 }
@@ -250,7 +241,7 @@ func DefaultAnalyzers() []*analysis.Analyzer {
 	analyzers := make([]*analysis.Analyzer, 0, len(specs))
 	for _, spec := range specs {
 		if spec.EnabledByDefault() {
-			analyzers = append(analyzers, withDefaultSuppressions(spec.Group, spec))
+			analyzers = append(analyzers, withDefaultSuppressions(spec))
 		}
 	}
 	return analyzers

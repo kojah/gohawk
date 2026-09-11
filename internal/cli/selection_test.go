@@ -128,8 +128,8 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 	t.Run("invalid groups", func(t *testing.T) {
 		for _, arguments := range [][]string{
 			{"gohawk", "-enable-groups=unknown", "./..."},
-			{"gohawk", "-enable-groups=testing,testing", "./..."},
-			{"gohawk", "-enable-groups=testing,", "./..."},
+			{"gohawk", "-enable-groups=ownership,ownership", "./..."},
+			{"gohawk", "-enable-groups=ownership,", "./..."},
 			{"gohawk", "-enable-groups="},
 			{"gohawk", "-enable-groups"},
 			{"gohawk", "-disable-groups=reliability,reliability", "./..."},

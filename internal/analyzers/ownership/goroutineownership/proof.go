@@ -57,19 +57,6 @@ type GoroutineProof struct {
 	Reason  goroutineOwnershipReason
 }
 
-// GoroutineOwnershipMayBeHandledInTest conservatively reports whether an exact
-// proof or an opaque handoff may own spawn independently of context
-// cancellation. Unknown handoffs suppress testlifecycle: they are not positive
-// ownership evidence, but neither analyzer can prove a detached test worker.
-func GoroutineOwnershipMayBeHandledInTest(spawn *ssa.Go) bool {
-	if spawn == nil || spawn.Parent() == nil {
-		return false
-	}
-	proof := newSpawnAnalysis(spawn.Parent(), spawn, goroutineOwnershipConfig{mode: goroutineModeContext}).prove()
-	return proof.Outcome == GoroutineLifecycleHonored || proof.Outcome == GoroutineTransferred ||
-		proof.Outcome == GoroutineUnknown && proof.Reason != reasonDetachedUnknown
-}
-
 // ruledOut records a proof step that was evaluated and did not hold. The
 // reason names the conclusion that failed, so a trace reader can see which
 // suppressions were tried before the reported one won. The two grouped

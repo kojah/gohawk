@@ -26,8 +26,6 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/reliability/oncepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/syncmapatomicity"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/taintpolicy"
-	"github.com/kojah/gohawk/internal/analyzers/testing/testlifecycle"
-	"github.com/kojah/gohawk/internal/analyzers/testing/testpolicy"
 	"github.com/kojah/gohawk/internal/catalog"
 	"github.com/kojah/gohawk/internal/check"
 )
@@ -260,23 +258,5 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindHazard, Tier: catalog.TierExperimental, Delisted: true,
 			},
 		}},
-	}
-}
-
-func testingSpecs() []catalog.AnalyzerSpec {
-	return []catalog.AnalyzerSpec{
-		{Analyzer: testlifecycle.Analyzer(goroutineownership.GoroutineOwnershipMayBeHandledInTest), Checks: []catalog.CheckInfo{
-			{
-				ID: check.TestLifecycleContext, Doc: "Reports detached test-owned goroutines rooted in a never-cancelled context.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExtended, Delisted: true,
-			},
-		}},
-		{
-			Analyzer: testpolicy.Analyzer(), SuggestedFix: true,
-			Checks: []catalog.CheckInfo{{
-				ID: check.TestHelperMarker, Doc: "Reports test helpers that do not call Helper on every return path.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-			}},
-		},
 	}
 }

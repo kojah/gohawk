@@ -187,8 +187,6 @@ var withdrawnAnalyzerPackages = map[string]bool{
 	"closedomain":         true,
 	"wirepolicy":          true,
 	"taintpolicy":         true,
-	"testlifecycle":       true,
-	"testpolicy":          true,
 }
 
 // assertWithdrawnStaysUnregistered reports whether name is deliberately absent

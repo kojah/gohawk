@@ -6,11 +6,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// Phi mechanics that analyzers need beyond the reaching-value folds: pairing
-// each incoming edge with the predecessor block it arrives from, and asking
-// whether a merge carries one exact value. Analyzers must not range over
-// phi edges themselves; the architecture tests enforce that so the fan-out
-// and its bounds guard live in one place.
+// Phi mechanics that analyzers need beyond the reaching-value folds pair each
+// incoming edge with the predecessor block it arrives from. Analyzers must not
+// range over phi edges themselves; the architecture tests enforce that so the
+// fan-out and its bounds guard live in one place.
 
 // PhiIncoming yields each edge of phi with the predecessor block it comes
 // from. An edge without a matching predecessor, which malformed SSA could
@@ -27,16 +26,6 @@ func PhiIncoming(phi *ssa.Phi) iter.Seq2[*ssa.BasicBlock, ssa.Value] {
 			}
 		}
 	}
-}
-
-// PhiMergesValue reports whether some edge of phi is value under SameValue.
-func PhiMergesValue(phi *ssa.Phi, value ssa.Value) bool {
-	for _, edge := range phi.Edges {
-		if SameValue(edge, value) {
-			return true
-		}
-	}
-	return false
 }
 
 // PhiEdgeCount returns how many edges phi merges.

@@ -12,7 +12,6 @@ var groupIntros = map[string]string{
 	"contracts":   "These analyzers make contracts visible in Go types and APIs, where callers and tools can rely on them.",
 	"ownership":   "These analyzers look for work or resources whose owner cannot be identified on every relevant path.",
 	"reliability": "These analyzers cover failure modes that often survive ordinary type checking and code review.",
-	"testing":     "These analyzers keep test failures bounded and make helper behavior visible at the call site.",
 }
 
 func analyzerIndex(data manifest) string {

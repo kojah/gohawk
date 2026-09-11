@@ -19,11 +19,11 @@ var includeTests bool
 
 // RegisterFlags adds the test-file option to the analysis driver's flag set.
 func RegisterFlags(flags *flag.FlagSet) {
-	flags.BoolVar(&includeTests, "gohawk-include-tests", false, "report diagnostics in _test.go files for analyzers that do not target tests")
+	flags.BoolVar(&includeTests, "gohawk-include-tests", false, "report diagnostics in _test.go files")
 }
 
 // IncludeTests reports whether diagnostics in test files are wanted from
-// analyzers that do not target tests.
+// analyzers.
 func IncludeTests() bool {
 	return includeTests
 }

@@ -11,7 +11,6 @@ const (
 	APIAdjacentOptional      ID = "apishape/adjacent-optional-scalars"
 	ContextFirst             ID = "contextpolicy/context-first"
 	ContextStorage           ID = "contextpolicy/context-storage"
-	TestLifecycleContext     ID = "testlifecycle/context-root"
 	ContextNilArgument       ID = "contextpolicy/nil-context"
 	ClosedStringDomain       ID = "closedomain/closed-string-domain"
 	WireKeyedLiteral         ID = "wirepolicy/keyed-literal"
@@ -45,5 +44,4 @@ const (
 	OnceDiscardedWrapper     ID = "oncepolicy/discarded-wrapper"
 	SyncMapNonAtomicClaim    ID = "syncmapatomicity/non-atomic-claim"
 	TaintUntrustedSink       ID = "taintpolicy/untrusted-sink"
-	TestHelperMarker         ID = "testpolicy/helper-marker"
 )

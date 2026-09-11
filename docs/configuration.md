@@ -60,8 +60,8 @@ You can also select a whole group:
 # Run the ownership group.
 gohawk -enable-groups=ownership ./...
 
-# Run everything except the testing group.
-gohawk -enable-all -disable-groups=testing ./...
+# Run everything except the reliability group.
+gohawk -enable-all -disable-groups=reliability ./...
 ```
 
 To select one check rather than its whole analyzer, use the stable ID shown by
