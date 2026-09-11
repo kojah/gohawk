@@ -2,6 +2,7 @@
 title: Welcome to the gohawk blog
 description: More from the gohawk project is coming soon.
 date: 2026-09-11
+draft: true
 ---
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor

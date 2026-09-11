@@ -1,8 +1,8 @@
 import rss from '@astrojs/rss';
-import { getPublishedPosts } from '../../lib/blog';
+import { getBlogPosts } from '../../lib/blog';
 
 export async function GET(context: { site?: URL }) {
-	const posts = await getPublishedPosts();
+	const posts = await getBlogPosts();
 
 	return rss({
 		title: 'gohawk blog',

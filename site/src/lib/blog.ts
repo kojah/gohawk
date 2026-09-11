@@ -1,7 +1,11 @@
 import { getCollection } from 'astro:content';
 
-export async function getPublishedPosts() {
-	const posts = await getCollection('blog', ({ data }) => !data.draft);
+interface BlogPostOptions {
+	includeDrafts?: boolean;
+}
+
+export async function getBlogPosts({ includeDrafts = false }: BlogPostOptions = {}) {
+	const posts = await getCollection('blog', ({ data }) => includeDrafts || !data.draft);
 	return posts.sort((left, right) => right.data.date.getTime() - left.data.date.getTime());
 }
 

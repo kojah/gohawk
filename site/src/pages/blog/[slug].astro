@@ -2,10 +2,10 @@
 import type { CollectionEntry } from 'astro:content';
 import { render } from 'astro:content';
 import BlogLayout from '../../layouts/BlogLayout.astro';
-import { formatBlogDate, getPublishedPosts } from '../../lib/blog';
+import { formatBlogDate, getBlogPosts } from '../../lib/blog';
 
 export async function getStaticPaths() {
-	const posts = await getPublishedPosts();
+	const posts = await getBlogPosts({ includeDrafts: import.meta.env.DEV });
 	return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
 }
 
