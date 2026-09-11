@@ -17,6 +17,7 @@
 		"astro": "astro"
 	},
 	"dependencies": {
+		"@astrojs/rss": "4.0.19",
 		"@astrojs/starlight": "0.41.6",
 		"@expressive-code/core": "0.44.1",
 		"astro": "7.2.8",

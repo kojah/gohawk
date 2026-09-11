@@ -1,3 +1,12 @@
+---
+interface Props {
+	showBlogLink?: boolean;
+}
+
+const { showBlogLink = true } = Astro.props;
+---
+
+{showBlogLink && <a class="blog-link" href="/blog/">Blog</a>}
 <gohawk-theme-toggle>
 	<button type="button" role="switch" aria-checked="false" aria-label="Dark theme">
 		<span class="switch-thumb" aria-hidden="true"></span>
@@ -74,6 +83,27 @@
 </script>
 
 <style>
+	.blog-link {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2rem;
+		padding-inline: 0.2rem 1rem;
+		border-inline-end: 1px solid var(--sl-color-hairline);
+		font-weight: 600;
+		color: var(--sl-color-accent-high);
+		text-decoration: none;
+	}
+
+	.blog-link:hover,
+	.blog-link:focus-visible {
+		color: var(--sl-color-white);
+	}
+
+	.blog-link:focus-visible {
+		outline: 2px solid var(--sl-color-accent);
+		outline-offset: 3px;
+	}
+
 	gohawk-theme-toggle {
 		display: inline-flex;
 		align-items: center;

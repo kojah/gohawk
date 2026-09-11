@@ -1,0 +1,35 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+import { formatBlogDate, getPublishedPosts } from '../../lib/blog';
+
+const posts = await getPublishedPosts();
+---
+
+<BlogLayout title="Blog | gohawk" description="Updates and technical notes from the gohawk project.">
+	<section class="blog-index">
+		<header class="blog-index-header">
+			<p class="blog-eyebrow">gohawk blog</p>
+			<h1>Notes from the project</h1>
+			<p>Updates and technical notes about static analysis, concurrency, and resource management in Go.</p>
+		</header>
+
+		<ol class="blog-post-list">
+			{
+				posts.map((post) => (
+					<li>
+						<article>
+							<time datetime={post.data.date.toISOString()}>{formatBlogDate(post.data.date)}</time>
+							<h2>
+								<a href={`/blog/${post.id}/`}>{post.data.title}</a>
+							</h2>
+							<p>{post.data.description}</p>
+							<a class="blog-read-link" href={`/blog/${post.id}/`} aria-label={`Read ${post.data.title}`}>
+								Read post <span aria-hidden="true">→</span>
+							</a>
+						</article>
+					</li>
+				))
+			}
+		</ol>
+	</section>
+</BlogLayout>

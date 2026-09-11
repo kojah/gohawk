@@ -1,0 +1,32 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { render } from 'astro:content';
+import BlogLayout from '../../layouts/BlogLayout.astro';
+import { formatBlogDate, getPublishedPosts } from '../../lib/blog';
+
+export async function getStaticPaths() {
+	const posts = await getPublishedPosts();
+	return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+interface Props {
+	post: CollectionEntry<'blog'>;
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<BlogLayout title={`${post.data.title} | gohawk`} description={post.data.description} type="article">
+	<article class="blog-article">
+		<header class="blog-article-header">
+			<a class="blog-back-link" href="/blog/"><span aria-hidden="true">←</span> Blog</a>
+			<time datetime={post.data.date.toISOString()}>{formatBlogDate(post.data.date)}</time>
+			<h1>{post.data.title}</h1>
+			<p class="blog-article-description">{post.data.description}</p>
+		</header>
+		<div class="blog-prose">
+			<Content />
+		</div>
+	</article>
+</BlogLayout>
