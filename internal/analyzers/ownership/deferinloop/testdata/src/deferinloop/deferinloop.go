@@ -1,6 +1,7 @@
 package deferinloop
 
 import (
+	"database/sql"
 	"os"
 	"sync"
 )
@@ -49,6 +50,75 @@ func harmlessTracing(items []int) {
 }
 
 func recordIteration() {}
+
+type namedLikeCleanup struct{}
+
+func (*namedLikeCleanup) Close() {}
+
+func misleadingCleanupName(items []int) {
+	for range items {
+		value := new(namedLikeCleanup)
+		defer value.Close()
+	}
+}
+
+func closeFile(file *os.File) { _ = file.Close() }
+
+func filesSettledBeforeNextIteration(names []string) error {
+	for _, name := range names {
+		file, err := os.Open(name)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		closeFile(file)
+	}
+	return nil
+}
+
+func filesOnlySometimesSettled(names []string, settle bool) error {
+	for _, name := range names {
+		file, err := os.Open(name)
+		if err != nil {
+			return err
+		}
+		defer file.Close() // want "deferred cleanup runs after the loop instead of after this iteration"
+		if settle {
+			_ = file.Close()
+		}
+	}
+	return nil
+}
+
+func transactionsCommittedBeforeNextIteration(db *sql.DB, items []int) error {
+	for range items {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var retainedFiles []*os.File
+
+func retainFile(file *os.File) { retainedFiles = append(retainedFiles, file) }
+
+func filesTransferredBeforeNextIteration(names []string) error {
+	for _, name := range names {
+		file, err := os.Open(name)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		retainFile(file)
+	}
+	return nil
+}
 
 type resourceOwner struct {
 	resource *os.File
