@@ -16,10 +16,11 @@ Install the latest release with Go:
 go install github.com/kojah/gohawk@latest
 ```
 
-For a reproducible toolchain or CI setup, pin the current stable release:
+For a reproducible toolchain or CI setup, replace `vX.Y.Z` with the release
+you want to pin:
 
 ```sh
-go install github.com/kojah/gohawk@v0.3.1
+go install github.com/kojah/gohawk@vX.Y.Z
 ```
 
 Prebuilt archives for Linux, macOS, and Windows on AMD64 and ARM64 are also

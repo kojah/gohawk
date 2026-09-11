@@ -19,10 +19,11 @@ destination: .
 plugins:
   - module: github.com/kojah/gohawk
     import: github.com/kojah/gohawk/plugin/golangci
-    version: v0.3.1
+    version: vX.Y.Z
 ```
 
-Build the custom binary with Go 1.27 or newer. The build toolchain must be at
+Replace `vX.Y.Z` with the gohawk release you want to use. Build the custom
+binary with Go 1.27 or newer. The build toolchain must be at
 least as new as the code the resulting binary will analyze:
 
 ```sh
