@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -22,6 +23,10 @@ type deferFlowState struct {
 	predecessor *ssa.BasicBlock
 	index       int
 	status      resourceStatus
+}
+
+var exhaustingIteratorMethods = []syntax.Symbol{
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "github.com/jackc/pgx/v5", Receiver: "Rows", Name: "Next"}),
 }
 
 // resourceLiveAtNextIteration asks the narrow reporting question directly:
@@ -43,20 +48,64 @@ func resourceLiveAtNextIteration(
 		state = advanceDeferState(evidence, state, obligation)
 		successors := make([]deferFlowState, 0, len(state.block.Succs))
 		for _, successor := range state.block.Succs {
+			status := iteratorSuccessorStatus(state, successor, obligation)
 			if successor.Dominates(deferred.Block()) {
-				if state.status == resourceLive {
+				if status == resourceLive {
 					liveAtBackedge = true
 					return nil, false
 				}
 				continue
 			}
 			successors = append(successors, deferFlowState{
-				block: successor, predecessor: state.block, status: state.status,
+				block: successor, predecessor: state.block, status: status,
 			})
 		}
 		return successors, true
 	})
 	return liveAtBackedge
+}
+
+// Iterator exhaustion is a branch contract, not a method-name heuristic. An
+// exact pgx Rows.Next false branch closes the rows. For database/sql (whose
+// result-set behavior is conditional) or a project-defined Next, complete
+// iteration is unknown and suppresses a claim. The true branch stays live,
+// so an early break can still reach the outer
+// backedge and report. DBOS exercises the interface form here:
+// https://github.com/dbos-inc/dbos-transact-golang/blob/878987af9f156ac69cd24bfbd0821f07b3a5f348/dbos/client_test.go#L994-L1013
+func iteratorSuccessorStatus(
+	state deferFlowState,
+	successor *ssa.BasicBlock,
+	obligation deferObligation,
+) resourceStatus {
+	if state.status != resourceLive || len(state.block.Succs) != 2 || successor != state.block.Succs[1] {
+		return state.status
+	}
+	branch, ok := state.block.Instrs[len(state.block.Instrs)-1].(*ssa.If)
+	if !ok {
+		return state.status
+	}
+	iterator := conditionCall(state.block, branch.Cond)
+	if iterator == nil || ssaflow.CallName(iterator.Common()) != "Next" ||
+		!sameObligationValue(ssaflow.CallReceiver(iterator.Common()), obligation.target) {
+		return state.status
+	}
+	for _, method := range exhaustingIteratorMethods {
+		receiver := ssaflow.CallReceiver(iterator.Common())
+		if receiver != nil && method.MatchesMethod("Next", receiver.Type()) {
+			return resourceSettled
+		}
+	}
+	return resourceUnknown
+}
+
+func conditionCall(block *ssa.BasicBlock, condition ssa.Value) *ssa.Call {
+	for _, instruction := range block.Instrs {
+		call, ok := instruction.(*ssa.Call)
+		if ok && ssaflow.SameValue(condition, call) {
+			return call
+		}
+	}
+	return nil
 }
 
 // Each instruction advances a monotone three-state obligation. Once evidence

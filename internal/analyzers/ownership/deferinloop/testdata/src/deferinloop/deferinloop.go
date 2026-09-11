@@ -4,6 +4,9 @@ import (
 	"database/sql"
 	"os"
 	"sync"
+
+	"github.com/jackc/pgx/v5"
+	"iteratorowner"
 )
 
 func accumulatedFiles(names []string) error {
@@ -116,6 +119,94 @@ func filesTransferredBeforeNextIteration(names []string) error {
 		}
 		defer file.Close()
 		retainFile(file)
+	}
+	return nil
+}
+
+func sqlRowsExhaustedBeforeNextIteration(db *sql.DB, items []int) error {
+	for range items {
+		rows, err := db.Query("SELECT 1")
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var value int
+			if err := rows.Scan(&value); err != nil {
+				return err
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sqlRowsMayBreakBeforeExhaustion(db *sql.DB, items []int) error {
+	for range items {
+		rows, err := db.Query("SELECT 1")
+		if err != nil {
+			return err
+		}
+		defer rows.Close() // want "deferred cleanup runs after the loop instead of after this iteration"
+		for rows.Next() {
+			break
+		}
+	}
+	return nil
+}
+
+func pgxRowsExhaustedBeforeNextIteration(connection *pgx.Conn, items []int) error {
+	for range items {
+		rows, err := connection.Query()
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+		}
+	}
+	return nil
+}
+
+func pgxRowsMayBreakBeforeExhaustion(connection *pgx.Conn, items []int) error {
+	for range items {
+		rows, err := connection.Query()
+		if err != nil {
+			return err
+		}
+		defer rows.Close() // want "deferred cleanup runs after the loop instead of after this iteration"
+		for rows.Next() {
+			break
+		}
+	}
+	return nil
+}
+
+func localRowsExhaustedBeforeNextIteration(names []string) error {
+	for _, name := range names {
+		rows, err := iteratorowner.Open(name)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+		}
+	}
+	return nil
+}
+
+func localRowsMayBreakBeforeExhaustion(names []string) error {
+	for _, name := range names {
+		rows, err := iteratorowner.Open(name)
+		if err != nil {
+			return err
+		}
+		defer rows.Close() // want "deferred cleanup runs after the loop instead of after this iteration"
+		for rows.Next() {
+			break
+		}
 	}
 	return nil
 }
