@@ -182,7 +182,6 @@ var withdrawnAnalyzerPackages = map[string]bool{
 	"channelcapacity":     true,
 	"channelownership":    true,
 	"errorownership":      true,
-	"globalstate":         true,
 	"determinism":         true,
 	"errorclassification": true,
 	"closedomain":         true,

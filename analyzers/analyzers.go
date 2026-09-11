@@ -59,7 +59,6 @@ func newCatalog() (*catalog.Catalog, error) {
 		"apishape",
 		"contextpolicy",
 		"testlifecycle",
-		"globalstate",
 		"wirepolicy",
 		"testpolicy",
 		"goroutineownership",

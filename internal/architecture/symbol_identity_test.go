@@ -14,7 +14,6 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 	allowed := map[string]int{
 		"ownership/exitpolicy/analyzer.go":            1, // Package path is diagnostic display metadata.
 		"reliability/errorclassification/analyzer.go": 1, // Text-preserving strings transforms are a package family.
-		"reliability/globalstate/contracts.go":        1, // Framework contracts qualify arbitrary named types.
 		"reliability/taintpolicy/analyzer.go":         1, // User-configured sanitizers need qualified call metadata.
 	}
 	rawIdentityPatterns := []string{

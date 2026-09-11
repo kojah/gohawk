@@ -39,7 +39,7 @@ Pass analyzer selection flags without changing the manifest:
 ```sh
 scripts/benchmark-dogfood.sh \
   --only caddy \
-  --gohawk-arg=-enable=globalstate \
+  --gohawk-arg=-enable=lockorder \
   --runs 5
 ```
 

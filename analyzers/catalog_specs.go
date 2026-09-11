@@ -21,7 +21,6 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/reliability/errorclassification"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/errorownership"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/evalorder"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/globalstate"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/inlineerror"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/lockorder"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/oncepolicy"
@@ -218,12 +217,6 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.EvaluationOrder, Doc: "Reports expressions whose later operand mutates a value read by an earlier operand.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: globalstate.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.MutableGlobalState, Doc: "Reports mutable package-level state without an explicit owner.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 		{Analyzer: lockorder.Analyzer(), Checks: []catalog.CheckInfo{

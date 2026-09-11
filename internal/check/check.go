@@ -36,7 +36,6 @@ const (
 	ErrorTextClassification  ID = "errorclassification/text-match"
 	ErrorMismatchedInline    ID = "inlineerror/mismatched-condition"
 	EvaluationOrder          ID = "evalorder/operand-mutation"
-	MutableGlobalState       ID = "globalstate/mutable-package-state"
 	LockMissingRelease       ID = "lockorder/missing-release"
 	LockRecursiveAcquire     ID = "lockorder/recursive-acquire"
 	LockContradictoryOrder   ID = "lockorder/contradictory-order"
