@@ -26,18 +26,17 @@ audit work incremental while still providing regular integration checkpoints.
 
 ## Labels retired with their analyzers
 
-Fifty-nine labels named analyzers the project has since withdrawn:
+Labels named analyzers the project has since withdrawn:
 channelownership (10), testpolicy (9), errorownership (7), determinism (7),
-closedomain (6), globalstate (6), apishape (5), contextpolicy (5),
+closedomain (6), apishape (5), contextpolicy (5),
 wirepolicy (3), and testlifecycle (1).
 
 They are removed rather than left in place. A true-positive label for a
 withdrawn analyzer can never be present again, so it fails every replay for a
 reason no change can fix; a false-positive label for one trivially remains
-absent, which is a pass nobody earned. Twenty-five and thirty-four
-respectively. The verdicts were real reviews, and the audit records that
-describe them are kept; what is gone is the executable claim, because the code
-that made it no longer ships.
+absent, which is a pass nobody earned. The verdicts were real reviews, and the
+audit records that describe them are kept; what is gone is the executable
+claim, because the code that made it no longer ships.
 
 ## Which check a label names
 
