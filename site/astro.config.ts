@@ -1,6 +1,7 @@
 import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
+import starlightBlog from 'starlight-blog';
 import analyzerManifest from './src/generated/analyzers.json' with { type: 'json' };
 import { pluginGohawkDiagnostics } from './src/plugins/gohawk-diagnostics.ts';
 
@@ -59,6 +60,7 @@ export default defineConfig({
 		starlight({
 			title: 'gohawk',
 			description: 'High-signal static analysis for Go.',
+			plugins: [starlightBlog({ navigation: 'header-start' })],
 			customCss: ['./src/styles/field-manual.css'],
 			components: {
 				Footer: isDevelopment
