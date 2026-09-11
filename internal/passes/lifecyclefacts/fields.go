@@ -504,6 +504,15 @@ func parameterIsView(
 	structure *types.Struct,
 	released ParameterMask,
 ) bool {
+	// Returning the same value under the same static type preserves the
+	// caller-visible owner rather than hiding it behind a view. This is the
+	// common status-checking shape: an error response may be closed locally,
+	// while a successful response is handed back unchanged. Requiring every
+	// normal return and the same type keeps wrappers and interface erasure out
+	// of this exception.
+	if parameterReturnedUnchangedOnEveryReturn(function, parameter) {
+		return false
+	}
 	// A constructor that released the argument itself leaves the caller
 	// nothing to keep, whatever becomes of the field afterwards.
 	if parameterMayBeReleased(function, parameter) {
@@ -528,6 +537,21 @@ func parameterIsView(
 		}
 	}
 	return false
+}
+
+func parameterReturnedUnchangedOnEveryReturn(function *ssa.Function, parameter ssa.Value) bool {
+	return !ssaflow.UnownedReturnFromEntryAllow(
+		function,
+		func(ssa.Instruction) bool { return false },
+		func(returned *ssa.Return) bool {
+			for _, result := range returned.Results {
+				if types.Identical(result.Type(), parameter.Type()) && ssaflow.SameValue(result, parameter) {
+					return true
+				}
+			}
+			return false
+		},
+	)
 }
 
 // ArgumentReturnedAsView reports whether the call's static callee is

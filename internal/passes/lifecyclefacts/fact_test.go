@@ -325,6 +325,21 @@ type Owner struct{ file *os.File }
 func Adopt(file *os.File) *Owner { return &Owner{file: file} }
 
 func (o *Owner) Close() error { return o.file.Close() }
+
+type Link struct{ next *Link }
+
+func (l *Link) Close() error { return nil }
+
+func ReturnLink(link *Link) *Link { return link }
+
+func WrapLink(link *Link) *Link { return &Link{next: link} }
+
+func MaybeWrapLink(link *Link, wrap bool) *Link {
+	if wrap {
+		return &Link{next: link}
+	}
+	return link
+}
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	summaries := Summaries{}
@@ -339,6 +354,21 @@ func (o *Owner) Close() error { return o.file.Close() }
 	}
 	if got := returnedViews(pass, pkg.Func("Adopt"), summaries[pkg.Func("Adopt")], summaries); got != 0 {
 		t.Errorf("Adopt ReturnedView = %#x, want none", uint64(got))
+	}
+	for _, name := range []string{"ReturnLink", "WrapLink", "MaybeWrapLink"} {
+		function := pkg.Func(name)
+		summaries[function] = summarize(pass, newRetentionCache(), function)
+		if !summaries[function].ReturnedOwner.contains(0) {
+			t.Errorf("%s ReturnedOwner = %#x, want parameter 0", name, uint64(summaries[function].ReturnedOwner))
+		}
+	}
+	if got := returnedViews(pass, pkg.Func("ReturnLink"), summaries[pkg.Func("ReturnLink")], summaries); got != 0 {
+		t.Errorf("ReturnLink ReturnedView = %#x, want none for an unchanged same-type return", uint64(got))
+	}
+	for _, name := range []string{"WrapLink", "MaybeWrapLink"} {
+		if got := returnedViews(pass, pkg.Func(name), summaries[pkg.Func(name)], summaries); !got.contains(0) {
+			t.Errorf("%s ReturnedView = %#x, want parameter 0 for a same-type wrapper", name, uint64(got))
+		}
 	}
 }
 
@@ -464,6 +494,10 @@ func AddSync(w io.Writer) Syncer {
 	return wrapper{w}
 }
 
+// IdentityWriter still returns a non-closing interface, so the caller keeps
+// ownership even though the interface value itself is unchanged.
+func IdentityWriter(w io.Writer) io.Writer { return w }
+
 type closerSyncer interface {
 	Syncer
 	Close() error
@@ -481,7 +515,7 @@ func AddClosing(w io.Writer) closerSyncer { return closingWrapper{w} }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	summaries := Summaries{}
-	for _, name := range []string{"AddSync", "AddClosing"} {
+	for _, name := range []string{"AddSync", "AddClosing", "IdentityWriter"} {
 		function := pkg.Func(name)
 		summaries[function] = summarize(pass, newRetentionCache(), function)
 	}
@@ -494,5 +528,9 @@ func AddClosing(w io.Writer) closerSyncer { return closingWrapper{w} }
 	addClosing := pkg.Func("AddClosing")
 	if got := returnedViews(pass, addClosing, summaries[addClosing], summaries); got.contains(0) {
 		t.Errorf("AddClosing ReturnedView = %#x, want no view: its result can close the parameter", uint64(got))
+	}
+	identityWriter := pkg.Func("IdentityWriter")
+	if got := returnedViews(pass, identityWriter, summaries[identityWriter], summaries); !got.contains(0) {
+		t.Errorf("IdentityWriter ReturnedView = %#x, want parameter 0: its unchanged interface cannot close the resource", uint64(got))
 	}
 }

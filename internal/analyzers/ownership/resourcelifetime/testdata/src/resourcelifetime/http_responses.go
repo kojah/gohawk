@@ -53,6 +53,13 @@ func responseConditionallyClosedByImportedDeferredCallback(client *http.Client, 
 	return nil
 }
 
+// The imported status helper closes error responses and hands successful
+// responses back unchanged, so returning its result transfers the obligation
+// to this function's caller.
+func responseReturnedThroughImportedStatusHelper(client *http.Client, request *http.Request) (*http.Response, error) {
+	return resourcedep.CheckStatus(client.Do(request))
+}
+
 func responseBodyClosedByImportedHelper(client *http.Client, request *http.Request) error {
 	response, err := client.Do(request)
 	if err != nil {

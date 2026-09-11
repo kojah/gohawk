@@ -2,6 +2,7 @@ package resourcedep
 
 import (
 	"database/sql"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -36,6 +37,16 @@ func MaybeCloseResponse(response *http.Response, enabled bool) {
 			_ = response.Body.Close()
 		}
 	}()
+}
+
+// CheckStatus closes an unsuccessful response and returns successful responses
+// unchanged, preserving their ownership for the caller.
+func CheckStatus(response *http.Response, err error) (*http.Response, error) {
+	if err != nil || response.StatusCode == http.StatusOK {
+		return response, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	return response, errors.New("unexpected response status")
 }
 
 func CloseBody(body io.ReadCloser) {
