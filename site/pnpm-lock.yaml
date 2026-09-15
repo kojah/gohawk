@@ -42,6 +42,9 @@ importers:
       agentation:
         specifier: 3.0.2
         version: 3.0.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      agentation-mcp:
+        specifier: 1.2.0
+        version: 1.2.0
       agentation-review:
         specifier: github:kojah/agentation-review#e0687c52e28ea8e89080eb7ee1a7be1bf174d4bd
         version: https://codeload.github.com/kojah/agentation-review/tar.gz/e0687c52e28ea8e89080eb7ee1a7be1bf174d4bd
