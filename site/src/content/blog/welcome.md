@@ -5,11 +5,7 @@ date: 2026-09-11
 draft: true
 ---
 
-Docker already waited for the child process. The call was right there at the end of the function.
-
-The problem was the paths that never reached it.
-
-Some error paths returned early, skipping the final `Wait` and potentially leaving the child process unreaped. gohawk, the Go static analysis suite I've been building, flagged those paths. The [fix was merged](https://github.com/moby/moby/pull/53517).
+I've been building gohawk, a Go static analysis suite. One of its findings was in Docker: a function started a child process but could return on an error before reaching its `Wait` call, potentially leaving the child unreaped. The [fix was merged](https://github.com/moby/moby/pull/53517).
 
 This is the kind of mistake I set out to catch when I started the project. You can read a function, see both the setup and the cleanup, and still miss what happens in between.
 
@@ -41,12 +37,7 @@ A separate lock-order check led to a [merged fix in Caddy](https://github.com/ca
 
 ## What else can it catch?
 
-The same kind of oversight shows up beyond child processes. Some of the patterns gohawk checks for are:
-
-- **Resources left open on an error path.** A file gets closed on success, but an early return skips cleanup. Similar mistakes affect HTTP response bodies and database resources.
-- **Forgotten cancellation.** A function creates a context, then returns without calling its cancel function or handing that responsibility to its caller.
-- **Work left running.** A function starts a goroutine and has a way to wait for it, but one return path skips the wait.
-- **Locking mistakes.** A return leaves a mutex locked, or code tries to acquire a lock it already holds. The extended checks also look for conflicting lock orders, as in the Caddy finding.
+gohawk also checks for files, HTTP response bodies, and database resources left open, along with context cancel functions that never get called or passed back to the caller. For goroutines, it can spot paths that skip an available wait. Other locking checks catch returns that leave a mutex locked or attempts to acquire a lock that's already held.
 
 gohawk runs alongside your existing tests and analyzers. The [analyzer catalog](/analyzers/) explains what each check can catch and where it stops.
 
@@ -56,9 +47,7 @@ Cleanup might happen inside a helper, or another part of the program might take 
 
 Moving cleanup into a helper shouldn't make a warning appear. The tool would be asking you to flatten valid code so it could understand it.
 
-gohawk tries to follow cleanup through those helpers. If it can't tell what happens to a resource passed to other code, it stays quiet rather than assume the resource was left open.
-
-That means missing some bugs. I'd rather miss those than make you investigate a warning every time the tool can't follow your code.
+gohawk tries to follow cleanup through those helpers and stays quiet when it can't tell what happens to a resource passed to other code. I'd rather miss some bugs than make you investigate a warning every time the tool can't follow your code.
 
 A check's tests need safe code that looks like the bug, too. Showing that a check finds a missing cleanup isn't enough; it also needs to leave the helper version alone.
 
