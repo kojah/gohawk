@@ -36,7 +36,9 @@ reaching for print statements or a stack dump. The absence is the finding: an
 uninstrumented phase cannot be located when it stalls, and the next question
 about it starts from nothing again. Announce a candidate before a long walk as
 well as after it, so a run that stops making progress names the work it was
-on. Keep the events.
+on. Keep the events. Follow
+[gohawk-analyzer-tracing](../gohawk-analyzer-tracing/SKILL.md) for the authoring
+contract.
 
 ## Reading a trace
 

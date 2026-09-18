@@ -23,6 +23,8 @@ analyzer actually sees, then reason about that:
 - `gohawk -gohawk-trace=ANALYZER ./pkg` for the evidence trace, with SSA text.
 
 Details in [debugging](../gohawk-debugging/SKILL.md).
+When a changed precision boundary needs instrumentation, follow
+[gohawk-analyzer-tracing](../gohawk-analyzer-tracing/SKILL.md).
 
 ## 1. Locate the decision point
 

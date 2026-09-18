@@ -48,6 +48,8 @@ task rather than re-deriving the procedure:
   round, labelling findings, recording a batch audit.
 - `.agents/skills/gohawk-debugging/SKILL.md` — reading SSA dumps, fact dumps,
   and evidence traces to explain a diagnostic.
+- `.agents/skills/gohawk-analyzer-tracing/SKILL.md` — adding or reviewing
+  structured evidence traces without changing analyzer behavior or JSON output.
 
 References: `docs/architecture.md` (layers and enforced invariants),
 `.agents/skills/gohawk-codebase/references/shared-helpers.md` (the shared
@@ -132,46 +134,12 @@ package would otherwise require reading several functions to reconstruct.
 
 ## Analyzer tracing
 
-Use the structured evidence tracer instead of temporary print statements when
-investigating analyzer behavior. Use `gohawk ssa -func NAME PACKAGE` to read
-the SSA the analyzers see instead of reconstructing the lowering by hand, and
-`gohawk facts PACKAGE` to read the lifecycle summaries a package exports and
-imports; the evidence records carry the SSA text of the instruction they
-judged. Every diagnostic must flow through
-`check.Report` or `check.Reportf`, which provide repo-wide
-candidate and suggested-fix events. Shared analyzer wrappers trace whether a
-candidate is reported, suppressed by an ignore comment, or removed by check
-selection.
-
-When a section of code is hard to follow, add tracing to it and keep the
-tracing. Temporary print statements are worse than they look: they must be
-added and removed for each question, they are lost the moment the next person
-asks something similar, and reverting them is one more chance to disturb
-working code. A phase that emits nothing is itself the finding, because a run
-that stops making progress there can then only be located with a stack dump.
-Adding the events is usually the shorter path to the answer as well as the one
-that leaves the next reader better off. Prefer a temporary print only when the
-question is genuinely single-use, such as counting how often a cache is hit
-while sizing a fix.
-
-Instrument non-obvious evidence and conservative bailout decisions near the
-policy code that makes them. Use the common phases consistently:
-
-- `candidate` for a potentially reportable construct;
-- `evidence` for facts that support accepting or rejecting it;
-- `considered` for a proof step that was evaluated and did not hold;
-- `decision` for the final report or suppression outcome; and
-- `fix` for the availability or rejection of a suggested edit.
-
-Reason codes are a diagnostic interface: use stable, concise kebab-case names
-that describe why the decision was made. Keep details compact and avoid dumping
-AST or SSA values. Call `trace.Enabled` before allocating maps or computing
-expensive trace-only metadata so disabled tracing remains effectively free.
-
-Analyzer changes that add a new precision boundary should trace the decisive
-reason and test it when practical. Trace output must remain valid JSONL under
-parallel analysis, and enabling tracing must not change which diagnostics are
-reported.
+Use the structured evidence tracer instead of committed print probes. Tracing
+must describe the authoritative proof, remain effectively free when disabled,
+preserve `-json`, and never change which diagnostics are reported. Follow
+`.agents/skills/gohawk-analyzer-tracing/SKILL.md` when adding or reviewing
+instrumentation; use `.agents/skills/gohawk-debugging/SKILL.md` to read the
+result alongside SSA and lifecycle facts.
 
 ## Proof model cohesion
 
