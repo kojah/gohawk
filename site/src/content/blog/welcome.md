@@ -1,6 +1,6 @@
 ---
 title: Why I’m building gohawk
-description: The resource-management and concurrency bugs I want gohawk to catch, and why trustworthy findings matter more than finding everything.
+description: How gohawk found bugs in Docker and Caddy, and why I want fewer warnings I can trust.
 date: 2026-09-11
 draft: true
 ---
@@ -19,9 +19,7 @@ My interest was resource management and concurrency: a process that nobody waits
 
 Go's garbage collector doesn't handle those lifetimes for us. Someone still needs to decide when the work is done and who is responsible for finishing it.
 
-I expected to find something similar already out there. There were tools covering parts of what I wanted, but not quite the combination I was looking for. Go also provides libraries for following values through a program and sharing analysis results across packages. That gave me a starting point for building gohawk.
-
-The Docker example shows why following the program matters. Here's a simplified version of the missing-wait pattern:
+Here's a simplified version of the mistake in Docker:
 
 ```go
 func run(command *exec.Cmd) error {
@@ -37,9 +35,9 @@ func run(command *exec.Cmd) error {
 
 The two error returns look much alike. Only the second leaves us responsible for a started process. Searching for a `Wait` call won't help; the function already has one.
 
-The fix in Docker handed process management back to Go's standard library. It simplified the code and ensured the child was waited for, including when something went wrong.
+The fix wasn't to add a `Wait` before each error return. Docker's code had been managing the child's input and output itself. The change attached those buffers to `exec.Cmd` and used `Run`, letting Go's standard library handle the I/O and wait for the child even if copying failed. That removed the error paths where the wait had been missed.
 
-A separate lock-order analysis led to a [merged fix in Caddy](https://github.com/caddyserver/caddy/pull/7968), where an error path acquired two locks in the opposite order to another path. Both findings concern relationships between operations that can be some distance apart in the source.
+A separate lock-order check led to a [merged fix in Caddy](https://github.com/caddyserver/caddy/pull/7968), where an error path acquired two locks in the opposite order to another path. Seeing either path alone wouldn't show the conflict.
 
 ## What else can it catch?
 
@@ -50,28 +48,18 @@ The same kind of oversight shows up beyond child processes. Some of the patterns
 - **Work left running.** A function starts a goroutine and has a way to wait for it, but one return path skips the wait.
 - **Locking mistakes.** A return leaves a mutex locked, or code tries to acquire a lock it already holds. The extended checks also look for conflicting lock orders, as in the Caddy finding.
 
-These are specific checks, not a promise to find every leak or deadlock. The [analyzer catalog](/analyzers/) covers the individual checks and their limits.
-
-## Where gohawk fits
-
-I’m building gohawk to run alongside the tests and analyzers a project already uses. Its focus is the lifetime of resources and concurrent work: who owns something, what needs to happen before it's finished, and whether the code fulfills that responsibility.
+gohawk runs alongside your existing tests and analyzers. The [analyzer catalog](/analyzers/) explains what each check can catch and where it stops.
 
 ## A warning has to earn your attention
 
-Finding a missing cleanup is only part of the problem. Cleanup might happen inside a helper, or responsibility might move to a longer-lived owner.
+Cleanup might happen inside a helper, or another part of the program might take responsibility for it.
 
-It would be frustrating if introducing a helper made a warning appear. The tool would effectively be asking you to flatten valid code so it could understand it.
+Moving cleanup into a helper shouldn't make a warning appear. The tool would be asking you to flatten valid code so it could understand it.
 
-gohawk tries to recognize those safe patterns. Where it can't establish what happened, it may have to stay quiet. Passing a resource to code the analyzer doesn't understand is not, by itself, evidence that the resource was abandoned.
+gohawk tries to follow cleanup through those helpers. If it can't tell what happens to a resource passed to other code, it stays quiet rather than assume the resource was left open.
 
-That leaves some bugs undetected. It's a tradeoff I'm willing to make. I want a finding to be worth investigating, without first having to work out whether the tool understood an ordinary ownership handoff.
+That means missing some bugs. I'd rather miss those than make you investigate a warning every time the tool can't follow your code.
 
-A useful check therefore needs examples of safe code that resembles the bug, as well as examples where it should report one. That's a central constraint on how I build gohawk.
-
-## What I want from the project
-
-The upstream fixes are a useful measure of progress: a specific finding, a problem worth fixing, and a change that makes the code easier to trust.
-
-That's what I'd like gohawk to contribute to a Go project: another chance to catch the error path you overlooked or the conflicting lock order that was hard to see across functions.
+A check's tests need safe code that looks like the bug, too. Showing that a check finds a missing cleanup isn't enough; it also needs to leave the helper version alone.
 
 You can find [gohawk on GitHub](https://github.com/kojah/gohawk). If you try it, I'd like to hear about both useful findings and warnings that didn't deserve your attention.
