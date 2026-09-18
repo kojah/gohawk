@@ -54,13 +54,7 @@ These are specific checks, not a promise to find every leak or deadlock. The [an
 
 ## Where gohawk fits
 
-I want gohawk to be an additional check alongside the tools a project already uses.
-
-Staticcheck covers a broad range of Go mistakes. NilAway focuses on nil-safety, and gosec focuses on security. There is overlap between analyzers, and a useful comparison needs to name the particular check and example involved.
-
-gohawk's focus is the lifetime of resources and concurrent work: who owns something, what needs to happen before it's finished, and whether the code fulfills that responsibility.
-
-The Docker and Caddy findings are examples of the work I want it to do. They don't establish that every other tool would miss those bugs, and being different for its own sake isn't the goal. The question is whether adding gohawk produces useful findings in code you're already checking.
+I’m building gohawk to run alongside the tests and analyzers a project already uses. Its focus is the lifetime of resources and concurrent work: who owns something, what needs to happen before it's finished, and whether the code fulfills that responsibility.
 
 ## A warning has to earn your attention
 
@@ -78,6 +72,6 @@ A useful check therefore needs examples of safe code that resembles the bug, as 
 
 The upstream fixes are a useful measure of progress: a specific finding, a problem worth fixing, and a change that makes the code easier to trust.
 
-That's what I'd like gohawk to contribute to a Go project. It won't prove that your program is correct. But it can give you another chance to catch the error path you overlooked or the conflicting lock order that was hard to see across functions.
+That's what I'd like gohawk to contribute to a Go project: another chance to catch the error path you overlooked or the conflicting lock order that was hard to see across functions.
 
 You can find [gohawk on GitHub](https://github.com/kojah/gohawk). If you try it, I'd like to hear about both useful findings and warnings that didn't deserve your attention.
