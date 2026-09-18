@@ -9,25 +9,17 @@ Docker already waited for the child process. The call was right there at the end
 
 The problem was the paths that never reached it.
 
-In Docker's subprocess-based nftables backend, errors while writing input or reading output could return before the final `Wait`. Once the child had started, those returns could leave it unreaped.
+Some error paths returned early, skipping the final `Wait` and potentially leaving the child process unreaped.
 
-gohawk, the Go static analysis suite I've been building, flagged the missing waits. The [fix eventually merged](https://github.com/moby/moby/pull/53517), along with a regression test for a related pipe deadlock uncovered while investigating the code.
+This is the kind of mistake I set out to catch when I started building gohawk a couple of months ago. You can read a function, see both the setup and the cleanup, and still miss what happens in between.
 
-It's a useful example of the kind of bug I wanted to catch. You can read the function, see both the setup and the cleanup, and still miss what happens in between.
+My interest was resource management and concurrency: a process that nobody waits for, cleanup that runs before work finishes, locks acquired in conflicting orders. Go's garbage collector doesn't handle those lifetimes for us.
 
-But building a tool to catch it raises another question: how do you distinguish missing cleanup from cleanup that happens somewhere else?
+I expected to find something similar already out there. There were tools covering parts of what I wanted, but not quite the combination I was looking for. So I started building on Go's own analysis libraries.
 
-## Why build another Go analyzer?
+gohawk eventually flagged those missing waits in Docker, and the [fix was merged](https://github.com/moby/moby/pull/53517). But making a check like this useful requires more than recognizing a forgotten wait.
 
-When I set out to build gohawk a couple of months ago, I expected to find something similar already out there.
-
-Go has good tooling for static analysis. Beyond its syntax tree, there's an [SSA package](https://pkg.go.dev/golang.org/x/tools/go/ssa) for following values through functions, and an [analysis framework](https://pkg.go.dev/golang.org/x/tools/go/analysis) for carrying findings across packages. You can import these as ordinary Go libraries.
-
-There are established tools using that infrastructure. Staticcheck covers a broad range of mistakes, NilAway focuses on nil-safety, and gosec looks for security problems. I found tools covering parts of what I wanted, but not quite the combination I was looking for.
-
-My interest was resource management and concurrency: a process that nobody waits for, cleanup that runs before work finishes, locks acquired in conflicting orders.
-
-Go's garbage collector doesn't handle those lifetimes for us. Someone still has to decide when the work is done and who is responsible for finishing it.
+How do you distinguish missing cleanup from cleanup that happens somewhere else?
 
 ## Following the path that misses cleanup
 
@@ -49,9 +41,9 @@ The two error returns look much alike. Only the second leaves us responsible for
 
 An analyzer has to track that difference. Searching for a `Wait` call won't help; this function already has one.
 
-SSA—*static single assignment*—gives us a convenient representation for asking more precise questions. Each value is defined once, and the function's control flow is represented as a graph of blocks.
+Go's [SSA package](https://pkg.go.dev/golang.org/x/tools/go/ssa)—short for *static single assignment*—lets us follow a particular value through the different paths a function can take.
 
-That lets the analyzer follow the particular command we started, distinguish the success and failure branches, and inspect the returns reachable after success. It doesn't have to infer the structure from how the source happens to be written.
+Here, that means following the command after a successful start and finding the return that skips its wait.
 
 What SSA doesn't provide is the meaning of `Start` and `Wait`. The analyzer has to supply that: a successful start creates a responsibility, and waiting fulfills it.
 
@@ -73,11 +65,7 @@ Now the caller can finish with `return processutil.Reap(command)`. There is no d
 
 It would be frustrating if introducing that helper made a warning appear. The tool would effectively be asking you to flatten your code so it could understand it.
 
-Go's analysis framework provides a way to avoid that. An analyzer can summarize something it established about a function and export the summary as a *fact*. A caller in another package can import that fact without inspecting the helper's body.
-
-For `Reap`, gohawk can record that the command parameter is waited on before every normal return. The caller applies that summary to the command it passed in.
-
-This also fits how gohawk runs: through `go vet`, one package at a time. Dependencies can carry small summaries instead of requiring the analyzer to load the entire program.
+Go's [analysis framework](https://pkg.go.dev/golang.org/x/tools/go/analysis) lets gohawk share a summary between packages: this helper waits for the command it's given. The caller can rely on that summary without inspecting the helper's implementation again.
 
 The summary has to be trustworthy, though. A helper that only sometimes calls `Wait` doesn't earn an unconditional promise that it waits. Otherwise, moving a bug into a helper would make it disappear from the analysis.
 
@@ -99,13 +87,7 @@ This is a central constraint on how I build gohawk. A useful check needs a clear
 
 ## Back to Docker
 
-In the Docker finding, the early error paths returned without waiting for the started command. Investigating those paths also exposed a separate problem with the pipe handling.
-
-The code drained stdout before reading stderr. If the child filled the stderr pipe while stdout remained open, the child could block writing stderr while Docker waited for stdout to finish.
-
-The missing-wait diagnostic led us to that code; it didn't itself diagnose the pipe deadlock.
-
-The fix simplified the whole operation. It attached input and output buffers to the command and used `Cmd.Run`, letting `os/exec` handle the streams and wait for the process. A regression test reproduced the deadlock before the change and passed afterward.
+The Docker fix handed process management back to Go's standard library. That simplified the code and ensured that the child was waited for, including when something went wrong.
 
 That's the sort of result I want from gohawk: a specific finding that gives you a reason to look closely, followed by a fix that makes the code easier to trust.
 
