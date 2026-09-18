@@ -45,8 +45,6 @@ Show one safe variation next to the broken example so the reader can predict how
 
 SSA doesn't provide the contract of `Start` and `Wait`. The analyzer supplies that: a successful start creates a responsibility, and waiting fulfills it.
 
-Briefly retain the original inspiration: the Clang Static Analyzer can track an allocation through paths and identify a return that leaks it even when another path frees it. Explain that gohawk doesn't perform Clang's general symbolic execution.
-
 Finish with the question of what happens when the wait moves into another function. Link to the fact-system post once it is published, without requiring it to understand this article.
 
 ## References for developing the draft
@@ -54,4 +52,3 @@ Finish with the question of what happens when the wait moves into another functi
 - [Go SSA package](https://pkg.go.dev/golang.org/x/tools/go/ssa)
 - [The process-start contract](https://pkg.go.dev/os/exec#Cmd.Start)
 - [Reading SSA in gohawk](/development/understanding-ssa/)
-- [Clang Static Analyzer](https://clang.llvm.org/docs/ClangStaticAnalyzer.html)

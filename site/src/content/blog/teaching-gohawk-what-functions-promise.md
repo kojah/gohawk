@@ -21,6 +21,14 @@ Now the caller can finish with `return processutil.Reap(command)`. There is no d
 
 It would be frustrating if introducing that helper made a warning appear. The tool would effectively be asking you to flatten your code so it could understand it.
 
+## Introduce the inspiration from Clang
+
+Use the Clang Static Analyzer to explain why an analyzer needs a model of resource state: it can track an allocation through paths and identify a return that leaks it even when another path frees it.
+
+Connect that idea to gohawk's model of acquiring, releasing, and transferring responsibility. Keep the distinction clear: gohawk doesn't perform Clang's general symbolic execution, and its cross-package facts use Go's analysis framework. Clang is an influence on the reasoning about resources, not the source of Go's fact mechanism.
+
+Return to the helper: what part of that reasoning can we summarize so its caller can rely on it?
+
 ## Explain the promise the caller needs
 
 Go's analysis framework lets an analyzer export a fact attached to an object. gohawk uses that mechanism to summarize lifecycle behavior.
@@ -53,6 +61,7 @@ Discuss the choice to keep summaries bounded rather than accumulating guesses ab
 
 ## References for developing the draft
 
+- [Clang Static Analyzer](https://clang.llvm.org/docs/ClangStaticAnalyzer.html)
 - [Go analysis framework](https://pkg.go.dev/golang.org/x/tools/go/analysis)
 - [gohawk's fact model](/development/fact-model/)
 - [Lifecycle analysis](/architecture/#how-a-lifecycle-analyzer-is-shaped)
