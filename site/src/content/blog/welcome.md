@@ -1,21 +1,23 @@
 ---
 title: Bring Your Own SSA
-description: What building gohawk taught me about SSA, cross-package facts, and why precise Go analysis needs a conservative semantic model on top of the compiler's view.
+description: Building gohawk taught me that SSA can show what a program does, but not what its operations mean.
 date: 2026-09-11
 draft: true
 ---
 
-When I started building gohawk, I expected the hard part to be getting at the compiler's view of a program. It isn't. Go hands you [`go/analysis`](https://pkg.go.dev/golang.org/x/tools/go/analysis), a framework for modular static analyzers, and [`go/ssa`](https://pkg.go.dev/golang.org/x/tools/go/ssa), which lowers Go into static single-assignment form. Between them you get exact values, an explicit control-flow graph, and a fact mechanism that survives package boundaries. That is an unusually generous starting position. Many languages make you build some version of this yourself before you can ask a single interesting question.
+## Go had already done the hard part. Or so I thought
 
-So here is the puzzle that kept nagging at me. If the infrastructure is this good, why are there comparatively few deep, SSA-backed Go tools? Plenty of linters read the syntax tree. Far fewer follow a specific value along every path and reason about what must happen to it.
+I came into this project with a comfortable assumption. Go ships [`go/ssa`](https://pkg.go.dev/golang.org/x/tools/go/ssa), which lowers a function into static single-assignment form, and [`go/analysis`](https://pkg.go.dev/golang.org/x/tools/go/analysis), a framework for writing modular analyzers that plug straight into `go vet`. Between the two you get exact values, an explicit control-flow graph, and a fact mechanism that survives package boundaries. If you have ever tried to do serious analysis on a language that hands you a raw syntax tree and wishes you luck, you know how much that is. Half the war looked won before I had written a line.
 
-The reason, I came to believe, is that SSA is necessary but not sufficient. It gives you the *structure* of a program without the *meaning* you need to reason about ownership, resource lifetimes, and concurrency. SSA can tell you a value flowed into a call. It cannot tell you whether that call discharged an obligation, handed the obligation to someone else, or simply made the answer unknowable. Supplying that missing layer — a small, deliberately conservative model of what operations *mean* — turned out to be the actual project.
+So the question that stuck with me early was not "how do I get at the program's structure." It was the opposite. If the infrastructure is this generous, why aren't there more deep, SSA-backed Go tools? There are plenty of good linters. Most of them read the syntax tree. Far fewer pick one specific value and follow it down every path, asking what has to happen to it before the function returns. If the raw material was sitting right there, the shortage seemed strange.
 
-## A brief overview of SSA
+It took building the thing to understand the shortage, and the short version is that SSA gives you the map without telling you what any of the roads are for.
 
-Static single-assignment form rewrites a function so every value is defined exactly once. You stop tracking a source variable as it mutates over time; instead you track the specific instruction that produced each value, and every use names that one definition.
+## SSA tells you what happened, not what it meant
 
-A small example makes the shape concrete:
+If you have not looked at SSA before, the one rule that generates the rest is that every value is defined exactly once. There are no variables that get reassigned over time. Each assignment in the source becomes a fresh value with its own name, and every use points back to the single definition that produced it. The identity of a value is the instruction that made it.
+
+A small subprocess function shows what that buys you:
 
 ```go
 func run(ctx context.Context, shouldWait bool) error {
@@ -30,7 +32,7 @@ func run(ctx context.Context, shouldWait bool) error {
 }
 ```
 
-A simplified version of its SSA looks like this:
+Lowered, it reads roughly like this:
 
 ```text
 entry:
@@ -53,74 +55,37 @@ leave:
   return nil
 ```
 
-The names are synthetic; the structure is real. `t0` is the exact command that `exec.CommandContext` returned. `Start` produces its own value. The two `if` statements have become edges between basic blocks, and every return is spelled out.
+The names are synthetic, but nothing else is invented. `t0` is the exact command `CommandContext` handed back. When `Wait` runs, it runs on `t0`, and there is no ambiguity about whether some other variable that happened to be spelled `command` might mean a different object. The branches have become edges between blocks, so "on every return path" stops being a figure of speech and becomes a walk over the graph. When values from different paths meet, SSA drops in a `phi` that names the predecessors it could have come from. Closures make their captures explicit. Calls, deferred calls, and goroutine launches each carry a distinct shape you can read off the instruction.
 
-That is already far friendlier than source text. Nothing has to guess whether some other variable named `command` refers to the same object — every use points back to `t0`. Nothing has to approximate the branches, because the control-flow graph is sitting right there. When values from different branches meet, SSA inserts a `phi` instruction naming the possible predecessors. When a closure captures a variable, the capture is explicit. Calls, deferred calls, and goroutine launches each carry a distinct form. All of this makes a question like "is this exact resource released on every return path?" answerable in principle.
+All of that is real, and it is why I could ask a question like "is `t0` waited for on every path out of this function" and actually get an answer instead of a heuristic.
 
-In principle. Not for free.
+Here is what SSA would not tell me. It says `Wait(t0)` happens on the `wait` branch and does not happen on `leave`. It does not say that this is a bug. It has no notion that starting a process creates an obligation to reap it, that `Wait` is the thing that discharges the obligation, or that returning through `leave` walks away from a live child. The graph records that an event occurred. The meaning of the event is not in the graph.
 
-## Surveying the landscape
+That gap turned out to be the whole project.
 
-Once I understood what Go exposed, I went looking for the layer above it. How do existing analyzers turn syntax, types, and control flow into trustworthy conclusions about real code?
+## The missing layer
 
-The analyzers bundled with Go were the obvious first stop. Past those, I kept circling back to [Staticcheck](https://staticcheck.dev/), [NilAway](https://github.com/uber-go/nilaway), and [gosec](https://github.com/securego/gosec).
+Once I framed it that way, the shape of the problem got clearer, and so did the reason those deep tools are rare. Iterating over instructions is the part Go gives you. Deciding what the instructions mean for ownership and lifecycle is the part you bring yourself, and it is most of the work.
 
-These tools occupy very different territory, and — this matters — they do not all reason the same way. Staticcheck is a broad suite of correctness and style checks; some of its analyses use SSA, others work closer to the syntax. NilAway builds a dedicated model for one property, nil-safety, and propagates it interprocedurally. gosec leans toward pattern- and taint-style detection of security issues. I learned something distinct from each. None of them handed me a ready-made model for the specific question I wanted gohawk to answer: who owns a value, what must eventually happen to it, and whether that obligation is met on every feasible path.
+To report that subprocess safely, an analyzer has to stand up several separate claims. `Start` succeeded, so a process actually exists to reap. The value that got `Wait` is the same value `CommandContext` returned. Waiting is genuinely required here unless ownership moved somewhere else or the process was explicitly released. And at least one path that can really run does none of that. The first two of those come almost entirely from SSA. The last two are policy, and SSA has no opinion about policy.
 
-That gap clarified something. The interesting part of an analyzer is rarely the API that lets you iterate over instructions. It is the model that decides what the instructions *mean*. I had filed SSA under "the advanced part." In practice SSA was the shared vocabulary — the thing everyone starts from. The real work began after I could read it fluently.
+The trouble is that real code does far more than call `Wait` on the next line. It defers the wait. It stashes the command in a struct and returns it. It hands the command to a helper. It launches a goroutine whose entire job is to wait. It registers the thing with some framework and never touches it directly again. Some of those genuinely finish the obligation. Some genuinely move it onto someone else. And some are opaque, where something clearly happened to the value but the analyzer cannot prove what.
 
-## The nature of SSA-backed analysis
+What I settled on is deliberately small. Every instruction that touches the value after the obligation gets sorted into one of four buckets. A **join** finishes the obligation, like a call to `Wait`. A **transfer** moves it onto another object or goroutine that demonstrably takes over. **none** means the instruction has no bearing on the obligation at all. And **unknown** is anything the analysis cannot see through, an opaque call, a send on a channel, an `append`, a callback handed off to code the analyzer does not model. Then a single flow query asks whether joins and transfers cover every return path.
 
-Go back to the subprocess. The SSA tells me `Wait(t0)` happens on one branch and not the other. It does not tell me why that is a bug.
+The load-bearing decision is what happens to `unknown`. It suppresses the diagnostic. If the only thing standing between a started process and a return is an operation the analyzer cannot interpret, gohawk stays quiet rather than turning its own ignorance into a warning. That produces false negatives, and I chose them on purpose. A correctness tool dies the moment people learn they have to re-derive each finding to see whether it is real. I would rather miss a bug at the edge of the model than ship one the model cannot actually back up. The project's guidance puts it bluntly, prioritize precision over recall, and this classifier is where that trade physically lives.
 
-To report it *safely*, an analyzer has to establish several separate claims:
+## A borrowed idea, not a borrowed architecture
 
-1. `Start` succeeded, so a process actually exists to reap.
-2. The command returned by `CommandContext` is the same value that receives `Wait`.
-3. Waiting is required unless ownership is transferred or the process is explicitly released.
-4. At least one feasible return path does none of those things.
+While I was working out what belonged in that layer, I kept coming back to the [Clang Static Analyzer](https://clang.llvm.org/docs/ClangStaticAnalyzer.html). Most people meet Clang as a compiler frontend. What I cared about was its analyzer, which does path-sensitive, interprocedural work by symbolic execution. As it walks a program it carries a `ProgramState`, an abstract account of the values, the storage, and the constraints that hold at that point on that particular path.
 
-The first two claims come almost entirely from SSA — exact values and the branch structure give them to you. The last two need a policy and an evidence model that SSA has no opinion about.
+Picture a C function that allocates memory, checks a condition, frees on one branch, and returns on the other. The syntax contains all four operations. The diagnosis lives in the state carried between them, where one branch releases the memory and the other reaches a return with the allocation still live. The analyzer is running a small evolving model of the program and asking whether a bad state can reach a given point.
 
-This is exactly where precision gets hard, because real programs do far more than call `Wait` inline. They defer cleanup. They stash the value in a struct and return it. They hand it to a helper. They launch a goroutine whose whole job is to wait. They register callbacks with a framework. Some of those operations plainly discharge the obligation. Some plainly move it elsewhere. And some are opaque: *something* happened to the value, but the analyzer cannot prove what.
+I want to be careful not to overstate the lineage, because it is easy to dress up an influence as a pedigree. gohawk is not a port of the Clang analyzer. It does not copy its architecture and it does not do general symbolic execution. Go also erases whole classes of C memory bugs before analysis even begins, so the target is different. One idea carried over cleanly, and only one. A low-level representation earns its keep when you pair it with a higher-level state that assigns meaning to the operations flowing through it. For gohawk that state is not a simulation. It is a handful of small claims about exact values. This command started successfully. This path waits for it. This call moves it into an owner. That other call is opaque. Keeping the vocabulary tiny is exactly what makes the reasoning testable, and a bigger model would find more things while deserving less trust.
 
-gohawk's lifecycle analyzers sort every operation after the obligation into a small, fixed vocabulary:
+## A bug hiding in Docker
 
-- **join** — the obligation is fulfilled, e.g. a call to `Wait`;
-- **transfer** — another object or goroutine demonstrably takes over ownership;
-- **unknown** — the value enters code the analysis cannot see through; and
-- **none** — the instruction has no bearing on the obligation.
-
-Then one flow query asks whether a join or a transfer covers every relevant return. The rule I care most about lives in how `unknown` is treated: it hides the diagnostic. If an opaque operation is the only thing standing between the acquisition and a return, gohawk does not convert missing knowledge into a warning. It stays quiet.
-
-That produces false negatives, and I made my peace with them on purpose. A correctness tool loses its value the moment people have to reverse-engineer each finding to learn whether it is real. I would rather miss a bug at the edge of the model than emit one the model cannot back up. The project's guidance says it plainly: prioritize high precision over high recall. This is where that trade lives.
-
-## Prior inspiration
-
-While working out what belonged above SSA, I kept returning to the [Clang Static Analyzer](https://clang.llvm.org/docs/ClangStaticAnalyzer.html).
-
-Most developers meet Clang as a compiler frontend, part of the toolchain behind Xcode. What drew me in was its *analyzer* architecture. It does path-sensitive, interprocedural analysis by symbolic execution: as it walks a program it carries a `ProgramState`, an abstract account of the values, storage, and constraints known at that point on that path.
-
-Picture a C function that allocates memory, checks a condition, frees the allocation on one branch, and returns on the other. The syntax tree holds all four operations flatly. The diagnosis lives in the state carried between them:
-
-```text
-after allocation:  pointer p owns live memory
-true branch:       memory released
-false branch:      memory still live
-return:            one feasible state retains the obligation
-```
-
-The analyzer is not just hunting for a missing `free`. It is evolving a model of the program and asking whether a bad state can reach a given point.
-
-I want to be careful here, because it is easy to overclaim a lineage. gohawk is not a port of the Clang Static Analyzer. It does not copy its architecture, it does not do general symbolic execution, and its model is far narrower — Go also erases whole categories of C and C++ memory-safety bugs before analysis even starts. What transferred was one idea, cleanly: a low-level representation earns its keep when you pair it with a higher-level state that assigns meaning to operations.
-
-For gohawk that state is not a simulation of the program. It is a handful of small proofs about exact values — *this command started successfully; this path waits for it; this call moves it into an owner; this other call is opaque*. Keeping the vocabulary tiny is what makes the reasoning testable and the diagnostics trustworthy. A bigger model would find more, and I would trust it less.
-
-## Back to Go
-
-Go's memory safety does not retire lifecycle bugs; it just changes which ones remain. A goroutine may have to finish before its owner returns. A file or a response body has to be closed. A subprocess has to be waited for. Locks can be taken in an order that only deadlocks under some interleaving.
-
-The subprocess rule found its concrete example in [Docker/Moby](https://github.com/moby/moby/pull/53517). The affected code started an `nft` subprocess, then wrote its input and read its output by hand. Roughly:
+The abstraction stopped being theoretical the day it followed real code into [Docker](https://github.com/moby/moby/pull/53517). The affected function started an `nft` subprocess, then drove its input and output by hand instead of letting the standard library manage the lifecycle. Stripped down, the flow was:
 
 ```go
 if err := command.Start(); err != nil {
@@ -137,19 +102,15 @@ if err := readOutput(command); err != nil {
 return command.Wait()
 ```
 
-The last path waited. Several earlier error paths did not. Once `Start` succeeds, returning before `Wait` can leave the child unreaped and throw away its final status.
+The last path waited. Several of the earlier error paths did not. Once `Start` succeeds, returning ahead of `Wait` can leave the child unreaped and quietly discard its final status.
 
-This is the kind of defect that looks obvious in hindsight and is genuinely awkward to catch with a line-oriented rule. The analyzer has to start at the *successful* `Start`, follow that same command through the later calls, and check every reachable return. It has to exclude the `Start`-failure path, where no child exists. And it has to keep quiet about the legitimate alternatives — handing the command to a long-lived owner, waiting inside a launched goroutine, deliberately calling `Process.Release`. Each of those is a `transfer` or a `join`, not a violation.
+This is the kind of defect that reads as obvious once someone points at it and is genuinely awkward to catch with a line-oriented rule. The analyzer has to start from the *successful* `Start`, carry that same command value through the later calls, and check every reachable return against it. It has to throw out the `Start`-failure path, where no child exists to wait for. And it has to keep quiet about all the legitimate shapes that look superficially similar, handing the command to a long-lived owner, waiting inside a launched goroutine, deliberately calling `Process.Release`. Each of those is a join or a transfer, and none of them should draw a warning.
 
-In Moby's case the missing waits sat inside a larger process-management problem: the code drained stdout before stderr, so a noisy child could fill the stderr pipe and deadlock while the parent blocked on stdout. The merged fix handed the streams and the lifecycle to `os/exec` via `Cmd.Run`, which drains both and waits. Watching gohawk follow a real, mature codebase far enough to surface something reproducible, reviewable, and fixable upstream told me the model was doing more than recognizing a fixture.
+The missing waits also sat inside a bigger process-management problem. The code drained stdout before stderr, so a chatty child could fill the stderr pipe and deadlock while the parent sat blocked on stdout. The fix that merged handed the streams and the whole lifecycle back to `os/exec` through `Cmd.Run`, which handles both output streams and waits. Watching the tool follow a mature codebase far enough to surface something reproducible and fixable upstream was the moment I stopped worrying that it only recognized its own fixtures.
 
-It wasn't the only one. The lock-order analysis later found a [lock inversion in Caddy](https://github.com/caddyserver/caddy/pull/7968): one error path took a per-entry lock and then the pool lock, while another path took the same two in the opposite order. That fix merged too. Different analyzer, different proof, same underlying move — reduce the control flow to a small set of facts, then ask whether those facts admit an unsafe path. It's worth noting the two locks are compared by their field declarations, not by object identity, because nothing in the code settles whether one method's receiver is the object another method locks.
+## Getting facts across a package boundary
 
-## Fact propagation
-
-Every example so far stayed inside one function. Real code does not.
-
-Suppose the subprocess is handed to a helper:
+Every example so far lived inside a single function, and real programs refuse to be that tidy. Hand the command to a helper and the caller's SSA no longer contains a call to `Wait`:
 
 ```go
 func Reap(command *exec.Cmd) error {
@@ -165,29 +126,18 @@ func run(ctx context.Context) error {
 }
 ```
 
-The caller's SSA contains a call to `Reap`, not a call to `Wait`. If `Reap` lives in another package, its body may not even be present when the caller is analyzed — gohawk runs one package at a time through `go vet`, type-checking dependencies from export data rather than loading the whole program into memory. Treating every helper as opaque would be sound, but it would stop the analysis dead at the first abstraction boundary, and Go code is nothing but abstraction boundaries.
+What the caller sees is a call to `Reap`. If `Reap` lives in another package, its body may not even be loaded when the caller is analyzed. gohawk runs one package at a time under `go vet`, type-checking dependencies from export data rather than pulling the entire program into memory at once, which is what keeps it usable on projects with enormous dependency trees. Treating every helper as opaque would be sound. It would also stop the analysis dead at the first abstraction boundary, and Go code is essentially nothing but abstraction boundaries.
 
-Go's framework has a clean answer: facts. An analyzer can summarize something it proved about an *exported* function and attach that summary to the function's object. When an importing package is analyzed later, it reads the summary instead of re-analyzing the dependency, and the result rides along in Go's normal package cache.
+The framework's answer is facts. An analyzer can summarize something it proved about an exported function and attach that summary to the function's object, and an importing package reads the summary later instead of re-analyzing the dependency. For the helper above the summary amounts to one bit, that parameter zero is always waited on. gohawk sets that bit only when waiting is unavoidable on every normal return from `Reap`. A conditional wait would not earn it. When the caller reaches `Reap(command)` it imports the summary, maps the parameter back to the exact command value, and records a join.
 
-For the helper above, gohawk's summary is conceptually just:
+The interesting part is how little an imported fact is permitted to say, because the limits are what make it safe. A fact describes one parameter at a time and never how two values relate. It records only what holds on every normal return, so a maybe collapses into the same clear bit as a never. It is computed once per function rather than once per call site. And it exists only for a callee the analyzer can name directly, whose declaration is exported. A method reached through an interface gets no imported fact. Neither does a package-internal helper.
 
-```text
-Reap(command *exec.Cmd)
-  parameter 0: Waited
-```
+One rule sits underneath all of that and I lean on it everywhere now. A missing fact means *unknown*, never *false*. Maybe the callee was unexported. Maybe it was reached through dynamic dispatch. Maybe its package was not analyzed by the driver. None of those is evidence that cleanup failed to happen, so absence suppresses the diagnostic rather than proving one. Evidence used to raise a finding has to be exact. Evidence used only to hold one back is allowed to guess on the cautious side, because an extra suppressing bit can hide a real bug but can never manufacture a false one.
 
-That bit is set only if waiting is unavoidable on *every* normal return from `Reap`. A conditional call to `Wait` would not earn it. Neither would the mere absence of anything contradicting it. When gohawk reaches `Reap(command)`, it imports the summary, maps parameter 0 back to the exact command value, and classifies the call as a join.
+## What it changed about how I think
 
-The fact model says deliberately little, and its limits are the point. It describes one parameter at a time, never how two values relate. It records only what holds on every normal return — a maybe collapses to the same clear bit as never. It is computed once per function, not once per call site. It can carry discharge verbs like `Closed`, `Waited`, or `Stopped`, plus ownership transfers such as `ReturnedOwner`. It cannot describe conditional cleanup, arbitrary relationships between two values, or anything about a dynamically dispatched interface call.
+The lock-order analyzer later found the same shape somewhere completely different, a [lock inversion in Caddy](https://github.com/caddyserver/caddy/pull/7968) where one error path took a per-entry lock and then a pool lock, while another path took the two in the opposite order. Different analyzer, different proof, and the same underlying move. Reduce the control flow to a small set of facts, then ask whether those facts admit an unsafe path. Worth noting that the two locks there are compared by their field declarations rather than by object identity, because nothing in the code settles whether one method's receiver is the object another method locks, and pretending otherwise would have meant guessing.
 
-Two constraints matter most, and both come straight from how facts flow. First, an imported lifecycle fact exists only for a function the analyzer can name directly and whose declaration is exported — package internals and interface calls get no imported fact. Second, and this is the load-bearing rule: **a missing fact means *unknown*, not *false***. Maybe the function was unexported. Maybe the callee was reached through an interface. Maybe the package wasn't available. None of those is evidence that cleanup didn't happen, so absence suppresses the diagnostic rather than proving one.
+I started this thinking SSA was the advanced part and the rest would follow. It was the opposite. SSA is the shared vocabulary everyone begins from, and the deep checks do not come from chasing ever more elaborate syntax patterns on top of it. They come from choosing a small semantic vocabulary, propagating its facts with some discipline about what a fact is allowed to claim, and being willing to answer "unknown" the moment the evidence thins out. Go hands analyzer authors a genuinely excellent starting position. It just leaves you to bring your own meaning to its SSA, and I no longer think that is a gap in the tooling so much as an honest description of where the real work was all along.
 
-This asymmetry became a principle I lean on everywhere in gohawk. Evidence used to *prove* a diagnostic has to be exact. Evidence used only to *suppress* one is allowed to be conservative — to guess on the cautious side. If the analyzer suspects a framework retains a value but can't prove the transfer, classifying the call as `unknown` might hide a real bug. It cannot manufacture a false one. Fact propagation is what lets the model cross package lines, but the discipline around what a fact is permitted to claim mattered more than the transport ever did.
-
-## Conclusion
-
-Go's analysis APIs made gohawk possible; they did not make it automatic. SSA handed me the map — exact values, instructions, explicit paths through a function. The harder, longer work was deciding what those pieces *mean* for ownership, resource lifetimes, and concurrency, and being willing to say "unknown" whenever the evidence ran out.
-
-The project changed how I think about static analysis. The deepest checks don't come from chasing ever-more-elaborate syntax patterns. They come from choosing a small semantic vocabulary, propagating its facts carefully, and knowing precisely when the available evidence is not enough to speak. Go gives analyzer authors a genuinely excellent starting point — and then leaves you to bring your own meaning to its SSA.
-
-If you want the model in more detail, the docs cover [how a lifecycle analyzer is shaped](/architecture/#how-a-lifecycle-analyzer-is-shaped), [how to read the SSA the analyzers see](/development/understanding-ssa/), and [what the cross-package facts can and cannot express](/development/fact-model/). The source is on [GitHub](https://github.com/kojah/gohawk).
+If you want the mechanics rather than the story, the docs cover [how a lifecycle analyzer is shaped](/architecture/#how-a-lifecycle-analyzer-is-shaped), [how to read the SSA the analyzers see](/development/understanding-ssa/), and [what the cross-package facts can and cannot express](/development/fact-model/); the source is [on GitHub](https://github.com/kojah/gohawk).
