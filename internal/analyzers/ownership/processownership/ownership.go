@@ -175,6 +175,7 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
 	return waitsForCommand(instruction, command) ||
+		deferredClosureWaitsForCommand(instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
 			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 		evidence.Prove(lifecyclefacts.EvidenceRequest{
@@ -190,6 +191,57 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 		storesProcessHandleInExternalField(instruction, command) ||
 		processHandleOwnershipAction(evidence, instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit"))
+}
+
+func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
+	if _, ok := instruction.(*ssa.Defer); !ok {
+		return false
+	}
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	closure, _ := common.Value.(*ssa.MakeClosure)
+	if closure == nil {
+		return false
+	}
+	function, _ := closure.Fn.(*ssa.Function)
+	if function == nil {
+		return false
+	}
+	waitsOnEveryReturn := func(local ssa.Value) bool {
+		// A successful Cmd.Start guarantees Cmd.Process is non-nil. Use the
+		// concrete Wait receiver as the closure's non-nil assumption so a
+		// defensive `if cmd.Process != nil` guard does not create a spurious
+		// path that skips Wait.
+		var receivers []ssa.Value
+		for _, block := range function.Blocks {
+			for _, candidate := range block.Instrs {
+				if waitsForCommand(candidate, local) {
+					receivers = append(receivers, ssaflow.CallReceiver(ssaflow.InstructionCall(candidate)))
+				}
+			}
+		}
+		for _, receiver := range receivers {
+			if ssaflow.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
+				return waitsForCommand(candidate, local)
+			}, ssaflow.CoverageEveryReturn, receiver) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
+		if ssaflow.CapturedBindingMatches(captured.Binding, command) && waitsOnEveryReturn(captured.Free) {
+			return true
+		}
+	}
+	for index, parameter := range function.Params {
+		if index < len(common.Args) && ssaflow.SameValue(common.Args[index], command) && waitsOnEveryReturn(parameter) {
+			return true
+		}
+	}
+	return false
 }
 
 func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa.Value) bool {

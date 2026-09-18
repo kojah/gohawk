@@ -108,6 +108,43 @@ func deferredOwner(ctx context.Context) error {
 	return nil
 }
 
+func deferredOwnerGuardedByStartedProcess(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	defer func() {
+		if command.Process != nil {
+			_ = command.Process.Kill()
+			_ = command.Wait()
+		}
+	}()
+	return nil
+}
+
+func conditionallyDeferredOwner(ctx context.Context, wait bool) error {
+	command := exec.CommandContext(ctx, "tool")
+	if err := command.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return err
+	}
+	defer func() {
+		if wait {
+			_ = command.Wait()
+		}
+	}()
+	return nil
+}
+
+func differentDeferredOwner(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "tool")
+	other := exec.CommandContext(ctx, "other")
+	if err := command.Start(); err != nil { // want "started command is never waited on or released"
+		return err
+	}
+	defer func() { _ = other.Wait() }()
+	return nil
+}
+
 func ownerRegisteredBeforeStart(ctx context.Context) error {
 	command := exec.CommandContext(ctx, "tool")
 	defer func() { _ = command.Wait() }()
