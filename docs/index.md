@@ -98,4 +98,15 @@ head:
   </div>
 </div>
 
+<footer class="landing-links">
+  <span class="landing-links-label">Explore gohawk</span>
+  <nav aria-label="Explore gohawk">
+    <a href="/installation/">Installation</a>
+    <a href="/analyzers/">Analyzers</a>
+    <a href="/configuration/">Configuration</a>
+    <a href="/golangci-lint/">golangci-lint</a>
+    <a href="/faq/">FAQ</a>
+  </nav>
+</footer>
+
 </div>
