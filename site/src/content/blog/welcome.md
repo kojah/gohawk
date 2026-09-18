@@ -41,6 +41,17 @@ The fix in Docker handed process management back to Go's standard library. It si
 
 A separate lock-order analysis led to a [merged fix in Caddy](https://github.com/caddyserver/caddy/pull/7968), where an error path acquired two locks in the opposite order to another path. Both findings concern relationships between operations that can be some distance apart in the source.
 
+## What else can it catch?
+
+The same kind of oversight shows up beyond child processes. Some of the patterns gohawk checks for are:
+
+- **Resources left open on an error path.** A file gets closed on success, but an early return skips cleanup. Similar mistakes affect HTTP response bodies and database resources.
+- **Forgotten cancellation.** A function creates a context, then returns without calling its cancel function or handing that responsibility to its caller.
+- **Work left running.** A function starts a goroutine and has a way to wait for it, but one return path skips the wait.
+- **Locking mistakes.** A return leaves a mutex locked, or code tries to acquire a lock it already holds. The extended checks also look for conflicting lock orders, as in the Caddy finding.
+
+These are specific checks, not a promise to find every leak or deadlock. The [analyzer catalog](/analyzers/) covers the individual checks and their limits.
+
 ## Where gohawk fits
 
 I want gohawk to be an additional check alongside the tools a project already uses.
