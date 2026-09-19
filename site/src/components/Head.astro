@@ -1,5 +1,23 @@
 ---
-import DefaultHead from '@astrojs/starlight/components/Head.astro';
+const { entry, head } = Astro.locals.starlightRoute;
+// Analyzer identifiers stay as the content title so navigation and the visible
+// heading remain stable. seoTitle gives search and social previews the problem
+// description a reader is more likely to recognize.
+const seoTitle = 'seoTitle' in entry.data ? entry.data.seoTitle : undefined;
+const pageHead = seoTitle
+	? head.map((element) => {
+			if (element.tag === 'title') {
+				return { ...element, content: `${seoTitle} | gohawk` };
+			}
+			if (
+				element.tag === 'meta' &&
+				(element.attrs?.property === 'og:title' || element.attrs?.name === 'twitter:title')
+			) {
+				return { ...element, content: seoTitle };
+			}
+			return element;
+		})
+	: head;
 
 const websiteSchema = JSON.stringify({
 	'@context': 'https://schema.org',
@@ -10,7 +28,7 @@ const websiteSchema = JSON.stringify({
 });
 ---
 
-<DefaultHead />
+{pageHead.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
 
 {
 	Astro.url.pathname === '/' && (

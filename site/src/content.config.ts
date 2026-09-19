@@ -17,6 +17,10 @@ export const collections = {
 	blog,
 	docs: defineCollection({
 		loader: glob({ pattern: '**/*.{md,mdx}', base: '../docs' }),
-		schema: docsSchema(),
+		schema: docsSchema({
+			extend: z.object({
+				seoTitle: z.string().optional(),
+			}),
+		}),
 	}),
 };
