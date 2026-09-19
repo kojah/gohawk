@@ -24,7 +24,7 @@ VERIFY_MAKE_ARGS := --no-print-directory $(VERIFY_OUTPUT_SYNC) --jobs=$(VERIFY_J
 
 .PHONY: help build fmt fmt-check generate generated-check mod-verify lint deadcode vuln test \
 	test-exhaustive test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
-	precision-regression site-check site-build site-links site-links-external site-review generated-sync
+	precision-regression site-check site-build site-audit site-audit-production site-links site-links-external site-review generated-sync
 
 help:
 	@printf '%s\n' \
@@ -46,6 +46,7 @@ help:
 		'                             CONTINUE=1 replays every cohort)' \
 		'  make site-check      Check the documentation website' \
 		'  make site-build      Build the documentation website' \
+		'  make site-audit      Audit every sitemap page with Lighthouse' \
 		'  make site-links      Check internal links in the built website' \
 		'  make site-review     Start the documentation review server'
 
@@ -173,6 +174,12 @@ site-check:
 
 site-build:
 	$(PNPM) --dir site build
+
+site-audit: site-build
+	$(PNPM) --dir site lighthouse
+
+site-audit-production:
+	$(PNPM) --dir site lighthouse:production
 
 site-links: site-build
 	$(LYCHEE) --offline --include-fragments --index-files index.html \

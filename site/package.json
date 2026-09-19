@@ -13,6 +13,8 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"build": "astro build && node scripts/check-sitemap.mjs",
+		"lighthouse": "node scripts/run-unlighthouse.mjs",
+		"lighthouse:production": "node scripts/run-unlighthouse.mjs --production",
 		"preview": "astro preview",
 		"astro": "astro"
 	},
@@ -28,6 +30,8 @@
 		"@astrojs/check": "^0.9.10",
 		"@biomejs/biome": "^2.5.10",
 		"agentation-review": "github:kojah/agentation-review#4516211546b8aabdad84a4285c14a7f4ff39fcb5",
-		"typescript": "^6.0.3"
+		"typescript": "^6.0.3",
+		"unlighthouse": "0.18.0",
+		"unlighthouse-ci": "0.18.0"
 	}
 }

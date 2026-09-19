@@ -2,6 +2,16 @@ allowBuilds:
   agentation-review@https://codeload.github.com/kojah/agentation-review/tar.gz/4516211546b8aabdad84a4285c14a7f4ff39fcb5: true
   better-sqlite3: true
   esbuild: true
+  # Unlighthouse can use the system browser or download one at runtime; do not
+  # run dependency install scripts merely to prefetch Chrome.
+  puppeteer: false
+  # The audit uses Vue's published runtime directly and does not need vue-demi's
+  # package-manager detection script.
+  vue-demi: false
+overrides:
+  # @lhci/utils does not execute Lighthouse, but its pinned legacy dependency
+  # retains a vulnerable ZIP extractor. Reuse Unlighthouse's current version.
+  '@lhci/utils>lighthouse': 13.5.0
 minimumReleaseAgeExclude:
   - '@img/sharp-darwin-arm64@0.35.4'
   - '@img/sharp-darwin-x64@0.35.4'

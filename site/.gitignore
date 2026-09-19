@@ -1,5 +1,7 @@
 dist/
 .astro/
 node_modules/
+.unlighthouse/
+.unlighthouse-production/
 npm-debug.log*
 .DS_Store
