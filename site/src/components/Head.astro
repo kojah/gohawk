@@ -1,8 +1,22 @@
 ---
 import DefaultHead from '@astrojs/starlight/components/Head.astro';
+
+const websiteSchema = JSON.stringify({
+	'@context': 'https://schema.org',
+	'@type': 'WebSite',
+	name: 'gohawk',
+	alternateName: 'Gohawk',
+	url: new URL('/', Astro.site ?? Astro.url).href,
+});
 ---
 
 <DefaultHead />
+
+{
+	Astro.url.pathname === '/' && (
+		<script type="application/ld+json" set:html={websiteSchema} is:inline />
+	)
+}
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
