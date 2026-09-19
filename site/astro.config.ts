@@ -23,6 +23,9 @@ const viteCacheDir = process.env.GOHAWK_ASTRO_CHECK
 export default defineConfig({
 	site: 'https://gohawk.dev',
 	base: '/',
+	// Use IPv4 loopback so SSH preview forwards can reach the server even when
+	// localhost resolves to IPv6. Keep the preview off public network interfaces.
+	server: { host: '127.0.0.1' },
 	vite: {
 		cacheDir: viteCacheDir,
 		server: {
