@@ -1,7 +1,9 @@
+import sitemap from '@astrojs/sitemap';
 import starlight from '@astrojs/starlight';
 import { reviewProxy } from 'agentation-review/vite';
 import { defineConfig } from 'astro/config';
 import analyzerManifest from './src/generated/analyzers.json' with { type: 'json' };
+import { serializeSitemapItem } from './src/lib/sitemap.ts';
 import { pluginGohawkDiagnostics } from './src/plugins/gohawk-diagnostics.ts';
 
 // Each analyzer group is a label and its pages, nested under the 'Analyzer
@@ -49,6 +51,7 @@ export default defineConfig({
 		'/tags-and-profiles': '/configuration/#choose-what-runs',
 	},
 	integrations: [
+		sitemap({ serialize: serializeSitemapItem }),
 		starlight({
 			title: 'gohawk',
 			description: 'High-signal static analysis for Go.',

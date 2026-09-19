@@ -12,12 +12,13 @@
 		"check": "go run ../tools/gendocs -check && biome check . && GOHAWK_ASTRO_CHECK=1 astro check",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"build": "astro build",
+		"build": "astro build && node scripts/check-sitemap.mjs",
 		"preview": "astro preview",
 		"astro": "astro"
 	},
 	"dependencies": {
 		"@astrojs/rss": "4.0.19",
+		"@astrojs/sitemap": "3.7.3",
 		"@astrojs/starlight": "0.41.6",
 		"@expressive-code/core": "0.44.1",
 		"astro": "7.2.8",
