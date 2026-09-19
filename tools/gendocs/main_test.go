@@ -141,6 +141,59 @@ func TestSynchronizeAnalyzerComponentsAddsImportsAfterFrontmatter(t *testing.T) 
 	}
 }
 
+func TestValidateAnalyzerFrontmatter(t *testing.T) {
+	tests := []struct {
+		name     string
+		contents string
+		wantErr  string
+	}{
+		{
+			name:     "valid",
+			contents: "---\ntitle: example\nseoTitle: \"example: Detect example bugs in Go\"\n---\n",
+		},
+		{
+			name:     "missing SEO title",
+			contents: "---\ntitle: example\n---\n",
+			wantErr:  "missing frontmatter seoTitle",
+		},
+		{
+			name:     "wrong page title",
+			contents: "---\ntitle: other\nseoTitle: \"example: Detect example bugs in Go\"\n---\n",
+			wantErr:  `frontmatter title must be "example"`,
+		},
+		{
+			name:     "wrong analyzer prefix",
+			contents: "---\ntitle: example\nseoTitle: \"other: Detect example bugs in Go\"\n---\n",
+			wantErr:  `must start with "example: "`,
+		},
+		{
+			name:     "empty description",
+			contents: "---\ntitle: example\nseoTitle: \"example:  \"\n---\n",
+			wantErr:  "include a description",
+		},
+		{
+			name:     "site suffix",
+			contents: "---\ntitle: example\nseoTitle: \"example: Detect example bugs in Go | gohawk\"\n---\n",
+			wantErr:  `must omit "| gohawk"`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateAnalyzerFrontmatter([]byte(test.contents), "example")
+			if test.wantErr == "" {
+				if err != nil {
+					t.Fatalf("validateAnalyzerFrontmatter() error = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.wantErr) {
+				t.Fatalf("validateAnalyzerFrontmatter() error = %v, want containing %q", err, test.wantErr)
+			}
+		})
+	}
+}
+
 func TestChecksBlockIncludesIDsDescriptionsAndTier(t *testing.T) {
 	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",

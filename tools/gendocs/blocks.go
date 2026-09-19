@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"strconv"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/docexamples"
@@ -172,18 +173,54 @@ func synchronizeOptions(contents []byte, table string) ([]byte, error) {
 	return contents, nil
 }
 
-func hasFrontmatterTitle(contents []byte, title string) bool {
+func validateAnalyzerFrontmatter(contents []byte, analyzerName string) error {
+	title, ok, err := frontmatterValue(contents, "title")
+	if err != nil {
+		return err
+	}
+	if !ok || title != analyzerName {
+		return fmt.Errorf("frontmatter title must be %q", analyzerName)
+	}
+
+	seoTitle, ok, err := frontmatterValue(contents, "seoTitle")
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New("missing frontmatter seoTitle")
+	}
+	prefix := analyzerName + ": "
+	if !strings.HasPrefix(seoTitle, prefix) || strings.TrimSpace(strings.TrimPrefix(seoTitle, prefix)) == "" {
+		return fmt.Errorf("frontmatter seoTitle must start with %q and include a description", prefix)
+	}
+	if strings.Contains(seoTitle, "| gohawk") {
+		return errors.New(`frontmatter seoTitle must omit "| gohawk"; the site appends it`)
+	}
+	return nil
+}
+
+func frontmatterValue(contents []byte, key string) (string, bool, error) {
 	lines := strings.Split(string(contents), "\n")
 	if len(lines) < 3 || lines[0] != "---" {
-		return false
+		return "", false, errors.New("missing frontmatter")
 	}
 	for _, line := range lines[1:] {
 		if line == "---" {
-			break
+			return "", false, nil
 		}
-		if strings.TrimSpace(line) == "title: "+title {
-			return true
+		field, value, ok := strings.Cut(strings.TrimSpace(line), ":")
+		if !ok || field != key {
+			continue
 		}
+		value = strings.TrimSpace(value)
+		if strings.HasPrefix(value, `"`) {
+			unquoted, err := strconv.Unquote(value)
+			if err != nil {
+				return "", false, fmt.Errorf("parse frontmatter %s: %w", key, err)
+			}
+			value = unquoted
+		}
+		return value, true, nil
 	}
-	return false
+	return "", false, errors.New("unterminated frontmatter")
 }

@@ -27,8 +27,8 @@ func synchronize(root string, check bool) error {
 			if err != nil {
 				return fmt.Errorf("analyzer %q has no documentation page at %s", analyzer.Name, relativePath(root, page))
 			}
-			if !hasFrontmatterTitle(contents, analyzer.Name) {
-				return fmt.Errorf("%s must have frontmatter title %q", relativePath(root, page), analyzer.Name)
+			if err := validateAnalyzerFrontmatter(contents, analyzer.Name); err != nil {
+				return fmt.Errorf("%s: %w", relativePath(root, page), err)
 			}
 			contents, err = synchronizeAnalyzerComponents(contents)
 			if err != nil {
