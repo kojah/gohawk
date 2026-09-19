@@ -1,5 +1,5 @@
-import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
+import { reviewProxy } from 'agentation-review/vite';
 import { defineConfig } from 'astro/config';
 import analyzerManifest from './src/generated/analyzers.json' with { type: 'json' };
 import { pluginGohawkDiagnostics } from './src/plugins/gohawk-diagnostics.ts';
@@ -36,16 +36,7 @@ export default defineConfig({
 				usePolling: true,
 				interval: 300,
 			},
-			proxy: {
-				'/__agentation-review': {
-					target: 'http://127.0.0.1:4848',
-					rewrite: (path) => path.replace(/^\/__agentation-review/, ''),
-				},
-				'/__agentation': {
-					target: 'http://127.0.0.1:4747',
-					rewrite: (path) => path.replace(/^\/__agentation/, ''),
-				},
-			},
+			proxy: reviewProxy(),
 		},
 	},
 	redirects: {
@@ -58,7 +49,6 @@ export default defineConfig({
 		'/tags-and-profiles': '/configuration/#choose-what-runs',
 	},
 	integrations: [
-		...(isDevelopment ? [react()] : []),
 		starlight({
 			title: 'gohawk',
 			description: 'High-signal static analysis for Go.',
