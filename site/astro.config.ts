@@ -52,6 +52,7 @@ export default defineConfig({
 		starlight({
 			title: 'gohawk',
 			description: 'High-signal static analysis for Go.',
+			favicon: '/favicon-hawk.png',
 			customCss: ['./src/styles/field-manual.css'],
 			components: {
 				Footer: isDevelopment
