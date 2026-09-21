@@ -1521,6 +1521,12 @@ false positives. Of the seven remaining SQL findings, two are callback-parent
 cleanup false positives and five are now inconclusive after reassessing timing
 and driver assumptions. The follow-up records the callback evidence gap.
 
+The subsequent bounded caller-context implementation resolves those two
+callback-parent false positives and adds them to round 51, now containing four
+false-positive controls and one true-positive control. The five inconclusive
+findings are unchanged. See the bounded cleanup follow-up in
+[batch-48-followup.md](batch-48-followup.md).
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The

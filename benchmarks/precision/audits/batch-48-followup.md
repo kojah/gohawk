@@ -162,3 +162,25 @@ contract. No analyzer behavior changed in this reassessment.
 
 Validation: pinned source and SSA inspection, ledger/count consistency, and
 round-51 static replay. No candidate tests, generators, or scripts executed.
+
+### Bounded callback-parent cleanup follow-up
+
+The two callback-parent statement findings at :2809 and :2844 are now resolved
+and added to round 51's executable false-positive controls. The local query
+follows callback arguments, stable captures, homogeneous callback slices, and
+read-only wrapper fields from the literal's lexical owner. Every discovered
+invocation needs a dominating deferred cleanup of the exact parent DB.
+Unknown dispatch, escapes, field mutation, conditional registration, mixed
+parents, and exhausted budgets do not establish cleanup.
+
+The SQL contract was checked against Go's `database/sql` implementation:
+`prepareDC` prepares statements on pooled driver connections, and
+`driverConn.finalClose` closes the connection's tracked driver statements.
+This is a driver-resource ownership rule, not a claim that `DB.Close` is
+identical to `Stmt.Close`. Rows, transactions, and Conn/Tx-prepared statements
+remain outside this parent-cleanup rule. The five inconclusive findings above
+remain unchanged, and the :1955 transaction-leak control still reports.
+
+Validation includes local accepted/diagnostic fixtures, exact-receiver and
+mutation/escape controls, `make verify`, and static precision replay. External
+repository tests and generators were not executed.

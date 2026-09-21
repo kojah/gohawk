@@ -11,8 +11,6 @@ mariadb-operator/mariadb-operator	producerlifecycle	pkg/agent/server/server.go:9
 mariadb-operator/mariadb-operator	resourcelifetime	licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:1955:16
 mariadb-operator/mariadb-operator	resourcelifetime	licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:2728:16
 mariadb-operator/mariadb-operator	resourcelifetime	licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:2748:16
-mariadb-operator/mariadb-operator	resourcelifetime	licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:2809:16
-mariadb-operator/mariadb-operator	resourcelifetime	licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:2844:16
 mariadb-operator/mariadb-operator	resourcelifetime	licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:2854:16
 mariadb-operator/mariadb-operator	resourcelifetime	licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:2923:12
 mariadb-operator/mariadb-operator	resourcelifetime	licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:2929:16
