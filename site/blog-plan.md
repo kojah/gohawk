@@ -31,22 +31,98 @@ On top of all this, there is some icing on the cake that only Go offers. Introdu
 
 ## SSA is served
 
-*Show Go code alongside its SSA representation. Explain what SSA reveals and what it doesn’t tell you about ownership and cleanup.*
+<!-- Editorial note: this is an illustrative example, not yet the real project example from the introduction. -->
+
+Suppose we acquire a mutex, do some work, and release it. Except there's an early return in the middle:
+
+```go
+mu.Lock()
+if !ready {
+    return
+}
+update()
+mu.Unlock()
+```
+
+Both `Lock` and `Unlock` are present, so searching for matching calls won't get us very far. We need to follow the paths through the function.
+
+Go's SSA package gives us a representation we can use for that. SSA stands for *static single assignment*, meaning each value in the representation is defined once. It also organizes instructions into basic blocks, with branches connecting them. Here's a simplified control-flow sketch of our example—not a literal SSA dump:
+
+```text
+entry:
+    mu.Lock()
+    if ready → update
+    otherwise → return
+
+update:
+    update()
+    mu.Unlock()
+    → return
+
+return:
+    return
+```
+
+We can now follow the branch that skips `update` and see that it also skips the unlock. We can track the value used as the receiver, too, rather than assuming that two calls involving a variable named `mu` must concern the same mutex.
+
+That's useful infrastructure to get without writing a compiler. The [`go/ssa` package](https://pkg.go.dev/golang.org/x/tools/go/ssa) supplies the representation, and we can concentrate on the questions we want to ask about it.
+
+Or so I thought. I'd underestimated how much work was hiding inside “ask questions.”
 
 ## Facts, facts, facts
 
-_Explain that SSA itself is insufficient. Talk about the fact system that has to be built on top of SSA via a separate pass, and explain why it's necessary._
+What if the caller delegates the unlock to a helper?
+
+Now the absence of an `Unlock` in the caller doesn't tell us whether anything is wrong. We have to inspect the helper. And we can't just search that helper for an unlock, because it might have its own early return. Or it might unlock something else entirely.
+
+Moving code into another function shouldn't break an analyzer's understanding of it. “Please undo your refactoring so my check can pass” would be a pretty annoying feature.
+
+This is where SSA stopped being enough on its own. It showed me the calls, arguments, and branches, but I still had to derive their meaning. Does a helper finish the cleanup? Does it do so on every normal return? Which argument does that guarantee apply to?
+
+I ended up building a separate analysis pass that records summaries of function behavior. A caller can use a summary instead of rediscovering everything about the function it calls. For lifecycle checks, for example, a summary can establish that a helper closes a particular argument before returning normally.
+
+The qualification matters. A function that *sometimes* closes its argument doesn't give the caller the same guarantee as one that always does. And a function we haven't analyzed isn't equivalent to one we've analyzed and found to do nothing.
+
+There's quite a lot of engineering in preserving those distinctions. I'd expected to spend most of my time writing checks on top of SSA. Building the layer those checks needed turned out to be a project of its own.
 
 ## A walk through history
 
-*Introduce the Clang Static Analyzer and how it reasons about program state via its fact system. Also talk about lockdep from the linux kernel -- rather than attempting to lock specific objects, we just try and lock different classes.*
+There are older tools worth looking at here. People have been trying to persuade programs to clean up after themselves for a while.
+
+The [Clang Static Analyzer](https://clang.llvm.org/docs/ClangStaticAnalyzer.html) uses symbolic execution to explore paths through C and C++ programs. It tracks program state and constraints along the way, giving its checks context for judging later operations. A pointer's history matters, not just the expression currently using it.
+
+That's the useful connection to gohawk: an operation becomes meaningful when we know what happened before it. Clang's program-state machinery and Go's analysis facts aren't interchangeable, though. They're different ways of supporting reasoning beyond an isolated statement.
+
+For locking specifically, another interesting reference is Linux's lockdep.
+
+[Lockdep](https://cdn.kernel.org/doc/html/latest/locking/lockdep-design.html) observes locking while the kernel runs and records dependencies between lock classes. If code acquires B while holding A, that establishes an ordering relationship. A conflicting relationship elsewhere can reveal a potential deadlock without requiring that deadlock to happen during the test.
+
+The program still locks actual objects. The *validator* groups locks into classes so it can reason about their roles without treating every new instance as an unrelated problem.
+
+That distinction is useful when analyzing source code, too. We may know which mutex field an operation accesses without knowing the runtime identity of every object containing it.
 
 ## Going back to Go...
 
-Give examples of how we build up our fact system to perform lock analysis.
+Suppose a store and its entries each have a mutex. One method takes the store lock and then an entry lock. Another method does the reverse.
+
+Either method can look reasonable on its own. The problem appears when we put their orderings together.
+
+For struct fields, gohawk's lock-order check compares the mutex declarations. It can identify that one field is acquired before another in one place and after it elsewhere. It doesn't need to claim that it knows every object those receivers could point to.
+
+That also sets a limit on the conclusion. Conflicting orders are a hazard, not a prediction that these exact calls will deadlock on the next run. Cases that depend on the runtime ordering of two instances of the same mutex field need different evidence.
+
+A finding in [Caddy](https://github.com/caddyserver/caddy/pull/7968) led to a merged fix for an error path that acquired two locks in the opposite order to another path.
+
+<!-- Editorial follow-up: add a compact, verified before-and-after excerpt from the Caddy fix. Verify the illustrative lock example against the current implementation. Keep lifecycle summaries and lock-order evidence distinct; do not imply that the lifecycle fact format exports lock-order relationships. -->
 
 ## Conclusion
 
-*Reflect on the gap between having SSA available and building useful analysis on top of it.*
+I thought Go's SSA APIs would get me most of the way to the analysis I wanted. Instead, a substantial part of building gohawk became figuring out what information to derive from SSA, how to carry it between functions, and which conclusions were safe to use.
 
-_State that next post will be about tracking resource lifetimes._
+Then we scanned more than 500 GitHub repositories and were still finding false positives.
+
+That's been the other surprise. A check can make sense in its test cases and still misunderstand ordinary code in a real project. Sometimes the analysis needs improving. Sometimes the exceptions keep piling up until you start questioning the check itself. With `globalstate`, that meant considering whether to disable the analyzer entirely.
+
+I don't have a clever shortcut for that part. Finding a bug is satisfying, but finding out why working code triggered a warning is just as much of the job.
+
+Next time, I'll get into resource lifetimes and the additional questions that come up when cleanup moves into a helper—or becomes somebody else's responsibility.
