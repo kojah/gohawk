@@ -1,0 +1,1435 @@
+{
+  "gohawk_revision": "10e8a5cdc4f84fe4887fd34cad3f7a441c066f1d",
+  "binary_sha256": "ddaa0e7ae4cd43c0c408cdbd907aeb7aa6e10a08fdc206f56e523cf34465c7c2",
+  "toolchain": "go version go1.27.0 linux/amd64",
+  "runner_sha256": "0373cb8da3515d441c88af25d48d47350350a1edaf78687a1aff8e567dda3c32",
+  "replay_sha256": "4ff8c04ea97afb50b614cd604c5cee9d767befaa479ebebc6a426fc2ed72347d",
+  "profile": "-enable-all -gohawk-include-tests -json; CGO_ENABLED=0; GOWORK=off; GOFLAGS=-mod=readonly; no candidate tests executed",
+  "limits": {
+    "repositories": 100,
+    "modules_per_repository": 3,
+    "seconds_per_module": 180,
+    "jobs": 4
+  },
+  "review_status": "triaged",
+  "scan_status_counts": {
+    "scanned": 92,
+    "incomplete": 8
+  },
+  "verdict_counts": {
+    "retired-check": 137,
+    "true-positive": 193,
+    "inconclusive": 5,
+    "false-positive": 29
+  },
+  "repositories": [
+    {
+      "repository": "aws/aws-lambda-runtime-interface-emulator",
+      "revision": "3ccddd7d980cb7d0f12e8a44adce139b0176a2a5",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 9,
+      "reviewed": 9,
+      "verdict_counts": {
+        "retired-check": 1,
+        "true-positive": 8
+      }
+    },
+    {
+      "repository": "bakito/adguardhome-sync",
+      "revision": "a333ff2018d79b8ea26a2c1a4101b0197151f47e",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "cloudflare/pint",
+      "revision": "1ddbdba5f7053f23ad8e268b072f5da2b909cb5d",
+      "modules": [
+        ".",
+        "tools/benchstat",
+        "tools/betteralign"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "SpecterOps/AzureHound",
+      "revision": "b54bdfe4f0af6eff2d55cf7c6e3d6798c70d8167",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "open-telemetry/opentelemetry-collector-releases",
+      "revision": "88f615e77b3fce116c570bd9d70a48779445cb51",
+      "modules": [
+        ".",
+        "internal/tools",
+        "tests/msi"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "bluenviron/gortsplib",
+      "revision": "9ddcb1429c9fb152f3c51dd654da8f56a342a128",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 4,
+      "reviewed": 4,
+      "verdict_counts": {
+        "true-positive": 4
+      }
+    },
+    {
+      "repository": "lucaslorentz/caddy-docker-proxy",
+      "revision": "c2c2b0e265f26d67526d5e64b17755a3ad8603af",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "golang/net",
+      "revision": "b13c0c165994a0042e0c4a4d01e2b998097967c9",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 49,
+      "reviewed": 49,
+      "verdict_counts": {
+        "retired-check": 46,
+        "true-positive": 3
+      }
+    },
+    {
+      "repository": "Unpackerr/unpackerr",
+      "revision": "7b0a621b5740453501e3828fa32b498a50b6884c",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 4,
+      "reviewed": 4,
+      "verdict_counts": {
+        "retired-check": 3,
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "projectsveltos/addon-controller",
+      "revision": "d380853e7ae9d8e9e4c40f69c676bd8ac6408964",
+      "modules": [
+        ".",
+        "hack/tools"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "roadrunner-server/goridge",
+      "revision": "826afec4b084a0943749169857e26f7ee7ab6e74",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "asternic/wuzapi",
+      "revision": "cba302749d3957316b0bdcaef7693193f50f0edb",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "retired-check": 2
+      }
+    },
+    {
+      "repository": "homeport/dyff",
+      "revision": "d41ebdf062869fb2e9a06872e3870e99b2b20e08",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "mna/pigeon",
+      "revision": "579616707f537d5aa3ae531ecf0397538205faf9",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 17,
+      "reviewed": 17,
+      "verdict_counts": {
+        "retired-check": 17
+      }
+    },
+    {
+      "repository": "in-toto/witness",
+      "revision": "1eaafd56616bdf6c136e80ab92a9a0944e6c0ced",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "offen/docker-volume-backup",
+      "revision": "e15641d10cbb4eba4271d2a11730af1aa613641d",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 7,
+      "reviewed": 7,
+      "verdict_counts": {
+        "true-positive": 7
+      }
+    },
+    {
+      "repository": "thought-machine/please",
+      "revision": "edbc44487a196719090921625d35aa2cbdadafcb",
+      "modules": [
+        ".",
+        "test",
+        "test/export/test_go_test/expected_repo"
+      ],
+      "scan_status": "incomplete",
+      "errors": [
+        "no output from test/export/test_go_test/expected_repo (exit 1): test.go:6:2: missing go.sum entry for module providing package github.com/stretchr/testify/assert (imported by github.com/thought-machine/please/test_repo); to "
+      ],
+      "diagnostics": 12,
+      "reviewed": 12,
+      "verdict_counts": {
+        "true-positive": 7,
+        "retired-check": 3,
+        "inconclusive": 2
+      }
+    },
+    {
+      "repository": "open-policy-agent/conftest",
+      "revision": "636cfe39490de851bcc6956f8a7fdc3892020971",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "argoproj-labs/argocd-agent",
+      "revision": "8e916bf75504e15f8e5ce850587773776281c9da",
+      "modules": [
+        ".",
+        "hack/chaos-tester",
+        "hack/sync-consistency-util"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "gofiber/boilerplate",
+      "revision": "b54a457417f5849a95490dfb6473697c2e12e4da",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "devld/go-drive",
+      "revision": "91c3ac7253642bf58629d6a87cf7ab718f2d3827",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 10,
+      "reviewed": 10,
+      "verdict_counts": {
+        "retired-check": 2,
+        "false-positive": 7,
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "pirsch-analytics/pirsch",
+      "revision": "2cf4279f52b9729da9f9dd95abebf8dd4a6b5f0a",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 17,
+      "reviewed": 17,
+      "verdict_counts": {
+        "retired-check": 11,
+        "true-positive": 6
+      }
+    },
+    {
+      "repository": "k1LoW/octocov",
+      "revision": "603f22919254788c10b7230f91053eca2814628d",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "go-goyave/goyave",
+      "revision": "42777290c51f93487f2278d8bd3bf06090f2c468",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "safedep/pmg",
+      "revision": "78a8f2e89511d3ebeb5b2dddd67e3bc3fa4d0861",
+      "modules": [
+        ".",
+        "scripts"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 3,
+      "verdict_counts": {
+        "retired-check": 3
+      }
+    },
+    {
+      "repository": "AdguardTeam/dnsproxy",
+      "revision": "e7bd0153f199a8d75a12eae19f45b82b66697a90",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "retired-check": 1
+      }
+    },
+    {
+      "repository": "tomasz-tomczyk/crit",
+      "revision": "6433de75c47780e7bb1ed4df7e74d44ce9ffae52",
+      "modules": [
+        ".",
+        "test/e2e/fixtures/livemode-upstream",
+        "test/e2e/fixtures/sharetransport-crit-web"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "anchore/quill",
+      "revision": "451f93a3190ba2c23e2e64f355ee774431c017d0",
+      "modules": [
+        ".",
+        ".make"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 3,
+      "verdict_counts": {
+        "true-positive": 3
+      }
+    },
+    {
+      "repository": "google/trillian",
+      "revision": "0362d55869965067c9ffa276a78d18e95a596ca3",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 6,
+      "reviewed": 6,
+      "verdict_counts": {
+        "true-positive": 3,
+        "retired-check": 3
+      }
+    },
+    {
+      "repository": "maxmind/geoipupdate",
+      "revision": "037e44813194f64979293fbe5679174f8304452f",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "tis24dev/proxsave",
+      "revision": "e30e1d1cac5dfe337cc995bfa14281d9b8787d8f",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 4,
+      "reviewed": 4,
+      "verdict_counts": {
+        "false-positive": 4
+      }
+    },
+    {
+      "repository": "perber/leafwiki",
+      "revision": "30cae7d921f08646c3af84791b61b813925cc77b",
+      "modules": [
+        ".",
+        "e2e-proxy"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "nkanaev/yarr",
+      "revision": "bb427710efec1ba2c9b9b4cacde67874a347499b",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 13,
+      "reviewed": 13,
+      "verdict_counts": {
+        "retired-check": 8,
+        "true-positive": 3,
+        "false-positive": 2
+      }
+    },
+    {
+      "repository": "grafana/dskit",
+      "revision": "86f3c54f61fe477e68ac15dfac9ed88e4ee9e457",
+      "modules": [
+        ".",
+        "ring/example/local"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 15,
+      "reviewed": 15,
+      "verdict_counts": {
+        "true-positive": 12,
+        "false-positive": 1,
+        "inconclusive": 2
+      }
+    },
+    {
+      "repository": "hetznercloud/csi-driver",
+      "revision": "0e4a9849184294b1629d304dc9b6d336dbb6969c",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "ovh/venom",
+      "revision": "a4adefe209b2204d02575ae2af181f9405b0fbf8",
+      "modules": [
+        ".",
+        "tests/grpc"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 11,
+      "reviewed": 11,
+      "verdict_counts": {
+        "true-positive": 11
+      }
+    },
+    {
+      "repository": "maxbrunsfeld/counterfeiter",
+      "revision": "fbce8493e0c309d7fdefb840d1b9be2c0c9b4c67",
+      "modules": [
+        ".",
+        "fixtures/dup_packages",
+        "fixtures/hyphenated_package_same_name"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "kubernetes-sigs/cloud-provider-kind",
+      "revision": "ef6d4c206dc684f6ed78b2815bfd642a3881c6dd",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "hashicorp/go-getter",
+      "revision": "af0c1a94a9dd877806a1369ca33326adb748a786",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 3,
+      "verdict_counts": {
+        "true-positive": 3
+      }
+    },
+    {
+      "repository": "shridarpatil/whatomate",
+      "revision": "b350c404cc9245eee3df56fbad155cd5eee48a09",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "casosorg/casos",
+      "revision": "925c34776b3d62d819417ef3f39bb1bb8619b11b",
+      "modules": [
+        "."
+      ],
+      "scan_status": "incomplete",
+      "errors": [
+        "timed out in ."
+      ],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "mautrix/whatsapp",
+      "revision": "85aa4a6d0d2a2a34954231f30f9c9939d6b0d47e",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "helm/chart-releaser",
+      "revision": "76be46057af1c9620f738c92e392fb9ad3ffa0ce",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "retired-check": 1
+      }
+    },
+    {
+      "repository": "cerbos/cerbos",
+      "revision": "cd3efaf5c1eca0249adc24e36743361121693a59",
+      "modules": [
+        ".",
+        "tools",
+        "api/genpb"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 5,
+      "reviewed": 5,
+      "verdict_counts": {
+        "true-positive": 2,
+        "false-positive": 3
+      }
+    },
+    {
+      "repository": "gin-gonic/examples",
+      "revision": "c2f7a0b158e7c8a60336f9ca5e97a517740234dc",
+      "modules": [
+        ".",
+        "new_relic",
+        "oidc"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "jumpserver/koko",
+      "revision": "e3445777f98875501e1f4ab1a2849c32c4f33349",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "retired-check": 1,
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "argoproj-labs/argocd-operator",
+      "revision": "370971de5cb8f92a90239cf92ffe099f28488909",
+      "modules": [
+        ".",
+        "hack/sync-e2e-tests",
+        "hack/update-dependencies-script"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "bpg/terraform-provider-proxmox",
+      "revision": "076148bf2146b99bdf841e567ed61583c677c86a",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "kubernetes-sigs/sig-storage-lib-external-provisioner",
+      "revision": "61da83e8bab11851c69fe945157880dd443eef9f",
+      "modules": [
+        ".",
+        "examples/hostpath-provisioner"
+      ],
+      "scan_status": "incomplete",
+      "errors": [
+        "no output from examples/hostpath-provisioner (exit 1): go: downloading k8s.io/kube-openapi v0.0.0-20250902184714-7fc278399c7f\ngo: downloading github.com/go-openapi/jsonreference v0.21.1\ngo: downloading github.com/go"
+      ],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "k0sproject/k0sctl",
+      "revision": "c4bfa9541ca05edd8a2d143fd50290fbc9243d0b",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "AliyunContainerService/terway",
+      "revision": "cb571b7be5bd8a095012912e7bcd56b30da6cc25",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 49,
+      "reviewed": 49,
+      "verdict_counts": {
+        "true-positive": 42,
+        "retired-check": 3,
+        "false-positive": 4
+      }
+    },
+    {
+      "repository": "gin-contrib/zap",
+      "revision": "46543e8c2973c2bbe9e6da3474e8f8656a53a793",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "gin-contrib/authz",
+      "revision": "9a9585b25aec837e0a88bd56bcc97ade169be397",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "gin-contrib/cors",
+      "revision": "65184b445081c50cbc0403ccf946febbf33a0570",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "laravel/zeropod",
+      "revision": "41a374cfeba8e5630b49c9485c7a1ce097eee475",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 13,
+      "reviewed": 13,
+      "verdict_counts": {
+        "true-positive": 13
+      }
+    },
+    {
+      "repository": "ys-ll/uniterm",
+      "revision": "1037fa5df273b1c1c085b5e9d0a76f6a5f497c51",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "bank-vaults/bank-vaults",
+      "revision": "6d37464e74855fd9c540057c1327a53dcebe23e1",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "syncyomi/syncyomi",
+      "revision": "9714965c265e51da710c5ad0e69dd448fb46be2b",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 4,
+      "reviewed": 4,
+      "verdict_counts": {
+        "true-positive": 4
+      }
+    },
+    {
+      "repository": "updatecli/updatecli",
+      "revision": "21a9b790464b7ae5b6bad3f704d871a620739c3a",
+      "modules": [
+        ".",
+        "pkg/plugins/autodiscovery/golang/testdata/noModule",
+        "pkg/plugins/autodiscovery/golang/testdata/noSumFile"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "F1bonacc1/process-compose",
+      "revision": "23b0acacc937d745279fb1551337f4031c4fc865",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 4,
+      "reviewed": 4,
+      "verdict_counts": {
+        "retired-check": 1,
+        "true-positive": 3
+      }
+    },
+    {
+      "repository": "flant/addon-operator",
+      "revision": "349c18df576e94a2062cfefbce34aa424c89dd63",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "flux-iac/tofu-controller",
+      "revision": "8fc67730e8b5d48092060f22b89bd2e88fc0ce86",
+      "modules": [
+        ".",
+        "api",
+        "tfctl"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 9,
+      "reviewed": 9,
+      "verdict_counts": {
+        "retired-check": 6,
+        "false-positive": 1,
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "BeryJu/gravity",
+      "revision": "c8ccb1e79e53fd6067a45d2cf9a6f5f5a0b3db8c",
+      "modules": [
+        ".",
+        "docs",
+        "utils/pcap_to_bytes"
+      ],
+      "scan_status": "incomplete",
+      "errors": [
+        "no output from utils/pcap_to_bytes (exit 1): # github.com/google/gopacket/pcap\n/home/james/go/pkg/mod/github.com/google/gopacket@v1.1.19/pcap/pcap.go:30:22: undefined: pcapErrorNotActivated\n/home/james/go/"
+      ],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "BeryJu/korb",
+      "revision": "7654b51f1de7b35e369caeb2572855b02d1ab65e",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "almeidapaulopt/tsdproxy",
+      "revision": "75bd326c09158efe48603f2a51f0af066a77876b",
+      "modules": [
+        ".",
+        "docs"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "bjarneo/cliamp",
+      "revision": "57ae3badf75f1f370178df34c6382c069e6564aa",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 3,
+      "verdict_counts": {
+        "true-positive": 3
+      }
+    },
+    {
+      "repository": "akvorado/akvorado",
+      "revision": "06ab6e9914ef87f1f98ced6e26f4c19450280dd4",
+      "modules": [
+        ".",
+        "console/frontend"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "engigu/baihu-panel",
+      "revision": "2c57159923f9e7b7c7020287e3215f73cc1dc414",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 5,
+      "reviewed": 5,
+      "verdict_counts": {
+        "retired-check": 4,
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "moov-io/iso8583",
+      "revision": "5899d826330a24330989e364bc6f5bca01b9f234",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "Willxup/cpa-usage-keeper",
+      "revision": "54a43cb324f33c1039c7622d842e005257a68466",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "goreleaser/nfpm",
+      "revision": "3627b6a6466c0ae3bbe17fe7b98710c36e750907",
+      "modules": [
+        ".",
+        "www"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "true-positive": 1,
+        "false-positive": 1
+      }
+    },
+    {
+      "repository": "esm-dev/esm.sh",
+      "revision": "fdf42ab72580cc883454267afeb9a7e3163e03aa",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "retired-check": 1,
+        "false-positive": 1
+      }
+    },
+    {
+      "repository": "songloft-org/songloft",
+      "revision": "002ef2a4ec79899b33d3983c9751bc9649a8b320",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "MobAI-App/simslim",
+      "revision": "4ae1659a0c0265787c2a7047fab466b326ba6d7e",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "oasdiff/oasdiff",
+      "revision": "322d7ae815e5fb80f415bd4e8ef16d4b30cd8bdf",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "i-love-flamingo/flamingo",
+      "revision": "79a55d62bb7a1bffe11a4dea1444490b14785879",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 3,
+      "verdict_counts": {
+        "false-positive": 1,
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "nao1215/gup",
+      "revision": "c0880113a76cb1e11ca6743fc80089aafef73906",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 5,
+      "reviewed": 5,
+      "verdict_counts": {
+        "false-positive": 1,
+        "true-positive": 4
+      }
+    },
+    {
+      "repository": "beelzebub-labs/beelzebub",
+      "revision": "01c5f83946ec7495fbdddf617b25c0aefef44b2d",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "quic-go/webtransport-go",
+      "revision": "c2f41033be73842c34f0cc6fc638bf9128b0f248",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 3,
+      "verdict_counts": {
+        "retired-check": 3
+      }
+    },
+    {
+      "repository": "golang/crypto",
+      "revision": "7a4a4d6beae2222add4437a0910bd48414e19211",
+      "modules": [
+        ".",
+        "argon2/_asm",
+        "blake2s/_asm"
+      ],
+      "scan_status": "incomplete",
+      "errors": [
+        "no output from argon2/_asm (exit 1): # golang.org/x/tools/internal/tokeninternal\n/home/james/go/pkg/mod/golang.org/x/tools@v0.24.0/internal/tokeninternal/tokeninternal.go:64:9: invalid array length",
+        "no output from blake2s/_asm (exit 1): # golang.org/x/tools/internal/tokeninternal\n/home/james/go/pkg/mod/golang.org/x/tools@v0.24.0/internal/tokeninternal/tokeninternal.go:64:9: invalid array length"
+      ],
+      "diagnostics": 12,
+      "reviewed": 12,
+      "verdict_counts": {
+        "true-positive": 2,
+        "retired-check": 9,
+        "inconclusive": 1
+      }
+    },
+    {
+      "repository": "bazel-contrib/buildtools",
+      "revision": "933e9bbe17f7619afaca1dd58ce22810042f1c13",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 3,
+      "verdict_counts": {
+        "false-positive": 1,
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "kubernetes/release",
+      "revision": "37f2a985a8fc1baafe4060a6d7d45ab2ab4e9fb6",
+      "modules": [
+        ".",
+        "images/build/go-runner"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 14,
+      "reviewed": 14,
+      "verdict_counts": {
+        "true-positive": 14
+      }
+    },
+    {
+      "repository": "lestrrat-go/jwx",
+      "revision": "f8e9c3f4b6214d0f921f9a86eebb84c12e4c2e28",
+      "modules": [
+        ".",
+        "cmd/jwx",
+        "internal/jwxcodegen"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "kai-scheduler/KAI-Scheduler",
+      "revision": "90f9eb339926ae028ea3589ac451da4c8ccd05c2",
+      "modules": [
+        "."
+      ],
+      "scan_status": "incomplete",
+      "errors": [
+        "timed out in ."
+      ],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "MixinNetwork/mixin",
+      "revision": "512c1fe41152019974719c0ba77b20b3ce6a3c5c",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "oliver006/redis_exporter",
+      "revision": "c2f66de2d0ee331dc57d31b961f9e81bc67d345f",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "kaito-project/aikit",
+      "revision": "aeabac4e6f9b1c82b9c9b238e30045fc82b08491",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "vbauerster/mpb",
+      "revision": "ddeb4bb7bcb86e114648760018b10700841a081a",
+      "modules": [
+        ".",
+        "_examples/barBtmExtender",
+        "_examples/barTopExtender"
+      ],
+      "scan_status": "incomplete",
+      "errors": [
+        "no output from _examples/barBtmExtender (exit 1): main.go:10:2: missing go.sum entry for module providing package github.com/vbauerster/mpb/v8 (imported by github.com/vbauerster/mpb/_examples/barBtmExtender); t",
+        "no output from _examples/barTopExtender (exit 1): main.go:11:2: missing go.sum entry for module providing package github.com/vbauerster/mpb/v8 (imported by github.com/vbauerster/mpb/_examples/barTopExtender); t"
+      ],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "false-positive": 1
+      }
+    },
+    {
+      "repository": "HotRiceNoodles/CrossLink",
+      "revision": "3f0ebd38ff0de039c85cdb1d6a25805b0c2d8b46",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 8,
+      "reviewed": 8,
+      "verdict_counts": {
+        "retired-check": 8
+      }
+    },
+    {
+      "repository": "RevylAI/revyl-cli",
+      "revision": "998560970b97b541906497fdf9f414b27c141ed6",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "godot-go/godot-go",
+      "revision": "5eee7fa9cc16b7e084dfc1f27a9680b4f24c1711",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "kudobuilder/kuttl",
+      "revision": "e1d2eb4d5fdad045d0c8365deee4079b1c7800d3",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "helmfile/vals",
+      "revision": "43e1454a242b2bd7bd3350aac60ac5d601cc6722",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "rancher/k3k",
+      "revision": "0e10707e31a11f82cdf0211fa3051242a619d981",
+      "modules": [
+        ".",
+        "pkg/apis"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 2,
+      "verdict_counts": {
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "ymtdzzz/otel-tui",
+      "revision": "253c5e35ab39d1472955eaeb0304c3cf501dbf7c",
+      "modules": [
+        ".",
+        "tuiexporter"
+      ],
+      "scan_status": "incomplete",
+      "errors": [
+        "timed out in ."
+      ],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "j178/leetgo",
+      "revision": "c8037c4b55dabfdc5268037855274486317c5c11",
+      "modules": [
+        ".",
+        "testutils/go"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
+    },
+    {
+      "repository": "FairwindsOps/pluto",
+      "revision": "9495152d614581a988e31414fa64e8b82474d956",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "kube-vip/kube-vip",
+      "revision": "be536eaaf73c80fa5161e757ac18b472498f986e",
+      "modules": [
+        ".",
+        "demo/server",
+        "testing/e2e/e2e"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 3,
+      "verdict_counts": {
+        "false-positive": 1,
+        "true-positive": 2
+      }
+    },
+    {
+      "repository": "nikoksr/notify",
+      "revision": "53cd09dd83b56f77b76764297670040d7ea2bb7a",
+      "modules": [
+        "."
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    },
+    {
+      "repository": "gin-contrib/pprof",
+      "revision": "c726543141985d8caf56f2fc59532987815889fd",
+      "modules": [
+        ".",
+        "_example"
+      ],
+      "scan_status": "scanned",
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0,
+      "verdict_counts": {}
+    }
+  ]
+}

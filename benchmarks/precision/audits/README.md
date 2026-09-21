@@ -1530,6 +1530,84 @@ false-positive controls and one true-positive control. The five inconclusive
 findings are unchanged. See the bounded cleanup follow-up in
 [batch-48-followup.md](batch-48-followup.md).
 
+## Batch 49
+
+One hundred new repositories were selected at pinned revisions, targeting root
+Go 1.26/1.27 modules and excluding previously audited and outreach repositories.
+The [selection ledger](batch-49.tsv), [scan metadata](batch-49-scans.json), and
+[per-finding review](batch-49-findings.tsv) preserve all selected repositories,
+including those with no findings or incomplete scans.
+
+The pinned scanner was `10e8a5c`, before the approved `exitpolicy` retirement in
+`4d3212f`. Its 364 reported locations are fully triaged:
+
+- 193 true positives, including explicitly identified policy-only findings;
+- 29 false positives;
+- 5 inconclusive findings;
+- 137 historical `exitpolicy` findings, recorded as retired rather than active.
+
+These are static source-review verdicts, not runtime reproductions. In
+particular, a process intentionally launched without a waiter is not automatically
+a demonstrated production failure. No candidate tests, generators, or application
+programs were executed. The scan used all checks and test source, CGO disabled,
+at most three modules per repository, four concurrent scans, and a 180-second
+limit per module. The metadata pins the binary and runner hashes.
+
+Ninety-two repositories completed the selected-module scan. Eight were incomplete:
+`casosorg/casos`, `kai-scheduler/KAI-Scheduler`, and `ymtdzzz/otel-tui` hit time
+limits; `thought-machine/please` and `vbauerster/mpb` had nested modules with
+missing sums; `BeryJu/gravity` had a CGO-dependent utility; `golang/crypto` had
+assembly-generator modules using incompatible older tooling; and
+`kubernetes-sigs/sig-storage-lib-external-provisioner` had a failed example-module
+load. Exact captured errors are retained. Findings from successfully loaded
+packages were reviewed, but incomplete repositories are not clean scans.
+
+### Check-level reassessment
+
+- **Stable guards and path correlation:** six go-drive lock findings and one
+  Cerbos exporter finding miss repeated stable predicates. Retain the checks;
+  prefer a bounded extension of existing feasible-path evidence that distinguishes
+  unrelated field writes from changes to the guarded value. Do not equate repeated
+  arbitrary calls or mutable field reads. Moderate complexity; decline unknown
+  paths rather than adding project-specific exemptions.
+- **Returned or retained ownership:** Cerbos variadic closer collections,
+  Terway retained callbacks/logger options, and kube-vip's returned Unlocker need
+  aggregate or escape evidence. Retain the focused checks. Reuse shared storage
+  and call effects where proof is local; opaque retained callbacks should become
+  unknown, not framework-name exceptions. Collection-wide cleanup is a separate,
+  higher-complexity proof and must account for early exits and aliases.
+- **SQL rows:** yarr exposes complete single-result-set iteration and cleanup
+  through a caller-owned transaction. Retain the check and first investigate
+  reusing existing iterator and bounded caller-cleanup evidence. Neither arbitrary
+  Next methods nor every parent Close can be treated as cleanup. Moderate scope.
+- **Compression:** five gzip-reader reports concern wrappers that own no external
+  resource; three writer reports concern deliberately aborted/discarded output.
+  Reassess the obligation itself before expanding dataflow. Reader Close does not
+  close the input or validate checksums. A useful writer check concerns publishing
+  unfinished output, not every missing Close on an abandoned stream. Changing
+  default policy remains a separate decision, not a silent suppression here.
+- **Worker completion:** dskit counts completed loop work, buildtools joins a
+  strided collection, Flamingo joins through a request registry, and mpb returns
+  a WaitGroup-owning receiver. Retain focused checks, investigate existing
+  completion/returned-owner evidence first, and decline opaque registry ownership.
+  Arbitrary collection synchronization is substantially harder than a local join;
+  do not add an unbounded framework model to accommodate it.
+- **Failed acquisition:** go-drive's already-canceled OAuth request cannot acquire
+  a successful response through its visible transport path. Investigate extending
+  existing canceled-acquisition evidence only where the transport contract is
+  known; arbitrary RoundTrippers need not honor cancellation.
+
+The five inconclusive reports retain their individual uncertainties: timing or
+harness assumptions in three tests, a producer whose completion depends on input
+cardinality, and conditional retention in Please's returned error stack. No claim
+of universal cleanup is made for those cases.
+
+This commit records the audit, not analyzer fixes. Unfixed false positives are
+not added as passing regression labels. Follow-up fixes are authorized, but each
+still needs a minimized fixture, nearby positive controls, and replay evidence.
+Validation checked unique finding keys, complete review coverage, all 100 revision
+pins, and every reported source location against the retained pinned checkouts.
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
