@@ -120,6 +120,22 @@ body:has(.landing) header.header :is(.site-title, site-search) {
 	height: 1.2rem;
 }
 
+@media (width < 50rem) {
+	starlight-menu-button button {
+		inset-inline-start: var(--sl-nav-pad-x);
+		inset-inline-end: auto;
+	}
+
+	[data-has-sidebar] header.header {
+		padding-inline-start: calc(
+			var(--sl-nav-gap) +
+			var(--sl-nav-pad-x) +
+			var(--sl-menu-button-size)
+		);
+		padding-inline-end: var(--sl-nav-pad-x);
+	}
+}
+
 @media (min-width: 50rem) {
 	header.header > .header {
 		grid-template-columns: auto 1fr auto;
