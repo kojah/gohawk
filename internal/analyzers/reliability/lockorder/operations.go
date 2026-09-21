@@ -48,9 +48,9 @@ func acquireLock(
 	releaseUnproven bool,
 ) []string {
 	if slices.Contains(held, identity) {
-		// A lock selected by a loop iteration is a different mutex each time
-		// the same instruction runs, so re-acquiring its identity on the next
-		// iteration is not recursion. multigres locks every key mutex in a
+		// A lock selected by a loop iteration may be a different mutex each
+		// time the same instruction runs, so its repeated SSA identity does
+		// not prove recursion. multigres locks every key mutex in a
 		// loop and defers the unlocks:
 		// https://github.com/multigres/multigres/blob/360b8f123dff8ad6bcc721acaec103c52081bebd/go/tools/viperutil/internal/sync/sync.go#L236-L240
 		// A lock a callee may already have released is not proven held, and a
@@ -297,7 +297,9 @@ func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
 
 // loopVariantLock reports whether the acquisition's receiver is selected by a
 // loop iteration: it is defined inside a cycle and derives from a phi or map
-// iterator in that cycle, as a range element does. A field of a receiver or
+// iterator or channel receive in that cycle, as a range element does. This
+// is uncertainty, not freshness: a sender could send the same pointer again.
+// A field of a receiver or
 // a package variable locked inside a loop is the same mutex every time and
 // stays reportable.
 func loopVariantLock(instruction ssa.Instruction) bool {
@@ -313,11 +315,13 @@ func loopVariantValue(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	case *ssa.Phi:
 		return ssaflow.BlockInCycle(typed.Block())
 	case *ssa.Extract:
-		if next, ok := typed.Tuple.(*ssa.Next); ok {
-			return ssaflow.BlockInCycle(next.Block())
-		}
-		return loopVariantValue(walk, typed.Tuple)
+		return loopVariantExtract(walk, typed)
 	case *ssa.UnOp:
+		// Queue consumers can receive a different object each iteration.
+		// https://github.com/encodeous/nylon/blob/c4a96c804f7aa08512721dec7994907eab100bc8/polyamide/device/channels.go#L83-L99
+		if typed.Op == token.ARROW {
+			return ssaflow.BlockInCycle(typed.Block())
+		}
 		return loopVariantValue(walk, typed.X)
 	case *ssa.IndexAddr:
 		return loopVariantValue(walk, typed.Index) || loopVariantValue(walk, typed.X)
@@ -347,4 +351,17 @@ func loopVariantValue(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 		return ok && loopVariantValue(walk, inner)
 	}
 	return false
+}
+
+func loopVariantExtract(walk ssaflow.ReachingWalk, value *ssa.Extract) bool {
+	switch tuple := value.Tuple.(type) {
+	case *ssa.Next:
+		return ssaflow.BlockInCycle(tuple.Block())
+	case *ssa.Select:
+		// The first two results are the selected case index and receive-ok;
+		// only the remaining results are received payloads.
+		return value.Index >= 2 && ssaflow.BlockInCycle(tuple.Block())
+	default:
+		return loopVariantValue(walk, value.Tuple)
+	}
 }

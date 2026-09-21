@@ -768,6 +768,52 @@ func locksEveryKeyMutex(keys map[string]*sync.Mutex, entries []*sync.Mutex) {
 
 type loopedLocker struct{ mu sync.Mutex }
 
+// Channel payload identity can change on each receive. Defers keep these
+// fixtures focused on recursive acquisition rather than missing release.
+func locksReceivedMutexes(queue <-chan *sync.Mutex) {
+	for mu := range queue {
+		mu.Lock()
+		defer mu.Unlock()
+	}
+}
+
+func locksSelectedMutexes(queue <-chan *sync.Mutex, stop <-chan struct{}) {
+	for {
+		select {
+		case mu := <-queue:
+			mu.Lock()
+			defer mu.Unlock()
+		case <-stop:
+			return
+		}
+	}
+}
+
+// Receiving outside the loop establishes one instance, not a new selection
+// on every iteration.
+func locksOneReceivedMutex(queue <-chan *sync.Mutex, items []int) {
+	mu := <-queue
+	for range items {
+		mu.Lock() // want "lock .* is acquired while already held"
+		defer mu.Unlock()
+	}
+}
+
+// Deliberate recall boundary: without matching sends to receives, the loop
+// payload is uncertain even when this sender repeats the same pointer.
+// This really would deadlock; it must not be described as proven fresh.
+func repeatedPointerThroughQueue() {
+	mu := new(sync.Mutex)
+	queue := make(chan *sync.Mutex, 2)
+	queue <- mu
+	queue <- mu
+	close(queue)
+	for received := range queue {
+		received.Lock()
+		defer received.Unlock()
+	}
+}
+
 // The same receiver field locked on every iteration is recursive.
 func (l *loopedLocker) locksSameMutexInLoop(items []int) {
 	for range items {
