@@ -234,6 +234,7 @@ that appears in an analyzer, in `ssaflow`, or in a pass is listed here;
 | `Store`, `UnOp` | a store into a cell, and a load out of one (`*cell`) among the other unary operators |
 | `Phi` | a merge of the values arriving from each predecessor block |
 | `If`, `Return`, `Panic` | the instructions that end a block: a conditional branch, a normal return, and a panic |
+| `Jump` | an unconditional edge to the next block; it performs no work, so a terminal completion signal can precede a jump to a shared return |
 | `Call`, `CallCommon` | a call and the description shared by every call-like instruction: the callee, its arguments, and whether it is an interface invocation |
 | `Defer`, `Go` | a deferred call and a launched goroutine, each wrapping a `CallCommon` |
 | `MakeClosure` | a closure value created from a function and the bindings for its free variables |

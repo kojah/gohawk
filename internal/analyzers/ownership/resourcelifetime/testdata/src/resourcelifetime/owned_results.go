@@ -1,10 +1,28 @@
 package resourcelifetime
 
 import (
+	"net"
+	"net/textproto"
 	"os"
 
 	"resourcedep"
 )
+
+type protocolClient struct{ text *textproto.Conn }
+
+func NewProtocolClient(conn net.Conn) *protocolClient {
+	return &protocolClient{text: textproto.NewConn(conn)}
+}
+
+func (client *protocolClient) Close() error { return client.text.Close() }
+
+// Wrapping an existing connection does not create a second socket obligation.
+// The imported textproto constructor retains the same connection in its result.
+func protocolClientUsesClosedConnection(conn net.Conn) {
+	defer conn.Close()
+	client := NewProtocolClient(conn)
+	_ = client
+}
 
 // This file covers contracts synthesized from lifecycle summaries: a
 // constructor summarized as returning a struct that owns a resource field, and

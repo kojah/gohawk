@@ -148,7 +148,10 @@ func spawnedCompletionValues(
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			if signal := spawnedCompletionSignal(spawn, function, closure, instruction); signal != nil {
+			// A disabled optional channel cannot establish a join obligation at
+			// this call site, even if another invocation uses the worker's send.
+			// https://github.com/paradigmxyz/iron-proxy/blob/5bd11abeb95ca734c767cfc992ea9be862700614/internal/postgres/manager.go#L64-L97
+			if signal := spawnedCompletionSignal(spawn, function, closure, instruction); signal != nil && !ssaflow.DefinitelyNil(signal) {
 				signals = append(signals, signal)
 			}
 		}
@@ -192,6 +195,13 @@ func spawnedCompletionSignal(
 	instruction ssa.Instruction,
 ) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
 	if send, ok := instruction.(*ssa.Send); ok {
+		// A send followed by further work can announce readiness or progress,
+		// not completion. Blocking-producer checks remain independent of this
+		// narrower join obligation, and use the full send lifecycle themselves.
+		// https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/blob/39dd2288da294e98d683c5619fc3556016df1e76/pkg/autoscaler/autoscaler_server.go#L109-L124
+		if !terminalCompletion(send) {
+			return nil
+		}
 		return signalSuppliedAtCall(spawn, function, closure, send.Chan)
 	}
 	common := ssaflow.InstructionCall(instruction)
@@ -379,12 +389,13 @@ func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value) bool {
 		if _, deferred := instruction.(*ssa.Defer); deferred {
 			return true
 		}
-		return waitGroupDoneIsTerminal(instruction)
+		return terminalCompletion(instruction)
 	})
 }
 
-// waitGroupDoneIsTerminal reports whether only returns can follow done.
-func waitGroupDoneIsTerminal(done ssa.Instruction) bool {
+// terminalCompletion reports whether only returns can follow a completion
+// operation. Later work cannot be joined by observing an earlier signal.
+func terminalCompletion(done ssa.Instruction) bool {
 	index := ssaflow.InstructionIndex(done)
 	if index < 0 {
 		return false
@@ -403,10 +414,15 @@ func waitGroupDoneIsTerminal(done ssa.Instruction) bool {
 		}
 		seen[current] = true
 		if current.index < len(current.block.Instrs) {
-			if _, returned := current.block.Instrs[current.index].(*ssa.Return); !returned {
+			switch current.block.Instrs[current.index].(type) {
+			case *ssa.Return:
+				continue
+			case *ssa.Jump:
+				// Conditional terminal sends can jump to a shared return block.
+				// A jump performs no work and preserves this completion proof.
+			default:
 				return false
 			}
-			continue
 		}
 		if len(current.block.Succs) == 0 {
 			return false

@@ -9,6 +9,50 @@ import (
 // This file covers producer completion through channel sends, distinguishing
 // fully drained, cancellation-bounded, and adequately buffered producers.
 
+func optionalCompletionSignal(done chan<- struct{}) {
+	if done != nil {
+		done <- struct{}{}
+	}
+}
+
+func disabledCompletionSignal() {
+	go optionalCompletionSignal(nil)
+}
+
+func enabledCompletionSignalUnjoined() {
+	done := make(chan struct{})
+	go optionalCompletionSignal(done) // want "goroutine is not joined on every return path"
+}
+
+func enabledCompletionSignalJoined() {
+	done := make(chan struct{})
+	go optionalCompletionSignal(done)
+	<-done
+}
+
+type stagedWorker struct {
+	signal chan struct{}
+	stop   chan struct{}
+}
+
+func (worker *stagedWorker) Run() {
+	worker.signal <- struct{}{}
+	<-worker.stop
+}
+
+// An initial send does not promise completion of the worker's later work.
+// The buffered signal is deliberately never read by this caller.
+func readinessIsNotCompletion() {
+	worker := &stagedWorker{signal: make(chan struct{}, 1), stop: make(chan struct{})}
+	go worker.Run()
+	defer close(worker.stop)
+}
+
+func terminalSendStillRequiresJoin() {
+	done := make(chan struct{})
+	go func() { done <- struct{}{} }() // want "goroutine is not joined on every return path"
+}
+
 func abandonedRepeatedSend() error {
 	errs := make(chan error)
 	go func() {

@@ -281,6 +281,35 @@ func Open(path string) (*Journal, error) {
 
 func Wrap(file *os.File) *Journal { return &Journal{file: file} }
 
+func NestedWrap(file *os.File) *Journal { return Wrap(file) }
+
+type Envelope struct { journal *Journal }
+
+func WrappedEnvelope(file *os.File) *Envelope {
+	return &Envelope{journal: NestedWrap(file)}
+}
+
+func FreshEnvelope(path string) (*Envelope, error) {
+	j, err := Open(path)
+	if err != nil { return nil, err }
+	return &Envelope{journal: j}, nil
+}
+
+func MixedResults(file *os.File, path string) (*Journal, *Journal, error) {
+	fresh, err := Open(path)
+	if err != nil {
+		var absent *Journal
+		return absent, nil, err
+	}
+	return Wrap(file), fresh, nil
+}
+
+func AmbiguousEnvelope(file *os.File, path string) (*Envelope, error) {
+	_, fresh, err := MixedResults(file, path)
+	if err != nil { return nil, err }
+	return &Envelope{journal: fresh}, nil
+}
+
 func (j *Journal) Close() error { return j.file.Close() }
 
 func (j *Journal) MaybeClose(ok bool) error {
@@ -296,6 +325,17 @@ func (j *Journal) MaybeClose(ok bool) error {
 	}
 	if got := summarize(pass, newRetentionCache(), pkg.Func("Wrap")).OwnedFields; got != 0 {
 		t.Errorf("Wrap OwnedFields = %#x, want none", uint64(got))
+	}
+	if got := summarize(pass, newRetentionCache(), pkg.Func("WrappedEnvelope")).OwnedFields; got != 0 {
+		t.Errorf("WrappedEnvelope OwnedFields = %#x, want no new acquisition", uint64(got))
+	}
+	if got := summarize(pass, newRetentionCache(), pkg.Func("FreshEnvelope")).OwnedFields; !got.contains(0) {
+		t.Errorf("FreshEnvelope OwnedFields = %#x, want field 0", uint64(got))
+	}
+	// ReturnedOwner cannot distinguish which result owns the argument. Decline
+	// fresh inference for the other result rather than inventing a relationship.
+	if got := summarize(pass, newRetentionCache(), pkg.Func("AmbiguousEnvelope")).OwnedFields; got != 0 {
+		t.Errorf("AmbiguousEnvelope OwnedFields = %#x, want unknown ownership", uint64(got))
 	}
 	journal := pkg.Type("Journal").Type()
 	closeMethod := pkg.Prog.LookupMethod(types.NewPointer(journal), pkg.Pkg, "Close")

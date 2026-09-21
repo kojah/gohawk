@@ -86,7 +86,7 @@ func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			acquired, ok := instruction.(ssa.Value)
-			if !ok || !acquiredResource(acquired) {
+			if !ok || !acquiredResource(pass, acquired) {
 				continue
 			}
 			for _, index := range storedFieldIndices(acquired, structure) {
@@ -102,15 +102,43 @@ func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 // acquiredResource reports whether the value is the result of a call in this
 // function whose type carries an obligation. Parameters, loads, and globals
 // are excluded: a resource that arrived from elsewhere is borrowed.
-func acquiredResource(value ssa.Value) bool {
+func acquiredResource(pass *analysis.Pass, value ssa.Value) bool {
+	var call *ssa.Call
 	switch typed := value.(type) {
 	case *ssa.Call:
-		_, ok := typeCleanup(typed.Type())
-		return ok
+		call = typed
 	case *ssa.Extract:
-		_, call := typed.Tuple.(*ssa.Call)
-		_, ok := typeCleanup(typed.Type())
-		return call && ok
+		call, _ = typed.Tuple.(*ssa.Call)
+	}
+	_, cleanup := typeCleanup(value.Type())
+	return call != nil && cleanup && !returnsExistingResource(pass, call)
+}
+
+// A cleanup-bearing result can wrap an existing resource rather than acquire
+// another one. Returned-owner evidence makes fresh ownership uncertain; it
+// does not claim closing the input performs the wrapper's own finalization.
+// The summary does not relate individual results to arguments: a helper that
+// returns both a borrowed wrapper and a fresh resource therefore also declines
+// this inference. Direct acquisition checks inside that helper still apply.
+// Explicit acquisition contracts (such as gzip.Writer) remain independent.
+// https://github.com/decke/smtprelay/blob/0df87cab3b0f25c33f82eb7da6a55d7159ccf482/smtp.go#L73-L89
+func returnsExistingResource(pass *analysis.Pass, call *ssa.Call) bool {
+	callee := call.Common().StaticCallee()
+	if callee == nil {
+		return false
+	}
+	fact, imported := importFact(pass, call)
+	for index, argument := range call.Common().Args {
+		if _, cleanup := typeCleanup(argument.Type()); !cleanup {
+			continue
+		}
+		if imported && fact.ReturnedOwner.contains(index) {
+			return true
+		}
+		if len(callee.Blocks) > 0 && index < len(callee.Params) &&
+			returnedOwnerOnEveryReturn(pass, callee, callee.Params[index]) {
+			return true
+		}
 	}
 	return false
 }
