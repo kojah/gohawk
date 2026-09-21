@@ -69,6 +69,9 @@ func evaluateResourceFlow(
 		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
 		probe: analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()),
 	}
+	if analysis.cleanupRegisteredBefore(call) {
+		return acceptedResourceLifetime(resourceReasonOpaqueConsumption)
+	}
 	// The walk starts on the instruction after the acquisition and keys its
 	// states by block, predecessor, and release status, so the same block is
 	// revisited only when a different path reaches it with a different

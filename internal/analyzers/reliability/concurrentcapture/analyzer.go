@@ -47,7 +47,7 @@ func inspectRepeatedLaunches(pass *analysis.Pass, body *ast.BlockStmt) {
 			return false
 		case *ast.GoStmt:
 			if closure := calledClosure(candidate.Call); closure != nil {
-				reportCapturedMutations(pass, closure)
+				reportCapturedMutations(pass, body, closure)
 			}
 			return false
 		case *ast.CallExpr:
@@ -56,7 +56,7 @@ func inspectRepeatedLaunches(pass *analysis.Pass, body *ast.BlockStmt) {
 				return true
 			}
 			if closure, ok := candidate.Args[0].(*ast.FuncLit); ok {
-				reportCapturedMutations(pass, closure)
+				reportCapturedMutations(pass, body, closure)
 			}
 			return false
 		default:
@@ -73,10 +73,13 @@ func calledClosure(call *ast.CallExpr) *ast.FuncLit {
 	return closure
 }
 
-func reportCapturedMutations(pass *analysis.Pass, closure *ast.FuncLit) {
+func reportCapturedMutations(pass *analysis.Pass, body *ast.BlockStmt, closure *ast.FuncLit) {
 	// A lock anywhere in the launched closure is conservative synchronization
 	// evidence. Without one, report only writes whose root is a local declared
-	// before the closure, which excludes closure-local and package-owned state.
+	// before the loop body. A body-local variable belongs to one iteration;
+	// capturing it does not prove sharing between workers. Competing accesses
+	// within one iteration are outside this repeated-launch check's proof.
+	// https://github.com/okteto/okteto/blob/ad42c0823762a2255d4b4ad2e53fb4ec190010e7/pkg/ssh/manager_test.go#L143-L215
 	if closureUsesLock(closure) {
 		return
 	}
@@ -100,7 +103,7 @@ func reportCapturedMutations(pass *analysis.Pass, closure *ast.FuncLit) {
 				continue
 			}
 			object, ok := pass.TypesInfo.ObjectOf(identifier).(*types.Var)
-			if !ok || object.Parent() == pass.Pkg.Scope() || object.Pos() >= closure.Pos() || reported[object] {
+			if !ok || object.Parent() == pass.Pkg.Scope() || object.Pos() >= body.Pos() || reported[object] {
 				continue
 			}
 			reported[object] = true

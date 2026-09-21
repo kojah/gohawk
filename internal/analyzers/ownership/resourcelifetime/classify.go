@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"go/token"
 	"go/types"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -279,6 +280,25 @@ func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
 func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool {
 	for _, binding := range closure.Bindings {
 		if ssaflow.CapturedBindingMatches(binding, analysis.resource) || analysis.carries(binding) {
+			return true
+		}
+	}
+	return false
+}
+
+// cleanupRegisteredBefore handles a retained callback registered before a
+// captured variable is reassigned to this acquisition. The callback observes
+// the cell at cleanup time, not its registration-time value. Mutable guards
+// prevent proving release, so this is unknown rather than a settled resource.
+// https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/admin/handler_test.go#L1398-L1447
+func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call) bool {
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
+		if !ssaflow.InstructionDominates(call, acquisition) ||
+			!ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup) {
+			continue
+		}
+		if slices.ContainsFunc(call.Common().Args, analysis.carriedWithinClosure) {
+			analysis.emitAction(call, actionUnknown, "captured-by-prior-cleanup")
 			return true
 		}
 	}

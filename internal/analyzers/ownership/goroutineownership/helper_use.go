@@ -160,7 +160,13 @@ func (search *helperSearch) instructionEscapes(
 	case *ssa.MakeClosure:
 		return slices.ContainsFunc(typed.Bindings, derives)
 	case *ssa.Return:
-		return ssaflow.ReturnedValueOwnsValue(typed, local)
+		// Returning a channel selected from the tracked owner exposes its join
+		// handle. The accessor itself is not a join, but its caller may drain
+		// the stream; losing that relationship cannot prove an unjoined worker.
+		// https://github.com/raviqqe/muffet/blob/ea33f85e5644c609a114b00e1f4dfc757b15c8ee/page_checker_test.go#L39-L46
+		return ssaflow.ReturnedValueOwnsValue(typed, local) || slices.ContainsFunc(typed.Results, func(value ssa.Value) bool {
+			return ssaflow.ChannelType(value) && derives(value)
+		})
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
 		return search.callEscapes(instruction, kind, derives)
 	default:

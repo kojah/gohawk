@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/ssaflow"
+
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -57,6 +59,18 @@ func blockCondition(block *ssa.BasicBlock) (string, bool) {
 }
 
 func conditionIdentity(value ssa.Value) (string, bool) {
+	// A computed Boolean outside a cycle is evaluated once. Repeating that
+	// exact SSA value cannot change its truth, including a short-circuit phi.
+	// Do not correlate a loop instruction across iterations: its next dynamic
+	// evaluation may differ even though its SSA node is the same.
+	// https://github.com/pb33f/libopenapi/blob/07795ddc2c097af8581138ef290d6cf964110d74/index/extract_refs_lookup.go#L199-L220
+	_, comparisonValue := value.(*ssa.BinOp)
+	if instruction, ok := value.(ssa.Instruction); ok && !comparisonValue && !ssaflow.BlockInCycle(instruction.Block()) {
+		basic, boolean := value.Type().Underlying().(*types.Basic)
+		if boolean && basic.Info()&types.IsBoolean != 0 {
+			return "boolean:" + conditionOperandIdentity(value), true
+		}
+	}
 	if parameter, ok := value.(*ssa.Parameter); ok {
 		basic, boolean := parameter.Type().Underlying().(*types.Basic)
 		if boolean && basic.Info()&types.IsBoolean != 0 {
