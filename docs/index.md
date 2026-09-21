@@ -39,6 +39,8 @@ head:
 
 <div class="landing-demo">
   <div class="source-carousel" data-analyzer-carousel role="region" aria-roledescription="carousel" aria-label="Examples of bugs found by gohawk">
+    <button class="source-carousel-arrow" type="button" data-carousel-previous aria-label="Show previous example">&lsaquo;</button>
+    <div class="source-card">
     <div class="source-slide" data-carousel-slide aria-label="1 of 4: contradictory lock order">
       <div class="source-window-bar">
         <span class="source-window-file">cache.go</span>
@@ -61,7 +63,7 @@ head:
       </div>
       <div class="source-finding">
         <span class="source-finding-icon" aria-hidden="true">!</span>
-        <span>contradictory lock order: index and cache</span>
+        <span><strong>lockorder</strong>contradictory lock order: index and cache</span>
       </div>
     </div>
     <div class="source-slide" data-carousel-slide aria-label="2 of 4: resource lifetime leak" hidden>
@@ -86,7 +88,7 @@ head:
       </div>
       <div class="source-finding">
         <span class="source-finding-icon" aria-hidden="true">!</span>
-        <span>owned resource from os.Open is not released on every return path</span>
+        <span><strong>resourcelifetime</strong>owned resource from os.Open is not released on every return path</span>
       </div>
     </div>
     <div class="source-slide" data-carousel-slide aria-label="3 of 4: unjoined goroutine" hidden>
@@ -111,7 +113,7 @@ head:
       </div>
       <div class="source-finding">
         <span class="source-finding-icon" aria-hidden="true">!</span>
-        <span>goroutine is not joined on every return path</span>
+        <span><strong>goroutineownership</strong>goroutine is not joined on every return path</span>
       </div>
     </div>
     <div class="source-slide" data-carousel-slide aria-label="4 of 4: concurrent capture" hidden>
@@ -136,11 +138,12 @@ head:
       </div>
       <div class="source-finding">
         <span class="source-finding-icon" aria-hidden="true">!</span>
-        <span>captured local err is mutated by goroutines launched repeatedly</span>
+        <span><strong>concurrentcapture</strong>captured local err is mutated by goroutines launched repeatedly</span>
       </div>
     </div>
+    </div>
+    <button class="source-carousel-arrow" type="button" data-carousel-next aria-label="Show next example">&rsaquo;</button>
     <div class="source-carousel-controls">
-      <button class="source-carousel-arrow" type="button" data-carousel-previous aria-label="Show previous example">&larr;</button>
       <div class="source-carousel-dots" aria-label="Choose an example">
         <button type="button" data-carousel-dot aria-label="Show lock order example" aria-current="true"></button>
         <button type="button" data-carousel-dot aria-label="Show resource lifetime example"></button>
@@ -148,7 +151,6 @@ head:
         <button type="button" data-carousel-dot aria-label="Show concurrent capture example"></button>
       </div>
       <button class="source-carousel-arrow" type="button" data-carousel-toggle aria-label="Pause automatic rotation">&#10074;&#10074;</button>
-      <button class="source-carousel-arrow" type="button" data-carousel-next aria-label="Show next example">&rarr;</button>
     </div>
   </div>
 </div>

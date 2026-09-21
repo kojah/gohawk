@@ -42,27 +42,6 @@ Reinstall gohawk after upgrading the Go toolchain used by the project. A
 locally built analysis binary is supported only for Go versions no newer than
 the toolchain that built it.
 
-## pre-commit
-
-Add gohawk to `.pre-commit-config.yaml` with a pinned release:
-
-```yaml
-repos:
-  - repo: https://github.com/kojah/gohawk
-    rev: vX.Y.Z
-    hooks:
-      - id: gohawk
-```
-
-The hook uses pre-commit's isolated Go environment and caches the compiled
-binary. Add analyzer flags through `args`, keeping `./...` as the final
-argument:
-
-```yaml
-      - id: gohawk
-        args: [-json, -enable-all, -disable=exitpolicy, ./...]
-```
-
 ## Run gohawk
 
 Run gohawk's conservative default set across the current module:
@@ -86,3 +65,25 @@ To include gohawk in a custom golangci-lint binary instead, follow the
 
 Continue to [Configuration](/configuration/) to select analyzers, raise the
 tier ceiling, and configure suppressions.
+
+## Optional: pre-commit
+
+If you use pre-commit, add gohawk to `.pre-commit-config.yaml` with a pinned
+release:
+
+```yaml
+repos:
+  - repo: https://github.com/kojah/gohawk
+    rev: vX.Y.Z
+    hooks:
+      - id: gohawk
+```
+
+The hook uses pre-commit's isolated Go environment and caches the compiled
+binary. Add analyzer flags through `args`, keeping `./...` as the final
+argument:
+
+```yaml
+      - id: gohawk
+        args: [-json, -enable-all, -disable=exitpolicy, ./...]
+```
