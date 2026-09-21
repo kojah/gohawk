@@ -1421,7 +1421,7 @@ captured error with = where the line above it uses :=. Resource findings named
 bodies left open on non-200 paths, a file never closed at all, and a ticker
 never stopped.
 
-## Batch 48 (source review in progress)
+## Batch 48 (triaged; one lock-order case inconclusive)
 
 Twenty-five fresh repositories with root Go 1.26/1.27 directives were pinned
 and scanned with gohawk `cec1074c40560eabe31f5c91488faa8533299dac`, using
@@ -1432,70 +1432,84 @@ The scan included all checks and test source, capped at three modules per
 repository with 180-second scan deadlines. CGO was disabled. No candidate test
 binaries, generation commands, or repository scripts were executed.
 
-Twenty-four scans completed without recorded errors; `ekristen/aws-nuke` timed
-out and is **incomplete**, not clean. The batch yielded 357 diagnostic locations
-(some have multiple check IDs). Of those, 25 have source-reviewed verdicts:
-16 true positives and 9 false positives. The remaining 332 are **unreviewed**;
-these numbers are not a corpus precision estimate. There are 188 occurrences
-of the experimental `goroutineownership/detached` check, not 188 proven leaks.
+All 357 original diagnostic locations now have a triage disposition:
 
-Artifacts preserve the entire selection and review backlog:
+| Disposition | Locations |
+| --- | ---: |
+| True positive: defect or concrete hazard | 61 |
+| True positive: policy-only audit | 23 |
+| False positive | 84 |
+| Retired goroutine detached check | 188 |
+| Inconclusive lock-order finding | 1 |
+
+The TSV retains `true-positive` for both kinds of accurate report; policy-only
+reasons begin with `Policy-only`. These are not 84 confirmed runtime bugs.
+`retired-check` preserves historical reports without treating silence from a
+deleted check as a precision improvement. `inconclusive` means inspected but
+not established either way. This is source review, not runtime reproduction,
+and the original scan is not a census of the current binary.
+
+Twenty-four scans completed without recorded errors. `ekristen/aws-nuke`
+timed out and remains **incomplete**, not clean; triaging the available findings
+does not complete that scan. Zero reported findings do not establish recall.
+
+Artifacts:
 
 - [Repository pins and scan status](batch-48.tsv).
-- [Per-repository scan counts and errors](batch-48-scans.json).
+- [Per-repository scan counts, errors, and verdict totals](batch-48-scans.json).
 - [Every finding, with reviewed verdicts and rationale](batch-48-findings.tsv).
 
-Reviewed false-positive families addressed by the batch-48 corrections:
+The initial 25 reviewed findings motivated four corrections in `a728a75`:
+iteration-local captures, stable computed lock guards, completion-channel
+accessor handoffs, and registered cleanup capturing a reassigned resource.
+Precision round 49 keeps those 16 true positives and nine corrected false
+positives. Its replay passed at that revision, with all repositories scannable.
+The WaitGroup finding in certificate-transparency-go was corrected to a true
+positive: Done runs before deferred response cleanup, so Wait can return early.
 
-- `raviqqe/muffet`: four unjoined-worker reports despite callers fully draining
-  the results channel that the worker closes after completing its work. The
-  test that receives only one result remains unreviewed, not grouped with these.
-- `james-6-23/codex2api`: a registered cleanup captures a database variable that
-  is subsequently reopened; its closed-state guard is reset for the new handle.
-- `pb33f/libopenapi`: two missing-unlock reports despite acquisition and release
-  guarded by the same unchanged Boolean, and a separately paired read lock.
-- `okteto/okteto`: two shared-capture reports for a loop-local error variable
-  with no competing access after the worker starts. Each loop also runs once.
+The completed triage adds 75 false-positive labels to the audit ledger, not
+to the passing replay cohort. They are a follow-up backlog, not fixed claims:
 
-The sixteen confirmed true positives include HTTP bodies lost on error paths,
-database cursors abandoned on Scan errors, unclosed generated/temp files, and
-unbuffered error senders whose parent can already have returned. Timer/ticker
-reports and the remaining lock findings still need review; they are not
-presumed bugs merely because the analyzer reported them.
+- 61 channel timer/ticker reports, mostly in Okteto. The reviewed Go 1.26
+  modules use Go 1.23+ timer semantics: unreachable channel timers can be
+  garbage-collected without Stop. No `asynctimerchan` override was found in
+  the reviewed Okteto/Flamingo sources. This does not apply to AfterFunc
+  callbacks or workers that retain a timer indefinitely.
+- Nine reports in MariaDB operator's bundled MySQL driver test module:
+  canceled/failed acquisitions, and prepared statements released through
+  the parent test database's Close. These are bundled dependency tests,
+  not operator production defects.
+- Five codex2api proxy locations where repeated `account.Mu()` calls return
+  the same mutex but the analyzer treats the call results as separate locks.
+  Every local RLock/RUnlock pair is completed before another loop iteration.
+  One location carries both recursion and contradictory-order check IDs.
 
-The WaitGroup finding in `google/certificate-transparency-go` was initially
-mislabeled. Evidence tracing showed that `Done` precedes a deferred response-body
-close: `Wait` can return while that cleanup is still running. It is now a true
-positive, with a local fixture preserving the warning and accepting deferred
-`Done` registered before cleanup.
+True positives include unclosed temporary/generated files, HTTP error paths
+before Body.Close, row Scan errors before Close, a transaction error path
+without rollback, and early completion notification. Libopenapi's callback
+count getter also writes its cached count and reference map under RLock;
+this is an experimental concurrency hazard, not a reproduced race. The
+policy-only findings are process-exit/skipped-defer and desktop-opener audits.
 
-The other nine findings motivated four bounded corrections: iteration-local
-variables do not establish sharing across launches; an unchanged computed
-Boolean outside a cycle can correlate locking branches; a channel accessor
-return is an opaque handoff of completion evidence; and a previously registered
-testing cleanup that captures a reassigned resource makes ownership unknown.
-The latter two do not claim a proven join or release. Deliberate blind spots
-include a discarded accessor result, a cleanup guard that skips the resource,
-and conflicting accesses within one iteration; those require evidence beyond
-these checks' bounded models.
+The remaining inconclusive report is codex2api
+`auth/store.go:8641:19`: Store.mu → Account.mu is visible in
+EnabledGrokAccounts → IsGrokAPI. The scoped trace reports the opposite order
+but does not expose its acquisition path. Direct mixed-lock methods reviewed
+release Account.mu before acquiring Store.mu. A feasible reverse edge still
+needs verification; this finding must not be promoted to a defect or FP.
 
-Precision round 49 pins all 25 reviewed findings. Review of the other 332
-findings is still pending; these corrections do not complete the batch audit.
+The broad `goroutineownership/detached` check was retired in `2acff9c`.
+Its 188 original locations retain source-review notes, including intentional
+background work, missed receiver-owned joins, and actual endless workers.
+Those notes do not create replacement diagnostics. Seven detached-only
+labels from older executable cohorts were removed, while focused unjoined
+and abandoned-send checks remain. A scoped round-49 goroutine replay after
+retirement retained all four FP suppressions and its one TP.
 
-Subsequent policy decision: retire `goroutineownership/detached`, rather than
-turn missing ownership evidence into a correctness claim. Its 188 historical
-batch-48 findings remain in this scan ledger for provenance, not as active
-diagnostics or confirmed bugs. Focused unjoined-worker and abandoned-send
-checks remain enabled. Seven detached-only labels from older regression
-cohorts were retired; the round-49 labels are unchanged.
-
-Validation at `a728a75`: the pinned round-49 replay passes with all nine false
-positives absent and all sixteen true positives present, with no unscannable
-repositories. Its post-fix census records 267 diagnostic locations, not 267
-reviewed bugs. Local validation passed `make verify`, explicit uncached tests
-for the four affected analyzer packages and architecture, plus the cleanup
-trace regression and lint after the final test edit. External validation
-remained static analysis only.
+Validation for this record is ledger consistency and pinned-source/location
+checks. No analyzer implementation or precision baseline is changed here.
+Do not expand the corpus before addressing the newly recorded precision
+backlog and deciding the remaining lock-order case.
 
 ## Audit summary
 

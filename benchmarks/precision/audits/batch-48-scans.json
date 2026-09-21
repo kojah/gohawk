@@ -2,7 +2,7 @@
   "gohawk_revision": "cec1074c40560eabe31f5c91488faa8533299dac",
   "toolchain": "go1.27.0 linux/amd64",
   "profile": "all checks, test source included, CGO disabled, no tests executed",
-  "review_status": "partial",
+  "review_status": "triaged-one-inconclusive",
   "repositories": [
     {
       "repository": "sergelogvinov/proxmox-csi-plugin",
@@ -13,7 +13,11 @@
       ],
       "errors": [],
       "diagnostics": 3,
-      "reviewed": 2
+      "reviewed": 3,
+      "verdict_counts": {
+        "retired-check": 1,
+        "true-positive": 2
+      }
     },
     {
       "repository": "mariadb-operator/mariadb-operator",
@@ -26,7 +30,11 @@
       ],
       "errors": [],
       "diagnostics": 21,
-      "reviewed": 3
+      "reviewed": 21,
+      "verdict_counts": {
+        "true-positive": 12,
+        "false-positive": 9
+      }
     },
     {
       "repository": "james-6-23/codex2api",
@@ -37,7 +45,13 @@
       ],
       "errors": [],
       "diagnostics": 56,
-      "reviewed": 2
+      "reviewed": 56,
+      "verdict_counts": {
+        "retired-check": 48,
+        "inconclusive": 1,
+        "false-positive": 6,
+        "true-positive": 1
+      }
     },
     {
       "repository": "mvanhorn/agentcookie",
@@ -48,7 +62,11 @@
       ],
       "errors": [],
       "diagnostics": 7,
-      "reviewed": 0
+      "reviewed": 7,
+      "verdict_counts": {
+        "true-positive": 1,
+        "retired-check": 6
+      }
     },
     {
       "repository": "shizunge/endlessh-go",
@@ -59,7 +77,8 @@
       ],
       "errors": [],
       "diagnostics": 0,
-      "reviewed": 0
+      "reviewed": 0,
+      "verdict_counts": {}
     },
     {
       "repository": "grafana/mcp-grafana",
@@ -70,7 +89,10 @@
       ],
       "errors": [],
       "diagnostics": 2,
-      "reviewed": 0
+      "reviewed": 2,
+      "verdict_counts": {
+        "retired-check": 2
+      }
     },
     {
       "repository": "y3owk1n/neru",
@@ -81,7 +103,11 @@
       ],
       "errors": [],
       "diagnostics": 50,
-      "reviewed": 0
+      "reviewed": 50,
+      "verdict_counts": {
+        "retired-check": 49,
+        "true-positive": 1
+      }
     },
     {
       "repository": "gittuf/gittuf",
@@ -92,7 +118,10 @@
       ],
       "errors": [],
       "diagnostics": 1,
-      "reviewed": 0
+      "reviewed": 1,
+      "verdict_counts": {
+        "true-positive": 1
+      }
     },
     {
       "repository": "hashicorp/terraform-mcp-server",
@@ -103,7 +132,10 @@
       ],
       "errors": [],
       "diagnostics": 3,
-      "reviewed": 1
+      "reviewed": 3,
+      "verdict_counts": {
+        "true-positive": 3
+      }
     },
     {
       "repository": "eat-pray-ai/yutu",
@@ -114,7 +146,11 @@
       ],
       "errors": [],
       "diagnostics": 4,
-      "reviewed": 0
+      "reviewed": 4,
+      "verdict_counts": {
+        "retired-check": 1,
+        "true-positive": 3
+      }
     },
     {
       "repository": "i-love-flamingo/flamingo-commerce",
@@ -125,7 +161,11 @@
       ],
       "errors": [],
       "diagnostics": 2,
-      "reviewed": 0
+      "reviewed": 2,
+      "verdict_counts": {
+        "retired-check": 1,
+        "false-positive": 1
+      }
     },
     {
       "repository": "zishang520/socket.io",
@@ -138,7 +178,10 @@
       ],
       "errors": [],
       "diagnostics": 6,
-      "reviewed": 0
+      "reviewed": 6,
+      "verdict_counts": {
+        "retired-check": 6
+      }
     },
     {
       "repository": "abahmed/kwatch",
@@ -149,7 +192,8 @@
       ],
       "errors": [],
       "diagnostics": 0,
-      "reviewed": 0
+      "reviewed": 0,
+      "verdict_counts": {}
     },
     {
       "repository": "ekristen/aws-nuke",
@@ -162,7 +206,8 @@
         "timed out in ."
       ],
       "diagnostics": 0,
-      "reviewed": 0
+      "reviewed": 0,
+      "verdict_counts": {}
     },
     {
       "repository": "google/certificate-transparency-go",
@@ -173,7 +218,11 @@
       ],
       "errors": [],
       "diagnostics": 28,
-      "reviewed": 6
+      "reviewed": 28,
+      "verdict_counts": {
+        "true-positive": 11,
+        "retired-check": 17
+      }
     },
     {
       "repository": "raviqqe/muffet",
@@ -184,7 +233,12 @@
       ],
       "errors": [],
       "diagnostics": 6,
-      "reviewed": 4
+      "reviewed": 6,
+      "verdict_counts": {
+        "false-positive": 4,
+        "retired-check": 1,
+        "true-positive": 1
+      }
     },
     {
       "repository": "okteto/okteto",
@@ -197,7 +251,12 @@
       ],
       "errors": [],
       "diagnostics": 105,
-      "reviewed": 2
+      "reviewed": 105,
+      "verdict_counts": {
+        "false-positive": 62,
+        "retired-check": 31,
+        "true-positive": 12
+      }
     },
     {
       "repository": "kubernetes-sigs/dra-driver-nvidia-gpu",
@@ -210,7 +269,11 @@
       ],
       "errors": [],
       "diagnostics": 6,
-      "reviewed": 0
+      "reviewed": 6,
+      "verdict_counts": {
+        "retired-check": 4,
+        "true-positive": 2
+      }
     },
     {
       "repository": "Finsys/hawser",
@@ -221,7 +284,10 @@
       ],
       "errors": [],
       "diagnostics": 2,
-      "reviewed": 0
+      "reviewed": 2,
+      "verdict_counts": {
+        "retired-check": 2
+      }
     },
     {
       "repository": "Christ9038/Ydisks-Xianyu-Helper",
@@ -232,7 +298,11 @@
       ],
       "errors": [],
       "diagnostics": 28,
-      "reviewed": 1
+      "reviewed": 28,
+      "verdict_counts": {
+        "true-positive": 11,
+        "retired-check": 17
+      }
     },
     {
       "repository": "fluent/fluent-operator",
@@ -243,7 +313,11 @@
       ],
       "errors": [],
       "diagnostics": 3,
-      "reviewed": 2
+      "reviewed": 3,
+      "verdict_counts": {
+        "retired-check": 1,
+        "true-positive": 2
+      }
     },
     {
       "repository": "pb33f/libopenapi",
@@ -254,7 +328,12 @@
       ],
       "errors": [],
       "diagnostics": 24,
-      "reviewed": 2
+      "reviewed": 24,
+      "verdict_counts": {
+        "retired-check": 1,
+        "true-positive": 21,
+        "false-positive": 2
+      }
     },
     {
       "repository": "joshmedeski/sesh",
@@ -265,7 +344,8 @@
       ],
       "errors": [],
       "diagnostics": 0,
-      "reviewed": 0
+      "reviewed": 0,
+      "verdict_counts": {}
     },
     {
       "repository": "siderolabs/omni",
@@ -278,7 +358,8 @@
       ],
       "errors": [],
       "diagnostics": 0,
-      "reviewed": 0
+      "reviewed": 0,
+      "verdict_counts": {}
     },
     {
       "repository": "MunifTanjim/stremthru",
@@ -289,7 +370,16 @@
       ],
       "errors": [],
       "diagnostics": 0,
-      "reviewed": 0
+      "reviewed": 0,
+      "verdict_counts": {}
     }
-  ]
+  ],
+  "triage_revision": "2acff9c",
+  "verdict_counts": {
+    "retired-check": 188,
+    "true-positive": 84,
+    "false-positive": 84,
+    "inconclusive": 1
+  },
+  "policy_only_true_positives": 23
 }
