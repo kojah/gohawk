@@ -1,5 +1,8 @@
 # 500-repository precision audit
 
+Targeted follow-up: [use-after-release promotion](use-after-release-promotion.md)
+records the storage-aware check's fixtures and two pinned validation groups.
+
 `500-repository.tsv` is the append-only selection ledger for the 50-batch
 `-enable-all` audit. Repository revisions and analyzed modules are pinned so a
 finding can be reproduced after the temporary checkout is gone. `reviewed`
