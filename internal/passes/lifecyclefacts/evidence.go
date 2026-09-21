@@ -169,7 +169,7 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 				continue
 			}
 			for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-				if !immutableCapturedTarget(captured.Binding, target) {
+				if !immutableCapturedTarget(captured.Binding, target, closure) {
 					continue
 				}
 				for index, argument := range common.Args {
@@ -185,25 +185,13 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 	return false
 }
 
-func immutableCapturedTarget(binding, target ssa.Value) bool {
-	if ssaflow.DefinitelySameValue(binding, target) {
+func immutableCapturedTarget(binding, target ssa.Value, observation ssa.Instruction) bool {
+	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
+	if storage.Same(binding, target).Proven() {
 		return true
 	}
-	if binding == nil || binding.Referrers() == nil {
-		return false
-	}
-	found := false
-	for _, reference := range *binding.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if !ok || store.Addr != binding {
-			continue
-		}
-		if !ssaflow.DefinitelySameValue(store.Val, target) {
-			return false
-		}
-		found = true
-	}
-	return found
+	stored := storage.StableContent(binding, observation)
+	return stored.Proven() && storage.Same(stored.Value, target).Proven()
 }
 
 func (evidence *LifecycleEvidence) capturedImportedCompletion(request EvidenceRequest) ssaflow.Proof {
@@ -253,14 +241,6 @@ func (evidence *LifecycleEvidence) ForCandidate(candidate token.Pos) {
 // no summary is available, which callers must treat as unknown.
 func (evidence *LifecycleEvidence) ArgumentRetained(instruction ssa.Instruction, index int) (bool, bool) {
 	return evidence.CalleeClaims(instruction, index, ClaimRetains)
-}
-
-// Identity proves a local access-path relationship through the same memoized
-// evidence and tracing channel used for lifecycle evidence.
-func (evidence *LifecycleEvidence) Identity(instruction ssa.Instruction, left, right ssaflow.AccessPath) ssaflow.IdentityProof {
-	proof := evidence.local.Identity(left, right)
-	evidence.emit(EvidenceRequest{Instruction: instruction}, proof.Proof)
-	return proof
 }
 
 // EvidenceRequest describes local and imported relationships that can settle

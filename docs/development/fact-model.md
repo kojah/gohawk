@@ -111,7 +111,12 @@ and does not equate separate loads from potentially mutable storage. A failed
 definite match means unknown identity, not proven inequality.
 
 Imported exact-argument matching, callback-invocation summaries, and
-unchanged-return proofs use definite identity. An ambiguous argument receiving
+unchanged-return proofs use `ssaflow.Storage` to resolve local loads before
+requiring definite identity. The query requires agreeing reaching writes, checks
+address escapes and competing writes, and preserves the time of aggregate
+copies and saved reads. `Content` observes before an instruction; `StableContent`
+also rejects subsequent mutation outside that instruction, for callback
+bindings whose accesses are independently checked. An ambiguous argument receiving
 a lifecycle summary is unknown rather than proven cleanup. Access-path
 identity describes corresponding storage locations beneath already-matched
 roots; it does not by itself establish that their contents are unchanged.

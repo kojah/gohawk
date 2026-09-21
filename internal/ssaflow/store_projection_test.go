@@ -84,7 +84,7 @@ func sibling() {
 				return CallName(InstructionCall(instruction)) == "cleanup"
 			})
 			argument := InstructionCall(cleanupCall).Args[0]
-			if got := UnmodifiedNonEmptyAccessPathAt(argument, root, cleanupCall); got != test.want {
+			if got := NewStorage(NewSearchBudget(1000)).Projection(argument, root, cleanupCall).Proven(); got != test.want {
 				t.Fatalf("UnmodifiedNonEmptyAccessPathAt() = %t, want %t", got, test.want)
 			}
 		})

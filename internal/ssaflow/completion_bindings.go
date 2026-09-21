@@ -94,7 +94,7 @@ func (search *completionSearch) boundCallees(instruction ssa.Instruction) ([]com
 	return callees, ok
 }
 
-// Resolve only immutable values or a cell initialized once before observation.
+// Resolve only immutable values or a cell with proven stable contents.
 // Capturing a cell does not make its contents immutable: reject reassignment
 // and opaque address escape rather than using the value at registration time.
 func resolveCallbackValue(ref callbackValue, budget *SearchBudget) (callbackValue, bool) {
@@ -130,7 +130,7 @@ func resolveCallbackBinding(walk ReachingWalk, ref callbackValue, budget *Search
 			return resolveCallbackBinding(walk, ref, budget)
 		}
 	case *ssa.Alloc:
-		if stored, ok := immutableCallbackCell(value, ref.observation, budget); ok {
+		if stored, ok := NewStorage(budget).stableValue(value, ref.observation); ok {
 			ref.value = stored
 			return resolveCallbackBinding(walk, ref, budget)
 		}
@@ -226,7 +226,7 @@ func resolveCallbackField(walk ReachingWalk, ref callbackValue, field *ssa.Field
 		if address.Field != field.Field {
 			continue
 		}
-		value, ok := immutableCallbackAddress(address, root.observation, budget)
+		value, ok := NewStorage(budget).stableValue(address, root.observation)
 		if !ok || stored != nil && stored != value {
 			return callbackValue{}, false
 		}
@@ -272,7 +272,7 @@ func resolveCallbackElement(walk ReachingWalk, ref callbackValue, index *ssa.Ind
 		if fixed && !constant.Compare(selected.Value, token.EQL, key.Value) {
 			continue
 		}
-		value, ok := immutableCallbackAddress(address, root.observation, budget)
+		value, ok := NewStorage(budget).stableValue(address, root.observation)
 		if !ok || stored != nil && stored != value {
 			return callbackValue{}, false
 		}
@@ -292,41 +292,4 @@ func callbackArray(value ssa.Value) *types.Array {
 	}
 	array, _ := pointer.Elem().Underlying().(*types.Array)
 	return array
-}
-
-func callbackSliceOnlyObserved(use, observation ssa.Instruction, budget *SearchBudget) bool {
-	slice, ok := use.(*ssa.Slice)
-	if !ok || slice.Referrers() == nil {
-		return false
-	}
-	for _, consumer := range *slice.Referrers() {
-		if !budget.Spend() || consumer != observation {
-			return false
-		}
-	}
-	return true
-}
-
-func immutableCallbackAddress(address ssa.Value, observation ssa.Instruction, budget *SearchBudget) (ssa.Value, bool) {
-	if address.Referrers() == nil || observation == nil {
-		return nil, false
-	}
-	var stored *ssa.Store
-	for _, use := range *address.Referrers() {
-		if !budget.Spend() {
-			return nil, false
-		}
-		if store, ok := use.(*ssa.Store); ok && store.Addr == address {
-			if stored != nil || !InstructionDominates(store, observation) {
-				return nil, false
-			}
-			stored = store
-		} else if load, ok := use.(*ssa.UnOp); !ok || load.Op != token.MUL {
-			return nil, false
-		}
-	}
-	if stored == nil {
-		return nil, false
-	}
-	return stored.Val, true
 }

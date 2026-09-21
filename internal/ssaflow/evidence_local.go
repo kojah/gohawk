@@ -10,13 +10,8 @@ import (
 // Its zero value is ready to use and is intentionally not safe for concurrent
 // use; each analyzer function owns its evidence.
 type LocalEvidence struct {
-	identities  map[identityEvidenceKey]IdentityProof
 	completions map[completionEvidenceKey]CompletionProof
 	transfers   map[transferEvidenceKey]OwnershipTransferProof
-}
-
-type identityEvidenceKey struct {
-	leftValue, leftRoot, rightValue, rightRoot ssa.Value
 }
 
 type completionEvidenceKey struct {
@@ -32,19 +27,6 @@ type transferEvidenceKey struct {
 	instruction ssa.Instruction
 	value       ssa.Value
 	modes       OwnershipTransferMode
-}
-
-func (evidence *LocalEvidence) Identity(left, right AccessPath) IdentityProof {
-	key := identityEvidenceKey{left.Value, left.Root, right.Value, right.Root}
-	if proof, ok := evidence.identities[key]; ok {
-		return proof
-	}
-	proof := ProveIdentity(left, right)
-	if evidence.identities == nil {
-		evidence.identities = make(map[identityEvidenceKey]IdentityProof)
-	}
-	evidence.identities[key] = proof
-	return proof
 }
 
 func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionProof {

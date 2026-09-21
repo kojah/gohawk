@@ -267,7 +267,7 @@ func (search *enclosingSearch) resolve(ref callbackValue) (ssa.Value, bool) { //
 		if !ok {
 			return nil, false
 		}
-		stored, ok := immutableCallbackCell(cell, load, search.request.Budget)
+		stored, ok := NewStorage(search.request.Budget).stableValue(cell, load)
 		if !ok {
 			return nil, false
 		}
@@ -315,7 +315,7 @@ func (search *enclosingSearch) resolveField(ref callbackValue, field *ssa.FieldA
 		if address.Field != field.Field {
 			continue
 		}
-		value, ok := immutableCallbackAddress(address, root.observation, search.request.Budget)
+		value, ok := NewStorage(search.request.Budget).stableValue(address, root.observation)
 		if !ok || stored != nil && stored != value {
 			return nil, false
 		}

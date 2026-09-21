@@ -190,11 +190,11 @@ func exactCallbacks(value ssa.Value, invocation ssa.Instruction, allowOnceFunc b
 			return exactCallbacks(common.Args[0], invocation, allowOnceFunc, seen)
 		}
 	case *ssa.UnOp:
-		if stored, ok := storedValueAt(typed.X, invocation); ok {
+		if stored, ok := NewStorage(NewSearchBudget(1000)).stableValue(typed.X, invocation); ok {
 			return exactCallbacks(stored, invocation, allowOnceFunc, seen)
 		}
 	case *ssa.Alloc:
-		if stored, ok := storedValueAt(typed, invocation); ok {
+		if stored, ok := NewStorage(NewSearchBudget(1000)).stableValue(typed, invocation); ok {
 			return exactCallbacks(stored, invocation, allowOnceFunc, seen)
 		}
 	case *ssa.Phi:
@@ -273,7 +273,7 @@ func (search *completionSearch) capturedLocal(
 		value := binding
 		if cell, ok := binding.(*ssa.Alloc); ok {
 			var stable bool
-			value, stable = immutableCallbackCell(cell, invocation, search.budget)
+			value, stable = NewStorage(search.budget).stableValue(cell, invocation)
 			if !stable {
 				return mappedLocal{}, false
 			}
@@ -307,7 +307,7 @@ func (search *completionSearch) capturedLocal(
 		if !ok {
 			return mappedLocal{}, false
 		}
-		_, stable := immutableCallbackCell(cell, invocation, search.budget)
+		_, stable := NewStorage(search.budget).stableValue(cell, invocation)
 		return mappedLocal{local: free, supplied: binding, kind: localOwner}, stable
 	case !CapturedBindingMatches(binding, target) && ValueContainsValue(binding, target):
 		// The closure captured an aggregate that stores the target, such as a
@@ -343,6 +343,9 @@ func deferredCellLocal(free, binding, target ssa.Value, exact bool) (mappedLocal
 }
 
 func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Value) (mappedLocal, bool) {
+	if NewStorage(search.budget).Same(argument, target).Proven() {
+		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
+	}
 	if search.exactTarget {
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, argument == target
 	}

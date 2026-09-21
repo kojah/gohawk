@@ -316,5 +316,16 @@ func storedInto(address ssa.Value, yield func(ssa.Value) bool, seen map[ssa.Valu
 // A function with a defer keeps its results in cells so deferred calls can
 // observe them: each return stores into the cell, runs the defers, and
 // returns a load. The load names the cell, not the value, so this resolves
-// it to the store made on the returning path, the last store into the cell
-// in the return's own block.
+// it through the shared observation-time storage model.
+func ReturnedResult(returned *ssa.Return, index int) ssa.Value { //nolint:ireturn // Preserve SSA result identity.
+	if index < 0 || index >= len(returned.Results) {
+		return nil
+	}
+	result := returned.Results[index]
+	if load, ok := result.(*ssa.UnOp); ok && load.Op == token.MUL {
+		if stored := NewStorage(NewSearchBudget(1000)).Content(load.X, load); stored.Proven() {
+			return stored.Value
+		}
+	}
+	return result
+}

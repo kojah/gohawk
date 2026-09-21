@@ -49,7 +49,7 @@ func reportSendsAfterClose(pass *analysis.Pass, function *ssa.Function) {
 			// instructions reachable without a back edge are candidates.
 			for _, candidate := range ssaflow.InstructionsReachableAfter(instruction) {
 				send, ok := candidate.(*ssa.Send)
-				if !ok || !ssaflow.DefinitelySameValue(send.Chan, common.Args[0]) || reported[send.Pos()] {
+				if !ok || !ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(send.Chan, common.Args[0]).Proven() || reported[send.Pos()] {
 					continue
 				}
 				reported[send.Pos()] = true

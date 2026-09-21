@@ -1,7 +1,6 @@
 package deferinloop
 
 import (
-	"go/token"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
@@ -81,7 +80,7 @@ func resourceAcquiredBeforeDefer(
 			}
 		}
 		cleanup, result, owned := evidence.OwnedResult(call)
-		if owned && len(cleanup) > 0 && valueDerivesFrom(target, ssaflow.CallResult(call, result), call.Parent()) {
+		if owned && len(cleanup) > 0 && valueDerivesFrom(target, ssaflow.CallResult(call, result)) {
 			return cleanup, true
 		}
 	}
@@ -91,88 +90,27 @@ func resourceAcquiredBeforeDefer(
 func resultDerivesToTarget(call *ssa.Call, target ssa.Value) bool {
 	results := call.Common().Signature().Results()
 	if results.Len() == 1 {
-		return valueDerivesFrom(target, ssaflow.CallResult(call, -1), call.Parent())
+		return valueDerivesFrom(target, ssaflow.CallResult(call, -1))
 	}
 	for index := range results.Len() {
-		if valueDerivesFrom(target, ssaflow.CallResult(call, index), call.Parent()) {
+		if valueDerivesFrom(target, ssaflow.CallResult(call, index)) {
 			return true
 		}
 	}
 	return false
 }
 
-// Composite literals often store an acquired value through one field/index
-// address and load it for the defer through an equivalent sibling address.
-// The shared derivation walk handles direct values; this local policy adds the
-// one store-to-load bridge needed to identify that same loop-local resource.
-func valueDerivesFrom(value, source ssa.Value, function *ssa.Function) bool {
-	if ssaflow.ValueDerivesFrom(value, source, map[ssa.Value]bool{}) {
-		return true
-	}
-	load, ok := value.(*ssa.UnOp)
-	if !ok {
-		return false
-	}
-	for _, store := range ssaflow.InstructionsOf[*ssa.Store](function) {
-		if sameStorageAddress(store.Addr, load.X) && ssaflow.ValueDerivesFrom(store.Val, source, map[ssa.Value]bool{}) {
-			return true
-		}
-	}
-	return false
+// Resolve each load at its execution point before relating the selected
+// resource to its acquisition. Historical writes are not current contents.
+func valueDerivesFrom(value, source ssa.Value) bool {
+	resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(value)
+	return resolved.Proven() && ssaflow.ValueDerivesFrom(resolved.Value, source, map[ssa.Value]bool{})
 }
 
-// The cleanup and acquisition may independently reload the same field or
-// constant index. ProveIdentity compares those access paths without equating
-// the selected resource with the aggregate that contains it.
+// Reloading the same address only identifies the same obligation when its
+// contents still agree. The storage query owns that temporal distinction.
 func sameObligationValue(left, right ssa.Value) bool {
-	if ssaflow.SameValue(left, right) {
-		return true
-	}
-	leftLoad, leftOK := left.(*ssa.UnOp)
-	rightLoad, rightOK := right.(*ssa.UnOp)
-	return leftOK && rightOK && leftLoad.Op == token.MUL && rightLoad.Op == token.MUL &&
-		sameStorageAddress(leftLoad.X, rightLoad.X)
-}
-
-func sameStorageAddress(left, right ssa.Value) bool {
-	if ssaflow.SameValue(left, right) {
-		return true
-	}
-	leftRoot, leftOK := storageAddressRoot(left)
-	rightRoot, rightOK := storageAddressRoot(right)
-	if !leftOK || !rightOK || !storageBasesMatch(leftRoot, rightRoot) {
-		return false
-	}
-	return ssaflow.ProveIdentity(
-		ssaflow.AccessPath{Value: left, Root: leftRoot},
-		ssaflow.AccessPath{Value: right, Root: rightRoot},
-	).Proven()
-}
-
-func storageAddressRoot(value ssa.Value) (ssa.Value, bool) {
-	switch typed := value.(type) {
-	case *ssa.FieldAddr:
-		return typed.X, true
-	case *ssa.IndexAddr:
-		return typed.X, true
-	default:
-		return nil, false
-	}
-}
-
-func storageBasesMatch(left, right ssa.Value) bool {
-	if ssaflow.SameValue(left, right) ||
-		ssaflow.ValueDerivesFrom(left, right, map[ssa.Value]bool{}) ||
-		ssaflow.ValueDerivesFrom(right, left, map[ssa.Value]bool{}) {
-		return true
-	}
-	if sliced, ok := left.(*ssa.Slice); ok && ssaflow.SameValue(sliced.X, right) {
-		return true
-	}
-	if sliced, ok := right.(*ssa.Slice); ok && ssaflow.SameValue(left, sliced.X) {
-		return true
-	}
-	return false
+	return ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(left, right).Proven()
 }
 
 // Dominance proves acquisition precedes the defer on this path; reachability

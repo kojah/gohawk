@@ -18,6 +18,9 @@ func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value) string {
 	if value == nil || !walk.Mark(value) {
 		return ""
 	}
+	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(value); resolved.Proven() && resolved.Value != value {
+		return lockIdentity(walk, resolved.Value)
+	}
 	if source, ok := ssaflow.IdentitySource(value); ok {
 		return lockIdentity(walk, source)
 	}

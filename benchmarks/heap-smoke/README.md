@@ -1,5 +1,11 @@
 # Local heap modeling smoke test
 
+**Historical evaluation.** The original results below describe `190b4d5` and
+the test-only spike. Production now uses `ssaflow.Storage`; the comparison
+tests retain the spike but their first column exercises the current model,
+not that historical binary. See `docs/development/storage-model.md` for the
+implemented boundary and migration inventory.
+
 Evaluation against baseline `190b4d5`, 2026-09-21. This is a feasibility
 experiment, not a production analyzer change or a new precision audit cohort.
 

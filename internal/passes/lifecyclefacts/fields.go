@@ -547,7 +547,8 @@ func parameterReturnedUnchangedOnEveryReturn(function *ssa.Function, parameter s
 		func(ssa.Instruction) bool { return false },
 		func(returned *ssa.Return) bool {
 			for _, result := range returned.Results {
-				if types.Identical(result.Type(), parameter.Type()) && ssaflow.DefinitelySameValueAt(result, parameter, returned) {
+				if types.Identical(result.Type(), parameter.Type()) &&
+					ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(result, parameter).Proven() {
 					return true
 				}
 			}

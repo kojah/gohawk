@@ -85,6 +85,12 @@ itself does not change.
   storage and escape checks, and symbol matching. It provides how to walk;
   it never decides whether evidence is sufficient. That policy stays beside
   each analyzer.
+- `ssaflow.Storage` is the shared, bounded query for local contents and stable
+  owner projections. It resolves loads at their own execution points, including
+  fields, constant array elements, and aggregate-copy snapshots. Completion,
+  lifecycle facts, and analyzer-local identity checks use the same query rather
+  than selecting stores independently. Historical containment remains a
+  different question: it can justify uncertainty, never exact cleanup.
 - `internal/passes/lifecyclefacts` exports a per-function summary of what a
   callee does to its parameters, so an analyzer can see through a call into
   another package. Consumers use `LifecycleEvidence`, which consults local

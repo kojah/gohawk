@@ -83,7 +83,12 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 	}
 	receiver := ssaflow.CallReceiver(common)
 	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
-		return ssaflow.ValueDerivesFrom(receiver, command, map[ssa.Value]bool{})
+		// A closure-local FreeVar is the mapped capture cell, not the command
+		// value. Its caller maps the captured command into this frame.
+		if _, captured := command.(*ssa.FreeVar); captured {
+			return ssaflow.ValueDerivesFrom(receiver, command, map[ssa.Value]bool{})
+		}
+		return ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(receiver, command).Proven()
 	}
 	// Waiting through cmd.Process reaps the same operating-system child. Mache
 	// uses the lower-level handle after signaling an entire process group:

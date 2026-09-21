@@ -1,8 +1,6 @@
 package goroutineownership
 
 import (
-	"go/token"
-
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/ssa"
@@ -255,10 +253,9 @@ func (analysis *spawnAnalysis) guardedLocalJoin(exact func(ssa.Instruction) bool
 	return false
 }
 
-// channelsCreatedOnceBeforeSpawn returns captured channel locals whose only
-// store is one MakeChan that dominates the spawn outside any loop. Any other
-// use of the captured address, or a store that can execute repeatedly, means
-// the guard may observe a different channel instance than the worker.
+// channelsCreatedOnceBeforeSpawn returns captured cells with stable contents
+// from a MakeChan outside any loop. Mutation or address escape means the guard
+// may observe a different channel instance than the worker.
 func (analysis *spawnAnalysis) channelsCreatedOnceBeforeSpawn() []ssa.Value {
 	closure, ok := analysis.spawn.Common().Value.(*ssa.MakeClosure)
 	if !ok || ssaflow.BlockInCycle(analysis.spawn.Block()) {
@@ -266,44 +263,11 @@ func (analysis *spawnAnalysis) channelsCreatedOnceBeforeSpawn() []ssa.Value {
 	}
 	var created []ssa.Value
 	for _, binding := range closure.Bindings {
-		if channel := singleDominatingChannelStore(analysis.function, analysis.spawn, closure, binding); channel != nil {
-			created = append(created, channel)
+		stored := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).StableContent(binding, analysis.spawn)
+		channel, ok := stored.Value.(*ssa.MakeChan)
+		if stored.Proven() && ok && channel.Parent() == analysis.function && !ssaflow.BlockInCycle(channel.Block()) {
+			created = append(created, stored.Value)
 		}
 	}
 	return created
-}
-
-func singleDominatingChannelStore(
-	parent *ssa.Function,
-	spawn *ssa.Go,
-	closure *ssa.MakeClosure,
-	binding ssa.Value,
-) ssa.Value { //nolint:ireturn // Preserve the concrete channel value.
-	if binding == nil || binding.Referrers() == nil {
-		return nil
-	}
-	var stored ssa.Value
-	for _, reference := range *binding.Referrers() {
-		switch typed := reference.(type) {
-		case *ssa.DebugRef:
-			continue
-		case *ssa.UnOp:
-			if typed.Op == token.MUL && typed.X == binding {
-				continue
-			}
-		case *ssa.MakeClosure:
-			if typed == closure {
-				continue
-			}
-		case *ssa.Store:
-			channel, ok := typed.Val.(*ssa.MakeChan)
-			if ok && typed.Addr == binding && channel.Parent() == parent && stored == nil &&
-				ssaflow.InstructionDominates(typed, spawn) && !ssaflow.BlockInCycle(typed.Block()) {
-				stored = channel
-				continue
-			}
-		}
-		return nil
-	}
-	return stored
 }

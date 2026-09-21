@@ -13,9 +13,9 @@ var syncOnceFunc = syntax.PackageFunction("sync", "OnceFunc")
 
 // Deferred bindings are observed when the deferred callee runs, after any
 // assignment that follows the defer. These helpers recover the one value an
-// addressable capture or stored callback holds at that point: the latest
-// store that dominates the observation, provided no store may run after it
-// and no store sits on a branch before it.
+// addressable capture or stored callback holds at that point. Stable storage
+// queries require agreeing incoming writes and no later mutation; specialized
+// target-relative proofs also account for conditional acquisition paths.
 
 //nolint:ireturn // SSA bindings have several concrete forms.
 func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction) (ssa.Value, bool) {
@@ -26,12 +26,12 @@ func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction)
 		if targetStoredOnPath(binding, target, invocation) {
 			return target, true
 		}
-		return storedValueAt(binding, invocation)
+		return NewStorage(NewSearchBudget(1000)).stableValue(binding, invocation)
 	}
 	if SameValue(binding, target) || ValueIsAccessPathFrom(target, binding) {
 		return binding, true
 	}
-	stored, ok := storedValueAt(binding, invocation)
+	stored, ok := NewStorage(NewSearchBudget(1000)).stableValue(binding, invocation)
 	return stored, ok
 }
 
@@ -86,44 +86,6 @@ func targetStoredOnPath(address, target ssa.Value, observation ssa.Instruction) 
 		}
 	}
 	return false
-}
-
-// storedValueAt returns the value address holds when observation runs. A
-// reassigned local such as `rows, err = query()` after an earlier query is
-// resolved to its latest dominating store; a store that may run after the
-// observation, or one on a branch before it, leaves the value ambiguous.
-// Sidecar re-queries into the same rows variable before deferring its Close:
-// https://github.com/marcus/sidecar/blob/9b8739f753ab235dda2630676833e9b46a52696c/internal/adapter/warp/adapter.go#L337-L341
-//
-//nolint:ireturn // Stored callbacks and captures may be any SSA value.
-func storedValueAt(address ssa.Value, observation ssa.Instruction) (ssa.Value, bool) {
-	if address == nil || address.Referrers() == nil {
-		return nil, false
-	}
-	var stores []*ssa.Store
-	for _, reference := range *address.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if !ok || store.Addr != address {
-			continue
-		}
-		if !InstructionDominates(store, observation) || storeMayFollow(address, observation, store) {
-			return nil, false
-		}
-		stores = append(stores, store)
-	}
-	for _, candidate := range stores {
-		latest := true
-		for _, other := range stores {
-			if other != candidate && !InstructionDominates(other, candidate) {
-				latest = false
-				break
-			}
-		}
-		if latest {
-			return candidate.Val, true
-		}
-	}
-	return nil, false
 }
 
 // storeMayFollow reports whether the store can run after the observation on

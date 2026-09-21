@@ -1,7 +1,6 @@
 package resourcelifetime
 
 import (
-	"go/token"
 	"go/types"
 	"slices"
 
@@ -113,41 +112,11 @@ func closesStatementDatabase(acquisition *ssa.Call, instruction ssa.Instruction)
 }
 
 // A later closure capture keeps even an unchanged local in a cell. Two loads
-// agree only when one initialization dominates both and no other use of the
-// cell could have changed it before either load. Do not equate arbitrary
+// agree only when the stored values at their respective execution points
+// provably agree. Do not equate arbitrary
 // loads from the same address: that would accept a reassigned DB.
 func statementParentIdentity(left, right ssa.Value) bool {
-	if left == right {
-		return left != nil
-	}
-	l, lok := left.(*ssa.UnOp)
-	r, rok := right.(*ssa.UnOp)
-	if !lok || !rok || l.Op != token.MUL || r.Op != token.MUL || l.X != r.X {
-		return false
-	}
-	cell, ok := l.X.(*ssa.Alloc)
-	if !ok || cell.Referrers() == nil {
-		return false
-	}
-	initialized := false
-	for _, use := range *cell.Referrers() {
-		switch use := use.(type) {
-		case *ssa.UnOp:
-			if use.Op != token.MUL {
-				return false
-			}
-		case *ssa.Store:
-			if initialized || use.Addr != cell || !ssaflow.InstructionDominates(use, l) || !ssaflow.InstructionDominates(use, r) {
-				return false
-			}
-			initialized = true
-		default:
-			if !ssaflow.InstructionDominates(l, use) || !ssaflow.InstructionDominates(r, use) {
-				return false
-			}
-		}
-	}
-	return initialized
+	return ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(left, right).Proven()
 }
 
 func sqlDatabaseCall(common *ssa.CallCommon, names ...string) bool {
@@ -237,11 +206,8 @@ func releasesOrdinaryResource(
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common != nil && slices.Contains(methods, ssaflow.CallName(common)) &&
-		ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), resource, map[ssa.Value]bool{}) {
-		return true
-	}
-	if common != nil && slices.Contains(methods, ssaflow.CallName(common)) &&
-		storedResourceAccessReleased(evidence, instruction, ssaflow.CallReceiver(common), resource) {
+		(ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(ssaflow.CallReceiver(common), resource).Proven() ||
+			ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
 		return true
 	}
 	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssaflow.SameAsAny(ssaflow.CallReceiver(common), owners) {
@@ -471,33 +437,6 @@ func callTakesResourceOwnership(
 		},
 		ReceiverStore: true,
 	}).Proven()
-}
-
-func storedResourceAccessReleased(
-	evidence *lifecyclefacts.LifecycleEvidence,
-	release ssa.Instruction,
-	receiver, resource ssa.Value,
-) bool {
-	if receiver == nil || release.Parent() == nil {
-		return false
-	}
-	for _, block := range release.Parent().Blocks {
-		for _, instruction := range block.Instrs {
-			store, ok := instruction.(*ssa.Store)
-			if !ok || !ssaflow.InstructionDominates(store, release) || !ssaflow.SameValue(store.Val, resource) {
-				continue
-			}
-			field, ok := store.Addr.(*ssa.FieldAddr)
-			if ok && evidence.Identity(
-				release,
-				ssaflow.AccessPath{Value: receiver, Root: field.X},
-				ssaflow.AccessPath{Value: field, Root: field.X},
-			).Proven() {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // ownedResultContract synthesizes a contract for a call whose callee is

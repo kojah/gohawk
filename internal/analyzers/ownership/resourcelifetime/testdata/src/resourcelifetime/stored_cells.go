@@ -3,11 +3,9 @@ package resourcelifetime
 import "os"
 
 // Stored cells: a resource is settled through the storage holding it rather
-// than through the value the acquisition produced. Both forms below are proven
-// releases, not suppressions -- the trace records release-proven for each, and
-// the second reaches it through same-access-path. Nothing else pins that, so a
-// change to the dominating-store or projection-stability rules would otherwise
-// break them silently.
+// than through the value the acquisition produced. A branch-correlated phi
+// remains unknown rather than becoming an unconditional equality proof; the
+// single-field case is a proven release through observation-time storage.
 
 type storedCellWrapper struct {
 	file *os.File

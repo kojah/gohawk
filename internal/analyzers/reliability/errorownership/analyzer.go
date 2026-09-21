@@ -2,8 +2,6 @@
 package errorownership
 
 import (
-	"go/token"
-
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -109,24 +107,15 @@ func loggedErrorReturnEvidence(call *ssa.Call) logReturnProof {
 
 // Functions containing a defer use shared SSA return slots. Looking at every
 // store to such a slot can combine a log branch that stores nil with a
-// mutually exclusive error-return branch. Use the store in this concrete
-// return block instead. This pattern occurs in CertMagic:
+// mutually exclusive error-return branch. Resolve the writes reaching this
+// particular load instead. This pattern occurs in CertMagic:
 // https://github.com/caddyserver/certmagic/blob/ff600dc62b9bbfc6ba8f18784a2b79000c5e4c75/solvers.go#L794-L800
+// Resolve at the load's own point even when it is in a predecessor block:
+// https://github.com/fe-spark/EcoHub/tree/f7baa3e7c1978586965d4c1416667c3e9b924597/server/internal/repository
 func reachingReturnValue(result ssa.Value) ssa.Value {
-	load, ok := result.(*ssa.UnOp)
-	if !ok || load.Op != token.MUL {
-		return result
-	}
-	// ReachableReturns may expose a load produced in a predecessor block. Search
-	// the load's own block: its instruction index has no meaning in the concrete
-	// return block, and indexing that unrelated block can panic. EcoHub's
-	// repository control flow exercises this shape:
-	// https://github.com/fe-spark/EcoHub/tree/f7baa3e7c1978586965d4c1416667c3e9b924597/server/internal/repository
-	for index := ssaflow.InstructionIndex(load) - 1; index >= 0; index-- {
-		store, ok := load.Block().Instrs[index].(*ssa.Store)
-		if ok && ssaflow.SameValue(store.Addr, load.X) {
-			return store.Val
-		}
+	resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(result)
+	if resolved.Proven() {
+		return resolved.Value
 	}
 	return result
 }

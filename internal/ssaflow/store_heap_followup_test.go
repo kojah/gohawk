@@ -7,9 +7,8 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// Compare the original scalar replacement gain with the existing latest-store
-// helper. This is only an overlap measurement: storedValueAt alone does not
-// establish that arbitrary escaping addresses are safe to reason about.
+// Scalar replacement now goes through the same storage query as fields and
+// arrays, including its address escape and observation-time checks.
 func TestHeapSmokeExistingStoreOverlap(t *testing.T) {
 	pkg := buildHeapSmoke(t)
 	call := heapObservation(t, pkg.Func("replacement"))
@@ -17,11 +16,10 @@ func TestHeapSmokeExistingStoreOverlap(t *testing.T) {
 	if !ok {
 		t.Fatal("replacement did not produce a load")
 	}
-	stored, resolved := storedValueAt(load.X, call)
-	if !resolved || !DefinitelySameValue(stored, call.Common().Args[1]) {
+	stored := NewStorage(NewSearchBudget(1000)).Content(load.X, call)
+	if !stored.Proven() || !DefinitelySameValue(stored.Value, call.Common().Args[1]) {
 		t.Fatal("existing latest-store helper failed to resolve the replacement")
 	}
-	t.Log("scalar replacement: already resolved by storedValueAt, not a unique heap-model capability")
 }
 
 func TestHeapSmokeCleanupShadow(t *testing.T) {
@@ -117,7 +115,7 @@ func replaced() { value := acquire(); value.body = new(resource); cleanup(value.
 				return CallName(InstructionCall(i)) == "cleanup"
 			}).(*ssa.Call)
 			value := call.Common().Args[0]
-			if got := UnmodifiedNonEmptyAccessPathAt(value, root, call); got != test.stable {
+			if got := NewStorage(NewSearchBudget(1000)).Projection(value, root, call).Proven(); got != test.stable {
 				t.Fatalf("existing projection=%t, want %t", got, test.stable)
 			}
 			if available, reason := smokeHeapMatch(call, value, value, 256); available || reason != "unsupported-effect" {

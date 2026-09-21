@@ -21,23 +21,23 @@ func heapSmokeCases() []heapSmokeCase {
 	return []heapSmokeCase{
 		{"direct", `observe(a, a)`, true, true},
 		{"cell", `x := a; p := &x; observe(*p, a)`, true, true},
-		{"replacement", `x := a; p := &x; *p = b; observe(*p, b)`, false, true},
+		{"replacement", `x := a; p := &x; *p = b; observe(*p, b)`, true, true},
 		{"stale", `x := a; p := &x; *p = b; observe(*p, a)`, false, false},
-		{"field", `var x box; x.value = a; observe(x.value, a)`, false, true},
-		{"fieldAlias", `var x box; p := &x; x.value = a; p.value = b; observe(x.value, b)`, false, true},
+		{"field", `var x box; x.value = a; observe(x.value, a)`, true, true},
+		{"fieldAlias", `var x box; p := &x; x.value = a; p.value = b; observe(x.value, b)`, true, true},
 		{"staleField", `var x box; p := &x; x.value = a; p.value = b; observe(x.value, a)`, false, false},
-		{"nested", `var x outer; x.inner.value = a; observe(x.inner.value, a)`, false, true},
-		{"array", `var x [2]*int; x[0] = a; x[1] = b; observe(x[0], a)`, false, true},
+		{"nested", `var x outer; x.inner.value = a; observe(x.inner.value, a)`, true, true},
+		{"array", `var x [2]*int; x[0] = a; x[1] = b; observe(x[0], a)`, true, true},
 		{"otherIndex", `var x [2]*int; x[0] = a; x[1] = b; observe(x[1], a)`, false, false},
 		{"pointerCell", `var x box; p := &x; pp := &p; (*pp).value = a; observe(x.value, a)`, false, true},
-		{"snapshot", `var x box; x.value = a; old := x.value; x.value = b; observe(old, a)`, false, true},
+		{"snapshot", `var x box; x.value = a; old := x.value; x.value = b; observe(old, a)`, true, true},
 		{"escape", `var x box; x.value = a; opaque(&x); observe(x.value, a)`, false, false},
 		{"dynamicIndex", `var x [2]*int; x[0] = a; x[1] = b; observe(x[idx], a)`, false, false},
-		{"branch", `var x box; if pick { x.value = a } else { x.value = a }; observe(x.value, a)`, false, false},
+		{"branch", `var x box; if pick { x.value = a } else { x.value = a }; observe(x.value, a)`, true, false},
 		{"loop", `var x box; for pick { x.value = a }; observe(x.value, a)`, false, false},
 		{"aggregateOverwrite", `var x box; x.value = a; x = box{}; observe(x.value, a)`, false, false},
 		{"capture", `x := a; keep := func() { _ = x }; _ = keep; observe(x, a)`, true, false},
-		{"slice", `x := []*int{a, b}; observe(x[0], a)`, false, false},
+		{"slice", `x := []*int{a, b}; observe(x[0], a)`, true, false},
 	}
 }
 
@@ -82,7 +82,7 @@ func TestHeapSmokeComparison(t *testing.T) {
 			t.Log(dump.String())
 			call := heapObservation(t, fn)
 			args := call.Common().Args
-			baseline := DefinitelySameValueAt(args[0], args[1], call)
+			baseline := NewStorage(NewSearchBudget(1000)).Same(args[0], args[1]).Proven()
 			prototype, reason := smokeHeapIdentity(call, 256)
 			t.Logf("baseline=%t prototype=%t reason=%s", baseline, prototype, reason)
 			if baseline != test.baseline || prototype != test.prototype {
@@ -102,7 +102,7 @@ func BenchmarkHeapSmoke(b *testing.B) {
 	b.Run("existing", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			DefinitelySameValueAt(args[0], args[1], call)
+			NewStorage(NewSearchBudget(1000)).Same(args[0], args[1])
 		}
 	})
 	b.Run("prototype", func(b *testing.B) {

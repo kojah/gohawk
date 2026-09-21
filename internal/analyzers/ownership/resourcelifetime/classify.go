@@ -85,6 +85,16 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if releasesResource(analysis.evidence, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional) {
 		return actionSettled, actionSettled.String()
 	}
+	// A merged receiver or an escaped owner projection may still select this
+	// acquisition. Exact storage identity cannot establish that relationship,
+	// but absence of a match is not proof that the resource stays open. A body
+	// read helper can consume a response before its explicit Body.Close:
+	// https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/auth/claude_api_key.go#L94-L99
+	common := ssaflow.InstructionCall(instruction)
+	if !analysis.optional.Proven() && common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
+		ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), analysis.resource, map[ssa.Value]bool{}) {
+		return actionUnknown, "ambiguous-cleanup-value"
+	}
 	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {
 		return actionUnknown, boundary
 	}
