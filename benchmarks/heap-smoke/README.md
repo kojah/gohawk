@@ -89,3 +89,83 @@ Before adoption:
 CFG joins, loops, slice backing-store aliases, interprocedural effects, and
 escaping objects remain separate proposals, not implied by this result. Do not
 expand into whole-program heap analysis on the strength of this smoke test.
+
+## Follow-up: replacement feasibility
+
+The next evaluation keeps production unchanged and adds executable comparisons
+in `internal/ssaflow/store_heap_followup_test.go`. The prototype now accepts an
+explicit observation instruction and operands, so a probe need not invent a
+two-argument `observe` call inside the function being examined. Its supported
+instruction set has not been expanded.
+
+### A broader baseline reduces the apparent gain
+
+`storedValueAt` already resolves the scalar replacement case the original
+`DefinitelySameValueAt` baseline declined. Thus **one of the seven original
+gains is not unique** to the prototype. This is not permission to use
+`storedValueAt` as a complete identity proof: its callers supply additional
+conditions about how the address is used and when cleanup runs.
+
+The six remaining synthetic field/array relationships still merit attention,
+but this follow-up does not establish that all six are unique across every
+existing helper, nor that an analyzer currently misdiagnoses them.
+
+### Cleanup and projection probes
+
+The executable follow-up contains:
+
+- Six deferred-cleanup queries: stable capture, latest value, stale earlier
+  value, replacement after defer registration, conditional replacement, and
+  normal-path Close followed by clearing the deferred cell.
+- Two stable-projection queries: an acquired owner's original field and a
+  replacement field.
+- The latest-store overlap comparison above.
+
+All nine comparisons pass. Existing completion proves the stable capture and
+latest value, and does not credit the four remaining queries as guaranteed
+cleanup by that defer. The normal-path Close case illustrates an important
+distinction: proving whole-function cleanup requires combining paths, not
+pretending the deferred action always performs the Close.
+
+Existing projection logic accepts the original field and rejects replacement.
+The heap prototype is unavailable at **all eight cleanup/projection probes**:
+control flow blocks the deferred cases; the acquisition call blocks the
+projection cases. These are availability probes, not a production shadow
+integration and not a claim that heap equality itself proves cleanup.
+
+### Connection to reviewed findings
+
+The selected boundaries are relevant to documented real issues:
+
+| Reviewed pattern | Existing machinery | What a replacement would need |
+|---|---|---|
+| Sidecar re-query before deferred cleanup, round 30 | `storedValueAt` | acquisition effects and deferred observation timing |
+| Traefikoidc branch-assigned response, round 31 | `targetStoredOnPath` | path-dependent acquisition and cleanup, not merely unioning pointees |
+| Witness transaction cleared after settlement, round 37 | target-or-nil storage plus cleanup flow | relate normal-path settlement to deferred guards |
+| MySQL test callback's parent DB cleanup, round 51 | `ProveEnclosingCompletion` | caller bindings, cleanup registration, and lifecycle contracts |
+
+The first three links to pinned source are recorded beside the production
+proofs in `flow_stores.go` and `completion_search.go`; their reviewed labels
+remain in the named precision rounds. The MySQL test source was also inspected
+in the retained batch-48 checkout. Those SQL cases involve callbacks and many
+calls, not a straight-line local store/load problem.
+
+This follow-up uses minimized local proof cases and source/ledger inspection.
+It does **not** replay those external repositories or measure a new diagnostic
+delta. No external test code is executed. No new real-world finding has been
+shown to require the prototype.
+
+### Updated decision
+
+**Do not migrate existing proofs or expand this into a general heap engine
+yet.** Zero production helpers can be removed on the evidence collected.
+The initial speed numbers remain microbenchmarks, not analyzer performance.
+
+Keep the test-only experiment as a reproducible reference. Revisit production
+work when an audited field/constant-index false positive supplies a concrete
+consumer and a comparison against the full existing proof, not just a weaker
+identity helper. At that point, consider a narrow local storage query first;
+do not bundle closure semantics, interprocedural effects, CFG solving, and slice
+aliasing into one speculative rewrite.
+
+Reproduce both stages with `go test ./internal/ssaflow -run TestHeapSmoke -v`.

@@ -27,6 +27,11 @@ type smokeHeap struct {
 }
 
 func smokeHeapIdentity(observation *ssa.Call, budget int) (bool, string) {
+	args := observation.Common().Args
+	return smokeHeapMatch(observation, args[0], args[1], budget)
+}
+
+func smokeHeapMatch(observation ssa.Instruction, leftValue, rightValue ssa.Value, budget int) (bool, string) {
 	fn := observation.Parent()
 	if len(fn.Blocks) != 1 {
 		return false, "control-flow"
@@ -41,9 +46,8 @@ func smokeHeapIdentity(observation *ssa.Call, budget int) (bool, string) {
 			return false, "budget"
 		}
 		if instruction == observation {
-			args := observation.Common().Args
-			left, leftOK := heap.values[args[0]]
-			right, rightOK := heap.values[args[1]]
+			left, leftOK := heap.values[leftValue]
+			right, rightOK := heap.values[rightValue]
 			return leftOK && rightOK && left == right, "observed"
 		}
 		if !heap.step(instruction) {
