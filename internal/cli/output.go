@@ -112,12 +112,20 @@ func runViaGoVet(invocation *analysisInvocation, runtime cliRuntime) int {
 	switch invocation.render {
 	case renderJSON:
 		_, _ = runtime.output.Write(merged)
-		return 0
+		return jsonDiagnosticExitCode(merged)
 	case renderFix:
 		return applySuggestedFixes(merged, invocation.diff, runtime.output, runtime.errorsOutput)
 	default:
 		return renderDelegatedDiagnostics(merged, invocation.contextLines, runtime.output)
 	}
+}
+
+func jsonDiagnosticExitCode(data []byte) int {
+	diagnostics, analysisErrors, err := decodeDiagnostics(data)
+	if err != nil {
+		return 1
+	}
+	return diagnosticExitCode(diagnostics, analysisErrors)
 }
 
 // mergeVetOutput folds the JSON objects go vet prints, one per analyzed
@@ -158,6 +166,10 @@ func renderDelegatedDiagnostics(data []byte, contextLines int, output io.Writer)
 		}
 		renderDiagnostic(output, diagnostic, contextLines, colors)
 	}
+	return diagnosticExitCode(diagnostics, analysisErrors)
+}
+
+func diagnosticExitCode(diagnostics []positionedDiagnostic, analysisErrors []string) int {
 	if len(analysisErrors) > 0 {
 		return 1
 	}

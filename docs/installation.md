@@ -77,6 +77,10 @@ gohawk can also run as a `go vet` tool:
 go vet -vettool="$(command -v gohawk)" ./...
 ```
 
+Analysis exits with status 0 when no findings remain, status 3 when findings
+are reported, and status 1 for build or analysis failures. `-json` changes the
+output format without changing those enforcement semantics.
+
 To include gohawk in a custom golangci-lint binary instead, follow the
 [golangci-lint integration guide](../golangci-lint/).
 

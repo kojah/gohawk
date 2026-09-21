@@ -169,8 +169,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 
 	t.Run("JSON output", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-json", "-enable=channelsafety", "./...")
-		if exitCode != 0 {
-			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
+		if exitCode != 3 {
+			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		var diagnostics map[string]map[string][]json.RawMessage
 		if err := json.Unmarshal([]byte(output), &diagnostics); err != nil {
@@ -226,7 +226,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			"-gohawk-trace-file="+tracePath,
 			"./...",
 		)
-		if exitCode != 0 || !json.Valid([]byte(output)) {
+		if exitCode != 3 || !json.Valid([]byte(output)) {
 			t.Fatalf("traced JSON run: exit code = %d\n%s", exitCode, output)
 		}
 		traceOutput, err := os.ReadFile(tracePath)

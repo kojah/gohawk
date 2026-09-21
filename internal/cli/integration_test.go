@@ -29,8 +29,8 @@ func TestCLIIntegration(t *testing.T) {
 			}
 		}
 		output, exitCode = runCommand(t, module, binary, "-json", "-enable=channelsafety", "./...")
-		if exitCode != 0 {
-			t.Fatalf("selected JSON run: exit code = %d, want 0\n%s", exitCode, output)
+		if exitCode != 3 {
+			t.Fatalf("selected JSON run: exit code = %d, want 3\n%s", exitCode, output)
 		}
 		var diagnostics map[string]map[string][]json.RawMessage
 		if err := json.Unmarshal([]byte(output), &diagnostics); err != nil {
@@ -50,8 +50,8 @@ func TestCLIIntegration(t *testing.T) {
 		// Analyzer flags must reach the go analysis driver so its action cache
 		// cannot reuse the preceding single-analyzer result for enable-all.
 		output, exitCode = runCommand(t, module, binary, "-json", "-enable-all", "./...")
-		if exitCode != 0 {
-			t.Fatalf("enable-all JSON run: exit code = %d, want 0\n%s", exitCode, output)
+		if exitCode != 3 {
+			t.Fatalf("enable-all JSON run: exit code = %d, want 3\n%s", exitCode, output)
 		}
 		diagnostics = nil
 		if err := json.Unmarshal([]byte(output), &diagnostics); err != nil {
@@ -71,8 +71,8 @@ func TestCLIIntegration(t *testing.T) {
 		t.Parallel()
 		module := writeEvalOrderTestModule(t)
 		output, exitCode := runCommand(t, module, binary, "-json", "-enable=evalorder", "-gohawk-include-tests", "./...")
-		if exitCode != 0 {
-			t.Fatalf("evalorder JSON run: exit code = %d, want 0\n%s", exitCode, output)
+		if exitCode != 3 {
+			t.Fatalf("evalorder JSON run: exit code = %d, want 3\n%s", exitCode, output)
 		}
 		var diagnostics map[string]map[string][]struct {
 			Posn string `json:"posn"`
@@ -104,8 +104,8 @@ func TestCLIIntegration(t *testing.T) {
 		t.Parallel()
 		module := writeEvalOrderTestModule(t)
 		output, exitCode := runCommand(t, module, binary, "-json", "-enable=evalorder", "./...")
-		if exitCode != 0 {
-			t.Fatalf("evalorder JSON run: exit code = %d, want 0\n%s", exitCode, output)
+		if exitCode != 3 {
+			t.Fatalf("evalorder JSON run: exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if strings.Contains(output, "sample_test.go:") {
 			t.Fatalf("test-file diagnostic reported without -gohawk-include-tests\n%s", output)
@@ -194,7 +194,7 @@ func answer() int { return identity{}.value(42) }
 			"-gohawk-trace-file="+tracePath,
 			"./...",
 		)
-		if exitCode != 0 || !json.Valid([]byte(output)) {
+		if exitCode != 3 || !json.Valid([]byte(output)) {
 			t.Fatalf("traced JSON run: exit code = %d\n%s", exitCode, output)
 		}
 		assertCancellationTrace(t, tracePath)

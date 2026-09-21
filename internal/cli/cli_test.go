@@ -314,8 +314,16 @@ func TestRunViaGoVet(t *testing.T) {
 			name:       "json passthrough",
 			render:     renderJSON,
 			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"a.go:1:1","end":"a.go:1:2","message":"m"}]}}`)},
-			wantCode:   0,
+			wantCode:   3,
 			wantOutput: `"oncepolicy"`,
+		},
+		{name: "json without diagnostics", render: renderJSON, result: processOutput{stdout: []byte(`{}`)}, wantCode: 0, wantOutput: `{}`},
+		{
+			name:       "json analysis error",
+			render:     renderJSON,
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":{"error":"load failed"}}}`)},
+			wantCode:   1,
+			wantOutput: `"error"`,
 		},
 		{
 			name:          "build failure surfaces stderr",
