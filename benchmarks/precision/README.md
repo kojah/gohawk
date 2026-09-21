@@ -4,6 +4,57 @@ These cohorts preserve human review from repeatable dogfood runs.
 Each repository is pinned to an exact revision. The gate fails if a reviewed
 false positive returns or a reviewed true positive disappears.
 
+## Scanning a fresh batch
+
+Use `scripts/precision-audit.py` for discovery scans, and
+`scripts/precision-regression.py` for replaying reviewed labels. Scanning does
+not assign verdicts or create an outreach campaign.
+
+Prepare a tab-separated candidate manifest with `owner/repository` and its
+full 40-character commit SHA on each line. Resolve and review candidates
+before scanning; current batches target Go 1.26/1.27 projects. The runner
+does not search GitHub or silently select changing branch tips.
+
+```sh
+make build
+python3 -B scripts/precision-audit.py \
+  --manifest /path/to/candidates.tsv \
+  --gohawk .build/gohawk \
+  --output .build/precision-audit-batch-48 \
+  --limit 25 --jobs 2
+```
+
+The runner excludes repositories already present in the tracked audit ledgers
+or regression cohorts, case-insensitively. Pass `--exclude-ledger PATH`
+(repeatable) for additional two-column pinned manifests or five-column audit
+ledgers, including prior scans not yet reviewed. Keep a ledger of every
+selected repository, not just those that contribute regression labels.
+
+Each completed repository immediately gets a JSON report with its revision,
+modules, finding locations/check IDs, and scan errors. Retained pinned
+checkouts support source review. `review_status` is always `unreviewed`:
+successful scanning does not establish precision. The existing replay harness
+provides the three-module cap, per-scan timeouts, all-check/test-source profile,
+CGO-disabled compilation, and partial-package recovery. No repository tests or
+generation commands are executed.
+
+Repeat the same command to resume: existing reports are reused only when the
+selection, binary hash, runner/replay hashes, and Go version match. Changed
+tooling or retrying a recorded incomplete scan requires a new output directory.
+The final `summary.json` aggregates the per-repository reports. The command
+exits nonzero if any repository failed, was incomplete, or had no modules;
+those cases must never be counted as clean scans.
+
+After review, record the batch in `audits/README.md`, preserve selected pins in
+an audit ledger, and add only reviewed regression labels to a new cohort.
+Test the runner without network access using:
+
+```sh
+python3 -B -m unittest discover -s scripts -p 'precision_audit_test.py'
+```
+
+## Replaying reviewed findings
+
 Run both cohorts with `make precision-regression`, or replay one cohort while
 reusing retained checkouts:
 
