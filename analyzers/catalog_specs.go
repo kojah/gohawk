@@ -133,7 +133,7 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 		{Analyzer: exitpolicy.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ExitSkipsDefer, Doc: "Reports immediate process termination that bypasses an earlier defer.",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
+				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
 			},
 		}},
 		{Analyzer: goroutineownership.Analyzer(), Checks: []catalog.CheckInfo{

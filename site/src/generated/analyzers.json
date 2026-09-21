@@ -73,13 +73,13 @@
           "name": "exitpolicy",
           "summary": "Checks process termination that bypasses registered defers.",
           "path": "analyzers/ownership-and-lifecycle/exitpolicy",
-          "tier": "core",
+          "tier": "extended",
           "checks": [
             {
               "id": "exitpolicy/skipped-defer",
               "summary": "Reports immediate process termination that bypasses an earlier defer.",
-              "kind": "defect",
-              "tier": "core"
+              "kind": "hazard",
+              "tier": "extended"
             }
           ],
           "suggestedFix": false,
