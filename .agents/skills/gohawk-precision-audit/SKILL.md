@@ -47,6 +47,40 @@ around them.
    as `record batch-N precision audit`, separately from any analyzer change it
    motivated.
 
+## Parallel large-batch audits
+
+For large batches, use two subagents when available so scanning and triage do
+not wait on fixes:
+
+- **Audit agent:** owns cloning, scanning, incremental triage, and batch audit
+  records. Hand off false positives as they are reviewed, then continue with
+  the remaining repositories without waiting for a fix.
+- **Fix agent:** groups incoming false positives by evidence family, applies
+  the reassessment above, and owns authorized analyzer changes and minimized
+  regression fixtures. Assess related reports together rather than adding one
+  exception per repository. Retirement and demotion still require approval.
+- **Main agent:** assigns non-overlapping file ownership, reviews uncertain
+  verdicts, coordinates shared infrastructure changes, and verifies the final
+  replay and separate audit/fix commits. Agents share the checkout; do not
+  overwrite one another's edits or switch its branch.
+
+Keep the audit binary, its revision/hash, repository pins, and scan profile
+fixed for the entire batch. Build corrected binaries at separate paths; never
+replace the executable used by an in-progress scan. Keep candidate execution
+limited to static analysis: do not run their tests, generators, or applications.
+
+Each handoff should include the repository/SHA, analyzer/check and source
+location, diagnostic, relevant cleanup or ownership path, why it appears false,
+and any uncertainty. Persist that evidence in the audit artifacts, not only
+agent messages. Keep original scan verdicts distinct from fix status and replay
+results; a proposed fix does not make a false positive resolved.
+
+Replay affected pinned cases with the corrected binary, alongside nearby true
+positive controls, before recording a fix as verified. Bound scan and replay
+concurrency together so competing work does not exhaust CPU or memory. If
+delegation is unavailable, keep the same handoff records and finish triage
+before working through the fix queue.
+
 ## Reading a replay failure
 
 The replay runs with every check enabled, so an opt-in audit that becomes
