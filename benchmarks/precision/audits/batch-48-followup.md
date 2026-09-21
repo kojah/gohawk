@@ -47,8 +47,29 @@ path; the relevant early error return is protected by deferred DB.Close.
 The other two statement cases get DB.Close through runTestsParallel's
 testing.Cleanup. Proving that caller harness relationship is more involved
 than recognizing a direct defer. Start with the direct exact-parent contract,
-not a general framework interpreter. These changes were investigated, not
-implemented in this follow-up.
+not a general framework interpreter.
+
+### Implemented bounded follow-up
+
+Round 51 now covers the direct parent defer at benchmark_test.go:385 and
+the exact pre-canceled context at driver_test.go:2799. The former follows
+DB.Prepare/PrepareContext only, with exact receiver identity or two loads from
+a singly initialized local cell before any potentially mutating escape.
+Parent close is an opaque lifecycle boundary, not proof of immediate Stmt
+invalidation. The latter requires a dominating synchronous call to the cancel
+returned alongside that exact WithCancel/WithCancelCause context, and applies
+only to DB.PrepareContext, DB.QueryContext, and DB.BeginTx's entry check.
+
+This expands two bounded standard-library contracts rather than adding a
+framework interpreter. Local fixtures preserve warnings for different or
+reassigned parents, conditional cleanup, asynchronous cleanup, and unrelated,
+conditional, deferred, or late cancellation. Rows and transactions retain
+their own cleanup obligations. Seven harness/timing cases remain unresolved;
+this does not claim that the entire SQL false-positive family is fixed.
+
+The full local make verify gate passes. Round 51 retains both corrected false
+positives and the transaction-leak positive at driver_test.go:1955. External
+validation is static analysis only; no candidate tests or scripts ran.
 
 ## Contradictory lock order: a real hazard
 

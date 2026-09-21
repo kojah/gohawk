@@ -1,0 +1,4 @@
+repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
+mariadb-operator/mariadb-operator,resourcelifetime,resourcelifetime/missing-release,licenses/go-licenses/github.com/go-sql-driver/mysql/benchmark_test.go:385:15,false_positive,,
+mariadb-operator/mariadb-operator,resourcelifetime,resourcelifetime/missing-release,licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:2799:16,false_positive,,
+mariadb-operator/mariadb-operator,resourcelifetime,resourcelifetime/missing-release,licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go:1955:16,true_positive,,
