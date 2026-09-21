@@ -166,7 +166,11 @@ head:
     const show = (index) => {
       current = (index + slides.length) % slides.length;
       slides.forEach((slide, slideIndex) => {
-        if (slide instanceof HTMLElement) slide.hidden = slideIndex !== current;
+        if (!(slide instanceof HTMLElement)) return;
+        const inactive = slideIndex !== current;
+        slide.hidden = inactive;
+        slide.inert = inactive;
+        slide.setAttribute('aria-hidden', String(inactive));
       });
       dots.forEach((dot, dotIndex) => {
         if (!(dot instanceof HTMLElement)) return;
@@ -196,6 +200,7 @@ head:
       if (!carousel.contains(event.relatedTarget)) start();
     });
     document.addEventListener('visibilitychange', start);
+    show(current);
     start();
   }
 </script>
