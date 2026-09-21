@@ -15,16 +15,16 @@ import (
 )
 
 func Analyzer() *analysis.Analyzer {
-	config := resourceLifetimeConfig{contracts: "os,http,sql,time,compress,owned", requireReaderClose: true}
+	config := resourceLifetimeConfig{contracts: "os,http,sql,compress,owned", requireReaderClose: true}
 	analyzer := &analysis.Analyzer{
 		Name:     "resourcelifetime",
-		Doc:      "checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path",
+		Doc:      "checks owned files, SQL handles, HTTP responses, and compressors are released on every path",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
 	}
 	analyzer.Flags.Var(
-		flagvalue.NewCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "time", "compress", "owned"),
+		flagvalue.NewCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "compress", "owned"),
 		"contracts",
-		"comma-separated resource contract families: os,http,sql,time,compress,owned",
+		"comma-separated resource contract families: os,http,sql,compress,owned",
 	)
 	analyzer.Flags.BoolVar(&config.requireReaderClose, "require-reader-close", true, "require gzip and zlib readers to be closed")
 	analyzer.Flags.BoolVar(
@@ -63,7 +63,6 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 		requireReaderClose:       config.requireReaderClose,
 		requireMemoryWriterClose: config.requireMemoryWriterClose,
 	}
-	completeTimers := completeTimerLifecyclePositions(pass)
 	// Acquisition contracts identify both the owned result and its required
 	// cleanup action. Reporting is deferred until path analysis proves that the
 	// action or a recognized ownership transfer is absent on a normal return.
@@ -87,7 +86,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 					continue
 				}
 				evidence.ForCandidate(call.Pos())
-				result := evaluateResourceLifetime(pass, evidence, call, resource, contract, completeTimers[call.Pos()])
+				result := evaluateResourceFlow(pass, evidence, call, resource, contract)
 				emitResourceDecision(pass, function, call, resource, contract, result)
 				reportUsesAfterRelease(pass, function, call, resource, contract)
 				if result.report {

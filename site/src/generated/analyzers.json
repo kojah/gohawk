@@ -147,7 +147,7 @@
         },
         {
           "name": "resourcelifetime",
-          "summary": "Checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path.",
+          "summary": "Checks owned files, SQL handles, HTTP responses, and compressors are released on every path.",
           "path": "analyzers/ownership-and-lifecycle/resourcelifetime",
           "tier": "core",
           "checks": [
@@ -168,8 +168,8 @@
           "options": [
             {
               "name": "contracts",
-              "default": "os,http,sql,time,compress,owned",
-              "usage": "Comma-separated resource contract families: os,http,sql,time,compress,owned."
+              "default": "os,http,sql,compress,owned",
+              "usage": "Comma-separated resource contract families: os,http,sql,compress,owned."
             },
             {
               "name": "require-memory-writer-close",

@@ -47,6 +47,12 @@ Two locks of the same declaration are not compared. Whether
 the other order depends on the objects involved, and nothing in the code
 settles that, so the pattern is accepted.
 
+A visible pointer-receiver getter that only returns `&receiver.field` keeps
+that field's identity across calls. Different receivers and different fields
+remain distinct. Getters with branches, loads, side effects, or unavailable
+bodies are opaque; the analyzer does not guess that repeated calls return the
+same mutex or invent separate held locks from their call sites.
+
 ### Writes under a read lock
 
 A read lock is shared: any number of readers may hold it at once. Writing to

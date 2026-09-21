@@ -14,7 +14,13 @@ constructed object does not transfer ownership when an error path returns
 without that object.
 
 The built-in contracts cover files, transactions, SQL rows and statements,
-HTTP response bodies, timers and tickers, and gzip/zlib readers and writers.
+HTTP response bodies, and gzip/zlib readers and writers.
+
+Channel timers and tickers are not cleanup obligations: since Go 1.23, the
+garbage collector can reclaim them without `Stop`. Missing `Stop` alone does
+not establish a leak. This check does not infer legacy main-module or
+`GODEBUG=asynctimerchan=1` settings, nor claim that retained workers or
+`AfterFunc` callbacks are harmless.
 
 ### Checks
 
@@ -67,7 +73,7 @@ confused with the released one. Harmless idioms such as `rows.Err()` after
 
 Owned resources are limited and often hold work open elsewhere. Missing cleanup
 on even one return path can leak file descriptors, database connections,
-network bodies, timers, or transactions until the program slows down or fails.
+network bodies or transactions until the program slows down or fails.
 
 Further reading: [Effective Go: Defer](https://go.dev/doc/effective_go#defer),
 [Package net/http](https://pkg.go.dev/net/http#Response).
@@ -128,7 +134,7 @@ func readSafely(path string) error {
 {/* gohawk:generated-options:start */}
 | Knob | Default | Effect |
 | --- | --- | --- |
-| `contracts` | `os,http,sql,time,compress,owned` | Comma-separated resource contract families: os,http,sql,time,compress,owned. |
+| `contracts` | `os,http,sql,compress,owned` | Comma-separated resource contract families: os,http,sql,compress,owned. |
 | `require-memory-writer-close` | `false` | Report gzip and zlib writers over an in-memory buffer that are not closed on every path. |
 | `require-reader-close` | `true` | Require gzip and zlib readers to be closed. |
 {/* gohawk:generated-options:end */}

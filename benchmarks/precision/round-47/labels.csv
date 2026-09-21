@@ -1,5 +1,4 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-coroot/coroot-node-agent,resourcelifetime,,prom/remote_writer.go:105:12,false_positive,9613f2d,2026-09-06
 smartcontractkit/libocr,lockorder,,offchainreporting2plus/ocrintegrationtesthelpers/in_memory_key_value_database.go:207:2,false_positive,9613f2d,2026-09-06
 CrowdStrike/falcon-installer,resourcelifetime,resourcelifetime/missing-release,pkg/utils/osutils/osutils.go:89:12,true_positive,9613f2d,2026-09-06
 boreq/plum,producerlifecycle,producerlifecycle/abandoned-send,plum-backend/cmd/plum/commands/run.go:106:3,true_positive,9613f2d,2026-09-06

@@ -1,6 +1,5 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
 safebucket/safebucket,cancellationownership,cancellationownership/release,internal/core/bootstrap.go:289:26,false_positive,9613f2d,2026-09-06
-safebucket/safebucket,resourcelifetime,,internal/events/notification_buffer.go:190:12,false_positive,9613f2d,2026-09-06
 trezor/blockbook,resourcelifetime,resourcelifetime/missing-release,build/tools/templates.go:396:12,true_positive,9613f2d,2026-09-06
 trezor/blockbook,resourcelifetime,resourcelifetime/missing-release,build/tools/templates.go:406:11,true_positive,9613f2d,2026-09-06
 mattermost/mattermost-plugin-agents,processownership,processownership/missing-wait,meetings/meeting_summarization.go:89:11,true_positive,9613f2d,2026-09-06

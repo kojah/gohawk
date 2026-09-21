@@ -5,10 +5,8 @@ kolide/launcher,resourcelifetime,,ee/debug/checkups/enroll-secret.go:117:19,fals
 kolide/launcher,resourcelifetime,,pkg/debug/debug_test.go:91:11,false_positive,9613f2d,2026-09-06
 minio/warp,resourcelifetime,,cli/analyze.go:289:13,false_positive,9613f2d,2026-09-06
 shopware/shopware-cli,goroutineownership,,internal/account-api/producer.go:108:3,false_positive,9613f2d,2026-09-06
-kolide/launcher,resourcelifetime,,ee/desktop/runner/runner.go:202:24,true_positive,,
 kolide/launcher,resourcelifetime,resourcelifetime/missing-release,ee/agent/storage/sqlite/keyvalue_store_sqlite.go:299:12,true_positive,9613f2d,2026-09-06
 kolide/launcher,resourcelifetime,resourcelifetime/missing-release,ee/desktop/runner/runner.go:705:15,true_positive,9613f2d,2026-09-06
-minio/warp,resourcelifetime,resourcelifetime/missing-release,pkg/aggregate/collector.go:86:13,true_positive,9613f2d,2026-09-06
 minio/warp,goroutineownership,goroutineownership/unjoined,pkg/bench/ops.go:1093:2,true_positive,9613f2d,2026-09-06
 shopware/shopware-cli,inlineerror,inlineerror/mismatched-condition,internal/mysqldump/mysql.go:570:38,true_positive,9613f2d,2026-09-06
 shopware/shopware-cli,resourcelifetime,resourcelifetime/missing-release,internal/extension/icon.go:52:20,true_positive,9613f2d,2026-09-06

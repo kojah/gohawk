@@ -1,8 +1,4 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-pancsta/asyncmachine-go,resourcelifetime,resourcelifetime/missing-release,examples/arpc/client/main.go:59:7,true_positive,9613f2d,2026-09-06
-pancsta/asyncmachine-go,resourcelifetime,resourcelifetime/missing-release,examples/arpc/server/main.go:62:7,true_positive,9613f2d,2026-09-06
-pancsta/asyncmachine-go,resourcelifetime,resourcelifetime/missing-release,examples/tree_state_source/cmd_state_node.go:246:7,true_positive,9613f2d,2026-09-06
-pancsta/asyncmachine-go,resourcelifetime,,pkg/telemetry/prometheus/prometheus.go:573:7,true_positive,,
 pancsta/asyncmachine-go,resourcelifetime,resourcelifetime/missing-release,tools/debugger/debugger.go:1272:16,true_positive,9613f2d,2026-09-06
 pancsta/asyncmachine-go,resourcelifetime,resourcelifetime/missing-release,tools/debugger/diagrams.go:959:15,true_positive,9613f2d,2026-09-06
 pancsta/asyncmachine-go,resourcelifetime,resourcelifetime/missing-release,tools/visualizer/visualizer.go:153:16,true_positive,9613f2d,2026-09-06
@@ -34,7 +30,6 @@ inference-gateway/inference-gateway,goroutineownership,,tests/mcp_test.go:710:5,
 inference-gateway/inference-gateway,goroutineownership,,tests/middlewares/mcp_test.go:818:3,false_positive,9613f2d,2026-09-06
 inference-gateway/inference-gateway,goroutineownership,,tests/middlewares/mcp_test.go:836:3,false_positive,9613f2d,2026-09-06
 inference-gateway/inference-gateway,goroutineownership,,tests/middlewares/mcp_test.go:854:3,false_positive,9613f2d,2026-09-06
-ferama/rospo,resourcelifetime,resourcelifetime/missing-release,pkg/sshd/request_handler.go:141:12,true_positive,9613f2d,2026-09-06
 ferama/rospo,resourcelifetime,resourcelifetime/missing-release,pkg/sshd/server.go:153:17,true_positive,9613f2d,2026-09-06
 ferama/rospo,resourcelifetime,resourcelifetime/missing-release,pkg/utils/keys_test.go:23:15,true_positive,9613f2d,2026-09-06
 ferama/rospo,resourcelifetime,resourcelifetime/missing-release,pkg/utils/keys_test.go:39:14,true_positive,9613f2d,2026-09-06

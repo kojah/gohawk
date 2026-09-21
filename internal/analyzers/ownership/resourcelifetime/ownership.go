@@ -2,7 +2,6 @@ package resourcelifetime
 
 import (
 	"go/token"
-	"go/types"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -186,22 +185,6 @@ func traceAcquisitionErrorProof(pass *analysis.Pass, branch *ssa.If, proof strin
 		Function: branch.Parent().String(),
 		Details:  map[string]string{"proof": proof},
 	})
-}
-
-func consumesResource(instruction ssa.Instruction, resource ssa.Value) bool {
-	if receive, ok := instruction.(*ssa.UnOp); ok {
-		return receive.Op == token.ARROW && ssaflow.ValueDerivesFrom(receive.X, resource, map[ssa.Value]bool{})
-	}
-	selection, ok := instruction.(*ssa.Select)
-	if !ok {
-		return false
-	}
-	for _, state := range selection.States {
-		if state.Dir == types.RecvOnly && ssaflow.ValueDerivesFrom(state.Chan, resource, map[ssa.Value]bool{}) {
-			return true
-		}
-	}
-	return false
 }
 
 func resourceLifecycleMethod(name string) bool {

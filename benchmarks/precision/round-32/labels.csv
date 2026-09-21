@@ -8,6 +8,5 @@ micro/mu,deferinloop,deferinloop/cleanup-lifetime,service/mail/smtp.go:348:3,tru
 openclaw/crabbox,resourcelifetime,,internal/cli/aws.go:639:13,true_positive,,
 openclaw/crabbox,resourcelifetime,,internal/cli/azure.go:1728:17,true_positive,,
 openclaw/crabbox,resourcelifetime,resourcelifetime/missing-release,internal/cli/cp_archive.go:625:13,true_positive,9613f2d,2026-09-06
-perforce/p4prometheus,resourcelifetime,resourcelifetime/missing-release,cmd/p4metrics/p4metrics.go:3251:12,true_positive,9613f2d,2026-09-06
 patriceckhart/zot,processownership,processownership/missing-wait,examples/rpc/go/main.go:31:7,true_positive,9613f2d,2026-09-06
 markus-wa/demoinfocs-golang,deferinloop,deferinloop/cleanup-lifetime,pkg/demoinfocs/cstv/cstv.go:52:3,true_positive,9613f2d,2026-09-06

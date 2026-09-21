@@ -1,0 +1,14 @@
+james-6-23/codex2api	lockorder	auth/store.go:8641:19
+james-6-23/codex2api	resourcelifetime	database/prompt_risk_profile.go:1436:15
+okteto/okteto	resourcelifetime	internal/test/utils.go:32:14
+okteto/okteto	resourcelifetime	pkg/k8s/apps/translate_test.go:1574:15
+okteto/okteto	resourcelifetime	pkg/k8s/apps/translate_test.go:50:15
+okteto/okteto	resourcelifetime	pkg/k8s/apps/translate_test.go:653:15
+okteto/okteto	resourcelifetime	pkg/k8s/apps/translate_test.go:771:15
+okteto/okteto	resourcelifetime	pkg/k8s/kubeconfig/client_test.go:134:14
+okteto/okteto	resourcelifetime	pkg/model/dev_test.go:1333:15
+okteto/okteto	resourcelifetime	pkg/model/dev_test.go:694:15
+okteto/okteto	resourcelifetime	pkg/model/stack_serializer_test.go:1052:15
+okteto/okteto	resourcelifetime	pkg/ssh/config.go:244:15
+okteto/okteto	resourcelifetime	pkg/ssh/manager_test.go:237:13
+okteto/okteto	resourcelifetime	pkg/ssh/manager_test.go:265:16

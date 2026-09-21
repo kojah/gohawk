@@ -22,7 +22,6 @@ type resourceContract struct {
 	name        string
 	cleanup     []string
 	result      int
-	consumable  bool
 	readerClose bool
 }
 
@@ -32,8 +31,11 @@ func resourceContracts() []resourceContract {
 		resourceFunction("os", "os", "CreateTemp", 0, "Close"),
 		resourceFunction("os", "os", "Open", 0, "Close"),
 		resourceFunction("os", "os", "OpenFile", 0, "Close"),
-		resourceFunction("time", "time", "NewTicker", -1, "Stop"),
-		consumableResource(resourceFunction("time", "time", "NewTimer", -1, "Stop")),
+		// Channel timers are GC-managed since Go 1.23. Missing Stop alone
+		// proves no leak. Main-module/runtime overrides are not established by
+		// this package-local pass, so legacy timer behavior is not inferred.
+		// This says nothing about AfterFunc callbacks or retained workers.
+		// https://github.com/okteto/okteto/blob/ad42c0823762a2255d4b4ad2e53fb4ec190010e7/cmd/deploy/wait.go#L70-L71
 
 		resourceMethod("sql", "database/sql", "DB", "Begin", "Commit", "Rollback"),
 		resourceMethod("sql", "database/sql", "DB", "BeginTx", "Commit", "Rollback"),
@@ -82,11 +84,6 @@ func resourceMethod(family, packagePath, receiver, name string, cleanup ...strin
 		cleanup:     cleanup,
 		result:      0,
 	}
-}
-
-func consumableResource(contract resourceContract) resourceContract {
-	contract.consumable = true
-	return contract
 }
 
 func readerResource(contract resourceContract) resourceContract {

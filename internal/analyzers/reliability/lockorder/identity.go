@@ -22,6 +22,18 @@ func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value) string {
 		return lockIdentity(walk, source)
 	}
 	switch typed := value.(type) {
+	case *ssa.Call:
+		owner, field := mutexGetter(typed)
+		if field == nil {
+			// A call result is not a stable lock across executions. Without the
+			// body, matching separate calls by name guesses at aliasing, while
+			// keeping them separate invents held locks across loop iterations.
+			return ""
+		}
+		if identity := lockIdentity(walk, owner); identity != "" {
+			return identity + "." + field.Name()
+		}
+		return ""
 	case *ssa.Global:
 		return typed.Name()
 	case *ssa.FieldAddr:
@@ -57,6 +69,35 @@ func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value) string {
 		return parent.String() + ":value:" + value.Name()
 	}
 	return ""
+}
+
+// mutexGetter recognizes only a pointer receiver returning the address of one
+// direct field. Loads, branches, calls and side effects are intentionally opaque;
+// in particular a pointer-valued field could change between calls. This is the
+// body of Account.Mu, not a convention attached to its name:
+// https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/auth/store.go#L553-L555
+func mutexGetter(call *ssa.Call) (ssa.Value, *types.Var) { //nolint:ireturn // The owner is an SSA value.
+	callee := call.Common().StaticCallee()
+	if callee == nil || callee.Signature.Recv() == nil || len(callee.Params) != 1 ||
+		len(call.Common().Args) != 1 || len(callee.Blocks) != 1 {
+		return nil, nil
+	}
+	if _, ok := callee.Params[0].Type().Underlying().(*types.Pointer); !ok {
+		return nil, nil
+	}
+	instructions := callee.Blocks[0].Instrs
+	if len(instructions) != 2 {
+		return nil, nil
+	}
+	field, ok := instructions[0].(*ssa.FieldAddr)
+	if !ok || field.X != callee.Params[0] {
+		return nil, nil
+	}
+	returned, ok := instructions[1].(*ssa.Return)
+	if !ok || len(returned.Results) != 1 || returned.Results[0] != field {
+		return nil, nil
+	}
+	return call.Common().Args[0], structField(field.X.Type(), field.Field)
 }
 
 func fieldLockIdentity(walk ssaflow.ReachingWalk, fieldAddress *ssa.FieldAddr) string {
@@ -124,6 +165,11 @@ func lockClass(walk ssaflow.ReachingWalk, value ssa.Value) string {
 		return lockClass(walk, source)
 	}
 	switch typed := value.(type) {
+	case *ssa.Call:
+		owner, field := mutexGetter(typed)
+		if field != nil {
+			return types.TypeString(owner.Type(), nil) + "." + field.Name()
+		}
 	case *ssa.Global:
 		// One package variable is one lock, so its class is its instance.
 		return typed.Name()
@@ -154,6 +200,9 @@ func globalRooted(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 		return globalRooted(walk, source)
 	}
 	switch typed := value.(type) {
+	case *ssa.Call:
+		owner, field := mutexGetter(typed)
+		return field != nil && globalRooted(walk, owner)
 	case *ssa.Global:
 		return true
 	case *ssa.FieldAddr:

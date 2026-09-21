@@ -78,8 +78,7 @@ func (analysis *resourceAnalysis) action(instruction ssa.Instruction) resourceAc
 // that stopped the proof, so a reader can tell an interface call from a
 // callee with no body without rereading this code.
 func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourceAction, string) {
-	if releasesResource(analysis.evidence, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional) ||
-		analysis.contract.consumable && consumesResource(instruction, analysis.resource) {
+	if releasesResource(analysis.evidence, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional) {
 		return actionSettled, actionSettled.String()
 	}
 	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {

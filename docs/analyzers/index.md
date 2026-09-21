@@ -53,7 +53,7 @@ These analyzers look for work or resources whose owner cannot be identified on e
   </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/resourcelifetime/">
     <span class="analyzer-name">resourcelifetime</span>
-    <span class="analyzer-detects">Checks owned files, SQL handles, HTTP responses, timers, and compressors are released on every path.</span>
+    <span class="analyzer-detects">Checks owned files, SQL handles, HTTP responses, and compressors are released on every path.</span>
   </a>
 </div>
 

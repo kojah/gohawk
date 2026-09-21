@@ -8,7 +8,6 @@ containers/gvisor-tap-vsock,resourcelifetime,resourcelifetime/missing-release,te
 coreos/ignition,resourcelifetime,,butane/base/util/url.go:61:24,true_positive,,
 coreos/ignition,processownership,processownership/missing-wait,internal/sgdisk/sgdisk.go:93:12,true_positive,9613f2d,2026-09-06
 openshift-online/ocm-cli,resourcelifetime,,cmd/ocm/describe/cluster/cmd.go:103:18,true_positive,,
-openshift-online/ocm-cli,resourcelifetime,resourcelifetime/missing-release,pkg/utils/helper.go:111:20,true_positive,9613f2d,2026-09-06
 lukaszraczylo/traefikoidc,resourcelifetime,,session.go:180:8,true_positive,,
 stripe/stripe-cli,resourcelifetime,resourcelifetime/missing-release,pkg/git/editor.go:159:12,true_positive,9613f2d,2026-09-06
 stripe/stripe-cli,resourcelifetime,resourcelifetime/missing-release,pkg/plugins/utilities.go:1115:15,true_positive,9613f2d,2026-09-06

@@ -77,6 +77,15 @@ audit work incremental while still providing regular integration checkpoints.
 
 ## Labels retired with their analyzers
 
+The unconditional channel timer/ticker cleanup contract has been removed.
+Twenty-two timer-only labels (20 previously marked true positive, two false
+positive) were removed from the executable cohorts after checking their
+pinned acquisition sites. Missing `Stop` alone does not establish a leak with
+Go 1.23+ GC semantics. This is a narrower claim, not proof that retained
+workers in those historical examples are correct. Historical findings and
+audit narratives are preserved; timer descriptions below describe the old
+scans, not current coverage.
+
 The experimental `goroutineownership/detached` check is retired. Seven
 true-positive policy labels from rounds 6–9 and 11 were removed from the
 executable cohorts: absence of a recognizable owner is not proof of a bug.
@@ -374,5 +383,14 @@ Round 49 preserves the reviewed subset of batch 48: nine false positives
 across channel accessors, registered cleanup captures, computed lock guards,
 and iteration-local captures, alongside sixteen true positives. The latter
 include a corrected audit label: calling WaitGroup.Done before deferred
-cleanup does not wait for the cleanup. The other batch findings remain
-unreviewed and are not silently promoted into regression labels.
+cleanup does not wait for the cleanup. The remaining batch findings have since
+been triaged in the audit ledger; they are not silently promoted into
+regression labels.
+
+Round 50 preserves seven batch-48 false-positive locations: two representative
+channel timer acquisitions and five repeated mutex-getter locations. Local
+fixtures cover precise visible getter identity; the imported getters in this
+cohort are deliberately opaque. Thirteen reviewed file/row/response findings
+remain true-positive controls. The inconclusive auth lock-order finding is
+retained in the scan baseline but has no executable verdict label. Round 49's
+resource and lock controls provide an additional regression guardrail.

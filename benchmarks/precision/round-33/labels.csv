@@ -8,6 +8,5 @@ backube/volsync,resourcelifetime,resourcelifetime/missing-release,internal/contr
 l7mp/stunner,resourcelifetime,resourcelifetime/missing-release,cmd/stunnerctl/auth.go:53:14,true_positive,9613f2d,2026-09-06
 l7mp/stunner,resourcelifetime,resourcelifetime/missing-release,internal/icetester/icetester.go:520:14,true_positive,9613f2d,2026-09-06
 l7mp/stunner,resourcelifetime,resourcelifetime/missing-release,pkg/whipconn/dialer.go:241:15,true_positive,9613f2d,2026-09-06
-multigres/multigres,resourcelifetime,resourcelifetime/missing-release,go/services/pgctld/postgresconfig.go:257:12,true_positive,9613f2d,2026-09-06
 multigres/multigres,resourcelifetime,resourcelifetime/missing-release,go/tools/asthelpergen/internal/utils.go:49:19,true_positive,9613f2d,2026-09-06
 apache/iceberg-go,deferinloop,deferinloop/cleanup-lifetime,table/writer.go:217:3,true_positive,9613f2d,2026-09-06

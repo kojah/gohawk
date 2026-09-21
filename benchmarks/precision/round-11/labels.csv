@@ -6,4 +6,3 @@ minio/madmin-go,evalorder,evalorder/operand-mutation,user-commands.go:1158:38,tr
 restic/restic,producerlifecycle,producerlifecycle/abandoned-send,internal/backend/rest/rest_test.go:105:6,true_positive,9613f2d,2026-09-06
 restic/restic,resourcelifetime,resourcelifetime/missing-release,internal/backend/cache/cache.go:166:12,true_positive,9613f2d,2026-09-06
 temporalio/sdk-go,resourcelifetime,resourcelifetime/missing-release,test/nexus_test.go:2077:15,true_positive,9613f2d,2026-09-06
-temporalio/sdk-go,resourcelifetime,resourcelifetime/missing-release,internal/internal_worker_base.go:1026:12,true_positive,9613f2d,2026-09-06
