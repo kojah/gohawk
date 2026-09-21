@@ -121,6 +121,14 @@ body:has(.landing) header.header :is(.site-title, site-search) {
 }
 
 @media (width < 50rem) {
+	body:has(.landing) header.header {
+		display: none;
+	}
+
+	body:has(.landing) .main-frame {
+		padding-top: 0;
+	}
+
 	starlight-menu-button button {
 		inset-inline-start: var(--sl-nav-pad-x);
 		inset-inline-end: auto;
