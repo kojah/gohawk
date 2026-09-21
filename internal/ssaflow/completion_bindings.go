@@ -22,6 +22,17 @@ type callbackValue struct {
 	observation ssa.Instruction
 }
 
+// invokesLocal reports whether a call's function value is the local itself or
+// a load of it; a parameter captured by a literal is spilled to a cell and
+// invoked through a load.
+func invokesLocal(value, local ssa.Value) bool {
+	if DefinitelySameValue(value, local) {
+		return true
+	}
+	load, ok := value.(*ssa.UnOp)
+	return ok && load.Op == token.MUL && load.X == local
+}
+
 func (search *completionSearch) invokesTargetLocal(value, local ssa.Value) bool {
 	if !search.exactTarget {
 		return invokesLocal(value, local)
@@ -318,69 +329,4 @@ func immutableCallbackAddress(address ssa.Value, observation ssa.Instruction, bu
 		return nil, false
 	}
 	return stored.Val, true
-}
-
-func immutableCallbackCell(cell *ssa.Alloc, observation ssa.Instruction, budget *SearchBudget) (ssa.Value, bool) {
-	if cell.Referrers() == nil || observation == nil {
-		return nil, false
-	}
-	var stored *ssa.Store
-	for _, use := range *cell.Referrers() {
-		if !budget.Spend() {
-			return nil, false
-		}
-		switch use := use.(type) {
-		case *ssa.Store:
-			if stored != nil || use.Addr != cell || !InstructionDominates(use, observation) {
-				return nil, false
-			}
-			// One SSA store may execute repeatedly. A cell allocated outside
-			// that loop is not immutable across its captured callbacks.
-			if BlockInCycle(use.Block()) && use.Block() != cell.Block() {
-				return nil, false
-			}
-			stored = use
-		case *ssa.UnOp:
-			if use.Op != token.MUL {
-				return nil, false
-			}
-		case *ssa.MakeClosure:
-			// The closure may only read this cell. Any write through a captured
-			// alias is deliberately outside this initial stable-storage model.
-			if !callbackCaptureReadOnly(use, cell, budget) {
-				return nil, false
-			}
-		default:
-			return nil, false
-		}
-	}
-	if stored == nil {
-		return nil, false
-	}
-	return stored.Val, true
-}
-
-func callbackCaptureReadOnly(closure *ssa.MakeClosure, cell ssa.Value, budget *SearchBudget) bool {
-	function, ok := closure.Fn.(*ssa.Function)
-	if !ok {
-		return false
-	}
-	for _, pair := range ClosureBindingPairs(function, closure) {
-		if !budget.Spend() {
-			return false
-		}
-		if pair.Binding != cell || pair.Free.Referrers() == nil {
-			continue
-		}
-		for _, access := range *pair.Free.Referrers() {
-			if !budget.Spend() {
-				return false
-			}
-			load, ok := access.(*ssa.UnOp)
-			if !ok || load.Op != token.MUL {
-				return false
-			}
-		}
-	}
-	return true
 }

@@ -265,12 +265,16 @@ func factForFunction(pass *analysis.Pass, function *ssa.Function) (Fact, bool) {
 // target itself passed as the masked argument counts, so a literal that
 // captured the target is not mistaken for it.
 func factOwnsExactArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
+	return factArgumentMatches(instruction, target, mask, ssaflow.DefinitelySameValue)
+}
+
+func factArgumentMatches(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, matches func(ssa.Value, ssa.Value) bool) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
 	for index, argument := range common.Args {
-		if mask.contains(index) && ssaflow.SameValue(argument, target) {
+		if mask.contains(index) && matches(argument, target) {
 			return true
 		}
 	}
@@ -286,7 +290,12 @@ func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask Parame
 		if !mask.contains(index) {
 			continue
 		}
-		if ssaflow.SameValue(argument, target) || ssaflow.ValueContainsValue(argument, target) {
+		if ssaflow.DefinitelySameValue(argument, target) {
+			return true
+		}
+		// Containment must not turn an ambiguous phi or a storage-history
+		// match into a guarantee about this target.
+		if !ssaflow.SameValue(argument, target) && ssaflow.ValueContainsValue(argument, target) {
 			return true
 		}
 	}

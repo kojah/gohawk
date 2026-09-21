@@ -1,7 +1,6 @@
 package ssaflow
 
 import (
-	"go/token"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/syntax"
@@ -301,6 +300,15 @@ func (search *completionSearch) capturedLocal(
 		return mappedLocal{local: free, supplied: value, kind: localExact}, true
 	case ValueIsAccessPathFrom(target, value):
 		return mappedLocal{local: free, supplied: value, kind: localOwner}, true
+	case ValueIsAccessPathFrom(target, binding):
+		// Keep the captured cell as the root on both sides of the field
+		// mapping. Peeling just one side would require a may-alias match.
+		cell, ok := binding.(*ssa.Alloc)
+		if !ok {
+			return mappedLocal{}, false
+		}
+		_, stable := immutableCallbackCell(cell, invocation, search.budget)
+		return mappedLocal{local: free, supplied: binding, kind: localOwner}, stable
 	case !CapturedBindingMatches(binding, target) && ValueContainsValue(binding, target):
 		// The closure captured an aggregate that stores the target, such as a
 		// local closer slice the target was appended to; a lifecycle call on
@@ -337,6 +345,12 @@ func deferredCellLocal(free, binding, target ssa.Value, exact bool) (mappedLocal
 func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Value) (mappedLocal, bool) {
 	if search.exactTarget {
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, argument == target
+	}
+	// A possible alias must not fall through to aggregate containment and
+	// become an exact parameter mapping. Preserve uncertainty for consumers.
+	if SameValue(argument, target) && !DefinitelySameValue(argument, target) {
+		*search.incomplete = true
+		return mappedLocal{}, false
 	}
 	switch {
 	case ProveIdentity(AccessPath{Value: argument}, AccessPath{Value: target}).Proven():
@@ -591,17 +605,6 @@ func (search *completionSearch) startsTarget(candidate ssa.Instruction, locals [
 	return ok && slices.ContainsFunc(locals, func(local mappedLocal) bool {
 		return search.invokesTargetLocal(started.Common().Value, local.local)
 	})
-}
-
-// invokesLocal reports whether a call's function value is the local itself or
-// a load of it; a parameter captured by a literal is spilled to a cell and
-// invoked through a load.
-func invokesLocal(value, local ssa.Value) bool {
-	if SameValue(value, local) {
-		return true
-	}
-	load, ok := value.(*ssa.UnOp)
-	return ok && load.Op == token.MUL && load.X == local
 }
 
 // ValueCallsMethod reports whether value is, or carries, a callback that

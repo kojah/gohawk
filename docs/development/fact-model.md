@@ -101,6 +101,21 @@ way consumers are allowed to lean on it.
 
 ## Proven, disproven, or unknown
 
+### Possible identity is not a guarantee
+
+`ssaflow.SameValue` follows possible origins: one matching phi alternative or
+a value previously stored in a cell can match. Use that evidence for possible
+consumption and conservative escape handling, not to establish a guaranteed
+action. `ssaflow.DefinitelySameValue` requires agreement across alternatives
+and does not equate separate loads from potentially mutable storage. A failed
+definite match means unknown identity, not proven inequality.
+
+Imported exact-argument matching, callback-invocation summaries, and
+unchanged-return proofs use definite identity. An ambiguous argument receiving
+a lifecycle summary is unknown rather than proven cleanup. Access-path
+identity describes corresponding storage locations beneath already-matched
+roots; it does not by itself establish that their contents are unchanged.
+
 A consumer never reads a fact as a plain yes/no. `LifecycleEvidence.Prove`
 returns one of three answers:
 

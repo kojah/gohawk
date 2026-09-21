@@ -6,6 +6,138 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// DefinitelySameValueAt extends definite identity through local cells with one
+// dominating store reaching each load. Address escapes, ambiguous stores, and
+// writes through closures prevent a proof; arbitrary loads do not match.
+func DefinitelySameValueAt(value, target ssa.Value, observation ssa.Instruction) bool {
+	if DefinitelySameValue(value, target) {
+		return true
+	}
+	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
+	budget := NewSearchBudget(1000)
+	var matches func(ReachingWalk, ssa.Value) bool
+	matches = func(walk ReachingWalk, value ssa.Value) bool {
+		if !budget.Spend() {
+			return false
+		}
+		load, ok := value.(*ssa.UnOp)
+		if !ok || load.Op != token.MUL {
+			return DefinitelySameValue(value, target)
+		}
+		cell, ok := load.X.(*ssa.Alloc)
+		if !ok || observation == nil || load.Parent() != observation.Parent() {
+			return false
+		}
+		stored, stable := cellValueAtLoad(cell, load, budget)
+		return stable && walk.Every(stored, matches)
+	}
+	return NewReachingWalk(forms).Every(value, matches)
+}
+
+func cellValueAtLoad(cell *ssa.Alloc, load *ssa.UnOp, budget *SearchBudget) (ssa.Value, bool) {
+	if cell.Referrers() == nil {
+		return nil, false
+	}
+	var stored *ssa.Store
+	for _, use := range *cell.Referrers() {
+		if !budget.Spend() {
+			return nil, false
+		}
+		switch use := use.(type) {
+		case *ssa.Store:
+			if use.Addr != cell {
+				return nil, false
+			}
+			if !InstructionMayFollow(use, load) {
+				continue
+			}
+			if stored != nil || !InstructionDominates(use, load) {
+				return nil, false
+			}
+			stored = use
+		case *ssa.UnOp:
+			if use.Op != token.MUL {
+				return nil, false
+			}
+		case *ssa.MakeClosure:
+			if !callbackCaptureReadOnly(use, cell, budget) {
+				return nil, false
+			}
+		default:
+			return nil, false
+		}
+	}
+	if stored == nil {
+		return nil, false
+	}
+	return stored.Val, true
+}
+
+func immutableCallbackCell(cell *ssa.Alloc, observation ssa.Instruction, budget *SearchBudget) (ssa.Value, bool) {
+	if cell.Referrers() == nil || observation == nil {
+		return nil, false
+	}
+	var stored *ssa.Store
+	for _, use := range *cell.Referrers() {
+		if !budget.Spend() {
+			return nil, false
+		}
+		switch use := use.(type) {
+		case *ssa.Store:
+			if stored != nil || use.Addr != cell || !InstructionDominates(use, observation) {
+				return nil, false
+			}
+			// One SSA store may execute repeatedly. A cell allocated outside
+			// that loop is not immutable across its captured callbacks.
+			if BlockInCycle(use.Block()) && use.Block() != cell.Block() {
+				return nil, false
+			}
+			stored = use
+		case *ssa.UnOp:
+			if use.Op != token.MUL {
+				return nil, false
+			}
+		case *ssa.MakeClosure:
+			// The closure may only read this cell. Any write through a captured
+			// alias is deliberately outside this initial stable-storage model.
+			if !callbackCaptureReadOnly(use, cell, budget) {
+				return nil, false
+			}
+		default:
+			return nil, false
+		}
+	}
+	if stored == nil {
+		return nil, false
+	}
+	return stored.Val, true
+}
+
+func callbackCaptureReadOnly(closure *ssa.MakeClosure, cell ssa.Value, budget *SearchBudget) bool {
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok {
+		return false
+	}
+	for _, pair := range ClosureBindingPairs(function, closure) {
+		if !budget.Spend() {
+			return false
+		}
+		if pair.Binding != cell || pair.Free.Referrers() == nil {
+			continue
+		}
+		for _, access := range *pair.Free.Referrers() {
+			if !budget.Spend() {
+				return false
+			}
+			load, ok := access.(*ssa.UnOp)
+			if !ok || load.Op != token.MUL {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // Projection stability proves that an exact field or constant-index path still
 // names storage owned by its original root at one observation. Assigning or
 // exposing either the root or selected address before that observation stops

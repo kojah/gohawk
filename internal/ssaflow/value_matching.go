@@ -47,10 +47,11 @@ func CapturedBindingMatches(binding, target ssa.Value) bool {
 	return false
 }
 
-// SameValue reports SSA identity through conversions, phis, and local
-// load/store pairs. It deliberately does not equate a field or index with its
-// containing aggregate; callers needing that relationship use ValueDerivesFrom
-// or ValueContainsValue instead.
+// SameValue reports a possible identity through conversions, any phi edge,
+// and local storage history. It is not a must-alias proof: use
+// DefinitelySameValue when a diagnostic or guaranteed action requires exact
+// identity. It does not equate a field or index with its containing aggregate;
+// use ValueDerivesFrom or ValueContainsValue for containment instead.
 func SameValue(value, target ssa.Value) bool {
 	// SSA removes ordinary assignments, but captured locals, embedded fields,
 	// and interface conversions still need explicit identity recovery.

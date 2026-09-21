@@ -57,7 +57,7 @@ func (search *callbackSearch) searchInvokes(instruction ssa.Instruction, target 
 			return false
 		}
 		common := InstructionCall(candidate)
-		return common != nil && SameValue(common.Value, parameter) || search.invokes(candidate, parameter)
+		return common != nil && DefinitelySameValue(common.Value, parameter) || search.invokes(candidate, parameter)
 	})
 }
 
@@ -71,7 +71,7 @@ func callOwnsArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value
 		return false
 	}
 	for index, argument := range common.Args {
-		if index >= len(callee.Params) || !SameValue(argument, target) && !ValueContainsValue(argument, target) {
+		if index >= len(callee.Params) || !DefinitelySameValue(argument, target) {
 			continue
 		}
 		parameter := callee.Params[index]

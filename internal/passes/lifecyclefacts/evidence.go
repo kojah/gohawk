@@ -174,7 +174,7 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 				}
 				for index, argument := range common.Args {
 					if mask.contains(index) && slices.ContainsFunc(capturedUses(captured.Free), func(held ssa.Value) bool {
-						return ssaflow.SameValue(argument, held)
+						return ssaflow.DefinitelySameValue(argument, held)
 					}) {
 						return true
 					}
@@ -186,7 +186,7 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 }
 
 func immutableCapturedTarget(binding, target ssa.Value) bool {
-	if ssaflow.SameValue(binding, target) {
+	if ssaflow.DefinitelySameValue(binding, target) {
 		return true
 	}
 	if binding == nil || binding.Referrers() == nil {
@@ -198,7 +198,7 @@ func immutableCapturedTarget(binding, target ssa.Value) bool {
 		if !ok || store.Addr != binding {
 			continue
 		}
-		if !ssaflow.SameValue(store.Val, target) {
+		if !ssaflow.DefinitelySameValue(store.Val, target) {
 			return false
 		}
 		found = true
@@ -324,6 +324,11 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 		}
 		if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask) {
 			return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
+		}
+		if factArgumentMatches(request.Instruction, request.Target, mask, ssaflow.SameValue) {
+			// The summary is known, but which value receives its guarantee is
+			// not. This is neither completion nor evidence of missing cleanup.
+			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true
 		}
 	}
 	if request.ReceiverStore && summarized && factOwnsArgument(request.Instruction, request.Target, fact.ReceiverStore) {

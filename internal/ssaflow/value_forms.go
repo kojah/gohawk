@@ -215,7 +215,7 @@ func accessPath(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool)
 	if value == nil || root == nil || seen[value] {
 		return nil, false
 	}
-	if SameValue(value, root) {
+	if DefinitelySameValue(value, root) {
 		return nil, true
 	}
 	seen[value] = true
@@ -237,7 +237,7 @@ func accessPath(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool)
 		path, baseOK := accessPath(typed.X, root, seen)
 		return appendAccess(path, "index:"+index, baseOK)
 	case *ssa.UnOp:
-		if typed.Op == token.MUL && SameValue(typed.X, root) {
+		if typed.Op == token.MUL && DefinitelySameValue(typed.X, root) {
 			return nil, true
 		}
 		return accessPath(typed.X, root, seen)
