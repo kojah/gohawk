@@ -150,7 +150,6 @@ head:
         <button type="button" data-carousel-dot aria-label="Show goroutine ownership example"></button>
         <button type="button" data-carousel-dot aria-label="Show concurrent capture example"></button>
       </div>
-      <button class="source-carousel-arrow" type="button" data-carousel-toggle aria-label="Pause automatic rotation">&#10074;&#10074;</button>
     </div>
   </div>
 </div>
@@ -164,11 +163,8 @@ head:
     const slides = Array.from(carousel.querySelectorAll('[data-carousel-slide]'));
     const dots = Array.from(carousel.querySelectorAll('[data-carousel-dot]'));
     const previous = carousel.querySelector('[data-carousel-previous]');
-    const toggle = carousel.querySelector('[data-carousel-toggle]');
     const next = carousel.querySelector('[data-carousel-next]');
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let current = 0;
-    let paused = false;
     let timer;
 
     const show = (index) => {
@@ -186,35 +182,16 @@ head:
     const stop = () => window.clearInterval(timer);
     const start = () => {
       stop();
-      if (paused || reducedMotion.matches || document.hidden) return;
+      if (document.hidden) return;
       timer = window.setInterval(() => show(current + 1), 6500);
     };
     const select = (index) => {
       show(index);
       start();
     };
-    const updateToggle = () => {
-      if (!(toggle instanceof HTMLButtonElement)) return;
-      toggle.hidden = reducedMotion.matches;
-      toggle.disabled = reducedMotion.matches;
-      toggle.textContent = paused ? '▶' : '❘❘';
-      toggle.setAttribute(
-        'aria-label',
-        reducedMotion.matches
-          ? 'Automatic rotation disabled by reduced motion preference'
-          : paused
-            ? 'Resume automatic rotation'
-            : 'Pause automatic rotation',
-      );
-    };
 
     previous?.addEventListener('click', () => select(current - 1));
     next?.addEventListener('click', () => select(current + 1));
-    toggle?.addEventListener('click', () => {
-      paused = !paused;
-      updateToggle();
-      start();
-    });
     dots.forEach((dot, index) => dot.addEventListener('click', () => select(index)));
     carousel.addEventListener('mouseenter', stop);
     carousel.addEventListener('mouseleave', start);
@@ -223,11 +200,6 @@ head:
       if (!carousel.contains(event.relatedTarget)) start();
     });
     document.addEventListener('visibilitychange', start);
-    reducedMotion.addEventListener('change', () => {
-      updateToggle();
-      start();
-    });
-    updateToggle();
     start();
   }
 </script>

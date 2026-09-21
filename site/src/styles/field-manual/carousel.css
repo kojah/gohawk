@@ -174,16 +174,6 @@
 	grid-row: 1;
 }
 
-.source-carousel-controls [data-carousel-toggle] {
-	position: absolute;
-	inset-inline-end: 0;
-	font-size: 0.85rem;
-}
-
-.source-carousel-controls [data-carousel-toggle][hidden] {
-	display: none;
-}
-
 .source-carousel-arrow,
 .source-carousel-dots button {
 	appearance: none;
@@ -208,11 +198,6 @@
 .source-carousel-arrow:focus-visible {
 	color: #ffffff;
 	background: rgb(255 255 255 / 7%);
-}
-
-.source-carousel-arrow:disabled {
-	cursor: default;
-	opacity: 0.45;
 }
 
 .source-carousel-dots {
@@ -319,10 +304,4 @@
 
 :root[data-theme='light'] .source-carousel-dots button::before {
 	background: #253443;
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.source-slide:not([hidden]) {
-		animation: none;
-	}
 }
