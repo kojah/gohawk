@@ -26,7 +26,7 @@ precision replay or a fresh scan of every batch-48 module.
 
 ## Failed acquisitions and parent cleanup
 
-The nine remaining MariaDB-operator labels are in the pinned bundled MySQL
+The nine originally outstanding MariaDB-operator findings are in the pinned bundled MySQL
 driver tests, not the operator's production code. Source revision:
 `e8ece7a8076954674e10e0381571bd80278ac35f`.
 
@@ -64,8 +64,9 @@ This expands two bounded standard-library contracts rather than adding a
 framework interpreter. Local fixtures preserve warnings for different or
 reassigned parents, conditional cleanup, asynchronous cleanup, and unrelated,
 conditional, deferred, or late cancellation. Rows and transactions retain
-their own cleanup obligations. Seven harness/timing cases remain unresolved;
-this does not claim that the entire SQL false-positive family is fixed.
+their own cleanup obligations. Two harness false positives remain, and five
+driver/timing cases were subsequently reclassified as inconclusive below;
+this does not claim that the entire SQL family is fixed.
 
 The full local make verify gate passes. Round 51 retains both corrected false
 positives and the transaction-leak positive at driver_test.go:1955. External
@@ -105,8 +106,59 @@ evidence now exposes both acquisition locations without changing diagnostics
 or corrupting `-json`; traced and untraced codex2api JSON matched exactly.
 
 The audit now has 62 defect/hazard positives, 23 policy-only positives,
-84 false positives and 188 retired-check reports, with no inconclusive
-locations. The lock hazard is round 50's fourteenth true-positive control.
+79 false positives, five inconclusive locations, and 188 retired-check reports
+after the SQL reassessment below. The lock hazard is round 50's fourteenth true-positive control.
 The final round-50 replay on `ca55b32` passed all 21 labels: seven false
 positives absent and fourteen true positives present, with both repositories
 scannable and no baseline drift.
+
+## SQL reassessment after round 51
+
+The earlier cancellation verdicts conflated test intent with guaranteed
+behavior. Findings at driver_test.go:2728,2748,2854,2923,2929 are now
+**inconclusive**, not false positives or confirmed leaks. The first, second,
+third, and fifth depend on scheduled cancellation; the fourth expects a
+previous operation to leave a driver connection unusable. Nonfatal Errorf does
+not exclude success. These functions defer stopping the cancellation timer,
+and Sleep does not join its callback. Conversely, lack of a package-local
+proof does not establish a feasible driver success or runtime leak. No
+suppression or new executable verdict was added for these five cases.
+
+### Callback ownership investigation
+
+The statements at driver_test.go:2809 and :2844 remain reviewed false positives.
+The pinned harness at :186-241 registers cleanup of the DB it passes to each
+callback, in both subtest variants. An actual SSA dump shows the extra work
+needed to connect those facts:
+
+1. Each test stores its callback in a variadic slice passed to the harness.
+2. The harness loads each slice element, stores it in a local, and captures
+   that local in each subtest closure.
+3. The subtest registers a cleanup closure for its fresh DB, stores the same
+   DB in a wrapper field, then dynamically invokes the loaded callback with
+   that wrapper.
+4. The callback loads that field and prepares the statement.
+
+The existing StaticCallsites index deliberately excludes calls with no static
+callee. cleanupRegisteredBefore examines the acquisition's own function, not
+the caller harness. Lifecycle facts describe individual parameters, not the
+relationship between a callback's parameter field and a resource created by
+its caller. A new Boolean fact such as Invoked cannot express this ownership.
+
+A general solution is possible, but is not a small extension of the direct
+parent-close rule. It needs bounded callback-value propagation through slices,
+stores and closure bindings, argument-to-parameter field substitution, and
+cleanup coverage for every reachable callback invocation. Unknown targets,
+mutation, mixed parents, conditional registration, and escaping callbacks
+must terminate the proof conservatively. The local traversal helpers remain
+useful mechanics, but do not themselves supply that relational evidence.
+
+Decision: retain the check and the two known precision gaps for now rather
+than add a harness-specific recognizer or silently exempt every statement
+created through a caller-owned DB. The latter would also hide ordinary leaks
+against long-lived pools. A broader callback-ownership implementation should
+be a separately scoped change, justified by additional instances of the same
+contract. No analyzer behavior changed in this reassessment.
+
+Validation: pinned source and SSA inspection, ledger/count consistency, and
+round-51 static replay. No candidate tests, generators, or scripts executed.

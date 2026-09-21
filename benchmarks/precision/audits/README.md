@@ -1438,11 +1438,15 @@ All 357 original diagnostic locations now have a triage disposition:
 | --- | ---: |
 | True positive: defect or concrete hazard | 62 |
 | True positive: policy-only audit | 23 |
-| False positive | 84 |
+| False positive | 79 |
+| Inconclusive: driver/timing-dependent SQL tests | 5 |
 | Retired goroutine detached check | 188 |
 
 The TSV retains `true-positive` for both kinds of accurate report; policy-only
 reasons begin with `Policy-only`. These are not 85 confirmed runtime bugs.
+Five SQL findings were reclassified from false positive after checking the
+cancellation timer and connection-state assumptions. They are not regression
+labels requiring either presence or absence; see the follow-up assessment.
 `retired-check` preserves historical reports without treating silence from a
 deleted check as a precision improvement. This is source review, not runtime reproduction,
 and the original scan is not a census of the current binary.
@@ -1512,9 +1516,10 @@ Validation for this record is ledger consistency and pinned-source/location
 checks. No analyzer implementation or precision baseline is changed here.
 Follow-up `049d8c9` removes the unconditional channel-timer obligation and
 resolves visible mutex getters while declining opaque ones. Round 50 preserves
-the sampled corrections and nearby controls. The remaining nine resource
-labels need the bounded-contract assessment in the follow-up before further
-coverage expansion.
+the sampled corrections and nearby controls. Round 51 fixes two further SQL
+false positives. Of the seven remaining SQL findings, two are callback-parent
+cleanup false positives and five are now inconclusive after reassessing timing
+and driver assumptions. The follow-up records the callback evidence gap.
 
 ## Audit summary
 

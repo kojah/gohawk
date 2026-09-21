@@ -33,7 +33,8 @@
       "reviewed": 21,
       "verdict_counts": {
         "true-positive": 12,
-        "false-positive": 9
+        "false-positive": 4,
+        "inconclusive": 5
       }
     },
     {
@@ -377,7 +378,8 @@
   "verdict_counts": {
     "retired-check": 188,
     "true-positive": 85,
-    "false-positive": 84
+    "false-positive": 79,
+    "inconclusive": 5
   },
   "policy_only_true_positives": 23,
   "followup_revision": "ca55b32"

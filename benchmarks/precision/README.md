@@ -398,5 +398,6 @@ resource and lock controls provide an additional regression guardrail.
 Round 51 preserves two more batch-48 corrections in the bundled MySQL driver:
 cleanup through an exact deferred parent DB.Close and cancellation of the exact
 context before DB acquisition. An outstanding transaction remains a positive
-control. The baseline retains seven known timing/test-harness false positives;
-their presence is recorded, not endorsed as true-positive labels.
+control. The baseline retains two known test-harness false positives and five
+inconclusive driver/timing cases, corrected from overly confident FP labels.
+Their presence is recorded, not endorsed as true-positive labels.
