@@ -408,3 +408,13 @@ context before DB acquisition. An outstanding transaction remains a positive
 control. The baseline retains two known test-harness false positives and five
 inconclusive driver/timing cases, corrected from overly confident FP labels.
 Their presence is recorded, not endorsed as true-positive labels.
+
+Round 52 preserves 24 batch-49 corrections across compression obligations,
+optional mutex guards, transferred resource ownership, SQL exhaustion, and
+worker completion, with six nearby true-positive controls. Four unresolved
+false positives remain outside the passing labels; the
+[follow-up assessment](audits/batch-49-followup.md) explains their evidence gaps
+and the conservative coverage tradeoffs of the implemented corrections.
+The additional mpb correction has a local fixture and a successful pinned
+root-package replay, but its unrelated example modules prevent inclusion in
+the current whole-repository cohort runner.

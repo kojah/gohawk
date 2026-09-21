@@ -1608,6 +1608,13 @@ still needs a minimized fixture, nearby positive controls, and replay evidence.
 Validation checked unique finding keys, complete review coverage, all 100 revision
 pins, and every reported source location against the retained pinned checkouts.
 
+The [batch-49 follow-up](batch-49-followup.md) records 25 corrected false
+positives, their bounded uncertainty tradeoffs, and four still-unresolved cases.
+Round 52 preserves 24 corrected cases and six neighboring true positives;
+mpb's correction has a separate root-package replay and local fixture because
+its example modules cannot load in the whole-repository runner. In all cases,
+the original batch verdicts remain the historical baseline.
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
