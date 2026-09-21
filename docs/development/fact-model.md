@@ -215,6 +215,14 @@ test-harness parent-cleanup cases still require caller-context tracking and
 proof that cleanup covers every relevant invocation; resolving a callback
 alone does not establish that ownership contract.
 
+Cancellation ownership uses the same completion search with `InvokeTarget`
+instead of a method name. This mode requires exact function identity, not
+aggregate containment or a phi that merely includes the target. Stable captured
+cells and direct helper forwarding are supported; asynchronous invocation and
+exhausted searches remain unknown. The analyzer retains its own policy for
+transfer, registration, and opaque handoffs. A function being stored or passed
+to a helper is not itself proof that it was invoked.
+
 ### Fact package boundary
 
 Facts are imported and exported (`analysis.Pass.ImportObjectFact` and

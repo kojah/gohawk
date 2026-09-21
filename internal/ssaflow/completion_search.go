@@ -270,6 +270,17 @@ func (search *completionSearch) capturedLocal(
 	target ssa.Value,
 	invocation ssa.Instruction,
 ) (mappedLocal, bool) {
+	if search.exactInvocation {
+		value := binding
+		if cell, ok := binding.(*ssa.Alloc); ok {
+			var stable bool
+			value, stable = immutableCallbackCell(cell, invocation, search.budget)
+			if !stable {
+				return mappedLocal{}, false
+			}
+		}
+		return mappedLocal{local: free, supplied: value, kind: localExact}, value == target
+	}
 	value := CapturedBindingValue(binding)
 	exact := CapturedBindingMatches(binding, target)
 	if callee.launch == launchDeferred && invocation != nil {
@@ -324,6 +335,9 @@ func deferredCellLocal(free, binding, target ssa.Value, exact bool) (mappedLocal
 }
 
 func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Value) (mappedLocal, bool) {
+	if search.exactInvocation {
+		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, argument == target
+	}
 	switch {
 	case ProveIdentity(AccessPath{Value: argument}, AccessPath{Value: target}).Proven():
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
@@ -380,7 +394,10 @@ func exactCleanupReceiver(receiver, parameter ssa.Value) bool {
 // stops recursion through helper cycles and keeps the search over the call
 // graph rather than over every call path through it.
 type completionSearch struct {
-	incomplete *bool
+	// Exact invocation excludes aggregate containment and may-alias mappings:
+	// calling one function stored in an owner does not invoke every function.
+	exactInvocation bool
+	incomplete      *bool
 	// bindings are scoped to this invocation, never merged across callers.
 	bindings *callbackBindings
 	method   string
@@ -483,6 +500,10 @@ func (search *completionSearch) calleeCompletes(callee completionCallee, target 
 	if len(locals) == 0 {
 		return false
 	}
+	if search.exactInvocation && callee.launch == launchStarted {
+		*search.incomplete = true
+		return false
+	}
 	previous := search.bindings
 	search.bindings = search.bindCallbackArguments(callee)
 	defer func() { search.bindings = previous }()
@@ -513,6 +534,10 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 		return false
 	}
 	called := InstructionCall(candidate)
+	if search.startsTarget(candidate, locals) {
+		*search.incomplete = true
+		return false
+	}
 	if called != nil && CallName(called) == search.method {
 		receiver := CallReceiver(called)
 		for _, local := range locals {
@@ -536,7 +561,7 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 			}
 			continue
 		}
-		if search.invokeTarget && local.kind == localExact && called != nil && invokesLocal(called.Value, local.local) {
+		if search.invokeTarget && local.kind == localExact && called != nil && search.invokesTargetLocal(called.Value, local.local) {
 			return true
 		}
 		if _, proven, _ := search.completes(candidate, local.local); proven {
@@ -544,6 +569,31 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 		}
 	}
 	return false
+}
+
+func (search *completionSearch) startsTarget(candidate ssa.Instruction, locals []mappedLocal) bool {
+	if !search.exactInvocation {
+		return false
+	}
+	started, ok := candidate.(*ssa.Go)
+	return ok && slices.ContainsFunc(locals, func(local mappedLocal) bool {
+		return search.invokesTargetLocal(started.Common().Value, local.local)
+	})
+}
+
+func (search *completionSearch) invokesTargetLocal(value, local ssa.Value) bool {
+	if !search.exactInvocation {
+		return invokesLocal(value, local)
+	}
+	if value == local {
+		return true
+	}
+	// Only a captured cell whose stability was checked when mapping the
+	// closure may be loaded here. A phi that merely includes the target is not
+	// identity and cannot establish that the target was invoked.
+	_, captured := local.(*ssa.FreeVar)
+	load, ok := value.(*ssa.UnOp)
+	return captured && ok && load.Op == token.MUL && load.X == local
 }
 
 // invokesLocal reports whether a call's function value is the local itself or

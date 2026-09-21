@@ -51,6 +51,9 @@ type cancellationClassifier struct {
 	transfers bool
 }
 
+// Exhausted helper searches remain unknown, never evidence of lost cleanup.
+const cancellationCompletionBudget = 1000
+
 func proveCancellation(call *ssa.Call, cancel ssa.Value) CancellationProof {
 	classifier := &cancellationClassifier{
 		cancel:  cancel,
@@ -175,12 +178,19 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 			// https://github.com/infercrane/infercrane/blob/93a43cebe36e01c68c1517d5f1eb97417d01588d/internal/asyncinference/service_lease_test.go#L43-L54
 			return cancellationActionUnknown, true
 		}
-		if callDirectlyInvokesExactArgumentOnEveryReturn(instruction, classifier.cancel) {
+		completion := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+			Instruction: instruction, Target: classifier.cancel, InvokeTarget: true,
+			Budget: ssaflow.NewSearchBudget(cancellationCompletionBudget),
+		})
+		switch completion.State {
+		case ssaflow.EvidenceProven:
 			return cancellationActionRelease, true
+		case ssaflow.EvidenceUnknown:
+			return cancellationActionUnknown, true
+		case ssaflow.EvidenceDisproven:
 		}
-		// A nested static helper may settle the callback, but the shared helper
-		// traversal intentionally accepts aliases that are too broad for an
-		// exact release proof. Preserve it only as conservative Unknown evidence.
+		// The older may-alias invocation query can still identify an ambiguous
+		// handoff outside exact completion's boundary, but cannot prove release.
 		if ssaflow.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel) {
 			return cancellationActionUnknown, true
 		}
@@ -214,28 +224,6 @@ func deferredClosureCaptures(instruction ssa.Instruction, target ssa.Value) bool
 	return ok && slices.ContainsFunc(closure.Bindings, func(binding ssa.Value) bool {
 		return ssaflow.CapturedBindingMatches(binding, target)
 	})
-}
-
-func callDirectlyInvokesExactArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool {
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) == 0 {
-		return false
-	}
-	callee := common.StaticCallee()
-	for index, argument := range common.Args {
-		if argument != target || index >= len(callee.Params) {
-			continue
-		}
-		parameter := callee.Params[index]
-		directInvocation := func(candidate ssa.Instruction) bool {
-			called := ssaflow.InstructionCall(candidate)
-			return called != nil && called.Value == parameter
-		}
-		if !ssaflow.UnownedReturnFromEntryAssumingNonNil(callee, parameter, directInvocation) {
-			return true
-		}
-	}
-	return false
 }
 
 func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) cancellationAction {

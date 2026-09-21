@@ -10,6 +10,10 @@ type CompletionRequest struct {
 	Instruction ssa.Instruction
 	Target      ssa.Value
 	Methods     []string
+	// InvokeTarget asks whether the exact function value Target is invoked,
+	// rather than a method on an object. Methods must be empty. Asynchronous
+	// launches are not invocation completion; their ownership is caller policy.
+	InvokeTarget bool
 	// Coverage defaults to CoverageEveryReturn. Callers asking only whether a
 	// callee may complete the target select CoverageAnywhere.
 	Coverage CompletionCoverage
@@ -28,13 +32,22 @@ type CompletionRequest struct {
 // summaries. A fully searched body that does not complete the target is
 // Disproven.
 func ProveCompletion(request CompletionRequest) CompletionProof {
-	if request.Instruction == nil || request.Target == nil || len(request.Methods) == 0 {
+	if request.Instruction == nil || request.Target == nil {
+		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
+	}
+	if request.InvokeTarget && len(request.Methods) != 0 || !request.InvokeTarget && len(request.Methods) == 0 {
 		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
 	searched := false
 	incomplete := false
-	for _, method := range request.Methods {
+	methods := request.Methods
+	if request.InvokeTarget {
+		methods = []string{""}
+	}
+	for _, method := range methods {
 		search := newCompletionSearch(method, request.Coverage, request.Budget)
+		search.exactInvocation = request.InvokeTarget
+		search.invokeTarget = request.InvokeTarget
 		launch, proven, available := search.completes(request.Instruction, request.Target)
 		if proven {
 			return CompletionProof{Proof{State: EvidenceProven, Reason: launch.reason(), Method: method, Provenance: EvidenceFromLocalSSA}}

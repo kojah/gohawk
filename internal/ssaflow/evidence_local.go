@@ -20,10 +20,11 @@ type identityEvidenceKey struct {
 }
 
 type completionEvidenceKey struct {
-	instruction ssa.Instruction
-	target      ssa.Value
-	methods     string
-	coverage    CompletionCoverage
+	instruction  ssa.Instruction
+	target       ssa.Value
+	methods      string
+	coverage     CompletionCoverage
+	invokeTarget bool
 }
 
 type transferEvidenceKey struct {
@@ -47,10 +48,11 @@ func (evidence *LocalEvidence) Identity(left, right AccessPath) IdentityProof {
 
 func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionProof {
 	key := completionEvidenceKey{
-		instruction: request.Instruction,
-		target:      request.Target,
-		methods:     strings.Join(request.Methods, "\x00"),
-		coverage:    request.Coverage,
+		instruction:  request.Instruction,
+		target:       request.Target,
+		methods:      strings.Join(request.Methods, "\x00"),
+		coverage:     request.Coverage,
+		invokeTarget: request.InvokeTarget,
 	}
 	if proof, ok := evidence.completions[key]; ok {
 		return proof
