@@ -11,6 +11,25 @@ import (
 // SSA for literals as well as writes through equivalent field addresses.
 type snapshotOwner struct{ file *os.File }
 
+// Direct controls distinguish failures in acquisition tracking from failures
+// introduced by storing the same resource in a field or array below.
+func storageDirectLeak(path string) error {
+	f, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	return f.Sync()
+}
+
+func storageDirectClosed(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Sync()
+}
+
 func closeStoredField(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
