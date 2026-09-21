@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -21,7 +22,7 @@ func Analyzer() *analysis.Analyzer {
 	analyzer := &analysis.Analyzer{
 		Name:     "goroutineownership",
 		Doc:      "checks that explicit goroutines have a recognizable join handle or lifecycle owner",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
 	}
 	analyzer.Flags.Var(
 		flagvalue.NewChoice(&config.mode, goroutineModeContext, goroutineModeLifecycle, goroutineModeJoin),
@@ -62,7 +63,7 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				if !ok {
 					continue
 				}
-				analysis := newSpawnAnalysis(function, spawn, config)
+				analysis := newSpawnAnalysis(pass, function, spawn, config)
 				proof := analysis.prove()
 				analysis.emitTrace(pass, proof)
 				if analysis.reportable(proof, testFile) {

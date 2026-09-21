@@ -129,15 +129,29 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 			continue
 		}
 		bit := parameterMaskFor(index)
-		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
+		invokes := func(instruction ssa.Instruction) bool {
 			common := ssaflow.InstructionCall(instruction)
 			if common != nil && ssaflow.SameValue(common.Value, parameter) {
 				return true
 			}
 			imported, ok := importFact(pass, instruction)
 			return ok && factOwnsArgument(instruction, parameter, imported.Invoked)
-		}) {
+		}
+		if ownsOnEveryReturn(function, parameter, invokes) {
 			fact.Invoked |= bit
+		}
+		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
+			if _, asynchronous := instruction.(*ssa.Go); asynchronous {
+				return false
+			}
+			common := ssaflow.InstructionCall(instruction)
+			if common != nil && ssaflow.SameValue(common.Value, parameter) {
+				return true
+			}
+			imported, ok := importFact(pass, instruction)
+			return ok && factOwnsArgument(instruction, parameter, imported.SynchronouslyInvoked)
+		}) {
+			fact.SynchronouslyInvoked |= bit
 		}
 		for _, mask := range lifecycleMasks {
 			if mask.method == "" {

@@ -83,10 +83,14 @@ func recordOrder(pass *analysis.Pass, position token.Pos, relations map[lockRela
 		// accounts the other way around.
 		return
 	}
+	relation := lockRelation{from: ownerKey, to: key}
+	if _, recorded := relations[relation]; recorded {
+		return
+	}
 	if _, exists := relations[lockRelation{from: key, to: ownerKey}]; exists {
 		check.Reportf(pass, check.LockContradictoryOrder, position, "contradictory lock order: %s and %s", key, ownerKey)
 	}
-	relations[lockRelation{from: ownerKey, to: key}] = position
+	relations[relation] = position
 }
 
 func appendUniquePosition(positions []token.Pos, candidate token.Pos) []token.Pos {

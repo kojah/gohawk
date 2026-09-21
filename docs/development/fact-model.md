@@ -33,16 +33,17 @@ list is always the one the code has; do not edit it by hand.
 // function. Each bit identifies an SSA parameter position. This package is
 // internal analysis infrastructure, not a public extension API.
 type Fact struct {
-	Invoked		ParameterMask
-	Closed		ParameterMask
-	Finalized	ParameterMask
-	Released	ParameterMask
-	Shutdown	ParameterMask
-	Stopped		ParameterMask
-	Waited		ParameterMask
-	Committed	ParameterMask
-	RolledBack	ParameterMask
-	ReturnedOwner	ParameterMask
+	Invoked			ParameterMask
+	SynchronouslyInvoked	ParameterMask
+	Closed			ParameterMask
+	Finalized		ParameterMask
+	Released		ParameterMask
+	Shutdown		ParameterMask
+	Stopped			ParameterMask
+	Waited			ParameterMask
+	Committed		ParameterMask
+	RolledBack		ParameterMask
+	ReturnedOwner		ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
 	// caller keeps the obligation. See fields.go.
@@ -118,7 +119,8 @@ visible for the same reason.
 - A lifecycle action guaranteed on every normal return of the callee.
 - Ownership transfer to the result or to an escaping receiver, and its
   opposite, a returned view.
-- Invocation of a func parameter (`Invoked`).
+- Invocation of a func parameter (`Invoked`), and the stricter guarantee that
+  it is invoked in the same goroutine before return (`SynchronouslyInvoked`).
 - Cleanup that happens deeper in a chain of exported calls, because one
   summary is allowed to read the summaries of the functions it calls.
 - Facts on things other than function parameters: `closedomain` attaches a

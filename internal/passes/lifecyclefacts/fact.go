@@ -15,16 +15,17 @@ import (
 // function. Each bit identifies an SSA parameter position. This package is
 // internal analysis infrastructure, not a public extension API.
 type Fact struct {
-	Invoked       ParameterMask
-	Closed        ParameterMask
-	Finalized     ParameterMask
-	Released      ParameterMask
-	Shutdown      ParameterMask
-	Stopped       ParameterMask
-	Waited        ParameterMask
-	Committed     ParameterMask
-	RolledBack    ParameterMask
-	ReturnedOwner ParameterMask
+	Invoked              ParameterMask
+	SynchronouslyInvoked ParameterMask
+	Closed               ParameterMask
+	Finalized            ParameterMask
+	Released             ParameterMask
+	Shutdown             ParameterMask
+	Stopped              ParameterMask
+	Waited               ParameterMask
+	Committed            ParameterMask
+	RolledBack           ParameterMask
+	ReturnedOwner        ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
 	// caller keeps the obligation. See fields.go.
@@ -50,6 +51,7 @@ func (fact *Fact) traceDetails() map[string]string {
 		mask ParameterMask
 	}{
 		{"invoked", fact.Invoked},
+		{"synchronously-invoked", fact.SynchronouslyInvoked},
 		{"closed", fact.Closed},
 		{"finalized", fact.Finalized},
 		{"released", fact.Released},
@@ -91,6 +93,7 @@ const (
 	ClaimRetains
 	ClaimStores
 	ClaimReleases
+	ClaimSynchronouslyInvokes
 )
 
 // Claim returns the parameters this summary makes the claim about.
@@ -107,6 +110,8 @@ func (fact *Fact) Claim(claim Claim) ParameterMask {
 	case ClaimReleases:
 		return fact.Closed | fact.Finalized | fact.Released | fact.Shutdown | fact.Stopped |
 			fact.Committed | fact.RolledBack
+	case ClaimSynchronouslyInvokes:
+		return fact.SynchronouslyInvoked
 	}
 	return 0
 }
@@ -312,6 +317,7 @@ type lifecycleMask struct {
 
 var lifecycleMasks = []lifecycleMask{
 	{name: "Invoked", field: func(fact *Fact) *ParameterMask { return &fact.Invoked }},
+	{name: "SynchronouslyInvoked", field: func(fact *Fact) *ParameterMask { return &fact.SynchronouslyInvoked }},
 	{name: "Closed", method: "Close", field: func(fact *Fact) *ParameterMask { return &fact.Closed }},
 	{name: "Finalized", method: "Finalize", field: func(fact *Fact) *ParameterMask { return &fact.Finalized }},
 	{name: "Released", method: "Release", field: func(fact *Fact) *ParameterMask { return &fact.Released }},

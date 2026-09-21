@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -23,8 +24,8 @@ import (
 // https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/discovery/kubernetes/kubernetes.go#L438-L458
 // Reminal passes its stop channel through several small helpers:
 // https://github.com/harshalgajjar/Reminal/blob/c4fd9e64b3b1deabaaacd5e10b9090a28792148d/internal/client/directoryhost.go#L62-L106
-func goroutineReceivesCallerSignal(spawn *ssa.Go) bool {
-	function, closure := spawnedFunction(spawn)
+func goroutineReceivesCallerSignal(pass *analysis.Pass, spawn *ssa.Go) bool {
+	function, closure := spawnedFunction(pass, spawn)
 	if function == nil {
 		return false
 	}
@@ -45,8 +46,8 @@ func goroutineReceivesCallerSignal(spawn *ssa.Go) bool {
 
 // goroutineReceivesCallerContext reports whether the worker, or a static helper
 // it passes the exact context to, receives from a caller-owned context.
-func goroutineReceivesCallerContext(spawn *ssa.Go) bool {
-	function, closure := spawnedFunction(spawn)
+func goroutineReceivesCallerContext(pass *analysis.Pass, spawn *ssa.Go) bool {
+	function, closure := spawnedFunction(pass, spawn)
 	if function == nil {
 		return false
 	}
@@ -157,34 +158,21 @@ func synctestOwnsGoroutine(function *ssa.Function) bool {
 }
 
 func callbackFunction(value ssa.Value) *ssa.Function {
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return callbackFunction(inner)
-	}
-	switch typed := value.(type) {
-	case *ssa.Function:
-		return typed
-	case *ssa.MakeClosure:
-		function, _ := typed.Fn.(*ssa.Function)
-		return function
-	default:
-		return nil
-	}
+	function, _ := callbackTarget(value)
+	return function
 }
 
 // spawnedLifecycleOwners returns the receiver and captured values that expose
 // a lifecycle method. This is the only name-based evidence in the analyzer and
 // it feeds the opt-in detached audit alone; the default check never consults
 // it. A WaitGroup is excluded so its Wait cannot bypass the terminal Done proof.
-func spawnedLifecycleOwners(spawn *ssa.Go) []ssa.Value {
+func spawnedLifecycleOwners(pass *analysis.Pass, spawn *ssa.Go) []ssa.Value {
 	var owners []ssa.Value
 	if receiver := ssaflow.CallReceiver(spawn.Common()); lifecycleOwner(receiver) {
 		owners = append(owners, receiver)
 	}
-	closure, ok := spawn.Common().Value.(*ssa.MakeClosure)
-	if !ok {
+	_, closure := spawnedFunction(pass, spawn)
+	if closure == nil {
 		return owners
 	}
 	for _, binding := range closure.Bindings {

@@ -1,9 +1,12 @@
 package goroutineownership
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"testing/synctest"
+
+	imported "goroutineownership/lifecycle"
 )
 
 // This file covers direct lifecycle ownership, explicit background transfers,
@@ -11,6 +14,38 @@ import (
 
 func detached() {
 	go func() {}() // want "goroutine is not joined on every return path"
+}
+
+func synchronousCallbackWrapper(callback func()) {
+	callback()
+}
+
+func asynchronousCallbackWrapper(callback func()) {
+	go callback() // want "goroutine is not joined on every return path"
+}
+
+func callerContextThroughSynchronousWrapper(ctx context.Context) {
+	go synchronousCallbackWrapper(func() {
+		<-ctx.Done()
+	})
+}
+
+func callerContextThroughAsynchronousWrapper(ctx context.Context) {
+	go asynchronousCallbackWrapper(func() { // want "goroutine is not joined on every return path"
+		<-ctx.Done()
+	})
+}
+
+func callerContextThroughImportedSynchronousWrapper(ctx context.Context) {
+	go imported.InvokeSynchronously(func() {
+		<-ctx.Done()
+	})
+}
+
+func callerContextThroughImportedAsynchronousWrapper(ctx context.Context) {
+	go imported.InvokeAsynchronously(func() { // want "goroutine is not joined on every return path"
+		<-ctx.Done()
+	})
 }
 
 func joinedBySynctest(t *testing.T) {

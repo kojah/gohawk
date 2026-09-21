@@ -10,6 +10,18 @@ func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Va
 	return search.invokes(instruction, target)
 }
 
+// SpawnInvokesArgumentOnEveryReturn reports whether the function launched by
+// spawn invokes target synchronously before every normal return. The spawn is
+// asynchronous to its caller, but calls made inside its wrapper must not be.
+func SpawnInvokesArgumentOnEveryReturn(spawn *ssa.Go, target ssa.Value) bool {
+	search := &callbackSearch{memo: NewCallGraphMemo[callbackKey, bool]()}
+	// The instruction itself may be a go statement whose callee is the
+	// synchronous wrapper under examination. Calls made by that wrapper still
+	// have to be synchronous: handing the callback to another goroutine does
+	// not make it run before the wrapper returns.
+	return search.searchInvokes(spawn, target)
+}
+
 // callbackSearch answers one callback-completion question. The memo owns the
 // cycle guard and the rule that an answer cut short by it is not retained.
 type callbackSearch struct {
@@ -22,6 +34,9 @@ type callbackKey struct {
 }
 
 func (search *callbackSearch) invokes(instruction ssa.Instruction, target ssa.Value) bool {
+	if _, asynchronous := instruction.(*ssa.Go); asynchronous {
+		return false
+	}
 	return search.memo.Answer(callbackKey{instruction: instruction, target: target}, func() bool {
 		return search.searchInvokes(instruction, target)
 	})
@@ -38,6 +53,9 @@ func (search *callbackSearch) searchInvokes(instruction ssa.Instruction, target 
 	}
 	defer search.memo.Leave(callee)
 	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
+		if _, asynchronous := candidate.(*ssa.Go); asynchronous {
+			return false
+		}
 		common := InstructionCall(candidate)
 		return common != nil && SameValue(common.Value, parameter) || search.invokes(candidate, parameter)
 	})

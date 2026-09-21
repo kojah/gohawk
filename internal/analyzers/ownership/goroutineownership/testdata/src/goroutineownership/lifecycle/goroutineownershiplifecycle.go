@@ -2,6 +2,12 @@ package goroutineownershiplifecycle
 
 import "context"
 
+func InvokeSynchronously(callback func()) { callback() }
+
+func InvokeAsynchronously(callback func()) {
+	go callback() // want "goroutine is not joined on every return path"
+}
+
 func contextBoundWorker(ctx context.Context) {
 	go func() { // want "goroutine is not joined on every return path"
 		<-ctx.Done()

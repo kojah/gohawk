@@ -6,10 +6,12 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -41,6 +43,7 @@ type trackedValue struct {
 }
 
 type spawnAnalysis struct {
+	pass          *analysis.Pass
 	function      *ssa.Function
 	spawn         *ssa.Go
 	config        goroutineOwnershipConfig
@@ -57,16 +60,22 @@ type spawnAnalysis struct {
 	considered []goroutineOwnershipReason
 }
 
-func newSpawnAnalysis(function *ssa.Function, spawn *ssa.Go, config goroutineOwnershipConfig) *spawnAnalysis {
+func newSpawnAnalysis(
+	pass *analysis.Pass,
+	function *ssa.Function,
+	spawn *ssa.Go,
+	config goroutineOwnershipConfig,
+) *spawnAnalysis {
 	analysis := &spawnAnalysis{
+		pass:     pass,
 		function: function,
 		spawn:    spawn,
 		config:   config,
 		actions:  make(map[ssa.Instruction]ownershipAction),
 	}
-	analysis.signals, analysis.groups, analysis.unsettledDone = spawnedCompletionValues(spawn)
+	analysis.signals, analysis.groups, analysis.unsettledDone = spawnedCompletionValues(pass, spawn)
 	if config.mode != goroutineModeJoin {
-		analysis.owners = spawnedLifecycleOwners(spawn)
+		analysis.owners = spawnedLifecycleOwners(pass, spawn)
 	}
 	for _, signal := range analysis.signals {
 		analysis.tracked = append(analysis.tracked, trackedValue{value: signal, kind: trackedSignal})
@@ -85,17 +94,58 @@ func newSpawnAnalysis(function *ssa.Function, spawn *ssa.Go, config goroutineOwn
 	return analysis
 }
 
-func spawnedFunction(spawn *ssa.Go) (*ssa.Function, *ssa.MakeClosure) {
+func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.MakeClosure) {
 	function := spawn.Common().StaticCallee()
 	closure, _ := spawn.Common().Value.(*ssa.MakeClosure)
 	if closure != nil {
 		function, _ = closure.Fn.(*ssa.Function)
+		return ssaflow.ResolvedFunction(function), closure
+	}
+	// A helper that invokes a zero-argument callback before every normal
+	// return is transparent to the spawned worker's lifecycle. Panic-reporting
+	// and tracing wrappers commonly use this shape. Analyze the callback body
+	// so its context, completion signal, and lifecycle owner remain visible.
+	evidence := lifecyclefacts.NewLifecycleEvidence(pass, "goroutineownership", string(check.GoroutineDetached))
+	for index, argument := range spawn.Common().Args {
+		callback, callbackClosure := callbackTarget(argument)
+		if callback == nil || len(callback.Params) != 0 {
+			continue
+		}
+		invoked := ssaflow.SpawnInvokesArgumentOnEveryReturn(spawn, argument)
+		if !invoked {
+			invoked, _ = evidence.CalleeClaims(spawn, index, lifecyclefacts.ClaimSynchronouslyInvokes)
+		}
+		if !invoked {
+			continue
+		}
+		return ssaflow.ResolvedFunction(callback), callbackClosure
 	}
 	return ssaflow.ResolvedFunction(function), closure
 }
 
-func spawnedCompletionValues(spawn *ssa.Go) (signals, groups []ssa.Value, unsettledDone ssa.Instruction) {
-	function, closure := spawnedFunction(spawn)
+func callbackTarget(value ssa.Value) (*ssa.Function, *ssa.MakeClosure) {
+	if inner, ok := ssaflow.UnwrapTransparentValue(
+		value,
+		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+	); ok && inner != value {
+		return callbackTarget(inner)
+	}
+	switch typed := value.(type) {
+	case *ssa.Function:
+		return typed, nil
+	case *ssa.MakeClosure:
+		function, _ := typed.Fn.(*ssa.Function)
+		return function, typed
+	default:
+		return nil, nil
+	}
+}
+
+func spawnedCompletionValues(
+	pass *analysis.Pass,
+	spawn *ssa.Go,
+) (signals, groups []ssa.Value, unsettledDone ssa.Instruction) {
+	function, closure := spawnedFunction(pass, spawn)
 	if function == nil {
 		return nil, nil, nil
 	}

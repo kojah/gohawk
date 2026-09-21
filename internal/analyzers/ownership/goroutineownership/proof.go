@@ -181,10 +181,10 @@ func (analysis *spawnAnalysis) otherWorkerConsumesSignal() bool {
 // spawning function before any local flow is consulted.
 func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 	if analysis.config.mode == goroutineModeContext {
-		if goroutineReceivesCallerSignal(analysis.spawn) {
+		if goroutineReceivesCallerSignal(analysis.pass, analysis.spawn) {
 			return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonStopLifecycle}, true
 		}
-		if goroutineReceivesCallerContext(analysis.spawn) {
+		if goroutineReceivesCallerContext(analysis.pass, analysis.spawn) {
 			return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonContextLifecycle}, true
 		}
 	}
