@@ -1,0 +1,8 @@
+- id: gohawk
+  name: gohawk
+  description: Run gohawk static analysis
+  entry: gohawk
+  language: golang
+  args: [./...]
+  pass_filenames: false
+  types: [go]
