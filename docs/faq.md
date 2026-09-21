@@ -1,187 +1,187 @@
 ---
-title: Frequently asked questions
+title: FAQ
 description: What gohawk checks, how it reasons about Go programs, and how it fits alongside other analysis tools.
 ---
 
 ## What is gohawk?
 
-gohawk is a static-analysis suite for Go focused on concurrency and resource
-management. It uses control-flow and data-flow analysis to find bugs involving
-resources, goroutines, channels, locks, and other lifecycle-sensitive values
-without executing the program.
+gohawk is a set of static analyzers for Go. It looks for bugs in the parts of
+your code that have to be started, stopped, or cleaned up: goroutines,
+channels, locks, subprocesses, and open resources. It finds them by reading
+your code, so nothing has to run.
 
-gohawk is designed to complement tools such as `go vet` and Staticcheck rather
-than replace them.
+It's meant to sit alongside tools like `go vet` and Staticcheck, not replace
+them.
 
 ## Has gohawk found bugs in large-scale projects?
 
-Yes. gohawk has been run against large open-source Go projects as part of its
-precision testing. Findings have led to fixes that were reviewed and merged
-upstream:
-
-- [Docker/Moby: reap the `nft` process on errors](https://github.com/moby/moby/pull/53517)
-  was found with `processownership`. The affected error paths could leave a
-  child process unreaped, and the surrounding pipe handling could deadlock
-  when the child produced enough error output.
-- [Caddy: avoid a lock inversion after constructor failure](https://github.com/caddyserver/caddy/pull/7968)
-  was found with `lockorder`. Two concurrent operations could acquire the same
-  locks in opposite orders and deadlock on a rarely exercised failure path.
-
-These projects have merged fixes originating from gohawk findings; this does
-not necessarily mean that they run gohawk continuously in their own CI.
+Yes, gohawk found an unreaped process in
+[Docker/Moby](https://github.com/moby/moby/pull/53517) and a lock inversion in
+[Caddy](https://github.com/caddyserver/caddy/pull/7968), and both projects
+merged the fixes.
 
 ## What kinds of projects should use gohawk?
 
-Most Go projects can use gohawk as an additional layer of safety. It is
-especially useful for programs that:
-
-- open files, HTTP response bodies, database handles, or compressors;
-- start subprocesses;
-- create timers or cancellation functions;
-- launch goroutines or channel-based producers; or
-- coordinate shared state with mutexes and other synchronization primitives.
-
-This includes servers, command-line tools, infrastructure software, database
-clients, background workers, and concurrent libraries.
+Almost any Go project can. It helps most in code that starts goroutines, runs
+subprocesses, or holds locks, which covers most servers, command-line tools,
+and background workers.
 
 ## What are some advanced bugs that gohawk can catch?
 
-gohawk looks for bugs that require more context than a simple syntax check can
-provide. Examples include:
+gohawk follows your code down every path it can take, so it spots problems a
+line-by-line check would miss. Here are three.
 
-- a resource released on most return paths but leaked on one feasible error
-  path;
-- a subprocess started successfully but never waited on after a later
-  operation fails;
-- two locks acquired in contradictory orders in different parts of a package;
-- a goroutine with a recognizable join mechanism that is not honored before
-  every return;
-- a producer goroutine that can remain blocked after its receiver stops
-  listening;
-- a send that remains reachable after the same channel has been closed;
-- a derived cancellation function that is lost without being called or
-  transferred to another owner; and
-- a local variable mutated by goroutines launched repeatedly from a loop.
+A process that starts, but isn't waited for on one path:
 
-See the [analyzer reference](/analyzers/) for the complete catalog and examples
-of flagged and accepted code.
+```go
+func run(ctx context.Context, wait bool) error {
+  command := exec.CommandContext(ctx, "worker")
+  if err := command.Start(); err != nil {
+    return err
+  }
+  if wait {
+    return command.Wait()
+  }
+  return nil // command is still running
+}
+```
+
+Two functions that take the same locks in opposite orders, which can deadlock:
+
+```go
+func forward() {
+  first.Lock()
+  defer first.Unlock()
+  second.Lock()
+  defer second.Unlock()
+}
+
+func reverse() {
+  second.Lock()
+  defer second.Unlock()
+  first.Lock() // opposite order can deadlock
+  defer first.Unlock()
+}
+```
+
+This lock-order check is off by default. Turn it on with
+`gohawk -tier=extended ./...`.
+
+A goroutine that should be waited for, but one path returns early:
+
+```go
+func refresh(skipWait bool) {
+  var group sync.WaitGroup
+  group.Add(1)
+  go func() {
+    defer group.Done()
+    updateCache()
+  }()
+  if skipWait {
+    return // goroutine is not joined
+  }
+  group.Wait()
+}
+```
+
+The [analyzer reference](/analyzers/) lists every check, with examples of code
+that gets flagged and code that doesn't.
 
 ## How does gohawk compare with other Go static-analysis tools?
 
-**gohawk is meant to complement, not replace, your current suite of analyzers.**
-Each of the following tools has a different role:
+gohawk is meant to work alongside your other analyzers, not replace them. Each
+one covers different ground:
 
-- [`go vet`](https://pkg.go.dev/cmd/vet) ships with Go and checks for a focused
-  set of suspicious constructs. gohawk can run through `go vet` while adding
-  deeper resource-lifecycle and concurrency checks.
-- [Staticcheck](https://staticcheck.dev/) is a broad, mature collection of
-  correctness, performance, simplification, and style checks. gohawk focuses
-  more narrowly on ownership, feasible paths, and lifecycle-sensitive bugs.
-- [NilAway](https://github.com/uber-go/nilaway) specializes in finding
-  potential nil panics. That concern is largely separate from gohawk's
-  resource and concurrency analysis.
-- [gosec](https://github.com/securego/gosec) looks for security vulnerabilities
-  in Go code, including security rules and taint-related analysis. gohawk is
-  primarily concerned with correctness rather than security classification.
-- [go-critic](https://github.com/go-critic/go-critic) provides a broad
-  collection of code-quality, performance, and style diagnostics. Many of its
-  checks identify local patterns, while gohawk concentrates on program flow
-  and lifecycle evidence.
-- [golangci-lint](https://golangci-lint.run/) is not a competing analyzer. It
-  is a runner that provides a common interface for configuring and executing
-  many Go linters, including gohawk through its module-plugin system.
+- [`go vet`](https://pkg.go.dev/cmd/vet) ships with Go and catches a small set
+  of suspicious code. gohawk can run through `go vet` too.
+- [Staticcheck](https://staticcheck.dev/) is a large, mature set of checks.
+  gohawk goes deeper on one narrower topic: who owns a value and who cleans it
+  up.
+- [NilAway](https://github.com/uber-go/nilaway) finds possible nil panics,
+  which gohawk doesn't try to do.
+- [gosec](https://github.com/securego/gosec) looks for security problems, while
+  gohawk looks for correctness bugs.
+- [go-critic](https://github.com/go-critic/go-critic) has many quick checks for
+  style and code quality. gohawk follows how values move through your program.
+- [golangci-lint](https://golangci-lint.run/) isn't an analyzer itself. It runs
+  many linters from one config, and gohawk can be one of them.
 
-Using several of these tools together provides broader coverage than choosing
-only one.
+Using a few of these together catches more than any one alone.
 
 ## Does gohawk integrate with golangci-lint?
 
-Yes. gohawk can be included in a custom golangci-lint binary using
-golangci-lint's module-plugin system.
-
-See the [golangci-lint integration guide](/golangci-lint/) for installation
-and configuration instructions.
+Yes. You can build gohawk into a custom golangci-lint binary with its
+module-plugin system. The [golangci-lint guide](/golangci-lint/) walks you
+through it.
 
 ## Will gohawk create a lot of noise if I add it to my project?
 
-gohawk is deliberately conservative about what it reports. Core diagnostics
-require positive evidence of both an obligation and a violation; when
-ownership or lifecycle behavior cannot be determined safely, gohawk generally
-does not report a finding.
+We work hard to keep it quiet. gohawk reports a problem only when it can see
+both that something needs cleaning up and that it doesn't get cleaned up. When
+it can't tell, it says nothing.
 
-Checks are divided into core, extended, and experimental tiers. Core checks
-have the strongest precision expectations and run by default, while less
-established checks require explicit selection. See [Configuration](/configuration/)
-for details.
+Checks come in three tiers: core, extended, and experimental. Only core checks
+run by default, because they're the ones we trust most. See
+[Configuration](/configuration/) to turn on the others.
 
-No static analyzer is perfect. If gohawk reports something that is not
-actionable, please [open a GitHub issue](https://github.com/kojah/gohawk/issues)
-with the check name, gohawk version, and a minimized example when possible.
+No analyzer is perfect, though. If gohawk flags something that isn't a real
+problem, please [open an issue](https://github.com/kojah/gohawk/issues) with
+the check name, your gohawk version, and a small example if you can. It really
+helps.
 
 ## What does gohawk deliberately not report?
 
-gohawk does not turn missing information into evidence of a bug. Opaque
-callbacks, registries, framework handoffs, interface calls, or ownership
-transfers that the analysis cannot see through are treated as unknown. An
-unknown result suppresses a default diagnostic rather than weakening the
-standard of proof.
+gohawk doesn't treat "I can't see what happens here" as a bug. If a value
+disappears into code it can't look inside, like a callback or a framework, it
+counts that as unknown and leaves it alone.
 
-This means gohawk intentionally accepts some false negatives. Its core checks
-favor a smaller set of actionable findings over broader coverage that depends
-on project names, function names, or guesses about lifecycle behavior.
-Heuristic audits remain opt-in at the experimental tier.
+So yes, it will miss some real bugs on purpose. We'd rather show you a few
+findings you can trust than a pile you have to double-check. Checks that rely
+on educated guesses stay in the experimental tier, which is off by default.
 
 ## I already use `go test -race`. Are gohawk's concurrency checks redundant?
 
-No. The race detector and gohawk observe different kinds of evidence.
+No. They catch different things, and they work well together.
 
-`go test -race` executes instrumented code and reports memory races that
-actually occur during the tested execution. A race in an untested path, or one
-that depends on timing that did not occur during the test, may remain hidden.
+The race detector watches your tests run. It finds races that actually happen
+during those runs, so a race on a path your tests never take can slip by.
 
-gohawk examines possible program paths without executing them. It can also
-detect concurrency defects that are not memory races, such as contradictory
-lock ordering, joins that are not honored, abandoned producer goroutines, and
-sends after a channel has been closed.
-
-The two approaches are complementary, and using both provides better coverage.
+gohawk reads the code instead, so it covers paths your tests might never reach.
+It also finds concurrency bugs that aren't data races at all, like locks taken
+in opposite orders or goroutines nobody waits for.
 
 ## What is SSA?
 
-Static single-assignment form, or SSA, is an intermediate representation of a
-program in which each computed value has a single definition. It makes control
-flow, value provenance, branches, loops, and merges explicit.
+SSA, short for static single-assignment form, is a way of writing out a program
+so that every value is set exactly once. It makes branches, loops, and the
+origin of each value easy to follow.
 
-gohawk uses SSA to answer questions such as whether a resource is released on
-every feasible return path, whether a value was transferred to another owner,
-and whether one operation can occur after another.
+gohawk uses it to answer questions like "is this file closed on every way out
+of the function?" and "was this value handed off to someone else?"
 
-See [Understanding SSA](/development/understanding-ssa/) for a visual
-introduction and examples from Go code.
+[Understanding SSA](/development/understanding-ssa/) explains it visually, with
+Go examples.
 
 ## What is gohawk's reasoning model?
 
-For lifecycle checks, gohawk follows a conservative three-stage model:
+For lifecycle checks, gohawk works in three steps:
 
-1. Find a concrete obligation, such as a resource that must be closed or a
-   goroutine that promises to signal completion.
-2. Classify what happens to the exact value as a join, ownership transfer,
-   unknown operation, or unrelated operation.
-3. Ask whether a valid action covers every relevant return path.
+1. Find something that has to happen, like a file that must be closed or a
+   goroutine that must be waited for.
+2. Follow that exact value and sort what happens to it: it was cleaned up, it
+   was handed to a new owner, it went somewhere gohawk can't see, or it
+   doesn't matter.
+3. Check that every way out of the function is covered.
 
-An unknown callback, registry, framework handoff, or opaque function call does
-not become evidence of a bug. Instead, uncertainty suppresses the default
-diagnostic. This intentionally favors fewer findings over findings that users
-cannot trust.
+When a value goes somewhere gohawk can't see, it stays quiet rather than guess.
 
 The [architecture guide](/architecture/#how-a-lifecycle-analyzer-is-shaped)
-describes this model in more detail.
+goes into more detail.
 
 ## How do I contribute to gohawk?
 
-Contributions are welcome, including bug reports, false-positive reports,
-documentation improvements, analyzer ideas, fixtures, and implementation
-changes.
+We'd love your help, whether it's a bug report, a false positive, or a pull
+request.
 
-Start with the [contributing guide](/contributing/), which explains how
-analyzers are organized, tested, documented, and validated.
+The [contributing guide](/contributing/) shows how analyzers are built, tested,
+and documented.
