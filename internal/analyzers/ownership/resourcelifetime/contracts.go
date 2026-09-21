@@ -1,6 +1,7 @@
 package resourcelifetime
 
 import (
+	"go/token"
 	"go/types"
 	"slices"
 
@@ -89,6 +90,104 @@ func resourceMethod(family, packagePath, receiver, name string, cleanup ...strin
 func readerResource(contract resourceContract) resourceContract {
 	contract.readerClose = true
 	return contract
+}
+
+// DB.Close retires the connections that own DB-prepared driver statements.
+// This is not a claim that the Stmt becomes unusable immediately: outstanding
+// connection users can delay release. Rows, transactions, and Conn-prepared
+// statements keep their own obligations. Require the captured receiver itself,
+// not an existential alias through a mutable cell or a mixed-parent phi.
+// https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/benchmark_test.go#L377-L407
+func closesStatementDatabase(acquisition *ssa.Call, instruction ssa.Instruction) bool {
+	if acquisition == nil || !sqlDatabaseCall(acquisition.Common(), "Prepare", "PrepareContext") {
+		return false
+	}
+	switch instruction.(type) {
+	case *ssa.Call, *ssa.Defer:
+	default:
+		return false
+	}
+	common := ssaflow.InstructionCall(instruction)
+	return sqlDatabaseCall(common, "Close") &&
+		statementParentIdentity(ssaflow.CallReceiver(common), ssaflow.CallReceiver(acquisition.Common()))
+}
+
+// A later closure capture keeps even an unchanged local in a cell. Two loads
+// agree only when one initialization dominates both and no other use of the
+// cell could have changed it before either load. Do not equate arbitrary
+// loads from the same address: that would accept a reassigned DB.
+func statementParentIdentity(left, right ssa.Value) bool {
+	if left == right {
+		return left != nil
+	}
+	l, lok := left.(*ssa.UnOp)
+	r, rok := right.(*ssa.UnOp)
+	if !lok || !rok || l.Op != token.MUL || r.Op != token.MUL || l.X != r.X {
+		return false
+	}
+	cell, ok := l.X.(*ssa.Alloc)
+	if !ok || cell.Referrers() == nil {
+		return false
+	}
+	initialized := false
+	for _, use := range *cell.Referrers() {
+		switch use := use.(type) {
+		case *ssa.UnOp:
+			if use.Op != token.MUL {
+				return false
+			}
+		case *ssa.Store:
+			if initialized || use.Addr != cell || !ssaflow.InstructionDominates(use, l) || !ssaflow.InstructionDominates(use, r) {
+				return false
+			}
+			initialized = true
+		default:
+			if !ssaflow.InstructionDominates(l, use) || !ssaflow.InstructionDominates(r, use) {
+				return false
+			}
+		}
+	}
+	return initialized
+}
+
+func sqlDatabaseCall(common *ssa.CallCommon, names ...string) bool {
+	for _, name := range names {
+		if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
+			PackagePath: "database/sql", Receiver: "DB", Name: name,
+		})) {
+			return true
+		}
+	}
+	return false
+}
+
+// These DB methods obtain a connection through DB.conn, which checks ctx.Done
+// before giving the driver any work. Conn, Tx, and Stmt methods do not share
+// that entry check. Only an ordinary invocation of the exact paired cancel
+// dominating acquisition counts; deadlines, deferred calls, and sleeps do not.
+// https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go#L2794-L2803
+func acquisitionContextCanceled(acquisition *ssa.Call) bool {
+	common := acquisition.Common()
+	if !sqlDatabaseCall(common, "PrepareContext", "QueryContext", "BeginTx") || len(common.Args) < 2 {
+		return false
+	}
+	ctx, ok := common.Args[1].(*ssa.Extract)
+	if !ok || ctx.Index != 0 {
+		return false
+	}
+	constructor, ok := ctx.Tuple.(*ssa.Call)
+	if !ok || !ssaflow.CallMatchesAnySymbol(constructor.Common(),
+		syntax.PackageFunction("context", "WithCancel"),
+		syntax.PackageFunction("context", "WithCancelCause")) {
+		return false
+	}
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](acquisition.Parent()) {
+		cancel, ok := call.Common().Value.(*ssa.Extract)
+		if ok && cancel.Tuple == constructor && cancel.Index == 1 && ssaflow.InstructionDominates(call, acquisition) {
+			return true
+		}
+	}
+	return false
 }
 
 func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {

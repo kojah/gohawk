@@ -16,6 +16,16 @@ without that object.
 The built-in contracts cover files, transactions, SQL rows and statements,
 HTTP response bodies, and gzip/zlib readers and writers.
 
+Closing the exact parent DB, directly or through a dominating defer, suppresses
+missing-release findings for DB-prepared statements. It does not discharge
+rows, transactions, or statements prepared through a Conn. Parent closure is
+not treated as immediate statement invalidation.
+
+DB acquisitions through `PrepareContext`, `QueryContext`, and `BeginTx` are
+known to fail when the exact context from `WithCancel` or `WithCancelCause`
+was synchronously canceled before the call. Conditional, deferred, or concurrent
+cancellation does not establish this, nor do timing or test assertions.
+
 Channel timers and tickers are not cleanup obligations: since Go 1.23, the
 garbage collector can reclaim them without `Stop`. Missing `Stop` alone does
 not establish a leak. This check does not infer legacy main-module or

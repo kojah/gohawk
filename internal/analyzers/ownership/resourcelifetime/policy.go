@@ -12,9 +12,10 @@ type resourceLifetimePolicyResult struct {
 type resourceLifetimeReason string
 
 const (
-	resourceReasonReleaseProven     resourceLifetimeReason = "release-proven"
-	resourceReasonUnownedReturn     resourceLifetimeReason = "unowned-return"
-	resourceReasonOpaqueConsumption resourceLifetimeReason = "opaque-consumption"
+	resourceReasonCanceledAcquisition resourceLifetimeReason = "context-canceled-before-acquisition"
+	resourceReasonReleaseProven       resourceLifetimeReason = "release-proven"
+	resourceReasonUnownedReturn       resourceLifetimeReason = "unowned-return"
+	resourceReasonOpaqueConsumption   resourceLifetimeReason = "opaque-consumption"
 )
 
 func acceptedResourceLifetime(reason resourceLifetimeReason) resourceLifetimePolicyResult {

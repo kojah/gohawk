@@ -48,10 +48,11 @@ func (action resourceAction) String() string {
 
 // resourceAnalysis holds one acquisition's inputs and its memoized labels.
 type resourceAnalysis struct {
-	pass     *analysis.Pass
-	evidence *lifecyclefacts.LifecycleEvidence
-	function *ssa.Function
-	resource ssa.Value
+	acquisition *ssa.Call
+	pass        *analysis.Pass
+	evidence    *lifecyclefacts.LifecycleEvidence
+	function    *ssa.Function
+	resource    ssa.Value
 	// candidate identifies the acquisition every step of this proof serves, and
 	// probe tags every trace event with it so one acquisition's proof can be
 	// read without the interleaved steps of the others in the same function.
@@ -78,6 +79,9 @@ func (analysis *resourceAnalysis) action(instruction ssa.Instruction) resourceAc
 // that stopped the proof, so a reader can tell an interface call from a
 // callee with no body without rereading this code.
 func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourceAction, string) {
+	if closesStatementDatabase(analysis.acquisition, instruction) {
+		return actionUnknown, "statement-parent-closed"
+	}
 	if releasesResource(analysis.evidence, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional) {
 		return actionSettled, actionSettled.String()
 	}
@@ -291,6 +295,12 @@ func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool 
 // prevent proving release, so this is unknown rather than a settled resource.
 // https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/admin/handler_test.go#L1398-L1447
 func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call) bool {
+	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](analysis.function) {
+		if ssaflow.InstructionDominates(deferred, acquisition) && closesStatementDatabase(acquisition, deferred) {
+			analysis.emitAction(deferred, actionUnknown, "statement-parent-closed")
+			return true
+		}
+	}
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
 		if !ssaflow.InstructionDominates(call, acquisition) ||
 			!ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup) {

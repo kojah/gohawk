@@ -31,7 +31,7 @@ func TestAnalyzer(t *testing.T) {
 		}
 	})
 	for name, value := range map[string]string{
-		"gohawk-trace": "resourcelifetime", "gohawk-trace-candidate": "reassigned_cleanup.go", "gohawk-trace-file": path,
+		"gohawk-trace": "resourcelifetime", "gohawk-trace-candidate": "", "gohawk-trace-file": path,
 	} {
 		if err := flags.Set(name, value); err != nil {
 			t.Fatal(err)
@@ -65,6 +65,37 @@ func TestAnalyzer(t *testing.T) {
 	}
 	if !found {
 		t.Error("missing prior-cleanup trace evidence")
+	}
+	assertSQLBoundaryTrace(t, data)
+}
+
+func assertSQLBoundaryTrace(t *testing.T, data []byte) {
+	t.Helper()
+	want := map[string]string{
+		"statement-parent-closed":             "evidence",
+		"context-canceled-before-acquisition": "decision",
+	}
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+		var event struct {
+			Reason    string `json:"reason"`
+			Phase     string `json:"phase"`
+			Outcome   string `json:"outcome"`
+			Candidate string `json:"candidate"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		phase, ok := want[event.Reason]
+		if !ok || !strings.Contains(event.Candidate, "sql_boundaries.go:") {
+			continue
+		}
+		if event.Phase != phase || event.Outcome != "accepted" {
+			t.Errorf("unexpected SQL boundary trace: %+v", event)
+		}
+		delete(want, event.Reason)
+	}
+	if len(want) != 0 {
+		t.Errorf("missing SQL boundary traces: %v", want)
 	}
 }
 

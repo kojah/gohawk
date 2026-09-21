@@ -52,6 +52,9 @@ func evaluateResourceFlow(
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
 	errorValue := ssaflow.CallResult(call, 1)
+	if acquisitionContextCanceled(call) {
+		return acceptedResourceLifetime(resourceReasonCanceledAcquisition)
+	}
 	if testProvesAcquisitionError(call, resource, errorValue, contract.packagePath == "net/http") {
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
@@ -64,7 +67,8 @@ func evaluateResourceFlow(
 	}
 	owners := localResourceOwners(call.Parent(), resource)
 	analysis := &resourceAnalysis{
-		pass: pass, evidence: evidence, function: call.Parent(), resource: resource, candidate: call.Pos(), owners: owners,
+		acquisition: call,
+		pass:        pass, evidence: evidence, function: call.Parent(), resource: resource, candidate: call.Pos(), owners: owners,
 		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
 		probe: analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()),
 	}
