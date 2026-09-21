@@ -3,10 +3,11 @@ title: Installation
 description: Install gohawk and run your first analysis.
 ---
 
-gohawk requires Go 1.27 or newer to build. It officially supports running
-against the Go 1.26 and Go 1.27 commands using the same Go 1.27-built binary.
-Projects may target older language versions through their `go` directive, but
-older Go commands are best effort.
+gohawk requires Go 1.26 or newer to build. It officially supports running
+against the Go 1.26 and Go 1.27 commands. Official release binaries are built
+with Go 1.27 so the same binary supports both versions. Projects may target
+older language versions through their `go` directive, but older Go commands
+are best effort.
 
 ## Install the CLI
 
@@ -37,9 +38,9 @@ Verify the installation:
 gohawk -V
 ```
 
-Reinstall gohawk after upgrading the Go toolchain used by the project. Go
-analysis binaries must be built with a toolchain at least as new as the code
-and standard library they analyze.
+Reinstall gohawk after upgrading the Go toolchain used by the project. A
+locally built analysis binary is supported only for Go versions no newer than
+the toolchain that built it.
 
 ## Run gohawk
 

@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
       - name: Replay reviewed cohort
         run: scripts/precision-regression.py benchmarks/precision/${{ inputs.cohort }}

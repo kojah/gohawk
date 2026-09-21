@@ -23,8 +23,8 @@ plugins:
 ```
 
 Replace `vX.Y.Z` with the gohawk release you want to use. Build the custom
-binary with Go 1.27 or newer. The build toolchain must be at
-least as new as the code the resulting binary will analyze:
+binary with Go 1.26 or newer. The build toolchain must be at least as new as
+the code the resulting binary will analyze:
 
 ```sh
 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2 custom

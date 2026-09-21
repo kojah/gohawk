@@ -3,8 +3,10 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	goversion "go/version"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -137,6 +139,9 @@ func answer() int { return identity{}.value(42) }
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()
+			if goversion.Compare(runtime.Version(), "go"+fixture.version) < 0 {
+				t.Skipf("Go %s fixture requires a newer toolchain than %s", fixture.version, runtime.Version())
+			}
 			module := writeLanguageVersionModule(t, fixture.version, fixture.source)
 			output, exitCode := runCommand(t, module, binary, "./...")
 			if exitCode != 0 || output != "" {

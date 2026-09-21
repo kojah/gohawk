@@ -24,7 +24,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
 
       - name: Run fast static checks
@@ -41,7 +41,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
 
       - name: Run golangci-lint
@@ -58,7 +58,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
 
       - name: Check reachable dependencies for vulnerabilities
@@ -75,7 +75,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
 
       - name: Build and dogfood gohawk
@@ -92,7 +92,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
 
       - name: Run race-enabled tests
@@ -109,7 +109,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
 
       - name: Test the golangci-lint plugin
@@ -126,7 +126,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
 
       - name: Collect coverage
@@ -158,7 +158,7 @@ jobs:
       - name: Set up build toolchain
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
 
       - name: Build compatibility binary
@@ -184,7 +184,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version-file: .go-version
           cache-dependency-path: go.sum
 
       - name: Run exhaustive CLI subprocess matrix
