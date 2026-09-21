@@ -1421,6 +1421,55 @@ captured error with = where the line above it uses :=. Resource findings named
 bodies left open on non-200 paths, a file never closed at all, and a ticker
 never stopped.
 
+## Batch 48 (source review in progress)
+
+Twenty-five fresh repositories with root Go 1.26/1.27 directives were pinned
+and scanned with gohawk `cec1074c40560eabe31f5c91488faa8533299dac`, using
+Go 1.27.0 on linux/amd64. Selection excluded recorded precision cohorts and
+leadgen study repositories, then took eligible candidates from a GitHub search
+for recently updated Go repositories with 500–5,000 stars and size below 30,000.
+The scan included all checks and test source, capped at three modules per
+repository with 180-second scan deadlines. CGO was disabled. No candidate test
+binaries, generation commands, or repository scripts were executed.
+
+Twenty-four scans completed without recorded errors; `ekristen/aws-nuke` timed
+out and is **incomplete**, not clean. The batch yielded 357 diagnostic locations
+(some have multiple check IDs). Of those, 25 have source-reviewed verdicts:
+15 true positives and 10 false positives. The remaining 332 are **unreviewed**;
+these numbers are not a corpus precision estimate. There are 188 occurrences
+of the experimental `goroutineownership/detached` check, not 188 proven leaks.
+
+Artifacts preserve the entire selection and review backlog:
+
+- [Repository pins and scan status](batch-48.tsv).
+- [Per-repository scan counts and errors](batch-48-scans.json).
+- [Every finding, with reviewed verdicts and rationale](batch-48-findings.tsv).
+
+Reviewed false-positive families to investigate before widening the corpus:
+
+- `raviqqe/muffet`: four unjoined-worker reports despite callers fully draining
+  the results channel that the worker closes after completing its work. The
+  test that receives only one result remains unreviewed, not grouped with these.
+- `google/certificate-transparency-go`: a worker batch uses matching WaitGroup
+  Add/Done/Wait, but is reported unjoined; error paths terminate the process.
+- `james-6-23/codex2api`: a registered cleanup captures a database variable that
+  is subsequently reopened; its closed-state guard is reset for the new handle.
+- `pb33f/libopenapi`: two missing-unlock reports despite acquisition and release
+  guarded by the same unchanged Boolean, and a separately paired read lock.
+- `okteto/okteto`: two shared-capture reports for a loop-local error variable
+  with no competing access after the worker starts. Each loop also runs once.
+
+The fifteen confirmed true positives include HTTP bodies lost on error paths,
+database cursors abandoned on Scan errors, unclosed generated/temp files, and
+unbuffered error senders whose parent can already have returned. Timer/ticker
+reports and the remaining lock findings still need review; they are not
+presumed bugs merely because the analyzer reported them.
+
+No analyzer correction or passing regression cohort is claimed for this batch
+yet. Preserve the pending false positives as defects to minimize and investigate,
+not as accepted suppressions. Subsequent work should finish this review and
+address the bounded proof gaps before selecting another batch.
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The

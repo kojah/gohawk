@@ -1,0 +1,295 @@
+{
+  "gohawk_revision": "cec1074c40560eabe31f5c91488faa8533299dac",
+  "toolchain": "go1.27.0 linux/amd64",
+  "profile": "all checks, test source included, CGO disabled, no tests executed",
+  "review_status": "partial",
+  "repositories": [
+    {
+      "repository": "sergelogvinov/proxmox-csi-plugin",
+      "revision": "de26f22489862b11faa2b5a1f309266142b162cb",
+      "go": "1.26.5",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 2
+    },
+    {
+      "repository": "mariadb-operator/mariadb-operator",
+      "revision": "e8ece7a8076954674e10e0381571bd80278ac35f",
+      "go": "1.27.0",
+      "modules": [
+        ".",
+        "licenses/go-licenses/github.com/go-sql-driver/mysql",
+        "licenses/go-licenses/github.com/hashicorp/errwrap"
+      ],
+      "errors": [],
+      "diagnostics": 21,
+      "reviewed": 3
+    },
+    {
+      "repository": "james-6-23/codex2api",
+      "revision": "4f96afe95bb16132347f4ab74e63b0b1fa0f778b",
+      "go": "1.26.6",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 56,
+      "reviewed": 2
+    },
+    {
+      "repository": "mvanhorn/agentcookie",
+      "revision": "290cd74ee3aef1ca30fad35d506529d32a82cc86",
+      "go": "1.26.8",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 7,
+      "reviewed": 0
+    },
+    {
+      "repository": "shizunge/endlessh-go",
+      "revision": "b275088fc8b481735a9dcb37b9f145db030527a9",
+      "go": "1.27.1",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0
+    },
+    {
+      "repository": "grafana/mcp-grafana",
+      "revision": "20b20b3aec8ebc56162ffac233ac9de9e46f5684",
+      "go": "1.26.5",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 0
+    },
+    {
+      "repository": "y3owk1n/neru",
+      "revision": "4e7193750a7b4894790869176f873155129b9019",
+      "go": "1.26.5",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 50,
+      "reviewed": 0
+    },
+    {
+      "repository": "gittuf/gittuf",
+      "revision": "ee0ceb80f8b00f57e3e4abb95574a773e4031eb5",
+      "go": "1.26.0",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 1,
+      "reviewed": 0
+    },
+    {
+      "repository": "hashicorp/terraform-mcp-server",
+      "revision": "e2481878ee40560a91f07c38c09a478ede9fb87a",
+      "go": "1.26.6",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 1
+    },
+    {
+      "repository": "eat-pray-ai/yutu",
+      "revision": "97714ea4ce2da7a38d7bde547718f7048f65ad37",
+      "go": "1.27.0",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 4,
+      "reviewed": 0
+    },
+    {
+      "repository": "i-love-flamingo/flamingo-commerce",
+      "revision": "4a17e8728cfa6853cedcc8824b8530cf97ea2379",
+      "go": "1.26.0",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 0
+    },
+    {
+      "repository": "zishang520/socket.io",
+      "revision": "77563bb47bb9c4262a41edb7395994b8f78c2bb3",
+      "go": "1.26.0",
+      "modules": [
+        ".",
+        "adapters/adapter",
+        "adapters/mongo"
+      ],
+      "errors": [],
+      "diagnostics": 6,
+      "reviewed": 0
+    },
+    {
+      "repository": "abahmed/kwatch",
+      "revision": "ca51953b129adb8e772cd1318d6e79103a034353",
+      "go": "1.27.0",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0
+    },
+    {
+      "repository": "ekristen/aws-nuke",
+      "revision": "6a9b672d73aec50cebef8cac3d9aaa83278ce6ad",
+      "go": "1.26.1",
+      "modules": [
+        "."
+      ],
+      "errors": [
+        "timed out in ."
+      ],
+      "diagnostics": 0,
+      "reviewed": 0
+    },
+    {
+      "repository": "google/certificate-transparency-go",
+      "revision": "f7ce2e30d372f5487a8d9b8e749ca71805c4f68f",
+      "go": "1.26.0",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 28,
+      "reviewed": 6
+    },
+    {
+      "repository": "raviqqe/muffet",
+      "revision": "ea33f85e5644c609a114b00e1f4dfc757b15c8ee",
+      "go": "1.26.0",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 6,
+      "reviewed": 4
+    },
+    {
+      "repository": "okteto/okteto",
+      "revision": "ad42c0823762a2255d4b4ad2e53fb4ec190010e7",
+      "go": "1.26.6",
+      "modules": [
+        ".",
+        "tools",
+        "samples/golang"
+      ],
+      "errors": [],
+      "diagnostics": 105,
+      "reviewed": 2
+    },
+    {
+      "repository": "kubernetes-sigs/dra-driver-nvidia-gpu",
+      "revision": "83b9d60cf4eb325278948d826458227a95f59905",
+      "go": "1.26.0",
+      "modules": [
+        ".",
+        "site",
+        "deployments/devel"
+      ],
+      "errors": [],
+      "diagnostics": 6,
+      "reviewed": 0
+    },
+    {
+      "repository": "Finsys/hawser",
+      "revision": "f81721518d7cf16fc59bbd2bc4cb7ee5fd66b874",
+      "go": "1.26",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 2,
+      "reviewed": 0
+    },
+    {
+      "repository": "Christ9038/Ydisks-Xianyu-Helper",
+      "revision": "42a476fa8f325791509fbadae819984ae12fccfa",
+      "go": "1.26.4",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 28,
+      "reviewed": 1
+    },
+    {
+      "repository": "fluent/fluent-operator",
+      "revision": "352f22c9458ccfcfcebd80541f1c4d026cc9b665",
+      "go": "1.26.6",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 3,
+      "reviewed": 2
+    },
+    {
+      "repository": "pb33f/libopenapi",
+      "revision": "07795ddc2c097af8581138ef290d6cf964110d74",
+      "go": "1.26.0",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 24,
+      "reviewed": 2
+    },
+    {
+      "repository": "joshmedeski/sesh",
+      "revision": "f470ccf2e336c21382689d5cea08f163b64cd9a7",
+      "go": "1.26.0",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0
+    },
+    {
+      "repository": "siderolabs/omni",
+      "revision": "383a925192a4d29fac67faad1da993b5a604a4e2",
+      "go": "1.27.1",
+      "modules": [
+        ".",
+        "client",
+        "hack/zstd-dict"
+      ],
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0
+    },
+    {
+      "repository": "MunifTanjim/stremthru",
+      "revision": "eeccb84e015cc39a69177e18afe5864d5dcae474",
+      "go": "1.26",
+      "modules": [
+        "."
+      ],
+      "errors": [],
+      "diagnostics": 0,
+      "reviewed": 0
+    }
+  ]
+}
