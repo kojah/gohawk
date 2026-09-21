@@ -321,17 +321,23 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value) bool {
 		return false
 	}
 	callee := common.StaticCallee()
+	// Proven read-only use is not cancellation. Unknown effects still go
+	// through the cancellation-specific invocation policy below.
+	if ssaflow.NewCallEffects(ssaflow.NewSearchBudget(cancellationCompletionBudget)).Call(instruction, cancel).PreservesStorage() {
+		return true
+	}
 	found := false
-	for index, argument := range common.Args {
+	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+		argument := binding.Supplied
 		closureContainsCancel := false
 		if _, ok := argument.(*ssa.MakeClosure); ok {
 			closureContainsCancel = ssaflow.ValueContainsValue(argument, cancel)
 		}
-		if index >= len(callee.Params) || argument != cancel && !closureContainsCancel {
+		if argument != cancel && !closureContainsCancel {
 			continue
 		}
 		found = true
-		if !newCancellationUse().parameterResolved(callee, callee.Params[index]) {
+		if !newCancellationUse().parameterResolved(callee, binding.Local) {
 			return false
 		}
 	}
@@ -393,12 +399,12 @@ func (search *cancellationUse) instructionResolved(instruction ssa.Instruction, 
 		return false
 	}
 	matched := false
-	for index, argument := range common.Args {
-		if index >= len(callee.Params) || !exactLocalValueUse(argument, parameter) {
+	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+		if !exactLocalValueUse(binding.Supplied, parameter) {
 			continue
 		}
 		matched = true
-		if !search.parameterResolved(callee, callee.Params[index]) {
+		if !search.parameterResolved(callee, binding.Local) {
 			return false
 		}
 	}

@@ -11,21 +11,16 @@ func callbackCaptureReadOnly(closure *ssa.MakeClosure, cell ssa.Value, budget *S
 	if !ok {
 		return false
 	}
+	query := NewCallEffects(budget)
 	for _, pair := range ClosureBindingPairs(function, closure) {
 		if !budget.Spend() {
 			return false
 		}
-		if pair.Binding != cell || pair.Free.Referrers() == nil {
+		if pair.Binding != cell {
 			continue
 		}
-		for _, access := range *pair.Free.Referrers() {
-			if !budget.Spend() {
-				return false
-			}
-			load, ok := access.(*ssa.UnOp)
-			if !ok || load.Op != token.MUL {
-				return false
-			}
+		if !query.Value(pair.Free).PreservesStorage() {
+			return false
 		}
 	}
 	return true
@@ -128,6 +123,10 @@ func (storage *Storage) addressDoesNotEscapeBetween(address ssa.Value, origin, o
 		switch typed := reference.(type) {
 		case *ssa.DebugRef:
 			continue
+		case *ssa.Call, *ssa.Defer, *ssa.Go:
+			if storage.effects.Call(reference, address).PreservesStorage() {
+				continue
+			}
 		case *ssa.UnOp:
 			if typed.Op == token.MUL && typed.X == address {
 				continue
@@ -157,6 +156,10 @@ func (storage *Storage) rootDoesNotEscapeBetween(root ssa.Value, origin, observa
 		switch typed := reference.(type) {
 		case *ssa.DebugRef, *ssa.FieldAddr, *ssa.IndexAddr:
 			continue
+		case *ssa.Call, *ssa.Defer, *ssa.Go:
+			if storage.effects.Call(reference, root).PreservesStorage() {
+				continue
+			}
 		case *ssa.BinOp:
 			if (typed.Op == token.EQL || typed.Op == token.NEQ) && (DefinitelyNil(typed.X) || DefinitelyNil(typed.Y)) {
 				continue

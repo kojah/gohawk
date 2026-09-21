@@ -147,7 +147,7 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 		// https://github.com/uber-go/mock/blob/539d81c0f42174d17e8f91abcb869bed37605a15/gomock/call.go#L185-L205
 		return actionTransfer
 	}
-	callee, closure := calledFunction(common)
+	callee, closure := ssaflow.DirectCallee(common)
 	_, launched := instruction.(*ssa.Go)
 	if callee == nil || len(callee.Blocks) == 0 || launched {
 		// An opaque callee may retain the value. A launched helper may be a
@@ -209,10 +209,10 @@ func (analysis *spawnAnalysis) unsettledGroup(receiver ssa.Value) bool {
 // source-visible callee, whether as an argument or a captured variable.
 func (analysis *spawnAnalysis) helperAction(common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure) ownershipAction {
 	result := actionNone
-	for _, pair := range suppliedValues(common, callee, closure) {
+	for _, pair := range ssaflow.CallBindings(common, callee, closure) {
 		for _, tracked := range analysis.tracked {
-			if bindingCarries(pair.supplied, tracked.value) {
-				result = strongerAction(result, newHelperSearch().use(callee, pair.local, tracked.kind))
+			if bindingCarries(pair.Supplied, tracked.value) {
+				result = strongerAction(result, newHelperSearch().use(callee, pair.Local, tracked.kind))
 			}
 		}
 	}

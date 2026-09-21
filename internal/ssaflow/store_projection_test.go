@@ -6,8 +6,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-func TestUnmodifiedNonEmptyAccessPathAtBoundaries(t *testing.T) {
-	pkg := buildTestSSA(t, `
+const projectionBoundaryFixture = `
 package ssaflowtest
 
 type closer struct{}
@@ -16,11 +15,30 @@ type owner struct { body *closer }
 
 func acquire() *owner { return nil }
 func cleanup(*closer) {}
-func mutateOwner(*owner) {}
-func mutateSlot(**closer) {}
+func mutateOwner(*owner)
+func mutateSlot(**closer)
+func inspectOwner(p *owner) *closer { return p.body }
+func inspectSlot(p **closer) bool { return *p != nil }
+var retained *owner
+func retainOwner(p *owner) { retained=p }
 
 func accepted() {
 	value := acquire()
+	cleanup(value.body)
+}
+func readOnlyRoot() {
+	value := acquire()
+	inspectOwner(value)
+	cleanup(value.body)
+}
+func readOnlySlot() {
+	value := acquire()
+	inspectSlot(&value.body)
+	cleanup(value.body)
+}
+func retainedRoot() {
+	value := acquire()
+	retainOwner(value)
 	cleanup(value.body)
 }
 func escapedLater() {
@@ -56,12 +74,18 @@ func sibling() {
 	_ = value
 	cleanup(other.body)
 }
-`)
+`
+
+func TestUnmodifiedNonEmptyAccessPathAtBoundaries(t *testing.T) {
+	pkg := buildTestSSA(t, projectionBoundaryFixture)
 	for _, test := range []struct {
 		name string
 		want bool
 	}{
 		{name: "accepted", want: true},
+		{name: "readOnlyRoot", want: true},
+		{name: "readOnlySlot", want: true},
+		{name: "retainedRoot"},
 		{name: "escapedLater", want: true},
 		{name: "reassigned"},
 		{name: "escapedRoot"},

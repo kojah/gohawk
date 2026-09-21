@@ -205,9 +205,9 @@ func signalSuppliedAtCall(
 	if root == channel {
 		return nil
 	}
-	for _, pair := range suppliedValues(spawn.Common(), function, closure) {
-		if ssaflow.ValueAliases(root, pair.local, map[ssa.Value]bool{}) {
-			return ssaflow.CapturedBindingValue(pair.supplied)
+	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
+		if ssaflow.ValueAliases(root, pair.Local, map[ssa.Value]bool{}) {
+			return ssaflow.CapturedBindingValue(pair.Supplied)
 		}
 	}
 	return nil

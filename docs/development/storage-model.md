@@ -34,6 +34,36 @@ be read after registration. Its caller must check the observation's own effects;
 callback mapping already checks that the callee reads its supplied aggregate.
 `Projection` proves an acquired owner's field has not been replaced or exposed.
 
+## Call effects
+
+`ssaflow.CallEffects` supplies bounded local effect evidence to storage and
+lifecycle consumers. It separates reads, mutation, retention, asynchronous
+exposure, and invocation of a supplied callback. `PreservesStorage` requires a
+complete proof with no effect beyond reading. Missing bodies, dynamic dispatch,
+recursive calls, unsupported uses, and exhausted budgets cannot prove safety.
+
+Effects describe the supplied value and directly selected storage, not every
+object reachable from it. Loading a pointer reads its slot; the pointee is not
+the slot. Returning that loaded pointer therefore does not itself expose the
+slot's address. Returning the address, storing it, or handing it to concurrent
+work prevents preservation. Stores (including local spills) are conservative
+retention boundaries, with subsequent effects unknown rather than guessed
+through aliases. Observed flags remain visible on an incomplete proof, but
+missing flags cannot establish the absence of an effect.
+
+The query follows visible static helpers and joins possible effects across all
+uses. It does not assert an effect happens on every return. Retention must not
+be interpreted as ownership transfer, nor reading as cleanup. Imported lifecycle
+facts do not prove read-only behavior: no cross-package effect fact is added.
+
+`CallBindings` centralizes argument/capture mapping for completion and goroutine
+analysis. Captures stay distinguishable from eager arguments; their timing and
+ownership policies remain in their consumers. Callback aggregate and captured
+address checks use the effect query rather than separate read-only scanners.
+
+Return-to-argument relationships, conditional transfers, collection cleanup,
+and general pointer analysis remain outside this increment.
+
 The pure `DefinitelySameValue` and `ProveIdentity` primitives still answer
 value identity and structural path correspondence, respectively. They do not
 guess current contents from historical stores. Likewise, `StoredInto` and

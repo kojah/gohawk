@@ -14,40 +14,6 @@ import (
 // a dynamic callee, a launched goroutine, or an invoked callback derived from
 // the value ends the proof as an escape.
 
-// suppliedValue pairs a callee-local value with the value the call site
-// supplies for it.
-type suppliedValue struct {
-	local    ssa.Value
-	supplied ssa.Value
-}
-
-// suppliedValues lists the parameters and captured variables of callee together
-// with the argument or binding supplied at the call. common may be nil for a
-// callback that is only created, not called, at this instruction.
-func suppliedValues(common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure) []suppliedValue {
-	var pairs []suppliedValue
-	if common != nil {
-		for index, argument := range common.Args {
-			if index < len(callee.Params) {
-				pairs = append(pairs, suppliedValue{local: callee.Params[index], supplied: argument})
-			}
-		}
-	}
-	for _, captured := range ssaflow.ClosureBindingPairs(callee, closure) {
-		pairs = append(pairs, suppliedValue{local: captured.Free, supplied: captured.Binding})
-	}
-	return pairs
-}
-
-func calledFunction(common *ssa.CallCommon) (*ssa.Function, *ssa.MakeClosure) {
-	closure, _ := common.Value.(*ssa.MakeClosure)
-	function := common.StaticCallee()
-	if closure != nil {
-		function, _ = closure.Fn.(*ssa.Function)
-	}
-	return ssaflow.ResolvedFunction(function), closure
-}
-
 // helperUse classifies how a callee treats one parameter or captured variable.
 // The callee joins only when its observation of the value covers every normal
 // return, which is what makes a deferred helper or cleanup callback
@@ -118,12 +84,12 @@ func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind t
 	if receiverJoins(common, kind, derives) {
 		return true
 	}
-	callee, closure := calledFunction(common)
+	callee, closure := ssaflow.DirectCallee(common)
 	if _, launched := instruction.(*ssa.Go); launched || callee == nil {
 		return false
 	}
-	return slices.ContainsFunc(suppliedValues(common, callee, closure), func(pair suppliedValue) bool {
-		return derives(pair.supplied) && search.use(callee, pair.local, kind) == actionJoin
+	return slices.ContainsFunc(ssaflow.CallBindings(common, callee, closure), func(pair ssaflow.CallBinding) bool {
+		return derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionJoin
 	})
 }
 
@@ -187,13 +153,13 @@ func (search *helperSearch) callEscapes(instruction ssa.Instruction, kind tracke
 	if receiverCallRetainsNothing(common, kind, derives) {
 		return false
 	}
-	callee, closure := calledFunction(common)
+	callee, closure := ssaflow.DirectCallee(common)
 	_, launched := instruction.(*ssa.Go)
 	if launched || callee == nil || len(callee.Blocks) == 0 {
 		return slices.ContainsFunc(common.Args, derives) || closure != nil && slices.ContainsFunc(closure.Bindings, derives)
 	}
-	return slices.ContainsFunc(suppliedValues(common, callee, closure), func(pair suppliedValue) bool {
-		return derives(pair.supplied) && search.use(callee, pair.local, kind) == actionUnknown
+	return slices.ContainsFunc(ssaflow.CallBindings(common, callee, closure), func(pair ssaflow.CallBinding) bool {
+		return derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionUnknown
 	})
 }
 

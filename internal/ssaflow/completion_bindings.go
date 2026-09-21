@@ -50,14 +50,15 @@ func (search *completionSearch) invokesTargetLocal(value, local ssa.Value) bool 
 
 func (search *completionSearch) bindCallbackArguments(callee completionCallee) *callbackBindings {
 	bindings := &callbackBindings{values: make(map[ssa.Value]callbackValue)}
-	for index, parameter := range callee.function.Params {
-		if callee.common == nil || index >= len(callee.common.Args) || !search.budget.Spend() {
+	for _, binding := range CallBindings(callee.common, callee.function, callee.closure) {
+		if !search.budget.Spend() {
 			break
 		}
-		bindings.values[parameter] = callbackValue{callee.common.Args[index], search.bindings, callee.invocation}
-	}
-	for _, captured := range ClosureBindingPairs(callee.function, callee.closure) {
-		bindings.values[captured.Free] = callbackValue{captured.Binding, callee.environment, callee.invocation}
+		environment := search.bindings
+		if binding.Captured {
+			environment = callee.environment
+		}
+		bindings.values[binding.Local] = callbackValue{binding.Supplied, environment, callee.invocation}
 	}
 	return bindings
 }
@@ -144,7 +145,7 @@ func callbackAggregate(ref callbackValue, budget *SearchBudget) (callbackValue, 
 	for budget.Spend() {
 		if ref.bindings != nil {
 			if next, ok := ref.bindings.values[ref.value]; ok {
-				if !callbackAggregateReadOnly(ref.value, budget) {
+				if !NewCallEffects(budget).Value(ref.value).PreservesStorage() {
 					return callbackValue{}, false
 				}
 				ref = next
@@ -162,47 +163,6 @@ func callbackAggregate(ref callbackValue, budget *SearchBudget) (callbackValue, 
 		return ref, ok
 	}
 	return callbackValue{}, false
-}
-
-// The caller's allocation may look immutable while a callee writes through
-// its parameter. Admit only direct reads of fields/elements in that callee.
-func callbackAggregateReadOnly(value ssa.Value, budget *SearchBudget) bool {
-	if value.Referrers() == nil {
-		return false
-	}
-	for _, use := range *value.Referrers() {
-		if !budget.Spend() {
-			return false
-		}
-		var address ssa.Value
-		switch use := use.(type) {
-		case *ssa.FieldAddr:
-			address = use
-		case *ssa.IndexAddr:
-			address = use
-		case *ssa.Call:
-			builtin, ok := use.Common().Value.(*ssa.Builtin)
-			if !ok || builtin.Name() != "len" {
-				return false
-			}
-			continue
-		default:
-			return false
-		}
-		if address.Referrers() == nil {
-			return false
-		}
-		for _, access := range *address.Referrers() {
-			if !budget.Spend() {
-				return false
-			}
-			load, ok := access.(*ssa.UnOp)
-			if !ok || load.Op != token.MUL {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func resolveCallbackField(walk ReachingWalk, ref callbackValue, field *ssa.FieldAddr, budget *SearchBudget) (callbackValue, bool) {

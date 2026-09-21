@@ -76,7 +76,8 @@ func differentGroupDoesNotJoin(enabled bool) {
 	}
 }
 
-func mutateStop(*chan struct{}) {}
+// No body: this fixture models an opaque helper, not a proven no-op.
+func mutateStop(*chan struct{})
 
 func opaqueStopMutationDoesNotJoin(enabled bool) {
 	var stop chan struct{}

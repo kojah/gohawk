@@ -134,6 +134,12 @@ consumption suppresses the diagnostic. Any tool that surfaces facts —
 including `gohawk facts` — must keep the summarized-versus-absent distinction
 visible for the same reason.
 
+`LifecycleEvidence.CallEffects` exposes the separate local call-effect proof
+and traces its read, mutation, retention, async, and invocation evidence. A
+clear `Retained` bit is not a read-only guarantee. This query requires a visible
+body and does not synthesize effects from missing lifecycle-summary bits; see
+[Local storage model](../storage-model/).
+
 ## What the model can express
 
 - A lifecycle action guaranteed on every normal return of the callee.

@@ -45,12 +45,23 @@ func TestStorageSnapshots(t *testing.T) {
 		{"dynamicOffset", `x:=[3]*int{a,a,a}; s:=x[idx:]; observe(s[0],a)`, false},
 		{"fullSliceBounds", `x:=[3]*int{b,a,b}; s:=x[1:2:3]; observe(s[0],a)`, true},
 		{"pastSliceLength", `x:=[3]*int{b,a,a}; s:=x[1:2:3]; observe(s[1],a)`, false},
+		{"readOnlyCall", `x:=box{value:a}; read(&x); observe(x.value,a)`, true},
+		{"readOnlyForwarding", `x:=box{value:a}; forward(&x); observe(x.value,a)`, true},
+		{"mutatingCall", `x:=box{value:a}; mutate(&x,b); observe(x.value,a)`, false},
+		{"retainingCall", `x:=box{value:a}; retain(&x); observe(x.value,a)`, false},
+		{"asyncReadCall", `x:=box{value:a}; async(&x); observe(x.value,a)`, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			pkg := ssaflowtest.BuildPackage(t, "storageprobe", `package storageprobe
 type box struct { value *int; count int }
 func observe(a,b *int) {}
-func opaque(any) {}
+func opaque(any)
+var saved *box
+func read(p *box) int { return p.count }
+func forward(p *box) int { return read(p) }
+func mutate(p *box,b *int) { p.value=b }
+func retain(p *box) { saved=p }
+func async(p *box) { go read(p) }
 func probe(a,b *int, pick bool, idx int) { `+test.body+` }
 `)
 			call := heapObservation(t, pkg.Func("probe"))
@@ -83,7 +94,7 @@ func TestStorageDeferredObservation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pkg := ssaflowtest.BuildPackage(t, "storageprobe", `package storageprobe
 func inspect(**int) {}
-func opaque(any) {}
+func opaque(any)
 func probe(a,b *int, pick bool) { `+test.body+` }
 `)
 			for _, call := range InstructionsOf[*ssa.Call](pkg.Func("probe")) {

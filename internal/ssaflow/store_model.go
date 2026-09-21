@@ -12,7 +12,8 @@ import (
 // aliases. Ambiguous writes and address escapes make the answer unknown.
 // Each query owns its budget; no state is shared between analyzed functions.
 type Storage struct {
-	budget *SearchBudget
+	budget  *SearchBudget
+	effects *CallEffects
 }
 
 // StoredValue records the value proved to occupy a location. Unknown does not
@@ -27,7 +28,7 @@ func NewStorage(budget *SearchBudget) *Storage {
 	if budget == nil {
 		budget = NewSearchBudget(1000)
 	}
-	return &Storage{budget: budget}
+	return &Storage{budget: budget, effects: NewCallEffects(budget)}
 }
 
 type storageLocation struct {
@@ -173,6 +174,8 @@ func (storage *Storage) collectUse(address ssa.Value, use, observation ssa.Instr
 		return true
 	case *ssa.MakeClosure:
 		return callbackCaptureReadOnly(use, address, storage.budget)
+	case *ssa.Call, *ssa.Defer, *ssa.Go:
+		return storage.effects.Call(use, address).PreservesStorage()
 	case *ssa.Slice:
 		if callbackSliceOnlyObserved(use, observation, storage.budget) {
 			return true

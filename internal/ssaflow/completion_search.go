@@ -242,19 +242,16 @@ const (
 
 func (search *completionSearch) mappedLocals(callee completionCallee, target ssa.Value, invocation ssa.Instruction) []mappedLocal {
 	var result []mappedLocal
-	for _, captured := range ClosureBindingPairs(callee.function, callee.closure) {
-		if local, ok := search.capturedLocal(callee, captured.Free, captured.Binding, target, invocation); ok {
-			result = append(result, local)
+	for _, binding := range CallBindings(callee.common, callee.function, callee.closure) {
+		var local mappedLocal
+		var ok bool
+		if binding.Captured {
+			local, ok = search.capturedLocal(callee, binding.Local, binding.Supplied, target, invocation)
+		} else {
+			local, ok = search.argumentLocal(binding.Local, binding.Supplied, target)
 		}
-	}
-	if callee.common != nil {
-		for index, parameter := range callee.function.Params {
-			if index >= len(callee.common.Args) {
-				break
-			}
-			if local, ok := search.argumentLocal(parameter, callee.common.Args[index], target); ok {
-				result = append(result, local)
-			}
+		if ok {
+			result = append(result, local)
 		}
 	}
 	return result

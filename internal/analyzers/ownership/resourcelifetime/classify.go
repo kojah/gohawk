@@ -130,6 +130,16 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	for _, argument := range common.Args {
 		carried = carried || analysis.carries(argument)
 	}
+	// A helper may expose the exact resource asynchronously without itself
+	// being launched. That is opaque ownership, not proven cleanup. Conversely,
+	// preserving an address does not prove that a resource loaded through it
+	// stays owned here: the lifecycle-specific rules below still decide that.
+	if carried {
+		effects := analysis.evidence.CallEffects(instruction, analysis.resource)
+		if effects.Proven() && effects.Effects&ssaflow.EffectAsync != 0 {
+			return "call-effects-asynchronous-exposure", true
+		}
+	}
 	if common.IsInvoke() {
 		// The receiver of an interface method is not consumed by being the
 		// receiver; only the resource handed to the method is. The body behind

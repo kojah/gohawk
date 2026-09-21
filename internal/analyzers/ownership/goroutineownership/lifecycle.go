@@ -120,12 +120,12 @@ func receivesAnywhere(function *ssa.Function, local ssa.Value, seen map[*ssa.Fun
 			if common == nil {
 				continue
 			}
-			callee, closure := calledFunction(common)
+			callee, closure := ssaflow.DirectCallee(common)
 			if callee == nil {
 				continue
 			}
-			for _, pair := range suppliedValues(common, callee, closure) {
-				if derives(pair.supplied) && receivesAnywhere(callee, pair.local, seen) {
+			for _, pair := range ssaflow.CallBindings(common, callee, closure) {
+				if derives(pair.Supplied) && receivesAnywhere(callee, pair.Local, seen) {
 					return true
 				}
 			}
