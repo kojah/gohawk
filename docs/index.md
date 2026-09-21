@@ -195,8 +195,9 @@ head:
     };
     const updateToggle = () => {
       if (!(toggle instanceof HTMLButtonElement)) return;
+      toggle.hidden = reducedMotion.matches;
       toggle.disabled = reducedMotion.matches;
-      toggle.textContent = reducedMotion.matches ? '—' : paused ? '▶' : '❘❘';
+      toggle.textContent = paused ? '▶' : '❘❘';
       toggle.setAttribute(
         'aria-label',
         reducedMotion.matches

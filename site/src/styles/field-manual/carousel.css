@@ -180,6 +180,10 @@
 	font-size: 0.85rem;
 }
 
+.source-carousel-controls [data-carousel-toggle][hidden] {
+	display: none;
+}
+
 .source-carousel-arrow,
 .source-carousel-dots button {
 	appearance: none;
@@ -223,6 +227,7 @@
 	place-items: center;
 	width: 1.75rem;
 	height: 2rem;
+	margin: 0;
 	padding: 0;
 	background: transparent;
 }
@@ -233,7 +238,7 @@
 	height: 8px;
 	border-radius: 50%;
 	background: #ffffff;
-	opacity: 0.4;
+	opacity: 0.8;
 }
 
 .source-carousel-dots button[aria-current='true']::before {
