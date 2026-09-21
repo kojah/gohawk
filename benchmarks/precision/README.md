@@ -77,6 +77,13 @@ audit work incremental while still providing regular integration checkpoints.
 
 ## Labels retired with their analyzers
 
+The `exitpolicy` analyzer is retired in full. Skipping a defer on process exit
+does not establish that its cleanup matters after termination; the audit was
+dominated by intentional fatal paths and examples. Rather than accumulating
+intent-based exceptions, its implementation and two round-22 executable
+labels were removed. Historical findings remain as records of the old scans,
+not current coverage; in-flight batch-49 exit findings are retired checks.
+
 The unconditional channel timer/ticker cleanup contract has been removed.
 Twenty-two timer-only labels (20 previously marked true positive, two false
 positive) were removed from the executable cohorts after checking their

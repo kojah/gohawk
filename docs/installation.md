@@ -85,5 +85,5 @@ argument:
 
 ```yaml
       - id: gohawk
-        args: [-json, -enable-all, -disable=exitpolicy, ./...]
+        args: [-json, -enable-all, ./...]
 ```

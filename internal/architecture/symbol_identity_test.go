@@ -12,7 +12,6 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 	// These uses need package metadata rather than one exact declaration. Keep
 	// the expected counts explicit so every new escape prompts architecture review.
 	allowed := map[string]int{
-		"ownership/exitpolicy/analyzer.go":            1, // Package path is diagnostic display metadata.
 		"reliability/errorclassification/analyzer.go": 1, // Text-preserving strings transforms are a package family.
 		"reliability/taintpolicy/analyzer.go":         1, // User-configured sanitizers need qualified call metadata.
 	}

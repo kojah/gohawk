@@ -21,7 +21,6 @@ const (
 	ChannelCallerClose       ID = "channelownership/caller-close"
 	ChannelSendAfterClose    ID = "channelsafety/send-after-close"
 	DeferCleanupInLoop       ID = "deferinloop/cleanup-lifetime"
-	ExitSkipsDefer           ID = "exitpolicy/skipped-defer"
 	GoroutineJoin            ID = "goroutineownership/unjoined"
 	ProducerLifecycleSend    ID = "producerlifecycle/abandoned-send"
 	ProcessWait              ID = "processownership/missing-wait"

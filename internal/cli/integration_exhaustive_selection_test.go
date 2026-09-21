@@ -33,7 +33,7 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		}
 		for _, summary := range []string{
 			"ownership (ownership and lifecycle): borrowedstorage~, cancellationownership, channelsafety, deferinloop, " +
-				"exitpolicy+, goroutineownership, producerlifecycle, processownership, resourcelifetime",
+				"goroutineownership, producerlifecycle, processownership, resourcelifetime",
 			"reliability (reliability and safety): concurrentcapture, inlineerror, evalorder, lockorder, oncepolicy, syncmapatomicity",
 		} {
 			if !strings.Contains(output, summary) {

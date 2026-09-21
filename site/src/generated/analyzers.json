@@ -70,22 +70,6 @@
           "options": []
         },
         {
-          "name": "exitpolicy",
-          "summary": "Checks process termination that bypasses registered defers.",
-          "path": "analyzers/ownership-and-lifecycle/exitpolicy",
-          "tier": "extended",
-          "checks": [
-            {
-              "id": "exitpolicy/skipped-defer",
-              "summary": "Reports immediate process termination that bypasses an earlier defer.",
-              "kind": "hazard",
-              "tier": "extended"
-            }
-          ],
-          "suggestedFix": false,
-          "options": []
-        },
-        {
           "name": "goroutineownership",
           "summary": "Checks that proven goroutine completion obligations are honored.",
           "path": "analyzers/ownership-and-lifecycle/goroutineownership",

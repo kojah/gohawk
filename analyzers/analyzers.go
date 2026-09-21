@@ -72,7 +72,6 @@ func newCatalog() (*catalog.Catalog, error) {
 		"lockorder",
 		"resourcelifetime",
 		"deferinloop",
-		"exitpolicy",
 		"determinism",
 		"concurrentcapture",
 		"evalorder",

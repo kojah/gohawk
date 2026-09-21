@@ -35,10 +35,6 @@ These analyzers look for work or resources whose owner cannot be identified on e
     <span class="analyzer-name">deferinloop</span>
     <span class="analyzer-detects">Checks cleanup defers whose lifetime extends across loop iterations.</span>
   </a>
-  <a class="analyzer-card" href="ownership-and-lifecycle/exitpolicy/">
-    <span class="analyzer-name">exitpolicy</span>
-    <span class="analyzer-detects">Checks process termination that bypasses registered defers.</span>
-  </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/goroutineownership/">
     <span class="analyzer-name">goroutineownership</span>
     <span class="analyzer-detects">Checks that proven goroutine completion obligations are honored.</span>

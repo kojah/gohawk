@@ -11,7 +11,6 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelownership"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelsafety"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/deferinloop"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/exitpolicy"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/goroutineownership"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/processownership"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/producerlifecycle"
@@ -128,12 +127,6 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.DeferCleanupInLoop, Doc: "Reports cleanup defers whose lifetime extends across loop iterations.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: exitpolicy.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ExitSkipsDefer, Doc: "Reports immediate process termination that bypasses an earlier defer.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
 			},
 		}},
 		{Analyzer: goroutineownership.Analyzer(), Checks: []catalog.CheckInfo{

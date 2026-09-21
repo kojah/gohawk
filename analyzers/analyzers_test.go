@@ -20,7 +20,6 @@ func expectedAnalyzerNames() []string {
 		"lockorder",
 		"resourcelifetime",
 		"deferinloop",
-		"exitpolicy",
 		"concurrentcapture",
 		"evalorder",
 		"oncepolicy",
@@ -107,7 +106,6 @@ func TestAnalyzerGroups(t *testing.T) {
 				"cancellationownership",
 				"channelsafety",
 				"deferinloop",
-				"exitpolicy",
 				"goroutineownership",
 				"producerlifecycle",
 				"processownership",
@@ -168,11 +166,10 @@ func TestAnalyzerMetadata(t *testing.T) {
 	if len(metadata) != len(expectedAnalyzerNames()) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
-	extended := map[string]bool{"exitpolicy": true}
+	extended := map[string]bool{}
 	experimental := map[string]bool{"borrowedstorage": true}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
-		"exitpolicy/skipped-defer":           CheckTierExtended,
 		"processownership/detached":          CheckTierExperimental,
 		"resourcelifetime/use-after-release": CheckTierCore,
 		"lockorder/contradictory-order":      CheckTierExtended,
@@ -185,7 +182,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"borrowedstorage/overlapping-owner":  CheckKindHazard,
 		"channelsafety/send-after-close":     CheckKindDefect,
 		"deferinloop/cleanup-lifetime":       CheckKindHazard,
-		"exitpolicy/skipped-defer":           CheckKindHazard,
 		"goroutineownership/unjoined":        CheckKindHazard,
 		"processownership/detached":          CheckKindHazard,
 		"producerlifecycle/abandoned-send":   CheckKindHazard,

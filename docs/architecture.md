@@ -150,8 +150,8 @@ repository's `AGENTS.md`.
 ## Where to start
 
 For a small syntax-based analyzer, start with
-`internal/analyzers/ownership/deferinloop`. For a small analyzer that follows
-program flow, start with `internal/analyzers/ownership/exitpolicy`.
+`internal/analyzers/reliability/oncepolicy`. For a lifecycle analyzer that follows
+program flow, start with `internal/analyzers/ownership/deferinloop`.
 
 Continue with [How to contribute](../contributing/) for the steps involved in
 adding or changing an analyzer.
