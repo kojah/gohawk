@@ -1,0 +1,2647 @@
+{
+  "criteria": "Nonfork, nonarchived Go repositories; stars 500..5000; size<30000; root Go1.26/1.27 compatible with local1.27.0; exclude prior audited/outreach/in-flight repositories",
+  "search_pages": [
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 1,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 2,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 3,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 4,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 5,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 6,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 7,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 8,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 9,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:500..799 size:<30000",
+      "page": 10,
+      "total_count": 1550,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:800..1199 size:<30000",
+      "page": 1,
+      "total_count": 947,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:800..1199 size:<30000",
+      "page": 2,
+      "total_count": 947,
+      "incomplete_results": false
+    },
+    {
+      "query": "language:Go archived:false fork:false stars:800..1199 size:<30000",
+      "page": 3,
+      "total_count": 947,
+      "incomplete_results": false
+    }
+  ],
+  "history_paths": [
+    "benchmarks/precision/round-4/repositories.tsv",
+    "benchmarks/precision/round-40/repositories.tsv",
+    "benchmarks/precision/round-48/repositories.tsv",
+    "benchmarks/precision/round-39/repositories.tsv",
+    "benchmarks/precision/round-9/repositories.tsv",
+    "benchmarks/precision/round-44/repositories.tsv",
+    "benchmarks/precision/round-35/repositories.tsv",
+    "benchmarks/precision/round-3/repositories.tsv",
+    "benchmarks/precision/round-23/repositories.tsv",
+    "benchmarks/precision/round-25/repositories.tsv",
+    "benchmarks/precision/round-11/repositories.tsv",
+    "benchmarks/precision/round-16/repositories.tsv",
+    "benchmarks/precision/round-8/repositories.tsv",
+    "benchmarks/precision/round-17/repositories.tsv",
+    "benchmarks/precision/round-31/repositories.tsv",
+    "benchmarks/precision/round-19/repositories.tsv",
+    "benchmarks/precision/round-22/repositories.tsv",
+    "benchmarks/precision/round-45/repositories.tsv",
+    "benchmarks/precision/round-37/repositories.tsv",
+    "benchmarks/precision/round-21/repositories.tsv",
+    "benchmarks/precision/round-27/repositories.tsv",
+    "benchmarks/precision/round-51/repositories.tsv",
+    "benchmarks/precision/round-52/repositories.tsv",
+    "benchmarks/precision/round-5/repositories.tsv",
+    "benchmarks/precision/round-6/repositories.tsv",
+    "benchmarks/precision/round-26/repositories.tsv",
+    "benchmarks/precision/round-47/repositories.tsv",
+    "benchmarks/precision/round-10/repositories.tsv",
+    "benchmarks/precision/round-20/repositories.tsv",
+    "benchmarks/precision/round-12/repositories.tsv",
+    "benchmarks/precision/round-34/repositories.tsv",
+    "benchmarks/precision/round-24/repositories.tsv",
+    "benchmarks/precision/round-18/repositories.tsv",
+    "benchmarks/precision/round-28/repositories.tsv",
+    "benchmarks/precision/round-13/repositories.tsv",
+    "benchmarks/precision/round-46/repositories.tsv",
+    "benchmarks/precision/round-49/repositories.tsv",
+    "benchmarks/precision/round-50/repositories.tsv",
+    "benchmarks/precision/round-7/repositories.tsv",
+    "benchmarks/precision/round-36/repositories.tsv",
+    "benchmarks/precision/round-33/repositories.tsv",
+    "benchmarks/precision/round-15/repositories.tsv",
+    "benchmarks/precision/round-41/repositories.tsv",
+    "benchmarks/precision/round-42/repositories.tsv",
+    "benchmarks/precision/round-43/repositories.tsv",
+    "benchmarks/precision/round-14/repositories.tsv",
+    "benchmarks/precision/round-30/repositories.tsv",
+    "benchmarks/precision/round-32/repositories.tsv",
+    "benchmarks/precision/round-2/repositories.tsv",
+    "benchmarks/precision/round-38/repositories.tsv",
+    "benchmarks/precision/round-29/repositories.tsv",
+    "benchmarks/precision/audits/500-repository.tsv",
+    "benchmarks/precision/audits/batch-49.tsv",
+    "benchmarks/precision/audits/batch-48-findings.tsv",
+    "benchmarks/precision/audits/batch-48.tsv",
+    "benchmarks/precision/audits/batch-49-findings.tsv",
+    ".build/audit-batch49-manifest.tsv"
+  ],
+  "excluded_history_count": 2572,
+  "reviewed_candidate_count": 1156,
+  "eligible_count": 258,
+  "selected": [
+    {
+      "repository": "fclairamb/ftpserver",
+      "stars": 796,
+      "size": 6712,
+      "pushed_at": "2026-09-21T22:31:50Z",
+      "revision": "e072b7c5cccd481b85dc19aa4ea9243825736c8d",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "goravel/framework",
+      "stars": 527,
+      "size": 8410,
+      "pushed_at": "2026-09-21T00:46:36Z",
+      "revision": "f54ab135fac3c767d1c0f978cc76aa8249f748c5",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.27.0",
+      "eligible": true
+    },
+    {
+      "repository": "release-argus/Argus",
+      "stars": 744,
+      "size": 22939,
+      "pushed_at": "2026-09-20T23:43:04Z",
+      "revision": "3f623091f96c8e1652bd55ac3d32a8ecfa9299bd",
+      "go_directive": "1.27",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "max-baz/yubikey-touch-detector",
+      "stars": 538,
+      "size": 299,
+      "pushed_at": "2026-09-20T22:10:27Z",
+      "revision": "0f1b3e3a8ae1b9eba01a049974ed73c633902d5a",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "gylive/ccodex-sleep-state",
+      "stars": 561,
+      "size": 963,
+      "pushed_at": "2026-09-20T16:33:30Z",
+      "revision": "dab37ce36c48818f81ec15fc152a6c7058991ace",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "mautrix/signal",
+      "stars": 672,
+      "size": 4479,
+      "pushed_at": "2026-09-20T14:12:24Z",
+      "revision": "32b9e0ca68322f3dec5196a89762580e98c7623a",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "kreuzwerker/m1-terraform-provider-helper",
+      "stars": 541,
+      "size": 394,
+      "pushed_at": "2026-09-20T11:13:30Z",
+      "revision": "620118e67b40467c37e538309973fddc6c73964e",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "padok-team/burrito",
+      "stars": 754,
+      "size": 17654,
+      "pushed_at": "2026-09-21T19:01:06Z",
+      "revision": "dec2a4e7e780c71bb2b15c1061a9eb7f364d3ff4",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "okf-memory/okf-agent-memory",
+      "stars": 712,
+      "size": 673,
+      "pushed_at": "2026-09-20T04:52:54Z",
+      "revision": "9413d7780714165dcb8e82fff73b9f966feb653a",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "mynaparrot/plugNmeet-server",
+      "stars": 537,
+      "size": 5349,
+      "pushed_at": "2026-09-20T03:56:46Z",
+      "revision": "6ac49d3e2bfeb9ddb19ac053081959022ccf84a9",
+      "go_directive": "1.26.7",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "opskat/opskat",
+      "stars": 677,
+      "size": 16454,
+      "pushed_at": "2026-09-20T20:09:24Z",
+      "revision": "956c932b37742f4032c5ae608c7110d9637f221b",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "awslabs/ssosync",
+      "stars": 666,
+      "size": 1191,
+      "pushed_at": "2026-09-19T21:55:49Z",
+      "revision": "2be26a9b13907be0449636c8bbaab85769a0cc59",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "brexhq/CrabTrap",
+      "stars": 788,
+      "size": 1503,
+      "pushed_at": "2026-09-21T14:03:38Z",
+      "revision": "9cfde5e8a687afb47ed0c7dcd832801d049e067b",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "NimbleMarkets/ntcharts",
+      "stars": 795,
+      "size": 7968,
+      "pushed_at": "2026-09-19T20:48:01Z",
+      "revision": "7bd3f59074c72a258089e7d6fb629763041eab4e",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "theupdateframework/go-tuf",
+      "stars": 717,
+      "size": 2760,
+      "pushed_at": "2026-09-19T19:52:14Z",
+      "revision": "35603a4e517e9a50a271639989cb3532a1e530ab",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "mensfeld/code-on-incus",
+      "stars": 727,
+      "size": 9232,
+      "pushed_at": "2026-09-20T19:54:21Z",
+      "revision": "cbf355382bf61d24ee181d58db86ba1477a412be",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "hybridgroup/yzma",
+      "stars": 635,
+      "size": 1772,
+      "pushed_at": "2026-09-19T17:27:43Z",
+      "revision": "00744d16f6f6d2b3dc2ae12fe8f6b52e038fe7d5",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "grafana/terraform-provider-grafana",
+      "stars": 512,
+      "size": 20838,
+      "pushed_at": "2026-09-21T23:04:17Z",
+      "revision": "f58c236e2b9cb5e69fae60ab3154e7ed9146a084",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "strukturag/nextcloud-spreed-signaling",
+      "stars": 532,
+      "size": 6028,
+      "pushed_at": "2026-09-21T20:43:11Z",
+      "revision": "3c3e0dbea1bb1159fced6dd5f2beb55ae01b434b",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "decke/smtprelay",
+      "stars": 634,
+      "size": 518,
+      "pushed_at": "2026-09-21T10:17:17Z",
+      "revision": "0df87cab3b0f25c33f82eb7da6a55d7159ccf482",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "ekalinin/github-markdown-toc.go",
+      "stars": 525,
+      "size": 422,
+      "pushed_at": "2026-09-19T11:14:16Z",
+      "revision": "800f0479ad823108113059758d95dbc68486fc29",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "trzsz/tsshd",
+      "stars": 543,
+      "size": 554,
+      "pushed_at": "2026-09-19T08:42:21Z",
+      "revision": "2a2d435e754e3d05d3f27178f6bd934fe19ad22f",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kelindar/search",
+      "stars": 559,
+      "size": 754,
+      "pushed_at": "2026-09-19T08:35:34Z",
+      "revision": "1c30877fb8bd51d111166cc7d6c9a5c17eab90b4",
+      "go_directive": "1.27.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "criyle/go-judge",
+      "stars": 618,
+      "size": 1069,
+      "pushed_at": "2026-09-19T08:13:06Z",
+      "revision": "c7d71e3cc2b18d2a43387a462f314b8e40e89183",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "nix-community/nixos-facter",
+      "stars": 710,
+      "size": 7668,
+      "pushed_at": "2026-09-21T07:40:09Z",
+      "revision": "4fa12681b9be0f77334585e3ef44c2747edccf25",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "temporalio/samples-go",
+      "stars": 750,
+      "size": 7730,
+      "pushed_at": "2026-09-18T23:22:07Z",
+      "revision": "e9f36fee3251a5c7ad9b798cab710a6e7283b295",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "Boeing/config-file-validator",
+      "stars": 517,
+      "size": 22621,
+      "pushed_at": "2026-09-21T01:57:12Z",
+      "revision": "fb609c0313e8fbf4a5df46eb60c19aa2e89d7b33",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "paradigmxyz/iron-proxy",
+      "stars": 676,
+      "size": 3249,
+      "pushed_at": "2026-09-18T16:08:43Z",
+      "revision": "5bd11abeb95ca734c767cfc992ea9be862700614",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kube-rbac-proxy/kube-rbac-proxy",
+      "stars": 686,
+      "size": 29935,
+      "pushed_at": "2026-09-18T14:55:17Z",
+      "revision": "5519c8db609ab704a9503e2b035accf32f3d142b",
+      "go_directive": "1.26.8",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "redpanda-data/benthos",
+      "stars": 571,
+      "size": 27539,
+      "pushed_at": "2026-09-21T12:04:49Z",
+      "revision": "c2a2dcffc93d21a4fb91ccdf863b61a9eb5a1627",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "tilt-dev/ctlptl",
+      "stars": 723,
+      "size": 979,
+      "pushed_at": "2026-09-18T11:40:02Z",
+      "revision": "9a9f7b1621517d4dcb36c716b89ca99e55624c49",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "fluxcd/helm-controller",
+      "stars": 511,
+      "size": 5601,
+      "pushed_at": "2026-09-21T03:03:37Z",
+      "revision": "9e3b557701a90cfd1a488631e656f6ff9b78e0b4",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "epinio/epinio",
+      "stars": 605,
+      "size": 24448,
+      "pushed_at": "2026-09-21T21:10:40Z",
+      "revision": "79a39e68855077d9efce0e8d6a4030dad876fefe",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "hashicorp/vault-secrets-operator",
+      "stars": 602,
+      "size": 4595,
+      "pushed_at": "2026-09-21T14:08:33Z",
+      "revision": "451a61fc0eda5b26e65dedb03e76fa8ec02b2984",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "vrothberg/vgrep",
+      "stars": 707,
+      "size": 18654,
+      "pushed_at": "2026-09-18T08:37:41Z",
+      "revision": "2dcbc64bdd05d352115a513085be7f3c463d1a0f",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "zalando-incubator/kube-metrics-adapter",
+      "stars": 542,
+      "size": 2629,
+      "pushed_at": "2026-09-21T06:28:50Z",
+      "revision": "4d9ae8d809feea684eb61b314284b886baa0373c",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "fzwoch/obs-teleport",
+      "stars": 645,
+      "size": 902,
+      "pushed_at": "2026-09-21T18:08:42Z",
+      "revision": "85b10f6a786ec49038437a8709c1a7fed2ff6c80",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "databacker/mysql-backup",
+      "stars": 762,
+      "size": 866,
+      "pushed_at": "2026-09-18T06:56:19Z",
+      "revision": "7510e3fc2f2ff27e60d74056ffbfb03277a27747",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "microsoft/ghqr",
+      "stars": 528,
+      "size": 505,
+      "pushed_at": "2026-09-21T05:22:23Z",
+      "revision": "14ec0ba09819322c8a2a7296f9ee863cf254b4b0",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "abhinav/git-spice",
+      "stars": 769,
+      "size": 7465,
+      "pushed_at": "2026-09-21T01:37:14Z",
+      "revision": "87c660b2b3738596c04d6bd98015bb62cee51ef4",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kubernetes/sample-apiserver",
+      "stars": 603,
+      "size": 23645,
+      "pushed_at": "2026-09-18T00:42:18Z",
+      "revision": "c14e47103c4645d7ca825fdf8bfc7c72980e2459",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kedacore/http-add-on",
+      "stars": 554,
+      "size": 3167,
+      "pushed_at": "2026-09-17T23:25:29Z",
+      "revision": "5355d0a17578be9a7566a89f495af093eea6b584",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "Azure/draft",
+      "stars": 644,
+      "size": 28436,
+      "pushed_at": "2026-09-17T23:05:38Z",
+      "revision": "8ccc5a5fe1272478d4badfe0e26eb5e5051d908e",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "portainer/kubesolo",
+      "stars": 580,
+      "size": 1730,
+      "pushed_at": "2026-09-17T22:01:59Z",
+      "revision": "a031f7d048e967d8c08a9980fd1557b6242aa814",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "pilinux/gorest",
+      "stars": 505,
+      "size": 1898,
+      "pushed_at": "2026-09-17T21:34:57Z",
+      "revision": "bd1a9a1a500c3e53aaa58c0c30be95c799e5bfaa",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "bjarneo/ku",
+      "stars": 557,
+      "size": 428,
+      "pushed_at": "2026-09-17T20:22:56Z",
+      "revision": "731168a38ba72307fea93c424e0e6220d26c60c2",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "google/oss-rebuild",
+      "stars": 713,
+      "size": 4552,
+      "pushed_at": "2026-09-17T20:12:26Z",
+      "revision": "d9cd3c33e2d7c26149054aee16456428a750f89d",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "aws/secrets-store-csi-driver-provider-aws",
+      "stars": 596,
+      "size": 751,
+      "pushed_at": "2026-09-17T22:14:23Z",
+      "revision": "a8f9f58f9dc951766134cc60a04c00b2c1a67a6a",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "redpanda-data/kminion",
+      "stars": 706,
+      "size": 8597,
+      "pushed_at": "2026-09-17T17:00:38Z",
+      "revision": "7803c999f4b8aaec626dac410d9fd28321d1ae2a",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kubernetes-sigs/gateway-api-inference-extension",
+      "stars": 770,
+      "size": 21516,
+      "pushed_at": "2026-09-21T21:44:33Z",
+      "revision": "4e9bfc7833f241663e9a9e9fc0090ef9ae549311",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "xssnick/tonutils-go",
+      "stars": 686,
+      "size": 27422,
+      "pushed_at": "2026-09-21T12:47:58Z",
+      "revision": "749603ab237d058cac5be4c42d36a52064db8b58",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "canonical/microcloud",
+      "stars": 536,
+      "size": 6259,
+      "pushed_at": "2026-09-17T12:18:15Z",
+      "revision": "d76301bb62fc4b87a0e12a1cd6d117e61da32f2b",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "piraeusdatastore/piraeus-operator",
+      "stars": 562,
+      "size": 10329,
+      "pushed_at": "2026-09-21T21:24:13Z",
+      "revision": "bfa10a98f6781696119dc3b34f06bc2e306a0e43",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "portainer/agent",
+      "stars": 588,
+      "size": 9432,
+      "pushed_at": "2026-09-17T00:20:23Z",
+      "revision": "fb43126f1885996e3a8419c272215d53fdac90b0",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "cyberark/summon",
+      "stars": 762,
+      "size": 1868,
+      "pushed_at": "2026-09-16T21:37:19Z",
+      "revision": "d42f0517dd7ef31e6cbbadb6e1963394d6aab90b",
+      "go_directive": "1.26.7",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "sourcenetwork/vera",
+      "stars": 589,
+      "size": 4611,
+      "pushed_at": "2026-09-16T21:11:17Z",
+      "revision": "ab388dfe690c254ef42a450f5112f96df605bd7e",
+      "go_directive": "1.26.2",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "replicatedhq/troubleshoot",
+      "stars": 586,
+      "size": 12464,
+      "pushed_at": "2026-09-21T14:09:10Z",
+      "revision": "eacd376c1245fe2ebcc3581f015f692d77d89af4",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "Azure/kubelogin",
+      "stars": 585,
+      "size": 5062,
+      "pushed_at": "2026-09-16T20:17:38Z",
+      "revision": "911deca204062c402d03b91887c4d57e5a881542",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "hashicorp/raft-boltdb",
+      "stars": 705,
+      "size": 128,
+      "pushed_at": "2026-09-16T15:43:30Z",
+      "revision": "7915f80fb457a747c5dd50821d7de3dffa0fd9c3",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "yokecd/yoke",
+      "stars": 777,
+      "size": 14694,
+      "pushed_at": "2026-09-16T02:15:59Z",
+      "revision": "99098644d46497c80c1450718cb7865474757442",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "algolia/sup3rS3cretMes5age",
+      "stars": 569,
+      "size": 8413,
+      "pushed_at": "2026-09-15T21:42:37Z",
+      "revision": "2077fb889eb6874ced7a6ea62cab36188fca36a1",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "digitalocean/clusterlint",
+      "stars": 598,
+      "size": 21490,
+      "pushed_at": "2026-09-15T16:15:42Z",
+      "revision": "120f44519cfffed956ef0265be3fa7f923c411aa",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kubernetes/cloud-provider-openstack",
+      "stars": 720,
+      "size": 7336,
+      "pushed_at": "2026-09-17T22:38:27Z",
+      "revision": "ce981210fc779a6ea019244fc6626939081b2a88",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "gabe565/CastSponsorSkip",
+      "stars": 538,
+      "size": 649,
+      "pushed_at": "2026-09-21T21:17:35Z",
+      "revision": "f51d5e7eac0ac6c8976b68e0c0a1fabb383468c1",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "duckbugio/flock",
+      "stars": 505,
+      "size": 1580,
+      "pushed_at": "2026-09-15T03:49:45Z",
+      "revision": "d933e6a6b09f4ef4f023857c1518131ab673f081",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "edoardottt/csprecon",
+      "stars": 529,
+      "size": 7033,
+      "pushed_at": "2026-09-21T21:32:46Z",
+      "revision": "4ccfc64005d4b92d25658771360c590e969bda8a",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "sigstore/sigstore",
+      "stars": 535,
+      "size": 4700,
+      "pushed_at": "2026-09-21T19:42:30Z",
+      "revision": "4f4c3f8a9b643c802964e96a8f3d3b24015c67b5",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "reproducible-containers/diffoci",
+      "stars": 621,
+      "size": 574,
+      "pushed_at": "2026-09-21T18:23:18Z",
+      "revision": "331021817c26252113db899f80e84ee5d1dd79df",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "xob0t/gotohp",
+      "stars": 629,
+      "size": 4037,
+      "pushed_at": "2026-09-14T16:57:55Z",
+      "revision": "97a5dc02db81f5571ce6b586f478600fcd44dd89",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "zalando/gin-oauth2",
+      "stars": 621,
+      "size": 429,
+      "pushed_at": "2026-09-21T10:52:57Z",
+      "revision": "4425ec14eff694e834bda1f96f1b2b4ed4414991",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "tbvdm/sigtop",
+      "stars": 578,
+      "size": 10738,
+      "pushed_at": "2026-09-14T16:17:00Z",
+      "revision": "b1014a77e703a982c5b49c9d6ab39b59e13458dd",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "erans/hyprmon",
+      "stars": 518,
+      "size": 534,
+      "pushed_at": "2026-09-14T13:24:13Z",
+      "revision": "32ad27f94f40fd0dd81f982cc8208bb615607202",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "vmware/pinniped",
+      "stars": 739,
+      "size": 21669,
+      "pushed_at": "2026-09-21T13:06:50Z",
+      "revision": "3ba58efa59834bdec87040c5c92a6ab6420082d9",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "isovalent/ebpf-docs",
+      "stars": 593,
+      "size": 18473,
+      "pushed_at": "2026-09-14T11:12:18Z",
+      "revision": "90455b69a0948c46d9764d8e26a89243df544e35",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "spotahome/kooper",
+      "stars": 544,
+      "size": 6124,
+      "pushed_at": "2026-09-14T08:19:42Z",
+      "revision": "6064d2611599f8c12ddbc88ced3f123570bdc25a",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "aviator-co/av",
+      "stars": 509,
+      "size": 12147,
+      "pushed_at": "2026-09-14T03:43:09Z",
+      "revision": "6a11f1eda486032e5415f1bdb586f0d8069993b6",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "anatol/booster",
+      "stars": 675,
+      "size": 9958,
+      "pushed_at": "2026-09-13T23:38:27Z",
+      "revision": "55ef72ad974c850ef56dc837dbd965b7369bfa51",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "jotaen/klog",
+      "stars": 684,
+      "size": 1426,
+      "pushed_at": "2026-09-17T09:44:14Z",
+      "revision": "aca72344ae72a9bd23473ca0785eef1a557041f2",
+      "go_directive": "1.27",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "bangumi/server",
+      "stars": 680,
+      "size": 7124,
+      "pushed_at": "2026-09-18T01:04:16Z",
+      "revision": "60fdc32daf1d717f8446bad75fd2c3dc44805642",
+      "go_directive": "1.26.8",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "anywherelan/awl",
+      "stars": 683,
+      "size": 2610,
+      "pushed_at": "2026-09-13T02:18:42Z",
+      "revision": "c731a10f9103342365e19f86cd6daee1550f5ce7",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "Unrud/remote-touchpad",
+      "stars": 682,
+      "size": 2072,
+      "pushed_at": "2026-09-13T00:20:33Z",
+      "revision": "d7cd061142df1366cf7eef844d34f65022fdd122",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "xmppo/go-xmpp",
+      "stars": 554,
+      "size": 650,
+      "pushed_at": "2026-09-12T07:58:31Z",
+      "revision": "ff68efc03390ac492cb81770ddaa80bb3147bd1d",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "owulveryck/goMarkableStream",
+      "stars": 750,
+      "size": 27396,
+      "pushed_at": "2026-09-11T20:24:02Z",
+      "revision": "e07d7aebea2fd2d895673ad650f56194682e9fa9",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kubernetes-sigs/cluster-proportional-autoscaler",
+      "stars": 756,
+      "size": 16366,
+      "pushed_at": "2026-09-11T18:08:57Z",
+      "revision": "39dd2288da294e98d683c5619fc3556016df1e76",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "grishy/any-sync-bundle",
+      "stars": 678,
+      "size": 5392,
+      "pushed_at": "2026-09-11T16:07:56Z",
+      "revision": "32cfee9b25f5c84ba62eb7f10b3e6df381b9ca2b",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "smallnest/ringbuffer",
+      "stars": 643,
+      "size": 161,
+      "pushed_at": "2026-09-11T12:35:49Z",
+      "revision": "3a6836dbd211dad4f2ee6944dab536c7c837982e",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "atlassian/escalator",
+      "stars": 687,
+      "size": 5855,
+      "pushed_at": "2026-09-11T07:08:02Z",
+      "revision": "a09f24f99035c45260f4ed057b7efd824ce4dc38",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "k1LoW/git-wt",
+      "stars": 562,
+      "size": 788,
+      "pushed_at": "2026-09-11T01:51:34Z",
+      "revision": "a09b0bbcc8c25f2fc370045cfb880e6d1c9ee283",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "xyproto/wallutils",
+      "stars": 522,
+      "size": 6341,
+      "pushed_at": "2026-09-10T23:14:23Z",
+      "revision": "0fc25e5b2bcca3c3aa798401ae5112038e4bc136",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "googleapis/api-linter",
+      "stars": 765,
+      "size": 3318,
+      "pushed_at": "2026-09-10T17:19:51Z",
+      "revision": "bac17a77a8343e78a971f239d59e5accede3f071",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "JioTV-Go/jiotv_go",
+      "stars": 729,
+      "size": 20356,
+      "pushed_at": "2026-09-10T11:52:55Z",
+      "revision": "d2b1bd4d70df32bb527a6a6b063a39d40765f87b",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kellegous/go",
+      "stars": 648,
+      "size": 2626,
+      "pushed_at": "2026-09-10T10:48:55Z",
+      "revision": "308da0b4e2bd8ebd716a4ce39cd459475f1a217b",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "connet-dev/connet",
+      "stars": 532,
+      "size": 1507,
+      "pushed_at": "2026-09-09T23:10:03Z",
+      "revision": "09520a4a7a9c3a5471e845e1e67c5df4c69c4225",
+      "go_directive": "1.26.2",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "keybase/go-keychain",
+      "stars": 671,
+      "size": 14195,
+      "pushed_at": "2026-09-09T17:42:53Z",
+      "revision": "60d38a4413e36b74adc8260bfb8334b0f659d5e9",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "onexstack/onex",
+      "stars": 597,
+      "size": 6566,
+      "pushed_at": "2026-09-09T14:25:06Z",
+      "revision": "10119504e12c316569337b0dbca04fb192c7d7ea",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "burningalchemist/sql_exporter",
+      "stars": 586,
+      "size": 10202,
+      "pushed_at": "2026-09-09T11:37:53Z",
+      "revision": "f55903d7c433bb965f392f926eab8dd5ef1bf062",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "vultr/vultr-cli",
+      "stars": 561,
+      "size": 6237,
+      "pushed_at": "2026-09-09T11:12:16Z",
+      "revision": "e996e096242b366daa228a2fa2f7e295cfdfbb79",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "czerwonk/ping_exporter",
+      "stars": 634,
+      "size": 5927,
+      "pushed_at": "2026-09-09T10:50:49Z",
+      "revision": "73970358234267585237eb842458cc5b37e34c66",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "seatgeek/mailroom",
+      "stars": 575,
+      "size": 1628,
+      "pushed_at": "2026-09-17T02:33:10Z",
+      "revision": "18b8b937940bf61c7345819d8274b17a35866cae",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kubernetes/metrics",
+      "stars": 537,
+      "size": 7124,
+      "pushed_at": "2026-09-08T23:40:44Z",
+      "revision": "0d348d155ae124a9e345ee09021ee08c9880b2e4",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "golang/vuln",
+      "stars": 520,
+      "size": 8151,
+      "pushed_at": "2026-09-08T21:02:53Z",
+      "revision": "709015412431dd2b5b28a53c06c70bc02d49074c",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "golang/image",
+      "stars": 552,
+      "size": 11217,
+      "pushed_at": "2026-09-08T18:24:28Z",
+      "revision": "b06f1de3f4900ff828b8f114c37eb9ea10dfed90",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "tailscale/tsidp",
+      "stars": 669,
+      "size": 2613,
+      "pushed_at": "2026-09-08T14:39:24Z",
+      "revision": "8fa860f333d9b0ed7eee66e0c7c08531f743fd16",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "prometheus-community/json_exporter",
+      "stars": 739,
+      "size": 435,
+      "pushed_at": "2026-09-08T14:19:32Z",
+      "revision": "9f01b672172a770d227b17f47f7a9120d75943ab",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "oschwald/maxminddb-golang",
+      "stars": 749,
+      "size": 1068,
+      "pushed_at": "2026-09-21T20:23:45Z",
+      "revision": "8425784f244dcf003072cd9bf8d17db1320e164a",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "xdagiz/xytz",
+      "stars": 640,
+      "size": 866,
+      "pushed_at": "2026-09-07T17:19:47Z",
+      "revision": "676c7ca2ca8757d152d41bb3729bfc3f37aee65d",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "synfinatic/aws-sso-cli",
+      "stars": 663,
+      "size": 7482,
+      "pushed_at": "2026-09-07T15:33:24Z",
+      "revision": "f0ee301195aeb6c076eb3e2ac19ab8362d65c2ba",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "vinegarhq/vinegar",
+      "stars": 764,
+      "size": 20106,
+      "pushed_at": "2026-09-07T14:07:08Z",
+      "revision": "8948298ae511e92e26cdb8a7d2cc627f59121fc9",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "qor/auth",
+      "stars": 778,
+      "size": 193,
+      "pushed_at": "2026-09-07T06:03:23Z",
+      "revision": "9ab162d3f41c0c619fe225421fb0f86d0a264320",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "pika-monitor/pika",
+      "stars": 621,
+      "size": 9131,
+      "pushed_at": "2026-09-06T10:16:33Z",
+      "revision": "f391cb15a60efdc979672baba915cb85e67e8711",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "howeyc/ledger",
+      "stars": 505,
+      "size": 18317,
+      "pushed_at": "2026-09-05T22:15:32Z",
+      "revision": "533081e979d49a349e39f335f8478b353e33b071",
+      "go_directive": "1.26",
+      "toolchain_directive": "go1.26.0",
+      "eligible": true
+    },
+    {
+      "repository": "encodeous/nylon",
+      "stars": 516,
+      "size": 7789,
+      "pushed_at": "2026-09-19T21:23:32Z",
+      "revision": "c4a96c804f7aa08512721dec7994907eab100bc8",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "goretk/gore",
+      "stars": 543,
+      "size": 623,
+      "pushed_at": "2026-09-05T16:31:41Z",
+      "revision": "c03ed2e543f72232f3f15784f62e2ef787261612",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "google/gke-policy-automation",
+      "stars": 526,
+      "size": 2944,
+      "pushed_at": "2026-09-04T10:12:17Z",
+      "revision": "046b6c00727d0b8cd9bc0db79d74c95360767ac1",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "k3s-io/helm-controller",
+      "stars": 509,
+      "size": 9687,
+      "pushed_at": "2026-09-21T20:43:08Z",
+      "revision": "71be4991f2652515a2bb7f7464399f6733297964",
+      "go_directive": "1.26.7",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "HashLoad/boss",
+      "stars": 626,
+      "size": 2414,
+      "pushed_at": "2026-09-03T19:06:03Z",
+      "revision": "093fb4f5d424832e073d9d31572025714034f0ad",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "dim-an/cod",
+      "stars": 553,
+      "size": 143,
+      "pushed_at": "2026-09-03T17:00:06Z",
+      "revision": "26309c9a8b93cabcf88300b6580a9e28c11742b3",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "google/kube-startup-cpu-boost",
+      "stars": 663,
+      "size": 503,
+      "pushed_at": "2026-09-03T10:32:37Z",
+      "revision": "1ff146385f252c40ffdc002d2d82575be946e350",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "xiaozhou26/icloud-hme",
+      "stars": 573,
+      "size": 481,
+      "pushed_at": "2026-09-03T05:09:22Z",
+      "revision": "47dd9410e42281742a14d9b8a5d8911056855474",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "leonelquinteros/gotext",
+      "stars": 509,
+      "size": 1551,
+      "pushed_at": "2026-09-02T18:32:29Z",
+      "revision": "fd7620c315c1fb2f6de114210f40cf4a6698ecd4",
+      "go_directive": "1.27",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "tanaikech/goodls",
+      "stars": 538,
+      "size": 4088,
+      "pushed_at": "2026-09-02T08:25:18Z",
+      "revision": "07e8a53d7cdf9d955c607ae612bd68cf8bf8d847",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "ricoberger/vault-secrets-operator",
+      "stars": 686,
+      "size": 1321,
+      "pushed_at": "2026-09-02T08:15:16Z",
+      "revision": "da9e7e083870bd4c304485c5168377a2c89e0fae",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "google/oauth2l",
+      "stars": 738,
+      "size": 3486,
+      "pushed_at": "2026-09-01T17:30:16Z",
+      "revision": "fca8a31aed945c1f4275fe82bceb08a0a6e05dcc",
+      "go_directive": "1.26",
+      "toolchain_directive": "go1.26.6",
+      "eligible": true
+    },
+    {
+      "repository": "tarampampam/webhook-tester",
+      "stars": 540,
+      "size": 8912,
+      "pushed_at": "2026-09-01T14:43:55Z",
+      "revision": "de43e5952674ef97d064d9b916aa59112c461dc6",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "yhy0/ChYing",
+      "stars": 765,
+      "size": 15853,
+      "pushed_at": "2026-09-01T14:27:03Z",
+      "revision": "1e0fb74869a16b709e46da6ef107438bcaeac99c",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "jetstack/version-checker",
+      "stars": 778,
+      "size": 1482,
+      "pushed_at": "2026-09-01T07:09:51Z",
+      "revision": "9b30c3f8bdb98a6097348a4edd20e4ed20fd92da",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "flamego/flamego",
+      "stars": 625,
+      "size": 1616,
+      "pushed_at": "2026-09-01T03:02:38Z",
+      "revision": "c91841337fa052024ba4d89c8440adb0f25cb692",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "palemoky/fight-the-landlord",
+      "stars": 639,
+      "size": 4567,
+      "pushed_at": "2026-09-01T01:09:11Z",
+      "revision": "6a2b07bd71a21e0c564277a235846e7f3cf589b1",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "digitalocean/csi-digitalocean",
+      "stars": 600,
+      "size": 22061,
+      "pushed_at": "2026-09-21T10:23:38Z",
+      "revision": "7044622250dcdfc38ae1c1d0393b6b937f5ffa19",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "steveteuber/kubectl-graph",
+      "stars": 697,
+      "size": 1205,
+      "pushed_at": "2026-08-31T16:22:44Z",
+      "revision": "4f5950f1d0b33df2a89f10ee5529a6fbc4388ccf",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "rogerbush007-a11y/DJOneHub-mac-enhanced",
+      "stars": 504,
+      "size": 13897,
+      "pushed_at": "2026-08-30T13:45:39Z",
+      "revision": "5b15eaec0e97dd9fa7b2abe54d0d1289c1e93054",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "symfony-cli/symfony-cli",
+      "stars": 607,
+      "size": 1680,
+      "pushed_at": "2026-08-29T11:42:38Z",
+      "revision": "80c2398d70b66b2570d11ea2be61309fe0c6428e",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kubernetes/registry.k8s.io",
+      "stars": 528,
+      "size": 2623,
+      "pushed_at": "2026-08-29T08:43:51Z",
+      "revision": "b5e7d92a3819fcd24ed35b174db0ce6291e88e7f",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "flohoss/gocron",
+      "stars": 549,
+      "size": 16399,
+      "pushed_at": "2026-08-28T13:06:19Z",
+      "revision": "e2b455c086ce46c05c815db8df3120548faab164",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "aws/amazon-eks-pod-identity-webhook",
+      "stars": 691,
+      "size": 16527,
+      "pushed_at": "2026-08-26T19:41:40Z",
+      "revision": "81bcb64a91e08b9de60c9d8f9df299f57075b09f",
+      "go_directive": "1.26.7",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "nikepan/clickhouse-bulk",
+      "stars": 512,
+      "size": 205,
+      "pushed_at": "2026-08-25T21:01:01Z",
+      "revision": "f8bac589e33c7433b2f5c3e0dae606add4fa188b",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "mvdan/unparam",
+      "stars": 572,
+      "size": 270,
+      "pushed_at": "2026-08-23T23:07:52Z",
+      "revision": "2fa3d841b0c8e173319678a0a49267c7aecf488e",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "nsf/godit",
+      "stars": 581,
+      "size": 205,
+      "pushed_at": "2026-08-23T05:05:23Z",
+      "revision": "da0eb1a2cf48a9ad057f28e0ee0dea5df07bd456",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "bep/s3deploy",
+      "stars": 551,
+      "size": 3042,
+      "pushed_at": "2026-08-22T14:24:36Z",
+      "revision": "9249b9906450804afd1caf8c397857dfef3ba2a3",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "minio/directpv",
+      "stars": 702,
+      "size": 8597,
+      "pushed_at": "2026-08-21T00:34:24Z",
+      "revision": "a9adb854cdec76bcc455e35b2201c1ae026f35c4",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kiwifs/kiwifs",
+      "stars": 632,
+      "size": 5908,
+      "pushed_at": "2026-08-20T17:47:55Z",
+      "revision": "3961d5e70a9e0ef457e58e29c40c52c870d57e73",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "allaboutapps/go-starter",
+      "stars": 621,
+      "size": 7559,
+      "pushed_at": "2026-08-20T14:59:27Z",
+      "revision": "21786196de8ac7544e3df94f51afee1cf46b2e8f",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "wyh267/FalconEngine",
+      "stars": 649,
+      "size": 7668,
+      "pushed_at": "2026-08-19T23:50:49Z",
+      "revision": "ee98be1ecc0d2b999dc986fc1a62236537692639",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "gmhafiz/go8",
+      "stars": 501,
+      "size": 4357,
+      "pushed_at": "2026-08-19T22:54:23Z",
+      "revision": "d671634a949cb39cfea2236beaf1c4059e8c699b",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "derekparker/trie",
+      "stars": 793,
+      "size": 95,
+      "pushed_at": "2026-08-19T17:05:29Z",
+      "revision": "10d00fac1a4f97512af8a6b6897aa4c6afe5039e",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "tkuchiki/alp",
+      "stars": 704,
+      "size": 672,
+      "pushed_at": "2026-08-16T02:16:14Z",
+      "revision": "0c1623a2c7ca7721ed94ed29c26385aaaf7fb7b7",
+      "go_directive": "1.26",
+      "toolchain_directive": "go1.26.0",
+      "eligible": true
+    },
+    {
+      "repository": "blob42/gosuki",
+      "stars": 550,
+      "size": 1669,
+      "pushed_at": "2026-08-15T23:15:54Z",
+      "revision": "940bde0446ab023258f9a9247731f512cd84c9e8",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "yashbhutwala/kubectl-df-pv",
+      "stars": 503,
+      "size": 8296,
+      "pushed_at": "2026-08-13T01:53:54Z",
+      "revision": "d0e540993149646bc65e2e7fe8a10fa7fc4f39f6",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "go101/golds",
+      "stars": 652,
+      "size": 1355,
+      "pushed_at": "2026-08-06T16:19:31Z",
+      "revision": "1688da261ff16395a16f2ed751ac43e9e1be290d",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "omniscale/imposm3",
+      "stars": 774,
+      "size": 7266,
+      "pushed_at": "2026-08-05T14:34:45Z",
+      "revision": "3d25f252a2d7627e1a2600b281c46cc8ec183698",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "cyrilgdn/terraform-provider-postgresql",
+      "stars": 550,
+      "size": 10555,
+      "pushed_at": "2026-08-03T14:12:33Z",
+      "revision": "38060527b58f1edc9e2f71bbdc608bf68d22a3f7",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.26.2",
+      "eligible": true
+    },
+    {
+      "repository": "staticbackendhq/core",
+      "stars": 742,
+      "size": 1621,
+      "pushed_at": "2026-08-01T12:52:35Z",
+      "revision": "7c37570311c38630622b109b9f1a9f02e7aeee72",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "Antonito/gfile",
+      "stars": 760,
+      "size": 1314,
+      "pushed_at": "2026-08-01T08:50:24Z",
+      "revision": "434e178d07f76f6b2313607d72136b766b7b1eaa",
+      "go_directive": "1.26.2",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "crazy-max/ftpgrab",
+      "stars": 562,
+      "size": 7635,
+      "pushed_at": "2026-08-24T21:09:20Z",
+      "revision": "44737f8a635080aec5fecce85db3c00d4ead5e0e",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "ZenGeekLabs/DJOneHub",
+      "stars": 545,
+      "size": 4648,
+      "pushed_at": "2026-07-28T10:49:34Z",
+      "revision": "f7f1a0dda3eda6c40585d93a4654bf94d50b8b08",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "chipmk/docker-mac-net-connect",
+      "stars": 663,
+      "size": 276,
+      "pushed_at": "2026-07-19T15:52:19Z",
+      "revision": "6039e2ba2cc3de5c8acd0ba77108dc94048b14db",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "RedTeamPentesting/monsoon",
+      "stars": 500,
+      "size": 5502,
+      "pushed_at": "2026-07-17T09:52:56Z",
+      "revision": "e0f1027cb0c256853b835d8e20d8d206a96e44ed",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "AkimioJR/MediaWarp",
+      "stars": 779,
+      "size": 14221,
+      "pushed_at": "2026-07-15T09:09:09Z",
+      "revision": "070ad99cb32e940b2b8ccb7c55b6efb7d311eac5",
+      "go_directive": "1.26.1",
+      "toolchain_directive": "go1.26.3",
+      "eligible": true
+    },
+    {
+      "repository": "liaotxcn/Weave",
+      "stars": 555,
+      "size": 5518,
+      "pushed_at": "2026-07-15T05:43:12Z",
+      "revision": "903bd899157a1098324ade4068f1fc930a721d9c",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "pood1e/wa-app",
+      "stars": 726,
+      "size": 3651,
+      "pushed_at": "2026-07-12T00:48:59Z",
+      "revision": "28c8c9de612827625a3a505580575c05aa48e4f5",
+      "go_directive": "1.26",
+      "toolchain_directive": "go1.26.3",
+      "eligible": true
+    },
+    {
+      "repository": "GoogleCloudPlatform/cloud-run-button",
+      "stars": 553,
+      "size": 750,
+      "pushed_at": "2026-07-10T17:45:38Z",
+      "revision": "cdfc83adfe0327100f75d5f53edc72ca04a5d994",
+      "go_directive": "1.26.2",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "boostsecurityio/poutine",
+      "stars": 518,
+      "size": 6391,
+      "pushed_at": "2026-07-09T18:40:29Z",
+      "revision": "bd4c1f86fe8cfe61b456f1ea2b2106ce0cac51d6",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "getsentry/sentry-kubernetes",
+      "stars": 500,
+      "size": 807,
+      "pushed_at": "2026-07-06T13:10:02Z",
+      "revision": "ac974cd54268cd7cd4dce92e4f0a7b748c7b2ef0",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "akile-network/akile_monitor",
+      "stars": 786,
+      "size": 4160,
+      "pushed_at": "2026-06-25T01:06:57Z",
+      "revision": "7bb5a67cc61431ab542174da1c4cac9e8f2f26d4",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "asciimoo/omnom",
+      "stars": 665,
+      "size": 5790,
+      "pushed_at": "2026-06-22T12:40:41Z",
+      "revision": "1f0c1a314b96c9a10efc7ea91c5de0bf511fb931",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "Trugamr/wol",
+      "stars": 700,
+      "size": 490,
+      "pushed_at": "2026-06-14T11:34:38Z",
+      "revision": "18ebac4fbddd5a6966535a50d46f92b68bd3a758",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "udhos/goben",
+      "stars": 575,
+      "size": 117,
+      "pushed_at": "2026-06-14T00:33:38Z",
+      "revision": "006cfff549efa221255cec9ff1408871ac2f01e5",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "orgrim/pg_back",
+      "stars": 566,
+      "size": 653,
+      "pushed_at": "2026-06-02T11:11:05Z",
+      "revision": "2cd5006a933e3c5dffed0adafb813bed26993bb6",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "WJQSERVER-STUDIO/ghproxy",
+      "stars": 731,
+      "size": 956,
+      "pushed_at": "2026-06-01T09:42:18Z",
+      "revision": "4c555ed50c5574163dd33c945a2d7092faa3932b",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "arsham/figurine",
+      "stars": 675,
+      "size": 2035,
+      "pushed_at": "2026-06-01T02:21:18Z",
+      "revision": "a2cd66db128b1e500abe73d83579bccce84bdef0",
+      "go_directive": "1.26.2",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "alajmo/sake",
+      "stars": 752,
+      "size": 2284,
+      "pushed_at": "2026-05-31T23:07:44Z",
+      "revision": "86986df901293db0f7d1e548ef34c849bb1f709d",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kataras/neffos",
+      "stars": 628,
+      "size": 1265,
+      "pushed_at": "2026-05-28T09:35:35Z",
+      "revision": "60df99445da7c0b56c1b81a32161f86b53fd462a",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "subnetmarco/pgmcp",
+      "stars": 542,
+      "size": 97,
+      "pushed_at": "2026-05-26T18:24:45Z",
+      "revision": "53681ab9b83ba01a2cc1744597f86b2be093d13b",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "pmkol/mosdns-x",
+      "stars": 640,
+      "size": 1660,
+      "pushed_at": "2026-05-25T13:11:46Z",
+      "revision": "10d52d14255b97f73ff90e5d68705f240b20d071",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "alajmo/mani",
+      "stars": 769,
+      "size": 2580,
+      "pushed_at": "2026-05-19T21:12:38Z",
+      "revision": "ca8160952af5867429b54659a66cff3cc4ba656f",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "codingsince1985/geo-golang",
+      "stars": 547,
+      "size": 591,
+      "pushed_at": "2026-04-23T01:00:38Z",
+      "revision": "72ff6a749cc8cc214d09e4e0c35aa082a52b5364",
+      "go_directive": "1.26.2",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "SolarLune/masterplan",
+      "stars": 568,
+      "size": 27425,
+      "pushed_at": "2026-04-15T16:11:02Z",
+      "revision": "71601b25c20bbbfed2f339b06d13fbd4c211dfa5",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "Threagile/threagile",
+      "stars": 781,
+      "size": 12939,
+      "pushed_at": "2026-04-08T18:30:26Z",
+      "revision": "74e323ed635f026ca85bd61b5082f0da053ba1b2",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "raitonoberu/sptlrx",
+      "stars": 518,
+      "size": 363,
+      "pushed_at": "2026-04-05T14:32:20Z",
+      "revision": "33200e60f5a977c8afae051152dcc2ea85aa0cc7",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "spddl/GoInterruptPolicy",
+      "stars": 545,
+      "size": 181,
+      "pushed_at": "2026-03-27T14:54:31Z",
+      "revision": "f41fd1e325e1d3a386816c3586474e5f7bb63a25",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "cvilsmeier/go-sqlite-bench",
+      "stars": 619,
+      "size": 1428,
+      "pushed_at": "2026-03-23T16:41:01Z",
+      "revision": "8120500994fdd09dfd0e51695e734c5fa7d12923",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "gruntwork-io/fetch",
+      "stars": 624,
+      "size": 303,
+      "pushed_at": "2026-02-16T14:10:36Z",
+      "revision": "793ba7b60d77b6c13fe64e81d549aa975db2687b",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "grafana/k6-operator",
+      "stars": 801,
+      "size": 2343,
+      "pushed_at": "2026-09-21T00:01:41Z",
+      "revision": "76ecd7fa1334152a3ebad0136abcf316d249749d",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.26.6",
+      "eligible": true
+    },
+    {
+      "repository": "palantir/policy-bot",
+      "stars": 1056,
+      "size": 14157,
+      "pushed_at": "2026-09-20T22:51:28Z",
+      "revision": "fe1f556dedf0a8e13f32c31e52ad6f298555d52a",
+      "go_directive": "1.27.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "go-playground/form",
+      "stars": 930,
+      "size": 281,
+      "pushed_at": "2026-09-20T19:45:40Z",
+      "revision": "5b6e41f35d5b3c4f3605f0ddcdfba6191c8d76e5",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "umputun/revdiff",
+      "stars": 886,
+      "size": 13086,
+      "pushed_at": "2026-09-20T18:43:54Z",
+      "revision": "2f0e60e8a3378c01fde4e88069164e3ac7bd6e76",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "df-mc/dragonfly",
+      "stars": 846,
+      "size": 11253,
+      "pushed_at": "2026-09-20T16:30:21Z",
+      "revision": "1793369709ceed934675d69e86ff6c828e4216c8",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "n42-gateway/n42-gateway",
+      "stars": 1168,
+      "size": 15854,
+      "pushed_at": "2026-09-20T12:36:35Z",
+      "revision": "ff1c4b2358bfc14a60b355853046a7328b4fc278",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.26.8",
+      "eligible": true
+    },
+    {
+      "repository": "librespeed/speedtest-cli",
+      "stars": 845,
+      "size": 185,
+      "pushed_at": "2026-09-20T06:25:09Z",
+      "revision": "04b7d0258ad83e13b90d3c3a12f68e06c052e7ec",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "esrrhs/spp",
+      "stars": 917,
+      "size": 422,
+      "pushed_at": "2026-09-20T02:52:07Z",
+      "revision": "e831cb9b506c5ad63cc6aaac19ee652a5a640805",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "Autumn-27/ARTEX",
+      "stars": 1135,
+      "size": 8442,
+      "pushed_at": "2026-09-19T15:37:58Z",
+      "revision": "bf7f414477832b77d2152539c0723dc691086522",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "golang/text",
+      "stars": 810,
+      "size": 25789,
+      "pushed_at": "2026-09-18T22:34:18Z",
+      "revision": "6dcc5b674302d746762d908ed0e2ad65d84f36f1",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "itzg/mc-router",
+      "stars": 946,
+      "size": 1731,
+      "pushed_at": "2026-09-18T12:17:36Z",
+      "revision": "a9d1d9604ebf7451bc766044ff33cc8eda969ae1",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "ozemin/lazycut",
+      "stars": 882,
+      "size": 7139,
+      "pushed_at": "2026-09-18T10:50:26Z",
+      "revision": "fd771c81d836eaacfe150c082ab6785ddb855cbf",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "k1LoW/mo",
+      "stars": 1062,
+      "size": 5001,
+      "pushed_at": "2026-09-17T23:06:34Z",
+      "revision": "8fbe8e84e1bc09af82d3fbec53f0c9d7b826c564",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "golang/exp",
+      "stars": 865,
+      "size": 7116,
+      "pushed_at": "2026-09-17T22:54:29Z",
+      "revision": "85c1c2202aba13ab812be55279024d8594344c1f",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "palantir/bulldozer",
+      "stars": 813,
+      "size": 15685,
+      "pushed_at": "2026-09-17T19:46:12Z",
+      "revision": "445c866ed2c7d117254a3ee20f63269f1b3cf7d0",
+      "go_directive": "1.27.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "nats-io/natscli",
+      "stars": 827,
+      "size": 6587,
+      "pushed_at": "2026-09-17T14:32:05Z",
+      "revision": "cc0a8e3224d564b134a92f6f2c2081452f885549",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "SecureAuthCorp/oauth2c",
+      "stars": 948,
+      "size": 265,
+      "pushed_at": "2026-09-17T13:30:00Z",
+      "revision": "176d67b7d89d94b3551ff5cf6b3885282fa29988",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "fosrl/newt",
+      "stars": 908,
+      "size": 15014,
+      "pushed_at": "2026-09-21T09:44:21Z",
+      "revision": "268d97cc40b0fc9cf7b90c7335efeca9470e89f3",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "goshs-labs/goshs",
+      "stars": 978,
+      "size": 9911,
+      "pushed_at": "2026-09-17T10:14:19Z",
+      "revision": "c65ca19696e87cd5ec2206b2a488c5f5f5b621db",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "topolvm/topolvm",
+      "stars": 1175,
+      "size": 19994,
+      "pushed_at": "2026-09-17T09:14:57Z",
+      "revision": "6560b19387d0cd4da230dc6113e745b4ac74f53b",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "hashicorp/vault-k8s",
+      "stars": 841,
+      "size": 1352,
+      "pushed_at": "2026-09-21T00:32:59Z",
+      "revision": "22c9d5e9db3bfe64c1a05d233ccc9923f1834964",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kubernetes/apimachinery",
+      "stars": 901,
+      "size": 9303,
+      "pushed_at": "2026-09-16T23:30:37Z",
+      "revision": "e198c8900a45fda3c0db2731195c18c44e119ef3",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kluctl/kluctl",
+      "stars": 880,
+      "size": 21669,
+      "pushed_at": "2026-09-16T22:10:13Z",
+      "revision": "fe022829b654845433d0061367b5ac96d4850998",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "safedep/vet",
+      "stars": 1106,
+      "size": 15217,
+      "pushed_at": "2026-09-16T16:09:12Z",
+      "revision": "d477dceda16242d598b3e3e1c5516f9a33796a8b",
+      "go_directive": "1.26.2",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "keycloak/terraform-provider-keycloak",
+      "stars": 948,
+      "size": 4125,
+      "pushed_at": "2026-09-21T04:45:10Z",
+      "revision": "86ad7404984fdcdff928496e05068b1edbfad526",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "sirrobot01/decypharr",
+      "stars": 897,
+      "size": 21532,
+      "pushed_at": "2026-09-16T12:55:59Z",
+      "revision": "0dd1cbbd6e4680000097db0141f7106e02d21b8d",
+      "go_directive": "1.26.2",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "enix/x509-certificate-exporter",
+      "stars": 951,
+      "size": 2859,
+      "pushed_at": "2026-09-21T08:13:29Z",
+      "revision": "62a8bcf8bf350b6e2c56b0d7cb9d684002417a8c",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.27.0",
+      "eligible": true
+    },
+    {
+      "repository": "numtide/treefmt",
+      "stars": 1066,
+      "size": 4914,
+      "pushed_at": "2026-09-16T08:02:15Z",
+      "revision": "336f327e840e309874e68715c72d1e3a6873c972",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "perplexityai/numbat",
+      "stars": 1070,
+      "size": 1711,
+      "pushed_at": "2026-09-15T22:58:35Z",
+      "revision": "f0778c09dc48281aa93a3887d05096c0a1f3f9f7",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "automuteus/automuteus",
+      "stars": 936,
+      "size": 24107,
+      "pushed_at": "2026-09-21T11:10:56Z",
+      "revision": "301211d98e60be29a0e8f566639c055d6ccc6d41",
+      "go_directive": "1.27",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "uvwt/agentdock",
+      "stars": 1059,
+      "size": 4899,
+      "pushed_at": "2026-09-15T08:16:50Z",
+      "revision": "ad51001515a2b1b82baa31281970e0b9f67f28e9",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "go-graphite/go-carbon",
+      "stars": 829,
+      "size": 23229,
+      "pushed_at": "2026-09-21T10:03:58Z",
+      "revision": "76c7e5af3be64e7b3f55d788e57c518bfdca46fa",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "etcd-io/raft",
+      "stars": 1127,
+      "size": 3334,
+      "pushed_at": "2026-09-14T23:15:41Z",
+      "revision": "3cbf6a74be3fa392edd8b64253fcd11c3ce5649b",
+      "go_directive": "1.26",
+      "toolchain_directive": "go1.26.8",
+      "eligible": true
+    },
+    {
+      "repository": "sklinkert/go-ddd",
+      "stars": 810,
+      "size": 12921,
+      "pushed_at": "2026-09-14T20:53:18Z",
+      "revision": "64574f4e84e77baaa033c30c44bd9fff893f90fc",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.26.6",
+      "eligible": true
+    },
+    {
+      "repository": "apenella/go-ansible",
+      "stars": 1120,
+      "size": 807,
+      "pushed_at": "2026-09-14T18:54:39Z",
+      "revision": "26b23438805ed0c3ec184e2c49f1d17329a2c27f",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "go-faker/faker",
+      "stars": 867,
+      "size": 379,
+      "pushed_at": "2026-09-14T11:33:03Z",
+      "revision": "d9aca1f7eb61b96a6a39489e6ebfd2abc6befbdc",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "sibprogrammer/xq",
+      "stars": 1152,
+      "size": 606,
+      "pushed_at": "2026-09-14T11:17:15Z",
+      "revision": "224e3aeccc94c56ec2b203aebe78e48c1126a763",
+      "go_directive": "1.26.1",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "mymmrac/telego",
+      "stars": 1075,
+      "size": 4695,
+      "pushed_at": "2026-09-14T07:57:27Z",
+      "revision": "2051e0275eb09ca1d38ba7707dcccb08b0fbdb9f",
+      "go_directive": "1.26.7",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "sigstore/gitsign",
+      "stars": 1126,
+      "size": 3436,
+      "pushed_at": "2026-09-14T06:43:41Z",
+      "revision": "9b9b9551732c94de7f5dd57d25bf437463164cc7",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "hanselime/paqet",
+      "stars": 1183,
+      "size": 196,
+      "pushed_at": "2026-09-14T05:45:45Z",
+      "revision": "b9fa0bd93bf93b2eff27197742562ed82201f16e",
+      "go_directive": "1.27",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "gowvp/owl",
+      "stars": 806,
+      "size": 17783,
+      "pushed_at": "2026-09-14T04:53:46Z",
+      "revision": "725943a54e35cbcee314ecbd0af1188d04330914",
+      "go_directive": "1.27",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "layou233/NeverIdle",
+      "stars": 992,
+      "size": 117,
+      "pushed_at": "2026-09-14T01:52:43Z",
+      "revision": "5835f697804f1a157f700e20172bba3889a69657",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "metatube-community/metatube-sdk-go",
+      "stars": 856,
+      "size": 10166,
+      "pushed_at": "2026-09-13T20:23:56Z",
+      "revision": "19a92ad3263ab7b69636d26d7cc32f531c0a0804",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "STRRL/cloudflare-tunnel-ingress-controller",
+      "stars": 1197,
+      "size": 2631,
+      "pushed_at": "2026-09-13T18:12:34Z",
+      "revision": "627362f269d42ae4cb7fdfba1933d9bb078a95b0",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.26.5",
+      "eligible": true
+    },
+    {
+      "repository": "oligot/go-mod-upgrade",
+      "stars": 1106,
+      "size": 2668,
+      "pushed_at": "2026-09-13T07:35:02Z",
+      "revision": "5225e974c59b1440a699dcfe7706fee539443a3d",
+      "go_directive": "1.26.6",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "solod-dev/solod",
+      "stars": 1160,
+      "size": 3163,
+      "pushed_at": "2026-09-12T11:40:37Z",
+      "revision": "e84cd34481f735ed30d03ef69eedd5c371c21532",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "miniscruff/changie",
+      "stars": 905,
+      "size": 8415,
+      "pushed_at": "2026-09-19T01:03:38Z",
+      "revision": "e78b7fcae4fd76fc588b6442117ef99c39835e15",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "v2fly/geoip",
+      "stars": 963,
+      "size": 9249,
+      "pushed_at": "2026-09-11T05:55:23Z",
+      "revision": "fd96fbac6cffc06ab9a10d6ee8fad61afe9b771c",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "cloudflare/artifact-fs",
+      "stars": 1146,
+      "size": 480,
+      "pushed_at": "2026-09-11T05:18:46Z",
+      "revision": "2b87a48691ef4ae82d391b7bbe4976c06c7fadf7",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "boyter/cs",
+      "stars": 1074,
+      "size": 18994,
+      "pushed_at": "2026-09-11T00:19:50Z",
+      "revision": "7b9aa17f8c9f4142cd844e9e084602c18a20d126",
+      "go_directive": "1.26.4",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "fencesandbox/fence",
+      "stars": 975,
+      "size": 2254,
+      "pushed_at": "2026-09-10T23:13:30Z",
+      "revision": "737751a82b49f287b41f8a3e62ec62919d7b9224",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "kutovoys/xray-checker",
+      "stars": 907,
+      "size": 4645,
+      "pushed_at": "2026-09-10T05:41:53Z",
+      "revision": "f829c2b7d44670f4db0f7355f445771e7cde7158",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "keybase/saltpack",
+      "stars": 1019,
+      "size": 959,
+      "pushed_at": "2026-09-09T17:13:54Z",
+      "revision": "5bef7952e563e07de7cce98687286daaafbe0f80",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "firefart/stunner",
+      "stars": 865,
+      "size": 437,
+      "pushed_at": "2026-09-09T15:26:51Z",
+      "revision": "42516fb560e1aa0147ad9e06f8b8408dc87ec0a6",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "golang/playground",
+      "stars": 809,
+      "size": 653,
+      "pushed_at": "2026-09-09T13:57:57Z",
+      "revision": "9056cc2162f77f90250855c9e838c221d540c6ba",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "engigu/Message-Push-Nest",
+      "stars": 919,
+      "size": 14448,
+      "pushed_at": "2026-09-09T08:23:15Z",
+      "revision": "50a754475fd8a375098c7c313552860a78eb2145",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "rapidloop/pgmetrics",
+      "stars": 1111,
+      "size": 1677,
+      "pushed_at": "2026-09-09T04:29:12Z",
+      "revision": "19fcebfc27ebad45ed198652562f0f9356addb59",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "deviceinsight/kafkactl",
+      "stars": 1070,
+      "size": 2270,
+      "pushed_at": "2026-09-08T22:21:42Z",
+      "revision": "9005d01a0bf1c925b663c62629e450f1815794c9",
+      "go_directive": "1.26.3",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "SenseUnit/dumbproxy",
+      "stars": 938,
+      "size": 753,
+      "pushed_at": "2026-09-08T21:22:30Z",
+      "revision": "b370484cab894e08e366aa48afdf8bbbbf374367",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "go-flutter-desktop/hover",
+      "stars": 1002,
+      "size": 864,
+      "pushed_at": "2026-09-20T17:11:51Z",
+      "revision": "7931f85fdcb7f1f2f1089e97493843f811ef4315",
+      "go_directive": "1.26.0",
+      "toolchain_directive": "go1.27.1",
+      "eligible": true
+    },
+    {
+      "repository": "dkorunic/betteralign",
+      "stars": 1083,
+      "size": 680,
+      "pushed_at": "2026-09-08T12:22:15Z",
+      "revision": "46c3a5dd1cd33b2af3df82b12a61d103e5ecf552",
+      "go_directive": "1.27",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "golang/sync",
+      "stars": 931,
+      "size": 82,
+      "pushed_at": "2026-09-08T12:07:34Z",
+      "revision": "f75267d8412fc1dfd12b343644a7ea46e4d9c85d",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "mdlayher/netlink",
+      "stars": 1077,
+      "size": 773,
+      "pushed_at": "2026-09-07T16:06:25Z",
+      "revision": "a8e8780a56359b8d629a12bb25c80bf835abdf7c",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "cloudlena/s3manager",
+      "stars": 1057,
+      "size": 10378,
+      "pushed_at": "2026-09-07T12:36:01Z",
+      "revision": "b973a7c0b4bd9d01a23ded314458d7e25b403f69",
+      "go_directive": "1.26.7",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "crazy-max/swarm-cronjob",
+      "stars": 884,
+      "size": 13742,
+      "pushed_at": "2026-09-17T22:38:37Z",
+      "revision": "b614b9ef7a814f207291f0da789aa44a58b611f1",
+      "go_directive": "1.26.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "Gouryella/drip",
+      "stars": 915,
+      "size": 2001,
+      "pushed_at": "2026-09-07T02:09:36Z",
+      "revision": "027a60efdced31a5452545b99d6cf71552357a4a",
+      "go_directive": "1.26.5",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "DeedleFake/trayscale",
+      "stars": 1036,
+      "size": 1620,
+      "pushed_at": "2026-09-07T02:09:02Z",
+      "revision": "72d469c2553c3a9b601446d69d7b65ea358280be",
+      "go_directive": "1.27.0",
+      "toolchain_directive": null,
+      "eligible": true
+    },
+    {
+      "repository": "mat/besticon",
+      "stars": 998,
+      "size": 9695,
+      "pushed_at": "2026-09-06T19:15:47Z",
+      "revision": "4e8f4d8376482ae46412fa85ce938112bb4cde59",
+      "go_directive": "1.26",
+      "toolchain_directive": null,
+      "eligible": true
+    }
+  ]
+}

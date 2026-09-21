@@ -1615,6 +1615,38 @@ mpb's correction has a separate root-package replay and local fixture because
 its example modules cannot load in the whole-repository runner. In all cases,
 the original batch verdicts remain the historical baseline.
 
+## Batch 50
+
+Two hundred and fifty new repositories are pinned in the
+[selection ledger](batch-50.tsv). [Selection provenance](batch-50-selection.json)
+records the GitHub search pages, selected repository metadata, root Go
+directives, and historical exclusions. All selected repositories require Go
+1.26 or Go 1.27.0 and can be considered by the fixed local Go 1.27.0 toolchain;
+this does not imply their packages will load successfully. The selected slice
+has 500–1,197 stars and repository size below 30,000, within the established
+500–5,000-star search bounds. Prior audited, in-flight, and outreach repositories
+were excluded before selecting 250 of 258 eligible candidates.
+
+The scanner is pinned to `6ed616c`, with binary and runner hashes in the
+[scan metadata](batch-50-scans.json). Four repository scans run concurrently,
+with at most three modules per repository and 180 seconds per analysis command.
+The profile enables all checks and includes test source, but does not execute
+candidate tests, generators, or applications. CGO is disabled, toolchain
+auto-download is disabled, and module files are read-only.
+
+All 250 repositories completed their bounded scan attempt across 319 module
+entries: 195 scans completed and 55 were incomplete. All 444 reported findings
+were individually reviewed: 363 true positives, 55 false positives, and 26
+inconclusive. The [per-finding reviews](batch-50-findings.tsv) preserve exact
+positions, check IDs, revisions, and source evidence. Incomplete scans are not
+counted as clean; 102 completed scans reported no findings within the selected
+scope. Original scan verdicts remain separate from later corrected replays.
+
+The [batch assessment](batch-50.md) records the principal evidence gaps,
+operational limitations, and correction status. Not every confirmed false
+positive was fixed: unresolved ownership, protocol, and path-correlation gaps
+remain explicit rather than receiving repository-specific exceptions.
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
