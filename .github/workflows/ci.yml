@@ -82,6 +82,7 @@ jobs:
         run: make dogfood
 
   race:
+    name: targeted race tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

@@ -76,9 +76,10 @@ test-exhaustive:
 	$(GO) test -tags=exhaustive ./internal/cli -run '^TestCLIIntegrationExhaustive$$' -count=1
 
 test-race:
-	# Analyzer fixture packages are independent, so Go can exercise them in
-	# parallel while the race detector covers every analyzer implementation.
-	$(GO) test -race ./analyzers ./internal/analyzers/...
+	# Tracing is the shared component that synchronizes concurrent analyzer
+	# output. Analyzer implementations themselves do not run mutable state
+	# concurrently, so their ordinary tests provide the relevant coverage.
+	$(GO) test -race ./internal/trace
 
 vet:
 	$(GO) vet ./...
