@@ -85,6 +85,15 @@ itself does not change.
   storage and escape checks, and symbol matching. It provides how to walk;
   it never decides whether evidence is sufficient. That policy stays beside
   each analyzer.
+- `internal/ssaflow/dense` joins incoming facts at control-flow points and
+  reruns transfers until they converge. Callers supply the fact domain, join,
+  feasible successors, and a finite transfer budget. An incomplete result
+  cannot prove absence of a path. `deferinloop` uses sets of lifecycle states
+  so merging an unknown path cannot erase a separate proven-live path.
+  Use `WalkStates` when correlated path states must stay separate; use the
+  dense engine when a monotone join preserves the proof's required evidence.
+  Value provenance continues to use `ReachingWalk`; a separate sparse
+  propagation engine has not yet been introduced.
 - `internal/passes/lifecyclefacts` exports a per-function summary of what a
   callee does to its parameters, so an analyzer can see through a call into
   another package. Consumers use `LifecycleEvidence`, which consults local

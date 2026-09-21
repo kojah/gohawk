@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssaflow/dense"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -12,16 +13,15 @@ import (
 type resourceStatus uint8
 
 const (
-	resourceLive resourceStatus = iota
+	resourceLive resourceStatus = 1 << iota
 	resourceSettled
 	resourceUnknown
 )
 
 type deferFlowState struct {
-	block       *ssa.BasicBlock
-	predecessor *ssa.BasicBlock
-	index       int
-	status      resourceStatus
+	block  *ssa.BasicBlock
+	index  int
+	status resourceStatus
 }
 
 // resourceLiveAtNextIteration asks the narrow reporting question directly:
@@ -37,27 +37,52 @@ func resourceLiveAtNextIteration(
 	if index < 0 {
 		return false
 	}
-	liveAtBackedge := false
-	initial := []deferFlowState{{block: deferred.Block(), index: index + 1, status: resourceLive}}
-	ssaflow.WalkStates(initial, func(state deferFlowState) deferFlowState { return state }, func(state deferFlowState) ([]deferFlowState, bool) {
-		state = advanceDeferState(evidence, state, obligation)
-		successors := make([]deferFlowState, 0, len(state.block.Succs))
-		for _, successor := range state.block.Succs {
-			status := iteratorSuccessorStatus(state, successor, obligation)
-			if successor.Dominates(deferred.Block()) {
-				if status == resourceLive {
-					liveAtBackedge = true
-					return nil, false
-				}
-				continue
-			}
-			successors = append(successors, deferFlowState{
-				block: successor, predecessor: state.block, status: status,
-			})
+	// The fact is a set of possible statuses, joined by union. Keeping live
+	// separate from unknown preserves a proven live path when another path
+	// crosses an opaque operation. Transfers distribute over that union.
+	initial := []dense.State[*ssa.BasicBlock, resourceStatus]{{Point: deferred.Block(), Fact: resourceLive}}
+	transfer := func(block *ssa.BasicBlock, statuses resourceStatus) []dense.State[*ssa.BasicBlock, resourceStatus] {
+		if block == nil {
+			return nil // The nil point collects states reaching an outer backedge.
 		}
-		return successors, true
-	})
-	return liveAtBackedge
+		start := 0
+		if block == deferred.Block() {
+			start = index + 1
+		}
+		return deferSuccessors(evidence, deferred, obligation, block, start, statuses)
+	}
+	// Each block and the backedge sink can gain at most three status bits.
+	// That bounds the number of transfers even when inner loops do not exit.
+	limit := 3 * (len(deferred.Parent().Blocks) + 1)
+	result := dense.Forward(initial, func(left, right resourceStatus) resourceStatus { return left | right }, transfer, limit)
+	return result.Complete && result.In[nil]&resourceLive != 0
+}
+
+func deferSuccessors(
+	evidence *lifecyclefacts.LifecycleEvidence,
+	deferred *ssa.Defer,
+	obligation deferObligation,
+	block *ssa.BasicBlock,
+	start int,
+	statuses resourceStatus,
+) []dense.State[*ssa.BasicBlock, resourceStatus] {
+	var successors []dense.State[*ssa.BasicBlock, resourceStatus]
+	for _, status := range []resourceStatus{resourceLive, resourceSettled, resourceUnknown} {
+		if statuses&status == 0 {
+			continue
+		}
+		state := advanceDeferState(evidence, deferFlowState{block: block, index: start, status: status}, obligation)
+		for _, successor := range block.Succs {
+			fact := iteratorSuccessorStatus(state, successor, obligation)
+			// A return to the defer's own block is a backedge too, so the
+			// initial block is never re-entered with an incorrect start offset.
+			if successor.Dominates(deferred.Block()) {
+				successor = nil
+			}
+			successors = append(successors, dense.State[*ssa.BasicBlock, resourceStatus]{Point: successor, Fact: fact})
+		}
+	}
+	return successors
 }
 
 // Without a general contract proving what Next does on exhaustion, its false

@@ -54,6 +54,13 @@ the helpers own feasibility and reachable-normal-return semantics.
 
 ## Carry a state along every path
 
+`internal/ssaflow/dense` provides `dense.Forward` for analyses with a monotone join:
+it merges incoming facts, revisits changed points, and reports whether the
+fixed point was reached within the caller's transfer budget. Keep correlated
+path context in the point key when merging it would lose precision. Facts
+must be immutable comparable values. `deferinloop` is the first consumer.
+`WalkStates` remains appropriate when complete path states must stay separate.
+
 | helper | answers |
 |---|---|
 | `WalkStates(initial, key, step)` | a keyed work list over path-sensitive states; the caller owns the state type and transfer, the driver owns termination |
