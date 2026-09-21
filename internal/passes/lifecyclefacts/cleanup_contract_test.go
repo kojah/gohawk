@@ -53,18 +53,20 @@ func TestCleanupContractProvedFromRelease(t *testing.T) {
 	contracts := contractsFor(t, `
 package lifecyclefactstest
 
-import "time"
+import "os"
 
 type Scheduler struct {
-	ticker *time.Ticker
+	file *os.File
 	name   string
 }
 
-func NewScheduler(name string) *Scheduler {
-	return &Scheduler{ticker: time.NewTicker(time.Second), name: name}
+func NewScheduler(name string) (*Scheduler, error) {
+	file, err := os.CreateTemp("", name)
+	if err != nil { return nil, err }
+	return &Scheduler{file: file, name: name}, nil
 }
 
-func (s *Scheduler) Stop() { s.ticker.Stop() }
+func (s *Scheduler) Stop() { _ = s.file.Close() }
 `)
 	contract, ok := contracts["Scheduler"]
 	if !ok {
@@ -85,14 +87,18 @@ func TestCleanupContractRejectsMisleadingName(t *testing.T) {
 	contracts := contractsFor(t, `
 package lifecyclefactstest
 
-import "time"
+import "os"
 
 type Pinger struct {
-	ticker *time.Ticker
+	file *os.File
 	count  int
 }
 
-func NewPinger() *Pinger { return &Pinger{ticker: time.NewTicker(time.Second)} }
+func NewPinger() (*Pinger, error) {
+	file, err := os.CreateTemp("", "pinger")
+	if err != nil { return nil, err }
+	return &Pinger{file: file}, nil
+}
 
 func (p *Pinger) Stop() { p.count = 0 }
 `)
@@ -107,14 +113,18 @@ func TestCleanupContractNeedsAReleaser(t *testing.T) {
 	contracts := contractsFor(t, `
 package lifecyclefactstest
 
-import "time"
+import "os"
 
-type Probe struct{ ticker *time.Ticker }
+type Probe struct{ file *os.File }
 
-func NewProbe() *Probe { return &Probe{ticker: time.NewTicker(time.Second)} }
+func NewProbe() (*Probe, error) {
+	file, err := os.CreateTemp("", "probe")
+	if err != nil { return nil, err }
+	return &Probe{file: file}, nil
+}
 `)
 	if _, ok := contracts["Probe"]; ok {
-		t.Errorf("Probe has a contract, want none: nothing releases its ticker")
+		t.Errorf("Probe has a contract, want none: nothing releases its file")
 	}
 }
 
@@ -124,13 +134,10 @@ func TestCleanupContractRejectsPartialRelease(t *testing.T) {
 	contracts := contractsFor(t, `
 package lifecyclefactstest
 
-import (
-	"os"
-	"time"
-)
+import "os"
 
 type Pair struct {
-	ticker *time.Ticker
+	other *os.File
 	file   *os.File
 }
 
@@ -139,10 +146,12 @@ func NewPair(path string) (*Pair, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Pair{ticker: time.NewTicker(time.Second), file: file}, nil
+	other, err := os.CreateTemp("", "pair")
+	if err != nil { file.Close(); return nil, err }
+	return &Pair{other: other, file: file}, nil
 }
 
-func (p *Pair) Stop() { p.ticker.Stop() }
+func (p *Pair) Stop() { p.other.Close() }
 `)
 	if contract, ok := contracts["Pair"]; ok {
 		t.Errorf("Pair has contract %v, want none: Stop leaves the file open", contract.Methods)
@@ -155,15 +164,32 @@ func TestCleanupContractIgnoresBorrowedResource(t *testing.T) {
 	contracts := contractsFor(t, `
 package lifecyclefactstest
 
-import "time"
+import "os"
 
-type Wrapper struct{ ticker *time.Ticker }
+type Wrapper struct{ file *os.File }
 
-func NewWrapper(ticker *time.Ticker) *Wrapper { return &Wrapper{ticker: ticker} }
+func NewWrapper(file *os.File) *Wrapper { return &Wrapper{file: file} }
 
-func (w *Wrapper) Stop() { w.ticker.Stop() }
+func (w *Wrapper) Stop() { w.file.Close() }
 `)
 	if _, ok := contracts["Wrapper"]; ok {
-		t.Errorf("Wrapper has a contract, want none: it never acquired the ticker")
+		t.Errorf("Wrapper has a contract, want none: it never acquired the file")
+	}
+}
+
+// A Stop method on a timer-only wrapper does not make GC-managed timers an
+// obligation again through the inferred-owner contract.
+func TestCleanupContractIgnoresChannelTimers(t *testing.T) {
+	contracts := contractsFor(t, `
+package lifecyclefactstest
+import "time"
+type Clock struct { timer *time.Timer; ticker *time.Ticker }
+func NewClock() *Clock {
+	return &Clock{timer: time.NewTimer(time.Hour), ticker: time.NewTicker(time.Second)}
+}
+func (c *Clock) Stop() { c.timer.Stop(); c.ticker.Stop() }
+`)
+	if contract, ok := contracts["Clock"]; ok {
+		t.Errorf("Clock has cleanup contract %v, want none for channel timers", contract.Methods)
 	}
 }

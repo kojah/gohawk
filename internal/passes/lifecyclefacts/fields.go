@@ -41,8 +41,10 @@ func resourceTypes() []resourceType {
 		{"compress/gzip", "Reader", []string{"Close"}},
 		{"compress/gzip", "Writer", []string{"Close"}},
 		{"compress/zlib", "Writer", []string{"Close"}},
-		{"time", "Ticker", []string{"Stop"}},
-		{"time", "Timer", []string{"Stop"}},
+		// Channel timers are GC-managed under modern Go semantics. Treating
+		// their types as obligations would recreate missing-Stop reports via
+		// inferred timer-only owners after the acquisition contract declined
+		// them. A Timer type alone cannot prove an AfterFunc callback either.
 	}
 }
 
