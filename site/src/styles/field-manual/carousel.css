@@ -29,27 +29,30 @@
 	box-shadow: 0 24px 60px rgb(0 0 0 / 18%);
 }
 
+.source-slide {
+	/* Markdown sibling spacing must not offset every slide after the first. */
+	margin: 0;
+}
+
 .source-slide[hidden] {
 	display: none;
 }
 
 .source-slide:not([hidden]) {
-	animation: source-slide-in 240ms ease-out;
+	animation: source-slide-in 550ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes source-slide-in {
 	from {
 		opacity: 0;
-		transform: translateX(8px);
+		transform: translateX(4px);
 	}
 }
 
 .source-window-bar {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 1rem;
-	min-height: 30px;
+	height: 36px;
 	padding-inline: 14px;
 	background: #1e2b37;
 	border-bottom: 1px solid var(--sl-color-hairline);
@@ -59,18 +62,6 @@
 	font-family: var(--sl-font-mono);
 	font-size: 0.7rem;
 	color: #aebcc6;
-}
-
-.source-analyzer {
-	padding: 0.16rem 0.45rem;
-	border: 1px solid rgb(93 201 226 / 28%);
-	border-radius: 999px;
-	font-family: var(--sl-font-mono);
-	font-size: 0.6rem;
-	font-weight: 600;
-	letter-spacing: 0.035em;
-	color: #77d4e9;
-	background: rgb(93 201 226 / 8%);
 }
 
 .source-window-body {
@@ -247,12 +238,6 @@
 
 :root[data-theme='light'] .source-window-file {
 	color: #4d5860;
-}
-
-:root[data-theme='light'] .source-analyzer {
-	border-color: rgb(0 117 143 / 24%);
-	color: #00758f;
-	background: rgb(0 117 143 / 6%);
 }
 
 :root[data-theme='light'] .source-window-body {

@@ -44,7 +44,6 @@ head:
     <div class="source-slide" data-carousel-slide aria-label="1 of 4: contradictory lock order">
       <div class="source-window-bar">
         <span class="source-window-file">cache.go</span>
-        <span class="source-analyzer">lockorder</span>
       </div>
       <div class="source-window-body" aria-label="Go code with locks acquired in contradictory order">
         <div><span class="source-line-number">1</span><span class="source-keyword">func</span> refresh() {</div>
@@ -69,7 +68,6 @@ head:
     <div class="source-slide" data-carousel-slide aria-label="2 of 4: resource lifetime leak" hidden>
       <div class="source-window-bar">
         <span class="source-window-file">config.go</span>
-        <span class="source-analyzer">resourcelifetime</span>
       </div>
       <div class="source-window-body" aria-label="Go code that leaks an open file">
         <div><span class="source-line-number">1</span><span class="source-keyword">func</span> load(path <span class="source-type">string</span>) (<span class="source-type">Config</span>, <span class="source-type">error</span>) {</div>
@@ -94,7 +92,6 @@ head:
     <div class="source-slide" data-carousel-slide aria-label="3 of 4: unjoined goroutine" hidden>
       <div class="source-window-bar">
         <span class="source-window-file">refresh.go</span>
-        <span class="source-analyzer">goroutineownership</span>
       </div>
       <div class="source-window-body" aria-label="Go code with a goroutine that is not joined on an error path">
         <div><span class="source-line-number">1</span><span class="source-keyword">func</span> refresh() <span class="source-type">error</span> {</div>
@@ -119,7 +116,6 @@ head:
     <div class="source-slide" data-carousel-slide aria-label="4 of 4: concurrent capture" hidden>
       <div class="source-window-bar">
         <span class="source-window-file">worker.go</span>
-        <span class="source-analyzer">concurrentcapture</span>
       </div>
       <div class="source-window-body" aria-label="Go code with goroutines mutating the same captured local">
         <div><span class="source-line-number">1</span><span class="source-keyword">func</span> collect(items []Item) <span class="source-type">error</span> {</div>
