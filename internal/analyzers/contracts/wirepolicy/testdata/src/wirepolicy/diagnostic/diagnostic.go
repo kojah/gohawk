@@ -1,4 +1,4 @@
-package wirepolicyfix
+package wirepolicydiagnostic
 
 type Payload struct {
 	Name string `json:"name"`

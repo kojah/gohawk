@@ -231,6 +231,8 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 		}
 		return processOutput{stdout: []byte(`[
 			{"Name":"channelsafety","Bool":true,"Usage":"legacy selector"},
+			{"Name":"fix","Bool":true,"Usage":"apply edits"},
+			{"Name":"diff","Bool":true,"Usage":"preview edits"},
 			{"Name":"enable","Bool":false,"Usage":"enable analyzers"}
 		]`)}, nil
 	}
@@ -240,6 +242,11 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 	}
 	if strings.Contains(output.String(), `"Name": "channelsafety"`) || !strings.Contains(output.String(), `"Name": "enable"`) {
 		t.Fatalf("filtered output:\n%s", output.String())
+	}
+	for _, name := range []string{"fix", "diff"} {
+		if strings.Contains(output.String(), `"Name": "`+name+`"`) {
+			t.Errorf("advertised unsupported flag %s", name)
+		}
 	}
 
 	execute = func(string, []string, []string) (processOutput, error) {
@@ -257,17 +264,14 @@ func TestRenderModeFollowsFlags(t *testing.T) {
 	for _, test := range []struct {
 		arguments []string
 		want      renderMode
-		diff      bool
 	}{
-		{[]string{"gohawk", "./..."}, renderRich, false},
-		{[]string{"gohawk", "-json", "./..."}, renderJSON, false},
-		{[]string{"gohawk", "-fix", "./..."}, renderFix, false},
-		{[]string{"gohawk", "-fix", "-diff", "./..."}, renderFix, true},
+		{[]string{"gohawk", "./..."}, renderRich},
+		{[]string{"gohawk", "-json", "./..."}, renderJSON},
 	} {
 		var output, errorsOutput bytes.Buffer
 		runtime := testCLIRuntime(t, &output, &errorsOutput)
 		invocation := runCLI(test.arguments, runtime).invocation
-		if invocation == nil || !invocation.delegate || invocation.render != test.want || invocation.diff != test.diff {
+		if invocation == nil || !invocation.delegate || invocation.render != test.want {
 			t.Errorf("runCLI(%v) invocation = %#v", test.arguments, invocation)
 		}
 	}
@@ -394,7 +398,7 @@ func TestPrintDocumentation(t *testing.T) {
 			arguments: []string{"lockorder"},
 			contains: []string{
 				"lockorder", "Group: reliability (reliability and safety)",
-				"Suggested fixes: no", "lockorder/missing-release",
+				"lockorder/missing-release",
 				"https://gohawk.dev/analyzers/reliability-and-safety/lockorder/",
 			},
 			excludes: []string{"channelsafety/send-after-close", "prefer-test-context"},

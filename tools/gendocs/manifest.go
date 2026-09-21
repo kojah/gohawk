@@ -51,14 +51,13 @@ func collectManifest(root string) (manifest, error) {
 		for _, registered := range analyzerGroup.Analyzers {
 			info := metadata[registered.Name]
 			item := analyzer{
-				Name:         registered.Name,
-				Summary:      sentence(registered.Doc),
-				Path:         "analyzers/" + group.Slug + "/" + registered.Name,
-				Tier:         info.Tier(),
-				Checks:       checkManifest(info.Checks),
-				SuggestedFix: info.SuggestedFix,
-				Options:      []optionFlag{},
-				Examples:     examples[registered.Name],
+				Name:     registered.Name,
+				Summary:  sentence(registered.Doc),
+				Path:     "analyzers/" + group.Slug + "/" + registered.Name,
+				Tier:     info.Tier(),
+				Checks:   checkManifest(info.Checks),
+				Options:  []optionFlag{},
+				Examples: examples[registered.Name],
 			}
 			registered.Flags.VisitAll(func(value *flag.Flag) {
 				item.Options = append(item.Options, optionFlag{

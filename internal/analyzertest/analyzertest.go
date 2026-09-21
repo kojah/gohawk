@@ -17,18 +17,15 @@ func Run(t *testing.T, testdata string, analyzer *analysis.Analyzer, patterns ..
 	analysistest.Run(t, testdata, requireDiagnosticContract(t, analyzer), patterns...)
 }
 
-// RunWithSuggestedFixes checks diagnostics and golden suggested fixes.
-func RunWithSuggestedFixes(t *testing.T, testdata string, analyzer *analysis.Analyzer, patterns ...string) {
-	t.Helper()
-	analysistest.RunWithSuggestedFixes(t, testdata, requireDiagnosticContract(t, analyzer), patterns...)
-}
-
 func requireDiagnosticContract(t *testing.T, analyzer *analysis.Analyzer) *analysis.Analyzer {
 	t.Helper()
 	run := analyzer.Run
 	analyzer.Run = func(pass *analysis.Pass) (any, error) {
 		report := pass.Report
 		pass.Report = func(diagnostic analysis.Diagnostic) {
+			if len(diagnostic.SuggestedFixes) != 0 {
+				t.Errorf("%s diagnostic %q contains source edits; gohawk is diagnostic-only", analyzer.Name, diagnostic.Message)
+			}
 			if diagnostic.End <= diagnostic.Pos {
 				t.Errorf("%s diagnostic %q has no precise range", analyzer.Name, diagnostic.Message)
 			}

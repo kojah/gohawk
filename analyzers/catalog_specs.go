@@ -77,7 +77,7 @@ func contractSpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
-		{Analyzer: wirepolicy.Analyzer(), SuggestedFix: true, Checks: []catalog.CheckInfo{
+		{Analyzer: wirepolicy.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.WireKeyedLiteral, Doc: "Reports positional composite literals for persisted or wire structs.",
 				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
@@ -99,7 +99,7 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
 			},
 		}},
-		{Analyzer: cancellationownership.Analyzer(), SuggestedFix: true, Checks: []catalog.CheckInfo{
+		{Analyzer: cancellationownership.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.CancellationRelease, Doc: "Reports derived cancel functions proved lost on a feasible normal return path.",
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,

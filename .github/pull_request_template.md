@@ -22,5 +22,4 @@
 - Are there real-world bugs this would have caught? Links are helpful but
   optional.
 
-<!-- Note any changes to diagnostic behavior, check IDs, tags, profiles, flags,
-or suggested fixes. -->
+<!-- Note any changes to diagnostic behavior, check IDs, tags, profiles, or flags. -->

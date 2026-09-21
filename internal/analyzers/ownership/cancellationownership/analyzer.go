@@ -52,7 +52,6 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 						Message: "cancel function from " + syntax.ShortPackageName(
 							contract.packagePath,
 						) + "." + contract.name + " is not called on every return path",
-						SuggestedFixes: cancellationFix(pass, source.Pos(), contract.name),
 					})
 				}
 			}

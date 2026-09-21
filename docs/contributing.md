@@ -64,8 +64,8 @@ as a threshold or ownership policy. Define them on the analyzer's `Flags` set.
 ### 2. Register it
 
 Add a `catalog.AnalyzerSpec` for the analyzer to the matching group in
-`analyzers/catalog_specs.go`, including its checks, each check's tier, and
-suggested-fix support. A new check starts experimental; it moves to extended
+`analyzers/catalog_specs.go`, including its checks and each check's tier.
+A new check starts experimental; it moves to extended
 once it has fixtures, a doc page, and an audit batch without a false-positive
 class, and to core after consecutive clean batches with a bounded proof model. Then add its analyzer ID to the stable order in
 `analyzers/analyzers.go`.
@@ -101,9 +101,9 @@ Add examples that must stay quiet too. Cover realistic near misses and safe
 forms, not just the easiest happy path. If dogfooding finds a false alert, turn
 the smallest version of it into an accepted fixture.
 
-If the analyzer has flags, suggested fixes, policy modes, or cross-package
+If the analyzer has flags, policy modes, or cross-package
 behavior, put those packages beneath its fixture directory. Existing
-`config/`, `fix/`, and mode directories show the convention.
+`config/` and mode directories show the convention.
 
 ### 4. Add the living documentation example
 

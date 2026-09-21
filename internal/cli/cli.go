@@ -31,7 +31,6 @@ type renderMode int
 const (
 	renderRich renderMode = iota // gohawk's own formatted diagnostics
 	renderJSON                   // the raw go vet JSON, passed through
-	renderFix                    // apply or preview suggested fixes
 )
 
 // analysisInvocation is the analysis work runCLI resolved but did not run. A
@@ -44,7 +43,6 @@ type analysisInvocation struct {
 	analyzers    []*analysis.Analyzer
 	delegate     bool
 	render       renderMode
-	diff         bool
 	contextLines int
 }
 
@@ -59,8 +57,8 @@ type cliResult struct {
 // delegates to `go vet -vettool=<self>`, so dependencies are type-checked from
 // export data and each package's SSA is built and freed one at a time. That
 // keeps memory bounded on projects with large dependencies, where loading the
-// entire closure at once would exhaust it. The rich output, check selection,
-// and suggested fixes are preserved by post-processing go vet's JSON here. When
+// entire closure at once would exhaust it. Rich output and check selection
+// are preserved by post-processing go vet's JSON here. When
 // go vet invokes this same binary as its tool, the invocation carries a .cfg
 // file and is answered by unitchecker instead.
 func Main() int {
@@ -88,6 +86,10 @@ func Main() int {
 }
 
 func runCLI(arguments []string, runtime cliRuntime) cliResult {
+	if hasFlag(arguments, "fix") || hasFlag(arguments, "diff") {
+		writeLine(runtime.errorsOutput, "gohawk: -fix and -diff are unsupported; gohawk is diagnostic-only")
+		return cliResult{exitCode: 2}
+	}
 	if humanVersionRequested(arguments) {
 		printHumanVersion(runtime.output)
 		return cliResult{}
@@ -126,7 +128,6 @@ func runCLI(arguments []string, runtime cliRuntime) cliResult {
 		delegate:     true,
 		arguments:    forwardedArguments(originalArguments),
 		render:       renderModeFor(originalArguments),
-		diff:         hasFlag(originalArguments, "diff"),
 		contextLines: requestedContext(originalArguments),
 	}}
 }
@@ -176,8 +177,6 @@ func vetToolHandshake(arguments []string) bool {
 
 func renderModeFor(arguments []string) renderMode {
 	switch {
-	case hasFlag(arguments, "fix") || hasFlag(arguments, "diff"):
-		return renderFix
 	case hasFlag(arguments, "json"):
 		return renderJSON
 	default:
@@ -187,7 +186,7 @@ func renderModeFor(arguments []string) renderMode {
 
 // forwardedArguments are the flags and package patterns handed to go vet. The
 // flags gohawk interprets itself and does not want go vet to see are dropped:
-// -json, -fix, and -diff select how this process post-processes the JSON, and
+// -json selects how this process post-processes the JSON, and
 // -c is the context width gohawk applies while rendering. Selection, analyzer,
 // and trace flags are forwarded unchanged; go vet relays them to each vet-tool
 // invocation, which resolves them.
@@ -201,7 +200,7 @@ func forwardedArguments(arguments []string) []string {
 		}
 		if name, ok := flagName(argument); ok {
 			switch name {
-			case "json", "fix", "diff":
+			case "json":
 				continue
 			case "c":
 				skipValue = !strings.Contains(argument, "=") // a bare -c takes a separate value

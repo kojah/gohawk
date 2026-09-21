@@ -18,7 +18,6 @@
               "tier": "experimental"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -34,7 +33,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": true,
           "options": []
         },
         {
@@ -50,7 +48,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -66,7 +63,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -82,7 +78,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": [
             {
               "name": "mode",
@@ -104,7 +99,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -126,7 +120,6 @@
               "tier": "experimental"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -148,7 +141,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": [
             {
               "name": "contracts",
@@ -182,7 +174,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -198,7 +189,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -214,7 +204,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -260,7 +249,6 @@
               "tier": "experimental"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -276,7 +264,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": []
         },
         {
@@ -292,7 +279,6 @@
               "tier": "core"
             }
           ],
-          "suggestedFix": false,
           "options": []
         }
       ]

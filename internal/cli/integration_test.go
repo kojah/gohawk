@@ -187,9 +187,10 @@ func answer() int { return identity{}.value(42) }
 		}
 	})
 
-	t.Run("cancellation trace and fix", func(t *testing.T) {
+	t.Run("cancellation trace", func(t *testing.T) {
 		t.Parallel()
-		module := writeCancellationFixModule(t)
+		module := writeCancellationModule(t)
+		original := moduleFileContents(t, module, filepath.Join("sample", "sample.go"))
 		const diagnostic = "cancel function from context.WithCancel is not called on every return path"
 		tracePath := filepath.Join(t.TempDir(), "evidence.jsonl")
 
@@ -206,6 +207,9 @@ func answer() int { return identity{}.value(42) }
 		if exitCode != 3 || !json.Valid([]byte(output)) {
 			t.Fatalf("traced JSON run: exit code = %d\n%s", exitCode, output)
 		}
+		if strings.Contains(output, `"suggested_fixes"`) {
+			t.Fatalf("diagnostic-only JSON contains source edits: %s", output)
+		}
 		assertCancellationTrace(t, tracePath)
 
 		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-enable=cancellationownership", "./...")
@@ -213,14 +217,14 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("vettool cancellation diagnostic: exit code = %d\n%s", exitCode, output)
 		}
 
-		output, exitCode = runCommand(t, module, binary, "-fix", "./...")
-		if exitCode != 0 {
-			t.Fatalf("cancellation fix: exit code = %d\n%s", exitCode, output)
+		for _, option := range []string{"-fix", "-diff"} {
+			output, exitCode = runCommand(t, module, binary, option, "./...")
+			if exitCode != 2 || !strings.Contains(output, "diagnostic-only") {
+				t.Fatalf("unsupported %s: exit code = %d\n%s", option, exitCode, output)
+			}
 		}
-		assertFixtureContains(t, module, "defer cancel()")
-		output, exitCode = runCommand(t, module, "go", "test", "./...")
-		if exitCode != 0 {
-			t.Fatalf("test fixed module: exit code = %d\n%s", exitCode, output)
+		if got := moduleFileContents(t, module, filepath.Join("sample", "sample.go")); got != original {
+			t.Fatal("diagnostic-only commands changed the source file")
 		}
 	})
 }
@@ -251,7 +255,6 @@ func assertCancellationTrace(t *testing.T, tracePath string) {
 		"decision/ambiguous-cancellation-use/unknown",
 		"decision/unowned-return/rejected",
 		"decision/diagnostic-reported/rejected",
-		"fix/suggested-fix-available/accepted",
 	} {
 		if !found[want] {
 			t.Fatalf("trace does not contain %s:\n%s", want, traceOutput)

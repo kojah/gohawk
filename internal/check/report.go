@@ -28,10 +28,5 @@ func Report(pass *analysis.Pass, id ID, diagnostic analysis.Diagnostic) {
 	trace.EmitDiagnostic(pass, trace.DiagnosticEvent{
 		Analyzer: analyzer, Phase: "candidate", Reason: "diagnostic-candidate", Outcome: trace.OutcomeObserved, Diagnostic: diagnostic,
 	})
-	if len(diagnostic.SuggestedFixes) > 0 {
-		trace.EmitDiagnostic(pass, trace.DiagnosticEvent{
-			Analyzer: analyzer, Phase: "fix", Reason: "suggested-fix-available", Outcome: trace.OutcomeAccepted, Diagnostic: diagnostic,
-		})
-	}
 	pass.Report(diagnostic)
 }

@@ -1,4 +1,4 @@
-package cancellationownershipfix
+package cancellationownershipdiagnostic
 
 import (
 	"context"
@@ -8,18 +8,15 @@ import (
 
 func work(parent context.Context) {
 	ctx, cancel := context.WithCancel(parent) /* keep constructor context */ // want "cancel function from context.WithCancel is not called on every return path"
-	defer cancel()
 	_, _ = ctx, cancel
 }
 
 func workWithCause(parent context.Context) {
 	ctx, cancel := context.WithCancelCause(parent) // want "cancel function from context.WithCancelCause is not called on every return path"
-	defer cancel(nil)
 	_, _ = ctx, cancel
 }
 
 func workWithSignal(parent context.Context) {
 	ctx, stop := signal.NotifyContext(parent, os.Interrupt) // want "cancel function from signal.NotifyContext is not called on every return path"
-	defer stop()
 	_, _ = ctx, stop
 }

@@ -23,8 +23,7 @@ type AnalyzerGroup struct {
 
 // AnalyzerInfo describes capabilities that are not represented by analysis.Analyzer.
 type AnalyzerInfo struct {
-	Checks       []AnalyzerCheckInfo
-	SuggestedFix bool
+	Checks []AnalyzerCheckInfo
 }
 
 // Tier is the most trusted tier among the analyzer's checks: the analyzer
@@ -251,5 +250,5 @@ func publicAnalyzerInfo(spec catalog.AnalyzerSpec) AnalyzerInfo {
 	for index, check := range spec.Checks {
 		checks[index] = AnalyzerCheckInfo{ID: AnalyzerCheck(check.ID), Doc: check.Doc, Kind: CheckKind(check.Kind), Tier: CheckTier(check.Tier)}
 	}
-	return AnalyzerInfo{Checks: checks, SuggestedFix: spec.SuggestedFix}
+	return AnalyzerInfo{Checks: checks}
 }

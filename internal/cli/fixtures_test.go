@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strings"
 	"testing"
 )
 
@@ -90,9 +89,9 @@ func writeLanguageVersionModule(t *testing.T, version, source string) string {
 	return directory
 }
 
-func writeCancellationFixModule(t *testing.T) string {
+func writeCancellationModule(t *testing.T) string {
 	t.Helper()
-	return writeSampleModule(t, "module example.com/cancellationfix\n\ngo 1.26.0\n", `package cancellationfix
+	return writeSampleModule(t, "module example.com/cancellation\n\ngo 1.26.0\n", `package cancellation
 
 import "context"
 
@@ -109,7 +108,7 @@ func handOff(parent context.Context, owner cancelOwner) {
 	_, cancel := context.WithCancel(parent)
 	owner.Store(cancel)
 }
-`, `package cancellationfix
+`, `package cancellation
 
 import "testing"
 
@@ -209,14 +208,6 @@ func writeTestFile(t *testing.T, path, contents string) {
 	}
 	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
 		t.Fatalf("write fixture: %v", err)
-	}
-}
-
-func assertFixtureContains(t *testing.T, module, want string) {
-	t.Helper()
-	contents := moduleFileContents(t, module, filepath.Join("sample", "sample.go"))
-	if !strings.Contains(contents, want) {
-		t.Fatalf("fixture does not contain %q:\n%s", want, contents)
 	}
 }
 

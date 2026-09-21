@@ -16,28 +16,15 @@ import (
 )
 
 type jsonDiagnostic struct {
-	Posn           string             `json:"posn"`
-	End            string             `json:"end"`
-	Message        string             `json:"message"`
-	Related        []jsonRelated      `json:"related"`
-	SuggestedFixes []jsonSuggestedFix `json:"suggested_fixes"`
+	Posn    string        `json:"posn"`
+	End     string        `json:"end"`
+	Message string        `json:"message"`
+	Related []jsonRelated `json:"related"`
 }
 
 type jsonRelated struct {
 	Posn    string `json:"posn"`
 	Message string `json:"message"`
-}
-
-type jsonSuggestedFix struct {
-	Message string         `json:"message"`
-	Edits   []jsonTextEdit `json:"edits"`
-}
-
-type jsonTextEdit struct {
-	Filename string `json:"filename"`
-	Start    int    `json:"start"`
-	End      int    `json:"end"`
-	New      string `json:"new"`
 }
 
 type positionedDiagnostic struct {
@@ -113,8 +100,6 @@ func runViaGoVet(invocation *analysisInvocation, runtime cliRuntime) int {
 	case renderJSON:
 		_, _ = runtime.output.Write(merged)
 		return jsonDiagnosticExitCode(merged)
-	case renderFix:
-		return applySuggestedFixes(merged, invocation.diff, runtime.output, runtime.errorsOutput)
 	default:
 		return renderDelegatedDiagnostics(merged, invocation.contextLines, runtime.output)
 	}

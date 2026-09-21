@@ -112,8 +112,7 @@ type AnalyzerSpec struct {
 	// still contains their implementation and still reports them, so the
 	// reporting boundary needs to recognise and drop them rather than treat
 	// them as an identity it has never heard of.
-	Withdrawn    []check.ID
-	SuggestedFix bool
+	Withdrawn []check.ID
 	// Group is the catalog group the analyzer was declared in.
 	Group GroupID
 }

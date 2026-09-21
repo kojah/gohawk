@@ -37,14 +37,13 @@ type group struct {
 }
 
 type analyzer struct {
-	Name         string           `json:"name"`
-	Summary      string           `json:"summary"`
-	Path         string           `json:"path"`
-	Tier         gohawk.CheckTier `json:"tier"`
-	Checks       []check          `json:"checks"`
-	SuggestedFix bool             `json:"suggestedFix"`
-	Options      []optionFlag     `json:"options"`
-	Examples     docexamples.Set  `json:"-"`
+	Name     string           `json:"name"`
+	Summary  string           `json:"summary"`
+	Path     string           `json:"path"`
+	Tier     gohawk.CheckTier `json:"tier"`
+	Checks   []check          `json:"checks"`
+	Options  []optionFlag     `json:"options"`
+	Examples docexamples.Set  `json:"-"`
 }
 
 type check struct {

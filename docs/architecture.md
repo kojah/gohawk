@@ -110,7 +110,7 @@ facts are cached. That keeps memory bounded on projects with large
 dependencies, where loading the entire closure at once would exhaust it, and it
 makes a rerun after an edit re-analyze only the changed package and its
 importers. gohawk then post-processes go vet's JSON to produce its rich output,
-apply suggested fixes, or pass the JSON through, and it validates selection and
+or pass the JSON through, and it validates selection and
 analyzer flags up front so a bad name fails once.
 
 The same binary is the tool go vet invokes: when go vet runs it with a unit

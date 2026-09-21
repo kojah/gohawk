@@ -212,7 +212,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 	})
 
 	t.Run("cancellation ownership through CLI and vet tool", func(t *testing.T) {
-		module := writeCancellationFixModule(t)
+		module := writeCancellationModule(t)
 		const diagnostic = "cancel function from context.WithCancel is not called on every return path"
 		tracePath := filepath.Join(t.TempDir(), "evidence.jsonl")
 
@@ -253,7 +253,6 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			"decision/ambiguous-cancellation-use/unknown",
 			"decision/unowned-return/rejected",
 			"decision/diagnostic-reported/rejected",
-			"fix/suggested-fix-available/accepted",
 		} {
 			if !found[want] {
 				t.Fatalf("trace does not contain %s:\n%s", want, traceOutput)
@@ -270,29 +269,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("vettool cancellation diagnostic: exit code = %d\n%s", exitCode, output)
 		}
 
-		output, exitCode = runCommand(t, module, binary, "-fix", "-diff", "./...")
-		if exitCode != 0 || !strings.Contains(output, "defer cancel()") {
-			t.Fatalf("cancellation fix preview: exit code = %d\n%s", exitCode, output)
-		}
-		assertFixtureContains(t, module, "_, _ = ctx, cancel")
-
-		output, exitCode = runCommand(t, module, binary, "-fix", "./...")
-		if exitCode != 0 {
-			t.Fatalf("cancellation fix: exit code = %d\n%s", exitCode, output)
-		}
-		assertFixtureContains(t, module, "defer cancel()")
-
-		output, exitCode = runCommand(t, module, binary, "./...")
-		if exitCode != 0 || output != "" {
-			t.Fatalf("fixed standalone module: exit code = %d, output = %q", exitCode, output)
-		}
-		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "./...")
-		if exitCode != 0 || output != "" {
-			t.Fatalf("fixed vettool module: exit code = %d, output = %q", exitCode, output)
-		}
-		output, exitCode = runCommand(t, module, "go", "test", "./...")
-		if exitCode != 0 {
-			t.Fatalf("test fixed module: exit code = %d\n%s", exitCode, output)
+		if !strings.Contains(moduleFileContents(t, module, filepath.Join("sample", "sample.go")), "_, _ = ctx, cancel") {
+			t.Fatal("analysis changed the source file")
 		}
 	})
 }

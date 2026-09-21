@@ -117,22 +117,10 @@ gohawk -enable=resourcelifetime -resourcelifetime.require-memory-writer-close=tr
 Each configurable analyzer lists its options in the
 [analyzer reference](../analyzers/).
 
-## Preview or apply fixes
+## Diagnostic-only analysis
 
-Some diagnostics include a safe source edit. Preview edits as a diff:
-
-```sh
-gohawk -enable=cancellationownership -fix -diff ./...
-```
-
-Apply them by leaving off `-diff`:
-
-```sh
-gohawk -enable=cancellationownership -fix ./...
-```
-
-Not every finding can be fixed automatically. Review the resulting changes
-and run your project's tests afterward.
+gohawk reports problems and their source locations. It does not offer or apply
+source edits; choose the appropriate correction for your code.
 
 ## Ignore an intentional finding
 

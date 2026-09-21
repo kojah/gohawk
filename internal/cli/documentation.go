@@ -55,6 +55,8 @@ func printFilteredFlagsUsing(arguments []string, analyzers []*analysis.Analyzer,
 		return 1
 	}
 	hidden := make(map[string]bool, len(analyzers))
+	hidden["fix"] = true
+	hidden["diff"] = true
 	for _, analyzer := range analyzers {
 		hidden[analyzer.Name] = true
 	}
@@ -193,7 +195,6 @@ func printAnalyzerDocumentation(output io.Writer, group gohawk.AnalyzerGroup, an
 	writeFormattedf(output, "  %s\n\n", analyzer.Doc)
 	writeFormattedf(output, "Tier: %s\n", info.Tier())
 	writeFormattedf(output, "Group: %s (%s)\n", group.Name, group.Doc)
-	writeFormattedf(output, "Suggested fixes: %s\n", yesNo(info.SuggestedFix))
 	writeFormattedf(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
 	writeLine(output, "\nChecks:")
 	for _, check := range info.Checks {
@@ -240,13 +241,6 @@ func analyzerDocumentationURL(group gohawk.AnalyzerGroup, analyzer string) strin
 	return analyzerDocumentationBaseURL + group.DocPath + "/" + analyzer + "/"
 }
 
-func yesNo(value bool) string {
-	if value {
-		return "yes"
-	}
-	return "no"
-}
-
 func humanVersionRequested(arguments []string) bool {
 	return len(arguments) == 2 && (arguments[1] == "-V" || arguments[1] == "--version")
 }
@@ -289,7 +283,7 @@ func printGeneralHelp(output io.Writer) {
 	writeLine(output, "  -enable-groups=GROUP1,GROUP2 run every analyzer in named groups")
 	writeLine(output, "  -disable-groups=GROUP1,GROUP2 remove groups from the selected set")
 	writeLine(output, "  -enable-all                  run every analyzer and check")
-	writeLine(output, "\nCommon analysis flags: -json, -fix, -diff, -c=N, -V")
+	writeLine(output, "\nCommon analysis flags: -json, -c=N, -V")
 	writeLine(output, "Test files: -gohawk-include-tests reports findings in _test.go files")
 	writeLine(output, "Evidence tracing: -gohawk-trace=ANALYZER[,CHECK...] [-gohawk-trace-file=PATH]")
 	writeLine(output, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
