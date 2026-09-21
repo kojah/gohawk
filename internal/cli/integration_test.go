@@ -169,6 +169,15 @@ func answer() int { return identity{}.value(42) }
 		}
 	})
 
+	t.Run("retired detached check is rejected", func(t *testing.T) {
+		t.Parallel()
+		module := writeGoroutineTestModule(t)
+		output, exitCode := runCommand(t, module, binary, "-enable-checks=goroutineownership/detached", "./...")
+		if exitCode != 2 || !strings.Contains(output, "goroutineownership/detached") {
+			t.Fatalf("retired check: exit code = %d, output = %q", exitCode, output)
+		}
+	})
+
 	t.Run("invalid analyzer option", func(t *testing.T) {
 		t.Parallel()
 		module := writeTestModule(t)

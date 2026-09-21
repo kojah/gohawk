@@ -1,14 +1,16 @@
 ---
 title: goroutineownership
 seoTitle: "goroutineownership: Detect unowned goroutines in Go"
-description: "Give spawned goroutines a recognizable lifecycle owner."
+description: "Detect goroutines whose proven completion obligations are not honored."
 ---
 
 import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 ## What it detects
 
-Reports goroutines whose join handle or lifecycle owner is not honored on every return path.
+Reports goroutines whose proven completion obligation is not honored on every return path.
+Launching background work without a recognizable completion obligation is not
+itself a diagnostic, including in `join` mode and with `-enable-all`.
 
 ### Checks
 
@@ -16,12 +18,11 @@ Reports goroutines whose join handle or lifecycle owner is not honored on every 
 | Check | Kind | Tier | What it detects |
 | --- | --- | --- | --- |
 | <CheckIdentity name="unjoined" tier="core" /> | hazard | core | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. |
-| <CheckIdentity name="detached" tier="experimental" /> | hazard | experimental | Reports goroutines without a recognizable join handle or lifecycle owner. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 
-A goroutine with no clear owner can keep running after its caller returns, or
+A goroutine with an abandoned completion obligation can keep running after its caller returns, or
 block forever trying to send a result nobody will receive. These leaks hold
 memory and other resources, and they can make shutdown nondeterministic or hang
 the program outright.
@@ -38,9 +39,14 @@ Join the goroutine, transfer its lifecycle explicitly, or connect it to a bounde
 {/* gohawk:generated-examples:start */}
 ### Flagged code
 
-```go gohawk="W3siY2hlY2siOiJnb3JvdXRpbmVvd25lcnNoaXAvZGV0YWNoZWQiLCJtZXNzYWdlIjoiZ29yb3V0aW5lIGlzIG5vdCBqb2luZWQgb24gZXZlcnkgcmV0dXJuIHBhdGgiLCJzdGFydExpbmUiOjEsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjoxLCJlbmRDb2x1bW4iOjE4fV0"
+```go gohawk="W3siY2hlY2siOiJnb3JvdXRpbmVvd25lcnNoaXAvdW5qb2luZWQiLCJtZXNzYWdlIjoiZ29yb3V0aW5lIGlzIG5vdCBqb2luZWQgb24gZXZlcnkgcmV0dXJuIHBhdGgiLCJzdGFydExpbmUiOjMsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjo2LCJlbmRDb2x1bW4iOjV9XQ"
 func refresh() {
-  go updateCache()
+  var group sync.WaitGroup
+  group.Add(1)
+  go func() {
+    defer group.Done()
+    updateCache()
+  }()
 }
 ```
 

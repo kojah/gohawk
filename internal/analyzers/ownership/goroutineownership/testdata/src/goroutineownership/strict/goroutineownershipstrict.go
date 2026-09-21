@@ -3,7 +3,7 @@ package goroutineownershipstrict
 import "context"
 
 func contextBoundWorker(ctx context.Context) {
-	go func() { // want "goroutine is not joined on every return path"
+	go func() {
 		<-ctx.Done()
 	}()
 }
@@ -15,7 +15,7 @@ func (*lifecycleOwner) Stop() {}
 
 func lifecycleOnly() {
 	owner := &lifecycleOwner{}
-	go owner.run() // want "goroutine is not joined on every return path"
+	go owner.run()
 	defer owner.Stop()
 }
 

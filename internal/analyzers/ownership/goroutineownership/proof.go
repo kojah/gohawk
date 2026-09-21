@@ -3,7 +3,6 @@ package goroutineownership
 import (
 	"go/token"
 
-	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/ssa"
@@ -11,9 +10,9 @@ import (
 
 // This file owns the single decision path for every goroutineownership check.
 // The proof reverses the burden of evidence: the worker must first establish an
-// obligation (a completion signal, a settling WaitGroup, or, for the detached
-// audit, a lifecycle owner), and the default diagnostic then needs a feasible
-// return path on which nothing joins, transfers, or ambiguously consumes it.
+// obligation (a completion signal or a settling WaitGroup). A diagnostic then
+// needs a feasible return path on which nothing joins, transfers, or ambiguously
+// consumes it.
 // Every instruction after the spawn is classified once; the flow query asks
 // only whether an exact action, or any action at all, covers every return.
 
@@ -45,7 +44,7 @@ const (
 	reasonFlagGuardedJoin         goroutineOwnershipReason = "flag-guarded-join"
 	reasonBufferedSignal          goroutineOwnershipReason = "buffered-completion-signal"
 	reasonSharedStorageSignal     goroutineOwnershipReason = "shared-storage-signal"
-	reasonDetachedUnknown         goroutineOwnershipReason = "detached-lifecycle-unknown"
+	reasonNoObligation            goroutineOwnershipReason = "no-completion-obligation"
 	reasonUnownedReturn           goroutineOwnershipReason = "unowned-return"
 	reasonDoneBeforeCompletion    goroutineOwnershipReason = "waitgroup-done-before-completion"
 )
@@ -69,6 +68,11 @@ func (analysis *spawnAnalysis) ruledOut(reason goroutineOwnershipReason) {
 }
 
 func (analysis *spawnAnalysis) prove() GoroutineProof {
+	// Absence of a recognizable owner is not evidence of a defect. This also
+	// applies in join mode: a policy setting cannot create a completion promise.
+	if len(analysis.signals) == 0 && len(analysis.groups) == 0 && analysis.unsettledDone == nil {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonNoObligation}
+	}
 	if proof, decided := analysis.lifecycleProof(); decided {
 		return proof
 	}
@@ -122,9 +126,6 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLoopJoinUnproven}
 	}
 	analysis.ruledOut(reasonLoopJoinUnproven)
-	if analysis.checkID == check.GoroutineDetached {
-		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonDetachedUnknown}
-	}
 	if analysis.sharedStorageSignals() {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonSharedStorageSignal}
 	}

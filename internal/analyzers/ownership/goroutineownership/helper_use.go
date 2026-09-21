@@ -198,7 +198,7 @@ func (search *helperSearch) callEscapes(instruction ssa.Instruction, kind tracke
 }
 
 // receiverCallRetainsNothing recognizes the documented sync.WaitGroup methods
-// and, for the detached audit, a lifecycle method: they observe or settle the
+// and lifecycle methods used as acceptance evidence: they observe or settle the
 // receiver without letting it escape.
 func receiverCallRetainsNothing(common *ssa.CallCommon, kind trackedKind, derives func(ssa.Value) bool) bool {
 	receiver := ssaflow.CallReceiver(common)

@@ -102,7 +102,7 @@ type nestedLifecycleOwner struct {
 }
 
 func startsNestedCallerOwner(owner nestedLifecycleOwner) {
-	go owner.worker.run() // want "goroutine is not joined on every return path"
+	go owner.worker.run()
 }
 
 type resultEvent struct {

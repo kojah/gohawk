@@ -141,10 +141,6 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 				ID: check.GoroutineJoin, Doc: "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
 			},
-			{
-				ID: check.GoroutineDetached, Doc: "Reports goroutines without a recognizable join handle or lifecycle owner.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
-			},
 		}},
 		{Analyzer: producerlifecycle.Analyzer(), Checks: []catalog.CheckInfo{
 			{

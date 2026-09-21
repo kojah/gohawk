@@ -13,9 +13,9 @@ import (
 
 // Lifecycle evidence bounds a worker from outside the spawning function: it
 // receives from a caller-owned stop channel or context, runs inside a synctest
-// bubble, or, for the opt-in detached audit only, runs on a value whose
-// lifecycle method the parent later invokes. None of this proves a join; it
-// proves that the parent was never the owner in the first place.
+// bubble, or runs on a value whose lifecycle method the parent later invokes.
+// These conservative acceptance paths do not necessarily prove a join and
+// never establish an obligation merely from a missing owner.
 
 // goroutineReceivesCallerSignal reports whether the worker receives from a
 // channel supplied by the caller, directly or through static helpers that take
@@ -164,8 +164,8 @@ func callbackFunction(value ssa.Value) *ssa.Function {
 
 // spawnedLifecycleOwners returns the receiver and captured values that expose
 // a lifecycle method. This is the only name-based evidence in the analyzer and
-// it feeds the opt-in detached audit alone; the default check never consults
-// it. A WaitGroup is excluded so its Wait cannot bypass the terminal Done proof.
+// it can only suppress a diagnostic, never establish an obligation. A WaitGroup
+// is excluded so its Wait cannot bypass the terminal Done proof.
 func spawnedLifecycleOwners(pass *analysis.Pass, spawn *ssa.Go) []ssa.Value {
 	var owners []ssa.Value
 	if receiver := ssaflow.CallReceiver(spawn.Common()); lifecycleOwner(receiver) {

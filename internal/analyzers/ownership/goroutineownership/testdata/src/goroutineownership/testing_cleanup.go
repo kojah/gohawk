@@ -16,13 +16,13 @@ func stoppedByTestCleanup(t *testing.T) {
 func differentOwnerStoppedByTestCleanup(t *testing.T) {
 	worker := &lifecycleOwner{}
 	other := &lifecycleOwner{}
-	go func() { worker.run() }() // want "goroutine is not joined on every return path"
+	go func() { worker.run() }()
 	t.Cleanup(func() { other.Stop() })
 }
 
 func conditionallyStoppedByTestCleanup(t *testing.T, stop bool) {
 	owner := &lifecycleOwner{}
-	go func() { owner.run() }() // want "goroutine is not joined on every return path"
+	go func() { owner.run() }()
 	t.Cleanup(func() {
 		if stop {
 			owner.Stop()
@@ -32,7 +32,7 @@ func conditionallyStoppedByTestCleanup(t *testing.T, stop bool) {
 
 func unrelatedTestCleanup(t *testing.T) {
 	owner := &lifecycleOwner{}
-	go func() { owner.run() }() // want "goroutine is not joined on every return path"
+	go func() { owner.run() }()
 	t.Cleanup(func() { owner.Observe() })
 }
 

@@ -6,7 +6,12 @@ func updateCache() {}
 
 //gohawk:example flagged
 func refresh() {
-	go updateCache() // want "goroutine is not joined on every return path"
+	var group sync.WaitGroup
+	group.Add(1)
+	go func() { // want "goroutine is not joined on every return path"
+		defer group.Done()
+		updateCache()
+	}()
 }
 
 //gohawk:example end

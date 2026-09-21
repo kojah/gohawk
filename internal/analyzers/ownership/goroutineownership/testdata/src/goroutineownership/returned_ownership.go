@@ -49,7 +49,7 @@ func returnedAggregateOwnsSpawnedLifecycle() *returnedLifecycleAggregate {
 func localAggregateDoesNotOwnSpawnedLifecycle() {
 	worker := &lifecycleOwner{}
 	result := &returnedLifecycleAggregate{worker: worker}
-	go worker.run() // want "goroutine is not joined on every return path"
+	go worker.run()
 	_ = result
 }
 
@@ -57,7 +57,7 @@ func unrelatedAggregateDoesNotOwnSpawnedLifecycle() *returnedLifecycleAggregate 
 	worker := &lifecycleOwner{}
 	local := &returnedLifecycleAggregate{worker: worker}
 	result := &returnedLifecycleAggregate{}
-	go worker.run() // want "goroutine is not joined on every return path"
+	go worker.run()
 	_ = local
 	return result
 }
@@ -66,7 +66,7 @@ func conditionalAggregateDoesNotOwnEveryReturn(useOwner bool) *returnedLifecycle
 	worker := &lifecycleOwner{}
 	result := &returnedLifecycleAggregate{worker: worker}
 	other := &returnedLifecycleAggregate{}
-	go worker.run() // want "goroutine is not joined on every return path"
+	go worker.run()
 	if useOwner {
 		return result
 	}

@@ -345,29 +345,29 @@ func TestCheckSelectionTiers(t *testing.T) {
 			t.Fatalf("selected analyzers = %v", selection.normallySelected)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["goroutineownership/detached"] {
+		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["processownership/detached"] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 	})
 
 	t.Run("naming an analyzer admits extended but not experimental checks", func(t *testing.T) {
 		requested := checkSelection{enabled: map[string]bool{}, disabled: map[string]bool{}}
-		arguments := []string{"gohawk", "-enable=goroutineownership,lockorder", "./..."}
+		arguments := []string{"gohawk", "-enable=goroutineownership,processownership,lockorder", "./..."}
 		selection, err := withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, false)
 		if err != nil {
 			t.Fatal(err)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || !disabled["goroutineownership/detached"] || disabled["goroutineownership/unjoined"] {
+		if disabled["lockorder/contradictory-order"] || !disabled["processownership/detached"] || disabled["goroutineownership/unjoined"] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 
-		arguments = []string{"gohawk", "-tier=experimental", "-enable=goroutineownership", "./..."}
+		arguments = []string{"gohawk", "-tier=experimental", "-enable=processownership", "./..."}
 		selection, err = withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["goroutineownership/detached"] {
+		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["processownership/detached"] {
 			t.Fatalf("experimental ceiling did not admit detached: %v", disabled)
 		}
 	})

@@ -41,7 +41,7 @@ These analyzers look for work or resources whose owner cannot be identified on e
   </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/goroutineownership/">
     <span class="analyzer-name">goroutineownership</span>
-    <span class="analyzer-detects">Checks that explicit goroutines have a recognizable join handle or lifecycle owner.</span>
+    <span class="analyzer-detects">Checks that proven goroutine completion obligations are honored.</span>
   </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/producerlifecycle/">
     <span class="analyzer-name">producerlifecycle</span>

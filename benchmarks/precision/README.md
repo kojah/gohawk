@@ -77,6 +77,12 @@ audit work incremental while still providing regular integration checkpoints.
 
 ## Labels retired with their analyzers
 
+The experimental `goroutineownership/detached` check is retired. Seven
+true-positive policy labels from rounds 6–9 and 11 were removed from the
+executable cohorts: absence of a recognizable owner is not proof of a bug.
+Historical scan and audit records remain unchanged. The focused
+`goroutineownership/unjoined` and `producerlifecycle` checks remain supported.
+
 Labels named analyzers the project has since withdrawn:
 channelownership (10), errorownership (7), determinism (7),
 closedomain (6), apishape (5), contextpolicy (5),

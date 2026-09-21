@@ -161,8 +161,8 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	return analysis.helperAction(common, callee, closure)
 }
 
-// callJoinsDirectly recognizes Wait on a settling group and, for the detached
-// audit, a lifecycle method on a tracked owner. A deferred call counts because
+// callJoinsDirectly recognizes Wait on a settling group or a lifecycle method
+// on a tracked owner as acceptance evidence. A deferred call counts because
 // it runs on every return.
 func (analysis *spawnAnalysis) callJoinsDirectly(common *ssa.CallCommon) bool {
 	receiver := ssaflow.CallReceiver(common)

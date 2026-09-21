@@ -16,8 +16,9 @@ import (
 )
 
 // Obligation evidence identifies what a launched function promises its
-// parent: a channel it sends on or closes, a WaitGroup it settles, or, for the
-// detached audit only, a lifecycle owner it runs on. Values are resolved back
+// parent: a channel it sends on or closes, or a WaitGroup it settles.
+// Lifecycle owners provide conservative acceptance evidence, never an
+// obligation by themselves. Values are resolved back
 // to the parent's SSA values at the spawn so later instructions can be matched
 // exactly. A channel the worker only receives from bounds the worker instead
 // and is handled as lifecycle evidence, never as a join obligation.
@@ -31,9 +32,8 @@ const (
 	// trackedGroup is a WaitGroup whose Done settles the worker; the parent
 	// joins by waiting on it.
 	trackedGroup
-	// trackedOwner is a captured value with a lifecycle method. It supports only
-	// the opt-in detached audit and is recognized by method name, which is why
-	// it never contributes to the default check.
+	// trackedOwner is a captured value with a lifecycle method. It can suppress
+	// a warning when settled, but cannot establish a completion obligation.
 	trackedOwner
 )
 
@@ -87,9 +87,6 @@ func newSpawnAnalysis(
 		analysis.tracked = append(analysis.tracked, trackedValue{value: owner, kind: trackedOwner})
 	}
 	analysis.checkID = check.GoroutineJoin
-	if config.mode != goroutineModeJoin && len(analysis.signals) == 0 && len(analysis.groups) == 0 && analysis.unsettledDone == nil {
-		analysis.checkID = check.GoroutineDetached
-	}
 	analysis.tracing = analysisTrace.Enabled("goroutineownership", string(analysis.checkID))
 	return analysis
 }
@@ -105,7 +102,7 @@ func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.Ma
 	// return is transparent to the spawned worker's lifecycle. Panic-reporting
 	// and tracing wrappers commonly use this shape. Analyze the callback body
 	// so its context, completion signal, and lifecycle owner remain visible.
-	evidence := lifecyclefacts.NewLifecycleEvidence(pass, "goroutineownership", string(check.GoroutineDetached))
+	evidence := lifecyclefacts.NewLifecycleEvidence(pass, "goroutineownership", string(check.GoroutineJoin))
 	for index, argument := range spawn.Common().Args {
 		callback, callbackClosure := callbackTarget(argument)
 		if callback == nil || len(callback.Params) != 0 {

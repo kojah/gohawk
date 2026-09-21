@@ -23,7 +23,6 @@ const (
 	DeferCleanupInLoop       ID = "deferinloop/cleanup-lifetime"
 	ExitSkipsDefer           ID = "exitpolicy/skipped-defer"
 	GoroutineJoin            ID = "goroutineownership/unjoined"
-	GoroutineDetached        ID = "goroutineownership/detached"
 	ProducerLifecycleSend    ID = "producerlifecycle/abandoned-send"
 	ProcessWait              ID = "processownership/missing-wait"
 	ProcessDetached          ID = "processownership/detached"

@@ -1482,6 +1482,13 @@ these checks' bounded models.
 Precision round 49 pins all 25 reviewed findings. Review of the other 332
 findings is still pending; these corrections do not complete the batch audit.
 
+Subsequent policy decision: retire `goroutineownership/detached`, rather than
+turn missing ownership evidence into a correctness claim. Its 188 historical
+batch-48 findings remain in this scan ledger for provenance, not as active
+diagnostics or confirmed bugs. Focused unjoined-worker and abandoned-send
+checks remain enabled. Seven detached-only labels from older regression
+cohorts were retired; the round-49 labels are unchanged.
+
 Validation at `a728a75`: the pinned round-49 replay passes with all nine false
 positives absent and all sixteen true positives present, with no unscannable
 repositories. Its post-fix census records 267 diagnostic locations, not 267

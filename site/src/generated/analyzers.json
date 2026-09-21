@@ -87,7 +87,7 @@
         },
         {
           "name": "goroutineownership",
-          "summary": "Checks that explicit goroutines have a recognizable join handle or lifecycle owner.",
+          "summary": "Checks that proven goroutine completion obligations are honored.",
           "path": "analyzers/ownership-and-lifecycle/goroutineownership",
           "tier": "core",
           "checks": [
@@ -96,12 +96,6 @@
               "summary": "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
               "kind": "hazard",
               "tier": "core"
-            },
-            {
-              "id": "goroutineownership/detached",
-              "summary": "Reports goroutines without a recognizable join handle or lifecycle owner.",
-              "kind": "hazard",
-              "tier": "experimental"
             }
           ],
           "suggestedFix": false,

@@ -33,7 +33,7 @@ func stopChannelClosure(stop <-chan struct{}) {
 
 func localUnclosedStopDoesNotOwnWorker() {
 	stop := make(chan struct{})
-	go func() { <-stop }() // want "goroutine is not joined on every return path"
+	go func() { <-stop }()
 }
 
 func receiveStopThroughHelper(stop <-chan struct{}) {
@@ -65,7 +65,7 @@ func helperSelectStopChannelWorker(stop <-chan struct{}) {
 func helperWithoutStop(<-chan struct{}) {}
 
 func helperWithoutStopWorker(stop <-chan struct{}) {
-	go helperWithoutStop(stop) // want "goroutine is not joined on every return path"
+	go helperWithoutStop(stop)
 }
 
 func drainStateUpdate(updates chan int) {
@@ -80,7 +80,7 @@ func drainStateUpdateThroughHelper(updates chan int) {
 }
 
 func bidirectionalStateHelperWorker(updates chan int) {
-	go drainStateUpdateThroughHelper(updates) // want "goroutine is not joined on every return path"
+	go drainStateUpdateThroughHelper(updates)
 }
 
 var unrelatedStopChannel <-chan struct{}
@@ -90,9 +90,9 @@ func helperReceivesUnrelatedStop(<-chan struct{}) {
 }
 
 func unrelatedHelperStopChannelWorker(stop <-chan struct{}) {
-	go helperReceivesUnrelatedStop(stop) // want "goroutine is not joined on every return path"
+	go helperReceivesUnrelatedStop(stop)
 }
 
 func dynamicHelperStopChannelWorker(run func(<-chan struct{}), stop <-chan struct{}) {
-	go run(stop) // want "goroutine is not joined on every return path"
+	go run(stop)
 }

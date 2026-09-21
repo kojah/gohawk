@@ -128,7 +128,9 @@ func writeGoroutineTestModule(t *testing.T) string {
 import "context"
 
 func Start(ctx context.Context) {
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		<-ctx.Done()
 	}()
 }

@@ -54,7 +54,7 @@ linters:
           disable:
             - lockorder
           enable-checks:
-            - goroutineownership/detached
+            - processownership/detached
           disable-checks:
             - deferinloop/cleanup-lifetime
 ```

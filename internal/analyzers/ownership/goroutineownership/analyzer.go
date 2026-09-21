@@ -3,7 +3,6 @@ package goroutineownership
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
@@ -21,7 +20,7 @@ func Analyzer() *analysis.Analyzer {
 	config := goroutineOwnershipConfig{mode: goroutineModeContext}
 	analyzer := &analysis.Analyzer{
 		Name:     "goroutineownership",
-		Doc:      "checks that explicit goroutines have a recognizable join handle or lifecycle owner",
+		Doc:      "checks that proven goroutine completion obligations are honored",
 		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
 	}
 	analyzer.Flags.Var(
@@ -56,7 +55,6 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 		return nil, err
 	}
 	for _, function := range functions {
-		testFile := strings.HasSuffix(pass.Fset.Position(function.Pos()).Filename, "_test.go")
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				spawn, ok := instruction.(*ssa.Go)
@@ -66,25 +64,13 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				analysis := newSpawnAnalysis(pass, function, spawn, config)
 				proof := analysis.prove()
 				analysis.emitTrace(pass, proof)
-				if analysis.reportable(proof, testFile) {
+				if proof.Outcome == GoroutineLifecycleViolated {
 					check.Reportf(pass, analysis.checkID, spawn.Pos(), "goroutine is not joined on every return path")
 				}
 			}
 		}
 	}
 	return nil, nil
-}
-
-// reportable applies the default/opt-in split. The unjoined check reports only
-// a proven violation of an obligation the function itself established. The
-// detached check is a heuristic audit: it reports the absence of any
-// recognizable lifecycle, but never inside test files, where fixtures and test
-// frameworks routinely own workers through shapes this analyzer does not model.
-func (analysis *spawnAnalysis) reportable(proof GoroutineProof, testFile bool) bool {
-	if proof.Outcome == GoroutineLifecycleViolated {
-		return true
-	}
-	return analysis.checkID == check.GoroutineDetached && proof.Reason == reasonDetachedUnknown && !testFile
 }
 
 func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutineProof) {

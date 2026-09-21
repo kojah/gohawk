@@ -11,9 +11,11 @@ import (
 
 // This file covers direct lifecycle ownership, explicit background transfers,
 // testing synctest scopes, and basic signal or WaitGroup joins.
+// Launches with no completion promise are accepted in every mode. Missing
+// ownership alone is not a defect; the broad detached audit has been retired.
 
 func detached() {
-	go func() {}() // want "goroutine is not joined on every return path"
+	go func() {}()
 }
 
 func synchronousCallbackWrapper(callback func()) {
@@ -21,7 +23,7 @@ func synchronousCallbackWrapper(callback func()) {
 }
 
 func asynchronousCallbackWrapper(callback func()) {
-	go callback() // want "goroutine is not joined on every return path"
+	go callback()
 }
 
 func callerContextThroughSynchronousWrapper(ctx context.Context) {
@@ -31,7 +33,7 @@ func callerContextThroughSynchronousWrapper(ctx context.Context) {
 }
 
 func callerContextThroughAsynchronousWrapper(ctx context.Context) {
-	go asynchronousCallbackWrapper(func() { // want "goroutine is not joined on every return path"
+	go asynchronousCallbackWrapper(func() {
 		<-ctx.Done()
 	})
 }
@@ -43,7 +45,7 @@ func callerContextThroughImportedSynchronousWrapper(ctx context.Context) {
 }
 
 func callerContextThroughImportedAsynchronousWrapper(ctx context.Context) {
-	go imported.InvokeAsynchronously(func() { // want "goroutine is not joined on every return path"
+	go imported.InvokeAsynchronously(func() {
 		<-ctx.Done()
 	})
 }
@@ -57,7 +59,7 @@ func joinedBySynctest(t *testing.T) {
 func unrelatedSynctestName(t *testing.T) {
 	test := func(*testing.T, func(*testing.T)) {}
 	test(t, func(t *testing.T) {
-		go func() {}() // want "goroutine is not joined on every return path"
+		go func() {}()
 	})
 }
 
@@ -78,11 +80,11 @@ func (*lifecycleOwner) run() {}
 func (*lifecycleOwner) Wait() {}
 
 func (owner *lifecycleOwner) startMethod() {
-	go owner.run() // want "goroutine is not joined on every return path"
+	go owner.run()
 }
 
 func (owner *lifecycleOwner) startClosure() {
-	go func() { owner.run() }() // want "goroutine is not joined on every return path"
+	go func() { owner.run() }()
 }
 
 func (owner *lifecycleOwner) startWithUnobservedSignal() {
@@ -94,11 +96,11 @@ func (owner *lifecycleOwner) startWithUnobservedSignal() {
 }
 
 func startCallerOwned(owner *lifecycleOwner) {
-	go owner.run() // want "goroutine is not joined on every return path"
+	go owner.run()
 }
 
 func startCallerOwnedClosure(owner *lifecycleOwner) {
-	go func() { owner.run() }() // want "goroutine is not joined on every return path"
+	go func() { owner.run() }()
 }
 
 func startLocallyOwned() {
@@ -109,7 +111,7 @@ func startLocallyOwned() {
 
 func conditionallyStopLocal(stop bool) {
 	owner := &lifecycleOwner{}
-	go owner.run() // want "goroutine is not joined on every return path"
+	go owner.run()
 	if stop {
 		owner.Stop()
 	}
@@ -118,7 +120,7 @@ func conditionallyStopLocal(stop bool) {
 func stoppedBeforeSpawnDoesNotOwnLaterWorker() {
 	owner := &lifecycleOwner{}
 	owner.Stop()
-	go owner.run() // want "goroutine is not joined on every return path"
+	go owner.run()
 }
 
 func (*lifecycleOwner) Stop() {}
@@ -147,7 +149,7 @@ func channelRangeOwnsLifecycle(config *channelLifecycleConfig) {
 }
 
 func nonChannelRangeDoesNotOwnLifecycle(items []int) {
-	go func() { // want "goroutine is not joined on every return path"
+	go func() {
 		for range items {
 		}
 	}()
@@ -214,7 +216,7 @@ func earlyWaitGroupDoneDoesNotJoin() {
 }
 
 func workerLocalWaitGroupDoesNotCreateJoinObligation() {
-	go func() { // want "goroutine is not joined on every return path"
+	go func() {
 		var local sync.WaitGroup
 		local.Add(1)
 		local.Done()
@@ -225,8 +227,8 @@ func workerLocalWaitGroupDoesNotCreateJoinObligation() {
 func launchedWaitGroupDoneIsReadinessOnly() {
 	var group sync.WaitGroup
 	group.Add(1)
-	go func() { // want "goroutine is not joined on every return path"
-		go group.Done() // want "goroutine is not joined on every return path"
+	go func() {
+		go group.Done()
 		waitGroupWork()
 	}()
 	group.Wait()

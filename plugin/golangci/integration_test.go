@@ -54,8 +54,9 @@ func sendAfterClose(ch chan int) {
 	ch <- 1
 }
 
-func detached() {
-	go func() {}()
+func unjoined() {
+	done := make(chan struct{})
+	go func() { close(done) }()
 }
 `)
 	// Keep the test in the production package. golangci-lint analyzes this as an
@@ -102,8 +103,9 @@ func TestBackground(t *testing.T) {
 			want: []string{
 				"channelsafety: send follows close of channel",
 				"deferinloop: deferred cleanup runs after the loop",
+				"goroutineownership: goroutine is not joined on every return path",
 			},
-			exclude: []string{"lockorder:", "goroutineownership: goroutine is not joined"},
+			exclude: []string{"lockorder:"},
 		},
 		{
 			name: "individual checks",
@@ -112,7 +114,7 @@ func TestBackground(t *testing.T) {
           disable:
             - lockorder
           enable-checks:
-            - goroutineownership/detached
+            - goroutineownership/unjoined
           disable-checks:
             - deferinloop/cleanup-lifetime`),
 			want: []string{
