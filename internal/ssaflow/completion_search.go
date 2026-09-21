@@ -378,6 +378,8 @@ func exactCleanupReceiver(receiver, parameter ssa.Value) bool {
 // stops recursion through helper cycles and keeps the search over the call
 // graph rather than over every call path through it.
 type completionSearch struct {
+	// bindings are scoped to this invocation, never merged across callers.
+	bindings *callbackBindings
 	method   string
 	coverage CompletionCoverage
 	// seenValues holds the callback values already examined. A recursive
@@ -400,6 +402,7 @@ type completionSearch struct {
 // are fixed for a search, but a callback search shares the parent's guards
 // while answering a different question, so invokeTarget belongs in the key.
 type completionKey struct {
+	bindings     *callbackBindings
 	instruction  ssa.Instruction
 	target       ssa.Value
 	invokeTarget bool
@@ -433,7 +436,7 @@ func newCompletionSearch(method string, coverage CompletionCoverage, budget *Sea
 // target with the coverage their launch demands. The second result is false
 // when no callee body was available to search.
 func (search *completionSearch) completes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
-	key := completionKey{instruction: instruction, target: target, invokeTarget: search.invokeTarget}
+	key := completionKey{instruction: instruction, target: target, invokeTarget: search.invokeTarget, bindings: search.bindings}
 	answer := search.memo.Answer(key, func() completionAnswer {
 		launch, proven, available := search.searchCompletes(instruction, target)
 		return completionAnswer{launch: launch, proven: proven, available: available}
@@ -442,7 +445,7 @@ func (search *completionSearch) completes(instruction ssa.Instruction, target ss
 }
 
 func (search *completionSearch) searchCompletes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
-	callees, ok := resolveCallees(instruction)
+	callees, ok := search.boundCallees(instruction)
 	if !ok || len(callees) == 0 {
 		return launchNone, false, false
 	}
@@ -472,6 +475,9 @@ func (search *completionSearch) calleeCompletes(callee completionCallee, target 
 	if len(locals) == 0 {
 		return false
 	}
+	previous := search.bindings
+	search.bindings = search.bindCallbackArguments(callee)
+	defer func() { search.bindings = previous }()
 	var nonNil ssa.Value
 	for _, local := range locals {
 		if local.kind == localExact || local.kind == localProjection {

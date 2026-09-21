@@ -186,6 +186,24 @@ more than one goroutine, cannot be a fact at all.
 
 ## Where facts live
 
+### Direct callbacks within one package
+
+The local completion search carries invocation-specific bindings for direct
+function arguments. A visible helper calling `fn(resource)` can resolve `fn`
+to the function supplied by its caller and map `resource` onto the callback's
+parameter. Forwarding through another visible helper preserves that binding.
+The same search still requires the requested cleanup coverage; merely passing
+or storing a callback does not establish completion.
+
+Bindings are part of the memoization context and share the search budget and
+recursion guard. Callback arguments selected through phis, loaded from storage,
+returned by factories, or dispatched through interfaces are not resolved by
+this mechanism. It does not enumerate all callers, propagate callback slices,
+or add cross-package relational facts. In particular, the SQL test-harness
+parent-cleanup cases need more than this first step.
+
+### Fact package boundary
+
 Facts are imported and exported (`analysis.Pass.ImportObjectFact` and
 `analysis.Pass.ExportObjectFact`) only inside the package that defines the fact
 type. Consumers use `lifecyclefacts.LifecycleEvidence`, which checks local evidence
