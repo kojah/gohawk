@@ -391,6 +391,6 @@ Round 50 preserves seven batch-48 false-positive locations: two representative
 channel timer acquisitions and five repeated mutex-getter locations. Local
 fixtures cover precise visible getter identity; the imported getters in this
 cohort are deliberately opaque. Thirteen reviewed file/row/response findings
-remain true-positive controls. The inconclusive auth lock-order finding is
-retained in the scan baseline but has no executable verdict label. Round 49's
+remain true-positive controls. Follow-up tracing established the auth lock-order
+finding as a concrete hazard; it is now the fourteenth positive control. Round 49's
 resource and lock controls provide an additional regression guardrail.

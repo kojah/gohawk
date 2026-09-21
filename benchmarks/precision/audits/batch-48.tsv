@@ -1,7 +1,7 @@
 # batch	repository	revision	modules	status
 48	sergelogvinov/proxmox-csi-plugin	de26f22489862b11faa2b5a1f309266142b162cb	.	triaged
 48	mariadb-operator/mariadb-operator	e8ece7a8076954674e10e0381571bd80278ac35f	.,licenses/go-licenses/github.com/go-sql-driver/mysql,licenses/go-licenses/github.com/hashicorp/errwrap	triaged
-48	james-6-23/codex2api	4f96afe95bb16132347f4ab74e63b0b1fa0f778b	.	triaged-one-inconclusive
+48	james-6-23/codex2api	4f96afe95bb16132347f4ab74e63b0b1fa0f778b	.	triaged
 48	mvanhorn/agentcookie	290cd74ee3aef1ca30fad35d506529d32a82cc86	.	triaged
 48	shizunge/endlessh-go	b275088fc8b481735a9dcb37b9f145db030527a9	.	triaged
 48	grafana/mcp-grafana	20b20b3aec8ebc56162ffac233ac9de9e46f5684	.	triaged

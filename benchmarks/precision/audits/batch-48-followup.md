@@ -1,0 +1,91 @@
+# Batch 48: bounded fixes and remaining model decisions
+
+The first two families were addressed in `049d8c9`, with inferred timer-owner
+obligations removed consistently in `ca55b32`. The local `make verify` gate
+passed. The initial round-50 replay retained seven sampled FP suppressions and thirteen
+resource true positives; scoped round-49 replays retained two lock FPs and
+one resource FP, plus thirteen resource true positives. No candidate tests,
+generators, or repository scripts were executed. This was not a cumulative
+precision replay or a fresh scan of every batch-48 module.
+
+## Implemented boundaries
+
+- Channel `NewTimer`/`NewTicker` calls no longer imply a Stop obligation.
+  Missing Stop alone does not prove a leak with Go 1.23+ GC semantics, and a
+  package-local pass cannot establish legacy main-module/runtime settings.
+  Inferred cleanup facts also exclude timer-only owners, so wrappers do not
+  recreate the obligation. File-owning positive controls still infer cleanup.
+  The change removes timer stop/drain special cases instead of adding them.
+  Twenty-two old timer-only executable labels were retired explicitly.
+- A visible pointer-receiver getter whose entire body returns the address
+  of one direct field keeps that field's identity. Different owners and
+  fields remain distinct. Branching, loading, allocating, side-effecting,
+  and imported bodyless getters are opaque. The codex2api proxy corrections
+  exercise that conservative imported-call boundary, not cross-package
+  getter inference. Local fixtures exercise the positive identity proof.
+
+## Failed acquisitions and parent cleanup
+
+The nine remaining MariaDB-operator labels are in the pinned bundled MySQL
+driver tests, not the operator's production code. Source revision:
+`e8ece7a8076954674e10e0381571bd80278ac35f`.
+
+| Cases | Evidence | Recommended boundary |
+| --- | --- | --- |
+| `driver_test.go:2799` | Exact context cancel precedes PrepareContext. | A bounded, exact cancellation-before-acquisition contract is feasible. Do not infer it from a test name or an expected-error string. |
+| `benchmark_test.go:385`, `driver_test.go:2809,2844` | Parent DB is closed by a defer or test-harness Cleanup. | Parent-child cleanup is modelable for documented SQL statement ownership. Require the exact parent and proven cleanup, or abstain when the harness is opaque. |
+| `driver_test.go:2728,2748,2854,2923,2929` | Timed cancellation, cancellation inherited by query rows/transactions, or a driver connection expected to be unusable. | Do not model sleep durations, scheduler ordering, or MySQL failure behavior. An expected error is not proof that acquisition failed. Narrow/abstain where the acquisition or lifecycle cannot be established. |
+
+The standard library supports two general contracts: `driverConn.finalClose`
+closes its tracked prepared statements; `Rows.awaitDone` closes rows when the
+query/transaction context ends. Neither licenses treating DB.Close as cleanup
+for arbitrary outstanding resources or treating PrepareContext cancellation
+as ownership of every returned statement forever.
+
+The parent-cleanup benchmark has an explicit stmt.Close on the successful
+path; the relevant early error return is protected by deferred DB.Close.
+The other two statement cases get DB.Close through runTestsParallel's
+testing.Cleanup. Proving that caller harness relationship is more involved
+than recognizing a direct defer. Start with the direct exact-parent contract,
+not a general framework interpreter. These changes were investigated, not
+implemented in this follow-up.
+
+## Contradictory lock order: a real hazard
+
+The formerly inconclusive finding is resolved as a true-positive hazard.
+Revision: `4f96afe95bb16132347f4ab74e63b0b1fa0f778b` of codex2api.
+
+- Forward: `auth/store.go:8637` holds Store.mu; EnabledGrokAccounts calls
+  IsGrokAPI at line 8641, which takes Account.mu in `auth/grok_account.go:132`.
+- The new `opposite-order-recorded` trace identifies
+  `auth/scheduler_outbox_consumer.go:395` as the first stored reverse edge:
+  Account.mu held through recomputeEffectiveAutoPause. That particular
+  account is fresh, so this trace alone is insufficient to prove shared-lock
+  contention. Trace instrumentation was committed in `6d58404`.
+- The same call occurs under a **shared** account lock in
+  applyPersistentAccountSnapshot (`scheduler_outbox_consumer.go:464,573`),
+  recomputeAllEffectiveAutoPause (`store.go:9053-9055`), and
+  ApplyAccountQuotaAutoPauseConfig (`store.go:9266,9279`).
+- recomputeEffectiveAutoPause calls resolveEffectiveThreshold
+  (`store.go:1705-1750`), which can call GetGlobalAutoPause5h/7dThreshold.
+  Those getters take Store.mu (`store.go:8815-8826`). Thus the reverse order
+  is Account.mu → Store.mu on shared accounts, not just on a fresh object.
+
+The warning also survives a static scan of production GoFiles only, ruling
+out test-only contamination. Reader locks do not make the inversion harmless:
+a pending Store writer can block a subsequent Store reader while an existing
+Store reader waits for an Account writer. No runtime deadlock was executed;
+the label claims a concrete ordering hazard, not a reproduced incident.
+
+Keep this check for this case; no suppression is justified. The investigation
+does not certify every class-level order report: fresh-object-only edges and
+infeasible interprocedural branches still require conservative review. Trace
+evidence now exposes both acquisition locations without changing diagnostics
+or corrupting `-json`; traced and untraced codex2api JSON matched exactly.
+
+The audit now has 62 defect/hazard positives, 23 policy-only positives,
+84 false positives and 188 retired-check reports, with no inconclusive
+locations. The lock hazard is round 50's fourteenth true-positive control.
+The final round-50 replay on `ca55b32` passed all 21 labels: seven false
+positives absent and fourteen true positives present, with both repositories
+scannable and no baseline drift.

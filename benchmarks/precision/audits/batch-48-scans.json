@@ -2,7 +2,7 @@
   "gohawk_revision": "cec1074c40560eabe31f5c91488faa8533299dac",
   "toolchain": "go1.27.0 linux/amd64",
   "profile": "all checks, test source included, CGO disabled, no tests executed",
-  "review_status": "triaged-one-inconclusive",
+  "review_status": "triaged",
   "repositories": [
     {
       "repository": "sergelogvinov/proxmox-csi-plugin",
@@ -48,9 +48,8 @@
       "reviewed": 56,
       "verdict_counts": {
         "retired-check": 48,
-        "inconclusive": 1,
         "false-positive": 6,
-        "true-positive": 1
+        "true-positive": 2
       }
     },
     {
@@ -377,9 +376,9 @@
   "triage_revision": "2acff9c",
   "verdict_counts": {
     "retired-check": 188,
-    "true-positive": 84,
-    "false-positive": 84,
-    "inconclusive": 1
+    "true-positive": 85,
+    "false-positive": 84
   },
-  "policy_only_true_positives": 23
+  "policy_only_true_positives": 23,
+  "followup_revision": "ca55b32"
 }

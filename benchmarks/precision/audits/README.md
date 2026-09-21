@@ -1421,7 +1421,7 @@ captured error with = where the line above it uses :=. Resource findings named
 bodies left open on non-200 paths, a file never closed at all, and a ticker
 never stopped.
 
-## Batch 48 (triaged; one lock-order case inconclusive)
+## Batch 48 (triaged)
 
 Twenty-five fresh repositories with root Go 1.26/1.27 directives were pinned
 and scanned with gohawk `cec1074c40560eabe31f5c91488faa8533299dac`, using
@@ -1436,17 +1436,15 @@ All 357 original diagnostic locations now have a triage disposition:
 
 | Disposition | Locations |
 | --- | ---: |
-| True positive: defect or concrete hazard | 61 |
+| True positive: defect or concrete hazard | 62 |
 | True positive: policy-only audit | 23 |
 | False positive | 84 |
 | Retired goroutine detached check | 188 |
-| Inconclusive lock-order finding | 1 |
 
 The TSV retains `true-positive` for both kinds of accurate report; policy-only
-reasons begin with `Policy-only`. These are not 84 confirmed runtime bugs.
+reasons begin with `Policy-only`. These are not 85 confirmed runtime bugs.
 `retired-check` preserves historical reports without treating silence from a
-deleted check as a precision improvement. `inconclusive` means inspected but
-not established either way. This is source review, not runtime reproduction,
+deleted check as a precision improvement. This is source review, not runtime reproduction,
 and the original scan is not a census of the current binary.
 
 Twenty-four scans completed without recorded errors. `ekristen/aws-nuke`
@@ -1467,8 +1465,9 @@ positives. Its replay passed at that revision, with all repositories scannable.
 The WaitGroup finding in certificate-transparency-go was corrected to a true
 positive: Done runs before deferred response cleanup, so Wait can return early.
 
-The completed triage adds 75 false-positive labels to the audit ledger, not
-to the passing replay cohort. They are a follow-up backlog, not fixed claims:
+The initial completed triage added 75 false-positive labels to the audit
+ledger, not to the passing replay cohort. These began as a follow-up backlog;
+the timer/getter corrections and their validation are recorded below:
 
 - 61 channel timer/ticker reports, mostly in Okteto. The reviewed Go 1.26
   modules use Go 1.23+ timer semantics: unreachable channel timers can be
@@ -1491,12 +1490,15 @@ count getter also writes its cached count and reference map under RLock;
 this is an experimental concurrency hazard, not a reproduced race. The
 policy-only findings are process-exit/skipped-defer and desktop-opener audits.
 
-The remaining inconclusive report is codex2api
-`auth/store.go:8641:19`: Store.mu → Account.mu is visible in
-EnabledGrokAccounts → IsGrokAPI. The scoped trace reports the opposite order
-but does not expose its acquisition path. Direct mixed-lock methods reviewed
-release Account.mu before acquiring Store.mu. A feasible reverse edge still
-needs verification; this finding must not be promoted to a defect or FP.
+The previously inconclusive codex2api `auth/store.go:8641:19` report is a
+true-positive lock-order hazard. Candidate-scoped tracing identifies the
+reverse edge, and shared-account callers hold Account.mu through
+recomputeEffectiveAutoPause → resolveEffectiveThreshold →
+GetGlobalAutoPause5h/7dThreshold, which acquires Store.mu. This contradicts
+EnabledGrokAccounts → IsGrokAPI's Store.mu → Account.mu order. The first
+recorded reverse edge involves a fresh account, but the shared-account
+callsites rule out a fresh-object-only explanation. No runtime deadlock was
+executed. See the [follow-up assessment](batch-48-followup.md).
 
 The broad `goroutineownership/detached` check was retired in `2acff9c`.
 Its 188 original locations retain source-review notes, including intentional
@@ -1508,8 +1510,11 @@ retirement retained all four FP suppressions and its one TP.
 
 Validation for this record is ledger consistency and pinned-source/location
 checks. No analyzer implementation or precision baseline is changed here.
-Do not expand the corpus before addressing the newly recorded precision
-backlog and deciding the remaining lock-order case.
+Follow-up `049d8c9` removes the unconditional channel-timer obligation and
+resolves visible mutex getters while declining opaque ones. Round 50 preserves
+the sampled corrections and nearby controls. The remaining nine resource
+labels need the bounded-contract assessment in the follow-up before further
+coverage expansion.
 
 ## Audit summary
 

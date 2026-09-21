@@ -1,4 +1,5 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
+james-6-23/codex2api,lockorder,lockorder/contradictory-order,auth/store.go:8641:19,true_positive,,
 james-6-23/codex2api,lockorder,lockorder/recursive-acquire,proxy/handler.go:4547:4,false_positive,,
 james-6-23/codex2api,lockorder,lockorder/contradictory-order,proxy/handler.go:5204:3,false_positive,,
 james-6-23/codex2api,lockorder,lockorder/recursive-acquire,proxy/handler.go:7297:3,false_positive,,
