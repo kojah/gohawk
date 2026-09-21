@@ -55,7 +55,9 @@ def read_history(paths):
             fields = line.split("\t")
             # Audit selection ledgers: batch, repository, revision, modules, status.
             # Regression cohorts and pinned candidate manifests: repository, revision.
-            if len(fields) not in (2, 5):
+            # Reviewed findings: repository, revision, analyzer, position,
+            # checks, verdict, reason. These also live beside selection ledgers.
+            if len(fields) not in (2, 5, 7):
                 raise ValueError(f"{path}: unsupported history row")
             seen.add(fields[1 if len(fields) == 5 else 0].lower())
     return seen

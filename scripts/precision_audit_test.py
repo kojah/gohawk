@@ -30,6 +30,15 @@ class PrecisionAuditTest(unittest.TestCase):
         self.manifest.write_text(f"Owner/Repo\t{SHA}\n48\tOther/Repo\t{SHA}\t.\tscanned\n")
         self.assertEqual(AUDIT.read_history([self.manifest]), {"owner/repo", "other/repo"})
 
+    def test_history_supports_reviewed_findings(self):
+        self.manifest.write_text(f"Reviewed/Repo\t{SHA}\tlockorder\tmain.go:3:1\tlockorder/example\tfalse-positive\treason\n")
+        self.assertEqual(AUDIT.read_history([self.manifest]), {"reviewed/repo"})
+
+    def test_history_rejects_unknown_formats(self):
+        self.manifest.write_text("owner/repo\tmain\tunexpected\n")
+        with self.assertRaises(ValueError):
+            AUDIT.read_history([self.manifest])
+
     def test_report_is_incremental_and_resumable(self):
         entry = ("owner/repo", SHA)
         finding = ("owner/repo", "lockorder", "main.go:3:1")
