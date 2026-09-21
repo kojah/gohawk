@@ -100,10 +100,12 @@ func (launch launchKind) reason() EvidenceReason {
 // closure value maps the caller's target through its bindings; a callee
 // reached through a call also maps it through the call's arguments.
 type completionCallee struct {
-	launch   launchKind
-	common   *ssa.CallCommon
-	closure  *ssa.MakeClosure
-	function *ssa.Function
+	environment *callbackBindings
+	invocation  ssa.Instruction
+	launch      launchKind
+	common      *ssa.CallCommon
+	closure     *ssa.MakeClosure
+	function    *ssa.Function
 }
 
 var waitGroupGoMethod = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Go"})
@@ -378,6 +380,7 @@ func exactCleanupReceiver(receiver, parameter ssa.Value) bool {
 // stops recursion through helper cycles and keeps the search over the call
 // graph rather than over every call path through it.
 type completionSearch struct {
+	incomplete *bool
 	// bindings are scoped to this invocation, never merged across callers.
 	bindings *callbackBindings
 	method   string
@@ -424,6 +427,7 @@ func (search *completionSearch) forCallback() *completionSearch {
 
 func newCompletionSearch(method string, coverage CompletionCoverage, budget *SearchBudget) *completionSearch {
 	return &completionSearch{
+		incomplete: new(bool),
 		method:     method,
 		coverage:   coverage,
 		budget:     budget,
@@ -451,6 +455,10 @@ func (search *completionSearch) searchCompletes(instruction ssa.Instruction, tar
 	}
 	searched := false
 	for _, callee := range callees {
+		callee.invocation = instruction
+		if callee.environment == nil {
+			callee.environment = search.bindings
+		}
 		if callee.function == nil || len(callee.function.Blocks) == 0 {
 			return callee.launch, false, searched
 		}

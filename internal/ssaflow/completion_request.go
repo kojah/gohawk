@@ -23,14 +23,16 @@ type CompletionRequest struct {
 
 // ProveCompletion answers one completion request. Each call runs its own
 // search, which memoizes the questions it asks itself; nothing is cached
-// between requests. The proof is Unknown when no callee body was available to
-// search, so callers may consult imported summaries, and Disproven when a
-// searched body does not complete the target.
+// between requests. The proof is Unknown when no callee body was available or
+// callback resolution was incomplete, so callers may consult imported
+// summaries. A fully searched body that does not complete the target is
+// Disproven.
 func ProveCompletion(request CompletionRequest) CompletionProof {
 	if request.Instruction == nil || request.Target == nil || len(request.Methods) == 0 {
 		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
 	searched := false
+	incomplete := false
 	for _, method := range request.Methods {
 		search := newCompletionSearch(method, request.Coverage, request.Budget)
 		launch, proven, available := search.completes(request.Instruction, request.Target)
@@ -38,6 +40,7 @@ func ProveCompletion(request CompletionRequest) CompletionProof {
 			return CompletionProof{Proof{State: EvidenceProven, Reason: launch.reason(), Method: method, Provenance: EvidenceFromLocalSSA}}
 		}
 		searched = searched || available
+		incomplete = incomplete || *search.incomplete
 	}
 	if !searched {
 		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
@@ -46,6 +49,9 @@ func ProveCompletion(request CompletionRequest) CompletionProof {
 		// The walk stopped early, so a missing completion is not evidence that
 		// the callee fails to complete the target.
 		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceBudgetExhausted, Provenance: EvidenceFromLocalSSA}}
+	}
+	if incomplete {
+		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable, Provenance: EvidenceFromLocalSSA}}
 	}
 	return CompletionProof{Proof{State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA}}
 }

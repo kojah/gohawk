@@ -186,7 +186,7 @@ more than one goroutine, cannot be a fact at all.
 
 ## Where facts live
 
-### Direct callbacks within one package
+### Bound callbacks within one package
 
 The local completion search carries invocation-specific bindings for direct
 function arguments. A visible helper calling `fn(resource)` can resolve `fn`
@@ -195,12 +195,25 @@ parameter. Forwarding through another visible helper preserves that binding.
 The same search still requires the requested cleanup coverage; merely passing
 or storing a callback does not establish completion.
 
+Bindings preserve lexical capture environments through nested closures. A
+captured local cell must have one dominating initialization and only read-only
+uses. Function-valued fields and fixed-size slice elements can be resolved
+through unchanged local aggregates; a dynamic index requires every slot to
+contain the same callback. Writes through helper parameters, opaque escapes,
+partial slices, and ambiguous elements prevent a proof. Passing an aggregate
+resource argument still uses the existing parameter/field identity mapping.
+
 Bindings are part of the memoization context and share the search budget and
-recursion guard. Callback arguments selected through phis, loaded from storage,
-returned by factories, or dispatched through interfaces are not resolved by
-this mechanism. It does not enumerate all callers, propagate callback slices,
-or add cross-package relational facts. In particular, the SQL test-harness
-parent-cleanup cases need more than this first step.
+recursion guard, including storage-use scans. Unresolved callback dispatch
+produces unknown rather than a disproof just because the containing helper has
+a visible body. Callback arguments selected through phis, returned by factories,
+or dispatched through interfaces remain outside this binding resolver.
+
+This does not enumerate all callers, prove iteration over mixed callback
+collections, or add cross-package relational facts. In particular, the SQL
+test-harness parent-cleanup cases still require caller-context tracking and
+proof that cleanup covers every relevant invocation; resolving a callback
+alone does not establish that ownership contract.
 
 ### Fact package boundary
 
