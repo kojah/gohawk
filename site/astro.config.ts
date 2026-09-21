@@ -31,6 +31,8 @@ export default defineConfig({
 	vite: {
 		cacheDir: viteCacheDir,
 		server: {
+			// Allow the private Tailscale hostname used for mobile docs review.
+			allowedHosts: ['xenia.taild75e12.ts.net'],
 			// The docs collection lives outside the Astro project root. Polling keeps
 			// hot reload reliable when an editor or Git replaces a Markdown file
 			// atomically instead of emitting an ordinary in-place change event.
