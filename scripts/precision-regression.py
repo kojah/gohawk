@@ -249,6 +249,11 @@ def scan(
                 # assets module for exactly this reason. Reading that as a
                 # failed scan costs the repository every label it carries.
                 continue
+            if loadable:
+                incomplete.append(
+                    f"partial package recovery in {module.relative_to(checkout)}: "
+                    f"{result.stderr.strip()[:160]}"
+                )
             result = retry_scan(gohawk, module, environment, loadable) if loadable else result
         if not result.stdout.strip() and result.returncode:
             incomplete.append(
@@ -262,10 +267,19 @@ def scan(
             incomplete.append(f"invalid JSON in {module.relative_to(checkout)}")
             continue
         errors = 0
+        if result.returncode:
+            incomplete.append(
+                f"analysis command failed in {module.relative_to(checkout)} "
+                f"(exit {result.returncode}): {result.stderr.strip()[:160]}"
+            )
         for analyzers in payload.values():
             if not isinstance(analyzers, dict):
                 continue
             for analyzer, diagnostics in analyzers.items():
+                if isinstance(diagnostics, dict):
+                    if diagnostics.get("error"):
+                        errors += 1
+                    continue
                 for diagnostic in diagnostics:
                     if not isinstance(diagnostic, dict):
                         continue

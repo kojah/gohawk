@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -63,6 +64,36 @@ class PrecisionAuditTest(unittest.TestCase):
              patch.object(AUDIT.REPLAY, "scan", return_value=(set(), {}, ["timed out in ."])):
             report = AUDIT.analyze(("owner/repo", SHA), Path("binary"), self.root, self.root)
         self.assertEqual(report["scan_status"], "incomplete")
+
+    def test_analyzer_error_object_is_incomplete(self):
+        payload = {"example/pkg": {
+            "broken": {"error": "analysis failed"},
+            "lockorder": [{"posn": str(self.root / "main.go") + ":3:1",
+                           "category": "lockorder/missing-release"}],
+        }}
+        result = subprocess.CompletedProcess([], 0, json.dumps(payload), "")
+        with patch.object(AUDIT.REPLAY, "module_directories", return_value=[self.root]), \
+             patch.object(AUDIT.REPLAY, "run", return_value=result):
+            findings, _, errors = AUDIT.REPLAY.scan(Path("binary"), "owner/repo", self.root)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(errors, ["1 package error(s) in ."])
+
+    def test_partial_package_retry_remains_incomplete(self):
+        failed = subprocess.CompletedProcess([], 1, "", "missing dependency")
+        recovered = subprocess.CompletedProcess([], 0, "{}", "")
+        with patch.object(AUDIT.REPLAY, "module_directories", return_value=[self.root]), \
+             patch.object(AUDIT.REPLAY, "run", return_value=failed), \
+             patch.object(AUDIT.REPLAY, "loadable_packages", return_value=["example/good"]), \
+             patch.object(AUDIT.REPLAY, "retry_scan", return_value=recovered):
+            _, _, errors = AUDIT.REPLAY.scan(Path("binary"), "owner/repo", self.root)
+        self.assertEqual(errors, ["partial package recovery in .: missing dependency"])
+
+    def test_nonzero_analysis_with_json_remains_incomplete(self):
+        result = subprocess.CompletedProcess([], 1, "{}", "failed package")
+        with patch.object(AUDIT.REPLAY, "module_directories", return_value=[self.root]), \
+             patch.object(AUDIT.REPLAY, "run", return_value=result):
+            _, _, errors = AUDIT.REPLAY.scan(Path("binary"), "owner/repo", self.root)
+        self.assertEqual(errors, ["analysis command failed in . (exit 1): failed package"])
 
 
 if __name__ == "__main__":
