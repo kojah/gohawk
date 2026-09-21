@@ -33,37 +33,47 @@ On top of all this, there is some icing on the cake that only Go offers. Introdu
 
 <!-- Editorial note: this is an illustrative example, not yet the real project example from the introduction. -->
 
-Suppose we acquire a mutex, do some work, and release it. Except there's an early return in the middle:
+Suppose we acquire a mutex and check whether we're ready to continue. To keep the dump short, I've left out the actual work. The bug is the early return:
 
 ```go
-mu.Lock()
-if !ready {
-    return
+func Update(mu *sync.Mutex, ready bool) {
+    mu.Lock()
+    if !ready {
+        return
+    }
+    mu.Unlock()
 }
-update()
-mu.Unlock()
 ```
 
 Both `Lock` and `Unlock` are present, so searching for matching calls won't get us very far. We need to follow the paths through the function.
 
-Go's SSA package gives us a representation we can use for that. SSA stands for *static single assignment*, meaning each value in the representation is defined once. It also organizes instructions into basic blocks, with branches connecting them. Here's a simplified control-flow sketch of our example—not a literal SSA dump:
+Go's SSA package gives us a representation we can use for that. SSA stands for *static single assignment*, meaning each value in the representation is defined once. It also organizes instructions into basic blocks, with branches connecting them.
 
-```text
-entry:
-    mu.Lock()
-    if ready → update
-    otherwise → return
+The example lives in [`site/examples/lock-analysis/example.go`](examples/lock-analysis/example.go). From that directory, we can ask gohawk to dump the function:
 
-update:
-    update()
-    mu.Unlock()
-    → return
-
-return:
-    return
+```sh
+gohawk ssa -func Update ./...
 ```
 
-We can now follow the branch that skips `update` and see that it also skips the unlock. We can track the value used as the receiver, too, rather than assuming that two calls involving a variable named `mu` must concern the same mutex.
+Here's the actual output, with only the package and source-location header removed:
+
+```text
+func Update(mu *sync.Mutex, ready bool):
+0:                                                                entry P:0 S:2
+	t0 = (*sync.Mutex).Lock(mu)                                          ()
+	if ready goto 2 else 1
+1:                                                       if.then P:1 S:0 idom:0
+	return
+2:                                                       if.done P:1 S:0 idom:0
+	t1 = (*sync.Mutex).Unlock(mu)                                        ()
+	return
+```
+
+Block `0` acquires the lock and branches. If `ready` is false, execution goes to block `1`, which returns immediately. Only block `2` unlocks the mutex. The `t0` and `t1` names are SSA temporaries. We don't need the extra block metadata to see the problem.
+
+Both method calls use the same `mu` parameter. That's more useful than matching variable names in the source: we're following the value the calls actually receive.
+
+<!-- Dump generated with Go 1.27.0 and golang.org/x/tools v0.49.0. Formatting may change with toolchain updates. -->
 
 That's useful infrastructure to get without writing a compiler. The [`go/ssa` package](https://pkg.go.dev/golang.org/x/tools/go/ssa) supplies the representation, and we can concentrate on the questions we want to ask about it.
 
@@ -80,6 +90,30 @@ Moving code into another function shouldn't break an analyzer's understanding of
 This is where SSA stopped being enough on its own. It showed me the calls, arguments, and branches, but I still had to derive their meaning. Does a helper finish the cleanup? Does it do so on every normal return? Which argument does that guarantee apply to?
 
 I ended up building a separate analysis pass that records summaries of function behavior. A caller can use a summary instead of rediscovering everything about the function it calls. For lifecycle checks, for example, a summary can establish that a helper closes a particular argument before returning normally.
+
+To see one of those summaries, let's briefly switch from locks to a file. This is the lifecycle fact system's output, not a dump of lock-order relationships:
+
+```go
+func CloseFile(file *os.File) error {
+    return file.Close()
+}
+```
+
+The same example package contains this helper. Run:
+
+```sh
+gohawk facts -func CloseFile ./...
+```
+
+Below the function and source-location header, the dump contains this parameter row:
+
+```text
+  0 file: Closed
+```
+
+`0` is the parameter index, `file` is its name, and `Closed` records the cleanup action. The helper calls `Close` before returning normally. It still returns any error from `Close` to its caller; the summary isn't a promise that the operation succeeded.
+
+That gives a caller useful information it wouldn't get from an SSA call instruction alone. It can recognize cleanup delegated to this helper instead of treating the call as opaque.
 
 The qualification matters. A function that *sometimes* closes its argument doesn't give the caller the same guarantee as one that always does. And a function we haven't analyzed isn't equivalent to one we've analyzed and found to do nothing.
 
@@ -113,7 +147,7 @@ That also sets a limit on the conclusion. Conflicting orders are a hazard, not a
 
 A finding in [Caddy](https://github.com/caddyserver/caddy/pull/7968) led to a merged fix for an error path that acquired two locks in the opposite order to another path.
 
-<!-- Editorial follow-up: add a compact, verified before-and-after excerpt from the Caddy fix. Verify the illustrative lock example against the current implementation. Keep lifecycle summaries and lock-order evidence distinct; do not imply that the lifecycle fact format exports lock-order relationships. -->
+<!-- Editorial follow-up: add a compact, verified before-and-after excerpt from the Caddy fix. The example package reproduces the SSA and fact excerpts above. Keep lifecycle summaries and lock-order evidence distinct; do not imply that the lifecycle fact format exports lock-order relationships. -->
 
 ## Conclusion
 
