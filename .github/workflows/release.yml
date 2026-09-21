@@ -14,6 +14,7 @@ on:
         type: boolean
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
@@ -23,7 +24,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
@@ -33,6 +34,7 @@ jobs:
 
       - name: Validate release request
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
@@ -47,60 +49,36 @@ jobs:
             echo "Tag $VERSION already exists" >&2
             exit 1
           fi
-
-  static:
-    needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
-
-      - name: Run static checks and dogfood
-        run: make verify-static GOHAWK_BINARY="$RUNNER_TEMP/gohawk"
-
-  race:
-    needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
-
-      - name: Run Go tests
-        run: make test test-race
-
-  plugin:
-    needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
-
-      - name: Test the golangci-lint plugin
-        run: make plugin-test
+          for attempt in {1..120}; do
+            ci_run="$({
+              gh run list \
+                --repo "$GITHUB_REPOSITORY" \
+                --workflow ci.yml \
+                --branch main \
+                --event push \
+                --commit "$GITHUB_SHA" \
+                --limit 1 \
+                --json databaseId,status,conclusion \
+                --jq 'if length == 0 then empty else .[0] | [.databaseId, .status, .conclusion] | @tsv end'
+            } || true)"
+            if [[ -n "$ci_run" ]]; then
+              IFS=$'\t' read -r ci_run_id ci_status ci_conclusion <<< "$ci_run"
+              if [[ "$ci_status" == "completed" ]]; then
+                if [[ "$ci_conclusion" == "success" ]]; then
+                  echo "CI run $ci_run_id passed for $GITHUB_SHA"
+                  exit 0
+                fi
+                echo "CI run $ci_run_id concluded with $ci_conclusion" >&2
+                exit 1
+              fi
+              echo "Waiting for CI run $ci_run_id ($ci_status)"
+            else
+              echo "Waiting for a CI push run for $GITHUB_SHA"
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for CI on $GITHUB_SHA" >&2
+          exit 1
 
   binaries:
     needs: validate
@@ -169,7 +147,7 @@ jobs:
           retention-days: 1
 
   release:
-    needs: [static, race, plugin, binaries]
+    needs: binaries
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
