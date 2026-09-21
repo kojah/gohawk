@@ -61,7 +61,7 @@ head:
       </div>
       <div class="source-finding">
         <span class="source-finding-icon" aria-hidden="true">!</span>
-        <span><strong>Deadlock risk</strong> Contradictory lock order: index and cache</span>
+        <span>contradictory lock order: index and cache</span>
       </div>
     </div>
     <div class="source-slide" data-carousel-slide aria-label="2 of 4: resource lifetime leak" hidden>
@@ -86,7 +86,7 @@ head:
       </div>
       <div class="source-finding">
         <span class="source-finding-icon" aria-hidden="true">!</span>
-        <span><strong>Resource leak</strong> File is not released on every return path</span>
+        <span>owned resource from os.Open is not released on every return path</span>
       </div>
     </div>
     <div class="source-slide" data-carousel-slide aria-label="3 of 4: unjoined goroutine" hidden>
@@ -111,7 +111,7 @@ head:
       </div>
       <div class="source-finding">
         <span class="source-finding-icon" aria-hidden="true">!</span>
-        <span><strong>Lifecycle gap</strong> Goroutine is not joined on every return path</span>
+        <span>goroutine is not joined on every return path</span>
       </div>
     </div>
     <div class="source-slide" data-carousel-slide aria-label="4 of 4: concurrent capture" hidden>
@@ -136,7 +136,7 @@ head:
       </div>
       <div class="source-finding">
         <span class="source-finding-icon" aria-hidden="true">!</span>
-        <span><strong>Data race</strong> Captured local err is mutated by repeatedly launched goroutines</span>
+        <span>captured local err is mutated by goroutines launched repeatedly</span>
       </div>
     </div>
     <div class="source-carousel-controls">
