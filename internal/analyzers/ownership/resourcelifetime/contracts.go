@@ -22,7 +22,6 @@ type resourceContract struct {
 	name        string
 	cleanup     []string
 	result      int
-	readerClose bool
 }
 
 func resourceContracts() []resourceContract {
@@ -58,15 +57,35 @@ func resourceContracts() []resourceContract {
 		resourceFunction("http", "net/http", "PostForm", 0, "Close"),
 		resourceMethod("http", "net/http", "Client", "Do", "Close"),
 
-		readerResource(resourceFunction("compress", "compress/gzip", "NewReader", 0, "Close")),
+		// Compression readers do not own their inputs or require finalization.
+		// Close neither closes the underlying reader nor validates a checksum;
+		// missing it is not a resource-lifetime violation.
+		// https://github.com/flux-iac/tofu-controller/blob/8fc67730e8b5d48092060f22b89bd2e88fc0ce86/api/plan/gzip.go#L28
 		resourceFunction("compress", "compress/gzip", "NewWriterLevel", 0, "Close"),
 		resourceFunction("compress", "compress/gzip", "NewWriter", -1, "Close"),
-		readerResource(resourceFunction("compress", "compress/zlib", "NewReader", 0, "Close")),
-		readerResource(resourceFunction("compress", "compress/zlib", "NewReaderDict", 0, "Close")),
 		resourceFunction("compress", "compress/zlib", "NewWriterLevel", 0, "Close"),
 		resourceFunction("compress", "compress/zlib", "NewWriterLevelDict", 0, "Close"),
 		resourceFunction("compress", "compress/zlib", "NewWriter", -1, "Close"),
 	}
+}
+
+// Rows.Next closes on exhaustion of the final result set. A false result can
+// also mark an intermediate set, so this is uncertainty, not proven release.
+// Only the false edge of the exact SQL receiver qualifies; breaks and Scan
+// errors still leave a live obligation.
+// https://github.com/nkanaev/yarr/blob/bb427710efec1ba2c9b9b4cacde67874a347499b/src/storage/sqlite/item.go#L284
+func sqlRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.Value) bool {
+	if len(block.Instrs) == 0 || len(block.Succs) != 2 || successor != block.Succs[1] {
+		return false
+	}
+	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
+	if !ok {
+		return false
+	}
+	next, ok := branch.Cond.(*ssa.Call)
+	return ok && ssaflow.CallMatchesSymbol(next.Common(), syntax.PackageMethod(syntax.MethodSymbol{
+		PackagePath: "database/sql", Receiver: "Rows", Name: "Next",
+	})) && ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
 }
 
 func resourceFunction(family, packagePath, name string, result int, cleanup ...string) resourceContract {
@@ -84,11 +103,6 @@ func resourceMethod(family, packagePath, receiver, name string, cleanup ...strin
 		cleanup:     cleanup,
 		result:      0,
 	}
-}
-
-func readerResource(contract resourceContract) resourceContract {
-	contract.readerClose = true
-	return contract
 }
 
 // DB.Close retires the connections that own DB-prepared driver statements.
@@ -161,7 +175,7 @@ func acquisitionContextCanceled(acquisition *ssa.Call) bool {
 
 func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {
 	for _, contract := range settings.catalog {
-		if !settings.contracts[contract.family] || contract.readerClose && !settings.requireReaderClose {
+		if !settings.contracts[contract.family] {
 			continue
 		}
 		if ssaflow.CallMatchesSymbol(common, contract.symbol) {
@@ -415,7 +429,12 @@ func callTakesResourceOwnership(
 	// an error return that never closes it. A function that never releases the
 	// resource anywhere, as when installing it as the process-wide logger
 	// sink, has no such claim and the handover stands.
-	if evidence.ArgumentRetainedByCallee(instruction, resource) &&
+	// A receiver storing a reference to itself does not transfer its caller's
+	// obligation. Rows.Scan, for example, retains receiver-local scan state;
+	// that does not make an early Scan-error return close the rows.
+	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
+	if !ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(receiver, resource).Proven() &&
+		evidence.ArgumentRetainedByCallee(instruction, resource) &&
 		!functionReleasesResource(instruction.Parent(), resource, methods) {
 		return true
 	}
@@ -476,7 +495,7 @@ func memoryWriterExempt(call *ssa.Call, contract resourceContract, settings reso
 		return false
 	}
 	writerMethods := contract.cleanup
-	if len(writerMethods) == 0 || contract.readerClose {
+	if len(writerMethods) == 0 {
 		return false
 	}
 	underlying := call.Common().Args[0]

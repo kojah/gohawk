@@ -193,11 +193,37 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 		if tracked.kind != trackedOwner && ssaflow.ExternallyOwnedValue(tracked.value) {
 			return GoroutineProof{Outcome: GoroutineTransferred, Reason: reasonCallerOrExternalOwner}, true
 		}
+		if tracked.kind == trackedGroup && opaqueGroupOrigin(tracked.value) {
+			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true
+		}
 	}
 	if synctestOwnsGoroutine(analysis.function) {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonSynctestBubbleOwner}, true
 	}
 	return GoroutineProof{}, false
+}
+
+// An opaque producer can lend a registry-owned group, not allocate a new one.
+// Without its body we cannot assign the join obligation to this invocation.
+// This is uncertainty, not proof that the caller or registry actually waits.
+// https://github.com/i-love-flamingo/flamingo/blob/79a55d62bb7a1bffe11a4dea1444490b14785879/core/requesttask/filter.go#L28-L60
+func opaqueGroupOrigin(value ssa.Value) bool {
+	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
+	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
+	leaf = func(walk ssaflow.ReachingWalk, current ssa.Value) bool {
+		if resolved := storage.Resolve(current); resolved.Proven() && resolved.Value != current {
+			return walk.Any(resolved.Value, leaf)
+		}
+		switch typed := current.(type) {
+		case *ssa.Extract:
+			return walk.Any(typed.Tuple, leaf)
+		case *ssa.Call:
+			callee, _ := ssaflow.DirectCallee(typed.Common())
+			return callee == nil || len(callee.Blocks) == 0
+		}
+		return false
+	}
+	return ssaflow.NewReachingWalk(carryForms|ssaflow.TransparentTypeAssert).Any(value, leaf)
 }
 
 // dominatingProof classifies the instructions that run before every spawn. A

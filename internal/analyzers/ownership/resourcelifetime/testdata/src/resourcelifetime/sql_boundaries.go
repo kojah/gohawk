@@ -39,6 +39,48 @@ func rowsKeepOwnObligation(db *sql.DB) {
 	_, _ = db.Query("SELECT 1") // want "owned resource from sql.Query is not released"
 }
 
+func rowsExhausted(db *sql.DB) error {
+	rows, err := db.Query("SELECT 1")
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var value int
+		_ = rows.Scan(&value)
+	}
+	return rows.Err()
+}
+
+func rowsEarlyBreak(db *sql.DB) {
+	rows, err := db.Query("SELECT 1") // want "owned resource from sql.Query is not released"
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		break
+	}
+}
+
+func rowsScanError(db *sql.DB) error {
+	rows, err := db.Query("SELECT 1") // want "owned resource from sql.Query is not released"
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var value int
+		if err := rows.Scan(&value); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
+}
+
+func rowsOtherReceiver(db *sql.DB, other *sql.Rows) {
+	_, _ = db.Query("SELECT 1") // want "owned resource from sql.Query is not released"
+	for other.Next() {
+	}
+}
+
 func canceledDBAcquisitions(db *sql.DB) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

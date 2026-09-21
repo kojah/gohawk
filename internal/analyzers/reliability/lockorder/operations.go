@@ -124,6 +124,48 @@ func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
 			if ssaflow.ValueCallsMethod(result, "Unlock", value) || ssaflow.ValueCallsMethod(result, "RUnlock", value) {
 				return true
 			}
+			// Returning the object containing a held mutex exposes its release to
+			// the caller. This is unknown ownership, not proof that any method
+			// named Unlock releases it. Kube-vip returns such an owner on success:
+			// https://github.com/kube-vip/kube-vip/blob/be536eaaf73c80fa5161e757ac18b472498f986e/pkg/iptables/lock.go#L54-L67
+			if ssaflow.NewReachingWalk(mutexForms).Any(result, func(_ ssaflow.ReachingWalk, owner ssa.Value) bool {
+				return ssaflow.ValueIsAccessPathFrom(value, owner)
+			}) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// optionalLoadedMutex identifies an acquisition whose guard tests mutable
+// storage rather than one SSA value. Repeated reads of that slot have unrelated
+// condition identities, while lock identity deliberately names the slot. Until
+// that relationship is proved, an unreleased path may be infeasible. Decline
+// missing-release, including changed guards, rather than assume either stable
+// contents or a leak; direct mutex parameters and Boolean guards stay precise.
+// https://github.com/devld/go-drive/blob/91c3ac7253642bf58629d6a87cf7ab718f2d3827/common/utils/path_tree.go#L133-L141
+func optionalLoadedMutex(instruction ssa.Instruction, identity string) bool {
+	block := instruction.Block()
+	if len(block.Preds) != 1 {
+		return false
+	}
+	pred := block.Preds[0]
+	if len(pred.Instrs) == 0 {
+		return false
+	}
+	branch, ok := pred.Instrs[len(pred.Instrs)-1].(*ssa.If)
+	if !ok {
+		return false
+	}
+	comparison, ok := branch.Cond.(*ssa.BinOp)
+	if !ok || (comparison.Op != token.EQL && comparison.Op != token.NEQ) {
+		return false
+	}
+	for _, pair := range [][2]ssa.Value{{comparison.X, comparison.Y}, {comparison.Y, comparison.X}} {
+		loaded, ok := pair[0].(*ssa.UnOp)
+		if ok && loaded.Op == token.MUL && ssaflow.DefinitelyNil(pair[1]) && lockIdentityOf(loaded) == identity {
+			return true
 		}
 	}
 	return false

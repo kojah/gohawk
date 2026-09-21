@@ -71,6 +71,7 @@ func walkLockOrder(
 	unreleasedReturns := map[string][]token.Pos{}
 	heldAtReturn := map[string]map[*ssa.Return]bool{}
 	acquisitions := map[string][]ssa.Instruction{}
+	uncertainGuards := map[string]bool{}
 	callerOwned := callerOwnedLocks(function)
 	functionDefers := ssaflow.InstructionsOf[*ssa.Defer](function)
 	flow := lockFlowContext{
@@ -120,6 +121,7 @@ func walkLockOrder(
 			// ask which returns an acquisition dominates.
 			if operation == mutexAcquire {
 				acquisitions[identity] = appendUniqueInstruction(acquisitions[identity], instruction)
+				uncertainGuards[identity] = uncertainGuards[identity] || optionalLoadedMutex(instruction, identity)
 			}
 			actionState := lockFlowState{
 				held: held, readHeld: readHeld, deferred: deferred, guards: guards,
@@ -138,6 +140,12 @@ func walkLockOrder(
 	// all hold the lock is acquiring it for its caller, so its held returns are
 	// the contract rather than the defect.
 	for identity, returns := range unreleasedReturns {
+		if uncertainGuards[identity] {
+			analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), acquiredAt[identity]).Decision(analysisTrace.Step{
+				Reason: "optional-loaded-mutex-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: acquiredAt[identity],
+			})
+			continue
+		}
 		if !released[identity] || acquiresForCaller(function, acquisitions[identity], heldAtReturn[identity]) {
 			continue
 		}

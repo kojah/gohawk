@@ -25,7 +25,14 @@ const carryForms = ssaflow.TransparentChangeInterface | ssaflow.TransparentChang
 // the result of a call that received it.
 func (analysis *spawnAnalysis) consumes(value ssa.Value) bool {
 	return slices.ContainsFunc(analysis.tracked, func(tracked trackedValue) bool {
-		return carries(ssaflow.NewReachingWalk(carryForms), value, tracked.value)
+		target := tracked.value
+		// A worker may receive a loaded field while its caller returns the
+		// aggregate initialized with that field. Resolve the read at its own
+		// instruction, rather than expecting the return to contain the load.
+		if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(target); resolved.Proven() {
+			target = resolved.Value
+		}
+		return carries(ssaflow.NewReachingWalk(carryForms), value, target)
 	})
 }
 

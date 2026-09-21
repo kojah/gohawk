@@ -15,7 +15,7 @@ import (
 )
 
 func Analyzer() *analysis.Analyzer {
-	config := resourceLifetimeConfig{contracts: "os,http,sql,compress,owned", requireReaderClose: true}
+	config := resourceLifetimeConfig{contracts: "os,http,sql,compress,owned"}
 	analyzer := &analysis.Analyzer{
 		Name:     "resourcelifetime",
 		Doc:      "checks owned files, SQL handles, HTTP responses, and compressors are released on every path",
@@ -26,7 +26,6 @@ func Analyzer() *analysis.Analyzer {
 		"contracts",
 		"comma-separated resource contract families: os,http,sql,compress,owned",
 	)
-	analyzer.Flags.BoolVar(&config.requireReaderClose, "require-reader-close", true, "require gzip and zlib readers to be closed")
 	analyzer.Flags.BoolVar(
 		&config.requireMemoryWriterClose,
 		"require-memory-writer-close",
@@ -41,14 +40,12 @@ func Analyzer() *analysis.Analyzer {
 
 type resourceLifetimeConfig struct {
 	contracts                string
-	requireReaderClose       bool
 	requireMemoryWriterClose bool
 }
 
 type resourceLifetimeSettings struct {
 	contracts                map[string]bool
 	catalog                  []resourceContract
-	requireReaderClose       bool
 	requireMemoryWriterClose bool
 }
 
@@ -60,7 +57,6 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 	settings := resourceLifetimeSettings{
 		contracts:                flagvalue.CommaSeparatedSet(config.contracts),
 		catalog:                  resourceContracts(),
-		requireReaderClose:       config.requireReaderClose,
 		requireMemoryWriterClose: config.requireMemoryWriterClose,
 	}
 	// Acquisition contracts identify both the owned result and its required

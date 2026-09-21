@@ -154,7 +154,33 @@ func spawnedCompletionValues(
 		}
 	}
 	groups, unsettledDone = waitGroupCompletionValues(spawn, function, closure)
+	groups = append(groups, deferredCompletionGroups(spawn, function, closure)...)
 	return signals, groups, unsettledDone
+}
+
+// A deferred helper can finish a group after releasing other worker resources.
+// Keep that group as an alternative completion handle, so returning its owner
+// is visible even when the worker also sends on an unrelated output channel.
+// https://github.com/vbauerster/mpb/blob/ddeb4bb7bcb86e114648760018b10700841a081a/heap_manager.go#L46-L61
+func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure) []ssa.Value {
+	var groups []ssa.Value
+	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
+		group := ssaflow.CapturedBindingValue(pair.Supplied)
+		if group == nil || !syntax.NamedType(group.Type(), "sync", "WaitGroup") {
+			continue
+		}
+		for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](function) {
+			proof := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+				Instruction: deferred, Target: pair.Local, Methods: []string{"Done"},
+				Budget: ssaflow.NewSearchBudget(1000),
+			})
+			if proof.Proven() {
+				groups = append(groups, group)
+				break
+			}
+		}
+	}
+	return groups
 }
 
 // spawnedCompletionSignal resolves a send or close performed by the worker, or
@@ -310,6 +336,12 @@ func waitGroupCompletionValues(
 				continue
 			}
 			if !waitGroupSettlesFunction(function, receiver) {
+				// Repeated Done calls can count completed items rather than workers.
+				// Without counter arithmetic a backedge is not proof of early Done.
+				// https://github.com/grafana/dskit/blob/86f3c54f61fe477e68ac15dfac9ed88e4ee9e457/ring/batch_test.go#L61-L74
+				if ssaflow.BlockInCycle(instruction.Block()) {
+					continue
+				}
 				if unsettled == nil {
 					unsettled = instruction
 				}

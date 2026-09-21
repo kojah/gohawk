@@ -43,6 +43,7 @@ func TestAnalyzer(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := false
+	foundReturnPath := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event struct {
 			Reason    string `json:"reason"`
@@ -53,6 +54,12 @@ func TestAnalyzer(t *testing.T) {
 		}
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
+		}
+		if event.Reason == "resource-return-path" && strings.Contains(event.Candidate, "sql_boundaries.go:") {
+			foundReturnPath = true
+			if event.Phase != "evidence" || event.Outcome != "observed" {
+				t.Errorf("unexpected return-path evidence: %+v", event)
+			}
 		}
 		if event.Reason != "captured-by-prior-cleanup" {
 			continue
@@ -65,6 +72,9 @@ func TestAnalyzer(t *testing.T) {
 	}
 	if !found {
 		t.Error("missing prior-cleanup trace evidence")
+	}
+	if !foundReturnPath {
+		t.Error("missing resource return-path evidence")
 	}
 	assertSQLBoundaryTrace(t, data)
 	assertUseAfterTrace(t, data)
@@ -133,7 +143,7 @@ func assertSQLBoundaryTrace(t *testing.T, data []byte) {
 
 func TestConfiguration(t *testing.T) {
 	analyzer := Analyzer()
-	for name, value := range map[string]string{"contracts": "http,compress", "require-reader-close": "false"} {
+	for name, value := range map[string]string{"contracts": "http,compress"} {
 		if err := analyzer.Flags.Set(name, value); err != nil {
 			t.Fatalf("set %s=%s: %v", name, value, err)
 		}

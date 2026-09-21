@@ -14,7 +14,17 @@ constructed object does not transfer ownership when an error path returns
 without that object.
 
 The built-in contracts cover files, transactions, SQL rows and statements,
-HTTP response bodies, and gzip/zlib readers and writers.
+HTTP response bodies, and gzip/zlib writers. Compression readers do not own
+their inputs, and their Close does not finalize or validate the input stream,
+so they are not cleanup obligations. The underlying file still needs closing.
+
+For compression writers, error returns and explicit pipe aborts can abandon
+the output rather than publish it. Those paths are uncertain, not proven
+finalization; successful returns still require Close where the contract applies.
+
+The false edge of the tracked `database/sql.Rows.Next` call is also uncertain:
+the final result set closes automatically, but another result set may remain.
+An early break or return before exhaustion is not covered by that boundary.
 
 Closing the exact parent DB, directly or through a dominating defer, suppresses
 missing-release findings for DB-prepared statements. It does not discharge
@@ -160,5 +170,4 @@ func readSafely(path string) error {
 | --- | --- | --- |
 | `contracts` | `os,http,sql,compress,owned` | Comma-separated resource contract families: os,http,sql,compress,owned. |
 | `require-memory-writer-close` | `false` | Report gzip and zlib writers over an in-memory buffer that are not closed on every path. |
-| `require-reader-close` | `true` | Require gzip and zlib readers to be closed. |
 {/* gohawk:generated-options:end */}

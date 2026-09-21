@@ -126,7 +126,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			"enable-groups",
 			"goroutineownership.mode",
 			"resourcelifetime.contracts",
-			"resourcelifetime.require-reader-close",
+			"resourcelifetime.require-memory-writer-close",
 		} {
 			if !strings.Contains(output, `"Name": "`+name+`"`) {
 				t.Fatalf("-flags output does not contain %q:\n%s", name, output)

@@ -13,7 +13,7 @@ import (
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
-func TestCycleTraceIncludesOppositeOrder(t *testing.T) {
+func TestLockTraceBoundaries(t *testing.T) {
 	flags := flag.NewFlagSet("cycle-trace", flag.ContinueOnError)
 	analysisTrace.RegisterFlags(flags)
 	set := func(name, value string) {
@@ -28,8 +28,8 @@ func TestCycleTraceIncludesOppositeOrder(t *testing.T) {
 		set("gohawk-trace-candidate", "")
 		set("gohawk-trace-file", os.DevNull)
 	})
-	set("gohawk-trace", "lockorder/contradictory-order")
-	set("gohawk-trace-candidate", "lock_classes.go")
+	set("gohawk-trace", "lockorder")
+	set("gohawk-trace-candidate", "")
 	set("gohawk-trace-file", path)
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockorder")
 	data, err := os.ReadFile(path)
@@ -37,6 +37,7 @@ func TestCycleTraceIncludesOppositeOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := false
+	foundUnknown := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event struct {
 			Phase     string            `json:"phase"`
@@ -49,17 +50,27 @@ func TestCycleTraceIncludesOppositeOrder(t *testing.T) {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
-		if event.Reason != "opposite-order-recorded" {
+		if event.Reason == "optional-loaded-mutex-unknown" && strings.Contains(event.Candidate, "optional_owners.go:") {
+			foundUnknown = true
+			if event.Phase != "decision" || event.Outcome != "unknown" || event.Position != event.Candidate {
+				t.Errorf("invalid optional mutex uncertainty: %+v", event)
+			}
+			continue
+		}
+		if event.Reason != "opposite-order-recorded" || !strings.Contains(event.Candidate, "lock_classes.go:") {
 			continue
 		}
 		found = true
 		if event.Phase != "evidence" || event.Outcome != "rejected" ||
-			!strings.Contains(event.Candidate, "lock_classes.go:") || event.Position == "" || event.Position == event.Candidate ||
+			event.Position == "" || event.Position == event.Candidate ||
 			event.Details["held"] == "" || event.Details["acquired"] == "" {
 			t.Errorf("invalid cycle evidence: %+v", event)
 		}
 	}
 	if !found {
 		t.Error("missing opposite-order evidence")
+	}
+	if !foundUnknown {
+		t.Error("missing optional mutex uncertainty")
 	}
 }

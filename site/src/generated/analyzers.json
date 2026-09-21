@@ -159,11 +159,6 @@
               "name": "require-memory-writer-close",
               "default": "false",
               "usage": "Report gzip and zlib writers over an in-memory buffer that are not closed on every path."
-            },
-            {
-              "name": "require-reader-close",
-              "default": "true",
-              "usage": "Require gzip and zlib readers to be closed."
             }
           ]
         }

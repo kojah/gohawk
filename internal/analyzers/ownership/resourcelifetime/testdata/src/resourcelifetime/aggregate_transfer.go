@@ -1,6 +1,10 @@
 package resourcelifetime
 
-import "os"
+import (
+	"io"
+	"os"
+	"resourcedep"
+)
 
 // This file covers a resource that reaches an in-package callee only nested
 // inside an aggregate argument. The callee transfers the resource to the value
@@ -75,4 +79,31 @@ func leakedThroughAggregateWithoutTransfer(path string) error {
 		return err
 	}
 	return upload(&request{body: file})
+}
+
+func returnCloserCollection(reader io.Reader, closers ...io.Closer) (*closerOwner, error) {
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		for _, closer := range closers {
+			_ = closer.Close()
+		}
+		return nil, err
+	}
+	return &closerOwner{closers: closers}, nil
+}
+
+func directBorrowAndReturnedCollection(path string) (*closerOwner, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return returnCloserCollection(file, file)
+}
+
+func retainedCallbackResource(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	resourcedep.RegisterExit(func() { _ = file.Close() })
+	return nil
 }

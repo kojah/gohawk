@@ -280,7 +280,10 @@ func (analysis *spawnAnalysis) isSignal(value ssa.Value) bool {
 	root := aggregateRoot(value)
 	return root != value && slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
 		if !ssaflow.ChannelType(signal) {
-			return ssaflow.SameValue(root, signal)
+			// Captured slice cells and their loaded slice share an aggregate root.
+			// Index correlation stays unknown under countedJoin, not proven exact.
+			// https://github.com/bazel-contrib/buildtools/blob/933e9bbe17f7619afaca1dd58ce22810042f1c13/buildifier/buildifier.go#L241-L268
+			return ssaflow.SameValue(ssaflow.CapturedBindingValue(root), ssaflow.CapturedBindingValue(aggregateRoot(signal)))
 		}
 		signalRoot := aggregateRoot(signal)
 		return signalRoot != signal && ssaflow.SameValue(root, signalRoot)

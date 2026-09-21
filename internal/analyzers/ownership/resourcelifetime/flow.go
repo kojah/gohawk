@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"go/types"
 	"slices"
+	"strconv"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
@@ -142,6 +143,15 @@ func advanceResourceState(pass *analysis.Pass, analysis *resourceAnalysis, state
 			break
 		}
 		returned, ok := instruction.(*ssa.Return)
+		if ok && analysis.probe.Enabled() {
+			analysis.probe.Evidence(analysisTrace.Step{
+				Reason: "resource-return-path", Outcome: analysisTrace.OutcomeObserved,
+				Pos: returned.Pos(), Function: returned.Parent().String(),
+				Details: map[string]string{
+					"active": strconv.FormatBool(state.active), "released": strconv.FormatBool(state.released), "unknown": strconv.FormatBool(state.unknown),
+				},
+			})
+		}
 		if ok && state.active && !state.released && !state.unknown &&
 			!returnedResourceOwner(pass, returned, analysis.resource, analysis.contract.cleanup) &&
 			!ssaflow.ReturnedSameAsAny(returned, analysis.owners) {
@@ -172,7 +182,8 @@ func resourceSuccessorStates(
 		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
 			active = active && present
 		}
-		result = append(result, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released, unknown: state.unknown})
+		unknown := state.unknown || sqlRowsExhaustionEdge(state.block, successor, resource)
+		result = append(result, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released, unknown: unknown})
 	}
 	return result
 }
