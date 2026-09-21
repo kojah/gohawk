@@ -61,11 +61,23 @@
 .landing {
 	display: grid;
 	grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+	grid-template-rows: auto auto 1fr;
 	column-gap: 3rem;
 	align-items: start;
 	max-width: 74rem;
+	min-height: calc(100svh - var(--sl-nav-height));
 	margin-inline: auto;
-	padding: 0 1.5rem 4rem;
+	padding: 0 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+}
+
+/* The homepage already ends with its own links, not docs pagination. */
+body:has(.landing) .docs-pagination {
+	display: none;
+}
+
+main:has(.landing),
+.content-panel:has(.landing) {
+	padding-bottom: 0;
 }
 
 .landing-hero {
@@ -185,6 +197,7 @@
 
 .landing-links {
 	display: flex;
+	align-self: end;
 	grid-column: 1 / -1;
 	align-items: center;
 	justify-content: space-between;
@@ -234,6 +247,8 @@
 	.landing {
 		/* Long code lines scroll inside the demo, not stretch the page. */
 		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto auto auto 1fr;
+		min-height: 100svh;
 		column-gap: 0;
 	}
 
