@@ -141,15 +141,7 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 			fact.Invoked |= bit
 		}
 		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
-			if _, asynchronous := instruction.(*ssa.Go); asynchronous {
-				return false
-			}
-			common := ssaflow.InstructionCall(instruction)
-			if common != nil && ssaflow.SameValue(common.Value, parameter) {
-				return true
-			}
-			imported, ok := importFact(pass, instruction)
-			return ok && factOwnsArgument(instruction, parameter, imported.SynchronouslyInvoked)
+			return synchronouslyInvokesParameter(pass, instruction, parameter)
 		}) {
 			fact.SynchronouslyInvoked |= bit
 		}
@@ -182,6 +174,18 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 		summarizeTransfers(pass, retentions, function, index, parameter, &fact)
 	}
 	return fact
+}
+
+func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruction, parameter ssa.Value) bool {
+	if _, asynchronous := instruction.(*ssa.Go); asynchronous {
+		return false
+	}
+	common := ssaflow.InstructionCall(instruction)
+	if common != nil && ssaflow.SameValue(common.Value, parameter) {
+		return true
+	}
+	imported, ok := importFact(pass, instruction)
+	return ok && factOwnsArgument(instruction, parameter, imported.SynchronouslyInvoked)
 }
 
 // summarizeTransfers records where a parameter goes: into the returned
