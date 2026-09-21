@@ -210,10 +210,21 @@ a visible body. Callback arguments selected through phis, returned by factories,
 or dispatched through interfaces remain outside this binding resolver.
 
 This does not enumerate all callers, prove iteration over mixed callback
-collections, or add cross-package relational facts. In particular, the SQL
-test-harness parent-cleanup cases still require caller-context tracking and
-proof that cleanup covers every relevant invocation; resolving a callback
-alone does not establish that ownership contract.
+collections, or add cross-package relational facts.
+
+An enclosing-scope completion query can start at a literal's lexical owner and
+follow these bindings to its invocations. Every visible invocation must receive
+the exact value covered by a dominating deferred cleanup registration. Known
+`testing.T.Run` and `Cleanup` callbacks retain their enclosing context. Escapes,
+unsupported dispatch, mutable wrapper fields, and exhausted budgets stop the
+proof. Receiver mappings use exact identity rather than aggregate containment
+or a phi that merely includes the target. This is bounded local context
+tracking, not whole-program caller enumeration.
+
+Resource lifetime uses that query only for statements prepared through
+`database/sql.DB`: connection finalization closes its tracked driver statements.
+It does not equate `DB.Close` with `Stmt.Close`, or discharge rows, transactions,
+or statements prepared through `Conn` or `Tx`.
 
 Cancellation ownership uses the same completion search with `InvokeTarget`
 instead of a method name. This mode requires exact function identity, not

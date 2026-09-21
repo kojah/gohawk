@@ -12,6 +12,7 @@ type resourceLifetimePolicyResult struct {
 type resourceLifetimeReason string
 
 const (
+	resourceReasonParentCleanup       resourceLifetimeReason = "caller-owned-database-cleanup"
 	resourceReasonCanceledAcquisition resourceLifetimeReason = "context-canceled-before-acquisition"
 	resourceReasonReleaseProven       resourceLifetimeReason = "release-proven"
 	resourceReasonUnownedReturn       resourceLifetimeReason = "unowned-return"

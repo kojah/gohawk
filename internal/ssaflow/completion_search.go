@@ -270,7 +270,7 @@ func (search *completionSearch) capturedLocal(
 	target ssa.Value,
 	invocation ssa.Instruction,
 ) (mappedLocal, bool) {
-	if search.exactInvocation {
+	if search.exactTarget {
 		value := binding
 		if cell, ok := binding.(*ssa.Alloc); ok {
 			var stable bool
@@ -335,7 +335,7 @@ func deferredCellLocal(free, binding, target ssa.Value, exact bool) (mappedLocal
 }
 
 func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Value) (mappedLocal, bool) {
-	if search.exactInvocation {
+	if search.exactTarget {
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, argument == target
 	}
 	switch {
@@ -397,6 +397,7 @@ type completionSearch struct {
 	// Exact invocation excludes aggregate containment and may-alias mappings:
 	// calling one function stored in an owner does not invoke every function.
 	exactInvocation bool
+	exactTarget     bool
 	incomplete      *bool
 	// bindings are scoped to this invocation, never merged across callers.
 	bindings *callbackBindings
@@ -500,7 +501,7 @@ func (search *completionSearch) calleeCompletes(callee completionCallee, target 
 	if len(locals) == 0 {
 		return false
 	}
-	if search.exactInvocation && callee.launch == launchStarted {
+	if search.exactTarget && callee.launch == launchStarted {
 		*search.incomplete = true
 		return false
 	}
@@ -534,6 +535,10 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 		return false
 	}
 	called := InstructionCall(candidate)
+	if _, started := candidate.(*ssa.Go); started && search.exactTarget && !search.exactInvocation {
+		*search.incomplete = true
+		return false
+	}
 	if search.startsTarget(candidate, locals) {
 		*search.incomplete = true
 		return false
@@ -541,7 +546,7 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 	if called != nil && CallName(called) == search.method {
 		receiver := CallReceiver(called)
 		for _, local := range locals {
-			if local.receives(receiver, target) {
+			if search.receives(local, receiver, target) {
 				return true
 			}
 		}
@@ -571,6 +576,13 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 	return false
 }
 
+func (search *completionSearch) receives(local mappedLocal, receiver, target ssa.Value) bool {
+	if search.exactTarget {
+		return search.invokesTargetLocal(receiver, local.local)
+	}
+	return local.receives(receiver, target)
+}
+
 func (search *completionSearch) startsTarget(candidate ssa.Instruction, locals []mappedLocal) bool {
 	if !search.exactInvocation {
 		return false
@@ -579,21 +591,6 @@ func (search *completionSearch) startsTarget(candidate ssa.Instruction, locals [
 	return ok && slices.ContainsFunc(locals, func(local mappedLocal) bool {
 		return search.invokesTargetLocal(started.Common().Value, local.local)
 	})
-}
-
-func (search *completionSearch) invokesTargetLocal(value, local ssa.Value) bool {
-	if !search.exactInvocation {
-		return invokesLocal(value, local)
-	}
-	if value == local {
-		return true
-	}
-	// Only a captured cell whose stability was checked when mapping the
-	// closure may be loaded here. A phi that merely includes the target is not
-	// identity and cannot establish that the target was invoked.
-	_, captured := local.(*ssa.FreeVar)
-	load, ok := value.(*ssa.UnOp)
-	return captured && ok && load.Op == token.MUL && load.X == local
 }
 
 // invokesLocal reports whether a call's function value is the local itself or

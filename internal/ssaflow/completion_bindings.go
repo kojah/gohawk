@@ -22,6 +22,21 @@ type callbackValue struct {
 	observation ssa.Instruction
 }
 
+func (search *completionSearch) invokesTargetLocal(value, local ssa.Value) bool {
+	if !search.exactTarget {
+		return invokesLocal(value, local)
+	}
+	if value == local {
+		return true
+	}
+	// Only a captured cell whose stability was checked when mapping the
+	// closure may be loaded here. A phi that merely includes the target is not
+	// identity and cannot establish that the target was invoked.
+	_, captured := local.(*ssa.FreeVar)
+	load, ok := value.(*ssa.UnOp)
+	return captured && ok && load.Op == token.MUL && load.X == local
+}
+
 func (search *completionSearch) bindCallbackArguments(callee completionCallee) *callbackBindings {
 	bindings := &callbackBindings{values: make(map[ssa.Value]callbackValue)}
 	for index, parameter := range callee.function.Params {
@@ -317,6 +332,11 @@ func immutableCallbackCell(cell *ssa.Alloc, observation ssa.Instruction, budget 
 		switch use := use.(type) {
 		case *ssa.Store:
 			if stored != nil || use.Addr != cell || !InstructionDominates(use, observation) {
+				return nil, false
+			}
+			// One SSA store may execute repeatedly. A cell allocated outside
+			// that loop is not immutable across its captured callbacks.
+			if BlockInCycle(use.Block()) && use.Block() != cell.Block() {
 				return nil, false
 			}
 			stored = use

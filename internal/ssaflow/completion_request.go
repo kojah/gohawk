@@ -14,6 +14,9 @@ type CompletionRequest struct {
 	// rather than a method on an object. Methods must be empty. Asynchronous
 	// launches are not invocation completion; their ownership is caller policy.
 	InvokeTarget bool
+	// ExactTarget excludes containment and may-alias receiver mappings. It is
+	// appropriate when completion will justify cleanup in another scope.
+	ExactTarget bool
 	// Coverage defaults to CoverageEveryReturn. Callers asking only whether a
 	// callee may complete the target select CoverageAnywhere.
 	Coverage CompletionCoverage
@@ -47,6 +50,7 @@ func ProveCompletion(request CompletionRequest) CompletionProof {
 	for _, method := range methods {
 		search := newCompletionSearch(method, request.Coverage, request.Budget)
 		search.exactInvocation = request.InvokeTarget
+		search.exactTarget = request.ExactTarget || request.InvokeTarget
 		search.invokeTarget = request.InvokeTarget
 		launch, proven, available := search.completes(request.Instruction, request.Target)
 		if proven {
