@@ -1435,7 +1435,7 @@ binaries, generation commands, or repository scripts were executed.
 Twenty-four scans completed without recorded errors; `ekristen/aws-nuke` timed
 out and is **incomplete**, not clean. The batch yielded 357 diagnostic locations
 (some have multiple check IDs). Of those, 25 have source-reviewed verdicts:
-15 true positives and 10 false positives. The remaining 332 are **unreviewed**;
+16 true positives and 9 false positives. The remaining 332 are **unreviewed**;
 these numbers are not a corpus precision estimate. There are 188 occurrences
 of the experimental `goroutineownership/detached` check, not 188 proven leaks.
 
@@ -1445,13 +1445,11 @@ Artifacts preserve the entire selection and review backlog:
 - [Per-repository scan counts and errors](batch-48-scans.json).
 - [Every finding, with reviewed verdicts and rationale](batch-48-findings.tsv).
 
-Reviewed false-positive families to investigate before widening the corpus:
+Reviewed false-positive families addressed by the batch-48 corrections:
 
 - `raviqqe/muffet`: four unjoined-worker reports despite callers fully draining
   the results channel that the worker closes after completing its work. The
   test that receives only one result remains unreviewed, not grouped with these.
-- `google/certificate-transparency-go`: a worker batch uses matching WaitGroup
-  Add/Done/Wait, but is reported unjoined; error paths terminate the process.
 - `james-6-23/codex2api`: a registered cleanup captures a database variable that
   is subsequently reopened; its closed-state guard is reset for the new handle.
 - `pb33f/libopenapi`: two missing-unlock reports despite acquisition and release
@@ -1459,16 +1457,38 @@ Reviewed false-positive families to investigate before widening the corpus:
 - `okteto/okteto`: two shared-capture reports for a loop-local error variable
   with no competing access after the worker starts. Each loop also runs once.
 
-The fifteen confirmed true positives include HTTP bodies lost on error paths,
+The sixteen confirmed true positives include HTTP bodies lost on error paths,
 database cursors abandoned on Scan errors, unclosed generated/temp files, and
 unbuffered error senders whose parent can already have returned. Timer/ticker
 reports and the remaining lock findings still need review; they are not
 presumed bugs merely because the analyzer reported them.
 
-No analyzer correction or passing regression cohort is claimed for this batch
-yet. Preserve the pending false positives as defects to minimize and investigate,
-not as accepted suppressions. Subsequent work should finish this review and
-address the bounded proof gaps before selecting another batch.
+The WaitGroup finding in `google/certificate-transparency-go` was initially
+mislabeled. Evidence tracing showed that `Done` precedes a deferred response-body
+close: `Wait` can return while that cleanup is still running. It is now a true
+positive, with a local fixture preserving the warning and accepting deferred
+`Done` registered before cleanup.
+
+The other nine findings motivated four bounded corrections: iteration-local
+variables do not establish sharing across launches; an unchanged computed
+Boolean outside a cycle can correlate locking branches; a channel accessor
+return is an opaque handoff of completion evidence; and a previously registered
+testing cleanup that captures a reassigned resource makes ownership unknown.
+The latter two do not claim a proven join or release. Deliberate blind spots
+include a discarded accessor result, a cleanup guard that skips the resource,
+and conflicting accesses within one iteration; those require evidence beyond
+these checks' bounded models.
+
+Precision round 49 pins all 25 reviewed findings. Review of the other 332
+findings is still pending; these corrections do not complete the batch audit.
+
+Validation at `a728a75`: the pinned round-49 replay passes with all nine false
+positives absent and all sixteen true positives present, with no unscannable
+repositories. Its post-fix census records 267 diagnostic locations, not 267
+reviewed bugs. Local validation passed `make verify`, explicit uncached tests
+for the four affected analyzer packages and architecture, plus the cleanup
+trace regression and lint after the final test edit. External validation
+remained static analysis only.
 
 ## Audit summary
 

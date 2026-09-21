@@ -363,3 +363,10 @@ Round 48 preserves the forty-fourth reviewed batch, the last of the
 500-repository audit, which needed no correction. It pins a key file
 created only for its path, a button-press response never closed, and a pipe
 reader goroutine left blocked when closing the writer fails.
+
+Round 49 preserves the reviewed subset of batch 48: nine false positives
+across channel accessors, registered cleanup captures, computed lock guards,
+and iteration-local captures, alongside sixteen true positives. The latter
+include a corrected audit label: calling WaitGroup.Done before deferred
+cleanup does not wait for the cleanup. The other batch findings remain
+unreviewed and are not silently promoted into regression labels.
