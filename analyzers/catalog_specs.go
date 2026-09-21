@@ -167,9 +167,9 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 			},
 			{
 				ID:   check.ResourceUseAfterRelease,
-				Doc:  "Reports an invalidating operation on a resource that a direct release dominates.",
+				Doc:  "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
 				Kind: catalog.KindHazard,
-				Tier: catalog.TierExperimental,
+				Tier: catalog.TierCore,
 			},
 		}},
 	}

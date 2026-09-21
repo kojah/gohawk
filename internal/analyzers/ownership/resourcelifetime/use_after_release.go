@@ -2,6 +2,7 @@ package resourcelifetime
 
 import (
 	"go/token"
+	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -13,9 +14,9 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// The use-after-release audit is the dual of the leak check: after a direct
+// The use-after-release check is the dual of the leak check: after a direct
 // release of an acquired resource, an operation the API documents as failing
-// on a released value is reported. It is opt-in and deliberately narrow. The
+// on a released value is reported. It is deliberately narrow. The
 // release must be a plain call on the exact acquired value, not a deferred
 // one, and it must dominate the use, so every path to the use has released
 // first; a release on one branch and a use after the merge is not claimed.
@@ -43,7 +44,9 @@ func invalidatingOperations() []invalidatingOperation {
 		}},
 		{"database/sql", "Stmt", []string{"Exec", "ExecContext", "Query", "QueryContext", "QueryRow", "QueryRowContext"}},
 		{"net/http", "Response", []string{"Read"}},
-		{"compress/gzip", "Reader", []string{"Read"}},
+		// Reader.Close does not guarantee that a later Read fails. In
+		// particular, gzip delegates to flate, whose Close need not invalidate
+		// the reader. A cleanup obligation alone is not an invalidation contract.
 		{"compress/gzip", "Writer", []string{"Write", "Flush"}},
 		{"compress/zlib", "Writer", []string{"Write", "Flush"}},
 	}
@@ -63,39 +66,122 @@ func reportUsesAfterRelease(pass *analysis.Pass, function *ssa.Function, acquisi
 	if len(methods) == 0 {
 		return
 	}
-	for _, release := range directReleases(function, resource, contract) {
-		for _, block := range function.Blocks {
-			for _, instruction := range block.Instrs {
-				call, ok := instruction.(*ssa.Call)
-				if !ok || call == release || !ssaflow.InstructionDominates(release, call) {
-					continue
-				}
-				if !slices.Contains(methods, ssaflow.CallName(call.Common())) || !operatesOnResource(call.Common(), resource) {
-					continue
-				}
-				emitUseAfterRelease(pass, function, acquisition, release, call)
-				check.Reportf(
-					pass,
-					check.ResourceUseAfterRelease,
-					call.Pos(),
-					"resource from %s.%s is used after %s",
-					syntax.ShortPackageName(contract.packagePath),
-					contract.name,
-					ssaflow.CallName(release.Common()),
-				)
+	query := releasedResource{resource: resource, contract: contract, methods: methods, storage: ssaflow.NewStorage(nil)}
+	reported := map[*ssa.Call]bool{}
+	for _, release := range directReleases(function, &query) {
+		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), release.Pos()).Evidence(analysisTrace.Step{
+			Reason: "known-resource-direct-release", Outcome: analysisTrace.OutcomeAccepted,
+		})
+		for _, instruction := range ssaflow.InstructionsReachableAfter(release) {
+			call, ok := instruction.(*ssa.Call)
+			if !ok || reported[call] || !slices.Contains(methods, ssaflow.CallName(call.Common())) || !query.operatesOn(call) {
+				continue
 			}
+			probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), call.Pos())
+			probe.Candidate(analysisTrace.Step{Reason: "operation-on-released-resource"})
+			proof := query.prove(acquisition, release, call)
+			if !proof.Proven() {
+				probe.Decision(analysisTrace.Step{Reason: string(proof.Reason), Outcome: analysisTrace.OutcomeUnknown})
+				continue
+			}
+			emitUseAfterRelease(pass, function, acquisition, release, call)
+			check.Reportf(pass, check.ResourceUseAfterRelease, call.Pos(), "resource from %s.%s is used after %s",
+				syntax.ShortPackageName(contract.packagePath), contract.name, ssaflow.CallName(release.Common()))
+			reported[call] = true
 		}
 	}
 }
 
+type releasedResource struct {
+	resource ssa.Value
+	contract resourceContract
+	methods  []string
+	storage  *ssaflow.Storage
+}
+
+// Dominance supplies the ordering proof; a bounded effect scan supplies its
+// validity interval. Reset, mutation, opaque helpers and asynchronous exposure
+// can change the lifecycle even when pointer identity stays the same. Merely
+// not recognizing another Close is not evidence that the value stays closed.
+func (query *releasedResource) prove(acquisition, release, use *ssa.Call) ssaflow.Proof {
+	unknown := func(reason ssaflow.EvidenceReason) ssaflow.Proof {
+		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: reason}
+	}
+	if !ssaflow.InstructionDominates(release, use) {
+		return unknown("release-does-not-dominate-use")
+	}
+	if !query.releaseInvalidates(release, use) {
+		return unknown("release-success-not-proven")
+	}
+	budget := ssaflow.NewSearchBudget(1000)
+	effects := ssaflow.NewCallEffects(budget)
+	for _, instruction := range ssaflow.InstructionsReachableAfter(acquisition) {
+		if !budget.Spend() {
+			return unknown("release-use-budget-exhausted")
+		}
+		if instruction == use || instruction == release || !ssaflow.InstructionMayFollow(instruction, use) {
+			continue
+		}
+		if ssaflow.InstructionTerminatesControlFlow(instruction) && ssaflow.InstructionDominates(instruction, use) {
+			return unknown("release-use-unreachable")
+		}
+		if query.interferes(instruction, effects) {
+			return unknown("release-use-opaque-effect")
+		}
+	}
+	return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "release-dominates-use", Provenance: ssaflow.EvidenceFromLocalSSA}
+}
+
+func (query *releasedResource) releaseInvalidates(release, use *ssa.Call) bool {
+	if !syntax.NamedType(query.resource.Type(), "database/sql", "Tx") || ssaflow.CallName(release.Common()) != "Commit" {
+		return true
+	}
+	// Commit can return a canceled context before marking the transaction done.
+	// Only its proven success branch establishes invalidation here; a failed
+	// attempt is not interchangeable with a completed transaction.
+	for _, successor := range release.Block().Succs {
+		if success, known := ssaflow.SuccessBranch(release.Block(), successor, release); known && success && successor.Dominates(use.Block()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (query *releasedResource) interferes(instruction ssa.Instruction, effects *ssaflow.CallEffects) bool {
+	if call, ok := instruction.(*ssa.Call); ok && query.operatesOn(call) &&
+		(slices.Contains(query.methods, ssaflow.CallName(call.Common())) || slices.Contains(query.contract.cleanup, ssaflow.CallName(call.Common()))) {
+		return false
+	}
+	if common := ssaflow.InstructionCall(instruction); common != nil {
+		if _, deferred := instruction.(*ssa.Defer); deferred {
+			return false // Registration does not execute cleanup before the use.
+		}
+		for _, argument := range append([]ssa.Value{common.Value}, common.Args...) {
+			if ssaflow.ValueContainsValue(argument, query.resource) &&
+				(!query.storage.Same(argument, query.resource).Proven() || !effects.Call(instruction, argument).PreservesStorage()) {
+				return true
+			}
+		}
+	}
+	if store, ok := instruction.(*ssa.Store); ok &&
+		(query.storage.Same(store.Addr, query.resource).Proven() || ssaflow.ValueIsAccessPathFrom(store.Addr, query.resource)) {
+		return true // Overwriting the resource object can reopen the same pointer.
+	}
+	if update, ok := instruction.(*ssa.MapUpdate); ok && ssaflow.ValueContainsValue(update.Value, query.resource) {
+		return true // Collection ownership and later mutation are not modeled.
+	}
+	return ssaflow.ClosureCapturesValue(instruction, query.resource) || ssaflow.SendsValue(instruction, query.resource) ||
+		ssaflow.StoresValueInGlobal(instruction, query.resource) || ssaflow.StoresValueInEscapingField(instruction, query.resource)
+}
+
 // directReleases returns the plain calls of a cleanup method on the exact
 // resource. Deferred releases run at return and cannot precede a use.
-func directReleases(function *ssa.Function, resource ssa.Value, contract resourceContract) []*ssa.Call {
+func directReleases(function *ssa.Function, query *releasedResource) []*ssa.Call {
 	var releases []*ssa.Call
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			call, ok := instruction.(*ssa.Call)
-			if ok && slices.Contains(contract.cleanup, ssaflow.CallName(call.Common())) && operatesOnResource(call.Common(), resource) {
+			if ok && slices.Contains(query.contract.cleanup, ssaflow.CallName(call.Common())) && query.operatesOn(call) {
 				releases = append(releases, call)
 			}
 		}
@@ -103,34 +189,42 @@ func directReleases(function *ssa.Function, resource ssa.Value, contract resourc
 	return releases
 }
 
-// operatesOnResource reports whether the call's receiver is the exact
-// resource value, or the body of an exact response. Identity through phis or
-// stored locals is deliberately not followed: a variable rebound to a fresh
-// acquisition must never match the released one.
-func operatesOnResource(common *ssa.CallCommon, resource ssa.Value) bool {
-	receiver := ssaflow.CallReceiver(common)
+// Point-in-time storage identity preserves saved aliases while rejecting
+// replacement fields and mixed joins. HTTP bodies additionally require an
+// unchanged Body projection: merely sharing the response root is not enough.
+func (query *releasedResource) operatesOn(call *ssa.Call) bool {
+	receiver := ssaflow.CallReceiver(call.Common())
 	if receiver == nil {
 		return false
 	}
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		receiver,
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		receiver = inner
-	}
-	if receiver == resource {
+	if query.storage.Same(receiver, query.resource).Proven() {
 		return true
+	}
+	if !syntax.NamedType(query.resource.Type(), "net/http", "Response") {
+		return false
 	}
 	load, ok := receiver.(*ssa.UnOp)
 	if !ok || load.Op != token.MUL {
 		return false
 	}
 	field, ok := load.X.(*ssa.FieldAddr)
-	return ok && field.X == resource && syntax.NamedType(resource.Type(), "net/http", "Response")
+	if !ok || !query.storage.Same(field.X, query.resource).Proven() {
+		return false
+	}
+	pointer, ok := field.X.Type().Underlying().(*types.Pointer)
+	if !ok {
+		return false
+	}
+	structure, ok := pointer.Elem().Underlying().(*types.Struct)
+	return ok && structure.Field(field.Field).Name() == "Body" && query.storage.Projection(receiver, query.resource, load).Proven()
 }
 
 func emitUseAfterRelease(pass *analysis.Pass, function *ssa.Function, acquisition *ssa.Call, release, use *ssa.Call) {
-	analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), acquisition.Pos()).Evidence(analysisTrace.Step{
+	probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), use.Pos())
+	if !probe.Enabled() {
+		return
+	}
+	probe.Evidence(analysisTrace.Step{
 		Reason:   "release-dominates-use",
 		Outcome:  analysisTrace.OutcomeRejected,
 		Pos:      use.Pos(),

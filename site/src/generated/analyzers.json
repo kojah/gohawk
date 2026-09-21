@@ -159,9 +159,9 @@
             },
             {
               "id": "resourcelifetime/use-after-release",
-              "summary": "Reports an invalidating operation on a resource that a direct release dominates.",
+              "summary": "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
               "kind": "hazard",
-              "tier": "experimental"
+              "tier": "core"
             }
           ],
           "suggestedFix": false,

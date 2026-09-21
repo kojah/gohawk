@@ -8,9 +8,9 @@ import (
 	"os"
 )
 
-// This file covers the opt-in use-after-release audit: an invalidating
+// This file covers the use-after-release check: an invalidating
 // operation on the exact acquired value that a direct release dominates. The
-// leak check is satisfied in every case so only the audit reports.
+// leak check is satisfied in every case so only the use-after check reports.
 
 func writeAfterClose(path string) error {
 	file, err := os.Create(path)
@@ -52,6 +52,17 @@ func execAfterCommit(ctx context.Context, database *sql.DB) error {
 		return err
 	}
 	_, err = transaction.ExecContext(ctx, "INSERT") // want "resource from sql.BeginTx is used after Commit"
+	return err
+}
+
+// An unsuccessful Commit need not have marked the transaction done yet.
+func uncheckedCommit(ctx context.Context, database *sql.DB) error {
+	transaction, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	_ = transaction.Commit()
+	_, err = transaction.ExecContext(ctx, "INSERT")
 	return err
 }
 

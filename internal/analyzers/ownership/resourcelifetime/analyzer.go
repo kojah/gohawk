@@ -82,13 +82,18 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 					continue
 				}
 				resource := ssaflow.CallResult(call, contract.result)
-				if resource == nil || memoryWriterExempt(call, contract, settings) {
+				if resource == nil {
+					continue
+				}
+				// Exemption from leak cleanup does not make a closed in-memory
+				// writer usable again. Invalidation has its own API contract.
+				reportUsesAfterRelease(pass, function, call, resource, contract)
+				if memoryWriterExempt(call, contract, settings) {
 					continue
 				}
 				evidence.ForCandidate(call.Pos())
 				result := evaluateResourceFlow(pass, evidence, call, resource, contract)
 				emitResourceDecision(pass, function, call, resource, contract, result)
-				reportUsesAfterRelease(pass, function, call, resource, contract)
 				if result.report {
 					check.Reportf(
 						pass,

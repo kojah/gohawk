@@ -174,7 +174,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"exitpolicy/skipped-defer":           CheckTierExtended,
 		"processownership/detached":          CheckTierExperimental,
-		"resourcelifetime/use-after-release": CheckTierExperimental,
+		"resourcelifetime/use-after-release": CheckTierCore,
 		"lockorder/contradictory-order":      CheckTierExtended,
 		"lockorder/read-lock-write":          CheckTierExperimental,
 		"lockorder/mismatched-release":       CheckTierExperimental,
