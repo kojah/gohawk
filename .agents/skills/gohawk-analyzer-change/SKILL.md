@@ -40,10 +40,38 @@ the analyzer at hand:
 
 Nearly every change is a stage-2 change. The flow query should not change.
 
-## 2. Apply the failure ladder
+## 2. Reassess the check
 
-When a reviewed precision label fails, respond in this order and stop at the
-first step that holds:
+Before patching a false-positive class, ask whether the check's question can
+be answered reliably with the evidence available. Repeated false positives
+trigger a check-level reassessment, not automatically another exception.
+
+- **Expand the model** when the missing evidence expresses a generalizable,
+  bounded structural contract. Explain how it distinguishes valid code from
+  the defect without project, naming, timing, or framework guesses.
+- **Narrow the check** when only a useful subset has reliable evidence.
+  State the proven boundary and abstain outside it; accept the coverage loss.
+- **Retire the check** when its central distinction depends on unavailable
+  intent or runtime behavior, or maintaining precision requires an open-ended
+  catalog of special cases and no useful bounded subset remains. Retire the
+  affected check, not unrelated focused checks in the same analyzer.
+
+Retirement or demotion is a recommendation until the user explicitly approves
+it. Explain the evidence and coverage or default-enablement change, then ask
+before removing, disabling, or demoting a check (including moving it to an
+experimental or opt-in tier). Approval to investigate or fix false positives
+does not authorize these changes.
+
+Record the chosen direction, representative evidence, what is knowable, and
+the expected complexity and coverage tradeoff. If evidence is insufficient,
+record the unresolved question and investigate before expanding the model.
+Do not equate a missing model with a fundamentally unmodelable question, or
+treat every false positive as justification for a larger proof engine.
+
+## 3. Apply the failure ladder
+
+For a check retained after reassessment, respond to a failed precision label
+in this order and stop at the first step that holds:
 
 1. Widen `unknown` at the classifier.
 2. Accept the false negative: delete the fixture and record the gap in the
@@ -56,7 +84,7 @@ guess. A default diagnostic needs positive structural evidence of both an
 obligation and its violation; the absence of a recognized cleanup proves
 nothing.
 
-## 3. Implement with the shared vocabulary
+## 4. Implement with the shared vocabulary
 
 Read [gohawk-codebase](../gohawk-codebase/SKILL.md) and the
 [shared helpers](../gohawk-codebase/references/shared-helpers.md) before writing
@@ -64,7 +92,7 @@ traversal code. Facts are consumed through `lifecyclefacts.LifecycleEvidence`,
 never by importing raw facts; see [Inferred facts](../../../docs/development/fact-model.md)
 for what a fact can prove and the polarity each mask must keep.
 
-## 4. Fixtures
+## 5. Fixtures
 
 - Both forms for every boundary: the diagnostic case and the accepted case,
   close together in the same testdata package.
@@ -75,7 +103,7 @@ for what a fact can prove and the polarity each mask must keep.
 - Put the commit-pinned link in the rationale comment at the decision point,
   once, not in every helper.
 
-## 5. Validate
+## 6. Validate
 
 - `make verify` — the local gate. It regenerates the derived documentation
   first, so a helper you added or renamed updates the generated index in
@@ -93,7 +121,7 @@ A new diagnostic starts as an opt-in audit. Promote it to a default check only
 after its false-positive classes are fixtured; retire an audit whose labels
 keep failing rather than refining it.
 
-## 6. Working in a shared checkout
+## 7. Working in a shared checkout
 
 Other sessions commit from this same working tree. Never switch branches in
 it; never `git add -A`; never revert a file you did not change; stage and

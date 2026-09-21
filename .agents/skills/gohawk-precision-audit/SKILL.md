@@ -31,12 +31,18 @@ around them.
 2. **Label every new finding** as a true positive, a false positive, or an
    accepted false negative. A label is a reviewed judgement about a real
    pattern, not a guess.
-3. **Investigate before widening coverage.** A false positive is a precision
-   defect. Fix it through the failure ladder in
-   [gohawk-analyzer-change](../gohawk-analyzer-change/SKILL.md): widen
-   `unknown`, or accept the false negative, or add one structural predicate
-   with a fixture and a commit-pinned link. Minimize the pattern into a local
-   fixture rather than copying the external repository into the test suite.
+3. **Reassess before fixing.** Group false positives by evidence family and,
+   for each affected check, apply
+   [Reassess the check](../gohawk-analyzer-change/SKILL.md#2-reassess-the-check):
+   expand the model, narrow the check, or retire it. Repeated noise requires
+   this check-level assessment, not another suppression. Record representative
+   findings, the missing evidence, whether a bounded general model is
+   possible, and the chosen direction with its complexity and coverage
+   tradeoff. Mark unresolved assessments explicitly rather than guessing.
+   Record proposed retirement or demotion as pending user approval; ask before
+   removing, disabling, or demoting the check, as required by analyzer-change.
+   For retained checks, follow that skill's failure ladder and minimize the
+   pattern into a local fixture instead of copying the external repository.
 4. **Record the batch.** Append the batch to `audits/README.md` and commit it
    as `record batch-N precision audit`, separately from any analyzer change it
    motivated.
