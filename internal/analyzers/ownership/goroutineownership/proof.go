@@ -243,6 +243,10 @@ func (analysis *spawnAnalysis) dominatingProof() (GoroutineProof, bool) {
 				continue
 			}
 			_, deferred := instruction.(*ssa.Defer)
+			// Testing callbacks also execute later, even when registration
+			// precedes the spawn. An ordinary Wait before spawn still cannot join.
+			// https://github.com/miniscruff/changie/blob/e78b7fcae4fd76fc588b6442117ef99c39835e15/then/write.go#L19-L35
+			deferred = deferred || ssaflow.HasLibraryContract(ssaflow.InstructionCall(instruction), ssaflow.ContractTestingCleanup)
 			switch analysis.action(instruction) {
 			case actionJoin:
 				if deferred {

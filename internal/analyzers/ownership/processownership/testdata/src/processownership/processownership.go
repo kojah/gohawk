@@ -10,6 +10,36 @@ import (
 	"testing"
 )
 
+type cyclicOwner struct {
+	next *cyclicOwner
+	cmd  *exec.Cmd
+}
+
+// Traversing a cyclic aggregate must terminate without inventing a command
+// transfer. The separate command still needs Wait.
+func unrelatedCyclicOwner() error {
+	owner := &cyclicOwner{}
+	owner.next = owner
+	command := exec.Command("tool")
+	if err := command.Start(); err != nil { // want "started command is never waited on or released"
+		return err
+	}
+	fmt.Fprintln(io.Discard, owner.next)
+	return nil
+}
+
+// A cycle must not prevent finding a genuine handle on another edge.
+func returnedCyclicOwner() (*cyclicOwner, error) {
+	owner := &cyclicOwner{}
+	owner.next = owner
+	command := exec.Command("tool")
+	if err := command.Start(); err != nil {
+		return nil, err
+	}
+	owner.cmd = command
+	return owner, nil
+}
+
 func importedHelperOwnsWait(ctx context.Context) error {
 	command := exec.CommandContext(ctx, "tool")
 	if err := command.Start(); err != nil {

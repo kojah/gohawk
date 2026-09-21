@@ -231,7 +231,12 @@ func handsValueOn(instruction ssa.Instruction) bool {
 // release.
 func handleCarried(value, command ssa.Value) bool {
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
-	return ssaflow.NewReachingWalk(forms).Any(value, func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+	// All storage and operand edges share one visited set. Starting a new walk
+	// on either edge loops forever on cyclic owner structures (seen while
+	// auditing kiwifs with its swaggo/swag dependency).
+	// https://github.com/kiwifs/kiwifs/blob/3961d5e70a9e0ef457e58e29c40c52c870d57e73/go.mod
+	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
+	leaf = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 		if _, scalar := value.Type().Underlying().(*types.Basic); scalar {
 			return false
 		}
@@ -240,7 +245,7 @@ func handleCarried(value, command ssa.Value) bool {
 		}
 		if load, ok := value.(*ssa.UnOp); ok {
 			for stored := range ssaflow.StoredInto(load.X) {
-				if walk.Any(stored, func(walk ssaflow.ReachingWalk, stored ssa.Value) bool { return handleCarried(stored, command) }) {
+				if walk.Any(stored, leaf) {
 					return true
 				}
 			}
@@ -250,10 +255,11 @@ func handleCarried(value, command ssa.Value) bool {
 			return false
 		}
 		for _, operand := range instruction.Operands(nil) {
-			if operand != nil && *operand != nil && handleCarried(*operand, command) {
+			if operand != nil && walk.Any(*operand, leaf) {
 				return true
 			}
 		}
 		return false
-	})
+	}
+	return ssaflow.NewReachingWalk(forms).Any(value, leaf)
 }
