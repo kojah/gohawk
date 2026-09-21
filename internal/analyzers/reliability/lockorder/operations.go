@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -87,7 +88,17 @@ func recordOrder(pass *analysis.Pass, position token.Pos, relations map[lockRela
 	if _, recorded := relations[relation]; recorded {
 		return
 	}
-	if _, exists := relations[lockRelation{from: key, to: ownerKey}]; exists {
+	if opposite, exists := relations[lockRelation{from: key, to: ownerKey}]; exists {
+		// Preserve the other half of the cycle in candidate-scoped evidence.
+		// The diagnostic's own position otherwise identifies only one order,
+		// making an interprocedural cycle impossible to audit from the trace.
+		probe := analysisTrace.For(pass, "lockorder", string(check.LockContradictoryOrder), position)
+		if probe.Enabled() {
+			probe.Evidence(analysisTrace.Step{
+				Reason: "opposite-order-recorded", Outcome: analysisTrace.OutcomeRejected, Pos: opposite,
+				Details: map[string]string{"held": key, "acquired": ownerKey},
+			})
+		}
 		check.Reportf(pass, check.LockContradictoryOrder, position, "contradictory lock order: %s and %s", key, ownerKey)
 	}
 	relations[relation] = position
