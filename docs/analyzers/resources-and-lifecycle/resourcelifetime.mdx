@@ -75,6 +75,13 @@ A successful `errors.As` match on the exact acquisition error also establishes
 failure. Matching an unrelated or joined error, or failing to match a type,
 does not prove that the resource was never acquired.
 
+A visible boolean error helper can establish the same failed-acquisition
+branch when every normal return for the exact nil error is literally false.
+This includes callbacks passed through immutable lexical captures. All capture
+origins must agree, and one shared work budget bounds the proof. Replaced or
+escaped callback cells, rewritten errors, recursive predicates and deferred
+result mutation do not establish that implication.
+
 Channel timers and tickers are not cleanup obligations: since Go 1.23, the
 garbage collector can reclaim them without `Stop`. Missing `Stop` alone does
 not establish a leak. This check does not infer legacy main-module or

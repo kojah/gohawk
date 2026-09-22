@@ -15,7 +15,10 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 		"paired-error-helper-cleanup":         "paired_error_cleanup.go:",
 		"rows-transaction-finished":           "sql_row_parents.go:",
 	}
-	foundSentinel := false
+	proofFiles := map[string]string{
+		"exact-error-equals-non-nil-filesystem-sentinel": "error_guards.go:",
+		"visible-error-predicate-false-for-nil":          "error_predicates.go:",
+	}
 	acquisitions := map[string]bool{
 		"head-body-acquisition-uncertain":  false,
 		"local-header-only-body-uncertain": false,
@@ -37,12 +40,11 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 				t.Errorf("unexpected HTTP acquisition boundary: %+v", event)
 			}
 		}
-		if event.Reason == "acquisition-error-proven" &&
-			event.Details["proof"] == "exact-error-equals-non-nil-filesystem-sentinel" {
-			foundSentinel = true
-			if event.Phase != "evidence" || event.Outcome != "accepted" || !strings.Contains(event.Candidate, "error_guards.go:") {
-				t.Errorf("unexpected sentinel evidence: %+v", event)
+		if file, ok := proofFiles[event.Details["proof"]]; ok && event.Reason == "acquisition-error-proven" {
+			if event.Phase != "evidence" || event.Outcome != "accepted" || !strings.Contains(event.Candidate, file) {
+				t.Errorf("unexpected acquisition-error evidence: %+v", event)
 			}
+			delete(proofFiles, event.Details["proof"])
 		}
 		file, ok := want[event.Reason]
 		if !ok || !strings.Contains(event.Candidate, file) {
@@ -58,7 +60,7 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 			t.Errorf("missing acquisition boundary: %s", reason)
 		}
 	}
-	if !foundSentinel || len(want) != 0 {
-		t.Errorf("missing followup evidence: sentinel=%t missing=%v", foundSentinel, want)
+	if len(proofFiles) != 0 || len(want) != 0 {
+		t.Errorf("missing followup evidence: proofs=%v missing=%v", proofFiles, want)
 	}
 }
