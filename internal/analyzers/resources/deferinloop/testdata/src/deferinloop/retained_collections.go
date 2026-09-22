@@ -48,3 +48,30 @@ func unrelatedCollection(names []string) error {
 	}
 	return nil
 }
+
+// A nested collection does not retain a resource on its zero-iteration path.
+// Empty/comment-only YAML inputs take exactly this path in Sloth:
+// https://github.com/slok/sloth/blob/8a3be4fab79defa4448d09d91b48422615980b05/cmd/sloth/commands/generate.go#L200-L213
+func conditionallyRetainedOutputs(names []string, records [][]string) error {
+	var outputs []struct {
+		file *os.File
+		data string
+	}
+	for index, name := range names {
+		file, err := os.Create(name)
+		if err != nil {
+			return err
+		}
+		defer file.Close() // want "deferred cleanup runs after the loop instead of after this iteration"
+		for _, record := range records[index] {
+			outputs = append(outputs, struct {
+				file *os.File
+				data string
+			}{file, record})
+		}
+	}
+	for _, output := range outputs {
+		_, _ = output.file.WriteString(output.data)
+	}
+	return nil
+}
