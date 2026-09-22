@@ -1696,6 +1696,25 @@ unit tests, and ledger checks against the pinned checkout HEADs and source
 locations. The cohort measures reviewed findings, not recall or universal
 repository safety.
 
+## Batch 53
+
+The second additional 250-repository batch uses the frozen `c9609c6` baseline.
+The [manifest](batch-53.tsv), [selection provenance](batch-53-selection.json)
+and [scan metadata](batch-53-scans.json) record the pins and bounded static-only
+profile. The selected repositories declare Go 1.25; older compatible projects
+were included after the fresh Go 1.26+ selection pool was exhausted.
+
+All 386 findings are [individually reviewed](batch-53-findings.tsv): 322 true
+positives, 48 false positives and 16 inconclusive. Of 250 repositories and 307
+module entries, 201 repositories completed and 49 were incomplete; 119 complete
+scans were quiet. Partial scans are not clean, and silence does not measure recall.
+
+The [assessment](batch-53.md) groups captured cleanup cells, no-body HTTP
+responses, infeasible paths, retained owners, indirect completion, process
+identity and producer cardinality. All 48 false positives remain unresolved;
+no correction or check retirement is claimed. The ledger is verified against
+every pinned checkout and original finding.
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The

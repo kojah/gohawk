@@ -1,0 +1,3942 @@
+{
+  "binary_sha256": "5b98c2f24b8b5b3b229c2a18bf0728a23fdec1eda891e74bb66c18bc3b3e009e",
+  "go_version": "go version go1.27.0 linux/amd64",
+  "profile": "-enable-all -gohawk-include-tests -json",
+  "replay_sha256": "79c2a1188411773886c152af55371e9f03084162f171ea6cec1bbf5afb6271e6",
+  "repositories": [
+    [
+      "hetznercloud/cli",
+      "177c1b5eeb9e2410b19531ed85a8ecd9d96920f8"
+    ],
+    [
+      "destel/rill",
+      "d20890e7c24d8ad194ac4760cacae1d4bbb58642"
+    ],
+    [
+      "gofrs/uuid",
+      "9b67c3bcafbf4484a2943d9f38cc3abd1698130c"
+    ],
+    [
+      "Azure/aztfexport",
+      "1c2dfac266709ff6eefa309bb69692211d039e67"
+    ],
+    [
+      "ebitengine/oto",
+      "d169121d1efd843beba11e25bbdac4671d1f3250"
+    ],
+    [
+      "zitadel/oidc",
+      "1616435e435252b7857598c0903e79a1a87deaff"
+    ],
+    [
+      "AfterShip/email-verifier",
+      "a97c75ff8da09ebfcd30011197cacc78b1c5458e"
+    ],
+    [
+      "unrolled/render",
+      "dd96b08106d9dd6d30323ebab225ecbadb2ff231"
+    ],
+    [
+      "lesovsky/pgcenter",
+      "05af3ff030d3db9422d4538a2201842b5669682d"
+    ],
+    [
+      "LumePart/Explo",
+      "51449865c526c88f05b246b4d2447efc204854d2"
+    ],
+    [
+      "loov/goda",
+      "aa0b59c10599f24280e9d5ce68b657c10c2a01b9"
+    ],
+    [
+      "candid82/joker",
+      "bafe26eccd48d34668524d323b7c625c32d9f6be"
+    ],
+    [
+      "earthboundkid/requests",
+      "e5187a4ef8a22592cb50916308078c49faf4ace5"
+    ],
+    [
+      "aculix/bitplay",
+      "bb366d5102085477b7270d7982e60712cc23fb41"
+    ],
+    [
+      "dhax/go-base",
+      "56903f8baa2bd8cafb95ed99d49e4a558f05b078"
+    ],
+    [
+      "sachaos/todoist",
+      "5eed237f383a347c2ed5190f37db73a8b7d7a09e"
+    ],
+    [
+      "pkg/sftp",
+      "fc82c354c0d87349411e30a08bef297c9f132105"
+    ],
+    [
+      "aws/aws-node-termination-handler",
+      "62a8761d812b331620a0f006b55f70bcadb0462e"
+    ],
+    [
+      "korotovsky/slack-mcp-server",
+      "b88c0de3f706f4f07337c9eda7133c736d1c9524"
+    ],
+    [
+      "alebeck/boring",
+      "e82ba7b697b0a964f786c33fb6be9c5408619934"
+    ],
+    [
+      "containrrr/shoutrrr",
+      "ccf81390b700948f85ce1c79f6de9ee75c68d9e5"
+    ],
+    [
+      "bsm/redislock",
+      "707d1239162da861fd6a1cee0ea80f97cf55f595"
+    ],
+    [
+      "norwoodj/helm-docs",
+      "a5573af096a4b526dcbc3c896c220b1714a0765b"
+    ],
+    [
+      "gourouting/singo",
+      "65ea87d2cc7e5de5b39b65b42abf3b1d2618a4e3"
+    ],
+    [
+      "djhworld/simple-computer",
+      "3cd0251d33091ff73c03d2ebada50a5d8213ea54"
+    ],
+    [
+      "charmbracelet/fang",
+      "b1722e95d5cc668bb1888e9e2196d0b0173d5aa7"
+    ],
+    [
+      "fastclaw-ai/weclaw",
+      "10711d0c6b7e2b0a784f808ef2f07ba83c2b9023"
+    ],
+    [
+      "plutov/practice-go",
+      "b72c60349f52b0b42fba22373e607910f289d1dd"
+    ],
+    [
+      "EverythingSuckz/TG-FileStreamBot",
+      "ba7c6f60b8eed6120ffcebe85322b81205712004"
+    ],
+    [
+      "iximiuz/cdebug",
+      "6c205f0b663df4dec235f42e905e94b40709159a"
+    ],
+    [
+      "chaisql/chai",
+      "e53516f8185cac23ea7437592022c5852adc01fd"
+    ],
+    [
+      "projectdiscovery/mapcidr",
+      "99a817a5e84876565ec9329b86de93a832fe7789"
+    ],
+    [
+      "firebase/firebase-admin-go",
+      "eebb06f2a643fbb59b1cb262874a943584475128"
+    ],
+    [
+      "prometheus-community/yet-another-cloudwatch-exporter",
+      "11e4dc4f198ce38d77e42581e62f9dbe8900f67a"
+    ],
+    [
+      "bitxeno/atvloadly",
+      "a449e13959a30fae71d55afaa630b36dd9c539c4"
+    ],
+    [
+      "px0-ai/px0",
+      "16bcb841a450e0875a1e22b0bc4a64a99c3e144a"
+    ],
+    [
+      "aarzilli/gdlv",
+      "19c1d2ade699a8892ac303170f181812b48d6dcb"
+    ],
+    [
+      "joerdav/xc",
+      "3748e1c70a26fb1f71c62cd447dca19c100c0369"
+    ],
+    [
+      "stripe/smokescreen",
+      "609eb8931420453daf5893509be0b25b21bd9edb"
+    ],
+    [
+      "pion/example-webrtc-applications",
+      "8211ac999c38f325fa16195b20d3c63670fa3400"
+    ],
+    [
+      "kubeai-project/kubeai",
+      "203707d278ad389fee17ee3da5714495e8cf3603"
+    ],
+    [
+      "auth0/go-jwt-middleware",
+      "f4019a8c60483e2ab0533cd12ac32b26d8f52827"
+    ],
+    [
+      "beeper/bridge-manager",
+      "a1f16ee226358f98739c3812fb5e648d564b3dbf"
+    ],
+    [
+      "hashicorp/go-metrics",
+      "5a9e5caa3d2779bca6a8ae2218b8f884194855e7"
+    ],
+    [
+      "awslabs/diagram-as-code",
+      "4ec965cf8bdb309d714bc6202e7954fc43338bbe"
+    ],
+    [
+      "solana-foundation/solana-go",
+      "7c26c0682eaed0cdce1137a2f63013ef39213bd0"
+    ],
+    [
+      "picosh/pico",
+      "32a685136c9f41ed7c118b00b9f9641ce432952b"
+    ],
+    [
+      "sivchari/kumo",
+      "b312440d8044aa17ea629991fb4ffa58c5e09a10"
+    ],
+    [
+      "bazel-contrib/rules_go",
+      "1b78046436028ebd84b36ffc2422c82467a01bfc"
+    ],
+    [
+      "wneessen/go-mail",
+      "46f4d6f78b2ddca72a7e2b6c78aa0180c6ce4c41"
+    ],
+    [
+      "hybridgroup/go-haystack",
+      "e947fbafe176ba713910dc11e76be8801e17e2f2"
+    ],
+    [
+      "uniqush/uniqush-push",
+      "b3c23fe0271ecf428cf78197c59711bcd05eb88f"
+    ],
+    [
+      "jhump/protoreflect",
+      "312c02dbbbe25f5346e620d432e72a52c74a343e"
+    ],
+    [
+      "flashcatcloud/categraf",
+      "61a6bff2865bc70c095e91f5276f6e4112246a2b"
+    ],
+    [
+      "fastclaw-ai/fastclaw",
+      "38340104a3ba4d35e36bede264e3be800a69f357"
+    ],
+    [
+      "versenilvis/IRIS",
+      "ac1cfe72820bbbb0f0eb3fb017a6b1e7f3fcb2fe"
+    ],
+    [
+      "chihaya/chihaya",
+      "878b42edf8e8702dee3c7f21a5eeb3a08cbdd4f2"
+    ],
+    [
+      "lithammer/fuzzysearch",
+      "f9cb8967e25d84daecaabfa1ea869f3eb2a1dd90"
+    ],
+    [
+      "go-pkgz/auth",
+      "5f6d12c4a12e6cf7b1934dc10d8127969ac7e7b1"
+    ],
+    [
+      "jackc/tern",
+      "abda062091be607362a9f8adf0e69dc7a562bfe9"
+    ],
+    [
+      "inlets/inlets-operator",
+      "ed02789a7e0b3ddfdcd51d6f4a5a71a238a3124c"
+    ],
+    [
+      "v-byte-cpu/sx",
+      "81253fbe1e059be216f03b87cfdf7b0edc422856"
+    ],
+    [
+      "cosmtrek/mindwalk",
+      "77cd79596a1b7f9f62256ea06485e15182a09566"
+    ],
+    [
+      "Lifailon/lazyjournal",
+      "3cef484429a55de826e0dcd6ac3fb42533f2466b"
+    ],
+    [
+      "Nerzal/gocloak",
+      "7fe18eea824dde1094be5e3c13255f20df2a1fea"
+    ],
+    [
+      "capnproto/go-capnp",
+      "5d74edb9db427bb8776c7da5d14c6dba314eb156"
+    ],
+    [
+      "sethvargo/go-envconfig",
+      "c883e6f492ed6ca42f582a4cf52b610b07943b17"
+    ],
+    [
+      "RedTeamPentesting/pretender",
+      "95e632e851ff25bca1ab45c3cb0c4efb71711e07"
+    ],
+    [
+      "bluetuith-org/bluetuith",
+      "026fe26b9301609df8693a165988bb737bfdcef7"
+    ],
+    [
+      "openilink/openilink-hub",
+      "1df2ebebb69a5099e94b3f254f069aca5e272eed"
+    ],
+    [
+      "tuneinsight/lattigo",
+      "5dbffbdea05394de2ca3a432ed5318aa832e3f40"
+    ],
+    [
+      "graph-gophers/dataloader",
+      "89b89d9fdcb12f31f5786dbbbe07a9879daa9e28"
+    ],
+    [
+      "annamedv/red",
+      "a204f49f0d76963b6cd12b15bee598a71488f965"
+    ],
+    [
+      "minamijoyo/tfmigrate",
+      "df02bccda30c8709c45a701230632d28e70dbaf4"
+    ],
+    [
+      "guregu/dynamo",
+      "7d0b7c60efb4e1a15ecf06b70039392204f0ea85"
+    ],
+    [
+      "kevwan/go-stash",
+      "84fa6a6f5018fa4281b8a92e3c51bd0f94f64c7f"
+    ],
+    [
+      "rwynn/monstache",
+      "84cb7f2de4af6541bbc07552c7b96b5dae267e6f"
+    ],
+    [
+      "go-kiss/sniper",
+      "4a68000525d28bb3c39b112d357567231892f422"
+    ],
+    [
+      "alibaba/skill-up",
+      "0c8bd9b5207360a79bdc66d32d59a25518c2c225"
+    ],
+    [
+      "dropbox/dbxcli",
+      "bc7b1bdecc1754f2fe5dbdc1ec2736e4750d1c4f"
+    ],
+    [
+      "cenkalti/rain",
+      "c0b8ae27168a42a6308d090295502005200abd94"
+    ],
+    [
+      "projectdiscovery/alterx",
+      "4ef5e269d933a49e73ad18d86c884e514ff79a99"
+    ],
+    [
+      "raskrebs/sonar",
+      "9c963b8447d6ca08dd4a3c0bc6c0bf27527cd793"
+    ],
+    [
+      "adrg/xdg",
+      "424b3a2ab7ce7f10194ffeee64017f8968be202e"
+    ],
+    [
+      "projectdiscovery/wappalyzergo",
+      "ded8f3a4fef04dce413e5b6340880de87507ee0a"
+    ],
+    [
+      "zmap/zdns",
+      "4093c00eb35908d01d482c5c43c29401cb1260c0"
+    ],
+    [
+      "kayac/ecspresso",
+      "53a0a21fbd50ba03e568483bb5266c659389c3ac"
+    ],
+    [
+      "gophercloud/gophercloud",
+      "27d7b866f6ef05cf874c7db108214ae9ebd627b3"
+    ],
+    [
+      "cunnie/sslip.io",
+      "d7c782b076e44517b0760498360591bd9033bcbf"
+    ],
+    [
+      "getsentry/sentry-go",
+      "a6a3d0b693bc8e93c4e098b4784b5b1145a21a14"
+    ],
+    [
+      "Ullaakut/nmap",
+      "d697c5593bd382a691e0849444f5685ae81a3402"
+    ],
+    [
+      "awa/go-iap",
+      "085afbed595a3cfaf63aa015309786df8a1023d4"
+    ],
+    [
+      "walles/moor",
+      "421ee7a4a68dd5a8d99f57470fdd37949af0806a"
+    ],
+    [
+      "nlewo/comin",
+      "9d59ca42831cde4050736ab478e3f8db85f7e75f"
+    ],
+    [
+      "google/capslock",
+      "676bd529878ee35f742ab0812fbc3ea4e31f62e8"
+    ],
+    [
+      "scylladb/gocqlx",
+      "788b2d671bd8a7db88c42691bfcfcf8f5c4a5128"
+    ],
+    [
+      "projectdiscovery/cloudlist",
+      "a6caae6a889df8edde490d143dbf01277d414179"
+    ],
+    [
+      "SSLMate/certspotter",
+      "597c2b55518721347317533606456bed77d5cf32"
+    ],
+    [
+      "env0/terratag",
+      "6edabf78daecce12f14f1a036aac2053e37b676d"
+    ],
+    [
+      "google/fscrypt",
+      "a3a6fd1db20d5bae6d99ad87bdc9496d99996d91"
+    ],
+    [
+      "dlclark/regexp2",
+      "9d0d2ffe88a8b90012f7979ec85424e46d5ef48f"
+    ],
+    [
+      "projectdiscovery/tlsx",
+      "ffe1cfef11fc71fd7b73e41c603c18bebfb28258"
+    ],
+    [
+      "wind-c/comqtt",
+      "11282b91abb06d5169b857a2c38fad5d54502050"
+    ],
+    [
+      "bolkedebruin/rdpgw",
+      "16cdaaf4dce6a6567ce9b612f14e71d0ca704148"
+    ],
+    [
+      "seachicken/gh-poi",
+      "b2a7d90d32877f9893fbc8636fbe7f9c1e0e429d"
+    ],
+    [
+      "vividvilla/csvtotable",
+      "b523461605af7b8a844c1537371b5d2732945892"
+    ],
+    [
+      "InkProject/ink",
+      "f9aeb2b15e860440d85c1370ac408f561598567e"
+    ],
+    [
+      "projectdiscovery/pdtm",
+      "052e10d4b6cf171e27e7196f1fe13ca404baeb17"
+    ],
+    [
+      "trzsz/trzsz-go",
+      "665084211187c3034a819561a1b6650a45fed4c9"
+    ],
+    [
+      "gruntwork-io/git-xargs",
+      "e4ac592b332837b00ad101a861456bd3cc5b5781"
+    ],
+    [
+      "normen/whatscli",
+      "2dad1031c714560ff18acfa3ab1d70f92c7e37b8"
+    ],
+    [
+      "eliukblau/pixterm",
+      "24a1aedad1a99b2177808bfd72b23e27318989f6"
+    ],
+    [
+      "goccy/bigquery-emulator",
+      "cb8555bee739c794343337e8c3242b59d5d7470a"
+    ],
+    [
+      "gabehf/Koito",
+      "a079fa693569d21e03c00df163f20ac5e137c490"
+    ],
+    [
+      "nickvourd/Supernova",
+      "6b6fc65f7a556a93850f5b9231d28ad63d6b29d3"
+    ],
+    [
+      "DBCDK/morph",
+      "1b1554a536d726960b68db17219b872ec32376bd"
+    ],
+    [
+      "nwg-piotr/nwg-look",
+      "e3377251168654e42e350cace1c60fce0185d9f1"
+    ],
+    [
+      "tsliwowicz/go-wrk",
+      "806f06b5453953a2499ad8ba26ef495c7ceb768d"
+    ],
+    [
+      "felixge/httpsnoop",
+      "0fc9006be0bfd68ee14bc3db0d58f7c7241892e0"
+    ],
+    [
+      "mattn/memo",
+      "fe5534b4f2966e132f93f530755be7a7b2bb9672"
+    ],
+    [
+      "pointlander/peg",
+      "792d23c3bf85af878faf2541feef19a66cf4363a"
+    ],
+    [
+      "XmirrorSecurity/OpenSCA-cli",
+      "7628bb0817054347d4d031292977ca059a78009a"
+    ],
+    [
+      "square/certigo",
+      "e55de0bdf3a8bf87019dd197504ec27568106a2c"
+    ],
+    [
+      "kone-net/go-chat",
+      "26d04bc00da7712ceeb1bbd8ff12075eecb97ee8"
+    ],
+    [
+      "harlow/go-micro-services",
+      "f80124996af7180bb28ad3e290a84e941980a45f"
+    ],
+    [
+      "saniales/golang-crypto-trading-bot",
+      "02695e5d0901d973199d8de56b16c4d691724f9b"
+    ],
+    [
+      "khannedy/golang-clean-architecture",
+      "43aad26200af4b110abb85710820eb5a973f351a"
+    ],
+    [
+      "aarzilli/nucular",
+      "571287e561f3b8f3fd459d7dbcd56474f41d0423"
+    ],
+    [
+      "openpubkey/openpubkey",
+      "3c7487c80f5464be478634a7be879396221774a3"
+    ],
+    [
+      "abice/go-enum",
+      "ad6b63da28f9882f79d0513a0acc4364e6233b94"
+    ],
+    [
+      "hkdb/aerion",
+      "f9bd8eb2b692e89cbe8fbc5859e9105f8751cbf8"
+    ],
+    [
+      "modelbus/one-api-pro",
+      "665d03bb0efd6b0049f2ac6bc7e5314e7125f881"
+    ],
+    [
+      "roddhjav/apparmor.d",
+      "79521a53a37681f344ed877eb9a988d2b279c6b3"
+    ],
+    [
+      "sohaha/zlsgo",
+      "fa7f92180ffe202cc832bb98b390f1b0999cf4d3"
+    ],
+    [
+      "omissis/go-jsonschema",
+      "802e4082f74742ce6a897744fd0a2ccccfea3199"
+    ],
+    [
+      "carlos7ags/folio",
+      "bba73ff5e49e1e8bbfe766c7e5750da289a19bf8"
+    ],
+    [
+      "mccutchen/go-httpbin",
+      "34888fd21d6667e9f0c842db483ba595b9c8c094"
+    ],
+    [
+      "dobyte/due",
+      "806892f51b0bc933c986b645c933e079cdbe2e3b"
+    ],
+    [
+      "MengMengCode/VoCat",
+      "84151f497af88400d60baac61360deb52543972b"
+    ],
+    [
+      "jrswab/axe",
+      "937b509f1ff28e3610586c8891140ee15d87ad57"
+    ],
+    [
+      "homeport/termshot",
+      "cfaadac0cc0a471623a67a29b3e5af9442f9aebd"
+    ],
+    [
+      "AlexStocks/getty",
+      "de6c411b5d3a3370b10a4e0356f6fff729e5a655"
+    ],
+    [
+      "projectdiscovery/cdncheck",
+      "a06260a272dc92cec0747f2f369b697088899bc7"
+    ],
+    [
+      "nicoxiang/geektime-downloader",
+      "a618770e6d83e1f5b219c86a4fe14a5830403206"
+    ],
+    [
+      "projectdiscovery/urlfinder",
+      "e732aab57e7fedacbd00da26a380d101dce1c5c4"
+    ],
+    [
+      "deepnoodle-ai/risor",
+      "673ea58db64937ef2e20a6a1c8dbe39b4ae4bcf5"
+    ],
+    [
+      "BishopFox/sj",
+      "4f256efca61370d542bdd536842ac05ed2e37ea0"
+    ],
+    [
+      "mudler/LocalRecall",
+      "4cae67b8cf2e113eae0ce79934359eddcaba7121"
+    ],
+    [
+      "jmattheis/goverter",
+      "87425293b54887897baa1797c82593c8b36b5d70"
+    ],
+    [
+      "gokrazy/rsync",
+      "ea7a6d7a3182bead573dea55215edc227d720597"
+    ],
+    [
+      "vishen/go-chromecast",
+      "5dd70bb91787fe28e3d8946682c66cb2a1d61d21"
+    ],
+    [
+      "smallstep/autocert",
+      "392ca892a15e058fa42d528e58f3054bc4ed2fa9"
+    ],
+    [
+      "intigriti/misconfig-mapper",
+      "b85f12e327e3abddcaa5c1ff2195f4f5c484e4cb"
+    ],
+    [
+      "Mastercard/terraform-provider-restapi",
+      "54d2f5103ae3856a2f53d6e5cd5dd4fc20e3a304"
+    ],
+    [
+      "0xjuanma/golazo",
+      "ed484fb155509548df54776a77de67b15c8dde54"
+    ],
+    [
+      "prometheus/statsd_exporter",
+      "7589e1ba562cd75716873fab9d4f38de881b5620"
+    ],
+    [
+      "chromium/hstspreload.org",
+      "708f6ef18b2d4642ac9256d3efdd02d177658fd2"
+    ],
+    [
+      "kardolus/chatgpt-cli",
+      "b9b6e2388babc17f82c6de51005596dbe151f46e"
+    ],
+    [
+      "prometheus-community/PushProx",
+      "59fbc12239d52d6f25b663e65a85f31bf4516abc"
+    ],
+    [
+      "insomniacslk/dhcp",
+      "234b97448faee419f5a65d82cf305f1bfa627895"
+    ],
+    [
+      "prometheus/procfs",
+      "c6dc763e8255afa46932e5e01a4961b538f423dc"
+    ],
+    [
+      "Chocapikk/wpprobe",
+      "b5aa2b07c30fdfdeb16afc75ec7bf50673989d06"
+    ],
+    [
+      "aksiksi/compose2nix",
+      "49ddd9f59753183d4072a7fe281e63fee53ba0ee"
+    ],
+    [
+      "go-kratos/blades",
+      "b78fec59029d11e02c135ea10da8986ed006521f"
+    ],
+    [
+      "rogpeppe/go-internal",
+      "b848aba6082101b7cbc37c5e55b681dd13096926"
+    ],
+    [
+      "ncruces/zenity",
+      "608cae244677a9a0f77097c3d07eea492475a76c"
+    ],
+    [
+      "integrii/flaggy",
+      "e0a0096c5f3c2cdf11ac97455ec375f0dcca5fed"
+    ],
+    [
+      "qifengzhang007/GinSkeleton",
+      "a0c2d094657e3e28d2a6b76f14a25f7e2d79e985"
+    ],
+    [
+      "runabol/tork",
+      "8db91aa0b6bb8071d61cd7154748b98d8a4694fa"
+    ],
+    [
+      "bugst/go-serial",
+      "9b9e4a4b829f22f53181c84df19915b858599bbb"
+    ],
+    [
+      "viaduct-ai/kustomize-sops",
+      "d9442dc3153d9c16e517a68ce8926c9507386429"
+    ],
+    [
+      "fcambus/telize",
+      "c8114144abf49d6ac137cf98930e742cc79025bb"
+    ],
+    [
+      "xen0n/go-workwx",
+      "9f51d9b3769679cf58b8618cbaf10a9eb7e7df30"
+    ],
+    [
+      "yinheli/sshw",
+      "748eaa6bd2c142bfae0fb8bc3dd0caf1113bfc04"
+    ],
+    [
+      "miku/zek",
+      "50daab3c49198fb0b486e34ec6bbbaebf294baae"
+    ],
+    [
+      "FalconForceTeam/FalconHound",
+      "60ba2bb3127b68750556e9b21b7f954f3f30cc8d"
+    ],
+    [
+      "FalconOpsLLC/goexec",
+      "21c8f9599140c39d6fb56951539f8e7e317be686"
+    ],
+    [
+      "swaggo/echo-swagger",
+      "94bcd4911e3098f98f5f512dbeb994ffdc52cec2"
+    ],
+    [
+      "govim/govim",
+      "01838ef4fa61bea4789cb5725d09f9846149044d"
+    ],
+    [
+      "threatexpert/gonc",
+      "e14bc6b97efc2150c4e0bbb2bdc89f8548e28fa6"
+    ],
+    [
+      "xmdhs/clash2sfa",
+      "eaea56a74cf3282cefe268f94ba6a39b1db2b005"
+    ],
+    [
+      "apache/pulsar-client-go",
+      "1a6d7ac818c9daae9df5c37cb24c0695fabc9eec"
+    ],
+    [
+      "kube-burner/kube-burner",
+      "770a335598d565d7c9e4fa9a481ae86bbe8f2e8d"
+    ],
+    [
+      "letsencrypt/pebble",
+      "0c826ffd036fd53e353e149613021d72c0a55ccc"
+    ],
+    [
+      "omacom/aether",
+      "c6c24029c39689993e72fd06c051d492875d84db"
+    ],
+    [
+      "injoyai/tdx",
+      "a16d0a67c1eb0175da4d4ae30a941f22b7bb3344"
+    ],
+    [
+      "bruin-data/dac",
+      "f217acb7a10f6d214d93f59e0db43ebfccdf42cb"
+    ],
+    [
+      "gazette/core",
+      "fc6a39822be652c67b13842b9cd760e80d7d6731"
+    ],
+    [
+      "andybalholm/cascadia",
+      "154416acceb25b62dec074c428dd255bd950711d"
+    ],
+    [
+      "hashicorp/terraform-exec",
+      "b9e71a3a80eeca6090de845fbd4e8b44cda25da3"
+    ],
+    [
+      "PanSalut/Koffan",
+      "0b35053e3da3d89dfdd37dec1735e9f400ffa142"
+    ],
+    [
+      "sethvargo/go-limiter",
+      "20781e3e1a01db67ee7f47241cfaf251862f9923"
+    ],
+    [
+      "Foxboron/ssh-tpm-agent",
+      "84876d944b4c61bf09b6de23cf3d61ca606bafdf"
+    ],
+    [
+      "JFryy/qq",
+      "cd262e4c04d3348be5b5b0df1337453b28202bd9"
+    ],
+    [
+      "sethvargo/go-retry",
+      "f6b3e1a9f1c599bf6fd42d01811a62fc4b9b7502"
+    ],
+    [
+      "zkep/my-geektime",
+      "a614af742806cfb10f84598c71c0dd668e96549b"
+    ],
+    [
+      "gofrs/flock",
+      "67dc0b12638bacb527384ce370e48bc987e2db18"
+    ],
+    [
+      "SuperQ/smokeping_prober",
+      "747e4b3b031d83cc6f9b65c5f8bbae8c36f94e6f"
+    ],
+    [
+      "lesovsky/noisia",
+      "7f26a9339ea0df52e92a0b3dbdd550341da45891"
+    ],
+    [
+      "incu6us/goimports-reviser",
+      "d9b1304ab6d074ac95f1733de2525b93542c48df"
+    ],
+    [
+      "buildkite/terminal-to-html",
+      "9b4db475fde1b1c705955fcb833a333ff9490dde"
+    ],
+    [
+      "ZhiYi-R/moon-bridge",
+      "c9ae8a8ee824c02ce1166893543838f3e414fde0"
+    ],
+    [
+      "creamlike1024/EasyLPAC",
+      "b7d566cab7d9a197b10fed77c0ff0719a86fc562"
+    ],
+    [
+      "buchgr/bazel-remote",
+      "a69b6b5ed933234d93b489ffd216bee5bb74aa06"
+    ],
+    [
+      "libretro/ludo",
+      "31951498f7b44223ad09278c525a43d18c9e1de3"
+    ],
+    [
+      "mandiant/gopacket",
+      "627c8b47e731238732e7e41686ea3456e0744371"
+    ],
+    [
+      "kool-dev/kool",
+      "bb95d1bec2a6b18e190ea6b450deb1302deb8ee0"
+    ],
+    [
+      "ajavadinezhad/zyrln",
+      "d0389ee30be49eb03cc9ea8413eddc9ba01cb5ab"
+    ],
+    [
+      "cloudflare/xdpcap",
+      "5f60cc95b1ab2ce7c8443046b65cc41a01eb241a"
+    ],
+    [
+      "aurorax-neo/chat2api",
+      "dbf6bf39686348449c25de3b6131ca733f448deb"
+    ],
+    [
+      "tsuna/gohbase",
+      "8b8e010ab4a7a16a66cac6bea48f861551a18739"
+    ],
+    [
+      "vdjagilev/nmap-formatter",
+      "8f5f3eed4eda5e71cc4dbf14e8661b1271bf2fad"
+    ],
+    [
+      "mattn/longcat",
+      "a07b2de531c709ae2cfd8040bdc88eb4266964f9"
+    ],
+    [
+      "dedis/kyber",
+      "3194be036a906ef79fa0e87d439bfd7d6e4e0afe"
+    ],
+    [
+      "passwall/passwall-server",
+      "bdd06e30853dda2bf0f41f6a2a3c0cb40d8ef06e"
+    ],
+    [
+      "ShahabSL/Skirk",
+      "2c52ff85ea0f6da75dcc0b92f7ca0a9caa32307a"
+    ],
+    [
+      "StJudeWasHere/seonaut",
+      "880b312c28fab8b0bf7fe4f9449dc4746dbb82ff"
+    ],
+    [
+      "chartmuseum/helm-push",
+      "a8fa26fa3885468849eeb3e9361a624b48930494"
+    ],
+    [
+      "hueristiq/xurlfind3r",
+      "be80a0c7cd049f0d8ca7487ff1dce142b6298d16"
+    ],
+    [
+      "blampe/goat",
+      "6d4db359c601eae6efa1fcd94601fa1793e114d5"
+    ],
+    [
+      "caoyingjunz/pixiu",
+      "630a81c0897e8ee7b6f6a27550aff26c6a29826f"
+    ],
+    [
+      "openai/openai-cli",
+      "cfe77c01a9464323e274d505858a9d350b33415a"
+    ],
+    [
+      "qf-studio/pilot",
+      "88966041f7a5f937c567378139430c948f4fc6ae"
+    ],
+    [
+      "skupperproject/skupper",
+      "70274cff5861dad7feb076c48730cd92d4b40479"
+    ],
+    [
+      "ceph/go-ceph",
+      "ff5ab8db81b404c53965cac605f67250423c5cb7"
+    ],
+    [
+      "diskfs/go-diskfs",
+      "ff51c01db27198faf12cc9289fb7295aaf475b55"
+    ],
+    [
+      "valkey-io/valkey-go",
+      "fb246d57738cc77dd44361863cd7c1b42f7077cb"
+    ],
+    [
+      "anthropics/anthropic-cli",
+      "4bca8a10d44dfde29c519e078af28be9689074a0"
+    ],
+    [
+      "hasenj/go-shirei",
+      "53ac83361205b8905ae861dbd20107e0ab67c866"
+    ],
+    [
+      "zeromake/docker-debug",
+      "15a8f9521a963706b5767beeabc70cd48cee7a45"
+    ],
+    [
+      "prometheus-community/ipmi_exporter",
+      "2a1e7461e11754c699dae1bd88affe82c2517d87"
+    ],
+    [
+      "estahn/k8s-image-swapper",
+      "cabbe32a7e9049d3fec633eee9371b5771caf763"
+    ],
+    [
+      "pires/go-proxyproto",
+      "ec43bde09eff6f1d1173c07e2412366f7b5101e0"
+    ],
+    [
+      "influxdata/influxdb-client-go",
+      "2c5057fd0d062d7d6601a358ff73b286b7f2ec8c"
+    ],
+    [
+      "github/smimesign",
+      "47df865b5c7812ee23f6d34c3630d7edb46c7f38"
+    ],
+    [
+      "samuelkarp/runj",
+      "cb4e1b9919e70f080a21de9943bf97a651f051de"
+    ],
+    [
+      "ldez/traefik-certs-dumper",
+      "3045c21a77bd78d3cf25828a21c64e787e422aac"
+    ],
+    [
+      "trstringer/manual-approval",
+      "109c29a8cfc047ef68efcb6061c9a8332db0a57a"
+    ],
+    [
+      "moson-mo/pacseek",
+      "04938f42930c020dcd39b87cb625ca1387f1c653"
+    ],
+    [
+      "scribble-rs/scribble.rs",
+      "1bda7ed8b880bb598dede5096c0e2f3f58abe0b8"
+    ],
+    [
+      "openconfig/gnmi",
+      "a4e40e60426e5b30ce29fd8115809d2dbe47584f"
+    ],
+    [
+      "containerd/ttrpc",
+      "9e62ff76048c2565d85b243f70adc66aeea73290"
+    ],
+    [
+      "lima-vm/sshocker",
+      "bda6eca2979ae19ac0917f914093721c88813726"
+    ],
+    [
+      "deadsy/sdfx",
+      "a63cfbad6c5a0fe634ee2b393e970aaa7af7b866"
+    ],
+    [
+      "rogpeppe/godef",
+      "dbe0754c480e117ad4f773be18467e6016360da4"
+    ],
+    [
+      "golang-queue/queue",
+      "2a79b8aac36eaca758ff4f5412fcb485b027dd58"
+    ],
+    [
+      "yarlson/lnk",
+      "c5db74b2f514d886e8bf5e3bf4de4ba4979ad313"
+    ],
+    [
+      "bestnite/sub2clash",
+      "b45b9f4c91f0ca7d50f0d1a18e223b482ef860c2"
+    ],
+    [
+      "eiblog/eiblog",
+      "2b1da7ea1ac60d900e2d8744a8bd100906465e80"
+    ],
+    [
+      "tidwall/uhaha",
+      "5ea77162763891837176b90e111fcac74678143e"
+    ]
+  ],
+  "runner_sha256": "95a137e2195e1bb7392149737e1a8c475888c974daf29ca7458e746cb02aaa1a",
+  "scanner_revision": "c9609c6",
+  "runner_revision": "a776335",
+  "concurrent_scans": 3,
+  "module_cap": 3,
+  "timeout_seconds_per_command": 180,
+  "static_only": true,
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOWORK": "off",
+    "GOTOOLCHAIN": "local",
+    "GOMAXPROCS": "2"
+  },
+  "module_mode": "readonly",
+  "reports": [
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "hetznercloud/cli",
+      "review_status": "unreviewed",
+      "revision": "177c1b5eeb9e2410b19531ed85a8ecd9d96920f8",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "destel/rill",
+      "review_status": "unreviewed",
+      "revision": "d20890e7c24d8ad194ac4760cacae1d4bbb58642",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "gofrs/uuid",
+      "review_status": "unreviewed",
+      "revision": "9b67c3bcafbf4484a2943d9f38cc3abd1698130c",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "Azure/aztfexport",
+      "review_status": "unreviewed",
+      "revision": "1c2dfac266709ff6eefa309bb69692211d039e67",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "ebitengine/oto",
+      "review_status": "unreviewed",
+      "revision": "d169121d1efd843beba11e25bbdac4671d1f3250",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "zitadel/oidc",
+      "review_status": "unreviewed",
+      "revision": "1616435e435252b7857598c0903e79a1a87deaff",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "AfterShip/email-verifier",
+      "review_status": "unreviewed",
+      "revision": "a97c75ff8da09ebfcd30011197cacc78b1c5458e",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "unrolled/render",
+      "review_status": "unreviewed",
+      "revision": "dd96b08106d9dd6d30323ebab225ecbadb2ff231",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "lesovsky/pgcenter",
+      "review_status": "unreviewed",
+      "revision": "05af3ff030d3db9422d4538a2201842b5669682d",
+      "scan_status": "scanned",
+      "finding_count": 7
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/u2takey/ffmpeg-go v0.5.0\ngo: downloading github.com/wader/goutubedl v0.0.0-20250417150709-083444e4ab87\ngo: downloading github.com/nik"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "LumePart/Explo",
+      "review_status": "unreviewed",
+      "revision": "51449865c526c88f05b246b4d2447efc204854d2",
+      "scan_status": "incomplete",
+      "finding_count": 1
+    },
+    {
+      "errors": [
+        "partial package recovery in internal/testdata/alpha.test: go: downloading github.com/loov/plot v0.0.0-20210121121947-1165ff277fe2\npackage alpha.test/tool/migrate\n\timports alpha.test/database/migration: build constraint"
+      ],
+      "modules": [
+        ".",
+        "internal/testdata/alpha.test",
+        "internal/testdata/beta.test"
+      ],
+      "repository": "loov/goda",
+      "review_status": "unreviewed",
+      "revision": "aa0b59c10599f24280e9d5ce68b657c10c2a01b9",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/candid82/liner v1.4.0\ngo: downloading github.com/pkg/profile v1.2.1\n# github.com/candid82/joker/core\ncore/array_map.go:73:9: undefine"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "candid82/joker",
+      "review_status": "unreviewed",
+      "revision": "bafe26eccd48d34668524d323b7c625c32d9f6be",
+      "scan_status": "incomplete",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "earthboundkid/requests",
+      "review_status": "unreviewed",
+      "revision": "e5187a4ef8a22592cb50916308078c49faf4ace5",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "aculix/bitplay",
+      "review_status": "unreviewed",
+      "revision": "bb366d5102085477b7270d7982e60712cc23fb41",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "dhax/go-base",
+      "review_status": "unreviewed",
+      "revision": "56903f8baa2bd8cafb95ed99d49e4a558f05b078",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "sachaos/todoist",
+      "review_status": "unreviewed",
+      "revision": "5eed237f383a347c2ed5190f37db73a8b7d7a09e",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "pkg/sftp",
+      "review_status": "unreviewed",
+      "revision": "fc82c354c0d87349411e30a08bef297c9f132105",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "aws/aws-node-termination-handler",
+      "review_status": "unreviewed",
+      "revision": "62a8761d812b331620a0f006b55f70bcadb0462e",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "korotovsky/slack-mcp-server",
+      "review_status": "unreviewed",
+      "revision": "b88c0de3f706f4f07337c9eda7133c736d1c9524",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "alebeck/boring",
+      "review_status": "unreviewed",
+      "revision": "e82ba7b697b0a964f786c33fb6be9c5408619934",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/jarcoal/httpmock v1.4.1\npkg/util/fuzz.go:4:2: cannot find module providing package github.com/AdaLogics/go-fuzz-headers: import looku",
+        "analysis command failed in . (exit 1): pkg/util/fuzz.go:4:2: cannot find module providing package github.com/AdaLogics/go-fuzz-headers: import lookup disabled by -mod=readonly"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "containrrr/shoutrrr",
+      "review_status": "unreviewed",
+      "revision": "ccf81390b700948f85ce1c79f6de9ee75c68d9e5",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "bsm/redislock",
+      "review_status": "unreviewed",
+      "revision": "707d1239162da861fd6a1cee0ea80f97cf55f595",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "norwoodj/helm-docs",
+      "review_status": "unreviewed",
+      "revision": "a5573af096a4b526dcbc3c896c220b1714a0765b",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [
+        "partial package recovery in .: main.go:8:2: missing go.sum entry for module providing package github.com/gin-gonic/gin (imported by singo); to add:\n\tgo get singo\nconf/conf.go:13:2: missing go"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "gourouting/singo",
+      "review_status": "unreviewed",
+      "revision": "65ea87d2cc7e5de5b39b65b42abf3b1d2618a4e3",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/go-gl/gl v0.0.0-20190320180904-bf2b1f2f34d7\npackage github.com/djhworld/simple-computer/cmd/simulator\n\timports github.com/go-gl/gl/v3"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "djhworld/simple-computer",
+      "review_status": "unreviewed",
+      "revision": "3cd0251d33091ff73c03d2ebada50a5d8213ea54",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "charmbracelet/fang",
+      "review_status": "unreviewed",
+      "revision": "b1722e95d5cc668bb1888e9e2196d0b0173d5aa7",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "fastclaw-ai/weclaw",
+      "review_status": "unreviewed",
+      "revision": "10711d0c6b7e2b0a784f808ef2f07ba83c2b9023",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "plutov/practice-go",
+      "review_status": "unreviewed",
+      "revision": "b72c60349f52b0b42fba22373e607910f289d1dd",
+      "scan_status": "scanned",
+      "finding_count": 5
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "EverythingSuckz/TG-FileStreamBot",
+      "review_status": "unreviewed",
+      "revision": "ba7c6f60b8eed6120ffcebe85322b81205712004",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "no output from ci (exit 1): main.go:20:2: package dagger/ci/internal/dagger is not in std (/home/james/.proto/tools/go/1.27.0/src/dagger/ci/internal/dagger)"
+      ],
+      "modules": [
+        ".",
+        "ci"
+      ],
+      "repository": "iximiuz/cdebug",
+      "review_status": "unreviewed",
+      "revision": "6c205f0b663df4dec235f42e905e94b40709159a",
+      "scan_status": "incomplete",
+      "finding_count": 2
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/cockroachdb/pebble/v2 v2.1.0\ngo: downloading github.com/getsentry/sentry-go v0.35.1\ngo: downloading github.com/cockroachdb/crlib v0.0",
+        "analysis command failed in sqltests (exit 1): # github.com/cockroachdb/swiss\n/home/james/go/pkg/mod/github.com/cockroachdb/swiss@v0.0.0-20250624142022-d6e517c1d961/map.go:286:7: undefined: hashFn\n/home/jame",
+        "analysis command failed in cmd/chai (exit 1): # github.com/cockroachdb/swiss\n/home/james/go/pkg/mod/github.com/cockroachdb/swiss@v0.0.0-20250624142022-d6e517c1d961/map.go:286:7: undefined: hashFn\n/home/jame"
+      ],
+      "modules": [
+        ".",
+        "sqltests",
+        "cmd/chai"
+      ],
+      "repository": "chaisql/chai",
+      "review_status": "unreviewed",
+      "revision": "e53516f8185cac23ea7437592022c5852adc01fd",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "projectdiscovery/mapcidr",
+      "review_status": "unreviewed",
+      "revision": "99a817a5e84876565ec9329b86de93a832fe7789",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "firebase/firebase-admin-go",
+      "review_status": "unreviewed",
+      "revision": "eebb06f2a643fbb59b1cb262874a943584475128",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "prometheus-community/yet-another-cloudwatch-exporter",
+      "review_status": "unreviewed",
+      "revision": "11e4dc4f198ce38d77e42581e62f9dbe8900f67a",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/go-resty/resty/v2 v2.6.0\ngo: downloading github.com/nicksnyder/go-i18n/v2 v2.4.0\ngo: downloading github.com/iineva/CgbiPngFix v0.0.0-",
+        "analysis command failed in . (exit 1): # github.com/iineva/bom/pkg/asset\n/home/james/go/pkg/mod/github.com/bitxeno/bom@v0.0.0-20260823051148-16148bb9e854/pkg/asset/decode_rgb.go:236:18: undefined: lz"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "bitxeno/atvloadly",
+      "review_status": "unreviewed",
+      "revision": "a449e13959a30fae71d55afaa630b36dd9c539c4",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "px0-ai/px0",
+      "review_status": "unreviewed",
+      "revision": "16bcb841a450e0875a1e22b0bc4a64a99c3e144a",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading go.starlark.net v0.0.0-20200821142938-949cc6f4b097\ngo: downloading github.com/aarzilli/nucular v0.0.0-20260919163313-dfefea0307a2\ngo: downloadin"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "aarzilli/gdlv",
+      "review_status": "unreviewed",
+      "revision": "19c1d2ade699a8892ac303170f181812b48d6dcb",
+      "scan_status": "incomplete",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "doc"
+      ],
+      "repository": "joerdav/xc",
+      "review_status": "unreviewed",
+      "revision": "3748e1c70a26fb1f71c62cd447dca19c100c0369",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "stripe/smokescreen",
+      "review_status": "unreviewed",
+      "revision": "609eb8931420453daf5893509be0b25b21bd9edb",
+      "scan_status": "scanned",
+      "finding_count": 7
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/ebitengine/debugui v0.3.0\ngo: downloading github.com/hajimehoshi/ebiten/v2 v2.10.2\ngo: downloading github.com/kelindar/binary v1.2.0\n",
+        "analysis command failed in . (exit 1): # github.com/asticode/go-astiav\n/home/james/go/pkg/mod/github.com/asticode/go-astiav@v0.41.0/filter_pad.go:5:12: undefined: MediaType\n/home/james/go/pkg/mod/git"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "pion/example-webrtc-applications",
+      "review_status": "unreviewed",
+      "revision": "8211ac999c38f325fa16195b20d3c63670fa3400",
+      "scan_status": "incomplete",
+      "finding_count": 4
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "benchmarks/multi-turn-chat-go",
+        "examples/private-deep-chat"
+      ],
+      "repository": "kubeai-project/kubeai",
+      "review_status": "unreviewed",
+      "revision": "203707d278ad389fee17ee3da5714495e8cf3603",
+      "scan_status": "scanned",
+      "finding_count": 3
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "examples/echo-example",
+        "examples/gin-example"
+      ],
+      "repository": "auth0/go-jwt-middleware",
+      "review_status": "unreviewed",
+      "revision": "f4019a8c60483e2ab0533cd12ac32b26d8f52827",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "beeper/bridge-manager",
+      "review_status": "unreviewed",
+      "revision": "a1f16ee226358f98739c3812fb5e648d564b3dbf",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "hashicorp/go-metrics",
+      "review_status": "unreviewed",
+      "revision": "5a9e5caa3d2779bca6a8ae2218b8f884194855e7",
+      "scan_status": "scanned",
+      "finding_count": 4
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "tools/mapcheck"
+      ],
+      "repository": "awslabs/diagram-as-code",
+      "review_status": "unreviewed",
+      "revision": "4ec965cf8bdb309d714bc6202e7954fc43338bbe",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "solana-foundation/solana-go",
+      "review_status": "unreviewed",
+      "revision": "7c26c0682eaed0cdce1137a2f63013ef39213bd0",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "picosh/pico",
+      "review_status": "unreviewed",
+      "revision": "32a685136c9f41ed7c118b00b9f9641ce432952b",
+      "scan_status": "scanned",
+      "finding_count": 8
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "test",
+        "tools"
+      ],
+      "repository": "sivchari/kumo",
+      "review_status": "unreviewed",
+      "revision": "b312440d8044aa17ea629991fb4ffa58c5e09a10",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: package github.com/bazelbuild/rules_go/go/tools/bzltestutil/bincov\n\tgo/tools/bzltestutil/bincov/coverage_visitor.go:8:2: use of internal package cmd/internal/co"
+      ],
+      "modules": [
+        ".",
+        "tests",
+        "examples/basic_gazelle"
+      ],
+      "repository": "bazel-contrib/rules_go",
+      "review_status": "unreviewed",
+      "revision": "1b78046436028ebd84b36ffc2422c82467a01bfc",
+      "scan_status": "incomplete",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "wneessen/go-mail",
+      "review_status": "unreviewed",
+      "revision": "46f4d6f78b2ddca72a7e2b6c78aa0180c6ce4c41",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "hybridgroup/go-haystack",
+      "review_status": "unreviewed",
+      "revision": "e947fbafe176ba713910dc11e76be8801e17e2f2",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "uniqush/uniqush-push",
+      "review_status": "unreviewed",
+      "revision": "b3c23fe0271ecf428cf78197c59711bcd05eb88f",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "jhump/protoreflect",
+      "review_status": "unreviewed",
+      "revision": "312c02dbbbe25f5346e620d432e72a52c74a343e",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "timed out in ."
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "flashcatcloud/categraf",
+      "review_status": "unreviewed",
+      "revision": "61a6bff2865bc70c095e91f5276f6e4112246a2b",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/codeany-ai/open-agent-sdk-go v0.1.0\ngo: downloading github.com/redis/go-redis/v9 v9.17.0\ngo: downloading github.com/larksuite/oapi-sd"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "fastclaw-ai/fastclaw",
+      "review_status": "unreviewed",
+      "revision": "38340104a3ba4d35e36bede264e3be800a69f357",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "versenilvis/IRIS",
+      "review_status": "unreviewed",
+      "revision": "ac1cfe72820bbbb0f0eb3fb017a6b1e7f3fcb2fe",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "chihaya/chihaya",
+      "review_status": "unreviewed",
+      "revision": "878b42edf8e8702dee3c7f21a5eeb3a08cbdd4f2",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "lithammer/fuzzysearch",
+      "review_status": "unreviewed",
+      "revision": "f9cb8967e25d84daecaabfa1ea869f3eb2a1dd90",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "_example",
+        "v2"
+      ],
+      "repository": "go-pkgz/auth",
+      "review_status": "unreviewed",
+      "revision": "5f6d12c4a12e6cf7b1934dc10d8127969ac7e7b1",
+      "scan_status": "scanned",
+      "finding_count": 66
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "jackc/tern",
+      "review_status": "unreviewed",
+      "revision": "abda062091be607362a9f8adf0e69dc7a562bfe9",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "inlets/inlets-operator",
+      "review_status": "unreviewed",
+      "revision": "ed02789a7e0b3ddfdcd51d6f4a5a71a238a3124c",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/google/gopacket v1.1.20-0.20250319234736-b7d9dbd15ae4\n# github.com/google/gopacket/afpacket\n/home/james/go/pkg/mod/github.com/google/"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "v-byte-cpu/sx",
+      "review_status": "unreviewed",
+      "revision": "81253fbe1e059be216f03b87cfdf7b0edc422856",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "cosmtrek/mindwalk",
+      "review_status": "unreviewed",
+      "revision": "77cd79596a1b7f9f62256ea06485e15182a09566",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "Lifailon/lazyjournal",
+      "review_status": "unreviewed",
+      "revision": "3cef484429a55de826e0dcd6ac3fb42533f2466b",
+      "scan_status": "scanned",
+      "finding_count": 10
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "Nerzal/gocloak",
+      "review_status": "unreviewed",
+      "revision": "7fe18eea824dde1094be5e3c13255f20df2a1fea",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "no output from example/hashes (exit 1): go: downloading capnproto.org/go/capnp/v3 v3.0.0-alpha.30\ngo: downloading golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9\ngo: downloading zenhack.net/go/ut"
+      ],
+      "modules": [
+        ".",
+        "example/hashes",
+        "example/books/books"
+      ],
+      "repository": "capnproto/go-capnp",
+      "review_status": "unreviewed",
+      "revision": "5d74edb9db427bb8776c7da5d14c6dba314eb156",
+      "scan_status": "incomplete",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "sethvargo/go-envconfig",
+      "review_status": "unreviewed",
+      "revision": "c883e6f492ed6ca42f582a4cf52b610b07943b17",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "RedTeamPentesting/pretender",
+      "review_status": "unreviewed",
+      "revision": "95e632e851ff25bca1ab45c3cb0c4efb71711e07",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/bluetuith-org/bluetooth-classic v0.0.8\ngo: downloading github.com/darkhz/tview v0.0.0-20260701030911-bce6224ff25f\ngo: downloading git"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "bluetuith-org/bluetuith",
+      "review_status": "unreviewed",
+      "revision": "026fe26b9301609df8693a165988bb737bfdcef7",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/go-webauthn/webauthn v0.11.2\ngo: downloading github.com/openilink/openilink-sdk-go v0.6.0\ngo: downloading github.com/youthlin/silk v0",
+        "analysis command failed in . (exit 1): package github.com/openilink/openilink-hub/internal/provider/ilink/mockserver_test\n\timports github.com/openilink/openilink-hub/internal/provider/ilink\n\timports "
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "openilink/openilink-hub",
+      "review_status": "unreviewed",
+      "revision": "1df2ebebb69a5099e94b3f254f069aca5e272eed",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "tuneinsight/lattigo",
+      "review_status": "unreviewed",
+      "revision": "5dbffbdea05394de2ca3a432ed5318aa832e3f40",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "graph-gophers/dataloader",
+      "review_status": "unreviewed",
+      "revision": "89b89d9fdcb12f31f5786dbbbe07a9879daa9e28",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "annamedv/red",
+      "review_status": "unreviewed",
+      "revision": "a204f49f0d76963b6cd12b15bee598a71488f965",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "minamijoyo/tfmigrate",
+      "review_status": "unreviewed",
+      "revision": "df02bccda30c8709c45a701230632d28e70dbaf4",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "guregu/dynamo",
+      "review_status": "unreviewed",
+      "revision": "7d0b7c60efb4e1a15ecf06b70039392204f0ea85",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "kevwan/go-stash",
+      "review_status": "unreviewed",
+      "revision": "84fa6a6f5018fa4281b8a92e3c51bd0f94f64c7f",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "rwynn/monstache",
+      "review_status": "unreviewed",
+      "revision": "84cb7f2de4af6541bbc07552c7b96b5dae267e6f",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "pkg",
+        "cmd/sniper"
+      ],
+      "repository": "go-kiss/sniper",
+      "review_status": "unreviewed",
+      "revision": "4a68000525d28bb3c39b112d357567231892f422",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "alibaba/skill-up",
+      "review_status": "unreviewed",
+      "revision": "0c8bd9b5207360a79bdc66d32d59a25518c2c225",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "dropbox/dbxcli",
+      "review_status": "unreviewed",
+      "revision": "bc7b1bdecc1754f2fe5dbdc1ec2736e4750d1c4f",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "cenkalti/rain",
+      "review_status": "unreviewed",
+      "revision": "c0b8ae27168a42a6308d090295502005200abd94",
+      "scan_status": "scanned",
+      "finding_count": 4
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "projectdiscovery/alterx",
+      "review_status": "unreviewed",
+      "revision": "4ef5e269d933a49e73ad18d86c884e514ff79a99",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "raskrebs/sonar",
+      "review_status": "unreviewed",
+      "revision": "9c963b8447d6ca08dd4a3c0bc6c0bf27527cd793",
+      "scan_status": "scanned",
+      "finding_count": 3
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "adrg/xdg",
+      "review_status": "unreviewed",
+      "revision": "424b3a2ab7ce7f10194ffeee64017f8968be202e",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "projectdiscovery/wappalyzergo",
+      "review_status": "unreviewed",
+      "revision": "ded8f3a4fef04dce413e5b6340880de87507ee0a",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "examples/all_nameservers_lookup",
+        "examples/multi_thread_lookup"
+      ],
+      "repository": "zmap/zdns",
+      "review_status": "unreviewed",
+      "revision": "4093c00eb35908d01d482c5c43c29401cb1260c0",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "kayac/ecspresso",
+      "review_status": "unreviewed",
+      "revision": "53a0a21fbd50ba03e568483bb5266c659389c3ac",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "gophercloud/gophercloud",
+      "review_status": "unreviewed",
+      "revision": "27d7b866f6ef05cf874c7db108214ae9ebd627b3",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "cunnie/sslip.io",
+      "review_status": "unreviewed",
+      "revision": "d7c782b076e44517b0760498360591bd9033bcbf",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "crosstest",
+        "echo"
+      ],
+      "repository": "getsentry/sentry-go",
+      "review_status": "unreviewed",
+      "revision": "a6a3d0b693bc8e93c4e098b4784b5b1145a21a14",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "Ullaakut/nmap",
+      "review_status": "unreviewed",
+      "revision": "d697c5593bd382a691e0849444f5685ae81a3402",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "awa/go-iap",
+      "review_status": "unreviewed",
+      "revision": "085afbed595a3cfaf63aa015309786df8a1023d4",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "walles/moor",
+      "review_status": "unreviewed",
+      "revision": "421ee7a4a68dd5a8d99f57470fdd37949af0806a",
+      "scan_status": "scanned",
+      "finding_count": 3
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "nlewo/comin",
+      "review_status": "unreviewed",
+      "revision": "9d59ca42831cde4050736ab478e3f8db85f7e75f",
+      "scan_status": "scanned",
+      "finding_count": 7
+    },
+    {
+      "errors": [
+        "partial package recovery in .: package github.com/google/capslock/testpkgs/transitive\n\timports github.com/google/capslock/testpkgs/usecgo: build constraints exclude all Go files in /home/jame"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "google/capslock",
+      "review_status": "unreviewed",
+      "revision": "676bd529878ee35f742ab0812fbc3ea4e31f62e8",
+      "scan_status": "incomplete",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "examples/basic",
+        "cmd/schemagen/testdata"
+      ],
+      "repository": "scylladb/gocqlx",
+      "review_status": "unreviewed",
+      "revision": "788b2d671bd8a7db88c42691bfcfcf8f5c4a5128",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "projectdiscovery/cloudlist",
+      "review_status": "unreviewed",
+      "revision": "a6caae6a889df8edde490d143dbf01277d414179",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "SSLMate/certspotter",
+      "review_status": "unreviewed",
+      "revision": "597c2b55518721347317533606456bed77d5cf32",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "env0/terratag",
+      "review_status": "unreviewed",
+      "revision": "6edabf78daecce12f14f1a036aac2053e37b676d",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): # github.com/google/fscrypt/crypto\ncrypto/crypto.go:66:36: undefined: Key\ncrypto/crypto.go:73:22: undefined: Key\ncrypto/crypto.go:93:18: undefined: Key\ncrypto/c"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "google/fscrypt",
+      "review_status": "unreviewed",
+      "revision": "a3a6fd1db20d5bae6d99ad87bdc9496d99996d91",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "dlclark/regexp2",
+      "review_status": "unreviewed",
+      "revision": "9d0d2ffe88a8b90012f7979ec85424e46d5ef48f",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "projectdiscovery/tlsx",
+      "review_status": "unreviewed",
+      "revision": "ffe1cfef11fc71fd7b73e41c603c18bebfb28258",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "wind-c/comqtt",
+      "review_status": "unreviewed",
+      "revision": "11282b91abb06d5169b857a2c38fad5d54502050",
+      "scan_status": "scanned",
+      "finding_count": 7
+    },
+    {
+      "errors": [
+        "partial package recovery in .: cmd/auth/config/configuration.go:4:2: missing go.sum entry for module providing package github.com/knadh/koanf/parsers/yaml (imported by github.com/bolkedebruin",
+        "no output from . (exit 1): cmd/rdpgw/rdp/koanf/parsers/rdp/rdp_test.go:4:2: missing go.sum entry for module providing package github.com/stretchr/testify/assert (imported by github.com/bo"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "bolkedebruin/rdpgw",
+      "review_status": "unreviewed",
+      "revision": "16cdaaf4dce6a6567ce9b612f14e71d0ca704148",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "seachicken/gh-poi",
+      "review_status": "unreviewed",
+      "revision": "b2a7d90d32877f9893fbc8636fbe7f9c1e0e429d",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "no output from . (exit 1): main.go:44:12: pattern table/dist/csvtotable-table.min.css: no matching files found"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "vividvilla/csvtotable",
+      "review_status": "unreviewed",
+      "revision": "b523461605af7b8a844c1537371b5d2732945892",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "InkProject/ink",
+      "review_status": "unreviewed",
+      "revision": "f9aeb2b15e860440d85c1370ac408f561598567e",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "projectdiscovery/pdtm",
+      "review_status": "unreviewed",
+      "revision": "052e10d4b6cf171e27e7196f1fe13ca404baeb17",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "examples"
+      ],
+      "repository": "trzsz/trzsz-go",
+      "review_status": "unreviewed",
+      "revision": "665084211187c3034a819561a1b6650a45fed4c9",
+      "scan_status": "scanned",
+      "finding_count": 3
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "gruntwork-io/git-xargs",
+      "review_status": "unreviewed",
+      "revision": "e4ac592b332837b00ad101a861456bd3cc5b5781",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "normen/whatscli",
+      "review_status": "unreviewed",
+      "revision": "2dad1031c714560ff18acfa3ab1d70f92c7e37b8",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "eliukblau/pixterm",
+      "review_status": "unreviewed",
+      "revision": "24a1aedad1a99b2177808bfd72b23e27318989f6",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/goccy/googlesqlite v0.3.1\ngo: downloading github.com/GoogleCloudPlatform/golang-samples/bigquery v0.0.0-20221115172052-07ffb99455e8\ng"
+      ],
+      "modules": [
+        ".",
+        "internal/cmd/generator"
+      ],
+      "repository": "goccy/bigquery-emulator",
+      "review_status": "unreviewed",
+      "revision": "cb8555bee739c794343337e8c3242b59d5d7470a",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/go-chi/chi/v5 v5.2.1\ngo: downloading github.com/pressly/goose/v3 v3.24.3\ngo: downloading golang.org/x/image v0.33.0\n# github.com/h2no"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "gabehf/Koito",
+      "review_status": "unreviewed",
+      "revision": "a079fa693569d21e03c00df163f20ac5e137c490",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "nickvourd/Supernova",
+      "review_status": "unreviewed",
+      "revision": "6b6fc65f7a556a93850f5b9231d28ad63d6b29d3",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "DBCDK/morph",
+      "review_status": "unreviewed",
+      "revision": "1b1554a536d726960b68db17219b872ec32376bd",
+      "scan_status": "scanned",
+      "finding_count": 3
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/gotk3/gotk3 v0.6.5-0.20240618185848-ff349ae13f56\n# github.com/nwg-piotr/nwg-look\n# [github.com/nwg-piotr/nwg-look]\ngohawk-audit52-fin"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "nwg-piotr/nwg-look",
+      "review_status": "unreviewed",
+      "revision": "e3377251168654e42e350cace1c60fce0185d9f1",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "tsliwowicz/go-wrk",
+      "review_status": "unreviewed",
+      "revision": "806f06b5453953a2499ad8ba26ef495c7ceb768d",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "felixge/httpsnoop",
+      "review_status": "unreviewed",
+      "revision": "0fc9006be0bfd68ee14bc3db0d58f7c7241892e0",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "mattn/memo",
+      "review_status": "unreviewed",
+      "revision": "fe5534b4f2966e132f93f530755be7a7b2bb9672",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): # github.com/pointlander/peg/grammars/c\n# [github.com/pointlander/peg/grammars/c]\ngohawk-audit52-finalbaseline: grammars/c/c_test.go:17:36: undefined: C\n# githu"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "pointlander/peg",
+      "review_status": "unreviewed",
+      "revision": "792d23c3bf85af878faf2541feef19a66cf4363a",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in example: ../opensca/sca/filter/filter.go:7:2: missing go.sum entry for module providing package github.com/sabhiram/go-gitignore (imported by github.com/xmirrorsecurity/"
+      ],
+      "modules": [
+        ".",
+        "example"
+      ],
+      "repository": "XmirrorSecurity/OpenSCA-cli",
+      "review_status": "unreviewed",
+      "revision": "7628bb0817054347d4d031292977ca059a78009a",
+      "scan_status": "incomplete",
+      "finding_count": 5
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "square/certigo",
+      "review_status": "unreviewed",
+      "revision": "e55de0bdf3a8bf87019dd197504ec27568106a2c",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "kone-net/go-chat",
+      "review_status": "unreviewed",
+      "revision": "26d04bc00da7712ceeb1bbd8ff12075eecb97ee8",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "harlow/go-micro-services",
+      "review_status": "unreviewed",
+      "revision": "f80124996af7180bb28ad3e290a84e941980a45f",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "saniales/golang-crypto-trading-bot",
+      "review_status": "unreviewed",
+      "revision": "02695e5d0901d973199d8de56b16c4d691724f9b",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "khannedy/golang-clean-architecture",
+      "review_status": "unreviewed",
+      "revision": "43aad26200af4b110abb85710820eb5a973f351a",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/golang/freetype v0.0.0-20161208064710-d9be45aaf745\npackage github.com/aarzilli/nucular\n\timports gioui.org/app\n\timports gioui.org/inte"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "aarzilli/nucular",
+      "review_status": "unreviewed",
+      "revision": "571287e561f3b8f3fd459d7dbcd56474f41d0423",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "openpubkey/openpubkey",
+      "review_status": "unreviewed",
+      "revision": "3c7487c80f5464be478634a7be879396221774a3",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "abice/go-enum",
+      "review_status": "unreviewed",
+      "revision": "ad6b63da28f9882f79d0513a0acc4364e6233b94",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/wailsapp/wails/v2 v2.16.0\ngo: downloading github.com/emersion/go-imap/v2 v2.0.0-beta.7\ngo: downloading github.com/emersion/go-webdav ",
+        "analysis command failed in . (exit 1): # github.com/hkdb/aerion/app\n# [github.com/hkdb/aerion/app]\ngohawk-audit52-finalbaseline: app/app.go:898:11: undefined: platform.NotifyStartupComplete"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "hkdb/aerion",
+      "review_status": "unreviewed",
+      "revision": "f9bd8eb2b692e89cbe8fbc5859e9105f8751cbf8",
+      "scan_status": "incomplete",
+      "finding_count": 1
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/gin-contrib/sessions v1.0.1\ngo: downloading github.com/gin-contrib/static v1.1.2\ngo: downloading github.com/go-pay/gopay v1.5.123\ngo:"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "modelbus/one-api-pro",
+      "review_status": "unreviewed",
+      "revision": "665d03bb0efd6b0049f2ac6bc7e5314e7125f881",
+      "scan_status": "incomplete",
+      "finding_count": 5
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "roddhjav/apparmor.d",
+      "review_status": "unreviewed",
+      "revision": "79521a53a37681f344ed877eb9a988d2b279c6b3",
+      "scan_status": "scanned",
+      "finding_count": 3
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "sohaha/zlsgo",
+      "review_status": "unreviewed",
+      "revision": "fa7f92180ffe202cc832bb98b390f1b0999cf4d3",
+      "scan_status": "scanned",
+      "finding_count": 3
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "tests",
+        "tests/helpers/other"
+      ],
+      "repository": "omissis/go-jsonschema",
+      "review_status": "unreviewed",
+      "revision": "802e4082f74742ce6a897744fd0a2ccccfea3199",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "carlos7ags/folio",
+      "review_status": "unreviewed",
+      "revision": "bba73ff5e49e1e8bbfe766c7e5750da289a19bf8",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "examples/custom-instrumentation"
+      ],
+      "repository": "mccutchen/go-httpbin",
+      "review_status": "unreviewed",
+      "revision": "34888fd21d6667e9f0c842db483ba595b9c8c094",
+      "scan_status": "scanned",
+      "finding_count": 3
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/bytedance/sonic v1.14.2\ngo: downloading github.com/shamaton/msgpack/v2 v2.4.0\n# github.com/bytedance/sonic/internal/rt\n/home/james/go",
+        "analysis command failed in cache/memcache (exit 1): # github.com/bytedance/sonic/internal/rt\n/home/james/go/pkg/mod/github.com/bytedance/sonic@v1.14.2/internal/rt/stubs.go:33:22: undefined: GoMapIterator\n/home/ja",
+        "analysis command failed in cache/redis (exit 1): # github.com/bytedance/sonic/internal/rt\n/home/james/go/pkg/mod/github.com/bytedance/sonic@v1.14.2/internal/rt/stubs.go:33:22: undefined: GoMapIterator\n/home/ja"
+      ],
+      "modules": [
+        ".",
+        "cache/memcache",
+        "cache/redis"
+      ],
+      "repository": "dobyte/due",
+      "review_status": "unreviewed",
+      "revision": "806892f51b0bc933c986b645c933e079cdbe2e3b",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/iniwex5/quectel-qmi-go v0.6.0\nweb/embed.go:8:12: pattern dist: no matching files found"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "MengMengCode/VoCat",
+      "review_status": "unreviewed",
+      "revision": "84151f497af88400d60baac61360deb52543972b",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "jrswab/axe",
+      "review_status": "unreviewed",
+      "revision": "937b509f1ff28e3610586c8891140ee15d87ad57",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "homeport/termshot",
+      "review_status": "unreviewed",
+      "revision": "cfaadac0cc0a471623a67a29b3e5af9442f9aebd",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "AlexStocks/getty",
+      "review_status": "unreviewed",
+      "revision": "de6c411b5d3a3370b10a4e0356f6fff729e5a655",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "projectdiscovery/cdncheck",
+      "review_status": "unreviewed",
+      "revision": "a06260a272dc92cec0747f2f369b697088899bc7",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "nicoxiang/geektime-downloader",
+      "review_status": "unreviewed",
+      "revision": "a618770e6d83e1f5b219c86a4fe14a5830403206",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "projectdiscovery/urlfinder",
+      "review_status": "unreviewed",
+      "revision": "e732aab57e7fedacbd00da26a380d101dce1c5c4",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "cmd/risor",
+        "cmd/risor-docs"
+      ],
+      "repository": "deepnoodle-ai/risor",
+      "review_status": "unreviewed",
+      "revision": "673ea58db64937ef2e20a6a1c8dbe39b4ae4bcf5",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "BishopFox/sj",
+      "review_status": "unreviewed",
+      "revision": "4f256efca61370d542bdd536842ac05ed2e37ea0",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "mudler/LocalRecall",
+      "review_status": "unreviewed",
+      "revision": "4cae67b8cf2e113eae0ce79934359eddcaba7121",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "example/protobuf",
+        "example/wrap-errors-using"
+      ],
+      "repository": "jmattheis/goverter",
+      "review_status": "unreviewed",
+      "revision": "87425293b54887897baa1797c82593c8b36b5d70",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "gokrazy/rsync",
+      "review_status": "unreviewed",
+      "revision": "ea7a6d7a3182bead573dea55215edc227d720597",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "vishen/go-chromecast",
+      "review_status": "unreviewed",
+      "revision": "5dd70bb91787fe28e3d8946682c66cb2a1d61d21",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "smallstep/autocert",
+      "review_status": "unreviewed",
+      "revision": "392ca892a15e058fa42d528e58f3054bc4ed2fa9",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "intigriti/misconfig-mapper",
+      "review_status": "unreviewed",
+      "revision": "b85f12e327e3abddcaa5c1ff2195f4f5c484e4cb",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "tools"
+      ],
+      "repository": "Mastercard/terraform-provider-restapi",
+      "review_status": "unreviewed",
+      "revision": "54d2f5103ae3856a2f53d6e5cd5dd4fc20e3a304",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/0xjuanma/cli-toolkit v0.1.0\ngo: downloading github.com/goforj/godump v1.9.0\n# github.com/0xjuanma/golazo/scripts\n# [github.com/0xjuan"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "0xjuanma/golazo",
+      "review_status": "unreviewed",
+      "revision": "ed484fb155509548df54776a77de67b15c8dde54",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "prometheus/statsd_exporter",
+      "review_status": "unreviewed",
+      "revision": "7589e1ba562cd75716873fab9d4f38de881b5620",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "chromium/hstspreload.org",
+      "review_status": "unreviewed",
+      "revision": "708f6ef18b2d4642ac9256d3efdd02d177658fd2",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "kardolus/chatgpt-cli",
+      "review_status": "unreviewed",
+      "revision": "b9b6e2388babc17f82c6de51005596dbe151f46e",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "prometheus-community/PushProx",
+      "review_status": "unreviewed",
+      "revision": "59fbc12239d52d6f25b663e65a85f31bf4516abc",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "insomniacslk/dhcp",
+      "review_status": "unreviewed",
+      "revision": "234b97448faee419f5a65d82cf305f1bfa627895",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "prometheus/procfs",
+      "review_status": "unreviewed",
+      "revision": "c6dc763e8255afa46932e5e01a4961b538f423dc",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "Chocapikk/wpprobe",
+      "review_status": "unreviewed",
+      "revision": "b5aa2b07c30fdfdeb16afc75ec7bf50673989d06",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "aksiksi/compose2nix",
+      "review_status": "unreviewed",
+      "revision": "49ddd9f59753183d4072a7fe281e63fee53ba0ee",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "examples",
+        "cmd/blades"
+      ],
+      "repository": "go-kratos/blades",
+      "review_status": "unreviewed",
+      "revision": "b78fec59029d11e02c135ea10da8986ed006521f",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "goproxytest/testdata/mod/fruit.com_v1.1.0"
+      ],
+      "repository": "rogpeppe/go-internal",
+      "review_status": "unreviewed",
+      "revision": "b848aba6082101b7cbc37c5e55b681dd13096926",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "ncruces/zenity",
+      "review_status": "unreviewed",
+      "revision": "608cae244677a9a0f77097c3d07eea492475a76c",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "integrii/flaggy",
+      "review_status": "unreviewed",
+      "revision": "e0a0096c5f3c2cdf11ac97455ec375f0dcca5fed",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "qifengzhang007/GinSkeleton",
+      "review_status": "unreviewed",
+      "revision": "a0c2d094657e3e28d2a6b76f14a25f7e2d79e985",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "runabol/tork",
+      "review_status": "unreviewed",
+      "revision": "8db91aa0b6bb8071d61cd7154748b98d8a4694fa",
+      "scan_status": "scanned",
+      "finding_count": 41
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "bugst/go-serial",
+      "review_status": "unreviewed",
+      "revision": "9b9e4a4b829f22f53181c84df19915b858599bbb",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "viaduct-ai/kustomize-sops",
+      "review_status": "unreviewed",
+      "revision": "d9442dc3153d9c16e517a68ce8926c9507386429",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "fcambus/telize",
+      "review_status": "unreviewed",
+      "revision": "c8114144abf49d6ac137cf98930e742cc79025bb",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "xen0n/go-workwx",
+      "review_status": "unreviewed",
+      "revision": "9f51d9b3769679cf58b8618cbaf10a9eb7e7df30",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "yinheli/sshw",
+      "review_status": "unreviewed",
+      "revision": "748eaa6bd2c142bfae0fb8bc3dd0caf1113bfc04",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "miku/zek",
+      "review_status": "unreviewed",
+      "revision": "50daab3c49198fb0b486e34ec6bbbaebf294baae",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [
+        "timed out in ."
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "FalconForceTeam/FalconHound",
+      "review_status": "unreviewed",
+      "revision": "60ba2bb3127b68750556e9b21b7f954f3f30cc8d",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "FalconOpsLLC/goexec",
+      "review_status": "unreviewed",
+      "revision": "21c8f9599140c39d6fb56951539f8e7e317be686",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in example/v2: main.go:6:2: cannot find module providing package github.com/swaggo/echo-swagger/v2: import lookup disabled by -mod=readonly"
+      ],
+      "modules": [
+        ".",
+        "example/v2",
+        "example/v3"
+      ],
+      "repository": "swaggo/echo-swagger",
+      "review_status": "unreviewed",
+      "revision": "94bcd4911e3098f98f5f512dbeb994ffdc52cec2",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "github/actions/setupvim"
+      ],
+      "repository": "govim/govim",
+      "review_status": "unreviewed",
+      "revision": "01838ef4fa61bea4789cb5725d09f9846149044d",
+      "scan_status": "scanned",
+      "finding_count": 5
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "threatexpert/gonc",
+      "review_status": "unreviewed",
+      "revision": "e14bc6b97efc2150c4e0bbb2bdc89f8548e28fa6",
+      "scan_status": "scanned",
+      "finding_count": 4
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "xmdhs/clash2sfa",
+      "review_status": "unreviewed",
+      "revision": "eaea56a74cf3282cefe268f94ba6a39b1db2b005",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "apache/pulsar-client-go",
+      "review_status": "unreviewed",
+      "revision": "1a6d7ac818c9daae9df5c37cb24c0695fabc9eec",
+      "scan_status": "scanned",
+      "finding_count": 13
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "kube-burner/kube-burner",
+      "review_status": "unreviewed",
+      "revision": "770a335598d565d7c9e4fa9a481ae86bbe8f2e8d",
+      "scan_status": "scanned",
+      "finding_count": 5
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "letsencrypt/pebble",
+      "review_status": "unreviewed",
+      "revision": "0c826ffd036fd53e353e149613021d72c0a55ccc",
+      "scan_status": "scanned",
+      "finding_count": 6
+    },
+    {
+      "errors": [
+        "partial package recovery in .: main.go:21:12: pattern all:frontend/dist: no matching files found"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "omacom/aether",
+      "review_status": "unreviewed",
+      "revision": "c6c24029c39689993e72fd06c051d492875d84db",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "injoyai/tdx",
+      "review_status": "unreviewed",
+      "revision": "a16d0a67c1eb0175da4d4ae30a941f22b7bb3344",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/rudderlabs/analytics-go/v4 v4.2.3\ngo: downloading github.com/bruin-data/bruin/semantic-engine v0.0.0-20260630183621-ed4c9b0f3220\ngo: "
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "bruin-data/dac",
+      "review_status": "unreviewed",
+      "revision": "f217acb7a10f6d214d93f59e0db43ebfccdf42cb",
+      "scan_status": "incomplete",
+      "finding_count": 1
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading cloud.google.com/go/storage v1.57.0\ngo: downloading github.com/gogo/gateway v1.1.0\ngo: downloading github.com/jgraettinger/cockroach-encoding v1"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "gazette/core",
+      "review_status": "unreviewed",
+      "revision": "fc6a39822be652c67b13842b9cd760e80d7d6731",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "andybalholm/cascadia",
+      "review_status": "unreviewed",
+      "revision": "154416acceb25b62dec074c428dd255bd950711d",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "hashicorp/terraform-exec",
+      "review_status": "unreviewed",
+      "revision": "b9e71a3a80eeca6090de845fbd4e8b44cda25da3",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "PanSalut/Koffan",
+      "review_status": "unreviewed",
+      "revision": "0b35053e3da3d89dfdd37dec1735e9f400ffa142",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "benchmarks"
+      ],
+      "repository": "sethvargo/go-limiter",
+      "review_status": "unreviewed",
+      "revision": "20781e3e1a01db67ee7f47241cfaf251862f9923",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "Foxboron/ssh-tpm-agent",
+      "review_status": "unreviewed",
+      "revision": "84876d944b4c61bf09b6de23cf3d61ca606bafdf",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "JFryy/qq",
+      "review_status": "unreviewed",
+      "revision": "cd262e4c04d3348be5b5b0df1337453b28202bd9",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "sethvargo/go-retry",
+      "review_status": "unreviewed",
+      "revision": "f6b3e1a9f1c599bf6fd42d01811a62fc4b9b7502",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "zkep/my-geektime",
+      "review_status": "unreviewed",
+      "revision": "a614af742806cfb10f84598c71c0dd668e96549b",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "gofrs/flock",
+      "review_status": "unreviewed",
+      "revision": "67dc0b12638bacb527384ce370e48bc987e2db18",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "SuperQ/smokeping_prober",
+      "review_status": "unreviewed",
+      "revision": "747e4b3b031d83cc6f9b65c5f8bbae8c36f94e6f",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "lesovsky/noisia",
+      "review_status": "unreviewed",
+      "revision": "7f26a9339ea0df52e92a0b3dbdd550341da45891",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "incu6us/goimports-reviser",
+      "review_status": "unreviewed",
+      "revision": "d9b1304ab6d074ac95f1733de2525b93542c48df",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "buildkite/terminal-to-html",
+      "review_status": "unreviewed",
+      "revision": "9b4db475fde1b1c705955fcb833a333ff9490dde",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "ZhiYi-R/moon-bridge",
+      "review_status": "unreviewed",
+      "revision": "c9ae8a8ee824c02ce1166893543838f3e414fde0",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "no output from . (exit 1): go: downloading fyne.io/fyne/v2 v2.7.3\ngo: downloading github.com/fullpipe/icu-mf v1.0.1\ngo: downloading fyne.io/systray v1.12.0\ngo: downloading github.com/go-g"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "creamlike1024/EasyLPAC",
+      "review_status": "unreviewed",
+      "revision": "b7d566cab7d9a197b10fed77c0ff0719a86fc562",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "buchgr/bazel-remote",
+      "review_status": "unreviewed",
+      "revision": "a69b6b5ed933234d93b489ffd216bee5bb74aa06",
+      "scan_status": "scanned",
+      "finding_count": 7
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/youpy/go-wav v0.3.2\ngo: downloading golang.org/x/mobile v0.0.0-20260410095206-2cfb76559b7b\ngo: downloading github.com/kivutar/glfw/v3",
+        "analysis command failed in . (exit 1): # github.com/libretro/ludo/libretro\nlibretro/libretro_core.go:7:9: undefined: DlHandle\nlibretro/libretro_core.go:31:23: undefined: AudioCallback\nlibretro/libret"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "libretro/ludo",
+      "review_status": "unreviewed",
+      "revision": "31951498f7b44223ad09278c525a43d18c9e1de3",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "mandiant/gopacket",
+      "review_status": "unreviewed",
+      "revision": "627c8b47e731238732e7e41686ea3456e0744371",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "kool-dev/kool",
+      "review_status": "unreviewed",
+      "revision": "bb95d1bec2a6b18e190ea6b450deb1302deb8ee0",
+      "scan_status": "scanned",
+      "finding_count": 4
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "ajavadinezhad/zyrln",
+      "review_status": "unreviewed",
+      "revision": "d0389ee30be49eb03cc9ea8413eddc9ba01cb5ab",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading github.com/cloudflare/cbpfc v0.0.0-20260723100431-d17020eb3591\n# github.com/google/gopacket/pcap\n/home/james/go/pkg/mod/github.com/google/gopack",
+        "no output from . (exit 1): # github.com/google/gopacket/pcap\n/home/james/go/pkg/mod/github.com/google/gopacket@v1.1.19/pcap/pcap.go:30:22: undefined: pcapErrorNotActivated\n/home/james/go/"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "cloudflare/xdpcap",
+      "review_status": "unreviewed",
+      "revision": "5f60cc95b1ab2ce7c8443046b65cc41a01eb241a",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "aurorax-neo/chat2api",
+      "review_status": "unreviewed",
+      "revision": "dbf6bf39686348449c25de3b6131ca733f448deb",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "tsuna/gohbase",
+      "review_status": "unreviewed",
+      "revision": "8b8e010ab4a7a16a66cac6bea48f861551a18739",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "vdjagilev/nmap-formatter",
+      "review_status": "unreviewed",
+      "revision": "8f5f3eed4eda5e71cc4dbf14e8661b1271bf2fad",
+      "scan_status": "scanned",
+      "finding_count": 5
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "mattn/longcat",
+      "review_status": "unreviewed",
+      "revision": "a07b2de531c709ae2cfd8040bdc88eb4266964f9",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "dedis/kyber",
+      "review_status": "unreviewed",
+      "revision": "3194be036a906ef79fa0e87d439bfd7d6e4e0afe",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "passwall/passwall-server",
+      "review_status": "unreviewed",
+      "revision": "bdd06e30853dda2bf0f41f6a2a3c0cb40d8ef06e",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "ShahabSL/Skirk",
+      "review_status": "unreviewed",
+      "revision": "2c52ff85ea0f6da75dcc0b92f7ca0a9caa32307a",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "StJudeWasHere/seonaut",
+      "review_status": "unreviewed",
+      "revision": "880b312c28fab8b0bf7fe4f9449dc4746dbb82ff",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "chartmuseum/helm-push",
+      "review_status": "unreviewed",
+      "revision": "a8fa26fa3885468849eeb3e9361a624b48930494",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "hueristiq/xurlfind3r",
+      "review_status": "unreviewed",
+      "revision": "be80a0c7cd049f0d8ca7487ff1dce142b6298d16",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "blampe/goat",
+      "review_status": "unreviewed",
+      "revision": "6d4db359c601eae6efa1fcd94601fa1793e114d5",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "caoyingjunz/pixiu",
+      "review_status": "unreviewed",
+      "revision": "630a81c0897e8ee7b6f6a27550aff26c6a29826f",
+      "scan_status": "scanned",
+      "finding_count": 7
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "api_reference"
+      ],
+      "repository": "openai/openai-cli",
+      "review_status": "unreviewed",
+      "revision": "cfe77c01a9464323e274d505858a9d350b33415a",
+      "scan_status": "scanned",
+      "finding_count": 2
+    },
+    {
+      "errors": [
+        "no output from cloud (exit 1): cmd/pilot-cloud/main.go:13:2: missing go.sum entry for module providing package github.com/jackc/pgx/v5/pgxpool (imported by github.com/qf-studio/pilot/cloud/cm"
+      ],
+      "modules": [
+        ".",
+        "cloud"
+      ],
+      "repository": "qf-studio/pilot",
+      "review_status": "unreviewed",
+      "revision": "88966041f7a5f937c567378139430c948f4fc6ae",
+      "scan_status": "incomplete",
+      "finding_count": 3
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "skupperproject/skupper",
+      "review_status": "unreviewed",
+      "revision": "70274cff5861dad7feb076c48730cd92d4b40479",
+      "scan_status": "scanned",
+      "finding_count": 17
+    },
+    {
+      "errors": [
+        "partial package recovery in .: package github.com/ceph/go-ceph/rados/striper\n\timports github.com/ceph/go-ceph/internal/timespec: build constraints exclude all Go files in /home/james/scratch/",
+        "analysis command failed in . (exit 1): # github.com/ceph/go-ceph/internal/commands\ninternal/commands/commands.go:12:16: undefined: rados.ErrNotConnected\ngithub.com/ceph/go-ceph/internal/dlsym: build "
+      ],
+      "modules": [
+        ".",
+        "contrib/implements"
+      ],
+      "repository": "ceph/go-ceph",
+      "review_status": "unreviewed",
+      "revision": "ff5ab8db81b404c53965cac605f67250423c5cb7",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "examples/create-iso-from-folder"
+      ],
+      "repository": "diskfs/go-diskfs",
+      "review_status": "unreviewed",
+      "revision": "ff51c01db27198faf12cc9289fb7295aaf475b55",
+      "scan_status": "scanned",
+      "finding_count": 10
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "mock",
+        "om"
+      ],
+      "repository": "valkey-io/valkey-go",
+      "review_status": "unreviewed",
+      "revision": "fb246d57738cc77dd44361863cd7c1b42f7077cb",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "anthropics/anthropic-cli",
+      "review_status": "unreviewed",
+      "revision": "4bca8a10d44dfde29c519e078af28be9689074a0",
+      "scan_status": "scanned",
+      "finding_count": 7
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "demos/darkmode-probe",
+        "demos/mobile-camera"
+      ],
+      "repository": "hasenj/go-shirei",
+      "review_status": "unreviewed",
+      "revision": "53ac83361205b8905ae861dbd20107e0ab67c866",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "zeromake/docker-debug",
+      "review_status": "unreviewed",
+      "revision": "15a8f9521a963706b5767beeabc70cd48cee7a45",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "prometheus-community/ipmi_exporter",
+      "review_status": "unreviewed",
+      "revision": "2a1e7461e11754c699dae1bd88affe82c2517d87",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "estahn/k8s-image-swapper",
+      "review_status": "unreviewed",
+      "revision": "cabbe32a7e9049d3fec633eee9371b5771caf763",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "pires/go-proxyproto",
+      "review_status": "unreviewed",
+      "revision": "ec43bde09eff6f1d1173c07e2412366f7b5101e0",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "influxdata/influxdb-client-go",
+      "review_status": "unreviewed",
+      "revision": "2c5057fd0d062d7d6601a358ff73b286b7f2ec8c",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/pborman/getopt v0.0.0-20180811024354-2b5b3bfb099b\ngo: downloading github.com/certifi/gocertifi v0.0.0-20180118203423-deb3ae2ef261\ngo:"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "github/smimesign",
+      "review_status": "unreviewed",
+      "revision": "47df865b5c7812ee23f6d34c3630d7edb46c7f38",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/go-faker/faker/v4 v4.6.1\n# go.sbk.wtf/runj/containerd\ncontainerd/reaper.go:29:33: undefined: unix.SYS_PROCCTL\n# go.sbk.wtf/runj/jail\n"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "samuelkarp/runj",
+      "review_status": "unreviewed",
+      "revision": "cb4e1b9919e70f080a21de9943bf97a651f051de",
+      "scan_status": "incomplete",
+      "finding_count": 2
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "ldez/traefik-certs-dumper",
+      "review_status": "unreviewed",
+      "revision": "3045c21a77bd78d3cf25828a21c64e787e422aac",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "no output from . (exit 1): approval.go:10:2: missing go.sum entry for module providing package github.com/google/go-github/v43/github (imported by github.com/trstringer/manual-approval); "
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "trstringer/manual-approval",
+      "review_status": "unreviewed",
+      "revision": "109c29a8cfc047ef68efcb6061c9a8332db0a57a",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/pborman/getopt/v2 v2.2.0\ngo: downloading github.com/rivo/tview v0.0.0-20231024122735-6416d6b23c67\ngo: downloading github.com/Jguer/go"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "moson-mo/pacseek",
+      "review_status": "unreviewed",
+      "revision": "04938f42930c020dcd39b87cb625ca1387f1c653",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "scribble-rs/scribble.rs",
+      "review_status": "unreviewed",
+      "revision": "1bda7ed8b880bb598dede5096c0e2f3f58abe0b8",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "openconfig/gnmi",
+      "review_status": "unreviewed",
+      "revision": "a4e40e60426e5b30ce29fd8115809d2dbe47584f",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "containerd/ttrpc",
+      "review_status": "unreviewed",
+      "revision": "9e62ff76048c2565d85b243f70adc66aeea73290",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "lima-vm/sshocker",
+      "review_status": "unreviewed",
+      "revision": "bda6eca2979ae19ac0917f914093721c88813726",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [
+        "analysis command failed in . (exit 1): go: downloading github.com/hpinc/go3mf v0.24.2\ngo: downloading github.com/llgcode/draw2d v0.0.0-20260422081035-c4331ac66734\ngo: downloading github.com/yofu/dxf "
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "deadsy/sdfx",
+      "review_status": "unreviewed",
+      "revision": "a63cfbad6c5a0fe634ee2b393e970aaa7af7b866",
+      "scan_status": "incomplete",
+      "finding_count": 3
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "rogpeppe/godef",
+      "review_status": "unreviewed",
+      "revision": "dbe0754c480e117ad4f773be18467e6016360da4",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [],
+      "modules": [
+        ".",
+        "_example/example01",
+        "_example/example02"
+      ],
+      "repository": "golang-queue/queue",
+      "review_status": "unreviewed",
+      "revision": "2a79b8aac36eaca758ff4f5412fcb485b027dd58",
+      "scan_status": "scanned",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "yarlson/lnk",
+      "review_status": "unreviewed",
+      "revision": "c5db74b2f514d886e8bf5e3bf4de4ba4979ad313",
+      "scan_status": "scanned",
+      "finding_count": 1
+    },
+    {
+      "errors": [
+        "partial package recovery in .: go: downloading resty.dev/v3 v3.0.0-beta.3\nserver/route.go:13:12: pattern frontend/dist: no matching files found"
+      ],
+      "modules": [
+        "."
+      ],
+      "repository": "bestnite/sub2clash",
+      "review_status": "unreviewed",
+      "revision": "b45b9f4c91f0ca7d50f0d1a18e223b482ef860c2",
+      "scan_status": "incomplete",
+      "finding_count": 0
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "eiblog/eiblog",
+      "review_status": "unreviewed",
+      "revision": "2b1da7ea1ac60d900e2d8744a8bd100906465e80",
+      "scan_status": "scanned",
+      "finding_count": 3
+    },
+    {
+      "errors": [],
+      "modules": [
+        "."
+      ],
+      "repository": "tidwall/uhaha",
+      "review_status": "unreviewed",
+      "revision": "5ea77162763891837176b90e111fcac74678143e",
+      "scan_status": "scanned",
+      "finding_count": 1
+    }
+  ]
+}
