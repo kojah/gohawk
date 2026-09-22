@@ -45,12 +45,11 @@ func reportReadLockWrites(pass *analysis.Pass, instruction ssa.Instruction, held
 			if !ok || !writeTargetsOwner(instruction, owner) {
 				continue
 			}
-			// One struct may hold several independent guard domains: a mutex
-			// over a map, an atomic counter, and a second mutex over its own
-			// field. Deciding which of them covers this field is the guard
-			// inference this check does not do, so any write lock held on the
-			// same object leaves the write unproven rather than reportable.
-			if writeLockHeldOnOwner(held, readHeld, owner, lockValues) {
+			// A writer guard may be owned by another object. Without guard
+			// inference, any held exclusive lock makes the claim that only
+			// readers serialize this write unknown, not proven safe.
+			// https://github.com/rfjakob/gocryptfs/blob/842af4463989ee6808d397433e9aba8517e49c89/internal/fusefrontend/file.go#L409-L430
+			if writeLockHeld(held, readHeld) {
 				continue
 			}
 			check.Reportf(pass, check.LockReadLockWrite, instruction.Pos(),
@@ -60,20 +59,11 @@ func reportReadLockWrites(pass *analysis.Pass, instruction ssa.Instruction, held
 	}
 }
 
-// writeLockHeldOnOwner reports whether some lock held for writing belongs to
-// the same object as the read lock being judged.
-func writeLockHeldOnOwner(held, readHeld []string, owner ssa.Value, lockValues map[string][]ssa.Value) bool {
-	for _, identity := range held {
-		if slices.Contains(readHeld, identity) {
-			continue
-		}
-		for _, value := range lockValues[identity] {
-			if other, ok := lockOwner(value); ok && ssaflow.SameValue(other, owner) {
-				return true
-			}
-		}
-	}
-	return false
+// writeLockHeld reports whether this path also holds an exclusive lock.
+func writeLockHeld(held, readHeld []string) bool {
+	return slices.ContainsFunc(held, func(identity string) bool {
+		return !slices.Contains(readHeld, identity)
+	})
 }
 
 // lockOwner returns the value a lock is a field of. A package variable has no

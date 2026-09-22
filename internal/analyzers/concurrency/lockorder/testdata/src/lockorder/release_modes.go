@@ -70,3 +70,29 @@ func (r *releaseModes) releaseBorrowed() {
 func (r *releaseModes) releaseBorrowedRead() {
 	r.rw.RUnlock()
 }
+
+func (r *releaseModes) deferredReadRestoration() {
+	r.rw.RLock()
+	defer r.rw.RUnlock()
+	r.rw.RUnlock()
+	defer r.rw.RLock()
+	r.rw.Lock()
+	defer r.rw.Unlock()
+}
+
+func (c *readCache) deferredReadRestorationWrite() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	c.mu.RUnlock()
+	defer c.mu.RLock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.hits++
+}
+
+func (c *readCache) deferredLockDoesNotProtect() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	defer c.mu.Lock()
+	c.hits++ // want "write while only the read lock .* is held"
+}

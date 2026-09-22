@@ -10,6 +10,8 @@ import (
 //
 // The claim is about the object, not about which field the lock guards, so a
 // struct with more than one guard domain is left alone rather than guessed at.
+// An exclusive guard on another owner is also unknown; an unrelated lock can
+// therefore hide a real race. This check does not infer field-to-lock guards.
 //
 // Known gap: only a write in this frame is judged. A helper called under the
 // read lock that mutates the object races exactly as an inline write does, but
@@ -106,6 +108,24 @@ func (d *readDomains) tally() {
 	d.other.Lock()
 	defer d.other.Unlock()
 	d.counted++
+}
+
+// The writer guard may belong to a separately owned object rather than the
+// receiver. Which guard protects counted is outside this check's proof.
+func (d *readDomains) externalGuard(writer *sync.Mutex) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	writer.Lock()
+	defer writer.Unlock()
+	d.counted++
+}
+
+func (d *readDomains) releasedExternalGuard(writer *sync.Mutex) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	writer.Lock()
+	writer.Unlock()
+	d.counted++ // want "write while only the read lock .* is held"
 }
 
 // An embedded mutex promotes RLock onto the struct, and the object it protects

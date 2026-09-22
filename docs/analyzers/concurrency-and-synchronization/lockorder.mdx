@@ -82,6 +82,11 @@ instructions, supporting recursive-acquire, later ordering, and missing-release
 proofs. Direct operations and helper effects share the same state transfer.
 Incomplete sequences retain the existing conservative class-witness fallback.
 
+Passing an unlock callback to another consumer, or storing it in an owner's
+field, makes the prior held-lock state unknown. It does not prove the callback
+runs or that the protocol is live. Registering a deferred acquisition also does
+not establish that the lock is held in the function body.
+
 A cycle is suppressed when every edge has the same exact package-global
 exclusive mutex held as a guard. This is intentionally narrower than matching
 field names, receiver types, or read locks. Local object and parameter-relative
@@ -105,9 +110,11 @@ every other reader, and it needs nothing unusual from a second goroutine.
 
 The report is about the object rather than about which field a lock guards.
 Working out which of several mutexes covers a particular field is not something
-this analyzer attempts, so a write is left alone when another lock on the same
-object is held for writing, when the value being written was loaded out of the
+this analyzer attempts, so a write is left alone when another lock is held for
+writing, including one on another object, when the value being written was loaded out of the
 object and is a separate cell, or when the field is updated atomically.
+An unrelated exclusive lock can therefore hide a real race; this is an explicit
+precision boundary, not a guarantee that the other lock protects the write.
 
 ### Releasing with the wrong method
 

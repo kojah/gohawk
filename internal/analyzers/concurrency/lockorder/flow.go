@@ -455,6 +455,14 @@ func (flow lockFlowContext) applyMutexAction(
 		state.readHeld = releaseLock(state.readHeld, identity)
 		return state
 	}
+	// Registering a deferred acquisition does not acquire the lock now. In
+	// particular, a temporary upgrade can defer restoring the reader state
+	// after its writer unlock. This walk does not execute pending acquisitions
+	// at return, so it must not invent their held state in the function body.
+	// https://github.com/refraction-networking/utls/blob/23b1dac19c06c51e278468e29ac329eec605a31f/common.go#L1100-L1119
+	if _, deferredAcquisition := instruction.(*ssa.Defer); deferredAcquisition {
+		return state
+	}
 	// Acquisitions, whether direct or summarized, participate in the same
 	// acquire-for-caller contract and loaded-condition uncertainty boundary.
 	flow.acquisitions[identity] = appendUniqueInstruction(flow.acquisitions[identity], instruction)
@@ -495,6 +503,10 @@ func (flow lockFlowContext) applyMutexAction(
 	}
 	if acquired.read {
 		state.readHeld = appendUniqueString(state.readHeld, identity)
+	} else if !slices.Contains(state.held, identity) {
+		// A helper or an opaque release can remove held without carrying its
+		// mode forward. A fresh writer acquisition establishes the new mode.
+		state.readHeld = releaseLock(state.readHeld, identity)
 	}
 	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.unprovenRelease[identity], acquired.variant)
 	return state
@@ -567,21 +579,50 @@ func transferOpaqueUnlocks(
 	if _, _, _, direct := mutexAction(instruction); direct {
 		return held
 	}
-	if common == nil || !opaqueCallee(common) {
-		return held
-	}
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			if !lockHandedTo(common, value) {
+			opaqueArgument := common != nil && opaqueCallee(common) && lockHandedTo(common, value)
+			if !opaqueArgument && !handedUnlockCallback(instruction, value) {
 				continue
 			}
-			released[identity] = true
+			if opaqueArgument {
+				released[identity] = true
+			}
+			// Callback retention supplies uncertainty, not a release witness.
+			// Otherwise reacquiring a private completion gate would invent a
+			// missing-release contract on the caller's final return.
 			held = releaseLock(held, identity)
 			delete(guards, identity)
 			break
 		}
 	}
 	return held
+}
+
+// handedUnlockCallback identifies a release capability handed to another owner,
+// not an executed release. A receiver field or callback consumer may invoke it
+// asynchronously; that makes the previous held-lock state unknown. A local
+// callback merely created or saved in a local variable establishes no handoff.
+// https://github.com/Control-D-Inc/ctrld/blob/37c33315591632c5f08df8062d1c77e07b3a465f/resolver_test.go#L348-L364
+func handedUnlockCallback(instruction ssa.Instruction, lock ssa.Value) bool {
+	var values []ssa.Value
+	switch typed := instruction.(type) {
+	case *ssa.Store:
+		if _, field := typed.Addr.(*ssa.FieldAddr); !field {
+			return false
+		}
+		values = []ssa.Value{typed.Val}
+	case *ssa.Call:
+		values = typed.Common().Args
+	default:
+		return false
+	}
+	return slices.ContainsFunc(values, func(value ssa.Value) bool {
+		if _, callback := value.Type().Underlying().(*types.Signature); !callback {
+			return false
+		}
+		return ssaflow.ValueCallsMethod(value, "Unlock", lock) || ssaflow.ValueCallsMethod(value, "RUnlock", lock)
+	})
 }
 
 // opaqueCallee reports whether the call is dispatched at run time: an
