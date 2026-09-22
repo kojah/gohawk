@@ -14,6 +14,29 @@ func childOwnedByDeferredParent() {
 	_ = child
 }
 
+func childOwnedByCapturedParent(use func(context.Context)) {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	ctx, _ = context.WithTimeoutCause(ctx, time.Hour, context.DeadlineExceeded)
+	defer cancel(context.Canceled)
+	go func() { use(ctx) }()
+}
+
+func childOwnedByCapturedCancelParent(use func(context.Context)) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { use(ctx) }()
+	child, _ := context.WithCancel(ctx)
+	_ = child
+	cancel()
+}
+
+func replacedCapturedParentDoesNotReleaseChild(use func(context.Context)) {
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx = context.Background()
+	_, _ = context.WithTimeout(ctx, time.Hour) // want "cancel function from context.WithTimeout is not called"
+	go func() { use(ctx) }()
+	cancel()
+}
+
 func childOwnedByReturnedParent() (context.Context, context.CancelFunc) {
 	parent, cancel := context.WithCancel(context.Background())
 	child, _ := context.WithTimeout(parent, time.Hour)

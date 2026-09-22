@@ -112,7 +112,15 @@ func parentCancellationClassifier(call *ssa.Call) *cancellationClassifier {
 	if !ok || contract.packagePath != "context" || len(call.Common().Args) == 0 {
 		return nil
 	}
-	parent, ok := call.Common().Args[0].(*ssa.Extract)
+	// Contexts captured by workers are held in local cells. Resolve the load
+	// where this child is created, not at the later cancellation or return: the
+	// same source variable may subsequently hold the child instead of its parent.
+	// https://github.com/werf/nelm/blob/6393382d695e65d8d8f744cf590337fe62a83eef/pkg/action/release_install.go#L179-L190
+	parentValue := call.Common().Args[0]
+	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(cancellationCompletionBudget)).Resolve(parentValue); resolved.Proven() {
+		parentValue = resolved.Value
+	}
+	parent, ok := parentValue.(*ssa.Extract)
 	if !ok || parent.Index != 0 {
 		return nil
 	}
