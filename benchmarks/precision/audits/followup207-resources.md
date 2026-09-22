@@ -6,9 +6,9 @@ resolution remains in progress.
 `followup207-resources.tsv` preserves the original verdict separately from
 replay status and includes the 72 original resource true-positive controls.
 
-## Checkpoint: error guards v4
+## Checkpoint: memory writers v1
 
-- Eighteen additional false positives are absent after a successful baseline and
+- Nineteen additional false positives are absent after a successful baseline and
   corrected replay. They cover a zero-client HEAD request (one), returned
   standard loggers (two), a returned body narrowed to `io.Reader` (one), and
   manager-retained resources exposed through returned handles (four), and
@@ -16,12 +16,12 @@ replay status and includes the 72 original resource true-positive controls.
   shared deferred process-termination evidence (one), visible error predicates
   through direct calls and immutable captures (four), and a merged fallback
   acquisition handled by shared feasible-path and uncertain-cleanup evidence
-  (one).
+  (one), plus an exact standard buffer constructor behind a compressor (one).
 - All 66 baseline-detected true positives remain detected in the current
   all-check replay. Five wg-portal
   misses and the previously documented piko WebSocket miss remain baseline
   misses; none is newly lost here.
-- 121 false positives still report and remain active. None is left without a
+- 120 false positives still report and remain active. None is left without a
   current package-scope replay.
 - Geesefs `core/cfg/logger.go:37:16` is absent in both binaries in this replay,
   unlike earlier canonical replays. This profile-dependent baseline absence
@@ -59,6 +59,12 @@ error-predicate case. Its failed-acquisition return is inactive; its successful
 return carries `ambiguous-cleanup-value` from the deferred merged file's Close.
 The final decision is `opaque-consumption`, not a claim of proven release.
 The focused trace is `.build/followup207-error-guard-byjoey.trace.jsonl`.
+
+Standard `bytes.NewBuffer` and `bytes.NewBufferString` constructors now receive
+the same existing memory-writer boundary as a local buffer allocation. The
+Pulsar compressor site uses the former. This does not prove arbitrary writes
+infallible: custom factories and mixed external writers still report, and
+`require-memory-writer-close=true` retains both constructor obligations.
 
 ## Evidence boundaries
 
@@ -99,18 +105,18 @@ GOFLAGS=-mod=readonly -p=2 GOTOOLCHAIN=local
 
 Repository revisions, package/module scopes, command, environment, exit status,
 stdout and stderr receipts are recorded under `.build/followup207-resource-baseline`
-and `.build/followup207-error-guard-v4`, with paths in the TSV. Exit zero with no
+and `.build/followup207-memory-writer-v1`, with paths in the TSV. Exit zero with no
 findings and exit three with valid diagnostic JSON are successful analyses;
 failed loads are not treated as absence.
 
 - Baseline: `.build/gohawk-followup78-goroutines-v5`, SHA-256
   `5516cad4c83bffd8dca28713df53f8d3d1a463b838c23d302da9e10ddc257419`.
-- Candidate: `.build/gohawk-followup207-error-guard-v4`, SHA-256
-  `7d0308f2a0b3efcb5aef71ad769b412c9f62bb5ddb31d64b039399dc24bdeffb`.
+- Candidate: `.build/gohawk-followup207-memory-writer-v1`, SHA-256
+  `193c77d2c11219ba9c77f210e1b87f0a003d881e51b52a77c345778b5441c696`.
 
 All 83 package scopes completed successfully. Comparing every resource
 diagnostic in those scopes, not just the labelled sites, found zero new
-diagnostics and eighteen removed diagnostics. The additional package scopes
+diagnostics and nineteen removed diagnostics. The additional package scopes
 have matching successful immutable-baseline receipts; absence
 in a newly scanned scope alone was not counted as a correction.
 
