@@ -2,28 +2,12 @@ package resourcelifetime
 
 import (
 	"encoding/json"
-	"flag"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
-
 	"golang.org/x/tools/go/analysis/analysistest"
 )
-
-func TestUseAfterReleaseDiagnosticContext(t *testing.T) {
-	tracePath := enableResourceLifetimeContextTrace(t)
-	results := analysistest.Run(t, analysistest.TestData(), Analyzer(), "resourcelifetime/useafter")
-	assertUseAfterReleaseRelatedLocations(t, results)
-
-	data, err := os.ReadFile(tracePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertOpaqueUseAfterReleaseTrace(t, data)
-}
 
 func assertUseAfterReleaseRelatedLocations(t *testing.T, results []*analysistest.Result) {
 	t.Helper()
@@ -91,28 +75,4 @@ func assertOpaqueUseAfterReleaseTrace(t *testing.T, data []byte) {
 	if !foundOpaqueEffect {
 		t.Error("missing use-after-release opaque-effect decision")
 	}
-}
-
-func enableResourceLifetimeContextTrace(t *testing.T) string {
-	t.Helper()
-	flags := flag.NewFlagSet("resource-context-trace", flag.ContinueOnError)
-	analysisTrace.RegisterFlags(flags)
-	path := filepath.Join(t.TempDir(), "trace.jsonl")
-	t.Cleanup(func() {
-		for name, value := range map[string]string{
-			"gohawk-trace": "none", "gohawk-trace-candidate": "", "gohawk-trace-file": os.DevNull,
-		} {
-			if err := flags.Set(name, value); err != nil {
-				t.Error(err)
-			}
-		}
-	})
-	for name, value := range map[string]string{
-		"gohawk-trace": "resourcelifetime", "gohawk-trace-candidate": "", "gohawk-trace-file": path,
-	} {
-		if err := flags.Set(name, value); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return path
 }

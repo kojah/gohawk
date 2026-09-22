@@ -12,9 +12,10 @@ import (
 )
 
 // Run checks diagnostics and their source ranges against analysistest fixtures.
-func Run(t *testing.T, testdata string, analyzer *analysis.Analyzer, patterns ...string) {
+// It returns the results for additional assertions without another analysis run.
+func Run(t *testing.T, testdata string, analyzer *analysis.Analyzer, patterns ...string) []*analysistest.Result {
 	t.Helper()
-	analysistest.Run(t, testdata, requireDiagnosticContract(t, analyzer), patterns...)
+	return analysistest.Run(t, testdata, requireDiagnosticContract(t, analyzer), patterns...)
 }
 
 func requireDiagnosticContract(t *testing.T, analyzer *analysis.Analyzer) *analysis.Analyzer {
