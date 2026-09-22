@@ -54,7 +54,7 @@ func TestLockTraceBoundaries(t *testing.T) {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
-		if event.Reason == "optional-loaded-mutex-unknown" && strings.Contains(event.Candidate, "optional_owners.go:") {
+		if event.Reason == "loaded-acquisition-guard-unknown" && strings.Contains(event.Candidate, "optional_owners.go:") {
 			foundUnknown = true
 			if event.Phase != "decision" || event.Outcome != "unknown" || event.Position != event.Candidate {
 				t.Errorf("invalid optional mutex uncertainty: %+v", event)

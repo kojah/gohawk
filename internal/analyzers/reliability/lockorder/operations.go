@@ -94,14 +94,14 @@ func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
 	return false
 }
 
-// optionalLoadedMutex identifies an acquisition whose guard tests mutable
+// optionalLoadedGuard identifies an acquisition whose guard tests mutable
 // storage rather than one SSA value. Repeated reads of that slot have unrelated
 // condition identities, while lock identity deliberately names the slot. Until
 // that relationship is proved, an unreleased path may be infeasible. Decline
 // missing-release, including changed guards, rather than assume either stable
 // contents or a leak; direct mutex parameters and Boolean guards stay precise.
 // https://github.com/devld/go-drive/blob/91c3ac7253642bf58629d6a87cf7ab718f2d3827/common/utils/path_tree.go#L133-L141
-func optionalLoadedMutex(instruction ssa.Instruction, identity string) bool {
+func optionalLoadedGuard(instruction ssa.Instruction, identity string) bool {
 	block := instruction.Block()
 	if len(block.Preds) != 1 {
 		return false
@@ -113,6 +113,14 @@ func optionalLoadedMutex(instruction ssa.Instruction, identity string) bool {
 	branch, ok := pred.Instrs[len(pred.Instrs)-1].(*ssa.If)
 	if !ok {
 		return false
+	}
+	// A loaded Boolean may be read again around Unlock. Its SSA loads differ,
+	// but this flow cannot prove their contents differ. Keep that path unknown
+	// rather than invent an inconsistent acquisition/release guard. This also
+	// declines genuinely changed loaded guards; direct SSA booleans stay precise.
+	// https://github.com/kataras/neffos/blob/60df99445da7c0b56c1b81a32161f86b53fd462a/conn.go#L813-L853
+	if loaded, ok := branch.Cond.(*ssa.UnOp); ok && loaded.Op == token.MUL {
+		return true // An SSA If condition is necessarily Boolean.
 	}
 	comparison, ok := branch.Cond.(*ssa.BinOp)
 	if !ok || (comparison.Op != token.EQL && comparison.Op != token.NEQ) {

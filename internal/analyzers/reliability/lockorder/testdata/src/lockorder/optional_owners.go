@@ -4,9 +4,31 @@ import "sync"
 
 // Missing-release does not correlate repeated loads of optional mutex fields.
 // A nil guard can change through aliases, so this boundary remains unknown.
+// Loaded Boolean guards are also unknown; actual mutation between acquisition
+// and release is intentionally outside this narrowed missing-release proof.
 type optionalOwner struct {
 	mu    *sync.Mutex
 	count int
+}
+
+type messageGuard struct{ locked bool }
+
+func copiedMessageGuard(mu *sync.RWMutex, message messageGuard) {
+	if !message.locked {
+		mu.RLock()
+	}
+	if !message.locked {
+		mu.RUnlock()
+	}
+}
+
+func loadedGuardDoesNotHideUnguardedLock(mu *sync.Mutex, message messageGuard) {
+	mu.Lock()
+	if message.locked {
+		mu.Unlock()
+		return
+	}
+	return // want "not released on this return path"
 }
 
 func optionalOwnerUpdate(owner *optionalOwner) {

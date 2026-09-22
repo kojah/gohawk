@@ -7,6 +7,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -35,19 +36,19 @@ func runConcurrentCapture(pass *analysis.Pass) (any, error) {
 		if body == nil || loopJoinsEachIteration(body) {
 			return
 		}
-		inspectRepeatedLaunches(pass, body)
+		inspectRepeatedLaunches(pass, node, body)
 	})
 	return nil, nil
 }
 
-func inspectRepeatedLaunches(pass *analysis.Pass, body *ast.BlockStmt) {
+func inspectRepeatedLaunches(pass *analysis.Pass, loop ast.Node, body *ast.BlockStmt) {
 	ast.Inspect(body, func(node ast.Node) bool {
 		switch candidate := node.(type) {
 		case *ast.FuncLit, *ast.ForStmt, *ast.RangeStmt:
 			return false
 		case *ast.GoStmt:
 			if closure := calledClosure(candidate.Call); closure != nil {
-				reportCapturedMutations(pass, body, closure)
+				reportCapturedMutations(pass, body, closure, varyingWorkerParameters(pass, loop, candidate.Call, closure))
 			}
 			return false
 		case *ast.CallExpr:
@@ -56,7 +57,7 @@ func inspectRepeatedLaunches(pass *analysis.Pass, body *ast.BlockStmt) {
 				return true
 			}
 			if closure, ok := candidate.Args[0].(*ast.FuncLit); ok {
-				reportCapturedMutations(pass, body, closure)
+				reportCapturedMutations(pass, body, closure, nil)
 			}
 			return false
 		default:
@@ -73,7 +74,7 @@ func calledClosure(call *ast.CallExpr) *ast.FuncLit {
 	return closure
 }
 
-func reportCapturedMutations(pass *analysis.Pass, body *ast.BlockStmt, closure *ast.FuncLit) {
+func reportCapturedMutations(pass *analysis.Pass, body *ast.BlockStmt, closure *ast.FuncLit, varying []types.Object) {
 	// A lock anywhere in the launched closure is conservative synchronization
 	// evidence. Without one, report only writes whose root is a local declared
 	// before the loop body. A body-local variable belongs to one iteration;
@@ -97,6 +98,9 @@ func reportCapturedMutations(pass *analysis.Pass, body *ast.BlockStmt, closure *
 		default:
 			return true
 		}
+		if mutationHasWorkerGuard(pass, closure, node, varying) || mutationHasChannelGuard(pass, closure, node) {
+			return true
+		}
 		for _, expression := range expressions {
 			identifier := mutatedRoot(pass, expression)
 			if identifier == nil {
@@ -111,6 +115,96 @@ func reportCapturedMutations(pass *analysis.Pass, body *ast.BlockStmt, closure *
 		}
 		return true
 	})
+}
+
+// A guard using a worker's own argument can select distinct writers across
+// iterations. Without evaluating those arguments, repeated launch is not proof
+// of repeated writes to this local. This is unknown, not proof of disjointness.
+// https://github.com/metatube-community/metatube-sdk-go/blob/19a92ad3263ab7b69636d26d7cc32f531c0a0804/provider/internal/imcmp/image.go#L39-L55
+func mutationHasWorkerGuard(pass *analysis.Pass, closure *ast.FuncLit, mutation ast.Node, varying []types.Object) bool {
+	guarded := false
+	ast.Inspect(closure.Body, func(node ast.Node) bool {
+		branch, ok := node.(*ast.IfStmt)
+		if !ok || mutation.Pos() < branch.Body.Pos() || mutation.End() > branch.End() {
+			return true
+		}
+		for _, parameter := range varying {
+			guarded = guarded || syntax.ExpressionUsesObject(pass, branch.Cond, parameter)
+		}
+		return !guarded
+	})
+	return guarded
+}
+
+func varyingWorkerParameters(pass *analysis.Pass, loop ast.Node, call *ast.CallExpr, closure *ast.FuncLit) []types.Object {
+	ranged, ok := loop.(*ast.RangeStmt)
+	if !ok || ranged.Key == nil {
+		return nil
+	}
+	key, ok := ranged.Key.(*ast.Ident)
+	if !ok {
+		return nil
+	}
+	var parameters []types.Object
+	index := 0
+	for _, field := range closure.Type.Params.List {
+		for _, name := range field.Names {
+			if index < len(call.Args) {
+				argument, direct := syntax.Unparen(call.Args[index]).(*ast.Ident)
+				if direct && pass.TypesInfo.ObjectOf(argument) == pass.TypesInfo.ObjectOf(key) {
+					parameters = append(parameters, pass.TypesInfo.ObjectOf(name))
+				}
+			}
+			index++
+		}
+	}
+	return parameters
+}
+
+// A send before the write and receive after it, in the same containing block,
+// can delimit a channel semaphore. Capacity and branch-dependent concurrency
+// are outside this syntax check, so this is uncertainty rather than a claimed
+// happens-before proof. Unrelated channels and already-ended regions do not count.
+// https://github.com/alajmo/sake/blob/86986df901293db0f7d1e548ef34c849bb1f709d/core/run/table.go#L419-L439
+func mutationHasChannelGuard(pass *analysis.Pass, closure *ast.FuncLit, mutation ast.Node) bool {
+	guarded := false
+	ast.Inspect(closure.Body, func(node ast.Node) bool {
+		block, ok := node.(*ast.BlockStmt)
+		if !ok || mutation.Pos() < block.Pos() || mutation.End() > block.End() {
+			return true
+		}
+		pending := map[types.Object]bool{}
+		for _, statement := range block.List {
+			if send, ok := statement.(*ast.SendStmt); ok && send.End() < mutation.Pos() {
+				if channel := channelObject(pass, send.Chan); channel != nil {
+					pending[channel] = true
+				}
+			}
+			expression, ok := statement.(*ast.ExprStmt)
+			if !ok {
+				continue
+			}
+			receive, ok := expression.X.(*ast.UnaryExpr)
+			if !ok || receive.Op != token.ARROW {
+				continue
+			}
+			channel := channelObject(pass, receive.X)
+			if receive.Pos() > mutation.End() && pending[channel] {
+				guarded = true
+			}
+			delete(pending, channel)
+		}
+		return !guarded
+	})
+	return guarded
+}
+
+func channelObject(pass *analysis.Pass, expression ast.Expr) types.Object {
+	identifier, ok := syntax.Unparen(expression).(*ast.Ident)
+	if !ok {
+		return nil
+	}
+	return pass.TypesInfo.ObjectOf(identifier)
 }
 
 func mutatedRoot(pass *analysis.Pass, expression ast.Expr) *ast.Ident {

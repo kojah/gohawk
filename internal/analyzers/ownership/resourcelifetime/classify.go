@@ -220,6 +220,12 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 		}
 		return "captured-by-retaining-literal", analysis.evidence.ClosureRetainsValue(closure, analysis.resource)
 	}
+	return analysis.opaqueFunctionCall(instruction, common, carried)
+}
+
+// Named and dynamically selected functions share the argument-level boundary;
+// literal captures and interface receivers are classified by opaqueCall first.
+func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction, common *ssa.CallCommon, carried bool) (string, bool) {
 	callee := common.StaticCallee()
 	if callee == nil {
 		// A function value: the callee is decided at run time.
@@ -227,6 +233,13 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	}
 	if !carried {
 		return "", false
+	}
+	// An aggregate owner passed to an incompletely modeled retaining helper
+	// can outlive this call even when the helper returns nothing. A read-only
+	// helper is not an ownership handoff and must keep the obligation live.
+	// https://github.com/goshs-labs/goshs/blob/c65ca19696e87cd5ec2206b2a488c5f5f5b621db/smbserver/session.go#L135-L137
+	if analysis.aggregateOwnerMayEscape(instruction, common) {
+		return "aggregate-owner-may-escape", true
 	}
 	// A resource that reaches the callee only inside an aggregate argument is
 	// beyond a parameter-level completion proof: that proof follows the
@@ -246,6 +259,26 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	// through the completion proof already consulted; without either, the
 	// callee is a boundary.
 	return "unsummarized-callee", !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
+}
+
+func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instruction, common *ssa.CallCommon) bool {
+	for _, argument := range common.Args {
+		pointer, ok := argument.Type().Underlying().(*types.Pointer)
+		if !ok {
+			continue
+		}
+		if _, aggregate := pointer.Elem().Underlying().(*types.Struct); !aggregate {
+			continue
+		}
+		if ssaflow.SameValue(argument, analysis.resource) || !analysis.carriesWithin(argument) || analysis.carriedWithinClosure(argument) {
+			continue
+		}
+		effects := analysis.evidence.CallEffects(instruction, argument)
+		if !effects.Proven() || effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // Retaining a callback also retains its captured resource. A known test

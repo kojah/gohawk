@@ -123,7 +123,7 @@ func walkLockOrder(
 			// ask which returns an acquisition dominates.
 			if operation == mutexAcquire {
 				acquisitions[identity] = appendUniqueInstruction(acquisitions[identity], instruction)
-				uncertainGuards[identity] = uncertainGuards[identity] || optionalLoadedMutex(instruction, identity)
+				uncertainGuards[identity] = uncertainGuards[identity] || optionalLoadedGuard(instruction, identity)
 			}
 			actionState := lockFlowState{
 				held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
@@ -144,7 +144,7 @@ func walkLockOrder(
 	for identity, returns := range unreleasedReturns {
 		if uncertainGuards[identity] {
 			analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), acquiredAt[identity]).Decision(analysisTrace.Step{
-				Reason: "optional-loaded-mutex-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: acquiredAt[identity],
+				Reason: "loaded-acquisition-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: acquiredAt[identity],
 			})
 			continue
 		}
