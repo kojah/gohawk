@@ -1,6 +1,7 @@
 package deferinloop
 
 import (
+	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
@@ -177,6 +178,16 @@ func resourceUseStatus(
 	used := false
 	for index, argument := range common.Args {
 		if !ssaflow.SameValue(argument, target) && !ssaflow.ValueContainsValue(argument, target) {
+			// A consumer may receive a wrapper constructed from the resource,
+			// rather than the resource itself. That is unknown, not cleanup:
+			// constructing a wrapper alone does not settle the obligation.
+			// https://github.com/replicatedhq/troubleshoot/blob/eacd376c1245fe2ebcc3581f015f692d77d89af4/pkg/supportbundle/aftercollection.go#L39-L53
+			if pointer, ok := argument.Type().Underlying().(*types.Pointer); ok {
+				if _, aggregate := pointer.Elem().Underlying().(*types.Struct); aggregate &&
+					ssaflow.ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) {
+					return resourceUnknown
+				}
+			}
 			continue
 		}
 		used = true

@@ -6,7 +6,7 @@ import "errors"
 func firstResultOnly() error {
 	results := make(chan error)
 	go func() {
-		results <- errors.New("first")  // want "goroutine send can block after the receiver stops waiting"
+		results <- errors.New("first")
 		results <- errors.New("second") // want "goroutine send can block after the receiver stops waiting"
 	}()
 	return <-results
@@ -44,4 +44,38 @@ func competingSends() error {
 	go func() { results <- errors.New("first") }()  // want "goroutine send can block after the receiver stops waiting"
 	go func() { results <- errors.New("second") }() // want "goroutine send can block after the receiver stops waiting"
 	return <-results
+}
+
+func firstTwoResultsOnly() {
+	results := make(chan int)
+	go func() {
+		results <- 1
+		results <- 2
+		results <- 3 // want "goroutine send can block after the receiver stops waiting"
+	}()
+	<-results
+	<-results
+}
+
+func branchingSecondResult(fail bool) {
+	results := make(chan int)
+	go func() {
+		results <- 1
+		if fail {
+			results <- 2 // want "goroutine send can block after the receiver stops waiting"
+			return
+		}
+		results <- 3 // want "goroutine send can block after the receiver stops waiting"
+	}()
+	<-results
+}
+
+func repeatedResults() {
+	results := make(chan int)
+	go func() {
+		for {
+			results <- 1 // want "goroutine send can block after the receiver stops waiting"
+		}
+	}()
+	<-results
 }

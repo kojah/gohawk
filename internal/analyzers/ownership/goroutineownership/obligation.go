@@ -172,15 +172,28 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 		if group == nil || !syntax.NamedType(group.Type(), "sync", "WaitGroup") {
 			continue
 		}
-		for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](function) {
+		// A conditional registration promises completion only on that branch.
+		// It cannot create an unconditional obligation for the parent, which may
+		// use the same flag to decide whether to wait. Require return coverage,
+		// not merely one deferred helper that would call Done if registered.
+		// https://github.com/hashicorp/vault-secrets-operator/blob/451a61fc0eda5b26e65dedb03e76fa8ec02b2984/vault/client_factory.go#L890-L909
+		unsettled := ssaflow.UnownedReturnFromEntryAssumingNonNil(function, pair.Local, func(instruction ssa.Instruction) bool {
+			deferred, ok := instruction.(*ssa.Defer)
+			if !ok {
+				return false
+			}
+			if ssaflow.CallMatchesSymbol(deferred.Common(), waitGroupDone) &&
+				ssaflow.DefinitelySameValue(ssaflow.CallReceiver(deferred.Common()), pair.Local) {
+				return true
+			}
 			proof := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
 				Instruction: deferred, Target: pair.Local, Methods: []string{"Done"},
 				Budget: ssaflow.NewSearchBudget(1000),
 			})
-			if proof.Proven() {
-				groups = append(groups, group)
-				break
-			}
+			return proof.Proven()
+		})
+		if !unsettled {
+			groups = append(groups, group)
 		}
 	}
 	return groups
@@ -346,6 +359,12 @@ func waitGroupCompletionValues(
 				continue
 			}
 			if !waitGroupSettlesFunction(function, receiver) {
+				// A deferred Done cannot be an early progress notification. If its
+				// registration is conditional, the completion promise is unknown;
+				// do not misclassify missing coverage as Done preceding work.
+				if _, deferred := instruction.(*ssa.Defer); deferred {
+					continue
+				}
 				// Repeated Done calls can count completed items rather than workers.
 				// Without counter arithmetic a backedge is not proof of early Done.
 				// https://github.com/grafana/dskit/blob/86f3c54f61fe477e68ac15dfac9ed88e4ee9e457/ring/batch_test.go#L61-L74

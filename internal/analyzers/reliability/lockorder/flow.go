@@ -148,7 +148,8 @@ func walkLockOrder(
 			})
 			continue
 		}
-		if !released[identity] || acquiresForCaller(function, acquisitions[identity], heldAtReturn[identity]) {
+		if slices.ContainsFunc(lockValues[identity], privateMutexOnly) ||
+			!released[identity] || acquiresForCaller(function, acquisitions[identity], heldAtReturn[identity]) {
 			continue
 		}
 		for _, position := range returns {

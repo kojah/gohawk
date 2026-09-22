@@ -84,3 +84,14 @@ func opaqueGetter(owner *getterOwner) {
 		owner.Select(true).Unlock()
 	}
 }
+
+func newGetterOwner() *getterOwner { return &getterOwner{} }
+
+// A field below an opaque call result must not acquire a type-wide instance
+// identity. Each call here really does allocate a different owner.
+func fieldsFromUnknownOwner() {
+	for range 3 {
+		owner := newGetterOwner()
+		owner.mu.Lock()
+	}
+}

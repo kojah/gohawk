@@ -91,14 +91,14 @@ func producerSends(function *ssa.Function) []producerSend {
 
 func abandonedProducerSend(function *ssa.Function, send producerSend, sends []producerSend, reported map[token.Pos]bool) bool {
 	// A looped send is potentially unbounded; otherwise compare only sends that
-	// can coexist on the same path. A draining receive loop discharges either
+	// can consume a receive before this send. A draining receive loop discharges either
 	// form because it continues to service the producer.
 	if reported[send.instruction.Pos()] {
 		return false
 	}
 	sendCount := 0
 	for _, candidate := range sends {
-		if ssaflow.SameValue(candidate.channel, send.channel) && producerSendsCanCooccur(send, candidate) {
+		if ssaflow.SameValue(candidate.channel, send.channel) && producerSendMayPrecede(candidate, send) {
 			sendCount++
 		}
 	}
@@ -106,14 +106,19 @@ func abandonedProducerSend(function *ssa.Function, send producerSend, sends []pr
 	return receiveCount > 0 && !draining && (send.repeated || sendCount > receiveCount)
 }
 
-func producerSendsCanCooccur(first, second producerSend) bool {
+func producerSendMayPrecede(first, second producerSend) bool {
 	if first.spawn != second.spawn {
 		return true
 	}
 	if first.instruction == second.instruction {
 		return true
 	}
-	return ssaflow.InstructionMayFollow(first.instruction, second.instruction) || ssaflow.InstructionMayFollow(second.instruction, first.instruction)
+	// Later sends in the same worker cannot consume the receive serving this
+	// one: an unbuffered send must finish before the worker reaches the next.
+	// Different workers still compete, and repeated sends retain the separate
+	// unbounded-loop rule above. This narrows attribution, not protocol coverage.
+	// https://github.com/kubernetes/registry.k8s.io/blob/b5e7d92a3819fcd24ed35b174db0ce6291e88e7f/cmd/archeio/main_test.go#L69-L83
+	return ssaflow.InstructionMayFollow(first.instruction, second.instruction)
 }
 
 func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {

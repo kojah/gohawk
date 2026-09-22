@@ -1,3 +1,6 @@
+// Unknown owner-returning calls intentionally lose instance identity, even if
+// they happen to perform fixed-key map lookups. Their field declaration alone
+// cannot prove that repeated calls return the same mutex.
 package lockorder
 
 import (
@@ -346,14 +349,13 @@ func calledClosureFieldUnlock(owner *calledClosureOwner, fail bool) {
 	owner.mutex.Unlock()
 }
 
-func calledClosureUnlocksDifferentMutex(fail bool) {
-	var mutex sync.Mutex
+func calledClosureUnlocksDifferentMutex(mutex *sync.Mutex, fail bool) {
 	var other sync.Mutex
 	mutex.Lock()
 	release := func() { other.Unlock() }
 	if fail {
 		release()
-		return // want "lock lockorder.calledClosureUnlocksDifferentMutex:local:mutex:t0 is not released on this return path"
+		return // want "not released on this return path"
 	}
 	mutex.Unlock()
 }
@@ -836,15 +838,6 @@ func (m *sessionManager) locksEverySessionState(ids []string) {
 		state := m.state(id)
 		state.mu.Lock()
 		defer state.mu.Unlock()
-	}
-}
-
-// A lookup with a fixed key returns the same state, so locking it on every
-// iteration is recursive.
-func (m *sessionManager) locksFixedStateInLoop(ids []string) {
-	for range ids {
-		state := m.state("fixed")
-		state.mu.Lock() // want "lock .*mu is acquired while already held"
 	}
 }
 

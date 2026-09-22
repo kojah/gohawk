@@ -133,6 +133,13 @@ func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Ins
 // something the analysis cannot see through.
 func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction) (string, bool) {
 	switch typed := instruction.(type) {
+	case *ssa.Store:
+		// An owner selected from a collection may already be retained elsewhere.
+		// The local collection is not evidence that its elements are local owners.
+		// https://github.com/cloudflare/artifact-fs/blob/2b87a48691ef4ae82d391b7bbe4976c06c7fadf7/internal/fusefs/fuse_unix.go#L256-L287
+		owner := resourceFieldOwner(typed, analysis.resource)
+		_, field := typed.Addr.(*ssa.FieldAddr)
+		return "stored-on-collection-owner", field && owner != nil && ssaflow.ElementOfAggregate(owner)
 	case *ssa.Send:
 		return "sent-to-channel", analysis.carries(typed.X)
 	case *ssa.MapUpdate:
@@ -178,6 +185,13 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 		return "appended", builtin.Name() == "append" && carried
 	}
 	if closure, ok := common.Value.(*ssa.MakeClosure); ok {
+		// A captured aggregate can be populated after closure creation. The
+		// closure observes its fields when called, so an unresolved cleanup of
+		// that owner is unknown rather than proof that the acquisition leaks.
+		// https://github.com/Autumn-27/ARTEX/blob/bf7f414477832b77d2152539c0723dc691086522/traffic/traffic.go#L1129-L1176
+		if analysis.capturesAggregateOwner(closure) {
+			return "captured-aggregate-owner", true
+		}
 		if !carried && !analysis.closureCarries(closure) {
 			return "", false
 		}
@@ -351,6 +365,24 @@ func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool 
 	for _, binding := range closure.Bindings {
 		if ssaflow.CapturedBindingMatches(binding, analysis.resource) || analysis.carries(binding) {
 			return true
+		}
+	}
+	return false
+}
+
+func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosure) bool {
+	for _, owner := range analysis.owners {
+		pointer, ok := owner.Type().Underlying().(*types.Pointer)
+		if !ok || ssaflow.SameValue(owner, analysis.resource) {
+			continue
+		}
+		if _, aggregate := pointer.Elem().Underlying().(*types.Struct); !aggregate {
+			continue
+		}
+		for _, binding := range closure.Bindings {
+			if ssaflow.CapturedBindingMatches(binding, owner) {
+				return true
+			}
 		}
 	}
 	return false

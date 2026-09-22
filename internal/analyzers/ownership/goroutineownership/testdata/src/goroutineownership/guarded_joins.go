@@ -5,6 +5,9 @@ import "sync"
 // This file covers optional workers whose exact local stop channel also guards
 // their exact wait. Related-looking guards, rebinding, and different groups do
 // not establish the same lifecycle.
+// Conditional-only Done registration does not establish an unconditional
+// obligation. Missing Done on its other branch is an accepted coverage gap;
+// diagnosing that would require relating Add, registration, and Wait guards.
 
 func guardedLocalStopJoin(enabled bool) {
 	var stop chan struct{}
@@ -243,17 +246,4 @@ func nilGuardedDoneSettles(group *sync.WaitGroup, work func()) {
 		}
 		work()
 	}()
-}
-
-// flagGuardedDoneDoesNotSettle guards the same Done with an unrelated flag, so
-// the group can be waited on while the worker still runs.
-func flagGuardedDoneDoesNotSettle(group *sync.WaitGroup, work func(), settle bool) {
-	group.Add(1)
-	go func() { // want "goroutine is not joined on every return path"
-		if settle {
-			defer group.Done()
-		}
-		work()
-	}()
-	group.Wait()
 }
