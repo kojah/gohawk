@@ -55,7 +55,6 @@ func newCatalog() (*catalog.Catalog, error) {
 		{ID: "reliability", Doc: "reliability and safety", DocPath: "reliability-and-safety", Analyzers: reliabilitySpecs()},
 	}, []catalog.AnalyzerID{
 		"apishape",
-		"contextpolicy",
 		"wirepolicy",
 		"goroutineownership",
 		"producerlifecycle",

@@ -3,7 +3,6 @@ package analyzers
 import (
 	"github.com/kojah/gohawk/internal/analyzers/contracts/apishape"
 	"github.com/kojah/gohawk/internal/analyzers/contracts/closedomain"
-	"github.com/kojah/gohawk/internal/analyzers/contracts/contextpolicy"
 	"github.com/kojah/gohawk/internal/analyzers/contracts/wirepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/borrowedstorage"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/cancellationownership"
@@ -47,25 +46,6 @@ func contractSpecs() []catalog.AnalyzerSpec {
 				{
 					ID: check.APIAdjacentOptional, Doc: "Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap.",
 					Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-				},
-			},
-		},
-		{
-			Analyzer: contextpolicy.Analyzer(),
-			Checks: []catalog.CheckInfo{
-				{
-					ID: check.ContextFirst,
-					Doc: "Reports misplaced context.Context parameters while allowing additional contexts " +
-						"after a leading context and one context after a testing handle.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierCore, Delisted: true,
-				},
-				{
-					ID: check.ContextStorage, Doc: "Reports context.Context values stored in structs.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierCore, Delisted: true,
-				},
-				{
-					ID: check.ContextNilArgument, Doc: "Reports definitely nil context.Context arguments.",
-					Kind: catalog.KindDefect, Tier: catalog.TierCore, Delisted: true,
 				},
 			},
 		},

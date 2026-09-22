@@ -178,7 +178,6 @@ func analysisAnalyzerPointer(value types.Type) bool {
 // registered fails, so relisting an analyzer cannot leave a stale entry behind.
 var withdrawnAnalyzerPackages = map[string]bool{
 	"apishape":            true,
-	"contextpolicy":       true,
 	"errorownership":      true,
 	"determinism":         true,
 	"errorclassification": true,
