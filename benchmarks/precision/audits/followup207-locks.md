@@ -1,7 +1,7 @@
 # Lock follow-up within the remaining 207 findings
 
 The 23 unresolved lock findings from `followup-78-locks.tsv` were replayed with
-the canonical all-check CLI. **Ten are now absent; thirteen remain active.**
+the canonical all-check CLI. **Eleven are now absent; twelve remain active.**
 Both earlier surf corrections remain absent and all four runnable genuine-bug
 controls remain reported. `followup207-locks.tsv` retains all 29 sites and their
 baseline/current receipts; a successful load is required before counting absence.
@@ -23,6 +23,7 @@ or function-name exception.
 | Imported possible writer guard | 2 gocryptfs | A matching opaque wrapper call and dominating deferred standard exclusive unlock establish possible-held-writer uncertainty, not acquired-writer or protected-field proof. |
 | Repeated loaded loop guard | 1 gonc | Matching loaded Boolean guard/polarity around a possible exact release makes same-site loop reentry unknown; it does not prove stable fields or loop completion. |
 | Escaped fresh field identity | 1 file.d | An exact fresh mutex initializer under a fresh local owner remains positive identity uncertainty after escape. Decline class widening, not prove publication safety; visible shared replacements veto this boundary. |
+| Constructor-backed helper receiver | 1 gopcua | Bind embedded mutex paths through helpers, then recognize an exact dominating constructor initializer of the observed owner slot. Every normal constructor return must be its own allocation. Only by-value embedded mutex paths qualify. |
 
 The caller scan includes generated source bodies and package initialization,
 limits each helper to 32 direct synchronous calls, and stops after 20,000
@@ -58,13 +59,29 @@ does not qualify. Known shared initializers and replacement helpers retain
 their cycle diagnostics. Opaque replacement remains a documented coverage
 loss. No global storage or publication guarantee was weakened.
 
+Helper acquisition paths now retain their formal participant before caller
+binding, using shared bounded field-path mechanics without inventing SSA field
+addresses. The mechanical extraction preserved concurrencyfacts' complete-binding
+policy. Its first lock consumer replayed all 20 scopes with identical diagnostics.
+The subsequent constructor-slot boundary uses point-in-time storage equality for
+boxed receiver snapshots, never equality of their mutable cells. A 1,000-step
+query includes constructor scans and exact visible replacement inspection.
+Direct and whole-owner writes, source-visible replacement helpers, slot-address
+mutation, wrong slots, non-dominating initialization, changed receiver snapshots,
+borrowed/mixed factory results, and shared pointer-valued mutex fields retain
+diagnostics. Fresh boxed slots with a later deferred reset are accepted.
+Opaque publication or replacement can hide real cycles; neither constructor
+freshness nor this unknown identity claims safe publication. The final replay
+removed only the gopcua lock finding relative to the preceding checkpoint,
+with no other changed lock diagnostics across the 20 scopes.
+
 ## Active remainder
 
-Thirteen reviewed false positives are still reported; they are work to continue,
+Twelve reviewed false positives are still reported; they are work to continue,
 not blockers or claims that the code is defective:
 
-- Eight contextual order-cycle cases: initialization before publication,
-  fresh versus already-published owners, join-before-reverse-order, distinct
+- Seven contextual order-cycle cases: initialization before publication,
+  join-before-reverse-order, distinct
   peer objects, and common caller serialization.
 - Two template parse error paths need stable initializer evidence plus a
   bounded documented parser contract; a private variable is not a literal
@@ -110,13 +127,13 @@ contained in the final previous binary). Immutable baseline:
 `.build/gohawk-followup78-goroutines-v5`, SHA256
 `5516cad4c83bffd8dca28713df53f8d3d1a463b838c23d302da9e10ddc257419`.
 
-Corrected combined worktree binary: `.build/gohawk-followup207-locks-v13`, SHA256
-`7e69d3f95d4c6d9c6e3a710fd858ca0429b6e9b8fb1417b8854742858e2204f0`.
+Corrected combined worktree binary: `.build/gohawk-followup207-locks-v16`, SHA256
+`2e80eae4c8ee89cc4d59c556aebc54173ac3be34c714c78ac54fff33e99b89c3`.
 It includes concurrent workers' changes outside lockorder; this record claims
 only the reviewed lock sites. It is not stamped as a clean source revision.
 
 Receipts in `.build/followup207-locks-baseline/` and
-`.build/followup207-locks-v13/` cover 20 package scopes each. Every run verifies
+`.build/followup207-locks-v16/` cover 20 package scopes each. Every run verifies
 the original repository revision and uses
 `-enable-all -gohawk-include-tests -json .`, `CGO_ENABLED=0`, `GOWORK=off`,
 `GOTOOLCHAIN=local`, `GOMAXPROCS=2`, `GOFLAGS='-mod=readonly -p=2'`, and
@@ -127,7 +144,7 @@ were executed.
 The four true-positive controls are ContainerSSH `server.go:246:3` and
 `:494:3`, WireGuard `noise-protocol.go:542:3`, and uTLS `common.go:1075:4`.
 All are present in both canonical runs. The ledger separately marks the two
-previously corrected surf sites rather than counting them among the ten new
+previously corrected surf sites rather than counting them among the eleven new
 corrections.
 
 Focused tests, the focused race suite, and targeted canonical golangci-lint

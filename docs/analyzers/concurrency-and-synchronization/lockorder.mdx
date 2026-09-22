@@ -60,8 +60,14 @@ Source-visible helper acquisition witnesses retain bounded embedded-field paths
 and bind their roots at each call. A fresh caller allocation therefore keeps its
 local mutex identity even when only the helper computes the field address.
 Distinct formal participants are not merged before binding. Pointer loads remain
-exact snapshots, not their mutable cells; constructor results and receiver-slot
-publication still need additional evidence and are not treated as fresh here.
+exact snapshots, not their mutable cells. A loaded owner may instead have an
+exact dominating slot initializer from a source-visible constructor whose every
+normal return is its own fresh allocation. This makes the embedded by-value
+mutex's declaration identity uncertain; it does not prove private publication.
+Visible shared replacements veto that boundary. Pointer-valued mutex fields do
+not inherit their owner's freshness. Opaque replacement or a constructor that
+publishes its allocation can therefore hide real cycles: this is a documented
+coverage loss, not a synchronization proof.
 
 Two locks of the same declaration are not compared. Whether
 `transfer(from, to *Account)` conflicts with a caller passing the same pair in
