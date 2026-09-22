@@ -172,6 +172,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 	experimental := map[string]bool{"borrowedstorage": true, "channelprotocol": true}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
+		"channelsafety/double-close":         CheckTierExperimental,
 		"processownership/detached":          CheckTierExperimental,
 		"resourcelifetime/use-after-release": CheckTierCore,
 		"lockorder/contradictory-order":      CheckTierExtended,
@@ -180,6 +181,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/discarded-trylock":        CheckTierExperimental,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
+		"channelsafety/double-close":         CheckKindDefect,
 		"channelprotocol/lock-and-join":      CheckKindDefect,
 		"channelprotocol/channel-lock-cycle": CheckKindDefect,
 		"channelprotocol/blocked-operation":  CheckKindDefect,

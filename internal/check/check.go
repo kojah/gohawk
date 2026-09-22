@@ -19,6 +19,7 @@ const (
 	BorrowedStorageOwner     ID = "borrowedstorage/overlapping-owner"
 	ChannelCapacityRationale ID = "channelcapacity/rationale"
 	ChannelSendAfterClose    ID = "channelsafety/send-after-close"
+	ChannelDoubleClose       ID = "channelsafety/double-close"
 	DeferCleanupInLoop       ID = "deferinloop/cleanup-lifetime"
 	GoroutineJoin            ID = "goroutineownership/unjoined"
 	ProducerLifecycleSend    ID = "producerlifecycle/abandoned-send"

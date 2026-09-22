@@ -113,6 +113,10 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 		}},
 		{Analyzer: channelsafety.Analyzer(), Checks: []catalog.CheckInfo{
 			{
+				ID: check.ChannelDoubleClose, Doc: "Reports repeated closes of the same channel in a straight-line block.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
+			{
 				ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed.",
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
 			},

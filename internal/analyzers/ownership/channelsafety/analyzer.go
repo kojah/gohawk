@@ -29,14 +29,15 @@ func runChannelSafety(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	for _, function := range functions {
-		reportSendsAfterClose(pass, function)
+		effects := channelEffects(pass, function)
+		reportSendsAfterClose(pass, function, effects)
+		reportDoubleCloses(pass, function, effects)
 	}
 	return nil, nil
 }
 
-func reportSendsAfterClose(pass *analysis.Pass, function *ssa.Function) {
+func reportSendsAfterClose(pass *analysis.Pass, function *ssa.Function, effects map[ssa.Instruction][]concurrencyfacts.Operation) {
 	reported := map[token.Pos]bool{}
-	effects := channelEffects(pass, function)
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			for _, closed := range effects[instruction] {

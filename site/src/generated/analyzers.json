@@ -42,6 +42,12 @@
           "tier": "core",
           "checks": [
             {
+              "id": "channelsafety/double-close",
+              "summary": "Reports repeated closes of the same channel in a straight-line block.",
+              "kind": "defect",
+              "tier": "experimental"
+            },
+            {
               "id": "channelsafety/send-after-close",
               "summary": "Reports sends reachable after a channel has been closed.",
               "kind": "defect",
