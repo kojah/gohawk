@@ -1,10 +1,13 @@
 package cancellationownership
 
 import (
+	"go/constant"
 	"go/token"
+	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -47,6 +50,7 @@ const (
 
 type cancellationClassifier struct {
 	cancel    ssa.Value
+	context   ssa.Value
 	parent    *cancellationClassifier
 	actions   map[ssa.Instruction]cancellationAction
 	transfers bool
@@ -60,6 +64,9 @@ func proveCancellation(call *ssa.Call, cancel ssa.Value) CancellationProof {
 		cancel:  cancel,
 		parent:  parentCancellationClassifier(call),
 		actions: make(map[ssa.Instruction]cancellationAction),
+	}
+	if contract, ok := cancellationContractFor(call.Common()); ok && contract.packagePath == "context" {
+		classifier.context = ssaflow.CallResult(call, 0)
 	}
 	settledOrUnknown := func(instruction ssa.Instruction) bool {
 		return classifier.action(instruction) != cancellationActionNone
@@ -176,6 +183,9 @@ func (classifier *cancellationClassifier) recognizedDirectAction(
 	instruction ssa.Instruction,
 	common *ssa.CallCommon,
 ) (cancellationAction, bool) {
+	if receive, ok := instruction.(*ssa.UnOp); ok && receive.Op == token.ARROW && classifier.ownDoneChannel(receive.X) {
+		return cancellationActionUnknown, true
+	}
 	if common != nil && common.Value == classifier.cancel {
 		if _, ok := instruction.(*ssa.Go); ok {
 			return cancellationActionTransfer, true
@@ -270,6 +280,9 @@ func deferredClosureCaptures(instruction ssa.Instruction, target ssa.Value) bool
 }
 
 func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) cancellationAction {
+	if classifier.selectedDoneBefore(returned) {
+		return cancellationActionUnknown
+	}
 	if slices.Contains(returned.Results, classifier.cancel) {
 		classifier.transfers = true
 		return cancellationActionTransfer
@@ -281,6 +294,50 @@ func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) can
 		return cancellationActionUnknown
 	}
 	return cancellationActionNone
+}
+
+// Receiving this standard context's Done observes cancellation, not just an
+// intention to cancel. Keep it unknown rather than claiming synchronous parent
+// unlinking. NotifyContext is excluded: receiving a signal does not unregister
+// its handler. Each select arm must be proved separately; another case or a
+// default arm must not borrow this evidence.
+// https://github.com/chrislusf/gleam/blob/8b4ae277059f30322db71de5e0473a4351bf9f8d/util/context.go#L7-L25
+func (classifier *cancellationClassifier) ownDoneChannel(value ssa.Value) bool {
+	call, ok := value.(*ssa.Call)
+	return ok && classifier.context != nil && ssaflow.CallReceiver(call.Common()) == classifier.context &&
+		ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageMethod(syntax.MethodSymbol{
+			PackagePath: "context", Receiver: "Context", Name: "Done",
+		}))
+}
+
+func (classifier *cancellationClassifier) selectedDoneBefore(returned *ssa.Return) bool {
+	if classifier.context == nil {
+		return false
+	}
+	for _, branch := range ssaflow.InstructionsOf[*ssa.If](returned.Parent()) {
+		comparison, ok := branch.Cond.(*ssa.BinOp)
+		if !ok || comparison.Op != token.EQL {
+			continue
+		}
+		index, ok := comparison.X.(*ssa.Extract)
+		if !ok || index.Index != 0 {
+			continue
+		}
+		selected, ok := index.Tuple.(*ssa.Select)
+		arm, constantArm := comparison.Y.(*ssa.Const)
+		if !ok || !constantArm || arm.Value == nil {
+			continue
+		}
+		number, valid := constant.Int64Val(arm.Value)
+		if !valid || number < 0 || number >= int64(len(selected.States)) {
+			continue
+		}
+		state := selected.States[number]
+		if state.Dir == types.RecvOnly && classifier.ownDoneChannel(state.Chan) && branch.Block().Succs[0].Dominates(returned.Block()) {
+			return true
+		}
+	}
+	return false
 }
 
 func commonHasExactArgument(common *ssa.CallCommon, target ssa.Value) bool {
