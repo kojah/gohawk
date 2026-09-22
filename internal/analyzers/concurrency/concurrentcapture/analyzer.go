@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"go/version"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -48,7 +49,7 @@ func inspectRepeatedLaunches(pass *analysis.Pass, loop ast.Node, body *ast.Block
 			return false
 		case *ast.GoStmt:
 			if closure := calledClosure(candidate.Call); closure != nil {
-				reportCapturedMutations(pass, body, closure, varyingWorkerParameters(pass, loop, candidate.Call, closure))
+				reportCapturedMutations(pass, loop, body, closure, varyingWorkerParameters(pass, loop, candidate.Call, closure))
 			}
 			return false
 		case *ast.CallExpr:
@@ -57,7 +58,7 @@ func inspectRepeatedLaunches(pass *analysis.Pass, loop ast.Node, body *ast.Block
 				return true
 			}
 			if closure, ok := candidate.Args[0].(*ast.FuncLit); ok {
-				reportCapturedMutations(pass, body, closure, nil)
+				reportCapturedMutations(pass, loop, body, closure, nil)
 			}
 			return false
 		default:
@@ -74,7 +75,7 @@ func calledClosure(call *ast.CallExpr) *ast.FuncLit {
 	return closure
 }
 
-func reportCapturedMutations(pass *analysis.Pass, body *ast.BlockStmt, closure *ast.FuncLit, varying []types.Object) {
+func reportCapturedMutations(pass *analysis.Pass, loop ast.Node, body *ast.BlockStmt, closure *ast.FuncLit, varying []types.Object) {
 	// A lock anywhere in the launched closure is conservative synchronization
 	// evidence. Without one, report only writes whose root is a local declared
 	// before the loop body. A body-local variable belongs to one iteration;
@@ -102,6 +103,9 @@ func reportCapturedMutations(pass *analysis.Pass, body *ast.BlockStmt, closure *
 			return true
 		}
 		for _, expression := range expressions {
+			if rangeIterationLocal(pass, loop, expression) {
+				continue
+			}
 			identifier := mutatedRoot(pass, expression)
 			if identifier == nil {
 				continue
@@ -115,6 +119,43 @@ func reportCapturedMutations(pass *analysis.Pass, body *ast.BlockStmt, closure *
 		}
 		return true
 	})
+}
+
+// Go 1.22 range declarations create a fresh variable each iteration. Direct
+// writes to that variable do not establish shared storage between workers.
+// Map-index writes still mutate the referenced map, and ordinary for headers
+// can read the prior iteration's variable while a worker mutates it. Neither
+// is covered here; nor is an outer range variable shared by an inner loop.
+// https://github.com/tensorchord/envd/blob/c5e6fd54eb111453ced50fe6fac1c16a506d7d62/pkg/builder/build.go#L235-L270
+func rangeIterationLocal(pass *analysis.Pass, loop ast.Node, expression ast.Expr) bool {
+	ranged, ok := loop.(*ast.RangeStmt)
+	if !ok || ranged.Tok != token.DEFINE {
+		return false
+	}
+	identifier, direct := syntax.Unparen(expression).(*ast.Ident)
+	if !direct {
+		return false
+	}
+	object := pass.TypesInfo.ObjectOf(identifier)
+	declared := false
+	for _, variable := range []ast.Expr{ranged.Key, ranged.Value} {
+		if name, ok := variable.(*ast.Ident); ok && object != nil && pass.TypesInfo.Defs[name] == object {
+			declared = true
+		}
+	}
+	if !declared {
+		return false
+	}
+	for _, file := range pass.Files {
+		if file.Pos() <= loop.Pos() && loop.End() <= file.End() {
+			language := pass.TypesInfo.FileVersions[file]
+			if language == "" {
+				language = pass.Pkg.GoVersion()
+			}
+			return version.Compare(language, "go1.22") >= 0
+		}
+	}
+	return false
 }
 
 // A guard using a worker's own argument can select distinct writers across
