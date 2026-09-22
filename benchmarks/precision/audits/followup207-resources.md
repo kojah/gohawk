@@ -1,7 +1,8 @@
 # Resource follow-up: active 207-finding queue
 
 This continues the 140 resource false positives left by
-`resource-tightening-2026-09-22.tsv`. It is not a completed audit of all 140.
+`resource-tightening-2026-09-22.tsv`. All 140 have now been replayed, but their
+resolution remains in progress.
 `followup207-resources.tsv` preserves the original verdict separately from
 replay status and includes the 72 original resource true-positive controls.
 
@@ -20,8 +21,8 @@ replay status and includes the 72 original resource true-positive controls.
   all-check replay. Five wg-portal
   misses and the previously documented piko WebSocket miss remain baseline
   misses; none is newly lost here.
-- 95 false positives still report. Another 26 are outside these replayed
-  package scopes; all remain active.
+- 121 false positives still report and remain active. None is left without a
+  current package-scope replay.
 - Geesefs `core/cfg/logger.go:37:16` is absent in both binaries in this replay,
   unlike earlier canonical replays. This profile-dependent baseline absence
   remains unresolved and is not counted as a correction.
@@ -87,7 +88,7 @@ checked inside the constructor.
 
 ## Reproduction
 
-All candidate repositories were used only for static analysis. The 64 pinned
+All candidate repositories were used only for static analysis. The 83 pinned
 package scopes were replayed with the direct CLI profile:
 
 ```text
@@ -107,10 +108,10 @@ failed loads are not treated as absence.
 - Candidate: `.build/gohawk-followup207-error-guard-v4`, SHA-256
   `7d0308f2a0b3efcb5aef71ad769b412c9f62bb5ddb31d64b039399dc24bdeffb`.
 
-All 64 package scopes completed successfully. Comparing every resource
+All 83 package scopes completed successfully. Comparing every resource
 diagnostic in those scopes, not just the labelled sites, found zero new
-diagnostics and eighteen removed diagnostics. The additional error-guard
-package scopes have matching successful immutable-baseline receipts; absence
+diagnostics and eighteen removed diagnostics. The additional package scopes
+have matching successful immutable-baseline receipts; absence
 in a newly scanned scope alone was not counted as a correction.
 
 The earlier HTTP-v1 all-check `megaease/easeprobe ./daemon` replay timed out at 240 seconds,
