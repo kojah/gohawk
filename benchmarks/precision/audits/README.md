@@ -1797,12 +1797,15 @@ enabled and tests included, root module only (1,472 packages), static
 analysis only, with the binary built from `74dda5a`. The whole tree took
 2 minutes 28 seconds and peaked at 508 MB resident.
 
-All 56 findings are [reviewed](kubernetes-dogfood-2026-09-22.tsv): 43 true
-positives, 12 false positives, one inconclusive. The true positives are
+All 56 findings are [reviewed](kubernetes-dogfood-2026-09-22.tsv): 41 true
+positives, 14 false positives, one inconclusive. The true positives are
 mostly test code: response bodies and temp files never closed, results
 discarded, error paths that return before Close, completion signals
-abandoned by a timeout or context arm, and four writes under a read lock in
-production kubelet and scheduler code. Seven of the abandoned completions are
+abandoned by a timeout or context arm, and two writes under a read lock, one
+in the scheduler's waiting-pod map and one in a volume test fake, both still
+present on upstream master. Two further read-lock writes in the kubelet
+status manager touch a map documented as owned by the sync goroutine, which
+the read lock never guarded; those are false positives by ownership. Seven of the abandoned completions are
 close-only workers that kubernetes bounds deliberately at shutdown; they are
 labelled true positives because the repository's own
 `selectTimeoutDoesNotJoin` fixture defines a timeout arm as not a join, and a
