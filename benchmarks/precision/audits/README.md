@@ -1797,23 +1797,21 @@ enabled and tests included, root module only (1,472 packages), static
 analysis only, with the binary built from `74dda5a`. The whole tree took
 2 minutes 28 seconds and peaked at 508 MB resident.
 
-All 56 findings are [reviewed](kubernetes-dogfood-2026-09-22.tsv): 36 true
-positives, 19 false positives, one inconclusive. The true positives are
+All 56 findings are [reviewed](kubernetes-dogfood-2026-09-22.tsv): 43 true
+positives, 12 false positives, one inconclusive. The true positives are
 mostly test code: response bodies and temp files never closed, results
-discarded, error paths that return before Close, unbuffered completion sends
-abandoned by a timeout arm, and four writes under a read lock in production
-kubelet and scheduler code. Two families explain 14 of the 19 false
-positives and are bounded model gaps rather than judgement calls:
-
-- Seven `utiltesting.CloseAndRemove(t, file)` sites: the helper ranges over a
-  variadic slice and closes every element, and the lifecycle fact proves no
-  parameter because Closed is not derived through a range over a variadic
-  parameter.
-- Seven workers whose only completion action is `close(done)`, abandoned by a
-  timeout or context arm. A close never blocks, so the worker cannot outlive
-  its own work; the check's abandoned-completion claim holds only for an
-  unbuffered send, which is how the five true positives in the same shape
-  differ.
+discarded, error paths that return before Close, completion signals
+abandoned by a timeout or context arm, and four writes under a read lock in
+production kubelet and scheduler code. Seven of the abandoned completions are
+close-only workers that kubernetes bounds deliberately at shutdown; they are
+labelled true positives because the repository's own
+`selectTimeoutDoesNotJoin` fixture defines a timeout arm as not a join, and a
+first attempt to treat an observed close as unknown was reverted when it
+removed nine reviewed reports. One family explains seven of the twelve false
+positives and is a bounded model gap: `utiltesting.CloseAndRemove(t, file)`
+ranges over a variadic slice and closes every element, and the lifecycle fact
+proves no parameter because Closed is not derived through a range over a
+variadic parameter.
 
 The remaining five are a forced TLS failure against a plain server, a HEAD
 through a cloned standard transport, a file closed by a deferred literal
