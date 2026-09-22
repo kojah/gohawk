@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"go/constant"
 	"go/token"
+	"go/types"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -37,30 +38,169 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call) resourceLifeti
 	return ""
 }
 
-// A HEAD response through an unchanged zero-value client normally carries
-// http.NoBody, not an acquired body. DefaultTransport is replaceable, so this
-// is uncertainty about acquisition, never a proof that closing is unnecessary.
-// Explicit transports and client timeouts stay outside this boundary: even a
-// bodyless response can own a cancelTimerBody when Client.Timeout is nonzero.
+// A HEAD response through an unconfigured client normally carries
+// http.NoBody, not an acquired body: the standard transport reads no body for
+// HEAD, and without Client.Timeout there is no cancelTimerBody around it.
+// DefaultTransport and DefaultClient are replaceable, so this is uncertainty
+// about acquisition, never a proof that closing is unnecessary. The client is
+// either a fresh zero-value local used only by Do, or the package default
+// client with no visible reconfiguration in this function or a visible callee;
+// hidden cross-package mutation of the defaults is the same accepted coverage
+// gap as the local-server boundary below. The request must be the direct
+// HEAD constructor result, possibly rebound through WithContext or Clone and
+// with its Header map edited, none of which can change Method. Any other use
+// of the request or the client, such as a helper receiving it, could.
 // https://github.com/vishen/go-chromecast/blob/5dd70bb91787fe28e3d8946682c66cb2a1d61d21/application/application.go#L723-L732
+// https://github.com/alexellis/arkade/blob/0a0a800fd7554d4eddb1856f9ef8a21214e95bab/pkg/get/get.go#L236-L244
+// https://github.com/deweizhu/bookget/blob/2cdbf6d6c3ce70355a5c4411c0faf3450e9ae877/pkg/downloader/downloader.go#L510-L522
 func headAcquisitionUncertain(call *ssa.Call) bool {
 	common := call.Common()
-	if !ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
-		PackagePath: "net/http", Receiver: "Client", Name: "Do",
-	})) || len(common.Args) != 2 {
+	if !ssaflow.CallMatchesSymbol(common, httpClientDo) || len(common.Args) != 2 {
 		return false
 	}
-	client, ok := common.Args[0].(*ssa.Alloc)
-	if !ok || !onlyHTTPDoUses(client) {
+	return headClientUnconfigured(common.Args[0], call.Parent()) && headRequest(common.Args[1])
+}
+
+var (
+	httpClientDo           = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Client", Name: "Do"})
+	httpDefaultClient      = syntax.PackageVariable("net/http", "DefaultClient")
+	httpDefaultTransport   = syntax.PackageVariable("net/http", "DefaultTransport")
+	httpRequestWithContext = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Request", Name: "WithContext"})
+	httpRequestClone       = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Request", Name: "Clone"})
+	// Header edits through the standard map methods cannot change the request
+	// method; the map handed anywhere else is rejected so the rule stays small.
+	httpHeaderEdits = []syntax.Symbol{
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Set"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Add"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Get"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Del"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Values"}),
+	}
+)
+
+func headClientUnconfigured(client ssa.Value, function *ssa.Function) bool {
+	if local, ok := client.(*ssa.Alloc); ok {
+		return onlyHTTPDoUses(local)
+	}
+	load, ok := client.(*ssa.UnOp)
+	return ok && load.Op == token.MUL && ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) &&
+		onlyHTTPDoUses(load) && !defaultClientVisiblyModified(function)
+}
+
+// defaultClientVisiblyModified reports any use of the package default client
+// or transport, here or in a visible callee, other than loading the client
+// for a direct Do call. A store, a field address, or an argument position
+// could install the timeout or transport that gives a HEAD response a body
+// wrapper. Exhausted searches count as modified.
+func defaultClientVisiblyModified(function *ssa.Function) bool {
+	budget := ssaflow.NewSearchBudget(4000)
+	overrides := newHTTPWriterEffects().overrides
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if !budget.Spend() {
+				return true
+			}
+			if load, ok := instruction.(*ssa.UnOp); ok && load.Op == token.MUL &&
+				ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) && onlyHTTPDoUses(load) {
+				continue
+			}
+			for _, operand := range instruction.Operands(nil) {
+				if operand != nil && ssaflow.ValueMatchesAnySymbol(*operand, httpDefaultClient, httpDefaultTransport) {
+					return true
+				}
+			}
+			callee, _ := ssaflow.DirectCallee(ssaflow.InstructionCall(instruction))
+			if callee != nil && len(callee.Blocks) != 0 && overrides.Function(callee, budget) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// headRequest accepts the direct result of a HEAD constructor, or that result
+// rebound through WithContext or Clone, when every use of each intermediate
+// preserves Method.
+func headRequest(request ssa.Value) bool {
+	switch typed := request.(type) {
+	case *ssa.Extract:
+		constructor, ok := typed.Tuple.(*ssa.Call)
+		return ok && typed.Index == 0 && headConstructor(constructor.Common()) && requestUsesPreserveMethod(typed)
+	case *ssa.Call:
+		return ssaflow.CallMatchesAnySymbol(typed.Common(), httpRequestWithContext, httpRequestClone) &&
+			headRequest(ssaflow.CallReceiver(typed.Common())) && requestUsesPreserveMethod(typed)
+	}
+	return false
+}
+
+func headConstructor(common *ssa.CallCommon) bool {
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "NewRequest")) {
+		return len(common.Args) == 3 && constantString(common.Args[0]) == "HEAD"
+	}
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "NewRequestWithContext")) {
+		return len(common.Args) == 4 && constantString(common.Args[1]) == "HEAD"
+	}
+	return false
+}
+
+func requestUsesPreserveMethod(request ssa.Value) bool {
+	refs := request.Referrers()
+	if refs == nil || len(*refs) == 0 {
 		return false
 	}
-	request, ok := common.Args[1].(*ssa.Extract)
-	if !ok || request.Index != 0 || !onlyHTTPDoUses(request) {
+	for _, ref := range *refs {
+		switch typed := ref.(type) {
+		case *ssa.DebugRef:
+		case *ssa.Call:
+			common := typed.Common()
+			if ssaflow.CallMatchesSymbol(common, httpClientDo) && len(common.Args) == 2 && common.Args[1] == request {
+				continue
+			}
+			if ssaflow.CallMatchesAnySymbol(common, httpRequestWithContext, httpRequestClone) &&
+				ssaflow.CallReceiver(common) == request && requestUsesPreserveMethod(typed) {
+				continue
+			}
+			return false
+		case *ssa.FieldAddr:
+			if requestFieldName(typed) != "Header" || !headerUsesAreEdits(typed) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func requestFieldName(field *ssa.FieldAddr) string {
+	pointer, ok := field.X.Type().Underlying().(*types.Pointer)
+	if !ok || !syntax.NamedType(field.X.Type(), "net/http", "Request") {
+		return ""
+	}
+	structure, ok := pointer.Elem().Underlying().(*types.Struct)
+	if !ok {
+		return ""
+	}
+	return structure.Field(field.Field).Name()
+}
+
+func headerUsesAreEdits(field *ssa.FieldAddr) bool {
+	if field.Referrers() == nil {
 		return false
 	}
-	constructor, ok := request.Tuple.(*ssa.Call)
-	return ok && ssaflow.CallMatchesSymbol(constructor.Common(), syntax.PackageFunction("net/http", "NewRequest")) &&
-		constantString(constructor.Common().Args[0]) == "HEAD"
+	for _, use := range *field.Referrers() {
+		load, ok := use.(*ssa.UnOp)
+		if !ok || load.Op != token.MUL || load.Referrers() == nil {
+			return false
+		}
+		for _, edit := range *load.Referrers() {
+			call, ok := edit.(*ssa.Call)
+			if !ok || ssaflow.CallReceiver(call.Common()) != load || !ssaflow.CallMatchesAnySymbol(call.Common(), httpHeaderEdits...) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Only direct Do calls may observe these fresh values. Field addresses, aliases

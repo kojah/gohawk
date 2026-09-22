@@ -41,6 +41,10 @@ never count as corrections. Candidate code is only statically analyzed.
   response's `Body` before closing it is unknown consumption, not proven
   release. Kruise's `test/e2e/framework/framework.go:549` no longer reports;
   see the [resource ledger](followup207-resources.md) for the boundary.
+- HEAD boundary v2: HEAD requests through the unconfigured package default
+  client, or rebound through `WithContext`/`Clone` with standard header edits,
+  are acquisition uncertainty like the zero-value-client case. Arkade's
+  `pkg/get/get.go:244` and bookget's `downloader.go:522` no longer report.
 - `b7f5f9b`: direct standard process exits and dominating deferred exits at
   `RunDefers` terminate the shared normal-return proof. The golang/sys
   `unix/syscall_unix_test.go:298` finding disappears in a valid canonical scan;
@@ -66,8 +70,8 @@ existing branch-literal decision point, with no separate path or proof engine.
 
 ## Work in progress
 
-After the handoff, 46 original findings have verified fixes, one original FP
-judgment (Sloth) has been corrected to a real hazard, and 160 remain open. The breakdown
+After the handoff, 48 original findings have verified fixes, one original FP
+judgment (Sloth) has been corrected to a real hazard, and 158 remain open. The breakdown
 is in the handoff and family ledgers. All workers and scans have stopped;
 unvalidated source edits were archived and removed. Intermediate suppression is not counted as a verified
 correction until relevant genuine-bug controls also pass. No check has been
