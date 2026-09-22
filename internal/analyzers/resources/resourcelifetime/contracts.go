@@ -555,6 +555,15 @@ func memoryWriterExempt(call *ssa.Call, contract resourceContract, settings reso
 	); ok {
 		underlying = inner
 	}
+	// Standard constructors create the same memory-only buffer as a local
+	// allocation. The input slice may be borrowed, but carries no descriptor
+	// cleanup obligation. Dynamic factories and mixed external writers remain
+	// outside this opt-out; strict mode above still requires finalization.
+	// https://github.com/apache/pulsar-client-go/blob/1a6d7ac818c9daae9df5c37cb24c0695fabc9eec/pulsar/internal/compression/zlib.go#L39-L52
+	if constructor, ok := underlying.(*ssa.Call); ok && constructor.Parent() == call.Parent() {
+		return ssaflow.CallMatchesAnySymbol(constructor.Common(),
+			syntax.PackageFunction("bytes", "NewBuffer"), syntax.PackageFunction("bytes", "NewBufferString"))
+	}
 	local, ok := underlying.(*ssa.Alloc)
 	if !ok || local.Parent() != call.Parent() {
 		return false

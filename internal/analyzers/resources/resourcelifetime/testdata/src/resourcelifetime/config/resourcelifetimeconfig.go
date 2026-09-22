@@ -3,6 +3,7 @@ package resourcelifetimeconfig
 import (
 	"bytes"
 	"compress/gzip"
+	"compress/zlib"
 	"net/http"
 	"os"
 )
@@ -32,4 +33,11 @@ func ignoredReader() error {
 	}
 	_ = reader
 	return nil
+}
+
+// Strict mode keeps finalization obligations for both buffer construction forms.
+func reportedMemoryWriters() {
+	first := gzip.NewWriter(bytes.NewBuffer(nil))             // want "owned resource from gzip.NewWriter is not released"
+	second := zlib.NewWriter(bytes.NewBufferString("prefix")) // want "owned resource from zlib.NewWriter is not released"
+	_, _ = first, second
 }

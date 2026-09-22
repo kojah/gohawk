@@ -143,7 +143,8 @@ acquisitions feed the cell. This does not prove which value is closed and can
 miss leaks caused by overwriting the cell. Read-only captures, unrelated
 cleanup, and deferred arguments evaluated by value do not establish this boundary.
 
-Compression writers over a local in-memory buffer are exempt by default;
+Compression writers over a local in-memory buffer are exempt by default,
+including exact `bytes.NewBuffer` and `bytes.NewBufferString` results;
 `-require-memory-writer-close=true` reports them like any other writer.
 
 The core `use-after-release` check is the dual of the leak check. After a

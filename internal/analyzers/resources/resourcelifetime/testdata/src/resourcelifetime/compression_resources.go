@@ -109,3 +109,38 @@ func gzipWriterOverLocalBuffer(data []byte) ([]byte, error) {
 	}
 	return buffer.Bytes(), nil
 }
+
+func zlibWriterOverConstructedBuffer(dst, src []byte) []byte {
+	buffer := bytes.NewBuffer(dst[:0])
+	writer := zlib.NewWriter(buffer)
+	if _, err := writer.Write(src); err != nil {
+		return nil
+	}
+	if err := writer.Close(); err != nil {
+		return nil
+	}
+	return buffer.Bytes()
+}
+
+func gzipWriterOverConstructedStringBuffer() {
+	writer := gzip.NewWriter(bytes.NewBufferString("prefix"))
+	_ = writer
+}
+
+func NewBuffer(destination io.Writer) io.Writer {
+	return destination
+}
+
+func customBufferFactory(destination io.Writer) {
+	writer := gzip.NewWriter(NewBuffer(destination)) // want "owned resource from gzip.NewWriter is not released"
+	_ = writer
+}
+
+func mixedMemoryAndExternalWriter(destination io.Writer, external bool) {
+	var output io.Writer = bytes.NewBuffer(nil)
+	if external {
+		output = destination
+	}
+	writer := gzip.NewWriter(output) // want "owned resource from gzip.NewWriter is not released"
+	_ = writer
+}

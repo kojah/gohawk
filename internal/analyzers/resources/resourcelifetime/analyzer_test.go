@@ -148,7 +148,7 @@ func assertSQLBoundaryTrace(t *testing.T, data []byte) {
 
 func TestConfiguration(t *testing.T) {
 	analyzer := Analyzer()
-	for name, value := range map[string]string{"contracts": "http,compress"} {
+	for name, value := range map[string]string{"contracts": "http,compress", "require-memory-writer-close": "true"} {
 		if err := analyzer.Flags.Set(name, value); err != nil {
 			t.Fatalf("set %s=%s: %v", name, value, err)
 		}
