@@ -177,7 +177,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"channelsafety/double-close":         CheckTierExperimental,
-		"processownership/detached":          CheckTierExperimental,
 		"resourcelifetime/use-after-release": CheckTierCore,
 		"lockorder/contradictory-order":      CheckTierExtended,
 		"lockorder/read-lock-write":          CheckTierExperimental,
@@ -196,7 +195,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"channelsafety/send-after-close":     CheckKindDefect,
 		"deferinloop/cleanup-lifetime":       CheckKindHazard,
 		"goroutineownership/unjoined":        CheckKindHazard,
-		"processownership/detached":          CheckKindHazard,
 		"producerlifecycle/abandoned-send":   CheckKindHazard,
 		"processownership/missing-wait":      CheckKindDefect,
 		"resourcelifetime/missing-release":   CheckKindDefect,

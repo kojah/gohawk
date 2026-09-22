@@ -3,10 +3,6 @@ pancsta/asyncmachine-go,resourcelifetime,resourcelifetime/missing-release,tools/
 pancsta/asyncmachine-go,resourcelifetime,resourcelifetime/missing-release,tools/debugger/diagrams.go:959:15,true_positive,9613f2d,2026-09-06
 pancsta/asyncmachine-go,resourcelifetime,resourcelifetime/missing-release,tools/visualizer/visualizer.go:153:16,true_positive,9613f2d,2026-09-06
 creachadair/taskgroup,cancellationownership,cancellationownership/release,examples/copytree/copytree.go:39:17,false_positive,9613f2d,2026-09-06
-tanaikech/ggsrun,processownership,processownership/detached,internal/tui/fd.go:3379:11,true_positive,9613f2d,2026-09-06
-tanaikech/ggsrun,processownership,processownership/detached,internal/tui/fd.go:3382:11,true_positive,9613f2d,2026-09-06
-tanaikech/ggsrun,processownership,processownership/detached,internal/tui/fd.go:3386:11,true_positive,9613f2d,2026-09-06
-tanaikech/ggsrun,processownership,processownership/detached,internal/tui/fd.go:3399:9,true_positive,9613f2d,2026-09-06
 tanaikech/ggsrun,resourcelifetime,resourcelifetime/missing-release,internal/utl/fetcher.go:66:14,true_positive,9613f2d,2026-09-06
 erpc/erpc,resourcelifetime,,clients/http_json_rpc_client.go:436:15,false_positive,9613f2d,2026-09-06
 erpc/erpc,resourcelifetime,,clients/http_json_rpc_client.go:738:15,false_positive,9613f2d,2026-09-06
@@ -36,7 +32,6 @@ ferama/rospo,resourcelifetime,resourcelifetime/missing-release,pkg/utils/keys_te
 janosmiko/lfk,goroutineownership,,internal/app/commands_logs_multi.go:71:2,false_positive,9613f2d,2026-09-06
 janosmiko/lfk,goroutineownership,,internal/k8s/portforward_supersede_test.go:50:2,false_positive,9613f2d,2026-09-06
 janosmiko/lfk,resourcelifetime,resourcelifetime/missing-release,internal/k8s/capture_test.go:190:15,true_positive,9613f2d,2026-09-06
-janosmiko/lfk,processownership,processownership/detached,internal/ui/openbrowser.go:17:9,true_positive,9613f2d,2026-09-06
 jordigilh/kubernaut,goroutineownership,,docs/spikes/a2a-v2-migration/channel_merge_test.go:310:2,false_positive,9613f2d,2026-09-06
 jordigilh/kubernaut,processownership,processownership/missing-wait,docs/spikes/multi-cluster-mcp-gateway/spike-s15-fmc-multiformat-parse/main.go:40:12,true_positive,9613f2d,2026-09-06
 jordigilh/kubernaut,processownership,processownership/missing-wait,docs/spikes/multi-cluster-mcp-gateway/spike-s15-fmc-multiformat-parse/e2e_spike_test.go:35:12,true_positive,9613f2d,2026-09-06

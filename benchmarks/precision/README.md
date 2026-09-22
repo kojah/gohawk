@@ -77,6 +77,15 @@ audit work incremental while still providing regular integration checkpoints.
 
 ## Labels retired with their analyzers
 
+The experimental `processownership/detached` check is retired. Fire-and-forget
+launching alone cannot distinguish a process leak from an intentional browser,
+daemon, or relaunch lifecycle; requiring a parent to wait may contradict that
+lifecycle. Fifteen executable true-positive labels from rounds 2, 3, 5, 8, 12,
+16, 18, 19, and 21 were removed. Their historical audit verdicts and scan
+baselines remain unchanged, not claims of current coverage. The focused
+`processownership/missing-wait` check remains supported with its existing
+boundary; discarded handles are not relabeled as missing-wait defects.
+
 The `exitpolicy` analyzer is retired in full. Skipping a defer on process exit
 does not establish that its cleanup matters after termination; the audit was
 dominated by intentional fatal paths and examples. Rather than accumulating

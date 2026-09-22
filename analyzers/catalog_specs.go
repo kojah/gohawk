@@ -84,12 +84,6 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 				ID: check.ProcessWait, Doc: "Reports successfully started commands that are neither waited on nor transferred.",
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
 			},
-			{
-				ID:   check.ProcessDetached,
-				Doc:  "Reports started commands whose handle is never used again, the fire-and-forget launch.",
-				Kind: catalog.KindHazard,
-				Tier: catalog.TierExperimental,
-			},
 		}},
 		{Analyzer: resourcelifetime.Analyzer(), Checks: []catalog.CheckInfo{
 			{

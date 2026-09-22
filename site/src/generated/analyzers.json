@@ -145,12 +145,6 @@
               "summary": "Reports successfully started commands that are neither waited on nor transferred.",
               "kind": "defect",
               "tier": "core"
-            },
-            {
-              "id": "processownership/detached",
-              "summary": "Reports started commands whose handle is never used again, the fire-and-forget launch.",
-              "kind": "hazard",
-              "tier": "experimental"
             }
           ],
           "options": []

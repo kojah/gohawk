@@ -4,4 +4,3 @@ moov-io/watchman,lockorder,lockorder/missing-release,internal/geocoding/service.
 moov-io/watchman,resourcelifetime,resourcelifetime/missing-release,internal/compress/gzip.go:28:7,true_positive,9613f2d,2026-09-06
 moov-io/watchman,processownership,processownership/missing-wait,internal/postalpool/service.go:68:11,true_positive,9613f2d,2026-09-06
 caddyserver/caddy,deferinloop,deferinloop/cleanup-lifetime,modules/caddyhttp/reverseproxy/fastcgi/client.go:342:3,true_positive,9613f2d,2026-09-06
-zeromicro/go-zero,processownership,processownership/detached,tools/goctl/bug/bug.go:50:9,true_positive,9613f2d,2026-09-06

@@ -345,7 +345,7 @@ func TestCheckSelectionTiers(t *testing.T) {
 			t.Fatalf("selected analyzers = %v", selection.normallySelected)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["processownership/detached"] {
+		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["lockorder/read-lock-write"] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 	})
@@ -358,17 +358,17 @@ func TestCheckSelectionTiers(t *testing.T) {
 			t.Fatal(err)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || !disabled["processownership/detached"] || disabled["goroutineownership/unjoined"] {
+		if disabled["lockorder/contradictory-order"] || !disabled["lockorder/read-lock-write"] || disabled["goroutineownership/unjoined"] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 
-		arguments = []string{"gohawk", "-tier=experimental", "-enable=processownership", "./..."}
+		arguments = []string{"gohawk", "-tier=experimental", "-enable=lockorder", "./..."}
 		selection, err = withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["processownership/detached"] {
-			t.Fatalf("experimental ceiling did not admit detached: %v", disabled)
+		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["lockorder/read-lock-write"] {
+			t.Fatalf("experimental ceiling did not admit read-lock-write: %v", disabled)
 		}
 	})
 

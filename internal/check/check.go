@@ -18,7 +18,6 @@ const (
 	ChannelProtocolLockJoin  ID = "channelprotocol/lock-and-join"
 	ChannelProtocolLockCycle ID = "channelprotocol/channel-lock-cycle"
 	ProcessWait              ID = "processownership/missing-wait"
-	ProcessDetached          ID = "processownership/detached"
 	ResourceRelease          ID = "resourcelifetime/missing-release"
 	ResourceUseAfterRelease  ID = "resourcelifetime/use-after-release"
 	ConcurrentCapture        ID = "concurrentcapture/shared-capture"

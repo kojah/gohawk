@@ -1,8 +1,11 @@
 package processownership
 
+// Fire-and-forget launches are outside the retained missing-wait proof.
+// Retiring detached removes its diagnostic fixtures, including discarded
+// handles, PID-only observers, and unused local owners; these may still leak.
+
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -13,19 +16,6 @@ import (
 type cyclicOwner struct {
 	next *cyclicOwner
 	cmd  *exec.Cmd
-}
-
-// Traversing a cyclic aggregate must terminate without inventing a command
-// transfer. The separate command still needs Wait.
-func unrelatedCyclicOwner() error {
-	owner := &cyclicOwner{}
-	owner.next = owner
-	command := exec.Command("tool")
-	if err := command.Start(); err != nil { // want "started command is never waited on or released"
-		return err
-	}
-	fmt.Fprintln(io.Discard, owner.next)
-	return nil
 }
 
 // A cycle must not prevent finding a genuine handle on another edge.
@@ -96,9 +86,10 @@ func explicitlyDetached(ctx context.Context) error {
 	return command.Process.Release()
 }
 
-func orphan(ctx context.Context) error {
-	command := exec.CommandContext(ctx, "tool")
-	return command.Start() // want "started command is never waited on or released"
+// A browser launch may intentionally outlive its caller. Removing detached
+// must not relabel this uncertainty as a missing-wait defect.
+func launchBrowser(url string) error {
+	return exec.Command("browser", url).Start()
 }
 
 func owned(ctx context.Context) error {
@@ -162,16 +153,6 @@ func conditionallyDeferredOwner(ctx context.Context, wait bool) error {
 			_ = command.Wait()
 		}
 	}()
-	return nil
-}
-
-func differentDeferredOwner(ctx context.Context) error {
-	command := exec.CommandContext(ctx, "tool")
-	other := exec.CommandContext(ctx, "other")
-	if err := command.Start(); err != nil { // want "started command is never waited on or released"
-		return err
-	}
-	defer func() { _ = other.Wait() }()
 	return nil
 }
 
@@ -468,16 +449,6 @@ func controllerWatcherOwnsWait(ctx context.Context) error {
 	return <-done
 }
 
-func controllerWithoutWatcher(ctx context.Context) error {
-	command := exec.CommandContext(ctx, "tool")
-	controller, err := newCommandController(command)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = controller.close() }()
-	return command.Start() // want "started command is never waited on or released"
-}
-
 type startedCopy exec.Cmd
 
 func (copy *startedCopy) Close() {
@@ -504,16 +475,6 @@ func returnedProcessHandle(ctx context.Context) (*os.Process, error) {
 		return nil, err
 	}
 	return command.Process, nil
-}
-
-// Returning only the PID hands the caller a number it cannot wait on, so
-// the launch is detached rather than partially handled.
-func returnedProcessPidOnly(ctx context.Context) (int, error) {
-	command := exec.CommandContext(ctx, "tool")
-	if err := command.Start(); err != nil { // want "started command is never waited on or released"
-		return 0, err
-	}
-	return command.Process.Pid, nil
 }
 
 type forwardWait struct {
@@ -586,28 +547,6 @@ func startedAndWaitedThroughSlice(ctx context.Context) error {
 		if err := command.Wait(); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// Printing the child's PID after Start reads a field; it hands the handle to
-// nothing, so the launch is detached rather than partially waited.
-func daemonizeAndReportPID(ctx context.Context) error {
-	command := exec.CommandContext(ctx, "self", "--daemon")
-	if err := command.Start(); err != nil { // want "started command is never waited on or released"
-		return err
-	}
-	fmt.Println("started", command.Process.Pid)
-	return nil
-}
-
-// A command stored only in a local struct before Start is not transferred.
-func startWithLocalHolder() error {
-	holder := &envoyDriver{}
-	cmd := exec.Command("envoy")
-	holder.cmd = cmd
-	if err := cmd.Start(); err != nil { // want "started command is never waited on or released"
-		return err
 	}
 	return nil
 }

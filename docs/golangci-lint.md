@@ -54,7 +54,7 @@ linters:
           disable:
             - lockorder
           enable-checks:
-            - processownership/detached
+            - channelsafety/double-close
           disable-checks:
             - deferinloop/cleanup-lifetime
 ```

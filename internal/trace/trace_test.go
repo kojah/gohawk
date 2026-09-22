@@ -98,7 +98,7 @@ func TestEnabledUsesAnalyzerAndCheckSelectors(t *testing.T) {
 	if !Enabled("goroutineownership", "goroutineownership/unjoined") {
 		t.Fatal("selected check is not enabled")
 	}
-	if Enabled("processownership", "processownership/detached") {
+	if Enabled("processownership", "processownership/missing-wait") {
 		t.Fatal("unselected check is enabled")
 	}
 }

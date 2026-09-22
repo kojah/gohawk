@@ -48,9 +48,6 @@ drn/argus,processownership,,internal/daemon/client/autostart_fork.go:92:12,false
 drn/argus,goroutineownership,,internal/daemon/client/fakedaemon_test.go:423:2,false_positive,9613f2d,2026-09-06
 drn/argus,resourcelifetime,,internal/uxlog/uxlog.go:28:12,false_positive,9613f2d,2026-09-06
 tjjh89017/stunmesh-go,processownership,processownership/missing-wait,internal/plugin/exec.go:96:12,true_positive,9613f2d,2026-09-06
-MUKE-coder/grit,processownership,processownership/detached,cmd/grit/main.go:1897:3,true_positive,9613f2d,2026-09-06
-MUKE-coder/grit,processownership,processownership/detached,cmd/grit/main.go:1899:3,true_positive,9613f2d,2026-09-06
-MUKE-coder/grit,processownership,processownership/detached,cmd/grit/main.go:1901:3,true_positive,9613f2d,2026-09-06
 jentfoo/ajent,goroutineownership,,pkg/permit/classifier_test.go:197:4,false_positive,9613f2d,2026-09-06
 jentfoo/ajent,goroutineownership,,pkg/permit/classifier_test.go:239:4,false_positive,9613f2d,2026-09-06
 jentfoo/ajent,processownership,,pkg/tools/bash.go:137:12,false_positive,9613f2d,2026-09-06

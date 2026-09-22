@@ -97,7 +97,7 @@ func commandOwnedElsewhere(evidence *lifecyclefacts.LifecycleEvidence, function 
 }
 
 // reportStartedCommand asks the flow whether every successful return waits on
-// or transfers the command, and reports the defect or the detached launch.
+// or transfers the command, and reports partial wait ownership.
 func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, start *ssa.Call, command ssa.Value) {
 	leaks := ssaflow.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
 		return processOwnershipAction(evidence, candidate, command)
@@ -114,12 +114,10 @@ func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.Lifecycl
 	if !leaks {
 		return
 	}
-	// A launch whose handle is never touched again is a policy choice
-	// the project made deliberately, such as opening a browser, and is
-	// reported only by the opt-in detached audit. A handle that is
-	// waited on or released on some paths but not all is a defect.
+	// Fire-and-forget alone cannot distinguish an intentional browser or
+	// daemon launch from a defect. Retiring the detached audit must not
+	// broaden missing-wait to report those same uncertain launches.
 	if commandUnusedAfterStart(start, command) {
-		check.Reportf(pass, check.ProcessDetached, start.Pos(), "started command is never waited on or released")
 		return
 	}
 	check.Reportf(pass, check.ProcessWait, start.Pos(), "started command is not waited on every successful return path")
