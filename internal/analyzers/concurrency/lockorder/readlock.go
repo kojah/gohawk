@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -33,7 +34,10 @@ import (
 
 // reportReadLockWrites reports a write to an object whose read lock is the only
 // one held at this instruction.
-func reportReadLockWrites(pass *analysis.Pass, instruction ssa.Instruction, held, readHeld []string, lockValues map[string][]ssa.Value) {
+func reportReadLockWrites(
+	pass *analysis.Pass, instruction ssa.Instruction, held, readHeld []string,
+	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer,
+) {
 	for _, identity := range readHeld {
 		// A lock the flow already transferred or released is no longer held,
 		// even if it was taken for reading earlier on this path.
@@ -52,11 +56,71 @@ func reportReadLockWrites(pass *analysis.Pass, instruction ssa.Instruction, held
 			if writeLockHeld(held, readHeld) {
 				continue
 			}
+			if slices.ContainsFunc(possibleWriters, func(deferred *ssa.Defer) bool { return possibleWriterAt(deferred, instruction) }) {
+				analysisTrace.For(pass, "lockorder", string(check.LockReadLockWrite), instruction.Pos()).Decision(analysisTrace.Step{
+					Reason: "imported-writer-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
+				})
+				continue
+			}
 			check.Reportf(pass, check.LockReadLockWrite, instruction.Pos(),
 				"write while only the read lock %s is held", identity)
 			return
 		}
 	}
+}
+
+func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction) bool {
+	if !ssaflow.InstructionDominates(deferred, instruction) {
+		return false
+	}
+	_, _, writer, _ := mutexAction(deferred)
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](instruction.Parent()) {
+		operation, _, receiver, direct := mutexAction(call)
+		if direct && operation == mutexRelease && !readModeRelease(call) && ssaflow.SameValue(receiver, writer) &&
+			ssaflow.InstructionMayFollow(deferred, call) && ssaflow.InstructionMayFollow(call, instruction) {
+			// An explicit intervening release defeats the possible-held guard;
+			// the still-registered defer must not hide an unprotected write.
+			return false
+		}
+	}
+	return true
+}
+
+// An imported wrapper can acquire its embedded mutex while doing bookkeeping
+// that the complete-effect summary cannot model. A deferred standard exclusive
+// Unlock of that same wrapper is positive evidence of a possibly held writer.
+// This is uncertainty, not guard-to-field inference or an acquisition effect;
+// it must never enter order or recursive-lock proofs. Distinct wrapper receivers,
+// known empty calls, and a release already executed provide no such evidence.
+// https://github.com/rfjakob/gocryptfs/blob/842af4463989ee6808d397433e9aba8517e49c89/internal/fusefrontend/file.go#L418-L430
+func possibleDeferredWriters(function *ssa.Function, summaries map[ssa.Instruction][]mutexEffect) []*ssa.Defer {
+	var writers []*ssa.Defer
+	calls := ssaflow.InstructionsOf[*ssa.Call](function)
+	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](function) {
+		operation, _, receiver, direct := mutexAction(deferred)
+		if !direct || operation != mutexRelease || readModeRelease(deferred) {
+			continue
+		}
+		field, embedded := receiver.(*ssa.FieldAddr)
+		if !embedded {
+			continue
+		}
+		for _, call := range calls {
+			callee := call.Common().StaticCallee()
+			if callee == nil || len(callee.Blocks) != 0 || !ssaflow.InstructionDominates(call, deferred) {
+				continue
+			}
+			if _, complete := summaries[call]; complete {
+				continue
+			}
+			calledReceiver := ssaflow.CallReceiver(call.Common())
+			if calledReceiver != nil && ssaflow.SameValue(calledReceiver, field.X) {
+				writers = append(writers, deferred)
+				break
+			}
+		}
+	}
+	return writers
 }
 
 // writeLockHeld reports whether this path also holds an exclusive lock.

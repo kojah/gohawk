@@ -29,6 +29,13 @@ type lockFlowState struct {
 	guards         map[string]lockGuard
 	condition      string
 	conditionValue bool
+	constants      []lockBooleanConstant
+	constraints    []lockGuard
+}
+
+type lockBooleanConstant struct {
+	value *ssa.Phi
+	truth bool
 }
 
 type lockGuard struct {
@@ -62,9 +69,11 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	// One search serves every function: a helper reached from many call sites
 	// is summarized once rather than once per site.
 	calleeLocks := newCalleeLockSearch()
+	ssaResult := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
+	callers := conditionalCallerSets(append([]*ssa.Function{ssaResult.Pkg.Func("init")}, ssaResult.SrcFuncs...))
 	for _, function := range functions {
 		var evidence ssaflow.LocalEvidence
-		walkLockOrder(pass, function, relations, calleeLocks, &evidence)
+		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers)
 		// A discarded Try acquisition is decided per instruction and needs no
 		// lock-flow state, so it stays outside the path-sensitive walk above,
 		// which may visit a block more than once.

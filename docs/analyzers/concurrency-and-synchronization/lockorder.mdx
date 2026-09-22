@@ -95,9 +95,25 @@ not establish that the lock is held in the function body.
 
 The flow preserves the incoming control-flow edge when a merged local flag
 selects a constant. A path that already released a lock is not combined with
-the flag value from a different predecessor. This uses the shared local branch
-feasibility query; it does not infer relations between flags across blocks or
-solve arbitrary conditional lock protocols.
+the flag value from a different predecessor. Up to four exact Boolean phi
+constants are carried through later blocks and refreshed at each merge; unknown
+incoming values discard the old binding. This does not assume mutable fields
+stay unchanged or solve arbitrary conditional lock protocols. Up to eight
+stable comparisons of parameters and constants can also be retained across
+branches, allowing a repeated compound guard to keep the same meaning. Loads
+and computed loop values are not treated as stable parameters. A checked error
+returned unchanged also counts as successful when its exact nil branch dominates
+that return, preserving held-for-caller contracts without guessing from names.
+For a private non-escaping helper, an exact Boolean result can also describe
+which return still owns a package-global `sync.Mutex`. This is accepted only
+when all bounded, directly visible callers test that same result and release
+the exact mutex on its held-result branch. A leaking caller, an escaped function
+value, a changed result, or a different mutex leaves this contract unknown.
+Same-site loop reacquisition is also left unknown when an exact possible release
+uses the same loaded Boolean guard and polarity. This does not establish that a
+mutable field is unchanged: changed-field bugs remain a documented coverage
+gap. Distinct guards and repeated acquisitions inside one guarded region still
+need their own release evidence.
 
 A cycle is suppressed when every edge has the same exact package-global
 exclusive mutex held as a guard. This is intentionally narrower than matching
@@ -127,6 +143,10 @@ writing, including one on another object, when the value being written was loade
 object and is a separate cell, or when the field is updated atomically.
 An unrelated exclusive lock can therefore hide a real race; this is an explicit
 precision boundary, not a guarantee that the other lock protects the write.
+The same uncertainty applies to an opaque imported wrapper call followed by a
+dominating deferred standard exclusive unlock on that wrapper's mutex. This is
+not a proved acquisition or a guard-to-field relation. Unrelated receivers,
+known-empty wrappers, and explicit intervening releases do not qualify.
 
 ### Releasing with the wrong method
 

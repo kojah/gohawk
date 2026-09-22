@@ -1,15 +1,12 @@
 package lockorder
 
 import (
-	"go/constant"
 	"go/token"
 	"go/types"
 	"maps"
 	"slices"
 
-	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -47,9 +44,15 @@ type lockFlowContext struct {
 	// so on every path. The lock stays held, because a return that leaves it
 	// held is still worth reporting, but it is no longer proven held, which is
 	// what a recursive acquisition has to claim.
-	unprovenRelease map[string]bool
-	callerOwned     map[string]bool
-	defers          []*ssa.Defer
+	unprovenRelease  map[string]bool
+	callerOwned      map[string]bool
+	defers           []*ssa.Defer
+	recursiveReports map[lockReportSite]bool
+}
+
+type lockReportSite struct {
+	instruction ssa.Instruction
+	identity    string
 }
 
 func walkLockOrder(
@@ -58,6 +61,7 @@ func walkLockOrder(
 	relations *lockOrders,
 	calleeLocks *calleeLockSearch,
 	evidence *ssaflow.LocalEvidence,
+	callers map[*ssa.Function]conditionalCallerSet,
 ) {
 	if len(function.Blocks) == 0 {
 		return
@@ -74,6 +78,7 @@ func walkLockOrder(
 	acquisitions := map[string][]ssa.Instruction{}
 	uncertainGuards := map[string]bool{}
 	summaries := summarizedMutexEffects(pass, function)
+	possibleWriters := possibleDeferredWriters(function, summaries)
 	callerOwned := callerOwnedLocks(function, summaries)
 	functionDefers := ssaflow.InstructionsOf[*ssa.Defer](function)
 	flow := lockFlowContext{
@@ -85,11 +90,16 @@ func walkLockOrder(
 		acquiredAt:   acquiredAt,
 		released:     released,
 		acquisitions: acquisitions, uncertainGuards: uncertainGuards,
-		unprovenRelease: map[string]bool{},
-		callerOwned:     callerOwned,
-		defers:          functionDefers,
+		unprovenRelease:  map[string]bool{},
+		callerOwned:      callerOwned,
+		defers:           functionDefers,
+		recursiveReports: make(map[lockReportSite]bool),
 	}
+	// Each predecessor selects its own phi values before any instruction runs.
+	// Clone the lock collections so one successor's release cannot discharge
+	// another successor's obligation; the immutable branch facts travel with it.
 	ssaflow.WalkStates([]lockFlowState{{block: function.Blocks[0]}}, lockStateKey, func(state lockFlowState) ([]lockFlowState, bool) {
+		state.constants = lockPhiConstants(state)
 		held := slices.Clone(state.held)
 		readHeld := slices.Clone(state.readHeld)
 		deferred := slices.Clone(state.deferred)
@@ -134,7 +144,7 @@ func walkLockOrder(
 			effect, ok := directMutexEffect(instruction)
 			if !ok {
 				flow.recordCalledOrder(instruction, held, origins)
-				reportReadLockWrites(pass, instruction, held, readHeld, lockValues)
+				reportReadLockWrites(pass, instruction, held, readHeld, lockValues, possibleWriters)
 				continue
 			}
 			actionState := lockFlowState{
@@ -145,32 +155,9 @@ func walkLockOrder(
 			held, readHeld, guards = actionState.held, actionState.readHeld, actionState.guards
 			deferred = actionState.deferred
 		}
-		return lockSuccessorStates(pass, state.block, state.predecessor, held, readHeld, deferred, guards, origins), true
+		return lockSuccessorStates(pass, state, held, readHeld, deferred, guards, origins), true
 	})
-	// A lock is reported only when some path releases it and another returns
-	// with it held: a lock never released anywhere is either transferred to a
-	// caller or held for the function's whole life, and both are contracts the
-	// flow cannot distinguish from a leak. A function whose successful returns
-	// all hold the lock is acquiring it for its caller, so its held returns are
-	// the contract rather than the defect.
-	for identity, returns := range unreleasedReturns {
-		if uncertainGuards[identity] {
-			analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), acquiredAt[identity]).Decision(analysisTrace.Step{
-				Reason: "loaded-acquisition-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: acquiredAt[identity],
-			})
-			continue
-		}
-		if slices.ContainsFunc(lockValues[identity], privateMutexOnly) ||
-			!released[identity] || acquiresForCaller(function, acquisitions[identity], heldAtReturn[identity]) {
-			continue
-		}
-		for _, position := range returns {
-			if position == token.NoPos {
-				position = acquiredAt[identity]
-			}
-			check.Reportf(pass, check.LockMissingRelease, position, "lock %s is not released on this return path", identity)
-		}
-	}
+	flow.reportMissingReleases(function, unreleasedReturns, heldAtReturn, callers[function])
 }
 
 func recordUnreleasedLocks(
@@ -254,17 +241,12 @@ func successfulReturn(function *ssa.Function, returned *ssa.Return) bool {
 	// https://github.com/smartcontractkit/libocr/blob/618b5bf7f342075a81ca1273a04abce15529a101/offchainreporting2plus/ocrintegrationtesthelpers/in_memory_key_value_database.go#L196-L215
 	result := ssaflow.ReturnedResult(returned, len(returned.Results)-1)
 	if types.Identical(last, types.Universe.Lookup("error").Type()) {
-		return ssaflow.DefinitelyNil(result)
+		return ssaflow.DefinitelyNil(result) || nilGuardDominatesReturn(result, returned)
 	}
 	if basic, ok := last.Underlying().(*types.Basic); ok && basic.Kind() == types.Bool {
 		return !constantFalse(result)
 	}
 	return true
-}
-
-func constantFalse(value ssa.Value) bool {
-	literal, ok := value.(*ssa.Const)
-	return ok && literal.Value != nil && literal.Value.Kind() == constant.Bool && !constant.BoolVal(literal.Value)
 }
 
 func possiblyDeferredUnlock(
@@ -508,28 +490,45 @@ func (flow lockFlowContext) applyMutexAction(
 		// mode forward. A fresh writer acquisition establishes the new mode.
 		state.readHeld = releaseLock(state.readHeld, identity)
 	}
-	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.unprovenRelease[identity], acquired.variant)
+	possibleRelease := flow.unprovenRelease[identity]
+	if slices.Contains(state.held, identity) {
+		proof := flow.loadedLoopRelease(instruction, receiver, state.origins[identity].position)
+		possibleRelease = possibleRelease || proof.possible
+	}
+	state.held = flow.acquireLock(instruction, state.held, identity, possibleRelease, acquired.variant)
 	return state
 }
 
 func lockSuccessorStates(
 	pass *analysis.Pass,
-	block, predecessor *ssa.BasicBlock,
+	state lockFlowState,
 	held, readHeld, deferred []string,
 	guards map[string]lockGuard,
 	origins map[string]lockAcquisition,
 ) []lockFlowState {
+	block := state.block
 	states := make([]lockFlowState, 0, len(block.Succs))
 	// A local release flag can merge true and false after only one branch
 	// unlocked. Preserve the incoming edge for the shared constant-phi query;
 	// exploring both values invents a still-held return on the released path.
-	// This does not retain Boolean facts across blocks or solve guard relations.
+	// Carried constants and stable parameter constraints are applied separately.
 	// https://github.com/enetx/surf/blob/7da0502899af06f8318f95e632797cb2ac0c6c20/pkg/connectproxy/connectproxy.go#L256-L294
-	feasible := ssaflow.FeasibleSuccessors(block, predecessor)
+	feasible := ssaflow.FeasibleSuccessors(block, state.predecessor)
 	for index, successor := range block.Succs {
 		if !slices.Contains(feasible, successor) {
 			traceInfeasibleLockBranch(pass, block, "predecessor-constant-branch-infeasible")
 			continue
+		}
+		constraints, compatible := extendLockConstraints(state.constraints, block, index == 0)
+		if !compatible {
+			traceInfeasibleLockBranch(pass, block, "stable-parameter-branch-infeasible")
+			continue
+		}
+		if branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If); ok {
+			if truth, known := lockBooleanValue(branch.Cond, state.constants); known && truth != (index == 0) {
+				traceInfeasibleLockBranch(pass, block, "carried-constant-branch-infeasible")
+				continue
+			}
 		}
 		nextCondition, nextValue := "", false
 		if condition, ok := blockCondition(block); ok && len(block.Succs) == 2 {
@@ -542,6 +541,8 @@ func lockSuccessorStates(
 		states = append(states, lockFlowState{
 			block: successor, predecessor: block, held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
 			condition: nextCondition, conditionValue: nextValue,
+			constants:   state.constants,
+			constraints: constraints,
 		})
 	}
 	return states

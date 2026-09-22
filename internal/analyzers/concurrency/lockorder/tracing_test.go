@@ -47,7 +47,12 @@ func TestLockTraceBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkLongerCycleTrace(t, data)
-	checkPredecessorTrace(t, data)
+	checkConstantTrace(t, data, "predecessor-constant-branch-infeasible", "computed_guard.go:")
+	checkConstantTrace(t, data, "carried-constant-branch-infeasible", "carried_release_state.go:")
+	checkConstantTrace(t, data, "stable-parameter-branch-infeasible", "compound_parameter_guard.go:")
+	checkDecisionTrace(t, data, "imported-writer-guard-unknown", "opaque_writer.go:", "unknown")
+	checkDecisionTrace(t, data, "conditional-caller-release-proven", "caller_release.go:", "accepted")
+	checkDecisionTrace(t, data, "loaded-loop-release-unknown", "loaded_loop_guard.go:", "unknown")
 	found := false
 	foundUnknown := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
@@ -80,7 +85,7 @@ func TestLockTraceBoundaries(t *testing.T) {
 	}
 }
 
-func checkPredecessorTrace(t *testing.T, data []byte) {
+func checkDecisionTrace(t *testing.T, data []byte, reason, file, outcome string) {
 	t.Helper()
 	found := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
@@ -88,16 +93,37 @@ func checkPredecessorTrace(t *testing.T, data []byte) {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
-		if event.Reason != "predecessor-constant-branch-infeasible" || !strings.Contains(event.Candidate, "computed_guard.go:") {
+		if event.Reason != reason || !strings.Contains(event.Candidate, file) {
+			continue
+		}
+		found = true
+		if event.Phase != "decision" || event.Outcome != outcome || event.Position != event.Candidate {
+			t.Errorf("invalid decision evidence: %+v", event)
+		}
+	}
+	if !found {
+		t.Errorf("missing decision evidence: %s", reason)
+	}
+}
+
+func checkConstantTrace(t *testing.T, data []byte, reason, file string) {
+	t.Helper()
+	found := false
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+		var event lockTraceEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		if event.Reason != reason || !strings.Contains(event.Candidate, file) {
 			continue
 		}
 		found = true
 		if event.Phase != "evidence" || event.Outcome != "accepted" || event.Position != event.Candidate {
-			t.Errorf("invalid predecessor feasibility evidence: %+v", event)
+			t.Errorf("invalid constant feasibility evidence: %+v", event)
 		}
 	}
 	if !found {
-		t.Error("missing predecessor feasibility evidence")
+		t.Errorf("missing constant feasibility evidence: %s", reason)
 	}
 }
 

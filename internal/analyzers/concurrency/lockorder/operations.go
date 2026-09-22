@@ -7,10 +7,179 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
+
+type conditionalCallerSet struct {
+	calls   []*ssa.Call
+	escaped bool
+}
+
+type callerReleaseProof struct {
+	proven bool
+	reason string
+}
+
+// A lock is reported only when some path releases it and another returns with
+// it held. Without a witnessed release, ownership may belong to a caller.
+// Explicit successful-return and conditional caller-release contracts likewise
+// distinguish a transferred critical section from an abandoned acquisition.
+func (flow lockFlowContext) reportMissingReleases(
+	function *ssa.Function, unreleased map[string][]token.Pos,
+	heldAt map[string]map[*ssa.Return]bool, callers conditionalCallerSet,
+) {
+	for identity, returns := range unreleased {
+		position := flow.acquiredAt[identity]
+		if flow.uncertainGuards[identity] {
+			analysisTrace.For(flow.pass, "lockorder", string(check.LockMissingRelease), position).Decision(analysisTrace.Step{
+				Reason: "loaded-acquisition-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: position,
+			})
+			continue
+		}
+		values := flow.lockValues[identity]
+		if slices.ContainsFunc(values, privateMutexOnly) || !flow.released[identity] ||
+			acquiresForCaller(function, flow.acquisitions[identity], heldAt[identity]) {
+			continue
+		}
+		if proof := conditionalCallerRelease(function, values, heldAt[identity], callers); proof.proven {
+			traceCallerRelease(flow.pass, position, proof.reason)
+			continue
+		}
+		for _, returned := range returns {
+			if returned == token.NoPos {
+				returned = position
+			}
+			check.Reportf(flow.pass, check.LockMissingRelease, returned, "lock %s is not released on this return path", identity)
+		}
+	}
+}
+
+// Private function values must have a complete, bounded synchronous caller set.
+// Include generated source bodies when collecting uses; skipping their callers
+// would turn an incomplete set into a cleanup guarantee.
+func conditionalCallerSets(functions []*ssa.Function) map[*ssa.Function]conditionalCallerSet {
+	callers := make(map[*ssa.Function]conditionalCallerSet)
+	budget := ssaflow.NewSearchBudget(20_000)
+	for _, function := range functions {
+		if function == nil {
+			continue
+		}
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instrs {
+				if !budget.Spend() {
+					return nil
+				}
+				if _, debug := instruction.(*ssa.DebugRef); debug {
+					continue
+				}
+				for _, operand := range instruction.Operands(nil) {
+					if operand == nil {
+						continue
+					}
+					callee, ok := (*operand).(*ssa.Function)
+					if !ok || callee.Object() == nil || callee.Object().Exported() || callee.Signature.Recv() != nil {
+						continue
+					}
+					entry := callers[callee]
+					call, synchronous := instruction.(*ssa.Call)
+					if synchronous && operand == &call.Common().Value && len(entry.calls) < 32 {
+						entry.calls = append(entry.calls, call)
+					} else {
+						entry.escaped = true
+					}
+					callers[callee] = entry
+				}
+			}
+		}
+	}
+	return callers
+}
+
+// A Boolean result can mean "already unlocked", not necessarily success.
+// Infer no naming convention: require every normal return to expose one exact
+// held-state polarity and every known caller to release the same global mutex
+// on that polarity. Opaque/escaping callers leave this contract unknown.
+// https://github.com/fortio/fortio/blob/5c19725ff61c9f7ad944b91ec32d96a399341d87/fnet/network.go#L328-L393
+func conditionalCallerRelease(
+	function *ssa.Function, values []ssa.Value, heldAt map[*ssa.Return]bool, callers conditionalCallerSet,
+) callerReleaseProof {
+	unknown := callerReleaseProof{reason: "conditional-caller-release-unknown"}
+	if len(values) != 1 || callers.escaped || len(callers.calls) == 0 {
+		return unknown
+	}
+	global, ok := values[0].(*ssa.Global)
+	if !ok || !syntax.NamedType(global.Type(), "sync", "Mutex") {
+		return unknown
+	}
+	for index := range function.Signature.Results().Len() {
+		held, known := heldResultPolarity(function, heldAt, index)
+		if known && !slices.ContainsFunc(callers.calls, func(call *ssa.Call) bool {
+			return !callerReleasesOnFlag(call, global, index, held)
+		}) {
+			return callerReleaseProof{proven: true, reason: "conditional-caller-release-proven"}
+		}
+	}
+	return unknown
+}
+
+func heldResultPolarity(function *ssa.Function, heldAt map[*ssa.Return]bool, index int) (bool, bool) {
+	var held, unheld, sawHeld, sawUnheld bool
+	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](function) {
+		truth, known := lockBooleanValue(ssaflow.ReturnedResult(returned, index), nil)
+		if !known {
+			return false, false
+		}
+		if heldAt[returned] {
+			if sawHeld && held != truth {
+				return false, false
+			}
+			held, sawHeld = truth, true
+		} else {
+			if sawUnheld && unheld != truth {
+				return false, false
+			}
+			unheld, sawUnheld = truth, true
+		}
+	}
+	return held, sawHeld && sawUnheld && held != unheld
+}
+
+func callerReleasesOnFlag(call *ssa.Call, mutex *ssa.Global, index int, held bool) bool {
+	block := call.Block()
+	if ssaflow.BlockInCycle(block) || len(block.Succs) != 2 {
+		return false
+	}
+	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
+	if call.Common().Signature().Results().Len() == 1 {
+		index = -1
+	}
+	if !ok || branch.Cond != ssaflow.CallResult(call, index) {
+		return false
+	}
+	unheld := block.Succs[0]
+	if held {
+		unheld = block.Succs[1]
+	}
+	if len(unheld.Preds) != 1 {
+		return false
+	}
+	witness := false
+	unowned := ssaflow.UnownedReturn(call, func(instruction ssa.Instruction) bool {
+		if instruction.Block() == unheld {
+			return true
+		}
+		operation, _, receiver, direct := mutexAction(instruction)
+		if direct && operation == mutexRelease && receiver == mutex && !readModeRelease(instruction) {
+			witness = true
+			return true
+		}
+		return false
+	}, nil)
+	return witness && !unowned
+}
 
 func callerOwnedLocks(function *ssa.Function, summaries map[ssa.Instruction][]mutexEffect) map[string]bool {
 	type firstAction struct {
@@ -39,8 +208,7 @@ func callerOwnedLocks(function *ssa.Function, summaries map[ssa.Instruction][]mu
 	return result
 }
 
-func acquireLock(
-	pass *analysis.Pass,
+func (flow lockFlowContext) acquireLock(
 	instruction ssa.Instruction,
 	held []string,
 	identity string,
@@ -56,7 +224,13 @@ func acquireLock(
 		// A lock a callee may already have released is not proven held, and a
 		// recursive acquisition has to claim that it is.
 		if !variant && !releaseUnproven {
-			check.Reportf(pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
+			site := lockReportSite{instruction: instruction, identity: identity}
+			// Distinct feasible proof states can witness the same reacquisition.
+			// Retain those states, but report their shared acquisition only once.
+			if !flow.recursiveReports[site] {
+				flow.recursiveReports[site] = true
+				check.Reportf(flow.pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
+			}
 		}
 		return held
 	}

@@ -2,6 +2,7 @@ package lockorder
 
 import (
 	"fmt"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"maps"
@@ -15,6 +16,10 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
+
+// Lock states retain bounded exact branch evidence separately from possible
+// release witnesses. Mutable loaded guards can justify uncertainty, never a
+// stable value or a guaranteed unlock on a later path.
 
 func lockStateKey(state lockFlowState) string {
 	predecessor := -1
@@ -31,6 +36,12 @@ func lockStateKey(state lockFlowState) string {
 		guards = append(guards, fmt.Sprintf("%s:%s=%t", identity, guard.condition, guard.value))
 	}
 	slices.Sort(guards)
+	for _, binding := range state.constants {
+		fmt.Fprintf(&origins, "phi:%p=%t;", binding.value, binding.truth)
+	}
+	for _, constraint := range state.constraints {
+		fmt.Fprintf(&origins, "stable:%s=%t;", constraint.condition, constraint.value)
+	}
 	return fmt.Sprintf(
 		"%d:%d:%s:%s:%s:%s:%s=%t:%s",
 		state.block.Index,
@@ -43,6 +54,92 @@ func lockStateKey(state lockFlowState) string {
 		state.conditionValue,
 		origins.String(),
 	)
+}
+
+// Carry a bounded set of exact local Boolean values, not assumptions about
+// mutable receiver fields. A release flag can pass through unrelated blocks
+// before its next test; discarding its selected phi edge invents lock states.
+// Refresh all phis simultaneously on entry, including forgetting an old value
+// when a loop supplies an unknown input. Four bindings bound extra path state.
+// https://github.com/buchgr/bazel-remote/blob/a69b6b5ed933234d93b489ffd216bee5bb74aa06/cache/disk/disk.go#L450-L564
+func lockPhiConstants(state lockFlowState) []lockBooleanConstant {
+	const maxConstants = 4
+	next := slices.Clone(state.constants)
+	for _, instruction := range state.block.Instrs {
+		phi, ok := instruction.(*ssa.Phi)
+		if !ok {
+			break
+		}
+		next = slices.DeleteFunc(next, func(binding lockBooleanConstant) bool { return binding.value == phi })
+		for predecessor, incoming := range ssaflow.PhiIncoming(phi) {
+			if predecessor != state.predecessor {
+				continue
+			}
+			if truth, known := lockBooleanValue(incoming, state.constants); known && len(next) < maxConstants {
+				next = append(next, lockBooleanConstant{value: phi, truth: truth})
+			}
+		}
+	}
+	return next
+}
+
+func lockBooleanValue(value ssa.Value, constants []lockBooleanConstant) (bool, bool) {
+	if literal, ok := value.(*ssa.Const); ok && literal.Value != nil && literal.Value.Kind() == constant.Bool {
+		return constant.BoolVal(literal.Value), true
+	}
+	for _, binding := range constants {
+		if value == binding.value {
+			return binding.truth, true
+		}
+	}
+	return false, false
+}
+
+func constantFalse(value ssa.Value) bool {
+	literal, ok := value.(*ssa.Const)
+	return ok && literal.Value != nil && literal.Value.Kind() == constant.Bool && !constant.BoolVal(literal.Value)
+}
+
+// Stable scalar parameter comparisons survive unrelated branches and merges.
+// Retain at most eight; exceeding this precision budget forgets the new fact,
+// never excludes a path. Do not correlate loads or computed loop values.
+// https://github.com/yandex-cloud/geesefs/blob/dd847771b29b26f3246edaf3227acbc430f4548d/core/file.go#L1901-L1972
+func extendLockConstraints(constraints []lockGuard, block *ssa.BasicBlock, truth bool) ([]lockGuard, bool) {
+	const maxConstraints = 8
+	condition, known := blockCondition(block)
+	branch, branched := block.Instrs[len(block.Instrs)-1].(*ssa.If)
+	if !known || !branched || !stableParameterCondition(branch.Cond) {
+		return constraints, true
+	}
+	for _, constraint := range constraints {
+		if constraint.condition == condition {
+			return constraints, constraint.value == truth
+		}
+	}
+	if len(constraints) >= maxConstraints {
+		return constraints, true
+	}
+	next := append(slices.Clone(constraints), lockGuard{condition: condition, value: truth})
+	slices.SortFunc(next, func(left, right lockGuard) int { return strings.Compare(left.condition, right.condition) })
+	return next, true
+}
+
+func stableParameterCondition(value ssa.Value) bool {
+	if _, parameter := value.(*ssa.Parameter); parameter {
+		return true
+	}
+	comparison, ok := value.(*ssa.BinOp)
+	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
+		return false
+	}
+	stable := func(operand ssa.Value) bool {
+		switch operand.(type) {
+		case *ssa.Parameter, *ssa.Const:
+			return true
+		}
+		return false
+	}
+	return stable(comparison.X) && stable(comparison.Y)
 }
 
 func cloneLockGuards(source map[string]lockGuard) map[string]lockGuard {
@@ -137,4 +234,84 @@ func traceInfeasibleLockBranch(pass *analysis.Pass, block *ssa.BasicBlock, reaso
 		Pos:      position,
 		Function: branch.Parent().String(),
 	})
+}
+
+func traceCallerRelease(pass *analysis.Pass, position token.Pos, reason string) {
+	analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), position).Decision(analysisTrace.Step{
+		Reason: reason, Outcome: analysisTrace.OutcomeAccepted, Pos: position,
+	})
+}
+
+// Matching loaded guards may release a lock before the same acquisition runs
+// again. Their distinct loads do not establish differing Boolean contents.
+// This is possible release only; neither stable fields nor loop counts are
+// inferred, and two acquisitions within one guarded region still conflict.
+// https://github.com/threatexpert/gonc/blob/e14bc6b97efc2150c4e0bbb2bdc89f8548e28fa6/netx/UDPConn.go#L116-L129
+type guardedReleaseProof struct {
+	possible bool
+	reason   string
+}
+
+func (flow lockFlowContext) loadedLoopRelease(instruction ssa.Instruction, receiver ssa.Value, origin token.Pos) guardedReleaseProof {
+	missing := guardedReleaseProof{reason: "no-matching-loaded-loop-release"}
+	if origin != instruction.Pos() || !ssaflow.BlockInCycle(instruction.Block()) {
+		return missing
+	}
+	guard, truth := loadedBooleanBranch(instruction)
+	if guard == nil {
+		return missing
+	}
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](instruction.Parent()) {
+		operation, _, released, direct := mutexAction(call)
+		if !direct || operation != mutexRelease || !ssaflow.SameValue(receiver, released) {
+			continue
+		}
+		other, otherTruth := loadedBooleanBranch(call)
+		if other != nil && truth == otherTruth && ssaflow.SameValue(guard, other) &&
+			ssaflow.InstructionMayFollow(instruction, call) && ssaflow.InstructionMayFollow(call, instruction) {
+			proof := guardedReleaseProof{possible: true, reason: "loaded-loop-release-unknown"}
+			analysisTrace.For(flow.pass, "lockorder", string(check.LockRecursiveAcquire), instruction.Pos()).Decision(analysisTrace.Step{
+				Reason: proof.reason, Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
+			})
+			return proof
+		}
+	}
+	return missing
+}
+
+func loadedBooleanBranch(instruction ssa.Instruction) (ssa.Value, bool) { //nolint:ireturn // The guard is an SSA address.
+	block := instruction.Block()
+	if len(block.Preds) != 1 {
+		return nil, false
+	}
+	predecessor := block.Preds[0]
+	branch, ok := predecessor.Instrs[len(predecessor.Instrs)-1].(*ssa.If)
+	if !ok {
+		return nil, false
+	}
+	load, ok := branch.Cond.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return nil, false
+	}
+	return load.X, predecessor.Succs[0] == block
+}
+
+// A held-on-success helper can return the original checked error instead of a
+// literal nil. Match the exact SSA result before using branch feasibility:
+// an error derived from it, or another loop iteration's merge, is not enough.
+// https://github.com/DrmagicE/gmqtt/blob/92ed7d60915519f60c3d3cdb6420b1e11eb824e2/server/server.go#L309-L340
+func nilGuardDominatesReturn(value ssa.Value, returned *ssa.Return) bool {
+	for _, branch := range ssaflow.InstructionsOf[*ssa.If](returned.Parent()) {
+		comparison, ok := branch.Cond.(*ssa.BinOp)
+		if !ok || comparison.X != value && comparison.Y != value {
+			continue
+		}
+		for _, successor := range branch.Block().Succs {
+			success, known := ssaflow.SuccessBranch(branch.Block(), successor, value)
+			if known && success && len(successor.Preds) == 1 && successor.Dominates(returned.Block()) {
+				return true
+			}
+		}
+	}
+	return false
 }
