@@ -1,17 +1,18 @@
 package lockorder
 
 import (
+	"go/types"
+	"strings"
+
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/ssa"
 )
 
 // A call made while a lock is held orders that lock before every lock the
-// callee takes. Finding those locks needs no value mapping: a class names a
-// declaration rather than an object, so the string a callee produces for its
-// own mutex is the string the caller compares against. That is what keeps this
-// search cheap enough to run at every call site, and it is why the analyzer
-// gained classes before it gained this.
+// callee takes. Declaration classes remain the fallback, but exact embedded
+// field paths retain their caller roots through helper bindings. A loaded
+// pointer is one snapshot, not an alias for the mutable cell it came from.
 //
 // The search stops where the pass stops seeing code. A dynamic callee has no
 // resolvable body, and a callee in another package is created without one,
@@ -95,16 +96,82 @@ func (locks *calleeLocks) observe(search *calleeLockSearch, instruction ssa.Inst
 	}
 }
 
-// Retain one finite witness per class and mode, not every route through the
-// call graph. A longer route beyond the evidence limit contributes no claim.
+// Retain one finite witness per class, mode, and symbolic resource, not every
+// route. Merging two formal owners before binding could discard a shared
+// participant merely because another participant later binds to a fresh owner.
 func (locks *calleeLocks) add(acquired lockAcquisition) {
-	if len(acquired.calls) > maxOrderDepth {
+	if acquired.class == "" || len(acquired.calls) > maxOrderDepth {
 		return
 	}
 	for _, existing := range locks.acquires {
-		if existing.class == acquired.class && existing.read == acquired.read {
+		if existing.class == acquired.class && existing.read == acquired.read && existing.resource == acquired.resource {
 			return
 		}
 	}
 	locks.acquires = append(locks.acquires, acquired)
+}
+
+func lockResourcePath(value ssa.Value) (ssaflow.EmbeddedFieldPath, bool) {
+	return ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value, func(root ssa.Value) bool {
+		switch root.(type) {
+		case *ssa.Alloc, *ssa.Parameter, *ssa.FreeVar, *ssa.Global, *ssa.UnOp, *ssa.Call, *ssa.Extract:
+			return true
+		default:
+			return false
+		}
+	})
+}
+
+func bindLockAcquisition(acquired lockAcquisition, call *ssa.Call) lockAcquisition {
+	// Preserve the receiver while composing helper witnesses. Class-only
+	// summaries cannot distinguish established from newly created participants.
+	// Constructor-return and mutable receiver-slot roots remain opaque here:
+	// https://github.com/gopcua/opcua/blob/2b3714ccc8425190dbff8f7b2fa8c1bcb5152c2c/uasc/secure_channel.go#L625-L670
+	path := acquired.resource
+	if path.Root == nil {
+		return acquired
+	}
+	callee, closure := ssaflow.DirectCallee(call.Common())
+	for _, binding := range ssaflow.CallBindings(call.Common(), callee, closure) {
+		if binding.Local != path.Root {
+			continue
+		}
+		root, known := lockResourcePath(binding.Supplied)
+		if known {
+			root, known = root.Append(path.Fields[:path.Depth]...)
+		}
+		if !known {
+			acquired.resource = ssaflow.EmbeddedFieldPath{}
+			return acquired
+		}
+		acquired.resource = root
+		if _, fresh := root.Root.(*ssa.Alloc); fresh {
+			acquired.class = localMutexPathIdentity(root)
+		}
+		return acquired
+	}
+	return acquired
+}
+
+// A helper's embedded mutex can keep the identity of a fresh caller allocation
+// without an invented FieldAddr instruction. Never carry that instruction's
+// identity across loop allocations or treat a loaded owner as a fresh value.
+func localMutexPathIdentity(path ssaflow.EmbeddedFieldPath) string {
+	allocation, ok := path.Root.(*ssa.Alloc)
+	if !ok || ssaflow.BlockInCycle(allocation.Block()) {
+		return ""
+	}
+	var identity strings.Builder
+	identity.WriteString(lockIdentityOf(allocation))
+	valueType := allocation.Type()
+	for _, index := range path.Fields[:path.Depth] {
+		field := structField(valueType, index)
+		if field == nil {
+			return ""
+		}
+		identity.WriteByte('.')
+		identity.WriteString(field.Name())
+		valueType = types.NewPointer(field.Type())
+	}
+	return identity.String()
 }

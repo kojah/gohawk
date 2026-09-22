@@ -56,6 +56,13 @@ source-visible helper writes to the same field or its address. Opaque code
 could still replace the mutex, so some real cross-function cycles are missed.
 Initializers of another field do not establish this uncertainty.
 
+Source-visible helper acquisition witnesses retain bounded embedded-field paths
+and bind their roots at each call. A fresh caller allocation therefore keeps its
+local mutex identity even when only the helper computes the field address.
+Distinct formal participants are not merged before binding. Pointer loads remain
+exact snapshots, not their mutable cells; constructor results and receiver-slot
+publication still need additional evidence and are not treated as fresh here.
+
 Two locks of the same declaration are not compared. Whether
 `transfer(from, to *Account)` conflicts with a caller passing the same pair in
 the other order depends on the objects involved, and nothing in the code

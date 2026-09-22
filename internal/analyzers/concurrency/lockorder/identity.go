@@ -188,6 +188,11 @@ func structField(value types.Type, index int) *types.Var {
 // a local, a parameter, or a dynamically selected mutex. Those keep instance
 // identity, so this widening never makes an existing comparison less exact.
 func lockClassOf(value ssa.Value) string {
+	if path, known := lockResourcePath(value); known {
+		if _, local := path.Root.(*ssa.Alloc); local {
+			return ""
+		}
+	}
 	// A known local mutex allocation retains its instance identity even when
 	// stored in an owner field. Replacing that witness with the field's class
 	// merges construction-time locking with unrelated established instances.
@@ -379,6 +384,11 @@ func globalRooted(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 // falls back to its class and becomes comparable. Where no class exists the
 // instance identity stands, which compares only within one function.
 func lockComparisonKey(identity string, receiver ssa.Value) string {
+	if path, known := lockResourcePath(receiver); known {
+		if _, local := path.Root.(*ssa.Alloc); local {
+			return localMutexPathIdentity(path)
+		}
+	}
 	if allocation := localMutexAllocation(receiver); allocation != nil {
 		// One loop allocation instruction represents different runtime locks;
 		// its SSA name must not connect ordering edges between iterations.

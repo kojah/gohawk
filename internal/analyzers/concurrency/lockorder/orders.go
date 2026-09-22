@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -30,15 +31,19 @@ type lockAcquisition struct {
 	read     bool
 	variant  bool
 	calls    []analysis.RelatedInformation
+	resource ssaflow.EmbeddedFieldPath
 }
 
 func acquisitionAt(instruction ssa.Instruction, class string) lockAcquisition {
-	return lockAcquisition{class: class, position: instruction.Pos(), read: readModeAcquisition(instruction), variant: loopVariantLock(instruction)}
+	resource, _ := lockResourcePath(ssaflow.CallReceiver(ssaflow.InstructionCall(instruction)))
+	return lockAcquisition{
+		class: class, position: instruction.Pos(), read: readModeAcquisition(instruction), variant: loopVariantLock(instruction), resource: resource,
+	}
 }
 
 func (acquired lockAcquisition) through(call *ssa.Call) lockAcquisition {
 	acquired.calls = append([]analysis.RelatedInformation{{Pos: call.Pos(), Message: "calls " + call.Common().StaticCallee().String()}}, acquired.calls...)
-	return acquired
+	return bindLockAcquisition(acquired, call)
 }
 
 func (acquired lockAcquisition) mode() string {
