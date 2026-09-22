@@ -7,7 +7,6 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/contracts/wirepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/borrowedstorage"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/cancellationownership"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/channelcapacity"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelprotocol"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelsafety"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/deferinloop"
@@ -24,7 +23,6 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/reliability/lockorder"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/oncepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/syncmapatomicity"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/taintpolicy"
 	"github.com/kojah/gohawk/internal/catalog"
 	"github.com/kojah/gohawk/internal/check"
 )
@@ -103,12 +101,6 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.CancellationRelease, Doc: "Reports derived cancel functions proved lost on a feasible normal return path.",
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: channelcapacity.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ChannelCapacityRationale, Doc: "Reports large constant channel capacities in production files without a nearby bounded rationale.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},
 		{Analyzer: channelsafety.Analyzer(), Checks: []catalog.CheckInfo{
@@ -251,12 +243,6 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.SyncMapNonAtomicClaim, Doc: "Reports separate sync.Map Load and Delete operations used to claim one value.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: taintpolicy.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.TaintUntrustedSink, Doc: "Reports untrusted input that reaches a configured sensitive sink without validation.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExperimental, Delisted: true,
 			},
 		}},
 	}

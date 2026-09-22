@@ -179,13 +179,11 @@ func analysisAnalyzerPointer(value types.Type) bool {
 var withdrawnAnalyzerPackages = map[string]bool{
 	"apishape":            true,
 	"contextpolicy":       true,
-	"channelcapacity":     true,
 	"errorownership":      true,
 	"determinism":         true,
 	"errorclassification": true,
 	"closedomain":         true,
 	"wirepolicy":          true,
-	"taintpolicy":         true,
 }
 
 // assertWithdrawnStaysUnregistered reports whether name is deliberately absent

@@ -17,7 +17,6 @@ const (
 	WireSerializationTag     ID = "wirepolicy/serialization-tag"
 	CancellationRelease      ID = "cancellationownership/release"
 	BorrowedStorageOwner     ID = "borrowedstorage/overlapping-owner"
-	ChannelCapacityRationale ID = "channelcapacity/rationale"
 	ChannelSendAfterClose    ID = "channelsafety/send-after-close"
 	ChannelDoubleClose       ID = "channelsafety/double-close"
 	DeferCleanupInLoop       ID = "deferinloop/cleanup-lifetime"
@@ -44,5 +43,4 @@ const (
 	LockDiscardedTryLock     ID = "lockorder/discarded-trylock"
 	OnceDiscardedWrapper     ID = "oncepolicy/discarded-wrapper"
 	SyncMapNonAtomicClaim    ID = "syncmapatomicity/non-atomic-claim"
-	TaintUntrustedSink       ID = "taintpolicy/untrusted-sink"
 )

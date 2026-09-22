@@ -13,7 +13,6 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 	// the expected counts explicit so every new escape prompts architecture review.
 	allowed := map[string]int{
 		"reliability/errorclassification/analyzer.go": 1, // Text-preserving strings transforms are a package family.
-		"reliability/taintpolicy/analyzer.go":         1, // User-configured sanitizers need qualified call metadata.
 	}
 	rawIdentityPatterns := []string{
 		"CallPackage(",
