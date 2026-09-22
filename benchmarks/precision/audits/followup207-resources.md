@@ -6,9 +6,9 @@ resolution remains in progress.
 `followup207-resources.tsv` preserves the original verdict separately from
 replay status and includes the 72 original resource true-positive controls.
 
-## Checkpoint: HEAD boundary v2
+## Checkpoint: repeated guards v1
 
-- Twenty-two additional false positives are absent after a successful baseline and
+- Thirty-five additional false positives are absent after a successful baseline and
   corrected replay. They cover a zero-client HEAD request (one), returned
   standard loggers (two), a returned body narrowed to `io.Reader` (one), and
   manager-retained resources exposed through returned handles (four), and
@@ -18,13 +18,16 @@ replay status and includes the 72 original resource true-positive controls.
   acquisition handled by shared feasible-path and uncertain-cleanup evidence
   (one), an exact standard buffer constructor behind a compressor (one), a
   called closure that nil-guards an exact captured response's `Body` before
-  closing it (one), and HEAD requests through the unconfigured package default
-  client or rebound with `WithContext` and header edits (two).
+  closing it (one), HEAD requests through the unconfigured package default
+  client or rebound with `WithContext` and header edits (two), and cleanups
+  under the same repeated guard as their acquisition (thirteen: nine mutagen
+  profiler sites, fortio's CPU profile, wanix's output file, suo5's response,
+  and zgrab's compressor).
 - All 66 baseline-detected true positives remain detected in the current
   all-check replay. Five wg-portal
   misses and the previously documented piko WebSocket miss remain baseline
   misses; none is newly lost here.
-- 117 false positives still report and remain active. None is left without a
+- 104 false positives still report and remain active. None is left without a
   current package-scope replay.
 - Geesefs `core/cfg/logger.go:37:16` is absent in both binaries in this replay,
   unlike earlier canonical replays. This profile-dependent baseline absence
@@ -70,6 +73,21 @@ infallible: custom factories and mixed external writers still report, and
 `require-memory-writer-close=true` retains both constructor obligations.
 
 ## Evidence boundaries
+
+Path guard facts remember which way a guard went on the path that reached the
+acquisition: a loaded cell or field identified by its access path, a Boolean
+parameter, a comparison of such a load with a constant, or a Boolean computed
+outside any cycle. When the same guard is tested again and the path takes the
+other arm, that edge is classified unknown, never pruned: a loaded guard may
+have changed through a pointer the analysis does not see, so this declines to
+report through a contradiction it cannot rule out rather than proving cleanup.
+A visible store to the guarded cell forgets the fact, on the path and inside
+the arm that reached the acquisition. At most four facts ride on a path.
+Diagnostic fixtures keep the report when the guard is stored between the two
+tests, when the polarities differ, when the fields or constants differ, and
+when a loop stores the guard between acquisition and cleanup. The remaining
+six correlated-error sites depend on error identity, table contents, or a
+switch in another function, which this boundary does not model.
 
 A called literal that loads an exact captured `http.Response` cell, checks
 its `Body` against nil, and closes a second load of that `Body` is classified
@@ -130,15 +148,17 @@ GOFLAGS=-mod=readonly -p=2 GOTOOLCHAIN=local
 
 Repository revisions, package/module scopes, command, environment, exit status,
 stdout and stderr receipts are recorded under `.build/followup207-resource-baseline`
-and `.build/followup207-head-v2`, with paths in the TSV. Exit zero with no
+and `.build/followup207-guards-v1`, with paths in the TSV. Exit zero with no
 findings and exit three with valid diagnostic JSON are successful analyses;
 failed loads are not treated as absence.
 
 - Baseline: `.build/gohawk-followup78-goroutines-v5`, SHA-256
   `5516cad4c83bffd8dca28713df53f8d3d1a463b838c23d302da9e10ddc257419`.
-- Candidate: `.build/gohawk-followup207-head-v2`, SHA-256
-  `367b51cb21df82841c89db9ffc0a75a28a92adac15533a6a7a5ab24cd50a2cbe`.
-  The captured-body checkpoint binary was
+- Candidate: `.build/gohawk-followup207-guards-v1`, SHA-256
+  `1b7b1f67d872e68461456a721d9ae040366c467e1eb0405b128f90d1b5226473`.
+  The HEAD-v2 checkpoint binary was `.build/gohawk-followup207-head-v2`,
+  SHA-256 `367b51cb21df82841c89db9ffc0a75a28a92adac15533a6a7a5ab24cd50a2cbe`,
+  the captured-body checkpoint binary was
   `.build/gohawk-followup207-captured-body-v3`, SHA-256
   `cecd0be4d83937d9ee6e8a6b16260cc69976a12e951cabea89f88a92cdde67a9`, and
   the earlier memory-writer checkpoint binary was
@@ -147,7 +167,7 @@ failed loads are not treated as absence.
 
 All 83 package scopes completed successfully. Comparing every resource
 diagnostic in those scopes, not just the labelled sites, found zero new
-diagnostics and twenty-two removed diagnostics. The additional package scopes
+diagnostics and thirty-five removed diagnostics. The additional package scopes
 have matching successful immutable-baseline receipts; absence
 in a newly scanned scope alone was not counted as a correction.
 

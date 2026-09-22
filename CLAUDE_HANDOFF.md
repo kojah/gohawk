@@ -27,12 +27,12 @@ not 207 repositories or separate implementation projects.
 
 | Family | Original | Verified fixes | Re-reviewed as a real hazard | Open |
 | --- | ---: | ---: | ---: | ---: |
-| Resource lifetime | 140 | 22 | 0 | 118 |
+| Resource lifetime | 140 | 35 | 0 | 105 |
 | Lock checks | 23 | 13 | 0 | 10 |
 | Goroutine ownership | 17 | 8 | 0 | 9 |
 | Process/cancellation | 9 | 4 | 0 | 5 |
 | Miscellaneous | 18 | 1 | 1 | 16 |
-| Total | 207 | 48 | 1 | 158 |
+| Total | 207 | 61 | 1 | 145 |
 
 One open resource site is absent under both current and baseline profiles; its
 inconsistent earlier reproduction is unresolved, not a fix. The Sloth review
@@ -79,6 +79,9 @@ Representative checkpoints (see commit diffs and family reports for details):
   nil-guards an exact captured `http.Response.Body` before closing it is
   unknown consumption, never proven release. Kruise is corrected; the full
   83-scope replay retained 66/66 controls with zero new diagnostics.
+- Repeated guards v1 (after this handoff): path guard facts make the arm of a
+  re-tested guard that contradicts the path unknown. Thirteen correlated-error
+  sites are corrected; 66/66 controls retained.
 - HEAD boundary v2 (after this handoff): the package default client with no
   visible reconfiguration, and requests rebound through `WithContext`/`Clone`
   or edited through standard `Header` methods, join the zero-value-client HEAD
@@ -97,9 +100,9 @@ Representative checkpoints (see commit diffs and family reports for details):
 - `make verify` passed for the combined lifecycle checkpoint and again for the
   evalorder checkpoint. Logs: `.build/followup207-verify-final-checkpoint-v2.log`
   and `.build/followup207-evalorder-verify.log`.
-- Resource replay (head-v2): all **83** scopes; **66/66** baseline-detected
+- Resource replay (guards-v1): all **83** scopes; **66/66** baseline-detected
   bug controls retained, six historical misses unchanged, zero new resource
-  diagnostics, twenty-two removed.
+  diagnostics, thirty-five removed.
 - Lock replay v19: all **20** scopes; **4/4** controls and both earlier fixes
   retained; zero new lock diagnostics.
 - Shipped goroutine select-v10: all **66** scopes; **56/56** old bug controls
@@ -164,7 +167,7 @@ existing captured-cleanup family moved cohesively into `captured_cleanup.go`.
 
 ## Remaining work, grouped rather than one model per finding
 
-Resources (118): 43 memory/empty HTTP bodies; 19 correlated errors/guards;
+Resources (105): 43 memory/empty HTTP bodies; six correlated errors/guards;
 18 failure-fixture assumptions; 11 process-bounded lifetimes; eight returned or
 retained owners; seven aggregate cleanup; five logging outputs; seven smaller
 cases. The 18 failure-fixture cases are mostly **not** assertion helper gaps:

@@ -28,6 +28,9 @@ type resourceFlowState struct {
 	// unknown records that something the analysis cannot see through
 	// consumed the resource on this path; a return after that proves nothing.
 	unknown bool
+	// guards are the repeated-guard facts this path has established; see
+	// guard_facts.go. An edge that contradicts one is unknown, never pruned.
+	guards []resourceGuard
 }
 
 type resourceFlowKey struct {
@@ -37,6 +40,7 @@ type resourceFlowKey struct {
 	active      bool
 	released    bool
 	unknown     bool
+	guards      string
 }
 
 // Analyzer returns this package's configured Go analysis pass.
@@ -84,7 +88,7 @@ func evaluateResourceFlow(
 	// revisited only when a different path reaches it with a different
 	// obligation state; the predecessor lets the successful branch of the
 	// acquisition be told apart from its error branch.
-	initial := []resourceFlowState{{block: call.Block(), index: index + 1, active: true}}
+	initial := []resourceFlowState{{block: call.Block(), index: index + 1, active: true, guards: analysis.guardsAtAcquisition()}}
 	opaque, leaks := false, false
 	ssaflow.WalkStates(initial, resourceStateKey, func(state resourceFlowState) ([]resourceFlowState, bool) {
 		state, leaks = advanceResourceState(pass, analysis, state)
@@ -92,7 +96,7 @@ func evaluateResourceFlow(
 			return nil, false
 		}
 		opaque = opaque || state.unknown
-		return resourceSuccessorStates(pass, state, errorValue, resource, optionalAcquisition, analysis.candidate), true
+		return resourceSuccessorStates(analysis, state, errorValue), true
 	})
 	if leaks {
 		// DB-prepared driver statements belong to pooled connections, whose
@@ -126,6 +130,7 @@ func resourceStateKey(state resourceFlowState) resourceFlowKey {
 		active:      state.active,
 		released:    state.released,
 		unknown:     state.unknown,
+		guards:      resourceGuardKey(state.guards),
 	}
 }
 
@@ -134,6 +139,9 @@ func advanceResourceState(pass *analysis.Pass, analysis *resourceAnalysis, state
 	// opaque consumption does not settle it but removes the proof: the
 	// return is then neither owned nor a defect.
 	for _, instruction := range state.block.Instrs[state.index:] {
+		if store, ok := instruction.(*ssa.Store); ok {
+			state.guards = forgetStoredGuards(state.guards, store)
+		}
 		switch analysis.action(instruction) {
 		case actionSettled:
 			state.released = true
@@ -164,13 +172,8 @@ func advanceResourceState(pass *analysis.Pass, analysis *resourceAnalysis, state
 	return state, false
 }
 
-func resourceSuccessorStates(
-	pass *analysis.Pass,
-	state resourceFlowState,
-	errorValue, resource ssa.Value,
-	optionalAcquisition optionalAcquisitionProof,
-	candidate token.Pos,
-) []resourceFlowState {
+func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState, errorValue ssa.Value) []resourceFlowState {
+	pass, resource, optionalAcquisition, candidate := analysis.pass, analysis.resource, analysis.optional, analysis.candidate
 	successors := ssaflow.FeasibleSuccessors(state.block, state.predecessor)
 	if optionalAcquisition.Proven() && state.block == optionalAcquisition.merge && state.predecessor == optionalAcquisition.acquisitionBlock {
 		successors = []*ssa.BasicBlock{optionalAcquisition.acquiredSuccessor}
@@ -185,10 +188,30 @@ func resourceSuccessorStates(
 		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
 			active = active && present
 		}
-		unknown := state.unknown || sqlRowsExhaustionEdge(state.block, successor, resource)
-		result = append(result, resourceFlowState{block: successor, predecessor: state.block, active: active, released: state.released, unknown: unknown})
+		guards, contradicted := extendResourceGuards(state.guards, state.block, successor)
+		if contradicted {
+			analysis.traceRepeatedGuard(state.block, successor)
+		}
+		unknown := state.unknown || sqlRowsExhaustionEdge(state.block, successor, resource) || contradicted
+		result = append(result, resourceFlowState{
+			block: successor, predecessor: state.block, active: active, released: state.released, unknown: unknown, guards: guards,
+		})
 	}
 	return result
+}
+
+// traceRepeatedGuard records that an edge re-tested a guard the path had
+// already taken the other way, so the path became unknown there.
+func (analysis *resourceAnalysis) traceRepeatedGuard(block, successor *ssa.BasicBlock) {
+	if !analysis.probe.Enabled() {
+		return
+	}
+	branch := block.Instrs[len(block.Instrs)-1]
+	analysis.probe.Evidence(analysisTrace.Step{
+		Reason: "repeated-guard-edge-unknown", Outcome: analysisTrace.OutcomeUnknown,
+		Pos: branch.Pos(), Function: block.Parent().String(),
+		Details: map[string]string{"branch": branch.String(), "successor": strconv.Itoa(successor.Index)},
+	})
 }
 
 func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource ssa.Value, cleanup []string) bool {
