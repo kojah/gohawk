@@ -25,7 +25,7 @@ import (
 // wrongly suppress an order where the callee releases a different object of
 // the same class.
 type calleeLocks struct {
-	acquires []string
+	acquires []lockAcquisition
 }
 
 // calleeLockSearch answers the question once per function rather than once per
@@ -72,7 +72,7 @@ func (locks *calleeLocks) observe(search *calleeLockSearch, instruction ssa.Inst
 		// every iteration, which is why the acquisition walk declines it. The
 		// same uncertainty applies when the acquisition is a callee's.
 		if class := lockClassOf(receiver); operation == mutexAcquire && class != "" && !dynamicIndexedMutex(receiver) {
-			locks.acquires = appendUniqueString(locks.acquires, class)
+			locks.add(acquisitionAt(instruction, class))
 		}
 		return
 	}
@@ -84,7 +84,21 @@ func (locks *calleeLocks) observe(search *calleeLockSearch, instruction ssa.Inst
 		return
 	}
 	nested := search.locks(call.Common().StaticCallee())
-	for _, class := range nested.acquires {
-		locks.acquires = appendUniqueString(locks.acquires, class)
+	for _, acquired := range nested.acquires {
+		locks.add(acquired.through(call))
 	}
+}
+
+// Retain one finite witness per class and mode, not every route through the
+// call graph. A longer route beyond the evidence limit contributes no claim.
+func (locks *calleeLocks) add(acquired lockAcquisition) {
+	if len(acquired.calls) > maxOrderDepth {
+		return
+	}
+	for _, existing := range locks.acquires {
+		if existing.class == acquired.class && existing.read == acquired.read {
+			return
+		}
+	}
+	locks.acquires = append(locks.acquires, acquired)
 }

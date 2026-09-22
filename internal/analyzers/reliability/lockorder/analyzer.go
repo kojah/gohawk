@@ -2,8 +2,6 @@
 package lockorder
 
 import (
-	"go/token"
-
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/analysis"
@@ -17,8 +15,9 @@ type lockRelation struct {
 }
 
 type lockFlowState struct {
-	block *ssa.BasicBlock
-	held  []string
+	block   *ssa.BasicBlock
+	held    []string
+	origins map[string]lockAcquisition
 	// readHeld is the subset of held taken with RLock. A read lock grants
 	// read access only, so a write while one is held is a race with any other
 	// reader; tracking the mode separately keeps the rest of the walk, which
@@ -57,17 +56,13 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	relations := map[lockRelation]token.Pos{}
-	// Ordering compares lock classes, so the key each identity maps to must
-	// outlive the function that acquired it: the contradicting order is
-	// usually in another method of the same type.
-	keys := map[string]string{}
+	relations := newLockOrders()
 	// One search serves every function: a helper reached from many call sites
 	// is summarized once rather than once per site.
 	calleeLocks := newCalleeLockSearch()
 	for _, function := range functions {
 		var evidence ssaflow.LocalEvidence
-		walkLockOrder(pass, function, relations, keys, calleeLocks, &evidence)
+		walkLockOrder(pass, function, relations, calleeLocks, &evidence)
 		// A discarded Try acquisition is decided per instruction and needs no
 		// lock-flow state, so it stays outside the path-sensitive walk above,
 		// which may visit a block more than once.

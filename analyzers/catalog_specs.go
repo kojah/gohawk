@@ -213,7 +213,7 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
 			},
 			{
-				ID: check.LockContradictoryOrder, Doc: "Reports two locks acquired in opposite orders in different places.",
+				ID: check.LockContradictoryOrder, Doc: "Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence.",
 				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
 			},
 			{

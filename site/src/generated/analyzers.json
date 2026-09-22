@@ -226,7 +226,7 @@
             },
             {
               "id": "lockorder/contradictory-order",
-              "summary": "Reports two locks acquired in opposite orders in different places.",
+              "summary": "Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence.",
               "kind": "hazard",
               "tier": "extended"
             },

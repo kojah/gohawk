@@ -20,7 +20,7 @@ the corresponding release policy.
 | --- | --- | --- | --- |
 | <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports return paths that leave an owned lock held. |
 | <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
-| <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports two locks acquired in opposite orders in different places. |
+| <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
 | <CheckIdentity name="read-lock-write" tier="experimental" /> | hazard | experimental | Reports writes to an object while only its read lock is held. |
 | <CheckIdentity name="mismatched-release" tier="experimental" /> | defect | experimental | Reports a lock released with the wrong method for how it was acquired. |
 | <CheckIdentity name="discarded-trylock" tier="experimental" /> | defect | experimental | Reports a TryLock whose result is discarded, leaving the lock possibly unheld. |
@@ -52,6 +52,36 @@ that field's identity across calls. Different receivers and different fields
 remain distinct. Getters with branches, loads, side effects, or unavailable
 bodies are opaque; the analyzer does not guess that repeated calls return the
 same mutex or invent separate held locks from their call sites.
+
+### Ordering cycles and evidence
+
+The ordering check recognizes reversed pairs and longer cycles such as
+`A -> B -> C -> A`. It reports one short witness when a new ordering edge
+closes a cycle, rather than enumerating every possible cycle. Related diagnostic
+locations show both acquisitions on each edge, their `Lock` or `RLock` mode,
+and a representative chain of visible synchronous helper calls. These notes
+are available in ordinary output and JSON.
+
+Longer witnesses exclude iteration-dependent lock identities and are omitted
+when a reversed pair within the witness already explains a shorter conflict.
+This avoids amplifying pooled-instance uncertainty or repeating an existing
+warning as several larger cycles.
+
+The graph still compares declaration classes, not runtime object aliases.
+A cycle is an extended hazard, not proof that those calls run concurrently
+on the same objects. Same-class pairs and unclassified locks do not form edges.
+Opaque calls, asynchronous calls, and dynamic indexed locks do not contribute
+guessed helper acquisitions.
+
+Cycle witnesses contain at most eight edges. Each search examines at most
+512 edges, and a package retains at most 4,096 distinct order edges. Helper
+evidence retains a bounded representative route rather than all call paths.
+Exceeding a bound means coverage is lost, not that a cycle is proved.
+
+Read/read edges are not automatically discarded. Go's `sync.RWMutex` blocks
+new readers when a writer is waiting, so opposing read acquisition orders can
+participate in a deadlock with queued writers. Modes explain the evidence;
+they do not imply that a read-only pair necessarily deadlocks by itself.
 
 ### Writes under a read lock
 

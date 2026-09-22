@@ -4,6 +4,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"maps"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -35,8 +36,7 @@ func releaseSettled(proof ssaflow.CompletionProof, reason ssaflow.EvidenceReason
 type lockFlowContext struct {
 	pass        *analysis.Pass
 	evidence    *ssaflow.LocalEvidence
-	relations   map[lockRelation]token.Pos
-	keys        map[string]string
+	relations   *lockOrders
 	calleeLocks *calleeLockSearch
 	lockValues  map[string][]ssa.Value
 	acquiredAt  map[string]token.Pos
@@ -53,8 +53,7 @@ type lockFlowContext struct {
 func walkLockOrder(
 	pass *analysis.Pass,
 	function *ssa.Function,
-	relations map[lockRelation]token.Pos,
-	keys map[string]string,
+	relations *lockOrders,
 	calleeLocks *calleeLockSearch,
 	evidence *ssaflow.LocalEvidence,
 ) {
@@ -78,7 +77,6 @@ func walkLockOrder(
 		pass:            pass,
 		evidence:        evidence,
 		relations:       relations,
-		keys:            keys,
 		calleeLocks:     calleeLocks,
 		lockValues:      lockValues,
 		acquiredAt:      acquiredAt,
@@ -92,6 +90,10 @@ func walkLockOrder(
 		readHeld := slices.Clone(state.readHeld)
 		deferred := slices.Clone(state.deferred)
 		guards := cloneLockGuards(state.guards)
+		origins := maps.Clone(state.origins)
+		if origins == nil {
+			origins = map[string]lockAcquisition{}
+		}
 		condition := state.condition
 		if len(state.block.Preds) > 1 {
 			condition = ""
@@ -113,7 +115,7 @@ func walkLockOrder(
 			deferred = recordDeferredUnlocks(evidence, instruction, held, deferred, lockValues, released)
 			operation, identity, receiver, ok := mutexAction(instruction)
 			if !ok {
-				flow.recordCalledOrder(instruction, held)
+				flow.recordCalledOrder(instruction, held, origins)
 				reportReadLockWrites(pass, instruction, held, readHeld, lockValues)
 				continue
 			}
@@ -124,14 +126,14 @@ func walkLockOrder(
 				uncertainGuards[identity] = uncertainGuards[identity] || optionalLoadedMutex(instruction, identity)
 			}
 			actionState := lockFlowState{
-				held: held, readHeld: readHeld, deferred: deferred, guards: guards,
+				held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
 				condition: condition, conditionValue: state.conditionValue,
 			}
 			actionState = flow.applyMutexAction(instruction, operation, identity, receiver, actionState)
 			held, readHeld, guards = actionState.held, actionState.readHeld, actionState.guards
 			deferred = actionState.deferred
 		}
-		return lockSuccessorStates(pass, state.block, held, readHeld, deferred, guards), true
+		return lockSuccessorStates(pass, state.block, held, readHeld, deferred, guards, origins), true
 	})
 	// A lock is reported only when some path releases it and another returns
 	// with it held: a lock never released anywhere is either transferred to a
@@ -403,7 +405,7 @@ func recordDeferredUnlocks(
 // callee takes. The held set is the one the transfer rules above already
 // adjusted, so a lock handed to a goroutine or to code the analysis cannot see
 // through is no longer held here and orders nothing.
-func (flow lockFlowContext) recordCalledOrder(instruction ssa.Instruction, held []string) {
+func (flow lockFlowContext) recordCalledOrder(instruction ssa.Instruction, held []string, origins map[string]lockAcquisition) {
 	if len(held) == 0 {
 		return
 	}
@@ -413,8 +415,8 @@ func (flow lockFlowContext) recordCalledOrder(instruction ssa.Instruction, held 
 	}
 	locks := flow.calleeLocks.locks(call.Common().StaticCallee())
 	for _, owner := range held {
-		for _, class := range locks.acquires {
-			recordOrder(flow.pass, instruction.Pos(), flow.relations, flow.keys[owner], class)
+		for _, acquired := range locks.acquires {
+			flow.relations.record(flow.pass, origins[owner], acquired.through(call))
 		}
 	}
 }
@@ -467,11 +469,17 @@ func (flow lockFlowContext) applyMutexAction(
 		flow.released[identity] = true
 		state.deferred = appendUniqueString(state.deferred, identity)
 	}
-	flow.keys[identity] = lockComparisonKey(identity, receiver)
+	acquired := acquisitionAt(instruction, lockComparisonKey(identity, receiver))
+	if !slices.Contains(state.held, identity) {
+		for _, owner := range state.held {
+			flow.relations.record(flow.pass, state.origins[owner], acquired)
+		}
+		state.origins[identity] = acquired
+	}
 	if readModeAcquisition(instruction) {
 		state.readHeld = appendUniqueString(state.readHeld, identity)
 	}
-	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.keys, flow.relations, flow.unprovenRelease[identity])
+	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.unprovenRelease[identity])
 	return state
 }
 
@@ -480,6 +488,7 @@ func lockSuccessorStates(
 	block *ssa.BasicBlock,
 	held, readHeld, deferred []string,
 	guards map[string]lockGuard,
+	origins map[string]lockAcquisition,
 ) []lockFlowState {
 	states := make([]lockFlowState, 0, len(block.Succs))
 	for index, successor := range block.Succs {
@@ -492,7 +501,7 @@ func lockSuccessorStates(
 			}
 		}
 		states = append(states, lockFlowState{
-			block: successor, held: held, readHeld: readHeld, deferred: deferred, guards: guards,
+			block: successor, held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
 			condition: nextCondition, conditionValue: nextValue,
 		})
 	}

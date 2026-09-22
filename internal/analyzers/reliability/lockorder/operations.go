@@ -7,7 +7,6 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -43,8 +42,6 @@ func acquireLock(
 	instruction ssa.Instruction,
 	held []string,
 	identity string,
-	keys map[string]string,
-	relations map[lockRelation]token.Pos,
 	releaseUnproven bool,
 ) []string {
 	if slices.Contains(held, identity) {
@@ -60,48 +57,7 @@ func acquireLock(
 		}
 		return held
 	}
-	// recursive-acquire above stays on instance identity, where re-locking the
-	// same object is the defect. Ordering below compares lock classes, so a
-	// mutex held in a struct field is comparable across the methods that take
-	// it; see lockClassOf for why the class claim is sound.
-	for _, owner := range held {
-		recordOrder(pass, instruction.Pos(), relations, keys[owner], keys[identity])
-	}
 	return append(held, identity)
-}
-
-// recordOrder records that ownerKey was held while key was acquired, and
-// reports when the opposite order was already seen somewhere in this package.
-// Both the direct acquisition and the order a call implies come through here,
-// so one place decides what an ordering claim requires.
-func recordOrder(pass *analysis.Pass, position token.Pos, relations map[lockRelation]token.Pos, ownerKey, key string) {
-	if ownerKey == "" || key == "" || ownerKey == key {
-		// An unclassified lock compares with nothing, and two locks of one
-		// class are ordered by which object holds them -- evidence this
-		// analysis does not have. Reporting the latter would flag every routine
-		// that locks two peers at once, such as transfer(from, to *Account)
-		// taking from.mu then to.mu while another caller passes the same
-		// accounts the other way around.
-		return
-	}
-	relation := lockRelation{from: ownerKey, to: key}
-	if _, recorded := relations[relation]; recorded {
-		return
-	}
-	if opposite, exists := relations[lockRelation{from: key, to: ownerKey}]; exists {
-		// Preserve the other half of the cycle in candidate-scoped evidence.
-		// The diagnostic's own position otherwise identifies only one order,
-		// making an interprocedural cycle impossible to audit from the trace.
-		probe := analysisTrace.For(pass, "lockorder", string(check.LockContradictoryOrder), position)
-		if probe.Enabled() {
-			probe.Evidence(analysisTrace.Step{
-				Reason: "opposite-order-recorded", Outcome: analysisTrace.OutcomeRejected, Pos: opposite,
-				Details: map[string]string{"held": key, "acquired": ownerKey},
-			})
-		}
-		check.Reportf(pass, check.LockContradictoryOrder, position, "contradictory lock order: %s and %s", key, ownerKey)
-	}
-	relations[relation] = position
 }
 
 func appendUniquePosition(positions []token.Pos, candidate token.Pos) []token.Pos {

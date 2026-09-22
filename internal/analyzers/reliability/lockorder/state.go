@@ -14,13 +14,18 @@ import (
 )
 
 func lockStateKey(state lockFlowState) string {
+	var origins strings.Builder
+	for _, identity := range state.held {
+		origin := state.origins[identity]
+		fmt.Fprintf(&origins, "%s:%d:%t;", identity, origin.position, origin.read)
+	}
 	guards := make([]string, 0, len(state.guards))
 	for identity, guard := range state.guards {
 		guards = append(guards, fmt.Sprintf("%s:%s=%t", identity, guard.condition, guard.value))
 	}
 	slices.Sort(guards)
 	return fmt.Sprintf(
-		"%d:%s:%s:%s:%s:%s=%t",
+		"%d:%s:%s:%s:%s:%s=%t:%s",
 		state.block.Index,
 		strings.Join(state.held, ","),
 		strings.Join(state.readHeld, ","),
@@ -28,6 +33,7 @@ func lockStateKey(state lockFlowState) string {
 		strings.Join(guards, ","),
 		state.condition,
 		state.conditionValue,
+		origins.String(),
 	)
 }
 
