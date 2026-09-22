@@ -91,7 +91,7 @@ func evaluateResourceFlow(
 	initial := []resourceFlowState{{block: call.Block(), index: index + 1, active: true, guards: analysis.guardsAtAcquisition()}}
 	opaque, leaks := false, false
 	ssaflow.WalkStates(initial, resourceStateKey, func(state resourceFlowState) ([]resourceFlowState, bool) {
-		state, leaks = advanceResourceState(pass, analysis, state)
+		state, leaks = advanceResourceState(analysis, state)
 		if leaks {
 			return nil, false
 		}
@@ -134,7 +134,7 @@ func resourceStateKey(state resourceFlowState) resourceFlowKey {
 	}
 }
 
-func advanceResourceState(pass *analysis.Pass, analysis *resourceAnalysis, state resourceFlowState) (resourceFlowState, bool) {
+func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (resourceFlowState, bool) {
 	// A release or transfer anywhere before a return settles the path. An
 	// opaque consumption does not settle it but removes the proof: the
 	// return is then neither owned nor a defect.
@@ -164,7 +164,7 @@ func advanceResourceState(pass *analysis.Pass, analysis *resourceAnalysis, state
 			})
 		}
 		if ok && state.active && !state.released && !state.unknown &&
-			!returnedResourceOwner(pass, returned, analysis.resource, analysis.contract.cleanup) &&
+			!analysis.returnedResourceOwner(returned) &&
 			!ssaflow.ReturnedMayAliasAny(returned, analysis.owners) {
 			return state, true
 		}
@@ -214,7 +214,12 @@ func (analysis *resourceAnalysis) traceRepeatedGuard(block, successor *ssa.Basic
 	})
 }
 
-func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource ssa.Value, cleanup []string) bool {
+// returnedResourceOwner reports whether the return hands the resource to the
+// caller through a value that can still release it. When a result derives
+// from the resource but is declined, the trace says which rule declined it:
+// a summarized view, or a projection with no cleanup method.
+func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bool {
+	resource, cleanup := analysis.resource, analysis.contract.cleanup
 	if ssaflow.ReturnedValueOwnsValue(returned, resource) {
 		return true
 	}
@@ -228,31 +233,41 @@ func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource s
 		// replacement body that merely occupies the original field.
 		// https://github.com/lich0821/ccNexus/blob/55887d232555f94ea4db621a5a7e65430eebf0d7/internal/transformer/tool_chain.go#L121-L135
 		if original, changed := ssaflow.UnwrapTransparentValue(result, ssaflow.TransparentChangeInterface); changed &&
-			ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Projection(original, resource, returned).Proven() {
+			ssaflow.NewStorage(analysis.budget(1000)).Projection(original, resource, returned).Proven() {
 			result = original
 		}
 		// A returned view is summarized as releasing nothing, whatever its
 		// method names suggest; the caller of this function cannot close the
 		// resource through it.
-		if call, ok := result.(*ssa.Call); ok && lifecyclefacts.CallReturnsView(pass, call, resource) {
+		if call, ok := result.(*ssa.Call); ok && lifecyclefacts.CallReturnsView(analysis.pass, call, resource) {
+			analysis.traceReturnedResult(returned, result, "returned-view-cannot-release", analysisTrace.OutcomeRejected)
 			continue
 		}
 		methods := types.NewMethodSet(result.Type())
 		for method := range methods.Methods() {
 			if slices.Contains(cleanup, method.Obj().Name()) {
-				if analysisTrace.Enabled("resourcelifetime", string(check.ResourceRelease)) {
-					analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), resource.Pos()).Evidence(analysisTrace.Step{
-						Reason:   "returned-cleanup-projection",
-						Outcome:  analysisTrace.OutcomeAccepted,
-						Pos:      returned.Pos(),
-						Function: returned.Parent().String(),
-					})
-				}
+				analysis.traceReturnedResult(returned, result, "returned-cleanup-projection", analysisTrace.OutcomeAccepted)
 				return true
 			}
 		}
+		analysis.traceReturnedResult(returned, result, "returned-projection-lacks-cleanup", analysisTrace.OutcomeRejected)
 	}
 	return false
+}
+
+func (analysis *resourceAnalysis) traceReturnedResult(returned *ssa.Return, result ssa.Value, reason string, outcome analysisTrace.Outcome) {
+	if !analysis.probe.Enabled() {
+		return
+	}
+	step := analysisTrace.Step{
+		Reason: reason, Outcome: outcome, Pos: returned.Pos(), Function: returned.Parent().String(),
+		Details: map[string]string{"result": result.Name(), "result_type": result.Type().String()},
+	}
+	if outcome == analysisTrace.OutcomeAccepted {
+		analysis.probe.Evidence(step)
+		return
+	}
+	analysis.probe.Considered(step)
 }
 
 func testProvesAcquisitionError(acquisition *ssa.Call, resource, errorValue ssa.Value, httpResponse bool) bool {
