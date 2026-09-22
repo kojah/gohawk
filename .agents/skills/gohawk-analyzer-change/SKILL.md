@@ -13,6 +13,25 @@ that contract. For a brand-new analyzer, follow
 [How to contribute](../../../docs/contributing.md) instead; this skill covers
 the change, fix, and extend loop.
 
+## Implementation ownership
+
+Use one implementation agent per task, including large false-positive batches.
+That agent may be the main agent or one delegated fixer, but not both at once.
+It owns production changes, shared infrastructure, regression fixtures, and
+associated documentation across all affected analyzers. Do not split fixes
+among concurrent implementers merely because they touch different analyzers:
+shared proof changes can interact even when file ownership does not overlap.
+
+Additional agents may perform read-only investigation, source review, or
+precision audits and return evidence or proposed fixes to the implementation
+agent. They may write isolated scan artifacts, but must not edit shared source,
+tests, or documentation. The main agent coordinates and reviews rather than
+becoming a second implementer when a fixer is delegated. Transfer implementation
+ownership explicitly and stop the previous writer before the next starts.
+
+Parallel implementation requires explicit user approval; a request to finish
+a batch quickly or resolve every finding is not that approval.
+
 ## 0. Orient on the real IR
 
 Do not mentally compile Go to SSA or simulate the classifier. Dump what the
