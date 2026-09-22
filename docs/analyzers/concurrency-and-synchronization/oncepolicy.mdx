@@ -27,6 +27,10 @@ Each newly created wrapper has fresh once-only state. Recreating it at every
 call means the wrapped work can run repeatedly, defeating the guarantee that
 made `sync.Once` useful in the first place.
 
+A direct package-variable initializer is excluded because Go already evaluates
+it once. A function literal stored by that initializer is not excluded: callers
+may invoke it repeatedly.
+
 Further reading: [`sync.OnceFunc`](https://pkg.go.dev/sync#OnceFunc).
 
 ## How to fix it

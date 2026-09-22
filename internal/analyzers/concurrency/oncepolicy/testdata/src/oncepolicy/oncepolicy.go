@@ -20,6 +20,14 @@ func discardedValues() (int, error) {
 
 var regressionInitializeOnce = sync.OnceFunc(regressionInitialize)
 
+// Package initialization already evaluates these expressions exactly once.
+var initializedValue = sync.OnceValue(value)()
+var initializedA, initializedError = sync.OnceValues(values)()
+
+var repeatableFactory = func() int {
+	return sync.OnceValue(value)() // want "sync.OnceValue wrapper is discarded after one call"
+}
+
 func retained() {
 	regressionInitializeOnce()
 }
