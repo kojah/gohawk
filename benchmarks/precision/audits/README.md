@@ -1779,6 +1779,16 @@ The [per-site ledger](resource-tightening-2026-09-22.tsv) preserves original
 verdicts, both replay results, pins and coverage limitations. This is a
 follow-up to existing batches, not another repository batch.
 
+## Non-resource follow-up
+
+The [78-site follow-up](followup-78.md) corrects eleven further reports: seven
+goroutine, two lock, and two process findings. Sixty-seven remain unresolved,
+with per-family assessments and pinned ledgers. The landed changes retain all
+67 of their genuine-bug controls. A producer experiment that suppressed seven
+false positives but lost 26 genuine findings was rejected and reverted, not
+counted as progress. Together with resource tightening, 207 of the previously
+reported 251 false positives remain unresolved.
+
 ## Historical 500-repository audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
