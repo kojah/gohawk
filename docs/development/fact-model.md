@@ -368,6 +368,10 @@ It records channel send/receive/close, `WaitGroup.Add(1)`/`Done`/`Wait`, and
 `sync.Mutex.Lock`/`Unlock` events, including completion and unlock defers in
 execution order. The generic summary infrastructure still owns caching,
 recursion guards, and budgets; each analyzer owns its defect or hazard proof.
+Deferred helpers can contain several close, group-completion, or unlock events.
+The deferred stack reverses helper registration order without reversing the
+events inside a helper. Acquisition, communication, incomplete effects, and
+unstable captured bindings still prevent a deferred summary.
 
 Its versioned `Fact` serializes event kinds and formal parameter positions,
 with the receiver at position zero. A complete empty fact is positive evidence

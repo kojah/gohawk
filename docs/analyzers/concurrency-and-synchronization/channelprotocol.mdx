@@ -32,6 +32,10 @@ alternative participants, and cancellation/select branches remain outside
 these new proofs. Related locations identify the worker acquisition, its
 required operation, and the caller's later unlock.
 
+The worker may precede this sequence with adjacent lock/unlock pairs on
+different fresh local mutexes. Shared mutexes, nested locking, early signals,
+and releases of the parent's mutex are not discarded to manufacture a cycle.
+
 Enable it with `gohawk -enable-checks=channelprotocol/blocked-operation ./...`.
 
 ### Current boundary
@@ -50,6 +54,9 @@ Direct helpers and completion-only deferred helpers or closures compose with
 these operations. Defers execute at their own function's return, in reverse
 registration order. A helper that defers completion and returns before the
 send does not establish this cycle.
+Deferred helpers may combine unlock, channel close, and group completion.
+Their internal operation order is preserved, including through imported and
+forwarding helpers; deferred acquisition or blocking communication is unknown.
 
 Visible helpers containing only supported, non-panicking scalar arithmetic
 may have an empty protocol-effect summary. Scalar signatures alone do not
@@ -79,7 +86,7 @@ protocols or general deadlock freedom.
 
 There is no schedule enumeration or product of goroutine states. Each check's
 caller question has a 2,000-step shared instruction/storage budget, and summaries hold
-at most 32 channel and group operations, including pending defers. Completed
+at most 32 synchronization operations, including pending defers. Completed
 callee summaries are cached during the package pass; recursion and exhausted
 budgets never establish a defect.
 Input discovery still scans the package's SSA. These bounds deliberately trade

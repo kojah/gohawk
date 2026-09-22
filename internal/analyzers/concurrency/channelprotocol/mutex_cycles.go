@@ -14,11 +14,15 @@ import (
 func proveMixedCycle(function *ssa.Function, protocol summary, id check.ID) cycleProof {
 	unknown := cycleProof{Proof: ssaflow.Proof{Reason: "mixed-order-not-matched"}}
 	if protocol.Spawn == nil || protocol.Prefix < 1 || protocol.Prefix > 2 ||
-		len(protocol.Operations) != protocol.Prefix+2 || len(protocol.Worker) != 3 {
+		len(protocol.Operations) != protocol.Prefix+2 {
 		return unknown
 	}
 	lock, prefix, ok := mixedPrefix(protocol)
 	if !ok {
+		return unknown
+	}
+	protocol.Worker = mixedWorkerSuffix(function, protocol.Worker, lock.Resource)
+	if len(protocol.Worker) != 3 {
 		return unknown
 	}
 	wait, unlock := protocol.Operations[protocol.Prefix], protocol.Operations[protocol.Prefix+1]
@@ -39,6 +43,22 @@ func proveMixedCycle(function *ssa.Function, protocol summary, id check.ID) cycl
 	}
 	proof := mixedDependency(function, prefix, wait, signal, id)
 	return cycleProof{Proof: proof, wait: wait, send: workerLock, signal: signal, receive: unlock}
+}
+
+// A complete worker may first acquire and release an unrelated fresh mutex.
+// Remove only adjacent balanced prefixes: never the selected mutex, a shared
+// mutex, an early signal, or a release of the lock held by the parent. The
+// remaining three-event proof retains its necessary wait dependency.
+func mixedWorkerSuffix(function *ssa.Function, worker []operation, held resourceReference) []operation {
+	for len(worker) > 3 {
+		acquire, release := worker[0], worker[1]
+		if acquire.Kind != concurrencyfacts.Lock || release.Kind != concurrencyfacts.Unlock ||
+			acquire.Resource != release.Resource || acquire.Resource == held || !localMutex(function, acquire.Resource) {
+			break
+		}
+		worker = worker[2:]
+	}
+	return worker
 }
 
 func mixedPrefix(protocol summary) (operation, summary, bool) {

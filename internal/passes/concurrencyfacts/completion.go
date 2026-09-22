@@ -4,6 +4,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -74,16 +75,21 @@ func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) s
 	if !called.Complete() {
 		return called.Reason
 	}
-	if len(called.Operations) != 1 {
+	if len(called.Operations) == 0 {
 		return "protocol-deferred-effects-unknown"
 	}
-	op := called.Operations[0]
-	if op.Kind != Close && op.Kind != GroupDone && op.Kind != Unlock {
-		return "protocol-deferred-effects-unknown"
+	for _, op := range called.Operations {
+		if op.Kind != Close && op.Kind != GroupDone && op.Kind != Unlock {
+			return "protocol-deferred-effects-unknown"
+		}
 	}
 	// Arguments are bound now. Only their execution moves to RunDefers;
 	// captured cells still require stable storage through the invocation.
-	result.deferred = append(result.deferred, op)
+	// RunDefers reverses this stack, so push the helper backwards to retain
+	// its internal execution order while reversing the order of deferred calls.
+	for _, op := range slices.Backward(called.Operations) {
+		result.deferred = append(result.deferred, op)
+	}
 	return ""
 }
 
