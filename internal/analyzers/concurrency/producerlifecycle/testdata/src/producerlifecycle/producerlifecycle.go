@@ -69,13 +69,3 @@ func branchingSecondResult(fail bool) {
 	}()
 	<-results
 }
-
-func repeatedResults() {
-	results := make(chan int)
-	go func() {
-		for {
-			results <- 1 // want "goroutine send can block after the receiver stops waiting"
-		}
-	}()
-	<-results
-}

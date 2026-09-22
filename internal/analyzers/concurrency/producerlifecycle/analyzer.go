@@ -116,12 +116,26 @@ func producerSends(function *ssa.Function, engine *concurrencyfacts.Engine) []pr
 func abandonedProducerSend(
 	function *ssa.Function, send producerSend, sends []producerSend, engine *concurrencyfacts.Engine,
 ) ssaflow.Proof {
-	// A looped send is potentially unbounded; otherwise compare only sends that
-	// can consume a receive before this send. A draining receive loop discharges either
-	// form because it continues to service the producer.
+	// No normal caller return puts a continuing or terminated caller outside
+	// this finite consumer-count check (for example log.Fatal(<-results)).
+	// https://github.com/saljam/webwormhole/blob/abf852af0458ba79772d9c26ef01434165f217d8/cmd/ww/server.go#L458-L470
+	if !ssaflow.UnownedReturn(send.spawn, func(ssa.Instruction) bool { return false }, nil) {
+		return ssaflow.Proof{Reason: "receiver-does-not-return"}
+	}
+	// A loop does not establish how many sends are feasible: a map may contain
+	// zero or one matching entry, or a state flag may permit only one send.
+	// Decline the whole channel count when any contributing send is repeated;
+	// otherwise a later send could inherit the same unproven excess count.
+	// https://github.com/hashicorp/go-metrics/blob/5a9e5caa3d2779bca6a8ae2218b8f884194855e7/inmem_endpoint_test.go#L157-L177
 	sendCount := 0
 	for _, candidate := range sends {
-		if ssaflow.SameValue(candidate.channel, send.channel) && producerSendMayPrecede(candidate, send) {
+		if !ssaflow.SameValue(candidate.channel, send.channel) {
+			continue
+		}
+		if candidate.repeated {
+			return ssaflow.Proof{Reason: "producer-count-unknown"}
+		}
+		if producerSendMayPrecede(candidate, send) {
 			sendCount++
 		}
 	}
@@ -132,7 +146,7 @@ func abandonedProducerSend(
 	if receives.count == 0 {
 		return ssaflow.Proof{Reason: "receiver-obligation-unknown"}
 	}
-	if send.repeated || sendCount > receives.count {
+	if sendCount > receives.count {
 		return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "producer-exceeds-receives"}
 	}
 	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: "producer-within-receive-count"}

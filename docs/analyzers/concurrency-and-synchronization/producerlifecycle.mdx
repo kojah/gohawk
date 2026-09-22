@@ -12,13 +12,19 @@ Reports producer goroutines that can block after their receiver stops waiting.
 
 Complete shared concurrency summaries expose sends and receives hidden in
 helpers, including imported helpers. They feed the existing bounded count proof:
-a local unbuffered channel, an observed receiver, and excess or repeated sends.
+a local unbuffered channel, an observed receiver, and explicit excess sends.
 Deferred receiving helpers count as receivers too. Opaque channel consumers,
 possible drain loops, and additional receiving goroutines leave the result
 unknown rather than being mistaken for absent receivers. Incompletely modeled
 competing workers can therefore suppress a finding, unless shared call-effects
 evidence proves that all uses of the channel are non-receiving. Buffered channels and
 externally supplied channels remain outside this proof.
+
+Loop-based send counts remain unknown: a repeated statement does not prove
+multiple sends are feasible. This deliberately misses unbounded producer loops
+until their excess production can be established without a cardinality guess.
+Callers that terminate the process instead of returning do not establish an
+abandoned receiver lifecycle.
 
 ### Checks
 
