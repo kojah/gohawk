@@ -105,8 +105,11 @@ func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.Lifecycl
 	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(command); resolved.Proven() {
 		command = resolved.Value
 	}
+	unknown := false
 	leaks := ssaflow.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
-		return processOwnershipAction(evidence, candidate, command)
+		action := processOwnershipAction(evidence, candidate, command)
+		unknown = unknown || action == ssaflow.EvidenceUnknown
+		return action != ssaflow.EvidenceDisproven
 	}, func(returned *ssa.Return) bool {
 		// Returning an aggregate that contains the command transfers Wait
 		// responsibility just as directly as returning *exec.Cmd itself, and
@@ -117,7 +120,7 @@ func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.Lifecycl
 			ssaflow.ReturnedValueOwnsValue(returned, command) ||
 			returnsProcessHandle(returned, command)
 	})
-	emitProcessDecision(pass, function, start, command, leaks)
+	emitProcessDecision(pass, function, start, command, leaks, unknown)
 	if !leaks {
 		return
 	}
@@ -130,7 +133,7 @@ func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.Lifecycl
 	check.Reportf(pass, check.ProcessWait, start.Pos(), "started command is not waited on every successful return path")
 }
 
-func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa.Call, command ssa.Value, leaks bool) {
+func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa.Call, command ssa.Value, leaks, unknown bool) {
 	checkID := string(check.ProcessWait)
 	if !analysisTrace.Enabled("processownership", checkID) {
 		return
@@ -138,6 +141,8 @@ func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa
 	outcome, reason := analysisTrace.OutcomeAccepted, "wait-ownership-proven"
 	if leaks {
 		outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
+	} else if unknown {
+		outcome, reason = analysisTrace.OutcomeUnknown, "ambiguous-wait-ownership"
 	}
 	details := map[string]string{}
 	if command != nil && command.Type() != nil {

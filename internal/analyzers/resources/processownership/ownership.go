@@ -153,7 +153,10 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 	return owners
 }
 
-func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, command ssa.Value) bool {
+func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
+	if possibleWaitHandoff(instruction, command) {
+		return ssaflow.EvidenceUnknown
+	}
 	common := ssaflow.InstructionCall(instruction)
 	completion := ssaflow.CompletionRequest{
 		Instruction: instruction,
@@ -174,7 +177,7 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 	// os.Process.Release explicitly relinquishes the parent's wait/reap
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
-	return waitsForCommand(instruction, command) || possibleWaitHandoff(instruction, command) ||
+	if waitsForCommand(instruction, command) ||
 		deferredClosureWaitsForCommand(instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
 			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
@@ -190,7 +193,10 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 		}).Proven() ||
 		storesProcessHandleInExternalField(instruction, command) ||
 		processHandleOwnershipAction(evidence, instruction, command) ||
-		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit"))
+		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit")) {
+		return ssaflow.EvidenceProven
+	}
+	return ssaflow.EvidenceDisproven
 }
 
 // A callback supplied to an opaque runner may own the wait. This is a reason
@@ -202,6 +208,17 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
+	}
+	// A merged receiver may select the successfully started command. The
+	// flow does not retain acquisition-error/receiver correlation, so possible
+	// identity makes this action unknown, never a guaranteed Wait. An earlier
+	// return that bypasses the action is still checked by the ordinary flow.
+	// https://github.com/raskrebs/sonar/blob/9c963b8447d6ca08dd4a3c0bc6c0bf27527cd793/internal/runs/runs_test.go#L117-L130
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
+		receiver := ssaflow.CallReceiver(common)
+		_, merged := receiver.(*ssa.Phi)
+		return merged && ssaflow.SameValue(receiver, command) &&
+			!ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(receiver, command).Proven()
 	}
 	if _, spawned := instruction.(*ssa.Go); spawned {
 		callee, _ := ssaflow.DirectCallee(common)

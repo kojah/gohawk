@@ -34,6 +34,13 @@ explicit `Wait` followed by process termination is also outside the normal-retur
 completion proof. Locally stored command fields are resolved at acquisition when
 checking whether a returned value owner contains the command.
 
+A `Wait` receiver merged from several commands is also uncertain when one
+possible receiver is the started command. This avoids inventing a missing wait
+when a failed `Start` selects a fallback command. It does not prove that a
+merged receiver chooses the correct process; that ambiguity is an accepted
+coverage gap. Returns before the possible wait and waits on an unrelated
+command remain checked.
+
 ## Why this is flagged
 
 Starting a process without waiting for it can leave operating-system resources

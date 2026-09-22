@@ -24,6 +24,11 @@ later holds the child. Ambiguous or detached parents remain outside this
 boundary. Signal registrations still need their own stop
 function even when their parent is canceled.
 
+The analysis does not currently use branch-specific receipt of a child's
+`Done` channel, elapsed sleep durations, or a command-wide process lifetime to
+prove cleanup. These remain known precision gaps, not blanket exemptions for
+`select`, timers, or command entry points.
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}
