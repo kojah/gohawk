@@ -1647,6 +1647,11 @@ operational limitations, and correction status. Not every confirmed false
 positive was fixed: unresolved ownership, protocol, and path-correlation gaps
 remain explicit rather than receiving repository-specific exceptions.
 
+The [bounded follow-up](batch-50-followup.md) verifies eight additional FP
+removals using existing machinery. Nineteen original FP locations now have
+correction evidence; 36 remain unresolved. Round 53 passes 14 FP labels,
+including six earlier Nylon corrections, and 11 true-positive controls.
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The

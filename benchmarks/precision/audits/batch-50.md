@@ -114,6 +114,11 @@ In total, **11 original false positives have verified removals; 44 remain
 unresolved**. This is targeted replay evidence, not a complete corrected census.
 Broader owner/collection/protocol proofs remain deferred.
 
+A [subsequent bounded follow-up](batch-50-followup.md) verifies eight more
+removals, bringing the correction total to 19 with 36 remaining unresolved.
+Round 53 preserves these changes and nearby true-positive controls without
+changing the frozen baseline above.
+
 Implementation commits are `5c0bebc` (wrapper and completion evidence),
 `e3d1ac8` (loop-received lock identity), and `011e287` (cyclic owner traversal
 and pre-registered test cleanup). Final `make verify` passed in an isolated

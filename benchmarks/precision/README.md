@@ -418,3 +418,12 @@ and the conservative coverage tradeoffs of the implemented corrections.
 The additional mpb correction has a local fixture and a successful pinned
 root-package replay, but its unrelated example modules prevent inclusion in
 the current whole-repository cohort runner.
+
+Round 53 preserves eight further batch-50 corrections and the six earlier
+Nylon corrections, with eleven true-positive controls. It covers private local
+mutexes, uncertain lock-instance identity, optional deferred completion,
+same-worker send ordering, collection-owned resources, mutable owner captures,
+and consumed resource wrappers. The [follow-up assessment](audits/batch-50-followup.md)
+records the deliberate uncertainty boundaries and the 36 unresolved original
+false-positive locations. Its findings baseline retains the original audit
+results, not just the locations selected as passing regression labels.
