@@ -14,6 +14,7 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 		"prior-defer-may-clean-captured-cell": "prior_captured_cleanup.go:",
 		"paired-error-helper-cleanup":         "paired_error_cleanup.go:",
 		"rows-transaction-finished":           "sql_row_parents.go:",
+		"captured-body-guarded-cleanup":       "http_guarded_capture.go:",
 	}
 	proofFiles := map[string]string{
 		"exact-error-equals-non-nil-filesystem-sentinel": "error_guards.go:",

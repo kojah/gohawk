@@ -27,12 +27,12 @@ not 207 repositories or separate implementation projects.
 
 | Family | Original | Verified fixes | Re-reviewed as a real hazard | Open |
 | --- | ---: | ---: | ---: | ---: |
-| Resource lifetime | 140 | 19 | 0 | 121 |
+| Resource lifetime | 140 | 20 | 0 | 120 |
 | Lock checks | 23 | 13 | 0 | 10 |
 | Goroutine ownership | 17 | 8 | 0 | 9 |
 | Process/cancellation | 9 | 4 | 0 | 5 |
 | Miscellaneous | 18 | 1 | 1 | 16 |
-| Total | 207 | 45 | 1 | 161 |
+| Total | 207 | 46 | 1 | 160 |
 
 One open resource site is absent under both current and baseline profiles; its
 inconsistent earlier reproduction is unresolved, not a fix. The Sloth review
@@ -75,6 +75,10 @@ Representative checkpoints (see commit diffs and family reports for details):
   plain map is not reported. Nil maps, entry snapshots, custom decoders, and
   explicit replacements retain diagnostic fixtures. Null-driven header resets
   are a documented coverage loss, not claimed safe.
+- Guarded captured cleanup (after this handoff): a called literal that
+  nil-guards an exact captured `http.Response.Body` before closing it is
+  unknown consumption, never proven release. Kruise is corrected; the full
+  83-scope replay retained 66/66 controls with zero new diagnostics.
 - `fb3b8cf`, `07b8cab`: Sloth's output handles are not always retained for later
   generation. Empty/comment-only YAML produces zero inner iterations, leaving
   unused outputs open across the outer loop. Existing behavior is preserved
@@ -83,14 +87,15 @@ Representative checkpoints (see commit diffs and family reports for details):
 ## Validation and its limits
 
 - Final restored-source `make verify` passed at handoff:
-  `.build/followup207-handoff-verify.log`. Both archived patches pass
+  `.build/followup207-handoff-verify.log`. The archived goroutine patch passes
   `git apply --check` against this checkpoint. No audit workers or scan
   processes remain running; source is restored to the validated commits.
 - `make verify` passed for the combined lifecycle checkpoint and again for the
   evalorder checkpoint. Logs: `.build/followup207-verify-final-checkpoint-v2.log`
   and `.build/followup207-evalorder-verify.log`.
-- Resource replay: all **83** scopes; **66/66** baseline-detected bug controls
-  retained, six historical misses unchanged, zero new resource diagnostics.
+- Resource replay (captured-body-v3): all **83** scopes; **66/66**
+  baseline-detected bug controls retained, six historical misses unchanged,
+  zero new resource diagnostics, twenty removed.
 - Lock replay v19: all **20** scopes; **4/4** controls and both earlier fixes
   retained; zero new lock diagnostics.
 - Shipped goroutine select-v10: all **66** scopes; **56/56** old bug controls
@@ -111,14 +116,16 @@ Representative checkpoints (see commit diffs and family reports for details):
 ## Uncommitted experiments: not part of the validated implementation
 
 The stopping procedure saved in-flight patches, removed only their authors'
-uncommitted source changes, and stopped their scan processes. The patches are
-committed as inert archives, **not applied source**, under
+uncommitted source changes, and stopped their scan processes. One patch remains
+committed as an inert archive, **not applied source**, under
 `benchmarks/precision/audits/followup207-candidates/`:
 
 - `goroutine-field-guard.UNVALIDATED.patch`
-- `captured-http-cleanup.UNVALIDATED.patch`
 
-Use `git apply --check PATH` before considering either archive; the current
+The captured HTTP cleanup candidate has since been validated and shipped, so
+its archive was removed; the committed source is authoritative.
+
+Use `git apply --check PATH` before considering the archive; the current
 committed source is the baseline, not the rejected candidate. The goroutine
 archive contains the later unvalidated repair, not the exact failed v2 binary.
 Detailed goroutine notes also remain locally at
@@ -142,22 +149,20 @@ A path-local revision was being drafted but was **not fully replayed** at the
 stop. Do not apply the patch wholesale or count Ghostferry as fixed.
 Shared `lifecyclefacts/evidence.go` was not changed by this experiment.
 
-### Captured HTTP cleanup — incomplete candidate
+### Captured HTTP cleanup — validated and shipped
 
 Kruise's helper captures an exact response and nil-guards Body.Close. Distinct
-loads prevent the current completion proof. A candidate classifies the exact
+loads prevent the completion proof, so the shipped change classifies the exact
 guarded captured cleanup as unknown, not guaranteed release, with mutation and
-extra-condition controls. Targeted replay passes, but its full resource replay
-was stopped after 22/83 scopes; the race run was canceled. Latest focused
-resource and architecture tests passed, and lint passed before a final small
-budget adjustment. Its organizational extraction of existing
-captured-cleanup code is also unshipped. Do not count Kruise as fixed yet.
+extra-condition controls. The full 83-scope resource replay, race run, lint,
+architecture tests, and `make verify` all passed after the handoff. The
+existing captured-cleanup family moved cohesively into `captured_cleanup.go`.
 
 ## Remaining work, grouped rather than one model per finding
 
-Resources (121): 45 memory/empty HTTP bodies; 19 correlated errors/guards;
+Resources (120): 45 memory/empty HTTP bodies; 19 correlated errors/guards;
 18 failure-fixture assumptions; 11 process-bounded lifetimes; eight returned or
-retained owners; seven aggregate cleanup; five logging outputs; eight smaller
+retained owners; seven aggregate cleanup; five logging outputs; seven smaller
 cases. The 18 failure-fixture cases are mostly **not** assertion helper gaps:
 they include injected transports, redirect rejection, monkey patches,
 filesystem/permission assumptions, TLS, connection faults, and timing.

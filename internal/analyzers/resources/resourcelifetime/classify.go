@@ -248,40 +248,7 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 		return "appended", builtin.Name() == "append" && carried
 	}
 	if closure, ok := common.Value.(*ssa.MakeClosure); ok {
-		// A captured aggregate can be populated after closure creation. The
-		// closure observes its fields when called, so an unresolved cleanup of
-		// that owner is unknown rather than proof that the acquisition leaks.
-		// https://github.com/Autumn-27/ARTEX/blob/bf7f414477832b77d2152539c0723dc691086522/traffic/traffic.go#L1129-L1176
-		if analysis.capturesAggregateOwner(closure) {
-			return "captured-aggregate-owner", true
-		}
-		if !carried && !analysis.closureCarries(closure) {
-			return "", false
-		}
-		// A started literal runs on another goroutine, so a release inside it
-		// cannot be ordered against this function's returns and the resource
-		// is beyond what this flow can judge.
-		if _, started := instruction.(*ssa.Go); started {
-			return "captured-by-started-literal", true
-		}
-		// A called or deferred literal runs in this frame, so its body is as
-		// readable as a named callee's. A release inside it was already proved
-		// before this point, so what is left to ask is whether it keeps the
-		// resource: if it does the obligation moved, and if it does not the
-		// literal is transparent and this function still owns the resource.
-		//
-		// That holds only for a body this pass can judge. A capture is a cell
-		// the body loads first, so the argument at a call inside the literal is
-		// the load rather than the acquired value, and a summary matched on
-		// exact identity does not recognize it. block/spirit closes rows
-		// through a helper in another package from inside a deferred literal,
-		// and the release went uncredited while the literal was called
-		// transparent:
-		// https://github.com/block/spirit/blob/c554eae/pkg/checksum/single.go#L493-L503
-		if analysis.evidence.ClosureHandsValueToUnreadableCallee(closure, analysis.resource) {
-			return "captured-by-literal-calling-unreadable-callee", true
-		}
-		return "captured-by-retaining-literal", analysis.evidence.ClosureRetainsValue(closure, analysis.resource)
+		return analysis.opaqueClosureCall(instruction, closure, carried)
 	}
 	return analysis.opaqueFunctionCall(instruction, common, carried)
 }
@@ -552,68 +519,6 @@ func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosur
 		}
 	}
 	return false
-}
-
-// cleanupRegisteredBefore handles a retained callback registered before a
-// captured variable is reassigned to this acquisition. The callback observes
-// the cell at cleanup time, not its registration-time value. Mutable guards
-// prevent proving release, so this is unknown rather than a settled resource.
-// https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/admin/handler_test.go#L1398-L1447
-func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call) bool {
-	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](analysis.function) {
-		if !ssaflow.InstructionDominates(deferred, acquisition) {
-			continue
-		}
-		if analysis.capturedCellCleanup(deferred).Proven() {
-			analysis.emitAction(deferred, actionUnknown, "prior-defer-may-clean-captured-cell")
-			return true
-		}
-		if closesStatementDatabase(acquisition, deferred) {
-			analysis.emitAction(deferred, actionUnknown, "statement-parent-closed")
-			return true
-		}
-		if finishesRowsTransaction(acquisition, deferred) {
-			analysis.emitAction(deferred, actionUnknown, "rows-transaction-finished")
-			return true
-		}
-	}
-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
-		if !ssaflow.InstructionDominates(call, acquisition) ||
-			!ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup) {
-			continue
-		}
-		if slices.ContainsFunc(call.Common().Args, analysis.carriedWithinClosure) {
-			analysis.emitAction(call, actionUnknown, "captured-by-prior-cleanup")
-			return true
-		}
-	}
-	return false
-}
-
-// A prior defer observes the captured cell at return, not at registration.
-// When several acquisitions feed that cell, exact value completion may fail.
-// A positive cleanup witness for the cell makes ownership unknown; it does
-// not prove which stored value will be closed. Read-only captures and by-value
-// deferred arguments do not qualify. Overwritten-cell leaks may be missed.
-// https://github.com/wind-c/comqtt/blob/11282b91abb06d5169b857a2c38fad5d54502050/plugin/auth/http/http.go#L89-L127
-func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssaflow.Proof {
-	if closure, ok := deferred.Common().Value.(*ssa.MakeClosure); ok {
-		function, _ := closure.Fn.(*ssa.Function)
-		for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
-			if !ssaflow.CapturedBindingMatches(pair.Binding, analysis.resource) {
-				continue
-			}
-			mayClean := ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
-				common := ssaflow.InstructionCall(instruction)
-				return common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
-					ssaflow.ValueIsAccessPathFrom(ssaflow.CallReceiver(common), pair.Free)
-			}, ssaflow.CoverageAnywhere, nil)
-			if mayClean {
-				return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "captured-cell-may-cleanup"}
-			}
-		}
-	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
 }
 
 func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction, reason string) {

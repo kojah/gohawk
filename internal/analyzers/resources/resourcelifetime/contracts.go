@@ -1,6 +1,7 @@
 package resourcelifetime
 
 import (
+	"go/token"
 	"go/types"
 	"slices"
 
@@ -570,4 +571,26 @@ func memoryWriterExempt(call *ssa.Call, contract resourceContract, settings reso
 	}
 	pointer, ok := local.Type().Underlying().(*types.Pointer)
 	return ok && (syntax.NamedType(pointer.Elem(), "bytes", "Buffer") || syntax.NamedType(pointer.Elem(), "strings", "Builder"))
+}
+
+// httpResponseBodyField recognizes only the standard response's direct Body
+// load. Identity and stability of that response are the caller's policy.
+func httpResponseBodyField(value ssa.Value) *ssa.FieldAddr {
+	load, ok := value.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return nil
+	}
+	field, ok := load.X.(*ssa.FieldAddr)
+	if !ok || !syntax.NamedType(field.X.Type(), "net/http", "Response") {
+		return nil
+	}
+	pointer, ok := field.X.Type().Underlying().(*types.Pointer)
+	if !ok {
+		return nil
+	}
+	structure, ok := pointer.Elem().Underlying().(*types.Struct)
+	if !ok || structure.Field(field.Field).Name() != "Body" {
+		return nil
+	}
+	return field
 }

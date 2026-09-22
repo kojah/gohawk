@@ -6,9 +6,9 @@ resolution remains in progress.
 `followup207-resources.tsv` preserves the original verdict separately from
 replay status and includes the 72 original resource true-positive controls.
 
-## Checkpoint: memory writers v1
+## Checkpoint: guarded captured cleanup v3
 
-- Nineteen additional false positives are absent after a successful baseline and
+- Twenty additional false positives are absent after a successful baseline and
   corrected replay. They cover a zero-client HEAD request (one), returned
   standard loggers (two), a returned body narrowed to `io.Reader` (one), and
   manager-retained resources exposed through returned handles (four), and
@@ -16,12 +16,14 @@ replay status and includes the 72 original resource true-positive controls.
   shared deferred process-termination evidence (one), visible error predicates
   through direct calls and immutable captures (four), and a merged fallback
   acquisition handled by shared feasible-path and uncertain-cleanup evidence
-  (one), plus an exact standard buffer constructor behind a compressor (one).
+  (one), an exact standard buffer constructor behind a compressor (one), and a
+  called closure that nil-guards an exact captured response's `Body` before
+  closing it (one).
 - All 66 baseline-detected true positives remain detected in the current
   all-check replay. Five wg-portal
   misses and the previously documented piko WebSocket miss remain baseline
   misses; none is newly lost here.
-- 120 false positives still report and remain active. None is left without a
+- 119 false positives still report and remain active. None is left without a
   current package-scope replay.
 - Geesefs `core/cfg/logger.go:37:16` is absent in both binaries in this replay,
   unlike earlier canonical replays. This profile-dependent baseline absence
@@ -68,6 +70,19 @@ infallible: custom factories and mixed external writers still report, and
 
 ## Evidence boundaries
 
+A called literal that loads an exact captured `http.Response` cell, checks
+its `Body` against nil, and closes a second load of that `Body` is classified
+as unknown consumption, not as proven release: the two loads are not proved
+equal. The boundary requires the cell to still hold the acquisition at the
+call, no visible pointer escape of the response or its cell (other closures,
+arguments, stores, map or channel sends), a body-nil guard alone, and `Close`
+on every return under that guard. Extra Boolean conditions, cleanup of a
+different response, and direct or helper replacement of `Body` keep the
+diagnostic. Replacing the whole captured cell was already an accepted coverage
+gap before this boundary and remains one. This corrects the Kruise e2e
+framework site; the full 83-scope replay retained all 66 controls with zero
+new diagnostics. Focused resource, architecture, lint and race gates passed.
+
 The HEAD boundary requires an unchanged zero-value local client and a direct,
 unchanged `NewRequest("HEAD", ...)` result. Explicit client transports,
 timeouts, helper escapes and request mutation do not qualify. The mutable
@@ -105,18 +120,21 @@ GOFLAGS=-mod=readonly -p=2 GOTOOLCHAIN=local
 
 Repository revisions, package/module scopes, command, environment, exit status,
 stdout and stderr receipts are recorded under `.build/followup207-resource-baseline`
-and `.build/followup207-memory-writer-v1`, with paths in the TSV. Exit zero with no
+and `.build/followup207-captured-body-v3`, with paths in the TSV. Exit zero with no
 findings and exit three with valid diagnostic JSON are successful analyses;
 failed loads are not treated as absence.
 
 - Baseline: `.build/gohawk-followup78-goroutines-v5`, SHA-256
   `5516cad4c83bffd8dca28713df53f8d3d1a463b838c23d302da9e10ddc257419`.
-- Candidate: `.build/gohawk-followup207-memory-writer-v1`, SHA-256
+- Candidate: `.build/gohawk-followup207-captured-body-v3`, SHA-256
+  `cecd0be4d83937d9ee6e8a6b16260cc69976a12e951cabea89f88a92cdde67a9`.
+  The earlier memory-writer checkpoint binary was
+  `.build/gohawk-followup207-memory-writer-v1`, SHA-256
   `193c77d2c11219ba9c77f210e1b87f0a003d881e51b52a77c345778b5441c696`.
 
 All 83 package scopes completed successfully. Comparing every resource
 diagnostic in those scopes, not just the labelled sites, found zero new
-diagnostics and nineteen removed diagnostics. The additional package scopes
+diagnostics and twenty removed diagnostics. The additional package scopes
 have matching successful immutable-baseline receipts; absence
 in a newly scanned scope alone was not counted as a correction.
 
@@ -138,5 +156,5 @@ positive retained. Its canonical receipt is now used in the ledger.
 
 Focused resource, lifecyclefacts and architecture tests pass. Focused
 lifecyclefacts and resource race tests pass (the latest resource race run
-completed in 124 seconds). Targeted lint reports zero issues. Repository-wide final validation
+completed in 123 seconds). Targeted lint reports zero issues. Repository-wide final validation
 and the rest of the active findings are still in progress.

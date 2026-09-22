@@ -82,6 +82,12 @@ origins must agree, and one shared work budget bounds the proof. Replaced or
 escaped callback cells, rewritten errors, recursive predicates and deferred
 result mutation do not establish that implication.
 
+A called closure that guards an exact captured HTTP response's `Body` before
+closing it is an ownership uncertainty boundary. The guard and `Close` may
+read different loads, so this does not prove release. The response cell must
+still hold the acquisition, with no visible pointer escape or replacement;
+extra Boolean conditions and cleanup of another response do not qualify.
+
 Channel timers and tickers are not cleanup obligations: since Go 1.23, the
 garbage collector can reclaim them without `Stop`. Missing `Stop` alone does
 not establish a leak. This check does not infer legacy main-module or

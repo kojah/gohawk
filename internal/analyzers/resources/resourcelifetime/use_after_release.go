@@ -2,8 +2,6 @@ package resourcelifetime
 
 import (
 	"fmt"
-	"go/token"
-	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -213,20 +211,12 @@ func (query *releasedResource) operatesOn(call *ssa.Call) bool {
 	if !syntax.NamedType(query.resource.Type(), "net/http", "Response") {
 		return false
 	}
+	field := httpResponseBodyField(receiver)
+	if field == nil || !query.storage.Same(field.X, query.resource).Proven() {
+		return false
+	}
 	load, ok := receiver.(*ssa.UnOp)
-	if !ok || load.Op != token.MUL {
-		return false
-	}
-	field, ok := load.X.(*ssa.FieldAddr)
-	if !ok || !query.storage.Same(field.X, query.resource).Proven() {
-		return false
-	}
-	pointer, ok := field.X.Type().Underlying().(*types.Pointer)
-	if !ok {
-		return false
-	}
-	structure, ok := pointer.Elem().Underlying().(*types.Struct)
-	return ok && structure.Field(field.Field).Name() == "Body" && query.storage.Projection(receiver, query.resource, load).Proven()
+	return ok && query.storage.Projection(receiver, query.resource, load).Proven()
 }
 
 func emitUseAfterRelease(pass *analysis.Pass, function *ssa.Function, acquisition *ssa.Call, release, use *ssa.Call) {

@@ -37,6 +37,10 @@ never count as corrections. Candidate code is only statically analyzed.
 - `758fe4f`: fresh returned-owner inference declines ownership when the exact
   resource is also retained by an external manager, rather than assigning sole
   responsibility to the returned view.
+- Guarded captured cleanup: a called literal that nil-guards an exact captured
+  response's `Body` before closing it is unknown consumption, not proven
+  release. Kruise's `test/e2e/framework/framework.go:549` no longer reports;
+  see the [resource ledger](followup207-resources.md) for the boundary.
 - `b7f5f9b`: direct standard process exits and dominating deferred exits at
   `RunDefers` terminate the shared normal-return proof. The golang/sys
   `unix/syscall_unix_test.go:298` finding disappears in a valid canonical scan;
@@ -62,8 +66,8 @@ existing branch-literal decision point, with no separate path or proof engine.
 
 ## Work in progress
 
-At handoff, 45 original findings have verified fixes, one original FP judgment
-(Sloth) has been corrected to a real hazard, and 161 remain open. The breakdown
+After the handoff, 46 original findings have verified fixes, one original FP
+judgment (Sloth) has been corrected to a real hazard, and 160 remain open. The breakdown
 is in the handoff and family ledgers. All workers and scans have stopped;
 unvalidated source edits were archived and removed. Intermediate suppression is not counted as a verified
 correction until relevant genuine-bug controls also pass. No check has been
