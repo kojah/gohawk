@@ -1,7 +1,9 @@
 # Precision audits
 
-Latest: [overnight 1,250-repository audit](overnight-2026-09-22.md), covering
-batches 51–55, verified corrections and remaining limitations.
+Latest: [follow-up of all 337 remaining sites](followup-337.md), separating
+verified corrections, already-absent reports, and unresolved evidence gaps.
+The [overnight 1,250-repository audit](overnight-2026-09-22.md) records the
+original batches 51–55 without rewriting their verdicts.
 
 Targeted follow-up: [use-after-release promotion](use-after-release-promotion.md)
 records the storage-aware check's fixtures and two pinned validation groups.

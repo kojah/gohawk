@@ -128,6 +128,14 @@ claim, because the code that made it no longer ships.
 
 ## Which check a label names
 
+Round 58 preserves the [337-site follow-up](audits/followup-337.md): 85 absent
+false-positive sites and ten known-bug controls. Its canonical replay checks
+70 labels successfully; 25 are excluded by incomplete repository loading and
+remain unstamped. All 337 reviewed sites have separate successful scoped
+replays, including the 251 unresolved reports and one review correction.
+The audit records six measured true-positive losses from conservative
+uncertainty boundaries; these are not relabelled as false positives.
+
 Round 57 preserves batch 55's cross-package bound-cleanup callback correction.
 All twelve labels pass in umoci: ten corrected false positives and two genuine
 cleanup omissions. Two unrelated permission-test false positives remain in the

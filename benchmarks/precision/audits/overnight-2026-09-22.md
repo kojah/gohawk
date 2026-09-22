@@ -5,6 +5,10 @@ All 1,250 selections are distinct repositories pinned to full commits. Every
 one of the 2,165 emitted findings has a source-review verdict and explanation.
 These are static source judgments, not candidate test runs or runtime incidents.
 
+Subsequent work: [all 337 remaining false-positive locations were re-reviewed](followup-337.md).
+That follow-up records new corrections and review changes separately; the
+original scan counts and judgments below remain historical evidence.
+
 | Batch | Complete / incomplete | Findings | True positive | False positive | Inconclusive | Verified FP corrections |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | [51](batch-51.md) | 193 / 57 | 421 | 325 | 85 | 11 | 24 |
