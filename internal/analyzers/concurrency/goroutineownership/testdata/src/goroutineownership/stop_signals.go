@@ -29,6 +29,16 @@ func locallyCanceledContextBoundsWorker() {
 	}()
 }
 
+func laterCancellationBoundsWorker() {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		<-ctx.Done()
+	}()
+	cancel()
+}
+
 func canceledDifferentContextDoesNotBoundWorker() {
 	ctx, cancel := context.WithCancel(context.Background())
 	other, cancelOther := context.WithCancel(context.Background())

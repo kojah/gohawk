@@ -109,7 +109,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	any := func(instruction ssa.Instruction) bool {
 		return analysis.action(instruction) != actionNone
 	}
-	if !ssaflow.UnownedReturn(analysis.spawn, any, analysis.returnTransfers) {
+	if !ssaflow.UnownedReturn(analysis.spawn, any, analysis.returnMayTransfer) {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}
 	}
 	analysis.ruledOut(reasonOpaqueTransfer)
@@ -197,6 +197,9 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 	// A goroutine that completes through a caller-owned channel or wait group
 	// transfers its join obligation across the call boundary.
 	for _, tracked := range analysis.tracked {
+		if tracked.kind == trackedSignal && helperSignalOrigin(tracked.value) {
+			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true
+		}
 		if tracked.kind != trackedOwner && ssaflow.ExternallyOwnedValue(tracked.value) {
 			return GoroutineProof{Outcome: GoroutineTransferred, Reason: reasonCallerOrExternalOwner}, true
 		}
@@ -208,6 +211,27 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonSynctestBubbleOwner}, true
 	}
 	return GoroutineProof{}, false
+}
+
+// A channel supplied by a factory or registry may already have another owner.
+// Until its allocation and ownership are established, a local launch cannot
+// manufacture an exclusive receive obligation for this caller. This is not a
+// claim that an arbitrary factory channel is drained.
+// https://github.com/deckarep/golang-set/blob/711c30df0fdf98710a4ca0211e12ef7210967ad3/threadsafe.go#L268-L287
+func helperSignalOrigin(value ssa.Value) bool {
+	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
+	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
+	leaf = func(walk ssaflow.ReachingWalk, current ssa.Value) bool {
+		if resolved := storage.Resolve(current); resolved.Proven() && resolved.Value != current {
+			return walk.Any(resolved.Value, leaf)
+		}
+		if result, ok := current.(*ssa.Extract); ok {
+			return walk.Any(result.Tuple, leaf)
+		}
+		_, call := current.(*ssa.Call)
+		return call
+	}
+	return ssaflow.NewReachingWalk(carryForms).Any(value, leaf)
 }
 
 // An opaque producer can lend a registry-owned group, not allocate a new one.

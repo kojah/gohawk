@@ -106,6 +106,22 @@ func (analysis *spawnAnalysis) returnTransfers(returned *ssa.Return) bool {
 	return slices.ContainsFunc(returned.Results, analysis.consumes)
 }
 
+// A signal mapped only to its captured aggregate may leave through a field
+// projection. Matching the root establishes possible handoff, not the exact
+// field or a guaranteed join, so only the unknown-return query uses it.
+// https://github.com/mysteriumnetwork/node/blob/c45527af1ea80300ae3d9c92bd37255335b6140d/session/pingpong/hermes_promise_handler.go#L120-L140
+func (analysis *spawnAnalysis) returnMayTransfer(returned *ssa.Return) bool {
+	if analysis.returnTransfers(returned) {
+		return true
+	}
+	return slices.ContainsFunc(returned.Results, func(result ssa.Value) bool {
+		root := aggregateRoot(result)
+		return slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
+			return !ssaflow.ChannelType(signal) && ssaflow.SameValue(root, aggregateRoot(signal))
+		})
+	})
+}
+
 // storeAction transfers the obligation when a tracked value is installed on
 // storage that outlives the function. A field of a local aggregate changes
 // nothing yet: returning or handing off that aggregate is classified there.

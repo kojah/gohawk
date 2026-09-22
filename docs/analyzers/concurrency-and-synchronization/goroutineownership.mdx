@@ -30,11 +30,16 @@ obligations are still checked.
 When a worker's completion field resolves only to its aggregate owner, receiving
 a channel supplied to that aggregate is uncertain rather than a proven join.
 The analyzer cannot establish which field is involved, so it declines the
-diagnostic; receiving an unrelated channel does not cross that boundary.
+diagnostic. Returning a projection of the captured aggregate is also uncertain,
+not proof of a join. Factory- or registry-supplied completion channels remain
+outside the local ownership proof until their allocation and ownership are
+established. This deliberately misses some unjoined constructor-created workers.
+Closing collection entries inside a loop is per-item cleanup, not evidence of
+worker completion.
 
 In default context mode, a worker receiving from a locally created `WithCancel`
 context is also uncertain when the exact sibling cancel function is already
-deferred before launch. Captured context storage must remain stable. This is a
+deferred before launch or called on every later return path. Captured context storage must remain stable. This is a
 cancellation boundary, not a join, and does not suppress join-mode diagnostics.
 
 ### Checks

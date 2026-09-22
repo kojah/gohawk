@@ -229,6 +229,13 @@ func spawnedCompletionSignal(
 		}
 	}
 	if ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1 {
+		// Closing entries while serving a loop is per-item cleanup, not a
+		// promise that the worker itself has finished. A deferred close still
+		// announces eventual completion, even when its registration is in a loop.
+		// https://github.com/BurntSushi/wingo/blob/33b154361587e65ec35d4499f1cc487835d0ab48/event/ipc.go#L124-L157
+		if _, deferred := instruction.(*ssa.Defer); !deferred && ssaflow.BlockInCycle(instruction.Block()) {
+			return nil
+		}
 		return signalSuppliedAtCall(spawn, function, closure, common.Args[0])
 	}
 	return nil

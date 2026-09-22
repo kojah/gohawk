@@ -57,9 +57,10 @@ func goroutineReceivesCallerContext(pass *analysis.Pass, spawn *ssa.Go) bool {
 }
 
 // A locally created context can bound a worker when its exact cancellation is
-// already deferred before launch. Cancellation is not a join; the caller uses
+// deferred before launch or covers every later return. Cancellation is not a join; the caller uses
 // this only to decline the default context-mode diagnostic.
 // https://github.com/c9s/bbgo/blob/4a4a18a08897579d157c8fd3b412309cd4954852/pkg/cmd/exchangetest.go#L233-L255
+// https://github.com/inbucket/inbucket/blob/94472ab496822dec612edce7988a1f953a9eafbd/pkg/msghub/hub_test.go#L361-L372
 func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go) bool {
 	function, closure := spawnedFunction(pass, spawn)
 	if function == nil {
@@ -85,11 +86,24 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go)
 			continue
 		}
 		cancel := ssaflow.CallResult(call, 1)
-		for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](spawn.Parent()) {
-			if ssaflow.InstructionDominates(deferred, spawn) && storage.Same(deferred.Common().Value, cancel).Proven() &&
-				receivesAnywhere(function, pair.Local, map[*ssa.Function]bool{}) {
-				return true
+		// Cancellation is an alternative lifetime boundary, never a join. The
+		// same every-return query must cover later calls/defers; conditional
+		// cancellation and an asynchronous invocation do not satisfy it.
+		cancels := func(instruction ssa.Instruction) bool {
+			common := ssaflow.InstructionCall(instruction)
+			if common == nil {
+				return false
 			}
+			_, called := instruction.(*ssa.Call)
+			_, deferred := instruction.(*ssa.Defer)
+			return (called || deferred) && storage.Same(common.Value, cancel).Proven()
+		}
+		owned := !ssaflow.UnownedReturn(spawn, cancels, nil)
+		for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](spawn.Parent()) {
+			owned = owned || ssaflow.InstructionDominates(deferred, spawn) && cancels(deferred)
+		}
+		if owned && receivesAnywhere(function, pair.Local, map[*ssa.Function]bool{}) {
+			return true
 		}
 	}
 	return false
