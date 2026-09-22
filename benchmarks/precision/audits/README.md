@@ -1732,7 +1732,22 @@ identity and producer cardinality. All 48 false positives remain unresolved;
 no correction or check retirement is claimed. The ledger is verified against
 every pinned checkout and original finding.
 
-## Audit summary
+## Batch 54
+
+The third additional 250-repository batch uses the same frozen `c9609c6`
+baseline. [Selection](batch-54.tsv), [provenance](batch-54-selection.json)
+and [scan metadata](batch-54-scans.json) preserve the static-only profile and
+full pins. There were 312 module entries: 203 repositories completed, 47 were
+incomplete, and 125 complete scans were quiet.
+
+All 311 findings are [reviewed](batch-54-findings.tsv): 242 true positives,
+65 false positives and four inconclusive. One false positive has a
+[verified scoped correction](batch-54-corrections.tsv) from the earlier
+process-identity fix; 64 remain unresolved. The [assessment](batch-54.md)
+records retained-owner, feasible-path, callback, protocol and lock-evidence
+gaps without claiming those unresolved families are fixed.
+
+## Historical 500-repository audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
 recorded rounds pin every corrected false positive and a sample of true
