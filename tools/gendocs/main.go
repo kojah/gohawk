@@ -61,11 +61,16 @@ type optionFlag struct {
 
 func main() {
 	check := flag.Bool("check", false, "fail if generated documentation is stale")
+	helpersCheck := flag.Bool("helpers-check", false, "check only generated shared-helper references")
 	flag.Parse()
 
 	root, err := repositoryRoot()
 	if err == nil {
-		err = synchronize(root, *check)
+		if *helpersCheck {
+			err = checkHelperReferences(root)
+		} else {
+			err = synchronize(root, *check)
+		}
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

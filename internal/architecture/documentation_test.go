@@ -30,8 +30,8 @@ import (
 // bare `Close` there would cry wolf.
 //
 // The inventories those pages promise to be complete must be complete: every
-// exported ssaflow and lifecyclefacts function appears in the generated helper
-// index, every Fact field appears in the fact-model page, and every
+// exported shared-package identifier appears in its generated reference,
+// every Fact field appears in the fact-model page, and every
 // architecture test appears in the invariants table of the architecture
 // guide, so a new helper or test cannot be added without being documented.
 func TestDocumentationReferencesResolve(t *testing.T) {
@@ -61,10 +61,10 @@ var documentedPackagePatterns = []string{
 	"log",
 }
 
-// inventoryPackages are the packages whose exported functions the generated
-// helper index promises to list completely, and against which bare
-// identifiers in that index are resolved.
-var inventoryPackages = []string{"syntax", "ssaflow", "lifecyclefacts"}
+// inventoryPackages are the shared packages whose exported identifiers must
+// appear in their own references. The regeneration check additionally discovers
+// new pass packages and checks complete declarations and methods.
+var inventoryPackages = []string{"syntax", "ssaflow", "summaries", "lifecyclefacts", "concurrencyfacts", "resultfacts", "testvariant"}
 
 // documentedSymbols is the exported surface of the packages the documentation
 // may cite, indexed by package name.
@@ -73,9 +73,6 @@ type documentedSymbols struct {
 	names map[string]map[string]bool
 	// members holds exported methods and struct fields, by package and type.
 	members map[string]map[string]map[string]bool
-	// functions holds exported package-level functions, by package, for the
-	// coverage check.
-	functions map[string][]string
 	// factFields holds the fields of lifecyclefacts.Fact in declaration order.
 	factFields []string
 }
@@ -91,9 +88,8 @@ func loadDocumentedSymbols(t *testing.T, root string) *documentedSymbols {
 		t.Fatalf("load documented packages: %d errors", errors)
 	}
 	symbols := &documentedSymbols{
-		names:     map[string]map[string]bool{},
-		members:   map[string]map[string]map[string]bool{},
-		functions: map[string][]string{},
+		names:   map[string]map[string]bool{},
+		members: map[string]map[string]map[string]bool{},
 	}
 	for _, pkg := range loaded {
 		// A qualifier must denote one package, or resolution would be a guess.
@@ -116,10 +112,6 @@ func (symbols *documentedSymbols) addPackage(pkg *types.Package) {
 			continue
 		}
 		symbols.names[name][identifier] = true
-		if _, ok := object.(*types.Func); ok {
-			symbols.functions[name] = append(symbols.functions[name], identifier)
-			continue
-		}
 		typeName, ok := object.(*types.TypeName)
 		if !ok {
 			continue
@@ -130,7 +122,6 @@ func (symbols *documentedSymbols) addPackage(pkg *types.Package) {
 		}
 		symbols.members[name][identifier] = symbols.addMembers(name, identifier, named)
 	}
-	slices.Sort(symbols.functions[name])
 }
 
 func (symbols *documentedSymbols) addMembers(pkg, typeName string, named *types.Named) map[string]bool {
@@ -262,6 +253,9 @@ func documentationPages(t *testing.T, root string) []documentationPage {
 		}
 	}
 	paths = append(paths, filepath.Join(root, filepath.FromSlash(helperIndexPage)))
+	for _, pkg := range inventoryPackages {
+		paths = append(paths, filepath.Join(root, ".agents/skills/gohawk-codebase/references", pkg+".md"))
+	}
 	pages := make([]documentationPage, 0, len(paths))
 	for _, path := range paths {
 		relative, err := filepath.Rel(root, path)
@@ -277,9 +271,7 @@ func documentationPages(t *testing.T, root string) []documentationPage {
 	return pages
 }
 
-// helperIndexPage is the generated inventory of every exported helper. It
-// lives with the codebase skill because it is searched by name rather than
-// read; the website page keeps the curated map from questions to helpers.
+// helperIndexPage is the curated routing guide with generated package links.
 const helperIndexPage = ".agents/skills/gohawk-codebase/references/shared-helpers.md"
 
 // projectLocalSkill reports whether a skill declares `source: project` in its
@@ -329,7 +321,7 @@ func checkPageReferences(t *testing.T, page documentationPage, symbols *document
 		case page.helperIndex && bareReference.MatchString(token):
 			parts := bareReference.FindStringSubmatch(token)
 			if !symbols.resolvesBare(parts[1], parts[2], parts[3] == "*") {
-				t.Errorf("%s:%d cites `%s`, which is not an exported ssaflow or lifecyclefacts identifier", page.relative, line, token)
+				t.Errorf("%s:%d cites `%s`, which is not an exported shared API identifier", page.relative, line, token)
 			}
 		}
 	}
@@ -357,11 +349,12 @@ func checkQualifiedReference(t *testing.T, page documentationPage, line int, tok
 // promises, so additions to the code cannot go undocumented.
 func checkInventoryCoverage(t *testing.T, root string, symbols *documentedSymbols, tests map[string]bool) {
 	t.Helper()
-	helperIndex := readFile(t, filepath.Join(root, filepath.FromSlash(helperIndexPage)))
 	for _, pkg := range inventoryPackages {
-		for _, function := range symbols.functions[pkg] {
-			if !mentionsIdentifier(helperIndex, function) {
-				t.Errorf("%s does not document %s.%s", helperIndexPage, pkg, function)
+		page := ".agents/skills/gohawk-codebase/references/" + pkg + ".md"
+		helperIndex := readFile(t, filepath.Join(root, filepath.FromSlash(page)))
+		for name := range symbols.names[pkg] {
+			if !mentionsIdentifier(helperIndex, name) {
+				t.Errorf("%s does not document %s.%s", page, pkg, name)
 			}
 		}
 	}

@@ -19,13 +19,16 @@ func TestDevelopmentBlocksRenderFromSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	helpers, err := helpersIndexBlock(root)
+	pkg, err := parsePackageDoc(root, "internal/ssaflow")
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A package-level function, a constructor go/doc files under its type, and
-	// a method must all appear by the names the helper index cites.
-	for _, want := range []string{"| `WalkStates` |", "| `NewLifecycleEvidence` |", "| `ReachingWalk.Any` |"} {
+	helpers, err := helperReference(root, "internal/ssaflow", pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Functions, constructors, methods, types, and constants are all searchable.
+	for _, want := range []string{"## WalkStates", "## NewReachingWalk", "## ReachingWalk.Any", "## TransparentValueForm", "```go", "[Source]("} {
 		if !strings.Contains(helpers, want) {
 			t.Errorf("helper index lacks %q", want)
 		}

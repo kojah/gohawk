@@ -162,6 +162,7 @@ the code cannot drift apart silently.
 | `TestAnalyzersUseSharedTraversal` | value-provenance recursion — phi fan-out and visited sets — lives only in `ssaflow` |
 | `TestSSAFlowFamiliesLayerDownward` | `ssaflow` files are named by family — proof, value, call, flow, store, completion, evidence — and a file references declarations only from its own family or a lower one |
 | `TestDocumentationReferencesResolve` | the development docs and project skills cite only code that exists, and their helper, `Fact` field, and test inventories are complete |
+| `TestSharedHelperReferencesStayCurrent` | package-specific shared API references match current signatures, comments, source links, and every prerequisite pass package |
 
 Conventions that are not yet enforced by a test are described in the
 repository's `AGENTS.md`.

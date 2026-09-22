@@ -16,9 +16,10 @@ already provides. Read this before writing any traversal or ownership code.
 
 - [Codebase layout](../../../docs/architecture.md): the layers, how
   a run works, and the architectural invariants that tests enforce.
-- [Shared helpers](references/shared-helpers.md): the `ssaflow` and
-  `lifecyclefacts` helpers indexed by the question each answers, followed by
-  the generated index of every exported helper for searching by name.
+- [Shared helpers](references/shared-helpers.md): a short question-to-API map.
+  Follow its package links only as needed: `syntax` for source identity,
+  `ssaflow` for traversal, `summaries` for analyzer access to selected knowledge,
+  and individual `passes` references for domain inference/publication work.
 - [Inferred facts](../../../docs/development/fact-model.md): what cross-package
   lifecycle facts can and cannot express.
 
@@ -34,9 +35,11 @@ Walk the decision in order and stop at the first fit.
    *how to walk*, never *whether evidence is sufficient*.
 3. **`internal/syntax`** for source-level helpers and well-known symbol
    identity.
-4. **`internal/passes`** for a prerequisite `analysis.Analyzer` that several
+4. **`internal/summaries`** for brokered access to function-summary components.
+   Analyzer consumers declare their requirements here, not on domain passes.
+5. **`internal/passes`** for a prerequisite `analysis.Analyzer` that several
    analyzers require, such as `lifecyclefacts`.
-5. **`internal/check` and `internal/trace`** for cross-cutting reporting and
+6. **`internal/check` and `internal/trace`** for cross-cutting reporting and
    evidence tracing.
 
 Promote a helper out of an analyzer only after a second analyzer needs the same

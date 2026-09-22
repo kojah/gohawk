@@ -1,11 +1,9 @@
 // Development documentation blocks are generated from the code they describe,
-// so the helper index, the Fact declaration, and the trace flags cannot drift
+// so the helper references, the Fact declaration, and the trace flags cannot drift
 // from the source. The curated prose around each block stays hand-written;
 // only the inventory between the markers is regenerated, and the -check mode
-// fails when a committed page no longer matches the code. The helper index is
-// written into the codebase skill rather than the website: it is an
-// exhaustive list for searching by name, which is agent material, while the
-// website page keeps the curated map from questions to helpers.
+// fails when a committed page no longer matches the code. Package references
+// live with the codebase skill, separate from its curated routing guide.
 
 package main
 
@@ -20,7 +18,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/cli"
@@ -39,10 +36,6 @@ const (
 	modulePath               = "github.com/kojah/gohawk"
 )
 
-// helperPackages are the packages whose exported surface the helper index
-// inventories.
-var helperPackages = []string{"internal/syntax", "internal/ssaflow", "internal/passes/lifecyclefacts"}
-
 // developmentBlock is one generated region inside a hand-written page. The
 // page is a repository-relative path: the contract pages live under
 // docs/development, while the exhaustive helper index lives with the codebase
@@ -55,11 +48,10 @@ type developmentBlock struct {
 	render func(root string) (string, error)
 }
 
-// helperIndexPage is the generated inventory of every exported helper.
+// helperIndexPage contains the curated guide and generated package links.
 const helperIndexPage = ".agents/skills/gohawk-codebase/references/shared-helpers.md"
 
 var developmentBlocks = []developmentBlock{
-	{page: helperIndexPage, start: generatedHelpersStart, end: generatedHelpersEnd, render: helpersIndexBlock},
 	{page: "docs/development/understanding-ssa.md", start: generatedSSAStart, end: generatedSSAEnd, render: ssaExampleBlock},
 	{page: "docs/development/fact-model.md", start: generatedFactFieldsStart, end: generatedFactFieldsEnd, render: factFieldsBlock},
 	{
@@ -71,6 +63,9 @@ var developmentBlocks = []developmentBlock{
 // synchronizeDevelopmentDocs regenerates every development block and records
 // the resulting page contents in updates for the shared write-or-check step.
 func synchronizeDevelopmentDocs(root string, updates map[string][]byte) error {
+	if err := generateHelperReferences(root, updates); err != nil {
+		return err
+	}
 	for _, block := range developmentBlocks {
 		page := filepath.Join(root, filepath.FromSlash(block.page))
 		contents, err := os.ReadFile(page)
@@ -90,30 +85,15 @@ func synchronizeDevelopmentDocs(root string, updates map[string][]byte) error {
 	return nil
 }
 
-// helpersIndexBlock lists every exported function and method of the helper
-// packages with the synopsis of its doc comment, sorted by name. Constructors
-// that go/doc files under their result type are listed by their own name, so
-// the index matches the package-level functions the architecture test
-// requires the inventory to cover.
-func helpersIndexBlock(root string) (string, error) {
-	var rows []string
-	for _, directory := range helperPackages {
-		pkg, err := parsePackageDoc(root, directory)
-		if err != nil {
-			return "", err
-		}
-		rows = append(rows, helperRows(pkg)...)
-	}
-	slices.Sort(rows)
-	return "| helper | package | what it does |\n|---|---|---|\n" + strings.Join(rows, "\n"), nil
+func parsePackageDoc(root, directory string) (*doc.Package, error) {
+	return parseHelperSource(root, directory, token.NewFileSet())
 }
 
-func parsePackageDoc(root, directory string) (*doc.Package, error) {
+func parseHelperSource(root, directory string, fset *token.FileSet) (*doc.Package, error) {
 	paths, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(directory), "*.go"))
 	if err != nil {
 		return nil, err
 	}
-	fset := token.NewFileSet()
 	var files []*ast.File
 	for _, path := range paths {
 		if strings.HasSuffix(path, "_test.go") {
@@ -129,25 +109,6 @@ func parsePackageDoc(root, directory string) (*doc.Package, error) {
 		return nil, fmt.Errorf("no Go source in %s", directory)
 	}
 	return doc.NewFromFiles(fset, files, modulePath+"/"+directory)
-}
-
-func helperRows(pkg *doc.Package) []string {
-	var rows []string
-	row := func(name, synopsis string) {
-		rows = append(rows, "| `"+name+"` | "+pkg.Name+" | "+markdownTableCell(synopsis)+" |")
-	}
-	for _, function := range pkg.Funcs {
-		row(function.Name, pkg.Synopsis(function.Doc))
-	}
-	for _, typ := range pkg.Types {
-		for _, constructor := range typ.Funcs {
-			row(constructor.Name, pkg.Synopsis(constructor.Doc))
-		}
-		for _, method := range typ.Methods {
-			row(typ.Name+"."+method.Name, pkg.Synopsis(method.Doc))
-		}
-	}
-	return rows
 }
 
 // factFieldsBlock prints the Fact declaration with its field comments exactly
