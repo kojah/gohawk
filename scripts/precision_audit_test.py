@@ -40,6 +40,13 @@ class PrecisionAuditTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             AUDIT.read_history([self.manifest])
 
+    def test_history_supports_followup_reviews(self):
+        self.manifest.write_text(
+            "repository\trevision\tanalyzer\tposition\tcheck\tevidence_family\tstatus\tsource_review\n"
+            f"Reviewed/Repo\t{SHA}\tlockorder\tmain.go:3:1\tlockorder/example\tcleanup\tfixed\treason\n"
+        )
+        self.assertEqual(AUDIT.read_history([self.manifest]), {"reviewed/repo"})
+
     def test_report_is_incremental_and_resumable(self):
         entry = ("owner/repo", SHA)
         finding = ("owner/repo", "lockorder", "main.go:3:1")

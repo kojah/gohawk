@@ -56,8 +56,11 @@ def read_history(paths):
             # Audit selection ledgers: batch, repository, revision, modules, status.
             # Regression cohorts and pinned candidate manifests: repository, revision.
             # Reviewed findings: repository, revision, analyzer, position,
-            # checks, verdict, reason. These also live beside selection ledgers.
-            if len(fields) not in (2, 5, 7):
+            # checks, verdict, reason. Follow-up reviews add evidence family and
+            # status in an eight-column ledger; both keep repository first.
+            if fields == ["repository", "revision", "analyzer", "position", "check", "evidence_family", "status", "source_review"]:
+                continue
+            if len(fields) not in (2, 5, 7, 8):
                 raise ValueError(f"{path}: unsupported history row")
             seen.add(fields[1 if len(fields) == 5 else 0].lower())
     return seen
