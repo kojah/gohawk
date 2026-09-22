@@ -43,6 +43,8 @@ func checkTraceDecisions(t *testing.T, data []byte) {
 		"protocol-wait-cycle": "rejected", "protocol-buffer-allows-progress": "accepted",
 		"protocol-participants-unknown": "unknown", "protocol-summary-limit": "unknown",
 		"protocol-control-flow-unknown": "unknown", "recursive-protocol": "unknown",
+		"protocol-group-count-unknown": "unknown", "protocol-deferred-effects-unknown": "unknown",
+		"protocol-group-scope-unknown": "unknown",
 	}
 	candidates := map[string]bool{}
 	decisions := map[string]bool{}

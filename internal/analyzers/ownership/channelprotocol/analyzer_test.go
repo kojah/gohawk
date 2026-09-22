@@ -41,7 +41,7 @@ func TestSummaryBudgets(t *testing.T) {
 		checked := 0
 		for _, function := range functions {
 			switch function.Name() {
-			case "direct":
+			case "direct", "groupCycle", "deferredCycle":
 				engine := newSummaryEngine()
 				if proof := engine.prove(function, 1); proof.Known() || proof.Reason != "protocol-budget-exhausted" {
 					t.Errorf("limited root proof = %+v", proof)
@@ -50,7 +50,7 @@ func TestSummaryBudgets(t *testing.T) {
 					t.Errorf("fresh root budget did not recover: %+v", proof)
 				}
 				checked++
-			case "worker":
+			case "worker", "groupWorker", "deferredWorker":
 				engine := newSummaryEngine()
 				engine.begin(1)
 				if got := engine.summarize(function); got.reason != "protocol-budget-exhausted" {
@@ -67,8 +67,47 @@ func TestSummaryBudgets(t *testing.T) {
 				checked++
 			}
 		}
-		if checked != 2 {
-			t.Errorf("checked %d functions, want 2", checked)
+		if checked != 6 {
+			t.Errorf("checked %d functions, want 6", checked)
+		}
+		return original(pass)
+	}
+	analyzertest.Run(t, analysistest.TestData(), analyzer, "channelprotocol")
+}
+
+func TestDeferredSummaryOrder(t *testing.T) {
+	analyzer := Analyzer()
+	original := analyzer.Run
+	analyzer.Run = func(pass *analysis.Pass) (any, error) {
+		functions, err := ssaflow.SourceSSAFunctions(pass)
+		if err != nil {
+			return nil, err
+		}
+		found := false
+		for _, function := range functions {
+			if function.Name() != "deferredOrderWorker" {
+				continue
+			}
+			found = true
+			engine := newSummaryEngine()
+			engine.begin(instructionBudget)
+			summary := engine.summarize(function)
+			if summary.reason != "" || len(summary.operations) != 3 || len(summary.deferred) != 0 {
+				t.Fatalf("incomplete deferred summary: %+v", summary)
+			}
+			for index, parameter := range []int{0, 2, 1} {
+				op := summary.operations[index]
+				kind := closeOperation
+				if index == 0 {
+					kind = sendOperation
+				}
+				if op.kind != kind || op.resource.value != function.Params[parameter] {
+					t.Errorf("operation %d = %+v, want kind %d on parameter %d", index, op, kind, parameter)
+				}
+			}
+		}
+		if !found {
+			t.Fatal("deferred order fixture missing")
 		}
 		return original(pass)
 	}

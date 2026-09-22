@@ -19,7 +19,7 @@ func deferredSignal() {
 		defer close(done)
 		results <- 42
 	}()
-	<-done
+	<-done // want "channel wait prevents the worker's preceding send from completing"
 	<-results
 }
 

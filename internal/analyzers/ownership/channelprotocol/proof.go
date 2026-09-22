@@ -8,7 +8,7 @@ import (
 )
 
 // The first proof joins two ordered summaries, not two execution state spaces.
-// Both channels are fresh root allocations and every effect is accounted for.
+// Both resources are fresh root allocations and every effect is accounted for.
 // Thus nobody else can receive the result or signal completion to break the cycle.
 type cycleProof struct {
 	ssaflow.Proof
@@ -29,21 +29,23 @@ func (engine *summaryEngine) prove(function *ssa.Function, limit int) cycleProof
 
 func proveCycle(function *ssa.Function, protocol summary) cycleProof {
 	unknown := cycleProof{Proof: ssaflow.Proof{Reason: "protocol-order-not-matched"}}
-	if protocol.spawn == nil || protocol.prefix != 0 || len(protocol.operations) != 2 || len(protocol.worker) != 2 {
+	if protocol.spawn == nil || protocol.prefix > 1 || len(protocol.operations) != protocol.prefix+2 || len(protocol.worker) != 2 {
 		return unknown
 	}
-	wait, receive := protocol.operations[0], protocol.operations[1]
+	wait, receive := protocol.operations[protocol.prefix], protocol.operations[protocol.prefix+1]
 	send, signal := protocol.worker[0], protocol.worker[1]
-	if wait.kind != receiveOperation || receive.kind != receiveOperation || send.kind != sendOperation || signal.kind != closeOperation {
+	if receive.kind != receiveOperation || send.kind != sendOperation {
 		return unknown
 	}
-	if wait.channel != signal.channel || receive.channel != send.channel || wait.channel == send.channel {
+	if wait.resource != signal.resource || receive.resource != send.resource || wait.resource == send.resource {
 		return unknown
 	}
-	resultCapacity, resultLocal := localCapacity(function, send.channel)
-	_, doneLocal := localCapacity(function, wait.channel)
-	if !resultLocal || !doneLocal {
+	resultCapacity, resultLocal := localCapacity(function, send.resource)
+	if !resultLocal {
 		return cycleProof{Proof: ssaflow.Proof{Reason: "protocol-channel-scope-unknown"}}
+	}
+	if completion := proveCompletionScope(function, protocol, wait, signal); !completion.Proven() {
+		return cycleProof{Proof: completion}
 	}
 	if resultCapacity > 0 {
 		return cycleProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: "protocol-buffer-allows-progress"}}
@@ -54,7 +56,7 @@ func proveCycle(function *ssa.Function, protocol summary) cycleProof {
 	}
 }
 
-func localCapacity(function *ssa.Function, reference channelReference) (int64, bool) {
+func localCapacity(function *ssa.Function, reference resourceReference) (int64, bool) {
 	created, ok := reference.value.(*ssa.MakeChan)
 	if !ok || reference.indirect || created.Parent() != function {
 		return 0, false
@@ -65,4 +67,30 @@ func localCapacity(function *ssa.Function, reference channelReference) (int64, b
 	}
 	capacity, exact := constant.Int64Val(size.Value)
 	return capacity, exact && capacity >= 0
+}
+
+func proveCompletionScope(function *ssa.Function, protocol summary, wait, signal operation) ssaflow.Proof {
+	proven := ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "protocol-local-completion", Provenance: ssaflow.EvidenceFromLocalSSA}
+	if wait.kind == receiveOperation && signal.kind == closeOperation && protocol.prefix == 0 {
+		_, local := localCapacity(function, wait.resource)
+		if local {
+			return proven
+		}
+		return ssaflow.Proof{Reason: "protocol-channel-scope-unknown"}
+	}
+	if wait.kind != groupWaitOperation || signal.kind != groupDoneOperation || protocol.prefix != 1 {
+		return ssaflow.Proof{Reason: "protocol-completion-order-unknown"}
+	}
+	add := protocol.operations[0]
+	if add.kind != groupAddOperation || add.resource != wait.resource || wait.resource.indirect {
+		return ssaflow.Proof{Reason: "protocol-group-obligation-unknown"}
+	}
+	// The collector admits exactly Add(1), forbids group resets and accounts
+	// for every participant. A fresh group's sole outstanding count therefore
+	// cannot reach zero until this worker gets past the blocked send.
+	created, ok := wait.resource.value.(*ssa.Alloc)
+	if !ok || created.Parent() != function || !waitGroupPointer(created.Type()) {
+		return ssaflow.Proof{Reason: "protocol-group-scope-unknown"}
+	}
+	return proven
 }

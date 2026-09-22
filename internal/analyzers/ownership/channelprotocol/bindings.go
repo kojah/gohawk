@@ -9,7 +9,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// Binding a summary preserves the time at which a channel was read. Captured
+// Binding a summary preserves the time at which a resource was read. Captured
 // cells additionally need stable contents because the worker may read them
 // after the launch. A matching access path alone cannot justify this identity.
 func (engine *summaryEngine) instantiate(instruction ssa.CallInstruction) summary {
@@ -28,19 +28,19 @@ func (engine *summaryEngine) instantiate(instruction ssa.CallInstruction) summar
 			engine.memo.Cut()
 			return summary{reason: "protocol-budget-exhausted"}
 		}
-		channel, ok := engine.bind(op.channel, bindings, instruction)
+		resource, ok := engine.bind(op.resource, bindings, instruction)
 		if !ok {
 			return summary{reason: "protocol-channel-binding-unknown"}
 		}
-		op.channel, op.site = channel, instruction.Pos()
+		op.resource, op.site = resource, instruction.Pos()
 		result.operations = append(result.operations, op)
 	}
 	return result
 }
 
 func (engine *summaryEngine) bind(
-	reference channelReference, bindings []ssaflow.CallBinding, instruction ssa.Instruction,
-) (channelReference, bool) {
+	reference resourceReference, bindings []ssaflow.CallBinding, instruction ssa.Instruction,
+) (resourceReference, bool) {
 	for _, binding := range bindings {
 		if binding.Local != reference.value {
 			continue
@@ -49,31 +49,35 @@ func (engine *summaryEngine) bind(
 			return engine.reference(binding.Supplied)
 		}
 		if _, captured := binding.Supplied.(*ssa.FreeVar); captured {
-			return channelReference{value: binding.Supplied, indirect: true}, true
+			return resourceReference{value: binding.Supplied, indirect: true}, true
 		}
 		content := engine.storage.StableContent(binding.Supplied, instruction)
 		if content.Proven() {
 			return engine.reference(content.Value)
 		}
-		return channelReference{}, false
+		return resourceReference{}, false
 	}
-	return channelReference{}, false
+	return resourceReference{}, false
 }
 
-func (engine *summaryEngine) reference(value ssa.Value) (channelReference, bool) {
-	if !ssaflow.ChannelType(value) {
-		return channelReference{}, false
+func (engine *summaryEngine) reference(value ssa.Value) (resourceReference, bool) {
+	if value == nil || !ssaflow.ChannelType(value) && !waitGroupPointer(value.Type()) {
+		return resourceReference{}, false
 	}
 	return ssaflow.ResolveReachingValue(ssaflow.NewReachingWalk(ssaflow.TransparentChangeType), value,
-		engine.referenceLeaf, func(reference channelReference) channelReference { return reference })
+		engine.referenceLeaf, func(reference resourceReference) resourceReference { return reference })
 }
 
-func (engine *summaryEngine) referenceLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (channelReference, bool) {
+func (engine *summaryEngine) referenceLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (resourceReference, bool) {
 	resolved := engine.storage.Resolve(value)
 	if resolved.Proven() {
 		switch resolved.Value.(type) {
 		case *ssa.Parameter, *ssa.FreeVar, *ssa.MakeChan:
-			return channelReference{value: resolved.Value}, true
+			return resourceReference{value: resolved.Value}, true
+		case *ssa.Alloc:
+			if waitGroupPointer(resolved.Value.Type()) {
+				return resourceReference{value: resolved.Value}, true
+			}
 		}
 	}
 	// A symbolic captured cell is resolved at its caller, where its local
@@ -81,10 +85,10 @@ func (engine *summaryEngine) referenceLeaf(_ ssaflow.ReachingWalk, value ssa.Val
 	load, ok := value.(*ssa.UnOp)
 	if ok && load.Op == token.MUL {
 		if capture, ok := load.X.(*ssa.FreeVar); ok && readableAddress(capture) {
-			return channelReference{value: capture, indirect: true}, true
+			return resourceReference{value: capture, indirect: true}, true
 		}
 	}
-	return channelReference{}, false
+	return resourceReference{}, false
 }
 
 func readableAddress(value ssa.Value) bool {
@@ -99,7 +103,7 @@ func readableAddress(value ssa.Value) bool {
 		return false
 	}
 	_, channel := pointer.Elem().Underlying().(*types.Chan)
-	return channel
+	return channel || waitGroupPointer(pointer.Elem())
 }
 
 func localAddress(value ssa.Value) bool {

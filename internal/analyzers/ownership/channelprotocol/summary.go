@@ -6,9 +6,9 @@ package channelprotocol
 import (
 	"go/token"
 	"go/types"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -25,22 +25,26 @@ const (
 	sendOperation operationKind = iota
 	receiveOperation
 	closeOperation
+	groupAddOperation
+	groupDoneOperation
+	groupWaitOperation
 )
 
-type channelReference struct {
+type resourceReference struct {
 	value    ssa.Value
 	indirect bool
 }
 
 type operation struct {
-	kind    operationKind
-	channel channelReference
-	source  token.Pos
-	site    token.Pos
+	kind     operationKind
+	resource resourceReference
+	source   token.Pos
+	site     token.Pos
 }
 
 type summary struct {
 	operations []operation
+	deferred   []operation
 	worker     []operation
 	spawn      *ssa.Go
 	prefix     int
@@ -81,7 +85,7 @@ func (engine *summaryEngine) collect(function *ssa.Function, root bool) summary 
 	if function == nil || len(function.Blocks) == 0 {
 		return summary{reason: "protocol-body-unavailable"}
 	}
-	if len(function.Blocks) != 1 {
+	if !straightLineBody(function) {
 		return summary{reason: "protocol-control-flow-unknown"}
 	}
 	var result summary
@@ -93,9 +97,12 @@ func (engine *summaryEngine) collect(function *ssa.Function, root bool) summary 
 		if reason := engine.appendInstruction(&result, instruction, root); reason != "" {
 			return summary{reason: reason}
 		}
-		if len(result.operations)+len(result.worker) > maxOperations {
+		if len(result.operations)+len(result.worker)+len(result.deferred) > maxOperations {
 			return summary{reason: "protocol-summary-limit"}
 		}
+	}
+	if len(result.deferred) != 0 {
+		return summary{reason: "protocol-deferred-effects-unknown"}
 	}
 	return result
 }
@@ -105,7 +112,7 @@ func (engine *summaryEngine) appendInstruction(result *summary, instruction ssa.
 	case *ssa.Send:
 		// Passing a reference in a message can add a participant or expose
 		// shared storage. Only scalar payloads belong to this first proof.
-		if _, ok := instruction.X.Type().Underlying().(*types.Basic); !ok {
+		if !scalarType(instruction.X.Type()) {
 			return "protocol-payload-unknown"
 		}
 		return engine.appendOperation(result, sendOperation, instruction.Chan, instruction.Pos())
@@ -117,12 +124,16 @@ func (engine *summaryEngine) appendInstruction(result *summary, instruction ssa.
 			return "protocol-load-unknown"
 		}
 	case *ssa.Call:
-		if ssaflow.CallMatchesSymbol(instruction.Common(), syntax.Builtin("close")) {
-			return engine.appendOperation(result, closeOperation, instruction.Common().Args[0], instruction.Pos())
-		}
-		called := engine.instantiate(instruction)
+		called := engine.callSummary(instruction)
 		result.operations = append(result.operations, called.operations...)
 		return called.reason
+	case *ssa.Defer:
+		return engine.deferCompletion(result, instruction)
+	case *ssa.RunDefers:
+		for _, deferred := range slices.Backward(result.deferred) {
+			result.operations = append(result.operations, deferred)
+		}
+		result.deferred = nil
 	case *ssa.Go:
 		if !root || result.spawn != nil {
 			return "protocol-participants-unknown"
@@ -137,24 +148,29 @@ func (engine *summaryEngine) appendInstruction(result *summary, instruction ssa.
 }
 
 func (engine *summaryEngine) appendOperation(result *summary, kind operationKind, value ssa.Value, pos token.Pos) string {
-	channel, ok := engine.reference(value)
+	resource, ok := engine.reference(value)
 	if !ok {
 		return "protocol-channel-identity-unknown"
 	}
-	result.operations = append(result.operations, operation{kind: kind, channel: channel, source: pos, site: pos})
+	result.operations = append(result.operations, operation{kind: kind, resource: resource, source: pos, site: pos})
 	return ""
 }
 
 func passiveInstruction(instruction ssa.Instruction, root bool) string {
+	if scalarInstruction(instruction) {
+		return ""
+	}
 	switch instruction := instruction.(type) {
 	case *ssa.DebugRef, *ssa.Alloc, *ssa.MakeClosure:
 		return ""
 	case *ssa.FieldAddr:
-		if localAddress(instruction.X) {
+		if localAddress(instruction.X) && !waitGroupPointer(instruction.X.Type()) {
 			return ""
 		}
 	case *ssa.Store:
-		if localAddress(instruction.Addr) {
+		// A fresh group's zero state is part of the counter proof. Resetting
+		// or copying it invalidates that proof, even through a local address.
+		if localAddress(instruction.Addr) && !waitGroupPointer(instruction.Addr.Type()) {
 			return ""
 		}
 	case *ssa.ChangeType:
@@ -167,12 +183,37 @@ func passiveInstruction(instruction ssa.Instruction, root bool) string {
 		if root {
 			return ""
 		}
-	case *ssa.Return:
-		if len(instruction.Results) == 0 {
-			return ""
-		}
 	}
 	// This whitelist is also the scope-completeness proof: no unmodelled
-	// call, publication, launch, defer, panic, or blocking action is skipped.
+	// call, publication, launch, panic, or blocking action is skipped.
 	return "protocol-effect-unknown"
+}
+
+// Empty protocol effects require positive evidence for every instruction, not
+// just scalar arguments or a scalar result. Division and shifts can panic;
+// unknown calls and reference-bearing returns must retain their usual bailout.
+func scalarInstruction(instruction ssa.Instruction) bool {
+	switch instruction := instruction.(type) {
+	case *ssa.BinOp:
+		if !scalarType(instruction.X.Type()) || !scalarType(instruction.Y.Type()) {
+			return false
+		}
+		return slices.Contains([]token.Token{
+			token.ADD, token.SUB, token.MUL, token.AND, token.OR, token.XOR, token.AND_NOT,
+			token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ,
+		}, instruction.Op)
+	case *ssa.Return:
+		for _, result := range instruction.Results {
+			if !scalarType(result.Type()) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func scalarType(value types.Type) bool {
+	basic, ok := value.Underlying().(*types.Basic)
+	return ok && basic.Info()&(types.IsBoolean|types.IsNumeric|types.IsString) != 0
 }

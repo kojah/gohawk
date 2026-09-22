@@ -84,9 +84,13 @@ func traceDecision(probe trace.Probe, position token.Pos, proof cycleProof) {
 
 func reportCycle(pass *analysis.Pass, proof cycleProof) {
 	source := syntax.SourceRange(pass, proof.wait.site)
+	message := "channel wait prevents the worker's preceding send from completing"
+	if proof.wait.kind == groupWaitOperation {
+		message = "WaitGroup wait prevents the worker's preceding send from completing"
+	}
 	check.Report(pass, check.ChannelProtocolBlocked, analysis.Diagnostic{
 		Pos: source.Pos(), End: source.End(),
-		Message: "channel wait prevents the worker's preceding send from completing",
+		Message: message,
 		Related: []analysis.RelatedInformation{
 			{Pos: proof.send.source, Message: "worker must finish this unbuffered send before signaling completion"},
 			{Pos: proof.signal.source, Message: "completion is signaled only after the send"},

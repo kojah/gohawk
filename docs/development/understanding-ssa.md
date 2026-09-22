@@ -237,6 +237,7 @@ that appears in an analyzer, in `ssaflow`, or in a pass is listed here;
 | `Jump` | an unconditional edge to the next block; it performs no work, so a terminal completion signal can precede a jump to a shared return |
 | `Call`, `CallCommon` | a call and the description shared by every call-like instruction: the callee, its arguments, and whether it is an interface invocation |
 | `Defer`, `Go` | a deferred call and a launched goroutine, each wrapping a `CallCommon` |
+| `RunDefers` | executes registered deferred calls in reverse order before returning; registration captures arguments, but does not execute the deferred effect |
 | `MakeClosure` | a closure value created from a function and the bindings for its free variables |
 | `Extract` | one result of a multi-result call, a `select`, or a map iteration step |
 | `FieldAddr`, `Field` | the address of a struct field, and a field read from a struct value |
