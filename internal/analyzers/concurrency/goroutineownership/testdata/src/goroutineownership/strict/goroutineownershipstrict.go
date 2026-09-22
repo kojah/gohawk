@@ -24,3 +24,13 @@ func explicitlyJoined() {
 	go func() { close(done) }()
 	<-done
 }
+
+func localCancellationIsNotAJoin() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() { // want "goroutine is not joined on every return path"
+		defer close(done)
+		<-ctx.Done()
+	}()
+}

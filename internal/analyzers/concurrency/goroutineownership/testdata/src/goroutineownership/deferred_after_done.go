@@ -2,19 +2,8 @@ package goroutineownership
 
 import "sync"
 
-// A trailing Done does not wait for deferred work. Keep this diagnostic even
-// though the source looks like Done is the worker's last operation.
-func doneBeforeDeferredWork(work, cleanup func()) {
-	var group sync.WaitGroup
-	group.Add(1)
-	go func() { // want "goroutine is not joined on every return path"
-		defer cleanup()
-		work()
-		group.Done()
-	}()
-	group.Wait()
-}
-
+// Gap: a trailing non-deferred Done need not promise completion of deferred
+// work. Mistaken early joins are indistinguishable from readiness protocols.
 func doneAfterDeferredWork(work, cleanup func()) {
 	var group sync.WaitGroup
 	group.Add(1)

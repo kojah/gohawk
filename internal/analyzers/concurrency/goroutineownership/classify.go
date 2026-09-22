@@ -78,6 +78,9 @@ func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) ownershipAc
 		if receivesFrom(instruction, analysis.isSignal) {
 			return actionJoin
 		}
+		if receivesFrom(instruction, analysis.signalAggregateCarries) {
+			return actionUnknown
+		}
 		if analysis.selectSends(instruction) {
 			return actionUnknown
 		}
@@ -200,7 +203,7 @@ func waitGroupMethod(common *ssa.CallCommon) bool {
 }
 
 // unsettledGroup keeps an early-Done WaitGroup out of the opaque set so the
-// early Done itself, not the group's bookkeeping, decides the diagnostic.
+// readiness bookkeeping cannot hide an independent completion obligation.
 func (analysis *spawnAnalysis) unsettledGroup(receiver ssa.Value) bool {
 	if analysis.unsettledDone == nil {
 		return false
@@ -293,6 +296,16 @@ func (analysis *spawnAnalysis) isSignal(value ssa.Value) bool {
 		}
 		signalRoot := aggregateRoot(signal)
 		return signalRoot != signal && ssaflow.SameValue(root, signalRoot)
+	})
+}
+
+// A worker-side field can resolve only to the constructor's aggregate result,
+// while its caller receives the original channel passed to that constructor.
+// Containment cannot identify the exact field, so this is unknown, not a join.
+// https://github.com/lotusirous/go-concurrency-patterns/blob/791337ff11e69cd9d1a8587e53474a8469b3510f/17-ring-buffer-channel/main.go#L49-L62
+func (analysis *spawnAnalysis) signalAggregateCarries(value ssa.Value) bool {
+	return slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
+		return !ssaflow.ChannelType(signal) && carries(ssaflow.NewReachingWalk(carryForms), signal, value)
 	})
 }
 

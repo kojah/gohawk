@@ -22,6 +22,20 @@ An asynchronously launched waiter does not join the worker in its parent.
 
 These summaries do not introduce new worker obligations: a close or `Done`
 inside a helper may be an early readiness signal rather than completion.
+A direct `Done` followed by more work is also insufficient to establish a
+completion obligation: it may intentionally signal startup. Mistaken early
+joins remain a coverage gap; independent deferred or terminal completion
+obligations are still checked.
+
+When a worker's completion field resolves only to its aggregate owner, receiving
+a channel supplied to that aggregate is uncertain rather than a proven join.
+The analyzer cannot establish which field is involved, so it declines the
+diagnostic; receiving an unrelated channel does not cross that boundary.
+
+In default context mode, a worker receiving from a locally created `WithCancel`
+context is also uncertain when the exact sibling cancel function is already
+deferred before launch. Captured context storage must remain stable. This is a
+cancellation boundary, not a join, and does not suppress join-mode diagnostics.
 
 ### Checks
 

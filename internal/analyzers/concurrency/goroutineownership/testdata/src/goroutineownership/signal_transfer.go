@@ -30,6 +30,38 @@ func joinedThroughAlias() {
 	<-done
 }
 
+type signalRelay struct{ input, output chan int }
+
+func newSignalRelay(input, output chan int) *signalRelay {
+	return &signalRelay{input: input, output: output}
+}
+
+func (relay *signalRelay) run() {
+	for value := range relay.input {
+		relay.output <- value
+	}
+	close(relay.output)
+}
+
+func receivesConstructorSuppliedSignal() {
+	input, output := make(chan int), make(chan int)
+	relay := newSignalRelay(input, output)
+	go relay.run()
+	close(input)
+	for range output {
+	}
+}
+
+func receivesUnrelatedConstructorSignal() {
+	input, output := make(chan int), make(chan int)
+	relay := newSignalRelay(input, output)
+	go relay.run() // want "goroutine is not joined on every return path"
+	close(input)
+	unrelated := make(chan int)
+	for range unrelated {
+	}
+}
+
 func conditionallyJoined(join bool) {
 	done := make(chan struct{})
 	go func() { close(done) }() // want "goroutine is not joined on every return path"

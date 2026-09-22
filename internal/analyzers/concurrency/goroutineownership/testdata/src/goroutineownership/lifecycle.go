@@ -13,6 +13,8 @@ import (
 // testing synctest scopes, and basic signal or WaitGroup joins.
 // Launches with no completion promise are accepted in every mode. Missing
 // ownership alone is not a defect; the broad detached audit has been retired.
+// Gap: an early Done may be a mistaken join or an intentional readiness
+// notification. Without a separate completion promise neither is reported.
 
 func detached() {
 	go func() {}()
@@ -201,16 +203,6 @@ func joinedByTerminalWaitGroupDone() {
 	go func() {
 		waitGroupWork()
 		group.Done()
-	}()
-	group.Wait()
-}
-
-func earlyWaitGroupDoneDoesNotJoin() {
-	var group sync.WaitGroup
-	group.Add(1)
-	go func() { // want "goroutine is not joined on every return path"
-		group.Done()
-		waitGroupWork()
 	}()
 	group.Wait()
 }

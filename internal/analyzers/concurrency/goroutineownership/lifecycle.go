@@ -56,6 +56,45 @@ func goroutineReceivesCallerContext(pass *analysis.Pass, spawn *ssa.Go) bool {
 	})
 }
 
+// A locally created context can bound a worker when its exact cancellation is
+// already deferred before launch. Cancellation is not a join; the caller uses
+// this only to decline the default context-mode diagnostic.
+// https://github.com/c9s/bbgo/blob/4a4a18a08897579d157c8fd3b412309cd4954852/pkg/cmd/exchangetest.go#L233-L255
+func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go) bool {
+	function, closure := spawnedFunction(pass, spawn)
+	if function == nil {
+		return false
+	}
+	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
+	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
+		value := pair.Supplied
+		if _, cell := value.(*ssa.Alloc); cell {
+			content := storage.StableContent(value, spawn)
+			if !content.Proven() {
+				continue
+			}
+			value = content.Value
+		}
+		contextResult, ok := value.(*ssa.Extract)
+		if !ok || contextResult.Index != 0 {
+			continue
+		}
+		call, ok := contextResult.Tuple.(*ssa.Call)
+		if !ok || call.Parent() != spawn.Parent() ||
+			!ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageFunction("context", "WithCancel")) {
+			continue
+		}
+		cancel := ssaflow.CallResult(call, 1)
+		for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](spawn.Parent()) {
+			if ssaflow.InstructionDominates(deferred, spawn) && storage.Same(deferred.Common().Value, cancel).Proven() &&
+				receivesAnywhere(function, pair.Local, map[*ssa.Function]bool{}) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // callerSuppliedValue maps a value used by the worker back to the parent and
 // requires that parent value to outlive the call. A channel field of a captured
 // aggregate keeps the exact field path rooted at that capture:

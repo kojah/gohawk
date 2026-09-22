@@ -108,6 +108,12 @@ executable cohorts: absence of a recognizable owner is not proof of a bug.
 Historical scan and audit records remain unchanged. The focused
 `goroutineownership/unjoined` and `producerlifecycle` checks remain supported.
 
+The unjoined check now declines early `WaitGroup.Done` alone: it may announce
+readiness instead of completion. The round-10 moov-io/rtp20022 early-Done
+true-positive replay label was removed as an accepted coverage gap, not changed
+to a false positive. Independent terminal or deferred completion obligations
+remain checked; the historical finding and audit review are preserved.
+
 Labels named analyzers the project has since withdrawn:
 channelownership (10), errorownership (7), determinism (7),
 closedomain (6), apishape (5), contextpolicy (5),

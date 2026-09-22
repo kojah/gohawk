@@ -4,6 +4,7 @@ import "sync"
 
 // Counts and collection-wide coverage deliberately remain unknown. An early
 // Done inside a loop is not diagnosed: the counter may count items, not workers.
+// An early Done outside a loop is likewise unknown: it may signal readiness.
 func countedItems(items []func()) {
 	var group sync.WaitGroup
 	group.Add(len(items))
@@ -12,16 +13,6 @@ func countedItems(items []func()) {
 			item()
 			group.Done()
 		}
-	}()
-	group.Wait()
-}
-
-func earlyDoneStillReports(work func()) {
-	var group sync.WaitGroup
-	group.Add(1)
-	go func() { // want "goroutine is not joined on every return path"
-		group.Done()
-		work()
 	}()
 	group.Wait()
 }

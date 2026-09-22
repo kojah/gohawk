@@ -19,6 +19,62 @@ func contextArgumentWorker(ctx context.Context) {
 	go runWithContext(ctx)
 }
 
+func locallyCanceledContextBoundsWorker() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		<-ctx.Done()
+	}()
+}
+
+func canceledDifferentContextDoesNotBoundWorker() {
+	ctx, cancel := context.WithCancel(context.Background())
+	other, cancelOther := context.WithCancel(context.Background())
+	defer cancelOther()
+	_ = cancel
+	_ = other
+	done := make(chan struct{})
+	go func() { // want "goroutine is not joined on every return path"
+		defer close(done)
+		<-ctx.Done()
+	}()
+}
+
+func conditionalContextCancelDoesNotBoundWorker(enabled bool) {
+	ctx, cancel := context.WithCancel(context.Background())
+	if enabled {
+		defer cancel()
+	}
+	done := make(chan struct{})
+	go func() { // want "goroutine is not joined on every return path"
+		defer close(done)
+		<-ctx.Done()
+	}()
+}
+
+func ignoredCanceledContextDoesNotBoundWorker() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() { // want "goroutine is not joined on every return path"
+		_ = ctx.Err()
+		close(done)
+	}()
+}
+
+func replacedCanceledContextDoesNotBoundWorker() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	ctx = context.Background()
+	go func() { // want "goroutine is not joined on every return path"
+		defer close(done)
+		<-ctx.Done()
+	}()
+}
+
 func runUntilStopped(stop <-chan struct{}) {
 	<-stop
 }

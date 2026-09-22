@@ -33,6 +33,7 @@ const (
 	reasonGuardedLocalJoin        goroutineOwnershipReason = "guarded-local-join"
 	reasonStopLifecycle           goroutineOwnershipReason = "stop-lifecycle"
 	reasonContextLifecycle        goroutineOwnershipReason = "context-lifecycle"
+	reasonLocallyCanceledContext  goroutineOwnershipReason = "locally-canceled-context"
 	reasonSynctestBubbleOwner     goroutineOwnershipReason = "synctest-bubble-owner"
 	reasonCallerOrExternalOwner   goroutineOwnershipReason = "caller-or-external-owner"
 	reasonOwnershipTransfer       goroutineOwnershipReason = "ownership-transfer"
@@ -68,7 +69,13 @@ func (analysis *spawnAnalysis) ruledOut(reason goroutineOwnershipReason) {
 func (analysis *spawnAnalysis) prove() GoroutineProof {
 	// Absence of a recognizable owner is not evidence of a defect. This also
 	// applies in join mode: a policy setting cannot create a completion promise.
-	if len(analysis.signals) == 0 && len(analysis.groups) == 0 && analysis.unsettledDone == nil {
+	if len(analysis.signals) == 0 && len(analysis.groups) == 0 {
+		// Early Done may announce readiness rather than completion. Without a
+		// separate completion promise, later work does not establish a defect.
+		// https://github.com/nadoo/glider/blob/38b34030bc0664b958f9226a51d9400258e5d852/dns/server.go#L39-L62
+		if analysis.unsettledDone != nil {
+			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonDoneBeforeCompletion}
+		}
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonNoObligation}
 	}
 	if proof, decided := analysis.lifecycleProof(); decided {
@@ -136,9 +143,6 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonBufferedSignal}
 	}
 	analysis.ruledOut(reasonBufferedSignal)
-	if analysis.unsettledDone != nil && len(analysis.groups) == 0 && len(analysis.signals) == 0 {
-		return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonDoneBeforeCompletion}
-	}
 	return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonUnownedReturn}
 }
 
@@ -185,6 +189,9 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 		}
 		if goroutineReceivesCallerContext(analysis.pass, analysis.spawn) {
 			return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonContextLifecycle}, true
+		}
+		if goroutineReceivesLocallyCanceledContext(analysis.pass, analysis.spawn) {
+			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLocallyCanceledContext}, true
 		}
 	}
 	// A goroutine that completes through a caller-owned channel or wait group
