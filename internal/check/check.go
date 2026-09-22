@@ -18,7 +18,6 @@ const (
 	CancellationRelease      ID = "cancellationownership/release"
 	BorrowedStorageOwner     ID = "borrowedstorage/overlapping-owner"
 	ChannelCapacityRationale ID = "channelcapacity/rationale"
-	ChannelCallerClose       ID = "channelownership/caller-close"
 	ChannelSendAfterClose    ID = "channelsafety/send-after-close"
 	DeferCleanupInLoop       ID = "deferinloop/cleanup-lifetime"
 	GoroutineJoin            ID = "goroutineownership/unjoined"

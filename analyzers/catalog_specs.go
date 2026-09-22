@@ -8,7 +8,6 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/ownership/borrowedstorage"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/cancellationownership"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelcapacity"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/channelownership"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelprotocol"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelsafety"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/deferinloop"
@@ -109,12 +108,6 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 		{Analyzer: channelcapacity.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ChannelCapacityRationale, Doc: "Reports large constant channel capacities in production files without a nearby bounded rationale.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-			},
-		}},
-		{Analyzer: channelownership.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ChannelCallerClose, Doc: "Reports callees that close a channel an exact caller continues to use.",
 				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
 			},
 		}},

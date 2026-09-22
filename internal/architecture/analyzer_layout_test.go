@@ -180,7 +180,6 @@ var withdrawnAnalyzerPackages = map[string]bool{
 	"apishape":            true,
 	"contextpolicy":       true,
 	"channelcapacity":     true,
-	"channelownership":    true,
 	"errorownership":      true,
 	"determinism":         true,
 	"errorclassification": true,

@@ -122,16 +122,6 @@ func ReturnedSameAsAny(returned *ssa.Return, candidates []ssa.Value) bool {
 	return false
 }
 
-// ReturnSameValue reports whether a return transfers value.
-func ReturnSameValue(returned *ssa.Return, value ssa.Value) bool {
-	for _, result := range returned.Results {
-		if SameValue(result, value) {
-			return true
-		}
-	}
-	return false
-}
-
 // CallResult returns the selected SSA result of call. A negative index denotes
 // a single-result call represented by the call instruction itself.
 func CallResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // SSA call results have several concrete forms.

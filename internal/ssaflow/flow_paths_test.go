@@ -28,7 +28,7 @@ func TestSourceSSAFunctionsRejectsUnexpectedPrerequisiteResult(t *testing.T) {
 	}
 }
 
-func TestStaticCallsiteIndexes(t *testing.T) {
+func TestStaticCallsExcludeDeferredAndLaunched(t *testing.T) {
 	pkg := buildTestSSA(t, `
 package ssaflowtest
 
@@ -41,9 +41,6 @@ func caller() {
 `)
 	callee := pkg.Func("callee")
 	functions := []*ssa.Function{pkg.Func("caller"), callee}
-	if got := len(StaticCallsites(functions)[callee]); got != 3 {
-		t.Fatalf("StaticCallsites() count = %d, want 3", got)
-	}
 	if got := len(StaticCalls(functions)[callee]); got != 1 {
 		t.Fatalf("StaticCalls() count = %d, want 1", got)
 	}

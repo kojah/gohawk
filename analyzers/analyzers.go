@@ -64,7 +64,6 @@ func newCatalog() (*catalog.Catalog, error) {
 		"errorclassification",
 		"inlineerror",
 		"channelcapacity",
-		"channelownership",
 		"channelsafety",
 		"processownership",
 		"closedomain",
