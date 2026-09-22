@@ -1821,6 +1821,24 @@ through a cloned standard transport, a file closed by a deferred literal
 through an interface cell, a closer handed to a callee that closes it on
 exit, and a process-lifetime device file consumed by worker goroutines.
 
+## Moby dogfood (2026-09-22)
+
+`moby/moby` at master `3f673306102e01c16b5e0ab2343588bfab2fc4e7` was scanned
+once with every check enabled and tests included, static analysis only, with
+the same binary as the kubernetes run. The tree took 55 seconds and peaked
+at 459 MB; two cgo-only packages (btrfs, quota) did not load and are excluded.
+
+All 18 findings are [reviewed](moby-dogfood-2026-09-22.tsv): 17 true
+positives and one false positive. Two are production defects: the image
+pull progress writer goroutine leaks when the temporary lease cannot be
+created, because the early return skips closing its channel, and
+`nodeRunner.Stop` sends a cluster event while holding the node mutex, the
+reverse of the order `Cluster` uses when it reads node state under its own
+lock. The remaining true positives are test leaks and one documented
+goroutine leak in `CopyCtx`. The false positive is a file closed through a
+deferred type assertion on an interface cell, the same shape as the podlogs
+site in the kubernetes run.
+
 ## Historical 500-repository audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
