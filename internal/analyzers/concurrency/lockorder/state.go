@@ -269,6 +269,18 @@ func traceLockStateBudget(pass *analysis.Pass, function *ssa.Function) {
 	})
 }
 
+func traceFreshMutexIdentity(pass *analysis.Pass, instruction ssa.Instruction, receiver ssa.Value) {
+	checkID := string(check.LockContradictoryOrder)
+	if !analysisTrace.Enabled("lockorder", checkID) {
+		return
+	}
+	if proof := possibleFreshMutexField(receiver); proof.possible {
+		analysisTrace.For(pass, "lockorder", checkID, instruction.Pos()).Decision(analysisTrace.Step{
+			Reason: proof.reason, Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
+		})
+	}
+}
+
 // Matching loaded guards may release a lock before the same acquisition runs
 // again. Their distinct loads do not establish differing Boolean contents.
 // This is possible release only; neither stable fields nor loop counts are

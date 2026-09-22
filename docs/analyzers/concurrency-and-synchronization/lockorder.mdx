@@ -48,6 +48,14 @@ field's declaration class. This prevents construction-time locking from being
 merged with locking of unrelated established objects. Cross-function ordering
 after such an allocation is published can consequently be missed.
 
+If a direct field of a fresh local owner was initialized with a fresh mutex,
+but escape makes its later loaded identity opaque, the analyzer also declines
+declaration-class widening. This is uncertainty, not a freshness or publication
+proof. Visible replacement with a shared mutex vetoes this boundary, including
+source-visible helper writes to the same field or its address. Opaque code
+could still replace the mutex, so some real cross-function cycles are missed.
+Initializers of another field do not establish this uncertainty.
+
 Two locks of the same declaration are not compared. Whether
 `transfer(from, to *Account)` conflicts with a caller passing the same pair in
 the other order depends on the objects involved, and nothing in the code

@@ -456,6 +456,7 @@ func (flow lockFlowContext) applyMutexAction(
 	}
 	// Acquisitions, whether direct or summarized, participate in the same
 	// acquire-for-caller contract and loaded-condition uncertainty boundary.
+	traceFreshMutexIdentity(flow.pass, instruction, receiver)
 	flow.acquisitions[identity] = appendUniqueInstruction(flow.acquisitions[identity], instruction)
 	flow.uncertainGuards[identity] = flow.uncertainGuards[identity] || optionalLoadedGuard(instruction, identity)
 	flow.lockValues[identity] = appendLockValue(flow.lockValues[identity], receiver)

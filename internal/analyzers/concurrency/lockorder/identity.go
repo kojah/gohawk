@@ -1,6 +1,7 @@
 package lockorder
 
 import (
+	"go/token"
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -192,7 +193,7 @@ func lockClassOf(value ssa.Value) string {
 	// merges construction-time locking with unrelated established instances.
 	// Cross-function ordering after publication of this allocation is unknown.
 	// https://github.com/ozontech/file.d/blob/5379bc2005906fde3aa0a05f6bf574dcd7111404/plugin/input/file/provider.go#L404-L477
-	if localMutexAllocation(value) != nil {
+	if localMutexAllocation(value) != nil || possibleFreshMutexField(value).possible {
 		return ""
 	}
 	return lockClass(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value)
@@ -205,6 +206,110 @@ func localMutexAllocation(value ssa.Value) *ssa.Alloc {
 	}
 	allocation, _ := resolved.Value.(*ssa.Alloc)
 	return allocation
+}
+
+type freshMutexFieldProof struct {
+	possible bool
+	reason   string
+}
+
+// A positively fresh field initializer is still relevant when publication
+// makes its later load opaque. Do not widen that uncertain local slot to every
+// instance of its declaration. This is not freshness or publication safety:
+// opaque code could replace it with a shared mutex. Visible replacements veto
+// this boundary, including writes reached through exact helper bindings.
+// https://github.com/ozontech/file.d/blob/5379bc2005906fde3aa0a05f6bf574dcd7111404/plugin/input/file/provider.go#L404-L477
+func possibleFreshMutexField(value ssa.Value) freshMutexFieldProof {
+	unknown := freshMutexFieldProof{reason: "no-fresh-field-witness"}
+	load, ok := value.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return unknown
+	}
+	field, ok := load.X.(*ssa.FieldAddr)
+	if !ok {
+		return unknown
+	}
+	owner, ok := field.X.(*ssa.Alloc)
+	if !ok || owner.Parent() != load.Parent() {
+		return unknown
+	}
+	if ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(value).Proven() {
+		return unknown
+	}
+	fresh := false
+	for _, store := range ssaflow.InstructionsOf[*ssa.Store](owner.Parent()) {
+		target, ok := store.Addr.(*ssa.FieldAddr)
+		if !ok || target.X != owner || target.Field != field.Field || !ssaflow.InstructionDominates(store, load) {
+			continue
+		}
+		_, allocated := store.Val.(*ssa.Alloc)
+		fresh = fresh || allocated
+	}
+	if !fresh || visibleMutexSlotReplacement(ssaflow.NewReachingWalk(ssaflow.TransparentNone), owner, field.Field, load,
+		ssaflow.NewSearchBudget(1000)) {
+		return unknown
+	}
+	return freshMutexFieldProof{possible: true, reason: "fresh-field-identity-unknown"}
+}
+
+func visibleMutexSlotReplacement(
+	walk ssaflow.ReachingWalk, owner ssa.Value, field int, observation ssa.Instruction, budget *ssaflow.SearchBudget,
+) bool {
+	if !walk.Mark(owner) || owner.Referrers() == nil {
+		return false
+	}
+	for _, use := range *owner.Referrers() {
+		if !budget.Spend() {
+			return true
+		}
+		if owner.Parent() == observation.Parent() && !ssaflow.InstructionMayFollow(use, observation) {
+			continue
+		}
+		switch use := use.(type) {
+		case *ssa.Store:
+			if use.Addr == owner {
+				return true
+			}
+		case *ssa.FieldAddr:
+			if use.Field == field && mutexSlotWrittenShared(use, budget) {
+				return true
+			}
+		case ssa.CallInstruction:
+			callee, closure := ssaflow.DirectCallee(use.Common())
+			for _, binding := range ssaflow.CallBindings(use.Common(), callee, closure) {
+				if binding.Supplied == owner && visibleMutexSlotReplacement(walk, binding.Local, field, observation, budget) {
+					return true
+				}
+			}
+		case *ssa.ChangeType, *ssa.Convert, *ssa.MakeInterface, *ssa.Phi:
+			// This boundary binds an exact owner, not possible aliases of it.
+			return true
+		}
+	}
+	return false
+}
+
+func mutexSlotWrittenShared(address *ssa.FieldAddr, budget *ssaflow.SearchBudget) bool {
+	if address.Referrers() == nil {
+		return false
+	}
+	for _, use := range *address.Referrers() {
+		if !budget.Spend() {
+			return true
+		}
+		if store, ok := use.(*ssa.Store); ok && store.Addr == address {
+			if _, fresh := store.Val.(*ssa.Alloc); !fresh {
+				return true
+			}
+		}
+		if call, ok := use.(ssa.CallInstruction); ok {
+			proof := ssaflow.NewCallEffects(budget).Call(call, address)
+			if proof.Effects&ssaflow.EffectMutate != 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func lockClass(walk ssaflow.ReachingWalk, value ssa.Value) string {

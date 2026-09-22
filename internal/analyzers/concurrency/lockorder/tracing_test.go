@@ -54,6 +54,7 @@ func TestLockTraceBoundaries(t *testing.T) {
 	checkDecisionTrace(t, data, "conditional-caller-release-proven", "caller_release.go:", "accepted")
 	checkDecisionTrace(t, data, "loaded-loop-release-unknown", "loaded_loop_guard.go:", "unknown")
 	checkDecisionTrace(t, data, "lock-state-budget-exhausted", "state_budget.go:", "unknown")
+	checkDecisionTrace(t, data, "fresh-field-identity-unknown", "escaped_fresh_field.go:", "unknown")
 	found := false
 	foundUnknown := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
