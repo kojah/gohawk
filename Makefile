@@ -14,7 +14,9 @@ BENCHMARK_ARGS ?=
 VERIFY_JOBS ?= 4
 
 VERIFY_STATIC_TARGETS := mod-verify fmt-check generated-check vet lint dogfood
-VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test test-race
+# The race detector stays out of the routine local gate: gohawk is almost
+# entirely synchronous, and CI runs test-race as its own job. make ci keeps it.
+VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test
 # GNU Make before 4.0, including the version shipped with macOS, does not
 # support grouped parallel output. Parallel scheduling itself remains required.
 VERIFY_OUTPUT_SYNC := $(if $(filter output-sync,$(.FEATURES)),--output-sync=target)
@@ -131,7 +133,7 @@ verify: generated-sync
 # The aggregate local CI target adds coverage. Hosted CI and release workflows
 # run the custom golangci-lint plugin test as a separate gate.
 ci: generated-sync
-	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS) coverage
+	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS) test-race coverage
 
 benchmark:
 	./scripts/benchmark-dogfood.sh $(BENCHMARK_ARGS)
