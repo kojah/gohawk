@@ -13,6 +13,15 @@ Tracks cancel functions returned by context and signal helpers and reports any
 successful return path that neither calls the cancel function nor transfers it
 to the caller.
 
+For a standard context derived directly from a fresh local cancelable context,
+the classifier also considers use of the exact parent's cancel function after
+the child is created. Parent cancellation or ownership handoff makes child
+cleanup uncertain rather than proving a leak. This reuses the existing
+path-sensitive classification; an unrelated or only conditionally canceled
+parent does not cover an otherwise unowned return. Wrapped or merged parents
+remain outside this boundary. Signal registrations still need their own stop
+function even when their parent is canceled.
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}

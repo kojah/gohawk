@@ -47,6 +47,7 @@ const (
 
 type cancellationClassifier struct {
 	cancel    ssa.Value
+	parent    *cancellationClassifier
 	actions   map[ssa.Instruction]cancellationAction
 	transfers bool
 }
@@ -57,6 +58,7 @@ const cancellationCompletionBudget = 1000
 func proveCancellation(call *ssa.Call, cancel ssa.Value) CancellationProof {
 	classifier := &cancellationClassifier{
 		cancel:  cancel,
+		parent:  parentCancellationClassifier(call),
 		actions: make(map[ssa.Instruction]cancellationAction),
 	}
 	settledOrUnknown := func(instruction ssa.Instruction) bool {
@@ -89,11 +91,44 @@ func (classifier *cancellationClassifier) action(instruction ssa.Instruction) ca
 		return action
 	}
 	action := classifier.classifyAction(instruction)
+	if action == cancellationActionNone && classifier.parent != nil && classifier.parent.action(instruction) != cancellationActionNone {
+		action = cancellationActionUnknown
+	}
 	classifier.actions[instruction] = action
 	if action == cancellationActionTransfer {
 		classifier.transfers = true
 	}
 	return action
+}
+
+// A fresh standard context child also follows its exact parent's cancellation.
+// Reuse the existing classifier for that alternate owner, but only as unknown:
+// an opaque handoff of the parent is not proof of when its child is canceled.
+// Signal registrations still require their own stop function; cancellation of
+// their parent does not unregister them. Wrapped and merged parents stay opaque.
+// https://github.com/crazy-max/diun/blob/269cb27295944aeacfe549d24ab7ac483e600aa9/internal/notif/apprise/client.go#L91-L94
+func parentCancellationClassifier(call *ssa.Call) *cancellationClassifier {
+	contract, ok := cancellationContractFor(call.Common())
+	if !ok || contract.packagePath != "context" || len(call.Common().Args) == 0 {
+		return nil
+	}
+	parent, ok := call.Common().Args[0].(*ssa.Extract)
+	if !ok || parent.Index != 0 {
+		return nil
+	}
+	constructor, ok := parent.Tuple.(*ssa.Call)
+	if !ok || constructor.Parent() != call.Parent() {
+		return nil
+	}
+	parentContract, ok := cancellationContractFor(constructor.Common())
+	if !ok {
+		return nil
+	}
+	cancel := ssaflow.CallResult(constructor, parentContract.result)
+	if cancel == nil {
+		return nil
+	}
+	return &cancellationClassifier{cancel: cancel, actions: make(map[ssa.Instruction]cancellationAction)}
 }
 
 func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruction) cancellationAction {
@@ -232,6 +267,9 @@ func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) can
 		return cancellationActionTransfer
 	}
 	if ssaflow.ReturnedValueOwnsValue(returned, classifier.cancel) {
+		return cancellationActionUnknown
+	}
+	if classifier.parent != nil && classifier.parent.returnAction(returned) != cancellationActionNone {
 		return cancellationActionUnknown
 	}
 	return cancellationActionNone
