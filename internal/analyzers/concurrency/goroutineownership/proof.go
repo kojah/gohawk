@@ -11,8 +11,9 @@ import (
 // obligation (a completion signal or a settling WaitGroup). A diagnostic then
 // needs a feasible return path on which nothing joins, transfers, or ambiguously
 // consumes it.
-// Every instruction after the spawn is classified once; the flow query asks
-// only whether an exact action, or any action at all, covers every return.
+// Every instruction after the spawn is classified once; the shared obligation
+// walk then reports whether exact actions, only opaque ones, or nothing at all
+// covers every return.
 
 // GoroutineOutcome distinguishes proven lifecycle behavior from an opaque
 // handoff. Unknown evidence suppresses correctness diagnostics.
@@ -95,22 +96,23 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonWorkerConsumesSignal}
 	}
 	analysis.ruledOut(reasonWorkerConsumesSignal)
-	exact := func(instruction ssa.Instruction) bool {
-		action := analysis.action(instruction)
-		return action == actionJoin || action == actionTransfer
-	}
-	if !ssaflow.UnownedReturnWithEdges(analysis.spawn, exact, analysis.returnTransfers, analysis.selectedJoinEdge) {
+	// One walk carries every label to every feasible return: honored when
+	// exact joins and transfers cover them all, uncertain when some return is
+	// reached only through an opaque handoff, violated when a return is
+	// reached with no action at all. Opacity on one path never excuses an
+	// unrelated early return.
+	outcome := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
+		Start: analysis.spawn, Instruction: analysis.obligation, Return: analysis.returnObligation, Edge: analysis.edgeObligation,
+	})
+	if outcome == ssaflow.ObligationHonored {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonJoinProven}
 	}
 	analysis.ruledOut(reasonJoinProven)
-	if analysis.guardedLocalJoin(exact) {
+	if analysis.guardedLocalJoin() {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonGuardedLocalJoin}
 	}
 	analysis.ruledOut(reasonGuardedLocalJoin)
-	any := func(instruction ssa.Instruction) bool {
-		return analysis.action(instruction) != actionNone
-	}
-	if !ssaflow.UnownedReturnWithEdges(analysis.spawn, any, analysis.returnMayTransfer, analysis.selectedOwnershipEdge) {
+	if outcome == ssaflow.ObligationUncertain {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}
 	}
 	analysis.ruledOut(reasonOpaqueTransfer)
@@ -315,12 +317,18 @@ func (analysis *spawnAnalysis) dominatingProof() (GoroutineProof, bool) {
 // commonly stopped and waited beneath `if stop != nil`; the launch proves that
 // guard true on every path that reaches it. Rainier:
 // https://github.com/tokencanopy/rainier/blob/855b2e7c276a60a2f65f141d1071cf03be38d6e3/internal/attachio/attachio.go#L267-L287
-func (analysis *spawnAnalysis) guardedLocalJoin(exact func(ssa.Instruction) bool) bool {
+func (analysis *spawnAnalysis) guardedLocalJoin() bool {
 	if len(analysis.signals)+len(analysis.groups) == 0 {
 		return false
 	}
 	for _, created := range analysis.channelsCreatedOnceBeforeSpawn() {
-		if !ssaflow.UnownedReturnAssumingNonNil(analysis.spawn, created, exact, analysis.returnTransfers) {
+		// Edge-local joins are deliberately not consulted here; this query
+		// asks only whether the non-nil fact lets ordinary exact actions
+		// cover every return.
+		honored := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
+			Start: analysis.spawn, NonNil: created, Instruction: analysis.obligation, Return: analysis.returnObligation,
+		}) == ssaflow.ObligationHonored
+		if honored {
 			return true
 		}
 	}

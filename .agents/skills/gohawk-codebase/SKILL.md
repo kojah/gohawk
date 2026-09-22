@@ -51,7 +51,8 @@ first. In particular:
   or `ResolveReachingValue`. Never fan out over phi edges or thread a visited
   set yourself; `TestAnalyzersUseSharedTraversal` rejects it.
 - Path-sensitive state over blocks: `ssaflow.WalkStates`.
-- Does an action cover every return: the `ssaflow.UnownedReturn*` family.
+- Does an action cover every return: `ssaflow.EvaluateObligation`, or the
+  Boolean `ssaflow.UnownedReturn*` family when only violation matters.
 - Peeling wrappers: `ssaflow.UnwrapTransparentValue` with an explicit form set.
   There is deliberately no universal unwrap helper.
 - Collecting instructions of one type: `ssaflow.InstructionsOf`.

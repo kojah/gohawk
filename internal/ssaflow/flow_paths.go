@@ -11,20 +11,6 @@ import (
 // several analyzers. Traversal retains the predecessor for phi and branch
 // feasibility, and treats only reachable normal returns as lifecycle exits.
 
-type flowState struct {
-	block       *ssa.BasicBlock
-	predecessor *ssa.BasicBlock
-	index       int
-	owned       bool
-}
-
-type flowKey struct {
-	block       int
-	predecessor int
-	index       int
-	owned       bool
-}
-
 // InstructionIndex returns instruction position within its basic block.
 func InstructionIndex(instruction ssa.Instruction) int {
 	for index, candidate := range instruction.Block().Instrs {
@@ -125,7 +111,7 @@ func UnownedReturnWithEdges(
 	if index < 0 {
 		return false
 	}
-	return unownedReturnFrom([]flowState{{block: start.Block(), index: index + 1}}, owns, allowReturn, ownsEdge)
+	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, nil, ownsEdge)
 }
 
 // UnownedReturnAfterCallSuccess is UnownedReturn restricted to the branch on
@@ -142,52 +128,26 @@ func UnownedReturnAfterCallSuccess(
 	}
 	for _, successor := range call.Block().Succs {
 		if success, known := SuccessBranch(call.Block(), successor, call); known && success {
-			return unownedReturnFrom([]flowState{{block: successor, predecessor: call.Block()}}, owns, allowReturn, nil)
+			return unownedReturnFrom([]obligationState{{block: successor, predecessor: call.Block()}}, owns, allowReturn, nil, nil)
 		}
 	}
 	return UnownedReturn(call, owns, allowReturn)
 }
 
+// unownedReturnFrom is the Boolean view of the shared obligation walk: an
+// owning action is exact coverage and everything else is none, so the only
+// outcomes are honored and violated.
 func unownedReturnFrom(
-	queue []flowState,
+	initial []obligationState,
 	owns func(ssa.Instruction) bool,
 	allowReturn func(*ssa.Return) bool,
+	nonNil ssa.Value,
 	ownsEdge OwnershipEdge,
 ) bool {
-	seen := map[flowKey]bool{}
-	for len(queue) > 0 {
-		state := queue[0]
-		queue = queue[1:]
-		predecessor := -1
-		if state.predecessor != nil {
-			predecessor = state.predecessor.Index
-		}
-		key := flowKey{block: state.block.Index, predecessor: predecessor, index: state.index, owned: state.owned}
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		terminated := false
-		for _, instruction := range state.block.Instrs[state.index:] {
-			state.owned = state.owned || owns(instruction)
-			if InstructionTerminatesControlFlow(instruction) {
-				terminated = true
-				break
-			}
-			returned, ok := instruction.(*ssa.Return)
-			if ok && !state.owned && (allowReturn == nil || !allowReturn(returned)) {
-				return true
-			}
-		}
-		if terminated {
-			continue
-		}
-		for _, successor := range FeasibleSuccessors(state.block, state.predecessor) {
-			owned := state.owned || ownsEdge != nil && ownsEdge(state.block, successor)
-			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: owned})
-		}
+	flow := ObligationFlow{
+		NonNil: nonNil, Instruction: exactOrNone(owns), Return: exactOrNoneReturn(allowReturn), Edge: exactOrNoneEdge(ownsEdge),
 	}
-	return false
+	return obligationOutcome(initial, flow) == ObligationViolated
 }
 
 // UnownedReturnAssumingNonNil is UnownedReturn with the additional fact that
@@ -216,40 +176,7 @@ func UnownedReturnAssumingNonNilWithEdges(
 	if index < 0 {
 		return false
 	}
-	queue := []flowState{{block: start.Block(), index: index + 1}}
-	seen := map[flowKey]bool{}
-	for len(queue) > 0 {
-		state := queue[0]
-		queue = queue[1:]
-		predecessor := -1
-		if state.predecessor != nil {
-			predecessor = state.predecessor.Index
-		}
-		key := flowKey{block: state.block.Index, predecessor: predecessor, index: state.index, owned: state.owned}
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		terminated := false
-		for _, instruction := range state.block.Instrs[state.index:] {
-			state.owned = state.owned || owns(instruction)
-			if InstructionTerminatesControlFlow(instruction) {
-				terminated = true
-				break
-			}
-			if returned, ok := instruction.(*ssa.Return); ok && !state.owned && (allowReturn == nil || !allowReturn(returned)) {
-				return true
-			}
-		}
-		if terminated {
-			continue
-		}
-		for _, successor := range nonNilFeasibleSuccessors(state.block, state.predecessor, value) {
-			owned := state.owned || ownsEdge != nil && ownsEdge(state.block, successor)
-			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: owned})
-		}
-	}
-	return false
+	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, value, ownsEdge)
 }
 
 // UnownedReturnFromEntryWithEdges adds edge-local ownership actions to the
@@ -276,40 +203,7 @@ func unownedReturnFromEntry(
 	if len(function.Blocks) == 0 {
 		return false
 	}
-	queue := []flowState{{block: function.Blocks[0]}}
-	seen := map[flowKey]bool{}
-	for len(queue) > 0 {
-		state := queue[0]
-		queue = queue[1:]
-		predecessor := -1
-		if state.predecessor != nil {
-			predecessor = state.predecessor.Index
-		}
-		key := flowKey{block: state.block.Index, predecessor: predecessor, owned: state.owned}
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		terminated := false
-		for _, instruction := range state.block.Instrs {
-			state.owned = state.owned || owns(instruction)
-			if InstructionTerminatesControlFlow(instruction) {
-				terminated = true
-				break
-			}
-			if returned, ok := instruction.(*ssa.Return); ok && !state.owned && (allowReturn == nil || !allowReturn(returned)) {
-				return true
-			}
-		}
-		if terminated {
-			continue
-		}
-		for _, successor := range nonNilFeasibleSuccessors(state.block, state.predecessor, nonNil) {
-			owned := state.owned || ownsEdge != nil && ownsEdge(state.block, successor)
-			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: owned})
-		}
-	}
-	return false
+	return unownedReturnFrom([]obligationState{{block: function.Blocks[0]}}, owns, allowReturn, nonNil, ownsEdge)
 }
 
 func nonNilFeasibleSuccessors(block, predecessor *ssa.BasicBlock, value ssa.Value) []*ssa.BasicBlock {

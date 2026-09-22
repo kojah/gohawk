@@ -66,29 +66,53 @@ func proveCancellation(call *ssa.Call, cancel ssa.Value) CancellationProof {
 	if contract, ok := cancellationContractFor(call.Common()); ok && contract.packagePath == "context" {
 		classifier.context = ssaflow.CallResult(call, 0)
 	}
-	settledOrUnknown := func(instruction ssa.Instruction) bool {
-		return classifier.action(instruction) != cancellationActionNone
-	}
-	returnSettledOrUnknown := func(returned *ssa.Return) bool {
-		return classifier.returnAction(returned) != cancellationActionNone
-	}
-	if ssaflow.UnownedReturnAssumingNonNilWithEdges(call, cancel, settledOrUnknown, returnSettledOrUnknown, classifier.selectedDoneEdge) {
+	// One walk carries the classifier's labels to every feasible return. A
+	// return no action reaches is loss; a return only an opaque handoff reaches
+	// is unknown, and that opacity excuses no other path's early return.
+	switch ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
+		Start: call, NonNil: cancel,
+		Instruction: classifier.obligation, Return: classifier.returnObligation, Edge: classifier.edgeObligation,
+	}) {
+	case ssaflow.ObligationViolated:
 		return CancellationProof{Outcome: CancellationLost, Reason: reasonCancellationLost}
-	}
-	exact := func(instruction ssa.Instruction) bool {
-		action := classifier.action(instruction)
-		return action == cancellationActionRelease || action == cancellationActionTransfer
-	}
-	returnExact := func(returned *ssa.Return) bool {
-		return classifier.returnAction(returned) == cancellationActionTransfer
-	}
-	if ssaflow.UnownedReturnAssumingNonNil(call, cancel, exact, returnExact) {
+	case ssaflow.ObligationUncertain:
 		return CancellationProof{Outcome: CancellationUnknown, Reason: reasonCancellationUnknown}
+	case ssaflow.ObligationHonored:
 	}
 	if classifier.transfers {
 		return CancellationProof{Outcome: CancellationTransferred, Reason: reasonCancellationTransferred}
 	}
 	return CancellationProof{Outcome: CancellationReleased, Reason: reasonCancellationReleased}
+}
+
+// obligation, returnObligation, and edgeObligation map this classifier's
+// labels onto the shared flow lattice: a release or transfer is exact
+// evidence, an ambiguous use is opaque, and a selected Done receive is an
+// edge-local opaque observation of cancellation.
+func (classifier *cancellationClassifier) obligation(instruction ssa.Instruction) ssaflow.ObligationAction {
+	return cancellationObligation(classifier.action(instruction))
+}
+
+func (classifier *cancellationClassifier) returnObligation(returned *ssa.Return) ssaflow.ObligationAction {
+	return cancellationObligation(classifier.returnAction(returned))
+}
+
+func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
+	if classifier.selectedDoneEdge(from, to) {
+		return ssaflow.ObligationUnknown
+	}
+	return ssaflow.ObligationNone
+}
+
+func cancellationObligation(action cancellationAction) ssaflow.ObligationAction {
+	switch action {
+	case cancellationActionRelease, cancellationActionTransfer:
+		return ssaflow.ObligationExact
+	case cancellationActionUnknown:
+		return ssaflow.ObligationUnknown
+	case cancellationActionNone:
+	}
+	return ssaflow.ObligationNone
 }
 
 func (classifier *cancellationClassifier) action(instruction ssa.Instruction) cancellationAction {

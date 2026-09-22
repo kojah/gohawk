@@ -78,7 +78,9 @@ up, it first has to show that something promised to.
    through; it hides the diagnostic rather than counting as a weaker join.
 3. A single **flow query** decides the outcome: honored when exact actions
    cover every return, unknown when only opaque ones do, and violated
-   otherwise.
+   otherwise. `ssaflow.EvaluateObligation` is that query; the analyzer
+   supplies only its labels, and an opaque handoff on one path never excuses
+   an unrelated early return.
 
 So a default diagnostic needs real evidence of both a promise and a broken
 one. New patterns are almost always new classifier rules; the flow query
@@ -87,7 +89,8 @@ itself does not change.
 ## Shared engine
 
 - `internal/ssaflow` owns SSA mechanics: value provenance (`ReachingWalk`),
-  path-sensitive state (`WalkStates`), return coverage (`UnownedReturn`),
+  path-sensitive state (`WalkStates`), return coverage (`EvaluateObligation`
+  and the Boolean `UnownedReturn` family),
   storage and escape checks, and symbol matching. It provides how to walk;
   it never decides whether evidence is sufficient. That policy stays beside
   each analyzer.

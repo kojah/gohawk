@@ -43,6 +43,49 @@ func (action ownershipAction) String() string {
 	return "none"
 }
 
+// obligation maps this classifier's labels onto the shared flow lattice: a
+// join or transfer is exact evidence and an opaque use is unknown.
+func (action ownershipAction) obligation() ssaflow.ObligationAction {
+	switch action {
+	case actionJoin, actionTransfer:
+		return ssaflow.ObligationExact
+	case actionUnknown:
+		return ssaflow.ObligationUnknown
+	case actionNone:
+	}
+	return ssaflow.ObligationNone
+}
+
+func (analysis *spawnAnalysis) obligation(instruction ssa.Instruction) ssaflow.ObligationAction {
+	return analysis.action(instruction).obligation()
+}
+
+// returnObligation is exact only for a returned tracked value; a returned
+// aggregate that may carry the signal is an opaque handoff, so it can hide a
+// diagnostic but never prove a join.
+func (analysis *spawnAnalysis) returnObligation(returned *ssa.Return) ssaflow.ObligationAction {
+	if analysis.returnTransfers(returned) {
+		return ssaflow.ObligationExact
+	}
+	if analysis.returnMayTransfer(returned) {
+		return ssaflow.ObligationUnknown
+	}
+	return ssaflow.ObligationNone
+}
+
+// edgeObligation credits a selected receive of a tracked signal as an exact
+// join on that arm alone, and a selected receive of an opaque worker's
+// context as an opaque observation on that arm alone.
+func (analysis *spawnAnalysis) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
+	if analysis.selectedJoinEdge(from, to) {
+		return ssaflow.ObligationExact
+	}
+	if analysis.selectedOwnershipEdge(from, to) {
+		return ssaflow.ObligationUnknown
+	}
+	return ssaflow.ObligationNone
+}
+
 // strongerAction merges the labels of several tracked values touched by one
 // instruction. A proven join wins because it already required every-return
 // coverage; otherwise any escape keeps the instruction opaque.
