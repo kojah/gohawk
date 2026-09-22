@@ -147,6 +147,15 @@ All are present in both canonical runs. The ledger separately marks the two
 previously corrected surf sites rather than counting them among the eleven new
 corrections.
 
+The scratch replay initially copied the control rows' explanatory metadata
+from an FP row in the same repository. That also mislabeled the uTLS control's
+check as contradictory-order; its actual diagnostic is missing-release.
+The ledger now takes control check IDs and explanations from the original
+batch-52/54/55 reviews and verifies each against the captured diagnostic's
+category. Counts and presence did not change. Original receipt payloads remain
+unchanged; their captured diagnostics, not the copied row metadata, establish
+the control matches. Future replays require category as well as source position.
+
 Focused tests, the focused race suite, and targeted canonical golangci-lint
 pass, along with the checkpoint architecture suite. The root task owns final
 repository-wide verification.
