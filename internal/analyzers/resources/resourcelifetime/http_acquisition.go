@@ -116,8 +116,89 @@ func headClientUnconfigured(client ssa.Value, function *ssa.Function) bool {
 		return onlyHTTPDoUses(local)
 	}
 	load, ok := client.(*ssa.UnOp)
-	return ok && load.Op == token.MUL && ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) &&
-		onlyHTTPDoUses(load) && !defaultClientVisiblyModified(function)
+	if !ok || load.Op != token.MUL {
+		return false
+	}
+	if ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) {
+		return onlyHTTPDoUses(load) && !defaultClientVisiblyModified(function)
+	}
+	cell, ok := load.X.(*ssa.Alloc)
+	return ok && zeroClientCell(cell)
+}
+
+// zeroClientCell accepts a local variable that holds one fresh zero-value
+// client and is only ever loaded for direct Do calls, here or inside a
+// literal that captures it. A worker that shares the client can still
+// change nothing about it. pmtiles keeps one client in a variable its
+// download workers capture:
+// https://github.com/protomaps/go-pmtiles/blob/a3e4951ea6a0477b784c27c1dcbfd9c130878c5a/pmtiles/sync.go#L73-L80
+func zeroClientCell(cell *ssa.Alloc) bool {
+	if cell.Referrers() == nil {
+		return false
+	}
+	stored := false
+	for _, use := range *cell.Referrers() {
+		switch typed := use.(type) {
+		case *ssa.DebugRef:
+		case *ssa.Store:
+			fresh, ok := typed.Val.(*ssa.Alloc)
+			if stored || typed.Addr != cell || !ok || !onlyStoredInto(fresh, typed) {
+				return false
+			}
+			stored = true
+		case *ssa.UnOp:
+			if typed.Op != token.MUL || !onlyHTTPDoUses(typed) {
+				return false
+			}
+		case *ssa.MakeClosure:
+			if !closureLoadsCellForDo(typed, cell) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return stored
+}
+
+// onlyStoredInto reports whether the fresh allocation's only use is the store
+// that puts it in the cell: no field was addressed, so it is zero-valued.
+func onlyStoredInto(fresh *ssa.Alloc, store *ssa.Store) bool {
+	if fresh.Referrers() == nil {
+		return false
+	}
+	for _, use := range *fresh.Referrers() {
+		if _, debug := use.(*ssa.DebugRef); !debug && use != store {
+			return false
+		}
+	}
+	return true
+}
+
+func closureLoadsCellForDo(closure *ssa.MakeClosure, cell *ssa.Alloc) bool {
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok {
+		return false
+	}
+	for index, binding := range closure.Bindings {
+		if binding != cell || index >= len(function.FreeVars) {
+			continue
+		}
+		free := function.FreeVars[index]
+		if free.Referrers() == nil {
+			return false
+		}
+		for _, use := range *free.Referrers() {
+			load, loaded := use.(*ssa.UnOp)
+			if _, debug := use.(*ssa.DebugRef); debug {
+				continue
+			}
+			if !loaded || load.Op != token.MUL || !onlyHTTPDoUses(load) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // defaultClientVisiblyModified reports any use of the package default client

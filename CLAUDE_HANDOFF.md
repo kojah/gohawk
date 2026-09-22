@@ -27,12 +27,12 @@ not 207 repositories or separate implementation projects.
 
 | Family | Original | Verified fixes | Re-reviewed as a real hazard | Open |
 | --- | ---: | ---: | ---: | ---: |
-| Resource lifetime | 140 | 35 | 0 | 105 |
+| Resource lifetime | 140 | 36 | 0 | 104 |
 | Lock checks | 23 | 13 | 0 | 10 |
 | Goroutine ownership | 17 | 8 | 0 | 9 |
 | Process/cancellation | 9 | 4 | 0 | 5 |
 | Miscellaneous | 18 | 1 | 1 | 16 |
-| Total | 207 | 61 | 1 | 145 |
+| Total | 207 | 62 | 1 | 144 |
 
 One open resource site is absent under both current and baseline profiles; its
 inconsistent earlier reproduction is unresolved, not a fix. The Sloth review
@@ -85,7 +85,8 @@ Representative checkpoints (see commit diffs and family reports for details):
 - HEAD boundary v2 (after this handoff): the package default client with no
   visible reconfiguration, and requests rebound through `WithContext`/`Clone`
   or edited through standard `Header` methods, join the zero-value-client HEAD
-  uncertainty. Arkade and bookget are corrected; pmtiles stays reported.
+  uncertainty, as does a zero-value client cell that worker literals capture
+  and only load for `Do`. Arkade, bookget, and pmtiles are corrected.
 - `fb3b8cf`, `07b8cab`: Sloth's output handles are not always retained for later
   generation. Empty/comment-only YAML produces zero inner iterations, leaving
   unused outputs open across the outer loop. Existing behavior is preserved
@@ -100,9 +101,9 @@ Representative checkpoints (see commit diffs and family reports for details):
 - `make verify` passed for the combined lifecycle checkpoint and again for the
   evalorder checkpoint. Logs: `.build/followup207-verify-final-checkpoint-v2.log`
   and `.build/followup207-evalorder-verify.log`.
-- Resource replay (guards-v1): all **83** scopes; **66/66** baseline-detected
+- Resource replay (head-v3): all **83** scopes; **66/66** baseline-detected
   bug controls retained, six historical misses unchanged, zero new resource
-  diagnostics, thirty-five removed.
+  diagnostics, thirty-six removed.
 - Lock replay v19: all **20** scopes; **4/4** controls and both earlier fixes
   retained; zero new lock diagnostics.
 - Shipped goroutine select-v10: all **66** scopes; **56/56** old bug controls
@@ -167,7 +168,7 @@ existing captured-cleanup family moved cohesively into `captured_cleanup.go`.
 
 ## Remaining work, grouped rather than one model per finding
 
-Resources (105): 43 memory/empty HTTP bodies; six correlated errors/guards;
+Resources (104): 42 memory/empty HTTP bodies; six correlated errors/guards;
 18 failure-fixture assumptions; 11 process-bounded lifetimes; eight returned or
 retained owners; seven aggregate cleanup; five logging outputs; seven smaller
 cases. The 18 failure-fixture cases are mostly **not** assertion helper gaps:

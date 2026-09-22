@@ -172,3 +172,73 @@ func headHeaderEscapes(url string) error {
 	_, err = client.Do(request) // want "owned resource from http.Do is not released on every return path"
 	return err
 }
+
+func headClientCellCapturedByWorker(urls []string) error {
+	client := &http.Client{}
+	request, err := http.NewRequest("HEAD", urls[0], nil)
+	if err != nil {
+		return err
+	}
+	_, err = client.Do(request)
+	if err != nil {
+		return err
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for _, url := range urls {
+			get, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				return
+			}
+			response, err := client.Do(get)
+			if err != nil {
+				return
+			}
+			_ = response.Body.Close()
+		}
+	}()
+	<-done
+	return nil
+}
+
+func headClientCellConfiguredByWorker(urls []string) error {
+	client := &http.Client{}
+	request, err := http.NewRequest("HEAD", urls[0], nil)
+	if err != nil {
+		return err
+	}
+	_, err = client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		client.Timeout = time.Second
+	}()
+	<-done
+	return nil
+}
+
+func headClientCellReplaced(urls []string, other *http.Client) error {
+	client := &http.Client{}
+	request, err := http.NewRequest("HEAD", urls[0], nil)
+	if err != nil {
+		return err
+	}
+	if len(urls) > 1 {
+		client = other
+	}
+	_, err = client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	if err != nil {
+		return err
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = client.Do(request) // want "owned resource from http.Do is not released on every return path"
+	}()
+	<-done
+	return nil
+}

@@ -41,6 +41,9 @@ never count as corrections. Candidate code is only statically analyzed.
   response's `Body` before closing it is unknown consumption, not proven
   release. Kruise's `test/e2e/framework/framework.go:549` no longer reports;
   see the [resource ledger](followup207-resources.md) for the boundary.
+- HEAD boundary v3: a zero-value client held in a local variable that worker
+  literals capture, and only ever load for `Do`, joins the HEAD uncertainty.
+  pmtiles' `pmtiles/sync.go:249` no longer reports.
 - Repeated guards v1: a cleanup tested under the same reloaded guard as its
   acquisition makes the contradicting arm unknown, never infeasible. Thirteen
   correlated-error sites across mutagen, fortio, wanix, suo5, and zgrab no
@@ -74,8 +77,8 @@ existing branch-literal decision point, with no separate path or proof engine.
 
 ## Work in progress
 
-After the handoff, 61 original findings have verified fixes, one original FP
-judgment (Sloth) has been corrected to a real hazard, and 145 remain open. The breakdown
+After the handoff, 62 original findings have verified fixes, one original FP
+judgment (Sloth) has been corrected to a real hazard, and 144 remain open. The breakdown
 is in the handoff and family ledgers. All workers and scans have stopped;
 unvalidated source edits were archived and removed. Intermediate suppression is not counted as a verified
 correction until relevant genuine-bug controls also pass. No check has been
