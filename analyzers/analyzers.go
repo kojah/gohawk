@@ -68,6 +68,8 @@ func newCatalog() (*catalog.Catalog, error) {
 		"syncmapatomicity",
 		"cancellationownership",
 		"borrowedstorage",
+		"condsafety",
+		"waitgroupsafety",
 	})
 }
 

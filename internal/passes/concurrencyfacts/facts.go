@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	factVersion  = 2
+	factVersion  = 3
 	exportBudget = 2000
 )
 
@@ -120,7 +120,7 @@ func (engine *Engine) importedCall(call ssa.CallInstruction, function *ssa.Funct
 		if !engine.budget.Spend() {
 			return Summary{Reason: "protocol-budget-exhausted"}
 		}
-		if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > Unlock {
+		if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > CondWait {
 			return unknown
 		}
 		value := call.Common().Args[effect.Parameter]

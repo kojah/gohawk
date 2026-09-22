@@ -1,0 +1,66 @@
+---
+title: condsafety
+seoTitle: "condsafety: Detect Cond waits on unlocked mutexes in Go"
+description: "Cond waits on proven unlocked mutexes."
+---
+
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
+
+## What it detects
+
+`condsafety/wait-unlocked` is experimental. `Cond.Wait` releases its associated
+locker before waiting; an unlocked `sync.Mutex` makes this operation invalid.
+The check resolves an exact `sync.NewCond` binding to a fresh local mutex and
+uses shared compositional summaries to account for helper acquisitions, releases,
+and waits, including cross-package helpers.
+
+The proof requires a complete single-goroutine scope. Borrowed mutexes, opaque
+callbacks, custom lockers, RWMutex lockers, changed `Cond.L` fields and concurrent
+participants remain unknown. An earlier invalid or blocking operation ends the
+proof. Only the first modeled wait is examined: a valid wait might never return.
+
+It does not require Signal or Broadcast to hold the locker, and does not infer
+lost wakeups or incorrect predicates from the absence of a loop.
+
+### Checks
+
+{/* gohawk:generated-checks:start */}
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="wait-unlocked" tier="experimental" /> | defect | experimental | Reports Cond waits with a proven unlocked associated mutex. |
+{/* gohawk:generated-checks:end */}
+
+## Examples
+
+{/* gohawk:generated-examples:start */}
+### Flagged code
+
+```go gohawk="W3siY2hlY2siOiJjb25kc2FmZXR5L3dhaXQtdW5sb2NrZWQiLCJtZXNzYWdlIjoiQ29uZC5XYWl0IGNhbGxlZCB3aXRoIGl0cyBtdXRleCB1bmxvY2tlZCIsInN0YXJ0TGluZSI6Mywic3RhcnRDb2x1bW4iOjIsImVuZExpbmUiOjMsImVuZENvbHVtbiI6MTh9XQ"
+func unlockedWait() {
+  var mutex sync.Mutex
+  condition := sync.NewCond(&mutex)
+  condition.Wait()
+}
+```
+
+### Accepted code
+
+```go
+func lockedWait() {
+  var mutex sync.Mutex
+  condition := sync.NewCond(&mutex)
+  ready := false
+  go func() {
+    mutex.Lock()
+    ready = true
+    condition.Signal()
+    mutex.Unlock()
+  }()
+  mutex.Lock()
+  for !ready {
+    condition.Wait()
+  }
+  mutex.Unlock()
+}
+```
+{/* gohawk:generated-examples:end */}

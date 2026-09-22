@@ -11,11 +11,13 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/ownership/producerlifecycle"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/resourcelifetime"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/concurrentcapture"
+	"github.com/kojah/gohawk/internal/analyzers/reliability/condsafety"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/evalorder"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/inlineerror"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/lockorder"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/oncepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/syncmapatomicity"
+	"github.com/kojah/gohawk/internal/analyzers/reliability/waitgroupsafety"
 	"github.com/kojah/gohawk/internal/catalog"
 	"github.com/kojah/gohawk/internal/check"
 )
@@ -106,6 +108,15 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 
 func reliabilitySpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
+		{Analyzer: condsafety.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.CondWaitUnlocked, Doc: "Reports Cond waits with a proven unlocked associated mutex.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
+		}},
+		{Analyzer: waitgroupsafety.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.WaitGroupNegativeCounter, Doc: "Reports proven WaitGroup counter underflows.", Kind: catalog.KindDefect, Tier: catalog.TierExperimental},
+		}},
 		{Analyzer: concurrentcapture.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ConcurrentCapture, Doc: "Reports repeatedly launched goroutines that mutate the same captured local.",

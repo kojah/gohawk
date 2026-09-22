@@ -27,6 +27,8 @@ func expectedAnalyzerNames() []string {
 		"syncmapatomicity",
 		"cancellationownership",
 		"borrowedstorage",
+		"condsafety",
+		"waitgroupsafety",
 	}
 }
 
@@ -119,6 +121,8 @@ func TestAnalyzerGroups(t *testing.T) {
 			doc:     "reliability and safety",
 			docPath: "reliability-and-safety",
 			analyzers: []string{
+				"condsafety",
+				"waitgroupsafety",
 				"concurrentcapture",
 				"inlineerror",
 				"evalorder",
@@ -169,7 +173,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
 	extended := map[string]bool{}
-	experimental := map[string]bool{"borrowedstorage": true, "channelprotocol": true}
+	experimental := map[string]bool{"borrowedstorage": true, "channelprotocol": true, "condsafety": true, "waitgroupsafety": true}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"channelsafety/double-close":         CheckTierExperimental,
@@ -181,6 +185,8 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/discarded-trylock":        CheckTierExperimental,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
+		"condsafety/wait-unlocked":           CheckKindDefect,
+		"waitgroupsafety/negative-counter":   CheckKindDefect,
 		"channelsafety/double-close":         CheckKindDefect,
 		"channelprotocol/lock-and-join":      CheckKindDefect,
 		"channelprotocol/channel-lock-cycle": CheckKindDefect,

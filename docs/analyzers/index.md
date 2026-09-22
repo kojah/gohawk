@@ -62,6 +62,14 @@ These analyzers look for work or resources whose owner cannot be identified on e
 These analyzers cover failure modes that often survive ordinary type checking and code review.
 
 <div class="analyzer-grid">
+  <a class="analyzer-card" href="reliability-and-safety/condsafety/">
+    <span class="analyzer-name">condsafety</span>
+    <span class="analyzer-detects">Checks Cond waits on proven unlocked mutexes.</span>
+  </a>
+  <a class="analyzer-card" href="reliability-and-safety/waitgroupsafety/">
+    <span class="analyzer-name">waitgroupsafety</span>
+    <span class="analyzer-detects">Checks proven WaitGroup counter underflows.</span>
+  </a>
   <a class="analyzer-card" href="reliability-and-safety/concurrentcapture/">
     <span class="analyzer-name">concurrentcapture</span>
     <span class="analyzer-detects">Checks locals mutated by goroutines launched repeatedly.</span>

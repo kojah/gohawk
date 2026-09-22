@@ -5,6 +5,8 @@ package check
 type ID string
 
 const (
+	WaitGroupNegativeCounter ID = "waitgroupsafety/negative-counter"
+	CondWaitUnlocked         ID = "condsafety/wait-unlocked"
 	CancellationRelease      ID = "cancellationownership/release"
 	BorrowedStorageOwner     ID = "borrowedstorage/overlapping-owner"
 	ChannelSendAfterClose    ID = "channelsafety/send-after-close"

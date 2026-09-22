@@ -30,6 +30,7 @@ const (
 	GroupWait
 	Lock
 	Unlock
+	CondWait
 )
 
 // Reference names an exact resource or a symbolic captured cell.
@@ -228,6 +229,12 @@ func passiveInstruction(instruction ssa.Instruction, root bool) string {
 		}
 	case *ssa.ChangeType:
 		if ssaflow.ChannelType(instruction) {
+			return ""
+		}
+	case *ssa.MakeInterface:
+		// A concrete Mutex may be bound to NewCond's Locker. Consumers of
+		// the interface still need complete call summaries; publication is opaque.
+		if MutexPointer(instruction.X.Type()) {
 			return ""
 		}
 	case *ssa.MakeChan:

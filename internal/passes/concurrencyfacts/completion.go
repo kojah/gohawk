@@ -26,6 +26,13 @@ func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 	var kind Kind
 	var resource ssa.Value
 	switch {
+	case ssaflow.CallMatchesSymbol(common, newCond):
+		if _, ok := condLocker(instruction); ok {
+			return Summary{}
+		}
+		return Summary{Reason: "protocol-cond-locker-unknown"}
+	case ssaflow.CallMatchesSymbol(common, condWait):
+		kind, resource = CondWait, ssaflow.CallReceiver(common)
 	case ssaflow.CallMatchesSymbol(common, mutexLock):
 		kind, resource = Lock, ssaflow.CallReceiver(common)
 	case ssaflow.CallMatchesSymbol(common, mutexUnlock):
@@ -81,7 +88,7 @@ func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) s
 }
 
 func synchronizationPointer(value types.Type) bool {
-	return waitGroupPointer(value) || MutexPointer(value)
+	return waitGroupPointer(value) || MutexPointer(value) || condPointer(value)
 }
 
 // MutexPointer identifies only sync.Mutex pointers, not RWMutex or lookalikes.

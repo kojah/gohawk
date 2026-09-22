@@ -73,7 +73,9 @@ func (engine *Engine) reference(value ssa.Value) (Reference, bool) {
 func (engine *Engine) referenceLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (Reference, bool) {
 	resolved := engine.storage.Resolve(value)
 	if resolved.Proven() {
-		switch resolved.Value.(type) {
+		switch value := resolved.Value.(type) {
+		case *ssa.Call:
+			return Reference{Value: value}, ssaflow.CallMatchesSymbol(value.Common(), newCond)
 		case *ssa.Parameter, *ssa.FreeVar, *ssa.MakeChan:
 			return Reference{Value: resolved.Value}, true
 		case *ssa.Alloc:

@@ -195,6 +195,36 @@
       "slug": "reliability-and-safety",
       "analyzers": [
         {
+          "name": "condsafety",
+          "summary": "Checks Cond waits on proven unlocked mutexes.",
+          "path": "analyzers/reliability-and-safety/condsafety",
+          "tier": "experimental",
+          "checks": [
+            {
+              "id": "condsafety/wait-unlocked",
+              "summary": "Reports Cond waits with a proven unlocked associated mutex.",
+              "kind": "defect",
+              "tier": "experimental"
+            }
+          ],
+          "options": []
+        },
+        {
+          "name": "waitgroupsafety",
+          "summary": "Checks proven WaitGroup counter underflows.",
+          "path": "analyzers/reliability-and-safety/waitgroupsafety",
+          "tier": "experimental",
+          "checks": [
+            {
+              "id": "waitgroupsafety/negative-counter",
+              "summary": "Reports proven WaitGroup counter underflows.",
+              "kind": "defect",
+              "tier": "experimental"
+            }
+          ],
+          "options": []
+        },
+        {
           "name": "concurrentcapture",
           "summary": "Checks locals mutated by goroutines launched repeatedly.",
           "path": "analyzers/reliability-and-safety/concurrentcapture",
