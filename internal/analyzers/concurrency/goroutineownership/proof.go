@@ -197,7 +197,7 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 	// A goroutine that completes through a caller-owned channel or wait group
 	// transfers its join obligation across the call boundary.
 	for _, tracked := range analysis.tracked {
-		if tracked.kind == trackedSignal && helperSignalOrigin(tracked.value) {
+		if tracked.kind == trackedSignal && helperSignalOrigin(tracked.value, analysis.spawn) {
 			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true
 		}
 		if tracked.kind != trackedOwner && ssaflow.ExternallyOwnedValue(tracked.value) {
@@ -218,12 +218,21 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 // manufacture an exclusive receive obligation for this caller. This is not a
 // claim that an arbitrary factory channel is drained.
 // https://github.com/deckarep/golang-set/blob/711c30df0fdf98710a4ca0211e12ef7210967ad3/threadsafe.go#L268-L287
-func helperSignalOrigin(value ssa.Value) bool {
+func helperSignalOrigin(value ssa.Value, spawn *ssa.Go) bool {
 	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
 	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
 	leaf = func(walk ssaflow.ReachingWalk, current ssa.Value) bool {
 		if resolved := storage.Resolve(current); resolved.Proven() && resolved.Value != current {
 			return walk.Any(resolved.Value, leaf)
+		}
+		// A returned struct is copied into a local before invoking its pointer
+		// method. That copy does not manufacture exclusive ownership of the
+		// factory's channel; a companion result may be its actual join handle.
+		// https://github.com/tus/tusd/blob/c9d174d0e20c69f24e9785d2f639df4da1c4fdc5/pkg/s3store/s3store_part_producer_test.go#L28-L56
+		if _, allocated := current.(*ssa.Alloc); allocated {
+			if content := storage.Content(current, spawn); content.Proven() && content.Value != current {
+				return walk.Any(content.Value, leaf)
+			}
 		}
 		if result, ok := current.(*ssa.Extract); ok {
 			return walk.Any(result.Tuple, leaf)

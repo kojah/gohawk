@@ -4,6 +4,8 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -86,23 +88,42 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go)
 			continue
 		}
 		cancel := ssaflow.CallResult(call, 1)
-		// Cancellation is an alternative lifetime boundary, never a join. The
-		// same every-return query must cover later calls/defers; conditional
-		// cancellation and an asynchronous invocation do not satisfy it.
-		cancels := func(instruction ssa.Instruction) bool {
-			common := ssaflow.InstructionCall(instruction)
-			if common == nil {
-				return false
-			}
-			_, called := instruction.(*ssa.Call)
-			_, deferred := instruction.(*ssa.Defer)
-			return (called || deferred) && storage.Same(common.Value, cancel).Proven()
-		}
-		owned := !ssaflow.UnownedReturn(spawn, cancels, nil)
-		for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](spawn.Parent()) {
-			owned = owned || ssaflow.InstructionDominates(deferred, spawn) && cancels(deferred)
-		}
+		owned := cancelCoversSpawn(spawn, cancel, storage)
 		if owned && receivesAnywhere(function, pair.Local, map[*ssa.Function]bool{}) {
+			return true
+		}
+		// An imported or dynamic helper receiving this exact canceled context
+		// may own the worker's shutdown. Missing its body is uncertainty, not
+		// evidence that the worker ignores cancellation. This remains unknown.
+		// https://github.com/iximiuz/cdebug/blob/6c205f0b663df4dec235f42e905e94b40709159a/pkg/containerd/client.go#L98-L122
+		if owned && closure != nil {
+			evidence := lifecyclefacts.NewLifecycleEvidence(pass, "goroutineownership", string(check.GoroutineJoin))
+			if evidence.ClosureHandsValueToUnreadableCallee(closure, value) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Cancellation is an alternative lifetime boundary, never a join. The same
+// every-return query must cover later calls/defers; conditional cancellation
+// and an asynchronous invocation do not satisfy it.
+func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *ssaflow.Storage) bool {
+	cancels := func(instruction ssa.Instruction) bool {
+		common := ssaflow.InstructionCall(instruction)
+		if common == nil {
+			return false
+		}
+		_, called := instruction.(*ssa.Call)
+		_, deferred := instruction.(*ssa.Defer)
+		return (called || deferred) && storage.Same(common.Value, cancel).Proven()
+	}
+	if !ssaflow.UnownedReturn(spawn, cancels, nil) {
+		return true
+	}
+	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](spawn.Parent()) {
+		if ssaflow.InstructionDominates(deferred, spawn) && cancels(deferred) {
 			return true
 		}
 	}

@@ -234,11 +234,22 @@ func (analysis *spawnAnalysis) helperAction(common *ssa.CallCommon, callee *ssa.
 	result := actionNone
 	for _, pair := range ssaflow.CallBindings(common, callee, closure) {
 		for _, tracked := range analysis.tracked {
-			if bindingCarries(pair.Supplied, tracked.value) {
-				search := newHelperSearch()
-				search.concurrency = analysis.pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
-				result = strongerAction(result, search.use(callee, pair.Local, tracked.kind))
+			carried := bindingCarries(pair.Supplied, tracked.value)
+			projected := ssaflow.ValueIsAccessPathFrom(tracked.value, pair.Supplied)
+			if !carried && !projected {
+				continue
 			}
+			search := newHelperSearch()
+			search.concurrency = analysis.pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
+			action := search.use(callee, pair.Local, tracked.kind)
+			// Passing the aggregate that a signal was read from exposes a
+			// possible shutdown path, but loses the exact field identity. A
+			// helper action on that aggregate is unknown, never an exact join.
+			// https://github.com/jech/galene/blob/6d9338e909fdecdd906150e4dda34e10d9869654/rtpconn/webclient.go#L878-L894
+			if !carried && action != actionNone {
+				action = actionUnknown
+			}
+			result = strongerAction(result, action)
 		}
 	}
 	return result

@@ -26,6 +26,9 @@ A direct `Done` followed by more work is also insufficient to establish a
 completion obligation: it may intentionally signal startup. Mistaken early
 joins remain a coverage gap; independent deferred or terminal completion
 obligations are still checked.
+A terminal `Done` followed only by deferred `Done` or channel-close operations
+can provide an alternative completion handle: there is no remaining blocking
+worker work. Arbitrary deferred calls do not satisfy that boundary.
 
 When a worker's completion field resolves only to its aggregate owner, receiving
 a channel supplied to that aggregate is uncertain rather than a proven join.
@@ -34,6 +37,15 @@ diagnostic. Returning a projection of the captured aggregate is also uncertain,
 not proof of a join. Factory- or registry-supplied completion channels remain
 outside the local ownership proof until their allocation and ownership are
 established. This deliberately misses some unjoined constructor-created workers.
+Copying a factory's returned owner struct into a local does not change that
+uncertainty. Passing the aggregate from which a completion channel was loaded
+to a helper with lifecycle activity is likewise uncertain, not an exact join;
+the helper may act on a different field. Merely inspecting that aggregate does
+not suppress the diagnostic.
+Stores through a type-asserted owner remain visible when that same owner is
+later handed to a helper. The assertion is not an ownership guarantee, and
+constructing or filling an owner without handing it off still does not settle
+the worker.
 Closing collection entries inside a loop is per-item cleanup, not evidence of
 worker completion.
 
@@ -41,6 +53,10 @@ In default context mode, a worker receiving from a locally created `WithCancel`
 context is also uncertain when the exact sibling cancel function is already
 deferred before launch or called on every later return path. Captured context storage must remain stable. This is a
 cancellation boundary, not a join, and does not suppress join-mode diagnostics.
+The same uncertainty applies when a literal worker passes that exact canceled
+context to an imported or dynamic helper whose body is unavailable. Such a
+helper may ignore cancellation; this is an intentional coverage loss, not a
+claim that cancellation always stops arbitrary I/O.
 
 ### Checks
 

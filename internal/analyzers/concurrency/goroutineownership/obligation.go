@@ -443,6 +443,12 @@ func terminalCompletion(done ssa.Instruction) bool {
 			switch current.block.Instrs[current.index].(type) {
 			case *ssa.Return:
 				continue
+			case *ssa.RunDefers:
+				if !ssaflow.CallMatchesSymbol(ssaflow.InstructionCall(done), waitGroupDone) || !completionOnlyDefers(done.Parent()) {
+					return false
+				}
+				queue = append(queue, cursor{block: current.block, index: current.index + 1})
+				continue
 			case *ssa.Jump:
 				// Conditional terminal sends can jump to a shared return block.
 				// A jump performs no work and preserves this completion proof.
@@ -455,6 +461,21 @@ func terminalCompletion(done ssa.Instruction) bool {
 		}
 		for _, successor := range current.block.Succs {
 			queue = append(queue, cursor{block: successor})
+		}
+	}
+	return true
+}
+
+// A terminal Done followed only by other Done/close defers has finished the
+// worker's actual work. Keeping that alternative handle does not treat an
+// arbitrary deferred callback as complete: it may still block or mutate data.
+// https://github.com/murphysecurity/murphysec/blob/59d5cdc9a53a9e7940250aa30ea4434d0e258c40/module/nuget/nuget_cmd_build.go#L611-L640
+func completionOnlyDefers(function *ssa.Function) bool {
+	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](function) {
+		common := deferred.Common()
+		if !ssaflow.CallMatchesSymbol(common, waitGroupDone) &&
+			!ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) {
+			return false
 		}
 	}
 	return true

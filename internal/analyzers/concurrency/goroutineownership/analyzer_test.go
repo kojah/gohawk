@@ -8,7 +8,9 @@ import (
 )
 
 func TestAnalyzer(t *testing.T) {
+	tracePath := enableSummaryJoinTrace(t)
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "goroutineownership", "summaryjoins")
+	assertFollowupBoundaryTrace(t, tracePath)
 }
 
 func TestJoinMode(t *testing.T) {

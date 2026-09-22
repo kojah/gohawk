@@ -57,6 +57,12 @@ func carries(walk ssaflow.ReachingWalk, value, target ssa.Value) bool {
 			return typed.Op == token.MUL && carries(walk, typed.X, target)
 		case *ssa.Alloc, *ssa.FieldAddr, *ssa.IndexAddr:
 			return storedCarries(walk, value, target)
+		case *ssa.TypeAssert:
+			// Stores through an asserted owner remain positive containment
+			// evidence when that same owner later reaches a helper. Do not
+			// unwrap the assertion or call the store itself a transfer.
+			// https://github.com/trustmaster/goflow/blob/bcaec740da3562ed5bf209d88b120c8e7c32a8e2/dsl/parse/strip_trivia_test.go#L29-L48
+			return storedCarries(walk, value, target)
 		case *ssa.Slice:
 			return carries(walk, typed.X, target)
 		case *ssa.Extract:
