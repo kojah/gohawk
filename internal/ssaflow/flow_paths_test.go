@@ -28,24 +28,6 @@ func TestSourceSSAFunctionsRejectsUnexpectedPrerequisiteResult(t *testing.T) {
 	}
 }
 
-func TestStaticCallsExcludeDeferredAndLaunched(t *testing.T) {
-	pkg := buildTestSSA(t, `
-package ssaflowtest
-
-func callee() {}
-func caller() {
-	callee()
-	defer callee()
-	go callee()
-}
-`)
-	callee := pkg.Func("callee")
-	functions := []*ssa.Function{pkg.Func("caller"), callee}
-	if got := len(StaticCalls(functions)[callee]); got != 1 {
-		t.Fatalf("StaticCalls() count = %d, want 1", got)
-	}
-}
-
 func TestSameValueAcrossChannelDirections(t *testing.T) {
 	pkg := buildTestSSA(t, `
 package ssaflowtest

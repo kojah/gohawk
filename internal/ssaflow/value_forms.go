@@ -96,12 +96,6 @@ func transparentOperand(operand ssa.Value, forms, form TransparentValueForm) (ss
 	return operand, true
 }
 
-// ValueSources returns error identities contributing to value. Non-error
-// observations may derive from their operands, but an error-producing call is
-// a new identity unless it is an exactly modeled wrapper.
-
-// ValuesShareErrorSource reports whether values derive from one error-bearing SSA value.
-
 // SameAsAny reports whether value aliases any candidate.
 func SameAsAny(value ssa.Value, candidates []ssa.Value) bool {
 	for _, candidate := range candidates {

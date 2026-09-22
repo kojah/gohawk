@@ -130,8 +130,8 @@ def repair_signals() -> tuple[RepairSignal, ...]:
             "deterministic sort introduced",
             "A fix introduces sorting that was absent from removed lines.",
             introduced(r"\b(?:sort\.|slices\.Sort)"),
-            "gohawk determinism covers map iteration that reaches ordered output.",
-            "Covered for the high-confidence output-order contract.",
+            "gohawk no longer ships an output-order determinism analyzer.",
+            "Not currently covered; deterministic-output tests can guard this contract.",
         ),
         RepairSignal(
             "timer or ticker stop introduced",

@@ -50,25 +50,18 @@ func (info AnalyzerInfo) EnabledByDefault() bool {
 
 func newCatalog() (*catalog.Catalog, error) {
 	return catalog.NewCatalog([]catalog.GroupSpec{
-		{ID: "contracts", Doc: "API and data contracts", DocPath: "api-and-data-contracts", Analyzers: contractSpecs()},
 		{ID: "ownership", Doc: "ownership and lifecycle", DocPath: "ownership-and-lifecycle", Analyzers: ownershipSpecs()},
 		{ID: "reliability", Doc: "reliability and safety", DocPath: "reliability-and-safety", Analyzers: reliabilitySpecs()},
 	}, []catalog.AnalyzerID{
-		"apishape",
-		"wirepolicy",
 		"goroutineownership",
 		"producerlifecycle",
 		"channelprotocol",
-		"errorownership",
-		"errorclassification",
 		"inlineerror",
 		"channelsafety",
 		"processownership",
-		"closedomain",
 		"lockorder",
 		"resourcelifetime",
 		"deferinloop",
-		"determinism",
 		"concurrentcapture",
 		"evalorder",
 		"oncepolicy",

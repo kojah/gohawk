@@ -7,21 +7,6 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// ParameterTypes expands a field list into one entry per declared parameter.
-func ParameterTypes(pass *analysis.Pass, fields *ast.FieldList) []types.Type {
-	if fields == nil {
-		return nil
-	}
-	var result []types.Type
-	for _, field := range fields.List {
-		count := max(1, len(field.Names))
-		for range count {
-			result = append(result, pass.TypesInfo.TypeOf(field.Type))
-		}
-	}
-	return result
-}
-
 // ExpressionUsesObject reports whether node refers to object.
 func ExpressionUsesObject(pass *analysis.Pass, node ast.Node, object types.Object) bool {
 	used := false

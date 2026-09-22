@@ -398,35 +398,6 @@ func branchConstant(value ssa.Value, block, predecessor *ssa.BasicBlock) (consta
 	return nil, false
 }
 
-// ReachableReturns returns normal returns reachable after start.
-func ReachableReturns(start ssa.Instruction) []*ssa.Return {
-	index := InstructionIndex(start)
-	if index < 0 {
-		return nil
-	}
-	queue := []flowState{{block: start.Block(), index: index + 1}}
-	seen := map[flowKey]bool{}
-	var returns []*ssa.Return
-	for len(queue) > 0 {
-		state := queue[0]
-		queue = queue[1:]
-		key := flowKey{block: state.block.Index, index: state.index}
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		for _, instruction := range state.block.Instrs[state.index:] {
-			if returned, ok := instruction.(*ssa.Return); ok {
-				returns = append(returns, returned)
-			}
-		}
-		for _, successor := range state.block.Succs {
-			queue = append(queue, flowState{block: successor})
-		}
-	}
-	return returns
-}
-
 // NormalReturnReachableFrom reports whether block can reach a normal return
 // without first invoking a control-flow terminating API.
 func NormalReturnReachableFrom(block *ssa.BasicBlock) bool {

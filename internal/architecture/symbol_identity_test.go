@@ -9,11 +9,7 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 	t.Parallel()
 	inventory := newRepositorySourceInventory(t)
 
-	// These uses need package metadata rather than one exact declaration. Keep
-	// the expected counts explicit so every new escape prompts architecture review.
-	allowed := map[string]int{
-		"reliability/errorclassification/analyzer.go": 1, // Text-preserving strings transforms are a package family.
-	}
+	// All current analyzers can identify known declarations through Symbol.
 	rawIdentityPatterns := []string{
 		"CallPackage(",
 		".Pkg().Path()",
@@ -22,7 +18,6 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 		"*types.Builtin",
 		"BuiltinClose",
 	}
-	found := make(map[string]int, len(allowed))
 	for _, source := range inventory.productionGoFiles(t, "internal/analyzers") {
 		text := string(source.source)
 		escapes := 0
@@ -30,14 +25,8 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 			escapes += strings.Count(text, pattern)
 		}
 		relative := strings.TrimPrefix(source.repositoryPath, "internal/analyzers/")
-		found[relative] = escapes
-		if escapes != allowed[relative] {
-			t.Errorf("%s has %d raw package-identity escapes, want %d; use Symbol or update the reviewed allowance", relative, escapes, allowed[relative])
-		}
-	}
-	for path, want := range allowed {
-		if found[path] != want {
-			t.Errorf("%s allowance = %d, found %d", path, want, found[path])
+		if escapes != 0 {
+			t.Errorf("%s has %d raw package-identity escapes; use Symbol", relative, escapes)
 		}
 	}
 }

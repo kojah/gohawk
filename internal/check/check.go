@@ -5,13 +5,6 @@ package check
 type ID string
 
 const (
-	APIParameterCount        ID = "apishape/parameter-count"
-	APIMixedReceivers        ID = "apishape/mixed-receivers"
-	APIAdjacentSameType      ID = "apishape/adjacent-same-type"
-	APIAdjacentOptional      ID = "apishape/adjacent-optional-scalars"
-	ClosedStringDomain       ID = "closedomain/closed-string-domain"
-	WireKeyedLiteral         ID = "wirepolicy/keyed-literal"
-	WireSerializationTag     ID = "wirepolicy/serialization-tag"
 	CancellationRelease      ID = "cancellationownership/release"
 	BorrowedStorageOwner     ID = "borrowedstorage/overlapping-owner"
 	ChannelSendAfterClose    ID = "channelsafety/send-after-close"
@@ -27,9 +20,6 @@ const (
 	ResourceRelease          ID = "resourcelifetime/missing-release"
 	ResourceUseAfterRelease  ID = "resourcelifetime/use-after-release"
 	ConcurrentCapture        ID = "concurrentcapture/shared-capture"
-	DeterministicMapOutput   ID = "determinism/map-output-order"
-	ErrorLogAndReturn        ID = "errorownership/log-and-return"
-	ErrorTextClassification  ID = "errorclassification/text-match"
 	ErrorMismatchedInline    ID = "inlineerror/mismatched-condition"
 	EvaluationOrder          ID = "evalorder/operand-mutation"
 	LockMissingRelease       ID = "lockorder/missing-release"

@@ -26,16 +26,10 @@ func TestAnalyzerPackageLayout(t *testing.T) {
 	packages, catalogPackage, modulePath, loaded := loadAnalyzerLayoutPackages(t, inventory)
 	assertAnalyzerSourceDepth(t, inventory, packages)
 	assertInfrastructureAnalyzerPlacement(t, loaded, modulePath)
-	withdrawn := withdrawnAnalyzerNames()
-	runtimeAnalyzers := assertAnalyzerRuntimeBijection(t, packages, withdrawn)
+	runtimeAnalyzers := assertAnalyzerRuntimeBijection(t, packages)
 	assertCatalogFactories(t, inventory, catalogPackage, modulePath, packages)
 	for _, analyzerPackage := range packages {
 		assertLocalTestdata(t, analyzerPackage)
-		if withdrawn[analyzerPackage.name] {
-			// A withdrawn analyzer has no runtime entry to compare against, so
-			// its prerequisites are checked by its own package tests instead.
-			continue
-		}
 		prerequisites := 0
 		if analyzer := runtimeAnalyzers[analyzerPackage.name]; analyzer != nil {
 			prerequisites = len(analyzer.Requires)
@@ -168,42 +162,7 @@ func analysisAnalyzerPointer(value types.Type) bool {
 		named.Obj().Pkg().Path() == "golang.org/x/tools/go/analysis"
 }
 
-// withdrawnAnalyzerPackages are analyzers whose checks are all delisted in
-// analyzers/catalog_specs.go. Their packages and tests remain, so the
-// package-to-catalog bijection has to know they are deliberately absent rather
-// than accidentally unregistered. See
-// https://github.com/kojah/gohawk/issues/34.
-//
-// The list is checked in both directions: a package here that turns out to be
-// registered fails, so relisting an analyzer cannot leave a stale entry behind.
-var withdrawnAnalyzerPackages = map[string]bool{
-	"apishape":            true,
-	"errorownership":      true,
-	"determinism":         true,
-	"errorclassification": true,
-	"closedomain":         true,
-	"wirepolicy":          true,
-}
-
-// assertWithdrawnStaysUnregistered reports whether name is deliberately absent
-// from the catalog, failing when a withdrawn package turns out to be
-// registered after all so relisting cannot leave a stale entry behind.
-func assertWithdrawnStaysUnregistered(t *testing.T, name string, withdrawn, grouped map[string]bool) bool {
-	t.Helper()
-	if !withdrawn[name] {
-		return false
-	}
-	if grouped[name] {
-		t.Errorf("analyzer %q is registered but listed as withdrawn; remove it from withdrawnAnalyzerPackages", name)
-	}
-	return true
-}
-
-func withdrawnAnalyzerNames() map[string]bool {
-	return withdrawnAnalyzerPackages
-}
-
-func assertAnalyzerRuntimeBijection(t *testing.T, layout []analyzerLayoutPackage, withdrawn map[string]bool) map[string]*analysis.Analyzer {
+func assertAnalyzerRuntimeBijection(t *testing.T, layout []analyzerLayoutPackage) map[string]*analysis.Analyzer {
 	t.Helper()
 	byName := make(map[string]analyzerLayoutPackage, len(layout))
 	for _, analyzerPackage := range layout {
@@ -245,9 +204,6 @@ func assertAnalyzerRuntimeBijection(t *testing.T, layout []analyzerLayoutPackage
 	}
 	metadata := publicanalyzers.AnalyzerMetadata()
 	for name := range byName {
-		if assertWithdrawnStaysUnregistered(t, name, withdrawn, grouped) {
-			continue
-		}
 		if !grouped[name] {
 			t.Errorf("analyzer package %q is absent from AnalyzerGroups", name)
 		}
@@ -403,9 +359,8 @@ func assertPrerequisitePlacement(t *testing.T, analyzerPackage analyzerLayoutPac
 			return false
 		})
 	}
-	// FactTypes make closedomain a fact-producing catalog analyzer, not an
-	// infrastructure prerequisite. Only the typed Requires field contributes to
-	// this count, which keeps those two analysis.Analyzer fields distinct.
+	// FactTypes are not infrastructure prerequisites. Only the typed Requires
+	// field contributes to this count, keeping those Analyzer fields distinct.
 	if sourceCount != runtimeCount {
 		t.Errorf(
 			"%s declares %d typed Requires entries, runtime analyzer has %d",

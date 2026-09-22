@@ -1,9 +1,6 @@
 package analyzers
 
 import (
-	"github.com/kojah/gohawk/internal/analyzers/contracts/apishape"
-	"github.com/kojah/gohawk/internal/analyzers/contracts/closedomain"
-	"github.com/kojah/gohawk/internal/analyzers/contracts/wirepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/borrowedstorage"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/cancellationownership"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelprotocol"
@@ -14,9 +11,6 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/ownership/producerlifecycle"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/resourcelifetime"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/concurrentcapture"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/determinism"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/errorclassification"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/errorownership"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/evalorder"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/inlineerror"
 	"github.com/kojah/gohawk/internal/analyzers/reliability/lockorder"
@@ -25,48 +19,6 @@ import (
 	"github.com/kojah/gohawk/internal/catalog"
 	"github.com/kojah/gohawk/internal/check"
 )
-
-func contractSpecs() []catalog.AnalyzerSpec {
-	return []catalog.AnalyzerSpec{
-		{
-			Analyzer: apishape.Analyzer(),
-			Checks: []catalog.CheckInfo{
-				{
-					ID: check.APIParameterCount, Doc: "Reports unconstrained exported APIs with more than the configured maximum number of parameters.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-				},
-				{
-					ID: check.APIMixedReceivers, Doc: "Reports types that mix pointer and value receiver methods.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-				},
-				{
-					ID: check.APIAdjacentSameType, Doc: "Reports long adjacent runs of parameters in unconstrained signatures that share one type.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-				},
-				{
-					ID: check.APIAdjacentOptional, Doc: "Reports adjacent optional scalar parameters in unconstrained signatures that are easy to swap.",
-					Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-				},
-			},
-		},
-		{Analyzer: closedomain.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ClosedStringDomain, Doc: "Reports exported string fields used as small closed sets of values.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-			},
-		}},
-		{Analyzer: wirepolicy.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.WireKeyedLiteral, Doc: "Reports positional composite literals for persisted or wire structs.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-			},
-			{
-				ID: check.WireSerializationTag, Doc: "Reports exported wire fields without explicit JSON or TOML tags.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-			},
-		}},
-	}
-}
 
 func ownershipSpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
@@ -158,24 +110,6 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.ConcurrentCapture, Doc: "Reports repeatedly launched goroutines that mutate the same captured local.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: determinism.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.DeterministicMapOutput, Doc: "Reports map iteration that reaches ordered output without explicit sorting.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExtended, Delisted: true,
-			},
-		}},
-		{Analyzer: errorownership.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ErrorLogAndReturn, Doc: "Reports functions that both log and return the same error.",
-				Kind: catalog.KindPolicy, Tier: catalog.TierExtended, Delisted: true,
-			},
-		}},
-		{Analyzer: errorclassification.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ErrorTextClassification, Doc: "Reports production code that classifies errors by matching their text.",
-				Kind: catalog.KindHazard, Tier: catalog.TierCore, Delisted: true,
 			},
 		}},
 		{Analyzer: inlineerror.Analyzer(), Checks: []catalog.CheckInfo{

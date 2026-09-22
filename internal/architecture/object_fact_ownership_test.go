@@ -14,8 +14,8 @@ import (
 //
 // Fact families are the boundary between intra-procedural evidence discovery
 // and cross-package propagation. Each family keeps that propagation inside the
-// package that owns the fact type (lifecyclefacts owns the lifecycle summary;
-// closedomain owns the closed-string-domain marker), and any analyzer that
+// package that owns the fact type (lifecyclefacts owns lifecycle summaries;
+// concurrencyfacts owns ordered synchronization effects), and any analyzer that
 // needs a family's conclusions consumes them through that package's facade
 // (for example lifecyclefacts.LifecycleEvidence) rather than importing the raw
 // fact and re-deriving the call-site argument-to-parameter mapping. Reaching

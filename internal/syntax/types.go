@@ -22,12 +22,6 @@ func IsErrorType(value types.Type) bool {
 	return ok && types.Implements(value, errorType)
 }
 
-// IsStringType reports whether value has string as its underlying type.
-func IsStringType(value types.Type) bool {
-	basic, ok := value.Underlying().(*types.Basic)
-	return ok && basic.Info()&types.IsString != 0
-}
-
 // NamedType reports whether value names packagePath.name, allowing one pointer layer.
 func NamedType(value types.Type, packagePath, name string) bool {
 	if pointer, ok := value.(*types.Pointer); ok {

@@ -60,29 +60,6 @@ func CallName(common *ssa.CallCommon) string {
 	return ""
 }
 
-// CallPackage returns a statically known package path for reporting,
-// configuration, or package-wide API families. Match an exact well-known
-// declaration with CallMatchesSymbol instead.
-func CallPackage(common *ssa.CallCommon) string {
-	if common == nil {
-		return ""
-	}
-	if common.Method != nil && common.Method.Pkg() != nil {
-		return common.Method.Pkg().Path()
-	}
-	callee := common.StaticCallee()
-	if callee == nil {
-		return ""
-	}
-	if object := callee.Object(); object != nil && object.Pkg() != nil {
-		return object.Pkg().Path()
-	}
-	if callee.Pkg == nil || callee.Pkg.Pkg == nil {
-		return ""
-	}
-	return callee.Pkg.Pkg.Path()
-}
-
 // InstructionTerminatesControlFlow reports calls whose documented behavior
 // prevents execution from continuing in the current goroutine.
 func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool {
