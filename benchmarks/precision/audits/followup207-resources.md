@@ -5,19 +5,22 @@ This continues the 140 resource false positives left by
 `followup207-resources.tsv` preserves the original verdict separately from
 replay status and includes the 72 original resource true-positive controls.
 
-## Checkpoint: retention v2
+## Checkpoint: error guards v4
 
-- Thirteen additional false positives are absent after a successful baseline and
+- Eighteen additional false positives are absent after a successful baseline and
   corrected replay. They cover a zero-client HEAD request (one), returned
   standard loggers (two), a returned body narrowed to `io.Reader` (one), and
   manager-retained resources exposed through returned handles (four), and
   exact local header-only HTTP servers (two), private logger installers (two),
-  and shared deferred process-termination evidence (one).
+  shared deferred process-termination evidence (one), visible error predicates
+  through direct calls and immutable captures (four), and a merged fallback
+  acquisition handled by shared feasible-path and uncertain-cleanup evidence
+  (one).
 - All 66 baseline-detected true positives remain detected in the current
   all-check replay. Five wg-portal
   misses and the previously documented piko WebSocket miss remain baseline
   misses; none is newly lost here.
-- 83 false positives still report. Another 43 are outside these replayed
+- 95 false positives still report. Another 26 are outside these replayed
   package scopes; all remain active.
 - Geesefs `core/cfg/logger.go:37:16` is absent in both binaries in this replay,
   unlike earlier canonical replays. This profile-dependent baseline absence
@@ -39,6 +42,22 @@ callback captures, and caller-owned cells do not establish that handoff.
 The initial fallback counted a captured cell's spill and hid a conditional
 testing-cleanup regression; that candidate was rejected and the witness
 boundary tightened. The existing negative fixture is retained.
+
+The error-predicate extension proves a narrow implication: the exact nil
+acquisition error makes every reachable normal return literal false. It does
+not infer application-specific failure semantics. Captured callbacks require
+the same visible function through every lexical construction, immutable cells
+at each layer, and one 1000-step budget shared with storage/effect queries and
+the nil-error flow. Recursive predicates, mutable or escaped cells, rewritten
+errors and deferred return mutation remain unknown. The existing acquisition
+error family was moved together into `acquisition_errors.go`; reporting still
+uses the original resource flow and authoritative guard classification.
+
+The byJoey fallback-open site is a combined shared-flow correction, not another
+error-predicate case. Its failed-acquisition return is inactive; its successful
+return carries `ambiguous-cleanup-value` from the deferred merged file's Close.
+The final decision is `opaque-consumption`, not a claim of proven release.
+The focused trace is `.build/followup207-error-guard-byjoey.trace.jsonl`.
 
 ## Evidence boundaries
 
@@ -68,7 +87,7 @@ checked inside the constructor.
 
 ## Reproduction
 
-All candidate repositories were used only for static analysis. The 56 pinned
+All candidate repositories were used only for static analysis. The 64 pinned
 package scopes were replayed with the direct CLI profile:
 
 ```text
@@ -79,18 +98,20 @@ GOFLAGS=-mod=readonly -p=2 GOTOOLCHAIN=local
 
 Repository revisions, package/module scopes, command, environment, exit status,
 stdout and stderr receipts are recorded under `.build/followup207-resource-baseline`
-and `.build/followup207-retention-v2`, with paths in the TSV. Exit zero with no
+and `.build/followup207-error-guard-v4`, with paths in the TSV. Exit zero with no
 findings and exit three with valid diagnostic JSON are successful analyses;
 failed loads are not treated as absence.
 
 - Baseline: `.build/gohawk-followup78-goroutines-v5`, SHA-256
   `5516cad4c83bffd8dca28713df53f8d3d1a463b838c23d302da9e10ddc257419`.
-- Candidate: `.build/gohawk-followup207-retention-v2`, SHA-256
-  `56a0f0cae8f7d780fc1757b006ce5b932d669494da33e06ba23ecd21949dd608`.
+- Candidate: `.build/gohawk-followup207-error-guard-v4`, SHA-256
+  `7d0308f2a0b3efcb5aef71ad769b412c9f62bb5ddb31d64b039399dc24bdeffb`.
 
-All 56 package scopes completed successfully. Comparing every resource
+All 64 package scopes completed successfully. Comparing every resource
 diagnostic in those scopes, not just the labelled sites, found zero new
-diagnostics and thirteen removed diagnostics.
+diagnostics and eighteen removed diagnostics. The additional error-guard
+package scopes have matching successful immutable-baseline receipts; absence
+in a newly scanned scope alone was not counted as a correction.
 
 The earlier HTTP-v1 all-check `megaease/easeprobe ./daemon` replay timed out at 240 seconds,
 with sampled peak RSS around 18 GB. Its receipt is retained as a failure and
@@ -109,5 +130,6 @@ candidate subsequently completed that scope in 6.96 seconds, with the true
 positive retained. Its canonical receipt is now used in the ledger.
 
 Focused resource, lifecyclefacts and architecture tests pass. Focused
-lifecyclefacts and resource race tests pass. Repository-wide final validation
+lifecyclefacts and resource race tests pass (the latest resource race run
+completed in 124 seconds). Targeted lint reports zero issues. Repository-wide final validation
 and the rest of the active findings are still in progress.
