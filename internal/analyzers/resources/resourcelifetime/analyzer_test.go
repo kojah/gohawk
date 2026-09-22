@@ -80,6 +80,7 @@ func TestAnalyzer(t *testing.T) {
 		t.Error("missing resource return-path evidence")
 	}
 	assertSQLBoundaryTrace(t, data)
+	assertFollowupBoundaryTrace(t, data)
 	assertUseAfterTrace(t, data)
 	assertOpaqueUseAfterReleaseTrace(t, data)
 }

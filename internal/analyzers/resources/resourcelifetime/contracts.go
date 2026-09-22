@@ -125,6 +125,51 @@ func closesStatementDatabase(acquisition *ssa.Call, instruction ssa.Instruction)
 		statementParentIdentity(ssaflow.CallReceiver(common), ssaflow.CallReceiver(acquisition.Common()))
 }
 
+// Finishing a transaction cancels the transaction context watched by active
+// Rows, including rows from statements prepared on that exact transaction.
+// The cancellation may close rows asynchronously, so this establishes an
+// opaque parent-owned lifetime, not a synchronous Rows.Close guarantee.
+// DB.Close and Stmt.Close do not have this contract for their active rows.
+// https://github.com/bluesky-social/indigo/blob/41278964ec8e3253e70d4e919dfb8e34211c543d/carstore/sqlite_store.go#L171-L190
+func finishesRowsTransaction(acquisition *ssa.Call, instruction ssa.Instruction) bool {
+	if acquisition == nil {
+		return false
+	}
+	switch instruction.(type) {
+	case *ssa.Call, *ssa.Defer:
+	default:
+		return false
+	}
+	common := ssaflow.InstructionCall(instruction)
+	if !sqlReceiverCall(common, "Tx", "Commit", "Rollback") {
+		return false
+	}
+	parent := rowsTransaction(acquisition)
+	return parent != nil && statementParentIdentity(ssaflow.CallReceiver(common), parent)
+}
+
+func rowsTransaction(acquisition *ssa.Call) ssa.Value {
+	common := acquisition.Common()
+	if sqlReceiverCall(common, "Tx", "Query", "QueryContext") {
+		return ssaflow.CallReceiver(common)
+	}
+	if !sqlReceiverCall(common, "Stmt", "Query", "QueryContext") {
+		return nil
+	}
+	// Require the statement's exact constructor result. A different statement,
+	// unresolved merge, or replaced receiver must retain its own obligation.
+	statement := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(ssaflow.CallReceiver(common))
+	extract, ok := statement.Value.(*ssa.Extract)
+	if !statement.Proven() || !ok || extract.Index != 0 {
+		return nil
+	}
+	prepare, ok := extract.Tuple.(*ssa.Call)
+	if !ok || !sqlReceiverCall(prepare.Common(), "Tx", "Prepare", "PrepareContext") {
+		return nil
+	}
+	return ssaflow.CallReceiver(prepare.Common())
+}
+
 // A later closure capture keeps even an unchanged local in a cell. Two loads
 // agree only when the stored values at their respective execution points
 // provably agree. Do not equate arbitrary
@@ -134,9 +179,13 @@ func statementParentIdentity(left, right ssa.Value) bool {
 }
 
 func sqlDatabaseCall(common *ssa.CallCommon, names ...string) bool {
+	return sqlReceiverCall(common, "DB", names...)
+}
+
+func sqlReceiverCall(common *ssa.CallCommon, receiver string, names ...string) bool {
 	for _, name := range names {
 		if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
-			PackagePath: "database/sql", Receiver: "DB", Name: name,
+			PackagePath: "database/sql", Receiver: receiver, Name: name,
 		})) {
 			return true
 		}

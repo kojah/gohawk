@@ -2,6 +2,7 @@ package resourcelifetime
 
 import (
 	"go/token"
+	"slices"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -24,6 +25,29 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 		}
 	}
 	return owners
+}
+
+// A helper can condition cleanup on the error paired with this acquisition.
+// Unconditional completion cannot represent that relation. A witnessed cleanup
+// plus the exact pair is uncertainty, not proof of either release or a leak.
+// Helpers that merely inspect the pair, or receive another error, stay visible.
+// https://github.com/h44z/wg-portal/blob/eb44c8c4ff120f34c26b2415c47560f4fba0603c/internal/lowlevel/mikrotik.go#L267-L280
+func (analysis *resourceAnalysis) pairedErrorHelperCleanup(instruction ssa.Instruction, common *ssa.CallCommon) bool {
+	if common == nil || analysis.resource != ssaflow.CallResult(analysis.acquisition, 0) {
+		return false
+	}
+	errorValue := ssaflow.CallResult(analysis.acquisition, 1)
+	if errorValue == nil || !syntax.IsErrorType(errorValue.Type()) ||
+		!slices.Contains(common.Args, analysis.resource) || !slices.Contains(common.Args, errorValue) {
+		return false
+	}
+	return ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+		Instruction: instruction,
+		Target:      analysis.resource,
+		Methods:     analysis.contract.cleanup,
+		Coverage:    ssaflow.CoverageAnywhere,
+		Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
+	}).Proven()
 }
 
 func resourceTransferredToExternalField(instruction ssa.Instruction, resource ssa.Value) bool {
@@ -96,6 +120,16 @@ func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, erro
 }
 
 func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
+	// Equality to a documented non-nil sentinel excludes successful acquisition.
+	// Require the exact error: an unrelated or derived error can compare equal
+	// even when this acquisition succeeded. Arbitrary error variables may be nil.
+	// https://github.com/life4/enc/blob/853bf70379f698b65e4415876c014378be90e021/cmd/helpers.go#L29-L38
+	if comparison, ok := condition.(*ssa.BinOp); ok && comparison.Op == token.EQL {
+		if comparison.X == errorValue && isNonNilFilesystemSentinel(comparison.Y) ||
+			comparison.Y == errorValue && isNonNilFilesystemSentinel(comparison.X) {
+			return "exact-error-equals-non-nil-filesystem-sentinel", true
+		}
+	}
 	if errorTypeAssertionSucceeded(condition, errorValue) {
 		return "error-type-assertion-succeeded", true
 	}

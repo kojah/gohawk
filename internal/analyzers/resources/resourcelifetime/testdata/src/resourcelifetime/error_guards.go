@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"os"
 )
 
 // Error predicates establish failed acquisition only for the exact error from
@@ -70,5 +71,65 @@ func negativeAsDoesNotProveFailure(client *http.Client, request *http.Request) e
 		return err
 	}
 	defer response.Body.Close()
+	return nil
+}
+
+func closeFileAfterSentinelEquality(path string) error {
+	file, err := os.Open(path)
+	if err == os.ErrNotExist {
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return nil
+}
+
+func closeFileAfterReversedSentinelEquality(path string) error {
+	file, err := os.Open(path)
+	if os.ErrExist == err {
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return nil
+}
+
+func arbitrarySentinelCanBeNil(path string, sentinel error) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err == sentinel {
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return nil
+}
+
+func unrelatedSentinelEquality(path string, other error) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if other == os.ErrNotExist {
+		return other
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return nil
+}
+
+func sentinelInequalityCanSucceed(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != os.ErrNotExist {
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 	return nil
 }

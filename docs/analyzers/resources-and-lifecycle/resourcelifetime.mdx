@@ -31,6 +31,21 @@ missing-release findings for DB-prepared statements. It does not discharge
 rows, transactions, or statements prepared through a Conn. Parent closure is
 not treated as immediate statement invalidation.
 
+Committing or rolling back the exact parent transaction also makes active row
+cleanup uncertain: transaction-context cancellation closes its rows, including
+rows queried through a statement prepared on that transaction. A dominating
+deferred finish is recognized; a different transaction or a finish confined
+to only some return paths is not. This does not treat `DB.Close` or
+`Stmt.Close` as closing active rows.
+
+Passing a wrapper around an aggregate that contains the exact resource to a
+callee that may retain it can make ownership uncertain, not prove cleanup.
+This includes `io.MultiWriter` installed as logging output. The wrapper must
+itself potentially retain the aggregate; an ignored input or read-only
+transformation does not establish this boundary. Discarding the wrapper does
+not by itself transfer ownership. Longer handler/logger construction chains
+remain outside this bounded model.
+
 DB acquisitions through `PrepareContext`, `QueryContext`, and `BeginTx` are
 known to fail when the exact context from `WithCancel` or `WithCancelCause`
 was synchronously canceled before the call. Conditional, deferred, or concurrent

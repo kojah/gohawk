@@ -86,6 +86,9 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if closesStatementDatabase(analysis.acquisition, instruction) {
 		return actionUnknown, "statement-parent-closed"
 	}
+	if finishesRowsTransaction(analysis.acquisition, instruction) {
+		return actionUnknown, "rows-transaction-finished"
+	}
 	if releasesResource(analysis.evidence, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional) {
 		return actionSettled, actionSettled.String()
 	}
@@ -101,6 +104,9 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	}
 	if analysis.ambiguousHelperCleanup(instruction, common) {
 		return actionUnknown, "ambiguous-helper-cleanup-value"
+	}
+	if analysis.pairedErrorHelperCleanup(instruction, common) {
+		return actionUnknown, "paired-error-helper-cleanup"
 	}
 	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {
 		return actionUnknown, boundary
@@ -318,13 +324,16 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 
 func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instruction, common *ssa.CallCommon) bool {
 	for index, argument := range common.Args {
-		if ssaflow.SameValue(argument, analysis.resource) || !analysis.carriesWithin(argument) || analysis.carriedWithinClosure(argument) {
+		if ssaflow.SameValue(argument, analysis.resource) || analysis.carriedWithinClosure(argument) ||
+			(!analysis.carriesWithin(argument) && !analysis.possibleAggregateWrapper(argument)) {
 			continue
 		}
 		// A parameter-level retention fact also makes its nested contents
 		// uncertain. Variadic values stored for later callbacks are a common
-		// example; a clear retention bit is not a purity proof.
+		// example; a wrapper around that aggregate can retain it too.
+		// A clear retention bit is not a purity proof.
 		// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/convert/filecopy_test.go#L92-L106
+		// https://github.com/Mmx233/BitSrunLoginGo/blob/a744f312b3835f329eb98e45c8d19bc2a5b7d4c0/internal/config/log.go#L50-L60
 		if retained, _ := analysis.evidence.ArgumentRetained(instruction, index); retained {
 			return true
 		}
@@ -435,7 +444,34 @@ func callResultMayTransfer(instruction ssa.Instruction) bool {
 // aggregate; kandev upgrades an SPDY response this way:
 // https://github.com/kdlbs/kandev/blob/17da0aafe33df01828e21fc79cc9dd156dc088dc/apps/backend/internal/agent/kubernetes/portforward.go#L464-L491
 func (analysis *resourceAnalysis) carries(value ssa.Value) bool {
-	return analysis.carriesDirectly(value) || analysis.carriesWithin(value)
+	return analysis.carriesDirectly(value) || analysis.carriesWithin(value) || analysis.possibleAggregateWrapper(value)
+}
+
+func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool {
+	// A wrapper may receive the resource inside a variadic aggregate instead
+	// of as a direct operand. Keep that possible containment when its result
+	// is handed to another callee. This is only an opaque-consumption query;
+	// it never establishes exact identity or that the wrapper owns cleanup.
+	// https://github.com/Mmx233/BitSrunLoginGo/blob/a744f312b3835f329eb98e45c8d19bc2a5b7d4c0/internal/config/log.go#L58-L59
+	call, ok := value.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	if _, scalar := value.Type().Underlying().(*types.Basic); scalar || syntax.IsErrorType(value.Type()) {
+		return false
+	}
+	for _, argument := range call.Common().Args {
+		if !analysis.carriesWithin(argument) {
+			continue
+		}
+		// A visible transformation that does not retain its input is not a
+		// wrapper. Missing effects are unknown, never a purity claim.
+		effects := analysis.evidence.CallEffects(call, argument)
+		if !effects.Proven() || effects.Effects&ssaflow.EffectRetain != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // carriesDirectly reports whether value is the resource itself or is produced
@@ -501,8 +537,15 @@ func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosur
 // https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/admin/handler_test.go#L1398-L1447
 func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call) bool {
 	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](analysis.function) {
-		if ssaflow.InstructionDominates(deferred, acquisition) && closesStatementDatabase(acquisition, deferred) {
+		if !ssaflow.InstructionDominates(deferred, acquisition) {
+			continue
+		}
+		if closesStatementDatabase(acquisition, deferred) {
 			analysis.emitAction(deferred, actionUnknown, "statement-parent-closed")
+			return true
+		}
+		if finishesRowsTransaction(acquisition, deferred) {
+			analysis.emitAction(deferred, actionUnknown, "rows-transaction-finished")
 			return true
 		}
 	}
