@@ -54,7 +54,7 @@ func reportBufferOwnershipConflicts(pass *analysis.Pass, function *ssa.Function)
 				continue
 			}
 			for _, view := range views {
-				if !ssaflow.SameValue(call.Common().Args[0], view.value) {
+				if !ssaflow.MayAlias(call.Common().Args[0], view.value) {
 					continue
 				}
 				reportBufferOwnershipDecision(pass, function, call, view)

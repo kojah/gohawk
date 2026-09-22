@@ -17,7 +17,7 @@ func SpawnedValueAtCall(
 ) ssa.Value { //nolint:ireturn // SSA values retain their concrete representations.
 	if closure != nil {
 		for index, free := range function.FreeVars {
-			if ValueAliases(value, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) {
+			if MayAliasThroughLoads(value, free) && index < len(closure.Bindings) {
 				captured := CapturedBindingValue(closure.Bindings[index])
 				// Keep the address when the first observed value is nil. The value
 				// may be assigned only after an owner closure is created, as in
@@ -30,39 +30,28 @@ func SpawnedValueAtCall(
 		}
 	}
 	for index, parameter := range function.Params {
-		if ValueAliases(value, parameter, map[ssa.Value]bool{}) && index < len(spawn.Common().Args) {
+		if MayAliasThroughLoads(value, parameter) && index < len(spawn.Common().Args) {
 			return spawn.Common().Args[index]
 		}
 	}
 	return nil
 }
 
-// ValueAliases reports whether value is a wrapped or phi-derived form of target.
-func ValueAliases(value, target ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || target == nil || seen[value] {
-		return false
-	}
-	if value == target {
-		return true
-	}
-	seen[value] = true
-	if inner, ok := UnwrapTransparentValue(
-		value,
-		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
-	); ok {
-		return ValueAliases(inner, target, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.UnOp:
-		return typed.Op == token.MUL && ValueAliases(typed.X, target, seen)
-	case *ssa.Phi:
-		for _, edge := range typed.Edges {
-			if ValueAliases(edge, target, seen) {
-				return true
-			}
+// MayAliasThroughLoads reports whether value may be target seen through
+// transparent wrappers, loads, or a phi merge. It is a possible identity, not
+// a proof: a load is followed without asking what the cell held at that point,
+// so callers use it to find a candidate binding, never to credit an action.
+func MayAliasThroughLoads(value, target ssa.Value) bool {
+	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
+	var leaf func(ReachingWalk, ssa.Value) bool
+	leaf = func(walk ReachingWalk, value ssa.Value) bool {
+		if value == target {
+			return true
 		}
+		load, ok := value.(*ssa.UnOp)
+		return ok && load.Op == token.MUL && walk.Any(load.X, leaf)
 	}
-	return false
+	return target != nil && NewReachingWalk(forms).Any(value, leaf)
 }
 
 // BlockInCycle reports whether control flow can return to start.

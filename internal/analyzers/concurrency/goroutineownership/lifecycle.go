@@ -45,7 +45,7 @@ func (analysis *spawnAnalysis) relayCompletionGroup() ssa.Value { //nolint:iretu
 				group = ssaflow.SpawnedValueAtCall(analysis.spawn, function, closure, ssaflow.CallReceiver(common))
 			case group != nil && ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1:
 				signal := ssaflow.SpawnedValueAtCall(analysis.spawn, function, closure, common.Args[0])
-				if !ssaflow.SameAsAny(signal, analysis.signals) {
+				if !ssaflow.MayAliasAny(signal, analysis.signals) {
 					return nil
 				}
 				closed = true
@@ -81,7 +81,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
 			if instruction == analysis.spawn || !ssaflow.InstructionMayFollow(instruction, analysis.spawn) {
 				continue
 			}
-			if send, ok := instruction.(*ssa.Send); ok && ssaflow.ValueContainsValue(send.X, analysis.relayGroup) {
+			if send, ok := instruction.(*ssa.Send); ok && ssaflow.MayContainValue(send.X, analysis.relayGroup) {
 				return true
 			}
 			worker, ok := instruction.(*ssa.Go)
@@ -93,7 +93,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
 				continue
 			}
 			groups, _ := waitGroupCompletionValues(worker, function, closure)
-			if ssaflow.SameAsAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker) {
+			if ssaflow.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker) {
 				return true
 			}
 		}
@@ -357,14 +357,14 @@ func lifecycleOwner(value ssa.Value) bool {
 // interface. NATS asserts its listener before deferring the close:
 // https://github.com/nats-io/nats.go/blob/850f889cf3d63bfd1a549ab9af59f0145146fb41/nats_test.go#L1288-L1301
 func ownerReceiver(receiver ssa.Value, owners []ssa.Value) bool {
-	if ssaflow.SameAsAny(receiver, owners) {
+	if ssaflow.MayAliasAny(receiver, owners) {
 		return true
 	}
 	if extract, ok := receiver.(*ssa.Extract); ok {
 		receiver = extract.Tuple
 	}
 	asserted, ok := receiver.(*ssa.TypeAssert)
-	return ok && ssaflow.SameAsAny(asserted.X, owners)
+	return ok && ssaflow.MayAliasAny(asserted.X, owners)
 }
 
 func lifecycleMethod(name string) bool {

@@ -46,7 +46,7 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 				}
 			}
 			for index, parameter := range function.Params {
-				if common != nil && index < len(common.Args) && SameValue(common.Args[index], target) &&
+				if common != nil && index < len(common.Args) && MayAlias(common.Args[index], target) &&
 					CallInvokesArgumentOnEveryReturn(candidate, parameter) {
 					return true
 				}

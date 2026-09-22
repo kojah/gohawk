@@ -57,7 +57,7 @@ func resourceSuccessBranch(
 func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {
 	call, ok := branch.Cond.(*ssa.Call)
 	if !ok || !ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestifyNoError) || len(call.Common().Args) < 2 ||
-		!ssaflow.SameValue(call.Common().Args[1], errorValue) {
+		!ssaflow.MayAlias(call.Common().Args[1], errorValue) {
 		return false, false
 	}
 	// Testify's exact boolean contract is true precisely when the supplied

@@ -130,7 +130,7 @@ func (search *retention) within(function *ssa.Function, parameter ssa.Value) boo
 
 func (search *retention) searchWithin(function *ssa.Function, parameter ssa.Value) bool {
 	derives := func(value ssa.Value) bool {
-		return ssaflow.SameValue(value, parameter)
+		return ssaflow.MayAlias(value, parameter)
 	}
 	if search.everyReturn {
 		return ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {

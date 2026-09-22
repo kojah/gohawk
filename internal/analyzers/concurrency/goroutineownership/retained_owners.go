@@ -203,7 +203,7 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaf
 		if !budget.Spend() {
 			return false
 		}
-		if ssaflow.SameValue(value, identity) || ssaflow.CapturedBindingMatches(value, receiver) {
+		if ssaflow.MayAlias(value, identity) || ssaflow.CapturedBindingMatches(value, receiver) {
 			return true
 		}
 		if content := storage.Resolve(value); content.Proven() && content.Value != value {

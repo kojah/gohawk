@@ -130,7 +130,7 @@ func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Va
 	}
 	for _, argument := range common.Args {
 		for _, value := range held {
-			if ssaflow.SameValue(argument, value) {
+			if ssaflow.MayAlias(argument, value) {
 				return true
 			}
 		}
@@ -313,7 +313,7 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 		if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask) {
 			return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
 		}
-		if factArgumentMatches(request.Instruction, request.Target, mask, ssaflow.SameValue) {
+		if factArgumentMatches(request.Instruction, request.Target, mask, ssaflow.MayAlias) {
 			// The summary is known, but which value receives its guarantee is
 			// not. This is neither completion nor evidence of missing cleanup.
 			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true

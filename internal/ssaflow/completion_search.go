@@ -284,7 +284,7 @@ func (search *completionSearch) capturedLocal(
 		if !ok {
 			return deferredCellLocal(free, binding, target, exact)
 		}
-		value, exact = stable, SameValue(stable, target)
+		value, exact = stable, MayAlias(stable, target)
 	}
 	switch {
 	case exact:
@@ -306,7 +306,7 @@ func (search *completionSearch) capturedLocal(
 		}
 		_, stable := NewStorage(search.budget).stableValue(cell, invocation)
 		return mappedLocal{local: free, supplied: binding, kind: localOwner}, stable
-	case !CapturedBindingMatches(binding, target) && ValueContainsValue(binding, target):
+	case !CapturedBindingMatches(binding, target) && MayContainValue(binding, target):
 		// The closure captured an aggregate that stores the target, such as a
 		// local closer slice the target was appended to; a lifecycle call on
 		// anything selected from that local reaches the target. A cell that
@@ -325,7 +325,7 @@ func deferredCellLocal(free, binding, target ssa.Value, exact bool) (mappedLocal
 	// the target appended to it is reachable from the local. rules_img drains
 	// such a closer slice in a deferred loop:
 	// https://github.com/bazel-contrib/rules_img/blob/af5e1452f0cb68b1ed64dc6095210f1eb4ae625f/img_tool/cmd/mtree/mtree.go#L110-L128
-	if !exact && appendOnlyCell(binding) && ValueContainsValue(binding, target) {
+	if !exact && appendOnlyCell(binding) && MayContainValue(binding, target) {
 		return mappedLocal{local: free, supplied: binding, kind: localExact}, true
 	}
 	// A cell that only ever holds the target or nil, cleared after a
@@ -348,7 +348,7 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 	}
 	// A possible alias must not fall through to aggregate containment and
 	// become an exact parameter mapping. Preserve uncertainty for consumers.
-	if SameValue(argument, target) && !DefinitelySameValue(argument, target) {
+	if MayAlias(argument, target) && !DefinitelySameValue(argument, target) {
 		*search.incomplete = true
 		return mappedLocal{}, false
 	}
@@ -359,7 +359,7 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: argument, kind: localCallback}, true
 	case strictNonEmptyAccessPath(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
-	case ValueContainsValue(argument, target):
+	case MayContainValue(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
 	case ValueIsAccessPathFrom(target, argument):
 		return mappedLocal{local: parameter, supplied: argument, kind: localOwner}, true

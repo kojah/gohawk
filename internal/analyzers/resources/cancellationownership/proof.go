@@ -275,7 +275,7 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 	}
 	if common != nil && slices.ContainsFunc(common.Args, func(argument ssa.Value) bool {
 		_, closure := argument.(*ssa.MakeClosure)
-		return closure && ssaflow.ValueContainsValue(argument, classifier.cancel)
+		return closure && ssaflow.MayContainValue(argument, classifier.cancel)
 	}) {
 		// A callback which captures cancel may be invoked, retained, or discarded
 		// by the callee. Without an exact callback contract, none of those
@@ -346,7 +346,7 @@ func instructionReferencesCancellation(instruction ssa.Instruction, cancel ssa.V
 		if operand == nil || *operand == nil {
 			continue
 		}
-		if *operand == cancel || ssaflow.SameValue(*operand, cancel) || ssaflow.ValueContainsValue(*operand, cancel) ||
+		if *operand == cancel || ssaflow.MayAlias(*operand, cancel) || ssaflow.MayContainValue(*operand, cancel) ||
 			addressStoresCancellation(*operand, cancel) {
 			return true
 		}
@@ -379,7 +379,7 @@ func addressStoresCancellationLeaf(walk ssaflow.ReachingWalk, value, cancel ssa.
 	}
 	for _, reference := range *value.Referrers() {
 		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == value && (store.Val == cancel || ssaflow.SameValue(store.Val, cancel)) {
+		if ok && store.Addr == value && (store.Val == cancel || ssaflow.MayAlias(store.Val, cancel)) {
 			return true
 		}
 	}
@@ -431,7 +431,7 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value) bool {
 		argument := binding.Supplied
 		closureContainsCancel := false
 		if _, ok := argument.(*ssa.MakeClosure); ok {
-			closureContainsCancel = ssaflow.ValueContainsValue(argument, cancel)
+			closureContainsCancel = ssaflow.MayContainValue(argument, cancel)
 		}
 		if argument != cancel && !closureContainsCancel {
 			continue

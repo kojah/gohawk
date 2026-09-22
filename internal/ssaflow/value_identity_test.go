@@ -36,7 +36,7 @@ func wrapped(a chan int) chan<- int { return a }
 				return ok
 			}).(*ssa.Return)
 			value, target := ret.Results[0], fn.Params[0]
-			if !SameValue(value, target) {
+			if !MayAlias(value, target) {
 				t.Fatal("fixture must exercise the possible-identity matcher")
 			}
 			for _, pair := range [][2]ssa.Value{{value, target}, {target, value}} {

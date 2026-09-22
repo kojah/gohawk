@@ -47,7 +47,7 @@ type ownershipPair struct {
 
 func (search *ownershipSearch) returnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
 	for _, result := range returned.Results {
-		if SameValue(result, value) || search.aggregateStoresValue(result, value) {
+		if MayAlias(result, value) || search.aggregateStoresValue(result, value) {
 			return true
 		}
 	}
@@ -59,7 +59,7 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 	if aggregate == nil || search.seen[pair] {
 		return false
 	}
-	if SameValue(aggregate, value) {
+	if MayAlias(aggregate, value) {
 		return true
 	}
 	search.seen[pair] = true
@@ -99,7 +99,7 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 		// process or handle state, so returning the copy transfers it. A struct
 		// literal returned by value is likewise loaded from the local that
 		// assembled it, so the load carries whatever that local's fields hold.
-		if typed.Op == token.MUL && (SameValue(typed.X, value) || search.aggregateStoresValue(typed.X, value)) {
+		if typed.Op == token.MUL && (MayAlias(typed.X, value) || search.aggregateStoresValue(typed.X, value)) {
 			return true
 		}
 	}
@@ -236,7 +236,7 @@ func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruc
 	holder := -1
 	for index, argument := range common.Args {
 		if index < len(callee.Params) &&
-			(SameValue(argument, aggregate) || ValueIsAccessPathFrom(argument, aggregate)) {
+			(MayAlias(argument, aggregate) || ValueIsAccessPathFrom(argument, aggregate)) {
 			holder = index
 			break
 		}
@@ -256,7 +256,7 @@ func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruc
 		if _, closure := argument.(*ssa.MakeClosure); closure {
 			continue
 		}
-		if !SameValue(argument, value) && !search.aggregateStoresValue(argument, value) {
+		if !MayAlias(argument, value) && !search.aggregateStoresValue(argument, value) {
 			continue
 		}
 		if search.aggregateStoresValue(callee.Params[holder], callee.Params[index]) {
@@ -268,7 +268,7 @@ func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruc
 
 func (search *ownershipSearch) addressStoresValue(address ssa.Value, value ssa.Value) bool {
 	for stored := range StoredInto(address) {
-		if SameValue(stored, value) || search.aggregateStoresValue(stored, value) {
+		if MayAlias(stored, value) || search.aggregateStoresValue(stored, value) {
 			return true
 		}
 	}

@@ -302,11 +302,11 @@ func (flow lockFlowContext) loadedLoopRelease(instruction ssa.Instruction, recei
 	}
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](instruction.Parent()) {
 		operation, _, released, direct := mutexAction(call)
-		if !direct || operation != mutexRelease || !ssaflow.SameValue(receiver, released) {
+		if !direct || operation != mutexRelease || !ssaflow.MayAlias(receiver, released) {
 			continue
 		}
 		other, otherTruth := loadedBooleanBranch(call)
-		if other != nil && truth == otherTruth && ssaflow.SameValue(guard, other) &&
+		if other != nil && truth == otherTruth && ssaflow.MayAlias(guard, other) &&
 			ssaflow.InstructionMayFollow(instruction, call) && ssaflow.InstructionMayFollow(call, instruction) {
 			proof := guardedReleaseProof{possible: true, reason: "loaded-loop-release-unknown"}
 			analysisTrace.For(flow.pass, "lockorder", string(check.LockRecursiveAcquire), instruction.Pos()).Decision(analysisTrace.Step{

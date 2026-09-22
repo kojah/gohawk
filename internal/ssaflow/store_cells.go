@@ -28,7 +28,7 @@ func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction)
 		}
 		return NewStorage(NewSearchBudget(1000)).stableValue(binding, invocation)
 	}
-	if SameValue(binding, target) || ValueIsAccessPathFrom(target, binding) {
+	if MayAlias(binding, target) || ValueIsAccessPathFrom(target, binding) {
 		return binding, true
 	}
 	stored, ok := NewStorage(NewSearchBudget(1000)).stableValue(binding, invocation)
@@ -68,7 +68,7 @@ func targetStoredOnPath(address, target ssa.Value, observation ssa.Instruction) 
 		}
 	}
 	for _, candidate := range stores {
-		if !SameValue(candidate.Val, target) || !InstructionMayFollow(candidate, observation) {
+		if !MayAlias(candidate.Val, target) || !InstructionMayFollow(candidate, observation) {
 			continue
 		}
 		intervening := false
@@ -174,7 +174,7 @@ func targetOrNilCell(address, target ssa.Value) bool {
 			continue
 		}
 		switch {
-		case SameValue(store.Val, target):
+		case MayAlias(store.Val, target):
 			storesTarget = true
 		case DefinitelyNil(store.Val):
 		default:

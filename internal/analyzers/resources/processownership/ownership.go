@@ -58,7 +58,7 @@ func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []
 				continue
 			}
 			for _, owner := range owners {
-				if ssaflow.ValueContainsValue(closure, owner) {
+				if ssaflow.MayContainValue(closure, owner) {
 					return true
 				}
 			}
@@ -136,7 +136,7 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 				continue
 			}
 			for _, argument := range call.Common().Args {
-				if ssaflow.SameValue(argument, command) {
+				if ssaflow.MayAlias(argument, command) {
 					owners = append(owners, call)
 					if call.Referrers() != nil {
 						for _, reference := range *call.Referrers() {
@@ -219,7 +219,7 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value) bool {
 	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
 		receiver := ssaflow.CallReceiver(common)
 		_, merged := receiver.(*ssa.Phi)
-		return merged && ssaflow.SameValue(receiver, command) &&
+		return merged && ssaflow.MayAlias(receiver, command) &&
 			!ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(receiver, command).Proven()
 	}
 	if _, spawned := instruction.(*ssa.Go); spawned {
@@ -237,7 +237,7 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value) bool {
 		return false
 	}
 	for _, argument := range common.Args {
-		if _, callback := argument.(*ssa.MakeClosure); callback && ssaflow.ValueContainsValue(argument, command) {
+		if _, callback := argument.(*ssa.MakeClosure); callback && ssaflow.MayContainValue(argument, command) {
 			return true
 		}
 	}
@@ -290,7 +290,7 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 		}
 	}
 	for index, parameter := range function.Params {
-		if index < len(common.Args) && ssaflow.SameValue(common.Args[index], command) {
+		if index < len(common.Args) && ssaflow.MayAlias(common.Args[index], command) {
 			if proof := waitsOnEveryReturn(parameter); proof != ssaflow.EvidenceDisproven {
 				return proof
 			}

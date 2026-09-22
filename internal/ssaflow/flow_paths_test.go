@@ -53,11 +53,11 @@ func compare(first, second chan int) {
 	}
 
 	receiveArgument := callArgument("receive")
-	if sendArgument := callArgument("send"); !SameValue(receiveArgument, sendArgument) {
-		t.Error("SameValue did not preserve identity across sibling channel direction conversions")
+	if sendArgument := callArgument("send"); !MayAlias(receiveArgument, sendArgument) {
+		t.Error("MayAlias did not preserve identity across sibling channel direction conversions")
 	}
-	if otherArgument := callArgument("sendOther"); SameValue(receiveArgument, otherArgument) {
-		t.Error("SameValue equated channel conversions with different sources")
+	if otherArgument := callArgument("sendOther"); MayAlias(receiveArgument, otherArgument) {
+		t.Error("MayAlias equated channel conversions with different sources")
 	}
 }
 

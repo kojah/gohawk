@@ -37,11 +37,11 @@ func (analysis *spawnAnalysis) consumes(value ssa.Value) bool {
 }
 
 func carries(walk ssaflow.ReachingWalk, value, target ssa.Value) bool {
-	if value != nil && ssaflow.SameValue(value, target) {
+	if value != nil && ssaflow.MayAlias(value, target) {
 		return true
 	}
 	return walk.Any(value, func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
-		if ssaflow.SameValue(value, target) {
+		if ssaflow.MayAlias(value, target) {
 			return true
 		}
 		switch typed := value.(type) {

@@ -129,7 +129,7 @@ func abandonedProducerSend(
 	// https://github.com/hashicorp/go-metrics/blob/5a9e5caa3d2779bca6a8ae2218b8f884194855e7/inmem_endpoint_test.go#L157-L177
 	sendCount := 0
 	for _, candidate := range sends {
-		if !ssaflow.SameValue(candidate.channel, send.channel) {
+		if !ssaflow.MayAlias(candidate.channel, send.channel) {
 			continue
 		}
 		if candidate.repeated {
@@ -198,12 +198,12 @@ func channelReceives(function *ssa.Function, channel ssa.Value, origin *ssa.Go, 
 					return proof
 				}
 			case *ssa.UnOp:
-				if candidate.Op == token.ARROW && ssaflow.SameValue(candidate.X, channel) {
+				if candidate.Op == token.ARROW && ssaflow.MayAlias(candidate.X, channel) {
 					result.count++
 				}
 			case *ssa.Select:
 				for _, state := range candidate.States {
-					if state.Dir == types.RecvOnly && ssaflow.SameValue(state.Chan, channel) {
+					if state.Dir == types.RecvOnly && ssaflow.MayAlias(state.Chan, channel) {
 						result.count++
 					}
 				}

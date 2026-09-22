@@ -184,7 +184,7 @@ func (effects *httpWriterEffects) headerOnly(writer *ssa.Parameter, budget *ssaf
 					return false
 				}
 				for _, operand := range instruction.Operands(nil) {
-					if operand != nil && ssaflow.SameValue(*operand, writer) && !effects.writerUse(instruction, writer, budget) {
+					if operand != nil && ssaflow.MayAlias(*operand, writer) && !effects.writerUse(instruction, writer, budget) {
 						return false
 					}
 				}
@@ -230,7 +230,7 @@ func (effects *httpWriterEffects) writerUse(instruction ssa.Instruction, writer 
 		if !budget.Spend() {
 			return false
 		}
-		if !ssaflow.SameValue(binding.Supplied, writer) {
+		if !ssaflow.MayAlias(binding.Supplied, writer) {
 			continue
 		}
 		parameter, ok := binding.Local.(*ssa.Parameter)

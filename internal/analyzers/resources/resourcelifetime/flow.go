@@ -157,7 +157,7 @@ func advanceResourceState(pass *analysis.Pass, analysis *resourceAnalysis, state
 		}
 		if ok && state.active && !state.released && !state.unknown &&
 			!returnedResourceOwner(pass, returned, analysis.resource, analysis.contract.cleanup) &&
-			!ssaflow.ReturnedSameAsAny(returned, analysis.owners) {
+			!ssaflow.ReturnedMayAliasAny(returned, analysis.owners) {
 			return state, true
 		}
 	}
@@ -267,7 +267,7 @@ func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 			}
 			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyNilClaim) {
 				for _, argument := range common.Args {
-					if ssaflow.SameValue(argument, resource) {
+					if ssaflow.MayAlias(argument, resource) {
 						nilAssertions = append(nilAssertions, instruction)
 					}
 				}

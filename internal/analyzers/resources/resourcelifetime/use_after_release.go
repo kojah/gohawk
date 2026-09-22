@@ -165,7 +165,7 @@ func (query *releasedResource) interferes(instruction ssa.Instruction, effects *
 			return false // Registration does not execute cleanup before the use.
 		}
 		for _, argument := range append([]ssa.Value{common.Value}, common.Args...) {
-			if ssaflow.ValueContainsValue(argument, query.resource) &&
+			if ssaflow.MayContainValue(argument, query.resource) &&
 				(!query.storage.Same(argument, query.resource).Proven() || !effects.Call(instruction, argument).PreservesStorage()) {
 				return true
 			}
@@ -175,7 +175,7 @@ func (query *releasedResource) interferes(instruction ssa.Instruction, effects *
 		(query.storage.Same(store.Addr, query.resource).Proven() || ssaflow.ValueIsAccessPathFrom(store.Addr, query.resource)) {
 		return true // Overwriting the resource object can reopen the same pointer.
 	}
-	if update, ok := instruction.(*ssa.MapUpdate); ok && ssaflow.ValueContainsValue(update.Value, query.resource) {
+	if update, ok := instruction.(*ssa.MapUpdate); ok && ssaflow.MayContainValue(update.Value, query.resource) {
 		return true // Collection ownership and later mutation are not modeled.
 	}
 	return ssaflow.ClosureCapturesValue(instruction, query.resource) || ssaflow.SendsValue(instruction, query.resource) ||

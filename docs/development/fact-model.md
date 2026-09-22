@@ -131,7 +131,7 @@ way consumers are allowed to lean on it.
 
 ### Possible identity is not a guarantee
 
-`ssaflow.SameValue` follows possible origins: one matching phi alternative or
+`ssaflow.MayAlias` follows possible origins: one matching phi alternative or
 a value previously stored in a cell can match. Use that evidence for possible
 consumption and conservative escape handling, not to establish a guaranteed
 action. `ssaflow.DefinitelySameValue` requires agreement across alternatives

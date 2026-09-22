@@ -297,7 +297,7 @@ func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask Parame
 		}
 		// Containment must not turn an ambiguous phi or a storage-history
 		// match into a guarantee about this target.
-		if !ssaflow.SameValue(argument, target) && ssaflow.ValueContainsValue(argument, target) {
+		if !ssaflow.MayAlias(argument, target) && ssaflow.MayContainValue(argument, target) {
 			return true
 		}
 	}

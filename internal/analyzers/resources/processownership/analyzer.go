@@ -79,7 +79,7 @@ func commandOwnedElsewhere(
 	}
 	// Caller retains a parameter command after this helper returns, so
 	// helper-local Start does not transfer caller's Wait responsibility.
-	if ssaflow.SameAsAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
+	if ssaflow.MayAliasAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
 		return true
 	}
 	// A command loaded from an element of an aggregate is shared with
@@ -186,7 +186,7 @@ func commandStoredExternallyBeforeStart(start *ssa.Call, command ssa.Value) bool
 	for _, block := range start.Parent().Blocks {
 		for _, instruction := range block.Instrs {
 			store, ok := instruction.(*ssa.Store)
-			if !ok || !ssaflow.InstructionDominates(store, start) || !ssaflow.SameValue(store.Val, command) {
+			if !ok || !ssaflow.InstructionDominates(store, start) || !ssaflow.MayAlias(store.Val, command) {
 				continue
 			}
 			if storesProcessHandleInExternalField(store, command) || externallyOwnedAddress(store.Addr) {
@@ -269,7 +269,7 @@ func handleCarried(value, command ssa.Value) bool {
 		if _, scalar := value.Type().Underlying().(*types.Basic); scalar {
 			return false
 		}
-		if ssaflow.SameValue(value, command) {
+		if ssaflow.MayAlias(value, command) {
 			return true
 		}
 		if load, ok := value.(*ssa.UnOp); ok {

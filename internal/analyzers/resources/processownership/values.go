@@ -173,7 +173,7 @@ func immediateProcessNilComparison(guard *ssa.BasicBlock, command ssa.Value) *ss
 	if !fieldOK || !loadOK || !comparisonOK || !branchOK || len(guard.Succs) != 2 {
 		return nil
 	}
-	if !ssaflow.SameValue(field.X, command) || load.X != field || load.Op != token.MUL ||
+	if !ssaflow.MayAlias(field.X, command) || load.X != field || load.Op != token.MUL ||
 		!osProcessDerivedFromCommand(load, command) || branch.Cond != comparison {
 		return nil
 	}

@@ -76,7 +76,7 @@ func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction) bool {
 	_, _, writer, _ := mutexAction(deferred)
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](instruction.Parent()) {
 		operation, _, receiver, direct := mutexAction(call)
-		if direct && operation == mutexRelease && !readModeRelease(call) && ssaflow.SameValue(receiver, writer) &&
+		if direct && operation == mutexRelease && !readModeRelease(call) && ssaflow.MayAlias(receiver, writer) &&
 			ssaflow.InstructionMayFollow(deferred, call) && ssaflow.InstructionMayFollow(call, instruction) {
 			// An explicit intervening release defeats the possible-held guard;
 			// the still-registered defer must not hide an unprotected write.
@@ -114,7 +114,7 @@ func possibleDeferredWriters(function *ssa.Function, summaries map[ssa.Instructi
 				continue
 			}
 			calledReceiver := ssaflow.CallReceiver(call.Common())
-			if calledReceiver != nil && ssaflow.SameValue(calledReceiver, field.X) {
+			if calledReceiver != nil && ssaflow.MayAlias(calledReceiver, field.X) {
 				writers = append(writers, deferred)
 				break
 			}
@@ -184,7 +184,7 @@ func mutatingBuiltinTargetsOwner(common *ssa.CallCommon, owner ssa.Value) bool {
 // then mutated is not counted as a write to the owner.
 func addressWithinOwner(address, owner ssa.Value) bool {
 	for address != nil {
-		if ssaflow.SameValue(address, owner) {
+		if ssaflow.MayAlias(address, owner) {
 			return true
 		}
 		switch typed := address.(type) {

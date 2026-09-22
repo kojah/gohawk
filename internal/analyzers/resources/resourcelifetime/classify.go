@@ -187,7 +187,7 @@ func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Ins
 	})) && len(common.Args) == 2 && !ssaflow.DefinitelyNil(common.Args[1]) &&
 		// Possible identity is sufficient for uncertainty, including repeated
 		// loads of a captured pipe across a wait. This never proves release.
-		ssaflow.SameValue(ssaflow.CallReceiver(common), analysis.acquisition.Common().Args[0])
+		ssaflow.MayAlias(ssaflow.CallReceiver(common), analysis.acquisition.Common().Args[0])
 }
 
 // opaqueConsumption reports whether the instruction hands the resource to
@@ -293,7 +293,7 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 
 func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instruction, common *ssa.CallCommon) bool {
 	for index, argument := range common.Args {
-		if ssaflow.SameValue(argument, analysis.resource) || analysis.carriedWithinClosure(argument) ||
+		if ssaflow.MayAlias(argument, analysis.resource) || analysis.carriedWithinClosure(argument) ||
 			(!analysis.carriesWithin(argument) && !analysis.possibleAggregateWrapper(argument)) {
 			continue
 		}
@@ -330,12 +330,12 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 func (analysis *resourceAnalysis) returnsRetainedLogger(returned *ssa.Return) bool {
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
 		if !ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageFunction("log", "New")) ||
-			len(call.Common().Args) == 0 || !ssaflow.SameValue(call.Common().Args[0], analysis.resource) ||
+			len(call.Common().Args) == 0 || !ssaflow.MayAlias(call.Common().Args[0], analysis.resource) ||
 			!ssaflow.InstructionDominates(call, returned) {
 			continue
 		}
 		for _, result := range returned.Results {
-			if ssaflow.ValueContainsValue(result, call) {
+			if ssaflow.MayContainValue(result, call) {
 				return true
 			}
 		}
@@ -369,7 +369,7 @@ func (analysis *resourceAnalysis) possiblyRetainedCallback(instruction ssa.Instr
 func (analysis *resourceAnalysis) carriedWithinAggregate(common *ssa.CallCommon) bool {
 	within := false
 	for _, argument := range common.Args {
-		if ssaflow.SameValue(argument, analysis.resource) {
+		if ssaflow.MayAlias(argument, analysis.resource) {
 			continue
 		}
 		// A closure that captures the resource is not a struct aggregate; the
@@ -452,7 +452,7 @@ func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool
 		return false
 	}
 	for _, argument := range call.Common().Args {
-		if ssaflow.SameValue(argument, analysis.resource) || !analysis.carriesWithin(argument) {
+		if ssaflow.MayAlias(argument, analysis.resource) || !analysis.carriesWithin(argument) {
 			continue
 		}
 		// A visible transformation that does not retain its input is not a
@@ -469,7 +469,7 @@ func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool
 // from it by a transparent value step, so a callee receives the resource as an
 // argument in its own right.
 func (analysis *resourceAnalysis) carriesDirectly(value ssa.Value) bool {
-	return ssaflow.SameValue(value, analysis.resource) ||
+	return ssaflow.MayAlias(value, analysis.resource) ||
 		ssaflow.ValueDerivesFrom(value, analysis.resource, map[ssa.Value]bool{})
 }
 
@@ -477,7 +477,7 @@ func (analysis *resourceAnalysis) carriesDirectly(value ssa.Value) bool {
 // in one of its fields, so a callee receives the resource only nested inside a
 // parameter.
 func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
-	if ssaflow.ValueContainsValue(value, analysis.resource) {
+	if ssaflow.MayContainValue(value, analysis.resource) {
 		return true
 	}
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
@@ -506,7 +506,7 @@ func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool 
 func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosure) bool {
 	for _, owner := range analysis.owners {
 		pointer, ok := owner.Type().Underlying().(*types.Pointer)
-		if !ok || ssaflow.SameValue(owner, analysis.resource) {
+		if !ok || ssaflow.MayAlias(owner, analysis.resource) {
 			continue
 		}
 		if _, aggregate := pointer.Elem().Underlying().(*types.Struct); !aggregate {

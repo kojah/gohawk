@@ -96,7 +96,7 @@ func iteratorSuccessorStatus(
 func conditionCall(block *ssa.BasicBlock, condition ssa.Value) *ssa.Call {
 	for _, instruction := range block.Instrs {
 		call, ok := instruction.(*ssa.Call)
-		if ok && ssaflow.SameValue(condition, call) {
+		if ok && ssaflow.MayAlias(condition, call) {
 			return call
 		}
 	}
@@ -186,7 +186,7 @@ func resourceUseStatus(
 	}
 	used := false
 	for index, argument := range common.Args {
-		if !ssaflow.SameValue(argument, target) && !ssaflow.ValueContainsValue(argument, target) {
+		if !ssaflow.MayAlias(argument, target) && !ssaflow.MayContainValue(argument, target) {
 			// A consumer may receive a wrapper constructed from the resource,
 			// rather than the resource itself. That is unknown, not cleanup:
 			// constructing a wrapper alone does not settle the obligation.
@@ -218,7 +218,7 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 	if store, ok := instruction.(*ssa.Store); ok {
 		switch store.Addr.(type) {
 		case *ssa.FieldAddr, *ssa.IndexAddr:
-			return ssaflow.SameValue(store.Val, target) || ssaflow.ValueContainsValue(store.Val, target)
+			return ssaflow.MayAlias(store.Val, target) || ssaflow.MayContainValue(store.Val, target)
 		}
 	}
 	closure, ok := instruction.(*ssa.MakeClosure)
@@ -226,7 +226,7 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if ssaflow.SameValue(binding, target) || ssaflow.ValueContainsValue(binding, target) {
+		if ssaflow.MayAlias(binding, target) || ssaflow.MayContainValue(binding, target) {
 			return true
 		}
 	}

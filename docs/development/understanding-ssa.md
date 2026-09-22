@@ -51,7 +51,7 @@ every path, and SSA is the form in which such questions have exact answers.
 
 - **Identity is structural.** Because each value has one definition, asking
   whether two expressions mean the same file is a question about instructions,
-  not names. `SameValue` and the transparent-form helpers answer it by
+  not names. `MayAlias` and the transparent-form helpers answer it by
   following conversions, phis, and local load/store pairs, and nothing else,
   so an alias the analysis cannot see through is just a different value rather
   than a guess.

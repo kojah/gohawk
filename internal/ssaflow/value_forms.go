@@ -96,20 +96,20 @@ func transparentOperand(operand ssa.Value, forms, form TransparentValueForm) (ss
 	return operand, true
 }
 
-// SameAsAny reports whether value aliases any candidate.
-func SameAsAny(value ssa.Value, candidates []ssa.Value) bool {
+// MayAliasAny reports whether value may alias any candidate; see MayAlias.
+func MayAliasAny(value ssa.Value, candidates []ssa.Value) bool {
 	for _, candidate := range candidates {
-		if SameValue(value, candidate) {
+		if MayAlias(value, candidate) {
 			return true
 		}
 	}
 	return false
 }
 
-// ReturnedSameAsAny reports whether a return transfers any candidate value.
-func ReturnedSameAsAny(returned *ssa.Return, candidates []ssa.Value) bool {
+// ReturnedMayAliasAny reports whether a return may transfer any candidate value.
+func ReturnedMayAliasAny(returned *ssa.Return, candidates []ssa.Value) bool {
 	for _, result := range returned.Results {
-		if SameAsAny(result, candidates) {
+		if MayAliasAny(result, candidates) {
 			return true
 		}
 	}
@@ -139,7 +139,7 @@ func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil || source == nil || seen[value] {
 		return false
 	}
-	if SameValue(value, source) {
+	if MayAlias(value, source) {
 		return true
 	}
 	seen[value] = true

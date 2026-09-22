@@ -429,7 +429,7 @@ func concreteMutexLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (ssa.Value, bool
 func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
 	candidateIdentity := lockIdentityOf(candidate)
 	for _, value := range values {
-		if ssaflow.SameValue(value, candidate) || candidateIdentity != "" && lockIdentityOf(value) == candidateIdentity {
+		if ssaflow.MayAlias(value, candidate) || candidateIdentity != "" && lockIdentityOf(value) == candidateIdentity {
 			return values
 		}
 	}

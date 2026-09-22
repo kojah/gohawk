@@ -274,7 +274,7 @@ func releasesOrdinaryResource(
 			ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
 		return true
 	}
-	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssaflow.SameAsAny(ssaflow.CallReceiver(common), owners) {
+	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssaflow.MayAliasAny(ssaflow.CallReceiver(common), owners) {
 		return true
 	}
 	for _, method := range methods {

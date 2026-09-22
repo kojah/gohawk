@@ -13,7 +13,7 @@ import (
 
 func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !SameValue(store.Val, value) {
+	if !ok || !MayAlias(store.Val, value) {
 		return false
 	}
 	_, ok = store.Addr.(*ssa.FieldAddr)
@@ -24,7 +24,7 @@ func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 // package-owned storage.
 func StoresValueInGlobal(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !SameValue(store.Val, value) {
+	if !ok || !MayAlias(store.Val, value) {
 		return false
 	}
 	_, ok = store.Addr.(*ssa.Global)
@@ -47,7 +47,7 @@ func StoresValueInEnclosingScope(instruction ssa.Instruction, value ssa.Value) b
 // SendsValue reports whether instruction hands value to a channel receiver.
 func SendsValue(instruction ssa.Instruction, value ssa.Value) bool {
 	send, ok := instruction.(*ssa.Send)
-	return ok && SameValue(send.X, value)
+	return ok && MayAlias(send.X, value)
 }
 
 // StoresOwnerOfValueInField reports whether instruction stores a callback or
@@ -71,29 +71,26 @@ func StoresOwnerOfValueInExternalField(instruction ssa.Instruction, value ssa.Va
 		return false
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
-	return ok && ExternallyOwnedValue(field.X) && ValueContainsValue(store.Val, value)
+	return ok && ExternallyOwnedValue(field.X) && MayContainValue(store.Val, value)
 }
 
 // StoresValueInEscapingField reports whether value is installed in a field of
 // an owner that already outlives the function or is subsequently transferred.
 func StoresValueInEscapingField(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !SameValue(store.Val, value) {
+	if !ok || !MayAlias(store.Val, value) {
 		return false
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
 	return ok && (ExternallyOwnedValue(field.X) || valueTransferred(field.X, map[ssa.Value]bool{}))
 }
 
-// ValueContainsValue reports whether owner is an aggregate or closure that
-// transitively contains value.
-
 func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool {
 	update, ok := instruction.(*ssa.MapUpdate)
 	// A wrapper that holds the value, such as a log-file record keyed by
 	// session, transfers it to the map's owner exactly as the value would.
 	// https://github.com/askie/grix/blob/dbf8ad10477d7458c7b8c9900ce2e2a6296d4063/backend/internal/pkg/adapterlog/adapterlog.go#L115-L129
-	return ok && (SameValue(update.Value, value) || ValueContainsValue(update.Value, value)) && ExternallyOwnedValue(update.Map)
+	return ok && (MayAlias(update.Value, value) || MayContainValue(update.Value, value)) && ExternallyOwnedValue(update.Map)
 }
 
 // ClosureCapturesValue reports whether instruction creates a closure that owns value.
@@ -131,7 +128,7 @@ func referenceTransfersValue(reference ssa.Instruction, value ssa.Value, seen ma
 		// Fluent builders preserve an escaping owner through same-typed links.
 		// https://github.com/erpc/erpc/blob/2b7e807d7d147422cf47c473153eaf9979afdcc9/clients/http_json_rpc_client.go#L755-L771
 		receiver := CallReceiver(typed.Common())
-		return receiver != nil && SameValue(receiver, value) &&
+		return receiver != nil && MayAlias(receiver, value) &&
 			types.Identical(typed.Type(), value.Type()) && valueTransferred(typed, seen)
 	case *ssa.Store:
 		return storeTransfersValue(typed, seen)
@@ -168,7 +165,7 @@ func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) boo
 	}
 	usesValue := false
 	for _, argument := range call.Common().Args {
-		usesValue = usesValue || SameValue(argument, value)
+		usesValue = usesValue || MayAlias(argument, value)
 	}
 	return usesValue && valueStoredInField(call, map[ssa.Value]bool{})
 }

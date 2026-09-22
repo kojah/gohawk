@@ -300,7 +300,7 @@ func signalSuppliedAtCall(
 		return nil
 	}
 	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		if ssaflow.ValueAliases(root, pair.Local, map[ssa.Value]bool{}) {
+		if ssaflow.MayAliasThroughLoads(root, pair.Local) {
 			return ssaflow.CapturedBindingValue(pair.Supplied)
 		}
 	}
@@ -363,7 +363,7 @@ func nestedClosureSignal(nested *ssa.MakeClosure) ssa.Value { //nolint:ireturn /
 				continue
 			}
 			for index, free := range function.FreeVars {
-				if index < len(nested.Bindings) && ssaflow.ValueAliases(channel, free, map[ssa.Value]bool{}) {
+				if index < len(nested.Bindings) && ssaflow.MayAliasThroughLoads(channel, free) {
 					return ssaflow.CapturedBindingValue(nested.Bindings[index])
 				}
 			}
@@ -400,7 +400,7 @@ func waitGroupCompletionValues(
 			}
 			receiver := ssaflow.CallReceiver(common)
 			group := ssaflow.SpawnedValueAtCall(spawn, function, closure, receiver)
-			if group == nil || ssaflow.SameAsAny(group, groups) {
+			if group == nil || ssaflow.MayAliasAny(group, groups) {
 				continue
 			}
 			if !waitGroupSettlesFunction(function, receiver) {
@@ -447,7 +447,7 @@ func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value) bool {
 	return !ssaflow.UnownedReturnFromEntryAssumingNonNil(function, receiver, func(instruction ssa.Instruction) bool {
 		common := ssaflow.InstructionCall(instruction)
 		if common == nil || !ssaflow.CallMatchesSymbol(common, waitGroupDone) ||
-			!ssaflow.ValueAliases(ssaflow.CallReceiver(common), receiver, map[ssa.Value]bool{}) {
+			!ssaflow.MayAliasThroughLoads(ssaflow.CallReceiver(common), receiver) {
 			return false
 		}
 		if _, deferred := instruction.(*ssa.Defer); deferred {

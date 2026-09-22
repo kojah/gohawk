@@ -41,7 +41,10 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 
 // StoresValueInField reports whether instruction transfers value into a struct field.
 
-func ValueContainsValue(owner, value ssa.Value) bool {
+// MayContainValue reports whether owner may be an aggregate or closure that
+// transitively contains value. Possible containment only: it can hide a
+// diagnostic behind an opaque owner, never prove that the owner settles it.
+func MayContainValue(owner, value ssa.Value) bool {
 	return valueOwnsValue(owner, value, map[ssa.Value]bool{}) || newOwnershipSearch(nil).aggregateStoresValue(owner, value)
 }
 
@@ -49,7 +52,7 @@ func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
 	if owner == nil || seen[owner] {
 		return false
 	}
-	if SameValue(owner, value) {
+	if MayAlias(owner, value) {
 		return true
 	}
 	seen[owner] = true

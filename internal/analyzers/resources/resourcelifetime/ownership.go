@@ -14,7 +14,7 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			owner := resourceFieldOwner(instruction, resource)
-			if owner != nil && !ssaflow.ExternallyOwnedValue(owner) && !ssaflow.SameAsAny(owner, owners) {
+			if owner != nil && !ssaflow.ExternallyOwnedValue(owner) && !ssaflow.MayAliasAny(owner, owners) {
 				owners = append(owners, owner)
 			}
 		}
@@ -52,7 +52,7 @@ func resourceTransferredToExternalField(instruction ssa.Instruction, resource ss
 
 func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Value { //nolint:ireturn // Owners retain their concrete SSA value forms.
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !ssaflow.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) && !ssaflow.ValueContainsValue(store.Val, resource) {
+	if !ok || !ssaflow.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) && !ssaflow.MayContainValue(store.Val, resource) {
 		return nil
 	}
 	if field, ok := store.Addr.(*ssa.FieldAddr); ok {
