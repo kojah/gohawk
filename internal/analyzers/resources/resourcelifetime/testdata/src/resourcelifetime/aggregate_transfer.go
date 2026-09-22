@@ -107,3 +107,46 @@ func retainedCallbackResource(path string) error {
 	resourcedep.RegisterExit(func() { _ = file.Close() })
 	return nil
 }
+
+type writerBundle struct{ writers []io.Writer }
+type writerContext struct{ bundle writerBundle }
+
+func bundleWriters(writers ...io.Writer) writerBundle { return writerBundle{writers: writers} }
+func (bundle writerBundle) context() writerContext    { return writerContext{bundle: bundle} }
+func (context writerContext) writer() writerBundle    { return context.bundle }
+
+var publishedWriters writerBundle
+var publishedWriterStatus bool
+
+func globallyPublishedWriterBundle(path string, alternate bool) error {
+	var writer io.Writer
+	if alternate {
+		writer = io.Discard
+	} else {
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		writer = file
+	}
+	publishedWriters = bundleWriters(io.Discard, writer).context().writer()
+	return nil
+}
+
+func discardedWriterBundle(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	_ = bundleWriters(io.Discard, file).context().writer()
+	return nil
+}
+
+func globallyPublishedWriterStatus(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	publishedWriterStatus = inspectRegistryFile(&registryFile{file: file})
+	return nil
+}

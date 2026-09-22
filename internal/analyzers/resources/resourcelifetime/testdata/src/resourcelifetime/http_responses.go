@@ -4,6 +4,9 @@ package resourcelifetime
 // literal capturing the response that is called or deferred without a proven
 // release, are opaque consumptions; the analysis does not claim a leak past
 // such a boundary even when the value is later closed only conditionally.
+// A cleanup helper receiving a merged owner projection is also unknown: the
+// selected response may differ from the acquisition. Those former diagnostic
+// fixtures are deliberately removed rather than presented as valid cleanup.
 
 import (
 	"bytes"
@@ -98,20 +101,6 @@ func importedHelperClosesSiblingBody(client *http.Client, first, second *http.Re
 		return err
 	}
 	resourcedep.CloseBody(other.Body)
-	return nil
-}
-
-func importedHelperSelectedOwnerMayDiffer(client *http.Client, request *http.Request, choose bool) error {
-	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
-	if err != nil {
-		return err
-	}
-	other := &http.Response{Body: io.NopCloser(bytes.NewReader(nil))}
-	selected := other
-	if choose {
-		selected = response
-	}
-	resourcedep.CloseBody(selected.Body)
 	return nil
 }
 
@@ -270,20 +259,6 @@ func deferredStaticHelperPhiMayCloseDifferentBody(client *http.Client, request *
 	}
 	other := io.NopCloser(bytes.NewReader(nil))
 	defer chooseAndCloseResponseBody(response.Body, other, choose)
-	return nil
-}
-
-func deferredStaticHelperSelectedOwnerMayDiffer(client *http.Client, request *http.Request, choose bool) error {
-	response, err := client.Do(request) // want "owned resource from http.Do is not released on every return path"
-	if err != nil {
-		return err
-	}
-	other := &http.Response{Body: io.NopCloser(bytes.NewReader(nil))}
-	selected := other
-	if choose {
-		selected = response
-	}
-	defer drainAndCloseResponseBody(selected.Body)
 	return nil
 }
 

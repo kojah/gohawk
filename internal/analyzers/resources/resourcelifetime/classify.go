@@ -99,10 +99,65 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 		ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), analysis.resource, map[ssa.Value]bool{}) {
 		return actionUnknown, "ambiguous-cleanup-value"
 	}
+	if analysis.ambiguousHelperCleanup(instruction, common) {
+		return actionUnknown, "ambiguous-helper-cleanup-value"
+	}
 	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {
 		return actionUnknown, boundary
 	}
 	return actionNone, actionNone.String()
+}
+
+// A cleanup helper may receive a projection of a merged owner. Proving cleanup
+// of its actual argument does not prove which acquisition was released, but
+// that ambiguous identity cannot establish a leak either. Direct Close calls
+// have the same unknown boundary above; read-only helpers do not qualify.
+// https://github.com/mr-karan/doggo/blob/7f6b105f240e562a5c7659976b1c16b683c25385/pkg/resolvers/doh.go#L143-L168
+func (analysis *resourceAnalysis) ambiguousHelperCleanup(instruction ssa.Instruction, common *ssa.CallCommon) bool {
+	if analysis.optional.Proven() || common == nil {
+		return false
+	}
+	for _, argument := range common.Args {
+		if !mergedCleanupArgument(argument) || !ssaflow.ValueDerivesFrom(argument, analysis.resource, map[ssa.Value]bool{}) {
+			continue
+		}
+		for _, method := range analysis.contract.cleanup {
+			completion := ssaflow.CompletionRequest{
+				Instruction: instruction,
+				Target:      argument,
+				Methods:     []string{method},
+				Coverage:    ssaflow.CoverageEveryReturn,
+				Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
+			}
+			if analysis.evidence.Prove(lifecyclefacts.EvidenceRequest{
+				Instruction: instruction,
+				Target:      argument,
+				Completion:  &completion,
+				SelectMask:  releaseMask(instruction, argument, method),
+			}).Proven() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Only merged values are ambiguous here. A helper that closes an overwritten
+// field, or conditionally closes its exact argument, must remain diagnostic.
+func mergedCleanupArgument(argument ssa.Value) bool {
+	if _, merged := argument.(*ssa.Phi); merged {
+		return true
+	}
+	load, loaded := argument.(*ssa.UnOp)
+	if !loaded || load.Op != token.MUL {
+		return false
+	}
+	field, projected := load.X.(*ssa.FieldAddr)
+	if !projected {
+		return false
+	}
+	_, merged := field.X.(*ssa.Phi)
+	return merged
 }
 
 // Compressors own finalization, not their output descriptor. An error return
@@ -244,13 +299,13 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// A resource that reaches the callee only inside an aggregate argument is
 	// beyond a parameter-level completion proof: that proof follows the
 	// parameter value, not a resource nested in one of its fields. Treat such a
-	// call as a boundary only when its own result reaches a return, because
+	// call as a boundary only when its own result reaches a return or global, because
 	// only then can the resource have been transferred to the value the caller
 	// receives; a call whose result is discarded transfers nothing, so a
 	// resource left behind in its argument is still leaked. oss-rebuild wraps a
 	// zip reader in an fs.FS wrapper and returns the loader's result:
 	// https://github.com/google/oss-rebuild/blob/9ce0528dd68bf209b52cc9fdc90bd63742cbb3a0/pkg/sysgraph/sgstorage/loader.go#L173-L179
-	if analysis.carriedWithinAggregate(common) && callResultReachesReturn(instruction) {
+	if analysis.carriedWithinAggregate(common) && callResultMayTransfer(instruction) {
 		return "nested-in-transferred-argument", true
 	}
 	// A summarized callee proven to release, store, or own the resource was
@@ -262,15 +317,22 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 }
 
 func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	for _, argument := range common.Args {
+	for index, argument := range common.Args {
+		if ssaflow.SameValue(argument, analysis.resource) || !analysis.carriesWithin(argument) || analysis.carriedWithinClosure(argument) {
+			continue
+		}
+		// A parameter-level retention fact also makes its nested contents
+		// uncertain. Variadic values stored for later callbacks are a common
+		// example; a clear retention bit is not a purity proof.
+		// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/convert/filecopy_test.go#L92-L106
+		if retained, _ := analysis.evidence.ArgumentRetained(instruction, index); retained {
+			return true
+		}
 		pointer, ok := argument.Type().Underlying().(*types.Pointer)
 		if !ok {
 			continue
 		}
 		if _, aggregate := pointer.Elem().Underlying().(*types.Struct); !aggregate {
-			continue
-		}
-		if ssaflow.SameValue(argument, analysis.resource) || !analysis.carriesWithin(argument) || analysis.carriedWithinClosure(argument) {
 			continue
 		}
 		effects := analysis.evidence.CallEffects(instruction, argument)
@@ -333,11 +395,11 @@ func (analysis *resourceAnalysis) carriedWithinClosure(argument ssa.Value) bool 
 	return ok && analysis.closureCarries(closure)
 }
 
-// callResultReachesReturn reports whether a value the call produces, other than
-// an error, flows to a return of the enclosing function. Only such a result can
-// hold the resource nested in one of the call's arguments, so a call whose
-// error alone is propagated has transferred nothing.
-func callResultReachesReturn(instruction ssa.Instruction) bool {
+// callResultMayTransfer reports whether a non-error call result flows to a return
+// or a global aggregate. A fluent builder may publish its nested resource without
+// returning it from this function. This is uncertainty, not proof of ownership:
+// https://github.com/tair-opensource/RedisShake/blob/014e2f493583d24d2a37166d360bad21fc2a2422/internal/log/init.go#L54-L60
+func callResultMayTransfer(instruction ssa.Instruction) bool {
 	result, ok := instruction.(ssa.Value)
 	if !ok || instruction.Parent() == nil {
 		return false
@@ -351,6 +413,17 @@ func callResultReachesReturn(instruction ssa.Instruction) bool {
 			if ssaflow.ValueDerivesFrom(value, result, map[ssa.Value]bool{}) {
 				return true
 			}
+		}
+	}
+	for _, store := range ssaflow.InstructionsOf[*ssa.Store](instruction.Parent()) {
+		if _, global := store.Addr.(*ssa.Global); !global {
+			continue
+		}
+		// Publishing a scalar observation or error does not retain its inputs.
+		_, scalar := store.Val.Type().Underlying().(*types.Basic)
+		if !scalar && !types.Identical(store.Val.Type(), errorType) &&
+			ssaflow.ValueDerivesFrom(store.Val, result, map[ssa.Value]bool{}) {
+			return true
 		}
 	}
 	return false

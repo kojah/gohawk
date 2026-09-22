@@ -2,6 +2,7 @@ package resourcelifetime
 
 import (
 	"os"
+	"resourcedep"
 	"sync"
 )
 
@@ -39,5 +40,23 @@ func registryAggregateObservedOnly(path string) error {
 		return err
 	}
 	_ = inspectRegistryFile(&registryFile{file: file})
+	return nil
+}
+
+func importedRegistryRetainsVariadicFile(registry *resourcedep.ValueRegistry, path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	registry.Keep(file, nil)
+	return nil
+}
+
+func importedRegistryOnlyObservesVariadicFile(registry *resourcedep.ValueRegistry, path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	registry.Observe(file, nil)
 	return nil
 }

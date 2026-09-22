@@ -76,6 +76,14 @@ with neither body nor summary, to a launched or deferred literal without a
 proven release, or into a channel, map, or append the analyzer does not
 track. Past such a use the analyzer stays silent rather than guess.
 
+The same uncertainty applies when a retained aggregate argument contains the
+resource, or a helper's aggregate result is published through a global. A helper
+that closes a merged resource argument or a body loaded from a merged response
+also makes the result unknown: cleanup of the selected value does not prove which
+acquisition it released. These boundaries do not establish ownership or cleanup.
+Read-only helpers, overwritten response bodies, and cleanup of unrelated values
+do not qualify for this merged-value boundary.
+
 Compression writers over a local in-memory buffer are exempt by default;
 `-require-memory-writer-close=true` reports them like any other writer.
 

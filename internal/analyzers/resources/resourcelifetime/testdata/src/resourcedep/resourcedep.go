@@ -78,6 +78,18 @@ func RegisterExit(handler func()) {
 	exitHandlers = append(exitHandlers, handler)
 }
 
+// ValueRegistry models a receiver retaining variadic results for a later caller.
+type ValueRegistry struct{ values func() []any }
+
+// Keep retains the values through a callback stored on the receiver.
+func (registry *ValueRegistry) Keep(values ...any) *ValueRegistry {
+	registry.values = func() []any { return values }
+	return registry
+}
+
+// Observe only counts the arguments and retains none of them.
+func (*ValueRegistry) Observe(values ...any) int { return len(values) }
+
 // Journal owns the file its constructor opened; Close releases it.
 type Journal struct {
 	file *os.File
