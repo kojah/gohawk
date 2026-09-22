@@ -29,6 +29,17 @@ never count as corrections. Candidate code is only statically analyzed.
   produces `internal/spawn/spawn.go:187:12`. Dynamic callees, nonliteral or
   conflicting results, deferred named-result mutations, and exhausted scans
   remain opaque. The scan is nonrecursive and capped at 128 instructions.
+- `3178bfb`: eight lock findings corrected through bounded exact branch facts,
+  conditional caller release, and explicit imported/loaded-guard uncertainty.
+  The [lock checkpoint](followup207-locks.md) retains four reviewed bug controls.
+- `758fe4f`: fresh returned-owner inference declines ownership when the exact
+  resource is also retained by an external manager, rather than assigning sole
+  responsibility to the returned view.
+- `b7f5f9b`: direct standard process exits and dominating deferred exits at
+  `RunDefers` terminate the shared normal-return proof. The golang/sys
+  `unix/syscall_unix_test.go:298` finding disappears in a valid canonical scan;
+  the other two resource findings in that scope remain. Conditional defers,
+  indirect exit functions, and misleading names do not establish termination.
 
 The analyzer slices have diagnostic and accepted fixtures, proof/trace assertions,
 focused tests, focused lint, architecture tests, and race tests. Their canonical
@@ -59,3 +70,40 @@ Five singleton-loop cases are pending a specific policy decision: the repository
 currently prohibits loop-count proofs as false-positive fixes. Approval has
 been requested for a narrowly bounded shared cardinality model; other families
 continue meanwhile.
+
+## Verified follow-up checkpoint
+
+The family replays now verify 40 corrections from the frozen input: 18 resource,
+10 lock, 8 goroutine, and 4 process/cancellation findings. The remaining 167 are
+still open. All 140 resource sites now have successful paired replays across
+83 package scopes; one is absent under the baseline profile and is not counted
+as a correction. Absence after a failed load is never counted. See the family ledgers:
+
+- [Resources](followup207-resources.md): 66 bug controls retained.
+- [Locks](followup207-locks.md): four bug controls retained.
+- [Goroutines](followup207-goroutines.md): 56 bug controls retained.
+- [Process/cancellation](followup207-process-cancel.md): seven bug controls retained.
+
+The combined `make verify` gate passes; dependent shared flow, goroutine, and
+process changes are committed together as `511ed2b`. Newly exposed goroutine findings were also reviewed: three real
+bugs remain reported, and ten false positives were corrected. The 109-site
+goroutine ledger preserves those reviews alongside all original labels.
+
+### Rejected intermediate candidates
+
+The broader goroutine replay found that constant nil-branch feasibility removes
+the Stargz `store/manager.go:193` report. Its earlier report depended on an
+impossible `result != nil` return; the remaining mixed select was incorrectly
+credited as a join even on timeout/error/result arms. This is a genuine bug
+control, not a false positive to relabel. Case-local select ownership restores
+the genuine report. The final 66-scope goroutine replay retains every original
+bug control, including Stargz and controls lost by other rejected intermediate
+candidates. Cancellation and transport uncertainty do not prove worker completion.
+
+An intermediate integer-state extension also caused pathological lock-flow
+expansion in `image/png`. Those runaway/timed-out replays are invalid, not
+corrections. A no-acquisition relevance gate and transactional state budget are
+being verified: exhausted functions must publish neither diagnostics nor partial
+order edges. The corrected isolated scan took 1.60 seconds and about 144 MB;
+all 20 canonical lock scopes subsequently completed successfully. The final
+binding-only replay produced exactly the same lock diagnostics in every scope.
