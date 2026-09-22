@@ -154,6 +154,25 @@ func Guarded(value *owner) {
 		value.body.Close()
 	}
 }
+
+func invoke(closeFn func()) { closeFn() }
+func maybeInvoke(closeFn func(), enabled bool) { if enabled { closeFn() } }
+func ignore(closeFn func()) {}
+func selectCallback(closeFn func(), enabled bool) {
+	if enabled { closeFn = func() {} }
+	closeFn()
+}
+
+func Bound(value interface{ Close() }) { invoke(value.Close) }
+func BoundConditional(value *closer, enabled bool) { maybeInvoke(value.Close, enabled) }
+func BoundIgnored(value *closer) { ignore(value.Close) }
+func BoundSibling(value, other *closer) { invoke(other.Close) }
+func BoundAsync(value *closer) { go invoke(value.Close) }
+func BoundSelected(value *closer, enabled bool) { selectCallback(value.Close, enabled) }
+func BoundOwnerSelected(value, other *closer, enabled bool) {
+	if enabled { value = other }
+	invoke(value.Close)
+}
 `)
 	for _, test := range []struct {
 		name string
@@ -163,6 +182,13 @@ func Guarded(value *owner) {
 		{name: "Conditional"},
 		{name: "Sibling"},
 		{name: "Guarded", want: true},
+		{name: "Bound", want: true},
+		{name: "BoundConditional"},
+		{name: "BoundIgnored"},
+		{name: "BoundSibling"},
+		{name: "BoundAsync"},
+		{name: "BoundSelected"},
+		{name: "BoundOwnerSelected"},
 	} {
 		function := pkg.Func(test.name)
 		fact := summarize(

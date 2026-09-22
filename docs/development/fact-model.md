@@ -85,6 +85,14 @@ fact rather than being inferred from it.
 
 ## Some masks must be exact; others may guess
 
+A discharge summary can also follow a bound method passed to a visible helper:
+`invoke(resource.Close)` counts when the exact callback is invoked on every
+normal return. The summary builder requires one exact receiver capture and a
+synchronous call. Conditional invocation, replacement callbacks, another
+receiver, and asynchronous launches do not establish this guarantee. This
+reuses the local completion proof rather than treating every callback argument
+as cleanup.
+
 How sure a mask has to be depends on what reads it, and keeping that straight
 is what keeps the model sound:
 

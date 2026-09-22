@@ -64,6 +64,10 @@ func IgnoreErrorFunc(cleanup func() error) {
 	_ = cleanup()
 }
 
+func CloseViaCallback(closer io.Closer) {
+	IgnoreErrorFunc(closer.Close)
+}
+
 // MaybeIgnoreErrorFunc invokes cleanup only when enabled.
 func MaybeIgnoreErrorFunc(cleanup func() error, enabled bool) {
 	if enabled {

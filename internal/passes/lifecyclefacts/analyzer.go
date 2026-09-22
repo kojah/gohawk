@@ -6,6 +6,7 @@ package lifecyclefacts
 import (
 	"go/types"
 	"reflect"
+	"strings"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -165,6 +166,9 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 				}).Proven() {
 					return true
 				}
+				if invokesMethodCallback(instruction, parameter, method) {
+					return true
+				}
 				imported, ok := importFact(pass, instruction)
 				return ok && factOwnsArgument(instruction, parameter, imported.MethodMask(method))
 			}) {
@@ -174,6 +178,38 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 		summarizeTransfers(pass, retentions, function, index, parameter, &fact)
 	}
 	return fact
+}
+
+// A visible helper may invoke a bound cleanup method supplied by its wrapper.
+// Export that same completion proof rather than losing it at the package edge.
+// A single exact capture excludes callbacks containing a possible owner alias.
+// InvokeTarget requires this callback on every return, including when a helper
+// selects among function values; merely passing the callback is not completion.
+// https://github.com/opencontainers/umoci/blob/f5d1219acaf67127ebacf6306776d3ff465735ea/internal/funchelpers/verify_error.go#L55-L66
+func invokesMethodCallback(instruction ssa.Instruction, target ssa.Value, method string) bool {
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	for _, argument := range call.Common().Args {
+		closure, ok := argument.(*ssa.MakeClosure)
+		if !ok || len(closure.Bindings) != 1 || closure.Bindings[0] != target {
+			continue
+		}
+		// x/tools uses this synthetic wrapper for a method value. Restrict the
+		// candidate to that small body instead of searching arbitrary literals
+		// once per parameter and lifecycle method during summary construction.
+		function, ok := closure.Fn.(*ssa.Function)
+		if !ok || !strings.HasPrefix(function.Synthetic, "bound method wrapper for ") || !ssaflow.ValueCallsMethod(closure, method, target) {
+			continue
+		}
+		if ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+			Instruction: instruction, Target: closure, InvokeTarget: true, Budget: ssaflow.NewSearchBudget(1000),
+		}).Proven() {
+			return true
+		}
+	}
+	return false
 }
 
 func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruction, parameter ssa.Value) bool {
