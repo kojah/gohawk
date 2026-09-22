@@ -12,6 +12,15 @@ import (
 type LocalEvidence struct {
 	completions map[completionEvidenceKey]CompletionProof
 	transfers   map[transferEvidenceKey]OwnershipTransferProof
+	returned    ReturnedCleanupLookup
+}
+
+// NewLocalEvidenceWithReturnedCleanup fixes one immutable returned-summary
+// policy for this evidence scope. Fixing the policy permits cache reuse;
+// per-request lookup overrides remain uncached. The lookup's answers must not
+// change during the scope's lifetime.
+func NewLocalEvidenceWithReturnedCleanup(lookup ReturnedCleanupLookup) LocalEvidence {
+	return LocalEvidence{returned: lookup}
 }
 
 type completionEvidenceKey struct {
@@ -34,6 +43,9 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionP
 	// Lookup policies may differ between requests. Their identities are not
 	// comparable; retain only the per-query summary cache in this case.
 	if request.Summarized != nil || request.ReturnedSummaries != nil {
+		if request.ReturnedSummaries == nil {
+			request.ReturnedSummaries = evidence.returned
+		}
 		return ProveCompletion(request)
 	}
 	key := completionEvidenceKey{
@@ -48,6 +60,7 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionP
 	if proof, ok := evidence.completions[key]; ok {
 		return proof
 	}
+	request.ReturnedSummaries = evidence.returned
 	proof := ProveCompletion(request)
 	if evidence.completions == nil {
 		evidence.completions = make(map[completionEvidenceKey]CompletionProof)

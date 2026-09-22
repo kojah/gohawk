@@ -231,10 +231,12 @@ func (evidence *LifecycleEvidence) capturedImportedCompletion(request EvidenceRe
 // NewLifecycleEvidence constructs evidence whose accepted, rejected, and unknown
 // results use the supplied analyzer identity for structured tracing.
 func NewLifecycleEvidence(pass *analysis.Pass, analyzer, check string) *LifecycleEvidence {
-	return &LifecycleEvidence{
+	evidence := &LifecycleEvidence{
 		pass: pass, analyzer: analyzer, check: check,
 		probe: analysisTrace.ForPackage(pass, analyzer, check),
 	}
+	evidence.local = ssaflow.NewLocalEvidenceWithReturnedCleanup(evidence.returnedCleanupLookup())
+	return evidence
 }
 
 // ForCandidate attributes the evidence traced from here on to candidate, so a
@@ -352,9 +354,7 @@ func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) ssaflow.P
 		}
 	}
 	if request.Completion != nil {
-		completionRequest := *request.Completion
-		completionRequest.ReturnedSummaries = evidence.returnedCleanupLookup()
-		completion := evidence.local.Completion(completionRequest)
+		completion := evidence.local.Completion(*request.Completion)
 		proof = completion.Proof
 		if proof.Proven() {
 			return proof
