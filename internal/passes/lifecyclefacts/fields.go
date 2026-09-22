@@ -312,9 +312,12 @@ func releasedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 		if !ok {
 			continue
 		}
-		if !ssaflow.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
+		// A panic-only placeholder cannot define the owner's cleanup contract:
+		// lack of a normal return does not witness release of any field.
+		// https://github.com/talostrading/sonic/blob/fa70f8c39b9eea68e782c4c7f3604fe232d4301c/multicast/peer.go#L262-L264
+		if ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
 			return releasesField(pass, instruction, receiver, index, cleanup)
-		}) {
+		}, ssaflow.CoverageEveryReturn, nil) {
 			released |= parameterMaskFor(index)
 		}
 	}
@@ -569,6 +572,9 @@ func parameterIsView(
 }
 
 func parameterReturnedUnchangedOnEveryReturn(function *ssa.Function, parameter ssa.Value) bool {
+	if len(function.Blocks) == 0 || !ssaflow.NormalReturnReachableFrom(function.Blocks[0]) {
+		return false
+	}
 	return !ssaflow.UnownedReturnFromEntryAllow(
 		function,
 		func(ssa.Instruction) bool { return false },

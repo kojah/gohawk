@@ -175,6 +175,11 @@ Each limit traces straight back to one of the four things above.
   differently two call sites use the function.
 - **Panics and other abnormal exits** — *normal returns only*. A callee that
   closes on every `return` but leaks when it panics still counts as `Closed`.
+  A panic-only or non-returning body does not count as invoking, releasing, or
+  transferring anything merely because it has no contrary return. Action
+  masks require a positive action witness and a normal return; returned-owner
+  claims also require a reachable normal return. In particular, an unimplemented
+  panicking method cannot become a type's cleanup contract.
 - **Interface calls** — *named callee only*. A call through an interface has no
   fact and is `unknown`, unless the method name matches a documented cleanup
   contract such as `Close`.

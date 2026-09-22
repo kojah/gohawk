@@ -250,11 +250,14 @@ func summarizeTransfers(
 }
 
 func ownsOnEveryReturn(function *ssa.Function, parameter ssa.Value, owns func(ssa.Instruction) bool) bool {
-	return !ssaflow.UnownedReturnFromEntryAssumingNonNil(function, parameter, owns)
+	// The absence of an unowned return is vacuous for panic-only or infinite
+	// bodies. Use the shared completion coverage, which also requires an action
+	// witness, before advertising a lifecycle action to another package.
+	return ssaflow.MethodCallCoverage(function, owns, ssaflow.CoverageEveryReturn, parameter)
 }
 
 func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	if !canReturnOwner(function.Signature.Results()) {
+	if !canReturnOwner(function.Signature.Results()) || len(function.Blocks) == 0 || !ssaflow.NormalReturnReachableFrom(function.Blocks[0]) {
 		return false
 	}
 	// A constructor commonly delegates across a package boundary, so the
@@ -302,12 +305,12 @@ func allResultsNil(returned *ssa.Return) bool {
 }
 
 func storedInReceiverOnEveryReturn(function *ssa.Function, receiver, parameter ssa.Value) bool {
-	return !ssaflow.UnownedReturnFromEntry(function, func(instruction ssa.Instruction) bool {
+	return ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
 		store, ok := instruction.(*ssa.Store)
 		if !ok || !ssaflow.ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) {
 			return false
 		}
 		field, ok := store.Addr.(*ssa.FieldAddr)
 		return ok && ssaflow.ValueDerivesFrom(field.X, receiver, map[ssa.Value]bool{})
-	})
+	}, ssaflow.CoverageEveryReturn, nil)
 }
