@@ -28,6 +28,12 @@ Reading a field of the handle, such as logging the child's PID, does not
 count as handing it on. The `missing-wait` check reports handles that are
 waited on or released on some paths but not all.
 
+A command captured by a callback passed to an opaque runner is an uncertain
+handoff, not a proven leak or a guaranteed wait. A launched waiter with an
+explicit `Wait` followed by process termination is also outside the normal-return
+completion proof. Locally stored command fields are resolved at acquisition when
+checking whether a returned value owner contains the command.
+
 ## Why this is flagged
 
 Starting a process without waiting for it can leave operating-system resources

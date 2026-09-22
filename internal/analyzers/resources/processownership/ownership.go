@@ -174,7 +174,7 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 	// os.Process.Release explicitly relinquishes the parent's wait/reap
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
-	return waitsForCommand(instruction, command) ||
+	return waitsForCommand(instruction, command) || possibleWaitHandoff(instruction, command) ||
 		deferredClosureWaitsForCommand(instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
 			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
@@ -191,6 +191,38 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 		storesProcessHandleInExternalField(instruction, command) ||
 		processHandleOwnershipAction(evidence, instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit"))
+}
+
+// A callback supplied to an opaque runner may own the wait. This is a reason
+// to decline loss, not evidence that the runner invokes or joins the callback.
+// A started worker with no normal return also remains opaque when it contains
+// a positive Wait witness: every-return completion deliberately excludes it.
+// https://github.com/la5nta/pat/blob/2e6a8d14baf0268f4e2aa4d01784a54ca935cf52/internal/prehook/prehook.go#L109-L114
+func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	if _, spawned := instruction.(*ssa.Go); spawned {
+		callee, _ := ssaflow.DirectCallee(common)
+		if callee == nil || len(callee.Blocks) == 0 || ssaflow.NormalReturnReachableFrom(callee.Blocks[0]) {
+			return false
+		}
+		return ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+			Instruction: instruction, Target: command, Methods: []string{"Wait"},
+			Coverage: ssaflow.CoverageAnywhere, Budget: ssaflow.NewSearchBudget(1000),
+		}).Proven()
+	}
+	callee, _ := ssaflow.DirectCallee(common)
+	if callee != nil && len(callee.Blocks) != 0 {
+		return false
+	}
+	for _, argument := range common.Args {
+		if _, callback := argument.(*ssa.MakeClosure); callback && ssaflow.ValueContainsValue(argument, command) {
+			return true
+		}
+	}
+	return false
 }
 
 func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {

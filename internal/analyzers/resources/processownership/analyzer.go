@@ -99,6 +99,12 @@ func commandOwnedElsewhere(evidence *lifecyclefacts.LifecycleEvidence, function 
 // reportStartedCommand asks the flow whether every successful return waits on
 // or transfers the command, and reports partial wait ownership.
 func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, start *ssa.Call, command ssa.Value) {
+	// The receiver may be a load from a returned value-owner's field. Resolve
+	// that acquisition-time load before comparing it with the owner's contents.
+	// https://github.com/minio/selfupdate/blob/5b54254443f7ab80e750e1761590c1f029ecc42f/internal/binarydist/bzip2.go#L26-L40
+	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(command); resolved.Proven() {
+		command = resolved.Value
+	}
 	leaks := ssaflow.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
 		return processOwnershipAction(evidence, candidate, command)
 	}, func(returned *ssa.Return) bool {
