@@ -78,6 +78,12 @@ exactly as they owe `Close` to `os.Open`. A wrapper that stores a caller's
 resource, or a type whose methods never release the field, produces no
 contract.
 
+Fresh acquisition inference requires a field containing a known concrete
+resource type. A custom `Close` method alone does not establish acquisition:
+the result may be a lazy or empty handle. Nested custom owners and
+interface-only resource results remain unknown, so leaks through those
+constructors may be missed.
+
 The same summaries decide the other direction. A call that stores the caller's
 resource in its returned struct transfers the obligation only when that
 struct's type has a method proven to release the field; a returned view such
@@ -102,6 +108,13 @@ also makes the result unknown: cleanup of the selected value does not prove whic
 acquisition it released. These boundaries do not establish ownership or cleanup.
 Read-only helpers, overwritten response bodies, and cleanup of unrelated values
 do not qualify for this merged-value boundary.
+
+A deferred closure registered before acquisition may close a captured variable
+assigned later. When that defer dominates the acquisition and its body contains
+cleanup derived from the captured cell, the result is unknown even if several
+acquisitions feed the cell. This does not prove which value is closed and can
+miss leaks caused by overwriting the cell. Read-only captures, unrelated
+cleanup, and deferred arguments evaluated by value do not establish this boundary.
 
 Compression writers over a local in-memory buffer are exempt by default;
 `-require-memory-writer-close=true` reports them like any other writer.

@@ -100,8 +100,9 @@ func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 }
 
 // acquiredResource reports whether the value is the result of a call in this
-// function whose type carries an obligation. Parameters, loads, and globals
-// are excluded: a resource that arrived from elsewhere is borrowed.
+// function whose concrete type belongs to the known resource vocabulary.
+// Parameters, loads, and globals are excluded: a resource that arrived from
+// elsewhere is borrowed.
 func acquiredResource(pass *analysis.Pass, value ssa.Value) bool {
 	var call *ssa.Call
 	switch typed := value.(type) {
@@ -110,7 +111,12 @@ func acquiredResource(pass *analysis.Pass, value ssa.Value) bool {
 	case *ssa.Extract:
 		call, _ = typed.Tuple.(*ssa.Call)
 	}
-	_, cleanup := typeCleanup(value.Type())
+	// A custom Close method proves only that cleanup can be requested, not
+	// that construction acquired anything. Lazy handles may acquire later.
+	// Restrict positive acquisition evidence to the concrete resource vocabulary;
+	// nested custom owners remain unknown rather than inheriting a guessed duty.
+	// https://github.com/prometheus-community/postgres_exporter/blob/e7e2095249dc369d943af1cef3d8c615228278ec/collector/instance.go#L31-L47
+	_, cleanup := ResourceCleanup(value.Type())
 	return call != nil && cleanup && !returnsExistingResource(pass, call)
 }
 

@@ -355,8 +355,10 @@ func (j *Journal) MaybeClose(ok bool) error {
 	if got := summarize(pass, newRetentionCache(), pkg.Func("WrappedEnvelope")).OwnedFields; got != 0 {
 		t.Errorf("WrappedEnvelope OwnedFields = %#x, want no new acquisition", uint64(got))
 	}
-	if got := summarize(pass, newRetentionCache(), pkg.Func("FreshEnvelope")).OwnedFields; !got.contains(0) {
-		t.Errorf("FreshEnvelope OwnedFields = %#x, want field 0", uint64(got))
+	// A nested custom Close method is not an acquisition contract. Until an
+	// exact nested-acquisition summary exists, even real owners remain unknown.
+	if got := summarize(pass, newRetentionCache(), pkg.Func("FreshEnvelope")).OwnedFields; got != 0 {
+		t.Errorf("FreshEnvelope OwnedFields = %#x, want unknown nested acquisition", uint64(got))
 	}
 	// ReturnedOwner cannot distinguish which result owns the argument. Decline
 	// fresh inference for the other result rather than inventing a relationship.

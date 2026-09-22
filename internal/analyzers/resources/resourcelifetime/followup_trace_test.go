@@ -9,8 +9,9 @@ import (
 func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 	t.Helper()
 	want := map[string]string{
-		"paired-error-helper-cleanup": "paired_error_cleanup.go:",
-		"rows-transaction-finished":   "sql_row_parents.go:",
+		"prior-defer-may-clean-captured-cell": "prior_captured_cleanup.go:",
+		"paired-error-helper-cleanup":         "paired_error_cleanup.go:",
+		"rows-transaction-finished":           "sql_row_parents.go:",
 	}
 	foundSentinel := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {

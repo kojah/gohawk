@@ -540,6 +540,10 @@ func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call)
 		if !ssaflow.InstructionDominates(deferred, acquisition) {
 			continue
 		}
+		if analysis.capturedCellCleanup(deferred).Proven() {
+			analysis.emitAction(deferred, actionUnknown, "prior-defer-may-clean-captured-cell")
+			return true
+		}
 		if closesStatementDatabase(acquisition, deferred) {
 			analysis.emitAction(deferred, actionUnknown, "statement-parent-closed")
 			return true
@@ -560,6 +564,32 @@ func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call)
 		}
 	}
 	return false
+}
+
+// A prior defer observes the captured cell at return, not at registration.
+// When several acquisitions feed that cell, exact value completion may fail.
+// A positive cleanup witness for the cell makes ownership unknown; it does
+// not prove which stored value will be closed. Read-only captures and by-value
+// deferred arguments do not qualify. Overwritten-cell leaks may be missed.
+// https://github.com/wind-c/comqtt/blob/11282b91abb06d5169b857a2c38fad5d54502050/plugin/auth/http/http.go#L89-L127
+func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssaflow.Proof {
+	if closure, ok := deferred.Common().Value.(*ssa.MakeClosure); ok {
+		function, _ := closure.Fn.(*ssa.Function)
+		for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
+			if !ssaflow.CapturedBindingMatches(pair.Binding, analysis.resource) {
+				continue
+			}
+			mayClean := ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
+				common := ssaflow.InstructionCall(instruction)
+				return common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
+					ssaflow.ValueIsAccessPathFrom(ssaflow.CallReceiver(common), pair.Free)
+			}, ssaflow.CoverageAnywhere, nil)
+			if mayClean {
+				return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "captured-cell-may-cleanup"}
+			}
+		}
+	}
+	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
 }
 
 func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction, reason string) {

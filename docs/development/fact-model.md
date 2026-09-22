@@ -83,6 +83,12 @@ returned type releases that field, which is what `OwnedFields` and
 `ReleasedFields` record. That is why the view fact exists alongside the owner
 fact rather than being inferred from it.
 
+Fresh `OwnedFields` inference requires a call result of a known concrete
+resource type stored in the returned object. An arbitrary custom `Close`
+method establishes cleanup capability, not that construction acquired a live
+resource. Nested custom owners and interface-only results therefore remain
+unknown; they are not recursively assumed to create new obligations.
+
 ## Some masks must be exact; others may guess
 
 A discharge summary can also follow a bound method passed to a visible helper:

@@ -29,6 +29,31 @@ func protocolClientUsesClosedConnection(conn net.Conn) {
 // a method of that type summarized as releasing it. The caller then owes that
 // method. A wrapper around a caller's file and a type without a releasing
 // method produce no contract.
+// Nested custom-owner acquisition is deliberately not inferred from a Close
+// method alone; a result may be a lazy or empty handle. Direct known-resource
+// fields remain supported, including the imported Journal cases below.
+
+type lazyHandle struct{ file *os.File }
+
+func newLazyHandle() *lazyHandle { return &lazyHandle{} }
+
+func (handle *lazyHandle) Close() error {
+	if handle.file != nil {
+		return handle.file.Close()
+	}
+	return nil
+}
+
+type lazyHolder struct{ handle *lazyHandle }
+
+func newLazyHolder() *lazyHolder { return &lazyHolder{handle: newLazyHandle()} }
+
+func (holder *lazyHolder) Close() error { return holder.handle.Close() }
+
+func unopenedLazyHolderNeedsNoCleanup() {
+	holder := newLazyHolder()
+	_ = holder
+}
 
 func journalLeakedOnError(path string, lines []string) error {
 	journal, err := resourcedep.OpenJournal(path) // want "owned resource from resourcedep.OpenJournal is not released on every return path"
