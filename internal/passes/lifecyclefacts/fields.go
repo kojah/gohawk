@@ -238,7 +238,7 @@ func storedFieldIndicesVia(
 	structure *types.Struct,
 	memo *ssaflow.CallGraphMemo[ssa.Value, []int],
 ) []int {
-	return memo.Answer(value, func() []int {
+	return memo.Compose(value, nil, func() []int {
 		if value.Referrers() == nil {
 			return nil
 		}
@@ -251,6 +251,8 @@ func storedFieldIndicesVia(
 			indices = append(indices, delegatedFieldIndices(reference, value, structure, memo)...)
 		}
 		return indices
+	}, func(_ ssaflow.SummaryUnavailable, partial []int) []int {
+		return partial
 	})
 }
 
@@ -277,17 +279,14 @@ func delegatedFieldIndices(
 ) []int {
 	common := ssaflow.InstructionCall(reference)
 	callee := ssaflow.ResolvedCallee(common)
-	if callee == nil || len(callee.Blocks) == 0 || !memo.Enter(callee) {
-		return nil
-	}
-	defer memo.Leave(callee)
 	var indices []int
-	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
-		if binding.Supplied != value {
-			continue
+	memo.WithFunction(callee, func() {
+		for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+			if binding.Supplied == value {
+				indices = append(indices, storedFieldIndicesVia(binding.Local, structure, memo)...)
+			}
 		}
-		indices = append(indices, storedFieldIndicesVia(binding.Local, structure, memo)...)
-	}
+	})
 	return indices
 }
 

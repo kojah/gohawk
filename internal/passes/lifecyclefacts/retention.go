@@ -94,14 +94,23 @@ func (search *retention) answer(function *ssa.Function, parameter ssa.Value) boo
 }
 
 func (search *retention) within(function *ssa.Function, parameter ssa.Value) bool {
+	if function == nil || len(function.Blocks) == 0 {
+		return false
+	}
 	key := retentionKey{function: function, parameter: parameter, strict: search.strict}
-	return search.memo.Summarize(key, function, search.budget, func() bool {
-		return search.searchWithin(function, parameter)
-	}, func(reason ssaflow.SummaryUnavailable, partial bool) bool {
-		// Preserve an independently established store; lack of one may only
-		// support the loose may-retain fallback after budget exhaustion.
-		return partial || reason == ssaflow.SummaryBudgetExhausted && !search.strict
+	retained := !search.strict
+	// Guard before looking up the answer: a recursive call contributes only
+	// may-retain evidence, even if another context already populated the cache.
+	search.memo.WithFunction(function, func() {
+		retained = search.memo.Compose(key, search.budget, func() bool {
+			return search.searchWithin(function, parameter)
+		}, func(_ ssaflow.SummaryUnavailable, partial bool) bool {
+			// Preserve an independently established store; lack of one may only
+			// support the loose may-retain fallback after budget exhaustion.
+			return partial || !search.strict
+		})
 	})
+	return retained
 }
 
 func (search *retention) searchWithin(function *ssa.Function, parameter ssa.Value) bool {
@@ -255,10 +264,6 @@ func (search *retention) callRetains(common *ssa.CallCommon, instruction ssa.Ins
 	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
 		if !derives(binding.Supplied) {
 			continue
-		}
-		if search.memo.Entered(callee) {
-			search.memo.Cut()
-			return !search.strict
 		}
 		if search.within(callee, binding.Local) {
 			return true

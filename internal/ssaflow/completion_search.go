@@ -420,7 +420,7 @@ type completionSearch struct {
 	// seenValues holds the callback values already examined. A recursive
 	// literal captures the variable that holds itself, so this guard is
 	// needed alongside the memo's callee guard to terminate. It only ever
-	// marks, so an answer that depends on it is recorded with Cut.
+	// marks, so an answer that depends on it is recorded as incomplete.
 	seenValues map[ssa.Value]bool
 	// invokeTarget marks a nested search whose target is a callback already
 	// known to call the method: invoking a local mapped exactly to it is
@@ -431,22 +431,6 @@ type completionSearch struct {
 	memo *CallGraphMemo[completionKey, completionAnswer]
 	// budget, when set, bounds this question; nil leaves the search unbounded.
 	budget *SearchBudget
-}
-
-// completionKey identifies one completion question. The method and coverage
-// are fixed for a search, but a callback search shares the parent's guards
-// while answering a different question, so invokeTarget belongs in the key.
-type completionKey struct {
-	bindings     *callbackBindings
-	instruction  ssa.Instruction
-	target       ssa.Value
-	invokeTarget bool
-}
-
-type completionAnswer struct {
-	launch    launchKind
-	proven    bool
-	available bool
 }
 
 // forCallback returns a nested search for a callback value that shares the
@@ -468,49 +452,7 @@ func newCompletionSearch(method string, coverage CompletionCoverage, budget *Sea
 	}
 }
 
-// completes reports whether the instruction's callees all call method on the
-// target with the coverage their launch demands. The second result is false
-// when no callee body was available to search.
-func (search *completionSearch) completes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
-	key := completionKey{instruction: instruction, target: target, invokeTarget: search.invokeTarget, bindings: search.bindings}
-	answer := search.memo.Answer(key, func() completionAnswer {
-		launch, proven, available := search.searchCompletes(instruction, target)
-		return completionAnswer{launch: launch, proven: proven, available: available}
-	})
-	return answer.launch, answer.proven, answer.available
-}
-
-func (search *completionSearch) searchCompletes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
-	callees, ok := search.boundCallees(instruction)
-	if !ok || len(callees) == 0 {
-		return launchNone, false, false
-	}
-	searched := false
-	for _, callee := range callees {
-		callee.invocation = instruction
-		if callee.environment == nil {
-			callee.environment = search.bindings
-		}
-		if callee.function == nil || len(callee.function.Blocks) == 0 {
-			return callee.launch, false, searched
-		}
-		if search.memo.Entered(callee.function) {
-			search.memo.Cut()
-			return callee.launch, false, searched
-		}
-		searched = true
-		if !search.calleeCompletes(callee, target, instruction) {
-			return callee.launch, false, true
-		}
-	}
-	return callees[0].launch, true, true
-}
-
-func (search *completionSearch) calleeCompletes(callee completionCallee, target ssa.Value, invocation ssa.Instruction) bool {
-	if !search.memo.Enter(callee.function) {
-		return false
-	}
-	defer search.memo.Leave(callee.function)
+func (search *completionSearch) calleeCoverage(callee completionCallee, target ssa.Value, invocation ssa.Instruction) bool {
 	locals := search.mappedLocals(callee, target, invocation)
 	if len(locals) == 0 {
 		return false
@@ -545,7 +487,6 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 		// complete", so an exhausted budget can only fail to find a completion,
 		// never invent one. The memo must not retain an answer shortened this
 		// way, exactly as it does not retain one the cycle guard cut.
-		search.memo.Cut()
 		return false
 	}
 	called := InstructionCall(candidate)
@@ -620,7 +561,7 @@ func (search *completionSearch) valueCallsMethod(value, target ssa.Value) bool {
 		return false
 	}
 	if search.seenValues[value] {
-		search.memo.Cut()
+		search.memo.Incomplete()
 		return false
 	}
 	search.seenValues[value] = true
@@ -633,7 +574,10 @@ func (search *completionSearch) valueCallsMethod(value, target ssa.Value) bool {
 	switch typed := value.(type) {
 	case *ssa.MakeClosure:
 		callees, ok := closureCallees(typed, launchCallback)
-		return ok && search.calleeCompletes(callees[0], target, nil)
+		if !ok {
+			return false
+		}
+		return search.calleeCompletes(callees[0], target, nil).proven
 	case *ssa.Alloc:
 		return search.storedValueCallsMethod(typed, target)
 	case *ssa.UnOp:

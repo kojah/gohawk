@@ -21,7 +21,6 @@ func (query *CallEffects) uses(value ssa.Value, seen map[ssa.Value]bool) CallEff
 	var effects CallEffect
 	for _, use := range *value.Referrers() {
 		if !query.budget.Spend() {
-			query.memo.Cut()
 			return effects | effectUnknown
 		}
 		effects |= query.use(value, use, seen)
@@ -90,7 +89,6 @@ func (query *CallEffects) closure(closure *ssa.MakeClosure, value ssa.Value) Cal
 	}
 	for _, use := range *closure.Referrers() {
 		if !query.budget.Spend() {
-			query.memo.Cut()
 			return effects | effectUnknown
 		}
 		common := InstructionCall(use)

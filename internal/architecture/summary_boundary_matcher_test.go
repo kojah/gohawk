@@ -19,6 +19,9 @@ func (*FunctionSummaries[T]) Function(int, *SearchBudget) {}
 func (*FunctionSummaries[T]) AtCall(int, *SearchBudget, func()) {}
 type CallGraphMemo[K comparable, V any] struct{}
 func (*CallGraphMemo[K,V]) Summarize(K, int, *SearchBudget, func(), func()) {}
+func (*CallGraphMemo[K,V]) Compose(K, *SearchBudget, func(), func()) {}
+func (*CallGraphMemo[K,V]) WithFunction(int, func()) {}
+func (*CallGraphMemo[K,V]) Incomplete() {}
 func (*CallGraphMemo[K,V]) Answer() {}
 func (*CallGraphMemo[K,V]) Enter() {}
 func (*CallGraphMemo[K,V]) Entered() {}
@@ -34,12 +37,18 @@ func TestSummaryBoundaryMatcher(t *testing.T) {
 		{"bounded function", "s.Function(0, budget)", ""},
 		{"bounded call", "s.AtCall(0, budget, nil)", ""},
 		{"bounded context", "m.Summarize(0, 0, budget, compute, unavailable)", ""},
+		{"bounded composition", "m.Compose(0, budget, compute, unavailable)", ""},
+		{"guarded visit", "m.WithFunction(0, compute)", ""},
+		{"partial evidence", "m.Incomplete()", ""},
 		{"nil function budget", "s.Function(0, nil)", summaryNilBudget},
 		{"nil call budget", "s.AtCall(0, (nil), nil)", summaryNilBudget},
 		{"nil context budget", "m.Summarize(0, 0, nil, compute, unavailable)", summaryNilBudget},
+		{"nil composition budget", "m.Compose(0, nil, compute, unavailable)", summaryNilBudget},
 		{"method expression", "(*flow.FunctionSummaries[int]).Function(s, 0, nil)", summaryNilBudget},
 		{"context expression", "(*flow.CallGraphMemo[int,int]).Summarize(m, 0, 0, nil, compute, unavailable)", summaryNilBudget},
 		{"cache access", "_ = s.Cache", "accesses infrastructure state"},
+		{"direct cache construction", "_ = flow.CallGraphMemo[int,int]{}", "constructs summary infrastructure state"},
+		{"direct summary construction", "_ = flow.FunctionSummaries[int]{}", "constructs summary infrastructure state"},
 		{"raw answer", "m.Answer()", "manages summary caching"},
 		{"raw guard", "m.Enter()", "manages summary caching"},
 		{"guard method value", "_ = m.Entered", "manages summary caching"},
@@ -73,6 +82,26 @@ func use(s *flow.FunctionSummaries[int], m *flow.CallGraphMemo[int,int], budget 
 				t.Errorf("reasons = %v, want one containing %q", reasons, test.reason)
 			}
 		})
+	}
+	t.Run("scope", testSummaryRuleScopes)
+}
+
+func testSummaryRuleScopes(t *testing.T) {
+	for _, path := range []string{
+		"internal/analyzers/example/proof.go", "internal/ssaflow/completion_search.go", "internal/passes/lifecyclefacts/fields.go",
+	} {
+		if !summaryRuleApplies(path, "raw guard operation") || !summaryRuleApplies(path, "cache field access") {
+			t.Errorf("%s escaped shared infrastructure enforcement", path)
+		}
+	}
+	for _, path := range []string{"internal/ssaflow/call_graph_memo.go", "internal/ssaflow/call_summaries.go"} {
+		if summaryRuleApplies(path, "raw guard operation") {
+			t.Errorf("implementation owner %s rejected", path)
+		}
+	}
+	if !summaryRuleApplies("internal/analyzers/example/proof.go", summaryNilBudget) ||
+		summaryRuleApplies("internal/ssaflow/completion_search.go", summaryNilBudget) {
+		t.Error("analyzer budget requirement must not silently redefine optional-budget shared APIs")
 	}
 }
 

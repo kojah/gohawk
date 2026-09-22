@@ -21,9 +21,9 @@ import "golang.org/x/tools/go/ssa"
 
 // CallGraphMemo answers a recursive call-graph question once per distinct key
 // rather than once per call path that reaches it. Prefer Summarize when one
-// key asks about one function body. Use Answer and the guard operations
-// separately only when the question intentionally spans several guarded bodies
-// or its cache and recursion boundaries differ.
+// key asks about one function body. Compose and WithFunction preserve distinct
+// cache and recursion boundaries for questions spanning several guarded bodies.
+// Raw cache and guard operations belong only to the summary implementation.
 type CallGraphMemo[Key comparable, Answer any] struct {
 	entered map[*ssa.Function]bool
 	answers map[Key]Answer
@@ -72,13 +72,6 @@ func (memo *CallGraphMemo[Key, Answer]) Enter(function *ssa.Function) bool {
 	}
 	memo.entered[function] = true
 	return true
-}
-
-// Entered reports whether function is already on the current path, for a
-// caller that must answer a cycle differently from the value Enter implies.
-// Such a caller records the shortened answer with Cut.
-func (memo *CallGraphMemo[Key, Answer]) Entered(function *ssa.Function) bool {
-	return memo.entered[function]
 }
 
 // Leave un-marks function as the walk returns past it.

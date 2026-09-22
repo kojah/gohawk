@@ -350,17 +350,15 @@ func (search *enclosingSearch) readOnly(value ssa.Value) bool {
 			}
 		case *ssa.Call:
 			callee := use.Common().StaticCallee()
-			if callee == nil || len(callee.Blocks) == 0 || !search.memo.Enter(callee) {
-				return false
-			}
 			ok := true
-			for index, arg := range use.Common().Args {
-				if arg == value {
-					ok = ok && index < len(callee.Params) && search.readOnly(callee.Params[index])
+			visited := search.memo.WithFunction(callee, func() {
+				for _, binding := range CallBindings(use.Common(), callee, nil) {
+					if binding.Supplied == value {
+						ok = ok && search.readOnly(binding.Local)
+					}
 				}
-			}
-			search.memo.Leave(callee)
-			if !ok {
+			})
+			if !visited || !ok {
 				return false
 			}
 		default:

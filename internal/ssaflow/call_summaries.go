@@ -79,15 +79,29 @@ func (memo *CallGraphMemo[Key, Answer]) Summarize(
 	if function == nil || len(function.Blocks) == 0 {
 		return unavailable(SummaryBodyUnavailable, empty)
 	}
+	return memo.Compose(key, budget, func() Answer {
+		var answer Answer
+		if !memo.WithFunction(function, func() { answer = compute() }) {
+			return unavailable(SummaryRecursive, empty)
+		}
+		return answer
+	}, unavailable)
+}
+
+// Compose memoizes a context-keyed question that may inspect multiple function
+// bodies. Unlike Summarize, the cache key does not name one guarded body:
+// compute enters each callee through WithFunction. Recursive and budget cuts
+// invalidate every dependent answer, while independent completed answers remain
+// reusable. Budget, immutability, and fallback contracts match Summarize.
+func (memo *CallGraphMemo[Key, Answer]) Compose(
+	key Key, budget *SearchBudget, compute func() Answer, unavailable func(SummaryUnavailable, Answer) Answer,
+) Answer {
+	var empty Answer
 	if budget.Exhausted() {
 		memo.Cut()
 		return unavailable(SummaryBudgetExhausted, empty)
 	}
 	return memo.Answer(key, func() Answer {
-		if !memo.Enter(function) {
-			return unavailable(SummaryRecursive, empty)
-		}
-		defer memo.Leave(function)
 		answer := compute()
 		if budget.Exhausted() {
 			memo.Cut()
@@ -95,6 +109,29 @@ func (memo *CallGraphMemo[Key, Answer]) Summarize(
 		}
 		return answer
 	})
+}
+
+// WithFunction executes visit inside one callee's recursion scope and always
+// releases that scope on return. It returns false without visiting an opaque
+// body or an active callee. A recursive rejection also invalidates dependent
+// summaries. The caller chooses the conservative meaning of a rejected visit;
+// this operation does not cache an answer or reset the enclosing work budget.
+func (memo *CallGraphMemo[Key, Answer]) WithFunction(function *ssa.Function, visit func()) bool {
+	if function == nil || len(function.Blocks) == 0 || !memo.Enter(function) {
+		return false
+	}
+	defer memo.Leave(function)
+	visit()
+	return true
+}
+
+// Incomplete reports a policy-specific truncation, such as a revisited callback
+// value outside the function recursion guard. The current computation and its
+// dependents are not cached. It does not choose an answer: the evidence policy
+// must still distinguish partial positive witnesses from proof of absence.
+// Ordinary budget exhaustion and function recursion are handled automatically.
+func (memo *CallGraphMemo[Key, Answer]) Incomplete() {
+	memo.Cut()
 }
 
 // AtCall resolves a direct function or closure, obtains its symbolic summary,

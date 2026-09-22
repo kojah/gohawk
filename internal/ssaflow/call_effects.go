@@ -79,7 +79,7 @@ func (query *CallEffects) proof(effects CallEffect) CallEffectProof {
 
 func (query *CallEffects) value(value ssa.Value) CallEffect {
 	if value == nil || query.budget == nil || !query.budget.Spend() {
-		query.memo.Cut()
+		query.memo.Incomplete()
 		return effectUnknown
 	}
 	return query.memo.Summarize(value, value.Parent(), query.budget, func() CallEffect {
@@ -94,7 +94,7 @@ func (query *CallEffects) value(value ssa.Value) CallEffect {
 func (query *CallEffects) call(instruction ssa.Instruction, value ssa.Value) CallEffect {
 	common := InstructionCall(instruction)
 	if common == nil || value == nil || query.budget == nil || !query.budget.Spend() {
-		query.memo.Cut()
+		query.memo.Incomplete()
 		return effectUnknown
 	}
 	var effects CallEffect

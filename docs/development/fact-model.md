@@ -250,10 +250,12 @@ answer or silently claiming completeness.
 
 Some completion and delegated-field searches intentionally separate the cache
 key from the guarded body: one question can visit several possible callees or
-map a value into several parameters. They retain the lower-level
-`CallGraphMemo` operations and shared `CallBindings` rather than moving the
-guard boundary and changing their proofs. Resource cleanup and other lifecycle
-analyzers already consume these shared completion searches; they do not need
+map a value into several parameters. They use `CallGraphMemo.Compose` for the
+cached question and `CallGraphMemo.WithFunction` for each callee's scope,
+preserving that distinction without pairing raw guard entry and exit.
+`CallGraphMemo.Incomplete` records policy-specific truncation, such as revisiting
+a callback value; recursion and budget invalidation are automatic. Resource
+cleanup and other lifecycle analyzers consume these shared searches; they do not need
 an additional analyzer-local summary engine. Target values and callback
 environments must remain in their keys—function identity alone is insufficient.
 

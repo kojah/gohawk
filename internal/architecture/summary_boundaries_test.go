@@ -3,26 +3,27 @@ package architecture
 import (
 	"go/ast"
 	"go/types"
+	"strings"
 	"testing"
 
 	"golang.org/x/tools/go/packages"
 )
 
-// TestAnalyzerSummaryBoundaries checks API use, not which evidence model an
+// TestSummaryInfrastructureBoundaries checks API use, not which evidence model an
 // analyzer chooses. Completion proofs and context-keyed summaries remain valid
 // alternatives to FunctionSummaries. Layering and traversal have their own
 // tests; unknown propagation and cache correctness need behavioral tests.
-func TestAnalyzerSummaryBoundaries(t *testing.T) {
+func TestSummaryInfrastructureBoundaries(t *testing.T) {
 	t.Parallel()
 	inventory := newRepositorySourceInventory(t)
 	production := make(map[string]string)
-	for _, source := range inventory.productionGoFiles(t, "internal/analyzers") {
+	for _, source := range inventory.productionGoFiles(t, "internal") {
 		production[source.absolutePath] = source.repositoryPath
 	}
 	loaded, err := packages.Load(&packages.Config{
 		Mode: packages.NeedName | packages.NeedCompiledGoFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo,
 		Dir:  inventory.root,
-	}, "./internal/analyzers/...")
+	}, "./internal/...")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +38,7 @@ func TestAnalyzerSummaryBoundaries(t *testing.T) {
 			}
 			ast.Inspect(file, func(node ast.Node) bool {
 				reason := summaryBoundaryViolation(pkg.TypesInfo, node)
-				if reason == "" {
+				if !summaryRuleApplies(path, reason) {
 					return true
 				}
 				t.Errorf("%s:%d: %s", path, pkg.Fset.Position(node.Pos()).Line, reason)
@@ -47,10 +48,24 @@ func TestAnalyzerSummaryBoundaries(t *testing.T) {
 	}
 }
 
+func summaryRuleApplies(path, reason string) bool {
+	if reason == "" || path == "internal/ssaflow/call_graph_memo.go" || path == "internal/ssaflow/call_summaries.go" {
+		return false
+	}
+	// Shared searches retain the optional-budget contract of existing callers.
+	// The mandatory-budget rule is for analyzer query sites; it does not change
+	// fact inference semantics by silently imposing a new shared cutoff.
+	return reason != summaryNilBudget || strings.HasPrefix(path, "internal/analyzers/")
+}
+
 const summaryNilBudget = "summary query passes nil budget; share a bounded SearchBudget with nested computation and binding"
 
 func summaryBoundaryViolation(info *types.Info, node ast.Node) string {
 	switch node := node.(type) {
+	case *ast.CompositeLit:
+		if summaryInfrastructureType(info.TypeOf(node)) {
+			return "consumer constructs summary infrastructure state directly; use the shared constructors"
+		}
 	case *ast.SelectorExpr:
 		selection := info.Selections[node]
 		if !summaryInfrastructureSelection(selection) {
@@ -61,7 +76,7 @@ func summaryBoundaryViolation(info *types.Info, node ast.Node) string {
 		}
 		switch selection.Obj().Name() {
 		case "Answer", "Enter", "Entered", "Leave", "Cut":
-			return "analyzer manages summary caching or recursion directly; use FunctionSummaries or CallGraphMemo.Summarize"
+			return "consumer manages summary caching or recursion directly; use Summarize or Compose with WithFunction"
 		}
 	case *ast.CallExpr:
 		selector, ok := ast.Unparen(node.Fun).(*ast.SelectorExpr)
@@ -81,6 +96,9 @@ func summaryBoundaryViolation(info *types.Info, node ast.Node) string {
 }
 
 func summaryInfrastructureType(candidate types.Type) bool {
+	if candidate == nil {
+		return false
+	}
 	candidate = types.Unalias(candidate)
 	if pointer, ok := candidate.(*types.Pointer); ok {
 		candidate = types.Unalias(pointer.Elem())
@@ -106,7 +124,7 @@ func summaryInfrastructureSelection(selection *types.Selection) bool {
 func summaryBudgetIndex(selection *types.Selection) int {
 	index := -1
 	switch selection.Obj().Name() {
-	case "Function", "AtCall":
+	case "Function", "AtCall", "Compose":
 		index = 1
 	case "Summarize":
 		index = 2

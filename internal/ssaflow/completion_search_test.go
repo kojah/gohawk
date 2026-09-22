@@ -87,6 +87,13 @@ func deferredPhiCallback(value *closer, unlock bool) {
 	}
 	defer callback()
 }
+func deferredPhiBothCallbacks(value *closer, pick bool) {
+	callback := func() { value.Close() }
+	if pick {
+		callback = func() { closeHelper(value) }
+	}
+	defer callback()
+}
 func deferredProjection(value *owner)          { defer closeHelper(value.body) }
 func deferredProjectionLiteral(value *owner)   { defer func(body *closer) { body.Close() }(value.body) }
 func deferredProjectionOther(value, other *owner) { defer closeOther(other.body, value.body) }
@@ -157,6 +164,7 @@ var completionCases = []struct {
 	{function: "deferredStoredCallback", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredOnceCallback", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredPhiCallback"},
+	{function: "deferredPhiBothCallbacks", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredProjection", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredProjectionLiteral", proven: true, reason: EvidenceDeferredCompletion},
 	{function: "deferredProjectionOther"},
