@@ -73,6 +73,19 @@ on the same objects. Same-class pairs and unclassified locks do not form edges.
 Opaque calls, asynchronous calls, and dynamic indexed locks do not contribute
 guessed helper acquisitions.
 
+For complete straight-line mutex helpers, shared concurrency summaries bind
+parameter locks to caller values and retain acquisition/release order. This
+works across package boundaries as well as within a package: releasing A
+before acquiring B does not create an A-to-B edge. Acquiring B before releasing
+A does. These sequences are used at the call site; they do not yet propagate
+a helper's returned held-lock state into the caller's later instructions.
+Incomplete sequences retain the existing conservative class-witness fallback.
+
+A cycle is suppressed when every edge has the same exact package-global
+exclusive mutex held as a guard. This is intentionally narrower than matching
+field names, receiver types, or read locks. Local object and parameter-relative
+guards across different functions are not guessed to be the same instance.
+
 Cycle witnesses contain at most eight edges. Each search examines at most
 512 edges, and a package retains at most 4,096 distinct order edges. Helper
 evidence retains a bounded representative route rather than all call paths.

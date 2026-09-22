@@ -4,10 +4,19 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/analyzertest"
+	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
+	"golang.org/x/tools/go/ssa"
 )
+
+func newSummaryEngine() *summaryEngine { return &summaryEngine{Engine: concurrencyfacts.NewEngine()} }
+
+func (engine *summaryEngine) prove(function *ssa.Function, limit int) cycleProof {
+	return engine.proveCheck(function, limit, check.ChannelProtocolBlocked)
+}
 
 func TestAnalyzer(t *testing.T) {
 	analyzer := Analyzer()
@@ -27,7 +36,7 @@ func TestAnalyzer(t *testing.T) {
 		}
 		return original(pass)
 	}
-	analyzertest.Run(t, analysistest.TestData(), analyzer, "channelprotocol")
+	analyzertest.Run(t, analysistest.TestData(), analyzer, "channelprotocol", "mixedcycles")
 }
 
 func TestSummaryBudgets(t *testing.T) {
@@ -52,16 +61,16 @@ func TestSummaryBudgets(t *testing.T) {
 				checked++
 			case "worker", "groupWorker", "deferredWorker":
 				engine := newSummaryEngine()
-				engine.begin(1)
-				if got := engine.summaries.Function(function, engine.budget); got.reason != "protocol-budget-exhausted" {
+				budget := ssaflow.NewSearchBudget(1)
+				if got := engine.Function(function, budget); got.Reason != "protocol-budget-exhausted" {
 					t.Errorf("limited summary = %+v", got)
 				}
-				engine.begin(instructionBudget)
-				if got := engine.summaries.Function(function, engine.budget); got.reason != "" || len(got.operations) != 2 {
+				budget = ssaflow.NewSearchBudget(instructionBudget)
+				if got := engine.Function(function, budget); got.Reason != "" || len(got.Operations) != 2 {
 					t.Errorf("fresh summary budget did not recover: %+v", got)
 				}
-				engine.begin(0)
-				if got := engine.summaries.Function(function, engine.budget); got.reason != "" || len(got.operations) != 2 {
+				budget = ssaflow.NewSearchBudget(0)
+				if got := engine.Function(function, budget); got.Reason != "" || len(got.Operations) != 2 {
 					t.Errorf("completed summary not cached: %+v", got)
 				}
 				checked++
@@ -90,18 +99,18 @@ func TestDeferredSummaryOrder(t *testing.T) {
 			}
 			found = true
 			engine := newSummaryEngine()
-			engine.begin(instructionBudget)
-			summary := engine.summaries.Function(function, engine.budget)
-			if summary.reason != "" || len(summary.operations) != 3 || len(summary.deferred) != 0 {
+			budget := ssaflow.NewSearchBudget(instructionBudget)
+			summary := engine.Function(function, budget)
+			if summary.Reason != "" || len(summary.Operations) != 3 {
 				t.Fatalf("incomplete deferred summary: %+v", summary)
 			}
 			for index, parameter := range []int{0, 2, 1} {
-				op := summary.operations[index]
+				op := summary.Operations[index]
 				kind := closeOperation
 				if index == 0 {
 					kind = sendOperation
 				}
-				if op.kind != kind || op.resource.value != function.Params[parameter] {
+				if op.Kind != kind || op.Resource.Value != function.Params[parameter] {
 					t.Errorf("operation %d = %+v, want kind %d on parameter %d", index, op, kind, parameter)
 				}
 			}

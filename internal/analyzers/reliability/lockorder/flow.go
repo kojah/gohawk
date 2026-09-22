@@ -100,6 +100,7 @@ func walkLockOrder(
 		}
 		for _, instruction := range state.block.Instrs {
 			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns, heldAtReturn)
+			ordered := flow.recordSummarizedOrder(instruction, held, origins)
 			held = transferCalledUnlocks(evidence, instruction, held, guards, lockValues, released, flow.unprovenRelease)
 			// An unconditional unlock at the start of a spawned closure transfers
 			// the held lock to that goroutine. Requiring it before any branch keeps
@@ -115,7 +116,9 @@ func walkLockOrder(
 			deferred = recordDeferredUnlocks(evidence, instruction, held, deferred, lockValues, released)
 			operation, identity, receiver, ok := mutexAction(instruction)
 			if !ok {
-				flow.recordCalledOrder(instruction, held, origins)
+				if !ordered {
+					flow.recordCalledOrder(instruction, held, origins)
+				}
 				reportReadLockWrites(pass, instruction, held, readHeld, lockValues)
 				continue
 			}
@@ -472,8 +475,9 @@ func (flow lockFlowContext) applyMutexAction(
 	}
 	acquired := acquisitionAt(instruction, lockComparisonKey(identity, receiver))
 	if !slices.Contains(state.held, identity) {
+		guards := flow.exclusiveGlobalGuards(state.held, state.readHeld)
 		for _, owner := range state.held {
-			flow.relations.record(flow.pass, state.origins[owner], acquired)
+			flow.relations.record(flow.pass, state.origins[owner], acquired, guards...)
 		}
 		state.origins[identity] = acquired
 	}

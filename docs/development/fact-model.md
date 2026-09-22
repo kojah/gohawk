@@ -260,11 +260,41 @@ an additional analyzer-local summary engine. Target values and callback
 environments must remain in their keys—function identity alone is insufficient.
 
 This infrastructure is neither a scheduler nor a model checker. It does not
-merge branches, infer conditional effects, or export relational summaries
-across packages. Those capabilities require an evidence model and precision
-fixtures of their own. In particular, finite recursion guards alone do not
+merge branches or infer conditional effects. Exporting a summary requires a
+separate evidence model, serialization, and precision fixtures. In particular,
+finite recursion guards alone do not
 guarantee cheap analysis: cut answers cannot be cached, so consumers charge
 instruction and effect-expansion work to a shared search budget.
+
+### Ordered concurrency facts
+
+`internal/passes/concurrencyfacts` shares the complete ordered-effect model
+used by `channelprotocol` and the straight-line helper path in `lockorder`.
+It records channel send/receive/close, `WaitGroup.Add(1)`/`Done`/`Wait`, and
+`sync.Mutex.Lock`/`Unlock` events, including completion and unlock defers in
+execution order. The generic summary infrastructure still owns caching,
+recursion guards, and budgets; each analyzer owns its defect or hazard proof.
+
+Its versioned `Fact` serializes event kinds and formal parameter positions,
+with the receiver at position zero. A complete empty fact is positive evidence
+of no supported synchronization effects, not the fallback for a missing fact.
+Only complete straight-line summaries with exportable identities are exported.
+Branches, opaque calls, nested launches, resource escapes, local resource
+allocations, captured resources, recursion, and exhausted budgets make export
+unavailable. Facts do not encode arbitrary conditions or schedules.
+
+Imported events are bound to exact actual arguments and retain their order.
+Evidence from a dependency is attributed to the importing call site; token
+positions and SSA pointers are never serialized. Transitive exports remap the
+effects to the forwarding function's own parameters. Local mutex summaries
+can also bind concrete global and field addresses, but these are not exported
+as parameter-relative paths.
+
+All fact access belongs to this prerequisite, which exposes an engine rather
+than raw facts to consumers. Its export work has a 2,000-step budget per
+exported function and a 32-operation limit. Unknown summaries never become
+absence proofs, and budget-shortened answers never become completed cache
+entries. The mixed-dependency checks remain experimental.
 
 ### Bound callbacks within one package
 

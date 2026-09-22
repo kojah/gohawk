@@ -1,0 +1,130 @@
+package concurrencyfacts
+
+import (
+	"go/token"
+	"go/types"
+
+	"github.com/kojah/gohawk/internal/ssaflow"
+
+	"golang.org/x/tools/go/ssa"
+)
+
+// Binding a Summary preserves the time at which a resource was read. Captured
+// cells additionally need stable contents because the worker may read them
+// after the launch. A matching access path alone cannot justify this identity.
+func (engine *Engine) instantiate(instruction ssa.CallInstruction) Summary {
+	if function := instruction.Common().StaticCallee(); function != nil && len(function.Blocks) == 0 {
+		return engine.importedCall(instruction, function)
+	}
+	return engine.summaries.AtCall(instruction, engine.budget, func(callee Summary, bindings []ssaflow.CallBinding) Summary {
+		return engine.bindSummary(callee, bindings, instruction)
+	})
+}
+
+func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) Summary {
+	if callee.Reason != "" {
+		return callee
+	}
+	result := Summary{Operations: make([]Operation, 0, len(callee.Operations))}
+	for _, op := range callee.Operations {
+		if !engine.budget.Spend() {
+			return Summary{Reason: "protocol-budget-exhausted"}
+		}
+		resource, ok := engine.bind(op.Resource, bindings, instruction)
+		if !ok {
+			return Summary{Reason: "protocol-channel-binding-unknown"}
+		}
+		op.Resource, op.Site = resource, instruction.Pos()
+		result.Operations = append(result.Operations, op)
+	}
+	return result
+}
+
+func (engine *Engine) bind(
+	reference Reference, bindings []ssaflow.CallBinding, instruction ssa.Instruction,
+) (Reference, bool) {
+	for _, binding := range bindings {
+		if binding.Local != reference.Value {
+			continue
+		}
+		if !reference.Indirect {
+			return engine.reference(binding.Supplied)
+		}
+		if _, captured := binding.Supplied.(*ssa.FreeVar); captured {
+			return Reference{Value: binding.Supplied, Indirect: true}, true
+		}
+		content := engine.storage.StableContent(binding.Supplied, instruction)
+		if content.Proven() {
+			return engine.reference(content.Value)
+		}
+		return Reference{}, false
+	}
+	return Reference{}, false
+}
+
+func (engine *Engine) reference(value ssa.Value) (Reference, bool) {
+	if value == nil || !ssaflow.ChannelType(value) && !synchronizationPointer(value.Type()) {
+		return Reference{}, false
+	}
+	return ssaflow.ResolveReachingValue(ssaflow.NewReachingWalk(ssaflow.TransparentChangeType), value,
+		engine.referenceLeaf, func(reference Reference) Reference { return reference })
+}
+
+func (engine *Engine) referenceLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (Reference, bool) {
+	resolved := engine.storage.Resolve(value)
+	if resolved.Proven() {
+		switch resolved.Value.(type) {
+		case *ssa.Parameter, *ssa.FreeVar, *ssa.MakeChan:
+			return Reference{Value: resolved.Value}, true
+		case *ssa.Alloc:
+			if synchronizationPointer(resolved.Value.Type()) {
+				return Reference{Value: resolved.Value}, true
+			}
+		case *ssa.Global, *ssa.FieldAddr:
+			// Mutex addresses identify cells, not mutable contents. Such values
+			// can bind formal mutex parameters but cannot be exported as formals.
+			if MutexPointer(resolved.Value.Type()) {
+				return Reference{Value: resolved.Value}, true
+			}
+		}
+	}
+	// A symbolic captured cell is resolved at its caller, where its local
+	// allocation and all writes are visible to the shared storage query.
+	load, ok := value.(*ssa.UnOp)
+	if ok && load.Op == token.MUL {
+		if capture, ok := load.X.(*ssa.FreeVar); ok && readableAddress(capture) {
+			return Reference{Value: capture, Indirect: true}, true
+		}
+	}
+	return Reference{}, false
+}
+
+func readableAddress(value ssa.Value) bool {
+	if localAddress(value) {
+		return true
+	}
+	if _, ok := value.(*ssa.FreeVar); !ok {
+		return false
+	}
+	pointer, ok := value.Type().Underlying().(*types.Pointer)
+	if !ok {
+		return false
+	}
+	_, channel := pointer.Elem().Underlying().(*types.Chan)
+	return channel || synchronizationPointer(pointer.Elem())
+}
+
+func localAddress(value ssa.Value) bool {
+	return ssaflow.NewReachingWalk(ssaflow.TransparentNone).Every(value, localAddressLeaf)
+}
+
+func localAddressLeaf(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+	switch value := value.(type) {
+	case *ssa.Alloc:
+		return true
+	case *ssa.FieldAddr:
+		return walk.Every(value.X, localAddressLeaf)
+	default:
+		return false
+	}
+}

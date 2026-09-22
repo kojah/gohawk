@@ -97,6 +97,18 @@
               "summary": "Reports proven channel waiting cycles between a caller and its worker.",
               "kind": "defect",
               "tier": "experimental"
+            },
+            {
+              "id": "channelprotocol/lock-and-join",
+              "summary": "Reports waiting for a worker while holding the mutex it needs to complete.",
+              "kind": "defect",
+              "tier": "experimental"
+            },
+            {
+              "id": "channelprotocol/channel-lock-cycle",
+              "summary": "Reports channel communication blocked by a mutex held by its partner.",
+              "kind": "defect",
+              "tier": "experimental"
             }
           ],
           "options": []

@@ -180,6 +180,8 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/discarded-trylock":        CheckTierExperimental,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
+		"channelprotocol/lock-and-join":      CheckKindDefect,
+		"channelprotocol/channel-lock-cycle": CheckKindDefect,
 		"channelprotocol/blocked-operation":  CheckKindDefect,
 		"cancellationownership/release":      CheckKindDefect,
 		"borrowedstorage/overlapping-owner":  CheckKindHazard,

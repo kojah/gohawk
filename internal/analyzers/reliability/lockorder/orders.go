@@ -55,7 +55,10 @@ func (acquired lockAcquisition) site() token.Pos {
 	return acquired.position
 }
 
-type orderEdge struct{ held, acquired lockAcquisition }
+type orderEdge struct {
+	held, acquired lockAcquisition
+	guards         []ssa.Value
+}
 
 type lockOrders struct {
 	edges map[lockRelation]orderEdge
@@ -66,7 +69,7 @@ func newLockOrders() *lockOrders {
 	return &lockOrders{edges: map[lockRelation]orderEdge{}, out: map[string][]orderEdge{}}
 }
 
-func (orders *lockOrders) record(pass *analysis.Pass, held, acquired lockAcquisition) {
+func (orders *lockOrders) record(pass *analysis.Pass, held, acquired lockAcquisition, guards ...ssa.Value) {
 	// Two instances of one declaration class are not a class-order conflict.
 	// Unknown identities must not bridge an otherwise disconnected cycle.
 	if held.class == "" || acquired.class == "" || held.class == acquired.class {
@@ -76,13 +79,25 @@ func (orders *lockOrders) record(pass *analysis.Pass, held, acquired lockAcquisi
 	if _, exists := orders.edges[relation]; exists || len(orders.edges) >= maxOrderEdges {
 		return
 	}
-	edge := orderEdge{held: held, acquired: acquired}
+	edge := orderEdge{held: held, acquired: acquired, guards: slices.Clone(guards)}
 	path := orders.path(acquired.class, held.class)
-	if len(path) != 0 && (len(path) == 1 || orders.novelCycle(edge, path)) {
+	if len(path) != 0 && !serializedCycle(edge, path) && (len(path) == 1 || orders.novelCycle(edge, path)) {
 		reportOrderCycle(pass, append([]orderEdge{edge}, path...))
 	}
 	orders.edges[relation] = edge
 	orders.out[held.class] = append(orders.out[held.class], edge)
+}
+
+// Only exact global exclusive guards enter this set. A declaration-class
+// match or read lock cannot establish serialization between executions.
+func serializedCycle(closing orderEdge, path []orderEdge) bool {
+	for _, guard := range closing.guards {
+		if slices.ContainsFunc(path, func(edge orderEdge) bool { return !slices.Contains(edge.guards, guard) }) {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 // Longer witnesses must not amplify iteration-dependent identity, or repeat

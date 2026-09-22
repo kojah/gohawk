@@ -4,6 +4,7 @@ import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"github.com/kojah/gohawk/internal/trace"
@@ -18,7 +19,7 @@ const instructionBudget = 2000
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: "channelprotocol", Doc: "checks for proven channel waiting cycles between a caller and worker",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer}, Run: run,
+		Requires: []*analysis.Analyzer{buildssa.Analyzer, concurrencyfacts.Analyzer}, Run: run,
 	}
 }
 
@@ -27,18 +28,20 @@ func run(pass *analysis.Pass) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	engine := newSummaryEngine()
+	engine := &summaryEngine{Engine: pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)}
 	for _, function := range functions {
 		position := candidatePosition(function)
 		if !position.IsValid() {
 			continue
 		}
-		probe := trace.For(pass, "channelprotocol", string(check.ChannelProtocolBlocked), position)
-		probe.Candidate(trace.Step{Reason: "protocol-launch", Outcome: trace.OutcomeObserved})
-		proof := engine.prove(function, instructionBudget)
-		traceDecision(probe, position, proof)
-		if proof.Proven() {
-			reportCycle(pass, proof)
+		for _, id := range []check.ID{check.ChannelProtocolBlocked, check.ChannelProtocolLockJoin, check.ChannelProtocolLockCycle} {
+			probe := trace.For(pass, "channelprotocol", string(id), position)
+			probe.Candidate(trace.Step{Reason: "protocol-launch", Outcome: trace.OutcomeObserved})
+			proof := engine.proveCheck(function, instructionBudget, id)
+			traceDecision(probe, position, proof)
+			if proof.Proven() {
+				reportCycle(pass, proof, id)
+			}
 		}
 	}
 	return nil, nil
@@ -82,19 +85,31 @@ func traceDecision(probe trace.Probe, position token.Pos, proof cycleProof) {
 	probe.Decision(trace.Step{Reason: string(proof.Reason), Outcome: outcome, Pos: position})
 }
 
-func reportCycle(pass *analysis.Pass, proof cycleProof) {
-	source := syntax.SourceRange(pass, proof.wait.site)
+func reportCycle(pass *analysis.Pass, proof cycleProof, id check.ID) {
+	source := syntax.SourceRange(pass, proof.wait.Site)
 	message := "channel wait prevents the worker's preceding send from completing"
-	if proof.wait.kind == groupWaitOperation {
+	if proof.wait.Kind == groupWaitOperation {
 		message = "WaitGroup wait prevents the worker's preceding send from completing"
 	}
-	check.Report(pass, check.ChannelProtocolBlocked, analysis.Diagnostic{
+	related := []analysis.RelatedInformation{
+		{Pos: proof.send.Source, Message: "worker must finish this unbuffered send before signaling completion"},
+		{Pos: proof.signal.Source, Message: "completion is signaled only after the send"},
+		{Pos: proof.receive.Source, Message: "the matching receive occurs only after the wait"},
+	}
+	if id != check.ChannelProtocolBlocked {
+		message = "channel operation holds the mutex its worker needs to communicate"
+		if id == check.ChannelProtocolLockJoin {
+			message = "waiting for a worker while holding the mutex it needs to complete"
+		}
+		related = []analysis.RelatedInformation{
+			{Pos: proof.send.Source, Message: "worker must acquire the caller's held mutex here"},
+			{Pos: proof.signal.Source, Message: "the required worker operation follows that acquisition"},
+			{Pos: proof.receive.Source, Message: "caller releases the mutex only after the blocking operation"},
+		}
+	}
+	check.Report(pass, id, analysis.Diagnostic{
 		Pos: source.Pos(), End: source.End(),
 		Message: message,
-		Related: []analysis.RelatedInformation{
-			{Pos: proof.send.source, Message: "worker must finish this unbuffered send before signaling completion"},
-			{Pos: proof.signal.source, Message: "completion is signaled only after the send"},
-			{Pos: proof.receive.source, Message: "the matching receive occurs only after the wait"},
-		},
+		Related: related,
 	})
 }

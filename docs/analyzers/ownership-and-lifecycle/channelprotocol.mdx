@@ -8,7 +8,7 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 ## What it detects
 
-This experimental, opt-in check reports a caller waiting for completion before
+These experimental, opt-in checks include a caller waiting for completion before
 receiving a worker's result, when that worker must finish an unbuffered result
 send before it can signal completion. Neither goroutine can advance.
 
@@ -16,6 +16,21 @@ The analysis composes cached, ordered summaries across direct helper calls and
 closures. It resolves channel parameters, captures, and supported local heap
 storage to exact channel identities. Diagnostics point at the wait and include
 related locations for the worker's send, completion signal, and later receive.
+
+Two additional checks join mutex and worker dependencies:
+
+- `lock-and-join`: a caller holds a fresh `sync.Mutex` before launching a
+  worker, then waits for completion before unlocking. The worker must acquire
+  that exact mutex before signaling completion.
+- `channel-lock-cycle`: the caller holds the mutex across an unbuffered send
+  or receive, while the worker must acquire it before the matching operation.
+
+Both require one worker, complete straight-line effects, and exact local
+resource identities. Early unlocks, early completion, and different mutexes
+do not establish a cycle. Buffered communication, read/write mutexes,
+alternative participants, and cancellation/select branches remain outside
+these new proofs. Related locations identify the worker acquisition, its
+required operation, and the caller's later unlock.
 
 Enable it with `gohawk -enable-checks=channelprotocol/blocked-operation ./...`.
 
@@ -45,15 +60,18 @@ Branches, loops, `select`, other deferred actions, recursion, extra goroutines,
 opaque calls, escaping resources, and unresolved or mutable captures remain
 unknown. Dynamic group counts, group copying/resetting, `WaitGroup.Go`, and
 groups supplied by callers remain outside this proof.
-Unknown means no diagnostic, not that the program is safe. Dependency bodies
-that are unavailable cannot supply a summary; this version exports no new
-cross-package facts. It does not yet model mutexes, arbitrary channel
-protocols, or general deadlock freedom.
+Unknown means no diagnostic, not that the program is safe. Unavailable
+dependency bodies need a complete imported concurrency fact; missing facts
+remain unknown. The shared `concurrencyfacts` pass exports ordered effects
+on direct parameters (including mutexes and WaitGroups). It preserves order
+through transitive helpers, but does not export local allocation identities,
+captured cells, or field-relative resources. This is not a model of arbitrary
+protocols or general deadlock freedom.
 
 ### Analysis cost
 
-There is no schedule enumeration or product of goroutine states. Each caller
-question has a 2,000-step shared instruction/storage budget, and summaries hold
+There is no schedule enumeration or product of goroutine states. Each check's
+caller question has a 2,000-step shared instruction/storage budget, and summaries hold
 at most 32 channel and group operations, including pending defers. Completed
 callee summaries are cached during the package pass; recursion and exhausted
 budgets never establish a defect.
@@ -66,6 +84,8 @@ coverage for predictable work, rather than making exhaustive analysis cheap.
 | Check | Kind | Tier | What it detects |
 | --- | --- | --- | --- |
 | <CheckIdentity name="blocked-operation" tier="experimental" /> | defect | experimental | Reports proven channel waiting cycles between a caller and its worker. |
+| <CheckIdentity name="lock-and-join" tier="experimental" /> | defect | experimental | Reports waiting for a worker while holding the mutex it needs to complete. |
+| <CheckIdentity name="channel-lock-cycle" tier="experimental" /> | defect | experimental | Reports channel communication blocked by a mutex held by its partner. |
 {/* gohawk:generated-checks:end */}
 
 ## Examples

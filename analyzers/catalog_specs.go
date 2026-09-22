@@ -141,6 +141,14 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 				ID: check.ChannelProtocolBlocked, Doc: "Reports proven channel waiting cycles between a caller and its worker.",
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
+			{
+				ID: check.ChannelProtocolLockJoin, Doc: "Reports waiting for a worker while holding the mutex it needs to complete.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
+			{
+				ID: check.ChannelProtocolLockCycle, Doc: "Reports channel communication blocked by a mutex held by its partner.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
 		}},
 		{Analyzer: producerlifecycle.Analyzer(), Checks: []catalog.CheckInfo{
 			{

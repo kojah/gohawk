@@ -29,7 +29,7 @@ func TestTraceDecisions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "trace.jsonl")
 	set("gohawk-trace", "channelprotocol")
 	set("gohawk-trace-file", path)
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "channelprotocol")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "channelprotocol", "mixedcycles")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -45,11 +45,13 @@ func checkTraceDecisions(t *testing.T, data []byte) {
 		"protocol-control-flow-unknown": "unknown", "recursive-protocol": "unknown",
 		"protocol-group-count-unknown": "unknown", "protocol-deferred-effects-unknown": "unknown",
 		"protocol-group-scope-unknown": "unknown",
+		"mutex-join-cycle":             "rejected", "mutex-channel-cycle": "rejected", "mixed-mutex-scope-unknown": "unknown",
 	}
 	candidates := map[string]bool{}
 	decisions := map[string]bool{}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event struct {
+			Check     string `json:"check"`
 			Phase     string `json:"phase"`
 			Reason    string `json:"reason"`
 			Outcome   string `json:"outcome"`
@@ -59,16 +61,20 @@ func checkTraceDecisions(t *testing.T, data []byte) {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
+		if !strings.HasPrefix(event.Check, "channelprotocol/") {
+			continue
+		}
+		key := event.Check + "|" + event.Candidate
 		if event.Phase == "candidate" && event.Reason == "protocol-launch" {
-			candidates[event.Candidate] = true
+			candidates[key] = true
 		}
 		if event.Phase != "decision" {
 			continue
 		}
-		if !candidates[event.Candidate] || decisions[event.Candidate] || event.Position != event.Candidate {
+		if !candidates[key] || decisions[key] || event.Position != event.Candidate {
 			t.Errorf("invalid decision association: %+v", event)
 		}
-		decisions[event.Candidate] = true
+		decisions[key] = true
 		if outcome, ok := want[event.Reason]; ok {
 			if event.Outcome != outcome {
 				t.Errorf("%s outcome = %s, want %s", event.Reason, event.Outcome, outcome)

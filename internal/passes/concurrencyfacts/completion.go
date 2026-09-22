@@ -1,4 +1,4 @@
-package channelprotocol
+package concurrencyfacts
 
 import (
 	"go/constant"
@@ -14,36 +14,42 @@ import (
 // the standard library's counter contract is recognized, never method names
 // on project types. Unknown counter changes cannot establish a waiting cycle.
 var (
-	groupAdd  = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Add"})
-	groupDone = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Done"})
-	groupWait = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Wait"})
+	groupAdd    = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Add"})
+	groupDone   = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Done"})
+	groupWait   = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Wait"})
+	mutexLock   = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Mutex", Name: "Lock"})
+	mutexUnlock = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Mutex", Name: "Unlock"})
 )
 
-func (engine *summaryEngine) callSummary(instruction ssa.CallInstruction) summary {
+func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 	common := instruction.Common()
-	var kind operationKind
+	var kind Kind
 	var resource ssa.Value
 	switch {
+	case ssaflow.CallMatchesSymbol(common, mutexLock):
+		kind, resource = Lock, ssaflow.CallReceiver(common)
+	case ssaflow.CallMatchesSymbol(common, mutexUnlock):
+		kind, resource = Unlock, ssaflow.CallReceiver(common)
 	case ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")):
-		kind, resource = closeOperation, common.Args[0]
+		kind, resource = Close, common.Args[0]
 	case ssaflow.CallMatchesSymbol(common, groupDone):
-		kind, resource = groupDoneOperation, ssaflow.CallReceiver(common)
+		kind, resource = GroupDone, ssaflow.CallReceiver(common)
 	case ssaflow.CallMatchesSymbol(common, groupWait):
-		kind, resource = groupWaitOperation, ssaflow.CallReceiver(common)
+		kind, resource = GroupWait, ssaflow.CallReceiver(common)
 	case ssaflow.CallMatchesSymbol(common, groupAdd):
 		if len(common.Args) != 2 {
-			return summary{reason: "protocol-group-count-unknown"}
+			return Summary{Reason: "protocol-group-count-unknown"}
 		}
 		count, ok := common.Args[1].(*ssa.Const)
 		if !ok || count.Value == nil || !constant.Compare(count.Value, token.EQL, constant.MakeInt64(1)) {
-			return summary{reason: "protocol-group-count-unknown"}
+			return Summary{Reason: "protocol-group-count-unknown"}
 		}
-		kind, resource = groupAddOperation, ssaflow.CallReceiver(common)
+		kind, resource = GroupAdd, ssaflow.CallReceiver(common)
 	default:
 		return engine.instantiate(instruction)
 	}
-	var result summary
-	result.reason = engine.appendOperation(&result, kind, resource, instruction.Pos())
+	var result Summary
+	result.Reason = engine.appendOperation(&result, kind, resource, instruction.Pos())
 	return result
 }
 
@@ -56,22 +62,32 @@ func waitGroupPointer(value types.Type) bool {
 	return structure && syntax.NamedType(pointer.Elem(), "sync", "WaitGroup")
 }
 
-func (engine *summaryEngine) deferCompletion(result *summary, instruction *ssa.Defer) string {
+func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) string {
 	called := engine.callSummary(instruction)
-	if called.reason != "" {
-		return called.reason
+	if called.Reason != "" {
+		return called.Reason
 	}
-	if len(called.operations) != 1 {
+	if len(called.Operations) != 1 {
 		return "protocol-deferred-effects-unknown"
 	}
-	op := called.operations[0]
-	if op.kind != closeOperation && op.kind != groupDoneOperation {
+	op := called.Operations[0]
+	if op.Kind != Close && op.Kind != GroupDone && op.Kind != Unlock {
 		return "protocol-deferred-effects-unknown"
 	}
 	// Arguments are bound now. Only their execution moves to RunDefers;
 	// captured cells still require stable storage through the invocation.
 	result.deferred = append(result.deferred, op)
 	return ""
+}
+
+func synchronizationPointer(value types.Type) bool {
+	return waitGroupPointer(value) || MutexPointer(value)
+}
+
+// MutexPointer identifies only sync.Mutex pointers, not RWMutex or lookalikes.
+func MutexPointer(value types.Type) bool {
+	pointer, ok := value.Underlying().(*types.Pointer)
+	return ok && syntax.NamedType(pointer.Elem(), "sync", "Mutex")
 }
 
 func straightLineBody(function *ssa.Function) bool {
