@@ -23,7 +23,7 @@ func TestImportedEffects(t *testing.T) {
 				switch function.Name() {
 				case "forward", "reverse":
 					result := engine.Function(function, ssaflow.NewSearchBudget(2000))
-					if result.Reason != "" || len(result.Operations) != 4 {
+					if result.Completeness() != CompleteWithEffects || len(result.Operations) != 4 {
 						t.Fatalf("%s: %+v", function, result)
 					}
 					indices := []int{0, 1, 1, 0}
@@ -37,12 +37,14 @@ func TestImportedEffects(t *testing.T) {
 					}
 					checked++
 				case "opaque", "conditional", "spawning", "localOnly":
-					if result := engine.Function(function, ssaflow.NewSearchBudget(2000)); result.Reason == "" {
-						t.Errorf("%s unexpectedly complete", function)
+					result := engine.Function(function, ssaflow.NewSearchBudget(2000))
+					if result.Completeness() != Incomplete || result.Complete() || result.Reason == "" {
+						t.Errorf("%s unexpectedly complete: %+v", function, result)
 					}
 					checked++
 				case "empty":
-					if result := engine.Function(function, ssaflow.NewSearchBudget(2000)); result.Reason != "" || len(result.Operations) != 0 {
+					result := engine.Function(function, ssaflow.NewSearchBudget(2000))
+					if result.Completeness() != CompleteNoEffects || !result.Complete() || len(result.Operations) != 0 {
 						t.Errorf("complete empty effects lost: %+v", result)
 					}
 					checked++

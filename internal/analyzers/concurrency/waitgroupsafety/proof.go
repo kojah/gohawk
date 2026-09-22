@@ -14,7 +14,7 @@ type counterProof struct {
 }
 
 func proveCounter(function *ssa.Function, summary concurrencyfacts.Summary) counterProof {
-	if summary.Reason != "" {
+	if !summary.Complete() {
 		return counterProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceReason(summary.Reason)}}
 	}
 	operations, ordered := counterSequence(summary)

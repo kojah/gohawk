@@ -47,8 +47,12 @@ type Operation struct {
 	Site     token.Pos
 }
 
-// Summary is complete only when Reason is empty. Returned slices are immutable.
-// Worker and Prefix describe the sole launch allowed in a root query.
+// Summary is the ordered synchronization effect of one function or call.
+// Consumers decide on Completeness, never on the shape of Operations alone:
+// an empty operation list is evidence only when the summary is complete.
+// Reason explains an incomplete summary and is stable trace vocabulary.
+// Returned slices are immutable. Worker and Prefix describe the sole launch
+// allowed in a root query.
 type Summary struct {
 	Operations []Operation
 	deferred   []Operation
@@ -56,6 +60,41 @@ type Summary struct {
 	Spawn      *ssa.Go
 	Prefix     int
 	Reason     string
+}
+
+// Completeness is the contract a consumer acts on. Only a complete summary
+// rules anything out; an incomplete one may hide any effect at all.
+type Completeness uint8
+
+const (
+	// Incomplete means some instruction, callee, or binding could not be
+	// summarized, so missing effects cannot be ruled out. Reason names why.
+	Incomplete Completeness = iota
+	// CompleteNoEffects means every instruction was accounted for and none of
+	// them synchronizes: the function is proved effect-free.
+	CompleteNoEffects
+	// CompleteWithEffects means every instruction was accounted for and
+	// Operations, with any Worker, lists the effects in execution order.
+	CompleteWithEffects
+)
+
+// Completeness classifies the summary for its consumers. It is derived from
+// the same fields the builder writes, so it cannot disagree with Reason.
+func (summary Summary) Completeness() Completeness {
+	switch {
+	case summary.Reason != "":
+		return Incomplete
+	case len(summary.Operations) == 0 && len(summary.Worker) == 0 && summary.Spawn == nil:
+		return CompleteNoEffects
+	default:
+		return CompleteWithEffects
+	}
+}
+
+// Complete reports whether every effect was accounted for, with or without
+// effects. Callers that need the distinction switch on Completeness.
+func (summary Summary) Complete() bool {
+	return summary.Completeness() != Incomplete
 }
 
 // Engine caches evidence for one package. Concurrent consumers are serialized

@@ -15,7 +15,7 @@ import (
 func summarizedSends(function *ssa.Function, spawn *ssa.Go, engine *concurrencyfacts.Engine) ([]producerSend, bool) {
 	budget := ssaflow.NewSearchBudget(2000)
 	summary := engine.AtCall(spawn, budget)
-	if summary.Reason != "" {
+	if !summary.Complete() {
 		return nil, false
 	}
 	for _, operation := range summary.Operations {
@@ -33,7 +33,7 @@ func summarizedSends(function *ssa.Function, spawn *ssa.Go, engine *concurrencyf
 			continue
 		}
 		position := spawn.Pos()
-		if local.Reason == "" && len(local.Operations) == len(summary.Operations) {
+		if local.Complete() && len(local.Operations) == len(summary.Operations) {
 			position = local.Operations[i].Site
 		}
 		sends = append(sends, producerSend{
@@ -58,7 +58,7 @@ func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *ssafl
 	query := ssaflow.NewCallEffects(budget)
 	matched := false
 	for _, binding := range ssaflow.CallBindings(call.Common(), function, closure) {
-		if !ssaflow.CapturedBindingMatches(binding.Supplied, channel) && !ssaflow.ValueContainsValue(binding.Supplied, channel) {
+		if !ssaflow.CapturedBindingMatches(binding.Supplied, channel) && !ssaflow.MayContainValue(binding.Supplied, channel) {
 			continue
 		}
 		matched = true
@@ -117,7 +117,7 @@ func helperReceives(
 	}
 	summary := engine.AtCall(call, budget)
 	_, launched := call.(*ssa.Go)
-	if summary.Reason != "" {
+	if !summary.Complete() {
 		if launched && nonReceivingUses(call, channel, budget).Proven() {
 			return receiveProof{reason: "worker-channel-uses-complete"}
 		}
@@ -125,7 +125,7 @@ func helperReceives(
 		// We cannot prove its execution paths from a captured channel alone.
 		// https://github.com/kubernetes/registry.k8s.io/blob/b5e7d92a3819fcd24ed35b174db0ce6291e88e7f/cmd/archeio/main_test.go#L73-L80
 		consumes := func(value ssa.Value) bool {
-			return ssaflow.ValueContainsValue(value, channel) || ssaflow.CapturedBindingMatches(value, channel)
+			return ssaflow.MayContainValue(value, channel) || ssaflow.CapturedBindingMatches(value, channel)
 		}
 		uncertain := slices.ContainsFunc(common.Args, consumes)
 		if closure, ok := common.Value.(*ssa.MakeClosure); ok {

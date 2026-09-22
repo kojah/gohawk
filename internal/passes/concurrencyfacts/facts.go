@@ -79,7 +79,7 @@ func run(pass *analysis.Pass) (any, error) {
 
 func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 	fact := Fact{Version: factVersion}
-	if result.Reason != "" || result.Spawn != nil || len(result.deferred) != 0 {
+	if !result.Complete() || result.Spawn != nil || len(result.deferred) != 0 {
 		return fact, false
 	}
 	for _, operation := range result.Operations {

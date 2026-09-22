@@ -71,7 +71,7 @@ func waitGroupPointer(value types.Type) bool {
 
 func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) string {
 	called := engine.callSummary(instruction)
-	if called.Reason != "" {
+	if !called.Complete() {
 		return called.Reason
 	}
 	if len(called.Operations) != 1 {

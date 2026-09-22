@@ -43,7 +43,7 @@ func summarizedMutexEffects(pass *analysis.Pass, function *ssa.Function) map[ssa
 			continue
 		}
 		summary := engine.AtCall(call, budget)
-		if summary.Reason != "" {
+		if !summary.Complete() {
 			continue
 		}
 		effects, complete := bindMutexEffects(call, summary.Operations)

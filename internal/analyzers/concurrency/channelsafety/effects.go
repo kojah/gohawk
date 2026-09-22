@@ -32,7 +32,7 @@ func channelEffects(pass *analysis.Pass, function *ssa.Function) map[ssa.Instruc
 					continue
 				}
 				summary := engine.AtCall(instruction, budget)
-				if summary.Reason == "" {
+				if summary.Complete() {
 					for _, operation := range summary.Operations {
 						if !operation.Resource.Indirect {
 							effects[instruction] = append(effects[instruction], operation)

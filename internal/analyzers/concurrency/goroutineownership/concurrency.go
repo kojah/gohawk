@@ -48,7 +48,7 @@ func proveSummaryJoin(
 		return summaryJoinProof{reason: "concurrency-join-not-synchronous"}
 	}
 	summary := engine.AtCall(call, budget)
-	if summary.Reason != "" {
+	if !summary.Complete() {
 		return summaryJoinProof{reason: summary.Reason}
 	}
 	want := concurrencyfacts.Receive

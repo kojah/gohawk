@@ -22,7 +22,7 @@ func (engine *Engine) instantiate(instruction ssa.CallInstruction) Summary {
 }
 
 func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) Summary {
-	if callee.Reason != "" {
+	if !callee.Complete() {
 		return callee
 	}
 	result := Summary{Operations: make([]Operation, 0, len(callee.Operations))}

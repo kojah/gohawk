@@ -22,7 +22,7 @@ func (engine *summaryEngine) proveCheck(function *ssa.Function, limit int, id ch
 	if budget.Exhausted() {
 		return cycleProof{Proof: ssaflow.Proof{Reason: "protocol-budget-exhausted"}}
 	}
-	if protocol.Reason != "" {
+	if !protocol.Complete() {
 		return cycleProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceReason(protocol.Reason)}}
 	}
 	if id == check.ChannelProtocolBlocked {
