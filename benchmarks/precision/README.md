@@ -128,6 +128,12 @@ claim, because the code that made it no longer ships.
 
 ## Which check a label names
 
+Round 55 preserves batch 51's global/retained/merged resource boundaries,
+readiness-only worker narrowing and exact acquisition-error guard. Its 21 labels
+pass across eight fully scannable repositories; fourteen further corrected
+locations in originally incomplete repositories have scoped replay evidence in
+`audits/batch-51.md`, not whole-repository passing labels.
+
 Round 54 records the complete remaining-site review from batch 50: uncertain
 channel regions and worker-specific guards, plus retained aggregate owners.
 Neffos's loaded-guard correction is separately root-package replayed because

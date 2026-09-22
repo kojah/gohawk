@@ -1658,6 +1658,44 @@ and 25 unresolved. Its per-site ledger separates review from verified fixes.
 Round 54 passes seven FP and ten TP labels; Neffos has a separate root-package
 replay because unrelated example modules cannot load in the full harness.
 
+## Batch 51
+
+Another 250 fresh repositories were selected at full revision pins, excluding
+prior audits, regression cohorts, outreach and in-flight selections. The
+[selection ledger](batch-51.tsv) and [selection provenance](batch-51-selection.json)
+record the Go 1.26/1.27.0, 500–5,000-star, nonfork/nonarchived and size-bounded
+profile. Selection screened 2,133 fresh candidates and chose 250 of 259 eligible
+repositories; the selected slice has 800–5,000 stars.
+
+The [scan metadata](batch-51-scans.json) fixes analyzer source `f105aa55`, binary
+and runner hashes, pins, module scope and captured errors. Three repository
+workers attempted 320 module entries with all checks and test source enabled,
+CGO and toolchain auto-download disabled, read-only modules and bounded timeouts.
+No candidate tests, generators or applications were executed.
+
+All 250 scan attempts and all 421 original findings are individually reviewed:
+325 true positives, 85 false positives and 11 inconclusive. Of the repositories,
+193 completed the selected-module scan and 57 were incomplete; 106 completed
+scans reported no findings. Partial scans are not counted as clean. The
+[per-finding ledger](batch-51-findings.tsv) preserves every original verdict,
+exact source position, check ID and source-review explanation.
+
+The [assessment](batch-51.md) records eight bounded evidence improvements,
+their accepted coverage gaps, and the remaining check-level questions.
+[Correction receipts](batch-51-corrections.tsv) identify 24 verified original
+false-positive removals; 61 original false positives remain unresolved. Four
+focused analyzer commits are separate from this audit record. Round 55 passes
+21 labels across eight fully scannable repositories: ten false positives remain
+absent and eleven true positives remain present. Four incomplete repositories
+have explicitly scoped pinned replays instead of misleading whole-repository
+passes.
+
+Validation includes `make verify`, a full race run followed by race reruns of
+subsequently changed packages, rounds 53/54 control replays, round 55, scanner
+unit tests, and ledger checks against the pinned checkout HEADs and source
+locations. The cohort measures reviewed findings, not recall or universal
+repository safety.
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
