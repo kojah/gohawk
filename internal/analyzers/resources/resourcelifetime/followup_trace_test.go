@@ -9,6 +9,7 @@ import (
 func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 	t.Helper()
 	want := map[string]string{
+		"stored-by-callee":                    "private_retention.go:",
 		"returned-logger-retains-writer":      "returned_loggers.go:",
 		"prior-defer-may-clean-captured-cell": "prior_captured_cleanup.go:",
 		"paired-error-helper-cleanup":         "paired_error_cleanup.go:",

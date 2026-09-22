@@ -35,8 +35,10 @@ import (
 const retentionBudget = 250_000
 
 type retention struct {
-	pass   *analysis.Pass
-	strict bool
+	pass        *analysis.Pass
+	strict      bool
+	everyReturn bool
+	lookup      func(ssa.Instruction) (Fact, bool)
 	// budget bounds the instructions this question may examine. The shared
 	// type owns the counting; the polarity a bailout takes stays here, because
 	// only this walk knows which answer refuses to invent evidence.
@@ -51,9 +53,10 @@ type retention struct {
 // retentionKey identifies one retention question. The strict and loose walks
 // answer differently, so the mode is part of the key and both share one memo.
 type retentionKey struct {
-	function  *ssa.Function
-	parameter ssa.Value
-	strict    bool
+	function    *ssa.Function
+	parameter   ssa.Value
+	strict      bool
+	everyReturn bool
 }
 
 // retentionCache shares retention answers across one package. A single walk
@@ -61,7 +64,8 @@ type retentionKey struct {
 // about the same helpers again and again, so the answers must outlive one
 // question.
 type retentionCache struct {
-	memo *ssaflow.CallGraphMemo[retentionKey, bool]
+	memo   *ssaflow.CallGraphMemo[retentionKey, bool]
+	lookup func(ssa.Instruction) (Fact, bool)
 }
 
 func newRetentionCache() *retentionCache {
@@ -69,11 +73,22 @@ func newRetentionCache() *retentionCache {
 }
 
 func (cache *retentionCache) retainedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	return (&retention{pass: pass, budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo}).answer(function, parameter)
+	return (&retention{pass: pass, budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo, lookup: cache.lookup}).answer(function, parameter)
 }
 
 func (cache *retentionCache) storedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	return (&retention{pass: pass, strict: true, budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo}).answer(function, parameter)
+	return (&retention{
+		pass: pass, strict: true, budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo, lookup: cache.lookup,
+	}).answer(function, parameter)
+}
+
+// Visible private helpers have no exported fact. Require a retention witness
+// on every return before using their bodies as a caller ownership boundary.
+func (cache *retentionCache) storedEveryReturn(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
+	return (&retention{
+		pass: pass, strict: true, everyReturn: true,
+		budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo, lookup: cache.lookup,
+	}).answer(function, parameter)
 }
 
 // answer runs one top-level retention question and traces a budget bailout,
@@ -97,7 +112,7 @@ func (search *retention) within(function *ssa.Function, parameter ssa.Value) boo
 	if function == nil || len(function.Blocks) == 0 {
 		return false
 	}
-	key := retentionKey{function: function, parameter: parameter, strict: search.strict}
+	key := retentionKey{function: function, parameter: parameter, strict: search.strict, everyReturn: search.everyReturn}
 	retained := !search.strict
 	// Guard before looking up the answer: a recursive call contributes only
 	// may-retain evidence, even if another context already populated the cache.
@@ -116,6 +131,11 @@ func (search *retention) within(function *ssa.Function, parameter ssa.Value) boo
 func (search *retention) searchWithin(function *ssa.Function, parameter ssa.Value) bool {
 	derives := func(value ssa.Value) bool {
 		return ssaflow.SameValue(value, parameter)
+	}
+	if search.everyReturn {
+		return ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
+			return search.budget.Spend() && search.instructionRetains(function, instruction, derives)
+		}, ssaflow.CoverageEveryReturn, parameter)
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -137,8 +157,16 @@ func (search *retention) instructionRetains(function *ssa.Function, instruction 
 		// keeps the value only as long as the local lives. In strict mode that
 		// is not retention: a local aggregate that escapes is decided where it
 		// escapes. The loose mode keeps counting it.
-		if !derives(typed.Val) {
+		wrapped := search.everyReturn && search.returnedWrapperContains(typed.Val, derives)
+		if !derives(typed.Val) && !wrapped {
 			return false
+		}
+		if search.everyReturn {
+			// A direct global store has an owner independent of caller-local
+			// storage. Parameter fields and local spills need a separate escape
+			// proof at the caller, not just retention somewhere in this helper.
+			_, global := typed.Addr.(*ssa.Global)
+			return global
 		}
 		local, ok := localStorage(typed.Addr, function)
 		if !ok || !search.strict {
@@ -146,6 +174,12 @@ func (search *retention) instructionRetains(function *ssa.Function, instruction 
 		}
 		return search.valueEscapes(local, map[ssa.Value]bool{})
 	case *ssa.MakeClosure:
+		// Capturing a resource for later work is not a completed ownership
+		// handoff. Cleanup registrations need their separate completion proof;
+		// a callback that only conditionally closes must not settle its input.
+		if search.everyReturn {
+			return false
+		}
 		if !slices.ContainsFunc(typed.Bindings, func(binding ssa.Value) bool {
 			return derives(binding) || derives(ssaflow.CapturedBindingValue(binding))
 		}) {
@@ -153,9 +187,9 @@ func (search *retention) instructionRetains(function *ssa.Function, instruction 
 		}
 		return !search.strict || search.closureEscapes(typed)
 	case *ssa.Send:
-		return derives(typed.X)
+		return !search.everyReturn && derives(typed.X)
 	case *ssa.MapUpdate:
-		return derives(typed.Value)
+		return !search.everyReturn && derives(typed.Value)
 	case *ssa.Return:
 		// Returning the value hands it to the caller, which the returned-owner
 		// and view summaries describe; strict retention leaves it to them.
@@ -248,12 +282,17 @@ func (search *retention) callRetains(common *ssa.CallCommon, instruction ssa.Ins
 		return false
 	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
-		return builtin.Name() == "append" && anyArgument(common, derives)
+		return !search.everyReturn && builtin.Name() == "append" && anyArgument(common, derives)
 	}
-	if imported, ok := importFact(search.pass, instruction); ok {
+	if imported, ok := search.fact(instruction); ok {
 		mask := imported.Claim(ClaimRetains)
 		if search.strict {
 			mask = imported.Claim(ClaimStores)
+			if search.everyReturn {
+				// Construction alone does not retain a wrapper beyond this
+				// helper. Its actual escaping store must cover each return.
+				mask &^= imported.ReturnedOwner
+			}
 		}
 		return argumentInMask(common, mask, derives)
 	}
@@ -270,6 +309,29 @@ func (search *retention) callRetains(common *ssa.CallCommon, instruction ssa.Ins
 		}
 	}
 	return false
+}
+
+// Returned-owner and strict-storage claims supply positive parameter-to-wrapper
+// provenance. Merely calling a may-retain API supplies no such relationship.
+// The store is classified at its real position, so an earlier error return
+// cannot borrow evidence from a later logger installation.
+// https://github.com/shijuvar/gokit/blob/4b5abbb8d4e6497a1eef211cb823c18b7977dde4/log/log.go#L34-L51
+func (search *retention) returnedWrapperContains(value ssa.Value, derives func(ssa.Value) bool) bool {
+	call, ok := value.(*ssa.Call)
+	if !ok || call.Common().Signature().Results().Len() != 1 {
+		return false
+	}
+	fact, known := search.fact(call)
+	return known && argumentInMask(call.Common(), fact.ReturnedOwner&fact.Stored, derives)
+}
+
+// During prerequisite construction facts are imported directly; a consumer's
+// pass instead owns the prerequisite result, not its object-fact namespace.
+func (search *retention) fact(instruction ssa.Instruction) (Fact, bool) {
+	if search.lookup != nil {
+		return search.lookup(instruction)
+	}
+	return importFact(search.pass, instruction)
 }
 
 func anyArgument(common *ssa.CallCommon, derives func(ssa.Value) bool) bool {

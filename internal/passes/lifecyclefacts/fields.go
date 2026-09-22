@@ -636,13 +636,39 @@ func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ss
 // returned aggregate is decided by the returned-owner and view rules instead.
 func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Instruction, target ssa.Value) bool {
 	fact, ok := factFor(evidence.pass, instruction)
-	if !ok || !factOwnsExactArgument(instruction, target, fact.Stored&^fact.ReturnedOwner) {
+	if !ok {
+		return evidence.visibleCalleeRetains(instruction, target)
+	}
+	if !factOwnsExactArgument(instruction, target, fact.Stored&^fact.ReturnedOwner) {
 		return false
 	}
 	evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, ssaflow.Proof{
 		State: ssaflow.EvidenceProven, Reason: reasonStoredByCallee, Provenance: ssaflow.EvidenceFromImportedFact,
 	})
 	return true
+}
+
+// Export filtering must not make a visible private helper opaque to retention
+// queries. Reuse the strict bounded classifier, but require its witness before
+// every normal return instead of promoting a possible store to completion.
+func (evidence *LifecycleEvidence) visibleCalleeRetains(instruction ssa.Instruction, target ssa.Value) bool {
+	common := ssaflow.InstructionCall(instruction)
+	function, closure := ssaflow.DirectCallee(common)
+	if function == nil || len(function.Blocks) == 0 {
+		return false
+	}
+	retentions := evidence.retentionQueries()
+	for _, binding := range ssaflow.CallBindings(common, function, closure) {
+		if !ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(binding.Supplied, target).Proven() ||
+			!retentions.storedEveryReturn(evidence.pass, function, binding.Local) {
+			continue
+		}
+		evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, ssaflow.Proof{
+			State: ssaflow.EvidenceProven, Reason: reasonStoredByCallee, Provenance: ssaflow.EvidenceFromLocalSSA,
+		})
+		return true
+	}
+	return false
 }
 
 // CalleeClaims reports what the call's static callee is summarized as doing

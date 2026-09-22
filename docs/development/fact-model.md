@@ -94,6 +94,15 @@ also leaves fresh-result ownership unknown. A returned wrapper can share its
 resource with a manager; its cleanup capability does not establish a separate
 caller duty. Stores into local scratch collections do not have this effect.
 
+Visible private helpers have no exported object fact. Retention consumers can
+reuse the bounded local query instead, requiring a direct global store or a
+known retaining call before every normal return. A returned wrapper is counted
+at its actual global store, using positive returned-owner and stored-argument
+claims; merely constructing or discarding it does not transfer ownership.
+Local spills, caller-owned cells, and callback captures do not establish this
+boundary. Consumer queries read prerequisite summaries, not another analyzer's
+object-fact namespace.
+
 ## Some masks must be exact; others may guess
 
 A discharge summary can also follow a bound method passed to a visible helper:

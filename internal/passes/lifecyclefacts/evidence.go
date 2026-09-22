@@ -52,21 +52,29 @@ func (evidence *LifecycleEvidence) ClosureRetainsValue(closure *ssa.MakeClosure,
 	if !ok || len(function.Blocks) == 0 {
 		return true
 	}
-	if evidence.retentions == nil {
-		evidence.retentions = newRetentionCache()
-	}
+	retentions := evidence.retentionQueries()
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
 		if !ssaflow.CapturedBindingMatches(captured.Binding, target) &&
 			!ssaflow.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
 			continue
 		}
 		for _, held := range capturedUses(captured.Free) {
-			if evidence.retentions.retainedAnywhere(evidence.pass, function, held) {
+			if retentions.retainedAnywhere(evidence.pass, function, held) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func (evidence *LifecycleEvidence) retentionQueries() *retentionCache {
+	if evidence.retentions == nil {
+		evidence.retentions = newRetentionCache()
+		// A consumer owns the prerequisite result, not the prerequisite's
+		// object-fact namespace. Fix this lookup for the cache's whole life.
+		evidence.retentions.lookup = func(call ssa.Instruction) (Fact, bool) { return factFor(evidence.pass, call) }
+	}
+	return evidence.retentions
 }
 
 // ClosureHandsValueToUnreadableCallee reports whether a literal passes the
