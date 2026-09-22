@@ -29,6 +29,12 @@ func conditional(yes bool) { _, cancel := context.WithCancel(context.Background(
 func asynchronous() { _, cancel := context.WithCancel(context.Background()); go forward(cancel) }
 func helperLaunch() { _, cancel := context.WithCancel(context.Background()); launch(cancel) }
 func bound() { _, cancel := context.WithCancel(context.Background()); viaCallback(cancel, func(value context.CancelFunc) { value() }) }
+func maybe(fn context.CancelFunc, yes bool) bool { if yes { fn(); return true }; return false }
+func forwardMaybe(fn context.CancelFunc, yes bool) bool { return maybe(fn, yes) }
+func conditionalResult(yes bool) { _, cancel := context.WithCancel(context.Background()); if forwardMaybe(cancel, yes) { return }; cancel() }
+func conditionalEarly(yes, early bool) {
+    _, cancel := context.WithCancel(context.Background()); if early { return }; if maybe(cancel, yes) { return }; cancel()
+}
 `)
 	for _, test := range []struct {
 		name string
@@ -43,6 +49,8 @@ func bound() { _, cancel := context.WithCancel(context.Background()); viaCallbac
 		{"asynchronous", CancellationUnknown},
 		{"helperLaunch", CancellationUnknown},
 		{"bound", CancellationReleased},
+		{"conditionalResult", CancellationReleased},
+		{"conditionalEarly", CancellationLost},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var cancel *ssa.Extract

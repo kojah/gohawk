@@ -14,8 +14,9 @@ import (
 // variables, and check how much of the callee's control flow a matching call
 // covers. Every launch form demands the same coverage: the callee must call
 // before each of its normal returns, on the paths feasible when the mapped
-// local is non-nil. A callee that only conditionally releases proves nothing,
-// whether it is deferred, called, or started. Nested launches inside the
+// local is non-nil. An ordinary query cannot credit conditional release;
+// the separate result-edge query restricts completion to a tested result.
+// Nested launches inside the
 // callee are proved by the same search, so helper chains, deferred callbacks,
 // cleanup registrations, and launched waiters need no separate rule.
 
@@ -408,6 +409,7 @@ func exactCleanupReceiver(receiver, parameter ssa.Value) bool {
 // stops recursion through helper cycles and keeps the search over the call
 // graph rather than over every call path through it.
 type completionSearch struct {
+	condition completionCondition
 	// Exact invocation excludes aggregate containment and may-alias mappings:
 	// calling one function stored in an owner does not invoke every function.
 	exactInvocation bool
@@ -453,6 +455,9 @@ func newCompletionSearch(method string, coverage CompletionCoverage, budget *Sea
 }
 
 func (search *completionSearch) calleeCoverage(callee completionCallee, target ssa.Value, invocation ssa.Instruction) bool {
+	condition := search.condition
+	search.condition = completionCondition{}
+	defer func() { search.condition = condition }()
 	locals := search.mappedLocals(callee, target, invocation)
 	if len(locals) == 0 {
 		return false
@@ -473,6 +478,9 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	}
 	calls := func(candidate ssa.Instruction) bool {
 		return search.instructionCompletes(candidate, locals, target)
+	}
+	if condition.kind != completionUnconditional {
+		return search.conditionalCoverage(callee.function, locals, target, condition)
 	}
 	return MethodCallCoverage(callee.function, calls, search.coverage, nonNil)
 }

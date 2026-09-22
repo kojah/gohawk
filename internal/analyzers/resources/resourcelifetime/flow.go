@@ -193,8 +193,16 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 			analysis.traceRepeatedGuard(state.block, successor)
 		}
 		unknown := state.unknown || sqlRowsExhaustionEdge(state.block, successor, resource) || contradicted
+		// A conditional helper settles only the edge selected by its result.
+		// Optional-acquisition phis retain their own stricter cleanup policy.
+		released := state.released
+		if !released && !optionalAcquisition.Proven() {
+			released = ssaflow.ProveCompletionOnEdge(state.block, successor, ssaflow.CompletionRequest{
+				Target: resource, Methods: analysis.contract.cleanup, Budget: analysis.budget(1000),
+			}).Proven()
+		}
 		result = append(result, resourceFlowState{
-			block: successor, predecessor: state.block, active: active, released: state.released, unknown: unknown, guards: guards,
+			block: successor, predecessor: state.block, active: active, released: released, unknown: unknown, guards: guards,
 		})
 	}
 	return result

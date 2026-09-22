@@ -106,6 +106,11 @@ func (classifier *cancellationClassifier) returnObligation(returned *ssa.Return)
 }
 
 func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
+	if ssaflow.ProveCompletionOnEdge(from, to, ssaflow.CompletionRequest{
+		Target: classifier.cancel, InvokeTarget: true, Budget: classifier.budget(),
+	}).Proven() {
+		return ssaflow.ObligationExact
+	}
 	if classifier.selectedDoneEdge(from, to) {
 		return ssaflow.ObligationUnknown
 	}

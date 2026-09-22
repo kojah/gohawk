@@ -292,12 +292,34 @@ cleanup and other lifecycle analyzers consume these shared searches; they do not
 an additional analyzer-local summary engine. Target values and callback
 environments must remain in their keys—function identity alone is insufficient.
 
-This infrastructure is neither a scheduler nor a model checker. It does not
-merge branches or infer conditional effects. Exporting a summary requires a
+This infrastructure is neither a scheduler nor a model checker. The generic
+summary driver does not merge branches or infer conditional effects. Exporting a summary requires a
 separate evidence model, serialization, and precision fixtures. In particular,
 finite recursion guards alone do not
 guarantee cheap analysis: cut answers cannot be cached, so consumers charge
 instruction and effect-expansion work to a shared search budget.
+
+### Result-conditioned local completion
+
+`ssaflow.ProveCompletionOnEdge` connects a synchronous helper's Boolean or
+nil-error result to cleanup of an exact caller value. The completion summary
+is keyed by the selected result and condition as well as its callback context
+and target. A direct forwarding return composes the same condition through
+the next helper; unrelated nested calls still require unconditional cleanup.
+
+Resource lifetime and cancellation ownership credit this evidence only on the
+tested control-flow edge. The opposite edge and earlier returns remain subject
+to their own obligations. Partial cleanup, wrong targets, asynchronous cleanup,
+opaque dispatch, recursion, and exhausted searches cannot establish completion.
+An unknown returned value is treated as possibly satisfying the condition, not
+discarded to manufacture a proof. Compiler-spilled Boolean results can use the
+shared storage proof; error boxing is preserved so typed nil errors are not
+mistaken for nil interfaces.
+
+This is a bounded local relation, not a general conditional effect language.
+It does not export conditional facts across packages, infer arbitrary argument
+predicates, or relate independently returned worker handles. Those boundaries
+remain unknown. Existing unconditional lifecycle facts keep their meaning.
 
 ### Ordered concurrency facts
 

@@ -9,11 +9,14 @@ import "golang.org/x/tools/go/ssa"
 // completionKey identifies one completion question. The method and coverage
 // are fixed for a search, but a callback search shares the parent's guards
 // while answering a different question, so invokeTarget belongs in the key.
+// Result conditions also belong in the key: true-edge completion must never
+// answer a false-edge or unconditional question about the same invocation.
 type completionKey struct {
 	bindings     *callbackBindings
 	instruction  ssa.Instruction
 	target       ssa.Value
 	invokeTarget bool
+	condition    completionCondition
 }
 
 type completionAnswer struct {
@@ -26,7 +29,9 @@ type completionAnswer struct {
 // target with the coverage their launch demands. The final result is false
 // when no callee body was available to search.
 func (search *completionSearch) completes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
-	key := completionKey{instruction: instruction, target: target, invokeTarget: search.invokeTarget, bindings: search.bindings}
+	key := completionKey{
+		instruction: instruction, target: target, invokeTarget: search.invokeTarget, bindings: search.bindings, condition: search.condition,
+	}
 	answer := search.memo.Compose(key, search.budget, func() completionAnswer {
 		launch, proven, available := search.searchCompletes(instruction, target)
 		return completionAnswer{launch: launch, proven: proven, available: available}

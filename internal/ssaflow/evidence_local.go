@@ -21,6 +21,7 @@ type completionEvidenceKey struct {
 	coverage     CompletionCoverage
 	invokeTarget bool
 	exactTarget  bool
+	condition    completionCondition
 }
 
 type transferEvidenceKey struct {
@@ -37,6 +38,7 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionP
 		coverage:     request.Coverage,
 		invokeTarget: request.InvokeTarget,
 		exactTarget:  request.ExactTarget,
+		condition:    request.condition,
 	}
 	if proof, ok := evidence.completions[key]; ok {
 		return proof

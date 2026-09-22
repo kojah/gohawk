@@ -30,6 +30,9 @@ type CompletionRequest struct {
 	// because the search stopped before it could decide; what an undecided
 	// answer permits is the caller's policy, not this package's.
 	Budget *SearchBudget
+	// condition is set only by the edge query after resolving an exact call
+	// result. It never changes an ordinary completion request's contract.
+	condition completionCondition
 }
 
 // ProveCompletion answers one completion request. Each call runs its own
@@ -56,6 +59,7 @@ func ProveCompletion(request CompletionRequest) CompletionProof {
 		search.exactInvocation = request.InvokeTarget
 		search.exactTarget = request.ExactTarget || request.InvokeTarget
 		search.invokeTarget = request.InvokeTarget
+		search.condition = request.condition
 		launch, proven, available := search.completes(request.Instruction, request.Target)
 		if proven {
 			return CompletionProof{Proof{State: EvidenceProven, Reason: launch.reason(), Method: method, Provenance: EvidenceFromLocalSSA}}
