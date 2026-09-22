@@ -3,6 +3,7 @@ package goroutineownership
 import (
 	"slices"
 
+	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/ssa"
@@ -23,8 +24,9 @@ import (
 // helperSearch answers one helper-use question. The memo owns the cycle guard
 // and the rule that an answer cut short by it is not retained.
 type helperSearch struct {
-	memo   *ssaflow.CallGraphMemo[helperKey, ownershipAction]
-	budget *ssaflow.SearchBudget
+	concurrency *concurrencyfacts.Engine
+	memo        *ssaflow.CallGraphMemo[helperKey, ownershipAction]
+	budget      *ssaflow.SearchBudget
 }
 
 const helperUseBudget = 1000
@@ -61,7 +63,8 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 		return ssaflow.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
 	}
 	joins := func(instruction ssa.Instruction) bool {
-		return search.instructionJoins(instruction, kind, derives)
+		proof := proveSummaryJoin(search.concurrency, instruction, local, kind, search.budget)
+		return proof.joined || search.instructionJoins(instruction, kind, derives)
 	}
 	joined, escaped := false, false
 	for _, block := range function.Blocks {

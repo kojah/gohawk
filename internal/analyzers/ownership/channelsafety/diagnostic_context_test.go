@@ -15,14 +15,39 @@ import (
 
 func TestSendAfterCloseDiagnosticContext(t *testing.T) {
 	tracePath := enableChannelSafetyTrace(t)
-	results := analysistest.Run(t, analysistest.TestData(), Analyzer(), "channelsafety")
+	results := analysistest.Run(t, analysistest.TestData(), Analyzer(), "channelsafety", "summaryeffects")
 	assertSendAfterCloseRelatedLocation(t, results)
+	assertSummaryDiagnosticContext(t, results)
 
 	data, err := os.ReadFile(tracePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertChannelIdentityTrace(t, data)
+}
+
+func assertSummaryDiagnosticContext(t *testing.T, results []*analysistest.Result) {
+	t.Helper()
+	count := 0
+	for _, result := range results {
+		if result.Pass == nil || result.Pass.Pkg.Path() != "summaryeffects" {
+			continue
+		}
+		for _, diagnostic := range result.Diagnostics {
+			count++
+			if len(diagnostic.Related) != 1 {
+				t.Fatalf("summary diagnostic has %d related locations, want 1", len(diagnostic.Related))
+			}
+			send := result.Pass.Fset.Position(diagnostic.Pos)
+			close := result.Pass.Fset.Position(diagnostic.Related[0].Pos)
+			if filepath.Base(send.Filename) != "diagnostics.go" || close.Filename != send.Filename || close.Line != send.Line-1 {
+				t.Errorf("summary positions = send %s, close %s; want adjacent caller locations", send, close)
+			}
+		}
+	}
+	if count != 5 {
+		t.Errorf("summary diagnostics = %d, want 5", count)
+	}
 }
 
 func assertSendAfterCloseRelatedLocation(t *testing.T, results []*analysistest.Result) {

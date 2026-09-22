@@ -12,6 +12,17 @@ Reports goroutines whose proven completion obligation is not honored on every re
 Launching background work without a recognizable completion obligation is not
 itself a diagnostic, including in `join` mode and with `-enable-all`.
 
+For an already-proven worker completion obligation, complete concurrency
+summaries can establish that a synchronous or deferred helper receives from
+the exact completion channel or waits on the exact WaitGroup. This includes
+imported helpers and local wrappers that call them. Existing branch-aware
+helper and ownership proofs remain in use when an ordered summary is
+unavailable; missing summaries are never treated as evidence of no join.
+An asynchronously launched waiter does not join the worker in its parent.
+
+These summaries do not introduce new worker obligations: a close or `Done`
+inside a helper may be an early readiness signal rather than completion.
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}

@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -135,6 +136,9 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	if analysis.callJoinsDirectly(common) {
 		return actionJoin
 	}
+	if analysis.summarizedJoin(instruction) {
+		return actionJoin
+	}
 	if analysis.waitGroupBookkeeping(common) {
 		return actionNone
 	}
@@ -212,7 +216,9 @@ func (analysis *spawnAnalysis) helperAction(common *ssa.CallCommon, callee *ssa.
 	for _, pair := range ssaflow.CallBindings(common, callee, closure) {
 		for _, tracked := range analysis.tracked {
 			if bindingCarries(pair.Supplied, tracked.value) {
-				result = strongerAction(result, newHelperSearch().use(callee, pair.Local, tracked.kind))
+				search := newHelperSearch()
+				search.concurrency = analysis.pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
+				result = strongerAction(result, search.use(callee, pair.Local, tracked.kind))
 			}
 		}
 	}

@@ -76,10 +76,9 @@ test-exhaustive:
 	$(GO) test -tags=exhaustive ./internal/cli -run '^TestCLIIntegrationExhaustive$$' -count=1
 
 test-race:
-	# Tracing is the shared component that synchronizes concurrent analyzer
-	# output. Analyzer implementations themselves do not run mutable state
-	# concurrently, so their ordinary tests provide the relevant coverage.
-	$(GO) test -race ./internal/trace
+	# Sibling analyzers share the tracer and ordered-effect cache. Keep both
+	# concurrency contracts under the race detector in the routine gate.
+	$(GO) test -race ./internal/trace ./internal/passes/concurrencyfacts
 
 vet:
 	$(GO) vet ./...

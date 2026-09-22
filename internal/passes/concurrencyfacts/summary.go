@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"go/types"
 	"slices"
+	"sync"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
@@ -56,8 +57,10 @@ type Summary struct {
 	Reason     string
 }
 
-// Engine caches evidence for one package. Queries are sequential, not concurrent.
+// Engine caches evidence for one package. Concurrent consumers are serialized
+// at the public query boundary; each query must supply its own work budget.
 type Engine struct {
+	mu        sync.Mutex
 	summaries *ssaflow.FunctionSummaries[Summary]
 	budget    *ssaflow.SearchBudget
 	storage   *ssaflow.Storage
@@ -92,16 +95,25 @@ func (engine *Engine) query(budget *ssaflow.SearchBudget) *Engine {
 
 // Function summarizes a visible body without allowing nested launches.
 func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
 	return engine.summaries.Function(function, budget)
 }
 
 // Root collects a caller and at most one worker under one shared work budget.
 func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
 	return engine.query(budget).collect(function, true)
 }
 
 // AtCall binds complete local or imported effects to the caller's exact values.
 func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBudget) Summary {
+	// Analysis drivers may run sibling consumers in parallel. The cache and
+	// its recursion guard form one transaction, so locking individual map
+	// accesses would still let another query look like a recursive call.
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
 	return engine.query(budget).callSummary(call)
 }
 

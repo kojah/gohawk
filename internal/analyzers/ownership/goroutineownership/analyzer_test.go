@@ -8,7 +8,7 @@ import (
 )
 
 func TestAnalyzer(t *testing.T) {
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "goroutineownership")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "goroutineownership", "summaryjoins")
 }
 
 func TestJoinMode(t *testing.T) {

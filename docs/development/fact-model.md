@@ -269,7 +269,8 @@ instruction and effect-expansion work to a shared search budget.
 ### Ordered concurrency facts
 
 `internal/passes/concurrencyfacts` shares the complete ordered-effect model
-used by `channelprotocol` and the straight-line helper path in `lockorder`.
+used by `channelprotocol`, the straight-line helper path in `lockorder`,
+and the helper-effect paths in `channelsafety` and `goroutineownership`.
 It records channel send/receive/close, `WaitGroup.Add(1)`/`Done`/`Wait`, and
 `sync.Mutex.Lock`/`Unlock` events, including completion and unlock defers in
 execution order. The generic summary infrastructure still owns caching,
@@ -291,10 +292,18 @@ can also bind concrete global and field addresses, but these are not exported
 as parameter-relative paths.
 
 All fact access belongs to this prerequisite, which exposes an engine rather
-than raw facts to consumers. Its export work has a 2,000-step budget per
+than raw facts to consumers. Public queries serialize access to the shared
+cache and recursion guard because sibling analysis passes may run concurrently;
+each query supplies its own budget. Its export work has a 2,000-step budget per
 exported function and a 32-operation limit. Unknown summaries never become
 absence proofs, and budget-shortened answers never become completed cache
 entries. The mixed-dependency checks remain experimental.
+
+Consumers need not require a straight-line root function. `channelsafety`
+uses complete call effects as close/send witnesses in its existing reachability
+proof. `goroutineownership` uses exact receives and waits as positive joins for
+already-established obligations, including inside its branch-aware helper
+search. Neither replaces its existing proof with summary absence.
 
 ### Bound callbacks within one package
 
