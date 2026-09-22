@@ -1,0 +1,13 @@
+repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,cmd/umoci/raw-add-layer.go:121:19,true_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,cmd/umoci/raw-runtime-config.go:131:21,false_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,oci/cas/dir/dir.go:244:13,true_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,oci/cas/dir/dir.go:296:13,false_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,oci/cas/dir/dir.go:487:18,false_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,oci/cas/dir/dir.go:504:19,false_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,oci/layer/unpack.go:161:21,false_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,pkg/fseval/fseval_default.go:55:13,false_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,repack.go:65:14,false_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,utils.go:118:13,false_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,utils.go:134:13,false_positive,7abe771,2026-09-22
+opencontainers/umoci,resourcelifetime,resourcelifetime/missing-release,utils.go:739:13,false_positive,7abe771,2026-09-22

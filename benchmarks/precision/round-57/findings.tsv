@@ -1,0 +1,4 @@
+opencontainers/umoci	resourcelifetime	cmd/umoci/raw-add-layer.go:121:19
+opencontainers/umoci	resourcelifetime	oci/cas/dir/dir.go:244:13
+opencontainers/umoci	resourcelifetime	pkg/unpriv/unpriv_test.go:1008:11
+opencontainers/umoci	resourcelifetime	pkg/unpriv/unpriv_test.go:948:11

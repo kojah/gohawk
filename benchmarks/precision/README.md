@@ -128,6 +128,12 @@ claim, because the code that made it no longer ships.
 
 ## Which check a label names
 
+Round 57 preserves batch 55's cross-package bound-cleanup callback correction.
+All twelve labels pass in umoci: ten corrected false positives and two genuine
+cleanup omissions. Two unrelated permission-test false positives remain in the
+findings baseline, not in passing labels. The shared completion proof requires
+the exact receiver and synchronous callback invocation on every normal return.
+
 Round 56 preserves batch 52's immediate successful-Start Process guard and
 Go 1.22+ range-variable capture boundaries. All eight labels pass across four
 fully scannable repositories: two corrected false positives and six retained

@@ -1,4 +1,7 @@
-# 500-repository precision audit
+# Precision audits
+
+Latest: [overnight 1,250-repository audit](overnight-2026-09-22.md), covering
+batches 51–55, verified corrections and remaining limitations.
 
 Targeted follow-up: [use-after-release promotion](use-after-release-promotion.md)
 records the storage-aware check's fixtures and two pinned validation groups.
@@ -1746,6 +1749,23 @@ All 311 findings are [reviewed](batch-54-findings.tsv): 242 true positives,
 process-identity fix; 64 remain unresolved. The [assessment](batch-54.md)
 records retained-owner, feasible-path, callback, protocol and lock-evidence
 gaps without claiming those unresolved families are fixed.
+
+## Batch 55
+
+The fourth additional 250-repository batch completes the requested 1,250
+repositories including batch 51. [Selection](batch-55.tsv),
+[provenance](batch-55-selection.json) and [scan metadata](batch-55-scans.json)
+preserve the frozen original baseline and static-only scope. Of 292 module
+entries, 194 repositories completed and 56 were incomplete; 123 complete
+scans were quiet.
+
+All 592 findings are [reviewed](batch-55-findings.tsv): 520 true positives,
+69 false positives and three inconclusive. Ten have
+[verified corrections](batch-55-corrections.tsv) through the shared lifecycle
+summary fix; 59 false positives remain unresolved. Round 57 passes ten FP
+and two TP labels. The [assessment](batch-55.md) explains exact callback
+completion, remaining evidence gaps, generated-code clustering, and a
+source-backed queued-writer lock hazard—not a reproduced production incident.
 
 ## Historical 500-repository audit summary
 
