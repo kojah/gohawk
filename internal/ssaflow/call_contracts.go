@@ -26,6 +26,7 @@ const (
 	ContractDeferredCleanup
 	ContractRuntimeGoexit
 	ContractTestingTermination
+	ContractProcessExit
 )
 
 // HasLibraryContract reports whether common exactly matches a registered API.
@@ -77,6 +78,8 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 		return CallName(common) == "DeferCleanup"
 	case ContractRuntimeGoexit:
 		return CallMatchesSymbol(common, syntax.PackageFunction("runtime", "Goexit"))
+	case ContractProcessExit:
+		return processExitContract(common)
 	case ContractTestingTermination:
 		for _, receiver := range []string{"common", "TB"} {
 			for _, name := range []string{"FailNow", "Fatal", "Fatalf", "Skip", "Skipf", "SkipNow"} {
@@ -89,6 +92,19 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 	default:
 		return false
 	}
+}
+
+func processExitContract(common *ssa.CallCommon) bool {
+	if CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit")) {
+		return true
+	}
+	for _, name := range []string{"Fatal", "Fatalf", "Fatalln"} {
+		if matchesAnySymbol(common, syntax.PackageFunction("log", name),
+			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "log", Receiver: "Logger", Name: name})) {
+			return true
+		}
+	}
+	return false
 }
 
 func testifyAssertion(common *ssa.CallCommon, name string) bool {

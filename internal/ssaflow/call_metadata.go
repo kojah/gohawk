@@ -60,13 +60,6 @@ func CallName(common *ssa.CallCommon) string {
 	return ""
 }
 
-// InstructionTerminatesControlFlow reports calls whose documented behavior
-// prevents execution from continuing in the current goroutine.
-func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool {
-	common := InstructionCall(instruction)
-	return HasLibraryContract(common, ContractRuntimeGoexit) || HasLibraryContract(common, ContractTestingTermination)
-}
-
 // CallInvokesArgumentOnEveryReturn reports whether a statically known helper
 // invokes target on every normal path through the helper.
 
