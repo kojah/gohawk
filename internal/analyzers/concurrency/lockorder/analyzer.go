@@ -3,8 +3,8 @@ package lockorder
 
 import (
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -51,12 +51,14 @@ const (
 	mutexRelease
 )
 
+var summaryKnowledge = summaries.Select(summaries.Requirements{Concurrency: true})
+
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "lockorder",
 		Doc:      "checks contradictory mutex acquisition order and unreleased return paths",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer, concurrencyfacts.Analyzer},
+		Requires: summaryKnowledge.Requires(),
 		Run:      runLockOrder,
 	}
 }

@@ -112,7 +112,15 @@ func (engine *Engine) importedCall(call ssa.CallInstruction, function *ssa.Funct
 		return unknown
 	}
 	fact, ok := engine.facts[object]
-	if !ok || fact.Version != factVersion || len(fact.Effects) > maxOperations {
+	if !ok {
+		return unknown
+	}
+	return engine.bindDeclaration(call, fact)
+}
+
+func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summary {
+	unknown := Summary{Reason: "protocol-body-unavailable"}
+	if fact.Version != factVersion || len(fact.Effects) > maxOperations {
 		return unknown
 	}
 	var result Summary

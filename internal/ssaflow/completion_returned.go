@@ -68,7 +68,7 @@ func (search *completionSearch) returnedCallCompletes(instruction ssa.Instructio
 }
 
 func (search *completionSearch) returnedValueCompletes(callback, target ssa.Value) bool {
-	factory, callbackIndex, ok := completionResultCall(callback)
+	factory, callbackIndex, ok := CallResultSource(callback)
 	if !ok || !search.budget.Spend() {
 		return false
 	}

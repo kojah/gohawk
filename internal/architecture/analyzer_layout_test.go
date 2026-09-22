@@ -338,6 +338,12 @@ func assertPrerequisitePlacement(t *testing.T, analyzerPackage analyzerLayoutPac
 			}
 			literal, ok := field.Value.(*ast.CompositeLit)
 			if !ok {
+				if summarySelectionRequires(analyzerPackage.pkg.TypesInfo, field.Value, modulePath) {
+					// Selection has a fixed, typed prerequisite vocabulary tested by
+					// the broker. Arbitrary builders and lookalike names remain banned.
+					sourceCount += runtimeCount
+					return false
+				}
 				t.Errorf("%s Requires must list prerequisite analyzers directly", analyzerPackage.pkg.PkgPath)
 				return false
 			}
@@ -369,6 +375,23 @@ func assertPrerequisitePlacement(t *testing.T, analyzerPackage analyzerLayoutPac
 			runtimeCount,
 		)
 	}
+}
+
+func summarySelectionRequires(info *types.Info, expression ast.Expr, modulePath string) bool {
+	call, ok := expression.(*ast.CallExpr)
+	if !ok || len(call.Args) != 0 {
+		return false
+	}
+	function := calledFunction(info, call.Fun)
+	if function == nil || function.Pkg() == nil || function.Pkg().Path() != modulePath+"/internal/summaries" || function.Name() != "Requires" {
+		return false
+	}
+	signature, ok := function.Type().(*types.Signature)
+	if !ok || signature.Recv() == nil {
+		return false
+	}
+	named, ok := signature.Recv().Type().(*types.Named)
+	return ok && named.Obj().Name() == "Selection"
 }
 
 func analysisRequiresField(info *types.Info, expression ast.Expr) bool {

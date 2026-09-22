@@ -1,24 +1,92 @@
 ---
 title: Inferred facts
-description: What cross-package lifecycle facts can and cannot express, and the polarity each mask must keep.
+description: Modular function summaries, their fact publication, and the guarantees each component can establish.
 sidebar:
   order: 3
 ---
 
-`internal/passes/lifecyclefacts` lets an analyzer see through a call into
-another package without re-analyzing the callee. For each exported function it
-records a small summary of what that function does to its parameters. This page
-explains how to read that summary and how to extend it.
+Function summaries are the consumer-facing model. Analysis facts publish
+supported summary components across package boundaries; they are not a separate
+kind of knowledge. `internal/summaries` brokers access to independently computed
+result, lifecycle, and concurrency components. Each domain keeps its inference
+and publication in `resultfacts`, `lifecyclefacts`, or `concurrencyfacts`.
+
+## Selecting knowledge before analysis
+
+An analyzer declares one immutable selection and uses it both for its ordinary
+`analysis.Analyzer.Requires` list and its provider:
+
+```go
+var knowledge = summaries.Select(summaries.Requirements{
+    Results: true,
+    Lifecycle: true,
+})
+// At analyzer setup: Requires: knowledge.Requires()
+// During Run:
+provider := knowledge.Provider(pass)
+result, availability := provider.ForFunction(fn).Results(budget)
+```
+
+There is no additional scheduler and no request-time expansion of dependencies.
+Selecting results and lifecycle does not schedule concurrency inference.
+Availability distinguishes `NotRequested`, `Unavailable`, and `Available`.
+An available result component may still say `Unknown` for every result.
+Concurrency's complete ordered sequence remains its own domain contract, not
+a claim that the whole function is understood.
+
+Function views expose uninstantiated declaration guarantees. The provider's
+lifecycle-evidence and concurrency-at-call adapters retain the existing exact
+argument, capture, and result binding machinery. A formal parameter mask is not
+already a guarantee about an arbitrary caller value. Private lifecycle bodies
+without a published declaration summary use the existing local evidence path.
+
+Every catalog analyzer consuming lifecycle or concurrency summaries obtains
+them through the broker. The existing domain evidence engines are retained.
+`resourcelifetime` additionally requests result guarantees and uses them at its
+existing feasible-edge decision. Other analyzers request results only when
+they have a concrete use for that additional knowledge.
+
+`TestAnalyzersUseSummaryBroker` rejects direct domain prerequisites, fact-backed
+lookup functions, constructors, and fabricated or asserted engine values in
+analyzers, using declaration identity rather than import spelling. Domain types,
+proof vocabulary, and explicitly reviewed structure-only helpers remain usable.
+Raw object-fact import/export remains inside the owning domain pass; the broker
+cannot bypass that boundary either.
+
+## Unconditional result guarantees
+
+The result component records `AlwaysNil`, `AlwaysNonNil`, `AlwaysTrue`,
+`AlwaysFalse`, or `Unknown` separately for each result. Guarantees require
+agreement across normal returns, including recovery returns, and a return
+witness. Absence of a return does not prove termination or any result property.
+The initial proof conservatively includes all SSA return blocks; it does not
+solve arbitrary path conditions.
+
+Literal results, fresh allocations, interface boxing, agreeing phi alternatives,
+and direct forwarding calls are supported locally and across packages. A boxed
+typed-nil pointer is a nonnil interface. Loads remain unknown: neither a mutable
+package sentinel's initializer nor a named result before deferred modification
+proves the value returned later. There are no name-based `errors.New` contracts.
+Recursion and exhausted searches produce unknown evidence and do not poison
+the summary cache. Queries share a 2,000-step budget in the initial consumer;
+export also has that per-function budget and a 16-result limit.
+
+Nilness does not imply ownership. Independent result guarantees do not establish
+relationships such as `err == nil` implying a nonnil resource. A conditional
+cleanup guarantee does not imply that its Boolean result is always true.
+Unknown never removes a branch. Existing literal/integer branch evidence and
+acquisition-specific error predicates remain in place where the new component
+does not replace their semantics.
 
 ## The shape of a fact
 
-A fact summarizes what a function does to each of its parameters. In the model
-as it stands today, four things hold for every fact, and everything below —
-what a fact can say and what it cannot — follows from them:
+A lifecycle fact's original parameter masks describe how a named callee uses
+its inputs. They have these boundaries (the conditional and returned-handle
+components described later additionally express specific relationships):
 
-- It describes **one parameter at a time**, never how two values relate.
-- It records only what happens on **every normal return**; a maybe does not
-  count.
+- Each mask describes **one parameter at a time**.
+- Discharge masks require **every normal return**; retention masks deliberately
+  over-approximate possible escapes, as described below.
 - It is computed **once per function**, not once per call site.
 - It is attached to a callee the analyzer can **name directly**, not one
   reached through an interface.

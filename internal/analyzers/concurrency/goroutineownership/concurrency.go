@@ -19,7 +19,7 @@ type summaryJoinProof struct {
 }
 
 func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) bool {
-	engine := analysis.pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
+	engine, _ := summaryKnowledge.Provider(analysis.pass).Concurrency()
 	budget := ssaflow.NewSearchBudget(helperUseBudget)
 	for _, tracked := range analysis.tracked {
 		if tracked.kind == trackedGroup && analysis.returnedGroupJoin(instruction, tracked.value, budget) {
@@ -51,7 +51,7 @@ func (analysis *spawnAnalysis) returnedGroupJoin(instruction ssa.Instruction, ta
 	request := ssaflow.CompletionRequest{
 		Instruction: instruction, Target: target, Methods: []string{"Wait"}, ExactTarget: true, Budget: budget,
 	}
-	evidence := lifecyclefacts.NewLifecycleEvidence(analysis.pass, "goroutineownership", string(analysis.checkID))
+	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(analysis.checkID))
 	evidence.ForCandidate(analysis.spawn.Pos())
 	return evidence.Prove(lifecyclefacts.EvidenceRequest{
 		Instruction: instruction, Target: target, Completion: &request,

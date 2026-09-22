@@ -51,7 +51,7 @@ func completionEdgeCondition(from, to *ssa.BasicBlock) (*ssa.Call, completionCon
 		return nil, completionCondition{}, false
 	}
 	value, kind := completionTest(branch.Cond, to == from.Succs[0])
-	call, index, ok := completionResultCall(value)
+	call, index, ok := CallResultSource(value)
 	if !ok || kind == completionUnconditional || !InstructionDominates(call, branch) {
 		return nil, completionCondition{}, false
 	}
@@ -94,15 +94,6 @@ func completionComparison(comparison *ssa.BinOp, truth bool) (ssa.Value, complet
 		return nil, completionUnconditional
 	}
 	return completionTest(operand, equal == constant.BoolVal(c.Value))
-}
-
-func completionResultCall(value ssa.Value) (*ssa.Call, int, bool) {
-	if extract, ok := value.(*ssa.Extract); ok {
-		call, ok := extract.Tuple.(*ssa.Call)
-		return call, extract.Index, ok
-	}
-	call, ok := value.(*ssa.Call)
-	return call, 0, ok
 }
 
 func (condition completionCondition) matches(value ssa.Value) (matches, known bool) {
@@ -187,7 +178,7 @@ func (search *completionSearch) conditionalReturn(
 	if completed {
 		return true, true
 	}
-	call, index, ok := completionResultCall(value)
+	call, index, ok := CallResultSource(value)
 	if !ok {
 		return false, true
 	}

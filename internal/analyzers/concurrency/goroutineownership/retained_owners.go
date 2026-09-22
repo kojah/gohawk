@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -48,7 +47,7 @@ func (analysis *spawnAnalysis) observesOpaqueWorkerContext(channel ssa.Value) bo
 		return false
 	}
 	retained := analysis.retainedWorkerOwner(ssaflow.CallReceiver(call.Common()))
-	evidence := lifecyclefacts.NewLifecycleEvidence(analysis.pass, "goroutineownership", string(check.GoroutineJoin))
+	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
 	for _, pair := range ssaflow.CallBindings(analysis.spawn.Common(), function, closure) {
 		if ssaflow.NewReachingWalk(carryForms).Any(pair.Supplied, retained) &&
@@ -202,7 +201,7 @@ func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *
 }
 
 func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaflow.ReachingWalk, ssa.Value) bool {
-	evidence := lifecyclefacts.NewLifecycleEvidence(analysis.pass, "goroutineownership", string(check.GoroutineJoin))
+	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
 	budget := analysis.budget()
 	storage := ssaflow.NewStorage(budget)

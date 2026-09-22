@@ -9,19 +9,21 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
 )
+
+var summaryKnowledge = summaries.Select(summaries.Requirements{Concurrency: true})
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "producerlifecycle",
 		Doc:      "checks that goroutine producers cannot outlive their receivers",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer, concurrencyfacts.Analyzer},
+		Requires: summaryKnowledge.Requires(),
 		Run:      runProducerLifecycle,
 	}
 }
@@ -48,7 +50,7 @@ type producerSend struct {
 }
 
 func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
-	engine := pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
+	engine, _ := summaryKnowledge.Provider(pass).Concurrency()
 	sends := producerSends(function, engine)
 	reported := map[token.Pos]bool{}
 	for _, send := range sends {

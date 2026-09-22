@@ -6,15 +6,15 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
-	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
-	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
 )
+
+var summaryKnowledge = summaries.Select(summaries.Requirements{Lifecycle: true, Concurrency: true})
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
@@ -22,7 +22,7 @@ func Analyzer() *analysis.Analyzer {
 	analyzer := &analysis.Analyzer{
 		Name:     "goroutineownership",
 		Doc:      "checks that proven goroutine completion obligations are honored",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer, concurrencyfacts.Analyzer},
+		Requires: summaryKnowledge.Requires(),
 	}
 	analyzer.Flags.Var(
 		flagvalue.NewChoice(&config.mode, goroutineModeContext, goroutineModeLifecycle, goroutineModeJoin),

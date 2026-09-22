@@ -105,6 +105,11 @@ itself does not change.
   another package. Consumers use `LifecycleEvidence`, which consults local
   evidence first and imported facts second. See
   [Inferred facts](../development/fact-model/).
+- `internal/summaries` brokers typed function-summary components selected at
+  analyzer setup. Result guarantees, lifecycle effects, and concurrency effects
+  retain independent inference and fact passes. The broker selects ordinary
+  prerequisites and exposes declaration summaries separately from bound
+  call-site evidence; it is not another scheduler or a universal proof model.
 - `internal/check` and `internal/trace` provide reporting and evidence
   tracing. Every diagnostic flows through `check.Report`, which is what lets
   the tracer record whether a candidate was reported, suppressed, or removed.
@@ -152,6 +157,8 @@ the code cannot drift apart silently.
 | `TestForbiddenTerminationIdentity` | the termination rule's matcher recognizes exactly the builtin `panic`, the `log.Fatal` variants, and `os.Exit`, and nothing else |
 | `TestAnalyzerCommentaryCoverage` | non-obvious spans of analyzer code carry model-level rationale |
 | `TestObjectFactsStayInTheirDefiningPackage` | object facts imported and exported only in the package that defines the fact type |
+| `TestAnalyzersUseSummaryBroker` | analyzer access to lifecycle, concurrency, and result knowledge goes through a pass-level summary selection, not raw prerequisites or domain constructors |
+| `TestSummaryBrokerMatchesDeclarationIdentity` | broker boundaries recognize aliases, dot imports, constructors, and type assertions without banning unrelated lookalike packages |
 | `TestAnalyzersUseSharedTraversal` | value-provenance recursion — phi fan-out and visited sets — lives only in `ssaflow` |
 | `TestSSAFlowFamiliesLayerDownward` | `ssaflow` files are named by family — proof, value, call, flow, store, completion, evidence — and a file references declarations only from its own family or a lower one |
 | `TestDocumentationReferencesResolve` | the development docs and project skills cite only code that exists, and their helper, `Fact` field, and test inventories are complete |

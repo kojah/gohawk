@@ -3,19 +3,20 @@ package waitgroupsafety
 
 import (
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	"github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/buildssa"
 )
+
+var summaryKnowledge = summaries.Select(summaries.Requirements{Concurrency: true})
 
 // Analyzer reports proven extra Done operations on fresh, fully modeled groups.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: "waitgroupsafety", Doc: "checks proven WaitGroup counter underflows",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer, concurrencyfacts.Analyzer}, Run: run,
+		Requires: summaryKnowledge.Requires(), Run: run,
 	}
 }
 
@@ -24,7 +25,7 @@ func run(pass *analysis.Pass) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	engine := pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
+	engine, _ := summaryKnowledge.Provider(pass).Concurrency()
 	for _, function := range functions {
 		if !function.Pos().IsValid() {
 			continue

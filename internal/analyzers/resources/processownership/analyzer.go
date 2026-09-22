@@ -7,20 +7,22 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
 )
+
+var summaryKnowledge = summaries.Select(summaries.Requirements{Lifecycle: true})
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "processownership",
 		Doc:      "checks that started os/exec commands are waited on or transferred to a wait owner",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
+		Requires: summaryKnowledge.Requires(),
 		Run:      runProcessOwnership,
 	}
 }
@@ -31,7 +33,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	for _, function := range functions {
-		evidence := lifecyclefacts.NewLifecycleEvidence(pass, "processownership", string(check.ProcessWait))
+		evidence, _ := summaryKnowledge.Provider(pass).LifecycleEvidence("processownership", string(check.ProcessWait))
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				start, command, ok := startedCommand(instruction)

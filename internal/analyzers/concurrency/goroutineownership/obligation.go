@@ -124,7 +124,7 @@ func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.Ma
 	// return is transparent to the spawned worker's lifecycle. Panic-reporting
 	// and tracing wrappers commonly use this shape. Analyze the callback body
 	// so its context, completion signal, and lifecycle owner remain visible.
-	evidence := lifecyclefacts.NewLifecycleEvidence(pass, "goroutineownership", string(check.GoroutineJoin))
+	evidence, _ := summaryKnowledge.Provider(pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	for index, argument := range spawn.Common().Args {
 		callback, callbackClosure := callbackTarget(argument)
 		if callback == nil || len(callback.Params) != 0 {

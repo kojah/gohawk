@@ -626,7 +626,13 @@ func (evidence *LifecycleEvidence) ArgumentReturnedAsView(instruction ssa.Instru
 // rather than an evidence context.
 func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ssa.Value) bool {
 	fact, ok := factFor(pass, instruction)
-	return ok && factOwnsArgument(instruction, target, fact.ReturnedView, nil)
+	return ok && fact.ReturnsView(instruction, target)
+}
+
+// ReturnsView binds this declaration's returned-view mask to the supplied
+// call and target using the same argument policy as lifecycle evidence.
+func (fact *Fact) ReturnsView(instruction ssa.Instruction, target ssa.Value) bool {
+	return factOwnsArgument(instruction, target, fact.ReturnedView, nil)
 }
 
 // ArgumentRetainedByCallee reports whether the call's static callee is

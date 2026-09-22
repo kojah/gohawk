@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -52,6 +53,7 @@ type resourceAnalysis struct {
 	acquisition *ssa.Call
 	pass        *analysis.Pass
 	evidence    *lifecyclefacts.LifecycleEvidence
+	summaries   *summaries.Provider
 	function    *ssa.Function
 	resource    ssa.Value
 	// candidate identifies the acquisition every step of this proof serves, and

@@ -2,6 +2,7 @@ package architecture
 
 import (
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,6 +18,7 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 		"internal/syntax",
 		"internal/ssaflow",
 		"internal/passes",
+		"internal/summaries",
 		"internal/check",
 		"internal/analyzers",
 	) {
@@ -42,7 +44,7 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 func internalLayer(packagePath string) string {
 	component, _, _ := strings.Cut(packagePath, "/")
 	switch component {
-	case "syntax", "ssaflow", "passes", "check", "analyzers", "trace":
+	case "syntax", "ssaflow", "passes", "summaries", "check", "analyzers", "trace":
 		return component
 	default:
 		return "other"
@@ -52,13 +54,15 @@ func internalLayer(packagePath string) string {
 func forbiddenLayerDependency(from, to string) bool {
 	switch from {
 	case "syntax":
-		return to == "ssaflow" || to == "passes" || to == "check" || to == "analyzers"
+		return slices.Contains([]string{"ssaflow", "passes", "summaries", "check", "analyzers"}, to)
 	case "ssaflow":
-		return to == "passes" || to == "check" || to == "analyzers" || to == "trace"
+		return slices.Contains([]string{"passes", "summaries", "check", "analyzers", "trace"}, to)
 	case "passes":
+		return slices.Contains([]string{"summaries", "check", "analyzers"}, to)
+	case "summaries":
 		return to == "check" || to == "analyzers"
 	case "check":
-		return to == "ssaflow" || to == "passes" || to == "analyzers"
+		return slices.Contains([]string{"ssaflow", "passes", "summaries", "analyzers"}, to)
 	default:
 		return false
 	}

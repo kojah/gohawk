@@ -7,19 +7,21 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
 )
+
+var summaryKnowledge = summaries.Select(summaries.Requirements{Concurrency: true})
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: "channelsafety", Doc: "checks channel operations for reachable use after close",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer, concurrencyfacts.Analyzer}, Run: runChannelSafety,
+		Requires: summaryKnowledge.Requires(), Run: runChannelSafety,
 	}
 }
 

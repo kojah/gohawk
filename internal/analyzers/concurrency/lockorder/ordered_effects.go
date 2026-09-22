@@ -33,8 +33,8 @@ func directMutexEffect(instruction ssa.Instruction) (mutexEffect, bool) {
 
 func summarizedMutexEffects(pass *analysis.Pass, function *ssa.Function) map[ssa.Instruction][]mutexEffect {
 	result := make(map[ssa.Instruction][]mutexEffect)
-	engine, ok := pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
-	if !ok {
+	engine, _ := summaryKnowledge.Provider(pass).Concurrency()
+	if engine == nil {
 		return result
 	}
 	budget := ssaflow.NewSearchBudget(2000)

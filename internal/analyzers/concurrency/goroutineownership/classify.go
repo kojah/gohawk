@@ -5,7 +5,6 @@ import (
 	"go/types"
 	"slices"
 
-	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -317,7 +316,7 @@ func (analysis *spawnAnalysis) helperAction(
 				continue
 			}
 			search := newHelperSearch()
-			search.concurrency = analysis.pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
+			search.concurrency, _ = summaryKnowledge.Provider(analysis.pass).Concurrency()
 			action := search.use(callee, pair.Local, tracked.kind)
 			// Passing the aggregate that a signal was read from exposes a
 			// possible shutdown path, but loses the exact field identity. A

@@ -2,24 +2,27 @@
 package resourcelifetime
 
 import (
+	"errors"
+
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
-	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
 )
+
+var resourceSummaries = summaries.Select(summaries.Requirements{Results: true, Lifecycle: true})
 
 func Analyzer() *analysis.Analyzer {
 	config := resourceLifetimeConfig{contracts: "os,http,sql,compress,owned"}
 	analyzer := &analysis.Analyzer{
 		Name:     "resourcelifetime",
 		Doc:      "checks owned files, SQL handles, HTTP responses, and compressors are released on every path",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
+		Requires: resourceSummaries.Requires(),
 	}
 	analyzer.Flags.Var(
 		flagvalue.NewCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "compress", "owned"),
@@ -59,11 +62,15 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 		catalog:                  resourceContracts(),
 		requireMemoryWriterClose: config.requireMemoryWriterClose,
 	}
+	provider := resourceSummaries.Provider(pass)
 	// Acquisition contracts identify both the owned result and its required
 	// cleanup action. Reporting is deferred until path analysis proves that the
 	// action or a recognized ownership transfer is absent on a normal return.
 	for _, function := range functions {
-		evidence := lifecyclefacts.NewLifecycleEvidence(pass, "resourcelifetime", string(check.ResourceRelease))
+		evidence, available := provider.LifecycleEvidence("resourcelifetime", string(check.ResourceRelease))
+		if available != summaries.Available {
+			return nil, errors.New("resourcelifetime: lifecycle summary prerequisite unavailable")
+		}
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)

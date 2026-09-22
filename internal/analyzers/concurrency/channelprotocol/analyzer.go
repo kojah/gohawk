@@ -4,22 +4,23 @@ import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	"github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
 )
 
 const instructionBudget = 2000
 
+var summaryKnowledge = summaries.Select(summaries.Requirements{Concurrency: true})
+
 // Analyzer returns the opt-in pass for bounded, compositional channel cycles.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: "channelprotocol", Doc: "checks for proven channel waiting cycles between a caller and worker",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer, concurrencyfacts.Analyzer}, Run: run,
+		Requires: summaryKnowledge.Requires(), Run: run,
 	}
 }
 
@@ -28,7 +29,8 @@ func run(pass *analysis.Pass) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	engine := &summaryEngine{Engine: pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)}
+	component, _ := summaryKnowledge.Provider(pass).Concurrency()
+	engine := &summaryEngine{Engine: component}
 	for _, function := range functions {
 		position := candidatePosition(function)
 		if !position.IsValid() {

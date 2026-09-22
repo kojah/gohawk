@@ -13,7 +13,7 @@ import (
 // registration and a launch do not execute the callee here. Unknown summaries
 // contribute no witness; they never prove that a helper leaves a channel open.
 func channelEffects(pass *analysis.Pass, function *ssa.Function) map[ssa.Instruction][]concurrencyfacts.Operation {
-	engine := pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
+	provider := summaryKnowledge.Provider(pass)
 	budget := ssaflow.NewSearchBudget(2000)
 	effects := make(map[ssa.Instruction][]concurrencyfacts.Operation)
 	for _, block := range function.Blocks {
@@ -31,7 +31,7 @@ func channelEffects(pass *analysis.Pass, function *ssa.Function) map[ssa.Instruc
 					}}
 					continue
 				}
-				summary := engine.AtCall(instruction, budget)
+				summary, _ := provider.ConcurrencyAtCall(instruction, budget)
 				if summary.Complete() {
 					for _, operation := range summary.Operations {
 						if !operation.Resource.Indirect {

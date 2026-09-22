@@ -244,6 +244,7 @@ that appears in an analyzer, in `ssaflow`, or in a pass is listed here;
 | `IndexAddr`, `Index`, `Lookup`, `Slice` | element addresses, element reads, map reads, and slicing |
 | `Range`, `Next` | iteration over a map or string; slices lower to index loops instead |
 | `MakeChan`, `Send`, `Select`, `SelectState`, `MapUpdate` | channel creation and sends, a `select` with its cases, and a map write |
+| `MakeMap`, `MakeSlice` | newly allocated maps and slices; nilness of the result does not establish resource ownership |
 | `MakeInterface`, `ChangeInterface`, `TypeAssert` | placing a value in an interface, converting between interfaces, and narrowing one |
 | `Convert`, `ChangeType` | a representation change, and a change of named type over the same representation |
 | `BinOp` | an arithmetic or comparison operator, including the `!= nil` checks the flow reads |

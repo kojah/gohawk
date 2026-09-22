@@ -76,6 +76,7 @@ func evaluateResourceFlow(
 	owners := localResourceOwners(call.Parent(), resource)
 	analysis := &resourceAnalysis{
 		acquisition: call,
+		summaries:   resourceSummaries.Provider(pass),
 		pass:        pass, evidence: evidence, function: call.Parent(), resource: resource, candidate: call.Pos(), owners: owners,
 		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
 		probe: analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()),
@@ -174,7 +175,7 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 
 func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState, errorValue ssa.Value) []resourceFlowState {
 	pass, resource, optionalAcquisition, candidate := analysis.pass, analysis.resource, analysis.optional, analysis.candidate
-	successors := ssaflow.FeasibleSuccessors(state.block, state.predecessor)
+	successors := analysis.feasibleSuccessors(state)
 	if optionalAcquisition.Proven() && state.block == optionalAcquisition.merge && state.predecessor == optionalAcquisition.acquisitionBlock {
 		successors = []*ssa.BasicBlock{optionalAcquisition.acquiredSuccessor}
 		traceOptionalAcquisition(pass, optionalAcquisition, candidate)
@@ -247,7 +248,7 @@ func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bo
 		// A returned view is summarized as releasing nothing, whatever its
 		// method names suggest; the caller of this function cannot close the
 		// resource through it.
-		if call, ok := result.(*ssa.Call); ok && lifecyclefacts.CallReturnsView(analysis.pass, call, resource) {
+		if call, ok := result.(*ssa.Call); ok && resourceSummaries.Provider(analysis.pass).CallReturnsView(call, resource) {
 			analysis.traceReturnedResult(returned, result, "returned-view-cannot-release", analysisTrace.OutcomeRejected)
 			continue
 		}

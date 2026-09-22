@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -282,7 +281,7 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go)
 		// evidence that the worker ignores cancellation. This remains unknown.
 		// https://github.com/iximiuz/cdebug/blob/6c205f0b663df4dec235f42e905e94b40709159a/pkg/containerd/client.go#L98-L122
 		if owned && closure != nil {
-			evidence := lifecyclefacts.NewLifecycleEvidence(pass, "goroutineownership", string(check.GoroutineJoin))
+			evidence, _ := summaryKnowledge.Provider(pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 			if evidence.ClosureHandsValueToUnreadableCallee(closure, value) {
 				return true
 			}
