@@ -2,7 +2,7 @@ package lifecyclefacts
 
 import "testing"
 
-func TestCustomCloserDoesNotEstablishAcquisition(t *testing.T) {
+func TestFreshResourceAcquisitionContracts(t *testing.T) {
 	contracts := contractsFor(t, `
 package lifecyclefactstest
 import "os"
@@ -22,11 +22,29 @@ func NewFileOwner(path string) (*FileOwner, error) {
 	return &FileOwner{file:f}, nil
 }
 func (o *FileOwner) Close() error { return o.file.Close() }
+type Manager struct { handles map[string]*os.File }
+type Shared struct { file *os.File }
+func (m *Manager) Open(path string) (*Shared, error) {
+	f, err := os.Open(path)
+	if err != nil { return nil, err }
+	m.handles[path] = f
+	return &Shared{file:f}, nil
+}
+func (o *Shared) Close() error { return o.file.Close() }
+type Local struct { file *os.File }
+func LocalOpen(path string) (*Local, error) {
+	f, err := os.Open(path)
+	if err != nil { return nil, err }
+	local := map[string]*os.File{path:f}
+	_ = local
+	return &Local{file:f}, nil
+}
+func (o *Local) Close() error { return o.file.Close() }
 `)
-	if got := contracts["Holder"]; got != nil {
-		t.Errorf("unacquired custom closer invented an owner contract: %v", got)
-	}
-	if got := contracts["FileOwner"]; got == nil || !got.Owned.contains(0) {
-		t.Errorf("direct file acquisition contract = %v, want owned field 0", got)
+	for name, wantOwned := range map[string]bool{"Holder": false, "FileOwner": true, "Shared": false, "Local": true} {
+		got := contracts[name]
+		if owned := got != nil && got.Owned.contains(0); owned != wantOwned {
+			t.Errorf("%s ownership = %v (%v), want %v", name, owned, got, wantOwned)
+		}
 	}
 }

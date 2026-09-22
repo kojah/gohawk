@@ -86,7 +86,7 @@ func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			acquired, ok := instruction.(ssa.Value)
-			if !ok || !acquiredResource(pass, acquired) {
+			if !ok || !acquiredResource(pass, acquired) || retainedOutsideResult(function, acquired) {
 				continue
 			}
 			for _, index := range storedFieldIndices(acquired, structure) {
@@ -97,6 +97,24 @@ func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 		}
 	}
 	return owned
+}
+
+// A constructor can return a handle while a manager also retains the same
+// resource. That does not establish an independent cleanup duty for every
+// caller receiving the handle. Keep fresh-result ownership unknown after a
+// positive store into an already external owner; a local scratch map does not
+// qualify. Possible containment suffices here because it only removes a claim.
+// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/chunk/filemgr.go#L101-L130
+func retainedOutsideResult(function *ssa.Function, resource ssa.Value) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if ssaflow.StoresValueInOwnedMap(instruction, resource) ||
+				ssaflow.StoresOwnerOfValueInExternalField(instruction, resource) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // acquiredResource reports whether the value is the result of a call in this

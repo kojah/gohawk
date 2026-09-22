@@ -89,6 +89,11 @@ method establishes cleanup capability, not that construction acquired a live
 resource. Nested custom owners and interface-only results therefore remain
 unknown; they are not recursively assumed to create new obligations.
 
+A constructor storing the acquired value in an already external map or owner
+also leaves fresh-result ownership unknown. A returned wrapper can share its
+resource with a manager; its cleanup capability does not establish a separate
+caller duty. Stores into local scratch collections do not have this effect.
+
 ## Some masks must be exact; others may guess
 
 A discharge summary can also follow a bound method passed to a visible helper:
