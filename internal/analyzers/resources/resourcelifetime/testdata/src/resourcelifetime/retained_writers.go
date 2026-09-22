@@ -7,6 +7,7 @@ package resourcelifetime
 // data dependence as ownership.
 
 import (
+	"bufio"
 	"encoding/json"
 	"io"
 	"log"
@@ -79,3 +80,13 @@ func installUnrelatedWriter(path string) error {
 }
 
 func unrelatedWriter(_ []io.Writer) io.Writer { return io.Discard }
+
+func scanWithoutClose(path string) int {
+	file, _ := os.Open(path) // want "owned resource from os.Open is not released"
+	scanner := bufio.NewScanner(file)
+	count := 0
+	for scanner.Scan() {
+		count += len(scanner.Text())
+	}
+	return count
+}

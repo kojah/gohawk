@@ -461,7 +461,7 @@ func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool
 		return false
 	}
 	for _, argument := range call.Common().Args {
-		if !analysis.carriesWithin(argument) {
+		if ssaflow.SameValue(argument, analysis.resource) || !analysis.carriesWithin(argument) {
 			continue
 		}
 		// A visible transformation that does not retain its input is not a
