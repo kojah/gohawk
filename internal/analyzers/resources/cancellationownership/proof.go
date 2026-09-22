@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -55,6 +56,7 @@ type cancellationClassifier struct {
 	// observer hears where the shared storage, effect, and completion queries
 	// behind this proof gave up; nil when the candidate is not being traced.
 	observer ssaflow.Observer
+	evidence *lifecyclefacts.LifecycleEvidence
 }
 
 // Exhausted helper searches remain unknown, never evidence of lost cleanup.
@@ -64,12 +66,13 @@ func (classifier *cancellationClassifier) budget() *ssaflow.SearchBudget {
 	return ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(classifier.observer)
 }
 
-func proveCancellation(call *ssa.Call, cancel ssa.Value, observer ssaflow.Observer) CancellationProof {
+func proveCancellation(call *ssa.Call, cancel ssa.Value, observer ssaflow.Observer, evidence *lifecyclefacts.LifecycleEvidence) CancellationProof {
 	classifier := &cancellationClassifier{
 		cancel:   cancel,
 		parent:   parentCancellationClassifier(call, observer),
 		actions:  make(map[ssa.Instruction]cancellationAction),
 		observer: observer,
+		evidence: evidence,
 	}
 	if contract, ok := cancellationContractFor(call.Common()); ok && contract.packagePath == "context" {
 		classifier.context = ssaflow.CallResult(call, 0)
@@ -106,9 +109,14 @@ func (classifier *cancellationClassifier) returnObligation(returned *ssa.Return)
 }
 
 func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
-	if ssaflow.ProveCompletionOnEdge(from, to, ssaflow.CompletionRequest{
+	request := ssaflow.CompletionRequest{
 		Target: classifier.cancel, InvokeTarget: true, Budget: classifier.budget(),
-	}).Proven() {
+	}
+	prove := ssaflow.ProveCompletionOnEdge
+	if classifier.evidence != nil {
+		prove = classifier.evidence.CompletionOnEdge
+	}
+	if prove(from, to, request).Proven() {
 		return ssaflow.ObligationExact
 	}
 	if classifier.selectedDoneEdge(from, to) {

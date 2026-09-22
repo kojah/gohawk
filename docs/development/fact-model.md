@@ -59,6 +59,9 @@ type Fact struct {
 	OwnedFields	ParameterMask
 	ReleasedFields	ParameterMask
 	ReceiverStore	ParameterMask
+	// Conditional holds positive, result-specific guarantees. It never widens
+	// an unconditional mask, and missing entries do not establish no effect.
+	Conditional	*ConditionalSummary
 }
 ```
 <!-- gohawk:generated-fact-fields:end -->
@@ -316,10 +319,20 @@ discarded to manufacture a proof. Compiler-spilled Boolean results can use the
 shared storage proof; error boxing is preserved so typed nil errors are not
 mistaken for nil interfaces.
 
-This is a bounded local relation, not a general conditional effect language.
-It does not export conditional facts across packages, infer arbitrary argument
-predicates, or relate independently returned worker handles. Those boundaries
-remain unknown. Existing unconditional lifecycle facts keep their meaning.
+The lifecycle prerequisite exports these positive relations separately in the
+versioned `Conditional` portion of its fact. Each record names a result slot,
+Boolean/error outcome, exact parameter mask, and method or synchronous callback
+invocation. Forwarding wrappers can compose imported records. The ordinary
+`Closed`, `SynchronouslyInvoked`, and other unconditional masks never inherit a
+conditional guarantee. Missing records are unknown, not absence of effects.
+
+Export examines at most four result slots with one shared 2,000-step budget per
+function. Independently proved records may survive exhaustion; an interrupted
+proof never becomes a guarantee. `LifecycleEvidence.CompletionOnEdge` binds
+local and imported evidence to the caller's tested branch with exact identity.
+
+This is not a general conditional effect language: arbitrary argument predicates
+and independently returned worker handles remain outside this relation.
 
 ### Ordered concurrency facts
 

@@ -3,6 +3,7 @@ package cancellationownership
 
 import (
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -17,7 +18,7 @@ func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "cancellationownership",
 		Doc:      "checks context and signal-derived cancellation functions proved lost on a normal return path",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer},
 		Run:      runCancellationOwnership,
 	}
 }
@@ -43,7 +44,9 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				probe := analysisTrace.For(pass, "cancellationownership", string(check.CancellationRelease), call.Pos())
-				proof := proveCancellation(call, cancel, probe.Observer())
+				evidence := lifecyclefacts.NewLifecycleEvidence(pass, "cancellationownership", string(check.CancellationRelease))
+				evidence.ForCandidate(call.Pos())
+				proof := proveCancellation(call, cancel, probe.Observer(), evidence)
 				emitCancellationDecision(pass, function, call, contract, proof)
 				if proof.Outcome == CancellationLost {
 					source := syntax.SourceRange(pass, call.Pos())

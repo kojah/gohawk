@@ -54,6 +54,10 @@ func (search *completionSearch) searchCompletes(instruction ssa.Instruction, tar
 			callee.environment = search.bindings
 		}
 		if callee.function == nil || len(callee.function.Blocks) == 0 {
+			if _, synchronous := instruction.(*ssa.Call); synchronous && search.summarized != nil &&
+				search.summarized(instruction, target, search.method, search.invokeTarget, search.condition.predicate()) {
+				continue
+			}
 			return callee.launch, false, searched
 		}
 		answer := search.calleeCompletes(callee, target, instruction)

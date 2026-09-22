@@ -197,7 +197,7 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 		// Optional-acquisition phis retain their own stricter cleanup policy.
 		released := state.released
 		if !released && !optionalAcquisition.Proven() {
-			released = ssaflow.ProveCompletionOnEdge(state.block, successor, ssaflow.CompletionRequest{
+			released = analysis.evidence.CompletionOnEdge(state.block, successor, ssaflow.CompletionRequest{
 				Target: resource, Methods: analysis.contract.cleanup, Budget: analysis.budget(1000),
 			}).Proven()
 		}

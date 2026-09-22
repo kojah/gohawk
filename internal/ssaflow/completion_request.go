@@ -30,6 +30,9 @@ type CompletionRequest struct {
 	// because the search stopped before it could decide; what an undecided
 	// answer permits is the caller's policy, not this package's.
 	Budget *SearchBudget
+	// Summarized supplies exact completion guarantees for unavailable bodies.
+	// Its policy is fixed for this request and all nested summary queries.
+	Summarized CompletionSummaryLookup
 	// condition is set only by the edge query after resolving an exact call
 	// result. It never changes an ordinary completion request's contract.
 	condition completionCondition
@@ -60,6 +63,7 @@ func ProveCompletion(request CompletionRequest) CompletionProof {
 		search.exactTarget = request.ExactTarget || request.InvokeTarget
 		search.invokeTarget = request.InvokeTarget
 		search.condition = request.condition
+		search.summarized = request.Summarized
 		launch, proven, available := search.completes(request.Instruction, request.Target)
 		if proven {
 			return CompletionProof{Proof{State: EvidenceProven, Reason: launch.reason(), Method: method, Provenance: EvidenceFromLocalSSA}}

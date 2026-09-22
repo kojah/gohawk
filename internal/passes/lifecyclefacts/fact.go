@@ -41,6 +41,9 @@ type Fact struct {
 	OwnedFields    ParameterMask
 	ReleasedFields ParameterMask
 	ReceiverStore  ParameterMask
+	// Conditional holds positive, result-specific guarantees. It never widens
+	// an unconditional mask, and missing entries do not establish no effect.
+	Conditional *ConditionalSummary
 }
 
 // traceDetails names the claims a summary makes, so a trace shows what a
@@ -73,6 +76,9 @@ func (fact *Fact) traceDetails() map[string]string {
 		if claim.mask != 0 {
 			claims = append(claims, claim.name)
 		}
+	}
+	if fact.Conditional != nil && len(fact.Conditional.Effects) != 0 {
+		claims = append(claims, "conditional")
 	}
 	if len(claims) == 0 {
 		return map[string]string{"claims": "none"}
@@ -164,6 +170,7 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 			lines = append(lines, fmt.Sprintf("%s: %s", mask.name, strings.Join(fields, ", ")))
 		}
 	}
+	lines = append(lines, fact.conditionalDescriptions()...)
 	return lines
 }
 
@@ -230,6 +237,7 @@ func (fact *Fact) String() string {
 			parts = append(parts, fmt.Sprintf("%s:%#x", mask.name, uint64(value)))
 		}
 	}
+	parts = append(parts, fact.conditionalDescriptions()...)
 	if len(parts) == 0 {
 		return "lifecycle summary: none"
 	}

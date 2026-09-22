@@ -409,7 +409,8 @@ func exactCleanupReceiver(receiver, parameter ssa.Value) bool {
 // stops recursion through helper cycles and keeps the search over the call
 // graph rather than over every call path through it.
 type completionSearch struct {
-	condition completionCondition
+	condition  completionCondition
+	summarized CompletionSummaryLookup
 	// Exact invocation excludes aggregate containment and may-alias mappings:
 	// calling one function stored in an owner does not invoke every function.
 	exactInvocation bool

@@ -177,6 +177,7 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 		}
 		summarizeTransfers(pass, retentions, function, index, parameter, &fact)
 	}
+	fact.Conditional = summarizeConditional(pass, function)
 	return fact
 }
 
