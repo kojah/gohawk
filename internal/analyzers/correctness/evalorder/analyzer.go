@@ -126,8 +126,79 @@ func reportCallEvaluationDependencies(
 		if !earlierObjects[object] || disjointFieldMutation(pass, earlierExpressions, call, argumentIndex, object) {
 			continue
 		}
+		if sharedMapDecodeSnapshot(pass, earlierExpressions, call, identifier) {
+			analysisTrace.For(pass, "evalorder", string(check.EvaluationOrder), call.Pos()).Evidence(analysisTrace.Step{
+				Reason:  "map-header-mutation-unknown",
+				Outcome: analysisTrace.OutcomeUnknown,
+				Pos:     call.Pos(),
+			})
+			continue
+		}
 		check.Reportf(pass, check.EvaluationOrder, address.Pos(), "later operand may mutate %s after its earlier value was evaluated", identifier.Name)
 	}
+}
+
+// JSON object decoding reuses a non-nil map's entries, which remain visible
+// through an earlier whole-map snapshot. Without payload evidence, header
+// replacement is unknown, not established by the Unmarshal contract alone.
+// Restrict this boundary to a plain fresh map with no other uses; nil maps,
+// custom decoders, earlier entry reads, and reassigned/escaped maps stay checked.
+// This deliberately misses null-driven resets rather than growing a JSON model.
+// https://github.com/obot-platform/nanobot/blob/f809ba0d358d402f19b8911782374d6f875a449d/pkg/config/load.go#L186-L192
+func sharedMapDecodeSnapshot(pass *analysis.Pass, earlier []ast.Expr, call *ast.CallExpr, target *ast.Ident) bool {
+	if !syntax.IsCallTo(pass, call, syntax.PackageFunction("encoding/json", "Unmarshal")) {
+		return false
+	}
+	object := pass.TypesInfo.ObjectOf(target)
+	if object == nil {
+		return false
+	}
+	if _, plainMap := types.Unalias(object.Type()).(*types.Map); !plainMap {
+		return false
+	}
+	allowed := map[*ast.Ident]bool{target: true}
+	for _, expression := range earlier {
+		if !syntax.ExpressionUsesObject(pass, expression, object) {
+			continue
+		}
+		identifier, direct := syntax.Unparen(expression).(*ast.Ident)
+		if !direct || pass.TypesInfo.ObjectOf(identifier) != object {
+			return false
+		}
+		allowed[identifier] = true
+	}
+	for identifier, used := range pass.TypesInfo.Uses {
+		if used == object && !allowed[identifier] {
+			return false
+		}
+	}
+	return freshMapDefinition(pass, object)
+}
+
+// A short declaration is enough here: the caller has already ruled out every
+// other use of this local, including assignments, aliases, and captures.
+func freshMapDefinition(pass *analysis.Pass, object types.Object) bool {
+	fresh := false
+	for _, file := range pass.Files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			assignment, ok := node.(*ast.AssignStmt)
+			if !ok || assignment.Tok != token.DEFINE || len(assignment.Lhs) != 1 || len(assignment.Rhs) != 1 {
+				return true
+			}
+			identifier, ok := assignment.Lhs[0].(*ast.Ident)
+			if !ok || pass.TypesInfo.Defs[identifier] != object {
+				return true
+			}
+			switch value := syntax.Unparen(assignment.Rhs[0]).(type) {
+			case *ast.CompositeLit:
+				fresh = true // The exact variable's plain map type was checked above.
+			case *ast.CallExpr:
+				fresh = syntax.IsCallTo(pass, value, syntax.Builtin("make"))
+			}
+			return false
+		})
+	}
+	return fresh
 }
 
 func stableAddressIdentity(pass *analysis.Pass, expression ast.Expr) (types.Object, token.Pos) {

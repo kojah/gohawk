@@ -29,6 +29,13 @@ new values obvious and prevent surprising results during later edits.
 
 Further reading: [The Go specification: Order of evaluation](https://go.dev/ref/spec#Order_of_evaluation).
 
+JSON decoding into a fresh, otherwise unused plain map is not enough to report
+an earlier whole-map snapshot: object decoding updates entries shared by both
+values. The check declines this uncertain case without proving the input is an
+object; it can therefore miss a header reset by JSON `null`. Earlier entry reads,
+nil or reassigned maps, custom decoders, and explicit map-replacing helpers remain
+checked.
+
 ## How to fix it
 
 Split the expression into separate statements. Save any value that must be read
