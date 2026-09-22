@@ -44,6 +44,9 @@ type Fact struct {
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
 	Conditional *ConditionalSummary
+	// ReturnedCleanup relates an invoked callback result to an exact factory
+	// parameter or sibling result. Merely returning the callback does not clean up.
+	ReturnedCleanup *ReturnedCleanupSummary
 }
 
 // traceDetails names the claims a summary makes, so a trace shows what a
@@ -79,6 +82,9 @@ func (fact *Fact) traceDetails() map[string]string {
 	}
 	if fact.Conditional != nil && len(fact.Conditional.Effects) != 0 {
 		claims = append(claims, "conditional")
+	}
+	if fact.ReturnedCleanup != nil && len(fact.ReturnedCleanup.Effects) != 0 {
+		claims = append(claims, "returned-cleanup")
 	}
 	if len(claims) == 0 {
 		return map[string]string{"claims": "none"}
@@ -171,6 +177,7 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 		}
 	}
 	lines = append(lines, fact.conditionalDescriptions()...)
+	lines = append(lines, fact.returnedCleanupDescriptions()...)
 	return lines
 }
 
@@ -238,6 +245,7 @@ func (fact *Fact) String() string {
 		}
 	}
 	parts = append(parts, fact.conditionalDescriptions()...)
+	parts = append(parts, fact.returnedCleanupDescriptions()...)
 	if len(parts) == 0 {
 		return "lifecycle summary: none"
 	}

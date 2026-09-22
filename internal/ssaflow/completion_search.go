@@ -409,8 +409,10 @@ func exactCleanupReceiver(receiver, parameter ssa.Value) bool {
 // stops recursion through helper cycles and keeps the search over the call
 // graph rather than over every call path through it.
 type completionSearch struct {
-	condition  completionCondition
-	summarized CompletionSummaryLookup
+	condition         completionCondition
+	summarized        CompletionSummaryLookup
+	returnedSummaries ReturnedCleanupLookup
+	returnedMemo      *CallGraphMemo[returnedCleanupKey, bool]
 	// Exact invocation excludes aggregate containment and may-alias mappings:
 	// calling one function stored in an owner does not invoke every function.
 	exactInvocation bool
@@ -446,12 +448,13 @@ func (search *completionSearch) forCallback() *completionSearch {
 
 func newCompletionSearch(method string, coverage CompletionCoverage, budget *SearchBudget) *completionSearch {
 	return &completionSearch{
-		incomplete: new(bool),
-		method:     method,
-		coverage:   coverage,
-		budget:     budget,
-		seenValues: map[ssa.Value]bool{},
-		memo:       NewCallGraphMemo[completionKey, completionAnswer](),
+		incomplete:   new(bool),
+		method:       method,
+		coverage:     coverage,
+		budget:       budget,
+		seenValues:   map[ssa.Value]bool{},
+		memo:         NewCallGraphMemo[completionKey, completionAnswer](),
+		returnedMemo: NewCallGraphMemo[returnedCleanupKey, bool](),
 	}
 }
 

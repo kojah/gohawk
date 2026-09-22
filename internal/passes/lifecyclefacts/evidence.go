@@ -352,7 +352,9 @@ func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) ssaflow.P
 		}
 	}
 	if request.Completion != nil {
-		completion := evidence.local.Completion(*request.Completion)
+		completionRequest := *request.Completion
+		completionRequest.ReturnedSummaries = evidence.returnedCleanupLookup()
+		completion := evidence.local.Completion(completionRequest)
 		proof = completion.Proof
 		if proof.Proven() {
 			return proof

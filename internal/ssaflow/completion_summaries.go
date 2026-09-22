@@ -43,6 +43,9 @@ func (search *completionSearch) completes(instruction ssa.Instruction, target ss
 }
 
 func (search *completionSearch) searchCompletes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
+	if kind, proven := search.returnedCallCompletes(instruction, target); proven {
+		return kind, true, true
+	}
 	callees, ok := search.boundCallees(instruction)
 	if !ok || len(callees) == 0 {
 		return launchNone, false, false

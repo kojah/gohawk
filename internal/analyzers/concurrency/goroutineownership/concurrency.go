@@ -2,6 +2,7 @@ package goroutineownership
 
 import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -21,6 +22,9 @@ func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) bool 
 	engine := analysis.pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
 	budget := ssaflow.NewSearchBudget(helperUseBudget)
 	for _, tracked := range analysis.tracked {
+		if tracked.kind == trackedGroup && analysis.returnedGroupJoin(instruction, tracked.value, budget) {
+			return true
+		}
 		proof := proveSummaryJoin(engine, instruction, tracked.value, tracked.kind, budget)
 		if proof.joined {
 			probe := analysisTrace.For(analysis.pass, "goroutineownership", string(analysis.checkID), analysis.spawn.Pos())
@@ -34,6 +38,24 @@ func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) bool 
 		}
 	}
 	return false
+}
+
+// A returned waiter can honor an already-established group obligation. A
+// shutdown callback is not a join: only Wait on this exact settling group
+// counts, and launching the waiter asynchronously never joins the parent.
+func (analysis *spawnAnalysis) returnedGroupJoin(instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil || common.StaticCallee() != nil || common.IsInvoke() {
+		return false
+	}
+	request := ssaflow.CompletionRequest{
+		Instruction: instruction, Target: target, Methods: []string{"Wait"}, ExactTarget: true, Budget: budget,
+	}
+	evidence := lifecyclefacts.NewLifecycleEvidence(analysis.pass, "goroutineownership", string(analysis.checkID))
+	evidence.ForCandidate(analysis.spawn.Pos())
+	return evidence.Prove(lifecyclefacts.EvidenceRequest{
+		Instruction: instruction, Target: target, Completion: &request,
+	}).Proven()
 }
 
 func proveSummaryJoin(

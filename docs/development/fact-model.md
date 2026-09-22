@@ -62,6 +62,9 @@ type Fact struct {
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
 	Conditional	*ConditionalSummary
+	// ReturnedCleanup relates an invoked callback result to an exact factory
+	// parameter or sibling result. Merely returning the callback does not clean up.
+	ReturnedCleanup	*ReturnedCleanupSummary
 }
 ```
 <!-- gohawk:generated-fact-fields:end -->
@@ -333,6 +336,27 @@ local and imported evidence to the caller's tested branch with exact identity.
 
 This is not a general conditional effect language: arbitrary argument predicates
 and independently returned worker handles remain outside this relation.
+
+### Returned cleanup and completion handles
+
+`ssaflow.ProveReturnedCleanup` relates a callback result to an exact parameter
+or sibling result from the same factory invocation. Every return must supply
+a callback that performs the requested method or invokes the target callback.
+Forwarding factories compose this relation; the versioned `ReturnedCleanup`
+lifecycle fact preserves it across package boundaries without claiming that
+calling the factory itself performs cleanup.
+
+Resource lifetime and cancellation ownership consume these relations when the
+callback is actually called or deferred. Goroutine ownership can credit a
+returned waiter for an already-established WaitGroup completion obligation.
+Closing or stopping a worker's resource remains shutdown participation, not
+proof of a join. This does not infer arbitrary worker obligations hidden inside
+factories or relate independent calls by their names or types.
+
+Wrong siblings, callbacks from another invocation, mutable captures, no-op
+alternatives, asynchronous invocation, recursion, and exhausted searches do
+not prove completion. Export considers four result slots and shares a
+2,000-step budget per factory. Missing records remain unknown.
 
 ### Ordered concurrency facts
 

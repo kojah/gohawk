@@ -141,6 +141,21 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int) []ssa.Value {
 	}
 	var targets []ssa.Value
 	budget := ssaflow.NewSearchBudget(1000)
+	for index := range function.Signature.Results().Len() {
+		target := ssaflow.CallResult(factory, index)
+		if !lifecycleOwner(target) {
+			continue
+		}
+		if ssaflow.ProveReturnedCleanup(function, ssaflow.ReturnedCleanupRelation{
+			CallbackResult: callbackIndex, Target: index, TargetIsResult: true,
+		}, ssaflow.CompletionRequest{Methods: []string{"Close", "Stop", "Shutdown"}, Budget: budget}).Proven() {
+			targets = append(targets, target)
+		}
+	}
+	// Preserve the older may-cleanup evidence below as Unknown only. A partial
+	// literal return may explain shutdown participation, but cannot be promoted
+	// to exact cleanup or a worker join. The shared relation above is stricter
+	// and also understands forwarding factories.
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if !budget.Spend() {

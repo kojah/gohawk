@@ -33,6 +33,9 @@ type CompletionRequest struct {
 	// Summarized supplies exact completion guarantees for unavailable bodies.
 	// Its policy is fixed for this request and all nested summary queries.
 	Summarized CompletionSummaryLookup
+	// ReturnedSummaries supplies exact callback-to-parameter/result relations
+	// for factories whose bodies are unavailable.
+	ReturnedSummaries ReturnedCleanupLookup
 	// condition is set only by the edge query after resolving an exact call
 	// result. It never changes an ordinary completion request's contract.
 	condition completionCondition
@@ -64,6 +67,7 @@ func ProveCompletion(request CompletionRequest) CompletionProof {
 		search.invokeTarget = request.InvokeTarget
 		search.condition = request.condition
 		search.summarized = request.Summarized
+		search.returnedSummaries = request.ReturnedSummaries
 		launch, proven, available := search.completes(request.Instruction, request.Target)
 		if proven {
 			return CompletionProof{Proof{State: EvidenceProven, Reason: launch.reason(), Method: method, Provenance: EvidenceFromLocalSSA}}

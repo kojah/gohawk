@@ -28,6 +28,10 @@ func TestConcurrencyJoinProofs(t *testing.T) {
 		"differentSignal":     GoroutineLifecycleViolated,
 		"differentArgument":   GoroutineUnknown,
 		"missingPath":         GoroutineLifecycleViolated,
+		"returnedWaiter":      GoroutineLifecycleHonored,
+		"otherReturnedWaiter": GoroutineLifecycleViolated,
+		"uninvokedWaiter":     GoroutineUnknown,
+		"asynchronousWaiter":  GoroutineUnknown,
 	}
 	for _, result := range analysistest.Run(t, analysistest.TestData(), Analyzer(), "summaryjoins") {
 		functions, err := ssaflow.SourceSSAFunctions(result.Pass)

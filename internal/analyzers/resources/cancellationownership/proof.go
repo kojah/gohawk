@@ -253,6 +253,9 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 	instruction ssa.Instruction,
 	common *ssa.CallCommon,
 ) (cancellationAction, bool) {
+	if classifier.returnedCallbackCancels(instruction, common) {
+		return cancellationActionRelease, true
+	}
 	if common != nil && ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) &&
 		commonHasExactArgument(common, classifier.cancel) {
 		return cancellationActionTransfer, true

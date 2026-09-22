@@ -33,7 +33,7 @@ type transferEvidenceKey struct {
 func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionProof {
 	// Lookup policies may differ between requests. Their identities are not
 	// comparable; retain only the per-query summary cache in this case.
-	if request.Summarized != nil {
+	if request.Summarized != nil || request.ReturnedSummaries != nil {
 		return ProveCompletion(request)
 	}
 	key := completionEvidenceKey{
