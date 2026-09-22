@@ -38,19 +38,15 @@ func newHelperSearch() *helperSearch {
 
 func (search *helperSearch) use(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {
 	key := helperKey{function: function, local: local, kind: kind}
-	return search.memo.Answer(key, func() ownershipAction {
+	return search.memo.Summarize(key, function, nil, func() ownershipAction {
 		return search.searchUse(function, local, kind)
+	}, func(ssaflow.SummaryUnavailable, ownershipAction) ownershipAction {
+		// No join or escape witness was established by the cut itself.
+		return actionNone
 	})
 }
 
 func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {
-	if function == nil || len(function.Blocks) == 0 {
-		return actionNone
-	}
-	if !search.memo.Enter(function) {
-		return actionNone
-	}
-	defer search.memo.Leave(function)
 	derives := func(value ssa.Value) bool {
 		return ssaflow.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
 	}

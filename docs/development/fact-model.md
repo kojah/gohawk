@@ -212,6 +212,58 @@ more than one goroutine, cannot be a fact at all.
 
 ## Where facts live
 
+### Local compositional summaries
+
+A summary describes what a function does. A fact is a mechanism for exporting
+evidence between package-analysis runs; the two are not competing models or
+unary-versus-binary relations. The lifecycle facts above are themselves one
+family of summaries.
+
+For visible SSA bodies, `ssaflow.FunctionSummaries` shares the mechanics of
+composing function summaries: memoization, recursion guards, budget handling,
+and direct-call parameter and capture bindings. Each instance has one fixed
+analysis policy. Its symbolic answers are immutable; binding an answer to a
+caller must not change the cached summary. Budget-shortened and recursively
+cut computations are not retained as completed answers.
+
+Consumers keep their own evidence models:
+
+- `channelprotocol` composes bounded, ordered channel and WaitGroup events.
+  Unknown effects invalidate the protocol; event ordering, deferred execution,
+  stable captured storage, and participant completeness remain its policy.
+- `lockorder` composes positive lock-acquisition witnesses with call-site
+  provenance. An unavailable callee contributes no witness, **not** proof that
+  it acquires no locks. Its bounded search does not invent ordering edges when
+  it runs out of work budget.
+- `goroutineownership` helper-use and `cancellationownership` helper-use use
+  context-keyed summaries: the target parameter and, where relevant, tracked
+  obligation kind distinguish questions about the same helper.
+- Lifecycle retention distinguishes target parameters and strict/may-retain
+  modes. Storage call-effects preserve observed effects while marking an
+  incomplete answer unknown; neither treats missing effects as purity.
+
+These context-keyed consumers use `CallGraphMemo.Summarize`, the same driver
+underneath `FunctionSummaries`. Callback-invocation and enclosing-completion
+queries also use it. The driver permits each evidence family to preserve
+independent positive witnesses after exhaustion without caching an incomplete
+answer or silently claiming completeness.
+
+Some completion and delegated-field searches intentionally separate the cache
+key from the guarded body: one question can visit several possible callees or
+map a value into several parameters. They retain the lower-level
+`CallGraphMemo` operations and shared `CallBindings` rather than moving the
+guard boundary and changing their proofs. Resource cleanup and other lifecycle
+analyzers already consume these shared completion searches; they do not need
+an additional analyzer-local summary engine. Target values and callback
+environments must remain in their keys—function identity alone is insufficient.
+
+This infrastructure is neither a scheduler nor a model checker. It does not
+merge branches, infer conditional effects, or export relational summaries
+across packages. Those capabilities require an evidence model and precision
+fixtures of their own. In particular, finite recursion guards alone do not
+guarantee cheap analysis: cut answers cannot be cached, so consumers charge
+instruction and effect-expansion work to a shared search budget.
+
 ### Bound callbacks within one package
 
 The local completion search carries invocation-specific bindings for direct

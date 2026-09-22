@@ -53,15 +53,15 @@ func TestSummaryBudgets(t *testing.T) {
 			case "worker", "groupWorker", "deferredWorker":
 				engine := newSummaryEngine()
 				engine.begin(1)
-				if got := engine.summarize(function); got.reason != "protocol-budget-exhausted" {
+				if got := engine.summaries.Function(function, engine.budget); got.reason != "protocol-budget-exhausted" {
 					t.Errorf("limited summary = %+v", got)
 				}
 				engine.begin(instructionBudget)
-				if got := engine.summarize(function); got.reason != "" || len(got.operations) != 2 {
+				if got := engine.summaries.Function(function, engine.budget); got.reason != "" || len(got.operations) != 2 {
 					t.Errorf("fresh summary budget did not recover: %+v", got)
 				}
 				engine.begin(0)
-				if got := engine.summarize(function); got.reason != "" || len(got.operations) != 2 {
+				if got := engine.summaries.Function(function, engine.budget); got.reason != "" || len(got.operations) != 2 {
 					t.Errorf("completed summary not cached: %+v", got)
 				}
 				checked++
@@ -91,7 +91,7 @@ func TestDeferredSummaryOrder(t *testing.T) {
 			found = true
 			engine := newSummaryEngine()
 			engine.begin(instructionBudget)
-			summary := engine.summarize(function)
+			summary := engine.summaries.Function(function, engine.budget)
 			if summary.reason != "" || len(summary.operations) != 3 || len(summary.deferred) != 0 {
 				t.Fatalf("incomplete deferred summary: %+v", summary)
 			}

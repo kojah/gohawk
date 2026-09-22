@@ -82,13 +82,12 @@ func (query *CallEffects) value(value ssa.Value) CallEffect {
 		query.memo.Cut()
 		return effectUnknown
 	}
-	return query.memo.Answer(value, func() CallEffect {
-		function := value.Parent()
-		if function == nil || len(function.Blocks) == 0 || !query.memo.Enter(function) {
-			return effectUnknown
-		}
-		defer query.memo.Leave(function)
+	return query.memo.Summarize(value, value.Parent(), query.budget, func() CallEffect {
 		return query.uses(value, make(map[ssa.Value]bool))
+	}, func(_ SummaryUnavailable, partial CallEffect) CallEffect {
+		// Discovered uses remain useful evidence, but never establish purity
+		// when the rest of the summary could not be computed.
+		return partial | effectUnknown
 	})
 }
 

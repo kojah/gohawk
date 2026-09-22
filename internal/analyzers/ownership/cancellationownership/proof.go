@@ -361,16 +361,15 @@ func newCancellationUse() *cancellationUse {
 }
 
 func (search *cancellationUse) parameterResolved(function *ssa.Function, parameter ssa.Value) bool {
-	return search.memo.Answer(cancellationUseKey{function: function, parameter: parameter}, func() bool {
+	key := cancellationUseKey{function: function, parameter: parameter}
+	return search.memo.Summarize(key, function, nil, func() bool {
 		return search.searchParameterResolved(function, parameter)
+	}, func(ssaflow.SummaryUnavailable, bool) bool {
+		return false
 	})
 }
 
 func (search *cancellationUse) searchParameterResolved(function *ssa.Function, parameter ssa.Value) bool {
-	if !search.memo.Enter(function) {
-		return false
-	}
-	defer search.memo.Leave(function)
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if instructionReferencesCancellation(instruction, parameter) &&

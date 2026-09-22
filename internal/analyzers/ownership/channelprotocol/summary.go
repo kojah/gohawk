@@ -52,33 +52,35 @@ type summary struct {
 }
 
 type summaryEngine struct {
-	memo    *ssaflow.CallGraphMemo[*ssa.Function, summary]
-	budget  *ssaflow.SearchBudget
-	storage *ssaflow.Storage
+	summaries *ssaflow.FunctionSummaries[summary]
+	budget    *ssaflow.SearchBudget
+	storage   *ssaflow.Storage
 }
 
 func newSummaryEngine() *summaryEngine {
-	return &summaryEngine{memo: ssaflow.NewCallGraphMemo[*ssa.Function, summary]()}
+	engine := &summaryEngine{}
+	engine.summaries = ssaflow.NewFunctionSummaries(func(function *ssa.Function, budget *ssaflow.SearchBudget) summary {
+		builder := &summaryEngine{summaries: engine.summaries, budget: budget, storage: ssaflow.NewStorage(budget)}
+		return builder.collect(function, false)
+	}, unavailableSummary)
+	return engine
+}
+
+func unavailableSummary(reason ssaflow.SummaryUnavailable) summary {
+	switch reason {
+	case ssaflow.SummaryRecursive:
+		return summary{reason: "recursive-protocol"}
+	case ssaflow.SummaryBudgetExhausted:
+		return summary{reason: "protocol-budget-exhausted"}
+	case ssaflow.SummaryBodyUnavailable:
+		return summary{reason: "protocol-body-unavailable"}
+	}
+	return summary{reason: "protocol-effect-unknown"}
 }
 
 func (engine *summaryEngine) begin(limit int) {
 	engine.budget = ssaflow.NewSearchBudget(limit)
 	engine.storage = ssaflow.NewStorage(engine.budget)
-}
-
-func (engine *summaryEngine) summarize(function *ssa.Function) summary {
-	return engine.memo.Answer(function, func() summary {
-		if !engine.memo.Enter(function) {
-			return summary{reason: "recursive-protocol"}
-		}
-		defer engine.memo.Leave(function)
-		result := engine.collect(function, false)
-		if engine.budget.Exhausted() {
-			engine.memo.Cut()
-			return summary{reason: "protocol-budget-exhausted"}
-		}
-		return result
-	})
 }
 
 func (engine *summaryEngine) collect(function *ssa.Function, root bool) summary {
@@ -91,7 +93,6 @@ func (engine *summaryEngine) collect(function *ssa.Function, root bool) summary 
 	var result summary
 	for _, instruction := range function.Blocks[0].Instrs {
 		if !engine.budget.Spend() {
-			engine.memo.Cut()
 			return summary{reason: "protocol-budget-exhausted"}
 		}
 		if reason := engine.appendInstruction(&result, instruction, root); reason != "" {

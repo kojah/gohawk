@@ -62,11 +62,10 @@ func ProveEnclosingCompletion(request EnclosingCompletionRequest) CompletionProo
 }
 
 func (search *enclosingSearch) walk(frame *enclosingFrame) bool {
-	return search.memo.Answer(frame, func() bool {
-		if !search.request.Budget.Spend() || !search.memo.Enter(frame.function) {
+	return search.memo.Summarize(frame, frame.function, search.request.Budget, func() bool {
+		if !search.request.Budget.Spend() {
 			return false
 		}
-		defer search.memo.Leave(frame.function)
 		if frame.function == search.request.Function {
 			search.found = true
 			return search.completed(frame)
@@ -79,6 +78,8 @@ func (search *enclosingSearch) walk(frame *enclosingFrame) bool {
 			}
 		}
 		return true
+	}, func(SummaryUnavailable, bool) bool {
+		return false
 	})
 }
 

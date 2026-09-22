@@ -13,19 +13,18 @@ import (
 // cells additionally need stable contents because the worker may read them
 // after the launch. A matching access path alone cannot justify this identity.
 func (engine *summaryEngine) instantiate(instruction ssa.CallInstruction) summary {
-	function, closure := ssaflow.DirectCallee(instruction.Common())
-	if function == nil {
-		return summary{reason: "protocol-body-unavailable"}
-	}
-	callee := engine.summarize(function)
+	return engine.summaries.AtCall(instruction, engine.budget, func(callee summary, bindings []ssaflow.CallBinding) summary {
+		return engine.bindSummary(callee, bindings, instruction)
+	})
+}
+
+func (engine *summaryEngine) bindSummary(callee summary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) summary {
 	if callee.reason != "" {
 		return callee
 	}
-	bindings := ssaflow.CallBindings(instruction.Common(), function, closure)
 	result := summary{operations: make([]operation, 0, len(callee.operations))}
 	for _, op := range callee.operations {
 		if !engine.budget.Spend() {
-			engine.memo.Cut()
 			return summary{reason: "protocol-budget-exhausted"}
 		}
 		resource, ok := engine.bind(op.resource, bindings, instruction)

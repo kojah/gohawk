@@ -28,45 +28,48 @@ type calleeLocks struct {
 	acquires []lockAcquisition
 }
 
-// calleeLockSearch answers the question once per function rather than once per
-// call path that reaches it. Mutually recursive helpers are common in the code
-// this analyzer runs on, and the memo is what keeps their cost linear.
+// calleeLockSummaryBudget bounds instruction visits and witness expansion per
+// root query. Recursive cuts cannot be memoized, so memoization alone does not
+// bound the number of call paths a mutually recursive package can expose.
+const calleeLockSummaryBudget = 250_000
+
+// calleeLockSearch reuses completed per-function summaries. Recursive cuts
+// contribute no new witness and are never retained; a shared work budget
+// bounds the paths that must be searched again.
 type calleeLockSearch struct {
-	memo *ssaflow.CallGraphMemo[*ssa.Function, calleeLocks]
+	summaries *ssaflow.FunctionSummaries[calleeLocks]
 }
 
 func newCalleeLockSearch() *calleeLockSearch {
-	return &calleeLockSearch{memo: ssaflow.NewCallGraphMemo[*ssa.Function, calleeLocks]()}
+	search := &calleeLockSearch{}
+	search.summaries = ssaflow.NewFunctionSummaries(search.searchLocks, func(ssaflow.SummaryUnavailable) calleeLocks {
+		return calleeLocks{}
+	})
+	return search
 }
 
 // locks reports the lock classes function may acquire, following the static
 // calls it makes.
 func (search *calleeLockSearch) locks(function *ssa.Function) calleeLocks {
-	if function == nil || len(function.Blocks) == 0 {
-		return calleeLocks{}
-	}
-	return search.memo.Answer(function, func() calleeLocks {
-		return search.searchLocks(function)
-	})
+	return search.summaries.Function(function, ssaflow.NewSearchBudget(calleeLockSummaryBudget))
 }
 
-func (search *calleeLockSearch) searchLocks(function *ssa.Function) calleeLocks {
-	if !search.memo.Enter(function) {
-		// A recursive call adds nothing the enclosing answer does not already
-		// collect, and Enter has recorded that this answer must not be retained.
-		return calleeLocks{}
-	}
-	defer search.memo.Leave(function)
+func (search *calleeLockSearch) searchLocks(function *ssa.Function, budget *ssaflow.SearchBudget) calleeLocks {
 	var result calleeLocks
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			result.observe(search, instruction)
+			if !budget.Spend() {
+				// Missing acquisition witnesses never establish absence. Dropping
+				// a budget-shortened set can only lose an ordering diagnostic.
+				return calleeLocks{}
+			}
+			result.observe(search, instruction, budget)
 		}
 	}
 	return result
 }
 
-func (locks *calleeLocks) observe(search *calleeLockSearch, instruction ssa.Instruction) {
+func (locks *calleeLocks) observe(search *calleeLockSearch, instruction ssa.Instruction, budget *ssaflow.SearchBudget) {
 	if operation, _, receiver, ok := mutexAction(instruction); ok {
 		// A mutex selected by a map or slice index may be a different lock on
 		// every iteration, which is why the acquisition walk declines it. The
@@ -83,8 +86,11 @@ func (locks *calleeLocks) observe(search *calleeLockSearch, instruction ssa.Inst
 	if !ok {
 		return
 	}
-	nested := search.locks(call.Common().StaticCallee())
+	nested := search.summaries.Function(call.Common().StaticCallee(), budget)
 	for _, acquired := range nested.acquires {
+		if !budget.Spend() {
+			return
+		}
 		locks.add(acquired.through(call))
 	}
 }

@@ -282,11 +282,11 @@ func delegatedFieldIndices(
 	}
 	defer memo.Leave(callee)
 	var indices []int
-	for index, argument := range common.Args {
-		if index >= len(callee.Params) || argument != value {
+	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+		if binding.Supplied != value {
 			continue
 		}
-		indices = append(indices, storedFieldIndicesVia(callee.Params[index], structure, memo)...)
+		indices = append(indices, storedFieldIndicesVia(binding.Local, structure, memo)...)
 	}
 	return indices
 }

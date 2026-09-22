@@ -20,7 +20,10 @@ import "golang.org/x/tools/go/ssa"
 // Those differ by proof and belong beside the analyzer.
 
 // CallGraphMemo answers a recursive call-graph question once per distinct key
-// rather than once per call path that reaches it.
+// rather than once per call path that reaches it. Prefer Summarize when one
+// key asks about one function body. Use Answer and the guard operations
+// separately only when the question intentionally spans several guarded bodies
+// or its cache and recursion boundaries differ.
 type CallGraphMemo[Key comparable, Answer any] struct {
 	entered map[*ssa.Function]bool
 	answers map[Key]Answer

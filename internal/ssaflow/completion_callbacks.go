@@ -37,9 +37,7 @@ func (search *callbackSearch) invokes(instruction ssa.Instruction, target ssa.Va
 	if _, asynchronous := instruction.(*ssa.Go); asynchronous {
 		return false
 	}
-	return search.memo.Answer(callbackKey{instruction: instruction, target: target}, func() bool {
-		return search.searchInvokes(instruction, target)
-	})
+	return search.searchInvokes(instruction, target)
 }
 
 func (search *callbackSearch) searchInvokes(instruction ssa.Instruction, target ssa.Value) bool {
@@ -47,17 +45,17 @@ func (search *callbackSearch) searchInvokes(instruction ssa.Instruction, target 
 	if common == nil || common.StaticCallee() == nil {
 		return false
 	}
-	callee := common.StaticCallee()
-	if !search.memo.Enter(callee) {
+	key := callbackKey{instruction: instruction, target: target}
+	return search.memo.Summarize(key, common.StaticCallee(), nil, func() bool {
+		return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
+			if _, asynchronous := candidate.(*ssa.Go); asynchronous {
+				return false
+			}
+			common := InstructionCall(candidate)
+			return common != nil && NewStorage(NewSearchBudget(1000)).Same(common.Value, parameter).Proven() || search.invokes(candidate, parameter)
+		})
+	}, func(SummaryUnavailable, bool) bool {
 		return false
-	}
-	defer search.memo.Leave(callee)
-	return callOwnsArgumentOnEveryReturn(instruction, target, func(candidate ssa.Instruction, parameter ssa.Value) bool {
-		if _, asynchronous := candidate.(*ssa.Go); asynchronous {
-			return false
-		}
-		common := InstructionCall(candidate)
-		return common != nil && NewStorage(NewSearchBudget(1000)).Same(common.Value, parameter).Proven() || search.invokes(candidate, parameter)
 	})
 }
 
@@ -70,11 +68,11 @@ func callOwnsArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value
 	if len(callee.Blocks) == 0 {
 		return false
 	}
-	for index, argument := range common.Args {
-		if index >= len(callee.Params) || !NewStorage(NewSearchBudget(1000)).Same(argument, target).Proven() {
+	for _, binding := range CallBindings(common, callee, nil) {
+		if !NewStorage(NewSearchBudget(1000)).Same(binding.Supplied, target).Proven() {
 			continue
 		}
-		parameter := callee.Params[index]
+		parameter := binding.Local
 		calls := func(candidate ssa.Instruction) bool {
 			return owns(candidate, parameter)
 		}
