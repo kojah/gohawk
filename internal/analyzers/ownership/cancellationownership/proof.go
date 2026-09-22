@@ -348,7 +348,8 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value) bool {
 // is resolved. The memo owns the cycle guard and the rule that an answer cut
 // short by it is not retained.
 type cancellationUse struct {
-	memo *ssaflow.CallGraphMemo[cancellationUseKey, bool]
+	memo   *ssaflow.CallGraphMemo[cancellationUseKey, bool]
+	budget *ssaflow.SearchBudget
 }
 
 type cancellationUseKey struct {
@@ -357,14 +358,18 @@ type cancellationUseKey struct {
 }
 
 func newCancellationUse() *cancellationUse {
-	return &cancellationUse{memo: ssaflow.NewCallGraphMemo[cancellationUseKey, bool]()}
+	return &cancellationUse{
+		memo: ssaflow.NewCallGraphMemo[cancellationUseKey, bool](), budget: ssaflow.NewSearchBudget(cancellationCompletionBudget),
+	}
 }
 
 func (search *cancellationUse) parameterResolved(function *ssa.Function, parameter ssa.Value) bool {
 	key := cancellationUseKey{function: function, parameter: parameter}
-	return search.memo.Summarize(key, function, nil, func() bool {
+	return search.memo.Summarize(key, function, search.budget, func() bool {
 		return search.searchParameterResolved(function, parameter)
 	}, func(ssaflow.SummaryUnavailable, bool) bool {
+		// Unresolved use stays an opaque consumption at the classifier. A
+		// shortened search must not prove that the helper only observes cancel.
 		return false
 	})
 }
@@ -372,6 +377,9 @@ func (search *cancellationUse) parameterResolved(function *ssa.Function, paramet
 func (search *cancellationUse) searchParameterResolved(function *ssa.Function, parameter ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
+			if !search.budget.Spend() {
+				return false
+			}
 			if instructionReferencesCancellation(instruction, parameter) &&
 				!search.instructionResolved(instruction, parameter) {
 				return false
@@ -399,6 +407,9 @@ func (search *cancellationUse) instructionResolved(instruction ssa.Instruction, 
 	}
 	matched := false
 	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+		if !search.budget.Spend() {
+			return false
+		}
 		if !exactLocalValueUse(binding.Supplied, parameter) {
 			continue
 		}

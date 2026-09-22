@@ -135,6 +135,8 @@ the code cannot drift apart silently.
 | `TestTransparentFormsAreNamedAtTheCallSite` | each proof names the SSA wrappers it may look through, so a form added later cannot widen a proof nobody reviewed for it |
 | `TestCallGraphGuardsGoThroughTheSharedMemo` | a path-scoped call-graph guard goes through `ssaflow.CallGraphMemo`, so a walk covers the call graph rather than every call path through it |
 | `TestInterproceduralSearchesNameABudget` | a completion request names a `ssaflow.SearchBudget`, so an interprocedural walk gives up rather than hanging on mutually recursive callees, and its caller decides what an abandoned search permits |
+| `TestAnalyzerSummaryBoundaries` | analyzer summary consumers use the shared query API rather than raw memo/guard operations or infrastructure fields, and direct summary queries never pass a literal nil budget |
+| `TestSummaryBoundaryMatcher` | summary API checks resolve type identity, including import aliases, generic types, promoted methods, and method expressions; unrelated lookalike names remain allowed |
 | `TestAnalyzersUseSymbolIdentity` | well-known functions matched through `syntax.Symbol`, not reconstructed from package paths and names |
 | `TestProductionCodeReturnsTerminationDecisions` | no `panic`, `log.Fatal`, or `os.Exit` in analyzer or library code |
 | `TestForbiddenTerminationIdentity` | the termination rule's matcher recognizes exactly the builtin `panic`, the `log.Fatal` variants, and `os.Exit`, and nothing else |
@@ -146,6 +148,16 @@ the code cannot drift apart silently.
 
 Conventions that are not yet enforced by a test are described in the
 repository's `AGENTS.md`.
+
+Summary conformance is deliberately split between architecture and behavior.
+The architecture check recognizes direct calls by type identity; it is not a
+whole-program proof that a budget variable is non-nil or that every operation
+charges it. Shared summary contract tests cover nested recursion and budget
+cuts, independent cache entries, policy isolation, and call-site binding.
+Analyzer tests must still establish the meaning of an incomplete answer:
+positive witnesses may survive a cut, but missing effects cannot prove absence.
+Binding adapters must produce their own result without mutating cached slices
+or maps; the generic engine cannot deep-copy arbitrary analyzer evidence.
 
 ## Where to start
 

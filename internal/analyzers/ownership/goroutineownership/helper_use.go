@@ -23,8 +23,11 @@ import (
 // helperSearch answers one helper-use question. The memo owns the cycle guard
 // and the rule that an answer cut short by it is not retained.
 type helperSearch struct {
-	memo *ssaflow.CallGraphMemo[helperKey, ownershipAction]
+	memo   *ssaflow.CallGraphMemo[helperKey, ownershipAction]
+	budget *ssaflow.SearchBudget
 }
+
+const helperUseBudget = 1000
 
 type helperKey struct {
 	function *ssa.Function
@@ -33,14 +36,21 @@ type helperKey struct {
 }
 
 func newHelperSearch() *helperSearch {
-	return &helperSearch{memo: ssaflow.NewCallGraphMemo[helperKey, ownershipAction]()}
+	return &helperSearch{
+		memo: ssaflow.NewCallGraphMemo[helperKey, ownershipAction](), budget: ssaflow.NewSearchBudget(helperUseBudget),
+	}
 }
 
 func (search *helperSearch) use(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {
 	key := helperKey{function: function, local: local, kind: kind}
-	return search.memo.Summarize(key, function, nil, func() ownershipAction {
+	return search.memo.Summarize(key, function, search.budget, func() ownershipAction {
 		return search.searchUse(function, local, kind)
-	}, func(ssaflow.SummaryUnavailable, ownershipAction) ownershipAction {
+	}, func(reason ssaflow.SummaryUnavailable, _ ownershipAction) ownershipAction {
+		// Exhaustion cannot establish either a join or the absence of an
+		// opaque handoff. Unknown suppresses an unjoined-worker diagnostic.
+		if reason == ssaflow.SummaryBudgetExhausted {
+			return actionUnknown
+		}
 		// No join or escape witness was established by the cut itself.
 		return actionNone
 	})
@@ -56,6 +66,9 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 	joined, escaped := false, false
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
+			if !search.budget.Spend() {
+				return actionUnknown
+			}
 			joined = joined || joins(instruction)
 			escaped = escaped || search.instructionEscapes(instruction, local, kind, derives)
 		}
@@ -70,6 +83,11 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 }
 
 func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind trackedKind, derives func(ssa.Value) bool) bool {
+	// Charge the coverage query too: it can revisit an instruction after the
+	// initial scan, and its nested helpers must share this same budget.
+	if !search.budget.Spend() {
+		return false
+	}
 	if kind == trackedSignal && receivesFrom(instruction, derives) {
 		return true
 	}
@@ -85,7 +103,7 @@ func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind t
 		return false
 	}
 	return slices.ContainsFunc(ssaflow.CallBindings(common, callee, closure), func(pair ssaflow.CallBinding) bool {
-		return derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionJoin
+		return search.budget.Spend() && derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionJoin
 	})
 }
 
@@ -155,7 +173,7 @@ func (search *helperSearch) callEscapes(instruction ssa.Instruction, kind tracke
 		return slices.ContainsFunc(common.Args, derives) || closure != nil && slices.ContainsFunc(closure.Bindings, derives)
 	}
 	return slices.ContainsFunc(ssaflow.CallBindings(common, callee, closure), func(pair ssaflow.CallBinding) bool {
-		return derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionUnknown
+		return !search.budget.Spend() || derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionUnknown
 	})
 }
 
