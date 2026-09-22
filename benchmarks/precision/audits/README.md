@@ -1769,6 +1769,16 @@ and two TP labels. The [assessment](batch-55.md) explains exact callback
 completion, remaining evidence gaps, generated-code clustering, and a
 source-backed queued-writer lock hazard—not a reproduced production incident.
 
+## Resource follow-up tightening
+
+The [bounded resource follow-up](resource-tightening-2026-09-22.md) replays
+210 previously reviewed resource sites and 72 true-positive controls. Two
+conservative evidence boundaries remove 33 further false positives, with one
+new documented true-positive loss; 140 resource reports remain unresolved.
+The [per-site ledger](resource-tightening-2026-09-22.tsv) preserves original
+verdicts, both replay results, pins and coverage limitations. This is a
+follow-up to existing batches, not another repository batch.
+
 ## Historical 500-repository audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
