@@ -7,7 +7,8 @@ import { serializeSitemapItem } from './src/lib/sitemap.ts';
 import { pluginGohawkDiagnostics } from './src/plugins/gohawk-diagnostics.ts';
 
 // Each analyzer group is a label and its pages, nested under the 'Analyzer
-// reference' section alongside the catalog overview.
+// reference' section alongside the catalog overview. The shared catalog sorts
+// analyzers by name, independently of their execution order.
 const analyzerSidebar = analyzerManifest.groups.map((group) => ({
 	label: group.title,
 	// Omit item labels so Starlight derives them from the same frontmatter title

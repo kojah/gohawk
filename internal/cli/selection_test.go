@@ -64,7 +64,7 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 	}
 
 	t.Run("groups include opt-in analyzers", func(t *testing.T) {
-		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups=ownership,reliability", "./..."}), " ")
+		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups=concurrency,resources", "./..."}), " ")
 		for _, value := range []string{
 			"-lockorder=true", "-channelsafety=true", "-oncepolicy=true", "-borrowedstorage=true",
 		} {
@@ -80,20 +80,20 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 	})
 
 	t.Run("groups combine with individual selection and exclusion", func(t *testing.T) {
-		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups", "ownership", "-enable=oncepolicy", "-disable=channelsafety", "./..."}), " ")
-		for _, value := range []string{"-cancellationownership=true", "-goroutineownership=true", "-oncepolicy=true"} {
+		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups", "resources", "-enable=oncepolicy", "-disable=resourcelifetime", "./..."}), " ")
+		for _, value := range []string{"-cancellationownership=true", "-processownership=true", "-oncepolicy=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("combined arguments do not contain %q: %s", value, got)
 			}
 		}
-		if strings.Contains(got, "-channelsafety=true") {
-			t.Errorf("explicit exclusion did not remove channelsafety: %s", got)
+		if strings.Contains(got, "-resourcelifetime=true") {
+			t.Errorf("explicit exclusion did not remove resourcelifetime: %s", got)
 		}
 	})
 
 	t.Run("disabled groups subtract from defaults and allow individual overrides", func(t *testing.T) {
-		got := strings.Join(selectArguments([]string{"gohawk", "-disable-groups=reliability", "-enable=oncepolicy", "./..."}), " ")
-		for _, value := range []string{"-cancellationownership=true", "-channelsafety=true", "-oncepolicy=true"} {
+		got := strings.Join(selectArguments([]string{"gohawk", "-disable-groups=concurrency", "-enable=oncepolicy", "./..."}), " ")
+		for _, value := range []string{"-cancellationownership=true", "-inlineerror=true", "-oncepolicy=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("disabled-group arguments do not contain %q: %s", value, got)
 			}
@@ -106,8 +106,8 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 	})
 
 	t.Run("disabled groups subtract from enable-all", func(t *testing.T) {
-		got := strings.Join(selectArguments([]string{"gohawk", "-enable-all", "-disable-groups=reliability", "./..."}), " ")
-		for _, value := range []string{"-channelsafety=true", "-borrowedstorage=true"} {
+		got := strings.Join(selectArguments([]string{"gohawk", "-enable-all", "-disable-groups=concurrency", "./..."}), " ")
+		for _, value := range []string{"-inlineerror=true", "-borrowedstorage=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("enable-all exclusion does not contain %q: %s", value, got)
 			}
@@ -128,13 +128,13 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 	t.Run("invalid groups", func(t *testing.T) {
 		for _, arguments := range [][]string{
 			{"gohawk", "-enable-groups=unknown", "./..."},
-			{"gohawk", "-enable-groups=ownership,ownership", "./..."},
-			{"gohawk", "-enable-groups=ownership,", "./..."},
+			{"gohawk", "-enable-groups=resources,resources", "./..."},
+			{"gohawk", "-enable-groups=resources,", "./..."},
 			{"gohawk", "-enable-groups="},
 			{"gohawk", "-enable-groups"},
-			{"gohawk", "-disable-groups=reliability,reliability", "./..."},
+			{"gohawk", "-disable-groups=concurrency,concurrency", "./..."},
 			{"gohawk", "-disable-groups=unknown", "./..."},
-			{"gohawk", "-enable-groups=reliability", "-disable-groups=reliability", "./..."},
+			{"gohawk", "-enable-groups=concurrency", "-disable-groups=concurrency", "./..."},
 		} {
 			if _, err := withAnalyzerSelection(arguments, analyzers, groups, metadata, false); err == nil {
 				t.Errorf("arguments %v unexpectedly succeeded", arguments)
@@ -177,8 +177,8 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 		_, err = withAnalyzerSelection(
 			[]string{
 				"gohawk",
-				"-enable-groups=reliability,ownership",
-				"-disable-groups=reliability,ownership",
+				"-enable-groups=concurrency,resources",
+				"-disable-groups=concurrency,resources",
 				"./...",
 			},
 			analyzers,
@@ -186,7 +186,7 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 			metadata,
 			false,
 		)
-		if got, want := err.Error(), `analyzer group "ownership" cannot be both enabled and disabled`; got != want {
+		if got, want := err.Error(), `analyzer group "concurrency" cannot be both enabled and disabled`; got != want {
 			t.Fatalf("group conflict error = %q, want %q", got, want)
 		}
 	})

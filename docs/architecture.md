@@ -42,6 +42,12 @@ An analyzer appears in three places:
 The catalog checks these declarations when it is created, so missing or
 duplicate entries fail early.
 
+Groups follow the problem being diagnosed: **Concurrency and synchronization**
+(`concurrency`), **Resources and lifecycle** (`resources`), and **General
+correctness** (`correctness`). Source packages and documentation use the same
+grouping. Within each group, the catalog automatically sorts analyzers by name
+for CLI and website presentation; their stable execution order is separate.
+
 ## Tests and examples
 
 Each analyzer keeps its test programs in a local `testdata` directory. A
@@ -163,8 +169,8 @@ or maps; the generic engine cannot deep-copy arbitrary analyzer evidence.
 ## Where to start
 
 For a small syntax-based analyzer, start with
-`internal/analyzers/reliability/oncepolicy`. For a lifecycle analyzer that follows
-program flow, start with `internal/analyzers/ownership/deferinloop`.
+`internal/analyzers/concurrency/oncepolicy`. For a lifecycle analyzer that follows
+program flow, start with `internal/analyzers/resources/deferinloop`.
 
 Continue with [How to contribute](../contributing/) for the steps involved in
 adding or changing an analyzer.

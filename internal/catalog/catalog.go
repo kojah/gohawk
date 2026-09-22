@@ -213,6 +213,11 @@ func (catalog *Catalog) addGroup(index int, seenGroups map[GroupID]bool, seenPat
 			listed = append(listed, spec)
 		}
 	}
+	// Presentation order is independent of declaration and execution order.
+	// New analyzers stay alphabetized in every catalog-backed navigation view.
+	slices.SortFunc(listed, func(left, right AnalyzerSpec) int {
+		return strings.Compare(left.Analyzer.Name, right.Analyzer.Name)
+	})
 	group.Analyzers = listed
 	return nil
 }

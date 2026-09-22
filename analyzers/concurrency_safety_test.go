@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/analyzers/reliability/condsafety"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/waitgroupsafety"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/condsafety"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/waitgroupsafety"
 	"github.com/kojah/gohawk/internal/analyzertest"
 	"github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -32,7 +32,7 @@ func TestConcurrencySafetyTrace(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "trace.jsonl")
 			set("gohawk-trace", analyzer.Name)
 			set("gohawk-trace-file", path)
-			fixtures, err := filepath.Abs(filepath.Join("..", "internal", "analyzers", "reliability", analyzer.Name, "testdata"))
+			fixtures, err := filepath.Abs(filepath.Join("..", "internal", "analyzers", "concurrency", analyzer.Name, "testdata"))
 			if err != nil {
 				t.Fatal(err)
 			}

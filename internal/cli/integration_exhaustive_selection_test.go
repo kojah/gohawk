@@ -32,9 +32,10 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
 		for _, summary := range []string{
-			"ownership (ownership and lifecycle): borrowedstorage~, cancellationownership, channelsafety, deferinloop, " +
-				"goroutineownership, producerlifecycle, processownership, resourcelifetime",
-			"reliability (reliability and safety): concurrentcapture, inlineerror, evalorder, lockorder, oncepolicy, syncmapatomicity",
+			"resources (resources and lifecycle): borrowedstorage~, cancellationownership, deferinloop, processownership, resourcelifetime",
+			"concurrency (concurrency and synchronization): channelprotocol~, channelsafety, concurrentcapture, condsafety~, " +
+				"goroutineownership, lockorder, oncepolicy, producerlifecycle, syncmapatomicity, waitgroupsafety~",
+			"correctness (general correctness): evalorder, inlineerror",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
@@ -148,28 +149,28 @@ func answer() int { return identity{}.value(42) }
 	})
 
 	t.Run("selected analyzer group", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable-groups=ownership", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable-groups=concurrency", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if !strings.Contains(output, "send follows close of channel") {
-			t.Fatalf("ownership group did not run channelsafety:\n%s", output)
+			t.Fatalf("concurrency group did not run channelsafety:\n%s", output)
 		}
-		if strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
-			t.Fatalf("ownership group unexpectedly ran oncepolicy:\n%s", output)
+		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("concurrency group did not run oncepolicy:\n%s", output)
 		}
 	})
 
 	t.Run("disabled analyzer group", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable-all", "-disable-groups=reliability", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable-all", "-disable-groups=resources", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if !strings.Contains(output, "send follows close of channel") {
-			t.Fatalf("enable-all minus reliability did not run channelsafety:\n%s", output)
+			t.Fatalf("enable-all minus resources did not run channelsafety:\n%s", output)
 		}
-		if strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
-			t.Fatalf("disabled reliability group unexpectedly ran oncepolicy:\n%s", output)
+		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+			t.Fatalf("enable-all minus resources did not run oncepolicy:\n%s", output)
 		}
 	})
 

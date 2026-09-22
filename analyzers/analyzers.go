@@ -50,8 +50,9 @@ func (info AnalyzerInfo) EnabledByDefault() bool {
 
 func newCatalog() (*catalog.Catalog, error) {
 	return catalog.NewCatalog([]catalog.GroupSpec{
-		{ID: "ownership", Doc: "ownership and lifecycle", DocPath: "ownership-and-lifecycle", Analyzers: ownershipSpecs()},
-		{ID: "reliability", Doc: "reliability and safety", DocPath: "reliability-and-safety", Analyzers: reliabilitySpecs()},
+		{ID: "concurrency", Doc: "concurrency and synchronization", DocPath: "concurrency-and-synchronization", Analyzers: concurrencySpecs()},
+		{ID: "resources", Doc: "resources and lifecycle", DocPath: "resources-and-lifecycle", Analyzers: resourcesSpecs()},
+		{ID: "correctness", Doc: "general correctness", DocPath: "general-correctness", Analyzers: correctnessSpecs()},
 	}, []catalog.AnalyzerID{
 		"goroutineownership",
 		"producerlifecycle",

@@ -33,7 +33,7 @@ import (
 //
 // Do not add entries. A new completion request names its own budget.
 var unbudgetedCompletionRequests = map[string]int{
-	"internal/analyzers/ownership/processownership/ownership.go": 4,
+	"internal/analyzers/resources/processownership/ownership.go": 4,
 	"internal/passes/lifecyclefacts/analyzer.go":                 1,
 	"internal/passes/lifecyclefacts/fields.go":                   1,
 }

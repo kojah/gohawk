@@ -1,101 +1,14 @@
 {
   "groups": [
     {
-      "name": "ownership",
-      "title": "Ownership and lifecycle",
-      "slug": "ownership-and-lifecycle",
+      "name": "concurrency",
+      "title": "Concurrency and synchronization",
+      "slug": "concurrency-and-synchronization",
       "analyzers": [
-        {
-          "name": "borrowedstorage",
-          "summary": "Checks borrowed mutable storage transferred to a second owner.",
-          "path": "analyzers/ownership-and-lifecycle/borrowedstorage",
-          "tier": "experimental",
-          "checks": [
-            {
-              "id": "borrowedstorage/overlapping-owner",
-              "summary": "Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy.",
-              "kind": "hazard",
-              "tier": "experimental"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "cancellationownership",
-          "summary": "Checks context and signal-derived cancellation functions proved lost on a normal return path.",
-          "path": "analyzers/ownership-and-lifecycle/cancellationownership",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "cancellationownership/release",
-              "summary": "Reports derived cancel functions proved lost on a feasible normal return path.",
-              "kind": "defect",
-              "tier": "core"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "channelsafety",
-          "summary": "Checks channel operations for reachable use after close.",
-          "path": "analyzers/ownership-and-lifecycle/channelsafety",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "channelsafety/double-close",
-              "summary": "Reports repeated closes of the same channel in a straight-line block.",
-              "kind": "defect",
-              "tier": "experimental"
-            },
-            {
-              "id": "channelsafety/send-after-close",
-              "summary": "Reports sends reachable after a channel has been closed.",
-              "kind": "defect",
-              "tier": "core"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "deferinloop",
-          "summary": "Checks cleanup defers whose lifetime extends across loop iterations.",
-          "path": "analyzers/ownership-and-lifecycle/deferinloop",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "deferinloop/cleanup-lifetime",
-              "summary": "Reports cleanup defers whose lifetime extends across loop iterations.",
-              "kind": "hazard",
-              "tier": "core"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "goroutineownership",
-          "summary": "Checks that proven goroutine completion obligations are honored.",
-          "path": "analyzers/ownership-and-lifecycle/goroutineownership",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "goroutineownership/unjoined",
-              "summary": "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
-              "kind": "hazard",
-              "tier": "core"
-            }
-          ],
-          "options": [
-            {
-              "name": "mode",
-              "default": "context",
-              "usage": "Ownership policy: context, lifecycle, or join."
-            }
-          ]
-        },
         {
           "name": "channelprotocol",
           "summary": "Checks for proven channel waiting cycles between a caller and worker.",
-          "path": "analyzers/ownership-and-lifecycle/channelprotocol",
+          "path": "analyzers/concurrency-and-synchronization/channelprotocol",
           "tier": "experimental",
           "checks": [
             {
@@ -120,100 +33,22 @@
           "options": []
         },
         {
-          "name": "producerlifecycle",
-          "summary": "Checks that goroutine producers cannot outlive their receivers.",
-          "path": "analyzers/ownership-and-lifecycle/producerlifecycle",
+          "name": "channelsafety",
+          "summary": "Checks channel operations for reachable use after close.",
+          "path": "analyzers/concurrency-and-synchronization/channelsafety",
           "tier": "core",
           "checks": [
             {
-              "id": "producerlifecycle/abandoned-send",
-              "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
-              "kind": "hazard",
-              "tier": "core"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "processownership",
-          "summary": "Checks that started os/exec commands are waited on or transferred to a wait owner.",
-          "path": "analyzers/ownership-and-lifecycle/processownership",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "processownership/missing-wait",
-              "summary": "Reports successfully started commands that are neither waited on nor transferred.",
-              "kind": "defect",
-              "tier": "core"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "resourcelifetime",
-          "summary": "Checks owned files, SQL handles, HTTP responses, and compressors are released on every path.",
-          "path": "analyzers/ownership-and-lifecycle/resourcelifetime",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "resourcelifetime/missing-release",
-              "summary": "Reports owned resources that are not released on every return path.",
-              "kind": "defect",
-              "tier": "core"
-            },
-            {
-              "id": "resourcelifetime/use-after-release",
-              "summary": "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
-              "kind": "hazard",
-              "tier": "core"
-            }
-          ],
-          "options": [
-            {
-              "name": "contracts",
-              "default": "os,http,sql,compress,owned",
-              "usage": "Comma-separated resource contract families: os,http,sql,compress,owned."
-            },
-            {
-              "name": "require-memory-writer-close",
-              "default": "false",
-              "usage": "Report gzip and zlib writers over an in-memory buffer that are not closed on every path."
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "reliability",
-      "title": "Reliability and safety",
-      "slug": "reliability-and-safety",
-      "analyzers": [
-        {
-          "name": "condsafety",
-          "summary": "Checks Cond waits on proven unlocked mutexes.",
-          "path": "analyzers/reliability-and-safety/condsafety",
-          "tier": "experimental",
-          "checks": [
-            {
-              "id": "condsafety/wait-unlocked",
-              "summary": "Reports Cond waits with a proven unlocked associated mutex.",
+              "id": "channelsafety/double-close",
+              "summary": "Reports repeated closes of the same channel in a straight-line block.",
               "kind": "defect",
               "tier": "experimental"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "waitgroupsafety",
-          "summary": "Checks proven WaitGroup counter underflows.",
-          "path": "analyzers/reliability-and-safety/waitgroupsafety",
-          "tier": "experimental",
-          "checks": [
+            },
             {
-              "id": "waitgroupsafety/negative-counter",
-              "summary": "Reports proven WaitGroup counter underflows.",
+              "id": "channelsafety/send-after-close",
+              "summary": "Reports sends reachable after a channel has been closed.",
               "kind": "defect",
-              "tier": "experimental"
+              "tier": "core"
             }
           ],
           "options": []
@@ -221,7 +56,7 @@
         {
           "name": "concurrentcapture",
           "summary": "Checks locals mutated by goroutines launched repeatedly.",
-          "path": "analyzers/reliability-and-safety/concurrentcapture",
+          "path": "analyzers/concurrency-and-synchronization/concurrentcapture",
           "tier": "core",
           "checks": [
             {
@@ -234,39 +69,45 @@
           "options": []
         },
         {
-          "name": "inlineerror",
-          "summary": "Checks inline error declarations for mismatched conditions.",
-          "path": "analyzers/reliability-and-safety/inlineerror",
-          "tier": "core",
+          "name": "condsafety",
+          "summary": "Checks Cond waits on proven unlocked mutexes.",
+          "path": "analyzers/concurrency-and-synchronization/condsafety",
+          "tier": "experimental",
           "checks": [
             {
-              "id": "inlineerror/mismatched-condition",
-              "summary": "Reports inline error declarations whose condition checks a different error.",
+              "id": "condsafety/wait-unlocked",
+              "summary": "Reports Cond waits with a proven unlocked associated mutex.",
               "kind": "defect",
-              "tier": "core"
+              "tier": "experimental"
             }
           ],
           "options": []
         },
         {
-          "name": "evalorder",
-          "summary": "Checks later operands that mutate values evaluated earlier.",
-          "path": "analyzers/reliability-and-safety/evalorder",
+          "name": "goroutineownership",
+          "summary": "Checks that proven goroutine completion obligations are honored.",
+          "path": "analyzers/concurrency-and-synchronization/goroutineownership",
           "tier": "core",
           "checks": [
             {
-              "id": "evalorder/operand-mutation",
-              "summary": "Reports expressions whose later operand mutates a value read by an earlier operand.",
+              "id": "goroutineownership/unjoined",
+              "summary": "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
               "kind": "hazard",
               "tier": "core"
             }
           ],
-          "options": []
+          "options": [
+            {
+              "name": "mode",
+              "default": "context",
+              "usage": "Ownership policy: context, lifecycle, or join."
+            }
+          ]
         },
         {
           "name": "lockorder",
           "summary": "Checks contradictory mutex acquisition order and unreleased return paths.",
-          "path": "analyzers/reliability-and-safety/lockorder",
+          "path": "analyzers/concurrency-and-synchronization/lockorder",
           "tier": "core",
           "checks": [
             {
@@ -311,7 +152,7 @@
         {
           "name": "oncepolicy",
           "summary": "Checks sync.Once function wrappers that are immediately discarded.",
-          "path": "analyzers/reliability-and-safety/oncepolicy",
+          "path": "analyzers/concurrency-and-synchronization/oncepolicy",
           "tier": "core",
           "checks": [
             {
@@ -324,15 +165,181 @@
           "options": []
         },
         {
+          "name": "producerlifecycle",
+          "summary": "Checks that goroutine producers cannot outlive their receivers.",
+          "path": "analyzers/concurrency-and-synchronization/producerlifecycle",
+          "tier": "core",
+          "checks": [
+            {
+              "id": "producerlifecycle/abandoned-send",
+              "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
+              "kind": "hazard",
+              "tier": "core"
+            }
+          ],
+          "options": []
+        },
+        {
           "name": "syncmapatomicity",
           "summary": "Checks non-atomic sync.Map load-and-delete claims.",
-          "path": "analyzers/reliability-and-safety/syncmapatomicity",
+          "path": "analyzers/concurrency-and-synchronization/syncmapatomicity",
           "tier": "core",
           "checks": [
             {
               "id": "syncmapatomicity/non-atomic-claim",
               "summary": "Reports separate sync.Map Load and Delete operations used to claim one value.",
               "kind": "hazard",
+              "tier": "core"
+            }
+          ],
+          "options": []
+        },
+        {
+          "name": "waitgroupsafety",
+          "summary": "Checks proven WaitGroup counter underflows.",
+          "path": "analyzers/concurrency-and-synchronization/waitgroupsafety",
+          "tier": "experimental",
+          "checks": [
+            {
+              "id": "waitgroupsafety/negative-counter",
+              "summary": "Reports proven WaitGroup counter underflows.",
+              "kind": "defect",
+              "tier": "experimental"
+            }
+          ],
+          "options": []
+        }
+      ]
+    },
+    {
+      "name": "resources",
+      "title": "Resources and lifecycle",
+      "slug": "resources-and-lifecycle",
+      "analyzers": [
+        {
+          "name": "borrowedstorage",
+          "summary": "Checks borrowed mutable storage transferred to a second owner.",
+          "path": "analyzers/resources-and-lifecycle/borrowedstorage",
+          "tier": "experimental",
+          "checks": [
+            {
+              "id": "borrowedstorage/overlapping-owner",
+              "summary": "Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy.",
+              "kind": "hazard",
+              "tier": "experimental"
+            }
+          ],
+          "options": []
+        },
+        {
+          "name": "cancellationownership",
+          "summary": "Checks context and signal-derived cancellation functions proved lost on a normal return path.",
+          "path": "analyzers/resources-and-lifecycle/cancellationownership",
+          "tier": "core",
+          "checks": [
+            {
+              "id": "cancellationownership/release",
+              "summary": "Reports derived cancel functions proved lost on a feasible normal return path.",
+              "kind": "defect",
+              "tier": "core"
+            }
+          ],
+          "options": []
+        },
+        {
+          "name": "deferinloop",
+          "summary": "Checks cleanup defers whose lifetime extends across loop iterations.",
+          "path": "analyzers/resources-and-lifecycle/deferinloop",
+          "tier": "core",
+          "checks": [
+            {
+              "id": "deferinloop/cleanup-lifetime",
+              "summary": "Reports cleanup defers whose lifetime extends across loop iterations.",
+              "kind": "hazard",
+              "tier": "core"
+            }
+          ],
+          "options": []
+        },
+        {
+          "name": "processownership",
+          "summary": "Checks that started os/exec commands are waited on or transferred to a wait owner.",
+          "path": "analyzers/resources-and-lifecycle/processownership",
+          "tier": "core",
+          "checks": [
+            {
+              "id": "processownership/missing-wait",
+              "summary": "Reports successfully started commands that are neither waited on nor transferred.",
+              "kind": "defect",
+              "tier": "core"
+            }
+          ],
+          "options": []
+        },
+        {
+          "name": "resourcelifetime",
+          "summary": "Checks owned files, SQL handles, HTTP responses, and compressors are released on every path.",
+          "path": "analyzers/resources-and-lifecycle/resourcelifetime",
+          "tier": "core",
+          "checks": [
+            {
+              "id": "resourcelifetime/missing-release",
+              "summary": "Reports owned resources that are not released on every return path.",
+              "kind": "defect",
+              "tier": "core"
+            },
+            {
+              "id": "resourcelifetime/use-after-release",
+              "summary": "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
+              "kind": "hazard",
+              "tier": "core"
+            }
+          ],
+          "options": [
+            {
+              "name": "contracts",
+              "default": "os,http,sql,compress,owned",
+              "usage": "Comma-separated resource contract families: os,http,sql,compress,owned."
+            },
+            {
+              "name": "require-memory-writer-close",
+              "default": "false",
+              "usage": "Report gzip and zlib writers over an in-memory buffer that are not closed on every path."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "correctness",
+      "title": "General correctness",
+      "slug": "general-correctness",
+      "analyzers": [
+        {
+          "name": "evalorder",
+          "summary": "Checks later operands that mutate values evaluated earlier.",
+          "path": "analyzers/general-correctness/evalorder",
+          "tier": "core",
+          "checks": [
+            {
+              "id": "evalorder/operand-mutation",
+              "summary": "Reports expressions whose later operand mutates a value read by an earlier operand.",
+              "kind": "hazard",
+              "tier": "core"
+            }
+          ],
+          "options": []
+        },
+        {
+          "name": "inlineerror",
+          "summary": "Checks inline error declarations for mismatched conditions.",
+          "path": "analyzers/general-correctness/inlineerror",
+          "tier": "core",
+          "checks": [
+            {
+              "id": "inlineerror/mismatched-condition",
+              "summary": "Reports inline error declarations whose condition checks a different error.",
+              "kind": "defect",
               "tier": "core"
             }
           ],

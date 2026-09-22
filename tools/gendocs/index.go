@@ -9,9 +9,9 @@ import (
 // groupIntros carries each group's one-sentence introduction, shown under its
 // heading on the catalog page. Keyed by group name.
 var groupIntros = map[string]string{
-	"contracts":   "These analyzers make contracts visible in Go types and APIs, where callers and tools can rely on them.",
-	"ownership":   "These analyzers look for work or resources whose owner cannot be identified on every relevant path.",
-	"reliability": "These analyzers cover failure modes that often survive ordinary type checking and code review.",
+	"concurrency": "These analyzers check goroutine lifecycles, channel protocols, and synchronization.",
+	"resources":   "These analyzers check resource ownership, cleanup, and lifetimes.",
+	"correctness": "These analyzers check error handling and expression behavior beyond ordinary type checking.",
 }
 
 func analyzerIndex(data manifest) string {

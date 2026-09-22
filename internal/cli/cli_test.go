@@ -24,7 +24,7 @@ func TestPrintAnalyzerList(t *testing.T) {
 		{
 			name: "all",
 			contains: []string{
-				"ANALYZER", "TIER", "GROUP", "channelsafety", "oncepolicy", "core", "reliability", "core runs by default",
+				"ANALYZER", "TIER", "GROUP", "channelsafety", "oncepolicy", "core", "concurrency", "core runs by default",
 			},
 			excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts", "*"},
 		},
@@ -55,7 +55,7 @@ func TestPrintAnalyzerList(t *testing.T) {
 				"core",
 				"channelsafety/double-close",
 				"experimental",
-				"reliability",
+				"concurrency",
 			},
 			excludes: []string{"ANALYZER", "PROFILE", "TAGS", "CATEGORY", "*", "processownership/detached"},
 		},
@@ -397,9 +397,9 @@ func TestPrintDocumentation(t *testing.T) {
 			name:      "analyzer",
 			arguments: []string{"lockorder"},
 			contains: []string{
-				"lockorder", "Group: reliability (reliability and safety)",
+				"lockorder", "Group: concurrency (concurrency and synchronization)",
 				"lockorder/missing-release",
-				"https://gohawk.dev/analyzers/reliability-and-safety/lockorder/",
+				"https://gohawk.dev/analyzers/concurrency-and-synchronization/lockorder/",
 			},
 			excludes: []string{"channelsafety/send-after-close", "prefer-test-context"},
 		},
@@ -408,7 +408,7 @@ func TestPrintDocumentation(t *testing.T) {
 			arguments: []string{"lockorder/missing-release"},
 			contains: []string{
 				"lockorder/missing-release", "Reports return paths that leave an owned lock held.",
-				"Analyzer: lockorder", "Kind: defect", "Group: reliability",
+				"Analyzer: lockorder", "Kind: defect", "Group: concurrency",
 			},
 			excludes: []string{"Profile:", "Tags:", "Opt-in:", "\nChecks:", "\nOptions:"},
 		},

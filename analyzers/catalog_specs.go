@@ -1,64 +1,29 @@
 package analyzers
 
 import (
-	"github.com/kojah/gohawk/internal/analyzers/ownership/borrowedstorage"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/cancellationownership"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/channelprotocol"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/channelsafety"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/deferinloop"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/goroutineownership"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/processownership"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/producerlifecycle"
-	"github.com/kojah/gohawk/internal/analyzers/ownership/resourcelifetime"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/concurrentcapture"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/condsafety"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/evalorder"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/inlineerror"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/lockorder"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/oncepolicy"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/syncmapatomicity"
-	"github.com/kojah/gohawk/internal/analyzers/reliability/waitgroupsafety"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/channelprotocol"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/channelsafety"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/concurrentcapture"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/condsafety"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/goroutineownership"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/lockorder"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/oncepolicy"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/producerlifecycle"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/syncmapatomicity"
+	"github.com/kojah/gohawk/internal/analyzers/concurrency/waitgroupsafety"
+	"github.com/kojah/gohawk/internal/analyzers/correctness/evalorder"
+	"github.com/kojah/gohawk/internal/analyzers/correctness/inlineerror"
+	"github.com/kojah/gohawk/internal/analyzers/resources/borrowedstorage"
+	"github.com/kojah/gohawk/internal/analyzers/resources/cancellationownership"
+	"github.com/kojah/gohawk/internal/analyzers/resources/deferinloop"
+	"github.com/kojah/gohawk/internal/analyzers/resources/processownership"
+	"github.com/kojah/gohawk/internal/analyzers/resources/resourcelifetime"
 	"github.com/kojah/gohawk/internal/catalog"
 	"github.com/kojah/gohawk/internal/check"
 )
 
-func ownershipSpecs() []catalog.AnalyzerSpec {
+func concurrencySpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
-		{Analyzer: borrowedstorage.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID:   check.BorrowedStorageOwner,
-				Doc:  "Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
-			},
-		}},
-		{Analyzer: cancellationownership.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.CancellationRelease, Doc: "Reports derived cancel functions proved lost on a feasible normal return path.",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: channelsafety.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ChannelDoubleClose, Doc: "Reports repeated closes of the same channel in a straight-line block.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
-			{
-				ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed.",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: deferinloop.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.DeferCleanupInLoop, Doc: "Reports cleanup defers whose lifetime extends across loop iterations.",
-				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: goroutineownership.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.GoroutineJoin, Doc: "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
-				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
 		{Analyzer: channelprotocol.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ChannelProtocolBlocked, Doc: "Reports proven channel waiting cycles between a caller and its worker.",
@@ -73,43 +38,15 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 		}},
-		{Analyzer: producerlifecycle.Analyzer(), Checks: []catalog.CheckInfo{
+		{Analyzer: channelsafety.Analyzer(), Checks: []catalog.CheckInfo{
 			{
-				ID: check.ProducerLifecycleSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting.",
-				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: processownership.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ProcessWait, Doc: "Reports successfully started commands that are neither waited on nor transferred.",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: resourcelifetime.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ResourceRelease, Doc: "Reports owned resources that are not released on every return path.",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-			{
-				ID:   check.ResourceUseAfterRelease,
-				Doc:  "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
-				Kind: catalog.KindHazard,
-				Tier: catalog.TierCore,
-			},
-		}},
-	}
-}
-
-func reliabilitySpecs() []catalog.AnalyzerSpec {
-	return []catalog.AnalyzerSpec{
-		{Analyzer: condsafety.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.CondWaitUnlocked, Doc: "Reports Cond waits with a proven unlocked associated mutex.",
+				ID: check.ChannelDoubleClose, Doc: "Reports repeated closes of the same channel in a straight-line block.",
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
-		}},
-		{Analyzer: waitgroupsafety.Analyzer(), Checks: []catalog.CheckInfo{
-			{ID: check.WaitGroupNegativeCounter, Doc: "Reports proven WaitGroup counter underflows.", Kind: catalog.KindDefect, Tier: catalog.TierExperimental},
+			{
+				ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed.",
+				Kind: catalog.KindDefect, Tier: catalog.TierCore,
+			},
 		}},
 		{Analyzer: concurrentcapture.Analyzer(), Checks: []catalog.CheckInfo{
 			{
@@ -117,15 +54,15 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
 			},
 		}},
-		{Analyzer: inlineerror.Analyzer(), Checks: []catalog.CheckInfo{
+		{Analyzer: condsafety.Analyzer(), Checks: []catalog.CheckInfo{
 			{
-				ID: check.ErrorMismatchedInline, Doc: "Reports inline error declarations whose condition checks a different error.",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
+				ID: check.CondWaitUnlocked, Doc: "Reports Cond waits with a proven unlocked associated mutex.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 		}},
-		{Analyzer: evalorder.Analyzer(), Checks: []catalog.CheckInfo{
+		{Analyzer: goroutineownership.Analyzer(), Checks: []catalog.CheckInfo{
 			{
-				ID: check.EvaluationOrder, Doc: "Reports expressions whose later operand mutates a value read by an earlier operand.",
+				ID: check.GoroutineJoin, Doc: "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
 			},
 		}},
@@ -158,10 +95,78 @@ func reliabilitySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
 			},
 		}},
+		{Analyzer: producerlifecycle.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.ProducerLifecycleSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting.",
+				Kind: catalog.KindHazard, Tier: catalog.TierCore,
+			},
+		}},
 		{Analyzer: syncmapatomicity.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.SyncMapNonAtomicClaim, Doc: "Reports separate sync.Map Load and Delete operations used to claim one value.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
+			},
+		}},
+		{Analyzer: waitgroupsafety.Analyzer(), Checks: []catalog.CheckInfo{
+			{ID: check.WaitGroupNegativeCounter, Doc: "Reports proven WaitGroup counter underflows.", Kind: catalog.KindDefect, Tier: catalog.TierExperimental},
+		}},
+	}
+}
+
+func resourcesSpecs() []catalog.AnalyzerSpec {
+	return []catalog.AnalyzerSpec{
+		{Analyzer: borrowedstorage.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID:   check.BorrowedStorageOwner,
+				Doc:  "Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy.",
+				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
+			},
+		}},
+		{Analyzer: cancellationownership.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.CancellationRelease, Doc: "Reports derived cancel functions proved lost on a feasible normal return path.",
+				Kind: catalog.KindDefect, Tier: catalog.TierCore,
+			},
+		}},
+		{Analyzer: deferinloop.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.DeferCleanupInLoop, Doc: "Reports cleanup defers whose lifetime extends across loop iterations.",
+				Kind: catalog.KindHazard, Tier: catalog.TierCore,
+			},
+		}},
+		{Analyzer: processownership.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.ProcessWait, Doc: "Reports successfully started commands that are neither waited on nor transferred.",
+				Kind: catalog.KindDefect, Tier: catalog.TierCore,
+			},
+		}},
+		{Analyzer: resourcelifetime.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.ResourceRelease, Doc: "Reports owned resources that are not released on every return path.",
+				Kind: catalog.KindDefect, Tier: catalog.TierCore,
+			},
+			{
+				ID:   check.ResourceUseAfterRelease,
+				Doc:  "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
+				Kind: catalog.KindHazard,
+				Tier: catalog.TierCore,
+			},
+		}},
+	}
+}
+
+func correctnessSpecs() []catalog.AnalyzerSpec {
+	return []catalog.AnalyzerSpec{
+		{Analyzer: evalorder.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.EvaluationOrder, Doc: "Reports expressions whose later operand mutates a value read by an earlier operand.",
+				Kind: catalog.KindHazard, Tier: catalog.TierCore,
+			},
+		}},
+		{Analyzer: inlineerror.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.ErrorMismatchedInline, Doc: "Reports inline error declarations whose condition checks a different error.",
+				Kind: catalog.KindDefect, Tier: catalog.TierCore,
 			},
 		}},
 	}

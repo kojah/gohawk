@@ -57,11 +57,11 @@ checks join only under `-tier=experimental` or when named by check ID.
 You can also select a whole group:
 
 ```sh
-# Run the ownership group.
-gohawk -enable-groups=ownership ./...
+# Run the concurrency group.
+gohawk -enable-groups=concurrency ./...
 
-# Run everything except the reliability group.
-gohawk -enable-all -disable-groups=reliability ./...
+# Run everything except the resources group.
+gohawk -enable-all -disable-groups=resources ./...
 ```
 
 To select one check rather than its whole analyzer, use the stable ID shown by

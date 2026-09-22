@@ -101,36 +101,35 @@ func TestAnalyzerGroups(t *testing.T) {
 		analyzers []string
 	}{
 		{
-			name:    "ownership",
-			doc:     "ownership and lifecycle",
-			docPath: "ownership-and-lifecycle",
+			name:    "concurrency",
+			doc:     "concurrency and synchronization",
+			docPath: "concurrency-and-synchronization",
+			analyzers: []string{
+				"channelprotocol",
+				"channelsafety",
+				"concurrentcapture",
+				"condsafety",
+				"goroutineownership",
+				"lockorder",
+				"oncepolicy",
+				"producerlifecycle",
+				"syncmapatomicity",
+				"waitgroupsafety",
+			},
+		},
+		{
+			name:    "resources",
+			doc:     "resources and lifecycle",
+			docPath: "resources-and-lifecycle",
 			analyzers: []string{
 				"borrowedstorage",
 				"cancellationownership",
-				"channelsafety",
 				"deferinloop",
-				"goroutineownership",
-				"channelprotocol",
-				"producerlifecycle",
 				"processownership",
 				"resourcelifetime",
 			},
 		},
-		{
-			name:    "reliability",
-			doc:     "reliability and safety",
-			docPath: "reliability-and-safety",
-			analyzers: []string{
-				"condsafety",
-				"waitgroupsafety",
-				"concurrentcapture",
-				"inlineerror",
-				"evalorder",
-				"lockorder",
-				"oncepolicy",
-				"syncmapatomicity",
-			},
-		},
+		{name: "correctness", doc: "general correctness", docPath: "general-correctness", analyzers: []string{"evalorder", "inlineerror"}},
 	}
 	groups := AnalyzerGroups()
 	if len(groups) != len(want) {
