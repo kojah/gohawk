@@ -148,8 +148,13 @@ func (inventory repositorySourceInventory) scopedRoot(t *testing.T, root string)
 }
 
 func excludedSourceDirectory(name string) bool {
+	// Like Go package discovery, ignore hidden and underscore-prefixed trees.
+	// In particular, .build contains audit checkouts, not our production source.
+	if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
+		return true
+	}
 	switch name {
-	case ".git", "fixture", "fixtures", "testdata", "vendor":
+	case "fixture", "fixtures", "testdata", "vendor":
 		return true
 	default:
 		return false

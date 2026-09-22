@@ -126,6 +126,7 @@ the code cannot drift apart silently.
 
 | test | rule it enforces |
 |---|---|
+| `TestSourceInventoryExcludesNonProductionTrees` | source inventories exclude fixtures, generated files, tests, and dot/underscore-prefixed trees such as cached audit checkouts |
 | `TestInternalPackagesRespectDependencyDirection` | analyzers may use shared tools; shared tools never depend on analyzers or the catalog |
 | `TestAnalyzerPackageLayout` | one package per analyzer under `internal/analyzers/<group>/<name>` |
 | `TestAnalyzersUseSharedReporting` | diagnostics only through `check.Report` or `check.Reportf`, never `analysis.Pass.Report` directly |
