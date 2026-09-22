@@ -107,6 +107,14 @@ func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
 		return "", false
 	}
 	common := call.Common()
+	// errors.As returns false for nil, including custom As implementations:
+	// they are called only after that nil check. Require the exact acquisition
+	// error; a joined or wrapped error can be non-nil even when acquisition succeeds.
+	// https://github.com/bluesky-social/indigo/blob/41278964ec8e3253e70d4e919dfb8e34211c543d/atproto/identity/did.go#L108-L121
+	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("errors", "As")) &&
+		len(common.Args) == 2 && common.Args[0] == errorValue {
+		return "errors-as-exact-acquisition-error", true
+	}
 	// os.IsNotExist and os.IsExist are the legacy equivalents of errors.Is with
 	// the corresponding filesystem sentinel. Their true branches prove that
 	// the acquisition returned a non-nil error and no owned file.
