@@ -128,6 +128,12 @@ claim, because the code that made it no longer ships.
 
 ## Which check a label names
 
+Round 56 preserves batch 52's immediate successful-Start Process guard and
+Go 1.22+ range-variable capture boundaries. All eight labels pass across four
+fully scannable repositories: two corrected false positives and six retained
+true-positive controls. See `audits/batch-52.md` for unresolved families and
+the separately disclosed baseline type-loader race limitation.
+
 Round 55 preserves batch 51's global/retained/merged resource boundaries,
 readiness-only worker narrowing and exact acquisition-error guard. Its 21 labels
 pass across eight fully scannable repositories; fourteen further corrected

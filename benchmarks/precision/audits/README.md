@@ -1696,6 +1696,23 @@ unit tests, and ledger checks against the pinned checkout HEADs and source
 locations. The cohort measures reviewed findings, not recall or universal
 repository safety.
 
+## Batch 52
+
+The first additional 250-repository batch uses frozen source `c9609c6`.
+[Selection](batch-52.tsv), [provenance](batch-52-selection.json) and
+[scan metadata](batch-52-scans.json) preserve exact pins and static-only scope.
+After exhausting fresh Go 1.26+ candidates, this batch includes compatible
+Go 1.25–1.26.4 projects. There were 317 module entries, 200 complete repositories,
+50 incomplete repositories and 111 quiet complete scans.
+
+All 455 findings are [reviewed](batch-52-findings.tsv): 341 true positives,
+107 false positives and seven inconclusive. Two false positives have
+[verified corrections](batch-52-corrections.tsv); 105 remain unresolved.
+The [assessment](batch-52.md) records bounded process and range-capture fixes,
+remaining evidence families, and a baseline-reproduced Go type-loader race
+limiting the optional architecture race gate. Canonical `make verify` and
+changed-package race tests pass; round 56 passes two FP and six TP labels.
+
 ## Batch 53
 
 The second additional 250-repository batch uses the frozen `c9609c6` baseline.

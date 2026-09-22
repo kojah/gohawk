@@ -1,0 +1,9 @@
+repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
+stacktower-io/stacktower,processownership,processownership/missing-wait,internal/cli/auth_device.go:118:12,false_positive,05eabd6,2026-09-22
+Lifailon/lazyjournal,processownership,processownership/missing-wait,main.go:4019:15,true_positive,05eabd6,2026-09-22
+Lifailon/lazyjournal,processownership,processownership/missing-wait,main.go:4098:15,true_positive,05eabd6,2026-09-22
+Lifailon/lazyjournal,processownership,processownership/missing-wait,main.go:4104:15,true_positive,05eabd6,2026-09-22
+Lifailon/lazyjournal,processownership,processownership/missing-wait,main.go:5345:4,true_positive,05eabd6,2026-09-22
+Lifailon/lazyjournal,processownership,processownership/missing-wait,main.go:5415:8,true_positive,05eabd6,2026-09-22
+tensorchord/envd,concurrentcapture,concurrentcapture/shared-capture,pkg/builder/build.go:257:6,false_positive,05eabd6,2026-09-22
+alexellis/arkade,concurrentcapture,concurrentcapture/shared-capture,cmd/chart/upgrade.go:153:8,true_positive,05eabd6,2026-09-22
