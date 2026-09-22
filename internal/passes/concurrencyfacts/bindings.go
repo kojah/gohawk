@@ -86,7 +86,7 @@ func (engine *Engine) referenceLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (Re
 			// Mutex addresses identify cells, not mutable contents. Such values
 			// can bind formal mutex parameters but cannot be exported as formals.
 			if MutexPointer(resolved.Value.Type()) {
-				if path, ok := embeddedPath(resolved.Value); ok && path.depth > 0 {
+				if path, ok := embeddedPath(resolved.Value); ok && path.Depth > 0 {
 					value, found := engine.fieldAddress(resolved.Value.Parent(), path)
 					return Reference{Value: value}, found
 				}

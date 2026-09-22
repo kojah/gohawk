@@ -88,7 +88,7 @@ func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 		index := -1
 		for i, parameter := range function.Params {
 			if !resource.Indirect && (parameter == resource.Value ||
-				projected && parameter == path.root && MutexPointer(resource.Value.Type())) {
+				projected && parameter == path.Root && MutexPointer(resource.Value.Type())) {
 				index = i
 				break
 			}
@@ -97,8 +97,8 @@ func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 			return fact, false
 		}
 		effect := Effect{Kind: operation.Kind, Parameter: index}
-		if projected && path.depth > 0 {
-			effect.Fields = append([]int(nil), path.fields[:path.depth]...)
+		if projected && path.Depth > 0 {
+			effect.Fields = append([]int(nil), path.Fields[:path.Depth]...)
 		}
 		fact.Effects = append(fact.Effects, effect)
 	}

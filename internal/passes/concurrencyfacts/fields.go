@@ -11,35 +11,18 @@ import (
 // path can therefore be rebound without following mutable pointer fields.
 // Bindings require an existing matching caller address; we never invent SSA
 // values or treat an enclosing owner as the mutex itself.
-type mutexPath struct {
-	root   ssa.Value
-	fields [8]int
-	depth  int
-}
-
-func embeddedPath(value ssa.Value) (mutexPath, bool) {
-	return ssaflow.ResolveReachingValue(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value, embeddedPathLeaf,
-		func(path mutexPath) mutexPath { return path })
-}
-
-func embeddedPathLeaf(walk ssaflow.ReachingWalk, value ssa.Value) (mutexPath, bool) {
-	switch value := value.(type) {
-	case *ssa.Alloc, *ssa.Parameter, *ssa.FreeVar:
-		return mutexPath{root: value}, true
-	case *ssa.FieldAddr:
-		path, ok := ssaflow.ResolveReachingValue(walk, value.X, embeddedPathLeaf, func(path mutexPath) mutexPath { return path })
-		if !ok || path.depth == len(path.fields) {
-			return mutexPath{}, false
+func embeddedPath(value ssa.Value) (ssaflow.EmbeddedFieldPath, bool) {
+	return ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value, func(root ssa.Value) bool {
+		switch root.(type) {
+		case *ssa.Alloc, *ssa.Parameter, *ssa.FreeVar:
+			return true
+		default:
+			return false
 		}
-		path.fields[path.depth] = value.Field
-		path.depth++
-		return path, true
-	default:
-		return mutexPath{}, false
-	}
+	})
 }
 
-func (engine *Engine) fieldAddress(function *ssa.Function, path mutexPath) (ssa.Value, bool) {
+func (engine *Engine) fieldAddress(function *ssa.Function, path ssaflow.EmbeddedFieldPath) (ssa.Value, bool) {
 	if function == nil {
 		return nil, false
 	}
@@ -62,19 +45,21 @@ func (engine *Engine) fieldAddress(function *ssa.Function, path mutexPath) (ssa.
 
 func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBinding, instruction ssa.Instruction) (Reference, bool) {
 	path, ok := embeddedPath(reference.Value)
-	if reference.Indirect || !ok || path.depth == 0 || !MutexPointer(reference.Value.Type()) {
+	if reference.Indirect || !ok || path.Depth == 0 || !MutexPointer(reference.Value.Type()) {
 		return Reference{}, false
 	}
 	for _, binding := range bindings {
-		if binding.Local != path.root {
+		if binding.Local != path.Root {
 			continue
 		}
 		root, valid := embeddedPath(binding.Supplied)
-		if !valid || root.depth+path.depth > len(path.fields) {
+		if !valid {
 			return Reference{}, false
 		}
-		copy(root.fields[root.depth:], path.fields[:path.depth])
-		root.depth += path.depth
+		root, valid = root.Append(path.Fields[:path.Depth]...)
+		if !valid {
+			return Reference{}, false
+		}
 		value, found := engine.fieldAddress(instruction.Parent(), root)
 		return Reference{Value: value}, found
 	}
@@ -83,11 +68,13 @@ func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBind
 
 func (engine *Engine) importedField(call ssa.CallInstruction, value ssa.Value, fields []int) (ssa.Value, bool) {
 	path, ok := embeddedPath(value)
-	if !ok || path.depth+len(fields) > len(path.fields) {
+	if !ok {
 		return nil, false
 	}
-	copy(path.fields[path.depth:], fields)
-	path.depth += len(fields)
+	path, ok = path.Append(fields...)
+	if !ok {
+		return nil, false
+	}
 	return engine.fieldAddress(call.Parent(), path)
 }
 
@@ -117,6 +104,6 @@ func FreshMutex(function *ssa.Function, reference Reference) bool {
 		return false
 	}
 	path, ok := embeddedPath(reference.Value)
-	allocation, local := path.root.(*ssa.Alloc)
+	allocation, local := path.Root.(*ssa.Alloc)
 	return ok && local && allocation.Parent() == function
 }
