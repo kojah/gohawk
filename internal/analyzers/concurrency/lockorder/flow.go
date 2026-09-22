@@ -55,16 +55,17 @@ type lockReportSite struct {
 	identity    string
 }
 
-func walkLockOrder(
+func walkLockOrderBounded(
 	pass *analysis.Pass,
 	function *ssa.Function,
 	relations *lockOrders,
 	calleeLocks *calleeLockSearch,
 	evidence *ssaflow.LocalEvidence,
 	callers map[*ssa.Function]conditionalCallerSet,
-) {
+	summaries map[ssa.Instruction][]mutexEffect,
+) bool {
 	if len(function.Blocks) == 0 {
-		return
+		return true
 	}
 	// The walk is a work list over (block, held locks, deferred releases,
 	// guards); a state is revisited only when that tuple is new, which bounds
@@ -77,7 +78,6 @@ func walkLockOrder(
 	heldAtReturn := map[string]map[*ssa.Return]bool{}
 	acquisitions := map[string][]ssa.Instruction{}
 	uncertainGuards := map[string]bool{}
-	summaries := summarizedMutexEffects(pass, function)
 	possibleWriters := possibleDeferredWriters(function, summaries)
 	callerOwned := callerOwnedLocks(function, summaries)
 	functionDefers := ssaflow.InstructionsOf[*ssa.Defer](function)
@@ -98,7 +98,12 @@ func walkLockOrder(
 	// Each predecessor selects its own phi values before any instruction runs.
 	// Clone the lock collections so one successor's release cannot discharge
 	// another successor's obligation; the immutable branch facts travel with it.
+	remaining := 4096
 	ssaflow.WalkStates([]lockFlowState{{block: function.Blocks[0]}}, lockStateKey, func(state lockFlowState) ([]lockFlowState, bool) {
+		remaining--
+		if remaining < 0 {
+			return nil, false
+		}
 		state.constants = lockPhiConstants(state)
 		held := slices.Clone(state.held)
 		readHeld := slices.Clone(state.readHeld)
@@ -157,7 +162,11 @@ func walkLockOrder(
 		}
 		return lockSuccessorStates(pass, state, held, readHeld, deferred, guards, origins), true
 	})
+	if remaining < 0 {
+		return false
+	}
 	flow.reportMissingReleases(function, unreleasedReturns, heldAtReturn, callers[function])
+	return true
 }
 
 func recordUnreleasedLocks(

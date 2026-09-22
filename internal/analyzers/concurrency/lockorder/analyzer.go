@@ -2,6 +2,7 @@
 package lockorder
 
 import (
+	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
@@ -29,13 +30,13 @@ type lockFlowState struct {
 	guards         map[string]lockGuard
 	condition      string
 	conditionValue bool
-	constants      []lockBooleanConstant
+	constants      []lockScalarConstant
 	constraints    []lockGuard
 }
 
-type lockBooleanConstant struct {
-	value *ssa.Phi
-	truth bool
+type lockScalarConstant struct {
+	value   *ssa.Phi
+	literal *ssa.Const
 }
 
 type lockGuard struct {
@@ -80,4 +81,31 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 		reportDiscardedTryLocks(pass, function)
 	}
 	return nil, nil
+}
+
+func walkLockOrder(
+	pass *analysis.Pass,
+	function *ssa.Function,
+	relations *lockOrders,
+	calleeLocks *calleeLockSearch,
+	evidence *ssaflow.LocalEvidence,
+	callers map[*ssa.Function]conditionalCallerSet,
+) {
+	summaries := summarizedMutexEffects(pass, function)
+	if !hasMutexAcquisition(function, summaries) {
+		return
+	}
+	// A partial walk cannot establish an all-return contract. Keep diagnostics
+	// and new order edges private until the bounded function walk completes.
+	buffered, commit := check.BufferReports(pass)
+	localRelations := newLockOrders()
+	localRelations.collectOnly = true
+	if !walkLockOrderBounded(buffered, function, localRelations, calleeLocks, evidence, callers, summaries) {
+		traceLockStateBudget(pass, function)
+		return
+	}
+	commit()
+	for _, edge := range localRelations.staged {
+		relations.record(pass, edge.held, edge.acquired, edge.guards...)
+	}
 }

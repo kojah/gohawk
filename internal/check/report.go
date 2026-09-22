@@ -30,3 +30,20 @@ func Report(pass *analysis.Pass, id ID, diagnostic analysis.Diagnostic) {
 	})
 	pass.Report(diagnostic)
 }
+
+// BufferReports returns a shallow pass copy that collects diagnostics and a
+// commit function that publishes them once. Abandoning commit discards them.
+// This lets a bounded proof withhold partial results without bypassing Report's
+// category and trace handling. The caller must finish reporting before commit;
+// neither the buffer nor its commit function is safe for concurrent use.
+func BufferReports(pass *analysis.Pass) (*analysis.Pass, func()) {
+	buffered := *pass
+	var diagnostics []analysis.Diagnostic
+	buffered.Report = func(diagnostic analysis.Diagnostic) { diagnostics = append(diagnostics, diagnostic) }
+	return &buffered, func() {
+		for _, diagnostic := range diagnostics {
+			pass.Report(diagnostic)
+		}
+		diagnostics = nil
+	}
+}

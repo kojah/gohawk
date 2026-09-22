@@ -1,7 +1,7 @@
 # Lock follow-up within the remaining 207 findings
 
 The 23 unresolved lock findings from `followup-78-locks.tsv` were replayed with
-the canonical all-check CLI. **Eight are now absent; fifteen remain active.**
+the canonical all-check CLI. **Nine are now absent; fourteen remain active.**
 Both earlier surf corrections remain absent and all four runnable genuine-bug
 controls remain reported. `followup207-locks.tsv` retains all 29 sites and their
 baseline/current receipts; a successful load is required before counting absence.
@@ -16,6 +16,7 @@ or function-name exception.
 | Evidence family | Newly absent | Decision |
 | --- | ---: | --- |
 | Local Boolean lock state across blocks | 2 bazel-remote | Carry at most four selected Boolean phi constants; refresh all incoming values together and forget unknown inputs. |
+| Literal phase across retries | 1 uhaha | The same four-slot environment retains exact Boolean/integer literals across phi inputs and evaluates equality/inequality only; unknown updates clear the binding. No arithmetic or iteration-count inference. |
 | Repeated compound parameter guard | 1 geesefs | Carry at most eight exact parameter/constant comparisons. Mutable field loads and computed loop values are not stable facts. |
 | Checked successful return | 1 gmqtt | An exact error result whose nil edge dominates the return satisfies the existing held-for-caller success contract; a shared merge successor does not establish nil. |
 | Conditional caller release | 1 fortio | A private non-escaping helper's constant Boolean result identifies held state, and every bounded direct caller releases the same global mutex on that result branch. |
@@ -51,7 +52,7 @@ cover the new feasibility, proven caller-release, and uncertainty reasons.
 
 ## Active remainder
 
-Fifteen reviewed false positives are still reported; they are work to continue,
+Fourteen reviewed false positives are still reported; they are work to continue,
 not blockers or claims that the code is defective:
 
 - Nine contextual order-cycle cases: initialization before publication,
@@ -66,8 +67,33 @@ not blockers or claims that the code is defective:
   predicate relationship, not an action-name exception.
 - The gophercloud test depends on callback invocation cardinality; no loop-count
   guess was added.
-- Uhaha's sentinel/lock relationship crosses loop iterations; neither a sentinel
-  value nor a local variable's name establishes the invariant.
+
+## Bounded cost and incomplete results
+
+Extending branch-state retention exposed unnecessary exploration of functions
+without lock acquisitions. An intermediate integer-literal build spent over
+20 seconds on an isolated `image/png` scan and reached about 7 GB during a
+canonical dependency scan. That intermediate build was stopped, not counted
+as a successful replay.
+
+The flow now skips functions without direct or bound summarized acquisitions,
+including the same TryLock and reader modes as the authoritative mutex model.
+Each remaining function has a 4,096-state limit. Diagnostics and new order
+edges remain private until completion; exhaustion discards both and records
+`lock-state-budget-exhausted` as unknown. It does not infer a caller-release
+contract from an incomplete return set. This intentionally loses findings in
+complex functions rather than retaining partial proof claims.
+
+A regression fixture exhausts the budget after an early recursive acquisition
+and an order edge between distinct mutex fields. Neither diagnostic nor edge
+escapes into a later function. The shared diagnostic buffer additionally tests
+abandonment, commit idempotence, ordering, and preservation of prerequisite
+results. The final isolated `image/png` scan took 1.60 seconds / 143,724 KB
+maximum RSS, compared with baseline 1.97 seconds / 162,492 KB on this machine.
+The final uhaha trace confirms carried-literal branch pruning in
+`runPromotionWatcher`, not budget exhaustion. Its standard-library dependency
+`reflect.StructOf` does exhaust the budget and is deliberately inconclusive.
+None of the four audited true-positive controls was lost.
 
 ## Validation and provenance
 
@@ -76,13 +102,13 @@ contained in the final previous binary). Immutable baseline:
 `.build/gohawk-followup78-goroutines-v5`, SHA256
 `5516cad4c83bffd8dca28713df53f8d3d1a463b838c23d302da9e10ddc257419`.
 
-Corrected combined worktree binary: `.build/gohawk-followup207-locks-v7`, SHA256
-`683aae58c09754e5b88622ba0bbeeb497e49535e4f40e4ad87af8d254bf6a239`.
+Corrected combined worktree binary: `.build/gohawk-followup207-locks-v11`, SHA256
+`d27c4ceb2e08c20f836af935ad7284a8d2a807c0df503bebcac1e7defcf891ff`.
 It includes concurrent workers' changes outside lockorder; this record claims
 only the reviewed lock sites. It is not stamped as a clean source revision.
 
 Receipts in `.build/followup207-locks-baseline/` and
-`.build/followup207-locks-v7/` cover 20 package scopes each. Every run verifies
+`.build/followup207-locks-v11/` cover 20 package scopes each. Every run verifies
 the original repository revision and uses
 `-enable-all -gohawk-include-tests -json .`, `CGO_ENABLED=0`, `GOWORK=off`,
 `GOTOOLCHAIN=local`, `GOMAXPROCS=2`, `GOFLAGS='-mod=readonly -p=2'`, and
@@ -93,13 +119,13 @@ were executed.
 The four true-positive controls are ContainerSSH `server.go:246:3` and
 `:494:3`, WireGuard `noise-protocol.go:542:3`, and uTLS `common.go:1075:4`.
 All are present in both canonical runs. The ledger separately marks the two
-previously corrected surf sites rather than counting them among the eight new
+previously corrected surf sites rather than counting them among the nine new
 corrections.
 
 Focused tests, the focused race suite, and targeted canonical golangci-lint
 pass. The root task owns final repository-wide verification. The checkpoint
-architecture run found no lock conformance error; five concurrently introduced
-shared helpers still needed their generated documentation index refreshed.
+architecture run found no lock conformance error; two stale references to a
+concurrently renamed shared helper still needed documentation updates.
 
 Tier 2 graph verification used `home-james-scratch-gohawk` with source freshness
 checks and direct reads after edits. Actual pinned SSA was inspected for the

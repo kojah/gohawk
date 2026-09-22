@@ -37,7 +37,7 @@ func lockStateKey(state lockFlowState) string {
 	}
 	slices.Sort(guards)
 	for _, binding := range state.constants {
-		fmt.Fprintf(&origins, "phi:%p=%t;", binding.value, binding.truth)
+		fmt.Fprintf(&origins, "phi:%p=%s;", binding.value, binding.literal.Value.ExactString())
 	}
 	for _, constraint := range state.constraints {
 		fmt.Fprintf(&origins, "stable:%s=%t;", constraint.condition, constraint.value)
@@ -56,13 +56,16 @@ func lockStateKey(state lockFlowState) string {
 	)
 }
 
-// Carry a bounded set of exact local Boolean values, not assumptions about
+// Carry a bounded set of exact Boolean/integer literals, not assumptions about
 // mutable receiver fields. A release flag can pass through unrelated blocks
 // before its next test; discarding its selected phi edge invents lock states.
 // Refresh all phis simultaneously on entry, including forgetting an old value
 // when a loop supplies an unknown input. Four bindings bound extra path state.
 // https://github.com/buchgr/bazel-remote/blob/a69b6b5ed933234d93b489ffd216bee5bb74aa06/cache/disk/disk.go#L450-L564
-func lockPhiConstants(state lockFlowState) []lockBooleanConstant {
+// A loop phase can retain a literal while a lock is held and become unknown
+// after release. This tracks that exact value, not arithmetic or loop counts:
+// https://github.com/tidwall/uhaha/blob/5ea77162763891837176b90e111fcac74678143e/uhaha.go#L4173-L4217
+func lockPhiConstants(state lockFlowState) []lockScalarConstant {
 	const maxConstants = 4
 	next := slices.Clone(state.constants)
 	for _, instruction := range state.block.Instrs {
@@ -70,29 +73,46 @@ func lockPhiConstants(state lockFlowState) []lockBooleanConstant {
 		if !ok {
 			break
 		}
-		next = slices.DeleteFunc(next, func(binding lockBooleanConstant) bool { return binding.value == phi })
+		next = slices.DeleteFunc(next, func(binding lockScalarConstant) bool { return binding.value == phi })
 		for predecessor, incoming := range ssaflow.PhiIncoming(phi) {
 			if predecessor != state.predecessor {
 				continue
 			}
-			if truth, known := lockBooleanValue(incoming, state.constants); known && len(next) < maxConstants {
-				next = append(next, lockBooleanConstant{value: phi, truth: truth})
+			if literal := lockLiteralValue(incoming, state.constants); literal != nil && len(next) < maxConstants {
+				next = append(next, lockScalarConstant{value: phi, literal: literal})
 			}
 		}
 	}
 	return next
 }
 
-func lockBooleanValue(value ssa.Value, constants []lockBooleanConstant) (bool, bool) {
-	if literal, ok := value.(*ssa.Const); ok && literal.Value != nil && literal.Value.Kind() == constant.Bool {
+func lockBooleanValue(value ssa.Value, constants []lockScalarConstant) (bool, bool) {
+	if literal := lockLiteralValue(value, constants); literal != nil && literal.Value.Kind() == constant.Bool {
 		return constant.BoolVal(literal.Value), true
+	}
+	comparison, ok := value.(*ssa.BinOp)
+	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
+		return false, false
+	}
+	left, right := lockLiteralValue(comparison.X, constants), lockLiteralValue(comparison.Y, constants)
+	if left == nil || right == nil || left.Value.Kind() != right.Value.Kind() {
+		return false, false
+	}
+	return constant.Compare(left.Value, comparison.Op, right.Value), true
+}
+
+func lockLiteralValue(value ssa.Value, constants []lockScalarConstant) *ssa.Const {
+	if literal, ok := value.(*ssa.Const); ok && literal.Value != nil {
+		if kind := literal.Value.Kind(); kind == constant.Bool || kind == constant.Int {
+			return literal
+		}
 	}
 	for _, binding := range constants {
 		if value == binding.value {
-			return binding.truth, true
+			return binding.literal
 		}
 	}
-	return false, false
+	return nil
 }
 
 func constantFalse(value ssa.Value) bool {
@@ -239,6 +259,13 @@ func traceInfeasibleLockBranch(pass *analysis.Pass, block *ssa.BasicBlock, reaso
 func traceCallerRelease(pass *analysis.Pass, position token.Pos, reason string) {
 	analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), position).Decision(analysisTrace.Step{
 		Reason: reason, Outcome: analysisTrace.OutcomeAccepted, Pos: position,
+	})
+}
+
+func traceLockStateBudget(pass *analysis.Pass, function *ssa.Function) {
+	analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), function.Pos()).Decision(analysisTrace.Step{
+		Reason: "lock-state-budget-exhausted", Outcome: analysisTrace.OutcomeUnknown, Pos: function.Pos(),
+		Function: function.String(),
 	})
 }
 

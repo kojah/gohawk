@@ -54,6 +54,26 @@ func summarizedMutexEffects(pass *analysis.Pass, function *ssa.Function) map[ssa
 	return result
 }
 
+// No held state can arise without a direct or fully bound acquisition. Calls
+// with incomplete effects only contribute ordering when another lock is held.
+func hasMutexAcquisition(function *ssa.Function, summaries map[ssa.Instruction][]mutexEffect) bool {
+	for _, effects := range summaries {
+		for _, effect := range effects {
+			if effect.operation == mutexAcquire {
+				return true
+			}
+		}
+	}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if effect, known := directMutexEffect(instruction); known && effect.operation == mutexAcquire {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation) ([]mutexEffect, bool) {
 	var effects []mutexEffect
 	for _, operation := range operations {

@@ -95,15 +95,24 @@ not establish that the lock is held in the function body.
 
 The flow preserves the incoming control-flow edge when a merged local flag
 selects a constant. A path that already released a lock is not combined with
-the flag value from a different predecessor. Up to four exact Boolean phi
+the flag value from a different predecessor. Up to four exact Boolean/integer phi
 constants are carried through later blocks and refreshed at each merge; unknown
-incoming values discard the old binding. This does not assume mutable fields
-stay unchanged or solve arbitrary conditional lock protocols. Up to eight
-stable comparisons of parameters and constants can also be retained across
+incoming values discard the old binding. Exact equality/inequality tests can
+use those literals, but arithmetic and iteration counts are not evaluated.
+This does not assume mutable fields stay unchanged or solve arbitrary
+conditional lock protocols. Up to eight stable comparisons of parameters and
+constants can also be retained across
 branches, allowing a repeated compound guard to keep the same meaning. Loads
 and computed loop values are not treated as stable parameters. A checked error
 returned unchanged also counts as successful when its exact nil branch dominates
 that return, preserving held-for-caller contracts without guessing from names.
+
+Functions without a recognized direct or summarized mutex acquisition do not
+need lock-state exploration. Each remaining function is limited to 4,096
+distinct states. Exhaustion makes the whole function inconclusive: its buffered
+diagnostics and order edges are discarded, rather than treating a partial walk
+as a complete release contract. Complex lock protocols can therefore be missed.
+
 For a private non-escaping helper, an exact Boolean result can also describe
 which return still owns a package-global `sync.Mutex`. This is accepted only
 when all bounded, directly visible callers test that same result and release
