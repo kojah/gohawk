@@ -5,14 +5,14 @@ shipped in `511ed2b`. Later unvalidated experiments were archived, not applied,
 at the Claude handoff. Historical ledgers remain unchanged.
 
 The [109-site ledger](followup207-goroutines.tsv) includes all assigned sites,
-the existing controls, and every newly exposed finding. Eight assigned false
-positives are absent and nine remain.
+the existing controls, and every newly exposed finding. Nine assigned false
+positives are absent and eight remain.
 Remaining reports retain their reviewed false-positive verdict; they are not
 accepted permanent noise. No check is disabled, retired, or demoted.
 
 | Site group | Baseline | Final select-v10 |
 | --- | ---: | ---: |
-| Assigned false positives | 17 reported | 8 absent, 9 reported |
+| Assigned false positives | 17 reported | 9 absent, 8 reported |
 | Previously corrected false positives | 23 absent | 23 absent |
 | Existing true-positive controls | 56 reported | 56 reported |
 | Newly exposed findings | 13 reported by intermediate select-v4 | 3 true positives reported, 10 false positives absent |
@@ -97,13 +97,27 @@ authoritative classification path, including the storage-backed testing API
 adapter. Its size trigger was reviewed; no parallel acceptance policy or
 duplicate API-name catalog was introduced.
 
-## Remaining nine reports
+## Receiver-stored context checkpoint
+
+A worker, or a static helper it hands its caller-owned receiver to, that
+receives from `Done` on a context field of that receiver is bounded by whoever
+installed the context, so the spawning function's early return on that same
+context is not an abandoned worker. This is classified unknown
+(`receiver-context-lifecycle`), never a join. The spawning function or the
+worker storing that field, a worker that publishes on a channel, and a
+receiver allocated locally keep the report, each with a fixture. my-geektime's
+segment downloader is corrected. Candidate
+`.build/gohawk-followup207-receiver-ctx-v1`, SHA-256 `a04a718f0ef5eec0de2762d104bd63850bd3ab0612d1079f9c7ff1ed91e02c91`;
+the all-scope parity replay against the preceding checkpoint removes exactly
+that diagnostic among the goroutine scopes and adds none, with receipts under
+`.build/receiver-ctx-v1/`.
+
+## Remaining eight reports
 
 | Family | Sites | Unresolved evidence |
 | --- | ---: | --- |
 | Transport shutdown | clawk 2, gonc 1 | The worker sees a caller-provided reader or an inner-round socket while cleanup is outside the current local ownership path. No generic close-name or deadline exemption was added. |
 | Transitive completion | Kadeessh 1, k8s-csi-s3 1 | A watchdog's completion and a downstream consumer/error flag relate multiple participants. The exact relay-only rule does not apply. |
-| Receiver-stored cancellation | my-geektime 1 | Context stored on a receiver and semaphore lifetime are not established by the local canceled-context proof. |
 | Process lifetime | Bitrise 1, driftctl 1 | Process-exit caller context is not yet propagated to these workers; CLI placement does not waive an obligation. |
 | Repeated field guard | Ghostferry 1 | Launch and join use a receiver-field condition whose stability across calls is not proved by the local flag rule. |
 

@@ -29,10 +29,10 @@ not 207 repositories or separate implementation projects.
 | --- | ---: | ---: | ---: | ---: |
 | Resource lifetime | 140 | 36 | 0 | 104 |
 | Lock checks | 23 | 13 | 0 | 10 |
-| Goroutine ownership | 17 | 8 | 0 | 9 |
+| Goroutine ownership | 17 | 9 | 0 | 8 |
 | Process/cancellation | 9 | 4 | 0 | 5 |
 | Miscellaneous | 18 | 1 | 1 | 16 |
-| Total | 207 | 62 | 1 | 144 |
+| Total | 207 | 63 | 1 | 143 |
 
 One open resource site is absent under both current and baseline profiles; its
 inconsistent earlier reproduction is unresolved, not a fix. The Sloth review
@@ -87,6 +87,9 @@ Representative checkpoints (see commit diffs and family reports for details):
   or edited through standard `Header` methods, join the zero-value-client HEAD
   uncertainty, as does a zero-value client cell that worker literals capture
   and only load for `Do`. Arkade, bookget, and pmtiles are corrected.
+- Receiver-stored context (after this handoff): a worker that receives from
+  `Done` on a context field of its caller-owned receiver is unknown, not a
+  join; my-geektime is corrected with an all-scope parity replay.
 - `fb3b8cf`, `07b8cab`: Sloth's output handles are not always retained for later
   generation. Empty/comment-only YAML produces zero inner iterations, leaving
   unused outputs open across the outer loop. Existing behavior is preserved
@@ -184,11 +187,9 @@ cardinality. Yamux's receive is visible, but its worker is reached through a
 private dynamically indexed handler table. Recognizing the receive alone is
 not enough. No private-state/string solver or handler-table model was added.
 
-Goroutines (9): Clawk transport shutdown (two), gonc nested callback/socket
+Goroutines (8): Clawk transport shutdown (two), gonc nested callback/socket
 lifetime, Kadeessh watchdog completion, k8s-csi-s3 worker-published error,
-my-geektime receiver context, two CLI process-lifetime cases, Ghostferry guard.
-my-geektime's SSA shows exact standard Context.Done on a context field of the
-caller-owned receiver; existing receive traversal may be reusable. The k8s
+two CLI process-lifetime cases, Ghostferry guard. The k8s
 error publication would introduce a new evidence family and has a separate
 possible unsynchronized-read concern. Neither was implemented.
 
