@@ -8,6 +8,7 @@ package lockorder
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 	"slices"
 	"strings"
 
@@ -32,12 +33,17 @@ type lockAcquisition struct {
 	variant  bool
 	calls    []analysis.RelatedInformation
 	resource ssaflow.EmbeddedFieldPath
+	instance string
+	widened  bool
 }
 
 func acquisitionAt(instruction ssa.Instruction, class string) lockAcquisition {
-	resource, _ := lockResourcePath(ssaflow.CallReceiver(ssaflow.InstructionCall(instruction)))
+	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
+	resource, _ := lockResourcePath(receiver)
+	instance := lockIdentityOf(receiver)
 	return lockAcquisition{
 		class: class, position: instruction.Pos(), read: readModeAcquisition(instruction), variant: loopVariantLock(instruction), resource: resource,
+		instance: instance, widened: class != "" && class != instance,
 	}
 }
 
@@ -78,6 +84,21 @@ func newLockOrders() *lockOrders {
 }
 
 func (orders *lockOrders) record(pass *analysis.Pass, held, acquired lockAcquisition, guards ...ssa.Value) {
+	// Unknown classes and same-declaration instance ordering remain outside
+	// this check's scope, before considering any cross-owner refinement.
+	if held.class == "" || acquired.class == "" || held.class == acquired.class {
+		return
+	}
+	// A declaration edge between fields of one owner type must not silently
+	// turn two unproved participants into one object. Keep exact local evidence
+	// instead; unknown aliasing is neither disjointness nor synchronization.
+	// https://github.com/pion/dtls/blob/05e47ce632b71d7af3d334fde49b65a24413bb4f/conn_go_test.go#L96-L118
+	if crossOwnerClassUncertain(held, acquired) {
+		analysisTrace.For(pass, "lockorder", string(check.LockContradictoryOrder), acquired.site()).Decision(analysisTrace.Step{
+			Reason: "cross-owner-class-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: acquired.site(),
+		})
+		held.class, acquired.class = held.instance, acquired.instance
+	}
 	// Two instances of one declaration class are not a class-order conflict.
 	// Unknown identities must not bridge an otherwise disconnected cycle.
 	if held.class == "" || acquired.class == "" || held.class == acquired.class {
@@ -99,6 +120,17 @@ func (orders *lockOrders) record(pass *analysis.Pass, held, acquired lockAcquisi
 	}
 	orders.edges[relation] = edge
 	orders.out[held.class] = append(orders.out[held.class], edge)
+}
+
+func crossOwnerClassUncertain(held, acquired lockAcquisition) bool {
+	left, right := held.resource, acquired.resource
+	// Only compare participants actually rooted in one caller. An unbound
+	// callee snapshot has not supplied a second caller participant at all.
+	if !held.widened || !acquired.widened || left.Root == nil || right.Root == nil || left.Depth == 0 || right.Depth == 0 ||
+		left.Root.Parent() == nil || left.Root.Parent() != right.Root.Parent() || !types.Identical(left.Root.Type(), right.Root.Type()) {
+		return false
+	}
+	return !ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(left.Root, right.Root).Proven()
 }
 
 // Only exact global exclusive guards enter this set. A declaration-class

@@ -183,6 +183,9 @@ func structField(value types.Type, index int) *types.Var {
 // Linux lockdep reports on, and it is why contradictory-order is a hazard in
 // the extended tier rather than a core defect: it proves an inconsistent
 // order, not a reachable interleaving.
+// Field classes of the same owner type with both roots bound in one caller
+// additionally require a same-owner relation at the ordering edge. Unproved
+// cross-instance relationships retain only local instance ordering.
 //
 // An empty result means the value has no declaration shared across functions —
 // a local, a parameter, or a dynamically selected mutex. Those keep instance

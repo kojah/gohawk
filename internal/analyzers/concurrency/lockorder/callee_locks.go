@@ -146,8 +146,10 @@ func bindLockAcquisition(acquired lockAcquisition, call *ssa.Call) lockAcquisiti
 			return acquired
 		}
 		acquired.resource = root
+		acquired.instance = mutexPathInstanceIdentity(root)
 		if _, fresh := root.Root.(*ssa.Alloc); fresh {
 			acquired.class = localMutexPathIdentity(root)
+			acquired.widened = false
 		} else if possibleFreshBoundMutex(root).possible {
 			acquired.class = ""
 		}
@@ -290,9 +292,24 @@ func localMutexPathIdentity(path ssaflow.EmbeddedFieldPath) string {
 	if !ok || ssaflow.BlockInCycle(allocation.Block()) {
 		return ""
 	}
+	return mutexPathInstanceIdentity(path)
+}
+
+func mutexPathInstanceIdentity(path ssaflow.EmbeddedFieldPath) string {
+	root := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(path.Root)
+	if !root.Proven() {
+		return ""
+	}
+	if instruction, ok := root.Value.(ssa.Instruction); ok && ssaflow.BlockInCycle(instruction.Block()) {
+		return ""
+	}
+	name := lockIdentityOf(root.Value)
+	if name == "" {
+		return ""
+	}
 	var identity strings.Builder
-	identity.WriteString(lockIdentityOf(allocation))
-	valueType := allocation.Type()
+	identity.WriteString(name)
+	valueType := root.Value.Type()
 	for _, index := range path.Fields[:path.Depth] {
 		field := structField(valueType, index)
 		if field == nil {

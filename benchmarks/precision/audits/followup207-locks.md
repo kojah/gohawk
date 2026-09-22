@@ -1,7 +1,7 @@
 # Lock follow-up within the remaining 207 findings
 
 The 23 unresolved lock findings from `followup-78-locks.tsv` were replayed with
-the canonical all-check CLI. **Eleven are now absent; twelve remain active.**
+the canonical all-check CLI. **Thirteen are now absent; ten remain active.**
 Both earlier surf corrections remain absent and all four runnable genuine-bug
 controls remain reported. `followup207-locks.tsv` retains all 29 sites and their
 baseline/current receipts; a successful load is required before counting absence.
@@ -24,6 +24,7 @@ or function-name exception.
 | Repeated loaded loop guard | 1 gonc | Matching loaded Boolean guard/polarity around a possible exact release makes same-site loop reentry unknown; it does not prove stable fields or loop completion. |
 | Escaped fresh field identity | 1 file.d | An exact fresh mutex initializer under a fresh local owner remains positive identity uncertainty after escape. Decline class widening, not prove publication safety; visible shared replacements veto this boundary. |
 | Constructor-backed helper receiver | 1 gopcua | Bind embedded mutex paths through helpers, then recognize an exact dominating constructor initializer of the observed owner slot. Every normal constructor return must be its own allocation. Only by-value embedded mutex paths qualify. |
+| Explicit cross-owner participants | 1 dtls, 1 WireGuard | Two same-typed owner roots bound in one caller require an exact same-owner relationship before widening their different mutex fields to declaration classes. Otherwise retain only exact local instance ordering. |
 
 The caller scan includes generated source bodies and package initialization,
 limits each helper to 32 direct synchronous calls, and stops after 20,000
@@ -75,14 +76,29 @@ freshness nor this unknown identity claims safe publication. The final replay
 removed only the gopcua lock finding relative to the preceding checkpoint,
 with no other changed lock diagnostics across the 20 scopes.
 
+The next boundary narrows class widening for explicit caller participants.
+dtls holds the client's write lock while reading the server; WireGuard's
+reverse witness combines a held peer from one map traversal with a stopped
+peer from another traversal. Neither establishes the required same-owner
+relationship between those snapshots. Unknown is not disjointness or a proof
+of either protocol. The retained instance graph still detects exact opposing
+participants inside one function. Same-owner field cycles and bound helper
+paths remain supported. Unbound callee snapshots retain the previous class
+policy, and two instances of the same mutex declaration remain excluded.
+Fixtures and trace assertions cover these distinctions; cross-function cycles
+between unknown same-typed participants are an explicit coverage loss.
+The final full-diagnostic comparison removes only dtls and WireGuard's
+`peer.go:194:2` finding beyond the constructor checkpoint, introduces no lock
+diagnostics, and retains every original true-positive control.
+
 ## Active remainder
 
-Twelve reviewed false positives are still reported; they are work to continue,
+Ten reviewed false positives are still reported; they are work to continue,
 not blockers or claims that the code is defective:
 
-- Seven contextual order-cycle cases: initialization before publication,
-  join-before-reverse-order, distinct
-  peer objects, and common caller serialization.
+- Five contextual order-cycle cases: initialization before publication,
+  join-before-reverse-order, QUIC protocol ordering, and common caller
+  serialization for the two remaining WireGuard device-level cycles.
 - Two template parse error paths need stable initializer evidence plus a
   bounded documented parser contract; a private variable is not a literal
   constant merely because its initializer is a string.
@@ -127,13 +143,13 @@ contained in the final previous binary). Immutable baseline:
 `.build/gohawk-followup78-goroutines-v5`, SHA256
 `5516cad4c83bffd8dca28713df53f8d3d1a463b838c23d302da9e10ddc257419`.
 
-Corrected combined worktree binary: `.build/gohawk-followup207-locks-v16`, SHA256
-`2e80eae4c8ee89cc4d59c556aebc54173ac3be34c714c78ac54fff33e99b89c3`.
+Corrected combined worktree binary: `.build/gohawk-followup207-locks-v19`, SHA256
+`11f9a06daccdf9eaec77848e7620ee6e003573d3876dc0d31ff45dae696e3774`.
 It includes concurrent workers' changes outside lockorder; this record claims
 only the reviewed lock sites. It is not stamped as a clean source revision.
 
 Receipts in `.build/followup207-locks-baseline/` and
-`.build/followup207-locks-v16/` cover 20 package scopes each. Every run verifies
+`.build/followup207-locks-v19/` cover 20 package scopes each. Every run verifies
 the original repository revision and uses
 `-enable-all -gohawk-include-tests -json .`, `CGO_ENABLED=0`, `GOWORK=off`,
 `GOTOOLCHAIN=local`, `GOMAXPROCS=2`, `GOFLAGS='-mod=readonly -p=2'`, and
@@ -144,7 +160,7 @@ were executed.
 The four true-positive controls are ContainerSSH `server.go:246:3` and
 `:494:3`, WireGuard `noise-protocol.go:542:3`, and uTLS `common.go:1075:4`.
 All are present in both canonical runs. The ledger separately marks the two
-previously corrected surf sites rather than counting them among the eleven new
+previously corrected surf sites rather than counting them among the thirteen new
 corrections.
 
 The scratch replay initially copied the control rows' explanatory metadata

@@ -69,6 +69,17 @@ not inherit their owner's freshness. Opaque replacement or a constructor that
 publishes its allocation can therefore hide real cycles: this is a documented
 coverage loss, not a synchronization proof.
 
+For two mutex fields beneath the same owner type with both participants bound
+in one caller, declaration-class ordering requires an exact same-owner
+relationship. Otherwise only exact local instance
+ordering is retained. Two distinct SSA participants are not proved different or
+safe; their relationship is unknown. This intentionally misses cross-function
+cycles between different instances of the same owner type. Same-owner field
+cycles, exact opposing instances within one function, and ordering between
+different owner types remain supported, including bound helper paths. Unbound
+callee snapshots retain the existing class policy; they do not identify two
+caller participants.
+
 Two locks of the same declaration are not compared. Whether
 `transfer(from, to *Account)` conflicts with a caller passing the same pair in
 the other order depends on the objects involved, and nothing in the code

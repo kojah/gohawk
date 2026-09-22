@@ -85,8 +85,10 @@ func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation) (
 		if identity == "" || dynamicIndexedMutex(value) {
 			return nil, false
 		}
+		resource, _ := lockResourcePath(value)
+		class := lockComparisonKey(identity, value)
 		acquired := lockAcquisition{
-			class: lockComparisonKey(identity, value), position: operation.Source,
+			class: class, position: operation.Source, resource: resource, instance: identity, widened: class != "" && class != identity,
 			variant: loopVariantValue(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value),
 		}
 		if operation.Source != call.Pos() {
