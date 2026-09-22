@@ -1,0 +1,263 @@
+diff --git a/docs/analyzers/concurrency-and-synchronization/goroutineownership.mdx b/docs/analyzers/concurrency-and-synchronization/goroutineownership.mdx
+index fd0e8d2..2af77d6 100644
+--- a/docs/analyzers/concurrency-and-synchronization/goroutineownership.mdx
++++ b/docs/analyzers/concurrency-and-synchronization/goroutineownership.mdx
+@@ -104,6 +104,13 @@ result publication stops, even when the channel is buffered. Receive-only
+ arguments do not establish this output hazard. Strict join mode does not
+ accept the context boundary.
+ 
++Repeated nil checks of the same receiver field can correlate a conditional
++launch with its later join. The analyzer treats that bounded correlation as
++uncertain, not as proof that the field is immutable or the worker is joined.
++Different fields, receivers, or guard polarities do not qualify; explicit
++matching-field writes in the caller or worker reject the correlation. Mutations
++hidden behind opaque helpers remain an intentional coverage gap.
++
+ ### Checks
+ 
+ {/* gohawk:generated-checks:start */}
+diff --git a/internal/analyzers/concurrency/goroutineownership/classify.go b/internal/analyzers/concurrency/goroutineownership/classify.go
+index 294b727..c179b96 100644
+--- a/internal/analyzers/concurrency/goroutineownership/classify.go
++++ b/internal/analyzers/concurrency/goroutineownership/classify.go
+@@ -76,6 +76,10 @@ func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) ownershipAc
+ 		return actionJoin
+ 	}
+ 	switch typed := instruction.(type) {
++	case *ssa.If:
++		if analysis.repeatedFieldGuard(typed) {
++			return actionUnknown
++		}
+ 	case *ssa.MakeClosure:
+ 		// Capturing a value has no effect by itself. The closure's defer,
+ 		// return, store, launch, or opaque call is classified where it happens.
+diff --git a/internal/analyzers/concurrency/goroutineownership/guarded_joins.go b/internal/analyzers/concurrency/goroutineownership/guarded_joins.go
+index 6419ddf..1cdcc4e 100644
+--- a/internal/analyzers/concurrency/goroutineownership/guarded_joins.go
++++ b/internal/analyzers/concurrency/goroutineownership/guarded_joins.go
+@@ -19,6 +19,8 @@ import (
+ // diagnostic because the correlation is not modeled, it does not prove the
+ // join runs. A counted receive loop is the same shape read at the loop
+ // header, where the loop bound, not the induction variable, is the counter.
++// Receiver-field guards belong here too: this file keeps the authoritative
++// classification of guard correlations together despite its size.
+ 
+ // flagGuardedJoin reports whether a join reachable from the spawn sits under a
+ // branch on a local Boolean flag that receives a constant on a path through
+@@ -48,6 +50,94 @@ func (analysis *spawnAnalysis) flagGuardedJoin() bool {
+ 	return false
+ }
+ 
++// Repeated receiver predicates express the same uncertain launch/join
++// correlation as local flags. Matching addresses does not prove stable field
++// contents: opaque mutation is an intentional coverage gap, while explicit
++// writes reject this boundary. This remains Unknown, never a guaranteed join.
++// https://github.com/Shopify/ghostferry/blob/317547432f785fb77a0d10fbca12d8af40e39fd3/ferry.go#L726-L772
++func (analysis *spawnAnalysis) repeatedFieldGuard(join *ssa.If) bool {
++	block := analysis.spawn.Block()
++	if len(block.Preds) != 1 || !ssaflow.InstructionMayFollow(analysis.spawn, join) {
++		return false
++	}
++	predecessor := block.Preds[0]
++	launch, ok := predecessor.Instrs[len(predecessor.Instrs)-1].(*ssa.If)
++	if !ok {
++		return false
++	}
++	left, launchOp := nilComparedField(launch.Cond)
++	right, joinOp := nilComparedField(join.Cond)
++	if left == nil || right == nil || launchOp != joinOp || left.Field != right.Field {
++		return false
++	}
++	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
++	if !storage.Same(left.X, right.X).Proven() || analysis.fieldWrittenBetween(left, launch, join) {
++		return false
++	}
++	index := 0
++	if predecessor.Succs[0] != block {
++		index = 1
++	}
++	for _, instruction := range join.Block().Succs[index].Instrs {
++		// Only ordinary calls and receives can provide this exact join.
++		// Do not recursively classify successor guards while classifying one.
++		switch instruction.(type) {
++		case *ssa.Call, *ssa.UnOp:
++		default:
++			continue
++		}
++		if analysis.action(instruction) == actionJoin {
++			return true
++		}
++	}
++	return false
++}
++
++func nilComparedField(condition ssa.Value) (*ssa.FieldAddr, token.Token) {
++	comparison, ok := condition.(*ssa.BinOp)
++	if !ok || (comparison.Op != token.EQL && comparison.Op != token.NEQ) {
++		return nil, token.ILLEGAL
++	}
++	value := comparison.X
++	if ssaflow.DefinitelyNil(value) {
++		value = comparison.Y
++	} else if !ssaflow.DefinitelyNil(comparison.Y) {
++		return nil, token.ILLEGAL
++	}
++	load, ok := value.(*ssa.UnOp)
++	if !ok || load.Op != token.MUL {
++		return nil, token.ILLEGAL
++	}
++	field, _ := load.X.(*ssa.FieldAddr)
++	return field, comparison.Op
++}
++
++func (analysis *spawnAnalysis) fieldWrittenBetween(field *ssa.FieldAddr, launch, join *ssa.If) bool {
++	for _, store := range ssaflow.InstructionsOf[*ssa.Store](analysis.function) {
++		// A possibly aliasing receiver write also rejects the correlation;
++		// failure to prove receiver identity is not proof of disjoint storage.
++		if writesGuardedField(store, field) &&
++			ssaflow.InstructionMayFollow(launch, store) && ssaflow.InstructionMayFollow(store, join) {
++			return true
++		}
++	}
++	worker, _ := spawnedFunction(analysis.pass, analysis.spawn)
++	for _, store := range ssaflow.InstructionsOf[*ssa.Store](worker) {
++		if writesGuardedField(store, field) {
++			return true
++		}
++	}
++	return false
++}
++
++func writesGuardedField(store *ssa.Store, field *ssa.FieldAddr) bool {
++	if types.Identical(store.Addr.Type(), field.X.Type()) {
++		return true // Replacing the whole receiver also replaces the field.
++	}
++	written, ok := store.Addr.(*ssa.FieldAddr)
++	return ok && written.Field == field.Field && types.Identical(written.X.Type(), field.X.Type())
++}
++
+ // deferredClosureFlagGuardsJoin recognizes the same correlation inside a
+ // deferred closure: `defer func() { if wait4compl { wg.Wait() } }()` with
+ // wait4compl assigned beside the launch. gocoin verifies transaction scripts
+diff --git a/internal/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/field_guards.go b/internal/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/field_guards.go
+new file mode 100644
+index 0000000..d410641
+--- /dev/null
++++ b/internal/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/field_guards.go
+@@ -0,0 +1,116 @@
++package goroutineownership
++
++import "sync"
++
++// Repeated receiver predicates correlate launch and join without proving that
++// the receiver is immutable. An opaque intervening mutation remains an
++// intentional coverage gap; explicit replacement must retain the diagnostic.
++type workerFields struct {
++	enabled *int
++	other   *int
++}
++
++func repeatedReceiverFieldGuard(owner *workerFields) {
++	var group sync.WaitGroup
++	if owner.enabled != nil {
++		group.Add(1)
++		go func() { defer group.Done(); _ = owner.enabled }()
++	}
++	if owner.enabled != nil {
++		group.Wait()
++	}
++}
++
++func siblingReceiverFieldGuard(owner *workerFields) {
++	var group sync.WaitGroup
++	if owner.enabled != nil {
++		group.Add(1)
++		go func() { defer group.Done(); _ = owner.enabled }() // want "goroutine is not joined on every return path"
++	}
++	if owner.other != nil {
++		group.Wait()
++	}
++}
++
++func differentReceiverFieldGuard(owner, other *workerFields) {
++	var group sync.WaitGroup
++	if owner.enabled != nil {
++		group.Add(1)
++		go func() { defer group.Done(); _ = owner.enabled }() // want "goroutine is not joined on every return path"
++	}
++	if other.enabled != nil {
++		group.Wait()
++	}
++}
++
++func oppositeReceiverFieldGuard(owner *workerFields) {
++	var group sync.WaitGroup
++	if owner.enabled != nil {
++		group.Add(1)
++		go func() { defer group.Done(); _ = owner.enabled }() // want "goroutine is not joined on every return path"
++	}
++	if owner.enabled == nil {
++		group.Wait()
++	}
++}
++
++func replacedReceiverFieldGuard(owner *workerFields) {
++	var group sync.WaitGroup
++	if owner.enabled != nil {
++		group.Add(1)
++		go func() { defer group.Done(); _ = owner.enabled }() // want "goroutine is not joined on every return path"
++	}
++	owner.enabled = nil
++	if owner.enabled != nil {
++		group.Wait()
++	}
++}
++
++func replacedFieldBeforeSpawn(owner *workerFields) {
++	var group sync.WaitGroup
++	if owner.enabled != nil {
++		owner.enabled = nil
++		group.Add(1)
++		go func() { defer group.Done(); _ = owner.enabled }() // want "goroutine is not joined on every return path"
++	}
++	if owner.enabled != nil {
++		group.Wait()
++	}
++}
++
++func workerReplacesFieldGuard(owner *workerFields) {
++	var group sync.WaitGroup
++	if owner.enabled != nil {
++		group.Add(1)
++		go func() { defer group.Done(); owner.enabled = nil }() // want "goroutine is not joined on every return path"
++	}
++	if owner.enabled != nil {
++		group.Wait()
++	}
++}
++
++func replacedWholeReceiverGuard(owner *workerFields) {
++	var group sync.WaitGroup
++	if owner.enabled != nil {
++		group.Add(1)
++		go func() { defer group.Done(); _ = owner.enabled }() // want "goroutine is not joined on every return path"
++	}
++	*owner = workerFields{}
++	if owner.enabled != nil {
++		group.Wait()
++	}
++}
++
++func returnBeforeRepeatedFieldGuard(owner *workerFields, failed bool) {
++	var group sync.WaitGroup
++	if owner.enabled != nil {
++		group.Add(1)
++		go func() { defer group.Done(); _ = owner.enabled }() // want "goroutine is not joined on every return path"
++	}
++	if failed {
++		return
++	}
++	if owner.enabled != nil {
++		group.Wait()
++	}
++}

@@ -1,0 +1,628 @@
+diff --git a/docs/analyzers/resources-and-lifecycle/resourcelifetime.mdx b/docs/analyzers/resources-and-lifecycle/resourcelifetime.mdx
+index bfb8133..4115108 100644
+--- a/docs/analyzers/resources-and-lifecycle/resourcelifetime.mdx
++++ b/docs/analyzers/resources-and-lifecycle/resourcelifetime.mdx
+@@ -82,6 +82,12 @@ origins must agree, and one shared work budget bounds the proof. Replaced or
+ escaped callback cells, rewritten errors, recursive predicates and deferred
+ result mutation do not establish that implication.
+ 
++A called closure that guards an exact captured HTTP response's `Body` before
++closing it is an ownership uncertainty boundary. The guard and `Close` may
++read different loads, so this does not prove release. The response cell must
++still hold the acquisition, with no visible pointer escape or replacement;
++extra Boolean conditions and cleanup of another response do not qualify.
++
+ Channel timers and tickers are not cleanup obligations: since Go 1.23, the
+ garbage collector can reclaim them without `Stop`. Missing `Stop` alone does
+ not establish a leak. This check does not infer legacy main-module or
+diff --git a/internal/analyzers/resources/resourcelifetime/classify.go b/internal/analyzers/resources/resourcelifetime/classify.go
+index f39706e..9c5c41d 100644
+--- a/internal/analyzers/resources/resourcelifetime/classify.go
++++ b/internal/analyzers/resources/resourcelifetime/classify.go
+@@ -248,40 +248,7 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
+ 		return "appended", builtin.Name() == "append" && carried
+ 	}
+ 	if closure, ok := common.Value.(*ssa.MakeClosure); ok {
+-		// A captured aggregate can be populated after closure creation. The
+-		// closure observes its fields when called, so an unresolved cleanup of
+-		// that owner is unknown rather than proof that the acquisition leaks.
+-		// https://github.com/Autumn-27/ARTEX/blob/bf7f414477832b77d2152539c0723dc691086522/traffic/traffic.go#L1129-L1176
+-		if analysis.capturesAggregateOwner(closure) {
+-			return "captured-aggregate-owner", true
+-		}
+-		if !carried && !analysis.closureCarries(closure) {
+-			return "", false
+-		}
+-		// A started literal runs on another goroutine, so a release inside it
+-		// cannot be ordered against this function's returns and the resource
+-		// is beyond what this flow can judge.
+-		if _, started := instruction.(*ssa.Go); started {
+-			return "captured-by-started-literal", true
+-		}
+-		// A called or deferred literal runs in this frame, so its body is as
+-		// readable as a named callee's. A release inside it was already proved
+-		// before this point, so what is left to ask is whether it keeps the
+-		// resource: if it does the obligation moved, and if it does not the
+-		// literal is transparent and this function still owns the resource.
+-		//
+-		// That holds only for a body this pass can judge. A capture is a cell
+-		// the body loads first, so the argument at a call inside the literal is
+-		// the load rather than the acquired value, and a summary matched on
+-		// exact identity does not recognize it. block/spirit closes rows
+-		// through a helper in another package from inside a deferred literal,
+-		// and the release went uncredited while the literal was called
+-		// transparent:
+-		// https://github.com/block/spirit/blob/c554eae/pkg/checksum/single.go#L493-L503
+-		if analysis.evidence.ClosureHandsValueToUnreadableCallee(closure, analysis.resource) {
+-			return "captured-by-literal-calling-unreadable-callee", true
+-		}
+-		return "captured-by-retaining-literal", analysis.evidence.ClosureRetainsValue(closure, analysis.resource)
++		return analysis.opaqueClosureCall(instruction, closure, carried)
+ 	}
+ 	return analysis.opaqueFunctionCall(instruction, common, carried)
+ }
+@@ -554,68 +521,6 @@ func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosur
+ 	return false
+ }
+ 
+-// cleanupRegisteredBefore handles a retained callback registered before a
+-// captured variable is reassigned to this acquisition. The callback observes
+-// the cell at cleanup time, not its registration-time value. Mutable guards
+-// prevent proving release, so this is unknown rather than a settled resource.
+-// https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/admin/handler_test.go#L1398-L1447
+-func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call) bool {
+-	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](analysis.function) {
+-		if !ssaflow.InstructionDominates(deferred, acquisition) {
+-			continue
+-		}
+-		if analysis.capturedCellCleanup(deferred).Proven() {
+-			analysis.emitAction(deferred, actionUnknown, "prior-defer-may-clean-captured-cell")
+-			return true
+-		}
+-		if closesStatementDatabase(acquisition, deferred) {
+-			analysis.emitAction(deferred, actionUnknown, "statement-parent-closed")
+-			return true
+-		}
+-		if finishesRowsTransaction(acquisition, deferred) {
+-			analysis.emitAction(deferred, actionUnknown, "rows-transaction-finished")
+-			return true
+-		}
+-	}
+-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
+-		if !ssaflow.InstructionDominates(call, acquisition) ||
+-			!ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup) {
+-			continue
+-		}
+-		if slices.ContainsFunc(call.Common().Args, analysis.carriedWithinClosure) {
+-			analysis.emitAction(call, actionUnknown, "captured-by-prior-cleanup")
+-			return true
+-		}
+-	}
+-	return false
+-}
+-
+-// A prior defer observes the captured cell at return, not at registration.
+-// When several acquisitions feed that cell, exact value completion may fail.
+-// A positive cleanup witness for the cell makes ownership unknown; it does
+-// not prove which stored value will be closed. Read-only captures and by-value
+-// deferred arguments do not qualify. Overwritten-cell leaks may be missed.
+-// https://github.com/wind-c/comqtt/blob/11282b91abb06d5169b857a2c38fad5d54502050/plugin/auth/http/http.go#L89-L127
+-func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssaflow.Proof {
+-	if closure, ok := deferred.Common().Value.(*ssa.MakeClosure); ok {
+-		function, _ := closure.Fn.(*ssa.Function)
+-		for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
+-			if !ssaflow.CapturedBindingMatches(pair.Binding, analysis.resource) {
+-				continue
+-			}
+-			mayClean := ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
+-				common := ssaflow.InstructionCall(instruction)
+-				return common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
+-					ssaflow.ValueIsAccessPathFrom(ssaflow.CallReceiver(common), pair.Free)
+-			}, ssaflow.CoverageAnywhere, nil)
+-			if mayClean {
+-				return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "captured-cell-may-cleanup"}
+-			}
+-		}
+-	}
+-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+-}
+-
+ func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction, reason string) {
+ 	if action == actionNone || !analysis.probe.Enabled() {
+ 		return
+diff --git a/internal/analyzers/resources/resourcelifetime/contracts.go b/internal/analyzers/resources/resourcelifetime/contracts.go
+index 1d87b6e..6d4c159 100644
+--- a/internal/analyzers/resources/resourcelifetime/contracts.go
++++ b/internal/analyzers/resources/resourcelifetime/contracts.go
+@@ -1,6 +1,7 @@
+ package resourcelifetime
+ 
+ import (
++	"go/token"
+ 	"go/types"
+ 	"slices"
+ 
+@@ -571,3 +572,25 @@ func memoryWriterExempt(call *ssa.Call, contract resourceContract, settings reso
+ 	pointer, ok := local.Type().Underlying().(*types.Pointer)
+ 	return ok && (syntax.NamedType(pointer.Elem(), "bytes", "Buffer") || syntax.NamedType(pointer.Elem(), "strings", "Builder"))
+ }
++
++// httpResponseBodyField recognizes only the standard response's direct Body
++// load. Identity and stability of that response are the caller's policy.
++func httpResponseBodyField(value ssa.Value) *ssa.FieldAddr {
++	load, ok := value.(*ssa.UnOp)
++	if !ok || load.Op != token.MUL {
++		return nil
++	}
++	field, ok := load.X.(*ssa.FieldAddr)
++	if !ok || !syntax.NamedType(field.X.Type(), "net/http", "Response") {
++		return nil
++	}
++	pointer, ok := field.X.Type().Underlying().(*types.Pointer)
++	if !ok {
++		return nil
++	}
++	structure, ok := pointer.Elem().Underlying().(*types.Struct)
++	if !ok || structure.Field(field.Field).Name() != "Body" {
++		return nil
++	}
++	return field
++}
+diff --git a/internal/analyzers/resources/resourcelifetime/followup_trace_test.go b/internal/analyzers/resources/resourcelifetime/followup_trace_test.go
+index 0686f69..054c1af 100644
+--- a/internal/analyzers/resources/resourcelifetime/followup_trace_test.go
++++ b/internal/analyzers/resources/resourcelifetime/followup_trace_test.go
+@@ -14,6 +14,7 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
+ 		"prior-defer-may-clean-captured-cell": "prior_captured_cleanup.go:",
+ 		"paired-error-helper-cleanup":         "paired_error_cleanup.go:",
+ 		"rows-transaction-finished":           "sql_row_parents.go:",
++		"captured-body-guarded-cleanup":       "http_guarded_capture.go:",
+ 	}
+ 	proofFiles := map[string]string{
+ 		"exact-error-equals-non-nil-filesystem-sentinel": "error_guards.go:",
+diff --git a/internal/analyzers/resources/resourcelifetime/use_after_release.go b/internal/analyzers/resources/resourcelifetime/use_after_release.go
+index f051f56..f008d1c 100644
+--- a/internal/analyzers/resources/resourcelifetime/use_after_release.go
++++ b/internal/analyzers/resources/resourcelifetime/use_after_release.go
+@@ -2,8 +2,6 @@ package resourcelifetime
+ 
+ import (
+ 	"fmt"
+-	"go/token"
+-	"go/types"
+ 	"slices"
+ 
+ 	"github.com/kojah/gohawk/internal/check"
+@@ -213,20 +211,12 @@ func (query *releasedResource) operatesOn(call *ssa.Call) bool {
+ 	if !syntax.NamedType(query.resource.Type(), "net/http", "Response") {
+ 		return false
+ 	}
+-	load, ok := receiver.(*ssa.UnOp)
+-	if !ok || load.Op != token.MUL {
+-		return false
+-	}
+-	field, ok := load.X.(*ssa.FieldAddr)
+-	if !ok || !query.storage.Same(field.X, query.resource).Proven() {
++	field := httpResponseBodyField(receiver)
++	if field == nil || !query.storage.Same(field.X, query.resource).Proven() {
+ 		return false
+ 	}
+-	pointer, ok := field.X.Type().Underlying().(*types.Pointer)
+-	if !ok {
+-		return false
+-	}
+-	structure, ok := pointer.Elem().Underlying().(*types.Struct)
+-	return ok && structure.Field(field.Field).Name() == "Body" && query.storage.Projection(receiver, query.resource, load).Proven()
++	load, ok := receiver.(*ssa.UnOp)
++	return ok && query.storage.Projection(receiver, query.resource, load).Proven()
+ }
+ 
+ func emitUseAfterRelease(pass *analysis.Pass, function *ssa.Function, acquisition *ssa.Call, release, use *ssa.Call) {
+diff --git a/internal/analyzers/resources/resourcelifetime/captured_cleanup.go b/internal/analyzers/resources/resourcelifetime/captured_cleanup.go
+new file mode 100644
+--- /dev/null
++++ b/internal/analyzers/resources/resourcelifetime/captured_cleanup.go
+@@ -0,0 +1,224 @@
++package resourcelifetime
++
++import (
++	"go/token"
++	"go/types"
++	"slices"
++
++	"github.com/kojah/gohawk/internal/ssaflow"
++	"golang.org/x/tools/go/ssa"
++)
++
++// Captured cleanup classifies lifetime evidence where a closure observes an
++// addressable cell. Prior registrations may observe later acquisitions; called
++// closures need an exact current capture. Neither uncertain path proves release.
++// These are classifier inputs to the ordinary resource flow, not another flow.
++
++func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction, closure *ssa.MakeClosure, carried bool) (string, bool) {
++	if proof := analysis.guardedCapturedBodyCleanup(instruction, closure); proof.State == ssaflow.EvidenceUnknown {
++		return string(proof.Reason), true
++	}
++	// A captured aggregate can be populated after closure creation. The
++	// closure observes its fields when called, so an unresolved cleanup of
++	// that owner is unknown rather than proof that the acquisition leaks.
++	// https://github.com/Autumn-27/ARTEX/blob/bf7f414477832b77d2152539c0723dc691086522/traffic/traffic.go#L1129-L1176
++	if analysis.capturesAggregateOwner(closure) {
++		return "captured-aggregate-owner", true
++	}
++	if !carried && !analysis.closureCarries(closure) {
++		return "", false
++	}
++	// A started literal runs on another goroutine, so a release inside it
++	// cannot be ordered against this function's returns and the resource
++	// is beyond what this flow can judge.
++	if _, started := instruction.(*ssa.Go); started {
++		return "captured-by-started-literal", true
++	}
++	// A called or deferred literal runs in this frame, so its body is as
++	// readable as a named callee's. A release inside it was already proved
++	// before this point, so what is left to ask is whether it keeps the
++	// resource: if it does the obligation moved, and if it does not the
++	// literal is transparent and this function still owns the resource.
++	//
++	// That holds only for a body this pass can judge. A capture is a cell
++	// the body loads first, so the argument at a call inside the literal is
++	// the load rather than the acquired value, and a summary matched on
++	// exact identity does not recognize it. block/spirit closes rows
++	// through a helper in another package from inside a deferred literal,
++	// and the release went uncredited while the literal was called
++	// transparent:
++	// https://github.com/block/spirit/blob/c554eae/pkg/checksum/single.go#L493-L503
++	if analysis.evidence.ClosureHandsValueToUnreadableCallee(closure, analysis.resource) {
++		return "captured-by-literal-calling-unreadable-callee", true
++	}
++	return "captured-by-retaining-literal", analysis.evidence.ClosureRetainsValue(closure, analysis.resource)
++}
++
++// cleanupRegisteredBefore handles a retained callback registered before a
++// captured variable is reassigned to this acquisition. The callback observes
++// the cell at cleanup time, not its registration-time value. Mutable guards
++// prevent proving release, so this is unknown rather than a settled resource.
++// https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/admin/handler_test.go#L1398-L1447
++func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call) bool {
++	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](analysis.function) {
++		if !ssaflow.InstructionDominates(deferred, acquisition) {
++			continue
++		}
++		if analysis.capturedCellCleanup(deferred).Proven() {
++			analysis.emitAction(deferred, actionUnknown, "prior-defer-may-clean-captured-cell")
++			return true
++		}
++		if closesStatementDatabase(acquisition, deferred) {
++			analysis.emitAction(deferred, actionUnknown, "statement-parent-closed")
++			return true
++		}
++		if finishesRowsTransaction(acquisition, deferred) {
++			analysis.emitAction(deferred, actionUnknown, "rows-transaction-finished")
++			return true
++		}
++	}
++	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
++		if !ssaflow.InstructionDominates(call, acquisition) ||
++			!ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup) {
++			continue
++		}
++		if slices.ContainsFunc(call.Common().Args, analysis.carriedWithinClosure) {
++			analysis.emitAction(call, actionUnknown, "captured-by-prior-cleanup")
++			return true
++		}
++	}
++	return false
++}
++
++// A prior defer observes the captured cell at return, not at registration.
++// When several acquisitions feed that cell, exact value completion may fail.
++// A positive cleanup witness for the cell makes ownership unknown; it does
++// not prove which stored value will be closed. Read-only captures and by-value
++// deferred arguments do not qualify. Overwritten-cell leaks may be missed.
++// https://github.com/wind-c/comqtt/blob/11282b91abb06d5169b857a2c38fad5d54502050/plugin/auth/http/http.go#L89-L127
++func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssaflow.Proof {
++	if closure, ok := deferred.Common().Value.(*ssa.MakeClosure); ok {
++		function, _ := closure.Fn.(*ssa.Function)
++		for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
++			if !ssaflow.CapturedBindingMatches(pair.Binding, analysis.resource) {
++				continue
++			}
++			mayClean := ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
++				common := ssaflow.InstructionCall(instruction)
++				return common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
++					ssaflow.ValueIsAccessPathFrom(ssaflow.CallReceiver(common), pair.Free)
++			}, ssaflow.CoverageAnywhere, nil)
++			if mayClean {
++				return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "captured-cell-may-cleanup"}
++			}
++		}
++	}
++	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
++}
++
++// A called literal may own HTTP body cleanup while guarding a distinct load
++// of the captured response's Body. Repeated loads do not establish equality,
++// so this is uncertainty, not completion. Require the exact unchanged capture
++// and a body-nil guard alone; Boolean conditions and visible pointer escapes
++// or replacement cannot establish even this narrow boundary.
++// https://github.com/openkruise/kruise-game/blob/16a0418780d8abd3ee871448116bbc5dc1e98d48/test/e2e/framework/framework.go#L549-L570
++func (analysis *resourceAnalysis) guardedCapturedBodyCleanup(instruction ssa.Instruction, closure *ssa.MakeClosure) ssaflow.Proof {
++	missing := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
++	if _, called := instruction.(*ssa.Call); !called || analysis.contract.family != "http" {
++		return missing
++	}
++	function, _ := closure.Fn.(*ssa.Function)
++	budget := ssaflow.NewSearchBudget(1000)
++	for _, binding := range ssaflow.ClosureBindingPairs(function, closure) {
++		if !budget.Spend() {
++			return missing
++		}
++		stored := ssaflow.NewStorage(budget).StableContent(binding.Binding, instruction)
++		if !stored.Proven() || stored.Value != analysis.resource {
++			continue
++		}
++		if !responseCaptureUnmodified(analysis.function, analysis.resource, binding.Binding, closure, budget) ||
++			!responseCaptureUnmodified(function, binding.Free, binding.Free, nil, budget) {
++			continue
++		}
++		if guardedBodyCoverage(function, binding.Free, budget) {
++			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: "captured-body-guarded-cleanup"}
++		}
++	}
++	return missing
++}
++
++func guardedBodyCoverage(function *ssa.Function, captured ssa.Value, budget *ssaflow.SearchBudget) bool {
++	for _, load := range ssaflow.InstructionsOf[*ssa.UnOp](function) {
++		if !budget.Spend() || !capturedResponseBody(load, captured) {
++			continue
++		}
++		covered := ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
++			common := ssaflow.InstructionCall(instruction)
++			return budget.Spend() && common != nil && ssaflow.CallName(common) == "Close" &&
++				capturedResponseBody(ssaflow.CallReceiver(common), captured)
++		}, ssaflow.CoverageEveryReturn, load)
++		if covered && !budget.Exhausted() {
++			return true
++		}
++	}
++	return false
++}
++
++func capturedResponseBody(value, captured ssa.Value) bool {
++	field := httpResponseBodyField(value)
++	if field == nil {
++		return false
++	}
++	response, ok := field.X.(*ssa.UnOp)
++	return ok && response.Op == token.MUL && response.X == captured
++}
++
++// Account for pointer uses before relying on a captured cell's original value.
++// A local spill of that value is permitted only for the proved capture itself.
++// Other closures, pointer arguments and stores can hide Body replacement; even
++// a read-only-looking helper is outside this local uncertainty contract.
++func responseCaptureUnmodified(
++	function *ssa.Function, resource, cell ssa.Value, allowed *ssa.MakeClosure, budget *ssaflow.SearchBudget,
++) bool {
++	for _, block := range function.Blocks {
++		for _, instruction := range block.Instrs {
++			if !budget.Spend() || responseCaptureExposed(instruction, resource, cell, allowed) {
++				return false
++			}
++		}
++	}
++	return true
++}
++
++func responseCaptureExposed(instruction ssa.Instruction, resource, cell ssa.Value, allowed *ssa.MakeClosure) bool {
++	switch typed := instruction.(type) {
++	case *ssa.Store:
++		if typed.Addr == cell && typed.Val == resource && cell != resource {
++			return false
++		}
++		return responsePointerUse(typed.Addr, resource, cell) || responsePointerUse(typed.Val, resource, cell)
++	case *ssa.MakeClosure:
++		return typed != allowed && slices.ContainsFunc(typed.Bindings, func(value ssa.Value) bool {
++			return responsePointerUse(value, resource, cell)
++		})
++	case *ssa.MapUpdate, *ssa.Send, *ssa.Select:
++		return slices.ContainsFunc(instruction.Operands(nil), func(value *ssa.Value) bool {
++			return value != nil && responsePointerUse(*value, resource, cell)
++		})
++	}
++	common := ssaflow.InstructionCall(instruction)
++	return common != nil && slices.ContainsFunc(common.Args, func(value ssa.Value) bool {
++		return responsePointerUse(value, resource, cell)
++	})
++}
++
++func responsePointerUse(value, resource, cell ssa.Value) bool {
++	return ssaflow.NewReachingWalk(
++		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
++	).Any(value, func(_ ssaflow.ReachingWalk, value ssa.Value) bool {
++		_, pointer := value.Type().Underlying().(*types.Pointer)
++		return pointer && (ssaflow.ValueDerivesFrom(value, resource, map[ssa.Value]bool{}) ||
++			ssaflow.ValueDerivesFrom(value, cell, map[ssa.Value]bool{}))
++	})
++}
+diff --git a/internal/analyzers/resources/resourcelifetime/captured_cleanup_test.go b/internal/analyzers/resources/resourcelifetime/captured_cleanup_test.go
+new file mode 100644
+--- /dev/null
++++ b/internal/analyzers/resources/resourcelifetime/captured_cleanup_test.go
+@@ -0,0 +1,76 @@
++package resourcelifetime
++
++import (
++	"testing"
++
++	"github.com/kojah/gohawk/internal/ssaflow"
++	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
++	"golang.org/x/tools/go/ssa"
++)
++
++// These assertions test the boundary itself: ordinary ownership classification
++// can already decline replaced/escaped cells, so diagnostic absence alone would
++// not establish that this narrower rule rejects a stale capture.
++func TestCapturedBodyCleanupRejectsStaleOrigins(t *testing.T) {
++	pkg := ssaflowtest.BuildPackage(t, "example.com/capturetest", `package capturetest
++import "net/http"
++var responses map[string]*http.Response
++func acquire() *http.Response { return nil }
++func stable() {
++ response := acquire()
++ closeResponse := func() { if response.Body != nil { response.Body.Close() } }
++ closeResponse()
++}
++func replaced(other *http.Response) {
++ response := acquire()
++ closeResponse := func() { if response.Body != nil { response.Body.Close() } }
++ response = other
++ closeResponse()
++}
++func opaqueCell(change func(**http.Response)) {
++ response := acquire()
++ closeResponse := func() { if response.Body != nil { response.Body.Close() } }
++ change(&response)
++ closeResponse()
++}
++func opaqueOwner(change func(*http.Response)) {
++ response := acquire()
++ closeResponse := func() { change(response); if response.Body != nil { response.Body.Close() } }
++ closeResponse()
++}
++func mapEscape() {
++ response := acquire()
++ closeResponse := func() { if response.Body != nil { response.Body.Close() } }
++ responses["current"] = response
++ closeResponse()
++}
++`)
++	for _, name := range []string{"stable", "replaced", "opaqueCell", "opaqueOwner", "mapEscape"} {
++		t.Run(name, func(t *testing.T) {
++			function := pkg.Func(name)
++			var resource ssa.Value
++			var invocation *ssa.Call
++			var closure *ssa.MakeClosure
++			for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
++				if call.Common().StaticCallee() == pkg.Func("acquire") {
++					resource = call
++				}
++				if created, ok := call.Common().Value.(*ssa.MakeClosure); ok {
++					invocation, closure = call, created
++				}
++			}
++			if resource == nil || invocation == nil || closure == nil {
++				t.Fatal("missing captured cleanup SSA")
++			}
++			analysis := resourceAnalysis{function: function, resource: resource, contract: resourceContract{family: "http"}}
++			proof := analysis.guardedCapturedBodyCleanup(invocation, closure)
++			want := ssaflow.EvidenceDisproven
++			if name == "stable" {
++				want = ssaflow.EvidenceUnknown
++			}
++			if proof.State != want {
++				t.Fatalf("captured cleanup = %+v, want state %v", proof, want)
++			}
++		})
++	}
++}
+diff --git a/internal/analyzers/resources/resourcelifetime/testdata/src/resourcelifetime/http_guarded_capture.go b/internal/analyzers/resources/resourcelifetime/testdata/src/resourcelifetime/http_guarded_capture.go
+new file mode 100644
+--- /dev/null
++++ b/internal/analyzers/resources/resourcelifetime/testdata/src/resourcelifetime/http_guarded_capture.go
+@@ -0,0 +1,93 @@
++package resourcelifetime
++
++// Replacing the captured response cell is already an accepted coverage loss in
++// ordinary ownership classification; it is not a diagnostic control here.
++
++import (
++	"io"
++	"net/http"
++)
++
++func capturedBodyCleanupOnBothBranches(url string) {
++	response, err := http.Get(url)
++	if err != nil {
++		return
++	}
++	closeResponse := func() {
++		if response.Body != nil {
++			_ = response.Body.Close()
++		}
++	}
++	if response.StatusCode == http.StatusOK {
++		closeResponse()
++		return
++	}
++	closeResponse()
++}
++
++func capturedBodyCleanupCalledImmediately(url string) {
++	response, err := http.Get(url)
++	if err != nil {
++		return
++	}
++	func() {
++		if response.Body != nil {
++			_ = response.Body.Close()
++		}
++	}()
++}
++
++func capturedBodyCleanupExtraCondition(url string, closeIt bool) {
++	response, err := http.Get(url) // want "owned resource from http.Get is not released"
++	if err != nil {
++		return
++	}
++	func() {
++		if closeIt && response.Body != nil {
++			_ = response.Body.Close()
++		}
++	}()
++}
++
++func capturedBodyCleanupDifferentResponse(url string, other *http.Response) {
++	response, err := http.Get(url) // want "owned resource from http.Get is not released"
++	if err != nil {
++		return
++	}
++	func() {
++		if other.Body != nil {
++			_ = other.Body.Close()
++		}
++	}()
++	_ = response
++}
++
++func capturedBodyCleanupReplacedField(url string, other io.ReadCloser) {
++	response, err := http.Get(url) // want "owned resource from http.Get is not released"
++	if err != nil {
++		return
++	}
++	func() {
++		response.Body = other
++		if response.Body != nil {
++			_ = response.Body.Close()
++		}
++	}()
++}
++
++func replaceCapturedBody(response *http.Response, other io.ReadCloser) {
++	response.Body = other
++}
++
++func capturedBodyCleanupIndirectReplacement(url string, other io.ReadCloser) {
++	response, err := http.Get(url) // want "owned resource from http.Get is not released"
++	if err != nil {
++		return
++	}
++	func() {
++		replaceCapturedBody(response, other)
++		if response.Body != nil {
++			_ = response.Body.Close()
++		}
++	}()
++}

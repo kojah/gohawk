@@ -1,6 +1,8 @@
 # Continued review of the 207 remaining false positives
 
-This is an active follow-up, not a completed audit. The
+This follow-up was stopped at the user's request for a Claude handoff, not
+completed. See [the handoff](../../../CLAUDE_HANDOFF.md) for the checkpoint,
+remaining work, and archived unvalidated experiments. The
 [frozen input](followup-207-input.tsv) contains all 207 reviewed false positives:
 140 resource, 23 lock, 17 goroutine, 9 process/cancellation, and 18 other findings.
 Original verdicts and the earlier audit records are preserved. A missing model
@@ -60,16 +62,17 @@ existing branch-literal decision point, with no separate path or proof engine.
 
 ## Work in progress
 
-Resource acquisition/retention, goroutine transport ownership, carried lock
-guards, and further ownership gaps are being investigated and
-replayed separately. Intermediate suppression is not counted as a verified
+At handoff, 45 original findings have verified fixes, one original FP judgment
+(Sloth) has been corrected to a real hazard, and 161 remain open. The breakdown
+is in the handoff and family ledgers. All workers and scans have stopped;
+unvalidated source edits were archived and removed. Intermediate suppression is not counted as a verified
 correction until relevant genuine-bug controls also pass. No check has been
 retired, disabled, or demoted.
 
 Five singleton-loop cases are pending a specific policy decision: the repository
 currently prohibits loop-count proofs as false-positive fixes. Approval has
-been requested for a narrowly bounded shared cardinality model; other families
-continue meanwhile.
+been requested for a narrowly bounded shared cardinality model, but was not
+received before the handoff.
 
 ## Verified follow-up checkpoint
 

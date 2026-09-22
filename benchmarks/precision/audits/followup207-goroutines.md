@@ -1,7 +1,8 @@
 # Goroutine ownership: follow-up of 17 remaining reports
 
-Status: scoped precision replay complete; parent-owned repository gates and
-the implementation commit are pending. Historical ledgers remain unchanged.
+Status: scoped precision replay and repository gates passed; implementation
+shipped in `511ed2b`. Later unvalidated experiments were archived, not applied,
+at the Claude handoff. Historical ledgers remain unchanged.
 
 The [109-site ledger](followup207-goroutines.tsv) includes all assigned sites,
 the existing controls, and every newly exposed finding. Eight assigned false
