@@ -38,6 +38,15 @@ func resourceLiveAtNextIteration(
 	if index < 0 {
 		return false
 	}
+	// A resource retained before its defer is no more iteration-local than one
+	// retained afterward. In particular append lowers to an indexed store
+	// before the append call; the containing collection may be consumed later.
+	// https://github.com/protomaps/go-pmtiles/blob/a3e4951ea6a0477b784c27c1dcbfd9c130878c5a/pmtiles/merge.go#L206-L215
+	for _, store := range ssaflow.InstructionsOf[*ssa.Store](deferred.Parent()) {
+		if ssaflow.InstructionDominates(store, deferred) && opaqueResourceUse(store, obligation.target) {
+			return false
+		}
+	}
 	liveAtBackedge := false
 	initial := []deferFlowState{{block: deferred.Block(), index: index + 1, status: resourceLive}}
 	ssaflow.WalkStates(initial, func(state deferFlowState) deferFlowState { return state }, func(state deferFlowState) ([]deferFlowState, bool) {
@@ -203,9 +212,15 @@ func resourceUseStatus(
 	return resourceLive
 }
 
-// Capturing the resource in a closure is opaque here: whether the closure
-// runs, escapes, or releases the resource is outside this loop-local proof.
+// Capturing the resource in a closure or storing it in an aggregate is opaque:
+// the lifetime of that containing owner is outside this loop-local proof.
 func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
+	if store, ok := instruction.(*ssa.Store); ok {
+		switch store.Addr.(type) {
+		case *ssa.FieldAddr, *ssa.IndexAddr:
+			return ssaflow.SameValue(store.Val, target) || ssaflow.ValueContainsValue(store.Val, target)
+		}
+	}
 	closure, ok := instruction.(*ssa.MakeClosure)
 	if !ok {
 		return false
