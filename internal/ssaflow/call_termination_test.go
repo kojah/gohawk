@@ -1,7 +1,10 @@
 package ssaflow
 
 import (
+	"path"
 	"testing"
+
+	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -53,6 +56,56 @@ func misleading() { Exit(0) }
 			}
 			if calls != test.calls || runDefers != test.runDefers {
 				t.Fatalf("termination sites = (%d calls, %d defers), want (%d, %d)", calls, runDefers, test.calls, test.runDefers)
+			}
+		})
+	}
+}
+
+func TestUnconditionalTestifyTermination(t *testing.T) {
+	const source = `
+func Fail() {}
+func FailNow() {}
+func Error() {}
+func sample() { Fail(); FailNow(); Error() }
+`
+	for _, test := range []struct {
+		path string
+		fail bool
+	}{
+		{"github.com/stretchr/testify/require", true},
+		{"github.com/stretchr/testify/assert", false},
+		{"example.com/require", false},
+	} {
+		t.Run(test.path, func(t *testing.T) {
+			pkg := ssaflowtest.BuildPackage(t, test.path, "package "+path.Base(test.path)+source)
+			for _, call := range InstructionsOf[*ssa.Call](pkg.Func("sample")) {
+				want := test.fail && CallName(call.Common()) == "Fail" ||
+					test.path != "example.com/require" && CallName(call.Common()) == "FailNow"
+				if got := InstructionTerminatesControlFlow(call); got != want {
+					t.Errorf("%s: terminates=%t, want %t", call, got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestStrictIsTermination(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "github.com/matryer/is", `package is
+type I struct{}
+func New() *I { return &I{} }
+func NewRelaxed() *I { return &I{} }
+func (*I) Fail() {}
+func strict() { New().Fail() }
+func relaxed() { NewRelaxed().Fail() }
+func unknown(i *I) { i.Fail() }
+func mixed(b bool) { i := New(); if b { i = NewRelaxed() }; i.Fail() }
+`)
+	for _, name := range []string{"strict", "relaxed", "unknown", "mixed"} {
+		t.Run(name, func(t *testing.T) {
+			for _, call := range InstructionsOf[*ssa.Call](pkg.Func(name)) {
+				if CallName(call.Common()) == "Fail" && InstructionTerminatesControlFlow(call) != (name == "strict") {
+					t.Fatalf("wrong termination contract for %s", call)
+				}
 			}
 		})
 	}

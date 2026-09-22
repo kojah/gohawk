@@ -81,6 +81,9 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 	case ContractProcessExit:
 		return processExitContract(common)
 	case ContractTestingTermination:
+		if strictIsFailure(common) {
+			return true
+		}
 		for _, receiver := range []string{"common", "TB"} {
 			for _, name := range []string{"FailNow", "Fatal", "Fatalf", "Skip", "Skipf", "SkipNow"} {
 				if CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "testing", Receiver: receiver, Name: name})) {
@@ -88,10 +91,44 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 				}
 			}
 		}
-		return false
+		return testifyUnconditionalTermination(common)
 	default:
 		return false
 	}
+}
+
+// matryer/is keeps its failure callback private. New installs FailNow, whereas
+// NewRelaxed installs the returning Fail callback. Only exact strict factory
+// provenance establishes termination; a parameter or mixed constructor does not.
+// https://github.com/ConduitIO/conduit/blob/9946a19b9fff997675f78bbc5ff437e760d39f4f/pkg/lifecycle/stream/destination_acker_test.go#L30-L92
+func strictIsFailure(common *ssa.CallCommon) bool {
+	const packagePath = "github.com/matryer/is"
+	if !CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: packagePath, Receiver: "I", Name: "Fail"})) {
+		return false
+	}
+	return NewReachingWalk(TransparentChangeType).Every(CallReceiver(common), func(_ ReachingWalk, value ssa.Value) bool {
+		constructor, ok := value.(*ssa.Call)
+		return ok && matchesAnySymbol(constructor.Common(), syntax.PackageFunction(packagePath, "New"),
+			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: packagePath, Receiver: "I", Name: "New"}))
+	})
+}
+
+// Unlike Error/NoError assertions, these APIs fail unconditionally. Keep
+// assert.Fail separate: it records failure but allows the goroutine to return.
+// Watchdog timeout arms can end here without returning an unsettled obligation:
+// https://github.com/anyproto/any-sync/blob/cb940c50bc987066b998d05cca16c9c9715cf4a2/app/ocache/ocache_test.go#L901-L913
+func testifyUnconditionalTermination(common *ssa.CallCommon) bool {
+	if testifyAssertion(common, "FailNow") || testifyAssertion(common, "FailNowf") {
+		return true
+	}
+	for _, name := range []string{"Fail", "Failf"} {
+		if matchesAnySymbol(common,
+			syntax.PackageFunction("github.com/stretchr/testify/require", name),
+			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "github.com/stretchr/testify/require", Receiver: "Assertions", Name: name})) {
+			return true
+		}
+	}
+	return false
 }
 
 func processExitContract(common *ssa.CallCommon) bool {
