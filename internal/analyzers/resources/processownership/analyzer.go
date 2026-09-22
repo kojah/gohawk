@@ -110,12 +110,19 @@ func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.Lifecycl
 	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(command); resolved.Proven() {
 		command = resolved.Value
 	}
+	merged := successfulCommandMerge(start, command)
 	unknown := false
-	leaks := ssaflow.UnownedReturnAfterCallSuccess(start, func(candidate ssa.Instruction) bool {
+	owns := func(candidate ssa.Instruction) bool {
 		action := processOwnershipAction(evidence, candidate, command)
+		if action != ssaflow.EvidenceProven && merged != nil {
+			if mergedAction := processOwnershipAction(evidence, candidate, merged); mergedAction != ssaflow.EvidenceDisproven {
+				action = mergedAction
+			}
+		}
 		unknown = unknown || action == ssaflow.EvidenceUnknown
 		return action != ssaflow.EvidenceDisproven
-	}, func(returned *ssa.Return) bool {
+	}
+	allowReturn := func(returned *ssa.Return) bool {
 		// Returning an aggregate that contains the command transfers Wait
 		// responsibility just as directly as returning *exec.Cmd itself, and
 		// so does returning the started os.Process, which the caller can
@@ -123,8 +130,15 @@ func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.Lifecycl
 		// https://github.com/apache/casbin-gateway/blob/e3606894348d8cd52d85abc29cfb4d3ae99595cb/util/daemon.go#L121-L131
 		return startFailureReturn(returned, start) || impossibleStartedProcessNilReturn(returned, start, command) ||
 			ssaflow.ReturnedValueOwnsValue(returned, command) ||
-			returnsProcessHandle(returned, command)
-	})
+			returnsProcessHandle(returned, command) ||
+			merged != nil && (ssaflow.ReturnedValueOwnsValue(returned, merged) || returnsProcessHandle(returned, merged))
+	}
+	var leaks bool
+	if merged != nil {
+		leaks = ssaflow.UnownedReturnAssumingNonNil(merged, merged, owns, allowReturn)
+	} else {
+		leaks = ssaflow.UnownedReturnAfterCallSuccess(start, owns, allowReturn)
+	}
 	emitProcessDecision(pass, function, start, command, leaks, unknown)
 	if !leaks {
 		return

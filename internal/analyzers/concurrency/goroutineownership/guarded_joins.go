@@ -128,7 +128,11 @@ func (analysis *spawnAnalysis) closureBlockJoins(block *ssa.BasicBlock, pairs []
 func (analysis *spawnAnalysis) branchGuardsJoin(branch *ssa.If) bool {
 	for _, successor := range branch.Block().Succs {
 		for _, instruction := range successor.Instrs {
-			if instruction != analysis.spawn && analysis.action(instruction) != actionNone {
+			// This guard proof establishes uncertainty about a correlated
+			// count, not a join. A selectable receive still supplies that
+			// possible completion action even when another arm can win.
+			if instruction != analysis.spawn &&
+				(analysis.action(instruction) != actionNone || receivesFrom(instruction, analysis.isSignal)) {
 				return true
 			}
 		}

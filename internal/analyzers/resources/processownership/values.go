@@ -105,6 +105,33 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 		osProcessDerivedFromCommand(receiver, command)
 }
 
+// A command created in one branch may merge with nil from branches that never
+// started a child. On the exact successful Start edge the merge is that command,
+// not a possible alias. A cyclic merge could later select a different value and
+// is deliberately excluded. The caller starts its ordinary non-nil flow at the
+// phi, before any executable instruction in this success block.
+// https://github.com/threatexpert/gonc/blob/e14bc6b97efc2150c4e0bbb2bdc89f8548e28fa6/apps/nc.go#L3171-L3327
+func successfulCommandMerge(start *ssa.Call, command ssa.Value) *ssa.Phi {
+	for _, successor := range start.Block().Succs {
+		success, known := ssaflow.SuccessBranch(start.Block(), successor, start)
+		if !known || !success || ssaflow.BlockInCycle(successor) {
+			continue
+		}
+		for _, instruction := range successor.Instrs {
+			phi, ok := instruction.(*ssa.Phi)
+			if !ok {
+				break
+			}
+			for predecessor, incoming := range ssaflow.PhiIncoming(phi) {
+				if predecessor == start.Block() && incoming == command {
+					return phi
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // impossibleStartedProcessNilReturn recognizes only the immediate defensive
 // guard after successful Start. Start guarantees Process is non-nil, but later
 // stores or opaque calls can invalidate that fact, so require mutation-free

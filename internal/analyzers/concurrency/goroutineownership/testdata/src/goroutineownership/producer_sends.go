@@ -130,7 +130,7 @@ func oneSelectDoesNotDrainRepeatedSends() error {
 
 func oneNonBlockingSelectDoesNotDrainRepeatedSends() error {
 	errs := make(chan error)
-	go func() {
+	go func() { // want "goroutine is not joined on every return path"
 		errs <- errors.New("first")
 		errs <- errors.New("second")
 	}()

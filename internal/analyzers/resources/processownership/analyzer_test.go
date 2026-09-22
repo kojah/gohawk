@@ -41,14 +41,14 @@ func TestAnalyzer(t *testing.T) {
 			}
 			found["helper-result"] = true
 		}
-		if event.Reason == "ambiguous-wait-ownership" && strings.Contains(event.Candidate, "merged_waiters.go:") {
-			if event.Outcome != "unknown" {
-				t.Errorf("merged wait claimed exact ownership: %+v", event)
+		if event.Reason == "wait-ownership-proven" && strings.Contains(event.Candidate, "merged_waiters.go:") {
+			if event.Outcome != "accepted" {
+				t.Errorf("exact successful-start merge not accepted: %+v", event)
 			}
-			found["merged-wait"] = true
+			found["merged-wait-proven"] = true
 		}
 	}
-	for _, outcome := range []string{"accepted", "rejected", "unknown", "merged-wait", "helper-result"} {
+	for _, outcome := range []string{"accepted", "rejected", "unknown", "merged-wait-proven", "helper-result"} {
 		if !found[outcome] {
 			t.Errorf("missing process trace outcome %s", outcome)
 		}

@@ -51,9 +51,12 @@ type spawnAnalysis struct {
 	signals       []ssa.Value
 	groups        []ssa.Value
 	owners        []ssa.Value
+	pipePeers     []trackedValue
+	relayGroup    ssa.Value
 	tracked       []trackedValue
 	unsettledDone ssa.Instruction
 	actions       map[ssa.Instruction]ownershipAction
+	edgeActions   map[[2]int]ownershipAction
 	// tracing gates the record of ruled-out steps, which is worth keeping only
 	// when a reader will see it.
 	tracing    bool
@@ -74,8 +77,13 @@ func newSpawnAnalysis(
 		actions:  make(map[ssa.Instruction]ownershipAction),
 	}
 	analysis.signals, analysis.groups, analysis.unsettledDone = spawnedCompletionValues(pass, spawn)
+	analysis.relayGroup = analysis.relayCompletionGroup()
+	if analysis.relayGroup != nil {
+		analysis.groups = append(analysis.groups, analysis.relayGroup)
+	}
 	if config.mode != goroutineModeJoin {
 		analysis.owners = spawnedLifecycleOwners(pass, spawn)
+		analysis.pipePeers = analysis.spawnedPipePeers()
 	}
 	for _, signal := range analysis.signals {
 		analysis.tracked = append(analysis.tracked, trackedValue{value: signal, kind: trackedSignal})
@@ -236,9 +244,39 @@ func spawnedCompletionSignal(
 		if _, deferred := instruction.(*ssa.Defer); !deferred && ssaflow.BlockInCycle(instruction.Block()) {
 			return nil
 		}
+		if !notifiesChannelOnEveryReturn(function, common.Args[0]) {
+			return nil
+		}
 		return signalSuppliedAtCall(spawn, function, closure, common.Args[0])
 	}
 	return nil
+}
+
+// An error-only notification is not a promise to signal every worker exit.
+// Require exact notification coverage before treating the channel as completion;
+// otherwise the caller may legitimately observe a separate success event.
+// https://github.com/zmap/zgrab2/blob/a1231792c51576f1818825fae51db042b4dcd41e/lib/http2/transport.go#L3028-L3043
+func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value) bool {
+	identity := channel
+	if source, ok := ssaflow.IdentitySource(channel); ok {
+		identity = source
+	}
+	return !ssaflow.UnownedReturnFromEntryAssumingNonNil(function, channel, func(instruction ssa.Instruction) bool {
+		if _, launched := instruction.(*ssa.Go); launched {
+			return false
+		}
+		common := ssaflow.InstructionCall(instruction)
+		var notified ssa.Value
+		if send, ok := instruction.(*ssa.Send); ok {
+			notified = send.Chan
+		} else if common != nil && ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1 {
+			notified = common.Args[0]
+		}
+		if source, ok := ssaflow.IdentitySource(notified); ok {
+			notified = source
+		}
+		return ssaflow.DefinitelySameValue(notified, identity)
+	})
 }
 
 // signalSuppliedAtCall maps a worker-side channel back to the parent's value.

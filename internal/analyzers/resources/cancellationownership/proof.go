@@ -1,9 +1,7 @@
 package cancellationownership
 
 import (
-	"go/constant"
 	"go/token"
-	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -74,7 +72,7 @@ func proveCancellation(call *ssa.Call, cancel ssa.Value) CancellationProof {
 	returnSettledOrUnknown := func(returned *ssa.Return) bool {
 		return classifier.returnAction(returned) != cancellationActionNone
 	}
-	if ssaflow.UnownedReturnAssumingNonNil(call, cancel, settledOrUnknown, returnSettledOrUnknown) {
+	if ssaflow.UnownedReturnAssumingNonNilWithEdges(call, cancel, settledOrUnknown, returnSettledOrUnknown, classifier.selectedDoneEdge) {
 		return CancellationProof{Outcome: CancellationLost, Reason: reasonCancellationLost}
 	}
 	exact := func(instruction ssa.Instruction) bool {
@@ -280,9 +278,6 @@ func deferredClosureCaptures(instruction ssa.Instruction, target ssa.Value) bool
 }
 
 func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) cancellationAction {
-	if classifier.selectedDoneBefore(returned) {
-		return cancellationActionUnknown
-	}
 	if slices.Contains(returned.Results, classifier.cancel) {
 		classifier.transfers = true
 		return cancellationActionTransfer
@@ -310,34 +305,12 @@ func (classifier *cancellationClassifier) ownDoneChannel(value ssa.Value) bool {
 		}))
 }
 
-func (classifier *cancellationClassifier) selectedDoneBefore(returned *ssa.Return) bool {
+func (classifier *cancellationClassifier) selectedDoneEdge(from, to *ssa.BasicBlock) bool {
 	if classifier.context == nil {
 		return false
 	}
-	for _, branch := range ssaflow.InstructionsOf[*ssa.If](returned.Parent()) {
-		comparison, ok := branch.Cond.(*ssa.BinOp)
-		if !ok || comparison.Op != token.EQL {
-			continue
-		}
-		index, ok := comparison.X.(*ssa.Extract)
-		if !ok || index.Index != 0 {
-			continue
-		}
-		selected, ok := index.Tuple.(*ssa.Select)
-		arm, constantArm := comparison.Y.(*ssa.Const)
-		if !ok || !constantArm || arm.Value == nil {
-			continue
-		}
-		number, valid := constant.Int64Val(arm.Value)
-		if !valid || number < 0 || number >= int64(len(selected.States)) {
-			continue
-		}
-		state := selected.States[number]
-		if state.Dir == types.RecvOnly && classifier.ownDoneChannel(state.Chan) && branch.Block().Succs[0].Dominates(returned.Block()) {
-			return true
-		}
-	}
-	return false
+	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
+	return selected && classifier.ownDoneChannel(channel)
 }
 
 func commonHasExactArgument(common *ssa.CallCommon, target ssa.Value) bool {

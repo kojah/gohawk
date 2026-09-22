@@ -1,6 +1,7 @@
 package goroutineownership
 
 import (
+	"go/token"
 	"go/types"
 	"strings"
 
@@ -13,11 +14,92 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// Lifecycle evidence bounds a worker from outside the spawning function: it
-// receives from a caller-owned stop channel or context, runs inside a synctest
-// bubble, or runs on a value whose lifecycle method the parent later invokes.
-// These conservative acceptance paths do not necessarily prove a join and
-// never establish an obligation merely from a missing owner.
+// Lifecycle evidence bounds a worker through exact caller-owned signals,
+// cleanup, or one-hop WaitGroup dependencies. Uncertain participation is not a
+// join, and absent ownership never establishes an obligation on its own.
+
+// A straight-line Wait followed only by completion closes relays one exact
+// group. Waiting independently on that group is an alternative completion
+// handle; extra calls, sends, defers, or control flow make that inference opaque.
+// https://github.com/ConduitIO/conduit/blob/9946a19b9fff997675f78bbc5ff437e760d39f4f/pkg/lifecycle/stream/parallel.go#L94-L103
+func (analysis *spawnAnalysis) relayCompletionGroup() ssa.Value { //nolint:ireturn // Retains the caller's exact group identity.
+	if analysis.config.mode == goroutineModeJoin {
+		return nil
+	}
+	function, closure := spawnedFunction(analysis.pass, analysis.spawn)
+	if len(analysis.signals) == 0 || function == nil || len(function.Blocks) != 1 || len(function.Blocks[0].Instrs) > 64 {
+		return nil
+	}
+	var group ssa.Value
+	closed := false
+	for _, instruction := range function.Blocks[0].Instrs {
+		switch typed := instruction.(type) {
+		case *ssa.UnOp:
+			if typed.Op != token.MUL {
+				return nil
+			}
+		case *ssa.Call:
+			common := typed.Common()
+			switch {
+			case ssaflow.CallMatchesSymbol(common, waitGroupWait) && group == nil:
+				group = ssaflow.SpawnedValueAtCall(analysis.spawn, function, closure, ssaflow.CallReceiver(common))
+			case group != nil && ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1:
+				signal := ssaflow.SpawnedValueAtCall(analysis.spawn, function, closure, common.Args[0])
+				if !ssaflow.SameAsAny(signal, analysis.signals) {
+					return nil
+				}
+				closed = true
+			default:
+				return nil
+			}
+		case *ssa.Return, *ssa.DebugRef:
+		default:
+			return nil
+		}
+	}
+	if !closed {
+		return nil
+	}
+	return group
+}
+
+// A relay can depend on an existing external queue participant or on a worker
+// already covered by the local cancellation proof. This is one-hop uncertainty,
+// never group-count arithmetic or proof that every participant completes.
+// https://github.com/buchgr/bazel-remote/blob/a69b6b5ed933234d93b489ffd216bee5bb74aa06/cache/disk/findmissing.go#L122-L143
+// https://github.com/HM2899/grokcli-2api/blob/33a106d902d7627d1cdbc3359768a029112ea808/internal/proxy/chat.go#L445-L565
+func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
+	if analysis.relayGroup == nil || analysis.config.mode == goroutineModeJoin {
+		return false
+	}
+	budget := ssaflow.NewSearchBudget(1000)
+	for _, block := range analysis.function.Blocks {
+		for _, instruction := range block.Instrs {
+			if !budget.Spend() {
+				return false
+			}
+			if instruction == analysis.spawn || !ssaflow.InstructionMayFollow(instruction, analysis.spawn) {
+				continue
+			}
+			if send, ok := instruction.(*ssa.Send); ok && ssaflow.ValueContainsValue(send.X, analysis.relayGroup) {
+				return true
+			}
+			worker, ok := instruction.(*ssa.Go)
+			if !ok || analysis.config.mode != goroutineModeContext {
+				continue
+			}
+			function, closure := spawnedFunction(analysis.pass, worker)
+			if function == nil {
+				continue
+			}
+			groups, _ := waitGroupCompletionValues(worker, function, closure)
+			if ssaflow.SameAsAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // goroutineReceivesCallerSignal reports whether the worker receives from a
 // channel supplied by the caller, directly or through static helpers that take

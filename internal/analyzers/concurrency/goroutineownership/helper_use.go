@@ -66,6 +66,15 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 		proof := proveSummaryJoin(search.concurrency, instruction, local, kind, search.budget)
 		return proof.joined || search.instructionJoins(instruction, kind, derives)
 	}
+	// A select case can lead directly into a shared return block. Carry the
+	// receive on its edge instead of lending it to other incoming paths.
+	joinsEdge := func(from, to *ssa.BasicBlock) bool {
+		if kind != trackedSignal || !search.budget.Spend() {
+			return false
+		}
+		channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
+		return selected && derives(channel)
+	}
 	joined, escaped := false, false
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -75,8 +84,15 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 			joined = joined || joins(instruction)
 			escaped = escaped || search.instructionEscapes(instruction, local, kind, derives)
 		}
+		for _, successor := range block.Succs {
+			joined = joinsEdge(block, successor) || joined
+		}
 	}
-	if joined && !ssaflow.UnownedReturnFromEntry(function, joins) {
+	joinProven := joined && !ssaflow.UnownedReturnFromEntryWithEdges(function, joins, joinsEdge)
+	if search.budget.Exhausted() {
+		return actionUnknown
+	}
+	if joinProven {
 		return actionJoin
 	}
 	if escaped {
@@ -91,7 +107,7 @@ func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind t
 	if !search.budget.Spend() {
 		return false
 	}
-	if kind == trackedSignal && receivesFrom(instruction, derives) {
+	if kind == trackedSignal && guaranteedReceive(instruction, derives) {
 		return true
 	}
 	common := ssaflow.InstructionCall(instruction)
@@ -138,6 +154,14 @@ func (search *helperSearch) instructionEscapes(
 		return derives(typed.Val)
 	case *ssa.Send:
 		return derives(typed.X)
+	case *ssa.Select:
+		// A helper offering a send on a field of the supplied owner may
+		// participate in its shutdown protocol. It is not a channel join;
+		// preserve the aggregate handoff as unknown without borrowing another
+		// select arm's receive. A bare completion-channel select does not qualify.
+		return slices.ContainsFunc(typed.States, func(state *ssa.SelectState) bool {
+			return state.Send != nil && ssaflow.ValueIsAccessPathFrom(state.Chan, local)
+		})
 	case *ssa.MapUpdate:
 		return derives(typed.Value)
 	case *ssa.MakeClosure:

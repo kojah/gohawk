@@ -106,11 +106,26 @@ func UnownedReturn(
 	owns func(ssa.Instruction) bool,
 	allowReturn func(*ssa.Return) bool,
 ) bool {
+	return UnownedReturnWithEdges(start, owns, allowReturn, nil)
+}
+
+// OwnershipEdge describes an ownership action established only by taking a
+// particular CFG edge, rather than by executing its branch instruction.
+type OwnershipEdge func(from, to *ssa.BasicBlock) bool
+
+// UnownedReturnWithEdges is UnownedReturn with edge-local ownership actions.
+// The action is attached to that successor's state, never to sibling paths.
+func UnownedReturnWithEdges(
+	start ssa.Instruction,
+	owns func(ssa.Instruction) bool,
+	allowReturn func(*ssa.Return) bool,
+	ownsEdge OwnershipEdge,
+) bool {
 	index := InstructionIndex(start)
 	if index < 0 {
 		return false
 	}
-	return unownedReturnFrom([]flowState{{block: start.Block(), index: index + 1}}, owns, allowReturn)
+	return unownedReturnFrom([]flowState{{block: start.Block(), index: index + 1}}, owns, allowReturn, ownsEdge)
 }
 
 // UnownedReturnAfterCallSuccess is UnownedReturn restricted to the branch on
@@ -127,7 +142,7 @@ func UnownedReturnAfterCallSuccess(
 	}
 	for _, successor := range call.Block().Succs {
 		if success, known := SuccessBranch(call.Block(), successor, call); known && success {
-			return unownedReturnFrom([]flowState{{block: successor, predecessor: call.Block()}}, owns, allowReturn)
+			return unownedReturnFrom([]flowState{{block: successor, predecessor: call.Block()}}, owns, allowReturn, nil)
 		}
 	}
 	return UnownedReturn(call, owns, allowReturn)
@@ -137,6 +152,7 @@ func unownedReturnFrom(
 	queue []flowState,
 	owns func(ssa.Instruction) bool,
 	allowReturn func(*ssa.Return) bool,
+	ownsEdge OwnershipEdge,
 ) bool {
 	seen := map[flowKey]bool{}
 	for len(queue) > 0 {
@@ -167,7 +183,8 @@ func unownedReturnFrom(
 			continue
 		}
 		for _, successor := range FeasibleSuccessors(state.block, state.predecessor) {
-			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: state.owned})
+			owned := state.owned || ownsEdge != nil && ownsEdge(state.block, successor)
+			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: owned})
 		}
 	}
 	return false
@@ -182,6 +199,18 @@ func UnownedReturnAssumingNonNil(
 	value ssa.Value,
 	owns func(ssa.Instruction) bool,
 	allowReturn func(*ssa.Return) bool,
+) bool {
+	return UnownedReturnAssumingNonNilWithEdges(start, value, owns, allowReturn, nil)
+}
+
+// UnownedReturnAssumingNonNilWithEdges adds edge-local ownership actions while
+// preserving the same non-nil assumption and feasible-successor policy.
+func UnownedReturnAssumingNonNilWithEdges(
+	start ssa.Instruction,
+	value ssa.Value,
+	owns func(ssa.Instruction) bool,
+	allowReturn func(*ssa.Return) bool,
+	ownsEdge OwnershipEdge,
 ) bool {
 	index := InstructionIndex(start)
 	if index < 0 {
@@ -216,30 +245,34 @@ func UnownedReturnAssumingNonNil(
 			continue
 		}
 		for _, successor := range nonNilFeasibleSuccessors(state.block, state.predecessor, value) {
-			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: state.owned})
+			owned := state.owned || ownsEdge != nil && ownsEdge(state.block, successor)
+			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: owned})
 		}
 	}
 	return false
 }
 
-// UnownedReturnFromEntry reports whether any normal return lacks an ownership action.
-func UnownedReturnFromEntry(function *ssa.Function, owns func(ssa.Instruction) bool) bool {
-	return unownedReturnFromEntry(function, owns, nil, nil)
+// UnownedReturnFromEntryWithEdges adds edge-local ownership actions to the
+// ordinary entry-to-return query, including edges into shared successors.
+func UnownedReturnFromEntryWithEdges(function *ssa.Function, owns func(ssa.Instruction) bool, ownsEdge OwnershipEdge) bool {
+	return unownedReturnFromEntry(function, owns, nil, nil, ownsEdge)
 }
 
 // UnownedReturnFromEntryAllow reports whether any normal return lacks an
 // ownership action unless allowReturn proves that return needs none.
 func UnownedReturnFromEntryAllow(function *ssa.Function, owns func(ssa.Instruction) bool, allowReturn func(*ssa.Return) bool) bool {
-	return unownedReturnFromEntry(function, owns, allowReturn, nil)
+	return unownedReturnFromEntry(function, owns, allowReturn, nil, nil)
 }
 
 // UnownedReturnFromEntryAssumingNonNil analyzes only paths feasible when value
 // is non-nil at function entry.
 func UnownedReturnFromEntryAssumingNonNil(function *ssa.Function, value ssa.Value, owns func(ssa.Instruction) bool) bool {
-	return unownedReturnFromEntry(function, owns, nil, value)
+	return unownedReturnFromEntry(function, owns, nil, value, nil)
 }
 
-func unownedReturnFromEntry(function *ssa.Function, owns func(ssa.Instruction) bool, allowReturn func(*ssa.Return) bool, nonNil ssa.Value) bool {
+func unownedReturnFromEntry(
+	function *ssa.Function, owns func(ssa.Instruction) bool, allowReturn func(*ssa.Return) bool, nonNil ssa.Value, ownsEdge OwnershipEdge,
+) bool {
 	if len(function.Blocks) == 0 {
 		return false
 	}
@@ -272,7 +305,8 @@ func unownedReturnFromEntry(function *ssa.Function, owns func(ssa.Instruction) b
 			continue
 		}
 		for _, successor := range nonNilFeasibleSuccessors(state.block, state.predecessor, nonNil) {
-			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: state.owned})
+			owned := state.owned || ownsEdge != nil && ownsEdge(state.block, successor)
+			queue = append(queue, flowState{block: successor, predecessor: state.block, owned: owned})
 		}
 	}
 	return false
@@ -319,7 +353,7 @@ func nonNilFeasibleSuccessors(block, predecessor *ssa.BasicBlock, value ssa.Valu
 // assumedNonNil reports whether operand is the assumed value itself or a
 // field loaded directly from it.
 func assumedNonNil(operand, value ssa.Value) bool {
-	if SameValue(operand, value) {
+	if DefinitelySameValue(operand, value) {
 		return true
 	}
 	load, ok := operand.(*ssa.UnOp)
@@ -327,7 +361,7 @@ func assumedNonNil(operand, value ssa.Value) bool {
 		return false
 	}
 	field, ok := load.X.(*ssa.FieldAddr)
-	return ok && SameValue(field.X, value)
+	return ok && DefinitelySameValue(field.X, value)
 }
 
 // FeasibleSuccessors preserves constants selected by predecessor-sensitive

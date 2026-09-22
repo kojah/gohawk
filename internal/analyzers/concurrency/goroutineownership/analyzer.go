@@ -101,6 +101,17 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 			Details:  map[string]string{"instruction": instruction.String()},
 		})
 	}
+	for edge, action := range analysis.edgeActions {
+		reason, edgeOutcome := "selected-receive-edge", analysisTrace.OutcomeAccepted
+		if action == actionUnknown {
+			reason, edgeOutcome = "selected-context-edge", analysisTrace.OutcomeUnknown
+		}
+		probe.Evidence(analysisTrace.Step{
+			Reason: reason, Outcome: edgeOutcome,
+			Pos: analysis.spawn.Pos(), Function: analysis.function.String(),
+			Details: map[string]string{"from_block": strconv.Itoa(edge[0]), "to_block": strconv.Itoa(edge[1])},
+		})
+	}
 	// The steps that were tried and did not hold come first, so a reader sees
 	// the suppressions this proof ruled out before the reported reason won.
 	for _, reason := range analysis.considered {

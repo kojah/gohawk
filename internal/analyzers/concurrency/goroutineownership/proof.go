@@ -34,6 +34,7 @@ const (
 	reasonStopLifecycle           goroutineOwnershipReason = "stop-lifecycle"
 	reasonContextLifecycle        goroutineOwnershipReason = "context-lifecycle"
 	reasonLocallyCanceledContext  goroutineOwnershipReason = "locally-canceled-context"
+	reasonRelayDependency         goroutineOwnershipReason = "relay-dependency-lifecycle"
 	reasonSynctestBubbleOwner     goroutineOwnershipReason = "synctest-bubble-owner"
 	reasonCallerOrExternalOwner   goroutineOwnershipReason = "caller-or-external-owner"
 	reasonOwnershipTransfer       goroutineOwnershipReason = "ownership-transfer"
@@ -98,7 +99,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		action := analysis.action(instruction)
 		return action == actionJoin || action == actionTransfer
 	}
-	if !ssaflow.UnownedReturn(analysis.spawn, exact, analysis.returnTransfers) {
+	if !ssaflow.UnownedReturnWithEdges(analysis.spawn, exact, analysis.returnTransfers, analysis.selectedJoinEdge) {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonJoinProven}
 	}
 	analysis.ruledOut(reasonJoinProven)
@@ -109,7 +110,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	any := func(instruction ssa.Instruction) bool {
 		return analysis.action(instruction) != actionNone
 	}
-	if !ssaflow.UnownedReturn(analysis.spawn, any, analysis.returnMayTransfer) {
+	if !ssaflow.UnownedReturnWithEdges(analysis.spawn, any, analysis.returnMayTransfer, analysis.selectedOwnershipEdge) {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}
 	}
 	analysis.ruledOut(reasonOpaqueTransfer)
@@ -183,6 +184,9 @@ func (analysis *spawnAnalysis) otherWorkerConsumesSignal() bool {
 // lifecycleProof settles workers whose completion is owned outside the
 // spawning function before any local flow is consulted.
 func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
+	if analysis.relayDependencyUncertain() {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonRelayDependency}, true
+	}
 	if analysis.config.mode == goroutineModeContext {
 		if goroutineReceivesCallerSignal(analysis.pass, analysis.spawn) {
 			return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonStopLifecycle}, true
@@ -336,7 +340,18 @@ func (analysis *spawnAnalysis) channelsCreatedOnceBeforeSpawn() []ssa.Value {
 		stored := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).StableContent(binding, analysis.spawn)
 		channel, ok := stored.Value.(*ssa.MakeChan)
 		if stored.Proven() && ok && channel.Parent() == analysis.function && !ssaflow.BlockInCycle(channel.Block()) {
-			created = append(created, stored.Value)
+			// The guard reads the captured cell after launch. StableContent
+			// rules out replacement, but its earlier nil state must not become
+			// a may-alias assumption in the shared non-nil flow query.
+			for _, instruction := range ssaflow.InstructionsReachableAfter(analysis.spawn) {
+				value, ok := instruction.(ssa.Value)
+				if !ok {
+					continue
+				}
+				if source, ok := ssaflow.IdentitySource(value); ok && source == binding {
+					created = append(created, value)
+				}
+			}
 		}
 	}
 	return created

@@ -69,13 +69,19 @@ func (analysis *spawnAnalysis) action(instruction ssa.Instruction) ownershipActi
 }
 
 func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) ownershipAction {
+	if call, ok := instruction.(*ssa.Call); ok && storedTerminationReceiver(call.Common()) {
+		return actionUnknown
+	}
+	if selectedReceiveAtEntry(instruction, analysis.isSignal) {
+		return actionJoin
+	}
 	switch typed := instruction.(type) {
 	case *ssa.MakeClosure:
 		// Capturing a value has no effect by itself. The closure's defer,
 		// return, store, launch, or opaque call is classified where it happens.
 		return actionNone
 	case *ssa.UnOp, *ssa.Select, *ssa.Range:
-		if receivesFrom(instruction, analysis.isSignal) {
+		if guaranteedReceive(instruction, analysis.isSignal) {
 			return actionJoin
 		}
 		if receivesFrom(instruction, analysis.signalAggregateCarries) {
@@ -98,6 +104,26 @@ func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) ownershipAc
 		return analysis.callAction(instruction, ssaflow.InstructionCall(instruction))
 	}
 	return actionNone
+}
+
+// Capturing a strict testing object introduces a receiver load that the
+// storage-free contract registry deliberately cannot resolve. Ask the existing
+// storage proof for its immutable origin, then delegate policy to that registry.
+// This is a terminal-return boundary, never an assertion that the worker joined.
+// https://github.com/ConduitIO/conduit/blob/9946a19b9fff997675f78bbc5ff437e760d39f4f/pkg/lifecycle/stream/destination_acker_test.go#L30-L92
+func storedTerminationReceiver(common *ssa.CallCommon) bool {
+	receiver := ssaflow.CallReceiver(common)
+	if receiver == nil || len(common.Args) == 0 || common.Args[0] != receiver {
+		return false
+	}
+	resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(receiver)
+	if !resolved.Proven() || resolved.Value == receiver {
+		return false
+	}
+	copy := *common
+	copy.Args = slices.Clone(common.Args)
+	copy.Args[0] = resolved.Value
+	return ssaflow.HasLibraryContract(&copy, ssaflow.ContractTestingTermination)
 }
 
 // returnTransfers reports whether a return hands a tracked value, or an
@@ -155,6 +181,12 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	if analysis.callJoinsDirectly(common) {
 		return actionJoin
 	}
+	if analysis.closesRetainedWorkerOwner(instruction, common) {
+		return actionUnknown
+	}
+	if action := analysis.pipePeerAction(instruction, common); action != actionNone {
+		return action
+	}
 	if analysis.summarizedJoin(instruction) {
 		return actionJoin
 	}
@@ -181,7 +213,7 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 		}
 		return actionNone
 	}
-	return analysis.helperAction(common, callee, closure)
+	return analysis.helperAction(common, callee, closure, analysis.tracked)
 }
 
 // callJoinsDirectly recognizes Wait on a settling group or a lifecycle method
@@ -230,10 +262,12 @@ func (analysis *spawnAnalysis) unsettledGroup(receiver ssa.Value) bool {
 
 // helperAction follows every tracked value that the call site supplies to a
 // source-visible callee, whether as an argument or a captured variable.
-func (analysis *spawnAnalysis) helperAction(common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure) ownershipAction {
+func (analysis *spawnAnalysis) helperAction(
+	common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure, values []trackedValue,
+) ownershipAction {
 	result := actionNone
 	for _, pair := range ssaflow.CallBindings(common, callee, closure) {
-		for _, tracked := range analysis.tracked {
+		for _, tracked := range values {
 			carried := bindingCarries(pair.Supplied, tracked.value)
 			projected := ssaflow.ValueIsAccessPathFrom(tracked.value, pair.Supplied)
 			if !carried && !projected {
@@ -267,7 +301,7 @@ func (analysis *spawnAnalysis) testingCleanupAction(common *ssa.CallCommon) owne
 			continue
 		}
 		if callee, _ := closure.Fn.(*ssa.Function); callee != nil {
-			result = strongerAction(result, analysis.helperAction(nil, callee, closure))
+			result = strongerAction(result, analysis.helperAction(nil, callee, closure, analysis.tracked))
 		}
 	}
 	return result
@@ -290,6 +324,42 @@ func receivesFrom(instruction ssa.Instruction, matches func(ssa.Value) bool) boo
 		return channel && matches(typed.X)
 	}
 	return false
+}
+
+// A mixed select does not settle every path. Its exact receive arm is credited
+// on the edge, or at an unambiguous arm entry, keeping other cases open.
+// https://github.com/containerd/stargz-snapshotter/blob/624678b4e421947534cbf0618f9609853cccee0f/store/manager.go#L193-L221
+func guaranteedReceive(instruction ssa.Instruction, matches func(ssa.Value) bool) bool {
+	if selectedReceiveAtEntry(instruction, matches) {
+		return true
+	}
+	if choice, ok := instruction.(*ssa.Select); ok {
+		return choice.Blocking && len(choice.States) > 0 && !slices.ContainsFunc(choice.States, func(state *ssa.SelectState) bool {
+			return state.Dir != types.RecvOnly || !matches(state.Chan)
+		})
+	}
+	return receivesFrom(instruction, matches)
+}
+
+func selectedReceiveAtEntry(instruction ssa.Instruction, matches func(ssa.Value) bool) bool {
+	block := instruction.Block()
+	if len(block.Instrs) == 0 || block.Instrs[0] != instruction {
+		return false
+	}
+	channel, selected := ssaflow.SelectedReceiveChannel(block)
+	return selected && matches(channel)
+}
+
+func (analysis *spawnAnalysis) selectedJoinEdge(from, to *ssa.BasicBlock) bool {
+	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
+	joined := selected && analysis.isSignal(channel)
+	if joined && analysis.tracing {
+		if analysis.edgeActions == nil {
+			analysis.edgeActions = make(map[[2]int]ownershipAction)
+		}
+		analysis.edgeActions[[2]int{from.Index, to.Index}] = actionJoin
+	}
+	return joined
 }
 
 // selectSends reports whether a select statement offers a tracked value on a

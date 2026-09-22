@@ -157,6 +157,9 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 	if possibleWaitHandoff(instruction, command) {
 		return ssaflow.EvidenceUnknown
 	}
+	if deferred := deferredClosureWaitsForCommand(instruction, command); deferred != ssaflow.EvidenceDisproven {
+		return deferred
+	}
 	common := ssaflow.InstructionCall(instruction)
 	completion := ssaflow.CompletionRequest{
 		Instruction: instruction,
@@ -178,7 +181,6 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
 	if waitsForCommand(instruction, command) ||
-		deferredClosureWaitsForCommand(instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
 			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 		evidence.Prove(lifecyclefacts.EvidenceRequest{
@@ -242,23 +244,23 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value) bool {
 	return false
 }
 
-func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
+func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
 	if _, ok := instruction.(*ssa.Defer); !ok {
-		return false
+		return ssaflow.EvidenceDisproven
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
-		return false
+		return ssaflow.EvidenceDisproven
 	}
 	closure, _ := common.Value.(*ssa.MakeClosure)
 	if closure == nil {
-		return false
+		return ssaflow.EvidenceDisproven
 	}
 	function, _ := closure.Fn.(*ssa.Function)
 	if function == nil {
-		return false
+		return ssaflow.EvidenceDisproven
 	}
-	waitsOnEveryReturn := func(local ssa.Value) bool {
+	waitsOnEveryReturn := func(local ssa.Value) ssaflow.EvidenceState {
 		// A successful Cmd.Start guarantees Cmd.Process is non-nil. Use the
 		// concrete Wait receiver as the closure's non-nil assumption so a
 		// defensive `if cmd.Process != nil` guard does not create a spurious
@@ -275,22 +277,50 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 			if ssaflow.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
 				return waitsForCommand(candidate, local)
 			}, ssaflow.CoverageEveryReturn, receiver) {
-				return true
+				return ssaflow.EvidenceProven
 			}
 		}
-		return false
+		return guardedDeferredWait(function, local)
 	}
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if ssaflow.CapturedBindingMatches(captured.Binding, command) && waitsOnEveryReturn(captured.Free) {
-			return true
+		if ssaflow.CapturedBindingMatches(captured.Binding, command) {
+			if proof := waitsOnEveryReturn(captured.Free); proof != ssaflow.EvidenceDisproven {
+				return proof
+			}
 		}
 	}
 	for index, parameter := range function.Params {
-		if index < len(common.Args) && ssaflow.SameValue(common.Args[index], command) && waitsOnEveryReturn(parameter) {
-			return true
+		if index < len(common.Args) && ssaflow.SameValue(common.Args[index], command) {
+			if proof := waitsOnEveryReturn(parameter); proof != ssaflow.EvidenceDisproven {
+				return proof
+			}
 		}
 	}
-	return false
+	return ssaflow.EvidenceDisproven
+}
+
+// A deferred waiter guarded only by its captured Cmd.Process field may own
+// reaping, but distinct loads do not establish stable identity. Preserve that
+// uncertainty without teaching shared non-nil flow that possible aliases are
+// equal. A Boolean condition still leaves an unowned path, and a visible field
+// replacement defeats even this possible successful-Start contract.
+func guardedDeferredWait(function *ssa.Function, command ssa.Value) ssaflow.EvidenceState {
+	for _, store := range ssaflow.InstructionsOf[*ssa.Store](function) {
+		if ssaflow.ValueDerivesFrom(store.Addr, command, map[ssa.Value]bool{}) {
+			return ssaflow.EvidenceDisproven
+		}
+	}
+	for _, load := range ssaflow.InstructionsOf[*ssa.UnOp](function) {
+		if !osProcessDerivedFromCommand(load, command) {
+			continue
+		}
+		if ssaflow.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
+			return waitsForCommand(candidate, command)
+		}, ssaflow.CoverageEveryReturn, load) {
+			return ssaflow.EvidenceUnknown
+		}
+	}
+	return ssaflow.EvidenceDisproven
 }
 
 func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa.Value) bool {

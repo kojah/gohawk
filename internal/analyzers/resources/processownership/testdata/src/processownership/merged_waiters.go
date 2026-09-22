@@ -2,8 +2,8 @@ package processownership
 
 import "os/exec"
 
-// The flow does not correlate successful Start with a merged Wait receiver.
-// Possible identity is uncertainty, not proof that either process was reaped.
+// An immediate successful-Start merge preserves the exact selected receiver.
+// Other possible identities remain uncertainty, not proof of reaping.
 // Accepted coverage gap: a merge that can choose the wrong command can hide a
 // real missing Wait; direct unrelated receivers and early bypasses still report.
 func fallbackCommandWait() error {

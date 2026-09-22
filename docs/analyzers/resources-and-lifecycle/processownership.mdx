@@ -48,6 +48,15 @@ merged receiver chooses the correct process; that ambiguity is an accepted
 coverage gap. Returns before the possible wait and waits on an unrelated
 command remain checked.
 
+An immediate, non-cyclic merge on the successful `Start` edge can preserve
+exact command identity. Its later `command != nil` guard is then known true
+for this acquisition; branches that never started a command do not create a
+missing wait. Replacing that merged value with nil does not preserve this fact.
+A deferred wait guarded only by the captured command's `Process` field remains
+uncertain when distinct loads prevent an exact identity proof. Additional
+Boolean guards and visible field replacements inside the deferred waiter still
+require a wait.
+
 ## Why this is flagged
 
 Starting a process without waiting for it can leave operating-system resources
