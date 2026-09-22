@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/ownership/cancellationownership"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelcapacity"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelownership"
+	"github.com/kojah/gohawk/internal/analyzers/ownership/channelprotocol"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/channelsafety"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/deferinloop"
 	"github.com/kojah/gohawk/internal/analyzers/ownership/goroutineownership"
@@ -133,6 +134,12 @@ func ownershipSpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.GoroutineJoin, Doc: "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
+			},
+		}},
+		{Analyzer: channelprotocol.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.ChannelProtocolBlocked, Doc: "Reports proven channel waiting cycles between a caller and its worker.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 		}},
 		{Analyzer: producerlifecycle.Analyzer(), Checks: []catalog.CheckInfo{

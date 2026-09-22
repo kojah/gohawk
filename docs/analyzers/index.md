@@ -39,6 +39,10 @@ These analyzers look for work or resources whose owner cannot be identified on e
     <span class="analyzer-name">goroutineownership</span>
     <span class="analyzer-detects">Checks that proven goroutine completion obligations are honored.</span>
   </a>
+  <a class="analyzer-card" href="ownership-and-lifecycle/channelprotocol/">
+    <span class="analyzer-name">channelprotocol</span>
+    <span class="analyzer-detects">Checks for proven channel waiting cycles between a caller and worker.</span>
+  </a>
   <a class="analyzer-card" href="ownership-and-lifecycle/producerlifecycle/">
     <span class="analyzer-name">producerlifecycle</span>
     <span class="analyzer-detects">Checks that goroutine producers cannot outlive their receivers.</span>

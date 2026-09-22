@@ -59,6 +59,7 @@ func newCatalog() (*catalog.Catalog, error) {
 		"wirepolicy",
 		"goroutineownership",
 		"producerlifecycle",
+		"channelprotocol",
 		"errorownership",
 		"errorclassification",
 		"inlineerror",

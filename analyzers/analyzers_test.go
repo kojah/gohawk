@@ -14,6 +14,7 @@ func expectedAnalyzerNames() []string {
 	return []string{
 		"goroutineownership",
 		"producerlifecycle",
+		"channelprotocol",
 		"inlineerror",
 		"channelsafety",
 		"processownership",
@@ -107,6 +108,7 @@ func TestAnalyzerGroups(t *testing.T) {
 				"channelsafety",
 				"deferinloop",
 				"goroutineownership",
+				"channelprotocol",
 				"producerlifecycle",
 				"processownership",
 				"resourcelifetime",
@@ -167,7 +169,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
 	extended := map[string]bool{}
-	experimental := map[string]bool{"borrowedstorage": true}
+	experimental := map[string]bool{"borrowedstorage": true, "channelprotocol": true}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"processownership/detached":          CheckTierExperimental,
@@ -178,6 +180,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/discarded-trylock":        CheckTierExperimental,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
+		"channelprotocol/blocked-operation":  CheckKindDefect,
 		"cancellationownership/release":      CheckKindDefect,
 		"borrowedstorage/overlapping-owner":  CheckKindHazard,
 		"channelsafety/send-after-close":     CheckKindDefect,

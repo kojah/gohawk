@@ -87,6 +87,21 @@
           ]
         },
         {
+          "name": "channelprotocol",
+          "summary": "Checks for proven channel waiting cycles between a caller and worker.",
+          "path": "analyzers/ownership-and-lifecycle/channelprotocol",
+          "tier": "experimental",
+          "checks": [
+            {
+              "id": "channelprotocol/blocked-operation",
+              "summary": "Reports proven channel waiting cycles between a caller and its worker.",
+              "kind": "defect",
+              "tier": "experimental"
+            }
+          ],
+          "options": []
+        },
+        {
           "name": "producerlifecycle",
           "summary": "Checks that goroutine producers cannot outlive their receivers.",
           "path": "analyzers/ownership-and-lifecycle/producerlifecycle",

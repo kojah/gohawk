@@ -1,0 +1,83 @@
+---
+title: channelprotocol
+seoTitle: "channelprotocol: Detect channel waiting cycles in Go"
+description: "Detect proven channel waiting cycles between a caller and its worker."
+---
+
+import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
+
+## What it detects
+
+This experimental, opt-in check reports a caller waiting for completion before
+receiving a worker's result, when that worker must finish an unbuffered result
+send before it can signal completion. Neither goroutine can advance.
+
+The analysis composes cached, ordered summaries across direct helper calls and
+closures. It resolves channel parameters, captures, and supported local heap
+storage to exact channel identities. Diagnostics point at the wait and include
+related locations for the worker's send, completion signal, and later receive.
+
+Enable it with `gohawk -enable-checks=channelprotocol/blocked-operation ./...`.
+
+### Current boundary
+
+The initial proof covers one caller and one worker, two distinct channels
+allocated in the caller, and straight-line operations: the worker sends a scalar
+result then closes the completion channel; the caller receives completion then
+the result. A buffer that accommodates the result breaks this cycle.
+
+Branches, loops, `select`, deferred actions, recursion, extra goroutines, opaque
+calls, escaping channels, and unresolved or mutable captures remain unknown.
+Unknown means no diagnostic, not that the program is safe. Dependency bodies
+that are unavailable cannot supply a summary; this version exports no new
+cross-package facts. It does not yet model mutexes, WaitGroups, arbitrary channel
+protocols, or general deadlock freedom.
+
+### Analysis cost
+
+There is no schedule enumeration or product of goroutine states. Each caller
+question has a 2,000-step shared instruction/storage budget, and summaries hold
+at most 32 channel operations. Completed callee summaries are cached during the
+package pass; recursion and exhausted budgets never establish a defect.
+Input discovery still scans the package's SSA. These bounds deliberately trade
+coverage for predictable work, rather than making exhaustive analysis cheap.
+
+### Checks
+
+{/* gohawk:generated-checks:start */}
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="blocked-operation" tier="experimental" /> | defect | experimental | Reports proven channel waiting cycles between a caller and its worker. |
+{/* gohawk:generated-checks:end */}
+
+## Examples
+
+{/* gohawk:generated-examples:start */}
+### Flagged code
+
+```go gohawk="W3siY2hlY2siOiJjaGFubmVscHJvdG9jb2wvYmxvY2tlZC1vcGVyYXRpb24iLCJtZXNzYWdlIjoiY2hhbm5lbCB3YWl0IHByZXZlbnRzIHRoZSB3b3JrZXIncyBwcmVjZWRpbmcgc2VuZCBmcm9tIGNvbXBsZXRpbmciLCJzdGFydExpbmUiOjYsInN0YXJ0Q29sdW1uIjoyLCJlbmRMaW5lIjo2LCJlbmRDb2x1bW4iOjh9XQ"
+func waitBeforeReceive() {
+  results, done := make(chan int), make(chan struct{})
+  go func() {
+    results <- 42
+    close(done)
+  }()
+  <-done
+  <-results
+}
+```
+
+### Accepted code
+
+```go
+func receiveBeforeWait() {
+  results, done := make(chan int), make(chan struct{})
+  go func() {
+    results <- 42
+    close(done)
+  }()
+  <-results
+  <-done
+}
+```
+{/* gohawk:generated-examples:end */}
