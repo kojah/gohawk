@@ -10,6 +10,16 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 Reports producer goroutines that can block after their receiver stops waiting.
 
+Complete shared concurrency summaries expose sends and receives hidden in
+helpers, including imported helpers. They feed the existing bounded count proof:
+a local unbuffered channel, an observed receiver, and excess or repeated sends.
+Deferred receiving helpers count as receivers too. Opaque channel consumers,
+possible drain loops, and additional receiving goroutines leave the result
+unknown rather than being mistaken for absent receivers. Incompletely modeled
+competing workers can therefore suppress a finding, unless shared call-effects
+evidence proves that all uses of the channel are non-receiving. Buffered channels and
+externally supplied channels remain outside this proof.
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}

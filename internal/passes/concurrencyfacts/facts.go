@@ -1,6 +1,6 @@
 package concurrencyfacts
 
-// Facts carry complete straight-line effects across the vet package boundary.
+// Facts carry complete ordered effects across the vet package boundary.
 // Absence, incompatible versions, local allocations, captures, and unknown
 // effects are not empty summaries. No serialized token.Pos or SSA value crosses
 // a package boundary; imported evidence is attributed to the importing call.
@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	factVersion  = 1
+	factVersion  = 2
 	exportBudget = 2000
 )
 
@@ -25,6 +25,7 @@ const (
 type Effect struct {
 	Kind      Kind
 	Parameter int
+	Fields    []int
 }
 
 // Fact records a complete sequence, including a proven empty sequence.
@@ -82,9 +83,12 @@ func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 		return fact, false
 	}
 	for _, operation := range result.Operations {
+		resource := operation.Resource
+		path, projected := embeddedPath(resource.Value)
 		index := -1
 		for i, parameter := range function.Params {
-			if parameter == operation.Resource.Value && !operation.Resource.Indirect {
+			if !resource.Indirect && (parameter == resource.Value ||
+				projected && parameter == path.root && MutexPointer(resource.Value.Type())) {
 				index = i
 				break
 			}
@@ -92,7 +96,11 @@ func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 		if index < 0 {
 			return fact, false
 		}
-		fact.Effects = append(fact.Effects, Effect{Kind: operation.Kind, Parameter: index})
+		effect := Effect{Kind: operation.Kind, Parameter: index}
+		if projected && path.depth > 0 {
+			effect.Fields = append([]int(nil), path.fields[:path.depth]...)
+		}
+		fact.Effects = append(fact.Effects, effect)
 	}
 	return fact, true
 }
@@ -115,7 +123,15 @@ func (engine *Engine) importedCall(call ssa.CallInstruction, function *ssa.Funct
 		if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > Unlock {
 			return unknown
 		}
-		if reason := engine.appendOperation(&result, effect.Kind, call.Common().Args[effect.Parameter], call.Pos()); reason != "" {
+		value := call.Common().Args[effect.Parameter]
+		if len(effect.Fields) > 0 {
+			var found bool
+			value, found = engine.importedField(call, value, effect.Fields)
+			if !found || effect.Kind != Lock && effect.Kind != Unlock {
+				return Summary{Reason: "protocol-field-binding-unknown"}
+			}
+		}
+		if reason := engine.appendOperation(&result, effect.Kind, value, call.Pos()); reason != "" {
 			return Summary{Reason: reason}
 		}
 	}

@@ -15,7 +15,7 @@ import (
 
 // Summaries preserve a bounded ordered sequence over symbolic parameters and
 // captures. Exported facts use parameter positions, never process-local SSA
-// pointers. Branches and overflowing sequences remain explicitly unknown.
+// pointers. Divergent branches and overflowing sequences remain unknown.
 const maxOperations = 32
 
 // Kind identifies a synchronization event with an exact resource.
@@ -122,24 +122,31 @@ func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
 		return Summary{Reason: "protocol-body-unavailable"}
 	}
 	if !straightLineBody(function) {
-		return Summary{Reason: "protocol-control-flow-unknown"}
+		return engine.collectBranches(function, root)
 	}
 	var result Summary
-	for _, instruction := range function.Blocks[0].Instrs {
-		if !engine.budget.Spend() {
-			return Summary{Reason: "protocol-budget-exhausted"}
-		}
-		if reason := engine.appendInstruction(&result, instruction, root); reason != "" {
-			return Summary{Reason: reason}
-		}
-		if len(result.Operations)+len(result.Worker)+len(result.deferred) > maxOperations {
-			return Summary{Reason: "protocol-summary-limit"}
-		}
+	if reason := engine.collectBlock(&result, function.Blocks[0], root); reason != "" {
+		return Summary{Reason: reason}
 	}
 	if len(result.deferred) != 0 {
 		return Summary{Reason: "protocol-deferred-effects-unknown"}
 	}
 	return result
+}
+
+func (engine *Engine) collectBlock(result *Summary, block *ssa.BasicBlock, root bool) string {
+	for _, instruction := range block.Instrs {
+		if !engine.budget.Spend() {
+			return "protocol-budget-exhausted"
+		}
+		if reason := engine.appendInstruction(result, instruction, root); reason != "" {
+			return reason
+		}
+		if len(result.Operations)+len(result.Worker)+len(result.deferred) > maxOperations {
+			return "protocol-summary-limit"
+		}
+	}
+	return ""
 }
 
 func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruction, root bool) string {
@@ -196,16 +203,27 @@ func passiveInstruction(instruction ssa.Instruction, root bool) string {
 		return ""
 	}
 	switch instruction := instruction.(type) {
+	case *ssa.If, *ssa.Jump:
+		// The acyclic collector checks every successor and requires identical
+		// ordered effects at joins and returns.
+		return ""
+	case *ssa.Phi:
+		// Scalar values cannot change resource identity. Every incoming
+		// computation is still checked by the instruction whitelist.
+		if scalarType(instruction.Type()) {
+			return ""
+		}
 	case *ssa.DebugRef, *ssa.Alloc, *ssa.MakeClosure:
 		return ""
 	case *ssa.FieldAddr:
-		if localAddress(instruction.X) && !synchronizationPointer(instruction.X.Type()) {
+		if _, exact := embeddedPath(instruction); exact && !synchronizationPointer(instruction.X.Type()) {
 			return ""
 		}
 	case *ssa.Store:
 		// A fresh group's zero state is part of the counter proof. Resetting
 		// or copying it invalidates that proof, even through a local address.
-		if localAddress(instruction.Addr) && !synchronizationPointer(instruction.Addr.Type()) {
+		if localAddress(instruction.Addr) && !containsSynchronization(instruction.Val.Type()) &&
+			!synchronizationPointer(instruction.Addr.Type()) {
 			return ""
 		}
 	case *ssa.ChangeType:

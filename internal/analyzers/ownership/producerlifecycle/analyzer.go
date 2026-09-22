@@ -7,7 +7,9 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -19,7 +21,7 @@ func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "producerlifecycle",
 		Doc:      "checks that goroutine producers cannot outlive their receivers",
-		Requires: []*analysis.Analyzer{buildssa.Analyzer},
+		Requires: []*analysis.Analyzer{buildssa.Analyzer, concurrencyfacts.Analyzer},
 		Run:      runProducerLifecycle,
 	}
 }
@@ -36,24 +38,39 @@ func runProducerLifecycle(pass *analysis.Pass) (any, error) {
 }
 
 type producerSend struct {
-	instruction *ssa.Send
+	instruction ssa.Instruction
+	position    token.Pos
+	sequence    int
+	summarized  bool
 	channel     ssa.Value
 	repeated    bool
 	spawn       *ssa.Go
 }
 
 func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
-	sends := producerSends(function)
+	engine := pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
+	sends := producerSends(function, engine)
 	reported := map[token.Pos]bool{}
 	for _, send := range sends {
-		if abandonedProducerSend(function, send, sends, reported) {
-			reported[send.instruction.Pos()] = true
-			check.Reportf(pass, check.ProducerLifecycleSend, send.instruction.Pos(), "goroutine send can block after the receiver stops waiting")
+		if reported[send.position] {
+			continue
 		}
+		probe := trace.For(pass, "producerlifecycle", string(check.ProducerLifecycleSend), send.position)
+		probe.Candidate(trace.Step{Reason: "producer-send", Outcome: trace.OutcomeObserved})
+		proof := abandonedProducerSend(function, send, sends, engine)
+		outcome := trace.OutcomeUnknown
+		if proof.Proven() {
+			outcome = trace.OutcomeRejected
+			reported[send.position] = true
+			check.Reportf(pass, check.ProducerLifecycleSend, send.position, "goroutine send can block after the receiver stops waiting")
+		} else if proof.Known() {
+			outcome = trace.OutcomeAccepted
+		}
+		probe.Decision(trace.Step{Reason: string(proof.Reason), Outcome: outcome})
 	}
 }
 
-func producerSends(function *ssa.Function) []producerSend {
+func producerSends(function *ssa.Function, engine *concurrencyfacts.Engine) []producerSend {
 	// Only local unbuffered channels expose a direct producer/receiver count.
 	// Buffered or externally supplied channels have capacity and ownership
 	// contracts that this analyzer cannot safely infer.
@@ -62,6 +79,10 @@ func producerSends(function *ssa.Function) []producerSend {
 		for _, instruction := range block.Instrs {
 			spawn, ok := instruction.(*ssa.Go)
 			if !ok {
+				continue
+			}
+			if summarized, complete := summarizedSends(function, spawn, engine); complete {
+				sends = append(sends, summarized...)
 				continue
 			}
 			spawned := spawn.Common().StaticCallee()
@@ -80,7 +101,10 @@ func producerSends(function *ssa.Function) []producerSend {
 					}
 					channel := ssaflow.SpawnedValueAtCall(spawn, spawned, closure, send.Chan)
 					if channel != nil && localUnbufferedChannel(function, channel) {
-						sends = append(sends, producerSend{instruction: send, channel: channel, repeated: ssaflow.BlockInCycle(spawnedBlock), spawn: spawn})
+						sends = append(sends, producerSend{
+							instruction: send, position: send.Pos(), channel: channel,
+							repeated: ssaflow.BlockInCycle(spawnedBlock), spawn: spawn,
+						})
 					}
 				}
 			}
@@ -89,26 +113,37 @@ func producerSends(function *ssa.Function) []producerSend {
 	return sends
 }
 
-func abandonedProducerSend(function *ssa.Function, send producerSend, sends []producerSend, reported map[token.Pos]bool) bool {
+func abandonedProducerSend(
+	function *ssa.Function, send producerSend, sends []producerSend, engine *concurrencyfacts.Engine,
+) ssaflow.Proof {
 	// A looped send is potentially unbounded; otherwise compare only sends that
 	// can consume a receive before this send. A draining receive loop discharges either
 	// form because it continues to service the producer.
-	if reported[send.instruction.Pos()] {
-		return false
-	}
 	sendCount := 0
 	for _, candidate := range sends {
 		if ssaflow.SameValue(candidate.channel, send.channel) && producerSendMayPrecede(candidate, send) {
 			sendCount++
 		}
 	}
-	receiveCount, draining := channelReceives(function, send.channel)
-	return receiveCount > 0 && !draining && (send.repeated || sendCount > receiveCount)
+	receives := channelReceives(function, send.channel, send.spawn, engine)
+	if receives.unknown {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceReason(receives.reason)}
+	}
+	if receives.count == 0 {
+		return ssaflow.Proof{Reason: "receiver-obligation-unknown"}
+	}
+	if send.repeated || sendCount > receives.count {
+		return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "producer-exceeds-receives"}
+	}
+	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: "producer-within-receive-count"}
 }
 
 func producerSendMayPrecede(first, second producerSend) bool {
 	if first.spawn != second.spawn {
 		return true
+	}
+	if first.summarized && second.summarized {
+		return first.sequence <= second.sequence
 	}
 	if first.instruction == second.instruction {
 		return true
@@ -135,24 +170,34 @@ func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
 	return false
 }
 
-func channelReceives(function *ssa.Function, channel ssa.Value) (count int, draining bool) {
+func channelReceives(function *ssa.Function, channel ssa.Value, origin *ssa.Go, engine *concurrencyfacts.Engine) receiveProof {
+	budget := ssaflow.NewSearchBudget(2000)
+	var result receiveProof
 	for _, block := range function.Blocks {
+		before := result.count
 		for _, instruction := range block.Instrs {
 			switch candidate := instruction.(type) {
+			case ssa.CallInstruction:
+				proof := helperReceives(candidate, channel, origin, engine, budget)
+				result.count += proof.count
+				if proof.unknown {
+					return proof
+				}
 			case *ssa.UnOp:
 				if candidate.Op == token.ARROW && ssaflow.SameValue(candidate.X, channel) {
-					count++
-					draining = draining || ssaflow.BlockInCycle(block)
+					result.count++
 				}
 			case *ssa.Select:
 				for _, state := range candidate.States {
 					if state.Dir == types.RecvOnly && ssaflow.SameValue(state.Chan, channel) {
-						count++
-						draining = draining || ssaflow.BlockInCycle(block)
+						result.count++
 					}
 				}
 			}
 		}
+		if result.count > before && ssaflow.BlockInCycle(block) {
+			return receiveProof{unknown: true, reason: "receiver-may-drain"}
+		}
 	}
-	return count, draining
+	return result
 }

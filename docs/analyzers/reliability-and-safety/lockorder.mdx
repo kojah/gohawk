@@ -73,12 +73,13 @@ on the same objects. Same-class pairs and unclassified locks do not form edges.
 Opaque calls, asynchronous calls, and dynamic indexed locks do not contribute
 guessed helper acquisitions.
 
-For complete straight-line mutex helpers, shared concurrency summaries bind
+For complete ordered mutex helpers, shared concurrency summaries bind
 parameter locks to caller values and retain acquisition/release order. This
 works across package boundaries as well as within a package: releasing A
 before acquiring B does not create an A-to-B edge. Acquiring B before releasing
-A does. These sequences are used at the call site; they do not yet propagate
-a helper's returned held-lock state into the caller's later instructions.
+A does. Their final held-lock state continues through the caller's later
+instructions, supporting recursive-acquire, later ordering, and missing-release
+proofs. Direct operations and helper effects share the same state transfer.
 Incomplete sequences retain the existing conservative class-witness fallback.
 
 A cycle is suppressed when every edge has the same exact package-global

@@ -18,7 +18,6 @@ encodeous/nylon,lockorder,lockorder/contradictory-order,polyamide/device/device.
 encodeous/nylon,lockorder,lockorder/contradictory-order,polyamide/device/noise-protocol.go:542:3,true_positive,,
 hashicorp/vault-secrets-operator,goroutineownership,goroutineownership/unjoined,vault/client_factory.go:898:3,false_positive,,
 kubernetes/registry.k8s.io,producerlifecycle,producerlifecycle/abandoned-send,cmd/archeio/main_test.go:70:3,false_positive,,
-kubernetes/registry.k8s.io,producerlifecycle,producerlifecycle/abandoned-send,cmd/archeio/main_test.go:71:3,true_positive,,
 kubernetes/registry.k8s.io,resourcelifetime,resourcelifetime/missing-release,cmd/archeio/main_test.go:88:13,true_positive,,
 replicatedhq/troubleshoot,deferinloop,deferinloop/cleanup-lifetime,pkg/supportbundle/aftercollection.go:32:3,false_positive,,
 replicatedhq/troubleshoot,resourcelifetime,resourcelifetime/missing-release,pkg/supportbundle/aftercollection.go:49:16,true_positive,,

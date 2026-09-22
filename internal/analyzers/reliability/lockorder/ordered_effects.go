@@ -1,77 +1,84 @@
 package lockorder
 
-// Complete ordered mutex summaries complement the positive class witnesses.
-// They bind parameter locks to caller objects and retain the held set at each
-// acquisition, including releases before/after an acquisition. An unavailable
-// sequence falls back to the existing witness search, never to assumed purity.
-
 import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
-type heldWitness struct {
-	value       ssa.Value
-	acquisition lockAcquisition
+// Complete effects use the same lock-state transfer as direct operations.
+// Unknown calls retain the older completion/witness path; absence is not purity.
+type mutexEffect struct {
+	operation   mutexOperation
+	identity    string
+	receiver    ssa.Value
+	acquired    lockAcquisition
+	readRelease bool
 }
 
-func (flow lockFlowContext) recordSummarizedOrder(instruction ssa.Instruction, held []string, origins map[string]lockAcquisition) bool {
-	call, ok := instruction.(*ssa.Call)
+func directMutexEffect(instruction ssa.Instruction) (mutexEffect, bool) {
+	operation, identity, receiver, ok := mutexAction(instruction)
 	if !ok {
-		return false
+		return mutexEffect{}, false
 	}
-	if _, _, _, mutex := mutexAction(call); mutex {
-		return false
-	}
-	engine, ok := flow.pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
-	if !ok {
-		return false
-	}
-	result := engine.AtCall(call, ssaflow.NewSearchBudget(2000))
-	if result.Reason != "" {
-		return false
-	}
-	for _, operation := range result.Operations {
-		if operation.Kind != concurrencyfacts.Lock && operation.Kind != concurrencyfacts.Unlock {
-			return false
-		}
-	}
-	var active []heldWitness
-	for _, identity := range held {
-		values := flow.lockValues[identity]
-		if len(values) != 0 && !flow.unprovenRelease[identity] {
-			active = append(active, heldWitness{value: values[0], acquisition: origins[identity]})
-		}
-	}
-	flow.recordMutexEffects(call, result.Operations, active)
-	return true
+	return mutexEffect{
+		operation: operation, identity: identity, receiver: receiver,
+		acquired:    acquisitionAt(instruction, lockComparisonKey(identity, receiver)),
+		readRelease: readModeRelease(instruction),
+	}, ok
 }
 
-func (flow lockFlowContext) recordMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation, active []heldWitness) {
-	for _, operation := range operations {
-		value := operation.Resource.Value
-		if operation.Kind == concurrencyfacts.Unlock {
-			active = slices.DeleteFunc(active, func(held heldWitness) bool { return ssaflow.DefinitelySameValue(held.value, value) })
+func summarizedMutexEffects(pass *analysis.Pass, function *ssa.Function) map[ssa.Instruction][]mutexEffect {
+	result := make(map[ssa.Instruction][]mutexEffect)
+	engine, ok := pass.ResultOf[concurrencyfacts.Analyzer].(*concurrencyfacts.Engine)
+	if !ok {
+		return result
+	}
+	budget := ssaflow.NewSearchBudget(2000)
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
+		if _, _, _, direct := mutexAction(call); direct {
 			continue
 		}
-		acquired := lockAcquisition{class: lockClassOf(value), position: operation.Source}
+		summary := engine.AtCall(call, budget)
+		if summary.Reason != "" {
+			continue
+		}
+		effects, complete := bindMutexEffects(call, summary.Operations)
+		if complete {
+			result[call] = effects
+		}
+	}
+	return result
+}
+
+func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation) ([]mutexEffect, bool) {
+	var effects []mutexEffect
+	for _, operation := range operations {
+		value := operation.Resource.Value
+		if operation.Resource.Indirect || (operation.Kind != concurrencyfacts.Lock && operation.Kind != concurrencyfacts.Unlock) {
+			return nil, false
+		}
+		identity := lockIdentityOf(value)
+		if identity == "" || dynamicIndexedMutex(value) {
+			return nil, false
+		}
+		acquired := lockAcquisition{
+			class: lockComparisonKey(identity, value), position: operation.Source,
+			variant: loopVariantValue(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value),
+		}
 		if operation.Source != call.Pos() {
 			acquired = acquired.through(call)
 		}
-		var guards []ssa.Value
-		for _, held := range active {
-			if global, ok := held.value.(*ssa.Global); ok && !held.acquisition.read {
-				guards = append(guards, global)
-			}
+		kind := mutexAcquire
+		if operation.Kind == concurrencyfacts.Unlock {
+			kind = mutexRelease
 		}
-		for _, held := range active {
-			flow.relations.record(flow.pass, held.acquisition, acquired, guards...)
-		}
-		active = append(active, heldWitness{value: value, acquisition: acquired})
+		effects = append(effects, mutexEffect{operation: kind, identity: identity, receiver: value, acquired: acquired})
 	}
+	return effects, true
 }
 
 func (flow lockFlowContext) exclusiveGlobalGuards(held, readHeld []string) []ssa.Value {

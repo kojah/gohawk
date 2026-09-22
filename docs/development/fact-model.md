@@ -149,8 +149,8 @@ body and does not synthesize effects from missing lifecycle-summary bits; see
   it is invoked in the same goroutine before return (`SynchronouslyInvoked`).
 - Cleanup that happens deeper in a chain of exported calls, because one
   summary is allowed to read the summaries of the functions it calls.
-- Facts on things other than function parameters: `closedomain` attaches a
-  fact to a struct field, so the mechanism is not limited to functions.
+- Facts on things other than function parameters: `CleanupFact` attaches a
+  cleanup contract to a named type, so the mechanism is not limited to functions.
 - A new discharge verb, cheaply: one row in the mask table in `fact.go`
   (name, method, field).
 
@@ -269,8 +269,9 @@ instruction and effect-expansion work to a shared search budget.
 ### Ordered concurrency facts
 
 `internal/passes/concurrencyfacts` shares the complete ordered-effect model
-used by `channelprotocol`, the straight-line helper path in `lockorder`,
-and the helper-effect paths in `channelsafety` and `goroutineownership`.
+used by `channelprotocol`, the ordered helper path in `lockorder`,
+and the helper-effect paths in `channelsafety`, `goroutineownership`, and
+`producerlifecycle`.
 It records channel send/receive/close, `WaitGroup.Add(1)`/`Done`/`Wait`, and
 `sync.Mutex.Lock`/`Unlock` events, including completion and unlock defers in
 execution order. The generic summary infrastructure still owns caching,
@@ -279,17 +280,21 @@ recursion guards, and budgets; each analyzer owns its defect or hazard proof.
 Its versioned `Fact` serializes event kinds and formal parameter positions,
 with the receiver at position zero. A complete empty fact is positive evidence
 of no supported synchronization effects, not the fallback for a missing fact.
-Only complete straight-line summaries with exportable identities are exported.
-Branches, opaque calls, nested launches, resource escapes, local resource
+Only complete summaries with exportable identities are exported. Acyclic
+branches merge only with identical ordered effects and pending defers; each
+block is visited once, without path enumeration or conditional summaries.
+Divergent branches, opaque calls, nested launches, resource escapes, local resource
 allocations, captured resources, recursion, and exhausted budgets make export
 unavailable. Facts do not encode arbitrary conditions or schedules.
 
 Imported events are bound to exact actual arguments and retain their order.
 Evidence from a dependency is attributed to the importing call site; token
 positions and SSA pointers are never serialized. Transitive exports remap the
-effects to the forwarding function's own parameters. Local mutex summaries
-can also bind concrete global and field addresses, but these are not exported
-as parameter-relative paths.
+effects to the forwarding function's own parameters. Version 2 also exports
+embedded mutex field paths, up to eight fields deep. Binding requires an exact
+existing caller address. Mutable pointer-field dereferences, concrete global
+identities, and local allocation identities are not exported. Whole-owner
+stores containing embedded synchronization state invalidate completeness.
 
 All fact access belongs to this prerequisite, which exposes an engine rather
 than raw facts to consumers. Public queries serialize access to the shared
@@ -304,6 +309,11 @@ uses complete call effects as close/send witnesses in its existing reachability
 proof. `goroutineownership` uses exact receives and waits as positive joins for
 already-established obligations, including inside its branch-aware helper
 search. Neither replaces its existing proof with summary absence.
+`lockorder` carries complete helper lock state into subsequent instructions.
+`producerlifecycle` expands both sends and receiving helpers, and treats opaque
+channel consumers as unknown rather than as zero receives.
+For competing workers with incomplete protocol summaries, it reuses the shared
+resource-specific call-effects proof to establish non-receiving uses when possible.
 
 ### Bound callbacks within one package
 
@@ -359,6 +369,6 @@ Facts are imported and exported (`analysis.Pass.ImportObjectFact` and
 `analysis.Pass.ExportObjectFact`) only inside the package that defines the fact
 type. Consumers use `lifecyclefacts.LifecycleEvidence`, which checks local evidence
 first and imported facts second, all on one path. A second fact family with a
-different evidence model — `closedomain`'s field marker — gets its own package
+different evidence model — `concurrencyfacts`' ordered effects — gets its own package
 for the same reason: one vocabulary per family.
 `TestObjectFactsStayInTheirDefiningPackage` enforces the boundary.

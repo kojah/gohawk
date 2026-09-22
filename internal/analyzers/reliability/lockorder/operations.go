@@ -12,7 +12,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-func callerOwnedLocks(function *ssa.Function) map[string]bool {
+func callerOwnedLocks(function *ssa.Function, summaries map[ssa.Instruction][]mutexEffect) map[string]bool {
 	type firstAction struct {
 		operation mutexOperation
 		position  token.Pos
@@ -20,13 +20,15 @@ func callerOwnedLocks(function *ssa.Function) map[string]bool {
 	first := map[string]firstAction{}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			operation, identity, _, ok := mutexAction(instruction)
-			if !ok || instruction.Pos() == token.NoPos {
-				continue
+			effects := summaries[instruction]
+			if effect, ok := directMutexEffect(instruction); ok {
+				effects = []mutexEffect{effect}
 			}
-			current, exists := first[identity]
-			if !exists || instruction.Pos() < current.position {
-				first[identity] = firstAction{operation: operation, position: instruction.Pos()}
+			for _, effect := range effects {
+				current, exists := first[effect.identity]
+				if instruction.Pos() != token.NoPos && (!exists || instruction.Pos() < current.position) {
+					first[effect.identity] = firstAction{operation: effect.operation, position: instruction.Pos()}
+				}
 			}
 		}
 	}
@@ -43,6 +45,7 @@ func acquireLock(
 	held []string,
 	identity string,
 	releaseUnproven bool,
+	variant bool,
 ) []string {
 	if slices.Contains(held, identity) {
 		// A lock selected by a loop iteration may be a different mutex each
@@ -52,7 +55,7 @@ func acquireLock(
 		// https://github.com/multigres/multigres/blob/360b8f123dff8ad6bcc721acaec103c52081bebd/go/tools/viperutil/internal/sync/sync.go#L236-L240
 		// A lock a callee may already have released is not proven held, and a
 		// recursive acquisition has to claim that it is.
-		if !loopVariantLock(instruction) && !releaseUnproven {
+		if !variant && !releaseUnproven {
 			check.Reportf(pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
 		}
 		return held
@@ -182,12 +185,12 @@ func readModeRelease(instruction ssa.Instruction) bool {
 // The acquisition has to be visible on this path for the mode to be known. A
 // helper that releases a lock its caller took holds no acquisition here, and
 // the flow already treats that as a borrowed lock rather than an error.
-func reportMismatchedRelease(pass *analysis.Pass, instruction ssa.Instruction, identity string, state lockFlowState) {
+func reportMismatchedRelease(pass *analysis.Pass, instruction ssa.Instruction, identity string, state lockFlowState, reading bool) {
 	if !slices.Contains(state.held, identity) {
 		return
 	}
 	acquiredForReading := slices.Contains(state.readHeld, identity)
-	if acquiredForReading == readModeRelease(instruction) {
+	if acquiredForReading == reading {
 		return
 	}
 	acquire, release := "Lock", "RUnlock"
@@ -276,6 +279,10 @@ func loopVariantValue(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 		return false
 	}
 	switch typed := value.(type) {
+	case *ssa.Alloc:
+		// An allocation executed again by a loop creates a different lock,
+		// even though the allocation has one SSA name.
+		return ssaflow.BlockInCycle(typed.Block())
 	case *ssa.Phi:
 		return ssaflow.BlockInCycle(typed.Block())
 	case *ssa.Extract:

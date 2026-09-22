@@ -58,8 +58,7 @@ func mixedPrefix(protocol summary) (operation, summary, bool) {
 }
 
 func localMutex(function *ssa.Function, reference resourceReference) bool {
-	allocation, ok := reference.Value.(*ssa.Alloc)
-	return ok && !reference.Indirect && allocation.Parent() == function && concurrencyfacts.MutexPointer(allocation.Type())
+	return concurrencyfacts.FreshMutex(function, reference)
 }
 
 func mixedDependency(function *ssa.Function, prefix summary, wait, signal operation, id check.ID) ssaflow.Proof {

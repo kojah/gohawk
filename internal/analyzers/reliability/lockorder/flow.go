@@ -34,13 +34,15 @@ func releaseSettled(proof ssaflow.CompletionProof, reason ssaflow.EvidenceReason
 }
 
 type lockFlowContext struct {
-	pass        *analysis.Pass
-	evidence    *ssaflow.LocalEvidence
-	relations   *lockOrders
-	calleeLocks *calleeLockSearch
-	lockValues  map[string][]ssa.Value
-	acquiredAt  map[string]token.Pos
-	released    map[string]bool
+	pass            *analysis.Pass
+	evidence        *ssaflow.LocalEvidence
+	relations       *lockOrders
+	calleeLocks     *calleeLockSearch
+	lockValues      map[string][]ssa.Value
+	acquiredAt      map[string]token.Pos
+	released        map[string]bool
+	acquisitions    map[string][]ssa.Instruction
+	uncertainGuards map[string]bool
 	// unprovenRelease marks locks a callee may release without proving it does
 	// so on every path. The lock stays held, because a return that leaves it
 	// held is still worth reporting, but it is no longer proven held, which is
@@ -71,16 +73,18 @@ func walkLockOrder(
 	heldAtReturn := map[string]map[*ssa.Return]bool{}
 	acquisitions := map[string][]ssa.Instruction{}
 	uncertainGuards := map[string]bool{}
-	callerOwned := callerOwnedLocks(function)
+	summaries := summarizedMutexEffects(pass, function)
+	callerOwned := callerOwnedLocks(function, summaries)
 	functionDefers := ssaflow.InstructionsOf[*ssa.Defer](function)
 	flow := lockFlowContext{
-		pass:            pass,
-		evidence:        evidence,
-		relations:       relations,
-		calleeLocks:     calleeLocks,
-		lockValues:      lockValues,
-		acquiredAt:      acquiredAt,
-		released:        released,
+		pass:         pass,
+		evidence:     evidence,
+		relations:    relations,
+		calleeLocks:  calleeLocks,
+		lockValues:   lockValues,
+		acquiredAt:   acquiredAt,
+		released:     released,
+		acquisitions: acquisitions, uncertainGuards: uncertainGuards,
 		unprovenRelease: map[string]bool{},
 		callerOwned:     callerOwned,
 		defers:          functionDefers,
@@ -100,7 +104,20 @@ func walkLockOrder(
 		}
 		for _, instruction := range state.block.Instrs {
 			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns, heldAtReturn)
-			ordered := flow.recordSummarizedOrder(instruction, held, origins)
+			// A complete call sequence replaces the fallback release search:
+			// releasing and reacquiring within one helper must leave the lock
+			// held, not erase it as a may-release witness would.
+			if effects, complete := summaries[instruction]; complete {
+				actionState := lockFlowState{
+					held: held, readHeld: readHeld, deferred: deferred, guards: guards,
+					origins: origins, condition: condition, conditionValue: state.conditionValue,
+				}
+				for _, effect := range effects {
+					actionState = flow.applyMutexAction(instruction, effect, actionState)
+				}
+				held, readHeld, deferred, guards = actionState.held, actionState.readHeld, actionState.deferred, actionState.guards
+				continue
+			}
 			held = transferCalledUnlocks(evidence, instruction, held, guards, lockValues, released, flow.unprovenRelease)
 			// An unconditional unlock at the start of a spawned closure transfers
 			// the held lock to that goroutine. Requiring it before any branch keeps
@@ -114,25 +131,17 @@ func walkLockOrder(
 			// defer handles only earlier returns:
 			// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/integration/nri_test.go#L1287-L1300
 			deferred = recordDeferredUnlocks(evidence, instruction, held, deferred, lockValues, released)
-			operation, identity, receiver, ok := mutexAction(instruction)
+			effect, ok := directMutexEffect(instruction)
 			if !ok {
-				if !ordered {
-					flow.recordCalledOrder(instruction, held, origins)
-				}
+				flow.recordCalledOrder(instruction, held, origins)
 				reportReadLockWrites(pass, instruction, held, readHeld, lockValues)
 				continue
-			}
-			// Acquisitions are remembered so the acquire-for-caller contract can
-			// ask which returns an acquisition dominates.
-			if operation == mutexAcquire {
-				acquisitions[identity] = appendUniqueInstruction(acquisitions[identity], instruction)
-				uncertainGuards[identity] = uncertainGuards[identity] || optionalLoadedGuard(instruction, identity)
 			}
 			actionState := lockFlowState{
 				held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
 				condition: condition, conditionValue: state.conditionValue,
 			}
-			actionState = flow.applyMutexAction(instruction, operation, identity, receiver, actionState)
+			actionState = flow.applyMutexAction(instruction, effect, actionState)
 			held, readHeld, guards = actionState.held, actionState.readHeld, actionState.guards
 			deferred = actionState.deferred
 		}
@@ -427,13 +436,12 @@ func (flow lockFlowContext) recordCalledOrder(instruction ssa.Instruction, held 
 
 func (flow lockFlowContext) applyMutexAction(
 	instruction ssa.Instruction,
-	operation mutexOperation,
-	identity string,
-	receiver ssa.Value,
+	effect mutexEffect,
 	state lockFlowState,
 ) lockFlowState {
+	operation, identity, receiver := effect.operation, effect.identity, effect.receiver
 	if operation == mutexRelease {
-		reportMismatchedRelease(flow.pass, instruction, identity, state)
+		reportMismatchedRelease(flow.pass, instruction, identity, state, effect.readRelease)
 		flow.released[identity] = true
 		if _, deferredRelease := instruction.(*ssa.Defer); deferredRelease {
 			// A deferred unlock remains effective on every later trip around a
@@ -447,6 +455,10 @@ func (flow lockFlowContext) applyMutexAction(
 		state.readHeld = releaseLock(state.readHeld, identity)
 		return state
 	}
+	// Acquisitions, whether direct or summarized, participate in the same
+	// acquire-for-caller contract and loaded-condition uncertainty boundary.
+	flow.acquisitions[identity] = appendUniqueInstruction(flow.acquisitions[identity], instruction)
+	flow.uncertainGuards[identity] = flow.uncertainGuards[identity] || optionalLoadedGuard(instruction, identity)
 	flow.lockValues[identity] = appendLockValue(flow.lockValues[identity], receiver)
 	// A mutex selected from a map, slice, or loop-carried value may represent a
 	// different runtime lock on every iteration. Collapsing those values into one
@@ -473,7 +485,7 @@ func (flow lockFlowContext) applyMutexAction(
 		flow.released[identity] = true
 		state.deferred = appendUniqueString(state.deferred, identity)
 	}
-	acquired := acquisitionAt(instruction, lockComparisonKey(identity, receiver))
+	acquired := effect.acquired
 	if !slices.Contains(state.held, identity) {
 		guards := flow.exclusiveGlobalGuards(state.held, state.readHeld)
 		for _, owner := range state.held {
@@ -481,10 +493,10 @@ func (flow lockFlowContext) applyMutexAction(
 		}
 		state.origins[identity] = acquired
 	}
-	if readModeAcquisition(instruction) {
+	if acquired.read {
 		state.readHeld = appendUniqueString(state.readHeld, identity)
 	}
-	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.unprovenRelease[identity])
+	state.held = acquireLock(flow.pass, instruction, state.held, identity, flow.unprovenRelease[identity], acquired.variant)
 	return state
 }
 
@@ -527,11 +539,6 @@ func traceRepeatedConditionPruning(pass *analysis.Pass, block *ssa.BasicBlock) {
 	})
 }
 
-// transferOpaqueUnlocks drops a held lock whose owner is handed across a
-// boundary the analysis cannot see through: an interface method or a
-// function value. The callee may unlock, so the obligation is unknown rather
-// than violated from that point. A static callee is judged by the completion
-// proof instead.
 // mayRelease reports whether the call releases the lock on at least one path.
 // It is the weaker companion to the proof transferCalledUnlocks requires, and
 // answers only whether the caller may still claim the lock is held.
@@ -546,6 +553,9 @@ func mayRelease(evidence *ssaflow.LocalEvidence, instruction ssa.Instruction, va
 	return proof.Proven() && proof.Reason == ssaflow.EvidenceCalledCompletion
 }
 
+// transferOpaqueUnlocks drops a held lock handed across an unknown boundary,
+// including a static dependency without a complete imported summary. Such a
+// callee may release the lock; missing evidence cannot establish it stayed held.
 func transferOpaqueUnlocks(
 	instruction ssa.Instruction,
 	held []string,
@@ -554,6 +564,9 @@ func transferOpaqueUnlocks(
 	released map[string]bool,
 ) []string {
 	common := ssaflow.InstructionCall(instruction)
+	if _, _, _, direct := mutexAction(instruction); direct {
+		return held
+	}
 	if common == nil || !opaqueCallee(common) {
 		return held
 	}
@@ -572,8 +585,9 @@ func transferOpaqueUnlocks(
 }
 
 // opaqueCallee reports whether the call is dispatched at run time: an
-// interface method or a function value. A static callee, even one whose body
-// is not loaded, is a known function the completion proof can judge.
+// interface method, a function value, or a static call without a body. Complete
+// imported mutex effects have already been consumed; a missing summary cannot
+// establish that an unavailable helper leaves the lock held.
 func opaqueCallee(common *ssa.CallCommon) bool {
 	if common.IsInvoke() {
 		return true
@@ -581,7 +595,8 @@ func opaqueCallee(common *ssa.CallCommon) bool {
 	if _, ok := common.Value.(*ssa.Builtin); ok {
 		return false
 	}
-	return common.StaticCallee() == nil
+	callee := common.StaticCallee()
+	return callee == nil || len(callee.Blocks) == 0
 }
 
 // lockHandedTo reports whether an argument is the lock, its owner, or a

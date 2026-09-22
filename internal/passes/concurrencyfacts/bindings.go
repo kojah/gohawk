@@ -59,7 +59,7 @@ func (engine *Engine) bind(
 		}
 		return Reference{}, false
 	}
-	return Reference{}, false
+	return engine.bindField(reference, bindings, instruction)
 }
 
 func (engine *Engine) reference(value ssa.Value) (Reference, bool) {
@@ -84,6 +84,10 @@ func (engine *Engine) referenceLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (Re
 			// Mutex addresses identify cells, not mutable contents. Such values
 			// can bind formal mutex parameters but cannot be exported as formals.
 			if MutexPointer(resolved.Value.Type()) {
+				if path, ok := embeddedPath(resolved.Value); ok && path.depth > 0 {
+					value, found := engine.fieldAddress(resolved.Value.Parent(), path)
+					return Reference{Value: value}, found
+				}
 				return Reference{Value: resolved.Value}, true
 			}
 		}
