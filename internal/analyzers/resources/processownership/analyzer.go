@@ -107,7 +107,8 @@ func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.Lifecycl
 		// so does returning the started os.Process, which the caller can
 		// Wait on directly. Casbin's daemon launcher returns cmd.Process:
 		// https://github.com/apache/casbin-gateway/blob/e3606894348d8cd52d85abc29cfb4d3ae99595cb/util/daemon.go#L121-L131
-		return startFailureReturn(returned, start) || ssaflow.ReturnedValueOwnsValue(returned, command) ||
+		return startFailureReturn(returned, start) || impossibleStartedProcessNilReturn(returned, start, command) ||
+			ssaflow.ReturnedValueOwnsValue(returned, command) ||
 			returnsProcessHandle(returned, command)
 	})
 	emitProcessDecision(pass, function, start, command, leaks)

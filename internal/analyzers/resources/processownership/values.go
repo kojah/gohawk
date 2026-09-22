@@ -1,6 +1,7 @@
 package processownership
 
 import (
+	"go/token"
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -95,6 +96,59 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 	// https://github.com/agentic-research/mache/blob/ccaf44c3688c12324af57747b6fb0c6a33ca93e0/internal/leyline/procgroup_unix_test.go#L30-L51
 	return ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Wait"})) &&
 		osProcessDerivedFromCommand(receiver, command)
+}
+
+// impossibleStartedProcessNilReturn recognizes only the immediate defensive
+// guard after successful Start. Start guarantees Process is non-nil, but later
+// stores or opaque calls can invalidate that fact, so require mutation-free
+// adjacent blocks instead of assuming it throughout the function.
+// https://github.com/stacktower-io/stacktower/blob/69ff07430089898cc79af381f6e0c3a927a7d149/internal/cli/auth_device.go#L118-L124
+func impossibleStartedProcessNilReturn(returned *ssa.Return, start *ssa.Call, command ssa.Value) bool {
+	predecessors := returned.Block().Preds
+	if len(predecessors) != 1 || ssaflow.InstructionIndex(start) != len(start.Block().Instrs)-3 {
+		return false
+	}
+	guard := predecessors[0]
+	if len(guard.Preds) != 1 || guard.Preds[0] != start.Block() || len(guard.Instrs) != 4 {
+		return false
+	}
+	if success, known := ssaflow.SuccessBranch(start.Block(), guard, start); !known || !success {
+		return false
+	}
+	comparison := immediateProcessNilComparison(guard, command)
+	if comparison == nil {
+		return false
+	}
+	switch comparison.Op {
+	case token.EQL:
+		return guard.Succs[0] == returned.Block()
+	case token.NEQ:
+		return guard.Succs[1] == returned.Block()
+	default:
+		return false
+	}
+}
+
+// immediateProcessNilComparison matches a block that only reads the command's
+// Process and branches on its nilness, with no intervening call or mutation.
+func immediateProcessNilComparison(guard *ssa.BasicBlock, command ssa.Value) *ssa.BinOp {
+	field, fieldOK := guard.Instrs[0].(*ssa.FieldAddr)
+	load, loadOK := guard.Instrs[1].(*ssa.UnOp)
+	comparison, comparisonOK := guard.Instrs[2].(*ssa.BinOp)
+	branch, branchOK := guard.Instrs[3].(*ssa.If)
+	if !fieldOK || !loadOK || !comparisonOK || !branchOK || len(guard.Succs) != 2 {
+		return nil
+	}
+	if !ssaflow.SameValue(field.X, command) || load.X != field || load.Op != token.MUL ||
+		!osProcessDerivedFromCommand(load, command) || branch.Cond != comparison {
+		return nil
+	}
+	comparesProcessNil := comparison.X == load && ssaflow.DefinitelyNil(comparison.Y) ||
+		comparison.Y == load && ssaflow.DefinitelyNil(comparison.X)
+	if !comparesProcessNil {
+		return nil
+	}
+	return comparison
 }
 
 func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
