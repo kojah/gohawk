@@ -331,7 +331,8 @@ func assumedNonNil(operand, value ssa.Value) bool {
 }
 
 // FeasibleSuccessors preserves constants selected by predecessor-sensitive
-// phis. This prevents impossible first-iteration loop exits from faking leaks.
+// phis and literal results of bounded, source-visible helpers. This prevents
+// impossible loop exits and helper-error paths from faking leaks.
 func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
 	if len(block.Succs) != 2 || len(block.Instrs) == 0 {
 		return block.Succs
@@ -351,7 +352,7 @@ func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
 }
 
 func branchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool) {
-	if literal, ok := value.(*ssa.Const); ok && literal.Value != nil && literal.Value.Kind() == constant.Bool {
+	if literal := branchLiteral(value, block, predecessor); literal != nil && literal.Value != nil && literal.Value.Kind() == constant.Bool {
 		return constant.BoolVal(literal.Value), true
 	}
 	// Resolve the first condition of constant-count loops. Otherwise the flow
@@ -359,16 +360,7 @@ func branchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool
 	// even when a positive fixed-count receive loop follows them, as in:
 	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/internal/cri/store/stats/timed_store_test.go#L190-L222
 	if comparison, ok := value.(*ssa.BinOp); ok {
-		left, leftOK := branchConstant(comparison.X, block, predecessor)
-		right, rightOK := branchConstant(comparison.Y, block, predecessor)
-		if leftOK && rightOK {
-			switch comparison.Op {
-			case token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ:
-				return constant.Compare(left, comparison.Op, right), true
-			default:
-				return false, false
-			}
-		}
+		return compareBranchLiterals(comparison, block, predecessor)
 	}
 	phi, ok := value.(*ssa.Phi)
 	if !ok || phi.Block() != block || predecessor == nil {
@@ -382,20 +374,93 @@ func branchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool
 	return false, false
 }
 
-func branchConstant(value ssa.Value, block, predecessor *ssa.BasicBlock) (constant.Value, bool) {
-	if literal, ok := value.(*ssa.Const); ok && literal.Value != nil {
-		return literal.Value, true
+func compareBranchLiterals(comparison *ssa.BinOp, block, predecessor *ssa.BasicBlock) (bool, bool) {
+	left := branchLiteral(comparison.X, block, predecessor)
+	right := branchLiteral(comparison.Y, block, predecessor)
+	if left == nil || right == nil {
+		return false, false
+	}
+	if left.IsNil() && right.IsNil() {
+		return comparison.Op == token.EQL, comparison.Op == token.EQL || comparison.Op == token.NEQ
+	}
+	if left.Value == nil || right.Value == nil {
+		return false, false
+	}
+	switch comparison.Op {
+	case token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ:
+		return constant.Compare(left.Value, comparison.Op, right.Value), true
+	default:
+		return false, false
+	}
+}
+
+func branchLiteral(value ssa.Value, block, predecessor *ssa.BasicBlock) *ssa.Const {
+	if literal, ok := value.(*ssa.Const); ok {
+		return literal
+	}
+	if literal := callResultLiteral(value); literal != nil {
+		return literal
 	}
 	phi, ok := value.(*ssa.Phi)
 	if !ok || phi.Block() != block || predecessor == nil {
-		return nil, false
+		return nil
 	}
 	for index, candidate := range block.Preds {
 		if candidate == predecessor && index < len(phi.Edges) {
-			return branchConstant(phi.Edges[index], block, nil)
+			return branchLiteral(phi.Edges[index], block, nil)
 		}
 	}
-	return nil, false
+	return nil
+}
+
+// A returned literal is independent of helper side effects and arguments.
+// Inspect actual return operands, not a named result's initial zero value:
+// deferred mutation, merged results, unavailable bodies, and recursion through
+// returned calls remain opaque. No callee traversal or path enumeration occurs.
+// https://github.com/raskrebs/sonar/blob/9c963b8447d6ca08dd4a3c0bc6c0bf27527cd793/internal/spawn/spawn_unix.go#L27
+func callResultLiteral(value ssa.Value) *ssa.Const {
+	index := 0
+	if result, ok := value.(*ssa.Extract); ok {
+		value, index = result.Tuple, result.Index
+	}
+	call, ok := value.(*ssa.Call)
+	if !ok {
+		return nil
+	}
+	callee := call.Common().StaticCallee()
+	if callee == nil || len(callee.Blocks) == 0 {
+		return nil
+	}
+	var result *ssa.Const
+	budget := 128
+	for _, block := range callee.Blocks {
+		for _, instruction := range block.Instrs {
+			budget--
+			if budget < 0 {
+				return nil
+			}
+			returned, ok := instruction.(*ssa.Return)
+			if !ok {
+				continue
+			}
+			if index >= len(returned.Results) {
+				return nil
+			}
+			literal, ok := returned.Results[index].(*ssa.Const)
+			if !ok || result != nil && !sameLiteral(result, literal) {
+				return nil
+			}
+			result = literal
+		}
+	}
+	return result
+}
+
+func sameLiteral(left, right *ssa.Const) bool {
+	if left.IsNil() || right.IsNil() {
+		return left.IsNil() && right.IsNil()
+	}
+	return left.Value != nil && right.Value != nil && constant.Compare(left.Value, token.EQL, right.Value)
 }
 
 // NormalReturnReachableFrom reports whether block can reach a normal return
