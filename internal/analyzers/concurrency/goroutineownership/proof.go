@@ -35,6 +35,7 @@ const (
 	reasonStopLifecycle           goroutineOwnershipReason = "stop-lifecycle"
 	reasonContextLifecycle        goroutineOwnershipReason = "context-lifecycle"
 	reasonLocallyCanceledContext  goroutineOwnershipReason = "locally-canceled-context"
+	reasonReceiverContext         goroutineOwnershipReason = "receiver-context-lifecycle"
 	reasonRelayDependency         goroutineOwnershipReason = "relay-dependency-lifecycle"
 	reasonSynctestBubbleOwner     goroutineOwnershipReason = "synctest-bubble-owner"
 	reasonCallerOrExternalOwner   goroutineOwnershipReason = "caller-or-external-owner"
@@ -198,6 +199,9 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 		}
 		if goroutineReceivesLocallyCanceledContext(analysis.pass, analysis.spawn) {
 			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLocallyCanceledContext}, true
+		}
+		if goroutineReceivesReceiverContext(analysis.pass, analysis.spawn) {
+			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonReceiverContext}, true
 		}
 	}
 	// A goroutine that completes through a caller-owned channel or wait group

@@ -140,6 +140,109 @@ func goroutineReceivesCallerContext(pass *analysis.Pass, spawn *ssa.Go) bool {
 	})
 }
 
+var contextDoneMethod = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "context", Receiver: "Context", Name: "Done"})
+
+// goroutineReceivesReceiverContext reports whether the worker, or a static
+// helper it hands the exact value to, receives from Done on a context field of
+// a caller-owned aggregate it captured or was passed, while neither the
+// spawning function nor the worker stores that field. Whoever installed the
+// context on the receiver owns its cancellation, so the worker is bounded by
+// the caller, not by this function. This is uncertainty, never a join, and a
+// worker that publishes on a channel is excluded as with every other context
+// bound: it can still block after the context is done. my-geektime's segment
+// downloader selects on d.ctx.Done() in a helper the worker calls on its
+// captured receiver:
+// https://github.com/zkep/my-geektime/blob/a614af742806cfb10f84598c71c0dd668e96549b/libs/m3u8/downloader.go#L249-L288
+func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go) bool {
+	function, closure := spawnedFunction(pass, spawn)
+	if function == nil || workerHasSend(function) || workerHandsOffOutputChannel(function) {
+		return false
+	}
+	bounded := func(local ssa.Value) bool {
+		return contextFieldReceivedAnywhere(function, local, spawn.Parent(), map[*ssa.Function]bool{})
+	}
+	for index, parameter := range function.Params {
+		if index < len(spawn.Common().Args) && ssaflow.ExternallyOwnedValue(spawn.Common().Args[index]) && bounded(parameter) {
+			return true
+		}
+	}
+	if closure == nil {
+		return false
+	}
+	for index, free := range function.FreeVars {
+		if index < len(closure.Bindings) && ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValue(closure.Bindings[index])) && bounded(free) {
+			return true
+		}
+	}
+	return false
+}
+
+func contextFieldReceivedAnywhere(function *ssa.Function, local ssa.Value, spawner *ssa.Function, seen map[*ssa.Function]bool) bool {
+	if function == nil || seen[function] {
+		return false
+	}
+	seen[function] = true
+	derives := func(value ssa.Value) bool {
+		return ssaflow.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
+	}
+	receivesContextField := func(channel ssa.Value) bool {
+		done, ok := channel.(*ssa.Call)
+		if !ok || !ssaflow.CallMatchesSymbol(done.Common(), contextDoneMethod) {
+			return false
+		}
+		field := loadedContextField(ssaflow.CallReceiver(done.Common()))
+		return field != nil && derives(field.X) && !fieldStoredIn(field, spawner) && !fieldStoredIn(field, function)
+	}
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if receivesFrom(instruction, receivesContextField) {
+				return true
+			}
+			common := ssaflow.InstructionCall(instruction)
+			if common == nil {
+				continue
+			}
+			callee, closure := ssaflow.DirectCallee(common)
+			if callee == nil {
+				continue
+			}
+			for _, pair := range ssaflow.CallBindings(common, callee, closure) {
+				if derives(pair.Supplied) && contextFieldReceivedAnywhere(callee, pair.Local, spawner, seen) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// loadedContextField returns the field address a context value was loaded
+// from, when that field is typed as the standard Context interface.
+func loadedContextField(value ssa.Value) *ssa.FieldAddr {
+	load, ok := value.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return nil
+	}
+	field, ok := load.X.(*ssa.FieldAddr)
+	if !ok || !syntax.NamedType(field.Type().(*types.Pointer).Elem(), "context", "Context") {
+		return nil
+	}
+	return field
+}
+
+// fieldStoredIn reports a visible store to the same field of any value of the
+// same type inside function: the context may then be one this function chose,
+// not one the receiver's owner installed.
+func fieldStoredIn(field *ssa.FieldAddr, function *ssa.Function) bool {
+	for _, store := range ssaflow.InstructionsOf[*ssa.Store](function) {
+		address, ok := store.Addr.(*ssa.FieldAddr)
+		if ok && address.Field == field.Field && types.Identical(address.X.Type(), field.X.Type()) {
+			return true
+		}
+	}
+	return false
+}
+
 // A locally created context can bound a worker when its exact cancellation is
 // deferred before launch or covers every later return. Cancellation is not a join; the caller uses
 // this only to decline the default context-mode diagnostic.
