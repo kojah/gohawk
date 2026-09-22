@@ -121,6 +121,8 @@ func emitResourceDecision(
 	outcome := analysisTrace.OutcomeAccepted
 	if result.report {
 		outcome = analysisTrace.OutcomeRejected
+	} else if result.reason == resourceReasonHeadAcquisition || result.reason == resourceReasonHeaderOnlyAcquisition {
+		outcome = analysisTrace.OutcomeUnknown
 	}
 	details := map[string]string{"acquisition": contract.packagePath + "." + contract.name}
 	if resource != nil && resource.Type() != nil {

@@ -12,11 +12,13 @@ type resourceLifetimePolicyResult struct {
 type resourceLifetimeReason string
 
 const (
-	resourceReasonParentCleanup       resourceLifetimeReason = "caller-owned-database-cleanup"
-	resourceReasonCanceledAcquisition resourceLifetimeReason = "context-canceled-before-acquisition"
-	resourceReasonReleaseProven       resourceLifetimeReason = "release-proven"
-	resourceReasonUnownedReturn       resourceLifetimeReason = "unowned-return"
-	resourceReasonOpaqueConsumption   resourceLifetimeReason = "opaque-consumption"
+	resourceReasonHeadAcquisition       resourceLifetimeReason = "head-body-acquisition-uncertain"
+	resourceReasonHeaderOnlyAcquisition resourceLifetimeReason = "local-header-only-body-uncertain"
+	resourceReasonParentCleanup         resourceLifetimeReason = "caller-owned-database-cleanup"
+	resourceReasonCanceledAcquisition   resourceLifetimeReason = "context-canceled-before-acquisition"
+	resourceReasonReleaseProven         resourceLifetimeReason = "release-proven"
+	resourceReasonUnownedReturn         resourceLifetimeReason = "unowned-return"
+	resourceReasonOpaqueConsumption     resourceLifetimeReason = "opaque-consumption"
 )
 
 func acceptedResourceLifetime(reason resourceLifetimeReason) resourceLifetimePolicyResult {

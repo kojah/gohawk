@@ -431,18 +431,19 @@ func instructionSettlesResourceOwnership(
 		}).Proven()
 }
 
-// functionReleasesResource reports whether the function calls one of the
-// resource's cleanup methods on it anywhere, on any path. It answers who the
-// owner is, not whether the obligation is discharged, which is the flow's
-// question.
-func functionReleasesResource(function *ssa.Function, resource ssa.Value, methods []string) bool {
-	if function == nil {
+// resourceReleaseMayFollow asks whether the caller can still claim cleanup
+// after this retaining call. Cleanup in a mutually exclusive branch does not
+// make this branch's retained writer borrowed. This does not prove coverage:
+// an error return before the reachable cleanup is still checked by the flow.
+// https://github.com/shijuvar/gokit/blob/4b5abbb8d4e6497a1eef211cb823c18b7977dde4/log/log.go#L59-L88
+func resourceReleaseMayFollow(instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
+	if instruction == nil || instruction.Parent() == nil {
 		return false
 	}
-	for _, block := range function.Blocks {
+	for _, block := range instruction.Parent().Blocks {
 		for _, candidate := range block.Instrs {
 			common := ssaflow.InstructionCall(candidate)
-			if common == nil || !slices.Contains(methods, ssaflow.CallName(common)) {
+			if common == nil || !slices.Contains(methods, ssaflow.CallName(common)) || !ssaflow.InstructionMayFollow(instruction, candidate) {
 				continue
 			}
 			if ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), resource, map[ssa.Value]bool{}) {
@@ -471,12 +472,12 @@ func callTakesResourceOwnership(
 	// file this way:
 	// https://github.com/charmbracelet/x/blob/6f6ad8b37b0af7e0765bcf38bac6aafaecb9a7d6/examples/cellbuf/main.go#L120-L126
 	// Keeping the resource is only a handover when this function does not
-	// release it itself. png.Encoder.Encode keeps the writer it is given and
+	// release it later. png.Encoder.Encode keeps the writer it is given and
 	// its summary says so, but a function that closes that writer on its
 	// success path is the owner, and the store describes a use rather than a
 	// handover; treating it as one settles the resource at the call and hides
 	// an error return that never closes it. A function that never releases the
-	// resource anywhere, as when installing it as the process-wide logger
+	// resource afterward, as when installing it as the process-wide logger
 	// sink, has no such claim and the handover stands.
 	// A receiver storing a reference to itself does not transfer its caller's
 	// obligation. Rows.Scan, for example, retains receiver-local scan state;
@@ -484,7 +485,7 @@ func callTakesResourceOwnership(
 	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
 	if !ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(receiver, resource).Proven() &&
 		evidence.ArgumentRetainedByCallee(instruction, resource) &&
-		!functionReleasesResource(instruction.Parent(), resource, methods) {
+		!resourceReleaseMayFollow(instruction, resource, methods) {
 		return true
 	}
 	transfer := ssaflow.OwnershipTransferRequest{

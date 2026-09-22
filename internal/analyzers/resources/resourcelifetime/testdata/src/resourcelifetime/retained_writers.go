@@ -24,6 +24,30 @@ func installMultiWriter(path string) error {
 	return nil
 }
 
+func installWriterOrClose(path string, install bool) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	if install {
+		log.SetOutput(file)
+		return nil
+	}
+	return file.Close()
+}
+
+func installWriterThenMaybeClose(path string, abandon bool) error {
+	file, err := os.Create(path) // want "owned resource from os.Create is not released"
+	if err != nil {
+		return err
+	}
+	log.SetOutput(file)
+	if abandon {
+		return nil
+	}
+	return file.Close()
+}
+
 func discardMultiWriter(path string) error {
 	file, err := os.Create(path) // want "owned resource from os.Create is not released"
 	if err != nil {

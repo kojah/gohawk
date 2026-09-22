@@ -194,6 +194,8 @@ func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Ins
 // something the analysis cannot see through.
 func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction) (string, bool) {
 	switch typed := instruction.(type) {
+	case *ssa.Return:
+		return "returned-logger-retains-writer", analysis.returnsRetainedLogger(typed)
 	case *ssa.Store:
 		// An owner selected from a collection may already be retained elsewhere.
 		// The local collection is not evidence that its elements are local owners.
@@ -347,6 +349,28 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 		effects := analysis.evidence.CallEffects(instruction, argument)
 		if !effects.Proven() || effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
 			return true
+		}
+	}
+	return false
+}
+
+// log.New retains its writer and exposes it again through Logger.Writer.
+// A returned logger therefore retains a reachable resource even though Logger
+// has no Close method. Classify the actual return, not construction: a later
+// error return that discards the logger still abandons its writer. Ordinary
+// buffered readers and similarly named application factories do not qualify.
+// https://github.com/ivaaaan/smug/blob/8320fb4c24d10c6303d2d1254f7eee201a4e6b9f/main.go#L64-L71
+func (analysis *resourceAnalysis) returnsRetainedLogger(returned *ssa.Return) bool {
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
+		if !ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageFunction("log", "New")) ||
+			len(call.Common().Args) == 0 || !ssaflow.SameValue(call.Common().Args[0], analysis.resource) ||
+			!ssaflow.InstructionDominates(call, returned) {
+			continue
+		}
+		for _, result := range returned.Results {
+			if ssaflow.ValueContainsValue(result, call) {
+				return true
+			}
 		}
 	}
 	return false

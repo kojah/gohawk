@@ -53,6 +53,9 @@ func evaluateResourceFlow(
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
 	errorValue := ssaflow.CallResult(call, 1)
+	if reason := httpAcquisitionBoundary(pass, call); reason != "" {
+		return acceptedResourceLifetime(reason)
+	}
 	if acquisitionContextCanceled(call) {
 		return acceptedResourceLifetime(resourceReasonCanceledAcquisition)
 	}
@@ -195,6 +198,15 @@ func returnedResourceOwner(pass *analysis.Pass, returned *ssa.Return, resource s
 	for _, result := range returned.Results {
 		if !ssaflow.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
 			continue
+		}
+		// Narrowing an interface preserves its dynamic object, including Close:
+		// the caller can still recover io.Closer by assertion. Require the
+		// unchanged cleanup-bearing projection, not a transformed reader or a
+		// replacement body that merely occupies the original field.
+		// https://github.com/lich0821/ccNexus/blob/55887d232555f94ea4db621a5a7e65430eebf0d7/internal/transformer/tool_chain.go#L121-L135
+		if original, changed := ssaflow.UnwrapTransparentValue(result, ssaflow.TransparentChangeInterface); changed &&
+			ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Projection(original, resource, returned).Proven() {
+			result = original
 		}
 		// A returned view is summarized as releasing nothing, whatever its
 		// method names suggest; the caller of this function cannot close the
