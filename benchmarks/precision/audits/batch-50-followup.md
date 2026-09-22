@@ -6,6 +6,10 @@ removals, 19 of the original 55 false positives have correction evidence;
 **36 remain unresolved**. The original finding ledger is unchanged.
 Implementation commit: `393351c`.
 
+Subsequent [complete review of all 36 remaining sites](batch-50-remaining.md)
+adds 11 verified corrections, leaving 25 unresolved. The counts below describe
+this earlier implementation, not the latest total.
+
 ## Corrected boundaries
 
 | Repository | Finding | Correction and deliberate limit |

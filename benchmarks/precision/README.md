@@ -113,6 +113,12 @@ claim, because the code that made it no longer ships.
 
 ## Which check a label names
 
+Round 54 records the complete remaining-site review from batch 50: uncertain
+channel regions and worker-specific guards, plus retained aggregate owners.
+Neffos's loaded-guard correction is separately root-package replayed because
+its unrelated example modules cannot load in the whole-repository harness.
+See `audits/batch-50-remaining.md` for all 36 dispositions and validation scope.
+
 A label records the check that earned it, not only the analyzer, because an
 analyzer holds checks in different tiers. Ninety-nine labels were filled in
 from analyzers that hold exactly one check, where the answer is a lookup

@@ -1652,6 +1652,12 @@ removals using existing machinery. Nineteen original FP locations now have
 correction evidence; 36 remain unresolved. Round 53 passes 14 FP labels,
 including six earlier Nylon corrections, and 11 true-positive controls.
 
+The [complete remaining-site review](batch-50-remaining.md) reviews all 36
+together and adds 11 bounded corrections, for 30 corrected original locations
+and 25 unresolved. Its per-site ledger separates review from verified fixes.
+Round 54 passes seven FP and ten TP labels; Neffos has a separate root-package
+replay because unrelated example modules cannot load in the full harness.
+
 ## Audit summary
 
 Five hundred repositories were reviewed across forty-six batches. The
