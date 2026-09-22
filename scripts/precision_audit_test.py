@@ -1,3 +1,4 @@
+import csv
 import importlib.util
 import json
 from pathlib import Path
@@ -101,6 +102,24 @@ class PrecisionAuditTest(unittest.TestCase):
              patch.object(AUDIT.REPLAY, "run", return_value=result):
             _, _, errors = AUDIT.REPLAY.scan(Path("binary"), "owner/repo", self.root)
         self.assertEqual(errors, ["analysis command failed in . (exit 1): failed package"])
+
+    def test_regression_stamp_requires_scannable_false_positive(self):
+        (self.root / "repositories.tsv").write_text(f"owner/repo\t{SHA}\n")
+        labels = self.root / "labels.csv"
+        header = "repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at\n"
+        row = "owner/repo,lockorder,lockorder/example,main.go:3:1,false_positive,old,2026-01-01\n"
+        for errors, expected_revision in [(["package failed"], "old"), ([], "new")]:
+            with self.subTest(errors=errors):
+                labels.write_text(header + row)
+                arguments = ["precision-regression", str(self.root), "--gohawk", "binary", "--stamp"]
+                with patch("sys.argv", arguments), \
+                     patch.object(AUDIT.REPLAY, "checkout_repository", return_value=self.root), \
+                     patch.object(AUDIT.REPLAY, "current_revision", return_value="new"), \
+                     patch.object(AUDIT.REPLAY, "scan", return_value=(set(), {}, errors)):
+                    AUDIT.REPLAY.main()
+                with labels.open(newline="") as source:
+                    stamped = next(csv.DictReader(source))
+                self.assertEqual(stamped["gohawk_revision"], expected_revision)
 
 
 if __name__ == "__main__":

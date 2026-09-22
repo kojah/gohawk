@@ -552,7 +552,9 @@ def main() -> None:
         if args.require_scannable and unscannable:
             raise SystemExit(1)
         if args.stamp:
-            held = ((false_positives - findings) | (true_positives & findings)) - set(blocked)
+            # An absent diagnostic in an unloadable repository is not a
+            # confirmed correction and must not refresh its provenance.
+            held = ((false_positives - findings) | (true_positives & findings)) - set(blocked) - set(blocked_noise)
             revision = scanned_revision
             print(f"stamped {stamp_labels(cohort, labels, held, revision, checks)} holding labels at {revision}")
         if returned_noise or lost_signal:
