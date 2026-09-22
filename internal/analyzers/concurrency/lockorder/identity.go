@@ -187,7 +187,24 @@ func structField(value types.Type, index int) *types.Var {
 // a local, a parameter, or a dynamically selected mutex. Those keep instance
 // identity, so this widening never makes an existing comparison less exact.
 func lockClassOf(value ssa.Value) string {
+	// A known local mutex allocation retains its instance identity even when
+	// stored in an owner field. Replacing that witness with the field's class
+	// merges construction-time locking with unrelated established instances.
+	// Cross-function ordering after publication of this allocation is unknown.
+	// https://github.com/ozontech/file.d/blob/5379bc2005906fde3aa0a05f6bf574dcd7111404/plugin/input/file/provider.go#L404-L477
+	if localMutexAllocation(value) != nil {
+		return ""
+	}
 	return lockClass(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value)
+}
+
+func localMutexAllocation(value ssa.Value) *ssa.Alloc {
+	resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(value)
+	if !resolved.Proven() {
+		return nil
+	}
+	allocation, _ := resolved.Value.(*ssa.Alloc)
+	return allocation
 }
 
 func lockClass(walk ssaflow.ReachingWalk, value ssa.Value) string {
@@ -257,6 +274,14 @@ func globalRooted(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 // falls back to its class and becomes comparable. Where no class exists the
 // instance identity stands, which compares only within one function.
 func lockComparisonKey(identity string, receiver ssa.Value) string {
+	if allocation := localMutexAllocation(receiver); allocation != nil {
+		// One loop allocation instruction represents different runtime locks;
+		// its SSA name must not connect ordering edges between iterations.
+		if ssaflow.BlockInCycle(allocation.Block()) {
+			return ""
+		}
+		return identity
+	}
 	if globalRootedLock(receiver) {
 		return identity
 	}

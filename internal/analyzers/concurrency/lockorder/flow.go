@@ -145,7 +145,7 @@ func walkLockOrder(
 			held, readHeld, guards = actionState.held, actionState.readHeld, actionState.guards
 			deferred = actionState.deferred
 		}
-		return lockSuccessorStates(pass, state.block, held, readHeld, deferred, guards, origins), true
+		return lockSuccessorStates(pass, state.block, state.predecessor, held, readHeld, deferred, guards, origins), true
 	})
 	// A lock is reported only when some path releases it and another returns
 	// with it held: a lock never released anywhere is either transferred to a
@@ -514,41 +514,37 @@ func (flow lockFlowContext) applyMutexAction(
 
 func lockSuccessorStates(
 	pass *analysis.Pass,
-	block *ssa.BasicBlock,
+	block, predecessor *ssa.BasicBlock,
 	held, readHeld, deferred []string,
 	guards map[string]lockGuard,
 	origins map[string]lockAcquisition,
 ) []lockFlowState {
 	states := make([]lockFlowState, 0, len(block.Succs))
+	// A local release flag can merge true and false after only one branch
+	// unlocked. Preserve the incoming edge for the shared constant-phi query;
+	// exploring both values invents a still-held return on the released path.
+	// This does not retain Boolean facts across blocks or solve guard relations.
+	// https://github.com/enetx/surf/blob/7da0502899af06f8318f95e632797cb2ac0c6c20/pkg/connectproxy/connectproxy.go#L256-L294
+	feasible := ssaflow.FeasibleSuccessors(block, predecessor)
 	for index, successor := range block.Succs {
+		if !slices.Contains(feasible, successor) {
+			traceInfeasibleLockBranch(pass, block, "predecessor-constant-branch-infeasible")
+			continue
+		}
 		nextCondition, nextValue := "", false
 		if condition, ok := blockCondition(block); ok && len(block.Succs) == 2 {
 			nextCondition, nextValue = condition, index == 0
 			if guardConflicts(held, guards, condition, nextValue) {
-				traceRepeatedConditionPruning(pass, block)
+				traceInfeasibleLockBranch(pass, block, "repeated-condition-infeasible")
 				continue
 			}
 		}
 		states = append(states, lockFlowState{
-			block: successor, held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
+			block: successor, predecessor: block, held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
 			condition: nextCondition, conditionValue: nextValue,
 		})
 	}
 	return states
-}
-
-func traceRepeatedConditionPruning(pass *analysis.Pass, block *ssa.BasicBlock) {
-	checkID := string(check.LockMissingRelease)
-	if !analysisTrace.Enabled("lockorder", checkID) || len(block.Instrs) == 0 {
-		return
-	}
-	branch := block.Instrs[len(block.Instrs)-1]
-	analysisTrace.For(pass, "lockorder", checkID, branch.Pos()).Evidence(analysisTrace.Step{
-		Reason:   "repeated-condition-infeasible",
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      branch.Pos(),
-		Function: branch.Parent().String(),
-	})
 }
 
 // mayRelease reports whether the call releases the lock on at least one path.

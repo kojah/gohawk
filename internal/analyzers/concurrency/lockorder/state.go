@@ -8,12 +8,19 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
 func lockStateKey(state lockFlowState) string {
+	predecessor := -1
+	if state.predecessor != nil {
+		predecessor = state.predecessor.Index
+	}
 	var origins strings.Builder
 	for _, identity := range state.held {
 		origin := state.origins[identity]
@@ -25,8 +32,9 @@ func lockStateKey(state lockFlowState) string {
 	}
 	slices.Sort(guards)
 	return fmt.Sprintf(
-		"%d:%s:%s:%s:%s:%s=%t:%s",
+		"%d:%d:%s:%s:%s:%s:%s=%t:%s",
 		state.block.Index,
+		predecessor,
 		strings.Join(state.held, ","),
 		strings.Join(state.readHeld, ","),
 		strings.Join(state.deferred, ","),
@@ -111,4 +119,22 @@ func conditionOperandIdentity(value ssa.Value) string {
 	default:
 		return fmt.Sprintf("%T:%p", value, value)
 	}
+}
+
+func traceInfeasibleLockBranch(pass *analysis.Pass, block *ssa.BasicBlock, reason string) {
+	checkID := string(check.LockMissingRelease)
+	if !analysisTrace.Enabled("lockorder", checkID) || len(block.Instrs) == 0 {
+		return
+	}
+	branch := block.Instrs[len(block.Instrs)-1]
+	position := branch.Pos()
+	if position == token.NoPos {
+		position = branch.Parent().Pos()
+	}
+	analysisTrace.For(pass, "lockorder", checkID, position).Evidence(analysisTrace.Step{
+		Reason:   reason,
+		Outcome:  analysisTrace.OutcomeAccepted,
+		Pos:      position,
+		Function: branch.Parent().String(),
+	})
 }

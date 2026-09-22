@@ -16,9 +16,10 @@ type lockRelation struct {
 }
 
 type lockFlowState struct {
-	block   *ssa.BasicBlock
-	held    []string
-	origins map[string]lockAcquisition
+	block       *ssa.BasicBlock
+	predecessor *ssa.BasicBlock
+	held        []string
+	origins     map[string]lockAcquisition
 	// readHeld is the subset of held taken with RLock. A read lock grants
 	// read access only, so a write while one is held is a race with any other
 	// reader; tracking the mode separately keeps the rest of the walk, which

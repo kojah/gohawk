@@ -42,6 +42,12 @@ against the declaration: taking one field before another in one place and the
 reverse elsewhere leaves the program without a consistent order, even where
 today's callers happen to pass different objects.
 
+When local storage proves that a field holds a particular locally allocated
+mutex, that allocation keeps its instance identity rather than inheriting the
+field's declaration class. This prevents construction-time locking from being
+merged with locking of unrelated established objects. Cross-function ordering
+after such an allocation is published can consequently be missed.
+
 Two locks of the same declaration are not compared. Whether
 `transfer(from, to *Account)` conflicts with a caller passing the same pair in
 the other order depends on the objects involved, and nothing in the code
@@ -86,6 +92,12 @@ Passing an unlock callback to another consumer, or storing it in an owner's
 field, makes the prior held-lock state unknown. It does not prove the callback
 runs or that the protocol is live. Registering a deferred acquisition also does
 not establish that the lock is held in the function body.
+
+The flow preserves the incoming control-flow edge when a merged local flag
+selects a constant. A path that already released a lock is not combined with
+the flag value from a different predecessor. This uses the shared local branch
+feasibility query; it does not infer relations between flags across blocks or
+solve arbitrary conditional lock protocols.
 
 A cycle is suppressed when every edge has the same exact package-global
 exclusive mutex held as a guard. This is intentionally narrower than matching

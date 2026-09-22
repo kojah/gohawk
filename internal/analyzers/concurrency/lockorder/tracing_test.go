@@ -47,6 +47,7 @@ func TestLockTraceBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkLongerCycleTrace(t, data)
+	checkPredecessorTrace(t, data)
 	found := false
 	foundUnknown := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
@@ -76,6 +77,27 @@ func TestLockTraceBoundaries(t *testing.T) {
 	}
 	if !foundUnknown {
 		t.Error("missing optional mutex uncertainty")
+	}
+}
+
+func checkPredecessorTrace(t *testing.T, data []byte) {
+	t.Helper()
+	found := false
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+		var event lockTraceEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		if event.Reason != "predecessor-constant-branch-infeasible" || !strings.Contains(event.Candidate, "computed_guard.go:") {
+			continue
+		}
+		found = true
+		if event.Phase != "evidence" || event.Outcome != "accepted" || event.Position != event.Candidate {
+			t.Errorf("invalid predecessor feasibility evidence: %+v", event)
+		}
+	}
+	if !found {
+		t.Error("missing predecessor feasibility evidence")
 	}
 }
 

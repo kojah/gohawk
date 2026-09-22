@@ -2,6 +2,62 @@ package lockorder
 
 import "sync"
 
+// A field storing a fresh mutex does not turn that allocation into the same
+// runtime lock as every other value stored in the field. Cross-function
+// ordering after publication of a local allocation is deliberately unknown.
+type allocatedClassLock struct{ mu *sync.Mutex }
+
+var allocationGuard sync.Mutex
+
+func allocateClassLock() *allocatedClassLock {
+	allocationGuard.Lock()
+	defer allocationGuard.Unlock()
+	owner := &allocatedClassLock{mu: &sync.Mutex{}}
+	owner.mu.Lock()
+	owner.mu.Unlock()
+	return owner
+}
+
+func reverseAllocatedClass(owner *allocatedClassLock) {
+	owner.mu.Lock()
+	defer owner.mu.Unlock()
+	allocationGuard.Lock()
+	allocationGuard.Unlock()
+}
+
+func sameLocalAllocationInversion(reverse bool) {
+	owner := &allocatedClassLock{mu: &sync.Mutex{}}
+	var other sync.Mutex
+	if reverse {
+		owner.mu.Lock()
+		other.Lock()
+		other.Unlock()
+		owner.mu.Unlock()
+		return
+	}
+	other.Lock()
+	owner.mu.Lock() // want "contradictory lock order: .*"
+	owner.mu.Unlock()
+	other.Unlock()
+}
+
+func separateLoopAllocations(reverse bool) {
+	for range 2 {
+		owner := &allocatedClassLock{mu: &sync.Mutex{}}
+		if reverse {
+			owner.mu.Lock()
+			allocationGuard.Lock()
+			allocationGuard.Unlock()
+			owner.mu.Unlock()
+			continue
+		}
+		allocationGuard.Lock()
+		owner.mu.Lock()
+		owner.mu.Unlock()
+		allocationGuard.Unlock()
+	}
+}
+
 // Lock classes: contradictory-order compares the declaration a mutex lives in
 // when its instance identity is confined to one function. Package variables
 // keep instance identity and are covered in lockorder.go.
