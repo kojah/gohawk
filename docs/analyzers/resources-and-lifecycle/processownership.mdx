@@ -34,6 +34,13 @@ explicit `Wait` followed by process termination is also outside the normal-retur
 completion proof. Locally stored command fields are resolved at acquisition when
 checking whether a returned value owner contains the command.
 
+Commands supplied by helpers, including `(command, error)` factories and
+interface calls, have uncertain ownership. The check does not assume their
+caller is the only possible wait owner. This can miss genuine leaks when a
+factory actually returns an exclusively owned command; it is not proof that
+the factory registered cleanup. Direct `exec.Command` and `exec.CommandContext`
+acquisitions remain checked.
+
 A `Wait` receiver merged from several commands is also uncertain when one
 possible receiver is the started command. This avoids inventing a missing wait
 when a failed `Start` selects a fallback command. It does not prove that a

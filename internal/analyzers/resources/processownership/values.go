@@ -41,6 +41,13 @@ func commandReturnedByHelper(command ssa.Value) bool {
 
 func commandReturnedByHelperLeaf(walk ssaflow.ReachingWalk, command ssa.Value) bool {
 	switch typed := command.(type) {
+	case *ssa.Extract:
+		// Tuple-returning factories carry the same uncertain ownership as
+		// single-result factories. Only follow an actual call result, not an
+		// arbitrary tuple-producing operation.
+		// https://github.com/mutagen-io/mutagen/blob/6ccfeaaf4dfd261e59ef9aac56e3c157b62e605b/pkg/agent/dial.go#L80-L118
+		_, called := typed.Tuple.(*ssa.Call)
+		return called && walk.Any(typed.Tuple, commandReturnedByHelperLeaf)
 	case *ssa.Call:
 		return !ssaflow.CallMatchesAnySymbol(
 			typed.Common(),

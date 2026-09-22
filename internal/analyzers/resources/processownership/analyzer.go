@@ -39,7 +39,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				evidence.ForCandidate(start.Pos())
-				if commandOwnedElsewhere(evidence, function, start, command) {
+				if commandOwnedElsewhere(pass, evidence, function, start, command) {
 					continue
 				}
 				reportStartedCommand(pass, evidence, function, start, command)
@@ -62,7 +62,9 @@ func startedCommand(instruction ssa.Instruction) (*ssa.Call, ssa.Value, bool) { 
 // commandOwnedElsewhere reports whether the started command's Wait
 // responsibility provably or possibly lies outside this function, so the
 // flow after Start is not asked about it.
-func commandOwnedElsewhere(evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, start *ssa.Call, command ssa.Value) bool {
+func commandOwnedElsewhere(
+	pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, start *ssa.Call, command ssa.Value,
+) bool {
 	owners := processOwnersRegisteredBefore(function, start, command)
 	// A helper returning *exec.Cmd may already have registered cleanup
 	// or wait ownership. Without interprocedural evidence either way,
@@ -70,6 +72,9 @@ func commandOwnedElsewhere(evidence *lifecyclefacts.LifecycleEvidence, function 
 	// command construction and returns the started command in binaryIO:
 	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/cmd/containerd-shim-runc-v2/process/io.go#L288-L330
 	if commandReturnedByHelper(command) {
+		analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos()).Decision(analysisTrace.Step{
+			Reason: "helper-command-ownership-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: start.Pos(),
+		})
 		return true
 	}
 	// Caller retains a parameter command after this helper returns, so
