@@ -61,6 +61,19 @@ type spawnAnalysis struct {
 	// when a reader will see it.
 	tracing    bool
 	considered []goroutineOwnershipReason
+	// probe attributes shared-engine give-ups to this spawn; it is inert when
+	// the spawn is not being traced, so the budgets it observes stay silent.
+	probe analysisTrace.Probe
+}
+
+// spawnQueryBudget bounds each shared storage or origin query a spawn proof
+// asks; exhaustion is unknown evidence, never a join or a leak.
+const spawnQueryBudget = 1000
+
+// budget scopes one shared query to this spawn's proof so the storage,
+// summary, and completion give-ups inside it reach the trace.
+func (analysis *spawnAnalysis) budget() *ssaflow.SearchBudget {
+	return ssaflow.NewSearchBudget(spawnQueryBudget).Observed(analysis.probe.Observer())
 }
 
 func newSpawnAnalysis(
@@ -96,6 +109,7 @@ func newSpawnAnalysis(
 	}
 	analysis.checkID = check.GoroutineJoin
 	analysis.tracing = analysisTrace.Enabled("goroutineownership", string(analysis.checkID))
+	analysis.probe = analysisTrace.For(pass, "goroutineownership", string(analysis.checkID), spawn.Pos())
 	return analysis
 }
 

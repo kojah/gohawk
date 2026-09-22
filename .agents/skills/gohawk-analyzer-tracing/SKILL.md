@@ -34,6 +34,10 @@ a second Boolean decision path purely for tracing.
   and did not hold.
 - Emit exactly one final `decision` from the proof's outcome and reason.
 - Emit `fix` when suggested-edit availability or rejection needs explanation.
+- Let the shared engine report its own give-ups: build the budgets a
+  candidate's queries share with `ssaflow.NewSearchBudget(n).Observed(probe.Observer())`.
+  `ssaflow` never imports the tracer; it reports through the budget's
+  observer, and a disabled probe attaches nothing, so this is free when off.
 
 Prefer a structured proof with an outcome and reason code. Map that outcome to
 `trace.OutcomeAccepted`, `trace.OutcomeRejected`, or `trace.OutcomeUnknown`;

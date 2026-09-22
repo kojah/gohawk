@@ -375,6 +375,24 @@ func (probe Probe) Candidate(step Step) { probe.emit("candidate", step) }
 // reader can see which suppressions were tried before the reported reason won.
 func (probe Probe) Considered(step Step) { probe.emit("considered", step) }
 
+// Observe records a give-up reported by a shared proof: the reason the proof
+// stopped, where, and what blocked it. Its signature uses only primitives so
+// ssaflow's Observer can be satisfied by this method value without importing
+// the tracer.
+func (probe Probe) Observe(reason string, at token.Pos, details map[string]string) {
+	probe.emit("evidence", Step{Reason: reason, Outcome: OutcomeUnknown, Pos: at, Details: details})
+}
+
+// Observer returns Observe as a plain function when the probe is enabled and
+// nil otherwise, so a budget attached to a disabled probe stays silent and
+// builds no details.
+func (probe Probe) Observer() func(reason string, at token.Pos, details map[string]string) {
+	if !probe.enabled {
+		return nil
+	}
+	return probe.Observe
+}
+
 func (probe Probe) emit(phase string, step Step) {
 	if !probe.enabled {
 		return

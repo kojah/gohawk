@@ -19,8 +19,16 @@ import (
 // resource flow; no separate cleanup or reporting decision is made here.
 
 func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call) resourceLifetimeReason {
-	if headAcquisitionUncertain(call) {
+	head := headAcquisition(call)
+	if head.State == ssaflow.EvidenceUnknown && head.Reason != "" {
 		return resourceReasonHeadAcquisition
+	}
+	if head.Reason != "" {
+		// The rule applied to a Client.Do and declined; say which input failed
+		// so a trace of the site does not need the source to explain it.
+		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()).Considered(analysisTrace.Step{
+			Reason: string(head.Reason), Outcome: analysisTrace.OutcomeRejected, Pos: call.Pos(), Function: call.Parent().String(),
+		})
 	}
 	proof := localHeaderOnlyAcquisition(call)
 	if proof.Reason != "" {
@@ -53,12 +61,37 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call) resourceLifeti
 // https://github.com/vishen/go-chromecast/blob/5dd70bb91787fe28e3d8946682c66cb2a1d61d21/application/application.go#L723-L732
 // https://github.com/alexellis/arkade/blob/0a0a800fd7554d4eddb1856f9ef8a21214e95bab/pkg/get/get.go#L236-L244
 // https://github.com/deweizhu/bookget/blob/2cdbf6d6c3ce70355a5c4411c0faf3450e9ae877/pkg/downloader/downloader.go#L510-L522
-func headAcquisitionUncertain(call *ssa.Call) bool {
+func headAcquisition(call *ssa.Call) ssaflow.Proof {
 	common := call.Common()
 	if !ssaflow.CallMatchesSymbol(common, httpClientDo) || len(common.Args) != 2 {
-		return false
+		return ssaflow.Proof{}
 	}
-	return headClientUnconfigured(common.Args[0], call.Parent()) && headRequest(common.Args[1])
+	// A request that never came from a HEAD constructor is outside this rule,
+	// so it stays silent; the rule explains itself only when it applied.
+	if !headConstructed(common.Args[1]) {
+		return ssaflow.Proof{}
+	}
+	if !headRequest(common.Args[1]) {
+		return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: "head-request-modified"}
+	}
+	if !headClientUnconfigured(common.Args[0], call.Parent()) {
+		return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: "head-client-not-unconfigured"}
+	}
+	return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceReason(resourceReasonHeadAcquisition)}
+}
+
+// headConstructed reports whether the request traces back, through rebinding
+// calls only, to a HEAD constructor. It asks nothing about the uses in between.
+func headConstructed(request ssa.Value) bool {
+	switch typed := request.(type) {
+	case *ssa.Extract:
+		constructor, ok := typed.Tuple.(*ssa.Call)
+		return ok && typed.Index == 0 && headConstructor(constructor.Common())
+	case *ssa.Call:
+		return ssaflow.CallMatchesAnySymbol(typed.Common(), httpRequestWithContext, httpRequestClone) &&
+			headConstructed(ssaflow.CallReceiver(typed.Common()))
+	}
+	return false
 }
 
 var (

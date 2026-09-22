@@ -170,7 +170,7 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 					return true
 				}
 				imported, ok := importFact(pass, instruction)
-				return ok && factOwnsArgument(instruction, parameter, imported.MethodMask(method))
+				return ok && factOwnsArgument(instruction, parameter, imported.MethodMask(method), nil)
 			}) {
 				*target |= bit
 			}

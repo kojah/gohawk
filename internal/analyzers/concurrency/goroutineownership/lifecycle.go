@@ -72,7 +72,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
 	if analysis.relayGroup == nil || analysis.config.mode == goroutineModeJoin {
 		return false
 	}
-	budget := ssaflow.NewSearchBudget(1000)
+	budget := analysis.budget()
 	for _, block := range analysis.function.Blocks {
 		for _, instruction := range block.Instrs {
 			if !budget.Spend() {

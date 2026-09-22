@@ -1,6 +1,10 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	"strings"
+
+	"golang.org/x/tools/go/ssa"
+)
 
 // CompletionRequest asks whether the callee launched by Instruction calls one
 // of Methods on Target. The instruction's launch form decides the coverage
@@ -60,15 +64,29 @@ func ProveCompletion(request CompletionRequest) CompletionProof {
 		incomplete = incomplete || *search.incomplete
 	}
 	if !searched {
-		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
+		return request.giveUp(CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}})
 	}
 	if request.Budget.Exhausted() {
 		// The walk stopped early, so a missing completion is not evidence that
 		// the callee fails to complete the target.
-		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceBudgetExhausted, Provenance: EvidenceFromLocalSSA}}
+		return request.giveUp(CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceBudgetExhausted, Provenance: EvidenceFromLocalSSA}})
 	}
 	if incomplete {
-		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable, Provenance: EvidenceFromLocalSSA}}
+		return request.giveUp(CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable, Provenance: EvidenceFromLocalSSA}})
 	}
-	return CompletionProof{Proof{State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA}}
+	return request.giveUp(CompletionProof{Proof{State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA}})
+}
+
+// giveUp reports a completion search that proved nothing to the budget's
+// observer, naming the launch site, the target, and the methods sought, and
+// returns the proof unchanged.
+func (request CompletionRequest) giveUp(proof CompletionProof) CompletionProof {
+	request.Budget.observe(proof.Reason, request.Instruction.Pos(), func() map[string]string {
+		details := map[string]string{"instruction": request.Instruction.String(), "target": request.Target.Name()}
+		if len(request.Methods) != 0 {
+			details["methods"] = strings.Join(request.Methods, ",")
+		}
+		return details
+	})
+	return proof
 }

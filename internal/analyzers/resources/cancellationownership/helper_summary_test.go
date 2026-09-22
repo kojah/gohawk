@@ -12,7 +12,7 @@ var saved func()
 func consume(first, second func()) { first(); saved = second }
 func forward(first, second func()) { consume(first, second) }
 `)
-	search := newCancellationUse()
+	search := newCancellationUse(nil)
 	for _, name := range []string{"forward", "consume"} {
 		function := pkg.Func(name)
 		for _, parameter := range []int{0, 1, 0} {

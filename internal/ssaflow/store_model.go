@@ -40,7 +40,7 @@ type storageLocation struct {
 // This preserves a saved value when its original cell is subsequently changed.
 func (storage *Storage) Resolve(value ssa.Value) StoredValue {
 	if value == nil || !storage.budget.Spend() {
-		return storage.unknown()
+		return storage.unknown(EvidenceUnavailable, nil)
 	}
 	if inner, ok := UnwrapTransparentValue(value,
 		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface); ok {
@@ -63,10 +63,16 @@ func (storage *Storage) Same(left, right ssa.Value) IdentityProof {
 		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}}
 	}
 	a, b := storage.Resolve(left), storage.Resolve(right)
-	if a.Proven() && b.Proven() && DefinitelySameValue(a.Value, b.Value) {
+	if !a.Proven() {
+		return IdentityProof{a.Proof}
+	}
+	if !b.Proven() {
+		return IdentityProof{b.Proof}
+	}
+	if DefinitelySameValue(a.Value, b.Value) {
 		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}}
 	}
-	return IdentityProof{storage.unknown().Proof}
+	return IdentityProof{storage.unknown(EvidenceStoredValuesDiffer, nil).Proof}
 }
 
 // Content returns the value agreed on by every reaching write. Conflicting
@@ -74,17 +80,34 @@ func (storage *Storage) Same(left, right ssa.Value) IdentityProof {
 // after observation do not invalidate an earlier snapshot.
 func (storage *Storage) Content(address ssa.Value, observation ssa.Instruction) StoredValue {
 	location, ok := storage.location(address)
-	if !ok || observation == nil || location.root.Parent() != observation.Parent() {
-		return storage.unknown()
+	if !ok {
+		return storage.unknown(EvidenceStorageNotLocal, observation)
+	}
+	if observation == nil || location.root.Parent() != observation.Parent() {
+		return storage.unknown(EvidenceStorageOutsideFunction, observation)
 	}
 	return storage.content(location, observation)
 }
 
-func (storage *Storage) unknown() StoredValue {
-	reason := EvidenceUnavailable
+// unknown is the single give-up point of every storage query. It names the
+// cause, so the proof a caller prints says which write, use, or merge stopped
+// it, and reports that cause with the blocking instruction to whoever is
+// observing the budget. An exhausted budget overrides the cause: the query was
+// cut short, not decided.
+func (storage *Storage) unknown(reason EvidenceReason, at ssa.Instruction) StoredValue {
 	if storage.budget.Exhausted() {
 		reason = EvidenceBudgetExhausted
 	}
+	var position token.Pos
+	if at != nil {
+		position = at.Pos()
+	}
+	storage.budget.observe(reason, position, func() map[string]string {
+		if at == nil {
+			return nil
+		}
+		return map[string]string{"instruction": at.String()}
+	})
 	return StoredValue{Proof: Proof{State: EvidenceUnknown, Reason: reason}}
 }
 
@@ -114,8 +137,8 @@ func (storage *Storage) location(value ssa.Value) (storageLocation, bool) {
 
 func (storage *Storage) content(location storageLocation, observation ssa.Instruction) StoredValue {
 	var stores []*ssa.Store
-	if !storage.collect(location.root, observation, &stores, false) {
-		return storage.unknown()
+	if blocked, ok := storage.collect(location.root, observation, &stores, false); !ok {
+		return storage.unknown(EvidenceStorageAddressEscapes, blocked)
 	}
 	return storage.reachingContent(location, observation, stores)
 }
@@ -128,11 +151,12 @@ func (storage *Storage) projectStored(value ssa.Value, suffix string) StoredValu
 	}
 	load, ok := value.(*ssa.UnOp)
 	if !ok || load.Op != token.MUL {
-		return storage.unknown()
+		source, _ := value.(ssa.Instruction)
+		return storage.unknown(EvidenceStorageProjectionNotLoad, source)
 	}
 	location, ok := storage.location(load.X)
 	if !ok {
-		return storage.unknown()
+		return storage.unknown(EvidenceStorageNotLocal, load)
 	}
 	location.path += suffix
 	return storage.content(location, load)
@@ -140,48 +164,52 @@ func (storage *Storage) projectStored(value ssa.Value, suffix string) StoredValu
 
 // Walk address uses, not pointee uses. Calling Close on a pointer loaded from
 // a field cannot replace that field, whereas passing &field to a call can.
-func (storage *Storage) collect(address ssa.Value, observation ssa.Instruction, stores *[]*ssa.Store, whole bool) bool {
+// On failure the returned instruction is the use the query could not see
+// through, or nil when the budget ran out.
+func (storage *Storage) collect(address ssa.Value, observation ssa.Instruction, stores *[]*ssa.Store, whole bool) (ssa.Instruction, bool) {
 	if address.Referrers() == nil {
-		return false
+		return nil, false
 	}
 	for _, use := range *address.Referrers() {
 		if !storage.budget.Spend() {
-			return false
+			return nil, false
 		}
 		if use == observation || !whole && !InstructionMayFollow(use, observation) {
 			continue
 		}
-		if !storage.collectUse(address, use, observation, stores, whole) {
-			return false
+		if blocked, ok := storage.collectUse(address, use, observation, stores, whole); !ok {
+			return blocked, false
 		}
 	}
-	return true
+	return nil, true
 }
 
-func (storage *Storage) collectUse(address ssa.Value, use, observation ssa.Instruction, stores *[]*ssa.Store, whole bool) bool {
-	switch use := use.(type) {
+func (storage *Storage) collectUse(address ssa.Value, use, observation ssa.Instruction, stores *[]*ssa.Store, whole bool) (ssa.Instruction, bool) {
+	switch typed := use.(type) {
 	case *ssa.DebugRef:
-		return true
+		return nil, true
 	case *ssa.FieldAddr, *ssa.IndexAddr:
-		return storage.collect(use.(ssa.Value), observation, stores, whole)
+		return storage.collect(typed.(ssa.Value), observation, stores, whole)
 	case *ssa.UnOp:
-		return use.Op == token.MUL
+		return use, typed.Op == token.MUL
 	case *ssa.Store:
-		if use.Addr != address {
-			return false
+		if typed.Addr != address {
+			return use, false
 		}
-		*stores = append(*stores, use)
-		return true
+		*stores = append(*stores, typed)
+		return nil, true
 	case *ssa.MakeClosure:
-		return callbackCaptureReadOnly(use, address, storage.budget)
+		return use, callbackCaptureReadOnly(typed, address, storage.budget)
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
-		return storage.effects.Call(use, address).PreservesStorage()
+		return use, storage.effects.Call(use, address).PreservesStorage()
 	case *ssa.Slice:
-		if callbackSliceOnlyObserved(use, observation, storage.budget) {
-			return true
+		if callbackSliceOnlyObserved(typed, observation, storage.budget) {
+			return nil, true
 		}
-		_, known := storage.arrayView(use)
-		return known && storage.collect(use, observation, stores, whole)
+		if _, known := storage.arrayView(typed); !known {
+			return use, false
+		}
+		return storage.collect(typed, observation, stores, whole)
 	}
-	return false
+	return use, false
 }

@@ -189,7 +189,7 @@ func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *
 func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaflow.ReachingWalk, ssa.Value) bool {
 	evidence := lifecyclefacts.NewLifecycleEvidence(analysis.pass, "goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
-	budget := ssaflow.NewSearchBudget(1000)
+	budget := analysis.budget()
 	storage := ssaflow.NewStorage(budget)
 	identity := receiver
 	// A nested worker captures an interface cell while its parent's deferred
@@ -256,7 +256,7 @@ func (analysis *spawnAnalysis) spawnedPipePeers() []trackedValue {
 		return nil
 	}
 	var peers []trackedValue
-	budget := ssaflow.NewSearchBudget(1000)
+	budget := analysis.budget()
 	storage := ssaflow.NewStorage(budget)
 	var find func(ssaflow.ReachingWalk, ssa.Value) bool
 	find = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {

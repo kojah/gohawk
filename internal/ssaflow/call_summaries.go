@@ -1,6 +1,10 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	"go/token"
+
+	"golang.org/x/tools/go/ssa"
+)
 
 // Function summaries compose analyzer-defined evidence, not a universal effect
 // language. An ordered protocol and a set of lock-acquisition witnesses need
@@ -18,6 +22,39 @@ const (
 	// SummaryBudgetExhausted means the query exceeded its shared work budget.
 	SummaryBudgetExhausted
 )
+
+// evidence names the give-up for observers and proofs.
+func (reason SummaryUnavailable) evidence() EvidenceReason {
+	switch reason {
+	case SummaryRecursive:
+		return EvidenceSummaryRecursive
+	case SummaryBudgetExhausted:
+		return EvidenceBudgetExhausted
+	case SummaryBodyUnavailable:
+	}
+	return EvidenceSummaryBodyUnavailable
+}
+
+// observeUnavailable reports a summary give-up to the budget's observer with
+// the function it concerned. It reports nothing when nobody is listening.
+func observeUnavailable(budget *SearchBudget, reason SummaryUnavailable, function *ssa.Function, at ssa.Instruction) {
+	var position token.Pos
+	if at != nil {
+		position = at.Pos()
+	} else if function != nil {
+		position = function.Pos()
+	}
+	budget.observe(reason.evidence(), position, func() map[string]string {
+		details := map[string]string{}
+		if function != nil {
+			details["function"] = function.String()
+		}
+		if at != nil {
+			details["instruction"] = at.String()
+		}
+		return details
+	})
+}
 
 // FunctionSummaries computes context-independent summaries for one fixed
 // analysis policy and SSA program. Construct a separate instance for each
@@ -77,11 +114,13 @@ func (memo *CallGraphMemo[Key, Answer]) Summarize(
 ) Answer {
 	var empty Answer
 	if function == nil || len(function.Blocks) == 0 {
+		observeUnavailable(budget, SummaryBodyUnavailable, function, nil)
 		return unavailable(SummaryBodyUnavailable, empty)
 	}
 	return memo.Compose(key, budget, func() Answer {
 		var answer Answer
 		if !memo.WithFunction(function, func() { answer = compute() }) {
+			observeUnavailable(budget, SummaryRecursive, function, nil)
 			return unavailable(SummaryRecursive, empty)
 		}
 		return answer
@@ -99,12 +138,14 @@ func (memo *CallGraphMemo[Key, Answer]) Compose(
 	var empty Answer
 	if budget.Exhausted() {
 		memo.Cut()
+		observeUnavailable(budget, SummaryBudgetExhausted, nil, nil)
 		return unavailable(SummaryBudgetExhausted, empty)
 	}
 	return memo.Answer(key, func() Answer {
 		answer := compute()
 		if budget.Exhausted() {
 			memo.Cut()
+			observeUnavailable(budget, SummaryBudgetExhausted, nil, nil)
 			return unavailable(SummaryBudgetExhausted, answer)
 		}
 		return answer
@@ -147,12 +188,14 @@ func (summaries *FunctionSummaries[Summary]) AtCall(
 ) Summary {
 	function, closure := DirectCallee(instruction.Common())
 	if function == nil || len(function.Blocks) == 0 {
+		observeUnavailable(budget, SummaryBodyUnavailable, function, instruction)
 		return summaries.unavailable(SummaryBodyUnavailable)
 	}
 	answer := summaries.Function(function, budget)
 	result := bind(answer, CallBindings(instruction.Common(), function, closure))
 	if budget.Exhausted() {
 		summaries.memo.Cut()
+		observeUnavailable(budget, SummaryBudgetExhausted, function, instruction)
 		return summaries.unavailable(SummaryBudgetExhausted)
 	}
 	return result

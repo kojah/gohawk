@@ -161,7 +161,7 @@ func capturedUses(free *ssa.FreeVar) []ssa.Value {
 // longer proves which value the imported callee receives. block/spirit closes
 // rows through an imported CloseAndLog helper inside a deferred literal:
 // https://github.com/block/spirit/blob/c554eae8c56166ad9199fc73556b29ed581ca575/pkg/checksum/single.go#L493-L503
-func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
+func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, observer ssaflow.Observer) bool {
 	if instruction == nil {
 		return false
 	}
@@ -177,7 +177,7 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 				continue
 			}
 			for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-				if !immutableCapturedTarget(captured.Binding, target, closure) {
+				if !immutableCapturedTarget(captured.Binding, target, closure, observer) {
 					continue
 				}
 				for index, argument := range common.Args {
@@ -193,8 +193,8 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 	return false
 }
 
-func immutableCapturedTarget(binding, target ssa.Value, observation ssa.Instruction) bool {
-	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
+func immutableCapturedTarget(binding, target ssa.Value, observation ssa.Instruction, observer ssaflow.Observer) bool {
+	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000).Observed(observer))
 	if storage.Same(binding, target).Proven() {
 		return true
 	}
@@ -220,7 +220,7 @@ func (evidence *LifecycleEvidence) capturedImportedCompletion(request EvidenceRe
 	}
 	completes := func(instruction ssa.Instruction) bool {
 		fact, summarized := factFor(evidence.pass, instruction)
-		return summarized && factOwnsImmutableCapturedArgument(instruction, request.Target, request.SelectMask(fact))
+		return summarized && factOwnsImmutableCapturedArgument(instruction, request.Target, request.SelectMask(fact), evidence.probe.Observer())
 	}
 	if !ssaflow.MethodCallCoverage(function, completes, request.Completion.Coverage, nil) {
 		return ssaflow.Proof{}
@@ -304,13 +304,13 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 	fact, summarized := factFor(evidence.pass, request.Instruction)
 	if request.SelectMask != nil && summarized {
 		mask := request.SelectMask(fact)
-		if factOwnsArgument(request.Instruction, request.Target, mask) {
+		if factOwnsArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
 			return importedProof(reasonLifecycleSummary, requestedMethod(request)), true
 		}
-		if factOwnsImmutableCapturedArgument(request.Instruction, request.Target, mask) {
+		if factOwnsImmutableCapturedArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
 			return importedProof(reasonLifecycleSummaryCapturedArgument, requestedMethod(request)), true
 		}
-		if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask) {
+		if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
 			return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
 		}
 		if factArgumentMatches(request.Instruction, request.Target, mask, ssaflow.MayAlias) {
@@ -319,7 +319,7 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true
 		}
 	}
-	if request.ReceiverStore && summarized && factOwnsArgument(request.Instruction, request.Target, fact.ReceiverStore) {
+	if request.ReceiverStore && summarized && factOwnsArgument(request.Instruction, request.Target, fact.ReceiverStore, evidence.probe.Observer()) {
 		receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(request.Instruction))
 		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || ssaflow.ValueEscapes(receiver)) {
 			return importedProof(reasonReceiverStoreTransfer, requestedMethod(request)), true

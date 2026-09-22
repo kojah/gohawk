@@ -52,16 +52,24 @@ type cancellationClassifier struct {
 	parent    *cancellationClassifier
 	actions   map[ssa.Instruction]cancellationAction
 	transfers bool
+	// observer hears where the shared storage, effect, and completion queries
+	// behind this proof gave up; nil when the candidate is not being traced.
+	observer ssaflow.Observer
 }
 
 // Exhausted helper searches remain unknown, never evidence of lost cleanup.
 const cancellationCompletionBudget = 1000
 
-func proveCancellation(call *ssa.Call, cancel ssa.Value) CancellationProof {
+func (classifier *cancellationClassifier) budget() *ssaflow.SearchBudget {
+	return ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(classifier.observer)
+}
+
+func proveCancellation(call *ssa.Call, cancel ssa.Value, observer ssaflow.Observer) CancellationProof {
 	classifier := &cancellationClassifier{
-		cancel:  cancel,
-		parent:  parentCancellationClassifier(call),
-		actions: make(map[ssa.Instruction]cancellationAction),
+		cancel:   cancel,
+		parent:   parentCancellationClassifier(call, observer),
+		actions:  make(map[ssa.Instruction]cancellationAction),
+		observer: observer,
 	}
 	if contract, ok := cancellationContractFor(call.Common()); ok && contract.packagePath == "context" {
 		classifier.context = ssaflow.CallResult(call, 0)
@@ -136,7 +144,7 @@ func (classifier *cancellationClassifier) action(instruction ssa.Instruction) ca
 // Signal registrations still require their own stop function; cancellation of
 // their parent does not unregister them. Wrapped and merged parents stay opaque.
 // https://github.com/crazy-max/diun/blob/269cb27295944aeacfe549d24ab7ac483e600aa9/internal/notif/apprise/client.go#L91-L94
-func parentCancellationClassifier(call *ssa.Call) *cancellationClassifier {
+func parentCancellationClassifier(call *ssa.Call, observer ssaflow.Observer) *cancellationClassifier {
 	contract, ok := cancellationContractFor(call.Common())
 	if !ok || contract.packagePath != "context" || len(call.Common().Args) == 0 {
 		return nil
@@ -146,7 +154,7 @@ func parentCancellationClassifier(call *ssa.Call) *cancellationClassifier {
 	// same source variable may subsequently hold the child instead of its parent.
 	// https://github.com/werf/nelm/blob/6393382d695e65d8d8f744cf590337fe62a83eef/pkg/action/release_install.go#L179-L190
 	parentValue := call.Common().Args[0]
-	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(cancellationCompletionBudget)).Resolve(parentValue); resolved.Proven() {
+	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Resolve(parentValue); resolved.Proven() {
 		parentValue = resolved.Value
 	}
 	parent, ok := parentValue.(*ssa.Extract)
@@ -165,7 +173,7 @@ func parentCancellationClassifier(call *ssa.Call) *cancellationClassifier {
 	if cancel == nil {
 		return nil
 	}
-	return &cancellationClassifier{cancel: cancel, actions: make(map[ssa.Instruction]cancellationAction)}
+	return &cancellationClassifier{cancel: cancel, actions: make(map[ssa.Instruction]cancellationAction), observer: observer}
 }
 
 func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruction) cancellationAction {
@@ -185,7 +193,7 @@ func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruc
 	if localStorageOnly(instruction) {
 		return cancellationActionNone
 	}
-	if localCallOnlyObserves(instruction, classifier.cancel) {
+	if localCallOnlyObserves(instruction, classifier.cancel, classifier.observer) {
 		return cancellationActionNone
 	}
 	return cancellationActionUnknown
@@ -222,7 +230,7 @@ func (classifier *cancellationClassifier) recognizedDirectAction(
 		deferredClosureCaptures(instruction, classifier.cancel) {
 		return cancellationActionUnknown, true
 	}
-	if deferredClosureUseIsLocallyResolved(instruction, classifier.cancel) {
+	if deferredClosureUseIsLocallyResolved(instruction, classifier.cancel, classifier.observer) {
 		return cancellationActionNone, true
 	}
 	return cancellationActionNone, false
@@ -255,7 +263,7 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 		}
 		completion := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
 			Instruction: instruction, Target: classifier.cancel, InvokeTarget: true,
-			Budget: ssaflow.NewSearchBudget(cancellationCompletionBudget),
+			Budget: classifier.budget(),
 		})
 		switch completion.State {
 		case ssaflow.EvidenceProven:
@@ -386,7 +394,7 @@ func addressStoresCancellationLeaf(walk ssaflow.ReachingWalk, value, cancel ssa.
 	return false
 }
 
-func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa.Value) bool {
+func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa.Value, observer ssaflow.Observer) bool {
 	if _, ok := instruction.(*ssa.Defer); !ok {
 		return false
 	}
@@ -408,14 +416,14 @@ func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa
 			continue
 		}
 		found = true
-		if !newCancellationUse().parameterResolved(function, captured.Free) {
+		if !newCancellationUse(observer).parameterResolved(function, captured.Free) {
 			return false
 		}
 	}
 	return found
 }
 
-func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value) bool {
+func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value, observer ssaflow.Observer) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) == 0 {
 		return false
@@ -423,7 +431,7 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value) bool {
 	callee := common.StaticCallee()
 	// Proven read-only use is not cancellation. Unknown effects still go
 	// through the cancellation-specific invocation policy below.
-	if ssaflow.NewCallEffects(ssaflow.NewSearchBudget(cancellationCompletionBudget)).Call(instruction, cancel).PreservesStorage() {
+	if ssaflow.NewCallEffects(ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Call(instruction, cancel).PreservesStorage() {
 		return true
 	}
 	found := false
@@ -437,7 +445,7 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value) bool {
 			continue
 		}
 		found = true
-		if !newCancellationUse().parameterResolved(callee, binding.Local) {
+		if !newCancellationUse(observer).parameterResolved(callee, binding.Local) {
 			return false
 		}
 	}
@@ -457,9 +465,10 @@ type cancellationUseKey struct {
 	parameter ssa.Value
 }
 
-func newCancellationUse() *cancellationUse {
+func newCancellationUse(observer ssaflow.Observer) *cancellationUse {
 	return &cancellationUse{
-		memo: ssaflow.NewCallGraphMemo[cancellationUseKey, bool](), budget: ssaflow.NewSearchBudget(cancellationCompletionBudget),
+		memo:   ssaflow.NewCallGraphMemo[cancellationUseKey, bool](),
+		budget: ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer),
 	}
 }
 

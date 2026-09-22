@@ -39,7 +39,7 @@ func (storage *Storage) Projection(value, root ssa.Value, observation ssa.Instru
 	if storage.unmodifiedProjection(value, root, observation) {
 		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameAccessPath, Provenance: EvidenceFromLocalSSA}}
 	}
-	return IdentityProof{storage.unknown().Proof}
+	return IdentityProof{storage.unknown(EvidenceStorageProjectionModified, observation).Proof}
 }
 
 func (storage *Storage) unmodifiedProjection(value, root ssa.Value, observation ssa.Instruction) bool {

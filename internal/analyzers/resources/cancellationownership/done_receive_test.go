@@ -43,7 +43,7 @@ func alternate(parent context.Context, work <-chan bool) {
 				if !ok {
 					continue
 				}
-				if proof := proveCancellation(call, value); proof.Outcome != test.want {
+				if proof := proveCancellation(call, value, nil); proof.Outcome != test.want {
 					t.Fatalf("proof = %+v, want outcome %v", proof, test.want)
 				}
 				return

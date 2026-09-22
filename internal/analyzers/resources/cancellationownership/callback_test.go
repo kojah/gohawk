@@ -58,7 +58,7 @@ func bound() { _, cancel := context.WithCancel(context.Background()); viaCallbac
 			if !ok {
 				t.Fatal("cancel did not come from a call")
 			}
-			if proof := proveCancellation(call, cancel); proof.Outcome != test.want {
+			if proof := proveCancellation(call, cancel, nil); proof.Outcome != test.want {
 				t.Fatalf("proof = %+v, want outcome %v", proof, test.want)
 			}
 		})

@@ -65,6 +65,13 @@ type resourceAnalysis struct {
 	actions   map[ssa.Instruction]resourceAction
 }
 
+// budget scopes one shared query to this candidate's proof: give-ups inside
+// it reach the probe, so a trace of the acquisition shows where the storage,
+// summary, or completion evidence ran out.
+func (analysis *resourceAnalysis) budget(limit int) *ssaflow.SearchBudget {
+	return ssaflow.NewSearchBudget(limit).Observed(analysis.probe.Observer())
+}
+
 func (analysis *resourceAnalysis) action(instruction ssa.Instruction) resourceAction {
 	if action, ok := analysis.actions[instruction]; ok {
 		return action
@@ -133,7 +140,7 @@ func (analysis *resourceAnalysis) ambiguousHelperCleanup(instruction ssa.Instruc
 				Target:      argument,
 				Methods:     []string{method},
 				Coverage:    ssaflow.CoverageEveryReturn,
-				Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
+				Budget:      analysis.budget(releaseSearchBudget),
 			}
 			if analysis.evidence.Prove(lifecyclefacts.EvidenceRequest{
 				Instruction: instruction,

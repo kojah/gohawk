@@ -128,7 +128,7 @@ func (analysis *resourceAnalysis) guardedCapturedBodyCleanup(instruction ssa.Ins
 		return missing
 	}
 	function, _ := closure.Fn.(*ssa.Function)
-	budget := ssaflow.NewSearchBudget(1000)
+	budget := analysis.budget(1000)
 	for _, binding := range ssaflow.ClosureBindingPairs(function, closure) {
 		if !budget.Spend() {
 			return missing

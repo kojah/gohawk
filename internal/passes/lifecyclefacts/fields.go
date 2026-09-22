@@ -367,7 +367,7 @@ func releasesField(pass *analysis.Pass, instruction ssa.Instruction, receiver ss
 		}
 		if imported, ok := importFact(pass, instruction); ok {
 			for _, method := range cleanup {
-				if factOwnsArgument(instruction, load, imported.MethodMask(method)) {
+				if factOwnsArgument(instruction, load, imported.MethodMask(method), nil) {
 					return true
 				}
 			}
@@ -626,7 +626,7 @@ func (evidence *LifecycleEvidence) ArgumentReturnedAsView(instruction ssa.Instru
 // rather than an evidence context.
 func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ssa.Value) bool {
 	fact, ok := factFor(pass, instruction)
-	return ok && factOwnsArgument(instruction, target, fact.ReturnedView)
+	return ok && factOwnsArgument(instruction, target, fact.ReturnedView, nil)
 }
 
 // ArgumentRetainedByCallee reports whether the call's static callee is

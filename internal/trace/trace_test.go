@@ -187,3 +187,36 @@ func TestTimingFileRecordsOneLinePerRun(t *testing.T) {
 		t.Fatalf("first record = %+v", first)
 	}
 }
+
+func TestObserveEmitsGiveUpAsUnknownEvidence(t *testing.T) {
+	resetTrace(t)
+	var output bytes.Buffer
+	global.config.writer = &output
+	global.config.selectors = map[string]bool{"resourcelifetime": true}
+	global.active.Store(true)
+
+	files := token.NewFileSet()
+	file := files.AddFile("resource.go", -1, 100)
+	file.SetLines([]int{0, 10, 20})
+	pass := &analysis.Pass{Fset: files}
+
+	disabled := For(pass, "goroutineownership", "", file.Pos(10))
+	if disabled.Observer() != nil {
+		t.Fatal("a disabled probe must hand out no observer, so a silent budget builds no details")
+	}
+	probe := For(pass, "resourcelifetime", "resourcelifetime/missing-release", file.Pos(10))
+	observer := probe.Observer()
+	if observer == nil {
+		t.Fatal("an enabled probe must hand out its observer")
+	}
+	observer("storage-address-escapes", file.Pos(20), map[string]string{"instruction": "sink(t0)"})
+
+	var got record
+	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &got); err != nil {
+		t.Fatalf("decode trace: %v\n%s", err, output.String())
+	}
+	if got.Phase != "evidence" || got.Outcome != OutcomeUnknown || got.Reason != "storage-address-escapes" ||
+		got.Candidate != "resource.go:2:1" || got.Position != "resource.go:3:1" || got.Details["instruction"] != "sink(t0)" {
+		t.Fatalf("trace = %+v", got)
+	}
+}

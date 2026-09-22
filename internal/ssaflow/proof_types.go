@@ -25,6 +25,29 @@ const (
 	EvidenceHelperInvocation        EvidenceReason = "helper-invocation"
 	EvidenceReturnedDeferredCleanup EvidenceReason = "returned-deferred-cleanup"
 
+	// EvidenceStorageNotLocal and the other storage give-up reasons say where
+	// a point-in-time query of local storage stopped. None of them means the
+	// location was empty, unequal, or released; they let a reader see which
+	// write, use, or merge defeated the proof instead of a bare "unavailable".
+	EvidenceStorageNotLocal              EvidenceReason = "storage-not-local"
+	EvidenceStorageOutsideFunction       EvidenceReason = "storage-outside-function"
+	EvidenceStorageAddressEscapes        EvidenceReason = "storage-address-escapes"
+	EvidenceStorageWriteThroughAlias     EvidenceReason = "storage-write-through-alias"
+	EvidenceStoragePartialWrite          EvidenceReason = "storage-partial-write"
+	EvidenceStorageConflictingWrites     EvidenceReason = "storage-conflicting-writes"
+	EvidenceStorageNoReachingWrite       EvidenceReason = "storage-no-reaching-write"
+	EvidenceStorageWriteInCycle          EvidenceReason = "storage-write-in-cycle"
+	EvidenceStorageWriteAfterObservation EvidenceReason = "storage-write-after-observation"
+	EvidenceStorageProjectionNotLoad     EvidenceReason = "storage-projection-not-load"
+	EvidenceStorageProjectionModified    EvidenceReason = "storage-projection-modified"
+	EvidenceStoredValuesDiffer           EvidenceReason = "stored-values-differ"
+
+	// EvidenceSummaryBodyUnavailable and EvidenceSummaryRecursive say why a
+	// callee could not be summarized: an opaque body or dispatch, or a callee
+	// already on the active call path.
+	EvidenceSummaryBodyUnavailable EvidenceReason = "summary-body-unavailable"
+	EvidenceSummaryRecursive       EvidenceReason = "summary-recursive"
+
 	EvidenceStoredInField               EvidenceReason = "stored-in-field"
 	EvidenceOwnerStoredInField          EvidenceReason = "owner-stored-in-field"
 	EvidenceStoredInGlobal              EvidenceReason = "stored-in-global"

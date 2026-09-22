@@ -16,24 +16,27 @@ import (
 // https://github.com/marcus/sidecar/blob/9b8739f753ab235dda2630676833e9b46a52696c/internal/adapter/warp/adapter.go#L337-L341
 func (storage *Storage) StableContent(address ssa.Value, observation ssa.Instruction) StoredValue {
 	location, ok := storage.location(address)
-	if !ok || observation == nil || location.root.Parent() != observation.Parent() {
-		return storage.unknown()
+	if !ok {
+		return storage.unknown(EvidenceStorageNotLocal, observation)
+	}
+	if observation == nil || location.root.Parent() != observation.Parent() {
+		return storage.unknown(EvidenceStorageOutsideFunction, observation)
 	}
 	var stores []*ssa.Store
-	if !storage.collect(location.root, observation, &stores, true) {
-		return storage.unknown()
+	if blocked, ok := storage.collect(location.root, observation, &stores, true); !ok {
+		return storage.unknown(EvidenceStorageAddressEscapes, blocked)
 	}
 	for _, store := range stores {
 		written, ok := storage.location(store.Addr)
 		if !ok {
-			return storage.unknown()
+			return storage.unknown(EvidenceStorageWriteThroughAlias, store)
 		}
 		if written.path != location.path && !strings.HasPrefix(location.path, written.path+"/") &&
 			!strings.HasPrefix(written.path, location.path+"/") {
 			continue
 		}
 		if storeMayFollow(location.root, observation, store) || BlockInCycle(store.Block()) && store.Block() != location.root.Block() {
-			return storage.unknown()
+			return storage.unknown(EvidenceStorageWriteAfterObservation, store)
 		}
 	}
 	return storage.content(location, observation)

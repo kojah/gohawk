@@ -41,7 +41,7 @@ func (analysis *resourceAnalysis) pairedErrorHelperCleanup(instruction ssa.Instr
 		Target:      analysis.resource,
 		Methods:     analysis.contract.cleanup,
 		Coverage:    ssaflow.CoverageAnywhere,
-		Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
+		Budget:      analysis.budget(releaseSearchBudget),
 	}).Proven()
 }
 

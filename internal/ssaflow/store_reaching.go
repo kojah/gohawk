@@ -14,7 +14,7 @@ func (storage *Storage) reachingContent(location storageLocation, observation ss
 	for _, store := range stores {
 		written, ok := storage.location(store.Addr)
 		if !ok || written.root != location.root {
-			return storage.unknown()
+			return storage.unknown(EvidenceStorageWriteThroughAlias, store)
 		}
 		if written.path == location.path || strings.HasPrefix(location.path, written.path+"/") {
 			writes[store] = storageWrite{suffix: strings.TrimPrefix(location.path, written.path)}
@@ -52,19 +52,28 @@ type reachingStorage struct {
 }
 
 func (query *reachingStorage) before(block *ssa.BasicBlock, index int) StoredValue {
-	if block == nil || query.active[block] || !query.storage.budget.Spend() {
-		return query.storage.unknown()
+	if block == nil {
+		return query.storage.unknown(EvidenceStorageNoReachingWrite, nil)
+	}
+	if query.active[block] {
+		return query.storage.unknown(EvidenceStorageWriteInCycle, block.Instrs[len(block.Instrs)-1])
+	}
+	if !query.storage.budget.Spend() {
+		return query.storage.unknown(EvidenceBudgetExhausted, nil)
 	}
 	query.active[block] = true
 	defer delete(query.active, block)
 	for i := index - 1; i >= 0; i-- {
-		if !query.storage.budget.Spend() || block.Instrs[i] == query.location.root {
-			return query.storage.unknown()
+		if !query.storage.budget.Spend() {
+			return query.storage.unknown(EvidenceBudgetExhausted, nil)
+		}
+		if block.Instrs[i] == query.location.root {
+			return query.storage.unknown(EvidenceStorageNoReachingWrite, query.location.root)
 		}
 		if store, ok := block.Instrs[i].(*ssa.Store); ok {
 			if write, relevant := query.writes[store]; relevant {
 				if write.partial {
-					return query.storage.unknown()
+					return query.storage.unknown(EvidenceStoragePartialWrite, store)
 				}
 				return query.storage.projectStored(store.Val, write.suffix)
 			}
@@ -77,12 +86,12 @@ func (query *reachingStorage) before(block *ssa.BasicBlock, index int) StoredVal
 			return incoming
 		}
 		if agreed.Proven() && !query.storage.Same(agreed.Value, incoming.Value).Proven() {
-			return query.storage.unknown()
+			return query.storage.unknown(EvidenceStorageConflictingWrites, predecessor.Instrs[len(predecessor.Instrs)-1])
 		}
 		agreed = incoming
 	}
 	if !agreed.Proven() {
-		return query.storage.unknown()
+		return query.storage.unknown(EvidenceStorageNoReachingWrite, nil)
 	}
 	return agreed
 }

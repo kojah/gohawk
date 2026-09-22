@@ -14,7 +14,7 @@ func forward(cancel func()) { consume(cancel) }
 func recursive(cancel func()) { recursive(cancel) }
 `)
 	function := pkg.Func("forward")
-	search := newCancellationUse()
+	search := newCancellationUse(nil)
 	// Enter consume with the remaining budget; its return must still be charged.
 	search.budget = ssaflow.NewSearchBudget(3)
 	if search.parameterResolved(function, function.Params[0]) || !search.budget.Exhausted() {
@@ -25,7 +25,7 @@ func recursive(cancel func()) { recursive(cancel) }
 		t.Fatal("fresh budget failed to recover; shortened parent answer must not be cached")
 	}
 	function = pkg.Func("recursive")
-	search = newCancellationUse()
+	search = newCancellationUse(nil)
 	search.budget = ssaflow.NewSearchBudget(1)
 	if search.parameterResolved(function, function.Params[0]) || !search.budget.Exhausted() {
 		t.Fatal("recursive work must remain bounded and unresolved")

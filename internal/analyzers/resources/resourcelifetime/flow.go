@@ -102,7 +102,7 @@ func evaluateResourceFlow(
 		// https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go#L2809
 		if sqlDatabaseCall(call.Common(), "Prepare", "PrepareContext") && ssaflow.ProveEnclosingCompletion(ssaflow.EnclosingCompletionRequest{
 			Function: call.Parent(), Value: ssaflow.CallReceiver(call.Common()), Methods: []string{"Close"},
-			Budget: ssaflow.NewSearchBudget(10000),
+			Budget: analysis.budget(10000),
 		}).Proven() {
 			return acceptedResourceLifetime(resourceReasonParentCleanup)
 		}

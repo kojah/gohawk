@@ -283,7 +283,7 @@ func factArgumentMatches(instruction ssa.Instruction, target ssa.Value, mask Par
 	return false
 }
 
-func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
+func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, observer ssaflow.Observer) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
@@ -292,7 +292,7 @@ func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask Parame
 		if !mask.contains(index) {
 			continue
 		}
-		if ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(argument, target).Proven() {
+		if ssaflow.NewStorage(ssaflow.NewSearchBudget(1000).Observed(observer)).Same(argument, target).Proven() {
 			return true
 		}
 		// Containment must not turn an ambiguous phi or a storage-history
@@ -304,13 +304,13 @@ func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask Parame
 	return false
 }
 
-func factOwnsProjectedArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
+func factOwnsProjectedArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, observer ssaflow.Observer) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
 	for index, argument := range common.Args {
-		if mask.contains(index) && ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Projection(argument, target, instruction).Proven() {
+		if mask.contains(index) && ssaflow.NewStorage(ssaflow.NewSearchBudget(1000).Observed(observer)).Projection(argument, target, instruction).Proven() {
 			return true
 		}
 	}

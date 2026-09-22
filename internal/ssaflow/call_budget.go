@@ -1,5 +1,7 @@
 package ssaflow
 
+import "go/token"
+
 // An interprocedural question can be asked of a call graph too large to walk.
 // Mutual recursion is the usual cause: the cycle guard keeps the walk finite,
 // but a memo cannot retain an answer the guard cut short, so a densely
@@ -19,6 +21,7 @@ package ssaflow
 type SearchBudget struct {
 	remaining int
 	exhausted bool
+	observer  Observer
 }
 
 // NewSearchBudget returns a budget allowing limit instructions.
@@ -38,6 +41,30 @@ func (budget *SearchBudget) Spend() bool {
 	}
 	budget.remaining--
 	return true
+}
+
+// Observed attaches an observer that hears each give-up of a proof spending
+// this budget, and returns the budget so a query can be built inline. A nil
+// observer leaves the budget silent; a nil budget stays unbounded and silent.
+func (budget *SearchBudget) Observed(observer Observer) *SearchBudget {
+	if budget != nil {
+		budget.observer = observer
+	}
+	return budget
+}
+
+// observe reports one give-up. Details are built only when someone is
+// listening, so a silent budget costs one nil check at the give-up point and
+// nothing on the path that spends it.
+func (budget *SearchBudget) observe(reason EvidenceReason, at token.Pos, build func() map[string]string) {
+	if budget == nil || budget.observer == nil {
+		return
+	}
+	var details map[string]string
+	if build != nil {
+		details = build()
+	}
+	budget.observer(string(reason), at, details)
 }
 
 // Exhausted reports whether the budget ran out, so a caller can trace the

@@ -203,13 +203,13 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 	// A goroutine that completes through a caller-owned channel or wait group
 	// transfers its join obligation across the call boundary.
 	for _, tracked := range analysis.tracked {
-		if tracked.kind == trackedSignal && helperSignalOrigin(tracked.value, analysis.spawn) {
+		if tracked.kind == trackedSignal && helperSignalOrigin(tracked.value, analysis.spawn, analysis.budget()) {
 			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true
 		}
 		if tracked.kind != trackedOwner && ssaflow.ExternallyOwnedValue(tracked.value) {
 			return GoroutineProof{Outcome: GoroutineTransferred, Reason: reasonCallerOrExternalOwner}, true
 		}
-		if tracked.kind == trackedGroup && opaqueGroupOrigin(tracked.value) {
+		if tracked.kind == trackedGroup && opaqueGroupOrigin(tracked.value, analysis.budget()) {
 			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true
 		}
 	}
@@ -224,8 +224,8 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 // manufacture an exclusive receive obligation for this caller. This is not a
 // claim that an arbitrary factory channel is drained.
 // https://github.com/deckarep/golang-set/blob/711c30df0fdf98710a4ca0211e12ef7210967ad3/threadsafe.go#L268-L287
-func helperSignalOrigin(value ssa.Value, spawn *ssa.Go) bool {
-	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
+func helperSignalOrigin(value ssa.Value, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
+	storage := ssaflow.NewStorage(budget)
 	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
 	leaf = func(walk ssaflow.ReachingWalk, current ssa.Value) bool {
 		if resolved := storage.Resolve(current); resolved.Proven() && resolved.Value != current {
@@ -253,8 +253,8 @@ func helperSignalOrigin(value ssa.Value, spawn *ssa.Go) bool {
 // Without its body we cannot assign the join obligation to this invocation.
 // This is uncertainty, not proof that the caller or registry actually waits.
 // https://github.com/i-love-flamingo/flamingo/blob/79a55d62bb7a1bffe11a4dea1444490b14785879/core/requesttask/filter.go#L28-L60
-func opaqueGroupOrigin(value ssa.Value) bool {
-	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
+func opaqueGroupOrigin(value ssa.Value, budget *ssaflow.SearchBudget) bool {
+	storage := ssaflow.NewStorage(budget)
 	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
 	leaf = func(walk ssaflow.ReachingWalk, current ssa.Value) bool {
 		if resolved := storage.Resolve(current); resolved.Proven() && resolved.Value != current {
@@ -345,7 +345,7 @@ func (analysis *spawnAnalysis) channelsCreatedOnceBeforeSpawn() []ssa.Value {
 	}
 	var created []ssa.Value
 	for _, binding := range closure.Bindings {
-		stored := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).StableContent(binding, analysis.spawn)
+		stored := ssaflow.NewStorage(analysis.budget()).StableContent(binding, analysis.spawn)
 		channel, ok := stored.Value.(*ssa.MakeChan)
 		if stored.Proven() && ok && channel.Parent() == analysis.function && !ssaflow.BlockInCycle(channel.Block()) {
 			// The guard reads the captured cell after launch. StableContent

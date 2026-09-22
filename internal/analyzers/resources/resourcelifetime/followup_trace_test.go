@@ -6,7 +6,74 @@ import (
 	"testing"
 )
 
+type followupTraceEvent struct {
+	Reason    string            `json:"reason"`
+	Phase     string            `json:"phase"`
+	Outcome   string            `json:"outcome"`
+	Candidate string            `json:"candidate"`
+	Details   map[string]string `json:"details"`
+}
+
+func decodeFollowupTrace(t *testing.T, data []byte) []followupTraceEvent {
+	t.Helper()
+	var events []followupTraceEvent
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+		var event followupTraceEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		events = append(events, event)
+	}
+	return events
+}
+
 func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
+	t.Helper()
+	events := decodeFollowupTrace(t, data)
+	assertHTTPBoundaryTrace(t, events)
+	assertCleanupBoundaryTrace(t, events)
+}
+
+// The HTTP acquisition boundaries decide as unknown on their own fixtures, and
+// a HEAD boundary that declines says which input failed, as a considered step
+// on the Do site, so a trace needs no source to explain the report.
+func assertHTTPBoundaryTrace(t *testing.T, events []followupTraceEvent) {
+	t.Helper()
+	acquisitions := map[string]bool{
+		"head-body-acquisition-uncertain":  false,
+		"local-header-only-body-uncertain": false,
+	}
+	declined := map[string]bool{
+		"head-client-not-unconfigured": false,
+		"head-request-modified":        false,
+	}
+	for _, event := range events {
+		if _, ok := declined[event.Reason]; ok {
+			declined[event.Reason] = true
+			if event.Phase != "considered" || event.Outcome != "rejected" || !strings.Contains(event.Candidate, "http_head.go:") {
+				t.Errorf("unexpected HEAD boundary rejection: %+v", event)
+			}
+		}
+		if _, ok := acquisitions[event.Reason]; ok {
+			acquisitions[event.Reason] = true
+			if event.Phase != "decision" || event.Outcome != "unknown" || !strings.Contains(event.Candidate, "http_") {
+				t.Errorf("unexpected HTTP acquisition boundary: %+v", event)
+			}
+		}
+	}
+	for reason, found := range acquisitions {
+		if !found {
+			t.Errorf("missing acquisition boundary: %s", reason)
+		}
+	}
+	for reason, found := range declined {
+		if !found {
+			t.Errorf("missing HEAD boundary rejection: %s", reason)
+		}
+	}
+}
+
+func assertCleanupBoundaryTrace(t *testing.T, events []followupTraceEvent) {
 	t.Helper()
 	want := map[string]string{
 		"stored-by-callee":                    "private_retention.go:",
@@ -20,27 +87,7 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 		"exact-error-equals-non-nil-filesystem-sentinel": "error_guards.go:",
 		"visible-error-predicate-false-for-nil":          "error_predicates.go:",
 	}
-	acquisitions := map[string]bool{
-		"head-body-acquisition-uncertain":  false,
-		"local-header-only-body-uncertain": false,
-	}
-	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
-		var event struct {
-			Reason    string            `json:"reason"`
-			Phase     string            `json:"phase"`
-			Outcome   string            `json:"outcome"`
-			Candidate string            `json:"candidate"`
-			Details   map[string]string `json:"details"`
-		}
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			t.Fatal(err)
-		}
-		if _, ok := acquisitions[event.Reason]; ok {
-			acquisitions[event.Reason] = true
-			if event.Phase != "decision" || event.Outcome != "unknown" || !strings.Contains(event.Candidate, "http_") {
-				t.Errorf("unexpected HTTP acquisition boundary: %+v", event)
-			}
-		}
+	for _, event := range events {
 		if file, ok := proofFiles[event.Details["proof"]]; ok && event.Reason == "acquisition-error-proven" {
 			if event.Phase != "evidence" || event.Outcome != "accepted" || !strings.Contains(event.Candidate, file) {
 				t.Errorf("unexpected acquisition-error evidence: %+v", event)
@@ -55,11 +102,6 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 			t.Errorf("unexpected cleanup boundary evidence: %+v", event)
 		}
 		delete(want, event.Reason)
-	}
-	for reason, found := range acquisitions {
-		if !found {
-			t.Errorf("missing acquisition boundary: %s", reason)
-		}
 	}
 	if len(proofFiles) != 0 || len(want) != 0 {
 		t.Errorf("missing followup evidence: proofs=%v missing=%v", proofFiles, want)

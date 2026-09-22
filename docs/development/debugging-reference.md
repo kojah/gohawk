@@ -100,6 +100,26 @@ A `decision` of unknown means some consumption was opaque and the analyzer
 declined to report. That is the design working, not a defect, unless the
 opaque consumption is a shape the classifier ought to recognize.
 
+### Give-up events from the shared engine
+
+The shared proofs in `internal/ssaflow` never call the tracer, but they report
+where they stopped through the search budget that scopes each query. When an
+analyzer attaches its probe to a budget, every give-up inside that query
+appears as an `evidence` event with outcome `unknown`, attributed to the same
+candidate, carrying a specific reason and the instruction that blocked it:
+
+| reason family | examples | what to look at |
+|---|---|---|
+| storage | `storage-address-escapes`, `storage-conflicting-writes`, `storage-write-after-observation`, `storage-not-local` | the named store, call, or merge; the cell was not proved to hold one value there |
+| summary | `summary-body-unavailable`, `summary-recursive` | the named callee; its body could not be summarized, so effects cannot be ruled out |
+| completion | `evidence-not-found`, `evidence-unavailable` at a launch site | the callee resolved from that launch never covered the target with the method sought |
+| budget | `budget-exhausted` | the query that spent the last unit; a cut answer is not a decision |
+
+These events say why evidence ran out, never what was decided, so the analyzer
+decision that follows them is still the one to read. A budget with no probe
+attached stays silent, and a disabled probe attaches nothing, so give-up
+reporting costs nothing unless a trace is on.
+
 ## Incremental analysis
 
 `gohawk ./...` already runs the analyzers through `go vet` under the hood, so

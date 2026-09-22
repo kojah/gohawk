@@ -42,7 +42,8 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				if cancel == nil {
 					continue
 				}
-				proof := proveCancellation(call, cancel)
+				probe := analysisTrace.For(pass, "cancellationownership", string(check.CancellationRelease), call.Pos())
+				proof := proveCancellation(call, cancel, probe.Observer())
 				emitCancellationDecision(pass, function, call, contract, proof)
 				if proof.Outcome == CancellationLost {
 					source := syntax.SourceRange(pass, call.Pos())
