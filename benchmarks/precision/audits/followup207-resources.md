@@ -5,20 +5,20 @@ This continues the 140 resource false positives left by
 `followup207-resources.tsv` preserves the original verdict separately from
 replay status and includes the 72 original resource true-positive controls.
 
-## Checkpoint: HTTP v1 (one all-check replay incomplete)
+## Checkpoint: retention v2
 
-- Ten additional false positives are absent after a successful baseline and
+- Thirteen additional false positives are absent after a successful baseline and
   corrected replay. They cover a zero-client HEAD request (one), returned
   standard loggers (two), a returned body narrowed to `io.Reader` (one), and
   manager-retained resources exposed through returned handles (four), and
-  exact local header-only HTTP servers (two).
-- 65 baseline-detected true positives remain detected in the current all-check
-  replay. The remaining control belongs to a timed-out package, not a lost
-diagnostic. All 66 were retained in the preceding v5 checkpoint. Five wg-portal
+  exact local header-only HTTP servers (two), private logger installers (two),
+  and shared deferred process-termination evidence (one).
+- All 66 baseline-detected true positives remain detected in the current
+  all-check replay. Five wg-portal
   misses and the previously documented piko WebSocket miss remain baseline
   misses; none is newly lost here.
-- 82 false positives still report. Another 43 are outside these replayed
-  package scopes and four belong to the timed-out package; all remain active.
+- 83 false positives still report. Another 43 are outside these replayed
+  package scopes; all remain active.
 - Geesefs `core/cfg/logger.go:37:16` is absent in both binaries in this replay,
   unlike earlier canonical replays. This profile-dependent baseline absence
   remains unresolved and is not counted as a correction.
@@ -32,8 +32,13 @@ keeps the earlier leak diagnostic while accepting the second returned file.
 The branch-local retention change accepts a retaining helper in one branch
 when the caller's own cleanup exists only in a mutually exclusive branch.
 Reachable later cleanup still establishes caller ownership, preserving the
-PNG-encoder error-path regression. This alone does **not** fix shijuvar's two
-reports: its helper-to-global-logger retention summary is still missing.
+PNG-encoder error-path regression. The private-helper fallback now fixes
+shijuvar's two reports by reusing strict retention evidence at actual global
+stores before every normal return. Constructor calls alone, local spills,
+callback captures, and caller-owned cells do not establish that handoff.
+The initial fallback counted a captured cell's spill and hid a conditional
+testing-cleanup regression; that candidate was rejected and the witness
+boundary tightened. The existing negative fixture is retained.
 
 ## Evidence boundaries
 
@@ -74,16 +79,20 @@ GOFLAGS=-mod=readonly -p=2 GOTOOLCHAIN=local
 
 Repository revisions, package/module scopes, command, environment, exit status,
 stdout and stderr receipts are recorded under `.build/followup207-resource-baseline`
-and `.build/followup207-resource-http-v1`, with paths in the TSV. Exit zero with no
+and `.build/followup207-retention-v2`, with paths in the TSV. Exit zero with no
 findings and exit three with valid diagnostic JSON are successful analyses;
 failed loads are not treated as absence.
 
 - Baseline: `.build/gohawk-followup78-goroutines-v5`, SHA-256
   `5516cad4c83bffd8dca28713df53f8d3d1a463b838c23d302da9e10ddc257419`.
-- Candidate: `.build/gohawk-followup207-resource-http-v1`, SHA-256
-  `161c845834d8495cdb6e1a1c4af9b5d5d141776064dd5bab3e914268f93a0ecf`.
+- Candidate: `.build/gohawk-followup207-retention-v2`, SHA-256
+  `56a0f0cae8f7d780fc1757b006ce5b932d669494da33e06ba23ecd21949dd608`.
 
-The all-check `megaease/easeprobe ./daemon` replay timed out at 240 seconds,
+All 56 package scopes completed successfully. Comparing every resource
+diagnostic in those scopes, not just the labelled sites, found zero new
+diagnostics and thirteen removed diagnostics.
+
+The earlier HTTP-v1 all-check `megaease/easeprobe ./daemon` replay timed out at 240 seconds,
 with sampled peak RSS around 18 GB. Its receipt is retained as a failure and
 none of its sites is counted absent. This package has no HTTP acquisitions;
 the candidate also contains contemporaneous shared-flow edits being investigated
@@ -95,9 +104,9 @@ An isolated `-enable=resourcelifetime -gohawk-include-tests -json ./daemon`
 rerun using the same HTTP candidate completed normally and retained the
 `daemon_test.go:103:14` true positive plus the four false-positive sites. This
 supports isolating the performance regression elsewhere, but is not substituted
-for the required all-check receipt in the ledger. The separately implemented
-shared process-termination correction at `golang/sys` is not yet included in
-this ten-correction checkpoint.
+for the required all-check receipt. The corrected combined retention-v2
+candidate subsequently completed that scope in 6.96 seconds, with the true
+positive retained. Its canonical receipt is now used in the ledger.
 
 Focused resource, lifecyclefacts and architecture tests pass. Focused
 lifecyclefacts and resource race tests pass. Repository-wide final validation
