@@ -237,7 +237,7 @@ func directReleases(function *ssa.Function, query *releasedResource) []*ssa.Call
 func (query *releasedResource) operatesOn(call *ssa.Call) bool {
 	// The same receiver resolution as the release proof: a call proven to
 	// return its argument unchanged operates on that argument.
-	receiver := cleanupReceiver(query.knowledge, call.Common())
+	receiver := cleanupReceiver(query.knowledge, ssaflow.NewSearchBudget(ssaflow.SummaryBudget), call.Common())
 	if receiver == nil {
 		return false
 	}

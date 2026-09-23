@@ -112,8 +112,11 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if finishesRowsTransaction(analysis.acquisition, instruction) {
 		return actionUnknown, "rows-transaction-finished"
 	}
+	// The storage identity queries behind a release draw from this
+	// candidate's pool, so their give-ups reach the trace like every other.
 	if action, reason := releasesResource(
-		analysis.evidence, analysis.summaries, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional,
+		analysis.evidence, analysis.summaries, ssaflow.NewStorage(analysis.budget(ssaflow.QueryBudget)),
+		instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional,
 	); action != actionNone {
 		return action, reason
 	}

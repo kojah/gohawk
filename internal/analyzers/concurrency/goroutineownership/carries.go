@@ -29,7 +29,7 @@ func (analysis *spawnAnalysis) consumes(value ssa.Value) bool {
 		// A worker may receive a loaded field while its caller returns the
 		// aggregate initialized with that field. Resolve the read at its own
 		// instruction, rather than expecting the return to contain the load.
-		if resolved := ssaflow.NewStorage(nil).Resolve(target); resolved.Proven() {
+		if resolved := ssaflow.NewStorage(analysis.budget()).Resolve(target); resolved.Proven() {
 			target = resolved.Value
 		}
 		return carries(ssaflow.NewReachingWalk(carryForms), value, target)

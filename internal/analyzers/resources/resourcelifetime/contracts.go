@@ -243,6 +243,7 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 func releasesResource(
 	evidence *lifecyclefacts.LifecycleEvidence,
 	knowledge *summaries.Provider,
+	storage *ssaflow.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -259,19 +260,21 @@ func releasesResource(
 		}
 		return actionNone, ""
 	}
-	return releasesOrdinaryResource(evidence, knowledge, instruction, resource, owners, methods)
+	return releasesOrdinaryResource(evidence, knowledge, storage, instruction, resource, owners, methods)
 }
 
 // cleanupReceiver is the value a cleanup call acts on, seen through a
 // wrapper the result summary proves returns its argument unchanged:
 // wrap(file).Close() closes file. The identity is exact and typed, so a
 // conversion, a chosen value, or a real wrapper is not seen through.
-func cleanupReceiver(knowledge *summaries.Provider, common *ssa.CallCommon) ssa.Value { //nolint:ireturn // SSA values keep their concrete forms.
+//
+//nolint:ireturn // SSA values keep their concrete forms.
+func cleanupReceiver(knowledge *summaries.Provider, budget *ssaflow.SearchBudget, common *ssa.CallCommon) ssa.Value {
 	receiver := ssaflow.CallReceiver(common)
 	if knowledge == nil || receiver == nil {
 		return receiver
 	}
-	if argument, ok := knowledge.ArgumentReturnedUnchanged(receiver, ssaflow.NewSearchBudget(ssaflow.SummaryBudget)); ok {
+	if argument, ok := knowledge.ArgumentReturnedUnchanged(receiver, budget); ok {
 		return argument
 	}
 	return receiver
@@ -280,6 +283,7 @@ func cleanupReceiver(knowledge *summaries.Provider, common *ssa.CallCommon) ssa.
 func releasesOrdinaryResource(
 	evidence *lifecyclefacts.LifecycleEvidence,
 	knowledge *summaries.Provider,
+	storage *ssaflow.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -290,14 +294,14 @@ func releasesOrdinaryResource(
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
 	if instructionSettlesResourceOwnership(evidence, instruction, resource) ||
-		callTakesResourceOwnership(evidence, instruction, resource, methods) ||
+		callTakesResourceOwnership(evidence, storage, instruction, resource, methods) ||
 		registersCleanupCallback(evidence, instruction, resource, methods) {
 		return settled()
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common != nil && slices.Contains(methods, ssaflow.CallName(common)) &&
-		(ssaflow.NewStorage(nil).Same(cleanupReceiver(knowledge, common), resource).Proven() ||
-			ssaflow.NewStorage(nil).Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
+		(storage.Same(cleanupReceiver(knowledge, storage.Budget(), common), resource).Proven() ||
+			storage.Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
 		return settled()
 	}
 	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssaflow.MayAliasAny(ssaflow.CallReceiver(common), owners) {
@@ -492,6 +496,7 @@ func resourceReleaseMayFollow(instruction ssa.Instruction, resource ssa.Value, m
 
 func callTakesResourceOwnership(
 	evidence *lifecyclefacts.LifecycleEvidence,
+	storage *ssaflow.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	methods []string,
@@ -519,7 +524,7 @@ func callTakesResourceOwnership(
 	// obligation. Rows.Scan, for example, retains receiver-local scan state;
 	// that does not make an early Scan-error return close the rows.
 	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
-	if !ssaflow.NewStorage(nil).Same(receiver, resource).Proven() &&
+	if !storage.Same(receiver, resource).Proven() &&
 		evidence.ArgumentRetainedByCallee(instruction, resource) &&
 		!resourceReleaseMayFollow(instruction, resource, methods) {
 		return true
