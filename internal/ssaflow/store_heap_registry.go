@@ -58,19 +58,26 @@ func RegisterHeapSummary(function *ssa.Function, summary HeapSummary) {
 
 // heapSummaryOf returns the callee's summary: the registered one, or, for a
 // callee whose body is in the program, one projected on demand and kept.
-// An instantiation of a generic function is looked up as itself first,
-// which is how the pass that summarized its package registered it, and
-// then as its origin, which is how an importer names it.
+// An instantiation of a generic function is answered from its own body
+// whenever it has one, never from its origin: the origin's body is typed
+// over type parameters and projects far less, and which of the two was
+// registered first must not decide what a caller sees. The origin answers
+// only for an instantiation the program did not build.
 func heapSummaryOf(function *ssa.Function) (HeapSummary, bool) {
-	for _, candidate := range []*ssa.Function{function, ResolvedFunction(function)} {
-		if candidate == nil {
-			continue
-		}
-		if summary, ok := registeredHeapSummary(candidate); ok {
-			return summary, true
-		}
+	if function == nil {
+		return HeapSummary{}, false
 	}
-	return projectHeapOnDemand(function)
+	if summary, ok := registeredHeapSummary(function); ok {
+		return summary, true
+	}
+	if len(function.Blocks) != 0 {
+		return projectHeapOnDemand(function)
+	}
+	resolved := ResolvedFunction(function)
+	if summary, ok := registeredHeapSummary(resolved); ok {
+		return summary, true
+	}
+	return projectHeapOnDemand(resolved)
 }
 
 // RegisteredHeapSummary returns the summary the registry holds for the
@@ -97,11 +104,7 @@ func registeredHeapSummary(function *ssa.Function) (HeapSummary, bool) {
 // cycle reaches again, has no summary, so the cycle is cut where it closes.
 func projectHeapOnDemand(function *ssa.Function) (HeapSummary, bool) {
 	if function == nil || len(function.Blocks) == 0 {
-		if resolved := ResolvedFunction(function); resolved != nil && len(resolved.Blocks) != 0 {
-			function = resolved
-		} else {
-			return HeapSummary{}, false
-		}
+		return HeapSummary{}, false
 	}
 	heapSummaries.Lock()
 	if entry, ok := heapSummaries.entries[function]; ok {

@@ -344,9 +344,8 @@ func orderedSlots[Value any](entries map[slot]Value) []slot {
 		slots = append(slots, target)
 	}
 	sort.Slice(slots, func(i, j int) bool {
-		left, right := slotName(slots[i]), slotName(slots[j])
-		if left != right {
-			return left < right
+		if slots[i].region != slots[j].region {
+			return slots[i].region.serial < slots[j].region.serial
 		}
 		return slots[i].path < slots[j].path
 	})

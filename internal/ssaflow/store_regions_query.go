@@ -287,7 +287,7 @@ func (graph *regionGraph) storedPath(root, target ssa.Value, at ssa.Instruction)
 	if !ok {
 		return nil, false
 	}
-	for candidate := range state.contents {
+	for _, candidate := range orderedSlots(state.contents) {
 		if candidate.region != base.region || !slotBeneath(candidate.path, base.path) || candidate.path == base.path {
 			continue
 		}

@@ -93,13 +93,23 @@ func parentPath(path string) string {
 	return ""
 }
 
+// clobberedBeneath returns the stamp of the clobber that reaches the slot:
+// the most specific clobbered prefix above it, and the latest stamp among
+// clobbers of that prefix, so the placeholder a read produces does not
+// depend on the order the clobbers are visited in.
 func (graph *regionGraph) clobberedBeneath(state *regionState, target slot) (int, bool) {
-	for prefix, stamp := range state.clobbered {
-		if prefix.region == target.region && slotBeneath(target.path, prefix.path) {
-			return stamp, true
+	best, found := slot{}, false
+	stamp := 0
+	for prefix, candidate := range state.clobbered {
+		if prefix.region != target.region || !slotBeneath(target.path, prefix.path) {
+			continue
+		}
+		closer := len(prefix.path) > len(best.path) || len(prefix.path) == len(best.path) && candidate > stamp
+		if !found || closer {
+			best, stamp, found = prefix, candidate, true
 		}
 	}
-	return 0, false
+	return stamp, found
 }
 
 // backingOf finds the nearest slot above target that a snapshot was copied

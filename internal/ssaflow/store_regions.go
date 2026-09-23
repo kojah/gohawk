@@ -61,6 +61,10 @@ type region struct {
 	// label distinguishes the objects one call created, by their origin
 	// in the callee's summary.
 	label string
+	// serial is the region's creation order within its graph, the tie
+	// breaker that keeps every ordered walk over slots the same run to
+	// run when two regions share a name.
+	serial int
 }
 
 // versionStamp identifies the last unfollowed write that may have changed a
@@ -358,7 +362,7 @@ func (graph *regionGraph) intern(key regionKey) *region {
 	if existing, ok := graph.regions[key]; ok {
 		return existing
 	}
-	created := &region{kind: key.kind, origin: key.origin, source: key.source, stamp: key.stamp, label: key.label}
+	created := &region{kind: key.kind, origin: key.origin, source: key.source, stamp: key.stamp, label: key.label, serial: len(graph.regions)}
 	graph.regions[key] = created
 	return created
 }
