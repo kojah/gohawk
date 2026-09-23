@@ -38,6 +38,10 @@ func RenderRegions(function *ssa.Function) string {
 		}
 	}
 	for _, entry := range graph.applied {
+		if entry.reason != CallSummaryApplied {
+			fmt.Fprintf(&buffer, "//   unsummarized %s: %s\n", entry.instruction.String(), entry.reason)
+			continue
+		}
 		fmt.Fprintf(&buffer, "//   applied %s at %s: %d edges, %d effects, %d truncated\n",
 			entry.callee.String(), entry.instruction.String(), entry.edges, entry.effects, entry.truncated)
 	}

@@ -1,7 +1,6 @@
 package ssaflow
 
 import (
-	"slices"
 	"strconv"
 
 	"golang.org/x/tools/go/ssa"
@@ -20,19 +19,28 @@ import (
 // a closure with captured variables, is not applied.
 func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction) bool {
 	callee := common.StaticCallee()
-	if callee == nil || common.IsInvoke() {
+	if common.IsInvoke() {
+		graph.recordCall(appliedSummary{instruction: instruction, reason: CallInterface})
+		return false
+	}
+	if callee == nil {
+		graph.recordCall(appliedSummary{instruction: instruction, reason: CallDynamic})
 		return false
 	}
 	summary, ok := heapSummaryOf(callee)
-	if !ok || len(callee.FreeVars) != 0 {
+	switch {
+	case !ok:
+		graph.recordCall(appliedSummary{instruction: instruction, callee: callee, reason: CallNoSummary})
+		return false
+	case len(callee.FreeVars) != 0:
+		graph.recordCall(appliedSummary{instruction: instruction, callee: callee, reason: CallClosure})
 		return false
 	}
 	call, isCall := instruction.(*ssa.Call)
-	if !slices.ContainsFunc(graph.applied, func(entry appliedSummary) bool { return entry.instruction == instruction }) {
-		graph.applied = append(graph.applied, appliedSummary{
-			instruction: instruction, callee: callee, edges: len(summary.Edges), effects: len(summary.Effects), truncated: len(summary.Truncated),
-		})
-	}
+	graph.recordCall(appliedSummary{
+		instruction: instruction, callee: callee, reason: CallSummaryApplied,
+		edges: len(summary.Edges), effects: len(summary.Effects), truncated: len(summary.Truncated),
+	})
 	substitution := &heapSubstitution{graph: graph, state: state, common: common, instruction: instruction, fresh: map[string]*region{}}
 	graph.applyEscapes(state, summary, substitution, instruction)
 	for _, at := range summary.Truncated {

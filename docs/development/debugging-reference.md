@@ -37,7 +37,10 @@ clear bit. See [Inferred facts](../fact-model/).
 `-regions` prints every function of the package, private helpers and
 literals included, with the summary the registry holds for it and the
 points-to graph the analysis built: each value's pointees, an `applied`
-line for every call a callee summary was substituted at, a `widened` line
+line for every call a callee summary was substituted at, an `unsummarized`
+line with its reason (`no-summary`, `closure-callee`, `interface-call`,
+`dynamic-call`, `started`) for every call the graph forgot through instead,
+a `widened` line
 for every slot whose pointees outgrew the bound and became unknown, an
 `escaped` line naming the first instruction that escaped each slot in each
 way, and the disjointness answers given. A claim that looks wrong is read backwards from
@@ -126,6 +129,14 @@ candidate, carrying a specific reason and the instruction that blocked it:
 | summary | `summary-body-unavailable`, `summary-recursive` | the named callee; its body could not be summarized, so effects cannot be ruled out |
 | completion | `evidence-not-found`, `evidence-unavailable` at a launch site | the callee resolved from that launch never covered the target with the method sought |
 | budget | `budget-exhausted` | the query that spent the last unit; a cut answer is not a decision |
+
+A must-proof over the graph, such as nilargument's nil slot, can instead be
+wrong because a call before it was not summarized. When nilargument reports,
+its trace lists each earlier call that can reach the judged call and was
+unsummarized, as `earlier-call-unsummarized` evidence with the same reason
+codes as the dump, and counts them in `earlier-calls`. A `no-summary` on a
+callee whose facts exist means the summary was not registered when the
+caller's graph was built.
 
 These events say why evidence ran out, never what was decided, so the analyzer
 decision that follows them is still the one to read. A budget with no probe

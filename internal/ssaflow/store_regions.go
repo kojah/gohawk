@@ -176,9 +176,12 @@ type regionGraph struct {
 	// callResults holds the pointees a summarized multi-result call gave
 	// each of its results, for the extracts that select them.
 	callResults map[*ssa.Call][]pointees
-	// applied records every call the graph applied a summary at, for the
-	// dump: which callee, and how much of its summary there was to apply.
-	applied []appliedSummary
+	// applied records how the graph handled each call, for the dump and
+	// for traces: whether a summary was substituted and, if not, why. A
+	// call applied again on a later fixpoint pass keeps its latest record,
+	// the one the final state reflects; recorded indexes it.
+	applied  []appliedSummary
+	recorded map[ssa.Instruction]int
 	// escapeOrigins records the first instruction that escaped each object
 	// in each way, for the dump.
 	escapeOrigins map[escapeOrigin]ssa.Instruction
@@ -230,6 +233,7 @@ func (graph *regionGraph) boundValue(value ssa.Value) {
 type appliedSummary struct {
 	instruction ssa.Instruction
 	callee      *ssa.Function
+	reason      CallApplicationReason
 	edges       int
 	effects     int
 	truncated   int
@@ -346,6 +350,7 @@ func buildRegionGraph(function *ssa.Function) *regionGraph {
 		history:  map[slot]pointees{},
 		budget:   NewSearchBudget(regionBuildBudget),
 		ids:      map[ssa.Instruction]int{},
+		recorded: map[ssa.Instruction]int{},
 	}
 	graph.nilR = graph.intern(regionKey{kind: regionNil})
 	graph.unkR = graph.intern(regionKey{kind: regionUnknown})

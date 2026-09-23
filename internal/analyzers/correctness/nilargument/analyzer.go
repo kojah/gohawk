@@ -4,6 +4,7 @@ package nilargument
 import (
 	"fmt"
 	"go/types"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -82,6 +83,9 @@ func judgeArgument(pass *analysis.Pass, function *ssa.Function, call *ssa.Call, 
 		probe.Decision(analysisTrace.Step{Reason: "slot-not-proven-nil", Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos(), Details: details})
 		return
 	}
+	if probe.Enabled() {
+		traceCallApplications(probe, function, call)
+	}
 	probe.Decision(analysisTrace.Step{
 		Reason: "nil-slot-dereferenced", Outcome: analysisTrace.OutcomeRejected, Pos: call.Pos(), Function: function.String(), Details: details,
 	})
@@ -94,6 +98,48 @@ func judgeArgument(pass *analysis.Pass, function *ssa.Function, call *ssa.Call, 
 		Pos: source.Pos(), End: source.End(),
 		Message: fmt.Sprintf("%s is nil, and %s dereferences it on every path", what, callee.RelString(pass.Pkg)),
 	})
+}
+
+// tracedUnsummarizedLimit bounds the unsummarized calls one decision lists.
+const tracedUnsummarizedLimit = 8
+
+// traceCallApplications explains a nil proof by the calls before it: the
+// slot stays nil only if no earlier call could have written it, so a call
+// whose summary the graph did not apply is where a missed write would
+// hide. It lists those calls that can reach the judged call, bounded, and
+// counts the rest. It reads the graph's records and decides nothing.
+func traceCallApplications(probe analysisTrace.Probe, function *ssa.Function, call *ssa.Call) {
+	summarized, unsummarized := 0, 0
+	for _, record := range ssaflow.CallApplications(function) {
+		if !reachesCall(record.Instruction, call) {
+			continue
+		}
+		if record.Reason == ssaflow.CallSummaryApplied {
+			summarized++
+			continue
+		}
+		unsummarized++
+		if unsummarized > tracedUnsummarizedLimit {
+			continue
+		}
+		details := map[string]string{"call": record.Instruction.String(), "reason": string(record.Reason)}
+		if record.Callee != nil {
+			details["callee"] = record.Callee.String()
+		}
+		probe.Evidence(analysisTrace.Step{
+			Reason: "earlier-call-unsummarized", Outcome: analysisTrace.OutcomeObserved, Pos: record.Instruction.Pos(), Details: details,
+		})
+	}
+	probe.Evidence(analysisTrace.Step{
+		Reason: "earlier-calls", Outcome: analysisTrace.OutcomeObserved, Pos: call.Pos(),
+		Details: map[string]string{"summarized": strconv.Itoa(summarized), "unsummarized": strconv.Itoa(unsummarized)},
+	})
+}
+
+// reachesCall reports whether control can pass from an earlier call to the
+// judged one.
+func reachesCall(earlier ssa.Instruction, call *ssa.Call) bool {
+	return earlier != call && slices.Contains(ssaflow.InstructionsReachableAfter(earlier), ssa.Instruction(call))
 }
 
 // typeAtPath follows an access path through a type: a pointer to a struct

@@ -304,7 +304,9 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 		graph.builtin(state, builtin, common, instruction)
 		return
 	}
-	if !started && graph.applyHeapSummary(state, common, instruction) {
+	if started {
+		graph.recordCall(appliedSummary{instruction: instruction, callee: common.StaticCallee(), reason: CallStarted})
+	} else if graph.applyHeapSummary(state, common, instruction) {
 		return
 	}
 	arguments := append([]ssa.Value(nil), common.Args...)
