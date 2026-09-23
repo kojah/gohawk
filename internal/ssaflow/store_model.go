@@ -56,14 +56,14 @@ func (storage *Storage) Resolve(value ssa.Value) StoredValue {
 	return StoredValue{Proof: Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}, Value: value}
 }
 
-// Same proves equality after resolving local loads. Failure means unknown,
-// never inequality: two opaque loads might still contain the same value.
 // Budget returns the budget this storage query spends, so a caller can hand
 // a nested question the same allowance.
 func (storage *Storage) Budget() *SearchBudget {
 	return storage.budget
 }
 
+// Same proves equality after resolving local loads. Failure means unknown,
+// never inequality: two opaque loads might still contain the same value.
 func (storage *Storage) Same(left, right ssa.Value) IdentityProof {
 	if DefinitelySameValue(left, right) {
 		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}}
