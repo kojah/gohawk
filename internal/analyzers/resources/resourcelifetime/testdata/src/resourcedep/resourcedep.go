@@ -342,3 +342,14 @@ func ReadReplaced(file *os.File, path string) error {
 	_, err = file.Read(make([]byte, 1))
 	return err
 }
+
+// ScanAll iterates the rows on every path: closed rows silently yield none.
+func ScanAll(rows *sql.Rows) error {
+	for rows.Next() {
+		var value int
+		if err := rows.Scan(&value); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
+}

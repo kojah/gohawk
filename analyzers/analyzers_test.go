@@ -24,6 +24,7 @@ func expectedAnalyzerNames() []string {
 		"evalorder",
 		"oncepolicy",
 		"cancellationownership",
+		"nilargument",
 	}
 }
 
@@ -119,7 +120,7 @@ func TestAnalyzerGroups(t *testing.T) {
 				"resourcelifetime",
 			},
 		},
-		{name: "correctness", doc: "general correctness", docPath: "general-correctness", analyzers: []string{"evalorder", "inlineerror"}},
+		{name: "correctness", doc: "general correctness", docPath: "general-correctness", analyzers: []string{"evalorder", "inlineerror", "nilargument"}},
 	}
 	groups := AnalyzerGroups()
 	if len(groups) != len(want) {
@@ -162,13 +163,14 @@ func TestAnalyzerMetadata(t *testing.T) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
 	extended := map[string]bool{}
-	experimental := map[string]bool{}
+	experimental := map[string]bool{"nilargument": true}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"resourcelifetime/use-after-release": CheckTierCore,
 		"lockorder/contradictory-order":      CheckTierExtended,
 		"lockorder/read-lock-write":          CheckTierExperimental,
 		"lockorder/mismatched-release":       CheckTierExperimental,
+		"nilargument/dereferenced-nil":       CheckTierExperimental,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
 		"cancellationownership/release":      CheckKindDefect,
@@ -188,6 +190,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/read-lock-write":          CheckKindHazard,
 		"lockorder/mismatched-release":       CheckKindDefect,
 		"oncepolicy/discarded-wrapper":       CheckKindDefect,
+		"nilargument/dereferenced-nil":       CheckKindDefect,
 	}
 	for _, name := range expectedAnalyzerNames() {
 		info, ok := metadata[name]

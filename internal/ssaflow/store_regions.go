@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"container/list"
 	"maps"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -88,8 +89,23 @@ const pathStar = "index:*"
 // supports may-answers only.
 type pointees map[slot]bool
 
-// add records a slot, keeping an entry stale once any addition was.
+// add records a slot, keeping an entry stale once any addition was. Unknown
+// absorbs the set: a set that may be anything gains nothing from another
+// member, and a set widened to unknown must stay unknown for the fixpoint
+// to settle rather than grow, widen, and grow again on every round.
 func (set pointees) add(target slot, stale bool) {
+	if target.region.kind == regionUnknown {
+		for other := range set {
+			if other != target {
+				delete(set, other)
+			}
+		}
+		set[target] = set[target] || stale
+		return
+	}
+	if set.unknown() {
+		return
+	}
 	set[target] = set[target] || stale
 }
 
@@ -165,6 +181,8 @@ type regionGraph struct {
 	// widened records every slot whose pointees were collapsed to unknown
 	// because they outgrew the bound, for the dump.
 	widened []widening
+	// unavailable says why the graph could not be built, for the dump.
+	unavailable string
 }
 
 // pointeeLimit bounds the objects one slot may be recorded as holding.
@@ -328,7 +346,7 @@ func buildRegionGraph(function *ssa.Function) *regionGraph {
 	graph.nilR = graph.intern(regionKey{kind: regionNil})
 	graph.unkR = graph.intern(regionKey{kind: regionUnknown})
 	graph.order = reversePostorder(function)
-	graph.available = graph.fixpoint()
+	graph.available, graph.unavailable = graph.fixpoint()
 	if !graph.available {
 		graph.entry = nil
 		graph.exit = nil
@@ -386,13 +404,14 @@ func (graph *regionGraph) blockID(block *ssa.BasicBlock) int {
 
 // fixpoint runs the transfer over the blocks in reverse postorder until the
 // entry states settle, and reports whether they did within the bounds.
-func (graph *regionGraph) fixpoint() bool {
+func (graph *regionGraph) fixpoint() (bool, string) {
 	function := graph.function
 	if len(function.Blocks) == 0 {
-		return false
+		return false, "no body"
 	}
 	graph.entry[function.Blocks[0]] = newRegionState()
 	out := map[*ssa.BasicBlock]*regionState{}
+	unsettled := ""
 	for range regionFixpointRounds {
 		changed := false
 		for _, block := range graph.order {
@@ -403,21 +422,24 @@ func (graph *regionGraph) fixpoint() bool {
 			state := in.clone()
 			for _, instruction := range block.Instrs {
 				if !graph.budget.Spend() {
-					return false
+					return false, "budget exhausted"
 				}
 				graph.transfer(state, instruction)
 			}
 			if previous, ok := out[block]; !ok || !previous.equal(state) {
 				changed = true
+				if ok {
+					unsettled = "block " + strconv.Itoa(block.Index) + ": " + previous.difference(state)
+				}
 			}
 			out[block] = state
 		}
 		if !changed {
 			graph.exit = out
-			return true
+			return true, ""
 		}
 	}
-	return false
+	return false, "fixpoint did not settle in " + strconv.Itoa(regionFixpointRounds) + " rounds; last change at " + unsettled
 }
 
 // entryState merges the predecessors' out states into the block's entry

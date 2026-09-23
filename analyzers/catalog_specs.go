@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/producerlifecycle"
 	"github.com/kojah/gohawk/internal/analyzers/correctness/evalorder"
 	"github.com/kojah/gohawk/internal/analyzers/correctness/inlineerror"
+	"github.com/kojah/gohawk/internal/analyzers/correctness/nilargument"
 	"github.com/kojah/gohawk/internal/analyzers/resources/cancellationownership"
 	"github.com/kojah/gohawk/internal/analyzers/resources/deferinloop"
 	"github.com/kojah/gohawk/internal/analyzers/resources/processownership"
@@ -118,6 +119,12 @@ func correctnessSpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.ErrorMismatchedInline, Doc: "Reports inline error declarations whose condition checks a different error.",
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
+			},
+		}},
+		{Analyzer: nilargument.Analyzer(), Checks: []catalog.CheckInfo{
+			{
+				ID: check.NilArgumentDereference, Doc: "Reports a call that passes a nil pointer where the callee dereferences it on every path.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 		}},
 	}

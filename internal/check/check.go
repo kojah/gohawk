@@ -22,4 +22,5 @@ const (
 	LockReadLockWrite       ID = "lockorder/read-lock-write"
 	LockMismatchedRelease   ID = "lockorder/mismatched-release"
 	OnceDiscardedWrapper    ID = "oncepolicy/discarded-wrapper"
+	NilArgumentDereference  ID = "nilargument/dereferenced-nil"
 )

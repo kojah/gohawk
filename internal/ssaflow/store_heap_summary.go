@@ -291,7 +291,8 @@ func (projection *heapProjection) edges(states []*regionState, returns []*ssa.Re
 	record := func(from HeapSlot, set pointees) {
 		entry := entryFor(from)
 		entry.returns++
-		for pointee, stale := range set {
+		for _, pointee := range orderedSlots(set) {
+			stale := set[pointee]
 			target := projection.targetOf(pointee)
 			if from.Root.Kind == HeapResult && target.Kind == HeapTargetNil {
 				entry.ever[target] = true
@@ -316,7 +317,7 @@ func (projection *heapProjection) edges(states []*regionState, returns []*ssa.Re
 	}
 	projection.projectHistory(func(from HeapSlot, set pointees) {
 		entry := entryFor(from)
-		for pointee := range set {
+		for _, pointee := range orderedSlots(set) {
 			entry.ever[projection.targetOf(pointee)] = true
 		}
 	})
@@ -334,11 +335,30 @@ func (projection *heapProjection) edges(states []*regionState, returns []*ssa.Re
 	return edges
 }
 
+// orderedSlots lists a slot map's keys in a fixed order, so the slots a
+// bound keeps, and the numbers fresh objects receive, do not depend on
+// map iteration and the summary is the same on every run.
+func orderedSlots[Value any](entries map[slot]Value) []slot {
+	slots := make([]slot, 0, len(entries))
+	for target := range entries {
+		slots = append(slots, target)
+	}
+	sort.Slice(slots, func(i, j int) bool {
+		left, right := slotName(slots[i]), slotName(slots[j])
+		if left != right {
+			return left < right
+		}
+		return slots[i].path < slots[j].path
+	})
+	return slots
+}
+
 // projectRoots records the contents of every slot beneath a root that the
 // state knows, within the depth and count bounds.
 func (projection *heapProjection) projectRoots(state *regionState, record func(HeapSlot, pointees)) {
 	counts := map[HeapRoot]int{}
-	for target, set := range state.contents {
+	for _, target := range orderedSlots(state.contents) {
+		set := state.contents[target]
 		named, ok := projection.rootOf(target.region)
 		if !ok {
 			continue
@@ -412,7 +432,8 @@ func assumedByDefault(edge HeapEdge) bool {
 // projectHistory records everything the function ever stored into a named
 // slot, within the depth bound.
 func (projection *heapProjection) projectHistory(record func(HeapSlot, pointees)) {
-	for target, set := range projection.graph.history {
+	for _, target := range orderedSlots(projection.graph.history) {
+		set := projection.graph.history[target]
 		named, ok := projection.rootOf(target.region)
 		if !ok {
 			continue
@@ -443,7 +464,8 @@ func (projection *heapProjection) projectResults(state *regionState, returned *s
 			continue
 		}
 		count := 0
-		for target, contents := range state.contents {
+		for _, target := range orderedSlots(state.contents) {
+			contents := state.contents[target]
 			if target.region != object.region || target.path == "" || len(SplitAccessPath(target.path)) > heapPathDepth {
 				continue
 			}

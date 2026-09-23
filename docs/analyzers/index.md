@@ -81,4 +81,8 @@ These analyzers check error handling and expression behavior beyond ordinary typ
     <span class="analyzer-name">inlineerror</span>
     <span class="analyzer-detects">Checks inline error declarations for mismatched conditions.</span>
   </a>
+  <a class="analyzer-card" href="general-correctness/nilargument/">
+    <span class="analyzer-name">nilargument</span>
+    <span class="analyzer-detects">Checks calls that pass a nil value where the callee dereferences it on every path.</span>
+  </a>
 </div>

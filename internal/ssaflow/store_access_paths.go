@@ -89,6 +89,20 @@ func ValueAtPath(root ssa.Value, path []string, observation ssa.Instruction) (ss
 	return nil, false
 }
 
+// ContentIsNilAt reports whether the value at path beneath root is certainly
+// nil when observation runs: the root refers to one object, the slot holds
+// one non-stale entry, and it is nil. An empty path asks whether the root
+// itself is nil. A must-answer, so a value that is nil on one branch only
+// is not nil here.
+func ContentIsNilAt(root ssa.Value, path []string, observation ssa.Instruction) bool {
+	// The graph is the observing function's: a constant root belongs to no
+	// function, and a nil constant is nil in every one.
+	if observation == nil || observation.Parent() == nil {
+		return false
+	}
+	return regionsOfFunction(observation.Parent()).contentIsNil(root, path, observation)
+}
+
 // selectionsOf returns every address the function selected beneath root by
 // exactly path.
 func selectionsOf(root ssa.Value, path []string) []ssa.Value {

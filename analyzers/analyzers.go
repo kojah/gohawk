@@ -66,6 +66,7 @@ func newCatalog() (*catalog.Catalog, error) {
 		"evalorder",
 		"oncepolicy",
 		"cancellationownership",
+		"nilargument",
 	})
 }
 

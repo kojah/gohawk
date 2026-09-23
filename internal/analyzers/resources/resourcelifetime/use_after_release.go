@@ -39,7 +39,11 @@ func invalidatingOperations() []invalidatingOperation {
 		{"os", "File", []string{
 			"Read", "ReadAt", "ReadFrom", "Write", "WriteAt", "WriteString", "Seek", "Sync", "Truncate", "Readdir", "ReadDir", "Readdirnames",
 		}},
-		{"database/sql", "Rows", []string{"Scan", "Columns", "ColumnTypes"}},
+		// Next after Close is documented to return false, so a loop over
+		// closed rows silently sees no rows; a helper that iterates the rows
+		// it is handed therefore requires them unreleased, which its
+		// summary states as requiring Next.
+		{"database/sql", "Rows", []string{"Scan", "Columns", "ColumnTypes", "Next"}},
 		{"database/sql", "Tx", []string{
 			"Exec", "ExecContext", "Query", "QueryContext", "QueryRow", "QueryRowContext", "Prepare", "PrepareContext", "Stmt", "StmtContext",
 		}},

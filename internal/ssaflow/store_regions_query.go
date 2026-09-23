@@ -324,6 +324,31 @@ func (graph *regionGraph) valueAtPath(root ssa.Value, path []string, at ssa.Inst
 	return graph.valueOf(held)
 }
 
+// contentIsNil reports whether the slot at path beneath the root's object
+// certainly holds nil when the instruction runs: one non-stale entry, and
+// it is nil. An empty path asks about the root itself.
+func (graph *regionGraph) contentIsNil(root ssa.Value, path []string, at ssa.Instruction) bool {
+	defer graph.lock()()
+	set, ok := graph.pointsToUnlocked(root)
+	if !ok {
+		return false
+	}
+	base, ok := singleSlot(set)
+	if !ok {
+		return false
+	}
+	if len(path) == 0 {
+		return base.region.kind == regionNil
+	}
+	state := graph.stateAt(at)
+	if state == nil {
+		return false
+	}
+	target := slot{region: base.region, path: joinSlotPath(base.path, JoinAccessPath(path))}
+	held, ok := singleSlot(graph.content(state, target))
+	return ok && held.region.kind == regionNil
+}
+
 // contains reports whether the target's object is reachable from the
 // owner's objects through what their slots ever held, at any depth the
 // bound allows. It is a may-answer over the whole build under the

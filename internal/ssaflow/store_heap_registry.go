@@ -12,9 +12,12 @@ import (
 // so a call to a summarized function is applied by substitution instead of
 // forgetting every object the caller did not allocate.
 
-// heapSummaryLimit bounds the registry; past it the registry starts over,
-// and a later lookup that misses is merely conservative.
-const heapSummaryLimit = 8192
+// heapSummaryLimit bounds the registry. Past it nothing more is registered
+// and a later lookup that misses is merely conservative. The registry never
+// forgets what it holds: a summary that came and went with the order of
+// requests would make the same package analyze differently from one run
+// to the next.
+const heapSummaryLimit = 131072
 
 // heapEntryState is where a callee's summary stands in the registry. A
 // callee being projected right now, which only a call cycle reaches again,
@@ -47,8 +50,8 @@ func RegisterHeapSummary(function *ssa.Function, summary HeapSummary) {
 	}
 	heapSummaries.Lock()
 	defer heapSummaries.Unlock()
-	if len(heapSummaries.entries) >= heapSummaryLimit {
-		heapSummaries.entries = map[*ssa.Function]heapEntry{}
+	if _, ok := heapSummaries.entries[function]; !ok && len(heapSummaries.entries) >= heapSummaryLimit {
+		return
 	}
 	heapSummaries.entries[function] = heapEntry{summary: summary}
 }

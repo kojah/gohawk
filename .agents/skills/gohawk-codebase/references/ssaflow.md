@@ -696,6 +696,20 @@ The implementation must bind target to an exact argument, distinguish the
 requested method from callback invocation, and match the complete predicate.
 False means no guarantee, never proof that the callee has no effect.
 
+## ContentIsNilAt
+
+[Source](../../../../internal/ssaflow/store_access_paths.go)
+
+```go
+func ContentIsNilAt(root ssa.Value, path []string, observation ssa.Instruction) bool
+```
+
+ContentIsNilAt reports whether the value at path beneath root is certainly
+nil when observation runs: the root refers to one object, the slot holds
+one non-stale entry, and it is nil. An empty path asks whether the root
+itself is nil. A must-answer, so a value that is nil on one branch only
+is not nil here.
+
 ## ContractTestingCleanup, ContractTestifyErrorClaim, ContractTestifyNilClaim, ContractTestifyNoError, ContractTestifyFatalError, ContractGoMockReturn, ContractAfterFunc, ContractDeferredCleanup, ContractRuntimeGoexit, ContractTestingTermination, ContractProcessExit
 
 [Source](../../../../internal/ssaflow/call_contracts.go)
@@ -1299,12 +1313,50 @@ const (
 ```go
 type HeapRequirement struct {
 	Slot	HeapSlot
+	Kind	HeapRequirementKind
 	Method	string
 }
 ```
 
-HeapRequirement says the function calls Method with the object at Slot
-as the receiver, on every normal return.
+HeapRequirement says the function relies on the object at Slot in the
+way Kind names, on every normal return.
+
+## HeapRequirement.String
+
+[Source](../../../../internal/ssaflow/store_heap_requirements.go)
+
+```go
+func (requirement HeapRequirement) String() string
+```
+
+String renders a requirement as P0 method Read or P0/field:1 non-nil.
+
+## HeapRequirementKind
+
+[Source](../../../../internal/ssaflow/store_heap_requirements.go)
+
+```go
+type HeapRequirementKind uint8
+```
+
+HeapRequirementKind names what a requirement says about the object at
+its slot.
+
+## HeapRequiresMethod, HeapRequiresNonNil
+
+[Source](../../../../internal/ssaflow/store_heap_requirements.go)
+
+```go
+const (
+	// HeapRequiresMethod: Method is called with the object as receiver.
+	HeapRequiresMethod	HeapRequirementKind	= iota
+	// HeapRequiresNonNil: the object is dereferenced, so it must not be
+	// nil. A load or store through it, a field or element selected
+	// beneath it, or a method invoked through an interface it fills all
+	// fault on nil; a method called on a nil pointer receiver does not.
+	HeapRequiresNonNil
+)
+```
 
 ## HeapRoot
 

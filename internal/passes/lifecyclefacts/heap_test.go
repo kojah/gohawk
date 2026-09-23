@@ -49,7 +49,10 @@ func Inspect(p *pair) bool         { return p.first != nil }
 			}
 		}
 	}
-	if fact := summarize(pass, pkg.Func("Inspect")); !fact.empty() {
-		t.Errorf("Inspect should be an empty summary, got heap:\n%s", fact.Heap.String())
+	// Inspect reads and dereferences its parameter and nothing more: the
+	// projection carries the read and the non-nil requirement, no edge, no
+	// effect, and no cut.
+	if fact := summarize(pass, pkg.Func("Inspect")); len(fact.Heap.Edges) != 0 || len(fact.Heap.Effects) != 0 || len(fact.Heap.Truncated) != 0 {
+		t.Errorf("Inspect should claim nothing beyond its reads, got heap:\n%s", fact.Heap.String())
 	}
 }

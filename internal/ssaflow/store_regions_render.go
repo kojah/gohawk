@@ -17,7 +17,7 @@ func RenderRegions(function *ssa.Function) string {
 	defer graph.lock()()
 	var buffer strings.Builder
 	if !graph.available {
-		buffer.WriteString("// regions: unavailable\n")
+		buffer.WriteString("// regions: unavailable (" + graph.unavailable + ")\n")
 		return buffer.String()
 	}
 	buffer.WriteString("// regions:\n")

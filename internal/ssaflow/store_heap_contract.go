@@ -250,7 +250,7 @@ func (summary HeapSummary) String() string {
 		lines = append(lines, "read "+at.String())
 	}
 	for _, requirement := range summary.Requires {
-		lines = append(lines, "requires "+requirement.Slot.String()+" method "+requirement.Method+" every")
+		lines = append(lines, "requires "+requirement.String()+" every")
 	}
 	for _, at := range summary.Truncated {
 		lines = append(lines, "truncated "+at.String())

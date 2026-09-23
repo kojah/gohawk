@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"maps"
 	"slices"
+	"strings"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -230,4 +231,52 @@ func pointeesMapsEqual(left, right map[slot]pointees) bool {
 		}
 	}
 	return true
+}
+
+// difference names the first thing that distinguishes the other state from
+// this one, for the dump of a fixpoint that did not settle: a slot whose
+// contents differ, then a stamp, an escape, or a flag.
+func (state *regionState) difference(other *regionState) string {
+	for _, target := range orderedSlots(other.contents) {
+		mine, ok := state.contents[target]
+		if !ok || !maps.Equal(mine, other.contents[target]) {
+			return slotName(target) + " holds " + renderPointees(other.contents[target]) + ", held " + renderPointees(mine)
+		}
+	}
+	for target := range state.contents {
+		if _, ok := other.contents[target]; !ok {
+			return slotName(target) + " forgotten"
+		}
+	}
+	switch {
+	case state.epoch != other.epoch:
+		return "epoch"
+	case !maps.Equal(state.stepEpochs, other.stepEpochs):
+		return "step epochs"
+	case !maps.Equal(state.clobbered, other.clobbered):
+		return "clobbers"
+	case !maps.Equal(state.escapes, other.escapes):
+		return "escapes"
+	case !maps.Equal(state.backing, other.backing):
+		return "backing"
+	case state.opaque != other.opaque:
+		return "opacity"
+	}
+	return "deferred calls"
+}
+
+// renderPointees names a set's slots for the dump.
+func renderPointees(set pointees) string {
+	names := make([]string, 0, len(set))
+	for _, target := range orderedSlots(set) {
+		name := slotName(target)
+		if set[target] {
+			name += " (stale)"
+		}
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return "nothing"
+	}
+	return strings.Join(names, ", ")
 }

@@ -245,6 +245,21 @@
             }
           ],
           "options": []
+        },
+        {
+          "name": "nilargument",
+          "summary": "Checks calls that pass a nil value where the callee dereferences it on every path.",
+          "path": "analyzers/general-correctness/nilargument",
+          "tier": "experimental",
+          "checks": [
+            {
+              "id": "nilargument/dereferenced-nil",
+              "summary": "Reports a call that passes a nil pointer where the callee dereferences it on every path.",
+              "kind": "defect",
+              "tier": "experimental"
+            }
+          ],
+          "options": []
         }
       ]
     }

@@ -130,3 +130,25 @@ func branchCloseThenHelper(path string, early bool) error {
 	}
 	return err
 }
+
+// Next after Close returns false, so a helper that iterates the closed rows
+// silently sees none: the helper requires the rows unreleased.
+func iterateAfterClose(ctx context.Context, database *sql.DB) error {
+	rows, err := database.QueryContext(ctx, "SELECT 1")
+	if err != nil {
+		return err
+	}
+	_ = rows.Close()
+	return resourcedep.ScanAll(rows) // want "resource from sql.QueryContext is used after Close"
+}
+
+func nextAfterClose(ctx context.Context, database *sql.DB) error {
+	rows, err := database.QueryContext(ctx, "SELECT 1")
+	if err != nil {
+		return err
+	}
+	_ = rows.Close()
+	for rows.Next() { // want "resource from sql.QueryContext is used after Close"
+	}
+	return rows.Err()
+}

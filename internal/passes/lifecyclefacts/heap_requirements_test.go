@@ -36,6 +36,22 @@ func Replaced(r *reader) error                { r = open(); _, err := r.Read(nil
 func Held(h holder) error                     { _, err := h.r.Read(nil); return err }
 func Either(a, b *reader, ok bool) error      { r := a; if ok { r = b }; _, err := r.Read(nil); return err }
 func Panics(r *reader) error                  { _, _ = r.Read(nil); panic("never returns") }
+
+type payload interface{ Read(p []byte) (int, error) }
+type response struct {
+	body payload
+	next *response
+}
+
+func Deref(r *reader) int                     { return r.id }
+func Guarded(r *reader) int                   { if r == nil { return 0 }; return r.id }
+func Fatal(r *reader) int                     { if r == nil { panic("nil") }; return r.id }
+func Body(resp *response) error               { _, err := resp.body.Read(nil); return err }
+func Next(resp *response) int                 { return resp.next.id() }
+func (r *response) id() int                   { return 0 }
+func Fresh(r *reader) int                     { local := &reader{}; return local.id + r.id }
+func Assign(r *reader) { r.id = 1 }
+func ViaDeref(r *reader) int                  { return Deref(r) }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	for name, want := range map[string][]string{
@@ -48,6 +64,14 @@ func Panics(r *reader) error                  { _, _ = r.Read(nil); panic("never
 		"Held":         {"P0/field:0 method Read"},
 		"Either":       nil,
 		"Panics":       nil,
+		"Deref":        {"P0 non-nil"},
+		"Guarded":      nil,
+		"Fatal":        {"P0 non-nil"},
+		"Body":         {"P0 non-nil", "P0/field:0 method Read", "P0/field:0 non-nil"},
+		"Next":         {"P0 non-nil", "P0/field:1 method id"},
+		"Fresh":        {"P0 non-nil"},
+		"Assign":       {"P0 non-nil"},
+		"ViaDeref":     {"P0 non-nil"},
 	} {
 		fact := summarize(pass, pkg.Func(name))
 		if fact.Heap == nil {
@@ -55,7 +79,7 @@ func Panics(r *reader) error                  { _, _ = r.Read(nil); panic("never
 		}
 		var got []string
 		for _, requirement := range fact.Heap.Requires {
-			got = append(got, requirement.Slot.String()+" method "+requirement.Method)
+			got = append(got, requirement.String())
 		}
 		if !slices.Equal(got, want) {
 			t.Errorf("%s requires %q, want %q\n%s", name, got, want, fact.Heap.String())
