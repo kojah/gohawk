@@ -273,15 +273,18 @@ spilled into. Each path is proved on every normal return on its own.
 A caller is credited only for the resource it stored at that path beneath
 its argument, resolved from the caller's own stores; a helper that closes
 the other field or the other element leaves the obligation open where,
-before paths, any resource the argument contained was credited. Two
-exceptions keep older shapes exact: a resource that is itself an owner, such
-as an `http.Response`, is released by a helper closing its resource-typed
-field, and a deferred literal or bound callback closing a projection of the
-parameter still claims the parameter, because the completion search that
-proves it has no path to report. The same rule applies inside the local
-completion search: a target mapped into a callee by containment remembers
-its path, and a receiver that is a proper projection of the local must be
-at that path.
+before paths, any resource the argument contained was credited. One
+exception keeps an older shape exact: a resource that is itself an owner,
+such as an `http.Response`, is released by a helper closing its
+resource-typed field. A deferred literal or deferred helper is exported at
+the path the completion proof names, so one closing the body projected from
+a response claims the body's path, and one whose path the proof cannot
+name, because different returns settle different fields or the receiver
+comes from a call, claims nothing. A bound callback such as `value.Close`
+is the parameter itself and sets the mask. The same rule applies inside the
+local completion search: a target mapped into a callee by containment
+remembers its path, and a receiver that is a proper projection of the local
+must be at that path.
 
 `ClaimReleases` includes every parameter with a discharge at any path, for a
 consumer that only asks whether the callee releases part of what it was

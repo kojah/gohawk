@@ -456,6 +456,9 @@ type completionSearch struct {
 	// memo owns the cycle guard for callee bodies and the rule that an answer
 	// the guard cut short is not retained.
 	memo *CallGraphMemo[completionKey, completionAnswer]
+	// paths collects where the completing calls of the body being covered
+	// touched the target; nil outside a body's coverage.
+	paths *completionPaths
 	// budget, when set, bounds this question; nil leaves the search unbounded.
 	budget *SearchBudget
 }
@@ -554,17 +557,23 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 		// https://github.com/openclaw/crabbox/blob/3ef3f98cbe27e6ddc814c11fde15b89c1639bcbe/internal/cli/ssh_forward_startup.go#L15-L22
 		if local.kind == localCallback {
 			if called != nil && invokesLocal(called.Value, local.local) {
+				search.paths.record("", false)
 				return true
 			}
-			if _, proven, _ := search.forCallback().completes(candidate, local.local); proven {
+			if search.forCallback().completes(candidate, local.local).proven {
+				search.paths.record("", false)
 				return true
 			}
 			continue
 		}
 		if search.invokeTarget && local.kind == localExact && called != nil && search.invokesTargetLocal(called.Value, local.local) {
+			search.paths.record("", false)
 			return true
 		}
-		if _, proven, _ := search.completes(candidate, local.local); proven {
+		if answer := search.completes(candidate, local.local); answer.proven {
+			// The nested answer's path is beneath the local; translate it
+			// onto the target through the local's mapping.
+			search.paths.record(search.mappedPath(local, target, SplitAccessPath(answer.paths.path), answer.paths.known()))
 			return true
 		}
 	}
@@ -583,6 +592,7 @@ func (search *completionSearch) methodCompletes(candidate ssa.Instruction, calle
 			if BlockInCycle(candidate.Block()) {
 				*search.inCycle = true
 			}
+			search.paths.record(search.receiverPath(local, receiver, target))
 			return true
 		}
 	}

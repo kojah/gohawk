@@ -49,10 +49,10 @@ type CompletionRequest struct {
 // Disproven.
 func ProveCompletion(request CompletionRequest) CompletionProof {
 	if request.Instruction == nil || request.Target == nil {
-		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
+		return CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
 	if request.InvokeTarget && len(request.Methods) != 0 || !request.InvokeTarget && len(request.Methods) == 0 {
-		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
+		return CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
 	searched := false
 	incomplete := false
@@ -69,21 +69,25 @@ func ProveCompletion(request CompletionRequest) CompletionProof {
 		search.condition = request.condition
 		search.summarized = request.Summarized
 		search.returnedSummaries = request.ReturnedSummaries
-		launch, proven, available := search.completes(request.Instruction, request.Target)
-		if proven {
-			return CompletionProof{Proof{State: EvidenceProven, Reason: launch.reason(), Method: method, Provenance: EvidenceFromLocalSSA}}
+		answer := search.completes(request.Instruction, request.Target)
+		if answer.proven {
+			return CompletionProof{
+				Proof:     Proof{State: EvidenceProven, Reason: answer.launch.reason(), Method: method, Provenance: EvidenceFromLocalSSA},
+				Path:      answer.paths.path,
+				PathKnown: answer.paths.known(),
+			}
 		}
-		searched = searched || available
+		searched = searched || answer.available
 		incomplete = incomplete || *search.incomplete
 		inCycle = inCycle || *search.inCycle
 	}
 	if !searched {
-		return request.giveUp(CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}})
+		return request.giveUp(CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}})
 	}
 	if request.Budget.Exhausted() {
 		// The walk stopped early, so a missing completion is not evidence that
 		// the callee fails to complete the target.
-		return request.giveUp(CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceBudgetExhausted, Provenance: EvidenceFromLocalSSA}})
+		return request.giveUp(CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceBudgetExhausted, Provenance: EvidenceFromLocalSSA}})
 	}
 	if inCycle {
 		// A helper that releases every element of what it was handed inside
@@ -92,12 +96,12 @@ func ProveCompletion(request CompletionRequest) CompletionProof {
 		// which element an iteration settles is decided by iteration. That
 		// is uncertainty about the element, not a missing completion.
 		// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/chunk/filemgr.go#L66-L73
-		return request.giveUp(CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceCompletionInCycle, Provenance: EvidenceFromLocalSSA}})
+		return request.giveUp(CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceCompletionInCycle, Provenance: EvidenceFromLocalSSA}})
 	}
 	if incomplete {
-		return request.giveUp(CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable, Provenance: EvidenceFromLocalSSA}})
+		return request.giveUp(CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable, Provenance: EvidenceFromLocalSSA}})
 	}
-	return request.giveUp(CompletionProof{Proof{State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA}})
+	return request.giveUp(CompletionProof{Proof: Proof{State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA}})
 }
 
 // giveUp reports a completion search that proved nothing to the budget's

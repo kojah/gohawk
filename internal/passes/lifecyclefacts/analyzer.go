@@ -168,13 +168,15 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 			continue
 		}
 		method, target := mask.method, mask.field(fact)
+		deferred := deferredCompletions(function, parameter, method)
 		// A cleanup of a field or element is claimed at its own path,
 		// never as a cleanup of the parameter: closing j.out is not
 		// closing j, and a caller whose file sits in j.other must not be
 		// credited. Only the parameter itself sets the mask.
-		for _, path := range cleanupPaths(function, parameter, method) {
+		for _, path := range cleanupPaths(function, parameter, method, deferred) {
 			if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
-				return cleanupAtPath(instruction, parameter, method, path)
+				settled, ok := deferred[instruction]
+				return ok && settled == path || cleanupAtPath(instruction, parameter, method, path)
 			}) {
 				fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: method, Path: path})
 			}
@@ -183,13 +185,7 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 			if cleanupAtPath(instruction, parameter, method, "") {
 				return true
 			}
-			// Export the same exact deferred-callback evidence accepted by local
-			// lifecycle proofs. Qist's response helper defers a literal that closes
-			// the Body projected from its response parameter on every return:
-			// https://github.com/qist/tvgate/blob/bb4c889997c68cc607d9ab5bb34710d6baf94aa8/stream/handle.go#L31-L36
-			if _, deferred := instruction.(*ssa.Defer); deferred && ssaflow.ProveCompletion(ssaflow.CompletionRequest{
-				Instruction: instruction, Target: parameter, Methods: []string{method},
-			}).Proven() {
+			if settled, ok := deferred[instruction]; ok && settled == "" {
 				return true
 			}
 			if invokesMethodCallback(instruction, parameter, method) {
@@ -204,12 +200,47 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 	}
 }
 
+// deferredCompletions maps each deferred launch that the local completion
+// proof shows calls method on the parameter to the path beneath the
+// parameter it settles. This exports the same deferred-callback evidence
+// the local lifecycle proofs accept. Qist's response helper defers a
+// literal that closes the Body projected from its response parameter on
+// every return:
+// https://github.com/qist/tvgate/blob/bb4c889997c68cc607d9ab5bb34710d6baf94aa8/stream/handle.go#L31-L36
+// Before the proof reported a path, that literal claimed the response
+// itself; it now claims the body's path, and a caller is credited for the
+// resource it stored there. A completion whose path the proof cannot name,
+// because the receiver has no static path or different returns settle
+// different fields, is not exported at all: a claim on the parameter would
+// credit a caller for a resource the helper never touched. An exhausted
+// budget likewise exports nothing.
+func deferredCompletions(function *ssa.Function, parameter ssa.Value, method string) map[ssa.Instruction]string {
+	completions := map[ssa.Instruction]string{}
+	for _, instruction := range ssaflow.InstructionsOf[*ssa.Defer](function) {
+		proof := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+			Instruction: instruction, Target: parameter, Methods: []string{method},
+			Budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget),
+		})
+		if proof.Proven() && proof.PathKnown {
+			completions[instruction] = proof.Path
+		}
+	}
+	return completions
+}
+
 // cleanupPaths returns the non-empty access paths beneath the parameter on
-// which the function calls method: the fields and constant-index elements
-// it cleans up, each a candidate for its own every-return claim.
-func cleanupPaths(function *ssa.Function, parameter ssa.Value, method string) []string {
+// which the function calls method, directly or through a deferred
+// completion: the fields and constant-index elements it cleans up, each a
+// candidate for its own every-return claim.
+func cleanupPaths(function *ssa.Function, parameter ssa.Value, method string, deferred map[ssa.Instruction]string) []string {
 	seen := map[string]bool{}
 	var paths []string
+	for _, path := range deferred {
+		if path != "" && !seen[path] {
+			seen[path] = true
+			paths = append(paths, path)
+		}
+	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			common := ssaflow.InstructionCall(instruction)

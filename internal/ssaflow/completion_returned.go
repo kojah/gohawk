@@ -45,12 +45,12 @@ func ProveReturnedCleanup(function *ssa.Function, relation ReturnedCleanupRelati
 		search.exactTarget, search.exactInvocation, search.invokeTarget = true, request.InvokeTarget, request.InvokeTarget
 		search.summarized, search.returnedSummaries = request.Summarized, request.ReturnedSummaries
 		if search.returnedRelation(function, relation) {
-			return CompletionProof{Proof{
+			return CompletionProof{Proof: Proof{
 				State: EvidenceProven, Reason: EvidenceReturnedDeferredCleanup, Method: method, Provenance: EvidenceFromLocalSSA,
 			}}
 		}
 	}
-	return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
+	return CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 }
 
 func (search *completionSearch) returnedCallCompletes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool) {

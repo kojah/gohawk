@@ -110,7 +110,7 @@ func TestConditionalCompletionMemoIsolation(t *testing.T) {
 		{completionTrue, true},
 	} {
 		search.condition = completionCondition{kind: test.kind}
-		if _, proven, _ := search.completes(call, fn.Params[0]); proven != test.want {
+		if proven := search.completes(call, fn.Params[0]).proven; proven != test.want {
 			t.Errorf("condition %v: proven %v, want %v", test.kind, proven, test.want)
 		}
 	}

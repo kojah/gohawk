@@ -576,7 +576,20 @@ CompletionPredicate is a serializable condition on one function result.
 [Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
-type CompletionProof struct{ Proof }
+type CompletionProof struct {
+	Proof
+	// Path is the joined access path beneath the target on which the
+	// completing calls were made, empty for the target itself, and is
+	// meaningful only when PathKnown holds: every completing call the
+	// coverage relied on was on a mapped local at one static path. It is
+	// unknown when a receiver was derived from the target without a static
+	// path, when different calls settled different paths, or when the
+	// completion came through a summary or an invoked callback. A caller
+	// exporting the completion as a claim about the target's contents must
+	// require it; a caller settling the target itself may ignore it.
+	Path		string
+	PathKnown	bool
+}
 ```
 
 CompletionProof records evidence that a lifecycle method runs under the

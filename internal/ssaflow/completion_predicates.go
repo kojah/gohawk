@@ -40,7 +40,7 @@ func (condition completionCondition) predicate() CompletionPredicate {
 // matching predicate. It reuses the completion engine and its shared budget,
 // callback bindings, and recursion guard; it does not invent a caller or SSA.
 func ProveCompletionForResult(function *ssa.Function, predicate CompletionPredicate, request CompletionRequest) CompletionProof {
-	unknown := CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
+	unknown := CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	parameter, ok := request.Target.(*ssa.Parameter)
 	if !ok || function == nil || parameter.Parent() != function || len(function.Blocks) == 0 ||
 		!predicate.valid(function.Signature) || request.InvokeTarget && len(request.Methods) != 0 {
@@ -61,7 +61,7 @@ func ProveCompletionForResult(function *ssa.Function, predicate CompletionPredic
 			proven = search.conditionalCoverage(function, []mappedLocal{{local: parameter, kind: localExact}}, parameter, condition)
 		})
 		if proven && !request.Budget.Exhausted() {
-			return CompletionProof{Proof{
+			return CompletionProof{Proof: Proof{
 				State: EvidenceProven, Reason: EvidenceCalledCompletion, Method: method, Provenance: EvidenceFromLocalSSA,
 			}}
 		}

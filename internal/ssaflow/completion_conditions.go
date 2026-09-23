@@ -35,7 +35,7 @@ const (
 func ProveCompletionOnEdge(from, to *ssa.BasicBlock, request CompletionRequest) CompletionProof {
 	call, condition, ok := completionEdgeCondition(from, to)
 	if !ok {
-		return CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
+		return CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
 	request.Instruction, request.condition = call, condition
 	request.ExactTarget, request.Coverage = true, CoverageEveryReturn
@@ -188,7 +188,7 @@ func (search *completionSearch) conditionalReturn(
 	nested.condition = completionCondition{result: index, kind: condition.kind}
 	for _, local := range locals {
 		if local.kind == localExact {
-			if _, proven, _ := nested.completes(call, local.local); proven {
+			if nested.completes(call, local.local).proven {
 				return true, true
 			}
 		}

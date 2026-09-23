@@ -38,7 +38,7 @@ type enclosingSearch struct {
 // owner, requiring all discovered invocations to have the same cleanup
 // guarantee. An incomplete traversal is Unknown, never a cleanup proof.
 func ProveEnclosingCompletion(request EnclosingCompletionRequest) CompletionProof {
-	unknown := CompletionProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
+	unknown := CompletionProof{Proof: Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	if request.Function == nil || request.Function.Parent() == nil || request.Value == nil || request.Budget == nil {
 		return unknown
 	}
@@ -58,7 +58,7 @@ func ProveEnclosingCompletion(request EnclosingCompletionRequest) CompletionProo
 	if !complete || !search.found {
 		return unknown
 	}
-	return CompletionProof{Proof{State: EvidenceProven, Reason: EvidenceDeferredCompletion, Provenance: EvidenceFromLocalSSA}}
+	return CompletionProof{Proof: Proof{State: EvidenceProven, Reason: EvidenceDeferredCompletion, Provenance: EvidenceFromLocalSSA}}
 }
 
 func (search *enclosingSearch) walk(frame *enclosingFrame) bool {

@@ -23,34 +23,38 @@ type completionAnswer struct {
 	launch    launchKind
 	proven    bool
 	available bool
+	// paths says where beneath the target a proven completion settled; see
+	// completionPaths. It is meaningful only when proven.
+	paths completionPaths
 }
 
 // completes reports whether the instruction's callees all call method on the
-// target with the coverage their launch demands. The final result is false
+// target with the coverage their launch demands. The answer is unavailable
 // when no callee body was available to search.
-func (search *completionSearch) completes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
+func (search *completionSearch) completes(instruction ssa.Instruction, target ssa.Value) completionAnswer {
 	key := completionKey{
 		instruction: instruction, target: target, invokeTarget: search.invokeTarget, bindings: search.bindings, condition: search.condition,
 	}
-	answer := search.memo.Compose(key, search.budget, func() completionAnswer {
-		launch, proven, available := search.searchCompletes(instruction, target)
-		return completionAnswer{launch: launch, proven: proven, available: available}
+	return search.memo.Compose(key, search.budget, func() completionAnswer {
+		return search.searchCompletes(instruction, target)
 	}, func(_ SummaryUnavailable, partial completionAnswer) completionAnswer {
 		partial.proven = false
 		return partial
 	})
-	return answer.launch, answer.proven, answer.available
 }
 
-func (search *completionSearch) searchCompletes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool, bool) {
+func (search *completionSearch) searchCompletes(instruction ssa.Instruction, target ssa.Value) completionAnswer {
 	if kind, proven := search.returnedCallCompletes(instruction, target); proven {
-		return kind, true, true
+		// A completion routed through a returned callback is proven about
+		// the target as a whole; the search does not follow its path.
+		return completionAnswer{launch: kind, proven: true, available: true}
 	}
 	callees, ok := search.boundCallees(instruction)
 	if !ok || len(callees) == 0 {
-		return launchNone, false, false
+		return completionAnswer{launch: launchNone}
 	}
 	searched := false
+	var paths completionPaths
 	for _, callee := range callees {
 		callee.invocation = instruction
 		if callee.environment == nil {
@@ -59,26 +63,37 @@ func (search *completionSearch) searchCompletes(instruction ssa.Instruction, tar
 		if callee.function == nil || len(callee.function.Blocks) == 0 {
 			if _, synchronous := instruction.(*ssa.Call); synchronous && search.summarized != nil &&
 				search.summarized(instruction, target, search.method, search.invokeTarget, search.condition.predicate()) {
+				// A summary settles the target as a whole; where it did so
+				// beneath the target is not part of its claim.
+				paths.record("", false)
 				continue
 			}
-			return callee.launch, false, searched
+			return completionAnswer{launch: callee.launch, available: searched}
 		}
 		answer := search.calleeCompletes(callee, target, instruction)
 		if !answer.available {
-			return callee.launch, false, searched
+			return completionAnswer{launch: callee.launch, available: searched}
 		}
 		searched = true
 		if !answer.proven {
-			return callee.launch, false, true
+			return completionAnswer{launch: callee.launch, available: true}
 		}
+		paths.merge(answer.paths)
 	}
-	return callees[0].launch, true, true
+	return completionAnswer{launch: callees[0].launch, proven: true, available: true, paths: paths}
 }
 
 func (search *completionSearch) calleeCompletes(callee completionCallee, target ssa.Value, invocation ssa.Instruction) completionAnswer {
 	answer := completionAnswer{launch: callee.launch}
 	answer.available = search.memo.WithFunction(callee.function, func() {
+		// Each body's coverage records its own completing calls, so a
+		// nested body's paths do not bleed into the enclosing answer
+		// except through the mapping that translates them.
+		previous := search.paths
+		search.paths = &completionPaths{}
 		answer.proven = search.calleeCoverage(callee, target, invocation)
+		answer.paths = *search.paths
+		search.paths = previous
 	})
 	return answer
 }
