@@ -103,6 +103,23 @@ func ContentIsNilAt(root ssa.Value, path []string, observation ssa.Instruction) 
 	return regionsOfFunction(observation.Parent()).contentIsNil(root, path, observation)
 }
 
+// ObjectExclusiveAt reports whether the object the value refers into can be
+// reached, when the instruction runs, by nobody but this function and the
+// caller that handed it in: a local allocation not yet escaped, or a
+// parameter not yet escaped. A local object is Published when some path
+// from the instruction stores it into a global or a field, sends it, or
+// hands it to a goroutine; a call alone does not publish it. A value that may refer to several objects, or
+// to one the function did not allocate and was not handed, is not
+// exclusive. Where a value the graph cannot see is passed to a callee, the
+// escape is recorded, so an object handed to unknown code is not exclusive
+// afterwards.
+func ObjectExclusiveAt(value ssa.Value, at ssa.Instruction) (ExclusiveObject, bool) {
+	if at == nil || at.Parent() == nil {
+		return ExclusiveObject{}, false
+	}
+	return regionsOfFunction(at.Parent()).exclusiveAt(value, at)
+}
+
 // selectionsOf returns every address the function selected beneath root by
 // exactly path.
 func selectionsOf(root ssa.Value, path []string) []ssa.Value {

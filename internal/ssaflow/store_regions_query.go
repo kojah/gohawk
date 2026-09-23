@@ -352,6 +352,74 @@ func (graph *regionGraph) contentIsNil(root ssa.Value, path []string, at ssa.Ins
 	return ok && held.region.kind == regionNil
 }
 
+// ExclusiveObject says who can reach an object at an instruction: only the
+// function, through a local allocation that has not escaped there, or only
+// the function and its caller, through a parameter that has not escaped
+// there. Published reports whether the local object escapes later on some
+// path, which separates an object being initialized before publication
+// from one that never leaves the function.
+type ExclusiveObject struct {
+	Parameter int
+	Local     bool
+	Published bool
+}
+
+// exclusiveAt reports whether the one object the value refers into has not
+// escaped when the instruction runs, and who else could reach it.
+func (graph *regionGraph) exclusiveAt(value ssa.Value, at ssa.Instruction) (ExclusiveObject, bool) {
+	defer graph.lock()()
+	set, ok := graph.pointsToUnlocked(value)
+	if !ok {
+		return ExclusiveObject{}, false
+	}
+	target, ok := singleSlot(set)
+	if !ok {
+		return ExclusiveObject{}, false
+	}
+	state := graph.stateAt(at)
+	if state == nil || state.escapes[slot{region: target.region}] != 0 {
+		return ExclusiveObject{}, false
+	}
+	switch target.region.kind {
+	case regionSite:
+		if state.escaped[target.region] {
+			return ExclusiveObject{}, false
+		}
+		return ExclusiveObject{Local: true, Published: graph.publishedAfterUnlocked(target.region, at)}, true
+	case regionExternal:
+		parameter, ok := target.region.origin.(*ssa.Parameter)
+		if !ok {
+			return ExclusiveObject{}, false
+		}
+		for index, candidate := range graph.function.Params {
+			if candidate == parameter {
+				return ExclusiveObject{Parameter: index}, true
+			}
+		}
+	case regionNil, regionUnknown, regionOpaque, regionPlaceholder, regionSnapshot, regionClosure:
+	}
+	return ExclusiveObject{}, false
+}
+
+// publishedAfter reports whether the object is published on some path
+// from the instruction: a return the instruction can reach whose state has
+// the object stored into a global or a field, sent, or handed to a
+// goroutine. Being handed to a call is not publication. Escapes accumulate
+// along a path, so a publication seen at such a return and absent at the
+// instruction happened between them.
+func (graph *regionGraph) publishedAfterUnlocked(object *region, at ssa.Instruction) bool {
+	const publication = HeapEscapedGlobal | HeapEscapedField | HeapEscapedSend | HeapEscapedAsync
+	for _, returned := range InstructionsOf[*ssa.Return](graph.function) {
+		if !InstructionMayFollow(at, returned) {
+			continue
+		}
+		if state := graph.stateAt(returned); state != nil && state.escapes[slot{region: object}]&publication != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // contains reports whether the target's object is reachable from the
 // owner's objects through what their slots ever held, at any depth the
 // bound allows. It is a may-answer over the whole build under the

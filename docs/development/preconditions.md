@@ -44,14 +44,31 @@ check can act on today:
   direct check uses. `io.Copy` requires `Read` of its source, and a caller
   that passes an `*os.File` it has closed has used the file after `Close`.
 
-Two more families follow the same shape and are planned, not built:
+The second family is built and consumed by the `nilargument` analyzer:
 
 - `requires P0/field:1 non-nil every`: the slot's content is dereferenced,
-  or a method is invoked through it, on every path, with no nil check
-  between the read and the use. A caller whose state holds nil there has a
-  witness.
-- `requires P0 not-released every`, the generalization of the first family
-  to any operation the resource's contract says fails after release.
+  or a method is invoked through an interface it fills, on every path. A
+  caller whose graph says the slot certainly holds nil there has a
+  witness. Only pointer-typed slots are judged, because an interface
+  filled from a nil pointer is not a nil interface.
+
+"Not released" needs no family of its own: the method family names what
+the helper calls, and the caller's invalidation table says which of those
+fail after release, so `rows.Next` through a helper after `rows.Close`
+is reported once `Next` is in the rows table.
+
+The third precondition is exclusivity, consumed by lockorder's
+contradictory-order check. It is not a summary requirement but a
+two-sided proof over the graph: an acquisition orders nothing when the
+locked object is unescaped at the acquisition and is published only
+afterwards on that path, or is a parameter that every caller in the
+package hands in as a fresh unescaped local and the function is
+unexported. Initializing a job under the registry lock before publishing
+it is then not the reverse of the steady-state order. A purely local
+object that is never published is deliberately still ordered, as the
+existing fixtures require, and an acquisition inside a callee is never
+discharged from the call, because callee acquisitions are summarized per
+lock class rather than per argument.
 
 A requirement is never exported for a slot the projection truncated, for a
 path deeper than the projection bound, or from a function whose graph was

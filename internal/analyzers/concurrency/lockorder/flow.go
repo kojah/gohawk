@@ -32,6 +32,8 @@ func releaseSettled(proof ssaflow.CompletionProof, reason ssaflow.EvidenceReason
 
 type lockFlowContext struct {
 	pass            *analysis.Pass
+	function        *ssa.Function
+	exclusive       *exclusiveCallers
 	evidence        *ssaflow.LocalEvidence
 	relations       *lockOrders
 	calleeLocks     *calleeLockSearch
@@ -62,6 +64,7 @@ func walkLockOrderBounded(
 	calleeLocks *calleeLockSearch,
 	evidence *ssaflow.LocalEvidence,
 	callers map[*ssa.Function]conditionalCallerSet,
+	exclusive *exclusiveCallers,
 	summaries map[ssa.Instruction][]mutexEffect,
 ) bool {
 	if len(function.Blocks) == 0 {
@@ -83,6 +86,8 @@ func walkLockOrderBounded(
 	functionDefers := ssaflow.InstructionsOf[*ssa.Defer](function)
 	flow := lockFlowContext{
 		pass:         pass,
+		function:     function,
+		exclusive:    exclusive,
 		evidence:     evidence,
 		relations:    relations,
 		calleeLocks:  calleeLocks,
@@ -495,8 +500,12 @@ func (flow lockFlowContext) applyMutexAction(
 	acquired := effect.acquired
 	if !slices.Contains(state.held, identity) {
 		guards := flow.exclusiveGlobalGuards(state.held, state.readHeld)
-		for _, owner := range state.held {
-			flow.relations.record(flow.pass, state.origins[owner], acquired, guards...)
+		// An object nobody else can reach yet is locked without ordering
+		// anything; the lock is still held from here on.
+		if len(state.held) == 0 || !flow.exclusive.acquisitionExclusive(flow.function, instruction, receiver) {
+			for _, owner := range state.held {
+				flow.relations.record(flow.pass, state.origins[owner], acquired, guards...)
+			}
 		}
 		state.origins[identity] = acquired
 	}

@@ -74,9 +74,10 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	calleeLocks := newCalleeLockSearch()
 	ssaResult := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 	callers := conditionalCallerSets(append([]*ssa.Function{ssaResult.Pkg.Func("init")}, ssaResult.SrcFuncs...))
+	exclusive := newExclusiveCallers(pass, ssaResult.SrcFuncs)
 	for _, function := range functions {
 		var evidence ssaflow.LocalEvidence
-		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers)
+		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers, exclusive)
 	}
 	return nil, nil
 }
@@ -88,6 +89,7 @@ func walkLockOrder(
 	calleeLocks *calleeLockSearch,
 	evidence *ssaflow.LocalEvidence,
 	callers map[*ssa.Function]conditionalCallerSet,
+	exclusive *exclusiveCallers,
 ) {
 	summaries := summarizedMutexEffects(pass, function)
 	if !hasMutexAcquisition(function, summaries) {
@@ -98,7 +100,7 @@ func walkLockOrder(
 	buffered, commit := check.BufferReports(pass)
 	localRelations := newLockOrders()
 	localRelations.collectOnly = true
-	if !walkLockOrderBounded(buffered, function, localRelations, calleeLocks, evidence, callers, summaries) {
+	if !walkLockOrderBounded(buffered, function, localRelations, calleeLocks, evidence, callers, exclusive, summaries) {
 		traceLockStateBudget(pass, function)
 		return
 	}

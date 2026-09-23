@@ -1027,6 +1027,25 @@ const (
 )
 ```
 
+## ExclusiveObject
+
+[Source](../../../../internal/ssaflow/store_regions_query.go)
+
+```go
+type ExclusiveObject struct {
+	Parameter	int
+	Local		bool
+	Published	bool
+}
+```
+
+ExclusiveObject says who can reach an object at an instruction: only the
+function, through a local allocation that has not escaped there, or only
+the function and its caller, through a parameter that has not escaped
+there. Published reports whether the local object escapes later on some
+path, which separates an object being initialized before publication
+from one that never leaves the function.
+
 ## ExternallyOwnedValue
 
 [Source](../../../../internal/ssaflow/value_ownership.go)
@@ -1851,6 +1870,25 @@ func NormalReturnReachableWith(block *ssa.BasicBlock, terminates Terminator) boo
 
 NormalReturnReachableWith is NormalReturnReachableFrom with the catalog of
 terminating calls extended by a terminator.
+
+## ObjectExclusiveAt
+
+[Source](../../../../internal/ssaflow/store_access_paths.go)
+
+```go
+func ObjectExclusiveAt(value ssa.Value, at ssa.Instruction) (ExclusiveObject, bool)
+```
+
+ObjectExclusiveAt reports whether the object the value refers into can be
+reached, when the instruction runs, by nobody but this function and the
+caller that handed it in: a local allocation not yet escaped, or a
+parameter not yet escaped. A local object is Published when some path
+from the instruction stores it into a global or a field, sends it, or
+hands it to a goroutine; a call alone does not publish it. A value that may refer to several objects, or
+to one the function did not allocate and was not handed, is not
+exclusive. Where a value the graph cannot see is passed to a callee, the
+escape is recorded, so an object handed to unknown code is not exclusive
+afterwards.
 
 ## ObligationAction
 

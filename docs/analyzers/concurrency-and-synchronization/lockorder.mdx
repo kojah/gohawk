@@ -160,6 +160,17 @@ exclusive mutex held as a guard. This is intentionally narrower than matching
 field names, receiver types, or read locks. Local object and parameter-relative
 guards across different functions are not guessed to be the same instance.
 
+An acquisition on an object no other goroutine can reach yet orders
+nothing. When the points-to graph shows the locked object has not escaped
+at the acquisition and is stored into a global or a field, sent, or handed
+to a goroutine only afterwards on that path, the edge is initialization,
+not an order: locking a job under the registry lock before publishing the
+job does not contradict the steady state of locking the job first. The
+same holds for a parameter of an unexported function when every call in
+the package hands in a fresh local that has not escaped at the call. An
+object that is never published, an object published first, an exported
+function, and a caller that passes a shared object all keep the edge.
+
 Cycle witnesses contain at most eight edges. Each search examines at most
 512 edges, and a package retains at most 4,096 distinct order edges. Helper
 evidence retains a bounded representative route rather than all call paths.
