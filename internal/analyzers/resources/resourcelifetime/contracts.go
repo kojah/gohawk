@@ -538,11 +538,21 @@ func ownedResultContract(evidence *lifecyclefacts.LifecycleEvidence, call *ssa.C
 	if !settings.contracts["owned"] {
 		return resourceContract{}, false
 	}
+	callee := call.Common().StaticCallee()
 	cleanup, index, ok := evidence.OwnedResult(call)
+	if !ok && !catalogCoversPackage(settings, callee) {
+		// A constructor may hand the resource back directly rather than in
+		// a struct; the summary then names the result position and its type
+		// names the cleanup. The catalog stays authoritative for the packages
+		// it models: database/sql's Prepare returns a fresh statement by its
+		// body, but the catalog deliberately leaves statements to the
+		// transaction or database that owns them, and an inferred owner must
+		// not reopen that decision.
+		cleanup, index, ok = evidence.OwnedDirectResult(call)
+	}
 	if !ok {
 		return resourceContract{}, false
 	}
-	callee := call.Common().StaticCallee()
 	// The package name only labels the diagnostic; identity was decided by
 	// the imported summaries above.
 	return resourceContract{
@@ -552,6 +562,21 @@ func ownedResultContract(evidence *lifecyclefacts.LifecycleEvidence, call *ssa.C
 		cleanup:     cleanup,
 		result:      index,
 	}, true
+}
+
+// catalogCoversPackage reports whether any catalog contract names the
+// callee's package, in which case the catalog's decisions about that API
+// are complete and no inferred acquisition is added beside them.
+func catalogCoversPackage(settings resourceLifetimeSettings, callee *ssa.Function) bool {
+	if callee == nil || callee.Object() == nil {
+		return false
+	}
+	for _, contract := range settings.catalog {
+		if syntax.DeclaredInPackage(callee.Object(), contract.packagePath) {
+			return true
+		}
+	}
+	return false
 }
 
 // memoryWriterExempt reports whether a compression writer wraps a local

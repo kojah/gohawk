@@ -45,7 +45,11 @@ type Fact struct {
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields    ParameterMask
 	ReleasedFields ParameterMask
-	ReceiverStore  ParameterMask
+	// OwnedResults is indexed by result position: the function hands back a
+	// fresh resource it acquired itself, and the caller owes its cleanup.
+	// See owned_results.go for the freshness the proof requires.
+	OwnedResults  ParameterMask
+	ReceiverStore ParameterMask
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
 	Conditional *ConditionalSummary
@@ -78,6 +82,7 @@ func (fact *Fact) traceDetails() map[string]string {
 		{"loop-released", fact.LoopReleased},
 		{"owned-fields", fact.OwnedFields},
 		{"released-fields", fact.ReleasedFields},
+		{"owned-results", fact.OwnedResults},
 		{"receiver-store", fact.ReceiverStore},
 	}
 	claims := make([]string, 0, len(named))
@@ -185,9 +190,23 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 			lines = append(lines, fmt.Sprintf("%s: %s", mask.name, strings.Join(fields, ", ")))
 		}
 	}
+	if fact.OwnedResults != 0 {
+		lines = append(lines, "OwnedResults: "+fact.resultNames(fact.OwnedResults, signature))
+	}
 	lines = append(lines, fact.conditionalDescriptions()...)
 	lines = append(lines, fact.returnedCleanupDescriptions()...)
 	return lines
+}
+
+// resultNames renders a result mask as result positions with their types.
+func (fact *Fact) resultNames(mask ParameterMask, signature *types.Signature) string {
+	var names []string
+	for index := range signature.Results().Len() {
+		if mask.contains(index) {
+			names = append(names, fmt.Sprintf("%d %s", index, signature.Results().At(index).Type()))
+		}
+	}
+	return strings.Join(names, ", ")
 }
 
 // fieldNames renders a field mask against the method's receiver struct or,

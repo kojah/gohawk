@@ -43,6 +43,19 @@ test package is the canonical pass for both production and test files.
 Source-selection prerequisite passes produce this fact without making
 syntax depend on the execution-infrastructure package that owns the pass.
 
+## DeclaredInPackage
+
+[Source](../../../../internal/syntax/symbols.go)
+
+```go
+func DeclaredInPackage(object types.Object, packagePath string) bool
+```
+
+DeclaredInPackage reports whether the object belongs to the package at
+packagePath. It answers the package-level question a contract catalog
+asks, "is this API one of the package's I model?", without a caller
+reconstructing identity from raw package paths.
+
 ## ExpressionUsesObject
 
 [Source](../../../../internal/syntax/syntax.go)

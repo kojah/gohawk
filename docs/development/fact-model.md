@@ -157,6 +157,10 @@ type Fact struct {
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields	ParameterMask
 	ReleasedFields	ParameterMask
+	// OwnedResults is indexed by result position: the function hands back a
+	// fresh resource it acquired itself, and the caller owes its cleanup.
+	// See owned_results.go for the freshness the proof requires.
+	OwnedResults	ParameterMask
 	ReceiverStore	ParameterMask
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
@@ -201,6 +205,18 @@ resource type stored in the returned object. An arbitrary custom `Close`
 method establishes cleanup capability, not that construction acquired a live
 resource. Nested custom owners and interface-only results therefore remain
 unknown; they are not recursively assumed to create new obligations.
+
+`OwnedResults` is the direct-result counterpart, indexed by result position:
+the function acquired a concrete resource itself and hands it back as a
+result, possibly behind an interface the caller can close. The proof is
+strict about freshness. The acquired value must reach the return through
+nothing but interface conversions, phi merges, and nil comparisons; a call
+that has seen it, a store, a captured closure, a registry, or a cleanup that
+can run before a return of it all decline the claim. `resourcelifetime`
+turns the claim into an acquisition whose cleanup is the result type's, but
+only for packages the catalog does not model: the catalog's decision about
+a standard-library API, such as leaving `database/sql` statements to their
+transaction, is not reopened by an inferred owner.
 
 A constructor storing the acquired value in an already external map or owner
 also leaves fresh-result ownership unknown. A returned wrapper can share its

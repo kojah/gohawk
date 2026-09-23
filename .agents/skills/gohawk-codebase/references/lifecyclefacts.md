@@ -207,6 +207,10 @@ type Fact struct {
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields	ParameterMask
 	ReleasedFields	ParameterMask
+	// OwnedResults is indexed by result position: the function hands back a
+	// fresh resource it acquired itself, and the caller owes its cleanup.
+	// See owned_results.go for the freshness the proof requires.
+	OwnedResults	ParameterMask
 	ReceiverStore	ParameterMask
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
@@ -443,6 +447,21 @@ func (evidence *LifecycleEvidence) ForCandidate(candidate token.Pos)
 ForCandidate attributes the evidence traced from here on to candidate, so a
 trace selector retrieves the whole proof built for it. Analyzers call this
 once before judging each candidate.
+
+## LifecycleEvidence.OwnedDirectResult
+
+[Source](../../../../internal/passes/lifecyclefacts/owned_results.go)
+
+```go
+func (evidence *LifecycleEvidence) OwnedDirectResult(call *ssa.Call) ([]string, int, bool)
+```
+
+OwnedDirectResult reports whether the call's static callee is summarized
+as returning a fresh resource directly, and returns that result's cleanup
+methods and index. The result type decides the cleanup: a concrete
+resource type or an io.Closer. A type this vocabulary cannot release
+yields false, because the caller cannot be asked for a cleanup it has no
+way to perform.
 
 ## LifecycleEvidence.OwnedResult
 

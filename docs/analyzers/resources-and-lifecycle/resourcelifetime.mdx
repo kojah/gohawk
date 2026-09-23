@@ -111,11 +111,21 @@ exactly as they owe `Close` to `os.Open`. A wrapper that stores a caller's
 resource, or a type whose methods never release the field, produces no
 contract.
 
-Fresh acquisition inference requires a field containing a known concrete
-resource type. A custom `Close` method alone does not establish acquisition:
-the result may be a lazy or empty handle. Nested custom owners and
-interface-only resource results remain unknown, so leaks through those
-constructors may be missed.
+A helper that acquires a resource and hands it straight back as a result,
+such as `OpenConfig(path) (*os.File, error)` or one returning an
+`io.ReadCloser`, is summarized the same way, and its callers owe the result
+type's cleanup. That claim requires the value to reach the return untouched:
+a helper that also registers it, calls a method on it, captures it in a
+returned callback, or may have closed it before returning makes no claim,
+so a dropped result from such a helper is not reported. Standard-library
+packages the contract catalog already models keep the catalog's decisions;
+an inferred owner never adds to them.
+
+Fresh acquisition inference requires a known concrete resource type, in a
+field or as the value returned. A custom `Close` method alone does not
+establish acquisition: the result may be a lazy or empty handle. Nested
+custom owners remain unknown, so leaks through those constructors may be
+missed.
 
 The same summaries decide the other direction. A call that stores the caller's
 resource in its returned struct transfers the obligation only when that

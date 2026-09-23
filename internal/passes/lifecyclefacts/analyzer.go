@@ -122,6 +122,7 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 	var fact Fact
 	fact.OwnedFields = ownedFields(pass, function)
 	fact.ReleasedFields = releasedFields(pass, function)
+	fact.OwnedResults = ownedResults(pass, function)
 	// A fact is exported only when the action is unavoidable on every normal
 	// return. Each mask is therefore proved independently; evidence for Close,
 	// for example, must never make an unrelated Wait or return-transfer claim true.

@@ -130,6 +130,14 @@ func calledObject(pass *analysis.Pass, expression ast.Expr) types.Object {
 	}
 }
 
+// DeclaredInPackage reports whether the object belongs to the package at
+// packagePath. It answers the package-level question a contract catalog
+// asks, "is this API one of the package's I model?", without a caller
+// reconstructing identity from raw package paths.
+func DeclaredInPackage(object types.Object, packagePath string) bool {
+	return object != nil && object.Pkg() != nil && object.Pkg().Path() == packagePath
+}
+
 func packageObject(object types.Object, packagePath string) bool {
 	return object.Pkg() != nil && object.Pkg().Path() == packagePath && object.Parent() == object.Pkg().Scope()
 }

@@ -195,3 +195,74 @@ func Replaced(_ *os.File, other *os.File) *os.File { return other }
 
 // Erased returns the file behind an interface.
 func Erased(file *os.File) any { return file }
+
+var registry []*os.File
+
+// OpenFresh opens and returns a file the caller must close.
+func OpenFresh(path string) (*os.File, error) { return os.Open(path) }
+
+// OpenReader returns the opened file behind a closer interface.
+func OpenReader(path string) (io.ReadCloser, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+// OpenClosedOnFailure closes the file only on its failure path.
+func OpenClosedOnFailure(path string, ok bool) (*os.File, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		_ = f.Close()
+		return nil, errors.New("rejected")
+	}
+	return f, nil
+}
+
+// OpenRegistered keeps the file in a package registry as well.
+func OpenRegistered(path string) (*os.File, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	registry = append(registry, f)
+	return f, nil
+}
+
+// OpenSeeked positions the file before handing it back.
+func OpenSeeked(path string) (*os.File, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	_, _ = f.Seek(0, 0)
+	return f, nil
+}
+
+// OpenWithCleanup returns the file and a callback that closes it.
+func OpenWithCleanup(path string) (*os.File, func(), error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return f, func() { _ = f.Close() }, nil
+}
+
+// OpenMaybeClosed may close the file and still return it.
+func OpenMaybeClosed(path string, flush bool) (*os.File, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	if flush {
+		_ = f.Close()
+	}
+	return f, nil
+}
+
+// OpenView hands the caller's own file back.
+func OpenView(file *os.File) *os.File { return file }
