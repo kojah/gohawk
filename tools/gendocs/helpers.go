@@ -127,13 +127,17 @@ func helperReference(root, directory string, pkg *doc.Package) (string, error) {
 		if err := printer.Fprint(&signature, files, declaration.node); err != nil {
 			return "", err
 		}
+		// Link the file, not the line: a line anchor moves with every edit
+		// above the declaration and turns unrelated changes into noise in the
+		// generated page's diff, while the file is stable and the name finds
+		// the declaration.
 		position := files.Position(declaration.node.Pos())
 		path, err := filepath.Rel(root, position.Filename)
 		if err != nil {
 			return "", err
 		}
-		fmt.Fprintf(&output, "## %s\n\n[Source](../../../../%s#L%d)\n\n```go\n%s\n```\n\n",
-			declaration.name, filepath.ToSlash(path), position.Line, signature.String())
+		fmt.Fprintf(&output, "## %s\n\n[Source](../../../../%s)\n\n```go\n%s\n```\n\n",
+			declaration.name, filepath.ToSlash(path), signature.String())
 		if declaration.comment != "" {
 			output.WriteString(declaration.comment + "\n")
 		}

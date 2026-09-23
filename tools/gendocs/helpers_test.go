@@ -51,7 +51,7 @@ func hidden() {}
 	}
 	for _, want := range []string{
 		"## Unknown", "## Default", "## Box", "## Box.Get", "## NewBox", "NewBox[T any](value T) Box[T]",
-		"NewBox creates a box.", "../../../../internal/passes/newfacts/api.go#L", "[the broker](summaries.md)",
+		"NewBox creates a box.", "../../../../internal/passes/newfacts/api.go)", "[the broker](summaries.md)",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("generated reference lacks %q", want)

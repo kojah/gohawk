@@ -10,7 +10,7 @@ summaries, and keeps missing summaries distinct from disproved ownership.
 
 ## Analyzer
 
-[Source](../../../../internal/passes/lifecyclefacts/analyzer.go#L20)
+[Source](../../../../internal/passes/lifecyclefacts/analyzer.go)
 
 ```go
 var Analyzer = &analysis.Analyzer{
@@ -27,7 +27,7 @@ Analyzer is an internal prerequisite shared by lifecycle analyzers.
 
 ## CallReturnsView
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L617)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
 
 ```go
 func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ssa.Value) bool
@@ -38,7 +38,7 @@ rather than an evidence context.
 
 ## Claim
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L106)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 type Claim uint8
@@ -52,7 +52,7 @@ ticker stopped, a transaction committed or rolled back.
 
 ## ClaimReturnsOwner, ClaimReturnsView, ClaimRetains, ClaimStores, ClaimReleases, ClaimSynchronouslyInvokes, ClaimReleasesInLoop
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L108)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 const (
@@ -68,7 +68,7 @@ const (
 
 ## CleanupFact
 
-[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go#L36)
+[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
 
 ```go
 type CleanupFact struct {
@@ -89,7 +89,7 @@ carries a proof forward, so it is only exported when the release is exact.
 
 ## CleanupFact.AFact
 
-[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go#L48)
+[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
 
 ```go
 func (fact *CleanupFact) AFact()
@@ -99,7 +99,7 @@ AFact marks CleanupFact as an analysis fact.
 
 ## CleanupFact.DescribeFact
 
-[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go#L56)
+[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
 
 ```go
 func (fact *CleanupFact) DescribeFact(object types.Object) []string
@@ -110,7 +110,7 @@ methods release so a reader can check the claim against the struct.
 
 ## CleanupFact.String
 
-[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go#L50)
+[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
 
 ```go
 func (fact *CleanupFact) String() string
@@ -118,7 +118,7 @@ func (fact *CleanupFact) String() string
 
 ## ConditionalEffect
 
-[Source](../../../../internal/passes/lifecyclefacts/conditional.go#L31)
+[Source](../../../../internal/passes/lifecyclefacts/conditional.go)
 
 ```go
 type ConditionalEffect struct {
@@ -134,7 +134,7 @@ Parameters whenever Predicate holds at a normal return.
 
 ## ConditionalSummary
 
-[Source](../../../../internal/passes/lifecyclefacts/conditional.go#L24)
+[Source](../../../../internal/passes/lifecyclefacts/conditional.go)
 
 ```go
 type ConditionalSummary struct {
@@ -148,7 +148,7 @@ containing result-conditioned cleanup guarantees.
 
 ## EvidenceRequest
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go#L260)
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
 type EvidenceRequest struct {
@@ -173,7 +173,7 @@ prove the obligation.
 
 ## Fact
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L17)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 type Fact struct {
@@ -223,7 +223,7 @@ internal analysis infrastructure, not a public extension API.
 
 ## Fact.AFact
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L240)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 func (*Fact) AFact()
@@ -231,7 +231,7 @@ func (*Fact) AFact()
 
 ## Fact.Claim
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L119)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 func (fact *Fact) Claim(claim Claim) ParameterMask
@@ -241,7 +241,7 @@ Claim returns the parameters this summary makes the claim about.
 
 ## Fact.DescribeFact
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L164)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 func (fact *Fact) DescribeFact(object types.Object) []string
@@ -253,7 +253,7 @@ follow SSA parameters, so a method's receiver is position zero.
 
 ## Fact.MethodMask
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L380)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 func (fact *Fact) MethodMask(method string) ParameterMask
@@ -263,7 +263,7 @@ MethodMask selects the parameter mask for a lifecycle method.
 
 ## Fact.ReturnsView
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L624)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
 
 ```go
 func (fact *Fact) ReturnsView(instruction ssa.Instruction, target ssa.Value) bool
@@ -274,7 +274,7 @@ call and target using the same argument policy as lifecycle evidence.
 
 ## Fact.String
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L244)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 func (fact *Fact) String() string
@@ -285,7 +285,7 @@ analysis debug output.
 
 ## LifecycleEvidence
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go#L28)
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
 type LifecycleEvidence struct {
@@ -299,7 +299,7 @@ function and is not safe for concurrent use.
 
 ## LifecycleEvidence.ArgumentRetained
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go#L252)
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
 func (evidence *LifecycleEvidence) ArgumentRetained(instruction ssa.Instruction, index int) (bool, bool)
@@ -311,7 +311,7 @@ no summary is available, which callers must treat as unknown.
 
 ## LifecycleEvidence.ArgumentRetainedByCallee
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L633)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
 
 ```go
 func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Instruction, target ssa.Value) bool
@@ -325,7 +325,7 @@ returned aggregate is decided by the returned-owner and view rules instead.
 
 ## LifecycleEvidence.ArgumentReturnedAsView
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L611)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
 
 ```go
 func (evidence *LifecycleEvidence) ArgumentReturnedAsView(instruction ssa.Instruction, target ssa.Value) bool
@@ -338,7 +338,7 @@ it. The proof outranks a lifecycle-looking method name on the result type.
 
 ## LifecycleEvidence.CallEffects
 
-[Source](../../../../internal/passes/lifecyclefacts/call_effects.go#L16)
+[Source](../../../../internal/passes/lifecyclefacts/call_effects.go)
 
 ```go
 func (evidence *LifecycleEvidence) CallEffects(instruction ssa.Instruction, target ssa.Value) ssaflow.CallEffectProof
@@ -351,7 +351,7 @@ remain unknown until a dedicated effect summary can establish their safety.
 
 ## LifecycleEvidence.CalleeClaims
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L675)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
 
 ```go
 func (evidence *LifecycleEvidence) CalleeClaims(
@@ -369,7 +369,7 @@ discharged must not read silence as proof that it was not.
 
 ## LifecycleEvidence.CalleeSummarized
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L690)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
 
 ```go
 func (evidence *LifecycleEvidence) CalleeSummarized(instruction ssa.Instruction) bool
@@ -381,7 +381,7 @@ nothing with an argument from one it knows nothing about.
 
 ## LifecycleEvidence.ClosureHandsValueToUnreadableCallee
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go#L94)
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
 func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCallee(
@@ -406,7 +406,7 @@ and let the caller keep the old opaque answer.
 
 ## LifecycleEvidence.ClosureRetainsValue
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go#L50)
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
 func (evidence *LifecycleEvidence) ClosureRetainsValue(closure *ssa.MakeClosure, target ssa.Value) bool
@@ -423,7 +423,7 @@ read says yes for the same reason.
 
 ## LifecycleEvidence.CompletionOnEdge
 
-[Source](../../../../internal/passes/lifecyclefacts/conditional.go#L137)
+[Source](../../../../internal/passes/lifecyclefacts/conditional.go)
 
 ```go
 func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request ssaflow.CompletionRequest) ssaflow.CompletionProof
@@ -434,7 +434,7 @@ Absence remains unknown; only exact parameter binding can settle the target.
 
 ## LifecycleEvidence.ForCandidate
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go#L245)
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
 func (evidence *LifecycleEvidence) ForCandidate(candidate token.Pos)
@@ -446,7 +446,7 @@ once before judging each candidate.
 
 ## LifecycleEvidence.OwnedResult
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L436)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
 
 ```go
 func (evidence *LifecycleEvidence) OwnedResult(call *ssa.Call) ([]string, int, bool)
@@ -460,7 +460,7 @@ caller cannot be asked for a cleanup that does not exist.
 
 ## LifecycleEvidence.Prove
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go#L277)
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
 func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) ssaflow.Proof
@@ -472,7 +472,7 @@ relationship.
 
 ## NewLifecycleEvidence
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go#L233)
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
 func NewLifecycleEvidence(pass *analysis.Pass, analyzer, check string) *LifecycleEvidence
@@ -483,7 +483,7 @@ results use the supplied analyzer identity for structured tracing.
 
 ## ParameterMask
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L141)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 type ParameterMask uint64
@@ -493,7 +493,7 @@ ParameterMask is a set of SSA parameter positions in a lifecycle summary.
 
 ## ResourceCleanup
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L53)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
 
 ```go
 func ResourceCleanup(value types.Type) ([]string, bool)
@@ -504,7 +504,7 @@ when the type carries no obligation this vocabulary knows.
 
 ## ReturnedCleanupEffect
 
-[Source](../../../../internal/passes/lifecyclefacts/returned_cleanup.go#L24)
+[Source](../../../../internal/passes/lifecyclefacts/returned_cleanup.go)
 
 ```go
 type ReturnedCleanupEffect struct {
@@ -518,7 +518,7 @@ ReturnedCleanupEffect associates a factory relation with one completion verb.
 
 ## ReturnedCleanupSummary
 
-[Source](../../../../internal/passes/lifecyclefacts/returned_cleanup.go#L18)
+[Source](../../../../internal/passes/lifecyclefacts/returned_cleanup.go)
 
 ```go
 type ReturnedCleanupSummary struct {
@@ -531,7 +531,7 @@ ReturnedCleanupSummary contains exact callback-result relations for a factory.
 
 ## Summaries
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L159)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
 ```go
 type Summaries map[*ssa.Function]Fact

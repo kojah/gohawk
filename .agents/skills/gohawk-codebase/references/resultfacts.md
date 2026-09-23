@@ -10,7 +10,7 @@ termination, or relationships between different result positions.
 
 ## Analyzer
 
-[Source](../../../../internal/passes/resultfacts/facts.go#L30)
+[Source](../../../../internal/passes/resultfacts/facts.go)
 
 ```go
 var Analyzer = &analysis.Analyzer{
@@ -25,7 +25,7 @@ analysis. It does not require lifecycle or concurrency inference.
 
 ## Engine
 
-[Source](../../../../internal/passes/resultfacts/results.go#L48)
+[Source](../../../../internal/passes/resultfacts/results.go)
 
 ```go
 type Engine struct {
@@ -38,7 +38,7 @@ access; recursion and budget handling are owned by FunctionSummaries.
 
 ## Engine.Function
 
-[Source](../../../../internal/passes/resultfacts/results.go#L64)
+[Source](../../../../internal/passes/resultfacts/results.go)
 
 ```go
 func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
@@ -48,7 +48,7 @@ Function returns local or imported, context-independent result guarantees.
 
 ## Fact
 
-[Source](../../../../internal/passes/resultfacts/facts.go#L19)
+[Source](../../../../internal/passes/resultfacts/facts.go)
 
 ```go
 type Fact struct {
@@ -65,7 +65,7 @@ is not the opposite implication.
 
 ## Fact.AFact
 
-[Source](../../../../internal/passes/resultfacts/facts.go#L26)
+[Source](../../../../internal/passes/resultfacts/facts.go)
 
 ```go
 func (*Fact) AFact()
@@ -75,7 +75,7 @@ AFact marks the result component for go/analysis serialization.
 
 ## FalseWhenParameterNil, TrueWhenParameterNonNil, NonNilWhenResultNil, NilWhenResultNonNil, ReturnsParameter
 
-[Source](../../../../internal/passes/resultfacts/relations.go#L25)
+[Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
 const (
@@ -103,7 +103,7 @@ const (
 
 ## Guarantee
 
-[Source](../../../../internal/passes/resultfacts/results.go#L17)
+[Source](../../../../internal/passes/resultfacts/results.go)
 
 ```go
 type Guarantee uint8
@@ -114,7 +114,7 @@ conflicting evidence, unsupported values, and absence of a return witness.
 
 ## NewEngine
 
-[Source](../../../../internal/passes/resultfacts/results.go#L55)
+[Source](../../../../internal/passes/resultfacts/results.go)
 
 ```go
 func NewEngine() *Engine
@@ -124,7 +124,7 @@ NewEngine creates local-only result inference with no library-name guesses.
 
 ## Relation
 
-[Source](../../../../internal/passes/resultfacts/relations.go#L49)
+[Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
 type Relation struct {
@@ -139,7 +139,7 @@ index for the parameter kinds and a result index for the result kinds.
 
 ## RelationKind
 
-[Source](../../../../internal/passes/resultfacts/relations.go#L23)
+[Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
 type RelationKind uint8
@@ -151,7 +151,7 @@ an error result of the same call.
 
 ## Summary
 
-[Source](../../../../internal/passes/resultfacts/results.go#L31)
+[Source](../../../../internal/passes/resultfacts/results.go)
 
 ```go
 type Summary struct {
@@ -166,7 +166,7 @@ consulted, not that all results are understood. Reason explains a boundary.
 
 ## Summary.Holds
 
-[Source](../../../../internal/passes/resultfacts/relations.go#L56)
+[Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
 func (summary Summary) Holds(kind RelationKind, result, operand int) bool
@@ -176,7 +176,7 @@ Holds reports whether the summary proved the relation.
 
 ## Summary.Relations
 
-[Source](../../../../internal/passes/resultfacts/relations.go#L66)
+[Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
 func (summary Summary) Relations() []Relation
@@ -186,7 +186,7 @@ Relations returns every proven relation.
 
 ## Summary.Result
 
-[Source](../../../../internal/passes/resultfacts/results.go#L39)
+[Source](../../../../internal/passes/resultfacts/results.go)
 
 ```go
 func (summary Summary) Result(index int) Guarantee
@@ -196,7 +196,7 @@ Result returns the unconditional guarantee at index, or Unknown.
 
 ## Unknown, AlwaysNil, AlwaysNonNil, AlwaysTrue, AlwaysFalse
 
-[Source](../../../../internal/passes/resultfacts/results.go#L19)
+[Source](../../../../internal/passes/resultfacts/results.go)
 
 ```go
 const (

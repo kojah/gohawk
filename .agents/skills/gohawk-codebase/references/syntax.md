@@ -9,7 +9,7 @@ helpers shared by analyzer implementations.
 
 ## AnalyzeFile
 
-[Source](../../../../internal/syntax/source.go#L70)
+[Source](../../../../internal/syntax/source.go)
 
 ```go
 func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool
@@ -22,7 +22,7 @@ pass, so every file in that pass is canonical.
 
 ## Builtin
 
-[Source](../../../../internal/syntax/symbols.go#L48)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 func Builtin(name string) Symbol
@@ -32,7 +32,7 @@ Builtin identifies a predeclared Go function.
 
 ## CanonicalTestVariant
 
-[Source](../../../../internal/syntax/source.go#L16)
+[Source](../../../../internal/syntax/source.go)
 
 ```go
 type CanonicalTestVariant struct{}
@@ -45,7 +45,7 @@ syntax depend on the execution-infrastructure package that owns the pass.
 
 ## ExpressionUsesObject
 
-[Source](../../../../internal/syntax/syntax.go#L11)
+[Source](../../../../internal/syntax/syntax.go)
 
 ```go
 func ExpressionUsesObject(pass *analysis.Pass, node ast.Node, object types.Object) bool
@@ -55,7 +55,7 @@ ExpressionUsesObject reports whether node refers to object.
 
 ## FunctionParameterObject
 
-[Source](../../../../internal/syntax/syntax.go#L37)
+[Source](../../../../internal/syntax/syntax.go)
 
 ```go
 func FunctionParameterObject(pass *analysis.Pass, function *ast.FuncDecl, target int) types.Object
@@ -66,7 +66,7 @@ parameter index. An unnamed parameter occupies a position but has no object.
 
 ## GeneratedFile
 
-[Source](../../../../internal/syntax/source.go#L62)
+[Source](../../../../internal/syntax/source.go)
 
 ```go
 func GeneratedFile(file *ast.File) bool
@@ -76,7 +76,7 @@ GeneratedFile reports whether file carries Go's generated-file marker.
 
 ## IsCallTo
 
-[Source](../../../../internal/syntax/symbols.go#L94)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 func IsCallTo(pass *analysis.Pass, call *ast.CallExpr, symbol Symbol) bool
@@ -86,7 +86,7 @@ IsCallTo reports whether call statically resolves to symbol.
 
 ## IsCallToAny
 
-[Source](../../../../internal/syntax/symbols.go#L110)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 func IsCallToAny(pass *analysis.Pass, call *ast.CallExpr, symbols ...Symbol) bool
@@ -96,7 +96,7 @@ IsCallToAny reports whether call statically resolves to one of symbols.
 
 ## IsErrorType
 
-[Source](../../../../internal/syntax/types.go#L17)
+[Source](../../../../internal/syntax/types.go)
 
 ```go
 func IsErrorType(value types.Type) bool
@@ -106,7 +106,7 @@ IsErrorType reports whether value implements Go's predeclared error interface.
 
 ## MethodSymbol
 
-[Source](../../../../internal/syntax/symbols.go#L36)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 type MethodSymbol struct {
@@ -121,7 +121,7 @@ Receiver is the declared named type without pointer syntax.
 
 ## NamedType
 
-[Source](../../../../internal/syntax/types.go#L26)
+[Source](../../../../internal/syntax/types.go)
 
 ```go
 func NamedType(value types.Type, packagePath, name string) bool
@@ -131,7 +131,7 @@ NamedType reports whether value names packagePath.name, allowing one pointer lay
 
 ## PackageFunction
 
-[Source](../../../../internal/syntax/symbols.go#L30)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 func PackageFunction(packagePath, name string) Symbol
@@ -141,7 +141,7 @@ PackageFunction identifies a package-level function.
 
 ## PackageMethod
 
-[Source](../../../../internal/syntax/symbols.go#L43)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 func PackageMethod(method MethodSymbol) Symbol
@@ -151,7 +151,7 @@ PackageMethod identifies the declared method.
 
 ## PackageVariable
 
-[Source](../../../../internal/syntax/symbols.go#L53)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 func PackageVariable(packagePath, name string) Symbol
@@ -161,7 +161,7 @@ PackageVariable identifies a package-level variable.
 
 ## SameExpression
 
-[Source](../../../../internal/syntax/syntax.go#L58)
+[Source](../../../../internal/syntax/syntax.go)
 
 ```go
 func SameExpression(pass *analysis.Pass, first, second ast.Expr) bool
@@ -172,7 +172,7 @@ value, using type information to distinguish identifiers with equal names.
 
 ## ShortPackageName
 
-[Source](../../../../internal/syntax/types.go#L9)
+[Source](../../../../internal/syntax/types.go)
 
 ```go
 func ShortPackageName(packagePath string) string
@@ -182,7 +182,7 @@ ShortPackageName returns the final component of an import path.
 
 ## SourceRange
 
-[Source](../../../../internal/syntax/source.go#L30)
+[Source](../../../../internal/syntax/source.go)
 
 ```go
 func SourceRange(pass *analysis.Pass, position token.Pos) analysis.Range
@@ -195,7 +195,7 @@ corresponding source expression or statement.
 
 ## Symbol
 
-[Source](../../../../internal/syntax/symbols.go#L22)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 type Symbol struct {
@@ -209,7 +209,7 @@ treat a common method name as sufficient identity evidence.
 
 ## Symbol.MatchesMethod
 
-[Source](../../../../internal/syntax/symbols.go#L89)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 func (symbol Symbol) MatchesMethod(name string, receiver types.Type) bool
@@ -221,7 +221,7 @@ whose declaring object may belong to an embedded implementation type.
 
 ## Symbol.MatchesObject
 
-[Source](../../../../internal/syntax/symbols.go#L60)
+[Source](../../../../internal/syntax/symbols.go)
 
 ```go
 func (symbol Symbol) MatchesObject(object types.Object) bool
@@ -233,7 +233,7 @@ aliases and promoted method selections do not affect identity.
 
 ## Unparen
 
-[Source](../../../../internal/syntax/syntax.go#L25)
+[Source](../../../../internal/syntax/syntax.go)
 
 ```go
 func Unparen(expression ast.Expr) ast.Expr

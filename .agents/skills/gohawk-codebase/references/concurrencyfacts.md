@@ -9,7 +9,7 @@ It provides ordered evidence, not deadlock policy or schedule exploration.
 
 ## Analyzer
 
-[Source](../../../../internal/passes/concurrencyfacts/facts.go#L41)
+[Source](../../../../internal/passes/concurrencyfacts/facts.go)
 
 ```go
 var Analyzer = &analysis.Analyzer{
@@ -23,7 +23,7 @@ Analyzer exports complete effects and provides a shared engine to consumers.
 
 ## Completeness
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L67)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 type Completeness uint8
@@ -34,7 +34,7 @@ rules anything out; an incomplete one may hide any effect at all.
 
 ## Effect
 
-[Source](../../../../internal/passes/concurrencyfacts/facts.go#L25)
+[Source](../../../../internal/passes/concurrencyfacts/facts.go)
 
 ```go
 type Effect struct {
@@ -48,7 +48,7 @@ Effect is an ordered operation on a formal parameter (receiver at index zero).
 
 ## Engine
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L102)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 type Engine struct {
@@ -61,7 +61,7 @@ at the public query boundary; each query must supply its own work budget.
 
 ## Engine.AtCall
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L151)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBudget) Summary
@@ -71,7 +71,7 @@ AtCall binds complete local or imported effects to the caller's exact values.
 
 ## Engine.BindDeclaration
 
-[Source](../../../../internal/passes/concurrencyfacts/declaration.go#L14)
+[Source](../../../../internal/passes/concurrencyfacts/declaration.go)
 
 ```go
 func (engine *Engine) BindDeclaration(call ssa.CallInstruction, fact Fact, budget *ssaflow.SearchBudget) Summary
@@ -83,7 +83,7 @@ the summary provider owns that lookup, while this pass owns field mapping.
 
 ## Engine.CondMutex
 
-[Source](../../../../internal/passes/concurrencyfacts/conditions.go#L37)
+[Source](../../../../internal/passes/concurrencyfacts/conditions.go)
 
 ```go
 func (engine *Engine) CondMutex(reference Reference, budget *ssaflow.SearchBudget) (Reference, bool)
@@ -95,7 +95,7 @@ which rejects condition-field access, mutation and opaque publication.
 
 ## Engine.Declaration
 
-[Source](../../../../internal/passes/concurrencyfacts/declaration.go#L24)
+[Source](../../../../internal/passes/concurrencyfacts/declaration.go)
 
 ```go
 func (engine *Engine) Declaration(function *ssa.Function, budget *ssaflow.SearchBudget) (Fact, bool)
@@ -108,7 +108,7 @@ The returned effect slice is detached from the cached publication.
 
 ## Engine.Function
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L137)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
@@ -118,7 +118,7 @@ Function summarizes a visible body without allowing nested launches.
 
 ## Engine.Root
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L144)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
@@ -128,7 +128,7 @@ Root collects a caller and at most one worker under one shared work budget.
 
 ## Fact
 
-[Source](../../../../internal/passes/concurrencyfacts/facts.go#L32)
+[Source](../../../../internal/passes/concurrencyfacts/facts.go)
 
 ```go
 type Fact struct {
@@ -141,7 +141,7 @@ Fact records a complete sequence, including a proven empty sequence.
 
 ## Fact.AFact
 
-[Source](../../../../internal/passes/concurrencyfacts/facts.go#L38)
+[Source](../../../../internal/passes/concurrencyfacts/facts.go)
 
 ```go
 func (*Fact) AFact()
@@ -151,7 +151,7 @@ AFact marks the versioned concurrency summary for go/analysis serialization.
 
 ## FreshMutex
 
-[Source](../../../../internal/passes/concurrencyfacts/fields.go#L102)
+[Source](../../../../internal/passes/concurrencyfacts/fields.go)
 
 ```go
 func FreshMutex(function *ssa.Function, reference Reference) bool
@@ -162,7 +162,7 @@ fresh local allocation. It does not prove scope completeness or lock order.
 
 ## Incomplete, CompleteNoEffects, CompleteWithEffects
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L69)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 const (
@@ -180,7 +180,7 @@ const (
 
 ## Kind
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L22)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 type Kind uint8
@@ -190,7 +190,7 @@ Kind identifies a synchronization event with an exact resource.
 
 ## MutexPointer
 
-[Source](../../../../internal/passes/concurrencyfacts/completion.go#L101)
+[Source](../../../../internal/passes/concurrencyfacts/completion.go)
 
 ```go
 func MutexPointer(value types.Type) bool
@@ -200,7 +200,7 @@ MutexPointer identifies only sync.Mutex pointers, not RWMutex or lookalikes.
 
 ## NewEngine
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L111)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 func NewEngine() *Engine
@@ -210,7 +210,7 @@ NewEngine builds a local-only engine; Analyzer additionally loads dependency fac
 
 ## Operation
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L43)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 type Operation struct {
@@ -225,7 +225,7 @@ Operation retains execution order and source/call-site provenance.
 
 ## Reference
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L37)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 type Reference struct {
@@ -238,7 +238,7 @@ Reference names an exact resource or a symbolic captured cell.
 
 ## Send, Receive, Close, GroupAdd, GroupDone, GroupWait, Lock, Unlock, CondWait
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L24)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 const (
@@ -256,7 +256,7 @@ const (
 
 ## Summary
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L56)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 type Summary struct {
@@ -279,7 +279,7 @@ allowed in a root query.
 
 ## Summary.Complete
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L96)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 func (summary Summary) Complete() bool
@@ -290,7 +290,7 @@ effects. Callers that need the distinction switch on Completeness.
 
 ## Summary.Completeness
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go#L83)
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
 ```go
 func (summary Summary) Completeness() Completeness

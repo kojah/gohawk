@@ -10,7 +10,7 @@ this package neither schedules analysis nor merges their proof semantics.
 
 ## Availability
 
-[Source](../../../../internal/summaries/provider.go#L46)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 type Availability uint8
@@ -20,7 +20,7 @@ Availability describes access to one component, not function completeness.
 
 ## Function
 
-[Source](../../../../internal/summaries/provider.go#L84)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 type Function struct {
@@ -33,7 +33,7 @@ Call-site effects and ownership evidence require their separate adapters.
 
 ## Function.Concurrency
 
-[Source](../../../../internal/summaries/provider.go#L128)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (function Function) Concurrency(budget *ssaflow.SearchBudget) (concurrencyfacts.Fact, Availability)
@@ -44,7 +44,7 @@ Its completeness belongs only to this domain, never to the whole function.
 
 ## Function.Lifecycle
 
-[Source](../../../../internal/summaries/provider.go#L114)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (function Function) Lifecycle() (lifecyclefacts.Fact, Availability)
@@ -56,7 +56,7 @@ remain available through LifecycleEvidence rather than fabricated facts.
 
 ## Function.Results
 
-[Source](../../../../internal/summaries/provider.go#L96)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (function Function) Results(budget *ssaflow.SearchBudget) (resultfacts.Summary, Availability)
@@ -67,7 +67,7 @@ still return Unknown for any or every result position.
 
 ## NotRequested, Unavailable, Available
 
-[Source](../../../../internal/summaries/provider.go#L48)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 const (
@@ -79,7 +79,7 @@ const (
 
 ## Provider
 
-[Source](../../../../internal/summaries/provider.go#L56)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 type Provider struct {
@@ -92,7 +92,7 @@ object facts from a sibling pass or retroactively requests dependency work.
 
 ## Provider.ArgumentReturnedUnchanged
 
-[Source](../../../../internal/summaries/results.go#L158)
+[Source](../../../../internal/summaries/results.go)
 
 ```go
 func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *ssaflow.SearchBudget) (ssa.Value, bool)
@@ -106,7 +106,7 @@ the caller's own evidence.
 
 ## Provider.CallReturnsView
 
-[Source](../../../../internal/summaries/provider.go#L188)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (provider *Provider) CallReturnsView(call *ssa.Call, target ssa.Value) bool
@@ -117,7 +117,7 @@ existing exact call-site evidence policy.
 
 ## Provider.Concurrency
 
-[Source](../../../../internal/summaries/provider.go#L159)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (provider *Provider) Concurrency() (*concurrencyfacts.Engine, Availability)
@@ -129,7 +129,7 @@ completeness rules and bounded call-site binding remain authoritative.
 
 ## Provider.ConcurrencyAtCall
 
-[Source](../../../../internal/summaries/provider.go#L171)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (provider *Provider) ConcurrencyAtCall(call ssa.CallInstruction, budget *ssaflow.SearchBudget) (concurrencyfacts.Summary, Availability)
@@ -140,7 +140,7 @@ Missing or incomplete effects retain the engine's domain-specific Reason.
 
 ## Provider.FeasibleSuccessors
 
-[Source](../../../../internal/summaries/results.go#L29)
+[Source](../../../../internal/summaries/results.go)
 
 ```go
 func (provider *Provider) FeasibleSuccessors(block, predecessor *ssa.BasicBlock, budget *ssaflow.SearchBudget) []*ssa.BasicBlock
@@ -152,7 +152,7 @@ nilness here establishes neither resource ownership nor a cleanup duty.
 
 ## Provider.ForFunction
 
-[Source](../../../../internal/summaries/provider.go#L90)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (provider *Provider) ForFunction(function *ssa.Function) Function
@@ -162,7 +162,7 @@ ForFunction creates a view without computing unrequested knowledge.
 
 ## Provider.LifecycleEvidence
 
-[Source](../../../../internal/summaries/provider.go#L146)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (provider *Provider) LifecycleEvidence(analyzer, check string) (*lifecyclefacts.LifecycleEvidence, Availability)
@@ -174,7 +174,7 @@ formal parameter guarantee with an instantiated caller obligation.
 
 ## Provider.ResultOf
 
-[Source](../../../../internal/summaries/results.go#L14)
+[Source](../../../../internal/summaries/results.go)
 
 ```go
 func (provider *Provider) ResultOf(value ssa.Value, budget *ssaflow.SearchBudget) resultfacts.Guarantee
@@ -185,7 +185,7 @@ context-sensitive inference: arguments do not strengthen the guarantee.
 
 ## Provider.Successors
 
-[Source](../../../../internal/summaries/results.go#L51)
+[Source](../../../../internal/summaries/results.go)
 
 ```go
 func (provider *Provider) Successors() func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
@@ -197,7 +197,7 @@ its default feasibility.
 
 ## Requirements
 
-[Source](../../../../internal/summaries/provider.go#L17)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 type Requirements struct {
@@ -211,7 +211,7 @@ Requirements selects independently computed components at analyzer setup.
 
 ## Select
 
-[Source](../../../../internal/summaries/provider.go#L27)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func Select(requirements Requirements) Selection
@@ -221,7 +221,7 @@ Select fixes the knowledge an analyzer may request from its provider.
 
 ## Selection
 
-[Source](../../../../internal/summaries/provider.go#L24)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 type Selection struct {
@@ -233,7 +233,7 @@ Selection is an immutable declaration shared by Requires and Provider.
 
 ## Selection.Provider
 
-[Source](../../../../internal/summaries/provider.go#L65)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (selection Selection) Provider(pass *analysis.Pass) *Provider
@@ -243,7 +243,7 @@ Provider binds this setup-time selection to the completed prerequisite passes.
 
 ## Selection.Requires
 
-[Source](../../../../internal/summaries/provider.go#L31)
+[Source](../../../../internal/summaries/provider.go)
 
 ```go
 func (selection Selection) Requires() []*analysis.Analyzer

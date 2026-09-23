@@ -24,7 +24,7 @@ reach upward. A new file joins the family of the highest layer it needs.
 
 ## AccessPath
 
-[Source](../../../../internal/ssaflow/value_forms.go#L280)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 type AccessPath struct {
@@ -38,7 +38,7 @@ which its fields and indexes are selected.
 
 ## BlockInCycle
 
-[Source](../../../../internal/ssaflow/call_goroutines.go#L58)
+[Source](../../../../internal/ssaflow/call_goroutines.go)
 
 ```go
 func BlockInCycle(start *ssa.BasicBlock) bool
@@ -48,7 +48,7 @@ BlockInCycle reports whether control flow can return to start.
 
 ## BlockReachable
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L66)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func BlockReachable(from, target *ssa.BasicBlock) bool
@@ -59,7 +59,7 @@ shared function.
 
 ## CallBinding
 
-[Source](../../../../internal/ssaflow/call_bindings.go#L8)
+[Source](../../../../internal/ssaflow/call_bindings.go)
 
 ```go
 type CallBinding struct {
@@ -74,7 +74,7 @@ alias, stability, completion, or ownership guarantee is implied by a binding.
 
 ## CallBindings
 
-[Source](../../../../internal/ssaflow/call_bindings.go#L16)
+[Source](../../../../internal/ssaflow/call_bindings.go)
 
 ```go
 func CallBindings(common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure) []CallBinding
@@ -86,7 +86,7 @@ what their uses mean remain the consumer's responsibility.
 
 ## CallEffect
 
-[Source](../../../../internal/ssaflow/call_effects.go#L12)
+[Source](../../../../internal/ssaflow/call_effects.go)
 
 ```go
 type CallEffect uint8
@@ -98,7 +98,7 @@ loading a pointer reads its slot, it does not alias that slot with its pointee.
 
 ## CallEffectProof
 
-[Source](../../../../internal/ssaflow/call_effects.go#L26)
+[Source](../../../../internal/ssaflow/call_effects.go)
 
 ```go
 type CallEffectProof struct {
@@ -113,7 +113,7 @@ returns and conservative local spills; it never proves ownership transfer.
 
 ## CallEffectProof.PreservesStorage
 
-[Source](../../../../internal/ssaflow/call_effects.go#L34)
+[Source](../../../../internal/ssaflow/call_effects.go)
 
 ```go
 func (proof CallEffectProof) PreservesStorage() bool
@@ -125,7 +125,7 @@ retaining the pointer is not. The zero value and incomplete proofs are unsafe.
 
 ## CallEffects
 
-[Source](../../../../internal/ssaflow/call_effects.go#L41)
+[Source](../../../../internal/ssaflow/call_effects.go)
 
 ```go
 type CallEffects struct {
@@ -139,7 +139,7 @@ are unknown, never inferred pure from missing lifecycle-summary bits.
 
 ## CallEffects.Call
 
-[Source](../../../../internal/ssaflow/call_effects.go#L65)
+[Source](../../../../internal/ssaflow/call_effects.go)
 
 ```go
 func (query *CallEffects) Call(instruction ssa.Instruction, value ssa.Value) CallEffectProof
@@ -151,7 +151,7 @@ not directly supplied is unknown rather than assumed untouched.
 
 ## CallEffects.Value
 
-[Source](../../../../internal/ssaflow/call_effects.go#L58)
+[Source](../../../../internal/ssaflow/call_effects.go)
 
 ```go
 func (query *CallEffects) Value(value ssa.Value) CallEffectProof
@@ -163,7 +163,7 @@ of their slots. This is not a transitive heap or lifecycle-effect summary.
 
 ## CallGraphMemo
 
-[Source](../../../../internal/ssaflow/call_graph_memo.go#L27)
+[Source](../../../../internal/ssaflow/call_graph_memo.go)
 
 ```go
 type CallGraphMemo[Key comparable, Answer any] struct {
@@ -179,7 +179,7 @@ Raw cache and guard operations belong only to the summary implementation.
 
 ## CallGraphMemo.Answer
 
-[Source](../../../../internal/ssaflow/call_graph_memo.go#L46)
+[Source](../../../../internal/ssaflow/call_graph_memo.go)
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) Answer(key Key, compute func() Answer) Answer
@@ -192,7 +192,7 @@ prove more.
 
 ## CallGraphMemo.Compose
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L135)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) Compose(
@@ -208,7 +208,7 @@ reusable. Budget, immutability, and fallback contracts match Summarize.
 
 ## CallGraphMemo.Cut
 
-[Source](../../../../internal/ssaflow/call_graph_memo.go#L84)
+[Source](../../../../internal/ssaflow/call_graph_memo.go)
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) Cut()
@@ -219,7 +219,7 @@ such as an exhausted budget, so that answer is not retained either.
 
 ## CallGraphMemo.Enter
 
-[Source](../../../../internal/ssaflow/call_graph_memo.go#L68)
+[Source](../../../../internal/ssaflow/call_graph_memo.go)
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) Enter(function *ssa.Function) bool
@@ -234,7 +234,7 @@ allocation per visited function is exactly the cost the memo exists to avoid.
 
 ## CallGraphMemo.Incomplete
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L174)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) Incomplete()
@@ -248,7 +248,7 @@ Ordinary budget exhaustion and function recursion are handled automatically.
 
 ## CallGraphMemo.Leave
 
-[Source](../../../../internal/ssaflow/call_graph_memo.go#L78)
+[Source](../../../../internal/ssaflow/call_graph_memo.go)
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) Leave(function *ssa.Function)
@@ -258,7 +258,7 @@ Leave un-marks function as the walk returns past it.
 
 ## CallGraphMemo.Summarize
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L111)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) Summarize(
@@ -281,7 +281,7 @@ unchanged. Answers are immutable after publication, and use is sequential.
 
 ## CallGraphMemo.WithFunction
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L160)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) WithFunction(function *ssa.Function, visit func()) bool
@@ -295,7 +295,7 @@ this operation does not cache an answer or reset the enclosing work budget.
 
 ## CallInvokesArgumentOnEveryReturn
 
-[Source](../../../../internal/ssaflow/completion_callbacks.go#L8)
+[Source](../../../../internal/ssaflow/completion_callbacks.go)
 
 ```go
 func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool
@@ -303,7 +303,7 @@ func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Va
 
 ## CallMatchesAnySymbol
 
-[Source](../../../../internal/ssaflow/call_symbols.go#L37)
+[Source](../../../../internal/ssaflow/call_symbols.go)
 
 ```go
 func CallMatchesAnySymbol(common *ssa.CallCommon, symbols ...syntax.Symbol) bool
@@ -313,7 +313,7 @@ CallMatchesAnySymbol reports whether common statically resolves to one of symbol
 
 ## CallMatchesSymbol
 
-[Source](../../../../internal/ssaflow/call_symbols.go#L12)
+[Source](../../../../internal/ssaflow/call_symbols.go)
 
 ```go
 func CallMatchesSymbol(common *ssa.CallCommon, symbol syntax.Symbol) bool
@@ -323,7 +323,7 @@ CallMatchesSymbol reports whether common statically resolves to symbol.
 
 ## CallName
 
-[Source](../../../../internal/ssaflow/call_metadata.go#L47)
+[Source](../../../../internal/ssaflow/call_metadata.go)
 
 ```go
 func CallName(common *ssa.CallCommon) string
@@ -335,7 +335,7 @@ separately. Match well-known declarations with CallMatchesSymbol instead.
 
 ## CallReceiver
 
-[Source](../../../../internal/ssaflow/call_metadata.go#L71)
+[Source](../../../../internal/ssaflow/call_metadata.go)
 
 ```go
 func CallReceiver(common *ssa.CallCommon) ssa.Value
@@ -345,7 +345,7 @@ CallReceiver returns receiver value for method calls and invocations.
 
 ## CallResult
 
-[Source](../../../../internal/ssaflow/value_forms.go#L132)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func CallResult(call *ssa.Call, index int) ssa.Value
@@ -356,7 +356,7 @@ a single-result call represented by the call instruction itself.
 
 ## CallResultSource
 
-[Source](../../../../internal/ssaflow/value_forms.go#L121)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func CallResultSource(value ssa.Value) (*ssa.Call, int, bool)
@@ -367,7 +367,7 @@ It does not follow wrappers, loads, or aliases; consumers select that policy.
 
 ## CallReturnsDeferredCleanup
 
-[Source](../../../../internal/ssaflow/store_transfers.go#L14)
+[Source](../../../../internal/ssaflow/store_transfers.go)
 
 ```go
 func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bool
@@ -375,7 +375,7 @@ func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bo
 
 ## CallTransfersArgumentToLifecycleOwner
 
-[Source](../../../../internal/ssaflow/store_transfers.go#L152)
+[Source](../../../../internal/ssaflow/store_transfers.go)
 
 ```go
 func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ssa.Value) bool
@@ -390,7 +390,7 @@ https://github.com/flowexec/flow/blob/958773d81d410dd71e21460abb77da302617f96c/m
 
 ## CallTransfersArgumentToReceiver
 
-[Source](../../../../internal/ssaflow/store_transfers.go#L96)
+[Source](../../../../internal/ssaflow/store_transfers.go)
 
 ```go
 func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Value) bool
@@ -401,7 +401,7 @@ stores an argument in a receiver that outlives the call.
 
 ## CallTransfersArgumentToReturnedOwner
 
-[Source](../../../../internal/ssaflow/store_transfers.go#L51)
+[Source](../../../../internal/ssaflow/store_transfers.go)
 
 ```go
 func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa.Value) bool
@@ -417,7 +417,7 @@ https://github.com/cilium/statedb/blob/3546c463bfbb8afa5263b692be472bfb958bedcf/
 
 ## CallTransfersValueToField
 
-[Source](../../../../internal/ssaflow/store_escape.go#L161)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) bool
@@ -428,7 +428,7 @@ its result in a struct field, transferring cleanup to the receiving owner.
 
 ## CapturedBinding
 
-[Source](../../../../internal/ssaflow/value_instructions.go#L7)
+[Source](../../../../internal/ssaflow/value_instructions.go)
 
 ```go
 type CapturedBinding struct {
@@ -439,7 +439,7 @@ type CapturedBinding struct {
 
 ## CapturedBindingMatches
 
-[Source](../../../../internal/ssaflow/value_matching.go#L34)
+[Source](../../../../internal/ssaflow/value_matching.go)
 
 ```go
 func CapturedBindingMatches(binding, target ssa.Value) bool
@@ -452,7 +452,7 @@ installed without depending on referrer iteration order.
 
 ## CapturedBindingValue
 
-[Source](../../../../internal/ssaflow/value_matching.go#L10)
+[Source](../../../../internal/ssaflow/value_matching.go)
 
 ```go
 func CapturedBindingValue(binding ssa.Value) ssa.Value
@@ -460,7 +460,7 @@ func CapturedBindingValue(binding ssa.Value) ssa.Value
 
 ## ChannelType
 
-[Source](../../../../internal/ssaflow/value_forms.go#L396)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func ChannelType(value ssa.Value) bool
@@ -470,7 +470,7 @@ ChannelType reports whether value has channel type.
 
 ## ClosureBindingPairs
 
-[Source](../../../../internal/ssaflow/value_instructions.go#L12)
+[Source](../../../../internal/ssaflow/value_instructions.go)
 
 ```go
 func ClosureBindingPairs(function *ssa.Function, closure *ssa.MakeClosure) []CapturedBinding
@@ -478,7 +478,7 @@ func ClosureBindingPairs(function *ssa.Function, closure *ssa.MakeClosure) []Cap
 
 ## ClosureCallsValue
 
-[Source](../../../../internal/ssaflow/completion_closures.go#L60)
+[Source](../../../../internal/ssaflow/completion_closures.go)
 
 ```go
 func ClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool
@@ -488,7 +488,7 @@ ClosureCallsValue reports whether a call-like closure or created callback calls 
 
 ## ClosureCapturesValue
 
-[Source](../../../../internal/ssaflow/store_escape.go#L97)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func ClosureCapturesValue(instruction ssa.Instruction, value ssa.Value) bool
@@ -498,7 +498,7 @@ ClosureCapturesValue reports whether instruction creates a closure that owns val
 
 ## CompletionAlways, CompletionWhenTrue, CompletionWhenFalse, CompletionWhenNil, CompletionWhenNonNil
 
-[Source](../../../../internal/ssaflow/completion_predicates.go#L15)
+[Source](../../../../internal/ssaflow/completion_predicates.go)
 
 ```go
 const (
@@ -512,7 +512,7 @@ const (
 
 ## CompletionCoverage
 
-[Source](../../../../internal/ssaflow/completion_search.go#L25)
+[Source](../../../../internal/ssaflow/completion_search.go)
 
 ```go
 type CompletionCoverage uint8
@@ -523,7 +523,7 @@ call must cover before it counts as completion.
 
 ## CompletionOutcome
 
-[Source](../../../../internal/ssaflow/completion_predicates.go#L13)
+[Source](../../../../internal/ssaflow/completion_predicates.go)
 
 ```go
 type CompletionOutcome uint8
@@ -535,7 +535,7 @@ the corresponding Boolean or error-interface value.
 
 ## CompletionPredicate
 
-[Source](../../../../internal/ssaflow/completion_predicates.go#L24)
+[Source](../../../../internal/ssaflow/completion_predicates.go)
 
 ```go
 type CompletionPredicate struct {
@@ -548,7 +548,7 @@ CompletionPredicate is a serializable condition on one function result.
 
 ## CompletionProof
 
-[Source](../../../../internal/ssaflow/proof_types.go#L109)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 type CompletionProof struct{ Proof }
@@ -559,7 +559,7 @@ path guarantees selected by an analyzer.
 
 ## CompletionRequest
 
-[Source](../../../../internal/ssaflow/completion_request.go#L13)
+[Source](../../../../internal/ssaflow/completion_request.go)
 
 ```go
 type CompletionRequest struct {
@@ -599,7 +599,7 @@ deferred releases, select the instructions they submit.
 
 ## CompletionSummaryLookup
 
-[Source](../../../../internal/ssaflow/completion_predicates.go#L33)
+[Source](../../../../internal/ssaflow/completion_predicates.go)
 
 ```go
 type CompletionSummaryLookup func(ssa.Instruction, ssa.Value, string, bool, CompletionPredicate) bool
@@ -612,7 +612,7 @@ False means no guarantee, never proof that the callee has no effect.
 
 ## ContractTestingCleanup, ContractTestifyErrorClaim, ContractTestifyNilClaim, ContractTestifyNoError, ContractTestifyFatalError, ContractGoMockReturn, ContractAfterFunc, ContractDeferredCleanup, ContractRuntimeGoexit, ContractTestingTermination, ContractProcessExit
 
-[Source](../../../../internal/ssaflow/call_contracts.go#L14)
+[Source](../../../../internal/ssaflow/call_contracts.go)
 
 ```go
 const (
@@ -636,7 +636,7 @@ const (
 
 ## CoverageEveryReturn, CoverageAnywhere
 
-[Source](../../../../internal/ssaflow/completion_search.go#L27)
+[Source](../../../../internal/ssaflow/completion_search.go)
 
 ```go
 const (
@@ -653,7 +653,7 @@ const (
 
 ## DeferredClosureCallsValue
 
-[Source](../../../../internal/ssaflow/completion_closures.go#L24)
+[Source](../../../../internal/ssaflow/completion_closures.go)
 
 ```go
 func DeferredClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool
@@ -663,7 +663,7 @@ DeferredClosureCallsValue reports whether a deferred closure calls target.
 
 ## DeferredClosureInvokesArgumentOnEveryReturn
 
-[Source](../../../../internal/ssaflow/completion_closures.go#L33)
+[Source](../../../../internal/ssaflow/completion_closures.go)
 
 ```go
 func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool
@@ -674,7 +674,7 @@ closure delegates target to a helper that invokes it on every normal path.
 
 ## DefinitelyNil
 
-[Source](../../../../internal/ssaflow/value_matching.go#L62)
+[Source](../../../../internal/ssaflow/value_matching.go)
 
 ```go
 func DefinitelyNil(value ssa.Value) bool
@@ -684,7 +684,7 @@ DefinitelyNil reports whether every represented SSA value is nil.
 
 ## DefinitelySameValue
 
-[Source](../../../../internal/ssaflow/value_identity.go#L9)
+[Source](../../../../internal/ssaflow/value_identity.go)
 
 ```go
 func DefinitelySameValue(left, right ssa.Value) bool
@@ -697,7 +697,7 @@ them. A false result means unproved, not necessarily different.
 
 ## DirectCallee
 
-[Source](../../../../internal/ssaflow/call_bindings.go#L36)
+[Source](../../../../internal/ssaflow/call_bindings.go)
 
 ```go
 func DirectCallee(common *ssa.CallCommon) (*ssa.Function, *ssa.MakeClosure)
@@ -708,7 +708,7 @@ Dynamic dispatch remains unresolved; this does not chase callback bindings.
 
 ## EffectRead, EffectMutate, EffectRetain, EffectAsync, EffectInvoke
 
-[Source](../../../../internal/ssaflow/call_effects.go#L14)
+[Source](../../../../internal/ssaflow/call_effects.go)
 
 ```go
 const (
@@ -722,7 +722,7 @@ const (
 
 ## ElementOfAggregate
 
-[Source](../../../../internal/ssaflow/value_ownership.go#L62)
+[Source](../../../../internal/ssaflow/value_ownership.go)
 
 ```go
 func ElementOfAggregate(value ssa.Value) bool
@@ -736,7 +736,7 @@ function alone; callers treat it as unknown rather than violated.
 
 ## EmbeddedFieldPath
 
-[Source](../../../../internal/ssaflow/value_field_path.go#L8)
+[Source](../../../../internal/ssaflow/value_field_path.go)
 
 ```go
 type EmbeddedFieldPath struct {
@@ -752,7 +752,7 @@ proves that an address exists in another function. Unused Fields are zero.
 
 ## EmbeddedFieldPath.Append
 
-[Source](../../../../internal/ssaflow/value_field_path.go#L41)
+[Source](../../../../internal/ssaflow/value_field_path.go)
 
 ```go
 func (path EmbeddedFieldPath) Append(fields ...int) (EmbeddedFieldPath, bool)
@@ -764,7 +764,7 @@ projections; callers append only field indexes established from their IR.
 
 ## EnclosingCompletionRequest
 
-[Source](../../../../internal/ssaflow/completion_enclosing.go#L16)
+[Source](../../../../internal/ssaflow/completion_enclosing.go)
 
 ```go
 type EnclosingCompletionRequest struct {
@@ -782,7 +782,7 @@ It does not enumerate callers of named functions or export relational facts.
 
 ## EvaluateObligation
 
-[Source](../../../../internal/ssaflow/flow_obligation.go#L78)
+[Source](../../../../internal/ssaflow/flow_obligation.go)
 
 ```go
 func EvaluateObligation(flow ObligationFlow) ObligationOutcome
@@ -794,7 +794,7 @@ Start outside any block yields Honored: there are no paths to judge.
 
 ## EvidenceFromLocalSSA, EvidenceFromImportedFact
 
-[Source](../../../../internal/ssaflow/proof_types.go#L78)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 const (
@@ -805,7 +805,7 @@ const (
 
 ## EvidenceNone, EvidenceNotFound, EvidenceUnavailable, EvidenceSameValue, EvidenceSameAccessPath, EvidenceDeferredCompletion, EvidenceCalledCompletion, EvidenceStartedCompletion, EvidenceCallbackCompletion, EvidenceBudgetExhausted, EvidenceHelperInvocation, EvidenceReturnedDeferredCleanup, EvidenceStorageNotLocal, EvidenceStorageOutsideFunction, EvidenceStorageAddressEscapes, EvidenceStorageWriteThroughAlias, EvidenceStoragePartialWrite, EvidenceStorageConflictingWrites, EvidenceStorageNoReachingWrite, EvidenceStorageWriteInCycle, EvidenceStorageWriteAfterObservation, EvidenceStorageProjectionNotLoad, EvidenceStorageProjectionModified, EvidenceStoredValuesDiffer, EvidenceSummaryBodyUnavailable, EvidenceSummaryRecursive, EvidenceStoredInField, EvidenceOwnerStoredInField, EvidenceStoredInGlobal, EvidenceStoredInEnclosingScope, EvidenceOwnerStoredInExternalField, EvidenceStoredInOwnedMap, EvidenceSentToReceiver, EvidenceCapturedByClosure, EvidenceCallResultStoredInField, EvidenceTransferredToReturnedOwner, EvidenceTransferredToReceiver, EvidenceTransferredToLifecycleOwner
 
-[Source](../../../../internal/ssaflow/proof_types.go#L7)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 const (
@@ -869,7 +869,7 @@ const (
 
 ## EvidenceProvenance
 
-[Source](../../../../internal/ssaflow/proof_types.go#L76)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 type EvidenceProvenance string
@@ -879,7 +879,7 @@ EvidenceProvenance identifies the analysis boundary that supplied a proof.
 
 ## EvidenceReason
 
-[Source](../../../../internal/ssaflow/proof_types.go#L5)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 type EvidenceReason string
@@ -890,7 +890,7 @@ proof. Reason values are stable diagnostic vocabulary suitable for tracing.
 
 ## EvidenceState
 
-[Source](../../../../internal/ssaflow/proof_types.go#L67)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 type EvidenceState uint8
@@ -901,7 +901,7 @@ not be decided with the available SSA. Unknown is the useful zero value.
 
 ## EvidenceUnknown, EvidenceDisproven, EvidenceProven
 
-[Source](../../../../internal/ssaflow/proof_types.go#L69)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 const (
@@ -913,7 +913,7 @@ const (
 
 ## ExternallyOwnedValue
 
-[Source](../../../../internal/ssaflow/value_ownership.go#L18)
+[Source](../../../../internal/ssaflow/value_ownership.go)
 
 ```go
 func ExternallyOwnedValue(value ssa.Value) bool
@@ -924,7 +924,7 @@ the current function invocation.
 
 ## FeasibleSuccessors
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L265)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
@@ -936,7 +936,7 @@ impossible loop exits and helper-error paths from faking leaks.
 
 ## FunctionFile
 
-[Source](../../../../internal/ssaflow/value_forms.go#L386)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func FunctionFile(pass *analysis.Pass, function *ssa.Function) *ast.File
@@ -946,7 +946,7 @@ FunctionFile returns source file containing function.
 
 ## FunctionSummaries
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L68)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 type FunctionSummaries[Summary any] struct {
@@ -966,7 +966,7 @@ interpret missing witnesses as proof that an effect is absent.
 
 ## FunctionSummaries.AtCall
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L184)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 func (summaries *FunctionSummaries[Summary]) AtCall(
@@ -985,7 +985,7 @@ this invocation and never replace the cached symbolic summary.
 
 ## FunctionSummaries.Function
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L92)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 func (summaries *FunctionSummaries[Summary]) Function(function *ssa.Function, budget *SearchBudget) Summary
@@ -998,7 +998,7 @@ solver: the analyzer's fallback determines what a cut can safely contribute.
 
 ## HasLibraryContract
 
-[Source](../../../../internal/ssaflow/call_contracts.go#L33)
+[Source](../../../../internal/ssaflow/call_contracts.go)
 
 ```go
 func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool
@@ -1008,7 +1008,7 @@ HasLibraryContract reports whether common exactly matches a registered API.
 
 ## IdentityProof
 
-[Source](../../../../internal/ssaflow/proof_types.go#L105)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 type IdentityProof struct{ Proof }
@@ -1019,7 +1019,7 @@ corresponding access path.
 
 ## IdentitySource
 
-[Source](../../../../internal/ssaflow/value_phi.go#L42)
+[Source](../../../../internal/ssaflow/value_phi.go)
 
 ```go
 func IdentitySource(value ssa.Value) (ssa.Value, bool)
@@ -1034,7 +1034,7 @@ deliberately not a ReachingWalk form.
 
 ## InstructionCall
 
-[Source](../../../../internal/ssaflow/call_metadata.go#L31)
+[Source](../../../../internal/ssaflow/call_metadata.go)
 
 ```go
 func InstructionCall(instruction ssa.Instruction) *ssa.CallCommon
@@ -1044,7 +1044,7 @@ InstructionCall returns call metadata carried by call-like SSA instructions.
 
 ## InstructionDominates
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L26)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func InstructionDominates(before, after ssa.Instruction) bool
@@ -1055,7 +1055,7 @@ Instruction order is respected when both values belong to one block.
 
 ## InstructionIndex
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L15)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func InstructionIndex(instruction ssa.Instruction) int
@@ -1065,7 +1065,7 @@ InstructionIndex returns instruction position within its basic block.
 
 ## InstructionMayFollow
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L40)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func InstructionMayFollow(before, after ssa.Instruction) bool
@@ -1078,7 +1078,7 @@ settle.
 
 ## InstructionTerminatesControlFlow
 
-[Source](../../../../internal/ssaflow/flow_termination.go#L7)
+[Source](../../../../internal/ssaflow/flow_termination.go)
 
 ```go
 func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool
@@ -1089,7 +1089,7 @@ prevents execution from continuing in the current goroutine.
 
 ## InstructionsOf
 
-[Source](../../../../internal/ssaflow/value_instructions.go#L26)
+[Source](../../../../internal/ssaflow/value_instructions.go)
 
 ```go
 func InstructionsOf[T ssa.Instruction](function *ssa.Function) []T
@@ -1097,7 +1097,7 @@ func InstructionsOf[T ssa.Instruction](function *ssa.Function) []T
 
 ## InstructionsReachableAfter
 
-[Source](../../../../internal/ssaflow/flow_worklist.go#L36)
+[Source](../../../../internal/ssaflow/flow_worklist.go)
 
 ```go
 func InstructionsReachableAfter(start ssa.Instruction) []ssa.Instruction
@@ -1111,7 +1111,7 @@ any use-after-X question.
 
 ## LibraryContract
 
-[Source](../../../../internal/ssaflow/call_contracts.go#L12)
+[Source](../../../../internal/ssaflow/call_contracts.go)
 
 ```go
 type LibraryContract uint8
@@ -1123,7 +1123,7 @@ single registry so analyzers do not grow divergent package/name heuristics.
 
 ## LoadedAggregateMayHold
 
-[Source](../../../../internal/ssaflow/store_returns.go#L286)
+[Source](../../../../internal/ssaflow/store_returns.go)
 
 ```go
 func LoadedAggregateMayHold(value, target ssa.Value) bool
@@ -1140,7 +1140,7 @@ composite literal over the receiver, asks this question alongside MayAlias.
 
 ## LocalEvidence
 
-[Source](../../../../internal/ssaflow/evidence_local.go#L12)
+[Source](../../../../internal/ssaflow/evidence_local.go)
 
 ```go
 type LocalEvidence struct {
@@ -1154,7 +1154,7 @@ use; each analyzer function owns its evidence.
 
 ## LocalEvidence.Completion
 
-[Source](../../../../internal/ssaflow/evidence_local.go#L42)
+[Source](../../../../internal/ssaflow/evidence_local.go)
 
 ```go
 func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionProof
@@ -1162,7 +1162,7 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) CompletionP
 
 ## LocalEvidence.OwnershipTransfer
 
-[Source](../../../../internal/ssaflow/evidence_transfer.go#L33)
+[Source](../../../../internal/ssaflow/evidence_transfer.go)
 
 ```go
 func (evidence *LocalEvidence) OwnershipTransfer(request OwnershipTransferRequest) OwnershipTransferProof
@@ -1172,7 +1172,7 @@ OwnershipTransfer proves and memoizes an ownership-transfer request.
 
 ## MayAlias
 
-[Source](../../../../internal/ssaflow/value_matching.go#L55)
+[Source](../../../../internal/ssaflow/value_matching.go)
 
 ```go
 func MayAlias(value, target ssa.Value) bool
@@ -1186,7 +1186,7 @@ use ValueDerivesFrom or MayContainValue for containment instead.
 
 ## MayAliasAny
 
-[Source](../../../../internal/ssaflow/value_forms.go#L100)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func MayAliasAny(value ssa.Value, candidates []ssa.Value) bool
@@ -1196,7 +1196,7 @@ MayAliasAny reports whether value may alias any candidate; see MayAlias.
 
 ## MayAliasThroughLoads
 
-[Source](../../../../internal/ssaflow/call_goroutines.go#L44)
+[Source](../../../../internal/ssaflow/call_goroutines.go)
 
 ```go
 func MayAliasThroughLoads(value, target ssa.Value) bool
@@ -1209,7 +1209,7 @@ so callers use it to find a candidate binding, never to credit an action.
 
 ## MayContainValue
 
-[Source](../../../../internal/ssaflow/store_ownership.go#L47)
+[Source](../../../../internal/ssaflow/store_ownership.go)
 
 ```go
 func MayContainValue(owner, value ssa.Value) bool
@@ -1221,7 +1221,7 @@ diagnostic behind an opaque owner, never prove that the owner settles it.
 
 ## MethodCallCoverage
 
-[Source](../../../../internal/ssaflow/completion_search.go#L41)
+[Source](../../../../internal/ssaflow/completion_search.go)
 
 ```go
 func MethodCallCoverage(function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, nonNil ssa.Value) bool
@@ -1233,7 +1233,7 @@ analysis to paths feasible when that value is non-nil at entry.
 
 ## NewCallEffects
 
-[Source](../../../../internal/ssaflow/call_effects.go#L48)
+[Source](../../../../internal/ssaflow/call_effects.go)
 
 ```go
 func NewCallEffects(budget *SearchBudget) *CallEffects
@@ -1244,7 +1244,7 @@ budget receives the same bounded 1000-step default as local storage queries.
 
 ## NewCallGraphMemo
 
-[Source](../../../../internal/ssaflow/call_graph_memo.go#L35)
+[Source](../../../../internal/ssaflow/call_graph_memo.go)
 
 ```go
 func NewCallGraphMemo[Key comparable, Answer any]() *CallGraphMemo[Key, Answer]
@@ -1252,7 +1252,7 @@ func NewCallGraphMemo[Key comparable, Answer any]() *CallGraphMemo[Key, Answer]
 
 ## NewFunctionSummaries
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L79)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 func NewFunctionSummaries[Summary any](
@@ -1269,7 +1269,7 @@ budget is unbounded, following SearchBudget's contract.
 
 ## NewLocalEvidenceWithReturnedCleanup
 
-[Source](../../../../internal/ssaflow/evidence_local.go#L22)
+[Source](../../../../internal/ssaflow/evidence_local.go)
 
 ```go
 func NewLocalEvidenceWithReturnedCleanup(lookup ReturnedCleanupLookup) LocalEvidence
@@ -1282,7 +1282,7 @@ change during the scope's lifetime.
 
 ## NewReachingWalk
 
-[Source](../../../../internal/ssaflow/value_reaching.go#L29)
+[Source](../../../../internal/ssaflow/value_reaching.go)
 
 ```go
 func NewReachingWalk(forms TransparentValueForm) ReachingWalk
@@ -1292,7 +1292,7 @@ NewReachingWalk starts a fold that looks through forms.
 
 ## NewSearchBudget
 
-[Source](../../../../internal/ssaflow/call_budget.go#L28)
+[Source](../../../../internal/ssaflow/call_budget.go)
 
 ```go
 func NewSearchBudget(limit int) *SearchBudget
@@ -1302,7 +1302,7 @@ NewSearchBudget returns a budget allowing limit instructions.
 
 ## NewStorage
 
-[Source](../../../../internal/ssaflow/store_model.go#L27)
+[Source](../../../../internal/ssaflow/store_model.go)
 
 ```go
 func NewStorage(budget *SearchBudget) *Storage
@@ -1312,7 +1312,7 @@ NewStorage creates a bounded storage query using the caller's search budget.
 
 ## NormalReturnReachableFrom
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L397)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func NormalReturnReachableFrom(block *ssa.BasicBlock) bool
@@ -1323,7 +1323,7 @@ without first invoking a control-flow terminating API.
 
 ## ObligationAction
 
-[Source](../../../../internal/ssaflow/flow_obligation.go#L18)
+[Source](../../../../internal/ssaflow/flow_obligation.go)
 
 ```go
 type ObligationAction uint8
@@ -1334,7 +1334,7 @@ return, or edge with respect to a tracked obligation.
 
 ## ObligationFlow
 
-[Source](../../../../internal/ssaflow/flow_obligation.go#L51)
+[Source](../../../../internal/ssaflow/flow_obligation.go)
 
 ```go
 type ObligationFlow struct {
@@ -1360,7 +1360,7 @@ optional; an edge action attaches to that successor's path only.
 
 ## ObligationNone, ObligationUnknown, ObligationExact
 
-[Source](../../../../internal/ssaflow/flow_obligation.go#L20)
+[Source](../../../../internal/ssaflow/flow_obligation.go)
 
 ```go
 const (
@@ -1377,7 +1377,7 @@ const (
 
 ## ObligationOutcome
 
-[Source](../../../../internal/ssaflow/flow_obligation.go#L33)
+[Source](../../../../internal/ssaflow/flow_obligation.go)
 
 ```go
 type ObligationOutcome uint8
@@ -1388,7 +1388,7 @@ the obligation to a normal return.
 
 ## ObligationViolated, ObligationUncertain, ObligationHonored
 
-[Source](../../../../internal/ssaflow/flow_obligation.go#L35)
+[Source](../../../../internal/ssaflow/flow_obligation.go)
 
 ```go
 const (
@@ -1405,7 +1405,7 @@ const (
 
 ## Observer
 
-[Source](../../../../internal/ssaflow/proof_observer.go#L12)
+[Source](../../../../internal/ssaflow/proof_observer.go)
 
 ```go
 type Observer func(reason string, at token.Pos, details map[string]string)
@@ -1421,7 +1421,7 @@ budget, which is exactly the scope of one candidate's proof.
 
 ## OwnershipEdge
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L100)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 type OwnershipEdge func(from, to *ssa.BasicBlock) bool
@@ -1432,7 +1432,7 @@ particular CFG edge, rather than by executing its branch instruction.
 
 ## OwnershipTransferMode
 
-[Source](../../../../internal/ssaflow/evidence_transfer.go#L7)
+[Source](../../../../internal/ssaflow/evidence_transfer.go)
 
 ```go
 type OwnershipTransferMode uint16
@@ -1443,7 +1443,7 @@ accepts as transfer of its lifecycle obligation.
 
 ## OwnershipTransferProof
 
-[Source](../../../../internal/ssaflow/proof_types.go#L113)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 type OwnershipTransferProof struct{ Proof }
@@ -1454,7 +1454,7 @@ owner accepted by an analyzer.
 
 ## OwnershipTransferRequest
 
-[Source](../../../../internal/ssaflow/evidence_transfer.go#L26)
+[Source](../../../../internal/ssaflow/evidence_transfer.go)
 
 ```go
 type OwnershipTransferRequest struct {
@@ -1469,7 +1469,7 @@ transfer one analyzer's ownership obligation.
 
 ## PhiEdgeCount
 
-[Source](../../../../internal/ssaflow/value_phi.go#L32)
+[Source](../../../../internal/ssaflow/value_phi.go)
 
 ```go
 func PhiEdgeCount(phi *ssa.Phi) int
@@ -1479,7 +1479,7 @@ PhiEdgeCount returns how many edges phi merges.
 
 ## PhiIncoming
 
-[Source](../../../../internal/ssaflow/value_phi.go#L17)
+[Source](../../../../internal/ssaflow/value_phi.go)
 
 ```go
 func PhiIncoming(phi *ssa.Phi) iter.Seq2[*ssa.BasicBlock, ssa.Value]
@@ -1491,7 +1491,7 @@ produce, is skipped.
 
 ## Proof
 
-[Source](../../../../internal/ssaflow/proof_types.go#L85)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 type Proof struct {
@@ -1507,7 +1507,7 @@ represents an unproven relationship.
 
 ## Proof.Known
 
-[Source](../../../../internal/ssaflow/proof_types.go#L99)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 func (proof Proof) Known() bool
@@ -1518,7 +1518,7 @@ relationship.
 
 ## Proof.Proven
 
-[Source](../../../../internal/ssaflow/proof_types.go#L93)
+[Source](../../../../internal/ssaflow/proof_types.go)
 
 ```go
 func (proof Proof) Proven() bool
@@ -1528,7 +1528,7 @@ Proven reports whether the requested relationship was established.
 
 ## ProveCompletion
 
-[Source](../../../../internal/ssaflow/completion_request.go#L50)
+[Source](../../../../internal/ssaflow/completion_request.go)
 
 ```go
 func ProveCompletion(request CompletionRequest) CompletionProof
@@ -1543,7 +1543,7 @@ Disproven.
 
 ## ProveCompletionForResult
 
-[Source](../../../../internal/ssaflow/completion_predicates.go#L42)
+[Source](../../../../internal/ssaflow/completion_predicates.go)
 
 ```go
 func ProveCompletionForResult(function *ssa.Function, predicate CompletionPredicate, request CompletionRequest) CompletionProof
@@ -1555,7 +1555,7 @@ callback bindings, and recursion guard; it does not invent a caller or SSA.
 
 ## ProveCompletionOnEdge
 
-[Source](../../../../internal/ssaflow/completion_conditions.go#L35)
+[Source](../../../../internal/ssaflow/completion_conditions.go)
 
 ```go
 func ProveCompletionOnEdge(from, to *ssa.BasicBlock, request CompletionRequest) CompletionProof
@@ -1568,7 +1568,7 @@ The result says nothing about the opposite edge or an untested call.
 
 ## ProveEnclosingCompletion
 
-[Source](../../../../internal/ssaflow/completion_enclosing.go#L40)
+[Source](../../../../internal/ssaflow/completion_enclosing.go)
 
 ```go
 func ProveEnclosingCompletion(request EnclosingCompletionRequest) CompletionProof
@@ -1580,7 +1580,7 @@ guarantee. An incomplete traversal is Unknown, never a cleanup proof.
 
 ## ProveIdentity
 
-[Source](../../../../internal/ssaflow/value_identity.go#L42)
+[Source](../../../../internal/ssaflow/value_identity.go)
 
 ```go
 func ProveIdentity(left, right AccessPath) IdentityProof
@@ -1591,7 +1591,7 @@ beneath roots that the caller has already established as equivalent.
 
 ## ProveReturnedCleanup
 
-[Source](../../../../internal/ssaflow/completion_returned.go#L35)
+[Source](../../../../internal/ssaflow/completion_returned.go)
 
 ```go
 func ProveReturnedCleanup(function *ssa.Function, relation ReturnedCleanupRelation, request CompletionRequest) CompletionProof
@@ -1603,7 +1603,7 @@ and Instruction are unused: relation identifies values inside the factory.
 
 ## ReachingWalk
 
-[Source](../../../../internal/ssaflow/value_reaching.go#L23)
+[Source](../../../../internal/ssaflow/value_reaching.go)
 
 ```go
 type ReachingWalk struct {
@@ -1615,7 +1615,7 @@ ReachingWalk carries the transparent forms and the visited set of one fold.
 
 ## ReachingWalk.Any
 
-[Source](../../../../internal/ssaflow/value_reaching.go#L34)
+[Source](../../../../internal/ssaflow/value_reaching.go)
 
 ```go
 func (walk ReachingWalk) Any(value ssa.Value, leaf func(ReachingWalk, ssa.Value) bool) bool
@@ -1625,7 +1625,7 @@ Any reports whether some value reaching value satisfies leaf.
 
 ## ReachingWalk.Every
 
-[Source](../../../../internal/ssaflow/value_reaching.go#L56)
+[Source](../../../../internal/ssaflow/value_reaching.go)
 
 ```go
 func (walk ReachingWalk) Every(value ssa.Value, leaf func(ReachingWalk, ssa.Value) bool) bool
@@ -1637,7 +1637,7 @@ one edge's walk cannot hide evidence from a sibling.
 
 ## ReachingWalk.EveryOf
 
-[Source](../../../../internal/ssaflow/value_reaching.go#L72)
+[Source](../../../../internal/ssaflow/value_reaching.go)
 
 ```go
 func (walk ReachingWalk) EveryOf(values []ssa.Value, leaf func(ReachingWalk, ssa.Value) bool) bool
@@ -1648,7 +1648,7 @@ under its own visited set. No values proves nothing.
 
 ## ReachingWalk.Mark
 
-[Source](../../../../internal/ssaflow/value_reaching.go#L87)
+[Source](../../../../internal/ssaflow/value_reaching.go)
 
 ```go
 func (walk ReachingWalk) Mark(value ssa.Value) bool
@@ -1660,7 +1660,7 @@ the sibling element addresses of one slice.
 
 ## ResolveEmbeddedFieldPath
 
-[Source](../../../../internal/ssaflow/value_field_path.go#L17)
+[Source](../../../../internal/ssaflow/value_field_path.go)
 
 ```go
 func ResolveEmbeddedFieldPath(walk ReachingWalk, value ssa.Value, acceptRoot func(ssa.Value) bool) (EmbeddedFieldPath, bool)
@@ -1672,7 +1672,7 @@ accepting a load names that exact snapshot, never its underlying cell.
 
 ## ResolveReachingValue
 
-[Source](../../../../internal/ssaflow/value_reaching.go#L100)
+[Source](../../../../internal/ssaflow/value_reaching.go)
 
 ```go
 func ResolveReachingValue[T any, K comparable](
@@ -1691,7 +1691,7 @@ returned for an agreed key.
 
 ## ResolvedCallee
 
-[Source](../../../../internal/ssaflow/call_resolution.go#L15)
+[Source](../../../../internal/ssaflow/call_resolution.go)
 
 ```go
 func ResolvedCallee(common *ssa.CallCommon) *ssa.Function
@@ -1703,7 +1703,7 @@ positions, so an argument index means the same thing in either form.
 
 ## ResolvedFunction
 
-[Source](../../../../internal/ssaflow/call_resolution.go#L28)
+[Source](../../../../internal/ssaflow/call_resolution.go)
 
 ```go
 func ResolvedFunction(function *ssa.Function) *ssa.Function
@@ -1714,7 +1714,7 @@ caller already holds, such as the literal a launch names.
 
 ## ReturnedCleanupLookup
 
-[Source](../../../../internal/ssaflow/completion_returned.go#L24)
+[Source](../../../../internal/ssaflow/completion_returned.go)
 
 ```go
 type ReturnedCleanupLookup func(*ssa.Function, string, bool) []ReturnedCleanupRelation
@@ -1725,7 +1725,7 @@ method or callback-invocation contract. Missing relations mean unknown.
 
 ## ReturnedCleanupRelation
 
-[Source](../../../../internal/ssaflow/completion_returned.go#L16)
+[Source](../../../../internal/ssaflow/completion_returned.go)
 
 ```go
 type ReturnedCleanupRelation struct {
@@ -1740,7 +1740,7 @@ the same factory invocation. TargetIsResult selects the target's namespace.
 
 ## ReturnedMayAliasAny
 
-[Source](../../../../internal/ssaflow/value_forms.go#L110)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func ReturnedMayAliasAny(returned *ssa.Return, candidates []ssa.Value) bool
@@ -1750,7 +1750,7 @@ ReturnedMayAliasAny reports whether a return may transfer any candidate value.
 
 ## ReturnedResult
 
-[Source](../../../../internal/ssaflow/store_returns.go#L344)
+[Source](../../../../internal/ssaflow/store_returns.go)
 
 ```go
 func ReturnedResult(returned *ssa.Return, index int) ssa.Value
@@ -1764,7 +1764,7 @@ it through the shared observation-time storage model.
 
 ## ReturnedValueOwnsValue
 
-[Source](../../../../internal/ssaflow/store_returns.go#L13)
+[Source](../../../../internal/ssaflow/store_returns.go)
 
 ```go
 func ReturnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool
@@ -1772,7 +1772,7 @@ func ReturnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool
 
 ## ReturnedValueOwnsValueSummarized
 
-[Source](../../../../internal/ssaflow/store_returns.go#L28)
+[Source](../../../../internal/ssaflow/store_returns.go)
 
 ```go
 func ReturnedValueOwnsValueSummarized(returned *ssa.Return, value ssa.Value, summarized ReturnsOwner) bool
@@ -1787,7 +1787,7 @@ callee kept the argument for itself.
 
 ## ReturnsOwner
 
-[Source](../../../../internal/ssaflow/store_returns.go#L20)
+[Source](../../../../internal/ssaflow/store_returns.go)
 
 ```go
 type ReturnsOwner func(callee *ssa.Function, index int) bool
@@ -1799,7 +1799,7 @@ answer comes from its summary, which lives above this package.
 
 ## ReturnsParameterUnchanged
 
-[Source](../../../../internal/ssaflow/store_return_identity.go#L15)
+[Source](../../../../internal/ssaflow/store_return_identity.go)
 
 ```go
 func ReturnsParameterUnchanged(function *ssa.Function, parameter ssa.Value, index int) bool
@@ -1814,7 +1814,7 @@ return proves nothing.
 
 ## SameAccessPath
 
-[Source](../../../../internal/ssaflow/value_forms.go#L296)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func SameAccessPath(left, right AccessPath) bool
@@ -1827,7 +1827,7 @@ selected field with the aggregate that contains it.
 
 ## SearchBudget
 
-[Source](../../../../internal/ssaflow/call_budget.go#L21)
+[Source](../../../../internal/ssaflow/call_budget.go)
 
 ```go
 type SearchBudget struct {
@@ -1840,7 +1840,7 @@ instructions it may examine.
 
 ## SearchBudget.Exhausted
 
-[Source](../../../../internal/ssaflow/call_budget.go#L72)
+[Source](../../../../internal/ssaflow/call_budget.go)
 
 ```go
 func (budget *SearchBudget) Exhausted() bool
@@ -1851,7 +1851,7 @@ bailout and decline to retain an answer that was cut short.
 
 ## SearchBudget.Observed
 
-[Source](../../../../internal/ssaflow/call_budget.go#L49)
+[Source](../../../../internal/ssaflow/call_budget.go)
 
 ```go
 func (budget *SearchBudget) Observed(observer Observer) *SearchBudget
@@ -1863,7 +1863,7 @@ observer leaves the budget silent; a nil budget stays unbounded and silent.
 
 ## SearchBudget.Spend
 
-[Source](../../../../internal/ssaflow/call_budget.go#L34)
+[Source](../../../../internal/ssaflow/call_budget.go)
 
 ```go
 func (budget *SearchBudget) Spend() bool
@@ -1874,7 +1874,7 @@ nil budget is unbounded, so a caller that does not need one passes nothing.
 
 ## SelectedReceiveChannel
 
-[Source](../../../../internal/ssaflow/flow_select.go#L15)
+[Source](../../../../internal/ssaflow/flow_select.go)
 
 ```go
 func SelectedReceiveChannel(block *ssa.BasicBlock) (ssa.Value, bool)
@@ -1887,7 +1887,7 @@ This only describes the selected operation, not its synchronization policy.
 
 ## SelectedReceiveOnEdge
 
-[Source](../../../../internal/ssaflow/flow_select.go#L25)
+[Source](../../../../internal/ssaflow/flow_select.go)
 
 ```go
 func SelectedReceiveOnEdge(from, to *ssa.BasicBlock) (ssa.Value, bool)
@@ -1899,7 +1899,7 @@ callers must keep this evidence on the edge, not on the shared destination.
 
 ## SendsValue
 
-[Source](../../../../internal/ssaflow/store_escape.go#L48)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func SendsValue(instruction ssa.Instruction, value ssa.Value) bool
@@ -1909,7 +1909,7 @@ SendsValue reports whether instruction hands value to a channel receiver.
 
 ## SourceSSAFunctions
 
-[Source](../../../../internal/ssaflow/call_metadata.go#L14)
+[Source](../../../../internal/ssaflow/call_metadata.go)
 
 ```go
 func SourceSSAFunctions(pass *analysis.Pass) ([]*ssa.Function, error)
@@ -1919,7 +1919,7 @@ SourceSSAFunctions returns non-generated source functions from buildssa results.
 
 ## SpawnInvokesArgumentOnEveryReturn
 
-[Source](../../../../internal/ssaflow/completion_callbacks.go#L16)
+[Source](../../../../internal/ssaflow/completion_callbacks.go)
 
 ```go
 func SpawnInvokesArgumentOnEveryReturn(spawn *ssa.Go, target ssa.Value) bool
@@ -1931,7 +1931,7 @@ asynchronous to its caller, but calls made inside its wrapper must not be.
 
 ## SpawnedValueAtCall
 
-[Source](../../../../internal/ssaflow/call_goroutines.go#L12)
+[Source](../../../../internal/ssaflow/call_goroutines.go)
 
 ```go
 func SpawnedValueAtCall(
@@ -1947,7 +1947,7 @@ supplied by the parent goroutine instruction.
 
 ## Storage
 
-[Source](../../../../internal/ssaflow/store_model.go#L14)
+[Source](../../../../internal/ssaflow/store_model.go)
 
 ```go
 type Storage struct {
@@ -1962,7 +1962,7 @@ Each query owns its budget; no state is shared between analyzed functions.
 
 ## Storage.Content
 
-[Source](../../../../internal/ssaflow/store_model.go#L81)
+[Source](../../../../internal/ssaflow/store_model.go)
 
 ```go
 func (storage *Storage) Content(address ssa.Value, observation ssa.Instruction) StoredValue
@@ -1974,7 +1974,7 @@ after observation do not invalidate an earlier snapshot.
 
 ## Storage.Projection
 
-[Source](../../../../internal/ssaflow/store_projection.go#L38)
+[Source](../../../../internal/ssaflow/store_projection.go)
 
 ```go
 func (storage *Storage) Projection(value, root ssa.Value, observation ssa.Instruction) IdentityProof
@@ -1987,7 +1987,7 @@ source instruction, because neither supplies one exact ownership interval.
 
 ## Storage.Resolve
 
-[Source](../../../../internal/ssaflow/store_model.go#L41)
+[Source](../../../../internal/ssaflow/store_model.go)
 
 ```go
 func (storage *Storage) Resolve(value ssa.Value) StoredValue
@@ -1998,7 +1998,7 @@ This preserves a saved value when its original cell is subsequently changed.
 
 ## Storage.Same
 
-[Source](../../../../internal/ssaflow/store_model.go#L61)
+[Source](../../../../internal/ssaflow/store_model.go)
 
 ```go
 func (storage *Storage) Same(left, right ssa.Value) IdentityProof
@@ -2009,7 +2009,7 @@ never inequality: two opaque loads might still contain the same value.
 
 ## Storage.StableContent
 
-[Source](../../../../internal/ssaflow/store_stability.go#L17)
+[Source](../../../../internal/ssaflow/store_stability.go)
 
 ```go
 func (storage *Storage) StableContent(address ssa.Value, observation ssa.Instruction) StoredValue
@@ -2026,7 +2026,7 @@ https://github.com/marcus/sidecar/blob/9b8739f753ab235dda2630676833e9b46a52696c/
 
 ## StoredInto
 
-[Source](../../../../internal/ssaflow/store_returns.go#L306)
+[Source](../../../../internal/ssaflow/store_returns.go)
 
 ```go
 func StoredInto(address ssa.Value) iter.Seq[ssa.Value]
@@ -2039,7 +2039,7 @@ stored value.
 
 ## StoredValue
 
-[Source](../../../../internal/ssaflow/store_model.go#L21)
+[Source](../../../../internal/ssaflow/store_model.go)
 
 ```go
 type StoredValue struct {
@@ -2053,7 +2053,7 @@ mean empty, unequal, or released, and must not establish a lifecycle action.
 
 ## StoresOwnerOfValueInExternalField
 
-[Source](../../../../internal/ssaflow/store_escape.go#L68)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func StoresOwnerOfValueInExternalField(instruction ssa.Instruction, value ssa.Value) bool
@@ -2064,7 +2064,7 @@ value is installed on a receiver or caller-owned struct.
 
 ## StoresOwnerOfValueInField
 
-[Source](../../../../internal/ssaflow/store_escape.go#L55)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func StoresOwnerOfValueInField(instruction ssa.Instruction, value ssa.Value) bool
@@ -2075,7 +2075,7 @@ aggregate that transitively captures value into a struct field.
 
 ## StoresValueInEnclosingScope
 
-[Source](../../../../internal/ssaflow/store_escape.go#L38)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func StoresValueInEnclosingScope(instruction ssa.Instruction, value ssa.Value) bool
@@ -2088,7 +2088,7 @@ https://github.com/shini4i/argo-watcher/blob/283d6c6b618b3ade906728ee12a438fd22a
 
 ## StoresValueInEscapingField
 
-[Source](../../../../internal/ssaflow/store_escape.go#L79)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func StoresValueInEscapingField(instruction ssa.Instruction, value ssa.Value) bool
@@ -2099,7 +2099,7 @@ an owner that already outlives the function or is subsequently transferred.
 
 ## StoresValueInField
 
-[Source](../../../../internal/ssaflow/store_escape.go#L14)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool
@@ -2107,7 +2107,7 @@ func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool
 
 ## StoresValueInGlobal
 
-[Source](../../../../internal/ssaflow/store_escape.go#L25)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func StoresValueInGlobal(instruction ssa.Instruction, value ssa.Value) bool
@@ -2118,7 +2118,7 @@ package-owned storage.
 
 ## StoresValueInOwnedMap
 
-[Source](../../../../internal/ssaflow/store_escape.go#L88)
+[Source](../../../../internal/ssaflow/store_escape.go)
 
 ```go
 func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool
@@ -2126,7 +2126,7 @@ func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool
 
 ## SuccessBranch
 
-[Source](../../../../internal/ssaflow/value_forms.go#L361)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool)
@@ -2137,7 +2137,7 @@ nil, when block ends in a recognizable nil comparison.
 
 ## SummaryBodyUnavailable, SummaryRecursive, SummaryBudgetExhausted
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L17)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 const (
@@ -2152,7 +2152,7 @@ const (
 
 ## SummaryUnavailable
 
-[Source](../../../../internal/ssaflow/call_summaries.go#L15)
+[Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
 type SummaryUnavailable uint8
@@ -2162,7 +2162,7 @@ SummaryUnavailable identifies why a function summary could not be computed.
 
 ## TransferStoredInField, TransferOwnerStoredInField, TransferStoredInGlobal, TransferStoredInEnclosingScope, TransferOwnerStoredInExternalField, TransferStoredInOwnedMap, TransferSentToReceiver, TransferCapturedByClosure, TransferCallResultStoredInField, TransferToReturnedOwner, TransferToReceiver, TransferToLifecycleOwner
 
-[Source](../../../../internal/ssaflow/evidence_transfer.go#L9)
+[Source](../../../../internal/ssaflow/evidence_transfer.go)
 
 ```go
 const (
@@ -2183,7 +2183,7 @@ const (
 
 ## TransparentChangeInterface, TransparentChangeType, TransparentConvert, TransparentMakeInterface, TransparentTypeAssert
 
-[Source](../../../../internal/ssaflow/value_forms.go#L28)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 const (
@@ -2202,7 +2202,7 @@ const (
 
 ## TransparentNone
 
-[Source](../../../../internal/ssaflow/value_forms.go#L26)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 const TransparentNone TransparentValueForm = 0
@@ -2214,7 +2214,7 @@ passing a bare zero.
 
 ## TransparentValueForm
 
-[Source](../../../../internal/ssaflow/value_forms.go#L21)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 type TransparentValueForm uint8
@@ -2226,7 +2226,7 @@ opt-in because it may change a value's representation or meaning.
 
 ## UnownedReturn
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L90)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func UnownedReturn(
@@ -2242,7 +2242,7 @@ cleanup visible without pretending infeasible branches are impossible.
 
 ## UnownedReturnAfterCallSuccess
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L121)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func UnownedReturnAfterCallSuccess(
@@ -2259,7 +2259,7 @@ but no ownership obligation exists on that path.
 
 ## UnownedReturnAssumingNonNil
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L157)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func UnownedReturnAssumingNonNil(
@@ -2277,7 +2277,7 @@ https://github.com/agenticenv/agent-sdk-go/blob/63f0452159d674d529a6fea91b8d532b
 
 ## UnownedReturnAssumingNonNilWithEdges
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L168)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func UnownedReturnAssumingNonNilWithEdges(
@@ -2294,7 +2294,7 @@ preserving the same non-nil assumption and feasible-successor policy.
 
 ## UnownedReturnFromEntryAllow
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L190)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func UnownedReturnFromEntryAllow(function *ssa.Function, owns func(ssa.Instruction) bool, allowReturn func(*ssa.Return) bool) bool
@@ -2305,7 +2305,7 @@ ownership action unless allowReturn proves that return needs none.
 
 ## UnownedReturnFromEntryAssumingNonNil
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L196)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func UnownedReturnFromEntryAssumingNonNil(function *ssa.Function, value ssa.Value, owns func(ssa.Instruction) bool) bool
@@ -2316,7 +2316,7 @@ is non-nil at function entry.
 
 ## UnownedReturnFromEntryWithEdges
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L184)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func UnownedReturnFromEntryWithEdges(function *ssa.Function, owns func(ssa.Instruction) bool, ownsEdge OwnershipEdge) bool
@@ -2327,7 +2327,7 @@ ordinary entry-to-return query, including edges into shared successors.
 
 ## UnownedReturnWithEdges
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L104)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func UnownedReturnWithEdges(
@@ -2343,7 +2343,7 @@ The action is attached to that successor's state, never to sibling paths.
 
 ## UnwrapTransparentValue
 
-[Source](../../../../internal/ssaflow/value_forms.go#L44)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func UnwrapTransparentValue(value ssa.Value, forms TransparentValueForm) (ssa.Value, bool)
@@ -2355,7 +2355,7 @@ analysis must select the transformations that preserve its own evidence.
 
 ## ValueCallsMethod
 
-[Source](../../../../internal/ssaflow/completion_search.go#L567)
+[Source](../../../../internal/ssaflow/completion_search.go)
 
 ```go
 func ValueCallsMethod(value ssa.Value, method string, target ssa.Value) bool
@@ -2368,7 +2368,7 @@ local, passed through a call result, or merged by a phi.
 
 ## ValueDerivesFrom
 
-[Source](../../../../internal/ssaflow/value_forms.go#L162)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool
@@ -2392,7 +2392,7 @@ analyzer must keep such a replaced resource reportable.
 
 ## ValueEscapes
 
-[Source](../../../../internal/ssaflow/store_transfers.go#L142)
+[Source](../../../../internal/ssaflow/store_transfers.go)
 
 ```go
 func ValueEscapes(value ssa.Value) bool
@@ -2403,7 +2403,7 @@ function through a return, store, send, or escaping closure.
 
 ## ValueIsAccessPathFrom
 
-[Source](../../../../internal/ssaflow/value_forms.go#L287)
+[Source](../../../../internal/ssaflow/value_forms.go)
 
 ```go
 func ValueIsAccessPathFrom(value, root ssa.Value) bool
@@ -2414,7 +2414,7 @@ identifiable field or constant-index projection beneath root.
 
 ## ValueMatchesAnySymbol
 
-[Source](../../../../internal/ssaflow/call_symbols.go#L54)
+[Source](../../../../internal/ssaflow/call_symbols.go)
 
 ```go
 func ValueMatchesAnySymbol(value ssa.Value, symbols ...syntax.Symbol) bool
@@ -2424,7 +2424,7 @@ ValueMatchesAnySymbol reports whether value is one of the exact package declarat
 
 ## ValueMatchesSymbol
 
-[Source](../../../../internal/ssaflow/call_symbols.go#L48)
+[Source](../../../../internal/ssaflow/call_symbols.go)
 
 ```go
 func ValueMatchesSymbol(value ssa.Value, symbol syntax.Symbol) bool
@@ -2435,7 +2435,7 @@ identified by symbol.
 
 ## WalkStates
 
-[Source](../../../../internal/ssaflow/flow_worklist.go#L12)
+[Source](../../../../internal/ssaflow/flow_worklist.go)
 
 ```go
 func WalkStates[S any, K comparable](initial []S, key func(S) K, step func(S) ([]S, bool))

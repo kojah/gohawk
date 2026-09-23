@@ -9,7 +9,7 @@ driver treats an augmented test package as its canonical package pass.
 
 ## Analyzer
 
-[Source](../../../../internal/passes/testvariant/analyzer.go#L16)
+[Source](../../../../internal/passes/testvariant/analyzer.go)
 
 ```go
 var Analyzer = &analysis.Analyzer{
@@ -28,7 +28,7 @@ production copies emitted by drivers that also analyze the ordinary package.
 
 ## IncludeProductionFiles
 
-[Source](../../../../internal/passes/testvariant/analyzer.go#L29)
+[Source](../../../../internal/passes/testvariant/analyzer.go)
 
 ```go
 func IncludeProductionFiles(analyzer *analysis.Analyzer) *analysis.Analyzer
