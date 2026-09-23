@@ -367,7 +367,7 @@ func releasesField(pass *analysis.Pass, instruction ssa.Instruction, receiver ss
 		}
 		if imported, ok := importFact(pass, instruction); ok {
 			for _, method := range cleanup {
-				if factOwnsArgument(instruction, load, imported.MethodMask(method), nil) {
+				if imported.dischargesArgument(instruction, load, method, nil) {
 					return true
 				}
 			}

@@ -147,35 +147,7 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 		}) {
 			fact.SynchronouslyInvoked |= bit
 		}
-		for _, mask := range lifecycleMasks {
-			if mask.method == "" {
-				continue
-			}
-			method, target := mask.method, mask.field(&fact)
-			if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
-				common := ssaflow.InstructionCall(instruction)
-				if common != nil && ssaflow.CallName(common) == method &&
-					ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), parameter, map[ssa.Value]bool{}) {
-					return true
-				}
-				// Export the same exact deferred-callback evidence accepted by local
-				// lifecycle proofs. Qist's response helper defers a literal that closes
-				// the Body projected from its response parameter on every return:
-				// https://github.com/qist/tvgate/blob/bb4c889997c68cc607d9ab5bb34710d6baf94aa8/stream/handle.go#L31-L36
-				if _, deferred := instruction.(*ssa.Defer); deferred && ssaflow.ProveCompletion(ssaflow.CompletionRequest{
-					Instruction: instruction, Target: parameter, Methods: []string{method},
-				}).Proven() {
-					return true
-				}
-				if invokesMethodCallback(instruction, parameter, method) {
-					return true
-				}
-				imported, ok := importFact(pass, instruction)
-				return ok && factOwnsArgument(instruction, parameter, imported.MethodMask(method), nil)
-			}) {
-				*target |= bit
-			}
-		}
+		summarizeDischarges(pass, function, index, parameter, &fact)
 		if releasesDerivedValueInLoop(function, parameter) {
 			fact.LoopReleased |= bit
 		}
@@ -184,6 +156,89 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 	fact.Conditional = summarizeConditional(pass, function)
 	fact.ReturnedCleanup = summarizeReturnedCleanup(pass, function)
 	return fact
+}
+
+// summarizeDischarges records, for each lifecycle method, the paths beneath
+// the parameter it cleans up on every return and, for the parameter itself,
+// the method's mask.
+func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) {
+	bit := parameterMaskFor(index)
+	for _, mask := range lifecycleMasks {
+		if mask.method == "" {
+			continue
+		}
+		method, target := mask.method, mask.field(fact)
+		// A cleanup of a field or element is claimed at its own path,
+		// never as a cleanup of the parameter: closing j.out is not
+		// closing j, and a caller whose file sits in j.other must not be
+		// credited. Only the parameter itself sets the mask.
+		for _, path := range cleanupPaths(function, parameter, method) {
+			if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
+				return cleanupAtPath(instruction, parameter, method, path)
+			}) {
+				fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: method, Path: path})
+			}
+		}
+		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
+			if cleanupAtPath(instruction, parameter, method, "") {
+				return true
+			}
+			// Export the same exact deferred-callback evidence accepted by local
+			// lifecycle proofs. Qist's response helper defers a literal that closes
+			// the Body projected from its response parameter on every return:
+			// https://github.com/qist/tvgate/blob/bb4c889997c68cc607d9ab5bb34710d6baf94aa8/stream/handle.go#L31-L36
+			if _, deferred := instruction.(*ssa.Defer); deferred && ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+				Instruction: instruction, Target: parameter, Methods: []string{method},
+			}).Proven() {
+				return true
+			}
+			if invokesMethodCallback(instruction, parameter, method) {
+				return true
+			}
+			imported, ok := importFact(pass, instruction)
+			return ok && imported.dischargesArgument(instruction, parameter, method, nil)
+		}) {
+			*target |= bit
+			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: method})
+		}
+	}
+}
+
+// cleanupPaths returns the non-empty access paths beneath the parameter on
+// which the function calls method: the fields and constant-index elements
+// it cleans up, each a candidate for its own every-return claim.
+func cleanupPaths(function *ssa.Function, parameter ssa.Value, method string) []string {
+	seen := map[string]bool{}
+	var paths []string
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			common := ssaflow.InstructionCall(instruction)
+			if common == nil || ssaflow.CallName(common) != method {
+				continue
+			}
+			path, ok := ssaflow.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
+			if !ok || len(path) == 0 {
+				continue
+			}
+			if joined := ssaflow.JoinAccessPath(path); !seen[joined] {
+				seen[joined] = true
+				paths = append(paths, joined)
+			}
+		}
+	}
+	return paths
+}
+
+// cleanupAtPath reports whether the instruction calls method on the value
+// at exactly path beneath the parameter; the empty path is the parameter
+// itself.
+func cleanupAtPath(instruction ssa.Instruction, parameter ssa.Value, method, path string) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil || ssaflow.CallName(common) != method {
+		return false
+	}
+	actual, ok := ssaflow.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
+	return ok && ssaflow.JoinAccessPath(actual) == path
 }
 
 // A visible helper may invoke a bound cleanup method supplied by its wrapper.

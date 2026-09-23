@@ -247,6 +247,14 @@ func enclosingAggregateAddress(address ssa.Value) ssa.Value {
 	return enclosing
 }
 
+// WholeWrittenCell reports whether the cell is only ever stored as a whole
+// and otherwise read, directly or through field and element selections: the
+// shape the builder gives a spilled by-value parameter or a local copy. Such
+// a cell's contents are exactly what was stored into it.
+func WholeWrittenCell(cell *ssa.Alloc) bool {
+	return enclosingAggregateAddress(&ssa.FieldAddr{X: cell}) != nil
+}
+
 // addressOnlyLoaded reports whether an address, and every field or element
 // selected beneath it, is only ever loaded from.
 func addressOnlyLoaded(address ssa.Value) bool {

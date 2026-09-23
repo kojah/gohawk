@@ -36,6 +36,31 @@ type AccessPath struct {
 AccessPath identifies one SSA value relative to the aggregate root from
 which its fields and indexes are selected.
 
+## AccessPathFromParameter
+
+[Source](../../../../internal/ssaflow/store_access_paths.go)
+
+```go
+func AccessPathFromParameter(value, parameter ssa.Value) ([]string, bool)
+```
+
+AccessPathFromParameter is AccessPathOf with the parameter's spill cells as
+alternative roots: a struct or array parameter is copied into a local
+cell before a field is selected, and a cell that is only ever written
+whole from the parameter holds exactly the parameter's contents.
+
+## AccessPathOf
+
+[Source](../../../../internal/ssaflow/store_access_paths.go)
+
+```go
+func AccessPathOf(value, root ssa.Value) ([]string, bool)
+```
+
+AccessPathOf returns the field and constant-index steps by which value is
+selected beneath root, empty for root itself. A load through an address
+beneath root has the address's path.
+
 ## BlockInCycle
 
 [Source](../../../../internal/ssaflow/call_goroutines.go)
@@ -1201,6 +1226,16 @@ at back edges keeps a loop-carried SSA value from being compared with a
 different runtime value it names on a later iteration, which matters for
 any use-after-X question.
 
+## JoinAccessPath
+
+[Source](../../../../internal/ssaflow/store_access_paths.go)
+
+```go
+func JoinAccessPath(path []string) string
+```
+
+JoinAccessPath renders a path for a fact or a key; the empty path is "".
+
 ## LibraryContract
 
 [Source](../../../../internal/ssaflow/call_contracts.go)
@@ -2160,6 +2195,16 @@ func SpawnedValueAtCall(
 SpawnedValueAtCall resolves a spawned function value back to the value
 supplied by the parent goroutine instruction.
 
+## SplitAccessPath
+
+[Source](../../../../internal/ssaflow/store_access_paths.go)
+
+```go
+func SplitAccessPath(joined string) []string
+```
+
+SplitAccessPath is the inverse of JoinAccessPath.
+
 ## Storage
 
 [Source](../../../../internal/ssaflow/store_model.go)
@@ -2174,6 +2219,17 @@ Storage answers point-in-time questions about local storage. It follows
 exact fields, constant array indexes, and aggregate copies, never possible
 aliases. Ambiguous writes and address escapes make the answer unknown.
 Each query owns its budget; no state is shared between analyzed functions.
+
+## Storage.Budget
+
+[Source](../../../../internal/ssaflow/store_model.go)
+
+```go
+func (storage *Storage) Budget() *SearchBudget
+```
+
+Budget returns the budget this storage query spends, so a caller can hand
+a nested question the same allowance.
 
 ## Storage.Content
 
@@ -2251,6 +2307,19 @@ StoredInto yields every value stored into address, into a field or element
 selected from it, or through a pointer loaded from it. It is the one walk
 for asking what an aggregate holds; callers supply the question about each
 stored value.
+
+## StoredPath
+
+[Source](../../../../internal/ssaflow/store_access_paths.go)
+
+```go
+func StoredPath(root, target ssa.Value, observation ssa.Instruction) ([]string, bool)
+```
+
+StoredPath returns the access path beneath root at which target is stored,
+as observed at observation: the field or constant-index selection whose
+content is the target. It looks one and two selections deep, which covers
+a field of a struct and an element of an array held in a field.
 
 ## StoredValue
 
@@ -2581,6 +2650,21 @@ UnwrapTransparentValue returns the operand of value only when its concrete
 SSA form is among forms. There is intentionally no catch-all form: each
 analysis must select the transformations that preserve its own evidence.
 
+## ValueAtPath
+
+[Source](../../../../internal/ssaflow/store_access_paths.go)
+
+```go
+func ValueAtPath(root ssa.Value, path []string, observation ssa.Instruction) (ssa.Value, bool)
+```
+
+ValueAtPath resolves the value stored at path beneath root as observed at
+observation. The root may be an address, such as a local aggregate or a
+pointer, or a load of a whole aggregate, in which case the loaded cell is
+the root. An empty path is the root itself. The address is found by
+following the selections the function actually made, so a path nobody
+selected resolves to nothing.
+
 ## ValueCallsMethod
 
 [Source](../../../../internal/ssaflow/completion_search.go)
@@ -2676,3 +2760,16 @@ The driver owns termination: a state is expanded only when its key has not
 been expanded before, which bounds the walk on loops while still letting a
 block be revisited under a different obligation state. The caller's key must
 therefore capture every part of the state that changes what step does.
+
+## WholeWrittenCell
+
+[Source](../../../../internal/ssaflow/value_forms.go)
+
+```go
+func WholeWrittenCell(cell *ssa.Alloc) bool
+```
+
+WholeWrittenCell reports whether the cell is only ever stored as a whole
+and otherwise read, directly or through field and element selections: the
+shape the builder gives a spilled by-value parameter or a local copy. Such
+a cell's contents are exactly what was stored into it.

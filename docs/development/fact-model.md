@@ -177,6 +177,13 @@ type Fact struct {
 	// fresh resource it acquired itself, and the caller owes its cleanup.
 	// See owned_results.go for the freshness the proof requires.
 	OwnedResults	ParameterMask
+	// Discharges are the exact cleanup claims: which method is called, on
+	// which parameter, at which access path beneath it, on every normal
+	// return. The method masks above are the empty-path discharges; a
+	// cleanup of a field or element is recorded here and nowhere else, so a
+	// caller matches the resource it stored at that path rather than any
+	// resource the argument contains.
+	Discharges	[]Discharge
 	ReceiverStore	ParameterMask
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
@@ -247,6 +254,33 @@ claims; merely constructing or discarding it does not transfer ownership.
 Local spills, caller-owned cells, and callback captures do not establish this
 boundary. Consumer queries read prerequisite summaries, not another analyzer's
 object-fact namespace.
+
+## Discharge paths
+
+A discharge verb on a parameter is exact about the parameter itself: `Closed`
+on `file` means `file.Close()`. A cleanup of a field or element of the
+parameter is not the same claim, and it is not recorded on the mask. It is
+recorded in `Discharges` as the method, the parameter, and the access path
+beneath it, such as `field:0` for `j.out.Close()` or `index:1` for
+`files[1].Close()`, including through the cell a by-value parameter is
+spilled into. Each path is proved on every normal return on its own.
+
+A caller is credited only for the resource it stored at that path beneath
+its argument, resolved from the caller's own stores; a helper that closes
+the other field or the other element leaves the obligation open where,
+before paths, any resource the argument contained was credited. Two
+exceptions keep older shapes exact: a resource that is itself an owner, such
+as an `http.Response`, is released by a helper closing its resource-typed
+field, and a deferred literal or bound callback closing a projection of the
+parameter still claims the parameter, because the completion search that
+proves it has no path to report. The same rule applies inside the local
+completion search: a target mapped into a callee by containment remembers
+its path, and a receiver that is a proper projection of the local must be
+at that path.
+
+`ClaimReleases` includes every parameter with a discharge at any path, for a
+consumer that only asks whether the callee releases part of what it was
+handed.
 
 ## Some masks must be exact; others may guess
 
@@ -333,7 +367,9 @@ Each limit traces straight back to one of the four things above.
 
 - **Relationships between values** ("param A flows to result B", "which lock
   this unlocks") — *one parameter at a time*. Questions about how two values
-  relate belong to a different tool today, not to more bits.
+  relate belong to a different tool today, not to more bits. The one
+  relation the summary does carry is *where* beneath a parameter a cleanup
+  happened, as a discharge path; see below.
 - **Conditional or partial cleanup** ("closes only on the error path") —
   *every return*. It collapses to a clear bit, which looks the same as never.
 - **Per-call answers** — *once per function*. There is one fact, however

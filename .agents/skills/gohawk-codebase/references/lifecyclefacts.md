@@ -146,6 +146,22 @@ type ConditionalSummary struct {
 ConditionalSummary is the versioned, serializable part of a lifecycle fact
 containing result-conditioned cleanup guarantees.
 
+## Discharge
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+type Discharge struct {
+	Parameter	int
+	Method		string
+	Path		string
+}
+```
+
+Discharge is one exact cleanup claim: Method is called on the value at
+Path beneath Parameter on every normal return. Path is a joined access
+path, empty for the parameter itself.
+
 ## EvidenceRequest
 
 [Source](../../../../internal/passes/lifecyclefacts/evidence.go)
@@ -211,6 +227,13 @@ type Fact struct {
 	// fresh resource it acquired itself, and the caller owes its cleanup.
 	// See owned_results.go for the freshness the proof requires.
 	OwnedResults	ParameterMask
+	// Discharges are the exact cleanup claims: which method is called, on
+	// which parameter, at which access path beneath it, on every normal
+	// return. The method masks above are the empty-path discharges; a
+	// cleanup of a field or element is recorded here and nowhere else, so a
+	// caller matches the resource it stored at that path rather than any
+	// resource the argument contains.
+	Discharges	[]Discharge
 	ReceiverStore	ParameterMask
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
@@ -254,6 +277,18 @@ func (fact *Fact) DescribeFact(object types.Object) []string
 DescribeFact renders the summary for the fact dump: one line per parameter
 that some mask covers, named from the function's signature. Mask positions
 follow SSA parameters, so a method's receiver is position zero.
+
+## Fact.DischargedParameters
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+func (fact *Fact) DischargedParameters() ParameterMask
+```
+
+DischargedParameters returns the parameters with any discharge, at any
+path, for a consumer that only asks whether the callee releases part of
+what it was handed.
 
 ## Fact.MethodMask
 

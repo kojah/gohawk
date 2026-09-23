@@ -266,3 +266,21 @@ func OpenMaybeClosed(path string, flush bool) (*os.File, error) {
 
 // OpenView hands the caller's own file back.
 func OpenView(file *os.File) *os.File { return file }
+
+// Pair holds two files by value.
+type Pair struct {
+	First  *os.File
+	Second *os.File
+}
+
+// CloseFirst closes only the first file of the pair.
+func CloseFirst(pair *Pair) error { return pair.First.Close() }
+
+// CloseSecond closes only the second file of the pair.
+func CloseSecond(pair *Pair) error { return pair.Second.Close() }
+
+// CloseHead closes only the first element.
+func CloseHead(files [2]*os.File) error { return files[0].Close() }
+
+// CloseTail closes only the second element.
+func CloseTail(files [2]*os.File) error { return files[1].Close() }

@@ -155,26 +155,7 @@ func (search *retention) searchWithin(function *ssa.Function, parameter ssa.Valu
 func (search *retention) instructionRetains(function *ssa.Function, instruction ssa.Instruction, derives func(ssa.Value) bool) bool {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
-		// A store into a local allocation, or into a field or element of one,
-		// keeps the value only as long as the local lives. In strict mode that
-		// is not retention: a local aggregate that escapes is decided where it
-		// escapes. The loose mode keeps counting it.
-		wrapped := search.everyReturn && search.returnedWrapperContains(typed.Val, derives)
-		if !derives(typed.Val) && !wrapped {
-			return false
-		}
-		if search.everyReturn {
-			// A direct global store has an owner independent of caller-local
-			// storage. Parameter fields and local spills need a separate escape
-			// proof at the caller, not just retention somewhere in this helper.
-			_, global := typed.Addr.(*ssa.Global)
-			return global
-		}
-		local, ok := localStorage(typed.Addr, function)
-		if !ok || !search.strict {
-			return true
-		}
-		return search.valueEscapes(local, map[ssa.Value]bool{})
+		return search.storeRetains(function, typed, derives)
 	case *ssa.MakeClosure:
 		// Capturing a resource for later work is not a completed ownership
 		// handoff. Cleanup registrations need their separate completion proof;
@@ -200,6 +181,36 @@ func (search *retention) instructionRetains(function *ssa.Function, instruction 
 		return search.callRetains(ssaflow.InstructionCall(instruction), instruction, derives)
 	}
 	return false
+}
+
+// storeRetains decides the Store case of instructionRetains.
+func (search *retention) storeRetains(function *ssa.Function, typed *ssa.Store, derives func(ssa.Value) bool) bool {
+	// A store into a local allocation, or into a field or element of one,
+	// keeps the value only as long as the local lives. In strict mode that
+	// is not retention: a local aggregate that escapes is decided where it
+	// escapes. The loose mode keeps counting it.
+	wrapped := search.everyReturn && search.returnedWrapperContains(typed.Val, derives)
+	if !derives(typed.Val) && !wrapped {
+		return false
+	}
+	if search.everyReturn {
+		// A direct global store has an owner independent of caller-local
+		// storage. Parameter fields and local spills need a separate escape
+		// proof at the caller, not just retention somewhere in this helper.
+		_, global := typed.Addr.(*ssa.Global)
+		return global
+	}
+	local, ok := localStorage(typed.Addr, function)
+	// The builder's spill of a by-value parameter into a cell that is
+	// only ever written whole and read cannot keep the value past the
+	// call in either mode; it is the parameter's own copy, not storage.
+	if ok && local == typed.Addr && ssaflow.WholeWrittenCell(local) {
+		return false
+	}
+	if !ok || !search.strict {
+		return true
+	}
+	return search.valueEscapes(local, map[ssa.Value]bool{})
 }
 
 // localStorage returns the local allocation of the function that the

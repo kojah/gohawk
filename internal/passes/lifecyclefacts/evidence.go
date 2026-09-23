@@ -306,20 +306,8 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 	// owner can be reassigned or exposed independently.
 	fact, summarized := factFor(evidence.pass, request.Instruction)
 	if request.SelectMask != nil && summarized {
-		mask := request.SelectMask(fact)
-		if factOwnsArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
-			return importedProof(reasonLifecycleSummary, requestedMethod(request)), true
-		}
-		if factOwnsImmutableCapturedArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
-			return importedProof(reasonLifecycleSummaryCapturedArgument, requestedMethod(request)), true
-		}
-		if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
-			return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
-		}
-		if factArgumentMatches(request.Instruction, request.Target, mask, ssaflow.MayAlias) {
-			// The summary is known, but which value receives its guarantee is
-			// not. This is neither completion nor evidence of missing cleanup.
-			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true
+		if proof, decided := evidence.selectedMaskProof(request, fact); decided {
+			return proof, true
 		}
 	}
 	if request.ReceiverStore && summarized && factOwnsArgument(request.Instruction, request.Target, fact.ReceiverStore, evidence.probe.Observer()) {
@@ -342,6 +330,36 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 			State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound,
 			Provenance: ssaflow.EvidenceFromImportedFact,
 		}, true
+	}
+	return ssaflow.Proof{}, false
+}
+
+// selectedMaskProof answers a request that selected a mask: a cleanup method
+// is matched by its discharge path, other masks by identity or containment,
+// an immutable capture or a strict projection by their own rules, and a
+// possible alias by uncertainty. It reports false when nothing matched.
+func (evidence *LifecycleEvidence) selectedMaskProof(request EvidenceRequest, fact Fact) (ssaflow.Proof, bool) {
+	mask := request.SelectMask(fact)
+	// A cleanup method is matched by its discharge path: the target must
+	// be what the caller stored where the callee cleans up. Other masks
+	// keep their identity-or-containment policy.
+	method := requestedMethod(request)
+	if method != "" && fact.dischargesArgument(request.Instruction, request.Target, method, evidence.probe.Observer()) {
+		return importedProof(reasonLifecycleSummary, method), true
+	}
+	if factOwnsArgument(request.Instruction, request.Target, mask&^fact.MethodMask(method), evidence.probe.Observer()) {
+		return importedProof(reasonLifecycleSummary, method), true
+	}
+	if factOwnsImmutableCapturedArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
+		return importedProof(reasonLifecycleSummaryCapturedArgument, requestedMethod(request)), true
+	}
+	if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
+		return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
+	}
+	if factArgumentMatches(request.Instruction, request.Target, mask, ssaflow.MayAlias) {
+		// The summary is known, but which value receives its guarantee is
+		// not. This is neither completion nor evidence of missing cleanup.
+		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true
 	}
 	return ssaflow.Proof{}, false
 }

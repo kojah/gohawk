@@ -3,6 +3,7 @@ package lifecyclefacts
 import (
 	"fmt"
 	"go/types"
+	"strconv"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -48,7 +49,14 @@ type Fact struct {
 	// OwnedResults is indexed by result position: the function hands back a
 	// fresh resource it acquired itself, and the caller owes its cleanup.
 	// See owned_results.go for the freshness the proof requires.
-	OwnedResults  ParameterMask
+	OwnedResults ParameterMask
+	// Discharges are the exact cleanup claims: which method is called, on
+	// which parameter, at which access path beneath it, on every normal
+	// return. The method masks above are the empty-path discharges; a
+	// cleanup of a field or element is recorded here and nowhere else, so a
+	// caller matches the resource it stored at that path rather than any
+	// resource the argument contains.
+	Discharges    []Discharge
 	ReceiverStore ParameterMask
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
@@ -80,6 +88,7 @@ func (fact *Fact) traceDetails() map[string]string {
 		{"retained", fact.Retained},
 		{"stored", fact.Stored},
 		{"loop-released", fact.LoopReleased},
+		{"discharges", fact.DischargedParameters()},
 		{"owned-fields", fact.OwnedFields},
 		{"released-fields", fact.ReleasedFields},
 		{"owned-results", fact.OwnedResults},
@@ -101,6 +110,77 @@ func (fact *Fact) traceDetails() map[string]string {
 		return map[string]string{"claims": "none"}
 	}
 	return map[string]string{"claims": strings.Join(claims, ",")}
+}
+
+// Discharge is one exact cleanup claim: Method is called on the value at
+// Path beneath Parameter on every normal return. Path is a joined access
+// path, empty for the parameter itself.
+type Discharge struct {
+	Parameter int
+	Method    string
+	Path      string
+}
+
+// DischargedParameters returns the parameters with any discharge, at any
+// path, for a consumer that only asks whether the callee releases part of
+// what it was handed.
+func (fact *Fact) DischargedParameters() ParameterMask {
+	var mask ParameterMask
+	for _, discharge := range fact.Discharges {
+		mask |= parameterMaskFor(discharge.Parameter)
+	}
+	return mask
+}
+
+// dischargesArgument reports whether the call's static callee is summarized
+// as calling method on exactly the target: the target is the argument
+// itself for an empty-path discharge, or the value the caller stored at the
+// discharge's path beneath the argument. Containment alone proves nothing
+// here; that is the whole point of the path.
+func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Value, method string, observer ssaflow.Observer) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil {
+		return false
+	}
+	for _, discharge := range fact.Discharges {
+		if discharge.Method != method || discharge.Parameter >= len(common.Args) {
+			continue
+		}
+		argument := common.Args[discharge.Parameter]
+		storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
+		path := ssaflow.SplitAccessPath(discharge.Path)
+		if stored, ok := ssaflow.ValueAtPath(argument, path, instruction); ok && storage.Same(stored, target).Proven() {
+			return true
+		}
+		// A resource that is an owner, such as an http.Response, is released
+		// through its cleanup-bearing field: a helper closing resp.Body has
+		// released resp. Only a direct resource-typed field qualifies; a
+		// deeper path or an ordinary field is not the owner's cleanup.
+		if len(path) == 1 && storage.Same(argument, target).Proven() && cleanupFieldPath(target.Type(), path[0]) {
+			return true
+		}
+	}
+	return false
+}
+
+// cleanupFieldPath reports whether step selects a field of owner whose type
+// carries a cleanup obligation of its own.
+func cleanupFieldPath(owner types.Type, step string) bool {
+	index, ok := strings.CutPrefix(step, "field:")
+	if !ok {
+		return false
+	}
+	structure := structBehind(owner)
+	if structure == nil {
+		return false
+	}
+	for field := range structure.NumFields() {
+		if strconv.Itoa(field) == index {
+			_, cleanup := typeCleanup(structure.Field(field).Type())
+			return cleanup
+		}
+	}
+	return false
 }
 
 // Claim names what a summary can say about one parameter. The masks it
@@ -133,7 +213,7 @@ func (fact *Fact) Claim(claim Claim) ParameterMask {
 		return fact.Stored
 	case ClaimReleases:
 		return fact.Closed | fact.Finalized | fact.Released | fact.Shutdown | fact.Stopped |
-			fact.Committed | fact.RolledBack
+			fact.Committed | fact.RolledBack | fact.DischargedParameters()
 	case ClaimSynchronouslyInvokes:
 		return fact.SynchronouslyInvoked
 	case ClaimReleasesInLoop:
@@ -192,6 +272,11 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 	}
 	if fact.OwnedResults != 0 {
 		lines = append(lines, "OwnedResults: "+fact.resultNames(fact.OwnedResults, signature))
+	}
+	for _, discharge := range fact.Discharges {
+		if discharge.Path != "" && discharge.Parameter < len(names) {
+			lines = append(lines, fmt.Sprintf("%d %s: %s at %s", discharge.Parameter, names[discharge.Parameter], discharge.Method, discharge.Path))
+		}
 	}
 	lines = append(lines, fact.conditionalDescriptions()...)
 	lines = append(lines, fact.returnedCleanupDescriptions()...)

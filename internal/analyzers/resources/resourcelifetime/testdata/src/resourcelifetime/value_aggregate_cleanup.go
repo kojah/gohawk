@@ -8,9 +8,9 @@ package resourcelifetime
 // that only reads the field leaves the obligation open. Arrays passed by
 // value, alone or inside a struct, follow the same spill.
 //
-// Accepted gap: a discharge summary is a fact about the whole parameter, so a
-// helper that closes a different element or field of the copy still settles
-// the caller, exactly as it does for a pointer parameter today.
+// A discharge names the path it cleans up, so a helper closing a different
+// element or field of the copy does not settle the caller; discharge_paths.go
+// covers that boundary.
 
 import (
 	"os"

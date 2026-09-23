@@ -2,6 +2,7 @@ package lifecyclefacts
 
 import (
 	"go/types"
+	"slices"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
@@ -196,8 +197,12 @@ func BoundOwnerSelected(value, other *closer, enabled bool) {
 			newRetentionCache(),
 			function,
 		)
-		if got := fact.Closed.contains(0); got != test.want {
-			t.Errorf("%s Closed parameter = %t, want %t", test.name, got, test.want)
+		// A close of the parameter itself, through a deferred literal or a
+		// bound callback, is the whole-parameter claim; a guarded direct
+		// close of its field is claimed at that field's path.
+		got := fact.Closed.contains(0) || slices.Contains(fact.Discharges, Discharge{Parameter: 0, Method: "Close", Path: "field:0"})
+		if got != test.want {
+			t.Errorf("%s Closed parameter = %t, want %t (%+v)", test.name, got, test.want, fact.Discharges)
 		}
 	}
 }

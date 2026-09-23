@@ -218,6 +218,11 @@ type mappedLocal struct {
 	local    ssa.Value
 	supplied ssa.Value
 	kind     localKind
+	// path is where the target sits beneath the supplied aggregate when the
+	// mapping came from containment. A receiver inside the callee that is a
+	// proper projection of the local must then be at this path: closing
+	// j.other is not closing the file stored in j.out.
+	path []string
 }
 
 // localKind is how the supplied caller value relates to the target, which
@@ -249,7 +254,7 @@ func (search *completionSearch) mappedLocals(callee completionCallee, target ssa
 		if binding.Captured {
 			local, ok = search.capturedLocal(callee, binding.Local, binding.Supplied, target, invocation)
 		} else {
-			local, ok = search.argumentLocal(binding.Local, binding.Supplied, target)
+			local, ok = search.argumentLocal(binding.Local, binding.Supplied, target, invocation)
 		}
 		if ok {
 			result = append(result, local)
@@ -340,7 +345,7 @@ func deferredCellLocal(free, binding, target ssa.Value, exact bool) (mappedLocal
 	return mappedLocal{}, false
 }
 
-func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Value) (mappedLocal, bool) {
+func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Value, invocation ssa.Instruction) (mappedLocal, bool) {
 	if NewStorage(search.budget).Same(argument, target).Proven() {
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
 	}
@@ -361,7 +366,8 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 	case strictNonEmptyAccessPath(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
 	case MayContainValue(argument, target):
-		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
+		path, _ := StoredPath(argument, target, invocation)
+		return mappedLocal{local: parameter, supplied: argument, kind: localExact, path: path}, true
 	case ValueIsAccessPathFrom(target, argument):
 		return mappedLocal{local: parameter, supplied: argument, kind: localOwner}, true
 	}
@@ -376,6 +382,15 @@ func (local mappedLocal) receives(receiver, target ssa.Value) bool {
 	}
 	switch local.kind {
 	case localExact:
+		if len(local.path) > 0 {
+			// A projection of the local must be the target's own path; the
+			// local itself, or a receiver with no static path, keeps the
+			// derivation rule, since the aggregate's own method may release
+			// what it holds.
+			if actual, ok := AccessPathFromParameter(receiver, local.local); ok && len(actual) > 0 {
+				return JoinAccessPath(actual) == JoinAccessPath(local.path)
+			}
+		}
 		return ValueDerivesFrom(receiver, local.local, map[ssa.Value]bool{})
 	case localProjection:
 		return exactCleanupReceiver(receiver, local.local)
