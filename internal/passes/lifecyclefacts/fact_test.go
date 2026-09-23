@@ -194,7 +194,6 @@ func BoundOwnerSelected(value, other *closer, enabled bool) {
 		function := pkg.Func(test.name)
 		fact := summarize(
 			&analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }},
-			newRetentionCache(),
 			function,
 		)
 		// A close of the parameter itself, through a deferred literal or a
@@ -228,11 +227,11 @@ func Save(tx *transaction, ok bool) error {
 }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	finish := summarize(pass, newRetentionCache(), pkg.Func("Finish"))
+	finish := summarize(pass, pkg.Func("Finish"))
 	if !finish.RolledBack.contains(0) || finish.Committed.contains(0) {
 		t.Errorf("Finish masks = committed %t rolled back %t, want rolled back only", finish.Committed.contains(0), finish.RolledBack.contains(0))
 	}
-	save := summarize(pass, newRetentionCache(), pkg.Func("Save"))
+	save := summarize(pass, pkg.Func("Save"))
 	if save.RolledBack.contains(0) || save.Committed.contains(0) {
 		t.Errorf("Save masks = committed %t rolled back %t, want neither", save.Committed.contains(0), save.RolledBack.contains(0))
 	}
@@ -267,18 +266,21 @@ func ViaInterface(handler func()) { registry.Add(handler) }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	for name, want := range map[string]bool{"Register": true, "Invoke": false, "Return": true, "ViaKeeper": true, "ViaReader": false} {
-		if got := summarize(pass, newRetentionCache(), pkg.Func(name)).Retained.contains(0); got != want {
+		if got := summarize(pass, pkg.Func(name)).Retained.contains(0); got != want {
 			t.Errorf("%s Retained parameter = %t, want %t", name, got, want)
 		}
-		if got := summarize(pass, newRetentionCache(), pkg.Func(name)).Stored.contains(0); got != (want && name != "Return") {
+		if got := summarize(pass, pkg.Func(name)).Stored.contains(0); got != (want && name != "Return") {
 			t.Errorf("%s Stored parameter = %t, want %t", name, got, want && name != "Return")
 		}
 	}
 	// Deferring a literal that captured the parameter, or handing it to an
 	// interface, retains loosely but does not store.
-	for name, want := range map[string][2]bool{"DeferCapture": {true, false}, "ViaInterface": {true, false}, "IntoLocalStruct": {true, false}} {
+	// A literal only invoked in place, and a value only stored in a local
+	// aggregate that never escapes, are not retained: the projection sees
+	// that neither leaves the function.
+	for name, want := range map[string][2]bool{"DeferCapture": {true, false}, "ViaInterface": {true, false}, "IntoLocalStruct": {false, false}} {
 		retained, stored := want[0], want[1]
-		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		fact := summarize(pass, pkg.Func(name))
 		if got := fact.Retained.contains(0); got != retained {
 			t.Errorf("%s Retained parameter = %t, want %t", name, got, retained)
 		}
@@ -351,32 +353,32 @@ func (j *Journal) MaybeClose(ok bool) error {
 }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	if got := summarize(pass, newRetentionCache(), pkg.Func("Open")).OwnedFields; !got.contains(0) || got.contains(1) {
+	if got := summarize(pass, pkg.Func("Open")).OwnedFields; !got.contains(0) || got.contains(1) {
 		t.Errorf("Open OwnedFields = %#x, want field 0 only", uint64(got))
 	}
-	if got := summarize(pass, newRetentionCache(), pkg.Func("Wrap")).OwnedFields; got != 0 {
+	if got := summarize(pass, pkg.Func("Wrap")).OwnedFields; got != 0 {
 		t.Errorf("Wrap OwnedFields = %#x, want none", uint64(got))
 	}
-	if got := summarize(pass, newRetentionCache(), pkg.Func("WrappedEnvelope")).OwnedFields; got != 0 {
+	if got := summarize(pass, pkg.Func("WrappedEnvelope")).OwnedFields; got != 0 {
 		t.Errorf("WrappedEnvelope OwnedFields = %#x, want no new acquisition", uint64(got))
 	}
 	// A nested custom Close method is not an acquisition contract. Until an
 	// exact nested-acquisition summary exists, even real owners remain unknown.
-	if got := summarize(pass, newRetentionCache(), pkg.Func("FreshEnvelope")).OwnedFields; got != 0 {
+	if got := summarize(pass, pkg.Func("FreshEnvelope")).OwnedFields; got != 0 {
 		t.Errorf("FreshEnvelope OwnedFields = %#x, want unknown nested acquisition", uint64(got))
 	}
 	// ReturnedOwner cannot distinguish which result owns the argument. Decline
 	// fresh inference for the other result rather than inventing a relationship.
-	if got := summarize(pass, newRetentionCache(), pkg.Func("AmbiguousEnvelope")).OwnedFields; got != 0 {
+	if got := summarize(pass, pkg.Func("AmbiguousEnvelope")).OwnedFields; got != 0 {
 		t.Errorf("AmbiguousEnvelope OwnedFields = %#x, want unknown ownership", uint64(got))
 	}
 	journal := pkg.Type("Journal").Type()
 	closeMethod := pkg.Prog.LookupMethod(types.NewPointer(journal), pkg.Pkg, "Close")
-	if got := summarize(pass, newRetentionCache(), closeMethod).ReleasedFields; !got.contains(0) {
+	if got := summarize(pass, closeMethod).ReleasedFields; !got.contains(0) {
 		t.Errorf("Close ReleasedFields = %#x, want field 0", uint64(got))
 	}
 	maybe := pkg.Prog.LookupMethod(types.NewPointer(journal), pkg.Pkg, "MaybeClose")
-	if got := summarize(pass, newRetentionCache(), maybe).ReleasedFields; got != 0 {
+	if got := summarize(pass, maybe).ReleasedFields; got != 0 {
 		t.Errorf("MaybeClose ReleasedFields = %#x, want none", uint64(got))
 	}
 }
@@ -417,11 +419,11 @@ func MaybeWrapLink(link *Link, wrap bool) *Link {
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	summaries := Summaries{}
 	for _, name := range []string{"NewReader", "Adopt"} {
-		summaries[pkg.Func(name)] = summarize(pass, newRetentionCache(), pkg.Func(name))
+		summaries[pkg.Func(name)] = summarize(pass, pkg.Func(name))
 	}
 	owner := pkg.Type("Owner").Type()
 	closeMethod := pkg.Prog.LookupMethod(types.NewPointer(owner), pkg.Pkg, "Close")
-	summaries[closeMethod] = summarize(pass, newRetentionCache(), closeMethod)
+	summaries[closeMethod] = summarize(pass, closeMethod)
 	if got := returnedViews(pass, pkg.Func("NewReader"), summaries[pkg.Func("NewReader")], summaries); !got.contains(0) {
 		t.Errorf("NewReader ReturnedView = %#x, want parameter 0", uint64(got))
 	}
@@ -430,7 +432,7 @@ func MaybeWrapLink(link *Link, wrap bool) *Link {
 	}
 	for _, name := range []string{"ReturnLink", "WrapLink", "MaybeWrapLink"} {
 		function := pkg.Func(name)
-		summaries[function] = summarize(pass, newRetentionCache(), function)
+		summaries[function] = summarize(pass, function)
 		if !summaries[function].ReturnedOwner.contains(0) {
 			t.Errorf("%s ReturnedOwner = %#x, want parameter 0", name, uint64(summaries[function].ReturnedOwner))
 		}
@@ -529,7 +531,7 @@ func Elsewhere(source io.Reader) *reader {
 		"Elsewhere":        false,
 		"ThroughSometimes": false,
 	} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		fact := summarize(pass, pkg.Func(name))
 		if got := fact.ReturnedOwner.contains(0); got != want {
 			t.Errorf("%s returned owner = %t, want %t", name, got, want)
 		}
@@ -590,7 +592,7 @@ func AddClosing(w io.Writer) closerSyncer { return closingWrapper{w} }
 	summaries := Summaries{}
 	for _, name := range []string{"AddSync", "AddClosing", "IdentityWriter"} {
 		function := pkg.Func(name)
-		summaries[function] = summarize(pass, newRetentionCache(), function)
+		summaries[function] = summarize(pass, function)
 	}
 	addSync := pkg.Func("AddSync")
 	views := returnedViews(pass, addSync, summaries[addSync], summaries)

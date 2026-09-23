@@ -38,7 +38,6 @@ func run(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	summaries := make(Summaries, len(functions))
-	retentions := newRetentionCache()
 	marker := &SummarizedPackage{}
 	// Import dependency summaries first, and hand their heap projections to
 	// the graph, so every graph built for this package applies a summarized
@@ -48,11 +47,19 @@ func run(pass *analysis.Pass) (any, error) {
 	// unknown here; its own summary is registered once computed.
 	importCalleeSummaries(pass, functions, summaries)
 	var local []*ssa.Function
-	for _, function := range functions {
+	// Callees before callers, so a function's projection is registered
+	// before any caller in the package is summarized and the caller's graph
+	// applies it. Every body's projection is registered, not only the
+	// exported ones: a private helper that stores what it is handed is
+	// exactly what a caller's graph must know about.
+	for _, function := range calleesFirst(functions) {
 		if object := function.Object(); object != nil && object.Exported() && len(function.Blocks) == 0 {
 			marker.Bodiless = append(marker.Bodiless, object.Name())
 		}
 		object := function.Object()
+		if len(function.Blocks) != 0 && (object == nil || !object.Exported() || len(function.Params) > 64) {
+			ssaflow.RegisterHeapSummary(function, *projectHeap(function))
+		}
 		// Only exported functions can be called from a package that imports this
 		// fact. Skipping private dependency helpers keeps the prerequisite linear
 		// in the externally visible API instead of every transitive SSA body.
@@ -70,9 +77,12 @@ func run(pass *analysis.Pass) (any, error) {
 			Pos:      function.Pos(),
 			Function: function.String(),
 		})
-		fact := summarize(pass, retentions, function)
+		fact := summarize(pass, function)
 		summaries[function] = fact
 		local = append(local, function)
+		if fact.Heap != nil {
+			ssaflow.RegisterHeapSummary(function, *fact.Heap)
+		}
 		probe.Decision(analysisTrace.Step{
 			Reason:   "function-summarized",
 			Outcome:  analysisTrace.OutcomeAccepted,
@@ -105,6 +115,38 @@ func run(pass *analysis.Pass) (any, error) {
 	// once both are summarized rather than while either is being proved.
 	exportCleanupContracts(pass, summaries)
 	return summaries, nil
+}
+
+// calleesFirst orders the functions so that every static callee within the
+// set precedes its callers, cycles broken where they close; a function's
+// projection is then available to every caller summarized after it.
+func calleesFirst(functions []*ssa.Function) []*ssa.Function {
+	members := make(map[*ssa.Function]bool, len(functions))
+	for _, function := range functions {
+		members[function] = true
+	}
+	var ordered []*ssa.Function
+	state := map[*ssa.Function]int{}
+	var visit func(function *ssa.Function)
+	visit = func(function *ssa.Function) {
+		if state[function] != 0 {
+			return
+		}
+		state[function] = 1
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instrs {
+				if callee := ssaflow.ResolvedCallee(ssaflow.InstructionCall(instruction)); callee != nil && members[callee] {
+					visit(callee)
+				}
+			}
+		}
+		state[function] = 2
+		ordered = append(ordered, function)
+	}
+	for _, function := range functions {
+		visit(function)
+	}
+	return ordered
 }
 
 // importCalleeSummaries imports the fact of every static callee the package
@@ -151,7 +193,7 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 	return Fact{}, false
 }
 
-func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Function) Fact {
+func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 	var fact Fact
 	heap := projectHeap(function)
 	fact.OwnedFields = ownedFields(pass, function)
@@ -185,7 +227,7 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 		if releasesDerivedValueInLoop(function, parameter) {
 			fact.LoopReleased |= bit
 		}
-		summarizeTransfers(pass, retentions, heap, function, index, parameter, &fact)
+		summarizeTransfers(heap, function, index, parameter, &fact)
 	}
 	fact.Conditional = summarizeConditional(pass, function)
 	fact.ReturnedCleanup = summarizeReturnedCleanup(pass, function)
@@ -353,32 +395,25 @@ func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruct
 
 // summarizeTransfers records where a parameter goes: into the returned
 // owner, into the receiver, or kept somewhere by the callee.
-func summarizeTransfers(
-	pass *analysis.Pass,
-	retentions *retentionCache,
-	heap *ssaflow.HeapSummary,
-	function *ssa.Function,
-	index int,
-	parameter ssa.Value,
-	fact *Fact,
-) {
+func summarizeTransfers(heap *ssaflow.HeapSummary, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) {
 	bit := parameterMaskFor(index)
-	if returnedOwnerOnEveryReturn(pass, function, parameter) {
+	// Every transfer claim is a query over the heap projection, so the
+	// masks a consumer reads and the summary a caller's graph applies can
+	// never disagree about what the function does with the parameter.
+	if canReturnOwner(function.Signature.Results()) && returnsOwner(heap, index) {
 		fact.ReturnedOwner |= bit
 	}
 	if index > 0 && receiverStores(heap, index) {
 		fact.ReceiverStore |= bit
 	}
-	if retentions.retainedAnywhere(pass, function, parameter) {
+	if retained(heap, index) {
 		fact.Retained |= bit
 	} else if structShaped(parameter.Type()) {
 		// Only an aggregate has contents, and a retained parameter already
 		// keeps all of them.
-		for _, path := range retentions.keptPaths(pass, function, parameter) {
-			fact.Kept = append(fact.Kept, Kept{Parameter: index, Path: path})
-		}
+		fact.Kept = append(fact.Kept, kept(heap, index)...)
 	}
-	if retentions.storedAnywhere(pass, function, parameter) {
+	if stored(heap, index) {
 		fact.Stored |= bit
 	}
 }

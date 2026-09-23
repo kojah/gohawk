@@ -9,7 +9,7 @@ import "golang.org/x/tools/go/ssa"
 
 // pointsTo returns the slots a value may refer to, and whether the graph
 // could say.
-func (graph *regionGraph) pointsTo(value ssa.Value) (pointees, bool) {
+func (graph *regionGraph) pointsToUnlocked(value ssa.Value) (pointees, bool) {
 	if !graph.available || value == nil {
 		return nil, false
 	}
@@ -26,11 +26,12 @@ func (graph *regionGraph) pointsTo(value ssa.Value) (pointees, bool) {
 // pointer. A value with no pointees is unknown and may alias anything. A
 // disjointness answer is recorded on the graph.
 func (graph *regionGraph) aliasProof(left, right ssa.Value) AliasProof {
+	defer graph.lock()()
 	if !tracked(left.Type()) || !tracked(right.Type()) || left == right {
 		return AliasProof{Aliases: structurallySame(left, right), Reason: EvidenceStructuralWalk, Provenance: EvidenceFromLocalSSA}
 	}
-	a, okA := graph.pointsTo(left)
-	b, okB := graph.pointsTo(right)
+	a, okA := graph.pointsToUnlocked(left)
+	b, okB := graph.pointsToUnlocked(right)
 	if !okA || !okB {
 		return AliasProof{Aliases: true, Reason: EvidenceUnknownPointee, Provenance: EvidenceFromLocalSSA}
 	}
@@ -139,8 +140,9 @@ func pathsMayAlias(left, right string) bool {
 
 // mustSame reports whether two values certainly refer to one object.
 func (graph *regionGraph) mustSame(left, right ssa.Value) bool {
-	a, okA := graph.pointsTo(left)
-	b, okB := graph.pointsTo(right)
+	defer graph.lock()()
+	a, okA := graph.pointsToUnlocked(left)
+	b, okB := graph.pointsToUnlocked(right)
 	if !okA || !okB {
 		return false
 	}
@@ -164,7 +166,7 @@ func singleSlot(set pointees) (slot, bool) {
 }
 
 // contentAt returns what the addressed slots hold when the instruction runs.
-func (graph *regionGraph) contentAt(address ssa.Value, at ssa.Instruction) (pointees, bool) {
+func (graph *regionGraph) contentAtUnlocked(address ssa.Value, at ssa.Instruction) (pointees, bool) {
 	state := graph.stateAt(at)
 	if state == nil {
 		return nil, false
@@ -183,12 +185,13 @@ func (graph *regionGraph) contentAt(address ssa.Value, at ssa.Instruction) (poin
 // What such an aggregate holds lives no longer than the aggregate itself.
 func AddressIsUnescapedLocal(address ssa.Value) bool {
 	graph := regionsOf(address)
-	set, ok := graph.pointsTo(address)
+	defer graph.lock()()
+	set, ok := graph.pointsToUnlocked(address)
 	if !ok {
 		return false
 	}
 	for target := range set {
-		if target.region.kind != regionSite || graph.everEscaped(target.region) {
+		if target.region.kind != regionSite || graph.everEscapedUnlocked(target.region) {
 			return false
 		}
 	}
@@ -198,7 +201,7 @@ func AddressIsUnescapedLocal(address ssa.Value) bool {
 // everContained reports whether some slot beneath the object was ever given
 // one of the target's objects: the aggregate held the target at some point,
 // possibly in another iteration of a loop.
-func (graph *regionGraph) everContained(object slot, target pointees) bool {
+func (graph *regionGraph) everContainedUnlocked(object slot, target pointees) bool {
 	if object.region.kind == regionUnknown {
 		return true
 	}
@@ -216,7 +219,7 @@ func (graph *regionGraph) everContained(object slot, target pointees) bool {
 }
 
 // everEscaped reports whether a site's address escaped at any point.
-func (graph *regionGraph) everEscaped(site *region) bool {
+func (graph *regionGraph) everEscapedUnlocked(site *region) bool {
 	for _, states := range []map[*ssa.BasicBlock]*regionState{graph.entry, graph.exit} {
 		for _, state := range states {
 			if state.escaped[site] {
@@ -234,6 +237,7 @@ func (graph *regionGraph) everEscaped(site *region) bool {
 // callback was registered with a test instead. A deferred literal observes
 // its captured cell then, not at the registration.
 func (graph *regionGraph) contentWhenDeferredRun(address ssa.Value, registration ssa.Instruction) (pointees, bool) {
+	defer graph.lock()()
 	if !graph.available || registration == nil {
 		return nil, false
 	}
@@ -252,7 +256,7 @@ func (graph *regionGraph) contentWhenDeferredRun(address ssa.Value, registration
 		if !InstructionMayFollow(registration, point) {
 			continue
 		}
-		set, ok := graph.contentAt(address, point)
+		set, ok := graph.contentAtUnlocked(address, point)
 		if !ok {
 			return nil, false
 		}
@@ -266,6 +270,7 @@ func (graph *regionGraph) contentWhenDeferredRun(address ssa.Value, registration
 // target is stored when the instruction runs: the one slot, at most two
 // steps down, whose content is exactly the target's object.
 func (graph *regionGraph) storedPath(root, target ssa.Value, at ssa.Instruction) ([]string, bool) {
+	defer graph.lock()()
 	state := graph.stateAt(at)
 	if state == nil {
 		return nil, false
@@ -274,7 +279,7 @@ func (graph *regionGraph) storedPath(root, target ssa.Value, at ssa.Instruction)
 	if !ok {
 		return nil, false
 	}
-	object, ok := graph.pointsTo(target)
+	object, ok := graph.pointsToUnlocked(target)
 	if !ok {
 		return nil, false
 	}
@@ -302,6 +307,7 @@ func (graph *regionGraph) storedPath(root, target ssa.Value, at ssa.Instruction)
 //
 //nolint:ireturn // Objects keep their concrete origins.
 func (graph *regionGraph) valueAtPath(root ssa.Value, path []string, at ssa.Instruction) (ssa.Value, bool) {
+	defer graph.lock()()
 	state := graph.stateAt(at)
 	if state == nil {
 		return nil, false
@@ -325,11 +331,12 @@ func (graph *regionGraph) valueAtPath(root ssa.Value, path []string, at ssa.Inst
 // scalar or a call's result tuple, contains nothing and is contained by
 // nothing, as the value walk already says.
 func (graph *regionGraph) contains(owner, value ssa.Value) bool {
-	from, ok := graph.pointsTo(owner)
+	defer graph.lock()()
+	from, ok := graph.pointsToUnlocked(owner)
 	if !ok {
 		return false
 	}
-	target, ok := graph.pointsTo(value)
+	target, ok := graph.pointsToUnlocked(value)
 	if !ok {
 		return false
 	}
@@ -368,15 +375,16 @@ func (graph *regionGraph) contains(owner, value ssa.Value) bool {
 // particular not by the instruction itself: an argument handed to a call
 // that stores it does not already contain what the call stores.
 func (graph *regionGraph) containsAt(owner, value ssa.Value, at ssa.Instruction) (bool, bool) {
+	defer graph.lock()()
 	state := graph.stateAt(at)
 	if state == nil {
 		return false, false
 	}
-	from, ok := graph.pointsTo(owner)
+	from, ok := graph.pointsToUnlocked(owner)
 	if !ok {
 		return false, true
 	}
-	target, ok := graph.pointsTo(value)
+	target, ok := graph.pointsToUnlocked(value)
 	if !ok {
 		return false, true
 	}
@@ -412,7 +420,8 @@ func (graph *regionGraph) containsAt(owner, value ssa.Value, at ssa.Instruction)
 // contentValue names the one object the addressed slot holds when the
 // instruction runs, for a caller that compares objects by SSA identity.
 func (graph *regionGraph) contentValue(address ssa.Value, at ssa.Instruction) (ssa.Value, bool) { //nolint:ireturn // Objects keep their concrete origins.
-	set, ok := graph.contentAt(address, at)
+	defer graph.lock()()
+	set, ok := graph.contentAtUnlocked(address, at)
 	if !ok {
 		return nil, false
 	}
@@ -438,4 +447,26 @@ func (graph *regionGraph) valueOf(target slot) (ssa.Value, bool) { //nolint:iret
 		// make a later load resolve to an earlier one.
 	}
 	return nil, false
+}
+
+// lock serializes the queries on one graph. A query replays a block's
+// instructions from its entry state, which interns regions and unions
+// pointees as the fixpoint did, and graphs of dependency functions are
+// queried from several package actions at once.
+func (graph *regionGraph) lock() func() {
+	graph.mu.Lock()
+	return graph.mu.Unlock
+}
+
+// pointsTo is pointsToUnlocked for a caller outside the graph's own queries.
+func (graph *regionGraph) pointsTo(value ssa.Value) (pointees, bool) {
+	defer graph.lock()()
+	return graph.pointsToUnlocked(value)
+}
+
+// everContained is everContainedUnlocked for a caller outside the graph's
+// own queries.
+func (graph *regionGraph) everContained(object slot, target pointees) bool {
+	defer graph.lock()()
+	return graph.everContainedUnlocked(object, target)
 }

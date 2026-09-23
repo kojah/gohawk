@@ -33,7 +33,7 @@ func forward(a, b func(), pick bool) {
 		{"chosen", false}, {"exact", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			fact := summarize(pass, newRetentionCache(), pkg.Func(test.name))
+			fact := summarize(pass, pkg.Func(test.name))
 			if fact.Invoked.contains(0) != test.want || fact.SynchronouslyInvoked.contains(0) != test.want {
 				t.Errorf("summary = %#v, want invocation of parameter 0: %t", fact, test.want)
 			}

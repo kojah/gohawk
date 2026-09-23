@@ -30,6 +30,28 @@ func (graph *regionGraph) deferCall(state *regionState, deferred *ssa.Defer) {
 	for _, argument := range arguments {
 		state.deferred.union(graph.pointees(argument))
 	}
+	state.calls = append(state.calls, deferred)
+}
+
+// runDefers applies the deferred calls where they run. A deferred call
+// with a summary is applied like any other call; one without forgets what
+// it was handed, as an unresolved call would.
+func (graph *regionGraph) runDefers(state *regionState, run *ssa.RunDefers) {
+	unresolved := false
+	for _, deferred := range state.calls {
+		if _, builtin := deferred.Common().Value.(*ssa.Builtin); builtin {
+			continue
+		}
+		if !graph.applyHeapSummary(state, deferred.Common(), deferred) {
+			unresolved = true
+		}
+	}
+	if !unresolved {
+		return
+	}
+	graph.escape(state, state.deferred, HeapEscapedCall, run)
+	graph.clobber(state, state.deferred, graph.id(run))
+	graph.invalidateForeign(state, "", graph.id(run))
 }
 
 // invalidateForeign forgets the contents of every object the function did
@@ -86,35 +108,68 @@ func (graph *regionGraph) foreign(state *regionState, object *region) bool {
 	return false
 }
 
-// escape marks every object reachable from the pointees as having left
-// local control in the given way: a site is then clobbered by any later
-// effect, and the heap projection reports the escape for every object the
-// caller can name. Contents escape with their container.
-func (graph *regionGraph) escape(state *regionState, set pointees, kind HeapEscape) {
-	queue := make([]*region, 0, len(set))
-	for target := range set {
-		queue = append(queue, target.region)
+// escape marks every slot reachable from the pointees as having left local
+// control in the given way: a site is then clobbered by any later effect,
+// and the heap projection reports the escape for every slot the caller can
+// name. What a slot holds escapes with it, and so does everything beneath
+// it, but not the object above it: the address of a field hands on the
+// field, not its container.
+func (graph *regionGraph) escape(state *regionState, set pointees, kind HeapEscape, at ssa.Instruction) {
+	// Each slot is queued once, when first reached, so the walk does the
+	// work of one pass over the contents per slot it escapes.
+	seen := map[slot]bool{}
+	queue := make([]slot, 0, len(set))
+	push := func(target slot) {
+		if !seen[target] && target.region.kind != regionNil && target.region.kind != regionUnknown {
+			seen[target] = true
+			queue = append(queue, target)
+		}
 	}
-	seen := map[*region]bool{}
+	for target := range set {
+		push(target)
+	}
 	for len(queue) > 0 {
-		object := queue[0]
+		target := queue[0]
 		queue = queue[1:]
-		if seen[object] || object.kind == regionNil || object.kind == regionUnknown {
-			continue
+		if state.escapes[target]&kind != kind {
+			graph.recordEscape(target, kind, at)
 		}
-		seen[object] = true
-		state.escapes[object] |= kind
-		if object.kind == regionSite {
-			state.escaped[object] = true
+		state.escapes[target] |= kind
+		if target.region.kind == regionSite {
+			state.escaped[target.region] = true
 		}
-		for target, contents := range state.contents {
-			if target.region == object {
+		for held, contents := range state.contents {
+			if held.region == target.region && slotBeneath(held.path, target.path) {
 				for pointee := range contents {
-					queue = append(queue, pointee.region)
+					push(pointee)
 				}
 			}
 		}
 	}
+}
+
+// recordEscape keeps, for the dump, the first instruction that escaped
+// the slot in each way, so an escape effect in a summary can be traced to
+// the instruction that produced it.
+func (graph *regionGraph) recordEscape(target slot, kind HeapEscape, at ssa.Instruction) {
+	if graph.escapeOrigins == nil {
+		graph.escapeOrigins = map[escapeOrigin]ssa.Instruction{}
+	}
+	for _, single := range []HeapEscape{HeapEscapedCall, HeapEscapedAsync, HeapEscapedGlobal, HeapEscapedField, HeapEscapedSend} {
+		key := escapeOrigin{target: target, kind: single}
+		if kind&single == 0 {
+			continue
+		}
+		if _, ok := graph.escapeOrigins[key]; !ok {
+			graph.escapeOrigins[key] = at
+		}
+	}
+}
+
+// escapeOrigin keys the first instruction that escaped an object one way.
+type escapeOrigin struct {
+	target slot
+	kind   HeapEscape
 }
 
 // clobber forgets the contents of every site reachable from the pointees,
@@ -197,24 +252,24 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 	if common.IsInvoke() {
 		arguments = append(arguments, common.Value)
 	}
+	// A function value that is invoked is not handed anywhere: only what
+	// the call receives can be kept by it.
 	callee, closure := DirectCallee(common)
 	if closure != nil {
 		arguments = append(arguments, closure.Bindings...)
-	} else if callee == nil {
-		arguments = append(arguments, common.Value)
 	}
 	effects := NewCallEffects(graph.budget)
 	for _, argument := range arguments {
 		set := graph.pointees(argument)
 		if callee == nil || len(callee.Blocks) == 0 || started {
 			state.opaque = true
-			graph.escape(state, set, kind)
+			graph.escape(state, set, kind, instruction)
 			graph.clobber(state, set, graph.id(instruction))
 			continue
 		}
 		if closure != nil && slices.Contains(closure.Bindings, argument) {
 			if !callbackCaptureReadOnly(closure, argument, graph.budget) {
-				graph.escape(state, set, kind)
+				graph.escape(state, set, kind, instruction)
 				graph.clobber(state, set, graph.id(instruction))
 			}
 			continue
@@ -225,7 +280,7 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 		case proof.Proven() && proof.Effects&(EffectRetain|EffectAsync) == 0:
 			graph.clobber(state, set, graph.id(instruction))
 		default:
-			graph.escape(state, set, kind)
+			graph.escape(state, set, kind, instruction)
 			graph.clobber(state, set, graph.id(instruction))
 		}
 	}
@@ -250,13 +305,13 @@ func (graph *regionGraph) builtin(state *regionState, builtin *ssa.Builtin, comm
 				// The spread slice's elements are copied into a collection
 				// the function may hand on, so the array behind it has
 				// escaped as far as its contents are concerned.
-				graph.escape(state, elements, HeapEscapedField)
+				graph.escape(state, elements, HeapEscapedField, instruction)
 				elements = graph.load(state, graph.selectStep(elements, pathStar), argument)
 			}
 			for target := range result {
 				graph.weakElementStore(state, slot{region: target.region, path: joinSlotPath(target.path, pathStar)}, elements)
 			}
-			graph.escape(state, elements, HeapEscapedField)
+			graph.escape(state, elements, HeapEscapedField, instruction)
 		}
 	case "copy":
 		if len(common.Args) < 2 {
@@ -270,11 +325,17 @@ func (graph *regionGraph) builtin(state *regionState, builtin *ssa.Builtin, comm
 	}
 }
 
+// mapUpdate stores the value at the map's element slot and the key at its
+// key slot. A key is kept as surely as a value: a range over the map hands
+// it back, so an object used as a key has been stored, not merely compared.
 func (graph *regionGraph) mapUpdate(state *regionState, update *ssa.MapUpdate) {
 	value := graph.pointees(update.Value)
-	graph.escape(state, value, HeapEscapedField)
+	key := graph.pointees(update.Key)
+	graph.escape(state, value, HeapEscapedField, update)
+	graph.escape(state, key, HeapEscapedField, update)
 	for target := range graph.pointees(update.Map) {
 		graph.weakElementStore(state, slot{region: target.region, path: joinSlotPath(target.path, "elem")}, value)
+		graph.weakElementStore(state, slot{region: target.region, path: joinSlotPath(target.path, "key")}, key)
 	}
 }
 

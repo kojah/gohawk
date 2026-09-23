@@ -13,8 +13,9 @@ import (
 // path, through a visible helper as well as directly; a basic-typed load, a
 // read, or a call into a visible body that keeps nothing claims no path; and
 // a non-aggregate parameter carries no claim at all. A field selected from a
-// local copy of the pointee has no static path and is claimed everywhere,
-// and a parameter Retained outright needs no claim of its own.
+// local copy of the pointee is still that field, and a parameter Retained
+// outright, including one whose whole value is copied out, needs no claim
+// of its own.
 func TestLifecycleSummaryKeptContents(t *testing.T) {
 	pkg := buildLifecycleTestSSA(t, `
 package lifecyclefactstest
@@ -62,8 +63,8 @@ func NotAggregate(c *closer)         { saved = c }
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	for name, want := range map[string][]string{
 		"KeepFirst":      {"field:0"},
-		"KeepCopy":       {""},
-		"KeepWhole":      {""},
+		"KeepCopy":       {"field:1"},
+		"KeepWhole":      nil,
 		"Publish":        {"field:1"},
 		"Send":           {"field:0"},
 		"Capture":        nil,
@@ -79,7 +80,7 @@ func NotAggregate(c *closer)         { saved = c }
 		"ViaReader":      nil,
 		"NotAggregate":   nil,
 	} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		fact := summarize(pass, pkg.Func(name))
 		var got []string
 		for _, kept := range fact.Kept {
 			if kept.Parameter == 0 {

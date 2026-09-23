@@ -22,7 +22,7 @@ func Invoke(fn func(), yes bool) bool { if yes { fn(); return true }; return fal
 func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	base := summarize(pass, newRetentionCache(), pkg.Func("Base"))
+	base := summarize(pass, pkg.Func("Base"))
 	predicate := ssaflow.CompletionPredicate{Outcome: ssaflow.CompletionWhenTrue}
 	if base.Closed != 0 || conditionalMask(base, "Close", false, predicate) != parameterMaskFor(0) {
 		t.Fatalf("base = %+v, conditional = %+v", base, base.Conditional)
@@ -50,13 +50,13 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 		{"Partial", 0},
 		{"Async", 0},
 	} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(test.name))
+		fact := summarize(pass, pkg.Func(test.name))
 		if got := conditionalMask(fact, "Close", false, predicate); got != test.mask || fact.Closed != 0 {
 			t.Errorf("%s: conditional %x, unconditional %x, want %x / 0", test.name, got, fact.Closed, test.mask)
 		}
 	}
 	forward := pkg.Func("Forward")
-	forwardFact := summarize(pass, newRetentionCache(), forward)
+	forwardFact := summarize(pass, forward)
 	forward.Blocks = nil
 	pass.ResultOf = map[*analysis.Analyzer]any{Analyzer: Summaries{forward: forwardFact}}
 	caller := pkg.Func("Caller")
@@ -69,7 +69,7 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 	if proof := evidence.CompletionOnEdge(branch, branch.Succs[1], request); proof.Proven() {
 		t.Fatalf("imported false edge: %+v", proof)
 	}
-	invoke := summarize(pass, newRetentionCache(), pkg.Func("Invoke"))
+	invoke := summarize(pass, pkg.Func("Invoke"))
 	if invoke.SynchronouslyInvoked != 0 || conditionalMask(invoke, "", true, predicate) != parameterMaskFor(0) {
 		t.Fatalf("invocation: %+v", invoke)
 	}

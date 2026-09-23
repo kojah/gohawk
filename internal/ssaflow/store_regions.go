@@ -126,6 +126,7 @@ type regionKey struct {
 
 // regionGraph is the points-to graph of one function.
 type regionGraph struct {
+	mu        sync.Mutex
 	function  *ssa.Function
 	available bool
 	regions   map[regionKey]*region
@@ -158,6 +159,49 @@ type regionGraph struct {
 	// applied records every call the graph applied a summary at, for the
 	// dump: which callee, and how much of its summary there was to apply.
 	applied []appliedSummary
+	// escapeOrigins records the first instruction that escaped each object
+	// in each way, for the dump.
+	escapeOrigins map[escapeOrigin]ssa.Instruction
+	// widened records every slot whose pointees were collapsed to unknown
+	// because they outgrew the bound, for the dump.
+	widened []widening
+}
+
+// pointeeLimit bounds the objects one slot may be recorded as holding.
+// Past it the slot holds unknown: the answer stays sound, may-answers say
+// yes and must-answers say no, and the graph stays small. A set that
+// large is not a set a diagnostic can be precise about anyway.
+const pointeeLimit = 32
+
+// widening is one slot collapsed to unknown, for the dump.
+type widening struct {
+	target slot
+	at     ssa.Instruction
+	size   int
+}
+
+// bound collapses the slot's contents to unknown when they outgrew the
+// limit, and records that it did.
+func (graph *regionGraph) bound(state *regionState, target slot, at ssa.Instruction) {
+	set := state.contents[target]
+	if len(set) <= pointeeLimit {
+		return
+	}
+	graph.widened = append(graph.widened, widening{target: target, at: at, size: len(set)})
+	state.contents[target] = pointees{{region: graph.unkR}: false}
+}
+
+// boundValue collapses a value's pointees to unknown when they outgrew the
+// limit.
+func (graph *regionGraph) boundValue(value ssa.Value) {
+	set := graph.values[value]
+	if len(set) <= pointeeLimit {
+		return
+	}
+	if instruction, ok := value.(ssa.Instruction); ok {
+		graph.widened = append(graph.widened, widening{target: slot{region: graph.opaque(value)}, at: instruction, size: len(set)})
+	}
+	graph.values[value] = pointees{{region: graph.unkR}: false}
 }
 
 // appliedSummary is one summary application, for the dump.
@@ -194,6 +238,11 @@ var regionGraphs = struct {
 	entries map[*ssa.Function]*list.Element
 }{order: list.New(), entries: map[*ssa.Function]*list.Element{}}
 
+// regionGraphEntry is one cached graph. Its graph is nil while the build
+// is in progress: a build that reaches the function again, through a
+// callee summary projected on demand around a call cycle, gets an
+// unavailable graph instead of recursing, and that summary is truncated
+// where the cycle closes.
 type regionGraphEntry struct {
 	function *ssa.Function
 	graph    *regionGraph
@@ -214,21 +263,32 @@ func regionsOfFunction(function *ssa.Function) *regionGraph {
 	}
 	regionGraphs.Lock()
 	if element, ok := regionGraphs.entries[function]; ok {
-		regionGraphs.order.MoveToFront(element)
-		graph := element.Value.(*regionGraphEntry).graph //nolint:forcetypeassert // The list holds only entries.
+		entry := element.Value.(*regionGraphEntry) //nolint:forcetypeassert // The list holds only entries.
 		regionGraphs.Unlock()
-		return graph
+		if entry.graph == nil {
+			return &regionGraph{}
+		}
+		return entry.graph
 	}
+	entry := &regionGraphEntry{function: function}
+	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
 	regionGraphs.Unlock()
 	graph := buildRegionGraph(function)
 	regionGraphs.Lock()
 	defer regionGraphs.Unlock()
+	entry.graph = graph
 	if element, ok := regionGraphs.entries[function]; ok {
-		return element.Value.(*regionGraphEntry).graph //nolint:forcetypeassert // The list holds only entries.
+		regionGraphs.order.MoveToFront(element)
+	} else {
+		// The build outlived the cache's capacity; keep the graph anyway,
+		// the caller is about to query it.
+		regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
 	}
-	regionGraphs.entries[function] = regionGraphs.order.PushFront(&regionGraphEntry{function: function, graph: graph})
 	for regionGraphs.order.Len() > regionGraphCache {
 		oldest := regionGraphs.order.Back()
+		if oldest.Value.(*regionGraphEntry).graph == nil { //nolint:forcetypeassert // The list holds only entries.
+			break
+		}
 		delete(regionGraphs.entries, oldest.Value.(*regionGraphEntry).function) //nolint:forcetypeassert // The list holds only entries.
 		regionGraphs.order.Remove(oldest)
 	}

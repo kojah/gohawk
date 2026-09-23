@@ -28,10 +28,20 @@ gohawk facts [-func NAME] [-tests] [-regions] package...
 ```
 
 Prints the exported lifecycle summaries for the given packages, decoded per
-parameter. Only summarized functions appear: a function that is missing has
-no fact and is `unknown` to every consumer, which is different from a
-function whose fact shows a clear bit. See
-[Inferred facts](../fact-model/).
+parameter, each with its heap projection as `heap …` lines. Only summarized
+functions appear: a function that is missing has no fact and is `unknown`
+to every consumer, which is different from a function whose fact shows a
+clear bit. See [Inferred facts](../fact-model/).
+
+`-regions` prints every function of the package, private helpers and
+literals included, with the summary the registry holds for it and the
+points-to graph the analysis built: each value's pointees, an `applied`
+line for every call a callee summary was substituted at, a `widened` line
+for every slot whose pointees outgrew the bound and became unknown, an
+`escaped` line naming the first instruction that escaped each slot in each
+way, and the disjointness answers given. A claim that looks wrong is read backwards from
+here: the `heap effect` or `heap edge` behind it, then the `escaped` or
+`applied` line that produced it, then the callee's own section.
 
 ## Evidence trace
 

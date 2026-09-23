@@ -47,7 +47,7 @@ func CloseOthers(files [2]*os.File, others []*os.File) {
 		"CloseWhenFlagged": {0: false},
 		"CloseOthers":      {0: false, 1: true},
 	} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		fact := summarize(pass, pkg.Func(name))
 		for index, expected := range want {
 			if got := fact.LoopReleased.contains(index); got != expected {
 				t.Errorf("%s: LoopReleased parameter %d = %t, want %t", name, index, got, expected)

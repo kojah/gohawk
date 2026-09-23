@@ -96,7 +96,7 @@ func OpenFromFD(fd uintptr) *os.File { return os.NewFile(fd, "fd") }
 		"OpenForwarded":       0,
 		"OpenFromFD":          parameterMaskFor(0),
 	} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		fact := summarize(pass, pkg.Func(name))
 		if fact.OwnedResults != want {
 			t.Errorf("%s: OwnedResults = %v, want %v", name, fact.OwnedResults, want)
 		}

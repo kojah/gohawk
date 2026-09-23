@@ -34,16 +34,41 @@ func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallC
 		})
 	}
 	substitution := &heapSubstitution{graph: graph, state: state, common: common, instruction: instruction, fresh: map[string]*region{}}
+	// The callee's escapes describe the objects as they were handed in, so
+	// they are applied before the truncation and the edges rewrite the
+	// caller's slots: an argument whose contents the callee may also have
+	// overwritten still escaped with everything it held.
+	for _, effect := range summary.Effects {
+		if effect.Escape == 0 {
+			continue
+		}
+		// An escape at the object itself escapes the object; one at a path
+		// beneath it escapes what that slot holds.
+		set := substitution.slots(effect.Slot)
+		if effect.Slot.Path != "" {
+			contents := pointees{}
+			for held, stale := range set {
+				for pointee, pointeeStale := range graph.content(state, held) {
+					contents.add(pointee, stale || pointeeStale)
+				}
+			}
+			set = contents
+		}
+		graph.escape(state, set, effect.Escape, instruction)
+	}
 	for _, at := range summary.Truncated {
 		substitution.truncate(at)
 	}
+	// A result the summary names as one fresh object on every return is the
+	// object its sub-slot edges describe; name it before those edges.
+	for _, edge := range summary.Edges {
+		if edge.Must && edge.From.Root.Kind == HeapResult && edge.From.Path == "" && edge.To.Kind == HeapTargetFresh {
+			object := substitution.freshObject("fresh:" + edge.To.Origin + "#" + strconv.Itoa(edge.To.Object))
+			substitution.fresh["result:"+strconv.Itoa(edge.From.Root.Index)] = object
+		}
+	}
 	for _, edge := range summary.Edges {
 		substitution.apply(edge)
-	}
-	for _, effect := range summary.Effects {
-		if effect.Escape != 0 {
-			graph.escape(state, substitution.slots(effect.Slot), effect.Escape)
-		}
 	}
 	if isCall {
 		substitution.results(call)
@@ -135,8 +160,10 @@ func (substitution *heapSubstitution) targets(target HeapTarget, at HeapSlot) (p
 		// Content the summary could not describe is, from here, one
 		// foreign object per slot: not "anything", which would alias
 		// everything the caller knows, but something the caller never
-		// named.
-		if at.Root.Kind == HeapResult {
+		// named. An undescribed result is the call's own fresh object; an
+		// undescribed slot beneath a result is foreign content like any
+		// other, never the result itself.
+		if at.Root.Kind == HeapResult && at.Path == "" {
 			return pointees{{region: substitution.freshObject("result:" + strconv.Itoa(at.Root.Index))}: false}, true
 		}
 		return pointees{{region: substitution.foreignObject("content:" + at.String())}: false}, true
@@ -199,6 +226,7 @@ func (substitution *heapSubstitution) apply(edge HeapEdge) {
 		}
 		existing.union(value)
 		substitution.graph.remember(destination, value)
+		substitution.graph.bound(substitution.state, destination, substitution.instruction)
 	}
 }
 

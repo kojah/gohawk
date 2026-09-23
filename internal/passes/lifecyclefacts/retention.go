@@ -65,25 +65,17 @@ type retentionKey struct {
 // question.
 type retentionCache struct {
 	memo   *ssaflow.CallGraphMemo[retentionKey, bool]
-	kept   *ssaflow.CallGraphMemo[keptKey, []string]
 	lookup func(ssa.Instruction) (Fact, bool)
 }
 
 func newRetentionCache() *retentionCache {
 	return &retentionCache{
 		memo: ssaflow.NewCallGraphMemo[retentionKey, bool](),
-		kept: ssaflow.NewCallGraphMemo[keptKey, []string](),
 	}
 }
 
 func (cache *retentionCache) retainedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
 	return (&retention{pass: pass, budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo, lookup: cache.lookup}).answer(function, parameter)
-}
-
-func (cache *retentionCache) storedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	return (&retention{
-		pass: pass, strict: true, budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo, lookup: cache.lookup,
-	}).answer(function, parameter)
 }
 
 // Visible private helpers have no exported fact. Require a retention witness

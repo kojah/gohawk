@@ -1,6 +1,9 @@
 package lifecyclefacts
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/ssa"
@@ -40,6 +43,101 @@ func withReleases(summary *ssaflow.HeapSummary, fact *Fact) *ssaflow.HeapSummary
 		})
 	}
 	return summary
+}
+
+// returnsOwner is the ReturnedOwner claim as a query over the projection:
+// on every normal return with a non-nil result, some result, or a slot
+// beneath one, holds the parameter's object and nothing else. The
+// projection judges result roots only on returns where the result is not
+// nil, so a constructor that returns nil beside an error on failure still
+// qualifies.
+func returnsOwner(summary *ssaflow.HeapSummary, index int) bool {
+	for _, hold := range summary.Holds {
+		if hold.Parameter == index && hold.Must {
+			return true
+		}
+	}
+	return false
+}
+
+// retained is the Retained claim as a query over the projection, and keeps
+// its loose polarity: the parameter's object left local control in any
+// way, or some result or global may hold it.
+func retained(summary *ssaflow.HeapSummary, index int) bool {
+	parameter := ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: index}}
+	for _, effect := range summary.Effects {
+		if effect.Slot == parameter && effect.Escape != 0 {
+			return true
+		}
+	}
+	return heldOutside(summary, parameter, true)
+}
+
+// stored is the Stored claim as a query over the projection, and keeps its
+// strict polarity: positive evidence that the parameter's object was put
+// somewhere that outlives the call, a global, an object the caller can
+// reach, a channel, or a package variable's slot. Handing it to a call or a
+// goroutine, or returning it, is not storage.
+func stored(summary *ssaflow.HeapSummary, index int) bool {
+	parameter := ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: index}}
+	for _, effect := range summary.Effects {
+		if effect.Slot == parameter && effect.Escape&(ssaflow.HeapEscapedGlobal|ssaflow.HeapEscapedField|ssaflow.HeapEscapedSend) != 0 {
+			return true
+		}
+	}
+	return heldOutside(summary, parameter, false)
+}
+
+// heldOutside reports whether a global's slot, or with results also a
+// result's slot, may hold the object at the slot.
+func heldOutside(summary *ssaflow.HeapSummary, slot ssaflow.HeapSlot, results bool) bool {
+	for _, edge := range summary.Edges {
+		if edge.To.Kind != ssaflow.HeapTargetSlot || edge.To.Slot != slot {
+			continue
+		}
+		if edge.From.Root.Kind == ssaflow.HeapGlobal || results && edge.From.Root.Kind == ssaflow.HeapResult {
+			return true
+		}
+	}
+	return false
+}
+
+// kept is the Kept claim as a query over the projection: every path
+// beneath the parameter whose content left local control or may be held by
+// a result or global. Content the projection could not name that is held
+// outside is claimed at the parameter itself, because it may have come
+// from anywhere beneath it. A truncated root is not a kept claim: an
+// unresolved callee keeps only what it was handed, which the escape
+// effects record.
+func kept(summary *ssaflow.HeapSummary, index int) []Kept {
+	parameter := ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: index}}
+	seen := map[string]bool{}
+	var claims []Kept
+	claim := func(path string) {
+		if !seen[path] {
+			seen[path] = true
+			claims = append(claims, Kept{Parameter: index, Path: path})
+		}
+	}
+	for _, effect := range summary.Effects {
+		if effect.Escape != 0 && effect.Slot.Root == parameter.Root && effect.Slot.Path != "" {
+			claim(effect.Slot.Path)
+		}
+	}
+	for _, edge := range summary.Edges {
+		outside := edge.From.Root.Kind == ssaflow.HeapGlobal || edge.From.Root.Kind == ssaflow.HeapResult
+		if !outside {
+			continue
+		}
+		switch {
+		case edge.To.Kind == ssaflow.HeapTargetUnknown:
+			claim("")
+		case edge.To.Kind == ssaflow.HeapTargetSlot && edge.To.Slot.Root == parameter.Root && edge.To.Slot.Path != "":
+			claim(edge.To.Slot.Path)
+		}
+	}
+	slices.SortFunc(claims, func(left, right Kept) int { return strings.Compare(left.Path, right.Path) })
+	return claims
 }
 
 // receiverStores is the ReceiverStore claim as a query over the projection:

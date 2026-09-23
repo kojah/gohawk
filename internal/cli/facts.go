@@ -20,6 +20,7 @@ import (
 	"golang.org/x/tools/go/analysis/checker"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 // The facts subcommand prints the facts a package exports and the imported
@@ -141,21 +142,48 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 
 // writeRegions prints the points-to graph of each local function, from the
 // graphs the analysis built, so the regions reflect the callee summaries
-// that were applied.
+// that were applied. Every function of the package is printed, private
+// helpers and literals included, each with the heap summary the registry
+// holds for it: a private helper's projection is applied by its callers
+// even though no fact carries it.
 func writeRegions(buffer *bytes.Buffer, action *checker.Action, filter string) {
 	summaries, ok := action.Result.(lifecyclefacts.Summaries)
 	if !ok {
 		return
 	}
-	functions := slices.SortedFunc(maps.Keys(summaries), func(left, right *ssa.Function) int {
-		return int(left.Pos() - right.Pos())
+	var program *ssa.Program
+	for function := range summaries {
+		if function.Pkg != nil && function.Pkg.Pkg == action.Package.Types {
+			program = function.Prog
+			break
+		}
+	}
+	if program == nil {
+		return
+	}
+	var functions []*ssa.Function
+	for function := range ssautil.AllFunctions(program) {
+		if function.Pkg != nil && function.Pkg.Pkg == action.Package.Types && len(function.Blocks) != 0 &&
+			(filter == "" || function.Name() == filter || function.Object() != nil && function.Object().Name() == filter) {
+			functions = append(functions, function)
+		}
+	}
+	slices.SortFunc(functions, func(left, right *ssa.Function) int {
+		if left.Pos() != right.Pos() {
+			return int(left.Pos() - right.Pos())
+		}
+		return strings.Compare(left.String(), right.String())
 	})
 	for _, function := range functions {
-		object := function.Object()
-		if object == nil || object.Pkg() != action.Package.Types || filter != "" && object.Name() != filter {
-			continue
+		fmt.Fprintf(buffer, "// %s\n", function.String())
+		if summary, ok := ssaflow.RegisteredHeapSummary(function); ok {
+			for line := range strings.SplitSeq(strings.TrimSpace(summary.String()), "\n") {
+				if line != "" {
+					fmt.Fprintf(buffer, "//   %s\n", line)
+				}
+			}
 		}
-		fmt.Fprintf(buffer, "// %s\n%s", objectName(object), ssaflow.RenderRegions(function))
+		buffer.WriteString(ssaflow.RenderRegions(function))
 	}
 }
 

@@ -81,7 +81,12 @@ reason, `disjoint-paths`, `disjoint-objects`, or `unescaped-local`, and
 checked against the graph that gave it.
 
 Exhaustion of the build budget, or a fixpoint that does not settle, makes
-the whole graph unavailable and every answer unknown. Nothing here guesses.
+the whole graph unavailable and every answer unknown. A slot recorded as
+holding more than a bounded number of objects, which a buffer appended to
+at every site of a large function does, is widened to `unknown` instead:
+may-answers about it say yes, must-answers say no, and the graph stays
+small where it would otherwise multiply those sets through every summary
+application and join. The dump prints each widening. Nothing here guesses.
 
 ## Heap summaries
 
@@ -111,12 +116,21 @@ substitution is available wherever the graph is. Closures with captured
 variables, goroutine launches, and deferred calls keep the conservative
 treatment.
 
+Escapes are recorded per slot. The address of a field handed to a callee
+escapes what the field holds and everything beneath it, never the object
+above it, so locking a receiver's embedded mutex does not store the
+receiver. Applying a summary escapes what the arguments held as they were
+handed in, before the callee's truncation forgets any of it. A map key is
+stored as surely as a map value.
+
 `gohawk facts` prints every summary as `heap …` lines beneath the mask
 claims, for the package's own functions and the callees it imports, and
-`gohawk facts -regions` prints each local function's graph as the analysis
-saw it, including an `applied` line for every call a summary was applied
-at. `gohawk ssa -regions` prints the graph without any summaries, which is
-what a unit test sees.
+`gohawk facts -regions` prints every local function's registered summary
+and graph as the analysis saw it, private helpers included, with an
+`applied` line for every call a summary was applied at and an `escaped`
+line for the first instruction that escaped each slot in each way. `gohawk
+ssa -regions` prints the graph without any summaries, which is what a unit
+test sees.
 
 ## Boundaries
 

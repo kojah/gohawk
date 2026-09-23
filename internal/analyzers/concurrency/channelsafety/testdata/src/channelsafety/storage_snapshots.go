@@ -57,5 +57,7 @@ func retainedChannelOwner() {
 	x := channelHolder{ch: ch}
 	close(ch)
 	retainHolder(&x)
-	x.ch <- 1 // Escaped storage no longer proves which channel the field contains.
+	// The helper's summary says it stored the address and wrote nothing
+	// through it, so the field still holds the closed channel.
+	x.ch <- 1 // want "send follows close of channel"
 }

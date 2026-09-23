@@ -55,7 +55,7 @@ func Nested(b batch) error { return b.files[0].Close() }
 		"Nested":    {pkg.Func("Nested"), "field:0/index:0", true},
 	}
 	for name, test := range cases {
-		fact := summarize(pass, newRetentionCache(), test.function)
+		fact := summarize(pass, test.function)
 		got := slices.Contains(fact.Discharges, Discharge{Parameter: 0, Method: "Close", Path: test.path})
 		if got != test.want {
 			t.Errorf("%s: discharge of Close at %q = %t, want %t (fact %+v)", name, test.path, got, test.want, fact.Discharges)

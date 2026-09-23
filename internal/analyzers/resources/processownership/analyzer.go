@@ -125,16 +125,33 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 		unknown = unknown || action == ssaflow.EvidenceUnknown
 		return action != ssaflow.EvidenceDisproven
 	}
+	probe := analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos())
 	allowReturn := func(returned *ssa.Return) bool {
 		// Returning an aggregate that contains the command transfers Wait
 		// responsibility just as directly as returning *exec.Cmd itself, and
 		// so does returning the started os.Process, which the caller can
 		// Wait on directly. Casbin's daemon launcher returns cmd.Process:
 		// https://github.com/apache/casbin-gateway/blob/e3606894348d8cd52d85abc29cfb4d3ae99595cb/util/daemon.go#L121-L131
-		return startFailureReturn(returned, start) || impossibleStartedProcessNilReturn(returned, start, command) ||
-			ssaflow.ReturnedValueOwnsValue(returned, command) ||
-			returnsProcessHandle(returned, command) ||
-			merged != nil && (ssaflow.ReturnedValueOwnsValue(returned, merged) || returnsProcessHandle(returned, merged))
+		// Each rule that excuses a return is traced by name, so a return the
+		// flow accepted can be attributed to the rule that accepted it.
+		for _, rule := range []struct {
+			reason string
+			holds  func() bool
+		}{
+			{"start-failure-return", func() bool { return startFailureReturn(returned, start) }},
+			{"impossible-nil-process-return", func() bool { return impossibleStartedProcessNilReturn(returned, start, command) }},
+			{"returned-value-owns-command", func() bool { return ssaflow.ReturnedValueOwnsValue(returned, command) }},
+			{"returns-process-handle", func() bool { return returnsProcessHandle(returned, command) }},
+			{"returned-value-owns-merged-command", func() bool {
+				return merged != nil && (ssaflow.ReturnedValueOwnsValue(returned, merged) || returnsProcessHandle(returned, merged))
+			}},
+		} {
+			if rule.holds() {
+				probe.Evidence(analysisTrace.Step{Reason: rule.reason, Outcome: analysisTrace.OutcomeAccepted, Pos: returned.Pos()})
+				return true
+			}
+		}
+		return false
 	}
 	var leaks bool
 	if merged != nil {

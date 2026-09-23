@@ -43,11 +43,8 @@ func Inspect(p *pair) bool                 { return p.first != nil }
 		derived bool
 	}
 	for name, want := range map[string][]claim{
-		"Wrap": {{"returned-owner P0", true}},
-		// The mask accepts an alternative return of nil results; the
-		// projection has the same facts as may edges, and the query for
-		// "owner or nil on every return" is the next claim to express.
-		"WrapMaybe":   {{"returned-owner P0", false}},
+		"Wrap":        {{"returned-owner P0", true}},
+		"WrapMaybe":   {{"returned-owner P0", true}},
 		"Adopt":       {{"receiver-store P1", true}},
 		"Keep":        {{"retained P0", true}, {"stored P0", true}},
 		"Publish":     {{"retained P0", true}},
@@ -56,7 +53,7 @@ func Inspect(p *pair) bool                 { return p.first != nil }
 		"CloseSecond": {{"released P0/field:1 Close", true}},
 		"Inspect":     {{"nothing", true}},
 	} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		fact := summarize(pass, pkg.Func(name))
 		if fact.Heap == nil {
 			t.Fatalf("%s: no projection", name)
 		}
@@ -113,7 +110,12 @@ func released(heap *ssaflow.HeapSummary, slot ssaflow.HeapSlot, method string) b
 // heapQueries expresses each mask claim over the projection.
 var heapQueries = map[string]func(*ssaflow.HeapSummary) bool{
 	"returned-owner P0": func(heap *ssaflow.HeapSummary) bool {
-		return edgeTo(heap, parameterSlot(0, ""), ssaflow.HeapResult, true)
+		for _, hold := range heap.Holds {
+			if hold.Parameter == 0 && hold.Must {
+				return true
+			}
+		}
+		return false
 	},
 	"receiver-store P1": func(heap *ssaflow.HeapSummary) bool {
 		return edgeTo(heap, parameterSlot(1, ""), ssaflow.HeapParameter, true)

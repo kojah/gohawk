@@ -1186,7 +1186,7 @@ HasLibraryContract reports whether common exactly matches a registered API.
 
 ## HeapEdge
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 type HeapEdge struct {
@@ -1201,7 +1201,7 @@ every normal return, and that nothing else does.
 
 ## HeapEffect
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 type HeapEffect struct {
@@ -1218,7 +1218,7 @@ every normal return.
 
 ## HeapEscape
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 type HeapEscape uint8
@@ -1228,7 +1228,7 @@ HeapEscape is the set of ways an object left local control.
 
 ## HeapEscape.String
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 func (escape HeapEscape) String() string
@@ -1238,7 +1238,7 @@ String renders the escape kinds.
 
 ## HeapEscapedGlobal, HeapEscapedField, HeapEscapedCall, HeapEscapedAsync, HeapEscapedSend
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 const (
@@ -1256,9 +1256,27 @@ const (
 )
 ```
 
+## HeapHold
+
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
+
+```go
+type HeapHold struct {
+	Result		int
+	Parameter	int
+	Must		bool
+}
+```
+
+HeapHold says result Result holds the object of parameter Parameter:
+it is that object, or a slot beneath it holds that object. Must says so
+on every normal return where the result is not nil. It is a per-return
+claim the joined edges cannot express: a constructor may return the
+parameter itself on one path and a wrapper holding it on another.
+
 ## HeapParameter, HeapResult, HeapGlobal, HeapFreeVar
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 const (
@@ -1276,7 +1294,7 @@ const (
 
 ## HeapRoot
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 type HeapRoot struct {
@@ -1292,7 +1310,7 @@ package path and name, so a caller's graph can find the same variable.
 
 ## HeapRootKind
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 type HeapRootKind uint8
@@ -1302,7 +1320,7 @@ HeapRootKind names the kinds of object a caller can refer to.
 
 ## HeapSlot
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 type HeapSlot struct {
@@ -1316,7 +1334,7 @@ Path is empty, else the field or element the joined access path selects.
 
 ## HeapSlot.String
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 func (at HeapSlot) String() string
@@ -1326,24 +1344,23 @@ String renders a slot as P0/field:1, R0, G:pkg.name, or F1.
 
 ## HeapSummary
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 type HeapSummary struct {
 	Edges		[]HeapEdge
 	Effects		[]HeapEffect
-	Reads		[]HeapSlot	`json:"-"`
+	Holds		[]HeapHold
+	Reads		[]HeapSlot
 	Truncated	[]HeapSlot
 }
 ```
 
-HeapSummary is the projection of one function's heap. Reads are kept for
-the dump and the tests but not serialized: no consumer applies them, and
-the analysis test harness pays for every byte of every fact.
+HeapSummary is the projection of one function's heap.
 
 ## HeapSummary.String
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 func (summary HeapSummary) String() string
@@ -1353,7 +1370,7 @@ String renders the summary one entry per line, for tests and the dump.
 
 ## HeapTarget
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 type HeapTarget struct {
@@ -1370,7 +1387,7 @@ results of one call, stay two objects when the summary is applied.
 
 ## HeapTarget.String
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 func (target HeapTarget) String() string
@@ -1380,7 +1397,7 @@ String renders a target.
 
 ## HeapTargetKind
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 type HeapTargetKind uint8
@@ -1390,7 +1407,7 @@ HeapTargetKind names what a slot may hold.
 
 ## HeapTargetSlot, HeapTargetFresh, HeapTargetNil, HeapTargetUnknown
 
-[Source](../../../../internal/ssaflow/store_heap_summary.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 const (
@@ -2234,6 +2251,17 @@ func RegisterHeapSummary(function *ssa.Function, summary HeapSummary)
 
 RegisterHeapSummary makes the summary available to every graph built
 afterwards for calls to the function.
+
+## RegisteredHeapSummary
+
+[Source](../../../../internal/ssaflow/store_heap_registry.go)
+
+```go
+func RegisteredHeapSummary(function *ssa.Function) (HeapSummary, bool)
+```
+
+RegisteredHeapSummary returns the summary the registry holds for the
+function, for the dump; it never projects one.
 
 ## RenderRegions
 

@@ -14,6 +14,7 @@ import (
 // origin; a stale entry, carried around a loop's back edge, is marked.
 func RenderRegions(function *ssa.Function) string {
 	graph := regionsOfFunction(function)
+	defer graph.lock()()
 	var buffer strings.Builder
 	if !graph.available {
 		buffer.WriteString("// regions: unavailable\n")
@@ -36,6 +37,30 @@ func RenderRegions(function *ssa.Function) string {
 	for _, entry := range graph.applied {
 		fmt.Fprintf(&buffer, "//   applied %s at %s: %d edges, %d effects, %d truncated\n",
 			entry.callee.String(), entry.instruction.String(), entry.edges, entry.effects, entry.truncated)
+	}
+	for _, entry := range graph.widened {
+		at := "join"
+		if entry.at != nil {
+			at = entry.at.String()
+		}
+		fmt.Fprintf(&buffer, "//   widened %s to unknown at %s: %d pointees\n", slotName(entry.target), at, entry.size)
+	}
+	origins := make([]escapeOrigin, 0, len(graph.escapeOrigins))
+	for key := range graph.escapeOrigins {
+		origins = append(origins, key)
+	}
+	sort.Slice(origins, func(i, j int) bool {
+		left, right := graph.escapeOrigins[origins[i]], graph.escapeOrigins[origins[j]]
+		if left.Pos() != right.Pos() {
+			return left.Pos() < right.Pos()
+		}
+		if origins[i].kind != origins[j].kind {
+			return origins[i].kind < origins[j].kind
+		}
+		return slotName(origins[i].target) < slotName(origins[j].target)
+	})
+	for _, key := range origins {
+		fmt.Fprintf(&buffer, "//   escaped %s %s at %s\n", slotName(key.target), key.kind, graph.escapeOrigins[key])
 	}
 	for _, decision := range graph.disjoint {
 		fmt.Fprintf(&buffer, "//   disjoint %s %s: %s\n", decision.Value.Name(), decision.Target.Name(), decision.Reason)
@@ -63,6 +88,14 @@ func (graph *regionGraph) renderValue(buffer *strings.Builder, value ssa.Value) 
 	fmt.Fprintf(buffer, "//   %s -> %s\n", value.Name(), strings.Join(entries, ", "))
 }
 
+// slotName names a slot for the dump: its object, then its path.
+func slotName(target slot) string {
+	if target.path == "" {
+		return regionName(target.region)
+	}
+	return regionName(target.region) + " " + target.path
+}
+
 func regionName(object *region) string {
 	switch object.kind {
 	case regionNil:
@@ -83,10 +116,16 @@ func regionName(object *region) string {
 		}
 		return "param:" + object.origin.Name()
 	case regionOpaque:
-		if object.label != "" {
-			return "opaque:" + object.origin.Name() + "[" + object.label + "]"
+		// An object a deferred call's summary created has no value to be
+		// named by, only its label.
+		name := "opaque:"
+		if object.origin != nil {
+			name += object.origin.Name()
 		}
-		return "opaque:" + object.origin.Name()
+		if object.label != "" {
+			return name + "[" + object.label + "]"
+		}
+		return name
 	case regionPlaceholder:
 		return fmt.Sprintf("content(%s %s @%d.%d)", regionName(object.source.region), object.source.path, object.stamp.epoch, object.stamp.step)
 	case regionSnapshot:

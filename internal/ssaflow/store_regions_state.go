@@ -2,6 +2,7 @@ package ssaflow
 
 import (
 	"maps"
+	"slices"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -32,16 +33,21 @@ type regionState struct {
 	clobbered map[slot]int
 	// escaped marks sites whose address left local control.
 	escaped map[*region]bool
-	// escapes records how each object left local control, for the heap
-	// projection: any object, not only a site, and every way it went.
-	escapes map[*region]HeapEscape
+	// escapes records how each slot left local control, for the heap
+	// projection: any object, not only a site, and every way it went. A
+	// slot beneath an object is the address of that field or element; its
+	// escape hands on what lies beneath it, not the object above it.
+	escapes map[slot]HeapEscape
 	// opaque records that a call the graph could not resolve or summarize
 	// may have written anything the function did not allocate; the heap
 	// projection is then truncated at every root.
 	opaque bool
 	// deferred holds what deferred calls were handed; their effects apply
-	// when the deferred calls run, at the function's RunDefers.
+	// when the deferred calls run, at the function's RunDefers. calls lists
+	// the deferred calls themselves, so one with a summary is applied then
+	// and only an unresolved one forgets what it was handed.
 	deferred pointees
+	calls    []*ssa.Defer
 }
 
 func newRegionState() *regionState {
@@ -51,7 +57,7 @@ func newRegionState() *regionState {
 		stepEpochs: map[string]int{},
 		clobbered:  map[slot]int{},
 		escaped:    map[*region]bool{},
-		escapes:    map[*region]HeapEscape{},
+		escapes:    map[slot]HeapEscape{},
 		deferred:   pointees{},
 	}
 }
@@ -78,9 +84,10 @@ func (state *regionState) clone() *regionState {
 		stepEpochs: make(map[string]int, len(state.stepEpochs)),
 		clobbered:  make(map[slot]int, len(state.clobbered)),
 		escaped:    make(map[*region]bool, len(state.escaped)),
-		escapes:    make(map[*region]HeapEscape, len(state.escapes)),
+		escapes:    make(map[slot]HeapEscape, len(state.escapes)),
 		opaque:     state.opaque,
 		deferred:   state.deferred.clone(),
+		calls:      slices.Clone(state.calls),
 	}
 	maps.Copy(result.escapes, state.escapes)
 	for target, set := range state.contents {
@@ -106,11 +113,16 @@ func (graph *regionGraph) merge(state, other *regionState, backEdge bool, header
 	graph.mergeBacking(state, other, header)
 	graph.mergeStamps(state, other, header)
 	maps.Copy(state.escaped, other.escaped)
-	for object, kinds := range other.escapes {
-		state.escapes[object] |= kinds
+	for target, kinds := range other.escapes {
+		state.escapes[target] |= kinds
 	}
 	state.opaque = state.opaque || other.opaque
 	state.deferred.union(other.deferred)
+	for _, call := range other.calls {
+		if !slices.Contains(state.calls, call) {
+			state.calls = append(state.calls, call)
+		}
+	}
 }
 
 func (graph *regionGraph) mergeContents(state, other *regionState, backEdge bool, header *ssa.BasicBlock) {
@@ -127,12 +139,14 @@ func (graph *regionGraph) mergeContents(state, other *regionState, backEdge bool
 		for pointee, pointeeStale := range set {
 			mine.add(pointee, stale(pointee, pointeeStale))
 		}
+		graph.bound(state, target, nil)
 	}
 	for target, mine := range state.contents {
 		if _, present := other.contents[target]; !present {
 			for pointee, pointeeStale := range graph.content(other, target) {
 				mine.add(pointee, stale(pointee, pointeeStale))
 			}
+			graph.bound(state, target, nil)
 		}
 	}
 }
@@ -201,7 +215,8 @@ func (state *regionState) equal(other *regionState) bool {
 		maps.Equal(state.escaped, other.escaped) &&
 		maps.Equal(state.escapes, other.escapes) &&
 		state.opaque == other.opaque &&
-		maps.Equal(state.deferred, other.deferred)
+		maps.Equal(state.deferred, other.deferred) &&
+		slices.Equal(state.calls, other.calls)
 }
 
 func pointeesMapsEqual(left, right map[slot]pointees) bool {

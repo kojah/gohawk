@@ -52,7 +52,7 @@ func Picked(value *owner) { defer func() { value.pick().Close() }() }
 		"Either": {},
 		"Picked": {},
 	} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		fact := summarize(pass, pkg.Func(name))
 		var paths []string
 		for _, discharge := range fact.Discharges {
 			if discharge.Parameter == 0 && discharge.Method == "Close" {

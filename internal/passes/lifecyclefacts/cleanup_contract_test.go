@@ -29,7 +29,7 @@ func contractsFor(t *testing.T, source string) map[string]*CleanupFact {
 	for _, member := range pkg.Members {
 		function, ok := member.(*ssa.Function)
 		if ok && len(function.Blocks) > 0 {
-			summaries[function] = summarize(pass, newRetentionCache(), function)
+			summaries[function] = summarize(pass, function)
 		}
 		named, ok := member.(*ssa.Type)
 		if !ok {
@@ -39,7 +39,7 @@ func contractsFor(t *testing.T, source string) map[string]*CleanupFact {
 		for selection := range types.NewMethodSet(pointer).Methods() {
 			method := pkg.Prog.LookupMethod(pointer, pkg.Pkg, selection.Obj().Name())
 			if method != nil && len(method.Blocks) > 0 {
-				summaries[method] = summarize(pass, newRetentionCache(), method)
+				summaries[method] = summarize(pass, method)
 			}
 		}
 	}

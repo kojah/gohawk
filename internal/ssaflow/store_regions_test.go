@@ -52,7 +52,7 @@ func TestRegionGraphStorageParity(t *testing.T) {
 		{"readOnlyCall", `x:=box{value:a}; read(&x); observe(x.value,a)`, true},
 		{"readOnlyForwarding", `x:=box{value:a}; forward(&x); observe(x.value,a)`, true},
 		{"mutatingCall", `x:=box{value:a}; mutate(&x,b); observe(x.value,a)`, false},
-		{"retainingCall", `x:=box{value:a}; retain(&x); observe(x.value,a)`, false},
+		{"retainingCall", `x:=box{value:a}; retain(&x); observe(x.value,a)`, true},
 		{"asyncReadCall", `x:=box{value:a}; async(&x); observe(x.value,a)`, false},
 		// Beyond the demand-driven model.
 		{"loopInitializer", `var x box; x.value=a; for pick { observe(x.value,a) }`, true},

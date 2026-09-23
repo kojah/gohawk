@@ -297,13 +297,31 @@ handed.
 
 ## Claims as projection queries
 
-The heap projection is becoming the one encoding of what a function does
-to the objects a caller can name, and each mask claim is being re-expressed
-as a query over it, one claim at a time, with the derivability test in the
-pass recording which claims are queries already. `ReceiverStore` is: on
-every normal return, some slot beneath the receiver holds the parameter's
-object and nothing else. The remaining masks still have their own proofs;
-the projection must express each before its proof goes.
+The heap projection is the one encoding of what a function does to the
+objects a caller can name, and every transfer claim is a query over it, so
+the masks a consumer reads and the summary a caller's graph applies cannot
+disagree. The derivability test in the pass records, function by function,
+that each claim follows from the projection:
+
+- `ReturnedOwner`: on every normal return with a non-nil result, some
+  result, or a slot beneath one, holds the parameter's object and nothing
+  else (a `must` hold).
+- `ReceiverStore`: on every normal return, some slot beneath the receiver
+  holds the parameter's object and nothing else (a `must` edge).
+- `Retained`, loose: the parameter's object escaped in any way, or a global
+  or result slot may hold it.
+- `Stored`, strict: the object escaped into a field, a global, or a channel,
+  or a global's slot may hold it. Handing it to a call or a goroutine, or
+  returning it, is not storage.
+- `Kept`: the paths beneath a struct-shaped parameter whose content escaped
+  or may be held by a global or a result; content the projection could not
+  name that is held outside is claimed at the parameter itself.
+
+An escape is recorded per slot, not per object: the address of a field
+handed to a callee escapes what that field holds and everything beneath it,
+never the object above it. A receiver whose embedded mutex is locked is not
+thereby stored. Map keys escape as surely as map values, because a range
+hands them back.
 
 ## Serialization
 
@@ -323,15 +341,13 @@ package without the marker, or one the marker lists as bodiless, is unknown.
 `Retained` is about the parameter itself and deliberately ignores what is
 loaded out of it. A caller that hands an aggregate holding its resource to
 an imported helper needs the other half: can the resource inside outlive the
-call? `Kept` answers that by path. It is loose in the same way `Retained`
-is, so a store anywhere, a captured cell, a send, a return, a goroutine
-argument, an opaque or interface callee, and a callee summarized as keeping
-its argument all count, and a body the walk cannot finish keeps everything.
-It is exact about where: `field:1` for a helper that closes, stores, or
-hands on the second file of a pair, and nothing for the first. A basic-typed
-load holds no resource and is never claimed. A value that derives from the
-parameter without a static path, such as a field of a local copy of the
-pointee, is claimed as the whole parameter.
+call? `Kept` answers that by path, from the projection: each path beneath
+the parameter whose content escaped, or that a global or result slot may
+hold. It is exact about where: `field:1` for a helper that closes, stores,
+or hands on the second file of a pair, and nothing for the first. A
+basic-typed load holds no resource and is never claimed. Content the
+projection could not name that is held outside is claimed at the parameter
+itself, because it may have come from anywhere beneath it.
 
 Only struct-shaped parameters carry the claim, and a parameter that is
 `Retained` outright carries none, because retaining the aggregate keeps all

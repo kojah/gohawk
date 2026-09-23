@@ -17,7 +17,7 @@ your head is slow and error-prone. Dump the real thing instead.
 | question | command |
 |---|---|
 | What does the analyzer see? | `gohawk ssa [-func NAME] [-tests] [-regions] ./pkg` |
-| What did lifecyclefacts conclude about exported functions? | `gohawk facts [-func NAME] [-tests] [-regions] ./pkg` (heap projections as `heap …` lines; `-regions` dumps each local graph with the callee summaries it applied) |
+| What did lifecyclefacts conclude about exported functions? | `gohawk facts [-func NAME] [-tests] [-regions] ./pkg` (heap projections as `heap …` lines; `-regions` dumps every local function's registered summary and graph, with the callee summaries it applied and the instruction that first escaped each slot) |
 | What did the analyzer decide, and why? | `gohawk -gohawk-trace=ANALYZER[,CHECK] ./pkg` |
 
 Trace scoping flags: `-gohawk-trace-candidate=path[:line]` limits output to the

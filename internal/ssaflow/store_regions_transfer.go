@@ -27,14 +27,11 @@ func (graph *regionGraph) transfer(state *regionState, instruction ssa.Instructi
 	case *ssa.Defer:
 		graph.deferCall(state, typed)
 	case *ssa.RunDefers:
-		// The deferred calls run here, with whatever they were handed.
-		graph.escape(state, state.deferred, HeapEscapedCall)
-		graph.clobber(state, state.deferred, graph.id(typed))
-		graph.invalidateForeign(state, "", graph.id(typed))
+		graph.runDefers(state, typed)
 	case *ssa.Go:
 		graph.call(state, typed.Common(), typed, true)
 	case *ssa.Send:
-		graph.escape(state, graph.pointees(typed.X), HeapEscapedSend)
+		graph.escape(state, graph.pointees(typed.X), HeapEscapedSend, typed)
 	case *ssa.MapUpdate:
 		graph.mapUpdate(state, typed)
 	case *ssa.Lookup:
@@ -168,6 +165,7 @@ func (graph *regionGraph) setValue(value ssa.Value, set pointees) {
 		return
 	}
 	existing.union(set)
+	graph.boundValue(value)
 }
 
 // allocate zeroes the site's storage. A site inside a loop is a fresh cell
@@ -315,7 +313,7 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 	if targets.unknown() {
 		state.opaque = true
 		graph.invalidateForeign(state, "", graph.id(stored))
-		graph.escape(state, value, HeapEscapedField)
+		graph.escape(state, value, HeapEscapedField, stored)
 		return
 	}
 	for target := range targets {
@@ -323,7 +321,7 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 			continue
 		}
 		if target.region.kind != regionSite || state.escaped[target.region] {
-			graph.escape(state, value, escapeInto(target.region))
+			graph.escape(state, value, escapeInto(target.region), stored)
 		}
 		if target.region.kind != regionSite {
 			graph.invalidateForeign(state, stepKey(target.path), graph.id(stored))
@@ -350,6 +348,7 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 			state.contents[target] = existing
 		}
 		existing.union(value)
+		graph.bound(state, target, stored)
 	}
 }
 

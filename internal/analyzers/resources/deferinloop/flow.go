@@ -3,10 +3,12 @@ package deferinloop
 import (
 	"go/types"
 	"slices"
+	"strconv"
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -33,6 +35,7 @@ type deferFlowState struct {
 func resourceLiveAtNextIteration(
 	evidence *lifecyclefacts.LifecycleEvidence,
 	knowledge *summaries.Provider,
+	probe analysisTrace.Probe,
 	deferred *ssa.Defer,
 	obligation deferObligation,
 ) bool {
@@ -46,13 +49,14 @@ func resourceLiveAtNextIteration(
 	// https://github.com/protomaps/go-pmtiles/blob/a3e4951ea6a0477b784c27c1dcbfd9c130878c5a/pmtiles/merge.go#L206-L215
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](deferred.Parent()) {
 		if ssaflow.InstructionDominates(store, deferred) && opaqueResourceUse(store, obligation.target) {
+			probe.Decision(analysisTrace.Step{Reason: "retained-before-defer", Outcome: analysisTrace.OutcomeUnknown, Pos: store.Pos()})
 			return false
 		}
 	}
 	liveAtBackedge := false
 	initial := []deferFlowState{{block: deferred.Block(), index: index + 1, status: resourceLive}}
 	ssaflow.WalkStates(initial, func(state deferFlowState) deferFlowState { return state }, func(state deferFlowState) ([]deferFlowState, bool) {
-		state = advanceDeferState(evidence, state, obligation)
+		state = advanceDeferState(evidence, probe, state, obligation)
 		// A branch a callee's proven result rules out is not a path to the
 		// backedge; feasibility only removes successors, it never adds one.
 		feasible := knowledge.FeasibleSuccessors(state.block, state.predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
@@ -62,7 +66,17 @@ func resourceLiveAtNextIteration(
 			if successor.Dominates(deferred.Block()) {
 				if status == resourceLive {
 					liveAtBackedge = true
+					probe.Decision(analysisTrace.Step{
+						Reason: "live-at-backedge", Outcome: analysisTrace.OutcomeRejected, Pos: deferred.Pos(),
+						Details: map[string]string{"block": strconv.Itoa(state.block.Index)},
+					})
 					return nil, false
+				}
+				if status != state.status {
+					probe.Evidence(analysisTrace.Step{
+						Reason: "iterator-exhausted", Outcome: analysisTrace.OutcomeUnknown, Pos: deferred.Pos(),
+						Details: map[string]string{"block": strconv.Itoa(state.block.Index)},
+					})
 				}
 				continue
 			}
@@ -72,6 +86,9 @@ func resourceLiveAtNextIteration(
 		}
 		return successors, true
 	})
+	if !liveAtBackedge {
+		probe.Decision(analysisTrace.Step{Reason: "settled-or-unknown-before-backedge", Outcome: analysisTrace.OutcomeAccepted, Pos: deferred.Pos()})
+	}
 	return liveAtBackedge
 }
 
@@ -113,6 +130,7 @@ func conditionCall(block *ssa.BasicBlock, condition ssa.Value) *ssa.Call {
 // later instructions cannot restore the proof that it is definitely live.
 func advanceDeferState(
 	evidence *lifecyclefacts.LifecycleEvidence,
+	probe analysisTrace.Probe,
 	state deferFlowState,
 	obligation deferObligation,
 ) deferFlowState {
@@ -120,13 +138,20 @@ func advanceDeferState(
 		if state.status != resourceLive {
 			continue
 		}
-		switch classifyResourceInstruction(evidence, state.block.Instrs[state.index], obligation) {
-		case resourceLive:
-		case resourceSettled:
-			state.status = resourceSettled
-		case resourceUnknown:
-			state.status = resourceUnknown
+		instruction := state.block.Instrs[state.index]
+		status, reason := classifyResourceInstruction(evidence, probe, instruction, obligation)
+		if status == resourceLive {
+			continue
 		}
+		state.status = status
+		outcome := analysisTrace.OutcomeAccepted
+		if status == resourceUnknown {
+			outcome = analysisTrace.OutcomeUnknown
+		}
+		probe.Evidence(analysisTrace.Step{
+			Reason: reason, Outcome: outcome, Pos: instruction.Pos(),
+			Details: map[string]string{"instruction": instruction.String()},
+		})
 	}
 	return state
 }
@@ -134,29 +159,32 @@ func advanceDeferState(
 // Classification is deliberately asymmetric: explicit cleanup and proven
 // transfer settle, opaque use suppresses, and ordinary operations on the
 // receiver leave it live. Merely failing to find a cleanup proves nothing.
+// The reason names the rule that moved the status, so a trace can attribute
+// a settled or unknown resource to the instruction and rule that decided it.
 func classifyResourceInstruction(
 	evidence *lifecyclefacts.LifecycleEvidence,
+	probe analysisTrace.Probe,
 	instruction ssa.Instruction,
 	obligation deferObligation,
-) resourceStatus {
+) (resourceStatus, string) {
 	if transfersResource(evidence, instruction, obligation.target) {
-		return resourceSettled
+		return resourceSettled, "resource-transferred"
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		if opaqueResourceUse(instruction, obligation.target) {
-			return resourceUnknown
+			return resourceUnknown, "resource-captured-or-stored"
 		}
-		return resourceLive
+		return resourceLive, ""
 	}
 	receiver := ssaflow.CallReceiver(common)
 	if sameObligationValue(receiver, obligation.target) {
 		if slices.Contains(obligation.cleanup, ssaflow.CallName(common)) {
-			return resourceSettled
+			return resourceSettled, "explicit-cleanup"
 		}
-		return resourceLive
+		return resourceLive, ""
 	}
-	return resourceUseStatus(evidence, instruction, obligation.target)
+	return resourceUseStatus(evidence, probe, instruction, obligation.target)
 }
 
 // Transfers reuse the shared structural ownership vocabulary, including
@@ -182,24 +210,39 @@ func transfersResource(
 // makes the lifetime unknown, preserving the precision-first reporting rule.
 func resourceUseStatus(
 	evidence *lifecyclefacts.LifecycleEvidence,
+	probe analysisTrace.Probe,
 	instruction ssa.Instruction,
 	target ssa.Value,
-) resourceStatus {
+) (resourceStatus, string) {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
-		return resourceLive
+		return resourceLive, ""
 	}
 	used := false
 	for index, argument := range common.Args {
-		if !ssaflow.MayAlias(argument, target) && !ssaflow.MayContainValue(argument, target) {
-			// A consumer may receive a wrapper constructed from the resource,
-			// rather than the resource itself. That is unknown, not cleanup:
-			// constructing a wrapper alone does not settle the obligation.
+		alias := ssaflow.ProveMayAlias(argument, target)
+		contains := !alias.Aliases && ssaflow.MayContainValue(argument, target)
+		probe.Evidence(analysisTrace.Step{
+			Reason: "argument-carries-resource", Outcome: analysisTrace.OutcomeObserved, Pos: instruction.Pos(),
+			Details: map[string]string{
+				"argument": argument.Name(), "alias": strconv.FormatBool(alias.Aliases), "alias-reason": string(alias.Reason),
+				"contains": strconv.FormatBool(contains),
+			},
+		})
+		if contains {
+			// The callee received a wrapper holding the resource, not the
+			// resource itself. Its summary describes the argument, so it can
+			// neither release nor be proven to leave the contents alone:
+			// unknown, not cleanup. Constructing the wrapper alone does not
+			// settle the obligation either.
 			// https://github.com/replicatedhq/troubleshoot/blob/eacd376c1245fe2ebcc3581f015f692d77d89af4/pkg/supportbundle/aftercollection.go#L39-L53
+			return resourceUnknown, "wrapper-passed-to-callee"
+		}
+		if !alias.Aliases {
 			if pointer, ok := argument.Type().Underlying().(*types.Pointer); ok {
 				if _, aggregate := pointer.Elem().Underlying().(*types.Struct); aggregate &&
 					ssaflow.ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) {
-					return resourceUnknown
+					return resourceUnknown, "wrapper-passed-to-callee"
 				}
 			}
 			continue
@@ -207,14 +250,14 @@ func resourceUseStatus(
 		used = true
 		if released, summarized := evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimReleases); summarized {
 			if released {
-				return resourceSettled
+				return resourceSettled, "callee-releases-argument"
 			}
 		}
 	}
 	if used && !evidence.CalleeSummarized(instruction) {
-		return resourceUnknown
+		return resourceUnknown, "unsummarized-callee-uses-resource"
 	}
-	return resourceLive
+	return resourceLive, ""
 }
 
 // Capturing the resource in a closure or storing it in an aggregate is opaque:

@@ -50,7 +50,7 @@ func closeNormally(c closer) { c.Close() }
 `)
 	pass := &analysis.Pass{Pkg: pkg.Pkg, ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	for _, name := range []string{"panicOnly", "loopOnly", "panicUnlessNil", "panicOwner"} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		fact := summarize(pass, pkg.Func(name))
 		for _, mask := range lifecycleMasks {
 			if got := *mask.field(&fact); got != 0 {
 				t.Errorf("%s invented %s mask %#x", name, mask.name, got)
@@ -61,10 +61,10 @@ func closeNormally(c closer) { c.Close() }
 		}
 	}
 	method := pkg.Prog.LookupMethod(types.NewPointer(pkg.Type("holder").Type()), pkg.Pkg, "PanicStore")
-	if fact := summarize(pass, newRetentionCache(), method); fact.ReceiverStore != 0 {
+	if fact := summarize(pass, method); fact.ReceiverStore != 0 {
 		t.Errorf("panic-only receiver method invented receiver-store mask %#x", fact.ReceiverStore)
 	}
-	fact := summarize(pass, newRetentionCache(), pkg.Func("closeNormally"))
+	fact := summarize(pass, pkg.Func("closeNormally"))
 	if !fact.Closed.contains(0) {
 		t.Error("real Close witness did not produce Closed fact")
 	}

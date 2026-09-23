@@ -279,10 +279,12 @@ func (graph *regionGraph) weakElementStore(state *regionState, target slot, valu
 		state.contents[target] = star
 	}
 	star.union(value)
+	graph.bound(state, target, nil)
 	parent := parentPath(target.path)
 	for other, set := range state.contents {
 		if other.region == target.region && other.path != target.path && parentPath(other.path) == parent && isIndexStep(lastStep(other.path)) {
 			set.union(value)
+			graph.bound(state, other, nil)
 		}
 	}
 }

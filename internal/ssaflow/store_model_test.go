@@ -48,7 +48,9 @@ func TestStorageSnapshots(t *testing.T) {
 		{"readOnlyCall", `x:=box{value:a}; read(&x); observe(x.value,a)`, true},
 		{"readOnlyForwarding", `x:=box{value:a}; forward(&x); observe(x.value,a)`, true},
 		{"mutatingCall", `x:=box{value:a}; mutate(&x,b); observe(x.value,a)`, false},
-		{"retainingCall", `x:=box{value:a}; retain(&x); observe(x.value,a)`, false},
+		// The callee's summary says it stored the address in a global and
+		// wrote nothing through it, so the field still holds a.
+		{"retainingCall", `x:=box{value:a}; retain(&x); observe(x.value,a)`, true},
 		{"asyncReadCall", `x:=box{value:a}; async(&x); observe(x.value,a)`, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {

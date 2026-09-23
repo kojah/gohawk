@@ -38,7 +38,7 @@ func Inspect(p *pair) bool         { return p.first != nil }
 		"Keep":        {"edge G:example.com/lifecyclefactstest.saved -> P0 must", "effect P0 escaped global every"},
 		"Inspect":     {"read P0/field:0"},
 	} {
-		fact := summarize(pass, newRetentionCache(), pkg.Func(name))
+		fact := summarize(pass, pkg.Func(name))
 		if fact.Heap == nil {
 			t.Fatalf("%s: no heap projection", name)
 		}
@@ -49,7 +49,7 @@ func Inspect(p *pair) bool         { return p.first != nil }
 			}
 		}
 	}
-	if fact := summarize(pass, newRetentionCache(), pkg.Func("Inspect")); !fact.empty() {
+	if fact := summarize(pass, pkg.Func("Inspect")); !fact.empty() {
 		t.Errorf("Inspect should be an empty summary, got heap:\n%s", fact.Heap.String())
 	}
 }
