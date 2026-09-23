@@ -9,6 +9,8 @@ import (
 	"go/types"
 	"reflect"
 
+	"github.com/kojah/gohawk/internal/factcodec"
+
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -36,6 +38,12 @@ type Fact struct {
 
 // AFact marks the versioned concurrency summary for go/analysis serialization.
 func (*Fact) AFact() {}
+
+// GobEncode encodes the fact through factcodec.
+func (fact *Fact) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
+
+// GobDecode decodes the fact through factcodec.
+func (fact *Fact) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
 
 // Analyzer exports complete effects and provides a shared engine to consumers.
 var Analyzer = &analysis.Analyzer{

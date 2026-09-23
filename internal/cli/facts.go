@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"go/types"
 	"io"
+	"maps"
 	"slices"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/ssa"
 )
 
 // The facts subcommand prints the facts a package exports and the imported
@@ -95,6 +97,7 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 		return strings.Compare(left.Object.Name(), right.Object.Name())
 	})
 	referenced := referencedCallees(action)
+	listed := map[types.Object]bool{}
 	for _, fact := range facts {
 		if filter != "" && fact.Object.Name() != filter {
 			continue
@@ -108,17 +111,40 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 			}
 			origin = "imported"
 		}
-		fmt.Fprintf(buffer, "%s %s (%s, %s)\n", action.Analyzer.Name, objectName(fact.Object), origin, position(action, fact.Object.Pos()))
-		lines := []string{fmt.Sprint(fact.Fact)}
-		if describer, ok := fact.Fact.(factDescriber); ok {
-			lines = describer.DescribeFact(fact.Object)
+		listed[fact.Object] = true
+		writeFact(buffer, action, fact.Object, origin, fact.Fact)
+	}
+	// The lifecycle pass exports no fact for a function proven to do nothing
+	// with its parameters; its in-memory summaries still list every function
+	// it summarized, so those appear here with their empty claim.
+	summaries, ok := action.Result.(lifecyclefacts.Summaries)
+	if !ok {
+		return
+	}
+	functions := slices.SortedFunc(maps.Keys(summaries), func(left, right *ssa.Function) int {
+		return int(left.Pos() - right.Pos())
+	})
+	for _, function := range functions {
+		object := function.Object()
+		if object == nil || listed[object] || filter != "" && object.Name() != filter {
+			continue
 		}
-		if len(lines) == 0 {
-			lines = []string{"no parameter is proven on every return"}
-		}
-		for _, line := range lines {
-			fmt.Fprintf(buffer, "  %s\n", line)
-		}
+		fact := summaries[function]
+		writeFact(buffer, action, object, "exported here", &fact)
+	}
+}
+
+func writeFact(buffer *bytes.Buffer, action *checker.Action, object types.Object, origin string, fact analysis.Fact) {
+	fmt.Fprintf(buffer, "%s %s (%s, %s)\n", action.Analyzer.Name, objectName(object), origin, position(action, object.Pos()))
+	lines := []string{fmt.Sprint(fact)}
+	if describer, ok := fact.(factDescriber); ok {
+		lines = describer.DescribeFact(object)
+	}
+	if len(lines) == 0 {
+		lines = []string{"no parameter is proven on every return"}
+	}
+	for _, line := range lines {
+		fmt.Fprintf(buffer, "  %s\n", line)
 	}
 }
 

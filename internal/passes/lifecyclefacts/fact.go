@@ -3,8 +3,11 @@ package lifecyclefacts
 import (
 	"fmt"
 	"go/types"
+	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/kojah/gohawk/internal/factcodec"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
@@ -371,6 +374,41 @@ func (fact *Fact) parameterMasks(index int) []string {
 
 func (*Fact) AFact() {}
 
+// GobEncode encodes the fact through factcodec.
+func (fact *Fact) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
+
+// GobDecode decodes the fact through factcodec.
+func (fact *Fact) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
+
+// SummarizedPackage marks a package whose exported functions with bodies
+// were all summarized. A function of such a package with no summary of its
+// own was proven to do nothing with its parameters; only a function of a
+// package without the marker, or one listed as bodiless, is unknown. It
+// exists so an empty summary need not be serialized for every function of
+// every dependency, which the analysis framework would otherwise decode
+// once per dependent package.
+type SummarizedPackage struct {
+	Bodiless []string
+}
+
+// AFact marks SummarizedPackage as an analysis fact.
+func (*SummarizedPackage) AFact() {}
+
+// GobEncode encodes the fact through factcodec.
+func (fact *SummarizedPackage) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
+
+// GobDecode decodes the fact through factcodec.
+func (fact *SummarizedPackage) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
+
+// empty reports whether the summary claims nothing.
+func (fact *Fact) empty() bool {
+	masks := fact.Invoked | fact.SynchronouslyInvoked | fact.Closed | fact.Finalized | fact.Released | fact.Shutdown |
+		fact.Stopped | fact.Waited | fact.Committed | fact.RolledBack | fact.ReturnedOwner | fact.ReturnedView |
+		fact.Retained | fact.Stored | fact.LoopReleased | fact.OwnedFields | fact.ReleasedFields | fact.OwnedResults |
+		fact.ReceiverStore
+	return masks == 0 && len(fact.Kept) == 0 && len(fact.Discharges) == 0 && fact.Conditional == nil && fact.ReturnedCleanup == nil
+}
+
 // String decodes the masks by parameter position so the fact is readable in
 // analysis debug output.
 func (fact *Fact) String() string {
@@ -413,7 +451,30 @@ func factForFunction(pass *analysis.Pass, function *ssa.Function) (Fact, bool) {
 		return Fact{}, false
 	}
 	var fact Fact
-	return fact, pass.ImportObjectFact(object, &fact)
+	if pass.ImportObjectFact(object, &fact) {
+		return fact, true
+	}
+	// No summary of its own: proven to do nothing if its package was
+	// summarized and the function was in scope for summarizing, which is
+	// the same condition the pass applies before summarizing.
+	var marker SummarizedPackage
+	if object.Pkg() == nil || !object.Exported() || pass.ImportPackageFact == nil || !pass.ImportPackageFact(object.Pkg(), &marker) {
+		return Fact{}, false
+	}
+	if signature, ok := object.Type().(*types.Signature); !ok || signature.Params().Len()+receiverCount(signature) > 64 {
+		return Fact{}, false
+	}
+	if slices.Contains(marker.Bodiless, object.Name()) {
+		return Fact{}, false
+	}
+	return Fact{}, true
+}
+
+func receiverCount(signature *types.Signature) int {
+	if signature.Recv() != nil {
+		return 1
+	}
+	return 0
 }
 
 // factOwnsArgument reports whether mask covers the argument which contains

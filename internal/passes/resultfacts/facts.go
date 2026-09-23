@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/factcodec"
+
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -25,6 +27,12 @@ type Fact struct {
 
 // AFact marks the result component for go/analysis serialization.
 func (*Fact) AFact() {}
+
+// GobEncode encodes the fact through factcodec.
+func (fact *Fact) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
+
+// GobDecode decodes the fact through factcodec.
+func (fact *Fact) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
 
 // Analyzer computes result knowledge only when required before dependency
 // analysis. It does not require lifecycle or concurrency inference.

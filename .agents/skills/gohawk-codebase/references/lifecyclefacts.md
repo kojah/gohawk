@@ -17,7 +17,7 @@ var Analyzer = &analysis.Analyzer{
 	Name:		"gohawklifecyclefacts",
 	Doc:		"exports internal lifecycle ownership summaries",
 	Requires:	[]*analysis.Analyzer{buildssa.Analyzer},
-	FactTypes:	[]analysis.Fact{new(Fact), new(CleanupFact)},
+	FactTypes:	[]analysis.Fact{new(Fact), new(CleanupFact), new(SummarizedPackage)},
 	ResultType:	reflect.TypeFor[Summaries](),
 	Run:		run,
 }
@@ -107,6 +107,26 @@ func (fact *CleanupFact) DescribeFact(object types.Object) []string
 
 DescribeFact renders the contract for the fact dump, naming the fields the
 methods release so a reader can check the claim against the struct.
+
+## CleanupFact.GobDecode
+
+[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
+
+```go
+func (fact *CleanupFact) GobDecode(data []byte) error
+```
+
+GobDecode decodes the fact through factcodec.
+
+## CleanupFact.GobEncode
+
+[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
+
+```go
+func (fact *CleanupFact) GobEncode() ([]byte, error)
+```
+
+GobEncode encodes the fact through factcodec.
 
 ## CleanupFact.String
 
@@ -293,6 +313,26 @@ func (fact *Fact) DischargedParameters() ParameterMask
 DischargedParameters returns the parameters with any discharge, at any
 path, for a consumer that only asks whether the callee releases part of
 what it was handed.
+
+## Fact.GobDecode
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+func (fact *Fact) GobDecode(data []byte) error
+```
+
+GobDecode decodes the fact through factcodec.
+
+## Fact.GobEncode
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+func (fact *Fact) GobEncode() ([]byte, error)
+```
+
+GobEncode encodes the fact through factcodec.
 
 ## Fact.KeptParameters
 
@@ -638,3 +678,51 @@ type Summaries map[*ssa.Function]Fact
 
 Summaries is the pass result: the summary of every exported source function
 in the package plus the imported summary of every static callee.
+
+## SummarizedPackage
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+type SummarizedPackage struct {
+	Bodiless []string
+}
+```
+
+SummarizedPackage marks a package whose exported functions with bodies
+were all summarized. A function of such a package with no summary of its
+own was proven to do nothing with its parameters; only a function of a
+package without the marker, or one listed as bodiless, is unknown. It
+exists so an empty summary need not be serialized for every function of
+every dependency, which the analysis framework would otherwise decode
+once per dependent package.
+
+## SummarizedPackage.AFact
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+func (*SummarizedPackage) AFact()
+```
+
+AFact marks SummarizedPackage as an analysis fact.
+
+## SummarizedPackage.GobDecode
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+func (fact *SummarizedPackage) GobDecode(data []byte) error
+```
+
+GobDecode decodes the fact through factcodec.
+
+## SummarizedPackage.GobEncode
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+func (fact *SummarizedPackage) GobEncode() ([]byte, error)
+```
+
+GobEncode encodes the fact through factcodec.

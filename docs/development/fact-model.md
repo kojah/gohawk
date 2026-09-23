@@ -290,6 +290,19 @@ must be at that path.
 consumer that only asks whether the callee releases part of what it was
 handed.
 
+## Serialization
+
+Every fact type encodes itself as JSON inside the gob stream go/analysis
+uses, through `internal/passes/factcodec`. gob compiles a decoding engine
+per type for every stream it opens, and the analysis test harness
+round-trips every inherited fact through a fresh stream, so a summary with
+many fields cost more to compile than to decode; a byte slice costs gob
+nothing. The lifecycle pass also exports no summary for a function proven
+to do nothing with its parameters. A `SummarizedPackage` fact on the package
+carries the distinction an importer needs: a function of a summarized
+package with no summary of its own was proven empty, while a function of a
+package without the marker, or one the marker lists as bodiless, is unknown.
+
 ## Kept contents
 
 `Retained` is about the parameter itself and deliberately ignores what is

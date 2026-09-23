@@ -149,6 +149,26 @@ func (*Fact) AFact()
 
 AFact marks the versioned concurrency summary for go/analysis serialization.
 
+## Fact.GobDecode
+
+[Source](../../../../internal/passes/concurrencyfacts/facts.go)
+
+```go
+func (fact *Fact) GobDecode(data []byte) error
+```
+
+GobDecode decodes the fact through factcodec.
+
+## Fact.GobEncode
+
+[Source](../../../../internal/passes/concurrencyfacts/facts.go)
+
+```go
+func (fact *Fact) GobEncode() ([]byte, error)
+```
+
+GobEncode encodes the fact through factcodec.
+
 ## Incomplete, CompleteNoEffects, CompleteWithEffects
 
 [Source](../../../../internal/passes/concurrencyfacts/summary.go)

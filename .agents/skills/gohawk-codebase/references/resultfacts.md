@@ -74,6 +74,26 @@ func (*Fact) AFact()
 
 AFact marks the result component for go/analysis serialization.
 
+## Fact.GobDecode
+
+[Source](../../../../internal/passes/resultfacts/facts.go)
+
+```go
+func (fact *Fact) GobDecode(data []byte) error
+```
+
+GobDecode decodes the fact through factcodec.
+
+## Fact.GobEncode
+
+[Source](../../../../internal/passes/resultfacts/facts.go)
+
+```go
+func (fact *Fact) GobEncode() ([]byte, error)
+```
+
+GobEncode encodes the fact through factcodec.
+
 ## FalseWhenParameterNil, TrueWhenParameterNonNil, NonNilWhenResultNil, NilWhenResultNonNil, ReturnsParameter
 
 [Source](../../../../internal/passes/resultfacts/relations.go)

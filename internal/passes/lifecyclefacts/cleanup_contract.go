@@ -26,6 +26,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/factcodec"
+
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -46,6 +48,12 @@ type CleanupFact struct {
 
 // AFact marks CleanupFact as an analysis fact.
 func (fact *CleanupFact) AFact() {}
+
+// GobEncode encodes the fact through factcodec.
+func (fact *CleanupFact) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
+
+// GobDecode decodes the fact through factcodec.
+func (fact *CleanupFact) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
 
 func (fact *CleanupFact) String() string {
 	return fmt.Sprintf("cleanup(%s)", strings.Join(fact.Methods, ","))

@@ -6,6 +6,7 @@ package lifecyclefacts
 import (
 	"go/types"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -21,7 +22,7 @@ var Analyzer = &analysis.Analyzer{
 	Name:       "gohawklifecyclefacts",
 	Doc:        "exports internal lifecycle ownership summaries",
 	Requires:   []*analysis.Analyzer{buildssa.Analyzer},
-	FactTypes:  []analysis.Fact{new(Fact), new(CleanupFact)},
+	FactTypes:  []analysis.Fact{new(Fact), new(CleanupFact), new(SummarizedPackage)},
 	ResultType: reflect.TypeFor[Summaries](),
 	Run:        run,
 }
@@ -38,7 +39,11 @@ func run(pass *analysis.Pass) (any, error) {
 	}
 	summaries := make(Summaries, len(functions))
 	retentions := newRetentionCache()
+	marker := &SummarizedPackage{}
 	for _, function := range functions {
+		if object := function.Object(); object != nil && object.Exported() && len(function.Blocks) == 0 {
+			marker.Bodiless = append(marker.Bodiless, object.Name())
+		}
 		object := function.Object()
 		// Only exported functions can be called from a package that imports this
 		// fact. Skipping private dependency helpers keeps the prerequisite linear
@@ -69,13 +74,19 @@ func run(pass *analysis.Pass) (any, error) {
 	}
 	// A returned view is decided once every method of this package is
 	// summarized, because the releasing method usually lives beside the
-	// constructor. Export afterwards, and export even an empty summary: an
-	// importer must be able to tell a callee proven to do nothing from one that
-	// was never summarized, and only the latter is unknown.
+	// constructor. Export afterwards. An importer must be able to tell a
+	// callee proven to do nothing from one that was never summarized, and
+	// only the latter is unknown; the package marker carries that
+	// distinction, so an empty summary need not be serialized for every
+	// function of every dependency.
+	slices.Sort(marker.Bodiless)
+	pass.ExportPackageFact(marker)
 	for function, fact := range summaries {
 		fact.ReturnedView = returnedViews(pass, function, fact, summaries)
 		summaries[function] = fact
-		pass.ExportObjectFact(function.Object(), &fact)
+		if !fact.empty() {
+			pass.ExportObjectFact(function.Object(), &fact)
+		}
 	}
 	// A type's contract needs its constructor and its methods, so it is joined
 	// once both are summarized rather than while either is being proved.
