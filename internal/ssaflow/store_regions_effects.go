@@ -121,7 +121,9 @@ func (graph *regionGraph) escape(state *regionState, set pointees) {
 }
 
 // clobber forgets the contents of every site reachable from the pointees,
-// stamping them with the effect that did it.
+// stamping them with the effect that did it. A closure handed on can only
+// touch a captured cell through its own body, so a cell that body only
+// reads keeps its contents whatever the callee does with the closure.
 func (graph *regionGraph) clobber(state *regionState, set pointees, stamp int) {
 	queue := make([]*region, 0, len(set))
 	for target := range set {
@@ -136,10 +138,14 @@ func (graph *regionGraph) clobber(state *regionState, set pointees, stamp int) {
 		}
 		seen[object] = true
 		for target, contents := range state.contents {
-			if target.region == object {
-				for pointee := range contents {
-					queue = append(queue, pointee.region)
+			if target.region != object {
+				continue
+			}
+			for pointee := range contents {
+				if object.kind == regionClosure && graph.closureOnlyReads(object, pointee) {
+					continue
 				}
+				queue = append(queue, pointee.region)
 			}
 		}
 		if object.kind == regionSite {
@@ -156,6 +162,15 @@ func (graph *regionGraph) clobber(state *regionState, set pointees, stamp int) {
 			}
 		}
 	}
+}
+
+// closureOnlyReads reports whether the captured cell is only read by the
+// closure's body.
+func (graph *regionGraph) closureOnlyReads(closure *region, captured slot) bool {
+	literal, ok := closure.origin.(*ssa.MakeClosure)
+	cell, isCell := captured.region.origin.(*ssa.Alloc)
+	return ok && isCell && captured.region.kind == regionSite && captured.path == "" &&
+		callbackCaptureReadOnly(literal, cell, graph.budget)
 }
 
 // call applies a call's effects. Results are opaque objects. Every object

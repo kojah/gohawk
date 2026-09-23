@@ -1,7 +1,6 @@
 package ssaflow
 
 import (
-	"go/token"
 	"maps"
 
 	"github.com/kojah/gohawk/internal/syntax"
@@ -17,22 +16,16 @@ var syncOnceFunc = syntax.PackageFunction("sync", "OnceFunc")
 // queries require agreeing incoming writes and no later mutation; specialized
 // target-relative proofs also account for conditional acquisition paths.
 
+// deferredBindingValue recovers the value a non-cell binding stands for
+// when the deferred callee runs. A captured cell is read by the points-to
+// graph instead; see deferredCellLocal.
+//
 //nolint:ireturn // SSA bindings have several concrete forms.
 func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction) (ssa.Value, bool) {
-	if valueHasDirectStore(binding) {
-		// Addressable captures must use the store proofs below. General
-		// identity traversal may otherwise match one historical value while the
-		// deferred callback observes a later reassignment.
-		if targetStoredOnPath(binding, target, invocation) {
-			return target, true
-		}
-		return NewStorage(nil).stableValue(binding, invocation)
-	}
 	if MayAlias(binding, target) || ValueIsAccessPathFrom(target, binding) {
 		return binding, true
 	}
-	stored, ok := NewStorage(nil).stableValue(binding, invocation)
-	return stored, ok
+	return NewStorage(nil).stableValue(binding, invocation)
 }
 
 func valueHasDirectStore(value ssa.Value) bool {
@@ -125,61 +118,4 @@ func cloneValueSet(source map[ssa.Value]bool) map[ssa.Value]bool {
 	result := make(map[ssa.Value]bool, len(source))
 	maps.Copy(result, source)
 	return result
-}
-
-// appendOnlyCell reports whether every store into the cell writes the result
-// of appending to the cell's own current value, so the cell only grows. Such
-// a cell holds, at any later point, everything ever appended to it.
-func appendOnlyCell(address ssa.Value) bool {
-	if address == nil || address.Referrers() == nil {
-		return false
-	}
-	stores := 0
-	for _, reference := range *address.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if !ok || store.Addr != address {
-			continue
-		}
-		stores++
-		if !appendsToCell(store.Val, address) {
-			return false
-		}
-	}
-	return stores > 0
-}
-
-func appendsToCell(value, address ssa.Value) bool {
-	call, ok := value.(*ssa.Call)
-	if !ok {
-		return false
-	}
-	builtin, ok := call.Common().Value.(*ssa.Builtin)
-	if !ok || builtin.Name() != "append" || len(call.Common().Args) == 0 {
-		return false
-	}
-	load, ok := call.Common().Args[0].(*ssa.UnOp)
-	return ok && load.Op == token.MUL && load.X == address
-}
-
-// targetOrNilCell reports whether every store into the cell writes the target
-// or a nil constant, with at least one store of the target.
-func targetOrNilCell(address, target ssa.Value) bool {
-	if address == nil || address.Referrers() == nil {
-		return false
-	}
-	storesTarget := false
-	for _, reference := range *address.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if !ok || store.Addr != address {
-			continue
-		}
-		switch {
-		case MayAlias(store.Val, target):
-			storesTarget = true
-		case DefinitelyNil(store.Val):
-		default:
-			return false
-		}
-	}
-	return storesTarget
 }
