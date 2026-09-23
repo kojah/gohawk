@@ -180,3 +180,9 @@ func InspectEach(files ...*os.File) {
 		_ = file
 	}
 }
+
+// Failed reports whether err is non-nil.
+func Failed(err error) bool { return err != nil }
+
+// FailedOther ignores its first error and reports on the second.
+func FailedOther(_ error, other error) bool { return other != nil }

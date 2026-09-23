@@ -12,7 +12,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-var summaryKnowledge = summaries.Select(summaries.Requirements{Lifecycle: true})
+var summaryKnowledge = summaries.Select(summaries.Requirements{Results: true, Lifecycle: true})
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
@@ -47,7 +47,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				probe := analysisTrace.For(pass, "cancellationownership", string(check.CancellationRelease), call.Pos())
 				evidence, _ := summaryKnowledge.Provider(pass).LifecycleEvidence("cancellationownership", string(check.CancellationRelease))
 				evidence.ForCandidate(call.Pos())
-				proof := proveCancellation(call, cancel, probe.Observer(), evidence)
+				proof := proveCancellation(call, cancel, probe.Observer(), evidence, summaryKnowledge.Provider(pass))
 				emitCancellationDecision(pass, function, call, contract, proof)
 				if proof.Outcome == CancellationLost {
 					source := syntax.SourceRange(pass, call.Pos())

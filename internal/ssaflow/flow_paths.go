@@ -206,8 +206,9 @@ func unownedReturnFromEntry(
 	return unownedReturnFrom([]obligationState{{block: function.Blocks[0]}}, owns, allowReturn, nonNil, ownsEdge)
 }
 
-func nonNilFeasibleSuccessors(block, predecessor *ssa.BasicBlock, value ssa.Value) []*ssa.BasicBlock {
-	successors := FeasibleSuccessors(block, predecessor)
+// nonNilSuccessors narrows already-feasible successors by the assumption
+// that value is non-nil at the branch.
+func nonNilSuccessors(successors []*ssa.BasicBlock, block *ssa.BasicBlock, value ssa.Value) []*ssa.BasicBlock {
 	if value == nil || len(block.Succs) != 2 || len(block.Instrs) == 0 {
 		return successors
 	}

@@ -10,12 +10,16 @@ import (
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 )
 
-const factVersion = 1
+const factVersion = 2
 
-// Fact publishes independent result guarantees, never conditional relations.
+// Fact publishes independent result guarantees and the proven relations
+// between a result and a parameter or another result. A relation is an
+// implication that held on every return under its assumption; its absence
+// is not the opposite implication.
 type Fact struct {
-	Version int
-	Results []Guarantee
+	Version   int
+	Results   []Guarantee
+	Relations []Relation
 }
 
 // AFact marks the result component for go/analysis serialization.
@@ -50,7 +54,9 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		summary := engine.Function(function, ssaflow.NewSearchBudget(2000))
 		if summary.Available {
-			pass.ExportObjectFact(object, &Fact{Version: factVersion, Results: slices.Clone(summary.results)})
+			pass.ExportObjectFact(object, &Fact{
+				Version: factVersion, Results: slices.Clone(summary.results), Relations: slices.Clone(summary.relations),
+			})
 		}
 	}
 	return engine, nil
@@ -62,6 +68,12 @@ func validFact(fact *Fact) bool {
 	}
 	for _, result := range fact.Results {
 		if result > AlwaysFalse {
+			return false
+		}
+	}
+	for _, relation := range fact.Relations {
+		if relation.Kind == 0 || relation.Kind > NilWhenResultNonNil || relation.Result < 0 ||
+			relation.Result >= len(fact.Results) || relation.Operand < 0 || relation.Operand > maxResults {
 			return false
 		}
 	}

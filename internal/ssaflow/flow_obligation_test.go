@@ -124,3 +124,25 @@ func TestEvaluateObligationReturnAndNonNilPolicy(t *testing.T) {
 		t.Errorf("the nil branch was pruned without a non-nil assumption: outcome %d", got)
 	}
 }
+
+// A caller-supplied feasibility view prunes the early return the default
+// view cannot, and the non-nil assumption still applies on top of it.
+func TestEvaluateObligationUsesSuppliedSuccessors(t *testing.T) {
+	pkg := buildTestSSA(t, obligationFixture)
+	function := pkg.Func("earlyReturnUncovered")
+	start := obligationStart(t, function)
+	flow := ObligationFlow{Start: start, Instruction: labelledCall}
+	if got := EvaluateObligation(flow); got != ObligationViolated {
+		t.Fatalf("default feasibility: outcome %d, want violated", got)
+	}
+	flow.Successors = func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
+		successors := FeasibleSuccessors(block, predecessor)
+		if len(successors) == 2 {
+			return successors[1:]
+		}
+		return successors
+	}
+	if got := EvaluateObligation(flow); got != ObligationUncertain {
+		t.Fatalf("supplied feasibility: outcome %d, want uncertain (only the opaque path remains)", got)
+	}
+}

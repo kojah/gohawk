@@ -183,7 +183,7 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 	result := make([]resourceFlowState, 0, len(successors))
 	for _, successor := range successors {
 		active := state.active
-		if success, known := resourceSuccessBranch(pass, state.block, successor, errorValue, candidate); known {
+		if success, known := resourceSuccessBranch(pass, analysis.summaries, state.block, successor, errorValue, candidate); known {
 			active = active && success
 		}
 		if present, known := resourcePresenceBranch(state.block, successor, resource); known {

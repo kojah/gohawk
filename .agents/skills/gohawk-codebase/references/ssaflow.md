@@ -782,7 +782,7 @@ It does not enumerate callers of named functions or export relational facts.
 
 ## EvaluateObligation
 
-[Source](../../../../internal/ssaflow/flow_obligation.go#L62)
+[Source](../../../../internal/ssaflow/flow_obligation.go#L78)
 
 ```go
 func EvaluateObligation(flow ObligationFlow) ObligationOutcome
@@ -924,7 +924,7 @@ the current function invocation.
 
 ## FeasibleSuccessors
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L264)
+[Source](../../../../internal/ssaflow/flow_paths.go#L265)
 
 ```go
 func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
@@ -1312,7 +1312,7 @@ NewStorage creates a bounded storage query using the caller's search budget.
 
 ## NormalReturnReachableFrom
 
-[Source](../../../../internal/ssaflow/flow_paths.go#L396)
+[Source](../../../../internal/ssaflow/flow_paths.go#L397)
 
 ```go
 func NormalReturnReachableFrom(block *ssa.BasicBlock) bool
@@ -1343,6 +1343,12 @@ type ObligationFlow struct {
 	Instruction	func(ssa.Instruction) ObligationAction
 	Return		func(*ssa.Return) ObligationAction
 	Edge		func(from, to *ssa.BasicBlock) ObligationAction
+	// Successors, when set, replaces the default feasibility of a block's
+	// successors with the analyzer's richer view, such as one that prunes a
+	// branch on a callee's proven result. The NonNil assumption is applied
+	// on top of it either way. It must return a subset of the block's
+	// successors; it never proves an action.
+	Successors	func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
 }
 ```
 

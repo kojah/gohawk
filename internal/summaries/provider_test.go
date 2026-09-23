@@ -91,3 +91,77 @@ func Caller(value bool) int { if Unknown(value) { return 1 }; return 2 }
 		t.Fatalf("unknown eliminated a branch: %v", successors)
 	}
 }
+
+// A result proven non-nil whenever its error is nil cannot be nil below the
+// success arm of that error's check, so the nil-comparison branch is pruned.
+// Above the check, or for a callee without the relation, both arms stay.
+func TestFeasibleSuccessorsUseResultPairRelations(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "broker", `package broker
+type box struct{}
+type failure struct{}
+func (*failure) Error() string { return "failure" }
+func Open(ok bool) (*box, error) {
+	if !ok {
+		return nil, &failure{}
+	}
+	return &box{}, nil
+}
+func Loose(ok bool) (*box, error) {
+	if !ok {
+		return &box{}, &failure{}
+	}
+	return nil, nil
+}
+func guarded(ok bool) *box {
+	b, err := Open(ok)
+	if err != nil {
+		return nil
+	}
+	if b == nil {
+		return nil
+	}
+	return b
+}
+func unguarded(ok bool) *box {
+	b, _ := Open(ok)
+	if b == nil {
+		return nil
+	}
+	return b
+}
+func loose(ok bool) *box {
+	b, err := Loose(ok)
+	if err != nil {
+		return nil
+	}
+	if b == nil {
+		return nil
+	}
+	return b
+}
+`)
+	pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{resultfacts.Analyzer: resultfacts.NewEngine()}}
+	provider := Select(Requirements{Results: true}).Provider(pass)
+	for name, want := range map[string]int{"guarded": 1, "unguarded": 2, "loose": 2} {
+		function := pkg.Func(name)
+		var block *ssa.BasicBlock
+		for _, candidate := range function.Blocks {
+			if branch, ok := candidate.Instrs[len(candidate.Instrs)-1].(*ssa.If); ok {
+				if comparison, ok := branch.Cond.(*ssa.BinOp); ok && comparison.X.Type().String() == "*broker.box" {
+					block = candidate
+				}
+			}
+		}
+		if block == nil {
+			t.Fatalf("%s: no nil comparison of the result", name)
+		}
+		var predecessor *ssa.BasicBlock
+		if len(block.Preds) > 0 {
+			predecessor = block.Preds[0]
+		}
+		got := provider.FeasibleSuccessors(block, predecessor, ssaflow.NewSearchBudget(2000))
+		if len(got) != want {
+			t.Errorf("%s: %d feasible successors, want %d", name, len(got), want)
+		}
+	}
+}

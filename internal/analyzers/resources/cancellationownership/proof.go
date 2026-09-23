@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
@@ -66,7 +67,9 @@ func (classifier *cancellationClassifier) budget() *ssaflow.SearchBudget {
 	return ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(classifier.observer)
 }
 
-func proveCancellation(call *ssa.Call, cancel ssa.Value, observer ssaflow.Observer, evidence *lifecyclefacts.LifecycleEvidence) CancellationProof {
+func proveCancellation(
+	call *ssa.Call, cancel ssa.Value, observer ssaflow.Observer, evidence *lifecyclefacts.LifecycleEvidence, knowledge *summaries.Provider,
+) CancellationProof {
 	classifier := &cancellationClassifier{
 		cancel:   cancel,
 		parent:   parentCancellationClassifier(call, observer),
@@ -81,7 +84,7 @@ func proveCancellation(call *ssa.Call, cancel ssa.Value, observer ssaflow.Observ
 	// return no action reaches is loss; a return only an opaque handoff reaches
 	// is unknown, and that opacity excuses no other path's early return.
 	switch ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
-		Start: call, NonNil: cancel,
+		Start: call, NonNil: cancel, Successors: knowledge.Successors(),
 		Instruction: classifier.obligation, Return: classifier.returnObligation, Edge: classifier.edgeObligation,
 	}) {
 	case ssaflow.ObligationViolated:

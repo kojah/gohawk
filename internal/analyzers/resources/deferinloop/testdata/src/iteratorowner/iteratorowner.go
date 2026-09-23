@@ -24,3 +24,6 @@ func (rows *Rows) Next() bool {
 	rows.remaining--
 	return true
 }
+
+// AlwaysDone is an exported helper whose result is always true.
+func AlwaysDone() bool { return true }

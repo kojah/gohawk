@@ -169,6 +169,18 @@ func (provider *Provider) ResultOf(value ssa.Value, budget *ssaflow.SearchBudget
 ResultOf maps a direct result to its function-summary slot. This is not
 context-sensitive inference: arguments do not strengthen the guarantee.
 
+## Provider.Successors
+
+[Source](../../../../internal/summaries/results.go#L51)
+
+```go
+func (provider *Provider) Successors() func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
+```
+
+Successors adapts FeasibleSuccessors to the obligation walk's hook with a
+bounded budget per query. A nil provider yields no hook, so the walk keeps
+its default feasibility.
+
 ## Requirements
 
 [Source](../../../../internal/summaries/provider.go#L17)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -31,6 +32,7 @@ type deferFlowState struct {
 // settled and unknown paths stop at the backedge without producing a claim.
 func resourceLiveAtNextIteration(
 	evidence *lifecyclefacts.LifecycleEvidence,
+	knowledge *summaries.Provider,
 	deferred *ssa.Defer,
 	obligation deferObligation,
 ) bool {
@@ -51,8 +53,11 @@ func resourceLiveAtNextIteration(
 	initial := []deferFlowState{{block: deferred.Block(), index: index + 1, status: resourceLive}}
 	ssaflow.WalkStates(initial, func(state deferFlowState) deferFlowState { return state }, func(state deferFlowState) ([]deferFlowState, bool) {
 		state = advanceDeferState(evidence, state, obligation)
-		successors := make([]deferFlowState, 0, len(state.block.Succs))
-		for _, successor := range state.block.Succs {
+		// A branch a callee's proven result rules out is not a path to the
+		// backedge; feasibility only removes successors, it never adds one.
+		feasible := knowledge.FeasibleSuccessors(state.block, state.predecessor, ssaflow.NewSearchBudget(2000))
+		successors := make([]deferFlowState, 0, len(feasible))
+		for _, successor := range feasible {
 			status := iteratorSuccessorStatus(state, successor, obligation)
 			if successor.Dominates(deferred.Block()) {
 				if status == resourceLive {

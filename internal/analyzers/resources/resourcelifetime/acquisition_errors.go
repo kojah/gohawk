@@ -1,12 +1,13 @@
 package resourcelifetime
 
 import (
-	"go/constant"
 	"go/token"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/resultfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -21,6 +22,7 @@ import (
 
 func resourceSuccessBranch(
 	pass *analysis.Pass,
+	knowledge *summaries.Provider,
 	block, successor *ssa.BasicBlock,
 	errorValue ssa.Value,
 	candidate token.Pos,
@@ -41,7 +43,7 @@ func resourceSuccessBranch(
 	// https://github.com/codefly-dev/cli/blob/5d176b95c8e3ad721bdeb0d6c4c3a64dd261caa6/pkg/executionattestor/file.go#L122-L130
 	// https://github.com/prometheus/node_exporter/blob/a4e08d1d9a152f67ef781469eade6b0bf431994d/collector/ethtool_linux_test.go#L62-L74
 	// https://github.com/pocketbase/pocketbase/blob/bc8ffed4e7265a70a6e8de76c0b0b48b945e19ef/tools/filesystem/internal/fileblob/fileblob.go#L428-L436
-	if proof, ok := resourceAbsentErrorCheck(branch.Cond, errorValue); ok && successor == block.Succs[0] {
+	if proof, ok := resourceAbsentErrorCheck(knowledge, branch.Cond, errorValue); ok && successor == block.Succs[0] {
 		traceAcquisitionErrorProof(pass, branch, proof, candidate)
 		return false, true
 	}
@@ -68,7 +70,7 @@ func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, erro
 	return successor == branch.Block().Succs[0], true
 }
 
-func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
+func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorValue ssa.Value) (string, bool) {
 	// Equality to a documented non-nil sentinel excludes successful acquisition.
 	// Require the exact error: an unrelated or derived error can compare equal
 	// even when this acquisition succeeded. Arbitrary error variables may be nil.
@@ -98,7 +100,7 @@ func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
 		len(common.Args) == 2 && common.Args[0] == errorValue {
 		return "errors-as-exact-acquisition-error", true
 	}
-	if proof := errorPredicateAcquisition(call, errorValue); proof.Proven() {
+	if proof := errorPredicateAcquisition(knowledge, call, errorValue); proof.Proven() {
 		return string(proof.Reason), true
 	}
 	// os.IsNotExist and os.IsExist are the legacy equivalents of errors.Is with
@@ -118,31 +120,37 @@ func resourceAbsentErrorCheck(condition, errorValue ssa.Value) (string, bool) {
 	return "", false
 }
 
-// A visible predicate can observe the error without changing its nil meaning.
-// Prove only the implication needed here: if the exact error is nil, every
-// reachable normal return is literal false. Unknown other branches, rewritten
-// errors, dynamic dispatch and deferred result mutation cannot establish it.
+// A predicate may observe the error without changing its nil meaning. The
+// implication needed here, that the result is false whenever the exact error
+// is nil, is the FalseWhenParameterNil relation the result summary proves for
+// visible bodies and imports for other packages, so a local helper, a
+// captured callback, and an exported helper all answer through one proof.
+// Unknown other branches, rewritten errors, dynamic dispatch and deferred
+// result mutation leave the relation unproven.
 // https://github.com/norwoodj/helm-docs/blob/a5573af096a4b526dcbc3c896c220b1714a0765b/pkg/helm/chart_info.go#L94-L106
-func errorPredicateAcquisition(call *ssa.Call, errorValue ssa.Value) ssaflow.Proof {
+func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, errorValue ssa.Value) ssaflow.Proof {
 	unknown := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
 	budget := ssaflow.NewSearchBudget(1000)
 	function, closure := ssaflow.DirectCallee(call.Common())
 	if function == nil {
 		function = capturedErrorPredicate(call, budget)
 	}
-	if function == nil || len(function.Blocks) == 0 || errorValue == nil {
+	if function == nil || knowledge == nil || errorValue == nil {
 		if budget.Exhausted() {
 			unknown.Reason = ssaflow.EvidenceBudgetExhausted
 		}
 		return unknown
 	}
-	for _, binding := range ssaflow.CallBindings(call.Common(), function, closure) {
-		parameter, ok := binding.Local.(*ssa.Parameter)
-		if !ok || binding.Supplied != errorValue {
+	// Relations index parameters by position, receiver included, which is the
+	// argument position of a static call. An imported callee has no SSA
+	// parameters to bind, so the position is matched directly.
+	for index, argument := range call.Common().Args {
+		if argument != errorValue || closure != nil {
 			continue
 		}
-		if falseWhenErrorNil(function, parameter, budget) {
-			return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "visible-error-predicate-false-for-nil"}
+		summary, available := knowledge.ForFunction(function).Results(ssaflow.NewSearchBudget(4000))
+		if available == summaries.Available && summary.Holds(resultfacts.FalseWhenParameterNil, 0, index) {
+			return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "error-predicate-false-for-nil"}
 		}
 	}
 	if budget.Exhausted() {
@@ -223,59 +231,6 @@ func (query *capturedPredicateQuery) creation(walk ssaflow.ReachingWalk, free *s
 		return true
 	}
 	return false
-}
-
-func falseWhenErrorNil(function *ssa.Function, parameter *ssa.Parameter, budget *ssaflow.SearchBudget) bool {
-	valid, sawReturn := true, false
-	ssaflow.WalkStates([]*ssa.BasicBlock{function.Blocks[0]}, func(block *ssa.BasicBlock) *ssa.BasicBlock { return block },
-		func(block *ssa.BasicBlock) ([]*ssa.BasicBlock, bool) {
-			for _, instruction := range block.Instrs {
-				if !budget.Spend() {
-					valid = false
-					return nil, false
-				}
-				if returned, ok := instruction.(*ssa.Return); ok {
-					sawReturn = true
-					valid = literalFalseReturn(returned)
-					if !valid {
-						return nil, false
-					}
-				}
-			}
-			return nilErrorSuccessors(block, parameter), true
-		})
-	return valid && sawReturn && !budget.Exhausted()
-}
-
-func literalFalseReturn(returned *ssa.Return) bool {
-	if len(returned.Results) != 1 {
-		return false
-	}
-	literal, ok := returned.Results[0].(*ssa.Const)
-	return ok && literal.Value != nil && literal.Value.Kind() == constant.Bool && !constant.BoolVal(literal.Value)
-}
-
-func nilErrorSuccessors(block *ssa.BasicBlock, parameter *ssa.Parameter) []*ssa.BasicBlock {
-	if len(block.Instrs) == 0 || len(block.Succs) != 2 {
-		return block.Succs
-	}
-	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
-	if !ok {
-		return block.Succs
-	}
-	comparison, ok := branch.Cond.(*ssa.BinOp)
-	// SuccessBranch also supports derived errors elsewhere. This implication
-	// needs the exact immutable formal: a wrapped error may be non-nil even
-	// when its source is nil, and a spilled error cell may have been changed.
-	if !ok || comparison.X != parameter && comparison.Y != parameter {
-		return block.Succs
-	}
-	for _, successor := range block.Succs {
-		if success, known := ssaflow.SuccessBranch(block, successor, parameter); known && success {
-			return []*ssa.BasicBlock{successor}
-		}
-	}
-	return block.Succs
 }
 
 func errorTypeAssertionSucceeded(condition, errorValue ssa.Value) bool {

@@ -102,7 +102,7 @@ func assertCleanupBoundaryTrace(t *testing.T, events []followupTraceEvent) {
 	}
 	proofFiles := map[string]string{
 		"exact-error-equals-non-nil-filesystem-sentinel": "error_guards.go:",
-		"visible-error-predicate-false-for-nil":          "error_predicates.go:",
+		"error-predicate-false-for-nil":                  "error_predicates.go:",
 	}
 	for _, event := range events {
 		if file, ok := proofFiles[event.Details["proof"]]; ok && event.Reason == "acquisition-error-proven" {

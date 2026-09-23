@@ -54,6 +54,22 @@ type ObligationFlow struct {
 	Instruction func(ssa.Instruction) ObligationAction
 	Return      func(*ssa.Return) ObligationAction
 	Edge        func(from, to *ssa.BasicBlock) ObligationAction
+	// Successors, when set, replaces the default feasibility of a block's
+	// successors with the analyzer's richer view, such as one that prunes a
+	// branch on a callee's proven result. The NonNil assumption is applied
+	// on top of it either way. It must return a subset of the block's
+	// successors; it never proves an action.
+	Successors func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
+}
+
+// feasibleSuccessors applies the caller's feasibility view, or the default
+// literal one, and then the non-nil assumption.
+func (flow ObligationFlow) feasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
+	successors := FeasibleSuccessors(block, predecessor)
+	if flow.Successors != nil {
+		successors = flow.Successors(block, predecessor)
+	}
+	return nonNilSuccessors(successors, block, flow.NonNil)
 }
 
 // EvaluateObligation carries the classifier's labels along every feasible
@@ -119,7 +135,7 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) Obligatio
 			case ObligationExact:
 			}
 		}
-		successors := nonNilFeasibleSuccessors(state.block, state.predecessor, flow.NonNil)
+		successors := flow.feasibleSuccessors(state.block, state.predecessor)
 		next := make([]obligationState, 0, len(successors))
 		for _, successor := range successors {
 			covered := state.covered

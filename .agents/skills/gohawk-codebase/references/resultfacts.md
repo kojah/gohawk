@@ -10,7 +10,7 @@ termination, or relationships between different result positions.
 
 ## Analyzer
 
-[Source](../../../../internal/passes/resultfacts/facts.go#L26)
+[Source](../../../../internal/passes/resultfacts/facts.go#L30)
 
 ```go
 var Analyzer = &analysis.Analyzer{
@@ -25,7 +25,7 @@ analysis. It does not require lifecycle or concurrency inference.
 
 ## Engine
 
-[Source](../../../../internal/passes/resultfacts/results.go#L47)
+[Source](../../../../internal/passes/resultfacts/results.go#L48)
 
 ```go
 type Engine struct {
@@ -38,7 +38,7 @@ access; recursion and budget handling are owned by FunctionSummaries.
 
 ## Engine.Function
 
-[Source](../../../../internal/passes/resultfacts/results.go#L63)
+[Source](../../../../internal/passes/resultfacts/results.go#L64)
 
 ```go
 func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
@@ -48,26 +48,53 @@ Function returns local or imported, context-independent result guarantees.
 
 ## Fact
 
-[Source](../../../../internal/passes/resultfacts/facts.go#L16)
+[Source](../../../../internal/passes/resultfacts/facts.go#L19)
 
 ```go
 type Fact struct {
-	Version	int
-	Results	[]Guarantee
+	Version		int
+	Results		[]Guarantee
+	Relations	[]Relation
 }
 ```
 
-Fact publishes independent result guarantees, never conditional relations.
+Fact publishes independent result guarantees and the proven relations
+between a result and a parameter or another result. A relation is an
+implication that held on every return under its assumption; its absence
+is not the opposite implication.
 
 ## Fact.AFact
 
-[Source](../../../../internal/passes/resultfacts/facts.go#L22)
+[Source](../../../../internal/passes/resultfacts/facts.go#L26)
 
 ```go
 func (*Fact) AFact()
 ```
 
 AFact marks the result component for go/analysis serialization.
+
+## FalseWhenParameterNil, TrueWhenParameterNonNil, NonNilWhenResultNil, NilWhenResultNonNil
+
+[Source](../../../../internal/passes/resultfacts/relations.go#L25)
+
+```go
+const (
+	// FalseWhenParameterNil: the Boolean result is false on every return
+	// reachable when the parameter is nil. A predicate such as failed(err)
+	// then cannot take its true branch for a successful acquisition.
+	FalseWhenParameterNil	RelationKind	= iota + 1
+	// TrueWhenParameterNonNil: the Boolean result is true on every return
+	// reachable when the parameter is non-nil, so the false branch of the
+	// predicate is the branch where the parameter was nil.
+	TrueWhenParameterNonNil
+	// NonNilWhenResultNil: the result is non-nil on every return where the
+	// operand error result is nil.
+	NonNilWhenResultNil
+	// NilWhenResultNonNil: the result is nil on every return where the
+	// operand error result is non-nil.
+	NilWhenResultNonNil
+)
+```
 
 ## Guarantee
 
@@ -82,13 +109,40 @@ conflicting evidence, unsupported values, and absence of a return witness.
 
 ## NewEngine
 
-[Source](../../../../internal/passes/resultfacts/results.go#L54)
+[Source](../../../../internal/passes/resultfacts/results.go#L55)
 
 ```go
 func NewEngine() *Engine
 ```
 
 NewEngine creates local-only result inference with no library-name guesses.
+
+## Relation
+
+[Source](../../../../internal/passes/resultfacts/relations.go#L44)
+
+```go
+type Relation struct {
+	Result	int
+	Kind	RelationKind
+	Operand	int
+}
+```
+
+Relation is one proven implication about Result. Operand is a parameter
+index for the parameter kinds and a result index for the result kinds.
+
+## RelationKind
+
+[Source](../../../../internal/passes/resultfacts/relations.go#L23)
+
+```go
+type RelationKind uint8
+```
+
+RelationKind names one implication. Parameter kinds constrain a Boolean
+result by a nilable parameter; result kinds constrain a nilable result by
+an error result of the same call.
 
 ## Summary
 
@@ -105,9 +159,29 @@ type Summary struct {
 Summary is immutable after publication. Available means inference could be
 consulted, not that all results are understood. Reason explains a boundary.
 
+## Summary.Holds
+
+[Source](../../../../internal/passes/resultfacts/relations.go#L51)
+
+```go
+func (summary Summary) Holds(kind RelationKind, result, operand int) bool
+```
+
+Holds reports whether the summary proved the relation.
+
+## Summary.Relations
+
+[Source](../../../../internal/passes/resultfacts/relations.go#L61)
+
+```go
+func (summary Summary) Relations() []Relation
+```
+
+Relations returns every proven relation.
+
 ## Summary.Result
 
-[Source](../../../../internal/passes/resultfacts/results.go#L38)
+[Source](../../../../internal/passes/resultfacts/results.go#L39)
 
 ```go
 func (summary Summary) Result(index int) Guarantee

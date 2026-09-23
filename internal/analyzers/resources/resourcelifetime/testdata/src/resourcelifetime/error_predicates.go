@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"resourcedep"
 )
 
 var observedErrors chan error
@@ -194,4 +196,32 @@ func recursiveErrorPredicate(path string, stop bool) {
 		}
 		defer file.Close()
 	}()
+}
+
+func failedOneLine(err error) bool { return err != nil }
+
+func oneLineErrorPredicate(path string) {
+	file, err := os.Open(path)
+	if failedOneLine(err) {
+		return
+	}
+	defer file.Close()
+}
+
+// An exported predicate from another package carries the same implication
+// through its result summary.
+func importedErrorPredicate(path string) {
+	file, err := os.Open(path)
+	if resourcedep.Failed(err) {
+		return
+	}
+	defer file.Close()
+}
+
+func importedUnrelatedErrorPredicate(path string, other error) {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released"
+	if resourcedep.FailedOther(err, other) {
+		return
+	}
+	defer file.Close()
 }

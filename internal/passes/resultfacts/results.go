@@ -32,6 +32,7 @@ type Summary struct {
 	Available bool
 	Reason    string
 	results   []Guarantee
+	relations []Relation
 }
 
 // Result returns the unconditional guarantee at index, or Unknown.
@@ -73,7 +74,7 @@ func (engine *Engine) function(function *ssa.Function, budget *ssaflow.SearchBud
 	if len(function.Blocks) == 0 {
 		object, _ := function.Object().(*types.Func)
 		if fact, ok := engine.imported[object]; ok && fact.Version == factVersion {
-			return Summary{Available: true, results: fact.Results}
+			return Summary{Available: true, results: fact.Results, relations: fact.Relations}
 		}
 		return Summary{Reason: "result-body-unavailable"}
 	}
@@ -111,7 +112,9 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 	}
 	if !witness {
 		result.Reason = "result-no-normal-return-witness"
+		return result
 	}
+	result.relations = engine.relations(function, budget)
 	return result
 }
 

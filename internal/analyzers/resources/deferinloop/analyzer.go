@@ -10,7 +10,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-var summaryKnowledge = summaries.Select(summaries.Requirements{Lifecycle: true})
+var summaryKnowledge = summaries.Select(summaries.Requirements{Results: true, Lifecycle: true})
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
@@ -27,12 +27,13 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	knowledge := summaryKnowledge.Provider(pass)
 	for _, function := range functions {
-		evidence, _ := summaryKnowledge.Provider(pass).LifecycleEvidence("deferinloop", string(check.DeferCleanupInLoop))
+		evidence, _ := knowledge.LifecycleEvidence("deferinloop", string(check.DeferCleanupInLoop))
 		for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](function) {
 			evidence.ForCandidate(deferred.Pos())
 			obligation, ok := deferredObligation(evidence, deferred)
-			if ok && resourceLiveAtNextIteration(evidence, deferred, obligation) {
+			if ok && resourceLiveAtNextIteration(evidence, knowledge, deferred, obligation) {
 				check.Reportf(pass, check.DeferCleanupInLoop, deferred.Pos(), "deferred cleanup runs after the loop instead of after this iteration")
 			}
 		}
