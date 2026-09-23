@@ -95,11 +95,7 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 			}
 		}
 	case *ssa.UnOp:
-		// Copying the owner by value, as in ephemeral(*cmd), carries the same
-		// process or handle state, so returning the copy transfers it. A struct
-		// literal returned by value is likewise loaded from the local that
-		// assembled it, so the load carries whatever that local's fields hold.
-		if typed.Op == token.MUL && (MayAlias(typed.X, value) || search.aggregateStoresValue(typed.X, value)) {
+		if search.loadStoresValue(typed, value) {
 			return true
 		}
 	}
@@ -107,6 +103,29 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 		return true
 	}
 	return search.aggregateReferrersStoreValue(aggregate, value)
+}
+
+// loadStoresValue decides the load case of aggregateStoresValue.
+func (search *ownershipSearch) loadStoresValue(typed *ssa.UnOp, value ssa.Value) bool {
+	// Copying the owner by value, as in ephemeral(*cmd), carries the same
+	// process or handle state, so returning the copy transfers it. A struct
+	// literal returned by value is likewise loaded from the local that
+	// assembled it, so the load carries whatever that local's fields hold.
+	if typed.Op == token.MUL && (MayAlias(typed.X, value) || search.aggregateStoresValue(typed.X, value)) {
+		return true
+	}
+	// A load of one element or field of a local aggregate may carry what
+	// any store to that same path put there: wireguard-go opens files
+	// into an array on either branch and then lists the elements in
+	// os.ProcAttr.Files for the child process. Each element expression
+	// is its own address instruction, so the stores are found by the
+	// path beneath the root rather than by the load's own address. This
+	// is possible containment, which suits a boundary and never a proof.
+	// https://github.com/WireGuard/wireguard-go/blob/66f4d31457f4be14e4b4a72c5ec6a4a0fa2ba9b9/main.go#L183-L200
+	if typed.Op == token.MUL && search.samePathStoresValue(typed.X, value) {
+		return true
+	}
+	return false
 }
 
 func (search *ownershipSearch) callAggregateStoresValue(call *ssa.Call, value ssa.Value) bool {
@@ -264,6 +283,42 @@ func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruc
 		}
 	}
 	return false
+}
+
+// samePathStoresValue reports whether some store to the same field or
+// element path beneath the same local root as address stores the value.
+func (search *ownershipSearch) samePathStoresValue(address ssa.Value, value ssa.Value) bool {
+	root := localAggregateRoot(address)
+	if root == nil {
+		return false
+	}
+	path, ok := AccessPathOf(address, root)
+	if !ok || len(path) == 0 {
+		return false
+	}
+	for _, selection := range selectionsOf(root, path) {
+		if search.addressStoresValue(selection, value) {
+			return true
+		}
+	}
+	return false
+}
+
+// localAggregateRoot returns the local allocation an address selects
+// beneath through fields and constant indexes, or nil.
+func localAggregateRoot(address ssa.Value) *ssa.Alloc {
+	for {
+		switch typed := address.(type) {
+		case *ssa.Alloc:
+			return typed
+		case *ssa.FieldAddr:
+			address = typed.X
+		case *ssa.IndexAddr:
+			address = typed.X
+		default:
+			return nil
+		}
+	}
 }
 
 func (search *ownershipSearch) addressStoresValue(address ssa.Value, value ssa.Value) bool {

@@ -324,7 +324,10 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 
 func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instruction, common *ssa.CallCommon) bool {
 	for index, argument := range common.Args {
-		if ssaflow.MayAlias(argument, analysis.resource) || analysis.carriedWithinClosure(argument) ||
+		// The resource itself, or a load that resolves to it, is not an
+		// aggregate holding the resource; only a genuine container is asked
+		// whether it may escape.
+		if analysis.carriesDirectly(argument) || analysis.carriedWithinClosure(argument) ||
 			(!analysis.carriesWithin(argument) && !analysis.possibleAggregateWrapper(argument)) {
 			continue
 		}
@@ -500,8 +503,11 @@ func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool
 // from it by a transparent value step, so a callee receives the resource as an
 // argument in its own right.
 func (analysis *resourceAnalysis) carriesDirectly(value ssa.Value) bool {
+	// A load resolves to what its cell held at that point, so a field or
+	// element read back out of a local aggregate is the resource itself.
 	return ssaflow.MayAlias(value, analysis.resource) ||
-		ssaflow.ValueDerivesFrom(value, analysis.resource, map[ssa.Value]bool{})
+		ssaflow.ValueDerivesFrom(value, analysis.resource, map[ssa.Value]bool{}) ||
+		ssaflow.NewStorage(analysis.budget(ssaflow.QueryBudget)).Same(value, analysis.resource).Proven()
 }
 
 // carriesWithin reports whether value is an aggregate that holds the resource
