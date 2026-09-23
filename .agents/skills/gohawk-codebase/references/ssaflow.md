@@ -1332,12 +1332,14 @@ String renders a slot as P0/field:1, R0, G:pkg.name, or F1.
 type HeapSummary struct {
 	Edges		[]HeapEdge
 	Effects		[]HeapEffect
-	Reads		[]HeapSlot
+	Reads		[]HeapSlot	`json:"-"`
 	Truncated	[]HeapSlot
 }
 ```
 
-HeapSummary is the projection of one function's heap.
+HeapSummary is the projection of one function's heap. Reads are kept for
+the dump and the tests but not serialized: no consumer applies them, and
+the analysis test harness pays for every byte of every fact.
 
 ## HeapSummary.String
 

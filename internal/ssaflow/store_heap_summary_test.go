@@ -37,7 +37,6 @@ func readOnly(p *Pair) bool { return p.First != nil }
 			"edge R0 -> fresh(new#",
 			"edge R0/field:0 -> P0/field:0 must",
 			"edge R0/field:1 -> P1 must",
-			"edge R1 -> nil must",
 			"effect P0 escaped field every",
 			"read P0/field:0",
 			"read P0/field:1",

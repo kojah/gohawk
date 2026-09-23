@@ -1,6 +1,7 @@
 package ssaflow
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
@@ -44,6 +45,9 @@ func forgetsUnknown(a *int, p *box, q *box) { q.value = a; unknownCallee(p); obs
 			graph := regionsOfFunction(call.Parent())
 			if got := graph.mustSame(left, right); got != want {
 				t.Fatalf("mustSame = %t, want %t\n%s", got, want, RenderRegions(call.Parent()))
+			}
+			if name != "forgetsUnknown" && !strings.Contains(RenderRegions(call.Parent()), "//   applied ") {
+				t.Fatalf("the dump must record the applied summary:\n%s", RenderRegions(call.Parent()))
 			}
 		})
 	}

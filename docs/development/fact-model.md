@@ -192,6 +192,11 @@ type Fact struct {
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
 	Conditional	*ConditionalSummary
+	// Heap is the projection of the function's points-to graph onto what a
+	// caller can name: where each parameter, result, and global slot may
+	// point at exit, how each object escaped or was released, what was
+	// read, and where the projection was cut. See heap.go.
+	Heap	*ssaflow.HeapSummary
 	// ReturnedCleanup relates an invoked callback result to an exact factory
 	// parameter or sibling result. Merely returning the callback does not clean up.
 	ReturnedCleanup	*ReturnedCleanupSummary

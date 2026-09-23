@@ -111,6 +111,13 @@ substitution is available wherever the graph is. Closures with captured
 variables, goroutine launches, and deferred calls keep the conservative
 treatment.
 
+`gohawk facts` prints every summary as `heap …` lines beneath the mask
+claims, for the package's own functions and the callees it imports, and
+`gohawk facts -regions` prints each local function's graph as the analysis
+saw it, including an `applied` line for every call a summary was applied
+at. `gohawk ssa -regions` prints the graph without any summaries, which is
+what a unit test sees.
+
 ## Boundaries
 
 Intraprocedural only: callees contribute through the existing call-effect

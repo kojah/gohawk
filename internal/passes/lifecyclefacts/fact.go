@@ -438,10 +438,24 @@ func (fact *Fact) empty() bool {
 }
 
 // heapEmpty reports whether the heap projection claims nothing a caller
-// must react to: no edges, no effects, no truncation. Reads alone are not
-// exported.
+// must react to: no edges, no truncation, and no effect beyond handing an
+// object to a call. Reads are not exported, and a call escape alone says
+// nothing an importer acts on: the summary's truncation already carries
+// what an unresolved callee may have done, and a resolved one carries its
+// own summary.
 func (fact *Fact) heapEmpty() bool {
-	return fact.Heap == nil || len(fact.Heap.Edges) == 0 && len(fact.Heap.Effects) == 0 && len(fact.Heap.Truncated) == 0
+	if fact.Heap == nil {
+		return true
+	}
+	if len(fact.Heap.Edges) != 0 || len(fact.Heap.Truncated) != 0 {
+		return false
+	}
+	for _, effect := range fact.Heap.Effects {
+		if effect.Release != "" || effect.Escape&^ssaflow.HeapEscapedCall != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // String decodes the masks by parameter position so the fact is readable in

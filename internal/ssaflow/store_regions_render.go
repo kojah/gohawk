@@ -33,6 +33,10 @@ func RenderRegions(function *ssa.Function) string {
 			}
 		}
 	}
+	for _, entry := range graph.applied {
+		fmt.Fprintf(&buffer, "//   applied %s at %s: %d edges, %d effects, %d truncated\n",
+			entry.callee.String(), entry.instruction.String(), entry.edges, entry.effects, entry.truncated)
+	}
 	for _, decision := range graph.disjoint {
 		fmt.Fprintf(&buffer, "//   disjoint %s %s: %s\n", decision.Value.Name(), decision.Target.Name(), decision.Reason)
 	}

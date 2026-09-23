@@ -24,7 +24,7 @@ first thing to run when a classifier label is surprising.
 ## Fact dump
 
 ```text
-gohawk facts [-func NAME] [-tests] package...
+gohawk facts [-func NAME] [-tests] [-regions] package...
 ```
 
 Prints the exported lifecycle summaries for the given packages, decoded per

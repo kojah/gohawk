@@ -155,6 +155,18 @@ type regionGraph struct {
 	// callResults holds the pointees a summarized multi-result call gave
 	// each of its results, for the extracts that select them.
 	callResults map[*ssa.Call][]pointees
+	// applied records every call the graph applied a summary at, for the
+	// dump: which callee, and how much of its summary there was to apply.
+	applied []appliedSummary
+}
+
+// appliedSummary is one summary application, for the dump.
+type appliedSummary struct {
+	instruction ssa.Instruction
+	callee      *ssa.Function
+	edges       int
+	effects     int
+	truncated   int
 }
 
 // sliceView is a constant window over a local array.

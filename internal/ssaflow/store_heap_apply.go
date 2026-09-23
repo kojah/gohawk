@@ -1,6 +1,7 @@
 package ssaflow
 
 import (
+	"slices"
 	"strconv"
 
 	"golang.org/x/tools/go/ssa"
@@ -27,6 +28,11 @@ func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallC
 		return false
 	}
 	call, isCall := instruction.(*ssa.Call)
+	if !slices.ContainsFunc(graph.applied, func(entry appliedSummary) bool { return entry.instruction == instruction }) {
+		graph.applied = append(graph.applied, appliedSummary{
+			instruction: instruction, callee: callee, edges: len(summary.Edges), effects: len(summary.Effects), truncated: len(summary.Truncated),
+		})
+	}
 	substitution := &heapSubstitution{graph: graph, state: state, common: common, instruction: instruction, fresh: map[string]*region{}}
 	for _, at := range summary.Truncated {
 		substitution.truncate(at)

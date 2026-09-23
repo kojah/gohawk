@@ -111,11 +111,13 @@ type HeapEffect struct {
 	Every   bool
 }
 
-// HeapSummary is the projection of one function's heap.
+// HeapSummary is the projection of one function's heap. Reads are kept for
+// the dump and the tests but not serialized: no consumer applies them, and
+// the analysis test harness pays for every byte of every fact.
 type HeapSummary struct {
 	Edges     []HeapEdge
 	Effects   []HeapEffect
-	Reads     []HeapSlot
+	Reads     []HeapSlot `json:"-"`
 	Truncated []HeapSlot
 }
 
@@ -322,7 +324,11 @@ func (projection *heapProjection) edges(states []*regionState, returns []*ssa.Re
 			if target.Kind == HeapTargetSlot && target.Slot == from {
 				continue
 			}
-			edges = append(edges, HeapEdge{From: from, To: target, Must: must && entry.exit[target] && target.Kind != HeapTargetUnknown})
+			edge := HeapEdge{From: from, To: target, Must: must && entry.exit[target] && target.Kind != HeapTargetUnknown}
+			if assumedByDefault(edge) {
+				continue
+			}
+			edges = append(edges, edge)
 		}
 	}
 	sort.Slice(edges, func(i, j int) bool { return heapEdgeLess(edges[i], edges[j]) })
@@ -349,6 +355,24 @@ func (projection *heapProjection) projectRoots(state *regionState, record func(H
 		}
 		record(HeapSlot{Root: named.Root, Path: path}, set)
 	}
+}
+
+// assumedByDefault reports an edge a caller applying the summary assumes
+// without being told: a result that may be nil, or that may be a fresh
+// object, which is what an undescribed result becomes anyway. A must edge
+// to a fresh object is kept, because it carries the object's origin.
+func assumedByDefault(edge HeapEdge) bool {
+	if edge.From.Root.Kind != HeapResult || edge.From.Path != "" {
+		return false
+	}
+	switch edge.To.Kind {
+	case HeapTargetNil:
+		return true
+	case HeapTargetFresh:
+		return !edge.Must
+	case HeapTargetSlot, HeapTargetUnknown:
+	}
+	return false
 }
 
 // projectHistory records everything the function ever stored into a named
