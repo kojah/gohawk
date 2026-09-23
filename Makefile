@@ -13,7 +13,12 @@ GOHAWK_BINARY ?= $(BUILD_DIRECTORY)/gohawk
 BENCHMARK_ARGS ?=
 VERIFY_JOBS ?= 4
 
-VERIFY_STATIC_TARGETS := mod-verify fmt-check generated-check vet deadcode lint dogfood
+VERIFY_BASE_TARGETS := mod-verify fmt-check vet deadcode
+# Local generation already validates the documentation it writes. CI cannot
+# rewrite committed pages, so it runs the strict generated-check instead.
+VERIFY_STATIC_TARGETS := $(strip $(VERIFY_BASE_TARGETS) lint dogfood $(if $(CI),generated-check))
+# CI runs lint and dogfood in dedicated jobs; its fast job must not repeat them.
+VERIFY_CI_FAST_TARGETS := $(VERIFY_BASE_TARGETS) generated-check
 # The race detector stays out of the routine local gate: gohawk is almost
 # entirely synchronous, and CI runs test-race as its own job. make ci keeps it.
 VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test
@@ -129,7 +134,7 @@ generated-sync:
 endif
 
 verify-static: generated-sync
-	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_STATIC_TARGETS)
+	+$(MAKE) $(VERIFY_MAKE_ARGS) $(if $(CI),$(VERIFY_CI_FAST_TARGETS),$(VERIFY_STATIC_TARGETS))
 
 verify: generated-sync
 	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS)
