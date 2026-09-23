@@ -100,6 +100,13 @@ itself does not change.
   candidate with `Within`, so the proof as a whole is bounded and every
   give-up reaches the candidate's trace. Exhaustion means what the question's
   own polarity says it means; a pool decides nothing about that.
+- `ssaflow.PathGuards` remembers which arm of a branch a path took so a later
+  branch on the same condition can be related to it. A stable guard, over
+  parameters and constants or a Boolean computed once, cannot change within
+  the invocation; a loaded guard reads a cell a hidden store could change.
+  The engine reports which kind a contradiction is and each walk chooses:
+  the obligation walk and lock order prune the other arm of a stable guard,
+  resource lifetime and every walk treat a loaded contradiction as unknown.
 - `ssaflow.Storage` is the shared, bounded query for local contents and stable
   owner projections. It resolves loads at their own execution points, including
   fields, constant array elements, and aggregate-copy snapshots. Completion,

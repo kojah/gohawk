@@ -80,15 +80,17 @@ func EvaluateObligation(flow ObligationFlow) ObligationOutcome {
 	if index < 0 {
 		return ObligationHonored
 	}
-	return obligationOutcome([]obligationState{{block: flow.Start.Block(), index: index + 1}}, flow)
+	return obligationOutcome([]obligationState{{block: flow.Start.Block(), index: index + 1, guards: GuardsDominating(flow.Start)}}, flow)
 }
 
-// obligationState is one path's position and the strongest action seen on it.
+// obligationState is one path's position, the strongest action seen on it,
+// and the branch outcomes it has established.
 type obligationState struct {
 	block       *ssa.BasicBlock
 	predecessor *ssa.BasicBlock
 	index       int
 	covered     ObligationAction
+	guards      PathGuards
 }
 
 type obligationKey struct {
@@ -96,6 +98,7 @@ type obligationKey struct {
 	predecessor int
 	index       int
 	covered     ObligationAction
+	guards      string
 }
 
 func (state obligationState) key() obligationKey {
@@ -103,17 +106,28 @@ func (state obligationState) key() obligationKey {
 	if state.predecessor != nil {
 		predecessor = state.predecessor.Index
 	}
-	return obligationKey{block: state.block.Index, predecessor: predecessor, index: state.index, covered: state.covered}
+	return obligationKey{
+		block: state.block.Index, predecessor: predecessor, index: state.index, covered: state.covered, guards: state.guards.Key(),
+	}
 }
 
 // obligationOutcome is the walk shared by EvaluateObligation and the Boolean
 // UnownedReturn family. Coverage only strengthens along a path, so a state is
 // keyed by its coverage and a block is revisited only under a different one.
 // The walk ends at the first violated return; the violation is the answer.
+//
+// The walk carries path guards. An edge that takes the other arm of a stable
+// guard the path already holds is not walked: no execution reaches it, so an
+// early return behind it cannot be a violation. An edge that contradicts a
+// loaded guard is walked as an opaque action, because a store the analysis
+// does not see could explain it; it hides a diagnostic, never proves one.
 func obligationOutcome(initial []obligationState, flow ObligationFlow) ObligationOutcome {
 	outcome := ObligationHonored
 	WalkStates(initial, obligationState.key, func(state obligationState) ([]obligationState, bool) {
 		for _, instruction := range state.block.Instrs[state.index:] {
+			if store, ok := instruction.(*ssa.Store); ok {
+				state.guards = state.guards.Forget(store)
+			}
 			state.covered = max(state.covered, flow.Instruction(instruction))
 			if InstructionTerminatesControlFlow(instruction) {
 				return nil, true
@@ -142,7 +156,15 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) Obligatio
 			if flow.Edge != nil {
 				covered = max(covered, flow.Edge(state.block, successor))
 			}
-			next = append(next, obligationState{block: successor, predecessor: state.block, covered: covered})
+			guards, contradiction := state.guards.Extend(state.block, successor, nil)
+			switch contradiction {
+			case GuardStableContradiction:
+				continue
+			case GuardLoadedContradiction:
+				covered = max(covered, ObligationUnknown)
+			case GuardConsistent:
+			}
+			next = append(next, obligationState{block: successor, predecessor: state.block, covered: covered, guards: guards})
 		}
 		return next, true
 	})

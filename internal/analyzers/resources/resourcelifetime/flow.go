@@ -28,9 +28,16 @@ type resourceFlowState struct {
 	// unknown records that something the analysis cannot see through
 	// consumed the resource on this path; a return after that proves nothing.
 	unknown bool
-	// guards are the repeated-guard facts this path has established; see
-	// guard_facts.go. An edge that contradicts one is unknown, never pruned.
-	guards []resourceGuard
+	// guards are the branch outcomes this path has established. An edge
+	// that contradicts one is unknown, never pruned: a guard read from a
+	// cell could have changed through a pointer the analysis does not see,
+	// and even a stable guard's contradiction only declines to report through
+	// a path the analysis cannot rule out. Mutagen guards a profiler's
+	// creation and its finalization on one address-taken flag, and fortio a
+	// profile file's creation and its close on one option field:
+	// https://github.com/mutagen-io/mutagen/blob/6ccfeaaf4dfd261e59ef9aac56e3c157b62e605b/tools/scan_bench/main.go#L140-L172
+	// https://github.com/fortio/fortio/blob/5c19725ff61c9f7ad944b91ec32d96a399341d87/fhttp/httprunner.go#L199-L215
+	guards ssaflow.PathGuards
 }
 
 type resourceFlowKey struct {
@@ -89,7 +96,7 @@ func evaluateResourceFlow(
 	// revisited only when a different path reaches it with a different
 	// obligation state; the predecessor lets the successful branch of the
 	// acquisition be told apart from its error branch.
-	initial := []resourceFlowState{{block: call.Block(), index: index + 1, active: true, guards: analysis.guardsAtAcquisition()}}
+	initial := []resourceFlowState{{block: call.Block(), index: index + 1, active: true, guards: ssaflow.GuardsDominating(call)}}
 	opaque, leaks := false, false
 	ssaflow.WalkStates(initial, resourceStateKey, func(state resourceFlowState) ([]resourceFlowState, bool) {
 		state, leaks = advanceResourceState(analysis, state)
@@ -131,7 +138,7 @@ func resourceStateKey(state resourceFlowState) resourceFlowKey {
 		active:      state.active,
 		released:    state.released,
 		unknown:     state.unknown,
-		guards:      resourceGuardKey(state.guards),
+		guards:      state.guards.Key(),
 	}
 }
 
@@ -141,7 +148,7 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 	// return is then neither owned nor a defect.
 	for _, instruction := range state.block.Instrs[state.index:] {
 		if store, ok := instruction.(*ssa.Store); ok {
-			state.guards = forgetStoredGuards(state.guards, store)
+			state.guards = state.guards.Forget(store)
 		}
 		switch analysis.action(instruction) {
 		case actionSettled:
@@ -189,7 +196,8 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
 			active = active && present
 		}
-		guards, contradicted := extendResourceGuards(state.guards, state.block, successor)
+		guards, contradiction := state.guards.Extend(state.block, successor, nil)
+		contradicted := contradiction != ssaflow.GuardConsistent
 		if contradicted {
 			analysis.traceRepeatedGuard(state.block, successor)
 		}

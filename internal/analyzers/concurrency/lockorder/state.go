@@ -39,9 +39,7 @@ func lockStateKey(state lockFlowState) string {
 	for _, binding := range state.constants {
 		fmt.Fprintf(&origins, "phi:%p=%s;", binding.value, binding.literal.Value.ExactString())
 	}
-	for _, constraint := range state.constraints {
-		fmt.Fprintf(&origins, "stable:%s=%t;", constraint.condition, constraint.value)
-	}
+	fmt.Fprintf(&origins, "stable:%s;", state.constraints.Key())
 	return fmt.Sprintf(
 		"%d:%d:%s:%s:%s:%s:%s=%t:%s",
 		state.block.Index,
@@ -120,46 +118,23 @@ func constantFalse(value ssa.Value) bool {
 	return ok && literal.Value != nil && literal.Value.Kind() == constant.Bool && !constant.BoolVal(literal.Value)
 }
 
-// Stable scalar parameter comparisons survive unrelated branches and merges.
-// Retain at most eight; exceeding this precision budget forgets the new fact,
-// never excludes a path. Do not correlate loads or computed loop values.
+// Stable comparisons of parameters and constants survive unrelated branches
+// and merges, so a later branch on the same comparison that takes the other
+// arm is infeasible. The shared path-guard engine decides identity; this
+// walk keeps only stable guards, because a loaded guard's contradiction is
+// uncertainty rather than infeasibility, and never excludes a path on it.
+// Exceeding the guard limit forgets the new fact, never excludes a path.
 // https://github.com/yandex-cloud/geesefs/blob/dd847771b29b26f3246edaf3227acbc430f4548d/core/file.go#L1901-L1972
-func extendLockConstraints(constraints []lockGuard, block *ssa.BasicBlock, truth bool) ([]lockGuard, bool) {
-	const maxConstraints = 8
-	condition, known := blockCondition(block)
-	branch, branched := block.Instrs[len(block.Instrs)-1].(*ssa.If)
-	if !known || !branched || !stableParameterCondition(branch.Cond) {
+func extendLockConstraints(constraints ssaflow.PathGuards, block *ssa.BasicBlock, truth bool) (ssaflow.PathGuards, bool) {
+	if len(block.Succs) != 2 {
 		return constraints, true
 	}
-	for _, constraint := range constraints {
-		if constraint.condition == condition {
-			return constraints, constraint.value == truth
-		}
+	successor := block.Succs[1]
+	if truth {
+		successor = block.Succs[0]
 	}
-	if len(constraints) >= maxConstraints {
-		return constraints, true
-	}
-	next := append(slices.Clone(constraints), lockGuard{condition: condition, value: truth})
-	slices.SortFunc(next, func(left, right lockGuard) int { return strings.Compare(left.condition, right.condition) })
-	return next, true
-}
-
-func stableParameterCondition(value ssa.Value) bool {
-	if _, parameter := value.(*ssa.Parameter); parameter {
-		return true
-	}
-	comparison, ok := value.(*ssa.BinOp)
-	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
-		return false
-	}
-	stable := func(operand ssa.Value) bool {
-		switch operand.(type) {
-		case *ssa.Parameter, *ssa.Const:
-			return true
-		}
-		return false
-	}
-	return stable(comparison.X) && stable(comparison.Y)
+	next, contradiction := constraints.Extend(block, successor, func(guard ssaflow.PathGuard) bool { return guard.Stable })
+	return next, contradiction != ssaflow.GuardStableContradiction
 }
 
 func cloneLockGuards(source map[string]lockGuard) map[string]lockGuard {

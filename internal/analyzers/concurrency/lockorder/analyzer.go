@@ -31,7 +31,7 @@ type lockFlowState struct {
 	condition      string
 	conditionValue bool
 	constants      []lockScalarConstant
-	constraints    []lockGuard
+	constraints    ssaflow.PathGuards
 }
 
 type lockScalarConstant struct {
