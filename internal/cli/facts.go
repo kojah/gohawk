@@ -96,9 +96,12 @@ func factAnalyzers() []*analysis.Analyzer {
 
 func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter string) {
 	facts := action.AllObjectFacts()
+	// Positions are compared by file and offset, not by token.Pos: the
+	// fileset's bases depend on the order files were parsed in, which is
+	// parallel, and the dump must read the same on every run.
 	slices.SortFunc(facts, func(left, right analysis.ObjectFact) int {
-		if left.Object.Pos() != right.Object.Pos() {
-			return int(left.Object.Pos() - right.Object.Pos())
+		if order := comparePositions(action, left.Object.Pos(), right.Object.Pos()); order != 0 {
+			return order
 		}
 		return strings.Compare(left.Object.Name(), right.Object.Name())
 	})
@@ -128,7 +131,10 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 		return
 	}
 	functions := slices.SortedFunc(maps.Keys(summaries), func(left, right *ssa.Function) int {
-		return int(left.Pos() - right.Pos())
+		if order := comparePositions(action, left.Pos(), right.Pos()); order != 0 {
+			return order
+		}
+		return strings.Compare(left.String(), right.String())
 	})
 	for _, function := range functions {
 		object := function.Object()
@@ -169,8 +175,8 @@ func writeRegions(buffer *bytes.Buffer, action *checker.Action, filter string) {
 		}
 	}
 	slices.SortFunc(functions, func(left, right *ssa.Function) int {
-		if left.Pos() != right.Pos() {
-			return int(left.Pos() - right.Pos())
+		if order := comparePositions(action, left.Pos(), right.Pos()); order != 0 {
+			return order
 		}
 		return strings.Compare(left.String(), right.String())
 	})
@@ -226,4 +232,14 @@ func objectName(object types.Object) string {
 
 func position(action *checker.Action, pos token.Pos) string {
 	return action.Package.Fset.Position(pos).String()
+}
+
+// comparePositions orders two positions by file name, then offset, which
+// is stable across runs where the raw token.Pos values are not.
+func comparePositions(action *checker.Action, left, right token.Pos) int {
+	a, b := action.Package.Fset.Position(left), action.Package.Fset.Position(right)
+	if a.Filename != b.Filename {
+		return strings.Compare(a.Filename, b.Filename)
+	}
+	return a.Offset - b.Offset
 }
