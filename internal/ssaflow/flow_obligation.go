@@ -55,6 +55,9 @@ const (
 type ObligationFlow struct {
 	Start  ssa.Instruction
 	NonNil ssa.Value
+	// Budget, when set, bounds expanded path states. Exhaustion is uncertain:
+	// it cannot establish either a violation or an exact discharge.
+	Budget *SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
 	// so a comma-ok assertion of a type it satisfies is taken to succeed.
 	NonNilType  types.Type
@@ -135,6 +138,10 @@ func (state obligationState) key() obligationKey {
 func obligationOutcome(initial []obligationState, flow ObligationFlow) ObligationOutcome {
 	outcome := ObligationHonored
 	WalkStates(initial, obligationState.key, func(state obligationState) ([]obligationState, bool) {
+		if flow.Budget != nil && !flow.Budget.Spend() {
+			outcome = ObligationUncertain
+			return nil, false
+		}
 		for _, instruction := range state.block.Instrs[state.index:] {
 			if store, ok := instruction.(*ssa.Store); ok {
 				state.guards = state.guards.Forget(store)

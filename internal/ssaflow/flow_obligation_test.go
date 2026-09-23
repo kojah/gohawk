@@ -73,6 +73,18 @@ func TestEvaluateObligationKeepsUncertaintyOnItsPath(t *testing.T) {
 	}
 }
 
+func TestEvaluateObligationBudgetCutIsUncertain(t *testing.T) {
+	pkg := buildTestSSA(t, obligationFixture)
+	for _, name := range []string{"exactEverywhere", "earlyReturnUncovered"} {
+		function := pkg.Func(name)
+		start := obligationStart(t, function)
+		got := EvaluateObligation(ObligationFlow{Start: start, Instruction: labelledCall, Budget: NewSearchBudget(0)})
+		if got != ObligationUncertain {
+			t.Errorf("%s: budget cut outcome = %d, want uncertain", name, got)
+		}
+	}
+}
+
 func TestEvaluateObligationEdgeActionsStayOnTheirSuccessor(t *testing.T) {
 	pkg := buildTestSSA(t, obligationFixture)
 	function := pkg.Func("selectArms")

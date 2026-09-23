@@ -270,13 +270,26 @@ func (graph *regionGraph) storeAggregate(state *regionState, target slot, value 
 }
 
 // remember records, for the whole build, that the slot was given the value.
+// History is used only for may-answers. Collapse an overfull set to unknown:
+// retaining every object from repeated summary applications can otherwise
+// dwarf the bounded current-state contents during a fixpoint.
 func (graph *regionGraph) remember(target slot, value pointees) {
 	held, ok := graph.history[target]
 	if !ok {
 		held = pointees{}
 		graph.history[target] = held
 	}
-	held.union(value)
+	if held.unknown() {
+		return
+	}
+	for object, stale := range value {
+		held.add(object, stale)
+		if len(held) > pointeeLimit {
+			clear(held)
+			held[slot{region: graph.unkR}] = false
+			return
+		}
+	}
 }
 
 // weakElementStore unions the value into the wildcard element slot and

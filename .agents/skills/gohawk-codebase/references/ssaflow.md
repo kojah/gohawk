@@ -1871,6 +1871,9 @@ return, or edge with respect to a tracked obligation.
 type ObligationFlow struct {
 	Start	ssa.Instruction
 	NonNil	ssa.Value
+	// Budget, when set, bounds expanded path states. Exhaustion is uncertain:
+	// it cannot establish either a violation or an exact discharge.
+	Budget	*SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
 	// so a comma-ok assertion of a type it satisfies is taken to succeed.
 	NonNilType	types.Type

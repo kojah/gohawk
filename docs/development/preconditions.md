@@ -57,6 +57,12 @@ A requirement is never exported for a slot the projection truncated, for a
 path deeper than the projection bound, or from a function whose graph was
 unavailable.
 
+Projection proves candidates in stable summary order. It publishes at most
+16 requirements, considers at most 64 candidates, and spends at most 1,000
+expanded path states on each. A cut candidate contributes no requirement;
+missing requirements are unknown, not evidence that the helper makes no use
+of its arguments.
+
 ## Applying a requirement
 
 At a call site the substitution already resolves each summary slot to the

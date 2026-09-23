@@ -210,6 +210,9 @@ func (graph *regionGraph) everContainedUnlocked(object slot, target pointees) bo
 			continue
 		}
 		for pointee := range set {
+			if pointee.region.kind == regionUnknown {
+				return true
+			}
 			if _, ok := target[pointee]; ok {
 				return true
 			}

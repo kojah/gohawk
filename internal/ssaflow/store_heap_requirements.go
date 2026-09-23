@@ -57,10 +57,25 @@ func (requirement HeapRequirement) String() string {
 // heapRequirementLimit bounds the requirements one summary carries.
 const heapRequirementLimit = 16
 
+// heapRequirementProofLimit bounds the distinct candidate proofs attempted
+// before projecting a summary. Omitted requirements make no guarantee, so a
+// limit can lose coverage but cannot invent a caller precondition.
+const heapRequirementProofLimit = 64
+
+// heapRequirementStateBudget bounds the path states expanded for one candidate.
+// A cut gives no requirement; the caller must not read missing requirements
+// as proof that the callee does nothing.
+const heapRequirementStateBudget = 1000
+
 type requirementKey struct {
 	slot   slot
 	kind   HeapRequirementKind
 	method string
+}
+
+type requirementCandidate struct {
+	key         requirementKey
+	requirement HeapRequirement
 }
 
 // requirements projects the every-return method calls on named slots.
@@ -79,7 +94,7 @@ func (projection *heapProjection) requirements() []HeapRequirement {
 	for at := range projection.cuts {
 		truncated[at] = true
 	}
-	var requirements []HeapRequirement
+	var candidates []requirementCandidate
 	for key := range keys {
 		named, ok := projection.rootOf(key.slot.region)
 		if !ok {
@@ -89,24 +104,46 @@ func (projection *heapProjection) requirements() []HeapRequirement {
 		if truncated[HeapSlot{Root: at.Root}] || len(SplitAccessPath(at.Path)) > heapPathDepth {
 			continue
 		}
-		if !onEveryReturn(projection.graph.function, func(instruction ssa.Instruction) bool {
+		candidates = append(candidates, requirementCandidate{
+			key: key, requirement: HeapRequirement{Slot: at, Kind: key.kind, Method: key.method},
+		})
+	}
+	return boundedRequirements(candidates, func(key requirementKey) bool {
+		return onEveryReturn(projection.graph.function, NewSearchBudget(heapRequirementStateBudget), func(instruction ssa.Instruction) bool {
 			return slices.Contains(calls[instruction], key)
-		}) {
+		})
+	})
+}
+
+// boundedRequirements proves candidates in summary order, stopping once the
+// published limit is full or the proof-work limit is spent. Sorting first
+// keeps both the selected guarantees and the coverage loss deterministic.
+func boundedRequirements(candidates []requirementCandidate, proves func(requirementKey) bool) []HeapRequirement {
+	sort.Slice(candidates, func(i, j int) bool {
+		left, right := candidates[i], candidates[j]
+		if left.requirement.Slot != right.requirement.Slot {
+			return heapSlotLess(left.requirement.Slot, right.requirement.Slot)
+		}
+		if left.requirement.Kind != right.requirement.Kind {
+			return left.requirement.Kind < right.requirement.Kind
+		}
+		if left.requirement.Method != right.requirement.Method {
+			return left.requirement.Method < right.requirement.Method
+		}
+		if left.key.slot.region.serial != right.key.slot.region.serial {
+			return left.key.slot.region.serial < right.key.slot.region.serial
+		}
+		return left.key.slot.path < right.key.slot.path
+	})
+	var requirements []HeapRequirement
+	for index, candidate := range candidates {
+		if index >= heapRequirementProofLimit || len(requirements) == heapRequirementLimit {
+			break
+		}
+		if !proves(candidate.key) {
 			continue
 		}
-		requirements = append(requirements, HeapRequirement{Slot: at, Kind: key.kind, Method: key.method})
-	}
-	sort.Slice(requirements, func(i, j int) bool {
-		if requirements[i].Slot != requirements[j].Slot {
-			return heapSlotLess(requirements[i].Slot, requirements[j].Slot)
-		}
-		if requirements[i].Kind != requirements[j].Kind {
-			return requirements[i].Kind < requirements[j].Kind
-		}
-		return requirements[i].Method < requirements[j].Method
-	})
-	if len(requirements) > heapRequirementLimit {
-		requirements = requirements[:heapRequirementLimit]
+		requirements = append(requirements, candidate.requirement)
 	}
 	return requirements
 }
@@ -205,7 +242,7 @@ func (projection *heapProjection) receiverRequirements(common *ssa.CallCommon) [
 // precedes every normal return: the every-return polarity of the
 // completion search, asked of the flow directly. A function that never
 // returns, or never makes such a call, requires nothing.
-func onEveryReturn(function *ssa.Function, calls func(ssa.Instruction) bool) bool {
+func onEveryReturn(function *ssa.Function, budget *SearchBudget, calls func(ssa.Instruction) bool) bool {
 	hasReturn, hasCall := false, false
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -215,5 +252,7 @@ func onEveryReturn(function *ssa.Function, calls func(ssa.Instruction) bool) boo
 			hasCall = hasCall || calls(instruction)
 		}
 	}
-	return hasReturn && hasCall && !UnownedReturnFromEntryAssumingNonNil(function, nil, calls)
+	return hasReturn && hasCall && obligationOutcome([]obligationState{{block: function.Blocks[0]}}, ObligationFlow{
+		Instruction: exactOrNone(calls), Budget: budget,
+	}) == ObligationHonored
 }
