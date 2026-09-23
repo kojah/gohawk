@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -68,7 +69,10 @@ func reportUsesAfterRelease(
 	if len(methods) == 0 {
 		return
 	}
-	query := releasedResource{resource: resource, contract: contract, methods: methods, storage: ssaflow.NewStorage(nil), knowledge: knowledge}
+	evidence, _ := knowledge.LifecycleEvidence("resourcelifetime", string(check.ResourceUseAfterRelease))
+	query := releasedResource{
+		resource: resource, contract: contract, methods: methods, storage: ssaflow.NewStorage(nil), knowledge: knowledge, evidence: evidence,
+	}
 	reported := map[*ssa.Call]bool{}
 	for _, release := range directReleases(function, &query) {
 		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), release.Pos()).Evidence(analysisTrace.Step{
@@ -76,21 +80,70 @@ func reportUsesAfterRelease(
 		})
 		for _, instruction := range ssaflow.InstructionsReachableAfter(release) {
 			call, ok := instruction.(*ssa.Call)
-			if !ok || reported[call] || !slices.Contains(methods, ssaflow.CallName(call.Common())) || !query.operatesOn(call) {
+			if !ok || reported[call] {
+				continue
+			}
+			operation, ok := query.operation(call)
+			if !ok {
 				continue
 			}
 			probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), call.Pos())
 			probe.Candidate(analysisTrace.Step{Reason: "operation-on-released-resource"})
+			if operation.helper != nil {
+				probe.Evidence(analysisTrace.Step{
+					Reason: "helper-requires-operation", Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos(),
+					Details: map[string]string{"helper": operation.helper.String(), "method": operation.method},
+				})
+			}
 			proof := query.prove(acquisition, release, call)
 			if !proof.Proven() {
 				emitUnknownUseAfterRelease(function, probe, proof)
 				continue
 			}
 			emitUseAfterRelease(pass, function, acquisition, release, call)
-			reportUseAfterRelease(pass, acquisition, release, call, contract)
+			reportUseAfterRelease(pass, acquisition, release, call, contract, operation)
 			reported[call] = true
 		}
 	}
+}
+
+// releasedOperation is one call that performs an invalidating operation on
+// the released resource: the operation itself, or a summarized helper that
+// performs it on every path with the resource it was handed.
+type releasedOperation struct {
+	method string
+	helper *ssa.Function
+}
+
+// operation decides whether the call operates on the released resource with
+// a method its contract says fails after release. A direct call is one
+// whose receiver is the exact resource. A helper counts when its summary
+// requires the method of the argument at the position the exact resource
+// is passed: the helper's summary names what it calls, and the resource's
+// own type decides that the name is an invalidating operation, so a helper
+// that calls Err on the rows it is handed is as silent as a direct rows.Err.
+// https://github.com/facebook/infer: this is the precondition footprint of a
+// Pulse summary, checked against the caller's released state.
+func (query *releasedResource) operation(call *ssa.Call) (releasedOperation, bool) {
+	name := ssaflow.CallName(call.Common())
+	if slices.Contains(query.methods, name) && query.operatesOn(call) {
+		return releasedOperation{method: name}, true
+	}
+	callee := call.Common().StaticCallee()
+	if query.evidence == nil || callee == nil || call.Common().IsInvoke() {
+		return releasedOperation{}, false
+	}
+	for index, argument := range call.Common().Args {
+		if !query.storage.Same(argument, query.resource).Proven() {
+			continue
+		}
+		for _, required := range query.evidence.ArgumentMethodsRequired(call, index) {
+			if slices.Contains(query.methods, required) {
+				return releasedOperation{method: required, helper: callee}, true
+			}
+		}
+	}
+	return releasedOperation{}, false
 }
 
 type releasedResource struct {
@@ -99,6 +152,7 @@ type releasedResource struct {
 	methods   []string
 	storage   *ssaflow.Storage
 	knowledge *summaries.Provider
+	evidence  *lifecyclefacts.LifecycleEvidence
 }
 
 type useAfterReleaseProof struct {
@@ -293,17 +347,25 @@ func reportUseAfterRelease(
 	release *ssa.Call,
 	use *ssa.Call,
 	contract resourceContract,
+	operation releasedOperation,
 ) {
 	useSource := syntax.SourceRange(pass, use.Pos())
 	acquisitionSource := syntax.SourceRange(pass, acquisition.Pos())
 	releaseSource := syntax.SourceRange(pass, release.Pos())
+	related := []analysis.RelatedInformation{
+		{Pos: acquisitionSource.Pos(), End: acquisitionSource.End(), Message: "resource acquired here"},
+		{Pos: releaseSource.Pos(), End: releaseSource.End(), Message: "resource released here"},
+	}
+	if operation.helper != nil {
+		related = append(related, analysis.RelatedInformation{
+			Pos: useSource.Pos(), End: useSource.End(),
+			Message: fmt.Sprintf("%s calls %s on the resource on every path", operation.helper.RelString(nil), operation.method),
+		})
+	}
 	check.Report(pass, check.ResourceUseAfterRelease, analysis.Diagnostic{
 		Pos: useSource.Pos(), End: useSource.End(),
 		Message: fmt.Sprintf("resource from %s.%s is used after %s",
 			syntax.ShortPackageName(contract.packagePath), contract.name, ssaflow.CallName(release.Common())),
-		Related: []analysis.RelatedInformation{
-			{Pos: acquisitionSource.Pos(), End: acquisitionSource.End(), Message: "resource acquired here"},
-			{Pos: releaseSource.Pos(), End: releaseSource.End(), Message: "resource released here"},
-		},
+		Related: related,
 	})
 }

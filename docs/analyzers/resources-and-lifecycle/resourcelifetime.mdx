@@ -195,6 +195,13 @@ acquired value counts. Local fields, constant array and slice elements, saved
 aliases, and agreeing branch assignments preserve that identity. Replaced
 values, mixed branch assignments, and mutated response bodies do not.
 
+A helper that performs the operation counts as the operation: a call that
+hands the released value to a function whose summary says it calls `Read`
+on that argument on every path is a read of it, and the diagnostic names
+the helper. A helper that reads on some paths only, or that reads through
+a reader it built around the value, requires nothing and stays an opaque
+use.
+
 The proof stops at opaque effects, resource mutation, escaping ownership,
 asynchronous exposure, or its search budget. A writer reset after Close is
 therefore not mistaken for continued use of the closed stream. The check does

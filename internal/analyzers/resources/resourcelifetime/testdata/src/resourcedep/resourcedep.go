@@ -312,3 +312,33 @@ func CloseHead(files [2]*os.File) error { return files[0].Close() }
 
 // CloseTail closes only the second element.
 func CloseTail(files [2]*os.File) error { return files[1].Close() }
+
+// ReadFirst reads from the file on every path, so a caller that has closed
+// the file uses it after Close by calling this helper.
+func ReadFirst(file *os.File) error {
+	_, err := file.Read(make([]byte, 1))
+	return err
+}
+
+// ReadSometimes reads only when asked, so it requires nothing of the file.
+func ReadSometimes(file *os.File, enabled bool) error {
+	if !enabled {
+		return nil
+	}
+	_, err := file.Read(make([]byte, 1))
+	return err
+}
+
+// LastErr calls Err, which the rows contract allows after Close.
+func LastErr(rows *sql.Rows) error { return rows.Err() }
+
+// ReadReplaced reads a file of its own, not the one it was handed.
+func ReadReplaced(file *os.File, path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.Read(make([]byte, 1))
+	return err
+}

@@ -115,6 +115,7 @@ type HeapSummary struct {
 	Effects   []HeapEffect
 	Holds     []HeapHold
 	Reads     []HeapSlot
+	Requires  []HeapRequirement
 	Truncated []HeapSlot
 }
 
@@ -247,6 +248,9 @@ func (summary HeapSummary) String() string {
 	}
 	for _, at := range summary.Reads {
 		lines = append(lines, "read "+at.String())
+	}
+	for _, requirement := range summary.Requires {
+		lines = append(lines, "requires "+requirement.Slot.String()+" method "+requirement.Method+" every")
 	}
 	for _, at := range summary.Truncated {
 		lines = append(lines, "truncated "+at.String())

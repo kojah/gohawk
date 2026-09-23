@@ -28,7 +28,8 @@ gohawk facts [-func NAME] [-tests] [-regions] package...
 ```
 
 Prints the exported lifecycle summaries for the given packages, decoded per
-parameter, each with its heap projection as `heap …` lines. Only summarized
+parameter, each with its heap projection as `heap …` lines, including the
+`requires` lines that name the methods it calls on what it was handed. Only summarized
 functions appear: a function that is missing has no fact and is `unknown`
 to every consumer, which is different from a function whose fact shows a
 clear bit. See [Inferred facts](../fact-model/).

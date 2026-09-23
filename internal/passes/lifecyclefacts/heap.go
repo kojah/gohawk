@@ -155,3 +155,22 @@ func receiverStores(summary *ssaflow.HeapSummary, index int) bool {
 	}
 	return false
 }
+
+// ArgumentMethodsRequired lists the methods the call's static callee is
+// summarized as calling, on every normal return, with the object passed at
+// index as the receiver. The names are the callee's own; the caller decides
+// what they mean for the concrete value it passed. A callee without a
+// summary requires nothing here, which a consumer must read as unknown.
+func (evidence *LifecycleEvidence) ArgumentMethodsRequired(instruction ssa.Instruction, index int) []string {
+	fact, ok := factFor(evidence.pass, instruction)
+	if !ok || fact.Heap == nil {
+		return nil
+	}
+	var methods []string
+	for _, requirement := range fact.Heap.Requires {
+		if requirement.Slot.Root.Kind == ssaflow.HeapParameter && requirement.Slot.Root.Index == index && requirement.Slot.Path == "" {
+			methods = append(methods, requirement.Method)
+		}
+	}
+	return methods
+}

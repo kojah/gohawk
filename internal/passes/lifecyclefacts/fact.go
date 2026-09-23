@@ -447,7 +447,7 @@ func (fact *Fact) heapEmpty() bool {
 	if fact.Heap == nil {
 		return true
 	}
-	if len(fact.Heap.Edges) != 0 || len(fact.Heap.Truncated) != 0 {
+	if len(fact.Heap.Edges) != 0 || len(fact.Heap.Truncated) != 0 || len(fact.Heap.Requires) != 0 {
 		return false
 	}
 	for _, effect := range fact.Heap.Effects {

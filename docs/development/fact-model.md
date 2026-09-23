@@ -317,6 +317,13 @@ that each claim follows from the projection:
   or may be held by a global or a result; content the projection could not
   name that is held outside is claimed at the parameter itself.
 
+The projection also carries requirements: `requires P0 method Read every`
+says the function calls `Read` on the object it was handed at `P0` on
+every normal return, directly or through a summarized callee. A consumer
+reads them through `ArgumentMethodsRequired`; the use-after-release check
+treats a helper call whose requirement names an invalidating method of
+the released resource as the use. See [Preconditions](../preconditions/).
+
 An escape is recorded per slot, not per object: the address of a field
 handed to a callee escapes what that field holds and everything beneath it,
 never the object above it. A receiver whose embedded mutex is locked is not

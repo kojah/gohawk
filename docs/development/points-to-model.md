@@ -132,6 +132,11 @@ line for the first instruction that escaped each slot in each way. `gohawk
 ssa -regions` prints the graph without any summaries, which is what a unit
 test sees.
 
+A summary also carries requirements, the precondition half: the methods
+the function calls on the object at a named slot on every normal return,
+which a caller checks against what it has already done to that object.
+See [Preconditions](../preconditions/).
+
 ## Boundaries
 
 Intraprocedural only: callees contribute through the existing call-effect

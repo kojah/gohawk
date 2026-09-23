@@ -412,6 +412,20 @@ LifecycleEvidence combines memoized local SSA evidence with lifecycle summaries
 imported through the prerequisite analyzer. One evidence context belongs to one source
 function and is not safe for concurrent use.
 
+## LifecycleEvidence.ArgumentMethodsRequired
+
+[Source](../../../../internal/passes/lifecyclefacts/heap.go)
+
+```go
+func (evidence *LifecycleEvidence) ArgumentMethodsRequired(instruction ssa.Instruction, index int) []string
+```
+
+ArgumentMethodsRequired lists the methods the call's static callee is
+summarized as calling, on every normal return, with the object passed at
+index as the receiver. The names are the callee's own; the caller decides
+what they mean for the concrete value it passed. A callee without a
+summary requires nothing here, which a consumer must read as unknown.
+
 ## LifecycleEvidence.ArgumentRetained
 
 [Source](../../../../internal/passes/lifecyclefacts/evidence.go)

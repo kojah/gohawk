@@ -1292,6 +1292,20 @@ const (
 )
 ```
 
+## HeapRequirement
+
+[Source](../../../../internal/ssaflow/store_heap_requirements.go)
+
+```go
+type HeapRequirement struct {
+	Slot	HeapSlot
+	Method	string
+}
+```
+
+HeapRequirement says the function calls Method with the object at Slot
+as the receiver, on every normal return.
+
 ## HeapRoot
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
@@ -1352,6 +1366,7 @@ type HeapSummary struct {
 	Effects		[]HeapEffect
 	Holds		[]HeapHold
 	Reads		[]HeapSlot
+	Requires	[]HeapRequirement
 	Truncated	[]HeapSlot
 }
 ```

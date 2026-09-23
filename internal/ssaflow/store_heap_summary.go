@@ -47,6 +47,9 @@ func ProjectHeap(function *ssa.Function) (HeapSummary, bool) {
 		Reads:     projection.reads(),
 		Truncated: projection.truncated(states),
 	}
+	// Requirements are named after the cuts are known, so a slot the
+	// projection could not describe is never one the caller is held to.
+	summary.Requires = projection.requirements()
 	return summary, true
 }
 
@@ -321,14 +324,10 @@ func (projection *heapProjection) edges(states []*regionState, returns []*ssa.Re
 	for from, entry := range witnesses {
 		must := entry.returns == relevant[from.Root] && len(entry.exit) == 1 && !entry.stale
 		for target := range entry.ever {
-			if target.Kind == HeapTargetSlot && target.Slot == from {
-				continue
-			}
 			edge := HeapEdge{From: from, To: target, Must: must && entry.exit[target] && target.Kind != HeapTargetUnknown}
-			if assumedByDefault(edge) {
-				continue
+			if edgeWorthListing(edge, entry.exit) {
+				edges = append(edges, edge)
 			}
-			edges = append(edges, edge)
 		}
 	}
 	sort.Slice(edges, func(i, j int) bool { return heapEdgeLess(edges[i], edges[j]) })
@@ -365,6 +364,31 @@ func isNilSet(set pointees) bool {
 		}
 	}
 	return len(set) > 0
+}
+
+// edgeWorthListing drops the edges a summary need not carry: a slot that
+// holds itself, and what a caller assumes anyway. A result that may be
+// fresh is only assumed when nothing else is said about it. Beside another
+// target the fresh alternative is what keeps that target a may edge when
+// the summary is applied: bufio.NewReaderSize returns its argument or a new
+// Reader, and a caller that saw only the argument would hold it as the one
+// result.
+func edgeWorthListing(edge HeapEdge, exit map[HeapTarget]bool) bool {
+	if edge.To.Kind == HeapTargetSlot && edge.To.Slot == edge.From {
+		return false
+	}
+	if !assumedByDefault(edge) {
+		return true
+	}
+	if edge.To.Kind != HeapTargetFresh {
+		return false
+	}
+	for target := range exit {
+		if target.Kind != HeapTargetFresh && target.Kind != HeapTargetNil {
+			return true
+		}
+	}
+	return false
 }
 
 // assumedByDefault reports an edge a caller applying the summary assumes
