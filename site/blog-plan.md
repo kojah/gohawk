@@ -157,14 +157,22 @@ A finding in [Caddy](https://github.com/caddyserver/caddy/pull/7968) led to a me
 
 <!-- Editorial follow-up: add a compact, verified before-and-after excerpt from the Caddy fix. The example package reproduces the SSA and fact excerpts above. Keep lifecycle summaries and lock-order evidence distinct; do not imply that the lifecycle fact format exports lock-order relationships. -->
 
+## Real-world bugs we've fixed
+
+In Caddy, gohawk found a lock-order inversion in `UsagePool`. When a constructor failed, the error path held an entry lock while acquiring the pool lock. `Range` took those locks in the opposite order. Put the two operations together and they could deadlock—the same kind of problem that got me interested in writing an analyzer in the first place.
+
+The [merged fix](https://github.com/caddyserver/caddy/pull/7968) releases the entry lock before acquiring the pool lock. This affected callers combining `LoadOrNew` with `Range`, which external modules can do, rather than Caddy's built-in pool usage.
+
+In Docker, the process-ownership check found error paths that returned without waiting for a child process. Investigating that code also uncovered a pipe-handling deadlock: Docker could wait for stdout to finish while the child was blocked writing to stderr.
+
+The [fix](https://github.com/moby/moby/pull/53517) handed input and output handling back to `os/exec` and used `Run`. That let the standard library drain both output streams and wait for the child, including when copying failed. The patch fixed both problems and was merged upstream. gohawk led us to the missing wait; the pipe deadlock came out of investigating the finding.
+
+<!-- Editorial follow-up: add the Kubernetes example once its PR link and merge status are verified. -->
+
 ## Conclusion
 
-I thought Go's SSA APIs would get me most of the way to the analysis I wanted. Instead, a substantial part of building gohawk became figuring out what information to derive from SSA, how to carry it between functions, and which conclusions were safe to use.
+I expected SSA to get me further than it did. Building the fact system was the first surprise. Still finding false positives after scanning more than 500 repositories was the next.
 
-Then we scanned more than 500 GitHub repositories and were still finding false positives.
+Sometimes another exception helps. With `globalstate`, enough of them piled up that I started considering whether to disable the check entirely. That's a less exciting part of writing an analyzer, but it matters if people are going to trust it.
 
-That's been the other surprise. A check can make sense in its test cases and still misunderstand ordinary code in a real project. Sometimes the analysis needs improving. Sometimes the exceptions keep piling up until you start questioning the check itself. With `globalstate`, that meant considering whether to disable the analyzer entirely.
-
-I don't have a clever shortcut for that part. Finding a bug is satisfying, but finding out why working code triggered a warning is just as much of the job.
-
-Next time, I'll get into resource lifetimes and the additional questions that come up when cleanup moves into a helper—or becomes somebody else's responsibility.
+Next time: resource lifetimes, and what happens when cleanup becomes somebody else's job.
