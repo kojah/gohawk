@@ -4,4 +4,7 @@ Allow: /
 User-agent: GPTBot
 Allow: /
 
+User-agent: *
+Allow: /
+
 Sitemap: https://gohawk.dev/sitemap-index.xml
