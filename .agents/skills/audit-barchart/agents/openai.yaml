@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Bar Chart"
+  short_description: "Chart reviewed findings by analyzer and check"
+  default_prompt: "Use $audit-barchart to chart recent gohawk audit TPs and FPs by analyzer and check."
