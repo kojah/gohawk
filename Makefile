@@ -12,6 +12,7 @@ BUILD_DIRECTORY ?= $(CURDIR)/.build
 GOHAWK_BINARY ?= $(BUILD_DIRECTORY)/gohawk
 BENCHMARK_ARGS ?=
 VERIFY_JOBS ?= 4
+VERIFY_TIMINGS ?= 1
 
 VERIFY_BASE_TARGETS := mod-verify fmt-check vet deadcode
 # Local generation skips expensive analyzer example validation. CI checks both
@@ -28,6 +29,7 @@ VERIFY_OUTPUT_SYNC := $(if $(filter output-sync,$(.FEATURES)),--output-sync=targ
 # Keep going past the first failing target so one run reports every failure;
 # the exit status still reflects any failure.
 VERIFY_MAKE_ARGS := --no-print-directory $(VERIFY_OUTPUT_SYNC) --jobs=$(VERIFY_JOBS) --keep-going
+verify_targets = $(if $(filter 1,$(VERIFY_TIMINGS)),$(addprefix verify-timed-,$(1)),$(1))
 
 .DEFAULT_GOAL := help
 
@@ -47,6 +49,7 @@ help:
 		'  make test            Run the Go test suite' \
 		'  make test-exhaustive Run the CI-only exhaustive CLI subprocess matrix' \
 		'  make verify          Run the complete local verification suite in parallel' \
+		'                       Timings are shown by default; set VERIFY_TIMINGS=0 to hide them' \
 		'  make dogfood         Build and run gohawk on itself' \
 		'  make skills-check    Check installed skills against their upstream repositories' \
 		'  make plugin-test     Test the golangci-lint module plugin end to end' \
@@ -71,13 +74,19 @@ fmt-check:
 	$(GOLANGCI_LINT) fmt --diff
 
 generate:
-	$(GO) generate ./...
+	GOHAWK_DOC_TIMINGS=$(VERIFY_TIMINGS) $(GO) generate ./...
 
 generate-examples:
-	$(GO) run ./tools/gendocs -examples
+	GOHAWK_DOC_TIMINGS=$(VERIFY_TIMINGS) $(GO) run ./tools/gendocs -examples
 
 generated-check:
-	$(GO) run ./tools/gendocs -check -examples
+	GOHAWK_DOC_TIMINGS=$(VERIFY_TIMINGS) $(GO) run ./tools/gendocs -check -examples
+
+# Timed wrappers preserve each target's exit status and outer output grouping.
+verify-timed-%:
+	+@started=$$(date +%s); $(MAKE) --no-print-directory $*; status=$$?; \
+		elapsed=$$(($$(date +%s) - started)); \
+		printf 'verify timing: %s %ss exit=%s\n' '$*' "$$elapsed" "$$status" >&2; exit "$$status"
 
 mod-verify:
 	$(GO) mod verify
@@ -131,21 +140,25 @@ skills-check:
 # Hosted CI runs generated-check with live examples; a stale committed page
 # must fail there because CI cannot commit the fix.
 ifndef CI
+ifeq ($(VERIFY_TIMINGS),1)
+generated-sync: verify-timed-generate
+else
 generated-sync: generate
+endif
 else
 generated-sync:
 endif
 
 verify-static: generated-sync
-	+$(MAKE) $(VERIFY_MAKE_ARGS) $(if $(CI),$(VERIFY_CI_FAST_TARGETS),$(VERIFY_STATIC_TARGETS))
+	+$(MAKE) $(VERIFY_MAKE_ARGS) $(call verify_targets,$(if $(CI),$(VERIFY_CI_FAST_TARGETS),$(VERIFY_STATIC_TARGETS)))
 
 verify: generated-sync
-	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS)
+	+$(MAKE) $(VERIFY_MAKE_ARGS) $(call verify_targets,$(VERIFY_TARGETS))
 
 # The aggregate local CI target adds coverage. Hosted CI and release workflows
 # run the custom golangci-lint plugin test as a separate gate.
 ci: generated-sync
-	+$(MAKE) $(VERIFY_MAKE_ARGS) $(VERIFY_TARGETS) test-race coverage
+	+$(MAKE) $(VERIFY_MAKE_ARGS) $(call verify_targets,$(VERIFY_TARGETS) test-race coverage)
 
 benchmark:
 	./scripts/benchmark-dogfood.sh $(BENCHMARK_ARGS)

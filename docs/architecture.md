@@ -61,6 +61,12 @@ examples in place. After changing example fixtures or analyzer behavior, run
 their generated blocks. CI runs `make generated-check` with live example
 validation, so stale committed examples fail the build.
 
+Documentation generation prints phase timings by default, including fixture
+scanning, package loading, analyzer runs, page rendering, and file syncing.
+`make verify` also prints elapsed time and exit status for each gate. Set
+`VERIFY_TIMINGS=0` to hide these measurements in Makefile workflows, or pass
+`-timings=false` directly to `tools/gendocs`.
+
 Larger analyzers use shared control-flow and data-flow tools to decide whether
 a diagnostic is safe to report. The sections below describe how those tools
 are layered and which rules the tests enforce; the codebase skill's

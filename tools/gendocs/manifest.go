@@ -11,7 +11,7 @@ import (
 	"github.com/kojah/gohawk/internal/docexamples"
 )
 
-func collectManifest(root string, includeExamples bool) (manifest, error) {
+func collectManifest(root string, includeExamples bool, metrics *docexamples.Metrics) (manifest, error) {
 	metadata := gohawk.AnalyzerMetadata()
 	seen := make(map[string]bool)
 	analyzerGroups := gohawk.AnalyzerGroups()
@@ -44,7 +44,7 @@ func collectManifest(root string, includeExamples bool) (manifest, error) {
 	var examples map[string]docexamples.Set
 	if includeExamples {
 		var err error
-		examples, err = docexamples.CollectAll(targets)
+		examples, err = docexamples.CollectAllWithMetrics(targets, metrics)
 		if err != nil {
 			return manifest{}, err
 		}

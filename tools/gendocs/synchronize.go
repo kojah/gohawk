@@ -9,14 +9,25 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 )
 
-func synchronize(root string, check, includeExamples bool) error {
-	data, err := collectManifest(root, includeExamples)
+func synchronize(root string, check, includeExamples, showTimings bool) error {
+	var timings *docsTimings
+	if showTimings {
+		timings = &docsTimings{started: time.Now(), examples: includeExamples}
+		defer func() { _, _ = os.Stderr.WriteString(timings.String()) }()
+	}
+	started := time.Now()
+	data, err := collectManifest(root, includeExamples, timings.exampleMetrics())
+	if timings != nil {
+		timings.manifest = time.Since(started)
+	}
 	if err != nil {
 		return err
 	}
 
+	started = time.Now()
 	expectedPages := make(map[string]bool)
 	updates := make(map[string][]byte)
 	for _, group := range data.Groups {
@@ -37,7 +48,13 @@ func synchronize(root string, check, includeExamples bool) error {
 	if err := collectSharedUpdates(root, data, updates); err != nil {
 		return err
 	}
+	if timings != nil {
+		timings.render = time.Since(started)
+		timings.analyzers = len(expectedPages)
+		timings.pages = len(updates)
+	}
 
+	started = time.Now()
 	paths := make([]string, 0, len(updates))
 	for path := range updates {
 		paths = append(paths, path)
@@ -47,6 +64,9 @@ func synchronize(root string, check, includeExamples bool) error {
 		if err := updateFile(root, path, updates[path], check); err != nil {
 			return err
 		}
+	}
+	if timings != nil {
+		timings.write = time.Since(started)
 	}
 	return nil
 }

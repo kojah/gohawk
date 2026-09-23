@@ -71,3 +71,12 @@ func TestPackageBelongsToAnalyzer(t *testing.T) {
 		}
 	}
 }
+
+func TestCountLoadedPackagesIncludesSharedDependenciesOnce(t *testing.T) {
+	shared := &packages.Package{PkgPath: "shared"}
+	first := &packages.Package{PkgPath: "first", Imports: map[string]*packages.Package{"shared": shared}}
+	second := &packages.Package{PkgPath: "second", Imports: map[string]*packages.Package{"shared": shared}}
+	if got := countLoadedPackages([]*packages.Package{first, second}); got != 3 {
+		t.Fatalf("loaded package count = %d, want 3", got)
+	}
+}

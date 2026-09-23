@@ -82,10 +82,18 @@ func Collect(testRoot string, analyzer *analysis.Analyzer) (Set, error) {
 // paying the go-list and type-checking startup cost once per documentation
 // page while preserving analyzer isolation.
 func CollectAll(targets []Target) (map[string]Set, error) {
+	return CollectAllWithMetrics(targets, nil)
+}
+
+// CollectAllWithMetrics collects examples and optionally measures its phases.
+// A nil metrics pointer leaves the ordinary collection path uninstrumented.
+func CollectAllWithMetrics(targets []Target, metrics *Metrics) (map[string]Set, error) {
 	results := make(map[string]Set, len(targets))
+	metrics.reset(len(targets))
 	if len(targets) == 0 {
 		return results, nil
 	}
+	started := metrics.start()
 	type preparedTarget struct {
 		Target
 		regions []region
@@ -109,10 +117,13 @@ func CollectAll(targets []Target) (map[string]Set, error) {
 			return nil, fmt.Errorf("%s examples: %w", target.Analyzer.Name, err)
 		}
 		prepared = append(prepared, preparedTarget{Target: target, regions: regions})
+		metrics.addRegions(len(regions))
 		testRoots = append(testRoots, target.TestRoot)
 		patterns = append(patterns, target.Analyzer.Name)
 		hasTests = hasTests || targetHasTests
 	}
+	metrics.finishRegionScan(started)
+	started = metrics.start()
 
 	environment := slices.DeleteFunc(os.Environ(), func(value string) bool {
 		return strings.HasPrefix(value, "GO111MODULE=") || strings.HasPrefix(value, "GOPATH=")
@@ -125,6 +136,7 @@ func CollectAll(targets []Target) (map[string]Set, error) {
 		Tests: hasTests,
 	}
 	loaded, err := packages.Load(config, patterns...)
+	metrics.finishPackageLoad(started, loaded)
 	if err != nil {
 		return nil, err
 	}
@@ -144,11 +156,15 @@ func CollectAll(targets []Target) (map[string]Set, error) {
 		if len(roots) == 0 {
 			return nil, fmt.Errorf("%s: no package was loaded", target.Analyzer.Name)
 		}
+		started = metrics.start()
 		graph, err := checker.Analyze([]*analysis.Analyzer{target.Analyzer}, roots, &checker.Options{Sequential: true})
+		metrics.finishAnalyzerRun(started, len(roots))
 		if err != nil {
 			return nil, err
 		}
+		started = metrics.start()
 		result, err := collectDiagnostics(target.Analyzer.Name, target.regions, graph.Roots)
+		metrics.finishDiagnostics(started)
 		if err != nil {
 			return nil, err
 		}

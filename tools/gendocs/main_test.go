@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/docexamples"
@@ -63,7 +64,7 @@ func TestFastManifestLeavesExamplesUncollected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := collectManifest(root, false)
+	data, err := collectManifest(root, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,6 +73,26 @@ func TestFastManifestLeavesExamplesUncollected(t *testing.T) {
 			if len(analyzer.Examples.Flagged) != 0 || analyzer.Examples.OK.Code != "" {
 				t.Fatalf("fast manifest collected examples for %s", analyzer.Name)
 			}
+		}
+	}
+}
+
+func TestDocsTimingsDescribePhasesAndCounts(t *testing.T) {
+	timings := docsTimings{
+		started:   time.Now(),
+		examples:  true,
+		analyzers: 2,
+		pages:     4,
+		collector: docexamples.Metrics{Targets: 2, Regions: 3, LoadedPackages: 5, AnalyzerRoots: 2},
+	}
+	output := timings.String()
+	for _, want := range []string{
+		"mode=examples analyzers=2 files=4",
+		"fixture scan:", "targets=2 regions=3", "package load:", "packages=5",
+		"analyzer run:", "roots=2", "page render:", "file sync:",
+	} {
+		if !strings.Contains(output, want) {
+			t.Errorf("timing output missing %q: %s", want, output)
 		}
 	}
 }
