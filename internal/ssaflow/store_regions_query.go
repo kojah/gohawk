@@ -20,26 +20,36 @@ func (graph *regionGraph) pointsTo(value ssa.Value) (pointees, bool) {
 	return set, len(set) > 0
 }
 
-// mayAlias reports whether two values may refer to the same object. A
-// value the graph does not track, such as a call's whole result tuple,
-// keeps the structural answer: it is not unknown, it is not a pointer.
-func (graph *regionGraph) mayAlias(left, right ssa.Value) bool {
+// aliasProof decides whether two values may refer to the same object and
+// names the rule. A value the graph does not track, such as a call's whole
+// result tuple, keeps the structural answer: it is not unknown, it is not a
+// pointer. A value with no pointees is unknown and may alias anything. A
+// disjointness answer is recorded on the graph.
+func (graph *regionGraph) aliasProof(left, right ssa.Value) AliasProof {
 	if !tracked(left.Type()) || !tracked(right.Type()) {
-		return structurallySame(left, right)
+		return AliasProof{Aliases: structurallySame(left, right), Reason: EvidenceStructuralWalk, Provenance: EvidenceFromLocalSSA}
 	}
 	a, okA := graph.pointsTo(left)
 	b, okB := graph.pointsTo(right)
 	if !okA || !okB {
-		return true
+		return AliasProof{Aliases: true, Reason: EvidenceUnknownPointee, Provenance: EvidenceFromLocalSSA}
 	}
+	reason := EvidenceDisjointObjects
 	for x := range a {
 		for y := range b {
 			if graph.slotsMayAlias(x, y, aliasDepth) {
-				return true
+				return AliasProof{Aliases: true, Reason: EvidenceSharedSlot, Provenance: EvidenceFromLocalSSA}
+			}
+			switch {
+			case x.region == y.region:
+				reason = EvidenceDisjointPaths
+			case reason == EvidenceDisjointObjects && (x.region.kind == regionSite) != (y.region.kind == regionSite):
+				reason = EvidenceUnescapedLocal
 			}
 		}
 	}
-	return false
+	graph.disjoint = append(graph.disjoint, AliasDecision{Value: left, Target: right, Reason: reason})
+	return AliasProof{Aliases: false, Reason: reason, Provenance: EvidenceFromLocalSSA}
 }
 
 // aliasDepth bounds the placeholder chase: a placeholder may have been

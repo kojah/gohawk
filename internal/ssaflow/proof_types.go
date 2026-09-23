@@ -9,8 +9,16 @@ const (
 	EvidenceNotFound    EvidenceReason = "evidence-not-found"
 	EvidenceUnavailable EvidenceReason = "evidence-unavailable"
 
-	EvidenceSameValue      EvidenceReason = "same-value"
-	EvidenceSameAccessPath EvidenceReason = "same-access-path"
+	EvidenceSameValue EvidenceReason = "same-value"
+	// EvidenceSharedSlot and the other alias reasons name the rule behind
+	// a may-alias answer; see AliasProof.
+	EvidenceSharedSlot      EvidenceReason = "shared-slot"
+	EvidenceUnknownPointee  EvidenceReason = "unknown-pointee"
+	EvidenceDisjointPaths   EvidenceReason = "disjoint-paths"
+	EvidenceDisjointObjects EvidenceReason = "disjoint-objects"
+	EvidenceUnescapedLocal  EvidenceReason = "unescaped-local"
+	EvidenceStructuralWalk  EvidenceReason = "structural-walk"
+	EvidenceSameAccessPath  EvidenceReason = "same-access-path"
 
 	// EvidenceDeferredCompletion and the other completion reasons name the
 	// launch form of the callee that ran the lifecycle method; nested launches
@@ -108,6 +116,18 @@ func (proof Proof) Known() bool {
 // IdentityProof records evidence that two SSA values denote the same value or
 // corresponding access path.
 type IdentityProof struct{ Proof }
+
+// AliasProof records whether two values may refer to one object, and the
+// reason. Aliases true is possibility, never identity; it includes an object
+// carried around a loop's back edge, which only a must-answer filters. A
+// false answer is a claim of disjointness, and its reason says which rule
+// made it: two paths of one object, an unescaped local against something it
+// was never stored into, or two objects the function's flow never connects.
+type AliasProof struct {
+	Aliases    bool
+	Reason     EvidenceReason
+	Provenance EvidenceProvenance
+}
 
 // CompletionProof records evidence that a lifecycle method runs under the
 // path guarantees selected by an analyzer.

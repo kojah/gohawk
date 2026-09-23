@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/ssaflow"
+
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
@@ -25,8 +27,9 @@ func printSSA(arguments []string, output, errorsOutput io.Writer) error {
 	flags.SetOutput(errorsOutput)
 	functionFilter := flags.String("func", "", "print only functions whose name or enclosing function name matches")
 	includeTests := flags.Bool("tests", false, "also load the package's test variant")
+	regions := flags.Bool("regions", false, "also print each function's points-to graph")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk ssa [-func NAME] [-tests] package...")
+		writeLine(errorsOutput, "usage: gohawk ssa [-func NAME] [-tests] [-regions] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -36,7 +39,7 @@ func printSSA(arguments []string, output, errorsOutput io.Writer) error {
 	if len(patterns) == 0 {
 		return errors.New("at least one package pattern is required")
 	}
-	rendered, err := RenderSSA(patterns, *functionFilter, *includeTests)
+	rendered, err := renderSSA(patterns, *functionFilter, *includeTests, *regions)
 	if err != nil {
 		return err
 	}
@@ -49,6 +52,12 @@ func printSSA(arguments []string, output, errorsOutput io.Writer) error {
 // prints it. The documentation generator uses it so the dump on the
 // Understanding SSA page is the real output rather than a transcript.
 func RenderSSA(patterns []string, functionFilter string, includeTests bool) (string, error) {
+	return renderSSA(patterns, functionFilter, includeTests, false)
+}
+
+// renderSSA is RenderSSA with the points-to graph of each function appended
+// when regions is set, as the -regions flag prints it.
+func renderSSA(patterns []string, functionFilter string, includeTests, regions bool) (string, error) {
 	functions, fset, err := loadSSAFunctions(patterns, includeTests)
 	if err != nil {
 		return "", err
@@ -60,6 +69,9 @@ func RenderSSA(patterns []string, functionFilter string, includeTests bool) (str
 		}
 		fmt.Fprintf(&buffer, "// %s\n", fset.Position(function.Pos()))
 		ssa.WriteFunction(&buffer, function)
+		if regions {
+			buffer.WriteString(ssaflow.RenderRegions(function))
+		}
 		buffer.WriteString("\n")
 	}
 	if buffer.Len() == 0 {

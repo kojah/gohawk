@@ -2,11 +2,11 @@ package ssaflow
 
 import "golang.org/x/tools/go/ssa"
 
-// DefinitelySameValue proves value identity without possible-alias or storage
-// history matching. Every alternative of a phi must agree. Distinct loads stay
-// unknown, even from the same address: its contents may have changed between
-// them. A false result means unproved, not necessarily different.
-func DefinitelySameValue(left, right ssa.Value) bool {
+// structurallyIdentical proves value identity from the value graph alone:
+// one SSA value seen through wrappers, a phi whose alternatives all agree,
+// or equal address selections. Distinct loads stay unknown here, even from
+// the same address.
+func structurallyIdentical(left, right ssa.Value) bool {
 	if left == nil || right == nil {
 		return false
 	}
@@ -22,10 +22,10 @@ func DefinitelySameValue(left, right ssa.Value) bool {
 			switch left := left.(type) {
 			case *ssa.FieldAddr:
 				other, ok := right.(*ssa.FieldAddr)
-				return ok && left.Field == other.Field && DefinitelySameValue(left.X, other.X)
+				return ok && left.Field == other.Field && structurallyIdentical(left.X, other.X)
 			case *ssa.IndexAddr:
 				other, ok := right.(*ssa.IndexAddr)
-				if !ok || !DefinitelySameValue(left.X, other.X) {
+				if !ok || !structurallyIdentical(left.X, other.X) {
 					return false
 				}
 				a, aOK := constantIndex(left.Index)
@@ -45,7 +45,7 @@ func ProveIdentity(left, right AccessPath) IdentityProof {
 	if left.Value == nil || right.Value == nil {
 		return IdentityProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
-	if DefinitelySameValue(left.Value, right.Value) {
+	if structurallyIdentical(left.Value, right.Value) {
 		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}}
 	}
 	leftPath, leftOK := accessPath(left.Value, left.Root, map[ssa.Value]bool{})

@@ -146,6 +146,8 @@ type regionGraph struct {
 	unkR   *region
 	// ids number instructions and blocks so stamps are stable.
 	ids map[ssa.Instruction]int
+	// disjoint records every disjointness answer, for attribution.
+	disjoint []AliasDecision
 }
 
 // sliceView is a constant window over a local array.
@@ -219,6 +221,11 @@ func valueFunction(value ssa.Value) *ssa.Function {
 	case nil:
 		return nil
 	case ssa.Instruction:
+		// An instruction outside any block, such as one a test built by
+		// hand, belongs to no function.
+		if typed.Block() == nil {
+			return nil
+		}
 		return typed.Parent()
 	case *ssa.Parameter:
 		return typed.Parent()

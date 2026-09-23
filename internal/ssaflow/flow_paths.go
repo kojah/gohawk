@@ -280,13 +280,13 @@ func assertionHolds(condition, value ssa.Value, concrete types.Type) bool {
 		return false
 	}
 	assertion, ok := okResult.Tuple.(*ssa.TypeAssert)
-	return ok && assertion.CommaOk && DefinitelySameValue(assertion.X, value) && types.AssignableTo(concrete, assertion.AssertedType)
+	return ok && assertion.CommaOk && structurallyIdentical(assertion.X, value) && types.AssignableTo(concrete, assertion.AssertedType)
 }
 
 // assumedNonNil reports whether operand is the assumed value itself or a
 // field loaded directly from it.
 func assumedNonNil(operand, value ssa.Value) bool {
-	if DefinitelySameValue(operand, value) {
+	if structurallyIdentical(operand, value) {
 		return true
 	}
 	load, ok := operand.(*ssa.UnOp)
@@ -294,7 +294,7 @@ func assumedNonNil(operand, value ssa.Value) bool {
 		return false
 	}
 	field, ok := load.X.(*ssa.FieldAddr)
-	return ok && DefinitelySameValue(field.X, value)
+	return ok && structurallyIdentical(field.X, value)
 }
 
 // FeasibleSuccessors preserves constants selected by predecessor-sensitive

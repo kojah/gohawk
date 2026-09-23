@@ -75,6 +75,40 @@ function: not stored anywhere the function does not own, not handed to a
 call it cannot see through, not captured by a closure that does either.
 What such an aggregate holds lives no longer than the aggregate itself.
 
+## AliasDecision
+
+[Source](../../../../internal/ssaflow/store_alias.go)
+
+```go
+type AliasDecision struct {
+	Value, Target	ssa.Value
+	Reason		EvidenceReason
+}
+```
+
+AliasDecision is one disjointness answer the graph gave for a function;
+RenderRegions lists them so a changed diagnostic can be traced to the
+alias rule behind it.
+
+## AliasProof
+
+[Source](../../../../internal/ssaflow/proof_types.go)
+
+```go
+type AliasProof struct {
+	Aliases		bool
+	Reason		EvidenceReason
+	Provenance	EvidenceProvenance
+}
+```
+
+AliasProof records whether two values may refer to one object, and the
+reason. Aliases true is possibility, never identity; it includes an object
+carried around a loop's back edge, which only a must-answer filters. A
+false answer is a claim of disjointness, and its reason says which rule
+made it: two paths of one object, an unescaped local against something it
+was never stored into, or two objects the function's flow never connects.
+
 ## BlockInCycle
 
 [Source](../../../../internal/ssaflow/call_goroutines.go)
@@ -736,16 +770,19 @@ DefinitelyNil reports whether every represented SSA value is nil.
 
 ## DefinitelySameValue
 
-[Source](../../../../internal/ssaflow/value_identity.go)
+[Source](../../../../internal/ssaflow/store_alias.go)
 
 ```go
 func DefinitelySameValue(left, right ssa.Value) bool
 ```
 
-DefinitelySameValue proves value identity without possible-alias or storage
-history matching. Every alternative of a phi must agree. Distinct loads stay
-unknown, even from the same address: its contents may have changed between
-them. A false result means unproved, not necessarily different.
+DefinitelySameValue proves value identity: the values name one object
+on every path. The value walk proves it for one SSA value seen through
+wrappers, a phi whose alternatives all agree, and equal address
+selections; the points-to graph adds a cell resolved through a copy of
+its pointee, a join where every path stored one object, and two reads of
+one slot with no write between them. A false result means unproved, not
+necessarily different.
 
 ## DirectCallee
 
@@ -855,7 +892,7 @@ const (
 )
 ```
 
-## EvidenceNone, EvidenceNotFound, EvidenceUnavailable, EvidenceSameValue, EvidenceSameAccessPath, EvidenceDeferredCompletion, EvidenceCalledCompletion, EvidenceStartedCompletion, EvidenceCallbackCompletion, EvidenceBudgetExhausted, EvidenceCompletionInCycle, EvidenceHelperInvocation, EvidenceReturnedDeferredCleanup, EvidenceStorageNotLocal, EvidenceStorageOutsideFunction, EvidenceStorageAddressEscapes, EvidenceStorageWriteThroughAlias, EvidenceStoragePartialWrite, EvidenceStorageConflictingWrites, EvidenceStorageNoReachingWrite, EvidenceStorageWriteInCycle, EvidenceStorageWriteAfterObservation, EvidenceStorageProjectionNotLoad, EvidenceStorageProjectionModified, EvidenceStoredValuesDiffer, EvidenceSummaryBodyUnavailable, EvidenceSummaryRecursive, EvidenceStoredInField, EvidenceOwnerStoredInField, EvidenceStoredInGlobal, EvidenceStoredInEnclosingScope, EvidenceOwnerStoredInExternalField, EvidenceStoredInOwnedMap, EvidenceSentToReceiver, EvidenceCapturedByClosure, EvidenceCallResultStoredInField, EvidenceTransferredToReturnedOwner, EvidenceTransferredToReceiver, EvidenceTransferredToLifecycleOwner
+## EvidenceNone, EvidenceNotFound, EvidenceUnavailable, EvidenceSameValue, EvidenceSharedSlot, EvidenceUnknownPointee, EvidenceDisjointPaths, EvidenceDisjointObjects, EvidenceUnescapedLocal, EvidenceStructuralWalk, EvidenceSameAccessPath, EvidenceDeferredCompletion, EvidenceCalledCompletion, EvidenceStartedCompletion, EvidenceCallbackCompletion, EvidenceBudgetExhausted, EvidenceCompletionInCycle, EvidenceHelperInvocation, EvidenceReturnedDeferredCleanup, EvidenceStorageNotLocal, EvidenceStorageOutsideFunction, EvidenceStorageAddressEscapes, EvidenceStorageWriteThroughAlias, EvidenceStoragePartialWrite, EvidenceStorageConflictingWrites, EvidenceStorageNoReachingWrite, EvidenceStorageWriteInCycle, EvidenceStorageWriteAfterObservation, EvidenceStorageProjectionNotLoad, EvidenceStorageProjectionModified, EvidenceStoredValuesDiffer, EvidenceSummaryBodyUnavailable, EvidenceSummaryRecursive, EvidenceStoredInField, EvidenceOwnerStoredInField, EvidenceStoredInGlobal, EvidenceStoredInEnclosingScope, EvidenceOwnerStoredInExternalField, EvidenceStoredInOwnedMap, EvidenceSentToReceiver, EvidenceCapturedByClosure, EvidenceCallResultStoredInField, EvidenceTransferredToReturnedOwner, EvidenceTransferredToReceiver, EvidenceTransferredToLifecycleOwner
 
 [Source](../../../../internal/ssaflow/proof_types.go)
 
@@ -866,6 +903,14 @@ const (
 	EvidenceUnavailable	EvidenceReason	= "evidence-unavailable"
 
 	EvidenceSameValue	EvidenceReason	= "same-value"
+	// EvidenceSharedSlot and the other alias reasons name the rule behind
+	// a may-alias answer; see AliasProof.
+	EvidenceSharedSlot	EvidenceReason	= "shared-slot"
+	EvidenceUnknownPointee	EvidenceReason	= "unknown-pointee"
+	EvidenceDisjointPaths	EvidenceReason	= "disjoint-paths"
+	EvidenceDisjointObjects	EvidenceReason	= "disjoint-objects"
+	EvidenceUnescapedLocal	EvidenceReason	= "unescaped-local"
+	EvidenceStructuralWalk	EvidenceReason	= "structural-walk"
 	EvidenceSameAccessPath	EvidenceReason	= "same-access-path"
 
 	// EvidenceDeferredCompletion and the other completion reasons name the
@@ -1336,12 +1381,8 @@ MayAlias reports a possible identity through conversions, any phi edge,
 and local storage. It is not a must-alias proof: use DefinitelySameValue
 when a diagnostic or guaranteed action requires exact identity. It does
 not equate a field or index with its containing aggregate; use
-ValueDerivesFrom or MayContainValue for containment instead.
-
-The points-to graph answers with disjointness the value walk cannot: two
-fields of one object, a cell after it was overwritten, or an unescaped
-local and anything it was never stored into, are not aliases. A function
-the graph could not model keeps the walk, which never rules an alias out.
+ValueDerivesFrom or MayContainValue for containment instead. It is the
+Boolean of ProveMayAlias, which is the one decision path.
 
 ## MayAliasAny
 
@@ -1826,6 +1867,23 @@ func ProveIdentity(left, right AccessPath) IdentityProof
 ProveIdentity reports whether two values denote corresponding access paths
 beneath roots that the caller has already established as equivalent.
 
+## ProveMayAlias
+
+[Source](../../../../internal/ssaflow/store_alias.go)
+
+```go
+func ProveMayAlias(value, target ssa.Value) AliasProof
+```
+
+ProveMayAlias answers MayAlias with its reason. The points-to graph
+answers with disjointness the value walk cannot: two fields of one
+object, a cell after it was overwritten, or an unescaped local and
+anything it was never stored into, are not aliases. A function the graph
+could not model keeps the walk, which never rules an alias out. A
+disjointness answer is the one place the graph can move a consumer from
+silence to a report, so every such answer carries the rule that made it,
+and the graph keeps them for the debug dump.
+
 ## ProveReturnedCleanup
 
 [Source](../../../../internal/ssaflow/completion_returned.go)
@@ -1917,6 +1975,19 @@ func (walk ReachingWalk) Mark(value ssa.Value) bool
 Mark records value as visited and reports whether this was its first visit.
 Leaves use it for values they examine without folding over them, such as
 the sibling element addresses of one slice.
+
+## RenderRegions
+
+[Source](../../../../internal/ssaflow/store_regions_render.go)
+
+```go
+func RenderRegions(function *ssa.Function) string
+```
+
+RenderRegions prints the points-to graph of a function for the ssa
+subcommand: each tracked value with the slots it may refer to, then the
+disjointness answers the graph has given. Regions are named by kind and
+origin; a stale entry, carried around a loop's back edge, is marked.
 
 ## ResolveEmbeddedFieldPath
 
@@ -2727,7 +2798,7 @@ local, passed through a call result, or merged by a phi.
 
 ## ValueDerivesFrom
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/store_derivation.go)
 
 ```go
 func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool

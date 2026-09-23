@@ -124,32 +124,20 @@ func CallResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // SSA c
 	return nil
 }
 
-// ValueDerivesFrom reports whether source contributes to value through SSA
-// operands or a local load/store pair. This is a may-relation: every store to
-// the loaded address counts, not only the one that reaches the load.
-//
-// A load through a field or element address also derives from a value stored
-// into the enclosing aggregate as a whole, when that aggregate is only ever
-// written whole. The builder spills a struct or array parameter, and a copy
-// such as k := j, into a local cell before it can select a field, so
-// j.out.Close() in func (j job) reaches the parameter only through that
-// spill. Without this step a by-value parameter could never be proven closed
-// while the same body with a pointer parameter is, because the pointer's
-// field address selects from the parameter directly. A cell with a store into
-// one of its fields is not crossed: the field a later load returns may be the
-// replacement rather than a component of the stored aggregate, and the
-// analyzer must keep such a replaced resource reportable.
-func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
+// derivesFrom is the walk behind ValueDerivesFrom, with the identity step
+// chosen by the caller: the points-to graph's may-alias for the store
+// family, the structural walk for a family beneath it.
+func derivesFrom(value, source ssa.Value, seen map[ssa.Value]bool, same func(ssa.Value, ssa.Value) bool) bool {
 	if value == nil || source == nil || seen[value] {
 		return false
 	}
-	if structurallySame(value, source) {
+	if same(value, source) {
 		return true
 	}
 	seen[value] = true
 	if load, ok := value.(*ssa.UnOp); ok && load.Op == token.MUL {
 		for address := load.X; address != nil; address = enclosingAggregateAddress(address) {
-			if storedValueDerivesFrom(address, source, seen) {
+			if storedValueDerivesFrom(address, source, seen, same) {
 				return true
 			}
 		}
@@ -160,7 +148,7 @@ func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 	}
 	var operands []*ssa.Value
 	for _, operand := range instruction.Operands(operands) {
-		if operand != nil && ValueDerivesFrom(*operand, source, seen) {
+		if operand != nil && derivesFrom(*operand, source, seen, same) {
 			return true
 		}
 	}
@@ -169,16 +157,22 @@ func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 
 // storedValueDerivesFrom reports whether any store into address stores a value
 // that derives from source.
-func storedValueDerivesFrom(address, source ssa.Value, seen map[ssa.Value]bool) bool {
+func storedValueDerivesFrom(address, source ssa.Value, seen map[ssa.Value]bool, same func(ssa.Value, ssa.Value) bool) bool {
 	if address.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *address.Referrers() {
-		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && ValueDerivesFrom(store.Val, source, seen) {
+		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && derivesFrom(store.Val, source, seen, same) {
 			return true
 		}
 	}
 	return false
+}
+
+// derivesStructurally is ValueDerivesFrom with the structural identity step,
+// for the value family, which sits beneath the points-to graph.
+func derivesStructurally(value, source ssa.Value) bool {
+	return derivesFrom(value, source, map[ssa.Value]bool{}, structurallySame)
 }
 
 // enclosingAggregateAddress returns the aggregate address a field or element
@@ -299,7 +293,7 @@ func accessPath(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool)
 	if value == nil || root == nil || seen[value] {
 		return nil, false
 	}
-	if DefinitelySameValue(value, root) {
+	if structurallyIdentical(value, root) {
 		return nil, true
 	}
 	seen[value] = true
@@ -321,7 +315,7 @@ func accessPath(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool)
 		path, baseOK := accessPath(typed.X, root, seen)
 		return appendAccess(path, "index:"+index, baseOK)
 	case *ssa.UnOp:
-		if typed.Op == token.MUL && DefinitelySameValue(typed.X, root) {
+		if typed.Op == token.MUL && structurallyIdentical(typed.X, root) {
 			return nil, true
 		}
 		return accessPath(typed.X, root, seen)
@@ -358,8 +352,8 @@ func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}
-	comparesErrorToNil := ValueDerivesFrom(comparison.X, errorValue, map[ssa.Value]bool{}) && DefinitelyNil(comparison.Y) ||
-		ValueDerivesFrom(comparison.Y, errorValue, map[ssa.Value]bool{}) && DefinitelyNil(comparison.X)
+	comparesErrorToNil := derivesStructurally(comparison.X, errorValue) && DefinitelyNil(comparison.Y) ||
+		derivesStructurally(comparison.Y, errorValue) && DefinitelyNil(comparison.X)
 	if !comparesErrorToNil {
 		return false, false
 	}

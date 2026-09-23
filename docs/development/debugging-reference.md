@@ -14,7 +14,7 @@ Dump it, then reason about what the analyzer actually sees.
 ## SSA dump
 
 ```text
-gohawk ssa [-func NAME] [-tests] package...
+gohawk ssa [-func NAME] [-tests] [-regions] package...
 ```
 
 Prints the SSA of the matching functions in the given packages. Use `-func`
@@ -111,6 +111,7 @@ candidate, carrying a specific reason and the instruction that blocked it:
 | reason family | examples | what to look at |
 |---|---|---|
 | storage | `storage-address-escapes`, `storage-conflicting-writes`, `storage-write-after-observation`, `storage-not-local` | the named store, call, or merge; the cell was not proved to hold one value there |
+| alias | `disjoint-paths`, `disjoint-objects`, `unescaped-local`, `shared-slot`, `unknown-pointee`, `structural-walk` | the points-to graph's answer to a may-alias question; the first three are disjointness claims. `gohawk ssa -regions` prints each value's pointees, named by kind and origin, with entries carried around a back edge marked stale |
 | summary | `summary-body-unavailable`, `summary-recursive` | the named callee; its body could not be summarized, so effects cannot be ruled out |
 | completion | `evidence-not-found`, `evidence-unavailable` at a launch site | the callee resolved from that launch never covered the target with the method sought |
 | budget | `budget-exhausted` | the query that spent the last unit; a cut answer is not a decision |

@@ -1,6 +1,7 @@
 package ssaflow
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
@@ -88,11 +89,23 @@ func probe(a,b *int, p, q *box, pick bool, idx int) { `+test.body+` }
 			if got := graph.mustSame(left, right); got != test.want {
 				t.Fatalf("mustSame = %t, want %t (left %v right %v)", got, test.want, graph.values[left], graph.values[right])
 			}
-			if !graph.mayAlias(left, right) && test.want {
+			if !graph.aliasProof(left, right).Aliases && test.want {
 				t.Fatal("must-same values must may-alias")
 			}
 		})
 	}
+}
+
+// aliasReasons names the rule behind selected answers.
+var aliasReasons = map[string]EvidenceReason{
+	"fieldsOfOneObject":        EvidenceDisjointPaths,
+	"elementsApart":            EvidenceDisjointPaths,
+	"sameFieldTwoObjects":      EvidenceDisjointObjects,
+	"callResults":              EvidenceDisjointObjects,
+	"localAndParameter":        EvidenceUnescapedLocal,
+	"escapedLocalAndParameter": EvidenceUnescapedLocal,
+	"elementAndStar":           EvidenceSharedSlot,
+	"loadsAcrossCall":          EvidenceSharedSlot,
 }
 
 func unwrapInterface(value ssa.Value) ssa.Value { //nolint:ireturn // Test helper over SSA forms.
@@ -147,9 +160,31 @@ func probe(a, b *int, p, q *box, pick bool, idx int) { `+test.body+` }
 			args := call.Common().Args
 			left, right := unwrapInterface(args[0]), unwrapInterface(args[1])
 			graph := regionsOfFunction(call.Parent())
-			if got := graph.mayAlias(left, right); got != test.want {
-				t.Fatalf("mayAlias = %t, want %t (left %v right %v)", got, test.want, graph.values[left], graph.values[right])
+			proof := graph.aliasProof(left, right)
+			if proof.Aliases != test.want {
+				t.Fatalf("mayAlias = %+v, want %t (left %v right %v)", proof, test.want, graph.values[left], graph.values[right])
+			}
+			if want, ok := aliasReasons[test.name]; ok && proof.Reason != want {
+				t.Fatalf("reason = %s, want %s", proof.Reason, want)
+			}
+			if !proof.Aliases && len(graph.disjoint) == 0 {
+				t.Fatal("a disjointness answer must be recorded for the dump")
 			}
 		})
+	}
+}
+
+// The rendering names each value's pointees by region kind and origin, so
+// a reader can check an alias answer against the graph that gave it.
+func TestRenderRegions(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "regionprobe", `package regionprobe
+type box struct { value *int }
+func probe(a *int) *int { x := box{value: a}; return x.value }
+`)
+	rendered := RenderRegions(pkg.Func("probe"))
+	for _, want := range []string{"// regions:", "a -> param:a", "-> local:t0 field:0", "-> param:a"} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("rendering lacks %q:\n%s", want, rendered)
+		}
 	}
 }

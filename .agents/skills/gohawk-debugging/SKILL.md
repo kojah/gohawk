@@ -16,7 +16,7 @@ your head is slow and error-prone. Dump the real thing instead.
 
 | question | command |
 |---|---|
-| What does the analyzer see? | `gohawk ssa [-func NAME] [-tests] ./pkg` |
+| What does the analyzer see? | `gohawk ssa [-func NAME] [-tests] [-regions] ./pkg` |
 | What did lifecyclefacts conclude about exported functions? | `gohawk facts [-func NAME] [-tests] ./pkg` |
 | What did the analyzer decide, and why? | `gohawk -gohawk-trace=ANALYZER[,CHECK] ./pkg` |
 

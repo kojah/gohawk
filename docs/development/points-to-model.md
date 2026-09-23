@@ -52,15 +52,33 @@ iteration's object. A stale entry supports may-answers only.
 
 ## Answers
 
-- `may alias`: the slot sets intersect, or either contains `unknown`, or
-  both contain objects the function did not allocate and cannot tell apart.
-  Two different fields of one object, or an unescaped site and anything it
-  was never stored into, are disjoint.
+Every answer keeps the *structural* contract the analyzers were built on:
+two objects are the same only when the function's own flow connects them.
+Two parameters, or two call results, are distinct objects even though at
+run time they might be one; a diagnostic about one is not a claim about
+the other. What the graph adds is disjointness where the value walk could
+only say "no connection found", and exactness through copies, joins, and
+captured cells where the walk gave up.
+
+- `may alias`: some slot of one value may be some slot of the other: the
+  same object at overlapping paths, `unknown` on either side, or a
+  placeholder whose slot ever held the other object. Two different fields
+  of one object, two objects the flow never connects, and an unescaped
+  site against anything it was never stored into are disjoint.
 - `must same`: both sets are one identical slot, not stale and not unknown.
 - `content at`: the union of the slot contents in the state replayed to the
   observation; a must-answer needs one non-stale entry.
-- `contains`: the value's objects are reachable from the owner's objects
-  through slot contents, snapshots, or placeholders, at any point.
+- `derives from` and `contains` keep their walks over the value graph and
+  visible callees, and take their identity steps from `may alias`, so a
+  copy or a join the graph resolves is followed there too.
+
+A may-answer is deliberately weaker inside a loop than outside it: a stale
+entry counts, so `true` there means "possibly, in some iteration". Only
+`must same` filters stale entries. A `false` from `may alias` is the one
+answer that can move a consumer from silence to a report, so it carries a
+reason, `disjoint-paths`, `disjoint-objects`, or `unescaped-local`, and
+`gohawk ssa -regions` prints every value's pointees so an answer can be
+checked against the graph that gave it.
 
 Exhaustion of the build budget, or a fixpoint that does not settle, makes
 the whole graph unavailable and every answer unknown. Nothing here guesses.
