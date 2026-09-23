@@ -2,11 +2,23 @@ package ssaflow
 
 import "golang.org/x/tools/go/ssa"
 
+// Terminator extends the documented catalog of terminating calls with what
+// an analyzer knows from summaries: a project's own fatal wrapper, or a
+// server loop that never returns. It reports only calls; the catalog still
+// decides deferred exits and runtime.Goexit.
+type Terminator func(*ssa.Call) bool
+
 // InstructionTerminatesControlFlow reports calls whose documented behavior
 // prevents execution from continuing in the current goroutine.
 func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool {
+	return InstructionTerminatesWith(instruction, nil)
+}
+
+// InstructionTerminatesWith is InstructionTerminatesControlFlow extended by
+// a terminator; a nil terminator leaves the catalog alone.
+func InstructionTerminatesWith(instruction ssa.Instruction, terminates Terminator) bool {
 	if call, ok := instruction.(*ssa.Call); ok {
-		return callTerminatesControlFlow(call.Common())
+		return callTerminatesControlFlow(call.Common()) || terminates != nil && terminates(call)
 	}
 	if _, ok := instruction.(*ssa.RunDefers); !ok {
 		return false

@@ -10,16 +10,17 @@ import (
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 )
 
-const factVersion = 2
+const factVersion = 3
 
 // Fact publishes independent result guarantees and the proven relations
 // between a result and a parameter or another result. A relation is an
 // implication that held on every return under its assumption; its absence
 // is not the opposite implication.
 type Fact struct {
-	Version   int
-	Results   []Guarantee
-	Relations []Relation
+	Version      int
+	Results      []Guarantee
+	Relations    []Relation
+	NeverReturns bool
 }
 
 // AFact marks the result component for go/analysis serialization.
@@ -49,13 +50,16 @@ func run(pass *analysis.Pass) (any, error) {
 	}
 	for _, function := range functions {
 		object := function.Object()
-		if object == nil || !object.Exported() || function.Signature.Results().Len() == 0 {
+		// A function with no results still has something to say when it
+		// never returns; every other claim needs a result to be about.
+		if object == nil || !object.Exported() {
 			continue
 		}
 		summary := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 		if summary.Available {
 			pass.ExportObjectFact(object, &Fact{
 				Version: factVersion, Results: slices.Clone(summary.results), Relations: slices.Clone(summary.relations),
+				NeverReturns: summary.neverReturns,
 			})
 		}
 	}

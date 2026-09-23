@@ -33,6 +33,18 @@ type Summary struct {
 	Reason    string
 	results   []Guarantee
 	relations []Relation
+	// neverReturns records that no normal return is reachable from the
+	// entry: every path ends in a terminating call, a panic, or a loop that
+	// never exits. See NeverReturns.
+	neverReturns bool
+}
+
+// NeverReturns reports whether the function is proven never to return
+// normally, so a call to it terminates the caller's path as os.Exit does.
+// It is a claim about every path, proven from the body or imported; a
+// function that merely may exit does not carry it.
+func (summary Summary) NeverReturns() bool {
+	return summary.Available && summary.neverReturns
 }
 
 // Result returns the unconditional guarantee at index, or Unknown.
@@ -74,7 +86,7 @@ func (engine *Engine) function(function *ssa.Function, budget *ssaflow.SearchBud
 	if len(function.Blocks) == 0 {
 		object, _ := function.Object().(*types.Func)
 		if fact, ok := engine.imported[object]; ok && fact.Version == factVersion {
-			return Summary{Available: true, results: fact.Results, relations: fact.Relations}
+			return Summary{Available: true, results: fact.Results, relations: fact.Relations, neverReturns: fact.NeverReturns}
 		}
 		return Summary{Reason: "result-body-unavailable"}
 	}
@@ -110,6 +122,14 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 			witness = true
 		}
 	}
+	// A terminating callee is one the catalog names or one whose own summary
+	// says it never returns, so the claim composes through a project's
+	// fatal wrapper and across packages. A body with a recover block can
+	// return normally from a panic the entry never reaches, so it makes no
+	// claim.
+	result.neverReturns = function.Recover == nil && !ssaflow.NormalReturnReachableWith(function.Blocks[0], func(call *ssa.Call) bool {
+		return budget.Spend() && engine.function(ssaflow.ResolvedCallee(call.Common()), budget).NeverReturns()
+	})
 	if !witness {
 		result.Reason = "result-no-normal-return-witness"
 		return result

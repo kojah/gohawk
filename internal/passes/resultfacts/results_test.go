@@ -8,6 +8,7 @@ import (
 )
 
 const resultFixture = `package results
+import "os"
 type failure struct{}
 func (*failure) Error() string { return "failure" }
 var sentinel error = &failure{}
@@ -32,6 +33,18 @@ func Forever() error { for {} }
 func Boxed(value *failure) error { return value }
 func Generic[T any](value T) any { return value }
 func GenericNil() any { return Generic[any](nil) }
+func Die() { os.Exit(1) }
+func DieVia(message string) { _ = message; Die() }
+func MaybeDie(fail bool) {
+	if fail {
+		Die()
+	}
+}
+func Serve() {
+	for {
+	}
+}
+func Returns() {}
 `
 
 func TestResultGuarantees(t *testing.T) {
@@ -64,5 +77,20 @@ func TestResultBudgetDoesNotPoisonSummary(t *testing.T) {
 	}
 	if got := engine.Function(pkg.Func("Forward"), ssaflow.NewSearchBudget(2000)); got.Result(0) != AlwaysNil {
 		t.Fatalf("fresh budget did not recover: %+v", got)
+	}
+}
+
+// A function whose every path ends in a terminating call, a panic, or a
+// loop never returns, and the claim composes through a wrapper. A function
+// that may exit, or that returns, does not carry it.
+func TestNeverReturns(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "results", resultFixture)
+	for name, want := range map[string]bool{
+		"Die": true, "DieVia": true, "Serve": true, "PanicOnly": true, "Forever": true,
+		"MaybeDie": false, "Returns": false, "Nil": false, "Recovered": false,
+	} {
+		if got := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(4000)).NeverReturns(); got != want {
+			t.Errorf("%s: NeverReturns = %t, want %t", name, got, want)
+		}
 	}
 }

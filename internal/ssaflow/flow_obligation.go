@@ -60,6 +60,10 @@ type ObligationFlow struct {
 	// on top of it either way. It must return a subset of the block's
 	// successors; it never proves an action.
 	Successors func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
+	// Terminates, when set, extends the catalog of calls that never return
+	// with what the analyzer's summaries prove, such as a project's fatal
+	// wrapper; a path ends at such a call as it ends at os.Exit.
+	Terminates Terminator
 }
 
 // feasibleSuccessors applies the caller's feasibility view, or the default
@@ -129,7 +133,7 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) Obligatio
 				state.guards = state.guards.Forget(store)
 			}
 			state.covered = max(state.covered, flow.Instruction(instruction))
-			if InstructionTerminatesControlFlow(instruction) {
+			if InstructionTerminatesWith(instruction, flow.Terminates) {
 				return nil, true
 			}
 			returned, ok := instruction.(*ssa.Return)

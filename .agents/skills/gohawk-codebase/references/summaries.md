@@ -195,6 +195,18 @@ Successors adapts FeasibleSuccessors to the obligation walk's hook with a
 bounded budget per query. A nil provider yields no hook, so the walk keeps
 its default feasibility.
 
+## Provider.Terminates
+
+[Source](../../../../internal/summaries/results.go)
+
+```go
+func (provider *Provider) Terminates() ssaflow.Terminator
+```
+
+Terminates adapts the result summaries to the walks' terminator hook: a
+call to a function proven never to return normally ends the caller's path
+as os.Exit does. A nil provider yields no hook.
+
 ## Requirements
 
 [Source](../../../../internal/summaries/provider.go)

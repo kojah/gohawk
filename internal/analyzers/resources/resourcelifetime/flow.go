@@ -157,7 +157,9 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 			state.unknown = true
 		case actionNone:
 		}
-		if ssaflow.InstructionTerminatesControlFlow(instruction) {
+		// A call that never returns, whether os.Exit or a project's own fatal
+		// wrapper the summaries prove, ends this path with nothing to release.
+		if ssaflow.InstructionTerminatesWith(instruction, analysis.summaries.Terminates()) {
 			state.active = false
 			break
 		}

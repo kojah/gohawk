@@ -803,7 +803,7 @@ const (
 )
 ```
 
-## EvidenceNone, EvidenceNotFound, EvidenceUnavailable, EvidenceSameValue, EvidenceSameAccessPath, EvidenceDeferredCompletion, EvidenceCalledCompletion, EvidenceStartedCompletion, EvidenceCallbackCompletion, EvidenceBudgetExhausted, EvidenceHelperInvocation, EvidenceReturnedDeferredCleanup, EvidenceStorageNotLocal, EvidenceStorageOutsideFunction, EvidenceStorageAddressEscapes, EvidenceStorageWriteThroughAlias, EvidenceStoragePartialWrite, EvidenceStorageConflictingWrites, EvidenceStorageNoReachingWrite, EvidenceStorageWriteInCycle, EvidenceStorageWriteAfterObservation, EvidenceStorageProjectionNotLoad, EvidenceStorageProjectionModified, EvidenceStoredValuesDiffer, EvidenceSummaryBodyUnavailable, EvidenceSummaryRecursive, EvidenceStoredInField, EvidenceOwnerStoredInField, EvidenceStoredInGlobal, EvidenceStoredInEnclosingScope, EvidenceOwnerStoredInExternalField, EvidenceStoredInOwnedMap, EvidenceSentToReceiver, EvidenceCapturedByClosure, EvidenceCallResultStoredInField, EvidenceTransferredToReturnedOwner, EvidenceTransferredToReceiver, EvidenceTransferredToLifecycleOwner
+## EvidenceNone, EvidenceNotFound, EvidenceUnavailable, EvidenceSameValue, EvidenceSameAccessPath, EvidenceDeferredCompletion, EvidenceCalledCompletion, EvidenceStartedCompletion, EvidenceCallbackCompletion, EvidenceBudgetExhausted, EvidenceCompletionInCycle, EvidenceHelperInvocation, EvidenceReturnedDeferredCleanup, EvidenceStorageNotLocal, EvidenceStorageOutsideFunction, EvidenceStorageAddressEscapes, EvidenceStorageWriteThroughAlias, EvidenceStoragePartialWrite, EvidenceStorageConflictingWrites, EvidenceStorageNoReachingWrite, EvidenceStorageWriteInCycle, EvidenceStorageWriteAfterObservation, EvidenceStorageProjectionNotLoad, EvidenceStorageProjectionModified, EvidenceStoredValuesDiffer, EvidenceSummaryBodyUnavailable, EvidenceSummaryRecursive, EvidenceStoredInField, EvidenceOwnerStoredInField, EvidenceStoredInGlobal, EvidenceStoredInEnclosingScope, EvidenceOwnerStoredInExternalField, EvidenceStoredInOwnedMap, EvidenceSentToReceiver, EvidenceCapturedByClosure, EvidenceCallResultStoredInField, EvidenceTransferredToReturnedOwner, EvidenceTransferredToReceiver, EvidenceTransferredToLifecycleOwner
 
 [Source](../../../../internal/ssaflow/proof_types.go)
 
@@ -825,7 +825,12 @@ const (
 	EvidenceCallbackCompletion	EvidenceReason	= "callback-completion"
 	// EvidenceBudgetExhausted marks a question abandoned before it could be
 	// decided, so a caller can tell "not proven" from "not searched".
-	EvidenceBudgetExhausted		EvidenceReason	= "budget-exhausted"
+	EvidenceBudgetExhausted	EvidenceReason	= "budget-exhausted"
+	// EvidenceCompletionInCycle: the only completion found lies inside a
+	// cycle, so it is not on every return, but which element or iteration
+	// it settles is decided by iteration; the search declines to call that
+	// a missing completion.
+	EvidenceCompletionInCycle	EvidenceReason	= "completion-only-in-cycle"
 	EvidenceHelperInvocation	EvidenceReason	= "helper-invocation"
 	EvidenceReturnedDeferredCleanup	EvidenceReason	= "returned-deferred-cleanup"
 
@@ -996,6 +1001,82 @@ reused with a fresh budget; exhaustion during a computation discards its
 entire answer, including any partial effects. Recursion is not a fixed-point
 solver: the analyzer's fallback determines what a cut can safely contribute.
 
+## GuardAddressIdentity
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func GuardAddressIdentity(address ssa.Value) (string, bool)
+```
+
+GuardAddressIdentity names a cell by the path that reaches it: a local
+allocation, a parameter, a captured variable, a package variable, or a
+field selected from one of those, possibly through a loaded pointer.
+
+## GuardCondition
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func GuardCondition(condition ssa.Value) (identity string, negated, stable, ok bool)
+```
+
+GuardCondition decodes a branch condition into a guard identity, whether
+the true arm makes the guard false (as a != comparison does), and whether
+the guard is stable. A condition with no identity reports false.
+
+## GuardConsistent, GuardStableContradiction, GuardLoadedContradiction
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+const (
+	// GuardConsistent: the edge agrees with, or is unrelated to, every guard.
+	GuardConsistent	GuardContradiction	= iota
+	// GuardStableContradiction: the edge takes the other arm of a stable
+	// guard, so no execution reaches it on this path.
+	GuardStableContradiction
+	// GuardLoadedContradiction: the edge takes the other arm of a loaded
+	// guard, which a hidden store could explain; the edge is uncertain.
+	GuardLoadedContradiction
+)
+```
+
+## GuardContradiction
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+type GuardContradiction uint8
+```
+
+GuardContradiction is how an edge relates to the guards already held.
+
+## GuardLimit
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+const GuardLimit = 8
+```
+
+GuardLimit bounds the guards one path carries so the state space stays
+small; a guard beyond the limit is simply not remembered, which loses a
+correlation but never invents one.
+
+## GuardsDominating
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func GuardsDominating(target ssa.Instruction) PathGuards
+```
+
+GuardsDominating collects the guards every path to target passed through:
+dominating branches one of whose arms dominates target's block. A store to
+the guarded cell inside that arm, before target, means the guard may no
+longer hold there and is not kept.
+
 ## HasLibraryContract
 
 [Source](../../../../internal/ssaflow/call_contracts.go)
@@ -1086,6 +1167,17 @@ func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool
 
 InstructionTerminatesControlFlow reports calls whose documented behavior
 prevents execution from continuing in the current goroutine.
+
+## InstructionTerminatesWith
+
+[Source](../../../../internal/ssaflow/flow_termination.go)
+
+```go
+func InstructionTerminatesWith(instruction ssa.Instruction, terminates Terminator) bool
+```
+
+InstructionTerminatesWith is InstructionTerminatesControlFlow extended by
+a terminator; a nil terminator leaves the catalog alone.
 
 ## InstructionsOf
 
@@ -1321,6 +1413,17 @@ func NormalReturnReachableFrom(block *ssa.BasicBlock) bool
 NormalReturnReachableFrom reports whether block can reach a normal return
 without first invoking a control-flow terminating API.
 
+## NormalReturnReachableWith
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func NormalReturnReachableWith(block *ssa.BasicBlock, terminates Terminator) bool
+```
+
+NormalReturnReachableWith is NormalReturnReachableFrom with the catalog of
+terminating calls extended by a terminator.
+
 ## ObligationAction
 
 [Source](../../../../internal/ssaflow/flow_obligation.go)
@@ -1349,6 +1452,10 @@ type ObligationFlow struct {
 	// on top of it either way. It must return a subset of the block's
 	// successors; it never proves an action.
 	Successors	func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
+	// Terminates, when set, extends the catalog of calls that never return
+	// with what the analyzer's summaries prove, such as a project's fatal
+	// wrapper; a path ends at such a call as it ends at os.Exit.
+	Terminates	Terminator
 }
 ```
 
@@ -1466,6 +1573,66 @@ type OwnershipTransferRequest struct {
 
 OwnershipTransferRequest describes the value flow relationships that may
 transfer one analyzer's ownership obligation.
+
+## PathGuard
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+type PathGuard struct {
+	Identity	string
+	Value		bool
+	// Stable is true for a guard whose value cannot change within the
+	// invocation; false for one read from a cell.
+	Stable	bool
+}
+```
+
+PathGuard is one branch outcome the path established.
+
+## PathGuards
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+type PathGuards []PathGuard
+```
+
+PathGuards is the sorted, bounded set of guards a path carries.
+
+## PathGuards.Extend
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func (guards PathGuards) Extend(block, successor *ssa.BasicBlock, keep func(PathGuard) bool) (PathGuards, GuardContradiction)
+```
+
+Extend records the guard the edge from block to successor establishes and
+reports whether it contradicts a guard the path already holds. keep, when
+set, filters which guards are remembered; a filtered-out guard is neither
+stored nor checked.
+
+## PathGuards.Forget
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func (guards PathGuards) Forget(store *ssa.Store) PathGuards
+```
+
+Forget drops every guard about a cell the store may change: the stored
+place itself and any path selected beneath or above it.
+
+## PathGuards.Key
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func (guards PathGuards) Key() string
+```
+
+Key renders the guards for a walk's state key.
 
 ## PhiEdgeCount
 
@@ -2207,6 +2374,19 @@ type SummaryUnavailable uint8
 ```
 
 SummaryUnavailable identifies why a function summary could not be computed.
+
+## Terminator
+
+[Source](../../../../internal/ssaflow/flow_termination.go)
+
+```go
+type Terminator func(*ssa.Call) bool
+```
+
+Terminator extends the documented catalog of terminating calls with what
+an analyzer knows from summaries: a project's own fatal wrapper, or a
+server loop that never returns. It reports only calls; the catalog still
+decides deferred exits and runtime.Goexit.
 
 ## TransferStoredInField, TransferOwnerStoredInField, TransferStoredInGlobal, TransferStoredInEnclosingScope, TransferOwnerStoredInExternalField, TransferStoredInOwnedMap, TransferSentToReceiver, TransferCapturedByClosure, TransferCallResultStoredInField, TransferToReturnedOwner, TransferToReceiver, TransferToLifecycleOwner
 

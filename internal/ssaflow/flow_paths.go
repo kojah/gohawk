@@ -395,6 +395,12 @@ func sameLiteral(left, right *ssa.Const) bool {
 // NormalReturnReachableFrom reports whether block can reach a normal return
 // without first invoking a control-flow terminating API.
 func NormalReturnReachableFrom(block *ssa.BasicBlock) bool {
+	return NormalReturnReachableWith(block, nil)
+}
+
+// NormalReturnReachableWith is NormalReturnReachableFrom with the catalog of
+// terminating calls extended by a terminator.
+func NormalReturnReachableWith(block *ssa.BasicBlock, terminates Terminator) bool {
 	queue := []*ssa.BasicBlock{block}
 	seen := map[*ssa.BasicBlock]bool{}
 	for len(queue) > 0 {
@@ -406,7 +412,7 @@ func NormalReturnReachableFrom(block *ssa.BasicBlock) bool {
 		seen[candidate] = true
 		terminated := false
 		for _, instruction := range candidate.Instrs {
-			if InstructionTerminatesControlFlow(instruction) {
+			if InstructionTerminatesWith(instruction, terminates) {
 				terminated = true
 				break
 			}

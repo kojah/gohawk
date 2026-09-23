@@ -171,3 +171,16 @@ func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *ssa
 	}
 	return nil, false
 }
+
+// Terminates adapts the result summaries to the walks' terminator hook: a
+// call to a function proven never to return normally ends the caller's path
+// as os.Exit does. A nil provider yields no hook.
+func (provider *Provider) Terminates() ssaflow.Terminator {
+	if provider == nil {
+		return nil
+	}
+	return func(call *ssa.Call) bool {
+		summary, available := provider.ForFunction(ssaflow.ResolvedCallee(call.Common())).Results(ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		return available == Available && summary.NeverReturns()
+	}
+}

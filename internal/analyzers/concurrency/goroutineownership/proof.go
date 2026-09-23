@@ -104,7 +104,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	// unrelated early return.
 	outcome := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
 		Start: analysis.spawn, Instruction: analysis.obligation, Return: analysis.returnObligation, Edge: analysis.edgeObligation,
-		Successors: summaryKnowledge.Provider(analysis.pass).Successors(),
+		Successors: summaryKnowledge.Provider(analysis.pass).Successors(), Terminates: summaryKnowledge.Provider(analysis.pass).Terminates(),
 	})
 	if outcome == ssaflow.ObligationHonored {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonJoinProven}
@@ -332,7 +332,7 @@ func (analysis *spawnAnalysis) guardedLocalJoin() bool {
 		// cover every return.
 		honored := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
 			Start: analysis.spawn, NonNil: created, Instruction: analysis.obligation, Return: analysis.returnObligation,
-			Successors: summaryKnowledge.Provider(analysis.pass).Successors(),
+			Successors: summaryKnowledge.Provider(analysis.pass).Successors(), Terminates: summaryKnowledge.Provider(analysis.pass).Terminates(),
 		}) == ssaflow.ObligationHonored
 		if honored {
 			return true

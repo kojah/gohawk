@@ -55,6 +55,7 @@ type Fact struct {
 	Version		int
 	Results		[]Guarantee
 	Relations	[]Relation
+	NeverReturns	bool
 }
 ```
 
@@ -173,6 +174,19 @@ func (summary Summary) Holds(kind RelationKind, result, operand int) bool
 ```
 
 Holds reports whether the summary proved the relation.
+
+## Summary.NeverReturns
+
+[Source](../../../../internal/passes/resultfacts/results.go)
+
+```go
+func (summary Summary) NeverReturns() bool
+```
+
+NeverReturns reports whether the function is proven never to return
+normally, so a call to it terminates the caller's path as os.Exit does.
+It is a claim about every path, proven from the body or imported; a
+function that merely may exit does not carry it.
 
 ## Summary.Relations
 

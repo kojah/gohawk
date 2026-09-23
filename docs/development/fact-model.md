@@ -104,6 +104,22 @@ Every analyzer that walks an obligation to its returns consumes these through
 obligation walk's successor hook, so a branch a callee's result rules out is
 pruned once rather than per analyzer.
 
+## Never returns
+
+The result component also records whether a function never returns
+normally: every path from its entry ends in a terminating call, a panic, or
+a loop that never exits. The terminating calls are the documented catalog,
+`os.Exit`, `log.Fatal`, `runtime.Goexit`, testing's `FailNow` family, plus
+any callee whose own summary carries the claim, so a project's `fatal(err)`
+wrapper is recognised across packages. A body with a recover block makes no
+claim, because a deferred recover returns normally from a panic the entry
+never reaches; a function that may exit does not carry it either.
+
+The walks consume it through `summaries.Provider.Terminates`, the terminator
+hook of `ssaflow.InstructionTerminatesWith` and `NormalReturnReachableWith`:
+a path that calls such a function ends there, exactly as it ends at
+`os.Exit`, so an early return behind the call is not reached.
+
 ## The shape of a fact
 
 A lifecycle fact's original parameter masks describe how a named callee uses

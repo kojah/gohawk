@@ -99,6 +99,7 @@ func walkLockOrderBounded(
 	// Clone the lock collections so one successor's release cannot discharge
 	// another successor's obligation; the immutable branch facts travel with it.
 	remaining := 4096
+	terminates := summaryKnowledge.Provider(pass).Terminates()
 	ssaflow.WalkStates([]lockFlowState{{block: function.Blocks[0]}}, lockStateKey, func(state lockFlowState) ([]lockFlowState, bool) {
 		remaining--
 		if remaining < 0 {
@@ -118,6 +119,12 @@ func walkLockOrderBounded(
 			condition = ""
 		}
 		for _, instruction := range state.block.Instrs {
+			// A call that never returns, whether os.Exit or a project's own
+			// fatal wrapper the summaries prove, ends this path: no return
+			// with the lock held follows it.
+			if ssaflow.InstructionTerminatesWith(instruction, terminates) {
+				return nil, true
+			}
 			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns, heldAtReturn)
 			// A complete call sequence replaces the fallback release search:
 			// releasing and reacquiring within one helper must leave the lock
@@ -507,55 +514,6 @@ func (flow lockFlowContext) applyMutexAction(
 	}
 	state.held = flow.acquireLock(instruction, state.held, identity, possibleRelease, acquired.variant)
 	return state
-}
-
-func lockSuccessorStates(
-	pass *analysis.Pass,
-	state lockFlowState,
-	held, readHeld, deferred []string,
-	guards map[string]lockGuard,
-	origins map[string]lockAcquisition,
-) []lockFlowState {
-	block := state.block
-	states := make([]lockFlowState, 0, len(block.Succs))
-	// A local release flag can merge true and false after only one branch
-	// unlocked. Preserve the incoming edge for the shared constant-phi query;
-	// exploring both values invents a still-held return on the released path.
-	// Carried constants and stable parameter constraints are applied separately.
-	// https://github.com/enetx/surf/blob/7da0502899af06f8318f95e632797cb2ac0c6c20/pkg/connectproxy/connectproxy.go#L256-L294
-	feasible := summaryKnowledge.Provider(pass).FeasibleSuccessors(block, state.predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
-	for index, successor := range block.Succs {
-		if !slices.Contains(feasible, successor) {
-			traceInfeasibleLockBranch(pass, block, "predecessor-constant-branch-infeasible")
-			continue
-		}
-		constraints, compatible := extendLockConstraints(state.constraints, block, index == 0)
-		if !compatible {
-			traceInfeasibleLockBranch(pass, block, "stable-parameter-branch-infeasible")
-			continue
-		}
-		if branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If); ok {
-			if truth, known := lockBooleanValue(branch.Cond, state.constants); known && truth != (index == 0) {
-				traceInfeasibleLockBranch(pass, block, "carried-constant-branch-infeasible")
-				continue
-			}
-		}
-		nextCondition, nextValue := "", false
-		if condition, ok := blockCondition(block); ok && len(block.Succs) == 2 {
-			nextCondition, nextValue = condition, index == 0
-			if guardConflicts(held, guards, condition, nextValue) {
-				traceInfeasibleLockBranch(pass, block, "repeated-condition-infeasible")
-				continue
-			}
-		}
-		states = append(states, lockFlowState{
-			block: successor, predecessor: block, held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
-			condition: nextCondition, conditionValue: nextValue,
-			constants:   state.constants,
-			constraints: constraints,
-		})
-	}
-	return states
 }
 
 // mayRelease reports whether the call releases the lock on at least one path.

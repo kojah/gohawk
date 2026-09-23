@@ -97,7 +97,7 @@ func proveCancellation(
 	// return no action reaches is loss; a return only an opaque handoff reaches
 	// is unknown, and that opacity excuses no other path's early return.
 	switch ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
-		Start: call, NonNil: cancel, Successors: knowledge.Successors(),
+		Start: call, NonNil: cancel, Successors: knowledge.Successors(), Terminates: knowledge.Terminates(),
 		Instruction: classifier.obligation, Return: classifier.returnObligation, Edge: classifier.edgeObligation,
 	}) {
 	case ssaflow.ObligationViolated:

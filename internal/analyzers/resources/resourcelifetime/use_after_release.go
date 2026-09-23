@@ -132,7 +132,9 @@ func (query *releasedResource) prove(acquisition, release, use *ssa.Call) useAft
 		if instruction == use || instruction == release || !ssaflow.InstructionMayFollow(instruction, use) {
 			continue
 		}
-		if ssaflow.InstructionTerminatesControlFlow(instruction) && ssaflow.InstructionDominates(instruction, use) {
+		// A call the summaries prove never returns ends the path as os.Exit
+		// does, so a use only reachable through it is not reached.
+		if ssaflow.InstructionTerminatesWith(instruction, query.knowledge.Terminates()) && ssaflow.InstructionDominates(instruction, use) {
 			return unknown("release-use-unreachable", instruction)
 		}
 		if query.interferes(instruction, effects) {
