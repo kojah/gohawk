@@ -129,8 +129,10 @@ func (search *retention) within(function *ssa.Function, parameter ssa.Value) boo
 }
 
 func (search *retention) searchWithin(function *ssa.Function, parameter ssa.Value) bool {
+	// The parameter itself, or a whole copy of an aggregate that holds it:
+	// storing or returning such a copy keeps the parameter just as surely.
 	derives := func(value ssa.Value) bool {
-		return ssaflow.MayAlias(value, parameter)
+		return ssaflow.MayAlias(value, parameter) || ssaflow.LoadedAggregateMayHold(value, parameter)
 	}
 	if search.everyReturn {
 		return ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {

@@ -275,6 +275,30 @@ func (search *ownershipSearch) addressStoresValue(address ssa.Value, value ssa.V
 	return false
 }
 
+// LoadedAggregateMayHold reports whether value is a load of a whole aggregate,
+// seen through transparent wrappers and phi merges, out of storage that had a
+// value which may alias target stored into it, directly or beneath a field or
+// element. This is containment, not identity: the loaded copy carries the
+// target without being it, which is why MayAlias stops at the copy. A caller
+// that must count a stored or returned copy as a store or return of what it
+// holds, as the retention summary does for bufio.NewReader's reset writing a
+// composite literal over the receiver, asks this question alongside MayAlias.
+func LoadedAggregateMayHold(value, target ssa.Value) bool {
+	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
+	return target != nil && NewReachingWalk(forms).Any(value, func(_ ReachingWalk, value ssa.Value) bool {
+		load, ok := value.(*ssa.UnOp)
+		if !ok || load.Op != token.MUL {
+			return false
+		}
+		for stored := range StoredInto(load.X) {
+			if MayAlias(stored, target) {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 // StoredInto yields every value stored into address, into a field or element
 // selected from it, or through a pointer loaded from it. It is the one walk
 // for asking what an aggregate holds; callers supply the question about each

@@ -24,7 +24,7 @@ reach upward. A new file joins the family of the highest layer it needs.
 
 ## AccessPath
 
-[Source](../../../../internal/ssaflow/value_forms.go#L179)
+[Source](../../../../internal/ssaflow/value_forms.go#L280)
 
 ```go
 type AccessPath struct {
@@ -460,7 +460,7 @@ func CapturedBindingValue(binding ssa.Value) ssa.Value
 
 ## ChannelType
 
-[Source](../../../../internal/ssaflow/value_forms.go#L295)
+[Source](../../../../internal/ssaflow/value_forms.go#L396)
 
 ```go
 func ChannelType(value ssa.Value) bool
@@ -936,7 +936,7 @@ impossible loop exits and helper-error paths from faking leaks.
 
 ## FunctionFile
 
-[Source](../../../../internal/ssaflow/value_forms.go#L285)
+[Source](../../../../internal/ssaflow/value_forms.go#L386)
 
 ```go
 func FunctionFile(pass *analysis.Pass, function *ssa.Function) *ast.File
@@ -1120,6 +1120,23 @@ type LibraryContract uint8
 LibraryContract identifies a third-party semantic boundary whose behavior
 cannot be recovered from the caller's SSA alone. Keep these exceptions in a
 single registry so analyzers do not grow divergent package/name heuristics.
+
+## LoadedAggregateMayHold
+
+[Source](../../../../internal/ssaflow/store_returns.go#L286)
+
+```go
+func LoadedAggregateMayHold(value, target ssa.Value) bool
+```
+
+LoadedAggregateMayHold reports whether value is a load of a whole aggregate,
+seen through transparent wrappers and phi merges, out of storage that had a
+value which may alias target stored into it, directly or beneath a field or
+element. This is containment, not identity: the loaded copy carries the
+target without being it, which is why MayAlias stops at the copy. A caller
+that must count a stored or returned copy as a store or return of what it
+holds, as the retention summary does for bufio.NewReader's reset writing a
+composite literal over the receiver, asks this question alongside MayAlias.
 
 ## LocalEvidence
 
@@ -1727,7 +1744,7 @@ ReturnedMayAliasAny reports whether a return may transfer any candidate value.
 
 ## ReturnedResult
 
-[Source](../../../../internal/ssaflow/store_returns.go#L320)
+[Source](../../../../internal/ssaflow/store_returns.go#L344)
 
 ```go
 func ReturnedResult(returned *ssa.Return, index int) ssa.Value
@@ -1776,7 +1793,7 @@ answer comes from its summary, which lives above this package.
 
 ## SameAccessPath
 
-[Source](../../../../internal/ssaflow/value_forms.go#L195)
+[Source](../../../../internal/ssaflow/value_forms.go#L296)
 
 ```go
 func SameAccessPath(left, right AccessPath) bool
@@ -1988,7 +2005,7 @@ https://github.com/marcus/sidecar/blob/9b8739f753ab235dda2630676833e9b46a52696c/
 
 ## StoredInto
 
-[Source](../../../../internal/ssaflow/store_returns.go#L282)
+[Source](../../../../internal/ssaflow/store_returns.go#L306)
 
 ```go
 func StoredInto(address ssa.Value) iter.Seq[ssa.Value]
@@ -2088,7 +2105,7 @@ func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool
 
 ## SuccessBranch
 
-[Source](../../../../internal/ssaflow/value_forms.go#L260)
+[Source](../../../../internal/ssaflow/value_forms.go#L361)
 
 ```go
 func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool)
@@ -2330,14 +2347,27 @@ local, passed through a call result, or merged by a phi.
 
 ## ValueDerivesFrom
 
-[Source](../../../../internal/ssaflow/value_forms.go#L149)
+[Source](../../../../internal/ssaflow/value_forms.go#L162)
 
 ```go
 func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool
 ```
 
 ValueDerivesFrom reports whether source contributes to value through SSA
-operands or a local load/store pair.
+operands or a local load/store pair. This is a may-relation: every store to
+the loaded address counts, not only the one that reaches the load.
+
+A load through a field or element address also derives from a value stored
+into the enclosing aggregate as a whole, when that aggregate is only ever
+written whole. The builder spills a struct or array parameter, and a copy
+such as k := j, into a local cell before it can select a field, so
+j.out.Close() in func (j job) reaches the parameter only through that
+spill. Without this step a by-value parameter could never be proven closed
+while the same body with a pointer parameter is, because the pointer's
+field address selects from the parameter directly. A cell with a store into
+one of its fields is not crossed: the field a later load returns may be the
+replacement rather than a component of the stored aggregate, and the
+analyzer must keep such a replaced resource reportable.
 
 ## ValueEscapes
 
@@ -2352,7 +2382,7 @@ function through a return, store, send, or escaping closure.
 
 ## ValueIsAccessPathFrom
 
-[Source](../../../../internal/ssaflow/value_forms.go#L186)
+[Source](../../../../internal/ssaflow/value_forms.go#L287)
 
 ```go
 func ValueIsAccessPathFrom(value, root ssa.Value) bool

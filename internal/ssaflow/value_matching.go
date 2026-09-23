@@ -152,24 +152,20 @@ func sameWrappedValue(value, target ssa.Value, seen map[ssa.Value]bool) (bool, b
 	}
 }
 
+// storedValueMatches reports whether a value stored at exactly this address
+// may be the target. A store into a field or element beneath the address is
+// containment, not identity: a load of the whole aggregate carries that value
+// without being it, and MayContainValue answers that question. Equating the
+// two here would make an aggregate copied by value look like a possible alias
+// of the resource it holds, and a proof that must keep aliases and containers
+// apart would then decline the container as ambiguous.
 func storedValueMatches(address, target ssa.Value, seen map[ssa.Value]bool) bool {
 	if address == nil || address.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *address.Referrers() {
-		switch typed := reference.(type) {
-		case *ssa.Store:
-			if typed.Addr == address && sameValueSeen(typed.Val, target, seen) {
-				return true
-			}
-		case *ssa.FieldAddr:
-			if storedValueMatches(typed, target, seen) {
-				return true
-			}
-		case *ssa.IndexAddr:
-			if storedValueMatches(typed, target, seen) {
-				return true
-			}
+		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && sameValueSeen(store.Val, target, seen) {
+			return true
 		}
 	}
 	return false

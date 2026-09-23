@@ -145,7 +145,20 @@ func CallResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // SSA c
 }
 
 // ValueDerivesFrom reports whether source contributes to value through SSA
-// operands or a local load/store pair.
+// operands or a local load/store pair. This is a may-relation: every store to
+// the loaded address counts, not only the one that reaches the load.
+//
+// A load through a field or element address also derives from a value stored
+// into the enclosing aggregate as a whole, when that aggregate is only ever
+// written whole. The builder spills a struct or array parameter, and a copy
+// such as k := j, into a local cell before it can select a field, so
+// j.out.Close() in func (j job) reaches the parameter only through that
+// spill. Without this step a by-value parameter could never be proven closed
+// while the same body with a pointer parameter is, because the pointer's
+// field address selects from the parameter directly. A cell with a store into
+// one of its fields is not crossed: the field a later load returns may be the
+// replacement rather than a component of the stored aggregate, and the
+// analyzer must keep such a replaced resource reportable.
 func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil || source == nil || seen[value] {
 		return false
@@ -154,9 +167,9 @@ func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 		return true
 	}
 	seen[value] = true
-	if load, ok := value.(*ssa.UnOp); ok && load.X.Referrers() != nil {
-		for _, reference := range *load.X.Referrers() {
-			if store, storeOK := reference.(*ssa.Store); storeOK && ValueDerivesFrom(store.Val, source, seen) {
+	if load, ok := value.(*ssa.UnOp); ok && load.Op == token.MUL {
+		for address := load.X; address != nil; address = enclosingAggregateAddress(address) {
+			if storedValueDerivesFrom(address, source, seen) {
 				return true
 			}
 		}
@@ -172,6 +185,94 @@ func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 		}
 	}
 	return false
+}
+
+// storedValueDerivesFrom reports whether any store into address stores a value
+// that derives from source.
+func storedValueDerivesFrom(address, source ssa.Value, seen map[ssa.Value]bool) bool {
+	if address.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *address.Referrers() {
+		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && ValueDerivesFrom(store.Val, source, seen) {
+			return true
+		}
+	}
+	return false
+}
+
+// enclosingAggregateAddress returns the aggregate address a field or element
+// address selects from, provided every use of that aggregate is a store of
+// the whole aggregate, a load, or a selection that is itself only loaded
+// from. It returns nil for any other address, and for an aggregate with a
+// store into one of its fields or elements, or whose address reaches a call,
+// a closure, or storage, because a load beneath such an aggregate may return
+// something other than a component of a whole-aggregate store.
+func enclosingAggregateAddress(address ssa.Value) ssa.Value {
+	var enclosing ssa.Value
+	switch typed := address.(type) {
+	case *ssa.FieldAddr:
+		enclosing = typed.X
+	case *ssa.IndexAddr:
+		enclosing = typed.X
+	default:
+		return nil
+	}
+	if enclosing.Referrers() == nil {
+		return nil
+	}
+	for _, reference := range *enclosing.Referrers() {
+		switch typed := reference.(type) {
+		case *ssa.Store:
+			if typed.Addr != enclosing {
+				return nil
+			}
+		case *ssa.FieldAddr:
+			if !addressOnlyLoaded(typed) {
+				return nil
+			}
+		case *ssa.IndexAddr:
+			if !addressOnlyLoaded(typed) {
+				return nil
+			}
+		case *ssa.UnOp:
+			if typed.Op != token.MUL {
+				return nil
+			}
+		case *ssa.DebugRef:
+		default:
+			return nil
+		}
+	}
+	return enclosing
+}
+
+// addressOnlyLoaded reports whether an address, and every field or element
+// selected beneath it, is only ever loaded from.
+func addressOnlyLoaded(address ssa.Value) bool {
+	if address.Referrers() == nil {
+		return true
+	}
+	for _, reference := range *address.Referrers() {
+		switch typed := reference.(type) {
+		case *ssa.FieldAddr:
+			if !addressOnlyLoaded(typed) {
+				return false
+			}
+		case *ssa.IndexAddr:
+			if !addressOnlyLoaded(typed) {
+				return false
+			}
+		case *ssa.UnOp:
+			if typed.Op != token.MUL {
+				return false
+			}
+		case *ssa.DebugRef:
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // AccessPath identifies one SSA value relative to the aggregate root from

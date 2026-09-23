@@ -156,3 +156,9 @@ func DrainResponse(resp *http.Response) {
 		_ = resp.Body.Close()
 	}
 }
+
+// FileHolder carries a file by value.
+type FileHolder struct{ File *os.File }
+
+// CloseHolder closes the file through its by-value copy of the holder.
+func CloseHolder(holder FileHolder) error { return holder.File.Close() }

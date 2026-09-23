@@ -141,6 +141,13 @@ A `ParameterMask` is a bitset over the first 64 parameter positions; the
 receiver is position 0. `OwnedFields` and `ReleasedFields` are indexed by
 struct field instead and describe constructors and methods of a type.
 
+A discharge verb on a struct or array parameter passed by value counts a
+cleanup call on one of its fields, such as `j.out.Close()` in
+`func finish(j job)`. The builder spills such a parameter into a local cell
+before it can select a field, and the summary follows that spill the same way
+it follows a field address selected from a pointer parameter, provided the
+cell is only ever written whole.
+
 ## Three answers to "what happened to my value?"
 
 | mask | guarantee | what it means for the caller |

@@ -40,3 +40,32 @@ func source(value int) int { return value }
 		t.Fatalf("UnwrapTransparentValue() on an unwrapped value = (%v, %v), want nil and false", unwrapped, ok)
 	}
 }
+
+// A by-value aggregate parameter is spilled into a local cell before a field
+// is selected from it, and so is a local copy. A field loaded out of that
+// cell derives from the parameter. The cell is crossed only while it is
+// written whole and otherwise read: a store into one field, or the cell's
+// address reaching a call, ends the derivation, and a field of an unrelated
+// local never derives.
+func TestValueDerivesFromFollowsAggregateSpill(t *testing.T) {
+	pkg := buildTestSSA(t, `
+package ssaflowtest
+
+type box struct{ value *int; other *int }
+
+func spilled(b box) *int { return b.value }
+func copied(b box) *int { k := b; return k.value }
+func indexed(b [2]*int) *int { return b[1] }
+func overwritten(b box, other *int) *int { b.value = other; return b.value }
+func escaped(b box, sink func(*box)) *int { sink(&b); return b.value }
+func unrelated(b box, other *int) *int { var k box; k.value = other; return k.value }
+`)
+	want := map[string]bool{"spilled": true, "copied": true, "indexed": true, "overwritten": false, "escaped": false, "unrelated": false}
+	for name, want := range want {
+		function := pkg.Func(name)
+		load := returnedLoad(t, function)
+		if got := ValueDerivesFrom(load, function.Params[0], map[ssa.Value]bool{}); got != want {
+			t.Errorf("%s: ValueDerivesFrom(returned load, parameter) = %t, want %t", name, got, want)
+		}
+	}
+}
