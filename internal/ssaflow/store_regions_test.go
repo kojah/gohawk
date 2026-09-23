@@ -59,7 +59,12 @@ func TestRegionGraphStorageParity(t *testing.T) {
 		{"fieldOfCopiedPointee", `y := *p; observe(y.value, p.value)`, true},
 		{"fieldOfCopiedPointeeOther", `y := *p; observe(y.value, p.count)`, false},
 		{"twoLoadsUntouched", `observe(p.value, p.value)`, true},
-		{"twoLoadsAcrossCall", `u := p.value; opaque(nil); observe(u, p.value)`, false},
+		// A call the graph cannot follow reaches only what it was handed:
+		// a parameter never let out reads as the same object on both sides.
+		{"twoLoadsAcrossCall", `u := p.value; opaque(nil); observe(u, p.value)`, true},
+		{"twoLoadsAcrossCallHanded", `u := p.value; opaque(p); observe(u, p.value)`, false},
+		{"twoLoadsAcrossCallEscaped", `retain(p); u := p.value; opaque(nil); observe(u, p.value)`, false},
+		{"twoGlobalLoadsAcrossCall", `u := saved.value; opaque(nil); observe(u, saved.value)`, false},
 		{"twoLoadsAcrossOtherField", `u := p.value; q.count = 1; observe(u, p.value)`, true},
 		{"twoLoadsAcrossSameField", `u := p.value; q.value = b; observe(u, p.value)`, false},
 		{"phiOfSame", `y := a; if pick { y = a }; observe(y, a)`, true},

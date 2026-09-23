@@ -95,7 +95,10 @@ func (graph *regionGraph) invalidateForeign(state *regionState, step string, sta
 		}
 	}
 	if step == "" {
-		state.epoch = stamp
+		if reach == reachAny {
+			state.epoch = stamp
+		}
+		state.reachEpoch = stamp
 		return
 	}
 	state.stepEpochs[step] = stamp

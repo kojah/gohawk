@@ -20,12 +20,16 @@ type regionState struct {
 	// backing records that a slot was filled by copying a snapshot whole,
 	// so its sub-slots without their own entry are the snapshot's.
 	backing map[slot]*region
-	// epoch is the stamp of the last call or write through an unknown
-	// pointer, which may have changed any object the function did not
-	// allocate; stepEpochs stamps the last write through a foreign pointer
-	// to each field or element step. An unwritten foreign slot read before
-	// and after such a write is two objects.
+	// epoch is the stamp of the last write through an unknown pointer,
+	// which may have changed any object the function did not allocate;
+	// reachEpoch is the stamp of the last such write or unresolved call,
+	// which may have changed any object within its reach; stepEpochs
+	// stamps the last write through a foreign pointer to each field or
+	// element step. An unwritten slot read before and after an effect that
+	// could reach it is two objects; one the effect could not reach is
+	// read as the same object on both sides.
 	epoch      int
+	reachEpoch int
 	stepEpochs map[string]int
 	// clobbered marks slots whose subtree an unfollowed effect may have
 	// changed, with the stamp of that effect; a read beneath one is the
@@ -63,9 +67,14 @@ func newRegionState() *regionState {
 	}
 }
 
-// stampOf returns the stamp a placeholder for the slot carries now.
-func (state *regionState) stampOf(target slot) versionStamp {
-	return versionStamp{epoch: state.epoch, step: state.stepEpochs[stepKey(target.path)]}
+// stampOf returns the stamp a placeholder for the slot carries now: the
+// last effect that could have reached the slot's object.
+func (graph *regionGraph) stampOf(state *regionState, target slot) versionStamp {
+	epoch := state.epoch
+	if graph.foreign(state, target.region, reachEscaped) {
+		epoch = state.reachEpoch
+	}
+	return versionStamp{epoch: epoch, step: state.stepEpochs[stepKey(target.path)]}
 }
 
 // stepKey names the last step of a path for stamping; an object's own slot
@@ -82,6 +91,7 @@ func (state *regionState) clone() *regionState {
 		contents:   make(map[slot]pointees, len(state.contents)),
 		backing:    make(map[slot]*region, len(state.backing)),
 		epoch:      state.epoch,
+		reachEpoch: state.reachEpoch,
 		stepEpochs: make(map[string]int, len(state.stepEpochs)),
 		clobbered:  make(map[slot]int, len(state.clobbered)),
 		escaped:    make(map[*region]bool, len(state.escaped)),
@@ -177,6 +187,9 @@ func (graph *regionGraph) mergeStamps(state, other *regionState, header *ssa.Bas
 	if state.epoch != other.epoch {
 		state.epoch = graph.blockID(header)
 	}
+	if state.reachEpoch != other.reachEpoch {
+		state.reachEpoch = graph.blockID(header)
+	}
 	for step, stamp := range other.stepEpochs {
 		if state.stepEpochs[step] != stamp {
 			state.stepEpochs[step] = graph.blockID(header)
@@ -208,7 +221,7 @@ func createdInsideLoop(object *region, header *ssa.BasicBlock) bool {
 }
 
 func (state *regionState) equal(other *regionState) bool {
-	return state.epoch == other.epoch &&
+	return state.epoch == other.epoch && state.reachEpoch == other.reachEpoch &&
 		pointeesMapsEqual(state.contents, other.contents) &&
 		maps.Equal(state.backing, other.backing) &&
 		maps.Equal(state.stepEpochs, other.stepEpochs) &&
@@ -251,6 +264,8 @@ func (state *regionState) difference(other *regionState) string {
 	switch {
 	case state.epoch != other.epoch:
 		return "epoch"
+	case state.reachEpoch != other.reachEpoch:
+		return "reach epoch"
 	case !maps.Equal(state.stepEpochs, other.stepEpochs):
 		return "step epochs"
 	case !maps.Equal(state.clobbered, other.clobbered):

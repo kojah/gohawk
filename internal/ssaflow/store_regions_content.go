@@ -76,7 +76,7 @@ func (graph *regionGraph) unwritten(state *regionState, target slot) pointees {
 		stamp := versionStamp{epoch: target.region.stamp.epoch, step: target.region.stamps[stepKey(origin.path)]}
 		return pointees{{region: graph.placeholder(origin, stamp)}: false}
 	case regionExternal, regionOpaque, regionPlaceholder, regionClosure:
-		return pointees{{region: graph.placeholder(target, state.stampOf(target))}: false}
+		return pointees{{region: graph.placeholder(target, graph.stampOf(state, target))}: false}
 	case regionNil, regionUnknown:
 	}
 	return pointees{{region: graph.unkR}: false}
@@ -153,7 +153,10 @@ func (graph *regionGraph) snapshotOf(state *regionState, addresses pointees, loa
 		}
 		graph.copySubtree(state, address, slot{region: snapshot})
 		snapshot.source = address
-		snapshot.stamp = versionStamp{epoch: state.epoch}
+		// The copy reads its source's unwritten slots as the placeholders
+		// a load there would produce now, stamped by the last effect that
+		// could have reached the source.
+		snapshot.stamp = versionStamp{epoch: graph.stampOf(state, address).epoch}
 		snapshot.stamps = maps.Clone(state.stepEpochs)
 		if clobber, ok := graph.clobberedBeneath(state, address); ok {
 			state.clobbered[slot{region: snapshot}] = clobber
