@@ -223,6 +223,12 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 	if store, ok := instruction.(*ssa.Store); ok {
 		switch store.Addr.(type) {
 		case *ssa.FieldAddr, *ssa.IndexAddr:
+			// A local aggregate whose address never leaves the function
+			// lives no longer than this iteration, so a resource stored in
+			// it, and closed through it, is still iteration-local.
+			if ssaflow.AddressIsUnescapedLocal(store.Addr) {
+				return false
+			}
 			return ssaflow.MayAlias(store.Val, target) || ssaflow.MayContainValue(store.Val, target)
 		}
 	}

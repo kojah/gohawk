@@ -247,6 +247,8 @@ that appears in an analyzer, in `ssaflow`, or in a pass is listed here;
 | `MakeMap`, `MakeSlice` | newly allocated maps and slices; nilness of the result does not establish resource ownership |
 | `MakeInterface`, `ChangeInterface`, `TypeAssert` | placing a value in an interface, converting between interfaces, and narrowing one |
 | `Convert`, `ChangeType` | a representation change, and a change of named type over the same representation |
+| `MultiConvert` | a conversion between type parameters whose instantiations may need different representation changes |
+| `SliceToArrayPointer` | a slice converted to a pointer to an array over the same backing store |
 | `BinOp` | an arithmetic or comparison operator, including the `!= nil` checks the flow reads |
 | `DebugRef` | a source-position annotation with no runtime effect, skipped by every analysis |
 

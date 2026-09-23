@@ -78,6 +78,13 @@ func (storage *Storage) Same(left, right ssa.Value) IdentityProof {
 	if DefinitelySameValue(a.Value, b.Value) {
 		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}}
 	}
+	// The points-to graph sees identity the load-by-load resolution above
+	// cannot: through a copy of a pointee, a merge of one object, or two
+	// reads of one untouched slot. It only adds exact answers; an unknown
+	// stays unknown.
+	if regionsOf(left).mustSame(left, right) {
+		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}}
+	}
 	return IdentityProof{storage.unknown(EvidenceStoredValuesDiffer, nil).Proof}
 }
 
@@ -91,6 +98,15 @@ func (storage *Storage) Content(address ssa.Value, observation ssa.Instruction) 
 	}
 	if observation == nil || location.root.Parent() != observation.Parent() {
 		return storage.unknown(EvidenceStorageOutsideFunction, observation)
+	}
+	if proof := storage.content(location, observation); proof.Proven() {
+		return proof
+	}
+	// The graph resolves what the reaching-write walk could not: a cell
+	// filled from a copy of a pointee, or a join where every path stored
+	// one object. It only adds exact answers.
+	if value, ok := regionsOf(address).contentValue(address, observation); ok {
+		return StoredValue{Proof: Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}, Value: value}
 	}
 	return storage.content(location, observation)
 }

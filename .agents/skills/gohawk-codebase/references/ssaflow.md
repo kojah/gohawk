@@ -61,6 +61,20 @@ AccessPathOf returns the field and constant-index steps by which value is
 selected beneath root, empty for root itself. A load through an address
 beneath root has the address's path.
 
+## AddressIsUnescapedLocal
+
+[Source](../../../../internal/ssaflow/store_regions_query.go)
+
+```go
+func AddressIsUnescapedLocal(address ssa.Value) bool
+```
+
+AddressIsUnescapedLocal reports whether every object the address may
+select from is a local allocation whose address never leaves the
+function: not stored anywhere the function does not own, not handed to a
+call it cannot see through, not captured by a closure that does either.
+What such an aggregate holds lives no longer than the aggregate itself.
+
 ## BlockInCycle
 
 [Source](../../../../internal/ssaflow/call_goroutines.go)
@@ -464,7 +478,7 @@ type CapturedBinding struct {
 
 ## CapturedBindingMatches
 
-[Source](../../../../internal/ssaflow/value_matching.go)
+[Source](../../../../internal/ssaflow/store_alias.go)
 
 ```go
 func CapturedBindingMatches(binding, target ssa.Value) bool
@@ -1312,21 +1326,26 @@ OwnershipTransfer proves and memoizes an ownership-transfer request.
 
 ## MayAlias
 
-[Source](../../../../internal/ssaflow/value_matching.go)
+[Source](../../../../internal/ssaflow/store_alias.go)
 
 ```go
 func MayAlias(value, target ssa.Value) bool
 ```
 
 MayAlias reports a possible identity through conversions, any phi edge,
-and local storage history. It is not a must-alias proof: use
-DefinitelySameValue when a diagnostic or guaranteed action requires exact
-identity. It does not equate a field or index with its containing aggregate;
-use ValueDerivesFrom or MayContainValue for containment instead.
+and local storage. It is not a must-alias proof: use DefinitelySameValue
+when a diagnostic or guaranteed action requires exact identity. It does
+not equate a field or index with its containing aggregate; use
+ValueDerivesFrom or MayContainValue for containment instead.
+
+The points-to graph answers with disjointness the value walk cannot: two
+fields of one object, a cell after it was overwritten, or an unescaped
+local and anything it was never stored into, are not aliases. A function
+the graph could not model keeps the walk, which never rules an alias out.
 
 ## MayAliasAny
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/store_alias.go)
 
 ```go
 func MayAliasAny(value ssa.Value, candidates []ssa.Value) bool
@@ -1981,7 +2000,7 @@ the same factory invocation. TargetIsResult selects the target's namespace.
 
 ## ReturnedMayAliasAny
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/store_alias.go)
 
 ```go
 func ReturnedMayAliasAny(returned *ssa.Return, candidates []ssa.Value) bool

@@ -27,32 +27,11 @@ func CapturedBindingValue(binding ssa.Value) ssa.Value { //nolint:ireturn // Sto
 	return binding
 }
 
-// CapturedBindingMatches reports whether a closure binding directly contains
-// target or refers to an addressable local that has contained target. Unlike
-// CapturedBindingValue, it handles variables reassigned before a callback is
-// installed without depending on referrer iteration order.
-func CapturedBindingMatches(binding, target ssa.Value) bool {
-	if MayAlias(binding, target) {
-		return true
-	}
-	if binding == nil || binding.Referrers() == nil {
-		return false
-	}
-	for _, reference := range *binding.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == binding && MayAlias(store.Val, target) {
-			return true
-		}
-	}
-	return false
-}
-
-// MayAlias reports a possible identity through conversions, any phi edge,
-// and local storage history. It is not a must-alias proof: use
-// DefinitelySameValue when a diagnostic or guaranteed action requires exact
-// identity. It does not equate a field or index with its containing aggregate;
-// use ValueDerivesFrom or MayContainValue for containment instead.
-func MayAlias(value, target ssa.Value) bool {
+// structurallySame is the value-graph half of MayAlias: identity through
+// conversions, any phi edge, and every store into a local cell, without
+// regard to order. Derivation still asks this question, because its
+// polarity ends the walk at anything unknown.
+func structurallySame(value, target ssa.Value) bool {
 	// SSA removes ordinary assignments, but captured locals, embedded fields,
 	// and interface conversions still need explicit identity recovery.
 	return sameValueSeen(value, target, map[ssa.Value]bool{}) || sameValueSeen(target, value, map[ssa.Value]bool{})
@@ -113,7 +92,7 @@ func sameValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 		return ok && typed.Field == other.Field && sameValueSeen(typed.X, other.X, seen)
 	case *ssa.IndexAddr:
 		other, ok := target.(*ssa.IndexAddr)
-		return ok && sameValueSeen(typed.X, other.X, seen) && MayAlias(typed.Index, other.Index)
+		return ok && sameValueSeen(typed.X, other.X, seen) && structurallySame(typed.Index, other.Index)
 	case *ssa.UnOp:
 		if typed.Op != token.MUL {
 			return false

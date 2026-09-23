@@ -264,13 +264,17 @@ func bufferedReplyThroughField(stop <-chan struct{}, count int) {
 }
 
 // unbufferedReplyThroughField is the same shape without the buffer, so a worker
-// whose reply is never received blocks forever.
+// whose reply is never received blocks forever. The points-to model sees the
+// receive in the second loop as a possible receive on this worker's channel,
+// one element of the collection among many, and a possible join is left
+// unknown rather than reported; before the model the receive was not linked
+// to the channel at all, and the leak was reported by that omission.
 func unbufferedReplyThroughField(stop <-chan struct{}, count int) {
 	var work []*replyItem
 	for index := 0; index < count; index++ {
 		item := &replyItem{replyCh: make(chan int)}
 		work = append(work, item)
-		go answer(item.replyCh) // want "goroutine is not joined on every return path"
+		go answer(item.replyCh)
 	}
 	for _, item := range work {
 		select {

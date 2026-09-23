@@ -14,10 +14,10 @@ func chosen(a, b *int, pick bool) *int {
 	if pick { v = b }
 	return v
 }
-func loaded(a, b *int) *int {
+func loaded(a, b *int, pick bool) *int {
 	v := a
 	p := &v
-	*p = b
+	if pick { *p = b }
 	return *p
 }
 func alias(a *int) *int { return a }

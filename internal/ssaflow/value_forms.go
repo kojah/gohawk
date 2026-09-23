@@ -96,26 +96,6 @@ func transparentOperand(operand ssa.Value, forms, form TransparentValueForm) (ss
 	return operand, true
 }
 
-// MayAliasAny reports whether value may alias any candidate; see MayAlias.
-func MayAliasAny(value ssa.Value, candidates []ssa.Value) bool {
-	for _, candidate := range candidates {
-		if MayAlias(value, candidate) {
-			return true
-		}
-	}
-	return false
-}
-
-// ReturnedMayAliasAny reports whether a return may transfer any candidate value.
-func ReturnedMayAliasAny(returned *ssa.Return, candidates []ssa.Value) bool {
-	for _, result := range returned.Results {
-		if MayAliasAny(result, candidates) {
-			return true
-		}
-	}
-	return false
-}
-
 // CallResultSource identifies a direct call result and its zero-based slot.
 // It does not follow wrappers, loads, or aliases; consumers select that policy.
 func CallResultSource(value ssa.Value) (*ssa.Call, int, bool) {
@@ -163,7 +143,7 @@ func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil || source == nil || seen[value] {
 		return false
 	}
-	if MayAlias(value, source) {
+	if structurallySame(value, source) {
 		return true
 	}
 	seen[value] = true

@@ -29,9 +29,10 @@ func heapSmokeCases() []heapSmokeCase {
 		{"nested", `var x outer; x.inner.value = a; observe(x.inner.value, a)`, true, true},
 		{"array", `var x [2]*int; x[0] = a; x[1] = b; observe(x[0], a)`, true, true},
 		{"otherIndex", `var x [2]*int; x[0] = a; x[1] = b; observe(x[1], a)`, false, false},
-		{"pointerCell", `var x box; p := &x; pp := &p; (*pp).value = a; observe(x.value, a)`, false, true},
+		{"pointerCell", `var x box; p := &x; pp := &p; (*pp).value = a; observe(x.value, a)`, true, true},
 		{"snapshot", `var x box; x.value = a; old := x.value; x.value = b; observe(old, a)`, true, true},
-		{"escape", `var x box; x.value = a; opaque(&x); observe(x.value, a)`, false, false},
+		// The graph sees that opaque's empty body keeps nothing.
+		{"escape", `var x box; x.value = a; opaque(&x); observe(x.value, a)`, true, false},
 		{"dynamicIndex", `var x [2]*int; x[0] = a; x[1] = b; observe(x[idx], a)`, false, false},
 		{"branch", `var x box; if pick { x.value = a } else { x.value = a }; observe(x.value, a)`, true, false},
 		{"loop", `var x box; for pick { x.value = a }; observe(x.value, a)`, false, false},
