@@ -28,13 +28,13 @@ func (graph *regionGraph) transfer(state *regionState, instruction ssa.Instructi
 		graph.deferCall(state, typed)
 	case *ssa.RunDefers:
 		// The deferred calls run here, with whatever they were handed.
-		graph.escape(state, state.deferred)
+		graph.escape(state, state.deferred, HeapEscapedCall)
 		graph.clobber(state, state.deferred, graph.id(typed))
 		graph.invalidateForeign(state, "", graph.id(typed))
 	case *ssa.Go:
 		graph.call(state, typed.Common(), typed, true)
 	case *ssa.Send:
-		graph.escape(state, graph.pointees(typed.X))
+		graph.escape(state, graph.pointees(typed.X), HeapEscapedSend)
 	case *ssa.MapUpdate:
 		graph.mapUpdate(state, typed)
 	case *ssa.Lookup:
@@ -313,8 +313,9 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 		}
 	}
 	if targets.unknown() {
+		state.opaque = true
 		graph.invalidateForeign(state, "", graph.id(stored))
-		graph.escape(state, value)
+		graph.escape(state, value, HeapEscapedField)
 		return
 	}
 	for target := range targets {
@@ -322,7 +323,7 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 			continue
 		}
 		if target.region.kind != regionSite || state.escaped[target.region] {
-			graph.escape(state, value)
+			graph.escape(state, value, escapeInto(target.region))
 		}
 		if target.region.kind != regionSite {
 			graph.invalidateForeign(state, stepKey(target.path), graph.id(stored))
@@ -369,6 +370,12 @@ func (graph *regionGraph) extract(extract *ssa.Extract) {
 	if assertion, ok := extract.Tuple.(*ssa.TypeAssert); ok && extract.Index == 0 {
 		graph.setValue(extract, graph.pointees(assertion.X))
 		return
+	}
+	if call, ok := extract.Tuple.(*ssa.Call); ok {
+		if results := graph.callResults[call]; extract.Index < len(results) && results[extract.Index] != nil {
+			graph.setValue(extract, results[extract.Index])
+			return
+		}
 	}
 	graph.setValue(extract, pointees{{region: graph.opaque(extract)}: false})
 }

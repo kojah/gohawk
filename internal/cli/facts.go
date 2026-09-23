@@ -14,6 +14,7 @@ import (
 
 	gohawk "github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"
@@ -40,8 +41,9 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	flags.SetOutput(errorsOutput)
 	nameFilter := flags.String("func", "", "print only facts attached to the function with this name")
 	includeTests := flags.Bool("tests", false, "also load the package's test variant")
+	regions := flags.Bool("regions", false, "also print each local function's points-to graph as the analysis saw it")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk facts [-func NAME] [-tests] package...")
+		writeLine(errorsOutput, "usage: gohawk facts [-func NAME] [-tests] [-regions] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -68,6 +70,9 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 			return action.Err
 		}
 		writeObjectFacts(&buffer, action, *nameFilter)
+		if *regions {
+			writeRegions(&buffer, action, *nameFilter)
+		}
 	}
 	if buffer.Len() == 0 {
 		return fmt.Errorf("no fact matched %q", *nameFilter)
@@ -131,6 +136,26 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 		}
 		fact := summaries[function]
 		writeFact(buffer, action, object, "exported here", &fact)
+	}
+}
+
+// writeRegions prints the points-to graph of each local function, from the
+// graphs the analysis built, so the regions reflect the callee summaries
+// that were applied.
+func writeRegions(buffer *bytes.Buffer, action *checker.Action, filter string) {
+	summaries, ok := action.Result.(lifecyclefacts.Summaries)
+	if !ok {
+		return
+	}
+	functions := slices.SortedFunc(maps.Keys(summaries), func(left, right *ssa.Function) int {
+		return int(left.Pos() - right.Pos())
+	})
+	for _, function := range functions {
+		object := function.Object()
+		if object == nil || object.Pkg() != action.Package.Types || filter != "" && object.Name() != filter {
+			continue
+		}
+		fmt.Fprintf(buffer, "// %s\n%s", objectName(object), ssaflow.RenderRegions(function))
 	}
 }
 

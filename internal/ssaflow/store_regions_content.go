@@ -197,6 +197,17 @@ func trimSlash(path string) string {
 	return path
 }
 
+// escapeInto names how a value stored into the object leaves local
+// control: through a global, or through an object the caller can reach.
+func escapeInto(object *region) HeapEscape {
+	if object.kind == regionExternal {
+		if _, global := object.origin.(*ssa.Global); global {
+			return HeapEscapedGlobal
+		}
+	}
+	return HeapEscapedField
+}
+
 // forgetWholeAbove drops the whole-aggregate entries of the slots above a
 // sub-slot about to be written: the aggregate no longer equals the value
 // stored into it whole.

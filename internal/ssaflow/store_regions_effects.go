@@ -86,30 +86,27 @@ func (graph *regionGraph) foreign(state *regionState, object *region) bool {
 	return false
 }
 
-// escape marks every site reachable from the pointees as escaped: its
-// address is now held somewhere the function cannot see.
-func (graph *regionGraph) escape(state *regionState, set pointees) {
+// escape marks every object reachable from the pointees as having left
+// local control in the given way: a site is then clobbered by any later
+// effect, and the heap projection reports the escape for every object the
+// caller can name. Contents escape with their container.
+func (graph *regionGraph) escape(state *regionState, set pointees, kind HeapEscape) {
 	queue := make([]*region, 0, len(set))
 	for target := range set {
 		queue = append(queue, target.region)
 	}
+	seen := map[*region]bool{}
 	for len(queue) > 0 {
 		object := queue[0]
 		queue = queue[1:]
-		if object.kind == regionSnapshot || object.kind == regionClosure {
-			for target, contents := range state.contents {
-				if target.region == object {
-					for pointee := range contents {
-						queue = append(queue, pointee.region)
-					}
-				}
-			}
+		if seen[object] || object.kind == regionNil || object.kind == regionUnknown {
 			continue
 		}
-		if object.kind != regionSite || state.escaped[object] {
-			continue
+		seen[object] = true
+		state.escapes[object] |= kind
+		if object.kind == regionSite {
+			state.escaped[object] = true
 		}
-		state.escaped[object] = true
 		for target, contents := range state.contents {
 			if target.region == object {
 				for pointee := range contents {
@@ -188,8 +185,15 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 		graph.builtin(state, builtin, common, instruction)
 		return
 	}
+	if !started && graph.applyHeapSummary(state, common, instruction) {
+		return
+	}
 	graph.invalidateForeign(state, "", graph.id(instruction))
 	arguments := append([]ssa.Value(nil), common.Args...)
+	kind := HeapEscapedCall
+	if started {
+		kind = HeapEscapedAsync
+	}
 	if common.IsInvoke() {
 		arguments = append(arguments, common.Value)
 	}
@@ -203,13 +207,14 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 	for _, argument := range arguments {
 		set := graph.pointees(argument)
 		if callee == nil || len(callee.Blocks) == 0 || started {
-			graph.escape(state, set)
+			state.opaque = true
+			graph.escape(state, set, kind)
 			graph.clobber(state, set, graph.id(instruction))
 			continue
 		}
 		if closure != nil && slices.Contains(closure.Bindings, argument) {
 			if !callbackCaptureReadOnly(closure, argument, graph.budget) {
-				graph.escape(state, set)
+				graph.escape(state, set, kind)
 				graph.clobber(state, set, graph.id(instruction))
 			}
 			continue
@@ -220,7 +225,7 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 		case proof.Proven() && proof.Effects&(EffectRetain|EffectAsync) == 0:
 			graph.clobber(state, set, graph.id(instruction))
 		default:
-			graph.escape(state, set)
+			graph.escape(state, set, kind)
 			graph.clobber(state, set, graph.id(instruction))
 		}
 	}
@@ -245,13 +250,13 @@ func (graph *regionGraph) builtin(state *regionState, builtin *ssa.Builtin, comm
 				// The spread slice's elements are copied into a collection
 				// the function may hand on, so the array behind it has
 				// escaped as far as its contents are concerned.
-				graph.escape(state, elements)
+				graph.escape(state, elements, HeapEscapedField)
 				elements = graph.load(state, graph.selectStep(elements, pathStar), argument)
 			}
 			for target := range result {
 				graph.weakElementStore(state, slot{region: target.region, path: joinSlotPath(target.path, pathStar)}, elements)
 			}
-			graph.escape(state, elements)
+			graph.escape(state, elements, HeapEscapedField)
 		}
 	case "copy":
 		if len(common.Args) < 2 {
@@ -267,7 +272,7 @@ func (graph *regionGraph) builtin(state *regionState, builtin *ssa.Builtin, comm
 
 func (graph *regionGraph) mapUpdate(state *regionState, update *ssa.MapUpdate) {
 	value := graph.pointees(update.Value)
-	graph.escape(state, value)
+	graph.escape(state, value, HeapEscapedField)
 	for target := range graph.pointees(update.Map) {
 		graph.weakElementStore(state, slot{region: target.region, path: joinSlotPath(target.path, "elem")}, value)
 	}

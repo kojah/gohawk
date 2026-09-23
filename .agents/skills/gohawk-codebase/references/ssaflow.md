@@ -1184,6 +1184,227 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool
 
 HasLibraryContract reports whether common exactly matches a registered API.
 
+## HeapEdge
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+type HeapEdge struct {
+	From	HeapSlot
+	To	HeapTarget
+	Must	bool
+}
+```
+
+HeapEdge says the slot may hold the target at exit; Must says it does on
+every normal return, and that nothing else does.
+
+## HeapEffect
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+type HeapEffect struct {
+	Slot	HeapSlot
+	Escape	HeapEscape
+	Release	string
+	Every	bool
+}
+```
+
+HeapEffect records what happened to the object at a slot: how it escaped,
+or which lifecycle method released it. Every says the effect holds on
+every normal return.
+
+## HeapEscape
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+type HeapEscape uint8
+```
+
+HeapEscape is the set of ways an object left local control.
+
+## HeapEscape.String
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+func (escape HeapEscape) String() string
+```
+
+String renders the escape kinds.
+
+## HeapEscapedGlobal, HeapEscapedField, HeapEscapedCall, HeapEscapedAsync, HeapEscapedSend
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+const (
+	// HeapEscapedGlobal: stored into a package variable.
+	HeapEscapedGlobal	HeapEscape	= 1 << iota
+	// HeapEscapedField: stored into an object the caller can reach, a map,
+	// or a collection handed on.
+	HeapEscapedField
+	// HeapEscapedCall: handed to a call the graph could not see through.
+	HeapEscapedCall
+	// HeapEscapedAsync: handed to a goroutine.
+	HeapEscapedAsync
+	// HeapEscapedSend: sent on a channel.
+	HeapEscapedSend
+)
+```
+
+## HeapParameter, HeapResult, HeapGlobal, HeapFreeVar
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+const (
+	// HeapParameter is the object parameter Index refers to; the receiver
+	// is parameter zero.
+	HeapParameter	HeapRootKind	= iota
+	// HeapResult is the object result Index refers to.
+	HeapResult
+	// HeapGlobal is the package variable Name.
+	HeapGlobal
+	// HeapFreeVar is the captured variable Index of a literal.
+	HeapFreeVar
+)
+```
+
+## HeapRoot
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+type HeapRoot struct {
+	Kind	HeapRootKind
+	Index	int
+	Package	string
+	Name	string
+}
+```
+
+HeapRoot is one object a caller can name. A global is named by its
+package path and name, so a caller's graph can find the same variable.
+
+## HeapRootKind
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+type HeapRootKind uint8
+```
+
+HeapRootKind names the kinds of object a caller can refer to.
+
+## HeapSlot
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+type HeapSlot struct {
+	Root	HeapRoot
+	Path	string
+}
+```
+
+HeapSlot is a location beneath a root: the root's object itself when
+Path is empty, else the field or element the joined access path selects.
+
+## HeapSlot.String
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+func (at HeapSlot) String() string
+```
+
+String renders a slot as P0/field:1, R0, G:pkg.name, or F1.
+
+## HeapSummary
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+type HeapSummary struct {
+	Edges		[]HeapEdge
+	Effects		[]HeapEffect
+	Reads		[]HeapSlot
+	Truncated	[]HeapSlot
+}
+```
+
+HeapSummary is the projection of one function's heap.
+
+## HeapSummary.String
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+func (summary HeapSummary) String() string
+```
+
+String renders the summary one entry per line, for tests and the dump.
+
+## HeapTarget
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+type HeapTarget struct {
+	Kind	HeapTargetKind
+	Slot	HeapSlot
+	Origin	string
+	Object	int
+}
+```
+
+HeapTarget is what a slot may hold. Object numbers a fresh object within
+its summary, so two fresh objects with one origin, such as the two
+results of one call, stay two objects when the summary is applied.
+
+## HeapTarget.String
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+func (target HeapTarget) String() string
+```
+
+String renders a target.
+
+## HeapTargetKind
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+type HeapTargetKind uint8
+```
+
+HeapTargetKind names what a slot may hold.
+
+## HeapTargetSlot, HeapTargetFresh, HeapTargetNil, HeapTargetUnknown
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+const (
+	// HeapTargetSlot is whatever the caller holds at Slot, or the object
+	// Slot itself when its path is empty.
+	HeapTargetSlot	HeapTargetKind	= iota
+	// HeapTargetFresh is an object the function created, Origin naming the
+	// call or literal that produced it when the graph could see one.
+	HeapTargetFresh
+	// HeapTargetNil is the nil pointer.
+	HeapTargetNil
+	// HeapTargetUnknown may be anything.
+	HeapTargetUnknown
+)
+```
+
 ## IdentityProof
 
 [Source](../../../../internal/ssaflow/proof_types.go)
@@ -1418,6 +1639,19 @@ func MayContainValue(owner, value ssa.Value) bool
 MayContainValue reports whether owner may be an aggregate or closure that
 transitively contains value. Possible containment only: it can hide a
 diagnostic behind an opaque owner, never prove that the owner settles it.
+
+## MayContainValueAt
+
+[Source](../../../../internal/ssaflow/store_ownership.go)
+
+```go
+func MayContainValueAt(owner, value ssa.Value, at ssa.Instruction) bool
+```
+
+MayContainValueAt is MayContainValue asked at one instruction: whether the
+owner may hold the value when the instruction runs. A call's argument is
+judged before the call, so a callee summarized as storing the value into
+the argument does not make the argument contain it already.
 
 ## MethodCallCoverage
 
@@ -1767,6 +2001,18 @@ PhiIncoming yields each edge of phi with the predecessor block it comes
 from. An edge without a matching predecessor, which malformed SSA could
 produce, is skipped.
 
+## ProjectHeap
+
+[Source](../../../../internal/ssaflow/store_heap_summary.go)
+
+```go
+func ProjectHeap(function *ssa.Function) (HeapSummary, bool)
+```
+
+ProjectHeap computes the heap summary of a function from its points-to
+graph. It reports false when the graph is unavailable, or when the
+function has no normal return to project.
+
 ## Proof
 
 [Source](../../../../internal/ssaflow/proof_types.go)
@@ -1975,6 +2221,17 @@ func (walk ReachingWalk) Mark(value ssa.Value) bool
 Mark records value as visited and reports whether this was its first visit.
 Leaves use it for values they examine without folding over them, such as
 the sibling element addresses of one slice.
+
+## RegisterHeapSummary
+
+[Source](../../../../internal/ssaflow/store_heap_registry.go)
+
+```go
+func RegisterHeapSummary(function *ssa.Function, summary HeapSummary)
+```
+
+RegisterHeapSummary makes the summary available to every graph built
+afterwards for calls to the function.
 
 ## RenderRegions
 

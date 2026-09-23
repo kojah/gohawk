@@ -83,6 +83,34 @@ checked against the graph that gave it.
 Exhaustion of the build budget, or a fixpoint that does not settle, makes
 the whole graph unavailable and every answer unknown. Nothing here guesses.
 
+## Heap summaries
+
+A function's graph is projected onto what a caller can name: parameters,
+results, globals, and captured variables, each with a bounded set of paths
+beneath it. Every internal object collapses to `fresh`, numbered within the
+summary so two fresh objects with one origin stay two objects, or to `nil`
+or `unknown`. The summary lists where each named slot may point at exit,
+with `must` when every return agrees on one non-stale target and the whole
+build stored nothing else there; how each named object escaped, with
+`every` when it did so on every return; which slots the function read
+before writing; and where the projection was cut, including every root
+when a call the graph could not resolve may have written anything. The
+lifecycle pass adds the release effects its every-return proofs
+established and exports the summary in its fact.
+
+Applying a summary at a call site is substitution. The callee's parameter
+becomes the argument's slots, a global the same variable looked up in the
+program, a result the call's own value, and `fresh` a new object owned by
+the call. Content the summary could not describe becomes a foreign object
+the caller never named, not "anything". A truncated root is forgotten
+beneath. Nothing else the caller holds is touched, which is the gain: a
+call to a summarized function no longer makes the graph forget every
+object the caller did not allocate. The lifecycle pass registers every
+callee summary it imports before building any graph of its package, so the
+substitution is available wherever the graph is. Closures with captured
+variables, goroutine launches, and deferred calls keep the conservative
+treatment.
+
 ## Boundaries
 
 Intraprocedural only: callees contribute through the existing call-effect

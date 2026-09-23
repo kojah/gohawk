@@ -68,6 +68,11 @@ type Fact struct {
 	// Conditional holds positive, result-specific guarantees. It never widens
 	// an unconditional mask, and missing entries do not establish no effect.
 	Conditional *ConditionalSummary
+	// Heap is the projection of the function's points-to graph onto what a
+	// caller can name: where each parameter, result, and global slot may
+	// point at exit, how each object escaped or was released, what was
+	// read, and where the projection was cut. See heap.go.
+	Heap *ssaflow.HeapSummary
 	// ReturnedCleanup relates an invoked callback result to an exact factory
 	// parameter or sibling result. Merely returning the callback does not clean up.
 	ReturnedCleanup *ReturnedCleanupSummary
@@ -311,6 +316,26 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 	}
 	lines = append(lines, fact.conditionalDescriptions()...)
 	lines = append(lines, fact.returnedCleanupDescriptions()...)
+	if len(lines) == 0 {
+		lines = []string{"no parameter is proven on every return"}
+	}
+	return append(lines, fact.heapDescriptions()...)
+}
+
+// heapDescriptions renders the heap projection one entry per line, after
+// the mask claims: the masks say what the function proved about its
+// parameters, the projection says what the caller's objects look like
+// afterwards, and a reader of the dump wants the proof before the picture.
+func (fact *Fact) heapDescriptions() []string {
+	if fact.Heap == nil {
+		return nil
+	}
+	var lines []string
+	for line := range strings.SplitSeq(fact.Heap.String(), "\n") {
+		if line != "" {
+			lines = append(lines, "heap "+line)
+		}
+	}
 	return lines
 }
 
@@ -406,7 +431,17 @@ func (fact *Fact) empty() bool {
 		fact.Stopped | fact.Waited | fact.Committed | fact.RolledBack | fact.ReturnedOwner | fact.ReturnedView |
 		fact.Retained | fact.Stored | fact.LoopReleased | fact.OwnedFields | fact.ReleasedFields | fact.OwnedResults |
 		fact.ReceiverStore
-	return masks == 0 && len(fact.Kept) == 0 && len(fact.Discharges) == 0 && fact.Conditional == nil && fact.ReturnedCleanup == nil
+	return masks == 0 && len(fact.Kept) == 0 && len(fact.Discharges) == 0 &&
+		(fact.Conditional == nil || len(fact.Conditional.Effects) == 0) &&
+		(fact.ReturnedCleanup == nil || len(fact.ReturnedCleanup.Effects) == 0) &&
+		fact.heapEmpty()
+}
+
+// heapEmpty reports whether the heap projection claims nothing a caller
+// must react to: no edges, no effects, no truncation. Reads alone are not
+// exported.
+func (fact *Fact) heapEmpty() bool {
+	return fact.Heap == nil || len(fact.Heap.Edges) == 0 && len(fact.Heap.Effects) == 0 && len(fact.Heap.Truncated) == 0
 }
 
 // String decodes the masks by parameter position so the fact is readable in

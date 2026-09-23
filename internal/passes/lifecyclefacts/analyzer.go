@@ -40,6 +40,14 @@ func run(pass *analysis.Pass) (any, error) {
 	summaries := make(Summaries, len(functions))
 	retentions := newRetentionCache()
 	marker := &SummarizedPackage{}
+	// Import dependency summaries first, and hand their heap projections to
+	// the graph, so every graph built for this package applies a summarized
+	// callee by substitution instead of forgetting what the caller holds.
+	// Facts belong to this prerequisite analyzer; siblings read them through
+	// the result. A callee of this package has no fact yet and stays
+	// unknown here; its own summary is registered once computed.
+	importCalleeSummaries(pass, functions, summaries)
+	var local []*ssa.Function
 	for _, function := range functions {
 		if object := function.Object(); object != nil && object.Exported() && len(function.Blocks) == 0 {
 			marker.Bodiless = append(marker.Bodiless, object.Name())
@@ -64,6 +72,7 @@ func run(pass *analysis.Pass) (any, error) {
 		})
 		fact := summarize(pass, retentions, function)
 		summaries[function] = fact
+		local = append(local, function)
 		probe.Decision(analysisTrace.Step{
 			Reason:   "function-summarized",
 			Outcome:  analysisTrace.OutcomeAccepted,
@@ -81,18 +90,26 @@ func run(pass *analysis.Pass) (any, error) {
 	// function of every dependency.
 	slices.Sort(marker.Bodiless)
 	pass.ExportPackageFact(marker)
-	for function, fact := range summaries {
+	for _, function := range local {
+		fact := summaries[function]
 		fact.ReturnedView = returnedViews(pass, function, fact, summaries)
 		summaries[function] = fact
 		if !fact.empty() {
 			pass.ExportObjectFact(function.Object(), &fact)
 		}
+		if fact.Heap != nil {
+			ssaflow.RegisterHeapSummary(function, *fact.Heap)
+		}
 	}
 	// A type's contract needs its constructor and its methods, so it is joined
 	// once both are summarized rather than while either is being proved.
 	exportCleanupContracts(pass, summaries)
-	// Facts belong to this prerequisite analyzer, so import dependency facts
-	// here and expose them through the result consumed by sibling analyzers.
+	return summaries, nil
+}
+
+// importCalleeSummaries imports the fact of every static callee the package
+// resolves and registers each callee's heap projection with the graph.
+func importCalleeSummaries(pass *analysis.Pass, functions []*ssa.Function, summaries Summaries) {
 	for _, function := range functions {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
@@ -100,8 +117,14 @@ func run(pass *analysis.Pass) (any, error) {
 				if common == nil || common.StaticCallee() == nil {
 					continue
 				}
+				if _, seen := summaries[common.StaticCallee()]; seen {
+					continue
+				}
 				if fact, ok := importFact(pass, instruction); ok {
 					summaries[common.StaticCallee()] = fact
+					if fact.Heap != nil {
+						ssaflow.RegisterHeapSummary(common.StaticCallee(), *fact.Heap)
+					}
 					// A callee that returns an owned struct is only useful together
 					// with the summaries of that struct's methods, which no sibling
 					// analyzer can import itself.
@@ -112,7 +135,6 @@ func run(pass *analysis.Pass) (any, error) {
 			}
 		}
 	}
-	return summaries, nil
 }
 
 // factFor returns a memoized local or previously imported dependency summary.
@@ -166,6 +188,7 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 	}
 	fact.Conditional = summarizeConditional(pass, function)
 	fact.ReturnedCleanup = summarizeReturnedCleanup(pass, function)
+	fact.Heap = summarizeHeap(function, &fact)
 	return fact
 }
 

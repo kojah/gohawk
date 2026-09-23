@@ -61,16 +61,15 @@ func optionallyQueriedRowsWithoutCleanup(ctx context.Context, database *sql.DB, 
 	}
 }
 
-// A deferred close on a value merged from the rows and another handle is a
-// release of whichever was selected; the merged-value boundary leaves the
-// rows unknown rather than reported, as the doc states. Before the
-// points-to model, the merge was not even seen as a possible alias, and the
-// leak on the unselected path was reported by that omission.
+// A deferred close on a value merged from the rows and another handle
+// releases whichever was selected, so the rows leak on the path that chose
+// the other handle. The merge is a possible alias of the rows, never a
+// release of them.
 func optionalRowsClosedThroughAmbiguousPhi(ctx context.Context, database *sql.DB, other *sql.Rows, query string, choose bool) error {
 	var rows *sql.Rows
 	var err error
 	if query != "" {
-		rows, err = database.QueryContext(ctx, query)
+		rows, err = database.QueryContext(ctx, query) // want "owned resource from sql.QueryContext is not released on every return path"
 	}
 	if query == "" {
 		return nil

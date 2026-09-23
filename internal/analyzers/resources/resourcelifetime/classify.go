@@ -327,8 +327,11 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 		// The resource itself, or a load that resolves to it, is not an
 		// aggregate holding the resource; only a genuine container is asked
 		// whether it may escape.
+		// Containment is judged as the call receives the argument: a callee
+		// summarized as storing the resource into this very aggregate does
+		// not make the aggregate an owner of it before the call.
 		if analysis.carriesDirectly(argument) || analysis.carriedWithinClosure(argument) ||
-			(!analysis.carriesWithin(argument) && !analysis.possibleAggregateWrapper(argument)) {
+			(!ssaflow.MayContainValueAt(argument, analysis.resource, instruction) && !analysis.possibleAggregateWrapper(argument)) {
 			continue
 		}
 		// A parameter-level retention fact also makes its nested contents

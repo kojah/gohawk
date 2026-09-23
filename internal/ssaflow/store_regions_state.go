@@ -32,6 +32,13 @@ type regionState struct {
 	clobbered map[slot]int
 	// escaped marks sites whose address left local control.
 	escaped map[*region]bool
+	// escapes records how each object left local control, for the heap
+	// projection: any object, not only a site, and every way it went.
+	escapes map[*region]HeapEscape
+	// opaque records that a call the graph could not resolve or summarize
+	// may have written anything the function did not allocate; the heap
+	// projection is then truncated at every root.
+	opaque bool
 	// deferred holds what deferred calls were handed; their effects apply
 	// when the deferred calls run, at the function's RunDefers.
 	deferred pointees
@@ -44,6 +51,7 @@ func newRegionState() *regionState {
 		stepEpochs: map[string]int{},
 		clobbered:  map[slot]int{},
 		escaped:    map[*region]bool{},
+		escapes:    map[*region]HeapEscape{},
 		deferred:   pointees{},
 	}
 }
@@ -70,8 +78,11 @@ func (state *regionState) clone() *regionState {
 		stepEpochs: make(map[string]int, len(state.stepEpochs)),
 		clobbered:  make(map[slot]int, len(state.clobbered)),
 		escaped:    make(map[*region]bool, len(state.escaped)),
+		escapes:    make(map[*region]HeapEscape, len(state.escapes)),
+		opaque:     state.opaque,
 		deferred:   state.deferred.clone(),
 	}
+	maps.Copy(result.escapes, state.escapes)
 	for target, set := range state.contents {
 		result.contents[target] = set.clone()
 	}
@@ -95,6 +106,10 @@ func (graph *regionGraph) merge(state, other *regionState, backEdge bool, header
 	graph.mergeBacking(state, other, header)
 	graph.mergeStamps(state, other, header)
 	maps.Copy(state.escaped, other.escaped)
+	for object, kinds := range other.escapes {
+		state.escapes[object] |= kinds
+	}
+	state.opaque = state.opaque || other.opaque
 	state.deferred.union(other.deferred)
 }
 
@@ -184,6 +199,8 @@ func (state *regionState) equal(other *regionState) bool {
 		maps.Equal(state.stepEpochs, other.stepEpochs) &&
 		maps.Equal(state.clobbered, other.clobbered) &&
 		maps.Equal(state.escaped, other.escaped) &&
+		maps.Equal(state.escapes, other.escapes) &&
+		state.opaque == other.opaque &&
 		maps.Equal(state.deferred, other.deferred)
 }
 

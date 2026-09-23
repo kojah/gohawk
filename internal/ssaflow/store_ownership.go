@@ -55,6 +55,22 @@ func MayContainValue(owner, value ssa.Value) bool {
 	return graph.available && valueFunction(value) == graph.function && graph.contains(owner, value)
 }
 
+// MayContainValueAt is MayContainValue asked at one instruction: whether the
+// owner may hold the value when the instruction runs. A call's argument is
+// judged before the call, so a callee summarized as storing the value into
+// the argument does not make the argument contain it already.
+func MayContainValueAt(owner, value ssa.Value, at ssa.Instruction) bool {
+	if valueOwnsValue(owner, value, map[ssa.Value]bool{}) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
+		return true
+	}
+	graph := regionsOf(owner)
+	if !graph.available || valueFunction(value) != graph.function {
+		return false
+	}
+	contained, known := graph.containsAt(owner, value, at)
+	return known && contained
+}
+
 func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
 	if owner == nil || seen[owner] {
 		return false

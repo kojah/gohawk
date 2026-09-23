@@ -68,6 +68,9 @@ func regionName(object *region) string {
 	case regionSite:
 		return "local:" + object.origin.Name()
 	case regionExternal:
+		if object.label != "" {
+			return "foreign:" + object.label
+		}
 		switch object.origin.(type) {
 		case *ssa.Global:
 			return "global:" + object.origin.Name()
@@ -76,6 +79,9 @@ func regionName(object *region) string {
 		}
 		return "param:" + object.origin.Name()
 	case regionOpaque:
+		if object.label != "" {
+			return "opaque:" + object.origin.Name() + "[" + object.label + "]"
+		}
 		return "opaque:" + object.origin.Name()
 	case regionPlaceholder:
 		return fmt.Sprintf("content(%s %s @%d.%d)", regionName(object.source.region), object.source.path, object.stamp.epoch, object.stamp.step)

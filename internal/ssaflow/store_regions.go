@@ -57,6 +57,9 @@ type region struct {
 	source slot
 	stamp  versionStamp
 	stamps map[string]int
+	// label distinguishes the objects one call created, by their origin
+	// in the callee's summary.
+	label string
 }
 
 // versionStamp identifies the last unfollowed write that may have changed a
@@ -118,6 +121,7 @@ type regionKey struct {
 	origin ssa.Value
 	source slot
 	stamp  versionStamp
+	label  string
 }
 
 // regionGraph is the points-to graph of one function.
@@ -148,6 +152,9 @@ type regionGraph struct {
 	ids map[ssa.Instruction]int
 	// disjoint records every disjointness answer, for attribution.
 	disjoint []AliasDecision
+	// callResults holds the pointees a summarized multi-result call gave
+	// each of its results, for the extracts that select them.
+	callResults map[*ssa.Call][]pointees
 }
 
 // sliceView is a constant window over a local array.
@@ -261,7 +268,7 @@ func (graph *regionGraph) intern(key regionKey) *region {
 	if existing, ok := graph.regions[key]; ok {
 		return existing
 	}
-	created := &region{kind: key.kind, origin: key.origin, source: key.source, stamp: key.stamp}
+	created := &region{kind: key.kind, origin: key.origin, source: key.source, stamp: key.stamp, label: key.label}
 	graph.regions[key] = created
 	return created
 }
@@ -410,10 +417,13 @@ func reversePostorder(function *ssa.Function) []*ssa.BasicBlock {
 	return order
 }
 
-// joinSlotPath appends a step to a slot path.
+// joinSlotPath appends a step, or a whole path, to a slot path.
 func joinSlotPath(path, step string) string {
-	if path == "" {
+	switch {
+	case path == "":
 		return step
+	case step == "":
+		return path
 	}
 	return path + "/" + step
 }

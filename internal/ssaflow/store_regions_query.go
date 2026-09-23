@@ -26,7 +26,7 @@ func (graph *regionGraph) pointsTo(value ssa.Value) (pointees, bool) {
 // pointer. A value with no pointees is unknown and may alias anything. A
 // disjointness answer is recorded on the graph.
 func (graph *regionGraph) aliasProof(left, right ssa.Value) AliasProof {
-	if !tracked(left.Type()) || !tracked(right.Type()) {
+	if !tracked(left.Type()) || !tracked(right.Type()) || left == right {
 		return AliasProof{Aliases: structurallySame(left, right), Reason: EvidenceStructuralWalk, Provenance: EvidenceFromLocalSSA}
 	}
 	a, okA := graph.pointsTo(left)
@@ -71,11 +71,13 @@ func (graph *regionGraph) slotsMayAlias(x, y slot, depth int) bool {
 	if depth == 0 || x.region.kind == regionUnknown || y.region.kind == regionUnknown {
 		return true
 	}
+	if x.region.kind == regionNil || y.region.kind == regionNil {
+		// nil is not an object: two values that may both be nil share
+		// nothing a diagnostic could be about.
+		return false
+	}
 	if x.region == y.region {
 		return pathsMayAlias(x.path, y.path)
-	}
-	if x.region.kind == regionNil || y.region.kind == regionNil {
-		return false
 	}
 	if x.region.kind == regionPlaceholder && y.region.kind == regionPlaceholder {
 		return pathsMayAlias(x.path, y.path) && graph.slotsMayAlias(x.region.source, y.region.source, depth-1)
@@ -358,6 +360,53 @@ func (graph *regionGraph) contains(owner, value ssa.Value) bool {
 		queue = next
 	}
 	return false
+}
+
+// containsAt reports whether the target's object is reachable from the
+// owner's objects through the slot contents known when the instruction
+// runs. Unlike contains, it does not see what the owner is given later, in
+// particular not by the instruction itself: an argument handed to a call
+// that stores it does not already contain what the call stores.
+func (graph *regionGraph) containsAt(owner, value ssa.Value, at ssa.Instruction) (bool, bool) {
+	state := graph.stateAt(at)
+	if state == nil {
+		return false, false
+	}
+	from, ok := graph.pointsTo(owner)
+	if !ok {
+		return false, true
+	}
+	target, ok := graph.pointsTo(value)
+	if !ok {
+		return false, true
+	}
+	seen := map[*region]bool{}
+	queue := make([]*region, 0, len(from))
+	for candidate := range from {
+		queue = append(queue, candidate.region)
+	}
+	for depth := 0; len(queue) > 0 && depth < aliasDepth; depth++ {
+		var next []*region
+		for _, object := range queue {
+			if seen[object] {
+				continue
+			}
+			seen[object] = true
+			for held, set := range state.contents {
+				if held.region != object {
+					continue
+				}
+				for pointee := range set {
+					if _, wanted := target[pointee]; wanted || pointee.region.kind == regionUnknown {
+						return true, true
+					}
+					next = append(next, pointee.region)
+				}
+			}
+		}
+		queue = next
+	}
+	return false, true
 }
 
 // contentValue names the one object the addressed slot holds when the
