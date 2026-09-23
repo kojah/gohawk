@@ -8,11 +8,44 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// processQueryBudget bounds one completion, transfer, or handoff question
+// the proof asks; exhaustion is unknown evidence, never a wait or a leak.
+const processQueryBudget = ssaflow.QueryBudget
+
+// processPoolBudget bounds a whole started-command proof. A per-query bound
+// does not bound the proof, which asks one question per instruction after
+// Start and per registration before it; a candidate in a large function
+// could otherwise cost without limit. A hundred full queries is far beyond
+// an ordinary proof, so the pool decides only pathological candidates, and
+// it decides them the way a single exhausted query does: as unknown.
+const processPoolBudget = 100 * processQueryBudget
+
+// commandProof is the evidence context for one started command: the
+// lifecycle evidence its questions go through and the pool they draw on.
+type commandProof struct {
+	evidence *lifecyclefacts.LifecycleEvidence
+	pool     *ssaflow.SearchBudget
+}
+
+// budget draws one query's allowance from the candidate's pool so the
+// give-ups inside it reach the trace and the proof as a whole stays bounded.
+func (proof *commandProof) budget() *ssaflow.SearchBudget {
+	return proof.pool.Within(processQueryBudget)
+}
+
+// abandoned reports a question the search gave up on before deciding. What
+// that permits is decided where the question was asked: before Start it
+// leaves ownership possibly registered, after Start it leaves the action
+// unknown, and neither is a reason to report.
+func abandoned(result ssaflow.Proof) bool {
+	return result.Reason == ssaflow.EvidenceBudgetExhausted
+}
+
 // Pre-start ownership is accepted only when cleanup registration dominates
 // Start. Wrapper owners additionally need a later watcher that captures the
 // same owner; a deferred method alone does not prove the process is observed.
 func processOwnerDominatesStart(
-	evidence *lifecyclefacts.LifecycleEvidence,
+	proof *commandProof,
 	function *ssa.Function,
 	start *ssa.Call,
 	owners []ssa.Value,
@@ -32,12 +65,17 @@ func processOwnerDominatesStart(
 					Instruction: instruction,
 					Target:      owner,
 					Methods:     []string{"close", "Close", "kill", "Kill", "Wait", "wait"},
+					Budget:      proof.budget(),
 				}
-				if proof := evidence.Prove(lifecyclefacts.EvidenceRequest{
+				result := proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
 					Instruction: instruction,
 					Target:      owner,
 					Completion:  &completion,
-				}); proof.Proven() && proof.Reason == ssaflow.EvidenceDeferredCompletion {
+				})
+				if abandoned(result) {
+					return true
+				}
+				if result.Proven() && result.Reason == ssaflow.EvidenceDeferredCompletion {
 					return laterProcessOwnerWatcher(function, start, owners)
 				}
 			}
@@ -81,7 +119,7 @@ func successfulStartCannotReturn(start *ssa.Call) bool {
 // path. A later registration cannot protect an early successful return, so it
 // remains part of the ordinary post-Start flow proof instead.
 func processOwnershipDominatesStart(
-	evidence *lifecyclefacts.LifecycleEvidence,
+	proof *commandProof,
 	function *ssa.Function,
 	start *ssa.Call,
 	command ssa.Value,
@@ -100,18 +138,21 @@ func processOwnershipDominatesStart(
 				Instruction: instruction,
 				Target:      command,
 				Methods:     []string{"Wait"},
+				Budget:      proof.budget(),
 			}
 			transfer := ssaflow.OwnershipTransferRequest{
 				Instruction: instruction,
 				Value:       command,
 				Modes:       ssaflow.TransferCapturedByClosure,
 			}
-			if proof := evidence.Prove(lifecyclefacts.EvidenceRequest{
+			result := proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
 				Instruction: instruction,
 				Target:      command,
 				Completion:  &completion,
 				Transfer:    &transfer,
-			}); proof.Proven() && (proof.Reason == ssaflow.EvidenceDeferredCompletion || proof.Reason == ssaflow.EvidenceCapturedByClosure) {
+			})
+			if abandoned(result) ||
+				result.Proven() && (result.Reason == ssaflow.EvidenceDeferredCompletion || result.Reason == ssaflow.EvidenceCapturedByClosure) {
 				return true
 			}
 		}
@@ -153,8 +194,8 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 	return owners
 }
 
-func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
-	if possibleWaitHandoff(instruction, command) {
+func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
+	if possibleWaitHandoff(instruction, command, proof.budget()) {
 		return ssaflow.EvidenceUnknown
 	}
 	if deferred := deferredClosureWaitsForCommand(instruction, command); deferred != ssaflow.EvidenceDisproven {
@@ -165,6 +206,7 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 		Instruction: instruction,
 		Target:      command,
 		Methods:     []string{"Wait"},
+		Budget:      proof.budget(),
 	}
 	transfer := ssaflow.OwnershipTransferRequest{
 		Instruction: instruction,
@@ -180,10 +222,13 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 	// os.Process.Release explicitly relinquishes the parent's wait/reap
 	// obligation for deliberately detached daemons:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/daemon/client/autostart_fork.go#L41-L45
-	if waitsForCommand(instruction, command) ||
-		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
-			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
-		evidence.Prove(lifecyclefacts.EvidenceRequest{
+	// The questions are asked in the order of the disjunction, so a cheap
+	// syntactic witness is never charged for a search it did not need, and
+	// the results of the searched ones are kept to tell an abandoned search
+	// from a disproof.
+	var ownership ssaflow.Proof
+	owns := func() bool {
+		ownership = proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
 			Target:      command,
 			Completion:  &completion,
@@ -192,11 +237,25 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 				return fact.ReturnedOwner | fact.Waited
 			},
 			ReceiverStore: true,
-		}).Proven() ||
+		})
+		return ownership.Proven()
+	}
+	handle := ssaflow.EvidenceDisproven
+	handles := func() bool {
+		handle = processHandleOwnershipAction(proof, instruction, command)
+		return handle == ssaflow.EvidenceProven
+	}
+	if waitsForCommand(instruction, command) ||
+		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
+			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
+		owns() ||
 		storesProcessHandleInExternalField(instruction, command) ||
-		processHandleOwnershipAction(evidence, instruction, command) ||
+		handles() ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit")) {
 		return ssaflow.EvidenceProven
+	}
+	if abandoned(ownership) || handle == ssaflow.EvidenceUnknown {
+		return ssaflow.EvidenceUnknown
 	}
 	return ssaflow.EvidenceDisproven
 }
@@ -206,7 +265,7 @@ func processOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruct
 // A started worker with no normal return also remains opaque when it contains
 // a positive Wait witness: every-return completion deliberately excludes it.
 // https://github.com/la5nta/pat/blob/2e6a8d14baf0268f4e2aa4d01784a54ca935cf52/internal/prehook/prehook.go#L109-L114
-func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value) bool {
+func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget *ssaflow.SearchBudget) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
@@ -229,7 +288,7 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value) bool {
 		}
 		return ssaflow.ProveCompletion(ssaflow.CompletionRequest{
 			Instruction: instruction, Target: command, Methods: []string{"Wait"},
-			Coverage: ssaflow.CoverageAnywhere, Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
+			Coverage: ssaflow.CoverageAnywhere, Budget: budget,
 		}).Proven()
 	}
 	callee, _ := ssaflow.DirectCallee(common)
@@ -336,11 +395,12 @@ func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa
 	return ok && ssaflow.ExternallyOwnedValue(field.X)
 }
 
-func processHandleOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, command ssa.Value) bool {
+func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
-		return false
+		return ssaflow.EvidenceDisproven
 	}
+	state := ssaflow.EvidenceDisproven
 	for _, argument := range common.Args {
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
@@ -349,17 +409,22 @@ func processHandleOwnershipAction(evidence *lifecyclefacts.LifecycleEvidence, in
 			Instruction: instruction,
 			Target:      argument,
 			Methods:     []string{"Wait"},
+			Budget:      proof.budget(),
 		}
-		if evidence.Prove(lifecyclefacts.EvidenceRequest{
+		result := proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
 			Target:      argument,
 			Completion:  &completion,
 			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
 				return fact.ReturnedOwner | fact.Waited
 			},
-		}).Proven() {
-			return true
+		})
+		if result.Proven() {
+			return ssaflow.EvidenceProven
+		}
+		if abandoned(result) {
+			state = ssaflow.EvidenceUnknown
 		}
 	}
-	return false
+	return state
 }

@@ -24,18 +24,15 @@ import (
 // The rule says nothing about how large the bound should be. It only requires
 // that somebody decided.
 
-// unbudgetedCompletionRequests are the construction sites that predate the
-// bound. They are recorded rather than fixed because each needs its own
-// decision about what an abandoned search permits, and for the lifecyclefacts
-// pair that decision is a fact-model question: a mask left clear by an
-// abandoned walk reads to an importer as a positive disproof, not as absence of
-// evidence. See https://github.com/kojah/gohawk/issues/32.
+// unbudgetedCompletionRequests once recorded the construction sites that
+// predated the bound, each waiting for its own decision about what an
+// abandoned search permits; the last of them, the lifecyclefacts pair whose
+// clear mask an importer reads as a positive disproof, decided in favor of
+// the claim that can only hide a diagnostic. See
+// https://github.com/kojah/gohawk/issues/32.
 //
 // Do not add entries. A new completion request names its own budget.
-var unbudgetedCompletionRequests = map[string]int{
-	"internal/analyzers/resources/processownership/ownership.go": 4,
-	"internal/passes/lifecyclefacts/fields.go":                   1,
-}
+var unbudgetedCompletionRequests = map[string]int{}
 
 func TestInterproceduralSearchesNameABudget(t *testing.T) {
 	t.Parallel()

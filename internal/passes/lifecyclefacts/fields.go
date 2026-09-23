@@ -362,7 +362,16 @@ func releasesField(pass *analysis.Pass, instruction ssa.Instruction, receiver ss
 				return true
 			}
 		}
-		if ssaflow.ProveCompletion(ssaflow.CompletionRequest{Instruction: instruction, Target: load, Methods: cleanup}).Proven() {
+		proof := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+			Instruction: instruction, Target: load, Methods: cleanup, Budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget),
+		})
+		// An abandoned search counts as a release here, because both readers
+		// of ReleasedFields take a clear bit as a positive claim: the
+		// returned-view rule turns the constructor's result into a view the
+		// caller must still release, and the cleanup contract withholds
+		// credit from a caller of this method. Guessing "released" can only
+		// hide a diagnostic; guessing "not released" can invent one.
+		if proof.Proven() || proof.Reason == ssaflow.EvidenceBudgetExhausted {
 			return true
 		}
 		if imported, ok := importFact(pass, instruction); ok {

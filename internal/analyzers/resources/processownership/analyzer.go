@@ -5,7 +5,6 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -41,10 +40,12 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 					continue
 				}
 				evidence.ForCandidate(start.Pos())
-				if commandOwnedElsewhere(pass, evidence, function, start, command) {
+				probe := analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos())
+				proof := &commandProof{evidence: evidence, pool: ssaflow.NewSearchBudget(processPoolBudget).Observed(probe.Observer())}
+				if commandOwnedElsewhere(pass, proof, function, start, command) {
 					continue
 				}
-				reportStartedCommand(pass, evidence, function, start, command)
+				reportStartedCommand(pass, proof, function, start, command)
 			}
 		}
 	}
@@ -65,7 +66,7 @@ func startedCommand(instruction ssa.Instruction) (*ssa.Call, ssa.Value, bool) { 
 // responsibility provably or possibly lies outside this function, so the
 // flow after Start is not asked about it.
 func commandOwnedElsewhere(
-	pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, start *ssa.Call, command ssa.Value,
+	pass *analysis.Pass, proof *commandProof, function *ssa.Function, start *ssa.Call, command ssa.Value,
 ) bool {
 	owners := processOwnersRegisteredBefore(function, start, command)
 	// A helper returning *exec.Cmd may already have registered cleanup
@@ -95,8 +96,8 @@ func commandOwnedElsewhere(
 	// Cleanup may be registered before Start. This is common when a
 	// constructor builds a teardown closure first, then starts the
 	// process and returns that closure to its caller.
-	if processOwnershipDominatesStart(evidence, function, start, command) ||
-		processOwnerDominatesStart(evidence, function, start, owners) ||
+	if processOwnershipDominatesStart(proof, function, start, command) ||
+		processOwnerDominatesStart(proof, function, start, owners) ||
 		commandStoredExternallyBeforeStart(start, command) {
 		return true
 	}
@@ -105,7 +106,7 @@ func commandOwnedElsewhere(
 
 // reportStartedCommand asks the flow whether every successful return waits on
 // or transfers the command, and reports partial wait ownership.
-func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, start *ssa.Call, command ssa.Value) {
+func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ssa.Function, start *ssa.Call, command ssa.Value) {
 	// The receiver may be a load from a returned value-owner's field. Resolve
 	// that acquisition-time load before comparing it with the owner's contents.
 	// https://github.com/minio/selfupdate/blob/5b54254443f7ab80e750e1761590c1f029ecc42f/internal/binarydist/bzip2.go#L26-L40
@@ -115,9 +116,9 @@ func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.Lifecycl
 	merged := successfulCommandMerge(start, command)
 	unknown := false
 	owns := func(candidate ssa.Instruction) bool {
-		action := processOwnershipAction(evidence, candidate, command)
+		action := processOwnershipAction(proof, candidate, command)
 		if action != ssaflow.EvidenceProven && merged != nil {
-			if mergedAction := processOwnershipAction(evidence, candidate, merged); mergedAction != ssaflow.EvidenceDisproven {
+			if mergedAction := processOwnershipAction(proof, candidate, merged); mergedAction != ssaflow.EvidenceDisproven {
 				action = mergedAction
 			}
 		}
