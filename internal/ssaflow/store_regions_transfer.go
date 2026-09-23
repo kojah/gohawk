@@ -3,6 +3,8 @@ package ssaflow
 import (
 	"go/token"
 	"go/types"
+	"maps"
+	"slices"
 	"strconv"
 
 	"golang.org/x/tools/go/ssa"
@@ -316,6 +318,14 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 		graph.escape(state, value, HeapEscapedField, stored)
 		return
 	}
+	// A write through a pointer that may reach an object the function did
+	// not allocate may have written the same step of any such object, so
+	// those slots are forgotten once, before any target is written: a
+	// target written first must not be forgotten again for a target
+	// written later, or the surviving entry would be whichever target the
+	// walk visited last, and a build that visits them in another order
+	// would never settle.
+	steps := map[string]bool{}
 	for target := range targets {
 		if target.region.kind == regionNil {
 			continue
@@ -324,7 +334,15 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 			graph.escape(state, value, escapeInto(target.region), stored)
 		}
 		if target.region.kind != regionSite {
-			graph.invalidateForeign(state, stepKey(target.path), graph.id(stored))
+			steps[stepKey(target.path)] = true
+		}
+	}
+	for _, step := range slices.Sorted(maps.Keys(steps)) {
+		graph.invalidateForeign(state, step, graph.id(stored))
+	}
+	for target := range targets {
+		if target.region.kind == regionNil {
+			continue
 		}
 		if isAggregate(stored.Val.Type()) {
 			graph.storeAggregate(state, target, value, strong, graph.id(stored))

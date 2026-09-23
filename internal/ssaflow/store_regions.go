@@ -415,7 +415,7 @@ func (graph *regionGraph) fixpoint() (bool, string) {
 	}
 	graph.entry[function.Blocks[0]] = newRegionState()
 	out := map[*ssa.BasicBlock]*regionState{}
-	unsettled := ""
+	var unsettled []string
 	for range regionFixpointRounds {
 		changed := false
 		for _, block := range graph.order {
@@ -433,7 +433,7 @@ func (graph *regionGraph) fixpoint() (bool, string) {
 			if previous, ok := out[block]; !ok || !previous.equal(state) {
 				changed = true
 				if ok {
-					unsettled = "block " + strconv.Itoa(block.Index) + ": " + previous.difference(state)
+					unsettled = append(unsettled, "block "+strconv.Itoa(block.Index)+": "+previous.difference(state))
 				}
 			}
 			out[block] = state
@@ -443,7 +443,7 @@ func (graph *regionGraph) fixpoint() (bool, string) {
 			return true, ""
 		}
 	}
-	return false, "fixpoint did not settle in " + strconv.Itoa(regionFixpointRounds) + " rounds; last change at " + unsettled
+	return false, "fixpoint did not settle in " + strconv.Itoa(regionFixpointRounds) + " rounds; changes: " + strings.Join(unsettled, " | ")
 }
 
 // entryState merges the predecessors' out states into the block's entry

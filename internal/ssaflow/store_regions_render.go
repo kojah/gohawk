@@ -17,10 +17,13 @@ func RenderRegions(function *ssa.Function) string {
 	defer graph.lock()()
 	var buffer strings.Builder
 	if !graph.available {
+		// The values the build assigned before it gave up are still the
+		// evidence for why it gave up, so they are printed beneath the
+		// reason.
 		buffer.WriteString("// regions: unavailable (" + graph.unavailable + ")\n")
-		return buffer.String()
+	} else {
+		buffer.WriteString("// regions:\n")
 	}
-	buffer.WriteString("// regions:\n")
 	for _, parameter := range function.Params {
 		graph.renderValue(&buffer, parameter)
 	}
