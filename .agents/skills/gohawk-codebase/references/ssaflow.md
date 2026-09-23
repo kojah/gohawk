@@ -1476,8 +1476,11 @@ return, or edge with respect to a tracked obligation.
 
 ```go
 type ObligationFlow struct {
-	Start		ssa.Instruction
-	NonNil		ssa.Value
+	Start	ssa.Instruction
+	NonNil	ssa.Value
+	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
+	// so a comma-ok assertion of a type it satisfies is taken to succeed.
+	NonNilType	types.Type
 	Instruction	func(ssa.Instruction) ObligationAction
 	Return		func(*ssa.Return) ObligationAction
 	Edge		func(from, to *ssa.BasicBlock) ObligationAction
@@ -2599,6 +2602,18 @@ func UnownedReturnFromEntryAllow(function *ssa.Function, owns func(ssa.Instructi
 
 UnownedReturnFromEntryAllow reports whether any normal return lacks an
 ownership action unless allowReturn proves that return needs none.
+
+## UnownedReturnFromEntryAssumingConcrete
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func UnownedReturnFromEntryAssumingConcrete(function *ssa.Function, value ssa.Value, concrete types.Type, owns func(ssa.Instruction) bool) bool
+```
+
+UnownedReturnFromEntryAssumingConcrete is UnownedReturnFromEntryAssumingNonNil
+with the value's concrete type known, so a comma-ok assertion of a type it
+satisfies is taken to succeed.
 
 ## UnownedReturnFromEntryAssumingNonNil
 
