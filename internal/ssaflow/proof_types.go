@@ -21,7 +21,12 @@ const (
 	EvidenceCallbackCompletion EvidenceReason = "callback-completion"
 	// EvidenceBudgetExhausted marks a question abandoned before it could be
 	// decided, so a caller can tell "not proven" from "not searched".
-	EvidenceBudgetExhausted         EvidenceReason = "budget-exhausted"
+	EvidenceBudgetExhausted EvidenceReason = "budget-exhausted"
+	// EvidenceCompletionInCycle: the only completion found lies inside a
+	// cycle, so it is not on every return, but which element or iteration
+	// it settles is decided by iteration; the search declines to call that
+	// a missing completion.
+	EvidenceCompletionInCycle       EvidenceReason = "completion-only-in-cycle"
 	EvidenceHelperInvocation        EvidenceReason = "helper-invocation"
 	EvidenceReturnedDeferredCleanup EvidenceReason = "returned-deferred-cleanup"
 

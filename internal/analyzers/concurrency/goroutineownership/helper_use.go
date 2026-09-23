@@ -75,13 +75,16 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 		channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
 		return selected && derives(channel)
 	}
-	joined, escaped := false, false
+	joined, escaped, joinedInCycle := false, false, false
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if !search.budget.Spend() {
 				return actionUnknown
 			}
-			joined = joined || joins(instruction)
+			if joins(instruction) {
+				joined = true
+				joinedInCycle = joinedInCycle || ssaflow.BlockInCycle(block)
+			}
 			escaped = escaped || search.instructionEscapes(instruction, local, kind, derives)
 		}
 		for _, successor := range block.Succs {
@@ -95,7 +98,10 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 	if joinProven {
 		return actionJoin
 	}
-	if escaped {
+	// A helper that joins every worker it was handed inside a loop is not
+	// covered on every return, and which worker an iteration joins is
+	// decided by iteration: uncertainty, not a missing join.
+	if escaped || joinedInCycle {
 		return actionUnknown
 	}
 	return actionNone

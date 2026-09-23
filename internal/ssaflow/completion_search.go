@@ -418,6 +418,12 @@ type completionSearch struct {
 	exactInvocation bool
 	exactTarget     bool
 	incomplete      *bool
+	// inCycle records that a completing instruction was found inside a
+	// cycle; shared by nested searches like incomplete. When coverage then
+	// fails, the request reports EvidenceCompletionInCycle rather than a
+	// disproof, because a loop that settles every element cannot be told
+	// apart from one that settles some by path coverage alone.
+	inCycle *bool
 	// bindings are scoped to this invocation, never merged across callers.
 	bindings *callbackBindings
 	method   string
@@ -449,6 +455,7 @@ func (search *completionSearch) forCallback() *completionSearch {
 func newCompletionSearch(method string, coverage CompletionCoverage, budget *SearchBudget) *completionSearch {
 	return &completionSearch{
 		incomplete:   new(bool),
+		inCycle:      new(bool),
 		method:       method,
 		coverage:     coverage,
 		budget:       budget,
@@ -510,13 +517,8 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 		*search.incomplete = true
 		return false
 	}
-	if called != nil && CallName(called) == search.method {
-		receiver := CallReceiver(called)
-		for _, local := range locals {
-			if search.receives(local, receiver, target) {
-				return true
-			}
-		}
+	if search.methodCompletes(candidate, called, locals, target) {
+		return true
 	}
 	for _, local := range locals {
 		// A callback bound to the method on the target, such as rows.Close,
@@ -537,6 +539,24 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 			return true
 		}
 		if _, proven, _ := search.completes(candidate, local.local); proven {
+			return true
+		}
+	}
+	return false
+}
+
+// methodCompletes reports whether the candidate calls the sought method on a
+// mapped local, and remembers when that call lies inside a cycle.
+func (search *completionSearch) methodCompletes(candidate ssa.Instruction, called *ssa.CallCommon, locals []mappedLocal, target ssa.Value) bool {
+	if called == nil || CallName(called) != search.method {
+		return false
+	}
+	receiver := CallReceiver(called)
+	for _, local := range locals {
+		if search.receives(local, receiver, target) {
+			if BlockInCycle(candidate.Block()) {
+				*search.inCycle = true
+			}
 			return true
 		}
 	}

@@ -236,6 +236,10 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 	return resourceContract{}, false
 }
 
+// releasesResource classifies an instruction as settling the resource, as
+// an uncertain release, or as neither. Uncertainty arises when the only
+// release a helper performs lies inside a loop: the flow then neither
+// credits nor reports it.
 func releasesResource(
 	evidence *lifecyclefacts.LifecycleEvidence,
 	knowledge *summaries.Provider,
@@ -244,13 +248,16 @@ func releasesResource(
 	owners []ssa.Value,
 	methods []string,
 	optionalAcquisition optionalAcquisitionProof,
-) bool {
+) (resourceAction, string) {
 	if optionalAcquisition.Proven() {
 		// The optional-acquisition proof deliberately authorizes only cleanup
 		// through its exact resource phi. Letting the ordinary existential
 		// derivation rules inspect a later phi could mistake cleanup of another
 		// non-nil resource for cleanup of the acquired one.
-		return optionalAcquisitionReleases(instruction, resource, methods)
+		if optionalAcquisitionReleases(instruction, resource, methods) {
+			return actionSettled, actionSettled.String()
+		}
+		return actionNone, ""
 	}
 	return releasesOrdinaryResource(evidence, knowledge, instruction, resource, owners, methods)
 }
@@ -277,23 +284,24 @@ func releasesOrdinaryResource(
 	resource ssa.Value,
 	owners []ssa.Value,
 	methods []string,
-) bool {
+) (resourceAction, string) {
+	settled := func() (resourceAction, string) { return actionSettled, actionSettled.String() }
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
 	if instructionSettlesResourceOwnership(evidence, instruction, resource) ||
 		callTakesResourceOwnership(evidence, instruction, resource, methods) ||
 		registersCleanupCallback(evidence, instruction, resource, methods) {
-		return true
+		return settled()
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common != nil && slices.Contains(methods, ssaflow.CallName(common)) &&
 		(ssaflow.NewStorage(nil).Same(cleanupReceiver(knowledge, common), resource).Proven() ||
 			ssaflow.NewStorage(nil).Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
-		return true
+		return settled()
 	}
 	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssaflow.MayAliasAny(ssaflow.CallReceiver(common), owners) {
-		return true
+		return settled()
 	}
 	for _, method := range methods {
 		// One completion proof covers every launch form. The callee may be a
@@ -319,7 +327,7 @@ func releasesOrdinaryResource(
 			Coverage:    deferredReleaseCoverage(instruction),
 			Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
 		}
-		if releaseSettled(evidence.Prove(lifecyclefacts.EvidenceRequest{
+		proof := evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Completion:  &completion,
@@ -333,11 +341,20 @@ func releasesOrdinaryResource(
 			// https://github.com/hyperledger-labs/fabric-smart-client/blob/cb202fc2768b3e72b0197bbaf401b9c2287098e8/platform/view/services/storage/driver/sql/common/binding.go#L71-L75
 			StrictImportedProjection: true,
 			SelectMask:               releaseMask(instruction, resource, method),
-		})) {
-			return true
+		})
+		if releaseSettled(proof) {
+			return settled()
+		}
+		// The helper's only release lies inside a loop over what it was
+		// handed. The completion search declines to call that missing, and
+		// this classifier declines to call it a release: unknown. A helper
+		// whose release merely depends on a flag has complete path
+		// information and stays diagnostic.
+		if proof.Reason == ssaflow.EvidenceCompletionInCycle {
+			return actionUnknown, "helper-cleanup-in-loop"
 		}
 	}
-	return false
+	return actionNone, ""
 }
 
 // registersCleanupCallback reports whether the call hands a callback that

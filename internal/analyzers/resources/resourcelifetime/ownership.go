@@ -46,51 +46,18 @@ func (analysis *resourceAnalysis) pairedErrorHelperCleanup(instruction ssa.Instr
 	}).Proven()
 }
 
-// A helper may release every element of the aggregate it receives inside a
-// loop, as slackdump's Destroy closes each stored handle:
-// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/chunk/filemgr.go#L66-L73
-// The every-return proof cannot credit a call inside a cycle: the loop's exit
-// edge is a path that skips the body, and which element an iteration releases
-// is decided by iteration rather than by the path. That is uncertainty about
-// the element, not evidence of a leak, so the call is opaque. A helper whose
-// cleanup merely depends on a flag has complete path information and stays
-// diagnostic; so does one that loops over some other collection. A callee in
-// another package has no body here; its summary carries the same loop as a
-// may-claim, which client-go's CloseAndRemove exports for its variadic files.
-func (analysis *resourceAnalysis) loopedHelperCleanup(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	if common == nil || common.StaticCallee() == nil {
+// An imported helper that releases every element of what it receives inside
+// a loop exports that loop as a may-claim, as client-go's CloseAndRemove does
+// for its variadic files; a visible helper's loop is found by the completion
+// search itself. Either way the call is uncertain, never a release.
+// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/staging/src/k8s.io/client-go/util/testing/remove_file.go#L25-L39
+func (analysis *resourceAnalysis) importedLoopRelease(instruction ssa.Instruction, common *ssa.CallCommon) bool {
+	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) != 0 {
 		return false
 	}
-	callee := common.StaticCallee()
-	if len(callee.Blocks) == 0 {
-		for index, argument := range common.Args {
-			if released, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimReleasesInLoop); released &&
-				analysis.carries(argument) {
-				return true
-			}
-		}
-		return false
-	}
-	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
-		if !analysis.carries(binding.Supplied) {
-			continue
-		}
-		for _, block := range callee.Blocks {
-			if analysis.blockReleasesLocal(block, binding.Local) && ssaflow.BlockInCycle(block) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// blockReleasesLocal reports whether the block calls one of the contract's
-// cleanup methods on a value derived from the callee local.
-func (analysis *resourceAnalysis) blockReleasesLocal(block *ssa.BasicBlock, local ssa.Value) bool {
-	for _, candidate := range block.Instrs {
-		call := ssaflow.InstructionCall(candidate)
-		if call != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(call)) &&
-			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(call), local, map[ssa.Value]bool{}) {
+	for index, argument := range common.Args {
+		if released, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimReleasesInLoop); released &&
+			analysis.carries(argument) {
 			return true
 		}
 	}

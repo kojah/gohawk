@@ -111,6 +111,14 @@ exactly as they owe `Close` to `os.Open`. A wrapper that stores a caller's
 resource, or a type whose methods never release the field, produces no
 contract.
 
+A helper that releases every element of what it was handed inside a loop,
+whether it ranges over a slice, an array, or a receiver field, is an
+uncertainty boundary rather than a missing release: the completion search
+reports that its only release lies inside a cycle, and the caller is not
+reported. An imported helper carries the same loop as a may-claim in its
+summary. A helper whose release depends on a flag has complete path
+information and stays diagnostic.
+
 A helper that acquires a resource and hands it straight back as a result,
 such as `OpenConfig(path) (*os.File, error)` or one returning an
 `io.ReadCloser`, is summarized the same way, and its callers owe the result

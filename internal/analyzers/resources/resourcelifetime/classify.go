@@ -112,8 +112,10 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if finishesRowsTransaction(analysis.acquisition, instruction) {
 		return actionUnknown, "rows-transaction-finished"
 	}
-	if releasesResource(analysis.evidence, analysis.summaries, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional) {
-		return actionSettled, actionSettled.String()
+	if action, reason := releasesResource(
+		analysis.evidence, analysis.summaries, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional,
+	); action != actionNone {
+		return action, reason
 	}
 	// A merged receiver or an escaped owner projection may still select this
 	// acquisition. Exact storage identity cannot establish that relationship,
@@ -131,8 +133,8 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if analysis.pairedErrorHelperCleanup(instruction, common) {
 		return actionUnknown, "paired-error-helper-cleanup"
 	}
-	if analysis.loopedHelperCleanup(instruction, common) {
-		return actionUnknown, "helper-cleanup-in-loop"
+	if analysis.importedLoopRelease(instruction, common) {
+		return actionUnknown, "imported-helper-cleanup-in-loop"
 	}
 	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {
 		return actionUnknown, boundary
