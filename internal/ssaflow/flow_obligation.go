@@ -1,6 +1,10 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	"go/types"
+
+	"golang.org/x/tools/go/ssa"
+)
 
 // Obligation flow is the one return-coverage walk behind every classify-then-
 // flow analyzer. The analyzer labels instructions, returns, and CFG edges; this
@@ -49,8 +53,11 @@ const (
 // walk to paths feasible when that value is non-nil. Return and Edge are
 // optional; an edge action attaches to that successor's path only.
 type ObligationFlow struct {
-	Start       ssa.Instruction
-	NonNil      ssa.Value
+	Start  ssa.Instruction
+	NonNil ssa.Value
+	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
+	// so a comma-ok assertion of a type it satisfies is taken to succeed.
+	NonNilType  types.Type
 	Instruction func(ssa.Instruction) ObligationAction
 	Return      func(*ssa.Return) ObligationAction
 	Edge        func(from, to *ssa.BasicBlock) ObligationAction
@@ -73,7 +80,7 @@ func (flow ObligationFlow) feasibleSuccessors(block, predecessor *ssa.BasicBlock
 	if flow.Successors != nil {
 		successors = flow.Successors(block, predecessor)
 	}
-	return nonNilSuccessors(successors, block, flow.NonNil)
+	return assumedSuccessors(successors, block, flow.NonNil, flow.NonNilType)
 }
 
 // EvaluateObligation carries the classifier's labels along every feasible

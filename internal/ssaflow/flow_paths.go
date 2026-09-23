@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/constant"
 	"go/token"
+	"go/types"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -197,6 +198,18 @@ func UnownedReturnFromEntryAssumingNonNil(function *ssa.Function, value ssa.Valu
 	return unownedReturnFromEntry(function, owns, nil, value, nil)
 }
 
+// UnownedReturnFromEntryAssumingConcrete is UnownedReturnFromEntryAssumingNonNil
+// with the value's concrete type known, so a comma-ok assertion of a type it
+// satisfies is taken to succeed.
+func UnownedReturnFromEntryAssumingConcrete(function *ssa.Function, value ssa.Value, concrete types.Type, owns func(ssa.Instruction) bool) bool {
+	if len(function.Blocks) == 0 {
+		return false
+	}
+	return obligationOutcome([]obligationState{{block: function.Blocks[0]}}, ObligationFlow{
+		NonNil: value, NonNilType: concrete, Instruction: exactOrNone(owns),
+	}) == ObligationViolated
+}
+
 func unownedReturnFromEntry(
 	function *ssa.Function, owns func(ssa.Instruction) bool, allowReturn func(*ssa.Return) bool, nonNil ssa.Value, ownsEdge OwnershipEdge,
 ) bool {
@@ -206,15 +219,29 @@ func unownedReturnFromEntry(
 	return unownedReturnFrom([]obligationState{{block: function.Blocks[0]}}, owns, allowReturn, nonNil, ownsEdge)
 }
 
-// nonNilSuccessors narrows already-feasible successors by the assumption
-// that value is non-nil at the branch.
-func nonNilSuccessors(successors []*ssa.BasicBlock, block *ssa.BasicBlock, value ssa.Value) []*ssa.BasicBlock {
+// assumedSuccessors narrows already-feasible successors by the assumption
+// that value is non-nil at the branch and, when its concrete type is
+// known, that a comma-ok assertion of a type that concrete type satisfies
+// succeeds.
+func assumedSuccessors(successors []*ssa.BasicBlock, block *ssa.BasicBlock, value ssa.Value, concrete types.Type) []*ssa.BasicBlock {
 	if value == nil || len(block.Succs) != 2 || len(block.Instrs) == 0 {
 		return successors
 	}
 	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
 	if !ok {
 		return successors
+	}
+	// kubernetes closes a writer through a helper that asserts io.Closer on
+	// it; for a caller passing an *os.File the assertion holds, so the arm
+	// without the close is not a path the file takes.
+	// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/test/e2e/storage/podlogs/podlogs.go#L360-L364
+	if concrete != nil && assertionHolds(branch.Cond, value, concrete) {
+		for _, successor := range successors {
+			if successor == block.Succs[0] {
+				return []*ssa.BasicBlock{successor}
+			}
+		}
+		return nil
 	}
 	comparison, ok := branch.Cond.(*ssa.BinOp)
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
@@ -243,6 +270,17 @@ func nonNilSuccessors(successors []*ssa.BasicBlock, block *ssa.BasicBlock, value
 		}
 	}
 	return nil
+}
+
+// assertionHolds reports whether condition is the ok result of a comma-ok
+// assertion of the assumed value to a type its concrete type satisfies.
+func assertionHolds(condition, value ssa.Value, concrete types.Type) bool {
+	okResult, ok := condition.(*ssa.Extract)
+	if !ok || okResult.Index != 1 {
+		return false
+	}
+	assertion, ok := okResult.Tuple.(*ssa.TypeAssert)
+	return ok && assertion.CommaOk && DefinitelySameValue(assertion.X, value) && types.AssignableTo(concrete, assertion.AssertedType)
 }
 
 // assumedNonNil reports whether operand is the assumed value itself or a

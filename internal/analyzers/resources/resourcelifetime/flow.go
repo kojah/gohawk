@@ -356,6 +356,14 @@ func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value
 	if !ok {
 		return false, false
 	}
+	// A comma-ok assertion of the resource's own static type, or of an
+	// interface it implements, holds when the asserted value is the
+	// resource: the false arm has no owned value to release. moby keeps an
+	// io.Reader that may be a file and defers Close under the assertion:
+	// https://github.com/moby/moby/blob/3f6733064ea2ea9c00a4a2a9c5c9c5fbd7b7b1d5/daemon/builder/remotecontext/internal/tarsum/tarsum_test.go#L347-L349
+	if asserted := assertedResource(branch.Cond, resource); asserted {
+		return successor == block.Succs[0], true
+	}
 	comparison, ok := branch.Cond.(*ssa.BinOp)
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
@@ -374,6 +382,27 @@ func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value
 		return trueBranch, true
 	}
 	return !trueBranch, true
+}
+
+// assertedResource reports whether condition is the ok result of a comma-ok
+// type assertion whose operand resolves to the resource and whose asserted
+// type the resource's static type satisfies, so the assertion succeeds.
+func assertedResource(condition, resource ssa.Value) bool {
+	okResult, ok := condition.(*ssa.Extract)
+	if !ok || okResult.Index != 1 {
+		return false
+	}
+	assertion, ok := okResult.Tuple.(*ssa.TypeAssert)
+	if !ok || !assertion.CommaOk {
+		return false
+	}
+	// The asserted operand is usually a load of the cell the resource was
+	// stored into, which other paths may have written too; possible
+	// derivation suffices, because the rule only ever removes an
+	// obligation from the arm where the assertion failed.
+	held := ssaflow.NewStorage(nil).Same(assertion.X, resource).Proven() ||
+		ssaflow.ValueDerivesFrom(assertion.X, resource, map[ssa.Value]bool{})
+	return held && types.AssignableTo(resource.Type(), assertion.AssertedType)
 }
 
 // deferredBeforeAcquisitionMayRelease reports whether a defer registered on

@@ -111,6 +111,15 @@ exactly as they owe `Close` to `os.Open`. A wrapper that stores a caller's
 resource, or a type whose methods never release the field, produces no
 contract.
 
+Two process and type boundaries are modelled rather than guessed. Files
+listed in `os.ProcAttr.Files` and handed to `os.StartProcess` reach a call
+with no visible body inside an aggregate, so the child's inheritance of the
+descriptors is an opaque boundary and nothing is reported. A comma-ok
+assertion of the resource to its own type, or to an interface it satisfies,
+cannot fail for that value, so a release under the assertion is a release,
+in the caller and inside a helper alike; an assertion the resource does not
+satisfy leaves the release conditional.
+
 A helper that releases every element of what it was handed inside a loop,
 whether it ranges over a slice, an array, or a receiver field, is an
 uncertainty boundary rather than a missing release: the completion search

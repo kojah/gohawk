@@ -1823,7 +1823,10 @@ rule for a visible looping helper. The seven sites are no longer reported.
 The remaining five are a forced TLS failure against a plain server, a HEAD
 through a cloned standard transport, a file closed by a deferred literal
 through an interface cell, a closer handed to a callee that closes it on
-exit, and a process-lifetime device file consumed by worker goroutines.
+exit, and a process-lifetime device file consumed by worker goroutines. The
+deferred-literal case (podlogs) stays reported after 2026-09-23: the close
+runs in a closure invoked only on some paths, which the deferred policy
+does not cover; the comma-ok assertion inside its helper is now modelled.
 
 ## Moby dogfood (2026-09-22)
 

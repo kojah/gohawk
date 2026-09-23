@@ -1,6 +1,7 @@
 package ssaflow
 
 import (
+	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/syntax"
@@ -496,9 +497,15 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	search.bindings = search.bindCallbackArguments(callee)
 	defer func() { search.bindings = previous }()
 	var nonNil ssa.Value
+	var concrete types.Type
 	for _, local := range locals {
 		if local.kind == localExact || local.kind == localProjection {
 			nonNil = local.local
+			// The local holds the target itself, not an aggregate around
+			// it, so the target's static type is what an assertion sees.
+			if local.kind == localExact && len(local.path) == 0 && DefinitelySameValue(local.supplied, target) {
+				concrete = target.Type()
+			}
 			break
 		}
 	}
@@ -507,6 +514,10 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	}
 	if condition.kind != completionUnconditional {
 		return search.conditionalCoverage(callee.function, locals, target, condition)
+	}
+	if concrete != nil && search.coverage == CoverageEveryReturn {
+		return MethodCallCoverage(callee.function, calls, CoverageAnywhere, nil) &&
+			!UnownedReturnFromEntryAssumingConcrete(callee.function, nonNil, concrete, calls)
 	}
 	return MethodCallCoverage(callee.function, calls, search.coverage, nonNil)
 }
