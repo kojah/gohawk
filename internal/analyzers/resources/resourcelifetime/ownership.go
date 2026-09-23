@@ -45,6 +45,46 @@ func (analysis *resourceAnalysis) pairedErrorHelperCleanup(instruction ssa.Instr
 	}).Proven()
 }
 
+// A helper may release every element of the aggregate it receives inside a
+// loop, as slackdump's Destroy closes each stored handle:
+// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/chunk/filemgr.go#L66-L73
+// The every-return proof cannot credit a call inside a cycle: the loop's exit
+// edge is a path that skips the body, and which element an iteration releases
+// is decided by iteration rather than by the path. That is uncertainty about
+// the element, not evidence of a leak, so the call is opaque. A helper whose
+// cleanup merely depends on a flag has complete path information and stays
+// diagnostic; so does one that loops over some other collection.
+func (analysis *resourceAnalysis) loopedHelperCleanup(common *ssa.CallCommon) bool {
+	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) == 0 {
+		return false
+	}
+	callee := common.StaticCallee()
+	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+		if !analysis.carries(binding.Supplied) {
+			continue
+		}
+		for _, block := range callee.Blocks {
+			if analysis.blockReleasesLocal(block, binding.Local) && ssaflow.BlockInCycle(block) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// blockReleasesLocal reports whether the block calls one of the contract's
+// cleanup methods on a value derived from the callee local.
+func (analysis *resourceAnalysis) blockReleasesLocal(block *ssa.BasicBlock, local ssa.Value) bool {
+	for _, candidate := range block.Instrs {
+		call := ssaflow.InstructionCall(candidate)
+		if call != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(call)) &&
+			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(call), local, map[ssa.Value]bool{}) {
+			return true
+		}
+	}
+	return false
+}
+
 func resourceTransferredToExternalField(instruction ssa.Instruction, resource ssa.Value) bool {
 	owner := resourceFieldOwner(instruction, resource)
 	return owner != nil && ssaflow.ExternallyOwnedValue(owner)

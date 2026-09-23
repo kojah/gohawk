@@ -117,6 +117,9 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if analysis.pairedErrorHelperCleanup(instruction, common) {
 		return actionUnknown, "paired-error-helper-cleanup"
 	}
+	if analysis.loopedHelperCleanup(common) {
+		return actionUnknown, "helper-cleanup-in-loop"
+	}
 	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {
 		return actionUnknown, boundary
 	}
