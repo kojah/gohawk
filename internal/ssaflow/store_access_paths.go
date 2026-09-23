@@ -72,6 +72,12 @@ func ValueAtPath(root ssa.Value, path []string, observation ssa.Instruction) (ss
 	if len(path) == 0 {
 		return root, true
 	}
+	// The graph knows the slot whether or not the function selected it by
+	// that path; the selection walk below is kept for the paths the graph
+	// cannot resolve to one object.
+	if value, ok := regionsOf(root).valueAtPath(root, path, observation); ok {
+		return value, true
+	}
 	if load, ok := root.(*ssa.UnOp); ok && load.Op == token.MUL {
 		root = load.X
 	}
@@ -113,6 +119,9 @@ func selectionsOf(root ssa.Value, path []string) []ssa.Value {
 // content is the target. It looks one and two selections deep, which covers
 // a field of a struct and an element of an array held in a field.
 func StoredPath(root, target ssa.Value, observation ssa.Instruction) ([]string, bool) {
+	if path, ok := regionsOf(root).storedPath(root, target, observation); ok {
+		return path, true
+	}
 	if load, ok := root.(*ssa.UnOp); ok && load.Op == token.MUL {
 		root = load.X
 	}

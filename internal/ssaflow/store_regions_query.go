@@ -260,6 +260,106 @@ func (graph *regionGraph) contentWhenDeferredRun(address ssa.Value, registration
 	return result, found
 }
 
+// storedPath returns the access path beneath the root's object at which the
+// target is stored when the instruction runs: the one slot, at most two
+// steps down, whose content is exactly the target's object.
+func (graph *regionGraph) storedPath(root, target ssa.Value, at ssa.Instruction) ([]string, bool) {
+	state := graph.stateAt(at)
+	if state == nil {
+		return nil, false
+	}
+	base, ok := singleSlot(graph.pointees(root))
+	if !ok {
+		return nil, false
+	}
+	object, ok := graph.pointsTo(target)
+	if !ok {
+		return nil, false
+	}
+	wanted, ok := singleSlot(object)
+	if !ok {
+		return nil, false
+	}
+	for candidate := range state.contents {
+		if candidate.region != base.region || !slotBeneath(candidate.path, base.path) || candidate.path == base.path {
+			continue
+		}
+		relative := SplitAccessPath(trimSlash(candidate.path[len(base.path):]))
+		if len(relative) > 2 {
+			continue
+		}
+		if held, ok := singleSlot(graph.content(state, candidate)); ok && held == wanted {
+			return relative, true
+		}
+	}
+	return nil, false
+}
+
+// valueAtPath names the one object stored at path beneath the root's object
+// when the instruction runs.
+//
+//nolint:ireturn // Objects keep their concrete origins.
+func (graph *regionGraph) valueAtPath(root ssa.Value, path []string, at ssa.Instruction) (ssa.Value, bool) {
+	state := graph.stateAt(at)
+	if state == nil {
+		return nil, false
+	}
+	base, ok := singleSlot(graph.pointees(root))
+	if !ok {
+		return nil, false
+	}
+	target := slot{region: base.region, path: joinSlotPath(base.path, JoinAccessPath(path))}
+	held, ok := singleSlot(graph.content(state, target))
+	if !ok {
+		return nil, false
+	}
+	return graph.valueOf(held)
+}
+
+// contains reports whether the target's object is reachable from the
+// owner's objects through what their slots ever held, at any depth the
+// bound allows. It is a may-answer over the whole build under the
+// structural contract: a value the graph has no pointees for, such as a
+// scalar or a call's result tuple, contains nothing and is contained by
+// nothing, as the value walk already says.
+func (graph *regionGraph) contains(owner, value ssa.Value) bool {
+	from, ok := graph.pointsTo(owner)
+	if !ok {
+		return false
+	}
+	target, ok := graph.pointsTo(value)
+	if !ok {
+		return false
+	}
+	seen := map[*region]bool{}
+	queue := make([]*region, 0, len(from))
+	for candidate := range from {
+		queue = append(queue, candidate.region)
+	}
+	for depth := 0; len(queue) > 0 && depth < aliasDepth; depth++ {
+		var next []*region
+		for _, object := range queue {
+			if seen[object] {
+				continue
+			}
+			seen[object] = true
+			for held, set := range graph.history {
+				if held.region != object {
+					continue
+				}
+				for pointee := range set {
+					if _, wanted := target[pointee]; wanted || pointee.region.kind == regionUnknown {
+						return true
+					}
+					next = append(next, pointee.region)
+				}
+			}
+		}
+		queue = next
+	}
+	return false
+}
+
 // contentValue names the one object the addressed slot holds when the
 // instruction runs, for a caller that compares objects by SSA identity.
 func (graph *regionGraph) contentValue(address ssa.Value, at ssa.Instruction) (ssa.Value, bool) { //nolint:ireturn // Objects keep their concrete origins.

@@ -45,7 +45,14 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 // transitively contains value. Possible containment only: it can hide a
 // diagnostic behind an opaque owner, never prove that the owner settles it.
 func MayContainValue(owner, value ssa.Value) bool {
-	return valueOwnsValue(owner, value, map[ssa.Value]bool{}) || newOwnershipSearch(nil).aggregateStoresValue(owner, value)
+	if valueOwnsValue(owner, value, map[ssa.Value]bool{}) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
+		return true
+	}
+	// The graph follows containment through copies, merges, and captured
+	// cells the value walk does not; the walk keeps the visible-constructor
+	// cases the graph, being intraprocedural, cannot see.
+	graph := regionsOf(owner)
+	return graph.available && valueFunction(value) == graph.function && graph.contains(owner, value)
 }
 
 func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
