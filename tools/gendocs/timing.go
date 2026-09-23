@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -49,8 +50,29 @@ func (timings *docsTimings) String() string {
 			metrics.PackageLoad.Seconds(), metrics.LoadedPackages)
 		_, _ = fmt.Fprintf(&output, "  analyzer run: %.3fs roots=%d\n",
 			metrics.AnalyzerRun.Seconds(), metrics.AnalyzerRoots)
+		writeAnalyzerTimings(&output, metrics.AnalyzerTimings)
 		_, _ = fmt.Fprintf(&output, "  diagnostics: %.3fs\n", metrics.DiagnosticExtraction.Seconds())
 	}
 	_, _ = fmt.Fprintf(&output, "  page render: %.3fs\n  file sync: %.3fs\n", timings.render.Seconds(), timings.write.Seconds())
 	return output.String()
+}
+
+func writeAnalyzerTimings(output *strings.Builder, runs []docexamples.AnalyzerTiming) {
+	if len(runs) == 0 {
+		return
+	}
+	runs = slices.Clone(runs)
+	slices.SortFunc(runs, func(left, right docexamples.AnalyzerTiming) int {
+		if left.Duration > right.Duration {
+			return -1
+		}
+		if left.Duration < right.Duration {
+			return 1
+		}
+		return strings.Compare(left.Name, right.Name)
+	})
+	output.WriteString("    by analyzer (slowest first):\n")
+	for _, run := range runs {
+		_, _ = fmt.Fprintf(output, "      %s: %.3fs roots=%d\n", run.Name, run.Duration.Seconds(), run.Roots)
+	}
 }

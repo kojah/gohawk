@@ -44,7 +44,7 @@ func collectManifest(root string, includeExamples bool, metrics *docexamples.Met
 	var examples map[string]docexamples.Set
 	if includeExamples {
 		var err error
-		examples, err = docexamples.CollectAllWithMetrics(targets, metrics)
+		examples, err = docexamples.CollectAll(targets, metrics)
 		if err != nil {
 			return manifest{}, err
 		}

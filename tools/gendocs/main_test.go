@@ -83,17 +83,27 @@ func TestDocsTimingsDescribePhasesAndCounts(t *testing.T) {
 		examples:  true,
 		analyzers: 2,
 		pages:     4,
-		collector: docexamples.Metrics{Targets: 2, Regions: 3, LoadedPackages: 5, AnalyzerRoots: 2},
+		collector: docexamples.Metrics{
+			Targets: 2, Regions: 3, LoadedPackages: 5, AnalyzerRoots: 2,
+			AnalyzerTimings: []docexamples.AnalyzerTiming{
+				{Name: "quick", Duration: time.Second, Roots: 1},
+				{Name: "slow", Duration: 3 * time.Second, Roots: 1},
+			},
+		},
 	}
 	output := timings.String()
 	for _, want := range []string{
 		"mode=examples analyzers=2 files=4",
 		"fixture scan:", "targets=2 regions=3", "package load:", "packages=5",
 		"analyzer run:", "roots=2", "page render:", "file sync:",
+		"slow: 3.000s roots=1", "quick: 1.000s roots=1",
 	} {
 		if !strings.Contains(output, want) {
 			t.Errorf("timing output missing %q: %s", want, output)
 		}
+	}
+	if strings.Index(output, "slow: 3.000s") > strings.Index(output, "quick: 1.000s") {
+		t.Errorf("analyzer timings are not sorted slowest first: %s", output)
 	}
 }
 

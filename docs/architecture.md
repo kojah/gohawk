@@ -63,6 +63,8 @@ validation, so stale committed examples fail the build.
 
 Documentation generation prints phase timings by default, including fixture
 scanning, package loading, analyzer runs, page rendering, and file syncing.
+The analyzer runs are also listed slowest first, with the fixture-root count
+for each; these times include each check's prerequisite passes.
 `make verify` also prints elapsed time and exit status for each gate. Set
 `VERIFY_TIMINGS=0` to hide these measurements in Makefile workflows, or pass
 `-timings=false` directly to `tools/gendocs`.

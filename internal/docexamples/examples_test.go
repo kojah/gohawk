@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -78,5 +79,21 @@ func TestCountLoadedPackagesIncludesSharedDependenciesOnce(t *testing.T) {
 	second := &packages.Package{PkgPath: "second", Imports: map[string]*packages.Package{"shared": shared}}
 	if got := countLoadedPackages([]*packages.Package{first, second}); got != 3 {
 		t.Fatalf("loaded package count = %d, want 3", got)
+	}
+}
+
+func TestMetricsRecordsAndResetsAnalyzerTimings(t *testing.T) {
+	var metrics Metrics
+	metrics.reset(1)
+	metrics.finishAnalyzerRun(time.Now().Add(-time.Second), "example", 2)
+	if len(metrics.AnalyzerTimings) != 1 || metrics.AnalyzerTimings[0].Name != "example" || metrics.AnalyzerTimings[0].Roots != 2 {
+		t.Fatalf("analyzer timings = %+v, want one example with two roots", metrics.AnalyzerTimings)
+	}
+	if metrics.AnalyzerRun < time.Second || metrics.AnalyzerRoots != 2 {
+		t.Fatalf("analyzer totals = %s, %d roots; want at least one second and two roots", metrics.AnalyzerRun, metrics.AnalyzerRoots)
+	}
+	metrics.reset(0)
+	if len(metrics.AnalyzerTimings) != 0 || metrics.AnalyzerRun != 0 {
+		t.Fatalf("reset retained analyzer timings: %+v", metrics)
 	}
 }

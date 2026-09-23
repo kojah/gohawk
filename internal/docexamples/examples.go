@@ -73,21 +73,16 @@ type region struct {
 // GOPATH root. Diagnostics outside marked documentation regions are ordinary
 // regression findings and ignored.
 func Collect(testRoot string, analyzer *analysis.Analyzer) (Set, error) {
-	sets, err := CollectAll([]Target{{TestRoot: testRoot, Analyzer: analyzer}})
+	sets, err := CollectAll([]Target{{TestRoot: testRoot, Analyzer: analyzer}}, nil)
 	return sets[analyzer.Name], err
 }
 
 // CollectAll loads every fixture package in one go/packages invocation, then
 // runs each analyzer only against its own package roots. A shared load avoids
 // paying the go-list and type-checking startup cost once per documentation
-// page while preserving analyzer isolation.
-func CollectAll(targets []Target) (map[string]Set, error) {
-	return CollectAllWithMetrics(targets, nil)
-}
-
-// CollectAllWithMetrics collects examples and optionally measures its phases.
-// A nil metrics pointer leaves the ordinary collection path uninstrumented.
-func CollectAllWithMetrics(targets []Target, metrics *Metrics) (map[string]Set, error) {
+// page while preserving analyzer isolation. A nil metrics pointer leaves the
+// ordinary collection path uninstrumented.
+func CollectAll(targets []Target, metrics *Metrics) (map[string]Set, error) {
 	results := make(map[string]Set, len(targets))
 	metrics.reset(len(targets))
 	if len(targets) == 0 {
@@ -158,7 +153,7 @@ func CollectAllWithMetrics(targets []Target, metrics *Metrics) (map[string]Set, 
 		}
 		started = metrics.start()
 		graph, err := checker.Analyze([]*analysis.Analyzer{target.Analyzer}, roots, &checker.Options{Sequential: true})
-		metrics.finishAnalyzerRun(started, len(roots))
+		metrics.finishAnalyzerRun(started, target.Analyzer.Name, len(roots))
 		if err != nil {
 			return nil, err
 		}
