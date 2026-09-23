@@ -94,6 +94,12 @@ itself does not change.
   storage and escape checks, and symbol matching. It provides how to walk;
   it never decides whether evidence is sufficient. That policy stays beside
   each analyzer.
+- Every interprocedural question spends a `ssaflow.SearchBudget`, named
+  `QueryBudget` or `SummaryBudget` unless a proof has a reason of its own, and
+  a lifecycle analyzer draws each question's budget from one pool per
+  candidate with `Within`, so the proof as a whole is bounded and every
+  give-up reaches the candidate's trace. Exhaustion means what the question's
+  own polarity says it means; a pool decides nothing about that.
 - `ssaflow.Storage` is the shared, bounded query for local contents and stable
   owner projections. It resolves loads at their own execution points, including
   fields, constant array elements, and aggregate-copy snapshots. Completion,

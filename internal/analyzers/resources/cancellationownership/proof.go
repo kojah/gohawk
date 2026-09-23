@@ -58,13 +58,26 @@ type cancellationClassifier struct {
 	// behind this proof gave up; nil when the candidate is not being traced.
 	observer ssaflow.Observer
 	evidence *lifecyclefacts.LifecycleEvidence
+	// pool is this cancellation's total across every query its proof asks;
+	// see budget.
+	pool *ssaflow.SearchBudget
 }
 
 // Exhausted helper searches remain unknown, never evidence of lost cleanup.
-const cancellationCompletionBudget = 1000
+const cancellationCompletionBudget = ssaflow.QueryBudget
 
+// cancellationPoolBudget bounds a whole cancellation proof, a hundred full
+// queries, so a candidate in a large function stays bounded; an exhausted
+// pool is unknown exactly as an exhausted query is.
+const cancellationPoolBudget = 100 * cancellationCompletionBudget
+
+// budget draws one query's allowance from this proof's pool; the pool
+// carries the observer, so every give-up reaches the trace.
 func (classifier *cancellationClassifier) budget() *ssaflow.SearchBudget {
-	return ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(classifier.observer)
+	if classifier.pool == nil {
+		classifier.pool = ssaflow.NewSearchBudget(cancellationPoolBudget).Observed(classifier.observer)
+	}
+	return classifier.pool.Within(cancellationCompletionBudget)
 }
 
 func proveCancellation(

@@ -65,13 +65,27 @@ type resourceAnalysis struct {
 	contract  resourceContract
 	optional  optionalAcquisitionProof
 	actions   map[ssa.Instruction]resourceAction
+	// pool is this acquisition's total across every query its proof asks;
+	// see budget.
+	pool *ssaflow.SearchBudget
 }
 
-// budget scopes one shared query to this candidate's proof: give-ups inside
-// it reach the probe, so a trace of the acquisition shows where the storage,
-// summary, or completion evidence ran out.
+// resourcePoolBudget bounds a whole acquisition proof. The largest single
+// question, a release search, may itself cost releaseSearchBudget, so the
+// pool allows four of them; a proof that needs more is a pathological
+// candidate, and an exhausted pool is unknown exactly as an exhausted
+// search is.
+const resourcePoolBudget = 4 * releaseSearchBudget
+
+// budget draws one shared query's allowance from this candidate's pool:
+// give-ups inside it reach the probe, so a trace of the acquisition shows
+// where the storage, summary, or completion evidence ran out, and the proof
+// as a whole stays bounded.
 func (analysis *resourceAnalysis) budget(limit int) *ssaflow.SearchBudget {
-	return ssaflow.NewSearchBudget(limit).Observed(analysis.probe.Observer())
+	if analysis.pool == nil {
+		analysis.pool = ssaflow.NewSearchBudget(resourcePoolBudget).Observed(analysis.probe.Observer())
+	}
+	return analysis.pool.Within(limit)
 }
 
 func (analysis *resourceAnalysis) action(instruction ssa.Instruction) resourceAction {
