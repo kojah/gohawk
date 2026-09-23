@@ -37,6 +37,10 @@ type Fact struct {
 	// Stored is the strict form of Retained: positive structural evidence that
 	// the callee keeps the parameter, safe to treat as an ownership transfer.
 	Stored ParameterMask
+	// Kept widens Retained to what is loaded out of a struct-shaped
+	// parameter, by access path, so a caller can ask whether the resource it
+	// stored at one path may outlive the call. See contents.go.
+	Kept []Kept
 	// LoopReleased marks parameters whose derived values the callee releases
 	// inside a loop, as a variadic close helper does to each of its files. It
 	// is a may-claim: which element an iteration releases is decided by
@@ -87,6 +91,7 @@ func (fact *Fact) traceDetails() map[string]string {
 		{"returned-view", fact.ReturnedView},
 		{"retained", fact.Retained},
 		{"stored", fact.Stored},
+		{"kept", fact.KeptParameters()},
 		{"loop-released", fact.LoopReleased},
 		{"discharges", fact.DischargedParameters()},
 		{"owned-fields", fact.OwnedFields},
@@ -130,6 +135,29 @@ func (fact *Fact) DischargedParameters() ParameterMask {
 		mask |= parameterMaskFor(discharge.Parameter)
 	}
 	return mask
+}
+
+// KeptParameters returns the parameters with a kept-contents claim at any
+// path.
+func (fact *Fact) KeptParameters() ParameterMask {
+	var mask ParameterMask
+	for _, kept := range fact.Kept {
+		mask |= parameterMaskFor(kept.Parameter)
+	}
+	return mask
+}
+
+// keepsContentsAt reports whether the summary claims that the contents at
+// path beneath the parameter at index may be kept beyond the call. The
+// empty path asks about the whole parameter.
+func (fact *Fact) keepsContentsAt(index int, path string) bool {
+	var kept []string
+	for _, claim := range fact.Kept {
+		if claim.Parameter == index {
+			kept = append(kept, claim.Path)
+		}
+	}
+	return keepsContentsAt(kept, path)
 }
 
 // dischargesArgument reports whether the call's static callee is summarized

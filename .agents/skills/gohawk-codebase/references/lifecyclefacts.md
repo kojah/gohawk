@@ -214,6 +214,10 @@ type Fact struct {
 	// Stored is the strict form of Retained: positive structural evidence that
 	// the callee keeps the parameter, safe to treat as an ownership transfer.
 	Stored	ParameterMask
+	// Kept widens Retained to what is loaded out of a struct-shaped
+	// parameter, by access path, so a caller can ask whether the resource it
+	// stored at one path may outlive the call. See contents.go.
+	Kept	[]Kept
 	// LoopReleased marks parameters whose derived values the callee releases
 	// inside a loop, as a variadic close helper does to each of its files. It
 	// is a may-claim: which element an iteration releases is decided by
@@ -290,6 +294,17 @@ DischargedParameters returns the parameters with any discharge, at any
 path, for a consumer that only asks whether the callee releases part of
 what it was handed.
 
+## Fact.KeptParameters
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+func (fact *Fact) KeptParameters() ParameterMask
+```
+
+KeptParameters returns the parameters with a kept-contents claim at any
+path.
+
 ## Fact.MethodMask
 
 [Source](../../../../internal/passes/lifecyclefacts/fact.go)
@@ -321,6 +336,22 @@ func (fact *Fact) String() string
 
 String decodes the masks by parameter position so the fact is readable in
 analysis debug output.
+
+## Kept
+
+[Source](../../../../internal/passes/lifecyclefacts/contents.go)
+
+```go
+type Kept struct {
+	Parameter	int
+	Path		string
+}
+```
+
+Kept is one loose content-retention claim: the value at Path beneath
+Parameter, or something loaded out of it, may be kept beyond the call. The
+empty path is the parameter itself or a whole copy of it, which keeps
+every path beneath it.
 
 ## LifecycleEvidence
 
@@ -470,6 +501,20 @@ func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, re
 
 CompletionOnEdge combines local and imported result-conditioned guarantees.
 Absence remains unknown; only exact parameter binding can settle the target.
+
+## LifecycleEvidence.ContentsKeptAt
+
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+
+```go
+func (evidence *LifecycleEvidence) ContentsKeptAt(instruction ssa.Instruction, index int, path string) (kept bool, known bool)
+```
+
+ContentsKeptAt reports whether the call's static callee is summarized as
+possibly keeping the contents at path beneath the argument at index
+beyond the call; the empty path asks about anything inside it. The second
+result is false when the callee has no summary, which a consumer must
+treat as unknown rather than as a proof of nothing kept.
 
 ## LifecycleEvidence.ForCandidate
 

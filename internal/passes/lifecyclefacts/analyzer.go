@@ -304,10 +304,26 @@ func summarizeTransfers(
 	}
 	if retentions.retainedAnywhere(pass, function, parameter) {
 		fact.Retained |= bit
+	} else if structShaped(parameter.Type()) {
+		// Only an aggregate has contents, and a retained parameter already
+		// keeps all of them.
+		for _, path := range retentions.keptPaths(pass, function, parameter) {
+			fact.Kept = append(fact.Kept, Kept{Parameter: index, Path: path})
+		}
 	}
 	if retentions.storedAnywhere(pass, function, parameter) {
 		fact.Stored |= bit
 	}
+}
+
+// structShaped reports whether a parameter of this type is a struct or a
+// pointer to one, the shapes whose contents a caller can hand over whole.
+func structShaped(parameterType types.Type) bool {
+	if pointer, ok := parameterType.Underlying().(*types.Pointer); ok {
+		parameterType = pointer.Elem()
+	}
+	_, ok := parameterType.Underlying().(*types.Struct)
+	return ok
 }
 
 func ownsOnEveryReturn(function *ssa.Function, parameter ssa.Value, owns func(ssa.Instruction) bool) bool {

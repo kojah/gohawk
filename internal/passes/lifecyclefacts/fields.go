@@ -684,6 +684,19 @@ func (evidence *LifecycleEvidence) CalleeClaims(
 	return fact.Claim(claim).contains(index), true
 }
 
+// ContentsKeptAt reports whether the call's static callee is summarized as
+// possibly keeping the contents at path beneath the argument at index
+// beyond the call; the empty path asks about anything inside it. The second
+// result is false when the callee has no summary, which a consumer must
+// treat as unknown rather than as a proof of nothing kept.
+func (evidence *LifecycleEvidence) ContentsKeptAt(instruction ssa.Instruction, index int, path string) (kept bool, known bool) {
+	fact, ok := factFor(evidence.pass, instruction)
+	if !ok {
+		return false, false
+	}
+	return fact.Retained.contains(index) || fact.keepsContentsAt(index, path), true
+}
+
 // CalleeSummarized reports whether the call's static callee carries a
 // lifecycle summary, so a consumer can distinguish a callee proven to do
 // nothing with an argument from one it knows nothing about.

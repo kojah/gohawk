@@ -65,11 +65,15 @@ type retentionKey struct {
 // question.
 type retentionCache struct {
 	memo   *ssaflow.CallGraphMemo[retentionKey, bool]
+	kept   *ssaflow.CallGraphMemo[keptKey, []string]
 	lookup func(ssa.Instruction) (Fact, bool)
 }
 
 func newRetentionCache() *retentionCache {
-	return &retentionCache{memo: ssaflow.NewCallGraphMemo[retentionKey, bool]()}
+	return &retentionCache{
+		memo: ssaflow.NewCallGraphMemo[retentionKey, bool](),
+		kept: ssaflow.NewCallGraphMemo[keptKey, []string](),
+	}
 }
 
 func (cache *retentionCache) retainedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {

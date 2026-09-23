@@ -348,11 +348,36 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 			continue
 		}
 		effects := analysis.evidence.CallEffects(instruction, argument)
-		if !effects.Proven() || effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
-			return true
+		if effects.Proven() {
+			if effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
+				return true
+			}
+			continue
 		}
+		// A body this pass cannot read is judged by its summary alone. The
+		// kept-contents claim is loose and indexed by path, so a summary
+		// that keeps nothing at the path where this resource sits proves
+		// that the resource cannot outlive the call through this callee,
+		// while a helper that keeps or closes the other field says nothing
+		// about this one. A resource whose position is unknown asks about
+		// the whole aggregate. An unsummarized callee stays a boundary:
+		// silence is not a proof.
+		if kept, known := analysis.evidence.ContentsKeptAt(instruction, index, analysis.pathWithin(argument, instruction)); known && !kept {
+			continue
+		}
+		return true
 	}
 	return false
+}
+
+// pathWithin returns the joined access path at which the resource is stored
+// beneath the aggregate, or the empty path when its position is not known.
+func (analysis *resourceAnalysis) pathWithin(aggregate ssa.Value, observation ssa.Instruction) string {
+	path, ok := ssaflow.StoredPath(aggregate, analysis.resource, observation)
+	if !ok {
+		return ""
+	}
+	return ssaflow.JoinAccessPath(path)
 }
 
 // log.New retains its writer and exposes it again through Logger.Writer.

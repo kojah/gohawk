@@ -4,9 +4,9 @@ package resourcelifetime
 // parameter, so a caller is credited only for the resource it stored at that
 // path, whether the helper is imported or visible. A visible helper that
 // closes the other field, or the other element, leaves the obligation open;
-// before paths, any resource the argument contained was credited. An
-// imported helper receiving an aggregate stays an opaque boundary, so only
-// the matching forms are shown for it.
+// before paths, any resource the argument contained was credited. The
+// mismatching imported forms are beside the kept-contents claim that makes
+// them reportable, in imported_aggregate_helpers.go.
 
 import (
 	"os"

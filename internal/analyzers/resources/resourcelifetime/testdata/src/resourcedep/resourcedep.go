@@ -271,7 +271,35 @@ func OpenView(file *os.File) *os.File { return file }
 type Pair struct {
 	First  *os.File
 	Second *os.File
+	Name   string
 }
+
+var (
+	keptFile  *os.File
+	keptNames []string
+	fileSink  interface{ Add(any) }
+)
+
+// KeepFirst stores the first file of the pair beyond the call.
+func KeepFirst(pair *Pair) { keptFile = pair.First }
+
+// KeepCopy stores a file loaded from a whole copy of the pair.
+func KeepCopy(pair *Pair) { copied := *pair; keptFile = copied.Second }
+
+// PublishFirst hands the first file to an interface it cannot see through.
+func PublishFirst(pair *Pair) { fileSink.Add(pair.First) }
+
+// StartWith reads the pair on another goroutine.
+func StartWith(pair *Pair) { go InspectPair(pair) }
+
+// FirstOf returns the first file of the pair.
+func FirstOf(pair *Pair) *os.File { return pair.First }
+
+// KeepName stores only the pair's name, which holds no resource.
+func KeepName(pair *Pair) { keptNames = append(keptNames, pair.Name) }
+
+// InspectPair only reads the pair.
+func InspectPair(pair *Pair) bool { return pair.First != nil }
 
 // CloseFirst closes only the first file of the pair.
 func CloseFirst(pair *Pair) error { return pair.First.Close() }

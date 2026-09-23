@@ -164,6 +164,10 @@ type Fact struct {
 	// Stored is the strict form of Retained: positive structural evidence that
 	// the callee keeps the parameter, safe to treat as an ownership transfer.
 	Stored	ParameterMask
+	// Kept widens Retained to what is loaded out of a struct-shaped
+	// parameter, by access path, so a caller can ask whether the resource it
+	// stored at one path may outlive the call. See contents.go.
+	Kept	[]Kept
 	// LoopReleased marks parameters whose derived values the callee releases
 	// inside a loop, as a variadic close helper does to each of its files. It
 	// is a may-claim: which element an iteration releases is decided by
@@ -215,6 +219,7 @@ cell is only ever written whole.
 | `ReturnedView` | always | the result is a window onto the parameter; the caller still owns it |
 | `Stored` | always | firm evidence the callee keeps it; safe to treat as a transfer |
 | `Retained` | maybe | the callee might keep it somewhere; fall back to `unknown` |
+| `Kept` | maybe | the callee might keep what it loaded out of the parameter at this path; a caller whose resource sits at another path is unaffected |
 | `LoopReleased` | maybe | the callee releases values drawn from it inside a loop; which element is decided by iteration, so fall back to `unknown` |
 
 `ReturnedOwner` and `ReturnedView` look identical in SSA — both store the
@@ -281,6 +286,30 @@ at that path.
 `ClaimReleases` includes every parameter with a discharge at any path, for a
 consumer that only asks whether the callee releases part of what it was
 handed.
+
+## Kept contents
+
+`Retained` is about the parameter itself and deliberately ignores what is
+loaded out of it. A caller that hands an aggregate holding its resource to
+an imported helper needs the other half: can the resource inside outlive the
+call? `Kept` answers that by path. It is loose in the same way `Retained`
+is, so a store anywhere, a captured cell, a send, a return, a goroutine
+argument, an opaque or interface callee, and a callee summarized as keeping
+its argument all count, and a body the walk cannot finish keeps everything.
+It is exact about where: `field:1` for a helper that closes, stores, or
+hands on the second file of a pair, and nothing for the first. A basic-typed
+load holds no resource and is never claimed. A value that derives from the
+parameter without a static path, such as a field of a local copy of the
+pointee, is claimed as the whole parameter.
+
+Only struct-shaped parameters carry the claim, and a parameter that is
+`Retained` outright carries none, because retaining the aggregate keeps all
+of its contents. A consumer asks about the path where its own resource is
+stored and treats a claim at that path, a prefix of it, or a longer path
+inside it as possible escape; a parameter with no claim at that path cannot
+let the resource escape through that callee, so the caller still owes the
+release. Nothing here is an ownership transfer: the strict `Stored` bit is
+untouched.
 
 ## Some masks must be exact; others may guess
 
