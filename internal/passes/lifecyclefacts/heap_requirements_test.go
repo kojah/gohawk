@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/ssa"
 )
 
 // A requirement is a method the function calls on the object at a named
@@ -53,8 +53,7 @@ func Fresh(r *reader) int                     { local := &reader{}; return local
 func Assign(r *reader) { r.id = 1 }
 func ViaDeref(r *reader) int                  { return Deref(r) }
 `)
-	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	for name, want := range map[string][]string{
+	assertRequirements(t, pkg, map[string][]string{
 		"Drain":        {"P0 method Read"},
 		"Sometimes":    nil,
 		"Twice":        {"P0 method Err", "P0 method Read"},
@@ -72,7 +71,15 @@ func ViaDeref(r *reader) int                  { return Deref(r) }
 		"Fresh":        {"P0 non-nil"},
 		"Assign":       {"P0 non-nil"},
 		"ViaDeref":     {"P0 non-nil"},
-	} {
+	})
+}
+
+// assertRequirements checks the rendered requirements each named function
+// is summarized with.
+func assertRequirements(t *testing.T, pkg *ssa.Package, wants map[string][]string) {
+	t.Helper()
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	for name, want := range wants {
 		fact := summarize(pass, pkg.Func(name))
 		if fact.Heap == nil {
 			t.Fatalf("%s: no projection", name)
@@ -85,5 +92,46 @@ func ViaDeref(r *reader) int                  { return Deref(r) }
 			t.Errorf("%s requires %q, want %q\n%s", name, got, want, fact.Heap.String())
 		}
 	}
-	var _ ssaflow.HeapRequirement
+}
+
+// A callee's requirement on a slot beneath an object the caller built is a
+// requirement on whatever that slot certainly holds at the call. It moves
+// to a parameter only when the slot holds exactly that parameter's object
+// there: not one reassigned away before the call, set on one branch only,
+// handed to unknown code first, or a local object nobody named.
+func TestLifecycleSummaryRequirementsThroughWrappers(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type reader struct{ id int }
+
+func (r *reader) Read(p []byte) (int, error) { return 0, nil }
+
+type wrap struct{ r *reader }
+type outer struct{ w *wrap }
+
+var sink func(*wrap)
+
+func deref(w *wrap) int                       { return w.r.id }
+func drain(w *wrap) error                     { _, err := w.r.Read(nil); return err }
+func derefOuter(o *outer) int                 { return o.w.r.id }
+
+func Wrapped(r *reader) int                   { w := &wrap{r: r}; return deref(w) }
+func WrappedMethod(r *reader) error           { w := &wrap{r: r}; return drain(w) }
+func DoubleWrapped(r *reader) int             { return derefOuter(&outer{w: &wrap{r: r}}) }
+func Reassigned(r, other *reader) int         { w := &wrap{r: r}; w.r = other; return deref(w) }
+func OnBranch(r *reader, ok bool) int         { w := &wrap{}; if ok { w.r = r }; return deref(w) }
+func Escaped(r *reader) int                   { w := &wrap{r: r}; sink(w); return deref(w) }
+func LocalObject(r *reader) int               { w := &wrap{r: &reader{}}; return deref(w) + len(r.String()) }
+func (r *reader) String() string              { return "" }
+`)
+	assertRequirements(t, pkg, map[string][]string{
+		"Wrapped":       {"P0 non-nil"},
+		"WrappedMethod": {"P0 method Read"},
+		"DoubleWrapped": {"P0 non-nil"},
+		"Reassigned":    {"P1 non-nil"},
+		"OnBranch":      nil,
+		"Escaped":       {"G:example.com/lifecyclefactstest.sink non-nil"},
+		"LocalObject":   {"P0 method String"},
+	})
 }

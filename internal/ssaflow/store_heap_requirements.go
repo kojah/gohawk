@@ -212,11 +212,42 @@ func (projection *heapProjection) callRequirements(call *ssa.Call) []requirement
 		if !ok {
 			continue
 		}
-		keys = append(keys, requirementKey{
-			slot: slot{region: base.region, path: joinSlotPath(base.path, requirement.Slot.Path)}, kind: requirement.Kind, method: requirement.Method,
-		})
+		target := projection.throughLocal(slot{region: base.region, path: joinSlotPath(base.path, requirement.Slot.Path)}, call)
+		keys = append(keys, requirementKey{slot: target, kind: requirement.Kind, method: requirement.Method})
 	}
 	return keys
+}
+
+// throughLocal follows a required slot beneath an object the function
+// allocated to the object that slot certainly holds at the call, so a
+// callee's requirement on w.r, where w wraps a parameter, becomes one on
+// the parameter. Each step must hold exactly one non-stale object there;
+// a wrapper field reassigned, set on one branch only, or handed to
+// unknown code first holds none, and the slot is kept as it was, where it
+// names no root and requires nothing of the caller's caller.
+func (projection *heapProjection) throughLocal(target slot, call ssa.Instruction) slot {
+	if target.region.kind != regionSite || target.path == "" {
+		return target
+	}
+	state := projection.graph.stateAt(call)
+	if state == nil {
+		return target
+	}
+	steps := SplitAccessPath(target.path)
+	current := slot{region: target.region}
+	for index, step := range steps {
+		current.path = joinSlotPath(current.path, step)
+		held, ok := singleSlot(projection.graph.content(state, current))
+		if !ok || held.region.kind == regionNil {
+			return target
+		}
+		rest := JoinAccessPath(steps[index+1:])
+		if held.region.kind != regionSite {
+			return slot{region: held.region, path: joinSlotPath(held.path, rest)}
+		}
+		current = held
+	}
+	return target
 }
 
 // receiverRequirements names what a method call requires of its receiver:
