@@ -72,7 +72,7 @@ func validFact(fact *Fact) bool {
 		}
 	}
 	for _, relation := range fact.Relations {
-		if relation.Kind == 0 || relation.Kind > ReturnsParameter || relation.Result < 0 ||
+		if relation.Kind == 0 || relation.Kind > NilWhenResultNonNil || relation.Result < 0 ||
 			relation.Result >= len(fact.Results) || relation.Operand < 0 || relation.Operand > maxResults {
 			return false
 		}

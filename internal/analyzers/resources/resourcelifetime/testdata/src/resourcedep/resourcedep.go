@@ -186,12 +186,3 @@ func Failed(err error) bool { return err != nil }
 
 // FailedOther ignores its first error and reports on the second.
 func FailedOther(_ error, other error) bool { return other != nil }
-
-// Unchanged returns the file it was given.
-func Unchanged(file *os.File) *os.File { return file }
-
-// Replaced returns the other file.
-func Replaced(_ *os.File, other *os.File) *os.File { return other }
-
-// Erased returns the file behind an interface.
-func Erased(file *os.File) any { return file }

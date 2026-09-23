@@ -165,39 +165,3 @@ func loose(ok bool) *box {
 		}
 	}
 }
-
-// A call proven to return its argument unchanged resolves to that argument;
-// a call that chooses or erases the value does not.
-func TestArgumentReturnedUnchanged(t *testing.T) {
-	pkg := ssaflowtest.BuildPackage(t, "broker", `package broker
-type box struct{}
-func Same(value *box) *box { return value }
-func Chosen(value, other *box, pick bool) *box {
-	if pick {
-		return other
-	}
-	return value
-}
-func use(value, other *box, pick bool) (*box, *box) { return Same(value), Chosen(value, other, pick) }
-`)
-	pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{resultfacts.Analyzer: resultfacts.NewEngine()}}
-	provider := Select(Requirements{Results: true}).Provider(pass)
-	function := pkg.Func("use")
-	var calls []*ssa.Call
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if call, ok := instruction.(*ssa.Call); ok {
-				calls = append(calls, call)
-			}
-		}
-	}
-	if len(calls) != 2 {
-		t.Fatalf("expected two calls, got %d", len(calls))
-	}
-	if argument, ok := provider.ArgumentReturnedUnchanged(calls[0], ssaflow.NewSearchBudget(2000)); !ok || argument != function.Params[0] {
-		t.Errorf("Same: resolved (%v, %v), want the first parameter", argument, ok)
-	}
-	if argument, ok := provider.ArgumentReturnedUnchanged(calls[1], ssaflow.NewSearchBudget(2000)); ok {
-		t.Errorf("Chosen: resolved %v, want no identity", argument)
-	}
-}

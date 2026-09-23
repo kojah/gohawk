@@ -90,20 +90,6 @@ type Provider struct {
 Provider exposes only the selected prerequisite results. It never imports
 object facts from a sibling pass or retroactively requests dependency work.
 
-## Provider.ArgumentReturnedUnchanged
-
-[Source](../../../../internal/summaries/results.go#L158)
-
-```go
-func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *ssaflow.SearchBudget) (ssa.Value, bool)
-```
-
-ArgumentReturnedUnchanged resolves a call result to the argument the callee
-is proven to return unchanged, under the same static type. It answers
-identity only: what the caller passed in is what it got back. Ownership,
-release, and every other lifecycle question about that value stay with
-the caller's own evidence.
-
 ## Provider.CallReturnsView
 
 [Source](../../../../internal/summaries/provider.go#L188)

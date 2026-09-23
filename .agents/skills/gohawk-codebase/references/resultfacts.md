@@ -73,7 +73,7 @@ func (*Fact) AFact()
 
 AFact marks the result component for go/analysis serialization.
 
-## FalseWhenParameterNil, TrueWhenParameterNonNil, NonNilWhenResultNil, NilWhenResultNonNil, ReturnsParameter
+## FalseWhenParameterNil, TrueWhenParameterNonNil, NonNilWhenResultNil, NilWhenResultNonNil
 
 [Source](../../../../internal/passes/resultfacts/relations.go#L25)
 
@@ -93,11 +93,6 @@ const (
 	// NilWhenResultNonNil: the result is nil on every return where the
 	// operand error result is non-nil.
 	NilWhenResultNonNil
-	// ReturnsParameter: the result is the operand parameter itself, under the
-	// same static type, on every normal return. A builder returning its
-	// receiver and a pass-through wrapper have this shape; a caller may then
-	// treat the result as the argument it passed.
-	ReturnsParameter
 )
 ```
 
@@ -124,7 +119,7 @@ NewEngine creates local-only result inference with no library-name guesses.
 
 ## Relation
 
-[Source](../../../../internal/passes/resultfacts/relations.go#L49)
+[Source](../../../../internal/passes/resultfacts/relations.go#L44)
 
 ```go
 type Relation struct {
@@ -166,7 +161,7 @@ consulted, not that all results are understood. Reason explains a boundary.
 
 ## Summary.Holds
 
-[Source](../../../../internal/passes/resultfacts/relations.go#L56)
+[Source](../../../../internal/passes/resultfacts/relations.go#L51)
 
 ```go
 func (summary Summary) Holds(kind RelationKind, result, operand int) bool
@@ -176,7 +171,7 @@ Holds reports whether the summary proved the relation.
 
 ## Summary.Relations
 
-[Source](../../../../internal/passes/resultfacts/relations.go#L66)
+[Source](../../../../internal/passes/resultfacts/relations.go#L61)
 
 ```go
 func (summary Summary) Relations() []Relation

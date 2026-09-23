@@ -88,11 +88,8 @@ them with the fact:
 | `TrueWhenParameterNonNil` | the Boolean result is true on every return reachable when the parameter is non-nil | reserved for the symmetric guard |
 | `NonNilWhenResultNil` | the result is non-nil on every return where the paired error result is nil | the summaries provider prunes `result == nil` below the success arm of that error's check |
 | `NilWhenResultNonNil` | the result is nil on every return where the paired error result is non-nil | the provider prunes `result != nil` below the failure arm |
-| `ReturnsParameter` | the result is the exact parameter, under the same static type, on every normal return | `resourcelifetime` resolves a cleanup receiver through such a call, so `wrap(file).Close()` settles `file` and a later use of `file` is a use after release; `lifecyclefacts` uses the same mechanic to keep an unchanged return from becoming a view |
 
-`ReturnsParameter` is exact storage identity: a wrapper, an interface
-conversion, or a value chosen between the parameter and something else is not
-the parameter. A parameter relation walks the body under the assumption and requires the
+A parameter relation walks the body under the assumption and requires the
 expected literal, or a nil comparison of the exact formal decided by the
 assumption, on every reachable normal return. A result relation checks every
 normal return and lets a return that forwards both positions of one call

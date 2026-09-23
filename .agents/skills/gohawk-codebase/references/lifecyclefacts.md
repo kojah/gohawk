@@ -27,7 +27,7 @@ Analyzer is an internal prerequisite shared by lifecycle analyzers.
 
 ## CallReturnsView
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L617)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go#L627)
 
 ```go
 func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ssa.Value) bool
@@ -263,7 +263,7 @@ MethodMask selects the parameter mask for a lifecycle method.
 
 ## Fact.ReturnsView
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L624)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go#L634)
 
 ```go
 func (fact *Fact) ReturnsView(instruction ssa.Instruction, target ssa.Value) bool
@@ -311,7 +311,7 @@ no summary is available, which callers must treat as unknown.
 
 ## LifecycleEvidence.ArgumentRetainedByCallee
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L633)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go#L643)
 
 ```go
 func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Instruction, target ssa.Value) bool
@@ -325,7 +325,7 @@ returned aggregate is decided by the returned-owner and view rules instead.
 
 ## LifecycleEvidence.ArgumentReturnedAsView
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L611)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go#L621)
 
 ```go
 func (evidence *LifecycleEvidence) ArgumentReturnedAsView(instruction ssa.Instruction, target ssa.Value) bool
@@ -351,7 +351,7 @@ remain unknown until a dedicated effect summary can establish their safety.
 
 ## LifecycleEvidence.CalleeClaims
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L675)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go#L685)
 
 ```go
 func (evidence *LifecycleEvidence) CalleeClaims(
@@ -369,7 +369,7 @@ discharged must not read silence as proof that it was not.
 
 ## LifecycleEvidence.CalleeSummarized
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go#L690)
+[Source](../../../../internal/passes/lifecyclefacts/fields.go#L700)
 
 ```go
 func (evidence *LifecycleEvidence) CalleeSummarized(instruction ssa.Instruction) bool

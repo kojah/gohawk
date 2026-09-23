@@ -596,12 +596,22 @@ func parameterIsView(
 }
 
 func parameterReturnedUnchangedOnEveryReturn(function *ssa.Function, parameter ssa.Value) bool {
-	for index := range function.Signature.Results().Len() {
-		if ssaflow.ReturnsParameterUnchanged(function, parameter, index) {
-			return true
-		}
+	if len(function.Blocks) == 0 || !ssaflow.NormalReturnReachableFrom(function.Blocks[0]) {
+		return false
 	}
-	return false
+	return !ssaflow.UnownedReturnFromEntryAllow(
+		function,
+		func(ssa.Instruction) bool { return false },
+		func(returned *ssa.Return) bool {
+			for _, result := range returned.Results {
+				if types.Identical(result.Type(), parameter.Type()) &&
+					ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(result, parameter).Proven() {
+					return true
+				}
+			}
+			return false
+		},
+	)
 }
 
 // ArgumentReturnedAsView reports whether the call's static callee is
