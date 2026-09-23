@@ -186,6 +186,31 @@ func finish(j job) error {
 
 For `finish` to earn the kind of summary the last section showed, the analysis has to follow `f` into the struct field, across the call boundary, and back out through the load in `finish`, and prove it's the same object at every step. Without that, the whole summary layer goes blind the moment anyone uses a struct.
 
+Fields aren't the only place a value can hide. The same question comes up for arrays, and the abstract location changes from "field `out`" to "index 0":
+
+```go
+type batch struct {
+    files [2]*os.File
+}
+
+func runBatch(path string) error {
+    f, err := os.Open(path)
+    if err != nil {
+        return err
+    }
+    // f goes into index 0 of an array, inside a field, of a struct passed by value.
+    return finishBatch(batch{files: [2]*os.File{f, nil}})
+}
+
+func finishBatch(b batch) error {
+    // The summary for finishBatch says: "closes index 0 of field files of its parameter."
+    // The caller stored f at exactly that path, so f is closed.
+    return b.files[0].Close()
+}
+```
+
+The summary is indexed by path, not by "somewhere in the argument." That precision cuts both ways. If `finishBatch` closed `b.files[1]` instead, the caller would still be holding an open file at index 0, and gohawk reports it. A helper that cleans up the other element is not cleaning up yours. Before the model tracked paths, any resource anywhere in the argument got credited, which is exactly the kind of rumor the next paragraph warns about.
+
 The model is deliberately pessimistic. If the struct escapes into a function we can't see, or the field is written on only one branch of an `if`, or the index is computed at runtime, the answer isn't a guess. It's "I don't know." Unknown evidence is never a positive result. An analyzer that can't prove identity must not claim it. That's the difference between a fact and a rumor.
 
 ## A pass of the history books
