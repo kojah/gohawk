@@ -5,33 +5,63 @@
 "I feel thin, sort of stretched, like butter scraped over too much bread."
 — J.R.R. Tolkien, The Fellowship of the Ring
 
-A couple of months ago, I was working on a medium-scale Go project that relied on Git. In order to speed things up, I made efforts to parallelize the code as much as possible.
+A couple of months ago I was working on a medium-sized Go project built around Git, and I got ambitious: I decided to parallelize as much of it as I could to make it faster.
 
-This introduced a whole bird's nest of bugs (heh). Even if I asked a coding assistant to help with the problem, I noticed it would keep making certain mistakes. Here's a real-world example of a code pattern where it'd usually trip up:
+This introduced a whole bird's nest of bugs (heh). There's a particular kind of tired you feel at 1am staring at a race-detector report, where every fix just seems to relocate the bug instead of removing it. You start to distrust your own eyes. That was me for about two weeks, reading the same functions over and over, certain the bug had to be somewhere I simply wasn't looking.
 
+I did what everyone does now and asked a coding assistant for help. It was confident, fast, and wrong in all the familiar ways. It "fixed" races by adding locks in all the same places I'd thought of, and reintroduced the same deadlocks I'd just spent a night removing. There's something uniquely demoralizing about an assistant handing your own bug back to you with better comments. It was like pair-programming with someone who'd read every Go tutorial ever written and internalized none of the fear.
+
+## A peek into the abyss
+
+Here's the shape of bug I kept seeing. Each function looks correctly locked on its own:
+
+```go
+type Registry struct {
+    mu      sync.Mutex
+    workers map[string]*Worker
+}
+
+func (r *Registry) StopAll() {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    for id := range r.workers {
+        r.stop(id)
+    }
+}
+
+func (r *Registry) stop(id string) {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    r.workers[id].Stop()
+    delete(r.workers, id)
+}
 ```
-...
-```
 
-Go, being a statically typed language, has the benefit of _static analysis_ tools over a dynamically-typed language like Python. In my opinion, it makes Go one of the best choices available for rapid development: not only is it fast to compile and iterate, not only is it close to the metal when it runs, but it also has pretty sweet tooling. You could say it's why Go is one of my go-to langauges :smirk:
+The deadlock lives in the space between the two functions, in the call edge nobody looked across. Go mutexes aren't reentrant, so the first loop iteration hangs forever, holding a lock it will never release. An assistant reviewing either method alone would approve it. The bug only exists in the composition. I stared at those two functions for an embarrassingly long time before the penny dropped, and it's why I stopped trusting my eyes and started wanting a tool that didn't have any.
+
+This is the part where Go started to feel less like the source of my problems and more like the way out. Being statically typed, it has the benefit of _static analysis_ tools over a dynamically-typed language like Python, and I don't just mean that as a technical observation. It means the language keeps enough of a record of what you meant that a tool can double-check you. Fast to compile, close to the metal, and willing to be inspected: that's a rare combination, and it's why Go is one of my go-to languages :smirk:
 
 In spite of all this talk lately about AGI and RSI, I don't really trust coding assistants to be able to write Go code correctly :cry-laugh: AI models have been trained en masse on Go code from the internet, but people don't always follow the best coding conventions, and that really gets reflected in the Go code. (I've written a `go-coding-conventions` skill to encourage AI to write neater and extensible Go code, but that's only a soft guard; sometimes you need hard checks.)
 
-Back to the problem at hand. By this point, I had already enabled a bunch of static analysis tools in my project, including Staticcheck (the OG), NilAway, go-critic, etc etc. But none of them seemed to be able to detect this class of error. So I decided to try and roll my own analyzer...
+There's an irony I keep coming back to: these models learned Go from the internet's Go code, which means they learned all of our bad habits too. Every shortcut some tired programmer took at midnight is in there somewhere, laundered into "idiomatic style."
 
-<another quote>
+Back to the problem at hand. By this point, I had already enabled a bunch of static analysis tools in my project, including Staticcheck (the OG), NilAway, go-critic, etc etc. But none of them seemed to be able to detect this class of error.
+
+So I decided to try and roll my own analyzer.
+
+I'll be honest about what that decision felt like: stubbornness, curiosity, and the classic "how hard could it be" (the four most expensive words in software). Nothing else could see the bug. Fine. I'd teach something to see it.
+
+"When lemons give you life, lemonade make." -- _Two threads trying to describe the problem we're about to tackle_
 
 ## Go's analysis tooling
 
-Go, as a language, is uniquely positioned as one of the best languages to perform static analysis in. (I would say it's only rivaled in this department by C#, which has had extensive tooling developed around it by MS to support the Visual Studio experience.) In contrast to a language like Rust, which lacks a stable compiler API in order to accelerate the development of new language features, Go has tended to favor simplicity and is more conservative about adding new features (after all, it took us 10 years to get generics!). The language also deliberately omits features that would add a lot of complexity, such as macros or operator overloading.
+Once I'd decided to build the thing, I started taking stock of what Go gives you for free, and the list kept getting longer. It's one of the best languages in existence for static analysis, and I don't think that's an accident. Go is conservative about features (ten years to get generics!), it refuses macros and operator overloading and the rest of the complexity candy, and what you're left with is a language small enough to reason about. C# is the only real rival I can name, and that's because Microsoft poured years into the Visual Studio experience. Rust, for all its virtues, won't even give you a stable compiler API. New language features come first, tooling second.
 
-Support for analyzers is also first-class. The standard library exposes the full production compiler pipeline (including `go/ast`, `go/types`, etc). And on top of that, the `go/analysis` module provides a modular and easy framework for authoring your own diagnostics.
+Go went the other way. The standard library hands you the full production compiler pipeline (`go/ast`, `go/types`, the works), and the `go/analysis` module gives you a genuinely pleasant framework for writing your own diagnostics.
 
-On top of all this, there is some icing on the cake that only Go offers. Introducing...
+On top of all this, there is some icing on the cake that only Go offers... I'll admit I fell a little in love with this part. It's rare for a language to hand you the compiler's own eyes and say: go look for yourself.
 
 ## SSA is served
-
-<!-- Editorial note: this is an illustrative example, not yet the real project example from the introduction. -->
 
 Suppose we acquire a mutex and check whether we're ready to continue. To keep the dump short, I've left out the actual work. The bug is the early return:
 
@@ -47,19 +77,12 @@ func Update(mu *sync.Mutex, ready bool) {
 
 Both `Lock` and `Unlock` are present, so searching for matching calls won't get us very far. We need to follow the paths through the function.
 
-Go's SSA package gives us a representation we can use for that. SSA stands for *static single assignment*, meaning each value in the representation is defined once. It also organizes instructions into basic blocks, with branches connecting them.
-
-The example lives in [`site/examples/lock-analysis/example.go`](examples/lock-analysis/example.go). From that directory, we can ask gohawk to dump the function:
-
-```sh
-gohawk ssa -func Update ./...
-```
-
-Here's the actual output, with only the package and source-location header removed:
+Go's SSA package (`go/ssa`) gives us a representation we can use for that. SSA stands for *static single assignment*, meaning each value in the representation is defined once. It also organizes instructions into basic blocks, with branches connecting them. Here's what the SSA of this example looks like:
 
 ```text
 func Update(mu *sync.Mutex, ready bool):
 0:                                                                entry P:0 S:2
+
 	t0 = (*sync.Mutex).Lock(mu)                                          ()
 	if ready goto 2 else 1
 1:                                                       if.then P:1 S:0 idom:0
@@ -68,20 +91,30 @@ func Update(mu *sync.Mutex, ready bool):
 	t1 = (*sync.Mutex).Unlock(mu)                                        ()
 	return
 ```
+SSA is designed for analysis programs that trace dataflow. Here, this representation tells us that:
 
-Block `0` acquires the lock and branches. If `ready` is false, execution goes to block `1`, which returns immediately. Only block `2` unlocks the mutex. The `t0` and `t1` names are SSA temporaries. We don't need the extra block metadata to see the problem.
+- Block `0` acquires the lock and branches.
+- If `ready` is false, execution goes to block `1`, which returns immediately.
+- Only block `2` unlocks the mutex.
+- The `t0` and `t1` names are SSA temporaries.
 
-Both method calls use the same `mu` parameter. That's more useful than matching variable names in the source: we're following the value the calls actually receive.
+We can see the problem clearly: both method calls use the same `mu` parameter. That's more useful than matching variable names in the source, since we're following the _value_ the calls actually receive.
 
-<!-- Dump generated with Go 1.27.0 and golang.org/x/tools v0.49.0. Formatting may change with toolchain updates. -->
-
-That's useful infrastructure to get without writing a compiler. The [`go/ssa` package](https://pkg.go.dev/golang.org/x/tools/go/ssa) supplies the representation, and we can concentrate on the questions we want to ask about it.
-
-Or so I thought. I'd underestimated how much work was hiding inside “ask questions.”
-
-## Facts, facts, facts
+## Facts: one step further
 
 What if the caller delegates the unlock to a helper?
+
+```go
+func Refresh(mu *sync.Mutex) {
+	mu.Lock()
+	// ... do the work ...
+	finish(mu)
+}
+
+func finish(mu *sync.Mutex) {
+	mu.Unlock() // this is hidden inside a helper!
+}
+```
 
 Now the absence of an `Unlock` in the caller doesn't tell us whether anything is wrong. We have to inspect the helper. And we can't just search that helper for an unlock, because it might have its own early return. Or it might unlock something else entirely.
 
@@ -117,45 +150,55 @@ That gives a caller useful information it wouldn't get from an SSA call instruct
 
 The qualification matters. A function that *sometimes* closes its argument doesn't give the caller the same guarantee as one that always does. And a function we haven't analyzed isn't equivalent to one we've analyzed and found to do nothing.
 
-There's quite a lot of engineering in preserving those distinctions. I'd expected to spend most of my time writing checks on top of SSA. Building the layer those checks needed turned out to be a project of its own.
+## Taking a dive: heap modelling
 
-## A walk through history
+SSA is honest about values it can see: locals, parameters, things sitting at known addresses. But real programs don't leave their valuables on the kitchen counter. They tuck them into struct fields, slices, maps. The moment a value is stored into mutable storage, SSA's def-use chains go quiet about what a later load will find there.
 
-There are older tools worth looking at here. People have been trying to persuade programs to clean up after themselves for a while.
+Heap modelling is the layer that picks up that question. It reasons about abstract locations, things like "field `out` of this struct" or "index 1 of that slice," and tracks which object each one currently holds. The inferences still come from the SSA graph. They just go one step further than SSA alone, because we're no longer asking about values at known addresses. We're asking about identity after a trip through the heap.
 
-Meta's [Infer](https://fbinfer.com/docs/separation-logic-and-bi-abduction/) has been a major influence on gohawk, especially its compositional summaries and heap modelling. The idea is to analyze a function on its own, summarize what it needs and what it changes, and use that summary when analyzing its callers. Its separation-logic foundations let it reason about the part of memory a function touches without having to describe the entire heap every time.
+Here's where it matters. Suppose a resource is stored in a struct in one function and cleaned up through a copy of that struct in another:
 
-That's an appealing way to approach the helper problem from the previous section. A call can tell us something about what happened to the objects passed through it, even when their state lives behind pointers and fields. I'm borrowing ideas here, not claiming that gohawk implements Infer's analysis engine.
+```go
+type job struct {
+    out *os.File
+}
 
-The [Clang Static Analyzer](https://clang.llvm.org/docs/ClangStaticAnalyzer.html) uses symbolic execution to explore paths through C and C++ programs. It tracks program state and constraints along the way, giving its checks context for judging later operations. A pointer's history matters, not just the expression currently using it.
+func run(path string) error {
+    // This file is always closed. But to prove it, we need to follow f...
+    f, err := os.Open(path)
+    if err != nil {
+        // We note that f isn't closed on this path, but err being non-nil means we don't have that obligation
+        return err
+    }
+    // ...through this storage in a field...
+    j := job{out: f}
+    // through an interprocedural call...
+    return finish(j)
+}
 
-That's the useful connection to gohawk: an operation becomes meaningful when we know what happened before it. Clang's program-state machinery and Go's analysis facts aren't interchangeable, though. They're different ways of supporting reasoning beyond an isolated statement.
+func finish(j job) error {
+    // ...see that j is a copy of the original j struct...
+    // ...see that j.out here is the same as the original file f...
+    // ...and see that it gets closed on all return paths.
+    return j.out.Close()
+}
+```
 
-For locking specifically, another interesting reference is Linux's lockdep.
+For `finish` to earn the kind of summary the last section showed, the analysis has to follow `f` into the struct field, across the call boundary, and back out through the load in `finish`, and prove it's the same object at every step. Without that, the whole summary layer goes blind the moment anyone uses a struct.
 
-[Lockdep](https://cdn.kernel.org/doc/html/latest/locking/lockdep-design.html) observes locking while the kernel runs and records dependencies between lock classes. If code acquires B while holding A, that establishes an ordering relationship. A conflicting relationship elsewhere can reveal a potential deadlock without requiring that deadlock to happen during the test.
+The model is deliberately pessimistic. If the struct escapes into a function we can't see, or the field is written on only one branch of an `if`, or the index is computed at runtime, the answer isn't a guess. It's "I don't know." Unknown evidence is never a positive result. An analyzer that can't prove identity must not claim it. That's the difference between a fact and a rumor.
 
-The program still locks actual objects. The *validator* groups locks into classes so it can reason about their roles without treating every new instance as an unrelated problem.
+## A pass of the history books
 
-That distinction is useful when analyzing source code, too. We may know which mutex field an operation accesses without knowing the runtime identity of every object containing it.
+While building gohawk, I learned a lot of about the existing landscape of compiler toolchains and static analyzers.
 
-Closer to Go, there's [GCatch](https://github.com/system-pclub/GCatch), a research tool for finding concurrency bugs, including blocking bugs caused by channel misuse. Locks are only part of the story when goroutines can also get stuck waiting to send or receive.
+The biggest influence on gohawk is Meta's [Infer](https://fbinfer.com/docs/separation-logic-and-bi-abduction/), specifically its trick of compositional summaries. Analyze each function once, write down what it needs and what it changes, and let callers use the summary instead of re-deriving everything. Underneath, Infer has serious separation-logic machinery for reasoning about just the slice of the heap a function touches. while Gohawk's capabilities don't come anywhere near to the level of Infer's, we certainly do borrow many techniques from them.
 
-GCatch is a direction I'd like to explore for gohawk's model in the future, to catch more of those interactions. That's a possible extension, not something gohawk already implements. It would also bring us back to the same question: can we understand enough of the interaction to report a useful bug without flagging working code?
+The [Clang Static Analyzer](https://clang.llvm.org/docs/ClangStaticAnalyzer.html) was also an interesting reference point while I was building gohawk. Even though it comes from the C/C++ world, which is pretty orthogonal to Go's memory-safe model -- I still drew a lot of inspiration from it for things like the fact system, bounding the search budget for potentially expensive searches, and resource tracking. Plus, it has a pretty interesting origin story of its own.
 
-## Going back to Go...
+For locking specifically, I kept coming back to Linux's [lockdep](https://cdn.kernel.org/doc/html/latest/locking/lockdep-design.html). Lockdep watches a running kernel and records which lock classes get acquired while holding which others; a conflicting ordering somewhere else flags a potential deadlock without anyone having to actually deadlock first. The elegant move is the level of abstraction: the program locks real objects, but the *validator* groups them into classes and reasons about roles. gohawk does something similar to this -- outside of a function, it becomes nearly impossible to trace the actual identity of the objects that are being locked on, so instead we simply group locks by their class instead when enforcing a certain ordering.
 
-Suppose a store and its entries each have a mutex. One method takes the store lock and then an entry lock. Another method does the reverse.
-
-Either method can look reasonable on its own. The problem appears when we put their orderings together.
-
-For struct fields, gohawk's lock-order check compares the mutex declarations. It can identify that one field is acquired before another in one place and after it elsewhere. It doesn't need to claim that it knows every object those receivers could point to.
-
-That also sets a limit on the conclusion. Conflicting orders are a hazard, not a prediction that these exact calls will deadlock on the next run. Cases that depend on the runtime ordering of two instances of the same mutex field need different evidence.
-
-A finding in [Caddy](https://github.com/caddyserver/caddy/pull/7968) led to a merged fix for an error path that acquired two locks in the opposite order to another path.
-
-<!-- Editorial follow-up: add a compact, verified before-and-after excerpt from the Caddy fix. The example package reproduces the SSA and fact excerpts above. Keep lifecycle summaries and lock-order evidence distinct; do not imply that the lifecycle fact format exports lock-order relationships. -->
+And then there's [GCatch](https://github.com/system-pclub/GCatch), a research tool that hunts concurrency bugs in Go, including the ones where goroutines wedge themselves on channels instead of locks. I'm considering adapting its richer concurrency model for future use, but more on that later.
 
 ## Real-world bugs we've fixed
 
