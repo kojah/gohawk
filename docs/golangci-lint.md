@@ -50,11 +50,11 @@ linters:
         description: Correctness-focused ownership, lifecycle, and concurrency checks.
         settings:
           enable:
-            - borrowedstorage
+            - channelsafety
           disable:
             - lockorder
           enable-checks:
-            - channelsafety/double-close
+            - lockorder/read-lock-write
           disable-checks:
             - deferinloop/cleanup-lifetime
 ```

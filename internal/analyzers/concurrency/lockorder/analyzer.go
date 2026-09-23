@@ -77,10 +77,6 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	for _, function := range functions {
 		var evidence ssaflow.LocalEvidence
 		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers)
-		// A discarded Try acquisition is decided per instruction and needs no
-		// lock-flow state, so it stays outside the path-sensitive walk above,
-		// which may visit a block more than once.
-		reportDiscardedTryLocks(pass, function)
 	}
 	return nil, nil
 }

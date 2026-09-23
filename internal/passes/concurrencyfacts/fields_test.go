@@ -26,12 +26,11 @@ func changed(cell **Owner, replacement *Owner) *sync.Mutex {
 	for _, test := range []struct {
 		name     string
 		complete bool
-		fresh    bool
 	}{
-		{"existing", true, false},
-		{"fresh", true, true},
-		{"absent", false, false},
-		{"changed", false, false},
+		{"existing", true},
+		{"fresh", true},
+		{"absent", false},
+		{"changed", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
@@ -46,8 +45,8 @@ func changed(cell **Owner, replacement *Owner) *sync.Mutex {
 			if !test.complete {
 				return
 			}
-			if len(result.Operations) != 2 || FreshMutex(function, result.Operations[0].Resource) != test.fresh {
-				t.Fatalf("lost exact shared/fresh resource identity: %+v", result)
+			if len(result.Operations) != 2 {
+				t.Fatalf("lost bound mutex operations: %+v", result)
 			}
 		})
 	}

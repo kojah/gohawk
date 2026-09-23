@@ -172,17 +172,6 @@ func PackageVariable(packagePath, name string) Symbol
 
 PackageVariable identifies a package-level variable.
 
-## SameExpression
-
-[Source](../../../../internal/syntax/syntax.go)
-
-```go
-func SameExpression(pass *analysis.Pass, first, second ast.Expr) bool
-```
-
-SameExpression reports whether two expressions identify the same syntactic
-value, using type information to distinguish identifiers with equal names.
-
 ## ShortPackageName
 
 [Source](../../../../internal/syntax/types.go)

@@ -143,7 +143,7 @@ share. Name-only matching is reserved for documented external contracts.
 | `PackageFunction`, `PackageMethod`, `PackageVariable`, `Builtin` | build a `Symbol` for an exact declaration; the SSA matchers above and the AST matchers here take these |
 | `IsCallTo`, `IsCallToAny` | does this call expression resolve to the symbol, by type information rather than name? |
 | `NamedType`, `IsErrorType` | named type identity and error interface implementation |
-| `SameExpression`, `Unparen`, `ExpressionUsesObject` | structural equality of expressions, parenthesis stripping, and whether an expression reads an object |
+| `Unparen`, `ExpressionUsesObject` | parenthesis stripping and whether an expression reads an object |
 | `FunctionParameterObject` | the object a parameter identifier declares |
 | `GeneratedFile`, `SourceRange`, `AnalyzeFile`, `ShortPackageName` | skip generated files, recover a source range from a node, decide whether a file is analyzed, and abbreviate a package path for messages |
 

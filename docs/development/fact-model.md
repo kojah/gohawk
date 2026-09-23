@@ -406,9 +406,6 @@ cut computations are not retained as completed answers.
 
 Consumers keep their own evidence models:
 
-- `channelprotocol` composes bounded, ordered channel and WaitGroup events.
-  Unknown effects invalidate the protocol; event ordering, deferred execution,
-  stable captured storage, and participant completeness remain its policy.
 - `lockorder` composes positive lock-acquisition witnesses with call-site
   provenance. An unavailable callee contributes no witness, **not** proof that
   it acquires no locks. Its bounded search does not invent ordering edges when
@@ -500,9 +497,8 @@ not prove completion. Export considers four result slots and shares a
 ### Ordered concurrency facts
 
 `internal/passes/concurrencyfacts` shares the complete ordered-effect model
-used by `channelprotocol`, the ordered helper path in `lockorder`,
-and the helper-effect paths in `channelsafety`, `goroutineownership`, and
-`producerlifecycle`.
+used by the ordered helper path in `lockorder` and the helper-effect paths in
+`channelsafety`, `goroutineownership`, and `producerlifecycle`.
 It records channel send/receive/close, `WaitGroup.Add(1)`/`Done`/`Wait`, and
 `sync.Mutex.Lock`/`Unlock` events, including completion and unlock defers in
 execution order. The generic summary infrastructure still owns caching,

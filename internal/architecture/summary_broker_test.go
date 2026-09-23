@@ -92,7 +92,7 @@ func summaryBrokerObjectForbidden(object types.Object) bool {
 	if path == internalImportPrefix+"passes/lifecyclefacts" && function.Name() == "ResourceCleanup" {
 		return false
 	}
-	if path == internalImportPrefix+"passes/concurrencyfacts" && (function.Name() == "FreshMutex" || function.Name() == "MutexPointer") {
+	if path == internalImportPrefix+"passes/concurrencyfacts" && function.Name() == "MutexPointer" {
 		return false
 	}
 	return true

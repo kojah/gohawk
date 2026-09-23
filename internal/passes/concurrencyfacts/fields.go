@@ -96,14 +96,3 @@ func containsSynchronization(value types.Type) bool {
 	}
 	return false
 }
-
-// FreshMutex reports whether an exact embedded mutex address belongs to a
-// fresh local allocation. It does not prove scope completeness or lock order.
-func FreshMutex(function *ssa.Function, reference Reference) bool {
-	if reference.Indirect || reference.Value == nil || !MutexPointer(reference.Value.Type()) {
-		return false
-	}
-	path, ok := embeddedPath(reference.Value)
-	allocation, local := path.Root.(*ssa.Alloc)
-	return ok && local && allocation.Parent() == function
-}

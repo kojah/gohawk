@@ -32,9 +32,9 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
 		for _, summary := range []string{
-			"resources (resources and lifecycle): borrowedstorage~, cancellationownership, deferinloop, processownership, resourcelifetime",
-			"concurrency (concurrency and synchronization): channelprotocol~, channelsafety, concurrentcapture, condsafety~, " +
-				"goroutineownership, lockorder, oncepolicy, producerlifecycle, syncmapatomicity, waitgroupsafety~",
+			"resources (resources and lifecycle): cancellationownership, deferinloop, processownership, resourcelifetime",
+			"concurrency (concurrency and synchronization): channelsafety, concurrentcapture, " +
+				"goroutineownership, lockorder, oncepolicy, producerlifecycle",
 			"correctness (general correctness): evalorder, inlineerror",
 		} {
 			if !strings.Contains(output, summary) {
@@ -48,19 +48,19 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"channelsafety", "borrowedstorage", "experimental", "core runs by default", "oncepolicy"} {
+		for _, value := range []string{"channelsafety", "core runs by default", "oncepolicy"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("list output does not contain %q:\n%s", value, output)
 			}
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-defaults")
-		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || !strings.Contains(output, "channelsafety") || strings.Contains(output, "borrowedstorage") {
+		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || !strings.Contains(output, "channelsafety") {
 			t.Fatalf("default list: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-opt-in")
-		if exitCode != 0 || !strings.Contains(output, "borrowedstorage") || strings.Contains(output, "oncepolicy") || strings.Contains(output, "channelsafety") {
+		if exitCode != 0 || strings.Contains(output, "oncepolicy") || strings.Contains(output, "channelsafety") {
 			t.Fatalf("opt-in list: exit code = %d\n%s", exitCode, output)
 		}
 	})

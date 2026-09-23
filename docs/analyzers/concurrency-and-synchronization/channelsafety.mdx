@@ -10,14 +10,6 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 Reports sends reachable after the same channel has been closed.
 
-The experimental `double-close` check reports two closes of the exact same
-channel within one basic block. It includes synchronous helper effects and
-ordered closes within a single helper call, with a related location for the
-first closing call. Distinct channels and uncertain storage identities are
-not reported. This initial proof does not connect closes across basic blocks,
-loop iterations, goroutine launches, or deferred registrations in the caller.
-Known nil channels are excluded: their first close already panics.
-
 Complete concurrency summaries expose closes and sends inside synchronous
 helpers, including imported helpers. A close in one call can therefore be
 matched to a later direct send or helper call on the exact same channel.
@@ -36,7 +28,6 @@ within one call.
 {/* gohawk:generated-checks:start */}
 | Check | Kind | Tier | What it detects |
 | --- | --- | --- | --- |
-| <CheckIdentity name="double-close" tier="experimental" /> | defect | experimental | Reports repeated closes of the same channel in a straight-line block. |
 | <CheckIdentity name="send-after-close" tier="core" /> | defect | core | Reports sends reachable after a channel has been closed. |
 {/* gohawk:generated-checks:end */}
 
@@ -52,8 +43,6 @@ Further reading: [The Go Programming Language Specification: Close](https://go.d
 ## How to fix it
 
 Move the close after the final send or separate the channel lifetimes.
-For a double close, give one code path responsibility for closing the channel
-and remove the repeated close; receiving from a closed channel remains valid.
 
 ## Examples
 

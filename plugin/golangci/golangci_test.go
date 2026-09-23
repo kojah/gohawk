@@ -42,7 +42,7 @@ func TestPluginRejectsSettings(t *testing.T) {
 
 func TestPluginAnalyzerSelection(t *testing.T) {
 	linter, err := New(map[string]any{
-		"enable":  []string{"borrowedstorage"},
+		"enable":  []string{"resourcelifetime"},
 		"disable": []string{"oncepolicy"},
 	})
 	if err != nil {
@@ -57,7 +57,7 @@ func TestPluginAnalyzerSelection(t *testing.T) {
 	if slices.Contains(names, "oncepolicy") {
 		t.Fatalf("disabled analyzer is present: %v", names)
 	}
-	if !slices.Contains(names, "borrowedstorage") {
+	if !slices.Contains(names, "resourcelifetime") {
 		t.Fatalf("enabled analyzer is absent: %v", names)
 	}
 }

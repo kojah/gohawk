@@ -6,44 +6,11 @@
       "slug": "concurrency-and-synchronization",
       "analyzers": [
         {
-          "name": "channelprotocol",
-          "summary": "Checks for proven channel waiting cycles between a caller and worker.",
-          "path": "analyzers/concurrency-and-synchronization/channelprotocol",
-          "tier": "experimental",
-          "checks": [
-            {
-              "id": "channelprotocol/blocked-operation",
-              "summary": "Reports proven channel waiting cycles between a caller and its worker.",
-              "kind": "defect",
-              "tier": "experimental"
-            },
-            {
-              "id": "channelprotocol/lock-and-join",
-              "summary": "Reports waiting for a worker while holding the mutex it needs to complete.",
-              "kind": "defect",
-              "tier": "experimental"
-            },
-            {
-              "id": "channelprotocol/channel-lock-cycle",
-              "summary": "Reports channel communication blocked by a mutex held by its partner.",
-              "kind": "defect",
-              "tier": "experimental"
-            }
-          ],
-          "options": []
-        },
-        {
           "name": "channelsafety",
           "summary": "Checks channel operations for reachable use after close.",
           "path": "analyzers/concurrency-and-synchronization/channelsafety",
           "tier": "core",
           "checks": [
-            {
-              "id": "channelsafety/double-close",
-              "summary": "Reports repeated closes of the same channel in a straight-line block.",
-              "kind": "defect",
-              "tier": "experimental"
-            },
             {
               "id": "channelsafety/send-after-close",
               "summary": "Reports sends reachable after a channel has been closed.",
@@ -64,21 +31,6 @@
               "summary": "Reports repeatedly launched goroutines that mutate the same captured local.",
               "kind": "hazard",
               "tier": "core"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "condsafety",
-          "summary": "Checks Cond waits on proven unlocked mutexes.",
-          "path": "analyzers/concurrency-and-synchronization/condsafety",
-          "tier": "experimental",
-          "checks": [
-            {
-              "id": "condsafety/wait-unlocked",
-              "summary": "Reports Cond waits with a proven unlocked associated mutex.",
-              "kind": "defect",
-              "tier": "experimental"
             }
           ],
           "options": []
@@ -139,12 +91,6 @@
               "summary": "Reports a lock released with the wrong method for how it was acquired.",
               "kind": "defect",
               "tier": "experimental"
-            },
-            {
-              "id": "lockorder/discarded-trylock",
-              "summary": "Reports a TryLock whose result is discarded, leaving the lock possibly unheld.",
-              "kind": "defect",
-              "tier": "experimental"
             }
           ],
           "options": []
@@ -178,36 +124,6 @@
             }
           ],
           "options": []
-        },
-        {
-          "name": "syncmapatomicity",
-          "summary": "Checks non-atomic sync.Map load-and-delete claims.",
-          "path": "analyzers/concurrency-and-synchronization/syncmapatomicity",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "syncmapatomicity/non-atomic-claim",
-              "summary": "Reports separate sync.Map Load and Delete operations used to claim one value.",
-              "kind": "hazard",
-              "tier": "core"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "waitgroupsafety",
-          "summary": "Checks proven WaitGroup counter underflows.",
-          "path": "analyzers/concurrency-and-synchronization/waitgroupsafety",
-          "tier": "experimental",
-          "checks": [
-            {
-              "id": "waitgroupsafety/negative-counter",
-              "summary": "Reports proven WaitGroup counter underflows.",
-              "kind": "defect",
-              "tier": "experimental"
-            }
-          ],
-          "options": []
         }
       ]
     },
@@ -216,21 +132,6 @@
       "title": "Resources and lifecycle",
       "slug": "resources-and-lifecycle",
       "analyzers": [
-        {
-          "name": "borrowedstorage",
-          "summary": "Checks borrowed mutable storage transferred to a second owner.",
-          "path": "analyzers/resources-and-lifecycle/borrowedstorage",
-          "tier": "experimental",
-          "checks": [
-            {
-              "id": "borrowedstorage/overlapping-owner",
-              "summary": "Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy.",
-              "kind": "hazard",
-              "tier": "experimental"
-            }
-          ],
-          "options": []
-        },
         {
           "name": "cancellationownership",
           "summary": "Checks context and signal-derived cancellation functions proved lost on a normal return path.",

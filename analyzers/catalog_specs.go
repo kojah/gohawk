@@ -1,19 +1,14 @@
 package analyzers
 
 import (
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/channelprotocol"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/channelsafety"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/concurrentcapture"
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/condsafety"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/goroutineownership"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/lockorder"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/oncepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/producerlifecycle"
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/syncmapatomicity"
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/waitgroupsafety"
 	"github.com/kojah/gohawk/internal/analyzers/correctness/evalorder"
 	"github.com/kojah/gohawk/internal/analyzers/correctness/inlineerror"
-	"github.com/kojah/gohawk/internal/analyzers/resources/borrowedstorage"
 	"github.com/kojah/gohawk/internal/analyzers/resources/cancellationownership"
 	"github.com/kojah/gohawk/internal/analyzers/resources/deferinloop"
 	"github.com/kojah/gohawk/internal/analyzers/resources/processownership"
@@ -24,25 +19,7 @@ import (
 
 func concurrencySpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
-		{Analyzer: channelprotocol.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ChannelProtocolBlocked, Doc: "Reports proven channel waiting cycles between a caller and its worker.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
-			{
-				ID: check.ChannelProtocolLockJoin, Doc: "Reports waiting for a worker while holding the mutex it needs to complete.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
-			{
-				ID: check.ChannelProtocolLockCycle, Doc: "Reports channel communication blocked by a mutex held by its partner.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
-		}},
 		{Analyzer: channelsafety.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ChannelDoubleClose, Doc: "Reports repeated closes of the same channel in a straight-line block.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
 			{
 				ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed.",
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
@@ -52,12 +29,6 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.ConcurrentCapture, Doc: "Reports repeatedly launched goroutines that mutate the same captured local.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: condsafety.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.CondWaitUnlocked, Doc: "Reports Cond waits with a proven unlocked associated mutex.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 		}},
 		{Analyzer: goroutineownership.Analyzer(), Checks: []catalog.CheckInfo{
@@ -84,10 +55,6 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				ID: check.LockMismatchedRelease, Doc: "Reports a lock released with the wrong method for how it was acquired.",
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
-			{
-				ID: check.LockDiscardedTryLock, Doc: "Reports a TryLock whose result is discarded, leaving the lock possibly unheld.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
 		}},
 		{Analyzer: oncepolicy.Analyzer(), Checks: []catalog.CheckInfo{
 			{
@@ -101,27 +68,11 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
 			},
 		}},
-		{Analyzer: syncmapatomicity.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.SyncMapNonAtomicClaim, Doc: "Reports separate sync.Map Load and Delete operations used to claim one value.",
-				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: waitgroupsafety.Analyzer(), Checks: []catalog.CheckInfo{
-			{ID: check.WaitGroupNegativeCounter, Doc: "Reports proven WaitGroup counter underflows.", Kind: catalog.KindDefect, Tier: catalog.TierExperimental},
-		}},
 	}
 }
 
 func resourcesSpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
-		{Analyzer: borrowedstorage.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID:   check.BorrowedStorageOwner,
-				Doc:  "Reports borrowed bytes.Buffer storage transferred to a second escaping owner without a copy.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
-			},
-		}},
 		{Analyzer: cancellationownership.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.CancellationRelease, Doc: "Reports derived cancel functions proved lost on a feasible normal return path.",

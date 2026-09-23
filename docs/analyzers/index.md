@@ -16,13 +16,9 @@ Kind is descriptive metadata and does not change whether a check is enabled by d
 
 ## Concurrency and synchronization
 
-These analyzers check goroutine lifecycles, channel protocols, and synchronization.
+These analyzers check goroutine lifecycles, channel use, and synchronization.
 
 <div class="analyzer-grid">
-  <a class="analyzer-card" href="concurrency-and-synchronization/channelprotocol/">
-    <span class="analyzer-name">channelprotocol</span>
-    <span class="analyzer-detects">Checks for proven channel waiting cycles between a caller and worker.</span>
-  </a>
   <a class="analyzer-card" href="concurrency-and-synchronization/channelsafety/">
     <span class="analyzer-name">channelsafety</span>
     <span class="analyzer-detects">Checks channel operations for reachable use after close.</span>
@@ -30,10 +26,6 @@ These analyzers check goroutine lifecycles, channel protocols, and synchronizati
   <a class="analyzer-card" href="concurrency-and-synchronization/concurrentcapture/">
     <span class="analyzer-name">concurrentcapture</span>
     <span class="analyzer-detects">Checks locals mutated by goroutines launched repeatedly.</span>
-  </a>
-  <a class="analyzer-card" href="concurrency-and-synchronization/condsafety/">
-    <span class="analyzer-name">condsafety</span>
-    <span class="analyzer-detects">Checks Cond waits on proven unlocked mutexes.</span>
   </a>
   <a class="analyzer-card" href="concurrency-and-synchronization/goroutineownership/">
     <span class="analyzer-name">goroutineownership</span>
@@ -51,14 +43,6 @@ These analyzers check goroutine lifecycles, channel protocols, and synchronizati
     <span class="analyzer-name">producerlifecycle</span>
     <span class="analyzer-detects">Checks that goroutine producers cannot outlive their receivers.</span>
   </a>
-  <a class="analyzer-card" href="concurrency-and-synchronization/syncmapatomicity/">
-    <span class="analyzer-name">syncmapatomicity</span>
-    <span class="analyzer-detects">Checks non-atomic sync.Map load-and-delete claims.</span>
-  </a>
-  <a class="analyzer-card" href="concurrency-and-synchronization/waitgroupsafety/">
-    <span class="analyzer-name">waitgroupsafety</span>
-    <span class="analyzer-detects">Checks proven WaitGroup counter underflows.</span>
-  </a>
 </div>
 
 ## Resources and lifecycle
@@ -66,10 +50,6 @@ These analyzers check goroutine lifecycles, channel protocols, and synchronizati
 These analyzers check resource ownership, cleanup, and lifetimes.
 
 <div class="analyzer-grid">
-  <a class="analyzer-card" href="resources-and-lifecycle/borrowedstorage/">
-    <span class="analyzer-name">borrowedstorage</span>
-    <span class="analyzer-detects">Checks borrowed mutable storage transferred to a second owner.</span>
-  </a>
   <a class="analyzer-card" href="resources-and-lifecycle/cancellationownership/">
     <span class="analyzer-name">cancellationownership</span>
     <span class="analyzer-detects">Checks context and signal-derived cancellation functions proved lost on a normal return path.</span>

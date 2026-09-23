@@ -149,17 +149,6 @@ func (*Fact) AFact()
 
 AFact marks the versioned concurrency summary for go/analysis serialization.
 
-## FreshMutex
-
-[Source](../../../../internal/passes/concurrencyfacts/fields.go)
-
-```go
-func FreshMutex(function *ssa.Function, reference Reference) bool
-```
-
-FreshMutex reports whether an exact embedded mutex address belongs to a
-fresh local allocation. It does not prove scope completeness or lock order.
-
 ## Incomplete, CompleteNoEffects, CompleteWithEffects
 
 [Source](../../../../internal/passes/concurrencyfacts/summary.go)

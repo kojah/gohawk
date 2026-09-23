@@ -38,12 +38,12 @@ func TestWithAnalyzerSelection(t *testing.T) {
 
 	got := selectArguments([]string{"gohawk", "-disable=oncepolicy", "./..."})
 	joined := strings.Join(got, " ")
-	for _, value := range []string{"-lockorder=true", "-syncmapatomicity=true"} {
+	for _, value := range []string{"-lockorder=true", "-processownership=true"} {
 		if !strings.Contains(joined, value) {
 			t.Errorf("default arguments do not contain %q: %v", value, got)
 		}
 	}
-	for _, value := range []string{"-oncepolicy=true", "-borrowedstorage=true"} {
+	for _, value := range []string{"-oncepolicy=true"} {
 		if strings.Contains(joined, value) {
 			t.Errorf("default arguments unexpectedly contain %q: %v", value, got)
 		}
@@ -65,9 +65,7 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 
 	t.Run("groups include opt-in analyzers", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups=concurrency,resources", "./..."}), " ")
-		for _, value := range []string{
-			"-lockorder=true", "-channelsafety=true", "-oncepolicy=true", "-borrowedstorage=true",
-		} {
+		for _, value := range []string{"-lockorder=true", "-channelsafety=true", "-oncepolicy=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("group arguments do not contain %q: %s", value, got)
 			}
@@ -107,7 +105,7 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 
 	t.Run("disabled groups subtract from enable-all", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-enable-all", "-disable-groups=concurrency", "./..."}), " ")
-		for _, value := range []string{"-inlineerror=true", "-borrowedstorage=true"} {
+		for _, value := range []string{"-inlineerror=true", "-resourcelifetime=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("enable-all exclusion does not contain %q: %s", value, got)
 			}
@@ -341,7 +339,7 @@ func TestCheckSelectionTiers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !selection.normallySelected["channelsafety"] || selection.normallySelected["borrowedstorage"] {
+		if !selection.normallySelected["channelsafety"] {
 			t.Fatalf("selected analyzers = %v", selection.normallySelected)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)

@@ -9,7 +9,7 @@ import (
 // groupIntros carries each group's one-sentence introduction, shown under its
 // heading on the catalog page. Keyed by group name.
 var groupIntros = map[string]string{
-	"concurrency": "These analyzers check goroutine lifecycles, channel protocols, and synchronization.",
+	"concurrency": "These analyzers check goroutine lifecycles, channel use, and synchronization.",
 	"resources":   "These analyzers check resource ownership, cleanup, and lifetimes.",
 	"correctness": "These analyzers check error handling and expression behavior beyond ordinary type checking.",
 }

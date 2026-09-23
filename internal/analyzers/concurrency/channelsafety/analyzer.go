@@ -33,7 +33,6 @@ func runChannelSafety(pass *analysis.Pass) (any, error) {
 	for _, function := range functions {
 		effects := channelEffects(pass, function)
 		reportSendsAfterClose(pass, function, effects)
-		reportDoubleCloses(pass, function, effects)
 	}
 	return nil, nil
 }
