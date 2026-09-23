@@ -58,6 +58,24 @@ func TestGeneratedManifestMatchesCatalog(t *testing.T) {
 	}
 }
 
+func TestFastManifestLeavesExamplesUncollected(t *testing.T) {
+	root, err := repositoryRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := collectManifest(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, group := range data.Groups {
+		for _, analyzer := range group.Analyzers {
+			if len(analyzer.Examples.Flagged) != 0 || analyzer.Examples.OK.Code != "" {
+				t.Fatalf("fast manifest collected examples for %s", analyzer.Name)
+			}
+		}
+	}
+}
+
 func TestExamplesBlockTitlesMultipleFlaggedCases(t *testing.T) {
 	block, err := examplesBlock(docexamples.Set{
 		Flagged: []docexamples.Example{

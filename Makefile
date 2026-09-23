@@ -14,8 +14,8 @@ BENCHMARK_ARGS ?=
 VERIFY_JOBS ?= 4
 
 VERIFY_BASE_TARGETS := mod-verify fmt-check vet deadcode
-# Local generation already validates the documentation it writes. CI cannot
-# rewrite committed pages, so it runs the strict generated-check instead.
+# Local generation skips expensive analyzer example validation. CI checks both
+# ordinary generated content and live analyzer examples against committed pages.
 VERIFY_STATIC_TARGETS := $(strip $(VERIFY_BASE_TARGETS) lint dogfood $(if $(CI),generated-check))
 # CI runs lint and dogfood in dedicated jobs; its fast job must not repeat them.
 VERIFY_CI_FAST_TARGETS := $(VERIFY_BASE_TARGETS) generated-check
@@ -31,7 +31,7 @@ VERIFY_MAKE_ARGS := --no-print-directory $(VERIFY_OUTPUT_SYNC) --jobs=$(VERIFY_J
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build fmt fmt-check generate generated-check mod-verify lint deadcode vuln test \
+.PHONY: help build fmt fmt-check generate generate-examples generated-check mod-verify lint deadcode vuln test \
 	test-exhaustive test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
 	precision-regression site-check site-build site-audit site-audit-production site-links site-links-external site-review generated-sync
 
@@ -39,7 +39,8 @@ help:
 	@printf '%s\n' \
 		'Common targets:' \
 		'  make fmt             Format tracked Go source files' \
-		'  make generate        Regenerate analyzer documentation' \
+		'  make generate        Regenerate analyzer documentation without rerunning examples' \
+		'  make generate-examples  Validate analyzer examples and regenerate their pages' \
 		'  make lint            Run the golangci-lint suite and the dead-code gate' \
 		'  make deadcode        Fail on internal functions unreachable from any entry point' \
 		'  make vuln            Check reachable dependencies for known vulnerabilities' \
@@ -72,8 +73,11 @@ fmt-check:
 generate:
 	$(GO) generate ./...
 
+generate-examples:
+	$(GO) run ./tools/gendocs -examples
+
 generated-check:
-	$(GO) run ./tools/gendocs -check
+	$(GO) run ./tools/gendocs -check -examples
 
 mod-verify:
 	$(GO) mod verify
@@ -121,12 +125,11 @@ dogfood: build
 skills-check:
 	./scripts/check-skills-current.sh
 
-# Regenerate derived documentation before the local gates fan out, so
-# mechanical drift is repaired in place instead of reported and then fixed by
-# hand. It runs as a prerequisite, ahead of the parallel checks, so nothing
-# reads a page while it is being rewritten. Hosted CI keeps the strict
-# generated-check: it cannot commit a fix, and a stale committed page must
-# fail there.
+# Regenerate derived documentation while retaining existing examples before
+# the local gates fan out. Mechanical drift is repaired in place, ahead of
+# parallel checks, so nothing reads a page while it is being rewritten.
+# Hosted CI runs generated-check with live examples; a stale committed page
+# must fail there because CI cannot commit the fix.
 ifndef CI
 generated-sync: generate
 else

@@ -11,11 +11,14 @@ import (
 	"github.com/kojah/gohawk/internal/docexamples"
 )
 
-func collectManifest(root string) (manifest, error) {
+func collectManifest(root string, includeExamples bool) (manifest, error) {
 	metadata := gohawk.AnalyzerMetadata()
 	seen := make(map[string]bool)
 	analyzerGroups := gohawk.AnalyzerGroups()
-	targets := make([]docexamples.Target, 0, len(metadata))
+	var targets []docexamples.Target
+	if includeExamples {
+		targets = make([]docexamples.Target, 0, len(metadata))
+	}
 	for _, analyzerGroup := range analyzerGroups {
 		for _, registered := range analyzerGroup.Analyzers {
 			if seen[registered.Name] {
@@ -25,10 +28,12 @@ func collectManifest(root string) (manifest, error) {
 			if _, ok := metadata[registered.Name]; !ok {
 				return manifest{}, fmt.Errorf("analyzer %q has no metadata", registered.Name)
 			}
-			targets = append(targets, docexamples.Target{
-				TestRoot: filepath.Join(root, "internal", "analyzers", analyzerGroup.Name, registered.Name, "testdata"),
-				Analyzer: registered,
-			})
+			if includeExamples {
+				targets = append(targets, docexamples.Target{
+					TestRoot: filepath.Join(root, "internal", "analyzers", analyzerGroup.Name, registered.Name, "testdata"),
+					Analyzer: registered,
+				})
+			}
 		}
 	}
 	for name := range metadata {
@@ -36,9 +41,13 @@ func collectManifest(root string) (manifest, error) {
 			return manifest{}, fmt.Errorf("metadata exists for unknown analyzer %q", name)
 		}
 	}
-	examples, err := docexamples.CollectAll(targets)
-	if err != nil {
-		return manifest{}, err
+	var examples map[string]docexamples.Set
+	if includeExamples {
+		var err error
+		examples, err = docexamples.CollectAll(targets)
+		if err != nil {
+			return manifest{}, err
+		}
 	}
 
 	result := manifest{}

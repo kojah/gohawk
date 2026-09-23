@@ -54,9 +54,12 @@ Each analyzer keeps its test programs in a local `testdata` directory. A
 `// want "message"` comment marks code that should produce a diagnostic. Code
 without that marker is expected to be accepted.
 
-Documentation examples come from those same test programs. Running
-`go generate ./...` checks the examples with the real analyzers and updates
-the generated documentation. This keeps examples and behavior in sync.
+Documentation examples come from those same test programs. `go generate ./...`
+updates catalog and reference content quickly while leaving the existing
+examples in place. After changing example fixtures or analyzer behavior, run
+`make generate-examples` to validate them with the real analyzers and update
+their generated blocks. CI runs `make generated-check` with live example
+validation, so stale committed examples fail the build.
 
 Larger analyzers use shared control-flow and data-flow tools to decide whether
 a diagnostic is safe to report. The sections below describe how those tools

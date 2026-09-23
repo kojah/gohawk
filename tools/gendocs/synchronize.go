@@ -11,8 +11,8 @@ import (
 	"sort"
 )
 
-func synchronize(root string, check bool) error {
-	data, err := collectManifest(root)
+func synchronize(root string, check, includeExamples bool) error {
+	data, err := collectManifest(root, includeExamples)
 	if err != nil {
 		return err
 	}
@@ -23,40 +23,9 @@ func synchronize(root string, check bool) error {
 		for _, analyzer := range group.Analyzers {
 			page := filepath.Join(root, "docs", filepath.FromSlash(analyzer.Path+".mdx"))
 			expectedPages[page] = true
-			contents, err := os.ReadFile(page)
+			contents, err := analyzerPage(root, page, analyzer, includeExamples)
 			if err != nil {
-				return fmt.Errorf("analyzer %q has no documentation page at %s", analyzer.Name, relativePath(root, page))
-			}
-			if err := validateAnalyzerFrontmatter(contents, analyzer.Name); err != nil {
-				return fmt.Errorf("%s: %w", relativePath(root, page), err)
-			}
-			contents, err = synchronizeAnalyzerComponents(contents)
-			if err != nil {
-				return fmt.Errorf("update components for %s: %w", analyzer.Name, err)
-			}
-			checks, err := checksBlock(analyzer.Name, analyzer.Checks)
-			if err != nil {
-				return fmt.Errorf("render checks for %s: %w", analyzer.Name, err)
-			}
-			contents, err = synchronizeChecks(contents, checks)
-			if err != nil {
-				return fmt.Errorf("update checks for %s: %w", analyzer.Name, err)
-			}
-			examples, err := examplesBlock(analyzer.Examples)
-			if err != nil {
-				return fmt.Errorf("render examples for %s: %w", analyzer.Name, err)
-			}
-			contents, err = synchronizeExamples(contents, examples)
-			if err != nil {
-				return fmt.Errorf("update examples for %s: %w", analyzer.Name, err)
-			}
-			if len(analyzer.Options) > 0 {
-				contents, err = synchronizeOptions(contents, optionsTable(analyzer.Options))
-				if err != nil {
-					return fmt.Errorf("update options for %s: %w", analyzer.Name, err)
-				}
-			} else if bytes.Contains(contents, []byte(generatedOptionsStart)) || bytes.Contains(contents, []byte("\n## Options\n")) {
-				return fmt.Errorf("%s documents options, but analyzer %q has no flags", relativePath(root, page), analyzer.Name)
+				return err
 			}
 			updates[page] = contents
 		}
@@ -80,6 +49,47 @@ func synchronize(root string, check bool) error {
 		}
 	}
 	return nil
+}
+
+func analyzerPage(root, page string, analyzer analyzer, includeExamples bool) ([]byte, error) {
+	contents, err := os.ReadFile(page)
+	if err != nil {
+		return nil, fmt.Errorf("analyzer %q has no documentation page at %s", analyzer.Name, relativePath(root, page))
+	}
+	if err := validateAnalyzerFrontmatter(contents, analyzer.Name); err != nil {
+		return nil, fmt.Errorf("%s: %w", relativePath(root, page), err)
+	}
+	contents, err = synchronizeAnalyzerComponents(contents)
+	if err != nil {
+		return nil, fmt.Errorf("update components for %s: %w", analyzer.Name, err)
+	}
+	checks, err := checksBlock(analyzer.Name, analyzer.Checks)
+	if err != nil {
+		return nil, fmt.Errorf("render checks for %s: %w", analyzer.Name, err)
+	}
+	contents, err = synchronizeChecks(contents, checks)
+	if err != nil {
+		return nil, fmt.Errorf("update checks for %s: %w", analyzer.Name, err)
+	}
+	if includeExamples {
+		examples, err := examplesBlock(analyzer.Examples)
+		if err != nil {
+			return nil, fmt.Errorf("render examples for %s: %w", analyzer.Name, err)
+		}
+		contents, err = synchronizeExamples(contents, examples)
+		if err != nil {
+			return nil, fmt.Errorf("update examples for %s: %w", analyzer.Name, err)
+		}
+	}
+	if len(analyzer.Options) > 0 {
+		contents, err = synchronizeOptions(contents, optionsTable(analyzer.Options))
+		if err != nil {
+			return nil, fmt.Errorf("update options for %s: %w", analyzer.Name, err)
+		}
+	} else if bytes.Contains(contents, []byte(generatedOptionsStart)) || bytes.Contains(contents, []byte("\n## Options\n")) {
+		return nil, fmt.Errorf("%s documents options, but analyzer %q has no flags", relativePath(root, page), analyzer.Name)
+	}
+	return contents, nil
 }
 
 // collectSharedUpdates adds the pages that are not tied to one analyzer: the
@@ -124,7 +134,7 @@ func updateFile(root, path string, expected []byte, check bool) error {
 		return nil
 	}
 	if check {
-		return fmt.Errorf("generated documentation is stale: %s (run go generate ./...)", relativePath(root, path))
+		return fmt.Errorf("generated documentation is stale: %s (run make generate, or make generate-examples for example changes)", relativePath(root, path))
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err

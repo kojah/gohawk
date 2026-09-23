@@ -61,6 +61,7 @@ type optionFlag struct {
 
 func main() {
 	check := flag.Bool("check", false, "fail if generated documentation is stale")
+	examples := flag.Bool("examples", false, "validate analyzer fixtures and refresh generated examples")
 	helpersCheck := flag.Bool("helpers-check", false, "check only generated shared-helper references")
 	flag.Parse()
 
@@ -69,7 +70,7 @@ func main() {
 		if *helpersCheck {
 			err = checkHelperReferences(root)
 		} else {
-			err = synchronize(root, *check)
+			err = synchronize(root, *check, *examples)
 		}
 	}
 	if err != nil {
