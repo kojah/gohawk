@@ -295,6 +295,16 @@ must be at that path.
 consumer that only asks whether the callee releases part of what it was
 handed.
 
+## Claims as projection queries
+
+The heap projection is becoming the one encoding of what a function does
+to the objects a caller can name, and each mask claim is being re-expressed
+as a query over it, one claim at a time, with the derivability test in the
+pass recording which claims are queries already. `ReceiverStore` is: on
+every normal return, some slot beneath the receiver holds the parameter's
+object and nothing else. The remaining masks still have their own proofs;
+the projection must express each before its proof goes.
+
 ## Serialization
 
 Every fact type encodes itself as JSON inside the gob stream go/analysis

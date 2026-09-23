@@ -153,6 +153,7 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 
 func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Function) Fact {
 	var fact Fact
+	heap := projectHeap(function)
 	fact.OwnedFields = ownedFields(pass, function)
 	fact.ReleasedFields = releasedFields(pass, function)
 	fact.OwnedResults = ownedResults(pass, function)
@@ -184,11 +185,11 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 		if releasesDerivedValueInLoop(function, parameter) {
 			fact.LoopReleased |= bit
 		}
-		summarizeTransfers(pass, retentions, function, index, parameter, &fact)
+		summarizeTransfers(pass, retentions, heap, function, index, parameter, &fact)
 	}
 	fact.Conditional = summarizeConditional(pass, function)
 	fact.ReturnedCleanup = summarizeReturnedCleanup(pass, function)
-	fact.Heap = summarizeHeap(function, &fact)
+	fact.Heap = withReleases(heap, &fact)
 	return fact
 }
 
@@ -355,6 +356,7 @@ func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruct
 func summarizeTransfers(
 	pass *analysis.Pass,
 	retentions *retentionCache,
+	heap *ssaflow.HeapSummary,
 	function *ssa.Function,
 	index int,
 	parameter ssa.Value,
@@ -364,7 +366,7 @@ func summarizeTransfers(
 	if returnedOwnerOnEveryReturn(pass, function, parameter) {
 		fact.ReturnedOwner |= bit
 	}
-	if index > 0 && storedInReceiverOnEveryReturn(function, function.Params[0], parameter) {
+	if index > 0 && receiverStores(heap, index) {
 		fact.ReceiverStore |= bit
 	}
 	if retentions.retainedAnywhere(pass, function, parameter) {
@@ -444,15 +446,4 @@ func allResultsNil(returned *ssa.Return) bool {
 		}
 	}
 	return true
-}
-
-func storedInReceiverOnEveryReturn(function *ssa.Function, receiver, parameter ssa.Value) bool {
-	return ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
-		store, ok := instruction.(*ssa.Store)
-		if !ok || !ssaflow.ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) {
-			return false
-		}
-		field, ok := store.Addr.(*ssa.FieldAddr)
-		return ok && ssaflow.ValueDerivesFrom(field.X, receiver, map[ssa.Value]bool{})
-	}, ssaflow.CoverageEveryReturn, nil)
 }
