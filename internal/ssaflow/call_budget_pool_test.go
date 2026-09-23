@@ -16,8 +16,10 @@ func TestBudgetWithinPool(t *testing.T) {
 		t.Fatal("first child should stop at its own limit, not the pool's")
 	}
 	second := pool.Within(10)
-	if !second.Spend() || !second.Spend() {
-		t.Fatal("pool still had two instructions")
+	for range 2 {
+		if !second.Spend() {
+			t.Fatal("pool still had two instructions")
+		}
 	}
 	if second.Spend() || !second.PoolExhausted() || !pool.Exhausted() {
 		t.Fatal("second child should stop because the pool ran out")
