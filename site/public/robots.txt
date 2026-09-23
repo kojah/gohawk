@@ -1,0 +1,7 @@
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+Sitemap: https://gohawk.dev/sitemap-index.xml
