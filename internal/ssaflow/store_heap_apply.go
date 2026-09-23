@@ -34,28 +34,7 @@ func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallC
 		})
 	}
 	substitution := &heapSubstitution{graph: graph, state: state, common: common, instruction: instruction, fresh: map[string]*region{}}
-	// The callee's escapes describe the objects as they were handed in, so
-	// they are applied before the truncation and the edges rewrite the
-	// caller's slots: an argument whose contents the callee may also have
-	// overwritten still escaped with everything it held.
-	for _, effect := range summary.Effects {
-		if effect.Escape == 0 {
-			continue
-		}
-		// An escape at the object itself escapes the object; one at a path
-		// beneath it escapes what that slot holds.
-		set := substitution.slots(effect.Slot)
-		if effect.Slot.Path != "" {
-			contents := pointees{}
-			for held, stale := range set {
-				for pointee, pointeeStale := range graph.content(state, held) {
-					contents.add(pointee, stale || pointeeStale)
-				}
-			}
-			set = contents
-		}
-		graph.escape(state, set, effect.Escape, instruction)
-	}
+	graph.applyEscapes(state, summary, substitution, instruction)
 	for _, at := range summary.Truncated {
 		substitution.truncate(at)
 	}
@@ -74,6 +53,40 @@ func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallC
 		substitution.results(call)
 	}
 	return true
+}
+
+// applyEscapes applies the callee's escapes. They describe the objects as
+// they were handed in, so they are applied before the truncation and the
+// edges rewrite the caller's slots: an argument whose contents the callee
+// may also have overwritten still escaped with everything it held.
+func (graph *regionGraph) applyEscapes(state *regionState, summary HeapSummary, substitution *heapSubstitution, instruction ssa.Instruction) {
+	for _, effect := range summary.Effects {
+		if effect.Escape == 0 {
+			continue
+		}
+		// An escape at the object itself escapes the object; one at a path
+		// beneath it escapes what that slot holds.
+		set := substitution.slots(effect.Slot)
+		if effect.Slot.Path != "" {
+			contents := pointees{}
+			for held, stale := range set {
+				for pointee, pointeeStale := range graph.content(state, held) {
+					contents.add(pointee, stale || pointeeStale)
+				}
+			}
+			set = contents
+		}
+		graph.escape(state, set, effect.Escape, instruction)
+		// An object the callee handed to code nobody can follow, such as a
+		// callback it invoked, may have been written through by that code
+		// with everything it holds, closures' captured variables included;
+		// the caller forgets it exactly as it would at its own unresolved
+		// call. The summary's edges, applied afterwards, restore what the
+		// callee proved.
+		if effect.Escape&(HeapEscapedCall|HeapEscapedAsync) != 0 {
+			graph.clobber(state, set, graph.id(instruction))
+		}
+	}
 }
 
 type heapSubstitution struct {
@@ -259,6 +272,10 @@ func (substitution *heapSubstitution) forgetSlots(set pointees) {
 			substitution.graph.clearSubtree(substitution.state, target)
 			substitution.state.clobbered[target] = substitution.graph.id(substitution.instruction)
 			continue
+		}
+		// A closure the callee may have run wrote through what it captured.
+		if target.region.kind == regionClosure {
+			substitution.graph.clobber(substitution.state, pointees{target: false}, substitution.graph.id(substitution.instruction))
 		}
 		// A foreign object the callee may have rewritten beneath: forget
 		// what was known there and restamp its unwritten content.

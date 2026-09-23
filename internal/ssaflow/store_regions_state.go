@@ -43,6 +43,11 @@ type regionState struct {
 	// slot beneath an object is the address of that field or element; its
 	// escape hands on what lies beneath it, not the object above it.
 	escapes map[slot]HeapEscape
+	// ran marks function values that code the graph cannot see invoked.
+	// Running a callback is not keeping it, so it is no escape; but what
+	// the callback captured may have been written, so the projection cuts
+	// a root that ran.
+	ran map[*region]bool
 	// opaque records that a call the graph could not resolve or summarize
 	// may have written anything the function did not allocate; the heap
 	// projection is then truncated at every root.
@@ -62,6 +67,7 @@ func newRegionState() *regionState {
 		stepEpochs: map[string]int{},
 		clobbered:  map[slot]int{},
 		escaped:    map[*region]bool{},
+		ran:        map[*region]bool{},
 		escapes:    map[slot]HeapEscape{},
 		deferred:   pointees{},
 	}
@@ -95,6 +101,7 @@ func (state *regionState) clone() *regionState {
 		stepEpochs: make(map[string]int, len(state.stepEpochs)),
 		clobbered:  make(map[slot]int, len(state.clobbered)),
 		escaped:    make(map[*region]bool, len(state.escaped)),
+		ran:        maps.Clone(state.ran),
 		escapes:    make(map[slot]HeapEscape, len(state.escapes)),
 		opaque:     state.opaque,
 		deferred:   state.deferred.clone(),
@@ -124,6 +131,7 @@ func (graph *regionGraph) merge(state, other *regionState, backEdge bool, header
 	graph.mergeBacking(state, other, header)
 	graph.mergeStamps(state, other, header)
 	maps.Copy(state.escaped, other.escaped)
+	maps.Copy(state.ran, other.ran)
 	for target, kinds := range other.escapes {
 		state.escapes[target] |= kinds
 	}
@@ -227,6 +235,7 @@ func (state *regionState) equal(other *regionState) bool {
 		maps.Equal(state.stepEpochs, other.stepEpochs) &&
 		maps.Equal(state.clobbered, other.clobbered) &&
 		maps.Equal(state.escaped, other.escaped) &&
+		maps.Equal(state.ran, other.ran) &&
 		maps.Equal(state.escapes, other.escapes) &&
 		state.opaque == other.opaque &&
 		maps.Equal(state.deferred, other.deferred) &&
@@ -272,6 +281,8 @@ func (state *regionState) difference(other *regionState) string {
 		return "clobbers"
 	case !maps.Equal(state.escapes, other.escapes):
 		return "escapes"
+	case !maps.Equal(state.ran, other.ran):
+		return "callbacks run"
 	case !maps.Equal(state.backing, other.backing):
 		return "backing"
 	case state.opaque != other.opaque:

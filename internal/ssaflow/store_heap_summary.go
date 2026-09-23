@@ -546,6 +546,11 @@ func (projection *heapProjection) truncated(states []*regionState) []HeapSlot {
 		seen[at] = true
 	}
 	for _, state := range states {
+		for object, root := range projection.roots {
+			if state.ran[object] {
+				seen[HeapSlot{Root: root}] = true
+			}
+		}
 		if !state.opaque {
 			continue
 		}

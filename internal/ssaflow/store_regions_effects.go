@@ -94,6 +94,17 @@ func (graph *regionGraph) invalidateForeign(state *regionState, step string, sta
 			state.clobbered[target] = stamp
 		}
 	}
+	// An escaped local the function never wrote has no entry to forget,
+	// and would still read as its zero value: a variable captured by a
+	// callback and assigned only inside it read as nil after the call that
+	// ran the callback. Every escaped site is marked clobbered instead,
+	// whole even when one step was written, because its unwritten slots
+	// cannot be listed; the slots it did write keep their own entries.
+	for object := range state.escaped {
+		if object.kind == regionSite {
+			state.clobbered[slot{region: object}] = stamp
+		}
+	}
 	if step == "" {
 		if reach == reachAny {
 			state.epoch = stamp
@@ -312,6 +323,7 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 	}
 	if callee == nil || len(callee.Blocks) == 0 || started {
 		graph.unresolvedCall(state, arguments, kind, instruction)
+		graph.runCallback(state, common, instruction)
 		return
 	}
 	graph.invalidateForeign(state, "", graph.id(instruction), reachEscaped)
@@ -335,6 +347,22 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 			graph.clobber(state, set, graph.id(instruction))
 		}
 	}
+}
+
+// runCallback records a function value the graph cannot see being run: a
+// callback parameter invoked by a helper writes through whatever it
+// captured. Running it is not keeping it, so nothing escapes; what it
+// reaches is clobbered, and the summary cuts the root it ran, so a caller
+// forgets the captured variables of the closure it passed.
+func (graph *regionGraph) runCallback(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction) {
+	if common.IsInvoke() || common.StaticCallee() != nil {
+		return
+	}
+	set := graph.pointees(common.Value)
+	for target := range set {
+		state.ran[target.region] = true
+	}
+	graph.clobber(state, set, graph.id(instruction))
 }
 
 // unresolvedCall applies a call the graph cannot follow. What the call is
