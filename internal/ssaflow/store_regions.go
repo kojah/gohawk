@@ -1,7 +1,6 @@
 package ssaflow
 
 import (
-	"container/list"
 	"maps"
 	"strconv"
 	"strings"
@@ -146,6 +145,9 @@ type regionKey struct {
 
 // regionGraph is the points-to graph of one function.
 type regionGraph struct {
+	// building marks the unavailable stand-in handed out while the real
+	// graph is still being built.
+	building  bool
 	mu        sync.Mutex
 	function  *ssa.Function
 	available bool
@@ -182,6 +184,10 @@ type regionGraph struct {
 	// the one the final state reflects; recorded indexes it.
 	applied  []appliedSummary
 	recorded map[ssa.Instruction]int
+	// consulted records the registry generation of each summary the build
+	// looked up, read before the lookup, so the cache can tell when a later
+	// registration made the graph stale.
+	consulted map[*ssa.Function]int
 	// escapeOrigins records the first instruction that escaped each object
 	// in each way, for the dump.
 	escapeOrigins map[escapeOrigin]ssa.Instruction
@@ -253,74 +259,6 @@ const regionBuildBudget = 200_000
 // settle in two or three; a body that has not settled by then is unavailable.
 const regionFixpointRounds = 6
 
-// regionGraphCache keeps the most recently built graphs. Analyzers ask many
-// questions about one function in a row, and the graph is built once for
-// all of them; functions of packages already analyzed fall out of the cache.
-const regionGraphCache = 128
-
-var regionGraphs = struct {
-	sync.Mutex
-	order   *list.List
-	entries map[*ssa.Function]*list.Element
-}{order: list.New(), entries: map[*ssa.Function]*list.Element{}}
-
-// regionGraphEntry is one cached graph. Its graph is nil while the build
-// is in progress: a build that reaches the function again, through a
-// callee summary projected on demand around a call cycle, gets an
-// unavailable graph instead of recursing, and that summary is truncated
-// where the cycle closes.
-type regionGraphEntry struct {
-	function *ssa.Function
-	graph    *regionGraph
-}
-
-// regionsOf returns the points-to graph of the function that owns value,
-// building it on first use. A value with no function, or a function with no
-// body, has an unavailable graph.
-func regionsOf(value ssa.Value) *regionGraph {
-	return regionsOfFunction(valueFunction(value))
-}
-
-// regionsOfFunction returns the function's points-to graph, building it on
-// first use.
-func regionsOfFunction(function *ssa.Function) *regionGraph {
-	if function == nil || len(function.Blocks) == 0 {
-		return &regionGraph{}
-	}
-	regionGraphs.Lock()
-	if element, ok := regionGraphs.entries[function]; ok {
-		entry := element.Value.(*regionGraphEntry) //nolint:forcetypeassert // The list holds only entries.
-		regionGraphs.Unlock()
-		if entry.graph == nil {
-			return &regionGraph{}
-		}
-		return entry.graph
-	}
-	entry := &regionGraphEntry{function: function}
-	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
-	regionGraphs.Unlock()
-	graph := buildRegionGraph(function)
-	regionGraphs.Lock()
-	defer regionGraphs.Unlock()
-	entry.graph = graph
-	if element, ok := regionGraphs.entries[function]; ok {
-		regionGraphs.order.MoveToFront(element)
-	} else {
-		// The build outlived the cache's capacity; keep the graph anyway,
-		// the caller is about to query it.
-		regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
-	}
-	for regionGraphs.order.Len() > regionGraphCache {
-		oldest := regionGraphs.order.Back()
-		if oldest.Value.(*regionGraphEntry).graph == nil { //nolint:forcetypeassert // The list holds only entries.
-			break
-		}
-		delete(regionGraphs.entries, oldest.Value.(*regionGraphEntry).function) //nolint:forcetypeassert // The list holds only entries.
-		regionGraphs.order.Remove(oldest)
-	}
-	return graph
-}
-
 func valueFunction(value ssa.Value) *ssa.Function {
 	switch typed := value.(type) {
 	case nil:
@@ -342,15 +280,16 @@ func valueFunction(value ssa.Value) *ssa.Function {
 
 func buildRegionGraph(function *ssa.Function) *regionGraph {
 	graph := &regionGraph{
-		function: function,
-		regions:  map[regionKey]*region{},
-		values:   map[ssa.Value]pointees{},
-		views:    map[ssa.Value]sliceView{},
-		entry:    map[*ssa.BasicBlock]*regionState{},
-		history:  map[slot]pointees{},
-		budget:   NewSearchBudget(regionBuildBudget),
-		ids:      map[ssa.Instruction]int{},
-		recorded: map[ssa.Instruction]int{},
+		function:  function,
+		regions:   map[regionKey]*region{},
+		values:    map[ssa.Value]pointees{},
+		views:     map[ssa.Value]sliceView{},
+		entry:     map[*ssa.BasicBlock]*regionState{},
+		history:   map[slot]pointees{},
+		budget:    NewSearchBudget(regionBuildBudget),
+		ids:       map[ssa.Instruction]int{},
+		recorded:  map[ssa.Instruction]int{},
+		consulted: map[*ssa.Function]int{},
 	}
 	graph.nilR = graph.intern(regionKey{kind: regionNil})
 	graph.unkR = graph.intern(regionKey{kind: regionUnknown})

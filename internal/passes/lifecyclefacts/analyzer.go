@@ -4,9 +4,12 @@
 package lifecyclefacts
 
 import (
+	"fmt"
 	"go/types"
+	"maps"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -83,12 +86,16 @@ func run(pass *analysis.Pass) (any, error) {
 		if fact.Heap != nil {
 			ssaflow.RegisterHeapSummary(function, *fact.Heap)
 		}
+		details := fact.traceDetails()
+		if probe.Enabled() {
+			maps.Copy(details, heapTraceDetails(function, fact.Heap))
+		}
 		probe.Decision(analysisTrace.Step{
 			Reason:   "function-summarized",
 			Outcome:  analysisTrace.OutcomeAccepted,
 			Pos:      function.Pos(),
 			Function: function.String(),
-			Details:  fact.traceDetails(),
+			Details:  details,
 		})
 	}
 	// A returned view is decided once every method of this package is
@@ -481,4 +488,42 @@ func allResultsNil(returned *ssa.Return) bool {
 		}
 	}
 	return true
+}
+
+// tracedCallLimit bounds the unsummarized calls one summary event lists.
+const tracedCallLimit = 8
+
+// heapTraceDetails describes the projection a summary rests on: how many
+// effects and edges it has, which roots it cut, and which calls inside the
+// function the graph could not substitute a summary at. Two runs that
+// summarize one function differently differ here first.
+func heapTraceDetails(function *ssa.Function, heap *ssaflow.HeapSummary) map[string]string {
+	details := map[string]string{}
+	if heap != nil {
+		details["heap-edges"] = strconv.Itoa(len(heap.Edges))
+		details["heap-effects"] = strconv.Itoa(len(heap.Effects))
+		var cut []string
+		for _, at := range heap.Truncated {
+			cut = append(cut, at.String())
+		}
+		details["heap-truncated"] = strings.Join(cut, ",")
+	}
+	var calls, self []string
+	applied := 0
+	for _, record := range ssaflow.CallApplications(function) {
+		if record.Reason == ssaflow.CallSummaryApplied {
+			applied++
+			if record.Callee == function && len(self) < tracedCallLimit {
+				self = append(self, fmt.Sprintf("%d effects/%d truncated", record.Effects, record.Truncated))
+			}
+			continue
+		}
+		if len(calls) < tracedCallLimit {
+			calls = append(calls, record.Instruction.String()+" ["+string(record.Reason)+"]")
+		}
+	}
+	details["calls-applied"] = strconv.Itoa(applied)
+	details["calls-unsummarized"] = strings.Join(calls, "; ")
+	details["calls-self-applied"] = strings.Join(self, "; ")
+	return details
 }

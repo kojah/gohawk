@@ -17,13 +17,21 @@ import (
 // function has no normal return to project.
 func ProjectHeap(function *ssa.Function) (HeapSummary, bool) {
 	graph := regionsOfFunction(function)
-	if !graph.available {
-		return HeapSummary{}, false
+	// A graph that is being built, or is locked, is in use by another
+	// analyzer: a projection never reaches its own function again on one
+	// stack, because a graph applies no summary from its own call cycle.
+	// Treating that contention as unavailable published a summary cut at
+	// every parameter whenever another analyzer happened to be querying
+	// the graph, and callers inherited the difference from run to run. The
+	// projection is taken from a private build instead, which is the same
+	// graph the shared one is.
+	if graph.building || graph.available && !graph.mu.TryLock() {
+		graph = buildRegionGraph(function)
+		if graph.available {
+			graph.mu.Lock()
+		}
 	}
-	// A graph already locked is being queried or projected higher on this
-	// stack, which a recursive call reaches; the projection is then not
-	// available here, and the call that asked for it stays unresolved.
-	if !graph.mu.TryLock() {
+	if !graph.available {
 		return HeapSummary{}, false
 	}
 	defer graph.mu.Unlock()

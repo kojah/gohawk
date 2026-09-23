@@ -130,6 +130,48 @@ func BlockReachable(from, target *ssa.BasicBlock) bool
 BlockReachable reports whether target is reachable from within their
 shared function.
 
+## CallApplication
+
+[Source](../../../../internal/ssaflow/store_call_applications.go)
+
+```go
+type CallApplication struct {
+	Instruction	ssa.Instruction
+	Callee		*ssa.Function
+	Reason		CallApplicationReason
+	RegisteredNow	bool
+	// Effects and Truncated size the summary that was applied.
+	Effects, Truncated	int
+}
+```
+
+CallApplication is the graph's record of one call.
+RegisteredNow says whether the registry holds the callee's summary when
+the records are read: a no-summary call whose callee is registered now
+means the summary arrived after the graph was built.
+
+## CallApplicationReason
+
+[Source](../../../../internal/ssaflow/store_call_applications.go)
+
+```go
+type CallApplicationReason string
+```
+
+CallApplicationReason names how the graph treated a call.
+
+## CallApplications
+
+[Source](../../../../internal/ssaflow/store_call_applications.go)
+
+```go
+func CallApplications(function *ssa.Function) []CallApplication
+```
+
+CallApplications lists how the function's points-to graph treated each
+call it reached, in the order the graph first reached them. A function
+whose graph is unavailable has no records.
+
 ## CallBinding
 
 [Source](../../../../internal/ssaflow/call_bindings.go)
@@ -444,6 +486,30 @@ It does not follow wrappers, loads, or aliases; consumers select that policy.
 
 ```go
 func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bool
+```
+
+## CallSummaryApplied, CallNoSummary, CallClosure, CallInterface, CallDynamic, CallStarted, CallRecursive
+
+[Source](../../../../internal/ssaflow/store_call_applications.go)
+
+```go
+const (
+	// CallSummaryApplied: the callee's summary was substituted.
+	CallSummaryApplied	CallApplicationReason	= "summary-applied"
+	// CallNoSummary: the callee has no summary the graph could find.
+	CallNoSummary	CallApplicationReason	= "no-summary"
+	// CallClosure: the callee captures variables a summary cannot bind.
+	CallClosure	CallApplicationReason	= "closure-callee"
+	// CallInterface: an interface method call has no static callee.
+	CallInterface	CallApplicationReason	= "interface-call"
+	// CallDynamic: a call through a function value has no static callee.
+	CallDynamic	CallApplicationReason	= "dynamic-call"
+	// CallStarted: work handed to a goroutine is never substituted.
+	CallStarted	CallApplicationReason	= "started"
+	// CallRecursive: the callee can call back into the caller, so its
+	// summary depends on the caller's own and is never applied.
+	CallRecursive	CallApplicationReason	= "call-cycle"
+)
 ```
 
 ## CallTransfersArgumentToLifecycleOwner
@@ -2358,7 +2424,8 @@ func RegisterHeapSummary(function *ssa.Function, summary HeapSummary)
 ```
 
 RegisterHeapSummary makes the summary available to every graph built
-afterwards for calls to the function.
+afterwards for calls to the function. A summary that differs from what
+the registry held evicts the cached graphs that consulted the old one.
 
 ## RegisteredHeapSummary
 

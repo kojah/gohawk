@@ -125,6 +125,7 @@ func traceCallApplications(probe analysisTrace.Probe, function *ssa.Function, ca
 		details := map[string]string{"call": record.Instruction.String(), "reason": string(record.Reason)}
 		if record.Callee != nil {
 			details["callee"] = record.Callee.String()
+			details["registered-now"] = strconv.FormatBool(record.RegisteredNow)
 		}
 		probe.Evidence(analysisTrace.Step{
 			Reason: "earlier-call-unsummarized", Outcome: analysisTrace.OutcomeObserved, Pos: record.Instruction.Pos(), Details: details,

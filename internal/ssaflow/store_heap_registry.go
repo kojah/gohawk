@@ -32,28 +32,70 @@ const (
 	heapEntryMissing
 )
 
+// An entry projected on demand came from the function's own graph, and is
+// dropped when that graph is found stale; a registered one stands until it
+// is registered again.
 type heapEntry struct {
-	summary HeapSummary
-	state   heapEntryState
+	summary  HeapSummary
+	state    heapEntryState
+	onDemand bool
 }
 
+// generations counts, per function, the registrations that changed its
+// summary and the on-demand summaries dropped. A graph remembers the
+// generation of each summary it consulted; a projection finishing on
+// demand, which only fills in what a cycle cut, does not count, so graphs
+// around a call cycle are not rebuilt forever.
 var heapSummaries = struct {
 	sync.Mutex
-	entries map[*ssa.Function]heapEntry
-}{entries: map[*ssa.Function]heapEntry{}}
+	entries     map[*ssa.Function]heapEntry
+	generations map[*ssa.Function]int
+}{entries: map[*ssa.Function]heapEntry{}, generations: map[*ssa.Function]int{}}
 
 // RegisterHeapSummary makes the summary available to every graph built
-// afterwards for calls to the function.
+// afterwards for calls to the function. A summary that differs from what
+// the registry held evicts the cached graphs that consulted the old one.
 func RegisterHeapSummary(function *ssa.Function, summary HeapSummary) {
 	if function == nil {
 		return
 	}
 	heapSummaries.Lock()
-	defer heapSummaries.Unlock()
-	if _, ok := heapSummaries.entries[function]; !ok && len(heapSummaries.entries) >= heapSummaryLimit {
+	previous, ok := heapSummaries.entries[function]
+	if !ok && len(heapSummaries.entries) >= heapSummaryLimit {
+		heapSummaries.Unlock()
 		return
 	}
 	heapSummaries.entries[function] = heapEntry{summary: summary}
+	changed := !ok || previous.state != heapEntryReady || !heapSummariesEqual(previous.summary, summary)
+	if changed {
+		heapSummaries.generations[function]++
+	}
+	heapSummaries.Unlock()
+	if changed {
+		invalidateDependents(function)
+	}
+}
+
+// heapSummaryGeneration returns how many times the function's summary has
+// been replaced or dropped.
+func heapSummaryGeneration(function *ssa.Function) int {
+	heapSummaries.Lock()
+	defer heapSummaries.Unlock()
+	return heapSummaries.generations[function]
+}
+
+// forgetOnDemandSummary drops a summary projected from a graph that was
+// found stale, and reports whether there was one to drop.
+func forgetOnDemandSummary(function *ssa.Function) bool {
+	heapSummaries.Lock()
+	defer heapSummaries.Unlock()
+	entry, ok := heapSummaries.entries[function]
+	if !ok || !entry.onDemand {
+		return false
+	}
+	delete(heapSummaries.entries, function)
+	heapSummaries.generations[function]++
+	return true
 }
 
 // heapSummaryOf returns the callee's summary: the registered one, or, for a
@@ -115,7 +157,9 @@ func projectHeapOnDemand(function *ssa.Function) (HeapSummary, bool) {
 	heapSummaries.Unlock()
 	summary, ok := ProjectHeap(function)
 	if ok {
-		RegisterHeapSummary(function, summary)
+		heapSummaries.Lock()
+		heapSummaries.entries[function] = heapEntry{summary: summary, onDemand: true}
+		heapSummaries.Unlock()
 		return summary, true
 	}
 	heapSummaries.Lock()

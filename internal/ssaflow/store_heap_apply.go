@@ -27,6 +27,15 @@ func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallC
 		graph.recordCall(appliedSummary{instruction: instruction, reason: CallDynamic})
 		return false
 	}
+	if sameCallCycle(graph.function, callee) {
+		graph.recordCall(appliedSummary{instruction: instruction, callee: callee, reason: CallRecursive})
+		return false
+	}
+	for _, key := range summaryKeys(callee) {
+		if _, seen := graph.consulted[key]; !seen {
+			graph.consulted[key] = heapSummaryGeneration(key)
+		}
+	}
 	summary, ok := heapSummaryOf(callee)
 	switch {
 	case !ok:

@@ -25,13 +25,22 @@ const (
 	CallDynamic CallApplicationReason = "dynamic-call"
 	// CallStarted: work handed to a goroutine is never substituted.
 	CallStarted CallApplicationReason = "started"
+	// CallRecursive: the callee can call back into the caller, so its
+	// summary depends on the caller's own and is never applied.
+	CallRecursive CallApplicationReason = "call-cycle"
 )
 
 // CallApplication is the graph's record of one call.
+// RegisteredNow says whether the registry holds the callee's summary when
+// the records are read: a no-summary call whose callee is registered now
+// means the summary arrived after the graph was built.
 type CallApplication struct {
-	Instruction ssa.Instruction
-	Callee      *ssa.Function
-	Reason      CallApplicationReason
+	Instruction   ssa.Instruction
+	Callee        *ssa.Function
+	Reason        CallApplicationReason
+	RegisteredNow bool
+	// Effects and Truncated size the summary that was applied.
+	Effects, Truncated int
 }
 
 // CallApplications lists how the function's points-to graph treated each
@@ -42,7 +51,11 @@ func CallApplications(function *ssa.Function) []CallApplication {
 	defer graph.lock()()
 	records := make([]CallApplication, 0, len(graph.applied))
 	for _, entry := range graph.applied {
-		records = append(records, CallApplication{Instruction: entry.instruction, Callee: entry.callee, Reason: entry.reason})
+		_, registered := RegisteredHeapSummary(entry.callee)
+		records = append(records, CallApplication{
+			Instruction: entry.instruction, Callee: entry.callee, Reason: entry.reason, RegisteredNow: registered,
+			Effects: entry.effects, Truncated: entry.truncated,
+		})
 	}
 	return records
 }
