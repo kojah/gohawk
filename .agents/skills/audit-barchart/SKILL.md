@@ -20,13 +20,14 @@ repeated `--batch N` to change the window. Add `--include-dogfood` to include
 dated, reviewed dogfood ledgers, or `--output-dir PATH` to place the artifacts
 elsewhere. The command prints its sources, totals, and output paths.
 
-Use the `visualize` skill to render the `summary.json` data as an inline,
-responsive visualization in the conversation. Show both analyzer and check
-charts, with consistent TP, FP, and inconclusive colors, readable labels, and
-the source batch numbers. Follow that skill's HTML-fragment, validation, and
-`visualize{"path":"..."}` output contract. The generated SVGs remain useful
-as standalone artifacts, but links to them alone are not the default result.
-If the visualization capability is unavailable, link both SVGs as a fallback.
+Show both analyzer and check charts, with consistent TP, FP, and inconclusive
+colors, readable labels, and the source batch numbers. In Codex Desktop, use
+the `visualize` skill to render `summary.json` as an inline chart widget; follow
+its file, validation, and response contract. Do not print its control syntax
+as ordinary text. In Claude Code, including its desktop app, use the generated
+SVGs as inline images when supported. Otherwise link both SVGs so they can be
+opened in the desktop Browser pane. Do not emit Codex-specific control syntax
+there.
 
 Explain in the visualization or a brief accompanying note that each bar counts
 reviewed findings from the original scans: TP means a reviewed true positive,

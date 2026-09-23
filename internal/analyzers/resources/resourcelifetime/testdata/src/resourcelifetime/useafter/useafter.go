@@ -131,3 +131,34 @@ func explicitCloseUnderDefer(path string) error {
 	}
 	return file.Close()
 }
+
+func sameFile(file *os.File) *os.File { return file }
+
+// A release through a helper that returns its argument unchanged is a
+// release of the argument, so a later operation on the original is a use
+// after release.
+func closedThroughPassThroughThenRead(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	_ = sameFile(file).Close()
+	_, _ = file.Read(make([]byte, 1)) // want "resource from os.Open is used after Close"
+}
+
+func rewindFile(file *os.File) *os.File {
+	_, _ = file.Seek(0, 0)
+	return file
+}
+
+// A helper that returns the file unchanged but also operates on it is not a
+// pure pass-through: its effect on the file is opaque to the scan, so the
+// later read stays unknown rather than reported.
+func closedThroughOperatingHelperThenRead(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	_ = rewindFile(file).Close()
+	_, _ = file.Read(make([]byte, 1))
+}

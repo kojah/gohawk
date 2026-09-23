@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -60,12 +61,14 @@ func invalidatingMethods(resource ssa.Value) []string {
 	return nil
 }
 
-func reportUsesAfterRelease(pass *analysis.Pass, function *ssa.Function, acquisition *ssa.Call, resource ssa.Value, contract resourceContract) {
+func reportUsesAfterRelease(
+	pass *analysis.Pass, knowledge *summaries.Provider, function *ssa.Function, acquisition *ssa.Call, resource ssa.Value, contract resourceContract,
+) {
 	methods := invalidatingMethods(resource)
 	if len(methods) == 0 {
 		return
 	}
-	query := releasedResource{resource: resource, contract: contract, methods: methods, storage: ssaflow.NewStorage(nil)}
+	query := releasedResource{resource: resource, contract: contract, methods: methods, storage: ssaflow.NewStorage(nil), knowledge: knowledge}
 	reported := map[*ssa.Call]bool{}
 	for _, release := range directReleases(function, &query) {
 		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), release.Pos()).Evidence(analysisTrace.Step{
@@ -91,10 +94,11 @@ func reportUsesAfterRelease(pass *analysis.Pass, function *ssa.Function, acquisi
 }
 
 type releasedResource struct {
-	resource ssa.Value
-	contract resourceContract
-	methods  []string
-	storage  *ssaflow.Storage
+	resource  ssa.Value
+	contract  resourceContract
+	methods   []string
+	storage   *ssaflow.Storage
+	knowledge *summaries.Provider
 }
 
 type useAfterReleaseProof struct {
@@ -160,16 +164,8 @@ func (query *releasedResource) interferes(instruction ssa.Instruction, effects *
 		(slices.Contains(query.methods, ssaflow.CallName(call.Common())) || slices.Contains(query.contract.cleanup, ssaflow.CallName(call.Common()))) {
 		return false
 	}
-	if common := ssaflow.InstructionCall(instruction); common != nil {
-		if _, deferred := instruction.(*ssa.Defer); deferred {
-			return false // Registration does not execute cleanup before the use.
-		}
-		for _, argument := range append([]ssa.Value{common.Value}, common.Args...) {
-			if ssaflow.MayContainValue(argument, query.resource) &&
-				(!query.storage.Same(argument, query.resource).Proven() || !effects.Call(instruction, argument).PreservesStorage()) {
-				return true
-			}
-		}
+	if common := ssaflow.InstructionCall(instruction); common != nil && query.callInterferes(instruction, common, effects) {
+		return true
 	}
 	if store, ok := instruction.(*ssa.Store); ok &&
 		(query.storage.Same(store.Addr, query.resource).Proven() || ssaflow.ValueIsAccessPathFrom(store.Addr, query.resource)) {
@@ -180,6 +176,42 @@ func (query *releasedResource) interferes(instruction ssa.Instruction, effects *
 	}
 	return ssaflow.ClosureCapturesValue(instruction, query.resource) || ssaflow.SendsValue(instruction, query.resource) ||
 		ssaflow.StoresValueInGlobal(instruction, query.resource) || ssaflow.StoresValueInEscapingField(instruction, query.resource)
+}
+
+// callInterferes reports whether a call may change the resource's lifecycle
+// between the release and the use: it receives the resource, or something
+// holding it, and is not proven to leave its storage alone.
+func (query *releasedResource) callInterferes(instruction ssa.Instruction, common *ssa.CallCommon, effects *ssaflow.CallEffects) bool {
+	if _, deferred := instruction.(*ssa.Defer); deferred {
+		return false // Registration does not execute cleanup before the use.
+	}
+	if call, ok := instruction.(*ssa.Call); ok && query.passesResourceThrough(call, effects) {
+		return false // Handing the resource back unchanged is not a lifecycle change.
+	}
+	for _, argument := range append([]ssa.Value{common.Value}, common.Args...) {
+		if ssaflow.MayContainValue(argument, query.resource) &&
+			(!query.storage.Same(argument, query.resource).Proven() || !effects.Call(instruction, argument).PreservesStorage()) {
+			return true
+		}
+	}
+	return false
+}
+
+// passesResourceThrough reports whether a call is proven to return the
+// resource unchanged and to do nothing else with it but read. The call's
+// retention effect is explained by the return, so it is not the opaque
+// handoff the interference scan otherwise assumes; a write through the
+// resource, an asynchronous exposure, or a callback invocation still counts.
+func (query *releasedResource) passesResourceThrough(call *ssa.Call, effects *ssaflow.CallEffects) bool {
+	if query.knowledge == nil {
+		return false
+	}
+	argument, ok := query.knowledge.ArgumentReturnedUnchanged(call, ssaflow.NewSearchBudget(2000))
+	if !ok || !query.storage.Same(argument, query.resource).Proven() {
+		return false
+	}
+	proof := effects.Call(call, argument)
+	return proof.Proven() && proof.Effects&^(ssaflow.EffectRead|ssaflow.EffectRetain) == 0
 }
 
 // directReleases returns the plain calls of a cleanup method on the exact
@@ -201,7 +233,9 @@ func directReleases(function *ssa.Function, query *releasedResource) []*ssa.Call
 // replacement fields and mixed joins. HTTP bodies additionally require an
 // unchanged Body projection: merely sharing the response root is not enough.
 func (query *releasedResource) operatesOn(call *ssa.Call) bool {
-	receiver := ssaflow.CallReceiver(call.Common())
+	// The same receiver resolution as the release proof: a call proven to
+	// return its argument unchanged operates on that argument.
+	receiver := cleanupReceiver(query.knowledge, call.Common())
 	if receiver == nil {
 		return false
 	}

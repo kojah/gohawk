@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
@@ -237,6 +238,7 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 
 func releasesResource(
 	evidence *lifecyclefacts.LifecycleEvidence,
+	knowledge *summaries.Provider,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -250,11 +252,27 @@ func releasesResource(
 		// non-nil resource for cleanup of the acquired one.
 		return optionalAcquisitionReleases(instruction, resource, methods)
 	}
-	return releasesOrdinaryResource(evidence, instruction, resource, owners, methods)
+	return releasesOrdinaryResource(evidence, knowledge, instruction, resource, owners, methods)
+}
+
+// cleanupReceiver is the value a cleanup call acts on, seen through a
+// wrapper the result summary proves returns its argument unchanged:
+// wrap(file).Close() closes file. The identity is exact and typed, so a
+// conversion, a chosen value, or a real wrapper is not seen through.
+func cleanupReceiver(knowledge *summaries.Provider, common *ssa.CallCommon) ssa.Value { //nolint:ireturn // SSA values keep their concrete forms.
+	receiver := ssaflow.CallReceiver(common)
+	if knowledge == nil || receiver == nil {
+		return receiver
+	}
+	if argument, ok := knowledge.ArgumentReturnedUnchanged(receiver, ssaflow.NewSearchBudget(2000)); ok {
+		return argument
+	}
+	return receiver
 }
 
 func releasesOrdinaryResource(
 	evidence *lifecyclefacts.LifecycleEvidence,
+	knowledge *summaries.Provider,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -270,7 +288,7 @@ func releasesOrdinaryResource(
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common != nil && slices.Contains(methods, ssaflow.CallName(common)) &&
-		(ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(ssaflow.CallReceiver(common), resource).Proven() ||
+		(ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(cleanupReceiver(knowledge, common), resource).Proven() ||
 			ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
 		return true
 	}

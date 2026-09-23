@@ -1,6 +1,7 @@
 package resultfacts
 
 import (
+	"go/types"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -62,6 +63,18 @@ func OpenLeaky(ok bool) (*box, error) {
 }
 func OpenUnknown(value *box, err error) (*box, error) { return value, err }
 
+// Identity.
+func Same(value *box) *box { return value }
+func (value *box) Self() *box { return value }
+func Chosen(value, other *box, pick bool) *box {
+	if pick {
+		return other
+	}
+	return value
+}
+func Erased(value *box) any { return value }
+func Rewrapped(value *box) *box { return &(*value) }
+
 type failure struct{}
 
 func (*failure) Error() string { return "failure" }
@@ -82,7 +95,15 @@ func TestResultRelations(t *testing.T) {
 		"OpenForwarded":        {{0, NonNilWhenResultNil, 1}, {0, NilWhenResultNonNil, 1}},
 		"OpenMaybeNil":         {{0, NilWhenResultNonNil, 1}},
 		"OpenLeaky":            {{0, NonNilWhenResultNil, 1}},
-		"OpenUnknown":          nil,
+		"OpenUnknown":          {{0, ReturnsParameter, 0}, {1, ReturnsParameter, 1}},
+		"Same":                 {{0, ReturnsParameter, 0}},
+		"Chosen":               nil,
+		"Erased":               nil,
+		"Rewrapped":            {{0, ReturnsParameter, 0}},
+	}
+	self := pkg.Prog.LookupMethod(types.NewPointer(pkg.Type("box").Type()), pkg.Pkg, "Self")
+	if got := NewEngine().Function(self, ssaflow.NewSearchBudget(4000)); !got.Holds(ReturnsParameter, 0, 0) {
+		t.Errorf("Self: a method returning its receiver: %+v", got.Relations())
 	}
 	for name, expected := range want {
 		t.Run(name, func(t *testing.T) {

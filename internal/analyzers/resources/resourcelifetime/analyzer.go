@@ -90,7 +90,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				}
 				// Exemption from leak cleanup does not make a closed in-memory
 				// writer usable again. Invalidation has its own API contract.
-				reportUsesAfterRelease(pass, function, call, resource, contract)
+				reportUsesAfterRelease(pass, resourceSummaries.Provider(pass), function, call, resource, contract)
 				if memoryWriterExempt(call, contract, settings) {
 					continue
 				}

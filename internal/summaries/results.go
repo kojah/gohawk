@@ -147,3 +147,27 @@ func resultEqualsLiteral(guarantee resultfacts.Guarantee, literal *ssa.Const) (b
 	}
 	return false, false
 }
+
+// ArgumentReturnedUnchanged resolves a call result to the argument the callee
+// is proven to return unchanged, under the same static type. It answers
+// identity only: what the caller passed in is what it got back. Ownership,
+// release, and every other lifecycle question about that value stay with
+// the caller's own evidence.
+//
+//nolint:ireturn // SSA values keep their concrete forms.
+func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *ssaflow.SearchBudget) (ssa.Value, bool) {
+	call, index, ok := ssaflow.CallResultSource(value)
+	if !ok {
+		return nil, false
+	}
+	summary, available := provider.ForFunction(ssaflow.ResolvedCallee(call.Common())).Results(budget)
+	if available != Available {
+		return nil, false
+	}
+	for _, relation := range summary.Relations() {
+		if relation.Kind == resultfacts.ReturnsParameter && relation.Result == index && relation.Operand < len(call.Common().Args) {
+			return call.Common().Args[relation.Operand], true
+		}
+	}
+	return nil, false
+}

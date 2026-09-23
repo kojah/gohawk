@@ -1797,6 +1797,21 @@ ReturnsOwner reports whether callee returns a value that owns its parameter
 at index. A callee in another package has no body to read here, so the
 answer comes from its summary, which lives above this package.
 
+## ReturnsParameterUnchanged
+
+[Source](../../../../internal/ssaflow/store_return_identity.go#L15)
+
+```go
+func ReturnsParameterUnchanged(function *ssa.Function, parameter ssa.Value, index int) bool
+```
+
+ReturnsParameterUnchanged reports whether every normal return of function
+hands back parameter itself, under the same static type, at result index.
+Identity is exact storage identity, not derivation: a wrapper, a
+conversion to an interface, or a value chosen between the parameter and
+something else is not the parameter. A body with no reachable normal
+return proves nothing.
+
 ## SameAccessPath
 
 [Source](../../../../internal/ssaflow/value_forms.go#L296)
