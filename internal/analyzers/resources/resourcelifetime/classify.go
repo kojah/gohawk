@@ -98,7 +98,7 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if finishesRowsTransaction(analysis.acquisition, instruction) {
 		return actionUnknown, "rows-transaction-finished"
 	}
-	if releasesResource(analysis.evidence, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional) {
+	if releasesResource(analysis.evidence, analysis.summaries, instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional) {
 		return actionSettled, actionSettled.String()
 	}
 	// A merged receiver or an escaped owner projection may still select this

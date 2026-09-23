@@ -37,6 +37,11 @@ const (
 	// NilWhenResultNonNil: the result is nil on every return where the
 	// operand error result is non-nil.
 	NilWhenResultNonNil
+	// ReturnsParameter: the result is the operand parameter itself, under the
+	// same static type, on every normal return. A builder returning its
+	// receiver and a pass-through wrapper have this shape; a caller may then
+	// treat the result as the argument it passed.
+	ReturnsParameter
 )
 
 // Relation is one proven implication about Result. Operand is a parameter
@@ -67,6 +72,11 @@ func (engine *Engine) relations(function *ssa.Function, budget *ssaflow.SearchBu
 	results := function.Signature.Results()
 	for result := range results.Len() {
 		resultType := results.At(result).Type()
+		for index, parameter := range function.Params {
+			if budget.Spend() && types.Identical(parameter.Type(), resultType) && ssaflow.ReturnsParameterUnchanged(function, parameter, result) {
+				relations = append(relations, Relation{Result: result, Kind: ReturnsParameter, Operand: index})
+			}
+		}
 		if isBoolean(resultType) {
 			for index, parameter := range function.Params {
 				if !nilable(parameter.Type()) {
