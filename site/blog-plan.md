@@ -123,6 +123,10 @@ There's quite a lot of engineering in preserving those distinctions. I'd expecte
 
 There are older tools worth looking at here. People have been trying to persuade programs to clean up after themselves for a while.
 
+Meta's [Infer](https://fbinfer.com/docs/separation-logic-and-bi-abduction/) has been a major influence on gohawk, especially its compositional summaries and heap modelling. The idea is to analyze a function on its own, summarize what it needs and what it changes, and use that summary when analyzing its callers. Its separation-logic foundations let it reason about the part of memory a function touches without having to describe the entire heap every time.
+
+That's an appealing way to approach the helper problem from the previous section. A call can tell us something about what happened to the objects passed through it, even when their state lives behind pointers and fields. I'm borrowing ideas here, not claiming that gohawk implements Infer's analysis engine.
+
 The [Clang Static Analyzer](https://clang.llvm.org/docs/ClangStaticAnalyzer.html) uses symbolic execution to explore paths through C and C++ programs. It tracks program state and constraints along the way, giving its checks context for judging later operations. A pointer's history matters, not just the expression currently using it.
 
 That's the useful connection to gohawk: an operation becomes meaningful when we know what happened before it. Clang's program-state machinery and Go's analysis facts aren't interchangeable, though. They're different ways of supporting reasoning beyond an isolated statement.
@@ -134,6 +138,10 @@ For locking specifically, another interesting reference is Linux's lockdep.
 The program still locks actual objects. The *validator* groups locks into classes so it can reason about their roles without treating every new instance as an unrelated problem.
 
 That distinction is useful when analyzing source code, too. We may know which mutex field an operation accesses without knowing the runtime identity of every object containing it.
+
+Closer to Go, there's [GCatch](https://github.com/system-pclub/GCatch), a research tool for finding concurrency bugs, including blocking bugs caused by channel misuse. Locks are only part of the story when goroutines can also get stuck waiting to send or receive.
+
+GCatch is a direction I'd like to explore for gohawk's model in the future, to catch more of those interactions. That's a possible extension, not something gohawk already implements. It would also bring us back to the same question: can we understand enough of the interaction to report a useful bug without flagging working code?
 
 ## Going back to Go...
 
