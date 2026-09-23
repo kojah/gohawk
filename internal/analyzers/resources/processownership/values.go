@@ -96,7 +96,7 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 		if _, captured := command.(*ssa.FreeVar); captured {
 			return ssaflow.ValueDerivesFrom(receiver, command, map[ssa.Value]bool{})
 		}
-		return ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(receiver, command).Proven()
+		return ssaflow.NewStorage(nil).Same(receiver, command).Proven()
 	}
 	// Waiting through cmd.Process reaps the same operating-system child. Mache
 	// uses the lower-level handle after signaling an entire process group:

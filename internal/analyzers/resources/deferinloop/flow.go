@@ -55,7 +55,7 @@ func resourceLiveAtNextIteration(
 		state = advanceDeferState(evidence, state, obligation)
 		// A branch a callee's proven result rules out is not a path to the
 		// backedge; feasibility only removes successors, it never adds one.
-		feasible := knowledge.FeasibleSuccessors(state.block, state.predecessor, ssaflow.NewSearchBudget(2000))
+		feasible := knowledge.FeasibleSuccessors(state.block, state.predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 		successors := make([]deferFlowState, 0, len(feasible))
 		for _, successor := range feasible {
 			status := iteratorSuccessorStatus(state, successor, obligation)

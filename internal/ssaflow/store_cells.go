@@ -26,12 +26,12 @@ func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction)
 		if targetStoredOnPath(binding, target, invocation) {
 			return target, true
 		}
-		return NewStorage(NewSearchBudget(1000)).stableValue(binding, invocation)
+		return NewStorage(nil).stableValue(binding, invocation)
 	}
 	if MayAlias(binding, target) || ValueIsAccessPathFrom(target, binding) {
 		return binding, true
 	}
-	stored, ok := NewStorage(NewSearchBudget(1000)).stableValue(binding, invocation)
+	stored, ok := NewStorage(nil).stableValue(binding, invocation)
 	return stored, ok
 }
 

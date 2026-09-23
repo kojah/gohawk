@@ -1601,6 +1601,29 @@ ProveReturnedCleanup proves a factory relation using the completion request's
 methods or InvokeTarget mode, budget, and imported-summary policies. Target
 and Instruction are unused: relation identifies values inside the factory.
 
+## QueryBudget, SummaryBudget
+
+[Source](../../../../internal/ssaflow/call_budget.go)
+
+```go
+const (
+	// QueryBudget bounds one local question: a storage identity, a
+	// projection, a value's uses, or one callee walked for a completion. It
+	// is also what NewStorage and NewCallEffects assume for a nil budget.
+	QueryBudget	= 1000
+	// SummaryBudget bounds a question that consults or computes a function
+	// summary, or decides feasibility from one: twice a local question,
+	// because it walks the callee as well as the caller.
+	SummaryBudget	= 2000
+)
+```
+
+The two shared bounds name how much one question may cost. They are the
+defaults a caller reaches for when it has no reason of its own; a caller
+with one, such as a whole-package caller-set walk, declares a named
+constant beside the proof that explains it. A bare number at a
+construction site is not a decision, so the architecture tests reject it.
+
 ## ReachingWalk
 
 [Source](../../../../internal/ssaflow/value_reaching.go)
@@ -1861,6 +1884,18 @@ Observed attaches an observer that hears each give-up of a proof spending
 this budget, and returns the budget so a query can be built inline. A nil
 observer leaves the budget silent; a nil budget stays unbounded and silent.
 
+## SearchBudget.PoolExhausted
+
+[Source](../../../../internal/ssaflow/call_budget_pool.go)
+
+```go
+func (budget *SearchBudget) PoolExhausted() bool
+```
+
+PoolExhausted reports whether the pool this budget draws from ran out,
+as opposed to the budget's own limit. A proof reports the difference so
+a trace distinguishes an expensive question from an expensive candidate.
+
 ## SearchBudget.Spend
 
 [Source](../../../../internal/ssaflow/call_budget.go)
@@ -1871,6 +1906,19 @@ func (budget *SearchBudget) Spend() bool
 
 Spend charges one instruction and reports whether the walk may continue. A
 nil budget is unbounded, so a caller that does not need one passes nothing.
+
+## SearchBudget.Within
+
+[Source](../../../../internal/ssaflow/call_budget_pool.go)
+
+```go
+func (pool *SearchBudget) Within(limit int) *SearchBudget
+```
+
+Within returns a budget limited to limit instructions that also charges
+every instruction to this pool. A nil pool yields a plain budget. The
+child inherits the pool's observer, so an analyzer attaches the tracer
+once, to the pool.
 
 ## SelectedReceiveChannel
 

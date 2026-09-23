@@ -87,7 +87,7 @@ func sqlRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.Value)
 	next, ok := branch.Cond.(*ssa.Call)
 	return ok && ssaflow.CallMatchesSymbol(next.Common(), syntax.PackageMethod(syntax.MethodSymbol{
 		PackagePath: "database/sql", Receiver: "Rows", Name: "Next",
-	})) && ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
+	})) && ssaflow.NewStorage(nil).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
 }
 
 func resourceFunction(family, packagePath, name string, result int, cleanup ...string) resourceContract {
@@ -160,7 +160,7 @@ func rowsTransaction(acquisition *ssa.Call) ssa.Value {
 	}
 	// Require the statement's exact constructor result. A different statement,
 	// unresolved merge, or replaced receiver must retain its own obligation.
-	statement := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(ssaflow.CallReceiver(common))
+	statement := ssaflow.NewStorage(nil).Resolve(ssaflow.CallReceiver(common))
 	extract, ok := statement.Value.(*ssa.Extract)
 	if !statement.Proven() || !ok || extract.Index != 0 {
 		return nil
@@ -177,7 +177,7 @@ func rowsTransaction(acquisition *ssa.Call) ssa.Value {
 // provably agree. Do not equate arbitrary
 // loads from the same address: that would accept a reassigned DB.
 func statementParentIdentity(left, right ssa.Value) bool {
-	return ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(left, right).Proven()
+	return ssaflow.NewStorage(nil).Same(left, right).Proven()
 }
 
 func sqlDatabaseCall(common *ssa.CallCommon, names ...string) bool {
@@ -264,7 +264,7 @@ func cleanupReceiver(knowledge *summaries.Provider, common *ssa.CallCommon) ssa.
 	if knowledge == nil || receiver == nil {
 		return receiver
 	}
-	if argument, ok := knowledge.ArgumentReturnedUnchanged(receiver, ssaflow.NewSearchBudget(2000)); ok {
+	if argument, ok := knowledge.ArgumentReturnedUnchanged(receiver, ssaflow.NewSearchBudget(ssaflow.SummaryBudget)); ok {
 		return argument
 	}
 	return receiver
@@ -288,8 +288,8 @@ func releasesOrdinaryResource(
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common != nil && slices.Contains(methods, ssaflow.CallName(common)) &&
-		(ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(cleanupReceiver(knowledge, common), resource).Proven() ||
-			ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
+		(ssaflow.NewStorage(nil).Same(cleanupReceiver(knowledge, common), resource).Proven() ||
+			ssaflow.NewStorage(nil).Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
 		return true
 	}
 	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssaflow.MayAliasAny(ssaflow.CallReceiver(common), owners) {
@@ -502,7 +502,7 @@ func callTakesResourceOwnership(
 	// obligation. Rows.Scan, for example, retains receiver-local scan state;
 	// that does not make an early Scan-error return close the rows.
 	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
-	if !ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(receiver, resource).Proven() &&
+	if !ssaflow.NewStorage(nil).Same(receiver, resource).Proven() &&
 		evidence.ArgumentRetainedByCallee(instruction, resource) &&
 		!resourceReleaseMayFollow(instruction, resource, methods) {
 		return true

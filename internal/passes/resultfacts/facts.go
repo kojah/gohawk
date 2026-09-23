@@ -52,7 +52,7 @@ func run(pass *analysis.Pass) (any, error) {
 		if object == nil || !object.Exported() || function.Signature.Results().Len() == 0 {
 			continue
 		}
-		summary := engine.Function(function, ssaflow.NewSearchBudget(2000))
+		summary := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 		if summary.Available {
 			pass.ExportObjectFact(object, &Fact{
 				Version: factVersion, Results: slices.Clone(summary.results), Relations: slices.Clone(summary.relations),

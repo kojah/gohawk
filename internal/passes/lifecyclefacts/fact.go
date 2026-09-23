@@ -310,7 +310,7 @@ func factForFunction(pass *analysis.Pass, function *ssa.Function) (Fact, bool) {
 // captured the target is not mistaken for it.
 func factOwnsExactArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
 	return factArgumentMatches(instruction, target, mask, func(value, target ssa.Value) bool {
-		return ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(value, target).Proven()
+		return ssaflow.NewStorage(nil).Same(value, target).Proven()
 	})
 }
 
@@ -336,7 +336,7 @@ func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask Parame
 		if !mask.contains(index) {
 			continue
 		}
-		if ssaflow.NewStorage(ssaflow.NewSearchBudget(1000).Observed(observer)).Same(argument, target).Proven() {
+		if ssaflow.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer)).Same(argument, target).Proven() {
 			return true
 		}
 		// Containment must not turn an ambiguous phi or a storage-history
@@ -354,7 +354,8 @@ func factOwnsProjectedArgument(instruction ssa.Instruction, target ssa.Value, ma
 		return false
 	}
 	for index, argument := range common.Args {
-		if mask.contains(index) && ssaflow.NewStorage(ssaflow.NewSearchBudget(1000).Observed(observer)).Projection(argument, target, instruction).Proven() {
+		storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
+		if mask.contains(index) && storage.Projection(argument, target, instruction).Proven() {
 			return true
 		}
 	}

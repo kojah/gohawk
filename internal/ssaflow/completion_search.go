@@ -191,11 +191,11 @@ func exactCallbacks(value ssa.Value, invocation ssa.Instruction, allowOnceFunc b
 			return exactCallbacks(common.Args[0], invocation, allowOnceFunc, seen)
 		}
 	case *ssa.UnOp:
-		if stored, ok := NewStorage(NewSearchBudget(1000)).stableValue(typed.X, invocation); ok {
+		if stored, ok := NewStorage(nil).stableValue(typed.X, invocation); ok {
 			return exactCallbacks(stored, invocation, allowOnceFunc, seen)
 		}
 	case *ssa.Alloc:
-		if stored, ok := NewStorage(NewSearchBudget(1000)).stableValue(typed, invocation); ok {
+		if stored, ok := NewStorage(nil).stableValue(typed, invocation); ok {
 			return exactCallbacks(stored, invocation, allowOnceFunc, seen)
 		}
 	case *ssa.Phi:

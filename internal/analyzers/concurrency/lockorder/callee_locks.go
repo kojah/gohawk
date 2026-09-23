@@ -173,7 +173,7 @@ func possibleFreshBoundMutex(path ssaflow.EmbeddedFieldPath) freshMutexFieldProo
 	if !ok {
 		return unknown
 	}
-	budget := ssaflow.NewSearchBudget(1000)
+	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
 	storage := ssaflow.NewStorage(budget)
 	fresh := false
 	for _, block := range load.Parent().Blocks {
@@ -296,7 +296,7 @@ func localMutexPathIdentity(path ssaflow.EmbeddedFieldPath) string {
 }
 
 func mutexPathInstanceIdentity(path ssaflow.EmbeddedFieldPath) string {
-	root := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(path.Root)
+	root := ssaflow.NewStorage(nil).Resolve(path.Root)
 	if !root.Proven() {
 		return ""
 	}

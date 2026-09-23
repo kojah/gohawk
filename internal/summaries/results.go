@@ -53,7 +53,7 @@ func (provider *Provider) Successors() func(block, predecessor *ssa.BasicBlock) 
 		return nil
 	}
 	return func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
-		return provider.FeasibleSuccessors(block, predecessor, ssaflow.NewSearchBudget(2000))
+		return provider.FeasibleSuccessors(block, predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 	}
 }
 

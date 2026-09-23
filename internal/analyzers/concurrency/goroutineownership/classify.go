@@ -158,7 +158,7 @@ func storedTerminationReceiver(common *ssa.CallCommon) bool {
 	if receiver == nil || len(common.Args) == 0 || common.Args[0] != receiver {
 		return false
 	}
-	resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(receiver)
+	resolved := ssaflow.NewStorage(nil).Resolve(receiver)
 	if !resolved.Proven() || resolved.Value == receiver {
 		return false
 	}

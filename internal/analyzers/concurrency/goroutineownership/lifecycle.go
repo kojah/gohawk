@@ -252,7 +252,7 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go)
 	if function == nil {
 		return false
 	}
-	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000))
+	storage := ssaflow.NewStorage(nil)
 	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
 		value := pair.Supplied
 		if _, cell := value.(*ssa.Alloc); cell {

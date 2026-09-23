@@ -14,7 +14,7 @@ import (
 // contribute no witness; they never prove that a helper leaves a channel open.
 func channelEffects(pass *analysis.Pass, function *ssa.Function) map[ssa.Instruction][]concurrencyfacts.Operation {
 	provider := summaryKnowledge.Provider(pass)
-	budget := ssaflow.NewSearchBudget(2000)
+	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
 	effects := make(map[ssa.Instruction][]concurrencyfacts.Operation)
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {

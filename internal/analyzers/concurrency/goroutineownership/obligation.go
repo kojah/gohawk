@@ -210,7 +210,7 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 			}
 			proof := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
 				Instruction: deferred, Target: pair.Local, Methods: []string{"Done"},
-				Budget: ssaflow.NewSearchBudget(1000),
+				Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
 			})
 			return proof.Proven()
 		})

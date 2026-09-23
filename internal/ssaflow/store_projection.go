@@ -190,7 +190,7 @@ func instructionWithinObservation(candidate, origin, observation ssa.Instruction
 }
 
 func strictNonEmptyAccessPath(value, root ssa.Value) bool {
-	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{}, NewSearchBudget(1000))
+	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{}, NewSearchBudget(QueryBudget))
 	return ok && depth > 0
 }
 

@@ -347,7 +347,7 @@ func ReturnedResult(returned *ssa.Return, index int) ssa.Value { //nolint:iretur
 	}
 	result := returned.Results[index]
 	if load, ok := result.(*ssa.UnOp); ok && load.Op == token.MUL {
-		if stored := NewStorage(NewSearchBudget(1000)).Content(load.X, load); stored.Proven() {
+		if stored := NewStorage(nil).Content(load.X, load); stored.Proven() {
 			return stored.Value
 		}
 	}

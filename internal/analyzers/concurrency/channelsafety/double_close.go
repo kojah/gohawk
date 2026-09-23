@@ -27,7 +27,7 @@ type doubleCloseProof struct {
 }
 
 func reportDoubleCloses(pass *analysis.Pass, function *ssa.Function, effects map[ssa.Instruction][]concurrencyfacts.Operation) {
-	budget := ssaflow.NewSearchBudget(2000)
+	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
 	storage := ssaflow.NewStorage(budget)
 	for _, block := range function.Blocks {
 		var previous []closeWitness

@@ -655,7 +655,7 @@ func (evidence *LifecycleEvidence) visibleCalleeRetains(instruction ssa.Instruct
 	}
 	retentions := evidence.retentionQueries()
 	for _, binding := range ssaflow.CallBindings(common, function, closure) {
-		if !ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(binding.Supplied, target).Proven() ||
+		if !ssaflow.NewStorage(nil).Same(binding.Supplied, target).Proven() ||
 			!retentions.storedEveryReturn(evidence.pass, function, binding.Local) {
 			continue
 		}

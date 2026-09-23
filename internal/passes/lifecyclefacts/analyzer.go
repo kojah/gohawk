@@ -133,7 +133,7 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 		bit := parameterMaskFor(index)
 		invokes := func(instruction ssa.Instruction) bool {
 			common := ssaflow.InstructionCall(instruction)
-			if common != nil && ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(common.Value, parameter).Proven() {
+			if common != nil && ssaflow.NewStorage(nil).Same(common.Value, parameter).Proven() {
 				return true
 			}
 			imported, ok := importFact(pass, instruction)
@@ -210,7 +210,7 @@ func invokesMethodCallback(instruction ssa.Instruction, target ssa.Value, method
 			continue
 		}
 		if ssaflow.ProveCompletion(ssaflow.CompletionRequest{
-			Instruction: instruction, Target: closure, InvokeTarget: true, Budget: ssaflow.NewSearchBudget(1000),
+			Instruction: instruction, Target: closure, InvokeTarget: true, Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
 		}).Proven() {
 			return true
 		}
@@ -223,7 +223,7 @@ func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruct
 		return false
 	}
 	common := ssaflow.InstructionCall(instruction)
-	if common != nil && ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(common.Value, parameter).Proven() {
+	if common != nil && ssaflow.NewStorage(nil).Same(common.Value, parameter).Proven() {
 		return true
 	}
 	imported, ok := importFact(pass, instruction)

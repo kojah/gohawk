@@ -57,12 +57,19 @@ func (flow lockFlowContext) reportMissingReleases(
 	}
 }
 
+// callerSetBudget bounds the one walk over every instruction of the
+// package that collects callers of private function values. It is a
+// whole-package pass rather than a question about one candidate, so it is
+// far larger than a query; exhaustion leaves every caller set incomplete,
+// which no proof may then rely on.
+const callerSetBudget = 20_000
+
 // Private function values must have a complete, bounded synchronous caller set.
 // Include generated source bodies when collecting uses; skipping their callers
 // would turn an incomplete set into a cleanup guarantee.
 func conditionalCallerSets(functions []*ssa.Function) map[*ssa.Function]conditionalCallerSet {
 	callers := make(map[*ssa.Function]conditionalCallerSet)
-	budget := ssaflow.NewSearchBudget(20_000)
+	budget := ssaflow.NewSearchBudget(callerSetBudget)
 	for _, function := range functions {
 		if function == nil {
 			continue

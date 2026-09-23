@@ -220,7 +220,7 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value) bool {
 		receiver := ssaflow.CallReceiver(common)
 		_, merged := receiver.(*ssa.Phi)
 		return merged && ssaflow.MayAlias(receiver, command) &&
-			!ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(receiver, command).Proven()
+			!ssaflow.NewStorage(nil).Same(receiver, command).Proven()
 	}
 	if _, spawned := instruction.(*ssa.Go); spawned {
 		callee, _ := ssaflow.DirectCallee(common)
@@ -229,7 +229,7 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value) bool {
 		}
 		return ssaflow.ProveCompletion(ssaflow.CompletionRequest{
 			Instruction: instruction, Target: command, Methods: []string{"Wait"},
-			Coverage: ssaflow.CoverageAnywhere, Budget: ssaflow.NewSearchBudget(1000),
+			Coverage: ssaflow.CoverageAnywhere, Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
 		}).Proven()
 	}
 	callee, _ := ssaflow.DirectCallee(common)

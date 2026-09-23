@@ -139,7 +139,7 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int) []ssa.Value {
 		return nil
 	}
 	var targets []ssa.Value
-	budget := ssaflow.NewSearchBudget(1000)
+	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
 	for index := range function.Signature.Results().Len() {
 		target := ssaflow.CallResult(factory, index)
 		if !lifecycleOwner(target) {

@@ -194,7 +194,7 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 }
 
 func immutableCapturedTarget(binding, target ssa.Value, observation ssa.Instruction, observer ssaflow.Observer) bool {
-	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000).Observed(observer))
+	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
 	if storage.Same(binding, target).Proven() {
 		return true
 	}

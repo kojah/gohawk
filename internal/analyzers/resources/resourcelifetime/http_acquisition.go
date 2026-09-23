@@ -201,13 +201,19 @@ func closureLoadsCellForDo(closure *ssa.MakeClosure, cell *ssa.Alloc) bool {
 	return true
 }
 
+// httpEffectsBudget bounds the walks that look for a transport or client
+// override through visible callees. They visit every instruction of every
+// reachable body once, so they are given twice a summary question; an
+// exhausted walk counts as modified, which is the conservative answer.
+const httpEffectsBudget = 4000
+
 // defaultClientVisiblyModified reports any use of the package default client
 // or transport, here or in a visible callee, other than loading the client
 // for a direct Do call. A store, a field address, or an argument position
 // could install the timeout or transport that gives a HEAD response a body
 // wrapper. Exhausted searches count as modified.
 func defaultClientVisiblyModified(function *ssa.Function) bool {
-	budget := ssaflow.NewSearchBudget(4000)
+	budget := ssaflow.NewSearchBudget(httpEffectsBudget)
 	overrides := newHTTPWriterEffects().overrides
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -360,7 +366,7 @@ func localHeaderOnlyAcquisition(call *ssa.Call) ssaflow.Proof {
 	if !ok || len(function.Params) != 2 {
 		return ssaflow.Proof{Reason: "local-server-handler-unavailable"}
 	}
-	budget := ssaflow.NewSearchBudget(4000)
+	budget := ssaflow.NewSearchBudget(httpEffectsBudget)
 	effects := newHTTPWriterEffects()
 	if effects.overrides.Function(call.Parent(), budget) || effects.overrides.Function(function, budget) {
 		return ssaflow.Proof{Reason: "local-server-client-override-unresolved"}

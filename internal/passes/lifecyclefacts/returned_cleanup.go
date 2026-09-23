@@ -28,7 +28,7 @@ type ReturnedCleanupEffect struct {
 }
 
 func summarizeReturnedCleanup(pass *analysis.Pass, function *ssa.Function) *ReturnedCleanupSummary {
-	budget := ssaflow.NewSearchBudget(2000)
+	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
 	summary := &ReturnedCleanupSummary{Version: returnedCleanupVersion}
 	results := function.Signature.Results()
 	for callback := range min(results.Len(), 4) {

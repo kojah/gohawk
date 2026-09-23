@@ -94,3 +94,37 @@ func compositeLitHasKey(literal *ast.CompositeLit, field string) bool {
 	}
 	return false
 }
+
+// A budget's size is a decision about how much one question may cost, and a
+// number at the construction site records no such decision: it is copied
+// from the nearest neighbour and drifts. ssaflow names the two shared bounds,
+// and a proof with a reason of its own names a constant beside that reason.
+func TestSearchBudgetsAreNamed(t *testing.T) {
+	t.Parallel()
+	inventory := newRepositorySourceInventory(t)
+	for _, source := range inventory.productionGoFiles(t, "internal") {
+		ast.Inspect(source.file, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok || len(call.Args) != 1 || !isSearchBudgetConstructor(call.Fun) {
+				return true
+			}
+			if _, literal := call.Args[0].(*ast.BasicLit); literal {
+				position := source.fileSet.Position(call.Pos())
+				t.Errorf("%s:%d constructs a SearchBudget from a bare number; use ssaflow.QueryBudget, "+
+					"ssaflow.SummaryBudget, or a named constant beside the proof that explains the bound",
+					source.repositoryPath, position.Line)
+			}
+			return true
+		})
+	}
+}
+
+func isSearchBudgetConstructor(function ast.Expr) bool {
+	switch typed := function.(type) {
+	case *ast.Ident:
+		return typed.Name == "NewSearchBudget"
+	case *ast.SelectorExpr:
+		return typed.Sel.Name == "NewSearchBudget"
+	}
+	return false
+}

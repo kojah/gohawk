@@ -130,7 +130,7 @@ func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorVal
 // https://github.com/norwoodj/helm-docs/blob/a5573af096a4b526dcbc3c896c220b1714a0765b/pkg/helm/chart_info.go#L94-L106
 func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, errorValue ssa.Value) ssaflow.Proof {
 	unknown := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
-	budget := ssaflow.NewSearchBudget(1000)
+	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
 	function, closure := ssaflow.DirectCallee(call.Common())
 	if function == nil {
 		function = capturedErrorPredicate(call, budget)
@@ -148,7 +148,7 @@ func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, er
 		if argument != errorValue || closure != nil {
 			continue
 		}
-		summary, available := knowledge.ForFunction(function).Results(ssaflow.NewSearchBudget(4000))
+		summary, available := knowledge.ForFunction(function).Results(ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 		if available == summaries.Available && summary.Holds(resultfacts.FalseWhenParameterNil, 0, index) {
 			return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "error-predicate-false-for-nil"}
 		}

@@ -13,7 +13,7 @@ import (
 // producer/receiver proof. Receiver helpers are expanded too: exposing sends
 // alone would turn a hidden drain into a false abandoned-producer diagnostic.
 func summarizedSends(function *ssa.Function, spawn *ssa.Go, engine *concurrencyfacts.Engine) ([]producerSend, bool) {
-	budget := ssaflow.NewSearchBudget(2000)
+	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
 	summary := engine.AtCall(spawn, budget)
 	if !summary.Complete() {
 		return nil, false

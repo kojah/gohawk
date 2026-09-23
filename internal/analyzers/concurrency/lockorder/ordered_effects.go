@@ -37,7 +37,7 @@ func summarizedMutexEffects(pass *analysis.Pass, function *ssa.Function) map[ssa
 	if engine == nil {
 		return result
 	}
-	budget := ssaflow.NewSearchBudget(2000)
+	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
 		if _, _, _, direct := mutexAction(call); direct {
 			continue

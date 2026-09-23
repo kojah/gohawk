@@ -66,7 +66,7 @@ func reportFollowingSends(
 			}
 			probe := analysisTrace.For(pass, "channelsafety", string(check.ChannelSendAfterClose), candidate.Pos())
 			probe.Candidate(analysisTrace.Step{Reason: "send-reachable-after-close", Outcome: analysisTrace.OutcomeObserved})
-			identity := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(sent.Resource.Value, closed.Resource.Value)
+			identity := ssaflow.NewStorage(nil).Same(sent.Resource.Value, closed.Resource.Value)
 			emitChannelIdentityDecision(pass, function, probe, instruction, candidate, identity)
 			if !identity.Proven() {
 				continue

@@ -25,7 +25,7 @@ func ReturnsParameterUnchanged(function *ssa.Function, parameter ssa.Value, inde
 			}
 			result := returned.Results[index]
 			return types.Identical(result.Type(), parameter.Type()) &&
-				NewStorage(NewSearchBudget(1000)).Same(result, parameter).Proven()
+				NewStorage(nil).Same(result, parameter).Proven()
 		},
 	)
 }

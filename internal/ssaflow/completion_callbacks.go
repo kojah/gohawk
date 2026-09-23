@@ -52,7 +52,7 @@ func (search *callbackSearch) searchInvokes(instruction ssa.Instruction, target 
 				return false
 			}
 			common := InstructionCall(candidate)
-			return common != nil && NewStorage(NewSearchBudget(1000)).Same(common.Value, parameter).Proven() || search.invokes(candidate, parameter)
+			return common != nil && NewStorage(nil).Same(common.Value, parameter).Proven() || search.invokes(candidate, parameter)
 		})
 	}, func(SummaryUnavailable, bool) bool {
 		return false
@@ -69,7 +69,7 @@ func callOwnsArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value
 		return false
 	}
 	for _, binding := range CallBindings(common, callee, nil) {
-		if !NewStorage(NewSearchBudget(1000)).Same(binding.Supplied, target).Proven() {
+		if !NewStorage(nil).Same(binding.Supplied, target).Proven() {
 			continue
 		}
 		parameter := binding.Local

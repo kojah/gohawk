@@ -19,7 +19,7 @@ func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value) string {
 	if value == nil || !walk.Mark(value) {
 		return ""
 	}
-	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(value); resolved.Proven() && resolved.Value != value {
+	if resolved := ssaflow.NewStorage(nil).Resolve(value); resolved.Proven() && resolved.Value != value {
 		return lockIdentity(walk, resolved.Value)
 	}
 	if source, ok := ssaflow.IdentitySource(value); ok {
@@ -208,7 +208,7 @@ func lockClassOf(value ssa.Value) string {
 }
 
 func localMutexAllocation(value ssa.Value) *ssa.Alloc {
-	resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(value)
+	resolved := ssaflow.NewStorage(nil).Resolve(value)
 	if !resolved.Proven() {
 		return nil
 	}
@@ -241,7 +241,7 @@ func possibleFreshMutexField(value ssa.Value) freshMutexFieldProof {
 	if !ok || owner.Parent() != load.Parent() {
 		return unknown
 	}
-	if ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(value).Proven() {
+	if ssaflow.NewStorage(nil).Resolve(value).Proven() {
 		return unknown
 	}
 	fresh := false
@@ -254,7 +254,7 @@ func possibleFreshMutexField(value ssa.Value) freshMutexFieldProof {
 		fresh = fresh || allocated
 	}
 	if !fresh || visibleMutexSlotReplacement(ssaflow.NewReachingWalk(ssaflow.TransparentNone), owner, field.Field, load,
-		ssaflow.NewSearchBudget(1000)) {
+		ssaflow.NewSearchBudget(ssaflow.QueryBudget)) {
 		return unknown
 	}
 	return freshMutexFieldProof{possible: true, reason: "fresh-field-identity-unknown"}

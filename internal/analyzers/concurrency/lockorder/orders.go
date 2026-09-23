@@ -130,7 +130,7 @@ func crossOwnerClassUncertain(held, acquired lockAcquisition) bool {
 		left.Root.Parent() == nil || left.Root.Parent() != right.Root.Parent() || !types.Identical(left.Root.Type(), right.Root.Type()) {
 		return false
 	}
-	return !ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Same(left.Root, right.Root).Proven()
+	return !ssaflow.NewStorage(nil).Same(left.Root, right.Root).Proven()
 }
 
 // Only exact global exclusive guards enter this set. A declaration-class

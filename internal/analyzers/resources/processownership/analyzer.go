@@ -109,7 +109,7 @@ func reportStartedCommand(pass *analysis.Pass, evidence *lifecyclefacts.Lifecycl
 	// The receiver may be a load from a returned value-owner's field. Resolve
 	// that acquisition-time load before comparing it with the owner's contents.
 	// https://github.com/minio/selfupdate/blob/5b54254443f7ab80e750e1761590c1f029ecc42f/internal/binarydist/bzip2.go#L26-L40
-	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(1000)).Resolve(command); resolved.Proven() {
+	if resolved := ssaflow.NewStorage(nil).Resolve(command); resolved.Proven() {
 		command = resolved.Value
 	}
 	merged := successfulCommandMerge(start, command)

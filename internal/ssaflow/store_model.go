@@ -26,7 +26,7 @@ type StoredValue struct {
 // NewStorage creates a bounded storage query using the caller's search budget.
 func NewStorage(budget *SearchBudget) *Storage {
 	if budget == nil {
-		budget = NewSearchBudget(1000)
+		budget = NewSearchBudget(QueryBudget)
 	}
 	return &Storage{budget: budget, effects: NewCallEffects(budget)}
 }

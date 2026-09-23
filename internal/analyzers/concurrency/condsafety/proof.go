@@ -15,7 +15,7 @@ type waitProof struct {
 }
 
 func proveWait(function *ssa.Function, engine *concurrencyfacts.Engine) waitProof {
-	budget := ssaflow.NewSearchBudget(2000)
+	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
 	summary := engine.Root(function, budget)
 	if !summary.Complete() {
 		return waitProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceReason(summary.Reason)}}

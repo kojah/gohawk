@@ -14,7 +14,7 @@ import (
 // possible uses, never proof of cleanup or ownership transfer. Imported bodies
 // remain unknown until a dedicated effect summary can establish their safety.
 func (evidence *LifecycleEvidence) CallEffects(instruction ssa.Instruction, target ssa.Value) ssaflow.CallEffectProof {
-	proof := ssaflow.NewCallEffects(ssaflow.NewSearchBudget(1000).Observed(evidence.probe.Observer())).Call(instruction, target)
+	proof := ssaflow.NewCallEffects(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(evidence.probe.Observer())).Call(instruction, target)
 	if !evidence.probe.Enabled() {
 		return proof
 	}

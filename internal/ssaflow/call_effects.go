@@ -47,7 +47,7 @@ type CallEffects struct {
 // budget receives the same bounded 1000-step default as local storage queries.
 func NewCallEffects(budget *SearchBudget) *CallEffects {
 	if budget == nil {
-		budget = NewSearchBudget(1000)
+		budget = NewSearchBudget(QueryBudget)
 	}
 	return &CallEffects{budget: budget, memo: NewCallGraphMemo[ssa.Value, CallEffect]()}
 }

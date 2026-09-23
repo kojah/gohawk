@@ -32,7 +32,7 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		probe := trace.For(pass, "waitgroupsafety", string(check.WaitGroupNegativeCounter), function.Pos())
 		probe.Candidate(trace.Step{Reason: "counter-summary", Outcome: trace.OutcomeObserved})
-		proof := proveCounter(function, engine.Root(function, ssaflow.NewSearchBudget(2000)))
+		proof := proveCounter(function, engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget)))
 		outcome := trace.OutcomeUnknown
 		if proof.Proven() {
 			outcome = trace.OutcomeRejected

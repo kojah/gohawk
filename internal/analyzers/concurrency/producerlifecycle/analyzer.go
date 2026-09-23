@@ -187,7 +187,7 @@ func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
 }
 
 func channelReceives(function *ssa.Function, channel ssa.Value, origin *ssa.Go, engine *concurrencyfacts.Engine) receiveProof {
-	budget := ssaflow.NewSearchBudget(2000)
+	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
 	var result receiveProof
 	for _, block := range function.Blocks {
 		before := result.count

@@ -16,12 +16,31 @@ import "go/token"
 // one. Callers ask Spend before each step and choose their own answer when it
 // reports false.
 
+// The two shared bounds name how much one question may cost. They are the
+// defaults a caller reaches for when it has no reason of its own; a caller
+// with one, such as a whole-package caller-set walk, declares a named
+// constant beside the proof that explains it. A bare number at a
+// construction site is not a decision, so the architecture tests reject it.
+const (
+	// QueryBudget bounds one local question: a storage identity, a
+	// projection, a value's uses, or one callee walked for a completion. It
+	// is also what NewStorage and NewCallEffects assume for a nil budget.
+	QueryBudget = 1000
+	// SummaryBudget bounds a question that consults or computes a function
+	// summary, or decides feasibility from one: twice a local question,
+	// because it walks the callee as well as the caller.
+	SummaryBudget = 2000
+)
+
 // SearchBudget bounds one interprocedural question by the number of
 // instructions it may examine.
 type SearchBudget struct {
 	remaining int
 	exhausted bool
 	observer  Observer
+	// parent, when set, is the candidate-wide pool this budget also charges;
+	// see Within.
+	parent *SearchBudget
 }
 
 // NewSearchBudget returns a budget allowing limit instructions.
@@ -36,6 +55,10 @@ func (budget *SearchBudget) Spend() bool {
 		return true
 	}
 	if budget.remaining <= 0 {
+		budget.exhausted = true
+		return false
+	}
+	if budget.parent != nil && !budget.parent.Spend() {
 		budget.exhausted = true
 		return false
 	}

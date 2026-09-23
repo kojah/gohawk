@@ -123,7 +123,7 @@ func (query *releasedResource) prove(acquisition, release, use *ssa.Call) useAft
 	if !query.releaseInvalidates(release, use) {
 		return unknown("release-success-not-proven", nil)
 	}
-	budget := ssaflow.NewSearchBudget(1000)
+	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
 	effects := ssaflow.NewCallEffects(budget)
 	for _, instruction := range ssaflow.InstructionsReachableAfter(acquisition) {
 		if !budget.Spend() {
@@ -206,7 +206,7 @@ func (query *releasedResource) passesResourceThrough(call *ssa.Call, effects *ss
 	if query.knowledge == nil {
 		return false
 	}
-	argument, ok := query.knowledge.ArgumentReturnedUnchanged(call, ssaflow.NewSearchBudget(2000))
+	argument, ok := query.knowledge.ArgumentReturnedUnchanged(call, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 	if !ok || !query.storage.Same(argument, query.resource).Proven() {
 		return false
 	}
