@@ -51,19 +51,34 @@ func (graph *regionGraph) runDefers(state *regionState, run *ssa.RunDefers) {
 	}
 	graph.escape(state, state.deferred, HeapEscapedCall, run)
 	graph.clobber(state, state.deferred, graph.id(run))
-	graph.invalidateForeign(state, "", graph.id(run))
+	graph.invalidateForeign(state, "", graph.id(run), reachEscaped)
 }
 
-// invalidateForeign forgets the contents of every object the function did
-// not allocate, and of every escaped site, because a write through one such
-// object may have reached any of them; the slot written itself is set right
-// after by its caller. A step names the field or element written, so only
-// slots ending in that step are forgotten and only their placeholders are
-// restamped; an empty step forgets them all. The written slot's own exact
-// entry, set afterwards, overrides the forgetting.
-func (graph *regionGraph) invalidateForeign(state *regionState, step string, stamp int) {
+// foreignReach says which objects an effect the graph cannot follow may
+// have written.
+type foreignReach uint8
+
+const (
+	// reachEscaped: an unresolved call. It can write what it was handed,
+	// what has escaped before it, globals, and objects other code created;
+	// under the structural contract it cannot reach a parameter or a local
+	// that this function's own flow never let out.
+	reachEscaped foreignReach = iota
+	// reachAny: a store through a pointer the graph knows nothing about,
+	// which may address anything.
+	reachAny
+)
+
+// invalidateForeign forgets the contents of every object unknown code may
+// have written, because a write through one such object may have reached
+// any of them; the slot written itself is set right after by its caller.
+// A step names the field or element written, so only slots ending in that
+// step are forgotten and only their placeholders are restamped; an empty
+// step forgets them all. The written slot's own exact entry, set
+// afterwards, overrides the forgetting.
+func (graph *regionGraph) invalidateForeign(state *regionState, step string, stamp int, reach foreignReach) {
 	for target := range state.contents {
-		if !graph.foreign(state, target.region) {
+		if !graph.foreign(state, target.region, reach) {
 			continue
 		}
 		if step == "" || stepKey(target.path) == step || isIndexStep(step) && isIndexStep(lastStep(target.path)) {
@@ -74,7 +89,7 @@ func (graph *regionGraph) invalidateForeign(state *regionState, step string, sta
 		}
 	}
 	for target := range state.backing {
-		if graph.foreign(state, target.region) && (step == "" || target.region.kind == regionSite) {
+		if graph.foreign(state, target.region, reach) && (step == "" || target.region.kind == regionSite) {
 			delete(state.backing, target)
 			state.clobbered[target] = stamp
 		}
@@ -94,18 +109,53 @@ func (graph *regionGraph) invalidateForeign(state *regionState, step string, sta
 	}
 }
 
-// foreign reports whether an object may be written through a pointer the
-// function did not derive from a local allocation.
-func (graph *regionGraph) foreign(state *regionState, object *region) bool {
+// unknownReach is the set of escapes that put an object within reach of
+// code the graph did not follow: handed to a call, started, stored in a
+// global, or sent. A store into a field is not one of them by itself; it
+// is one only when the containing object was already within reach, and
+// the store then propagates that reach to what it stored.
+const unknownReach = HeapEscapedGlobal | HeapEscapedCall | HeapEscapedAsync | HeapEscapedSend
+
+// foreign reports whether an object may be written by code the graph did
+// not follow. A global, and an object some callee created, always may. A
+// site, a parameter, a captured variable, and the content read out of any
+// of them may only once this function let them out. A store through an
+// unknown pointer may reach anything the function did not allocate.
+func (graph *regionGraph) foreign(state *regionState, object *region, reach foreignReach) bool {
 	switch object.kind {
 	case regionSite:
 		return state.escaped[object]
-	case regionExternal, regionOpaque, regionPlaceholder:
+	case regionExternal:
+		if _, global := object.origin.(*ssa.Global); global || reach == reachAny {
+			return true
+		}
+		return state.escapes[slot{region: object}]&unknownReach != 0
+	case regionOpaque:
 		return true
-	case regionNil, regionUnknown, regionSnapshot, regionClosure:
+	case regionPlaceholder:
+		return reach == reachAny || state.escapes[slot{region: object}]&unknownReach != 0 || graph.foreign(state, object.source.region, reach)
+	case regionClosure:
+		return reach == reachAny || state.escapes[slot{region: object}]&unknownReach != 0
+	case regionNil, regionUnknown, regionSnapshot:
 		return false
 	}
 	return false
+}
+
+// reachOf is the reach a value stored into the object inherits: a global's
+// and a callee-created object's, and whatever unknown code could already
+// reach the object by.
+func (graph *regionGraph) reachOf(state *regionState, object *region) HeapEscape {
+	switch object.kind {
+	case regionExternal:
+		if _, global := object.origin.(*ssa.Global); global {
+			return HeapEscapedGlobal
+		}
+	case regionOpaque:
+		return HeapEscapedCall
+	case regionSite, regionPlaceholder, regionClosure, regionSnapshot, regionNil, regionUnknown:
+	}
+	return state.escapes[slot{region: object}] & unknownReach
 }
 
 // escape marks every slot reachable from the pointees as having left local
@@ -243,7 +293,6 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 	if !started && graph.applyHeapSummary(state, common, instruction) {
 		return
 	}
-	graph.invalidateForeign(state, "", graph.id(instruction))
 	arguments := append([]ssa.Value(nil), common.Args...)
 	kind := HeapEscapedCall
 	if started {
@@ -258,15 +307,14 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 	if closure != nil {
 		arguments = append(arguments, closure.Bindings...)
 	}
+	if callee == nil || len(callee.Blocks) == 0 || started {
+		graph.unresolvedCall(state, arguments, kind, instruction)
+		return
+	}
+	graph.invalidateForeign(state, "", graph.id(instruction), reachEscaped)
 	effects := NewCallEffects(graph.budget)
 	for _, argument := range arguments {
 		set := graph.pointees(argument)
-		if callee == nil || len(callee.Blocks) == 0 || started {
-			state.opaque = true
-			graph.escape(state, set, kind, instruction)
-			graph.clobber(state, set, graph.id(instruction))
-			continue
-		}
 		if closure != nil && slices.Contains(closure.Bindings, argument) {
 			if !callbackCaptureReadOnly(closure, argument, graph.budget) {
 				graph.escape(state, set, kind, instruction)
@@ -283,6 +331,20 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 			graph.escape(state, set, kind, instruction)
 			graph.clobber(state, set, graph.id(instruction))
 		}
+	}
+}
+
+// unresolvedCall applies a call the graph cannot follow. What the call is
+// handed escapes first, so the forgetting reaches it and everything it
+// holds and nothing the function never let out, and is then clobbered.
+func (graph *regionGraph) unresolvedCall(state *regionState, arguments []ssa.Value, kind HeapEscape, instruction ssa.Instruction) {
+	state.opaque = true
+	for _, argument := range arguments {
+		graph.escape(state, graph.pointees(argument), kind, instruction)
+	}
+	graph.invalidateForeign(state, "", graph.id(instruction), reachEscaped)
+	for _, argument := range arguments {
+		graph.clobber(state, graph.pointees(argument), graph.id(instruction))
 	}
 }
 

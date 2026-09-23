@@ -531,21 +531,34 @@ func (projection *heapProjection) reads() []HeapSlot {
 	return sortedSlots(seen)
 }
 
-// truncated lists where the projection stops being exact: every root when
-// an unresolved call may have written anything, and the roots whose slots
-// exceeded the bound.
+// truncated lists where the projection stops being exact: the roots whose
+// slots exceeded the bound, and, when a call the graph could not follow
+// ran, the roots that call could have reached. Under the structural
+// contract that is a global, an object some callee created, and any
+// parameter, captured variable, or result object the function let out:
+// handed to a call, stored somewhere shared, sent, or started. Escapes
+// only accumulate along a path, so an object escaped at the return is
+// taken to have escaped before the call; one never let out was beyond
+// the call's reach, and what the function knows about it stands.
 func (projection *heapProjection) truncated(states []*regionState) []HeapSlot {
 	seen := map[HeapSlot]bool{}
 	for at := range projection.cuts {
 		seen[at] = true
 	}
 	for _, state := range states {
-		if state.opaque {
-			for _, root := range projection.roots {
+		if !state.opaque {
+			continue
+		}
+		for object, root := range projection.roots {
+			if root.Kind == HeapGlobal || state.escapes[slot{region: object}]&unknownReach != 0 {
 				seen[HeapSlot{Root: root}] = true
 			}
-			for index := range projection.results {
-				seen[HeapSlot{Root: HeapRoot{Kind: HeapResult, Index: index}}] = true
+		}
+		for index, objects := range projection.results {
+			for object := range objects {
+				if object.kind != regionSite || state.escaped[object] {
+					seen[HeapSlot{Root: HeapRoot{Kind: HeapResult, Index: index}}] = true
+				}
 			}
 		}
 	}

@@ -238,7 +238,7 @@ func (substitution *heapSubstitution) truncate(at HeapSlot) {
 	set := substitution.slots(at)
 	if set.unknown() {
 		substitution.state.opaque = true
-		substitution.graph.invalidateForeign(substitution.state, "", substitution.graph.id(substitution.instruction))
+		substitution.graph.invalidateForeign(substitution.state, "", substitution.graph.id(substitution.instruction), reachAny)
 		return
 	}
 	substitution.forgetSlots(set)

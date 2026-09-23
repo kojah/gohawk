@@ -24,7 +24,8 @@ func seesEdge(a *int, p *box) { summarized(p, a); observe(p.value, a) }
 func seesEdgeOther(a, b *int, p *box) { summarized(p, a); observe(p.value, b) }
 func forgetsTruncated(a *int, p *box) { p.value = a; truncating(p); observe(p.value, a) }
 func keepsUntouched(a *int, p *box, q *box) { q.value = a; summarized(p, a); observe(q.value, a) }
-func forgetsUnknown(a *int, p *box, q *box) { q.value = a; unknownCallee(p); observe(q.value, a) }
+func keepsUnhanded(a *int, p *box, q *box) { q.value = a; unknownCallee(p); observe(q.value, a) }
+func forgetsHanded(a *int, p *box, q *box) { q.value = a; unknownCallee(q); observe(q.value, a) }
 `)
 	RegisterHeapSummary(pkg.Func("summarized"), HeapSummary{
 		Edges: []HeapEdge{{
@@ -37,7 +38,11 @@ func forgetsUnknown(a *int, p *box, q *box) { q.value = a; unknownCallee(p); obs
 		Truncated: []HeapSlot{{Root: HeapRoot{Kind: HeapParameter, Index: 0}}},
 	})
 	for name, want := range map[string]bool{
-		"keepsLocal": true, "seesEdge": true, "seesEdgeOther": false, "forgetsTruncated": false, "keepsUntouched": true, "forgetsUnknown": false,
+		"keepsLocal": true, "seesEdge": true, "seesEdgeOther": false, "forgetsTruncated": false, "keepsUntouched": true,
+		// An unresolved call reaches what it was handed and nothing this
+		// function never let out: under the structural contract two
+		// parameters are distinct objects.
+		"keepsUnhanded": true, "forgetsHanded": false,
 	} {
 		t.Run(name, func(t *testing.T) {
 			call := heapObservation(t, pkg.Func(name))
@@ -46,7 +51,7 @@ func forgetsUnknown(a *int, p *box, q *box) { q.value = a; unknownCallee(p); obs
 			if got := graph.mustSame(left, right); got != want {
 				t.Fatalf("mustSame = %t, want %t\n%s", got, want, RenderRegions(call.Parent()))
 			}
-			if name != "forgetsUnknown" && !strings.Contains(RenderRegions(call.Parent()), "//   applied ") {
+			if name != "keepsUnhanded" && name != "forgetsHanded" && !strings.Contains(RenderRegions(call.Parent()), "//   applied ") {
 				t.Fatalf("the dump must record the applied summary:\n%s", RenderRegions(call.Parent()))
 			}
 		})

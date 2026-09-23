@@ -314,7 +314,7 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 	}
 	if targets.unknown() {
 		state.opaque = true
-		graph.invalidateForeign(state, "", graph.id(stored))
+		graph.invalidateForeign(state, "", graph.id(stored), reachAny)
 		graph.escape(state, value, HeapEscapedField, stored)
 		return
 	}
@@ -331,14 +331,14 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 			continue
 		}
 		if target.region.kind != regionSite || state.escaped[target.region] {
-			graph.escape(state, value, escapeInto(target.region), stored)
+			graph.escape(state, value, escapeInto(target.region)|graph.reachOf(state, target.region), stored)
 		}
 		if target.region.kind != regionSite {
 			steps[stepKey(target.path)] = true
 		}
 	}
 	for _, step := range slices.Sorted(maps.Keys(steps)) {
-		graph.invalidateForeign(state, step, graph.id(stored))
+		graph.invalidateForeign(state, step, graph.id(stored), reachAny)
 	}
 	for target := range targets {
 		if target.region.kind == regionNil {

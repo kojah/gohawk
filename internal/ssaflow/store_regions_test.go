@@ -65,6 +65,15 @@ func TestRegionGraphStorageParity(t *testing.T) {
 		{"phiOfSame", `y := a; if pick { y = a }; observe(y, a)`, true},
 		{"phiOfDifferent", `y := a; if pick { y = b }; observe(y, a)`, false},
 		{"cellThroughPointer", `x := box{value:a}; ptr := &x; ptr.value = b; observe(x.value, b)`, true},
+		// An unresolved call reaches only what it was handed, what escaped
+		// before it, and globals; a parameter this function never let out
+		// keeps what the function wrote into it.
+		{"parameterWrittenAcrossCall", `p.value = a; opaque(nil); observe(p.value, a)`, true},
+		{"parameterHandedToCall", `p.value = a; opaque(p); observe(p.value, a)`, false},
+		{"parameterEscapedBeforeCall", `p.value = a; retain(p); opaque(nil); observe(p.value, a)`, false},
+		{"parameterContentHandedToCall", `p.value = a; opaque(p.value); observe(p.value, a)`, true},
+		{"globalAcrossCall", `saved.value = a; opaque(nil); observe(saved.value, a)`, false},
+		{"parameterAcrossOtherParameterStore", `p.value = a; w.value = b; observe(p.value, a)`, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			pkg := ssaflowtest.BuildPackage(t, "regionprobe", `package regionprobe
@@ -77,7 +86,7 @@ func forward(p *box) int { return read(p) }
 func mutate(p *box,b *int) { p.value=b }
 func retain(p *box) { saved=p }
 func async(p *box) { go read(p) }
-func probe(a,b *int, p, q *box, pick bool, idx int) { `+test.body+` }
+func probe(a,b *int, p, q *box, pick bool, idx int, w *box) { `+test.body+` }
 `)
 			call := heapObservation(t, pkg.Func("probe"))
 			args := call.Common().Args

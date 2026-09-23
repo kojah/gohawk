@@ -80,6 +80,18 @@ expanded path states on each. A cut candidate contributes no requirement;
 missing requirements are unknown, not evidence that the helper makes no use
 of its arguments.
 
+## The footprint at a cut
+
+The footprint also sharpens what a caller forgets. A call the graph cannot
+follow can write only what it can reach: what it was handed, what escaped
+before it, globals, and objects other code created. The projection cuts
+only those roots, and the caller forgets only beneath the arguments that
+match them; a parameter the callee never let out keeps what the caller
+knew about it, and what the callee stored into it is applied as usual.
+This is the structural contract applied across a call: a parameter and an
+unknown callee are connected only when the function's own flow connects
+them.
+
 ## Applying a requirement
 
 At a call site the substitution already resolves each summary slot to the

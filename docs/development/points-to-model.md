@@ -41,8 +41,13 @@ not follow, and the write version of every non-site region. A store through
 a single unescaped local slot is a strong update. A store through anything
 else is a strong update of that slot and an invalidation of every other
 non-site slot with the same last step, because two objects the function did
-not allocate may be one. A call invalidates every non-site region and every
-escaped site, and consults the local call-effect proof to keep an unescaped
+not allocate may be one. A call the graph cannot follow invalidates what it
+can reach: what it was handed, what escaped before it by a call, a
+goroutine, a global, or a send, every global, and every object some callee
+created. A parameter or local this function never let out is beyond its
+reach under the structural contract, and what the function wrote into it
+stands; a store into an object already within reach hands on that reach.
+A resolved call consults the local call-effect proof to keep an unescaped
 site whose address the callee only reads.
 
 Loops are handled by the fixpoint, with one rule that keeps must-answers
@@ -98,9 +103,13 @@ or `unknown`. The summary lists where each named slot may point at exit,
 with `must` when every return agrees on one non-stale target and the whole
 build stored nothing else there; how each named object escaped, with
 `every` when it did so on every return; which slots the function read
-before writing; and where the projection was cut, including every root
-when a call the graph could not resolve may have written anything. The
-lifecycle pass adds the release effects its every-return proofs
+before writing; and where the projection was cut: a root whose slots
+exceeded the bound, and, when a call the graph could not follow ran, the
+roots that call could reach, which are the globals and the objects the
+function let out. A parameter the function never handed on or published
+is not cut, so a helper that stores its second argument into its first
+and then logs through an interface still tells its caller about the
+store. The lifecycle pass adds the release effects its every-return proofs
 established and exports the summary in its fact.
 
 Applying a summary at a call site is substitution. The callee's parameter
