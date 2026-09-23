@@ -122,6 +122,11 @@ type Fact struct {
 	// Stored is the strict form of Retained: positive structural evidence that
 	// the callee keeps the parameter, safe to treat as an ownership transfer.
 	Stored	ParameterMask
+	// LoopReleased marks parameters whose derived values the callee releases
+	// inside a loop, as a variadic close helper does to each of its files. It
+	// is a may-claim: which element an iteration releases is decided by
+	// iteration, so a consumer treats the call as unknown, never as settled.
+	LoopReleased	ParameterMask
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields	ParameterMask
@@ -157,6 +162,7 @@ cell is only ever written whole.
 | `ReturnedView` | always | the result is a window onto the parameter; the caller still owns it |
 | `Stored` | always | firm evidence the callee keeps it; safe to treat as a transfer |
 | `Retained` | maybe | the callee might keep it somewhere; fall back to `unknown` |
+| `LoopReleased` | maybe | the callee releases values drawn from it inside a loop; which element is decided by iteration, so fall back to `unknown` |
 
 `ReturnedOwner` and `ReturnedView` look identical in SSA — both store the
 parameter in a returned struct. They differ only in whether a method of the

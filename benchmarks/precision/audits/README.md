@@ -1814,7 +1814,11 @@ removed nine reviewed reports. One family explains seven of the twelve false
 positives and is a bounded model gap: `utiltesting.CloseAndRemove(t, file)`
 ranges over a variadic slice and closes every element, and the lifecycle fact
 proves no parameter because Closed is not derived through a range over a
-variadic parameter.
+variadic parameter. Resolved on 2026-09-23: the summary now exports a
+`LoopReleased` may-claim for a parameter whose derived values are released
+inside a loop, and the resourcelifetime classifier treats a call carrying
+the resource into such a parameter as unknown, matching the same-package
+rule for a visible looping helper. The seven sites are no longer reported.
 
 The remaining five are a forced TLS failure against a plain server, a HEAD
 through a cloned standard transport, a file closed by a deferred literal

@@ -38,7 +38,7 @@ rather than an evidence context.
 
 ## Claim
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L100)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go#L106)
 
 ```go
 type Claim uint8
@@ -50,9 +50,9 @@ it needs rather than knowing which fields spell it. Releasing is a union
 because the settling action depends on the resource: a file is closed, a
 ticker stopped, a transaction committed or rolled back.
 
-## ClaimReturnsOwner, ClaimReturnsView, ClaimRetains, ClaimStores, ClaimReleases, ClaimSynchronouslyInvokes
+## ClaimReturnsOwner, ClaimReturnsView, ClaimRetains, ClaimStores, ClaimReleases, ClaimSynchronouslyInvokes, ClaimReleasesInLoop
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L102)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go#L108)
 
 ```go
 const (
@@ -62,6 +62,7 @@ const (
 	ClaimStores
 	ClaimReleases
 	ClaimSynchronouslyInvokes
+	ClaimReleasesInLoop
 )
 ```
 
@@ -197,6 +198,11 @@ type Fact struct {
 	// Stored is the strict form of Retained: positive structural evidence that
 	// the callee keeps the parameter, safe to treat as an ownership transfer.
 	Stored	ParameterMask
+	// LoopReleased marks parameters whose derived values the callee releases
+	// inside a loop, as a variadic close helper does to each of its files. It
+	// is a may-claim: which element an iteration releases is decided by
+	// iteration, so a consumer treats the call as unknown, never as settled.
+	LoopReleased	ParameterMask
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields	ParameterMask
@@ -217,7 +223,7 @@ internal analysis infrastructure, not a public extension API.
 
 ## Fact.AFact
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L231)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go#L240)
 
 ```go
 func (*Fact) AFact()
@@ -225,7 +231,7 @@ func (*Fact) AFact()
 
 ## Fact.Claim
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L112)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go#L119)
 
 ```go
 func (fact *Fact) Claim(claim Claim) ParameterMask
@@ -235,7 +241,7 @@ Claim returns the parameters this summary makes the claim about.
 
 ## Fact.DescribeFact
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L155)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go#L164)
 
 ```go
 func (fact *Fact) DescribeFact(object types.Object) []string
@@ -247,7 +253,7 @@ follow SSA parameters, so a method's receiver is position zero.
 
 ## Fact.MethodMask
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L370)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go#L380)
 
 ```go
 func (fact *Fact) MethodMask(method string) ParameterMask
@@ -268,7 +274,7 @@ call and target using the same argument policy as lifecycle evidence.
 
 ## Fact.String
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L235)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go#L244)
 
 ```go
 func (fact *Fact) String() string
@@ -477,7 +483,7 @@ results use the supplied analyzer identity for structured tracing.
 
 ## ParameterMask
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L132)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go#L141)
 
 ```go
 type ParameterMask uint64
@@ -525,7 +531,7 @@ ReturnedCleanupSummary contains exact callback-result relations for a factory.
 
 ## Summaries
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go#L150)
+[Source](../../../../internal/passes/lifecyclefacts/fact.go#L159)
 
 ```go
 type Summaries map[*ssa.Function]Fact

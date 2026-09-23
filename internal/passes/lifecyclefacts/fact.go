@@ -36,6 +36,11 @@ type Fact struct {
 	// Stored is the strict form of Retained: positive structural evidence that
 	// the callee keeps the parameter, safe to treat as an ownership transfer.
 	Stored ParameterMask
+	// LoopReleased marks parameters whose derived values the callee releases
+	// inside a loop, as a variadic close helper does to each of its files. It
+	// is a may-claim: which element an iteration releases is decided by
+	// iteration, so a consumer treats the call as unknown, never as settled.
+	LoopReleased ParameterMask
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields    ParameterMask
@@ -70,6 +75,7 @@ func (fact *Fact) traceDetails() map[string]string {
 		{"returned-view", fact.ReturnedView},
 		{"retained", fact.Retained},
 		{"stored", fact.Stored},
+		{"loop-released", fact.LoopReleased},
 		{"owned-fields", fact.OwnedFields},
 		{"released-fields", fact.ReleasedFields},
 		{"receiver-store", fact.ReceiverStore},
@@ -106,6 +112,7 @@ const (
 	ClaimStores
 	ClaimReleases
 	ClaimSynchronouslyInvokes
+	ClaimReleasesInLoop
 )
 
 // Claim returns the parameters this summary makes the claim about.
@@ -124,6 +131,8 @@ func (fact *Fact) Claim(claim Claim) ParameterMask {
 			fact.Committed | fact.RolledBack
 	case ClaimSynchronouslyInvokes:
 		return fact.SynchronouslyInvoked
+	case ClaimReleasesInLoop:
+		return fact.LoopReleased
 	}
 	return 0
 }
@@ -358,6 +367,7 @@ var lifecycleMasks = []lifecycleMask{
 	{name: "ReceiverStore", field: func(fact *Fact) *ParameterMask { return &fact.ReceiverStore }},
 	{name: "Retained", field: func(fact *Fact) *ParameterMask { return &fact.Retained }},
 	{name: "Stored", field: func(fact *Fact) *ParameterMask { return &fact.Stored }},
+	{name: "LoopReleased", field: func(fact *Fact) *ParameterMask { return &fact.LoopReleased }},
 }
 
 // fieldMasks are indexed by struct field of the result or receiver type.

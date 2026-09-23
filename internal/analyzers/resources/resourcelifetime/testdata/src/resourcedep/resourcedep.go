@@ -162,3 +162,21 @@ type FileHolder struct{ File *os.File }
 
 // CloseHolder closes the file through its by-value copy of the holder.
 func CloseHolder(holder FileHolder) error { return holder.File.Close() }
+
+// CloseEach closes every non-nil file it is given, as client-go's
+// CloseAndRemove does.
+func CloseEach(name string, files ...*os.File) {
+	_ = name
+	for _, file := range files {
+		if file != nil {
+			_ = file.Close()
+		}
+	}
+}
+
+// InspectEach reads every file it is given and closes none.
+func InspectEach(files ...*os.File) {
+	for _, file := range files {
+		_ = file
+	}
+}

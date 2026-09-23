@@ -5,13 +5,15 @@ package resourcelifetime
 // credit a call inside a cycle, and which element an iteration releases is
 // decided by iteration. The caller is not reported. A helper whose cleanup
 // depends on a flag, or that loops over some other collection, keeps the
-// obligation open and is reported.
-//
-// Accepted gap: the boundary needs the helper's body. An imported helper with
-// the same loop is summarized as not closing its parameter, so its caller is
-// still reported.
+// obligation open and is reported. An imported helper carries the same loop
+// as a may-claim in its summary, so a variadic close helper from another
+// package is the same boundary.
 
-import "os"
+import (
+	"os"
+
+	"resourcedep"
+)
 
 func closeEachGuarded(files [2]*os.File) error {
 	for _, file := range files {
@@ -124,5 +126,23 @@ func loopWithoutCleanupKeepsObligation(path string) error {
 		return err
 	}
 	inspectEach([2]*os.File{file, nil})
+	return nil
+}
+
+func variadicReleasedByImportedHelper(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer resourcedep.CloseEach("temp", file)
+	return nil
+}
+
+func variadicInspectedByImportedHelperKeepsObligation(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	resourcedep.InspectEach(file)
 	return nil
 }

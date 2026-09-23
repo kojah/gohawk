@@ -175,6 +175,9 @@ func summarize(pass *analysis.Pass, retentions *retentionCache, function *ssa.Fu
 				*target |= bit
 			}
 		}
+		if releasesDerivedValueInLoop(function, parameter) {
+			fact.LoopReleased |= bit
+		}
 		summarizeTransfers(pass, retentions, function, index, parameter, &fact)
 	}
 	fact.Conditional = summarizeConditional(pass, function)

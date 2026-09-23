@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"slices"
 
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -53,12 +54,23 @@ func (analysis *resourceAnalysis) pairedErrorHelperCleanup(instruction ssa.Instr
 // is decided by iteration rather than by the path. That is uncertainty about
 // the element, not evidence of a leak, so the call is opaque. A helper whose
 // cleanup merely depends on a flag has complete path information and stays
-// diagnostic; so does one that loops over some other collection.
-func (analysis *resourceAnalysis) loopedHelperCleanup(common *ssa.CallCommon) bool {
-	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) == 0 {
+// diagnostic; so does one that loops over some other collection. A callee in
+// another package has no body here; its summary carries the same loop as a
+// may-claim, which client-go's CloseAndRemove exports for its variadic files.
+func (analysis *resourceAnalysis) loopedHelperCleanup(instruction ssa.Instruction, common *ssa.CallCommon) bool {
+	if common == nil || common.StaticCallee() == nil {
 		return false
 	}
 	callee := common.StaticCallee()
+	if len(callee.Blocks) == 0 {
+		for index, argument := range common.Args {
+			if released, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimReleasesInLoop); released &&
+				analysis.carries(argument) {
+				return true
+			}
+		}
+		return false
+	}
 	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
 		if !analysis.carries(binding.Supplied) {
 			continue
