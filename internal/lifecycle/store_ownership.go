@@ -49,6 +49,9 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 // transitively contains value. Possible containment only: it can hide a
 // diagnostic behind an opaque owner, never prove that the owner settles it.
 func MayContainValue(owner, value ssa.Value) bool {
+	if !heapmodel.CanHoldReference(owner.Type()) {
+		return false
+	}
 	if valueOwnsValue(owner, value, map[ssa.Value]bool{}) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
 		return true
 	}
@@ -63,6 +66,9 @@ func MayContainValue(owner, value ssa.Value) bool {
 // judged before the call, so a callee summarized as storing the value into
 // the argument does not make the argument contain it already.
 func MayContainValueAt(owner, value ssa.Value, at ssa.Instruction) bool {
+	if !heapmodel.CanHoldReference(owner.Type()) {
+		return false
+	}
 	if valueOwnsValue(owner, value, map[ssa.Value]bool{}) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
 		return true
 	}
