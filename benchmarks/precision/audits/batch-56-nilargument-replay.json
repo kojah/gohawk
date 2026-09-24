@@ -1,0 +1,399 @@
+{
+  "metadata": {
+    "binary_sha256": "bbc695d10e57e4e084f216a2ad250cec716f10ed562e779464086e1389f599e1",
+    "binary_commit": "5b2758d8a48376f162fb790dbdf66aeb69c42502",
+    "baseline_binary_sha256": "576caba104c1f436c3791268e2c6cea40e3585315a34fa84363f458a947ba5ec",
+    "profile": "-enable-checks=nilargument/dereferenced-nil -gohawk-include-tests -json",
+    "static_only": true,
+    "package_count": 16,
+    "original_finding_count": 69
+  },
+  "results": [
+    {
+      "repository": "bazelbuild/bazel-watcher",
+      "revision": "ed00d96be0ce5b01aa2c43abbcd29172d4573091",
+      "module": ".",
+      "package": "./internal/e2e/example_client",
+      "baseline_positions": [
+        "internal/e2e/example_client/example_client.go:96:2"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "brokercap/Bifrost",
+      "revision": "e071fadda73dc813884657065cf18d4ca2b8e888",
+      "module": ".",
+      "package": "./input/mongo",
+      "baseline_positions": [
+        "input/mongo/batch_test.go:23:10",
+        "input/mongo/batch_test.go:39:10",
+        "input/mongo/batch_test.go:58:10",
+        "input/mongo/batch_test.go:77:10",
+        "input/mongo/input_test.go:223:10",
+        "input/mongo/input_test.go:233:10"
+      ],
+      "remaining_baseline_positions": [
+        "input/mongo/batch_test.go:23:10",
+        "input/mongo/batch_test.go:39:10",
+        "input/mongo/batch_test.go:58:10",
+        "input/mongo/batch_test.go:77:10",
+        "input/mongo/input_test.go:223:10",
+        "input/mongo/input_test.go:233:10"
+      ],
+      "new_positions": [],
+      "diagnostics": [
+        {
+          "position": "input/mongo/batch_test.go:23:10",
+          "message": "field PluginDriverInterface.replicateFitler of argument 1 is nil, and (*MongoInput).BatchStart dereferences it on every path",
+          "package": "github.com/brokercap/Bifrost/input/mongo"
+        },
+        {
+          "position": "input/mongo/batch_test.go:39:10",
+          "message": "field PluginDriverInterface.replicateFitler of argument 1 is nil, and (*MongoInput).BatchStart dereferences it on every path",
+          "package": "github.com/brokercap/Bifrost/input/mongo"
+        },
+        {
+          "position": "input/mongo/batch_test.go:58:10",
+          "message": "field PluginDriverInterface.replicateFitler of argument 1 is nil, and (*MongoInput).BatchStart dereferences it on every path",
+          "package": "github.com/brokercap/Bifrost/input/mongo"
+        },
+        {
+          "position": "input/mongo/batch_test.go:77:10",
+          "message": "field PluginDriverInterface.replicateFitler of argument 1 is nil, and (*MongoInput).BatchStart dereferences it on every path",
+          "package": "github.com/brokercap/Bifrost/input/mongo"
+        },
+        {
+          "position": "input/mongo/input_test.go:223:10",
+          "message": "field PluginDriverInterface.replicateFitler of argument 1 is nil, and (*MongoInput).StartOnlyBatch dereferences it on every path",
+          "package": "github.com/brokercap/Bifrost/input/mongo"
+        },
+        {
+          "position": "input/mongo/input_test.go:233:10",
+          "message": "field PluginDriverInterface.replicateFitler of argument 1 is nil, and (*MongoInput).StartOnlyBatch dereferences it on every path",
+          "package": "github.com/brokercap/Bifrost/input/mongo"
+        }
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "camptocamp/terraboard",
+      "revision": "6f6b6b60f5f05defcf1792aca5278824305ca76e",
+      "module": ".",
+      "package": "./db",
+      "baseline_positions": [
+        "db/db_test.go:1081:2"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "crewjam/saml",
+      "revision": "346540312f721498fc75e69637d9250dd89f230b",
+      "module": ".",
+      "package": ".",
+      "baseline_positions": [
+        "identity_provider_test.go:1081:8",
+        "identity_provider_test.go:1084:8",
+        "identity_provider_test.go:708:8",
+        "identity_provider_test.go:757:8",
+        "identity_provider_test.go:761:8",
+        "identity_provider_test.go:893:8",
+        "identity_provider_test.go:896:8"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "go-kratos/gateway",
+      "revision": "a553bef5c1a8cc03ae3d114e5e578c51b8ac06a0",
+      "module": ".",
+      "package": "./proxy/condition",
+      "baseline_positions": [
+        "proxy/condition/condition.go:101:14"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "klothoplatform/klotho",
+      "revision": "c50c3a05237639830a0991ee6b26ea32ff7ed631",
+      "module": ".",
+      "package": "./pkg/k2/constructs",
+      "baseline_positions": [
+        "pkg/k2/constructs/construct_evaluator.go:60:25"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "leukipp/cortile",
+      "revision": "96a0eddbaf37706a7ed64ffdf93cfc675e144730",
+      "module": ".",
+      "package": "./layout",
+      "baseline_positions": [
+        "layout/fullscreen.go:21:2",
+        "layout/horizontal.go:22:2",
+        "layout/horizontal.go:31:2",
+        "layout/maximized.go:22:2",
+        "layout/vertical.go:22:2",
+        "layout/vertical.go:31:2"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "lindb/lindb",
+      "revision": "612070e1dc6043d2ea47d5b3bc6dccd51eefaee4",
+      "module": ".",
+      "package": "./pkg/encoding",
+      "baseline_positions": [
+        "pkg/encoding/delta_bit_packing.go:135:2"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "lindb/lindb",
+      "revision": "612070e1dc6043d2ea47d5b3bc6dccd51eefaee4",
+      "module": ".",
+      "package": "./series/metric",
+      "baseline_positions": [
+        "series/metric/row_broker_test.go:162:9",
+        "series/metric/row_broker_test.go:199:9",
+        "series/metric/row_storage_test.go:152:22",
+        "series/metric/row_storage_test.go:155:3",
+        "series/metric/row_storage_test.go:157:7",
+        "series/metric/row_storage_test.go:158:54",
+        "series/metric/row_storage_test.go:159:56",
+        "series/metric/row_storage_test.go:166:22",
+        "series/metric/row_storage_test.go:168:3",
+        "series/metric/row_storage_test.go:170:7",
+        "series/metric/row_storage_test.go:171:60",
+        "series/metric/row_storage_test.go:172:60",
+        "series/metric/row_storage_test.go:175:38",
+        "series/metric/row_storage_test.go:176:56",
+        "series/metric/row_storage_test.go:178:39",
+        "series/metric/row_storage_test.go:179:57",
+        "series/metric/row_storage_test.go:181:37",
+        "series/metric/row_storage_test.go:182:55",
+        "series/metric/row_storage_test.go:184:37",
+        "series/metric/row_storage_test.go:185:55",
+        "series/metric/row_storage_test.go:187:36",
+        "series/metric/row_storage_test.go:188:63",
+        "series/metric/row_storage_test.go:190:37",
+        "series/metric/row_storage_test.go:191:60",
+        "series/metric/row_storage_test.go:193:38",
+        "series/metric/row_storage_test.go:212:22",
+        "series/metric/row_storage_test.go:213:24",
+        "series/metric/row_storage_test.go:214:26",
+        "series/metric/row_storage_test.go:215:26",
+        "series/metric/row_storage_test.go:216:31",
+        "series/metric/row_storage_test.go:224:3",
+        "series/metric/row_storage_test.go:226:7",
+        "series/metric/row_storage_test.go:227:38",
+        "series/metric/row_storage_test.go:228:38",
+        "series/metric/row_storage_test.go:229:8"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "quasilyte/go-ruleguard",
+      "revision": "53ee6ef0c75c144ddf76c8a9be430ac32e206d3a",
+      "module": ".",
+      "package": "./ruleguard/quasigo",
+      "baseline_positions": [
+        "ruleguard/quasigo/quasigo_test.go:98:9"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "timescale/timescaledb-tune",
+      "revision": "c7a642bd4e16d48a51c060a43dc6dff864cb42d7",
+      "module": ".",
+      "package": "./cmd/timescaledb-tune",
+      "baseline_positions": [
+        "cmd/timescaledb-tune/main.go:65:3"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "timescale/timescaledb-tune",
+      "revision": "c7a642bd4e16d48a51c060a43dc6dff864cb42d7",
+      "module": ".",
+      "package": "./pkg/tstune",
+      "baseline_positions": [
+        "pkg/tstune/config_file_test.go:26:2"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "tmaxmax/go-sse",
+      "revision": "e3ddbdfdcf69aacfe83cbeafcc20e169f55fccb2",
+      "module": ".",
+      "package": ".",
+      "baseline_positions": [
+        "client_test.go:71:3"
+      ],
+      "remaining_baseline_positions": [
+        "client_test.go:71:3"
+      ],
+      "new_positions": [],
+      "diagnostics": [
+        {
+          "position": "client_test.go:71:3",
+          "message": "argument 1 is nil, and github.com/tmaxmax/go-sse.NewConnection dereferences it on every path",
+          "package": "github.com/tmaxmax/go-sse_test"
+        }
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "uber-go/gopatch",
+      "revision": "02f5015dfbb8efbcbd4a255a55ef8b9988720cbd",
+      "module": ".",
+      "package": "./internal/goast",
+      "baseline_positions": [
+        "internal/goast/imports_test.go:33:4",
+        "internal/goast/imports_test.go:39:4",
+        "internal/goast/imports_test.go:60:4",
+        "internal/goast/imports_test.go:83:4"
+      ],
+      "remaining_baseline_positions": [
+        "internal/goast/imports_test.go:33:4",
+        "internal/goast/imports_test.go:39:4",
+        "internal/goast/imports_test.go:60:4",
+        "internal/goast/imports_test.go:83:4"
+      ],
+      "new_positions": [],
+      "diagnostics": [
+        {
+          "position": "internal/goast/imports_test.go:33:4",
+          "message": "argument 1 is nil, and ImportPath dereferences it on every path",
+          "package": "github.com/uber-go/gopatch/internal/goast"
+        },
+        {
+          "position": "internal/goast/imports_test.go:33:4",
+          "message": "field Path of argument 1 is nil, and ImportPath dereferences it on every path",
+          "package": "github.com/uber-go/gopatch/internal/goast"
+        },
+        {
+          "position": "internal/goast/imports_test.go:39:4",
+          "message": "field Path of argument 1 is nil, and ImportPath dereferences it on every path",
+          "package": "github.com/uber-go/gopatch/internal/goast"
+        },
+        {
+          "position": "internal/goast/imports_test.go:60:4",
+          "message": "argument 1 is nil, and ImportName dereferences it on every path",
+          "package": "github.com/uber-go/gopatch/internal/goast"
+        },
+        {
+          "position": "internal/goast/imports_test.go:83:4",
+          "message": "argument 1 is nil, and FindImportSpec dereferences it on every path",
+          "package": "github.com/uber-go/gopatch/internal/goast"
+        }
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "wgpsec/lc",
+      "revision": "6b0eafd5eb0d22245a3fc954ba5a037be14fb5d2",
+      "module": ".",
+      "package": "./pkg/providers/baidu",
+      "baseline_positions": [
+        "pkg/providers/baidu/baidu.go:114:20"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    },
+    {
+      "repository": "wgpsec/lc",
+      "revision": "6b0eafd5eb0d22245a3fc954ba5a037be14fb5d2",
+      "module": ".",
+      "package": "./pkg/providers/tencent",
+      "baseline_positions": [
+        "pkg/providers/tencent/tencent.go:136:20"
+      ],
+      "remaining_baseline_positions": [],
+      "new_positions": [],
+      "diagnostics": [],
+      "returncode": 0,
+      "timed_out": false,
+      "parse_error": null,
+      "stderr": ""
+    }
+  ]
+}

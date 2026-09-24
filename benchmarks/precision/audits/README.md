@@ -7,6 +7,9 @@ one failed repository scan. A documented post-record correction changes one
 Go-Kratos `nilargument` label from TP to FP (278 TP, 100 FP, three inconclusive).
 Later batches and corrected replays will be recorded separately;
 incomplete/failed scans are not clean.
+The separate [batch-56 corrected replay](batch-56-corrections.md) removes 58
+of the 69 original `nilargument` false positives on 16 pinned packages; it
+leaves 11 and does not rewrite the frozen findings.
 
 Latest: [follow-up of all 337 remaining sites](followup-337.md), separating
 verified corrections, already-absent reports, and unresolved evidence gaps.
