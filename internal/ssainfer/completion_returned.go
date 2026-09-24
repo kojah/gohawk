@@ -79,10 +79,20 @@ func (search *completionSearch) returnedValueCompletes(callback, target ssa.Valu
 	}
 	storage := NewStorage(search.budget)
 	for index, argument := range factory.Common().Args {
-		if storage.Same(argument, target).Proven() && search.returnedRelation(function, ReturnedCleanupRelation{
-			CallbackResult: callbackIndex, Target: index,
-		}) {
+		relation := ReturnedCleanupRelation{CallbackResult: callbackIndex, Target: index}
+		if storage.Same(argument, target).Proven() && search.returnedRelation(function, relation) {
 			return true
+		}
+		// A factory may return a callback that invokes a supplied callback.
+		// If that supplied callback is bound to the exact cleanup method on
+		// target, invocation of the returned callback settles target as well.
+		// https://github.com/chengshiwen/influxdb-cluster/blob/194fcaae32ff8e5d7486d60590af55f278e3cee7/pkg/errors/error_capture.go#L14-L20
+		if search.method != "" && exactCallbackCallsMethod(argument, search.method, target) {
+			invoke := *search
+			invoke.method, invoke.invokeTarget, invoke.exactInvocation = "", true, true
+			if invoke.returnedRelation(function, relation) {
+				return true
+			}
 		}
 	}
 	for index := range function.Signature.Results().Len() {
@@ -97,6 +107,19 @@ func (search *completionSearch) returnedValueCompletes(callback, target ssa.Valu
 		}
 	}
 	return false
+}
+
+// An opaque wrapper may discard a callback even if its result depends on the
+// callback argument. This bridge accepts only an exact closure, through
+// transparent conversions and every phi alternative; it never treats an
+// arbitrary call result as preserving the bound cleanup.
+func exactCallbackCallsMethod(value ssa.Value, method string, target ssa.Value) bool {
+	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType |
+		ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+	return ssaflow.NewReachingWalk(forms).Every(value, func(_ ssaflow.ReachingWalk, leaf ssa.Value) bool {
+		_, closure := leaf.(*ssa.MakeClosure)
+		return closure && ValueCallsMethod(leaf, method, target)
+	})
 }
 
 func (search *completionSearch) returnedRelation(function *ssa.Function, relation ReturnedCleanupRelation) bool {

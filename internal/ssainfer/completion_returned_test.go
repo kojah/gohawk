@@ -10,6 +10,7 @@ import (
 const returnedCleanupFixture = `package ssaflowtest
 type resource struct{}
 func (*resource) Close() {}
+func (*resource) CloseErr() error { return nil }
 func cleanup(r *resource) func() { return func() { r.Close() } }
 func forward(r *resource) func() { return cleanup(r) }
 func bound(r *resource) func() { return r.Close }
@@ -21,6 +22,8 @@ func changed(r *resource) func() { f := func() { r.Close() }; r = new(resource);
 func async(r *resource) func() { return func() { go r.Close() } }
 func recursive(r *resource) func() { return recursive(r) }
 func wrap(fn func()) func() { return func() { fn() } }
+func wrapErr(fn func() error) func() { return func() { _ = fn() } }
+func ignoreErr(_ func() error) func() { return func() {} }
 func direct(r *resource) { defer cleanup(r)() }
 func forwarded(r *resource) { defer forward(r)() }
 func method(r *resource) { defer bound(r)() }
@@ -33,6 +36,8 @@ func reassigned(r *resource) { defer changed(r)() }
 func launched(r *resource) { defer async(r)() }
 func recursing(r *resource) { defer recursive(r)() }
 func cancellation(fn func()) { defer wrap(fn)() }
+func boundError(r *resource) { defer wrapErr(r.CloseErr)() }
+func ignoredBoundError(r *resource) { defer ignoreErr(r.CloseErr)() }
 `
 
 func TestReturnedCleanupCompletion(t *testing.T) {
@@ -53,6 +58,8 @@ func TestReturnedCleanupCompletion(t *testing.T) {
 		{"launched", false},
 		{"recursing", false},
 		{"cancellation", true},
+		{"boundError", true},
+		{"ignoredBoundError", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
@@ -70,8 +77,11 @@ func TestReturnedCleanupCompletion(t *testing.T) {
 				invocation = calls[len(calls)-1]
 			}
 			request := CompletionRequest{Instruction: invocation, Target: target, Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(2000)}
-			if test.name == "cancellation" {
+			switch test.name {
+			case "cancellation":
 				request.Methods, request.InvokeTarget = nil, true
+			case "boundError", "ignoredBoundError":
+				request.Methods = []string{"CloseErr"}
 			}
 			if proof := ProveCompletion(request); proof.Proven() != test.want {
 				t.Fatalf("proof = %+v, want proven %v", proof, test.want)
