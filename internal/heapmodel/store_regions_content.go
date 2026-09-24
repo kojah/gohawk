@@ -2,6 +2,7 @@ package heapmodel
 
 import (
 	"maps"
+	"slices"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,6 +17,21 @@ import (
 // slot of an object the function did not allocate. A clobbered prefix makes
 // the answer unknown unless the slot itself was written since.
 func (graph *regionGraph) content(state *regionState, target slot) pointees {
+	return graph.contentFollowing(state, target, nil)
+}
+
+// maxContentHops bounds nested copy resolution even when each hop names a
+// different slot. Beyond it, the graph cannot claim exact contents.
+const maxContentHops = 64
+
+// contentFollowing keeps the visited slots local to this read. A backing
+// copy or snapshot source may point back to an earlier slot; that cycle
+// proves neither nil nor a particular stored object.
+// https://github.com/golang/freetype/tree/e2365dfdc4a0/truetype
+func (graph *regionGraph) contentFollowing(state *regionState, target slot, path []slot) pointees {
+	if len(path) >= maxContentHops || slices.Contains(path, target) {
+		return pointees{{region: graph.unkR}: false}
+	}
 	if target.region.kind == regionUnknown {
 		return pointees{target: false}
 	}
@@ -35,7 +51,7 @@ func (graph *regionGraph) content(state *regionState, target slot) pointees {
 			}
 			// A dynamic read may also hit an element nobody wrote, which
 			// the unwritten answer below describes.
-			result.union(graph.unwritten(state, target))
+			result.union(graph.unwritten(state, target, path))
 			return result
 		}
 		if set, ok := state.contents[graph.starSlot(target)]; ok {
@@ -45,19 +61,19 @@ func (graph *regionGraph) content(state *regionState, target slot) pointees {
 	if len(result) > 0 {
 		return result
 	}
-	return graph.unwritten(state, target)
+	return graph.unwritten(state, target, path)
 }
 
 // unwritten returns what a slot the function did not write holds: after an
 // effect the graph could not follow, an object stamped by that effect; the
 // backing snapshot's content; nil for an untouched local; a placeholder for
 // an object the function did not allocate.
-func (graph *regionGraph) unwritten(state *regionState, target slot) pointees {
+func (graph *regionGraph) unwritten(state *regionState, target slot, path []slot) pointees {
 	if stamp, ok := graph.clobberedBeneath(state, target); ok {
 		return pointees{{region: graph.placeholder(target, versionStamp{epoch: stamp})}: false}
 	}
 	if backing, rest, ok := graph.backingOf(state, target); ok {
-		return graph.content(state, slot{region: backing, path: rest})
+		return graph.contentFollowing(state, slot{region: backing, path: rest}, append(path, target))
 	}
 	switch target.region.kind {
 	case regionSite:
@@ -68,7 +84,7 @@ func (graph *regionGraph) unwritten(state *regionState, target slot) pointees {
 		case source.region == nil:
 			return pointees{{region: graph.unkR}: false}
 		case source.region.kind == regionSnapshot:
-			return graph.content(state, slot{region: source.region, path: joinSlotPath(source.path, target.path)})
+			return graph.contentFollowing(state, slot{region: source.region, path: joinSlotPath(source.path, target.path)}, append(path, target))
 		case source.region.kind == regionSite:
 			return pointees{{region: graph.nilR}: false}
 		}
