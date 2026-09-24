@@ -53,6 +53,10 @@ func CloseBody(body io.ReadCloser) {
 	_ = body.Close()
 }
 
+func CloseThroughInterface(closer io.Closer) { closeInterface(closer) }
+func closeInterface(closer io.Closer)        { _ = closer.Close() }
+func ObserveCloser(closer io.Closer)         { _ = closer }
+
 func MaybeCloseBody(body io.ReadCloser, enabled bool) {
 	if enabled {
 		_ = body.Close()

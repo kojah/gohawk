@@ -305,6 +305,13 @@ func releasesOrdinaryResource(
 			storage.Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
 		return settled()
 	}
+	// A helper can invoke Close through an interface on every normal return
+	// without a direct discharge mask. Its heap method requirement still
+	// proves cleanup when the actual argument is exactly this acquisition.
+	// https://github.com/cinar/indicator/blob/18a0b934a565dc5cbfcf5966f599882be80f6d40/helper/closer.go#L13-L25
+	if common != nil && helperRequiresCleanup(evidence, storage, instruction, resource, methods) {
+		return settled()
+	}
 	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssainfer.MayAliasAny(ssaflow.CallReceiver(common), owners) {
 		return settled()
 	}
@@ -360,6 +367,30 @@ func releasesOrdinaryResource(
 		}
 	}
 	return actionNone, ""
+}
+
+func helperRequiresCleanup(
+	evidence *lifecyclefacts.LifecycleEvidence,
+	storage *ssainfer.Storage,
+	instruction ssa.Instruction,
+	resource ssa.Value,
+	methods []string,
+) bool {
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil || common.IsInvoke() {
+		return false
+	}
+	for index, argument := range common.Args {
+		if !storage.Same(argument, resource).Proven() {
+			continue
+		}
+		for _, required := range evidence.ArgumentMethodsRequired(instruction, index) {
+			if slices.Contains(methods, required) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // registersCleanupCallback reports whether the call hands a callback that
