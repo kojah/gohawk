@@ -49,6 +49,10 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
 			},
 			{
+				ID: check.LockAndJoin, Doc: "Reports a wait while holding the exact local mutex that the sole completion worker must acquire.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
+			{
 				ID: check.LockReadLockWrite, Doc: "Reports writes to an object while only its read lock is held.",
 				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
 			},

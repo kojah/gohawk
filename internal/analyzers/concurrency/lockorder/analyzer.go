@@ -75,9 +75,13 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	ssaResult := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 	callers := conditionalCallerSets(append([]*ssa.Function{ssaResult.Pkg.Func("init")}, ssaResult.SrcFuncs...))
 	exclusive := newExclusiveCallers(pass, ssaResult.SrcFuncs)
+	concurrency, _ := summaryKnowledge.Provider(pass).Concurrency()
 	for _, function := range functions {
 		var evidence ssaflow.LocalEvidence
 		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers, exclusive)
+		if concurrency != nil {
+			reportLockAndJoin(pass, function, concurrency)
+		}
 	}
 	return nil, nil
 }

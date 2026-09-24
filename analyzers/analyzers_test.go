@@ -168,6 +168,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"resourcelifetime/use-after-release": CheckTierCore,
 		"lockorder/contradictory-order":      CheckTierExtended,
+		"lockorder/lock-and-join":            CheckTierExperimental,
 		"lockorder/read-lock-write":          CheckTierExperimental,
 		"lockorder/mismatched-release":       CheckTierExperimental,
 		"nilargument/dereferenced-nil":       CheckTierExperimental,
@@ -187,6 +188,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/missing-release":          CheckKindDefect,
 		"lockorder/recursive-acquire":        CheckKindDefect,
 		"lockorder/contradictory-order":      CheckKindHazard,
+		"lockorder/lock-and-join":            CheckKindDefect,
 		"lockorder/read-lock-write":          CheckKindHazard,
 		"lockorder/mismatched-release":       CheckKindDefect,
 		"oncepolicy/discarded-wrapper":       CheckKindDefect,

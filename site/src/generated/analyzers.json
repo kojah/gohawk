@@ -81,6 +81,12 @@
               "tier": "extended"
             },
             {
+              "id": "lockorder/lock-and-join",
+              "summary": "Reports a wait while holding the exact local mutex that the sole completion worker must acquire.",
+              "kind": "defect",
+              "tier": "experimental"
+            },
+            {
               "id": "lockorder/read-lock-write",
               "summary": "Reports writes to an object while only its read lock is held.",
               "kind": "hazard",

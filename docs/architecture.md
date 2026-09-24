@@ -134,6 +134,9 @@ itself does not change.
   retain independent inference and fact passes. The broker selects ordinary
   prerequisites and exposes declaration summaries separately from bound
   call-site evidence; it is not another scheduler or a universal proof model.
+- The [synchronization graph](../development/synchronization-graph/) grows from
+  complete concurrency effects into on-demand event-order fragments. Analyzers
+  retain their own blocking proofs; graph cycles alone are not diagnostics.
 - `internal/check` and `internal/trace` provide reporting and evidence
   tracing. Every diagnostic flows through `check.Report`, which is what lets
   the tracer record whether a candidate was reported, suppressed, or removed.

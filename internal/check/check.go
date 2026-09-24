@@ -19,6 +19,7 @@ const (
 	LockMissingRelease      ID = "lockorder/missing-release"
 	LockRecursiveAcquire    ID = "lockorder/recursive-acquire"
 	LockContradictoryOrder  ID = "lockorder/contradictory-order"
+	LockAndJoin             ID = "lockorder/lock-and-join"
 	LockReadLockWrite       ID = "lockorder/read-lock-write"
 	LockMismatchedRelease   ID = "lockorder/mismatched-release"
 	OnceDiscardedWrapper    ID = "oncepolicy/discarded-wrapper"
