@@ -78,7 +78,7 @@ func commandOwnedElsewhere(
 	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/cmd/containerd-shim-runc-v2/process/io.go#L288-L330
 	if commandReturnedByHelper(command) {
 		analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos()).Decision(analysisTrace.Step{
-			Reason: "helper-command-ownership-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: start.Pos(),
+			Reason: reasonHelperOwnershipUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: start.Pos(),
 		})
 		return true
 	}
@@ -137,19 +137,19 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 		// Each rule that excuses a return is traced by name, so a return the
 		// flow accepted can be attributed to the rule that accepted it.
 		for _, rule := range []struct {
-			reason string
+			reason processReason
 			holds  func() bool
 		}{
-			{"start-failure-return", func() bool { return startFailureReturn(returned, start) }},
-			{"impossible-nil-process-return", func() bool { return impossibleStartedProcessNilReturn(returned, start, command) }},
-			{"returned-value-owns-command", func() bool { return lifecycle.ReturnedValueOwnsValue(returned, command) }},
-			{"returns-process-handle", func() bool { return returnsProcessHandle(returned, command) }},
-			{"returned-value-owns-merged-command", func() bool {
+			{reasonStartFailureReturn, func() bool { return startFailureReturn(returned, start) }},
+			{reasonImpossibleNilReturn, func() bool { return impossibleStartedProcessNilReturn(returned, start, command) }},
+			{reasonReturnedOwner, func() bool { return lifecycle.ReturnedValueOwnsValue(returned, command) }},
+			{reasonReturnedHandle, func() bool { return returnsProcessHandle(returned, command) }},
+			{reasonReturnedMergedOwner, func() bool {
 				return merged != nil && (lifecycle.ReturnedValueOwnsValue(returned, merged) || returnsProcessHandle(returned, merged))
 			}},
 		} {
 			if rule.holds() {
-				probe.Evidence(analysisTrace.Step{Reason: rule.reason, Outcome: analysisTrace.OutcomeAccepted, Pos: returned.Pos()})
+				probe.Evidence(analysisTrace.Step{Reason: rule.reason.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: returned.Pos()})
 				return true
 			}
 		}
@@ -179,18 +179,18 @@ func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa
 	if !analysisTrace.Enabled("processownership", checkID) {
 		return
 	}
-	outcome, reason := analysisTrace.OutcomeAccepted, "wait-ownership-proven"
+	outcome, reason := analysisTrace.OutcomeAccepted, reasonWaitOwnershipProven
 	if leaks {
-		outcome, reason = analysisTrace.OutcomeRejected, "unowned-return"
+		outcome, reason = analysisTrace.OutcomeRejected, reasonUnownedReturn
 	} else if unknown {
-		outcome, reason = analysisTrace.OutcomeUnknown, "ambiguous-wait-ownership"
+		outcome, reason = analysisTrace.OutcomeUnknown, reasonAmbiguousWaitOwnership
 	}
 	details := map[string]string{}
 	if command != nil && command.Type() != nil {
 		details["command_type"] = command.Type().String()
 	}
 	analysisTrace.For(pass, "processownership", checkID, start.Pos()).Decision(analysisTrace.Step{
-		Reason:   reason,
+		Reason:   reason.String(),
 		Outcome:  outcome,
 		Pos:      start.Pos(),
 		Function: function.String(),

@@ -70,25 +70,25 @@ func runNilArgument(pass *analysis.Pass) (any, error) {
 func judgeArgument(pass *analysis.Pass, function *ssa.Function, call *ssa.Call, callee *ssa.Function, index int, argument ssa.Value, path string) {
 	probe := analysisTrace.For(pass, "nilargument", string(check.NilArgumentDereference), call.Pos())
 	details := map[string]string{"callee": callee.String(), "argument": strconv.Itoa(index), "path": path}
-	probe.Candidate(analysisTrace.Step{Reason: "callee-dereferences-argument", Outcome: analysisTrace.OutcomeObserved, Pos: call.Pos(), Details: details})
+	probe.Candidate(analysisTrace.Step{Reason: reasonCalleeDereferences.String(), Outcome: analysisTrace.OutcomeObserved, Pos: call.Pos(), Details: details})
 	slotType, ok := typeAtPath(argument.Type(), path)
 	if !ok {
-		probe.Decision(analysisTrace.Step{Reason: "slot-type-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: call.Pos(), Details: details})
+		probe.Decision(analysisTrace.Step{Reason: reasonSlotTypeUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: call.Pos(), Details: details})
 		return
 	}
 	if _, pointer := slotType.Underlying().(*types.Pointer); !pointer {
-		probe.Decision(analysisTrace.Step{Reason: "slot-not-pointer", Outcome: analysisTrace.OutcomeUnknown, Pos: call.Pos(), Details: details})
+		probe.Decision(analysisTrace.Step{Reason: reasonSlotNotPointer.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: call.Pos(), Details: details})
 		return
 	}
 	if !heapmodel.ContentIsNilAt(argument, ssaflow.SplitAccessPath(path), call) {
-		probe.Decision(analysisTrace.Step{Reason: "slot-not-proven-nil", Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos(), Details: details})
+		probe.Decision(analysisTrace.Step{Reason: reasonSlotNotProvenNil.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos(), Details: details})
 		return
 	}
 	if probe.Enabled() {
 		traceCallApplications(probe, function, call)
 	}
 	probe.Decision(analysisTrace.Step{
-		Reason: "nil-slot-dereferenced", Outcome: analysisTrace.OutcomeRejected, Pos: call.Pos(), Function: function.String(), Details: details,
+		Reason: reasonNilSlotDereferenced.String(), Outcome: analysisTrace.OutcomeRejected, Pos: call.Pos(), Function: function.String(), Details: details,
 	})
 	what := "argument " + strconv.Itoa(index+1)
 	if path != "" {
@@ -130,11 +130,11 @@ func traceCallApplications(probe analysisTrace.Probe, function *ssa.Function, ca
 			details["registered-now"] = strconv.FormatBool(record.RegisteredNow)
 		}
 		probe.Evidence(analysisTrace.Step{
-			Reason: "earlier-call-unsummarized", Outcome: analysisTrace.OutcomeObserved, Pos: record.Instruction.Pos(), Details: details,
+			Reason: reasonEarlierCallUnsummarized.String(), Outcome: analysisTrace.OutcomeObserved, Pos: record.Instruction.Pos(), Details: details,
 		})
 	}
 	probe.Evidence(analysisTrace.Step{
-		Reason: "earlier-calls", Outcome: analysisTrace.OutcomeObserved, Pos: call.Pos(),
+		Reason: reasonEarlierCalls.String(), Outcome: analysisTrace.OutcomeObserved, Pos: call.Pos(),
 		Details: map[string]string{
 			"summarized": strconv.Itoa(summarized), "unsummarized": strconv.Itoa(unsummarized),
 			"heap-cached": strconv.FormatBool(evidence.Cached), "heap-building": strconv.FormatBool(evidence.Building),
