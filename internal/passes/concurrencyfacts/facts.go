@@ -49,19 +49,13 @@ type Fact struct {
 	CancellationInputs []int
 }
 
-// AFact marks the versioned concurrency summary for go/analysis serialization.
-func (*Fact) AFact() {}
-
-// GobEncode encodes the fact through factcodec.
-func (fact *Fact) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
-
-// GobDecode decodes the fact through factcodec.
-func (fact *Fact) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
+// publishedFact hides the effect schema from gob's per-stream descriptors.
+type publishedFact struct{ factcodec.Envelope[Fact] }
 
 // Analyzer exports complete effects and provides a shared engine to consumers.
 var Analyzer = &analysis.Analyzer{
 	Name: "gohawkconcurrencyfacts", Doc: "exports bounded ordered synchronization effects",
-	Requires: []*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(Fact)},
+	Requires: []*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
 	ResultType: reflect.TypeFor[*Engine](), Run: run,
 }
 
@@ -74,9 +68,9 @@ func run(pass *analysis.Pass) (any, error) {
 	engine.facts = make(map[*types.Func]Fact)
 	for _, imported := range pass.AllObjectFacts() {
 		object, ok := imported.Object.(*types.Func)
-		fact, valid := imported.Fact.(*Fact)
-		if ok && valid && fact.Version == factVersion {
-			engine.facts[object] = *fact
+		published, valid := imported.Fact.(*publishedFact)
+		if ok && valid && published.Value().Version == factVersion {
+			engine.facts[object] = published.Value()
 		}
 	}
 	for _, function := range functions {
@@ -90,7 +84,7 @@ func run(pass *analysis.Pass) (any, error) {
 		fact, ok := exportSummary(function, result)
 		outcome, reason := trace.OutcomeUnknown, ReasonExportUnknown
 		if ok {
-			pass.ExportObjectFact(object, &fact)
+			pass.ExportObjectFact(object, &publishedFact{factcodec.Wrap(fact)})
 			outcome, reason = trace.OutcomeAccepted, ReasonExportComplete
 		}
 		probe.Decision(trace.Step{Reason: reason.String(), Outcome: outcome, Pos: function.Pos()})

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package codecbench;
+option go_package = "github.com/kojah/gohawk/tools/codecbench/resultpb";
+
+// Benchmark-only schema for the complete resultfacts.Fact payload. Production
+// domain validation still owns whether each numbered guarantee is meaningful.
+message ResultFact {
+  int32 version = 1;
+  repeated uint32 results = 2;
+  repeated Relation relations = 3;
+  bool never_returns = 4;
+}
+
+message Relation {
+  uint32 kind = 1;
+  int32 result = 2;
+  int32 operand = 3;
+}

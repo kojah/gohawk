@@ -14,7 +14,7 @@ It provides ordered evidence, not deadlock policy or schedule exploration.
 ```go
 var Analyzer = &analysis.Analyzer{
 	Name:	"gohawkconcurrencyfacts", Doc: "exports bounded ordered synchronization effects",
-	Requires:	[]*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(Fact)},
+	Requires:	[]*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
 	ResultType:	reflect.TypeFor[*Engine](), Run: run,
 }
 ```
@@ -143,36 +143,6 @@ type Fact struct {
 
 Fact records an exhaustive sequence, including an empty sequence. Any
 CancellationInputs must be discharged before that sequence is usable proof.
-
-## Fact.AFact
-
-[Source](../../../../internal/passes/concurrencyfacts/facts.go)
-
-```go
-func (*Fact) AFact()
-```
-
-AFact marks the versioned concurrency summary for go/analysis serialization.
-
-## Fact.GobDecode
-
-[Source](../../../../internal/passes/concurrencyfacts/facts.go)
-
-```go
-func (fact *Fact) GobDecode(data []byte) error
-```
-
-GobDecode decodes the fact through factcodec.
-
-## Fact.GobEncode
-
-[Source](../../../../internal/passes/concurrencyfacts/facts.go)
-
-```go
-func (fact *Fact) GobEncode() ([]byte, error)
-```
-
-GobEncode encodes the fact through factcodec.
 
 ## Incomplete, CompleteNoEffects, CompleteWithEffects
 

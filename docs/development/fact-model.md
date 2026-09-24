@@ -11,6 +11,25 @@ kind of knowledge. `internal/summaries` brokers access to independently computed
 result, lifecycle, and concurrency components. Each domain keeps its inference
 and publication in `resultfacts`, `lifecyclefacts`, or `concurrencyfacts`.
 
+### Binary publication
+
+Domain-owned publication types wrap the existing Go summaries in an opaque
+`internal/factcodec` envelope. The envelope uses deterministic CBOR, not JSON,
+and hides nested summary schemas from gob's per-stream type descriptors.
+Published values and their reachable slices, maps, and pointers are immutable;
+copied envelopes share a concurrency-safe encoding cache. Decoding constructs
+an independent value and replaces the receiver only on success.
+
+The private payload starts with a format/version header. Unsupported versions,
+oversized payloads (over 16 MiB), excessive nesting or collections, duplicate
+keys, trailing data, and unknown fields are rejected. Existing domain version
+and semantic validation still apply; serialization cannot turn missing or
+incompatible evidence into an empty complete summary. A rebuilt analysis tool
+invalidates the Go analysis cache; no legacy JSON decoder is retained.
+
+Protobuf comparisons live in the separate `tools/codecbench` module. Its schemas
+and generated types are experimental and are not production dependencies.
+
 ## Selecting knowledge before analysis
 
 An analyzer declares one immutable selection and uses it both for its ordinary

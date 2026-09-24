@@ -14,8 +14,8 @@ func Exported() {}
 `)
 	version := heapmodel.SummaryVersion - 1
 	pass := &analysis.Pass{ImportObjectFact: func(_ types.Object, target analysis.Fact) bool {
-		fact := target.(*Fact) //nolint:forcetypeassert // The query imports this fact type.
-		fact.Heap = &heapmodel.HeapSummary{Version: version}
+		fact := target.(*publishedFact) //nolint:forcetypeassert // The query imports this fact type.
+		*fact = *publish(Fact{Heap: &heapmodel.HeapSummary{Version: version}})
 		return true
 	}}
 	if _, ok := factForFunction(pass, pkg.Func("Exported")); ok {

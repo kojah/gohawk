@@ -1,7 +1,7 @@
 # Resource test performance investigation
 
-Status: initial measurements, not a completed performance fix. Tracked by
-`gohawk-rey`; codec alternatives are tracked by `gohawk-a1h`.
+Status: baseline investigation and binary publication measurements. Broader
+performance work is tracked by `gohawk-rey`; codec work by `gohawk-a1h`.
 
 ## Controlled normal-run comparison
 
@@ -11,7 +11,7 @@ On 2026-09-24, compare these immutable revisions on Xenia:
 - Current: `8773e9eeb5631437ce81b07a3cad00debccdae43`.
 
 Both use Go 1.27.0 linux/amd64, x/tools v0.49.0, `GOMAXPROCS=4`, and
-`resourcelifetime.TestConfiguration`. Its configuration fixture is unchanged
+the resource analyzer's configuration test. Its fixture is unchanged
 between revisions. Compile each test binary before measurement, then alternate
 old/current runs three times. No other heavy validation runs alongside them.
 Build/export caches are warm and shared; test results are not cached. These are
@@ -76,23 +76,66 @@ presented as production-driver performance.
 In this Go toolchain, `encoding/gob.Encoder.sendActualType` recursively visits
 exported fields even for a type with a custom GobEncoder. The existing JSON
 payload avoids part of gob's work but does not hide the nested summary schema
-from this traversal. This is a source-confirmed mechanism and a candidate for
-measurement, not yet a demonstrated fix.
+from this traversal. This source-confirmed mechanism motivated the publication
+change and measurements below.
 
-## Next experiments
+## Binary publication change
 
-1. Compare the existing fact with an opaque publication wrapper that contains
-   the same summary behind an unexported field. Measure the full two-encode,
-   one-decode round-trip, not just JSON throughput. Preserve deterministic
-   bytes, complete values, and malformed-input handling.
-2. Measure end-to-end improvement before selecting a wrapper or codec change.
-   Keep the semantic summary representation independent of its publication.
-3. Profile the old revision and narrow the regression interval. Attribute
+The selected implementation separates semantic summaries from domain-owned
+opaque publication envelopes, caches immutable encoded payloads, and uses
+`github.com/fxamacker/cbor/v2` v2.9.0 with deterministic encoding. No proof rules,
+fixtures, or analysis budgets change. The private wire format is versioned;
+there is no JSON fallback. See [fact model](fact-model.md#binary-publication).
+
+The sparse lifecycle-fact microbenchmark includes the checker's two fresh gob
+encodes and one decode. Three samples on Xenia give:
+
+| Publication | Median time | Allocated bytes | Allocations | Gob stream bytes |
+| --- | --- | --- | --- | --- |
+| Exposed summary with JSON payload | 102.6 µs | ~48226 | 467 | 2094 |
+| Opaque cached CBOR envelope | 25.0 µs | 13560 | 200 | 623 |
+
+Run `GOMAXPROCS=4 go test ./internal/factcodec -run '^$' -bench . -benchmem -count=3`
+to reproduce the fixture comparison. This is not a representative distribution
+of every production fact and does not establish a whole-analyzer speedup.
+The combined change includes removing gob descriptor work and caching, not just
+replacing JSON. The separate Protobuf comparison and its allocation/presence
+tradeoffs are recorded in [the benchmark module](../../tools/codecbench/README.md).
+
+### End-to-end normal-run repeats
+
+Repeat the same configuration fixture with the retained baseline binary built
+from `8773e9e` and the CBOR candidate binary. Both run from the current package
+directory: the fixture and test source are unchanged from that baseline. Use
+the same toolchain, flags, warm build/export cache, and alternating three-pair
+method above, with no competing heavy validation. All six runs pass.
+
+| Publication | Wall seconds, samples 1/2/3 | Peak RSS KiB, samples 1/2/3 |
+| --- | --- | --- |
+| Baseline JSON | 44.60 / 40.71 / 41.04 | 2463784 / 2453668 / 2464240 |
+| Opaque cached CBOR | 23.13 / 21.10 / 21.38 | 2551760 / 2535380 / 2519288 |
+
+Median wall time falls from 41.04s to 21.38s, about 48%. Median peak RSS rises
+about 2.9%; retaining encoded payloads is not free. This establishes an
+improvement for this normal analysistest workload, not the production driver,
+the full resource suite, or a race-instrumented speedup. The candidate binary
+predates the final decoder-only rejection of the CBOR undefined token; valid
+fact encoding, decoding, and all analysis code are the measured implementation.
+
+Ordinary repository verification passes. A local full race run was stopped
+before the resource suite completed when the CI-only race policy was clarified;
+it is not a passing full-suite receipt. The targeted CI race gate now includes
+the shared fact encoding cache. Do not rerun race tests locally for this
+investigation; measure ordinary runs here and record race results from CI.
+
+## Remaining experiments
+
+1. Profile the old revision and narrow the regression interval. Attribute
    loading, SSA, summary inference, serialization and harness overhead without
    summing overlapping action durations.
-4. Add isolated cold-cache and repeated race comparisons without clearing shared
-   caches. Existing race timings overlapped validation and are not regression
-   baselines.
+2. Add isolated cold-cache measurements without clearing shared caches. Any
+   further race comparisons belong in CI. Existing race timings overlapped
+   validation and are not regression baselines.
 
 The separate immutable resource race suite at `a55f399` passes in 983.071s
 with `GOMAXPROCS=4`, `-race -p=1 -timeout=30m -count=1`. It establishes a valid

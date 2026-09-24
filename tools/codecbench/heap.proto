@@ -1,0 +1,20 @@
+syntax = "proto3";
+package codecbench;
+option go_package = "github.com/kojah/gohawk/tools/codecbench/heappb";
+
+message HeapSummary {
+  int32 version = 1;
+  repeated HeapEdge edges = 2;
+  repeated HeapEffect effects = 3;
+  repeated HeapHold holds = 4;
+  repeated HeapSlot reads = 5;
+  repeated HeapRequirement requires = 6;
+  repeated HeapSlot truncated = 7;
+}
+message HeapRoot { uint32 kind = 1; int32 index = 2; string package = 3; string name = 4; }
+message HeapSlot { HeapRoot root = 1; string path = 2; }
+message HeapTarget { uint32 kind = 1; HeapSlot slot = 2; string origin = 3; int32 object = 4; }
+message HeapEdge { HeapSlot from = 1; HeapTarget to = 2; bool must = 3; }
+message HeapEffect { HeapSlot slot = 1; uint32 escape = 2; string release = 3; bool every = 4; }
+message HeapHold { int32 result = 1; int32 parameter = 2; bool must = 3; }
+message HeapRequirement { HeapSlot slot = 1; uint32 kind = 2; string method = 3; }

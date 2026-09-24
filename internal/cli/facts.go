@@ -193,7 +193,7 @@ func writeRegions(buffer *bytes.Buffer, action *checker.Action, filter string) {
 	}
 }
 
-func writeFact(buffer *bytes.Buffer, action *checker.Action, object types.Object, origin string, fact analysis.Fact) {
+func writeFact(buffer *bytes.Buffer, action *checker.Action, object types.Object, origin string, fact any) {
 	fmt.Fprintf(buffer, "%s %s (%s, %s)\n", action.Analyzer.Name, objectName(object), origin, position(action, object.Pos()))
 	lines := []string{fmt.Sprint(fact)}
 	if describer, ok := fact.(factDescriber); ok {

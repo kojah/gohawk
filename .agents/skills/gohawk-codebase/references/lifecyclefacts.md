@@ -17,7 +17,7 @@ var Analyzer = &analysis.Analyzer{
 	Name:		"gohawklifecyclefacts",
 	Doc:		"exports internal lifecycle ownership summaries",
 	Requires:	[]*analysis.Analyzer{buildssa.Analyzer},
-	FactTypes:	[]analysis.Fact{new(Fact), new(CleanupFact), new(SummarizedPackage)},
+	FactTypes:	[]analysis.Fact{new(publishedFact), new(publishedCleanup), new(publishedPackage)},
 	ResultType:	reflect.TypeFor[Summaries](),
 	Run:		run,
 }
@@ -87,16 +87,6 @@ CleanupFact records that a named type releases what it owns, and which of
 its methods do it. It is exported for the type, not for a function, and it
 carries a proof forward, so it is only exported when the release is exact.
 
-## CleanupFact.AFact
-
-[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
-
-```go
-func (fact *CleanupFact) AFact()
-```
-
-AFact marks CleanupFact as an analysis fact.
-
 ## CleanupFact.DescribeFact
 
 [Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
@@ -107,26 +97,6 @@ func (fact *CleanupFact) DescribeFact(object types.Object) []string
 
 DescribeFact renders the contract for the fact dump, naming the fields the
 methods release so a reader can check the claim against the struct.
-
-## CleanupFact.GobDecode
-
-[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
-
-```go
-func (fact *CleanupFact) GobDecode(data []byte) error
-```
-
-GobDecode decodes the fact through factcodec.
-
-## CleanupFact.GobEncode
-
-[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
-
-```go
-func (fact *CleanupFact) GobEncode() ([]byte, error)
-```
-
-GobEncode encodes the fact through factcodec.
 
 ## CleanupFact.String
 
@@ -290,14 +260,6 @@ Fact is the compact cross-package ownership summary exported for a
 function. Each bit identifies an SSA parameter position. This package is
 internal analysis infrastructure, not a public extension API.
 
-## Fact.AFact
-
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
-
-```go
-func (*Fact) AFact()
-```
-
 ## Fact.Claim
 
 [Source](../../../../internal/passes/lifecyclefacts/fact.go)
@@ -331,26 +293,6 @@ func (fact *Fact) DischargedParameters() ParameterMask
 DischargedParameters returns the parameters with any discharge, at any
 path, for a consumer that only asks whether the callee releases part of
 what it was handed.
-
-## Fact.GobDecode
-
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
-
-```go
-func (fact *Fact) GobDecode(data []byte) error
-```
-
-GobDecode decodes the fact through factcodec.
-
-## Fact.GobEncode
-
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
-
-```go
-func (fact *Fact) GobEncode() ([]byte, error)
-```
-
-GobEncode encodes the fact through factcodec.
 
 ## Fact.KeptParameters
 
@@ -775,33 +717,3 @@ package without the marker, or one listed as bodiless, is unknown. It
 exists so an empty summary need not be serialized for every function of
 every dependency, which the analysis framework would otherwise decode
 once per dependent package.
-
-## SummarizedPackage.AFact
-
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
-
-```go
-func (*SummarizedPackage) AFact()
-```
-
-AFact marks SummarizedPackage as an analysis fact.
-
-## SummarizedPackage.GobDecode
-
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
-
-```go
-func (fact *SummarizedPackage) GobDecode(data []byte) error
-```
-
-GobDecode decodes the fact through factcodec.
-
-## SummarizedPackage.GobEncode
-
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
-
-```go
-func (fact *SummarizedPackage) GobEncode() ([]byte, error)
-```
-
-GobEncode encodes the fact through factcodec.

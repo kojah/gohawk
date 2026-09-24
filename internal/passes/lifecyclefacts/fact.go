@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/factcodec"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
@@ -399,14 +398,6 @@ func (fact *Fact) parameterMasks(index int) []string {
 	return names
 }
 
-func (*Fact) AFact() {}
-
-// GobEncode encodes the fact through factcodec.
-func (fact *Fact) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
-
-// GobDecode decodes the fact through factcodec.
-func (fact *Fact) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
-
 // SummarizedPackage marks a package whose exported functions with bodies
 // were all summarized. A function of such a package with no summary of its
 // own was proven to do nothing with its parameters; only a function of a
@@ -417,15 +408,6 @@ func (fact *Fact) GobDecode(data []byte) error { return factcodec.Decode(data, f
 type SummarizedPackage struct {
 	Bodiless []string
 }
-
-// AFact marks SummarizedPackage as an analysis fact.
-func (*SummarizedPackage) AFact() {}
-
-// GobEncode encodes the fact through factcodec.
-func (fact *SummarizedPackage) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
-
-// GobDecode decodes the fact through factcodec.
-func (fact *SummarizedPackage) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
 
 // empty reports whether the summary claims nothing.
 func (fact *Fact) empty() bool {
@@ -501,8 +483,9 @@ func factForFunction(pass *analysis.Pass, function *ssa.Function) (Fact, bool) {
 	if object == nil {
 		return Fact{}, false
 	}
-	var fact Fact
-	if pass.ImportObjectFact(object, &fact) {
+	var published publishedFact
+	if pass.ImportObjectFact(object, &published) {
+		fact := published.Value()
 		// An older heap fact may describe a returned field address as the
 		// field's contents. None of its derived claims are safe to import
 		// under the newer edge semantics.
@@ -514,14 +497,14 @@ func factForFunction(pass *analysis.Pass, function *ssa.Function) (Fact, bool) {
 	// No summary of its own: proven to do nothing if its package was
 	// summarized and the function was in scope for summarizing, which is
 	// the same condition the pass applies before summarizing.
-	var marker SummarizedPackage
+	var marker publishedPackage
 	if object.Pkg() == nil || !object.Exported() || pass.ImportPackageFact == nil || !pass.ImportPackageFact(object.Pkg(), &marker) {
 		return Fact{}, false
 	}
 	if signature, ok := object.Type().(*types.Signature); !ok || signature.Params().Len()+receiverCount(signature) > 64 {
 		return Fact{}, false
 	}
-	if slices.Contains(marker.Bodiless, object.Name()) {
+	if slices.Contains(marker.Value().Bodiless, object.Name()) {
 		return Fact{}, false
 	}
 	return Fact{}, true

@@ -36,8 +36,8 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 		if object != baseFunction.Object() {
 			return false
 		}
-		if target, ok := fact.(*Fact); ok {
-			*target = base
+		if target, ok := fact.(*publishedFact); ok {
+			*target = *publish(base)
 			return true
 		}
 		return false

@@ -25,20 +25,14 @@ type Fact struct {
 	NeverReturns bool
 }
 
-// AFact marks the result component for go/analysis serialization.
-func (*Fact) AFact() {}
-
-// GobEncode encodes the fact through factcodec.
-func (fact *Fact) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
-
-// GobDecode decodes the fact through factcodec.
-func (fact *Fact) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
+// publishedFact hides the result schema from gob's per-stream descriptors.
+type publishedFact struct{ factcodec.Envelope[Fact] }
 
 // Analyzer computes result knowledge only when required before dependency
 // analysis. It does not require lifecycle or concurrency inference.
 var Analyzer = &analysis.Analyzer{
 	Name: "gohawkresultfacts", Doc: "exports bounded unconditional result guarantees",
-	Requires: []*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(Fact)},
+	Requires: []*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
 	ResultType: reflect.TypeFor[*Engine](), Run: run,
 }
 
@@ -51,9 +45,12 @@ func run(pass *analysis.Pass) (any, error) {
 	engine.imported = make(map[*types.Func]Fact)
 	for _, imported := range pass.AllObjectFacts() {
 		object, ok := imported.Object.(*types.Func)
-		fact, valid := imported.Fact.(*Fact)
-		if ok && valid && validFact(fact) {
-			engine.imported[object] = *fact
+		published, valid := imported.Fact.(*publishedFact)
+		if ok && valid {
+			fact := published.Value()
+			if validFact(&fact) {
+				engine.imported[object] = fact
+			}
 		}
 	}
 	for _, function := range functions {
@@ -65,10 +62,10 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		summary := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 		if summary.Available {
-			pass.ExportObjectFact(object, &Fact{
+			pass.ExportObjectFact(object, &publishedFact{factcodec.Wrap(Fact{
 				Version: factVersion, Results: slices.Clone(summary.results), Relations: slices.Clone(summary.relations),
 				NeverReturns: summary.neverReturns,
-			})
+			})})
 		}
 	}
 	return engine, nil

@@ -98,9 +98,9 @@ test-exhaustive:
 	$(GO) test -tags=exhaustive ./internal/cli -run '^TestCLIIntegrationExhaustive$$' -count=1
 
 test-race:
-	# Sibling analyzers share the tracer and ordered-effect cache. Keep both
-	# concurrency contracts under the race detector in the routine gate.
-	$(GO) test -race ./internal/trace ./internal/passes/concurrencyfacts
+	# Sibling analyzers share tracing, ordered effects, and immutable fact
+	# encoding caches. Exercise those concurrency contracts in CI.
+	$(GO) test -race ./internal/trace ./internal/passes/concurrencyfacts ./internal/factcodec
 
 vet:
 	$(GO) vet ./...

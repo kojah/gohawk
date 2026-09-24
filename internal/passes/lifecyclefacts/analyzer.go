@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/factcodec"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -25,7 +26,7 @@ var Analyzer = &analysis.Analyzer{
 	Name:       "gohawklifecyclefacts",
 	Doc:        "exports internal lifecycle ownership summaries",
 	Requires:   []*analysis.Analyzer{buildssa.Analyzer},
-	FactTypes:  []analysis.Fact{new(Fact), new(CleanupFact), new(SummarizedPackage)},
+	FactTypes:  []analysis.Fact{new(publishedFact), new(publishedCleanup), new(publishedPackage)},
 	ResultType: reflect.TypeFor[Summaries](),
 	Run:        run,
 }
@@ -107,13 +108,13 @@ func run(pass *analysis.Pass) (any, error) {
 	// distinction, so an empty summary need not be serialized for every
 	// function of every dependency.
 	slices.Sort(marker.Bodiless)
-	pass.ExportPackageFact(marker)
+	pass.ExportPackageFact(&publishedPackage{factcodec.Wrap(*marker)})
 	for _, function := range local {
 		fact := summaries[function]
 		fact.ReturnedView = returnedViews(pass, function, fact, summaries)
 		summaries[function] = fact
 		if !fact.empty() {
-			pass.ExportObjectFact(function.Object(), &fact)
+			pass.ExportObjectFact(function.Object(), publish(fact))
 		}
 		if fact.Heap != nil {
 			heapmodel.RegisterHeapSummary(function, *fact.Heap)

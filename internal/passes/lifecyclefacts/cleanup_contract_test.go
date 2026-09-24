@@ -18,8 +18,9 @@ func contractsFor(t *testing.T, source string) map[string]*CleanupFact {
 		Pkg:              pkg.Pkg,
 		ImportObjectFact: func(types.Object, analysis.Fact) bool { return false },
 		ExportObjectFact: func(object types.Object, fact analysis.Fact) {
-			if contract, ok := fact.(*CleanupFact); ok {
-				exported[object.Name()] = contract
+			if contract, ok := fact.(*publishedCleanup); ok {
+				value := contract.Value()
+				exported[object.Name()] = &value
 			}
 		},
 	}

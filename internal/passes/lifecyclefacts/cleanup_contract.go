@@ -46,15 +46,6 @@ type CleanupFact struct {
 	Released ParameterMask
 }
 
-// AFact marks CleanupFact as an analysis fact.
-func (fact *CleanupFact) AFact() {}
-
-// GobEncode encodes the fact through factcodec.
-func (fact *CleanupFact) GobEncode() ([]byte, error) { return factcodec.Encode(fact) }
-
-// GobDecode decodes the fact through factcodec.
-func (fact *CleanupFact) GobDecode(data []byte) error { return factcodec.Decode(data, fact) }
-
 func (fact *CleanupFact) String() string {
 	return fmt.Sprintf("cleanup(%s)", strings.Join(fact.Methods, ","))
 }
@@ -114,7 +105,7 @@ func exportCleanupContracts(pass *analysis.Pass, summaries Summaries) {
 		if len(methods) == 0 || ownedFields&released != ownedFields {
 			continue
 		}
-		pass.ExportObjectFact(name, &CleanupFact{Methods: methods, Owned: ownedFields, Released: released})
+		pass.ExportObjectFact(name, &publishedCleanup{factcodec.Wrap(CleanupFact{Methods: methods, Owned: ownedFields, Released: released})})
 	}
 }
 

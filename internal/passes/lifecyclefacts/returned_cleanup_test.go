@@ -28,8 +28,8 @@ func Wrong(r, other *resource) { defer Forward(other)() }
 	baseFunction.Blocks = nil
 	pass.ImportObjectFact = func(object types.Object, fact analysis.Fact) bool {
 		if object == baseFunction.Object() {
-			if target, ok := fact.(*Fact); ok {
-				*target = base
+			if target, ok := fact.(*publishedFact); ok {
+				*target = *publish(base)
 				return true
 			}
 		}

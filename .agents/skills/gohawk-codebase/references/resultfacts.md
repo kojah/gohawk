@@ -15,7 +15,7 @@ termination, or relationships between different result positions.
 ```go
 var Analyzer = &analysis.Analyzer{
 	Name:	"gohawkresultfacts", Doc: "exports bounded unconditional result guarantees",
-	Requires:	[]*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(Fact)},
+	Requires:	[]*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
 	ResultType:	reflect.TypeFor[*Engine](), Run: run,
 }
 ```
@@ -63,36 +63,6 @@ Fact publishes independent result guarantees and the proven relations
 between a result and a parameter or another result. A relation is an
 implication that held on every return under its assumption; its absence
 is not the opposite implication.
-
-## Fact.AFact
-
-[Source](../../../../internal/passes/resultfacts/facts.go)
-
-```go
-func (*Fact) AFact()
-```
-
-AFact marks the result component for go/analysis serialization.
-
-## Fact.GobDecode
-
-[Source](../../../../internal/passes/resultfacts/facts.go)
-
-```go
-func (fact *Fact) GobDecode(data []byte) error
-```
-
-GobDecode decodes the fact through factcodec.
-
-## Fact.GobEncode
-
-[Source](../../../../internal/passes/resultfacts/facts.go)
-
-```go
-func (fact *Fact) GobEncode() ([]byte, error)
-```
-
-GobEncode encodes the fact through factcodec.
 
 ## FalseWhenParameterNil, TrueWhenParameterNonNil, NonNilWhenResultNil, NilWhenResultNonNil, ReturnsParameter
 
