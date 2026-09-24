@@ -248,6 +248,8 @@ type Reference struct {
 	// Projection is a parameter-relative embedded address carried through a
 	// helper that never directly selects that field. Public bound queries
 	// materialize it to an existing caller address before returning evidence.
+	// With Indirect, it denotes a channel slot whose stable contents must be
+	// proved by heapmodel before exposing a bound resource identity.
 	Projection	ssaflow.EmbeddedFieldPath
 	// Cancellation names a context's Done signal, not an ordinary channel.
 	// Value is a constructor call once bound, or a symbolic context/cancel input.

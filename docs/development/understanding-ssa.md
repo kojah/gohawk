@@ -11,6 +11,11 @@ explains what that form is, why it makes the analyses possible, and how to
 read the dump `gohawk ssa` prints. The [debugging reference](../debugging-reference/)
 covers the dump commands themselves.
 
+An `ssa.Program` owns packages, method sets, and compiler-generated method
+wrappers. Exact interface dispatch uses this existing program to obtain the
+method for a proven concrete receiver; it does not fabricate SSA instructions
+or enumerate every implementation in the program.
+
 ## What SSA is
 
 Static single assignment form rewrites a function so that every value is

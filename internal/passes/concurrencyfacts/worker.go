@@ -10,7 +10,7 @@ import (
 // call as a distinct child. A nested launch in a worker body remains unknown.
 
 // maxWorkers bounds the number of separately ordered child sequences in a
-// root query. Launches in loops remain unknown regardless of this limit.
+// root query, including launches expanded from an exact counted loop.
 const maxWorkers = 4
 
 func (engine *Engine) appendGo(result *Summary, instruction *ssa.Go) string {

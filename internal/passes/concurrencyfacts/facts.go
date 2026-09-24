@@ -175,15 +175,19 @@ func (engine *Engine) importedCall(call ssa.CallInstruction, function *ssa.Funct
 
 func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summary {
 	unknown := Summary{Reason: "protocol-body-unavailable"}
+	arguments := engine.resolvedCommon(call).Args
 	if fact.Version != factVersion || len(fact.Effects)+len(fact.CancellationInputs) > maxOperations || len(fact.Workers) > maxWorkers {
 		return unknown
 	}
 	var result Summary
+	// Declaration parameter positions use direct-call convention. A resolved
+	// interface invocation must include its unboxed receiver at position zero
+	// before either cancellation requirements or ordered effects are rebound.
 	for _, index := range fact.CancellationInputs {
-		if !engine.budget.Spend() || index < 0 || index >= len(call.Common().Args) {
+		if !engine.budget.Spend() || index < 0 || index >= len(arguments) {
 			return unknown
 		}
-		resource, ok := engine.reference(call.Common().Args[index])
+		resource, ok := engine.reference(arguments[index])
 		if !ok || !resource.Cancellation {
 			return Summary{Reason: "protocol-context-binding-unknown"}
 		}
@@ -218,10 +222,11 @@ func (engine *Engine) bindEffect(result *Summary, call ssa.CallInstruction, effe
 	if !engine.budget.Spend() {
 		return "protocol-budget-exhausted"
 	}
-	if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > ReadUnlock {
+	arguments := engine.resolvedCommon(call).Args
+	if effect.Parameter < 0 || effect.Parameter >= len(arguments) || effect.Kind > ReadUnlock {
 		return "protocol-body-unavailable"
 	}
-	value := call.Common().Args[effect.Parameter]
+	value := arguments[effect.Parameter]
 	if len(effect.Fields) > 0 {
 		var found bool
 		value, found = engine.importedField(call, value, effect.Fields)

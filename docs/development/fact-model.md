@@ -671,6 +671,14 @@ projections to an existing caller address before exposing bound evidence.
 Version 6 adds explicit RWMutex read modes; two read acquisitions are not
 treated as mutually exclusive.
 
+Local composition also resolves exact interface boxes through shared dispatch
+evidence, preserving the concrete receiver's argument position. Loaded channel
+fields can bind through a fresh receiver only after the heap model proves the
+slot stable across all visible uses; these indirect field templates are not
+exported. The richer local query can expand exact constant-count loops under
+its worker and event budgets. The linear publication cache still declines
+loop expansion, rather than charging every exported function for this policy.
+
 All fact access belongs to this prerequisite, which exposes an engine rather
 than raw facts to consumers. Public queries serialize access to the shared
 cache and recursion guard because sibling analysis passes may run concurrently;

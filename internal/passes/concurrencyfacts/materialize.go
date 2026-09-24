@@ -41,6 +41,9 @@ func (engine *Engine) materialize(summary Summary, function *ssa.Function) Summa
 			if reference.Projection.Depth == 0 {
 				continue
 			}
+			if reference.Indirect {
+				return Summary{Reason: "protocol-field-binding-unknown"}
+			}
 			value, found := engine.fieldAddress(function, reference.Projection)
 			if !found {
 				return Summary{Reason: "protocol-field-binding-unknown"}

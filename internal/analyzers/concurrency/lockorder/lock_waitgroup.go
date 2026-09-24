@@ -28,11 +28,13 @@ type waitGroupCycleProof struct {
 }
 
 type waitGroupParent struct {
-	group  ssa.Value
-	mutex  ssa.Value
-	lock   syncmodel.SyncEvent
-	wait   syncmodel.SyncEvent
-	unlock syncmodel.SyncEvent
+	group      ssa.Value
+	mutex      ssa.Value
+	lock       syncmodel.SyncEvent
+	wait       syncmodel.SyncEvent
+	unlock     syncmodel.SyncEvent
+	lockIndex  int
+	registered []int
 }
 
 func potentialWaitGroupLockRoot(function *ssa.Function) token.Pos {
@@ -163,23 +165,46 @@ func findWaitGroupParent(graph syncmodel.SyncGraph) (waitGroupParent, waitGroupC
 		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-shape-not-matched"}
 	}
 	parent := graph.Parent
-	group := parent[0].Resource.Value
-	if !syncmodel.FreshResource(parent[0].Resource).Proven() || !exactWaitGroupEvent(parent[0], concurrencyfacts.GroupAdd, group) {
+	wait, unlock := parent[count+1], parent[count+2]
+	group := wait.Resource.Value
+	if !syncmodel.FreshResource(wait.Resource).Proven() || !exactWaitGroupEvent(wait, concurrencyfacts.GroupWait, group) {
 		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-counter-unknown"}
 	}
-	for _, event := range parent[:count] {
-		if !exactWaitGroupEvent(event, concurrencyfacts.GroupAdd, group) {
-			return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-counter-unknown"}
-		}
+	lockIndex, registered, known := waitGroupRegistrations(parent[:count+1], group)
+	if !known {
+		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-counter-unknown"}
 	}
-	lock, wait, unlock := parent[count], parent[count+1], parent[count+2]
+	lock := parent[lockIndex]
 	mutex := lock.Resource.Value
 	if !syncmodel.FreshResource(lock.Resource).Proven() || !exactWaitGroupEvent(lock, concurrencyfacts.Lock, mutex) ||
 		!exactWaitGroupEvent(wait, concurrencyfacts.GroupWait, group) ||
 		!exactWaitGroupEvent(unlock, concurrencyfacts.Unlock, mutex) {
 		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-parent-order-not-matched"}
 	}
-	return waitGroupParent{group: group, mutex: mutex, lock: lock, wait: wait, unlock: unlock}, waitGroupCycleProof{}
+	return waitGroupParent{
+		group: group, mutex: mutex, lock: lock, wait: wait, unlock: unlock,
+		lockIndex: lockIndex, registered: registered,
+	}, waitGroupCycleProof{}
+}
+
+// Registration may interleave with launches while the parent holds its lock.
+// Every prefix retains its exact Add count; each child must be counted before
+// launch, and no decrement or other group operation may hide in this prefix.
+func waitGroupRegistrations(events []syncmodel.SyncEvent, group ssa.Value) (int, []int, bool) {
+	lockIndex := -1
+	registered := make([]int, len(events)+1)
+	for index, event := range events {
+		registered[index+1] = registered[index]
+		switch {
+		case event.Kind == concurrencyfacts.Lock && lockIndex == -1:
+			lockIndex = index
+		case exactWaitGroupEvent(event, concurrencyfacts.GroupAdd, group):
+			registered[index+1]++
+		default:
+			return 0, nil, false
+		}
+	}
+	return lockIndex, registered, lockIndex >= 0
 }
 
 func findCountedWorkers(
@@ -187,7 +212,7 @@ func findCountedWorkers(
 ) (syncmodel.SyncEvent, syncmodel.SyncEvent, waitGroupCycleProof) {
 	var witnessLock, witnessDone syncmodel.SyncEvent
 	for index, child := range children {
-		if !child.LaunchKnown() || child.Prefix != len(children)+1 || len(child.Events) != 3 {
+		if !child.LaunchKnown() || !parent.countedLaunch(index, child.Prefix) || len(child.Events) != 3 {
 			return syncmodel.SyncEvent{}, syncmodel.SyncEvent{},
 				waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-worker-effects-unknown"}
 		}
@@ -203,6 +228,10 @@ func findCountedWorkers(
 		}
 	}
 	return witnessLock, witnessDone, waitGroupCycleProof{}
+}
+
+func (parent waitGroupParent) countedLaunch(index, prefix int) bool {
+	return prefix > parent.lockIndex && prefix < len(parent.registered) && parent.registered[prefix] >= index+1
 }
 
 func exactWaitGroupEvent(event syncmodel.SyncEvent, kind concurrencyfacts.Kind, resource ssa.Value) bool {

@@ -827,6 +827,20 @@ Sidecar re-queries into one cell before deferring Close; selecting the
 latest store is sound only when it remains stable through deferred use:
 https://github.com/marcus/sidecar/blob/9b8739f753ab235dda2630676833e9b46a52696c/internal/adapter/warp/adapter.go#L337-L341
 
+## Storage.StableFieldContent
+
+[Source](../../../../internal/heapmodel/store_field_stability.go)
+
+```go
+func (storage *Storage) StableFieldContent(address ssa.Value, observation ssa.Instruction) StoredValue
+```
+
+StableFieldContent proves the contents of a fresh owner's embedded field
+remain unchanged through every visible use, including observation itself.
+Unlike StableContent, unrelated sibling fields are outside the question.
+Known asynchronous readers may read this slot but must not retain its
+address or write it. This says nothing about mutation of the loaded object.
+
 ## StoreMayFollow
 
 [Source](../../../../internal/heapmodel/storage_order.go)

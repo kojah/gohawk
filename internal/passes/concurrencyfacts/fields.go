@@ -7,10 +7,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// Embedded mutex fields are addresses, not pointer-valued contents. A bounded
-// path can therefore be rebound without following mutable pointer fields.
-// Bindings require an existing matching caller address; we never invent SSA
-// values or treat an enclosing owner as the mutex itself.
+// Embedded mutex paths name addresses; channel paths name the contents of a
+// slot. The latter require the shared heap proof that the slot remains stable
+// through every helper and worker. A matching field name alone is not identity.
+// Bindings require an existing caller address; no SSA values are invented.
 func embeddedPath(value ssa.Value) (ssaflow.EmbeddedFieldPath, bool) {
 	return ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value, func(root ssa.Value) bool {
 		switch root.(type) {
@@ -32,7 +32,7 @@ func (engine *Engine) fieldAddress(function *ssa.Function, path ssaflow.Embedded
 				return nil, false
 			}
 			field, ok := instruction.(*ssa.FieldAddr)
-			if !ok || !MutexPointer(field.Type()) {
+			if !ok {
 				continue
 			}
 			if candidate, ok := embeddedPath(field); ok && candidate == path {
@@ -48,7 +48,8 @@ func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBind
 	if reference.Projection.Depth > 0 {
 		path, ok = reference.Projection, true
 	}
-	if reference.Indirect || !ok || path.Depth == 0 || !MutexPointer(reference.Value.Type()) {
+	channelContent := reference.Indirect && reference.Projection.Depth > 0 && ssaflow.ChannelType(reference.Value)
+	if !ok || path.Depth == 0 || !channelContent && (reference.Indirect || !MutexPointer(reference.Value.Type())) {
 		return Reference{}, false
 	}
 	for _, binding := range bindings {
@@ -65,12 +66,19 @@ func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBind
 		}
 		value, found := engine.fieldAddress(instruction.Parent(), root)
 		if found {
+			if channelContent {
+				content := engine.storage.StableFieldContent(value, instruction)
+				if !content.Proven() {
+					return Reference{}, false
+				}
+				return engine.reference(content.Value)
+			}
 			return Reference{Value: value}, true
 		}
 		if engine.budget.Exhausted() {
 			return Reference{}, false
 		}
-		return Reference{Value: reference.Value, Projection: root}, true
+		return Reference{Value: reference.Value, Projection: root, Indirect: reference.Indirect}, true
 	}
 	return Reference{}, false
 }

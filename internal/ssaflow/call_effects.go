@@ -41,6 +41,7 @@ func (proof CallEffectProof) PreservesStorage() bool {
 type CallEffects struct {
 	budget *SearchBudget
 	memo   *CallGraphMemo[ssa.Value, CallEffect]
+	fields *CallGraphMemo[EmbeddedFieldPath, CallEffect]
 }
 
 // NewCallEffects constructs a query with a shared instruction budget. A nil

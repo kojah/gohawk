@@ -58,6 +58,7 @@ that only need to know whether some return is uncovered.
 | `NormalReturnReachableFrom` | can a normal return be reached from here? |
 | `FeasibleSuccessors`, `SuccessBranch`, `BlockReachable`, `BlockInCycle` | control-flow feasibility primitives |
 | `InstructionDominates`, `InstructionMayFollow`, `InstructionIndex` | ordering between instructions |
+| `ProveCountedLoop` | exact bounded induction count and whether body operands depend on the counter; not termination or an unrolling policy |
 
 ## Carry a state along every path
 
@@ -124,6 +125,8 @@ transfer from an opaque escape.
 |---|---|
 | `CallEffects.Value`, `CallEffects.Call`, `CallEffectProof.PreservesStorage` | bounded local read/mutate/retain/async/invoke evidence, without ownership policy |
 | `CallBindings`, `DirectCallee` | statically known callee and argument/capture mapping, without alias or completion claims |
+| `ResolveInterfaceDispatch` | exact concrete receiver and method behind an interface box; not its effects or termination |
+| `CallEffects.FieldCall`, `Storage.StableFieldContent` | selected embedded-slot effects and stable contents across visible helpers; not effects on the loaded object |
 | `CallMatchesSymbol`, `CallMatchesAnySymbol`, `ValueMatchesSymbol`, `ValueMatchesAnySymbol` | does this call or value resolve to an exact well-known declaration? |
 | `HasLibraryContract` | does this call match a registered external API contract? |
 | `InstructionCall`, `CallName`, `CallReceiver`, `CallResult` | call metadata |

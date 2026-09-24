@@ -105,7 +105,7 @@ func five(a, b, c, d, e chan int) {
 	if got.Workers[0].Site == got.Workers[1].Site {
 		t.Error("separate helper calls must retain distinct launch sites")
 	}
-	for _, name := range []string{"conditional", "loop", "five"} {
+	for _, name := range []string{"conditional", "five"} {
 		if result := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); result.Complete() {
 			t.Errorf("%s should remain unknown: %+v", name, result)
 		}

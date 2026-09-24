@@ -132,6 +132,18 @@ CallEffectProof separates discovered effects from completeness. An incomplete
 proof never establishes the absence of mutation or escape. Retention includes
 returns and conservative local spills; it never proves ownership transfer.
 
+## CallEffectProof.PreservesField
+
+[Source](../../../../internal/ssaflow/call_field_effects.go)
+
+```go
+func (proof CallEffectProof) PreservesField() bool
+```
+
+PreservesField proves that a complete field query found no write or address
+escape. A known asynchronous reader does not replace the slot. This is NOT
+a no-race, no-blocking, or no-effect guarantee about the loaded resource.
+
 ## CallEffectProof.PreservesStorage
 
 [Source](../../../../internal/ssaflow/call_effects.go)
@@ -169,6 +181,21 @@ func (query *CallEffects) Call(instruction ssa.Instruction, value ssa.Value) Cal
 Call summarizes a call's uses of exactly value, through every matching argument
 and capture. Callers inspecting aliases must query those addresses too. A value
 not directly supplied is unknown rather than assumed untouched.
+
+## CallEffects.FieldCall
+
+[Source](../../../../internal/ssaflow/call_field_effects.go)
+
+```go
+func (query *CallEffects) FieldCall(instruction ssa.Instruction, path EmbeddedFieldPath) CallEffectProof
+```
+
+FieldCall asks about the storage at one embedded field path, not every field
+of its owner. Calls through another field cannot overwrite this slot. Loading
+the slot reads it; effects on its pointee are deliberately a separate query.
+Paths are rebased through visible calls and share the ordinary work budget.
+As with Call, this accounts for uses through the supplied address, not hidden
+aliases. A storage-preservation consumer must separately exclude owner escape.
 
 ## CallEffects.Value
 
@@ -481,6 +508,46 @@ const (
 )
 ```
 
+## CountedLoop
+
+[Source](../../../../internal/ssaflow/counted_loop.go)
+
+```go
+type CountedLoop struct {
+	Body, Exit	*ssa.BasicBlock
+	Count		int
+	CounterUsed	bool
+	Reason		CountedLoopReason
+}
+```
+
+CountedLoop describes a zero-based unit-step loop with one body block.
+Count is the number of body entries if each iteration reaches its backedge,
+not a guarantee that calls inside the body terminate or return normally.
+CounterUsed distinguishes bodies requiring induction-value substitution
+from those whose ordinary instructions can be replayed unchanged.
+
+## CountedLoop.Proven
+
+[Source](../../../../internal/ssaflow/counted_loop.go)
+
+```go
+func (loop CountedLoop) Proven() bool
+```
+
+Proven reports whether the header establishes an exact bounded count.
+
+## CountedLoopReason
+
+[Source](../../../../internal/ssaflow/counted_loop.go)
+
+```go
+type CountedLoopReason uint8
+```
+
+CountedLoopReason distinguishes an exact control-flow count from unsupported
+shape, a caller-selected expansion limit, and exhausted analysis work.
+
 ## DefinitelyNil
 
 [Source](../../../../internal/ssaflow/value_matching.go)
@@ -513,6 +580,29 @@ func DirectCallee(common *ssa.CallCommon) (*ssa.Function, *ssa.MakeClosure)
 
 DirectCallee returns only the statically named function or literal body.
 Dynamic dispatch remains unresolved; this does not chase callback bindings.
+
+## DispatchReason
+
+[Source](../../../../internal/ssaflow/interface_dispatch.go)
+
+```go
+type DispatchReason uint8
+```
+
+DispatchReason describes exact interface receiver resolution, independently
+of whether the resolved function has a body or usable effect summary.
+
+## DispatchUnknown, DispatchConcreteReceiver, DispatchBudgetExhausted
+
+[Source](../../../../internal/ssaflow/interface_dispatch.go)
+
+```go
+const (
+	DispatchUnknown	DispatchReason	= iota
+	DispatchConcreteReceiver
+	DispatchBudgetExhausted
+)
+```
 
 ## EffectRead, EffectMutate, EffectRetain, EffectAsync, EffectInvoke
 
@@ -1041,6 +1131,31 @@ at back edges keeps a loop-carried SSA value from being compared with a
 different runtime value it names on a later iteration, which matters for
 any use-after-X question.
 
+## InterfaceDispatch
+
+[Source](../../../../internal/ssaflow/interface_dispatch.go)
+
+```go
+type InterfaceDispatch struct {
+	Function	*ssa.Function
+	Receiver	ssa.Value
+	Reason		DispatchReason
+}
+```
+
+InterfaceDispatch names a concrete method and its unboxed receiver. It
+provides dispatch identity only, not purity, termination, or lifecycle facts.
+
+## InterfaceDispatch.Proven
+
+[Source](../../../../internal/ssaflow/interface_dispatch.go)
+
+```go
+func (dispatch InterfaceDispatch) Proven() bool
+```
+
+Proven reports exact agreement on the receiver and method.
+
 ## JoinAccessPath
 
 [Source](../../../../internal/ssaflow/access_paths.go)
@@ -1062,6 +1177,19 @@ type LibraryContract uint8
 LibraryContract identifies a third-party semantic boundary whose behavior
 cannot be recovered from the caller's SSA alone. Keep these exceptions in a
 single registry so analyzers do not grow divergent package/name heuristics.
+
+## LoopShapeUnknown, LoopCountKnown, LoopCountOverLimit, LoopBudgetExhausted
+
+[Source](../../../../internal/ssaflow/counted_loop.go)
+
+```go
+const (
+	LoopShapeUnknown	CountedLoopReason	= iota
+	LoopCountKnown
+	LoopCountOverLimit
+	LoopBudgetExhausted
+)
+```
 
 ## MayAliasThroughLoads
 
@@ -1402,6 +1530,19 @@ func (proof Proof) Proven() bool
 
 Proven reports whether the requested relationship was established.
 
+## ProveCountedLoop
+
+[Source](../../../../internal/ssaflow/counted_loop.go)
+
+```go
+func ProveCountedLoop(header *ssa.BasicBlock, limit int, budget *SearchBudget) CountedLoop
+```
+
+ProveCountedLoop recognizes only i := 0; i < literal; i++ with one body
+block and no alternate entry or exit. The consumer supplies its expansion
+limit and decides whether body effects and iteration-local objects are safe
+to repeat. This query does not unroll SSA or choose an analysis policy.
+
 ## ProveIdentity
 
 [Source](../../../../internal/ssaflow/value_identity.go)
@@ -1504,6 +1645,19 @@ func ResolveEmbeddedFieldPath(walk ReachingWalk, value ssa.Value, acceptRoot fun
 ResolveEmbeddedFieldPath resolves an agreed embedded-field path through the
 walk's selected transparent forms. acceptRoot chooses eligible terminal values;
 accepting a load names that exact snapshot, never its underlying cell.
+
+## ResolveInterfaceDispatch
+
+[Source](../../../../internal/ssaflow/interface_dispatch.go)
+
+```go
+func ResolveInterfaceDispatch(common *ssa.CallCommon, program *ssa.Program, budget *SearchBudget) InterfaceDispatch
+```
+
+ResolveInterfaceDispatch resolves direct interface boxes and agreeing phi
+alternatives through interface conversions. Loads, arbitrary interface
+parameters, and alternatives with different receivers remain unknown.
+The supplied program owns method-wrapper construction; no SSA is fabricated.
 
 ## ResolveReachingValue
 

@@ -13,8 +13,14 @@ import (
 // cells additionally need stable contents because the worker may read them
 // after the launch. A matching access path alone cannot justify this identity.
 func (engine *Engine) instantiate(instruction ssa.CallInstruction) Summary {
-	if function := instruction.Common().StaticCallee(); function != nil && len(function.Blocks) == 0 {
+	common := engine.resolvedCommon(instruction)
+	if function := common.StaticCallee(); function != nil && len(function.Blocks) == 0 {
 		return engine.importedCall(instruction, function)
+	}
+	if instruction.Common().IsInvoke() && !common.IsInvoke() {
+		function, closure := ssaflow.DirectCallee(common)
+		callee := engine.summaries.Function(function, engine.budget)
+		return engine.bindSummary(callee, ssaflow.CallBindings(common, function, closure), instruction)
 	}
 	return engine.summaries.AtCall(instruction, engine.budget, func(callee Summary, bindings []ssaflow.CallBinding) Summary {
 		return engine.bindSummary(callee, bindings, instruction)
@@ -156,6 +162,11 @@ func (engine *Engine) referenceLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (Re
 	// allocation and all writes are visible to the shared storage query.
 	load, ok := value.(*ssa.UnOp)
 	if ok && load.Op == token.MUL {
+		if ssaflow.ChannelType(load) {
+			if path, exact := embeddedPath(load.X); exact && path.Depth > 0 {
+				return Reference{Value: load, Projection: path, Indirect: true}, true
+			}
+		}
 		if capture, ok := load.X.(*ssa.FreeVar); ok && readableAddress(capture) {
 			return Reference{Value: capture, Indirect: true, Cancellation: cancellationType(value.Type())}, true
 		}

@@ -48,7 +48,7 @@ these requirements, ordered requests, receives, and child launches.
 
 The first implementation deliberately leaves parent cancellation propagation,
 deadlines/timeouts, `WithoutCancel`, `WithValue`, `AfterFunc`, factory-returned
-contexts, nested selects, and looped workers unknown. In particular, it does
+contexts, nested selects, and open-ended worker loops unknown. In particular, it does
 not infer a missing cancel or a worker leak from absence of a modeled request.
 Those need their own obligation proofs. Cancellation arms remain alternatives;
 this change does not introduce a new diagnostic or expand deadlock feasibility
@@ -81,7 +81,7 @@ which every child able to signal the waited-for channel must first acquire the
 mutex held by the parent. A child that could release that mutex or signal
 without acquiring it makes the proof inconclusive. The channel/lock check
 additionally requires a statically unbuffered channel. A fifth launch,
-unproven alternatives, loops, launches outside the lock-to-wait interval, and
+unproven alternatives, unbounded loops, launches outside the lock-to-wait interval, and
 opaque calls remain inconclusive. A helper call counts as a launch only when
 its complete summary proves an exact child template.
 
@@ -98,6 +98,38 @@ inventing SSA values. It does not infer an arbitrary Start/Stop call ordering,
 enumerate callers, or close the participant set of externally owned receivers.
 The receive may itself be inside a visible helper. The caller must still
 establish the acquisition before the launch and preserve it through that wait.
+
+Channel fields on a fresh receiver can also bind across visible launch and
+wait methods. `heapmodel.Storage.StableFieldContent` requires one exact value
+and no subsequent replacement, including through helpers or asynchronous
+workers. Its field-specific effect query can ignore writes to a disjoint sibling
+field without claiming the whole helper is pure. Whole-owner publication,
+opaque consumers, recursive effects, and mutable channel slots remain unknown.
+These local loaded-field relations are not yet exported across packages.
+
+## Shared loop and dispatch evidence
+
+`ssaflow.ProveCountedLoop` recognizes an exact zero-based unit-step loop with a
+literal bound and one body block. It returns control-flow evidence with an enum
+reason, not synchronization policy or a termination guarantee. The concurrency
+consumer permits at most four iterations, rejects counter-dependent effects,
+iteration-local allocations and deferred effects, and charges repeated work to
+the same budget. Each expanded launch remains a distinct child. The WaitGroup
+proof permits registration interleaved with launches only when every child is
+already counted and the parent already holds its lock.
+
+`ssaflow.ResolveInterfaceDispatch` resolves a concrete interface box (or
+agreeing receiver alternatives) to its actual method. Concurrency composition
+then applies the usual method contract or complete summary with the unboxed
+receiver in argument position zero. Merely finding a matching method name or
+one possible implementation is insufficient. Different receivers, unresolved
+interface parameters, and mutable interface storage remain unknown.
+
+This is not yet arbitrary resource-specific protocol extraction: an opaque call
+still cannot be erased just because no synchronization effect was recorded.
+Field-stability evidence describes a slot, not whether a helper can block or
+return normally. General receive/select loop contracts, different concrete
+dispatch alternatives, and externally owned participant sets remain future work.
 
 ## Intended graph contract
 

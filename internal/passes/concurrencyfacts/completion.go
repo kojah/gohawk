@@ -30,7 +30,7 @@ func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 	if result, handled := engine.cancellationCall(instruction); handled {
 		return result
 	}
-	common := instruction.Common()
+	common := engine.resolvedCommon(instruction)
 	var kind Kind
 	var resource ssa.Value
 	// Keep RWMutex modes explicit. Sharing a resource identity does not make

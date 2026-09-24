@@ -45,6 +45,8 @@ type Reference struct {
 	// Projection is a parameter-relative embedded address carried through a
 	// helper that never directly selects that field. Public bound queries
 	// materialize it to an existing caller address before returning evidence.
+	// With Indirect, it denotes a channel slot whose stable contents must be
+	// proved by heapmodel before exposing a bound resource identity.
 	Projection ssaflow.EmbeddedFieldPath
 	// Cancellation names a context's Done signal, not an ordinary channel.
 	// Value is a constructor call once bound, or a symbolic context/cancel input.
@@ -235,6 +237,9 @@ func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBud
 
 func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
 	result := engine.collectEffects(function, root)
+	if engine.paths && result.Reason == "protocol-control-flow-unknown" && function != nil && len(function.Blocks) != 0 {
+		result = engine.collectCountedLoops(function, root)
+	}
 	if engine.paths && (result.Reason == "protocol-branch-effects-differ" || result.Reason == "protocol-branch-alternatives") {
 		result = engine.collectPaths(function, root)
 	}
@@ -328,6 +333,11 @@ func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) string 
 	if instruction.Op == token.ARROW {
 		return engine.appendOperation(result, Receive, instruction.X, instruction.Pos())
 	}
+	if instruction.Op == token.MUL && ssaflow.ChannelType(instruction) {
+		if path, exact := embeddedPath(instruction.X); exact && path.Depth > 0 {
+			return ""
+		}
+	}
 	if instruction.Op != token.MUL || !readableAddress(instruction.X) {
 		return "protocol-load-unknown"
 	}
@@ -390,11 +400,9 @@ func passiveInstruction(instruction ssa.Instruction, root bool) string {
 			return ""
 		}
 	case *ssa.MakeInterface:
-		// A concrete Mutex may be bound to NewCond's Locker. Consumers of
-		// the interface still need complete call summaries; publication is opaque.
-		if MutexPointer(instruction.X.Type()) {
-			return ""
-		}
+		// Boxing does not itself publish the value. Every subsequent use
+		// must still resolve to a complete callee; opaque dispatch is unknown.
+		return ""
 	case *ssa.MakeChan:
 		// Callee allocation sites cannot identify runtime instances across
 		// separate calls. Only channels created by the root are admitted.

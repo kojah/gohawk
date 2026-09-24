@@ -133,7 +133,10 @@ protocols, or arbitrary scheduling and path constraints.
 All tracked children must launch after the parent acquires the mutex and
 before it waits; other launch orders remain inconclusive.
 Exact embedded fields of fresh local owners are supported through local
-worker-launch helpers. Scoping tolerates synchronization on proven-disjoint
+worker-launch helpers. Channel fields can also connect launch and wait helpers
+when the shared heap model proves the fresh owner's slot remains unchanged.
+Mutation, opaque owner handoffs, and external owners still defeat that binding.
+Scoping tolerates synchronization on proven-disjoint
 resources while retaining every participant. Up to eight acyclic branch or
 worker-select variants may be checked; every variant must prove the same
 parent wait. Optional waits, early signals, and cancellation escapes defeat
@@ -161,7 +164,10 @@ one blocked child lock, and its `Done`.
 
 The proof requires one exact `Add(1)` per child, all launches after the parent
 locks and before it waits, and the required complete child effects in every
-bounded variant. A dynamic
+bounded variant. Exact zero-based unit-step loops of at most four iterations
+can supply distinct children; each child must be counted before its launch.
+Registration can interleave with launches under the held lock. Counter captures,
+per-iteration resources, and unsupported control flow remain unknown. A dynamic
 or different count, another decrement, early `Done`, unknown participant, or
 different launch order is inconclusive. It does not infer the counter from
 method names, or treat an arbitrary `Wait` and lock as a deadlock.
