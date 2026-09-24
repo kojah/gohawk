@@ -64,6 +64,11 @@ const (
 // the true arm makes the guard false (as a != comparison does), and whether
 // the guard is stable. A condition with no identity reports false.
 func GuardCondition(condition ssa.Value) (identity string, negated, stable, ok bool) {
+	// !x tests x with the arms swapped.
+	if negation, isNot := condition.(*ssa.UnOp); isNot && negation.Op == token.NOT {
+		identity, negated, stable, ok = GuardCondition(negation.X)
+		return identity, !negated, stable, ok
+	}
 	if identity, negated, ok := loadedGuard(condition); ok {
 		return identity, negated, false, true
 	}
@@ -141,10 +146,18 @@ func GuardAddressIdentity(address ssa.Value) (string, bool) {
 	return "", false
 }
 
+// A call result outside a cycle is computed once per invocation, like a
+// parameter, so comparing it twice compares the same value: two checks of one
+// err agree.
 func stableOperand(value ssa.Value) bool {
-	switch value.(type) {
+	switch value := value.(type) {
 	case *ssa.Parameter, *ssa.Const:
 		return true
+	case *ssa.Call:
+		return !BlockInCycle(value.Block())
+	case *ssa.Extract:
+		call, ok := value.Tuple.(*ssa.Call)
+		return ok && !BlockInCycle(call.Block())
 	}
 	return false
 }
@@ -153,6 +166,8 @@ func guardOperandIdentity(value ssa.Value) string {
 	switch typed := value.(type) {
 	case *ssa.Parameter:
 		return fmt.Sprintf("param:%p", typed)
+	case *ssa.Call, *ssa.Extract:
+		return fmt.Sprintf("result:%p", typed)
 	case *ssa.Const:
 		if typed.Value == nil {
 			return "nil:" + types.TypeString(typed.Type(), nil)

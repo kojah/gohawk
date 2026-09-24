@@ -32,14 +32,16 @@ func workerFlag(a, b chan int, mu *sync.Mutex, flag bool) { go pick(a, b, flag);
 `)
 	engine := concurrencyfacts.NewEngine()
 	for name, want := range map[string][3]int{
-		"optional":           {2, 0, 0},
-		"correlated":         {2, 2, 0},
-		"independentFlags":   {4, 0, 0},
-		"errorPath":          {2, 0, 0},
-		"twoCallees":         {4, 0, 0},
-		"sameCallee":         {0, 0, 4},
-		"constants":          {3, 1, 0},
-		"memory":             {0, 0, 4},
+		"optional":         {2, 0, 0},
+		"correlated":       {2, 2, 0},
+		"independentFlags": {4, 0, 0},
+		"errorPath":        {2, 0, 0},
+		"twoCallees":       {4, 0, 0},
+		"sameCallee":       {0, 0, 4},
+		"constants":        {3, 1, 0},
+		// Two reads of one field are one loaded guard: agreeing is feasible,
+		// disagreeing is unknown because a store could explain it.
+		"memory":             {2, 0, 2},
 		"memoryAlone":        {2, 0, 0},
 		"memoryAndParameter": {0, 0, 4},
 		// The worker's condition is its bound copy of the parent's flag, so

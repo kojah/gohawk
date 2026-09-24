@@ -14,37 +14,50 @@ import (
 )
 
 // Feasibility decides whether the branch choices a graph variant assumes can
-// all hold in one execution. It proves contradiction exactly: one condition
-// value, evaluated once on an acyclic path of one call, cannot take both
-// polarities, and one value cannot equal two different constants. It proves
-// feasibility only under a conservative independence policy. Conditions on
-// distinct parameters of the root, or on results of calls to distinct
-// functions, can vary independently, as gohawk's other checks already treat
-// an error result. Two results of one function may be equal. A condition read
-// from memory, merged by a phi, or bound from a callee may correlate with any
-// other condition, pure ones included (a worker's bound copy of the parent's
-// flag is the same variable), so it is feasible only as the sole condition.
-// Anything beyond that is unknown, never assumed feasible.
+// all hold in one execution. Condition identity and contradiction come from
+// ssaflow's path guards, the same ones lockorder and resourcelifetime prune
+// with: taking both arms of a stable guard (a parameter, a constant, or a
+// value computed once) proves the variant cannot happen, while both arms of a
+// guard read from memory is only unknown, since an unseen store could explain
+// it. One value equal to two different constants also contradicts.
+//
+// Feasibility itself is claimed only under a conservative independence
+// policy, which is this package's sufficiency decision rather than a shared
+// mechanic. Conditions on distinct root parameters, or on results of calls to
+// distinct functions, can vary independently, as gohawk's other checks
+// already treat an error result. Two results of one function may be equal. A
+// condition read from memory, computed from other values, without an
+// identity, or bound from a callee may correlate with any other condition,
+// pure ones included (a worker's bound copy of the parent's flag is the same
+// variable), so it is feasible only as the sole condition. Anything else is
+// unknown, never assumed feasible.
 
 // Feasibility reports whether the variant's conditions can hold together.
 func (graph *SyncGraph) Feasibility() Proof {
 	atoms := map[string]*atomChoices{}
 	for _, condition := range graph.Conditions {
-		atom, choice, known := normalizeCondition(condition)
-		if !known {
-			return queryProof(ssaflow.EvidenceUnknown, ReasonConditionsUnknown)
-		}
-		if atom.key == constantAtom {
-			if !choice.holds {
+		if folded, ok := condition.Value.(*ssa.Const); ok && folded.Value != nil && folded.Value.Kind() == constant.Bool {
+			// Requiring a constant to be what it is not contradicts outright.
+			if constant.BoolVal(folded.Value) != condition.Holds {
 				return queryProof(ssaflow.EvidenceDisproven, ReasonConditionsContradict)
 			}
 			continue
 		}
+		atom, value := guardAtom(condition)
 		if atoms[atom.key] == nil {
 			atoms[atom.key] = &atomChoices{atom: atom}
 		}
-		if !atoms[atom.key].add(choice) {
+		switch atoms[atom.key].add(value, atom.stable) {
+		case choiceContradicts:
 			return queryProof(ssaflow.EvidenceDisproven, ReasonConditionsContradict)
+		case choiceUncertain:
+			return queryProof(ssaflow.EvidenceUnknown, ReasonConditionsCorrelated)
+		case choiceConsistent:
+		}
+		if equality, ok := constantEquality(condition); ok {
+			if !recordEquality(atoms, equality) {
+				return queryProof(ssaflow.EvidenceDisproven, ReasonConditionsContradict)
+			}
 		}
 	}
 	if !independent(atoms) {
@@ -53,152 +66,169 @@ func (graph *SyncGraph) Feasibility() Proof {
 	return queryProof(ssaflow.EvidenceProven, ReasonConditionsFeasible)
 }
 
-// constantAtom keys every constant condition: requiring a constant to be what
-// it is not contradicts, and requiring what it is adds nothing.
-const constantAtom = "const"
-
-// conditionAtom is the value a branch tests, in one call context. Shared
-// atoms may correlate with others; pure atoms are independent inputs.
+// conditionAtom is one guard in one call context. Shared atoms may correlate
+// with others; pure atoms are independent inputs.
 type conditionAtom struct {
 	key    string
+	stable bool
 	shared bool
 	callee *ssa.Function
 }
 
-// choice is what a branch requires of its atom: a Boolean value, or equality
-// or inequality with a constant.
-type choice struct {
-	holds    bool
-	constant constant.Value
-}
+type choiceResult uint8
+
+const (
+	choiceConsistent choiceResult = iota
+	choiceContradicts
+	choiceUncertain
+)
 
 type atomChoices struct {
 	atom    conditionAtom
-	boolean *bool
+	value   *bool
 	equal   constant.Value
 	unequal []constant.Value
 }
 
-func (choices *atomChoices) add(next choice) bool {
-	if next.constant == nil {
-		if choices.boolean != nil && *choices.boolean != next.holds {
-			return false
-		}
-		choices.boolean = &next.holds
-		return true
+func (choices *atomChoices) add(value, stable bool) choiceResult {
+	switch {
+	case choices.value == nil:
+		choices.value = &value
+		return choiceConsistent
+	case *choices.value == value:
+		return choiceConsistent
+	case stable:
+		return choiceContradicts
+	default:
+		return choiceUncertain
 	}
-	if next.holds {
-		if choices.equal != nil && !constant.Compare(choices.equal, token.EQL, next.constant) {
-			return false
+}
+
+// guardAtom names a condition by its shared guard identity within its call
+// context. A condition with no guard identity is keyed by itself and shared.
+func guardAtom(condition concurrencyfacts.Condition) (conditionAtom, bool) {
+	context := contextKey(condition.Context)
+	identity, negated, stable, ok := ssaflow.GuardCondition(condition.Value)
+	if !ok {
+		return conditionAtom{key: fmt.Sprintf("%p#%s", condition.Value, context), shared: true}, condition.Holds
+	}
+	atom := conditionAtom{key: identity + "#" + context, stable: stable}
+	atom.shared, atom.callee = inputKind(condition.Value, len(condition.Context) != 0)
+	return atom, condition.Holds != negated
+}
+
+// inputKind classifies what a condition depends on: a root parameter is a
+// pure input, a comparison of root parameters and constants is too, and a
+// call result is pure but remembers its function. Everything else, and any
+// condition bound from a callee, is shared.
+func inputKind(value ssa.Value, bound bool) (bool, *ssa.Function) {
+	if bound {
+		return true, nil
+	}
+	for {
+		negation, ok := value.(*ssa.UnOp)
+		if !ok || negation.Op != token.NOT {
+			break
 		}
-		if slices.ContainsFunc(choices.unequal, func(value constant.Value) bool {
-			return constant.Compare(value, token.EQL, next.constant)
-		}) {
+		value = negation.X
+	}
+	if comparison, ok := value.(*ssa.BinOp); ok && (comparison.Op == token.EQL || comparison.Op == token.NEQ) {
+		shared, callee := operandKind(comparison.X)
+		otherShared, otherCallee := operandKind(comparison.Y)
+		if callee != nil && otherCallee != nil {
+			return true, nil
+		}
+		if callee == nil {
+			callee = otherCallee
+		}
+		return shared || otherShared, callee
+	}
+	return operandKind(value)
+}
+
+func operandKind(value ssa.Value) (bool, *ssa.Function) {
+	switch value := value.(type) {
+	case *ssa.Parameter, *ssa.Const:
+		return false, nil
+	case *ssa.Call:
+		callee := value.Common().StaticCallee()
+		return callee == nil, callee
+	case *ssa.Extract:
+		if call, ok := value.Tuple.(*ssa.Call); ok {
+			callee := call.Common().StaticCallee()
+			return callee == nil, callee
+		}
+	}
+	return true, nil
+}
+
+// equality is a comparison of one value with a non-nil constant.
+type equality struct {
+	subject  string
+	constant constant.Value
+	equal    bool
+}
+
+func constantEquality(condition concurrencyfacts.Condition) (equality, bool) {
+	comparison, ok := condition.Value.(*ssa.BinOp)
+	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
+		return equality{}, false
+	}
+	subject, folded := comparison.X, comparison.Y
+	if _, left := subject.(*ssa.Const); left {
+		subject, folded = folded, subject
+	}
+	literal, ok := folded.(*ssa.Const)
+	if !ok || literal.Value == nil {
+		return equality{}, false
+	}
+	return equality{
+		subject:  fmt.Sprintf("%p#%s", subject, contextKey(condition.Context)),
+		constant: literal.Value, equal: condition.Holds == (comparison.Op == token.EQL),
+	}, true
+}
+
+// recordEquality rejects a value required to equal two different constants,
+// or to equal and not equal the same one.
+func recordEquality(atoms map[string]*atomChoices, next equality) bool {
+	key := "equality:" + next.subject
+	if atoms[key] == nil {
+		atoms[key] = &atomChoices{atom: conditionAtom{key: key, stable: true}}
+	}
+	choices := atoms[key]
+	matches := func(value constant.Value) bool { return constant.Compare(value, token.EQL, next.constant) }
+	if next.equal {
+		if choices.equal != nil && !matches(choices.equal) || slices.ContainsFunc(choices.unequal, matches) {
 			return false
 		}
 		choices.equal = next.constant
 		return true
 	}
-	if choices.equal != nil && constant.Compare(choices.equal, token.EQL, next.constant) {
+	if choices.equal != nil && matches(choices.equal) {
 		return false
 	}
 	choices.unequal = append(choices.unequal, next.constant)
 	return true
 }
 
-// normalizeCondition peels negation and comparison with a constant, folds a
-// constant condition, and classifies what remains.
-func normalizeCondition(condition concurrencyfacts.Condition) (conditionAtom, choice, bool) {
-	value, holds := condition.Value, condition.Holds
-	for {
-		negation, ok := value.(*ssa.UnOp)
-		if !ok || negation.Op != token.NOT {
-			break
-		}
-		value, holds = negation.X, !holds
-	}
-	next := choice{holds: holds}
-	if folded, ok := value.(*ssa.Const); ok && folded.Value != nil && folded.Value.Kind() == constant.Bool {
-		// A constant atom is its own evidence: key it by value so a false
-		// requirement of true contradicts.
-		return conditionAtom{key: constantAtom}, choice{holds: constant.BoolVal(folded.Value) == holds}, true
-	}
-	aspect := ""
-	if comparison, ok := value.(*ssa.BinOp); ok && (comparison.Op == token.EQL || comparison.Op == token.NEQ) {
-		operand, compared, isNil := constantComparison(comparison)
-		equal := holds == (comparison.Op == token.EQL)
-		switch {
-		case isNil:
-			// Nilness is a Boolean property of the operand, such as err != nil.
-			value, aspect, next = operand, "nil", choice{holds: equal}
-		case compared != nil:
-			value, next = operand, choice{holds: equal, constant: compared}
-		}
-	}
-	if value == nil || value.Type() == nil {
-		return conditionAtom{}, choice{}, false
-	}
-	return classifyAtom(value, condition.Context, aspect), next, true
-}
-
-// constantComparison splits a comparison into its variable operand and the
-// constant it is compared with, reporting a nil constant separately because
-// SSA gives nil no constant value.
-func constantComparison(comparison *ssa.BinOp) (ssa.Value, constant.Value, bool) {
-	for _, pair := range [][2]ssa.Value{{comparison.X, comparison.Y}, {comparison.Y, comparison.X}} {
-		folded, ok := pair[1].(*ssa.Const)
-		if !ok {
-			continue
-		}
-		if folded.IsNil() {
-			return pair[0], nil, true
-		}
-		if folded.Value != nil {
-			return pair[0], folded.Value, false
-		}
-	}
-	return nil, nil, false
-}
-
-// classifyAtom keys a value by identity and call context. A root parameter or
-// a call result is a pure input; anything bound from a callee, read from
-// memory, or merged is shared.
-func classifyAtom(value ssa.Value, context []token.Pos, aspect string) conditionAtom {
-	contexts := make([]string, 0, len(context))
+func contextKey(context []token.Pos) string {
+	parts := make([]string, 0, len(context))
 	for _, site := range context {
-		contexts = append(contexts, strconv.Itoa(int(site)))
+		parts = append(parts, strconv.Itoa(int(site)))
 	}
-	// Identity, not spelling: two values with one name in different
-	// functions are different atoms.
-	atom := conditionAtom{key: fmt.Sprintf("%p#%s#%s", value, strings.Join(contexts, ","), aspect)}
-	if len(context) != 0 {
-		atom.shared = true
-		return atom
-	}
-	switch value := value.(type) {
-	case *ssa.Parameter:
-		return atom
-	case *ssa.Call:
-		atom.callee = value.Common().StaticCallee()
-		atom.shared = atom.callee == nil
-		return atom
-	case *ssa.Extract:
-		if call, ok := value.Tuple.(*ssa.Call); ok {
-			atom.callee = call.Common().StaticCallee()
-			atom.shared = atom.callee == nil
-			return atom
-		}
-	}
-	atom.shared = true
-	return atom
+	return strings.Join(parts, ",")
 }
 
 // independent applies the policy: a shared atom only as the sole variable
 // atom, and no two pure atoms that are results of the same function.
+// Equality bookkeeping entries restate atoms already counted.
 func independent(atoms map[string]*atomChoices) bool {
 	shared, variable := 0, 0
 	callees := map[*ssa.Function]int{}
-	for _, choices := range atoms {
+	for key, choices := range atoms {
+		if strings.HasPrefix(key, "equality:") {
+			continue
+		}
 		variable++
 		if choices.atom.shared {
 			shared++
