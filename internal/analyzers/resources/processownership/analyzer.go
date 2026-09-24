@@ -1,5 +1,4 @@
 // Package processownership implements the processownership gohawk analyzer.
-
 package processownership
 
 import (

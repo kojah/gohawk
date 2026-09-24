@@ -1,5 +1,4 @@
 // Package producerlifecycle implements the producerlifecycle gohawk analyzer.
-
 package producerlifecycle
 
 import (

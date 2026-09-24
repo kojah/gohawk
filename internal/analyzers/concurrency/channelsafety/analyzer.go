@@ -1,5 +1,4 @@
 // Package channelsafety implements the channelsafety gohawk analyzer.
-
 package channelsafety
 
 import (
