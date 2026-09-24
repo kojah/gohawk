@@ -127,6 +127,10 @@ func (engine *Engine) bind(
 	if reference.Projection.Depth > 0 {
 		return engine.bindField(reference, bindings, instruction)
 	}
+	if global, ok := reference.Value.(*ssa.Global); ok && !reference.Indirect && MutexPointer(global.Type()) {
+		// A package mutex is the same object in every caller.
+		return reference, true
+	}
 	for _, binding := range bindings {
 		if binding.Local != reference.Value {
 			continue

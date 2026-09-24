@@ -1,8 +1,10 @@
 package concurrencyfacts
 
 import (
+	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -11,15 +13,52 @@ import (
 // slot. The latter require the shared heap proof that the slot remains stable
 // through every helper and worker. A matching field name alone is not identity.
 // Bindings require an existing caller address; no SSA values are invented.
+// embeddedPath names value as fields selected from an exact root. Besides a
+// local allocation, a parameter, and a capture, two roots are exact. A package
+// variable is one object in every call, so a mutex embedded in it needs no
+// binding; a channel or pointer field of it is content another goroutine can
+// replace, and is not named here. And when a closure captures a parameter, the
+// builder spills it to a cell and reads it back: such a read is the parameter
+// itself while the heap model proves the cell still holds it, which a write by
+// the closure or a later reassignment breaks.
 func embeddedPath(value ssa.Value) (ssaflow.EmbeddedFieldPath, bool) {
-	return ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value, func(root ssa.Value) bool {
+	mutex := MutexPointer(value.Type())
+	path, ok := ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value, func(root ssa.Value) bool {
 		switch root.(type) {
 		case *ssa.Alloc, *ssa.Parameter, *ssa.FreeVar:
 			return true
-		default:
-			return false
+		case *ssa.Global:
+			return mutex
 		}
+		_, spilled := spilledParameter(root)
+		return spilled
 	})
+	if parameter, spilled := spilledParameter(path.Root); ok && spilled {
+		path.Root = parameter
+	}
+	return path, ok
+}
+
+// spilledParameter returns the parameter a load reads back from its spill cell.
+func spilledParameter(value ssa.Value) (*ssa.Parameter, bool) {
+	load, ok := value.(*ssa.UnOp)
+	if !ok || load.Op != token.MUL {
+		return nil, false
+	}
+	cell, ok := load.X.(*ssa.Alloc)
+	if !ok || cell.Referrers() == nil {
+		return nil, false
+	}
+	for _, use := range *cell.Referrers() {
+		store, ok := use.(*ssa.Store)
+		if !ok || store.Addr != cell {
+			continue
+		}
+		if parameter, ok := store.Val.(*ssa.Parameter); ok && heapmodel.DefinitelySameValue(load, parameter) {
+			return parameter, true
+		}
+	}
+	return nil, false
 }
 
 func (engine *Engine) fieldAddress(function *ssa.Function, path ssaflow.EmbeddedFieldPath) (ssa.Value, bool) {
@@ -51,6 +90,14 @@ func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBind
 	channelContent := reference.Indirect && reference.Projection.Depth > 0 && ssaflow.ChannelType(reference.Value)
 	if !ok || path.Depth == 0 || !channelContent && (reference.Indirect || !MutexPointer(reference.Value.Type())) {
 		return Reference{}, false
+	}
+	if _, global := path.Root.(*ssa.Global); global {
+		// The caller names the same mutex. Use its own address when it has one,
+		// so its operations and the callee's compare equal.
+		if value, found := engine.fieldAddress(instruction.Parent(), path); found {
+			return Reference{Value: value}, true
+		}
+		return Reference{Value: reference.Value}, !engine.budget.Exhausted()
 	}
 	for _, binding := range bindings {
 		if binding.Local != path.Root {

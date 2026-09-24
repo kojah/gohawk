@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -107,6 +108,48 @@ func inertBuiltin(common *ssa.CallCommon) bool {
 	default:
 		return false
 	}
+}
+
+// inertAtomic applies the sync/atomic package contract: its functions and
+// methods are atomic memory accesses that never block and take no lock, so
+// they synchronize nothing this model tracks. Most of them have no Go body to
+// summarize, being assembly or compiler intrinsics. The operation is inert
+// only when the cell it updates and every value it moves are inert: storing a
+// channel or loading a pointer to a mutex would move a resource through
+// memory, which the summary cannot follow.
+func inertAtomic(common *ssa.CallCommon) bool {
+	callee := common.StaticCallee()
+	if callee == nil || len(common.Args) == 0 {
+		return false
+	}
+	if origin := callee.Origin(); origin != nil {
+		callee = origin
+	}
+	if !syntax.DeclaredInPackage(callee.Object(), "sync/atomic") || !inertAddress(common.Args[0]) {
+		return false
+	}
+	for _, argument := range common.Args[1:] {
+		if !inertOperand(argument) {
+			return false
+		}
+	}
+	for result := range common.Signature().Results().Variables() {
+		if !inertValue(result.Type()) {
+			return false
+		}
+	}
+	return true
+}
+
+// inertOperand checks a value an atomic operation stores. An interface, as
+// atomic.Value stores, is inert only when the boxing is visible and boxes an
+// inert value; an interface from elsewhere may carry a channel.
+func inertOperand(value ssa.Value) bool {
+	if !types.IsInterface(value.Type()) {
+		return inertValue(value.Type())
+	}
+	boxed, ok := value.(*ssa.MakeInterface)
+	return ok && inertValue(boxed.X.Type())
 }
 
 func inertElements(value types.Type) bool {

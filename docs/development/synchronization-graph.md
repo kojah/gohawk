@@ -59,6 +59,19 @@ paths, touches its own parameters, or lives in another package. A callback that
 launches a goroutine is usually unknown too, because its captured cells reach
 an asynchronous participant that the heap model does not prove stable.
 
+Three general rules keep common code from cutting summaries off. A `sync/atomic`
+function or method is an atomic memory access that never blocks, so it adds no
+effect when the cell it updates and every value it moves are inert; an
+`atomic.Value` store must visibly box an inert value, and a load of a mutex
+pointer stays unknown. When a closure captures a parameter, the builder spills
+it to a cell; a read of that cell names the parameter while the heap model
+proves the cell still holds it, so a later reassignment names the new value
+and a write by the closure leaves the read unnamed. A mutex in a package
+variable, bare or embedded in a struct, is one object for every caller and
+binds unchanged; a pointer or channel read from a package variable is content
+that can change, and stays unknown. A global mutex has no parameter position,
+so a summary that uses one is not published as a fact.
+
 The first implementation deliberately leaves parent cancellation propagation,
 deadlines/timeouts, `WithoutCancel`, `WithValue`, `AfterFunc`, factory-returned
 contexts, nested selects, and open-ended worker loops unknown. In particular, it does
