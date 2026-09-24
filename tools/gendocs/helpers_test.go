@@ -19,7 +19,7 @@ func TestHelperReferencesCoverContractsAndDetectDrift(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, name := range []string{"syntax", "ssaflow", "summaries", "syncgraph", "passes/newfacts"} {
+	for _, name := range []string{"heapmodel", "syntax", "ssaflow", "summaries", "syncgraph", "passes/newfacts"} {
 		write("internal/"+name+"/api.go", "package "+filepath.Base(name)+`;
 // State is a proof outcome.
 type State int
@@ -62,6 +62,9 @@ func hidden() {}
 	}
 	if _, ok := updates[filepath.Join(root, helperReferenceDirectory, "syncgraph.md")]; !ok {
 		t.Fatal("syncgraph reference was not generated")
+	}
+	if _, ok := updates[filepath.Join(root, helperReferenceDirectory, "heapmodel.md")]; !ok {
+		t.Fatal("heapmodel reference was not generated")
 	}
 	if err := checkHelperReferences(root); err != nil {
 		t.Fatalf("fresh references: %v", err)

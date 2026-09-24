@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/ssa"
@@ -20,24 +21,24 @@ import (
 
 // projectHeap projects the function's heap, truncated at every parameter
 // and result when the graph could not.
-func projectHeap(function *ssa.Function) *ssaflow.HeapSummary {
+func projectHeap(function *ssa.Function) *heapmodel.HeapSummary {
 	summary, ok := ssaflow.ProjectHeap(function)
 	if !ok {
 		for index := range function.Params {
-			summary.Truncated = append(summary.Truncated, ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: index}})
+			summary.Truncated = append(summary.Truncated, heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: index}})
 		}
 		for index := range function.Signature.Results().Len() {
-			summary.Truncated = append(summary.Truncated, ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapResult, Index: index}})
+			summary.Truncated = append(summary.Truncated, heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapResult, Index: index}})
 		}
 	}
 	return &summary
 }
 
 // withReleases adds the release effects the discharge proofs established.
-func withReleases(summary *ssaflow.HeapSummary, fact *Fact) *ssaflow.HeapSummary {
+func withReleases(summary *heapmodel.HeapSummary, fact *Fact) *heapmodel.HeapSummary {
 	for _, discharge := range fact.Discharges {
-		summary.Effects = append(summary.Effects, ssaflow.HeapEffect{
-			Slot:    ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: discharge.Parameter}, Path: discharge.Path},
+		summary.Effects = append(summary.Effects, heapmodel.HeapEffect{
+			Slot:    heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: discharge.Parameter}, Path: discharge.Path},
 			Release: discharge.Method,
 			Every:   true,
 		})
@@ -51,7 +52,7 @@ func withReleases(summary *ssaflow.HeapSummary, fact *Fact) *ssaflow.HeapSummary
 // projection judges result roots only on returns where the result is not
 // nil, so a constructor that returns nil beside an error on failure still
 // qualifies.
-func returnsOwner(summary *ssaflow.HeapSummary, index int) bool {
+func returnsOwner(summary *heapmodel.HeapSummary, index int) bool {
 	for _, hold := range summary.Holds {
 		if hold.Parameter == index && hold.Must {
 			return true
@@ -63,8 +64,8 @@ func returnsOwner(summary *ssaflow.HeapSummary, index int) bool {
 // retained is the Retained claim as a query over the projection, and keeps
 // its loose polarity: the parameter's object left local control in any
 // way, or some result or global may hold it.
-func retained(summary *ssaflow.HeapSummary, index int) bool {
-	parameter := ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: index}}
+func retained(summary *heapmodel.HeapSummary, index int) bool {
+	parameter := heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: index}}
 	for _, effect := range summary.Effects {
 		if effect.Slot == parameter && effect.Escape != 0 {
 			return true
@@ -78,10 +79,10 @@ func retained(summary *ssaflow.HeapSummary, index int) bool {
 // somewhere that outlives the call, a global, an object the caller can
 // reach, a channel, or a package variable's slot. Handing it to a call or a
 // goroutine, or returning it, is not storage.
-func stored(summary *ssaflow.HeapSummary, index int) bool {
-	parameter := ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: index}}
+func stored(summary *heapmodel.HeapSummary, index int) bool {
+	parameter := heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: index}}
 	for _, effect := range summary.Effects {
-		if effect.Slot == parameter && effect.Escape&(ssaflow.HeapEscapedGlobal|ssaflow.HeapEscapedField|ssaflow.HeapEscapedSend) != 0 {
+		if effect.Slot == parameter && effect.Escape&(heapmodel.HeapEscapedGlobal|heapmodel.HeapEscapedField|heapmodel.HeapEscapedSend) != 0 {
 			return true
 		}
 	}
@@ -90,12 +91,12 @@ func stored(summary *ssaflow.HeapSummary, index int) bool {
 
 // heldOutside reports whether a global's slot, or with results also a
 // result's slot, may hold the object at the slot.
-func heldOutside(summary *ssaflow.HeapSummary, slot ssaflow.HeapSlot, results bool) bool {
+func heldOutside(summary *heapmodel.HeapSummary, slot heapmodel.HeapSlot, results bool) bool {
 	for _, edge := range summary.Edges {
-		if edge.To.Kind != ssaflow.HeapTargetSlot || edge.To.Slot != slot {
+		if edge.To.Kind != heapmodel.HeapTargetSlot || edge.To.Slot != slot {
 			continue
 		}
-		if edge.From.Root.Kind == ssaflow.HeapGlobal || results && edge.From.Root.Kind == ssaflow.HeapResult {
+		if edge.From.Root.Kind == heapmodel.HeapGlobal || results && edge.From.Root.Kind == heapmodel.HeapResult {
 			return true
 		}
 	}
@@ -109,8 +110,8 @@ func heldOutside(summary *ssaflow.HeapSummary, slot ssaflow.HeapSlot, results bo
 // from anywhere beneath it. A truncated root is not a kept claim: an
 // unresolved callee keeps only what it was handed, which the escape
 // effects record.
-func kept(summary *ssaflow.HeapSummary, index int) []Kept {
-	parameter := ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: index}}
+func kept(summary *heapmodel.HeapSummary, index int) []Kept {
+	parameter := heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: index}}
 	seen := map[string]bool{}
 	var claims []Kept
 	claim := func(path string) {
@@ -125,14 +126,14 @@ func kept(summary *ssaflow.HeapSummary, index int) []Kept {
 		}
 	}
 	for _, edge := range summary.Edges {
-		outside := edge.From.Root.Kind == ssaflow.HeapGlobal || edge.From.Root.Kind == ssaflow.HeapResult
+		outside := edge.From.Root.Kind == heapmodel.HeapGlobal || edge.From.Root.Kind == heapmodel.HeapResult
 		if !outside {
 			continue
 		}
 		switch {
-		case edge.To.Kind == ssaflow.HeapTargetUnknown:
+		case edge.To.Kind == heapmodel.HeapTargetUnknown:
 			claim("")
-		case edge.To.Kind == ssaflow.HeapTargetSlot && edge.To.Slot.Root == parameter.Root && edge.To.Slot.Path != "":
+		case edge.To.Kind == heapmodel.HeapTargetSlot && edge.To.Slot.Root == parameter.Root && edge.To.Slot.Path != "":
 			claim(edge.To.Slot.Path)
 		}
 	}
@@ -145,11 +146,11 @@ func kept(summary *ssaflow.HeapSummary, index int) []Kept {
 // parameter's object and nothing else. A store of a wrapper around the
 // parameter counts when the wrapper's slot holding it is in the projection,
 // which a summarized wrapper constructor provides.
-func receiverStores(summary *ssaflow.HeapSummary, index int) bool {
-	parameter := ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: index}}
+func receiverStores(summary *heapmodel.HeapSummary, index int) bool {
+	parameter := heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: index}}
 	for _, edge := range summary.Edges {
-		if edge.Must && edge.From.Root.Kind == ssaflow.HeapParameter && edge.From.Root.Index == 0 && edge.From.Path != "" &&
-			edge.To.Kind == ssaflow.HeapTargetSlot && edge.To.Slot == parameter {
+		if edge.Must && edge.From.Root.Kind == heapmodel.HeapParameter && edge.From.Root.Index == 0 && edge.From.Path != "" &&
+			edge.To.Kind == heapmodel.HeapTargetSlot && edge.To.Slot == parameter {
 			return true
 		}
 	}
@@ -168,7 +169,7 @@ func (evidence *LifecycleEvidence) ArgumentMethodsRequired(instruction ssa.Instr
 	}
 	var methods []string
 	for _, requirement := range fact.Heap.Requires {
-		if requirement.Kind == ssaflow.HeapRequiresMethod && requirement.Slot.Root.Kind == ssaflow.HeapParameter &&
+		if requirement.Kind == heapmodel.HeapRequiresMethod && requirement.Slot.Root.Kind == heapmodel.HeapParameter &&
 			requirement.Slot.Root.Index == index && requirement.Slot.Path == "" {
 			methods = append(methods, requirement.Method)
 		}
@@ -187,7 +188,7 @@ func (evidence *LifecycleEvidence) ArgumentPathsRequiredNonNil(instruction ssa.I
 	}
 	var paths []string
 	for _, requirement := range fact.Heap.Requires {
-		if requirement.Kind == ssaflow.HeapRequiresNonNil && requirement.Slot.Root.Kind == ssaflow.HeapParameter &&
+		if requirement.Kind == heapmodel.HeapRequiresNonNil && requirement.Slot.Root.Kind == heapmodel.HeapParameter &&
 			requirement.Slot.Root.Index == index {
 			paths = append(paths, requirement.Slot.Path)
 		}

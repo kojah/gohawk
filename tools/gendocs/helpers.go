@@ -21,7 +21,7 @@ import (
 const helperReferenceDirectory = ".agents/skills/gohawk-codebase/references"
 
 func helperPackagePaths(root string) ([]string, error) {
-	paths := []string{"internal/syntax", "internal/ssaflow", "internal/summaries", "internal/syncgraph"}
+	paths := []string{"internal/heapmodel", "internal/syntax", "internal/ssaflow", "internal/summaries", "internal/syncgraph"}
 	entries, err := os.ReadDir(filepath.Join(root, "internal/passes"))
 	if err != nil {
 		return nil, err

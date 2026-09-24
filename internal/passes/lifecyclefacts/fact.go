@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/factcodec"
+	"github.com/kojah/gohawk/internal/heapmodel"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
@@ -72,7 +73,7 @@ type Fact struct {
 	// caller can name: where each parameter, result, and global slot may
 	// point at exit, how each object escaped or was released, what was
 	// read, and where the projection was cut. See heap.go.
-	Heap *ssaflow.HeapSummary
+	Heap *heapmodel.HeapSummary
 	// ReturnedCleanup relates an invoked callback result to an exact factory
 	// parameter or sibling result. Merely returning the callback does not clean up.
 	ReturnedCleanup *ReturnedCleanupSummary
@@ -451,7 +452,7 @@ func (fact *Fact) heapEmpty() bool {
 		return false
 	}
 	for _, effect := range fact.Heap.Effects {
-		if effect.Release != "" || effect.Escape&^ssaflow.HeapEscapedCall != 0 {
+		if effect.Release != "" || effect.Escape&^heapmodel.HeapEscapedCall != 0 {
 			return false
 		}
 	}

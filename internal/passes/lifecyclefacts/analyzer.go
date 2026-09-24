@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -402,7 +403,7 @@ func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruct
 
 // summarizeTransfers records where a parameter goes: into the returned
 // owner, into the receiver, or kept somewhere by the callee.
-func summarizeTransfers(heap *ssaflow.HeapSummary, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) {
+func summarizeTransfers(heap *heapmodel.HeapSummary, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) {
 	bit := parameterMaskFor(index)
 	// Every transfer claim is a query over the heap projection, so the
 	// masks a consumer reads and the summary a caller's graph applies can
@@ -497,7 +498,7 @@ const tracedCallLimit = 8
 // effects and edges it has, which roots it cut, and which calls inside the
 // function the graph could not substitute a summary at. Two runs that
 // summarize one function differently differ here first.
-func heapTraceDetails(function *ssa.Function, heap *ssaflow.HeapSummary) map[string]string {
+func heapTraceDetails(function *ssa.Function, heap *heapmodel.HeapSummary) map[string]string {
 	details := map[string]string{}
 	if heap != nil {
 		details["heap-edges"] = strconv.Itoa(len(heap.Edges))

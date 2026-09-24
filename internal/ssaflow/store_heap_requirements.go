@@ -21,39 +21,6 @@ import (
 // return, because the summary is joined over paths and a fact that holds
 // on some path only is not a fact the caller can be held to.
 
-// HeapRequirementKind names what a requirement says about the object at
-// its slot.
-type HeapRequirementKind uint8
-
-const (
-	// HeapRequiresMethod: Method is called with the object as receiver.
-	HeapRequiresMethod HeapRequirementKind = iota
-	// HeapRequiresNonNil: the object is dereferenced, so it must not be
-	// nil. A load or store through it, a field or element selected
-	// beneath it, or a method invoked through an interface it fills all
-	// fault on nil; a method called on a nil pointer receiver does not.
-	HeapRequiresNonNil
-)
-
-// HeapRequirement says the function relies on the object at Slot in the
-// way Kind names, on every normal return.
-type HeapRequirement struct {
-	Slot   HeapSlot
-	Kind   HeapRequirementKind
-	Method string
-}
-
-// String renders a requirement as P0 method Read or P0/field:1 non-nil.
-func (requirement HeapRequirement) String() string {
-	switch requirement.Kind {
-	case HeapRequiresMethod:
-		return requirement.Slot.String() + " method " + requirement.Method
-	case HeapRequiresNonNil:
-		return requirement.Slot.String() + " non-nil"
-	}
-	return requirement.Slot.String()
-}
-
 // heapRequirementLimit bounds the requirements one summary carries.
 const heapRequirementLimit = 16
 

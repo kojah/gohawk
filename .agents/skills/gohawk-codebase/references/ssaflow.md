@@ -1288,293 +1288,156 @@ HasLibraryContract reports whether common exactly matches a registered API.
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapEdge struct {
-	From	HeapSlot
-	To	HeapTarget
-	Must	bool
-}
+type HeapEdge = heapmodel.HeapEdge
 ```
 
-HeapEdge says the slot may hold the target at exit; Must says it does on
-every normal return, and that nothing else does.
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapEffect
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapEffect struct {
-	Slot	HeapSlot
-	Escape	HeapEscape
-	Release	string
-	Every	bool
-}
+type HeapEffect = heapmodel.HeapEffect
 ```
 
-HeapEffect records what happened to the object at a slot: how it escaped,
-or which lifecycle method released it. Every says the effect holds on
-every normal return.
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapEscape
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapEscape uint8
+type HeapEscape = heapmodel.HeapEscape
 ```
 
-HeapEscape is the set of ways an object left local control.
-
-## HeapEscape.String
-
-[Source](../../../../internal/ssaflow/store_heap_contract.go)
-
-```go
-func (escape HeapEscape) String() string
-```
-
-String renders the escape kinds.
-
-## HeapEscapedGlobal, HeapEscapedField, HeapEscapedCall, HeapEscapedAsync, HeapEscapedSend
-
-[Source](../../../../internal/ssaflow/store_heap_contract.go)
-
-```go
-const (
-	// HeapEscapedGlobal: stored into a package variable.
-	HeapEscapedGlobal	HeapEscape	= 1 << iota
-	// HeapEscapedField: stored into an object the caller can reach, a map,
-	// or a collection handed on.
-	HeapEscapedField
-	// HeapEscapedCall: handed to a call the graph could not see through.
-	HeapEscapedCall
-	// HeapEscapedAsync: handed to a goroutine.
-	HeapEscapedAsync
-	// HeapEscapedSend: sent on a channel.
-	HeapEscapedSend
-)
-```
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapHold
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapHold struct {
-	Result		int
-	Parameter	int
-	Must		bool
-}
+type HeapHold = heapmodel.HeapHold
 ```
 
-HeapHold says result Result holds the object of parameter Parameter:
-it is that object, or a slot beneath it holds that object. Must says so
-on every normal return where the result is not nil. It is a per-return
-claim the joined edges cannot express: a constructor may return the
-parameter itself on one path and a wrapper holding it on another.
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
-## HeapParameter, HeapResult, HeapGlobal, HeapFreeVar
+## HeapParameter, HeapResult, HeapGlobal, HeapFreeVar, HeapTargetSlot, HeapTargetFresh, HeapTargetNil, HeapTargetUnknown, HeapEscapedGlobal, HeapEscapedField, HeapEscapedCall, HeapEscapedAsync, HeapEscapedSend, HeapRequiresMethod, HeapRequiresNonNil
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
 const (
-	// HeapParameter is the object parameter Index refers to; the receiver
-	// is parameter zero.
-	HeapParameter	HeapRootKind	= iota
-	// HeapResult is the object result Index refers to.
-	HeapResult
-	// HeapGlobal is the package variable Name.
-	HeapGlobal
-	// HeapFreeVar is the captured variable Index of a literal.
-	HeapFreeVar
+	HeapParameter		= heapmodel.HeapParameter
+	HeapResult		= heapmodel.HeapResult
+	HeapGlobal		= heapmodel.HeapGlobal
+	HeapFreeVar		= heapmodel.HeapFreeVar
+	HeapTargetSlot		= heapmodel.HeapTargetSlot
+	HeapTargetFresh		= heapmodel.HeapTargetFresh
+	HeapTargetNil		= heapmodel.HeapTargetNil
+	HeapTargetUnknown	= heapmodel.HeapTargetUnknown
+	HeapEscapedGlobal	= heapmodel.HeapEscapedGlobal
+	HeapEscapedField	= heapmodel.HeapEscapedField
+	HeapEscapedCall		= heapmodel.HeapEscapedCall
+	HeapEscapedAsync	= heapmodel.HeapEscapedAsync
+	HeapEscapedSend		= heapmodel.HeapEscapedSend
+	HeapRequiresMethod	= heapmodel.HeapRequiresMethod
+	HeapRequiresNonNil	= heapmodel.HeapRequiresNonNil
 )
 ```
 
 ## HeapRequirement
 
-[Source](../../../../internal/ssaflow/store_heap_requirements.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapRequirement struct {
-	Slot	HeapSlot
-	Kind	HeapRequirementKind
-	Method	string
-}
+type HeapRequirement = heapmodel.HeapRequirement
 ```
 
-HeapRequirement says the function relies on the object at Slot in the
-way Kind names, on every normal return.
-
-## HeapRequirement.String
-
-[Source](../../../../internal/ssaflow/store_heap_requirements.go)
-
-```go
-func (requirement HeapRequirement) String() string
-```
-
-String renders a requirement as P0 method Read or P0/field:1 non-nil.
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapRequirementKind
 
-[Source](../../../../internal/ssaflow/store_heap_requirements.go)
+[Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapRequirementKind uint8
+type HeapRequirementKind = heapmodel.HeapRequirementKind
 ```
 
-HeapRequirementKind names what a requirement says about the object at
-its slot.
-
-## HeapRequiresMethod, HeapRequiresNonNil
-
-[Source](../../../../internal/ssaflow/store_heap_requirements.go)
-
-```go
-const (
-	// HeapRequiresMethod: Method is called with the object as receiver.
-	HeapRequiresMethod	HeapRequirementKind	= iota
-	// HeapRequiresNonNil: the object is dereferenced, so it must not be
-	// nil. A load or store through it, a field or element selected
-	// beneath it, or a method invoked through an interface it fills all
-	// fault on nil; a method called on a nil pointer receiver does not.
-	HeapRequiresNonNil
-)
-```
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapRoot
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapRoot struct {
-	Kind	HeapRootKind
-	Index	int
-	Package	string
-	Name	string
-}
+type HeapRoot = heapmodel.HeapRoot
 ```
 
-HeapRoot is one object a caller can name. A global is named by its
-package path and name, so a caller's graph can find the same variable.
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapRootKind
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapRootKind uint8
+type HeapRootKind = heapmodel.HeapRootKind
 ```
 
-HeapRootKind names the kinds of object a caller can refer to.
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapSlot
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapSlot struct {
-	Root	HeapRoot
-	Path	string
-}
+type HeapSlot = heapmodel.HeapSlot
 ```
 
-HeapSlot is a location beneath a root: the root's object itself when
-Path is empty, else the field or element the joined access path selects.
-
-## HeapSlot.String
-
-[Source](../../../../internal/ssaflow/store_heap_contract.go)
-
-```go
-func (at HeapSlot) String() string
-```
-
-String renders a slot as P0/field:1, R0, G:pkg.name, or F1.
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapSummary
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapSummary struct {
-	Edges		[]HeapEdge
-	Effects		[]HeapEffect
-	Holds		[]HeapHold
-	Reads		[]HeapSlot
-	Requires	[]HeapRequirement
-	Truncated	[]HeapSlot
-}
+type HeapSummary = heapmodel.HeapSummary
 ```
 
-HeapSummary is the projection of one function's heap.
-
-## HeapSummary.String
-
-[Source](../../../../internal/ssaflow/store_heap_contract.go)
-
-```go
-func (summary HeapSummary) String() string
-```
-
-String renders the summary one entry per line, for tests and the dump.
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapTarget
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapTarget struct {
-	Kind	HeapTargetKind
-	Slot	HeapSlot
-	Origin	string
-	Object	int
-}
+type HeapTarget = heapmodel.HeapTarget
 ```
 
-HeapTarget is what a slot may hold. Object numbers a fresh object within
-its summary, so two fresh objects with one origin, such as the two
-results of one call, stay two objects when the summary is applied.
-
-## HeapTarget.String
-
-[Source](../../../../internal/ssaflow/store_heap_contract.go)
-
-```go
-func (target HeapTarget) String() string
-```
-
-String renders a target.
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## HeapTargetKind
 
 [Source](../../../../internal/ssaflow/store_heap_contract.go)
 
 ```go
-type HeapTargetKind uint8
+type HeapTargetKind = heapmodel.HeapTargetKind
 ```
 
-HeapTargetKind names what a slot may hold.
-
-## HeapTargetSlot, HeapTargetFresh, HeapTargetNil, HeapTargetUnknown
-
-[Source](../../../../internal/ssaflow/store_heap_contract.go)
-
-```go
-const (
-	// HeapTargetSlot is whatever the caller holds at Slot, or the object
-	// Slot itself when its path is empty.
-	HeapTargetSlot	HeapTargetKind	= iota
-	// HeapTargetFresh is an object the function created, Origin naming the
-	// call or literal that produced it when the graph could see one.
-	HeapTargetFresh
-	// HeapTargetNil is the nil pointer.
-	HeapTargetNil
-	// HeapTargetUnknown may be anything.
-	HeapTargetUnknown
-)
-```
+These aliases keep the existing SSA-facing API source-compatible while
+consumers move to heapmodel. The summary contract itself lives there.
 
 ## IdentityProof
 
