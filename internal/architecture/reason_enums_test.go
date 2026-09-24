@@ -69,17 +69,22 @@ func TestReasonEnumBoundaryMatcher(t *testing.T) {
 		{"type Observer func(reason string)", false},
 		{"func (reason QueryReason) String() string { return \"unknown\" }", false},
 	} {
-		file, err := parser.ParseFile(token.NewFileSet(), "reason.go", "package fixture\n"+test.source, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var found bool
-		ast.Inspect(file, func(node ast.Node) bool {
-			found = found || reasonEnumViolation(node)
-			return true
-		})
-		if found != test.want {
-			t.Errorf("%s: violation=%t, want %t", test.source, found, test.want)
-		}
+		assertReasonMatcher(t, test.source, test.want, reasonEnumViolation)
+	}
+}
+
+func assertReasonMatcher(t *testing.T, source string, want bool, match func(ast.Node) bool) {
+	t.Helper()
+	file, err := parser.ParseFile(token.NewFileSet(), "reason.go", "package fixture\n"+source, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	ast.Inspect(file, func(node ast.Node) bool {
+		found = found || match(node)
+		return true
+	})
+	if found != want {
+		t.Errorf("%s: violation=%t, want %t", source, found, want)
 	}
 }

@@ -199,6 +199,8 @@ the code cannot drift apart silently.
 | `TestSummaryBoundaryMatcher` | summary API checks resolve type identity, including import aliases, generic types, promoted methods, and method expressions; unrelated lookalike names remain allowed |
 | `TestMigratedReasonEnums` | migrated reason domains use numeric enum types and do not store reasons in string fields; scope grows until all internal domains are migrated |
 | `TestReasonEnumBoundaryMatcher` | reason checks reject string aliases and raw reason fields while allowing textual observer/output boundaries |
+| `TestReasonMigrationDebt` | repository-wide raw reason declarations, assignments, and literal classifications cannot grow beyond the recorded migration baseline; removed debt must be removed from the baseline |
+| `TestRawReasonClassificationMatcher` | migration accounting recognizes raw reason fields, parameters, assignments, and composite literals without treating ordinary display text as classification |
 | `TestAnalyzersUseSymbolIdentity` | well-known functions matched through `syntax.Symbol`, not reconstructed from package paths and names |
 | `TestProductionCodeReturnsTerminationDecisions` | no `panic`, `log.Fatal`, or `os.Exit` in analyzer or library code |
 | `TestForbiddenTerminationIdentity` | the termination rule's matcher recognizes exactly the builtin `panic`, the `log.Fatal` variants, and `os.Exit`, and nothing else |
@@ -224,6 +226,22 @@ Analyzer tests must still establish the meaning of an incomplete answer:
 positive witnesses may survive a cut, but missing effects cannot prove absence.
 Binding adapters must produce their own result without mutating cached slices
 or maps; the generic engine cannot deep-copy arbitrary analyzer evidence.
+
+### Reason-code migration
+
+Internal classifications use domain-owned numeric enums, with explicit unset
+and invalid values. Convert to stable textual codes at tracing, serialization,
+or display boundaries; keep free-form explanations separate. Do not place
+analyzer-specific vocabulary in a single global reason catalog.
+
+The migration is incomplete. `reason-string-baseline.json` records existing
+raw declarations and common literal assignments across `internal/`; the guard
+rejects growth and requires completed entries to be removed. It is a ratchet,
+not an exemption list or a claim that syntax matching finds every possible
+string classification. Migrated domains additionally prohibit string-backed
+reason types and fields outright. The trace DTO/observer boundary retains its
+textual contract. Keep shrinking the baseline until internal classifications
+are fully enum-backed.
 
 ## Where to start
 
