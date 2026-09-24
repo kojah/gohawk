@@ -2,6 +2,7 @@ package resourcelifetime
 
 import (
 	"go/token"
+	"go/types"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -20,6 +21,21 @@ import (
 // resource excludes ownership on one successor. Visible predicates and captured
 // callbacks use bounded shared flow and storage evidence; opaque or mutable
 // dispatch cannot establish this implication.
+
+func acquisitionErrorResult(call *ssa.Call) ssa.Value {
+	results, ok := call.Type().(*types.Tuple)
+	if !ok || results.Len() < 2 {
+		return nil
+	}
+	last := results.Len() - 1
+	if !types.Identical(results.At(last).Type(), types.Universe.Lookup("error").Type()) {
+		return nil
+	}
+	// The success guard must track the error paired with the acquisition, not
+	// assume it occupies slot one. termios.Pty returns (master, slave, err):
+	// https://github.com/89luca89/lilipod/blob/872755a7cef33c238ea2d11b2310b3116944eb48/ptyagent/pty.go#L134-L146
+	return ssaflow.CallResult(call, last)
+}
 
 func resourceSuccessBranch(
 	pass *analysis.Pass,

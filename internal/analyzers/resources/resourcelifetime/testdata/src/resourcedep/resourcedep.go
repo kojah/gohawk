@@ -201,6 +201,20 @@ var registry []*os.File
 // OpenFresh opens and returns a file the caller must close.
 func OpenFresh(path string) (*os.File, error) { return os.Open(path) }
 
+// OpenPair hands two separately owned files to the caller on success.
+func OpenPair(path string) (*os.File, *os.File, error) {
+	first, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	second, err := os.Open(path)
+	if err != nil {
+		_ = first.Close()
+		return nil, nil, err
+	}
+	return first, second, nil
+}
+
 // OpenReader returns the opened file behind a closer interface.
 func OpenReader(path string) (io.ReadCloser, error) {
 	f, err := os.Open(path)

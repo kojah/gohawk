@@ -64,7 +64,7 @@ func evaluateResourceFlow(
 	if index < 0 {
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
-	errorValue := ssaflow.CallResult(call, 1)
+	errorValue := acquisitionErrorResult(call)
 	if reason := httpAcquisitionBoundary(pass, call); reason != "" {
 		return acceptedResourceLifetime(reason)
 	}
