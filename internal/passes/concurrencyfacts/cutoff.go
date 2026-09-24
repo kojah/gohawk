@@ -44,11 +44,14 @@ func (shape cutoffShape) String() string {
 
 type summaryCutoff struct {
 	instruction ssa.Instruction
-	function    *ssa.Function
-	shape       cutoffShape
-	calls       [maxCutoffCalls]ssa.CallInstruction
-	depth       int
-	truncated   bool
+	// block is the control-flow block a loop or branch cutoff stopped at. Its
+	// terminator has no source position, so the block supplies one.
+	block     *ssa.BasicBlock
+	function  *ssa.Function
+	shape     cutoffShape
+	calls     [maxCutoffCalls]ssa.CallInstruction
+	depth     int
+	truncated bool
 }
 
 func (engine *Engine) recordCutoff(instruction ssa.Instruction, shape cutoffShape) {
@@ -58,9 +61,21 @@ func (engine *Engine) recordCutoff(instruction ssa.Instruction, shape cutoffShap
 }
 
 func (engine *Engine) recordBlockCutoff(block *ssa.BasicBlock, shape cutoffShape) {
-	if block != nil && len(block.Instrs) != 0 {
+	if block != nil && len(block.Instrs) != 0 && engine.cutoff == nil {
 		engine.recordCutoff(block.Instrs[len(block.Instrs)-1], shape)
+		engine.cutoff.block = block
 	}
+}
+
+// blockPosition returns the first source position within block, which for a
+// loop header is usually its condition or range step.
+func blockPosition(block *ssa.BasicBlock) token.Pos {
+	for _, instruction := range block.Instrs {
+		if instruction.Pos().IsValid() {
+			return instruction.Pos()
+		}
+	}
+	return token.NoPos
 }
 
 func (engine *Engine) instantiatedCutoff(result Summary, call ssa.CallInstruction) Summary {
@@ -99,6 +114,12 @@ func (summary Summary) ObserveCutoff(observer ssaflow.Observer) {
 	if cutoff.function != nil {
 		details["function"] = cutoff.function.String()
 		at = cutoff.function.Pos()
+	}
+	if cutoff.block != nil {
+		details["block"] = cutoff.block.Comment
+		if position := blockPosition(cutoff.block); position.IsValid() {
+			at = position
+		}
 	}
 	if cutoff.instruction != nil {
 		if cutoff.instruction.Pos().IsValid() {
