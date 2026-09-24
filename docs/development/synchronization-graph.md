@@ -19,6 +19,15 @@ Complete empty effects are distinct from an unavailable summary. Imported facts
 carry parameter-relative effects, never process-local SSA values or source
 positions.
 
+One acyclic worker `select` can yield a bounded set of complete continuations.
+`syncgraph.Expand` builds a separate linear graph for each outcome, up to eight
+graphs; a consumer must prove its property on every one. The ordinary
+`FromSummary` contract remains incomplete for a choice, so linear consumers
+cannot accidentally treat its arms as simultaneous events. Only the channel
+dependency-cycle check currently consumes these alternatives. Launches hidden
+inside helpers, nested selects, unrelated branch conditions, and cross-package
+select continuations remain unknown.
+
 The experimental lock-and-join and channel/lock-cycle proofs consume a
 parent/children fragment through `internal/syncgraph`. The fragment has
 `SyncEvent` nodes and separate program-order, spawn-order, and proven blocking

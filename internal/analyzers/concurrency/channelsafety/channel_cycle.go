@@ -37,7 +37,11 @@ func reportChannelCycle(pass *analysis.Pass, function *ssa.Function) {
 		return
 	}
 	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(probe.Observer()))
-	proof := proveChannelCycle(syncgraph.FromSummary(root))
+	graphs, reason := syncgraph.Expand(root)
+	proof := channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: reason}
+	if reason == "" {
+		proof = proveEveryChannelCycle(graphs, root.Choices)
+	}
 	probe.Decision(analysisTrace.Step{Reason: proof.reason, Outcome: proof.outcome, Pos: candidate})
 	if proof.outcome != analysisTrace.OutcomeAccepted {
 		return
@@ -51,6 +55,39 @@ func reportChannelCycle(pass *analysis.Pass, function *ssa.Function) {
 			{Pos: proof.workerSecond, Message: "worker can match the parent only after its first operation"},
 		},
 	})
+}
+
+func proveEveryChannelCycle(graphs []syncgraph.SyncGraph, choices []concurrencyfacts.SelectChoice) channelCycleProof {
+	if len(graphs) == 0 {
+		return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-alternatives-unknown"}
+	}
+	if len(graphs) == 1 {
+		return proveChannelCycle(graphs[0])
+	}
+	var common channelCycleProof
+	for _, graph := range graphs {
+		proof := proveChannelCycle(graph)
+		if proof.outcome != analysisTrace.OutcomeAccepted {
+			// An arm that can terminate, choose cancellation, or communicate
+			// elsewhere is enough to defeat an unavoidable cycle proof.
+			return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-alternative-unproven"}
+		}
+		if common.reason == "" {
+			common = proof
+			continue
+		}
+		if proof.first != common.first || proof.parentSecond != common.parentSecond ||
+			proof.workerSecond != common.workerSecond {
+			return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-alternative-sites-differ"}
+		}
+	}
+	if len(graphs) > 1 {
+		if len(choices) != 1 || !choices[0].Site.IsValid() || choices[0].Worker == nil {
+			return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-alternative-site-unknown"}
+		}
+		common.workerFirst = choices[0].Site
+	}
+	return common
 }
 
 func potentialChannelCycleRoot(function *ssa.Function) token.Pos {

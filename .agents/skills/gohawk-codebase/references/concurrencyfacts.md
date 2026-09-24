@@ -253,6 +253,10 @@ Reference names an exact resource or a symbolic captured cell.
 type SelectArm struct {
 	Operation	Operation
 	Default		bool
+	// Sequence is the complete ordered effect sequence for this arm, from
+	// function entry through its normal return. Nil when not proven.
+	Sequence	[]Operation
+	Complete	bool
 }
 ```
 
@@ -304,7 +308,11 @@ type Summary struct {
 
 	Workers	[]WorkerSummary
 	Choices	[]SelectChoice
-	Reason	string
+	// AlternativesComplete is true only after every select continuation and
+	// the enclosing function body have been accounted for. Reason remains
+	// nonempty so linear consumers cannot mistake alternatives for one path.
+	AlternativesComplete	bool
+	Reason			string
 	// contains filtered or unexported fields
 }
 ```
@@ -345,6 +353,7 @@ the same fields the builder writes, so it cannot disagree with Reason.
 ```go
 type WorkerSummary struct {
 	Operations	[]Operation
+	Alternatives	[][]Operation
 	Spawn		*ssa.Go
 	Prefix		int
 }

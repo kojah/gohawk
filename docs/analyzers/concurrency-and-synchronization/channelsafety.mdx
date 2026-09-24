@@ -32,16 +32,16 @@ complete, neither first action can finish. A complete event graph proves both
 blocking dependencies before reporting a cycle.
 
 An extra sender or closer, a buffered or externally supplied channel, an
-opaque participant, a branch or `select` alternative, or an unknown effect
-makes that proof inconclusive. The check does not model general channel
-protocols or infer a deadlock from a graph cycle alone.
+opaque participant, an unmodeled branch, or an unknown effect makes that proof
+inconclusive. The check does not model general channel protocols or infer a
+deadlock from a graph cycle alone.
 
-The synchronization summary now records the mutually exclusive arms of a
-bounded `select`, including a nonblocking default arm and a worker's bound
-channel identities. This is evidence for future path-specific proofs, not a
-linear operation: the dependency-cycle check still declines a graph with
-unresolved alternatives. In particular, a cancellation receive cannot be
-flattened into an unconditional blocked send.
+For one bounded, acyclic worker `select`, the summary follows each arm through
+its continuation and constructs a separate graph per outcome. The check
+reports only if every outcome proves the same cycle. A cancellation or default
+arm that can escape therefore defeats the proof. Multiple selects, unrelated
+branch conditions, and too many alternatives remain inconclusive; select
+arms are never flattened into unconditional events.
 
 ### Checks
 

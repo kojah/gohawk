@@ -19,10 +19,6 @@ import (
 // pointers. Divergent branches and overflowing sequences remain unknown.
 const maxOperations = 32
 
-// maxWorkers bounds the number of separately ordered child sequences in a
-// root query. Launches in loops remain unknown regardless of this limit.
-const maxWorkers = 4
-
 // Kind identifies a synchronization event with an exact resource.
 type Kind uint8
 
@@ -57,6 +53,10 @@ type Operation struct {
 type SelectArm struct {
 	Operation Operation
 	Default   bool
+	// Sequence is the complete ordered effect sequence for this arm, from
+	// function entry through its normal return. Nil when not proven.
+	Sequence []Operation
+	Complete bool
 }
 
 // SelectChoice records mutually exclusive arms at their position in the
@@ -80,15 +80,20 @@ type Summary struct {
 	deferred   []Operation
 	Workers    []WorkerSummary
 	Choices    []SelectChoice
-	Reason     string
+	// AlternativesComplete is true only after every select continuation and
+	// the enclosing function body have been accounted for. Reason remains
+	// nonempty so linear consumers cannot mistake alternatives for one path.
+	AlternativesComplete bool
+	Reason               string
 }
 
 // WorkerSummary keeps one child's complete ordered effects and its launch
 // point relative to the parent's synchronization events.
 type WorkerSummary struct {
-	Operations []Operation
-	Spawn      *ssa.Go
-	Prefix     int
+	Operations   []Operation
+	Alternatives [][]Operation
+	Spawn        *ssa.Go
+	Prefix       int
 }
 
 // Completeness is the contract a consumer acts on. Only a complete summary
@@ -190,6 +195,11 @@ func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
 	if function == nil || len(function.Blocks) == 0 {
 		return Summary{Reason: "protocol-body-unavailable"}
 	}
+	if !root {
+		if result, handled := engine.collectSelectFunction(function); handled {
+			return result
+		}
+	}
 	if !straightLineBody(function) {
 		return engine.collectBranches(function, root)
 	}
@@ -203,6 +213,10 @@ func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
 	}
 	if len(result.deferred) != 0 {
 		return Summary{Reason: "protocol-deferred-effects-unknown"}
+	}
+	if result.hasWorkerAlternatives() {
+		result.Reason = "protocol-select-alternatives"
+		result.AlternativesComplete = true
 	}
 	return result
 }
@@ -251,30 +265,7 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 		}
 		result.deferred = nil
 	case *ssa.Go:
-		// A root records each statically known launch separately. A fifth
-		// participant or a child with unavailable effects makes the *whole*
-		// protocol unknown: otherwise a missing alternate signal or unlock
-		// could turn a feasible wait into a false deadlock proof.
-		if !root || len(result.Workers) >= maxWorkers {
-			return "protocol-participants-unknown"
-		}
-		called := engine.instantiate(instruction)
-		if !called.Complete() {
-			if called.Reason == "protocol-select-alternatives" {
-				for _, choice := range called.Choices {
-					choice.Worker = instruction
-					result.Choices = append(result.Choices, choice)
-				}
-			}
-			return called.Reason
-		}
-		if len(called.Workers) != 0 {
-			return "protocol-worker-effects-unknown"
-		}
-		result.Workers = append(result.Workers, WorkerSummary{
-			Operations: called.Operations, Spawn: instruction, Prefix: len(result.Operations),
-		})
-		return ""
+		return engine.appendGo(result, instruction, root)
 	default:
 		return passiveInstruction(instruction, root)
 	}
@@ -295,6 +286,9 @@ func (summary Summary) operationCount() int {
 	count := len(summary.Operations) + len(summary.deferred)
 	for _, worker := range summary.Workers {
 		count += len(worker.Operations)
+		for _, alternative := range worker.Alternatives {
+			count += len(alternative)
+		}
 	}
 	return count
 }

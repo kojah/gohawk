@@ -25,7 +25,10 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 	if !callee.Complete() && callee.Reason != "protocol-select-alternatives" {
 		return callee
 	}
-	result := Summary{Operations: make([]Operation, 0, len(callee.Operations)), Reason: callee.Reason}
+	result := Summary{
+		Operations: make([]Operation, 0, len(callee.Operations)), Reason: callee.Reason,
+		AlternativesComplete: callee.AlternativesComplete,
+	}
 	for _, op := range callee.Operations {
 		if !engine.budget.Spend() {
 			return Summary{Reason: "protocol-budget-exhausted"}
@@ -38,7 +41,10 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		result.Operations = append(result.Operations, op)
 	}
 	for _, choice := range callee.Choices {
-		bound := SelectChoice{Prefix: choice.Prefix, Site: instruction.Pos()}
+		// A select's arm sequence is a separate complete path, not another
+		// unconditional effect. Bind every resource on every arm before the
+		// caller may use any variant as a graph proof.
+		bound := SelectChoice{Prefix: choice.Prefix, Site: choice.Site}
 		for _, arm := range choice.Arms {
 			if !engine.budget.Spend() {
 				return Summary{Reason: "protocol-budget-exhausted"}
@@ -49,6 +55,23 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 					return Summary{Reason: "protocol-channel-binding-unknown"}
 				}
 				arm.Operation.Resource, arm.Operation.Site = resource, instruction.Pos()
+			}
+			if arm.Complete {
+				// Keep the callee's source location but attribute a bound action
+				// to this call site, as with the linear effect sequence above.
+				sequence := make([]Operation, 0, len(arm.Sequence))
+				for _, op := range arm.Sequence {
+					if !engine.budget.Spend() {
+						return Summary{Reason: "protocol-budget-exhausted"}
+					}
+					resource, ok := engine.bind(op.Resource, bindings, instruction)
+					if !ok {
+						return Summary{Reason: "protocol-channel-binding-unknown"}
+					}
+					op.Resource, op.Site = resource, instruction.Pos()
+					sequence = append(sequence, op)
+				}
+				arm.Sequence = sequence
 			}
 			bound.Arms = append(bound.Arms, arm)
 		}

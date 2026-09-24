@@ -92,3 +92,17 @@ func cancellationSelectCanExit(cancel <-chan struct{}) {
 	a <- 1
 	<-b
 }
+
+func equivalentSelectArmsCannotUnblock() {
+	a := make(chan int)
+	b := make(chan int)
+	go func() {
+		select {
+		case b <- 1:
+		case b <- 2:
+		}
+		<-a
+	}()
+	a <- 1 // want "two goroutines wait on each other's later channel operation"
+	<-b
+}

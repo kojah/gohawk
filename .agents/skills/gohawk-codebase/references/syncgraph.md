@@ -29,6 +29,19 @@ type EventID int
 
 EventID identifies one event within a graph, not across summary instances.
 
+## Expand
+
+[Source](../../../../internal/syncgraph/alternatives.go)
+
+```go
+func Expand(summary concurrencyfacts.Summary) ([]SyncGraph, string)
+```
+
+Expand materializes every proven worker-select outcome as its own linear
+graph. A caller must prove its property on every returned graph; one graph
+alone never establishes an unavoidable deadlock. Unknown parent choices,
+unproven arms, and excessive products yield no usable graphs.
+
 ## FromSummary
 
 [Source](../../../../internal/syncgraph/graph.go)

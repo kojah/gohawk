@@ -39,6 +39,8 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 			terminal = &state
 		}
 		for _, next := range block.Succs {
+			// A join with different synchronization histories is not one
+			// unconditional protocol, even if later operations happen to agree.
 			if previous, exists := states[next]; exists && !sameEffects(previous, state) {
 				return Summary{Reason: "protocol-branch-effects-differ"}
 			}
@@ -47,6 +49,12 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 	}
 	if terminal == nil {
 		return Summary{Reason: "protocol-control-flow-unknown"}
+	}
+	if terminal.hasWorkerAlternatives() {
+		// Only a fully visited caller may turn a worker's complete arms into
+		// graph variants. An early bailout retains choices but no proof paths.
+		terminal.Reason = "protocol-select-alternatives"
+		terminal.AlternativesComplete = true
 	}
 	return *terminal
 }
@@ -92,7 +100,10 @@ func trivialRecovery(function *ssa.Function) bool {
 func sameEffects(first, second Summary) bool {
 	sameOperation := func(a, b Operation) bool { return a.Kind == b.Kind && a.Resource == b.Resource }
 	sameWorker := func(a, b WorkerSummary) bool {
-		return a.Spawn == b.Spawn && a.Prefix == b.Prefix && slices.EqualFunc(a.Operations, b.Operations, sameOperation)
+		return a.Spawn == b.Spawn && a.Prefix == b.Prefix && slices.EqualFunc(a.Operations, b.Operations, sameOperation) &&
+			slices.EqualFunc(a.Alternatives, b.Alternatives, func(x, y []Operation) bool {
+				return slices.EqualFunc(x, y, sameOperation)
+			})
 	}
 	return slices.EqualFunc(first.Operations, second.Operations, sameOperation) &&
 		slices.EqualFunc(first.Workers, second.Workers, sameWorker) &&
@@ -104,7 +115,18 @@ func cloneEffects(summary Summary) Summary {
 	summary.Workers = slices.Clone(summary.Workers)
 	for index := range summary.Workers {
 		summary.Workers[index].Operations = slices.Clone(summary.Workers[index].Operations)
+		summary.Workers[index].Alternatives = slices.Clone(summary.Workers[index].Alternatives)
+		for arm := range summary.Workers[index].Alternatives {
+			summary.Workers[index].Alternatives[arm] = slices.Clone(summary.Workers[index].Alternatives[arm])
+		}
 	}
 	summary.deferred = slices.Clone(summary.deferred)
+	summary.Choices = slices.Clone(summary.Choices)
+	for index := range summary.Choices {
+		summary.Choices[index].Arms = slices.Clone(summary.Choices[index].Arms)
+		for arm := range summary.Choices[index].Arms {
+			summary.Choices[index].Arms[arm].Sequence = slices.Clone(summary.Choices[index].Arms[arm].Sequence)
+		}
+	}
 	return summary
 }
