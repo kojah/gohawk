@@ -330,3 +330,53 @@ was stopped during the unchanged resource suites and is **incomplete**, not a
 passing gate. Remaining work is tracked under `gohawk-o44.1` through
 `gohawk-o44.4`: demand-driven protocol extraction, receive/select loop contracts,
 complete differing interface targets, and constructor/cross-method participants.
+
+### Exact cutoff attribution rerun
+
+The provenance-only change in `fb2107c` retained all four checks' root-module
+candidate decision counts at the same pins. The frozen binary SHA-256 was
+`c0ae6054e958d30c116475006766056f6a2cf695c4611c38a47a8d58155acceb`;
+artifacts are in `.build/sync-cutoffs-2026-09-24`. It includes the code in that
+commit before a rationale-comment addition. Traces include test source;
+the standalone CLI's test-diagnostic inclusion flag was not enabled. All
+surviving candidates still stopped before a dependency proof, so this run does
+not establish any new bug coverage.
+
+For the 72 channel-dependency summary candidates, the retained rejecting
+instructions were:
+
+| Instruction | Moby + Kubernetes |
+| --- | ---: |
+| Call | 23 |
+| Conditional branch in unsupported loop/branch shape | 21 |
+| Map allocation | 10 |
+| Recovery return | 8 |
+| Load | 3 |
+| Slice | 3 |
+| Index address | 2 |
+| Field address | 1 |
+| Type change | 1 |
+
+This refines the earlier 29 control-flow cutoffs into 21 unsupported
+loop/branch shapes and eight recovery boundaries. It does not turn the first
+failure into an exhaustive explanation of the function. Counts filter on the
+candidate's root-module path (excluding vendor and Kubernetes staging), select
+`channelsafety/dependency-cycle` and `protocol-cutoff`, and deduplicate by
+check, candidate, reason, and outcome before grouping by `instruction-kind`.
+The leaf may itself be in a dependency.
+
+For example, Moby's `NewLogFile` candidate at `logfile.go:138` stops inside
+`openFile`, at `file_unix.go:8` calling `os.OpenFile`, with the caller at
+`logfile.go:121` preserved. Its `containerManager.Run` candidate at
+`containerbackend.go:81` stops in the launched closure at line 50 loading its
+captured receiver, with the launch at line 49 preserved. These are concrete
+investigation sites, not diagnosed deadlocks or proof that the omitted work
+is irrelevant.
+
+Moby took 3m59.98s and retained the same three test-loading errors. Its standalone
+CLI nevertheless returned zero with empty diagnostic JSON; `gohawk-uqq` tracks
+that error-status defect, and the scan is **partial**, not clean. Kubernetes
+completed in 6m48.74s. Validation overlapped both scans, so these are not
+controlled performance comparisons. The cutoff change passed `make verify`;
+the race-enabled lock recursion timing test exceeded its deadline under load
+but passed in an isolated four-core rerun without changing its threshold.
