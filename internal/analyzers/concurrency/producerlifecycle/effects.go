@@ -28,6 +28,9 @@ func summarizedSends(function *ssa.Function, spawn *ssa.Go, engine *concurrencyf
 	// A local worker retains its own call-site positions; an imported worker
 	// can only be attributed to the launch in this package.
 	local := engine.Function(spawn.Common().StaticCallee(), budget)
+	if mergedSendSites(spawn.Common().StaticCallee(), local) {
+		return nil, false
+	}
 	var sends []producerSend
 	for i, operation := range summary.Operations {
 		channel := operation.Resource.Value
@@ -146,4 +149,24 @@ func helperReceives(
 		}
 	}
 	return proof
+}
+
+// Branches with the same ordered effects fold into one path that keeps only
+// the first branch's positions. When a send written directly in the worker has
+// no site in that path, the summary cannot attribute each send, so the caller
+// falls back to the worker's own send instructions.
+func mergedSendSites(worker *ssa.Function, local concurrencyfacts.Summary) bool {
+	if worker == nil || !local.Complete() {
+		return false
+	}
+	sites := make(map[token.Pos]bool, len(local.Operations))
+	for _, operation := range local.Operations {
+		sites[operation.Site] = true
+	}
+	for _, send := range ssaflow.InstructionsOf[*ssa.Send](worker) {
+		if !sites[send.Pos()] {
+			return true
+		}
+	}
+	return false
 }

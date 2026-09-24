@@ -355,24 +355,53 @@ func (engine *Engine) instructionEffects(result *Summary, instruction ssa.Instru
 }
 
 func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) Reason {
-	if instruction.Op == token.ARROW {
+	switch instruction.Op {
+	case token.ARROW:
 		return engine.appendOperation(result, Receive, instruction.X, instruction.Pos())
+	case token.MUL:
+		return loadEffect(instruction)
+	case token.NOT, token.SUB, token.XOR:
+		// Scalar negation and complement cannot block, panic, or synchronize.
+		if scalarType(instruction.Type()) {
+			return ReasonNone
+		}
+	default:
 	}
-	if instruction.Op == token.MUL && ssaflow.ChannelType(instruction) {
-		if path, exact := embeddedPath(instruction.X); exact && path.Depth > 0 {
+	return ReasonLoadUnknown
+}
+
+func loadEffect(load *ssa.UnOp) Reason {
+	if ssaflow.ChannelType(load) {
+		if path, exact := embeddedPath(load.X); exact && path.Depth > 0 {
 			return ReasonNone
 		}
 	}
-	if instruction.Op == token.MUL && isGlobal(instruction.X) {
+	if isGlobal(load.X) {
 		// Reading a package variable cannot block, panic, or synchronize. The
 		// loaded value is not a stable resource identity: any later operation
 		// on it must resolve one through reference, which declines globals.
 		return ReasonNone
 	}
-	if instruction.Op != token.MUL || !readableAddress(instruction.X) {
-		return ReasonLoadUnknown
+	if readableAddress(load.X) || inertValue(load.Type()) {
+		return ReasonNone
 	}
-	return ReasonNone
+	return ReasonLoadUnknown
+}
+
+// A read from caller-owned storage, such as a logger or counter on a receiver,
+// neither blocks nor synchronizes. The storage may change under other
+// goroutines, so the value it yields must never become a resource identity.
+// Channels, primitive pointers, contexts, and values that embed a primitive
+// (a copy would duplicate lock state) therefore stay unknown. Any later use of
+// an admitted value is classified on its own: a dynamic call, type assertion,
+// or unmodeled callee still stops the summary. A nil receiver can make the
+// read panic, but so can the field address before it, which is already
+// admitted; a path that panics never reaches a later wait.
+func inertValue(value types.Type) bool {
+	if _, channel := value.Underlying().(*types.Chan); channel {
+		return false
+	}
+	return !containsSynchronization(value) && !synchronizationPointer(value) && !cancellationType(value)
 }
 
 func (summary Summary) operationCount() int {

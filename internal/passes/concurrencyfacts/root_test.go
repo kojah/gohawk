@@ -151,3 +151,42 @@ func Caller(done chan int) { _ = Returned(done) }
 		t.Errorf("helper returning a channel = %+v, want incomplete", got)
 	}
 }
+
+// Reads of unrelated caller-owned values are passive. A value that could be a
+// resource identity, or a copy of one, still stops the summary.
+func TestCallerStorageLoads(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "callerloads", `package callerloads
+import ("context"; "sync")
+type owner struct {
+	mu    sync.Mutex
+	ptr   *sync.Mutex
+	done  chan int
+	ctx   context.Context
+	count int
+	name  string
+	peer  *owner
+}
+func Inert(o *owner, ok bool) int {
+	o.mu.Lock()
+	n := o.count
+	_ = o.name
+	_ = o.peer
+	if !ok { n = -n }
+	o.mu.Unlock()
+	return n
+}
+func Channel(o *owner) { <-o.done }
+func Pointer(o *owner) { o.ptr.Lock(); o.ptr.Unlock() }
+func Copy(o *owner) { peer := *o.peer; _ = peer }
+func Context(o *owner) { <-o.ctx.Done() }
+`)
+	engine := NewEngine()
+	if got := engine.Root(pkg.Func("Inert"), ssaflow.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects || len(got.Operations) != 2 {
+		t.Errorf("inert reads = %+v, want the lock pair alone", got)
+	}
+	for _, name := range []string{"Channel", "Pointer", "Copy", "Context"} {
+		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Complete() {
+			t.Errorf("%s = %+v, want incomplete", name, got)
+		}
+	}
+}

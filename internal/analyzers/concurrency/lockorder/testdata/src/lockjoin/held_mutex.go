@@ -7,10 +7,13 @@ import "sync"
 // path where the wait returns. The channel must still be fresh: an outside
 // sender could satisfy the wait.
 type heldOwner struct {
-	mu   sync.Mutex
-	rw   sync.RWMutex
-	ptr  *sync.Mutex
-	done chan struct{}
+	mu    sync.Mutex
+	rw    sync.RWMutex
+	ptr   *sync.Mutex
+	done  chan struct{}
+	count int
+	name  string
+	run   func()
 }
 
 func (o *heldOwner) lockThenClose(done chan<- struct{}) {
@@ -70,4 +73,26 @@ func (o *heldOwner) receiverReaders() {
 	go rwReadWorker(&o.rw, done)
 	<-done
 	o.rw.RUnlock()
+}
+
+// Reading unrelated receiver fields neither releases the mutex nor signals.
+func (o *heldOwner) receiverReads() (string, int) {
+	done := make(chan struct{})
+	o.mu.Lock()
+	count := o.count
+	name := o.name
+	go o.lockThenClose(done)
+	<-done // want "waits for a worker that needs the held lock"
+	o.mu.Unlock()
+	return name, count
+}
+
+// A function read from the receiver is opaque once called.
+func (o *heldOwner) receiverCallback() {
+	done := make(chan struct{})
+	o.mu.Lock()
+	go o.lockThenClose(done)
+	o.run()
+	<-done
+	o.mu.Unlock()
 }

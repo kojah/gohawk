@@ -11,10 +11,10 @@ import (
 
 func TestCutoffProvenanceSurvivesCompositionAndCaching(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "cutoffs", `package cutoffs
-func leaf(p *int) { _ = *p }
-func helper(p *int) { leaf(p) }
-func first(p *int) { helper(p) }
-func second(p *int) { helper(p) }
+func leaf(p *chan int) { _ = *p }
+func helper(p *chan int) { leaf(p) }
+func first(p *chan int) { helper(p) }
+func second(p *chan int) { helper(p) }
 func safe(c chan int) { close(c) }
 func loop(c chan int, n int) { for i := 0; i < n; i++ { close(c) } }
 func opaque(f func()) { f() }
@@ -61,8 +61,8 @@ func opaque(f func()) { f() }
 
 func TestCutoffChainBoundAndDisabledObserver(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "bounded", `package bounded
-func leaf(p *int) { _ = *p }
-func root(p *int) { leaf(p) }
+func leaf(p *chan int) { _ = *p }
+func root(p *chan int) { leaf(p) }
 `)
 	engine := NewEngine()
 	got := engine.Root(pkg.Func("root"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
