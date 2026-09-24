@@ -1,0 +1,12 @@
+repository	sha	side	channel_origin	partners_visible	trigger	loops	escape	note
+2389-research/tracker	e9f64f137f	receive	local	yes	other	yes	no	Partner stuck rather than missing: the child ignores cancellation.
+ErnestK/MCPSprut	79f992dd87	send	field	no	shutdown	yes	no	Buffered field channel; the batcher loop returned on ctx.Done, so Submit blocks once full.
+UnendingLoop/DistributedGrepClone	64e42f52b6	send	local	no	other	yes	no	Local channel escapes to a collector in another package that returns early.
+fiatjaf/nak	72e6e735f3	receive	field	no	error-path	yes	no	Field channel closed only on the success path of a method.
+flexprice/flexprice	b9b0dd4986	library	library	no	other	no	no	Double Close blocks inside clickhouse-go.
+gocronx-team/cron	4cfd2be142	send	field	no	shutdown	yes	no	Unbuffered field channels served only by run(), which has returned after Stop.
+josepdcs/kubectl-prof	d24f2bf773	receive	parameter	no	error-path	yes	no	Channels returned to the caller; the reader returns on EOF without closing.
+juju/juju	988e304dcb	receive	local	yes	zero-iterations	yes	yes	No producers start with zero addresses; the wait has a ctx.Done arm.
+mvm-sh/mvm	db77731ce3	receive	library	no	other	no	no	Interpreted program's partner died on a discarded panic.
+shenwei356/LexicMap	32a79fdca3	send	local	yes	config	yes	no	Semaphore capacity NumCPU/2 is zero with -j 1.
+sprungknoedl/dagobert	1ab449817c	send	local	yes	other	yes	no	All workers can return inside their loop, so the dispatch send blocks.

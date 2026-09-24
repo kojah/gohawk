@@ -1,0 +1,46 @@
+repository	sha	label	location	note
+0xc0de1ab/muhan	da58a84810	not-a-deadlock	-	Test cleanup swapping sleep polling for FlushSaveQueue.
+2389-research/tracker	e9f64f137f	other-deadlock	pipeline/handlers/manager_loop.go:ManagerLoopHandler.Execute	Uncertain: unbounded join on a child that may ignore cancellation.
+DataDog/ebpf-manager	1f3ce284f0	other-deadlock	manager.go:Manager.stopReaders	Lock held across WaitGroup.Wait while reader goroutines run user callbacks that may take the same lock (waitgroup-lock through a callback).
+ErnestK/MCPSprut	79f992dd87	other-deadlock	internal/batcher/batcher.go:Batcher.Submit	Send with no partner after the consumer stopped.
+MartinYordanov374/Golang-LoadBalancer	91556e43b7	other-deadlock	HelperFunctions/UpdateServerHealthState.go:UpdateServerHealthState	Recursive lock of the same non-reentrant mutex through a helper.
+MyatSuMon253/advanced-golang	19aed1fd65	not-a-deadlock	-	Learning example that deliberately deadlocks.
+MyatSuMon253/advanced-golang	d26f2f243c	not-a-deadlock	-	Learning example that deliberately deadlocks.
+Nigel2392/go-signals	111ab381d5	other-deadlock	pubsub/pool.go:Pool.doWork	Missing RUnlock on a continue path blocks later writers.
+Sharper-Flow/concord	b72870b7b1	other-deadlock	internal/store/workflow_action_guards.go:workflowObligationAwaitingEvidence	SQL pool exhaustion on a single-connection pool.
+Sirpyerre/fintech-backend	8941e8084b	not-a-deadlock	-	Uncertain: no concurrency visible in the parent.
+UnendingLoop/DistributedGrepClone	64e42f52b6	other-deadlock	internal/appmode/master.go:processTasks	Sends with no partner after the collector returns, so the join never finishes.
+Wayshard/wayshard	adbcec6240	other-deadlock	internal/sandbox/lifecycle_linux_test.go	Blocked pipe I/O held open by a descendant process.
+ahen-7/flexprice	b9b0dd4986	other-deadlock	cmd/migrate/clickhouse.go:runClickHouseMigrations	Double close blocks inside the library on a send with no receiver.
+aveloxis/aveloxis	eb248eb583	not-a-deadlock	-	Error classification change only.
+cilium/cilium	306d6b75a5	not-a-deadlock	-	Test speed-up with synctest; no hang fixed.
+cobolbaby/db-etl	fe3187c8f1	other-deadlock	writer/postgres.go:writeCopyWithFirstBatch	Pipe write with no reader after the consumer exits on error.
+d0ugal/graith	f01d1f3ccd	other-deadlock	-	Blocked network read when the peer process died.
+dkoosis/snipe	c2992023c3	not-a-deadlock	-	Test-only timing changes.
+drummonds/go-postgres	1e58ff9e7a	other-deadlock	-	Self-lock: mutex held until rows.Close while a second query takes it.
+fiatjaf/nak	72e6e735f3	other-deadlock	-	Missing close on error paths leaves a ranging consumer blocked.
+flexprice/flexprice	b9b0dd4986	other-deadlock	cmd/migrate/clickhouse.go:runClickHouseMigrations	Double close blocks inside the library on a send with no receiver.
+gocronx-team/cron	4cfd2be142	other-deadlock	-	Unbuffered sends to an exited loop with no escape.
+gosuda/portal-tunnel	0a97726176	other-deadlock	-	Shutdown hang on blocked I/O.
+gujaratharva021-lgtm/ecommerce-backend	3896d5fdb5	other-deadlock	-	Database lock between concurrent transactions.
+hailerity/devrun	c3ed89b680	other-deadlock	-	Uncertain: network I/O without deadline against a wedged daemon.
+hannesrauhe/freeps	c1e2cf7803	other-deadlock	freepsflow/flowEngine.go:FlowEngine.Shutdown	Uncertain: lock held across an interface callback that waits on a channel whose sender may need the lock (lock-and-join through dispatch).
+hirochachacha/go-smb2	e24758bc15	other-deadlock	-	Missed wakeup: waiter never signalled after close.
+hpidcock/juju-megademo	988e304dcb	other-deadlock	-	Receive with no partner when no producers start.
+josepdcs/kubectl-prof	d24f2bf773	other-deadlock	-	Receive with no partner when the stream ends without close.
+juju/juju	988e304dcb	other-deadlock	-	With zero controller addresses no streamer goroutines start, so Run blocks forever in select on errs/ctx.Done with no sender (receive with no partner).
+luigidematteis/cilium	306d6b75a5	not-a-deadlock	-	Test speed-up that moves TestLBIPAMStartupRestartShutdown into a synctest bubble; no deadlock is fixed.
+mvm-sh/mvm	db77731ce3	other-deadlock	-	Uncertain: a panicking interpreted goroutine died silently, leaving the VM's channel send/recv/select blocked forever with no partner.
+oratchade/vessel	970eac909d	other-deadlock	-	Uncertain: speculative default 30s context timeout on DB queries (blocked I/O with no deadline).
+pingcap/ticdc	8d1b1e199a	other-deadlock	-	External-storage Write/Close could hang forever on network stalls without a deadline.
+rtc-agent/server	90610a2a3a	other-deadlock	-	stream.Recv loop could block forever on a stalled LLM stream (network read with no idle deadline).
+shenwei356/LexicMap	32a79fdca3	other-deadlock	-	With -j 1 the semaphore channel became unbuffered, so tokens <- 1 blocks forever with no receiver.
+sjoeboo/hangar	77b7d7b94b	other-deadlock	-	CombinedOutput hung because child processes kept the pipe open (blocked pipe I/O).
+skupperproject/skupper	27d974bb69	other-deadlock	-	Locks held across a blocking send on an unbuffered channel whose receiver needs the read lock (send-side lock/channel cycle).
+sprungknoedl/dagobert	1ab449817c	other-deadlock	-	A later ch <- job blocked forever with no receiver.
+sukunrt/eth-slot-sim	194303eb57	not-a-deadlock	-	Dead-code cleanup, not a hang fix.
+thebtf/aimux	a01e311cbc	not-a-deadlock	-	Only adds keywords to a routing signal list.
+vicendominguez/octos	3b3b593111	other-deadlock	-	wg.Wait before cmd.Wait left scanner goroutines blocked on pipe reads (blocked pipe I/O).
+weaviate/weaviate	1fcbfcdced	other-deadlock	-	Recursive RWMutex read lock parked behind a queued writer.
+workturnedplay/dnsbollocks	c14a625547	other-deadlock	-	Uncertain: wg.Wait with no timeout for a Win32 lookup that could hang (blocked OS call).
+yingliang-zhang/ananke-archive	74a0469d73	other-deadlock	-	main ended in select{}, tripping the all-goroutines-asleep detector.
