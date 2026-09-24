@@ -23,6 +23,7 @@ the corresponding release policy.
 | <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
 | <CheckIdentity name="lock-and-join" tier="experimental" /> | defect | experimental | Reports a wait while holding the local mutex that every possible completion worker must acquire. |
 | <CheckIdentity name="channel-lock-cycle" tier="experimental" /> | defect | experimental | Reports a receive on a fresh unbuffered channel whose possible senders first need the receiver's held mutex. |
+| <CheckIdentity name="waitgroup-lock-cycle" tier="experimental" /> | defect | experimental | Reports a WaitGroup wait whose counted workers all need the caller's held mutex before Done. |
 | <CheckIdentity name="read-lock-write" tier="experimental" /> | hazard | experimental | Reports writes to an object while only its read lock is held. |
 | <CheckIdentity name="mismatched-release" tier="experimental" /> | defect | experimental | Reports a lock released with the wrong method for how it was acquired. |
 {/* gohawk:generated-checks:end */}
@@ -126,7 +127,7 @@ This check consumes the shared complete ordered concurrency summary, including
 effects inside a local or imported worker helper. It does not infer missing
 operations from an incomplete summary. A mutex or channel supplied by a caller,
 more than four launches, divergent helper effects, an opaque participant, or a
-budget cut is inconclusive. It does not attempt general cycles, WaitGroups, buffered
+budget cut is inconclusive. It does not attempt general cycles, buffered
 protocols, or arbitrary scheduling and path constraints.
 All tracked children must launch after the parent acquires the mutex and
 before it waits; other launch orders remain inconclusive.
@@ -141,7 +142,22 @@ send. A buffered or unknown-capacity channel, an outside
 participant, or a helper with divergent effects is inconclusive. A later close
 does not establish a separate lock-and-join finding if a send occurs first.
 
-Both checks use the bounded synchronization graph to distinguish program order
+### Mutex/WaitGroup cycles
+
+The experimental `waitgroup-lock-cycle` check handles a parent that adds one
+count per known child, holds a fresh local mutex while calling `Wait`, and
+unlocks only afterward. Each child must acquire that exact mutex before its
+single `Done`. The parent's held lock blocks every decrement that could bring
+the fresh group's counter to zero. Related locations identify the parent lock,
+one blocked child lock, and its `Done`.
+
+The proof requires one exact `Add(1)` per child, all launches after the parent
+locks and before it waits, and complete straight-line child effects. A dynamic
+or different count, another decrement, early `Done`, unknown participant, or
+different launch order is inconclusive. It does not infer the counter from
+method names, or treat an arbitrary `Wait` and lock as a deadlock.
+
+These checks use the bounded synchronization graph to distinguish program order
 from independently proven blocking dependencies. They report only after those
 dependencies form an unavoidable cycle; an arbitrary graph cycle does not
 become a diagnostic.

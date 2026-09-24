@@ -54,6 +54,10 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 			{
+				ID: check.LockWaitGroupCycle, Doc: "Reports a WaitGroup wait whose counted workers all need the caller's held mutex before Done.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
+			{
 				ID: check.LockReadLockWrite, Doc: "Reports writes to an object while only its read lock is held.",
 				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
 			},

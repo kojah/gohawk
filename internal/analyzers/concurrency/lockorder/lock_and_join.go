@@ -39,20 +39,34 @@ type lockSignalCandidate struct {
 }
 
 func reportSynchronizationCycles(pass *analysis.Pass, function *ssa.Function, engine *concurrencyfacts.Engine) {
-	candidate := potentialLockJoinRoot(function)
-	if candidate == token.NoPos {
+	channelCandidate := potentialLockJoinRoot(function)
+	groupCandidate := potentialWaitGroupLockRoot(function)
+	if channelCandidate == token.NoPos && groupCandidate == token.NoPos {
 		return
 	}
-	joinProbe := analysisTrace.For(pass, "lockorder", string(check.LockAndJoin), candidate)
-	joinProbe.Candidate(analysisTrace.Step{Reason: "lock-join-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
-	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(joinProbe.Observer()))
+	candidate := channelCandidate
+	probeID := check.LockAndJoin
+	if candidate == token.NoPos {
+		candidate = groupCandidate
+		probeID = check.LockWaitGroupCycle
+	}
+	probe := analysisTrace.For(pass, "lockorder", string(probeID), candidate)
+	probe.Candidate(analysisTrace.Step{Reason: "sync-cycle-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
+	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(probe.Observer()))
 	graph := syncgraph.FromSummary(root)
-	reportLockSignal(pass, joinProbe, check.LockAndJoin, candidate, proveLockSignal(graph, concurrencyfacts.Close),
-		"waits for a worker that needs the held lock")
-	channelProbe := analysisTrace.For(pass, "lockorder", string(check.LockChannelCycle), candidate)
-	channelProbe.Candidate(analysisTrace.Step{Reason: "channel-lock-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
-	reportLockSignal(pass, channelProbe, check.LockChannelCycle, candidate, proveLockSignal(graph, concurrencyfacts.Send),
-		"receives while holding the lock needed by its sender")
+	if channelCandidate != token.NoPos {
+		joinProbe := analysisTrace.For(pass, "lockorder", string(check.LockAndJoin), channelCandidate)
+		joinProbe.Candidate(analysisTrace.Step{Reason: "lock-join-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: channelCandidate})
+		reportLockSignal(pass, joinProbe, check.LockAndJoin, channelCandidate, proveLockSignal(graph, concurrencyfacts.Close),
+			"waits for a worker that needs the held lock")
+		channelProbe := analysisTrace.For(pass, "lockorder", string(check.LockChannelCycle), channelCandidate)
+		channelProbe.Candidate(analysisTrace.Step{Reason: "channel-lock-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: channelCandidate})
+		reportLockSignal(pass, channelProbe, check.LockChannelCycle, channelCandidate, proveLockSignal(graph, concurrencyfacts.Send),
+			"receives while holding the lock needed by its sender")
+	}
+	if groupCandidate != token.NoPos {
+		reportWaitGroupLockCycle(pass, graph, groupCandidate)
+	}
 }
 
 func reportLockSignal(
