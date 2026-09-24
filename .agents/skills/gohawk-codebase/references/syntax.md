@@ -28,7 +28,7 @@ pass, so every file in that pass is canonical.
 func Builtin(name string) Symbol
 ```
 
-Builtin identifies a predeclared Go function.
+Builtin identifies a Go builtin, including unsafe's compiler intrinsics.
 
 ## CanonicalTestVariant
 

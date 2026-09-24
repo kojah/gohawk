@@ -41,7 +41,7 @@ func PackageMethod(method MethodSymbol) Symbol {
 	return Symbol{kind: symbolMethod, packagePath: method.PackagePath, receiver: method.Receiver, name: method.Name}
 }
 
-// Builtin identifies a predeclared Go function.
+// Builtin identifies a Go builtin, including unsafe's compiler intrinsics.
 func Builtin(name string) Symbol {
 	return Symbol{kind: symbolBuiltin, name: name}
 }

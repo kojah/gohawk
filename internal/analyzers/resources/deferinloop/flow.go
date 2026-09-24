@@ -271,7 +271,9 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 			// A local aggregate whose address never leaves the function
 			// lives no longer than this iteration, so a resource stored in
 			// it, and closed through it, is still iteration-local.
-			if heapmodel.AddressIsUnescapedLocal(store.Addr) {
+			// Result edges end execution rather than reaching the next
+			// iteration. Ask about body retention, not ownership at return.
+			if heapmodel.QueryEscape(store.Addr, heapmodel.EscapeBody).Outcome == heapmodel.EscapeLocal {
 				return false
 			}
 			return heapmodel.MayAlias(store.Val, target) || lifecycle.MayContainValue(store.Val, target)

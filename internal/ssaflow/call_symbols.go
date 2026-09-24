@@ -14,7 +14,13 @@ func CallMatchesSymbol(common *ssa.CallCommon, symbol syntax.Symbol) bool {
 		return false
 	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
-		return symbol.MatchesObject(types.Universe.Lookup(builtin.Name()))
+		object := types.Universe.Lookup(builtin.Name())
+		if object == nil {
+			// unsafe's compiler intrinsics are SSA builtins too, but their
+			// declarations belong to the unsafe package rather than Universe.
+			object = types.Unsafe.Scope().Lookup(builtin.Name())
+		}
+		return symbol.MatchesObject(object)
 	}
 	if common.Method != nil {
 		if symbol.MatchesObject(common.Method) {

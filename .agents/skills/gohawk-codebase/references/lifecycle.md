@@ -696,13 +696,15 @@ calls method on target when invoked: a function literal whose body
 completes the target, a bound method value, or such a callback held in a
 local, passed through a call result, or merged by a phi.
 
-## ValueEscapes
+## ValueHasTransferUse
 
 [Source](../../../../internal/lifecycle/store_transfers.go)
 
 ```go
-func ValueEscapes(value ssa.Value) bool
+func ValueHasTransferUse(value ssa.Value) bool
 ```
 
-ValueEscapes reports whether value is transferred beyond its current
-function through a return, store, send, or escaping closure.
+ValueHasTransferUse recognizes the structural return, field-store, or fluent
+receiver uses supported by the lifecycle transfer policy. It is not a
+confinement proof: false says nothing about opaque retention or other escapes.
+Use heapmodel.QueryEscape when the question is whether an object stays local.

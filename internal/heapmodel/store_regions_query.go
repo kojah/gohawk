@@ -188,26 +188,6 @@ func (graph *regionGraph) contentAtUnlocked(address ssa.Value, at ssa.Instructio
 	return graph.load(state, addresses, address), true
 }
 
-// AddressIsUnescapedLocal reports whether every object the address may
-// select from is a local allocation whose address never leaves the
-// function: not stored anywhere the function does not own, not handed to a
-// call it cannot see through, not captured by a closure that does either.
-// What such an aggregate holds lives no longer than the aggregate itself.
-func AddressIsUnescapedLocal(address ssa.Value) bool {
-	graph := regionsOf(address)
-	defer graph.lock()()
-	set, ok := graph.pointsToUnlocked(address)
-	if !ok {
-		return false
-	}
-	for target := range set {
-		if target.region.kind != regionSite || graph.everEscapedUnlocked(target.region) {
-			return false
-		}
-	}
-	return true
-}
-
 // everContained reports whether some slot beneath the object was ever given
 // one of the target's objects: the aggregate held the target at some point,
 // possibly in another iteration of a loop.
@@ -224,18 +204,6 @@ func (graph *regionGraph) everContainedUnlocked(object slot, target pointees) bo
 				return true
 			}
 			if _, ok := target[pointee]; ok {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// everEscaped reports whether a site's address escaped at any point.
-func (graph *regionGraph) everEscapedUnlocked(site *region) bool {
-	for _, states := range []map[*ssa.BasicBlock]*regionState{graph.entry, graph.exit} {
-		for _, state := range states {
-			if state.escaped[site] {
 				return true
 			}
 		}

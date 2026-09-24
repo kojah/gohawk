@@ -36,20 +36,6 @@ AccessPathOf returns the field and constant-index steps by which value is
 selected beneath root, empty for root itself. A load through an address
 beneath root has the address's path.
 
-## AddressIsUnescapedLocal
-
-[Source](../../../../internal/heapmodel/store_regions_query.go)
-
-```go
-func AddressIsUnescapedLocal(address ssa.Value) bool
-```
-
-AddressIsUnescapedLocal reports whether every object the address may
-select from is a local allocation whose address never leaves the
-function: not stored anywhere the function does not own, not handed to a
-call it cannot see through, not captured by a closure that does either.
-What such an aggregate holds lives no longer than the aggregate itself.
-
 ## AliasDecision
 
 [Source](../../../../internal/heapmodel/alias_decision.go)
@@ -278,6 +264,149 @@ func EffectLess(left, right HeapEffect) bool
 ```
 
 EffectLess orders projected effects deterministically.
+
+## EscapeDestination
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+type EscapeDestination uint8
+```
+
+EscapeDestination identifies the boundary an object may cross.
+
+## EscapeEvent
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+type EscapeEvent struct {
+	Destination	EscapeDestination
+	Instruction	ssa.Instruction
+}
+```
+
+EscapeEvent retains the origin of a possible publication. Instruction's
+control-flow context is preserved; the event is not an unconditional effect.
+Events are representative witnesses, not an exhaustive participant inventory.
+
+## EscapeFunction, EscapeBody
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+const (
+	// EscapeFunction includes returned values and publications during the body.
+	EscapeFunction	EscapeScope	= iota
+	// EscapeBody excludes result edges. It cannot prove confinement beyond a
+	// normal return, but answers whether another participant can retain a local
+	// container during execution, as needed for iteration-local cleanup.
+	EscapeBody
+)
+```
+
+## EscapeOutcome
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+type EscapeOutcome uint8
+```
+
+EscapeOutcome distinguishes local confinement, observed publication, and
+uncertainty. Observed does not mean publication happens on every path.
+
+## EscapeProof
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+type EscapeProof struct {
+	Outcome	EscapeOutcome
+	Reason	EscapeReason
+	Events	[]EscapeEvent
+	Scope	EscapeScope
+}
+```
+
+EscapeProof describes one local allocation site's publication within Scope.
+Unknown may still carry useful events. Only EscapeLocal proves confinement;
+neither Observed nor Unknown discharges a lifecycle obligation.
+
+## EscapeReason
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+type EscapeReason uint8
+```
+
+EscapeReason describes why confinement was established or declined.
+
+## EscapeReason.String
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+func (reason EscapeReason) String() string
+```
+
+String renders a reason only at the diagnostic or observation boundary.
+
+## EscapeScope
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+type EscapeScope uint8
+```
+
+EscapeScope selects the publication boundaries included in the question.
+
+## EscapeToResult, EscapeToGlobal, EscapeToField, EscapeToChannel, EscapeToCall, EscapeToGoroutine, EscapeToOpaqueRepresentation
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+const (
+	EscapeToResult	EscapeDestination	= iota + 1
+	EscapeToGlobal
+	EscapeToField
+	EscapeToChannel
+	EscapeToCall
+	EscapeToGoroutine
+	EscapeToOpaqueRepresentation
+)
+```
+
+## EscapeUnavailable, EscapeIdentityUnknown, EscapeRecorded, EscapeConfined, EscapeOpaqueCall, EscapeReachabilityUnknown, EscapeBudgetExhausted, EscapeRepresentationUnknown
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+const (
+	EscapeUnavailable	EscapeReason	= iota
+	EscapeIdentityUnknown
+	EscapeRecorded
+	EscapeConfined
+	EscapeOpaqueCall
+	EscapeReachabilityUnknown
+	EscapeBudgetExhausted
+	EscapeRepresentationUnknown
+)
+```
+
+## EscapeUnknown, EscapeLocal, EscapeObserved
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+const (
+	EscapeUnknown	EscapeOutcome	= iota
+	EscapeLocal
+	EscapeObserved
+)
+```
 
 ## ExclusiveAt
 
@@ -716,6 +845,22 @@ func ProveMayAlias(value, target ssa.Value) ssaflow.AliasProof
 
 ProveMayAlias asks one function's graph whether two values may name the
 same object. An unavailable graph falls back to the structural value walk.
+
+## QueryEscape
+
+[Source](../../../../internal/heapmodel/escape_query.go)
+
+```go
+func QueryEscape(value ssa.Value, scope EscapeScope) EscapeProof
+```
+
+QueryEscape uses the existing heap graph for identity and escape effects.
+It currently proves confinement only for one exact local allocation site.
+Loop instances share that site: confinement must hold for every instance,
+while an observed event may concern only one of them.
+Foreign identities, opaque calls, unknown contents and bounded-walk cutoffs
+remain unknown. Returns and select sends are queried separately because they
+are result/alternative edges, not unconditional heap escape effects.
 
 ## RegisterHeapSummary
 

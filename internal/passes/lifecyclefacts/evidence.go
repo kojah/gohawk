@@ -303,7 +303,7 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (Proof
 	}
 	if request.ReceiverStore && summarized && factOwnsArgument(request.Instruction, request.Target, fact.ReceiverStore, evidence.probe.Observer()) {
 		receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(request.Instruction))
-		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || lifecycle.ValueEscapes(receiver)) {
+		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || lifecycle.ValueHasTransferUse(receiver)) {
 			return importedProof(reasonReceiverStoreTransfer, requestedMethod(request)), true
 		}
 		return Proof{Proof: ssaflow.Proof{

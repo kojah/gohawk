@@ -583,7 +583,7 @@ func localStorageOnly(instruction ssa.Instruction) bool {
 		return false
 	}
 	local, ok := store.Addr.(*ssa.Alloc)
-	return ok && !lifecycle.ValueEscapes(local) && !capturedByClosure(local)
+	return ok && heapmodel.QueryEscape(local, heapmodel.EscapeFunction).Outcome == heapmodel.EscapeLocal && !capturedByClosure(local)
 }
 
 func capturedByClosure(local *ssa.Alloc) bool {

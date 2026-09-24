@@ -113,11 +113,20 @@ transfer from an opaque escape.
 |---|---|
 | `StoresValueInField`, `StoresValueInGlobal`, `StoresValueInEnclosingScope`, `StoresValueInEscapingField`, `StoresValueInOwnedMap` | where a store puts the value |
 | `StoresOwnerOfValueInField`, `StoresOwnerOfValueInExternalField` | a store of the value's owner |
-| `SendsValue`, `ClosureCapturesValue`, `ValueEscapes`, `ExternallyOwnedValue` | sends, captures, and escapes |
+| `heapmodel.QueryEscape(value, scope)` | structured confinement/escape evidence for a local allocation site, with destinations, origin instructions, and uncertainty |
+| `SendsValue`, `ClosureCapturesValue`, `ValueHasTransferUse`, `ExternallyOwnedValue` | lifecycle-specific transfer uses; absence is not proof of confinement |
 | `CallTransfersValueToField`, `CallTransfersArgumentToReturnedOwner`, `CallTransfersArgumentToReceiver`, `CallTransfersArgumentToLifecycleOwner` | ownership transfer through a call |
 | `ReturnedValueOwnsValue`, `ReturnedMayAliasAny` | does a return carry the value or its owner? |
 | `ClosureBindingPairs` | the captured variables of a closure paired with the values supplied for them |
 | `CapturedBindingValue`, `CapturedBindingMatches` | inspect one captured binding |
+
+Choose the escape scope explicitly. `EscapeFunction` includes result edges;
+`EscapeBody` excludes them and cannot prove confinement beyond a normal return.
+The latter supports iteration-local container checks. Events are may-path
+observations, not unconditional effects or accepted cleanup obligations.
+Only `EscapeLocal` proves confinement within the selected scope. Opaque calls,
+foreign or merged identities, unknown contents, and budget cutoffs remain
+unknown; do not convert them into ownership transfers.
 
 ## Which call is this?
 

@@ -111,7 +111,10 @@ itself does not change.
   and application at call sites. `heapmodel.Storage` combines reaching-write
   and graph evidence without making unknown contents or truncated summaries
   into negative proofs. Consumers access its queries directly, not through
-  forwarding wrappers in `lifecycle`.
+  forwarding wrappers in `lifecycle`. `QueryEscape` reads that same graph to
+  distinguish confinement within an explicit scope, possible publication, and
+  unknown evidence. Escape destinations never establish cleanup ownership;
+  interpreting a transfer remains lifecycle policy.
 - `internal/resourcemodel` proves exact owner-to-resource relationships over
   the existing heap/storage model and tracks a comparable per-path resource
   obligation. External API contracts can establish state transitions through

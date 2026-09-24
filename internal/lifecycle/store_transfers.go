@@ -142,9 +142,11 @@ func storesParameterInReceiverField(candidate ssa.Instruction, receiver, paramet
 	return heapmodel.ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) || MayContainValue(store.Val, parameter)
 }
 
-// ValueEscapes reports whether value is transferred beyond its current
-// function through a return, store, send, or escaping closure.
-func ValueEscapes(value ssa.Value) bool {
+// ValueHasTransferUse recognizes the structural return, field-store, or fluent
+// receiver uses supported by the lifecycle transfer policy. It is not a
+// confinement proof: false says nothing about opaque retention or other escapes.
+// Use heapmodel.QueryEscape when the question is whether an object stays local.
+func ValueHasTransferUse(value ssa.Value) bool {
 	return valueTransferred(value, map[ssa.Value]bool{})
 }
 
