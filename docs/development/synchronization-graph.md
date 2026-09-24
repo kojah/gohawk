@@ -380,3 +380,31 @@ completed in 6m48.74s. Validation overlapped both scans, so these are not
 controlled performance comparisons. The cutoff change passed `make verify`;
 the race-enabled lock recursion timing test exceeded its deadline under load
 but passed in an isolated four-core rerun without changing its threshold.
+
+### Detached recovery and root results rerun
+
+Commit `77eff78` treats a function's detached recovery block as dead once
+every deferred call is a proven release. It also lets a root summary return
+references and read package variables. The same pins and four checks were
+rerun with a binary of that change (SHA-256
+`c1d2e69fb9ee7455e82f1320175145eadde53e11b598dd5b9ec173f46bcfcedd`); traces
+are in `.build/sync-controlflow-2026-09-24`.
+
+Neither repository produced a diagnostic, and no candidate reached a cycle
+decision. Control flow is no longer the most common first blocker for the
+lock/signal checks. The table counts raw decision events per lock/signal
+check, without the deduplication used above:
+
+| Lock-and-join first blocker | Moby before | Moby after | Kubernetes before | Kubernetes after |
+| --- | ---: | ---: | ---: | ---: |
+| Control flow | 63 | 24 | 79 | 26 |
+| Load | 31 | 44 | 16 | 36 |
+| Effect | 23 | 44 | 18 | 41 |
+| Unavailable body | 5 | 12 | 6 | 18 |
+
+The blocked summaries now stop later, mostly at receiver-field loads and
+opaque calls. Most of these roots are methods whose mutex is receiver state,
+which the freshness requirement rejects even with a complete summary. This
+change moves the first blocker; it is not evidence of new bug detection.
+Moby's scan had no test-loading errors this time. Both scans ran on warm build
+caches, so their wall times are not comparable with the runs above.
