@@ -1,4 +1,9 @@
-# Resource test performance investigation
+---
+title: Resource test performance investigation
+description: Baseline measurements of resource analyzer test runtime.
+# Internal measurement notes, kept off the published site.
+draft: true
+---
 
 Status: baseline investigation and binary publication measurements. Broader
 performance work is tracked by `gohawk-rey`; codec work by `gohawk-a1h`.

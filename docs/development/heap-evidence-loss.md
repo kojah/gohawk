@@ -1,4 +1,9 @@
-# Heap evidence loss: pinned sample, 2026-09-24
+---
+title: "Heap evidence loss: pinned sample, 2026-09-24"
+description: Pinned measurements of where cached heap evidence is lost.
+# Internal measurement notes, kept off the published site.
+draft: true
+---
 
 This measures evidence boundaries, **not missed bugs**. Both scoped scans
 completed with exit status 0, empty stderr, and valid diagnostic JSON `{}`.
