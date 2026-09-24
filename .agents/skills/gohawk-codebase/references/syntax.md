@@ -18,7 +18,8 @@ func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool
 AnalyzeFile reports whether file is the canonical copy to analyze. Package-
 loading drivers commonly analyze production files once normally and again in
 a test variant. Other drivers expose the augmented test variant as their only
-pass, so every file in that pass is canonical.
+pass, so every file in that pass is canonical. Test files are analyzed only
+when the test-file option is set.
 
 ## Builtin
 
@@ -56,6 +57,18 @@ packagePath. It answers the package-level question a contract catalog
 asks, "is this API one of the package's I model?", without a caller
 reconstructing identity from raw package paths.
 
+## ExcludedTestFile
+
+[Source](../../../../internal/syntax/source.go)
+
+```go
+func ExcludedTestFile(pass *analysis.Pass, file *ast.File) bool
+```
+
+ExcludedTestFile reports whether file is a test file the option leaves out.
+Whole-package inventories, which read every file rather than only the
+canonical copy, use it to skip test code.
+
 ## ExpressionUsesObject
 
 [Source](../../../../internal/syntax/syntax.go)
@@ -75,6 +88,16 @@ func GeneratedFile(file *ast.File) bool
 ```
 
 GeneratedFile reports whether file carries Go's generated-file marker.
+
+## IncludeTestFiles
+
+[Source](../../../../internal/syntax/source.go)
+
+```go
+func IncludeTestFiles() bool
+```
+
+IncludeTestFiles reports whether test files are analyzed.
 
 ## IsErrorType
 
@@ -140,6 +163,16 @@ func PackageVariable(packagePath, name string) Symbol
 ```
 
 PackageVariable identifies a package-level variable.
+
+## RegisterTestFlag
+
+[Source](../../../../internal/syntax/source.go)
+
+```go
+func RegisterTestFlag(flags *flag.FlagSet)
+```
+
+RegisterTestFlag adds the test-file option to the driver's flag set.
 
 ## ShortPackageName
 

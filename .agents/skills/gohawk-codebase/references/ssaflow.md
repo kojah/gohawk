@@ -1435,6 +1435,18 @@ type OwnershipTransferProof struct{ Proof }
 OwnershipTransferProof records evidence that an obligation moved to an
 owner accepted by an analyzer.
 
+## PackageFunctions
+
+[Source](../../../../internal/ssaflow/call_metadata.go)
+
+```go
+func PackageFunctions(pass *analysis.Pass) []*ssa.Function
+```
+
+PackageFunctions returns every source function of the package outside
+excluded test files, for inventories that must see all of the package's
+code rather than only the canonical copy SourceSSAFunctions selects.
+
 ## PathGuard
 
 [Source](../../../../internal/ssaflow/flow_guards.go)
