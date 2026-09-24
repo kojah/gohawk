@@ -1,5 +1,12 @@
 # Precision audits
 
+New overnight audit: [batch 58](batch-58.md) records the third 250 of the
+September 24 target of 1,000 fresh pinned repositories. All 467 original
+findings have source verdicts (317 TP, 150 FP); 174 scans completed and 76
+were incomplete. The experimental `nilargument` check produced 88 FP and no
+TP in this tranche. Incomplete scans are not clean; the frozen baseline is
+separate from later analyzer corrections.
+
 New overnight audit: [batch 57](batch-57.md) records the second 250 of the
 September 24 target of 1,000 fresh pinned repositories. All 314 original
 findings have source verdicts (199 TP, 115 FP); 205 scans completed and 45
