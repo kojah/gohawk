@@ -102,6 +102,10 @@ func potentialChannelCycleRoot(function *ssa.Function) token.Pos {
 			switch instruction := instruction.(type) {
 			case *ssa.Go:
 				launched = true
+			case *ssa.Call:
+				// A direct helper may launch a child through a complete summary.
+				// This is only a cheap candidate filter, not a launch claim.
+				launched = launched || instruction.Common().StaticCallee() != nil
 			case *ssa.MakeChan:
 				channels++
 			case *ssa.Send:
@@ -160,7 +164,7 @@ func findChannelCycleWorkers(
 ) (syncgraph.SyncEvent, syncgraph.SyncEvent, channelCycleProof) {
 	var witnessFirst, witnessSecond syncgraph.SyncEvent
 	for _, child := range children {
-		if child.Spawn == nil || child.Prefix != 0 {
+		if !child.LaunchKnown() || child.Prefix != 0 {
 			return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
 				channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-spawn-order-unknown"}
 		}

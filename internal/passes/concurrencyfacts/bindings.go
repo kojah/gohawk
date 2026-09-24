@@ -40,6 +40,11 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		op.Resource, op.Site = resource, instruction.Pos()
 		result.Operations = append(result.Operations, op)
 	}
+	workers, reason := engine.bindWorkers(callee.Workers, bindings, instruction)
+	if reason != "" {
+		return Summary{Reason: reason}
+	}
+	result.Workers = workers
 	for _, choice := range callee.Choices {
 		// A select's arm sequence is a separate complete path, not another
 		// unconditional effect. Bind every resource on every arm before the
@@ -78,6 +83,23 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		result.Choices = append(result.Choices, bound)
 	}
 	return result
+}
+
+func (engine *Engine) bindWorkers(
+	workers []WorkerSummary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
+) ([]WorkerSummary, string) {
+	if len(workers) > maxWorkers {
+		return nil, "protocol-participants-unknown"
+	}
+	bound := make([]WorkerSummary, 0, len(workers))
+	for _, worker := range workers {
+		child, reason := engine.bindWorker(worker, bindings, instruction)
+		if reason != "" {
+			return nil, reason
+		}
+		bound = append(bound, child)
+	}
+	return bound, ""
 }
 
 func (engine *Engine) bind(

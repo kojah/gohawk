@@ -57,8 +57,13 @@ type SyncEdge struct {
 type SyncChild struct {
 	Events []SyncEvent
 	Spawn  *ssa.Go
+	Site   token.Pos
 	Prefix int
 }
+
+// LaunchKnown reports whether this child was instantiated from an exact
+// launch, either locally or from a parameter-relative imported fact.
+func (child SyncChild) LaunchKnown() bool { return child.Spawn != nil || child.Site.IsValid() }
 
 // SyncArm is a possible select communication, or a default path with no
 // communication. Arms in one choice are mutually exclusive.
@@ -117,10 +122,10 @@ func FromSummary(summary concurrencyfacts.Summary) SyncGraph {
 	}
 	graph.addOrder(graph.Parent)
 	for index, worker := range summary.Workers {
-		if worker.Spawn == nil || worker.Prefix < 0 || worker.Prefix > len(graph.Parent) {
+		if worker.Spawn == nil && !worker.Site.IsValid() || worker.Prefix < 0 || worker.Prefix > len(graph.Parent) {
 			return SyncGraph{Reason: "syncgraph-invalid-spawn-prefix"}
 		}
-		child := SyncChild{Spawn: worker.Spawn, Prefix: worker.Prefix}
+		child := SyncChild{Spawn: worker.Spawn, Site: worker.Site, Prefix: worker.Prefix}
 		for _, operation := range worker.Operations {
 			child.Events = append(child.Events, event(nextID, GoroutineID(index+1), operation))
 			nextID++

@@ -52,3 +52,62 @@ func unknown(a chan int, callback func()) { go signal(a); go callback() }
 		t.Fatalf("budget-cut root retained children: %+v", got)
 	}
 }
+
+func TestMutexPointerCaptureIsNotStateCopy(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "mutexlaunch", `package mutexlaunch
+import "sync"
+func Spawn(a *sync.Mutex) { go func(){ a.Lock(); a.Unlock() }() }
+func Copy(a *sync.Mutex) { b := *a; go func(){ b.Lock(); b.Unlock() }() }
+func Mutable(a, b *sync.Mutex) { p := a; go func(){ p.Lock(); p.Unlock() }(); p = b; _ = p }
+`)
+	got := NewEngine().Function(pkg.Func("Spawn"), ssaflow.NewSearchBudget(2000))
+	if got.Completeness() != CompleteWithEffects || len(got.Workers) != 1 || len(got.Workers[0].Operations) != 2 {
+		t.Fatalf("pointer capture = %+v", got)
+	}
+	for i, kind := range []Kind{Lock, Unlock} {
+		if op := got.Workers[0].Operations[i]; op.Kind != kind || op.Resource.Value != pkg.Func("Spawn").Params[0] {
+			t.Errorf("worker operation %d = %+v", i, op)
+		}
+	}
+	for _, name := range []string{"Copy", "Mutable"} {
+		if result := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(2000)); result.Complete() {
+			t.Errorf("%s should remain unknown: %+v", name, result)
+		}
+	}
+}
+
+func TestHelperLaunchesComposeAsDistinctChildren(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "helperlaunch", `package helperlaunch
+func launch(ch chan int) { go func() { close(ch) }() }
+func forward(ch chan int) { launch(ch) }
+func two(a, b chan int) { forward(a); forward(b) }
+func conditional(a chan int, run bool) { if run { forward(a) } }
+func loop(a chan int) { for i := 0; i < 2; i++ { forward(a) } }
+func five(a, b, c, d, e chan int) {
+ launch(a)
+ launch(b)
+ launch(c)
+ launch(d)
+ launch(e)
+}
+`)
+	function := pkg.Func("two")
+	got := NewEngine().Root(function, ssaflow.NewSearchBudget(2000))
+	if !got.Complete() || len(got.Workers) != 2 {
+		t.Fatalf("two helper launches = %+v", got)
+	}
+	for index, worker := range got.Workers {
+		if !worker.Site.IsValid() || len(worker.Operations) != 1 || worker.Operations[0].Kind != Close ||
+			worker.Operations[0].Resource.Value != function.Params[index] {
+			t.Errorf("worker %d = %+v", index, worker)
+		}
+	}
+	if got.Workers[0].Site == got.Workers[1].Site {
+		t.Error("separate helper calls must retain distinct launch sites")
+	}
+	for _, name := range []string{"conditional", "loop", "five"} {
+		if result := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); result.Complete() {
+			t.Errorf("%s should remain unknown: %+v", name, result)
+		}
+	}
+}

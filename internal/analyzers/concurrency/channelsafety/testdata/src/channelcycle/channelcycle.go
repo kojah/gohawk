@@ -1,5 +1,7 @@
 package channelcycle
 
+import "channelcyclehelper"
+
 func bothSendFirst() {
 	a := make(chan int)
 	b := make(chan int)
@@ -103,6 +105,47 @@ func equivalentSelectArmsCannotUnblock() {
 		}
 		<-a
 	}()
+	a <- 1 // want "two goroutines wait on each other's later channel operation"
+	<-b
+}
+
+func importedLaunchCreatesChild() {
+	a := make(chan int)
+	b := make(chan int)
+	channelcyclehelper.Launch(b, a)
+	a <- 1 // want "two goroutines wait on each other's later channel operation"
+	<-b
+}
+
+func forwardedLaunchCreatesChild() {
+	a := make(chan int)
+	b := make(chan int)
+	channelcyclehelper.Forward(b, a)
+	a <- 1 // want "two goroutines wait on each other's later channel operation"
+	<-b
+}
+
+func optionalHelperLaunchIsUnknown(run bool) {
+	a := make(chan int)
+	b := make(chan int)
+	channelcyclehelper.MaybeLaunch(b, a, run)
+	a <- 1
+	<-b
+}
+
+func loopedHelperLaunchIsUnknown(count int) {
+	a := make(chan int)
+	b := make(chan int)
+	channelcyclehelper.LaunchInLoop(b, a, count)
+	a <- 1
+	<-b
+}
+
+func separateCallsCreateSeparateChildren() {
+	a := make(chan int)
+	b := make(chan int)
+	channelcyclehelper.Launch(b, a)
+	channelcyclehelper.Launch(b, a)
 	a <- 1 // want "two goroutines wait on each other's later channel operation"
 	<-b
 }

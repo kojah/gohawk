@@ -114,7 +114,7 @@ The returned effect slice is detached from the cached publication.
 func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
 ```
 
-Function summarizes a visible body without allowing nested launches.
+Function summarizes a visible body, including bounded child templates.
 
 ## Engine.Root
 
@@ -134,6 +134,7 @@ Root collects a caller and at most maxWorkers children under one shared work bud
 type Fact struct {
 	Version	int
 	Effects	[]Effect
+	Workers	[]WorkerEffect
 }
 ```
 
@@ -321,8 +322,8 @@ Summary is the ordered synchronization effect of one function or call.
 Consumers decide on Completeness, never on the shape of Operations alone:
 an empty operation list is evidence only when the summary is complete.
 Reason explains an incomplete summary and is stable trace vocabulary.
-Returned slices are immutable. Workers are recorded only by a root query;
-ordinary function and exported summaries remain synchronous effects.
+Returned slices are immutable. Workers are symbolic child templates until a
+root binds them to call sites; they are never synchronous effects.
 
 ## Summary.Complete
 
@@ -346,6 +347,21 @@ func (summary Summary) Completeness() Completeness
 Completeness classifies the summary for its consumers. It is derived from
 the same fields the builder writes, so it cannot disagree with Reason.
 
+## WorkerEffect
+
+[Source](../../../../internal/passes/concurrencyfacts/facts.go)
+
+```go
+type WorkerEffect struct {
+	Effects	[]Effect
+	Prefix	int
+}
+```
+
+WorkerEffect is one exact child launch with effects on the declaration's
+formal parameters. Prefix counts synchronous effects before the launch;
+each call instantiates a separate child with its own call-site identity.
+
 ## WorkerSummary
 
 [Source](../../../../internal/passes/concurrencyfacts/summary.go)
@@ -355,6 +371,7 @@ type WorkerSummary struct {
 	Operations	[]Operation
 	Alternatives	[][]Operation
 	Spawn		*ssa.Go
+	Site		token.Pos
 	Prefix		int
 }
 ```

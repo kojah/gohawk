@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	factVersion  = 3
+	factVersion  = 4
 	exportBudget = 2000
 )
 
@@ -30,10 +30,19 @@ type Effect struct {
 	Fields    []int
 }
 
+// WorkerEffect is one exact child launch with effects on the declaration's
+// formal parameters. Prefix counts synchronous effects before the launch;
+// each call instantiates a separate child with its own call-site identity.
+type WorkerEffect struct {
+	Effects []Effect
+	Prefix  int
+}
+
 // Fact records a complete sequence, including a proven empty sequence.
 type Fact struct {
 	Version int
 	Effects []Effect
+	Workers []WorkerEffect
 }
 
 // AFact marks the versioned concurrency summary for go/analysis serialization.
@@ -87,30 +96,50 @@ func run(pass *analysis.Pass) (any, error) {
 
 func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 	fact := Fact{Version: factVersion}
-	if !result.Complete() || len(result.Workers) != 0 || len(result.deferred) != 0 {
+	if !result.Complete() || len(result.Workers) > maxWorkers || len(result.deferred) != 0 ||
+		result.operationCount() > maxOperations {
 		return fact, false
 	}
 	for _, operation := range result.Operations {
-		resource := operation.Resource
-		path, projected := embeddedPath(resource.Value)
-		index := -1
-		for i, parameter := range function.Params {
-			if !resource.Indirect && (parameter == resource.Value ||
-				projected && parameter == path.Root && MutexPointer(resource.Value.Type())) {
-				index = i
-				break
-			}
-		}
-		if index < 0 {
+		effect, ok := exportEffect(function, operation)
+		if !ok {
 			return fact, false
+		}
+		fact.Effects = append(fact.Effects, effect)
+	}
+	for _, worker := range result.Workers {
+		if len(worker.Alternatives) != 0 || worker.Prefix < 0 || worker.Prefix > len(fact.Effects) ||
+			worker.Spawn == nil && !worker.Site.IsValid() {
+			return Fact{Version: factVersion}, false
+		}
+		entry := WorkerEffect{Prefix: worker.Prefix}
+		for _, operation := range worker.Operations {
+			effect, ok := exportEffect(function, operation)
+			if !ok {
+				return Fact{Version: factVersion}, false
+			}
+			entry.Effects = append(entry.Effects, effect)
+		}
+		fact.Workers = append(fact.Workers, entry)
+	}
+	return fact, true
+}
+
+func exportEffect(function *ssa.Function, operation Operation) (Effect, bool) {
+	resource := operation.Resource
+	path, projected := embeddedPath(resource.Value)
+	for index, parameter := range function.Params {
+		if resource.Indirect || parameter != resource.Value &&
+			(!projected || parameter != path.Root || !MutexPointer(resource.Value.Type())) {
+			continue
 		}
 		effect := Effect{Kind: operation.Kind, Parameter: index}
 		if projected && path.Depth > 0 {
 			effect.Fields = append([]int(nil), path.Fields[:path.Depth]...)
 		}
-		fact.Effects = append(fact.Effects, effect)
+		return effect, true
 	}
-	return fact, true
+	return Effect{}, false
 }
 
 func (engine *Engine) importedCall(call ssa.CallInstruction, function *ssa.Function) Summary {
@@ -128,28 +157,49 @@ func (engine *Engine) importedCall(call ssa.CallInstruction, function *ssa.Funct
 
 func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summary {
 	unknown := Summary{Reason: "protocol-body-unavailable"}
-	if fact.Version != factVersion || len(fact.Effects) > maxOperations {
+	if fact.Version != factVersion || len(fact.Effects) > maxOperations || len(fact.Workers) > maxWorkers {
 		return unknown
 	}
 	var result Summary
 	for _, effect := range fact.Effects {
-		if !engine.budget.Spend() {
-			return Summary{Reason: "protocol-budget-exhausted"}
-		}
-		if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > CondWait {
-			return unknown
-		}
-		value := call.Common().Args[effect.Parameter]
-		if len(effect.Fields) > 0 {
-			var found bool
-			value, found = engine.importedField(call, value, effect.Fields)
-			if !found || effect.Kind != Lock && effect.Kind != Unlock {
-				return Summary{Reason: "protocol-field-binding-unknown"}
-			}
-		}
-		if reason := engine.appendOperation(&result, effect.Kind, value, call.Pos()); reason != "" {
+		if reason := engine.bindEffect(&result, call, effect); reason != "" {
 			return Summary{Reason: reason}
 		}
 	}
+	for _, entry := range fact.Workers {
+		if entry.Prefix < 0 || entry.Prefix > len(result.Operations) {
+			return unknown
+		}
+		worker := WorkerSummary{Prefix: entry.Prefix, Site: call.Pos()}
+		for _, effect := range entry.Effects {
+			var effects Summary
+			if reason := engine.bindEffect(&effects, call, effect); reason != "" {
+				return Summary{Reason: reason}
+			}
+			worker.Operations = append(worker.Operations, effects.Operations[0])
+		}
+		result.Workers = append(result.Workers, worker)
+	}
+	if result.operationCount() > maxOperations {
+		return Summary{Reason: "protocol-summary-limit"}
+	}
 	return result
+}
+
+func (engine *Engine) bindEffect(result *Summary, call ssa.CallInstruction, effect Effect) string {
+	if !engine.budget.Spend() {
+		return "protocol-budget-exhausted"
+	}
+	if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > CondWait {
+		return "protocol-body-unavailable"
+	}
+	value := call.Common().Args[effect.Parameter]
+	if len(effect.Fields) > 0 {
+		var found bool
+		value, found = engine.importedField(call, value, effect.Fields)
+		if !found || effect.Kind != Lock && effect.Kind != Unlock {
+			return "protocol-field-binding-unknown"
+		}
+	}
+	return engine.appendOperation(result, effect.Kind, value, call.Pos())
 }

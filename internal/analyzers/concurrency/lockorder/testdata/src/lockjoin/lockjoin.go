@@ -30,6 +30,35 @@ func blockedImported() {
 	mu.Unlock()
 }
 
+func launchWorker(mu *sync.Mutex, done chan<- struct{}) { go worker(mu, done) }
+
+func blockedThroughHelper() {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	mu.Lock()
+	launchWorker(&mu, done)
+	<-done // want "waits for a worker that needs the held lock"
+	mu.Unlock()
+}
+
+func blockedThroughImportedHelper() {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	mu.Lock()
+	lockjoinhelper.Launch(&mu, done)
+	<-done // want "waits for a worker that needs the held lock"
+	mu.Unlock()
+}
+
+func releasedBeforeHelperWait() {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	mu.Lock()
+	launchWorker(&mu, done)
+	mu.Unlock()
+	<-done
+}
+
 // Releasing before the wait allows the worker to acquire the mutex.
 func releasedBeforeWait() {
 	var mu sync.Mutex

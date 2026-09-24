@@ -47,6 +47,9 @@ func potentialWaitGroupLockRoot(function *ssa.Function) token.Pos {
 			case *ssa.Go:
 				launch = true
 			case *ssa.Call:
+				if instruction.Common().StaticCallee() != nil {
+					launch = true // A complete callee summary decides whether it actually launches.
+				}
 				if effect, known := directMutexEffect(instruction); known && effect.operation == mutexAcquire {
 					lock = true
 				}
@@ -140,7 +143,7 @@ func findCountedWorkers(
 ) (syncgraph.SyncEvent, syncgraph.SyncEvent, waitGroupCycleProof) {
 	var witnessLock, witnessDone syncgraph.SyncEvent
 	for index, child := range children {
-		if child.Spawn == nil || child.Prefix != len(children)+1 || len(child.Events) != 3 {
+		if !child.LaunchKnown() || child.Prefix != len(children)+1 || len(child.Events) != 3 {
 			return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
 				waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-worker-effects-unknown"}
 		}

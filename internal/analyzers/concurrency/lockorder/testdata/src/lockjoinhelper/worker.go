@@ -14,3 +14,7 @@ func Finish(mu *sync.Mutex, done chan<- struct{}) {
 	mu.Unlock()
 	close(done)
 }
+
+func Launch(mu *sync.Mutex, done chan<- struct{}) {
+	go Finish(mu, done)
+}

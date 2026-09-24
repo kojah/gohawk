@@ -627,20 +627,23 @@ The deferred stack reverses helper registration order without reversing the
 events inside a helper. Acquisition, communication, incomplete effects, and
 unstable captured bindings still prevent a deferred summary.
 
-Its versioned `Fact` serializes event kinds and formal parameter positions,
-with the receiver at position zero. A complete empty fact is positive evidence
+Its versioned `Fact` serializes event kinds, formal parameter positions, and
+up to four parameter-relative child-launch templates, with the receiver at
+position zero. A complete empty fact is positive evidence
 of no supported synchronization effects, not the fallback for a missing fact.
 Only complete summaries with exportable identities are exported. Acyclic
 branches merge only with identical ordered effects and pending defers; each
 block is visited once, without path enumeration or conditional summaries.
-Divergent branches, opaque calls, nested launches, resource escapes, local resource
-allocations, captured resources, recursion, and exhausted budgets make export
-unavailable. Facts do not encode arbitrary conditions or schedules.
+Divergent branches, opaque calls, launches within a worker, resource escapes,
+local resource allocations, unexportable captured resources, recursion, and
+exhausted budgets make export unavailable. Facts do not encode arbitrary
+conditions or schedules.
 
-Imported events are bound to exact actual arguments and retain their order.
-Evidence from a dependency is attributed to the importing call site; token
-positions and SSA pointers are never serialized. Transitive exports remap the
-effects to the forwarding function's own parameters. Version 2 also exports
+Imported events and child templates are bound to exact actual arguments and
+retain their order. Each call instantiates a separate child; the launch site is
+the importing call site. Token positions and SSA pointers are never serialized.
+Transitive exports remap the effects to the forwarding function's own parameters.
+Version 2 also exports
 embedded mutex field paths, up to eight fields deep. Binding requires an exact
 existing caller address. Mutable pointer-field dereferences, concrete global
 identities, and local allocation identities are not exported. Whole-owner

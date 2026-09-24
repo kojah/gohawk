@@ -100,7 +100,8 @@ func trivialRecovery(function *ssa.Function) bool {
 func sameEffects(first, second Summary) bool {
 	sameOperation := func(a, b Operation) bool { return a.Kind == b.Kind && a.Resource == b.Resource }
 	sameWorker := func(a, b WorkerSummary) bool {
-		return a.Spawn == b.Spawn && a.Prefix == b.Prefix && slices.EqualFunc(a.Operations, b.Operations, sameOperation) &&
+		return a.Spawn == b.Spawn && a.Site == b.Site && a.Prefix == b.Prefix &&
+			slices.EqualFunc(a.Operations, b.Operations, sameOperation) &&
 			slices.EqualFunc(a.Alternatives, b.Alternatives, func(x, y []Operation) bool {
 				return slices.EqualFunc(x, y, sameOperation)
 			})

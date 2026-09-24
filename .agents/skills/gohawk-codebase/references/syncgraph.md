@@ -144,6 +144,7 @@ communication. Arms in one choice are mutually exclusive.
 type SyncChild struct {
 	Events	[]SyncEvent
 	Spawn	*ssa.Go
+	Site	token.Pos
 	Prefix	int
 }
 ```
@@ -151,6 +152,17 @@ type SyncChild struct {
 SyncChild preserves one child's ordered effects and launch point. Prefix
 counts parent events before the launch; different children never inherit
 program order merely because their launch sites are ordered.
+
+## SyncChild.LaunchKnown
+
+[Source](../../../../internal/syncgraph/graph.go)
+
+```go
+func (child SyncChild) LaunchKnown() bool
+```
+
+LaunchKnown reports whether this child was instantiated from an exact
+launch, either locally or from a parameter-relative imported fact.
 
 ## SyncChoice
 

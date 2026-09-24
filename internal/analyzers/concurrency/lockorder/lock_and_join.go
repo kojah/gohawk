@@ -109,6 +109,9 @@ func potentialLockJoinRoot(function *ssa.Function) token.Pos {
 					wait = instruction.Pos()
 				}
 			case *ssa.Call:
+				if instruction.Common().StaticCallee() != nil {
+					launches++ // A complete callee summary decides whether it actually launches.
+				}
 				effect, known := directMutexEffect(instruction)
 				lock = lock || known && effect.operation == mutexAcquire
 			}
@@ -139,7 +142,7 @@ func findLockSignalParent(graph syncgraph.SyncGraph) (lockSignalCandidate, lockS
 		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-shape-not-matched"}
 	}
 	for _, child := range graph.Children {
-		if child.Spawn == nil || child.Prefix != 1 {
+		if !child.LaunchKnown() || child.Prefix != 1 {
 			return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-spawn-order-unknown"}
 		}
 	}

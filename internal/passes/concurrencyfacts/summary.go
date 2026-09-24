@@ -73,8 +73,8 @@ type SelectChoice struct {
 // Consumers decide on Completeness, never on the shape of Operations alone:
 // an empty operation list is evidence only when the summary is complete.
 // Reason explains an incomplete summary and is stable trace vocabulary.
-// Returned slices are immutable. Workers are recorded only by a root query;
-// ordinary function and exported summaries remain synchronous effects.
+// Returned slices are immutable. Workers are symbolic child templates until a
+// root binds them to call sites; they are never synchronous effects.
 type Summary struct {
 	Operations []Operation
 	deferred   []Operation
@@ -93,6 +93,7 @@ type WorkerSummary struct {
 	Operations   []Operation
 	Alternatives [][]Operation
 	Spawn        *ssa.Go
+	Site         token.Pos
 	Prefix       int
 }
 
@@ -167,7 +168,7 @@ func (engine *Engine) query(budget *ssaflow.SearchBudget) *Engine {
 	return &Engine{summaries: engine.summaries, facts: engine.facts, budget: budget, storage: ssainfer.NewStorage(budget)}
 }
 
-// Function summarizes a visible body without allowing nested launches.
+// Function summarizes a visible body, including bounded child templates.
 func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
@@ -250,13 +251,7 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 	case *ssa.Select:
 		return engine.appendSelect(result, instruction)
 	case *ssa.Call:
-		called := engine.callSummary(instruction)
-		for _, choice := range called.Choices {
-			choice.Prefix += len(result.Operations)
-			result.Choices = append(result.Choices, choice)
-		}
-		result.Operations = append(result.Operations, called.Operations...)
-		return called.Reason
+		return engine.appendCall(result, instruction)
 	case *ssa.Defer:
 		return engine.deferCompletion(result, instruction)
 	case *ssa.RunDefers:
@@ -265,7 +260,7 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 		}
 		result.deferred = nil
 	case *ssa.Go:
-		return engine.appendGo(result, instruction, root)
+		return engine.appendGo(result, instruction)
 	default:
 		return passiveInstruction(instruction, root)
 	}
@@ -326,8 +321,11 @@ func passiveInstruction(instruction ssa.Instruction, root bool) string {
 	case *ssa.Store:
 		// A fresh group's zero state is part of the counter proof. Resetting
 		// or copying it invalidates that proof, even through a local address.
-		if localAddress(instruction.Addr) && !containsSynchronization(instruction.Val.Type()) &&
-			!synchronizationPointer(instruction.Addr.Type()) {
+		// Spilling a *pointer* to a primitive into a local closure cell does
+		// not copy the primitive; binding later proves the cell is stable.
+		if localSynchronizationPointerStore(instruction) ||
+			localAddress(instruction.Addr) && !containsSynchronization(instruction.Val.Type()) &&
+				!synchronizationPointer(instruction.Addr.Type()) {
 			return ""
 		}
 	case *ssa.ChangeType:
@@ -350,6 +348,14 @@ func passiveInstruction(instruction ssa.Instruction, root bool) string {
 	// This whitelist is also the scope-completeness proof: no unmodelled
 	// call, publication, launch, panic, or blocking action is skipped.
 	return "protocol-effect-unknown"
+}
+
+func localSynchronizationPointerStore(store *ssa.Store) bool {
+	if !localAddress(store.Addr) {
+		return false
+	}
+	pointer, ok := store.Addr.Type().Underlying().(*types.Pointer)
+	return ok && synchronizationPointer(pointer.Elem())
 }
 
 // Empty protocol effects require positive evidence for every instruction, not

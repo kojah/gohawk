@@ -26,12 +26,14 @@ graphs; a consumer must prove its property on every one. The ordinary
 cannot accidentally treat its arms as simultaneous events. Only the channel
 dependency-cycle check currently consumes these alternatives. Launches hidden
 inside helpers, nested selects, unrelated branch conditions, and cross-package
-select continuations remain unknown.
+select continuations remain unknown. Complete straight-line helper launches
+can compose into a caller, including through parameter-relative imported
+facts. A launch within a worker remains unknown.
 
 The experimental lock-and-join and channel/lock-cycle proofs consume a
 parent/children fragment through `internal/syncgraph`. The fragment has
 `SyncEvent` nodes and separate program-order, spawn-order, and proven blocking
-dependency edges. A root summary tracks up to four statically launched
+dependency edges. A root summary tracks up to four statically known
 children, each with its own identity, spawn point, and ordered effects. Both
 checks require a fresh local mutex and channel, and a complete sequence in
 which every child able to signal the waited-for channel must first acquire the
@@ -39,7 +41,8 @@ mutex held by the parent. A child that could release that mutex or signal
 without acquiring it makes the proof inconclusive. The channel/lock check
 additionally requires a statically unbuffered channel. A fifth launch,
 divergent effects, loops, launches outside the lock-to-wait interval, and
-opaque calls remain inconclusive.
+opaque calls remain inconclusive. A helper call counts as a launch only when
+its complete summary proves an exact child template.
 
 ## Intended graph contract
 

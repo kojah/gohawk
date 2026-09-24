@@ -7,6 +7,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
+	"golang.org/x/tools/go/ssa"
 )
 
 func TestImportedEffects(t *testing.T) {
@@ -36,7 +37,10 @@ func TestImportedEffects(t *testing.T) {
 						}
 					}
 					checked++
-				case "opaque", "conditional", "spawning", "localOnly":
+				case "spawning":
+					assertImportedWorker(t, function, engine.Function(function, ssaflow.NewSearchBudget(2000)))
+					checked++
+				case "opaque", "conditional", "localOnly":
 					result := engine.Function(function, ssaflow.NewSearchBudget(2000))
 					if result.Completeness() != Incomplete || result.Complete() || result.Reason == "" {
 						t.Errorf("%s unexpectedly complete: %+v", function, result)
@@ -57,4 +61,18 @@ func TestImportedEffects(t *testing.T) {
 		},
 	}
 	analysistest.Run(t, analysistest.TestData(), consumer, "consumer")
+}
+
+func assertImportedWorker(t *testing.T, function *ssa.Function, result Summary) {
+	t.Helper()
+	if result.Completeness() != CompleteWithEffects || len(result.Workers) != 1 ||
+		len(result.Workers[0].Operations) != 2 {
+		t.Errorf("imported child launch = %+v", result)
+		return
+	}
+	for i, kind := range []Kind{Lock, Unlock} {
+		if op := result.Workers[0].Operations[i]; op.Kind != kind || op.Resource.Value != function.Params[0] {
+			t.Errorf("imported child operation %d = %+v", i, op)
+		}
+	}
 }

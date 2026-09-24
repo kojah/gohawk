@@ -35,9 +35,18 @@ func (engine *Engine) Declaration(function *ssa.Function, budget *ssaflow.Search
 	if !ok || fact.Version != factVersion {
 		return Fact{}, false
 	}
-	fact.Effects = slices.Clone(fact.Effects)
-	for index := range fact.Effects {
-		fact.Effects[index].Fields = slices.Clone(fact.Effects[index].Fields)
+	fact.Effects = cloneFactEffects(fact.Effects)
+	fact.Workers = slices.Clone(fact.Workers)
+	for index := range fact.Workers {
+		fact.Workers[index].Effects = cloneFactEffects(fact.Workers[index].Effects)
 	}
 	return fact, true
+}
+
+func cloneFactEffects(effects []Effect) []Effect {
+	cloned := slices.Clone(effects)
+	for index := range cloned {
+		cloned[index].Fields = slices.Clone(cloned[index].Fields)
+	}
+	return cloned
 }
