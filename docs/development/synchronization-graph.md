@@ -300,3 +300,33 @@ CGO-disabled test-loading failures. Other validation overlapped these runs,
 so the timings do not establish a performance change. The remaining coverage
 bottleneck is still obtaining complete resource-specific effects through
 loops, opaque calls, and external participants, not graph cycle search.
+
+### Shared-evidence extension rerun
+
+The exact-loop, concrete-dispatch, and stable receiver-channel work committed
+as `3f9f59f` was scanned against the same pins and profile. The frozen binary
+SHA-256 was `42cac0c18c048cad750b784c994456713544f85048a074212e3cff8f47ff7ea3`;
+local artifacts are in `.build/sync-upstream-2026-09-24`. It predates the
+defensive rejection of a storage observation that is itself a field write;
+the synchronization consumers observe calls, not stores.
+
+Both repositories again produced zero selected diagnostics. Candidate totals
+were unchanged: 45/27 channel-summary candidates, 22/37 candidates for each
+lock/signal check, and 2/7 WaitGroup candidates (Moby/Kubernetes). All still
+stopped at incomplete evidence. Cutoff reasons moved between control flow,
+unavailable bodies, and effects; that change in the first observed blocker is
+not evidence of improved bug detection.
+
+Moby completed its partial scan in 4m46.75s with the same three CGO-disabled
+test-loading errors. Kubernetes completed successfully in 7m32.51s. Compilation
+and the normal/race suites overlapped these runs heavily; these wall times
+are not controlled before/after performance measurements. The temporary
+checkouts were removed after completion; traces and timings were retained.
+
+Validation passed `make verify`, the focused shared-model race tests, the
+affected concurrency analyzer race tests, and the three reviewed uTLS labels
+(two false positives absent, one true positive retained). The full race suite
+was stopped during the unchanged resource suites and is **incomplete**, not a
+passing gate. Remaining work is tracked under `gohawk-o44.1` through
+`gohawk-o44.4`: demand-driven protocol extraction, receive/select loop contracts,
+complete differing interface targets, and constructor/cross-method participants.
