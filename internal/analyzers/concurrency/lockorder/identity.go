@@ -251,7 +251,7 @@ func localMutexAllocation(value ssa.Value) *ssa.Alloc {
 
 type freshMutexFieldProof struct {
 	possible bool
-	reason   string
+	reason   lockReason
 }
 
 // A positively fresh field initializer is still relevant when publication
@@ -261,7 +261,7 @@ type freshMutexFieldProof struct {
 // this boundary, including writes reached through exact helper bindings.
 // https://github.com/ozontech/file.d/blob/5379bc2005906fde3aa0a05f6bf574dcd7111404/plugin/input/file/provider.go#L404-L477
 func possibleFreshMutexField(value ssa.Value) freshMutexFieldProof {
-	unknown := freshMutexFieldProof{reason: "no-fresh-field-witness"}
+	unknown := freshMutexFieldProof{reason: lockReasonNoFreshFieldWitness}
 	load, ok := value.(*ssa.UnOp)
 	if !ok || load.Op != token.MUL {
 		return unknown
@@ -290,7 +290,7 @@ func possibleFreshMutexField(value ssa.Value) freshMutexFieldProof {
 		ssaflow.NewSearchBudget(ssaflow.QueryBudget)) {
 		return unknown
 	}
-	return freshMutexFieldProof{possible: true, reason: "fresh-field-identity-unknown"}
+	return freshMutexFieldProof{possible: true, reason: lockReasonFreshFieldIdentityUnknown}
 }
 
 func visibleMutexSlotReplacement(

@@ -31,17 +31,17 @@ func lockSuccessorStates(
 	feasible := summaryKnowledge.Provider(pass).FeasibleSuccessors(block, state.predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 	for index, successor := range block.Succs {
 		if !slices.Contains(feasible, successor) {
-			traceInfeasibleLockBranch(pass, block, "predecessor-constant-branch-infeasible")
+			traceInfeasibleLockBranch(pass, block, lockReasonPredecessorConstantBranchInfeasible)
 			continue
 		}
 		constraints, compatible := extendLockConstraints(state.constraints, block, index == 0)
 		if !compatible {
-			traceInfeasibleLockBranch(pass, block, "stable-parameter-branch-infeasible")
+			traceInfeasibleLockBranch(pass, block, lockReasonStableParameterBranchInfeasible)
 			continue
 		}
 		if branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If); ok {
 			if truth, known := lockBooleanValue(branch.Cond, state.constants); known && truth != (index == 0) {
-				traceInfeasibleLockBranch(pass, block, "carried-constant-branch-infeasible")
+				traceInfeasibleLockBranch(pass, block, lockReasonCarriedConstantBranchInfeasible)
 				continue
 			}
 		}
@@ -49,7 +49,7 @@ func lockSuccessorStates(
 		if condition, ok := blockCondition(block); ok && len(block.Succs) == 2 {
 			nextCondition, nextValue = condition, index == 0
 			if guardConflicts(held, guards, condition, nextValue) {
-				traceInfeasibleLockBranch(pass, block, "repeated-condition-infeasible")
+				traceInfeasibleLockBranch(pass, block, lockReasonRepeatedConditionInfeasible)
 				continue
 			}
 		}

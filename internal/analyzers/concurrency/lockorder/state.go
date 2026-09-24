@@ -214,7 +214,7 @@ func conditionOperandIdentity(value ssa.Value) string {
 	}
 }
 
-func traceInfeasibleLockBranch(pass *analysis.Pass, block *ssa.BasicBlock, reason string) {
+func traceInfeasibleLockBranch(pass *analysis.Pass, block *ssa.BasicBlock, reason lockReason) {
 	checkID := string(check.LockMissingRelease)
 	if !analysisTrace.Enabled("lockorder", checkID) || len(block.Instrs) == 0 {
 		return
@@ -225,22 +225,22 @@ func traceInfeasibleLockBranch(pass *analysis.Pass, block *ssa.BasicBlock, reaso
 		position = branch.Parent().Pos()
 	}
 	analysisTrace.For(pass, "lockorder", checkID, position).Evidence(analysisTrace.Step{
-		Reason:   reason,
+		Reason:   reason.String(),
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      position,
 		Function: branch.Parent().String(),
 	})
 }
 
-func traceCallerRelease(pass *analysis.Pass, position token.Pos, reason string) {
+func traceCallerRelease(pass *analysis.Pass, position token.Pos, reason lockReason) {
 	analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), position).Decision(analysisTrace.Step{
-		Reason: reason, Outcome: analysisTrace.OutcomeAccepted, Pos: position,
+		Reason: reason.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: position,
 	})
 }
 
 func traceLockStateBudget(pass *analysis.Pass, function *ssa.Function) {
 	analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), function.Pos()).Decision(analysisTrace.Step{
-		Reason: "lock-state-budget-exhausted", Outcome: analysisTrace.OutcomeUnknown, Pos: function.Pos(),
+		Reason: lockReasonLockStateBudgetExhausted.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: function.Pos(),
 		Function: function.String(),
 	})
 }
@@ -252,7 +252,7 @@ func traceFreshMutexIdentity(pass *analysis.Pass, instruction ssa.Instruction, r
 	}
 	if proof := possibleFreshMutexField(receiver); proof.possible {
 		analysisTrace.For(pass, "lockorder", checkID, instruction.Pos()).Decision(analysisTrace.Step{
-			Reason: proof.reason, Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
+			Reason: proof.reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
 		})
 	}
 }
@@ -264,11 +264,11 @@ func traceFreshMutexIdentity(pass *analysis.Pass, instruction ssa.Instruction, r
 // https://github.com/threatexpert/gonc/blob/e14bc6b97efc2150c4e0bbb2bdc89f8548e28fa6/netx/UDPConn.go#L116-L129
 type guardedReleaseProof struct {
 	possible bool
-	reason   string
+	reason   lockReason
 }
 
 func (flow lockFlowContext) loadedLoopRelease(instruction ssa.Instruction, receiver ssa.Value, origin token.Pos) guardedReleaseProof {
-	missing := guardedReleaseProof{reason: "no-matching-loaded-loop-release"}
+	missing := guardedReleaseProof{reason: lockReasonNoMatchingLoadedLoopRelease}
 	if origin != instruction.Pos() || !ssaflow.BlockInCycle(instruction.Block()) {
 		return missing
 	}
@@ -284,9 +284,9 @@ func (flow lockFlowContext) loadedLoopRelease(instruction ssa.Instruction, recei
 		other, otherTruth := loadedBooleanBranch(call)
 		if other != nil && truth == otherTruth && heapmodel.MayAlias(guard, other) &&
 			ssaflow.InstructionMayFollow(instruction, call) && ssaflow.InstructionMayFollow(call, instruction) {
-			proof := guardedReleaseProof{possible: true, reason: "loaded-loop-release-unknown"}
+			proof := guardedReleaseProof{possible: true, reason: lockReasonLoadedLoopReleaseUnknown}
 			analysisTrace.For(flow.pass, "lockorder", string(check.LockRecursiveAcquire), instruction.Pos()).Decision(analysisTrace.Step{
-				Reason: proof.reason, Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
+				Reason: proof.reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
 			})
 			return proof
 		}

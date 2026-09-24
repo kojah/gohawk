@@ -97,7 +97,7 @@ func (orders *lockOrders) record(pass *analysis.Pass, held, acquired lockAcquisi
 	// https://github.com/pion/dtls/blob/05e47ce632b71d7af3d334fde49b65a24413bb4f/conn_go_test.go#L96-L118
 	if crossOwnerClassUncertain(held, acquired) {
 		analysisTrace.For(pass, "lockorder", string(check.LockContradictoryOrder), acquired.site()).Decision(analysisTrace.Step{
-			Reason: "cross-owner-class-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: acquired.site(),
+			Reason: lockReasonCrossOwnerClassUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: acquired.site(),
 		})
 		held.class, acquired.class = held.instance, acquired.instance
 	}
@@ -230,12 +230,12 @@ func reportOrderCycle(pass *analysis.Pass, cycle []orderEdge) {
 			Message: fmt.Sprintf("%s acquired with %s while %s is held", edge.acquired.class, edge.acquired.mode(), edge.held.class),
 		})
 		if probe.Enabled() {
-			reason := "cycle-order-recorded"
+			reason := lockReasonCycleOrderRecorded
 			if len(cycle) == 2 && index != 0 {
-				reason = "opposite-order-recorded"
+				reason = lockReasonOppositeOrderRecorded
 			}
 			probe.Evidence(analysisTrace.Step{
-				Reason: reason, Outcome: analysisTrace.OutcomeRejected, Pos: edge.acquired.site(),
+				Reason: reason.String(), Outcome: analysisTrace.OutcomeRejected, Pos: edge.acquired.site(),
 				Details: map[string]string{
 					"held": edge.held.class, "acquired": edge.acquired.class,
 					"held-mode": edge.held.mode(), "acquired-mode": edge.acquired.mode(),

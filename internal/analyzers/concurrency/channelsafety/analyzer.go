@@ -66,7 +66,7 @@ func reportFollowingSends(
 				continue
 			}
 			probe := analysisTrace.For(pass, "channelsafety", string(check.ChannelSendAfterClose), candidate.Pos())
-			probe.Candidate(analysisTrace.Step{Reason: "send-reachable-after-close", Outcome: analysisTrace.OutcomeObserved})
+			probe.Candidate(analysisTrace.Step{Reason: safetyReasonReachableSend.String(), Outcome: analysisTrace.OutcomeObserved})
 			identity := heapmodel.NewStorage(nil).Same(sent.Resource.Value, closed.Resource.Value)
 			emitChannelIdentityDecision(pass, function, probe, instruction, candidate, identity)
 			if !identity.Proven() {
@@ -96,14 +96,14 @@ func emitChannelIdentityDecision(
 	if !probe.Enabled() {
 		return
 	}
-	reason := "send-channel-identity-not-proven"
+	reason := safetyReasonIdentityUnproven
 	outcome := analysisTrace.OutcomeUnknown
 	if identity.Proven() {
-		reason = "send-after-close-proven"
+		reason = safetyReasonSendAfterClose
 		outcome = analysisTrace.OutcomeRejected
 	}
 	probe.Decision(analysisTrace.Step{
-		Reason: reason, Outcome: outcome, Pos: send.Pos(), Function: function.String(),
+		Reason: reason.String(), Outcome: outcome, Pos: send.Pos(), Function: function.String(),
 		Details: map[string]string{
 			"close":           pass.Fset.Position(closeInstruction.Pos()).String(),
 			"identity_reason": string(identity.Reason),

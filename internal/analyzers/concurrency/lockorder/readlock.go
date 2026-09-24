@@ -59,7 +59,7 @@ func reportReadLockWrites(
 			}
 			if slices.ContainsFunc(possibleWriters, func(deferred *ssa.Defer) bool { return possibleWriterAt(deferred, instruction) }) {
 				analysisTrace.For(pass, "lockorder", string(check.LockReadLockWrite), instruction.Pos()).Decision(analysisTrace.Step{
-					Reason: "imported-writer-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
+					Reason: lockReasonImportedWriterGuardUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
 				})
 				continue
 			}

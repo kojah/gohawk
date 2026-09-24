@@ -104,13 +104,15 @@ func (callers *exclusiveCallers) acquisitionExclusive(function *ssa.Function, in
 	probe := analysisTrace.For(callers.pass, "lockorder", string(check.LockContradictoryOrder), instruction.Pos())
 	switch {
 	case exclusive.Local && exclusive.Published:
-		probe.Decision(analysisTrace.Step{Reason: "exclusive-object-before-publication", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos()})
+		probe.Decision(analysisTrace.Step{
+			Reason: lockReasonExclusiveObjectBeforePublication.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
+		})
 		return true
 	case exclusive.Local:
 		return false
 	case callers.parameterExclusive(function, exclusive.Parameter):
 		probe.Decision(analysisTrace.Step{
-			Reason: "exclusive-parameter-from-fresh-callers", Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
+			Reason: lockReasonExclusiveParameterFromFreshCallers.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
 			Details: map[string]string{"parameter": strconv.Itoa(exclusive.Parameter), "callers": strconv.Itoa(len(callers.sites[function]))},
 		})
 		return true

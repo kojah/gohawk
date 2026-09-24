@@ -102,12 +102,12 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 		})
 	}
 	for edge, action := range analysis.edgeActions {
-		reason, edgeOutcome := "selected-receive-edge", analysisTrace.OutcomeAccepted
+		reason, edgeOutcome := reasonSelectedReceiveEdge, analysisTrace.OutcomeAccepted
 		if action == actionUnknown {
-			reason, edgeOutcome = "selected-context-edge", analysisTrace.OutcomeUnknown
+			reason, edgeOutcome = reasonSelectedContextEdge, analysisTrace.OutcomeUnknown
 		}
 		probe.Evidence(analysisTrace.Step{
-			Reason: reason, Outcome: edgeOutcome,
+			Reason: reason.String(), Outcome: edgeOutcome,
 			Pos: analysis.spawn.Pos(), Function: analysis.function.String(),
 			Details: map[string]string{"from_block": strconv.Itoa(edge[0]), "to_block": strconv.Itoa(edge[1])},
 		})
@@ -116,14 +116,14 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 	// the suppressions this proof ruled out before the reported reason won.
 	for _, reason := range analysis.considered {
 		probe.Considered(analysisTrace.Step{
-			Reason:   string(reason),
+			Reason:   reason.String(),
 			Outcome:  analysisTrace.OutcomeRejected,
 			Pos:      analysis.spawn.Pos(),
 			Function: analysis.function.String(),
 		})
 	}
 	probe.Decision(analysisTrace.Step{
-		Reason:   string(proof.Reason),
+		Reason:   proof.Reason.String(),
 		Outcome:  outcome,
 		Pos:      analysis.spawn.Pos(),
 		Function: analysis.function.String(),

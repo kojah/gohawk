@@ -165,7 +165,7 @@ func bindLockAcquisition(acquired lockAcquisition, call *ssa.Call) lockAcquisiti
 // that this mutex is private. Pointer-valued fields do not inherit their
 // container's freshness: they may point at an established shared mutex.
 func possibleFreshBoundMutex(path ssaflow.EmbeddedFieldPath) freshMutexFieldProof {
-	unknown := freshMutexFieldProof{reason: "no-fresh-bound-owner"}
+	unknown := freshMutexFieldProof{reason: lockReasonNoFreshBoundOwner}
 	load, ok := path.Root.(*ssa.UnOp)
 	if !ok || load.Op != token.MUL || !embeddedValueFields(path) {
 		return unknown
@@ -206,7 +206,7 @@ func possibleFreshBoundMutex(path ssaflow.EmbeddedFieldPath) freshMutexFieldProo
 		}
 	}
 	if fresh && !budget.Exhausted() {
-		return freshMutexFieldProof{possible: true, reason: "fresh-bound-owner-identity-unknown"}
+		return freshMutexFieldProof{possible: true, reason: lockReasonFreshBoundOwnerIdentityUnknown}
 	}
 	return unknown
 }

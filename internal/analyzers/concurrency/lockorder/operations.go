@@ -22,7 +22,7 @@ type conditionalCallerSet struct {
 
 type callerReleaseProof struct {
 	proven bool
-	reason string
+	reason lockReason
 }
 
 // A lock is reported only when some path releases it and another returns with
@@ -37,7 +37,7 @@ func (flow lockFlowContext) reportMissingReleases(
 		position := flow.acquiredAt[identity]
 		if flow.uncertainGuards[identity] {
 			analysisTrace.For(flow.pass, "lockorder", string(check.LockMissingRelease), position).Decision(analysisTrace.Step{
-				Reason: "loaded-acquisition-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: position,
+				Reason: lockReasonLoadedAcquisitionGuardUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: position,
 			})
 			continue
 		}
@@ -115,7 +115,7 @@ func conditionalCallerSets(functions []*ssa.Function) map[*ssa.Function]conditio
 func conditionalCallerRelease(
 	function *ssa.Function, values []ssa.Value, heldAt map[*ssa.Return]bool, callers conditionalCallerSet,
 ) callerReleaseProof {
-	unknown := callerReleaseProof{reason: "conditional-caller-release-unknown"}
+	unknown := callerReleaseProof{reason: lockReasonConditionalCallerReleaseUnknown}
 	if len(values) != 1 || callers.escaped || len(callers.calls) == 0 {
 		return unknown
 	}
@@ -128,7 +128,7 @@ func conditionalCallerRelease(
 		if known && !slices.ContainsFunc(callers.calls, func(call *ssa.Call) bool {
 			return !callerReleasesOnFlag(call, global, index, held)
 		}) {
-			return callerReleaseProof{proven: true, reason: "conditional-caller-release-proven"}
+			return callerReleaseProof{proven: true, reason: lockReasonConditionalCallerReleaseProven}
 		}
 	}
 	return unknown

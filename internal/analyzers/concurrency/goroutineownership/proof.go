@@ -26,31 +26,6 @@ const (
 	GoroutineTransferred
 )
 
-type goroutineOwnershipReason string
-
-const (
-	reasonJoinProven              goroutineOwnershipReason = "join-proven"
-	reasonDeferredJoinBeforeSpawn goroutineOwnershipReason = "deferred-join-before-spawn"
-	reasonGuardedLocalJoin        goroutineOwnershipReason = "guarded-local-join"
-	reasonStopLifecycle           goroutineOwnershipReason = "stop-lifecycle"
-	reasonContextLifecycle        goroutineOwnershipReason = "context-lifecycle"
-	reasonLocallyCanceledContext  goroutineOwnershipReason = "locally-canceled-context"
-	reasonReceiverContext         goroutineOwnershipReason = "receiver-context-lifecycle"
-	reasonRelayDependency         goroutineOwnershipReason = "relay-dependency-lifecycle"
-	reasonSynctestBubbleOwner     goroutineOwnershipReason = "synctest-bubble-owner"
-	reasonCallerOrExternalOwner   goroutineOwnershipReason = "caller-or-external-owner"
-	reasonOwnershipTransfer       goroutineOwnershipReason = "ownership-transfer"
-	reasonOpaqueTransfer          goroutineOwnershipReason = "opaque-ownership-transfer"
-	reasonLoopJoinUnproven        goroutineOwnershipReason = "loop-join-unproven"
-	reasonWorkerConsumesSignal    goroutineOwnershipReason = "signal-consumed-by-worker"
-	reasonFlagGuardedJoin         goroutineOwnershipReason = "flag-guarded-join"
-	reasonBufferedSignal          goroutineOwnershipReason = "buffered-completion-signal"
-	reasonSharedStorageSignal     goroutineOwnershipReason = "shared-storage-signal"
-	reasonNoObligation            goroutineOwnershipReason = "no-completion-obligation"
-	reasonUnownedReturn           goroutineOwnershipReason = "unowned-return"
-	reasonDoneBeforeCompletion    goroutineOwnershipReason = "waitgroup-done-before-completion"
-)
-
 // GoroutineProof is the single result consumed by reporting, tracing, and
 // cross-analyzer ownership queries.
 type GoroutineProof struct {

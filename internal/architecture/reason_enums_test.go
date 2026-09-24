@@ -17,7 +17,9 @@ func TestMigratedReasonEnums(t *testing.T) {
 		"internal/analyzers/concurrency/producerlifecycle", "internal/analyzers/resources/processownership",
 		"internal/analyzers/correctness/nilargument", "internal/analyzers/concurrency/concurrentcapture",
 		"internal/analyzers/resources/deferinloop", "internal/check", "internal/cli",
-		"internal/passes/concurrencyfacts", "internal/syncmodel") {
+		"internal/passes/concurrencyfacts", "internal/syncmodel",
+		"internal/analyzers/concurrency/lockorder", "internal/analyzers/concurrency/channelsafety",
+		"internal/analyzers/concurrency/goroutineownership") {
 		ast.Inspect(source.file, func(node ast.Node) bool {
 			if reasonEnumViolation(node) {
 				t.Errorf("%s:%d: internal reasons require domain-owned numeric enums",
