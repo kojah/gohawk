@@ -161,12 +161,15 @@ func potentialLockJoinRoot(function *ssa.Function) token.Pos {
 			}
 		}
 	}
+	// A visible helper can hide the acquisition, such as one that locks only
+	// on success, just as it can hide the launch or the receive; only the
+	// bound complete summary establishes any of them.
+	lock = lock || helper != token.NoPos
 	if launches == 0 || !localChannel || !lock {
 		return token.NoPos
 	}
-	// A visible helper can hide the receive just as it can hide the launch.
-	// Keep the local channel/acquisition cost filter; only its bound complete
-	// summary may establish a wait, never the helper's method name.
+	// Keep the local channel cost filter; only the bound complete summary may
+	// establish a wait, never the helper's method name.
 	if wait == token.NoPos {
 		return helper
 	}

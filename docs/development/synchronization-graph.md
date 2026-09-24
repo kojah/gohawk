@@ -84,7 +84,15 @@ one group whose conditions `SyncGraph.Feasibility` shows can hold together.
 Feasibility proves contradiction exactly and independence only for distinct
 root parameters and results of distinct functions; a condition read from
 memory, merged, or bound from a callee is feasible only as the sole
-condition, and everything else is unknown. Worker
+condition, and everything else is unknown. Condition identity comes from the
+shared `ssaflow` path guards. Binding maps a callee's test of its own
+parameter, or a comparison of one with a constant, onto the caller's
+argument, so it relates exactly to the caller's own tests and folds on a
+constant. A path alternative also records what it returns when that is
+structurally certain (a constant, or a fresh or boxed non-nil value); splicing
+it into a caller turns that into an implied condition on the caller's result
+value. An implied condition can contradict the caller's test of the result,
+and fixes the result's value rather than adding an independent input. Worker
 alternatives survive local helper launch/forwarding calls. Nested selects,
 independent branches within a select continuation, and cross-package
 alternative publication remain unknown. Complete straight-line helper launches

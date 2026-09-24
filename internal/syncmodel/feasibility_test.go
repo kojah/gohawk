@@ -34,6 +34,15 @@ func comparedTwice(a, b chan int, x int) { pickN(a, b, x); pickN(a, b, x) }
 func comparedConstant(a, b chan int) { pickN(a, b, 1) }
 func pickF(a, b chan int, f func()) { if f != nil { close(a) } else { close(b) } }
 func nilCallback(a, b chan int) { pickF(a, b, nil) }
+type badError struct{}
+func (*badError) Error() string { return "bad" }
+var errBad error = &badError{}
+func acquire(mu *sync.Mutex, n int) error { if n < 0 { return &badError{} }; mu.Lock(); return nil }
+func resultNonNil(mu *sync.Mutex, n int) { if acquire(mu, n) != nil { return }; mu.Unlock() }
+func acquireGlobal(mu *sync.Mutex, n int) error { if n < 0 { return errBad }; mu.Lock(); return nil }
+func resultUnknown(mu *sync.Mutex, n int) { if acquireGlobal(mu, n) != nil { return }; mu.Unlock() }
+func acquirePair(mu *sync.Mutex, n int) (int, error) { if n < 0 { return 0, &badError{} }; mu.Lock(); return 1, nil }
+func resultPair(mu *sync.Mutex, n int) { if _, err := acquirePair(mu, n); err != nil { return }; mu.Unlock() }
 `)
 	engine := concurrencyfacts.NewEngine()
 	for name, want := range map[string][3]int{
@@ -57,6 +66,15 @@ func nilCallback(a, b chan int) { pickF(a, b, nil) }
 		"comparedTwice":    {2, 2, 0},
 		"comparedConstant": {1, 1, 0},
 		"nilCallback":      {1, 1, 0},
+		// The helper's path decides its result: its success path returns nil
+		// and its error path a fresh value, so the caller's test of the
+		// result agrees with one path and contradicts the other.
+		"resultNonNil": {2, 2, 0},
+		"resultPair":   {2, 2, 0},
+		// A global error sentinel is not structurally non-nil: on the error
+		// path the result is a free value tied to the helper's own branch,
+		// so those combinations stay unknown.
+		"resultUnknown": {1, 1, 2},
 	} {
 		t.Run(name, func(t *testing.T) {
 			summary := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(4000))

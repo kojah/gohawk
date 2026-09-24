@@ -40,6 +40,10 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 			}
 		}
 		if len(block.Succs) == 0 {
+			returned := returnedFacts(block)
+			for index := range current {
+				current[index].Returned = returned
+			}
 			paths = append(paths, current...)
 			if len(paths) > maxProtocolPaths {
 				engine.recordBlockCutoff(block, cutoffBranch)
@@ -135,6 +139,7 @@ func (engine *Engine) appendPathCall(state Summary, instruction ssa.Instruction)
 		if reason := appendCalled(&branch, path, call); reason != ReasonNone {
 			return nil, reason, true
 		}
+		branch.Conditions = append(branch.Conditions, resultConditions(call, path.Returned)...)
 		branches = append(branches, branch)
 	}
 	return branches, ReasonNone, true
@@ -236,4 +241,51 @@ func parameterCondition(condition Condition, bindings []ssaflow.CallBinding) (ss
 		}
 	}
 	return nil, false, false
+}
+
+// returnedFacts records what a terminal block returns where that is certain.
+// A boxed value is a non-nil interface even when it boxes a nil pointer, and
+// an allocation is never nil.
+func returnedFacts(block *ssa.BasicBlock) []Returned {
+	if len(block.Instrs) == 0 {
+		return nil
+	}
+	returned, ok := block.Instrs[len(block.Instrs)-1].(*ssa.Return)
+	if !ok {
+		return nil
+	}
+	var facts []Returned
+	for index, result := range returned.Results {
+		switch result := result.(type) {
+		case *ssa.Const:
+			facts = append(facts, Returned{Index: index, Constant: result})
+		case *ssa.MakeInterface, *ssa.Alloc:
+			facts = append(facts, Returned{Index: index})
+		}
+	}
+	return facts
+}
+
+// resultConditions turns a spliced path's return facts into conditions on
+// the caller's own result values, so its tests of a result relate exactly to
+// the path that produced it. A result the caller never extracts adds none.
+func resultConditions(call *ssa.Call, returned []Returned) []Condition {
+	results := call.Common().Signature().Results().Len()
+	var conditions []Condition
+	for _, fact := range returned {
+		index := fact.Index
+		if results == 1 {
+			index = -1
+		}
+		value := ssaflow.CallResult(call, index)
+		if value == nil {
+			continue
+		}
+		if fact.Constant != nil {
+			conditions = append(conditions, Condition{Value: value, Compared: fact.Constant, Holds: true, Implied: true})
+			continue
+		}
+		conditions = append(conditions, Condition{Value: value, Compared: ssa.NewConst(nil, value.Type()), Holds: false, Implied: true})
+	}
+	return conditions
 }

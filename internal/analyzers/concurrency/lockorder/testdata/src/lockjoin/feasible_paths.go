@@ -91,3 +91,45 @@ func correlatedWorkerSafe(enabled bool) {
 	}
 	mu.Unlock()
 }
+
+type lockError struct{}
+
+func (*lockError) Error() string { return "lock failed" }
+
+// acquireLock locks only on success: its error path returns a fresh error and
+// its success path returns nil, so a caller's test of the result tells which.
+func acquireLock(mu *sync.Mutex, n int) error {
+	if n < 0 {
+		return &lockError{}
+	}
+	mu.Lock()
+	return nil
+}
+
+// On success the lock is held while the parent waits for a worker that needs
+// it; the helper's result ties the caller's error check to that path.
+func resultConditionedDeadlock(n int) error {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	if err := acquireLock(&mu, n); err != nil {
+		return err
+	}
+	go worker(&mu, done)
+	<-done // want "waits for a worker that needs the held lock"
+	mu.Unlock()
+	return nil
+}
+
+// The parent waits only when acquisition failed, and a failed acquisition
+// holds nothing, so the combination that would deadlock is impossible.
+func resultConditionedSafe(n int) {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	err := acquireLock(&mu, n)
+	go worker(&mu, done)
+	if err != nil {
+		<-done
+		return
+	}
+	mu.Unlock()
+}

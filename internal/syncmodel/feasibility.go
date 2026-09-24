@@ -47,6 +47,7 @@ func (graph *SyncGraph) Feasibility() Proof {
 		if atoms[atom.key] == nil {
 			atoms[atom.key] = &atomChoices{atom: atom}
 		}
+		atoms[atom.key].determined = atoms[atom.key].determined || condition.Implied
 		switch atoms[atom.key].add(value, atom.stable) {
 		case choiceContradicts:
 			return queryProof(ssaflow.EvidenceDisproven, ReasonConditionsContradict)
@@ -84,10 +85,13 @@ const (
 )
 
 type atomChoices struct {
-	atom    conditionAtom
-	value   *bool
-	equal   constant.Value
-	unequal []constant.Value
+	atom conditionAtom
+	// determined is set when a path fact fixes this atom's value, so the
+	// atom is a consequence of the path, not an independent input.
+	determined bool
+	value      *bool
+	equal      constant.Value
+	unequal    []constant.Value
 }
 
 func (choices *atomChoices) add(value, stable bool) choiceResult {
@@ -241,12 +245,13 @@ func contextKey(context []token.Pos) string {
 
 // independent applies the policy: a shared atom only as the sole variable
 // atom, and no two pure atoms that are results of the same function.
-// Equality bookkeeping entries restate atoms already counted.
+// Equality bookkeeping entries restate atoms already counted, and an atom a
+// path fact determines is a consequence of that path, not an input.
 func independent(atoms map[string]*atomChoices) bool {
 	shared, variable := 0, 0
 	callees := map[*ssa.Function]int{}
 	for key, choices := range atoms {
-		if strings.HasPrefix(key, "equality:") {
+		if strings.HasPrefix(key, "equality:") || choices.determined {
 			continue
 		}
 		variable++

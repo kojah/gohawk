@@ -42,6 +42,10 @@ type Condition struct {
 	Compared	*ssa.Const
 	Holds		bool
 	Context		[]token.Pos
+	// Implied marks a fact that follows from the path, such as what a helper
+	// returned, rather than a choice: it can contradict other conditions but
+	// determines its value instead of adding an independent input.
+	Implied	bool
 }
 ```
 
@@ -333,6 +337,21 @@ type Reference struct {
 
 Reference names an exact resource or a symbolic captured cell.
 
+## Returned
+
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
+
+```go
+type Returned struct {
+	Index		int
+	Constant	*ssa.Const
+}
+```
+
+Returned says result Index is Constant on a path, or, with no Constant,
+that it cannot be nil. Results from calls, loads, and parameters are not
+recorded: nothing structural says what they are.
+
 ## SelectArm
 
 [Source](../../../../internal/passes/concurrencyfacts/summary.go)
@@ -412,6 +431,9 @@ type Summary struct {
 	// Conditions are the branch choices that select this summary when it is
 	// one of Paths. A select arm is the runtime's choice and adds none.
 	Conditions	[]Condition
+	// Returned is what this path returns where that is structurally certain,
+	// so a caller can relate its own tests of the result to this path.
+	Returned	[]Returned
 	Operations	[]Operation
 
 	Workers	[]WorkerSummary

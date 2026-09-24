@@ -135,6 +135,7 @@ func sameEffects(first, second Summary) bool {
 func cloneEffects(summary Summary) Summary {
 	summary.CancellationInputs = slices.Clone(summary.CancellationInputs)
 	summary.Conditions = slices.Clone(summary.Conditions)
+	summary.Returned = slices.Clone(summary.Returned)
 	summary.Operations = slices.Clone(summary.Operations)
 	summary.Workers = slices.Clone(summary.Workers)
 	for index := range summary.Workers {

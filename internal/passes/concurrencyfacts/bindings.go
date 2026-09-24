@@ -43,6 +43,7 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		Operations: make([]Operation, 0, len(callee.Operations)), Reason: callee.Reason,
 		AlternativesComplete: callee.AlternativesComplete,
 		Conditions:           boundConditions(callee.Conditions, bindings, instruction.Pos()),
+		Returned:             callee.Returned,
 	}
 	inputs, reason := engine.bindCancellationInputs(callee.CancellationInputs, bindings, instruction)
 	if reason != ReasonNone {
