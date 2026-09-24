@@ -7,6 +7,7 @@ import signal
 import sys
 import tempfile
 import subprocess
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -100,6 +101,65 @@ class PrecisionAuditTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "ok\n")
         self.assertEqual(result.stderr, "")
+
+    @unittest.skipUnless(os.name == "posix", "requires a local go command stub")
+    def test_go_command_owns_and_cleans_its_temp_directory(self):
+        go = self.root / "go"
+        go.write_text(
+            "#!/bin/sh\n"
+            "printf '%s\\n' \"$GOTMPDIR\" > \"$1\"\n"
+            "mkdir \"$GOTMPDIR/work\"\n"
+            "if [ \"$2\" = wait ]; then sleep 60; fi\n"
+        )
+        go.chmod(0o755)
+        environment = dict(os.environ, PATH=str(self.root) + os.pathsep + os.environ["PATH"])
+        success_path = self.root / "success.tmpdir"
+        result = AUDIT.run_scoped(["go", str(success_path)], env=environment, capture_output=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        owned = Path(success_path.read_text().strip())
+        self.assertEqual(owned.parent, Path("/tmp"))
+        self.assertFalse(owned.exists())
+
+        timeout_path = self.root / "timeout.tmpdir"
+        with self.assertRaises(subprocess.TimeoutExpired):
+            AUDIT.run_scoped(["go", str(timeout_path), "wait"], env=environment, timeout=0.5)
+        self.assertFalse(Path(timeout_path.read_text().strip()).exists())
+        self.assertNotIn("GOTMPDIR", environment)
+
+    def test_runner_upgrade_requires_exact_prior_hash_and_records_saved_reports(self):
+        current = {
+            "repositories": [["owner/repo", SHA], ["other/repo", SHA]],
+            "binary_sha256": "binary", "runner_sha256": "new", "replay_sha256": "replay",
+            "go_version": "go version", "profile": "-enable-all -gohawk-include-tests -json",
+        }
+        previous = dict(current, runner_sha256="old")
+        (self.root / "owner__repo.json").write_text(json.dumps({"repository": "owner/repo", "revision": SHA}))
+        with self.assertRaisesRegex(ValueError, "runner changed"):
+            AUDIT.resume_metadata(previous, current.copy(), None, self.root)
+        upgraded = AUDIT.resume_metadata(previous, current.copy(), "old", self.root)
+        self.assertEqual(upgraded["runner_history"], [
+            {"runner_sha256": "old", "completed_repositories": ["owner/repo"]}
+        ])
+        self.assertEqual(AUDIT.resume_metadata(upgraded, current.copy(), None, self.root), upgraded)
+        with self.assertRaisesRegex(ValueError, "different profile"):
+            AUDIT.resume_metadata(previous, dict(current, profile="changed"), "old", self.root)
+
+    def test_bounded_scans_stop_scheduling_after_report_failure(self):
+        started = []
+        hold_second = threading.Event()
+
+        def scan(entry):
+            started.append(entry)
+            if entry == 0:
+                raise OSError("no space left on device")
+            hold_second.wait(0.1)
+            return entry
+
+        with self.assertRaises(OSError):
+            AUDIT.analyze_bounded(list(range(100)), 2, scan)
+        self.assertEqual(sorted(started), [0, 1])
+        self.assertEqual(AUDIT.analyze_bounded([0, 1, 2], 2, lambda entry: entry * 2), [0, 2, 4])
 
     def test_report_is_incremental_and_resumable(self):
         entry = ("owner/repo", SHA)

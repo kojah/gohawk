@@ -17,6 +17,7 @@ import re
 import signal
 import subprocess
 import sys
+import tempfile
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent.parent
@@ -39,34 +40,47 @@ def run_scoped(command, **kwargs):
         kwargs["stdout"] = subprocess.PIPE
         kwargs["stderr"] = subprocess.PIPE
     grouped = os.name == "posix"
-    with subprocess.Popen(command, text=True, start_new_session=grouped, **kwargs) as process:
-        try:
-            stdout, stderr = process.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            if grouped:
-                try:
-                    os.killpg(process.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-            else:
-                process.terminate()
+    go_temp = None
+    if command[0] == "go":
+        # Go normally writes go-build* under the shared GOTMPDIR. A killed
+        # go vet cannot remove its work tree, so this command owns one exact
+        # directory which the runner can release even after a timeout.
+        go_temp = tempfile.TemporaryDirectory(prefix="gohawk-audit-go-", dir="/tmp")
+        environment = dict(kwargs.get("env", os.environ))
+        environment["GOTMPDIR"] = go_temp.name
+        kwargs["env"] = environment
+    try:
+        with subprocess.Popen(command, text=True, start_new_session=grouped, **kwargs) as process:
             try:
-                process.communicate(timeout=2)
+                stdout, stderr = process.communicate(timeout=timeout)
             except subprocess.TimeoutExpired:
-                pass
-            finally:
-                # A child may ignore TERM or close its inherited pipes early.
-                # Kill any surviving member before leaving the process group.
                 if grouped:
                     try:
-                        os.killpg(process.pid, signal.SIGKILL)
+                        os.killpg(process.pid, signal.SIGTERM)
                     except ProcessLookupError:
                         pass
                 else:
-                    process.kill()
-                process.communicate()
-            raise
-    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+                    process.terminate()
+                try:
+                    process.communicate(timeout=2)
+                except subprocess.TimeoutExpired:
+                    pass
+                finally:
+                    # A child may ignore TERM or close its inherited pipes early.
+                    # Kill any surviving member before leaving the process group.
+                    if grouped:
+                        try:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                    else:
+                        process.kill()
+                    process.communicate()
+                raise
+        return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+    finally:
+        if go_temp is not None:
+            go_temp.cleanup()
 
 
 REPLAY.run = run_scoped
@@ -132,6 +146,31 @@ def save_report(path, report):
     temporary.replace(path)
 
 
+def resume_metadata(previous, current, accepted_runner, output):
+    """Keep inputs immutable while recording an explicit runner upgrade."""
+    for field in ("repositories", "binary_sha256", "replay_sha256", "go_version", "profile"):
+        if previous.get(field) != current[field]:
+            raise ValueError(f"saved run has different {field}")
+    if previous["runner_sha256"] == current["runner_sha256"]:
+        return previous
+    if accepted_runner != previous["runner_sha256"]:
+        raise ValueError("runner changed; pass the saved SHA via --accept-prior-runner-sha256")
+    completed = []
+    for repo, revision in current["repositories"]:
+        path = output / (repo.replace("/", "__") + ".json")
+        if not path.exists():
+            continue
+        report = json.loads(path.read_text())
+        if (report["repository"], report["revision"]) != (repo, revision):
+            raise ValueError(f"{repo}: saved report does not match pinned input")
+        completed.append(repo)
+    current["runner_history"] = [
+        *previous.get("runner_history", []),
+        {"runner_sha256": previous["runner_sha256"], "completed_repositories": completed},
+    ]
+    return current
+
+
 def analyze(entry, binary, checkouts, output):
     repo, sha = entry
     destination = output / (repo.replace("/", "__") + ".json")
@@ -166,6 +205,23 @@ def positive(value):
     return number
 
 
+def analyze_bounded(selected, jobs, analyze_one):
+    """Submit at most jobs scans, stopping new work on the first failure."""
+    reports = [None] * len(selected)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+        pending = {}
+        next_index = 0
+        while next_index < len(selected) or pending:
+            while next_index < len(selected) and len(pending) < jobs:
+                future = pool.submit(analyze_one, selected[next_index])
+                pending[future] = next_index
+                next_index += 1
+            done, _ = concurrent.futures.wait(pending, return_when=concurrent.futures.FIRST_COMPLETED)
+            for future in done:
+                reports[pending.pop(future)] = future.result()
+    return reports
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
@@ -174,6 +230,7 @@ def main():
     parser.add_argument("--exclude-ledger", type=Path, action="append", default=[])
     parser.add_argument("--limit", type=positive, default=25)
     parser.add_argument("--jobs", type=positive, default=2)
+    parser.add_argument("--accept-prior-runner-sha256")
     args = parser.parse_args()
     binary = args.gohawk.resolve(strict=True)
     output = args.output.resolve()
@@ -193,15 +250,19 @@ def main():
         "profile": "-enable-all -gohawk-include-tests -json",
     }
     run_file = output / "run.json"
-    if run_file.exists() and json.loads(run_file.read_text()) != metadata:
-        parser.error("output belongs to different inputs/tooling; use a new directory")
+    if run_file.exists():
+        try:
+            metadata = resume_metadata(
+                json.loads(run_file.read_text()), metadata, args.accept_prior_runner_sha256, output
+            )
+        except ValueError as error:
+            parser.error(str(error))
     save_report(run_file, metadata)
     # Keep compilation concurrency bounded too; the shared replay sets CGO=0,
     # GOWORK=off, GOTOOLCHAIN=local and -mod=readonly for candidate modules.
     os.environ["GOMAXPROCS"] = "2"
     checkouts = output / "checkouts"
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        reports = list(pool.map(lambda entry: analyze(entry, binary, checkouts, output), selected))
+    reports = analyze_bounded(selected, args.jobs, lambda entry: analyze(entry, binary, checkouts, output))
     save_report(output / "summary.json", {"reports": reports})
     return int(any(report["scan_status"] != "scanned" for report in reports))
 
