@@ -96,13 +96,22 @@ func runViaGoVet(invocation *analysisInvocation, runtime cliRuntime) int {
 	if len(result.stderr) > 0 {
 		_, _ = runtime.errorsOutput.Write(result.stderr)
 	}
+	var code int
 	switch invocation.render {
 	case renderJSON:
 		_, _ = runtime.output.Write(merged)
-		return jsonDiagnosticExitCode(merged)
+		code = jsonDiagnosticExitCode(merged)
 	default:
-		return renderDelegatedDiagnostics(merged, invocation.contextLines, runtime.output)
+		code = renderDelegatedDiagnostics(merged, invocation.contextLines, runtime.output)
 	}
+	// A successful package may emit valid JSON while another fails to load.
+	// Render the available findings, but do not turn that partial run into a
+	// success. In JSON mode unitchecker reports findings as data, not a failing
+	// process status; an execution failure therefore takes precedence.
+	if execErr != nil {
+		return max(1, result.exitCode)
+	}
+	return code
 }
 
 func jsonDiagnosticExitCode(data []byte) int {
