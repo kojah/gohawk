@@ -15,6 +15,9 @@ import (
 type Storage struct {
 	budget  *ssaflow.SearchBudget
 	effects *ssaflow.CallEffects
+	// writesOnly keeps nested address/identity queries in the same bounded
+	// policy as ContentFromWrites, rather than reentering the graph fallback.
+	writesOnly bool
 }
 
 // StoredValue records the value proved to occupy a location. Unknown does not
@@ -91,7 +94,7 @@ func (storage *Storage) Same(left, right ssa.Value) ssaflow.IdentityProof {
 	// cannot: through a copy of a pointee, a merge of one object, or two
 	// reads of one untouched slot. It only adds exact answers; an unknown
 	// stays unknown.
-	if DefinitelySame(left, right) {
+	if !storage.writesOnly && DefinitelySame(left, right) {
 		return sameValueIdentity()
 	}
 	return ssaflow.IdentityProof{Proof: storage.unknown(ssaflow.EvidenceStoredValuesDiffer, nil).Proof}
@@ -107,14 +110,8 @@ func sameValueIdentity() ssaflow.IdentityProof {
 // branch writes, dynamic indexes, and opaque mutation stop the proof. Writes
 // after observation do not invalidate an earlier snapshot.
 func (storage *Storage) Content(address ssa.Value, observation ssa.Instruction) StoredValue {
-	location, ok := storage.location(address)
-	if !ok {
-		return storage.unknown(ssaflow.EvidenceStorageNotLocal, observation)
-	}
-	if observation == nil || location.root.Parent() != observation.Parent() {
-		return storage.unknown(ssaflow.EvidenceStorageOutsideFunction, observation)
-	}
-	if proof := storage.content(location, observation); proof.Proven() {
+	location, proof := storage.contentFromWrites(address, observation)
+	if location.root == nil || proof.Proven() || storage.writesOnly {
 		return proof
 	}
 	// The graph resolves what the reaching-write walk could not: a cell
@@ -124,6 +121,28 @@ func (storage *Storage) Content(address ssa.Value, observation ssa.Instruction) 
 		return provenStoredValue(value)
 	}
 	return storage.content(location, observation)
+}
+
+// ContentFromWrites proves local contents using only the budgeted reaching-write
+// query. Unlike Content, it does not request a whole-function points-to graph
+// on failure. Summary passes use it when opportunistic result evidence must not
+// trigger graph construction for every opaque return load in a dependency.
+func (storage *Storage) ContentFromWrites(address ssa.Value, observation ssa.Instruction) StoredValue {
+	query := *storage
+	query.writesOnly = true
+	_, proof := query.contentFromWrites(address, observation)
+	return proof
+}
+
+func (storage *Storage) contentFromWrites(address ssa.Value, observation ssa.Instruction) (storageLocation, StoredValue) {
+	location, ok := storage.location(address)
+	if !ok {
+		return storageLocation{}, storage.unknown(ssaflow.EvidenceStorageNotLocal, observation)
+	}
+	if observation == nil || location.root.Parent() != observation.Parent() {
+		return storageLocation{}, storage.unknown(ssaflow.EvidenceStorageOutsideFunction, observation)
+	}
+	return location, storage.content(location, observation)
 }
 
 // unknown is the single give-up point of every storage query. It names the

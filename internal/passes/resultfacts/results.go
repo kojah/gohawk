@@ -139,16 +139,8 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 }
 
 func (engine *Engine) value(value ssa.Value, budget *ssaflow.SearchBudget) Guarantee {
-	result, ok := ssaflow.ResolveReachingValue(
-		ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType), value,
-		func(_ ssaflow.ReachingWalk, leaf ssa.Value) (Guarantee, bool) {
-			guarantee := engine.leaf(leaf, budget)
-			// Stop the reaching fold at uncertainty, especially a budget cut;
-			// agreeing Unknown leaves must not keep expanding sibling phis.
-			return guarantee, guarantee != Unknown
-		},
-		func(guarantee Guarantee) Guarantee { return guarantee },
-	)
+	query := storedResultQuery{engine: engine, budget: budget}
+	result, ok := query.resolve(ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType), value)
 	if !ok || budget.Exhausted() {
 		return Unknown
 	}
@@ -184,7 +176,7 @@ func (engine *Engine) leaf(value ssa.Value, budget *ssaflow.SearchBudget) Guaran
 	case *ssa.Alloc, *ssa.MakeChan, *ssa.MakeMap, *ssa.MakeSlice, *ssa.Function, *ssa.MakeClosure:
 		return AlwaysNonNil
 	}
-	// Loads remain opaque, including package sentinels and named results that
-	// a deferred callback may modify. An initializer is not a lifetime guarantee.
+	// The value fold handles loads through point-in-time storage evidence.
+	// Unresolved values never inherit a guarantee from a possible initializer.
 	return Unknown
 }

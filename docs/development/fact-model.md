@@ -63,10 +63,17 @@ The initial proof conservatively includes all SSA return blocks; it does not
 solve arbitrary path conditions.
 
 Literal results, fresh allocations, interface boxing, agreeing phi alternatives,
-and direct forwarding calls are supported locally and across packages. A boxed
-typed-nil pointer is a nonnil interface. Loads remain unknown: neither a mutable
-package sentinel's initializer nor a named result before deferred modification
-proves the value returned later. There are no name-based `errors.New` contracts.
+and direct forwarding calls are supported locally and across packages. Stable
+local loads and field projections reuse `heapmodel.Storage.ContentFromWrites` at the
+load's execution point, including a saved snapshot read before a later write.
+This projects existing storage evidence rather than building a second heap
+analysis. The opportunistic query declines unknown writes without requesting
+a whole-function points-to graph for every opaque load. A boxed typed-nil
+pointer is a nonnil interface: the result proof
+preserves boxing instead of using identity-only unwrapping. Unresolved loads
+remain unknown; neither a mutable package sentinel's initializer nor a named
+result before deferred modification proves the value returned later. There are
+no name-based `errors.New` contracts.
 Recursion and exhausted searches produce unknown evidence and do not poison
 the summary cache. Queries share a 2,000-step budget in the initial consumer;
 export also has that per-function budget and a 16-result limit.

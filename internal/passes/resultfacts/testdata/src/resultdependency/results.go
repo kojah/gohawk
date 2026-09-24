@@ -17,3 +17,18 @@ func Mixed(yes bool) error {
 }
 func Global() error         { return Sentinel }
 func Deferred() (err error) { defer func() { err = &Failure{} }(); return nil }
+
+type stored struct {
+	flag bool
+	err  error
+}
+
+func StoredTrue() bool {
+	value := &stored{flag: true}
+	return value.flag
+}
+
+func StoredTypedNil() error {
+	value := &stored{err: (*Failure)(nil)}
+	return value.err
+}

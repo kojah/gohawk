@@ -23,6 +23,7 @@ func TestCrossPackageResults(t *testing.T) {
 			want := map[string][]Guarantee{
 				"Nil": {AlwaysNil}, "TypedNil": {AlwaysNonNil}, "Pair": {AlwaysFalse, AlwaysNil},
 				"Mixed": {Unknown}, "Global": {Unknown}, "Deferred": {Unknown},
+				"StoredTrue": {AlwaysTrue}, "StoredTypedNil": {AlwaysNonNil},
 			}
 			for _, function := range functions {
 				expected, ok := want[function.Name()]

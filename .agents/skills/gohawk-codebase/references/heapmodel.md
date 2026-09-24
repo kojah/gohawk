@@ -775,6 +775,19 @@ Content returns the value agreed on by every reaching write. Conflicting
 branch writes, dynamic indexes, and opaque mutation stop the proof. Writes
 after observation do not invalidate an earlier snapshot.
 
+## Storage.ContentFromWrites
+
+[Source](../../../../internal/heapmodel/store_model.go)
+
+```go
+func (storage *Storage) ContentFromWrites(address ssa.Value, observation ssa.Instruction) StoredValue
+```
+
+ContentFromWrites proves local contents using only the budgeted reaching-write
+query. Unlike Content, it does not request a whole-function points-to graph
+on failure. Summary passes use it when opportunistic result evidence must not
+trigger graph construction for every opaque return load in a dependency.
+
 ## Storage.Projection
 
 [Source](../../../../internal/heapmodel/store_projection.go)
