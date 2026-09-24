@@ -331,9 +331,22 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 		// Containment is judged as the call receives the argument: a callee
 		// summarized as storing the resource into this very aggregate does
 		// not make the aggregate an owner of it before the call.
-		if analysis.carriesDirectly(argument) || analysis.carriedWithinClosure(argument) ||
+		// A returned wrapper can derive from the resource without being the
+		// resource itself. Only a same-object argument is excluded here; the
+		// wrapper may be retained by this callee and publish its contents.
+		// https://github.com/bazelbuild/bazel-watcher/blob/ed00d96be0ce5b01aa2c43abbcd29172d4573091/cmd/ibazel/main.go#L178-L182
+		if ssainfer.MayAlias(argument, analysis.resource) || analysis.carriedWithinClosure(argument) ||
 			(!ssainfer.MayContainValueAt(argument, analysis.resource, instruction) && !analysis.possibleAggregateWrapper(argument)) {
 			continue
+		}
+		// Dependence on the resource alone does not establish that a returned
+		// wrapper is an owning aggregate. Require a proven store by this callee
+		// before treating such a value as published through the next helper.
+		if analysis.carriesDirectly(argument) {
+			stored, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimStores)
+			if !stored {
+				continue
+			}
 		}
 		// A parameter-level retention fact also makes its nested contents
 		// uncertain. Variadic values stored for later callbacks are a common
