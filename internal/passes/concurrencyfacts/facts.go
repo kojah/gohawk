@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	factVersion  = 7
+	factVersion  = 8
 	exportBudget = 2000
 )
 
@@ -47,6 +47,9 @@ type Fact struct {
 	// CancellationInputs are formal indices whose context/cancel contracts
 	// require binding to exact standard-library origins before consumption.
 	CancellationInputs []int
+	// Alternatives, when present, replace the linear fields: one entry per
+	// bounded path, each with the conditions that select it.
+	Alternatives []FactAlternative
 }
 
 // publishedFact hides the effect schema from gob's per-stream descriptors.
@@ -83,8 +86,7 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		probe := trace.For(pass, "concurrencyfacts", "", function.Pos())
 		probe.Candidate(trace.Step{Reason: ReasonSummarizing.String(), Outcome: trace.OutcomeObserved})
-		result := engine.linear.Function(function, ssaflow.NewSearchBudget(exportBudget))
-		fact, ok := exportSummary(function, result)
+		fact, ok := engine.exportFunction(function)
 		outcome, reason := trace.OutcomeUnknown, ReasonExportUnknown
 		if ok {
 			pass.ExportObjectFact(object, &publishedFact{factcodec.Wrap(fact)})
@@ -93,6 +95,21 @@ func run(pass *analysis.Pass) (any, error) {
 		probe.Decision(trace.Step{Reason: reason.String(), Outcome: outcome, Pos: function.Pos()})
 	}
 	return engine, nil
+}
+
+// exportFunction publishes the linear summary, or the path alternatives of a
+// function whose branches differ. The linear cache stays separate so a path
+// query never widens what linear consumers see.
+func (engine *Engine) exportFunction(function *ssa.Function) (Fact, bool) {
+	result := engine.linear.Function(function, ssaflow.NewSearchBudget(exportBudget))
+	if fact, ok := exportSummary(function, result); ok || result.Reason != ReasonBranchEffectsDiffer {
+		return fact, ok
+	}
+	paths := engine.summaries.Function(function, ssaflow.NewSearchBudget(exportBudget))
+	if len(paths.Paths) == 0 {
+		return Fact{Version: factVersion}, false
+	}
+	return exportAlternatives(function, paths.Paths)
 }
 
 // A conditional cancellation summary is publishable, but not yet usable as
@@ -175,6 +192,9 @@ func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summa
 	arguments := engine.resolvedCommon(call).Args
 	if fact.Version != factVersion || len(fact.Effects)+len(fact.CancellationInputs) > maxOperations || len(fact.Workers) > maxWorkers {
 		return unknown
+	}
+	if len(fact.Alternatives) != 0 {
+		return engine.bindAlternatives(call, fact)
 	}
 	var result Summary
 	// Declaration parameter positions use direct-call convention. A resolved

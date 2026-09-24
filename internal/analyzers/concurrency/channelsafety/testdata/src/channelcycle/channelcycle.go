@@ -144,11 +144,13 @@ func forwardedLaunchCreatesChild() {
 	<-b
 }
 
-func optionalHelperLaunchIsUnknown(run bool) {
+// The imported helper publishes both paths; when run is true it launches the
+// worker, and that one feasible execution is a cycle.
+func optionalHelperLaunchDeadlocks(run bool) {
 	a := make(chan int)
 	b := make(chan int)
 	channelcyclehelper.MaybeLaunch(b, a, run)
-	a <- 1
+	a <- 1 // want "two goroutines wait on each other's later channel operation"
 	<-b
 }
 

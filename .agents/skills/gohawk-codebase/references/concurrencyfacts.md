@@ -174,11 +174,99 @@ type Fact struct {
 	// CancellationInputs are formal indices whose context/cancel contracts
 	// require binding to exact standard-library origins before consumption.
 	CancellationInputs	[]int
+	// Alternatives, when present, replace the linear fields: one entry per
+	// bounded path, each with the conditions that select it.
+	Alternatives	[]FactAlternative
 }
 ```
 
 Fact records an exhaustive sequence, including an empty sequence. Any
 CancellationInputs must be discharged before that sequence is usable proof.
+
+## FactAlternative
+
+[Source](../../../../internal/passes/concurrencyfacts/facts_alternatives.go)
+
+```go
+type FactAlternative struct {
+	Effects			[]Effect
+	Workers			[]WorkerEffect
+	CancellationInputs	[]int
+	Conditions		[]FactCondition
+	Returned		[]FactReturned
+}
+```
+
+FactAlternative is one published path alternative.
+
+## FactCondition
+
+[Source](../../../../internal/passes/concurrencyfacts/facts_alternatives.go)
+
+```go
+type FactCondition struct {
+	Parameter	int
+	Internal	int
+	Constant	FactConstant
+	Holds		bool
+	Implied		bool
+}
+```
+
+FactCondition is one condition that selects an alternative. Parameter is
+the tested formal, or -1 for a condition inside the function, numbered by
+Internal. Constant, when present, is what the tested value is compared with.
+
+## FactConstant
+
+[Source](../../../../internal/passes/concurrencyfacts/facts_alternatives.go)
+
+```go
+type FactConstant struct {
+	Kind	FactConstantKind
+	Exact	string
+}
+```
+
+FactConstant is a constant in a form that round-trips exactly.
+
+## FactConstantAbsent, FactConstantNil, FactConstantBool, FactConstantInt, FactConstantString
+
+[Source](../../../../internal/passes/concurrencyfacts/facts_alternatives.go)
+
+```go
+const (
+	FactConstantAbsent	FactConstantKind	= iota
+	FactConstantNil
+	FactConstantBool
+	FactConstantInt
+	FactConstantString
+)
+```
+
+## FactConstantKind
+
+[Source](../../../../internal/passes/concurrencyfacts/facts_alternatives.go)
+
+```go
+type FactConstantKind uint8
+```
+
+FactConstantKind names how a constant was published.
+
+## FactReturned
+
+[Source](../../../../internal/passes/concurrencyfacts/facts_alternatives.go)
+
+```go
+type FactReturned struct {
+	Index		int
+	Constant	FactConstant
+}
+```
+
+FactReturned says result Index is Constant, or cannot be nil when Constant
+is absent.
 
 ## Incomplete, CompleteNoEffects, CompleteWithEffects
 

@@ -697,7 +697,10 @@ projections to an existing caller address before exposing bound evidence.
 Version 6 adds explicit RWMutex read modes; two read acquisitions are not
 treated as mutually exclusive. Version 7 adds `Invoke` effects: a call through
 a function-typed parameter is published as a hole at its position, and the
-importing call site fills it with the function or closure it supplies.
+importing call site fills it with the function or closure it supplies. Version 8 adds
+bounded path alternatives for functions whose branches have different
+effects: each carries its conditions by parameter position, numbered opaque
+inner conditions, and the constants or non-nil values it returns.
 
 Local composition also resolves exact interface boxes through shared dispatch
 evidence, preserving the concrete receiver's argument position. Loaded channel

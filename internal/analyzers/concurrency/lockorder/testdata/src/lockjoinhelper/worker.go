@@ -18,3 +18,17 @@ func Finish(mu *sync.Mutex, done chan<- struct{}) {
 func Launch(mu *sync.Mutex, done chan<- struct{}) {
 	go Finish(mu, done)
 }
+
+type AcquireError struct{}
+
+func (*AcquireError) Error() string { return "acquire failed" }
+
+// Acquire locks only on success; its fact publishes both paths and what each
+// returns.
+func Acquire(mu *sync.Mutex, n int) error {
+	if n < 0 {
+		return &AcquireError{}
+	}
+	mu.Lock()
+	return nil
+}

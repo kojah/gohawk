@@ -3,6 +3,8 @@ package lockjoin
 import (
 	"errors"
 	"sync"
+
+	"lockjoinhelper"
 )
 
 var errInvalid = errors.New("invalid")
@@ -132,4 +134,18 @@ func resultConditionedSafe(n int) {
 		return
 	}
 	mu.Unlock()
+}
+
+// The same shape through an imported helper: the published alternatives tie
+// the caller's error check to the helper's locking path.
+func importedResultDeadlock(n int) error {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	if err := lockjoinhelper.Acquire(&mu, n); err != nil {
+		return err
+	}
+	go worker(&mu, done)
+	<-done // want "waits for a worker that needs the held lock"
+	mu.Unlock()
+	return nil
 }

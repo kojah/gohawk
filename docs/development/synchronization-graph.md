@@ -93,9 +93,11 @@ structurally certain (a constant, or a fresh or boxed non-nil value); splicing
 it into a caller turns that into an implied condition on the caller's result
 value. An implied condition can contradict the caller's test of the result,
 and fixes the result's value rather than adding an independent input. Worker
-alternatives survive local helper launch/forwarding calls. Nested selects,
-independent branches within a select continuation, and cross-package
-alternative publication remain unknown. Complete straight-line helper launches
+alternatives survive local helper launch/forwarding calls. Nested selects and independent branches within a select continuation remain
+unknown. Path alternatives cross packages: a function whose branches differ
+publishes up to eight alternatives, each with its effects, its conditions by
+parameter position (inner conditions as numbered opaque ones), and its
+certain return values. Complete straight-line helper launches
 can compose into a caller, including through parameter-relative imported
 facts. A launch within a worker remains unknown.
 
