@@ -75,6 +75,10 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				ID: check.ProducerLifecycleSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
 			},
+			{
+				ID: check.ProducerLifecycleStoppedLoop, Doc: "Reports sends that can block forever after the service loop receiving them returns.",
+				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
+			},
 		}},
 	}
 }

@@ -32,7 +32,34 @@ abandoned receiver lifecycle.
 | Check | Kind | Tier | What it detects |
 | --- | --- | --- | --- |
 | <CheckIdentity name="abandoned-send" tier="core" /> | hazard | core | Reports producer goroutines that can block after their receiver stops waiting. |
+| <CheckIdentity name="stopped-loop-send" tier="experimental" /> | hazard | experimental | Reports sends that can block forever after the service loop receiving them returns. |
 {/* gohawk:generated-checks:end */}
+
+### Sends after a service loop stops
+
+The experimental `stopped-loop-send` check covers a long-lived variant. A
+struct owns an unbuffered channel, a background goroutine serves it from a
+`select` loop, and that loop returns when a stop channel or its context fires.
+After it returns, a plain send from an exported method has no receiver and
+blocks forever.
+
+The check only reports when the package proves every part of that shape:
+
+- The channel is an unexported field of a struct declared in the package, so
+  the package sees every use. It is made unbuffered, and it is never closed,
+  supplied from outside, copied, or handed to other code.
+- Every receive is a `select` arm in a loop of a function started only by `go`,
+  and the same `select` has another arm that returns. That stop arm must be
+  able to fire: the package sends on or closes the stop channel, or it is the
+  `Done` channel of a context that is not `context.Background` or
+  `context.TODO`.
+- The send is a plain send in an exported function or method. It is not in a
+  `select` with another way out, not inside the loop itself, not in the
+  function that starts the loop, and not behind a branch on the owner's own
+  state, such as a `running` flag.
+
+Buffered channels, unexported helpers reached through guarded entry points,
+and loops that never return are not reported.
 
 ## Why this is flagged
 
@@ -53,6 +80,8 @@ Drain every result, provide a proven buffer, or make sends cancellation-aware.
 {/* gohawk:generated-examples:start */}
 ### Flagged code
 
+#### Producer outlives its receiver
+
 ```go gohawk="W3siY2hlY2siOiJwcm9kdWNlcmxpZmVjeWNsZS9hYmFuZG9uZWQtc2VuZCIsIm1lc3NhZ2UiOiJnb3JvdXRpbmUgc2VuZCBjYW4gYmxvY2sgYWZ0ZXIgdGhlIHJlY2VpdmVyIHN0b3BzIHdhaXRpbmciLCJzdGFydExpbmUiOjQsInN0YXJ0Q29sdW1uIjo0LCJlbmRMaW5lIjo0LCJlbmRDb2x1bW4iOjM1fV0"
 func firstResultOnly() error {
   results := make(chan error)
@@ -62,6 +91,31 @@ func firstResultOnly() error {
   }()
   return <-results
 }
+```
+
+#### Send after a service loop stops
+
+```go gohawk="W3siY2hlY2siOiJwcm9kdWNlcmxpZmVjeWNsZS9zdG9wcGVkLWxvb3Atc2VuZCIsIm1lc3NhZ2UiOiJzZW5kIGNhbiBibG9jayBmb3JldmVyIGFmdGVyIHRoZSBzZXJ2aWNlIGxvb3AgcmVjZWl2aW5nIGl0IHJldHVybnMiLCJzdGFydExpbmUiOjE2LCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MTYsImVuZENvbHVtbiI6MTJ9XQ"
+type scheduler struct {
+  add  chan int
+  stop chan struct{}
+}
+
+func (s *scheduler) run() {
+  for {
+    select {
+    case <-s.add:
+    case <-s.stop:
+      return
+    }
+  }
+}
+
+func (s *scheduler) Schedule(v int) {
+  s.add <- v
+}
+
+func (s *scheduler) Stop() { close(s.stop) }
 ```
 
 ### Accepted code

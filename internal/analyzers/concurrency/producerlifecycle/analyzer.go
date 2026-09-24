@@ -36,6 +36,7 @@ func runProducerLifecycle(pass *analysis.Pass) (any, error) {
 	for _, function := range functions {
 		reportAbandonedProducerSends(pass, function)
 	}
+	reportStoppedLoopSends(pass, functions)
 	return nil, nil
 }
 

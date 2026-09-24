@@ -130,6 +130,12 @@
               "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
               "kind": "hazard",
               "tier": "core"
+            },
+            {
+              "id": "producerlifecycle/stopped-loop-send",
+              "summary": "Reports sends that can block forever after the service loop receiving them returns.",
+              "kind": "hazard",
+              "tier": "experimental"
             }
           ],
           "options": []

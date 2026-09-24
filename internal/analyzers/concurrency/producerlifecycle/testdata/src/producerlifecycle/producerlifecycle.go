@@ -2,7 +2,7 @@ package producerlifecycle
 
 import "errors"
 
-//gohawk:example flagged
+//gohawk:example flagged Producer outlives its receiver
 func firstResultOnly() error {
 	results := make(chan error)
 	go func() {
@@ -13,6 +13,36 @@ func firstResultOnly() error {
 }
 
 //gohawk:example end
+
+//gohawk:example flagged Send after a service loop stops
+type scheduler struct {
+	add  chan int
+	stop chan struct{}
+}
+
+func (s *scheduler) run() {
+	for {
+		select {
+		case <-s.add:
+		case <-s.stop:
+			return
+		}
+	}
+}
+
+func (s *scheduler) Schedule(v int) {
+	s.add <- v // want "send can block forever after the service loop receiving it returns"
+}
+
+func (s *scheduler) Stop() { close(s.stop) }
+
+//gohawk:example end
+
+func newScheduler() *scheduler {
+	s := &scheduler{add: make(chan int), stop: make(chan struct{})}
+	go s.run()
+	return s
+}
 
 //gohawk:example ok
 func drainResults() {

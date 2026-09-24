@@ -35,3 +35,20 @@ func TestProducerReasonCodes(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceLoopReasonCodes(t *testing.T) {
+	if len(loopReasonCodes) != int(loopReasonCount) {
+		t.Fatal("every service-loop reason needs a boundary spelling")
+	}
+	seen := map[string]bool{}
+	for reason := range loopReasonCount {
+		code := reason.String()
+		if reason != loopReasonNone && (code == "" || seen[code]) {
+			t.Errorf("reason %d: missing or duplicate code %q", reason, code)
+		}
+		seen[code] = true
+	}
+	if loopReasonCount.String() != "invalid-service-loop-reason" {
+		t.Errorf("invalid reason: %q", loopReasonCount.String())
+	}
+}
