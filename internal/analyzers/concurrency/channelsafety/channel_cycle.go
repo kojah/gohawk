@@ -41,6 +41,7 @@ func reportChannelCycle(pass *analysis.Pass, function *ssa.Function) {
 		return
 	}
 	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(probe.Observer()))
+	root.ObserveCutoff(probe.Observer())
 	graphs, reason := syncmodel.Expand(root)
 	proof := channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: reason}
 	if reason == "" {

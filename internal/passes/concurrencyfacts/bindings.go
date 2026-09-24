@@ -13,6 +13,10 @@ import (
 // cells additionally need stable contents because the worker may read them
 // after the launch. A matching access path alone cannot justify this identity.
 func (engine *Engine) instantiate(instruction ssa.CallInstruction) Summary {
+	return engine.instantiatedCutoff(engine.instantiateEffects(instruction), instruction)
+}
+
+func (engine *Engine) instantiateEffects(instruction ssa.CallInstruction) Summary {
 	common := engine.resolvedCommon(instruction)
 	if function := common.StaticCallee(); function != nil && len(function.Blocks) == 0 {
 		return engine.importedCall(instruction, function)

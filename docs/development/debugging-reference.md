@@ -114,6 +114,26 @@ A `decision` of unknown means some consumption was opaque and the analyzer
 declined to report. That is the design working, not a defect, unless the
 opaque consumption is a shape the classifier ought to recognize.
 
+### Synchronization summary cutoffs
+
+The channel-dependency and mixed lock-dependency checks emit `protocol-cutoff`
+evidence before their final decision when summary inference retains a cutoff.
+Its position identifies the rejecting instruction when SSA supplies one,
+otherwise the containing function. Details include the instruction kind and
+text, the function, the final summary reason, and a control-flow shape category.
+For helper failures, `caller-0` is the innermost call site, followed by its
+callers; at most eight sites are retained and `chain-truncated` names an omitted
+outer suffix. Cached helpers retain the same leaf attribution without
+rerunning inference or modifying another caller's chain.
+
+This is the first cutoff of the final inference attempt, not a list of every
+unsupported operation or evidence of a missed bug. Alternative collectors can
+retry an initial rejection; only the final attempt is attributed. `unspecified`
+means a function-level boundary has no retained rejecting instruction. Missing
+imported facts and binding failures may identify the caller rather than a
+dependency body that is unavailable. No source positions or cutoff metadata
+are exported in cross-package facts.
+
 ### Give-up events from the shared engine
 
 The shared proofs in `internal/ssaflow` never call the tracer, but they report

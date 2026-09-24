@@ -12,6 +12,7 @@ import (
 // The fixed sequence limit bounds copying; no execution paths are enumerated.
 func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary {
 	if !trivialRecovery(function) {
+		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
 		return Summary{Reason: "protocol-control-flow-unknown"}
 	}
 	order, reason := engine.orderedBlocks(function)
@@ -34,6 +35,7 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 				return Summary{Reason: "protocol-deferred-effects-unknown"}
 			}
 			if terminal != nil && !sameEffects(*terminal, state) {
+				engine.recordBlockCutoff(block, cutoffBranch)
 				return Summary{Reason: "protocol-branch-effects-differ"}
 			}
 			terminal = &state
@@ -42,6 +44,7 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 			// A join with different synchronization histories is not one
 			// unconditional protocol, even if later operations happen to agree.
 			if previous, exists := states[next]; exists && !sameEffects(previous, state) {
+				engine.recordBlockCutoff(block, cutoffBranch)
 				return Summary{Reason: "protocol-branch-effects-differ"}
 			}
 			states[next] = cloneEffects(state)
@@ -70,6 +73,7 @@ func (engine *Engine) orderedBlocks(function *ssa.Function) ([]*ssa.BasicBlock, 
 	order := []*ssa.BasicBlock{function.Blocks[0]}
 	for index := 0; index < len(order); index++ {
 		if !engine.budget.Spend() {
+			engine.recordBlockCutoff(order[index], cutoffBranch)
 			return nil, "protocol-budget-exhausted"
 		}
 		for _, next := range order[index].Succs {
@@ -80,6 +84,12 @@ func (engine *Engine) orderedBlocks(function *ssa.Function) ([]*ssa.BasicBlock, 
 		}
 	}
 	if len(order) != len(pending) {
+		for _, block := range function.Blocks {
+			if pending[block] > 0 {
+				engine.recordBlockCutoff(block, cutoffLoop)
+				break
+			}
+		}
 		return nil, "protocol-control-flow-unknown"
 	}
 	return order, ""

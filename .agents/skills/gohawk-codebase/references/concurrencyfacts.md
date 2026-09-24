@@ -326,6 +326,7 @@ const (
 
 ```go
 type Summary struct {
+
 	// Paths contains every bounded acyclic alternative. Each entry is a
 	// complete linear summary or an exhaustive worker choice; never a prefix.
 	// Linear consumers must decline the enclosing nonempty Reason.
@@ -387,6 +388,19 @@ func (summary Summary) Completeness() Completeness
 
 Completeness classifies the summary for its consumers. It is derived from
 the same fields the builder writes, so it cannot disagree with Reason.
+
+## Summary.ObserveCutoff
+
+[Source](../../../../internal/passes/concurrencyfacts/cutoff.go)
+
+```go
+func (summary Summary) ObserveCutoff(observer ssaflow.Observer)
+```
+
+ObserveCutoff emits the retained summary cutoff through a candidate's observer.
+It never reruns inference. A nil observer does no formatting or allocation.
+Positions and SSA text are developer-local evidence, not serialized facts.
+The call chain runs from the leaf outward and is explicitly marked if cut.
 
 ## WorkerEffect
 

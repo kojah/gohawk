@@ -13,6 +13,7 @@ const maxProtocolIterations = 4
 
 func (engine *Engine) collectCountedLoops(function *ssa.Function, root bool) Summary {
 	if !trivialRecovery(function) {
+		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
 		return Summary{Reason: "protocol-control-flow-unknown"}
 	}
 	var result Summary
@@ -20,12 +21,16 @@ func (engine *Engine) collectCountedLoops(function *ssa.Function, root bool) Sum
 	block := function.Blocks[0]
 	for block != nil {
 		if seen[block] || !engine.budget.Spend() {
+			engine.recordBlockCutoff(block, cutoffLoop)
 			return Summary{Reason: "protocol-control-flow-unknown"}
 		}
 		seen[block] = true
 		if len(block.Succs) == 2 {
+			// Failure is attributed to the header, not an imagined iteration:
+			// the count proof does not establish that its body can finish.
 			loop := ssaflow.ProveCountedLoop(block, maxProtocolIterations, engine.budget)
 			if !loop.Proven() || loop.CounterUsed || seen[loop.Body] || !engine.repeatableBody(loop.Body) {
+				engine.recordBlockCutoff(block, cutoffLoop)
 				return Summary{Reason: "protocol-control-flow-unknown"}
 			}
 			seen[loop.Body] = true

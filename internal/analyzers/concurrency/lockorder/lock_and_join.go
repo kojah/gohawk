@@ -56,15 +56,19 @@ func reportSynchronizationCycles(pass *analysis.Pass, function *ssa.Function, en
 	graphs, reason := syncmodel.Expand(root)
 	if channelCandidate != token.NoPos {
 		joinProbe := analysisTrace.For(pass, "lockorder", string(check.LockAndJoin), channelCandidate)
+		root.ObserveCutoff(joinProbe.Observer())
 		joinProbe.Candidate(analysisTrace.Step{Reason: "lock-join-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: channelCandidate})
 		reportLockSignal(pass, joinProbe, check.LockAndJoin, channelCandidate, proveLockSignalVariants(graphs, reason, concurrencyfacts.Close),
 			"waits for a worker that needs the held lock")
 		channelProbe := analysisTrace.For(pass, "lockorder", string(check.LockChannelCycle), channelCandidate)
+		root.ObserveCutoff(channelProbe.Observer())
 		channelProbe.Candidate(analysisTrace.Step{Reason: "channel-lock-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: channelCandidate})
 		reportLockSignal(pass, channelProbe, check.LockChannelCycle, channelCandidate, proveLockSignalVariants(graphs, reason, concurrencyfacts.Send),
 			"receives while holding the lock needed by its sender")
 	}
 	if groupCandidate != token.NoPos {
+		groupProbe := analysisTrace.For(pass, "lockorder", string(check.LockWaitGroupCycle), groupCandidate)
+		root.ObserveCutoff(groupProbe.Observer())
 		reportWaitGroupLockCycle(pass, graphs, reason, groupCandidate)
 	}
 }

@@ -13,6 +13,7 @@ const maxProtocolPaths = 8
 
 func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 	if !trivialRecovery(function) {
+		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
 		return Summary{Reason: "protocol-control-flow-unknown"}
 	}
 	order, reason := engine.orderedBlocks(function)
@@ -26,12 +27,14 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 		for _, instruction := range block.Instrs {
 			current, reason = engine.advancePaths(current, instruction, root)
 			if reason != "" {
+				engine.recordCutoff(instruction, cutoffInstruction)
 				return Summary{Reason: reason}
 			}
 		}
 		if len(block.Succs) == 0 {
 			paths = append(paths, current...)
 			if len(paths) > maxProtocolPaths {
+				engine.recordBlockCutoff(block, cutoffBranch)
 				return Summary{Reason: "protocol-alternative-limit"}
 			}
 		}
@@ -40,6 +43,7 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 				states[next] = append(states[next], cloneEffects(state))
 			}
 			if len(states[next]) > maxProtocolPaths {
+				engine.recordBlockCutoff(block, cutoffBranch)
 				return Summary{Reason: "protocol-alternative-limit"}
 			}
 		}

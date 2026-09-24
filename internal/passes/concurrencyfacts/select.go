@@ -76,6 +76,7 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 				continue
 			}
 			if selection != nil || block != function.Blocks[0] {
+				engine.recordCutoff(candidate, cutoffSelect)
 				return Summary{Reason: "protocol-select-alternatives-unknown"}, true
 			}
 			selection, selectIndex = candidate, index
@@ -85,6 +86,7 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 		return Summary{}, false
 	}
 	if !trivialRecovery(function) {
+		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
 		return Summary{Reason: "protocol-control-flow-unknown"}, true
 	}
 	var prefix Summary
@@ -92,19 +94,23 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 	// not merge unrelated branches into this conditional summary.
 	for _, instruction := range function.Blocks[0].Instrs[:selectIndex] {
 		if !engine.budget.Spend() {
+			engine.recordCutoff(instruction, cutoffInstruction)
 			return Summary{Reason: "protocol-budget-exhausted"}, true
 		}
 		if reason := engine.appendInstruction(&prefix, instruction, false); reason != "" {
 			return Summary{Reason: reason}, true
 		}
 		if prefix.operationCount() > maxOperations {
+			engine.recordCutoff(instruction, cutoffInstruction)
 			return Summary{Reason: "protocol-summary-limit"}, true
 		}
 	}
 	if !engine.budget.Spend() {
+		engine.recordCutoff(selection, cutoffSelect)
 		return Summary{Reason: "protocol-budget-exhausted"}, true
 	}
 	if reason := engine.appendSelect(&prefix, selection); reason != "protocol-select-alternatives" {
+		engine.recordCutoff(selection, cutoffSelect)
 		return Summary{Reason: reason}, true
 	}
 	choice := &prefix.Choices[0]
@@ -138,11 +144,13 @@ func (engine *Engine) collectSelectArm(
 		// A repeated block would turn one syntactic arm into unbounded loop
 		// multiplicity; a fixed event sequence cannot represent that soundly.
 		if visited[block] {
+			engine.recordBlockCutoff(block, cutoffLoop)
 			return Summary{}, "protocol-control-flow-unknown"
 		}
 		visited[block] = true
 		for _, instruction := range block.Instrs[start:] {
 			if !engine.budget.Spend() {
+				engine.recordCutoff(instruction, cutoffInstruction)
 				return Summary{}, "protocol-budget-exhausted"
 			}
 			if extract, ok := instruction.(*ssa.Extract); ok && extract.Tuple == selection && scalarType(extract.Type()) {
@@ -152,6 +160,7 @@ func (engine *Engine) collectSelectArm(
 				return Summary{}, reason
 			}
 			if state.operationCount() > maxOperations {
+				engine.recordCutoff(instruction, cutoffInstruction)
 				return Summary{}, "protocol-summary-limit"
 			}
 		}
@@ -173,6 +182,7 @@ func (engine *Engine) collectSelectArm(
 		// Only dispatch decisions on the selected index are evaluated here.
 		// An independent condition could hide an escaping continuation.
 		if !ok {
+			engine.recordBlockCutoff(block, cutoffSelect)
 			return Summary{}, "protocol-select-dispatch-unknown"
 		}
 		block, start = next, 0

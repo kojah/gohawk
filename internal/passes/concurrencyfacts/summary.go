@@ -92,6 +92,7 @@ type SelectChoice struct {
 // Returned slices are immutable. Workers are symbolic child templates until a
 // root binds them to call sites; they are never synchronous effects.
 type Summary struct {
+	cutoff *summaryCutoff
 	// Paths contains every bounded acyclic alternative. Each entry is a
 	// complete linear summary or an exhaustive worker choice; never a prefix.
 	// Linear consumers must decline the enclosing nonempty Reason.
@@ -162,6 +163,7 @@ func (summary Summary) Complete() bool {
 // Engine caches evidence for one package. Concurrent consumers are serialized
 // at the public query boundary; each query must supply its own work budget.
 type Engine struct {
+	cutoff    *summaryCutoff
 	mu        sync.Mutex
 	summaries *ssaflow.FunctionSummaries[Summary]
 	linear    *ssaflow.FunctionSummaries[Summary]
@@ -236,14 +238,24 @@ func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBud
 }
 
 func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
+	engine.cutoff = nil
 	result := engine.collectEffects(function, root)
 	if engine.paths && result.Reason == "protocol-control-flow-unknown" && function != nil && len(function.Blocks) != 0 {
+		engine.cutoff = nil
 		result = engine.collectCountedLoops(function, root)
 	}
 	if engine.paths && (result.Reason == "protocol-branch-effects-differ" || result.Reason == "protocol-branch-alternatives") {
+		engine.cutoff = nil
 		result = engine.collectPaths(function, root)
 	}
-	return finishCancellation(result)
+	result = finishCancellation(result)
+	if result.Reason != "" && !result.AlternativesComplete && len(result.Paths) == 0 {
+		result.cutoff = engine.cutoff
+		if result.cutoff == nil {
+			result.cutoff = &summaryCutoff{function: function}
+		}
+	}
+	return result
 }
 
 func (engine *Engine) collectEffects(function *ssa.Function, root bool) Summary {
@@ -279,12 +291,14 @@ func (engine *Engine) collectEffects(function *ssa.Function, root bool) Summary 
 func (engine *Engine) collectBlock(result *Summary, block *ssa.BasicBlock, root bool) string {
 	for _, instruction := range block.Instrs {
 		if !engine.budget.Spend() {
+			engine.recordCutoff(instruction, cutoffInstruction)
 			return "protocol-budget-exhausted"
 		}
 		if reason := engine.appendInstruction(result, instruction, root); reason != "" {
 			return reason
 		}
 		if result.operationCount() > maxOperations {
+			engine.recordCutoff(instruction, cutoffInstruction)
 			return "protocol-summary-limit"
 		}
 	}
@@ -292,6 +306,17 @@ func (engine *Engine) collectBlock(result *Summary, block *ssa.BasicBlock, root 
 }
 
 func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruction, root bool) string {
+	engine.cutoff = nil
+	reason := engine.instructionEffects(result, instruction, root)
+	if reason != "" {
+		engine.recordCutoff(instruction, cutoffInstruction)
+	} else {
+		engine.cutoff = nil
+	}
+	return reason
+}
+
+func (engine *Engine) instructionEffects(result *Summary, instruction ssa.Instruction, root bool) string {
 	switch instruction := instruction.(type) {
 	case *ssa.Send:
 		// Passing a reference in a message can add a participant or expose
