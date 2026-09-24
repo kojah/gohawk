@@ -170,10 +170,10 @@ func (provider *Provider) Concurrency() (*concurrencyfacts.Engine, Availability)
 // Missing or incomplete effects retain the engine's domain-specific Reason.
 func (provider *Provider) ConcurrencyAtCall(call ssa.CallInstruction, budget *ssaflow.SearchBudget) (concurrencyfacts.Summary, Availability) {
 	if !provider.selection.requirements.Concurrency {
-		return concurrencyfacts.Summary{Reason: "concurrency-component-not-requested"}, NotRequested
+		return concurrencyfacts.Summary{Reason: concurrencyfacts.ReasonComponentNotRequested}, NotRequested
 	}
 	if provider.concurrency == nil {
-		return concurrencyfacts.Summary{Reason: "concurrency-component-unavailable"}, Unavailable
+		return concurrencyfacts.Summary{Reason: concurrencyfacts.ReasonComponentUnavailable}, Unavailable
 	}
 	if function := call.Common().StaticCallee(); function != nil && len(function.Blocks) == 0 {
 		if fact, availability := provider.ForFunction(function).Concurrency(budget); availability == Available {

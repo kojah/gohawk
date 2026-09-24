@@ -27,7 +27,7 @@ func many(a chan int, x, y, z, w bool) {
 `)
 	engine := NewEngine()
 	linear := engine.linear.Function(pkg.Func("branch"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
-	if linear.Reason != "protocol-branch-effects-differ" || len(linear.Paths) != 0 {
+	if linear.Reason != ReasonBranchEffectsDiffer || len(linear.Paths) != 0 {
 		t.Fatalf("linear export built unpublishable paths: %+v", linear)
 	}
 	launch := engine.Root(pkg.Func("launch"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
@@ -36,7 +36,7 @@ func many(a chan int, x, y, z, w bool) {
 	}
 	for _, name := range []string{"branch", "forward", "optional"} {
 		got := engine.Function(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
-		if got.Complete() || len(got.Paths) != 2 || got.Reason != "protocol-branch-alternatives" {
+		if got.Complete() || len(got.Paths) != 2 || got.Reason != ReasonBranchAlternatives {
 			t.Errorf("%s = %+v, want two non-linear paths", name, got)
 		}
 		for _, path := range got.Paths {

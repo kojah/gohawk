@@ -38,7 +38,7 @@ func root() {
 	if len(graph.Parent) != 5 || graph.Children[0].Prefix != 3 {
 		t.Error("scope mutated the input")
 	}
-	graph.Reason = "opaque-call"
+	graph.Failure = summaryFailure(concurrencyfacts.ReasonEffectUnknown)
 	if scoped := graph.Scope(resources...); scoped.Complete() {
 		t.Error("projection repaired an incomplete participant model")
 	}

@@ -55,7 +55,7 @@ func TestQueriesRejectIncompleteAndMalformedGraphs(t *testing.T) {
 	channel := concurrencyfacts.Reference{Value: &ssa.MakeChan{}}
 	for name, query := range map[string]Query{
 		"zero":       {},
-		"incomplete": NewQuery(SyncGraph{Reason: "protocol-budget-exhausted"}),
+		"incomplete": NewQuery(SyncGraph{Failure: summaryFailure(concurrencyfacts.ReasonBudgetExhausted)}),
 		"choice":     NewQuery(SyncGraph{Choices: []SyncChoice{{}}}),
 		"duplicate": NewQuery(SyncGraph{Parent: []SyncEvent{
 			{ID: 0, Resource: channel}, {ID: 0, Resource: channel},
@@ -88,36 +88,36 @@ func TestFirstSignalRequiresExactAcquisitionPrefix(t *testing.T) {
 		name    string
 		ops     []concurrencyfacts.Operation
 		state   ssaflow.EvidenceState
-		reason  string
+		reason  Reason
 		present bool
 	}{
-		{"no signal", []concurrencyfacts.Operation{lock}, ssaflow.EvidenceDisproven, "syncgraph-no-channel-signal", false},
-		{"empty worker", nil, ssaflow.EvidenceDisproven, "syncgraph-no-channel-signal", false},
-		{"signal before lock", []concurrencyfacts.Operation{send, lock, closeChannel}, ssaflow.EvidenceDisproven, "syncgraph-signal-before-acquire", true},
+		{"no signal", []concurrencyfacts.Operation{lock}, ssaflow.EvidenceDisproven, ReasonNoChannelSignal, false},
+		{"empty worker", nil, ssaflow.EvidenceDisproven, ReasonNoChannelSignal, false},
+		{"signal before lock", []concurrencyfacts.Operation{send, lock, closeChannel}, ssaflow.EvidenceDisproven, ReasonSignalBeforeAcquire, true},
 		{
 			"other lock",
 			[]concurrencyfacts.Operation{op(concurrencyfacts.Lock, other), closeChannel},
-			ssaflow.EvidenceDisproven, "syncgraph-signal-before-acquire", true,
+			ssaflow.EvidenceDisproven, ReasonSignalBeforeAcquire, true,
 		},
-		{"unlock before lock", []concurrencyfacts.Operation{unlock, lock, closeChannel}, ssaflow.EvidenceUnknown, "syncgraph-alternate-unlock", false},
+		{"unlock before lock", []concurrencyfacts.Operation{unlock, lock, closeChannel}, ssaflow.EvidenceUnknown, ReasonAlternateUnlock, false},
 		{
 			"condition releases locker",
 			[]concurrencyfacts.Operation{op(concurrencyfacts.CondWait, other), lock, closeChannel},
-			ssaflow.EvidenceUnknown, "syncgraph-alternate-unlock", false,
+			ssaflow.EvidenceUnknown, ReasonAlternateUnlock, false,
 		},
 		{
 			"indirect identity",
 			[]concurrencyfacts.Operation{op(concurrencyfacts.Lock, indirect), closeChannel},
-			ssaflow.EvidenceUnknown, "syncgraph-identity-unknown", false,
+			ssaflow.EvidenceUnknown, ReasonIdentityUnknown, false,
 		},
-		{"acquisition before close", []concurrencyfacts.Operation{lock, closeChannel}, ssaflow.EvidenceProven, "syncgraph-program-order", true},
-		{"acquisition before send", []concurrencyfacts.Operation{lock, send}, ssaflow.EvidenceProven, "syncgraph-program-order", true},
-		{"not a held-at-signal claim", []concurrencyfacts.Operation{lock, unlock, closeChannel}, ssaflow.EvidenceProven, "syncgraph-program-order", true},
+		{"acquisition before close", []concurrencyfacts.Operation{lock, closeChannel}, ssaflow.EvidenceProven, ReasonProgramOrder, true},
+		{"acquisition before send", []concurrencyfacts.Operation{lock, send}, ssaflow.EvidenceProven, ReasonProgramOrder, true},
+		{"not a held-at-signal claim", []concurrencyfacts.Operation{lock, unlock, closeChannel}, ssaflow.EvidenceProven, ReasonProgramOrder, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			graph := FromSummary(concurrencyfacts.Summary{Workers: []concurrencyfacts.WorkerSummary{{Site: 1, Operations: test.ops}}})
 			answer := NewQuery(graph).FirstSignalAfterAcquire(1, mutex, channel, concurrencyfacts.Lock)
-			if answer.State != test.state || string(answer.Reason) != test.reason || answer.Present != test.present {
+			if answer.State != test.state || answer.Reason != test.reason || answer.Present != test.present {
 				t.Fatalf("FirstSignalAfterAcquire = %+v", answer)
 			}
 			if answer.Present && answer.Signal.ID != EventID(firstSignalIndex(test.ops, channel)) {

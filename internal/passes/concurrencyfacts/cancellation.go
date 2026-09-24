@@ -21,8 +21,6 @@ var (
 	contextDone     = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "context", Receiver: "Context", Name: "Done"})
 )
 
-const cancellationBindingRequired = "protocol-context-binding-required"
-
 func isCancelConstructor(common *ssa.CallCommon) bool {
 	return ssaflow.CallMatchesAnySymbol(common, withCancel, withCancelCause)
 }
@@ -47,7 +45,7 @@ func (engine *Engine) cancellationCall(call ssa.CallInstruction) (Summary, bool)
 		parent := engine.storage.Resolve(common.Args[0])
 		value, ok := parent.Value.(*ssa.Call)
 		if !parent.Proven() || !ok || !ssaflow.CallMatchesAnySymbol(value.Common(), background, todoContext) {
-			return Summary{Reason: "protocol-context-parent-unknown"}, true
+			return Summary{Reason: ReasonContextParentUnknown}, true
 		}
 		return Summary{}, true
 	case ssaflow.CallMatchesSymbol(common, contextDone):
@@ -62,7 +60,7 @@ func (engine *Engine) cancellationCall(call ssa.CallInstruction) (Summary, bool)
 func (engine *Engine) cancellationOperation(call ssa.CallInstruction, value ssa.Value, cancel bool) Summary {
 	resource, ok := engine.reference(value)
 	if !ok || !resource.Cancellation {
-		return Summary{Reason: "protocol-context-identity-unknown"}
+		return Summary{Reason: ReasonContextIdentityUnknown}
 	}
 	result := Summary{CancellationInputs: []Reference{resource}}
 	if cancel {
@@ -97,7 +95,7 @@ func cancellationBound(reference Reference) bool {
 // Requirements stay attached to conditional select summaries too. They must
 // be discharged before graph expansion, not just before linear consumption.
 func finishCancellation(summary Summary) Summary {
-	if summary.Reason != "" && summary.Reason != cancellationBindingRequired && summary.Reason != "protocol-select-alternatives" {
+	if summary.Reason != ReasonNone && summary.Reason != ReasonContextBindingRequired && summary.Reason != ReasonSelectAlternatives {
 		return summary
 	}
 	// Channel-valued helper arguments may become Done projections only at
@@ -108,18 +106,18 @@ func finishCancellation(summary Summary) Summary {
 		}
 	}
 	if summary.operationCount() > maxOperations {
-		return Summary{Reason: "protocol-summary-limit"}
+		return Summary{Reason: ReasonSummaryLimit}
 	}
 	for _, input := range summary.CancellationInputs {
 		if !cancellationBound(input) {
-			if summary.Reason != "protocol-select-alternatives" {
-				summary.Reason = cancellationBindingRequired
+			if summary.Reason != ReasonSelectAlternatives {
+				summary.Reason = ReasonContextBindingRequired
 			}
 			return summary
 		}
 	}
-	if summary.Reason == cancellationBindingRequired {
-		summary.Reason = ""
+	if summary.Reason == ReasonContextBindingRequired {
+		summary.Reason = ReasonNone
 	}
 	return summary
 }
@@ -137,7 +135,7 @@ func (summary Summary) CancellationBound() bool {
 }
 
 func composableLinear(summary Summary) bool {
-	return summary.Reason == "" || summary.Reason == cancellationBindingRequired
+	return summary.Reason == ReasonNone || summary.Reason == ReasonContextBindingRequired
 }
 
 func requireCancellation(summary *Summary, inputs []Reference) {
@@ -150,17 +148,17 @@ func requireCancellation(summary *Summary, inputs []Reference) {
 
 func (engine *Engine) bindCancellationInputs(
 	inputs []Reference, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
-) ([]Reference, string) {
+) ([]Reference, Reason) {
 	result := make([]Reference, 0, len(inputs))
 	for _, input := range inputs {
 		if !engine.budget.Spend() {
-			return nil, "protocol-budget-exhausted"
+			return nil, ReasonBudgetExhausted
 		}
 		bound, ok := engine.bind(input, bindings, instruction)
 		if !ok || !bound.Cancellation {
-			return nil, "protocol-context-binding-unknown"
+			return nil, ReasonContextBindingUnknown
 		}
 		result = append(result, bound)
 	}
-	return result, ""
+	return result, ReasonNone
 }

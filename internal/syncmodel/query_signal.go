@@ -10,7 +10,7 @@ import (
 // must pass that acquisition to reach the signal, not that it completes or
 // holds the mutex at the signal. Absence is scoped to this complete variant.
 type SignalOrder struct {
-	ssaflow.Proof
+	Proof
 	Acquire SyncEvent
 	Signal  SyncEvent
 	Present bool
@@ -30,16 +30,16 @@ func (query Query) FirstSignalAfterAcquire(
 	}
 	if worker < 0 || int(worker) >= len(query.sequences) || !exactReference(mutex) || !exactReference(channel) ||
 		heldKind != concurrencyfacts.Lock && heldKind != concurrencyfacts.ReadLock {
-		return SignalOrder{Proof: queryProof(ssaflow.EvidenceUnknown, "syncgraph-identity-unknown")}
+		return SignalOrder{Proof: queryProof(ssaflow.EvidenceUnknown, ReasonIdentityUnknown)}
 	}
 	var acquire SyncEvent
 	acquired := false
 	for _, event := range query.sequences[worker] {
 		if !exactReference(event.Resource) {
-			return SignalOrder{Proof: queryProof(ssaflow.EvidenceUnknown, "syncgraph-identity-unknown")}
+			return SignalOrder{Proof: queryProof(ssaflow.EvidenceUnknown, ReasonIdentityUnknown)}
 		}
 		if !acquired && couldRelease(event, mutex) {
-			return SignalOrder{Proof: queryProof(ssaflow.EvidenceUnknown, "syncgraph-alternate-unlock")}
+			return SignalOrder{Proof: queryProof(ssaflow.EvidenceUnknown, ReasonAlternateUnlock)}
 		}
 		if !acquired && event.Resource == mutex && acquisitionConflicts(event.Kind, heldKind) {
 			acquire, acquired = event, true
@@ -48,13 +48,13 @@ func (query Query) FirstSignalAfterAcquire(
 			continue
 		}
 		answer := SignalOrder{Acquire: acquire, Signal: event, Present: true}
-		answer.Proof = queryProof(ssaflow.EvidenceDisproven, "syncgraph-signal-before-acquire")
+		answer.Proof = queryProof(ssaflow.EvidenceDisproven, ReasonSignalBeforeAcquire)
 		if acquired {
 			answer.Proof = query.Before(acquire.ID, event.ID)
 		}
 		return answer
 	}
-	return SignalOrder{Proof: queryProof(ssaflow.EvidenceDisproven, "syncgraph-no-channel-signal")}
+	return SignalOrder{Proof: queryProof(ssaflow.EvidenceDisproven, ReasonNoChannelSignal)}
 }
 
 func couldRelease(event SyncEvent, mutex concurrencyfacts.Reference) bool {

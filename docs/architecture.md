@@ -234,6 +234,10 @@ and invalid values. Convert to stable textual codes at tracing, serialization,
 or display boundaries; keep free-form explanations separate. Do not place
 analyzer-specific vocabulary in a single global reason catalog.
 
+Synchronization queries preserve a typed graph failure or upstream concurrency
+summary cause. Consumers must retain that cause rather than convert it to text
+to move it between proof layers; only trace rendering chooses its external code.
+
 The migration is incomplete. `reason-string-baseline.json` records existing
 raw declarations and common literal assignments across `internal/`; the guard
 rejects growth and requires completed entries to be removed. It is a ratchet,

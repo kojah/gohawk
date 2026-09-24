@@ -64,7 +64,7 @@ func (engine *Engine) recordBlockCutoff(block *ssa.BasicBlock, shape cutoffShape
 }
 
 func (engine *Engine) instantiatedCutoff(result Summary, call ssa.CallInstruction) Summary {
-	if result.Reason == "" || result.AlternativesComplete || len(result.Paths) != 0 {
+	if result.Reason == ReasonNone || result.AlternativesComplete || len(result.Paths) != 0 {
 		return result
 	}
 	cutoff := summaryCutoff{instruction: call, function: call.Parent(), shape: cutoffInstruction}
@@ -87,12 +87,12 @@ func (engine *Engine) instantiatedCutoff(result Summary, call ssa.CallInstructio
 // Positions and SSA text are developer-local evidence, not serialized facts.
 // The call chain runs from the leaf outward and is explicitly marked if cut.
 func (summary Summary) ObserveCutoff(observer ssaflow.Observer) {
-	if observer == nil || summary.cutoff == nil || summary.Reason == "" {
+	if observer == nil || summary.cutoff == nil || summary.Reason == ReasonNone {
 		return
 	}
 	cutoff := summary.cutoff
 	details := map[string]string{
-		"summary-reason": summary.Reason, "shape": cutoff.shape.String(),
+		"summary-reason": summary.Reason.String(), "shape": cutoff.shape.String(),
 		"call-depth": strconv.Itoa(cutoff.depth), "chain-truncated": strconv.FormatBool(cutoff.truncated),
 	}
 	at := token.NoPos
@@ -114,5 +114,5 @@ func (summary Summary) ObserveCutoff(observer ssaflow.Observer) {
 			details[key+"-position"] = program.Fset.Position(call.Pos()).String()
 		}
 	}
-	observer("protocol-cutoff", at, details)
+	observer(ReasonCutoff.String(), at, details)
 }

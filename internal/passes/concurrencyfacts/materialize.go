@@ -42,11 +42,11 @@ func (engine *Engine) materialize(summary Summary, function *ssa.Function) Summa
 				continue
 			}
 			if reference.Indirect {
-				return Summary{Reason: "protocol-field-binding-unknown"}
+				return Summary{Reason: ReasonFieldBindingUnknown}
 			}
 			value, found := engine.fieldAddress(function, reference.Projection)
 			if !found {
-				return Summary{Reason: "protocol-field-binding-unknown"}
+				return Summary{Reason: ReasonFieldBindingUnknown}
 			}
 			sequence[index].Resource = Reference{Value: value}
 		}

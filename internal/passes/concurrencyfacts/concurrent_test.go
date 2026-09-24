@@ -38,7 +38,7 @@ func root(ch chan int) { forward(ch) }
 				case 2:
 					summary = engine.AtCall(calls[0], budget)
 				}
-				if summary.Reason != "" || len(summary.Operations) != 1 ||
+				if summary.Reason != ReasonNone || len(summary.Operations) != 1 ||
 					summary.Operations[0].Kind != Close || summary.Operations[0].Resource.Value != function.Params[0] {
 					t.Errorf("consumer %d: %+v", worker, summary)
 				}

@@ -40,7 +40,7 @@ func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 		if _, ok := condLocker(instruction); ok {
 			return Summary{}
 		}
-		return Summary{Reason: "protocol-cond-locker-unknown"}
+		return Summary{Reason: ReasonCondLockerUnknown}
 	case ssaflow.CallMatchesSymbol(common, condWait):
 		kind, resource = CondWait, ssaflow.CallReceiver(common)
 	case ssaflow.CallMatchesAnySymbol(common, mutexLock, rwLock):
@@ -59,11 +59,11 @@ func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 		kind, resource = GroupWait, ssaflow.CallReceiver(common)
 	case ssaflow.CallMatchesSymbol(common, groupAdd):
 		if len(common.Args) != 2 {
-			return Summary{Reason: "protocol-group-count-unknown"}
+			return Summary{Reason: ReasonGroupCountUnknown}
 		}
 		count, ok := common.Args[1].(*ssa.Const)
 		if !ok || count.Value == nil || !constant.Compare(count.Value, token.EQL, constant.MakeInt64(1)) {
-			return Summary{Reason: "protocol-group-count-unknown"}
+			return Summary{Reason: ReasonGroupCountUnknown}
 		}
 		kind, resource = GroupAdd, ssaflow.CallReceiver(common)
 	default:
@@ -83,22 +83,22 @@ func waitGroupPointer(value types.Type) bool {
 	return structure && syntax.NamedType(pointer.Elem(), "sync", "WaitGroup")
 }
 
-func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) string {
+func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) Reason {
 	called := engine.callSummary(instruction)
 	// A deferred helper can launch another participant. Its synchronous
 	// cleanup operations alone are not an exhaustive deferred effect list.
 	if len(called.Workers) != 0 {
-		return "protocol-deferred-effects-unknown"
+		return ReasonDeferredEffectsUnknown
 	}
 	if !composableLinear(called) {
 		return called.Reason
 	}
 	if len(called.Operations) == 0 {
-		return "protocol-deferred-effects-unknown"
+		return ReasonDeferredEffectsUnknown
 	}
 	for _, op := range called.Operations {
 		if op.Kind != Close && op.Kind != GroupDone && op.Kind != Unlock && op.Kind != ReadUnlock && op.Kind != Cancel {
-			return "protocol-deferred-effects-unknown"
+			return ReasonDeferredEffectsUnknown
 		}
 	}
 	result.CancellationInputs = append(result.CancellationInputs, called.CancellationInputs...)
@@ -109,7 +109,7 @@ func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) s
 	for _, op := range slices.Backward(called.Operations) {
 		result.deferred = append(result.deferred, op)
 	}
-	return ""
+	return ReasonNone
 }
 
 func synchronizationPointer(value types.Type) bool {

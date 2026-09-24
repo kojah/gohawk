@@ -21,7 +21,7 @@ func TestImportedCancellationRequirements(t *testing.T) {
 			for _, function := range functions {
 				result := engine.Root(function, ssaflow.NewSearchBudget(2000))
 				if function.Name() != "bound" {
-					if result.Complete() || result.Reason == "" {
+					if result.Complete() || result.Reason == ReasonNone {
 						t.Errorf("%s lost imported requirement: %+v", function, result)
 					}
 					continue

@@ -16,8 +16,9 @@ import (
 // close can be a readiness signal instead. Missing effects remain opaque under
 // the existing classifier, and its branch-aware local proofs remain available.
 type summaryJoinProof struct {
-	joined bool
-	reason string
+	joined       bool
+	reason       summaryJoinReason
+	summaryCause concurrencyfacts.Reason
 }
 
 func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) bool {
@@ -32,7 +33,7 @@ func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) bool 
 			probe := analysisTrace.For(analysis.pass, "goroutineownership", string(analysis.checkID), analysis.spawn.Pos())
 			if probe.Enabled() {
 				probe.Evidence(analysisTrace.Step{
-					Reason: proof.reason, Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
+					Reason: proof.reason.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
 					Function: analysis.function.String(),
 				})
 			}
@@ -65,15 +66,15 @@ func proveSummaryJoin(
 	kind trackedKind, budget *ssaflow.SearchBudget,
 ) summaryJoinProof {
 	if engine == nil || kind == trackedOwner {
-		return summaryJoinProof{reason: "concurrency-join-not-applicable"}
+		return summaryJoinProof{reason: summaryJoinConcurrencyJoinNotApplicable}
 	}
 	call, ok := instruction.(ssa.CallInstruction)
 	if _, launched := instruction.(*ssa.Go); !ok || launched {
-		return summaryJoinProof{reason: "concurrency-join-not-synchronous"}
+		return summaryJoinProof{reason: summaryJoinConcurrencyJoinNotSynchronous}
 	}
 	summary := engine.AtCall(call, budget)
 	if !summary.Complete() {
-		return summaryJoinProof{reason: summary.Reason}
+		return summaryJoinProof{summaryCause: summary.Reason}
 	}
 	want := concurrencyfacts.Receive
 	if kind == trackedGroup {
@@ -82,11 +83,11 @@ func proveSummaryJoin(
 	storage := heapmodel.NewStorage(budget)
 	for _, operation := range summary.Operations {
 		if !budget.Spend() {
-			return summaryJoinProof{reason: "concurrency-join-budget-exhausted"}
+			return summaryJoinProof{reason: summaryJoinConcurrencyJoinBudgetExhausted}
 		}
 		if operation.Kind == want && !operation.Resource.Indirect && storage.Same(operation.Resource.Value, target).Proven() {
-			return summaryJoinProof{joined: true, reason: "concurrency-summary-join"}
+			return summaryJoinProof{joined: true, reason: summaryJoinConcurrencySummaryJoin}
 		}
 	}
-	return summaryJoinProof{reason: "concurrency-summary-no-exact-join"}
+	return summaryJoinProof{reason: summaryJoinConcurrencySummaryNoExactJoin}
 }

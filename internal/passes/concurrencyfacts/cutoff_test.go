@@ -22,7 +22,7 @@ func opaque(f func()) { f() }
 	engine := NewEngine()
 	for _, name := range []string{"first", "second", "first"} {
 		got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
-		if got.Reason != "protocol-load-unknown" || got.Complete() {
+		if got.Reason != ReasonLoadUnknown || got.Complete() {
 			t.Fatalf("%s: unexpected summary %+v", name, got)
 		}
 		var count int

@@ -95,7 +95,7 @@ type Summary struct {
 	cutoff *summaryCutoff
 	// Paths contains every bounded acyclic alternative. Each entry is a
 	// complete linear summary or an exhaustive worker choice; never a prefix.
-	// Linear consumers must decline the enclosing nonempty Reason.
+	// Linear consumers must decline the enclosing nonzero Reason.
 	Paths      []Summary
 	Operations []Operation
 	deferred   []Operation
@@ -107,9 +107,9 @@ type Summary struct {
 	CancellationInputs []Reference
 	// AlternativesComplete is true only after every select continuation and
 	// the enclosing function body have been accounted for. Reason remains
-	// nonempty so linear consumers cannot mistake alternatives for one path.
+	// nonzero so linear consumers cannot mistake alternatives for one path.
 	AlternativesComplete bool
-	Reason               string
+	Reason               Reason
 }
 
 // WorkerSummary keeps one child's complete ordered effects and its launch
@@ -145,7 +145,7 @@ const (
 // the same fields the builder writes, so it cannot disagree with Reason.
 func (summary Summary) Completeness() Completeness {
 	switch {
-	case summary.Reason != "" || len(summary.Paths) != 0 || !summary.CancellationBound():
+	case summary.Reason != ReasonNone || len(summary.Paths) != 0 || !summary.CancellationBound():
 		return Incomplete
 	case len(summary.Operations) == 0 && len(summary.Workers) == 0:
 		return CompleteNoEffects
@@ -198,13 +198,13 @@ func (engine *Engine) newSummaries(paths bool) *ssaflow.FunctionSummaries[Summar
 func unavailableSummary(reason ssaflow.SummaryUnavailable) Summary {
 	switch reason {
 	case ssaflow.SummaryRecursive:
-		return Summary{Reason: "recursive-protocol"}
+		return Summary{Reason: ReasonRecursiveProtocol}
 	case ssaflow.SummaryBudgetExhausted:
-		return Summary{Reason: "protocol-budget-exhausted"}
+		return Summary{Reason: ReasonBudgetExhausted}
 	case ssaflow.SummaryBodyUnavailable:
-		return Summary{Reason: "protocol-body-unavailable"}
+		return Summary{Reason: ReasonBodyUnavailable}
 	}
-	return Summary{Reason: "protocol-effect-unknown"}
+	return Summary{Reason: ReasonEffectUnknown}
 }
 
 func (engine *Engine) query(budget *ssaflow.SearchBudget) *Engine {
@@ -240,16 +240,16 @@ func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBud
 func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
 	engine.cutoff = nil
 	result := engine.collectEffects(function, root)
-	if engine.paths && result.Reason == "protocol-control-flow-unknown" && function != nil && len(function.Blocks) != 0 {
+	if engine.paths && result.Reason == ReasonControlFlowUnknown && function != nil && len(function.Blocks) != 0 {
 		engine.cutoff = nil
 		result = engine.collectCountedLoops(function, root)
 	}
-	if engine.paths && (result.Reason == "protocol-branch-effects-differ" || result.Reason == "protocol-branch-alternatives") {
+	if engine.paths && (result.Reason == ReasonBranchEffectsDiffer || result.Reason == ReasonBranchAlternatives) {
 		engine.cutoff = nil
 		result = engine.collectPaths(function, root)
 	}
 	result = finishCancellation(result)
-	if result.Reason != "" && !result.AlternativesComplete && len(result.Paths) == 0 {
+	if result.Reason != ReasonNone && !result.AlternativesComplete && len(result.Paths) == 0 {
 		result.cutoff = engine.cutoff
 		if result.cutoff == nil {
 			result.cutoff = &summaryCutoff{function: function}
@@ -260,7 +260,7 @@ func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
 
 func (engine *Engine) collectEffects(function *ssa.Function, root bool) Summary {
 	if function == nil || len(function.Blocks) == 0 {
-		return Summary{Reason: "protocol-body-unavailable"}
+		return Summary{Reason: ReasonBodyUnavailable}
 	}
 	if !root {
 		if result, handled := engine.collectSelectFunction(function); handled {
@@ -271,44 +271,44 @@ func (engine *Engine) collectEffects(function *ssa.Function, root bool) Summary 
 		return engine.collectBranches(function, root)
 	}
 	var result Summary
-	if reason := engine.collectBlock(&result, function.Blocks[0], root); reason != "" {
-		if reason == "protocol-select-alternatives" {
+	if reason := engine.collectBlock(&result, function.Blocks[0], root); reason != ReasonNone {
+		if reason == ReasonSelectAlternatives {
 			result.Reason = reason
 			return result
 		}
 		return Summary{Reason: reason}
 	}
 	if len(result.deferred) != 0 {
-		return Summary{Reason: "protocol-deferred-effects-unknown"}
+		return Summary{Reason: ReasonDeferredEffectsUnknown}
 	}
 	if result.hasWorkerAlternatives() {
-		result.Reason = "protocol-select-alternatives"
+		result.Reason = ReasonSelectAlternatives
 		result.AlternativesComplete = true
 	}
 	return result
 }
 
-func (engine *Engine) collectBlock(result *Summary, block *ssa.BasicBlock, root bool) string {
+func (engine *Engine) collectBlock(result *Summary, block *ssa.BasicBlock, root bool) Reason {
 	for _, instruction := range block.Instrs {
 		if !engine.budget.Spend() {
 			engine.recordCutoff(instruction, cutoffInstruction)
-			return "protocol-budget-exhausted"
+			return ReasonBudgetExhausted
 		}
-		if reason := engine.appendInstruction(result, instruction, root); reason != "" {
+		if reason := engine.appendInstruction(result, instruction, root); reason != ReasonNone {
 			return reason
 		}
 		if result.operationCount() > maxOperations {
 			engine.recordCutoff(instruction, cutoffInstruction)
-			return "protocol-summary-limit"
+			return ReasonSummaryLimit
 		}
 	}
-	return ""
+	return ReasonNone
 }
 
-func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruction, root bool) string {
+func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruction, root bool) Reason {
 	engine.cutoff = nil
 	reason := engine.instructionEffects(result, instruction, root)
-	if reason != "" {
+	if reason != ReasonNone {
 		engine.recordCutoff(instruction, cutoffInstruction)
 	} else {
 		engine.cutoff = nil
@@ -316,13 +316,13 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 	return reason
 }
 
-func (engine *Engine) instructionEffects(result *Summary, instruction ssa.Instruction, root bool) string {
+func (engine *Engine) instructionEffects(result *Summary, instruction ssa.Instruction, root bool) Reason {
 	switch instruction := instruction.(type) {
 	case *ssa.Send:
 		// Passing a reference in a message can add a participant or expose
 		// shared storage. Only scalar payloads belong to this first proof.
 		if !scalarType(instruction.X.Type()) {
-			return "protocol-payload-unknown"
+			return ReasonPayloadUnknown
 		}
 		return engine.appendOperation(result, Send, instruction.Chan, instruction.Pos())
 	case *ssa.UnOp:
@@ -331,7 +331,7 @@ func (engine *Engine) instructionEffects(result *Summary, instruction ssa.Instru
 		return engine.appendSelect(result, instruction)
 	case *ssa.Call:
 		if isCancelConstructor(instruction.Common()) && !root {
-			return "protocol-local-context-unknown"
+			return ReasonLocalContextUnknown
 		}
 		return engine.appendCall(result, instruction)
 	case *ssa.Defer:
@@ -345,28 +345,28 @@ func (engine *Engine) instructionEffects(result *Summary, instruction ssa.Instru
 		return engine.appendGo(result, instruction)
 	case *ssa.Extract:
 		if call, ok := instruction.Tuple.(*ssa.Call); ok && isCancelConstructor(call.Common()) {
-			return ""
+			return ReasonNone
 		}
 		return passiveInstruction(instruction, root)
 	default:
 		return passiveInstruction(instruction, root)
 	}
-	return ""
+	return ReasonNone
 }
 
-func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) string {
+func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) Reason {
 	if instruction.Op == token.ARROW {
 		return engine.appendOperation(result, Receive, instruction.X, instruction.Pos())
 	}
 	if instruction.Op == token.MUL && ssaflow.ChannelType(instruction) {
 		if path, exact := embeddedPath(instruction.X); exact && path.Depth > 0 {
-			return ""
+			return ReasonNone
 		}
 	}
 	if instruction.Op != token.MUL || !readableAddress(instruction.X) {
-		return "protocol-load-unknown"
+		return ReasonLoadUnknown
 	}
-	return ""
+	return ReasonNone
 }
 
 func (summary Summary) operationCount() int {
@@ -380,35 +380,35 @@ func (summary Summary) operationCount() int {
 	return count
 }
 
-func (engine *Engine) appendOperation(result *Summary, kind Kind, value ssa.Value, pos token.Pos) string {
+func (engine *Engine) appendOperation(result *Summary, kind Kind, value ssa.Value, pos token.Pos) Reason {
 	resource, ok := engine.reference(value)
 	if !ok {
-		return "protocol-channel-identity-unknown"
+		return ReasonChannelIdentityUnknown
 	}
 	result.Operations = append(result.Operations, Operation{Kind: kind, Resource: resource, Source: pos, Site: pos})
-	return ""
+	return ReasonNone
 }
 
-func passiveInstruction(instruction ssa.Instruction, root bool) string {
+func passiveInstruction(instruction ssa.Instruction, root bool) Reason {
 	if scalarInstruction(instruction) {
-		return ""
+		return ReasonNone
 	}
 	switch instruction := instruction.(type) {
 	case *ssa.If, *ssa.Jump:
 		// The acyclic collector checks every successor and requires identical
 		// ordered effects at joins and returns.
-		return ""
+		return ReasonNone
 	case *ssa.Phi:
 		// Scalar values cannot change resource identity. Every incoming
 		// computation is still checked by the instruction whitelist.
 		if scalarType(instruction.Type()) {
-			return ""
+			return ReasonNone
 		}
 	case *ssa.DebugRef, *ssa.Alloc, *ssa.MakeClosure:
-		return ""
+		return ReasonNone
 	case *ssa.FieldAddr:
 		if _, exact := embeddedPath(instruction); exact && !synchronizationPointer(instruction.X.Type()) {
-			return ""
+			return ReasonNone
 		}
 	case *ssa.Store:
 		// A fresh group's zero state is part of the counter proof. Resetting
@@ -418,26 +418,26 @@ func passiveInstruction(instruction ssa.Instruction, root bool) string {
 		if localSynchronizationPointerStore(instruction) ||
 			localAddress(instruction.Addr) && !containsSynchronization(instruction.Val.Type()) &&
 				!synchronizationPointer(instruction.Addr.Type()) {
-			return ""
+			return ReasonNone
 		}
 	case *ssa.ChangeType:
 		if ssaflow.ChannelType(instruction) {
-			return ""
+			return ReasonNone
 		}
 	case *ssa.MakeInterface:
 		// Boxing does not itself publish the value. Every subsequent use
 		// must still resolve to a complete callee; opaque dispatch is unknown.
-		return ""
+		return ReasonNone
 	case *ssa.MakeChan:
 		// Callee allocation sites cannot identify runtime instances across
 		// separate calls. Only channels created by the root are admitted.
 		if root {
-			return ""
+			return ReasonNone
 		}
 	}
 	// This whitelist is also the scope-completeness proof: no unmodelled
 	// call, publication, launch, panic, or blocking action is skipped.
-	return "protocol-effect-unknown"
+	return ReasonEffectUnknown
 }
 
 func localSynchronizationPointerStore(store *ssa.Store) bool {

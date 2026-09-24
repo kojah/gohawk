@@ -35,7 +35,7 @@ func root() {
 			t.Fatalf("cancellation not modeled: %+v", summary)
 		}
 		proof := proveSummaryJoin(engine, call, channels[0], trackedSignal, ssaflow.NewSearchBudget(2000))
-		if proof.joined || proof.reason != "concurrency-summary-no-exact-join" {
+		if proof.joined || proof.reason != summaryJoinConcurrencySummaryNoExactJoin {
 			t.Errorf("cancel became join: %+v", proof)
 		}
 		return

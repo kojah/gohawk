@@ -39,7 +39,7 @@ func changed(cell **Owner, replacement *Owner) *sync.Mutex {
 				t.Fatalf("got %d calls, want helper only", len(calls))
 			}
 			result := NewEngine().AtCall(calls[0], ssaflow.NewSearchBudget(2000))
-			if (result.Reason == "") != test.complete {
+			if (result.Reason == ReasonNone) != test.complete {
 				t.Fatalf("binding completeness changed: %+v", result)
 			}
 			if !test.complete {

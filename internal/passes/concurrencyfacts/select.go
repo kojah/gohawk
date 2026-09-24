@@ -13,9 +13,9 @@ const maxSelectArms = 8
 // A select executes exactly one communication, or its default arm. We keep
 // every arm explicit and incomplete for linear consumers; flattening them
 // would invent an unavoidable wait.
-func (engine *Engine) appendSelect(result *Summary, selection *ssa.Select) string {
+func (engine *Engine) appendSelect(result *Summary, selection *ssa.Select) Reason {
 	if len(selection.States) == 0 || len(selection.States) > maxSelectArms {
-		return "protocol-select-alternatives-unknown"
+		return ReasonSelectAlternativesUnknown
 	}
 	choice := SelectChoice{Prefix: len(result.Operations), Site: selection.Pos()}
 	for index, state := range selection.States {
@@ -28,14 +28,14 @@ func (engine *Engine) appendSelect(result *Summary, selection *ssa.Select) strin
 		if state.Dir == types.SendOnly {
 			kind = Send
 			if state.Send == nil || !scalarType(state.Send.Type()) {
-				return "protocol-payload-unknown"
+				return ReasonPayloadUnknown
 			}
 		} else if state.Dir != types.RecvOnly {
-			return "protocol-select-alternatives-unknown"
+			return ReasonSelectAlternativesUnknown
 		}
 		resource, ok := engine.reference(state.Chan)
 		if !ok {
-			return "protocol-channel-identity-unknown"
+			return ReasonChannelIdentityUnknown
 		}
 		choice.Arms = append(choice.Arms, SelectArm{StateIndex: index, Operation: Operation{
 			Kind: kind, Resource: resource, Source: state.Pos, Site: selection.Pos(),
@@ -45,10 +45,10 @@ func (engine *Engine) appendSelect(result *Summary, selection *ssa.Select) strin
 		choice.Arms = append(choice.Arms, SelectArm{Default: true, StateIndex: len(selection.States)})
 	}
 	if len(choice.Arms) == 0 {
-		return "protocol-select-no-feasible-arm"
+		return ReasonSelectNoFeasibleArm
 	}
 	result.Choices = append(result.Choices, choice)
-	return "protocol-select-alternatives"
+	return ReasonSelectAlternatives
 }
 
 func completeChoice(choice SelectChoice) bool {
@@ -77,7 +77,7 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 			}
 			if selection != nil || block != function.Blocks[0] {
 				engine.recordCutoff(candidate, cutoffSelect)
-				return Summary{Reason: "protocol-select-alternatives-unknown"}, true
+				return Summary{Reason: ReasonSelectAlternativesUnknown}, true
 			}
 			selection, selectIndex = candidate, index
 		}
@@ -87,7 +87,7 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 	}
 	if !trivialRecovery(function) {
 		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
-		return Summary{Reason: "protocol-control-flow-unknown"}, true
+		return Summary{Reason: ReasonControlFlowUnknown}, true
 	}
 	var prefix Summary
 	// The select must be reached after one fully accounted-for prefix. We do
@@ -95,21 +95,21 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 	for _, instruction := range function.Blocks[0].Instrs[:selectIndex] {
 		if !engine.budget.Spend() {
 			engine.recordCutoff(instruction, cutoffInstruction)
-			return Summary{Reason: "protocol-budget-exhausted"}, true
+			return Summary{Reason: ReasonBudgetExhausted}, true
 		}
-		if reason := engine.appendInstruction(&prefix, instruction, false); reason != "" {
+		if reason := engine.appendInstruction(&prefix, instruction, false); reason != ReasonNone {
 			return Summary{Reason: reason}, true
 		}
 		if prefix.operationCount() > maxOperations {
 			engine.recordCutoff(instruction, cutoffInstruction)
-			return Summary{Reason: "protocol-summary-limit"}, true
+			return Summary{Reason: ReasonSummaryLimit}, true
 		}
 	}
 	if !engine.budget.Spend() {
 		engine.recordCutoff(selection, cutoffSelect)
-		return Summary{Reason: "protocol-budget-exhausted"}, true
+		return Summary{Reason: ReasonBudgetExhausted}, true
 	}
-	if reason := engine.appendSelect(&prefix, selection); reason != "protocol-select-alternatives" {
+	if reason := engine.appendSelect(&prefix, selection); reason != ReasonSelectAlternatives {
 		engine.recordCutoff(selection, cutoffSelect)
 		return Summary{Reason: reason}, true
 	}
@@ -118,21 +118,21 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 	// A single failed arm invalidates the whole exhaustive choice proof.
 	for index, arm := range choice.Arms {
 		state, reason := engine.collectSelectArm(function.Blocks[0], selectIndex+1, selection, arm.StateIndex, arm, prefix)
-		if reason != "" {
+		if reason != ReasonNone {
 			return Summary{Reason: reason}, true
 		}
 		choice.Arms[index].Sequence = state.Operations
 		choice.Arms[index].Complete = true
 		requireCancellation(&prefix, state.CancellationInputs)
 	}
-	prefix.Reason = "protocol-select-alternatives"
+	prefix.Reason = ReasonSelectAlternatives
 	prefix.AlternativesComplete = true
 	return prefix, true
 }
 
 func (engine *Engine) collectSelectArm(
 	entry *ssa.BasicBlock, afterSelect int, selection *ssa.Select, selected int, arm SelectArm, prefix Summary,
-) (Summary, string) {
+) (Summary, Reason) {
 	state := cloneEffects(prefix)
 	state.Choices = nil
 	if !arm.Default {
@@ -145,45 +145,45 @@ func (engine *Engine) collectSelectArm(
 		// multiplicity; a fixed event sequence cannot represent that soundly.
 		if visited[block] {
 			engine.recordBlockCutoff(block, cutoffLoop)
-			return Summary{}, "protocol-control-flow-unknown"
+			return Summary{}, ReasonControlFlowUnknown
 		}
 		visited[block] = true
 		for _, instruction := range block.Instrs[start:] {
 			if !engine.budget.Spend() {
 				engine.recordCutoff(instruction, cutoffInstruction)
-				return Summary{}, "protocol-budget-exhausted"
+				return Summary{}, ReasonBudgetExhausted
 			}
 			if extract, ok := instruction.(*ssa.Extract); ok && extract.Tuple == selection && scalarType(extract.Type()) {
 				continue
 			}
-			if reason := engine.appendInstruction(&state, instruction, false); reason != "" {
+			if reason := engine.appendInstruction(&state, instruction, false); reason != ReasonNone {
 				return Summary{}, reason
 			}
 			if state.operationCount() > maxOperations {
 				engine.recordCutoff(instruction, cutoffInstruction)
-				return Summary{}, "protocol-summary-limit"
+				return Summary{}, ReasonSummaryLimit
 			}
 		}
 		if len(block.Succs) == 0 {
 			// Arm sequences cannot encode another goroutine. Dropping that
 			// participant could hide an alternate signal or unlock.
 			if len(state.Workers) != 0 {
-				return Summary{}, "protocol-worker-effects-unknown"
+				return Summary{}, ReasonWorkerEffectsUnknown
 			}
 			if len(state.deferred) != 0 || len(block.Instrs) == 0 {
-				return Summary{}, "protocol-deferred-effects-unknown"
+				return Summary{}, ReasonDeferredEffectsUnknown
 			}
 			if _, ok := block.Instrs[len(block.Instrs)-1].(*ssa.Return); !ok {
-				return Summary{}, "protocol-control-flow-unknown"
+				return Summary{}, ReasonControlFlowUnknown
 			}
-			return state, ""
+			return state, ReasonNone
 		}
 		next, ok := selectSuccessor(block, selection, selected)
 		// Only dispatch decisions on the selected index are evaluated here.
 		// An independent condition could hide an escaping continuation.
 		if !ok {
 			engine.recordBlockCutoff(block, cutoffSelect)
-			return Summary{}, "protocol-select-dispatch-unknown"
+			return Summary{}, ReasonSelectDispatchUnknown
 		}
 		block, start = next, 0
 	}

@@ -13,18 +13,18 @@ import (
 func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary {
 	if !trivialRecovery(function) {
 		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
-		return Summary{Reason: "protocol-control-flow-unknown"}
+		return Summary{Reason: ReasonControlFlowUnknown}
 	}
 	order, reason := engine.orderedBlocks(function)
-	if reason != "" {
+	if reason != ReasonNone {
 		return Summary{Reason: reason}
 	}
 	states := map[*ssa.BasicBlock]Summary{function.Blocks[0]: {}}
 	var terminal *Summary
 	for _, block := range order {
 		state := states[block]
-		if reason := engine.collectBlock(&state, block, root); reason != "" {
-			if reason == "protocol-select-alternatives" {
+		if reason := engine.collectBlock(&state, block, root); reason != ReasonNone {
+			if reason == ReasonSelectAlternatives {
 				state.Reason = reason
 				return state
 			}
@@ -32,11 +32,11 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 		}
 		if len(block.Succs) == 0 {
 			if len(state.deferred) != 0 {
-				return Summary{Reason: "protocol-deferred-effects-unknown"}
+				return Summary{Reason: ReasonDeferredEffectsUnknown}
 			}
 			if terminal != nil && !sameEffects(*terminal, state) {
 				engine.recordBlockCutoff(block, cutoffBranch)
-				return Summary{Reason: "protocol-branch-effects-differ"}
+				return Summary{Reason: ReasonBranchEffectsDiffer}
 			}
 			terminal = &state
 		}
@@ -45,24 +45,24 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 			// unconditional protocol, even if later operations happen to agree.
 			if previous, exists := states[next]; exists && !sameEffects(previous, state) {
 				engine.recordBlockCutoff(block, cutoffBranch)
-				return Summary{Reason: "protocol-branch-effects-differ"}
+				return Summary{Reason: ReasonBranchEffectsDiffer}
 			}
 			states[next] = cloneEffects(state)
 		}
 	}
 	if terminal == nil {
-		return Summary{Reason: "protocol-control-flow-unknown"}
+		return Summary{Reason: ReasonControlFlowUnknown}
 	}
 	if terminal.hasWorkerAlternatives() {
 		// Only a fully visited caller may turn a worker's complete arms into
 		// graph variants. An early bailout retains choices but no proof paths.
-		terminal.Reason = "protocol-select-alternatives"
+		terminal.Reason = ReasonSelectAlternatives
 		terminal.AlternativesComplete = true
 	}
 	return *terminal
 }
 
-func (engine *Engine) orderedBlocks(function *ssa.Function) ([]*ssa.BasicBlock, string) {
+func (engine *Engine) orderedBlocks(function *ssa.Function) ([]*ssa.BasicBlock, Reason) {
 	// Kahn's order visits each edge once and leaves cycles unprocessed.
 	pending := make(map[*ssa.BasicBlock]int, len(function.Blocks))
 	for _, block := range function.Blocks {
@@ -74,7 +74,7 @@ func (engine *Engine) orderedBlocks(function *ssa.Function) ([]*ssa.BasicBlock, 
 	for index := 0; index < len(order); index++ {
 		if !engine.budget.Spend() {
 			engine.recordBlockCutoff(order[index], cutoffBranch)
-			return nil, "protocol-budget-exhausted"
+			return nil, ReasonBudgetExhausted
 		}
 		for _, next := range order[index].Succs {
 			pending[next]--
@@ -90,9 +90,9 @@ func (engine *Engine) orderedBlocks(function *ssa.Function) ([]*ssa.BasicBlock, 
 				break
 			}
 		}
-		return nil, "protocol-control-flow-unknown"
+		return nil, ReasonControlFlowUnknown
 	}
-	return order, ""
+	return order, ReasonNone
 }
 
 func trivialRecovery(function *ssa.Function) bool {

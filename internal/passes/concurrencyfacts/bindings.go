@@ -35,7 +35,7 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 	if len(callee.Paths) != 0 {
 		return engine.bindPaths(callee.Paths, bindings, instruction)
 	}
-	if !composableLinear(callee) && callee.Reason != "protocol-select-alternatives" {
+	if !composableLinear(callee) && callee.Reason != ReasonSelectAlternatives {
 		return callee
 	}
 	result := Summary{
@@ -43,7 +43,7 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		AlternativesComplete: callee.AlternativesComplete,
 	}
 	inputs, reason := engine.bindCancellationInputs(callee.CancellationInputs, bindings, instruction)
-	if reason != "" {
+	if reason != ReasonNone {
 		return Summary{Reason: reason}
 	}
 	result.CancellationInputs = inputs
@@ -51,17 +51,17 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 	// become tied to the first caller, including its receiver projections.
 	for _, op := range callee.Operations {
 		if !engine.budget.Spend() {
-			return Summary{Reason: "protocol-budget-exhausted"}
+			return Summary{Reason: ReasonBudgetExhausted}
 		}
 		resource, ok := engine.bind(op.Resource, bindings, instruction)
 		if !ok {
-			return Summary{Reason: "protocol-channel-binding-unknown"}
+			return Summary{Reason: ReasonChannelBindingUnknown}
 		}
 		op.Resource, op.Site = resource, instruction.Pos()
 		result.Operations = append(result.Operations, op)
 	}
 	workers, reason := engine.bindWorkers(callee.Workers, bindings, instruction)
-	if reason != "" {
+	if reason != ReasonNone {
 		return Summary{Reason: reason}
 	}
 	result.Workers = workers
@@ -72,12 +72,12 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		bound := SelectChoice{Prefix: choice.Prefix, Site: choice.Site, Worker: choice.Worker}
 		for _, arm := range choice.Arms {
 			if !engine.budget.Spend() {
-				return Summary{Reason: "protocol-budget-exhausted"}
+				return Summary{Reason: ReasonBudgetExhausted}
 			}
 			if !arm.Default {
 				resource, ok := engine.bind(arm.Operation.Resource, bindings, instruction)
 				if !ok {
-					return Summary{Reason: "protocol-channel-binding-unknown"}
+					return Summary{Reason: ReasonChannelBindingUnknown}
 				}
 				arm.Operation.Resource, arm.Operation.Site = resource, instruction.Pos()
 			}
@@ -87,11 +87,11 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 				sequence := make([]Operation, 0, len(arm.Sequence))
 				for _, op := range arm.Sequence {
 					if !engine.budget.Spend() {
-						return Summary{Reason: "protocol-budget-exhausted"}
+						return Summary{Reason: ReasonBudgetExhausted}
 					}
 					resource, ok := engine.bind(op.Resource, bindings, instruction)
 					if !ok {
-						return Summary{Reason: "protocol-channel-binding-unknown"}
+						return Summary{Reason: ReasonChannelBindingUnknown}
 					}
 					op.Resource, op.Site = resource, instruction.Pos()
 					sequence = append(sequence, op)
@@ -107,19 +107,19 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 
 func (engine *Engine) bindWorkers(
 	workers []WorkerSummary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
-) ([]WorkerSummary, string) {
+) ([]WorkerSummary, Reason) {
 	if len(workers) > maxWorkers {
-		return nil, "protocol-participants-unknown"
+		return nil, ReasonParticipantsUnknown
 	}
 	bound := make([]WorkerSummary, 0, len(workers))
 	for _, worker := range workers {
 		child, reason := engine.bindWorker(worker, bindings, instruction)
-		if reason != "" {
+		if reason != ReasonNone {
 			return nil, reason
 		}
 		bound = append(bound, child)
 	}
-	return bound, ""
+	return bound, ReasonNone
 }
 
 func (engine *Engine) bind(

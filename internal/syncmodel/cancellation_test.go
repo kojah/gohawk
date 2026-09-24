@@ -56,12 +56,12 @@ func root() {
 `)
 	engine := concurrencyfacts.NewEngine()
 	unknown := engine.Root(pkg.Func("unknown"), ssaflow.NewSearchBudget(2000))
-	if graphs, reason := Expand(unknown); len(graphs) != 0 || reason != "protocol-context-binding-required" {
+	if graphs, reason := Expand(unknown); len(graphs) != 0 || reason != summaryFailure(concurrencyfacts.ReasonContextBindingRequired) {
 		t.Fatalf("unbound alternatives expanded: %+v, %s", graphs, reason)
 	}
 	root := engine.Root(pkg.Func("root"), ssaflow.NewSearchBudget(2000))
 	graphs, reason := Expand(root)
-	if reason != "" || len(graphs) != 2 {
+	if !reason.Empty() || len(graphs) != 2 {
 		t.Fatalf("bound alternatives = %+v, %s", graphs, reason)
 	}
 	if len(graphs[0].Cancellations) != 1 || len(graphs[0].Cancellations[0].Receives) != 0 ||

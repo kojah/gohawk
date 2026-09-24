@@ -14,7 +14,7 @@ const maxProtocolIterations = 4
 func (engine *Engine) collectCountedLoops(function *ssa.Function, root bool) Summary {
 	if !trivialRecovery(function) {
 		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
-		return Summary{Reason: "protocol-control-flow-unknown"}
+		return Summary{Reason: ReasonControlFlowUnknown}
 	}
 	var result Summary
 	seen := make(map[*ssa.BasicBlock]bool)
@@ -22,7 +22,7 @@ func (engine *Engine) collectCountedLoops(function *ssa.Function, root bool) Sum
 	for block != nil {
 		if seen[block] || !engine.budget.Spend() {
 			engine.recordBlockCutoff(block, cutoffLoop)
-			return Summary{Reason: "protocol-control-flow-unknown"}
+			return Summary{Reason: ReasonControlFlowUnknown}
 		}
 		seen[block] = true
 		if len(block.Succs) == 2 {
@@ -31,18 +31,18 @@ func (engine *Engine) collectCountedLoops(function *ssa.Function, root bool) Sum
 			loop := ssaflow.ProveCountedLoop(block, maxProtocolIterations, engine.budget)
 			if !loop.Proven() || loop.CounterUsed || seen[loop.Body] || !engine.repeatableBody(loop.Body) {
 				engine.recordBlockCutoff(block, cutoffLoop)
-				return Summary{Reason: "protocol-control-flow-unknown"}
+				return Summary{Reason: ReasonControlFlowUnknown}
 			}
 			seen[loop.Body] = true
 			for range loop.Count {
-				if reason := engine.collectBlock(&result, loop.Body, root); reason != "" {
+				if reason := engine.collectBlock(&result, loop.Body, root); reason != ReasonNone {
 					return Summary{Reason: reason}
 				}
 			}
 			block = loop.Exit
 			continue
 		}
-		if reason := engine.collectBlock(&result, block, root); reason != "" {
+		if reason := engine.collectBlock(&result, block, root); reason != ReasonNone {
 			return Summary{Reason: reason}
 		}
 		if len(block.Succs) == 0 {
@@ -52,7 +52,7 @@ func (engine *Engine) collectCountedLoops(function *ssa.Function, root bool) Sum
 		}
 	}
 	if len(result.deferred) != 0 || result.hasWorkerAlternatives() {
-		return Summary{Reason: "protocol-control-flow-unknown"}
+		return Summary{Reason: ReasonControlFlowUnknown}
 	}
 	return result
 }

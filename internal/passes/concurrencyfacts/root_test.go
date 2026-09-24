@@ -36,10 +36,10 @@ func unknown(a chan int, callback func()) { go signal(a); go callback() }
 		len(empty.Workers[0].Operations) != 0 {
 		t.Errorf("event-free child was not retained: %+v", empty)
 	}
-	for name, reason := range map[string]string{
-		"five":     "protocol-participants-unknown",
-		"optional": "protocol-branch-alternatives",
-		"unknown":  "protocol-body-unavailable",
+	for name, reason := range map[string]Reason{
+		"five":     ReasonParticipantsUnknown,
+		"optional": ReasonBranchAlternatives,
+		"unknown":  ReasonBodyUnavailable,
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000))

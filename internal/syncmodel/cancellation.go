@@ -21,7 +21,7 @@ type CancellationSignal struct {
 // it does not establish external participant completeness or worker completion.
 // Events is an immutable borrowed slice owned by the query snapshot.
 type ObservationSet struct {
-	ssaflow.Proof
+	Proof
 	Events []EventID
 }
 
@@ -34,14 +34,14 @@ func (query Query) CancellationObservations(request EventID) ObservationSet {
 	}
 	location, ok := query.locations[request]
 	if !ok {
-		return ObservationSet{Proof: queryProof(ssaflow.EvidenceUnknown, "syncgraph-event-unavailable")}
+		return ObservationSet{Proof: queryProof(ssaflow.EvidenceUnknown, ReasonEventUnavailable)}
 	}
 	event := query.sequences[location.sequence][location.index]
 	if event.Kind != concurrencyfacts.Cancel || !event.Resource.Cancellation || !exactReference(event.Resource) {
-		return ObservationSet{Proof: queryProof(ssaflow.EvidenceUnknown, "syncgraph-cancel-identity-unknown")}
+		return ObservationSet{Proof: queryProof(ssaflow.EvidenceUnknown, ReasonCancelIdentityUnknown)}
 	}
 	return ObservationSet{
-		Proof: queryProof(ssaflow.EvidenceProven, "syncgraph-cancellation-observations"), Events: query.observations[event.Resource],
+		Proof: queryProof(ssaflow.EvidenceProven, ReasonCancellationObservations), Events: query.observations[event.Resource],
 	}
 }
 

@@ -45,7 +45,7 @@ func TestSelectAlternativesRemainExclusive(t *testing.T) {
 	for _, name := range []string{"worker", "defaultArm", "helper"} {
 		function := pkg.Func(name)
 		result := engine.Function(function, ssaflow.NewSearchBudget(2000))
-		if result.Complete() || result.Reason != "protocol-select-alternatives" || len(result.Choices) != 1 {
+		if result.Complete() || result.Reason != ReasonSelectAlternatives || len(result.Choices) != 1 {
 			t.Fatalf("%s = %+v, want exclusive alternatives", name, result)
 		}
 		choice := result.Choices[0]
@@ -58,7 +58,7 @@ func TestSelectAlternativesRemainExclusive(t *testing.T) {
 		}
 	}
 	uniform := engine.Function(pkg.Func("uniform"), ssaflow.NewSearchBudget(2000))
-	if uniform.Complete() || uniform.Reason != "protocol-select-alternatives" || len(uniform.Choices) != 1 ||
+	if uniform.Complete() || uniform.Reason != ReasonSelectAlternatives || len(uniform.Choices) != 1 ||
 		len(uniform.Choices[0].Arms) != 2 {
 		t.Errorf("uniform select = %+v", uniform)
 	}
@@ -68,7 +68,7 @@ func TestSelectWorkerResourcesBindToCaller(t *testing.T) {
 	pkg := selectEffectsPackage(t)
 	engine := NewEngine()
 	worker := engine.Root(pkg.Func("root"), ssaflow.NewSearchBudget(2000))
-	if worker.Complete() || worker.Reason != "protocol-select-alternatives" ||
+	if worker.Complete() || worker.Reason != ReasonSelectAlternatives ||
 		!worker.AlternativesComplete || len(worker.Workers) != 1 || len(worker.Workers[0].Alternatives) != 2 ||
 		len(worker.Choices) != 1 || worker.Choices[0].Worker == nil ||
 		worker.Choices[0].Arms[0].Operation.Resource.Value != pkg.Func("root").Params[0] ||
@@ -121,7 +121,7 @@ func TestNilSelectArmsCannotBecomePartners(t *testing.T) {
 		t.Errorf("nil/default select = %+v, want only the default", defaultOnly)
 	}
 	blocked := engine.Function(pkg.Func("onlyNil"), ssaflow.NewSearchBudget(2000))
-	if blocked.Complete() || blocked.Reason != "protocol-select-no-feasible-arm" {
+	if blocked.Complete() || blocked.Reason != ReasonSelectNoFeasibleArm {
 		t.Errorf("only-nil select = %+v, want an unknown blocked protocol", blocked)
 	}
 }

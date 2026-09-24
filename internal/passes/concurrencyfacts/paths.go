@@ -14,10 +14,10 @@ const maxProtocolPaths = 8
 func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 	if !trivialRecovery(function) {
 		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
-		return Summary{Reason: "protocol-control-flow-unknown"}
+		return Summary{Reason: ReasonControlFlowUnknown}
 	}
 	order, reason := engine.orderedBlocks(function)
-	if reason != "" {
+	if reason != ReasonNone {
 		return Summary{Reason: reason}
 	}
 	states := map[*ssa.BasicBlock][]Summary{function.Blocks[0]: {{}}}
@@ -26,7 +26,7 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 		current := states[block]
 		for _, instruction := range block.Instrs {
 			current, reason = engine.advancePaths(current, instruction, root)
-			if reason != "" {
+			if reason != ReasonNone {
 				engine.recordCutoff(instruction, cutoffInstruction)
 				return Summary{Reason: reason}
 			}
@@ -35,7 +35,7 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 			paths = append(paths, current...)
 			if len(paths) > maxProtocolPaths {
 				engine.recordBlockCutoff(block, cutoffBranch)
-				return Summary{Reason: "protocol-alternative-limit"}
+				return Summary{Reason: ReasonAlternativeLimit}
 			}
 		}
 		for _, next := range block.Succs {
@@ -44,7 +44,7 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 			}
 			if len(states[next]) > maxProtocolPaths {
 				engine.recordBlockCutoff(block, cutoffBranch)
-				return Summary{Reason: "protocol-alternative-limit"}
+				return Summary{Reason: ReasonAlternativeLimit}
 			}
 		}
 	}
@@ -56,71 +56,71 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 // remain attached separately to each alternative until call-site binding.
 func finishPaths(paths []Summary) Summary {
 	if len(paths) == 0 {
-		return Summary{Reason: "protocol-control-flow-unknown"}
+		return Summary{Reason: ReasonControlFlowUnknown}
 	}
 	for index := range paths {
 		if len(paths[index].deferred) != 0 {
-			return Summary{Reason: "protocol-deferred-effects-unknown"}
+			return Summary{Reason: ReasonDeferredEffectsUnknown}
 		}
 		if paths[index].hasWorkerAlternatives() {
-			paths[index].Reason = "protocol-select-alternatives"
+			paths[index].Reason = ReasonSelectAlternatives
 			paths[index].AlternativesComplete = true
 		}
 		paths[index] = finishCancellation(paths[index])
 	}
-	return Summary{Paths: paths, Reason: "protocol-branch-alternatives"}
+	return Summary{Paths: paths, Reason: ReasonBranchAlternatives}
 }
 
-func (engine *Engine) advancePaths(states []Summary, instruction ssa.Instruction, root bool) ([]Summary, string) {
+func (engine *Engine) advancePaths(states []Summary, instruction ssa.Instruction, root bool) ([]Summary, Reason) {
 	var next []Summary
 	for _, state := range states {
 		if !engine.budget.Spend() {
-			return nil, "protocol-budget-exhausted"
+			return nil, ReasonBudgetExhausted
 		}
 		branches, reason, handled := engine.appendPathCall(state, instruction)
 		if handled {
-			if reason != "" {
+			if reason != ReasonNone {
 				return nil, reason
 			}
 			next = append(next, branches...)
 		} else {
-			if reason := engine.appendInstruction(&state, instruction, root); reason != "" {
+			if reason := engine.appendInstruction(&state, instruction, root); reason != ReasonNone {
 				return nil, reason
 			}
 			next = append(next, state)
 		}
 		if len(next) > maxProtocolPaths {
-			return nil, "protocol-alternative-limit"
+			return nil, ReasonAlternativeLimit
 		}
 	}
 	for _, state := range next {
 		if state.operationCount() > maxOperations {
-			return nil, "protocol-summary-limit"
+			return nil, ReasonSummaryLimit
 		}
 	}
-	return next, ""
+	return next, ReasonNone
 }
 
 // Splice a helper's complete alternatives into independent copies of the
 // caller prefix. Never combine effects taken from different helper returns.
-func (engine *Engine) appendPathCall(state Summary, instruction ssa.Instruction) ([]Summary, string, bool) {
+func (engine *Engine) appendPathCall(state Summary, instruction ssa.Instruction) ([]Summary, Reason, bool) {
 	call, ok := instruction.(*ssa.Call)
 	if !ok {
-		return nil, "", false
+		return nil, ReasonNone, false
 	}
 	called := engine.callSummary(call)
 	if len(called.Paths) == 0 {
-		return nil, "", false
+		return nil, ReasonNone, false
 	}
 	var branches []Summary
 	for _, path := range called.Paths {
 		branch := cloneEffects(state)
-		if reason := appendCalled(&branch, path, call); reason != "" {
+		if reason := appendCalled(&branch, path, call); reason != ReasonNone {
 			return nil, reason, true
 		}
 		branches = append(branches, branch)
 	}
-	return branches, "", true
+	return branches, ReasonNone, true
 }
 
 // Every alternative must bind to this invocation's values. One unavailable
@@ -134,5 +134,5 @@ func (engine *Engine) bindPaths(paths []Summary, bindings []ssaflow.CallBinding,
 		}
 		result = append(result, bound)
 	}
-	return Summary{Paths: result, Reason: "protocol-branch-alternatives"}
+	return Summary{Paths: result, Reason: ReasonBranchAlternatives}
 }

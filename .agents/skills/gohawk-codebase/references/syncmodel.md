@@ -52,7 +52,7 @@ EventID identifies one event within a graph, not across summary instances.
 [Source](../../../../internal/syncmodel/alternatives.go)
 
 ```go
-func Expand(summary concurrencyfacts.Summary) ([]SyncGraph, string)
+func Expand(summary concurrencyfacts.Summary) ([]SyncGraph, Failure)
 ```
 
 Expand materializes every proven worker-select outcome as its own linear
@@ -60,12 +60,45 @@ graph. A caller must prove its property on every returned graph; one graph
 alone never establishes an unavoidable deadlock. Unknown parent choices,
 unproven arms, and excessive products yield no usable graphs.
 
+## Failure
+
+[Source](../../../../internal/syncmodel/reasons.go)
+
+```go
+type Failure struct {
+	// contains filtered or unexported fields
+}
+```
+
+Failure preserves either a graph rejection or its upstream summary cause.
+Its zero value means no failure. Construction keeps the two domains exclusive.
+
+## Failure.Empty
+
+[Source](../../../../internal/syncmodel/reasons.go)
+
+```go
+func (failure Failure) Empty() bool
+```
+
+Empty reports whether neither domain rejected the evidence.
+
+## Failure.String
+
+[Source](../../../../internal/syncmodel/reasons.go)
+
+```go
+func (failure Failure) String() string
+```
+
+String renders the originating domain's code only at an output boundary.
+
 ## FreshResource
 
 [Source](../../../../internal/syncmodel/scope.go)
 
 ```go
-func FreshResource(resource concurrencyfacts.Reference) ssaflow.Proof
+func FreshResource(resource concurrencyfacts.Reference) Proof
 ```
 
 FreshResource proves local allocation identity, including embedded fields.
@@ -147,7 +180,7 @@ Queries never mutate a graph or combine mutually exclusive select variants.
 
 ```go
 type ObservationSet struct {
-	ssaflow.Proof
+	Proof
 	Events	[]EventID
 }
 ```
@@ -169,6 +202,41 @@ const (
 )
 ```
 
+## Proof
+
+[Source](../../../../internal/syncmodel/reasons.go)
+
+```go
+type Proof struct {
+	State	ssaflow.EvidenceState
+	Reason	Reason
+	Failure	Failure
+}
+```
+
+Proof carries a query outcome and its domain-owned explanation. An unavailable
+graph retains its typed upstream failure instead of inventing query evidence.
+
+## Proof.Known
+
+[Source](../../../../internal/syncmodel/reasons.go)
+
+```go
+func (proof Proof) Known() bool
+```
+
+Known distinguishes proven/disproven evidence from an unknown query.
+
+## Proof.Proven
+
+[Source](../../../../internal/syncmodel/reasons.go)
+
+```go
+func (proof Proof) Proven() bool
+```
+
+Proven reports positive evidence, not merely absence of a rejection.
+
 ## Query
 
 [Source](../../../../internal/syncmodel/query.go)
@@ -188,7 +256,7 @@ A zero query or an incomplete graph cannot establish an absence claim.
 [Source](../../../../internal/syncmodel/query.go)
 
 ```go
-func (query Query) Before(before, after EventID) ssaflow.Proof
+func (query Query) Before(before, after EventID) Proof
 ```
 
 Before proves strict program/spawn order, conditional on the later event
@@ -225,6 +293,55 @@ lock held by another goroutine; such a prefix remains unknown. Callers still
 prove parent lock ownership, launch order, channel capacity, all participants,
 and every alternative before using this evidence in a deadlock proof.
 
+## Reason
+
+[Source](../../../../internal/syncmodel/reasons.go)
+
+```go
+type Reason uint8
+```
+
+Reason classifies evidence owned by the synchronization graph.
+
+## Reason.String
+
+[Source](../../../../internal/syncmodel/reasons.go)
+
+```go
+func (reason Reason) String() string
+```
+
+String renders the stable external trace code.
+
+## ReasonNone, ReasonAlternateUnlock, ReasonAlternativeLimit, ReasonCancelIdentityUnknown, ReasonCancellationObservations, ReasonEventUnavailable, ReasonFreshResource, ReasonFreshnessUnknown, ReasonIdentityUnknown, ReasonInvalidEvent, ReasonInvalidSpawnPrefix, ReasonNestedAlternatives, ReasonNoChannelSignal, ReasonOrderUnproven, ReasonProgramOrder, ReasonQueryUnavailable, ReasonScopeAliasUnknown, ReasonScopeDependencyPresent, ReasonScopeIncomplete, ReasonSignalBeforeAcquire
+
+[Source](../../../../internal/syncmodel/reasons.go)
+
+```go
+const (
+	ReasonNone	Reason	= iota
+	ReasonAlternateUnlock
+	ReasonAlternativeLimit
+	ReasonCancelIdentityUnknown
+	ReasonCancellationObservations
+	ReasonEventUnavailable
+	ReasonFreshResource
+	ReasonFreshnessUnknown
+	ReasonIdentityUnknown
+	ReasonInvalidEvent
+	ReasonInvalidSpawnPrefix
+	ReasonNestedAlternatives
+	ReasonNoChannelSignal
+	ReasonOrderUnproven
+	ReasonProgramOrder
+	ReasonQueryUnavailable
+	ReasonScopeAliasUnknown
+	ReasonScopeDependencyPresent
+	ReasonScopeIncomplete
+	ReasonSignalBeforeAcquire
+)
+```
+
 ## Root
 
 [Source](../../../../internal/syncmodel/graph.go)
@@ -239,7 +356,7 @@ const Root GoroutineID = 0
 
 ```go
 type SignalOrder struct {
-	ssaflow.Proof
+	Proof
 	Acquire	SyncEvent
 	Signal	SyncEvent
 	Present	bool
@@ -360,12 +477,12 @@ type SyncGraph struct {
 	// Cancellations associate requests with observations of the same Done
 	// signal. They are enabling relationships, not prerequisite/order edges.
 	Cancellations	[]CancellationSignal
-	Reason		string
+	Failure		Failure
 }
 ```
 
 SyncGraph contains the events of one complete, bounded root summary.
-Parent and each Child preserve distinct ordered sequences. Reason is
+Parent and each Child preserve distinct ordered sequences. Failure is
 nonempty if the underlying summary was incomplete or malformed, in which
 case no event or edge is usable as proof.
 

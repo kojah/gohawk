@@ -42,7 +42,7 @@ func TestImportedEffects(t *testing.T) {
 					checked++
 				case "opaque", "conditional", "localOnly":
 					result := engine.Function(function, ssaflow.NewSearchBudget(2000))
-					if result.Completeness() != Incomplete || result.Complete() || result.Reason == "" {
+					if result.Completeness() != Incomplete || result.Complete() || result.Reason == ReasonNone {
 						t.Errorf("%s unexpectedly complete: %+v", function, result)
 					}
 					checked++

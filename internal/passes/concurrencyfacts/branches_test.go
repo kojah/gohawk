@@ -28,7 +28,7 @@ func diamonds(a chan int, x, y bool) {
 	for _, name := range []string{"different", "optional", "reordered", "loop", "opaque", "deferredDifferent"} {
 		t.Run(name, func(t *testing.T) {
 			result := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(2000))
-			if result.Reason == "" || len(result.Operations) != 0 {
+			if result.Reason == ReasonNone || len(result.Operations) != 0 {
 				t.Fatalf("incomplete branches produced effects: %+v", result)
 			}
 		})
@@ -37,7 +37,7 @@ func diamonds(a chan int, x, y bool) {
 		t.Run(name, func(t *testing.T) {
 			function := pkg.Func(name)
 			result := NewEngine().Function(function, ssaflow.NewSearchBudget(2000))
-			if result.Reason != "" || len(result.Operations) != count {
+			if result.Reason != ReasonNone || len(result.Operations) != count {
 				t.Fatalf("equivalent effects lost: %+v", result)
 			}
 			for _, operation := range result.Operations {
@@ -48,10 +48,10 @@ func diamonds(a chan int, x, y bool) {
 		})
 	}
 	engine := NewEngine()
-	if result := engine.Function(pkg.Func("diamonds"), ssaflow.NewSearchBudget(1)); result.Reason != "protocol-budget-exhausted" {
+	if result := engine.Function(pkg.Func("diamonds"), ssaflow.NewSearchBudget(1)); result.Reason != ReasonBudgetExhausted {
 		t.Fatalf("small branch budget: %+v", result)
 	}
-	if result := engine.Function(pkg.Func("diamonds"), ssaflow.NewSearchBudget(2000)); result.Reason != "" {
+	if result := engine.Function(pkg.Func("diamonds"), ssaflow.NewSearchBudget(2000)); result.Reason != ReasonNone {
 		t.Fatalf("budget-shortened branch summary poisoned cache: %+v", result)
 	}
 }

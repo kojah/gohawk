@@ -14,11 +14,11 @@ import (
 // omitted operations. Consumers must still establish each blocking obligation.
 func (graph *SyncGraph) Scope(resources ...concurrencyfacts.Reference) SyncGraph {
 	if graph == nil || !NewQuery(*graph).ready || len(resources) == 0 {
-		return SyncGraph{Reason: "syncgraph-scope-incomplete"}
+		return SyncGraph{Failure: graphFailure(ReasonScopeIncomplete)}
 	}
 	for _, edge := range graph.Edges {
 		if edge.Kind == BlockingDependency {
-			return SyncGraph{Reason: "syncgraph-scope-dependency-present"}
+			return SyncGraph{Failure: graphFailure(ReasonScopeDependencyPresent)}
 		}
 	}
 	var summary concurrencyfacts.Summary
@@ -26,7 +26,7 @@ func (graph *SyncGraph) Scope(resources ...concurrencyfacts.Reference) SyncGraph
 	for index, event := range graph.Parent {
 		keep, known := scopedEvent(event, resources)
 		if !known {
-			return SyncGraph{Reason: "syncgraph-scope-alias-unknown"}
+			return SyncGraph{Failure: graphFailure(ReasonScopeAliasUnknown)}
 		}
 		if keep {
 			summary.Operations = append(summary.Operations, scopedOperation(event))
@@ -35,13 +35,13 @@ func (graph *SyncGraph) Scope(resources ...concurrencyfacts.Reference) SyncGraph
 	}
 	for _, child := range graph.Children {
 		if child.Prefix < 0 || child.Prefix >= len(prefixes) {
-			return SyncGraph{Reason: "syncgraph-invalid-spawn-prefix"}
+			return SyncGraph{Failure: graphFailure(ReasonInvalidSpawnPrefix)}
 		}
 		worker := concurrencyfacts.WorkerSummary{Spawn: child.Spawn, Site: child.Site, Prefix: prefixes[child.Prefix]}
 		for _, event := range child.Events {
 			keep, known := scopedEvent(event, resources)
 			if !known {
-				return SyncGraph{Reason: "syncgraph-scope-alias-unknown"}
+				return SyncGraph{Failure: graphFailure(ReasonScopeAliasUnknown)}
 			}
 			if keep {
 				worker.Operations = append(worker.Operations, scopedOperation(event))
@@ -109,12 +109,12 @@ func resourcePath(value ssa.Value) (ssaflow.EmbeddedFieldPath, bool) {
 
 // FreshResource proves local allocation identity, including embedded fields.
 // This is not an escape proof: callers need a complete participant model too.
-func FreshResource(resource concurrencyfacts.Reference) ssaflow.Proof {
+func FreshResource(resource concurrencyfacts.Reference) Proof {
 	if !exactReference(resource) || resource.Cancellation {
-		return queryProof(ssaflow.EvidenceUnknown, "syncgraph-freshness-unknown")
+		return queryProof(ssaflow.EvidenceUnknown, ReasonFreshnessUnknown)
 	}
 	if _, known := resourcePath(resource.Value); !known {
-		return queryProof(ssaflow.EvidenceUnknown, "syncgraph-freshness-unknown")
+		return queryProof(ssaflow.EvidenceUnknown, ReasonFreshnessUnknown)
 	}
-	return queryProof(ssaflow.EvidenceProven, "syncgraph-fresh-resource")
+	return queryProof(ssaflow.EvidenceProven, ReasonFreshResource)
 }

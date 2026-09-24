@@ -24,7 +24,8 @@ type waitGroupCycleProof struct {
 	workerLock token.Pos
 	done       token.Pos
 	outcome    analysisTrace.Outcome
-	reason     string
+	reason     dependencyReason
+	failure    syncmodel.Failure
 }
 
 type waitGroupParent struct {
@@ -67,11 +68,11 @@ func potentialWaitGroupLockRoot(function *ssa.Function) token.Pos {
 	return wait
 }
 
-func reportWaitGroupLockCycle(pass *analysis.Pass, graphs []syncmodel.SyncGraph, reason string, candidate token.Pos) {
+func reportWaitGroupLockCycle(pass *analysis.Pass, graphs []syncmodel.SyncGraph, failure syncmodel.Failure, candidate token.Pos) {
 	probe := analysisTrace.For(pass, "lockorder", string(check.LockWaitGroupCycle), candidate)
-	probe.Candidate(analysisTrace.Step{Reason: "waitgroup-lock-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
-	proof := proveWaitGroupVariants(graphs, reason)
-	probe.Decision(analysisTrace.Step{Reason: proof.reason, Outcome: proof.outcome, Pos: candidate})
+	probe.Candidate(analysisTrace.Step{Reason: dependencyWaitgroupLockCandidate.String(), Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
+	proof := proveWaitGroupVariants(graphs, failure)
+	probe.Decision(analysisTrace.Step{Reason: proof.traceReason(), Outcome: proof.outcome, Pos: candidate})
 	if proof.outcome != analysisTrace.OutcomeAccepted {
 		return
 	}
@@ -86,9 +87,9 @@ func reportWaitGroupLockCycle(pass *analysis.Pass, graphs []syncmodel.SyncGraph,
 	})
 }
 
-func proveWaitGroupVariants(graphs []syncmodel.SyncGraph, reason string) waitGroupCycleProof {
-	if reason != "" || len(graphs) == 0 {
-		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: reason}
+func proveWaitGroupVariants(graphs []syncmodel.SyncGraph, failure syncmodel.Failure) waitGroupCycleProof {
+	if !failure.Empty() || len(graphs) == 0 {
+		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, failure: failure}
 	}
 	var common waitGroupCycleProof
 	for _, graph := range graphs {
@@ -96,8 +97,8 @@ func proveWaitGroupVariants(graphs []syncmodel.SyncGraph, reason string) waitGro
 		if proof.outcome != analysisTrace.OutcomeAccepted {
 			return proof
 		}
-		if common.reason != "" && (common.wait != proof.wait || common.parentLock != proof.parentLock) {
-			return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-alternative-sites-differ"}
+		if common.reason != dependencyNone && (common.wait != proof.wait || common.parentLock != proof.parentLock) {
+			return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: dependencyWaitgroupLockAlternativeSitesDiffer}
 		}
 		common = proof
 	}
@@ -106,7 +107,7 @@ func proveWaitGroupVariants(graphs []syncmodel.SyncGraph, reason string) waitGro
 
 func proveWaitGroupLockCycle(graph syncmodel.SyncGraph) waitGroupCycleProof {
 	if !graph.Complete() {
-		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
+		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, failure: graph.Failure}
 	}
 	var failure waitGroupCycleProof
 	for _, wait := range graph.Parent {
@@ -124,62 +125,62 @@ func proveWaitGroupLockCycle(graph syncmodel.SyncGraph) waitGroupCycleProof {
 			failure = proof
 		}
 	}
-	if failure.reason == "" {
-		failure = waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-shape-not-matched"}
+	if failure.reason == dependencyNone && failure.failure.Empty() {
+		failure = waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: dependencyWaitgroupLockShapeNotMatched}
 	}
 	return failure
 }
 
 func proveScopedWaitGroupLockCycle(graph syncmodel.SyncGraph) waitGroupCycleProof {
 	if !graph.Complete() {
-		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
+		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, failure: graph.Failure}
 	}
 	parent, failure := findWaitGroupParent(graph)
-	if failure.reason != "" {
+	if failure.reason != dependencyNone || !failure.failure.Empty() {
 		return failure
 	}
 	witnessLock, witnessDone, failure := findCountedWorkers(graph.Children, parent)
-	if failure.reason != "" {
+	if failure.reason != dependencyNone || !failure.failure.Empty() {
 		return failure
 	}
 	if !parent.lock.Source.IsValid() || !parent.wait.Source.IsValid() ||
 		!witnessLock.Source.IsValid() || !witnessDone.Source.IsValid() {
-		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-source-unknown"}
+		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: dependencyWaitgroupLockSourceUnknown}
 	}
 	// With no other group participant or decrement, the Wait cannot return
 	// until a worker reaches Done. Each worker is blocked by the parent's
 	// lock, which the parent releases only after Wait returns.
 	if !graph.AddDependency(parent.unlock.ID, witnessLock.ID) ||
 		!graph.AddDependency(witnessDone.ID, parent.wait.ID) || !graph.HasCycle() {
-		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-cycle-unproven"}
+		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: dependencyWaitgroupLockCycleUnproven}
 	}
 	return waitGroupCycleProof{
 		wait: parent.wait.Source, parentLock: parent.lock.Source, workerLock: witnessLock.Source, done: witnessDone.Source,
-		outcome: analysisTrace.OutcomeAccepted, reason: "waitgroup-lock-cycle-proven",
+		outcome: analysisTrace.OutcomeAccepted, reason: dependencyWaitgroupLockCycleProven,
 	}
 }
 
 func findWaitGroupParent(graph syncmodel.SyncGraph) (waitGroupParent, waitGroupCycleProof) {
 	count := len(graph.Children)
 	if count == 0 || len(graph.Parent) != count+3 {
-		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-shape-not-matched"}
+		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: dependencyWaitgroupLockShapeNotMatched}
 	}
 	parent := graph.Parent
 	wait, unlock := parent[count+1], parent[count+2]
 	group := wait.Resource.Value
 	if !syncmodel.FreshResource(wait.Resource).Proven() || !exactWaitGroupEvent(wait, concurrencyfacts.GroupWait, group) {
-		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-counter-unknown"}
+		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: dependencyWaitgroupLockCounterUnknown}
 	}
 	lockIndex, registered, known := waitGroupRegistrations(parent[:count+1], group)
 	if !known {
-		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-counter-unknown"}
+		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: dependencyWaitgroupLockCounterUnknown}
 	}
 	lock := parent[lockIndex]
 	mutex := lock.Resource.Value
 	if !syncmodel.FreshResource(lock.Resource).Proven() || !exactWaitGroupEvent(lock, concurrencyfacts.Lock, mutex) ||
 		!exactWaitGroupEvent(wait, concurrencyfacts.GroupWait, group) ||
 		!exactWaitGroupEvent(unlock, concurrencyfacts.Unlock, mutex) {
-		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-parent-order-not-matched"}
+		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: dependencyWaitgroupLockParentOrderNotMatched}
 	}
 	return waitGroupParent{
 		group: group, mutex: mutex, lock: lock, wait: wait, unlock: unlock,
@@ -214,14 +215,14 @@ func findCountedWorkers(
 	for index, child := range children {
 		if !child.LaunchKnown() || !parent.countedLaunch(index, child.Prefix) || len(child.Events) != 3 {
 			return syncmodel.SyncEvent{}, syncmodel.SyncEvent{},
-				waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-worker-effects-unknown"}
+				waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: dependencyWaitgroupLockWorkerEffectsUnknown}
 		}
 		workerLock, done, workerUnlock := child.Events[0], child.Events[1], child.Events[2]
 		if !exactWaitGroupEvent(workerLock, concurrencyfacts.Lock, parent.mutex) ||
 			!exactWaitGroupEvent(done, concurrencyfacts.GroupDone, parent.group) ||
 			!exactWaitGroupEvent(workerUnlock, concurrencyfacts.Unlock, parent.mutex) {
 			return syncmodel.SyncEvent{}, syncmodel.SyncEvent{},
-				waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-worker-order-not-matched"}
+				waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: dependencyWaitgroupLockWorkerOrderNotMatched}
 		}
 		if index == 0 {
 			witnessLock, witnessDone = workerLock, done
@@ -236,4 +237,12 @@ func (parent waitGroupParent) countedLaunch(index, prefix int) bool {
 
 func exactWaitGroupEvent(event syncmodel.SyncEvent, kind concurrencyfacts.Kind, resource ssa.Value) bool {
 	return event.Kind == kind && !event.Resource.Indirect && event.Resource.Value == resource
+}
+
+// traceReason preserves the originating code without string-based proof decisions.
+func (proof waitGroupCycleProof) traceReason() string {
+	if !proof.failure.Empty() {
+		return proof.failure.String()
+	}
+	return proof.reason.String()
 }

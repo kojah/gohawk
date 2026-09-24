@@ -85,15 +85,15 @@ func run(pass *analysis.Pass) (any, error) {
 			continue
 		}
 		probe := trace.For(pass, "concurrencyfacts", "", function.Pos())
-		probe.Candidate(trace.Step{Reason: "summarizing-concurrency", Outcome: trace.OutcomeObserved})
+		probe.Candidate(trace.Step{Reason: ReasonSummarizing.String(), Outcome: trace.OutcomeObserved})
 		result := engine.linear.Function(function, ssaflow.NewSearchBudget(exportBudget))
 		fact, ok := exportSummary(function, result)
-		outcome, reason := trace.OutcomeUnknown, "concurrency-export-unknown"
+		outcome, reason := trace.OutcomeUnknown, ReasonExportUnknown
 		if ok {
 			pass.ExportObjectFact(object, &fact)
-			outcome, reason = trace.OutcomeAccepted, "concurrency-export-complete"
+			outcome, reason = trace.OutcomeAccepted, ReasonExportComplete
 		}
-		probe.Decision(trace.Step{Reason: reason, Outcome: outcome, Pos: function.Pos()})
+		probe.Decision(trace.Step{Reason: reason.String(), Outcome: outcome, Pos: function.Pos()})
 	}
 	return engine, nil
 }
@@ -161,7 +161,7 @@ func exportEffect(function *ssa.Function, operation Operation) (Effect, bool) {
 }
 
 func (engine *Engine) importedCall(call ssa.CallInstruction, function *ssa.Function) Summary {
-	unknown := Summary{Reason: "protocol-body-unavailable"}
+	unknown := Summary{Reason: ReasonBodyUnavailable}
 	object, ok := function.Object().(*types.Func)
 	if !ok {
 		return unknown
@@ -174,7 +174,7 @@ func (engine *Engine) importedCall(call ssa.CallInstruction, function *ssa.Funct
 }
 
 func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summary {
-	unknown := Summary{Reason: "protocol-body-unavailable"}
+	unknown := Summary{Reason: ReasonBodyUnavailable}
 	arguments := engine.resolvedCommon(call).Args
 	if fact.Version != factVersion || len(fact.Effects)+len(fact.CancellationInputs) > maxOperations || len(fact.Workers) > maxWorkers {
 		return unknown
@@ -189,12 +189,12 @@ func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summa
 		}
 		resource, ok := engine.reference(arguments[index])
 		if !ok || !resource.Cancellation {
-			return Summary{Reason: "protocol-context-binding-unknown"}
+			return Summary{Reason: ReasonContextBindingUnknown}
 		}
 		requireCancellation(&result, []Reference{resource})
 	}
 	for _, effect := range fact.Effects {
-		if reason := engine.bindEffect(&result, call, effect); reason != "" {
+		if reason := engine.bindEffect(&result, call, effect); reason != ReasonNone {
 			return Summary{Reason: reason}
 		}
 	}
@@ -205,7 +205,7 @@ func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summa
 		worker := WorkerSummary{Prefix: entry.Prefix, Site: call.Pos()}
 		for _, effect := range entry.Effects {
 			var effects Summary
-			if reason := engine.bindEffect(&effects, call, effect); reason != "" {
+			if reason := engine.bindEffect(&effects, call, effect); reason != ReasonNone {
 				return Summary{Reason: reason}
 			}
 			worker.Operations = append(worker.Operations, effects.Operations[0])
@@ -213,25 +213,25 @@ func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summa
 		result.Workers = append(result.Workers, worker)
 	}
 	if result.operationCount() > maxOperations {
-		return Summary{Reason: "protocol-summary-limit"}
+		return Summary{Reason: ReasonSummaryLimit}
 	}
 	return finishCancellation(result)
 }
 
-func (engine *Engine) bindEffect(result *Summary, call ssa.CallInstruction, effect Effect) string {
+func (engine *Engine) bindEffect(result *Summary, call ssa.CallInstruction, effect Effect) Reason {
 	if !engine.budget.Spend() {
-		return "protocol-budget-exhausted"
+		return ReasonBudgetExhausted
 	}
 	arguments := engine.resolvedCommon(call).Args
 	if effect.Parameter < 0 || effect.Parameter >= len(arguments) || effect.Kind > ReadUnlock {
-		return "protocol-body-unavailable"
+		return ReasonBodyUnavailable
 	}
 	value := arguments[effect.Parameter]
 	if len(effect.Fields) > 0 {
 		var found bool
 		value, found = engine.importedField(call, value, effect.Fields)
 		if !found || effect.Kind != Lock && effect.Kind != Unlock && effect.Kind != ReadLock && effect.Kind != ReadUnlock {
-			return "protocol-field-binding-unknown"
+			return ReasonFieldBindingUnknown
 		}
 	}
 	return engine.appendOperation(result, effect.Kind, value, call.Pos())

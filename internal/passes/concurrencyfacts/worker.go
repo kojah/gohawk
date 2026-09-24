@@ -13,13 +13,13 @@ import (
 // root query, including launches expanded from an exact counted loop.
 const maxWorkers = 4
 
-func (engine *Engine) appendGo(result *Summary, instruction *ssa.Go) string {
+func (engine *Engine) appendGo(result *Summary, instruction *ssa.Go) Reason {
 	// A function records each statically known launch separately. A fifth
 	// participant or a child with unavailable effects makes the *whole*
 	// protocol unknown: otherwise a missing alternate signal or unlock
 	// could turn a feasible wait into a false deadlock proof.
 	if len(result.Workers) >= maxWorkers {
-		return "protocol-participants-unknown"
+		return ReasonParticipantsUnknown
 	}
 	called := engine.instantiate(instruction)
 	result.CancellationInputs = append(result.CancellationInputs, called.CancellationInputs...)
@@ -27,19 +27,19 @@ func (engine *Engine) appendGo(result *Summary, instruction *ssa.Go) string {
 		worker := WorkerSummary{Spawn: instruction, Site: instruction.Pos(), Prefix: len(result.Operations), Branches: true}
 		for _, path := range called.Paths {
 			if !composableLinear(path) || len(path.Workers) != 0 || len(path.Paths) != 0 {
-				return "protocol-worker-effects-unknown"
+				return ReasonWorkerEffectsUnknown
 			}
 			requireCancellation(result, path.CancellationInputs)
 			worker.Alternatives = append(worker.Alternatives, path.Operations)
 		}
 		result.Workers = append(result.Workers, worker)
-		return ""
+		return ReasonNone
 	}
 	if len(called.Workers) != 0 {
-		return "protocol-worker-effects-unknown"
+		return ReasonWorkerEffectsUnknown
 	}
 	if !composableLinear(called) {
-		if called.Reason != "protocol-select-alternatives" || len(called.Choices) != 1 || !completeChoice(called.Choices[0]) {
+		if called.Reason != ReasonSelectAlternatives || len(called.Choices) != 1 || !completeChoice(called.Choices[0]) {
 			return called.Reason
 		}
 		worker := WorkerSummary{Spawn: instruction, Site: instruction.Pos(), Prefix: len(result.Operations)}
@@ -50,24 +50,24 @@ func (engine *Engine) appendGo(result *Summary, instruction *ssa.Go) string {
 			worker.Alternatives = append(worker.Alternatives, arm.Sequence)
 		}
 		result.Workers = append(result.Workers, worker)
-		return ""
+		return ReasonNone
 	}
 	result.Workers = append(result.Workers, WorkerSummary{
 		Operations: called.Operations, Spawn: instruction, Site: instruction.Pos(), Prefix: len(result.Operations),
 	})
-	return ""
+	return ReasonNone
 }
 
-func (engine *Engine) appendCall(result *Summary, instruction *ssa.Call) string {
+func (engine *Engine) appendCall(result *Summary, instruction *ssa.Call) Reason {
 	called := engine.callSummary(instruction)
 	return appendCalled(result, called, instruction)
 }
 
-func appendCalled(result *Summary, called Summary, instruction *ssa.Call) string {
+func appendCalled(result *Summary, called Summary, instruction *ssa.Call) Reason {
 	result.CancellationInputs = append(result.CancellationInputs, called.CancellationInputs...)
 	if len(called.Workers) != 0 {
 		if !composableLinear(called) && !called.workerAlternativesOnly() || len(result.Workers)+len(called.Workers) > maxWorkers {
-			return "protocol-participants-unknown"
+			return ReasonParticipantsUnknown
 		}
 		for _, worker := range called.Workers {
 			worker.Prefix += len(result.Operations)
@@ -81,10 +81,10 @@ func appendCalled(result *Summary, called Summary, instruction *ssa.Call) string
 	}
 	result.Operations = append(result.Operations, called.Operations...)
 	if called.workerAlternativesOnly() {
-		return ""
+		return ReasonNone
 	}
-	if called.Reason == cancellationBindingRequired {
-		return ""
+	if called.Reason == ReasonContextBindingRequired {
+		return ReasonNone
 	}
 	return called.Reason
 }
@@ -106,37 +106,37 @@ func (summary Summary) workerAlternativesOnly() bool {
 
 func (engine *Engine) bindWorker(
 	worker WorkerSummary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
-) (WorkerSummary, string) {
+) (WorkerSummary, Reason) {
 	bound := WorkerSummary{Spawn: worker.Spawn, Site: instruction.Pos(), Prefix: worker.Prefix, Branches: worker.Branches}
-	var reason string
+	var reason Reason
 	bound.Operations, reason = engine.bindOperations(worker.Operations, bindings, instruction)
-	if reason != "" {
+	if reason != ReasonNone {
 		return WorkerSummary{}, reason
 	}
 	for _, path := range worker.Alternatives {
 		operations, reason := engine.bindOperations(path, bindings, instruction)
-		if reason != "" {
+		if reason != ReasonNone {
 			return WorkerSummary{}, reason
 		}
 		bound.Alternatives = append(bound.Alternatives, operations)
 	}
-	return bound, ""
+	return bound, ReasonNone
 }
 
-func (engine *Engine) bindOperations(operations []Operation, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) ([]Operation, string) {
+func (engine *Engine) bindOperations(operations []Operation, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) ([]Operation, Reason) {
 	bound := make([]Operation, 0, len(operations))
 	for _, op := range operations {
 		if !engine.budget.Spend() {
-			return nil, "protocol-budget-exhausted"
+			return nil, ReasonBudgetExhausted
 		}
 		resource, ok := engine.bind(op.Resource, bindings, instruction)
 		if !ok {
-			return nil, "protocol-channel-binding-unknown"
+			return nil, ReasonChannelBindingUnknown
 		}
 		op.Resource, op.Site = resource, instruction.Pos()
 		bound = append(bound, op)
 	}
-	return bound, ""
+	return bound, ReasonNone
 }
 
 func (summary Summary) hasWorkerAlternatives() bool {

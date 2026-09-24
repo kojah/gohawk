@@ -65,7 +65,7 @@ func TestFromSummaryKeepsChildrenDistinct(t *testing.T) {
 func TestIncompleteSummaryDoesNotExposePartialEvents(t *testing.T) {
 	graph := FromSummary(concurrencyfacts.Summary{
 		Operations: []concurrencyfacts.Operation{{Kind: concurrencyfacts.Lock}},
-		Reason:     "protocol-effect-unknown",
+		Reason:     concurrencyfacts.ReasonEffectUnknown,
 	})
 	if graph.Complete() || len(graph.Parent) != 0 || graph.AddDependency(0, 0) || graph.HasCycle() {
 		t.Fatalf("incomplete summary produced usable graph: %+v", graph)
@@ -74,7 +74,7 @@ func TestIncompleteSummaryDoesNotExposePartialEvents(t *testing.T) {
 
 func TestSelectChoiceIsVisibleButNotAProofEvent(t *testing.T) {
 	graph := FromSummary(concurrencyfacts.Summary{
-		Reason: "protocol-select-alternatives",
+		Reason: concurrencyfacts.ReasonSelectAlternatives,
 		Choices: []concurrencyfacts.SelectChoice{{Arms: []concurrencyfacts.SelectArm{
 			{Operation: concurrencyfacts.Operation{Kind: concurrencyfacts.Send}},
 			{Default: true},

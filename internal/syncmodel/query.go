@@ -16,7 +16,7 @@ type Query struct {
 	sequences    [][]SyncEvent
 	prefixes     []int
 	observations map[concurrencyfacts.Reference][]EventID
-	reason       string
+	failure      Failure
 	ready        bool
 }
 
@@ -29,7 +29,7 @@ type eventLocation struct {
 // Consumer-added blocking dependencies are deliberately not execution order.
 // Queries never mutate a graph or combine mutually exclusive select variants.
 func NewQuery(graph SyncGraph) Query {
-	query := Query{reason: graph.Reason}
+	query := Query{failure: graph.Failure}
 	if !graph.Complete() || len(graph.Choices) != 0 {
 		return query
 	}
@@ -38,7 +38,7 @@ func NewQuery(graph SyncGraph) Query {
 	query.sequences = append(query.sequences, slices.Clone(graph.Parent))
 	for _, child := range graph.Children {
 		if !child.LaunchKnown() || child.Prefix < 0 || child.Prefix > len(graph.Parent) {
-			query.reason = "syncgraph-invalid-spawn-prefix"
+			query.failure = graphFailure(ReasonInvalidSpawnPrefix)
 			return query
 		}
 		query.sequences = append(query.sequences, slices.Clone(child.Events))
@@ -47,7 +47,7 @@ func NewQuery(graph SyncGraph) Query {
 	for sequence, events := range query.sequences {
 		for index, event := range events {
 			if _, exists := query.locations[event.ID]; exists || event.ID < 0 || event.Goroutine != GoroutineID(sequence) {
-				query.reason = "syncgraph-invalid-event"
+				query.failure = graphFailure(ReasonInvalidEvent)
 				return query
 			}
 			query.locations[event.ID] = eventLocation{sequence: sequence, index: index}
@@ -65,37 +65,36 @@ func NewQuery(graph SyncGraph) Query {
 // being reached. No path means unknown, not concurrent or reversed. A blocking
 // dependency or matching channel identity alone never establishes this order.
 // With the current root/children model this query is constant-time.
-func (query Query) Before(before, after EventID) ssaflow.Proof {
+func (query Query) Before(before, after EventID) Proof {
 	if !query.ready {
 		return query.unavailable()
 	}
 	left, leftOK := query.locations[before]
 	right, rightOK := query.locations[after]
 	if !leftOK || !rightOK {
-		return queryProof(ssaflow.EvidenceUnknown, "syncgraph-event-unavailable")
+		return queryProof(ssaflow.EvidenceUnknown, ReasonEventUnavailable)
 	}
 	ordered := left.sequence == right.sequence && left.index < right.index
 	if left.sequence == 0 && right.sequence > 0 {
 		ordered = left.index < query.prefixes[right.sequence-1]
 	}
 	if ordered {
-		return queryProof(ssaflow.EvidenceProven, "syncgraph-program-order")
+		return queryProof(ssaflow.EvidenceProven, ReasonProgramOrder)
 	}
-	return queryProof(ssaflow.EvidenceUnknown, "syncgraph-order-unproven")
+	return queryProof(ssaflow.EvidenceUnknown, ReasonOrderUnproven)
 }
 
-func (query Query) unavailable() ssaflow.Proof {
-	reason := query.reason
-	if reason == "" {
-		reason = "syncgraph-query-unavailable"
+func (query Query) unavailable() Proof {
+	if !query.failure.Empty() {
+		return Proof{State: ssaflow.EvidenceUnknown, Failure: query.failure}
 	}
-	return queryProof(ssaflow.EvidenceUnknown, reason)
+	return queryProof(ssaflow.EvidenceUnknown, ReasonQueryUnavailable)
 }
 
-func queryProof(state ssaflow.EvidenceState, reason string) ssaflow.Proof {
+func queryProof(state ssaflow.EvidenceState, reason Reason) Proof {
 	// Sources may include imported effects. Do not label a graph query as
 	// exclusively local SSA evidence; the witness retains its origin and site.
-	return ssaflow.Proof{State: state, Reason: ssaflow.EvidenceReason(reason)}
+	return Proof{State: state, Reason: reason}
 }
 
 func exactReference(reference concurrencyfacts.Reference) bool {

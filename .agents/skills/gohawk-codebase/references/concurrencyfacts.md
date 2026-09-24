@@ -237,6 +237,72 @@ type Operation struct {
 
 Operation retains execution order and source/call-site provenance.
 
+## Reason
+
+[Source](../../../../internal/passes/concurrencyfacts/reasons.go)
+
+```go
+type Reason uint8
+```
+
+Reason is the summary component's closed failure and observation vocabulary.
+A zero reason records no cutoff; completeness still checks paths and bindings.
+Consumers retain this enum through composition and format it only at output.
+
+## Reason.String
+
+[Source](../../../../internal/passes/concurrencyfacts/reasons.go)
+
+```go
+func (reason Reason) String() string
+```
+
+String is the stable trace representation; numeric values are not wire codes.
+
+## ReasonNone, ReasonComponentNotRequested, ReasonComponentUnavailable, ReasonAlternativeLimit, ReasonBodyUnavailable, ReasonBranchAlternatives, ReasonBranchEffectsDiffer, ReasonBudgetExhausted, ReasonChannelBindingUnknown, ReasonChannelIdentityUnknown, ReasonCondLockerUnknown, ReasonContextBindingRequired, ReasonContextBindingUnknown, ReasonContextIdentityUnknown, ReasonContextParentUnknown, ReasonControlFlowUnknown, ReasonCutoff, ReasonDeferredEffectsUnknown, ReasonEffectUnknown, ReasonFieldBindingUnknown, ReasonGroupCountUnknown, ReasonLoadUnknown, ReasonLocalContextUnknown, ReasonParticipantsUnknown, ReasonPayloadUnknown, ReasonSelectAlternatives, ReasonSelectAlternativesUnknown, ReasonSelectDispatchUnknown, ReasonSelectNoFeasibleArm, ReasonSummaryLimit, ReasonWorkerEffectsUnknown, ReasonSummarizing, ReasonExportUnknown, ReasonExportComplete, ReasonRecursiveProtocol
+
+[Source](../../../../internal/passes/concurrencyfacts/reasons.go)
+
+```go
+const (
+	ReasonNone	Reason	= iota
+	ReasonComponentNotRequested
+	ReasonComponentUnavailable
+	ReasonAlternativeLimit
+	ReasonBodyUnavailable
+	ReasonBranchAlternatives
+	ReasonBranchEffectsDiffer
+	ReasonBudgetExhausted
+	ReasonChannelBindingUnknown
+	ReasonChannelIdentityUnknown
+	ReasonCondLockerUnknown
+	ReasonContextBindingRequired
+	ReasonContextBindingUnknown
+	ReasonContextIdentityUnknown
+	ReasonContextParentUnknown
+	ReasonControlFlowUnknown
+	ReasonCutoff
+	ReasonDeferredEffectsUnknown
+	ReasonEffectUnknown
+	ReasonFieldBindingUnknown
+	ReasonGroupCountUnknown
+	ReasonLoadUnknown
+	ReasonLocalContextUnknown
+	ReasonParticipantsUnknown
+	ReasonPayloadUnknown
+	ReasonSelectAlternatives
+	ReasonSelectAlternativesUnknown
+	ReasonSelectDispatchUnknown
+	ReasonSelectNoFeasibleArm
+	ReasonSummaryLimit
+	ReasonWorkerEffectsUnknown
+	ReasonSummarizing
+	ReasonExportUnknown
+	ReasonExportComplete
+	ReasonRecursiveProtocol
+)
+```
+
 ## Reference
 
 [Source](../../../../internal/passes/concurrencyfacts/summary.go)
@@ -329,7 +395,7 @@ type Summary struct {
 
 	// Paths contains every bounded acyclic alternative. Each entry is a
 	// complete linear summary or an exhaustive worker choice; never a prefix.
-	// Linear consumers must decline the enclosing nonempty Reason.
+	// Linear consumers must decline the enclosing nonzero Reason.
 	Paths		[]Summary
 	Operations	[]Operation
 
@@ -341,9 +407,9 @@ type Summary struct {
 	CancellationInputs	[]Reference
 	// AlternativesComplete is true only after every select continuation and
 	// the enclosing function body have been accounted for. Reason remains
-	// nonempty so linear consumers cannot mistake alternatives for one path.
+	// nonzero so linear consumers cannot mistake alternatives for one path.
 	AlternativesComplete	bool
-	Reason			string
+	Reason			Reason
 	// contains filtered or unexported fields
 }
 ```

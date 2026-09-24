@@ -84,7 +84,7 @@ type SyncChoice struct {
 }
 
 // SyncGraph contains the events of one complete, bounded root summary.
-// Parent and each Child preserve distinct ordered sequences. Reason is
+// Parent and each Child preserve distinct ordered sequences. Failure is
 // nonempty if the underlying summary was incomplete or malformed, in which
 // case no event or edge is usable as proof.
 type SyncGraph struct {
@@ -95,18 +95,18 @@ type SyncGraph struct {
 	// Cancellations associate requests with observations of the same Done
 	// signal. They are enabling relationships, not prerequisite/order edges.
 	Cancellations []CancellationSignal
-	Reason        string
+	Failure       Failure
 }
 
 // FromSummary constructs an event fragment without interpreting missing
 // effects. It takes linear time and space in the bounded summary size.
 func FromSummary(summary concurrencyfacts.Summary) SyncGraph {
 	if !summary.Complete() {
-		graph := SyncGraph{Reason: summary.Reason}
-		if graph.Reason == "" {
-			graph.Reason = "protocol-context-binding-required"
+		graph := SyncGraph{Failure: summaryFailure(summary.Reason)}
+		if graph.Failure.Empty() {
+			graph.Failure = summaryFailure(concurrencyfacts.ReasonContextBindingRequired)
 		}
-		if summary.Reason == "protocol-select-alternatives" {
+		if summary.Reason == concurrencyfacts.ReasonSelectAlternatives {
 			for _, choice := range summary.Choices {
 				mapped := SyncChoice{Prefix: choice.Prefix, Site: choice.Site, Worker: choice.Worker}
 				for _, arm := range choice.Arms {
@@ -129,7 +129,7 @@ func FromSummary(summary concurrencyfacts.Summary) SyncGraph {
 	graph.addOrder(graph.Parent)
 	for index, worker := range summary.Workers {
 		if worker.Spawn == nil && !worker.Site.IsValid() || worker.Prefix < 0 || worker.Prefix > len(graph.Parent) {
-			return SyncGraph{Reason: "syncgraph-invalid-spawn-prefix"}
+			return SyncGraph{Failure: graphFailure(ReasonInvalidSpawnPrefix)}
 		}
 		child := SyncChild{Spawn: worker.Spawn, Site: worker.Site, Prefix: worker.Prefix}
 		for _, operation := range worker.Operations {
@@ -168,7 +168,7 @@ func (graph *SyncGraph) addOrder(events []SyncEvent) {
 }
 
 // Complete reports only whether the input event sequence was complete.
-func (graph *SyncGraph) Complete() bool { return graph.Reason == "" }
+func (graph *SyncGraph) Complete() bool { return graph.Failure.Empty() }
 
 // AddDependency records an independently established prerequisite between
 // events. It refuses invalid IDs and incomplete graphs; it does not infer
