@@ -18,7 +18,12 @@ func (engine *Engine) appendSelect(result *Summary, selection *ssa.Select) strin
 		return "protocol-select-alternatives-unknown"
 	}
 	choice := SelectChoice{Prefix: len(result.Operations), Site: selection.Pos()}
-	for _, state := range selection.States {
+	for index, state := range selection.States {
+		// A communication on a nil channel can never be selected. Preserve
+		// the other arms' original indices for the SSA dispatch below.
+		if channel, ok := state.Chan.(*ssa.Const); ok && channel.IsNil() {
+			continue
+		}
 		kind := Receive
 		if state.Dir == types.SendOnly {
 			kind = Send
@@ -32,12 +37,15 @@ func (engine *Engine) appendSelect(result *Summary, selection *ssa.Select) strin
 		if !ok {
 			return "protocol-channel-identity-unknown"
 		}
-		choice.Arms = append(choice.Arms, SelectArm{Operation: Operation{
+		choice.Arms = append(choice.Arms, SelectArm{StateIndex: index, Operation: Operation{
 			Kind: kind, Resource: resource, Source: state.Pos, Site: selection.Pos(),
 		}})
 	}
 	if !selection.Blocking {
-		choice.Arms = append(choice.Arms, SelectArm{Default: true})
+		choice.Arms = append(choice.Arms, SelectArm{Default: true, StateIndex: len(selection.States)})
+	}
+	if len(choice.Arms) == 0 {
+		return "protocol-select-no-feasible-arm"
 	}
 	result.Choices = append(result.Choices, choice)
 	return "protocol-select-alternatives"
@@ -102,8 +110,8 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 	choice := &prefix.Choices[0]
 	// Analyze every index the Go select may return, including -1 for default.
 	// A single failed arm invalidates the whole exhaustive choice proof.
-	for index := range choice.Arms {
-		state, reason := engine.collectSelectArm(function.Blocks[0], selectIndex+1, selection, index, prefix)
+	for index, arm := range choice.Arms {
+		state, reason := engine.collectSelectArm(function.Blocks[0], selectIndex+1, selection, arm.StateIndex, arm, prefix)
 		if reason != "" {
 			return Summary{Reason: reason}, true
 		}
@@ -116,11 +124,10 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 }
 
 func (engine *Engine) collectSelectArm(
-	entry *ssa.BasicBlock, afterSelect int, selection *ssa.Select, selected int, prefix Summary,
+	entry *ssa.BasicBlock, afterSelect int, selection *ssa.Select, selected int, arm SelectArm, prefix Summary,
 ) (Summary, string) {
 	state := cloneEffects(prefix)
 	state.Choices = nil
-	arm := prefix.Choices[0].Arms[selected]
 	if !arm.Default {
 		state.Operations = append(state.Operations, arm.Operation)
 	}

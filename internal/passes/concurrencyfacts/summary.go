@@ -53,6 +53,9 @@ type Operation struct {
 type SelectArm struct {
 	Operation Operation
 	Default   bool
+	// StateIndex is the original SSA select index. An exact nil-channel arm
+	// can be omitted without changing the indices used by the dispatch.
+	StateIndex int
 	// Sequence is the complete ordered effect sequence for this arm, from
 	// function entry through its normal return. Nil when not proven.
 	Sequence []Operation

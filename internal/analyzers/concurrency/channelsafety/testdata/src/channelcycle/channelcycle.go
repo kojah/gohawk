@@ -113,6 +113,21 @@ func equivalentSelectArmsCannotUnblock() {
 	<-b
 }
 
+func nilSelectArmCannotUnblock() {
+	a := make(chan int)
+	b := make(chan int)
+	go func() {
+		var disabled <-chan int
+		select {
+		case <-disabled:
+		case b <- 1:
+		}
+		<-a
+	}()
+	a <- 1 // want "two goroutines wait on each other's later channel operation"
+	<-b
+}
+
 func importedLaunchCreatesChild() {
 	a := make(chan int)
 	b := make(chan int)

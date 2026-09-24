@@ -24,6 +24,18 @@ func uniform(out chan int) { select { case out <- 1: case out <- 2: } }
 func continuing(a, b chan int) { select { case a <- 1: case a <- 2: }; <-b }
 func continuingRoot(a, b chan int) { go continuing(a, b); b <- 1; <-a }
 func helper(out chan int, cancel <-chan int) { worker(out, cancel) }
+func nilFirst(out chan int) {
+ var disabled <-chan int
+ select { case <-disabled: case out <- 1: }
+}
+func nilWithDefault(out chan int) {
+ var disabled <-chan int
+ select { case <-disabled: default: }
+}
+func onlyNil() {
+ var first, second <-chan int
+ select { case <-first: case <-second: }
+}
 `)
 }
 
@@ -91,5 +103,25 @@ func TestSelectDefaultAndUnknownBranch(t *testing.T) {
 	conditional := engine.Function(pkg.Func("conditional"), ssaflow.NewSearchBudget(2000))
 	if conditional.AlternativesComplete || conditional.Complete() {
 		t.Errorf("unrelated branch was treated as a select continuation: %+v", conditional)
+	}
+}
+
+func TestNilSelectArmsCannotBecomePartners(t *testing.T) {
+	pkg := selectEffectsPackage(t)
+	engine := NewEngine()
+	first := engine.Function(pkg.Func("nilFirst"), ssaflow.NewSearchBudget(2000))
+	if !first.AlternativesComplete || len(first.Choices) != 1 || len(first.Choices[0].Arms) != 1 ||
+		first.Choices[0].Arms[0].StateIndex != 1 || len(first.Choices[0].Arms[0].Sequence) != 1 ||
+		first.Choices[0].Arms[0].Operation.Kind != Send {
+		t.Errorf("nil-first select = %+v, want only the feasible send", first)
+	}
+	defaultOnly := engine.Function(pkg.Func("nilWithDefault"), ssaflow.NewSearchBudget(2000))
+	if !defaultOnly.AlternativesComplete || len(defaultOnly.Choices) != 1 || len(defaultOnly.Choices[0].Arms) != 1 ||
+		!defaultOnly.Choices[0].Arms[0].Default || defaultOnly.Choices[0].Arms[0].StateIndex != 1 {
+		t.Errorf("nil/default select = %+v, want only the default", defaultOnly)
+	}
+	blocked := engine.Function(pkg.Func("onlyNil"), ssaflow.NewSearchBudget(2000))
+	if blocked.Complete() || blocked.Reason != "protocol-select-no-feasible-arm" {
+		t.Errorf("only-nil select = %+v, want an unknown blocked protocol", blocked)
 	}
 }
