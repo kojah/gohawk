@@ -147,17 +147,25 @@ def save_report(path, report):
     temporary.replace(path)
 
 
-def resume_metadata(previous, current, accepted_runner, output):
-    """Keep inputs immutable while recording an explicit runner upgrade."""
+def cache_policy_sha256(policy):
+    canonical = json.dumps(policy, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def resume_metadata(previous, current, accepted_runner, output, accepted_cache_policy=None):
+    """Keep inputs immutable while recording explicit runner/cache transitions."""
     for field in ("repositories", "binary_sha256", "replay_sha256", "go_version", "profile"):
         if previous.get(field) != current[field]:
             raise ValueError(f"saved run has different {field}")
-    if previous["runner_sha256"] == current["runner_sha256"]:
-        if previous.get("cache_policy", {"kind": "shared-default"}) != current["cache_policy"]:
-            raise ValueError("saved run has different cache_policy")
+    old_policy = previous.get("cache_policy", {"kind": "shared-default"})
+    runner_changed = previous["runner_sha256"] != current["runner_sha256"]
+    policy_changed = old_policy != current["cache_policy"]
+    if not runner_changed and not policy_changed:
         return previous
-    if accepted_runner != previous["runner_sha256"]:
+    if runner_changed and accepted_runner != previous["runner_sha256"]:
         raise ValueError("runner changed; pass the saved SHA via --accept-prior-runner-sha256")
+    if policy_changed and accepted_cache_policy != cache_policy_sha256(old_policy):
+        raise ValueError("cache policy changed; pass its saved SHA via --accept-prior-cache-policy-sha256")
     completed = []
     for repo, revision in current["repositories"]:
         path = output / (repo.replace("/", "__") + ".json")
@@ -167,14 +175,21 @@ def resume_metadata(previous, current, accepted_runner, output):
         if (report["repository"], report["revision"]) != (repo, revision):
             raise ValueError(f"{repo}: saved report does not match pinned input")
         completed.append(repo)
-    current["runner_history"] = [
-        *previous.get("runner_history", []),
-        {
+    current["runner_history"] = list(previous.get("runner_history", []))
+    if runner_changed:
+        current["runner_history"].append({
             "runner_sha256": previous["runner_sha256"],
-            "cache_policy": previous.get("cache_policy", {"kind": "shared-default"}),
+            "cache_policy": old_policy,
             "completed_repositories": completed,
-        },
-    ]
+        })
+    current["cache_policy_history"] = list(previous.get("cache_policy_history", []))
+    if policy_changed:
+        current["cache_policy_history"].append({
+            "cache_policy": old_policy,
+            "cache_policy_sha256": cache_policy_sha256(old_policy),
+            "runner_sha256": previous["runner_sha256"],
+            "completed_repositories": completed,
+        })
     return current
 
 
@@ -273,6 +288,7 @@ def main():
     parser.add_argument("--isolated-go-cache-window", type=positive)
     parser.add_argument("--min-root-free-gib", type=positive, default=8)
     parser.add_argument("--accept-prior-runner-sha256")
+    parser.add_argument("--accept-prior-cache-policy-sha256")
     args = parser.parse_args()
     binary = args.gohawk.resolve(strict=True)
     output = args.output.resolve()
@@ -300,7 +316,8 @@ def main():
     if run_file.exists():
         try:
             metadata = resume_metadata(
-                json.loads(run_file.read_text()), metadata, args.accept_prior_runner_sha256, output
+                json.loads(run_file.read_text()), metadata, args.accept_prior_runner_sha256,
+                output, args.accept_prior_cache_policy_sha256,
             )
         except ValueError as error:
             parser.error(str(error))

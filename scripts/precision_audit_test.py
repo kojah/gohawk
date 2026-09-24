@@ -136,19 +136,44 @@ class PrecisionAuditTest(unittest.TestCase):
         }
         previous = dict(current, runner_sha256="old")
         previous["cache_policy"] = {"kind": "shared-default"}
+        previous_policy_hash = AUDIT.cache_policy_sha256(previous["cache_policy"])
         (self.root / "owner__repo.json").write_text(json.dumps({"repository": "owner/repo", "revision": SHA}))
         with self.assertRaisesRegex(ValueError, "runner changed"):
             AUDIT.resume_metadata(previous, current.copy(), None, self.root)
-        upgraded = AUDIT.resume_metadata(previous, current.copy(), "old", self.root)
+        with self.assertRaisesRegex(ValueError, "cache policy changed"):
+            AUDIT.resume_metadata(previous, current.copy(), "old", self.root)
+        upgraded = AUDIT.resume_metadata(previous, current.copy(), "old", self.root, previous_policy_hash)
         self.assertEqual(upgraded["runner_history"], [
             {"runner_sha256": "old", "cache_policy": {"kind": "shared-default"},
              "completed_repositories": ["owner/repo"]}
         ])
+        self.assertEqual(upgraded["cache_policy_history"], [
+            {"cache_policy": {"kind": "shared-default"}, "cache_policy_sha256": previous_policy_hash,
+             "runner_sha256": "old", "completed_repositories": ["owner/repo"]}
+        ])
         self.assertEqual(AUDIT.resume_metadata(upgraded, current.copy(), None, self.root), upgraded)
-        with self.assertRaisesRegex(ValueError, "different cache_policy"):
+        with self.assertRaisesRegex(ValueError, "cache policy changed"):
             AUDIT.resume_metadata(upgraded, dict(current, cache_policy={"kind": "shared-default"}), None, self.root)
         with self.assertRaisesRegex(ValueError, "different profile"):
             AUDIT.resume_metadata(previous, dict(current, profile="changed"), "old", self.root)
+
+    def test_cache_policy_only_transition_requires_receipt(self):
+        previous = {
+            "repositories": [["owner/repo", SHA]], "binary_sha256": "binary",
+            "runner_sha256": "same", "replay_sha256": "replay", "go_version": "go version",
+            "profile": "-enable-all -gohawk-include-tests -json",
+            "cache_policy": {"kind": "isolated-window", "window_size": 2, "minimum_root_free_gib": 12},
+        }
+        current = dict(previous, cache_policy={"kind": "isolated-window", "window_size": 4,
+                                               "minimum_root_free_gib": 12})
+        (self.root / "owner__repo.json").write_text(json.dumps({"repository": "owner/repo", "revision": SHA}))
+        with self.assertRaisesRegex(ValueError, "cache policy changed"):
+            AUDIT.resume_metadata(previous, current.copy(), None, self.root)
+        accepted = AUDIT.cache_policy_sha256(previous["cache_policy"])
+        upgraded = AUDIT.resume_metadata(previous, current.copy(), None, self.root, accepted)
+        self.assertEqual(upgraded["runner_history"], [])
+        self.assertEqual(upgraded["cache_policy_history"][0]["completed_repositories"], ["owner/repo"])
+        self.assertEqual(upgraded["cache_policy_history"][0]["cache_policy_sha256"], accepted)
 
     def test_isolated_cache_drains_windows_and_restores_environment(self):
         seen = []
