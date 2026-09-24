@@ -43,7 +43,7 @@ func TestPluginRejectsSettings(t *testing.T) {
 func TestPluginAnalyzerSelection(t *testing.T) {
 	linter, err := New(map[string]any{
 		"enable":  []string{"resourcelifetime"},
-		"disable": []string{"oncepolicy"},
+		"disable": []string{"channelsafety"},
 	})
 	if err != nil {
 		t.Fatalf("construct configured plugin: %v", err)
@@ -54,7 +54,7 @@ func TestPluginAnalyzerSelection(t *testing.T) {
 		t.Fatalf("build analyzers: %v", err)
 	}
 	names := analyzerNames(got)
-	if slices.Contains(names, "oncepolicy") {
+	if slices.Contains(names, "channelsafety") {
 		t.Fatalf("disabled analyzer is present: %v", names)
 	}
 	if !slices.Contains(names, "resourcelifetime") {

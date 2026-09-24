@@ -14,15 +14,12 @@ func expectedAnalyzerNames() []string {
 	return []string{
 		"goroutineownership",
 		"producerlifecycle",
-		"inlineerror",
 		"channelsafety",
 		"processownership",
 		"lockorder",
 		"resourcelifetime",
 		"deferinloop",
 		"concurrentcapture",
-		"evalorder",
-		"oncepolicy",
 		"cancellationownership",
 		"nilargument",
 	}
@@ -105,7 +102,6 @@ func TestAnalyzerGroups(t *testing.T) {
 				"concurrentcapture",
 				"goroutineownership",
 				"lockorder",
-				"oncepolicy",
 				"producerlifecycle",
 			},
 		},
@@ -120,7 +116,7 @@ func TestAnalyzerGroups(t *testing.T) {
 				"resourcelifetime",
 			},
 		},
-		{name: "correctness", doc: "general correctness", docPath: "general-correctness", analyzers: []string{"evalorder", "inlineerror", "nilargument"}},
+		{name: "correctness", doc: "general correctness", docPath: "general-correctness", analyzers: []string{"nilargument"}},
 	}
 	groups := AnalyzerGroups()
 	if len(groups) != len(want) {
@@ -184,8 +180,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"resourcelifetime/missing-release":   CheckKindDefect,
 		"resourcelifetime/use-after-release": CheckKindHazard,
 		"concurrentcapture/shared-capture":   CheckKindHazard,
-		"inlineerror/mismatched-condition":   CheckKindDefect,
-		"evalorder/operand-mutation":         CheckKindHazard,
 		"lockorder/missing-release":          CheckKindDefect,
 		"lockorder/recursive-acquire":        CheckKindDefect,
 		"lockorder/contradictory-order":      CheckKindHazard,
@@ -193,7 +187,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/channel-lock-cycle":       CheckKindDefect,
 		"lockorder/read-lock-write":          CheckKindHazard,
 		"lockorder/mismatched-release":       CheckKindDefect,
-		"oncepolicy/discarded-wrapper":       CheckKindDefect,
 		"nilargument/dereferenced-nil":       CheckKindDefect,
 	}
 	for _, name := range expectedAnalyzerNames() {
@@ -237,10 +230,10 @@ func TestAnalyzerMetadata(t *testing.T) {
 func TestDefaultAnalyzers(t *testing.T) {
 	want := []string{
 		"goroutineownership", "producerlifecycle",
-		"inlineerror", "channelsafety",
+		"channelsafety",
 		"processownership", "lockorder", "resourcelifetime",
 		"deferinloop", "concurrentcapture",
-		"evalorder", "oncepolicy", "cancellationownership",
+		"cancellationownership",
 	}
 	var names []string
 	for _, analyzer := range DefaultAnalyzers() {

@@ -66,17 +66,6 @@ func ExpressionUsesObject(pass *analysis.Pass, node ast.Node, object types.Objec
 
 ExpressionUsesObject reports whether node refers to object.
 
-## FunctionParameterObject
-
-[Source](../../../../internal/syntax/syntax.go)
-
-```go
-func FunctionParameterObject(pass *analysis.Pass, function *ast.FuncDecl, target int) types.Object
-```
-
-FunctionParameterObject returns the declared object at the positional
-parameter index. An unnamed parameter occupies a position but has no object.
-
 ## GeneratedFile
 
 [Source](../../../../internal/syntax/source.go)
@@ -86,26 +75,6 @@ func GeneratedFile(file *ast.File) bool
 ```
 
 GeneratedFile reports whether file carries Go's generated-file marker.
-
-## IsCallTo
-
-[Source](../../../../internal/syntax/symbols.go)
-
-```go
-func IsCallTo(pass *analysis.Pass, call *ast.CallExpr, symbol Symbol) bool
-```
-
-IsCallTo reports whether call statically resolves to symbol.
-
-## IsCallToAny
-
-[Source](../../../../internal/syntax/symbols.go)
-
-```go
-func IsCallToAny(pass *analysis.Pass, call *ast.CallExpr, symbols ...Symbol) bool
-```
-
-IsCallToAny reports whether call statically resolves to one of symbols.
 
 ## IsErrorType
 

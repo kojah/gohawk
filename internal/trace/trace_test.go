@@ -107,7 +107,7 @@ func TestEmitDiagnosticResolvesEnclosingFunction(t *testing.T) {
 	resetTrace(t)
 	var output bytes.Buffer
 	global.config.writer = &output
-	global.config.selectors = map[string]bool{"oncepolicy": true}
+	global.config.selectors = map[string]bool{"channelsafety": true}
 	global.active.Store(true)
 
 	files := token.NewFileSet()
@@ -120,11 +120,11 @@ func TestEmitDiagnosticResolvesEnclosingFunction(t *testing.T) {
 	EmitDiagnostic(
 		pass,
 		DiagnosticEvent{
-			Analyzer:   "oncepolicy",
+			Analyzer:   "channelsafety",
 			Phase:      "candidate",
 			Reason:     "diagnostic-candidate",
 			Outcome:    OutcomeObserved,
-			Diagnostic: analysis.Diagnostic{Category: "oncepolicy/discarded-wrapper", Pos: function.Pos(), Message: "discarded"},
+			Diagnostic: analysis.Diagnostic{Category: "channelsafety/send-after-close", Pos: function.Pos(), Message: "unsafe send"},
 		},
 	)
 
@@ -132,7 +132,7 @@ func TestEmitDiagnosticResolvesEnclosingFunction(t *testing.T) {
 	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &got); err != nil {
 		t.Fatalf("decode trace: %v\n%s", err, output.String())
 	}
-	if got.Function != "openFile" || got.Details["message"] != "discarded" {
+	if got.Function != "openFile" || got.Details["message"] != "unsafe send" {
 		t.Fatalf("trace = %+v", got)
 	}
 }

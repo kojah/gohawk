@@ -36,14 +36,14 @@ func TestWithAnalyzerSelection(t *testing.T) {
 		}
 	}
 
-	got := selectArguments([]string{"gohawk", "-disable=oncepolicy", "./..."})
+	got := selectArguments([]string{"gohawk", "-disable=lockorder", "./..."})
 	joined := strings.Join(got, " ")
-	for _, value := range []string{"-lockorder=true", "-processownership=true"} {
+	for _, value := range []string{"-channelsafety=true", "-processownership=true"} {
 		if !strings.Contains(joined, value) {
 			t.Errorf("default arguments do not contain %q: %v", value, got)
 		}
 	}
-	for _, value := range []string{"-oncepolicy=true"} {
+	for _, value := range []string{"-lockorder=true"} {
 		if strings.Contains(joined, value) {
 			t.Errorf("default arguments unexpectedly contain %q: %v", value, got)
 		}
@@ -65,7 +65,7 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 
 	t.Run("groups include opt-in analyzers", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups=concurrency,resources", "./..."}), " ")
-		for _, value := range []string{"-lockorder=true", "-channelsafety=true", "-oncepolicy=true"} {
+		for _, value := range []string{"-lockorder=true", "-channelsafety=true", "-producerlifecycle=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("group arguments do not contain %q: %s", value, got)
 			}
@@ -78,8 +78,9 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 	})
 
 	t.Run("groups combine with individual selection and exclusion", func(t *testing.T) {
-		got := strings.Join(selectArguments([]string{"gohawk", "-enable-groups", "resources", "-enable=oncepolicy", "-disable=resourcelifetime", "./..."}), " ")
-		for _, value := range []string{"-cancellationownership=true", "-processownership=true", "-oncepolicy=true"} {
+		arguments := []string{"gohawk", "-enable-groups", "resources", "-enable=channelsafety", "-disable=resourcelifetime", "./..."}
+		got := strings.Join(selectArguments(arguments), " ")
+		for _, value := range []string{"-cancellationownership=true", "-processownership=true", "-channelsafety=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("combined arguments do not contain %q: %s", value, got)
 			}
@@ -90,8 +91,8 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 	})
 
 	t.Run("disabled groups subtract from defaults and allow individual overrides", func(t *testing.T) {
-		got := strings.Join(selectArguments([]string{"gohawk", "-disable-groups=concurrency", "-enable=oncepolicy", "./..."}), " ")
-		for _, value := range []string{"-cancellationownership=true", "-inlineerror=true", "-oncepolicy=true"} {
+		got := strings.Join(selectArguments([]string{"gohawk", "-disable-groups=concurrency", "-enable=channelsafety", "./..."}), " ")
+		for _, value := range []string{"-cancellationownership=true", "-processownership=true", "-channelsafety=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("disabled-group arguments do not contain %q: %s", value, got)
 			}
@@ -105,12 +106,12 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 
 	t.Run("disabled groups subtract from enable-all", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-enable-all", "-disable-groups=concurrency", "./..."}), " ")
-		for _, value := range []string{"-inlineerror=true", "-resourcelifetime=true"} {
+		for _, value := range []string{"-processownership=true", "-resourcelifetime=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("enable-all exclusion does not contain %q: %s", value, got)
 			}
 		}
-		for _, value := range []string{"-oncepolicy=true", "-disable-groups"} {
+		for _, value := range []string{"-channelsafety=true", "-disable-groups"} {
 			if strings.Contains(got, value) {
 				t.Errorf("enable-all exclusion unexpectedly contains %q: %s", value, got)
 			}
@@ -144,7 +145,7 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 		for _, arguments := range [][]string{
 			{"gohawk", "-enable=unknown", "./..."},
 			{"gohawk", "-enable=channelsafety,channelsafety", "./..."},
-			{"gohawk", "-disable=oncepolicy,oncepolicy", "./..."},
+			{"gohawk", "-disable=lockorder,lockorder", "./..."},
 			{"gohawk", "-enable=channelsafety", "-disable=channelsafety", "./..."},
 			{"gohawk", "-enable="},
 			{"gohawk", "-disable"},
@@ -159,8 +160,8 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 		_, err := withAnalyzerSelection(
 			[]string{
 				"gohawk",
-				"-enable=oncepolicy,lockorder",
-				"-disable=oncepolicy,lockorder",
+				"-enable=lockorder,producerlifecycle",
+				"-disable=lockorder,producerlifecycle",
 				"./...",
 			},
 			analyzers,
@@ -192,7 +193,7 @@ func TestInvalidAnalyzerSelection(t *testing.T) {
 	t.Run("legacy analyzer Boolean flags", func(t *testing.T) {
 		for _, arguments := range [][]string{
 			{"gohawk", "-channelsafety", "./..."},
-			{"gohawk", "-oncepolicy=false", "./..."},
+			{"gohawk", "-lockorder=false", "./..."},
 		} {
 			if _, err := withAnalyzerSelection(arguments, analyzers, groups, metadata, false); err == nil {
 				t.Errorf("legacy arguments %v unexpectedly succeeded", arguments)

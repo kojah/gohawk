@@ -35,10 +35,6 @@ These analyzers check goroutine lifecycles, channel use, and synchronization.
     <span class="analyzer-name">lockorder</span>
     <span class="analyzer-detects">Checks contradictory mutex acquisition order and unreleased return paths.</span>
   </a>
-  <a class="analyzer-card" href="concurrency-and-synchronization/oncepolicy/">
-    <span class="analyzer-name">oncepolicy</span>
-    <span class="analyzer-detects">Checks sync.Once function wrappers that are immediately discarded.</span>
-  </a>
   <a class="analyzer-card" href="concurrency-and-synchronization/producerlifecycle/">
     <span class="analyzer-name">producerlifecycle</span>
     <span class="analyzer-detects">Checks that goroutine producers cannot outlive their receivers.</span>
@@ -73,14 +69,6 @@ These analyzers check resource ownership, cleanup, and lifetimes.
 These analyzers check error handling and expression behavior beyond ordinary type checking.
 
 <div class="analyzer-grid">
-  <a class="analyzer-card" href="general-correctness/evalorder/">
-    <span class="analyzer-name">evalorder</span>
-    <span class="analyzer-detects">Checks later operands that mutate values evaluated earlier.</span>
-  </a>
-  <a class="analyzer-card" href="general-correctness/inlineerror/">
-    <span class="analyzer-name">inlineerror</span>
-    <span class="analyzer-detects">Checks inline error declarations for mismatched conditions.</span>
-  </a>
   <a class="analyzer-card" href="general-correctness/nilargument/">
     <span class="analyzer-name">nilargument</span>
     <span class="analyzer-detects">Checks calls that pass a nil value where the callee dereferences it on every path.</span>

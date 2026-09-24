@@ -108,21 +108,6 @@
           "options": []
         },
         {
-          "name": "oncepolicy",
-          "summary": "Checks sync.Once function wrappers that are immediately discarded.",
-          "path": "analyzers/concurrency-and-synchronization/oncepolicy",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "oncepolicy/discarded-wrapper",
-              "summary": "Reports sync.Once function wrappers that are called and immediately discarded.",
-              "kind": "defect",
-              "tier": "core"
-            }
-          ],
-          "options": []
-        },
-        {
           "name": "producerlifecycle",
           "summary": "Checks that goroutine producers cannot outlive their receivers.",
           "path": "analyzers/concurrency-and-synchronization/producerlifecycle",
@@ -228,36 +213,6 @@
       "title": "General correctness",
       "slug": "general-correctness",
       "analyzers": [
-        {
-          "name": "evalorder",
-          "summary": "Checks later operands that mutate values evaluated earlier.",
-          "path": "analyzers/general-correctness/evalorder",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "evalorder/operand-mutation",
-              "summary": "Reports expressions whose later operand mutates a value read by an earlier operand.",
-              "kind": "hazard",
-              "tier": "core"
-            }
-          ],
-          "options": []
-        },
-        {
-          "name": "inlineerror",
-          "summary": "Checks inline error declarations for mismatched conditions.",
-          "path": "analyzers/general-correctness/inlineerror",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "inlineerror/mismatched-condition",
-              "summary": "Reports inline error declarations whose condition checks a different error.",
-              "kind": "defect",
-              "tier": "core"
-            }
-          ],
-          "options": []
-        },
         {
           "name": "nilargument",
           "summary": "Checks calls that pass a nil value where the callee dereferences it on every path.",

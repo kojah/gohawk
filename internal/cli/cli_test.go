@@ -24,20 +24,20 @@ func TestPrintAnalyzerList(t *testing.T) {
 		{
 			name: "all",
 			contains: []string{
-				"ANALYZER", "TIER", "GROUP", "channelsafety", "oncepolicy", "core", "concurrency", "core runs by default",
+				"ANALYZER", "TIER", "GROUP", "channelsafety", "lockorder", "core", "concurrency", "core runs by default",
 			},
 			excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts", "*"},
 		},
 		{
 			name:      "defaults",
 			arguments: []string{"-defaults"},
-			contains:  []string{"oncepolicy", "channelsafety", "core"},
+			contains:  []string{"lockorder", "channelsafety", "core"},
 		},
 		{
 			name:      "opt-in",
 			arguments: []string{"-opt-in"},
 			contains:  []string{"ANALYZER"},
-			excludes:  []string{"channelsafety", "oncepolicy", "lockorder"},
+			excludes:  []string{"channelsafety", "lockorder", "producerlifecycle"},
 		},
 		{
 			name:      "checks",
@@ -49,7 +49,7 @@ func TestPrintAnalyzerList(t *testing.T) {
 				"GROUP",
 				"hazard",
 				"extended",
-				"oncepolicy/discarded-wrapper",
+				"channelsafety/send-after-close",
 				"defect",
 				"core",
 				"lockorder/read-lock-write",
@@ -115,7 +115,7 @@ func TestRunCLIImmediateCommands(t *testing.T) {
 		errorContains  string
 	}{
 		{name: "version", arguments: []string{"gohawk", "-V"}, outputContains: "gohawk "},
-		{name: "list", arguments: []string{"gohawk", "list", "-defaults"}, outputContains: "oncepolicy"},
+		{name: "list", arguments: []string{"gohawk", "list", "-defaults"}, outputContains: "lockorder"},
 		{name: "list error", arguments: []string{"gohawk", "list", "extra"}, wantCode: 2, errorContains: "unexpected argument"},
 		{name: "documentation", arguments: []string{"gohawk", "doc", "lockorder/missing-release"}, outputContains: "Reports return paths"},
 		{name: "documentation error", arguments: []string{"gohawk", "doc", "unknown"}, wantCode: 2, errorContains: "unknown analyzer or check"},
@@ -201,7 +201,7 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 	t.Run("vet-tool handshake stays in process", func(t *testing.T) {
 		var output, errorsOutput bytes.Buffer
 		runtime := testCLIRuntime(t, &output, &errorsOutput)
-		result := runCLI([]string{"gohawk", "-disable=oncepolicy", "/tmp/unit.cfg"}, runtime)
+		result := runCLI([]string{"gohawk", "-disable=lockorder", "/tmp/unit.cfg"}, runtime)
 		invocation := result.invocation
 		if invocation == nil || invocation.delegate {
 			t.Fatalf("result = %#v", result)
@@ -213,8 +213,8 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 		// Selection is resolved into per-analyzer flags for the unit driver,
 		// which is how go vet forwards it to this same handshake: the other
 		// analyzers are enabled and the disabled one is left out.
-		if !strings.Contains(joined, "-lockorder=true") || strings.Contains(joined, "-oncepolicy=true") {
-			t.Errorf("handshake did not disable oncepolicy for the unit driver: %v", invocation.arguments)
+		if !strings.Contains(joined, "-channelsafety=true") || strings.Contains(joined, "-lockorder=true") {
+			t.Errorf("handshake did not disable lockorder for the unit driver: %v", invocation.arguments)
 		}
 	})
 }
@@ -290,9 +290,9 @@ func TestRunViaGoVet(t *testing.T) {
 		{
 			name:       "diagnostic",
 			render:     renderRich,
-			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"missing.go:1:1","message":"problem"}]}}`)},
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":[{"posn":"missing.go:1:1","message":"problem"}]}}`)},
 			wantCode:   3,
-			wantOutput: "warning[oncepolicy]: problem",
+			wantOutput: "warning[channelsafety]: problem",
 		},
 		{
 			// go vet prints one object per package; a pattern matching several
@@ -300,31 +300,31 @@ func TestRunViaGoVet(t *testing.T) {
 			// failure.
 			name:   "several packages",
 			render: renderRich,
-			result: processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"p.go:1:1","message":"first"}]}}
-{"example.com/q":{"oncepolicy":[{"posn":"q.go:1:1","message":"second"}]}}
+			result: processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":[{"posn":"p.go:1:1","message":"first"}]}}
+{"example.com/q":{"channelsafety":[{"posn":"q.go:1:1","message":"second"}]}}
 `)},
 			wantCode:   3,
-			wantOutput: "warning[oncepolicy]: second",
+			wantOutput: "warning[channelsafety]: second",
 		},
 		{
 			name:       "analysis error",
 			render:     renderRich,
-			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":{"error":"load failed"}}}`)},
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":{"error":"load failed"}}}`)},
 			wantCode:   1,
-			wantOutput: "oncepolicy: load failed",
+			wantOutput: "channelsafety: load failed",
 		},
 		{
 			name:       "json passthrough",
 			render:     renderJSON,
-			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":[{"posn":"a.go:1:1","end":"a.go:1:2","message":"m"}]}}`)},
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":[{"posn":"a.go:1:1","end":"a.go:1:2","message":"m"}]}}`)},
 			wantCode:   3,
-			wantOutput: `"oncepolicy"`,
+			wantOutput: `"channelsafety"`,
 		},
 		{name: "json without diagnostics", render: renderJSON, result: processOutput{stdout: []byte(`{}`)}, wantCode: 0, wantOutput: `{}`},
 		{
 			name:       "json analysis error",
 			render:     renderJSON,
-			result:     processOutput{stdout: []byte(`{"example.com/p":{"oncepolicy":{"error":"load failed"}}}`)},
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":{"error":"load failed"}}}`)},
 			wantCode:   1,
 			wantOutput: `"error"`,
 		},

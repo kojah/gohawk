@@ -97,9 +97,9 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		}
 
 		output, exitCode = runCommand(t, module, binary,
-			"-enable=oncepolicy", "-enable-checks=channelsafety/send-after-close", "./...",
+			"-enable=lockorder", "-enable-checks=channelsafety/send-after-close", "./...",
 		)
-		if exitCode != 3 || !strings.Contains(output, "sync.OnceFunc wrapper is discarded") ||
+		if exitCode != 3 || !strings.Contains(output, "is acquired while already held") ||
 			!strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("combined analyzer and check selection: exit code = %d\n%s", exitCode, output)
 		}
@@ -132,7 +132,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 				t.Fatalf("-flags output does not contain %q:\n%s", name, output)
 			}
 		}
-		for _, name := range []string{"channelsafety", "oncepolicy", "lockorder"} {
+		for _, name := range []string{"channelsafety", "goroutineownership", "lockorder"} {
 			if strings.Contains(output, `"Name": "`+name+`"`) {
 				t.Fatalf("-flags output still advertises analyzer Boolean %q:\n%s", name, output)
 			}
@@ -193,7 +193,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 1 {
 			t.Fatalf("exit code = %d, want 1\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+		if !strings.Contains(output, "is acquired while already held") {
 			t.Fatalf("output does not contain default diagnostic:\n%s", output)
 		}
 
@@ -201,12 +201,12 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("vettool selected analyzer: exit code = %d\n%s", exitCode, output)
 		}
-		if strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+		if strings.Contains(output, "is acquired while already held") {
 			t.Fatalf("vettool selected analyzer unexpectedly ran defaults:\n%s", output)
 		}
 
-		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-disable=oncepolicy", "./...")
-		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-disable=lockorder", "./...")
+		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "is acquired while already held") {
 			t.Fatalf("vettool disabled analyzer: exit code = %d\n%s", exitCode, output)
 		}
 	})

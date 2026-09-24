@@ -212,8 +212,8 @@ or maps; the generic engine cannot deep-copy arbitrary analyzer evidence.
 
 ## Where to start
 
-For a small syntax-based analyzer, start with
-`internal/analyzers/concurrency/oncepolicy`. For a lifecycle analyzer that follows
+For a compact concurrency analyzer, start with
+`internal/analyzers/concurrency/channelsafety`. For a lifecycle analyzer that follows
 program flow, start with `internal/analyzers/resources/deferinloop`.
 
 Continue with [How to contribute](../contributing/) for the steps involved in

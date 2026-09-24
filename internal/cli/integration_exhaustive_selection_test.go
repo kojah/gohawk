@@ -34,8 +34,8 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		for _, summary := range []string{
 			"resources (resources and lifecycle): cancellationownership, deferinloop, processownership, resourcelifetime",
 			"concurrency (concurrency and synchronization): channelsafety, concurrentcapture, " +
-				"goroutineownership, lockorder, oncepolicy, producerlifecycle",
-			"correctness (general correctness): evalorder, inlineerror, nilargument",
+				"goroutineownership, lockorder, producerlifecycle",
+			"correctness (general correctness): nilargument",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)
@@ -48,19 +48,19 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"channelsafety", "core runs by default", "oncepolicy"} {
+		for _, value := range []string{"channelsafety", "core runs by default", "producerlifecycle"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("list output does not contain %q:\n%s", value, output)
 			}
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-defaults")
-		if exitCode != 0 || !strings.Contains(output, "oncepolicy") || !strings.Contains(output, "channelsafety") {
+		if exitCode != 0 || !strings.Contains(output, "producerlifecycle") || !strings.Contains(output, "channelsafety") {
 			t.Fatalf("default list: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-opt-in")
-		if exitCode != 0 || strings.Contains(output, "oncepolicy") || strings.Contains(output, "channelsafety") {
+		if exitCode != 0 || strings.Contains(output, "producerlifecycle") || strings.Contains(output, "channelsafety") {
 			t.Fatalf("opt-in list: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -92,10 +92,10 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("default analyzer did not run:\n%s", output)
 		}
-		for _, value := range []string{"warning[oncepolicy]", "-->", "sample.go:", "^"} {
+		for _, value := range []string{"warning[channelsafety]", "-->", "sample.go:", "^"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("rich diagnostic does not contain %q:\n%s", value, output)
 			}
@@ -143,8 +143,8 @@ func answer() int { return identity{}.value(42) }
 		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("output does not contain channelsafety diagnostic:\n%s", output)
 		}
-		if strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
-			t.Fatalf("selected analyzer unexpectedly ran oncepolicy:\n%s", output)
+		if strings.Contains(output, "is acquired while already held") {
+			t.Fatalf("selected analyzer unexpectedly ran lockorder:\n%s", output)
 		}
 	})
 
@@ -156,8 +156,8 @@ func answer() int { return identity{}.value(42) }
 		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("concurrency group did not run channelsafety:\n%s", output)
 		}
-		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
-			t.Fatalf("concurrency group did not run oncepolicy:\n%s", output)
+		if !strings.Contains(output, "is acquired while already held") {
+			t.Fatalf("concurrency group did not run lockorder:\n%s", output)
 		}
 	})
 
@@ -169,8 +169,8 @@ func answer() int { return identity{}.value(42) }
 		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("enable-all minus resources did not run channelsafety:\n%s", output)
 		}
-		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
-			t.Fatalf("enable-all minus resources did not run oncepolicy:\n%s", output)
+		if !strings.Contains(output, "is acquired while already held") {
+			t.Fatalf("enable-all minus resources did not run lockorder:\n%s", output)
 		}
 	})
 
@@ -180,7 +180,7 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		for _, diagnostic := range []string{
-			"sync.OnceFunc wrapper is discarded",
+			"is acquired while already held",
 			"send follows close of channel",
 		} {
 			if !strings.Contains(output, diagnostic) {
@@ -194,7 +194,7 @@ func answer() int { return identity{}.value(42) }
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+		if !strings.Contains(output, "is acquired while already held") {
 			t.Fatalf("default analyzers did not run:\n%s", output)
 		}
 		if strings.Contains(output, "send follows close of channel") {
@@ -203,8 +203,8 @@ func answer() int { return identity{}.value(42) }
 	})
 
 	t.Run("disabled default analyzer", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-disable=oncepolicy", "./...")
-		if exitCode != 3 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "sync.OnceFunc wrapper is discarded") {
+		output, exitCode := runCommand(t, module, binary, "-disable=lockorder", "./...")
+		if exitCode != 3 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "is acquired while already held") {
 			t.Fatalf("disabled analyzer run: exit code = %d\n%s", exitCode, output)
 		}
 	})

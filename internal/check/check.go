@@ -14,8 +14,6 @@ const (
 	ResourceRelease         ID = "resourcelifetime/missing-release"
 	ResourceUseAfterRelease ID = "resourcelifetime/use-after-release"
 	ConcurrentCapture       ID = "concurrentcapture/shared-capture"
-	ErrorMismatchedInline   ID = "inlineerror/mismatched-condition"
-	EvaluationOrder         ID = "evalorder/operand-mutation"
 	LockMissingRelease      ID = "lockorder/missing-release"
 	LockRecursiveAcquire    ID = "lockorder/recursive-acquire"
 	LockContradictoryOrder  ID = "lockorder/contradictory-order"
@@ -23,6 +21,5 @@ const (
 	LockChannelCycle        ID = "lockorder/channel-lock-cycle"
 	LockReadLockWrite       ID = "lockorder/read-lock-write"
 	LockMismatchedRelease   ID = "lockorder/mismatched-release"
-	OnceDiscardedWrapper    ID = "oncepolicy/discarded-wrapper"
 	NilArgumentDereference  ID = "nilargument/dereferenced-nil"
 )

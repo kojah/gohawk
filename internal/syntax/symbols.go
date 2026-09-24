@@ -1,10 +1,7 @@
 package syntax
 
 import (
-	"go/ast"
 	"go/types"
-
-	"golang.org/x/tools/go/analysis"
 )
 
 type symbolKind uint8
@@ -88,46 +85,6 @@ func (symbol Symbol) MatchesObject(object types.Object) bool {
 // whose declaring object may belong to an embedded implementation type.
 func (symbol Symbol) MatchesMethod(name string, receiver types.Type) bool {
 	return symbol.kind == symbolMethod && symbol.name == name && namedType(receiver, symbol.packagePath, symbol.receiver)
-}
-
-// IsCallTo reports whether call statically resolves to symbol.
-func IsCallTo(pass *analysis.Pass, call *ast.CallExpr, symbol Symbol) bool {
-	if pass == nil || call == nil {
-		return false
-	}
-	if symbol.MatchesObject(calledObject(pass, call.Fun)) {
-		return true
-	}
-	selector, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	selection := pass.TypesInfo.Selections[selector]
-	return selection != nil && symbol.MatchesMethod(selection.Obj().Name(), selection.Recv())
-}
-
-// IsCallToAny reports whether call statically resolves to one of symbols.
-func IsCallToAny(pass *analysis.Pass, call *ast.CallExpr, symbols ...Symbol) bool {
-	for _, symbol := range symbols {
-		if IsCallTo(pass, call, symbol) {
-			return true
-		}
-	}
-	return false
-}
-
-func calledObject(pass *analysis.Pass, expression ast.Expr) types.Object {
-	switch typed := expression.(type) {
-	case *ast.Ident:
-		return pass.TypesInfo.Uses[typed]
-	case *ast.SelectorExpr:
-		if selection := pass.TypesInfo.Selections[typed]; selection != nil {
-			return selection.Obj()
-		}
-		return pass.TypesInfo.Uses[typed.Sel]
-	default:
-		return nil
-	}
 }
 
 // DeclaredInPackage reports whether the object belongs to the package at

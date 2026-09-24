@@ -135,17 +135,15 @@ identity from package paths and raw names.
 
 ## Match source and symbols
 
-`internal/syntax` is the source-level layer: well-known symbol identity for
-both AST and SSA matchers, and the AST helpers analyzers that work on syntax
-share. Name-only matching is reserved for documented external contracts.
+`internal/syntax` is the source-level layer: well-known declaration identity
+for consumers of type information, and AST helpers shared by syntax-based
+analyzers. Name-only matching is reserved for documented external contracts.
 
 | helper | answers |
 |---|---|
-| `PackageFunction`, `PackageMethod`, `PackageVariable`, `Builtin` | build a `Symbol` for an exact declaration; the SSA matchers above and the AST matchers here take these |
-| `IsCallTo`, `IsCallToAny` | does this call expression resolve to the symbol, by type information rather than name? |
+| `PackageFunction`, `PackageMethod`, `PackageVariable`, `Builtin` | build a `Symbol` for an exact declaration; compare its type object or use the SSA matchers above |
 | `NamedType`, `IsErrorType` | named type identity and error interface implementation |
 | `Unparen`, `ExpressionUsesObject` | parenthesis stripping and whether an expression reads an object |
-| `FunctionParameterObject` | the object a parameter identifier declares |
 | `GeneratedFile`, `SourceRange`, `AnalyzeFile`, `ShortPackageName` | skip generated files, recover a source range from a node, decide whether a file is analyzed, and abbreviate a package path for messages |
 
 ## Request function-summary knowledge

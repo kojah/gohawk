@@ -5,10 +5,7 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/concurrentcapture"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/goroutineownership"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/lockorder"
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/oncepolicy"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/producerlifecycle"
-	"github.com/kojah/gohawk/internal/analyzers/correctness/evalorder"
-	"github.com/kojah/gohawk/internal/analyzers/correctness/inlineerror"
 	"github.com/kojah/gohawk/internal/analyzers/correctness/nilargument"
 	"github.com/kojah/gohawk/internal/analyzers/resources/cancellationownership"
 	"github.com/kojah/gohawk/internal/analyzers/resources/deferinloop"
@@ -65,12 +62,6 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 		}},
-		{Analyzer: oncepolicy.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.OnceDiscardedWrapper, Doc: "Reports sync.Once function wrappers that are called and immediately discarded.",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-		}},
 		{Analyzer: producerlifecycle.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ProducerLifecycleSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting.",
@@ -117,18 +108,6 @@ func resourcesSpecs() []catalog.AnalyzerSpec {
 
 func correctnessSpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
-		{Analyzer: evalorder.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.EvaluationOrder, Doc: "Reports expressions whose later operand mutates a value read by an earlier operand.",
-				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-		}},
-		{Analyzer: inlineerror.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ErrorMismatchedInline, Doc: "Reports inline error declarations whose condition checks a different error.",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-		}},
 		{Analyzer: nilargument.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.NilArgumentDereference, Doc: "Reports a call that passes a nil pointer where the callee dereferences it on every path.",

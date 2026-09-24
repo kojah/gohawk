@@ -66,16 +66,16 @@ type EventRow struct {
 
 var event = EventRow{"42", "created"}
 
-var cache = map[string]string{}
-
-func initialize() {
-	cache["ready"] = "true"
-	sync.OnceFunc(func() {})()
-}
-
 func sendAfterClose(ch chan int) {
 	close(ch)
 	ch <- 1
+}
+
+func recursiveLock() {
+	var mu sync.Mutex
+	mu.Lock()
+	// Reacquiring this lock supplies the lockorder diagnostic.
+	mu.Lock()
 }
 `)
 	return directory
@@ -137,32 +137,29 @@ func Start(ctx context.Context) {
 	return directory
 }
 
-func writeEvalOrderTestModule(t *testing.T) string {
+func writeChannelSafetyTestModule(t *testing.T) string {
 	t.Helper()
-	return writeSampleModule(t, "module example.com/evalordertest\n\ngo 1.25.0\n", `package sample
+	return writeSampleModule(t, "module example.com/channelsafetytest\n\ngo 1.25.0\n", `package sample
 
-func replace(target *int) error {
-	*target = 42
-	return nil
+func staleProduction(ch chan int) {
+	close(ch)
+	ch <- 1
 }
 
-func staleProduction(value int) (int, error) {
-	return value, replace(&value)
-}
-
-func orderedProduction(value int) (int, error) {
-	err := replace(&value)
-	return value, err
+func orderedProduction(ch chan int) {
+	ch <- 1
+	close(ch)
 }
 `, `package sample
 
-func staleTestOnly(value int) (int, error) {
-	return value, replace(&value)
+func staleTestOnly(ch chan int) {
+	close(ch)
+	ch <- 1
 }
 
-func orderedTestOnly(value int) (int, error) {
-	err := replace(&value)
-	return value, err
+func orderedTestOnly(ch chan int) {
+	ch <- 1
+	close(ch)
 }
 `)
 }
