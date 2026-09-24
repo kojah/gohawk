@@ -39,7 +39,7 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 			}
 			probe := analysisTrace.For(pass, "deferinloop", string(check.DeferCleanupInLoop), deferred.Pos())
 			probe.Candidate(analysisTrace.Step{
-				Reason: "deferred-cleanup-in-loop", Outcome: analysisTrace.OutcomeObserved, Pos: deferred.Pos(), Function: function.String(),
+				Reason: reasonDeferredCleanup.String(), Outcome: analysisTrace.OutcomeObserved, Pos: deferred.Pos(), Function: function.String(),
 				Details: map[string]string{"target": obligation.target.String()},
 			})
 			if resourceLiveAtNextIteration(evidence, knowledge, probe, deferred, obligation) {

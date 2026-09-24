@@ -51,7 +51,7 @@ func resourceLiveAtNextIteration(
 	// https://github.com/protomaps/go-pmtiles/blob/a3e4951ea6a0477b784c27c1dcbfd9c130878c5a/pmtiles/merge.go#L206-L215
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](deferred.Parent()) {
 		if ssaflow.InstructionDominates(store, deferred) && opaqueResourceUse(store, obligation.target) {
-			probe.Decision(analysisTrace.Step{Reason: "retained-before-defer", Outcome: analysisTrace.OutcomeUnknown, Pos: store.Pos()})
+			probe.Decision(analysisTrace.Step{Reason: reasonRetainedBeforeDefer.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: store.Pos()})
 			return false
 		}
 	}
@@ -69,14 +69,14 @@ func resourceLiveAtNextIteration(
 				if status == resourceLive {
 					liveAtBackedge = true
 					probe.Decision(analysisTrace.Step{
-						Reason: "live-at-backedge", Outcome: analysisTrace.OutcomeRejected, Pos: deferred.Pos(),
+						Reason: reasonLiveAtBackedge.String(), Outcome: analysisTrace.OutcomeRejected, Pos: deferred.Pos(),
 						Details: map[string]string{"block": strconv.Itoa(state.block.Index)},
 					})
 					return nil, false
 				}
 				if status != state.status {
 					probe.Evidence(analysisTrace.Step{
-						Reason: "iterator-exhausted", Outcome: analysisTrace.OutcomeUnknown, Pos: deferred.Pos(),
+						Reason: reasonIteratorExhausted.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: deferred.Pos(),
 						Details: map[string]string{"block": strconv.Itoa(state.block.Index)},
 					})
 				}
@@ -89,7 +89,7 @@ func resourceLiveAtNextIteration(
 		return successors, true
 	})
 	if !liveAtBackedge {
-		probe.Decision(analysisTrace.Step{Reason: "settled-or-unknown-before-backedge", Outcome: analysisTrace.OutcomeAccepted, Pos: deferred.Pos()})
+		probe.Decision(analysisTrace.Step{Reason: reasonSettledOrUnknown.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: deferred.Pos()})
 	}
 	return liveAtBackedge
 }
@@ -151,7 +151,7 @@ func advanceDeferState(
 			outcome = analysisTrace.OutcomeUnknown
 		}
 		probe.Evidence(analysisTrace.Step{
-			Reason: reason, Outcome: outcome, Pos: instruction.Pos(),
+			Reason: reason.String(), Outcome: outcome, Pos: instruction.Pos(),
 			Details: map[string]string{"instruction": instruction.String()},
 		})
 	}
@@ -168,23 +168,23 @@ func classifyResourceInstruction(
 	probe analysisTrace.Probe,
 	instruction ssa.Instruction,
 	obligation deferObligation,
-) (resourceStatus, string) {
+) (resourceStatus, deferReason) {
 	if transfersResource(evidence, instruction, obligation.target) {
-		return resourceSettled, "resource-transferred"
+		return resourceSettled, reasonResourceTransferred
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		if opaqueResourceUse(instruction, obligation.target) {
-			return resourceUnknown, "resource-captured-or-stored"
+			return resourceUnknown, reasonResourceCapturedOrStored
 		}
-		return resourceLive, ""
+		return resourceLive, reasonNone
 	}
 	receiver := ssaflow.CallReceiver(common)
 	if sameObligationValue(receiver, obligation.target) {
 		if slices.Contains(obligation.cleanup, ssaflow.CallName(common)) {
-			return resourceSettled, "explicit-cleanup"
+			return resourceSettled, reasonExplicitCleanup
 		}
-		return resourceLive, ""
+		return resourceLive, reasonNone
 	}
 	return resourceUseStatus(evidence, probe, instruction, obligation.target)
 }
@@ -215,17 +215,17 @@ func resourceUseStatus(
 	probe analysisTrace.Probe,
 	instruction ssa.Instruction,
 	target ssa.Value,
-) (resourceStatus, string) {
+) (resourceStatus, deferReason) {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
-		return resourceLive, ""
+		return resourceLive, reasonNone
 	}
 	used := false
 	for index, argument := range common.Args {
 		alias := heapmodel.ProveMayAlias(argument, target)
 		contains := !alias.Aliases && lifecycle.MayContainValue(argument, target)
 		probe.Evidence(analysisTrace.Step{
-			Reason: "argument-carries-resource", Outcome: analysisTrace.OutcomeObserved, Pos: instruction.Pos(),
+			Reason: reasonArgumentCarriesResource.String(), Outcome: analysisTrace.OutcomeObserved, Pos: instruction.Pos(),
 			Details: map[string]string{
 				"argument": argument.Name(), "alias": strconv.FormatBool(alias.Aliases), "alias-reason": string(alias.Reason),
 				"contains": strconv.FormatBool(contains),
@@ -238,13 +238,13 @@ func resourceUseStatus(
 			// unknown, not cleanup. Constructing the wrapper alone does not
 			// settle the obligation either.
 			// https://github.com/replicatedhq/troubleshoot/blob/eacd376c1245fe2ebcc3581f015f692d77d89af4/pkg/supportbundle/aftercollection.go#L39-L53
-			return resourceUnknown, "wrapper-passed-to-callee"
+			return resourceUnknown, reasonWrapperPassedToCallee
 		}
 		if !alias.Aliases {
 			if pointer, ok := argument.Type().Underlying().(*types.Pointer); ok {
 				if _, aggregate := pointer.Elem().Underlying().(*types.Struct); aggregate &&
 					heapmodel.ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) {
-					return resourceUnknown, "wrapper-passed-to-callee"
+					return resourceUnknown, reasonWrapperPassedToCallee
 				}
 			}
 			continue
@@ -252,14 +252,14 @@ func resourceUseStatus(
 		used = true
 		if released, summarized := evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimReleases); summarized {
 			if released {
-				return resourceSettled, "callee-releases-argument"
+				return resourceSettled, reasonCalleeReleasesArgument
 			}
 		}
 	}
 	if used && !evidence.CalleeSummarized(instruction) {
-		return resourceUnknown, "unsummarized-callee-uses-resource"
+		return resourceUnknown, reasonUnsummarizedCalleeUse
 	}
-	return resourceLive, ""
+	return resourceLive, reasonNone
 }
 
 // Capturing the resource in a closure or storing it in an aggregate is opaque:

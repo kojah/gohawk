@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
+	"github.com/kojah/gohawk/internal/check"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 )
@@ -169,12 +170,14 @@ func withDisabledChecks(analyzers []*analysis.Analyzer, metadata map[string]goha
 			pass.Report = func(diagnostic analysis.Diagnostic) {
 				if analyzerDisabled[diagnostic.Category] {
 					analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-						Analyzer: analyzer.Name, Phase: "decision", Reason: "check-disabled", Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
+						Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingDisabled.String(),
+						Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
 					})
 					return
 				}
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-					Analyzer: analyzer.Name, Phase: "decision", Reason: "diagnostic-reported", Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
+					Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingEmitted.String(),
+					Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
 				})
 				report(diagnostic)
 			}

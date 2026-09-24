@@ -26,7 +26,7 @@ func Report(pass *analysis.Pass, id ID, diagnostic analysis.Diagnostic) {
 	diagnostic.Category = string(id)
 	analyzer, _, _ := strings.Cut(string(id), "/")
 	trace.EmitDiagnostic(pass, trace.DiagnosticEvent{
-		Analyzer: analyzer, Phase: "candidate", Reason: "diagnostic-candidate", Outcome: trace.OutcomeObserved, Diagnostic: diagnostic,
+		Analyzer: analyzer, Phase: "candidate", Reason: ReportingCandidate.String(), Outcome: trace.OutcomeObserved, Diagnostic: diagnostic,
 	})
 	pass.Report(diagnostic)
 }
