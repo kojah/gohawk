@@ -33,6 +33,18 @@ type ownedChannel struct {
 	// receives from this field can actually fire.
 	signalled bool
 	closed    bool
+	// signals lists every send, close, and signalling select on the field.
+	signals []ssa.Instruction
+}
+
+// signalsHidden reports whether some signal may be outside the inventory.
+func (owned *ownedChannel) signalsHidden() bool {
+	switch owned.unknown {
+	case loopReasonChannelEscapes, loopReasonChannelSupplied, loopReasonChannelCopied:
+		return true
+	default:
+		return false
+	}
 }
 
 // launches records how each function is started. A service loop must be
@@ -46,8 +58,11 @@ type launches struct {
 }
 
 type channelInventory struct {
-	fields   map[*types.Var]*ownedChannel
-	launches launches
+	fields map[*types.Var]*ownedChannel
+	// addresses holds every address of every unexported field of a struct
+	// declared in this package, which is the complete set of its accesses.
+	addresses map[*types.Var][]*ssa.FieldAddr
+	launches  launches
 }
 
 // newChannelInventory scans every function buildssa built for this package,
@@ -55,7 +70,8 @@ type channelInventory struct {
 // break the closed world.
 func newChannelInventory(pass *analysis.Pass) *channelInventory {
 	inventory := &channelInventory{
-		fields: map[*types.Var]*ownedChannel{},
+		fields:    map[*types.Var]*ownedChannel{},
+		addresses: map[*types.Var][]*ssa.FieldAddr{},
 		launches: launches{
 			goOnly: map[*ssa.Function]bool{}, sync: map[*ssa.Function]bool{},
 			invoked: map[string]bool{}, launchers: map[*ssa.Function][]*ssa.Go{},
@@ -70,9 +86,7 @@ func newChannelInventory(pass *analysis.Pass) *channelInventory {
 			for _, instruction := range block.Instrs {
 				inventory.launches.record(instruction)
 				if address, ok := instruction.(*ssa.FieldAddr); ok {
-					if field := ownedChannelField(pass.Pkg, address); field != nil {
-						inventory.channel(field).recordAddress(address)
-					}
+					inventory.recordField(pass.Pkg, address)
 				}
 				inventory.recordValueCopy(pass.Pkg, instruction)
 			}
@@ -94,15 +108,34 @@ func (inventory *channelInventory) channel(field *types.Var) *ownedChannel {
 	return inventory.fields[field]
 }
 
-// ownedChannelField returns the field an address selects when it is an
-// unexported channel field of a non-generic struct declared in pkg.
-func ownedChannelField(pkg *types.Package, address *ssa.FieldAddr) *types.Var {
+func (inventory *channelInventory) recordField(pkg *types.Package, address *ssa.FieldAddr) {
+	if field := ownedField(pkg, address); field != nil {
+		inventory.addresses[field] = append(inventory.addresses[field], address)
+	}
+	if field := ownedChannelField(pkg, address); field != nil {
+		inventory.channel(field).recordAddress(address)
+	}
+}
+
+// ownedField returns the field an address selects when it is an unexported
+// field of a non-generic struct declared in pkg.
+func ownedField(pkg *types.Package, address *ssa.FieldAddr) *types.Var {
 	structure, named := addressedStruct(address.X.Type())
 	if structure == nil || named == nil || named.Obj().Pkg() != pkg || named.TypeParams().Len() != 0 {
 		return nil
 	}
 	field := structure.Field(address.Field)
 	if field.Exported() {
+		return nil
+	}
+	return field
+}
+
+// ownedChannelField returns the field an address selects when it is an
+// unexported channel field of a non-generic struct declared in pkg.
+func ownedChannelField(pkg *types.Package, address *ssa.FieldAddr) *types.Var {
+	field := ownedField(pkg, address)
+	if field == nil {
 		return nil
 	}
 	if _, channel := field.Type().Underlying().(*types.Chan); !channel {
@@ -190,6 +223,7 @@ func (owned *ownedChannel) recordLoad(load *ssa.UnOp) {
 			}
 			owned.signalled = true
 			owned.sends = append(owned.sends, use)
+			owned.signals = append(owned.signals, use)
 		case *ssa.UnOp:
 			// A plain receive is not a select arm, so it has no stop arm.
 			owned.mark(loopReasonPlainReceive)
@@ -201,6 +235,7 @@ func (owned *ownedChannel) recordLoad(load *ssa.UnOp) {
 				continue
 			}
 			owned.closed, owned.signalled = true, true
+			owned.signals = append(owned.signals, use)
 		case *ssa.BinOp:
 			// Comparing against nil neither transfers nor uses the channel.
 			if !nilComparison(use) {
@@ -220,6 +255,7 @@ func (owned *ownedChannel) recordSelect(load *ssa.UnOp, selected *ssa.Select) {
 		case state.Chan != load:
 		case state.Dir == types.SendOnly:
 			owned.signalled = true
+			owned.signals = append(owned.signals, selected)
 		default:
 			owned.receives = append(owned.receives, selected)
 		}

@@ -54,9 +54,14 @@ The check only reports when the package proves every part of that shape:
   `Done` channel of a context that is not `context.Background` or
   `context.TODO`.
 - The send is a plain send in an exported function or method. It is not in a
-  `select` with another way out, not inside the loop itself, not in the
-  function that starts the loop, and not behind a branch on the owner's own
-  state, such as a `running` flag.
+  `select` with another way out, not inside the loop itself, and not in the
+  function that starts the loop.
+- A branch on the owner's own state before the send, such as a `running`
+  flag, protects it only when one owner mutex is held for the check and the
+  send, every write of the flag holds that mutex, and every stop signal does
+  too. A flag read or written without the lock, or a loop that can also stop
+  on its context, does not protect the send, so it is still reported. A guard
+  this package cannot read, such as a method call, is not reported.
 
 Buffered channels, unexported helpers reached through guarded entry points,
 and loops that never return are not reported.

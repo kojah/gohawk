@@ -3,6 +3,7 @@ package serviceloops
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 )
 
 // Each type below is one way a send to a service loop can look like the
@@ -37,8 +38,9 @@ func (s *selectingSender) Add(v int) {
 	}
 }
 
-// A running flag checked under a lock is the robfig/cron guard: callers that
-// arrive after Stop never reach the send.
+// A running flag checked under a lock is the robfig/cron guard: the flag is
+// read and written, and the loop is stopped, only while holding the same
+// mutex, so no caller can reach the send after the loop stops.
 type guardedSender struct {
 	mu      sync.Mutex
 	running bool
@@ -351,7 +353,14 @@ func (c *contextSender) Add(ctx context.Context, v int) {
 
 func (s *selectingSender) Stop() { close(s.stop) }
 
-func (g *guardedSender) Stop() { close(g.stop) }
+func (g *guardedSender) Stop() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.running {
+		close(g.stop)
+		g.running = false
+	}
+}
 
 func (b *bufferedLoop) Stop() { close(b.stop) }
 
@@ -431,3 +440,78 @@ func (s *selfSender) run() {
 }
 
 func (s *selfSender) Stop() { close(s.stop) }
+
+// A guard behind a method call is not something this check can read.
+type methodGuard struct {
+	mu      sync.Mutex
+	running bool
+	add     chan int
+	stop    chan struct{}
+}
+
+func newMethodGuard() *methodGuard {
+	m := &methodGuard{add: make(chan int), stop: make(chan struct{}), running: true}
+	go m.run()
+	return m
+}
+
+func (m *methodGuard) run() {
+	for {
+		select {
+		case <-m.add:
+		case <-m.stop:
+			return
+		}
+	}
+}
+
+func (m *methodGuard) isRunning() bool { return m.running }
+
+func (m *methodGuard) Add(v int) {
+	if !m.isRunning() {
+		return
+	}
+	m.add <- v
+}
+
+func (m *methodGuard) Stop() { close(m.stop) }
+
+// A flag written through an atomic hands its address to other code.
+type atomicGuard struct {
+	mu    sync.Mutex
+	state int32
+	add   chan int
+	stop  chan struct{}
+}
+
+func newAtomicGuard() *atomicGuard {
+	a := &atomicGuard{add: make(chan int), stop: make(chan struct{})}
+	go a.run()
+	return a
+}
+
+func (a *atomicGuard) run() {
+	for {
+		select {
+		case <-a.add:
+		case <-a.stop:
+			return
+		}
+	}
+}
+
+func (a *atomicGuard) Add(v int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.state == 0 {
+		return
+	}
+	a.add <- v
+}
+
+func (a *atomicGuard) Stop() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	atomic.StoreInt32(&a.state, 0)
+	close(a.stop)
+}

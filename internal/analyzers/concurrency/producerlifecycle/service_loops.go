@@ -42,7 +42,8 @@ const (
 	loopReasonSenderInLoop
 	loopReasonSenderLaunchesLoop
 	loopReasonSenderNotEntryPoint
-	loopReasonSendGuarded
+	loopReasonGuardProtects
+	loopReasonGuardUnknown
 	loopReasonStoppedLoopSend
 	loopReasonCount
 )
@@ -64,7 +65,8 @@ var loopReasonCodes = [...]string{
 	loopReasonSenderInLoop:          "sender-in-service-loop",
 	loopReasonSenderLaunchesLoop:    "sender-launches-service-loop",
 	loopReasonSenderNotEntryPoint:   "sender-not-entry-point",
-	loopReasonSendGuarded:           "send-guarded-by-owner-state",
+	loopReasonGuardProtects:         "send-guarded-by-locked-state",
+	loopReasonGuardUnknown:          "send-guard-unknown",
 	loopReasonStoppedLoopSend:       "send-after-service-loop-stops",
 }
 
@@ -84,6 +86,8 @@ var uncancellableContexts = []syntax.Symbol{
 type loopProof struct {
 	reason loopReason
 	stop   token.Pos
+	// stops are the stop-arm channels of every serving loop that can fire.
+	stops []ssa.Value
 }
 
 func (proof loopProof) proven() bool { return proof.reason == loopReasonStoppedLoopSend }
@@ -151,6 +155,7 @@ func proveStoppedLoopSend(inventory *channelInventory, field *types.Var, send *s
 		return loopProof{reason: loopReasonNoReceiver}
 	}
 	var stop token.Pos
+	var stops []ssa.Value
 	loops := map[*ssa.Function]bool{}
 	for _, selected := range owned.receives {
 		proof := proveServiceLoop(inventory, selected, owned)
@@ -158,11 +163,12 @@ func proveStoppedLoopSend(inventory *channelInventory, field *types.Var, send *s
 			return proof
 		}
 		loops[selected.Parent()] = true
+		stops = append(stops, proof.stops...)
 		if !stop.IsValid() {
 			stop = proof.stop
 		}
 	}
-	if reason := unguardedEntrySend(inventory, send, loops); reason != loopReasonNone {
+	if reason := unguardedEntrySend(inventory, send, loops, stops); reason != loopReasonNone {
 		return loopProof{reason: reason}
 	}
 	return loopProof{reason: loopReasonStoppedLoopSend, stop: stop}
@@ -180,6 +186,7 @@ func proveServiceLoop(inventory *channelInventory, selected *ssa.Select, served 
 		return loopProof{reason: loopReasonReceiveNotInLoop}
 	}
 	unsignalled := false
+	var stops []ssa.Value
 	for _, state := range selected.States {
 		if state.Dir != types.RecvOnly || servesField(state.Chan, served) {
 			continue
@@ -192,12 +199,16 @@ func proveServiceLoop(inventory *channelInventory, selected *ssa.Select, served 
 			unsignalled = true
 			continue
 		}
-		return loopProof{stop: selected.Pos()}
+		stops = append(stops, state.Chan)
 	}
-	if unsignalled {
+	switch {
+	case len(stops) != 0:
+		return loopProof{stop: selected.Pos(), stops: stops}
+	case unsignalled:
 		return loopProof{reason: loopReasonStopUnsignalled}
+	default:
+		return loopProof{reason: loopReasonNoStopArm}
 	}
-	return loopProof{reason: loopReasonNoStopArm}
 }
 
 func servesField(channel ssa.Value, served *ownedChannel) bool {
@@ -289,8 +300,8 @@ func parameterIndex(function *ssa.Function, parameter *ssa.Parameter) int {
 // unguardedEntrySend checks the sender. Only an exported function or method is
 // reported: an unexported helper is usually reached through a guarded entry
 // point that this check does not follow. A branch on the owner's own state
-// before the send may be a running flag, so it leaves the send unknown.
-func unguardedEntrySend(inventory *channelInventory, send *ssa.Send, loops map[*ssa.Function]bool) loopReason {
+// before the send is judged by proveLifecycleGuard.
+func unguardedEntrySend(inventory *channelInventory, send *ssa.Send, loops map[*ssa.Function]bool, stops []ssa.Value) loopReason {
 	function := send.Parent()
 	switch {
 	case loops[function]:
@@ -301,15 +312,15 @@ func unguardedEntrySend(inventory *channelInventory, send *ssa.Send, loops map[*
 		return loopReasonSenderNotEntryPoint
 	}
 	owner := send.Chan.(*ssa.UnOp).X.(*ssa.FieldAddr).X
-	for dominator := send.Block().Idom(); dominator != nil; dominator = dominator.Idom() {
-		if len(dominator.Instrs) == 0 {
-			continue
-		}
-		if branch, ok := dominator.Instrs[len(dominator.Instrs)-1].(*ssa.If); ok && readsOwner(branch.Cond, owner, 4) {
-			return loopReasonSendGuarded
-		}
+	switch proveLifecycleGuard(inventory, send, owner, stops) {
+	case guardProtects:
+		return loopReasonGuardProtects
+	case guardUnknown:
+		return loopReasonGuardUnknown
+	default:
+		// No guard, or one that races with the loop stopping.
+		return loopReasonNone
 	}
-	return loopReasonNone
 }
 
 func launchesAny(inventory *channelInventory, function *ssa.Function, loops map[*ssa.Function]bool) bool {
