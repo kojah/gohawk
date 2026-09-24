@@ -8,5 +8,5 @@ import (
 )
 
 func TestAnalyzer(t *testing.T) {
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "channelsafety", "summaryeffects")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "channelsafety", "summaryeffects", "channelcycle")
 }

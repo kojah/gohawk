@@ -7,7 +7,7 @@
       "analyzers": [
         {
           "name": "channelsafety",
-          "summary": "Checks channel operations for reachable use after close.",
+          "summary": "Checks channel operations for use after close and bounded dependency cycles.",
           "path": "analyzers/concurrency-and-synchronization/channelsafety",
           "tier": "core",
           "checks": [
@@ -16,6 +16,12 @@
               "summary": "Reports sends reachable after a channel has been closed.",
               "kind": "defect",
               "tier": "core"
+            },
+            {
+              "id": "channelsafety/dependency-cycle",
+              "summary": "Reports two exact unbuffered channel operations that mutually wait on later matching operations.",
+              "kind": "defect",
+              "tier": "experimental"
             }
           ],
           "options": []

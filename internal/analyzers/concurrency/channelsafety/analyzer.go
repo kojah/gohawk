@@ -21,7 +21,7 @@ var summaryKnowledge = summaries.Select(summaries.Requirements{Concurrency: true
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
-		Name: "channelsafety", Doc: "checks channel operations for reachable use after close",
+		Name: "channelsafety", Doc: "checks channel operations for use after close and bounded dependency cycles",
 		Requires: summaryKnowledge.Requires(), Run: runChannelSafety,
 	}
 }
@@ -34,6 +34,7 @@ func runChannelSafety(pass *analysis.Pass) (any, error) {
 	for _, function := range functions {
 		effects := channelEffects(pass, function)
 		reportSendsAfterClose(pass, function, effects)
+		reportChannelCycle(pass, function)
 	}
 	return nil, nil
 }

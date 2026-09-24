@@ -22,6 +22,10 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed.",
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
 			},
+			{
+				ID: check.ChannelDependencyCycle, Doc: "Reports two exact unbuffered channel operations that mutually wait on later matching operations.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
 		}},
 		{Analyzer: concurrentcapture.Analyzer(), Checks: []catalog.CheckInfo{
 			{
