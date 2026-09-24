@@ -50,6 +50,43 @@ type GoroutineID int
 
 GoroutineID distinguishes the root from each summarized child.
 
+## LockRegion
+
+[Source](../../../../internal/syncgraph/region.go)
+
+```go
+type LockRegion struct {
+	// contains filtered or unexported fields
+}
+```
+
+LockRegion folds a complete ordered prefix of synchronization effects.
+It answers whether any exact mutex is held at a point; callers decide what
+that evidence means for their own diagnostic. Indirect locks, unmatched
+unlocks, and condition waits make the result unknown.
+
+## LockRegion.Apply
+
+[Source](../../../../internal/syncgraph/region.go)
+
+```go
+func (region *LockRegion) Apply(operations []concurrencyfacts.Operation)
+```
+
+Apply consumes effects in execution order. It never infers a missing effect
+from an empty sequence: the caller must have established prefix completeness.
+
+## LockRegion.Held
+
+[Source](../../../../internal/syncgraph/region.go)
+
+```go
+func (region *LockRegion) Held() (held bool, known bool)
+```
+
+Held reports whether an exact mutex is held and whether the prefix was
+sufficiently modeled to decide that. Unknown is not evidence of no lock.
+
 ## ProgramOrder, SpawnOrder, BlockingDependency
 
 [Source](../../../../internal/syncgraph/graph.go)

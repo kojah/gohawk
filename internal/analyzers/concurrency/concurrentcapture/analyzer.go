@@ -8,48 +8,68 @@ import (
 	"go/version"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/inspect"
-	"golang.org/x/tools/go/ast/inspector"
+	"golang.org/x/tools/go/ssa"
 )
+
+var summaryKnowledge = summaries.Select(summaries.Requirements{Concurrency: true})
+
+type captureEvidence struct {
+	provider *summaries.Provider
+	workers  map[*ast.FuncLit]*ssa.Function
+}
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:     "concurrentcapture",
 		Doc:      "checks locals mutated by goroutines launched repeatedly",
-		Requires: []*analysis.Analyzer{inspect.Analyzer},
+		Requires: summaryKnowledge.Requires(),
 		Run:      runConcurrentCapture,
 	}
 }
 
 func runConcurrentCapture(pass *analysis.Pass) (any, error) {
-	in := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-	in.Preorder([]ast.Node{(*ast.ForStmt)(nil), (*ast.RangeStmt)(nil)}, func(node ast.Node) {
-		var body *ast.BlockStmt
-		switch loop := node.(type) {
-		case *ast.ForStmt:
-			body = loop.Body
-		case *ast.RangeStmt:
-			body = loop.Body
+	functions, err := ssaflow.SourceSSAFunctions(pass)
+	if err != nil {
+		return nil, err
+	}
+	evidence := captureEvidence{provider: summaryKnowledge.Provider(pass), workers: make(map[*ast.FuncLit]*ssa.Function)}
+	for _, function := range functions {
+		if closure, ok := function.Syntax().(*ast.FuncLit); ok {
+			evidence.workers[closure] = function
 		}
-		if body == nil || loopJoinsEachIteration(body) {
-			return
-		}
-		inspectRepeatedLaunches(pass, node, body)
-	})
+	}
+	for _, file := range pass.Files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			var body *ast.BlockStmt
+			switch loop := node.(type) {
+			case *ast.ForStmt:
+				body = loop.Body
+			case *ast.RangeStmt:
+				body = loop.Body
+			}
+			if body != nil && !loopJoinsEachIteration(body) {
+				inspectRepeatedLaunches(pass, evidence, node, body)
+			}
+			return true
+		})
+	}
 	return nil, nil
 }
 
-func inspectRepeatedLaunches(pass *analysis.Pass, loop ast.Node, body *ast.BlockStmt) {
+func inspectRepeatedLaunches(pass *analysis.Pass, evidence captureEvidence, loop ast.Node, body *ast.BlockStmt) {
 	ast.Inspect(body, func(node ast.Node) bool {
 		switch candidate := node.(type) {
 		case *ast.FuncLit, *ast.ForStmt, *ast.RangeStmt:
 			return false
 		case *ast.GoStmt:
 			if closure := calledClosure(candidate.Call); closure != nil {
-				reportCapturedMutations(pass, loop, body, closure, varyingWorkerParameters(pass, loop, candidate.Call, closure))
+				reportCapturedMutations(pass, evidence, loop, body, closure, varyingWorkerParameters(pass, loop, candidate.Call, closure))
 			}
 			return false
 		case *ast.CallExpr:
@@ -58,7 +78,7 @@ func inspectRepeatedLaunches(pass *analysis.Pass, loop ast.Node, body *ast.Block
 				return true
 			}
 			if closure, ok := candidate.Args[0].(*ast.FuncLit); ok {
-				reportCapturedMutations(pass, loop, body, closure, nil)
+				reportCapturedMutations(pass, evidence, loop, body, closure, nil)
 			}
 			return false
 		default:
@@ -75,16 +95,17 @@ func calledClosure(call *ast.CallExpr) *ast.FuncLit {
 	return closure
 }
 
-func reportCapturedMutations(pass *analysis.Pass, loop ast.Node, body *ast.BlockStmt, closure *ast.FuncLit, varying []types.Object) {
-	// A lock anywhere in the launched closure is conservative synchronization
-	// evidence. Without one, report only writes whose root is a local declared
+func reportCapturedMutations(
+	pass *analysis.Pass, evidence captureEvidence, loop ast.Node, body *ast.BlockStmt, closure *ast.FuncLit, varying []types.Object,
+) {
+	// A complete straight-line worker prefix asks the shared synchronization
+	// region whether a lock is held at this mutation. Unsupported workers retain
+	// the older conservative lock suppression. Report only writes whose root is a local declared
 	// before the loop body. A body-local variable belongs to one iteration;
 	// capturing it does not prove sharing between workers. Competing accesses
 	// within one iteration are outside this repeated-launch check's proof.
 	// https://github.com/okteto/okteto/blob/ad42c0823762a2255d4b4ad2e53fb4ec190010e7/pkg/ssh/manager_test.go#L143-L215
-	if closureUsesLock(closure) {
-		return
-	}
+	fallbackLock := closureUsesLock(closure)
 	reported := map[types.Object]bool{}
 	ast.Inspect(closure.Body, func(node ast.Node) bool {
 		if nested, ok := node.(*ast.FuncLit); ok && nested != closure {
@@ -99,9 +120,6 @@ func reportCapturedMutations(pass *analysis.Pass, loop ast.Node, body *ast.Block
 		default:
 			return true
 		}
-		if mutationHasWorkerGuard(pass, closure, node, varying) || mutationHasChannelGuard(pass, closure, node) {
-			return true
-		}
 		for _, expression := range expressions {
 			if rangeIterationLocal(pass, loop, expression) {
 				continue
@@ -114,7 +132,28 @@ func reportCapturedMutations(pass *analysis.Pass, loop ast.Node, body *ast.Block
 			if !ok || object.Parent() == pass.Pkg.Scope() || object.Pos() >= body.Pos() || reported[object] {
 				continue
 			}
+			probe := analysisTrace.For(pass, "concurrentcapture", string(check.ConcurrentCapture), identifier.Pos())
+			probe.Candidate(analysisTrace.Step{Reason: "capture-repeated-write", Outcome: analysisTrace.OutcomeObserved, Pos: identifier.Pos()})
+			guard := evidence.lockGuard(closure, node)
+			// A held lock is evidence of possible serialization, not proof that
+			// every worker uses the same lock. Unknown effects retain the older
+			// syntax fallback rather than claiming the write is unguarded.
+			switch {
+			case guard.known && guard.guarded:
+				probe.Decision(analysisTrace.Step{Reason: guard.reason, Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
+				continue
+			case !guard.known && fallbackLock:
+				probe.Decision(analysisTrace.Step{Reason: "capture-lock-fallback-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
+				continue
+			case mutationHasWorkerGuard(pass, closure, node, varying):
+				probe.Decision(analysisTrace.Step{Reason: "capture-worker-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
+				continue
+			case mutationHasChannelGuard(pass, closure, node):
+				probe.Decision(analysisTrace.Step{Reason: "capture-channel-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
+				continue
+			}
 			reported[object] = true
+			probe.Decision(analysisTrace.Step{Reason: "capture-unguarded-write", Outcome: analysisTrace.OutcomeAccepted, Pos: identifier.Pos()})
 			check.Reportf(pass, check.ConcurrentCapture, identifier.Pos(), "captured local %s is mutated by goroutines launched repeatedly", identifier.Name)
 		}
 		return true
