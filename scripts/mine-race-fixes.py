@@ -56,6 +56,25 @@ SEED_QUERIES = [
     "go test -race",
 ]
 
+# Deadlock fixes follow the same rule: the phrasing names the symptom, a
+# program that stopped making progress, and never a lock, channel, or group.
+# The Go runtime's own message is the most specific symptom there is.
+DEADLOCK_QUERIES = [
+    "fix deadlock",
+    "fixes deadlock",
+    "fix a deadlock",
+    "fix potential deadlock",
+    "resolve deadlock",
+    "deadlock goroutine",
+    "all goroutines are asleep",
+    "goroutine hang",
+]
+
+SYMPTOMS = {
+    "race": (SEED_QUERIES, "other-race", "not-a-race", "a race"),
+    "deadlock": (DEADLOCK_QUERIES, "other-deadlock", "not-a-deadlock", "a deadlock"),
+}
+
 COMMIT_URL = re.compile(r"github\.com/([^/]+/[^/]+)/commit/([0-9a-f]{7,40})")
 
 
@@ -136,7 +155,7 @@ def changed_go_packages(checkout: Path, sha: str) -> list[str]:
     return sorted(packages)
 
 
-def replay(checkout: Path, sha: str, check: str, gohawk: Path, timeout: int) -> tuple[str, int]:
+def replay(checkout: Path, sha: str, check: str, gohawk: Path, timeout: int, tests: bool) -> tuple[str, int]:
     """Check out the parent of a fix and run one check over the packages it
     touched. Returns an outcome and the number of findings."""
     packages = changed_go_packages(checkout, sha)
@@ -149,14 +168,17 @@ def replay(checkout: Path, sha: str, check: str, gohawk: Path, timeout: int) -> 
         # An unanalysable revision is not a missed defect, and counting it as
         # one would understate the check.
         return "unbuildable", 0
-    analysis = run([str(gohawk), "-enable-checks", check, *packages], cwd=checkout, timeout=timeout)
+    flags = ["-enable-checks", check] + (["-gohawk-include-tests"] if tests else [])
+    analysis = run([str(gohawk), *flags, *packages], cwd=checkout, timeout=timeout)
     findings = sum(1 for line in analysis.stdout.splitlines() if line.startswith("warning["))
     return ("reported" if findings else "silent"), findings
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", default="lockorder/read-lock-write", help="check to replay")
+    parser.add_argument("--check", default="lockorder/read-lock-write", help="check, or comma-separated checks, to replay")
+    parser.add_argument("--symptom", choices=sorted(SYMPTOMS), default="race", help="kind of fixed defect to seed on")
+    parser.add_argument("--include-tests", action="store_true", help="also report findings in test files")
     parser.add_argument("--gohawk", type=Path, required=True, help="gohawk binary to replay with")
     parser.add_argument("--work", type=Path, required=True, help="directory for cached clones")
     parser.add_argument("--out", type=Path, required=True, help="worksheet to write")
@@ -167,10 +189,13 @@ def main() -> int:
 
     if not arguments.gohawk.exists():
         fail(f"{arguments.gohawk} does not exist; build it first")
+    # Replays run inside each checkout, so a relative path would not resolve.
+    arguments.gohawk = arguments.gohawk.resolve()
     arguments.work.mkdir(parents=True, exist_ok=True)
 
+    queries, other_label, unrelated_label, defect = SYMPTOMS[arguments.symptom]
     candidates: dict[tuple[str, str], str] = {}
-    for query in SEED_QUERIES:
+    for query in queries:
         print(f"searching: {query}", file=sys.stderr)
         for repository, sha, subject in search(query, arguments.per_query):
             candidates.setdefault((repository, sha), subject)
@@ -186,7 +211,9 @@ def main() -> int:
                 outcome, findings = ("clone-failed", 0) if checkout is None else ("", 0)
             if checkout is not None:
                 try:
-                    outcome, findings = replay(checkout, sha, arguments.check, arguments.gohawk, arguments.timeout)
+                    outcome, findings = replay(
+                        checkout, sha, arguments.check, arguments.gohawk, arguments.timeout, arguments.include_tests,
+                    )
                 except subprocess.TimeoutExpired:
                     outcome, findings = "timeout", 0
             print(f"  {repository}@{sha[:9]}: {outcome}", file=sys.stderr)
@@ -196,8 +223,8 @@ def main() -> int:
 
     print(f"\nwrote {arguments.out}. Label each row before counting:", file=sys.stderr)
     print("  in-class    the parent really does have the defect this check targets", file=sys.stderr)
-    print("  other-race  a real race, but not this check's shape (counts for prevalence)", file=sys.stderr)
-    print("  not-a-race  the commit was not fixing a race after all", file=sys.stderr)
+    print(f"  {other_label}  {defect}, but not this check's shape (counts for prevalence)", file=sys.stderr)
+    print(f"  {unrelated_label}  the commit was not fixing {defect} after all", file=sys.stderr)
     return 0
 
 
