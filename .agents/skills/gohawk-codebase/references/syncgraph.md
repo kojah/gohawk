@@ -118,6 +118,34 @@ func (region *LockRegion) Held() (held bool, known bool)
 Held reports whether an exact mutex is held and whether the prefix was
 sufficiently modeled to decide that. Unknown is not evidence of no lock.
 
+## NewQuery
+
+[Source](../../../../internal/syncgraph/query.go)
+
+```go
+func NewQuery(graph SyncGraph) Query
+```
+
+NewQuery snapshots the event sequences and launch positions in linear time.
+Consumer-added blocking dependencies are deliberately not execution order.
+Queries never mutate a graph or combine mutually exclusive select variants.
+
+## ObservationSet
+
+[Source](../../../../internal/syncgraph/cancellation.go)
+
+```go
+type ObservationSet struct {
+	ssaflow.Proof
+	Events	[]EventID
+}
+```
+
+ObservationSet identifies all matching cancellation receives in this graph
+variant. Proven describes exhaustive enumeration of the modeled events only;
+it does not establish external participant completeness or worker completion.
+Events is an immutable borrowed slice owned by the query snapshot.
+
 ## ProgramOrder, SpawnOrder, BlockingDependency
 
 [Source](../../../../internal/syncgraph/graph.go)
@@ -130,6 +158,61 @@ const (
 )
 ```
 
+## Query
+
+[Source](../../../../internal/syncgraph/query.go)
+
+```go
+type Query struct {
+	// contains filtered or unexported fields
+}
+```
+
+Query is a read-only snapshot of one complete graph variant. Its evidence
+concerns only that variant, not all schedules or all external participants.
+A zero query or an incomplete graph cannot establish an absence claim.
+
+## Query.Before
+
+[Source](../../../../internal/syncgraph/query.go)
+
+```go
+func (query Query) Before(before, after EventID) ssaflow.Proof
+```
+
+Before proves strict program/spawn order, conditional on the later event
+being reached. No path means unknown, not concurrent or reversed. A blocking
+dependency or matching channel identity alone never establishes this order.
+With the current root/children model this query is constant-time.
+
+## Query.CancellationObservations
+
+[Source](../../../../internal/syncgraph/cancellation.go)
+
+```go
+func (query Query) CancellationObservations(request EventID) ObservationSet
+```
+
+CancellationObservations matches an exact Cancel event to receives from the
+same Done identity. The receives need not execute, nor be ordered after the
+request. CancelCause values do not affect readiness identity.
+
+## Query.FirstSignalAfterAcquire
+
+[Source](../../../../internal/syncgraph/query_signal.go)
+
+```go
+func (query Query) FirstSignalAfterAcquire(
+	worker GoroutineID, mutex, channel concurrencyfacts.Reference,
+) SignalOrder
+```
+
+FirstSignalAfterAcquire queries the first channel signal, never a convenient
+later one. Before acquisition, an unlock or condition wait might release a
+lock held by another goroutine; such a prefix remains unknown. Callers still
+prove parent lock ownership, launch order, channel capacity, all participants,
+and every alternative before using this evidence in a deadlock proof.
+
 ## Root
 
 [Source](../../../../internal/syncgraph/graph.go)
@@ -137,6 +220,24 @@ const (
 ```go
 const Root GoroutineID = 0
 ```
+
+## SignalOrder
+
+[Source](../../../../internal/syncgraph/query_signal.go)
+
+```go
+type SignalOrder struct {
+	ssaflow.Proof
+	Acquire	SyncEvent
+	Signal	SyncEvent
+	Present	bool
+}
+```
+
+SignalOrder records the first send or close on a channel in one goroutine,
+and an exact mutex acquisition that must precede it. Proven means the worker
+must pass that acquisition to reach the signal, not that it completes or
+holds the mutex at the signal. Absence is scoped to this complete variant.
 
 ## SyncArm
 

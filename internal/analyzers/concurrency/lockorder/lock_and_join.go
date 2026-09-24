@@ -164,8 +164,9 @@ func proveLockSignalChildren(graph syncgraph.SyncGraph, candidate lockSignalCand
 		return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-lock-capacity-unknown"}
 	}
 	var witness workerSignal
-	for _, child := range graph.Children {
-		found, failure := classifyWorkerSignal(child, candidate, signal)
+	query := syncgraph.NewQuery(graph)
+	for index := range graph.Children {
+		found, failure := classifyWorkerSignal(query, syncgraph.GoroutineID(index+1), candidate, signal)
 		if failure.reason != "" {
 			return failure
 		}
@@ -205,43 +206,28 @@ type workerSignal struct {
 }
 
 func classifyWorkerSignal(
-	child syncgraph.SyncChild, candidate lockSignalCandidate, signal concurrencyfacts.Kind,
+	query syncgraph.Query, worker syncgraph.GoroutineID, candidate lockSignalCandidate, signal concurrencyfacts.Kind,
 ) (workerSignal, lockSignalProof) {
-	var lockedBehindParent syncgraph.SyncEvent
-	locked := false
-	for _, event := range child.Events {
-		if event.Resource.Indirect {
-			return workerSignal{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-worker-identity-unknown"}
+	order := query.FirstSignalAfterAcquire(worker, candidate.parentLock.Resource, candidate.wait.Resource)
+	if !order.Known() {
+		reason := "lock-join-worker-identity-unknown"
+		if order.Reason == "syncgraph-alternate-unlock" {
+			reason = "lock-join-alternate-unlock"
 		}
-		// Cond.Wait unlocks its associated Locker while waiting. Until this
-		// child is itself blocked on the parent's mutex, an unmodeled locker
-		// relationship could let it release the parent's hold.
-		if event.Kind == concurrencyfacts.CondWait && !locked {
-			return workerSignal{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-alternate-unlock"}
-		}
-		if event.Resource.Value == candidate.mutex {
-			if event.Kind == concurrencyfacts.Unlock && !locked {
-				return workerSignal{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-alternate-unlock"}
-			}
-			if event.Kind == concurrencyfacts.Lock && !locked {
-				lockedBehindParent = event
-				locked = true
-			}
-		}
-		if event.Resource.Value != candidate.done || event.Kind != concurrencyfacts.Send && event.Kind != concurrencyfacts.Close {
-			continue
-		}
-		// The first signal from each child is the one that could complete the
-		// parent's receive. A later signal never repairs an earlier alternative.
-		if event.Kind != signal {
-			return workerSignal{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-signal-kind-not-matched"}
-		}
-		if !locked {
-			return workerSignal{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-worker-order-not-matched"}
-		}
-		return workerSignal{lock: lockedBehindParent, signal: event, present: true}, lockSignalProof{}
+		return workerSignal{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: reason}
 	}
-	return workerSignal{}, lockSignalProof{}
+	if !order.Present {
+		return workerSignal{}, lockSignalProof{}
+	}
+	// The shared query identifies the first possible signal. Which signal
+	// kind establishes this check's completion obligation remains local policy.
+	if order.Signal.Kind != signal {
+		return workerSignal{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-signal-kind-not-matched"}
+	}
+	if !order.Proven() {
+		return workerSignal{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-worker-order-not-matched"}
+	}
+	return workerSignal{lock: order.Acquire, signal: order.Signal, present: true}, lockSignalProof{}
 }
 
 func unbuffered(channel *ssa.MakeChan) bool {

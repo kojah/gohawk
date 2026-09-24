@@ -102,6 +102,37 @@ missing effects as proof of no effect. An unbounded launch, dynamic dispatch,
 escaped channel or mutex, unresolved alias, and budget exhaustion remain
 unknown unless a narrower structural proof independently accounts for them.
 
+## Shared semantic queries
+
+`syncgraph.NewQuery` snapshots one complete graph variant. Incomplete summaries,
+unexpanded choices, malformed event identities, and unknown launch points yield
+unknown answers, never a proof that a participant or effect is absent.
+
+- `Before` establishes program/spawn order, conditional on reaching the later
+  event. It does not interpret consumer-added blocking dependencies as strict
+  execution order, or a missing ordering path as proof of concurrency.
+- `FirstSignalAfterAcquire` identifies a goroutine's first send or close on an
+  exact channel and a preceding exact mutex acquisition. It rejects prefixes
+  that might release another goroutine's lock. It proves neither that the
+  worker completes nor that the mutex remains held at the signal. The
+  lock-and-join and channel/lock checks use this shared evidence and retain
+  their own capacity, parent-lock, signal-kind, and participant policies.
+- `CancellationObservations` enumerates receives on the cancel request's exact
+  Done identity within that variant. Matching an observation is neither an
+  ordering edge nor a join. An exhaustive list of modeled observations is not
+  proof that all external participants have been modeled.
+
+Results carry a structured proof with a stable reason and, where applicable,
+event witnesses. Query construction is linear in event count; `Before` and
+cancellation lookup are constant-time in the current root/children model, and
+the signal-prefix query scans one bounded goroutine sequence. Cancellation
+observation slices are immutable and shared rather than copied per request.
+
+`LockRegion` remains the ordered-prefix lock-state query. `Expand` keeps select
+alternatives separate; consumers still need a proof for every returned variant.
+The query layer does not infer missing effects, solve arbitrary channel partner
+matching, or establish a deadlock by itself.
+
 ## Rollout boundary
 
 The two exact lock/signal proofs share the graph and one bounded root-summary
@@ -128,3 +159,53 @@ few runs do not establish a stable regression or measure peak memory. The
 graph is constructed only after the cheap local candidate filter finds a
 launch, a local channel, a mutex acquisition, and a receive. This historical
 cost check predates multi-child support; recheck it before broadening further.
+
+## Kubernetes and Moby coverage snapshot
+
+On 2026-09-24, analyzer commit `17a1d9d` (after cancellation modeling, before
+the query-layer refactor) ran the four experimental dependency checks against
+Kubernetes `e72c2715ade37738aa5c029e8de5285cbe1c9441` and Moby
+`3f673306102e01c16b5e0ab2343588bfab2fc4e7`. Root-module package inventories
+contained 1,472 and 347 packages respectively; test source was included.
+No selected check reported a diagnostic. Every traced candidate surviving the
+initial filters stopped at incomplete protocol evidence, before cycle proving.
+
+| Candidate decision | Moby | Kubernetes |
+| --- | ---: | ---: |
+| Channel dependency: fresh-channel filter | 344 | 430 |
+| Channel dependency: launch filter | 54 | 104 |
+| Channel dependency: incomplete summary | 45 | 27 |
+| Lock-and-join: incomplete summary | 5 | 5 |
+| Channel/lock cycle: incomplete summary | 5 | 5 |
+| WaitGroup/lock cycle: incomplete summary | 2 | 7 |
+
+Counts exclude vendor/staging dependencies and deduplicate repeated test
+variants by check, source candidate, reason, and outcome. The two lock/signal
+checks inspect the same five sites in each repository; these are not ten
+distinct bugs. For channel summaries, control flow accounted for 24 Moby and
+14 Kubernetes cutoffs; the remainder were unavailable bodies, effects, or loads.
+
+Actual SSA inspection confirmed representative boundaries:
+
+- [Moby's health monitor](https://github.com/moby/moby/blob/3f673306102e01c16b5e0ab2343588bfab2fc4e7/daemon/health.go#L256)
+  combines loops, nested selects, a buffered result channel, and an interface
+  probe. Cancellation is followed by a separate result receive. The first
+  cutoff is control flow, not cycle feasibility.
+- [Kubernetes monitor startup](https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/controller/garbagecollector/graph_builder.go#L295)
+  waits on a receiver-owned startup channel under an RWMutex, then launches a
+  dynamic set of monitors. Beyond the control-flow cutoff, a proof would still
+  need the external sender's identity and dependencies. This is a modeling
+  target, not evidence of a deadlock.
+
+Kubernetes completed in 4m23.50s. Moby took 2m35.01s but had CGO-disabled
+test-loading failures in btrfs, quota, and volume/local, so its scan is partial.
+Parallelism differed and another validation overlapped the Moby run; these are
+not before/after performance measurements. Temporary clones were deleted;
+local traces, timings, SSA dumps, and a detailed report were retained under
+`.build/sync-recall-2026-09-24`.
+
+The next coverage work should improve resource-specific effect slices,
+bounded alternatives, and cross-method participant/receiver identity while
+preserving opaque effects as unknown. This sample supplies no evidence that
+SMT feasibility solving is the immediate bottleneck. Shared queries organize
+available evidence; they cannot reconstruct effects discarded by a summary.
