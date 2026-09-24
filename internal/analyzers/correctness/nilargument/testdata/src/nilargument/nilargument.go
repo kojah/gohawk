@@ -43,6 +43,13 @@ func Keep(n *node) { kept = n }
 // BodyValue dereferences the body inside the response.
 func BodyValue(r *response) int { return r.body.value }
 
+// Initializing the field within the callee means its later dereference does
+// not require the caller to supply a non-nil field in the incoming object.
+func InitializeThenBodyValue(r *response) int {
+	r.body = &node{value: 1}
+	return r.body.value
+}
+
 // Read invokes the reader inside the response.
 func Read(r *response) int { return r.reader.Read() }
 
@@ -64,6 +71,11 @@ func variableNil() int {
 func nilFieldOfLocal() int {
 	r := &response{}
 	return BodyValue(r) // want "field body of argument 1 is nil, and BodyValue dereferences it on every path"
+}
+
+func calleeInitializesNilField() int {
+	r := &response{}
+	return InitializeThenBodyValue(r)
 }
 
 func nilFieldSet(r *response) int {

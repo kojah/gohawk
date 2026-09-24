@@ -63,6 +63,10 @@ func (projection *heapProjection) requirements() []HeapRequirement {
 	for at := range projection.cuts {
 		truncated[at] = true
 	}
+	written := map[HeapSlot]bool{}
+	projection.projectHistory(func(at HeapSlot, _ pointees) {
+		written[at] = true
+	})
 	var candidates []requirementCandidate
 	for key := range keys {
 		named, ok := projection.rootOf(key.slot.region)
@@ -70,7 +74,8 @@ func (projection *heapProjection) requirements() []HeapRequirement {
 			continue
 		}
 		at := HeapSlot{Root: named.Root, Path: joinSlotPath(named.Path, key.slot.path)}
-		if truncated[HeapSlot{Root: at.Root}] || len(ssaflow.SplitAccessPath(at.Path)) > SummaryPaths {
+		if truncated[HeapSlot{Root: at.Root}] || len(ssaflow.SplitAccessPath(at.Path)) > SummaryPaths ||
+			key.kind == HeapRequiresNonNil && requirementSlotMayBeWritten(written, at) {
 			continue
 		}
 		candidates = append(candidates, requirementCandidate{
@@ -82,6 +87,22 @@ func (projection *heapProjection) requirements() []HeapRequirement {
 			return slices.Contains(calls[instruction], key)
 		})
 	})
+}
+
+// A write to the required slot or an ancestor may replace its initial value
+// before the dereference. A summary must not turn the later dereference into
+// a precondition on the caller's old contents. Dropping even writes that
+// actually occur after the dereference is a deliberate coverage loss: the
+// summary does not carry their ordering.
+// https://github.com/timescale/timescaledb-tune/blob/c7a642bd4e16d48a51c060a43dc6dff864cb42d7/pkg/tstune/tuner.go#L238-L254
+func requirementSlotMayBeWritten(written map[HeapSlot]bool, at HeapSlot) bool {
+	steps := ssaflow.SplitAccessPath(at.Path)
+	for count := 0; count <= len(steps); count++ {
+		if written[HeapSlot{Root: at.Root, Path: ssaflow.JoinAccessPath(steps[:count])}] {
+			return true
+		}
+	}
+	return false
 }
 
 // boundedRequirements proves candidates in summary order, stopping once the

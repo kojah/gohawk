@@ -50,7 +50,11 @@ The second family is built and consumed by the `nilargument` analyzer:
   or a method is invoked through an interface it fills, on every path. A
   caller whose graph says the slot certainly holds nil there has a
   witness. Only pointer-typed slots are judged, because an interface
-  filled from a nil pointer is not a nil interface.
+  filled from a nil pointer is not a nil interface. This must be a
+  requirement on the *incoming* slot: if the callee may write that slot or
+  an ancestor before dereferencing it, the requirement is omitted. The
+  summary does not encode write/dereference order, so even a write that
+  actually comes later conservatively loses this precondition.
 
 "Not released" needs no family of its own: the method family names what
 the helper calls, and the caller's invalidation table says which of those

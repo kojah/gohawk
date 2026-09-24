@@ -197,9 +197,10 @@ type HeapRequirementKind uint8
 const (
 	// HeapRequiresMethod means Method is called with the object as receiver.
 	HeapRequiresMethod HeapRequirementKind = iota
-	// HeapRequiresNonNil means the object is dereferenced. A load or store
-	// through it, or a field or element selected beneath it, requires it;
-	// a method called on a nil pointer receiver does not.
+	// HeapRequiresNonNil means the caller's incoming object is dereferenced.
+	// A load or store through it, or a field or element selected beneath it,
+	// requires it only when the callee may not replace that slot first; a
+	// method called on a nil pointer receiver does not require non-nil.
 	HeapRequiresNonNil
 )
 
