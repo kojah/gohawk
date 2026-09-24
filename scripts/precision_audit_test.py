@@ -48,6 +48,20 @@ class PrecisionAuditTest(unittest.TestCase):
         )
         self.assertEqual(AUDIT.read_history([self.manifest]), {"reviewed/repo"})
 
+    def test_default_history_ignores_nonselection_audit_ledgers(self):
+        audit_dir = self.root / "benchmarks/precision/audits"
+        audit_dir.mkdir(parents=True)
+        cohort = self.root / "benchmarks/precision/round-58/repositories.tsv"
+        cohort.parent.mkdir(parents=True)
+        cohort.write_text(f"cohort/repo\t{SHA}\n")
+        (audit_dir / "500-repository.tsv").write_text(f"old/repo\t{SHA}\n")
+        (audit_dir / "batch-55.tsv").write_text(f"55\tbatch/repo\t{SHA}\t.\tscanned\n")
+        (audit_dir / "followup207-locks.tsv").write_text("unrelated\tledger\twith\ta\tdifferent\tformat\n")
+        (audit_dir / "batch-55-findings.tsv").write_text("another\tledger\twith\ta\tdifferent\tformat\n")
+
+        history = AUDIT.read_history(AUDIT.default_history_paths(self.root))
+        self.assertEqual(history, {"cohort/repo", "old/repo", "batch/repo"})
+
     def test_report_is_incremental_and_resumable(self):
         entry = ("owner/repo", SHA)
         finding = ("owner/repo", "lockorder", "main.go:3:1")

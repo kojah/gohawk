@@ -66,6 +66,17 @@ def read_history(paths):
     return seen
 
 
+def default_history_paths(root=ROOT):
+    """Read selection history, not arbitrary follow-up ledgers with other schemas."""
+    cohorts = sorted((root / "benchmarks/precision").glob("round-*/repositories.tsv"))
+    audit_dir = root / "benchmarks/precision/audits"
+    selections = sorted(
+        path for path in audit_dir.glob("*.tsv")
+        if path.name == "500-repository.tsv" or re.fullmatch(r"batch-\d+\.tsv", path.name)
+    )
+    return cohorts + selections
+
+
 def save_report(path, report):
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
@@ -118,8 +129,7 @@ def main():
     binary = args.gohawk.resolve(strict=True)
     output = args.output.resolve()
     manifest = read_manifest(args.manifest)
-    history_paths = sorted((ROOT / "benchmarks/precision").glob("round-*/repositories.tsv"))
-    history_paths += sorted((ROOT / "benchmarks/precision/audits").glob("*.tsv"))
+    history_paths = default_history_paths()
     history = read_history(history_paths + args.exclude_ledger)
     selected = [entry for entry in manifest if entry[0].lower() not in history][:args.limit]
     if not selected:
