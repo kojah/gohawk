@@ -183,8 +183,9 @@ Use [heapmodel](heapmodel.md) for per-function graph construction and queries,
 heap-summary projection and registration, and call-site substitution. Its
 contract names roots, slots, targets, effects, requirements, and truncation;
 a missing edge is not proof of no alias when the slot was truncated.
-[ssainfer](ssainfer.md) owns demand-driven storage and completion proofs using
-the graph. [ssaflow](ssaflow.md) owns the lower-level proof, budget, value,
+[heapmodel](heapmodel.md) also owns demand-driven storage queries and their
+graph fallbacks. [ssainfer](ssainfer.md) owns completion and transfer proofs
+using that evidence. [ssaflow](ssaflow.md) owns the lower-level proof, budget, value,
 call, and control-flow mechanics shared by both packages.
 
 ## Which external API changes resource state?

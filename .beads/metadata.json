@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "gohawk",
+  "project_id": "7a18971c-5f0d-4175-84ab-ab181435492e"
+}

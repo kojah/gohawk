@@ -31,8 +31,9 @@ Walk the decision in order and stop at the first fit.
    an obligation — always stays beside the analyzer that owns it, even when the
    implementation looks reusable.
 2. **`internal/ssaflow`** for shared value provenance, calls, budgets, and
-   control flow; **`internal/ssainfer`** for storage, completion, and transfer
-   proofs using those mechanics and `heapmodel`; **`internal/resourcemodel`**
+   control flow; **`internal/heapmodel`** for storage, identity, and heap queries;
+   **`internal/ssainfer`** for completion and transfer proofs using that evidence;
+   **`internal/resourcemodel`**
    for per-path resource obligations and exact reusable external state
    transitions. Share *how to prove*, never an analyzer's reporting policy.
 3. **`internal/syntax`** for source-level helpers and well-known symbol
