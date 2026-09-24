@@ -299,8 +299,15 @@ func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
 	engine.cutoff = nil
 	result := engine.collectEffects(function, root)
 	if engine.paths && result.Reason == ReasonControlFlowUnknown && function != nil && len(function.Blocks) != 0 {
+		// The acyclic pass located the loop header. Keep that explanation if
+		// the counted-loop retry fails too; the retry only knows the first
+		// branch it could not expand.
+		located := engine.cutoff
 		engine.cutoff = nil
 		result = engine.collectCountedLoops(function, root)
+		if result.Reason == ReasonControlFlowUnknown && located != nil {
+			engine.cutoff = located
+		}
 	}
 	if engine.paths && (result.Reason == ReasonBranchEffectsDiffer || result.Reason == ReasonBranchAlternatives) {
 		engine.cutoff = nil

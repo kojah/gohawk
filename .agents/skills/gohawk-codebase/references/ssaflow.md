@@ -70,6 +70,21 @@ func BlockReachable(from, target *ssa.BasicBlock) bool
 BlockReachable reports whether target is reachable from within their
 shared function.
 
+## BoundedLoop
+
+[Source](../../../../internal/ssaflow/natural_loops.go)
+
+```go
+func BoundedLoop(loop NaturalLoop, budget *SearchBudget) bool
+```
+
+BoundedLoop reports whether every loop in loop, nested ones included, is
+driven by an integer counter that rises by one on each iteration toward a
+bound computed before the loop, so each ends after finitely many
+iterations. Range loops over slices, arrays, strings, and integers, and
+ordinary counted for loops, have this shape. It says nothing about whether
+the calls in the body return; the caller decides that separately.
+
 ## BranchBool
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
@@ -1228,6 +1243,35 @@ transparent wrappers, loads, or a phi merge. It is a possible identity, not
 a proof: a load is followed without asking what the cell held at that point,
 so callers use it to find a candidate binding, never to credit an action.
 
+## NaturalLoop
+
+[Source](../../../../internal/ssaflow/natural_loops.go)
+
+```go
+type NaturalLoop struct {
+	Header	*ssa.BasicBlock
+	Blocks	[]*ssa.BasicBlock
+	Exits	[]*ssa.BasicBlock
+}
+```
+
+NaturalLoop is a loop entered only through its header. Blocks holds the
+header and every block that reaches a back edge without passing through the
+header again, in function order; nested loops are part of the outer one.
+Exits are the blocks outside the loop that its blocks branch to, in the
+order they are first seen, so a break or a return inside the body is an
+exit like the header's own test.
+
+## NaturalLoop.Contains
+
+[Source](../../../../internal/ssaflow/natural_loops.go)
+
+```go
+func (loop NaturalLoop) Contains(block *ssa.BasicBlock) bool
+```
+
+Contains reports whether block belongs to the loop.
+
 ## NewCallEffects
 
 [Source](../../../../internal/ssaflow/call_effects.go)
@@ -1412,6 +1456,18 @@ blocked it. It reports where evidence ran out, never what an analyzer
 decided, so it changes no answer. The type uses primitives so a tracer can
 satisfy it by method value without an import cycle; a budget carries it to
 every query that spends that budget, the scope of one candidate's proof.
+
+## OutermostLoops
+
+[Source](../../../../internal/ssaflow/natural_loops.go)
+
+```go
+func OutermostLoops(function *ssa.Function, budget *SearchBudget) ([]NaturalLoop, bool)
+```
+
+OutermostLoops returns the function's natural loops that no other loop
+contains. A cycle that is not a natural loop is not reported; a caller that
+orders blocks still finds it and declines.
 
 ## OwnershipEdge
 

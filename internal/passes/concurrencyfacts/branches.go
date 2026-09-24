@@ -16,25 +16,28 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
 		return Summary{Reason: ReasonControlFlowUnknown}
 	}
-	order, reason := engine.orderedBlocks(function)
+	flow, reason := engine.orderedBlocks(function, root)
 	if reason != ReasonNone {
 		return Summary{Reason: reason}
 	}
 	states := map[*ssa.BasicBlock]Summary{function.Blocks[0]: {}}
 	var terminal *Summary
-	for _, block := range order {
+	for _, block := range flow.order {
 		if panics(block) {
 			continue
 		}
 		state := states[block]
-		if reason := engine.collectBlock(&state, block, root); reason != ReasonNone {
+		if flow.isFolded(block) {
+			// A quiet loop adds nothing; see loops.go.
+		} else if reason := engine.collectBlock(&state, block, root); reason != ReasonNone {
 			if reason == ReasonSelectAlternatives {
 				state.Reason = reason
 				return state
 			}
 			return Summary{Reason: reason}
 		}
-		if len(block.Succs) == 0 {
+		successors := flow.successors(block)
+		if len(successors) == 0 {
 			if len(state.deferred) != 0 {
 				return Summary{Reason: ReasonDeferredEffectsUnknown}
 			}
@@ -47,7 +50,7 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 			}
 			terminal = &state
 		}
-		for _, next := range block.Succs {
+		for _, next := range successors {
 			// A join with different synchronization histories is not one
 			// unconditional protocol, even if later operations happen to agree.
 			previous, exists := states[next]
@@ -73,37 +76,47 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 	return *terminal
 }
 
-func (engine *Engine) orderedBlocks(function *ssa.Function) ([]*ssa.BasicBlock, Reason) {
+func (engine *Engine) orderedBlocks(function *ssa.Function, root bool) (acyclicFlow, Reason) {
+	flow := acyclicFlow{folded: engine.foldQuietLoops(function, root)}
+	inside := make(map[*ssa.BasicBlock]bool)
+	for header, loop := range flow.folded {
+		for _, block := range loop.Blocks {
+			inside[block] = block != header
+		}
+	}
 	// Kahn's order visits each edge once and leaves cycles unprocessed.
 	pending := make(map[*ssa.BasicBlock]int, len(function.Blocks))
 	for _, block := range function.Blocks {
-		if block != function.Recover {
-			pending[block] = len(block.Preds)
-		}
-	}
-	order := []*ssa.BasicBlock{function.Blocks[0]}
-	for index := 0; index < len(order); index++ {
-		if !engine.budget.Spend() {
-			engine.recordBlockCutoff(order[index], cutoffBranch)
-			return nil, ReasonBudgetExhausted
-		}
-		for _, next := range order[index].Succs {
-			pending[next]--
-			if pending[next] == 0 {
-				order = append(order, next)
+		if block != function.Recover && !inside[block] {
+			pending[block] += 0
+			for _, next := range flow.successors(block) {
+				pending[next]++
 			}
 		}
 	}
-	if len(order) != len(pending) {
+	flow.order = []*ssa.BasicBlock{function.Blocks[0]}
+	for index := 0; index < len(flow.order); index++ {
+		if !engine.budget.Spend() {
+			engine.recordBlockCutoff(flow.order[index], cutoffBranch)
+			return acyclicFlow{}, ReasonBudgetExhausted
+		}
+		for _, next := range flow.successors(flow.order[index]) {
+			pending[next]--
+			if pending[next] == 0 {
+				flow.order = append(flow.order, next)
+			}
+		}
+	}
+	if len(flow.order) != len(pending) {
 		for _, block := range function.Blocks {
 			if pending[block] > 0 {
 				engine.recordBlockCutoff(block, cutoffLoop)
 				break
 			}
 		}
-		return nil, ReasonControlFlowUnknown
+		return acyclicFlow{}, ReasonControlFlowUnknown
 	}
-	return order, ReasonNone
+	return flow, ReasonNone
 }
 
 // SSA gives every function with a defer a detached recovery block that reloads

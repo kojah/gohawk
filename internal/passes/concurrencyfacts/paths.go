@@ -19,27 +19,33 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
 		return Summary{Reason: ReasonControlFlowUnknown}
 	}
-	order, reason := engine.orderedBlocks(function)
+	flow, reason := engine.orderedBlocks(function, root)
 	if reason != ReasonNone {
 		return Summary{Reason: reason}
 	}
 	states := map[*ssa.BasicBlock][]Summary{function.Blocks[0]: {{}}}
 	var paths []Summary
-	for _, block := range order {
+	for _, block := range flow.order {
 		// A panicking block contributes no alternative: it never returns
 		// normally, so none of its states can reach a later event.
 		if panics(block) {
 			continue
 		}
 		current := states[block]
+		folded := flow.isFolded(block)
 		for _, instruction := range block.Instrs {
+			if folded {
+				// A quiet loop adds nothing; see loops.go.
+				break
+			}
 			current, reason = engine.advancePaths(current, instruction, root)
 			if reason != ReasonNone {
 				engine.recordCutoff(instruction, cutoffInstruction)
 				return Summary{Reason: reason}
 			}
 		}
-		if len(block.Succs) == 0 {
+		successors := flow.successors(block)
+		if len(successors) == 0 {
 			returned := returnedFacts(block)
 			for index := range current {
 				current[index].Returned = returned
@@ -50,8 +56,10 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 				return Summary{Reason: ReasonAlternativeLimit}
 			}
 		}
-		for _, next := range block.Succs {
+		for _, next := range successors {
+			// A loop's exit is not one branch choice, so it adds no condition.
 			condition, branching := branchCondition(block, next)
+			branching = branching && !folded
 			for _, state := range current {
 				state = cloneEffects(state)
 				if branching {

@@ -76,6 +76,17 @@ binds unchanged; a pointer or channel read from a package variable is content
 that can change, and stays unknown. A global mutex has no parameter position,
 so a summary that uses one is not published as a fact.
 
+A loop that synchronizes nothing and provably ends adds no effect, however
+many times it runs, so both acyclic collectors treat it as one node whose
+successors are its exits, a `break` or `return` inside it included.
+`ssaflow.BoundedLoop` proves the end: every loop in it, nested ones too,
+counts up by one toward a bound fixed before the loop, as range loops over
+slices, arrays, strings, and integers and ordinary counted loops do; the
+length of a channel or map is not fixed. Every instruction in it must
+collect to no effect at all. A loop driven by a flag, a map range, or a
+receive, and a loop that locks, sends, launches, defers, or calls something
+unknown, is still a cycle and leaves the summary unknown.
+
 The first implementation deliberately leaves parent cancellation propagation,
 deadlines/timeouts, `WithoutCancel`, `WithValue`, `AfterFunc`, factory-returned
 contexts, nested selects, and open-ended worker loops unknown. In particular, it does

@@ -71,3 +71,65 @@ func (engine *Engine) repeatableBody(body *ssa.BasicBlock) bool {
 	}
 	return true
 }
+
+// A loop that synchronizes nothing and provably ends is invisible to the
+// ordered effects: however many times it runs, it adds no operation, and the
+// code after it is reached. The acyclic collectors therefore see such a loop
+// as one node whose successors are its exits. The proof has two parts.
+// ssaflow.BoundedLoop shows that every loop in it counts up to a bound fixed
+// before the loop, so it ends. And every instruction in it collects to no
+// effect of any kind: no operation, worker, hole, defer, select, cancellation
+// input, or result condition, so nothing in it can block, wait, or leave
+// work behind. A loop driven by anything but such a counter, including a map
+// range, a Boolean flag, or a receive, is not proven to end and stays a
+// cycle, which the collectors decline.
+
+// acyclicFlow is a function's blocks in topological order with its quiet
+// loops folded into their headers.
+type acyclicFlow struct {
+	order  []*ssa.BasicBlock
+	folded map[*ssa.BasicBlock]ssaflow.NaturalLoop
+}
+
+// isFolded reports whether block is the header of a folded quiet loop, whose
+// instructions contribute nothing.
+func (flow acyclicFlow) isFolded(block *ssa.BasicBlock) bool {
+	_, folded := flow.folded[block]
+	return folded
+}
+
+// successors returns a block's successors, or a folded loop's exits.
+func (flow acyclicFlow) successors(block *ssa.BasicBlock) []*ssa.BasicBlock {
+	if loop, folded := flow.folded[block]; folded {
+		return loop.Exits
+	}
+	return block.Succs
+}
+
+func (engine *Engine) foldQuietLoops(function *ssa.Function, root bool) map[*ssa.BasicBlock]ssaflow.NaturalLoop {
+	folded := make(map[*ssa.BasicBlock]ssaflow.NaturalLoop)
+	loops, ok := ssaflow.OutermostLoops(function, engine.budget)
+	if !ok {
+		return folded
+	}
+	for _, loop := range loops {
+		if engine.quietLoop(loop, root) {
+			folded[loop.Header] = loop
+		}
+	}
+	return folded
+}
+
+func (engine *Engine) quietLoop(loop ssaflow.NaturalLoop, root bool) bool {
+	if !ssaflow.BoundedLoop(loop, engine.budget) {
+		return false
+	}
+	var effects Summary
+	for _, block := range loop.Blocks {
+		if engine.collectBlock(&effects, block, root) != ReasonNone {
+			return false
+		}
+	}
+	return len(effects.Operations) == 0 && len(effects.Workers) == 0 && len(effects.Choices) == 0 &&
+		len(effects.deferred) == 0 && len(effects.CancellationInputs) == 0 && len(effects.Conditions) == 0
+}
