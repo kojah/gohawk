@@ -364,7 +364,7 @@ func (reason Reason) String() string
 
 String is the stable trace representation; numeric values are not wire codes.
 
-## ReasonNone, ReasonComponentNotRequested, ReasonComponentUnavailable, ReasonAlternativeLimit, ReasonBodyUnavailable, ReasonBranchAlternatives, ReasonBranchEffectsDiffer, ReasonBudgetExhausted, ReasonChannelBindingUnknown, ReasonChannelIdentityUnknown, ReasonCondLockerUnknown, ReasonContextBindingRequired, ReasonContextBindingUnknown, ReasonContextIdentityUnknown, ReasonContextParentUnknown, ReasonControlFlowUnknown, ReasonCutoff, ReasonDeferredEffectsUnknown, ReasonEffectUnknown, ReasonFieldBindingUnknown, ReasonGroupCountUnknown, ReasonLoadUnknown, ReasonLocalContextUnknown, ReasonParticipantsUnknown, ReasonPayloadUnknown, ReasonSelectAlternatives, ReasonSelectAlternativesUnknown, ReasonSelectDispatchUnknown, ReasonSelectNoFeasibleArm, ReasonSummaryLimit, ReasonWorkerEffectsUnknown, ReasonSummarizing, ReasonExportUnknown, ReasonExportComplete, ReasonRecursiveProtocol, ReasonCallbackBindingRequired, ReasonCallbackUnknown
+## ReasonNone, ReasonComponentNotRequested, ReasonComponentUnavailable, ReasonAlternativeLimit, ReasonBodyUnavailable, ReasonBranchAlternatives, ReasonBranchEffectsDiffer, ReasonBudgetExhausted, ReasonChannelBindingUnknown, ReasonChannelIdentityUnknown, ReasonCondLockerUnknown, ReasonContextBindingRequired, ReasonContextBindingUnknown, ReasonContextIdentityUnknown, ReasonContextParentUnknown, ReasonControlFlowUnknown, ReasonCutoff, ReasonDeferredEffectsUnknown, ReasonEffectUnknown, ReasonFieldBindingUnknown, ReasonGroupCountUnknown, ReasonLoadUnknown, ReasonLocalContextUnknown, ReasonParticipantsUnknown, ReasonPayloadUnknown, ReasonSelectAlternatives, ReasonSelectAlternativesUnknown, ReasonSelectDispatchUnknown, ReasonSelectNoFeasibleArm, ReasonSummaryLimit, ReasonWorkerEffectsUnknown, ReasonSummarizing, ReasonExportUnknown, ReasonExportComplete, ReasonRecursiveProtocol, ReasonCallbackBindingRequired, ReasonCallbackUnknown, ReasonReplicatedWorkers
 
 [Source](../../../../internal/passes/concurrencyfacts/reasons.go)
 
@@ -407,6 +407,7 @@ const (
 	ReasonRecursiveProtocol
 	ReasonCallbackBindingRequired
 	ReasonCallbackUnknown
+	ReasonReplicatedWorkers
 )
 ```
 
@@ -613,6 +614,18 @@ It never reruns inference. A nil observer does no formatting or allocation.
 Positions and SSA text are developer-local evidence, not serialized facts.
 The call chain runs from the leaf outward and is explicitly marked if cut.
 
+## Summary.Representatives
+
+[Source](../../../../internal/passes/concurrencyfacts/replicated_workers.go)
+
+```go
+func (summary Summary) Representatives() Summary
+```
+
+Representatives reads every replicated worker as one worker. Use it only
+for a property that holds for any number of identical copies once it holds
+for one; see the file comment.
+
 ## WorkerEffect
 
 [Source](../../../../internal/passes/concurrencyfacts/facts.go)
@@ -645,6 +658,9 @@ type WorkerSummary struct {
 	// AlternativeConditions parallels Alternatives for branch paths: the
 	// worker's own branch choices that select each alternative.
 	AlternativeConditions	[][]Condition
+	// Replicated marks one representative of the identical workers a worker
+	// pool launches an unknown number of times; see replicated_workers.go.
+	Replicated	bool
 }
 ```
 

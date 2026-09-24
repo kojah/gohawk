@@ -122,10 +122,16 @@ func (engine *Engine) exportFunction(function *ssa.Function) (Fact, bool) {
 // proof. Publish its input requirements with its effects, including for an
 // empty sequence; otherwise an opaque Done implementation could become pure
 // merely by crossing a package boundary. Local origins cannot be exported.
+// publishableShape reports whether a summary is one linear sequence a fact
+// can carry: no paths, pending defers, or replicated workers, within limits.
+func publishableShape(result Summary) bool {
+	return composableLinear(result) && !result.hasReplicatedWorkers() && len(result.Paths) == 0 &&
+		len(result.Workers) <= maxWorkers && len(result.deferred) == 0 && result.operationCount() <= maxOperations
+}
+
 func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 	fact := Fact{Version: factVersion}
-	if !composableLinear(result) || len(result.Paths) != 0 || len(result.Workers) > maxWorkers || len(result.deferred) != 0 ||
-		result.operationCount() > maxOperations {
+	if !publishableShape(result) {
 		return fact, false
 	}
 	for _, input := range result.CancellationInputs {

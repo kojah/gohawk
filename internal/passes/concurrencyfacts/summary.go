@@ -170,6 +170,9 @@ type WorkerSummary struct {
 	// AlternativeConditions parallels Alternatives for branch paths: the
 	// worker's own branch choices that select each alternative.
 	AlternativeConditions [][]Condition
+	// Replicated marks one representative of the identical workers a worker
+	// pool launches an unknown number of times; see replicated_workers.go.
+	Replicated bool
 }
 
 // Completeness is the contract a consumer acts on. Only a complete summary
@@ -192,7 +195,8 @@ const (
 // the same fields the builder writes, so it cannot disagree with Reason.
 func (summary Summary) Completeness() Completeness {
 	switch {
-	case summary.Reason != ReasonNone || len(summary.Paths) != 0 || !summary.CancellationBound() || !summary.CallbacksBound():
+	case summary.Reason != ReasonNone || len(summary.Paths) != 0 || !summary.CancellationBound() || !summary.CallbacksBound() ||
+		summary.hasReplicatedWorkers():
 		return Incomplete
 	case len(summary.Operations) == 0 && len(summary.Workers) == 0:
 		return CompleteNoEffects

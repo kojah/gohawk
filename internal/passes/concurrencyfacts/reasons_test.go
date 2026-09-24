@@ -41,6 +41,7 @@ func TestReasonCodes(t *testing.T) {
 		ReasonRecursiveProtocol:         "recursive-protocol",
 		ReasonCallbackBindingRequired:   "protocol-callback-binding-required",
 		ReasonCallbackUnknown:           "protocol-callback-unknown",
+		ReasonReplicatedWorkers:         "protocol-replicated-workers",
 	}
 	if len(want) != int(reasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

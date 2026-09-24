@@ -27,9 +27,14 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 			continue
 		}
 		state := states[block]
+		collect := engine.collectBlock
 		if flow.isFolded(block) {
-			// A quiet loop adds nothing; see loops.go.
-		} else if reason := engine.collectBlock(&state, block, root); reason != ReasonNone {
+			// A folded loop adds its replay, if any; see loops.go.
+			collect = func(state *Summary, _ *ssa.BasicBlock, root bool) Reason {
+				return engine.replayLoop(state, flow.folded[block], root)
+			}
+		}
+		if reason := collect(&state, block, root); reason != ReasonNone {
 			if reason == ReasonSelectAlternatives {
 				state.Reason = reason
 				return state
@@ -77,10 +82,10 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 }
 
 func (engine *Engine) orderedBlocks(function *ssa.Function, root bool) (acyclicFlow, Reason) {
-	flow := acyclicFlow{folded: engine.foldQuietLoops(function, root)}
+	flow := acyclicFlow{folded: engine.foldLoops(function, root)}
 	inside := make(map[*ssa.BasicBlock]bool)
-	for header, loop := range flow.folded {
-		for _, block := range loop.Blocks {
+	for header, folded := range flow.folded {
+		for _, block := range folded.loop.Blocks {
 			inside[block] = block != header
 		}
 	}
@@ -133,7 +138,7 @@ func detachedRecovery(function *ssa.Function) bool {
 func sameEffects(first, second Summary) bool {
 	sameOperation := func(a, b Operation) bool { return a.Kind == b.Kind && a.Resource == b.Resource }
 	sameWorker := func(a, b WorkerSummary) bool {
-		return a.Spawn == b.Spawn && a.Site == b.Site && a.Prefix == b.Prefix && a.Branches == b.Branches &&
+		return a.Spawn == b.Spawn && a.Site == b.Site && a.Prefix == b.Prefix && a.Branches == b.Branches && a.Replicated == b.Replicated &&
 			slices.EqualFunc(a.Operations, b.Operations, sameOperation) &&
 			slices.EqualFunc(a.Alternatives, b.Alternatives, func(x, y []Operation) bool {
 				return slices.EqualFunc(x, y, sameOperation)

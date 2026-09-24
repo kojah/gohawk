@@ -100,6 +100,17 @@ collect to no effect at all. A loop driven by a flag, a map range, or a
 receive, and a loop that locks, sends, launches, defers, or calls something
 unknown, is still a cycle and leaves the summary unknown.
 
+A bounded loop whose every-iteration body only adds to a `WaitGroup` and
+launches goroutines is a worker pool. The collectors replay one iteration and
+mark its workers `Replicated`: each stands for one or more identical copies.
+That reading is sound only for a property more copies cannot break, such as a
+parent stuck because every worker needs a lock it holds, so a replicated
+worker makes the summary incomplete (`protocol-replicated-workers`) until a
+consumer opts in with `Summary.Representatives`. lockorder's cycle proofs
+opt in; channel dependency and count proofs, where copies can partner each
+other, do not. Resources made inside the loop are new objects each iteration
+and leave the loop unknown, and an exact small count is still unrolled.
+
 The first implementation deliberately leaves parent cancellation propagation,
 deadlines/timeouts, `WithoutCancel`, `WithValue`, `AfterFunc`, factory-returned
 contexts, nested selects, and open-ended worker loops unknown. In particular, it does

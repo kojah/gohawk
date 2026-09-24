@@ -96,7 +96,8 @@ func cancellationBound(reference Reference) bool {
 // be discharged before graph expansion, not just before linear consumption.
 func finishCancellation(summary Summary) Summary {
 	if summary.Reason != ReasonNone && summary.Reason != ReasonContextBindingRequired &&
-		summary.Reason != ReasonCallbackBindingRequired && summary.Reason != ReasonSelectAlternatives {
+		summary.Reason != ReasonCallbackBindingRequired && summary.Reason != ReasonReplicatedWorkers &&
+		summary.Reason != ReasonSelectAlternatives {
 		return summary
 	}
 	// Channel-valued helper arguments may become Done projections only at
@@ -120,7 +121,7 @@ func finishCancellation(summary Summary) Summary {
 	if summary.Reason == ReasonContextBindingRequired {
 		summary.Reason = ReasonNone
 	}
-	return finishCallbacks(summary)
+	return finishReplicas(finishCallbacks(summary))
 }
 
 // CancellationBound reports whether every conditional cancellation contract
@@ -137,7 +138,7 @@ func (summary Summary) CancellationBound() bool {
 
 func composableLinear(summary Summary) bool {
 	return summary.Reason == ReasonNone || summary.Reason == ReasonContextBindingRequired ||
-		summary.Reason == ReasonCallbackBindingRequired
+		summary.Reason == ReasonCallbackBindingRequired || summary.Reason == ReasonReplicatedWorkers
 }
 
 func requireCancellation(summary *Summary, inputs []Reference) {

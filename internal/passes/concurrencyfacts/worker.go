@@ -85,7 +85,8 @@ func appendCalled(result *Summary, called Summary, instruction ssa.CallInstructi
 	if called.workerAlternativesOnly() {
 		return ReasonNone
 	}
-	if called.Reason == ReasonContextBindingRequired || called.Reason == ReasonCallbackBindingRequired {
+	if called.Reason == ReasonContextBindingRequired || called.Reason == ReasonCallbackBindingRequired ||
+		called.Reason == ReasonReplicatedWorkers {
 		return ReasonNone
 	}
 	return called.Reason
@@ -109,7 +110,9 @@ func (summary Summary) workerAlternativesOnly() bool {
 func (engine *Engine) bindWorker(
 	worker WorkerSummary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
 ) (WorkerSummary, Reason) {
-	bound := WorkerSummary{Spawn: worker.Spawn, Site: instruction.Pos(), Prefix: worker.Prefix, Branches: worker.Branches}
+	bound := WorkerSummary{
+		Spawn: worker.Spawn, Site: instruction.Pos(), Prefix: worker.Prefix, Branches: worker.Branches, Replicated: worker.Replicated,
+	}
 	var reason Reason
 	bound.Operations, reason = engine.bindOperations(worker.Operations, bindings, instruction)
 	if reason != ReasonNone {

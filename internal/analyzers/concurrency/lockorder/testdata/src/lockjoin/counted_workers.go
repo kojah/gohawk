@@ -26,6 +26,9 @@ func countedReleasedBeforeWait() {
 	wg.Wait()
 }
 
+// A worker pool of unknown size deadlocks whenever it launches at least one
+// worker: every copy needs the lock the parent holds across Wait, and another
+// copy cannot release it. One representative worker proves that.
 func dynamicallyCounted(n int) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -33,6 +36,30 @@ func dynamicallyCounted(n int) {
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func() { mu.Lock(); wg.Done(); mu.Unlock() }()
+	}
+	wg.Wait() // want "waits for counted workers that need the held lock"
+	mu.Unlock()
+}
+
+func dynamicReleasedBeforeWait(items []int) {
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	mu.Lock()
+	for range items {
+		wg.Add(1)
+		go func() { mu.Lock(); wg.Done(); mu.Unlock() }()
+	}
+	mu.Unlock()
+	wg.Wait()
+}
+
+func dynamicWithoutTheLock(items []int) {
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	mu.Lock()
+	for range items {
+		wg.Add(1)
+		go func() { wg.Done() }()
 	}
 	wg.Wait()
 	mu.Unlock()

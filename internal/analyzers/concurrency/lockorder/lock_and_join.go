@@ -54,7 +54,11 @@ func reportSynchronizationCycles(pass *analysis.Pass, function *ssa.Function, en
 	probe := analysisTrace.For(pass, "lockorder", string(probeID), candidate)
 	probe.Candidate(analysisTrace.Step{Reason: dependencySyncCycleCandidate.String(), Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
 	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(probe.Observer()))
-	graphs, reason := syncmodel.Expand(root)
+	// Every proof below claims the parent is stuck because each worker that
+	// could release it first needs a lock the parent holds. Identical copies of
+	// a worker need that lock too, so one representative of a worker pool
+	// proves the same claim for any number of copies.
+	graphs, reason := syncmodel.Expand(root.Representatives())
 	if channelCandidate != token.NoPos {
 		joinProbe := analysisTrace.For(pass, "lockorder", string(check.LockAndJoin), channelCandidate)
 		root.ObserveCutoff(joinProbe.Observer())

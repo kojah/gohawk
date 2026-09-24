@@ -178,9 +178,15 @@ The proof requires one exact `Add(1)` per child, all launches after the parent
 locks and before it waits, and the required complete child effects in every
 bounded variant. Exact zero-based unit-step loops of at most four iterations
 can supply distinct children; each child must be counted before its launch.
-Registration can interleave with launches under the held lock. Counter captures,
-per-iteration resources, and unsupported control flow remain unknown. A dynamic
-or different count, another decrement, early `Done`, unknown participant, or
+A worker pool with an unknown count, such as `for range items { wg.Add(1); go
+worker() }`, is read as one representative child: every copy needs the same
+held mutex, so no copy can release another, and one blocked child proves the
+cycle for any number of them. The loop must be a range or counted loop, its
+every-iteration body may only add to the group and launch children, and the
+children must use the same resources on every iteration. Registration can
+interleave with launches under the held lock. Counter captures,
+per-iteration resources, and unsupported control flow remain unknown. A
+different count, another decrement, early `Done`, unknown participant, or
 different launch order is inconclusive. It does not infer the counter from
 method names, or treat an arbitrary `Wait` and lock as a deadlock.
 

@@ -31,18 +31,10 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 		if panics(block) {
 			continue
 		}
-		current := states[block]
 		folded := flow.isFolded(block)
-		for _, instruction := range block.Instrs {
-			if folded {
-				// A quiet loop adds nothing; see loops.go.
-				break
-			}
-			current, reason = engine.advancePaths(current, instruction, root)
-			if reason != ReasonNone {
-				engine.recordCutoff(instruction, cutoffInstruction)
-				return Summary{Reason: reason}
-			}
+		current, reason := engine.advanceBlock(states[block], flow, block, root)
+		if reason != ReasonNone {
+			return Summary{Reason: reason}
 		}
 		successors := flow.successors(block)
 		if len(successors) == 0 {
@@ -98,6 +90,28 @@ func finishPaths(paths []Summary) Summary {
 		paths[index] = finishCancellation(paths[index])
 	}
 	return Summary{Paths: paths, Reason: ReasonBranchAlternatives}
+}
+
+// advanceBlock adds one block's effects to every state: a folded loop's
+// replay (see loops.go), or the block's own instructions.
+func (engine *Engine) advanceBlock(states []Summary, flow acyclicFlow, block *ssa.BasicBlock, root bool) ([]Summary, Reason) {
+	if folded, ok := flow.folded[block]; ok {
+		for index := range states {
+			if reason := engine.replayLoop(&states[index], folded, root); reason != ReasonNone {
+				return nil, reason
+			}
+		}
+		return states, ReasonNone
+	}
+	for _, instruction := range block.Instrs {
+		var reason Reason
+		states, reason = engine.advancePaths(states, instruction, root)
+		if reason != ReasonNone {
+			engine.recordCutoff(instruction, cutoffInstruction)
+			return nil, reason
+		}
+	}
+	return states, ReasonNone
 }
 
 func (engine *Engine) advancePaths(states []Summary, instruction ssa.Instruction, root bool) ([]Summary, Reason) {

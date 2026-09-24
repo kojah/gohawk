@@ -19,7 +19,18 @@ func fresh() { for i := 0; i < 2; i++ { c := make(chan int); go signal(c) } }
 func five(c chan int) { for i := 0; i < 5; i++ { go signal(c) } }
 func forever(c chan int) { for { go signal(c) } }
 `)
-	for _, name := range []string{"dynamic", "captured", "conditional", "fresh", "five", "forever"} {
+	// A loop with an unknown count launches one or more identical workers:
+	// one representative, incomplete until a consumer opts in.
+	for _, name := range []string{"dynamic", "conditional", "five"} {
+		got := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		if got.Complete() || got.Reason != ReasonReplicatedWorkers || len(got.Workers) != 1 || !got.Workers[0].Replicated {
+			t.Errorf("%s = %+v, want one replicated worker", name, got)
+		}
+		if read := got.Representatives(); !read.Complete() || len(read.Workers) != 1 {
+			t.Errorf("%s representatives = %+v, want one complete worker", name, read)
+		}
+	}
+	for _, name := range []string{"captured", "fresh", "forever"} {
 		got := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 		if got.Complete() || len(got.Workers) != 0 {
 			t.Errorf("%s retained unsupported loop effects: %+v", name, got)

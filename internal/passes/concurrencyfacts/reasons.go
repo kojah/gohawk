@@ -43,6 +43,7 @@ const (
 	ReasonRecursiveProtocol
 	ReasonCallbackBindingRequired
 	ReasonCallbackUnknown
+	ReasonReplicatedWorkers
 	reasonCount
 )
 
@@ -84,6 +85,7 @@ var reasonCodes = [...]string{
 	ReasonRecursiveProtocol:         "recursive-protocol",
 	ReasonCallbackBindingRequired:   "protocol-callback-binding-required",
 	ReasonCallbackUnknown:           "protocol-callback-unknown",
+	ReasonReplicatedWorkers:         "protocol-replicated-workers",
 }
 
 // String is the stable trace representation; numeric values are not wire codes.

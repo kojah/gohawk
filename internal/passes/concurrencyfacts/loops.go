@@ -84,15 +84,23 @@ func (engine *Engine) repeatableBody(body *ssa.BasicBlock) bool {
 // range, a Boolean flag, or a receive, is not proven to end and stays a
 // cycle, which the collectors decline.
 
-// acyclicFlow is a function's blocks in topological order with its quiet
+// acyclicFlow is a function's blocks in topological order with its foldable
 // loops folded into their headers.
 type acyclicFlow struct {
 	order  []*ssa.BasicBlock
-	folded map[*ssa.BasicBlock]ssaflow.NaturalLoop
+	folded map[*ssa.BasicBlock]foldedLoop
 }
 
-// isFolded reports whether block is the header of a folded quiet loop, whose
-// instructions contribute nothing.
+// foldedLoop is a loop the collectors treat as one node. replay lists the
+// blocks whose effects they add once, in order: none for a quiet loop, one
+// iteration for a worker pool (see replicated_workers.go).
+type foldedLoop struct {
+	loop   ssaflow.NaturalLoop
+	replay []*ssa.BasicBlock
+}
+
+// isFolded reports whether block is the header of a folded loop, whose own
+// instructions the collectors replace with its replay.
 func (flow acyclicFlow) isFolded(block *ssa.BasicBlock) bool {
 	_, folded := flow.folded[block]
 	return folded
@@ -100,36 +108,56 @@ func (flow acyclicFlow) isFolded(block *ssa.BasicBlock) bool {
 
 // successors returns a block's successors, or a folded loop's exits.
 func (flow acyclicFlow) successors(block *ssa.BasicBlock) []*ssa.BasicBlock {
-	if loop, folded := flow.folded[block]; folded {
-		return loop.Exits
+	if folded, ok := flow.folded[block]; ok {
+		return folded.loop.Exits
 	}
 	return block.Succs
 }
 
-func (engine *Engine) foldQuietLoops(function *ssa.Function, root bool) map[*ssa.BasicBlock]ssaflow.NaturalLoop {
-	folded := make(map[*ssa.BasicBlock]ssaflow.NaturalLoop)
+func (engine *Engine) foldLoops(function *ssa.Function, root bool) map[*ssa.BasicBlock]foldedLoop {
+	folded := make(map[*ssa.BasicBlock]foldedLoop)
 	loops, ok := ssaflow.OutermostLoops(function, engine.budget)
 	if !ok {
 		return folded
 	}
 	for _, loop := range loops {
+		if !ssaflow.BoundedLoop(loop, engine.budget) {
+			continue
+		}
 		if engine.quietLoop(loop, root) {
-			folded[loop.Header] = loop
+			folded[loop.Header] = foldedLoop{loop: loop}
+			continue
+		}
+		// An exact small count is unrolled later, which is more precise than
+		// one representative iteration.
+		if ssaflow.ProveCountedLoop(loop.Header, maxProtocolIterations, engine.budget).Proven() {
+			continue
+		}
+		if replay, ok := engine.workerPool(loop, root); ok {
+			folded[loop.Header] = foldedLoop{loop: loop, replay: replay}
 		}
 	}
 	return folded
 }
 
 func (engine *Engine) quietLoop(loop ssaflow.NaturalLoop, root bool) bool {
-	if !ssaflow.BoundedLoop(loop, engine.budget) {
-		return false
-	}
 	var effects Summary
 	for _, block := range loop.Blocks {
 		if engine.collectBlock(&effects, block, root) != ReasonNone {
 			return false
 		}
 	}
-	return len(effects.Operations) == 0 && len(effects.Workers) == 0 && len(effects.Choices) == 0 &&
-		len(effects.deferred) == 0 && len(effects.CancellationInputs) == 0 && len(effects.Conditions) == 0
+	return noEffects(effects)
+}
+
+// replayLoop adds a folded loop's replayed iteration to state.
+func (engine *Engine) replayLoop(state *Summary, folded foldedLoop, root bool) Reason {
+	before := len(state.Workers)
+	for _, block := range folded.replay {
+		if reason := engine.collectBlock(state, block, root); reason != ReasonNone {
+			return reason
+		}
+	}
+	markReplicated(state, before)
+	return ReasonNone
 }
