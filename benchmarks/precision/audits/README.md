@@ -3,8 +3,10 @@
 New overnight audit: [batch 56](batch-56.md) records the first 250 of the
 September 24 target of 1,000 fresh pinned repositories. Its 381 original
 findings have all been source-reviewed, with 197 complete, 52 incomplete, and
-one failed repository scan. Later batches and corrected replays will be
-recorded separately; incomplete/failed scans are not clean.
+one failed repository scan. A documented post-record correction changes one
+Go-Kratos `nilargument` label from TP to FP (278 TP, 100 FP, three inconclusive).
+Later batches and corrected replays will be recorded separately;
+incomplete/failed scans are not clean.
 
 Latest: [follow-up of all 337 remaining sites](followup-337.md), separating
 verified corrections, already-absent reports, and unresolved evidence gaps.

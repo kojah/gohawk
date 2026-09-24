@@ -13,13 +13,22 @@ All 250 pinned repositories were attempted across 292 module entries. There
 were 197 complete scans, 52 incomplete scans, and one failed checkout. Only
 116 complete scans had no findings; incomplete and failed scans are not counted
 as clean. Every one of the 381 emitted findings was reviewed against its pinned
-source: 279 true positives, 99 false positives, and three inconclusive.
+source: 278 true positives, 100 false positives, and three inconclusive.
 These are source judgments about the reported policy and feasible paths, not
 runtime reproductions or a recall measurement.
 
+Post-record correction (September 24): the original record labeled
+`go-kratos/gateway@a553bef5c1a8cc03ae3d114e5e578c51b8ac06a0`
+`proxy/condition/condition.go:101:14` (`nilargument/dereferenced-nil`) a true
+positive. Reviewing the exact diagnostic changed that verdict to false positive:
+it asserts a definitely nil `Condition_ByHeader.ByHeader`, but the type-switch
+value comes from caller input and can contain a nonnil field. A malformed value
+can still panic; it does not establish the reported definite-nil claim. The
+finding key is unchanged, and the totals above include this one-label correction.
+
 | Analyzer | TP | FP | Inconclusive |
 | --- | ---: | ---: | ---: |
-| `nilargument` | 1 | 68 | 0 |
+| `nilargument` | 0 | 69 | 0 |
 | `resourcelifetime` | 172 | 21 | 1 |
 | `lockorder` | 30 | 0 | 0 |
 | `goroutineownership` | 22 | 2 | 2 |
