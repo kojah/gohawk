@@ -700,7 +700,10 @@ a function-typed parameter is published as a hole at its position, and the
 importing call site fills it with the function or closure it supplies. Version 8 adds
 bounded path alternatives for functions whose branches have different
 effects: each carries its conditions by parameter position, numbered opaque
-inner conditions, and the constants or non-nil values it returns.
+inner conditions, and the constants or non-nil values it returns. Version 9
+adds interface holes: an `Invoke` effect on an interface-typed parameter
+names its method, and the importing call site fills it with that method of
+the one concrete value it boxes. Only exported methods are published.
 
 Local composition also resolves exact interface boxes through shared dispatch
 evidence, preserving the concrete receiver's argument position. Loaded channel

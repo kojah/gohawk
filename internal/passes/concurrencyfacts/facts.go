@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	factVersion  = 8
+	factVersion  = 9
 	exportBudget = 2000
 )
 
@@ -28,6 +28,10 @@ type Effect struct {
 	Kind      Kind
 	Parameter int
 	Fields    []int
+	// Method names the interface method an Invoke hole calls on the
+	// parameter; it is empty for a function-typed parameter. Only exported
+	// methods are published, since an importer selects the method by name.
+	Method string
 }
 
 // WorkerEffect is one exact child launch with effects on the declaration's
@@ -169,6 +173,12 @@ func exportEffect(function *ssa.Function, operation Operation) (Effect, bool) {
 		if projected && path.Depth > 0 {
 			effect.Fields = append([]int(nil), path.Fields[:path.Depth]...)
 		}
+		if operation.Method != nil {
+			if !operation.Method.Exported() {
+				return Effect{}, false
+			}
+			effect.Method = operation.Method.Name()
+		}
 		return effect, true
 	}
 	return Effect{}, false
@@ -248,7 +258,11 @@ func (engine *Engine) bindEffect(result *Summary, call ssa.CallInstruction, effe
 		if len(effect.Fields) != 0 {
 			return ReasonCallbackUnknown
 		}
-		return engine.bindCallback(result, Operation{Kind: Invoke, Source: call.Pos()}, value, call)
+		method, ok := publishedMethod(value, effect.Method)
+		if !ok {
+			return ReasonCallbackUnknown
+		}
+		return engine.bindCallback(result, Operation{Kind: Invoke, Method: method, Source: call.Pos()}, value, call)
 	}
 	if len(effect.Fields) > 0 {
 		var found bool
@@ -258,4 +272,22 @@ func (engine *Engine) bindEffect(result *Summary, call ssa.CallInstruction, effe
 		}
 	}
 	return engine.appendOperation(result, effect.Kind, value, call.Pos())
+}
+
+// publishedMethod selects a published hole's method on the importer's
+// argument, which has the declaration's interface type. An empty name is a
+// function hole.
+func publishedMethod(argument ssa.Value, name string) (*types.Func, bool) {
+	if name == "" {
+		return nil, true
+	}
+	if !types.IsInterface(argument.Type()) {
+		return nil, false
+	}
+	selection := types.NewMethodSet(argument.Type()).Lookup(nil, name)
+	if selection == nil {
+		return nil, false
+	}
+	method, ok := selection.Obj().(*types.Func)
+	return method, ok
 }

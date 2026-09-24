@@ -66,6 +66,10 @@ type Effect struct {
 	Kind		Kind
 	Parameter	int
 	Fields		[]int
+	// Method names the interface method an Invoke hole calls on the
+	// parameter; it is empty for a function-typed parameter. Only exported
+	// methods are published, since an importer selects the method by name.
+	Method	string
 }
 ```
 
@@ -326,6 +330,9 @@ type Operation struct {
 	Resource	Reference
 	Source		token.Pos
 	Site		token.Pos
+	// Method is the interface method an Invoke hole calls, or nil when the
+	// hole calls a function value.
+	Method	*types.Func
 	// Alternates are the sources of the same operation on other branches that
 	// folded into this one because their ordered effects were equal. Source
 	// stays the first branch's position. Local diagnostic metadata only.
@@ -498,9 +505,10 @@ const (
 	Cancel
 	ReadLock
 	ReadUnlock
-	// Invoke calls a function-typed input at this point. It is a hole, not an
-	// effect: binding replaces it with the supplied function's effects, and a
-	// summary that still contains one is incomplete (see callbacks.go).
+	// Invoke calls a function-typed input, or a method of an interface input,
+	// at this point. It is a hole, not an effect: binding replaces it with the
+	// supplied function's or concrete method's effects, and a summary that
+	// still contains one is incomplete (see callbacks.go).
 	Invoke
 )
 ```

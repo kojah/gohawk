@@ -47,11 +47,15 @@ select expansion enforce this boundary. Cross-package forwarding preserves
 these requirements, ordered requests, receives, and child launches.
 
 Callback inputs follow the same model. A call through a function-typed
-parameter or capture, with only inert arguments, becomes an `Invoke` hole at
-its position in the ordered effects instead of making the whole summary
-unknown. Binding fills the hole with the supplied function or closure's own
-bound effects, launched workers included, or forwards it to the caller's own
-function input. A summary that still has a hole is incomplete, and graph
+parameter or capture, or a method call on an interface-typed one other than a
+context, with only inert arguments, becomes an `Invoke` hole at its position
+in the ordered effects instead of making the whole summary unknown. Binding
+fills the hole with the supplied function or closure's own bound effects,
+launched workers included, or with the method of the one concrete value the
+caller boxes, bound to that value as its receiver. Otherwise it forwards the
+hole to the caller's own input, through interface conversions. An interface
+read from memory or merged from several values could hold any type and leaves
+the hole unknown. A summary that still has a hole is incomplete, and graph
 construction and select expansion both refuse it. Holes are filled only in the
 linear sequence: a hole inside a launched worker, a select arm, a deferred
 call, or a branching path stays unknown, as does a supplied callback that has

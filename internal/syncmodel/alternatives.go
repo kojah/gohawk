@@ -91,7 +91,7 @@ func workerChoicesComplete(summary concurrencyfacts.Summary) bool {
 
 // identicalOperation compares operations including their positions.
 func identicalOperation(a, b concurrencyfacts.Operation) bool {
-	return a.Kind == b.Kind && a.Resource == b.Resource && a.Source == b.Source && a.Site == b.Site &&
+	return a.Kind == b.Kind && a.Resource == b.Resource && a.Method == b.Method && a.Source == b.Source && a.Site == b.Site &&
 		slices.Equal(a.Alternates, b.Alternates)
 }
 
