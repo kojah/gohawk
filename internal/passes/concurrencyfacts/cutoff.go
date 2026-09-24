@@ -67,16 +67,31 @@ func (engine *Engine) recordBlockCutoff(block *ssa.BasicBlock, shape cutoffShape
 	}
 }
 
-// blockPosition returns the first source position within block, which for a
-// loop header is usually its condition or range step.
+// blockPosition returns the first source position within block or, when it
+// has none, as a range loop's header often does, within the blocks it leads
+// to, nearest first; for a loop header that is its body.
 func blockPosition(block *ssa.BasicBlock) token.Pos {
-	for _, instruction := range block.Instrs {
-		if instruction.Pos().IsValid() {
-			return instruction.Pos()
+	queue, seen := []*ssa.BasicBlock{block}, map[*ssa.BasicBlock]bool{block: true}
+	for len(queue) != 0 && len(seen) <= maxPositionSearch {
+		current := queue[0]
+		queue = queue[1:]
+		for _, instruction := range current.Instrs {
+			if instruction.Pos().IsValid() {
+				return instruction.Pos()
+			}
+		}
+		for _, next := range current.Succs {
+			if !seen[next] {
+				seen[next] = true
+				queue = append(queue, next)
+			}
 		}
 	}
 	return token.NoPos
 }
+
+// maxPositionSearch bounds how many blocks blockPosition inspects.
+const maxPositionSearch = 8
 
 func (engine *Engine) instantiatedCutoff(result Summary, call ssa.CallInstruction) Summary {
 	if result.Reason == ReasonNone || result.AlternativesComplete || len(result.Paths) != 0 {
