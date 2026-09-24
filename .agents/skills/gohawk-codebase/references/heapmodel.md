@@ -131,6 +131,8 @@ func ContentIsNilAt(root ssa.Value, path []string, at ssa.Instruction) bool
 ```
 
 ContentIsNilAt requires the observed slot to hold nil on every path.
+Nested pointer fields follow only exact pointees; opaque contents are
+unknown, not a proof of nil.
 
 ## ContentValue
 

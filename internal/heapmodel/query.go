@@ -52,6 +52,8 @@ func ValueAtPath(root ssa.Value, path []string, at ssa.Instruction) (ssa.Value, 
 }
 
 // ContentIsNilAt requires the observed slot to hold nil on every path.
+// Nested pointer fields follow only exact pointees; opaque contents are
+// unknown, not a proof of nil.
 func ContentIsNilAt(root ssa.Value, path []string, at ssa.Instruction) bool {
 	if at == nil || at.Parent() == nil {
 		return false
