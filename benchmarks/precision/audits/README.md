@@ -1,5 +1,11 @@
 # Precision audits
 
+New overnight audit: [batch 56](batch-56.md) records the first 250 of the
+September 24 target of 1,000 fresh pinned repositories. Its 381 original
+findings have all been source-reviewed, with 197 complete, 52 incomplete, and
+one failed repository scan. Later batches and corrected replays will be
+recorded separately; incomplete/failed scans are not clean.
+
 Latest: [follow-up of all 337 remaining sites](followup-337.md), separating
 verified corrections, already-absent reports, and unresolved evidence gaps.
 The [overnight 1,250-repository audit](overnight-2026-09-22.md) records the
