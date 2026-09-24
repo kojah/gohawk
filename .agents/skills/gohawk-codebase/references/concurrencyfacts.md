@@ -126,6 +126,17 @@ func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget)
 
 Root collects a caller and at most maxWorkers children under one shared work budget.
 
+A root summary answers what can happen before the root returns, for
+consumers that prove a wait which blocks before any return. It relies on
+two assumptions that composed helper summaries do not make:
+  - Returned values reach the caller only after the root returns, so a
+    returned reference is not treated as a new participant.
+  - A path that panics never reaches a later wait, so instructions that can
+    panic on a nil owner or bad index are admitted like any other.
+
+A consumer that reasons about effects after the root returns, or that needs
+every path to complete, must not use Root.
+
 ## Fact
 
 [Source](../../../../internal/passes/concurrencyfacts/facts.go)
