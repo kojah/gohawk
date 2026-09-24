@@ -8,7 +8,6 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -67,7 +66,8 @@ type channelInventory struct {
 
 // newChannelInventory scans every function buildssa built for this package,
 // including generated files and closures, because a use the scan skips would
-// break the closed world.
+// break the closed world. Test files are outside that world unless the
+// test-file option includes them: the check is about production callers.
 func newChannelInventory(pass *analysis.Pass) *channelInventory {
 	inventory := &channelInventory{
 		fields:    map[*types.Var]*ownedChannel{},
@@ -77,11 +77,7 @@ func newChannelInventory(pass *analysis.Pass) *channelInventory {
 			invoked: map[string]bool{}, launchers: map[*ssa.Function][]*ssa.Go{},
 		},
 	}
-	result, ok := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
-	if !ok {
-		return inventory
-	}
-	for _, function := range result.SrcFuncs {
+	for _, function := range ssaflow.PackageFunctions(pass) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				inventory.launches.record(instruction)

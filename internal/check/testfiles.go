@@ -5,27 +5,23 @@ import (
 	"go/token"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 )
 
-// Test files are excluded from every diagnostic by default. Fixture files,
-// table-driven tests, and intentionally orphaned helper processes produce a
-// steady stream of reports that are true by the letter of a policy and rarely
-// worth acting on, and they dominated review effort in the repository audit.
-// Analyzers whose subject is the test itself opt back in through the registry;
-// everything else can be re-enabled with -gohawk-include-tests.
-
-var includeTests bool
+// Test code is outside gohawk's subject: it is neither analyzed nor reported
+// unless -gohawk-include-tests is set. syntax.AnalyzeFile owns the decision;
+// the registry repeats it only as a backstop for a diagnostic whose position
+// lands in a test file.
 
 // RegisterFlags adds the test-file option to the analysis driver's flag set.
 func RegisterFlags(flags *flag.FlagSet) {
-	flags.BoolVar(&includeTests, "gohawk-include-tests", false, "report diagnostics in _test.go files")
+	syntax.RegisterTestFlag(flags)
 }
 
-// IncludeTests reports whether diagnostics in test files are wanted from
-// analyzers.
+// IncludeTests reports whether test files are analyzed and reported.
 func IncludeTests() bool {
-	return includeTests
+	return syntax.IncludeTestFiles()
 }
 
 // TestFilePosition reports whether position lies in a _test.go file.

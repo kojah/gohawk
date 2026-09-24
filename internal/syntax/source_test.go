@@ -59,3 +59,29 @@ func TestCanonicalTestVariantResult(t *testing.T) {
 		t.Fatal("canonicalTestVariant accepted an unrelated prerequisite result")
 	}
 }
+
+func TestAnalyzeFileSkipsTestFilesUnlessIncluded(t *testing.T) {
+	files := token.NewFileSet()
+	production, err := parser.ParseFile(files, "p.go", "package p\n", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	test, err := parser.ParseFile(files, "p_test.go", "package p\n", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marker := &analysis.Analyzer{Name: "marker", Doc: "test marker", Run: func(*analysis.Pass) (any, error) { return nil, nil }}
+	// The augmented test variant is the only pass this driver runs.
+	pass := &analysis.Pass{
+		Fset: files, Files: []*ast.File{production, test},
+		ResultOf: map[*analysis.Analyzer]any{marker: CanonicalTestVariant{}},
+	}
+	if !AnalyzeFile(pass, production) || AnalyzeFile(pass, test) {
+		t.Fatal("default analysis must keep production files and skip test files")
+	}
+	includeTestFiles = true
+	t.Cleanup(func() { includeTestFiles = false })
+	if !AnalyzeFile(pass, production) || !AnalyzeFile(pass, test) {
+		t.Fatal("the test-file option must analyze both files")
+	}
+}

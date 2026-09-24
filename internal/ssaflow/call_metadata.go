@@ -27,6 +27,24 @@ func SourceSSAFunctions(pass *analysis.Pass) ([]*ssa.Function, error) {
 	return functions, nil
 }
 
+// PackageFunctions returns every source function of the package outside
+// excluded test files, for inventories that must see all of the package's
+// code rather than only the canonical copy SourceSSAFunctions selects.
+func PackageFunctions(pass *analysis.Pass) []*ssa.Function {
+	result, ok := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
+	if !ok {
+		return nil
+	}
+	functions := make([]*ssa.Function, 0, len(result.SrcFuncs))
+	for _, function := range result.SrcFuncs {
+		if file := FunctionFile(pass, function); file != nil && syntax.ExcludedTestFile(pass, file) {
+			continue
+		}
+		functions = append(functions, function)
+	}
+	return functions
+}
+
 // InstructionCall returns call metadata carried by call-like SSA instructions.
 func InstructionCall(instruction ssa.Instruction) *ssa.CallCommon {
 	switch typed := instruction.(type) {

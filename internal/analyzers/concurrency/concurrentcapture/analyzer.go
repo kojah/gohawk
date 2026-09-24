@@ -45,6 +45,9 @@ func runConcurrentCapture(pass *analysis.Pass) (any, error) {
 		}
 	}
 	for _, file := range pass.Files {
+		if !syntax.AnalyzeFile(pass, file) {
+			continue
+		}
 		ast.Inspect(file, func(node ast.Node) bool {
 			var body *ast.BlockStmt
 			switch loop := node.(type) {

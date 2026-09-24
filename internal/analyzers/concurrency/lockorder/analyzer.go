@@ -74,8 +74,9 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	// is summarized once rather than once per site.
 	calleeLocks := newCalleeLockSearch()
 	ssaResult := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
-	callers := conditionalCallerSets(append([]*ssa.Function{ssaResult.Pkg.Func("init")}, ssaResult.SrcFuncs...))
-	exclusive := newExclusiveCallers(pass, ssaResult.SrcFuncs)
+	packageFunctions := ssaflow.PackageFunctions(pass)
+	callers := conditionalCallerSets(append([]*ssa.Function{ssaResult.Pkg.Func("init")}, packageFunctions...))
+	exclusive := newExclusiveCallers(pass, packageFunctions)
 	concurrency, _ := summaryKnowledge.Provider(pass).Concurrency()
 	for _, function := range functions {
 		var evidence lifecycle.LocalEvidence
