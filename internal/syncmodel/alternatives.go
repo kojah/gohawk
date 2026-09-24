@@ -95,7 +95,7 @@ func workerChoicesComplete(summary concurrencyfacts.Summary) bool {
 			}
 			matched = true
 			for index, arm := range choice.Arms {
-				if !arm.Complete || !slices.Equal(arm.Sequence, worker.Alternatives[index]) {
+				if !arm.Complete || !slices.EqualFunc(arm.Sequence, worker.Alternatives[index], identicalOperation) {
 					return false
 				}
 			}
@@ -105,4 +105,10 @@ func workerChoicesComplete(summary concurrencyfacts.Summary) bool {
 		}
 	}
 	return count+branches != 0 && count == len(summary.Choices)
+}
+
+// identicalOperation compares operations including their positions.
+func identicalOperation(a, b concurrencyfacts.Operation) bool {
+	return a.Kind == b.Kind && a.Resource == b.Resource && a.Source == b.Source && a.Site == b.Site &&
+		slices.Equal(a.Alternates, b.Alternates)
 }

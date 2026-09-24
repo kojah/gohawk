@@ -1,6 +1,7 @@
 package concurrencyfacts
 
 import (
+	"go/token"
 	"slices"
 
 	"golang.org/x/tools/go/ssa"
@@ -38,16 +39,23 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 				engine.recordBlockCutoff(block, cutoffBranch)
 				return Summary{Reason: ReasonBranchEffectsDiffer}
 			}
+			if terminal != nil {
+				state = foldSources(state, *terminal)
+			}
 			terminal = &state
 		}
 		for _, next := range block.Succs {
 			// A join with different synchronization histories is not one
 			// unconditional protocol, even if later operations happen to agree.
-			if previous, exists := states[next]; exists && !sameEffects(previous, state) {
+			previous, exists := states[next]
+			if exists && !sameEffects(previous, state) {
 				engine.recordBlockCutoff(block, cutoffBranch)
 				return Summary{Reason: ReasonBranchEffectsDiffer}
 			}
 			states[next] = cloneEffects(state)
+			if exists {
+				states[next] = foldSources(states[next], previous)
+			}
 		}
 	}
 	if terminal == nil {
@@ -141,4 +149,22 @@ func cloneEffects(summary Summary) Summary {
 		}
 	}
 	return summary
+}
+
+// foldSources keeps the positions of an equal branch that is being merged
+// away, so consumers can still attribute each branch's operation. It assumes
+// sameEffects already matched the two operation sequences.
+func foldSources(into, from Summary) Summary {
+	into.Operations = slices.Clone(into.Operations)
+	for index, operation := range from.Operations {
+		target := &into.Operations[index]
+		sources := append([]token.Pos{operation.Source}, operation.Alternates...)
+		target.Alternates = slices.Clone(target.Alternates)
+		for _, source := range sources {
+			if source != target.Source && !slices.Contains(target.Alternates, source) {
+				target.Alternates = append(target.Alternates, source)
+			}
+		}
+	}
+	return into
 }

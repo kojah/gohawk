@@ -55,3 +55,24 @@ func diamonds(a chan int, x, y bool) {
 		t.Fatalf("budget-shortened branch summary poisoned cache: %+v", result)
 	}
 }
+
+// Folding equal branches keeps each branch's source for attribution.
+func TestFoldedBranchesKeepEverySource(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "foldedsources", `package foldedsources
+func Send(ch chan int, fail bool) {
+	if fail {
+		ch <- 1
+		return
+	}
+	ch <- 2
+}
+`)
+	got := NewEngine().Function(pkg.Func("Send"), ssaflow.NewSearchBudget(2000))
+	if got.Completeness() != CompleteWithEffects || len(got.Operations) != 1 {
+		t.Fatalf("folded summary = %+v", got)
+	}
+	operation := got.Operations[0]
+	if len(operation.Alternates) != 1 || operation.Alternates[0] == operation.Source || !operation.Alternates[0].IsValid() {
+		t.Errorf("folded send = %+v, want one distinct alternate source", operation)
+	}
+}
