@@ -152,7 +152,7 @@ func Caller(done chan int) { _ = Returned(done) }
 	}
 }
 
-// Reads, writes, and nil checks of unrelated caller-owned values are passive.
+// Reads, writes, nil checks, and container work on unrelated values are passive.
 // A value or slot that could be a resource identity, or a copy of one, still
 // stops the summary, including a mutex on an object reached through storage.
 func TestCallerStorageLoads(t *testing.T) {
@@ -183,6 +183,19 @@ func Writes(o *owner) {
 	if o.peer != nil && o.done == nil { o.name = "set" }
 	o.mu.Unlock()
 }
+func Containers(o *owner, key string) int {
+	o.mu.Lock()
+	seen := make(map[string]int)
+	seen[key]++
+	counts := make([]int, 4)
+	counts[1] = seen[key]
+	_, ok := seen["other"]
+	o.mu.Unlock()
+	if ok { return 0 }
+	return counts[1]
+}
+func StoreInMap(ch chan int) { m := make(map[string]chan int); m["k"] = ch }
+func ReadFromMap(m map[string]chan int) { <-m["k"] }
 func PeerMutex(o *owner) { o.peer.mu.Lock(); o.peer.mu.Unlock() }
 func StoreChannel(o *owner, ch chan int) { o.done = ch }
 func Channel(o *owner) { <-o.done }
@@ -197,7 +210,10 @@ func Context(o *owner) { <-o.ctx.Done() }
 	if got := engine.Root(pkg.Func("Writes"), ssaflow.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects || len(got.Operations) != 2 {
 		t.Errorf("inert writes = %+v, want the lock pair alone", got)
 	}
-	for _, name := range []string{"Channel", "Pointer", "Copy", "Context", "PeerMutex", "StoreChannel"} {
+	if got := engine.Root(pkg.Func("Containers"), ssaflow.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects || len(got.Operations) != 2 {
+		t.Errorf("inert containers = %+v, want the lock pair alone", got)
+	}
+	for _, name := range []string{"Channel", "Pointer", "Copy", "Context", "PeerMutex", "StoreChannel", "StoreInMap", "ReadFromMap"} {
 		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Complete() {
 			t.Errorf("%s = %+v, want incomplete", name, got)
 		}

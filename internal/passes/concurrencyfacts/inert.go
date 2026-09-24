@@ -8,14 +8,15 @@ import (
 )
 
 // Inert data is ordinary program state that cannot block, synchronize, or
-// become a resource identity: a counter, flag, name, or logger reached through
-// a caller's pointer. Such storage may change under other goroutines, so an
+// become a resource identity: a counter, flag, name, logger, or map of such
+// values, including one reached through a caller's pointer. Such storage may change under other goroutines, so an
 // inert value never names a channel, primitive, or context. Admitting these
 // instructions omits no synchronization effect. Any later use of an inert value
 // is still classified on its own, so a dynamic call, type assertion, or
-// unmodeled callee keeps stopping the summary. Field addresses and reads can
-// panic on a nil owner, which the engine already accepts for field addresses on
-// parameters: a path that panics never reaches a later wait.
+// unmodeled callee keeps stopping the summary. Field addresses, reads, and
+// container operations can panic on a nil owner, a bad index, or a nil map,
+// which the engine already accepts for field addresses on parameters: a path
+// that panics never reaches a later wait.
 
 // inertValue rejects every type that could carry a resource identity directly.
 // A value that embeds a primitive is rejected too, since copying it would copy
@@ -36,6 +37,28 @@ func inertDataInstruction(instruction ssa.Instruction) bool {
 		// Writing a flag or counter cannot satisfy a modeled wait. A child that
 		// reads it only chooses among branches the summary already keeps.
 		return inertValue(instruction.Val.Type()) && inertAddress(instruction.Addr)
+	case *ssa.MakeMap, *ssa.MakeSlice:
+		// A new empty container holds no resource. A bad size can panic, and a
+		// path that panics never reaches a later wait.
+		return true
+	case *ssa.IndexAddr:
+		return inertAddress(instruction)
+	case *ssa.Slice:
+		// Reslicing shares elements; it creates no new identity.
+		return inertElements(instruction.Type())
+	case *ssa.Lookup:
+		// Reading a map or string element yields that element, or with CommaOk
+		// the element and a Boolean.
+		return inertValue(lookupElement(instruction))
+	case *ssa.Extract:
+		// Projecting a result its producer already accounted for. Select
+		// results feed the dispatch proof, which keeps its own handling.
+		_, selected := instruction.Tuple.(*ssa.Select)
+		return !selected && inertValue(instruction.Type())
+	case *ssa.MapUpdate:
+		// Storing a resource in a map would publish it, so only inert keys and
+		// values are admitted.
+		return inertValue(instruction.Key.Type()) && inertValue(instruction.Value.Type())
 	case *ssa.BinOp:
 		// Comparing against nil never panics, even for interfaces.
 		return (instruction.Op == token.EQL || instruction.Op == token.NEQ) &&
@@ -53,4 +76,18 @@ func inertAddress(address ssa.Value) bool {
 func nilConstant(value ssa.Value) bool {
 	constant, ok := value.(*ssa.Const)
 	return ok && constant.IsNil()
+}
+
+func lookupElement(lookup *ssa.Lookup) types.Type {
+	if tuple, ok := lookup.Type().(*types.Tuple); ok {
+		return tuple.At(0).Type()
+	}
+	return lookup.Type()
+}
+
+func inertElements(value types.Type) bool {
+	if slice, ok := value.Underlying().(*types.Slice); ok {
+		return inertValue(slice.Elem())
+	}
+	return inertValue(value)
 }
