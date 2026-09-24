@@ -31,6 +31,7 @@ func (engine *Engine) appendGo(result *Summary, instruction *ssa.Go) Reason {
 			}
 			requireCancellation(result, path.CancellationInputs)
 			worker.Alternatives = append(worker.Alternatives, path.Operations)
+			worker.AlternativeConditions = append(worker.AlternativeConditions, path.Conditions)
 		}
 		result.Workers = append(result.Workers, worker)
 		return ReasonNone
@@ -65,6 +66,7 @@ func (engine *Engine) appendCall(result *Summary, instruction *ssa.Call) Reason 
 
 func appendCalled(result *Summary, called Summary, instruction ssa.CallInstruction) Reason {
 	result.CancellationInputs = append(result.CancellationInputs, called.CancellationInputs...)
+	result.Conditions = append(result.Conditions, called.Conditions...)
 	if len(called.Workers) != 0 {
 		if !composableLinear(called) && !called.workerAlternativesOnly() || len(result.Workers)+len(called.Workers) > maxWorkers {
 			return ReasonParticipantsUnknown
@@ -113,12 +115,16 @@ func (engine *Engine) bindWorker(
 	if reason != ReasonNone {
 		return WorkerSummary{}, reason
 	}
-	for _, path := range worker.Alternatives {
+	for index, path := range worker.Alternatives {
 		operations, reason := engine.bindOperations(path, bindings, instruction)
 		if reason != ReasonNone {
 			return WorkerSummary{}, reason
 		}
 		bound.Alternatives = append(bound.Alternatives, operations)
+		if index < len(worker.AlternativeConditions) {
+			bound.AlternativeConditions = append(bound.AlternativeConditions,
+				boundConditions(worker.AlternativeConditions[index], instruction.Pos()))
+		}
 	}
 	return bound, ReasonNone
 }

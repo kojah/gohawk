@@ -134,11 +134,13 @@ func sameEffects(first, second Summary) bool {
 
 func cloneEffects(summary Summary) Summary {
 	summary.CancellationInputs = slices.Clone(summary.CancellationInputs)
+	summary.Conditions = slices.Clone(summary.Conditions)
 	summary.Operations = slices.Clone(summary.Operations)
 	summary.Workers = slices.Clone(summary.Workers)
 	for index := range summary.Workers {
 		summary.Workers[index].Operations = slices.Clone(summary.Workers[index].Operations)
 		summary.Workers[index].Alternatives = slices.Clone(summary.Workers[index].Alternatives)
+		summary.Workers[index].AlternativeConditions = slices.Clone(summary.Workers[index].AlternativeConditions)
 		for arm := range summary.Workers[index].Alternatives {
 			summary.Workers[index].Alternatives[arm] = slices.Clone(summary.Workers[index].Alternatives[arm])
 		}

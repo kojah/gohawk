@@ -69,6 +69,17 @@ type Operation struct {
 	Alternates []token.Pos
 }
 
+// Condition is one branch choice that selects a path alternative: the branch
+// condition and the polarity taken. Context lists the call sites the
+// alternative was bound through, innermost first, so one helper called twice
+// keeps two separate conditions. Conditions are evidence for feasibility
+// queries only; they never make a summary complete.
+type Condition struct {
+	Value   ssa.Value
+	Holds   bool
+	Context []token.Pos
+}
+
 // SelectArm is one possible communication performed by a select. A default
 // arm performs no communication; it must never be treated as a blocking event.
 type SelectArm struct {
@@ -104,7 +115,10 @@ type Summary struct {
 	// Paths contains every bounded acyclic alternative. Each entry is a
 	// complete linear summary or an exhaustive worker choice; never a prefix.
 	// Linear consumers must decline the enclosing nonzero Reason.
-	Paths      []Summary
+	Paths []Summary
+	// Conditions are the branch choices that select this summary when it is
+	// one of Paths. A select arm is the runtime's choice and adds none.
+	Conditions []Condition
 	Operations []Operation
 	deferred   []Operation
 	Workers    []WorkerSummary
@@ -131,6 +145,9 @@ type WorkerSummary struct {
 	// Branches distinguishes exhaustive ordinary branch paths from select
 	// arms, whose correspondence is additionally checked against Choices.
 	Branches bool
+	// AlternativeConditions parallels Alternatives for branch paths: the
+	// worker's own branch choices that select each alternative.
+	AlternativeConditions [][]Condition
 }
 
 // Completeness is the contract a consumer acts on. Only a complete summary
