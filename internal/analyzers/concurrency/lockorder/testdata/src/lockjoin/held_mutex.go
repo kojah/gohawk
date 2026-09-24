@@ -75,12 +75,17 @@ func (o *heldOwner) receiverReaders() {
 	o.rw.RUnlock()
 }
 
-// Reading unrelated receiver fields neither releases the mutex nor signals.
+// Reading, writing, and nil-checking unrelated receiver fields neither
+// releases the mutex nor signals.
 func (o *heldOwner) receiverReads() (string, int) {
 	done := make(chan struct{})
 	o.mu.Lock()
+	o.count++
 	count := o.count
 	name := o.name
+	if o.run == nil {
+		o.name = "idle"
+	}
 	go o.lockThenClose(done)
 	<-done // want "waits for a worker that needs the held lock"
 	o.mu.Unlock()
@@ -95,4 +100,15 @@ func (o *heldOwner) receiverCallback() {
 	o.run()
 	<-done
 	o.mu.Unlock()
+}
+
+// A mutex on an object read from the receiver may be replaced concurrently.
+type heldChain struct{ next *heldOwner }
+
+func (c *heldChain) loadedOwnerMutex() {
+	done := make(chan struct{})
+	c.next.mu.Lock()
+	go c.next.lockThenClose(done)
+	<-done
+	c.next.mu.Unlock()
 }

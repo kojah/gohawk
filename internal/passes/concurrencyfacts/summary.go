@@ -388,22 +388,6 @@ func loadEffect(load *ssa.UnOp) Reason {
 	return ReasonLoadUnknown
 }
 
-// A read from caller-owned storage, such as a logger or counter on a receiver,
-// neither blocks nor synchronizes. The storage may change under other
-// goroutines, so the value it yields must never become a resource identity.
-// Channels, primitive pointers, contexts, and values that embed a primitive
-// (a copy would duplicate lock state) therefore stay unknown. Any later use of
-// an admitted value is classified on its own: a dynamic call, type assertion,
-// or unmodeled callee still stops the summary. A nil receiver can make the
-// read panic, but so can the field address before it, which is already
-// admitted; a path that panics never reaches a later wait.
-func inertValue(value types.Type) bool {
-	if _, channel := value.Underlying().(*types.Chan); channel {
-		return false
-	}
-	return !containsSynchronization(value) && !synchronizationPointer(value) && !cancellationType(value)
-}
-
 func (summary Summary) operationCount() int {
 	count := len(summary.Operations) + len(summary.deferred) + len(summary.CancellationInputs)
 	for _, worker := range summary.Workers {
@@ -425,7 +409,7 @@ func (engine *Engine) appendOperation(result *Summary, kind Kind, value ssa.Valu
 }
 
 func passiveInstruction(instruction ssa.Instruction, root bool) Reason {
-	if scalarInstruction(instruction) || rootReturn(instruction, root) {
+	if effectFree(instruction, root) {
 		return ReasonNone
 	}
 	switch instruction := instruction.(type) {
@@ -473,6 +457,12 @@ func passiveInstruction(instruction ssa.Instruction, root bool) Reason {
 	// This whitelist is also the scope-completeness proof: no unmodelled
 	// call, publication, launch, panic, or blocking action is skipped.
 	return ReasonEffectUnknown
+}
+
+// effectFree groups the instruction families that need no ordered effect:
+// scalar arithmetic, a root's own return, and inert caller-owned data.
+func effectFree(instruction ssa.Instruction, root bool) bool {
+	return scalarInstruction(instruction) || rootReturn(instruction, root) || inertDataInstruction(instruction)
 }
 
 // A root's results reach its caller only after the root returns, and root
