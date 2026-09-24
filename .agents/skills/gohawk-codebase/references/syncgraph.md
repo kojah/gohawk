@@ -107,6 +107,22 @@ const (
 const Root GoroutineID = 0
 ```
 
+## SyncArm
+
+[Source](../../../../internal/syncgraph/graph.go)
+
+```go
+type SyncArm struct {
+	Kind		concurrencyfacts.Kind
+	Resource	concurrencyfacts.Reference
+	Source		token.Pos
+	Default		bool
+}
+```
+
+SyncArm is a possible select communication, or a default path with no
+communication. Arms in one choice are mutually exclusive.
+
 ## SyncChild
 
 [Source](../../../../internal/syncgraph/graph.go)
@@ -122,6 +138,22 @@ type SyncChild struct {
 SyncChild preserves one child's ordered effects and launch point. Prefix
 counts parent events before the launch; different children never inherit
 program order merely because their launch sites are ordered.
+
+## SyncChoice
+
+[Source](../../../../internal/syncgraph/graph.go)
+
+```go
+type SyncChoice struct {
+	Arms	[]SyncArm
+	Prefix	int
+	Site	token.Pos
+	Worker	*ssa.Go
+}
+```
+
+SyncChoice is one unresolved select. The graph preserves its alternatives
+for evidence and tracing, but linear cycle proofs must decline the graph.
 
 ## SyncEdge
 
@@ -167,6 +199,7 @@ the operation's origin; Site is its call site.
 type SyncGraph struct {
 	Parent		[]SyncEvent
 	Children	[]SyncChild
+	Choices		[]SyncChoice
 	Edges		[]SyncEdge
 	Reason		string
 }

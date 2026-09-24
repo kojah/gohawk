@@ -60,6 +60,24 @@ type SyncChild struct {
 	Prefix int
 }
 
+// SyncArm is a possible select communication, or a default path with no
+// communication. Arms in one choice are mutually exclusive.
+type SyncArm struct {
+	Kind     concurrencyfacts.Kind
+	Resource concurrencyfacts.Reference
+	Source   token.Pos
+	Default  bool
+}
+
+// SyncChoice is one unresolved select. The graph preserves its alternatives
+// for evidence and tracing, but linear cycle proofs must decline the graph.
+type SyncChoice struct {
+	Arms   []SyncArm
+	Prefix int
+	Site   token.Pos
+	Worker *ssa.Go
+}
+
 // SyncGraph contains the events of one complete, bounded root summary.
 // Parent and each Child preserve distinct ordered sequences. Reason is
 // nonempty if the underlying summary was incomplete or malformed, in which
@@ -67,6 +85,7 @@ type SyncChild struct {
 type SyncGraph struct {
 	Parent   []SyncEvent
 	Children []SyncChild
+	Choices  []SyncChoice
 	Edges    []SyncEdge
 	Reason   string
 }
@@ -75,7 +94,20 @@ type SyncGraph struct {
 // effects. It takes linear time and space in the bounded summary size.
 func FromSummary(summary concurrencyfacts.Summary) SyncGraph {
 	if !summary.Complete() {
-		return SyncGraph{Reason: summary.Reason}
+		graph := SyncGraph{Reason: summary.Reason}
+		if summary.Reason == "protocol-select-alternatives" {
+			for _, choice := range summary.Choices {
+				mapped := SyncChoice{Prefix: choice.Prefix, Site: choice.Site, Worker: choice.Worker}
+				for _, arm := range choice.Arms {
+					mapped.Arms = append(mapped.Arms, SyncArm{
+						Kind: arm.Operation.Kind, Resource: arm.Operation.Resource,
+						Source: arm.Operation.Source, Default: arm.Default,
+					})
+				}
+				graph.Choices = append(graph.Choices, mapped)
+			}
+		}
+		return graph
 	}
 	graph := SyncGraph{}
 	nextID := EventID(0)

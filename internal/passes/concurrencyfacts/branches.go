@@ -23,6 +23,10 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 	for _, block := range order {
 		state := states[block]
 		if reason := engine.collectBlock(&state, block, root); reason != "" {
+			if reason == "protocol-select-alternatives" {
+				state.Reason = reason
+				return state
+			}
 			return Summary{Reason: reason}
 		}
 		if len(block.Succs) == 0 {

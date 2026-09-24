@@ -71,3 +71,17 @@ func TestIncompleteSummaryDoesNotExposePartialEvents(t *testing.T) {
 		t.Fatalf("incomplete summary produced usable graph: %+v", graph)
 	}
 }
+
+func TestSelectChoiceIsVisibleButNotAProofEvent(t *testing.T) {
+	graph := FromSummary(concurrencyfacts.Summary{
+		Reason: "protocol-select-alternatives",
+		Choices: []concurrencyfacts.SelectChoice{{Arms: []concurrencyfacts.SelectArm{
+			{Operation: concurrencyfacts.Operation{Kind: concurrencyfacts.Send}},
+			{Default: true},
+		}}},
+	})
+	if graph.Complete() || len(graph.Choices) != 1 || len(graph.Choices[0].Arms) != 2 ||
+		!graph.Choices[0].Arms[1].Default || len(graph.Parent) != 0 || graph.AddDependency(0, 0) || graph.HasCycle() {
+		t.Fatalf("select arms became unconditional graph events: %+v", graph)
+	}
+}

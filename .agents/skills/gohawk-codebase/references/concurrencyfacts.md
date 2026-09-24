@@ -245,6 +245,37 @@ type Reference struct {
 
 Reference names an exact resource or a symbolic captured cell.
 
+## SelectArm
+
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
+
+```go
+type SelectArm struct {
+	Operation	Operation
+	Default		bool
+}
+```
+
+SelectArm is one possible communication performed by a select. A default
+arm performs no communication; it must never be treated as a blocking event.
+
+## SelectChoice
+
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
+
+```go
+type SelectChoice struct {
+	Arms	[]SelectArm
+	Prefix	int
+	Site	token.Pos
+	Worker	*ssa.Go
+}
+```
+
+SelectChoice records mutually exclusive arms at their position in the
+enclosing sequence. It is evidence about the alternatives, not permission
+to use the prefix as a complete protocol proof.
+
 ## Send, Receive, Close, GroupAdd, GroupDone, GroupWait, Lock, Unlock, CondWait
 
 [Source](../../../../internal/passes/concurrencyfacts/summary.go)
@@ -272,6 +303,7 @@ type Summary struct {
 	Operations	[]Operation
 
 	Workers	[]WorkerSummary
+	Choices	[]SelectChoice
 	Reason	string
 	// contains filtered or unexported fields
 }

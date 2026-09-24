@@ -22,10 +22,10 @@ func (engine *Engine) instantiate(instruction ssa.CallInstruction) Summary {
 }
 
 func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) Summary {
-	if !callee.Complete() {
+	if !callee.Complete() && callee.Reason != "protocol-select-alternatives" {
 		return callee
 	}
-	result := Summary{Operations: make([]Operation, 0, len(callee.Operations))}
+	result := Summary{Operations: make([]Operation, 0, len(callee.Operations)), Reason: callee.Reason}
 	for _, op := range callee.Operations {
 		if !engine.budget.Spend() {
 			return Summary{Reason: "protocol-budget-exhausted"}
@@ -36,6 +36,23 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		}
 		op.Resource, op.Site = resource, instruction.Pos()
 		result.Operations = append(result.Operations, op)
+	}
+	for _, choice := range callee.Choices {
+		bound := SelectChoice{Prefix: choice.Prefix, Site: instruction.Pos()}
+		for _, arm := range choice.Arms {
+			if !engine.budget.Spend() {
+				return Summary{Reason: "protocol-budget-exhausted"}
+			}
+			if !arm.Default {
+				resource, ok := engine.bind(arm.Operation.Resource, bindings, instruction)
+				if !ok {
+					return Summary{Reason: "protocol-channel-binding-unknown"}
+				}
+				arm.Operation.Resource, arm.Operation.Site = resource, instruction.Pos()
+			}
+			bound.Arms = append(bound.Arms, arm)
+		}
+		result.Choices = append(result.Choices, bound)
 	}
 	return result
 }

@@ -52,6 +52,23 @@ type Operation struct {
 	Site     token.Pos
 }
 
+// SelectArm is one possible communication performed by a select. A default
+// arm performs no communication; it must never be treated as a blocking event.
+type SelectArm struct {
+	Operation Operation
+	Default   bool
+}
+
+// SelectChoice records mutually exclusive arms at their position in the
+// enclosing sequence. It is evidence about the alternatives, not permission
+// to use the prefix as a complete protocol proof.
+type SelectChoice struct {
+	Arms   []SelectArm
+	Prefix int
+	Site   token.Pos
+	Worker *ssa.Go
+}
+
 // Summary is the ordered synchronization effect of one function or call.
 // Consumers decide on Completeness, never on the shape of Operations alone:
 // an empty operation list is evidence only when the summary is complete.
@@ -62,6 +79,7 @@ type Summary struct {
 	Operations []Operation
 	deferred   []Operation
 	Workers    []WorkerSummary
+	Choices    []SelectChoice
 	Reason     string
 }
 
@@ -177,6 +195,10 @@ func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
 	}
 	var result Summary
 	if reason := engine.collectBlock(&result, function.Blocks[0], root); reason != "" {
+		if reason == "protocol-select-alternatives" {
+			result.Reason = reason
+			return result
+		}
 		return Summary{Reason: reason}
 	}
 	if len(result.deferred) != 0 {
@@ -210,14 +232,15 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 		}
 		return engine.appendOperation(result, Send, instruction.Chan, instruction.Pos())
 	case *ssa.UnOp:
-		if instruction.Op == token.ARROW {
-			return engine.appendOperation(result, Receive, instruction.X, instruction.Pos())
-		}
-		if instruction.Op != token.MUL || !readableAddress(instruction.X) {
-			return "protocol-load-unknown"
-		}
+		return engine.appendUnOp(result, instruction)
+	case *ssa.Select:
+		return engine.appendSelect(result, instruction)
 	case *ssa.Call:
 		called := engine.callSummary(instruction)
+		for _, choice := range called.Choices {
+			choice.Prefix += len(result.Operations)
+			result.Choices = append(result.Choices, choice)
+		}
 		result.Operations = append(result.Operations, called.Operations...)
 		return called.Reason
 	case *ssa.Defer:
@@ -237,6 +260,12 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 		}
 		called := engine.instantiate(instruction)
 		if !called.Complete() {
+			if called.Reason == "protocol-select-alternatives" {
+				for _, choice := range called.Choices {
+					choice.Worker = instruction
+					result.Choices = append(result.Choices, choice)
+				}
+			}
 			return called.Reason
 		}
 		if len(called.Workers) != 0 {
@@ -248,6 +277,16 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 		return ""
 	default:
 		return passiveInstruction(instruction, root)
+	}
+	return ""
+}
+
+func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) string {
+	if instruction.Op == token.ARROW {
+		return engine.appendOperation(result, Receive, instruction.X, instruction.Pos())
+	}
+	if instruction.Op != token.MUL || !readableAddress(instruction.X) {
+		return "protocol-load-unknown"
 	}
 	return ""
 }
