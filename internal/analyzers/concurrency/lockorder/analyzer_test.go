@@ -9,7 +9,7 @@ import (
 )
 
 func TestAnalyzer(t *testing.T) {
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockorder", "orderedhelpers", "helperstate", "lockjoin")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockorder", "orderedhelpers", "helperstate", "lockjoin", "channellock")
 }
 
 // boundedSearchDeadline is generous: the bounded analysis of the fixture below

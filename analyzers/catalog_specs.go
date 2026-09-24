@@ -53,6 +53,10 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 			{
+				ID: check.LockChannelCycle, Doc: "Reports a receive on a fresh unbuffered channel whose sole sender first needs the receiver's held mutex.",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
+			{
 				ID: check.LockReadLockWrite, Doc: "Reports writes to an object while only its read lock is held.",
 				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
 			},

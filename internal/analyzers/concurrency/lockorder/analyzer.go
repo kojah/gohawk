@@ -80,7 +80,7 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 		var evidence ssaflow.LocalEvidence
 		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers, exclusive)
 		if concurrency != nil {
-			reportLockAndJoin(pass, function, concurrency)
+			reportSynchronizationCycles(pass, function, concurrency)
 		}
 	}
 	return nil, nil

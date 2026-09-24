@@ -43,6 +43,7 @@ func TestLockTraceBoundaries(t *testing.T) {
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockorder")
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "ordercycles")
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockjoin")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "channellock")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -60,6 +61,7 @@ func TestLockTraceBoundaries(t *testing.T) {
 	checkDecisionTrace(t, data, "lock-join-deadlock-proven", "lockjoin.go:", "accepted")
 	checkDecisionTrace(t, data, "lock-join-parent-order-not-matched", "lockjoin.go:", "rejected")
 	checkDecisionTrace(t, data, "lock-join-identity-unknown", "lockjoin.go:", "unknown")
+	checkDecisionTrace(t, data, "channel-lock-cycle-proven", "channellock.go:", "accepted")
 	found := false
 	foundUnknown := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {

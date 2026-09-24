@@ -1,11 +1,13 @@
 package lockorder
 
 import (
+	"go/constant"
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syncgraph"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -13,50 +15,59 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// This proof consumes the complete parent/sole-worker event fragment. A fresh
-// mutex and completion channel rule out outside unlockers and signallers;
-// opaque participation or a second launch makes the fragment unavailable.
-// The general synchronization graph may have candidate cycles, but this check
-// reports only the exact three-event parent and must-lock-before-close worker.
-type lockJoinProof struct {
+// These proofs consume one complete parent/sole-worker graph. Fresh resources
+// rule out outside unlockers and signallers; opaque participation makes the
+// graph unavailable. A cycle is used only after both dependencies are proved.
+type lockSignalProof struct {
 	parentLock token.Pos
 	wait       token.Pos
 	workerLock token.Pos
-	close      token.Pos
+	signal     token.Pos
 	outcome    analysisTrace.Outcome
 	reason     string
 }
 
-func (proof lockJoinProof) proven() bool { return proof.outcome == analysisTrace.OutcomeAccepted }
+func (proof lockSignalProof) proven() bool { return proof.outcome == analysisTrace.OutcomeAccepted }
 
-type lockJoinCandidate struct {
+type lockSignalCandidate struct {
 	mutex      *ssa.Alloc
 	done       *ssa.MakeChan
-	parentLock token.Pos
-	wait       token.Pos
+	parentLock syncgraph.SyncEvent
+	wait       syncgraph.SyncEvent
+	unlock     syncgraph.SyncEvent
 }
 
-func reportLockAndJoin(pass *analysis.Pass, function *ssa.Function, engine *concurrencyfacts.Engine) {
+func reportSynchronizationCycles(pass *analysis.Pass, function *ssa.Function, engine *concurrencyfacts.Engine) {
 	candidate := potentialLockJoinRoot(function)
 	if candidate == token.NoPos {
 		return
 	}
-	probe := analysisTrace.For(pass, "lockorder", string(check.LockAndJoin), candidate)
-	probe.Candidate(analysisTrace.Step{Reason: "lock-join-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
-	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(probe.Observer()))
-	proof := proveLockAndJoin(root)
+	joinProbe := analysisTrace.For(pass, "lockorder", string(check.LockAndJoin), candidate)
+	joinProbe.Candidate(analysisTrace.Step{Reason: "lock-join-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
+	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(joinProbe.Observer()))
+	graph := syncgraph.FromSummary(root)
+	reportLockSignal(pass, joinProbe, check.LockAndJoin, candidate, proveLockSignal(graph, concurrencyfacts.Close),
+		"waits for a worker that needs the held lock")
+	channelProbe := analysisTrace.For(pass, "lockorder", string(check.LockChannelCycle), candidate)
+	channelProbe.Candidate(analysisTrace.Step{Reason: "channel-lock-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
+	reportLockSignal(pass, channelProbe, check.LockChannelCycle, candidate, proveLockSignal(graph, concurrencyfacts.Send),
+		"receives while holding the lock needed by its sender")
+}
+
+func reportLockSignal(
+	pass *analysis.Pass, probe analysisTrace.Probe, id check.ID, candidate token.Pos, proof lockSignalProof, message string,
+) {
 	probe.Decision(analysisTrace.Step{Reason: proof.reason, Outcome: proof.outcome, Pos: candidate})
 	if !proof.proven() {
 		return
 	}
 	source := syntax.SourceRange(pass, proof.wait)
-	check.Report(pass, check.LockAndJoin, analysis.Diagnostic{
-		Pos: source.Pos(), End: source.End(),
-		Message: "waits for a worker that needs the held lock",
+	check.Report(pass, id, analysis.Diagnostic{
+		Pos: source.Pos(), End: source.End(), Message: message,
 		Related: []analysis.RelatedInformation{
 			{Pos: proof.parentLock, Message: "mutex acquired here"},
 			{Pos: proof.workerLock, Message: "worker must acquire the same mutex"},
-			{Pos: proof.close, Message: "worker signals completion after acquiring the mutex"},
+			{Pos: proof.signal, Message: "worker signals only after acquiring the mutex"},
 		},
 	})
 }
@@ -94,64 +105,81 @@ func potentialLockJoinRoot(function *ssa.Function) token.Pos {
 	return wait
 }
 
-func proveLockAndJoin(root concurrencyfacts.Summary) lockJoinProof {
-	candidate, failure := findLockJoinParent(root)
+func proveLockSignal(graph syncgraph.SyncGraph, signal concurrencyfacts.Kind) lockSignalProof {
+	candidate, failure := findLockSignalParent(graph)
 	if failure.reason != "" {
 		return failure
 	}
-	return proveLockJoinWorker(candidate, root.Worker)
+	return proveLockSignalWorker(graph, candidate, signal)
 }
 
-func findLockJoinParent(root concurrencyfacts.Summary) (lockJoinCandidate, lockJoinProof) {
-	if !root.Complete() {
-		return lockJoinCandidate{}, lockJoinProof{outcome: analysisTrace.OutcomeUnknown, reason: root.Reason}
+func findLockSignalParent(graph syncgraph.SyncGraph) (lockSignalCandidate, lockSignalProof) {
+	if !graph.Complete() {
+		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
 	}
-	// Fresh allocations prevent an unknown caller or a sibling goroutine from
-	// unlocking the parent's mutex or signalling its channel. Requiring the
-	// unlock after the receive makes the circular wait explicit, rather than
-	// inferring ownership from a missing release.
-	if root.Spawn == nil || root.Prefix != 1 || len(root.Operations) < 3 || len(root.Worker) < 2 {
-		return lockJoinCandidate{}, lockJoinProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-shape-not-matched"}
+	// A fresh allocation excludes an unknown caller or sibling goroutine from
+	// releasing the mutex or signalling the channel. Requiring the unlock
+	// after the receive makes the parent's side of the cycle explicit.
+	if graph.Spawn == nil || graph.Prefix != 1 || len(graph.Parent) < 3 || len(graph.Child) < 2 {
+		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-shape-not-matched"}
 	}
-	lock, wait, unlock := root.Operations[0], root.Operations[1], root.Operations[2]
-	if !parentLockWaitUnlock(lock, wait, unlock) {
-		return lockJoinCandidate{}, lockJoinProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-parent-order-not-matched"}
+	lock, wait, unlock := graph.Parent[0], graph.Parent[1], graph.Parent[2]
+	if lock.Kind != concurrencyfacts.Lock || wait.Kind != concurrencyfacts.Receive || unlock.Kind != concurrencyfacts.Unlock {
+		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-parent-order-not-matched"}
 	}
 	mutex, localMutex := lock.Resource.Value.(*ssa.Alloc)
 	done, localChannel := wait.Resource.Value.(*ssa.MakeChan)
-	if !localMutex || !localChannel || !exactParentResources(lock, wait, unlock, mutex) {
-		return lockJoinCandidate{}, lockJoinProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-identity-unknown"}
+	if !localMutex || !localChannel || lock.Resource.Indirect || wait.Resource.Indirect || unlock.Resource.Indirect ||
+		unlock.Resource.Value != mutex {
+		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-identity-unknown"}
 	}
-	return lockJoinCandidate{mutex: mutex, done: done, parentLock: lock.Source, wait: wait.Source}, lockJoinProof{}
+	return lockSignalCandidate{mutex: mutex, done: done, parentLock: lock, wait: wait, unlock: unlock}, lockSignalProof{}
 }
 
-func parentLockWaitUnlock(lock, wait, unlock concurrencyfacts.Operation) bool {
-	return lock.Kind == concurrencyfacts.Lock && wait.Kind == concurrencyfacts.Receive && unlock.Kind == concurrencyfacts.Unlock
-}
-
-func exactParentResources(lock, wait, unlock concurrencyfacts.Operation, mutex *ssa.Alloc) bool {
-	return !lock.Resource.Indirect && !wait.Resource.Indirect && !unlock.Resource.Indirect && unlock.Resource.Value == mutex
-}
-
-func proveLockJoinWorker(candidate lockJoinCandidate, worker []concurrencyfacts.Operation) lockJoinProof {
-	workerLock := worker[0]
-	// If another synchronization event precedes this lock, the worker may
-	// block or signal by another route before reaching it. The first-event
-	// requirement is intentionally narrower than general cycle feasibility.
+func proveLockSignalWorker(graph syncgraph.SyncGraph, candidate lockSignalCandidate, signal concurrencyfacts.Kind) lockSignalProof {
+	workerLock := graph.Child[0]
 	if workerLock.Kind != concurrencyfacts.Lock || workerLock.Resource.Indirect || workerLock.Resource.Value != candidate.mutex {
-		return lockJoinProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-worker-order-not-matched"}
+		return lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-worker-order-not-matched"}
 	}
-	for _, operation := range worker[1:] {
-		if operation.Kind == concurrencyfacts.Close && !operation.Resource.Indirect && operation.Resource.Value == candidate.done {
-			if !candidate.parentLock.IsValid() || !candidate.wait.IsValid() ||
-				!workerLock.Source.IsValid() || !operation.Source.IsValid() {
-				return lockJoinProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-source-unknown"}
-			}
-			return lockJoinProof{
-				parentLock: candidate.parentLock, wait: candidate.wait, workerLock: workerLock.Source, close: operation.Source,
-				outcome: analysisTrace.OutcomeAccepted, reason: "lock-join-deadlock-proven",
-			}
+	if signal == concurrencyfacts.Send && !unbuffered(candidate.done) {
+		return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-lock-capacity-unknown"}
+	}
+	// The first signal on the waited-for channel determines how the receive
+	// can finish. A later close must not establish a lock-and-join defect when
+	// an earlier send can unblock the parent, and conversely.
+	for _, event := range graph.Child[1:] {
+		if event.Resource.Indirect || event.Resource.Value != candidate.done ||
+			(event.Kind != concurrencyfacts.Send && event.Kind != concurrencyfacts.Close) {
+			continue
+		}
+		if event.Kind != signal {
+			return lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-signal-kind-not-matched"}
+		}
+		if !candidate.parentLock.Source.IsValid() || !candidate.wait.Source.IsValid() ||
+			!workerLock.Source.IsValid() || !event.Source.IsValid() {
+			return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-source-unknown"}
+		}
+		// The root must finish its receive before unlocking. The worker must
+		// acquire that same lock before it can signal. These two dependency
+		// edges close a cycle with the graph's program-order edges.
+		if !graph.AddDependency(candidate.unlock.ID, workerLock.ID) ||
+			!graph.AddDependency(event.ID, candidate.wait.ID) || !graph.HasCycle() {
+			return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-cycle-unproven"}
+		}
+		reason := "lock-join-deadlock-proven"
+		if signal == concurrencyfacts.Send {
+			reason = "channel-lock-cycle-proven"
+		}
+		return lockSignalProof{
+			parentLock: candidate.parentLock.Source, wait: candidate.wait.Source,
+			workerLock: workerLock.Source, signal: event.Source,
+			outcome: analysisTrace.OutcomeAccepted, reason: reason,
 		}
 	}
-	return lockJoinProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-completion-unknown"}
+	return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-completion-unknown"}
+}
+
+func unbuffered(channel *ssa.MakeChan) bool {
+	size, ok := channel.Size.(*ssa.Const)
+	return ok && size.Value != nil && constant.Sign(size.Value) == 0
 }

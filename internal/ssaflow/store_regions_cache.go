@@ -64,11 +64,15 @@ func regionsOfFunction(function *ssa.Function) *regionGraph {
 	regionGraphs.Lock()
 	if element, ok := regionGraphs.entries[function]; ok {
 		entry := element.Value.(*regionGraphEntry) //nolint:forcetypeassert // The list holds only entries.
+		// Publication and eviction both update graph under this lock. Copy
+		// the pointer before releasing it; reading entry.graph afterwards
+		// races with another pass finishing the same function's build.
+		graph := entry.graph
 		regionGraphs.Unlock()
-		if entry.graph == nil {
+		if graph == nil {
 			return &regionGraph{building: true}
 		}
-		return entry.graph
+		return graph
 	}
 	entry := &regionGraphEntry{function: function}
 	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
