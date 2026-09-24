@@ -44,9 +44,9 @@ func workerFlag(a, b chan int, mu *sync.Mutex, flag bool) { go pick(a, b, flag);
 		"memory":             {2, 0, 2},
 		"memoryAlone":        {2, 0, 0},
 		"memoryAndParameter": {0, 0, 4},
-		// The worker's condition is its bound copy of the parent's flag, so
-		// it may correlate with the parent's own test of that flag.
-		"workerFlag": {0, 0, 4},
+		// The worker's test of its parameter binds to the parent's flag, so
+		// agreeing combinations are feasible and disagreeing ones are not.
+		"workerFlag": {2, 2, 0},
 	} {
 		t.Run(name, func(t *testing.T) {
 			summary := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(4000))

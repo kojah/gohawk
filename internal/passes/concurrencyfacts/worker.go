@@ -123,7 +123,7 @@ func (engine *Engine) bindWorker(
 		bound.Alternatives = append(bound.Alternatives, operations)
 		if index < len(worker.AlternativeConditions) {
 			bound.AlternativeConditions = append(bound.AlternativeConditions,
-				boundConditions(worker.AlternativeConditions[index], instruction.Pos()))
+				boundConditions(worker.AlternativeConditions[index], bindings, instruction.Pos()))
 		}
 	}
 	return bound, ReasonNone

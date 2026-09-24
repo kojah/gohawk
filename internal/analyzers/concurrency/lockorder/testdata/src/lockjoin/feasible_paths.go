@@ -62,3 +62,32 @@ func sameCallTwice(n int) {
 		mu.Unlock()
 	}
 }
+
+// The worker takes the lock only when enabled, and the parent waits only when
+// enabled: the worker's condition binds to the parent's own flag, so the
+// deadlocking combination is one feasible execution.
+func correlatedWorkerDeadlock(enabled bool) {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	mu.Lock()
+	go conditionalWorker(&mu, done, enabled)
+	if enabled {
+		<-done // want "waits for a worker that needs the held lock"
+	}
+	mu.Unlock()
+}
+
+// The parent waits while holding the lock only when the worker skips it, so
+// the combination that would deadlock needs enabled to be true and false at
+// once. Without binding the worker's condition to the parent's flag, this was
+// only unknown.
+func correlatedWorkerSafe(enabled bool) {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	mu.Lock()
+	go conditionalWorker(&mu, done, enabled)
+	if !enabled {
+		<-done
+	}
+	mu.Unlock()
+}

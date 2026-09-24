@@ -170,17 +170,53 @@ func branchCondition(block, next *ssa.BasicBlock) (Condition, bool) {
 // innermost sites, which is enough to keep separate calls apart.
 const maxConditionContext = 8
 
-// boundConditions records that conditions were bound through site.
-func boundConditions(conditions []Condition, site token.Pos) []Condition {
+// boundConditions maps a callee's conditions into the caller. A condition that
+// tests one of the callee's own parameters directly, possibly negated, becomes
+// a condition on the caller's argument, so it relates exactly to the caller's
+// own tests of that value, and a constant argument folds it. Every other
+// condition stays a callee condition, tagged with this call site so separate
+// calls stay apart.
+func boundConditions(conditions []Condition, bindings []ssaflow.CallBinding, site token.Pos) []Condition {
 	if len(conditions) == 0 {
 		return nil
 	}
 	bound := make([]Condition, 0, len(conditions))
 	for _, condition := range conditions {
+		if argument, holds, ok := parameterCondition(condition, bindings); ok {
+			bound = append(bound, Condition{Value: argument, Holds: holds})
+			continue
+		}
 		if len(condition.Context) < maxConditionContext {
 			condition.Context = append(slices.Clone(condition.Context), site)
 		}
 		bound = append(bound, condition)
 	}
 	return bound
+}
+
+// parameterCondition resolves a local condition on a callee parameter to the
+// caller's argument. A condition already bound through a callee has no
+// parameter of this callee to resolve.
+func parameterCondition(condition Condition, bindings []ssaflow.CallBinding) (ssa.Value, bool, bool) {
+	if len(condition.Context) != 0 {
+		return nil, false, false
+	}
+	value, holds := condition.Value, condition.Holds
+	for {
+		negation, ok := value.(*ssa.UnOp)
+		if !ok || negation.Op != token.NOT {
+			break
+		}
+		value, holds = negation.X, !holds
+	}
+	parameter, ok := value.(*ssa.Parameter)
+	if !ok {
+		return nil, false, false
+	}
+	for _, binding := range bindings {
+		if binding.Local == parameter && !binding.Captured {
+			return binding.Supplied, holds, true
+		}
+	}
+	return nil, false, false
 }
