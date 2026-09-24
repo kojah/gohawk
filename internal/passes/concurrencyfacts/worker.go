@@ -63,7 +63,7 @@ func (engine *Engine) appendCall(result *Summary, instruction *ssa.Call) Reason 
 	return appendCalled(result, called, instruction)
 }
 
-func appendCalled(result *Summary, called Summary, instruction *ssa.Call) Reason {
+func appendCalled(result *Summary, called Summary, instruction ssa.CallInstruction) Reason {
 	result.CancellationInputs = append(result.CancellationInputs, called.CancellationInputs...)
 	if len(called.Workers) != 0 {
 		if !composableLinear(called) && !called.workerAlternativesOnly() || len(result.Workers)+len(called.Workers) > maxWorkers {
@@ -83,7 +83,7 @@ func appendCalled(result *Summary, called Summary, instruction *ssa.Call) Reason
 	if called.workerAlternativesOnly() {
 		return ReasonNone
 	}
-	if called.Reason == ReasonContextBindingRequired {
+	if called.Reason == ReasonContextBindingRequired || called.Reason == ReasonCallbackBindingRequired {
 		return ReasonNone
 	}
 	return called.Reason
@@ -128,6 +128,10 @@ func (engine *Engine) bindOperations(operations []Operation, bindings []ssaflow.
 	for _, op := range operations {
 		if !engine.budget.Spend() {
 			return nil, ReasonBudgetExhausted
+		}
+		if op.Kind == Invoke {
+			// Holes are filled only in the linear sequence; see callbacks.go.
+			return nil, ReasonCallbackUnknown
 		}
 		resource, ok := engine.bind(op.Resource, bindings, instruction)
 		if !ok {

@@ -39,6 +39,8 @@ func TestReasonCodes(t *testing.T) {
 		ReasonExportUnknown:             "concurrency-export-unknown",
 		ReasonExportComplete:            "concurrency-export-complete",
 		ReasonRecursiveProtocol:         "recursive-protocol",
+		ReasonCallbackBindingRequired:   "protocol-callback-binding-required",
+		ReasonCallbackUnknown:           "protocol-callback-unknown",
 	}
 	if len(want) != int(reasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

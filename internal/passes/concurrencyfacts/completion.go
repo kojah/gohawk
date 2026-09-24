@@ -30,6 +30,9 @@ func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 	if result, handled := engine.cancellationCall(instruction); handled {
 		return result
 	}
+	if hole, ok := callbackHole(instruction); ok {
+		return hole
+	}
 	common := engine.resolvedCommon(instruction)
 	var kind Kind
 	var resource ssa.Value

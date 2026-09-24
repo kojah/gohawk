@@ -67,6 +67,10 @@ func finishPaths(paths []Summary) Summary {
 		if len(paths[index].deferred) != 0 {
 			return Summary{Reason: ReasonDeferredEffectsUnknown}
 		}
+		// An alternative is a complete sequence, never one with a hole.
+		if !paths[index].CallbacksBound() {
+			return Summary{Reason: ReasonCallbackUnknown}
+		}
 		if paths[index].hasWorkerAlternatives() {
 			paths[index].Reason = ReasonSelectAlternatives
 			paths[index].AlternativesComplete = true

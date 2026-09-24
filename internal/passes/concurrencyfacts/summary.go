@@ -36,6 +36,10 @@ const (
 	Cancel
 	ReadLock
 	ReadUnlock
+	// Invoke calls a function-typed input at this point. It is a hole, not an
+	// effect: binding replaces it with the supplied function's effects, and a
+	// summary that still contains one is incomplete (see callbacks.go).
+	Invoke
 )
 
 // Reference names an exact resource or a symbolic captured cell.
@@ -149,7 +153,7 @@ const (
 // the same fields the builder writes, so it cannot disagree with Reason.
 func (summary Summary) Completeness() Completeness {
 	switch {
-	case summary.Reason != ReasonNone || len(summary.Paths) != 0 || !summary.CancellationBound():
+	case summary.Reason != ReasonNone || len(summary.Paths) != 0 || !summary.CancellationBound() || !summary.CallbacksBound():
 		return Incomplete
 	case len(summary.Operations) == 0 && len(summary.Workers) == 0:
 		return CompleteNoEffects
@@ -264,6 +268,9 @@ func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
 		result = engine.collectPaths(function, root)
 	}
 	result = finishCancellation(result)
+	if result.Reason == ReasonCallbackBindingRequired && engine.cutoff == nil {
+		engine.recordCutoff(holeInstruction(function, result), cutoffInstruction)
+	}
 	if result.Reason != ReasonNone && !result.AlternativesComplete && len(result.Paths) == 0 {
 		result.cutoff = engine.cutoff
 		if result.cutoff == nil {

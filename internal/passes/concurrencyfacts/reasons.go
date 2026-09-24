@@ -41,6 +41,8 @@ const (
 	ReasonExportUnknown
 	ReasonExportComplete
 	ReasonRecursiveProtocol
+	ReasonCallbackBindingRequired
+	ReasonCallbackUnknown
 	reasonCount
 )
 
@@ -80,6 +82,8 @@ var reasonCodes = [...]string{
 	ReasonExportUnknown:             "concurrency-export-unknown",
 	ReasonExportComplete:            "concurrency-export-complete",
 	ReasonRecursiveProtocol:         "recursive-protocol",
+	ReasonCallbackBindingRequired:   "protocol-callback-binding-required",
+	ReasonCallbackUnknown:           "protocol-callback-unknown",
 }
 
 // String is the stable trace representation; numeric values are not wire codes.

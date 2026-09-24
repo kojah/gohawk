@@ -244,7 +244,7 @@ func (reason Reason) String() string
 
 String is the stable trace representation; numeric values are not wire codes.
 
-## ReasonNone, ReasonComponentNotRequested, ReasonComponentUnavailable, ReasonAlternativeLimit, ReasonBodyUnavailable, ReasonBranchAlternatives, ReasonBranchEffectsDiffer, ReasonBudgetExhausted, ReasonChannelBindingUnknown, ReasonChannelIdentityUnknown, ReasonCondLockerUnknown, ReasonContextBindingRequired, ReasonContextBindingUnknown, ReasonContextIdentityUnknown, ReasonContextParentUnknown, ReasonControlFlowUnknown, ReasonCutoff, ReasonDeferredEffectsUnknown, ReasonEffectUnknown, ReasonFieldBindingUnknown, ReasonGroupCountUnknown, ReasonLoadUnknown, ReasonLocalContextUnknown, ReasonParticipantsUnknown, ReasonPayloadUnknown, ReasonSelectAlternatives, ReasonSelectAlternativesUnknown, ReasonSelectDispatchUnknown, ReasonSelectNoFeasibleArm, ReasonSummaryLimit, ReasonWorkerEffectsUnknown, ReasonSummarizing, ReasonExportUnknown, ReasonExportComplete, ReasonRecursiveProtocol
+## ReasonNone, ReasonComponentNotRequested, ReasonComponentUnavailable, ReasonAlternativeLimit, ReasonBodyUnavailable, ReasonBranchAlternatives, ReasonBranchEffectsDiffer, ReasonBudgetExhausted, ReasonChannelBindingUnknown, ReasonChannelIdentityUnknown, ReasonCondLockerUnknown, ReasonContextBindingRequired, ReasonContextBindingUnknown, ReasonContextIdentityUnknown, ReasonContextParentUnknown, ReasonControlFlowUnknown, ReasonCutoff, ReasonDeferredEffectsUnknown, ReasonEffectUnknown, ReasonFieldBindingUnknown, ReasonGroupCountUnknown, ReasonLoadUnknown, ReasonLocalContextUnknown, ReasonParticipantsUnknown, ReasonPayloadUnknown, ReasonSelectAlternatives, ReasonSelectAlternativesUnknown, ReasonSelectDispatchUnknown, ReasonSelectNoFeasibleArm, ReasonSummaryLimit, ReasonWorkerEffectsUnknown, ReasonSummarizing, ReasonExportUnknown, ReasonExportComplete, ReasonRecursiveProtocol, ReasonCallbackBindingRequired, ReasonCallbackUnknown
 
 [Source](../../../../internal/passes/concurrencyfacts/reasons.go)
 
@@ -285,6 +285,8 @@ const (
 	ReasonExportUnknown
 	ReasonExportComplete
 	ReasonRecursiveProtocol
+	ReasonCallbackBindingRequired
+	ReasonCallbackUnknown
 )
 ```
 
@@ -348,7 +350,7 @@ SelectChoice records mutually exclusive arms at their position in the
 enclosing sequence. It is evidence about the alternatives, not permission
 to use the prefix as a complete protocol proof.
 
-## Send, Receive, Close, GroupAdd, GroupDone, GroupWait, Lock, Unlock, CondWait, Cancel, ReadLock, ReadUnlock
+## Send, Receive, Close, GroupAdd, GroupDone, GroupWait, Lock, Unlock, CondWait, Cancel, ReadLock, ReadUnlock, Invoke
 
 [Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
@@ -368,6 +370,10 @@ const (
 	Cancel
 	ReadLock
 	ReadUnlock
+	// Invoke calls a function-typed input at this point. It is a hole, not an
+	// effect: binding replaces it with the supplied function's effects, and a
+	// summary that still contains one is incomplete (see callbacks.go).
+	Invoke
 )
 ```
 
@@ -405,6 +411,18 @@ an empty operation list is evidence only when the summary is complete.
 Reason explains an incomplete summary and is stable trace vocabulary.
 Returned slices are immutable. Workers are symbolic child templates until a
 root binds them to call sites; they are never synchronous effects.
+
+## Summary.CallbacksBound
+
+[Source](../../../../internal/passes/concurrencyfacts/callbacks.go)
+
+```go
+func (summary Summary) CallbacksBound() bool
+```
+
+CallbacksBound reports whether every callback hole has been filled. Like
+CancellationBound, it is checked separately from Reason because a hole may
+sit inside an otherwise complete sequence.
 
 ## Summary.CancellationBound
 

@@ -46,6 +46,19 @@ but only an exact binding discharges it. Both linear graph construction and
 select expansion enforce this boundary. Cross-package forwarding preserves
 these requirements, ordered requests, receives, and child launches.
 
+Callback inputs follow the same model. A call through a function-typed
+parameter or capture, with only inert arguments, becomes an `Invoke` hole at
+its position in the ordered effects instead of making the whole summary
+unknown. Binding fills the hole with the supplied function or closure's own
+bound effects, launched workers included, or forwards it to the caller's own
+function input. A summary that still has a hole is incomplete, and graph
+construction and select expansion both refuse it. Holes are filled only in the
+linear sequence: a hole inside a launched worker, a select arm, a deferred
+call, or a branching path stays unknown, as does a supplied callback that has
+paths, touches its own parameters, or lives in another package. A callback that
+launches a goroutine is usually unknown too, because its captured cells reach
+an asynchronous participant that the heap model does not prove stable.
+
 The first implementation deliberately leaves parent cancellation propagation,
 deadlines/timeouts, `WithoutCancel`, `WithValue`, `AfterFunc`, factory-returned
 contexts, nested selects, and open-ended worker loops unknown. In particular, it does

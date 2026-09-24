@@ -33,6 +33,9 @@ func Expand(summary concurrencyfacts.Summary) ([]SyncGraph, Failure) {
 	if !summary.CancellationBound() {
 		return nil, summaryFailure(concurrencyfacts.ReasonContextBindingRequired)
 	}
+	if !summary.CallbacksBound() {
+		return nil, summaryFailure(concurrencyfacts.ReasonCallbackBindingRequired)
+	}
 	if summary.Complete() {
 		graph := FromSummary(summary)
 		return []SyncGraph{graph}, graph.Failure

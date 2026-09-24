@@ -695,7 +695,9 @@ Local templates can forward a receiver-relative field through a helper that
 does not select it itself. Root and call-site queries materialize these
 projections to an existing caller address before exposing bound evidence.
 Version 6 adds explicit RWMutex read modes; two read acquisitions are not
-treated as mutually exclusive.
+treated as mutually exclusive. Version 7 adds `Invoke` effects: a call through
+a function-typed parameter is published as a hole at its position, and the
+importing call site fills it with the function or closure it supplies.
 
 Local composition also resolves exact interface boxes through shared dispatch
 evidence, preserving the concrete receiver's argument position. Loaded channel

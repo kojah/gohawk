@@ -3,6 +3,7 @@ package concurrencyfacts
 import (
 	"go/token"
 	"go/types"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
@@ -47,29 +48,25 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		return Summary{Reason: reason}
 	}
 	result.CancellationInputs = inputs
-	// Binding creates new sequences: cached declaration identities must not
-	// become tied to the first caller, including its receiver projections.
-	for _, op := range callee.Operations {
-		if !engine.budget.Spend() {
-			return Summary{Reason: ReasonBudgetExhausted}
-		}
-		resource, ok := engine.bind(op.Resource, bindings, instruction)
-		if !ok {
-			return Summary{Reason: ReasonChannelBindingUnknown}
-		}
-		op.Resource, op.Site = resource, instruction.Pos()
-		result.Operations = append(result.Operations, op)
+	offsets, reason := engine.bindSequence(&result, callee.Operations, bindings, instruction)
+	if reason != ReasonNone {
+		return Summary{Reason: reason}
 	}
 	workers, reason := engine.bindWorkers(callee.Workers, bindings, instruction)
 	if reason != ReasonNone {
 		return Summary{Reason: reason}
 	}
-	result.Workers = workers
+	if reason := placeWorkers(&result, workers, offsets); reason != ReasonNone {
+		return Summary{Reason: reason}
+	}
 	for _, choice := range callee.Choices {
 		// A select's arm sequence is a separate complete path, not another
 		// unconditional effect. Bind every resource on every arm before the
 		// caller may use any variant as a graph proof.
-		bound := SelectChoice{Prefix: choice.Prefix, Site: choice.Site, Worker: choice.Worker}
+		if choice.Prefix < 0 || choice.Prefix >= len(offsets) {
+			return Summary{Reason: ReasonEffectUnknown}
+		}
+		bound := SelectChoice{Prefix: offsets[choice.Prefix], Site: choice.Site, Worker: choice.Worker}
 		for _, arm := range choice.Arms {
 			if !engine.budget.Spend() {
 				return Summary{Reason: ReasonBudgetExhausted}
@@ -233,4 +230,55 @@ func localAddressLeaf(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	default:
 		return false
 	}
+}
+
+// bindSequence binds the callee's linear operations into result. Binding
+// creates new sequences: cached declaration identities must not become tied
+// to the first caller, including its receiver projections. A filled callback
+// hole can insert several operations, so the returned offsets map each callee
+// position, and the end, to its position in the bound sequence.
+func (engine *Engine) bindSequence(
+	result *Summary, operations []Operation, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
+) ([]int, Reason) {
+	offsets := make([]int, 0, len(operations)+1)
+	for _, op := range operations {
+		offsets = append(offsets, len(result.Operations))
+		if !engine.budget.Spend() {
+			return nil, ReasonBudgetExhausted
+		}
+		if op.Kind == Invoke {
+			supplied, ok := holeSupplied(op, bindings)
+			if !ok {
+				return nil, ReasonCallbackUnknown
+			}
+			if reason := engine.bindCallback(result, op, supplied, instruction); reason != ReasonNone {
+				return nil, reason
+			}
+			continue
+		}
+		resource, ok := engine.bind(op.Resource, bindings, instruction)
+		if !ok {
+			return nil, ReasonChannelBindingUnknown
+		}
+		op.Resource, op.Site = resource, instruction.Pos()
+		result.Operations = append(result.Operations, op)
+	}
+	return append(offsets, len(result.Operations)), ReasonNone
+}
+
+// placeWorkers maps each bound worker's launch point through offsets and
+// merges it with workers a filled callback already launched, in launch order.
+func placeWorkers(result *Summary, workers []WorkerSummary, offsets []int) Reason {
+	for index := range workers {
+		if workers[index].Prefix < 0 || workers[index].Prefix >= len(offsets) {
+			return ReasonEffectUnknown
+		}
+		workers[index].Prefix = offsets[workers[index].Prefix]
+	}
+	result.Workers = append(workers, result.Workers...)
+	if len(result.Workers) > maxWorkers {
+		return ReasonParticipantsUnknown
+	}
+	slices.SortStableFunc(result.Workers, func(a, b WorkerSummary) int { return a.Prefix - b.Prefix })
+	return ReasonNone
 }

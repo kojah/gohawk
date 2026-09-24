@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	factVersion  = 6
+	factVersion  = 7
 	exportBudget = 2000
 )
 
@@ -220,10 +220,16 @@ func (engine *Engine) bindEffect(result *Summary, call ssa.CallInstruction, effe
 		return ReasonBudgetExhausted
 	}
 	arguments := engine.resolvedCommon(call).Args
-	if effect.Parameter < 0 || effect.Parameter >= len(arguments) || effect.Kind > ReadUnlock {
+	if effect.Parameter < 0 || effect.Parameter >= len(arguments) || effect.Kind > Invoke {
 		return ReasonBodyUnavailable
 	}
 	value := arguments[effect.Parameter]
+	if effect.Kind == Invoke {
+		if len(effect.Fields) != 0 {
+			return ReasonCallbackUnknown
+		}
+		return engine.bindCallback(result, Operation{Kind: Invoke, Source: call.Pos()}, value, call)
+	}
 	if len(effect.Fields) > 0 {
 		var found bool
 		value, found = engine.importedField(call, value, effect.Fields)
