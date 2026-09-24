@@ -426,3 +426,20 @@ a caller can change under other goroutines, so these are genuine unknowns
 under the current model, not missed release or recovery shapes. The next
 recall step would need stable-content evidence for caller-owned storage, which
 the heap model does not provide today.
+
+### Inert data reruns
+
+Commits `f81d150`, `b270b67`, and `5eb3272` admit inert caller-owned data in
+summaries: reads, field addresses, stores, nil comparisons, and map and slice
+work whose values cannot carry a channel, primitive, or context. The same pins
+and checks were rerun after each; the final binary's traces are in
+`.build/sync-inertcontainers-2026-09-24`.
+
+Neither repository produced a diagnostic. For the first time in these reruns,
+one candidate reached a cycle decision: the lock/signal checks reject vendored
+buildkit's `pubsub.go:18` because its parent events do not match the proved
+shape. Load cutoffs are gone. The remaining lock-and-join first blockers are
+unavailable or opaque call bodies (77), loops and unsupported branches (51),
+mutexes on objects read from storage (47 field addresses), and stores that
+publish references into caller storage (22). These are the modeling limits
+described for the held caller-owned mutex rerun, not further inert data.
