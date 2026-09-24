@@ -106,7 +106,7 @@ func emitChannelIdentityDecision(
 		Reason: reason.String(), Outcome: outcome, Pos: send.Pos(), Function: function.String(),
 		Details: map[string]string{
 			"close":           pass.Fset.Position(closeInstruction.Pos()).String(),
-			"identity_reason": string(identity.Reason),
+			"identity_reason": identity.Reason.String(),
 			"instruction":     send.String(),
 		},
 	})

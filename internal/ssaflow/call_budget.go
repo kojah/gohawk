@@ -87,7 +87,7 @@ func (budget *SearchBudget) Observe(reason EvidenceReason, at token.Pos, build f
 	if build != nil {
 		details = build()
 	}
-	budget.observer(string(reason), at, details)
+	budget.observer(reason.String(), at, details)
 }
 
 // Exhausted reports whether the budget ran out, so a caller can trace the

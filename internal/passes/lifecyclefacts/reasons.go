@@ -57,7 +57,7 @@ func (proof Proof) traceReason() string {
 	if proof.SummaryReason != reasonNone {
 		return proof.SummaryReason.String()
 	}
-	return string(proof.Reason)
+	return proof.Reason.String()
 }
 
 // CompletionProof retains path coverage along with its summary explanation.

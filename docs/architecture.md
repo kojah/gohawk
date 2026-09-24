@@ -197,9 +197,8 @@ the code cannot drift apart silently.
 | `TestSearchBudgetsAreNamed` | a `SearchBudget` is constructed from `ssaflow.QueryBudget`, `ssaflow.SummaryBudget`, or a named constant beside the proof, never a bare number, so the size of a bound is a recorded decision rather than a copied neighbour |
 | `TestSummaryInfrastructureBoundaries` | analyzers, SSA engines, and fact passes use the shared summary API; only the two implementation files own raw memo/guard operations and fields. Analyzer query sites must not pass literal nil budgets |
 | `TestSummaryBoundaryMatcher` | summary API checks resolve type identity, including import aliases, generic types, promoted methods, and method expressions; unrelated lookalike names remain allowed |
-| `TestMigratedReasonEnums` | migrated reason domains use numeric enum types and do not store reasons in string fields; scope grows until all internal domains are migrated |
 | `TestReasonEnumBoundaryMatcher` | reason checks reject string aliases and raw reason fields while allowing textual observer/output boundaries |
-| `TestReasonMigrationDebt` | repository-wide raw reason declarations, assignments, and literal classifications cannot grow beyond the recorded migration baseline; removed debt must be removed from the baseline |
+| `TestNoRawReasonClassifications` | all production Go reason domains use numeric enums; raw reason fields, parameters, declarations, assignments, and literal classifications are rejected outside the two textual output-boundary files |
 | `TestRawReasonClassificationMatcher` | migration accounting recognizes raw reason fields, parameters, assignments, and composite literals without treating ordinary display text as classification |
 | `TestAnalyzersUseSymbolIdentity` | well-known functions matched through `syntax.Symbol`, not reconstructed from package paths and names |
 | `TestProductionCodeReturnsTerminationDecisions` | no `panic`, `log.Fatal`, or `os.Exit` in analyzer or library code |
@@ -238,14 +237,13 @@ Synchronization queries preserve a typed graph failure or upstream concurrency
 summary cause. Consumers must retain that cause rather than convert it to text
 to move it between proof layers; only trace rendering chooses its external code.
 
-The migration is incomplete. `reason-string-baseline.json` records existing
-raw declarations and common literal assignments across `internal/`; the guard
-rejects growth and requires completed entries to be removed. It is a ratchet,
-not an exemption list or a claim that syntax matching finds every possible
-string classification. Migrated domains additionally prohibit string-backed
-reason types and fields outright. The trace DTO/observer boundary retains its
-textual contract. Keep shrinking the baseline until internal classifications
-are fully enum-backed.
+The guard covers production Go code repository-wide, including analyzer wrappers
+and the golangci plugin, with no migration-debt baseline. Only
+`internal/trace/trace.go` and `internal/ssaflow/proof_observer.go` retain textual
+reason transport. These are output boundaries, not inference APIs. Syntax checks
+cannot infer every string's purpose: review unnamed helper return values and
+dynamically synthesized codes too. Keep golden trace tests and enum-to-code
+tests so representation refactors preserve external output.
 
 ## Where to start
 

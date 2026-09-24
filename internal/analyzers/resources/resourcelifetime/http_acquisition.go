@@ -22,30 +22,30 @@ import (
 
 func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call) resourceLifetimeReason {
 	head := headAcquisition(call)
-	if head.State == ssaflow.EvidenceUnknown && head.Reason != "" {
+	if head.State == ssaflow.EvidenceUnknown && head.Reason != resourceReasonNone {
 		return resourceReasonHeadAcquisition
 	}
-	if head.Reason != "" {
+	if head.Reason != resourceReasonNone {
 		// The rule applied to a Client.Do and declined; say which input failed
 		// so a trace of the site does not need the source to explain it.
 		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()).Considered(analysisTrace.Step{
-			Reason: string(head.Reason), Outcome: analysisTrace.OutcomeRejected, Pos: call.Pos(), Function: call.Parent().String(),
+			Reason: head.Reason.String(), Outcome: analysisTrace.OutcomeRejected, Pos: call.Pos(), Function: call.Parent().String(),
 		})
 	}
 	proof := localHeaderOnlyAcquisition(call)
-	if proof.Reason != "" {
+	if proof.Reason != resourceReasonNone {
 		outcome := analysisTrace.OutcomeUnknown
 		if proof.Proven() {
 			outcome = analysisTrace.OutcomeAccepted
 		}
 		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()).Evidence(analysisTrace.Step{
-			Reason: string(proof.Reason), Outcome: outcome, Pos: call.Pos(), Function: call.Parent().String(),
+			Reason: proof.Reason.String(), Outcome: outcome, Pos: call.Pos(), Function: call.Parent().String(),
 		})
 	}
 	if proof.Proven() {
 		return resourceReasonHeaderOnlyAcquisition
 	}
-	return ""
+	return resourceReasonNone
 }
 
 // A HEAD response through an unconfigured client normally carries
@@ -63,23 +63,23 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call) resourceLifeti
 // https://github.com/vishen/go-chromecast/blob/5dd70bb91787fe28e3d8946682c66cb2a1d61d21/application/application.go#L723-L732
 // https://github.com/alexellis/arkade/blob/0a0a800fd7554d4eddb1856f9ef8a21214e95bab/pkg/get/get.go#L236-L244
 // https://github.com/deweizhu/bookget/blob/2cdbf6d6c3ce70355a5c4411c0faf3450e9ae877/pkg/downloader/downloader.go#L510-L522
-func headAcquisition(call *ssa.Call) ssaflow.Proof {
+func headAcquisition(call *ssa.Call) resourceProof {
 	common := call.Common()
 	if !ssaflow.CallMatchesSymbol(common, httpClientDo) || len(common.Args) != 2 {
-		return ssaflow.Proof{}
+		return resourceProof{}
 	}
 	// A request that never came from a HEAD constructor is outside this rule,
 	// so it stays silent; the rule explains itself only when it applied.
 	if !headConstructed(common.Args[1]) {
-		return ssaflow.Proof{}
+		return resourceProof{}
 	}
 	if !headRequest(common.Args[1]) {
-		return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: "head-request-modified"}
+		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonHeadRequestModified}
 	}
 	if !headClientUnconfigured(common.Args[0], call.Parent()) {
-		return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: "head-client-not-unconfigured"}
+		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonHeadClientNotUnconfigured}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceReason(resourceReasonHeadAcquisition)}
+	return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonHeadAcquisition}
 }
 
 // headConstructed reports whether the request traces back, through rebinding
@@ -348,13 +348,13 @@ func onlyHTTPDoUses(value ssa.Value) bool {
 // global default client/transport remain an accepted coverage gap; visible
 // overrides, writer escapes and uncertain response framing reject this rule.
 // https://github.com/go-pkgz/auth/blob/5f6d12c4a12e6cf7b1934dc10d8127969ac7e7b1/token/jwt_test.go#L629-L650
-func localHeaderOnlyAcquisition(call *ssa.Call) ssaflow.Proof {
+func localHeaderOnlyAcquisition(call *ssa.Call) resourceProof {
 	if !ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageFunction("net/http", "Get")) || len(call.Common().Args) != 1 {
-		return ssaflow.Proof{}
+		return resourceProof{}
 	}
 	server := localHTTPServer(call.Common().Args[0])
 	if server == nil {
-		return ssaflow.Proof{Reason: "local-server-identity-unavailable"}
+		return resourceProof{Reason: resourceReasonLocalServerIdentityUnavailable}
 	}
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentMakeInterface
 	function, ok := ssaflow.ResolveReachingValue(ssaflow.NewReachingWalk(forms), server.Common().Args[0],
@@ -366,17 +366,17 @@ func localHeaderOnlyAcquisition(call *ssa.Call) ssaflow.Proof {
 			return function, direct
 		}, func(function *ssa.Function) *ssa.Function { return function })
 	if !ok || len(function.Params) != 2 {
-		return ssaflow.Proof{Reason: "local-server-handler-unavailable"}
+		return resourceProof{Reason: resourceReasonLocalServerHandlerUnavailable}
 	}
 	budget := ssaflow.NewSearchBudget(httpEffectsBudget)
 	effects := newHTTPWriterEffects()
 	if effects.overrides.Function(call.Parent(), budget) || effects.overrides.Function(function, budget) {
-		return ssaflow.Proof{Reason: "local-server-client-override-unresolved"}
+		return resourceProof{Reason: resourceReasonLocalServerClientOverrideUnresolved}
 	}
 	if !effects.headerOnly(function.Params[0], budget) {
-		return ssaflow.Proof{Reason: "local-server-writer-effects-unavailable"}
+		return resourceProof{Reason: resourceReasonLocalServerWriterEffectsUnavailable}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "local-server-header-only-effects"}
+	return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonLocalServerHeaderOnlyEffects}
 }
 
 func localHTTPServer(url ssa.Value) *ssa.Call {

@@ -250,16 +250,16 @@ func releasesResource(
 	owners []ssa.Value,
 	methods []string,
 	optionalAcquisition optionalAcquisitionProof,
-) (resourceAction, string) {
+) (resourceAction, resourceLifetimeReason) {
 	if optionalAcquisition.Proven() {
 		// The optional-acquisition proof deliberately authorizes only cleanup
 		// through its exact resource phi. Letting the ordinary existential
 		// derivation rules inspect a later phi could mistake cleanup of another
 		// non-nil resource for cleanup of the acquired one.
 		if optionalAcquisitionReleases(instruction, resource, methods) {
-			return actionSettled, actionSettled.String()
+			return actionSettled, resourceReasonSettled
 		}
-		return actionNone, ""
+		return actionNone, resourceReasonNone
 	}
 	return releasesOrdinaryResource(evidence, knowledge, storage, instruction, resource, owners, methods)
 }
@@ -289,8 +289,8 @@ func releasesOrdinaryResource(
 	resource ssa.Value,
 	owners []ssa.Value,
 	methods []string,
-) (resourceAction, string) {
-	settled := func() (resourceAction, string) { return actionSettled, actionSettled.String() }
+) (resourceAction, resourceLifetimeReason) {
+	settled := func() (resourceAction, resourceLifetimeReason) { return actionSettled, resourceReasonSettled }
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
@@ -363,10 +363,10 @@ func releasesOrdinaryResource(
 		// whose release merely depends on a flag has complete path
 		// information and stays diagnostic.
 		if proof.Reason == ssaflow.EvidenceCompletionInCycle {
-			return actionUnknown, "helper-cleanup-in-loop"
+			return actionUnknown, resourceReasonHelperCleanupInLoop
 		}
 	}
-	return actionNone, ""
+	return actionNone, resourceReasonNone
 }
 
 func helperRequiresCleanup(

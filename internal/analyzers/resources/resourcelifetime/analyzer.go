@@ -136,7 +136,7 @@ func emitResourceDecision(
 		details["resource_type"] = resource.Type().String()
 	}
 	probe.Decision(analysisTrace.Step{
-		Reason:   string(result.reason),
+		Reason:   result.reason.String(),
 		Outcome:  outcome,
 		Pos:      call.Pos(),
 		Function: function.String(),

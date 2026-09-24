@@ -10,6 +10,11 @@ const (
 	ReportingCandidate
 	ReportingDisabled
 	ReportingEmitted
+	ReportingDelisted
+	ReportingUnknownCheck
+	ReportingNotSelected
+	ReportingSuppressed
+	ReportingTestFileSkipped
 	reportingReasonCount
 )
 
@@ -24,6 +29,16 @@ func (reason ReportingReason) String() string {
 		return "check-disabled"
 	case ReportingEmitted:
 		return "diagnostic-reported"
+	case ReportingDelisted:
+		return "check-delisted"
+	case ReportingUnknownCheck:
+		return "unknown-check"
+	case ReportingNotSelected:
+		return "check-not-selected"
+	case ReportingSuppressed:
+		return "suppression-comment"
+	case ReportingTestFileSkipped:
+		return "test-file-skipped"
 	default:
 		return "invalid-reporting-reason"
 	}

@@ -61,7 +61,7 @@ func evaluateResourceFlow(
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
 	errorValue := acquisitionErrorResult(call)
-	if reason := httpAcquisitionBoundary(pass, call); reason != "" {
+	if reason := httpAcquisitionBoundary(pass, call); reason != resourceReasonNone {
 		return acceptedResourceLifetime(reason)
 	}
 	if acquisitionContextCanceled(call) {
@@ -161,7 +161,7 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 		returned, ok := instruction.(*ssa.Return)
 		if ok && analysis.probe.Enabled() {
 			analysis.probe.Evidence(analysisTrace.Step{
-				Reason: "resource-return-path", Outcome: analysisTrace.OutcomeObserved,
+				Reason: resourceReasonResourceReturnPath.String(), Outcome: analysisTrace.OutcomeObserved,
 				Pos: returned.Pos(), Function: returned.Parent().String(),
 				Details: map[string]string{
 					"active":   strconv.FormatBool(state.obligation.Active()),
@@ -231,7 +231,7 @@ func (analysis *resourceAnalysis) traceRepeatedGuard(block, successor *ssa.Basic
 	}
 	branch := block.Instrs[len(block.Instrs)-1]
 	analysis.probe.Evidence(analysisTrace.Step{
-		Reason: "repeated-guard-edge-unknown", Outcome: analysisTrace.OutcomeUnknown,
+		Reason: resourceReasonRepeatedGuardEdgeUnknown.String(), Outcome: analysisTrace.OutcomeUnknown,
 		Pos: branch.Pos(), Function: block.Parent().String(),
 		Details: map[string]string{"branch": branch.String(), "successor": strconv.Itoa(successor.Index)},
 	})
@@ -263,27 +263,27 @@ func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bo
 		// method names suggest; the caller of this function cannot close the
 		// resource through it.
 		if call, ok := result.(*ssa.Call); ok && resourceSummaries.Provider(analysis.pass).CallReturnsView(call, resource) {
-			analysis.traceReturnedResult(returned, result, "returned-view-cannot-release", analysisTrace.OutcomeRejected)
+			analysis.traceReturnedResult(returned, result, resourceReasonReturnedViewCannotRelease, analysisTrace.OutcomeRejected)
 			continue
 		}
 		methods := types.NewMethodSet(result.Type())
 		for method := range methods.Methods() {
 			if slices.Contains(cleanup, method.Obj().Name()) {
-				analysis.traceReturnedResult(returned, result, "returned-cleanup-projection", analysisTrace.OutcomeAccepted)
+				analysis.traceReturnedResult(returned, result, resourceReasonReturnedCleanupProjection, analysisTrace.OutcomeAccepted)
 				return true
 			}
 		}
-		analysis.traceReturnedResult(returned, result, "returned-projection-lacks-cleanup", analysisTrace.OutcomeRejected)
+		analysis.traceReturnedResult(returned, result, resourceReasonReturnedProjectionLacksCleanup, analysisTrace.OutcomeRejected)
 	}
 	return false
 }
 
-func (analysis *resourceAnalysis) traceReturnedResult(returned *ssa.Return, result ssa.Value, reason string, outcome analysisTrace.Outcome) {
+func (analysis *resourceAnalysis) traceReturnedResult(returned *ssa.Return, result ssa.Value, reason resourceLifetimeReason, outcome analysisTrace.Outcome) {
 	if !analysis.probe.Enabled() {
 		return
 	}
 	step := analysisTrace.Step{
-		Reason: reason, Outcome: outcome, Pos: returned.Pos(), Function: returned.Parent().String(),
+		Reason: reason.String(), Outcome: outcome, Pos: returned.Pos(), Function: returned.Parent().String(),
 		Details: map[string]string{"result": result.Name(), "result_type": result.Type().String()},
 	}
 	if outcome == analysisTrace.OutcomeAccepted {

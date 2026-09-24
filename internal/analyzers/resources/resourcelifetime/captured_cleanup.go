@@ -16,25 +16,25 @@ import (
 // closures need an exact current capture. Neither uncertain path proves release.
 // These are classifier inputs to the ordinary resource flow, not another flow.
 
-func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction, closure *ssa.MakeClosure, carried bool) (string, bool) {
+func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction, closure *ssa.MakeClosure, carried bool) (resourceLifetimeReason, bool) {
 	if proof := analysis.guardedCapturedBodyCleanup(instruction, closure); proof.State == ssaflow.EvidenceUnknown {
-		return string(proof.Reason), true
+		return proof.Reason, true
 	}
 	// A captured aggregate can be populated after closure creation. The
 	// closure observes its fields when called, so an unresolved cleanup of
 	// that owner is unknown rather than proof that the acquisition leaks.
 	// https://github.com/Autumn-27/ARTEX/blob/bf7f414477832b77d2152539c0723dc691086522/traffic/traffic.go#L1129-L1176
 	if analysis.capturesAggregateOwner(closure) {
-		return "captured-aggregate-owner", true
+		return resourceReasonCapturedAggregateOwner, true
 	}
 	if !carried && !analysis.closureCarries(closure) {
-		return "", false
+		return resourceReasonNone, false
 	}
 	// A started literal runs on another goroutine, so a release inside it
 	// cannot be ordered against this function's returns and the resource
 	// is beyond what this flow can judge.
 	if _, started := instruction.(*ssa.Go); started {
-		return "captured-by-started-literal", true
+		return resourceReasonCapturedByStartedLiteral, true
 	}
 	// A called or deferred literal runs in this frame, so its body is as
 	// readable as a named callee's. A release inside it was already proved
@@ -51,9 +51,9 @@ func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction,
 	// transparent:
 	// https://github.com/block/spirit/blob/c554eae/pkg/checksum/single.go#L493-L503
 	if analysis.evidence.ClosureHandsValueToUnreadableCallee(closure, analysis.resource) {
-		return "captured-by-literal-calling-unreadable-callee", true
+		return resourceReasonCapturedByLiteralCallingUnreadableCallee, true
 	}
-	return "captured-by-retaining-literal", analysis.evidence.ClosureRetainsValue(closure, analysis.resource)
+	return resourceReasonCapturedByRetainingLiteral, analysis.evidence.ClosureRetainsValue(closure, analysis.resource)
 }
 
 // cleanupRegisteredBefore handles a retained callback registered before a
@@ -67,15 +67,15 @@ func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call)
 			continue
 		}
 		if analysis.capturedCellCleanup(deferred).Proven() {
-			analysis.emitAction(deferred, actionUnknown, "prior-defer-may-clean-captured-cell")
+			analysis.emitAction(deferred, actionUnknown, resourceReasonPriorDeferMayCleanCapturedCell)
 			return true
 		}
 		if closesStatementDatabase(acquisition, deferred) {
-			analysis.emitAction(deferred, actionUnknown, "statement-parent-closed")
+			analysis.emitAction(deferred, actionUnknown, resourceReasonStatementParentClosed)
 			return true
 		}
 		if finishesRowsTransaction(acquisition, deferred) {
-			analysis.emitAction(deferred, actionUnknown, "rows-transaction-finished")
+			analysis.emitAction(deferred, actionUnknown, resourceReasonRowsTransactionFinished)
 			return true
 		}
 	}
@@ -85,7 +85,7 @@ func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call)
 			continue
 		}
 		if slices.ContainsFunc(call.Common().Args, analysis.carriedWithinClosure) {
-			analysis.emitAction(call, actionUnknown, "captured-by-prior-cleanup")
+			analysis.emitAction(call, actionUnknown, resourceReasonCapturedByPriorCleanup)
 			return true
 		}
 	}
@@ -98,7 +98,7 @@ func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call)
 // not prove which stored value will be closed. Read-only captures and by-value
 // deferred arguments do not qualify. Overwritten-cell leaks may be missed.
 // https://github.com/wind-c/comqtt/blob/11282b91abb06d5169b857a2c38fad5d54502050/plugin/auth/http/http.go#L89-L127
-func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssaflow.Proof {
+func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) resourceProof {
 	if closure, ok := deferred.Common().Value.(*ssa.MakeClosure); ok {
 		function, _ := closure.Fn.(*ssa.Function)
 		for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
@@ -111,11 +111,11 @@ func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssafl
 					ssaflow.ValueIsAccessPathFrom(ssaflow.CallReceiver(common), pair.Free)
 			}, lifecycle.CoverageAnywhere, nil)
 			if mayClean {
-				return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "captured-cell-may-cleanup"}
+				return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonCapturedCellMayCleanup}
 			}
 		}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+	return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonEvidenceNotFound}
 }
 
 // A called literal may own HTTP body cleanup while guarding a distinct load
@@ -124,8 +124,8 @@ func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssafl
 // and a body-nil guard alone; Boolean conditions and visible pointer escapes
 // or replacement cannot establish even this narrow boundary.
 // https://github.com/openkruise/kruise-game/blob/16a0418780d8abd3ee871448116bbc5dc1e98d48/test/e2e/framework/framework.go#L549-L570
-func (analysis *resourceAnalysis) guardedCapturedBodyCleanup(instruction ssa.Instruction, closure *ssa.MakeClosure) ssaflow.Proof {
-	missing := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+func (analysis *resourceAnalysis) guardedCapturedBodyCleanup(instruction ssa.Instruction, closure *ssa.MakeClosure) resourceProof {
+	missing := resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonEvidenceNotFound}
 	if _, called := instruction.(*ssa.Call); !called || analysis.contract.family != "http" {
 		return missing
 	}
@@ -144,7 +144,7 @@ func (analysis *resourceAnalysis) guardedCapturedBodyCleanup(instruction ssa.Ins
 			continue
 		}
 		if guardedBodyCoverage(function, binding.Free, budget) {
-			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: "captured-body-guarded-cleanup"}
+			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonCapturedBodyGuardedCleanup}
 		}
 	}
 	return missing

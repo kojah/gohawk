@@ -68,7 +68,7 @@ func (query *CallEffects) Call(instruction ssa.Instruction, value ssa.Value) Cal
 }
 
 func (query *CallEffects) proof(effects CallEffect) CallEffectProof {
-	proof := Proof{State: EvidenceProven, Reason: "call-effects-known", Provenance: EvidenceFromLocalSSA}
+	proof := Proof{State: EvidenceProven, Reason: EvidenceCallEffectsKnown, Provenance: EvidenceFromLocalSSA}
 	if effects&effectUnknown != 0 {
 		proof.State, proof.Reason = EvidenceUnknown, EvidenceUnavailable
 	}

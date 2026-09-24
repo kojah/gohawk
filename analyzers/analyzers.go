@@ -138,34 +138,39 @@ func withCheckFilter(
 		pass.Report = func(diagnostic analysis.Diagnostic) {
 			if delisted[diagnostic.Category] {
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-					Analyzer: analyzer.Name, Phase: "decision", Reason: "check-delisted", Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
+					Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingDelisted.String(),
+					Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
 				})
 				return
 			}
 			if !checks[diagnostic.Category] {
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-					Analyzer: analyzer.Name, Phase: "decision", Reason: "unknown-check", Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
+					Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingUnknownCheck.String(),
+					Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
 				})
 				reportErr = errors.Join(reportErr, fmt.Errorf("analyzer %q reported unknown check %q", analyzer.Name, diagnostic.Category))
 				return
 			}
 			if disabled[diagnostic.Category] {
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-					Analyzer: analyzer.Name, Phase: "decision", Reason: "check-not-selected", Outcome: analysisTrace.OutcomeAccepted,
+					Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingNotSelected.String(),
+					Outcome:    analysisTrace.OutcomeAccepted,
 					Diagnostic: diagnostic,
 				})
 				return
 			}
 			if check.Suppressed(pass, diagnostic.Pos, analyzer.Name) {
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-					Analyzer: analyzer.Name, Phase: "decision", Reason: "suppression-comment", Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
+					Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingSuppressed.String(),
+					Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
 				})
 				return
 			}
 			if !check.IncludeTests() && check.TestFilePosition(pass, diagnostic.Pos) {
 				// Test files are skipped by default; see internal/check/testfiles.go.
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-					Analyzer: analyzer.Name, Phase: "decision", Reason: "test-file-skipped", Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
+					Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingTestFileSkipped.String(),
+					Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
 				})
 				return
 			}

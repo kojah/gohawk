@@ -1,78 +1,80 @@
 package ssaflow
 
 // EvidenceReason identifies the concrete SSA relationship that established a
-// proof. Reason values are stable diagnostic vocabulary suitable for tracing.
-type EvidenceReason string
+// proof. String supplies stable trace codes; numeric values are not wire identifiers.
+type EvidenceReason uint8
 
 const (
-	EvidenceNone        EvidenceReason = ""
-	EvidenceNotFound    EvidenceReason = "evidence-not-found"
-	EvidenceUnavailable EvidenceReason = "evidence-unavailable"
+	EvidenceNone EvidenceReason = iota
+	EvidenceNotFound
+	EvidenceUnavailable
 
-	EvidenceSameValue EvidenceReason = "same-value"
+	EvidenceSameValue
 	// EvidenceSharedSlot and the other alias reasons name the rule behind
 	// a may-alias answer; see AliasProof.
-	EvidenceSharedSlot      EvidenceReason = "shared-slot"
-	EvidenceUnknownPointee  EvidenceReason = "unknown-pointee"
-	EvidenceDisjointPaths   EvidenceReason = "disjoint-paths"
-	EvidenceDisjointObjects EvidenceReason = "disjoint-objects"
-	EvidenceUnescapedLocal  EvidenceReason = "unescaped-local"
-	EvidenceStructuralWalk  EvidenceReason = "structural-walk"
-	EvidenceSameAccessPath  EvidenceReason = "same-access-path"
+	EvidenceSharedSlot
+	EvidenceUnknownPointee
+	EvidenceDisjointPaths
+	EvidenceDisjointObjects
+	EvidenceUnescapedLocal
+	EvidenceStructuralWalk
+	EvidenceSameAccessPath
 
 	// EvidenceDeferredCompletion and the other completion reasons name the
 	// launch form of the callee that ran the lifecycle method; nested launches
 	// report the outermost form.
-	EvidenceDeferredCompletion EvidenceReason = "deferred-completion"
-	EvidenceCalledCompletion   EvidenceReason = "called-completion"
-	EvidenceStartedCompletion  EvidenceReason = "started-completion"
-	EvidenceCallbackCompletion EvidenceReason = "callback-completion"
+	EvidenceDeferredCompletion
+	EvidenceCalledCompletion
+	EvidenceStartedCompletion
+	EvidenceCallbackCompletion
 	// EvidenceBudgetExhausted marks a question abandoned before it could be
 	// decided, so a caller can tell "not proven" from "not searched".
-	EvidenceBudgetExhausted EvidenceReason = "budget-exhausted"
+	EvidenceBudgetExhausted
 	// EvidenceCompletionInCycle: the only completion found lies inside a
 	// cycle, so it is not on every return, but which element or iteration
 	// it settles is decided by iteration; the search declines to call that
 	// a missing completion.
-	EvidenceCompletionInCycle       EvidenceReason = "completion-only-in-cycle"
-	EvidenceHelperInvocation        EvidenceReason = "helper-invocation"
-	EvidenceReturnedDeferredCleanup EvidenceReason = "returned-deferred-cleanup"
+	EvidenceCompletionInCycle
+	EvidenceHelperInvocation
+	EvidenceReturnedDeferredCleanup
 
 	// EvidenceStorageNotLocal and the other storage give-up reasons say where
 	// a point-in-time query of local storage stopped. None of them means the
 	// location was empty, unequal, or released; they let a reader see which
 	// write, use, or merge defeated the proof instead of a bare "unavailable".
-	EvidenceStorageNotLocal              EvidenceReason = "storage-not-local"
-	EvidenceStorageOutsideFunction       EvidenceReason = "storage-outside-function"
-	EvidenceStorageAddressEscapes        EvidenceReason = "storage-address-escapes"
-	EvidenceStorageWriteThroughAlias     EvidenceReason = "storage-write-through-alias"
-	EvidenceStoragePartialWrite          EvidenceReason = "storage-partial-write"
-	EvidenceStorageConflictingWrites     EvidenceReason = "storage-conflicting-writes"
-	EvidenceStorageNoReachingWrite       EvidenceReason = "storage-no-reaching-write"
-	EvidenceStorageWriteInCycle          EvidenceReason = "storage-write-in-cycle"
-	EvidenceStorageWriteAfterObservation EvidenceReason = "storage-write-after-observation"
-	EvidenceStorageProjectionNotLoad     EvidenceReason = "storage-projection-not-load"
-	EvidenceStorageProjectionModified    EvidenceReason = "storage-projection-modified"
-	EvidenceStoredValuesDiffer           EvidenceReason = "stored-values-differ"
+	EvidenceStorageNotLocal
+	EvidenceStorageOutsideFunction
+	EvidenceStorageAddressEscapes
+	EvidenceStorageWriteThroughAlias
+	EvidenceStoragePartialWrite
+	EvidenceStorageConflictingWrites
+	EvidenceStorageNoReachingWrite
+	EvidenceStorageWriteInCycle
+	EvidenceStorageWriteAfterObservation
+	EvidenceStorageProjectionNotLoad
+	EvidenceStorageProjectionModified
+	EvidenceStoredValuesDiffer
 
 	// EvidenceSummaryBodyUnavailable and EvidenceSummaryRecursive say why a
 	// callee could not be summarized: an opaque body or dispatch, or a callee
 	// already on the active call path.
-	EvidenceSummaryBodyUnavailable EvidenceReason = "summary-body-unavailable"
-	EvidenceSummaryRecursive       EvidenceReason = "summary-recursive"
+	EvidenceSummaryBodyUnavailable
+	EvidenceSummaryRecursive
 
-	EvidenceStoredInField               EvidenceReason = "stored-in-field"
-	EvidenceOwnerStoredInField          EvidenceReason = "owner-stored-in-field"
-	EvidenceStoredInGlobal              EvidenceReason = "stored-in-global"
-	EvidenceStoredInEnclosingScope      EvidenceReason = "stored-in-enclosing-scope"
-	EvidenceOwnerStoredInExternalField  EvidenceReason = "owner-stored-in-external-field"
-	EvidenceStoredInOwnedMap            EvidenceReason = "stored-in-owned-map"
-	EvidenceSentToReceiver              EvidenceReason = "sent-to-receiver"
-	EvidenceCapturedByClosure           EvidenceReason = "captured-by-closure"
-	EvidenceCallResultStoredInField     EvidenceReason = "call-result-stored-in-field"
-	EvidenceTransferredToReturnedOwner  EvidenceReason = "transferred-to-returned-owner"
-	EvidenceTransferredToReceiver       EvidenceReason = "transferred-to-receiver"
-	EvidenceTransferredToLifecycleOwner EvidenceReason = "transferred-to-lifecycle-owner"
+	EvidenceStoredInField
+	EvidenceOwnerStoredInField
+	EvidenceStoredInGlobal
+	EvidenceStoredInEnclosingScope
+	EvidenceOwnerStoredInExternalField
+	EvidenceStoredInOwnedMap
+	EvidenceSentToReceiver
+	EvidenceCapturedByClosure
+	EvidenceCallResultStoredInField
+	EvidenceTransferredToReturnedOwner
+	EvidenceTransferredToReceiver
+	EvidenceTransferredToLifecycleOwner
+	EvidenceCallEffectsKnown
+	evidenceReasonCount
 )
 
 // EvidenceState distinguishes a disproved relationship from one that could

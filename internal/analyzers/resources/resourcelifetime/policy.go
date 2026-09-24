@@ -9,18 +9,6 @@ type resourceLifetimePolicyResult struct {
 	report bool
 }
 
-type resourceLifetimeReason string
-
-const (
-	resourceReasonHeadAcquisition       resourceLifetimeReason = "head-body-acquisition-uncertain"
-	resourceReasonHeaderOnlyAcquisition resourceLifetimeReason = "local-header-only-body-uncertain"
-	resourceReasonParentCleanup         resourceLifetimeReason = "caller-owned-database-cleanup"
-	resourceReasonCanceledAcquisition   resourceLifetimeReason = "context-canceled-before-acquisition"
-	resourceReasonReleaseProven         resourceLifetimeReason = "release-proven"
-	resourceReasonUnownedReturn         resourceLifetimeReason = "unowned-return"
-	resourceReasonOpaqueConsumption     resourceLifetimeReason = "opaque-consumption"
-)
-
 func acceptedResourceLifetime(reason resourceLifetimeReason) resourceLifetimePolicyResult {
 	return resourceLifetimePolicyResult{reason: reason}
 }

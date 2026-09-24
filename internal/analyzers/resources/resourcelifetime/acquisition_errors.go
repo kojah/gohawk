@@ -3,7 +3,6 @@ package resourcelifetime
 import (
 	"go/token"
 	"go/types"
-	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
@@ -66,7 +65,7 @@ func resourceSuccessBranch(
 	}
 	if success, ok := testifyNoErrorSuccessBranch(branch, successor, errorValue); ok {
 		if success {
-			traceAcquisitionErrorProof(pass, branch, "testify-no-error-guard", candidate)
+			traceAcquisitionErrorProof(pass, branch, resourceReasonTestifyNoErrorGuard, candidate)
 		}
 		return success, true
 	}
@@ -87,7 +86,7 @@ func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, erro
 	return successor == branch.Block().Succs[0], true
 }
 
-func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorValue ssa.Value) (string, bool) {
+func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorValue ssa.Value) (resourceLifetimeReason, bool) {
 	// Equality to a documented non-nil sentinel excludes successful acquisition.
 	// Require the exact error: an unrelated or derived error can compare equal
 	// even when this acquisition succeeded. Arbitrary error variables may be nil.
@@ -95,18 +94,18 @@ func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorVal
 	if comparison, ok := condition.(*ssa.BinOp); ok && comparison.Op == token.EQL {
 		if comparison.X == errorValue && isNonNilFilesystemSentinel(comparison.Y) ||
 			comparison.Y == errorValue && isNonNilFilesystemSentinel(comparison.X) {
-			return "exact-error-equals-non-nil-filesystem-sentinel", true
+			return resourceReasonExactErrorEqualsNonNilFilesystemSentinel, true
 		}
 	}
 	if errorTypeAssertionSucceeded(condition, errorValue) {
-		return "error-type-assertion-succeeded", true
+		return resourceReasonErrorTypeAssertionSucceeded, true
 	}
 	if errorsIsNonNilFilesystemSentinel(condition, errorValue) {
-		return "errors-is-non-nil-filesystem-sentinel", true
+		return resourceReasonErrorsIsNonNilFilesystemSentinel, true
 	}
 	call, ok := condition.(*ssa.Call)
 	if !ok {
-		return "", false
+		return resourceReasonNone, false
 	}
 	common := call.Common()
 	// errors.As returns false for nil, including custom As implementations:
@@ -115,26 +114,34 @@ func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorVal
 	// https://github.com/bluesky-social/indigo/blob/41278964ec8e3253e70d4e919dfb8e34211c543d/atproto/identity/did.go#L108-L121
 	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("errors", "As")) &&
 		len(common.Args) == 2 && common.Args[0] == errorValue {
-		return "errors-as-exact-acquisition-error", true
+		return resourceReasonErrorsAsExactAcquisitionError, true
 	}
 	if proof := errorPredicateAcquisition(knowledge, call, errorValue); proof.Proven() {
-		return string(proof.Reason), true
+		return proof.Reason, true
 	}
 	// os.IsNotExist and os.IsExist are the legacy equivalents of errors.Is with
 	// the corresponding filesystem sentinel. Their true branches prove that
 	// the acquisition returned a non-nil error and no owned file.
 	// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/feedback/send.go#L124
 	if len(common.Args) != 1 || !heapmodel.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
-		return "", false
+		return resourceReasonNone, false
 	}
 	// os.IsPermission and os.IsTimeout are documented to report false for a
 	// nil error, so their true branches carry the same proof.
-	for _, predicate := range []string{"IsNotExist", "IsExist", "IsPermission", "IsTimeout"} {
-		if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", predicate)) {
-			return "os-" + strings.ToLower(predicate), true
+	for _, predicate := range []struct {
+		symbol syntax.Symbol
+		reason resourceLifetimeReason
+	}{
+		{syntax.PackageFunction("os", "IsNotExist"), resourceReasonOSIsNotExist},
+		{syntax.PackageFunction("os", "IsExist"), resourceReasonOSIsExist},
+		{syntax.PackageFunction("os", "IsPermission"), resourceReasonOSIsPermission},
+		{syntax.PackageFunction("os", "IsTimeout"), resourceReasonOSIsTimeout},
+	} {
+		if ssaflow.CallMatchesSymbol(common, predicate.symbol) {
+			return predicate.reason, true
 		}
 	}
-	return "", false
+	return resourceReasonNone, false
 }
 
 // A predicate may observe the error without changing its nil meaning. The
@@ -145,8 +152,8 @@ func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorVal
 // Unknown other branches, rewritten errors, dynamic dispatch and deferred
 // result mutation leave the relation unproven.
 // https://github.com/norwoodj/helm-docs/blob/a5573af096a4b526dcbc3c896c220b1714a0765b/pkg/helm/chart_info.go#L94-L106
-func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, errorValue ssa.Value) ssaflow.Proof {
-	unknown := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
+func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, errorValue ssa.Value) resourceProof {
+	unknown := resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonEvidenceUnavailable}
 	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
 	function, closure := ssaflow.DirectCallee(call.Common())
 	if function == nil {
@@ -154,7 +161,7 @@ func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, er
 	}
 	if function == nil || knowledge == nil || errorValue == nil {
 		if budget.Exhausted() {
-			unknown.Reason = ssaflow.EvidenceBudgetExhausted
+			unknown.Reason = resourceReasonBudgetExhausted
 		}
 		return unknown
 	}
@@ -167,11 +174,11 @@ func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, er
 		}
 		summary, available := knowledge.ForFunction(function).Results(ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 		if available == summaries.Available && summary.Holds(resultfacts.FalseWhenParameterNil, 0, index) {
-			return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "error-predicate-false-for-nil"}
+			return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonErrorPredicateFalseForNil}
 		}
 	}
 	if budget.Exhausted() {
-		unknown.Reason = ssaflow.EvidenceBudgetExhausted
+		unknown.Reason = resourceReasonBudgetExhausted
 	}
 	return unknown
 }
@@ -303,12 +310,12 @@ func isNonNilFilesystemSentinel(value ssa.Value) bool {
 	}
 }
 
-func traceAcquisitionErrorProof(pass *analysis.Pass, branch *ssa.If, proof string, candidate token.Pos) {
+func traceAcquisitionErrorProof(pass *analysis.Pass, branch *ssa.If, proof resourceLifetimeReason, candidate token.Pos) {
 	analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), candidate).Evidence(analysisTrace.Step{
-		Reason:   "acquisition-error-proven",
+		Reason:   resourceReasonAcquisitionErrorProven.String(),
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      branch.Cond.Pos(),
 		Function: branch.Parent().String(),
-		Details:  map[string]string{"proof": proof},
+		Details:  map[string]string{"proof": proof.String()},
 	})
 }

@@ -6,6 +6,9 @@ func TestReportingReasonCodes(t *testing.T) {
 	want := map[ReportingReason]string{
 		ReportingNone: "", ReportingCandidate: "diagnostic-candidate",
 		ReportingDisabled: "check-disabled", ReportingEmitted: "diagnostic-reported",
+		ReportingDelisted: "check-delisted", ReportingUnknownCheck: "unknown-check",
+		ReportingNotSelected: "check-not-selected", ReportingSuppressed: "suppression-comment",
+		ReportingTestFileSkipped: "test-file-skipped",
 	}
 	if len(want) != int(reportingReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

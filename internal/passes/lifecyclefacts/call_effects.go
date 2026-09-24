@@ -34,7 +34,7 @@ func (evidence *LifecycleEvidence) CallEffects(instruction ssa.Instruction, targ
 		position = instruction.Pos()
 	}
 	evidence.probe.Evidence(analysisTrace.Step{
-		Reason: string(proof.Reason), Outcome: outcome, Pos: position,
+		Reason: proof.Reason.String(), Outcome: outcome, Pos: position,
 		Function: instructionFunction(instruction), Details: details,
 	})
 	return proof

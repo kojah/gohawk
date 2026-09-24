@@ -40,17 +40,6 @@ const (
 	actionUnknown
 )
 
-func (action resourceAction) String() string {
-	switch action {
-	case actionSettled:
-		return "settled"
-	case actionUnknown:
-		return "opaque-use"
-	case actionNone:
-	}
-	return "none"
-}
-
 // resourceAnalysis holds one acquisition's inputs and its memoized labels.
 type resourceAnalysis struct {
 	acquisition *ssa.Call
@@ -105,15 +94,15 @@ func (analysis *resourceAnalysis) action(instruction ssa.Instruction) resourceAc
 // a settled or untouched resource, and for an opaque one it is the boundary
 // that stopped the proof, so a reader can tell an interface call from a
 // callee with no body without rereading this code.
-func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourceAction, string) {
+func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourceAction, resourceLifetimeReason) {
 	if analysis.compressionOutputAbandoned(instruction) {
-		return actionUnknown, "compression-output-may-be-abandoned"
+		return actionUnknown, resourceReasonCompressionOutputMayBeAbandoned
 	}
 	if closesStatementDatabase(analysis.acquisition, instruction) {
-		return actionUnknown, "statement-parent-closed"
+		return actionUnknown, resourceReasonStatementParentClosed
 	}
 	if finishesRowsTransaction(analysis.acquisition, instruction) {
-		return actionUnknown, "rows-transaction-finished"
+		return actionUnknown, resourceReasonRowsTransactionFinished
 	}
 	// The storage identity queries behind a release draw from this
 	// candidate's pool, so their give-ups reach the trace like every other.
@@ -131,21 +120,21 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	common := ssaflow.InstructionCall(instruction)
 	if !analysis.optional.Proven() && common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
 		heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), analysis.resource, map[ssa.Value]bool{}) {
-		return actionUnknown, "ambiguous-cleanup-value"
+		return actionUnknown, resourceReasonAmbiguousCleanupValue
 	}
 	if analysis.ambiguousHelperCleanup(instruction, common) {
-		return actionUnknown, "ambiguous-helper-cleanup-value"
+		return actionUnknown, resourceReasonAmbiguousHelperCleanupValue
 	}
 	if analysis.pairedErrorHelperCleanup(instruction, common) {
-		return actionUnknown, "paired-error-helper-cleanup"
+		return actionUnknown, resourceReasonPairedErrorHelperCleanup
 	}
 	if analysis.importedLoopRelease(instruction, common) {
-		return actionUnknown, "imported-helper-cleanup-in-loop"
+		return actionUnknown, resourceReasonImportedHelperCleanupInLoop
 	}
 	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {
 		return actionUnknown, boundary
 	}
-	return actionNone, actionNone.String()
+	return actionNone, resourceReasonUntouched
 }
 
 // A cleanup helper may receive a projection of a merged owner. Proving cleanup
@@ -226,41 +215,41 @@ func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Ins
 
 // opaqueConsumption reports whether the instruction hands the resource to
 // something the analysis cannot see through.
-func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction) (string, bool) {
+func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction) (resourceLifetimeReason, bool) {
 	switch typed := instruction.(type) {
 	case *ssa.Return:
-		return "returned-logger-retains-writer", analysis.returnsRetainedLogger(typed)
+		return resourceReasonReturnedLoggerRetainsWriter, analysis.returnsRetainedLogger(typed)
 	case *ssa.Store:
 		// An owner selected from a collection may already be retained elsewhere.
 		// The local collection is not evidence that its elements are local owners.
 		// https://github.com/cloudflare/artifact-fs/blob/2b87a48691ef4ae82d391b7bbe4976c06c7fadf7/internal/fusefs/fuse_unix.go#L256-L287
 		owner := resourceFieldOwner(typed, analysis.resource)
 		_, field := typed.Addr.(*ssa.FieldAddr)
-		return "stored-on-collection-owner", field && owner != nil && ssaflow.ElementOfAggregate(owner)
+		return resourceReasonStoredOnCollectionOwner, field && owner != nil && ssaflow.ElementOfAggregate(owner)
 	case *ssa.Send:
-		return "sent-to-channel", analysis.carries(typed.X)
+		return resourceReasonSentToChannel, analysis.carries(typed.X)
 	case *ssa.MapUpdate:
-		return "stored-in-map", analysis.carries(typed.Value)
+		return resourceReasonStoredInMap, analysis.carries(typed.Value)
 	case *ssa.Select:
 		for _, state := range typed.States {
 			if state.Send != nil && analysis.carries(state.Send) {
-				return "sent-to-channel", true
+				return resourceReasonSentToChannel, true
 			}
 		}
-		return "", false
+		return resourceReasonNone, false
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
 		return analysis.opaqueCall(instruction, ssaflow.InstructionCall(instruction))
 	}
-	return "", false
+	return resourceReasonNone, false
 }
 
-func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common *ssa.CallCommon) (string, bool) {
+func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common *ssa.CallCommon) (resourceLifetimeReason, bool) {
 	if common == nil {
-		return "", false
+		return resourceReasonNone, false
 	}
 	carried := slices.ContainsFunc(common.Args, analysis.carries)
 	if analysis.possiblyRetainedCallback(instruction, common) {
-		return "captured-by-possibly-retained-callback", true
+		return resourceReasonCapturedByPossiblyRetainedCallback, true
 	}
 	// A helper may expose the exact resource asynchronously without itself
 	// being launched. That is opaque ownership, not proven cleanup. Conversely,
@@ -269,17 +258,17 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	if carried {
 		effects := analysis.evidence.CallEffects(instruction, analysis.resource)
 		if effects.Proven() && effects.Effects&ssaflow.EffectAsync != 0 {
-			return "call-effects-asynchronous-exposure", true
+			return resourceReasonCallEffectsAsynchronousExposure, true
 		}
 	}
 	if common.IsInvoke() {
 		// The receiver of an interface method is not consumed by being the
 		// receiver; only the resource handed to the method is. The body behind
 		// an interface method is chosen at run time, so no summary describes it.
-		return "interface-method", carried
+		return resourceReasonInterfaceMethod, carried
 	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
-		return "appended", builtin.Name() == "append" && carried
+		return resourceReasonAppended, builtin.Name() == "append" && carried
 	}
 	if closure, ok := common.Value.(*ssa.MakeClosure); ok {
 		return analysis.opaqueClosureCall(instruction, closure, carried)
@@ -289,21 +278,21 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 
 // Named and dynamically selected functions share the argument-level boundary;
 // literal captures and interface receivers are classified by opaqueCall first.
-func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction, common *ssa.CallCommon, carried bool) (string, bool) {
+func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction, common *ssa.CallCommon, carried bool) (resourceLifetimeReason, bool) {
 	callee := common.StaticCallee()
 	if callee == nil {
 		// A function value: the callee is decided at run time.
-		return "dynamic-callee", carried
+		return resourceReasonDynamicCallee, carried
 	}
 	if !carried {
-		return "", false
+		return resourceReasonNone, false
 	}
 	// An aggregate owner passed to an incompletely modeled retaining helper
 	// can outlive this call even when the helper returns nothing. A read-only
 	// helper is not an ownership handoff and must keep the obligation live.
 	// https://github.com/goshs-labs/goshs/blob/c65ca19696e87cd5ec2206b2a488c5f5f5b621db/smbserver/session.go#L135-L137
 	if analysis.aggregateOwnerMayEscape(instruction, common) {
-		return "aggregate-owner-may-escape", true
+		return resourceReasonAggregateOwnerMayEscape, true
 	}
 	// A resource that reaches the callee only inside an aggregate argument is
 	// beyond a parameter-level completion proof: that proof follows the
@@ -315,14 +304,14 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// zip reader in an fs.FS wrapper and returns the loader's result:
 	// https://github.com/google/oss-rebuild/blob/9ce0528dd68bf209b52cc9fdc90bd63742cbb3a0/pkg/sysgraph/sgstorage/loader.go#L173-L179
 	if analysis.carriedWithinAggregate(common) && callResultMayTransfer(instruction) {
-		return "nested-in-transferred-argument", true
+		return resourceReasonNestedInTransferredArgument, true
 	}
 	// A summarized callee proven to release, store, or own the resource was
 	// classified as settled above; one summarized as doing none of those is
 	// transparent. A callee with a body but no summary is judged by its body
 	// through the completion proof already consulted; without either, the
 	// callee is a boundary.
-	return "unsummarized-callee", !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
+	return resourceReasonUnsummarizedCallee, !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
 }
 
 func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instruction, common *ssa.CallCommon) bool {
@@ -602,12 +591,12 @@ func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosur
 	return false
 }
 
-func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction, reason string) {
+func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction, reason resourceLifetimeReason) {
 	if action == actionNone || !analysis.probe.Enabled() {
 		return
 	}
 	analysis.probe.Evidence(analysisTrace.Step{
-		Reason:   reason,
+		Reason:   reason.String(),
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      instruction.Pos(),
 		Function: analysis.function.String(),

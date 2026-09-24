@@ -14,14 +14,12 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-const optionalAcquisitionSuccessPhi ssaflow.EvidenceReason = "optional-acquisition-success-phi"
-
 // Optional-acquisition evidence connects one guarded acquisition to the
 // resource and error phis at its merge. The proof deliberately stops at one
 // acyclic diamond and one exact repeated guard; it does not infer arbitrary
 // correlations between branch conditions.
 type optionalAcquisitionProof struct {
-	proof             ssaflow.Proof
+	proof             resourceProof
 	resourcePhi       *ssa.Phi
 	merge             *ssa.BasicBlock
 	acquisitionBlock  *ssa.BasicBlock
@@ -76,7 +74,7 @@ func proveOptionalAcquisition(call *ssa.Call, resource, errorValue ssa.Value) op
 		acquiredSuccessor = merge.Succs[0]
 	}
 	return optionalAcquisitionProof{
-		proof: ssaflow.Proof{
+		proof: resourceProof{
 			State:      ssaflow.EvidenceProven,
 			Reason:     optionalAcquisitionSuccessPhi,
 			Provenance: ssaflow.EvidenceFromLocalSSA,
@@ -157,7 +155,7 @@ func sameExactOperand(left, right ssa.Value) bool {
 func traceOptionalAcquisition(pass *analysis.Pass, proof optionalAcquisitionProof, candidate token.Pos) {
 	checkID := string(check.ResourceRelease)
 	analysisTrace.For(pass, "resourcelifetime", checkID, candidate).Evidence(analysisTrace.Step{
-		Reason:   string(proof.proof.Reason),
+		Reason:   proof.proof.Reason.String(),
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      proof.resourcePhi.Pos(),
 		Function: proof.resourcePhi.Parent().String(),

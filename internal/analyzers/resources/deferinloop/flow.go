@@ -227,7 +227,7 @@ func resourceUseStatus(
 		probe.Evidence(analysisTrace.Step{
 			Reason: reasonArgumentCarriesResource.String(), Outcome: analysisTrace.OutcomeObserved, Pos: instruction.Pos(),
 			Details: map[string]string{
-				"argument": argument.Name(), "alias": strconv.FormatBool(alias.Aliases), "alias-reason": string(alias.Reason),
+				"argument": argument.Name(), "alias": strconv.FormatBool(alias.Aliases), "alias-reason": alias.Reason.String(),
 				"contains": strconv.FormatBool(contains),
 			},
 		})

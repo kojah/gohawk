@@ -82,7 +82,7 @@ func reportUsesAfterRelease(
 	reported := map[*ssa.Call]bool{}
 	for _, release := range directReleases(function, &query) {
 		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), release.Pos()).Evidence(analysisTrace.Step{
-			Reason: "known-resource-direct-release", Outcome: analysisTrace.OutcomeAccepted,
+			Reason: resourceReasonKnownResourceDirectRelease.String(), Outcome: analysisTrace.OutcomeAccepted,
 		})
 		for _, instruction := range ssaflow.InstructionsReachableAfter(release) {
 			call, ok := instruction.(*ssa.Call)
@@ -94,10 +94,10 @@ func reportUsesAfterRelease(
 				continue
 			}
 			probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), call.Pos())
-			probe.Candidate(analysisTrace.Step{Reason: "operation-on-released-resource"})
+			probe.Candidate(analysisTrace.Step{Reason: resourceReasonOperationOnReleasedResource.String()})
 			if operation.helper != nil {
 				probe.Evidence(analysisTrace.Step{
-					Reason: "helper-requires-operation", Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos(),
+					Reason: resourceReasonHelperRequiresOperation.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos(),
 					Details: map[string]string{"helper": operation.helper.String(), "method": operation.method},
 				})
 			}
@@ -162,7 +162,7 @@ type releasedResource struct {
 }
 
 type useAfterReleaseProof struct {
-	ssaflow.Proof
+	resourceProof
 	interference ssa.Instruction
 }
 
@@ -171,23 +171,23 @@ type useAfterReleaseProof struct {
 // can change the lifecycle even when pointer identity stays the same. Merely
 // not recognizing another Close is not evidence that the value stays closed.
 func (query *releasedResource) prove(acquisition, release, use *ssa.Call) useAfterReleaseProof {
-	unknown := func(reason ssaflow.EvidenceReason, interference ssa.Instruction) useAfterReleaseProof {
+	unknown := func(reason resourceLifetimeReason, interference ssa.Instruction) useAfterReleaseProof {
 		return useAfterReleaseProof{
-			Proof:        ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: reason},
-			interference: interference,
+			resourceProof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: reason},
+			interference:  interference,
 		}
 	}
 	if !ssaflow.InstructionDominates(release, use) {
-		return unknown("release-does-not-dominate-use", nil)
+		return unknown(resourceReasonReleaseDoesNotDominateUse, nil)
 	}
 	if !query.releaseInvalidates(release, use) {
-		return unknown("release-success-not-proven", nil)
+		return unknown(resourceReasonReleaseSuccessNotProven, nil)
 	}
 	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
 	effects := ssaflow.NewCallEffects(budget)
 	for _, instruction := range ssaflow.InstructionsReachableAfter(acquisition) {
 		if !budget.Spend() {
-			return unknown("release-use-budget-exhausted", nil)
+			return unknown(resourceReasonReleaseUseBudgetExhausted, nil)
 		}
 		if instruction == use || instruction == release || !ssaflow.InstructionMayFollow(instruction, use) {
 			continue
@@ -195,14 +195,14 @@ func (query *releasedResource) prove(acquisition, release, use *ssa.Call) useAft
 		// A call the summaries prove never returns ends the path as os.Exit
 		// does, so a use only reachable through it is not reached.
 		if ssaflow.InstructionTerminatesWith(instruction, query.knowledge.Terminates()) && ssaflow.InstructionDominates(instruction, use) {
-			return unknown("release-use-unreachable", instruction)
+			return unknown(resourceReasonReleaseUseUnreachable, instruction)
 		}
 		if query.interferes(instruction, effects) {
-			return unknown("release-use-opaque-effect", instruction)
+			return unknown(resourceReasonReleaseUseOpaqueEffect, instruction)
 		}
 	}
-	return useAfterReleaseProof{Proof: ssaflow.Proof{
-		State: ssaflow.EvidenceProven, Reason: "release-dominates-use", Provenance: ssaflow.EvidenceFromLocalSSA,
+	return useAfterReleaseProof{resourceProof: resourceProof{
+		State: ssaflow.EvidenceProven, Reason: resourceReasonReleaseDominatesUse, Provenance: ssaflow.EvidenceFromLocalSSA,
 	}}
 }
 
@@ -321,7 +321,7 @@ func emitUseAfterRelease(pass *analysis.Pass, function *ssa.Function, acquisitio
 		return
 	}
 	probe.Evidence(analysisTrace.Step{
-		Reason:   "release-dominates-use",
+		Reason:   resourceReasonReleaseDominatesUse.String(),
 		Outcome:  analysisTrace.OutcomeRejected,
 		Pos:      use.Pos(),
 		Function: function.String(),
@@ -338,7 +338,7 @@ func emitUnknownUseAfterRelease(
 	probe analysisTrace.Probe,
 	proof useAfterReleaseProof,
 ) {
-	step := analysisTrace.Step{Reason: string(proof.Reason), Outcome: analysisTrace.OutcomeUnknown}
+	step := analysisTrace.Step{Reason: proof.Reason.String(), Outcome: analysisTrace.OutcomeUnknown}
 	if proof.interference != nil && probe.Enabled() {
 		step.Pos = proof.interference.Pos()
 		step.Function = function.String()

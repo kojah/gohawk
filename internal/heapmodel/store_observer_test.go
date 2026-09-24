@@ -75,7 +75,7 @@ func TestStorageGiveUpsNameTheirCause(t *testing.T) {
 			if content.Proven() || content.Reason != reason {
 				t.Fatalf("Content = %+v, want reason %s", content.Proof, reason)
 			}
-			if len(observed) == 0 || observed[len(observed)-1] != string(reason) {
+			if len(observed) == 0 || observed[len(observed)-1] != reason.String() {
 				t.Fatalf("observed %v, want %s last", observed, reason)
 			}
 		})
