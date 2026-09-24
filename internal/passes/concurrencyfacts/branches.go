@@ -23,6 +23,9 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 	states := map[*ssa.BasicBlock]Summary{function.Blocks[0]: {}}
 	var terminal *Summary
 	for _, block := range order {
+		if panics(block) {
+			continue
+		}
 		state := states[block]
 		if reason := engine.collectBlock(&state, block, root); reason != ReasonNone {
 			if reason == ReasonSelectAlternatives {
@@ -167,4 +170,17 @@ func foldSources(into, from Summary) Summary {
 		}
 	}
 	return into
+}
+
+// A block that ends in panic never returns normally. A function that recovers
+// is never complete (see detachedRecovery), so the panic ends the path before
+// any later event, and the path cannot disagree with the others about the
+// ordered effects that follow. If every path panics, no terminal remains and
+// the summary stays unknown.
+func panics(block *ssa.BasicBlock) bool {
+	if len(block.Instrs) == 0 {
+		return false
+	}
+	_, ok := block.Instrs[len(block.Instrs)-1].(*ssa.Panic)
+	return ok
 }

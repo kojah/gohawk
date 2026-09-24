@@ -66,6 +66,8 @@ func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 			return Summary{Reason: ReasonGroupCountUnknown}
 		}
 		kind, resource = GroupAdd, ssaflow.CallReceiver(common)
+	case inertBuiltin(common):
+		return Summary{}
 	default:
 		return engine.instantiate(instruction)
 	}

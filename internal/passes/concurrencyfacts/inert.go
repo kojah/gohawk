@@ -50,6 +50,9 @@ func inertDataInstruction(instruction ssa.Instruction) bool {
 		// Reading a map or string element yields that element, or with CommaOk
 		// the element and a Boolean.
 		return inertValue(lookupElement(instruction))
+	case *ssa.TypeAssert:
+		// A failed assertion panics, which ends the path.
+		return inertValue(lookupElement(instruction))
 	case *ssa.Extract:
 		// Projecting a result its producer already accounted for. Select
 		// results feed the dispatch proof, which keeps its own handling.
@@ -78,11 +81,32 @@ func nilConstant(value ssa.Value) bool {
 	return ok && constant.IsNil()
 }
 
-func lookupElement(lookup *ssa.Lookup) types.Type {
-	if tuple, ok := lookup.Type().(*types.Tuple); ok {
+// lookupElement returns the value a map lookup or type assertion produces,
+// ignoring the CommaOk Boolean.
+func lookupElement(value ssa.Value) types.Type {
+	if tuple, ok := value.Type().(*types.Tuple); ok {
 		return tuple.At(0).Type()
 	}
-	return lookup.Type()
+	return value.Type()
+}
+
+// Builtins that read lengths, compare scalars, or copy inert elements cannot
+// block, synchronize, or publish a resource.
+func inertBuiltin(common *ssa.CallCommon) bool {
+	builtin, ok := common.Value.(*ssa.Builtin)
+	if !ok {
+		return false
+	}
+	switch builtin.Name() {
+	case "len", "cap", "min", "max":
+		return true
+	case "append", "copy":
+		return inertElements(common.Args[0].Type()) && (len(common.Args) < 2 || inertElements(common.Args[1].Type()))
+	case "delete":
+		return inertValue(common.Args[1].Type())
+	default:
+		return false
+	}
 }
 
 func inertElements(value types.Type) bool {

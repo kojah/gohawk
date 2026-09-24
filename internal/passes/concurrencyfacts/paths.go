@@ -23,6 +23,11 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 	states := map[*ssa.BasicBlock][]Summary{function.Blocks[0]: {{}}}
 	var paths []Summary
 	for _, block := range order {
+		// A panicking block contributes no alternative: it never returns
+		// normally, so none of its states can reach a later event.
+		if panics(block) {
+			continue
+		}
 		current := states[block]
 		for _, instruction := range block.Instrs {
 			current, reason = engine.advancePaths(current, instruction, root)

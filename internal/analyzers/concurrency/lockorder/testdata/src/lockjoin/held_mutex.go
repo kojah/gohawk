@@ -112,3 +112,37 @@ func (c *heldChain) loadedOwnerMutex() {
 	<-done
 	c.next.mu.Unlock()
 }
+
+// Error construction, builtins, and a panicking guard do not touch the mutex
+// or the channel, and the panicking branch never reaches the wait.
+func (o *heldOwner) guardedWait(items []string) error {
+	if len(items) == 0 {
+		panic("no items")
+	}
+	done := make(chan struct{})
+	o.mu.Lock()
+	items = append(items, o.name)
+	go o.lockThenClose(done)
+	<-done // want "waits for a worker that needs the held lock"
+	o.mu.Unlock()
+	return describe(len(items))
+}
+
+type countError struct{ count int }
+
+func (e *countError) Error() string { return "items" }
+
+func describe(count int) error { return &countError{count} }
+
+// The same guard with the release before the wait is safe.
+func (o *heldOwner) guardedRelease(items []string) error {
+	if len(items) == 0 {
+		panic("no items")
+	}
+	done := make(chan struct{})
+	o.mu.Lock()
+	go o.lockThenClose(done)
+	o.mu.Unlock()
+	<-done
+	return describe(len(items))
+}

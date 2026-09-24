@@ -225,15 +225,15 @@ func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBud
 // Root collects a caller and at most maxWorkers children under one shared work budget.
 //
 // A root summary answers what can happen before the root returns, for
-// consumers that prove a wait which blocks before any return. It relies on
-// two assumptions that composed helper summaries do not make:
-//   - Returned values reach the caller only after the root returns, so a
-//     returned reference is not treated as a new participant.
-//   - A path that panics never reaches a later wait, so instructions that can
-//     panic on a nil owner or bad index are admitted like any other.
+// consumers that prove a wait which blocks before any return. Unlike a
+// composed helper summary, it treats values the root returns as reaching the
+// caller only after the root returns, so a returned reference is not a new
+// participant. A consumer that reasons about effects after the root returns
+// must not use Root.
 //
-// A consumer that reasons about effects after the root returns, or that needs
-// every path to complete, must not use Root.
+// Every summary, root or helper, admits instructions that can panic on a nil
+// owner or bad index. A function that recovers is never complete, so a panic
+// ends its path before any later event.
 func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
@@ -433,9 +433,9 @@ func passiveInstruction(instruction ssa.Instruction, root bool) Reason {
 		// ordered effects at joins and returns.
 		return ReasonNone
 	case *ssa.Phi:
-		// Scalar values cannot change resource identity. Every incoming
+		// Inert values cannot change resource identity. Every incoming
 		// computation is still checked by the instruction whitelist.
-		if scalarType(instruction.Type()) {
+		if inertValue(instruction.Type()) {
 			return ReasonNone
 		}
 	case *ssa.DebugRef, *ssa.Alloc, *ssa.MakeClosure:
@@ -475,18 +475,30 @@ func passiveInstruction(instruction ssa.Instruction, root bool) Reason {
 }
 
 // effectFree groups the instruction families that need no ordered effect:
-// scalar arithmetic, a root's own return, and inert caller-owned data.
+// scalar arithmetic, an admitted return, and inert caller-owned data.
 func effectFree(instruction ssa.Instruction, root bool) bool {
-	return scalarInstruction(instruction) || rootReturn(instruction, root) || inertDataInstruction(instruction)
+	return scalarInstruction(instruction) || admittedReturn(instruction, root) || inertDataInstruction(instruction)
 }
 
 // A root's results reach its caller only after the root returns, and root
-// consumers prove waits that block before any return. A helper's returned
-// reference can instead add its caller as a participant, so composed summaries
-// keep the scalar-only rule in scalarInstruction.
-func rootReturn(instruction ssa.Instruction, root bool) bool {
-	_, ok := instruction.(*ssa.Return)
-	return ok && root
+// consumers prove waits that block before any return. A helper's result can
+// instead add its caller as a participant, so a helper may return only inert
+// values: a caller cannot reach a resource through one without an operation
+// that would itself stop the summary.
+func admittedReturn(instruction ssa.Instruction, root bool) bool {
+	returned, ok := instruction.(*ssa.Return)
+	if !ok {
+		return false
+	}
+	if root {
+		return true
+	}
+	for _, result := range returned.Results {
+		if !inertValue(result.Type()) {
+			return false
+		}
+	}
+	return true
 }
 
 func localSynchronizationPointerStore(store *ssa.Store) bool {
@@ -498,27 +510,17 @@ func localSynchronizationPointerStore(store *ssa.Store) bool {
 }
 
 // Empty protocol effects require positive evidence for every instruction, not
-// just scalar arguments or a scalar result. Division and shifts can panic;
-// unknown calls and reference-bearing returns must retain their usual bailout.
+// just scalar arguments. This admits scalar arithmetic and comparisons.
+// Division and shifts are left out; no measured cutoff has needed them.
 func scalarInstruction(instruction ssa.Instruction) bool {
-	switch instruction := instruction.(type) {
-	case *ssa.BinOp:
-		if !scalarType(instruction.X.Type()) || !scalarType(instruction.Y.Type()) {
-			return false
-		}
-		return slices.Contains([]token.Token{
-			token.ADD, token.SUB, token.MUL, token.AND, token.OR, token.XOR, token.AND_NOT,
-			token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ,
-		}, instruction.Op)
-	case *ssa.Return:
-		for _, result := range instruction.Results {
-			if !scalarType(result.Type()) {
-				return false
-			}
-		}
-		return true
+	binary, ok := instruction.(*ssa.BinOp)
+	if !ok || !scalarType(binary.X.Type()) || !scalarType(binary.Y.Type()) {
+		return false
 	}
-	return false
+	return slices.Contains([]token.Token{
+		token.ADD, token.SUB, token.MUL, token.AND, token.OR, token.XOR, token.AND_NOT,
+		token.EQL, token.NEQ, token.LSS, token.LEQ, token.GTR, token.GEQ,
+	}, binary.Op)
 }
 
 func scalarType(value types.Type) bool {

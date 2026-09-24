@@ -42,6 +42,12 @@ func summarizedMutexEffects(pass *analysis.Pass, function *ssa.Function) map[ssa
 		if _, _, _, direct := mutexAction(call); direct {
 			continue
 		}
+		// Builtins have no mutex effects. Keeping them out of this map leaves
+		// the flow's per-instruction checks, such as a delete or copy into a
+		// read-locked owner, in charge of them.
+		if _, builtin := call.Common().Value.(*ssa.Builtin); builtin {
+			continue
+		}
 		summary := engine.AtCall(call, budget)
 		if !summary.Complete() {
 			continue
