@@ -408,3 +408,21 @@ which the freshness requirement rejects even with a complete summary. This
 change moves the first blocker; it is not evidence of new bug detection.
 Moby's scan had no test-loading errors this time. Both scans ran on warm build
 caches, so their wall times are not comparable with the runs above.
+
+### Held caller-owned mutex rerun
+
+Commit `58d0b6e` lets the lock/signal and WaitGroup/lock proofs use a mutex
+the root locks and later unlocks, without requiring a local allocation. The
+same pins and checks were rerun (binary SHA-256 `228ac0805b055e3660f45471446980c80d591ee99cc48060cde8d5e3a98880fa`; traces in
+`.build/sync-heldmutex-2026-09-24`). Decision counts were unchanged from the
+detached-recovery rerun: no diagnostics and no cycle decisions. Every
+candidate still stops while its summary is built, before the relaxed mutex
+rule applies.
+
+Of the remaining root-level lock-and-join cutoffs, 67 load through a computed
+address and 48 take a field address on such a loaded object (for example
+`&t.mu` where `t` was read from receiver storage). Storage reachable from
+a caller can change under other goroutines, so these are genuine unknowns
+under the current model, not missed release or recovery shapes. The next
+recall step would need stable-content evidence for caller-owned storage, which
+the heap model does not provide today.
