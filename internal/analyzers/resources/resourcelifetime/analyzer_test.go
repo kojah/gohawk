@@ -156,9 +156,10 @@ func TestConfiguration(t *testing.T) {
 	analyzertest.Run(t, analysistest.TestData(), analyzer, "resourcelifetime/config")
 }
 
-// boundedSearchDeadline is generous: the bounded analysis of the fixture below
-// takes about a third of a second, and the unbounded search did not finish in
-// sixty. Anything between the two means the budget stopped applying.
+// boundedSearchDeadline bounds the analyzer action, not package loading or
+// prerequisite fact inference. Those costs vary independently of the release
+// search, especially under race instrumentation. The formerly unbounded search
+// did not finish in sixty seconds; retain a much smaller action deadline.
 const boundedSearchDeadline = 15 * time.Second
 
 // TestRecursiveReleaseSearchStaysBounded fails if the release search is once
@@ -166,8 +167,15 @@ const boundedSearchDeadline = 15 * time.Second
 // asserts elapsed time rather than diagnostics; the fixture expects none.
 func TestRecursiveReleaseSearchStaysBounded(t *testing.T) {
 	start := time.Now()
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "recursivecleanup")
-	if elapsed := time.Since(start); elapsed > boundedSearchDeadline {
+	results := analyzertest.Run(t, analysistest.TestData(), Analyzer(), "recursivecleanup")
+	if len(results) != 1 || results[0].Action == nil || results[0].Action.Err != nil {
+		t.Fatal("expected one successful analyzer action for the recursive fixture")
+	}
+	// checker.Action.Duration starts after prerequisite actions finish. Timing
+	// the whole harness falsely attributes dependency work to recursive search.
+	elapsed := results[0].Action.Duration
+	t.Logf("recursive fixture: analyzer=%s, complete harness=%s", elapsed, time.Since(start))
+	if elapsed > boundedSearchDeadline {
 		t.Errorf("analyzing mutually recursive callees took %s, want under %s; the release search is not bounded",
 			elapsed, boundedSearchDeadline)
 	}
