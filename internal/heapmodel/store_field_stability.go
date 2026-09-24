@@ -29,7 +29,7 @@ func (storage *Storage) StableFieldContent(address ssa.Value, observation ssa.In
 		if !exact || written.path != location.path && !strings.HasPrefix(location.path, written.path+"/") {
 			return storage.unknown(ssaflow.EvidenceStoragePartialWrite, store)
 		}
-		if StoreMayFollow(location.root, observation, store) || ssaflow.BlockInCycle(store.Block()) {
+		if store == observation || StoreMayFollow(location.root, observation, store) || ssaflow.BlockInCycle(store.Block()) {
 			return storage.unknown(ssaflow.EvidenceStorageWriteAfterObservation, store)
 		}
 	}

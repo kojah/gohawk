@@ -28,6 +28,7 @@ func escaped() { var o owner; o.data = make(chan int); retain(&o); observe(&o) }
 func unknown(f func(*owner)) { var o owner; o.data = make(chan int); f(&o); observe(&o) }
 func cycle() { var o owner; o.data = make(chan int); recursive(&o); observe(&o) }
 func selfAlias() { var o owner; o.data = make(chan int); o.self = &o; observe(&o); mutate(o.self) }
+func directWrite() { var o owner; o.data = make(chan int); o.data = nil }
 `)
 	for _, name := range []string{"stable", "changed", "replaced", "escaped", "unknown", "cycle", "selfAlias"} {
 		function := pkg.Func(name)
@@ -49,5 +50,11 @@ func selfAlias() { var o owner; o.data = make(chan int); o.self = &o; observe(&o
 		if got.Proven() != (name == "stable") {
 			t.Errorf("%s: %+v", name, got)
 		}
+	}
+	stores := ssaflow.InstructionsOf[*ssa.Store](pkg.Func("directWrite"))
+	write := stores[len(stores)-1]
+	storage := heapmodel.NewStorage(ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	if got := storage.StableFieldContent(write.Addr, write); got.Proven() {
+		t.Errorf("observation's own write was ignored: %+v", got)
 	}
 }
