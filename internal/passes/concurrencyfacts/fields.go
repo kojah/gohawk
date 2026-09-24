@@ -45,6 +45,9 @@ func (engine *Engine) fieldAddress(function *ssa.Function, path ssaflow.Embedded
 
 func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBinding, instruction ssa.Instruction) (Reference, bool) {
 	path, ok := embeddedPath(reference.Value)
+	if reference.Projection.Depth > 0 {
+		path, ok = reference.Projection, true
+	}
 	if reference.Indirect || !ok || path.Depth == 0 || !MutexPointer(reference.Value.Type()) {
 		return Reference{}, false
 	}
@@ -61,7 +64,13 @@ func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBind
 			return Reference{}, false
 		}
 		value, found := engine.fieldAddress(instruction.Parent(), root)
-		return Reference{Value: value}, found
+		if found {
+			return Reference{Value: value}, true
+		}
+		if engine.budget.Exhausted() {
+			return Reference{}, false
+		}
+		return Reference{Value: reference.Value, Projection: root}, true
 	}
 	return Reference{}, false
 }

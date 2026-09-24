@@ -210,7 +210,7 @@ Kind identifies a synchronization event with an exact resource.
 func MutexPointer(value types.Type) bool
 ```
 
-MutexPointer identifies only sync.Mutex pointers, not RWMutex or lookalikes.
+MutexPointer identifies sync.Mutex and sync.RWMutex pointers, not lookalikes.
 
 ## NewEngine
 
@@ -245,6 +245,10 @@ Operation retains execution order and source/call-site provenance.
 type Reference struct {
 	Value		ssa.Value
 	Indirect	bool
+	// Projection is a parameter-relative embedded address carried through a
+	// helper that never directly selects that field. Public bound queries
+	// materialize it to an existing caller address before returning evidence.
+	Projection	ssaflow.EmbeddedFieldPath
 	// Cancellation names a context's Done signal, not an ordinary channel.
 	// Value is a constructor call once bound, or a symbolic context/cancel input.
 	Cancellation	bool
@@ -291,7 +295,7 @@ SelectChoice records mutually exclusive arms at their position in the
 enclosing sequence. It is evidence about the alternatives, not permission
 to use the prefix as a complete protocol proof.
 
-## Send, Receive, Close, GroupAdd, GroupDone, GroupWait, Lock, Unlock, CondWait, Cancel
+## Send, Receive, Close, GroupAdd, GroupDone, GroupWait, Lock, Unlock, CondWait, Cancel, ReadLock, ReadUnlock
 
 [Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
@@ -309,6 +313,8 @@ const (
 	// Cancel requests cancellation; it neither joins a worker nor proves that
 	// Done has closed before the call returns.
 	Cancel
+	ReadLock
+	ReadUnlock
 )
 ```
 
@@ -318,6 +324,10 @@ const (
 
 ```go
 type Summary struct {
+	// Paths contains every bounded acyclic alternative. Each entry is a
+	// complete linear summary or an exhaustive worker choice; never a prefix.
+	// Linear consumers must decline the enclosing nonempty Reason.
+	Paths		[]Summary
 	Operations	[]Operation
 
 	Workers	[]WorkerSummary
@@ -402,6 +412,9 @@ type WorkerSummary struct {
 	Spawn		*ssa.Go
 	Site		token.Pos
 	Prefix		int
+	// Branches distinguishes exhaustive ordinary branch paths from select
+	// arms, whose correspondence is additionally checked against Choices.
+	Branches	bool
 }
 ```
 

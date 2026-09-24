@@ -28,8 +28,8 @@ type waitGroupCycleProof struct {
 }
 
 type waitGroupParent struct {
-	group  *ssa.Alloc
-	mutex  *ssa.Alloc
+	group  ssa.Value
+	mutex  ssa.Value
 	lock   syncmodel.SyncEvent
 	wait   syncmodel.SyncEvent
 	unlock syncmodel.SyncEvent
@@ -65,10 +65,10 @@ func potentialWaitGroupLockRoot(function *ssa.Function) token.Pos {
 	return wait
 }
 
-func reportWaitGroupLockCycle(pass *analysis.Pass, graph syncmodel.SyncGraph, candidate token.Pos) {
+func reportWaitGroupLockCycle(pass *analysis.Pass, graphs []syncmodel.SyncGraph, reason string, candidate token.Pos) {
 	probe := analysisTrace.For(pass, "lockorder", string(check.LockWaitGroupCycle), candidate)
 	probe.Candidate(analysisTrace.Step{Reason: "waitgroup-lock-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
-	proof := proveWaitGroupLockCycle(graph)
+	proof := proveWaitGroupVariants(graphs, reason)
 	probe.Decision(analysisTrace.Step{Reason: proof.reason, Outcome: proof.outcome, Pos: candidate})
 	if proof.outcome != analysisTrace.OutcomeAccepted {
 		return
@@ -84,7 +84,51 @@ func reportWaitGroupLockCycle(pass *analysis.Pass, graph syncmodel.SyncGraph, ca
 	})
 }
 
+func proveWaitGroupVariants(graphs []syncmodel.SyncGraph, reason string) waitGroupCycleProof {
+	if reason != "" || len(graphs) == 0 {
+		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: reason}
+	}
+	var common waitGroupCycleProof
+	for _, graph := range graphs {
+		proof := proveWaitGroupLockCycle(graph)
+		if proof.outcome != analysisTrace.OutcomeAccepted {
+			return proof
+		}
+		if common.reason != "" && (common.wait != proof.wait || common.parentLock != proof.parentLock) {
+			return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-alternative-sites-differ"}
+		}
+		common = proof
+	}
+	return common
+}
+
 func proveWaitGroupLockCycle(graph syncmodel.SyncGraph) waitGroupCycleProof {
+	if !graph.Complete() {
+		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
+	}
+	var failure waitGroupCycleProof
+	for _, wait := range graph.Parent {
+		if wait.Kind != concurrencyfacts.GroupWait {
+			continue
+		}
+		for _, lock := range graph.Parent {
+			if lock.Kind != concurrencyfacts.Lock {
+				continue
+			}
+			proof := proveScopedWaitGroupLockCycle(graph.Scope(wait.Resource, lock.Resource))
+			if proof.outcome == analysisTrace.OutcomeAccepted {
+				return proof
+			}
+			failure = proof
+		}
+	}
+	if failure.reason == "" {
+		failure = waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-shape-not-matched"}
+	}
+	return failure
+}
+
+func proveScopedWaitGroupLockCycle(graph syncmodel.SyncGraph) waitGroupCycleProof {
 	if !graph.Complete() {
 		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
 	}
@@ -119,8 +163,8 @@ func findWaitGroupParent(graph syncmodel.SyncGraph) (waitGroupParent, waitGroupC
 		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-shape-not-matched"}
 	}
 	parent := graph.Parent
-	group, ok := parent[0].Resource.Value.(*ssa.Alloc)
-	if !ok || !exactWaitGroupEvent(parent[0], concurrencyfacts.GroupAdd, group) {
+	group := parent[0].Resource.Value
+	if !syncmodel.FreshResource(parent[0].Resource).Proven() || !exactWaitGroupEvent(parent[0], concurrencyfacts.GroupAdd, group) {
 		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-counter-unknown"}
 	}
 	for _, event := range parent[:count] {
@@ -129,8 +173,8 @@ func findWaitGroupParent(graph syncmodel.SyncGraph) (waitGroupParent, waitGroupC
 		}
 	}
 	lock, wait, unlock := parent[count], parent[count+1], parent[count+2]
-	mutex, ok := lock.Resource.Value.(*ssa.Alloc)
-	if !ok || !exactWaitGroupEvent(lock, concurrencyfacts.Lock, mutex) ||
+	mutex := lock.Resource.Value
+	if !syncmodel.FreshResource(lock.Resource).Proven() || !exactWaitGroupEvent(lock, concurrencyfacts.Lock, mutex) ||
 		!exactWaitGroupEvent(wait, concurrencyfacts.GroupWait, group) ||
 		!exactWaitGroupEvent(unlock, concurrencyfacts.Unlock, mutex) {
 		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-parent-order-not-matched"}

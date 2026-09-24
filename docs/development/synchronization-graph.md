@@ -13,7 +13,7 @@ that needs a separate feasibility argument before it can support a diagnostic.
 ## Current foundation
 
 `concurrencyfacts` already composes complete, bounded ordered effects for
-channels, `sync.Mutex`, `sync.WaitGroup`, and bounded context cancellation. `summaries.Provider` selects that
+channels, `sync.Mutex`, `sync.RWMutex`, `sync.WaitGroup`, and bounded context cancellation. `summaries.Provider` selects that
 component and binds a helper's symbolic parameters to exact caller objects.
 Complete empty effects are distinct from an unavailable summary. Imported facts
 carry parameter-relative effects, never process-local SSA values or source
@@ -60,10 +60,14 @@ One acyclic worker `select` can yield a bounded set of complete continuations.
 `syncmodel.Expand` builds a separate linear graph for each outcome, up to eight
 graphs; a consumer must prove its property on every one. The ordinary
 `FromSummary` contract remains incomplete for a choice, so linear consumers
-cannot accidentally treat its arms as simultaneous events. Only the channel
-dependency-cycle check currently consumes these alternatives. Launches hidden
-inside helpers, nested selects, unrelated branch conditions, and cross-package
-select continuations remain unknown. Complete straight-line helper launches
+cannot accidentally treat its arms as simultaneous events. The lock-and-join,
+channel/lock, WaitGroup/lock, and channel dependency checks consume bounded
+alternatives. Ordinary acyclic branches can retain up to eight separate paths,
+including an empty escape path. Branch correlations are over-approximated,
+not solved; all paths must establish the same reported parent wait. Worker
+alternatives survive local helper launch/forwarding calls. Nested selects,
+independent branches within a select continuation, and cross-package
+alternative publication remain unknown. Complete straight-line helper launches
 can compose into a caller, including through parameter-relative imported
 facts. A launch within a worker remains unknown.
 
@@ -77,9 +81,23 @@ which every child able to signal the waited-for channel must first acquire the
 mutex held by the parent. A child that could release that mutex or signal
 without acquiring it makes the proof inconclusive. The channel/lock check
 additionally requires a statically unbuffered channel. A fifth launch,
-divergent effects, loops, launches outside the lock-to-wait interval, and
+unproven alternatives, loops, launches outside the lock-to-wait interval, and
 opaque calls remain inconclusive. A helper call counts as a launch only when
 its complete summary proves an exact child template.
+
+`RWMutex` read and exclusive acquisitions remain distinct. An exclusive holder
+blocks both modes; a read holder blocks a writer, not another reader. This does
+not model queued-writer recursive reading. The generic exclusive `LockRegion`
+query declines read-mode effects instead of crediting them as a write guard.
+
+Embedded locks beneath a fresh receiver can participate in these proofs.
+Declaration templates carry an exact parameter-relative field through methods
+that do not select it themselves; bound queries materialize that field to an
+existing caller address. This supports helper-launched receiver workers without
+inventing SSA values. It does not infer an arbitrary Start/Stop call ordering,
+enumerate callers, or close the participant set of externally owned receivers.
+The receive may itself be inside a visible helper. The caller must still
+establish the acquisition before the launch and preserve it through that wait.
 
 ## Intended graph contract
 
@@ -121,6 +139,17 @@ unknown answers, never a proof that a participant or effect is absent.
   Done identity within that variant. Matching an observation is neither an
   ordering edge nor a join. An exhaustive list of modeled observations is not
   proof that all external participants have been modeled.
+- `Scope` projects a complete graph onto selected resources, using exact fresh
+  paths or positive heap disjointness evidence. Every child is retained and its
+  launch prefix is remapped. Uncertain aliases and condition waits prevent the
+  projection; it never removes a possible partner or unlock by guessing. Lock
+  cycle checks use this to tolerate unrelated synchronization operations.
+
+Scoping is currently **projection after complete extraction**, not recovery of
+a partial summary. An opaque helper, loop, or unsupported instruction still
+prevents the root proof. Resource-specific extraction through those boundaries
+requires a separate no-interference/participant proof and remains follow-up
+work; storage preservation alone does not prove a call cannot synchronize.
 
 Results carry a structured proof with a stable reason and, where applicable,
 event witnesses. Query construction is linear in event count; `Before` and
@@ -137,15 +166,20 @@ matching, or establish a deadlock by itself.
 
 The two exact lock/signal proofs share the graph and one bounded root-summary
 query. Their first stage filters for likely candidates, so ordinary functions
-do not pay for graph construction. The root summary copies at most four child
-sequences and 32 events total; graph construction and cycle detection are
+do not pay for graph construction. Each alternative has at most four child
+sequences and 32 events; graph construction and cycle detection are
 linear in those bounded events and edges. A graph cycle alone cannot justify a
 diagnostic: each consumer first proves the exact identity, ordering, and
 unavoidable blocking semantics of its two dependency edges. Candidate
 enumeration and each proof must stay bounded. The initial model has no SMT
-solver or path-enumeration requirement. If those are ever added, they are
-optional refinements and cannot upgrade an incomplete model to a proven
-diagnostic.
+solver. Acyclic path alternatives are capped at eight and share the summary
+work budget; exceeding either bound yields unknown. Neither alternative
+enumeration nor graph projection upgrades missing effects to proven absence.
+Publication uses a separate linear-summary cache: it does not enumerate
+alternatives that its fact format cannot export. Richer alternatives are
+computed on demand for consumers and cannot reuse a linear cutoff as if it
+were a complete answer. Candidate lock/wait pairs are enumerated only within
+the bounded event set, with a separate resource projection per pair.
 
 ## Initial cost check
 
@@ -209,3 +243,28 @@ bounded alternatives, and cross-method participant/receiver identity while
 preserving opaque effects as unknown. This sample supplies no evidence that
 SMT feasibility solving is the immediate bottleneck. Shared queries organize
 available evidence; they cannot reconstruct effects discarded by a summary.
+
+### Bounded-model refinement rerun
+
+The same pins and four checks were rerun with the bounded branch, receiver-field,
+RWMutex-mode, and resource-projection changes. The frozen intermediate binary
+had SHA-256 `40484687a8d8c45fdcdedd641e1255f10cd6cd0bda8c32812a603a2d9fc482ca`;
+artifacts remain in `.build/sync-refinement-validated-2026-09-24`.
+Subsequent conservative guards reject nested launches in selected workers,
+select arms, and deferred helpers; those guards were covered by regression
+tests, not this whole-repository scan.
+
+Neither repository produced a selected diagnostic. Channel dependency cutoffs
+remained unchanged. Allowing the initial lock/join filter to consider a receive
+hidden in a helper increased candidates from 5 to 22 in Moby and from 5 to 37
+in Kubernetes, for each of the two lock/signal checks. All still stopped at
+incomplete summaries. WaitGroup/lock candidates remained 2 and 7. These counts
+use the same root-module and test-variant deduplication rules above; increased
+candidates are not increased bug detection.
+
+Kubernetes completed in 4m43.24s with Go 1.26.0 and package parallelism 4.
+Moby took 1m48.09s with Go 1.26.6 and parallelism 2, retaining the same three
+CGO-disabled test-loading failures. Other validation overlapped these runs,
+so the timings do not establish a performance change. The remaining coverage
+bottleneck is still obtaining complete resource-specific effects through
+loops, opaque calls, and external participants, not graph cycle search.

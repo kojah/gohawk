@@ -66,7 +66,7 @@ func TestQueriesRejectIncompleteAndMalformedGraphs(t *testing.T) {
 		}}}),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if query.Before(0, 1).Known() || query.FirstSignalAfterAcquire(0, mutex, channel).Known() ||
+			if query.Before(0, 1).Known() || query.FirstSignalAfterAcquire(0, mutex, channel, concurrencyfacts.Lock).Known() ||
 				query.CancellationObservations(0).Known() {
 				t.Fatal("unavailable query established evidence")
 			}
@@ -116,7 +116,7 @@ func TestFirstSignalRequiresExactAcquisitionPrefix(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			graph := FromSummary(concurrencyfacts.Summary{Workers: []concurrencyfacts.WorkerSummary{{Site: 1, Operations: test.ops}}})
-			answer := NewQuery(graph).FirstSignalAfterAcquire(1, mutex, channel)
+			answer := NewQuery(graph).FirstSignalAfterAcquire(1, mutex, channel, concurrencyfacts.Lock)
 			if answer.State != test.state || string(answer.Reason) != test.reason || answer.Present != test.present {
 				t.Fatalf("FirstSignalAfterAcquire = %+v", answer)
 			}

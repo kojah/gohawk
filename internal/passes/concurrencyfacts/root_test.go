@@ -38,7 +38,7 @@ func unknown(a chan int, callback func()) { go signal(a); go callback() }
 	}
 	for name, reason := range map[string]string{
 		"five":     "protocol-participants-unknown",
-		"optional": "protocol-branch-effects-differ",
+		"optional": "protocol-branch-alternatives",
 		"unknown":  "protocol-body-unavailable",
 	} {
 		t.Run(name, func(t *testing.T) {

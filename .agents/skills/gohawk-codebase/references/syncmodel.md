@@ -60,6 +60,17 @@ graph. A caller must prove its property on every returned graph; one graph
 alone never establishes an unavoidable deadlock. Unknown parent choices,
 unproven arms, and excessive products yield no usable graphs.
 
+## FreshResource
+
+[Source](../../../../internal/syncmodel/scope.go)
+
+```go
+func FreshResource(resource concurrencyfacts.Reference) ssaflow.Proof
+```
+
+FreshResource proves local allocation identity, including embedded fields.
+This is not an escape proof: callers need a complete participant model too.
+
 ## FromSummary
 
 [Source](../../../../internal/syncmodel/graph.go)
@@ -203,12 +214,13 @@ request. CancelCause values do not affect readiness identity.
 
 ```go
 func (query Query) FirstSignalAfterAcquire(
-	worker GoroutineID, mutex, channel concurrencyfacts.Reference,
+	worker GoroutineID, mutex, channel concurrencyfacts.Reference, heldKind concurrencyfacts.Kind,
 ) SignalOrder
 ```
 
 FirstSignalAfterAcquire queries the first channel signal, never a convenient
-later one. Before acquisition, an unlock or condition wait might release a
+later one. heldKind selects the parent's exclusive or read mode: two readers
+do not conflict. Before acquisition, an unlock or condition wait might release a
 lock held by another goroutine; such a prefix remains unknown. Callers still
 prove parent lock ownership, launch order, channel capacity, all participants,
 and every alternative before using this evidence in a deadlock proof.
@@ -390,3 +402,17 @@ func (graph *SyncGraph) HasCycle() bool
 HasCycle finds an ordering contradiction in linear time in the graph size.
 A consumer must still establish that its dependency edges are feasible and
 unavoidable before using this candidate to report a bug.
+
+## SyncGraph.Scope
+
+[Source](../../../../internal/syncmodel/scope.go)
+
+```go
+func (graph *SyncGraph) Scope(resources ...concurrencyfacts.Reference) SyncGraph
+```
+
+Scope projects a complete graph onto exact resources. It never repairs an
+incomplete summary. All children remain present, including event-free ones;
+uncertain aliasing and implicit condition-variable releases prevent slicing.
+The result preserves necessary order, not reachability or termination of
+omitted operations. Consumers must still establish each blocking obligation.

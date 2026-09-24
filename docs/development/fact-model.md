@@ -635,7 +635,7 @@ not prove completion. Export considers four result slots and shares a
 used by the ordered helper path in `lockorder` and the helper-effect paths in
 `channelsafety`, `goroutineownership`, and `producerlifecycle`.
 It records channel send/receive/close, `WaitGroup.Add(1)`/`Done`/`Wait`, and
-`sync.Mutex.Lock`/`Unlock` events, including completion and unlock defers in
+`sync.Mutex.Lock`/`Unlock` and distinct `sync.RWMutex` read/write events, including completion and unlock defers in
 execution order. The generic summary infrastructure still owns caching,
 recursion guards, and budgets; each analyzer owns its defect or hazard proof.
 Deferred helpers can contain several close, group-completion, or unlock events.
@@ -647,10 +647,11 @@ Its versioned `Fact` serializes event kinds, formal parameter positions, and
 up to four parameter-relative child-launch templates, with the receiver at
 position zero. A complete empty fact is positive evidence
 of no supported synchronization effects, not the fallback for a missing fact.
-Only complete summaries with exportable identities are exported. Acyclic
-branches merge only with identical ordered effects and pending defers; each
-block is visited once, without path enumeration or conditional summaries.
-Divergent branches, opaque calls, launches within a worker, resource escapes,
+Only complete linear summaries with exportable identities are exported. Acyclic
+branches merge when ordered effects and pending defers agree. Local inference
+can otherwise preserve up to eight complete alternatives, sharing the same
+work budget; those alternatives are not exported as linear facts. Graph
+consumers must prove their property on every variant. Opaque calls, launches within a worker, resource escapes,
 local resource allocations, unexportable captured resources, recursion, and
 exhausted budgets make export unavailable. Facts do not encode arbitrary
 conditions or schedules.
@@ -659,11 +660,16 @@ Imported events and child templates are bound to exact actual arguments and
 retain their order. Each call instantiates a separate child; the launch site is
 the importing call site. Token positions and SSA pointers are never serialized.
 Transitive exports remap the effects to the forwarding function's own parameters.
-Version 2 also exports
+The field-path format also exports
 embedded mutex field paths, up to eight fields deep. Binding requires an exact
 existing caller address. Mutable pointer-field dereferences, concrete global
 identities, and local allocation identities are not exported. Whole-owner
 stores containing embedded synchronization state invalidate completeness.
+Local templates can forward a receiver-relative field through a helper that
+does not select it itself. Root and call-site queries materialize these
+projections to an existing caller address before exposing bound evidence.
+Version 6 adds explicit RWMutex read modes; two read acquisitions are not
+treated as mutually exclusive.
 
 All fact access belongs to this prerequisite, which exposes an engine rather
 than raw facts to consumers. Public queries serialize access to the shared

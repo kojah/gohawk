@@ -15,11 +15,15 @@ import (
 // the standard library's counter contract is recognized, never method names
 // on project types. Unknown counter changes cannot establish a waiting cycle.
 var (
-	groupAdd    = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Add"})
-	groupDone   = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Done"})
-	groupWait   = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Wait"})
-	mutexLock   = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Mutex", Name: "Lock"})
-	mutexUnlock = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Mutex", Name: "Unlock"})
+	groupAdd     = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Add"})
+	groupDone    = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Done"})
+	groupWait    = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Wait"})
+	mutexLock    = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Mutex", Name: "Lock"})
+	mutexUnlock  = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Mutex", Name: "Unlock"})
+	rwLock       = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "Lock"})
+	rwUnlock     = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "Unlock"})
+	rwReadLock   = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "RLock"})
+	rwReadUnlock = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "RUnlock"})
 )
 
 func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
@@ -29,6 +33,8 @@ func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 	common := instruction.Common()
 	var kind Kind
 	var resource ssa.Value
+	// Keep RWMutex modes explicit. Sharing a resource identity does not make
+	// two readers mutually exclusive or turn RUnlock into an exclusive release.
 	switch {
 	case ssaflow.CallMatchesSymbol(common, newCond):
 		if _, ok := condLocker(instruction); ok {
@@ -37,10 +43,14 @@ func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 		return Summary{Reason: "protocol-cond-locker-unknown"}
 	case ssaflow.CallMatchesSymbol(common, condWait):
 		kind, resource = CondWait, ssaflow.CallReceiver(common)
-	case ssaflow.CallMatchesSymbol(common, mutexLock):
+	case ssaflow.CallMatchesAnySymbol(common, mutexLock, rwLock):
 		kind, resource = Lock, ssaflow.CallReceiver(common)
-	case ssaflow.CallMatchesSymbol(common, mutexUnlock):
+	case ssaflow.CallMatchesAnySymbol(common, mutexUnlock, rwUnlock):
 		kind, resource = Unlock, ssaflow.CallReceiver(common)
+	case ssaflow.CallMatchesSymbol(common, rwReadLock):
+		kind, resource = ReadLock, ssaflow.CallReceiver(common)
+	case ssaflow.CallMatchesSymbol(common, rwReadUnlock):
+		kind, resource = ReadUnlock, ssaflow.CallReceiver(common)
 	case ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")):
 		kind, resource = Close, common.Args[0]
 	case ssaflow.CallMatchesSymbol(common, groupDone):
@@ -75,6 +85,11 @@ func waitGroupPointer(value types.Type) bool {
 
 func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) string {
 	called := engine.callSummary(instruction)
+	// A deferred helper can launch another participant. Its synchronous
+	// cleanup operations alone are not an exhaustive deferred effect list.
+	if len(called.Workers) != 0 {
+		return "protocol-deferred-effects-unknown"
+	}
 	if !composableLinear(called) {
 		return called.Reason
 	}
@@ -82,7 +97,7 @@ func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) s
 		return "protocol-deferred-effects-unknown"
 	}
 	for _, op := range called.Operations {
-		if op.Kind != Close && op.Kind != GroupDone && op.Kind != Unlock && op.Kind != Cancel {
+		if op.Kind != Close && op.Kind != GroupDone && op.Kind != Unlock && op.Kind != ReadUnlock && op.Kind != Cancel {
 			return "protocol-deferred-effects-unknown"
 		}
 	}
@@ -101,10 +116,10 @@ func synchronizationPointer(value types.Type) bool {
 	return waitGroupPointer(value) || MutexPointer(value) || condPointer(value)
 }
 
-// MutexPointer identifies only sync.Mutex pointers, not RWMutex or lookalikes.
+// MutexPointer identifies sync.Mutex and sync.RWMutex pointers, not lookalikes.
 func MutexPointer(value types.Type) bool {
 	pointer, ok := value.Underlying().(*types.Pointer)
-	return ok && syntax.NamedType(pointer.Elem(), "sync", "Mutex")
+	return ok && (syntax.NamedType(pointer.Elem(), "sync", "Mutex") || syntax.NamedType(pointer.Elem(), "sync", "RWMutex"))
 }
 
 func straightLineBody(function *ssa.Function) bool {

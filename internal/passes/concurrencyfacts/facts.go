@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	factVersion  = 5
+	factVersion  = 6
 	exportBudget = 2000
 )
 
@@ -86,7 +86,7 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		probe := trace.For(pass, "concurrencyfacts", "", function.Pos())
 		probe.Candidate(trace.Step{Reason: "summarizing-concurrency", Outcome: trace.OutcomeObserved})
-		result := engine.Function(function, ssaflow.NewSearchBudget(exportBudget))
+		result := engine.linear.Function(function, ssaflow.NewSearchBudget(exportBudget))
 		fact, ok := exportSummary(function, result)
 		outcome, reason := trace.OutcomeUnknown, "concurrency-export-unknown"
 		if ok {
@@ -104,7 +104,7 @@ func run(pass *analysis.Pass) (any, error) {
 // merely by crossing a package boundary. Local origins cannot be exported.
 func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 	fact := Fact{Version: factVersion}
-	if !composableLinear(result) || len(result.Workers) > maxWorkers || len(result.deferred) != 0 ||
+	if !composableLinear(result) || len(result.Paths) != 0 || len(result.Workers) > maxWorkers || len(result.deferred) != 0 ||
 		result.operationCount() > maxOperations {
 		return fact, false
 	}
@@ -143,6 +143,9 @@ func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 func exportEffect(function *ssa.Function, operation Operation) (Effect, bool) {
 	resource := operation.Resource
 	path, projected := embeddedPath(resource.Value)
+	if resource.Projection.Depth > 0 {
+		path, projected = resource.Projection, true
+	}
 	for index, parameter := range function.Params {
 		if resource.Indirect || parameter != resource.Value &&
 			(!projected || parameter != path.Root || !MutexPointer(resource.Value.Type())) {
@@ -215,14 +218,14 @@ func (engine *Engine) bindEffect(result *Summary, call ssa.CallInstruction, effe
 	if !engine.budget.Spend() {
 		return "protocol-budget-exhausted"
 	}
-	if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > Cancel {
+	if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > ReadUnlock {
 		return "protocol-body-unavailable"
 	}
 	value := call.Common().Args[effect.Parameter]
 	if len(effect.Fields) > 0 {
 		var found bool
 		value, found = engine.importedField(call, value, effect.Fields)
-		if !found || effect.Kind != Lock && effect.Kind != Unlock {
+		if !found || effect.Kind != Lock && effect.Kind != Unlock && effect.Kind != ReadLock && effect.Kind != ReadUnlock {
 			return "protocol-field-binding-unknown"
 		}
 	}

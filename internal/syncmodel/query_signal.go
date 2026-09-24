@@ -17,17 +17,19 @@ type SignalOrder struct {
 }
 
 // FirstSignalAfterAcquire queries the first channel signal, never a convenient
-// later one. Before acquisition, an unlock or condition wait might release a
+// later one. heldKind selects the parent's exclusive or read mode: two readers
+// do not conflict. Before acquisition, an unlock or condition wait might release a
 // lock held by another goroutine; such a prefix remains unknown. Callers still
 // prove parent lock ownership, launch order, channel capacity, all participants,
 // and every alternative before using this evidence in a deadlock proof.
 func (query Query) FirstSignalAfterAcquire(
-	worker GoroutineID, mutex, channel concurrencyfacts.Reference,
+	worker GoroutineID, mutex, channel concurrencyfacts.Reference, heldKind concurrencyfacts.Kind,
 ) SignalOrder {
 	if !query.ready {
 		return SignalOrder{Proof: query.unavailable()}
 	}
-	if worker < 0 || int(worker) >= len(query.sequences) || !exactReference(mutex) || !exactReference(channel) {
+	if worker < 0 || int(worker) >= len(query.sequences) || !exactReference(mutex) || !exactReference(channel) ||
+		heldKind != concurrencyfacts.Lock && heldKind != concurrencyfacts.ReadLock {
 		return SignalOrder{Proof: queryProof(ssaflow.EvidenceUnknown, "syncgraph-identity-unknown")}
 	}
 	var acquire SyncEvent
@@ -36,10 +38,10 @@ func (query Query) FirstSignalAfterAcquire(
 		if !exactReference(event.Resource) {
 			return SignalOrder{Proof: queryProof(ssaflow.EvidenceUnknown, "syncgraph-identity-unknown")}
 		}
-		if !acquired && (event.Kind == concurrencyfacts.CondWait || event.Resource == mutex && event.Kind == concurrencyfacts.Unlock) {
+		if !acquired && couldRelease(event, mutex) {
 			return SignalOrder{Proof: queryProof(ssaflow.EvidenceUnknown, "syncgraph-alternate-unlock")}
 		}
-		if !acquired && event.Resource == mutex && event.Kind == concurrencyfacts.Lock {
+		if !acquired && event.Resource == mutex && acquisitionConflicts(event.Kind, heldKind) {
 			acquire, acquired = event, true
 		}
 		if event.Resource != channel || event.Kind != concurrencyfacts.Send && event.Kind != concurrencyfacts.Close {
@@ -53,4 +55,13 @@ func (query Query) FirstSignalAfterAcquire(
 		return answer
 	}
 	return SignalOrder{Proof: queryProof(ssaflow.EvidenceDisproven, "syncgraph-no-channel-signal")}
+}
+
+func couldRelease(event SyncEvent, mutex concurrencyfacts.Reference) bool {
+	return event.Kind == concurrencyfacts.CondWait || event.Resource == mutex &&
+		(event.Kind == concurrencyfacts.Unlock || event.Kind == concurrencyfacts.ReadUnlock)
+}
+
+func acquisitionConflicts(acquired, held concurrencyfacts.Kind) bool {
+	return acquired == concurrencyfacts.Lock || held == concurrencyfacts.Lock && acquired == concurrencyfacts.ReadLock
 }

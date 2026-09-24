@@ -22,6 +22,9 @@ func (engine *Engine) instantiate(instruction ssa.CallInstruction) Summary {
 }
 
 func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) Summary {
+	if len(callee.Paths) != 0 {
+		return engine.bindPaths(callee.Paths, bindings, instruction)
+	}
 	if !composableLinear(callee) && callee.Reason != "protocol-select-alternatives" {
 		return callee
 	}
@@ -34,6 +37,8 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		return Summary{Reason: reason}
 	}
 	result.CancellationInputs = inputs
+	// Binding creates new sequences: cached declaration identities must not
+	// become tied to the first caller, including its receiver projections.
 	for _, op := range callee.Operations {
 		if !engine.budget.Spend() {
 			return Summary{Reason: "protocol-budget-exhausted"}
@@ -54,7 +59,7 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 		// A select's arm sequence is a separate complete path, not another
 		// unconditional effect. Bind every resource on every arm before the
 		// caller may use any variant as a graph proof.
-		bound := SelectChoice{Prefix: choice.Prefix, Site: choice.Site}
+		bound := SelectChoice{Prefix: choice.Prefix, Site: choice.Site, Worker: choice.Worker}
 		for _, arm := range choice.Arms {
 			if !engine.budget.Spend() {
 				return Summary{Reason: "protocol-budget-exhausted"}
@@ -110,6 +115,9 @@ func (engine *Engine) bindWorkers(
 func (engine *Engine) bind(
 	reference Reference, bindings []ssaflow.CallBinding, instruction ssa.Instruction,
 ) (Reference, bool) {
+	if reference.Projection.Depth > 0 {
+		return engine.bindField(reference, bindings, instruction)
+	}
 	for _, binding := range bindings {
 		if binding.Local != reference.Value {
 			continue

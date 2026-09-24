@@ -18,6 +18,10 @@ type LockRegion struct {
 // from an empty sequence: the caller must have established prefix completeness.
 func (region *LockRegion) Apply(operations []concurrencyfacts.Operation) {
 	for _, operation := range operations {
+		if operation.Resource.Projection.Depth != 0 {
+			region.unknown = true
+			continue
+		}
 		switch operation.Kind {
 		case concurrencyfacts.Lock:
 			if operation.Resource.Indirect || operation.Resource.Value == nil {
@@ -34,9 +38,9 @@ func (region *LockRegion) Apply(operations []concurrencyfacts.Operation) {
 				continue
 			}
 			delete(region.held, operation.Resource.Value)
-		case concurrencyfacts.CondWait:
-			// Wait releases and later reacquires an associated Locker; this
-			// sequence does not identify that Locker exactly.
+		case concurrencyfacts.CondWait, concurrencyfacts.ReadLock, concurrencyfacts.ReadUnlock:
+			// Wait temporarily releases a Locker. Read locking is not an
+			// exclusive guard either; this query deliberately declines both.
 			region.unknown = true
 		default:
 			// Other synchronization effects do not change mutex ownership.

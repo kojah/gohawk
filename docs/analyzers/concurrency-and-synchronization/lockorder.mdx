@@ -116,9 +116,10 @@ guessed helper acquisitions.
 ### Waiting while holding a worker's mutex
 
 The experimental `lock-and-join` check handles one narrower, stronger
-dependency: a function holds a fresh local `sync.Mutex` while receiving from a
+dependency: a function holds a fresh local `sync.Mutex` or `sync.RWMutex` while receiving from a
 fresh completion channel, and every child that could close it must acquire
-that exact mutex first. The receive cannot finish until a signal;
+that exact mutex in a conflicting mode first. Two readers do not conflict.
+The receive cannot finish until a signal;
 the close cannot happen until the parent releases the mutex; and the parent
 releases it only after the receive. Related locations show the parent lock,
 the worker lock, and the completion signal.
@@ -126,11 +127,18 @@ the worker lock, and the completion signal.
 This check consumes the shared complete ordered concurrency summary, including
 effects inside a local or imported worker helper. It does not infer missing
 operations from an incomplete summary. A mutex or channel supplied by a caller,
-more than four launches, divergent helper effects, an opaque participant, or a
+more than four launches, an unproven alternative, an opaque participant, or a
 budget cut is inconclusive. It does not attempt general cycles, buffered
 protocols, or arbitrary scheduling and path constraints.
 All tracked children must launch after the parent acquires the mutex and
 before it waits; other launch orders remain inconclusive.
+Exact embedded fields of fresh local owners are supported through local
+worker-launch helpers. Scoping tolerates synchronization on proven-disjoint
+resources while retaining every participant. Up to eight acyclic branch or
+worker-select variants may be checked; every variant must prove the same
+parent wait. Optional waits, early signals, and cancellation escapes defeat
+that proof. Opaque whole-function summaries remain inconclusive even if a
+reader could identify an apparently unrelated fragment.
 
 ### Channel/lock cycles
 
@@ -139,7 +147,7 @@ the worker sends on a fresh unbuffered channel instead of closing it. It
 requires that every possible sender first acquire the exact fresh mutex held
 by the receiver, and that its first signal on the waited-for channel be a
 send. A buffered or unknown-capacity channel, an outside
-participant, or a helper with divergent effects is inconclusive. A later close
+participant, or an unproven helper alternative is inconclusive. A later close
 does not establish a separate lock-and-join finding if a send occurs first.
 
 ### Mutex/WaitGroup cycles
@@ -152,7 +160,8 @@ the fresh group's counter to zero. Related locations identify the parent lock,
 one blocked child lock, and its `Done`.
 
 The proof requires one exact `Add(1)` per child, all launches after the parent
-locks and before it waits, and complete straight-line child effects. A dynamic
+locks and before it waits, and the required complete child effects in every
+bounded variant. A dynamic
 or different count, another decrement, early `Done`, unknown participant, or
 different launch order is inconclusive. It does not infer the counter from
 method names, or treat an arbitrary `Wait` and lock as a deadlock.

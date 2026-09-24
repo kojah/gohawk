@@ -99,5 +99,5 @@ func queryProof(state ssaflow.EvidenceState, reason string) ssaflow.Proof {
 }
 
 func exactReference(reference concurrencyfacts.Reference) bool {
-	return reference.Value != nil && !reference.Indirect
+	return reference.Value != nil && !reference.Indirect && reference.Projection.Depth == 0
 }

@@ -31,7 +31,7 @@ type lockSignalProof struct {
 func (proof lockSignalProof) proven() bool { return proof.outcome == analysisTrace.OutcomeAccepted }
 
 type lockSignalCandidate struct {
-	mutex      *ssa.Alloc
+	mutex      ssa.Value
 	done       *ssa.MakeChan
 	parentLock syncmodel.SyncEvent
 	wait       syncmodel.SyncEvent
@@ -53,20 +53,38 @@ func reportSynchronizationCycles(pass *analysis.Pass, function *ssa.Function, en
 	probe := analysisTrace.For(pass, "lockorder", string(probeID), candidate)
 	probe.Candidate(analysisTrace.Step{Reason: "sync-cycle-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
 	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(probe.Observer()))
-	graph := syncmodel.FromSummary(root)
+	graphs, reason := syncmodel.Expand(root)
 	if channelCandidate != token.NoPos {
 		joinProbe := analysisTrace.For(pass, "lockorder", string(check.LockAndJoin), channelCandidate)
 		joinProbe.Candidate(analysisTrace.Step{Reason: "lock-join-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: channelCandidate})
-		reportLockSignal(pass, joinProbe, check.LockAndJoin, channelCandidate, proveLockSignal(graph, concurrencyfacts.Close),
+		reportLockSignal(pass, joinProbe, check.LockAndJoin, channelCandidate, proveLockSignalVariants(graphs, reason, concurrencyfacts.Close),
 			"waits for a worker that needs the held lock")
 		channelProbe := analysisTrace.For(pass, "lockorder", string(check.LockChannelCycle), channelCandidate)
 		channelProbe.Candidate(analysisTrace.Step{Reason: "channel-lock-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: channelCandidate})
-		reportLockSignal(pass, channelProbe, check.LockChannelCycle, channelCandidate, proveLockSignal(graph, concurrencyfacts.Send),
+		reportLockSignal(pass, channelProbe, check.LockChannelCycle, channelCandidate, proveLockSignalVariants(graphs, reason, concurrencyfacts.Send),
 			"receives while holding the lock needed by its sender")
 	}
 	if groupCandidate != token.NoPos {
-		reportWaitGroupLockCycle(pass, graph, groupCandidate)
+		reportWaitGroupLockCycle(pass, graphs, reason, groupCandidate)
 	}
+}
+
+func proveLockSignalVariants(graphs []syncmodel.SyncGraph, reason string, signal concurrencyfacts.Kind) lockSignalProof {
+	if reason != "" || len(graphs) == 0 {
+		return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: reason}
+	}
+	var common lockSignalProof
+	for _, graph := range graphs {
+		proof := proveLockSignal(graph, signal)
+		if !proof.proven() {
+			return proof
+		}
+		if common.proven() && (common.wait != proof.wait || common.parentLock != proof.parentLock) {
+			return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "lock-join-alternative-sites-differ"}
+		}
+		common = proof
+	}
+	return common
 }
 
 func reportLockSignal(
@@ -96,6 +114,7 @@ func potentialLockJoinRoot(function *ssa.Function) token.Pos {
 	// could change the wait. Avoid spending a summary budget on every launch.
 	var launches int
 	var wait token.Pos
+	var helper token.Pos
 	var localChannel, lock bool
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -111,6 +130,7 @@ func potentialLockJoinRoot(function *ssa.Function) token.Pos {
 			case *ssa.Call:
 				if instruction.Common().StaticCallee() != nil {
 					launches++ // A complete callee summary decides whether it actually launches.
+					helper = instruction.Pos()
 				}
 				effect, known := directMutexEffect(instruction)
 				lock = lock || known && effect.operation == mutexAcquire
@@ -120,10 +140,43 @@ func potentialLockJoinRoot(function *ssa.Function) token.Pos {
 	if launches == 0 || !localChannel || !lock {
 		return token.NoPos
 	}
+	// A visible helper can hide the receive just as it can hide the launch.
+	// Keep the local channel/acquisition cost filter; only its bound complete
+	// summary may establish a wait, never the helper's method name.
+	if wait == token.NoPos {
+		return helper
+	}
 	return wait
 }
 
 func proveLockSignal(graph syncmodel.SyncGraph, signal concurrencyfacts.Kind) lockSignalProof {
+	if !graph.Complete() {
+		return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
+	}
+	var failure lockSignalProof
+	for _, lock := range graph.Parent {
+		if lock.Kind != concurrencyfacts.Lock && lock.Kind != concurrencyfacts.ReadLock {
+			continue
+		}
+		for _, wait := range graph.Parent {
+			if wait.Kind != concurrencyfacts.Receive {
+				continue
+			}
+			scoped := graph.Scope(lock.Resource, wait.Resource)
+			proof := proveScopedLockSignal(scoped, signal)
+			if proof.proven() {
+				return proof
+			}
+			failure = proof
+		}
+	}
+	if failure.reason == "" {
+		failure = lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-shape-not-matched"}
+	}
+	return failure
+}
+
+func proveScopedLockSignal(graph syncmodel.SyncGraph, signal concurrencyfacts.Kind) lockSignalProof {
 	candidate, failure := findLockSignalParent(graph)
 	if failure.reason != "" {
 		return failure
@@ -138,7 +191,7 @@ func findLockSignalParent(graph syncmodel.SyncGraph) (lockSignalCandidate, lockS
 	// Fresh local resources exclude unknown callers. Every recorded child is
 	// checked below for an alternative unlock or signal. Requiring the parent's
 	// unlock after the receive makes its side of the cycle explicit.
-	if len(graph.Children) == 0 || len(graph.Parent) < 3 {
+	if len(graph.Children) == 0 || len(graph.Parent) != 3 {
 		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-shape-not-matched"}
 	}
 	for _, child := range graph.Children {
@@ -147,10 +200,13 @@ func findLockSignalParent(graph syncmodel.SyncGraph) (lockSignalCandidate, lockS
 		}
 	}
 	lock, wait, unlock := graph.Parent[0], graph.Parent[1], graph.Parent[2]
-	if lock.Kind != concurrencyfacts.Lock || wait.Kind != concurrencyfacts.Receive || unlock.Kind != concurrencyfacts.Unlock {
+	paired := lock.Kind == concurrencyfacts.Lock && unlock.Kind == concurrencyfacts.Unlock ||
+		lock.Kind == concurrencyfacts.ReadLock && unlock.Kind == concurrencyfacts.ReadUnlock
+	if !paired || wait.Kind != concurrencyfacts.Receive {
 		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: "lock-join-parent-order-not-matched"}
 	}
-	mutex, localMutex := lock.Resource.Value.(*ssa.Alloc)
+	mutex := lock.Resource.Value
+	localMutex := syncmodel.FreshResource(lock.Resource).Proven()
 	done, localChannel := wait.Resource.Value.(*ssa.MakeChan)
 	if !localMutex || !localChannel || lock.Resource.Indirect || wait.Resource.Indirect || unlock.Resource.Indirect ||
 		unlock.Resource.Value != mutex {
@@ -208,7 +264,7 @@ type workerSignal struct {
 func classifyWorkerSignal(
 	query syncmodel.Query, worker syncmodel.GoroutineID, candidate lockSignalCandidate, signal concurrencyfacts.Kind,
 ) (workerSignal, lockSignalProof) {
-	order := query.FirstSignalAfterAcquire(worker, candidate.parentLock.Resource, candidate.wait.Resource)
+	order := query.FirstSignalAfterAcquire(worker, candidate.parentLock.Resource, candidate.wait.Resource, candidate.parentLock.Kind)
 	if !order.Known() {
 		reason := "lock-join-worker-identity-unknown"
 		if order.Reason == "syncgraph-alternate-unlock" {

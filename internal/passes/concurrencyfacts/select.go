@@ -156,6 +156,11 @@ func (engine *Engine) collectSelectArm(
 			}
 		}
 		if len(block.Succs) == 0 {
+			// Arm sequences cannot encode another goroutine. Dropping that
+			// participant could hide an alternate signal or unlock.
+			if len(state.Workers) != 0 {
+				return Summary{}, "protocol-worker-effects-unknown"
+			}
 			if len(state.deferred) != 0 || len(block.Instrs) == 0 {
 				return Summary{}, "protocol-deferred-effects-unknown"
 			}

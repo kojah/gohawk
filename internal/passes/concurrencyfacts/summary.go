@@ -34,12 +34,18 @@ const (
 	// Cancel requests cancellation; it neither joins a worker nor proves that
 	// Done has closed before the call returns.
 	Cancel
+	ReadLock
+	ReadUnlock
 )
 
 // Reference names an exact resource or a symbolic captured cell.
 type Reference struct {
 	Value    ssa.Value
 	Indirect bool
+	// Projection is a parameter-relative embedded address carried through a
+	// helper that never directly selects that field. Public bound queries
+	// materialize it to an existing caller address before returning evidence.
+	Projection ssaflow.EmbeddedFieldPath
 	// Cancellation names a context's Done signal, not an ordinary channel.
 	// Value is a constructor call once bound, or a symbolic context/cancel input.
 	Cancellation bool
@@ -84,6 +90,10 @@ type SelectChoice struct {
 // Returned slices are immutable. Workers are symbolic child templates until a
 // root binds them to call sites; they are never synchronous effects.
 type Summary struct {
+	// Paths contains every bounded acyclic alternative. Each entry is a
+	// complete linear summary or an exhaustive worker choice; never a prefix.
+	// Linear consumers must decline the enclosing nonempty Reason.
+	Paths      []Summary
 	Operations []Operation
 	deferred   []Operation
 	Workers    []WorkerSummary
@@ -107,6 +117,9 @@ type WorkerSummary struct {
 	Spawn        *ssa.Go
 	Site         token.Pos
 	Prefix       int
+	// Branches distinguishes exhaustive ordinary branch paths from select
+	// arms, whose correspondence is additionally checked against Choices.
+	Branches bool
 }
 
 // Completeness is the contract a consumer acts on. Only a complete summary
@@ -129,7 +142,7 @@ const (
 // the same fields the builder writes, so it cannot disagree with Reason.
 func (summary Summary) Completeness() Completeness {
 	switch {
-	case summary.Reason != "" || !summary.CancellationBound():
+	case summary.Reason != "" || len(summary.Paths) != 0 || !summary.CancellationBound():
 		return Incomplete
 	case len(summary.Operations) == 0 && len(summary.Workers) == 0:
 		return CompleteNoEffects
@@ -149,6 +162,8 @@ func (summary Summary) Complete() bool {
 type Engine struct {
 	mu        sync.Mutex
 	summaries *ssaflow.FunctionSummaries[Summary]
+	linear    *ssaflow.FunctionSummaries[Summary]
+	paths     bool
 	budget    *ssaflow.SearchBudget
 	storage   *heapmodel.Storage
 	facts     map[*types.Func]Fact
@@ -157,11 +172,23 @@ type Engine struct {
 // NewEngine builds a local-only engine; Analyzer additionally loads dependency facts.
 func NewEngine() *Engine {
 	engine := &Engine{}
-	engine.summaries = ssaflow.NewFunctionSummaries(func(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
+	engine.summaries = engine.newSummaries(true)
+	engine.linear = engine.newSummaries(false)
+	return engine
+}
+
+// Fact publication cannot represent alternatives. Give it a separate, fixed
+// cache policy so exported functions do not pay for paths only graph queries
+// can use. A linear cutoff must not poison the richer query's cache.
+func (engine *Engine) newSummaries(paths bool) *ssaflow.FunctionSummaries[Summary] {
+	return ssaflow.NewFunctionSummaries(func(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
 		builder := engine.query(budget)
+		builder.paths = paths
+		if !paths {
+			builder.summaries = engine.linear
+		}
 		return builder.collect(function, false)
 	}, unavailableSummary)
-	return engine
 }
 
 func unavailableSummary(reason ssaflow.SummaryUnavailable) Summary {
@@ -177,7 +204,7 @@ func unavailableSummary(reason ssaflow.SummaryUnavailable) Summary {
 }
 
 func (engine *Engine) query(budget *ssaflow.SearchBudget) *Engine {
-	return &Engine{summaries: engine.summaries, facts: engine.facts, budget: budget, storage: heapmodel.NewStorage(budget)}
+	return &Engine{summaries: engine.summaries, facts: engine.facts, budget: budget, storage: heapmodel.NewStorage(budget), paths: true}
 }
 
 // Function summarizes a visible body, including bounded child templates.
@@ -191,7 +218,8 @@ func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBud
 func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
-	return engine.query(budget).collect(function, true)
+	query := engine.query(budget)
+	return query.materialize(query.collect(function, true), function)
 }
 
 // AtCall binds complete local or imported effects to the caller's exact values.
@@ -201,11 +229,16 @@ func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBud
 	// accesses would still let another query look like a recursive call.
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
-	return engine.query(budget).callSummary(call)
+	query := engine.query(budget)
+	return query.materialize(query.callSummary(call), call.Parent())
 }
 
 func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
-	return finishCancellation(engine.collectEffects(function, root))
+	result := engine.collectEffects(function, root)
+	if engine.paths && (result.Reason == "protocol-branch-effects-differ" || result.Reason == "protocol-branch-alternatives") {
+		result = engine.collectPaths(function, root)
+	}
+	return finishCancellation(result)
 }
 
 func (engine *Engine) collectEffects(function *ssa.Function, root bool) Summary {

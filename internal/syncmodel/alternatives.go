@@ -13,6 +13,23 @@ const maxAlternativeGraphs = 8
 // alone never establishes an unavoidable deadlock. Unknown parent choices,
 // unproven arms, and excessive products yield no usable graphs.
 func Expand(summary concurrencyfacts.Summary) ([]SyncGraph, string) {
+	if len(summary.Paths) != 0 {
+		var graphs []SyncGraph
+		for _, path := range summary.Paths {
+			if len(path.Paths) != 0 {
+				return nil, "syncgraph-nested-alternatives"
+			}
+			variants, reason := Expand(path)
+			if reason != "" {
+				return nil, reason
+			}
+			graphs = append(graphs, variants...)
+			if len(graphs) > maxAlternativeGraphs {
+				return nil, "syncgraph-alternative-limit"
+			}
+		}
+		return graphs, ""
+	}
 	if !summary.CancellationBound() {
 		return nil, "protocol-context-binding-required"
 	}
@@ -61,8 +78,13 @@ func Expand(summary concurrencyfacts.Summary) ([]SyncGraph, string) {
 
 func workerChoicesComplete(summary concurrencyfacts.Summary) bool {
 	count := 0
+	branches := 0
 	for _, worker := range summary.Workers {
 		if len(worker.Alternatives) == 0 {
+			continue
+		}
+		if worker.Branches {
+			branches++
 			continue
 		}
 		count++
@@ -82,5 +104,5 @@ func workerChoicesComplete(summary concurrencyfacts.Summary) bool {
 			return false
 		}
 	}
-	return count != 0 && count == len(summary.Choices)
+	return count+branches != 0 && count == len(summary.Choices)
 }
