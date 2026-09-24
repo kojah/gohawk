@@ -16,6 +16,8 @@ const (
 	dependencyLockJoinDeadlockProven
 	dependencyLockJoinIdentityUnknown
 	dependencyLockJoinParentOrderNotMatched
+	dependencyLockJoinPathsInfeasible
+	dependencyLockJoinPathsUnknown
 	dependencyLockJoinShapeNotMatched
 	dependencyLockJoinSignalKindNotMatched
 	dependencyLockJoinSourceUnknown
@@ -29,6 +31,8 @@ const (
 	dependencyWaitgroupLockCycleProven
 	dependencyWaitgroupLockCycleUnproven
 	dependencyWaitgroupLockParentOrderNotMatched
+	dependencyWaitgroupLockPathsInfeasible
+	dependencyWaitgroupLockPathsUnknown
 	dependencyWaitgroupLockShapeNotMatched
 	dependencyWaitgroupLockSourceUnknown
 	dependencyWaitgroupLockWorkerEffectsUnknown
@@ -49,6 +53,8 @@ var dependencyReasonCodes = [...]string{
 	dependencyLockJoinDeadlockProven:              "lock-join-deadlock-proven",
 	dependencyLockJoinIdentityUnknown:             "lock-join-identity-unknown",
 	dependencyLockJoinParentOrderNotMatched:       "lock-join-parent-order-not-matched",
+	dependencyLockJoinPathsInfeasible:             "lock-join-paths-infeasible",
+	dependencyLockJoinPathsUnknown:                "lock-join-path-feasibility-unknown",
 	dependencyLockJoinShapeNotMatched:             "lock-join-shape-not-matched",
 	dependencyLockJoinSignalKindNotMatched:        "lock-join-signal-kind-not-matched",
 	dependencyLockJoinSourceUnknown:               "lock-join-source-unknown",
@@ -62,6 +68,8 @@ var dependencyReasonCodes = [...]string{
 	dependencyWaitgroupLockCycleProven:            "waitgroup-lock-cycle-proven",
 	dependencyWaitgroupLockCycleUnproven:          "waitgroup-lock-cycle-unproven",
 	dependencyWaitgroupLockParentOrderNotMatched:  "waitgroup-lock-parent-order-not-matched",
+	dependencyWaitgroupLockPathsInfeasible:        "waitgroup-lock-paths-infeasible",
+	dependencyWaitgroupLockPathsUnknown:           "waitgroup-lock-path-feasibility-unknown",
 	dependencyWaitgroupLockShapeNotMatched:        "waitgroup-lock-shape-not-matched",
 	dependencyWaitgroupLockSourceUnknown:          "waitgroup-lock-source-unknown",
 	dependencyWaitgroupLockWorkerEffectsUnknown:   "waitgroup-lock-worker-effects-unknown",

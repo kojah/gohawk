@@ -76,8 +76,15 @@ graphs; a consumer must prove its property on every one. The ordinary
 cannot accidentally treat its arms as simultaneous events. The lock-and-join,
 channel/lock, WaitGroup/lock, and channel dependency checks consume bounded
 alternatives. Ordinary acyclic branches can retain up to eight separate paths,
-including an empty escape path. Branch correlations are over-approximated,
-not solved; all paths must establish the same reported parent wait. Worker
+including an empty escape path. Each alternative records the branch
+conditions that select it, and graph variants carry them. Consumers group
+variants by conditions: one group is one choice of branch paths, and its
+variants differ only in select arms, which must all be stuck. A proof needs
+one group whose conditions `SyncGraph.Feasibility` shows can hold together.
+Feasibility proves contradiction exactly and independence only for distinct
+root parameters and results of distinct functions; a condition read from
+memory, merged, or bound from a callee is feasible only as the sole
+condition, and everything else is unknown. Worker
 alternatives survive local helper launch/forwarding calls. Nested selects,
 independent branches within a select continuation, and cross-package
 alternative publication remain unknown. Complete straight-line helper launches

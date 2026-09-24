@@ -15,6 +15,8 @@ const (
 	channelCycleLaunchUnknown
 	channelCycleOtherParticipant
 	channelCycleParentSequenceUnknown
+	channelCyclePathsInfeasible
+	channelCyclePathsUnknown
 	channelCyclePartnerUnknown
 	channelCycleProven
 	channelCycleResourceOrOrderUnknown
@@ -38,6 +40,8 @@ var channelCycleReasonCodes = [...]string{
 	channelCycleLaunchUnknown:          "channel-cycle-launch-unknown",
 	channelCycleOtherParticipant:       "channel-cycle-other-participant",
 	channelCycleParentSequenceUnknown:  "channel-cycle-parent-sequence-unknown",
+	channelCyclePathsInfeasible:        "channel-cycle-paths-infeasible",
+	channelCyclePathsUnknown:           "channel-cycle-path-feasibility-unknown",
 	channelCyclePartnerUnknown:         "channel-cycle-partner-unknown",
 	channelCycleProven:                 "channel-cycle-proven",
 	channelCycleResourceOrOrderUnknown: "channel-cycle-resource-or-order-unknown",

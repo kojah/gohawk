@@ -39,9 +39,12 @@ deadlock from a graph cycle alone.
 For one bounded, acyclic worker `select`, the summary follows each arm through
 its continuation and constructs a separate graph per outcome. The check
 reports only if every outcome proves the same cycle. A cancellation or default
-arm that can escape therefore defeats the proof. Multiple selects, unrelated
-branch conditions, and too many alternatives remain inconclusive; select
-arms are never flattened into unconditional events.
+arm that can escape therefore defeats the proof. Ordinary branches are
+different: a cycle on one feasible choice of branch paths is enough, as long
+as that choice's conditions can hold together. Conditions that might be
+related, such as two reads of one field, leave the result inconclusive.
+Multiple selects and too many alternatives remain inconclusive; select arms
+are never flattened into unconditional events.
 
 ### Checks
 

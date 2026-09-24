@@ -76,10 +76,27 @@ func reportSynchronizationCycles(pass *analysis.Pass, function *ssa.Function, en
 	}
 }
 
+// A deadlock needs one feasible execution, not every one: the shared
+// SomeFeasibleExecution decision runs the every-graph proof below on each
+// choice of branch paths, whose graphs differ only in select arms.
 func proveLockSignalVariants(graphs []syncmodel.SyncGraph, failure syncmodel.Failure, signal concurrencyfacts.Kind) lockSignalProof {
 	if !failure.Empty() || len(graphs) == 0 {
 		return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, failure: failure}
 	}
+	proof, verdict := syncmodel.SomeFeasibleExecution(graphs, func(group []syncmodel.SyncGraph) lockSignalProof {
+		return proveLockSignalEvery(group, signal)
+	}, lockSignalProof.proven)
+	switch {
+	case verdict == syncmodel.ExecutionFeasibilityUnknown:
+		return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: dependencyLockJoinPathsUnknown}
+	case verdict == syncmodel.ExecutionNotFound && proof.outcome == "":
+		return lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: dependencyLockJoinPathsInfeasible}
+	}
+	return proof
+}
+
+// proveLockSignalEvery requires the cycle on every graph of one execution.
+func proveLockSignalEvery(graphs []syncmodel.SyncGraph, signal concurrencyfacts.Kind) lockSignalProof {
 	var common lockSignalProof
 	for _, graph := range graphs {
 		proof := proveLockSignal(graph, signal)

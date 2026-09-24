@@ -25,13 +25,15 @@ func cancellationEscape() {
 	mu.Unlock()
 }
 
+// When flag is true the parent waits while holding the lock, which is one
+// feasible execution; a deadlock need not happen on every path.
 func optionalParentWait(flag bool) {
 	var mu sync.Mutex
 	done := make(chan struct{})
 	mu.Lock()
 	go worker(&mu, done)
 	if flag {
-		<-done
+		<-done // want "waits for a worker that needs the held lock"
 	}
 	mu.Unlock()
 }

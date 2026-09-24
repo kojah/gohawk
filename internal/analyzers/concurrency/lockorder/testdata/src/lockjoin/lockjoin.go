@@ -161,7 +161,7 @@ func alternateUnlocker() {
 	mu.Unlock()
 }
 
-// Divergent effects in the worker cannot establish a must-close obligation.
+// When enabled is true the worker needs the held lock before it closes done.
 func conditionalWorker(mu *sync.Mutex, done chan<- struct{}, enabled bool) {
 	if enabled {
 		mu.Lock()
@@ -175,6 +175,6 @@ func conditionalLock(enabled bool) {
 	done := make(chan struct{})
 	mu.Lock()
 	go conditionalWorker(&mu, done, enabled)
-	<-done
+	<-done // want "waits for a worker that needs the held lock"
 	mu.Unlock()
 }

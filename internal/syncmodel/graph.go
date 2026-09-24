@@ -88,10 +88,13 @@ type SyncChoice struct {
 // nonempty if the underlying summary was incomplete or malformed, in which
 // case no event or edge is usable as proof.
 type SyncGraph struct {
-	Parent   []SyncEvent
-	Children []SyncChild
-	Choices  []SyncChoice
-	Edges    []SyncEdge
+	// Conditions are the branch choices this variant assumes. An empty list
+	// is an unconditional graph; Feasibility decides a non-empty one.
+	Conditions []concurrencyfacts.Condition
+	Parent     []SyncEvent
+	Children   []SyncChild
+	Choices    []SyncChoice
+	Edges      []SyncEdge
 	// Cancellations associate requests with observations of the same Done
 	// signal. They are enabling relationships, not prerequisite/order edges.
 	Cancellations []CancellationSignal
@@ -120,7 +123,7 @@ func FromSummary(summary concurrencyfacts.Summary) SyncGraph {
 		}
 		return graph
 	}
-	graph := SyncGraph{}
+	graph := SyncGraph{Conditions: slices.Clone(summary.Conditions)}
 	nextID := EventID(0)
 	for _, operation := range summary.Operations {
 		graph.Parent = append(graph.Parent, event(nextID, Root, operation))

@@ -21,7 +21,7 @@ func (graph *SyncGraph) Scope(resources ...concurrencyfacts.Reference) SyncGraph
 			return SyncGraph{Failure: graphFailure(ReasonScopeDependencyPresent)}
 		}
 	}
-	var summary concurrencyfacts.Summary
+	summary := concurrencyfacts.Summary{Conditions: graph.Conditions}
 	prefixes := make([]int, len(graph.Parent)+1)
 	for index, event := range graph.Parent {
 		keep, known := scopedEvent(event, resources)

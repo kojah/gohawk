@@ -43,30 +43,9 @@ func Expand(summary concurrencyfacts.Summary) ([]SyncGraph, Failure) {
 	if summary.Reason != concurrencyfacts.ReasonSelectAlternatives || !summary.AlternativesComplete || !workerChoicesComplete(summary) {
 		return nil, summaryFailure(summary.Reason)
 	}
-	variants := []concurrencyfacts.Summary{{Operations: summary.Operations, Workers: slices.Clone(summary.Workers)}}
-	found := false
-	for index, worker := range summary.Workers {
-		if len(worker.Alternatives) == 0 {
-			continue
-		}
-		found = true
-		if len(variants)*len(worker.Alternatives) > maxAlternativeGraphs {
-			return nil, graphFailure(ReasonAlternativeLimit)
-		}
-		next := make([]concurrencyfacts.Summary, 0, len(variants)*len(worker.Alternatives))
-		for _, variant := range variants {
-			for _, operations := range worker.Alternatives {
-				branch := variant
-				branch.Workers = slices.Clone(variant.Workers)
-				branch.Workers[index].Operations = operations
-				branch.Workers[index].Alternatives = nil
-				next = append(next, branch)
-			}
-		}
-		variants = next
-	}
-	if !found {
-		return nil, summaryFailure(summary.Reason)
+	variants, failure := workerVariants(summary)
+	if !failure.Empty() {
+		return nil, failure
 	}
 	graphs := make([]SyncGraph, 0, len(variants))
 	for _, variant := range variants {
@@ -114,4 +93,42 @@ func workerChoicesComplete(summary concurrencyfacts.Summary) bool {
 func identicalOperation(a, b concurrencyfacts.Operation) bool {
 	return a.Kind == b.Kind && a.Resource == b.Resource && a.Source == b.Source && a.Site == b.Site &&
 		slices.Equal(a.Alternates, b.Alternates)
+}
+
+// workerVariants expands every worker's alternatives into one summary per
+// combination, joining each chosen branch alternative's conditions.
+func workerVariants(summary concurrencyfacts.Summary) ([]concurrencyfacts.Summary, Failure) {
+	variants := []concurrencyfacts.Summary{{
+		Operations: summary.Operations, Workers: slices.Clone(summary.Workers), Conditions: summary.Conditions,
+	}}
+	found := false
+	for index, worker := range summary.Workers {
+		if len(worker.Alternatives) == 0 {
+			continue
+		}
+		found = true
+		if len(variants)*len(worker.Alternatives) > maxAlternativeGraphs {
+			return nil, graphFailure(ReasonAlternativeLimit)
+		}
+		next := make([]concurrencyfacts.Summary, 0, len(variants)*len(worker.Alternatives))
+		for _, variant := range variants {
+			for alternative, operations := range worker.Alternatives {
+				branch := variant
+				branch.Workers = slices.Clone(variant.Workers)
+				branch.Workers[index].Operations = operations
+				branch.Workers[index].Alternatives = nil
+				branch.Workers[index].AlternativeConditions = nil
+				if alternative < len(worker.AlternativeConditions) {
+					// The worker's own branch choice joins the variant's.
+					branch.Conditions = append(slices.Clone(variant.Conditions), worker.AlternativeConditions[alternative]...)
+				}
+				next = append(next, branch)
+			}
+		}
+		variants = next
+	}
+	if !found {
+		return nil, summaryFailure(summary.Reason)
+	}
+	return variants, Failure{}
 }

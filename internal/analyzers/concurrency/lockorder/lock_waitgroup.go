@@ -87,10 +87,25 @@ func reportWaitGroupLockCycle(pass *analysis.Pass, graphs []syncmodel.SyncGraph,
 	})
 }
 
+// Like the lock/signal proof, one feasible execution is enough; see
+// proveLockSignalVariants.
 func proveWaitGroupVariants(graphs []syncmodel.SyncGraph, failure syncmodel.Failure) waitGroupCycleProof {
 	if !failure.Empty() || len(graphs) == 0 {
 		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, failure: failure}
 	}
+	proven := func(proof waitGroupCycleProof) bool { return proof.outcome == analysisTrace.OutcomeAccepted }
+	proof, verdict := syncmodel.SomeFeasibleExecution(graphs, proveWaitGroupEvery, proven)
+	switch {
+	case verdict == syncmodel.ExecutionFeasibilityUnknown:
+		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: dependencyWaitgroupLockPathsUnknown}
+	case verdict == syncmodel.ExecutionNotFound && proof.outcome == "":
+		return waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: dependencyWaitgroupLockPathsInfeasible}
+	}
+	return proof
+}
+
+// proveWaitGroupEvery requires the cycle on every graph of one execution.
+func proveWaitGroupEvery(graphs []syncmodel.SyncGraph) waitGroupCycleProof {
 	var common waitGroupCycleProof
 	for _, graph := range graphs {
 		proof := proveWaitGroupLockCycle(graph)

@@ -30,6 +30,10 @@ func TestReasonCodes(t *testing.T) {
 		ReasonScopeDependencyPresent:   "syncgraph-scope-dependency-present",
 		ReasonScopeIncomplete:          "syncgraph-scope-incomplete",
 		ReasonSignalBeforeAcquire:      "syncgraph-signal-before-acquire",
+		ReasonConditionsFeasible:       "syncgraph-conditions-feasible",
+		ReasonConditionsContradict:     "syncgraph-conditions-contradict",
+		ReasonConditionsCorrelated:     "syncgraph-conditions-correlated",
+		ReasonConditionsUnknown:        "syncgraph-conditions-unknown",
 	}
 	if len(want) != int(reasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

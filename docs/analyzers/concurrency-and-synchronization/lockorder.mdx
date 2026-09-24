@@ -144,9 +144,14 @@ when the shared heap model proves the fresh owner's slot remains unchanged.
 Mutation, opaque owner handoffs, and external owners still defeat that binding.
 Scoping tolerates synchronization on proven-disjoint
 resources while retaining every participant. Up to eight acyclic branch or
-worker-select variants may be checked; every variant must prove the same
-parent wait. Optional waits, early signals, and cancellation escapes defeat
-that proof. Opaque whole-function summaries remain inconclusive even if a
+worker-select variants may be checked. A deadlock needs one feasible
+execution, not every one: each choice of branch paths is checked separately,
+and a report needs one whose branch conditions can hold together. Two tests
+of the same condition that disagree cannot, and conditions that might be
+related, such as two reads of one field or two calls to one function, leave
+the result inconclusive. Within one choice, the variants differ only in which
+select arm fires, and every arm must be stuck, so a cancellation escape still
+defeats the proof. Opaque whole-function summaries remain inconclusive even if a
 reader could identify an apparently unrelated fragment.
 
 ### Channel/lock cycles

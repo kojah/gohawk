@@ -31,6 +31,10 @@ const (
 	ReasonScopeDependencyPresent
 	ReasonScopeIncomplete
 	ReasonSignalBeforeAcquire
+	ReasonConditionsFeasible
+	ReasonConditionsContradict
+	ReasonConditionsCorrelated
+	ReasonConditionsUnknown
 	reasonCount
 )
 
@@ -57,6 +61,10 @@ var reasonCodes = [...]string{
 	ReasonScopeDependencyPresent:   "syncgraph-scope-dependency-present",
 	ReasonScopeIncomplete:          "syncgraph-scope-incomplete",
 	ReasonSignalBeforeAcquire:      "syncgraph-signal-before-acquire",
+	ReasonConditionsFeasible:       "syncgraph-conditions-feasible",
+	ReasonConditionsContradict:     "syncgraph-conditions-contradict",
+	ReasonConditionsCorrelated:     "syncgraph-conditions-correlated",
+	ReasonConditionsUnknown:        "syncgraph-conditions-unknown",
 }
 
 // String renders the stable external trace code.

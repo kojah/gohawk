@@ -47,6 +47,60 @@ type EventID int
 
 EventID identifies one event within a graph, not across summary instances.
 
+## ExecutionGroup
+
+[Source](../../../../internal/syncmodel/feasibility.go)
+
+```go
+type ExecutionGroup struct {
+	Graphs		[]SyncGraph
+	Feasibility	Proof
+}
+```
+
+ExecutionGroup is one choice of branch paths. Its graphs share the same
+conditions and differ only in select arms, which the runtime chooses while
+it waits on all of them at once, so a property of the group must hold on
+every graph in it. Different groups are different executions: one feasible
+group is enough to show that some execution has the property.
+
+## ExecutionGroups
+
+[Source](../../../../internal/syncmodel/feasibility.go)
+
+```go
+func ExecutionGroups(graphs []SyncGraph) []ExecutionGroup
+```
+
+ExecutionGroups partitions graph variants by their conditions, in order.
+
+## ExecutionNotFound, ExecutionFeasibilityUnknown, ExecutionFound
+
+[Source](../../../../internal/syncmodel/feasibility.go)
+
+```go
+const (
+	// ExecutionNotFound means no group proved the property; the returned
+	// proof is the first group's failure.
+	ExecutionNotFound	ExecutionVerdict	= iota
+	// ExecutionFeasibilityUnknown means only groups whose conditions could
+	// not be shown feasible proved it.
+	ExecutionFeasibilityUnknown
+	// ExecutionFound means a group proved feasible proved the property.
+	ExecutionFound
+)
+```
+
+## ExecutionVerdict
+
+[Source](../../../../internal/syncmodel/feasibility.go)
+
+```go
+type ExecutionVerdict uint8
+```
+
+ExecutionVerdict says whether some feasible execution satisfied a proof.
+
 ## Expand
 
 [Source](../../../../internal/syncmodel/alternatives.go)
@@ -330,7 +384,7 @@ func (reason Reason) String() string
 
 String renders the stable external trace code.
 
-## ReasonNone, ReasonAlternateUnlock, ReasonAlternativeLimit, ReasonCancelIdentityUnknown, ReasonCancellationObservations, ReasonEventUnavailable, ReasonFreshResource, ReasonFreshnessUnknown, ReasonHeldMutex, ReasonHeldMutexUnknown, ReasonIdentityUnknown, ReasonInvalidEvent, ReasonInvalidSpawnPrefix, ReasonNestedAlternatives, ReasonNoChannelSignal, ReasonOrderUnproven, ReasonProgramOrder, ReasonQueryUnavailable, ReasonScopeAliasUnknown, ReasonScopeDependencyPresent, ReasonScopeIncomplete, ReasonSignalBeforeAcquire
+## ReasonNone, ReasonAlternateUnlock, ReasonAlternativeLimit, ReasonCancelIdentityUnknown, ReasonCancellationObservations, ReasonEventUnavailable, ReasonFreshResource, ReasonFreshnessUnknown, ReasonHeldMutex, ReasonHeldMutexUnknown, ReasonIdentityUnknown, ReasonInvalidEvent, ReasonInvalidSpawnPrefix, ReasonNestedAlternatives, ReasonNoChannelSignal, ReasonOrderUnproven, ReasonProgramOrder, ReasonQueryUnavailable, ReasonScopeAliasUnknown, ReasonScopeDependencyPresent, ReasonScopeIncomplete, ReasonSignalBeforeAcquire, ReasonConditionsFeasible, ReasonConditionsContradict, ReasonConditionsCorrelated, ReasonConditionsUnknown
 
 [Source](../../../../internal/syncmodel/reasons.go)
 
@@ -358,6 +412,10 @@ const (
 	ReasonScopeDependencyPresent
 	ReasonScopeIncomplete
 	ReasonSignalBeforeAcquire
+	ReasonConditionsFeasible
+	ReasonConditionsContradict
+	ReasonConditionsCorrelated
+	ReasonConditionsUnknown
 )
 ```
 
@@ -386,6 +444,18 @@ SignalOrder records the first send or close on a channel in one goroutine,
 and an exact mutex acquisition that must precede it. Proven means the worker
 must pass that acquisition to reach the signal, not that it completes or
 holds the mutex at the signal. Absence is scoped to this complete variant.
+
+## SomeFeasibleExecution
+
+[Source](../../../../internal/syncmodel/feasibility.go)
+
+```go
+func SomeFeasibleExecution[P any](graphs []SyncGraph, prove func([]SyncGraph) P, proven func(P) bool) (P, ExecutionVerdict)
+```
+
+SomeFeasibleExecution is the one decision for "some execution has this
+property": prove runs a check's own every-graph proof on one group, and
+infeasible groups are skipped.
 
 ## SyncArm
 
@@ -489,6 +559,9 @@ the operation's origin; Site is its call site.
 
 ```go
 type SyncGraph struct {
+	// Conditions are the branch choices this variant assumes. An empty list
+	// is an unconditional graph; Feasibility decides a non-empty one.
+	Conditions	[]concurrencyfacts.Condition
 	Parent		[]SyncEvent
 	Children	[]SyncChild
 	Choices		[]SyncChoice
@@ -526,6 +599,16 @@ func (graph *SyncGraph) Complete() bool
 ```
 
 Complete reports only whether the input event sequence was complete.
+
+## SyncGraph.Feasibility
+
+[Source](../../../../internal/syncmodel/feasibility.go)
+
+```go
+func (graph *SyncGraph) Feasibility() Proof
+```
+
+Feasibility reports whether the variant's conditions can hold together.
 
 ## SyncGraph.HasCycle
 

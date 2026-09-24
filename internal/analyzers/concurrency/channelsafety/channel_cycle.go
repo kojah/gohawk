@@ -46,7 +46,7 @@ func reportChannelCycle(pass *analysis.Pass, function *ssa.Function) {
 	graphs, reason := syncmodel.Expand(root)
 	proof := channelCycleProof{outcome: analysisTrace.OutcomeUnknown, failure: reason}
 	if reason.Empty() {
-		proof = proveEveryChannelCycle(graphs, root.Choices)
+		proof = proveSomeChannelCycle(graphs, root.Choices)
 	}
 	probe.Decision(analysisTrace.Step{Reason: proof.traceReason(), Outcome: proof.outcome, Pos: candidate})
 	if proof.outcome != analysisTrace.OutcomeAccepted {
@@ -61,6 +61,24 @@ func reportChannelCycle(pass *analysis.Pass, function *ssa.Function) {
 			{Pos: proof.workerSecond, Message: "worker can match the parent only after its first operation"},
 		},
 	})
+}
+
+// A cycle needs one feasible execution, not every one. The shared
+// SomeFeasibleExecution decision runs proveEveryChannelCycle on each choice of
+// branch paths; within one choice, the graphs differ only in select arms, and
+// every arm must still be stuck.
+func proveSomeChannelCycle(graphs []syncmodel.SyncGraph, choices []concurrencyfacts.SelectChoice) channelCycleProof {
+	accepted := func(proof channelCycleProof) bool { return proof.outcome == analysisTrace.OutcomeAccepted }
+	proof, verdict := syncmodel.SomeFeasibleExecution(graphs, func(group []syncmodel.SyncGraph) channelCycleProof {
+		return proveEveryChannelCycle(group, choices)
+	}, accepted)
+	switch {
+	case verdict == syncmodel.ExecutionFeasibilityUnknown:
+		return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: channelCyclePathsUnknown}
+	case verdict == syncmodel.ExecutionNotFound && proof.outcome == "":
+		return channelCycleProof{outcome: analysisTrace.OutcomeRejected, reason: channelCyclePathsInfeasible}
+	}
+	return proof
 }
 
 func proveEveryChannelCycle(graphs []syncmodel.SyncGraph, choices []concurrencyfacts.SelectChoice) channelCycleProof {

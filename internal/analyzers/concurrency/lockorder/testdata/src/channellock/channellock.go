@@ -144,6 +144,7 @@ func alternateUnlocker() {
 	mu.Unlock()
 }
 
+// When enabled is true the sender needs the held lock before it sends.
 func maybeLock(mu *sync.Mutex, ch chan<- int, enabled bool) {
 	if enabled {
 		mu.Lock()
@@ -157,6 +158,6 @@ func conditionalWorker(enabled bool) {
 	ch := make(chan int)
 	mu.Lock()
 	go maybeLock(&mu, ch, enabled)
-	<-ch
+	<-ch // want "receives while holding the lock needed by its sender"
 	mu.Unlock()
 }
