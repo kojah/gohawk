@@ -197,6 +197,8 @@ the code cannot drift apart silently.
 | `TestSearchBudgetsAreNamed` | a `SearchBudget` is constructed from `ssaflow.QueryBudget`, `ssaflow.SummaryBudget`, or a named constant beside the proof, never a bare number, so the size of a bound is a recorded decision rather than a copied neighbour |
 | `TestSummaryInfrastructureBoundaries` | analyzers, SSA engines, and fact passes use the shared summary API; only the two implementation files own raw memo/guard operations and fields. Analyzer query sites must not pass literal nil budgets |
 | `TestSummaryBoundaryMatcher` | summary API checks resolve type identity, including import aliases, generic types, promoted methods, and method expressions; unrelated lookalike names remain allowed |
+| `TestMigratedReasonEnums` | migrated reason domains use numeric enum types and do not store reasons in string fields; scope grows until all internal domains are migrated |
+| `TestReasonEnumBoundaryMatcher` | reason checks reject string aliases and raw reason fields while allowing textual observer/output boundaries |
 | `TestAnalyzersUseSymbolIdentity` | well-known functions matched through `syntax.Symbol`, not reconstructed from package paths and names |
 | `TestProductionCodeReturnsTerminationDecisions` | no `panic`, `log.Fatal`, or `os.Exit` in analyzer or library code |
 | `TestForbiddenTerminationIdentity` | the termination rule's matcher recognizes exactly the builtin `panic`, the `log.Fatal` variants, and `os.Exit`, and nothing else |

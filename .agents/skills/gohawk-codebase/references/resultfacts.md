@@ -143,6 +143,42 @@ func NewEngine() *Engine
 
 NewEngine creates local-only result inference with no library-name guesses.
 
+## Reason
+
+[Source](../../../../internal/passes/resultfacts/reasons.go)
+
+```go
+type Reason uint8
+```
+
+Reason explains a result inference boundary. It is separate from Available
+and the guarantees themselves: no boundary does not establish any guarantee.
+
+## Reason.String
+
+[Source](../../../../internal/passes/resultfacts/reasons.go)
+
+```go
+func (reason Reason) String() string
+```
+
+String is the stable textual representation used at output boundaries.
+
+## ReasonNone, ReasonSummaryUnavailable, ReasonBodyUnavailable, ReasonCountLimit, ReasonBudgetExhausted, ReasonNoNormalReturnWitness
+
+[Source](../../../../internal/passes/resultfacts/reasons.go)
+
+```go
+const (
+	ReasonNone	Reason	= iota
+	ReasonSummaryUnavailable
+	ReasonBodyUnavailable
+	ReasonCountLimit
+	ReasonBudgetExhausted
+	ReasonNoNormalReturnWitness
+)
+```
+
 ## Relation
 
 [Source](../../../../internal/passes/resultfacts/relations.go)
@@ -177,7 +213,7 @@ an error result of the same call.
 ```go
 type Summary struct {
 	Available	bool
-	Reason		string
+	Reason		Reason
 	// contains filtered or unexported fields
 }
 ```

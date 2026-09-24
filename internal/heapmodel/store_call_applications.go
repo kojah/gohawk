@@ -10,25 +10,53 @@ import "golang.org/x/tools/go/ssa"
 // which is how a trace exposes a summary that arrived too late.
 
 // CallApplicationReason names how the graph treated a call.
-type CallApplicationReason string
+type CallApplicationReason uint8
 
 const (
+	// CallApplicationUnknown is an unset classification, never an applied summary.
+	CallApplicationUnknown CallApplicationReason = iota
 	// CallSummaryApplied: the callee's summary was substituted.
-	CallSummaryApplied CallApplicationReason = "summary-applied"
+	CallSummaryApplied
 	// CallNoSummary: the callee has no summary the graph could find.
-	CallNoSummary CallApplicationReason = "no-summary"
+	CallNoSummary
 	// CallClosure: the callee captures variables a summary cannot bind.
-	CallClosure CallApplicationReason = "closure-callee"
+	CallClosure
 	// CallInterface: an interface method call has no static callee.
-	CallInterface CallApplicationReason = "interface-call"
+	CallInterface
 	// CallDynamic: a call through a function value has no static callee.
-	CallDynamic CallApplicationReason = "dynamic-call"
+	CallDynamic
 	// CallStarted: work handed to a goroutine is never substituted.
-	CallStarted CallApplicationReason = "started"
+	CallStarted
 	// CallRecursive: the callee can call back into the caller, so its
 	// summary depends on the caller's own and is never applied.
-	CallRecursive CallApplicationReason = "call-cycle"
+	CallRecursive
+	callApplicationReasonCount
 )
+
+// String converts the internal classification to its stable trace/dump code.
+// Unknown and invalid values must never look like successful substitution.
+func (reason CallApplicationReason) String() string {
+	switch reason {
+	case CallApplicationUnknown:
+		return "unknown"
+	case CallSummaryApplied:
+		return "summary-applied"
+	case CallNoSummary:
+		return "no-summary"
+	case CallClosure:
+		return "closure-callee"
+	case CallInterface:
+		return "interface-call"
+	case CallDynamic:
+		return "dynamic-call"
+	case CallStarted:
+		return "started"
+	case CallRecursive:
+		return "call-cycle"
+	default:
+		return "invalid-call-application-reason"
+	}
+}
 
 // CallApplication is the graph's record of one call.
 // RegisteredNow says whether the registry holds the callee's summary when

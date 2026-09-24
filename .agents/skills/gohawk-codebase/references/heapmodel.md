@@ -88,10 +88,47 @@ means the summary arrived after the graph was built.
 [Source](../../../../internal/heapmodel/store_call_applications.go)
 
 ```go
-type CallApplicationReason string
+type CallApplicationReason uint8
 ```
 
 CallApplicationReason names how the graph treated a call.
+
+## CallApplicationReason.String
+
+[Source](../../../../internal/heapmodel/store_call_applications.go)
+
+```go
+func (reason CallApplicationReason) String() string
+```
+
+String converts the internal classification to its stable trace/dump code.
+Unknown and invalid values must never look like successful substitution.
+
+## CallApplicationUnknown, CallSummaryApplied, CallNoSummary, CallClosure, CallInterface, CallDynamic, CallStarted, CallRecursive
+
+[Source](../../../../internal/heapmodel/store_call_applications.go)
+
+```go
+const (
+	// CallApplicationUnknown is an unset classification, never an applied summary.
+	CallApplicationUnknown	CallApplicationReason	= iota
+	// CallSummaryApplied: the callee's summary was substituted.
+	CallSummaryApplied
+	// CallNoSummary: the callee has no summary the graph could find.
+	CallNoSummary
+	// CallClosure: the callee captures variables a summary cannot bind.
+	CallClosure
+	// CallInterface: an interface method call has no static callee.
+	CallInterface
+	// CallDynamic: a call through a function value has no static callee.
+	CallDynamic
+	// CallStarted: work handed to a goroutine is never substituted.
+	CallStarted
+	// CallRecursive: the callee can call back into the caller, so its
+	// summary depends on the caller's own and is never applied.
+	CallRecursive
+)
+```
 
 ## CallApplications
 
@@ -104,30 +141,6 @@ func CallApplications(function *ssa.Function) []CallApplication
 CallApplications lists how the function's points-to graph treated each
 call it reached, in the order the graph first reached them. A function
 whose graph is unavailable has no records.
-
-## CallSummaryApplied, CallNoSummary, CallClosure, CallInterface, CallDynamic, CallStarted, CallRecursive
-
-[Source](../../../../internal/heapmodel/store_call_applications.go)
-
-```go
-const (
-	// CallSummaryApplied: the callee's summary was substituted.
-	CallSummaryApplied	CallApplicationReason	= "summary-applied"
-	// CallNoSummary: the callee has no summary the graph could find.
-	CallNoSummary	CallApplicationReason	= "no-summary"
-	// CallClosure: the callee captures variables a summary cannot bind.
-	CallClosure	CallApplicationReason	= "closure-callee"
-	// CallInterface: an interface method call has no static callee.
-	CallInterface	CallApplicationReason	= "interface-call"
-	// CallDynamic: a call through a function value has no static callee.
-	CallDynamic	CallApplicationReason	= "dynamic-call"
-	// CallStarted: work handed to a goroutine is never substituted.
-	CallStarted	CallApplicationReason	= "started"
-	// CallRecursive: the callee can call back into the caller, so its
-	// summary depends on the caller's own and is never applied.
-	CallRecursive	CallApplicationReason	= "call-cycle"
-)
-```
 
 ## CapturedBindingMatches
 

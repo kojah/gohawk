@@ -521,7 +521,7 @@ func heapTraceDetails(function *ssa.Function, heap *heapmodel.HeapSummary) map[s
 			continue
 		}
 		if len(calls) < tracedCallLimit {
-			calls = append(calls, record.Instruction.String()+" ["+string(record.Reason)+"]")
+			calls = append(calls, record.Instruction.String()+" ["+record.Reason.String()+"]")
 		}
 	}
 	details["calls-applied"] = strconv.Itoa(applied)

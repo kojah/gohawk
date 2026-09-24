@@ -30,7 +30,7 @@ const maxResults = 16
 // consulted, not that all results are understood. Reason explains a boundary.
 type Summary struct {
 	Available bool
-	Reason    string
+	Reason    Reason
 	results   []Guarantee
 	relations []Relation
 	// neverReturns records that no normal return is reachable from the
@@ -67,7 +67,7 @@ type Engine struct {
 func NewEngine() *Engine {
 	engine := &Engine{}
 	engine.summaries = ssaflow.NewFunctionSummaries(engine.compute, func(reason ssaflow.SummaryUnavailable) Summary {
-		return Summary{Reason: "result-summary-unavailable"}
+		return Summary{Reason: ReasonSummaryUnavailable}
 	})
 	return engine
 }
@@ -81,14 +81,14 @@ func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBud
 
 func (engine *Engine) function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
 	if function == nil || !budget.Spend() {
-		return Summary{Reason: "result-summary-unavailable"}
+		return Summary{Reason: ReasonSummaryUnavailable}
 	}
 	if len(function.Blocks) == 0 {
 		object, _ := function.Object().(*types.Func)
 		if fact, ok := engine.imported[object]; ok && fact.Version == factVersion {
 			return Summary{Available: true, results: fact.Results, relations: fact.Relations, neverReturns: fact.NeverReturns}
 		}
-		return Summary{Reason: "result-body-unavailable"}
+		return Summary{Reason: ReasonBodyUnavailable}
 	}
 	return engine.summaries.Function(function, budget)
 }
@@ -96,7 +96,7 @@ func (engine *Engine) function(function *ssa.Function, budget *ssaflow.SearchBud
 func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
 	count := function.Signature.Results().Len()
 	if count > maxResults {
-		return Summary{Reason: "result-count-limit"}
+		return Summary{Reason: ReasonCountLimit}
 	}
 	result := Summary{Available: true, results: make([]Guarantee, count)}
 	witness := false
@@ -105,7 +105,7 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if !budget.Spend() {
-				return Summary{Reason: "result-budget-exhausted"}
+				return Summary{Reason: ReasonBudgetExhausted}
 			}
 			returned, ok := instruction.(*ssa.Return)
 			if !ok {
@@ -131,7 +131,7 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 		return budget.Spend() && engine.function(ssaflow.ResolvedCallee(call.Common()), budget).NeverReturns()
 	})
 	if !witness {
-		result.Reason = "result-no-normal-return-witness"
+		result.Reason = ReasonNoNormalReturnWitness
 		return result
 	}
 	result.relations = engine.relations(function, budget)

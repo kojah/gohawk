@@ -123,7 +123,7 @@ func traceCallApplications(probe analysisTrace.Probe, function *ssa.Function, ca
 		if unsummarized > tracedUnsummarizedLimit {
 			continue
 		}
-		details := map[string]string{"call": record.Instruction.String(), "reason": string(record.Reason)}
+		details := map[string]string{"call": record.Instruction.String(), "reason": record.Reason.String()}
 		if record.Callee != nil {
 			details["callee"] = record.Callee.String()
 			details["registered-now"] = strconv.FormatBool(record.RegisteredNow)
