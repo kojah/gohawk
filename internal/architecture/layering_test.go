@@ -18,8 +18,9 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 		"internal/syntax",
 		"internal/ssaflow",
 		"internal/heapmodel",
-		"internal/ssainfer",
+		"internal/lifecycle",
 		"internal/resourcemodel",
+		"internal/syncmodel",
 		"internal/passes",
 		"internal/summaries",
 		"internal/check",
@@ -47,7 +48,7 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 func internalLayer(packagePath string) string {
 	component, _, _ := strings.Cut(packagePath, "/")
 	switch component {
-	case "syntax", "ssaflow", "heapmodel", "ssainfer", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace":
+	case "syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "syncmodel", "passes", "summaries", "check", "analyzers", "trace":
 		return component
 	default:
 		return "other"
@@ -55,14 +56,17 @@ func internalLayer(packagePath string) string {
 }
 
 func forbiddenLayerDependency(from, to string) bool {
+	if to == "syncmodel" {
+		return slices.Contains([]string{"syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "check"}, from)
+	}
 	switch from {
 	case "syntax":
-		return slices.Contains([]string{"ssaflow", "heapmodel", "ssainfer", "resourcemodel", "passes", "summaries", "check", "analyzers"}, to)
+		return slices.Contains([]string{"ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers"}, to)
 	case "ssaflow":
-		return slices.Contains([]string{"heapmodel", "ssainfer", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace"}, to)
+		return slices.Contains([]string{"heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace"}, to)
 	case "heapmodel":
-		return slices.Contains([]string{"ssainfer", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace"}, to)
-	case "ssainfer":
+		return slices.Contains([]string{"lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace"}, to)
+	case "lifecycle":
 		return slices.Contains([]string{"resourcemodel", "passes", "summaries", "check", "analyzers", "trace"}, to)
 	case "resourcemodel":
 		return slices.Contains([]string{"passes", "summaries", "check", "analyzers", "trace"}, to)
@@ -70,10 +74,37 @@ func forbiddenLayerDependency(from, to string) bool {
 		return slices.Contains([]string{"summaries", "check", "analyzers"}, to)
 	case "summaries":
 		return to == "check" || to == "analyzers"
+	case "syncmodel":
+		return slices.Contains([]string{"summaries", "check", "analyzers", "trace"}, to)
 	case "check":
-		return slices.Contains([]string{"ssaflow", "heapmodel", "ssainfer", "resourcemodel", "passes", "summaries", "analyzers"}, to)
+		return slices.Contains([]string{"ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "analyzers"}, to)
 	default:
 		return false
+	}
+}
+
+func TestSemanticModelDependencyBoundaries(t *testing.T) {
+	for _, test := range []struct {
+		from, to string
+		forbid   bool
+	}{
+		{"lifecycle", "heapmodel", false},
+		{"heapmodel", "lifecycle", true},
+		{"syncmodel", "passes", false},
+		{"passes", "syncmodel", true},
+		{"syncmodel", "ssaflow", false},
+		{"lifecycle", "syncmodel", true},
+		{"syncmodel", "analyzers", true},
+		{"syncmodel", "summaries", true},
+	} {
+		t.Run(test.from+"/"+test.to, func(t *testing.T) {
+			if internalLayer(test.from) != test.from || internalLayer(test.to) != test.to {
+				t.Fatal("semantic model layer was not recognized")
+			}
+			if got := forbiddenLayerDependency(test.from, test.to); got != test.forbid {
+				t.Fatalf("forbidden dependency = %v, want %v", got, test.forbid)
+			}
+		})
 	}
 }
 

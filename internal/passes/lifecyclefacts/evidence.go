@@ -5,8 +5,8 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -34,7 +34,7 @@ type LifecycleEvidence struct {
 	// probe attributes each traced proof step to the candidate being judged.
 	// It starts unattributed so an analyzer that never scopes still traces.
 	probe analysisTrace.Probe
-	local ssainfer.LocalEvidence
+	local lifecycle.LocalEvidence
 	// retentions answers retention questions about function literals, which
 	// carry no summary of their own. It is built on first use because most
 	// analyzers never ask.
@@ -224,7 +224,7 @@ func (evidence *LifecycleEvidence) capturedImportedCompletion(request EvidenceRe
 		fact, summarized := factFor(evidence.pass, instruction)
 		return summarized && factOwnsImmutableCapturedArgument(instruction, request.Target, request.SelectMask(fact), evidence.probe.Observer())
 	}
-	if !ssainfer.MethodCallCoverage(function, completes, request.Completion.Coverage, nil) {
+	if !lifecycle.MethodCallCoverage(function, completes, request.Completion.Coverage, nil) {
 		return ssaflow.Proof{}
 	}
 	return importedProof(reasonLifecycleSummaryCapturedArgument, requestedMethod(request))
@@ -237,7 +237,7 @@ func NewLifecycleEvidence(pass *analysis.Pass, analyzer, check string) *Lifecycl
 		pass: pass, analyzer: analyzer, check: check,
 		probe: analysisTrace.ForPackage(pass, analyzer, check),
 	}
-	evidence.local = ssainfer.NewLocalEvidenceWithReturnedCleanup(evidence.returnedCleanupLookup())
+	evidence.local = lifecycle.NewLocalEvidenceWithReturnedCleanup(evidence.returnedCleanupLookup())
 	return evidence
 }
 
@@ -262,8 +262,8 @@ func (evidence *LifecycleEvidence) ArgumentRetained(instruction ssa.Instruction,
 type EvidenceRequest struct {
 	Instruction ssa.Instruction
 	Target      ssa.Value
-	Completion  *ssainfer.CompletionRequest
-	Transfer    *ssainfer.OwnershipTransferRequest
+	Completion  *lifecycle.CompletionRequest
+	Transfer    *lifecycle.OwnershipTransferRequest
 	Local       *ssaflow.Proof
 	SelectMask  func(Fact) ParameterMask
 	// StrictImportedProjection lets one analyzer map a summary parameter to an
@@ -314,7 +314,7 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 	}
 	if request.ReceiverStore && summarized && factOwnsArgument(request.Instruction, request.Target, fact.ReceiverStore, evidence.probe.Observer()) {
 		receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(request.Instruction))
-		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || ssainfer.ValueEscapes(receiver)) {
+		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || lifecycle.ValueEscapes(receiver)) {
 			return importedProof(reasonReceiverStoreTransfer, requestedMethod(request)), true
 		}
 		return ssaflow.Proof{

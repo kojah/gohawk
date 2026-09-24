@@ -7,9 +7,9 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -147,7 +147,7 @@ func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.Ma
 		if callback == nil || len(callback.Params) != 0 {
 			continue
 		}
-		invoked := ssainfer.SpawnInvokesArgumentOnEveryReturn(spawn, argument)
+		invoked := lifecycle.SpawnInvokesArgumentOnEveryReturn(spawn, argument)
 		if !invoked {
 			invoked, _ = evidence.CalleeClaims(spawn, index, lifecyclefacts.ClaimSynchronouslyInvokes)
 		}
@@ -227,7 +227,7 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 				heapmodel.DefinitelySameValue(ssaflow.CallReceiver(deferred.Common()), pair.Local) {
 				return true
 			}
-			proof := ssainfer.ProveCompletion(ssainfer.CompletionRequest{
+			proof := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
 				Instruction: deferred, Target: pair.Local, Methods: []string{"Done"},
 				Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
 			})

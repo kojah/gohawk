@@ -5,7 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
-	"github.com/kojah/gohawk/internal/syncgraph"
+	"github.com/kojah/gohawk/internal/syncmodel"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -29,7 +29,7 @@ func (evidence captureEvidence) lockGuard(closure *ast.FuncLit, mutation ast.Nod
 	if !ok {
 		return lockGuardProof{reason: "capture-mutation-site-unknown"}
 	}
-	var region syncgraph.LockRegion
+	var region syncmodel.LockRegion
 	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
 	for _, instruction := range block.Instrs[:target] {
 		switch instruction := instruction.(type) {

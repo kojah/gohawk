@@ -57,7 +57,7 @@ proofs.
 ## Selects and child goroutines
 
 One acyclic worker `select` can yield a bounded set of complete continuations.
-`syncgraph.Expand` builds a separate linear graph for each outcome, up to eight
+`syncmodel.Expand` builds a separate linear graph for each outcome, up to eight
 graphs; a consumer must prove its property on every one. The ordinary
 `FromSummary` contract remains incomplete for a choice, so linear consumers
 cannot accidentally treat its arms as simultaneous events. Only the channel
@@ -68,7 +68,7 @@ can compose into a caller, including through parameter-relative imported
 facts. A launch within a worker remains unknown.
 
 The experimental lock-and-join and channel/lock-cycle proofs consume a
-parent/children fragment through `internal/syncgraph`. The fragment has
+parent/children fragment through `internal/syncmodel`. The fragment has
 `SyncEvent` nodes and separate program-order, spawn-order, and proven blocking
 dependency edges. A root summary tracks up to four statically known
 children, each with its own identity, spawn point, and ordered effects. Both
@@ -104,7 +104,7 @@ unknown unless a narrower structural proof independently accounts for them.
 
 ## Shared semantic queries
 
-`syncgraph.NewQuery` snapshots one complete graph variant. Incomplete summaries,
+`syncmodel.NewQuery` snapshots one complete graph variant. Incomplete summaries,
 unexpanded choices, malformed event identities, and unknown launch points yield
 unknown answers, never a proof that a participant or effect is absent.
 

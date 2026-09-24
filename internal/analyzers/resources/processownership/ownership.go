@@ -2,9 +2,9 @@ package processownership
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -62,7 +62,7 @@ func processOwnerDominatesStart(
 		}
 		for _, instruction := range block.Instrs[:limit] {
 			for _, owner := range owners {
-				completion := ssainfer.CompletionRequest{
+				completion := lifecycle.CompletionRequest{
 					Instruction: instruction,
 					Target:      owner,
 					Methods:     []string{"close", "Close", "kill", "Kill", "Wait", "wait"},
@@ -97,7 +97,7 @@ func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []
 				continue
 			}
 			for _, owner := range owners {
-				if ssainfer.MayContainValue(closure, owner) {
+				if lifecycle.MayContainValue(closure, owner) {
 					return true
 				}
 			}
@@ -135,16 +135,16 @@ func processOwnershipDominatesStart(
 			limit = startIndex
 		}
 		for _, instruction := range block.Instrs[:limit] {
-			completion := ssainfer.CompletionRequest{
+			completion := lifecycle.CompletionRequest{
 				Instruction: instruction,
 				Target:      command,
 				Methods:     []string{"Wait"},
 				Budget:      proof.budget(),
 			}
-			transfer := ssainfer.OwnershipTransferRequest{
+			transfer := lifecycle.OwnershipTransferRequest{
 				Instruction: instruction,
 				Value:       command,
-				Modes:       ssainfer.TransferCapturedByClosure,
+				Modes:       lifecycle.TransferCapturedByClosure,
 			}
 			result := proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
 				Instruction: instruction,
@@ -203,17 +203,17 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 		return deferred
 	}
 	common := ssaflow.InstructionCall(instruction)
-	completion := ssainfer.CompletionRequest{
+	completion := lifecycle.CompletionRequest{
 		Instruction: instruction,
 		Target:      command,
 		Methods:     []string{"Wait"},
 		Budget:      proof.budget(),
 	}
-	transfer := ssainfer.OwnershipTransferRequest{
+	transfer := lifecycle.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       command,
-		Modes: ssainfer.TransferStoredInField | ssainfer.TransferOwnerStoredInField |
-			ssainfer.TransferCapturedByClosure | ssainfer.TransferCallResultStoredInField,
+		Modes: lifecycle.TransferStoredInField | lifecycle.TransferOwnerStoredInField |
+			lifecycle.TransferCapturedByClosure | lifecycle.TransferCallResultStoredInField,
 	}
 	// A launched waiter owns reaping when every normal goroutine return waits,
 	// including a nested defer. feint uses both direct and deferred background
@@ -287,9 +287,9 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget 
 		if callee == nil || len(callee.Blocks) == 0 || ssaflow.NormalReturnReachableFrom(callee.Blocks[0]) {
 			return false
 		}
-		return ssainfer.ProveCompletion(ssainfer.CompletionRequest{
+		return lifecycle.ProveCompletion(lifecycle.CompletionRequest{
 			Instruction: instruction, Target: command, Methods: []string{"Wait"},
-			Coverage: ssainfer.CoverageAnywhere, Budget: budget,
+			Coverage: lifecycle.CoverageAnywhere, Budget: budget,
 		}).Proven()
 	}
 	callee, _ := ssaflow.DirectCallee(common)
@@ -297,7 +297,7 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget 
 		return false
 	}
 	for _, argument := range common.Args {
-		if _, callback := argument.(*ssa.MakeClosure); callback && ssainfer.MayContainValue(argument, command) {
+		if _, callback := argument.(*ssa.MakeClosure); callback && lifecycle.MayContainValue(argument, command) {
 			return true
 		}
 	}
@@ -334,9 +334,9 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 			}
 		}
 		for _, receiver := range receivers {
-			if ssainfer.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
+			if lifecycle.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
 				return waitsForCommand(candidate, local)
-			}, ssainfer.CoverageEveryReturn, receiver) {
+			}, lifecycle.CoverageEveryReturn, receiver) {
 				return ssaflow.EvidenceProven
 			}
 		}
@@ -374,9 +374,9 @@ func guardedDeferredWait(function *ssa.Function, command ssa.Value) ssaflow.Evid
 		if !osProcessDerivedFromCommand(load, command) {
 			continue
 		}
-		if ssainfer.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
+		if lifecycle.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
 			return waitsForCommand(candidate, command)
-		}, ssainfer.CoverageEveryReturn, load) {
+		}, lifecycle.CoverageEveryReturn, load) {
 			return ssaflow.EvidenceUnknown
 		}
 	}
@@ -406,7 +406,7 @@ func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instructi
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
 		}
-		completion := ssainfer.CompletionRequest{
+		completion := lifecycle.CompletionRequest{
 			Instruction: instruction,
 			Target:      argument,
 			Methods:     []string{"Wait"},

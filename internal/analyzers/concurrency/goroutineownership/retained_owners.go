@@ -6,8 +6,8 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -146,9 +146,9 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int) []ssa.Value {
 		if !lifecycleOwner(target) {
 			continue
 		}
-		if ssainfer.ProveReturnedCleanup(function, ssainfer.ReturnedCleanupRelation{
+		if lifecycle.ProveReturnedCleanup(function, lifecycle.ReturnedCleanupRelation{
 			CallbackResult: callbackIndex, Target: index, TargetIsResult: true,
-		}, ssainfer.CompletionRequest{Methods: []string{"Close", "Stop", "Shutdown"}, Budget: budget}).Proven() {
+		}, lifecycle.CompletionRequest{Methods: []string{"Close", "Stop", "Shutdown"}, Budget: budget}).Proven() {
 			targets = append(targets, target)
 		}
 	}
@@ -165,13 +165,13 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int) []ssa.Value {
 			if !ok {
 				continue
 			}
-			closure, ok := ssainfer.ReturnedResult(returned, callbackIndex).(*ssa.MakeClosure)
+			closure, ok := lifecycle.ReturnedResult(returned, callbackIndex).(*ssa.MakeClosure)
 			if !ok {
 				continue
 			}
 			for index := range returned.Results {
 				target := ssaflow.CallResult(factory, index)
-				if lifecycleOwner(target) && callbackClosesSibling(closure, ssainfer.ReturnedResult(returned, index), budget) {
+				if lifecycleOwner(target) && callbackClosesSibling(closure, lifecycle.ReturnedResult(returned, index), budget) {
 					targets = append(targets, target)
 				}
 			}

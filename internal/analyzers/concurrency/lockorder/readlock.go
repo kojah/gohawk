@@ -28,7 +28,7 @@ import (
 //
 // Two exclusions follow from the same rule and keep the claim honest. A value
 // LOADED out of the owner is a different cell, so mutating it is not a write to
-// the owner -- the distinction ssainfer.IdentitySource states for identity
+// the owner -- the distinction lifecycle.IdentitySource states for identity
 // resolution. And an atomic update is a call rather than a store, so it never
 // reaches here at all, which is correct: such a field is protected by atomics
 // rather than by the lock.

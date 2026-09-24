@@ -236,7 +236,7 @@ policy.
 - Keep analyzer-specific acceptance policy beside the analyzer. Shared SSA code
   should provide identity and traversal mechanics, not silently decide whether
   evidence is sufficient for a diagnostic.
-- Lifecycle completion is one search in `internal/ssainfer`: resolve the
+- Lifecycle completion is one search in `internal/lifecycle`: resolve the
   callee an instruction launches, map the target onto its parameters and
   captures, and require the cleanup call before every normal return. Callers
   choose the instructions they submit and whether they need a must-complete
@@ -330,7 +330,7 @@ evidence engines behind focused implementation files.
 - Keep registry and runner code small. It should select configuration,
   construct shared inputs, invoke evidence helpers, and report diagnostics—not
   contain the full proof itself.
-- Promote a helper to `internal/syntax`, `internal/ssaflow`, or `internal/ssainfer` only after multiple analyzers
+- Promote a helper to `internal/syntax`, `internal/ssaflow`, or `internal/lifecycle` only after multiple analyzers
   need the same general contract. Analyzer-specific precision policy belongs
   beside the analyzer even when its implementation looks reusable.
 - Put shared prerequisite `analysis.Analyzer` passes under
@@ -345,8 +345,8 @@ its package. Analyzer groups are catalog metadata mirrored by container
 directories, not Go package boundaries.
 
 Shared source-level helpers live under `internal/syntax`, while SSA traversal
-mechanics live under `internal/ssaflow` and storage, completion, and transfer
-proofs under `internal/ssainfer`; they are implementation
+mechanics live under `internal/ssaflow`, storage queries under `internal/heapmodel`,
+and completion and transfer proofs under `internal/lifecycle`; they are implementation
 details rather than an external integration API. Cross-cutting
 diagnostic, catalog, flag, and trace infrastructure lives in its own focused
 internal package instead of being folded into analysis utilities.

@@ -7,8 +7,8 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -81,7 +81,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
 			if instruction == analysis.spawn || !ssaflow.InstructionMayFollow(instruction, analysis.spawn) {
 				continue
 			}
-			if send, ok := instruction.(*ssa.Send); ok && ssainfer.MayContainValue(send.X, analysis.relayGroup) {
+			if send, ok := instruction.(*ssa.Send); ok && lifecycle.MayContainValue(send.X, analysis.relayGroup) {
 				return true
 			}
 			worker, ok := instruction.(*ssa.Go)

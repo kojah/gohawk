@@ -28,7 +28,7 @@ func ConditionalRelease(
 	target ssa.Value,
 	method string,
 	invoke bool,
-	predicate ssainfer.CompletionPredicate,
+	predicate lifecycle.CompletionPredicate,
 	budget *ssaflow.SearchBudget,
 ) bool
 ```
@@ -42,7 +42,7 @@ evidence that the call leaves target open.
 [Source](../../../../internal/resourcemodel/conditional.go)
 
 ```go
-func ConditionalReleases(budget *ssaflow.SearchBudget) ssainfer.CompletionSummaryLookup
+func ConditionalReleases(budget *ssaflow.SearchBudget) lifecycle.CompletionSummaryLookup
 ```
 
 ConditionalReleases binds one search budget to the external state contracts.
@@ -146,7 +146,7 @@ func ProveRelation(owner, resource ssa.Value, observation ssa.Instruction, budge
 
 ProveRelation resolves a direct identity or an exact field/element path
 from owner to resource at observation. It reuses the existing heap model
-through ssainfer; no separate resource points-to graph is maintained.
+through lifecycle; no separate resource points-to graph is maintained.
 
 ## Relation
 

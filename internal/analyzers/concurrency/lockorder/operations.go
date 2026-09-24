@@ -6,8 +6,8 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -137,7 +137,7 @@ func conditionalCallerRelease(
 func heldResultPolarity(function *ssa.Function, heldAt map[*ssa.Return]bool, index int) (bool, bool) {
 	var held, unheld, sawHeld, sawUnheld bool
 	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](function) {
-		truth, known := lockBooleanValue(ssainfer.ReturnedResult(returned, index), nil)
+		truth, known := lockBooleanValue(lifecycle.ReturnedResult(returned, index), nil)
 		if !known {
 			return false, false
 		}
@@ -263,7 +263,7 @@ func appendUniqueString(values []string, candidate string) []string {
 func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
 	for _, result := range returned.Results {
 		for _, value := range values {
-			if ssainfer.ValueCallsMethod(result, "Unlock", value) || ssainfer.ValueCallsMethod(result, "RUnlock", value) {
+			if lifecycle.ValueCallsMethod(result, "Unlock", value) || lifecycle.ValueCallsMethod(result, "RUnlock", value) {
 				return true
 			}
 			// Returning the object containing a held mutex exposes its release to

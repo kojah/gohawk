@@ -1,8 +1,8 @@
 package cancellationownership
 
 import (
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -12,11 +12,11 @@ func (classifier *cancellationClassifier) returnedCallbackCancels(instruction ss
 	if common == nil || common.StaticCallee() != nil || common.IsInvoke() {
 		return false
 	}
-	request := ssainfer.CompletionRequest{
+	request := lifecycle.CompletionRequest{
 		Instruction: instruction, Target: classifier.cancel, InvokeTarget: true, Budget: classifier.budget(),
 	}
 	if classifier.evidence == nil {
-		return ssainfer.ProveCompletion(request).Proven()
+		return lifecycle.ProveCompletion(request).Proven()
 	}
 	return classifier.evidence.Prove(lifecyclefacts.EvidenceRequest{
 		Instruction: instruction, Target: classifier.cancel, Completion: &request,

@@ -4,8 +4,8 @@ import (
 	"go/types"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -24,7 +24,7 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	base := summarize(pass, pkg.Func("Base"))
-	predicate := ssainfer.CompletionPredicate{Outcome: ssainfer.CompletionWhenTrue}
+	predicate := lifecycle.CompletionPredicate{Outcome: lifecycle.CompletionWhenTrue}
 	if base.Closed != 0 || conditionalMask(base, "Close", false, predicate) != parameterMaskFor(0) {
 		t.Fatalf("base = %+v, conditional = %+v", base, base.Conditional)
 	}
@@ -63,7 +63,7 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 	caller := pkg.Func("Caller")
 	branch := ssaflow.InstructionsOf[*ssa.If](caller)[0].Block()
 	evidence := NewLifecycleEvidence(pass, "test", "test")
-	request := ssainfer.CompletionRequest{Target: caller.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000)}
+	request := lifecycle.CompletionRequest{Target: caller.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000)}
 	if proof := evidence.CompletionOnEdge(branch, branch.Succs[0], request); !proof.Proven() || proof.Provenance != ssaflow.EvidenceFromImportedFact {
 		t.Fatalf("imported true edge: %+v", proof)
 	}
@@ -89,8 +89,8 @@ func (*fakeRows) Close() error { return nil }
 func Fake(rows *fakeRows) bool { return rows.NextResultSet() }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	falseResult := ssainfer.CompletionPredicate{Outcome: ssainfer.CompletionWhenFalse}
-	trueResult := ssainfer.CompletionPredicate{Outcome: ssainfer.CompletionWhenTrue}
+	falseResult := lifecycle.CompletionPredicate{Outcome: lifecycle.CompletionWhenFalse}
+	trueResult := lifecycle.CompletionPredicate{Outcome: lifecycle.CompletionWhenTrue}
 	for _, test := range []struct {
 		name string
 		mask ParameterMask

@@ -65,7 +65,7 @@ var documentedPackagePatterns = []string{
 // appear in their own references. The regeneration check additionally discovers
 // new pass packages and checks complete declarations and methods.
 var inventoryPackages = []string{
-	"syntax", "ssaflow", "ssainfer", "heapmodel", "resourcemodel", "summaries",
+	"syntax", "ssaflow", "lifecycle", "heapmodel", "resourcemodel", "syncmodel", "summaries",
 	"lifecyclefacts", "concurrencyfacts", "resultfacts", "testvariant",
 }
 
@@ -390,7 +390,7 @@ func ssaFormsHandled(t *testing.T) []string {
 	forms := map[string]bool{}
 	pattern := regexp.MustCompile(`\*ssa\.([A-Z][A-Za-z]+)`)
 	for _, directory := range []string{
-		"internal/analyzers", "internal/ssaflow", "internal/ssainfer", "internal/heapmodel", "internal/resourcemodel", "internal/passes",
+		"internal/analyzers", "internal/ssaflow", "internal/lifecycle", "internal/heapmodel", "internal/resourcemodel", "internal/passes",
 	} {
 		for _, source := range inventory.productionGoFiles(t, directory) {
 			for _, match := range pattern.FindAllStringSubmatch(readFile(t, source.absolutePath), -1) {

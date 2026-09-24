@@ -6,7 +6,7 @@ Read [the routing guide](shared-helpers.md) first. This reference lists exported
 
 Package ssaflow provides SSA proof primitives, budgets, value provenance,
 call resolution, and control-flow mechanics shared by heapmodel and
-ssainfer. It does not depend on either higher-level package.
+lifecycle. It does not depend on either higher-level package.
 
 ## AccessPath
 

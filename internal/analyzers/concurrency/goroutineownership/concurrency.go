@@ -2,10 +2,10 @@ package goroutineownership
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
@@ -50,7 +50,7 @@ func (analysis *spawnAnalysis) returnedGroupJoin(instruction ssa.Instruction, ta
 	if common == nil || common.StaticCallee() != nil || common.IsInvoke() {
 		return false
 	}
-	request := ssainfer.CompletionRequest{
+	request := lifecycle.CompletionRequest{
 		Instruction: instruction, Target: target, Methods: []string{"Wait"}, ExactTarget: true, Budget: budget,
 	}
 	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(analysis.checkID))

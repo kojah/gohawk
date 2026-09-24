@@ -6,10 +6,10 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -162,11 +162,11 @@ func (analysis *resourceAnalysis) ambiguousHelperCleanup(instruction ssa.Instruc
 			continue
 		}
 		for _, method := range analysis.contract.cleanup {
-			completion := ssainfer.CompletionRequest{
+			completion := lifecycle.CompletionRequest{
 				Instruction: instruction,
 				Target:      argument,
 				Methods:     []string{method},
-				Coverage:    ssainfer.CoverageEveryReturn,
+				Coverage:    lifecycle.CoverageEveryReturn,
 				Budget:      analysis.budget(releaseSearchBudget),
 			}
 			if analysis.evidence.Prove(lifecyclefacts.EvidenceRequest{
@@ -338,7 +338,7 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 		// wrapper may be retained by this callee and publish its contents.
 		// https://github.com/bazelbuild/bazel-watcher/blob/ed00d96be0ce5b01aa2c43abbcd29172d4573091/cmd/ibazel/main.go#L178-L182
 		if heapmodel.MayAlias(argument, analysis.resource) || analysis.carriedWithinClosure(argument) ||
-			(!ssainfer.MayContainValueAt(argument, analysis.resource, instruction) && !analysis.possibleAggregateWrapper(argument)) {
+			(!lifecycle.MayContainValueAt(argument, analysis.resource, instruction) && !analysis.possibleAggregateWrapper(argument)) {
 			continue
 		}
 		// Dependence on the resource alone does not establish that a returned
@@ -413,7 +413,7 @@ func (analysis *resourceAnalysis) returnsRetainedLogger(returned *ssa.Return) bo
 			continue
 		}
 		for _, result := range returned.Results {
-			if ssainfer.MayContainValue(result, call) {
+			if lifecycle.MayContainValue(result, call) {
 				return true
 			}
 		}
@@ -558,7 +558,7 @@ func (analysis *resourceAnalysis) carriesDirectly(value ssa.Value) bool {
 // in one of its fields, so a callee receives the resource only nested inside a
 // parameter.
 func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
-	if ssainfer.MayContainValue(value, analysis.resource) {
+	if lifecycle.MayContainValue(value, analysis.resource) {
 		return true
 	}
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
@@ -566,7 +566,7 @@ func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
 		if _, ok := value.(*ssa.Alloc); !ok {
 			return false
 		}
-		for stored := range ssainfer.StoredInto(value) {
+		for stored := range lifecycle.StoredInto(value) {
 			if heapmodel.ValueDerivesFrom(stored, analysis.resource, map[ssa.Value]bool{}) {
 				return true
 			}

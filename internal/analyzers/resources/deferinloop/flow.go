@@ -6,9 +6,9 @@ import (
 	"strconv"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -196,12 +196,12 @@ func transfersResource(
 	instruction ssa.Instruction,
 	target ssa.Value,
 ) bool {
-	if ssainfer.StoresValueInGlobal(instruction, target) ||
-		ssainfer.StoresValueInEscapingField(instruction, target) ||
-		ssainfer.SendsValue(instruction, target) ||
-		ssainfer.CallTransfersArgumentToReturnedOwner(instruction, target) ||
-		ssainfer.CallTransfersArgumentToReceiver(instruction, target) ||
-		ssainfer.CallTransfersArgumentToLifecycleOwner(instruction, target) {
+	if lifecycle.StoresValueInGlobal(instruction, target) ||
+		lifecycle.StoresValueInEscapingField(instruction, target) ||
+		lifecycle.SendsValue(instruction, target) ||
+		lifecycle.CallTransfersArgumentToReturnedOwner(instruction, target) ||
+		lifecycle.CallTransfersArgumentToReceiver(instruction, target) ||
+		lifecycle.CallTransfersArgumentToLifecycleOwner(instruction, target) {
 		return true
 	}
 	return evidence.ArgumentRetainedByCallee(instruction, target)
@@ -223,7 +223,7 @@ func resourceUseStatus(
 	used := false
 	for index, argument := range common.Args {
 		alias := heapmodel.ProveMayAlias(argument, target)
-		contains := !alias.Aliases && ssainfer.MayContainValue(argument, target)
+		contains := !alias.Aliases && lifecycle.MayContainValue(argument, target)
 		probe.Evidence(analysisTrace.Step{
 			Reason: "argument-carries-resource", Outcome: analysisTrace.OutcomeObserved, Pos: instruction.Pos(),
 			Details: map[string]string{
@@ -274,7 +274,7 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 			if heapmodel.AddressIsUnescapedLocal(store.Addr) {
 				return false
 			}
-			return heapmodel.MayAlias(store.Val, target) || ssainfer.MayContainValue(store.Val, target)
+			return heapmodel.MayAlias(store.Val, target) || lifecycle.MayContainValue(store.Val, target)
 		}
 	}
 	closure, ok := instruction.(*ssa.MakeClosure)
@@ -282,7 +282,7 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if heapmodel.MayAlias(binding, target) || ssainfer.MayContainValue(binding, target) {
+		if heapmodel.MayAlias(binding, target) || lifecycle.MayContainValue(binding, target) {
 			return true
 		}
 	}

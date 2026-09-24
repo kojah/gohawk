@@ -4,8 +4,8 @@ import (
 	"go/types"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -45,7 +45,7 @@ func Wrong(r, other *resource) { defer Forward(other)() }
 	for _, name := range []string{"Caller", "Wrong"} {
 		function := pkg.Func(name)
 		invocation := ssaflow.InstructionsOf[*ssa.Defer](function)[0]
-		request := ssainfer.CompletionRequest{
+		request := lifecycle.CompletionRequest{
 			Instruction: invocation, Target: function.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000),
 		}
 		proof := NewLifecycleEvidence(pass, "test", "test").Prove(EvidenceRequest{

@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -130,12 +130,12 @@ func (search *retention) searchWithin(function *ssa.Function, parameter ssa.Valu
 	// The parameter itself, or a whole copy of an aggregate that holds it:
 	// storing or returning such a copy keeps the parameter just as surely.
 	derives := func(value ssa.Value) bool {
-		return heapmodel.MayAlias(value, parameter) || ssainfer.LoadedAggregateMayHold(value, parameter)
+		return heapmodel.MayAlias(value, parameter) || lifecycle.LoadedAggregateMayHold(value, parameter)
 	}
 	if search.everyReturn {
-		return ssainfer.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
+		return lifecycle.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
 			return search.budget.Spend() && search.instructionRetains(function, instruction, derives)
-		}, ssainfer.CoverageEveryReturn, parameter)
+		}, lifecycle.CoverageEveryReturn, parameter)
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {

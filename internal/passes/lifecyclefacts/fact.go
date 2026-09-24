@@ -11,7 +11,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
-	"github.com/kojah/gohawk/internal/ssainfer"
+	"github.com/kojah/gohawk/internal/lifecycle"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -572,7 +572,7 @@ func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask Parame
 		}
 		// Containment must not turn an ambiguous phi or a storage-history
 		// match into a guarantee about this target.
-		if !heapmodel.MayAlias(argument, target) && ssainfer.MayContainValue(argument, target) {
+		if !heapmodel.MayAlias(argument, target) && lifecycle.MayContainValue(argument, target) {
 			return true
 		}
 	}

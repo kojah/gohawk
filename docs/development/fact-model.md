@@ -568,7 +568,7 @@ instruction and effect-expansion work to a shared search budget.
 
 ### Result-conditioned local completion
 
-`ssainfer.ProveCompletionOnEdge` connects a synchronous helper's Boolean or
+`lifecycle.ProveCompletionOnEdge` connects a synchronous helper's Boolean or
 nil-error result to cleanup of an exact caller value. The completion summary
 is keyed by the selected result and condition as well as its callback context
 and target. A direct forwarding return composes the same condition through
@@ -610,7 +610,7 @@ and independently returned worker handles remain outside this relation.
 
 ### Returned cleanup and completion handles
 
-`ssainfer.ProveReturnedCleanup` relates a callback result to an exact parameter
+`lifecycle.ProveReturnedCleanup` relates a callback result to an exact parameter
 or sibling result from the same factory invocation. Every return must supply
 a callback that performs the requested method or invokes the target callback.
 Forwarding factories compose this relation; the versioned `ReturnedCleanup`

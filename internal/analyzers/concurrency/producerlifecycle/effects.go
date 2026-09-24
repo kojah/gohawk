@@ -5,9 +5,9 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -60,7 +60,7 @@ func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *ssafl
 	query := ssaflow.NewCallEffects(budget)
 	matched := false
 	for _, binding := range ssaflow.CallBindings(call.Common(), function, closure) {
-		if !heapmodel.CapturedBindingMatches(binding.Supplied, channel) && !ssainfer.MayContainValue(binding.Supplied, channel) {
+		if !heapmodel.CapturedBindingMatches(binding.Supplied, channel) && !lifecycle.MayContainValue(binding.Supplied, channel) {
 			continue
 		}
 		matched = true
@@ -127,7 +127,7 @@ func helperReceives(
 		// We cannot prove its execution paths from a captured channel alone.
 		// https://github.com/kubernetes/registry.k8s.io/blob/b5e7d92a3819fcd24ed35b174db0ce6291e88e7f/cmd/archeio/main_test.go#L73-L80
 		consumes := func(value ssa.Value) bool {
-			return ssainfer.MayContainValue(value, channel) || heapmodel.CapturedBindingMatches(value, channel)
+			return lifecycle.MayContainValue(value, channel) || heapmodel.CapturedBindingMatches(value, channel)
 		}
 		uncertain := slices.ContainsFunc(common.Args, consumes)
 		if closure, ok := common.Value.(*ssa.MakeClosure); ok {

@@ -6,9 +6,9 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -332,7 +332,7 @@ func releasesOrdinaryResource(
 		// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/provider/github.go#L356
 		// ccLoad closes through an immediately invoked literal on an error path:
 		// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/bridge_install.go#L264-L289
-		completion := ssainfer.CompletionRequest{
+		completion := lifecycle.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
@@ -433,7 +433,7 @@ func registersCleanupCallback(evidence *lifecyclefacts.LifecycleEvidence, instru
 			continue
 		}
 		for _, method := range methods {
-			if ssainfer.ValueCallsMethod(argument, method, resource) {
+			if lifecycle.ValueCallsMethod(argument, method, resource) {
 				return true
 			}
 		}
@@ -447,11 +447,11 @@ func registersCleanupCallback(evidence *lifecyclefacts.LifecycleEvidence, instru
 // be proven; a called or launched callee must still release on every return.
 // pad applies migrations this way:
 // https://github.com/PerpetualSoftware/pad/blob/ebd1886ada1eca1f0c5ed39f9dc3ad629d0a0cd7/internal/store/store.go#L862-L871
-func deferredReleaseCoverage(instruction ssa.Instruction) ssainfer.CompletionCoverage {
+func deferredReleaseCoverage(instruction ssa.Instruction) lifecycle.CompletionCoverage {
 	if _, ok := instruction.(*ssa.Defer); ok {
-		return ssainfer.CoverageAnywhere
+		return lifecycle.CoverageAnywhere
 	}
-	return ssainfer.CoverageEveryReturn
+	return lifecycle.CoverageEveryReturn
 }
 
 // releaseMask selects the imported summaries that release the resource: the
@@ -476,7 +476,7 @@ func invokesBoundCleanup(instruction ssa.Instruction, resource ssa.Value, method
 		return false
 	}
 	for _, argument := range common.Args {
-		if ssainfer.ValueCallsMethod(argument, method, resource) {
+		if lifecycle.ValueCallsMethod(argument, method, resource) {
 			return true
 		}
 	}
@@ -488,12 +488,12 @@ func instructionSettlesResourceOwnership(
 	instruction ssa.Instruction,
 	resource ssa.Value,
 ) bool {
-	transfer := ssainfer.OwnershipTransferRequest{
+	transfer := lifecycle.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,
-		Modes: ssainfer.TransferStoredInGlobal | ssainfer.TransferStoredInEnclosingScope |
-			ssainfer.TransferOwnerStoredInExternalField | ssainfer.TransferStoredInOwnedMap |
-			ssainfer.TransferSentToReceiver | ssainfer.TransferCapturedByClosure,
+		Modes: lifecycle.TransferStoredInGlobal | lifecycle.TransferStoredInEnclosingScope |
+			lifecycle.TransferOwnerStoredInExternalField | lifecycle.TransferStoredInOwnedMap |
+			lifecycle.TransferSentToReceiver | lifecycle.TransferCapturedByClosure,
 	}
 	return resourceTransferredToExternalField(instruction, resource) ||
 		evidence.Prove(lifecyclefacts.EvidenceRequest{
@@ -561,11 +561,11 @@ func callTakesResourceOwnership(
 		!resourceReleaseMayFollow(instruction, resource, methods) {
 		return true
 	}
-	transfer := ssainfer.OwnershipTransferRequest{
+	transfer := lifecycle.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,
-		Modes: ssainfer.TransferCallResultStoredInField | ssainfer.TransferToReceiver |
-			ssainfer.TransferToLifecycleOwner | ssainfer.TransferToReturnedOwner,
+		Modes: lifecycle.TransferCallResultStoredInField | lifecycle.TransferToReceiver |
+			lifecycle.TransferToLifecycleOwner | lifecycle.TransferToReturnedOwner,
 	}
 	return evidence.Prove(lifecyclefacts.EvidenceRequest{
 		Instruction: instruction,

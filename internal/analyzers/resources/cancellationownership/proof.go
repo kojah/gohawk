@@ -5,9 +5,9 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -126,10 +126,10 @@ func (classifier *cancellationClassifier) returnObligation(returned *ssa.Return)
 }
 
 func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
-	request := ssainfer.CompletionRequest{
+	request := lifecycle.CompletionRequest{
 		Target: classifier.cancel, InvokeTarget: true, Budget: classifier.budget(),
 	}
-	prove := ssainfer.ProveCompletionOnEdge
+	prove := lifecycle.ProveCompletionOnEdge
 	if classifier.evidence != nil {
 		prove = classifier.evidence.CompletionOnEdge
 	}
@@ -255,8 +255,8 @@ func (classifier *cancellationClassifier) recognizedDirectAction(
 	// Captured callbacks and helper chains are deliberately ambiguous here.
 	// These broad closure traversals are safe for finding a possible handoff,
 	// but not exact enough to prove which callback executes on every path.
-	if ssainfer.DeferredClosureCallsValue(instruction, classifier.cancel) ||
-		ssainfer.DeferredClosureInvokesArgumentOnEveryReturn(instruction, classifier.cancel) ||
+	if lifecycle.DeferredClosureCallsValue(instruction, classifier.cancel) ||
+		lifecycle.DeferredClosureInvokesArgumentOnEveryReturn(instruction, classifier.cancel) ||
 		deferredClosureCaptures(instruction, classifier.cancel) {
 		return cancellationActionUnknown, true
 	}
@@ -294,7 +294,7 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 			// https://github.com/infercrane/infercrane/blob/93a43cebe36e01c68c1517d5f1eb97417d01588d/internal/asyncinference/service_lease_test.go#L43-L54
 			return cancellationActionUnknown, true
 		}
-		completion := ssainfer.ProveCompletion(ssainfer.CompletionRequest{
+		completion := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
 			Instruction: instruction, Target: classifier.cancel, InvokeTarget: true,
 			Budget: classifier.budget(),
 		})
@@ -307,16 +307,16 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 		}
 		// The older may-alias invocation query can still identify an ambiguous
 		// handoff outside exact completion's boundary, but cannot prove release.
-		if ssainfer.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel) {
+		if lifecycle.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel) {
 			return cancellationActionUnknown, true
 		}
-		if ssainfer.CallReturnsDeferredCleanup(instruction, classifier.cancel) {
+		if lifecycle.CallReturnsDeferredCleanup(instruction, classifier.cancel) {
 			return cancellationActionUnknown, true
 		}
 	}
 	if common != nil && slices.ContainsFunc(common.Args, func(argument ssa.Value) bool {
 		_, closure := argument.(*ssa.MakeClosure)
-		return closure && ssainfer.MayContainValue(argument, classifier.cancel)
+		return closure && lifecycle.MayContainValue(argument, classifier.cancel)
 	}) {
 		// A callback which captures cancel may be invoked, retained, or discarded
 		// by the callee. Without an exact callback contract, none of those
@@ -347,7 +347,7 @@ func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) can
 		classifier.transfers = true
 		return cancellationActionTransfer
 	}
-	if ssainfer.ReturnedValueOwnsValue(returned, classifier.cancel) {
+	if lifecycle.ReturnedValueOwnsValue(returned, classifier.cancel) {
 		return cancellationActionUnknown
 	}
 	if classifier.parent != nil && classifier.parent.returnAction(returned) != cancellationActionNone {
@@ -387,7 +387,7 @@ func instructionReferencesCancellation(instruction ssa.Instruction, cancel ssa.V
 		if operand == nil || *operand == nil {
 			continue
 		}
-		if *operand == cancel || heapmodel.MayAlias(*operand, cancel) || ssainfer.MayContainValue(*operand, cancel) ||
+		if *operand == cancel || heapmodel.MayAlias(*operand, cancel) || lifecycle.MayContainValue(*operand, cancel) ||
 			addressStoresCancellation(*operand, cancel) {
 			return true
 		}
@@ -472,7 +472,7 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value, observ
 		argument := binding.Supplied
 		closureContainsCancel := false
 		if _, ok := argument.(*ssa.MakeClosure); ok {
-			closureContainsCancel = ssainfer.MayContainValue(argument, cancel)
+			closureContainsCancel = lifecycle.MayContainValue(argument, cancel)
 		}
 		if argument != cancel && !closureContainsCancel {
 			continue
@@ -590,7 +590,7 @@ func localStorageOnly(instruction ssa.Instruction) bool {
 		return false
 	}
 	local, ok := store.Addr.(*ssa.Alloc)
-	return ok && !ssainfer.ValueEscapes(local) && !capturedByClosure(local)
+	return ok && !lifecycle.ValueEscapes(local) && !capturedByClosure(local)
 }
 
 func capturedByClosure(local *ssa.Alloc) bool {

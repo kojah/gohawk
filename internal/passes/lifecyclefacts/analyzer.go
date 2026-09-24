@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -303,7 +303,7 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 func deferredCompletions(function *ssa.Function, parameter ssa.Value, method string) map[ssa.Instruction]string {
 	completions := map[ssa.Instruction]string{}
 	for _, instruction := range ssaflow.InstructionsOf[*ssa.Defer](function) {
-		proof := ssainfer.ProveCompletion(ssainfer.CompletionRequest{
+		proof := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
 			Instruction: instruction, Target: parameter, Methods: []string{method},
 			Budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget),
 		})
@@ -378,10 +378,10 @@ func invokesMethodCallback(instruction ssa.Instruction, target ssa.Value, method
 		// candidate to that small body instead of searching arbitrary literals
 		// once per parameter and lifecycle method during summary construction.
 		function, ok := closure.Fn.(*ssa.Function)
-		if !ok || !strings.HasPrefix(function.Synthetic, "bound method wrapper for ") || !ssainfer.ValueCallsMethod(closure, method, target) {
+		if !ok || !strings.HasPrefix(function.Synthetic, "bound method wrapper for ") || !lifecycle.ValueCallsMethod(closure, method, target) {
 			continue
 		}
-		if ssainfer.ProveCompletion(ssainfer.CompletionRequest{
+		if lifecycle.ProveCompletion(lifecycle.CompletionRequest{
 			Instruction: instruction, Target: closure, InvokeTarget: true, Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
 		}).Proven() {
 			return true
@@ -441,7 +441,7 @@ func ownsOnEveryReturn(function *ssa.Function, parameter ssa.Value, owns func(ss
 	// The absence of an unowned return is vacuous for panic-only or infinite
 	// bodies. Use the shared completion coverage, which also requires an action
 	// witness, before advertising a lifecycle action to another package.
-	return ssainfer.MethodCallCoverage(function, owns, ssainfer.CoverageEveryReturn, parameter)
+	return lifecycle.MethodCallCoverage(function, owns, lifecycle.CoverageEveryReturn, parameter)
 }
 
 func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
@@ -455,7 +455,7 @@ func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, par
 		return ok && imported.Claim(ClaimReturnsOwner).contains(index)
 	}
 	return !ssaflow.UnownedReturnFromEntryAllow(function, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
-		return ssainfer.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)
+		return lifecycle.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)
 	})
 }
 

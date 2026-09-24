@@ -6,9 +6,9 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -233,11 +233,11 @@ func (query *releasedResource) interferes(instruction ssa.Instruction, effects *
 		(query.storage.Same(store.Addr, query.resource).Proven() || ssaflow.ValueIsAccessPathFrom(store.Addr, query.resource)) {
 		return true // Overwriting the resource object can reopen the same pointer.
 	}
-	if update, ok := instruction.(*ssa.MapUpdate); ok && ssainfer.MayContainValue(update.Value, query.resource) {
+	if update, ok := instruction.(*ssa.MapUpdate); ok && lifecycle.MayContainValue(update.Value, query.resource) {
 		return true // Collection ownership and later mutation are not modeled.
 	}
-	return ssainfer.ClosureCapturesValue(instruction, query.resource) || ssainfer.SendsValue(instruction, query.resource) ||
-		ssainfer.StoresValueInGlobal(instruction, query.resource) || ssainfer.StoresValueInEscapingField(instruction, query.resource)
+	return lifecycle.ClosureCapturesValue(instruction, query.resource) || lifecycle.SendsValue(instruction, query.resource) ||
+		lifecycle.StoresValueInGlobal(instruction, query.resource) || lifecycle.StoresValueInEscapingField(instruction, query.resource)
 }
 
 // callInterferes reports whether a call may change the resource's lifecycle
@@ -251,7 +251,7 @@ func (query *releasedResource) callInterferes(instruction ssa.Instruction, commo
 		return false // Handing the resource back unchanged is not a lifecycle change.
 	}
 	for _, argument := range append([]ssa.Value{common.Value}, common.Args...) {
-		if ssainfer.MayContainValue(argument, query.resource) &&
+		if lifecycle.MayContainValue(argument, query.resource) &&
 			(!query.storage.Same(argument, query.resource).Proven() || !effects.Call(instruction, argument).PreservesStorage()) {
 			return true
 		}

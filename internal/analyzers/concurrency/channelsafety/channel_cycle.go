@@ -8,7 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
-	"github.com/kojah/gohawk/internal/syncgraph"
+	"github.com/kojah/gohawk/internal/syncmodel"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -41,7 +41,7 @@ func reportChannelCycle(pass *analysis.Pass, function *ssa.Function) {
 		return
 	}
 	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(probe.Observer()))
-	graphs, reason := syncgraph.Expand(root)
+	graphs, reason := syncmodel.Expand(root)
 	proof := channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: reason}
 	if reason == "" {
 		proof = proveEveryChannelCycle(graphs, root.Choices)
@@ -61,7 +61,7 @@ func reportChannelCycle(pass *analysis.Pass, function *ssa.Function) {
 	})
 }
 
-func proveEveryChannelCycle(graphs []syncgraph.SyncGraph, choices []concurrencyfacts.SelectChoice) channelCycleProof {
+func proveEveryChannelCycle(graphs []syncmodel.SyncGraph, choices []concurrencyfacts.SelectChoice) channelCycleProof {
 	if len(graphs) == 0 {
 		return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-alternatives-unknown"}
 	}
@@ -138,7 +138,7 @@ func potentialChannelCycleRoot(function *ssa.Function) (token.Pos, string) {
 	return operation, ""
 }
 
-func proveChannelCycle(graph syncgraph.SyncGraph) channelCycleProof {
+func proveChannelCycle(graph syncmodel.SyncGraph) channelCycleProof {
 	if !graph.Complete() {
 		return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
 	}
@@ -176,23 +176,23 @@ func proveChannelCycle(graph syncgraph.SyncGraph) channelCycleProof {
 }
 
 func findChannelCycleWorkers(
-	children []syncgraph.SyncChild, first, second syncgraph.SyncEvent,
-) (syncgraph.SyncEvent, syncgraph.SyncEvent, channelCycleProof) {
-	var witnessFirst, witnessSecond syncgraph.SyncEvent
+	children []syncmodel.SyncChild, first, second syncmodel.SyncEvent,
+) (syncmodel.SyncEvent, syncmodel.SyncEvent, channelCycleProof) {
+	var witnessFirst, witnessSecond syncmodel.SyncEvent
 	for _, child := range children {
 		if !child.LaunchKnown() || child.Prefix != 0 {
-			return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
+			return syncmodel.SyncEvent{}, syncmodel.SyncEvent{},
 				channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-spawn-order-unknown"}
 		}
 		if len(child.Events) == 0 {
 			continue
 		}
 		if len(child.Events) != 2 {
-			return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
+			return syncmodel.SyncEvent{}, syncmodel.SyncEvent{},
 				channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-worker-sequence-unknown"}
 		}
 		if !crossedChannelActions(first, second, child.Events[0], child.Events[1]) {
-			return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
+			return syncmodel.SyncEvent{}, syncmodel.SyncEvent{},
 				channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-other-participant"}
 		}
 		if !witnessFirst.Source.IsValid() {
@@ -200,13 +200,13 @@ func findChannelCycleWorkers(
 		}
 	}
 	if !witnessFirst.Source.IsValid() {
-		return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
+		return syncmodel.SyncEvent{}, syncmodel.SyncEvent{},
 			channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-partner-unknown"}
 	}
 	return witnessFirst, witnessSecond, channelCycleProof{}
 }
 
-func crossedChannelActions(first, second, workerFirst, workerSecond syncgraph.SyncEvent) bool {
+func crossedChannelActions(first, second, workerFirst, workerSecond syncmodel.SyncEvent) bool {
 	return !workerFirst.Resource.Indirect && !workerSecond.Resource.Indirect &&
 		workerFirst.Kind == first.Kind && workerSecond.Kind == second.Kind &&
 		workerFirst.Resource.Value == second.Resource.Value && workerSecond.Resource.Value == first.Resource.Value

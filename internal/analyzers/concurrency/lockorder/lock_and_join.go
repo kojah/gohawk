@@ -7,7 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/syncgraph"
+	"github.com/kojah/gohawk/internal/syncmodel"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -33,9 +33,9 @@ func (proof lockSignalProof) proven() bool { return proof.outcome == analysisTra
 type lockSignalCandidate struct {
 	mutex      *ssa.Alloc
 	done       *ssa.MakeChan
-	parentLock syncgraph.SyncEvent
-	wait       syncgraph.SyncEvent
-	unlock     syncgraph.SyncEvent
+	parentLock syncmodel.SyncEvent
+	wait       syncmodel.SyncEvent
+	unlock     syncmodel.SyncEvent
 }
 
 func reportSynchronizationCycles(pass *analysis.Pass, function *ssa.Function, engine *concurrencyfacts.Engine) {
@@ -53,7 +53,7 @@ func reportSynchronizationCycles(pass *analysis.Pass, function *ssa.Function, en
 	probe := analysisTrace.For(pass, "lockorder", string(probeID), candidate)
 	probe.Candidate(analysisTrace.Step{Reason: "sync-cycle-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
 	root := engine.Root(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget).Observed(probe.Observer()))
-	graph := syncgraph.FromSummary(root)
+	graph := syncmodel.FromSummary(root)
 	if channelCandidate != token.NoPos {
 		joinProbe := analysisTrace.For(pass, "lockorder", string(check.LockAndJoin), channelCandidate)
 		joinProbe.Candidate(analysisTrace.Step{Reason: "lock-join-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: channelCandidate})
@@ -123,7 +123,7 @@ func potentialLockJoinRoot(function *ssa.Function) token.Pos {
 	return wait
 }
 
-func proveLockSignal(graph syncgraph.SyncGraph, signal concurrencyfacts.Kind) lockSignalProof {
+func proveLockSignal(graph syncmodel.SyncGraph, signal concurrencyfacts.Kind) lockSignalProof {
 	candidate, failure := findLockSignalParent(graph)
 	if failure.reason != "" {
 		return failure
@@ -131,7 +131,7 @@ func proveLockSignal(graph syncgraph.SyncGraph, signal concurrencyfacts.Kind) lo
 	return proveLockSignalChildren(graph, candidate, signal)
 }
 
-func findLockSignalParent(graph syncgraph.SyncGraph) (lockSignalCandidate, lockSignalProof) {
+func findLockSignalParent(graph syncmodel.SyncGraph) (lockSignalCandidate, lockSignalProof) {
 	if !graph.Complete() {
 		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
 	}
@@ -159,14 +159,14 @@ func findLockSignalParent(graph syncgraph.SyncGraph) (lockSignalCandidate, lockS
 	return lockSignalCandidate{mutex: mutex, done: done, parentLock: lock, wait: wait, unlock: unlock}, lockSignalProof{}
 }
 
-func proveLockSignalChildren(graph syncgraph.SyncGraph, candidate lockSignalCandidate, signal concurrencyfacts.Kind) lockSignalProof {
+func proveLockSignalChildren(graph syncmodel.SyncGraph, candidate lockSignalCandidate, signal concurrencyfacts.Kind) lockSignalProof {
 	if signal == concurrencyfacts.Send && !unbuffered(candidate.done) {
 		return lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-lock-capacity-unknown"}
 	}
 	var witness workerSignal
-	query := syncgraph.NewQuery(graph)
+	query := syncmodel.NewQuery(graph)
 	for index := range graph.Children {
-		found, failure := classifyWorkerSignal(query, syncgraph.GoroutineID(index+1), candidate, signal)
+		found, failure := classifyWorkerSignal(query, syncmodel.GoroutineID(index+1), candidate, signal)
 		if failure.reason != "" {
 			return failure
 		}
@@ -200,13 +200,13 @@ func proveLockSignalChildren(graph syncgraph.SyncGraph, candidate lockSignalCand
 }
 
 type workerSignal struct {
-	lock    syncgraph.SyncEvent
-	signal  syncgraph.SyncEvent
+	lock    syncmodel.SyncEvent
+	signal  syncmodel.SyncEvent
 	present bool
 }
 
 func classifyWorkerSignal(
-	query syncgraph.Query, worker syncgraph.GoroutineID, candidate lockSignalCandidate, signal concurrencyfacts.Kind,
+	query syncmodel.Query, worker syncmodel.GoroutineID, candidate lockSignalCandidate, signal concurrencyfacts.Kind,
 ) (workerSignal, lockSignalProof) {
 	order := query.FirstSignalAfterAcquire(worker, candidate.parentLock.Resource, candidate.wait.Resource)
 	if !order.Known() {

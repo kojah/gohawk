@@ -103,7 +103,7 @@ itself does not change.
   budgets, value provenance (`ReachingWalk`), calls, and control-flow queries
   (`WalkStates` and `EvaluateObligation`). It provides how to walk, not an
   analyzer's reporting policy.
-- `internal/ssainfer` builds completion and ownership-transfer
+- `internal/lifecycle` builds completion and ownership-transfer
   proofs from `ssaflow` and `heapmodel`. Analyzers import the layer that owns
   the query they need; neither package forwards the other's API.
 - `internal/heapmodel` owns demand-driven storage queries, the per-function
@@ -111,13 +111,17 @@ itself does not change.
   and application at call sites. `heapmodel.Storage` combines reaching-write
   and graph evidence without making unknown contents or truncated summaries
   into negative proofs. Consumers access its queries directly, not through
-  forwarding wrappers in `ssainfer`.
+  forwarding wrappers in `lifecycle`.
 - `internal/resourcemodel` proves exact owner-to-resource relationships over
   the existing heap/storage model and tracks a comparable per-path resource
   obligation. External API contracts can establish state transitions through
   those relationships; the consuming analyzer still decides whether to report.
   Lifecycle summaries can carry conditional transitions through helpers and
   across package boundaries.
+- `internal/syncmodel` owns synchronization event graphs, bounded alternatives,
+  and structured ordering and signal queries. It consumes complete effects from
+  prerequisite passes and stays independent of analyzer reporting policy. Lower
+  storage and lifecycle layers must not depend on it.
 - Every interprocedural question spends a `ssaflow.SearchBudget`, named
   `QueryBudget` or `SummaryBudget` unless a proof has a reason of its own, and
   a lifecycle analyzer draws each question's budget from one pool per
@@ -201,7 +205,8 @@ the code cannot drift apart silently.
 | `TestAnalyzersUseSummaryBroker` | analyzer access to lifecycle, concurrency, and result knowledge goes through a pass-level summary selection, not raw prerequisites or domain constructors |
 | `TestSummaryBrokerMatchesDeclarationIdentity` | broker boundaries recognize aliases, dot imports, constructors, and type assertions without banning unrelated lookalike packages |
 | `TestAnalyzersUseSharedTraversal` | value-provenance recursion — phi fan-out and visited sets — lives only in `ssaflow` |
-| `TestSSAInferenceFamiliesLayerDownward` | `ssainfer` files are named by family — store, completion, evidence — and a file references declarations only from its own family or a lower one |
+| `TestLifecycleFamiliesLayerDownward` | `lifecycle` files are named by family — store, completion, evidence — and a file references declarations only from its own family or a lower one |
+| `TestSemanticModelDependencyBoundaries` | Lifecycle proofs depend on heap evidence; synchronization queries consume prerequisite effects without depending on analyzers or the summary broker |
 | `TestDocumentationReferencesResolve` | the development docs and project skills cite only code that exists, and their helper, `Fact` field, and test inventories are complete |
 | `TestSharedHelperReferencesStayCurrent` | package-specific shared API references match current signatures, comments, source links, and every prerequisite pass package |
 

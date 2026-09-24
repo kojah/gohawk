@@ -6,7 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/syncgraph"
+	"github.com/kojah/gohawk/internal/syncmodel"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -30,9 +30,9 @@ type waitGroupCycleProof struct {
 type waitGroupParent struct {
 	group  *ssa.Alloc
 	mutex  *ssa.Alloc
-	lock   syncgraph.SyncEvent
-	wait   syncgraph.SyncEvent
-	unlock syncgraph.SyncEvent
+	lock   syncmodel.SyncEvent
+	wait   syncmodel.SyncEvent
+	unlock syncmodel.SyncEvent
 }
 
 func potentialWaitGroupLockRoot(function *ssa.Function) token.Pos {
@@ -65,7 +65,7 @@ func potentialWaitGroupLockRoot(function *ssa.Function) token.Pos {
 	return wait
 }
 
-func reportWaitGroupLockCycle(pass *analysis.Pass, graph syncgraph.SyncGraph, candidate token.Pos) {
+func reportWaitGroupLockCycle(pass *analysis.Pass, graph syncmodel.SyncGraph, candidate token.Pos) {
 	probe := analysisTrace.For(pass, "lockorder", string(check.LockWaitGroupCycle), candidate)
 	probe.Candidate(analysisTrace.Step{Reason: "waitgroup-lock-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
 	proof := proveWaitGroupLockCycle(graph)
@@ -84,7 +84,7 @@ func reportWaitGroupLockCycle(pass *analysis.Pass, graph syncgraph.SyncGraph, ca
 	})
 }
 
-func proveWaitGroupLockCycle(graph syncgraph.SyncGraph) waitGroupCycleProof {
+func proveWaitGroupLockCycle(graph syncmodel.SyncGraph) waitGroupCycleProof {
 	if !graph.Complete() {
 		return waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
 	}
@@ -113,7 +113,7 @@ func proveWaitGroupLockCycle(graph syncgraph.SyncGraph) waitGroupCycleProof {
 	}
 }
 
-func findWaitGroupParent(graph syncgraph.SyncGraph) (waitGroupParent, waitGroupCycleProof) {
+func findWaitGroupParent(graph syncmodel.SyncGraph) (waitGroupParent, waitGroupCycleProof) {
 	count := len(graph.Children)
 	if count == 0 || len(graph.Parent) != count+3 {
 		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-shape-not-matched"}
@@ -139,19 +139,19 @@ func findWaitGroupParent(graph syncgraph.SyncGraph) (waitGroupParent, waitGroupC
 }
 
 func findCountedWorkers(
-	children []syncgraph.SyncChild, parent waitGroupParent,
-) (syncgraph.SyncEvent, syncgraph.SyncEvent, waitGroupCycleProof) {
-	var witnessLock, witnessDone syncgraph.SyncEvent
+	children []syncmodel.SyncChild, parent waitGroupParent,
+) (syncmodel.SyncEvent, syncmodel.SyncEvent, waitGroupCycleProof) {
+	var witnessLock, witnessDone syncmodel.SyncEvent
 	for index, child := range children {
 		if !child.LaunchKnown() || child.Prefix != len(children)+1 || len(child.Events) != 3 {
-			return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
+			return syncmodel.SyncEvent{}, syncmodel.SyncEvent{},
 				waitGroupCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "waitgroup-lock-worker-effects-unknown"}
 		}
 		workerLock, done, workerUnlock := child.Events[0], child.Events[1], child.Events[2]
 		if !exactWaitGroupEvent(workerLock, concurrencyfacts.Lock, parent.mutex) ||
 			!exactWaitGroupEvent(done, concurrencyfacts.GroupDone, parent.group) ||
 			!exactWaitGroupEvent(workerUnlock, concurrencyfacts.Unlock, parent.mutex) {
-			return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
+			return syncmodel.SyncEvent{}, syncmodel.SyncEvent{},
 				waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "waitgroup-lock-worker-order-not-matched"}
 		}
 		if index == 0 {
@@ -161,6 +161,6 @@ func findCountedWorkers(
 	return witnessLock, witnessDone, waitGroupCycleProof{}
 }
 
-func exactWaitGroupEvent(event syncgraph.SyncEvent, kind concurrencyfacts.Kind, resource ssa.Value) bool {
+func exactWaitGroupEvent(event syncmodel.SyncEvent, kind concurrencyfacts.Kind, resource ssa.Value) bool {
 	return event.Kind == kind && !event.Resource.Indirect && event.Resource.Value == resource
 }

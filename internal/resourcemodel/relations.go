@@ -33,7 +33,7 @@ type RelationProof struct {
 
 // ProveRelation resolves a direct identity or an exact field/element path
 // from owner to resource at observation. It reuses the existing heap model
-// through ssainfer; no separate resource points-to graph is maintained.
+// through lifecycle; no separate resource points-to graph is maintained.
 func ProveRelation(owner, resource ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) RelationProof {
 	unknown := RelationProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
 	if owner == nil || resource == nil || observation == nil || budget == nil || !budget.Spend() {

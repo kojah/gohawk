@@ -4,9 +4,9 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -178,7 +178,7 @@ func (search *helperSearch) instructionEscapes(
 		// handle. The accessor itself is not a join, but its caller may drain
 		// the stream; losing that relationship cannot prove an unjoined worker.
 		// https://github.com/raviqqe/muffet/blob/ea33f85e5644c609a114b00e1f4dfc757b15c8ee/page_checker_test.go#L39-L46
-		return ssainfer.ReturnedValueOwnsValue(typed, local) || slices.ContainsFunc(typed.Results, func(value ssa.Value) bool {
+		return lifecycle.ReturnedValueOwnsValue(typed, local) || slices.ContainsFunc(typed.Results, func(value ssa.Value) bool {
 			return ssaflow.ChannelType(value) && derives(value)
 		})
 	case *ssa.Call, *ssa.Defer, *ssa.Go:

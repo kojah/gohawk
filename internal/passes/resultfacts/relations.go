@@ -4,8 +4,8 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -74,7 +74,7 @@ func (engine *Engine) relations(function *ssa.Function, budget *ssaflow.SearchBu
 	for result := range results.Len() {
 		resultType := results.At(result).Type()
 		for index, parameter := range function.Params {
-			if budget.Spend() && types.Identical(parameter.Type(), resultType) && ssainfer.ReturnsParameterUnchanged(function, parameter, result) {
+			if budget.Spend() && types.Identical(parameter.Type(), resultType) && lifecycle.ReturnsParameterUnchanged(function, parameter, result) {
 				relations = append(relations, Relation{Result: result, Kind: ReturnsParameter, Operand: index})
 			}
 		}

@@ -6,8 +6,8 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -142,10 +142,10 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 		}{
 			{"start-failure-return", func() bool { return startFailureReturn(returned, start) }},
 			{"impossible-nil-process-return", func() bool { return impossibleStartedProcessNilReturn(returned, start, command) }},
-			{"returned-value-owns-command", func() bool { return ssainfer.ReturnedValueOwnsValue(returned, command) }},
+			{"returned-value-owns-command", func() bool { return lifecycle.ReturnedValueOwnsValue(returned, command) }},
 			{"returns-process-handle", func() bool { return returnsProcessHandle(returned, command) }},
 			{"returned-value-owns-merged-command", func() bool {
-				return merged != nil && (ssainfer.ReturnedValueOwnsValue(returned, merged) || returnsProcessHandle(returned, merged))
+				return merged != nil && (lifecycle.ReturnedValueOwnsValue(returned, merged) || returnsProcessHandle(returned, merged))
 			}},
 		} {
 			if rule.holds() {
@@ -295,7 +295,7 @@ func handleCarried(value, command ssa.Value) bool {
 			return true
 		}
 		if load, ok := value.(*ssa.UnOp); ok {
-			for stored := range ssainfer.StoredInto(load.X) {
+			for stored := range lifecycle.StoredInto(load.X) {
 				if walk.Any(stored, leaf) {
 					return true
 				}

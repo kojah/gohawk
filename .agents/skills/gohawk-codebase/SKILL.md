@@ -1,5 +1,5 @@
 ---
-description: Use when orienting in the gohawk codebase, deciding where new code belongs, or checking whether ssaflow, ssainfer, or lifecyclefacts already has a helper before writing SSA traversal, provenance, or ownership code.
+description: Use when orienting in the gohawk codebase, deciding where new code belongs, or checking whether ssaflow, lifecycle, or lifecyclefacts already has a helper before writing SSA traversal, provenance, or ownership code.
 metadata:
     source: project
 name: gohawk-codebase
@@ -32,7 +32,7 @@ Walk the decision in order and stop at the first fit.
    implementation looks reusable.
 2. **`internal/ssaflow`** for shared value provenance, calls, budgets, and
    control flow; **`internal/heapmodel`** for storage, identity, and heap queries;
-   **`internal/ssainfer`** for completion and transfer proofs using that evidence;
+   **`internal/lifecycle`** for completion and transfer proofs using that evidence;
    **`internal/resourcemodel`**
    for per-path resource obligations and exact reusable external state
    transitions. Share *how to prove*, never an analyzer's reporting policy.

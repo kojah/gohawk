@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -105,11 +105,11 @@ func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssafl
 			if !heapmodel.CapturedBindingMatches(pair.Binding, analysis.resource) {
 				continue
 			}
-			mayClean := ssainfer.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
+			mayClean := lifecycle.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
 				common := ssaflow.InstructionCall(instruction)
 				return common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
 					ssaflow.ValueIsAccessPathFrom(ssaflow.CallReceiver(common), pair.Free)
-			}, ssainfer.CoverageAnywhere, nil)
+			}, lifecycle.CoverageAnywhere, nil)
 			if mayClean {
 				return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "captured-cell-may-cleanup"}
 			}
@@ -155,11 +155,11 @@ func guardedBodyCoverage(function *ssa.Function, captured ssa.Value, budget *ssa
 		if !budget.Spend() || !capturedResponseBody(load, captured) {
 			continue
 		}
-		covered := ssainfer.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
+		covered := lifecycle.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
 			common := ssaflow.InstructionCall(instruction)
 			return budget.Spend() && common != nil && ssaflow.CallName(common) == "Close" &&
 				capturedResponseBody(ssaflow.CallReceiver(common), captured)
-		}, ssainfer.CoverageEveryReturn, load)
+		}, lifecycle.CoverageEveryReturn, load)
 		if covered && !budget.Exhausted() {
 			return true
 		}

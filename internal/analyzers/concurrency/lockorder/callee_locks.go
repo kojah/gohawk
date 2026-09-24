@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -251,7 +251,7 @@ func freshOwnerResult(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 			if !ok {
 				continue
 			}
-			allocation, fresh := ssainfer.ReturnedResult(result, 0).(*ssa.Alloc)
+			allocation, fresh := lifecycle.ReturnedResult(result, 0).(*ssa.Alloc)
 			if !fresh || allocation.Parent() != callee {
 				return false
 			}

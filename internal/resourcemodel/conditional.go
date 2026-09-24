@@ -5,8 +5,8 @@ package resourcemodel
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,8 +16,8 @@ var rowsNextResultSet = syntax.PackageMethod(syntax.MethodSymbol{
 })
 
 // ConditionalReleases binds one search budget to the external state contracts.
-func ConditionalReleases(budget *ssaflow.SearchBudget) ssainfer.CompletionSummaryLookup {
-	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssainfer.CompletionPredicate) bool {
+func ConditionalReleases(budget *ssaflow.SearchBudget) lifecycle.CompletionSummaryLookup {
+	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate lifecycle.CompletionPredicate) bool {
 		return ConditionalRelease(instruction, target, method, invoke, predicate, budget)
 	}
 }
@@ -30,12 +30,12 @@ func ConditionalRelease(
 	target ssa.Value,
 	method string,
 	invoke bool,
-	predicate ssainfer.CompletionPredicate,
+	predicate lifecycle.CompletionPredicate,
 	budget *ssaflow.SearchBudget,
 ) bool {
 	call, synchronous := instruction.(*ssa.Call)
 	if !synchronous || invoke || method != "Close" ||
-		predicate.Result != 0 || predicate.Outcome != ssainfer.CompletionWhenFalse {
+		predicate.Result != 0 || predicate.Outcome != lifecycle.CompletionWhenFalse {
 		return false
 	}
 	if budget == nil || !budget.Spend() {

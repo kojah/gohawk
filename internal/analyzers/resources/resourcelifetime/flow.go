@@ -8,10 +8,10 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -109,7 +109,7 @@ func evaluateResourceFlow(
 		// Tx, or Conn obligations, nor claim DB.Close is identical to Stmt.Close.
 		// https://go.dev/src/database/sql/sql.go (driverConn.finalClose, DB.prepareDC)
 		// https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go#L2809
-		if sqlDatabaseCall(call.Common(), "Prepare", "PrepareContext") && ssainfer.ProveEnclosingCompletion(ssainfer.EnclosingCompletionRequest{
+		if sqlDatabaseCall(call.Common(), "Prepare", "PrepareContext") && lifecycle.ProveEnclosingCompletion(lifecycle.EnclosingCompletionRequest{
 			Function: call.Parent(), Value: ssaflow.CallReceiver(call.Common()), Methods: []string{"Close"},
 			Budget: analysis.budget(10000),
 		}).Proven() {
@@ -210,7 +210,7 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 		// A conditional helper settles only the edge selected by its result.
 		// Optional-acquisition phis retain their own stricter cleanup policy.
 		if !obligation.Settled() && !optionalAcquisition.Proven() {
-			if analysis.evidence.CompletionOnEdge(state.block, successor, ssainfer.CompletionRequest{
+			if analysis.evidence.CompletionOnEdge(state.block, successor, lifecycle.CompletionRequest{
 				Target: resource, Methods: analysis.contract.cleanup, Budget: analysis.budget(1000),
 			}).Proven() {
 				obligation = obligation.Discharged()
@@ -243,7 +243,7 @@ func (analysis *resourceAnalysis) traceRepeatedGuard(block, successor *ssa.Basic
 // a summarized view, or a projection with no cleanup method.
 func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bool {
 	resource, cleanup := analysis.resource, analysis.contract.cleanup
-	if ssainfer.ReturnedValueOwnsValue(returned, resource) {
+	if lifecycle.ReturnedValueOwnsValue(returned, resource) {
 		return true
 	}
 	for _, result := range returned.Results {
@@ -427,11 +427,11 @@ func deferredBeforeAcquisitionMayRelease(
 		if !ssaflow.InstructionDominates(deferred, call) {
 			continue
 		}
-		completion := ssainfer.CompletionRequest{
+		completion := lifecycle.CompletionRequest{
 			Instruction: deferred,
 			Target:      resource,
 			Methods:     methods,
-			Coverage:    ssainfer.CoverageAnywhere,
+			Coverage:    lifecycle.CoverageAnywhere,
 			Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
 		}
 		if releaseSettled(evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion})) {
