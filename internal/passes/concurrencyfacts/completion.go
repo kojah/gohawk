@@ -126,16 +126,8 @@ func straightLineBody(function *ssa.Function) bool {
 	if len(function.Blocks) == 1 {
 		return true
 	}
-	// SSA adds a detached recovery return to functions containing defers.
-	// It is not an ordinary branch. No user recovery logic or other blocks
-	// are admitted, and all deferred calls must themselves be understood.
-	if len(function.Blocks) != 2 || function.Recover != function.Blocks[1] || len(function.Blocks[0].Succs) != 0 {
-		return false
-	}
-	recovery := function.Recover
-	if len(recovery.Instrs) != 1 {
-		return false
-	}
-	returned, ok := recovery.Instrs[0].(*ssa.Return)
-	return ok && len(returned.Results) == 0
+	// A function with defers also has a detached recovery block; see
+	// detachedRecovery for why it is not an ordinary branch.
+	return len(function.Blocks) == 2 && function.Recover == function.Blocks[1] &&
+		len(function.Blocks[0].Succs) == 0 && detachedRecovery(function)
 }

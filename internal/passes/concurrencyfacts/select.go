@@ -85,7 +85,7 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 	if selection == nil {
 		return Summary{}, false
 	}
-	if !trivialRecovery(function) {
+	if !detachedRecovery(function) {
 		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
 		return Summary{Reason: ReasonControlFlowUnknown}, true
 	}

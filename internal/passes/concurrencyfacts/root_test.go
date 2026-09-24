@@ -111,3 +111,43 @@ func five(a, b, c, d, e chan int) {
 		}
 	}
 }
+
+// A root's results reach its caller only after the root returns, and the
+// detached recovery block is dead unless a deferred call can recover. A helper
+// returning a reference still adds its caller as a possible participant.
+func TestRootResultsAndDetachedRecovery(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "rootresults", `package rootresults
+import ("errors"; "sync")
+var errFailed = errors.New("failed")
+func Result(mu *sync.Mutex, fail bool) (int, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	if fail { return 0, errFailed }
+	return 1, nil
+}
+func Returned(done chan int) chan int { close(done); return done }
+func Recovered(mu *sync.Mutex) (err error) {
+	mu.Lock()
+	defer func() {
+		if recover() != nil { err = errFailed }
+		mu.Unlock()
+	}()
+	return nil
+}
+func Caller(done chan int) { _ = Returned(done) }
+`)
+	engine := NewEngine()
+	for _, name := range []string{"Result", "Returned"} {
+		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects {
+			t.Errorf("%s root = %+v, want complete", name, got)
+		}
+	}
+	for name, reason := range map[string]Reason{"Recovered": ReasonBodyUnavailable, "Caller": ReasonEffectUnknown} {
+		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Complete() || got.Reason != reason {
+			t.Errorf("%s root = %+v, want %s", name, got, reason)
+		}
+	}
+	if got := engine.Function(pkg.Func("Returned"), ssaflow.NewSearchBudget(2000)); got.Complete() {
+		t.Errorf("helper returning a channel = %+v, want incomplete", got)
+	}
+}

@@ -12,7 +12,7 @@ import (
 const maxProtocolPaths = 8
 
 func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
-	if !trivialRecovery(function) {
+	if !detachedRecovery(function) {
 		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
 		return Summary{Reason: ReasonControlFlowUnknown}
 	}

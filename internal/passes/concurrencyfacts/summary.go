@@ -363,6 +363,12 @@ func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) Reason 
 			return ReasonNone
 		}
 	}
+	if instruction.Op == token.MUL && isGlobal(instruction.X) {
+		// Reading a package variable cannot block, panic, or synchronize. The
+		// loaded value is not a stable resource identity: any later operation
+		// on it must resolve one through reference, which declines globals.
+		return ReasonNone
+	}
 	if instruction.Op != token.MUL || !readableAddress(instruction.X) {
 		return ReasonLoadUnknown
 	}
@@ -390,7 +396,7 @@ func (engine *Engine) appendOperation(result *Summary, kind Kind, value ssa.Valu
 }
 
 func passiveInstruction(instruction ssa.Instruction, root bool) Reason {
-	if scalarInstruction(instruction) {
+	if scalarInstruction(instruction) || rootReturn(instruction, root) {
 		return ReasonNone
 	}
 	switch instruction := instruction.(type) {
@@ -440,6 +446,15 @@ func passiveInstruction(instruction ssa.Instruction, root bool) Reason {
 	return ReasonEffectUnknown
 }
 
+// A root's results reach its caller only after the root returns, and root
+// consumers prove waits that block before any return. A helper's returned
+// reference can instead add its caller as a participant, so composed summaries
+// keep the scalar-only rule in scalarInstruction.
+func rootReturn(instruction ssa.Instruction, root bool) bool {
+	_, ok := instruction.(*ssa.Return)
+	return ok && root
+}
+
 func localSynchronizationPointerStore(store *ssa.Store) bool {
 	if !localAddress(store.Addr) {
 		return false
@@ -475,4 +490,9 @@ func scalarInstruction(instruction ssa.Instruction) bool {
 func scalarType(value types.Type) bool {
 	basic, ok := value.Underlying().(*types.Basic)
 	return ok && basic.Info()&(types.IsBoolean|types.IsNumeric|types.IsString) != 0
+}
+
+func isGlobal(address ssa.Value) bool {
+	_, ok := address.(*ssa.Global)
+	return ok
 }

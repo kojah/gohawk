@@ -11,7 +11,7 @@ import (
 // decline paths that could only agree after cancellation of earlier effects.
 // The fixed sequence limit bounds copying; no execution paths are enumerated.
 func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary {
-	if !trivialRecovery(function) {
+	if !detachedRecovery(function) {
 		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
 		return Summary{Reason: ReasonControlFlowUnknown}
 	}
@@ -95,16 +95,15 @@ func (engine *Engine) orderedBlocks(function *ssa.Function) ([]*ssa.BasicBlock, 
 	return order, ReasonNone
 }
 
-func trivialRecovery(function *ssa.Function) bool {
-	if function.Recover == nil {
-		return true
-	}
-	recovery := function.Recover
-	if len(recovery.Preds) != 0 || len(recovery.Instrs) != 1 {
-		return false
-	}
-	returned, ok := recovery.Instrs[0].(*ssa.Return)
-	return ok && len(returned.Results) == 0
+// SSA gives every function with a defer a detached recovery block that reloads
+// the results and returns them. The runtime enters it only when a deferred
+// call stops a panic with recover. The collectors never visit it, because a
+// completed summary admits only deferred calls whose complete summaries are
+// releases (deferCompletion), and a call to recover leaves a summary incomplete.
+// So the block is dead whenever the rest of the summary succeeds, and its
+// result loads are not effects. A block with predecessors is not that shape.
+func detachedRecovery(function *ssa.Function) bool {
+	return function.Recover == nil || len(function.Recover.Preds) == 0
 }
 
 func sameEffects(first, second Summary) bool {
