@@ -22,6 +22,26 @@ func optionalDeferredCompletion(wait bool, work func()) {
 
 func finishOptionalWork(group *sync.WaitGroup) { group.Done() }
 
+func finishIfGroupPresent(group *sync.WaitGroup) {
+	if group != nil {
+		defer group.Done()
+	}
+}
+
+// A nil actual cannot establish a WaitGroup completion promise merely because
+// the callee has a non-nil branch. OpenIM uses a nil group for fire-and-forget
+// launches and a real group for its separately joined launches:
+// https://github.com/openimsdk/openim-sdk-core/blob/061ac673ffa31f4d863651fdffee7882609a5f62/internal/conversation_msg/notification.go#L441-L469
+func nilWaitGroupArgumentDoesNotObligate() {
+	go finishIfGroupPresent(nil)
+}
+
+func realWaitGroupArgumentNeedsJoin() {
+	var group sync.WaitGroup
+	group.Add(1)
+	go finishIfGroupPresent(&group) // want "goroutine is not joined on every return path"
+}
+
 func optionalDeferredHelperCompletion(wait bool, work func()) {
 	var group sync.WaitGroup
 	if wait {

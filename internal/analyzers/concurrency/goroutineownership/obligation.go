@@ -207,7 +207,9 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 	var groups []ssa.Value
 	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
 		group := ssaflow.CapturedBindingValue(pair.Supplied)
-		if group == nil || !syntax.NamedType(group.Type(), "sync", "WaitGroup") {
+		// A typed nil actual satisfies the parameter's static WaitGroup type,
+		// but the callee's guarded deferred Done cannot run for this launch.
+		if group == nil || ssaflow.DefinitelyNil(group) || !syntax.NamedType(group.Type(), "sync", "WaitGroup") {
 			continue
 		}
 		// A conditional registration promises completion only on that branch.
@@ -430,7 +432,11 @@ func waitGroupCompletionValues(
 			}
 			receiver := ssaflow.CallReceiver(common)
 			group := ssaflow.SpawnedValueAtCall(spawn, function, closure, receiver)
-			if group == nil || ssainfer.MayAliasAny(group, groups) {
+			// A callee's nil-guarded Done is not a promise when this launch passes
+			// nil. OpenIM's fire-and-forget branch uses the same worker as its
+			// counted branch but supplies a nil group:
+			// https://github.com/openimsdk/openim-sdk-core/blob/061ac673ffa31f4d863651fdffee7882609a5f62/internal/conversation_msg/notification.go#L441-L469
+			if group == nil || ssaflow.DefinitelyNil(group) || ssainfer.MayAliasAny(group, groups) {
 				continue
 			}
 			if !waitGroupSettlesFunction(function, receiver) {
