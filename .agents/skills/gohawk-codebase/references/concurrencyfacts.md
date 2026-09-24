@@ -202,6 +202,10 @@ type Operation struct {
 	Resource	Reference
 	Source		token.Pos
 	Site		token.Pos
+	// Alternates are the sources of the same operation on other branches that
+	// folded into this one because their ordered effects were equal. Source
+	// stays the first branch's position. Local diagnostic metadata only.
+	Alternates	[]token.Pos
 }
 ```
 
