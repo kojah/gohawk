@@ -416,7 +416,7 @@ const releaseSearchBudget = 250_000
 // never released, so an undecided release has to suppress. Leaving the
 // obligation open would let a walk the analyzer gave up on produce a
 // defect-tier report.
-func releaseSettled(proof ssaflow.Proof) bool {
+func releaseSettled(proof lifecyclefacts.Proof) bool {
 	return proof.Proven() || proof.Reason == ssaflow.EvidenceBudgetExhausted
 }
 

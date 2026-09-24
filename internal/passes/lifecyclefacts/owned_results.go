@@ -43,9 +43,9 @@ func (evidence *LifecycleEvidence) OwnedDirectResult(call *ssa.Call) ([]string, 
 		if !ok {
 			return nil, 0, false
 		}
-		evidence.emit(EvidenceRequest{Instruction: call, Target: call}, ssaflow.Proof{
-			State: ssaflow.EvidenceProven, Reason: reasonOwnedResultContract, Provenance: ssaflow.EvidenceFromImportedFact,
-		})
+		evidence.emit(EvidenceRequest{Instruction: call, Target: call}, Proof{Proof: ssaflow.Proof{
+			State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromImportedFact,
+		}, SummaryReason: reasonOwnedResultContract})
 		return cleanup, index, true
 	}
 	return nil, 0, false

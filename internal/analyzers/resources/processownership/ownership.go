@@ -38,7 +38,7 @@ func (proof *commandProof) budget() *ssaflow.SearchBudget {
 // that permits is decided where the question was asked: before Start it
 // leaves ownership possibly registered, after Start it leaves the action
 // unknown, and neither is a reason to report.
-func abandoned(result ssaflow.Proof) bool {
+func abandoned(result lifecyclefacts.Proof) bool {
 	return result.Reason == ssaflow.EvidenceBudgetExhausted
 }
 
@@ -227,7 +227,7 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 	// syntactic witness is never charged for a search it did not need, and
 	// the results of the searched ones are kept to tell an abandoned search
 	// from a disproof.
-	var ownership ssaflow.Proof
+	var ownership lifecyclefacts.Proof
 	owns := func() bool {
 		ownership = proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,

@@ -136,6 +136,19 @@ GobEncode encodes the fact through factcodec.
 func (fact *CleanupFact) String() string
 ```
 
+## CompletionProof
+
+[Source](../../../../internal/passes/lifecyclefacts/reasons.go)
+
+```go
+type CompletionProof struct {
+	ssaflow.CompletionProof
+	SummaryReason	Reason
+}
+```
+
+CompletionProof retains path coverage along with its summary explanation.
+
 ## ConditionalEffect
 
 [Source](../../../../internal/passes/lifecyclefacts/conditional.go)
@@ -568,7 +581,7 @@ read says yes for the same reason.
 [Source](../../../../internal/passes/lifecyclefacts/conditional.go)
 
 ```go
-func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request lifecycle.CompletionRequest) ssaflow.CompletionProof
+func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request lifecycle.CompletionRequest) CompletionProof
 ```
 
 CompletionOnEdge combines local and imported result-conditioned guarantees.
@@ -634,7 +647,7 @@ caller cannot be asked for a cleanup that does not exist.
 [Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
-func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) ssaflow.Proof
+func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) Proof
 ```
 
 Prove returns one lifecycle proof with explicit provenance. Missing imported
@@ -661,6 +674,40 @@ type ParameterMask uint64
 ```
 
 ParameterMask is a set of SSA parameter positions in a lifecycle summary.
+
+## Proof
+
+[Source](../../../../internal/passes/lifecyclefacts/reasons.go)
+
+```go
+type Proof struct {
+	ssaflow.Proof
+	SummaryReason	Reason
+}
+```
+
+Proof retains the underlying evidence and the summary rule, when applicable.
+SummaryReason never replaces an SSA reason with a string from another domain.
+
+## Reason
+
+[Source](../../../../internal/passes/lifecyclefacts/reasons.go)
+
+```go
+type Reason uint8
+```
+
+Reason classifies summary evidence, independently of local SSA evidence.
+
+## Reason.String
+
+[Source](../../../../internal/passes/lifecyclefacts/reasons.go)
+
+```go
+func (reason Reason) String() string
+```
+
+String renders the stable trace code at the output boundary.
 
 ## ResourceCleanup
 

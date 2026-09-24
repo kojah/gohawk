@@ -13,17 +13,6 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-const (
-	reasonLifecycleSummary                  ssaflow.EvidenceReason = "lifecycle-summary"
-	reasonLifecycleSummaryProjectedArgument ssaflow.EvidenceReason = "lifecycle-summary-projected-argument"
-	reasonLifecycleSummaryCapturedArgument  ssaflow.EvidenceReason = "lifecycle-summary-captured-argument"
-	reasonReceiverStoreTransfer             ssaflow.EvidenceReason = "receiver-store-transfer"
-	reasonReceiverDoesNotEscape             ssaflow.EvidenceReason = "receiver-does-not-escape"
-	reasonOwnedResultContract               ssaflow.EvidenceReason = "owned-result-contract"
-	reasonOwnedResultUnreleasable           ssaflow.EvidenceReason = "owned-result-unreleasable"
-	reasonStoredByCallee                    ssaflow.EvidenceReason = "stored-by-callee"
-)
-
 // LifecycleEvidence combines memoized local SSA evidence with lifecycle summaries
 // imported through the prerequisite analyzer. One evidence context belongs to one source
 // function and is not safe for concurrent use.
@@ -204,28 +193,28 @@ func immutableCapturedTarget(binding, target ssa.Value, observation ssa.Instruct
 	return stored.Proven() && storage.Same(stored.Value, target).Proven()
 }
 
-func (evidence *LifecycleEvidence) capturedImportedCompletion(request EvidenceRequest) ssaflow.Proof {
+func (evidence *LifecycleEvidence) capturedImportedCompletion(request EvidenceRequest) Proof {
 	if request.Completion == nil || request.SelectMask == nil {
-		return ssaflow.Proof{}
+		return Proof{}
 	}
 	common := ssaflow.InstructionCall(request.Instruction)
 	if common == nil {
-		return ssaflow.Proof{}
+		return Proof{}
 	}
 	closure, ok := common.Value.(*ssa.MakeClosure)
 	if !ok {
-		return ssaflow.Proof{}
+		return Proof{}
 	}
 	function, ok := closure.Fn.(*ssa.Function)
 	if !ok || len(function.Blocks) == 0 {
-		return ssaflow.Proof{}
+		return Proof{}
 	}
 	completes := func(instruction ssa.Instruction) bool {
 		fact, summarized := factFor(evidence.pass, instruction)
 		return summarized && factOwnsImmutableCapturedArgument(instruction, request.Target, request.SelectMask(fact), evidence.probe.Observer())
 	}
 	if !lifecycle.MethodCallCoverage(function, completes, request.Completion.Coverage, nil) {
-		return ssaflow.Proof{}
+		return Proof{}
 	}
 	return importedProof(reasonLifecycleSummaryCapturedArgument, requestedMethod(request))
 }
@@ -276,7 +265,7 @@ type EvidenceRequest struct {
 // Prove returns one lifecycle proof with explicit provenance. Missing imported
 // summaries produce Unknown rather than being conflated with a disproved local
 // relationship.
-func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) ssaflow.Proof {
+func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) Proof {
 	local := evidence.localProof(request)
 	if local.Proven() {
 		evidence.emit(request, local)
@@ -301,7 +290,7 @@ func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) ssaflow.Proof 
 	return local
 }
 
-func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssaflow.Proof, bool) {
+func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (Proof, bool) {
 	// Imported summaries are consulted only after local source-visible evidence
 	// fails, and each accepted mask must map back to the exact caller value.
 	// Projection matching is a stricter opt-in because a field selected from an
@@ -317,30 +306,29 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || lifecycle.ValueEscapes(receiver)) {
 			return importedProof(reasonReceiverStoreTransfer, requestedMethod(request)), true
 		}
-		return ssaflow.Proof{
-			State: ssaflow.EvidenceDisproven, Reason: reasonReceiverDoesNotEscape,
-			Provenance: ssaflow.EvidenceFromImportedFact,
-		}, true
+		return Proof{Proof: ssaflow.Proof{
+			State: ssaflow.EvidenceDisproven, Provenance: ssaflow.EvidenceFromImportedFact,
+		}, SummaryReason: reasonReceiverDoesNotEscape}, true
 	}
 
 	importedRequested := request.SelectMask != nil || request.ReceiverStore
 	if importedRequested && !summarized {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true
+		return Proof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}, true
 	}
 	if importedRequested && summarized {
-		return ssaflow.Proof{
+		return Proof{Proof: ssaflow.Proof{
 			State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound,
 			Provenance: ssaflow.EvidenceFromImportedFact,
-		}, true
+		}}, true
 	}
-	return ssaflow.Proof{}, false
+	return Proof{}, false
 }
 
 // selectedMaskProof answers a request that selected a mask: a cleanup method
 // is matched by its discharge path, other masks by identity or containment,
 // an immutable capture or a strict projection by their own rules, and a
 // possible alias by uncertainty. It reports false when nothing matched.
-func (evidence *LifecycleEvidence) selectedMaskProof(request EvidenceRequest, fact Fact) (ssaflow.Proof, bool) {
+func (evidence *LifecycleEvidence) selectedMaskProof(request EvidenceRequest, fact Fact) (Proof, bool) {
 	mask := request.SelectMask(fact)
 	// A cleanup method is matched by its discharge path: the target must
 	// be what the caller stored where the callee cleans up. Other masks
@@ -361,22 +349,22 @@ func (evidence *LifecycleEvidence) selectedMaskProof(request EvidenceRequest, fa
 	if factArgumentMatches(request.Instruction, request.Target, mask, heapmodel.MayAlias) {
 		// The summary is known, but which value receives its guarantee is
 		// not. This is neither completion nor evidence of missing cleanup.
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true
+		return Proof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}, true
 	}
-	return ssaflow.Proof{}, false
+	return Proof{}, false
 }
 
-func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) ssaflow.Proof {
-	proof := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
+func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) Proof {
+	proof := Proof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
 	if request.Local != nil {
-		proof = *request.Local
+		proof.Proof = *request.Local
 		if proof.Proven() {
 			return proof
 		}
 	}
 	if request.Completion != nil {
 		completion := evidence.local.Completion(*request.Completion)
-		proof = completion.Proof
+		proof.Proof = completion.Proof
 		if proof.Proven() {
 			return proof
 		}
@@ -387,23 +375,23 @@ func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) ssaflow.P
 	if request.Transfer != nil {
 		transfer := evidence.local.OwnershipTransfer(*request.Transfer)
 		if transfer.Proven() {
-			return transfer.Proof
+			return Proof{Proof: transfer.Proof}
 		}
 		if !transfer.Known() {
-			return transfer.Proof
+			return Proof{Proof: transfer.Proof}
 		}
 		if !proof.Known() {
-			return transfer.Proof
+			return Proof{Proof: transfer.Proof}
 		}
 	}
 	return proof
 }
 
-func importedProof(reason ssaflow.EvidenceReason, method string) ssaflow.Proof {
-	return ssaflow.Proof{
-		State: ssaflow.EvidenceProven, Reason: reason, Method: method,
+func importedProof(reason Reason, method string) Proof {
+	return Proof{Proof: ssaflow.Proof{
+		State: ssaflow.EvidenceProven, Method: method,
 		Provenance: ssaflow.EvidenceFromImportedFact,
-	}
+	}, SummaryReason: reason}
 }
 
 func requestedMethod(request EvidenceRequest) string {
@@ -413,7 +401,7 @@ func requestedMethod(request EvidenceRequest) string {
 	return request.Completion.Methods[0]
 }
 
-func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof ssaflow.Proof) {
+func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof Proof) {
 	if !evidence.probe.Enabled() {
 		return
 	}
@@ -437,7 +425,7 @@ func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof ssaflow.P
 		position = request.Instruction.Pos()
 	}
 	evidence.probe.Evidence(analysisTrace.Step{
-		Reason:   string(proof.Reason),
+		Reason:   proof.traceReason(),
 		Outcome:  outcome,
 		Pos:      position,
 		Function: instructionFunction(request.Instruction),

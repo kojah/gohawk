@@ -64,7 +64,8 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 	branch := ssaflow.InstructionsOf[*ssa.If](caller)[0].Block()
 	evidence := NewLifecycleEvidence(pass, "test", "test")
 	request := lifecycle.CompletionRequest{Target: caller.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000)}
-	if proof := evidence.CompletionOnEdge(branch, branch.Succs[0], request); !proof.Proven() || proof.Provenance != ssaflow.EvidenceFromImportedFact {
+	if proof := evidence.CompletionOnEdge(branch, branch.Succs[0], request); !proof.Proven() ||
+		proof.Provenance != ssaflow.EvidenceFromImportedFact || proof.SummaryReason != reasonConditionalSummary {
 		t.Fatalf("imported true edge: %+v", proof)
 	}
 	if proof := evidence.CompletionOnEdge(branch, branch.Succs[1], request); proof.Proven() {

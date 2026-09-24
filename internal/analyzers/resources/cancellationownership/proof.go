@@ -120,11 +120,13 @@ func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBloc
 	request := lifecycle.CompletionRequest{
 		Target: classifier.cancel, InvokeTarget: true, Budget: classifier.budget(),
 	}
-	prove := lifecycle.ProveCompletionOnEdge
+	var completed bool
 	if classifier.evidence != nil {
-		prove = classifier.evidence.CompletionOnEdge
+		completed = classifier.evidence.CompletionOnEdge(from, to, request).Proven()
+	} else {
+		completed = lifecycle.ProveCompletionOnEdge(from, to, request).Proven()
 	}
-	if prove(from, to, request).Proven() {
+	if completed {
 		return ssaflow.ObligationExact
 	}
 	if classifier.selectedDoneEdge(from, to) {

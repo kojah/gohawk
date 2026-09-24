@@ -6,9 +6,6 @@
   "internal/analyzers/resources/resourcelifetime/http_acquisition.go": 7,
   "internal/analyzers/resources/resourcelifetime/policy.go": 1,
   "internal/analyzers/resources/resourcelifetime/use_after_release.go": 5,
-  "internal/passes/lifecyclefacts/analyzer.go": 2,
-  "internal/passes/lifecyclefacts/conditional.go": 1,
-  "internal/passes/lifecyclefacts/retention.go": 1,
   "internal/ssaflow/call_effects.go": 1,
   "internal/ssaflow/proof_types.go": 1
 }

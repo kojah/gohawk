@@ -75,7 +75,7 @@ func run(pass *analysis.Pass) (any, error) {
 		// located by its last candidate rather than by a stack dump.
 		probe := analysisTrace.For(pass, traceAnalyzer, "", function.Pos())
 		probe.Candidate(analysisTrace.Step{
-			Reason:   "summarizing-function",
+			Reason:   reasonSummarizingFunction.String(),
 			Outcome:  analysisTrace.OutcomeObserved,
 			Pos:      function.Pos(),
 			Function: function.String(),
@@ -92,7 +92,7 @@ func run(pass *analysis.Pass) (any, error) {
 			maps.Copy(details, heapTraceDetails(function, fact.Heap))
 		}
 		probe.Decision(analysisTrace.Step{
-			Reason:   "function-summarized",
+			Reason:   reasonFunctionSummarized.String(),
 			Outcome:  analysisTrace.OutcomeAccepted,
 			Pos:      function.Pos(),
 			Function: function.String(),

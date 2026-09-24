@@ -58,8 +58,8 @@ func sibling(value, other *closer) {
 		if got := proof.Proven(); got != test.want {
 			t.Errorf("%s imported capture proof = %#v, proven %t, want %t", test.name, proof, got, test.want)
 		}
-		if test.want && proof.Reason != reasonLifecycleSummaryCapturedArgument {
-			t.Errorf("%s imported capture reason = %q, want %q", test.name, proof.Reason, reasonLifecycleSummaryCapturedArgument)
+		if test.want && proof.SummaryReason != reasonLifecycleSummaryCapturedArgument {
+			t.Errorf("%s imported capture reason = %q, want %q", test.name, proof.SummaryReason, reasonLifecycleSummaryCapturedArgument)
 		}
 	}
 }

@@ -464,9 +464,9 @@ func (evidence *LifecycleEvidence) OwnedResult(call *ssa.Call) ([]string, int, b
 	if len(cleanup) == 0 {
 		reason = reasonOwnedResultUnreleasable
 	}
-	evidence.emit(EvidenceRequest{Instruction: call, Target: call}, ssaflow.Proof{
-		State: ssaflow.EvidenceProven, Reason: reason, Provenance: ssaflow.EvidenceFromImportedFact,
-	})
+	evidence.emit(EvidenceRequest{Instruction: call, Target: call}, Proof{Proof: ssaflow.Proof{
+		State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromImportedFact,
+	}, SummaryReason: reason})
 	return cleanup, index, len(cleanup) > 0
 }
 
@@ -648,9 +648,9 @@ func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Inst
 	if !factOwnsExactArgument(instruction, target, fact.Stored&^fact.ReturnedOwner) {
 		return false
 	}
-	evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, ssaflow.Proof{
-		State: ssaflow.EvidenceProven, Reason: reasonStoredByCallee, Provenance: ssaflow.EvidenceFromImportedFact,
-	})
+	evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, Proof{Proof: ssaflow.Proof{
+		State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromImportedFact,
+	}, SummaryReason: reasonStoredByCallee})
 	return true
 }
 
@@ -669,9 +669,9 @@ func (evidence *LifecycleEvidence) visibleCalleeRetains(instruction ssa.Instruct
 			!retentions.storedEveryReturn(evidence.pass, function, binding.Local) {
 			continue
 		}
-		evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, ssaflow.Proof{
-			State: ssaflow.EvidenceProven, Reason: reasonStoredByCallee, Provenance: ssaflow.EvidenceFromLocalSSA,
-		})
+		evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, Proof{Proof: ssaflow.Proof{
+			State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromLocalSSA,
+		}, SummaryReason: reasonStoredByCallee})
 		return true
 	}
 	return false

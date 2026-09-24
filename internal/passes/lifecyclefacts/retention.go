@@ -97,7 +97,7 @@ func (search *retention) answer(function *ssa.Function, parameter ssa.Value) boo
 		return retained
 	}
 	analysisTrace.For(search.pass, traceAnalyzer, "", function.Pos()).Considered(analysisTrace.Step{
-		Reason:   "retention-budget-exhausted",
+		Reason:   reasonRetentionBudget.String(),
 		Outcome:  analysisTrace.OutcomeUnknown,
 		Pos:      function.Pos(),
 		Function: function.String(),

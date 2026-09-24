@@ -145,20 +145,23 @@ func conditionalMask(fact Fact, method string, invoke bool, predicate lifecycle.
 
 // CompletionOnEdge combines local and imported result-conditioned guarantees.
 // Absence remains unknown; only exact parameter binding can settle the target.
-func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request lifecycle.CompletionRequest) ssaflow.CompletionProof {
+func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request lifecycle.CompletionRequest) CompletionProof {
 	usedFact := false
 	lookup := conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) {
 		return factFor(evidence.pass, instruction)
 	}, request.Budget, func() { usedFact = true })
 	request.Summarized = lookup
 	request.CallContract = resourcemodel.ConditionalReleases(request.Budget)
-	proof := lifecycle.ProveCompletionOnEdge(from, to, request)
+	proof := CompletionProof{CompletionProof: lifecycle.ProveCompletionOnEdge(from, to, request)}
 	if proof.Proven() && usedFact {
 		proof.Provenance = ssaflow.EvidenceFromImportedFact
-		proof.Reason = "conditional-lifecycle-summary"
+		proof.SummaryReason = reasonConditionalSummary
 	}
 	if from != nil && len(from.Instrs) != 0 && proof.Proven() {
-		evidence.emit(EvidenceRequest{Instruction: from.Instrs[len(from.Instrs)-1], Target: request.Target, Completion: &request}, proof.Proof)
+		evidence.emit(
+			EvidenceRequest{Instruction: from.Instrs[len(from.Instrs)-1], Target: request.Target, Completion: &request},
+			Proof{Proof: proof.Proof, SummaryReason: proof.SummaryReason},
+		)
 	}
 	return proof
 }

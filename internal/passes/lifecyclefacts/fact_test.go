@@ -54,7 +54,7 @@ func caller(value *closer) { helper(value) }
 		},
 	}
 	proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
-	if !proof.Proven() || proof.Provenance != ssaflow.EvidenceFromImportedFact || proof.Reason != reasonLifecycleSummary {
+	if !proof.Proven() || proof.Provenance != ssaflow.EvidenceFromImportedFact || proof.SummaryReason != reasonLifecycleSummary {
 		t.Fatalf("imported proof = %#v, want lifecycle-summary provenance", proof)
 	}
 
@@ -91,7 +91,7 @@ func reassigned() {
 	helper(value.body)
 }
 `)
-	prove := func(t *testing.T, functionName string, enabled bool) ssaflow.Proof {
+	prove := func(t *testing.T, functionName string, enabled bool) Proof {
 		t.Helper()
 		function := pkg.Func(functionName)
 		acquisition := findLifecycleCall(t, function, "acquire")
@@ -114,7 +114,7 @@ func reassigned() {
 		t.Fatalf("ordinary imported proof = %#v, want projection rejected", withoutOptIn)
 	}
 	projected := prove(t, "accepted", true)
-	if !projected.Proven() || projected.Reason != reasonLifecycleSummaryProjectedArgument ||
+	if !projected.Proven() || projected.SummaryReason != reasonLifecycleSummaryProjectedArgument ||
 		projected.Provenance != ssaflow.EvidenceFromImportedFact {
 		t.Fatalf("projected imported proof = %#v, want strict projected lifecycle summary", projected)
 	}
