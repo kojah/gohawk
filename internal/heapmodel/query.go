@@ -51,16 +51,6 @@ func graphValueAtPath(root ssa.Value, path []string, at ssa.Instruction) (ssa.Va
 	return regionsOf(root).valueAtPath(root, path, at)
 }
 
-// ContentIsNilAt requires the observed slot to hold nil on every path.
-// Nested pointer fields follow only exact pointees; opaque contents are
-// unknown, not a proof of nil.
-func ContentIsNilAt(root ssa.Value, path []string, at ssa.Instruction) bool {
-	if at == nil || at.Parent() == nil {
-		return false
-	}
-	return regionsOfFunction(at.Parent()).contentIsNil(root, path, at)
-}
-
 // ExclusiveAt proves a graph object's caller/local exclusivity at one point.
 func ExclusiveAt(value ssa.Value, at ssa.Instruction) (ExclusiveObject, bool) {
 	if at == nil || at.Parent() == nil {

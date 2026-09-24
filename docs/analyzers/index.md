@@ -63,14 +63,3 @@ These analyzers check resource ownership, cleanup, and lifetimes.
     <span class="analyzer-detects">Checks owned files, SQL handles, HTTP responses, and compressors are released on every path.</span>
   </a>
 </div>
-
-## General correctness
-
-These analyzers check error handling and expression behavior beyond ordinary type checking.
-
-<div class="analyzer-grid">
-  <a class="analyzer-card" href="general-correctness/nilargument/">
-    <span class="analyzer-name">nilargument</span>
-    <span class="analyzer-detects">Checks calls that pass a nil value where the callee dereferences it on every path.</span>
-  </a>
-</div>

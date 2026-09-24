@@ -44,7 +44,8 @@ check can act on today:
   direct check uses. `io.Copy` requires `Read` of its source, and a caller
   that passes an `*os.File` it has closed has used the file after `Close`.
 
-The second family is built and consumed by the `nilargument` analyzer:
+The second family was consumed by the `nilargument` analyzer, which has been
+removed. Heap summaries still record it, but no analyzer reads it today:
 
 - `requires P0/field:1 non-nil every`: the slot's content is dereferenced,
   or a method is invoked through an interface it fills, on every path. A

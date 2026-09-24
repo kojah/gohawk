@@ -35,7 +35,6 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 			"resources (resources and lifecycle): cancellationownership, deferinloop, processownership, resourcelifetime",
 			"concurrency (concurrency and synchronization): channelsafety, concurrentcapture, " +
 				"goroutineownership, lockorder, producerlifecycle",
-			"correctness (general correctness): nilargument",
 		} {
 			if !strings.Contains(output, summary) {
 				t.Fatalf("help does not contain %q:\n%s", summary, output)

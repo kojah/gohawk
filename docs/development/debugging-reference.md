@@ -150,13 +150,8 @@ candidate, carrying a specific reason and the instruction that blocked it:
 | completion | `evidence-not-found`, `evidence-unavailable` at a launch site | the callee resolved from that launch never covered the target with the method sought |
 | budget | `budget-exhausted` | the query that spent the last unit; a cut answer is not a decision |
 
-A must-proof over the graph, such as nilargument's nil slot, can instead be
-wrong because a call before it was not summarized. When nilargument reports,
-its trace lists each earlier call that can reach the judged call and was
-unsummarized, as `earlier-call-unsummarized` evidence with the same reason
-codes as the dump, and counts them in `earlier-calls`. A `no-summary` on a
-callee whose facts exist means the summary was not registered when the
-caller's graph was built.
+A `no-summary` on a callee whose facts exist means the summary was not
+registered when the caller's graph was built.
 
 These events say why evidence ran out, never what was decided, so the analyzer
 decision that follows them is still the one to read. A budget with no probe
@@ -178,9 +173,7 @@ Check `heap-cached` and `heap-building` before interpreting zero counts.
 cutoff; missing/in-progress graphs have unknown build status. Eviction can
 therefore make a trace unavailable even when a graph was computed earlier.
 Summary truncation is still reported from the published summary independently
-of graph-cache availability. `nilargument`'s candidate-scoped `earlier-calls`
-events carry the same cache/build qualifiers; their counts include only calls
-that can reach that candidate.
+of graph-cache availability.
 
 For repository comparisons, pin revisions and the analyzer binary, record
 package/check/test scope, and deduplicate events by repository-relative

@@ -381,19 +381,6 @@ index as the receiver. The names are the callee's own; the caller decides
 what they mean for the concrete value it passed. A callee without a
 summary requires nothing here, which a consumer must read as unknown.
 
-## LifecycleEvidence.ArgumentPathsRequiredNonNil
-
-[Source](../../../../internal/passes/lifecyclefacts/heap.go)
-
-```go
-func (evidence *LifecycleEvidence) ArgumentPathsRequiredNonNil(instruction ssa.Instruction, index int) []string
-```
-
-ArgumentPathsRequiredNonNil lists the access paths beneath the argument
-at index whose content the call's static callee dereferences on every
-normal return; the empty path is the argument itself. A callee without a
-summary requires nothing here, which a consumer must read as unknown.
-
 ## LifecycleEvidence.ArgumentRetained
 
 [Source](../../../../internal/passes/lifecyclefacts/evidence.go)

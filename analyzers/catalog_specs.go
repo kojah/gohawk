@@ -6,7 +6,6 @@ import (
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/goroutineownership"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/lockorder"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/producerlifecycle"
-	"github.com/kojah/gohawk/internal/analyzers/correctness/nilargument"
 	"github.com/kojah/gohawk/internal/analyzers/resources/cancellationownership"
 	"github.com/kojah/gohawk/internal/analyzers/resources/deferinloop"
 	"github.com/kojah/gohawk/internal/analyzers/resources/processownership"
@@ -113,17 +112,6 @@ func resourcesSpecs() []catalog.AnalyzerSpec {
 				Doc:  "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
 				Kind: catalog.KindHazard,
 				Tier: catalog.TierCore,
-			},
-		}},
-	}
-}
-
-func correctnessSpecs() []catalog.AnalyzerSpec {
-	return []catalog.AnalyzerSpec{
-		{Analyzer: nilargument.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.NilArgumentDereference, Doc: "Reports a call that passes a nil pointer where the callee dereferences it on every path.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 		}},
 	}

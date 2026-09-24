@@ -24,5 +24,4 @@ const (
 	LockWaitGroupCycle           ID = "lockorder/waitgroup-lock-cycle"
 	LockReadLockWrite            ID = "lockorder/read-lock-write"
 	LockMismatchedRelease        ID = "lockorder/mismatched-release"
-	NilArgumentDereference       ID = "nilargument/dereferenced-nil"
 )

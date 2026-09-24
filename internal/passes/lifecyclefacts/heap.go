@@ -175,22 +175,3 @@ func (evidence *LifecycleEvidence) ArgumentMethodsRequired(instruction ssa.Instr
 	}
 	return methods
 }
-
-// ArgumentPathsRequiredNonNil lists the access paths beneath the argument
-// at index whose content the call's static callee dereferences on every
-// normal return; the empty path is the argument itself. A callee without a
-// summary requires nothing here, which a consumer must read as unknown.
-func (evidence *LifecycleEvidence) ArgumentPathsRequiredNonNil(instruction ssa.Instruction, index int) []string {
-	fact, ok := factFor(evidence.pass, instruction)
-	if !ok || fact.Heap == nil {
-		return nil
-	}
-	var paths []string
-	for _, requirement := range fact.Heap.Requires {
-		if requirement.Kind == heapmodel.HeapRequiresNonNil && requirement.Slot.Root.Kind == heapmodel.HeapParameter &&
-			requirement.Slot.Root.Index == index {
-			paths = append(paths, requirement.Slot.Path)
-		}
-	}
-	return paths
-}

@@ -164,18 +164,6 @@ func ContainsAt(owner, value ssa.Value, at ssa.Instruction) (bool, bool)
 ContainsAt reports possible containment at one instruction, with known
 false distinguished from a graph that could not answer.
 
-## ContentIsNilAt
-
-[Source](../../../../internal/heapmodel/query.go)
-
-```go
-func ContentIsNilAt(root ssa.Value, path []string, at ssa.Instruction) bool
-```
-
-ContentIsNilAt requires the observed slot to hold nil on every path.
-Nested pointer fields follow only exact pointees; opaque contents are
-unknown, not a proof of nil.
-
 ## ContentValue
 
 [Source](../../../../internal/heapmodel/query.go)

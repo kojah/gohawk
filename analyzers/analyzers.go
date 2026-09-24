@@ -52,7 +52,6 @@ func newCatalog() (*catalog.Catalog, error) {
 	return catalog.NewCatalog([]catalog.GroupSpec{
 		{ID: "concurrency", Doc: "concurrency and synchronization", DocPath: "concurrency-and-synchronization", Analyzers: concurrencySpecs()},
 		{ID: "resources", Doc: "resources and lifecycle", DocPath: "resources-and-lifecycle", Analyzers: resourcesSpecs()},
-		{ID: "correctness", Doc: "general correctness", DocPath: "general-correctness", Analyzers: correctnessSpecs()},
 	}, []catalog.AnalyzerID{
 		"goroutineownership",
 		"producerlifecycle",
@@ -63,7 +62,6 @@ func newCatalog() (*catalog.Catalog, error) {
 		"deferinloop",
 		"concurrentcapture",
 		"cancellationownership",
-		"nilargument",
 	})
 }
 
