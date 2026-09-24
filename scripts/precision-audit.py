@@ -14,6 +14,8 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
+import subprocess
 import sys
 
 sys.dont_write_bytecode = True
@@ -21,6 +23,53 @@ ROOT = Path(__file__).resolve().parent.parent
 SPEC = importlib.util.spec_from_file_location("precision_replay", ROOT / "scripts/precision-regression.py")
 REPLAY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPLAY)
+
+
+def run_scoped(command, **kwargs):
+    """Run replay commands in a group so vettool children die on timeout.
+
+    `go vet` may time out while its analyzer still owns the output pipe. Killing
+    only the `go vet` process leaves that child analyzing indefinitely, so a
+    timed-out module must terminate the entire command group before the replay
+    records it as incomplete.
+    """
+    timeout = kwargs.pop("timeout", None)
+    capture_output = kwargs.pop("capture_output", False)
+    if capture_output:
+        kwargs["stdout"] = subprocess.PIPE
+        kwargs["stderr"] = subprocess.PIPE
+    grouped = os.name == "posix"
+    with subprocess.Popen(command, text=True, start_new_session=grouped, **kwargs) as process:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            if grouped:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+            else:
+                process.terminate()
+            try:
+                process.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass
+            finally:
+                # A child may ignore TERM or close its inherited pipes early.
+                # Kill any surviving member before leaving the process group.
+                if grouped:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                else:
+                    process.kill()
+                process.communicate()
+            raise
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+
+REPLAY.run = run_scoped
 
 
 def read_manifest(path):

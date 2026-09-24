@@ -1,9 +1,13 @@
 import csv
 import importlib.util
 import json
+import os
 from pathlib import Path
+import signal
+import sys
 import tempfile
 import subprocess
+import time
 import unittest
 from unittest.mock import patch
 
@@ -61,6 +65,41 @@ class PrecisionAuditTest(unittest.TestCase):
 
         history = AUDIT.read_history(AUDIT.default_history_paths(self.root))
         self.assertEqual(history, {"cohort/repo", "old/repo", "batch/repo"})
+
+    @unittest.skipUnless(os.name == "posix" and Path("/proc").is_dir(), "requires POSIX process inspection")
+    def test_timed_out_command_terminates_child_analyzer(self):
+        child_pid_file = self.root / "child.pid"
+        command = [
+            sys.executable,
+            "-c",
+            "import pathlib, subprocess, sys; "
+            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']); "
+            "pathlib.Path(sys.argv[1]).write_text(str(child.pid)); child.wait()",
+            str(child_pid_file),
+        ]
+        try:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                AUDIT.run_scoped(command, capture_output=True, timeout=0.5)
+            child_pid = int(child_pid_file.read_text())
+            for _ in range(20):
+                status = Path(f"/proc/{child_pid}/stat")
+                if not status.exists() or status.read_text().split()[2] == "Z":
+                    break
+                time.sleep(0.05)
+            else:
+                self.fail("timed-out command left a running child")
+        finally:
+            if child_pid_file.exists():
+                child_pid = int(child_pid_file.read_text())
+                status = Path(f"/proc/{child_pid}/stat")
+                if status.exists() and status.read_text().split()[2] != "Z":
+                    os.kill(child_pid, signal.SIGKILL)
+
+    def test_scoped_command_preserves_captured_output(self):
+        result = AUDIT.run_scoped([sys.executable, "-c", "print('ok')"], capture_output=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "ok\n")
+        self.assertEqual(result.stderr, "")
 
     def test_report_is_incremental_and_resumable(self):
         entry = ("owner/repo", SHA)
