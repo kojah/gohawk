@@ -15,8 +15,6 @@
   "internal/analyzers/concurrency/lockorder/orders.go": 3,
   "internal/analyzers/concurrency/lockorder/readlock.go": 1,
   "internal/analyzers/concurrency/lockorder/state.go": 6,
-  "internal/analyzers/concurrency/producerlifecycle/analyzer.go": 7,
-  "internal/analyzers/concurrency/producerlifecycle/effects.go": 9,
   "internal/analyzers/correctness/nilargument/analyzer.go": 7,
   "internal/analyzers/resources/deferinloop/analyzer.go": 1,
   "internal/analyzers/resources/deferinloop/flow.go": 5,

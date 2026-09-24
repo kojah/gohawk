@@ -13,7 +13,8 @@ import (
 func TestMigratedReasonEnums(t *testing.T) {
 	t.Parallel()
 	for _, source := range newRepositorySourceInventory(t).productionGoFiles(t,
-		"internal/heapmodel", "internal/passes/resultfacts", "internal/analyzers/resources/cancellationownership") {
+		"internal/heapmodel", "internal/passes/resultfacts", "internal/analyzers/resources/cancellationownership",
+		"internal/analyzers/concurrency/producerlifecycle") {
 		ast.Inspect(source.file, func(node ast.Node) bool {
 			if reasonEnumViolation(node) {
 				t.Errorf("%s:%d: internal reasons require domain-owned numeric enums",

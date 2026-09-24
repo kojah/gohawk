@@ -58,7 +58,7 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 			continue
 		}
 		probe := trace.For(pass, "producerlifecycle", string(check.ProducerLifecycleSend), send.position)
-		probe.Candidate(trace.Step{Reason: "producer-send", Outcome: trace.OutcomeObserved})
+		probe.Candidate(trace.Step{Reason: reasonProducerSend.String(), Outcome: trace.OutcomeObserved})
 		proof := abandonedProducerSend(function, send, sends, engine)
 		outcome := trace.OutcomeUnknown
 		if proof.Proven() {
@@ -68,7 +68,7 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 		} else if proof.Known() {
 			outcome = trace.OutcomeAccepted
 		}
-		probe.Decision(trace.Step{Reason: string(proof.Reason), Outcome: outcome})
+		probe.Decision(trace.Step{Reason: proof.Reason.String(), Outcome: outcome})
 	}
 }
 
@@ -117,12 +117,12 @@ func producerSends(function *ssa.Function, engine *concurrencyfacts.Engine) []pr
 
 func abandonedProducerSend(
 	function *ssa.Function, send producerSend, sends []producerSend, engine *concurrencyfacts.Engine,
-) ssaflow.Proof {
+) producerProof {
 	// No normal caller return puts a continuing or terminated caller outside
 	// this finite consumer-count check (for example log.Fatal(<-results)).
 	// https://github.com/saljam/webwormhole/blob/abf852af0458ba79772d9c26ef01434165f217d8/cmd/ww/server.go#L458-L470
 	if !ssaflow.UnownedReturn(send.spawn, func(ssa.Instruction) bool { return false }, nil) {
-		return ssaflow.Proof{Reason: "receiver-does-not-return"}
+		return producerProof{Reason: reasonReceiverDoesNotReturn}
 	}
 	// A loop does not establish how many sends are feasible: a map may contain
 	// zero or one matching entry, or a state flag may permit only one send.
@@ -135,7 +135,7 @@ func abandonedProducerSend(
 			continue
 		}
 		if candidate.repeated {
-			return ssaflow.Proof{Reason: "producer-count-unknown"}
+			return producerProof{Reason: reasonProducerCountUnknown}
 		}
 		if producerSendMayPrecede(candidate, send) {
 			sendCount++
@@ -143,15 +143,15 @@ func abandonedProducerSend(
 	}
 	receives := channelReceives(function, send.channel, send.spawn, engine)
 	if receives.unknown {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceReason(receives.reason)}
+		return producerProof{Reason: receives.reason}
 	}
 	if receives.count == 0 {
-		return ssaflow.Proof{Reason: "receiver-obligation-unknown"}
+		return producerProof{Reason: reasonReceiverObligationUnknown}
 	}
 	if sendCount > receives.count {
-		return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "producer-exceeds-receives"}
+		return producerProof{State: ssaflow.EvidenceProven, Reason: reasonProducerExceedsReceives}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: "producer-within-receive-count"}
+	return producerProof{State: ssaflow.EvidenceDisproven, Reason: reasonProducerWithinReceiveCount}
 }
 
 func producerSendMayPrecede(first, second producerSend) bool {
@@ -212,7 +212,7 @@ func channelReceives(function *ssa.Function, channel ssa.Value, origin *ssa.Go, 
 			}
 		}
 		if result.count > before && ssaflow.BlockInCycle(block) {
-			return receiveProof{unknown: true, reason: "receiver-may-drain"}
+			return receiveProof{unknown: true, reason: reasonReceiverMayDrain}
 		}
 	}
 	return result

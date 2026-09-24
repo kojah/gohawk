@@ -51,8 +51,8 @@ func summarizedSends(function *ssa.Function, spawn *ssa.Go, engine *concurrencyf
 // that case from an opaque participant. A send/close mutates the channel;
 // receiving is unsupported by that proof and therefore cannot establish this
 // absence claim. Retention, asynchronous use, and unknown uses also decline.
-func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
-	unknown := ssaflow.Proof{Reason: "worker-channel-uses-unknown"}
+func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *ssaflow.SearchBudget) producerProof {
+	unknown := producerProof{Reason: reasonWorkerChannelUsesUnknown}
 	function, closure := ssaflow.DirectCallee(call.Common())
 	if function == nil || len(function.Blocks) == 0 {
 		return unknown
@@ -77,7 +77,7 @@ func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *ssafl
 	if !matched || budget.Exhausted() {
 		return unknown
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "worker-channel-uses-complete"}
+	return producerProof{State: ssaflow.EvidenceProven, Reason: reasonWorkerChannelUsesComplete}
 }
 
 func onlyChannelMutation(proof ssaflow.CallEffectProof) bool {
@@ -103,7 +103,7 @@ func readOnlyChannelCell(query *ssaflow.CallEffects, cell ssa.Value) bool {
 type receiveProof struct {
 	count   int
 	unknown bool
-	reason  string
+	reason  producerReason
 }
 
 func helperReceives(
@@ -111,17 +111,17 @@ func helperReceives(
 	engine *concurrencyfacts.Engine, budget *ssaflow.SearchBudget,
 ) receiveProof {
 	if call == origin {
-		return receiveProof{reason: "producer-launch"}
+		return receiveProof{reason: reasonProducerLaunch}
 	}
 	common := call.Common()
 	if _, builtin := common.Value.(*ssa.Builtin); builtin {
-		return receiveProof{reason: "builtin-not-receive"}
+		return receiveProof{reason: reasonBuiltinNotReceive}
 	}
 	summary := engine.AtCall(call, budget)
 	_, launched := call.(*ssa.Go)
 	if !summary.Complete() {
 		if launched && nonReceivingUses(call, channel, budget).Proven() {
-			return receiveProof{reason: "worker-channel-uses-complete"}
+			return receiveProof{reason: reasonWorkerChannelUsesComplete}
 		}
 		// An opaque callback may receive later, including registered cleanup.
 		// We cannot prove its execution paths from a captured channel alone.
@@ -133,14 +133,14 @@ func helperReceives(
 		if closure, ok := common.Value.(*ssa.MakeClosure); ok {
 			uncertain = uncertain || slices.ContainsFunc(closure.Bindings, consumes)
 		}
-		return receiveProof{unknown: uncertain, reason: "receiver-helper-unknown"}
+		return receiveProof{unknown: uncertain, reason: reasonReceiverHelperUnknown}
 	}
-	proof := receiveProof{reason: "receiver-helper-complete"}
+	proof := receiveProof{reason: reasonReceiverHelperComplete}
 	storage := heapmodel.NewStorage(budget)
 	for _, operation := range summary.Operations {
 		if operation.Kind == concurrencyfacts.Receive && !operation.Resource.Indirect && storage.Same(operation.Resource.Value, channel).Proven() {
 			if launched {
-				return receiveProof{unknown: true, reason: "asynchronous-receiver"}
+				return receiveProof{unknown: true, reason: reasonAsynchronousReceiver}
 			}
 			proof.count++
 		}
