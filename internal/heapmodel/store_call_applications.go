@@ -30,6 +30,8 @@ const (
 	// CallRecursive: the callee can call back into the caller, so its
 	// summary depends on the caller's own and is never applied.
 	CallRecursive
+	// CallDeferredUncertain: registration is conditional or can repeat.
+	CallDeferredUncertain
 	callApplicationReasonCount
 )
 
@@ -53,6 +55,8 @@ func (reason CallApplicationReason) String() string {
 		return "started"
 	case CallRecursive:
 		return "call-cycle"
+	case CallDeferredUncertain:
+		return "defer-registration-uncertain"
 	default:
 		return "invalid-call-application-reason"
 	}

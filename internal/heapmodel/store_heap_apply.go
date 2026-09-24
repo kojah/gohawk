@@ -16,16 +16,12 @@ import (
 // unresolved call would forget it.
 
 // applyHeapSummary applies the callee's summary to the state and reports
-// whether it did; a summary the call's shape cannot be matched to, such as
-// a closure with captured variables, is not applied.
+// whether it did; unresolved dispatch and capture identities are not applied.
 func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction) bool {
-	callee := common.StaticCallee()
-	if common.IsInvoke() {
-		graph.recordCall(appliedSummary{instruction: instruction, reason: CallInterface})
-		return false
-	}
-	if callee == nil {
-		graph.recordCall(appliedSummary{instruction: instruction, reason: CallDynamic})
+	binding, reason := resolveHeapCall(common, instruction)
+	callee := binding.callee
+	if reason != CallSummaryApplied {
+		graph.recordCall(appliedSummary{instruction: instruction, callee: callee, reason: reason})
 		return false
 	}
 	if sameCallCycle(graph.function, callee) {
@@ -38,12 +34,8 @@ func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallC
 		}
 	}
 	summary, ok := heapSummaryOf(callee)
-	switch {
-	case !ok:
+	if !ok {
 		graph.recordCall(appliedSummary{instruction: instruction, callee: callee, reason: CallNoSummary})
-		return false
-	case len(callee.FreeVars) != 0:
-		graph.recordCall(appliedSummary{instruction: instruction, callee: callee, reason: CallClosure})
 		return false
 	}
 	call, isCall := instruction.(*ssa.Call)
@@ -51,7 +43,7 @@ func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallC
 		instruction: instruction, callee: callee, reason: CallSummaryApplied,
 		edges: len(summary.Edges), effects: len(summary.Effects), truncated: len(summary.Truncated),
 	})
-	substitution := &heapSubstitution{graph: graph, state: state, common: common, instruction: instruction, fresh: map[string]*region{}}
+	substitution := &heapSubstitution{graph: graph, state: state, binding: binding, instruction: instruction, fresh: map[string]*region{}}
 	graph.applyEscapes(state, summary, substitution, instruction)
 	for _, at := range summary.Truncated {
 		substitution.truncate(at)
@@ -110,7 +102,7 @@ func (graph *regionGraph) applyEscapes(state *regionState, summary HeapSummary, 
 type heapSubstitution struct {
 	graph       *regionGraph
 	state       *regionState
-	common      *ssa.CallCommon
+	binding     heapCallBinding
 	instruction ssa.Instruction
 	// fresh interns the objects this call created, one per origin.
 	fresh map[string]*region
@@ -122,17 +114,19 @@ type heapSubstitution struct {
 func (substitution *heapSubstitution) slots(at HeapSlot) pointees {
 	var base pointees
 	switch at.Root.Kind {
-	case HeapParameter:
-		if at.Root.Index >= len(substitution.common.Args) {
+	case HeapParameter, HeapFreeVar:
+		values := substitution.binding.args
+		if at.Root.Kind == HeapFreeVar {
+			values = substitution.binding.captures
+		}
+		if at.Root.Index < 0 || at.Root.Index >= len(values) {
 			return pointees{{region: substitution.graph.unkR}: false}
 		}
-		base = substitution.graph.pointees(substitution.common.Args[at.Root.Index])
+		base = substitution.graph.pointees(values[at.Root.Index])
 	case HeapGlobal:
 		base = substitution.globalSlots(at.Root)
 	case HeapResult:
 		base = pointees{{region: substitution.freshObject("result:" + strconv.Itoa(at.Root.Index))}: false}
-	case HeapFreeVar:
-		return pointees{{region: substitution.graph.unkR}: false}
 	}
 	if at.Path == "" {
 		return base
@@ -149,7 +143,7 @@ func (substitution *heapSubstitution) slots(at HeapSlot) pointees {
 // find is a foreign object of its own, distinct from everything the caller
 // knows, as the structural contract requires.
 func (substitution *heapSubstitution) globalSlots(root HeapRoot) pointees {
-	if callee := substitution.common.StaticCallee(); callee != nil && callee.Prog != nil {
+	if callee := substitution.binding.callee; callee != nil && callee.Prog != nil {
 		if pkg := callee.Prog.ImportedPackage(root.Package); pkg != nil {
 			if global, ok := pkg.Members[root.Name].(*ssa.Global); ok {
 				return pointees{{region: substitution.graph.external(global)}: false}

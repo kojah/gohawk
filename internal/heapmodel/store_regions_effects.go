@@ -39,8 +39,16 @@ func (graph *regionGraph) deferCall(state *regionState, deferred *ssa.Defer) {
 // it was handed, as an unresolved call would.
 func (graph *regionGraph) runDefers(state *regionState, run *ssa.RunDefers) {
 	unresolved := false
-	for _, deferred := range state.calls {
+	for _, deferred := range slices.Backward(state.calls) {
 		if _, builtin := deferred.Common().Value.(*ssa.Builtin); builtin {
+			continue
+		}
+		// Joined states include registrations from either predecessor. A
+		// possibly registered or repeated defer cannot establish a must write.
+		// Exact registrations run in reverse order, just like Go's defer stack.
+		if !deferred.Block().Dominates(run.Block()) || ssaflow.BlockInCycle(deferred.Block()) {
+			graph.recordCall(appliedSummary{instruction: deferred, reason: CallDeferredUncertain})
+			unresolved = true
 			continue
 		}
 		if !graph.applyHeapSummary(state, deferred.Common(), deferred) {

@@ -77,7 +77,9 @@ func (storage *Storage) Budget() *ssaflow.SearchBudget {
 // Same proves equality after resolving local loads. Failure means unknown,
 // never inequality: two opaque loads might still contain the same value.
 func (storage *Storage) Same(left, right ssa.Value) ssaflow.IdentityProof {
-	if DefinitelySameValue(left, right) {
+	// Writes-only queries also run while a graph is being replayed under its
+	// lock. Even the preliminary identity check must not reenter that graph.
+	if ssaflow.StructurallyIdentical(left, right) || !storage.writesOnly && DefinitelySame(left, right) {
 		return sameValueIdentity()
 	}
 	a, b := storage.Resolve(left), storage.Resolve(right)
@@ -87,7 +89,7 @@ func (storage *Storage) Same(left, right ssa.Value) ssaflow.IdentityProof {
 	if !b.Proven() {
 		return ssaflow.IdentityProof{Proof: b.Proof}
 	}
-	if DefinitelySameValue(a.Value, b.Value) {
+	if ssaflow.StructurallyIdentical(a.Value, b.Value) || !storage.writesOnly && DefinitelySame(a.Value, b.Value) {
 		return sameValueIdentity()
 	}
 	// The points-to graph sees identity the load-by-load resolution above

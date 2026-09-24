@@ -102,7 +102,7 @@ func (reason CallApplicationReason) String() string
 String converts the internal classification to its stable trace/dump code.
 Unknown and invalid values must never look like successful substitution.
 
-## CallApplicationUnknown, CallSummaryApplied, CallNoSummary, CallClosure, CallInterface, CallDynamic, CallStarted, CallRecursive
+## CallApplicationUnknown, CallSummaryApplied, CallNoSummary, CallClosure, CallInterface, CallDynamic, CallStarted, CallRecursive, CallDeferredUncertain
 
 [Source](../../../../internal/heapmodel/store_call_applications.go)
 
@@ -125,6 +125,8 @@ const (
 	// CallRecursive: the callee can call back into the caller, so its
 	// summary depends on the caller's own and is never applied.
 	CallRecursive
+	// CallDeferredUncertain: registration is conditional or can repeat.
+	CallDeferredUncertain
 )
 ```
 

@@ -9,6 +9,7 @@ func TestCallApplicationReasonCodes(t *testing.T) {
 		CallApplicationUnknown: "unknown", CallSummaryApplied: "summary-applied",
 		CallNoSummary: "no-summary", CallClosure: "closure-callee", CallInterface: "interface-call",
 		CallDynamic: "dynamic-call", CallStarted: "started", CallRecursive: "call-cycle",
+		CallDeferredUncertain: "defer-registration-uncertain",
 	}
 	if len(want) != int(callApplicationReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

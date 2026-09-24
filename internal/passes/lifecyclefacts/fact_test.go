@@ -272,12 +272,11 @@ func ViaInterface(handler func()) { registry.Add(handler) }
 			t.Errorf("%s Stored parameter = %t, want %t", name, got, want && name != "Return")
 		}
 	}
-	// Deferring a literal that captured the parameter, or handing it to an
-	// interface, retains loosely but does not store.
-	// A literal only invoked in place, and a value only stored in a local
-	// aggregate that never escapes, are not retained: the projection sees
-	// that neither leaves the function.
-	for name, want := range map[string][2]bool{"DeferCapture": {true, false}, "ViaInterface": {true, false}, "IntoLocalStruct": {false, false}} {
+	// An unresolved interface retains loosely but does not prove storage.
+	// Exact deferred closures now preserve the invocation-only effect: calling
+	// a captured function does not establish that anyone retains it. The same
+	// holds for a local aggregate that never escapes.
+	for name, want := range map[string][2]bool{"DeferCapture": {false, false}, "ViaInterface": {true, false}, "IntoLocalStruct": {false, false}} {
 		retained, stored := want[0], want[1]
 		fact := summarize(pass, pkg.Func(name))
 		if got := fact.Retained.contains(0); got != retained {

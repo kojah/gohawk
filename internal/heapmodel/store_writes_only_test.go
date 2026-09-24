@@ -16,8 +16,9 @@ func stable() bool { b := &box{flag: true}; return b.flag }
 func escaped() bool { b := &box{flag: true}; opaque(b); return b.flag }
 func nested() bool { b := &box{next: &box{flag: true}}; opaque(b); return b.next.flag }
 func mixed(pick bool) bool { b := &box{flag: true}; if pick { b.flag = false }; return b.flag }
+func pointerMixed(p,q *box,pick bool) *box { b := &box{next:p}; if pick { b.next=q }; return b.next }
 `)
-	for _, name := range []string{"stable", "escaped", "nested", "mixed"} {
+	for _, name := range []string{"stable", "escaped", "nested", "mixed", "pointerMixed"} {
 		function := pkg.Func(name)
 		loads := ssaflow.InstructionsOf[*ssa.UnOp](function)
 		load := loads[len(loads)-1]

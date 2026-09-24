@@ -105,3 +105,58 @@ The local run's JSON, JSONL, stderr, timing files, and frozen binary are under
 `.build/heap-loss-2026-09-24/`. Tracing reads cached graphs only and does not
 build or republish them. A cache miss or in-progress build must remain separate
 from a completed graph with zero recorded losses.
+
+## Exact call binding follow-up
+
+The same pinned scopes were replayed against baseline `5993aa8` and the
+closure/interface binding implementation. Both profiles enabled only
+`resourcelifetime` and `nilargument`, with the same toolchains and package
+selection above. Every scan completed with exit status 0, empty stderr, and
+diagnostic JSON `{}`. These remain evidence measurements, not new bug findings.
+
+| Evidence | Moby baseline → updated | Kubernetes baseline → updated |
+| --- | ---: | ---: |
+| Distinct functions | 428 → 428 | 82 → 82 |
+| Applied summaries | 1,675 → 1,684 | 1,310 → 1,311 |
+| Unsubstituted closures | 31 → 13 | 3 → 2 |
+| Unresolved interface calls | 163 → 157 | 34 → 33 |
+| Missing summaries | 523 → 523 | 62 → 62 |
+| Uncertain defer registrations | 0 → 15 | 0 → 1 |
+| Truncated slots | 543 → 542 | 153 → 153 |
+| Graph budget / fixpoint cutoffs | 0 / 0 → 0 / 0 | 0 / 0 → 0 / 0 |
+
+The closure/interface reductions are **not** all newly applied summaries:
+conditional or repeated defers now have an explicit uncertainty reason instead
+of being treated as unconditional effects. Exact defers run in reverse
+registration order. This correction intentionally declines some old evidence.
+The net application gains above include test-source functions.
+
+Production examples with newly applied closure effects include Moby's
+`MessageQueue.Enqueue`, `LogFile.WriteLogEntry`, and `follow.Do`. Applying a
+summary does not imply that its effects are complete. `pluginAdapter.Log`'s
+conditional cleanup still has an error cell changed after defer registration;
+that capture remains unsupported rather than becoming unconditional cleanup.
+
+Binding requires exact cell contents and read-only use of the captured cell's
+address. Ambiguous writes, deferred changes, exposed cell addresses, nested
+pointer dereferences, unresolved dispatch, and recursion remain conservative.
+Imported declarations bind by signature even without SSA parameters. Generic
+calls retain their concrete instantiation before the registry's origin fallback;
+a first replay caught and corrected a regression in that distinction.
+
+Local verification passed, including all normal tests, architecture checks,
+lint, vet, generated documentation, and self-analysis. A regression also ensures
+that writes-only storage identity cannot reenter the heap graph while its lock
+is held. Race testing is CI-only.
+
+Updated scan wall times were 77.97s (Moby) and 125.64s (Kubernetes); baseline
+times were 63.52s and 157.51s. Cache warming and concurrent verification differ,
+so these single runs establish successful bounded execution, **not a speedup
+or a regression estimate**.
+
+Artifacts are under `.build/heap-binding-2026-09-24/`; final files use the
+`corrected` suffix. Baseline binary SHA-256:
+`e9fd25d8977c14ecd3f68f4ad3dce7c1c7681229dcdb74e63ae712df2b6e037f`.
+Updated binary SHA-256:
+`c0b2e0725b3429b45ecc613198b3f37ece2c8a872fbdeb7e567f0d1cfe68b7c6`.
+Temporary repository clones are removed after the comparison.
