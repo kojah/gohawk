@@ -111,6 +111,28 @@ traversal code. Facts are consumed through `lifecyclefacts.LifecycleEvidence`,
 never by importing raw facts; see [Inferred facts](../../../docs/development/fact-model.md)
 for what a fact can prove and the polarity each mask must keep.
 
+### Extend the lowest appropriate semantic layer
+
+Before implementing analyzer-local reasoning, ask whether it can be composed
+from existing shared building blocks. If a building block is insufficient,
+consider extending its owning layer rather than reproducing the mechanism
+downstream where sibling consumers cannot use it.
+
+Prefer reusable evidence and queries; keep diagnostic policy and check-specific
+precision boundaries beside the analyzer. Do not promote code merely because
+it could theoretically be reused, or use shared infrastructure to bypass the
+failure ladder above.
+
+Place code according to its meaning, not its first caller. A package should
+have a coherent vocabulary and responsibility. If new logic does not fit,
+refactor it into the appropriate existing package, or introduce a focused
+package when there is a genuine semantic boundary. Preserve dependency
+direction: shared infrastructure must not depend on its consumers.
+
+Lower is not automatically better: result guarantees do not all belong in
+`heapmodel` merely because it supplies identity evidence. Reuse evidence
+upstream and expose each guarantee in the layer that owns its semantics.
+
 ## 5. Fixtures
 
 - Both forms for every boundary: the diagnostic case and the accepted case,
