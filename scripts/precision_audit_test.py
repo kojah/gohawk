@@ -132,18 +132,61 @@ class PrecisionAuditTest(unittest.TestCase):
             "repositories": [["owner/repo", SHA], ["other/repo", SHA]],
             "binary_sha256": "binary", "runner_sha256": "new", "replay_sha256": "replay",
             "go_version": "go version", "profile": "-enable-all -gohawk-include-tests -json",
+            "cache_policy": {"kind": "isolated-window", "window_size": 4, "minimum_root_free_gib": 8},
         }
         previous = dict(current, runner_sha256="old")
+        previous["cache_policy"] = {"kind": "shared-default"}
         (self.root / "owner__repo.json").write_text(json.dumps({"repository": "owner/repo", "revision": SHA}))
         with self.assertRaisesRegex(ValueError, "runner changed"):
             AUDIT.resume_metadata(previous, current.copy(), None, self.root)
         upgraded = AUDIT.resume_metadata(previous, current.copy(), "old", self.root)
         self.assertEqual(upgraded["runner_history"], [
-            {"runner_sha256": "old", "completed_repositories": ["owner/repo"]}
+            {"runner_sha256": "old", "cache_policy": {"kind": "shared-default"},
+             "completed_repositories": ["owner/repo"]}
         ])
         self.assertEqual(AUDIT.resume_metadata(upgraded, current.copy(), None, self.root), upgraded)
+        with self.assertRaisesRegex(ValueError, "different cache_policy"):
+            AUDIT.resume_metadata(upgraded, dict(current, cache_policy={"kind": "shared-default"}), None, self.root)
         with self.assertRaisesRegex(ValueError, "different profile"):
             AUDIT.resume_metadata(previous, dict(current, profile="changed"), "old", self.root)
+
+    def test_isolated_cache_drains_windows_and_restores_environment(self):
+        seen = []
+        original_cache = os.environ.get("GOCACHE")
+
+        def scan(entry):
+            cache = Path(os.environ["GOCACHE"])
+            self.assertTrue(cache.is_relative_to(self.root))
+            (cache / f"{entry}.cache").write_text("work")
+            seen.append((entry, cache))
+            return entry
+
+        reports = AUDIT.analyze_with_isolated_cache(list(range(5)), 2, 2, 1, self.root, scan)
+        self.assertEqual(reports, list(range(5)))
+        self.assertEqual(len({cache for _, cache in seen}), 3)
+        self.assertTrue(all(not cache.exists() for _, cache in seen))
+        self.assertEqual(os.environ.get("GOCACHE"), original_cache)
+
+    def test_isolated_cache_cleans_after_failure_or_low_space(self):
+        seen = []
+        original_cache = os.environ.get("GOCACHE")
+
+        def fail(entry):
+            cache = Path(os.environ["GOCACHE"])
+            seen.append(cache)
+            (cache / "work").write_text("work")
+            raise OSError("report failed")
+
+        with self.assertRaisesRegex(OSError, "report failed"):
+            AUDIT.analyze_with_isolated_cache([0], 1, 1, 1, self.root, fail)
+        self.assertTrue(all(not cache.exists() for cache in seen))
+        self.assertEqual(os.environ.get("GOCACHE"), original_cache)
+
+        with patch.object(AUDIT.shutil, "disk_usage", return_value=type("Usage", (), {"free": 0})()):
+            with self.assertRaisesRegex(OSError, "below required"):
+                AUDIT.analyze_with_isolated_cache([0], 1, 1, 1, self.root, lambda entry: entry)
+        self.assertEqual(list(self.root.glob("gohawk-audit-cache-*")), [])
+        self.assertEqual(os.environ.get("GOCACHE"), original_cache)
 
     def test_bounded_scans_stop_scheduling_after_report_failure(self):
         started = []

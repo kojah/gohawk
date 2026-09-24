@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -152,6 +153,8 @@ def resume_metadata(previous, current, accepted_runner, output):
         if previous.get(field) != current[field]:
             raise ValueError(f"saved run has different {field}")
     if previous["runner_sha256"] == current["runner_sha256"]:
+        if previous.get("cache_policy", {"kind": "shared-default"}) != current["cache_policy"]:
+            raise ValueError("saved run has different cache_policy")
         return previous
     if accepted_runner != previous["runner_sha256"]:
         raise ValueError("runner changed; pass the saved SHA via --accept-prior-runner-sha256")
@@ -166,7 +169,11 @@ def resume_metadata(previous, current, accepted_runner, output):
         completed.append(repo)
     current["runner_history"] = [
         *previous.get("runner_history", []),
-        {"runner_sha256": previous["runner_sha256"], "completed_repositories": completed},
+        {
+            "runner_sha256": previous["runner_sha256"],
+            "cache_policy": previous.get("cache_policy", {"kind": "shared-default"}),
+            "completed_repositories": completed,
+        },
     ]
     return current
 
@@ -205,7 +212,7 @@ def positive(value):
     return number
 
 
-def analyze_bounded(selected, jobs, analyze_one):
+def analyze_bounded(selected, jobs, analyze_one, before_submit=None):
     """Submit at most jobs scans, stopping new work on the first failure."""
     reports = [None] * len(selected)
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
@@ -213,12 +220,45 @@ def analyze_bounded(selected, jobs, analyze_one):
         next_index = 0
         while next_index < len(selected) or pending:
             while next_index < len(selected) and len(pending) < jobs:
+                if before_submit is not None:
+                    before_submit()
                 future = pool.submit(analyze_one, selected[next_index])
                 pending[future] = next_index
                 next_index += 1
             done, _ = concurrent.futures.wait(pending, return_when=concurrent.futures.FIRST_COMPLETED)
             for future in done:
                 reports[pending.pop(future)] = future.result()
+    return reports
+
+
+def analyze_with_isolated_cache(selected, jobs, window_size, minimum_free, output, analyze_one):
+    """Rebuild in small, drained windows so only this audit's cache is removed.
+
+    Every window owns a fresh Go build cache under the audit output. No cache is
+    deleted while a scan uses it; the executor finishes both jobs before the
+    TemporaryDirectory exits. A low-space check stops new submissions, and
+    the window cleanup then recovers its exact cache even on scan failure.
+    """
+    previous_cache = os.environ.get("GOCACHE")
+    reports = []
+    try:
+        for start in range(0, len(selected), window_size):
+            with tempfile.TemporaryDirectory(prefix="gohawk-audit-cache-", dir=output) as cache:
+                os.environ["GOCACHE"] = cache
+
+                def require_space():
+                    available = shutil.disk_usage(output).free
+                    if available < minimum_free:
+                        raise OSError(f"audit root free space {available} below required {minimum_free} bytes")
+
+                reports.extend(
+                    analyze_bounded(selected[start:start + window_size], jobs, analyze_one, require_space)
+                )
+    finally:
+        if previous_cache is None:
+            os.environ.pop("GOCACHE", None)
+        else:
+            os.environ["GOCACHE"] = previous_cache
     return reports
 
 
@@ -230,6 +270,8 @@ def main():
     parser.add_argument("--exclude-ledger", type=Path, action="append", default=[])
     parser.add_argument("--limit", type=positive, default=25)
     parser.add_argument("--jobs", type=positive, default=2)
+    parser.add_argument("--isolated-go-cache-window", type=positive)
+    parser.add_argument("--min-root-free-gib", type=positive, default=8)
     parser.add_argument("--accept-prior-runner-sha256")
     args = parser.parse_args()
     binary = args.gohawk.resolve(strict=True)
@@ -248,6 +290,11 @@ def main():
         "replay_sha256": hashlib.sha256((ROOT / "scripts/precision-regression.py").read_bytes()).hexdigest(),
         "go_version": REPLAY.run(["go", "version"], capture_output=True).stdout.strip(),
         "profile": "-enable-all -gohawk-include-tests -json",
+        "cache_policy": (
+            {"kind": "isolated-window", "window_size": args.isolated_go_cache_window,
+             "minimum_root_free_gib": args.min_root_free_gib}
+            if args.isolated_go_cache_window else {"kind": "shared-default"}
+        ),
     }
     run_file = output / "run.json"
     if run_file.exists():
@@ -262,7 +309,16 @@ def main():
     # GOWORK=off, GOTOOLCHAIN=local and -mod=readonly for candidate modules.
     os.environ["GOMAXPROCS"] = "2"
     checkouts = output / "checkouts"
-    reports = analyze_bounded(selected, args.jobs, lambda entry: analyze(entry, binary, checkouts, output))
+    def analyze_one(entry):
+        return analyze(entry, binary, checkouts, output)
+
+    if args.isolated_go_cache_window:
+        reports = analyze_with_isolated_cache(
+            selected, args.jobs, args.isolated_go_cache_window,
+            args.min_root_free_gib * (1024 ** 3), output, analyze_one,
+        )
+    else:
+        reports = analyze_bounded(selected, args.jobs, analyze_one)
     save_report(output / "summary.json", {"reports": reports})
     return int(any(report["scan_status"] != "scanned" for report in reports))
 
