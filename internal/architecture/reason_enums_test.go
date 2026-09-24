@@ -12,7 +12,8 @@ import (
 // remain textual boundaries; internal reason types and stored fields do not.
 func TestMigratedReasonEnums(t *testing.T) {
 	t.Parallel()
-	for _, source := range newRepositorySourceInventory(t).productionGoFiles(t, "internal/heapmodel", "internal/passes/resultfacts") {
+	for _, source := range newRepositorySourceInventory(t).productionGoFiles(t,
+		"internal/heapmodel", "internal/passes/resultfacts", "internal/analyzers/resources/cancellationownership") {
 		ast.Inspect(source.file, func(node ast.Node) bool {
 			if reasonEnumViolation(node) {
 				t.Errorf("%s:%d: internal reasons require domain-owned numeric enums",

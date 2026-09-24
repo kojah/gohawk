@@ -308,6 +308,41 @@ there. Published reports whether the local object escapes later on some
 path, which separates an object being initialized before publication
 from one that never leaves the function.
 
+## GraphBuildReason
+
+[Source](../../../../internal/heapmodel/store_build_reasons.go)
+
+```go
+type GraphBuildReason uint8
+```
+
+GraphBuildReason classifies whether a points-to graph reached its fixpoint.
+The zero value is unavailable, not evidence of a complete empty graph.
+
+## GraphBuildReason.String
+
+[Source](../../../../internal/heapmodel/store_build_reasons.go)
+
+```go
+func (reason GraphBuildReason) String() string
+```
+
+String formats the stable reason code, not the optional explanatory detail.
+
+## GraphBuildUnknown, GraphBuildComplete, GraphBuildNoBody, GraphBuildBudgetExhausted, GraphBuildFixpointLimit
+
+[Source](../../../../internal/heapmodel/store_build_reasons.go)
+
+```go
+const (
+	GraphBuildUnknown	GraphBuildReason	= iota
+	GraphBuildComplete
+	GraphBuildNoBody
+	GraphBuildBudgetExhausted
+	GraphBuildFixpointLimit
+)
+```
+
 ## HeapEdge
 
 [Source](../../../../internal/heapmodel/summary.go)

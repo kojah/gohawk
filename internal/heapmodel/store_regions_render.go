@@ -20,7 +20,7 @@ func RenderRegions(function *ssa.Function) string {
 		// The values the build assigned before it gave up are still the
 		// evidence for why it gave up, so they are printed beneath the
 		// reason.
-		buffer.WriteString("// regions: unavailable (" + graph.unavailable + ")\n")
+		buffer.WriteString("// regions: unavailable (" + graph.buildFailureText() + ")\n")
 	} else {
 		buffer.WriteString("// regions:\n")
 	}

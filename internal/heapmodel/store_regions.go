@@ -195,8 +195,10 @@ type regionGraph struct {
 	// widened records every slot whose pointees were collapsed to unknown
 	// because they outgrew the bound, for the dump.
 	widened []widening
-	// unavailable says why the graph could not be built, for the dump.
-	unavailable string
+	// buildReason classifies a failed build; buildDetail is explanatory text,
+	// never a value used to branch on the failure's meaning.
+	buildReason GraphBuildReason
+	buildDetail string
 }
 
 // pointeeLimit bounds the objects one slot may be recorded as holding.
@@ -295,7 +297,8 @@ func buildRegionGraph(function *ssa.Function) *regionGraph {
 	graph.nilR = graph.intern(regionKey{kind: regionNil})
 	graph.unkR = graph.intern(regionKey{kind: regionUnknown})
 	graph.order = reversePostorder(function)
-	graph.available, graph.unavailable = graph.fixpoint()
+	graph.buildReason, graph.buildDetail = graph.fixpoint()
+	graph.available = graph.buildReason == GraphBuildComplete
 	if !graph.available {
 		graph.entry = nil
 		graph.exit = nil
@@ -353,10 +356,10 @@ func (graph *regionGraph) blockID(block *ssa.BasicBlock) int {
 
 // fixpoint runs the transfer over the blocks in reverse postorder until the
 // entry states settle, and reports whether they did within the bounds.
-func (graph *regionGraph) fixpoint() (bool, string) {
+func (graph *regionGraph) fixpoint() (GraphBuildReason, string) {
 	function := graph.function
 	if len(function.Blocks) == 0 {
-		return false, "no body"
+		return GraphBuildNoBody, ""
 	}
 	graph.entry[function.Blocks[0]] = newRegionState()
 	out := map[*ssa.BasicBlock]*regionState{}
@@ -371,7 +374,7 @@ func (graph *regionGraph) fixpoint() (bool, string) {
 			state := in.clone()
 			for _, instruction := range block.Instrs {
 				if !graph.budget.Spend() {
-					return false, "budget exhausted"
+					return GraphBuildBudgetExhausted, ""
 				}
 				graph.transfer(state, instruction)
 			}
@@ -385,10 +388,10 @@ func (graph *regionGraph) fixpoint() (bool, string) {
 		}
 		if !changed {
 			graph.exit = out
-			return true, ""
+			return GraphBuildComplete, ""
 		}
 	}
-	return false, "fixpoint did not settle in " + strconv.Itoa(regionFixpointRounds) + " rounds; changes: " + strings.Join(unsettled, " | ")
+	return GraphBuildFixpointLimit, "in " + strconv.Itoa(regionFixpointRounds) + " rounds; changes: " + strings.Join(unsettled, " | ")
 }
 
 // entryState merges the predecessors' out states into the block's entry

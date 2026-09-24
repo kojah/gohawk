@@ -25,15 +25,6 @@ const (
 	CancellationLost
 )
 
-type cancellationReason string
-
-const (
-	reasonCancellationUnknown     cancellationReason = "ambiguous-cancellation-use"
-	reasonCancellationReleased    cancellationReason = "exact-cancellation-release"
-	reasonCancellationTransferred cancellationReason = "exact-cancellation-transfer"
-	reasonCancellationLost        cancellationReason = "unowned-return"
-)
-
 // CancellationProof is the authoritative cancellationownership decision.
 type CancellationProof struct {
 	Outcome CancellationOutcome

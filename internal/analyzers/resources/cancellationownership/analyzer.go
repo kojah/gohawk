@@ -85,7 +85,7 @@ func emitCancellationDecision(
 	case CancellationReleased, CancellationTransferred:
 	}
 	analysisTrace.For(pass, "cancellationownership", checkID, call.Pos()).Decision(analysisTrace.Step{
-		Reason:   string(proof.Reason),
+		Reason:   proof.Reason.String(),
 		Outcome:  outcome,
 		Pos:      call.Pos(),
 		Function: function.String(),
