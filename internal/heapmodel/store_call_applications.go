@@ -71,12 +71,7 @@ type CallApplication struct {
 	Effects, Truncated int
 }
 
-// CallApplications lists how the function's points-to graph treated each
-// call it reached, in the order the graph first reached them. A function
-// whose graph is unavailable has no records.
-func CallApplications(function *ssa.Function) []CallApplication {
-	graph := regionsOfFunction(function)
-	defer graph.lock()()
+func (graph *regionGraph) callApplications() []CallApplication {
 	records := make([]CallApplication, 0, len(graph.applied))
 	for _, entry := range graph.applied {
 		_, registered := RegisteredHeapSummary(entry.callee)

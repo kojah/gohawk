@@ -163,6 +163,31 @@ decision that follows them is still the one to read. A budget with no probe
 attached stays silent, and a disabled probe attaches nothing, so give-up
 reporting costs nothing unless a trace is on.
 
+### Heap-loss counters
+
+With `lifecyclefacts` tracing enabled, `function-summarized` details
+include `heap-truncated-count`, `heap-widening-sites`, `heap-escape-origins`,
+`calls-<application-reason>`, and `calls-applied-truncated`. The call counts
+cover every recorded instruction; `calls-unsummarized` remains an eight-call
+sample. Widenings are deduplicated by abstract slot and instruction; escape
+origins by slot and escape kind. Neither is a count of bugs or lost resources.
+
+These details inspect an existing cached graph, never build or refresh one.
+Check `heap-cached` and `heap-building` before interpreting zero counts.
+`heap-build-reason` distinguishes a complete graph from a budget or fixpoint
+cutoff; missing/in-progress graphs have unknown build status. Eviction can
+therefore make a trace unavailable even when a graph was computed earlier.
+Summary truncation is still reported from the published summary independently
+of graph-cache availability. `nilargument`'s candidate-scoped `earlier-calls`
+events carry the same cache/build qualifiers; their counts include only calls
+that can reach that candidate.
+
+For repository comparisons, pin revisions and the analyzer binary, record
+package/check/test scope, and deduplicate events by repository-relative
+candidate, check, phase, and reason. Keep dependency and root-package counts
+separate. Do not sum repeated candidate queries as distinct unsupported sites,
+or classify an unknown candidate as a missed defect.
+
 ## Incremental analysis
 
 `gohawk ./...` already runs the analyzers through `go vet` under the hood, so

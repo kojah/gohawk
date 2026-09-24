@@ -111,7 +111,8 @@ const tracedUnsummarizedLimit = 8
 // counts the rest. It reads the graph's records and decides nothing.
 func traceCallApplications(probe analysisTrace.Probe, function *ssa.Function, call *ssa.Call) {
 	summarized, unsummarized := 0, 0
-	for _, record := range heapmodel.CallApplications(function) {
+	evidence := heapmodel.CachedGraphEvidence(function)
+	for _, record := range evidence.Calls {
 		if !reachesCall(record.Instruction, call) {
 			continue
 		}
@@ -134,7 +135,11 @@ func traceCallApplications(probe analysisTrace.Probe, function *ssa.Function, ca
 	}
 	probe.Evidence(analysisTrace.Step{
 		Reason: "earlier-calls", Outcome: analysisTrace.OutcomeObserved, Pos: call.Pos(),
-		Details: map[string]string{"summarized": strconv.Itoa(summarized), "unsummarized": strconv.Itoa(unsummarized)},
+		Details: map[string]string{
+			"summarized": strconv.Itoa(summarized), "unsummarized": strconv.Itoa(unsummarized),
+			"heap-cached": strconv.FormatBool(evidence.Cached), "heap-building": strconv.FormatBool(evidence.Building),
+			"heap-build-reason": evidence.BuildReason.String(),
+		},
 	})
 }
 

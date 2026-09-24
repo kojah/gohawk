@@ -45,6 +45,9 @@ func TestNilProofTracesUnsummarizedCalls(t *testing.T) {
 	if unsummarized.Details["reason"] != "interface-call" || counts.Details["unsummarized"] != "1" {
 		t.Errorf("unsummarized call %v, counts %v", unsummarized.Details, counts.Details)
 	}
+	if counts.Details["heap-cached"] != "true" || counts.Details["heap-build-reason"] != "graph-build-complete" {
+		t.Errorf("missing graph provenance: %v", counts.Details)
+	}
 	if decision.Outcome != "rejected" || unsummarized.Candidate != decision.Candidate || counts.Candidate != decision.Candidate {
 		t.Errorf("events not bound to the rejected candidate: %+v %+v %+v", unsummarized, counts, decision)
 	}

@@ -4,12 +4,10 @@
 package lifecyclefacts
 
 import (
-	"fmt"
 	"go/types"
 	"maps"
 	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
@@ -88,8 +86,9 @@ func run(pass *analysis.Pass) (any, error) {
 		if fact.Heap != nil {
 			heapmodel.RegisterHeapSummary(function, *fact.Heap)
 		}
-		details := fact.traceDetails()
+		var details map[string]string
 		if probe.Enabled() {
+			details = fact.traceDetails()
 			maps.Copy(details, heapTraceDetails(function, fact.Heap))
 		}
 		probe.Decision(analysisTrace.Step{
@@ -490,42 +489,4 @@ func allResultsNil(returned *ssa.Return) bool {
 		}
 	}
 	return true
-}
-
-// tracedCallLimit bounds the unsummarized calls one summary event lists.
-const tracedCallLimit = 8
-
-// heapTraceDetails describes the projection a summary rests on: how many
-// effects and edges it has, which roots it cut, and which calls inside the
-// function the graph could not substitute a summary at. Two runs that
-// summarize one function differently differ here first.
-func heapTraceDetails(function *ssa.Function, heap *heapmodel.HeapSummary) map[string]string {
-	details := map[string]string{}
-	if heap != nil {
-		details["heap-edges"] = strconv.Itoa(len(heap.Edges))
-		details["heap-effects"] = strconv.Itoa(len(heap.Effects))
-		var cut []string
-		for _, at := range heap.Truncated {
-			cut = append(cut, at.String())
-		}
-		details["heap-truncated"] = strings.Join(cut, ",")
-	}
-	var calls, self []string
-	applied := 0
-	for _, record := range heapmodel.CallApplications(function) {
-		if record.Reason == heapmodel.CallSummaryApplied {
-			applied++
-			if record.Callee == function && len(self) < tracedCallLimit {
-				self = append(self, fmt.Sprintf("%d effects/%d truncated", record.Effects, record.Truncated))
-			}
-			continue
-		}
-		if len(calls) < tracedCallLimit {
-			calls = append(calls, record.Instruction.String()+" ["+record.Reason.String()+"]")
-		}
-	}
-	details["calls-applied"] = strconv.Itoa(applied)
-	details["calls-unsummarized"] = strings.Join(calls, "; ")
-	details["calls-self-applied"] = strings.Join(self, "; ")
-	return details
 }

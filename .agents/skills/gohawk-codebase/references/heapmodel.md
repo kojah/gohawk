@@ -63,6 +63,18 @@ type AliasDecision struct {
 
 AliasDecision records a graph disjointness answer for evidence dumps.
 
+## CachedGraphEvidence
+
+[Source](../../../../internal/heapmodel/store_observation.go)
+
+```go
+func CachedGraphEvidence(function *ssa.Function) GraphEvidence
+```
+
+CachedGraphEvidence reads an existing graph without building, publishing, or
+refreshing one. Tracing must not change inference by warming the graph cache.
+Callers should skip this query entirely when observation is disabled.
+
 ## CallApplication
 
 [Source](../../../../internal/heapmodel/store_call_applications.go)
@@ -129,18 +141,6 @@ const (
 	CallRecursive
 )
 ```
-
-## CallApplications
-
-[Source](../../../../internal/heapmodel/store_call_applications.go)
-
-```go
-func CallApplications(function *ssa.Function) []CallApplication
-```
-
-CallApplications lists how the function's points-to graph treated each
-call it reached, in the order the graph first reached them. A function
-whose graph is unavailable has no records.
 
 ## CapturedBindingMatches
 
@@ -342,6 +342,26 @@ const (
 	GraphBuildFixpointLimit
 )
 ```
+
+## GraphEvidence
+
+[Source](../../../../internal/heapmodel/store_observation.go)
+
+```go
+type GraphEvidence struct {
+	Cached, Building	bool
+	BuildReason		GraphBuildReason
+	Calls			[]CallApplication
+	// Widenings counts distinct (slot, instruction) sites, not fixpoint visits.
+	Widenings	int
+	// Escapes counts distinct (slot, escape kind) records, not leaked resources.
+	Escapes	int
+}
+```
+
+GraphEvidence is an observational snapshot, not proof of a relationship.
+An absent or in-progress cached graph is distinct from a completed graph
+with no losses. Call records describe the last transfer at each instruction.
 
 ## HeapEdge
 
