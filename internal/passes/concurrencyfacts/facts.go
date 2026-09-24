@@ -1,6 +1,6 @@
 package concurrencyfacts
 
-// Facts carry complete ordered effects across the vet package boundary.
+// Facts carry ordered effects and explicit binding requirements across the vet package boundary.
 // Absence, incompatible versions, local allocations, captures, and unknown
 // effects are not empty summaries. No serialized token.Pos or SSA value crosses
 // a package boundary; imported evidence is attributed to the importing call.
@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	factVersion  = 4
+	factVersion  = 5
 	exportBudget = 2000
 )
 
@@ -38,11 +38,15 @@ type WorkerEffect struct {
 	Prefix  int
 }
 
-// Fact records a complete sequence, including a proven empty sequence.
+// Fact records an exhaustive sequence, including an empty sequence. Any
+// CancellationInputs must be discharged before that sequence is usable proof.
 type Fact struct {
 	Version int
 	Effects []Effect
 	Workers []WorkerEffect
+	// CancellationInputs are formal indices whose context/cancel contracts
+	// require binding to exact standard-library origins before consumption.
+	CancellationInputs []int
 }
 
 // AFact marks the versioned concurrency summary for go/analysis serialization.
@@ -94,11 +98,22 @@ func run(pass *analysis.Pass) (any, error) {
 	return engine, nil
 }
 
+// A conditional cancellation summary is publishable, but not yet usable as
+// proof. Publish its input requirements with its effects, including for an
+// empty sequence; otherwise an opaque Done implementation could become pure
+// merely by crossing a package boundary. Local origins cannot be exported.
 func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 	fact := Fact{Version: factVersion}
-	if !result.Complete() || len(result.Workers) > maxWorkers || len(result.deferred) != 0 ||
+	if !composableLinear(result) || len(result.Workers) > maxWorkers || len(result.deferred) != 0 ||
 		result.operationCount() > maxOperations {
 		return fact, false
+	}
+	for _, input := range result.CancellationInputs {
+		effect, ok := exportEffect(function, Operation{Resource: input})
+		if !ok || len(effect.Fields) != 0 || !input.Cancellation {
+			return Fact{Version: factVersion}, false
+		}
+		fact.CancellationInputs = append(fact.CancellationInputs, effect.Parameter)
 	}
 	for _, operation := range result.Operations {
 		effect, ok := exportEffect(function, operation)
@@ -157,10 +172,20 @@ func (engine *Engine) importedCall(call ssa.CallInstruction, function *ssa.Funct
 
 func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summary {
 	unknown := Summary{Reason: "protocol-body-unavailable"}
-	if fact.Version != factVersion || len(fact.Effects) > maxOperations || len(fact.Workers) > maxWorkers {
+	if fact.Version != factVersion || len(fact.Effects)+len(fact.CancellationInputs) > maxOperations || len(fact.Workers) > maxWorkers {
 		return unknown
 	}
 	var result Summary
+	for _, index := range fact.CancellationInputs {
+		if !engine.budget.Spend() || index < 0 || index >= len(call.Common().Args) {
+			return unknown
+		}
+		resource, ok := engine.reference(call.Common().Args[index])
+		if !ok || !resource.Cancellation {
+			return Summary{Reason: "protocol-context-binding-unknown"}
+		}
+		requireCancellation(&result, []Reference{resource})
+	}
 	for _, effect := range fact.Effects {
 		if reason := engine.bindEffect(&result, call, effect); reason != "" {
 			return Summary{Reason: reason}
@@ -183,14 +208,14 @@ func (engine *Engine) bindDeclaration(call ssa.CallInstruction, fact Fact) Summa
 	if result.operationCount() > maxOperations {
 		return Summary{Reason: "protocol-summary-limit"}
 	}
-	return result
+	return finishCancellation(result)
 }
 
 func (engine *Engine) bindEffect(result *Summary, call ssa.CallInstruction, effect Effect) string {
 	if !engine.budget.Spend() {
 		return "protocol-budget-exhausted"
 	}
-	if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > CondWait {
+	if effect.Parameter < 0 || effect.Parameter >= len(call.Common().Args) || effect.Kind > Cancel {
 		return "protocol-body-unavailable"
 	}
 	value := call.Common().Args[effect.Parameter]

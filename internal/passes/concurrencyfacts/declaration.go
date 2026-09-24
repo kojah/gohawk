@@ -36,6 +36,7 @@ func (engine *Engine) Declaration(function *ssa.Function, budget *ssaflow.Search
 		return Fact{}, false
 	}
 	fact.Effects = cloneFactEffects(fact.Effects)
+	fact.CancellationInputs = slices.Clone(fact.CancellationInputs)
 	fact.Workers = slices.Clone(fact.Workers)
 	for index := range fact.Workers {
 		fact.Workers[index].Effects = cloneFactEffects(fact.Workers[index].Effects)

@@ -23,6 +23,9 @@ var (
 )
 
 func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
+	if result, handled := engine.cancellationCall(instruction); handled {
+		return result
+	}
 	common := instruction.Common()
 	var kind Kind
 	var resource ssa.Value
@@ -72,17 +75,18 @@ func waitGroupPointer(value types.Type) bool {
 
 func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) string {
 	called := engine.callSummary(instruction)
-	if !called.Complete() {
+	if !composableLinear(called) {
 		return called.Reason
 	}
 	if len(called.Operations) == 0 {
 		return "protocol-deferred-effects-unknown"
 	}
 	for _, op := range called.Operations {
-		if op.Kind != Close && op.Kind != GroupDone && op.Kind != Unlock {
+		if op.Kind != Close && op.Kind != GroupDone && op.Kind != Unlock && op.Kind != Cancel {
 			return "protocol-deferred-effects-unknown"
 		}
 	}
+	result.CancellationInputs = append(result.CancellationInputs, called.CancellationInputs...)
 	// Arguments are bound now. Only their execution moves to RunDefers;
 	// captured cells still require stable storage through the invocation.
 	// RunDefers reverses this stack, so push the helper backwards to retain

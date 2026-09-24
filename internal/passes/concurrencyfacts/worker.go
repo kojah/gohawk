@@ -22,7 +22,8 @@ func (engine *Engine) appendGo(result *Summary, instruction *ssa.Go) string {
 		return "protocol-participants-unknown"
 	}
 	called := engine.instantiate(instruction)
-	if !called.Complete() {
+	result.CancellationInputs = append(result.CancellationInputs, called.CancellationInputs...)
+	if !composableLinear(called) {
 		if called.Reason != "protocol-select-alternatives" || len(called.Choices) != 1 || !completeChoice(called.Choices[0]) {
 			return called.Reason
 		}
@@ -47,8 +48,9 @@ func (engine *Engine) appendGo(result *Summary, instruction *ssa.Go) string {
 
 func (engine *Engine) appendCall(result *Summary, instruction *ssa.Call) string {
 	called := engine.callSummary(instruction)
+	result.CancellationInputs = append(result.CancellationInputs, called.CancellationInputs...)
 	if len(called.Workers) != 0 {
-		if !called.Complete() || len(result.Workers)+len(called.Workers) > maxWorkers {
+		if !composableLinear(called) || len(result.Workers)+len(called.Workers) > maxWorkers {
 			return "protocol-participants-unknown"
 		}
 		for _, worker := range called.Workers {
@@ -65,6 +67,9 @@ func (engine *Engine) appendCall(result *Summary, instruction *ssa.Call) string 
 		result.Choices = append(result.Choices, choice)
 	}
 	result.Operations = append(result.Operations, called.Operations...)
+	if called.Reason == cancellationBindingRequired {
+		return ""
+	}
 	return called.Reason
 }
 

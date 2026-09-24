@@ -117,6 +117,7 @@ func (engine *Engine) collectSelectFunction(function *ssa.Function) (Summary, bo
 		}
 		choice.Arms[index].Sequence = state.Operations
 		choice.Arms[index].Complete = true
+		requireCancellation(&prefix, state.CancellationInputs)
 	}
 	prefix.Reason = "protocol-select-alternatives"
 	prefix.AlternativesComplete = true

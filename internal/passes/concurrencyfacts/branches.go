@@ -107,11 +107,13 @@ func sameEffects(first, second Summary) bool {
 			})
 	}
 	return slices.EqualFunc(first.Operations, second.Operations, sameOperation) &&
+		slices.Equal(first.CancellationInputs, second.CancellationInputs) &&
 		slices.EqualFunc(first.Workers, second.Workers, sameWorker) &&
 		slices.EqualFunc(first.deferred, second.deferred, sameOperation)
 }
 
 func cloneEffects(summary Summary) Summary {
+	summary.CancellationInputs = slices.Clone(summary.CancellationInputs)
 	summary.Operations = slices.Clone(summary.Operations)
 	summary.Workers = slices.Clone(summary.Workers)
 	for index := range summary.Workers {

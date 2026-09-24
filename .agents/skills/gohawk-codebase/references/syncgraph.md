@@ -8,6 +8,24 @@ Package syncgraph turns complete compositional synchronization effects into
 bounded event-order fragments. Edges express order, not a deadlock verdict;
 consumers must prove every blocking dependency they add.
 
+## CancellationSignal
+
+[Source](../../../../internal/syncgraph/cancellation.go)
+
+```go
+type CancellationSignal struct {
+	Request		EventID
+	Receives	[]EventID
+}
+```
+
+CancellationSignal connects a cancellation request to receives from its
+exact Done signal in this graph variant. Receives may execute before the
+request (for example due to other cancellation), and a select may choose
+another arm. This is neither a happens-before edge nor a completion proof.
+In particular, CancelFunc does not wait for work to stop:
+https://pkg.go.dev/context#CancelFunc
+
 ## EdgeKind
 
 [Source](../../../../internal/syncgraph/graph.go)
@@ -226,6 +244,9 @@ type SyncGraph struct {
 	Children	[]SyncChild
 	Choices		[]SyncChoice
 	Edges		[]SyncEdge
+	// Cancellations associate requests with observations of the same Done
+	// signal. They are enabling relationships, not prerequisite/order edges.
+	Cancellations	[]CancellationSignal
 	Reason		string
 }
 ```

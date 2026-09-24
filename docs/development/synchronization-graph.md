@@ -13,11 +13,48 @@ that needs a separate feasibility argument before it can support a diagnostic.
 ## Current foundation
 
 `concurrencyfacts` already composes complete, bounded ordered effects for
-channels, `sync.Mutex`, and `sync.WaitGroup`. `summaries.Provider` selects that
+channels, `sync.Mutex`, `sync.WaitGroup`, and bounded context cancellation. `summaries.Provider` selects that
 component and binds a helper's symbolic parameters to exact caller objects.
 Complete empty effects are distinct from an unavailable summary. Imported facts
 carry parameter-relative effects, never process-local SSA values or source
 positions.
+
+## Cancellation signals
+
+An exact `context.WithCancel` or `WithCancelCause` call with a proven
+`Background`/`TODO` parent identifies a fresh cancellation signal. The returned
+context, its cancel function, and receives from its `Done()` channel share that
+identity. Ordinary channels remain distinct from cancellation signals. Stable
+closure captures and helper arguments use the existing storage and binding
+machinery; mutation or opaque identity leaves the model unknown.
+
+`Cancel` is a request event, **not** `Close` and **not** a worker join.
+`SyncGraph.Cancellations` relates each request to receives from the exact signal
+in that graph variant. These relationships are separate from ordering edges:
+they do not establish which cancellation enabled a receive, whether a select
+chooses it, or whether the worker completes. The
+[context contract](https://pkg.go.dev/context#Context) permits asynchronous
+Done closure, and [CancelFunc](https://pkg.go.dev/context#CancelFunc) does not
+wait for work to stop. No cancellation relationship enters cycle detection.
+
+Helper summaries carry `CancellationInputs` as explicit binding requirements,
+including when a helper merely calls `Done()` and discards the result. A custom
+`Context` method or an arbitrary function converted to `CancelFunc` can hide
+other effects. Consequently a symbolic requirement is not a complete summary
+for analyzer consumption. It may compose and publish parameter-relative facts,
+but only an exact binding discharges it. Both linear graph construction and
+select expansion enforce this boundary. Cross-package forwarding preserves
+these requirements, ordered requests, receives, and child launches.
+
+The first implementation deliberately leaves parent cancellation propagation,
+deadlines/timeouts, `WithoutCancel`, `WithValue`, `AfterFunc`, factory-returned
+contexts, nested selects, and looped workers unknown. In particular, it does
+not infer a missing cancel or a worker leak from absence of a modeled request.
+Those need their own obligation proofs. Cancellation arms remain alternatives;
+this change does not introduce a new diagnostic or expand deadlock feasibility
+proofs.
+
+## Selects and child goroutines
 
 One acyclic worker `select` can yield a bounded set of complete continuations.
 `syncgraph.Expand` builds a separate linear graph for each outcome, up to eight

@@ -32,12 +32,18 @@ const (
 	Lock
 	Unlock
 	CondWait
+	// Cancel requests cancellation; it neither joins a worker nor proves that
+	// Done has closed before the call returns.
+	Cancel
 )
 
 // Reference names an exact resource or a symbolic captured cell.
 type Reference struct {
 	Value    ssa.Value
 	Indirect bool
+	// Cancellation names a context's Done signal, not an ordinary channel.
+	// Value is a constructor call once bound, or a symbolic context/cancel input.
+	Cancellation bool
 }
 
 // Operation retains execution order and source/call-site provenance.
@@ -83,6 +89,10 @@ type Summary struct {
 	deferred   []Operation
 	Workers    []WorkerSummary
 	Choices    []SelectChoice
+	// CancellationInputs are requirements on context and cancel-function
+	// inputs. Until bound to known constructors, their calls may have opaque
+	// effects. They survive composition even when Done's result is unused.
+	CancellationInputs []Reference
 	// AlternativesComplete is true only after every select continuation and
 	// the enclosing function body have been accounted for. Reason remains
 	// nonempty so linear consumers cannot mistake alternatives for one path.
@@ -120,7 +130,7 @@ const (
 // the same fields the builder writes, so it cannot disagree with Reason.
 func (summary Summary) Completeness() Completeness {
 	switch {
-	case summary.Reason != "":
+	case summary.Reason != "" || !summary.CancellationBound():
 		return Incomplete
 	case len(summary.Operations) == 0 && len(summary.Workers) == 0:
 		return CompleteNoEffects
@@ -196,6 +206,10 @@ func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBud
 }
 
 func (engine *Engine) collect(function *ssa.Function, root bool) Summary {
+	return finishCancellation(engine.collectEffects(function, root))
+}
+
+func (engine *Engine) collectEffects(function *ssa.Function, root bool) Summary {
 	if function == nil || len(function.Blocks) == 0 {
 		return Summary{Reason: "protocol-body-unavailable"}
 	}
@@ -254,6 +268,9 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 	case *ssa.Select:
 		return engine.appendSelect(result, instruction)
 	case *ssa.Call:
+		if isCancelConstructor(instruction.Common()) && !root {
+			return "protocol-local-context-unknown"
+		}
 		return engine.appendCall(result, instruction)
 	case *ssa.Defer:
 		return engine.deferCompletion(result, instruction)
@@ -264,6 +281,11 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 		result.deferred = nil
 	case *ssa.Go:
 		return engine.appendGo(result, instruction)
+	case *ssa.Extract:
+		if call, ok := instruction.Tuple.(*ssa.Call); ok && isCancelConstructor(call.Common()) {
+			return ""
+		}
+		return passiveInstruction(instruction, root)
 	default:
 		return passiveInstruction(instruction, root)
 	}
@@ -281,7 +303,7 @@ func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) string 
 }
 
 func (summary Summary) operationCount() int {
-	count := len(summary.Operations) + len(summary.deferred)
+	count := len(summary.Operations) + len(summary.deferred) + len(summary.CancellationInputs)
 	for _, worker := range summary.Workers {
 		count += len(worker.Operations)
 		for _, alternative := range worker.Alternatives {

@@ -13,6 +13,9 @@ const maxAlternativeGraphs = 8
 // alone never establishes an unavoidable deadlock. Unknown parent choices,
 // unproven arms, and excessive products yield no usable graphs.
 func Expand(summary concurrencyfacts.Summary) ([]SyncGraph, string) {
+	if !summary.CancellationBound() {
+		return nil, "protocol-context-binding-required"
+	}
 	if summary.Complete() {
 		graph := FromSummary(summary)
 		return []SyncGraph{graph}, graph.Reason

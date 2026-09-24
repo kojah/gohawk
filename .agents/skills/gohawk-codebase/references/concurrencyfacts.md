@@ -135,10 +135,14 @@ type Fact struct {
 	Version	int
 	Effects	[]Effect
 	Workers	[]WorkerEffect
+	// CancellationInputs are formal indices whose context/cancel contracts
+	// require binding to exact standard-library origins before consumption.
+	CancellationInputs	[]int
 }
 ```
 
-Fact records a complete sequence, including a proven empty sequence.
+Fact records an exhaustive sequence, including an empty sequence. Any
+CancellationInputs must be discharged before that sequence is usable proof.
 
 ## Fact.AFact
 
@@ -241,6 +245,9 @@ Operation retains execution order and source/call-site provenance.
 type Reference struct {
 	Value		ssa.Value
 	Indirect	bool
+	// Cancellation names a context's Done signal, not an ordinary channel.
+	// Value is a constructor call once bound, or a symbolic context/cancel input.
+	Cancellation	bool
 }
 ```
 
@@ -284,7 +291,7 @@ SelectChoice records mutually exclusive arms at their position in the
 enclosing sequence. It is evidence about the alternatives, not permission
 to use the prefix as a complete protocol proof.
 
-## Send, Receive, Close, GroupAdd, GroupDone, GroupWait, Lock, Unlock, CondWait
+## Send, Receive, Close, GroupAdd, GroupDone, GroupWait, Lock, Unlock, CondWait, Cancel
 
 [Source](../../../../internal/passes/concurrencyfacts/summary.go)
 
@@ -299,6 +306,9 @@ const (
 	Lock
 	Unlock
 	CondWait
+	// Cancel requests cancellation; it neither joins a worker nor proves that
+	// Done has closed before the call returns.
+	Cancel
 )
 ```
 
@@ -312,6 +322,10 @@ type Summary struct {
 
 	Workers	[]WorkerSummary
 	Choices	[]SelectChoice
+	// CancellationInputs are requirements on context and cancel-function
+	// inputs. Until bound to known constructors, their calls may have opaque
+	// effects. They survive composition even when Done's result is unused.
+	CancellationInputs	[]Reference
 	// AlternativesComplete is true only after every select continuation and
 	// the enclosing function body have been accounted for. Reason remains
 	// nonempty so linear consumers cannot mistake alternatives for one path.
@@ -327,6 +341,18 @@ an empty operation list is evidence only when the summary is complete.
 Reason explains an incomplete summary and is stable trace vocabulary.
 Returned slices are immutable. Workers are symbolic child templates until a
 root binds them to call sites; they are never synchronous effects.
+
+## Summary.CancellationBound
+
+[Source](../../../../internal/passes/concurrencyfacts/cancellation.go)
+
+```go
+func (summary Summary) CancellationBound() bool
+```
+
+CancellationBound reports whether every conditional cancellation contract
+has an exact standard-library origin. Expansion must check this separately
+because select summaries are intentionally not linearly complete.
 
 ## Summary.Complete
 

@@ -92,7 +92,10 @@ type SyncGraph struct {
 	Children []SyncChild
 	Choices  []SyncChoice
 	Edges    []SyncEdge
-	Reason   string
+	// Cancellations associate requests with observations of the same Done
+	// signal. They are enabling relationships, not prerequisite/order edges.
+	Cancellations []CancellationSignal
+	Reason        string
 }
 
 // FromSummary constructs an event fragment without interpreting missing
@@ -100,6 +103,9 @@ type SyncGraph struct {
 func FromSummary(summary concurrencyfacts.Summary) SyncGraph {
 	if !summary.Complete() {
 		graph := SyncGraph{Reason: summary.Reason}
+		if graph.Reason == "" {
+			graph.Reason = "protocol-context-binding-required"
+		}
 		if summary.Reason == "protocol-select-alternatives" {
 			for _, choice := range summary.Choices {
 				mapped := SyncChoice{Prefix: choice.Prefix, Site: choice.Site, Worker: choice.Worker}
@@ -142,6 +148,7 @@ func FromSummary(summary concurrencyfacts.Summary) SyncGraph {
 	// prevents an append on one graph value from mutating another's backing
 	// array even when both start from the same event fragment.
 	graph.Edges = slices.Clip(graph.Edges)
+	graph.connectCancellation()
 	return graph
 }
 
