@@ -1,5 +1,13 @@
 # Precision audits
 
+The [September 24 frozen 1,000-repository audit](overnight-2026-09-24-1000.md)
+is complete across batches [56](batch-56.md), [57](batch-57.md),
+[58](batch-58.md), and [59](batch-59.md): 769 complete, 230 incomplete,
+and one failed repository scan. All 1,883 emitted findings have pinned-source
+verdicts (1,369 TP, 511 FP, three inconclusive). Incomplete and failed
+scans are not clean; the overview separates the unchanged baseline from
+follow-up analyzer work and records current priorities.
+
 New overnight audit: [batch 58](batch-58.md) records the third 250 of the
 September 24 target of 1,000 fresh pinned repositories. All 467 original
 findings have source verdicts (317 TP, 150 FP); 174 scans completed and 76
