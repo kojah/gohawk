@@ -563,6 +563,19 @@ type CountedLoopReason uint8
 CountedLoopReason distinguishes an exact control-flow count from unsupported
 shape, a caller-selected expansion limit, and exhausted analysis work.
 
+## DeclaredFunctions
+
+[Source](../../../../internal/ssaflow/call_metadata.go)
+
+```go
+func DeclaredFunctions(pkg *ssa.Package) []*ssa.Function
+```
+
+DeclaredFunctions lists a package's declared functions and methods and
+their closures, as buildssa's SrcFuncs does, for callers that have a
+package but no analysis pass. It cannot tell test files apart; an analyzer
+with a pass uses PackageFunctions.
+
 ## DefinitelyNil
 
 [Source](../../../../internal/ssaflow/value_matching.go)

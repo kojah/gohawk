@@ -126,3 +126,54 @@ func pairedLock(summary Summary) bool {
 		summary.Operations[0].Kind == Lock && summary.Operations[1].Kind == Unlock &&
 		summary.Operations[0].Resource == summary.Operations[1].Resource
 }
+
+// A mutex reached through a write-once pointer field is one object at every
+// load, in the function, its goroutines, and its callers. A field the package
+// reassigns, and a map element, stay unnamed.
+func TestWriteOnceFieldsNameMutexes(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "writeonce", `package writeonce
+import "sync"
+type conn struct{ mu sync.Mutex }
+func (c *conn) unlock() { c.mu.Unlock() }
+type server struct{ conn *conn }
+func newServer() *server { return &server{conn: &conn{}} }
+func Serve(s *server) { s.conn.mu.Lock(); s.conn.mu.Unlock() }
+func Parent(s *server) {
+	s.conn.mu.Lock()
+	done := make(chan int)
+	go func() { s.conn.mu.Lock(); s.conn.mu.Unlock(); close(done) }()
+	<-done
+	s.conn.mu.Unlock()
+}
+func unlockConn(s *server) { s.conn.mu.Unlock() }
+func Helper(s *server) { s.conn.mu.Lock(); unlockConn(s) }
+func Argument(s *server) { s.conn.mu.Lock(); s.conn.unlock() }
+type loose struct{ conn *conn }
+func swap(l *loose) { l.conn = &conn{} }
+func Loose(l *loose) { l.conn.mu.Lock(); l.conn.mu.Unlock() }
+func Mapped(m map[string]*conn) { m["k"].mu.Lock(); m["k"].mu.Unlock() }
+func Rebinds(s, o *server) { s.conn.mu.Lock(); go func() { s = o }(); s.conn.mu.Unlock() }
+`)
+	engine := NewEngine()
+	budget := func() *ssaflow.SearchBudget { return ssaflow.NewSearchBudget(4000) }
+	for _, name := range []string{"Serve", "Helper", "Argument"} {
+		if got := engine.Root(pkg.Func(name), budget()); !pairedLock(got) {
+			t.Errorf("%s = %+v, want a lock and unlock of one mutex", name, got)
+		}
+	}
+	parent := engine.Root(pkg.Func("Parent"), budget())
+	if !parent.Complete() || len(parent.Workers) != 1 || len(parent.Workers[0].Operations) == 0 ||
+		parent.Workers[0].Operations[0].Resource != parent.Operations[0].Resource {
+		t.Errorf("Parent = %+v, want the child to lock the parent's mutex", parent)
+	}
+	// A goroutine that reassigns the captured parameter makes later reads
+	// name some other object.
+	if got := engine.Root(pkg.Func("Rebinds"), budget()); pairedLock(got) {
+		t.Errorf("Rebinds = %+v, want the reads after the launch unnamed", got)
+	}
+	for _, name := range []string{"Loose", "Mapped"} {
+		if got := engine.Root(pkg.Func(name), budget()); got.Complete() {
+			t.Errorf("%s = %+v, want incomplete", name, got)
+		}
+	}
+}

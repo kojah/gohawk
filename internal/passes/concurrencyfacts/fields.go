@@ -22,21 +22,40 @@ import (
 // itself while the heap model proves the cell still holds it, which a write by
 // the closure or a later reassignment breaks.
 func embeddedPath(value ssa.Value) (ssaflow.EmbeddedFieldPath, bool) {
+	return pathFrom(value, nil)
+}
+
+// pathFrom is embeddedPath with an optional rule that accepts a load as a
+// root and returns the load that stands for it; see identity.go.
+func pathFrom(value ssa.Value, loaded func(*ssa.UnOp) (*ssa.UnOp, bool)) (ssaflow.EmbeddedFieldPath, bool) {
 	mutex := MutexPointer(value.Type())
 	path, ok := ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value, func(root ssa.Value) bool {
-		switch root.(type) {
+		switch root := root.(type) {
 		case *ssa.Alloc, *ssa.Parameter, *ssa.FreeVar:
 			return true
 		case *ssa.Global:
 			return mutex
+		case *ssa.UnOp:
+			if _, spilled := spilledParameter(root); spilled {
+				return true
+			}
+			if loaded != nil {
+				_, fixed := loaded(root)
+				return fixed
+			}
 		}
-		_, spilled := spilledParameter(root)
-		return spilled
+		return false
 	})
-	if parameter, spilled := spilledParameter(path.Root); ok && spilled {
-		path.Root = parameter
+	if !ok {
+		return path, false
 	}
-	return path, ok
+	if parameter, spilled := spilledParameter(path.Root); spilled {
+		path.Root = parameter
+	} else if load, isLoad := path.Root.(*ssa.UnOp); isLoad && loaded != nil {
+		canonical, _ := loaded(load)
+		path.Root = canonical
+	}
+	return path, true
 }
 
 // spilledParameter returns the parameter a load reads back from its spill cell.
@@ -49,6 +68,9 @@ func spilledParameter(value ssa.Value) (*ssa.Parameter, bool) {
 	if !ok || cell.Referrers() == nil {
 		return nil, false
 	}
+	if parameter, ok := onlyStoredParameter(cell); ok {
+		return parameter, true
+	}
 	for _, use := range *cell.Referrers() {
 		store, ok := use.(*ssa.Store)
 		if !ok || store.Addr != cell {
@@ -59,6 +81,67 @@ func spilledParameter(value ssa.Value) (*ssa.Parameter, bool) {
 		}
 	}
 	return nil, false
+}
+
+// onlyStoredParameter returns the parameter when the spill is the cell's only
+// write anywhere: the function and every closure that captures the cell only
+// read it. Then every read yields the parameter, even in a goroutine and
+// whatever the timing, which the heap model's per-point proof cannot show
+// once the cell reaches an asynchronous participant.
+func onlyStoredParameter(cell *ssa.Alloc) (*ssa.Parameter, bool) {
+	var parameter *ssa.Parameter
+	for _, use := range *cell.Referrers() {
+		switch use := use.(type) {
+		case *ssa.Store:
+			stored, ok := use.Val.(*ssa.Parameter)
+			if !ok || use.Addr != cell || parameter != nil {
+				return nil, false
+			}
+			parameter = stored
+		case *ssa.UnOp:
+			if use.Op != token.MUL {
+				return nil, false
+			}
+		case *ssa.MakeClosure:
+			if !capturesReadOnly(use, cell) {
+				return nil, false
+			}
+		case *ssa.DebugRef:
+		default:
+			return nil, false
+		}
+	}
+	return parameter, parameter != nil
+}
+
+// capturesReadOnly reports whether every capture of cell by closure, and by
+// closures nested in it, only reads the cell.
+func capturesReadOnly(closure *ssa.MakeClosure, cell ssa.Value) bool {
+	function, ok := closure.Fn.(*ssa.Function)
+	if !ok {
+		return false
+	}
+	for index, binding := range closure.Bindings {
+		if binding != cell || index >= len(function.FreeVars) {
+			continue
+		}
+		for _, use := range *function.FreeVars[index].Referrers() {
+			switch use := use.(type) {
+			case *ssa.UnOp:
+				if use.Op != token.MUL {
+					return false
+				}
+			case *ssa.MakeClosure:
+				if !capturesReadOnly(use, function.FreeVars[index]) {
+					return false
+				}
+			case *ssa.DebugRef:
+			default:
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (engine *Engine) fieldAddress(function *ssa.Function, path ssaflow.EmbeddedFieldPath) (ssa.Value, bool) {
@@ -74,7 +157,7 @@ func (engine *Engine) fieldAddress(function *ssa.Function, path ssaflow.Embedded
 			if !ok {
 				continue
 			}
-			if candidate, ok := embeddedPath(field); ok && candidate == path {
+			if candidate, ok := engine.identityPath(field); ok && candidate == path {
 				return field, true
 			}
 		}
@@ -83,7 +166,7 @@ func (engine *Engine) fieldAddress(function *ssa.Function, path ssaflow.Embedded
 }
 
 func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBinding, instruction ssa.Instruction) (Reference, bool) {
-	path, ok := embeddedPath(reference.Value)
+	path, ok := engine.identityPath(reference.Value)
 	if reference.Projection.Depth > 0 {
 		path, ok = reference.Projection, true
 	}
@@ -91,14 +174,12 @@ func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBind
 	if !ok || path.Depth == 0 || !channelContent && (reference.Indirect || !MutexPointer(reference.Value.Type())) {
 		return Reference{}, false
 	}
-	if _, global := path.Root.(*ssa.Global); global {
-		// The caller names the same mutex. Use its own address when it has one,
-		// so its operations and the callee's compare equal.
-		if value, found := engine.fieldAddress(instruction.Parent(), path); found {
-			return Reference{Value: value}, true
-		}
-		return Reference{Value: reference.Value}, !engine.budget.Exhausted()
+	if !channelContent {
+		return engine.bindMutexPath(reference, path, bindings, instruction)
 	}
+	// A channel read from a field is the slot's content, not an address, so
+	// it binds only when the caller's slot is proven stable through the call;
+	// a write-once root is not enough for content another call could store.
 	for _, binding := range bindings {
 		if binding.Local != path.Root {
 			continue
@@ -128,6 +209,32 @@ func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBind
 		return Reference{Value: reference.Value, Projection: root, Indirect: reference.Indirect}, true
 	}
 	return Reference{}, false
+}
+
+// bindMutexPath maps a mutex path's root into the caller and selects the same
+// fields there. A package mutex needs no binding: when the caller has no
+// address of its own for it, the callee's address still names it.
+func (engine *Engine) bindMutexPath(
+	reference Reference, path ssaflow.EmbeddedFieldPath, bindings []ssaflow.CallBinding, instruction ssa.Instruction,
+) (Reference, bool) {
+	root, valid := engine.bindRoot(path.Root, bindings, instruction)
+	if !valid {
+		return Reference{}, false
+	}
+	root, valid = root.Append(path.Fields[:path.Depth]...)
+	if !valid {
+		return Reference{}, false
+	}
+	if value, found := engine.fieldAddress(instruction.Parent(), root); found {
+		return Reference{Value: value}, true
+	}
+	if engine.budget.Exhausted() {
+		return Reference{}, false
+	}
+	if _, global := path.Root.(*ssa.Global); global {
+		return Reference{Value: reference.Value}, true
+	}
+	return Reference{Value: reference.Value, Projection: root, Indirect: reference.Indirect}, true
 }
 
 func (engine *Engine) importedField(call ssa.CallInstruction, value ssa.Value, fields []int) (ssa.Value, bool) {

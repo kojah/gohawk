@@ -197,6 +197,8 @@ func Containers(o *owner, key string) int {
 func StoreInMap(ch chan int) { m := make(map[string]chan int); m["k"] = ch }
 func ReadFromMap(m map[string]chan int) { <-m["k"] }
 func PeerMutex(o *owner) { o.peer.mu.Lock(); o.peer.mu.Unlock() }
+// A reassigned pointer field is not write-once, so its mutex stays unnamed.
+func SetPeer(o, peer *owner) { o.peer = peer }
 func StoreChannel(o *owner, ch chan int) { o.done = ch }
 func Channel(o *owner) { <-o.done }
 func Pointer(o *owner) { o.ptr.Lock(); o.ptr.Unlock() }

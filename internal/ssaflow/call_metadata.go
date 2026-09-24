@@ -2,6 +2,7 @@ package ssaflow
 
 import (
 	"errors"
+	"go/types"
 
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -41,6 +42,38 @@ func PackageFunctions(pass *analysis.Pass) []*ssa.Function {
 			continue
 		}
 		functions = append(functions, function)
+	}
+	return functions
+}
+
+// DeclaredFunctions lists a package's declared functions and methods and
+// their closures, as buildssa's SrcFuncs does, for callers that have a
+// package but no analysis pass. It cannot tell test files apart; an analyzer
+// with a pass uses PackageFunctions.
+func DeclaredFunctions(pkg *ssa.Package) []*ssa.Function {
+	var functions []*ssa.Function
+	var add func(*ssa.Function)
+	add = func(function *ssa.Function) {
+		if function == nil {
+			return
+		}
+		functions = append(functions, function)
+		for _, closure := range function.AnonFuncs {
+			add(closure)
+		}
+	}
+	scope := pkg.Pkg.Scope()
+	for _, name := range scope.Names() {
+		switch object := scope.Lookup(name).(type) {
+		case *types.Func:
+			add(pkg.Prog.FuncValue(object))
+		case *types.TypeName:
+			if named, ok := object.Type().(*types.Named); ok && !object.IsAlias() {
+				for method := range named.Methods() {
+					add(pkg.Prog.FuncValue(method))
+				}
+			}
+		}
 	}
 	return functions
 }

@@ -102,14 +102,31 @@ func (o *heldOwner) receiverCallback() {
 	o.mu.Unlock()
 }
 
-// A mutex on an object read from the receiver may be replaced concurrently.
+// A mutex on an object read from the receiver may be replaced concurrently:
+// replace can swap next between the parent's lock and the worker's.
 type heldChain struct{ next *heldOwner }
+
+func (c *heldChain) replace(next *heldOwner) { c.next = next }
 
 func (c *heldChain) loadedOwnerMutex() {
 	done := make(chan struct{})
 	c.next.mu.Lock()
 	go c.next.lockThenClose(done)
 	<-done
+	c.next.mu.Unlock()
+}
+
+// A field set only while the chain is built is write-once, so every read of
+// c.next, in the parent and in the worker, is the same owner and mutex.
+type fixedChain struct{ next *heldOwner }
+
+func newFixedChain() *fixedChain { return &fixedChain{next: &heldOwner{}} }
+
+func (c *fixedChain) fixedOwnerMutex() {
+	done := make(chan struct{})
+	c.next.mu.Lock()
+	go c.next.lockThenClose(done)
+	<-done // want "waits for a worker that needs the held lock"
 	c.next.mu.Unlock()
 }
 

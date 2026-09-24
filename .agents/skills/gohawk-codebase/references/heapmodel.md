@@ -813,6 +813,17 @@ func NewStorage(budget *ssaflow.SearchBudget) *Storage
 
 NewStorage creates a bounded storage query using the caller's search budget.
 
+## NewWriteOnceFields
+
+[Source](../../../../internal/heapmodel/store_write_once.go)
+
+```go
+func NewWriteOnceFields(pkg *types.Package, functions []*ssa.Function) *WriteOnceFields
+```
+
+NewWriteOnceFields indexes every field address and whole-value write in
+functions, which must be all of the package's production code.
+
 ## ProjectHeap
 
 [Source](../../../../internal/heapmodel/store_heap_summary.go)
@@ -1182,3 +1193,25 @@ field address selects from the parameter directly. A cell with a store into
 one of its fields is not crossed: the field a later load returns may be the
 replacement rather than a component of the stored aggregate, and the
 analyzer must keep such a replaced resource reportable.
+
+## WriteOnceFields
+
+[Source](../../../../internal/heapmodel/store_write_once.go)
+
+```go
+type WriteOnceFields struct {
+	// contains filtered or unexported fields
+}
+```
+
+WriteOnceFields answers write-once queries for one package's fields.
+
+## WriteOnceFields.Fixed
+
+[Source](../../../../internal/heapmodel/store_write_once.go)
+
+```go
+func (fields *WriteOnceFields) Fixed(field *types.Var) bool
+```
+
+Fixed reports whether field is write-once. A nil receiver knows no fields.

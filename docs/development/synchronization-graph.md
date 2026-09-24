@@ -76,6 +76,19 @@ binds unchanged; a pointer or channel read from a package variable is content
 that can change, and stays unknown. A global mutex has no parameter position,
 so a summary that uses one is not published as a fact.
 
+A mutex reached through a pointer field, as in `s.conn.mu`, is named by its
+path when `heapmodel` proves every field on the path write-once: unexported
+and declared in the package, set at least once and only while a fresh object
+is built, before anything else can see it, never overwritten by a whole-struct
+store, `copy`, or `append`, and held by a struct that another package cannot
+copy (unexported, or holding a `sync` primitive by value). Every read of such
+a field is the same object in every function and goroutine, so the function's
+first read stands for all of them, and binding maps it through the caller's
+own read of the same path. A captured variable that its closures only read,
+including a parameter spilled for a closure, is likewise one value
+throughout. A field the package reassigns, a map element, or an exported
+field stays unnamed, and summaries that use such a path are not published.
+
 A loop that synchronizes nothing and provably ends adds no effect, however
 many times it runs, so both acyclic collectors treat it as one node whose
 successors are its exits, a `break` or `return` inside it included.

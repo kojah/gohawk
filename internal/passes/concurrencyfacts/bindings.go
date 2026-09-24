@@ -198,7 +198,7 @@ func (engine *Engine) resolvedReference(value ssa.Value) (Reference, bool) {
 		// Mutex addresses identify cells, not mutable contents. Such values
 		// can bind formal mutex parameters but cannot be exported as formals.
 		if MutexPointer(value.Type()) {
-			if path, ok := embeddedPath(value); ok && path.Depth > 0 {
+			if path, ok := engine.identityPath(value); ok && path.Depth > 0 {
 				value, found := engine.fieldAddress(value.Parent(), path)
 				return Reference{Value: value}, found
 			}

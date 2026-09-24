@@ -218,11 +218,13 @@ type Engine struct {
 	budget    *ssaflow.SearchBudget
 	storage   *heapmodel.Storage
 	facts     map[*types.Func]Fact
+	// fields is shared by every query of the engine; see identity.go.
+	fields *fieldInventory
 }
 
 // NewEngine builds a local-only engine; Analyzer additionally loads dependency facts.
 func NewEngine() *Engine {
-	engine := &Engine{}
+	engine := &Engine{fields: &fieldInventory{canonical: map[*ssa.UnOp]*ssa.UnOp{}}}
 	engine.summaries = engine.newSummaries(true)
 	engine.linear = engine.newSummaries(false)
 	return engine
@@ -255,7 +257,10 @@ func unavailableSummary(reason ssaflow.SummaryUnavailable) Summary {
 }
 
 func (engine *Engine) query(budget *ssaflow.SearchBudget) *Engine {
-	return &Engine{summaries: engine.summaries, facts: engine.facts, budget: budget, storage: heapmodel.NewStorage(budget), paths: true}
+	return &Engine{
+		summaries: engine.summaries, facts: engine.facts, budget: budget, storage: heapmodel.NewStorage(budget), paths: true,
+		fields: engine.fields,
+	}
 }
 
 // Function summarizes a visible body, including bounded child templates.
@@ -414,6 +419,14 @@ func (engine *Engine) instructionEffects(result *Summary, instruction ssa.Instru
 	case *ssa.Extract:
 		if call, ok := instruction.Tuple.(*ssa.Call); ok && isCancelConstructor(call.Common()) {
 			return ReasonNone
+		}
+		return passiveInstruction(instruction, root)
+	case *ssa.FieldAddr:
+		// A mutex reached through a write-once field is named by its path.
+		if MutexPointer(instruction.Type()) && !synchronizationPointer(instruction.X.Type()) {
+			if _, exact := engine.identityPath(instruction); exact {
+				return ReasonNone
+			}
 		}
 		return passiveInstruction(instruction, root)
 	default:

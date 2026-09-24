@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"github.com/kojah/gohawk/internal/factcodec"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"github.com/kojah/gohawk/internal/trace"
@@ -75,6 +76,7 @@ func run(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	engine := NewEngine()
+	engine.fields.use(heapmodel.NewWriteOnceFields(pass.Pkg, ssaflow.PackageFunctions(pass)))
 	engine.facts = make(map[*types.Func]Fact)
 	for _, imported := range pass.AllObjectFacts() {
 		object, ok := imported.Object.(*types.Func)
