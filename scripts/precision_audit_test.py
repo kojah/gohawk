@@ -241,6 +241,69 @@ class PrecisionAuditTest(unittest.TestCase):
             self.assertEqual(AUDIT.analyze(entry, Path("binary"), self.root, self.root), report)
             scan.assert_called_once()
 
+    def sealed_checkout(self):
+        output = self.root / "audit"
+        checkout = output / "checkouts/owner__repo"
+        checkout.mkdir(parents=True)
+        subprocess.run(["git", "-C", str(checkout), "init", "--quiet"], check=True)
+        (checkout / "main.go").write_text("package main\n")
+        subprocess.run(["git", "-C", str(checkout), "add", "main.go"], check=True)
+        subprocess.run(["git", "-C", str(checkout), "-c", "user.name=Audit Test",
+                        "-c", "user.email=audit@example.invalid", "commit", "--quiet", "-m", "pin"], check=True)
+        revision = subprocess.run(["git", "-C", str(checkout), "rev-parse", "HEAD"],
+                                  capture_output=True, text=True, check=True).stdout.strip()
+        finding = {"analyzer": "lockorder", "position": "main.go:3:1", "checks": ["lockorder/example"]}
+        report = {"repository": "owner/repo", "revision": revision, "scan_status": "scanned",
+                  "findings": [finding]}
+        (output / "run.json").write_text(json.dumps({"repositories": [["owner/repo", revision]]}))
+        (output / "summary.json").write_text(json.dumps({"reports": [report]}))
+        (output / "owner__repo.json").write_text(json.dumps(report))
+        selection = self.root / "batch.tsv"
+        selection.write_text(f"# batch\trepository\trevision\tmodules\tstatus\n59\towner/repo\t{revision}\t.\tscanned;reviewed\n")
+        findings = self.root / "findings.tsv"
+        findings.write_text("# repository\trevision\tanalyzer\tposition\tchecks\tverdict\treason\n"
+                            f"owner/repo\t{revision}\tlockorder\tmain.go:3:1\tlockorder/example\t"
+                            "true-positive\tsource inspected\n")
+        return output, checkout, selection, findings
+
+    def test_cleanup_requires_complete_seal_before_removing_exact_checkout(self):
+        output, checkout, selection, findings = self.sealed_checkout()
+        extra = output / "checkouts/unlisted__repo"
+        extra.mkdir()
+        findings.write_text("# no reviewed findings\n")
+        with self.assertRaisesRegex(ValueError, "does not cover"):
+            AUDIT.cleanup_reviewed_checkouts(output, selection, findings, require_committed=False)
+        self.assertTrue(checkout.exists())
+        findings.write_text("# repository\trevision\tanalyzer\tposition\tchecks\tverdict\treason\n"
+                            f"owner/repo\t{json.loads((output / 'run.json').read_text())['repositories'][0][1]}\t"
+                            "lockorder\tmain.go:3:1\tlockorder/example\ttrue-positive\tsource inspected\n")
+        removed, skipped = AUDIT.cleanup_reviewed_checkouts(output, selection, findings, require_committed=False)
+        self.assertEqual((removed, skipped), (["owner/repo"], []))
+        self.assertFalse(checkout.exists())
+        self.assertTrue(extra.exists())
+        self.assertTrue((output / "summary.json").exists())
+
+    def test_cleanup_skips_dirty_or_mismatched_pin(self):
+        output, checkout, selection, findings = self.sealed_checkout()
+        (checkout / "new.txt").write_text("user data")
+        removed, skipped = AUDIT.cleanup_reviewed_checkouts(output, selection, findings, require_committed=False)
+        self.assertEqual(removed, [])
+        self.assertEqual(skipped[0][0], "owner/repo")
+        self.assertTrue(checkout.exists())
+        (checkout / "new.txt").unlink()
+        selection.write_text(selection.read_text().replace(";reviewed", ";unreviewed"))
+        with self.assertRaisesRegex(ValueError, "unreviewed"):
+            AUDIT.cleanup_reviewed_checkouts(output, selection, findings, require_committed=False)
+        self.assertTrue(checkout.exists())
+
+    def test_cleanup_skips_live_checkout(self):
+        output, checkout, selection, findings = self.sealed_checkout()
+        with patch.object(AUDIT, "checkout_in_use", return_value=True):
+            removed, skipped = AUDIT.cleanup_reviewed_checkouts(output, selection, findings, require_committed=False)
+        self.assertEqual(removed, [])
+        self.assertEqual(skipped, [("owner/repo", "checkout is in use")])
+        self.assertTrue(checkout.exists())
+
     def test_checkout_failure_is_not_a_clean_scan(self):
         with patch.object(AUDIT.REPLAY, "checkout_repository", side_effect=SystemExit("fetch failed")):
             report = AUDIT.analyze(("owner/repo", SHA), Path("binary"), self.root, self.root)

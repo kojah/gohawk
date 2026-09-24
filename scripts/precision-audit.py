@@ -8,6 +8,7 @@ reports. It never executes repository tests or generation commands.
 
 import argparse
 import concurrent.futures
+import csv
 import hashlib
 import importlib.util
 import json
@@ -277,11 +278,127 @@ def analyze_with_isolated_cache(selected, jobs, window_size, minimum_free, outpu
     return reports
 
 
+def committed_ledger(path):
+    """A seal must be the committed audit record, not an unreviewed draft."""
+    path = path.resolve(strict=True)
+    relative = path.relative_to(ROOT)
+    recorded = subprocess.run(
+        ["git", "show", f"HEAD:{relative.as_posix()}"], cwd=ROOT, capture_output=True, check=True,
+    ).stdout
+    if recorded != path.read_bytes():
+        raise ValueError(f"{path}: ledger differs from the committed audit record")
+
+
+def checkout_in_use(checkout):
+    """Do not remove a tree referenced by a live local process."""
+    if os.name != "posix" or not Path("/proc").is_dir():
+        return True
+    checkout = checkout.resolve()
+    for process in Path("/proc").iterdir():
+        if not process.name.isdigit():
+            continue
+        references = [process / "cwd"]
+        try:
+            references.extend((process / "fd").iterdir())
+        except (OSError, PermissionError):
+            continue
+        for reference in references:
+            try:
+                target = Path(os.readlink(reference))
+                if target == checkout or checkout in target.parents:
+                    return True
+            except (OSError, PermissionError):
+                continue
+    return False
+
+
+def cleanup_reviewed_checkouts(output, selection, findings, require_committed=True, dry_run=False):
+    """Remove exact pinned trees only after every report and finding is sealed.
+
+    The original reports and committed ledgers remain available for a later
+    replay. A failed validation removes nothing; a dirty or unpinned checkout
+    is skipped rather than treating its contents as disposable audit data.
+    """
+    if require_committed:
+        committed_ledger(selection)
+        committed_ledger(findings)
+    run = json.loads((output / "run.json").read_text())
+    summary = json.loads((output / "summary.json").read_text())["reports"]
+    repositories = [tuple(item) for item in run["repositories"]]
+    if len(repositories) != len(set(repositories)) or len(summary) != len(repositories):
+        raise ValueError("run and summary repository counts differ")
+    if any(not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or
+           not re.fullmatch(r"[0-9a-f]{40}", revision) for repo, revision in repositories):
+        raise ValueError("saved run contains an unsafe repository or revision")
+    with selection.open(newline="") as source:
+        selected = list(csv.DictReader((line for line in source if not line.startswith("#")), delimiter="\t",
+                                       fieldnames=["batch", "repository", "revision", "modules", "status"]))
+    if [(row["repository"], row["revision"]) for row in selected] != repositories:
+        raise ValueError("sealed selection differs from saved run")
+    if any(not row["status"].endswith(";reviewed") for row in selected):
+        raise ValueError("sealed selection contains an unreviewed repository")
+    with findings.open(newline="") as source:
+        reviewed = list(csv.DictReader((line for line in source if not line.startswith("#")), delimiter="\t",
+                                       fieldnames=["repository", "revision", "analyzer", "position", "checks",
+                                                   "verdict", "reason"]))
+    reviewed_keys = [(row["repository"], row["revision"], row["analyzer"], row["position"], row["checks"])
+                     for row in reviewed]
+    if len(reviewed_keys) != len(set(reviewed_keys)) or any(
+        row["verdict"] not in ("true-positive", "false-positive", "inconclusive") or not row["reason"].strip()
+        for row in reviewed
+    ):
+        raise ValueError("sealed finding ledger has duplicate or unreviewed findings")
+    report_keys = []
+    for (repo, revision), recorded_report in zip(repositories, summary):
+        report = json.loads((output / (repo.replace("/", "__") + ".json")).read_text())
+        if report != recorded_report or (report["repository"], report["revision"]) != (repo, revision):
+            raise ValueError(f"{repo}: report differs from saved summary or pin")
+        for finding in report.get("findings", []):
+            report_keys.append((repo, revision, finding["analyzer"], finding["position"],
+                                ",".join(finding["checks"])))
+    if set(report_keys) != set(reviewed_keys) or len(report_keys) != len(reviewed_keys):
+        raise ValueError("sealed finding ledger does not cover every report finding exactly")
+
+    checkouts = output / "checkouts"
+    if checkouts.is_symlink() or not checkouts.is_dir():
+        raise ValueError("checkout root is missing or a symlink")
+    removed, skipped = [], []
+    for repo, revision in repositories:
+        checkout = checkouts / repo.replace("/", "__")
+        if not checkout.exists():
+            continue
+        if checkout.is_symlink() or not checkout.is_dir() or checkout.parent.resolve() != checkouts.resolve():
+            skipped.append((repo, "unsafe checkout path"))
+            continue
+        head = subprocess.run(["git", "-C", str(checkout), "rev-parse", "HEAD"], capture_output=True, text=True)
+        git_root = subprocess.run(["git", "-C", str(checkout), "rev-parse", "--show-toplevel"],
+                                  capture_output=True, text=True)
+        dirty = subprocess.run(["git", "-C", str(checkout), "status", "--porcelain", "--ignored",
+                                "--untracked-files=all"],
+                               capture_output=True, text=True)
+        if (head.returncode or head.stdout.strip() != revision or git_root.returncode or
+                Path(git_root.stdout.strip()).resolve() != checkout.resolve() or
+                dirty.returncode or dirty.stdout.strip()):
+            skipped.append((repo, "checkout pin or cleanliness differs"))
+            continue
+        if checkout_in_use(checkout):
+            skipped.append((repo, "checkout is in use"))
+            continue
+        if not dry_run:
+            shutil.rmtree(checkout)
+        removed.append(repo)
+    return removed, skipped
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--gohawk", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--gohawk", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cleanup-reviewed-checkouts", action="store_true")
+    parser.add_argument("--cleanup-dry-run", action="store_true")
+    parser.add_argument("--sealed-selection", type=Path)
+    parser.add_argument("--sealed-findings", type=Path)
     parser.add_argument("--exclude-ledger", type=Path, action="append", default=[])
     parser.add_argument("--limit", type=positive, default=25)
     parser.add_argument("--jobs", type=positive, default=2)
@@ -290,6 +407,23 @@ def main():
     parser.add_argument("--accept-prior-runner-sha256")
     parser.add_argument("--accept-prior-cache-policy-sha256")
     args = parser.parse_args()
+    if args.cleanup_reviewed_checkouts:
+        if not args.sealed_selection or not args.sealed_findings:
+            parser.error("checkout cleanup requires --sealed-selection and --sealed-findings")
+        try:
+            removed, skipped = cleanup_reviewed_checkouts(
+                args.output.resolve(strict=True), args.sealed_selection, args.sealed_findings,
+                dry_run=args.cleanup_dry_run,
+            )
+        except (OSError, ValueError, subprocess.CalledProcessError) as error:
+            parser.error(str(error))
+        verb = "Eligible" if args.cleanup_dry_run else "Removed"
+        print(f"{verb} {len(removed)} reviewed pinned checkouts; skipped {len(skipped)}")
+        for repo, reason in skipped:
+            print(f"Skipped {repo}: {reason}")
+        return int(bool(skipped))
+    if not args.manifest or not args.gohawk:
+        parser.error("scanning requires --manifest and --gohawk")
     binary = args.gohawk.resolve(strict=True)
     output = args.output.resolve()
     manifest = read_manifest(args.manifest)

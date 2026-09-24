@@ -8,6 +8,23 @@ verdicts (1,369 TP, 511 FP, three inconclusive). Incomplete and failed
 scans are not clean; the overview separates the unchanged baseline from
 follow-up analyzer work and records current priorities.
 
+After a batch record is committed and every emitted finding has a source
+verdict, the audit runner can remove only its pinned, clean checkouts while
+retaining reports and ledgers. Preview first, then omit `--cleanup-dry-run`:
+
+```sh
+python3 -B scripts/precision-audit.py --cleanup-reviewed-checkouts --cleanup-dry-run \
+  --output .build/audit-overnight-2026-09-24-batch59 \
+  --sealed-selection benchmarks/precision/audits/batch-59.tsv \
+  --sealed-findings benchmarks/precision/audits/batch-59-findings.tsv
+```
+
+Cleanup validates the committed ledgers against the run, summary, each report,
+and exact finding keys before removing anything. It skips dirty, unpinned,
+symlinked, or in-use trees; skipped trees require manual review and are never
+silently discarded. Pinned repositories can be checked out again from the
+retained selection ledger.
+
 New overnight audit: [batch 58](batch-58.md) records the third 250 of the
 September 24 target of 1,000 fresh pinned repositories. All 467 original
 findings have source verdicts (317 TP, 150 FP); 174 scans completed and 76
