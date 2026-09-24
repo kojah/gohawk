@@ -443,3 +443,20 @@ unavailable or opaque call bodies (77), loops and unsupported branches (51),
 mutexes on objects read from storage (47 field addresses), and stores that
 publish references into caller storage (22). These are the modeling limits
 described for the held caller-owned mutex rerun, not further inert data.
+
+### Easy-tier rerun
+
+Commits `bfe706c` through `04036b9` let helper summaries return inert values,
+model inert builtins, assertions, and phis, and drop branches that end in
+panic. Folded branches now keep every branch's operation source. The same pins
+and checks were rerun; traces are in `.build/sync-easytier-2026-09-24`.
+
+Neither repository produced a diagnostic. Seven distinct candidates now reach
+a cycle decision (up from one), and each is correctly rejected because the
+parent never waits between its lock and unlock. Examples are clockwork's
+`newBlocker` and `x/crypto/ssh`'s `forwardList.add`, which create and return a
+channel under the lock. The remaining lock-and-join first blockers are loops
+and unsupported branches (58), unavailable or opaque calls (57), mutexes on
+objects read from storage (53 field addresses), and stores that publish
+references (24). Moving past them needs callback and interface inputs bound at
+call sites, loop contracts, and stable-content evidence for caller storage.
