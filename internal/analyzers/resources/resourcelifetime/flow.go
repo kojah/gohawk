@@ -8,6 +8,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -24,11 +25,7 @@ type resourceFlowState struct {
 	block       *ssa.BasicBlock
 	predecessor *ssa.BasicBlock
 	index       int
-	active      bool
-	released    bool
-	// unknown records that something the analysis cannot see through
-	// consumed the resource on this path; a return after that proves nothing.
-	unknown bool
+	obligation  resourcemodel.Obligation
 	// guards are the branch outcomes this path has established. An edge
 	// that contradicts one is unknown, never pruned: a guard read from a
 	// cell could have changed through a pointer the analysis does not see,
@@ -45,9 +42,7 @@ type resourceFlowKey struct {
 	block       int
 	predecessor int
 	index       int
-	active      bool
-	released    bool
-	unknown     bool
+	obligation  resourcemodel.Obligation
 	guards      string
 }
 
@@ -97,14 +92,14 @@ func evaluateResourceFlow(
 	// revisited only when a different path reaches it with a different
 	// obligation state; the predecessor lets the successful branch of the
 	// acquisition be told apart from its error branch.
-	initial := []resourceFlowState{{block: call.Block(), index: index + 1, active: true, guards: ssaflow.GuardsDominating(call)}}
+	initial := []resourceFlowState{{block: call.Block(), index: index + 1, obligation: resourcemodel.Acquired(), guards: ssaflow.GuardsDominating(call)}}
 	opaque, leaks := false, false
 	ssaflow.WalkStates(initial, resourceStateKey, func(state resourceFlowState) ([]resourceFlowState, bool) {
 		state, leaks = advanceResourceState(analysis, state)
 		if leaks {
 			return nil, false
 		}
-		opaque = opaque || state.unknown
+		opaque = opaque || state.obligation.Unknown()
 		return resourceSuccessorStates(analysis, state, errorValue), true
 	})
 	if leaks {
@@ -136,9 +131,7 @@ func resourceStateKey(state resourceFlowState) resourceFlowKey {
 		block:       state.block.Index,
 		predecessor: predecessor,
 		index:       state.index,
-		active:      state.active,
-		released:    state.released,
-		unknown:     state.unknown,
+		obligation:  state.obligation,
 		guards:      state.guards.Key(),
 	}
 }
@@ -153,15 +146,15 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 		}
 		switch analysis.action(instruction) {
 		case actionSettled:
-			state.released = true
+			state.obligation = state.obligation.Discharged()
 		case actionUnknown:
-			state.unknown = true
+			state.obligation = state.obligation.Uncertain()
 		case actionNone:
 		}
 		// A call that never returns, whether os.Exit or a project's own fatal
 		// wrapper the summaries prove, ends this path with nothing to release.
 		if ssaflow.InstructionTerminatesWith(instruction, analysis.summaries.Terminates()) {
-			state.active = false
+			state.obligation = state.obligation.Absent()
 			break
 		}
 		returned, ok := instruction.(*ssa.Return)
@@ -170,11 +163,13 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 				Reason: "resource-return-path", Outcome: analysisTrace.OutcomeObserved,
 				Pos: returned.Pos(), Function: returned.Parent().String(),
 				Details: map[string]string{
-					"active": strconv.FormatBool(state.active), "released": strconv.FormatBool(state.released), "unknown": strconv.FormatBool(state.unknown),
+					"active":   strconv.FormatBool(state.obligation.Active()),
+					"released": strconv.FormatBool(state.obligation.Settled()),
+					"unknown":  strconv.FormatBool(state.obligation.Unknown()),
 				},
 			})
 		}
-		if ok && state.active && !state.released && !state.unknown &&
+		if ok && state.obligation.Unsettled() &&
 			!analysis.returnedResourceOwner(returned) &&
 			!ssainfer.ReturnedMayAliasAny(returned, analysis.owners) {
 			return state, true
@@ -192,29 +187,36 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 	}
 	result := make([]resourceFlowState, 0, len(successors))
 	for _, successor := range successors {
-		active := state.active
+		obligation := state.obligation
 		if success, known := resourceSuccessBranch(pass, analysis.summaries, state.block, successor, errorValue, candidate); known {
-			active = active && success
+			if !success {
+				obligation = obligation.Absent()
+			}
 		}
 		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
-			active = active && present
+			if !present {
+				obligation = obligation.Absent()
+			}
 		}
 		guards, contradiction := state.guards.Extend(state.block, successor, nil)
 		contradicted := contradiction != ssaflow.GuardConsistent
 		if contradicted {
 			analysis.traceRepeatedGuard(state.block, successor)
 		}
-		unknown := state.unknown || sqlRowsExhaustionEdge(state.block, successor, resource) || contradicted
+		if sqlRowsExhaustionEdge(state.block, successor, resource) || contradicted {
+			obligation = obligation.Uncertain()
+		}
 		// A conditional helper settles only the edge selected by its result.
 		// Optional-acquisition phis retain their own stricter cleanup policy.
-		released := state.released
-		if !released && !optionalAcquisition.Proven() {
-			released = analysis.evidence.CompletionOnEdge(state.block, successor, ssainfer.CompletionRequest{
+		if !obligation.Settled() && !optionalAcquisition.Proven() {
+			if analysis.evidence.CompletionOnEdge(state.block, successor, ssainfer.CompletionRequest{
 				Target: resource, Methods: analysis.contract.cleanup, Budget: analysis.budget(1000),
-			}).Proven()
+			}).Proven() {
+				obligation = obligation.Discharged()
+			}
 		}
 		result = append(result, resourceFlowState{
-			block: successor, predecessor: state.block, active: active, released: released, unknown: unknown, guards: guards,
+			block: successor, predecessor: state.block, obligation: obligation, guards: guards,
 		})
 	}
 	return result

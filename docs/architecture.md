@@ -110,6 +110,12 @@ itself does not change.
   heap-summary projection and registration, and application at call sites.
   Its queries supplement `ssainfer.Storage` without making unknown contents
   or truncated summaries into negative proofs.
+- `internal/resourcemodel` proves exact owner-to-resource relationships over
+  the existing heap/storage model and tracks a comparable per-path resource
+  obligation. External API contracts can establish state transitions through
+  those relationships; the consuming analyzer still decides whether to report.
+  Lifecycle summaries can carry conditional transitions through helpers and
+  across package boundaries.
 - Every interprocedural question spends a `ssaflow.SearchBudget`, named
   `QueryBudget` or `SummaryBudget` unless a proof has a reason of its own, and
   a lifecycle analyzer draws each question's budget from one pool per

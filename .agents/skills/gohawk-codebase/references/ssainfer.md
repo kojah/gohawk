@@ -240,6 +240,10 @@ type CompletionRequest struct {
 	// Summarized supplies exact completion guarantees for unavailable bodies.
 	// Its policy is fixed for this request and all nested summary queries.
 	Summarized	CompletionSummaryLookup
+	// CallContract supplies exact positive effects of a call even when its
+	// body is visible. This lets external API semantics compose through a
+	// local forwarding wrapper without treating missing effects as absence.
+	CallContract	CompletionSummaryLookup
 	// ReturnedSummaries supplies exact callback-to-parameter/result relations
 	// for factories whose bodies are unavailable.
 	ReturnedSummaries	ReturnedCleanupLookup

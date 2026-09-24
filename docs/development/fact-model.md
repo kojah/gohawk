@@ -590,6 +590,16 @@ invocation. Forwarding wrappers can compose imported records. The ordinary
 `Closed`, `SynchronouslyInvoked`, and other unconditional masks never inherit a
 conditional guarantee. Missing records are unknown, not absence of effects.
 
+An exact external resource-state contract can seed the same relation. For
+example, `database/sql.Rows.NextResultSet` closes its receiver before returning
+false. `resourcemodel` verifies that the receiver is the exact target; the
+conditional lifecycle summary can then carry this false-result release through
+a forwarding wrapper. The local resource model can also bind a visible
+straight-line owner's field to an exact caller value using the existing
+storage/heap identity proof. It does not publish an owner-field conditional
+relation across packages yet. A true result, a different receiver, and
+`Rows.Next` do not inherit the false-result guarantee.
+
 Export examines at most four result slots with one shared 2,000-step budget per
 function. Independently proved records may survive exhaustion; an interrupted
 proof never becomes a guarantee. `LifecycleEvidence.CompletionOnEdge` binds

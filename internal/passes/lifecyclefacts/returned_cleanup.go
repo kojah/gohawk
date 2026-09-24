@@ -48,7 +48,7 @@ func summarizeReturnedCleanup(pass *analysis.Pass, function *ssa.Function) *Retu
 				request := ssainfer.CompletionRequest{
 					Budget: budget, InvokeTarget: method == "",
 					ReturnedSummaries: returnedCleanupLookup(func(callee *ssa.Function) (Fact, bool) { return factForFunction(pass, callee) }),
-					Summarized:        conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) { return importFact(pass, instruction) }, budget),
+					Summarized:        conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) { return importFact(pass, instruction) }, budget, nil),
 				}
 				if !request.InvokeTarget {
 					request.Methods = []string{method}

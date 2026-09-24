@@ -253,6 +253,7 @@ const (
 type completionSearch struct {
 	condition         completionCondition
 	summarized        CompletionSummaryLookup
+	callContract      CompletionSummaryLookup
 	returnedSummaries ReturnedCleanupLookup
 	returnedMemo      *ssaflow.CallGraphMemo[returnedCleanupKey, bool]
 	// Exact invocation excludes aggregate containment and may-alias mappings:

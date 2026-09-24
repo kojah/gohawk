@@ -45,6 +45,7 @@ func ProveReturnedCleanup(function *ssa.Function, relation ReturnedCleanupRelati
 		search := newCompletionSearch(method, CoverageEveryReturn, request.Budget)
 		search.exactTarget, search.exactInvocation, search.invokeTarget = true, request.InvokeTarget, request.InvokeTarget
 		search.summarized, search.returnedSummaries = request.Summarized, request.ReturnedSummaries
+		search.callContract = request.CallContract
 		if search.returnedRelation(function, relation) {
 			return ssaflow.CompletionProof{Proof: ssaflow.Proof{
 				State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceReturnedDeferredCleanup, Method: method, Provenance: ssaflow.EvidenceFromLocalSSA,

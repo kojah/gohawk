@@ -64,7 +64,10 @@ var documentedPackagePatterns = []string{
 // inventoryPackages are the shared packages whose exported identifiers must
 // appear in their own references. The regeneration check additionally discovers
 // new pass packages and checks complete declarations and methods.
-var inventoryPackages = []string{"syntax", "ssaflow", "ssainfer", "heapmodel", "summaries", "lifecyclefacts", "concurrencyfacts", "resultfacts", "testvariant"}
+var inventoryPackages = []string{
+	"syntax", "ssaflow", "ssainfer", "heapmodel", "resourcemodel", "summaries",
+	"lifecyclefacts", "concurrencyfacts", "resultfacts", "testvariant",
+}
 
 // documentedSymbols is the exported surface of the packages the documentation
 // may cite, indexed by package name.
@@ -386,7 +389,9 @@ func ssaFormsHandled(t *testing.T) []string {
 	inventory := newRepositorySourceInventory(t)
 	forms := map[string]bool{}
 	pattern := regexp.MustCompile(`\*ssa\.([A-Z][A-Za-z]+)`)
-	for _, directory := range []string{"internal/analyzers", "internal/ssaflow", "internal/ssainfer", "internal/heapmodel", "internal/passes"} {
+	for _, directory := range []string{
+		"internal/analyzers", "internal/ssaflow", "internal/ssainfer", "internal/heapmodel", "internal/resourcemodel", "internal/passes",
+	} {
 		for _, source := range inventory.productionGoFiles(t, directory) {
 			for _, match := range pattern.FindAllStringSubmatch(readFile(t, source.absolutePath), -1) {
 				forms[match[1]] = true

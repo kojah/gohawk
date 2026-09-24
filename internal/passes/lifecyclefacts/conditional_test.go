@@ -75,3 +75,38 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 		t.Fatalf("invocation: %+v", invoke)
 	}
 }
+
+func TestRowsNextResultSetConditionalRelease(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `package lifecyclefactstest
+import "database/sql"
+func Advance(rows *sql.Rows) bool { return rows.NextResultSet() }
+func Forward(rows *sql.Rows) bool { return Advance(rows) }
+func Wrong(rows, other *sql.Rows) bool { return other.NextResultSet() }
+func Next(rows *sql.Rows) bool { return rows.Next() }
+type fakeRows struct{}
+func (*fakeRows) NextResultSet() bool { return false }
+func (*fakeRows) Close() error { return nil }
+func Fake(rows *fakeRows) bool { return rows.NextResultSet() }
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	falseResult := ssainfer.CompletionPredicate{Outcome: ssainfer.CompletionWhenFalse}
+	trueResult := ssainfer.CompletionPredicate{Outcome: ssainfer.CompletionWhenTrue}
+	for _, test := range []struct {
+		name string
+		mask ParameterMask
+	}{
+		{"Advance", parameterMaskFor(0)},
+		{"Forward", parameterMaskFor(0)},
+		{"Wrong", parameterMaskFor(1)},
+		{"Next", 0},
+		{"Fake", 0},
+	} {
+		fact := summarize(pass, pkg.Func(test.name))
+		if got := conditionalMask(fact, "Close", false, falseResult); got != test.mask || fact.Closed != 0 {
+			t.Errorf("%s: false-edge mask %x, unconditional mask %x, want %x / 0", test.name, got, fact.Closed, test.mask)
+		}
+		if got := conditionalMask(fact, "Close", false, trueResult); got != 0 {
+			t.Errorf("%s: true-edge mask %x, want 0", test.name, got)
+		}
+	}
+}

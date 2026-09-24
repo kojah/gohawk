@@ -32,8 +32,9 @@ Walk the decision in order and stop at the first fit.
    implementation looks reusable.
 2. **`internal/ssaflow`** for shared value provenance, calls, budgets, and
    control flow; **`internal/ssainfer`** for storage, completion, and transfer
-   proofs using those mechanics and `heapmodel`. Share *how to prove*, never
-   an analyzer's reporting policy.
+   proofs using those mechanics and `heapmodel`; **`internal/resourcemodel`**
+   for per-path resource obligations and exact reusable external state
+   transitions. Share *how to prove*, never an analyzer's reporting policy.
 3. **`internal/syntax`** for source-level helpers and well-known symbol
    identity.
 4. **`internal/summaries`** for brokered access to function-summary components.

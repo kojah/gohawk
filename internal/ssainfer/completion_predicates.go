@@ -55,6 +55,7 @@ func ProveCompletionForResult(function *ssa.Function, predicate CompletionPredic
 		search := newCompletionSearch(method, CoverageEveryReturn, request.Budget)
 		search.exactTarget, search.exactInvocation, search.invokeTarget = true, request.InvokeTarget, request.InvokeTarget
 		search.summarized = request.Summarized
+		search.callContract = request.CallContract
 		search.returnedSummaries = request.ReturnedSummaries
 		condition := completionCondition{result: predicate.Result, kind: completionConditionKind(predicate.Outcome)}
 		proven := false

@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
@@ -390,11 +391,11 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 // pathWithin returns the joined access path at which the resource is stored
 // beneath the aggregate, or the empty path when its position is not known.
 func (analysis *resourceAnalysis) pathWithin(aggregate ssa.Value, observation ssa.Instruction) string {
-	path, ok := ssainfer.StoredPath(aggregate, analysis.resource, observation)
-	if !ok {
+	relation := resourcemodel.ProveRelation(aggregate, analysis.resource, observation, analysis.budget(1000))
+	if !relation.Proven() {
 		return ""
 	}
-	return ssaflow.JoinAccessPath(path)
+	return ssaflow.JoinAccessPath(relation.Relation.Path())
 }
 
 // log.New retains its writer and exposes it again through Logger.Writer.

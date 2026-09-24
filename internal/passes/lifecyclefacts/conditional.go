@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -42,7 +43,7 @@ func summarizeConditional(pass *analysis.Pass, function *ssa.Function) *Conditio
 		return nil
 	}
 	budget := ssaflow.NewSearchBudget(conditionalExportBudget)
-	lookup := conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) { return importFact(pass, instruction) }, budget)
+	lookup := conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) { return importFact(pass, instruction) }, budget, nil)
 	summary := &ConditionalSummary{Version: conditionalVersion}
 	for index, parameter := range function.Params {
 		for _, method := range conditionalMethods(parameter.Type()) {
@@ -50,7 +51,9 @@ func summarizeConditional(pass *analysis.Pass, function *ssa.Function) *Conditio
 				if !budget.Spend() {
 					return summary
 				}
-				request := ssainfer.CompletionRequest{Target: parameter, Budget: budget, Summarized: lookup}
+				request := ssainfer.CompletionRequest{
+					Target: parameter, Budget: budget, Summarized: lookup, CallContract: resourcemodel.ConditionalReleases(budget),
+				}
 				request.InvokeTarget = method == ""
 				if !request.InvokeTarget {
 					request.Methods = []string{method}
@@ -101,16 +104,22 @@ func conditionalMethods(value types.Type) []string {
 	return methods
 }
 
-func conditionalLookup(lookup func(ssa.Instruction) (Fact, bool), budget *ssaflow.SearchBudget) ssainfer.CompletionSummaryLookup {
+func conditionalLookup(
+	lookup func(ssa.Instruction) (Fact, bool), budget *ssaflow.SearchBudget, onFact func(),
+) ssainfer.CompletionSummaryLookup {
 	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssainfer.CompletionPredicate) bool {
 		fact, ok := lookup(instruction)
 		if !ok || !budget.Spend() {
 			return false
 		}
 		mask := conditionalMask(fact, method, invoke, predicate)
-		return factArgumentMatches(instruction, target, mask, func(argument, target ssa.Value) bool {
+		proven := factArgumentMatches(instruction, target, mask, func(argument, target ssa.Value) bool {
 			return ssainfer.NewStorage(budget).Same(argument, target).Proven()
 		})
+		if proven && onFact != nil {
+			onFact()
+		}
+		return proven
 	}
 }
 
@@ -136,17 +145,14 @@ func conditionalMask(fact Fact, method string, invoke bool, predicate ssainfer.C
 // CompletionOnEdge combines local and imported result-conditioned guarantees.
 // Absence remains unknown; only exact parameter binding can settle the target.
 func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request ssainfer.CompletionRequest) ssaflow.CompletionProof {
+	usedFact := false
 	lookup := conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) {
 		return factFor(evidence.pass, instruction)
-	}, request.Budget)
-	usedImported := false
-	request.Summarized = func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssainfer.CompletionPredicate) bool {
-		proven := lookup(instruction, target, method, invoke, predicate)
-		usedImported = usedImported || proven
-		return proven
-	}
+	}, request.Budget, func() { usedFact = true })
+	request.Summarized = lookup
+	request.CallContract = resourcemodel.ConditionalReleases(request.Budget)
 	proof := ssainfer.ProveCompletionOnEdge(from, to, request)
-	if proof.Proven() && usedImported {
+	if proof.Proven() && usedFact {
 		proof.Provenance = ssaflow.EvidenceFromImportedFact
 		proof.Reason = "conditional-lifecycle-summary"
 	}

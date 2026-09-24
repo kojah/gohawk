@@ -45,6 +45,13 @@ finalization; successful returns still require Close where the contract applies.
 The false edge of the tracked `database/sql.Rows.Next` call is also uncertain:
 the final result set closes automatically, but another result set may remain.
 An early break or return before exhaustion is not covered by that boundary.
+By contrast, `Rows.NextResultSet` returning false closes the exact Rows value.
+This result-conditioned release can pass through a forwarding helper and its
+cross-package lifecycle summary, or a visible straight-line owner method that
+forwards the call through an exact field. The field may hold Rows through an
+interface only when its concrete value is proven to be that same `*sql.Rows`.
+A true result, another field or Rows value, opaque dispatch, and a wrapper
+whose field relationship is unavailable do not prove release.
 
 Closing the exact parent DB, directly or through a dominating defer, suppresses
 missing-release findings for DB-prepared statements. It does not discharge

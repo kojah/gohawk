@@ -52,6 +52,10 @@ func (search *completionSearch) searchCompletes(instruction ssa.Instruction, tar
 		// the target as a whole; the search does not follow its path.
 		return completionAnswer{launch: kind, proven: true, available: true}
 	}
+	if _, synchronous := instruction.(*ssa.Call); synchronous && search.callContract != nil &&
+		search.callContract(instruction, target, search.method, search.invokeTarget, search.condition.predicate()) {
+		return completionAnswer{launch: launchCalled, proven: true, available: true}
+	}
 	callees, ok := search.boundCallees(instruction)
 	if !ok || len(callees) == 0 {
 		return completionAnswer{launch: launchNone}
