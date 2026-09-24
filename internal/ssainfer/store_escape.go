@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,7 +15,7 @@ import (
 
 func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !MayAlias(store.Val, value) {
+	if !ok || !heapmodel.MayAlias(store.Val, value) {
 		return false
 	}
 	_, ok = store.Addr.(*ssa.FieldAddr)
@@ -25,7 +26,7 @@ func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 // package-owned storage.
 func StoresValueInGlobal(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !MayAlias(store.Val, value) {
+	if !ok || !heapmodel.MayAlias(store.Val, value) {
 		return false
 	}
 	_, ok = store.Addr.(*ssa.Global)
@@ -38,7 +39,7 @@ func StoresValueInGlobal(instruction ssa.Instruction, value ssa.Value) bool {
 // https://github.com/shini4i/argo-watcher/blob/283d6c6b618b3ade906728ee12a438fd22a328ef/internal/argocd/argo_api.go#L100-L119
 func StoresValueInEnclosingScope(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !ValueDerivesFrom(store.Val, value, map[ssa.Value]bool{}) {
+	if !ok || !heapmodel.ValueDerivesFrom(store.Val, value, map[ssa.Value]bool{}) {
 		return false
 	}
 	_, ok = store.Addr.(*ssa.FreeVar)
@@ -48,7 +49,7 @@ func StoresValueInEnclosingScope(instruction ssa.Instruction, value ssa.Value) b
 // SendsValue reports whether instruction hands value to a channel receiver.
 func SendsValue(instruction ssa.Instruction, value ssa.Value) bool {
 	send, ok := instruction.(*ssa.Send)
-	return ok && MayAlias(send.X, value)
+	return ok && heapmodel.MayAlias(send.X, value)
 }
 
 // StoresOwnerOfValueInField reports whether instruction stores a callback or
@@ -79,7 +80,7 @@ func StoresOwnerOfValueInExternalField(instruction ssa.Instruction, value ssa.Va
 // an owner that already outlives the function or is subsequently transferred.
 func StoresValueInEscapingField(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !MayAlias(store.Val, value) {
+	if !ok || !heapmodel.MayAlias(store.Val, value) {
 		return false
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
@@ -91,7 +92,7 @@ func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool {
 	// A wrapper that holds the value, such as a log-file record keyed by
 	// session, transfers it to the map's owner exactly as the value would.
 	// https://github.com/askie/grix/blob/dbf8ad10477d7458c7b8c9900ce2e2a6296d4063/backend/internal/pkg/adapterlog/adapterlog.go#L115-L129
-	return ok && (MayAlias(update.Value, value) || MayContainValue(update.Value, value)) && ssaflow.ExternallyOwnedValue(update.Map)
+	return ok && (heapmodel.MayAlias(update.Value, value) || MayContainValue(update.Value, value)) && ssaflow.ExternallyOwnedValue(update.Map)
 }
 
 // ClosureCapturesValue reports whether instruction creates a closure that owns value.
@@ -101,7 +102,7 @@ func ClosureCapturesValue(instruction ssa.Instruction, value ssa.Value) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if CapturedBindingMatches(binding, value) {
+		if heapmodel.CapturedBindingMatches(binding, value) {
 			return true
 		}
 	}
@@ -129,7 +130,7 @@ func referenceTransfersValue(reference ssa.Instruction, value ssa.Value, seen ma
 		// Fluent builders preserve an escaping owner through same-typed links.
 		// https://github.com/erpc/erpc/blob/2b7e807d7d147422cf47c473153eaf9979afdcc9/clients/http_json_rpc_client.go#L755-L771
 		receiver := ssaflow.CallReceiver(typed.Common())
-		return receiver != nil && MayAlias(receiver, value) &&
+		return receiver != nil && heapmodel.MayAlias(receiver, value) &&
 			types.Identical(typed.Type(), value.Type()) && valueTransferred(typed, seen)
 	case *ssa.Store:
 		return storeTransfersValue(typed, seen)
@@ -166,7 +167,7 @@ func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) boo
 	}
 	usesValue := false
 	for _, argument := range call.Common().Args {
-		usesValue = usesValue || MayAlias(argument, value)
+		usesValue = usesValue || heapmodel.MayAlias(argument, value)
 	}
 	return usesValue && valueStoredInField(call, map[ssa.Value]bool{})
 }

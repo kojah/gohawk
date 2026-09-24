@@ -3,9 +3,8 @@ package lifecyclefacts
 import (
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -38,7 +37,7 @@ func blockReleasesDerivedValue(block *ssa.BasicBlock, parameter ssa.Value) bool 
 		}
 		name := ssaflow.CallName(common)
 		if slices.ContainsFunc(lifecycleMasks, func(mask lifecycleMask) bool { return mask.method != "" && mask.method == name }) &&
-			ssainfer.ValueDerivesFrom(ssaflow.CallReceiver(common), parameter, map[ssa.Value]bool{}) {
+			heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), parameter, map[ssa.Value]bool{}) {
 			return true
 		}
 	}

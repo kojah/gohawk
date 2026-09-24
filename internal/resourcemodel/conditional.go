@@ -4,6 +4,7 @@
 package resourcemodel
 
 import (
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -44,7 +45,7 @@ func ConditionalRelease(
 		// Rows.NextResultSet closes Rows before returning false, both at the end
 		// of the result sets and on a driver error.
 		// https://go.dev/src/database/sql/sql.go (Rows.NextResultSet)
-		return ssainfer.NewStorage(budget).Same(ssaflow.CallReceiver(call.Common()), target).Proven()
+		return heapmodel.NewStorage(budget).Same(ssaflow.CallReceiver(call.Common()), target).Proven()
 	}
 	return forwardedConditionalRelease(call, target, budget, resultSetCall)
 }

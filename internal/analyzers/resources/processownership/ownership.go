@@ -1,11 +1,11 @@
 package processownership
 
 import (
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -178,7 +178,7 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 				continue
 			}
 			for _, argument := range call.Common().Args {
-				if ssainfer.MayAlias(argument, command) {
+				if heapmodel.MayAlias(argument, command) {
 					owners = append(owners, call)
 					if call.Referrers() != nil {
 						for _, reference := range *call.Referrers() {
@@ -248,7 +248,7 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 	}
 	if waitsForCommand(instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
-			ssainfer.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
+			heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 		owns() ||
 		storesProcessHandleInExternalField(instruction, command) ||
 		handles() ||
@@ -279,8 +279,8 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget 
 	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
 		receiver := ssaflow.CallReceiver(common)
 		_, merged := receiver.(*ssa.Phi)
-		return merged && ssainfer.MayAlias(receiver, command) &&
-			!ssainfer.NewStorage(nil).Same(receiver, command).Proven()
+		return merged && heapmodel.MayAlias(receiver, command) &&
+			!heapmodel.NewStorage(nil).Same(receiver, command).Proven()
 	}
 	if _, spawned := instruction.(*ssa.Go); spawned {
 		callee, _ := ssaflow.DirectCallee(common)
@@ -343,14 +343,14 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 		return guardedDeferredWait(function, local)
 	}
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if ssainfer.CapturedBindingMatches(captured.Binding, command) {
+		if heapmodel.CapturedBindingMatches(captured.Binding, command) {
 			if proof := waitsOnEveryReturn(captured.Free); proof != ssaflow.EvidenceDisproven {
 				return proof
 			}
 		}
 	}
 	for index, parameter := range function.Params {
-		if index < len(common.Args) && ssainfer.MayAlias(common.Args[index], command) {
+		if index < len(common.Args) && heapmodel.MayAlias(common.Args[index], command) {
 			if proof := waitsOnEveryReturn(parameter); proof != ssaflow.EvidenceDisproven {
 				return proof
 			}
@@ -366,7 +366,7 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 // replacement defeats even this possible successful-Start contract.
 func guardedDeferredWait(function *ssa.Function, command ssa.Value) ssaflow.EvidenceState {
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](function) {
-		if ssainfer.ValueDerivesFrom(store.Addr, command, map[ssa.Value]bool{}) {
+		if heapmodel.ValueDerivesFrom(store.Addr, command, map[ssa.Value]bool{}) {
 			return ssaflow.EvidenceDisproven
 		}
 	}

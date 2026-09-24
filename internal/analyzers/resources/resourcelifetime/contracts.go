@@ -5,12 +5,12 @@ import (
 	"go/types"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -88,7 +88,7 @@ func sqlRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.Value)
 	next, ok := branch.Cond.(*ssa.Call)
 	return ok && ssaflow.CallMatchesSymbol(next.Common(), syntax.PackageMethod(syntax.MethodSymbol{
 		PackagePath: "database/sql", Receiver: "Rows", Name: "Next",
-	})) && ssainfer.NewStorage(nil).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
+	})) && heapmodel.NewStorage(nil).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
 }
 
 func resourceFunction(family, packagePath, name string, result int, cleanup ...string) resourceContract {
@@ -161,7 +161,7 @@ func rowsTransaction(acquisition *ssa.Call) ssa.Value {
 	}
 	// Require the statement's exact constructor result. A different statement,
 	// unresolved merge, or replaced receiver must retain its own obligation.
-	statement := ssainfer.NewStorage(nil).Resolve(ssaflow.CallReceiver(common))
+	statement := heapmodel.NewStorage(nil).Resolve(ssaflow.CallReceiver(common))
 	extract, ok := statement.Value.(*ssa.Extract)
 	if !statement.Proven() || !ok || extract.Index != 0 {
 		return nil
@@ -178,7 +178,7 @@ func rowsTransaction(acquisition *ssa.Call) ssa.Value {
 // provably agree. Do not equate arbitrary
 // loads from the same address: that would accept a reassigned DB.
 func statementParentIdentity(left, right ssa.Value) bool {
-	return ssainfer.NewStorage(nil).Same(left, right).Proven()
+	return heapmodel.NewStorage(nil).Same(left, right).Proven()
 }
 
 func sqlDatabaseCall(common *ssa.CallCommon, names ...string) bool {
@@ -244,7 +244,7 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 func releasesResource(
 	evidence *lifecyclefacts.LifecycleEvidence,
 	knowledge *summaries.Provider,
-	storage *ssainfer.Storage,
+	storage *heapmodel.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -284,7 +284,7 @@ func cleanupReceiver(knowledge *summaries.Provider, budget *ssaflow.SearchBudget
 func releasesOrdinaryResource(
 	evidence *lifecyclefacts.LifecycleEvidence,
 	knowledge *summaries.Provider,
-	storage *ssainfer.Storage,
+	storage *heapmodel.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -312,7 +312,7 @@ func releasesOrdinaryResource(
 	if common != nil && helperRequiresCleanup(evidence, storage, instruction, resource, methods) {
 		return settled()
 	}
-	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssainfer.MayAliasAny(ssaflow.CallReceiver(common), owners) {
+	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && heapmodel.MayAliasAny(ssaflow.CallReceiver(common), owners) {
 		return settled()
 	}
 	for _, method := range methods {
@@ -371,7 +371,7 @@ func releasesOrdinaryResource(
 
 func helperRequiresCleanup(
 	evidence *lifecyclefacts.LifecycleEvidence,
-	storage *ssainfer.Storage,
+	storage *heapmodel.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	methods []string,
@@ -518,7 +518,7 @@ func resourceReleaseMayFollow(instruction ssa.Instruction, resource ssa.Value, m
 			if common == nil || !slices.Contains(methods, ssaflow.CallName(common)) || !ssaflow.InstructionMayFollow(instruction, candidate) {
 				continue
 			}
-			if ssainfer.ValueDerivesFrom(ssaflow.CallReceiver(common), resource, map[ssa.Value]bool{}) {
+			if heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), resource, map[ssa.Value]bool{}) {
 				return true
 			}
 		}
@@ -528,7 +528,7 @@ func resourceReleaseMayFollow(instruction ssa.Instruction, resource ssa.Value, m
 
 func callTakesResourceOwnership(
 	evidence *lifecyclefacts.LifecycleEvidence,
-	storage *ssainfer.Storage,
+	storage *heapmodel.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	methods []string,

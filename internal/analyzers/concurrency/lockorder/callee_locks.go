@@ -5,9 +5,9 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -175,7 +175,7 @@ func possibleFreshBoundMutex(path ssaflow.EmbeddedFieldPath) freshMutexFieldProo
 		return unknown
 	}
 	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
-	storage := ssainfer.NewStorage(budget)
+	storage := heapmodel.NewStorage(budget)
 	fresh := false
 	for _, block := range load.Parent().Blocks {
 		for _, instruction := range block.Instrs {
@@ -261,7 +261,7 @@ func freshOwnerResult(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 	return returned
 }
 
-func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storage *ssainfer.Storage, budget *ssaflow.SearchBudget) bool {
+func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storage *heapmodel.Storage, budget *ssaflow.SearchBudget) bool {
 	call, ok := instruction.(*ssa.Call)
 	if !ok {
 		return false
@@ -280,7 +280,7 @@ func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storag
 	return false
 }
 
-func sameBoundSlot(value ssa.Value, field *ssa.FieldAddr, storage *ssainfer.Storage) bool {
+func sameBoundSlot(value ssa.Value, field *ssa.FieldAddr, storage *heapmodel.Storage) bool {
 	target, ok := value.(*ssa.FieldAddr)
 	return ok && target.Field == field.Field && storage.Same(target.X, field.X).Proven()
 }
@@ -297,7 +297,7 @@ func localMutexPathIdentity(path ssaflow.EmbeddedFieldPath) string {
 }
 
 func mutexPathInstanceIdentity(path ssaflow.EmbeddedFieldPath) string {
-	root := ssainfer.NewStorage(nil).Resolve(path.Root)
+	root := heapmodel.NewStorage(nil).Resolve(path.Root)
 	if !root.Proven() {
 		return ""
 	}

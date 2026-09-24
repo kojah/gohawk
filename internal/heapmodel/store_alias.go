@@ -1,7 +1,6 @@
-package ssainfer
+package heapmodel
 
 import (
-	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -20,23 +19,6 @@ import (
 func MayAlias(value, target ssa.Value) bool {
 	return ProveMayAlias(value, target).Aliases
 }
-
-// ProveMayAlias answers MayAlias with its reason. The points-to graph
-// answers with disjointness the value walk cannot: two fields of one
-// object, a cell after it was overwritten, or an unescaped local and
-// anything it was never stored into, are not aliases. A function the graph
-// could not model keeps the walk, which never rules an alias out. A
-// disjointness answer is the one place the graph can move a consumer from
-// silence to a report, so every such answer carries the rule that made it,
-// and the graph keeps them for the debug dump.
-func ProveMayAlias(value, target ssa.Value) ssaflow.AliasProof {
-	return heapmodel.ProveMayAlias(value, target)
-}
-
-// AliasDecision is one disjointness answer the graph gave for a function;
-// RenderRegions lists them so a changed diagnostic can be traced to the
-// alias rule behind it.
-type AliasDecision = heapmodel.AliasDecision
 
 // CapturedBindingMatches reports whether a closure binding directly contains
 // target or refers to an addressable local that has contained target. Unlike
@@ -69,7 +51,7 @@ func DefinitelySameValue(left, right ssa.Value) bool {
 	if ssaflow.StructurallyIdentical(left, right) {
 		return true
 	}
-	return heapmodel.DefinitelySame(left, right)
+	return DefinitelySame(left, right)
 }
 
 // MayAliasAny reports whether value may alias any candidate; see MayAlias.

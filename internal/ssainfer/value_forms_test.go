@@ -3,6 +3,7 @@ package ssainfer
 import (
 	"testing"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -64,8 +65,11 @@ func unrelated(b box, other *int) *int { var k box; k.value = other; return k.va
 	want := map[string]bool{"spilled": true, "copied": true, "indexed": true, "overwritten": false, "escaped": false, "unrelated": false}
 	for name, want := range want {
 		function := pkg.Func(name)
-		load := returnedLoad(t, function)
-		if got := ValueDerivesFrom(load, function.Params[0], map[ssa.Value]bool{}); got != want {
+		load, ok := returnedValue(t, function).(*ssa.UnOp)
+		if !ok {
+			t.Fatal("expected returned load")
+		}
+		if got := heapmodel.ValueDerivesFrom(load, function.Params[0], map[ssa.Value]bool{}); got != want {
 			t.Errorf("%s: ValueDerivesFrom(returned load, parameter) = %t, want %t", name, got, want)
 		}
 	}

@@ -4,9 +4,9 @@ import (
 	"go/constant"
 	"go/token"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -169,7 +169,7 @@ func (search *completionSearch) conditionalReturn(
 	// interface box: a typed nil error is not the nil error result.
 	boolean := condition.kind == completionTrue || condition.kind == completionFalse
 	if load, ok := value.(*ssa.UnOp); ok && load.Op == token.MUL && boolean {
-		if resolved := NewStorage(search.budget).Resolve(value); resolved.Proven() {
+		if resolved := heapmodel.NewStorage(search.budget).Resolve(value); resolved.Proven() {
 			value = resolved.Value
 		}
 	}

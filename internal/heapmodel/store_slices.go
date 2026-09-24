@@ -1,4 +1,4 @@
-package ssainfer
+package heapmodel
 
 import (
 	"go/constant"

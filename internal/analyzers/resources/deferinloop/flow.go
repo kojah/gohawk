@@ -120,7 +120,7 @@ func iteratorSuccessorStatus(
 func conditionCall(block *ssa.BasicBlock, condition ssa.Value) *ssa.Call {
 	for _, instruction := range block.Instrs {
 		call, ok := instruction.(*ssa.Call)
-		if ok && ssainfer.MayAlias(condition, call) {
+		if ok && heapmodel.MayAlias(condition, call) {
 			return call
 		}
 	}
@@ -222,7 +222,7 @@ func resourceUseStatus(
 	}
 	used := false
 	for index, argument := range common.Args {
-		alias := ssainfer.ProveMayAlias(argument, target)
+		alias := heapmodel.ProveMayAlias(argument, target)
 		contains := !alias.Aliases && ssainfer.MayContainValue(argument, target)
 		probe.Evidence(analysisTrace.Step{
 			Reason: "argument-carries-resource", Outcome: analysisTrace.OutcomeObserved, Pos: instruction.Pos(),
@@ -243,7 +243,7 @@ func resourceUseStatus(
 		if !alias.Aliases {
 			if pointer, ok := argument.Type().Underlying().(*types.Pointer); ok {
 				if _, aggregate := pointer.Elem().Underlying().(*types.Struct); aggregate &&
-					ssainfer.ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) {
+					heapmodel.ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) {
 					return resourceUnknown, "wrapper-passed-to-callee"
 				}
 			}
@@ -274,7 +274,7 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 			if heapmodel.AddressIsUnescapedLocal(store.Addr) {
 				return false
 			}
-			return ssainfer.MayAlias(store.Val, target) || ssainfer.MayContainValue(store.Val, target)
+			return heapmodel.MayAlias(store.Val, target) || ssainfer.MayContainValue(store.Val, target)
 		}
 	}
 	closure, ok := instruction.(*ssa.MakeClosure)
@@ -282,7 +282,7 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if ssainfer.MayAlias(binding, target) || ssainfer.MayContainValue(binding, target) {
+		if heapmodel.MayAlias(binding, target) || ssainfer.MayContainValue(binding, target) {
 			return true
 		}
 	}

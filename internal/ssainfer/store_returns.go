@@ -5,9 +5,9 @@ import (
 	"go/types"
 	"iter"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -48,7 +48,7 @@ type ownershipPair struct {
 
 func (search *ownershipSearch) returnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
 	for _, result := range returned.Results {
-		if MayAlias(result, value) || search.aggregateStoresValue(result, value) {
+		if heapmodel.MayAlias(result, value) || search.aggregateStoresValue(result, value) {
 			return true
 		}
 	}
@@ -60,7 +60,7 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 	if aggregate == nil || search.seen[pair] {
 		return false
 	}
-	if MayAlias(aggregate, value) {
+	if heapmodel.MayAlias(aggregate, value) {
 		return true
 	}
 	search.seen[pair] = true
@@ -90,7 +90,7 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 		// only thing that can still release it, so the caller receives the
 		// obligation with the callback.
 		for _, binding := range typed.Bindings {
-			if CapturedBindingMatches(binding, value) || search.aggregateStoresValue(ssaflow.CapturedBindingValue(binding), value) {
+			if heapmodel.CapturedBindingMatches(binding, value) || search.aggregateStoresValue(ssaflow.CapturedBindingValue(binding), value) {
 				return true
 			}
 		}
@@ -111,7 +111,7 @@ func (search *ownershipSearch) loadStoresValue(typed *ssa.UnOp, value ssa.Value)
 	// process or handle state, so returning the copy transfers it. A struct
 	// literal returned by value is likewise loaded from the local that
 	// assembled it, so the load carries whatever that local's fields hold.
-	if typed.Op == token.MUL && (MayAlias(typed.X, value) || search.aggregateStoresValue(typed.X, value)) {
+	if typed.Op == token.MUL && (heapmodel.MayAlias(typed.X, value) || search.aggregateStoresValue(typed.X, value)) {
 		return true
 	}
 	// A load of one element or field of a local aggregate may carry what
@@ -255,7 +255,7 @@ func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruc
 	holder := -1
 	for index, argument := range common.Args {
 		if index < len(callee.Params) &&
-			(MayAlias(argument, aggregate) || ssaflow.ValueIsAccessPathFrom(argument, aggregate)) {
+			(heapmodel.MayAlias(argument, aggregate) || ssaflow.ValueIsAccessPathFrom(argument, aggregate)) {
 			holder = index
 			break
 		}
@@ -275,7 +275,7 @@ func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruc
 		if _, closure := argument.(*ssa.MakeClosure); closure {
 			continue
 		}
-		if !MayAlias(argument, value) && !search.aggregateStoresValue(argument, value) {
+		if !heapmodel.MayAlias(argument, value) && !search.aggregateStoresValue(argument, value) {
 			continue
 		}
 		if search.aggregateStoresValue(callee.Params[holder], callee.Params[index]) {
@@ -292,11 +292,11 @@ func (search *ownershipSearch) samePathStoresValue(address ssa.Value, value ssa.
 	if root == nil {
 		return false
 	}
-	path, ok := AccessPathOf(address, root)
+	path, ok := heapmodel.AccessPathOf(address, root)
 	if !ok || len(path) == 0 {
 		return false
 	}
-	for _, selection := range selectionsOf(root, path) {
+	for _, selection := range heapmodel.SelectionsOf(root, path) {
 		if search.addressStoresValue(selection, value) {
 			return true
 		}
@@ -323,7 +323,7 @@ func localAggregateRoot(address ssa.Value) *ssa.Alloc {
 
 func (search *ownershipSearch) addressStoresValue(address ssa.Value, value ssa.Value) bool {
 	for stored := range StoredInto(address) {
-		if MayAlias(stored, value) || search.aggregateStoresValue(stored, value) {
+		if heapmodel.MayAlias(stored, value) || search.aggregateStoresValue(stored, value) {
 			return true
 		}
 	}
@@ -346,7 +346,7 @@ func LoadedAggregateMayHold(value, target ssa.Value) bool {
 			return false
 		}
 		for stored := range StoredInto(load.X) {
-			if MayAlias(stored, target) {
+			if heapmodel.MayAlias(stored, target) {
 				return true
 			}
 		}
@@ -402,7 +402,7 @@ func ReturnedResult(returned *ssa.Return, index int) ssa.Value { //nolint:iretur
 	}
 	result := returned.Results[index]
 	if load, ok := result.(*ssa.UnOp); ok && load.Op == token.MUL {
-		if stored := NewStorage(nil).Content(load.X, load); stored.Proven() {
+		if stored := heapmodel.NewStorage(nil).Content(load.X, load); stored.Proven() {
 			return stored.Value
 		}
 	}

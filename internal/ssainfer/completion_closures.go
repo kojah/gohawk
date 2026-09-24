@@ -1,6 +1,7 @@
 package ssainfer
 
 import (
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -42,12 +43,12 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 	for _, block := range function.Blocks {
 		for _, candidate := range block.Instrs {
 			for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-				if CapturedBindingMatches(captured.Binding, target) && CallInvokesArgumentOnEveryReturn(candidate, captured.Free) {
+				if heapmodel.CapturedBindingMatches(captured.Binding, target) && CallInvokesArgumentOnEveryReturn(candidate, captured.Free) {
 					return true
 				}
 			}
 			for index, parameter := range function.Params {
-				if common != nil && index < len(common.Args) && MayAlias(common.Args[index], target) &&
+				if common != nil && index < len(common.Args) && heapmodel.MayAlias(common.Args[index], target) &&
 					CallInvokesArgumentOnEveryReturn(candidate, parameter) {
 					return true
 				}

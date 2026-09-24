@@ -4,10 +4,11 @@ import (
 	"go/token"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -55,8 +56,8 @@ func (evidence *LifecycleEvidence) ClosureRetainsValue(closure *ssa.MakeClosure,
 	}
 	retentions := evidence.retentionQueries()
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !ssainfer.CapturedBindingMatches(captured.Binding, target) &&
-			!ssainfer.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
+		if !heapmodel.CapturedBindingMatches(captured.Binding, target) &&
+			!heapmodel.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
 			continue
 		}
 		for _, held := range capturedUses(captured.Free) {
@@ -100,8 +101,8 @@ func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCallee(
 		return true
 	}
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !ssainfer.CapturedBindingMatches(captured.Binding, target) &&
-			!ssainfer.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
+		if !heapmodel.CapturedBindingMatches(captured.Binding, target) &&
+			!heapmodel.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
 			continue
 		}
 		held := capturedUses(captured.Free)
@@ -131,7 +132,7 @@ func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Va
 	}
 	for _, argument := range common.Args {
 		for _, value := range held {
-			if ssainfer.MayAlias(argument, value) {
+			if heapmodel.MayAlias(argument, value) {
 				return true
 			}
 		}
@@ -183,7 +184,7 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 				}
 				for index, argument := range common.Args {
 					if mask.contains(index) && slices.ContainsFunc(capturedUses(captured.Free), func(held ssa.Value) bool {
-						return ssainfer.DefinitelySameValue(argument, held)
+						return heapmodel.DefinitelySameValue(argument, held)
 					}) {
 						return true
 					}
@@ -195,7 +196,7 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 }
 
 func immutableCapturedTarget(binding, target ssa.Value, observation ssa.Instruction, observer ssaflow.Observer) bool {
-	storage := ssainfer.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
+	storage := heapmodel.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
 	if storage.Same(binding, target).Proven() {
 		return true
 	}
@@ -357,7 +358,7 @@ func (evidence *LifecycleEvidence) selectedMaskProof(request EvidenceRequest, fa
 	if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
 		return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
 	}
-	if factArgumentMatches(request.Instruction, request.Target, mask, ssainfer.MayAlias) {
+	if factArgumentMatches(request.Instruction, request.Target, mask, heapmodel.MayAlias) {
 		// The summary is known, but which value receives its guarantee is
 		// not. This is neither completion nor evidence of missing cleanup.
 		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true

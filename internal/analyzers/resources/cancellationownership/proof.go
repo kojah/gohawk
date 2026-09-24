@@ -4,12 +4,12 @@ import (
 	"go/token"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -184,7 +184,7 @@ func parentCancellationClassifier(call *ssa.Call, observer ssaflow.Observer) *ca
 	// same source variable may subsequently hold the child instead of its parent.
 	// https://github.com/werf/nelm/blob/6393382d695e65d8d8f744cf590337fe62a83eef/pkg/action/release_install.go#L179-L190
 	parentValue := call.Common().Args[0]
-	if resolved := ssainfer.NewStorage(ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Resolve(parentValue); resolved.Proven() {
+	if resolved := heapmodel.NewStorage(ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Resolve(parentValue); resolved.Proven() {
 		parentValue = resolved.Value
 	}
 	parent, ok := parentValue.(*ssa.Extract)
@@ -338,7 +338,7 @@ func deferredClosureCaptures(instruction ssa.Instruction, target ssa.Value) bool
 	}
 	closure, ok := common.Value.(*ssa.MakeClosure)
 	return ok && slices.ContainsFunc(closure.Bindings, func(binding ssa.Value) bool {
-		return ssainfer.CapturedBindingMatches(binding, target)
+		return heapmodel.CapturedBindingMatches(binding, target)
 	})
 }
 
@@ -387,7 +387,7 @@ func instructionReferencesCancellation(instruction ssa.Instruction, cancel ssa.V
 		if operand == nil || *operand == nil {
 			continue
 		}
-		if *operand == cancel || ssainfer.MayAlias(*operand, cancel) || ssainfer.MayContainValue(*operand, cancel) ||
+		if *operand == cancel || heapmodel.MayAlias(*operand, cancel) || ssainfer.MayContainValue(*operand, cancel) ||
 			addressStoresCancellation(*operand, cancel) {
 			return true
 		}
@@ -420,7 +420,7 @@ func addressStoresCancellationLeaf(walk ssaflow.ReachingWalk, value, cancel ssa.
 	}
 	for _, reference := range *value.Referrers() {
 		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == value && (store.Val == cancel || ssainfer.MayAlias(store.Val, cancel)) {
+		if ok && store.Addr == value && (store.Val == cancel || heapmodel.MayAlias(store.Val, cancel)) {
 			return true
 		}
 	}
@@ -445,7 +445,7 @@ func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa
 	}
 	found := false
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !ssainfer.CapturedBindingMatches(captured.Binding, cancel) {
+		if !heapmodel.CapturedBindingMatches(captured.Binding, cancel) {
 			continue
 		}
 		found = true

@@ -5,11 +5,12 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -437,7 +438,7 @@ func concreteMutexLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (ssa.Value, bool
 func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
 	candidateIdentity := lockIdentityOf(candidate)
 	for _, value := range values {
-		if ssainfer.MayAlias(value, candidate) || candidateIdentity != "" && lockIdentityOf(value) == candidateIdentity {
+		if heapmodel.MayAlias(value, candidate) || candidateIdentity != "" && lockIdentityOf(value) == candidateIdentity {
 			return values
 		}
 	}

@@ -1,17 +1,18 @@
 // Package channelsafety implements the channelsafety gohawk analyzer.
+
 package channelsafety
 
 import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -67,7 +68,7 @@ func reportFollowingSends(
 			}
 			probe := analysisTrace.For(pass, "channelsafety", string(check.ChannelSendAfterClose), candidate.Pos())
 			probe.Candidate(analysisTrace.Step{Reason: "send-reachable-after-close", Outcome: analysisTrace.OutcomeObserved})
-			identity := ssainfer.NewStorage(nil).Same(sent.Resource.Value, closed.Resource.Value)
+			identity := heapmodel.NewStorage(nil).Same(sent.Resource.Value, closed.Resource.Value)
 			emitChannelIdentityDecision(pass, function, probe, instruction, candidate, identity)
 			if !identity.Proven() {
 				continue

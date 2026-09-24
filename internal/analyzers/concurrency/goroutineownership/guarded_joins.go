@@ -4,9 +4,8 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -109,7 +108,7 @@ func (analysis *spawnAnalysis) closureBlockJoins(block *ssa.BasicBlock, pairs []
 				continue
 			}
 			derives := func(value ssa.Value) bool {
-				return ssainfer.ValueDerivesFrom(value, pair.Local, map[ssa.Value]bool{})
+				return heapmodel.ValueDerivesFrom(value, pair.Local, map[ssa.Value]bool{})
 			}
 			search := newHelperSearch()
 			for _, instruction := range block.Instrs {

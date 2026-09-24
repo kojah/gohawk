@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -84,7 +84,7 @@ func TestHeapSmokeComparison(t *testing.T) {
 			t.Log(dump.String())
 			call := heapObservation(t, fn)
 			args := call.Common().Args
-			baseline := NewStorage(ssaflow.NewSearchBudget(1000)).Same(args[0], args[1]).Proven()
+			baseline := heapmodel.NewStorage(ssaflow.NewSearchBudget(1000)).Same(args[0], args[1]).Proven()
 			prototype, reason := smokeHeapIdentity(call, 256)
 			t.Logf("baseline=%t prototype=%t reason=%s", baseline, prototype, reason)
 			if baseline != test.baseline || prototype != test.prototype {
@@ -104,7 +104,7 @@ func BenchmarkHeapSmoke(b *testing.B) {
 	b.Run("existing", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			NewStorage(ssaflow.NewSearchBudget(1000)).Same(args[0], args[1])
+			heapmodel.NewStorage(ssaflow.NewSearchBudget(1000)).Same(args[0], args[1])
 		}
 	})
 	b.Run("prototype", func(b *testing.B) {

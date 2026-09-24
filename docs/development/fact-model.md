@@ -399,15 +399,15 @@ way consumers are allowed to lean on it.
 
 ### Possible identity is not a guarantee
 
-`ssainfer.MayAlias` follows possible origins: one matching phi alternative or
+`heapmodel.MayAlias` follows possible origins: one matching phi alternative or
 a value previously stored in a cell can match. Use that evidence for possible
 consumption and conservative escape handling, not to establish a guaranteed
-action. `ssainfer.DefinitelySameValue` requires agreement across alternatives
+action. `heapmodel.DefinitelySameValue` requires agreement across alternatives
 and does not equate separate loads from potentially mutable storage. A failed
 definite match means unknown identity, not proven inequality.
 
 Imported exact-argument matching, callback-invocation summaries, and
-unchanged-return proofs use `ssainfer.Storage` to resolve local loads before
+unchanged-return proofs use `heapmodel.Storage` to resolve local loads before
 requiring definite identity. The query requires agreeing reaching writes, checks
 address escapes and competing writes, and preserves the time of aggregate
 copies and saved reads. `Content` observes before an instruction; `StableContent`

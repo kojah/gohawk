@@ -4,9 +4,9 @@ import (
 	"go/types"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -192,12 +192,12 @@ func exactCallbacks(value ssa.Value, invocation ssa.Instruction, allowOnceFunc b
 			return exactCallbacks(common.Args[0], invocation, allowOnceFunc, seen)
 		}
 	case *ssa.UnOp:
-		if stored, ok := NewStorage(nil).stableValue(typed.X, invocation); ok {
-			return exactCallbacks(stored, invocation, allowOnceFunc, seen)
+		if stored := heapmodel.NewStorage(nil).StableContent(typed.X, invocation); stored.Proven() {
+			return exactCallbacks(stored.Value, invocation, allowOnceFunc, seen)
 		}
 	case *ssa.Alloc:
-		if stored, ok := NewStorage(nil).stableValue(typed, invocation); ok {
-			return exactCallbacks(stored, invocation, allowOnceFunc, seen)
+		if stored := heapmodel.NewStorage(nil).StableContent(typed, invocation); stored.Proven() {
+			return exactCallbacks(stored.Value, invocation, allowOnceFunc, seen)
 		}
 	case *ssa.Phi:
 		var result []*ssa.MakeClosure
@@ -333,7 +333,7 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 			nonNil = local.local
 			// The local holds the target itself, not an aggregate around
 			// it, so the target's static type is what an assertion sees.
-			if local.kind == localExact && len(local.path) == 0 && DefinitelySameValue(local.supplied, target) {
+			if local.kind == localExact && len(local.path) == 0 && heapmodel.DefinitelySameValue(local.supplied, target) {
 				concrete = target.Type()
 			}
 			break
@@ -400,7 +400,7 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 		if answer := search.completes(candidate, local.local); answer.proven {
 			// The nested answer's path is beneath the local; translate it
 			// onto the target through the local's mapping.
-			search.paths.record(search.mappedPath(local, target, SplitAccessPath(answer.paths.path), answer.paths.known()))
+			search.paths.record(search.mappedPath(local, target, ssaflow.SplitAccessPath(answer.paths.path), answer.paths.known()))
 			return true
 		}
 	}

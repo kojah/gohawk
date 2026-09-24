@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/ssa"
@@ -101,7 +102,7 @@ func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssafl
 	if closure, ok := deferred.Common().Value.(*ssa.MakeClosure); ok {
 		function, _ := closure.Fn.(*ssa.Function)
 		for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
-			if !ssainfer.CapturedBindingMatches(pair.Binding, analysis.resource) {
+			if !heapmodel.CapturedBindingMatches(pair.Binding, analysis.resource) {
 				continue
 			}
 			mayClean := ssainfer.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
@@ -134,7 +135,7 @@ func (analysis *resourceAnalysis) guardedCapturedBodyCleanup(instruction ssa.Ins
 		if !budget.Spend() {
 			return missing
 		}
-		stored := ssainfer.NewStorage(budget).StableContent(binding.Binding, instruction)
+		stored := heapmodel.NewStorage(budget).StableContent(binding.Binding, instruction)
 		if !stored.Proven() || stored.Value != analysis.resource {
 			continue
 		}
@@ -219,7 +220,7 @@ func responsePointerUse(value, resource, cell ssa.Value) bool {
 		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
 	).Any(value, func(_ ssaflow.ReachingWalk, value ssa.Value) bool {
 		_, pointer := value.Type().Underlying().(*types.Pointer)
-		return pointer && (ssainfer.ValueDerivesFrom(value, resource, map[ssa.Value]bool{}) ||
-			ssainfer.ValueDerivesFrom(value, cell, map[ssa.Value]bool{}))
+		return pointer && (heapmodel.ValueDerivesFrom(value, resource, map[ssa.Value]bool{}) ||
+			heapmodel.ValueDerivesFrom(value, cell, map[ssa.Value]bool{}))
 	})
 }

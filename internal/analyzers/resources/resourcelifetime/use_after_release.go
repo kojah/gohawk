@@ -5,13 +5,14 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -76,7 +77,7 @@ func reportUsesAfterRelease(
 	}
 	evidence, _ := knowledge.LifecycleEvidence("resourcelifetime", string(check.ResourceUseAfterRelease))
 	query := releasedResource{
-		resource: resource, contract: contract, methods: methods, storage: ssainfer.NewStorage(nil), knowledge: knowledge, evidence: evidence,
+		resource: resource, contract: contract, methods: methods, storage: heapmodel.NewStorage(nil), knowledge: knowledge, evidence: evidence,
 	}
 	reported := map[*ssa.Call]bool{}
 	for _, release := range directReleases(function, &query) {
@@ -155,7 +156,7 @@ type releasedResource struct {
 	resource  ssa.Value
 	contract  resourceContract
 	methods   []string
-	storage   *ssainfer.Storage
+	storage   *heapmodel.Storage
 	knowledge *summaries.Provider
 	evidence  *lifecyclefacts.LifecycleEvidence
 }

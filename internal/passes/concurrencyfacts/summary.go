@@ -8,9 +8,8 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -151,7 +150,7 @@ type Engine struct {
 	mu        sync.Mutex
 	summaries *ssaflow.FunctionSummaries[Summary]
 	budget    *ssaflow.SearchBudget
-	storage   *ssainfer.Storage
+	storage   *heapmodel.Storage
 	facts     map[*types.Func]Fact
 }
 
@@ -178,7 +177,7 @@ func unavailableSummary(reason ssaflow.SummaryUnavailable) Summary {
 }
 
 func (engine *Engine) query(budget *ssaflow.SearchBudget) *Engine {
-	return &Engine{summaries: engine.summaries, facts: engine.facts, budget: budget, storage: ssainfer.NewStorage(budget)}
+	return &Engine{summaries: engine.summaries, facts: engine.facts, budget: budget, storage: heapmodel.NewStorage(budget)}
 }
 
 // Function summarizes a visible body, including bounded child templates.

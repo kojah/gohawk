@@ -1,6 +1,10 @@
 package ssainfer
 
-import "golang.org/x/tools/go/ssa"
+import (
+	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"golang.org/x/tools/go/ssa"
+)
 
 // A completion proof says that a callee settles the target; a caller that
 // exports the proof as a claim about the target's contents also needs to know
@@ -59,7 +63,7 @@ func (search *completionSearch) receiverPath(local mappedLocal, receiver, target
 	if search.exactTarget {
 		return search.mappedPath(local, target, nil, true)
 	}
-	actual, ok := AccessPathFromParameter(receiver, local.local)
+	actual, ok := heapmodel.AccessPathFromParameter(receiver, local.local)
 	return search.mappedPath(local, target, actual, ok)
 }
 
@@ -77,21 +81,21 @@ func (search *completionSearch) mappedPath(local mappedLocal, target ssa.Value, 
 			// The local holds the target at local.path; a call there is on
 			// the target itself, and a call on the local or elsewhere is
 			// on the aggregate around it.
-			return "", JoinAccessPath(actual) == JoinAccessPath(local.path)
+			return "", ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(local.path)
 		}
-		supplied, ok := AccessPathOf(local.supplied, target)
+		supplied, ok := heapmodel.AccessPathOf(local.supplied, target)
 		if !ok {
 			return "", false
 		}
-		return JoinAccessPath(append(append([]string(nil), supplied...), actual...)), true
+		return ssaflow.JoinAccessPath(append(append([]string(nil), supplied...), actual...)), true
 	case localProjection:
 		// The local is a proper projection of the target, and a
 		// completion is a call on the local itself.
 		if len(actual) > 0 {
 			return "", false
 		}
-		supplied, ok := AccessPathOf(local.supplied, target)
-		return JoinAccessPath(supplied), ok
+		supplied, ok := heapmodel.AccessPathOf(local.supplied, target)
+		return ssaflow.JoinAccessPath(supplied), ok
 	case localOwner:
 		// The call was on the path beneath the local that mirrors the
 		// target's path beneath the supplied owner: the target itself.

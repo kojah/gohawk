@@ -1,10 +1,9 @@
-package ssainfer
+package heapmodel
 
 import (
 	"go/token"
 	"strconv"
 
-	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -92,7 +91,7 @@ func (storage *Storage) Same(left, right ssa.Value) ssaflow.IdentityProof {
 	// cannot: through a copy of a pointee, a merge of one object, or two
 	// reads of one untouched slot. It only adds exact answers; an unknown
 	// stays unknown.
-	if heapmodel.DefinitelySame(left, right) {
+	if DefinitelySame(left, right) {
 		return sameValueIdentity()
 	}
 	return ssaflow.IdentityProof{Proof: storage.unknown(ssaflow.EvidenceStoredValuesDiffer, nil).Proof}
@@ -121,7 +120,7 @@ func (storage *Storage) Content(address ssa.Value, observation ssa.Instruction) 
 	// The graph resolves what the reaching-write walk could not: a cell
 	// filled from a copy of a pointee, or a join where every path stored
 	// one object. It only adds exact answers.
-	if value, ok := heapmodel.ContentValue(address, observation); ok {
+	if value, ok := ContentValue(address, observation); ok {
 		return provenStoredValue(value)
 	}
 	return storage.content(location, observation)
@@ -241,7 +240,7 @@ func (storage *Storage) collectUse(address ssa.Value, use, observation ssa.Instr
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
 		return use, storage.effects.Call(use, address).PreservesStorage()
 	case *ssa.Slice:
-		if callbackSliceOnlyObserved(typed, observation, storage.budget) {
+		if SliceOnlyObserved(typed, observation, storage.budget) {
 			return nil, true
 		}
 		if _, known := storage.arrayView(typed); !known {

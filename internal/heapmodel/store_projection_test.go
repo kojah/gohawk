@@ -1,9 +1,10 @@
-package ssainfer
+package heapmodel
 
 import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -78,7 +79,7 @@ func sibling() {
 `
 
 func TestUnmodifiedNonEmptyAccessPathAtBoundaries(t *testing.T) {
-	pkg := buildTestSSA(t, projectionBoundaryFixture)
+	pkg := ssaflowtest.BuildPackage(t, "example.com/ssaflowtest", projectionBoundaryFixture)
 	for _, test := range []struct {
 		name string
 		want bool
@@ -105,9 +106,16 @@ func TestUnmodifiedNonEmptyAccessPathAtBoundaries(t *testing.T) {
 					}
 				}
 			}
-			cleanupCall := findSSAInstruction(t, function, func(instruction ssa.Instruction) bool {
-				return ssaflow.CallName(ssaflow.InstructionCall(instruction)) == "cleanup"
-			})
+			var cleanupCall *ssa.Call
+			for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
+				if ssaflow.CallName(call.Common()) == "cleanup" {
+					cleanupCall = call
+					break
+				}
+			}
+			if cleanupCall == nil {
+				t.Fatal("missing cleanup call")
+			}
 			argument := ssaflow.InstructionCall(cleanupCall).Args[0]
 			if got := NewStorage(ssaflow.NewSearchBudget(1000)).Projection(argument, root, cleanupCall).Proven(); got != test.want {
 				t.Fatalf("UnmodifiedNonEmptyAccessPathAt() = %t, want %t", got, test.want)

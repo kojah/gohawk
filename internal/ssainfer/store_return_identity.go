@@ -3,6 +3,7 @@ package ssainfer
 import (
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -26,7 +27,7 @@ func ReturnsParameterUnchanged(function *ssa.Function, parameter ssa.Value, inde
 			}
 			result := returned.Results[index]
 			return types.Identical(result.Type(), parameter.Type()) &&
-				NewStorage(nil).Same(result, parameter).Proven()
+				heapmodel.NewStorage(nil).Same(result, parameter).Proven()
 		},
 	)
 }

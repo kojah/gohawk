@@ -47,7 +47,7 @@ func ContainsAt(owner, value ssa.Value, at ssa.Instruction) (bool, bool) {
 }
 
 // ValueAtPath finds the exact object at a static path beneath root.
-func ValueAtPath(root ssa.Value, path []string, at ssa.Instruction) (ssa.Value, bool) {
+func graphValueAtPath(root ssa.Value, path []string, at ssa.Instruction) (ssa.Value, bool) {
 	return regionsOf(root).valueAtPath(root, path, at)
 }
 
@@ -70,7 +70,7 @@ func ExclusiveAt(value ssa.Value, at ssa.Instruction) (ExclusiveObject, bool) {
 }
 
 // StoredPath finds a path from root to target in the observed graph.
-func StoredPath(root, target ssa.Value, at ssa.Instruction) ([]string, bool) {
+func graphStoredPath(root, target ssa.Value, at ssa.Instruction) ([]string, bool) {
 	return regionsOf(root).storedPath(root, target, at)
 }
 

@@ -5,12 +5,12 @@ import (
 	"go/types"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
-
-	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
 func TestSourceSSAFunctionsRejectsUnexpectedPrerequisiteResult(t *testing.T) {
@@ -54,10 +54,10 @@ func compare(first, second chan int) {
 	}
 
 	receiveArgument := callArgument("receive")
-	if sendArgument := callArgument("send"); !MayAlias(receiveArgument, sendArgument) {
+	if sendArgument := callArgument("send"); !heapmodel.MayAlias(receiveArgument, sendArgument) {
 		t.Error("MayAlias did not preserve identity across sibling channel direction conversions")
 	}
-	if otherArgument := callArgument("sendOther"); MayAlias(receiveArgument, otherArgument) {
+	if otherArgument := callArgument("sendOther"); heapmodel.MayAlias(receiveArgument, otherArgument) {
 		t.Error("MayAlias equated channel conversions with different sources")
 	}
 }

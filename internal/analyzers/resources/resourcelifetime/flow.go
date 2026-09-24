@@ -7,12 +7,13 @@ import (
 	"strconv"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -171,7 +172,7 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 		}
 		if ok && state.obligation.Unsettled() &&
 			!analysis.returnedResourceOwner(returned) &&
-			!ssainfer.ReturnedMayAliasAny(returned, analysis.owners) {
+			!heapmodel.ReturnedMayAliasAny(returned, analysis.owners) {
 			return state, true
 		}
 	}
@@ -246,7 +247,7 @@ func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bo
 		return true
 	}
 	for _, result := range returned.Results {
-		if !ssainfer.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
+		if !heapmodel.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
 			continue
 		}
 		// Narrowing an interface preserves its dynamic object, including Close:
@@ -255,7 +256,7 @@ func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bo
 		// replacement body that merely occupies the original field.
 		// https://github.com/lich0821/ccNexus/blob/55887d232555f94ea4db621a5a7e65430eebf0d7/internal/transformer/tool_chain.go#L121-L135
 		if original, changed := ssaflow.UnwrapTransparentValue(result, ssaflow.TransparentChangeInterface); changed &&
-			ssainfer.NewStorage(analysis.budget(1000)).Projection(original, resource, returned).Proven() {
+			heapmodel.NewStorage(analysis.budget(1000)).Projection(original, resource, returned).Proven() {
 			result = original
 		}
 		// A returned view is summarized as releasing nothing, whatever its
@@ -320,14 +321,14 @@ func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 			common := ssaflow.InstructionCall(instruction)
 			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyErrorClaim) {
 				for _, argument := range common.Args {
-					if ssainfer.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
+					if heapmodel.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
 						errorAssertions = append(errorAssertions, instruction)
 					}
 				}
 			}
 			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyNilClaim) {
 				for _, argument := range common.Args {
-					if ssainfer.MayAlias(argument, resource) {
+					if heapmodel.MayAlias(argument, resource) {
 						nilAssertions = append(nilAssertions, instruction)
 					}
 				}
@@ -371,8 +372,8 @@ func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}
-	comparesResourceToNil := ssainfer.ValueDerivesFrom(comparison.X, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.Y) ||
-		ssainfer.ValueDerivesFrom(comparison.Y, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.X)
+	comparesResourceToNil := heapmodel.ValueDerivesFrom(comparison.X, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.Y) ||
+		heapmodel.ValueDerivesFrom(comparison.Y, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.X)
 	if !comparesResourceToNil {
 		return false, false
 	}
@@ -403,8 +404,8 @@ func assertedResource(condition, resource ssa.Value) bool {
 	// stored into, which other paths may have written too; possible
 	// derivation suffices, because the rule only ever removes an
 	// obligation from the arm where the assertion failed.
-	held := ssainfer.NewStorage(nil).Same(assertion.X, resource).Proven() ||
-		ssainfer.ValueDerivesFrom(assertion.X, resource, map[ssa.Value]bool{})
+	held := heapmodel.NewStorage(nil).Same(assertion.X, resource).Proven() ||
+		heapmodel.ValueDerivesFrom(assertion.X, resource, map[ssa.Value]bool{})
 	return held && types.AssignableTo(resource.Type(), assertion.AssertedType)
 }
 

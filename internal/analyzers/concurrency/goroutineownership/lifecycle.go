@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -45,7 +45,7 @@ func (analysis *spawnAnalysis) relayCompletionGroup() ssa.Value { //nolint:iretu
 				group = ssaflow.SpawnedValueAtCall(analysis.spawn, function, closure, ssaflow.CallReceiver(common))
 			case group != nil && ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1:
 				signal := ssaflow.SpawnedValueAtCall(analysis.spawn, function, closure, common.Args[0])
-				if !ssainfer.MayAliasAny(signal, analysis.signals) {
+				if !heapmodel.MayAliasAny(signal, analysis.signals) {
 					return nil
 				}
 				closed = true
@@ -93,7 +93,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
 				continue
 			}
 			groups, _ := waitGroupCompletionValues(worker, function, closure)
-			if ssainfer.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker) {
+			if heapmodel.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker) {
 				return true
 			}
 		}
@@ -183,7 +183,7 @@ func contextFieldReceivedAnywhere(function *ssa.Function, local ssa.Value, spawn
 	}
 	seen[function] = true
 	derives := func(value ssa.Value) bool {
-		return ssainfer.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
+		return heapmodel.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
 	}
 	receivesContextField := func(channel ssa.Value) bool {
 		done, ok := channel.(*ssa.Call)
@@ -253,7 +253,7 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go)
 	if function == nil {
 		return false
 	}
-	storage := ssainfer.NewStorage(nil)
+	storage := heapmodel.NewStorage(nil)
 	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
 		value := pair.Supplied
 		if _, cell := value.(*ssa.Alloc); cell {
@@ -294,7 +294,7 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go)
 // Cancellation is an alternative lifetime boundary, never a join. The same
 // every-return query must cover later calls/defers; conditional cancellation
 // and an asynchronous invocation do not satisfy it.
-func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *ssainfer.Storage) bool {
+func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Storage) bool {
 	cancels := func(instruction ssa.Instruction) bool {
 		common := ssaflow.InstructionCall(instruction)
 		if common == nil {
@@ -368,7 +368,7 @@ func receivesAnywhere(function *ssa.Function, local ssa.Value, seen map[*ssa.Fun
 	}
 	seen[function] = true
 	derives := func(value ssa.Value) bool {
-		return ssainfer.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
+		return heapmodel.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -460,14 +460,14 @@ func lifecycleOwner(value ssa.Value) bool {
 // interface. NATS asserts its listener before deferring the close:
 // https://github.com/nats-io/nats.go/blob/850f889cf3d63bfd1a549ab9af59f0145146fb41/nats_test.go#L1288-L1301
 func ownerReceiver(receiver ssa.Value, owners []ssa.Value) bool {
-	if ssainfer.MayAliasAny(receiver, owners) {
+	if heapmodel.MayAliasAny(receiver, owners) {
 		return true
 	}
 	if extract, ok := receiver.(*ssa.Extract); ok {
 		receiver = extract.Tuple
 	}
 	asserted, ok := receiver.(*ssa.TypeAssert)
-	return ok && ssainfer.MayAliasAny(asserted.X, owners)
+	return ok && heapmodel.MayAliasAny(asserted.X, owners)
 }
 
 func lifecycleMethod(name string) bool {

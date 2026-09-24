@@ -218,7 +218,7 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 		bit := parameterMaskFor(index)
 		invokes := func(instruction ssa.Instruction) bool {
 			common := ssaflow.InstructionCall(instruction)
-			if common != nil && ssainfer.NewStorage(nil).Same(common.Value, parameter).Proven() {
+			if common != nil && heapmodel.NewStorage(nil).Same(common.Value, parameter).Proven() {
 				return true
 			}
 			imported, ok := importFact(pass, instruction)
@@ -333,7 +333,7 @@ func cleanupPaths(function *ssa.Function, parameter ssa.Value, method string, de
 			if common == nil || ssaflow.CallName(common) != method {
 				continue
 			}
-			path, ok := ssainfer.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
+			path, ok := heapmodel.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
 			if !ok || len(path) == 0 {
 				continue
 			}
@@ -354,7 +354,7 @@ func cleanupAtPath(instruction ssa.Instruction, parameter ssa.Value, method, pat
 	if common == nil || ssaflow.CallName(common) != method {
 		return false
 	}
-	actual, ok := ssainfer.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
+	actual, ok := heapmodel.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
 	return ok && ssaflow.JoinAccessPath(actual) == path
 }
 
@@ -395,7 +395,7 @@ func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruct
 		return false
 	}
 	common := ssaflow.InstructionCall(instruction)
-	if common != nil && ssainfer.NewStorage(nil).Same(common.Value, parameter).Proven() {
+	if common != nil && heapmodel.NewStorage(nil).Same(common.Value, parameter).Proven() {
 		return true
 	}
 	imported, ok := importFact(pass, instruction)

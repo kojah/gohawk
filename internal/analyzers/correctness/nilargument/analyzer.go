@@ -11,7 +11,6 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -81,7 +80,7 @@ func judgeArgument(pass *analysis.Pass, function *ssa.Function, call *ssa.Call, 
 		probe.Decision(analysisTrace.Step{Reason: "slot-not-pointer", Outcome: analysisTrace.OutcomeUnknown, Pos: call.Pos(), Details: details})
 		return
 	}
-	if !ssainfer.ContentIsNilAt(argument, ssaflow.SplitAccessPath(path), call) {
+	if !heapmodel.ContentIsNilAt(argument, ssaflow.SplitAccessPath(path), call) {
 		probe.Decision(analysisTrace.Step{Reason: "slot-not-proven-nil", Outcome: analysisTrace.OutcomeAccepted, Pos: call.Pos(), Details: details})
 		return
 	}

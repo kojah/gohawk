@@ -1,10 +1,11 @@
-package ssainfer
+package heapmodel
 
 import (
 	"go/token"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -58,7 +59,7 @@ func returnedLoad(t *testing.T, function *ssa.Function) *ssa.UnOp {
 }
 
 func TestStorageGiveUpsNameTheirCause(t *testing.T) {
-	pkg := buildTestSSA(t, storageGiveUpFixture)
+	pkg := ssaflowtest.BuildPackage(t, "example.com/ssaflowtest", storageGiveUpFixture)
 	want := map[string]ssaflow.EvidenceReason{
 		"conflicting": ssaflow.EvidenceStorageConflictingWrites,
 		"escaped":     ssaflow.EvidenceStorageAddressEscapes,
@@ -81,7 +82,11 @@ func TestStorageGiveUpsNameTheirCause(t *testing.T) {
 	}
 	t.Run("stable", func(t *testing.T) {
 		function := pkg.Func("stable")
-		closure := findMakeClosure(t, function)
+		closures := ssaflow.InstructionsOf[*ssa.MakeClosure](function)
+		if len(closures) != 1 {
+			t.Fatalf("got %d closures, want one", len(closures))
+		}
+		closure := closures[0]
 		cell := closure.Bindings[0]
 		content := NewStorage(ssaflow.NewSearchBudget(1000)).StableContent(cell, closure)
 		if content.Proven() || content.Reason != ssaflow.EvidenceStorageWriteAfterObservation {
@@ -100,7 +105,7 @@ func TestStorageGiveUpsNameTheirCause(t *testing.T) {
 // A silent budget must cost nothing at a give-up: the details are built only
 // when an observer is attached, so tracing that is off allocates nothing.
 func TestSilentBudgetGiveUpAllocatesNothing(t *testing.T) {
-	pkg := buildTestSSA(t, storageGiveUpFixture)
+	pkg := ssaflowtest.BuildPackage(t, "example.com/ssaflowtest", storageGiveUpFixture)
 	load := returnedLoad(t, pkg.Func("param"))
 	storage := NewStorage(ssaflow.NewSearchBudget(1000))
 	allocations := testing.AllocsPerRun(100, func() {
@@ -112,7 +117,7 @@ func TestSilentBudgetGiveUpAllocatesNothing(t *testing.T) {
 }
 
 func TestObservedBudgetReportsPositionAndInstruction(t *testing.T) {
-	pkg := buildTestSSA(t, storageGiveUpFixture)
+	pkg := ssaflowtest.BuildPackage(t, "example.com/ssaflowtest", storageGiveUpFixture)
 	load := returnedLoad(t, pkg.Func("escaped"))
 	var at token.Pos
 	var details map[string]string

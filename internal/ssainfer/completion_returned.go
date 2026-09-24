@@ -3,6 +3,7 @@ package ssainfer
 import (
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -78,7 +79,7 @@ func (search *completionSearch) returnedValueCompletes(callback, target ssa.Valu
 	if function == nil {
 		return false
 	}
-	storage := NewStorage(search.budget)
+	storage := heapmodel.NewStorage(search.budget)
 	for index, argument := range factory.Common().Args {
 		relation := ReturnedCleanupRelation{CallbackResult: callbackIndex, Target: index}
 		if storage.Same(argument, target).Proven() && search.returnedRelation(function, relation) {
@@ -168,14 +169,14 @@ func returnedCleanupValue(returned *ssa.Return, index int, budget *ssaflow.Searc
 		return nil
 	}
 	value := returned.Results[index]
-	if resolved := NewStorage(budget).Resolve(value); resolved.Proven() {
+	if resolved := heapmodel.NewStorage(budget).Resolve(value); resolved.Proven() {
 		return resolved.Value
 	}
 	return value
 }
 
 func (search *completionSearch) returnedCallbackCompletes(callback, target ssa.Value, returned *ssa.Return) bool {
-	if search.invokeTarget && DefinitelySameValue(callback, target) {
+	if search.invokeTarget && heapmodel.DefinitelySameValue(callback, target) {
 		return true
 	}
 	if closure, ok := callback.(*ssa.MakeClosure); ok {

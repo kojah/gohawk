@@ -3,10 +3,10 @@ package lifecyclefacts
 import (
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -183,7 +183,7 @@ func parameterMayBeReleased(function *ssa.Function, parameter ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if assertion, ok := instruction.(*ssa.TypeAssert); ok &&
-				ssainfer.ValueDerivesFrom(assertion.X, parameter, map[ssa.Value]bool{}) &&
+				heapmodel.ValueDerivesFrom(assertion.X, parameter, map[ssa.Value]bool{}) &&
 				typeCanRelease(assertion.AssertedType) {
 				return true
 			}
@@ -359,7 +359,7 @@ func releasesField(pass *analysis.Pass, instruction ssa.Instruction, receiver ss
 	}
 	for _, load := range fieldLoads(receiver, index) {
 		for _, method := range cleanup {
-			if ssaflow.CallName(common) == method && ssainfer.ValueDerivesFrom(ssaflow.CallReceiver(common), load, map[ssa.Value]bool{}) {
+			if ssaflow.CallName(common) == method && heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), load, map[ssa.Value]bool{}) {
 				return true
 			}
 		}
@@ -665,7 +665,7 @@ func (evidence *LifecycleEvidence) visibleCalleeRetains(instruction ssa.Instruct
 	}
 	retentions := evidence.retentionQueries()
 	for _, binding := range ssaflow.CallBindings(common, function, closure) {
-		if !ssainfer.NewStorage(nil).Same(binding.Supplied, target).Proven() ||
+		if !heapmodel.NewStorage(nil).Same(binding.Supplied, target).Proven() ||
 			!retentions.storedEveryReturn(evidence.pass, function, binding.Local) {
 			continue
 		}

@@ -1,6 +1,7 @@
 package ssainfer
 
 import (
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -55,7 +56,7 @@ func (search *callbackSearch) searchInvokes(instruction ssa.Instruction, target 
 				return false
 			}
 			common := ssaflow.InstructionCall(candidate)
-			return common != nil && NewStorage(nil).Same(common.Value, parameter).Proven() || search.invokes(candidate, parameter)
+			return common != nil && heapmodel.NewStorage(nil).Same(common.Value, parameter).Proven() || search.invokes(candidate, parameter)
 		})
 	}, func(ssaflow.SummaryUnavailable, bool) bool {
 		return false
@@ -72,7 +73,7 @@ func callOwnsArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value
 		return false
 	}
 	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
-		if !NewStorage(nil).Same(binding.Supplied, target).Proven() {
+		if !heapmodel.NewStorage(nil).Same(binding.Supplied, target).Proven() {
 			continue
 		}
 		parameter := binding.Local

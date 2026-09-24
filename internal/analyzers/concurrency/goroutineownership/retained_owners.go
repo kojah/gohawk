@@ -5,10 +5,10 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -189,7 +189,7 @@ func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *
 		if !budget.Spend() {
 			return false
 		}
-		if !ssainfer.DefinitelySameValue(ssaflow.CapturedBindingValue(pair.Supplied), sibling) {
+		if !heapmodel.DefinitelySameValue(ssaflow.CapturedBindingValue(pair.Supplied), sibling) {
 			continue
 		}
 		search := newHelperSearch()
@@ -205,7 +205,7 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaf
 	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
 	budget := analysis.budget()
-	storage := ssainfer.NewStorage(budget)
+	storage := heapmodel.NewStorage(budget)
 	identity := receiver
 	// A nested worker captures an interface cell while its parent's deferred
 	// close invokes the loaded interface. Peeling that load is identity only.
@@ -218,7 +218,7 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaf
 		if !budget.Spend() {
 			return false
 		}
-		if ssainfer.MayAlias(value, identity) || ssainfer.CapturedBindingMatches(value, receiver) {
+		if heapmodel.MayAlias(value, identity) || heapmodel.CapturedBindingMatches(value, receiver) {
 			return true
 		}
 		if content := storage.Resolve(value); content.Proven() && content.Value != value {
@@ -272,7 +272,7 @@ func (analysis *spawnAnalysis) spawnedPipePeers() []trackedValue {
 	}
 	var peers []trackedValue
 	budget := analysis.budget()
-	storage := ssainfer.NewStorage(budget)
+	storage := heapmodel.NewStorage(budget)
 	var find func(ssaflow.ReachingWalk, ssa.Value) bool
 	find = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 		if !budget.Spend() {

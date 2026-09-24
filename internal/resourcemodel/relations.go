@@ -3,8 +3,8 @@ package resourcemodel
 import (
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -39,13 +39,13 @@ func ProveRelation(owner, resource ssa.Value, observation ssa.Instruction, budge
 	if owner == nil || resource == nil || observation == nil || budget == nil || !budget.Spend() {
 		return unknown
 	}
-	if ssainfer.NewStorage(budget).Same(owner, resource).Proven() {
+	if heapmodel.NewStorage(budget).Same(owner, resource).Proven() {
 		return RelationProof{
 			Proof:    ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath},
 			Relation: Relation{owner: owner, resource: resource},
 		}
 	}
-	path, ok := ssainfer.StoredPath(owner, resource, observation)
+	path, ok := heapmodel.StoredPath(owner, resource, observation)
 	if !ok || len(path) == 0 {
 		return unknown
 	}

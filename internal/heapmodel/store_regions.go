@@ -1,13 +1,12 @@
 package heapmodel
 
-import "github.com/kojah/gohawk/internal/ssaflow"
-
 import (
 	"maps"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
 

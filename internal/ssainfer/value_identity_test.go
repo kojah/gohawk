@@ -3,6 +3,7 @@ package ssainfer
 import (
 	"testing"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -37,11 +38,11 @@ func wrapped(a chan int) chan<- int { return a }
 				return ok
 			}).(*ssa.Return)
 			value, target := ret.Results[0], fn.Params[0]
-			if !MayAlias(value, target) {
+			if !heapmodel.MayAlias(value, target) {
 				t.Fatal("fixture must exercise the possible-identity matcher")
 			}
 			for _, pair := range [][2]ssa.Value{{value, target}, {target, value}} {
-				if got := DefinitelySameValue(pair[0], pair[1]); got != test.want {
+				if got := heapmodel.DefinitelySameValue(pair[0], pair[1]); got != test.want {
 					t.Errorf("DefinitelySameValue(%s, %s) = %t, want %t", pair[0], pair[1], got, test.want)
 				}
 				proof := ssaflow.ProveIdentity(ssaflow.AccessPath{Value: pair[0]}, ssaflow.AccessPath{Value: pair[1]})
@@ -66,14 +67,14 @@ func TestDefiniteIdentityPhiAgreement(t *testing.T) {
 		{"empty", &ssa.Phi{}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := DefinitelySameValue(test.phi, a); got != test.want {
+			if got := heapmodel.DefinitelySameValue(test.phi, a); got != test.want {
 				t.Errorf("got %t, want %t", got, test.want)
 			}
 		})
 	}
 	cycle := &ssa.Phi{}
 	cycle.Edges = []ssa.Value{a, cycle}
-	if DefinitelySameValue(cycle, a) {
+	if heapmodel.DefinitelySameValue(cycle, a) {
 		t.Fatal("a cyclic phi must not establish identity")
 	}
 }

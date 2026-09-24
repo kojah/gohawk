@@ -6,9 +6,9 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -619,7 +619,7 @@ func opaqueCallee(common *ssa.CallCommon) bool {
 // value the lock derives from, such as the struct whose field it is.
 func lockHandedTo(common *ssa.CallCommon, lock ssa.Value) bool {
 	for _, argument := range common.Args {
-		if ssainfer.MayAlias(argument, lock) || ssainfer.ValueDerivesFrom(lock, argument, map[ssa.Value]bool{}) {
+		if heapmodel.MayAlias(argument, lock) || heapmodel.ValueDerivesFrom(lock, argument, map[ssa.Value]bool{}) {
 			return true
 		}
 	}

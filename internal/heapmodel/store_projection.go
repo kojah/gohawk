@@ -1,4 +1,4 @@
-package ssainfer
+package heapmodel
 
 import (
 	"go/token"
@@ -53,7 +53,7 @@ func (storage *Storage) unmodifiedProjection(value, root ssa.Value, observation 
 	if !ok || origin.Block() == nil {
 		return false
 	}
-	if _, ambiguous := root.(*ssa.Phi); ambiguous || !strictNonEmptyAccessPath(value, root) {
+	if _, ambiguous := root.(*ssa.Phi); ambiguous || !StrictProjectionPath(value, root) {
 		return false
 	}
 	address := projectedStorageAddress(value)
@@ -189,7 +189,11 @@ func instructionWithinObservation(candidate, origin, observation ssa.Instruction
 	return candidate != nil && candidate != origin && ssaflow.InstructionMayFollow(origin, candidate) && ssaflow.InstructionMayFollow(candidate, observation)
 }
 
-func strictNonEmptyAccessPath(value, root ssa.Value) bool {
+// StrictProjectionPath proves a non-empty field or constant-index path from
+// root, resolving local loads where necessary. It does not establish that the
+// selected storage remains unchanged at a later observation; use Projection
+// for that stronger question.
+func StrictProjectionPath(value, root ssa.Value) bool {
 	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{}, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
 	return ok && depth > 0
 }

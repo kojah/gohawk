@@ -1,4 +1,4 @@
-package ssainfer
+package heapmodel
 
 import (
 	"strings"
@@ -36,14 +36,16 @@ func (storage *Storage) StableContent(address ssa.Value, observation ssa.Instruc
 			!strings.HasPrefix(written.path, location.path+"/") {
 			continue
 		}
-		if storeMayFollow(location.root, observation, store) || ssaflow.BlockInCycle(store.Block()) && store.Block() != location.root.Block() {
+		if StoreMayFollow(location.root, observation, store) || ssaflow.BlockInCycle(store.Block()) && store.Block() != location.root.Block() {
 			return storage.unknown(ssaflow.EvidenceStorageWriteAfterObservation, store)
 		}
 	}
 	return storage.content(location, observation)
 }
 
-func callbackSliceOnlyObserved(use, observation ssa.Instruction, budget *ssaflow.SearchBudget) bool {
+// SliceOnlyObserved reports whether use constructs a slice whose only consumers
+// are observation. The caller must account for observation's own effects.
+func SliceOnlyObserved(use, observation ssa.Instruction, budget *ssaflow.SearchBudget) bool {
 	slice, ok := use.(*ssa.Slice)
 	if !ok || slice.Referrers() == nil {
 		return false
@@ -54,11 +56,4 @@ func callbackSliceOnlyObserved(use, observation ssa.Instruction, budget *ssaflow
 		}
 	}
 	return true
-}
-
-// stableValue is the internal tuple form for callback binders. It delegates
-// both store selection and the lifetime boundary to the same storage query.
-func (storage *Storage) stableValue(address ssa.Value, observation ssa.Instruction) (ssa.Value, bool) {
-	proof := storage.StableContent(address, observation)
-	return proof.Value, proof.Proven()
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
@@ -114,7 +115,7 @@ func conditionalLookup(
 		}
 		mask := conditionalMask(fact, method, invoke, predicate)
 		proven := factArgumentMatches(instruction, target, mask, func(argument, target ssa.Value) bool {
-			return ssainfer.NewStorage(budget).Same(argument, target).Proven()
+			return heapmodel.NewStorage(budget).Same(argument, target).Proven()
 		})
 		if proven && onFact != nil {
 			onFact()

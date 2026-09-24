@@ -4,9 +4,8 @@ import (
 	"go/token"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -30,7 +29,7 @@ func (analysis *spawnAnalysis) consumes(value ssa.Value) bool {
 		// A worker may receive a loaded field while its caller returns the
 		// aggregate initialized with that field. Resolve the read at its own
 		// instruction, rather than expecting the return to contain the load.
-		if resolved := ssainfer.NewStorage(analysis.budget()).Resolve(target); resolved.Proven() {
+		if resolved := heapmodel.NewStorage(analysis.budget()).Resolve(target); resolved.Proven() {
 			target = resolved.Value
 		}
 		return carries(ssaflow.NewReachingWalk(carryForms), value, target)
@@ -38,11 +37,11 @@ func (analysis *spawnAnalysis) consumes(value ssa.Value) bool {
 }
 
 func carries(walk ssaflow.ReachingWalk, value, target ssa.Value) bool {
-	if value != nil && ssainfer.MayAlias(value, target) {
+	if value != nil && heapmodel.MayAlias(value, target) {
 		return true
 	}
 	return walk.Any(value, func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
-		if ssainfer.MayAlias(value, target) {
+		if heapmodel.MayAlias(value, target) {
 			return true
 		}
 		switch typed := value.(type) {
@@ -50,7 +49,7 @@ func carries(walk ssaflow.ReachingWalk, value, target ssa.Value) bool {
 			// A closure carries whatever it captured, including an addressable
 			// local that held the target at any point.
 			return slices.ContainsFunc(typed.Bindings, func(binding ssa.Value) bool {
-				return ssainfer.CapturedBindingMatches(binding, target) || carries(walk, binding, target)
+				return heapmodel.CapturedBindingMatches(binding, target) || carries(walk, binding, target)
 			})
 		case *ssa.UnOp:
 			// A struct passed or returned by value is loaded from the local that
@@ -162,5 +161,5 @@ func siblingSelection(address ssa.Value) (ssa.Value, func(ssa.Instruction) bool)
 // bindingCarries matches a closure binding or call argument against a tracked
 // value, including an addressable local that has contained it.
 func bindingCarries(binding, target ssa.Value) bool {
-	return ssainfer.CapturedBindingMatches(binding, target) || carries(ssaflow.NewReachingWalk(carryForms), binding, target)
+	return heapmodel.CapturedBindingMatches(binding, target) || carries(ssaflow.NewReachingWalk(carryForms), binding, target)
 }

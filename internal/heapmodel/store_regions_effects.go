@@ -1,11 +1,10 @@
 package heapmodel
 
-import "github.com/kojah/gohawk/internal/ssaflow"
-
 import (
 	"go/types"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
 

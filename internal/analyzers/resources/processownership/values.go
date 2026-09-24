@@ -4,10 +4,9 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -16,7 +15,7 @@ func osProcessDerivedFromCommand(value, command ssa.Value) bool {
 		return false
 	}
 	pointer, ok := value.Type().Underlying().(*types.Pointer)
-	return ok && syntax.NamedType(pointer.Elem(), "os", "Process") && ssainfer.ValueDerivesFrom(value, command, map[ssa.Value]bool{})
+	return ok && syntax.NamedType(pointer.Elem(), "os", "Process") && heapmodel.ValueDerivesFrom(value, command, map[ssa.Value]bool{})
 }
 
 // returnsProcessHandle reports whether a return hands the caller the exact
@@ -95,9 +94,9 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 		// A closure-local FreeVar is the mapped capture cell, not the command
 		// value. Its caller maps the captured command into this frame.
 		if _, captured := command.(*ssa.FreeVar); captured {
-			return ssainfer.ValueDerivesFrom(receiver, command, map[ssa.Value]bool{})
+			return heapmodel.ValueDerivesFrom(receiver, command, map[ssa.Value]bool{})
 		}
-		return ssainfer.NewStorage(nil).Same(receiver, command).Proven()
+		return heapmodel.NewStorage(nil).Same(receiver, command).Proven()
 	}
 	// Waiting through cmd.Process reaps the same operating-system child. Mache
 	// uses the lower-level handle after signaling an entire process group:
@@ -174,7 +173,7 @@ func immediateProcessNilComparison(guard *ssa.BasicBlock, command ssa.Value) *ss
 	if !fieldOK || !loadOK || !comparisonOK || !branchOK || len(guard.Succs) != 2 {
 		return nil
 	}
-	if !ssainfer.MayAlias(field.X, command) || load.X != field || load.Op != token.MUL ||
+	if !heapmodel.MayAlias(field.X, command) || load.X != field || load.Op != token.MUL ||
 		!osProcessDerivedFromCommand(load, command) || branch.Cond != comparison {
 		return nil
 	}

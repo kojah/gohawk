@@ -1,16 +1,18 @@
 // Package processownership implements the processownership gohawk analyzer.
+
 package processownership
 
 import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -83,7 +85,7 @@ func commandOwnedElsewhere(
 	}
 	// Caller retains a parameter command after this helper returns, so
 	// helper-local Start does not transfer caller's Wait responsibility.
-	if ssainfer.MayAliasAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
+	if heapmodel.MayAliasAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
 		return true
 	}
 	// A command loaded from an element of an aggregate is shared with
@@ -111,7 +113,7 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 	// The receiver may be a load from a returned value-owner's field. Resolve
 	// that acquisition-time load before comparing it with the owner's contents.
 	// https://github.com/minio/selfupdate/blob/5b54254443f7ab80e750e1761590c1f029ecc42f/internal/binarydist/bzip2.go#L26-L40
-	if resolved := ssainfer.NewStorage(nil).Resolve(command); resolved.Proven() {
+	if resolved := heapmodel.NewStorage(nil).Resolve(command); resolved.Proven() {
 		command = resolved.Value
 	}
 	merged := successfulCommandMerge(start, command)
@@ -207,7 +209,7 @@ func commandStoredExternallyBeforeStart(start *ssa.Call, command ssa.Value) bool
 	for _, block := range start.Parent().Blocks {
 		for _, instruction := range block.Instrs {
 			store, ok := instruction.(*ssa.Store)
-			if !ok || !ssaflow.InstructionDominates(store, start) || !ssainfer.MayAlias(store.Val, command) {
+			if !ok || !ssaflow.InstructionDominates(store, start) || !heapmodel.MayAlias(store.Val, command) {
 				continue
 			}
 			if storesProcessHandleInExternalField(store, command) || externallyOwnedAddress(store.Addr) {
@@ -237,7 +239,7 @@ func commandUnusedAfterStart(start *ssa.Call, command ssa.Value) bool {
 			// A literal that captures the handle may wait on it later.
 			if closure, ok := instruction.(*ssa.MakeClosure); ok {
 				for _, binding := range closure.Bindings {
-					if ssainfer.CapturedBindingMatches(binding, command) {
+					if heapmodel.CapturedBindingMatches(binding, command) {
 						return false
 					}
 				}
@@ -251,7 +253,7 @@ func commandUnusedAfterStart(start *ssa.Call, command ssa.Value) bool {
 				continue
 			}
 			for _, operand := range instruction.Operands(nil) {
-				if operand == nil || *operand == nil || ssainfer.ValueDerivesFrom(*operand, start, map[ssa.Value]bool{}) {
+				if operand == nil || *operand == nil || heapmodel.ValueDerivesFrom(*operand, start, map[ssa.Value]bool{}) {
 					// Start's own error result is not a use of the handle.
 					continue
 				}
@@ -290,7 +292,7 @@ func handleCarried(value, command ssa.Value) bool {
 		if _, scalar := value.Type().Underlying().(*types.Basic); scalar {
 			return false
 		}
-		if ssainfer.MayAlias(value, command) {
+		if heapmodel.MayAlias(value, command) {
 			return true
 		}
 		if load, ok := value.(*ssa.UnOp); ok {

@@ -6,12 +6,13 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -223,7 +224,7 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 				return false
 			}
 			if ssaflow.CallMatchesSymbol(deferred.Common(), waitGroupDone) &&
-				ssainfer.DefinitelySameValue(ssaflow.CallReceiver(deferred.Common()), pair.Local) {
+				heapmodel.DefinitelySameValue(ssaflow.CallReceiver(deferred.Common()), pair.Local) {
 				return true
 			}
 			proof := ssainfer.ProveCompletion(ssainfer.CompletionRequest{
@@ -307,7 +308,7 @@ func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value) boo
 		if source, ok := ssaflow.IdentitySource(notified); ok {
 			notified = source
 		}
-		return ssainfer.DefinitelySameValue(notified, identity)
+		return heapmodel.DefinitelySameValue(notified, identity)
 	})
 }
 
@@ -436,7 +437,7 @@ func waitGroupCompletionValues(
 			// nil. OpenIM's fire-and-forget branch uses the same worker as its
 			// counted branch but supplies a nil group:
 			// https://github.com/openimsdk/openim-sdk-core/blob/061ac673ffa31f4d863651fdffee7882609a5f62/internal/conversation_msg/notification.go#L441-L469
-			if group == nil || ssaflow.DefinitelyNil(group) || ssainfer.MayAliasAny(group, groups) {
+			if group == nil || ssaflow.DefinitelyNil(group) || heapmodel.MayAliasAny(group, groups) {
 				continue
 			}
 			if !waitGroupSettlesFunction(function, receiver) {

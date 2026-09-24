@@ -8,7 +8,7 @@ import (
 
 func closureCallsValue(closure *ssa.MakeClosure, target ssa.Value) bool {
 	return closureCallsCapturedValue(closure, func(binding ssa.Value) bool {
-		return CapturedBindingMatches(binding, target)
+		return heapmodel.CapturedBindingMatches(binding, target)
 	})
 }
 
@@ -21,7 +21,7 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 		for _, candidate := range block.Instrs {
 			if nested, ok := candidate.(*ssa.MakeClosure); ok && closureCallsCapturedValue(nested, func(binding ssa.Value) bool {
 				for index, free := range function.FreeVars {
-					if index < len(closure.Bindings) && CapturedBindingMatches(binding, free) && owns(closure.Bindings[index]) {
+					if index < len(closure.Bindings) && heapmodel.CapturedBindingMatches(binding, free) && owns(closure.Bindings[index]) {
 						return true
 					}
 				}
@@ -34,7 +34,7 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 				continue
 			}
 			for index, free := range function.FreeVars {
-				if ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) && owns(closure.Bindings[index]) {
+				if heapmodel.ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) && owns(closure.Bindings[index]) {
 					return true
 				}
 			}
@@ -74,7 +74,7 @@ func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
 	if owner == nil || seen[owner] {
 		return false
 	}
-	if MayAlias(owner, value) {
+	if heapmodel.MayAlias(owner, value) {
 		return true
 	}
 	seen[owner] = true
@@ -85,7 +85,7 @@ func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
 	}
 	if typed, ok := owner.(*ssa.MakeClosure); ok {
 		for _, binding := range typed.Bindings {
-			if CapturedBindingMatches(binding, value) || valueOwnsValue(ssaflow.CapturedBindingValue(binding), value, seen) {
+			if heapmodel.CapturedBindingMatches(binding, value) || valueOwnsValue(ssaflow.CapturedBindingValue(binding), value, seen) {
 				return true
 			}
 		}

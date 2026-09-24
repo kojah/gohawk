@@ -4,11 +4,11 @@ import (
 	"go/token"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -17,7 +17,7 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			owner := resourceFieldOwner(instruction, resource)
-			if owner != nil && !ssaflow.ExternallyOwnedValue(owner) && !ssainfer.MayAliasAny(owner, owners) {
+			if owner != nil && !ssaflow.ExternallyOwnedValue(owner) && !heapmodel.MayAliasAny(owner, owners) {
 				owners = append(owners, owner)
 			}
 		}
@@ -100,7 +100,7 @@ func resourceTransferredToExternalField(instruction ssa.Instruction, resource ss
 
 func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Value { //nolint:ireturn // Owners retain their concrete SSA value forms.
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !ssainfer.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) && !ssainfer.MayContainValue(store.Val, resource) {
+	if !ok || !heapmodel.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) && !ssainfer.MayContainValue(store.Val, resource) {
 		return nil
 	}
 	if field, ok := store.Addr.(*ssa.FieldAddr); ok {

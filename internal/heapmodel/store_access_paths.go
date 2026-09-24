@@ -1,10 +1,8 @@
-package ssainfer
+package heapmodel
 
 import (
 	"go/token"
-	"strings"
 
-	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -51,19 +49,6 @@ func AccessPathFromParameter(value, parameter ssa.Value) ([]string, bool) {
 	return nil, false
 }
 
-// JoinAccessPath renders a path for a fact or a key; the empty path is "".
-func JoinAccessPath(path []string) string {
-	return strings.Join(path, "/")
-}
-
-// SplitAccessPath is the inverse of JoinAccessPath.
-func SplitAccessPath(joined string) []string {
-	if joined == "" {
-		return nil
-	}
-	return strings.Split(joined, "/")
-}
-
 // ValueAtPath resolves the value stored at path beneath root as observed at
 // observation. The root may be an address, such as a local aggregate or a
 // pointer, or a load of a whole aggregate, in which case the loaded cell is
@@ -77,13 +62,13 @@ func ValueAtPath(root ssa.Value, path []string, observation ssa.Instruction) (ss
 	// The graph knows the slot whether or not the function selected it by
 	// that path; the selection walk below is kept for the paths the graph
 	// cannot resolve to one object.
-	if value, ok := heapmodel.ValueAtPath(root, path, observation); ok {
+	if value, ok := graphValueAtPath(root, path, observation); ok {
 		return value, true
 	}
 	if load, ok := root.(*ssa.UnOp); ok && load.Op == token.MUL {
 		root = load.X
 	}
-	for _, address := range selectionsOf(root, path) {
+	for _, address := range SelectionsOf(root, path) {
 		if content := NewStorage(nil).Content(address, observation); content.Proven() {
 			return content.Value, true
 		}
@@ -91,39 +76,9 @@ func ValueAtPath(root ssa.Value, path []string, observation ssa.Instruction) (ss
 	return nil, false
 }
 
-// ContentIsNilAt reports whether the value at path beneath root is certainly
-// nil when observation runs: the root refers to one object, the slot holds
-// one non-stale entry, and it is nil. An empty path asks whether the root
-// itself is nil. A must-answer, so a value that is nil on one branch only
-// is not nil here.
-func ContentIsNilAt(root ssa.Value, path []string, observation ssa.Instruction) bool {
-	// The graph is the observing function's: a constant root belongs to no
-	// function, and a nil constant is nil in every one.
-	if observation == nil || observation.Parent() == nil {
-		return false
-	}
-	return heapmodel.ContentIsNilAt(root, path, observation)
-}
-
-// ObjectExclusiveAt reports whether the object the value refers into can be
-// reached, when the instruction runs, by nobody but this function and the
-// caller that handed it in: a local allocation not yet escaped, or a
-// parameter not yet escaped. A local object is Published when some path
-// from the instruction stores it into a global or a field, sends it, or
-// hands it to a goroutine; a call alone does not publish it. A value that may refer to several objects, or
-// to one the function did not allocate and was not handed, is not
-// exclusive. Where a value the graph cannot see is passed to a callee, the
-// escape is recorded, so an object handed to unknown code is not exclusive
-// afterwards.
-func ObjectExclusiveAt(value ssa.Value, at ssa.Instruction) (ExclusiveObject, bool) {
-	return heapmodel.ExclusiveAt(value, at)
-}
-
-type ExclusiveObject = heapmodel.ExclusiveObject
-
-// selectionsOf returns every address the function selected beneath root by
+// SelectionsOf returns every address the function selected beneath root by
 // exactly path.
-func selectionsOf(root ssa.Value, path []string) []ssa.Value {
+func SelectionsOf(root ssa.Value, path []string) []ssa.Value {
 	frontier := []ssa.Value{root}
 	for _, step := range path {
 		var next []ssa.Value
@@ -151,7 +106,7 @@ func selectionsOf(root ssa.Value, path []string) []ssa.Value {
 // content is the target. It looks one and two selections deep, which covers
 // a field of a struct and an element of an array held in a field.
 func StoredPath(root, target ssa.Value, observation ssa.Instruction) ([]string, bool) {
-	if path, ok := heapmodel.StoredPath(root, target, observation); ok {
+	if path, ok := graphStoredPath(root, target, observation); ok {
 		return path, true
 	}
 	if load, ok := root.(*ssa.UnOp); ok && load.Op == token.MUL {

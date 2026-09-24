@@ -1,10 +1,5 @@
 package lockorder
 
-// Ordering evidence is a package-local graph of declaration classes, not a
-// points-to proof of a runtime deadlock. Each edge retains one acquisition
-// witness. Bounded breadth-first searches explain short cycles without
-// enumerating paths or changing the instance-based recursive-lock check.
-
 import (
 	"fmt"
 	"go/token"
@@ -13,9 +8,15 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
+
+	// Ordering evidence is a package-local graph of declaration classes, not a
+	// points-to proof of a runtime deadlock. Each edge retains one acquisition
+	// witness. Bounded breadth-first searches explain short cycles without
+	// enumerating paths or changing the instance-based recursive-lock check.
+
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -131,7 +132,7 @@ func crossOwnerClassUncertain(held, acquired lockAcquisition) bool {
 		left.Root.Parent() == nil || left.Root.Parent() != right.Root.Parent() || !types.Identical(left.Root.Type(), right.Root.Type()) {
 		return false
 	}
-	return !ssainfer.NewStorage(nil).Same(left.Root, right.Root).Proven()
+	return !heapmodel.NewStorage(nil).Same(left.Root, right.Root).Proven()
 }
 
 // Only exact global exclusive guards enter this set. A declaration-class

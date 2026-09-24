@@ -41,16 +41,16 @@ func (search *completionSearch) capturedLocal(
 	if search.exactTarget {
 		value := binding
 		if cell, ok := binding.(*ssa.Alloc); ok {
-			var stable bool
-			value, stable = NewStorage(search.budget).stableValue(cell, invocation)
-			if !stable {
+			stored := heapmodel.NewStorage(search.budget).StableContent(cell, invocation)
+			if !stored.Proven() {
 				return mappedLocal{}, false
 			}
+			value = stored.Value
 		}
 		return mappedLocal{local: free, supplied: value, kind: localExact}, value == target
 	}
 	value := ssaflow.CapturedBindingValue(binding)
-	exact := CapturedBindingMatches(binding, target)
+	exact := heapmodel.CapturedBindingMatches(binding, target)
 	if callee.launch == launchDeferred && invocation != nil {
 		if cell, ok := binding.(*ssa.Alloc); ok && valueHasDirectStore(cell) {
 			// A deferred literal reads its captured cell when the deferred
@@ -61,14 +61,14 @@ func (search *completionSearch) capturedLocal(
 		if !ok {
 			return mappedLocal{}, false
 		}
-		value, exact = stable, MayAlias(stable, target)
+		value, exact = stable, heapmodel.MayAlias(stable, target)
 	}
 	switch {
 	case exact:
 		return mappedLocal{local: free, supplied: value, kind: localExact}, true
 	case search.valueCallsMethod(value, target):
 		return mappedLocal{local: free, supplied: value, kind: localCallback}, true
-	case ValueDerivesFrom(value, target, map[ssa.Value]bool{}):
+	case heapmodel.ValueDerivesFrom(value, target, map[ssa.Value]bool{}):
 		// The closure captured a projection of the target, such as a body
 		// selected from a response before the literal was created.
 		return mappedLocal{local: free, supplied: value, kind: localExact}, true
@@ -81,9 +81,9 @@ func (search *completionSearch) capturedLocal(
 		if !ok {
 			return mappedLocal{}, false
 		}
-		_, stable := NewStorage(search.budget).stableValue(cell, invocation)
-		return mappedLocal{local: free, supplied: binding, kind: localOwner}, stable
-	case !CapturedBindingMatches(binding, target) && MayContainValue(binding, target):
+		stored := heapmodel.NewStorage(search.budget).StableContent(cell, invocation)
+		return mappedLocal{local: free, supplied: binding, kind: localOwner}, stored.Proven()
+	case !heapmodel.CapturedBindingMatches(binding, target) && MayContainValue(binding, target):
 		// The closure captured an aggregate that stores the target, such as a
 		// local closer slice the target was appended to; a lifecycle call on
 		// anything selected from that local reaches the target. A cell that
@@ -132,7 +132,7 @@ func (search *completionSearch) deferredCellLocal(free ssa.Value, cell *ssa.Allo
 }
 
 func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Value, invocation ssa.Instruction) (mappedLocal, bool) {
-	if NewStorage(search.budget).Same(argument, target).Proven() {
+	if heapmodel.NewStorage(search.budget).Same(argument, target).Proven() {
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
 	}
 	if search.exactTarget {
@@ -140,7 +140,7 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 	}
 	// A possible alias must not fall through to aggregate containment and
 	// become an exact parameter mapping. Preserve uncertainty for consumers.
-	if MayAlias(argument, target) && !DefinitelySameValue(argument, target) {
+	if heapmodel.MayAlias(argument, target) && !heapmodel.DefinitelySameValue(argument, target) {
 		*search.incomplete = true
 		return mappedLocal{}, false
 	}
@@ -149,10 +149,10 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
 	case search.valueCallsMethod(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localCallback}, true
-	case strictNonEmptyAccessPath(argument, target):
+	case heapmodel.StrictProjectionPath(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
 	case MayContainValue(argument, target):
-		path, _ := StoredPath(argument, target, invocation)
+		path, _ := heapmodel.StoredPath(argument, target, invocation)
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact, path: path}, true
 	case ssaflow.ValueIsAccessPathFrom(target, argument):
 		return mappedLocal{local: parameter, supplied: argument, kind: localOwner}, true
@@ -173,11 +173,11 @@ func (local mappedLocal) receives(receiver, target ssa.Value) bool {
 			// local itself, or a receiver with no static path, keeps the
 			// derivation rule, since the aggregate's own method may release
 			// what it holds.
-			if actual, ok := AccessPathFromParameter(receiver, local.local); ok && len(actual) > 0 {
-				return JoinAccessPath(actual) == JoinAccessPath(local.path)
+			if actual, ok := heapmodel.AccessPathFromParameter(receiver, local.local); ok && len(actual) > 0 {
+				return ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(local.path)
 			}
 		}
-		return ValueDerivesFrom(receiver, local.local, map[ssa.Value]bool{})
+		return heapmodel.ValueDerivesFrom(receiver, local.local, map[ssa.Value]bool{})
 	case localProjection:
 		return exactCleanupReceiver(receiver, local.local)
 	case localOwner:

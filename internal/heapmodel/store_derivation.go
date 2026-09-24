@@ -1,4 +1,4 @@
-package ssainfer
+package heapmodel
 
 import (
 	"github.com/kojah/gohawk/internal/ssaflow"

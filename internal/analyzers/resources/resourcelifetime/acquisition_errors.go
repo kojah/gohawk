@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -76,7 +76,7 @@ func resourceSuccessBranch(
 func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {
 	call, ok := branch.Cond.(*ssa.Call)
 	if !ok || !ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestifyNoError) || len(call.Common().Args) < 2 ||
-		!ssainfer.MayAlias(call.Common().Args[1], errorValue) {
+		!heapmodel.MayAlias(call.Common().Args[1], errorValue) {
 		return false, false
 	}
 	// Testify's exact boolean contract is true precisely when the supplied
@@ -124,7 +124,7 @@ func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorVal
 	// the corresponding filesystem sentinel. Their true branches prove that
 	// the acquisition returned a non-nil error and no owned file.
 	// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/feedback/send.go#L124
-	if len(common.Args) != 1 || !ssainfer.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
+	if len(common.Args) != 1 || !heapmodel.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
 		return "", false
 	}
 	// os.IsPermission and os.IsTimeout are documented to report false for a
@@ -232,7 +232,7 @@ func (query *capturedPredicateQuery) creation(walk ssaflow.ReachingWalk, free *s
 		if _, captured := binding.Binding.(*ssa.FreeVar); captured {
 			return walk.Every(binding.Binding, query.cell)
 		}
-		stored := ssainfer.NewStorage(query.budget).StableContent(binding.Binding, creation)
+		stored := heapmodel.NewStorage(query.budget).StableContent(binding.Binding, creation)
 		if !stored.Proven() {
 			return false
 		}
@@ -256,7 +256,7 @@ func errorTypeAssertionSucceeded(condition, errorValue ssa.Value) bool {
 		return false
 	}
 	assertion, ok := okResult.Tuple.(*ssa.TypeAssert)
-	return ok && assertion.CommaOk && ssainfer.ValueDerivesFrom(assertion.X, errorValue, map[ssa.Value]bool{})
+	return ok && assertion.CommaOk && heapmodel.ValueDerivesFrom(assertion.X, errorValue, map[ssa.Value]bool{})
 }
 
 func errorsIsNonNilFilesystemSentinel(condition, errorValue ssa.Value) bool {
@@ -268,7 +268,7 @@ func errorsIsNonNilFilesystemSentinel(condition, errorValue ssa.Value) bool {
 	if !ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("errors", "Is")) || len(common.Args) != 2 {
 		return false
 	}
-	if !ssainfer.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
+	if !heapmodel.ValueDerivesFrom(common.Args[0], errorValue, map[ssa.Value]bool{}) {
 		return false
 	}
 	return isNonNilFilesystemSentinel(common.Args[1])

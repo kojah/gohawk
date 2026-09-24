@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -17,8 +18,8 @@ func TestHeapSmokeExistingStoreOverlap(t *testing.T) {
 	if !ok {
 		t.Fatal("replacement did not produce a load")
 	}
-	stored := NewStorage(ssaflow.NewSearchBudget(1000)).Content(load.X, call)
-	if !stored.Proven() || !DefinitelySameValue(stored.Value, call.Common().Args[1]) {
+	stored := heapmodel.NewStorage(ssaflow.NewSearchBudget(1000)).Content(load.X, call)
+	if !stored.Proven() || !heapmodel.DefinitelySameValue(stored.Value, call.Common().Args[1]) {
 		t.Fatal("existing latest-store helper failed to resolve the replacement")
 	}
 }
@@ -116,7 +117,7 @@ func replaced() { value := acquire(); value.body = new(resource); cleanup(value.
 				return ssaflow.CallName(ssaflow.InstructionCall(i)) == "cleanup"
 			}).(*ssa.Call)
 			value := call.Common().Args[0]
-			if got := NewStorage(ssaflow.NewSearchBudget(1000)).Projection(value, root, call).Proven(); got != test.stable {
+			if got := heapmodel.NewStorage(ssaflow.NewSearchBudget(1000)).Projection(value, root, call).Proven(); got != test.stable {
 				t.Fatalf("existing projection=%t, want %t", got, test.stable)
 			}
 			if available, reason := smokeHeapMatch(call, value, value, 256); available || reason != "unsupported-effect" {

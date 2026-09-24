@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -27,7 +28,7 @@ type callbackValue struct {
 // a load of it; a parameter captured by a literal is spilled to a cell and
 // invoked through a load.
 func invokesLocal(value, local ssa.Value) bool {
-	if DefinitelySameValue(value, local) {
+	if heapmodel.DefinitelySameValue(value, local) {
 		return true
 	}
 	load, ok := value.(*ssa.UnOp)
@@ -132,8 +133,8 @@ func resolveCallbackBinding(walk ssaflow.ReachingWalk, ref callbackValue, budget
 			return resolveCallbackBinding(walk, ref, budget)
 		}
 	case *ssa.Alloc:
-		if stored, ok := NewStorage(budget).stableValue(value, ref.observation); ok {
-			ref.value = stored
+		if stored := heapmodel.NewStorage(budget).StableContent(value, ref.observation); stored.Proven() {
+			ref.value = stored.Value
 			return resolveCallbackBinding(walk, ref, budget)
 		}
 	}
@@ -187,11 +188,11 @@ func resolveCallbackField(walk ssaflow.ReachingWalk, ref callbackValue, field *s
 		if address.Field != field.Field {
 			continue
 		}
-		value, ok := NewStorage(budget).stableValue(address, root.observation)
-		if !ok || stored != nil && stored != value {
+		value := heapmodel.NewStorage(budget).StableContent(address, root.observation)
+		if !value.Proven() || stored != nil && stored != value.Value {
 			return callbackValue{}, false
 		}
-		stored = value
+		stored = value.Value
 	}
 	root.value = stored
 	return resolveCallbackBinding(walk, root, budget)
@@ -216,7 +217,7 @@ func resolveCallbackElement(walk ssaflow.ReachingWalk, ref callbackValue, index 
 		}
 		address, ok := use.(*ssa.IndexAddr)
 		if !ok {
-			if callbackSliceOnlyObserved(use, root.observation, budget) {
+			if heapmodel.SliceOnlyObserved(use, root.observation, budget) {
 				continue
 			}
 			return callbackValue{}, false
@@ -233,11 +234,11 @@ func resolveCallbackElement(walk ssaflow.ReachingWalk, ref callbackValue, index 
 		if fixed && !constant.Compare(selected.Value, token.EQL, key.Value) {
 			continue
 		}
-		value, ok := NewStorage(budget).stableValue(address, root.observation)
-		if !ok || stored != nil && stored != value {
+		value := heapmodel.NewStorage(budget).StableContent(address, root.observation)
+		if !value.Proven() || stored != nil && stored != value.Value {
 			return callbackValue{}, false
 		}
-		stored = value
+		stored = value.Value
 	}
 	if !fixed && int64(len(indices)) != array.Len() {
 		return callbackValue{}, false

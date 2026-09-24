@@ -1,6 +1,6 @@
-// Package ssainfer derives storage, completion, and ownership-transfer evidence
+// Package ssainfer derives completion and ownership-transfer evidence
 // for SSA-backed analyzers. It uses ssaflow for traversal and heapmodel for
-// points-to queries. It reports what available SSA supports; each analyzer
+// storage and points-to queries. It reports what available SSA supports; each analyzer
 // decides which facts satisfy its policy.
 // Unknown evidence is never a positive result. Cross-package lifecycle
 // summaries and imported provenance belong to internal/passes/lifecyclefacts.

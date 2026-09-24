@@ -4,6 +4,7 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -19,13 +20,13 @@ func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bo
 	}
 	usesValue := false
 	for _, argument := range call.Common().Args {
-		usesValue = usesValue || MayAlias(argument, value)
+		usesValue = usesValue || heapmodel.MayAlias(argument, value)
 	}
 	if !usesValue || call.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *call.Referrers() {
-		if deferred, ok := reference.(*ssa.Defer); ok && MayAlias(deferred.Common().Value, call) {
+		if deferred, ok := reference.(*ssa.Defer); ok && heapmodel.MayAlias(deferred.Common().Value, call) {
 			return true
 		}
 		result, ok := reference.(ssa.Value)
@@ -34,7 +35,7 @@ func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bo
 		}
 		for _, use := range *result.Referrers() {
 			deferred, ok := use.(*ssa.Defer)
-			if ok && MayAlias(deferred.Common().Value, result) {
+			if ok && heapmodel.MayAlias(deferred.Common().Value, result) {
 				return true
 			}
 		}
@@ -59,7 +60,7 @@ func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa
 		return false
 	}
 	for index, argument := range call.Common().Args {
-		if index >= len(callee.Params) || !ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !MayContainValue(argument, value) {
+		if index >= len(callee.Params) || !heapmodel.ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !MayContainValue(argument, value) {
 			continue
 		}
 		parameter := callee.Params[index]
@@ -105,7 +106,10 @@ func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Valu
 		return false
 	}
 	for index, argument := range common.Args {
-		if index == 0 || index >= len(callee.Params) || !ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !MayContainValue(argument, value) {
+		if index == 0 || index >= len(callee.Params) {
+			continue
+		}
+		if !heapmodel.ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !MayContainValue(argument, value) {
 			continue
 		}
 		parameter := callee.Params[index]
@@ -132,10 +136,10 @@ func storesParameterInReceiverField(candidate ssa.Instruction, receiver, paramet
 		return false
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
-	if !ok || !ValueDerivesFrom(field.X, receiver, map[ssa.Value]bool{}) {
+	if !ok || !heapmodel.ValueDerivesFrom(field.X, receiver, map[ssa.Value]bool{}) {
 		return false
 	}
-	return ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) || MayContainValue(store.Val, parameter)
+	return heapmodel.ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) || MayContainValue(store.Val, parameter)
 }
 
 // ValueEscapes reports whether value is transferred beyond its current
@@ -165,7 +169,7 @@ func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ss
 
 func callConsumesLifecycleValue(common *ssa.CallCommon, name string, value ssa.Value) bool {
 	for _, argument := range common.Args {
-		if MayAlias(argument, value) || MayContainValue(argument, value) {
+		if heapmodel.MayAlias(argument, value) || MayContainValue(argument, value) {
 			return true
 		}
 	}
@@ -173,7 +177,7 @@ func callConsumesLifecycleValue(common *ssa.CallCommon, name string, value ssa.V
 		return false
 	}
 	for _, argument := range common.Args {
-		if hasLifecycleMethod(argument) && ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) {
+		if hasLifecycleMethod(argument) && heapmodel.ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) {
 			return true
 		}
 	}
@@ -214,7 +218,7 @@ func valueLifecycleUsed(value ssa.Value, after ssa.Instruction) bool {
 				continue
 			}
 			common := ssaflow.InstructionCall(instruction)
-			if common == nil || !ValueDerivesFrom(ssaflow.CallReceiver(common), value, map[ssa.Value]bool{}) {
+			if common == nil || !heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), value, map[ssa.Value]bool{}) {
 				continue
 			}
 			switch ssaflow.CallName(common) {

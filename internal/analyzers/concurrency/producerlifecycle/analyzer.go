@@ -1,4 +1,5 @@
 // Package producerlifecycle implements the producerlifecycle gohawk analyzer.
+
 package producerlifecycle
 
 import (
@@ -7,12 +8,11 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/trace"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -132,7 +132,7 @@ func abandonedProducerSend(
 	// https://github.com/hashicorp/go-metrics/blob/5a9e5caa3d2779bca6a8ae2218b8f884194855e7/inmem_endpoint_test.go#L157-L177
 	sendCount := 0
 	for _, candidate := range sends {
-		if !ssainfer.MayAlias(candidate.channel, send.channel) {
+		if !heapmodel.MayAlias(candidate.channel, send.channel) {
 			continue
 		}
 		if candidate.repeated {
@@ -177,7 +177,7 @@ func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			created, ok := instruction.(*ssa.MakeChan)
-			if !ok || !ssainfer.CapturedBindingMatches(channel, created) {
+			if !ok || !heapmodel.CapturedBindingMatches(channel, created) {
 				continue
 			}
 			size, ok := created.Size.(*ssa.Const)
@@ -201,12 +201,12 @@ func channelReceives(function *ssa.Function, channel ssa.Value, origin *ssa.Go, 
 					return proof
 				}
 			case *ssa.UnOp:
-				if candidate.Op == token.ARROW && ssainfer.MayAlias(candidate.X, channel) {
+				if candidate.Op == token.ARROW && heapmodel.MayAlias(candidate.X, channel) {
 					result.count++
 				}
 			case *ssa.Select:
 				for _, state := range candidate.States {
-					if state.Dir == types.RecvOnly && ssainfer.MayAlias(state.Chan, channel) {
+					if state.Dir == types.RecvOnly && heapmodel.MayAlias(state.Chan, channel) {
 						result.count++
 					}
 				}

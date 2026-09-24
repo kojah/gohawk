@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -271,11 +272,11 @@ func (search *enclosingSearch) resolve(ref callbackValue) (ssa.Value, bool) { //
 		if !ok {
 			return nil, false
 		}
-		stored, ok := NewStorage(search.request.Budget).stableValue(cell, load)
-		if !ok {
+		stored := heapmodel.NewStorage(search.request.Budget).StableContent(cell, load)
+		if !stored.Proven() {
 			return nil, false
 		}
-		ref.value = stored
+		ref.value = stored.Value
 		return search.resolve(ref)
 	}
 	switch ref.value.(type) {
@@ -319,11 +320,11 @@ func (search *enclosingSearch) resolveField(ref callbackValue, field *ssa.FieldA
 		if address.Field != field.Field {
 			continue
 		}
-		value, ok := NewStorage(search.request.Budget).stableValue(address, root.observation)
-		if !ok || stored != nil && stored != value {
+		value := heapmodel.NewStorage(search.request.Budget).StableContent(address, root.observation)
+		if !value.Proven() || stored != nil && stored != value.Value {
 			return nil, false
 		}
-		stored = value
+		stored = value.Value
 	}
 	root.value = stored
 	return search.resolve(root)

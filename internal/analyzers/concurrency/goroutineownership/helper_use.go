@@ -3,10 +3,10 @@ package goroutineownership
 import (
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -61,7 +61,7 @@ func (search *helperSearch) use(function *ssa.Function, local ssa.Value, kind tr
 
 func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {
 	derives := func(value ssa.Value) bool {
-		return ssainfer.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
+		return heapmodel.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
 	}
 	joins := func(instruction ssa.Instruction) bool {
 		proof := proveSummaryJoin(search.concurrency, instruction, local, kind, search.budget)

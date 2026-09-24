@@ -3,11 +3,10 @@ package deferinloop
 import (
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -104,14 +103,14 @@ func resultDerivesToTarget(call *ssa.Call, target ssa.Value) bool {
 // Resolve each load at its execution point before relating the selected
 // resource to its acquisition. Historical writes are not current contents.
 func valueDerivesFrom(value, source ssa.Value) bool {
-	resolved := ssainfer.NewStorage(nil).Resolve(value)
-	return resolved.Proven() && ssainfer.ValueDerivesFrom(resolved.Value, source, map[ssa.Value]bool{})
+	resolved := heapmodel.NewStorage(nil).Resolve(value)
+	return resolved.Proven() && heapmodel.ValueDerivesFrom(resolved.Value, source, map[ssa.Value]bool{})
 }
 
 // Reloading the same address only identifies the same obligation when its
 // contents still agree. The storage query owns that temporal distinction.
 func sameObligationValue(left, right ssa.Value) bool {
-	return ssainfer.NewStorage(nil).Same(left, right).Proven()
+	return heapmodel.NewStorage(nil).Same(left, right).Proven()
 }
 
 // Dominance proves acquisition precedes the defer on this path; reachability

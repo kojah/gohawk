@@ -1,12 +1,13 @@
 package goroutineownership
 
 import (
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssainfer"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -78,7 +79,7 @@ func proveSummaryJoin(
 	if kind == trackedGroup {
 		want = concurrencyfacts.GroupWait
 	}
-	storage := ssainfer.NewStorage(budget)
+	storage := heapmodel.NewStorage(budget)
 	for _, operation := range summary.Operations {
 		if !budget.Spend() {
 			return summaryJoinProof{reason: "concurrency-join-budget-exhausted"}

@@ -103,13 +103,15 @@ itself does not change.
   budgets, value provenance (`ReachingWalk`), calls, and control-flow queries
   (`WalkStates` and `EvaluateObligation`). It provides how to walk, not an
   analyzer's reporting policy.
-- `internal/ssainfer` builds storage, completion, and ownership-transfer
+- `internal/ssainfer` builds completion and ownership-transfer
   proofs from `ssaflow` and `heapmodel`. Analyzers import the layer that owns
   the query they need; neither package forwards the other's API.
-- `internal/heapmodel` owns the per-function points-to graph, its cache,
-  heap-summary projection and registration, and application at call sites.
-  Its queries supplement `ssainfer.Storage` without making unknown contents
-  or truncated summaries into negative proofs.
+- `internal/heapmodel` owns demand-driven storage queries, the per-function
+  points-to graph and its cache, heap-summary projection and registration,
+  and application at call sites. `heapmodel.Storage` combines reaching-write
+  and graph evidence without making unknown contents or truncated summaries
+  into negative proofs. Consumers access its queries directly, not through
+  forwarding wrappers in `ssainfer`.
 - `internal/resourcemodel` proves exact owner-to-resource relationships over
   the existing heap/storage model and tracks a comparable per-path resource
   obligation. External API contracts can establish state transitions through
@@ -129,7 +131,7 @@ itself does not change.
   The engine reports which kind a contradiction is and each walk chooses:
   the obligation walk and lock order prune the other arm of a stable guard,
   resource lifetime and every walk treat a loaded contradiction as unknown.
-- `ssainfer.Storage` is the shared, bounded query for local contents and stable
+- `heapmodel.Storage` is the shared, bounded query for local contents and stable
   owner projections. It resolves loads at their own execution points, including
   fields, constant array elements, and aggregate-copy snapshots. Completion,
   lifecycle facts, and analyzer-local identity checks use the same query rather
