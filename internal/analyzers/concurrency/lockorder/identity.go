@@ -41,8 +41,8 @@ func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value) string {
 		return ""
 	case *ssa.Global:
 		return typed.Name()
-	case *ssa.FieldAddr:
-		return fieldLockIdentity(walk, typed)
+	case *ssa.FieldAddr, *ssa.Field:
+		return projectedFieldLockIdentity(walk, typed)
 	case *ssa.IndexAddr:
 		return indexedLockIdentity(walk, typed.X, typed.Index)
 	case *ssa.Index:
@@ -117,6 +117,39 @@ func fieldLockIdentity(walk ssaflow.ReachingWalk, fieldAddress *ssa.FieldAddr) s
 	// returns an unknown owner, its field must remain unknown too: a pool can
 	// return a different container on each loop iteration.
 	// https://github.com/encodeous/nylon/blob/c4a96c804f7aa08512721dec7994907eab100bc8/polyamide/device/receive.go#L176-L180
+	return ""
+}
+
+func projectedFieldLockIdentity(walk ssaflow.ReachingWalk, value ssa.Value) string {
+	switch field := value.(type) {
+	case *ssa.FieldAddr:
+		return fieldLockIdentity(walk, field)
+	case *ssa.Field:
+		return copiedFieldLockIdentity(walk, field)
+	}
+	return ""
+}
+
+// A value receiver can be copied into a local SSA slot and reloaded for each
+// field access. Only an exact aggregate read back to the immutable parameter
+// or capture identifies those copies as the same field. Partial/conflicting
+// writes leave the read unresolved, so they cannot equate different locks.
+// https://github.com/tikv/client-go/blob/b9fc0b7719d3ea62bd9904cd31fbd27715ff08bc/txnkv/transaction/pessimistic.go#L489-L518
+func copiedFieldLockIdentity(walk ssaflow.ReachingWalk, fieldValue *ssa.Field) string {
+	field := structField(fieldValue.X.Type(), fieldValue.Field)
+	if field == nil {
+		return ""
+	}
+	source := ssainfer.NewStorage(nil).Resolve(fieldValue.X)
+	if !source.Proven() {
+		return ""
+	}
+	switch source.Value.(type) {
+	case *ssa.Parameter, *ssa.FreeVar:
+		if owner := lockIdentity(walk, source.Value); owner != "" {
+			return owner + "." + field.Name()
+		}
+	}
 	return ""
 }
 
