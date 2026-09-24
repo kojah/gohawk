@@ -46,11 +46,11 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
 			},
 			{
-				ID: check.LockAndJoin, Doc: "Reports a wait while holding the exact local mutex that the sole completion worker must acquire.",
+				ID: check.LockAndJoin, Doc: "Reports a wait while holding the local mutex that every possible completion worker must acquire.",
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 			{
-				ID: check.LockChannelCycle, Doc: "Reports a receive on a fresh unbuffered channel whose sole sender first needs the receiver's held mutex.",
+				ID: check.LockChannelCycle, Doc: "Reports a receive on a fresh unbuffered channel whose possible senders first need the receiver's held mutex.",
 				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 			{

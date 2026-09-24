@@ -172,8 +172,8 @@ defines the fact type; `TestObjectFactsStayInTheirDefiningPackage` enforces it. 
 ## Connect synchronization events across goroutines
 
 Use [syncgraph](syncgraph.md) to turn a complete, brokered concurrency root
-summary into a bounded parent/sole-worker event fragment. It preserves bound
-resource identity and distinct order edges for both goroutines. A consumer
+summary into a bounded parent/children event fragment. It preserves bound
+resource identity and distinct order edges for each goroutine. A consumer
 may add a blocking dependency only after its own proof establishes that edge;
 a cycle alone is not a diagnostic. Incomplete summaries yield no usable events.
 

@@ -14,13 +14,10 @@ import (
 // EventID identifies one event within a graph, not across summary instances.
 type EventID int
 
-// GoroutineID distinguishes the root from its sole summarized worker.
-type GoroutineID uint8
+// GoroutineID distinguishes the root from each summarized child.
+type GoroutineID int
 
-const (
-	Root GoroutineID = iota
-	Worker
-)
+const Root GoroutineID = 0
 
 // SyncEvent is one ordered effect after its symbolic resource has been bound
 // to the caller. It is an operation milestone, not a modeled start/end pair:
@@ -54,17 +51,24 @@ type SyncEdge struct {
 	Kind   EdgeKind
 }
 
-// SyncGraph contains at most the events of one complete root/sole-worker
-// summary. Parent and Child preserve their distinct ordered sequences; Prefix
-// counts parent events before the launch. Reason is nonempty if the underlying
-// summary was incomplete, in which case no event or edge is usable as proof.
-type SyncGraph struct {
-	Parent []SyncEvent
-	Child  []SyncEvent
-	Edges  []SyncEdge
+// SyncChild preserves one child's ordered effects and launch point. Prefix
+// counts parent events before the launch; different children never inherit
+// program order merely because their launch sites are ordered.
+type SyncChild struct {
+	Events []SyncEvent
 	Spawn  *ssa.Go
 	Prefix int
-	Reason string
+}
+
+// SyncGraph contains the events of one complete, bounded root summary.
+// Parent and each Child preserve distinct ordered sequences. Reason is
+// nonempty if the underlying summary was incomplete or malformed, in which
+// case no event or edge is usable as proof.
+type SyncGraph struct {
+	Parent   []SyncEvent
+	Children []SyncChild
+	Edges    []SyncEdge
+	Reason   string
 }
 
 // FromSummary constructs an event fragment without interpreting missing
@@ -73,22 +77,29 @@ func FromSummary(summary concurrencyfacts.Summary) SyncGraph {
 	if !summary.Complete() {
 		return SyncGraph{Reason: summary.Reason}
 	}
-	if summary.Prefix < 0 || summary.Prefix > len(summary.Operations) {
-		return SyncGraph{Reason: "syncgraph-invalid-spawn-prefix"}
-	}
-	graph := SyncGraph{Spawn: summary.Spawn, Prefix: summary.Prefix}
+	graph := SyncGraph{}
+	nextID := EventID(0)
 	for _, operation := range summary.Operations {
-		graph.Parent = append(graph.Parent, graph.event(Root, operation))
-	}
-	for _, operation := range summary.Worker {
-		graph.Child = append(graph.Child, graph.event(Worker, operation))
+		graph.Parent = append(graph.Parent, event(nextID, Root, operation))
+		nextID++
 	}
 	graph.addOrder(graph.Parent)
-	graph.addOrder(graph.Child)
-	if graph.Spawn != nil && graph.Prefix > 0 && len(graph.Child) > 0 {
-		graph.Edges = append(graph.Edges, SyncEdge{
-			Before: graph.Parent[graph.Prefix-1].ID, After: graph.Child[0].ID, Kind: SpawnOrder,
-		})
+	for index, worker := range summary.Workers {
+		if worker.Spawn == nil || worker.Prefix < 0 || worker.Prefix > len(graph.Parent) {
+			return SyncGraph{Reason: "syncgraph-invalid-spawn-prefix"}
+		}
+		child := SyncChild{Spawn: worker.Spawn, Prefix: worker.Prefix}
+		for _, operation := range worker.Operations {
+			child.Events = append(child.Events, event(nextID, GoroutineID(index+1), operation))
+			nextID++
+		}
+		graph.addOrder(child.Events)
+		if child.Prefix > 0 && len(child.Events) > 0 {
+			graph.Edges = append(graph.Edges, SyncEdge{
+				Before: graph.Parent[child.Prefix-1].ID, After: child.Events[0].ID, Kind: SpawnOrder,
+			})
+		}
+		graph.Children = append(graph.Children, child)
 	}
 	// Separate proof consumers may add different dependency edges. Clipping
 	// prevents an append on one graph value from mutating another's backing
@@ -97,8 +108,7 @@ func FromSummary(summary concurrencyfacts.Summary) SyncGraph {
 	return graph
 }
 
-func (graph *SyncGraph) event(goroutine GoroutineID, operation concurrencyfacts.Operation) SyncEvent {
-	id := EventID(len(graph.Parent) + len(graph.Child))
+func event(id EventID, goroutine GoroutineID, operation concurrencyfacts.Operation) SyncEvent {
 	return SyncEvent{
 		ID: id, Goroutine: goroutine, Kind: operation.Kind,
 		Resource: operation.Resource, Source: operation.Source, Site: operation.Site,
@@ -120,7 +130,7 @@ func (graph *SyncGraph) Complete() bool { return graph.Reason == "" }
 // events. It refuses invalid IDs and incomplete graphs; it does not infer
 // locking or channel semantics from matching names or resource types.
 func (graph *SyncGraph) AddDependency(before, after EventID) bool {
-	count := EventID(len(graph.Parent) + len(graph.Child))
+	count := EventID(graph.eventCount())
 	if !graph.Complete() || before < 0 || after < 0 || before >= count || after >= count {
 		return false
 	}
@@ -132,7 +142,7 @@ func (graph *SyncGraph) AddDependency(before, after EventID) bool {
 // A consumer must still establish that its dependency edges are feasible and
 // unavoidable before using this candidate to report a bug.
 func (graph *SyncGraph) HasCycle() bool {
-	count := len(graph.Parent) + len(graph.Child)
+	count := graph.eventCount()
 	if !graph.Complete() || count == 0 {
 		return false
 	}
@@ -164,4 +174,12 @@ func (graph *SyncGraph) HasCycle() bool {
 		}
 	}
 	return visited != count
+}
+
+func (graph *SyncGraph) eventCount() int {
+	count := len(graph.Parent)
+	for _, child := range graph.Children {
+		count += len(child.Events)
+	}
+	return count
 }

@@ -19,6 +19,10 @@ import (
 // pointers. Divergent branches and overflowing sequences remain unknown.
 const maxOperations = 32
 
+// maxWorkers bounds the number of separately ordered child sequences in a
+// root query. Launches in loops remain unknown regardless of this limit.
+const maxWorkers = 4
+
 // Kind identifies a synchronization event with an exact resource.
 type Kind uint8
 
@@ -52,15 +56,21 @@ type Operation struct {
 // Consumers decide on Completeness, never on the shape of Operations alone:
 // an empty operation list is evidence only when the summary is complete.
 // Reason explains an incomplete summary and is stable trace vocabulary.
-// Returned slices are immutable. Worker and Prefix describe the sole launch
-// allowed in a root query.
+// Returned slices are immutable. Workers are recorded only by a root query;
+// ordinary function and exported summaries remain synchronous effects.
 type Summary struct {
 	Operations []Operation
 	deferred   []Operation
-	Worker     []Operation
+	Workers    []WorkerSummary
+	Reason     string
+}
+
+// WorkerSummary keeps one child's complete ordered effects and its launch
+// point relative to the parent's synchronization events.
+type WorkerSummary struct {
+	Operations []Operation
 	Spawn      *ssa.Go
 	Prefix     int
-	Reason     string
 }
 
 // Completeness is the contract a consumer acts on. Only a complete summary
@@ -74,8 +84,8 @@ const (
 	// CompleteNoEffects means every instruction was accounted for and none of
 	// them synchronizes: the function is proved effect-free.
 	CompleteNoEffects
-	// CompleteWithEffects means every instruction was accounted for and
-	// Operations, with any Worker, lists the effects in execution order.
+	// CompleteWithEffects means every instruction was accounted for and the
+	// root has an operation or a child launch. Each sequence retains its order.
 	CompleteWithEffects
 )
 
@@ -85,7 +95,7 @@ func (summary Summary) Completeness() Completeness {
 	switch {
 	case summary.Reason != "":
 		return Incomplete
-	case len(summary.Operations) == 0 && len(summary.Worker) == 0 && summary.Spawn == nil:
+	case len(summary.Operations) == 0 && len(summary.Workers) == 0:
 		return CompleteNoEffects
 	default:
 		return CompleteWithEffects
@@ -141,7 +151,7 @@ func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBud
 	return engine.summaries.Function(function, budget)
 }
 
-// Root collects a caller and at most one worker under one shared work budget.
+// Root collects a caller and at most maxWorkers children under one shared work budget.
 func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
@@ -183,7 +193,7 @@ func (engine *Engine) collectBlock(result *Summary, block *ssa.BasicBlock, root 
 		if reason := engine.appendInstruction(result, instruction, root); reason != "" {
 			return reason
 		}
-		if len(result.Operations)+len(result.Worker)+len(result.deferred) > maxOperations {
+		if result.operationCount() > maxOperations {
 			return "protocol-summary-limit"
 		}
 	}
@@ -218,16 +228,36 @@ func (engine *Engine) appendInstruction(result *Summary, instruction ssa.Instruc
 		}
 		result.deferred = nil
 	case *ssa.Go:
-		if !root || result.Spawn != nil {
+		// A root records each statically known launch separately. A fifth
+		// participant or a child with unavailable effects makes the *whole*
+		// protocol unknown: otherwise a missing alternate signal or unlock
+		// could turn a feasible wait into a false deadlock proof.
+		if !root || len(result.Workers) >= maxWorkers {
 			return "protocol-participants-unknown"
 		}
 		called := engine.instantiate(instruction)
-		result.Spawn, result.Prefix, result.Worker = instruction, len(result.Operations), called.Operations
-		return called.Reason
+		if !called.Complete() {
+			return called.Reason
+		}
+		if len(called.Workers) != 0 {
+			return "protocol-worker-effects-unknown"
+		}
+		result.Workers = append(result.Workers, WorkerSummary{
+			Operations: called.Operations, Spawn: instruction, Prefix: len(result.Operations),
+		})
+		return ""
 	default:
 		return passiveInstruction(instruction, root)
 	}
 	return ""
+}
+
+func (summary Summary) operationCount() int {
+	count := len(summary.Operations) + len(summary.deferred)
+	for _, worker := range summary.Workers {
+		count += len(worker.Operations)
+	}
+	return count
 }
 
 func (engine *Engine) appendOperation(result *Summary, kind Kind, value ssa.Value, pos token.Pos) string {

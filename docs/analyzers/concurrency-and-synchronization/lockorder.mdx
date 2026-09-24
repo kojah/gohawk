@@ -21,8 +21,8 @@ the corresponding release policy.
 | <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports return paths that leave an owned lock held. |
 | <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
 | <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
-| <CheckIdentity name="lock-and-join" tier="experimental" /> | defect | experimental | Reports a wait while holding the exact local mutex that the sole completion worker must acquire. |
-| <CheckIdentity name="channel-lock-cycle" tier="experimental" /> | defect | experimental | Reports a receive on a fresh unbuffered channel whose sole sender first needs the receiver's held mutex. |
+| <CheckIdentity name="lock-and-join" tier="experimental" /> | defect | experimental | Reports a wait while holding the local mutex that every possible completion worker must acquire. |
+| <CheckIdentity name="channel-lock-cycle" tier="experimental" /> | defect | experimental | Reports a receive on a fresh unbuffered channel whose possible senders first need the receiver's held mutex. |
 | <CheckIdentity name="read-lock-write" tier="experimental" /> | hazard | experimental | Reports writes to an object while only its read lock is held. |
 | <CheckIdentity name="mismatched-release" tier="experimental" /> | defect | experimental | Reports a lock released with the wrong method for how it was acquired. |
 {/* gohawk:generated-checks:end */}
@@ -116,8 +116,8 @@ guessed helper acquisitions.
 
 The experimental `lock-and-join` check handles one narrower, stronger
 dependency: a function holds a fresh local `sync.Mutex` while receiving from a
-fresh completion channel, and its sole worker must acquire that exact mutex
-before it can close the channel. The receive cannot finish until the close;
+fresh completion channel, and every child that could close it must acquire
+that exact mutex first. The receive cannot finish until a signal;
 the close cannot happen until the parent releases the mutex; and the parent
 releases it only after the receive. Related locations show the parent lock,
 the worker lock, and the completion signal.
@@ -125,17 +125,19 @@ the worker lock, and the completion signal.
 This check consumes the shared complete ordered concurrency summary, including
 effects inside a local or imported worker helper. It does not infer missing
 operations from an incomplete summary. A mutex or channel supplied by a caller,
-a second launch, divergent helper effects, an opaque participant, or a budget
-cut is inconclusive. It does not attempt general cycles, WaitGroups, buffered
+more than four launches, divergent helper effects, an opaque participant, or a
+budget cut is inconclusive. It does not attempt general cycles, WaitGroups, buffered
 protocols, or arbitrary scheduling and path constraints.
+All tracked children must launch after the parent acquires the mutex and
+before it waits; other launch orders remain inconclusive.
 
 ### Channel/lock cycles
 
 The experimental `channel-lock-cycle` check proves the same dependency when
 the worker sends on a fresh unbuffered channel instead of closing it. It
-requires that the worker's first synchronization event acquire the exact fresh
-mutex held by the receiver, and that its first signal on the waited-for
-channel be the send. A buffered or unknown-capacity channel, an outside
+requires that every possible sender first acquire the exact fresh mutex held
+by the receiver, and that its first signal on the waited-for channel be a
+send. A buffered or unknown-capacity channel, an outside
 participant, or a helper with divergent effects is inconclusive. A later close
 does not establish a separate lock-and-join finding if a send occurs first.
 

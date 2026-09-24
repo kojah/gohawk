@@ -82,13 +82,13 @@
             },
             {
               "id": "lockorder/lock-and-join",
-              "summary": "Reports a wait while holding the exact local mutex that the sole completion worker must acquire.",
+              "summary": "Reports a wait while holding the local mutex that every possible completion worker must acquire.",
               "kind": "defect",
               "tier": "experimental"
             },
             {
               "id": "lockorder/channel-lock-cycle",
-              "summary": "Reports a receive on a fresh unbuffered channel whose sole sender first needs the receiver's held mutex.",
+              "summary": "Reports a receive on a fresh unbuffered channel whose possible senders first need the receiver's held mutex.",
               "kind": "defect",
               "tier": "experimental"
             },

@@ -124,7 +124,7 @@ Function summarizes a visible body without allowing nested launches.
 func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
 ```
 
-Root collects a caller and at most one worker under one shared work budget.
+Root collects a caller and at most maxWorkers children under one shared work budget.
 
 ## Fact
 
@@ -181,8 +181,8 @@ const (
 	// CompleteNoEffects means every instruction was accounted for and none of
 	// them synchronizes: the function is proved effect-free.
 	CompleteNoEffects
-	// CompleteWithEffects means every instruction was accounted for and
-	// Operations, with any Worker, lists the effects in execution order.
+	// CompleteWithEffects means every instruction was accounted for and the
+	// root has an operation or a child launch. Each sequence retains its order.
 	CompleteWithEffects
 )
 ```
@@ -271,9 +271,7 @@ const (
 type Summary struct {
 	Operations	[]Operation
 
-	Worker	[]Operation
-	Spawn	*ssa.Go
-	Prefix	int
+	Workers	[]WorkerSummary
 	Reason	string
 	// contains filtered or unexported fields
 }
@@ -283,8 +281,8 @@ Summary is the ordered synchronization effect of one function or call.
 Consumers decide on Completeness, never on the shape of Operations alone:
 an empty operation list is evidence only when the summary is complete.
 Reason explains an incomplete summary and is stable trace vocabulary.
-Returned slices are immutable. Worker and Prefix describe the sole launch
-allowed in a root query.
+Returned slices are immutable. Workers are recorded only by a root query;
+ordinary function and exported summaries remain synchronous effects.
 
 ## Summary.Complete
 
@@ -307,3 +305,18 @@ func (summary Summary) Completeness() Completeness
 
 Completeness classifies the summary for its consumers. It is derived from
 the same fields the builder writes, so it cannot disagree with Reason.
+
+## WorkerSummary
+
+[Source](../../../../internal/passes/concurrencyfacts/summary.go)
+
+```go
+type WorkerSummary struct {
+	Operations	[]Operation
+	Spawn		*ssa.Go
+	Prefix		int
+}
+```
+
+WorkerSummary keeps one child's complete ordered effects and its launch
+point relative to the parent's synchronization events.

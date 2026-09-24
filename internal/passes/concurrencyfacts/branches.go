@@ -7,7 +7,7 @@ import (
 )
 
 // Acyclic control flow is folded once per block. Joins require identical
-// prefixes, including pending defers and the worker launch. We intentionally
+// prefixes, including pending defers and every worker launch. We intentionally
 // decline paths that could only agree after cancellation of earlier effects.
 // The fixed sequence limit bounds copying; no execution paths are enumerated.
 func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary {
@@ -87,15 +87,20 @@ func trivialRecovery(function *ssa.Function) bool {
 
 func sameEffects(first, second Summary) bool {
 	sameOperation := func(a, b Operation) bool { return a.Kind == b.Kind && a.Resource == b.Resource }
-	return first.Spawn == second.Spawn && first.Prefix == second.Prefix &&
-		slices.EqualFunc(first.Operations, second.Operations, sameOperation) &&
-		slices.EqualFunc(first.Worker, second.Worker, sameOperation) &&
+	sameWorker := func(a, b WorkerSummary) bool {
+		return a.Spawn == b.Spawn && a.Prefix == b.Prefix && slices.EqualFunc(a.Operations, b.Operations, sameOperation)
+	}
+	return slices.EqualFunc(first.Operations, second.Operations, sameOperation) &&
+		slices.EqualFunc(first.Workers, second.Workers, sameWorker) &&
 		slices.EqualFunc(first.deferred, second.deferred, sameOperation)
 }
 
 func cloneEffects(summary Summary) Summary {
 	summary.Operations = slices.Clone(summary.Operations)
-	summary.Worker = slices.Clone(summary.Worker)
+	summary.Workers = slices.Clone(summary.Workers)
+	for index := range summary.Workers {
+		summary.Workers[index].Operations = slices.Clone(summary.Workers[index].Operations)
+	}
 	summary.deferred = slices.Clone(summary.deferred)
 	return summary
 }

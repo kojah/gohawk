@@ -101,6 +101,40 @@ func anotherSender() {
 	mu.Unlock()
 }
 
+// An unrelated child cannot satisfy the receive or release the held lock.
+func blockedWithUnrelatedChild() {
+	var mu sync.Mutex
+	ch := make(chan int)
+	other := make(chan struct{})
+	mu.Lock()
+	go sendAfterLock(&mu, ch)
+	go func() { close(other) }()
+	<-ch // want "receives while holding the lock needed by its sender"
+	mu.Unlock()
+}
+
+// Both possible senders depend on the mutex held by the receiver.
+func blockedWithTwoSenders() {
+	var mu sync.Mutex
+	ch := make(chan int)
+	mu.Lock()
+	go sendAfterLock(&mu, ch)
+	go sendAfterLock(&mu, ch)
+	<-ch // want "receives while holding the lock needed by its sender"
+	mu.Unlock()
+}
+
+// This worker can release the mutex before the sender acquires it.
+func alternateUnlocker() {
+	var mu sync.Mutex
+	ch := make(chan int)
+	mu.Lock()
+	go sendAfterLock(&mu, ch)
+	go func() { mu.Unlock() }()
+	<-ch
+	mu.Unlock()
+}
+
 func maybeLock(mu *sync.Mutex, ch chan<- int, enabled bool) {
 	if enabled {
 		mu.Lock()

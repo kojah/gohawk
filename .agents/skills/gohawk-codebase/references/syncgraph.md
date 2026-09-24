@@ -45,10 +45,10 @@ effects. It takes linear time and space in the bounded summary size.
 [Source](../../../../internal/syncgraph/graph.go)
 
 ```go
-type GoroutineID uint8
+type GoroutineID int
 ```
 
-GoroutineID distinguishes the root from its sole summarized worker.
+GoroutineID distinguishes the root from each summarized child.
 
 ## ProgramOrder, SpawnOrder, BlockingDependency
 
@@ -62,16 +62,29 @@ const (
 )
 ```
 
-## Root, Worker
+## Root
 
 [Source](../../../../internal/syncgraph/graph.go)
 
 ```go
-const (
-	Root	GoroutineID	= iota
-	Worker
-)
+const Root GoroutineID = 0
 ```
+
+## SyncChild
+
+[Source](../../../../internal/syncgraph/graph.go)
+
+```go
+type SyncChild struct {
+	Events	[]SyncEvent
+	Spawn	*ssa.Go
+	Prefix	int
+}
+```
+
+SyncChild preserves one child's ordered effects and launch point. Prefix
+counts parent events before the launch; different children never inherit
+program order merely because their launch sites are ordered.
 
 ## SyncEdge
 
@@ -115,19 +128,17 @@ the operation's origin; Site is its call site.
 
 ```go
 type SyncGraph struct {
-	Parent	[]SyncEvent
-	Child	[]SyncEvent
-	Edges	[]SyncEdge
-	Spawn	*ssa.Go
-	Prefix	int
-	Reason	string
+	Parent		[]SyncEvent
+	Children	[]SyncChild
+	Edges		[]SyncEdge
+	Reason		string
 }
 ```
 
-SyncGraph contains at most the events of one complete root/sole-worker
-summary. Parent and Child preserve their distinct ordered sequences; Prefix
-counts parent events before the launch. Reason is nonempty if the underlying
-summary was incomplete, in which case no event or edge is usable as proof.
+SyncGraph contains the events of one complete, bounded root summary.
+Parent and each Child preserve distinct ordered sequences. Reason is
+nonempty if the underlying summary was incomplete or malformed, in which
+case no event or edge is usable as proof.
 
 ## SyncGraph.AddDependency
 

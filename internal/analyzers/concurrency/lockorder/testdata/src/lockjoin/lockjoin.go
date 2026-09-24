@@ -75,13 +75,47 @@ func externallyOwned(mu *sync.Mutex) {
 	mu.Unlock()
 }
 
-// A second goroutine may satisfy the wait; the one-worker summary is unavailable.
+// A second goroutine may satisfy the wait, even when the other worker cannot.
 func alternateSender() {
 	var mu sync.Mutex
 	done := make(chan struct{})
 	mu.Lock()
 	go worker(&mu, done)
 	go func() { done <- struct{}{} }()
+	<-done
+	mu.Unlock()
+}
+
+// An unrelated child cannot satisfy the receive or release the held lock.
+func blockedWithUnrelatedChild() {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	other := make(chan struct{})
+	mu.Lock()
+	go worker(&mu, done)
+	go func() { close(other) }()
+	<-done // want "waits for a worker that needs the held lock"
+	mu.Unlock()
+}
+
+// Either child could close done, but each must acquire the held lock first.
+func blockedWithTwoClosers() {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	mu.Lock()
+	go worker(&mu, done)
+	go worker(&mu, done)
+	<-done // want "waits for a worker that needs the held lock"
+	mu.Unlock()
+}
+
+// Unlocking from another goroutine can let the signaling worker proceed.
+func alternateUnlocker() {
+	var mu sync.Mutex
+	done := make(chan struct{})
+	mu.Lock()
+	go worker(&mu, done)
+	go func() { mu.Unlock() }()
 	<-done
 	mu.Unlock()
 }
