@@ -22,7 +22,7 @@ deviate with a stated reason. Prefer clarity over cleverness.
 ## TL;DR
 
 1. Run `gofmt`/`goimports` on changed files plus repository vet, lint, and
-   race-enabled test gates.
+   ordinary test gates locally. Race tests run only in CI.
 2. Use MixedCaps and consistent acronym case; give domain states, enums, and
    bitsets defined types instead of passing raw primitives.
 3. Keep packages cohesive; reject both grab bags and package-per-type
@@ -100,11 +100,17 @@ While iterating narrowly, run the changed packages with
 `go test ./internal/foo/...`. Add importing packages when an exported
 identifier changed; `go list -deps ./...` identifies them.
 
-Run the race-enabled full suite once before reporting the work complete, with
-the repository's canonical formatter, vet, and linter. Reuse current passing
-receipts until an affecting source or build change lands. When a parent
-workflow owns final verification, contribute a deduplicated command set and
-report unrun gates or intentional deviations.
+Do not run race tests locally; run them only in CI. This includes focused
+`go test -race` commands, `make test-race`, and `make ci` (which includes race
+tests). Use `make verify` for local completion: ordinary tests, the canonical
+formatter, vet, and lint. Changes to concurrency contracts should update the
+targeted CI race gate when needed, not trigger a local race run.
+
+Reuse current passing receipts until an affecting source or build change
+lands. Report local validation and CI race status separately; a pending CI
+run is not a passing race result. When a parent workflow owns final
+verification, contribute a deduplicated command set and report unrun gates
+or intentional deviations.
 
 Selection cannot see effects that cross the graph invisibly. Go straight to the
 full suite when a dependency, `go.mod`, build tag, or generated file changed.
