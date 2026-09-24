@@ -1,8 +1,6 @@
 {
   "internal/analyzers/concurrency/channelsafety/analyzer.go": 3,
   "internal/analyzers/concurrency/channelsafety/channel_cycle.go": 17,
-  "internal/analyzers/concurrency/concurrentcapture/analyzer.go": 5,
-  "internal/analyzers/concurrency/concurrentcapture/guard.go": 8,
   "internal/analyzers/concurrency/goroutineownership/analyzer.go": 2,
   "internal/analyzers/concurrency/goroutineownership/concurrency.go": 6,
   "internal/analyzers/concurrency/goroutineownership/proof.go": 1,

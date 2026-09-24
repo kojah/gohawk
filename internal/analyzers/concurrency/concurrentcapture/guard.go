@@ -12,7 +12,7 @@ import (
 type lockGuardProof struct {
 	guarded bool
 	known   bool
-	reason  string
+	reason  captureReason
 }
 
 // lockGuard asks the broker for complete effects along one worker's ordered
@@ -23,11 +23,11 @@ func (evidence captureEvidence) lockGuard(closure *ast.FuncLit, mutation ast.Nod
 	function := evidence.workers[closure]
 	block, ok := captureWorkerBlock(function)
 	if !ok {
-		return lockGuardProof{reason: "capture-worker-order-unknown"}
+		return lockGuardProof{reason: reasonWorkerOrderUnknown}
 	}
 	target, ok := mutationInstruction(block, mutation)
 	if !ok {
-		return lockGuardProof{reason: "capture-mutation-site-unknown"}
+		return lockGuardProof{reason: reasonMutationSiteUnknown}
 	}
 	var region syncmodel.LockRegion
 	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
@@ -39,23 +39,23 @@ func (evidence captureEvidence) lockGuard(closure *ast.FuncLit, mutation ast.Nod
 				// The broker has no complete lock contract. Preserve the prior
 				// conservative syntax boundary rather than treating missing
 				// effects as proof that the mutation is unguarded.
-				return lockGuardProof{reason: "capture-helper-effects-unknown"}
+				return lockGuardProof{reason: reasonHelperEffectsUnknown}
 			}
 			region.Apply(summary.Operations)
 		case *ssa.Defer:
 			// Registration does not execute the deferred release here.
 		case *ssa.Go, *ssa.Select, *ssa.RunDefers:
-			return lockGuardProof{reason: "capture-worker-order-unknown"}
+			return lockGuardProof{reason: reasonWorkerOrderUnknown}
 		}
 	}
 	held, certain := region.Held()
 	if !certain {
-		return lockGuardProof{guarded: true, known: true, reason: "capture-lock-identity-unknown"}
+		return lockGuardProof{guarded: true, known: true, reason: reasonLockIdentityUnknown}
 	}
 	if held {
-		return lockGuardProof{guarded: true, known: true, reason: "capture-lock-held"}
+		return lockGuardProof{guarded: true, known: true, reason: reasonLockHeld}
 	}
-	return lockGuardProof{known: true, reason: "capture-no-lock-held"}
+	return lockGuardProof{known: true, reason: reasonNoLockHeld}
 }
 
 func captureWorkerBlock(function *ssa.Function) (*ssa.BasicBlock, bool) {

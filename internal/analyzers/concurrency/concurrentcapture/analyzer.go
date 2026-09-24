@@ -133,27 +133,27 @@ func reportCapturedMutations(
 				continue
 			}
 			probe := analysisTrace.For(pass, "concurrentcapture", string(check.ConcurrentCapture), identifier.Pos())
-			probe.Candidate(analysisTrace.Step{Reason: "capture-repeated-write", Outcome: analysisTrace.OutcomeObserved, Pos: identifier.Pos()})
+			probe.Candidate(analysisTrace.Step{Reason: reasonRepeatedWrite.String(), Outcome: analysisTrace.OutcomeObserved, Pos: identifier.Pos()})
 			guard := evidence.lockGuard(closure, node)
 			// A held lock is evidence of possible serialization, not proof that
 			// every worker uses the same lock. Unknown effects retain the older
 			// syntax fallback rather than claiming the write is unguarded.
 			switch {
 			case guard.known && guard.guarded:
-				probe.Decision(analysisTrace.Step{Reason: guard.reason, Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
+				probe.Decision(analysisTrace.Step{Reason: guard.reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
 				continue
 			case !guard.known && fallbackLock:
-				probe.Decision(analysisTrace.Step{Reason: "capture-lock-fallback-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
+				probe.Decision(analysisTrace.Step{Reason: reasonLockFallbackUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
 				continue
 			case mutationHasWorkerGuard(pass, closure, node, varying):
-				probe.Decision(analysisTrace.Step{Reason: "capture-worker-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
+				probe.Decision(analysisTrace.Step{Reason: reasonWorkerGuardUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
 				continue
 			case mutationHasChannelGuard(pass, closure, node):
-				probe.Decision(analysisTrace.Step{Reason: "capture-channel-guard-unknown", Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
+				probe.Decision(analysisTrace.Step{Reason: reasonChannelGuardUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
 				continue
 			}
 			reported[object] = true
-			probe.Decision(analysisTrace.Step{Reason: "capture-unguarded-write", Outcome: analysisTrace.OutcomeAccepted, Pos: identifier.Pos()})
+			probe.Decision(analysisTrace.Step{Reason: reasonUnguardedWrite.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: identifier.Pos()})
 			check.Reportf(pass, check.ConcurrentCapture, identifier.Pos(), "captured local %s is mutated by goroutines launched repeatedly", identifier.Name)
 		}
 		return true
