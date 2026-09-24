@@ -57,3 +57,28 @@ func forgetsHanded(a *int, p *box, q *box) { q.value = a; unknownCallee(q); obse
 		})
 	}
 }
+
+// A returned field address and a returned field value have opposite nilness
+// when the field is unwritten. The summary must keep that distinction when
+// it substitutes the receiver's field into the caller.
+func TestReturnedFieldAddress(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "addressprobe", `package addressprobe
+type box struct{ embedded int; pointer *int }
+func address(b *box) *int { return &b.embedded }
+func content(b *box) *int { return b.pointer }
+func observe(a, b *int) {}
+func caller() { var b box; observe(address(&b), content(&b)) }
+`)
+	address, ok := ProjectHeap(pkg.Func("address"))
+	if !ok || !strings.Contains(address.String(), "edge R0 -> &P0/field:0 must") {
+		t.Fatalf("field address summary = %s, want a must address edge", address.String())
+	}
+	call := heapObservation(t, pkg.Func("caller"))
+	graph := regionsOfFunction(call.Parent())
+	if graph.contentIsNil(call.Common().Args[0], nil, call) {
+		t.Fatal("returned address was mistaken for nil field content")
+	}
+	if !graph.contentIsNil(call.Common().Args[1], nil, call) {
+		t.Fatal("returned nil field content was not proven nil")
+	}
+}

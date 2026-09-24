@@ -451,6 +451,7 @@ String renders a slot as P0/field:1, R0, G:pkg.name, or F1.
 
 ```go
 type HeapSummary struct {
+	Version		int
 	Edges		[]HeapEdge
 	Effects		[]HeapEffect
 	Holds		[]HeapHold
@@ -509,7 +510,7 @@ type HeapTargetKind uint8
 
 HeapTargetKind names what a slot may hold.
 
-## HeapTargetSlot, HeapTargetFresh, HeapTargetNil, HeapTargetUnknown
+## HeapTargetSlot, HeapTargetFresh, HeapTargetNil, HeapTargetUnknown, HeapTargetAddress
 
 [Source](../../../../internal/heapmodel/summary.go)
 
@@ -525,6 +526,9 @@ const (
 	HeapTargetNil
 	// HeapTargetUnknown may be anything.
 	HeapTargetUnknown
+	// HeapTargetAddress is the address of Slot itself, including a field
+	// beneath a parameter. It is not the content stored at that slot.
+	HeapTargetAddress
 )
 ```
 
@@ -636,6 +640,17 @@ const SummarySlots = 16
 ```
 
 SummarySlots bounds the slots projected per root before truncation.
+
+## SummaryVersion
+
+[Source](../../../../internal/heapmodel/summary.go)
+
+```go
+const SummaryVersion = 2
+```
+
+SummaryVersion identifies the heap edge semantics in exported facts.
+Version 2 distinguishes an address beneath a parameter from that slot's content.
 
 ## ValueAtPath
 

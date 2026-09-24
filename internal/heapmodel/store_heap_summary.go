@@ -51,6 +51,7 @@ func ProjectHeap(function *ssa.Function) (HeapSummary, bool) {
 		return HeapSummary{}, false
 	}
 	summary := HeapSummary{
+		Version:   SummaryVersion,
 		Edges:     projection.edges(states, returns),
 		Effects:   projection.escapes(states),
 		Holds:     projection.holds(states, returns),
@@ -239,7 +240,20 @@ func (projection *heapProjection) targetOf(pointee slot) HeapTarget {
 			projection.objects[pointee.region] = number
 		}
 		return HeapTarget{Kind: HeapTargetFresh, Origin: freshOrigin(pointee.region), Object: number}
-	case regionExternal, regionPlaceholder:
+	case regionExternal:
+		named, ok := projection.rootOf(pointee.region)
+		if !ok {
+			return HeapTarget{Kind: HeapTargetUnknown}
+		}
+		at := HeapSlot{Root: named.Root, Path: joinSlotPath(named.Path, pointee.path)}
+		if pointee.path != "" {
+			// A field address is still a non-nil pointer even when its
+			// unwritten contents are nil. See lindb/lindb@612070e1dc60,
+			// series/metric/row_readonly.go:64-69.
+			return HeapTarget{Kind: HeapTargetAddress, Slot: at}
+		}
+		return HeapTarget{Kind: HeapTargetSlot, Slot: at}
+	case regionPlaceholder:
 		named, ok := projection.rootOf(pointee.region)
 		if !ok {
 			return HeapTarget{Kind: HeapTargetUnknown}
@@ -433,7 +447,7 @@ func assumedByDefault(edge HeapEdge) bool {
 		return true
 	case HeapTargetFresh:
 		return !edge.Must
-	case HeapTargetSlot, HeapTargetUnknown:
+	case HeapTargetSlot, HeapTargetAddress, HeapTargetUnknown:
 	}
 	return false
 }

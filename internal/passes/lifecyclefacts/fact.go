@@ -503,6 +503,12 @@ func factForFunction(pass *analysis.Pass, function *ssa.Function) (Fact, bool) {
 	}
 	var fact Fact
 	if pass.ImportObjectFact(object, &fact) {
+		// An older heap fact may describe a returned field address as the
+		// field's contents. None of its derived claims are safe to import
+		// under the newer edge semantics.
+		if fact.Heap != nil && fact.Heap.Version != heapmodel.SummaryVersion {
+			return Fact{}, false
+		}
 		return fact, true
 	}
 	// No summary of its own: proven to do nothing if its package was

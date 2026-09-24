@@ -303,6 +303,12 @@ the masks a consumer reads and the summary a caller's graph applies cannot
 disagree. The derivability test in the pass records, function by function,
 that each claim follows from the projection:
 
+Heap summary version 2 distinguishes a returned address such as `&p.field`
+from the pointer value stored in `p.field`. Substitution maps the first to
+the caller's field slot and reads the second field's contents; a zero-valued
+field can have nil contents without its address being nil. Imported heap
+summaries with a different version are unavailable, never reinterpreted.
+
 - `ReturnedOwner`: on every normal return with a non-nil result, some
   result, or a slot beneath one, holds the parameter's object and nothing
   else (a `must` hold).

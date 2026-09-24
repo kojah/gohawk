@@ -16,6 +16,10 @@ const SummaryPaths = 3
 // SummarySlots bounds the slots projected per root before truncation.
 const SummarySlots = 16
 
+// SummaryVersion identifies the heap edge semantics in exported facts.
+// Version 2 distinguishes an address beneath a parameter from that slot's content.
+const SummaryVersion = 2
+
 // SortedSlots returns the canonical order of a set of projected slots.
 func SortedSlots(set map[HeapSlot]bool) []HeapSlot {
 	slots := make([]HeapSlot, 0, len(set))
@@ -123,6 +127,9 @@ const (
 	HeapTargetNil
 	// HeapTargetUnknown may be anything.
 	HeapTargetUnknown
+	// HeapTargetAddress is the address of Slot itself, including a field
+	// beneath a parameter. It is not the content stored at that slot.
+	HeapTargetAddress
 )
 
 // HeapTarget is what a slot may hold. Object numbers a fresh object within
@@ -172,6 +179,7 @@ type HeapEffect struct {
 
 // HeapSummary is the projection of one function's heap.
 type HeapSummary struct {
+	Version   int
 	Edges     []HeapEdge
 	Effects   []HeapEffect
 	Holds     []HeapHold
@@ -247,6 +255,8 @@ func (target HeapTarget) String() string {
 	switch target.Kind {
 	case HeapTargetSlot:
 		return target.Slot.String()
+	case HeapTargetAddress:
+		return "&" + target.Slot.String()
 	case HeapTargetFresh:
 		return "fresh(" + target.Origin + "#" + strconv.Itoa(target.Object) + ")"
 	case HeapTargetNil:

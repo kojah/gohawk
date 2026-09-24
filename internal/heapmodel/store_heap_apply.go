@@ -213,6 +213,8 @@ func (substitution *heapSubstitution) targets(target HeapTarget, at HeapSlot) (p
 			}
 		}
 		return result, true
+	case HeapTargetAddress:
+		return substitution.slots(target.Slot), true
 	}
 	return nil, false
 }
