@@ -128,6 +128,27 @@ it is not a passing full-suite receipt. The targeted CI race gate now includes
 the shared fact encoding cache. Do not rerun race tests locally for this
 investigation; measure ordinary runs here and record race results from CI.
 
+### Follow-up profile and envelope layout
+
+A separate normal CPU profile of the CBOR candidate passes in 23.01s and
+contains 64.80 CPU-seconds of samples. Checker fact round-trips account for
+29.81 CPU-seconds (46.0%), down from 71.89 in the pre-change profile. Heap
+projection is 13.48 CPU-seconds (20.8%), close to the earlier 13.32; optimizing
+publication did not reduce the underlying heap inference work. These are
+overlapping cumulative stacks, not additive stages. The old `02e5117` profile
+also passes (21.29s); its fact round-trips account for 43.36 of 64.67 sampled
+CPU-seconds. The richer current model is now near the older normal runtime,
+but these profiles do not bisect the original regression to one commit.
+
+Making the envelope's embedded field private removes its own additional gob
+descriptor without changing its promoted methods or payload. A fresh three-run
+microbenchmark records 12616 B/190 allocations per round-trip versus
+13568 B/200 allocations for the exported embedding. Median times are 19.6 µs
+versus 21.6 µs, with visible timing noise. One ordinary end-to-end private-layout
+run passes in 21.42s with 2425676 KiB peak RSS. That single sample is not proof
+of an additional end-to-end speed or memory improvement; the allocation and
+descriptor reduction are the reason to keep the simpler wire shape.
+
 ## Remaining experiments
 
 1. Profile the old revision and narrow the regression interval. Attribute

@@ -9,16 +9,19 @@ import (
 // Publication is separate from the semantic summary. An opaque envelope keeps
 // gob from recursively describing the heap schema in every inherited-fact stream.
 // Domain validation and the distinction between missing and empty stay here.
+// The unexported alias also hides the envelope's own type descriptor from gob.
+type publication[T any] = factcodec.Envelope[T]
+
 type publishedFact struct {
-	factcodec.Envelope[Fact]
+	publication[Fact]
 }
 
 type publishedCleanup struct {
-	factcodec.Envelope[CleanupFact]
+	publication[CleanupFact]
 }
 
 type publishedPackage struct {
-	factcodec.Envelope[SummarizedPackage]
+	publication[SummarizedPackage]
 }
 
 func publish(fact Fact) *publishedFact { return &publishedFact{factcodec.Wrap(fact)} }

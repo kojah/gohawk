@@ -6,8 +6,9 @@ import (
 )
 
 // Envelope hides a summary's fields from gob's type-descriptor traversal.
-// Embed it in a domain-owned fact type; the domain still owns publication and
-// validation. Values and everything reachable from them must stay immutable
+// Embed an unexported alias of it in a domain-owned fact type to also hide the
+// envelope's descriptor; the domain still owns publication and validation.
+// Values and everything reachable from them must stay immutable
 // after publication. Each decode produces an independently owned value.
 type Envelope[T any] struct {
 	value    T

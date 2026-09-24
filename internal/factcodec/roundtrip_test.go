@@ -18,6 +18,12 @@ type lifecycleEnvelope struct {
 	factcodec.Envelope[lifecyclefacts.Fact]
 }
 
+type lifecyclePayload = factcodec.Envelope[lifecyclefacts.Fact]
+
+type privateLifecycleEnvelope struct {
+	lifecyclePayload
+}
+
 // Populate all exported fields so newly added wire fields join this regression
 // automatically. The values exercise representation, not domain proof validity.
 func TestEverySummaryFieldRoundTrips(t *testing.T) {
@@ -113,6 +119,7 @@ func BenchmarkFactRoundTrip(b *testing.B) {
 	}{
 		{"exposed-json", (*exposedJSONFact)(&value), func() any { return new(exposedJSONFact) }},
 		{"opaque", &lifecycleEnvelope{factcodec.Wrap(value)}, func() any { return new(lifecycleEnvelope) }},
+		{"private-envelope", &privateLifecycleEnvelope{factcodec.Wrap(value)}, func() any { return new(privateLifecycleEnvelope) }},
 	} {
 		b.Run(test.name, func(b *testing.B) {
 			var size bytes.Buffer
@@ -180,10 +187,10 @@ func BenchmarkPayload(b *testing.B) {
 func TestEnvelopeRoundTrip(t *testing.T) {
 	want := benchmarkSummary()
 	var data bytes.Buffer
-	if err := gob.NewEncoder(&data).Encode(&lifecycleEnvelope{factcodec.Wrap(want)}); err != nil {
+	if err := gob.NewEncoder(&data).Encode(&privateLifecycleEnvelope{factcodec.Wrap(want)}); err != nil {
 		t.Fatal(err)
 	}
-	var got lifecycleEnvelope
+	var got privateLifecycleEnvelope
 	if err := gob.NewDecoder(&data).Decode(&got); err != nil {
 		t.Fatal(err)
 	}

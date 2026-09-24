@@ -50,7 +50,10 @@ type Fact struct {
 }
 
 // publishedFact hides the effect schema from gob's per-stream descriptors.
-type publishedFact struct{ factcodec.Envelope[Fact] }
+type publishedFact struct{ publication }
+
+// An unexported embedded alias also hides the envelope's descriptor from gob.
+type publication = factcodec.Envelope[Fact]
 
 // Analyzer exports complete effects and provides a shared engine to consumers.
 var Analyzer = &analysis.Analyzer{
