@@ -1,5 +1,10 @@
 # Precision audits
 
+New overnight audit: [batch 57](batch-57.md) records the second 250 of the
+September 24 target of 1,000 fresh pinned repositories. All 314 original
+findings have source verdicts (199 TP, 115 FP); 205 scans completed and 45
+were incomplete. Incomplete scans are not clean.
+
 New overnight audit: [batch 56](batch-56.md) records the first 250 of the
 September 24 target of 1,000 fresh pinned repositories. Its 381 original
 findings have all been source-reviewed, with 197 complete, 52 incomplete, and
