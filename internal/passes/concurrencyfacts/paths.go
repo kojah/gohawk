@@ -163,7 +163,24 @@ func branchCondition(block, next *ssa.BasicBlock) (Condition, bool) {
 	if !ok {
 		return Condition{}, false
 	}
-	return Condition{Value: branch.Cond, Holds: next == block.Succs[0]}, true
+	taken := next == block.Succs[0]
+	if comparison, ok := branch.Cond.(*ssa.BinOp); ok && (comparison.Op == token.EQL || comparison.Op == token.NEQ) {
+		if subject, compared, ok := constantOperand(comparison); ok {
+			return Condition{Value: subject, Compared: compared, Holds: taken == (comparison.Op == token.EQL)}, true
+		}
+	}
+	return Condition{Value: branch.Cond, Holds: taken}, true
+}
+
+// constantOperand splits a comparison with one constant side.
+func constantOperand(comparison *ssa.BinOp) (ssa.Value, *ssa.Const, bool) {
+	if compared, ok := comparison.Y.(*ssa.Const); ok {
+		return comparison.X, compared, true
+	}
+	if compared, ok := comparison.X.(*ssa.Const); ok {
+		return comparison.Y, compared, true
+	}
+	return nil, nil, false
 }
 
 // Context chains are bounded like cutoff chains; a deeper binding keeps the
@@ -183,7 +200,7 @@ func boundConditions(conditions []Condition, bindings []ssaflow.CallBinding, sit
 	bound := make([]Condition, 0, len(conditions))
 	for _, condition := range conditions {
 		if argument, holds, ok := parameterCondition(condition, bindings); ok {
-			bound = append(bound, Condition{Value: argument, Holds: holds})
+			bound = append(bound, Condition{Value: argument, Compared: condition.Compared, Holds: holds})
 			continue
 		}
 		if len(condition.Context) < maxConditionContext {
@@ -194,15 +211,15 @@ func boundConditions(conditions []Condition, bindings []ssaflow.CallBinding, sit
 	return bound
 }
 
-// parameterCondition resolves a local condition on a callee parameter to the
-// caller's argument. A condition already bound through a callee has no
-// parameter of this callee to resolve.
+// parameterCondition resolves a local condition on a callee parameter, or a
+// comparison of one with a constant, to the caller's argument. A condition
+// already bound through a callee has no parameter of this callee to resolve.
 func parameterCondition(condition Condition, bindings []ssaflow.CallBinding) (ssa.Value, bool, bool) {
 	if len(condition.Context) != 0 {
 		return nil, false, false
 	}
 	value, holds := condition.Value, condition.Holds
-	for {
+	for condition.Compared == nil {
 		negation, ok := value.(*ssa.UnOp)
 		if !ok || negation.Op != token.NOT {
 			break

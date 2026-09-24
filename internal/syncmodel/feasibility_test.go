@@ -29,6 +29,11 @@ func memoryAlone(mu *sync.Mutex, s *state) { if s.debug { mu.Lock(); mu.Unlock()
 func memoryAndParameter(mu *sync.Mutex, s *state, flag bool) { if s.debug { mu.Lock() }; if flag { mu.Unlock() } }
 func pick(a, b chan int, flag bool) { if flag { close(a) } else { close(b) } }
 func workerFlag(a, b chan int, mu *sync.Mutex, flag bool) { go pick(a, b, flag); if flag { mu.Lock(); mu.Unlock() } }
+func pickN(a, b chan int, n int) { if n == 1 { close(a) } else { close(b) } }
+func comparedTwice(a, b chan int, x int) { pickN(a, b, x); pickN(a, b, x) }
+func comparedConstant(a, b chan int) { pickN(a, b, 1) }
+func pickF(a, b chan int, f func()) { if f != nil { close(a) } else { close(b) } }
+func nilCallback(a, b chan int) { pickF(a, b, nil) }
 `)
 	engine := concurrencyfacts.NewEngine()
 	for name, want := range map[string][3]int{
@@ -47,6 +52,11 @@ func workerFlag(a, b chan int, mu *sync.Mutex, flag bool) { go pick(a, b, flag);
 		// The worker's test of its parameter binds to the parent's flag, so
 		// agreeing combinations are feasible and disagreeing ones are not.
 		"workerFlag": {2, 2, 0},
+		// A helper's comparison of its parameter binds to the caller's value:
+		// the same x twice must agree, and a constant argument folds.
+		"comparedTwice":    {2, 2, 0},
+		"comparedConstant": {1, 1, 0},
+		"nilCallback":      {1, 1, 0},
 	} {
 		t.Run(name, func(t *testing.T) {
 			summary := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(4000))

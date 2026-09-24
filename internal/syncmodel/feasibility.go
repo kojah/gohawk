@@ -36,9 +36,9 @@ import (
 func (graph *SyncGraph) Feasibility() Proof {
 	atoms := map[string]*atomChoices{}
 	for _, condition := range graph.Conditions {
-		if folded, ok := condition.Value.(*ssa.Const); ok && folded.Value != nil && folded.Value.Kind() == constant.Bool {
+		if truth, folded := foldedCondition(condition); folded {
 			// Requiring a constant to be what it is not contradicts outright.
-			if constant.BoolVal(folded.Value) != condition.Holds {
+			if truth != condition.Holds {
 				return queryProof(ssaflow.EvidenceDisproven, ReasonConditionsContradict)
 			}
 			continue
@@ -104,11 +104,40 @@ func (choices *atomChoices) add(value, stable bool) choiceResult {
 	}
 }
 
+// foldedCondition evaluates a condition whose tested value is a constant,
+// as it is once binding substitutes a constant argument.
+func foldedCondition(condition concurrencyfacts.Condition) (bool, bool) {
+	folded, ok := condition.Value.(*ssa.Const)
+	if !ok {
+		return false, false
+	}
+	if condition.Compared == nil {
+		if folded.Value == nil || folded.Value.Kind() != constant.Bool {
+			return false, false
+		}
+		return constant.BoolVal(folded.Value), true
+	}
+	switch {
+	case folded.IsNil() || condition.Compared.IsNil():
+		return folded.IsNil() && condition.Compared.IsNil(), true
+	case folded.Value == nil || condition.Compared.Value == nil:
+		return false, false
+	default:
+		return constant.Compare(folded.Value, token.EQL, condition.Compared.Value), true
+	}
+}
+
 // guardAtom names a condition by its shared guard identity within its call
 // context. A condition with no guard identity is keyed by itself and shared.
 func guardAtom(condition concurrencyfacts.Condition) (conditionAtom, bool) {
 	context := contextKey(condition.Context)
-	identity, negated, stable, ok := ssaflow.GuardCondition(condition.Value)
+	var identity string
+	var negated, stable, ok bool
+	if condition.Compared != nil {
+		identity, stable, ok = ssaflow.GuardComparison(condition.Value, condition.Compared)
+	} else {
+		identity, negated, stable, ok = ssaflow.GuardCondition(condition.Value)
+	}
 	if !ok {
 		return conditionAtom{key: fmt.Sprintf("%p#%s", condition.Value, context), shared: true}, condition.Holds
 	}
@@ -170,21 +199,12 @@ type equality struct {
 }
 
 func constantEquality(condition concurrencyfacts.Condition) (equality, bool) {
-	comparison, ok := condition.Value.(*ssa.BinOp)
-	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
-		return equality{}, false
-	}
-	subject, folded := comparison.X, comparison.Y
-	if _, left := subject.(*ssa.Const); left {
-		subject, folded = folded, subject
-	}
-	literal, ok := folded.(*ssa.Const)
-	if !ok || literal.Value == nil {
+	if condition.Compared == nil || condition.Compared.Value == nil {
 		return equality{}, false
 	}
 	return equality{
-		subject:  fmt.Sprintf("%p#%s", subject, contextKey(condition.Context)),
-		constant: literal.Value, equal: condition.Holds == (comparison.Op == token.EQL),
+		subject:  fmt.Sprintf("%p#%s", condition.Value, contextKey(condition.Context)),
+		constant: condition.Compared.Value, equal: condition.Holds,
 	}, true
 }
 

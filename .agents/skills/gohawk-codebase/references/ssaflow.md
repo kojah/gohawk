@@ -954,6 +954,19 @@ GuardAddressIdentity names a cell by the path that reaches it: a local
 allocation, a parameter, a captured variable, a package variable, or a
 field selected from one of those, possibly through a loaded pointer.
 
+## GuardComparison
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func GuardComparison(subject ssa.Value, compared *ssa.Const) (identity string, stable, ok bool)
+```
+
+GuardComparison is the guard identity of subject == compared, the same
+identity GuardCondition gives that comparison written as an instruction.
+It lets a consumer that stores a comparison apart from its instruction,
+such as a condition bound into a caller, keep relating it to other guards.
+
 ## GuardCondition
 
 [Source](../../../../internal/ssaflow/flow_guards.go)

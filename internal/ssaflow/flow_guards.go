@@ -77,11 +77,7 @@ func GuardCondition(condition ssa.Value) (identity string, negated, stable, ok b
 	}
 	if comparison, ok := condition.(*ssa.BinOp); ok && (comparison.Op == token.EQL || comparison.Op == token.NEQ) &&
 		stableOperand(comparison.X) && stableOperand(comparison.Y) {
-		left, right := guardOperandIdentity(comparison.X), guardOperandIdentity(comparison.Y)
-		if right < left {
-			left, right = right, left
-		}
-		return "eq(" + left + "," + right + ")", comparison.Op == token.NEQ, true, true
+		return stableEquality(comparison.X, comparison.Y), comparison.Op == token.NEQ, true, true
 	}
 	// A computed Boolean outside a cycle is evaluated once, so repeating that
 	// exact SSA value cannot change its truth, including a short-circuit phi.
@@ -92,6 +88,29 @@ func GuardCondition(condition ssa.Value) (identity string, negated, stable, ok b
 		return fmt.Sprintf("value:%p", condition), false, true, true
 	}
 	return "", false, false, false
+}
+
+// GuardComparison is the guard identity of subject == compared, the same
+// identity GuardCondition gives that comparison written as an instruction.
+// It lets a consumer that stores a comparison apart from its instruction,
+// such as a condition bound into a caller, keep relating it to other guards.
+func GuardComparison(subject ssa.Value, compared *ssa.Const) (identity string, stable, ok bool) {
+	if load, loaded := subject.(*ssa.UnOp); loaded && load.Op == token.MUL {
+		address, ok := GuardAddressIdentity(load.X)
+		return "eq(load(" + address + ")," + guardOperandIdentity(compared) + ")", false, ok
+	}
+	if !stableOperand(subject) {
+		return "", false, false
+	}
+	return stableEquality(subject, compared), true, true
+}
+
+func stableEquality(left, right ssa.Value) string {
+	first, second := guardOperandIdentity(left), guardOperandIdentity(right)
+	if second < first {
+		first, second = second, first
+	}
+	return "eq(" + first + "," + second + ")"
 }
 
 func loadedGuard(condition ssa.Value) (string, bool, bool) {

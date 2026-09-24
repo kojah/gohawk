@@ -69,15 +69,18 @@ type Operation struct {
 	Alternates []token.Pos
 }
 
-// Condition is one branch choice that selects a path alternative: the branch
-// condition and the polarity taken. Context lists the call sites the
-// alternative was bound through, innermost first, so one helper called twice
-// keeps two separate conditions. Conditions are evidence for feasibility
-// queries only; they never make a summary complete.
+// Condition is one branch choice that selects a path alternative. Without
+// Compared it says Value, a Boolean, is Holds. With Compared it says whether
+// Value == Compared is Holds; a != test is stored as == with Holds inverted,
+// so the comparison can be rebound to a caller's value. Context lists the
+// call sites the alternative was bound through, innermost first, so one
+// helper called twice keeps two separate conditions. Conditions are evidence
+// for feasibility queries only; they never make a summary complete.
 type Condition struct {
-	Value   ssa.Value
-	Holds   bool
-	Context []token.Pos
+	Value    ssa.Value
+	Compared *ssa.Const
+	Holds    bool
+	Context  []token.Pos
 }
 
 // SelectArm is one possible communication performed by a select. A default
