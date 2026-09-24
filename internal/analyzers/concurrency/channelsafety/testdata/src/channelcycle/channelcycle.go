@@ -2,6 +2,10 @@ package channelcycle
 
 import "channelcyclehelper"
 
+func channelWithExternalPartner(ch chan int) {
+	ch <- 1
+}
+
 func bothSendFirst() {
 	a := make(chan int)
 	b := make(chan int)

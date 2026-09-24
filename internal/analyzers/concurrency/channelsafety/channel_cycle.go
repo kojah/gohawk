@@ -25,12 +25,16 @@ type channelCycleProof struct {
 }
 
 func reportChannelCycle(pass *analysis.Pass, function *ssa.Function) {
-	candidate := potentialChannelCycleRoot(function)
+	candidate, precondition := potentialChannelCycleRoot(function)
 	if candidate == token.NoPos {
 		return
 	}
 	probe := analysisTrace.For(pass, "channelsafety", string(check.ChannelDependencyCycle), candidate)
 	probe.Candidate(analysisTrace.Step{Reason: "channel-cycle-candidate", Outcome: analysisTrace.OutcomeObserved, Pos: candidate})
+	if precondition != "" {
+		probe.Decision(analysisTrace.Step{Reason: precondition, Outcome: analysisTrace.OutcomeUnknown, Pos: candidate})
+		return
+	}
 	engine, available := summaryKnowledge.Provider(pass).Concurrency()
 	if available != summaries.Available || engine == nil {
 		probe.Decision(analysisTrace.Step{Reason: "channel-cycle-summary-unavailable", Outcome: analysisTrace.OutcomeUnknown, Pos: candidate})
@@ -90,9 +94,12 @@ func proveEveryChannelCycle(graphs []syncgraph.SyncGraph, choices []concurrencyf
 	return common
 }
 
-func potentialChannelCycleRoot(function *ssa.Function) token.Pos {
+// The cheap source filter names its own unknowns so traces can distinguish
+// absent launch evidence from channels that were not made in this function.
+// Neither absence is a proof that a protocol is safe.
+func potentialChannelCycleRoot(function *ssa.Function) (token.Pos, string) {
 	if function == nil {
-		return token.NoPos
+		return token.NoPos, ""
 	}
 	var launched bool
 	var channels int
@@ -119,18 +126,27 @@ func potentialChannelCycleRoot(function *ssa.Function) token.Pos {
 			}
 		}
 	}
-	if !launched || channels < 2 {
-		return token.NoPos
+	if operation == token.NoPos {
+		return token.NoPos, ""
 	}
-	return operation
+	if !launched {
+		return operation, "channel-cycle-launch-unknown"
+	}
+	if channels < 2 {
+		return operation, "channel-cycle-fresh-channels-unknown"
+	}
+	return operation, ""
 }
 
 func proveChannelCycle(graph syncgraph.SyncGraph) channelCycleProof {
 	if !graph.Complete() {
 		return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: graph.Reason}
 	}
-	if len(graph.Parent) != 2 || len(graph.Children) == 0 {
-		return channelCycleProof{outcome: analysisTrace.OutcomeRejected, reason: "channel-cycle-shape-not-matched"}
+	if len(graph.Parent) != 2 {
+		return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-parent-sequence-unknown"}
+	}
+	if len(graph.Children) == 0 {
+		return channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-worker-unknown"}
 	}
 	first, second := graph.Parent[0], graph.Parent[1]
 	a, aFresh := first.Resource.Value.(*ssa.MakeChan)
@@ -171,7 +187,11 @@ func findChannelCycleWorkers(
 		if len(child.Events) == 0 {
 			continue
 		}
-		if len(child.Events) != 2 || !crossedChannelActions(first, second, child.Events[0], child.Events[1]) {
+		if len(child.Events) != 2 {
+			return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
+				channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-worker-sequence-unknown"}
+		}
+		if !crossedChannelActions(first, second, child.Events[0], child.Events[1]) {
 			return syncgraph.SyncEvent{}, syncgraph.SyncEvent{},
 				channelCycleProof{outcome: analysisTrace.OutcomeUnknown, reason: "channel-cycle-other-participant"}
 		}
