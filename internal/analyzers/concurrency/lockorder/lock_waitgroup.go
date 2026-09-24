@@ -177,7 +177,7 @@ func findWaitGroupParent(graph syncmodel.SyncGraph) (waitGroupParent, waitGroupC
 	}
 	lock := parent[lockIndex]
 	mutex := lock.Resource.Value
-	if !syncmodel.FreshResource(lock.Resource).Proven() || !exactWaitGroupEvent(lock, concurrencyfacts.Lock, mutex) ||
+	if !syncmodel.HeldMutex(lock.Resource, unlock.Resource).Proven() || !exactWaitGroupEvent(lock, concurrencyfacts.Lock, mutex) ||
 		!exactWaitGroupEvent(wait, concurrencyfacts.GroupWait, group) ||
 		!exactWaitGroupEvent(unlock, concurrencyfacts.Unlock, mutex) {
 		return waitGroupParent{}, waitGroupCycleProof{outcome: analysisTrace.OutcomeRejected, reason: dependencyWaitgroupLockParentOrderNotMatched}

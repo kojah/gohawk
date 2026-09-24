@@ -58,11 +58,12 @@ func separateReceivers() {
 	parent.mu.Unlock()
 }
 
+// The caller's owner stays held by this root until its own Unlock.
 func externalReceiver(o *owner) {
 	done := make(chan struct{})
 	o.mu.Lock()
 	o.start(done)
-	<-done
+	<-done // want "waits for a worker that needs the held lock"
 	o.mu.Unlock()
 }
 

@@ -81,11 +81,20 @@ func otherMutex() {
 	parent.Unlock()
 }
 
-// A caller-owned lock can be released by someone else.
+// A caller-owned lock is still held until this root's own Unlock.
 func callerOwned(mu *sync.Mutex) {
 	ch := make(chan int)
 	mu.Lock()
 	go sendAfterLock(mu, ch)
+	<-ch // want "receives while holding the lock needed by its sender"
+	mu.Unlock()
+}
+
+// A caller-owned channel may have a sender outside this function.
+func callerChannel(ch chan int) {
+	var mu sync.Mutex
+	mu.Lock()
+	go sendAfterLock(&mu, ch)
 	<-ch
 	mu.Unlock()
 }

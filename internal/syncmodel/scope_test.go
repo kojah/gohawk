@@ -66,3 +66,33 @@ func f(a, b *sync.Mutex) { a.Lock(); b.Unlock() }
 		t.Error("dependency graph was silently rebuilt")
 	}
 }
+
+func TestHeldMutexNeedsOneExactIdentity(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "heldmutex", `package heldmutex
+import "sync"
+type owner struct{ mu sync.Mutex }
+func same(mu *sync.Mutex) { mu.Lock(); mu.Unlock() }
+func field(o *owner) { o.mu.Lock(); o.mu.Unlock() }
+func pair(a, b *sync.Mutex) { a.Lock(); b.Unlock() }
+func channel(ch chan int) { close(ch); close(ch) }
+`)
+	engine := concurrencyfacts.NewEngine()
+	events := func(name string) []SyncEvent {
+		graph := FromSummary(engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget)))
+		if !graph.Complete() || len(graph.Parent) != 2 {
+			t.Fatalf("%s graph = %+v", name, graph)
+		}
+		return graph.Parent
+	}
+	for _, name := range []string{"same", "field"} {
+		if parent := events(name); !HeldMutex(parent[0].Resource, parent[1].Resource).Proven() {
+			t.Errorf("%s: parameter-owned mutex was not held", name)
+		}
+	}
+	for _, name := range []string{"pair", "channel"} {
+		parent := events(name)
+		if proof := HeldMutex(parent[0].Resource, parent[1].Resource); proof.Known() || proof.Reason != ReasonHeldMutexUnknown {
+			t.Errorf("%s: held mutex = %+v, want unknown", name, proof)
+		}
+	}
+}

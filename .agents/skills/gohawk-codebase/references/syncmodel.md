@@ -125,6 +125,23 @@ type GoroutineID int
 
 GoroutineID distinguishes the root from each summarized child.
 
+## HeldMutex
+
+[Source](../../../../internal/syncmodel/scope.go)
+
+```go
+func HeldMutex(acquire, release concurrencyfacts.Reference) Proof
+```
+
+HeldMutex proves that one goroutine acquires and later releases the same
+exact mutex, so the mutex stays held between the two events. Freshness is
+not required. Another participant can still release a mutex it did not
+lock, but doing so during this window would make the holder's own later
+release fatal on the path where it is reached. A mutex pointer loaded from
+storage, a projection, or a different release identity stays unknown. This
+says nothing about the resource being waited on, which consumers must still
+prove fresh or otherwise closed to outside participants.
+
 ## LockRegion
 
 [Source](../../../../internal/syncmodel/region.go)
@@ -313,7 +330,7 @@ func (reason Reason) String() string
 
 String renders the stable external trace code.
 
-## ReasonNone, ReasonAlternateUnlock, ReasonAlternativeLimit, ReasonCancelIdentityUnknown, ReasonCancellationObservations, ReasonEventUnavailable, ReasonFreshResource, ReasonFreshnessUnknown, ReasonIdentityUnknown, ReasonInvalidEvent, ReasonInvalidSpawnPrefix, ReasonNestedAlternatives, ReasonNoChannelSignal, ReasonOrderUnproven, ReasonProgramOrder, ReasonQueryUnavailable, ReasonScopeAliasUnknown, ReasonScopeDependencyPresent, ReasonScopeIncomplete, ReasonSignalBeforeAcquire
+## ReasonNone, ReasonAlternateUnlock, ReasonAlternativeLimit, ReasonCancelIdentityUnknown, ReasonCancellationObservations, ReasonEventUnavailable, ReasonFreshResource, ReasonFreshnessUnknown, ReasonHeldMutex, ReasonHeldMutexUnknown, ReasonIdentityUnknown, ReasonInvalidEvent, ReasonInvalidSpawnPrefix, ReasonNestedAlternatives, ReasonNoChannelSignal, ReasonOrderUnproven, ReasonProgramOrder, ReasonQueryUnavailable, ReasonScopeAliasUnknown, ReasonScopeDependencyPresent, ReasonScopeIncomplete, ReasonSignalBeforeAcquire
 
 [Source](../../../../internal/syncmodel/reasons.go)
 
@@ -327,6 +344,8 @@ const (
 	ReasonEventUnavailable
 	ReasonFreshResource
 	ReasonFreshnessUnknown
+	ReasonHeldMutex
+	ReasonHeldMutexUnknown
 	ReasonIdentityUnknown
 	ReasonInvalidEvent
 	ReasonInvalidSpawnPrefix

@@ -88,7 +88,7 @@
             },
             {
               "id": "lockorder/lock-and-join",
-              "summary": "Reports a wait while holding the local mutex that every possible completion worker must acquire.",
+              "summary": "Reports a wait while holding a mutex that every possible completion worker must acquire.",
               "kind": "defect",
               "tier": "experimental"
             },

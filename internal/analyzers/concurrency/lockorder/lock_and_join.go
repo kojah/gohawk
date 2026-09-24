@@ -195,9 +195,9 @@ func findLockSignalParent(graph syncmodel.SyncGraph) (lockSignalCandidate, lockS
 	if !graph.Complete() {
 		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, failure: graph.Failure}
 	}
-	// Fresh local resources exclude unknown callers. Every recorded child is
-	// checked below for an alternative unlock or signal. Requiring the parent's
-	// unlock after the receive makes its side of the cycle explicit.
+	// A fresh channel excludes unknown senders. The mutex need only be held by
+	// the parent from its lock to its own later unlock (HeldMutex). Every
+	// recorded child is checked below for an alternative unlock or signal.
 	if len(graph.Children) == 0 || len(graph.Parent) != 3 {
 		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: dependencyLockJoinShapeNotMatched}
 	}
@@ -213,10 +213,9 @@ func findLockSignalParent(graph syncmodel.SyncGraph) (lockSignalCandidate, lockS
 		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeRejected, reason: dependencyLockJoinParentOrderNotMatched}
 	}
 	mutex := lock.Resource.Value
-	localMutex := syncmodel.FreshResource(lock.Resource).Proven()
+	held := syncmodel.HeldMutex(lock.Resource, unlock.Resource).Proven()
 	done, localChannel := wait.Resource.Value.(*ssa.MakeChan)
-	if !localMutex || !localChannel || lock.Resource.Indirect || wait.Resource.Indirect || unlock.Resource.Indirect ||
-		unlock.Resource.Value != mutex {
+	if !held || !localChannel || wait.Resource.Indirect {
 		return lockSignalCandidate{}, lockSignalProof{outcome: analysisTrace.OutcomeUnknown, reason: dependencyLockJoinIdentityUnknown}
 	}
 	return lockSignalCandidate{mutex: mutex, done: done, parentLock: lock, wait: wait, unlock: unlock}, lockSignalProof{}

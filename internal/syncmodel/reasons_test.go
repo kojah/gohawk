@@ -16,6 +16,8 @@ func TestReasonCodes(t *testing.T) {
 		ReasonEventUnavailable:         "syncgraph-event-unavailable",
 		ReasonFreshResource:            "syncgraph-fresh-resource",
 		ReasonFreshnessUnknown:         "syncgraph-freshness-unknown",
+		ReasonHeldMutex:                "syncgraph-held-mutex",
+		ReasonHeldMutexUnknown:         "syncgraph-held-mutex-unknown",
 		ReasonIdentityUnknown:          "syncgraph-identity-unknown",
 		ReasonInvalidEvent:             "syncgraph-invalid-event",
 		ReasonInvalidSpawnPrefix:       "syncgraph-invalid-spawn-prefix",

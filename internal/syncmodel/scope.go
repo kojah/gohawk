@@ -118,3 +118,21 @@ func FreshResource(resource concurrencyfacts.Reference) Proof {
 	}
 	return queryProof(ssaflow.EvidenceProven, ReasonFreshResource)
 }
+
+// HeldMutex proves that one goroutine acquires and later releases the same
+// exact mutex, so the mutex stays held between the two events. Freshness is
+// not required. Another participant can still release a mutex it did not
+// lock, but doing so during this window would make the holder's own later
+// release fatal on the path where it is reached. A mutex pointer loaded from
+// storage, a projection, or a different release identity stays unknown. This
+// says nothing about the resource being waited on, which consumers must still
+// prove fresh or otherwise closed to outside participants.
+func HeldMutex(acquire, release concurrencyfacts.Reference) Proof {
+	if !exactReference(acquire) || acquire.Cancellation || acquire != release {
+		return queryProof(ssaflow.EvidenceUnknown, ReasonHeldMutexUnknown)
+	}
+	if !concurrencyfacts.MutexPointer(acquire.Value.Type()) {
+		return queryProof(ssaflow.EvidenceUnknown, ReasonHeldMutexUnknown)
+	}
+	return queryProof(ssaflow.EvidenceProven, ReasonHeldMutex)
+}

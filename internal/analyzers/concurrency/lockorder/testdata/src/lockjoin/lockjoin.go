@@ -95,11 +95,23 @@ func signalBeforeLock() {
 	mu.Unlock()
 }
 
-// A caller-owned mutex might be deliberately unlocked by another participant.
+// A caller-owned mutex is still held by this root until its own Unlock.
 func externallyOwned(mu *sync.Mutex) {
 	done := make(chan struct{})
 	mu.Lock()
 	go worker(mu, done)
+	<-done // want "waits for a worker that needs the held lock"
+	mu.Unlock()
+}
+
+// A caller-owned channel may have a sender outside this function. The local
+// channel only makes this a candidate; it is not the one being waited on.
+func externalChannel(done chan struct{}) {
+	var mu sync.Mutex
+	unrelated := make(chan struct{})
+	close(unrelated)
+	mu.Lock()
+	go worker(&mu, done)
 	<-done
 	mu.Unlock()
 }
