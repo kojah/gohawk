@@ -27,11 +27,11 @@ func CapturedBindingValue(binding ssa.Value) ssa.Value { //nolint:ireturn // Sto
 	return binding
 }
 
-// structurallySame is the value-graph half of MayAlias: identity through
+// StructurallySame is the value-graph half of MayAlias: identity through
 // conversions, any phi edge, and every store into a local cell, without
 // regard to order. Derivation still asks this question, because its
 // polarity ends the walk at anything unknown.
-func structurallySame(value, target ssa.Value) bool {
+func StructurallySame(value, target ssa.Value) bool {
 	// SSA removes ordinary assignments, but captured locals, embedded fields,
 	// and interface conversions still need explicit identity recovery.
 	return sameValueSeen(value, target, map[ssa.Value]bool{}) || sameValueSeen(target, value, map[ssa.Value]bool{})
@@ -92,7 +92,7 @@ func sameValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 		return ok && typed.Field == other.Field && sameValueSeen(typed.X, other.X, seen)
 	case *ssa.IndexAddr:
 		other, ok := target.(*ssa.IndexAddr)
-		return ok && sameValueSeen(typed.X, other.X, seen) && structurallySame(typed.Index, other.Index)
+		return ok && sameValueSeen(typed.X, other.X, seen) && StructurallySame(typed.Index, other.Index)
 	case *ssa.UnOp:
 		if typed.Op != token.MUL {
 			return false

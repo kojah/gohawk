@@ -99,12 +99,17 @@ itself does not change.
 
 ## Shared engine
 
-- `internal/ssaflow` owns SSA mechanics: value provenance (`ReachingWalk`),
-  path-sensitive state (`WalkStates`), return coverage (`EvaluateObligation`
-  and the Boolean `UnownedReturn` family),
-  storage and escape checks, and symbol matching. It provides how to walk;
-  it never decides whether evidence is sufficient. That policy stays beside
-  each analyzer.
+- `internal/ssaflow` owns the reusable SSA mechanics: proof outcomes and
+  budgets, value provenance (`ReachingWalk`), calls, and control-flow queries
+  (`WalkStates` and `EvaluateObligation`). It provides how to walk, not an
+  analyzer's reporting policy.
+- `internal/ssainfer` builds storage, completion, and ownership-transfer
+  proofs from `ssaflow` and `heapmodel`. Analyzers import the layer that owns
+  the query they need; neither package forwards the other's API.
+- `internal/heapmodel` owns the per-function points-to graph, its cache,
+  heap-summary projection and registration, and application at call sites.
+  Its queries supplement `ssainfer.Storage` without making unknown contents
+  or truncated summaries into negative proofs.
 - Every interprocedural question spends a `ssaflow.SearchBudget`, named
   `QueryBudget` or `SummaryBudget` unless a proof has a reason of its own, and
   a lifecycle analyzer draws each question's budget from one pool per
@@ -118,7 +123,7 @@ itself does not change.
   The engine reports which kind a contradiction is and each walk chooses:
   the obligation walk and lock order prune the other arm of a stable guard,
   resource lifetime and every walk treat a loaded contradiction as unknown.
-- `ssaflow.Storage` is the shared, bounded query for local contents and stable
+- `ssainfer.Storage` is the shared, bounded query for local contents and stable
   owner projections. It resolves loads at their own execution points, including
   fields, constant array elements, and aggregate-copy snapshots. Completion,
   lifecycle facts, and analyzer-local identity checks use the same query rather
@@ -188,7 +193,7 @@ the code cannot drift apart silently.
 | `TestAnalyzersUseSummaryBroker` | analyzer access to lifecycle, concurrency, and result knowledge goes through a pass-level summary selection, not raw prerequisites or domain constructors |
 | `TestSummaryBrokerMatchesDeclarationIdentity` | broker boundaries recognize aliases, dot imports, constructors, and type assertions without banning unrelated lookalike packages |
 | `TestAnalyzersUseSharedTraversal` | value-provenance recursion — phi fan-out and visited sets — lives only in `ssaflow` |
-| `TestSSAFlowFamiliesLayerDownward` | `ssaflow` files are named by family — proof, value, call, flow, store, completion, evidence — and a file references declarations only from its own family or a lower one |
+| `TestSSAInferenceFamiliesLayerDownward` | `ssainfer` files are named by family — store, completion, evidence — and a file references declarations only from its own family or a lower one |
 | `TestDocumentationReferencesResolve` | the development docs and project skills cite only code that exists, and their helper, `Fact` field, and test inventories are complete |
 | `TestSharedHelperReferencesStayCurrent` | package-specific shared API references match current signatures, comments, source links, and every prerequisite pass package |
 

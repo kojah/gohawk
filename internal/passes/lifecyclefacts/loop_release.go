@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -37,7 +38,7 @@ func blockReleasesDerivedValue(block *ssa.BasicBlock, parameter ssa.Value) bool 
 		}
 		name := ssaflow.CallName(common)
 		if slices.ContainsFunc(lifecycleMasks, func(mask lifecycleMask) bool { return mask.method != "" && mask.method == name }) &&
-			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), parameter, map[ssa.Value]bool{}) {
+			ssainfer.ValueDerivesFrom(ssaflow.CallReceiver(common), parameter, map[ssa.Value]bool{}) {
 			return true
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -19,7 +20,7 @@ func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value) string {
 	if value == nil || !walk.Mark(value) {
 		return ""
 	}
-	if resolved := ssaflow.NewStorage(nil).Resolve(value); resolved.Proven() && resolved.Value != value {
+	if resolved := ssainfer.NewStorage(nil).Resolve(value); resolved.Proven() && resolved.Value != value {
 		return lockIdentity(walk, resolved.Value)
 	}
 	if source, ok := ssaflow.IdentitySource(value); ok {
@@ -208,7 +209,7 @@ func lockClassOf(value ssa.Value) string {
 }
 
 func localMutexAllocation(value ssa.Value) *ssa.Alloc {
-	resolved := ssaflow.NewStorage(nil).Resolve(value)
+	resolved := ssainfer.NewStorage(nil).Resolve(value)
 	if !resolved.Proven() {
 		return nil
 	}
@@ -241,7 +242,7 @@ func possibleFreshMutexField(value ssa.Value) freshMutexFieldProof {
 	if !ok || owner.Parent() != load.Parent() {
 		return unknown
 	}
-	if ssaflow.NewStorage(nil).Resolve(value).Proven() {
+	if ssainfer.NewStorage(nil).Resolve(value).Proven() {
 		return unknown
 	}
 	fresh := false

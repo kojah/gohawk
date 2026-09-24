@@ -76,10 +76,10 @@ func (budget *SearchBudget) Observed(observer Observer) *SearchBudget {
 	return budget
 }
 
-// observe reports one give-up. Details are built only when someone is
+// Observe reports one give-up. Details are built only when someone is
 // listening, so a silent budget costs one nil check at the give-up point and
 // nothing on the path that spends it.
-func (budget *SearchBudget) observe(reason EvidenceReason, at token.Pos, build func() map[string]string) {
+func (budget *SearchBudget) Observe(reason EvidenceReason, at token.Pos, build func() map[string]string) {
 	if budget == nil || budget.observer == nil {
 		return
 	}

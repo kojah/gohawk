@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -27,7 +28,7 @@ import (
 //
 // Two exclusions follow from the same rule and keep the claim honest. A value
 // LOADED out of the owner is a different cell, so mutating it is not a write to
-// the owner -- the distinction ssaflow.IdentitySource states for identity
+// the owner -- the distinction ssainfer.IdentitySource states for identity
 // resolution. And an atomic update is a call rather than a store, so it never
 // reaches here at all, which is correct: such a field is protected by atomics
 // rather than by the lock.
@@ -76,7 +77,7 @@ func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction) bool {
 	_, _, writer, _ := mutexAction(deferred)
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](instruction.Parent()) {
 		operation, _, receiver, direct := mutexAction(call)
-		if direct && operation == mutexRelease && !readModeRelease(call) && ssaflow.MayAlias(receiver, writer) &&
+		if direct && operation == mutexRelease && !readModeRelease(call) && ssainfer.MayAlias(receiver, writer) &&
 			ssaflow.InstructionMayFollow(deferred, call) && ssaflow.InstructionMayFollow(call, instruction) {
 			// An explicit intervening release defeats the possible-held guard;
 			// the still-registered defer must not hide an unprotected write.
@@ -114,7 +115,7 @@ func possibleDeferredWriters(function *ssa.Function, summaries map[ssa.Instructi
 				continue
 			}
 			calledReceiver := ssaflow.CallReceiver(call.Common())
-			if calledReceiver != nil && ssaflow.MayAlias(calledReceiver, field.X) {
+			if calledReceiver != nil && ssainfer.MayAlias(calledReceiver, field.X) {
 				writers = append(writers, deferred)
 				break
 			}
@@ -184,7 +185,7 @@ func mutatingBuiltinTargetsOwner(common *ssa.CallCommon, owner ssa.Value) bool {
 // then mutated is not counted as a write to the owner.
 func addressWithinOwner(address, owner ssa.Value) bool {
 	for address != nil {
-		if ssaflow.MayAlias(address, owner) {
+		if ssainfer.MayAlias(address, owner) {
 			return true
 		}
 		switch typed := address.(type) {

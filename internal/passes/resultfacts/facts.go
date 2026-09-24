@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/factcodec"
-
 	"github.com/kojah/gohawk/internal/ssaflow"
+
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 )

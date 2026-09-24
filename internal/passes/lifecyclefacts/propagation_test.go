@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -45,7 +46,7 @@ func sibling(value, other *closer) {
 		pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
 			Analyzer: Summaries{helper.Common().StaticCallee(): {Closed: parameterMaskFor(0)}},
 		}}
-		completion := ssaflow.CompletionRequest{Instruction: deferred, Target: function.Params[0], Methods: []string{"Close"}}
+		completion := ssainfer.CompletionRequest{Instruction: deferred, Target: function.Params[0], Methods: []string{"Close"}}
 		proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
 			Instruction: deferred,
 			Target:      function.Params[0],

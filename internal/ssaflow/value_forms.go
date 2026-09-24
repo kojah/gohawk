@@ -69,7 +69,7 @@ func UnwrapTransparentValue(value ssa.Value, forms TransparentValueForm) (ssa.Va
 	}
 }
 
-// forwardedValue reports the value a reference produces when it only carries
+// ForwardedValue reports the value a reference produces when it only carries
 // its operand onward: a wrapper conversion, a tuple extraction, or a phi that
 // merges it. It is the forward companion of UnwrapTransparentValue, which
 // peels a value back to the operand it came from. A walk over referrers needs
@@ -80,7 +80,7 @@ func UnwrapTransparentValue(value ssa.Value, forms TransparentValueForm) (ssa.Va
 // value ends up rather than what evidence survives a wrapper: every form here
 // carries the same value onward, and a caller that must stop at one of them is
 // asking a different question.
-func forwardedValue(reference ssa.Instruction) (ssa.Value, bool) {
+func ForwardedValue(reference ssa.Instruction) (ssa.Value, bool) {
 	switch reference.(type) {
 	case *ssa.ChangeInterface, *ssa.ChangeType, *ssa.Convert, *ssa.Extract, *ssa.MakeInterface, *ssa.Phi:
 		value, ok := reference.(ssa.Value)
@@ -124,10 +124,10 @@ func CallResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // SSA c
 	return nil
 }
 
-// derivesFrom is the walk behind ValueDerivesFrom, with the identity step
+// DerivesFrom is the walk behind ValueDerivesFrom, with the identity step
 // chosen by the caller: the points-to graph's may-alias for the store
 // family, the structural walk for a family beneath it.
-func derivesFrom(value, source ssa.Value, seen map[ssa.Value]bool, same func(ssa.Value, ssa.Value) bool) bool {
+func DerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool, same func(ssa.Value, ssa.Value) bool) bool {
 	if value == nil || source == nil || seen[value] {
 		return false
 	}
@@ -148,7 +148,7 @@ func derivesFrom(value, source ssa.Value, seen map[ssa.Value]bool, same func(ssa
 	}
 	var operands []*ssa.Value
 	for _, operand := range instruction.Operands(operands) {
-		if operand != nil && derivesFrom(*operand, source, seen, same) {
+		if operand != nil && DerivesFrom(*operand, source, seen, same) {
 			return true
 		}
 	}
@@ -162,7 +162,7 @@ func storedValueDerivesFrom(address, source ssa.Value, seen map[ssa.Value]bool, 
 		return false
 	}
 	for _, reference := range *address.Referrers() {
-		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && derivesFrom(store.Val, source, seen, same) {
+		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && DerivesFrom(store.Val, source, seen, same) {
 			return true
 		}
 	}
@@ -172,7 +172,7 @@ func storedValueDerivesFrom(address, source ssa.Value, seen map[ssa.Value]bool, 
 // derivesStructurally is ValueDerivesFrom with the structural identity step,
 // for the value family, which sits beneath the points-to graph.
 func derivesStructurally(value, source ssa.Value) bool {
-	return derivesFrom(value, source, map[ssa.Value]bool{}, structurallySame)
+	return DerivesFrom(value, source, map[ssa.Value]bool{}, StructurallySame)
 }
 
 // enclosingAggregateAddress returns the aggregate address a field or element
@@ -267,7 +267,7 @@ type AccessPath struct {
 // ValueIsAccessPathFrom reports whether value is root itself or a statically
 // identifiable field or constant-index projection beneath root.
 func ValueIsAccessPathFrom(value, root ssa.Value) bool {
-	_, ok := accessPath(value, root, map[ssa.Value]bool{})
+	_, ok := AccessPathSteps(value, root, map[ssa.Value]bool{})
 	return ok
 }
 
@@ -276,8 +276,8 @@ func ValueIsAccessPathFrom(value, root ssa.Value) bool {
 // free-variable access back to the captured binding without equating either
 // selected field with the aggregate that contains it.
 func SameAccessPath(left, right AccessPath) bool {
-	leftPath, leftOK := accessPath(left.Value, left.Root, map[ssa.Value]bool{})
-	rightPath, rightOK := accessPath(right.Value, right.Root, map[ssa.Value]bool{})
+	leftPath, leftOK := AccessPathSteps(left.Value, left.Root, map[ssa.Value]bool{})
+	rightPath, rightOK := AccessPathSteps(right.Value, right.Root, map[ssa.Value]bool{})
 	if !leftOK || !rightOK || len(leftPath) != len(rightPath) {
 		return false
 	}
@@ -289,11 +289,11 @@ func SameAccessPath(left, right AccessPath) bool {
 	return true
 }
 
-func accessPath(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool) {
+func AccessPathSteps(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool) {
 	if value == nil || root == nil || seen[value] {
 		return nil, false
 	}
-	if structurallyIdentical(value, root) {
+	if StructurallyIdentical(value, root) {
 		return nil, true
 	}
 	seen[value] = true
@@ -301,24 +301,24 @@ func accessPath(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool)
 		value,
 		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
 	); ok {
-		return accessPath(inner, root, seen)
+		return AccessPathSteps(inner, root, seen)
 	}
 	switch typed := value.(type) {
 	case *ssa.FieldAddr:
-		path, ok := accessPath(typed.X, root, seen)
+		path, ok := AccessPathSteps(typed.X, root, seen)
 		return appendAccess(path, "field:"+strconv.Itoa(typed.Field), ok)
 	case *ssa.IndexAddr:
-		index, ok := constantIndex(typed.Index)
+		index, ok := ConstantIndex(typed.Index)
 		if !ok {
 			return nil, false
 		}
-		path, baseOK := accessPath(typed.X, root, seen)
+		path, baseOK := AccessPathSteps(typed.X, root, seen)
 		return appendAccess(path, "index:"+index, baseOK)
 	case *ssa.UnOp:
-		if typed.Op == token.MUL && structurallyIdentical(typed.X, root) {
+		if typed.Op == token.MUL && StructurallyIdentical(typed.X, root) {
 			return nil, true
 		}
-		return accessPath(typed.X, root, seen)
+		return AccessPathSteps(typed.X, root, seen)
 	}
 	return nil, false
 }
@@ -330,7 +330,7 @@ func appendAccess(path []string, component string, ok bool) ([]string, bool) {
 	return append(path, component), true
 }
 
-func constantIndex(value ssa.Value) (string, bool) {
+func ConstantIndex(value ssa.Value) (string, bool) {
 	literal, ok := value.(*ssa.Const)
 	if !ok || literal.Value == nil || literal.Value.Kind() != constant.Int {
 		return "", false

@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -115,7 +116,7 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	// The storage identity queries behind a release draw from this
 	// candidate's pool, so their give-ups reach the trace like every other.
 	if action, reason := releasesResource(
-		analysis.evidence, analysis.summaries, ssaflow.NewStorage(analysis.budget(ssaflow.QueryBudget)),
+		analysis.evidence, analysis.summaries, ssainfer.NewStorage(analysis.budget(ssaflow.QueryBudget)),
 		instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional,
 	); action != actionNone {
 		return action, reason
@@ -127,7 +128,7 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	// https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/auth/claude_api_key.go#L94-L99
 	common := ssaflow.InstructionCall(instruction)
 	if !analysis.optional.Proven() && common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
-		ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), analysis.resource, map[ssa.Value]bool{}) {
+		ssainfer.ValueDerivesFrom(ssaflow.CallReceiver(common), analysis.resource, map[ssa.Value]bool{}) {
 		return actionUnknown, "ambiguous-cleanup-value"
 	}
 	if analysis.ambiguousHelperCleanup(instruction, common) {
@@ -155,15 +156,15 @@ func (analysis *resourceAnalysis) ambiguousHelperCleanup(instruction ssa.Instruc
 		return false
 	}
 	for _, argument := range common.Args {
-		if !mergedCleanupArgument(argument) || !ssaflow.ValueDerivesFrom(argument, analysis.resource, map[ssa.Value]bool{}) {
+		if !mergedCleanupArgument(argument) || !ssainfer.ValueDerivesFrom(argument, analysis.resource, map[ssa.Value]bool{}) {
 			continue
 		}
 		for _, method := range analysis.contract.cleanup {
-			completion := ssaflow.CompletionRequest{
+			completion := ssainfer.CompletionRequest{
 				Instruction: instruction,
 				Target:      argument,
 				Methods:     []string{method},
-				Coverage:    ssaflow.CoverageEveryReturn,
+				Coverage:    ssainfer.CoverageEveryReturn,
 				Budget:      analysis.budget(releaseSearchBudget),
 			}
 			if analysis.evidence.Prove(lifecyclefacts.EvidenceRequest{
@@ -218,7 +219,7 @@ func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Ins
 	})) && len(common.Args) == 2 && !ssaflow.DefinitelyNil(common.Args[1]) &&
 		// Possible identity is sufficient for uncertainty, including repeated
 		// loads of a captured pipe across a wait. This never proves release.
-		ssaflow.MayAlias(ssaflow.CallReceiver(common), analysis.acquisition.Common().Args[0])
+		ssainfer.MayAlias(ssaflow.CallReceiver(common), analysis.acquisition.Common().Args[0])
 }
 
 // opaqueConsumption reports whether the instruction hands the resource to
@@ -331,7 +332,7 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 		// summarized as storing the resource into this very aggregate does
 		// not make the aggregate an owner of it before the call.
 		if analysis.carriesDirectly(argument) || analysis.carriedWithinClosure(argument) ||
-			(!ssaflow.MayContainValueAt(argument, analysis.resource, instruction) && !analysis.possibleAggregateWrapper(argument)) {
+			(!ssainfer.MayContainValueAt(argument, analysis.resource, instruction) && !analysis.possibleAggregateWrapper(argument)) {
 			continue
 		}
 		// A parameter-level retention fact also makes its nested contents
@@ -376,7 +377,7 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 // pathWithin returns the joined access path at which the resource is stored
 // beneath the aggregate, or the empty path when its position is not known.
 func (analysis *resourceAnalysis) pathWithin(aggregate ssa.Value, observation ssa.Instruction) string {
-	path, ok := ssaflow.StoredPath(aggregate, analysis.resource, observation)
+	path, ok := ssainfer.StoredPath(aggregate, analysis.resource, observation)
 	if !ok {
 		return ""
 	}
@@ -392,12 +393,12 @@ func (analysis *resourceAnalysis) pathWithin(aggregate ssa.Value, observation ss
 func (analysis *resourceAnalysis) returnsRetainedLogger(returned *ssa.Return) bool {
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
 		if !ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageFunction("log", "New")) ||
-			len(call.Common().Args) == 0 || !ssaflow.MayAlias(call.Common().Args[0], analysis.resource) ||
+			len(call.Common().Args) == 0 || !ssainfer.MayAlias(call.Common().Args[0], analysis.resource) ||
 			!ssaflow.InstructionDominates(call, returned) {
 			continue
 		}
 		for _, result := range returned.Results {
-			if ssaflow.MayContainValue(result, call) {
+			if ssainfer.MayContainValue(result, call) {
 				return true
 			}
 		}
@@ -431,7 +432,7 @@ func (analysis *resourceAnalysis) possiblyRetainedCallback(instruction ssa.Instr
 func (analysis *resourceAnalysis) carriedWithinAggregate(common *ssa.CallCommon) bool {
 	within := false
 	for _, argument := range common.Args {
-		if ssaflow.MayAlias(argument, analysis.resource) {
+		if ssainfer.MayAlias(argument, analysis.resource) {
 			continue
 		}
 		// A closure that captures the resource is not a struct aggregate; the
@@ -472,7 +473,7 @@ func callResultMayTransfer(instruction ssa.Instruction) bool {
 			if types.Identical(value.Type(), errorType) {
 				continue
 			}
-			if ssaflow.ValueDerivesFrom(value, result, map[ssa.Value]bool{}) {
+			if ssainfer.ValueDerivesFrom(value, result, map[ssa.Value]bool{}) {
 				return true
 			}
 		}
@@ -484,7 +485,7 @@ func callResultMayTransfer(instruction ssa.Instruction) bool {
 		// Publishing a scalar observation or error does not retain its inputs.
 		_, scalar := store.Val.Type().Underlying().(*types.Basic)
 		if !scalar && !types.Identical(store.Val.Type(), errorType) &&
-			ssaflow.ValueDerivesFrom(store.Val, result, map[ssa.Value]bool{}) {
+			ssainfer.ValueDerivesFrom(store.Val, result, map[ssa.Value]bool{}) {
 			return true
 		}
 	}
@@ -514,7 +515,7 @@ func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool
 		return false
 	}
 	for _, argument := range call.Common().Args {
-		if ssaflow.MayAlias(argument, analysis.resource) || !analysis.carriesWithin(argument) {
+		if ssainfer.MayAlias(argument, analysis.resource) || !analysis.carriesWithin(argument) {
 			continue
 		}
 		// A visible transformation that does not retain its input is not a
@@ -533,16 +534,16 @@ func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool
 func (analysis *resourceAnalysis) carriesDirectly(value ssa.Value) bool {
 	// A load resolves to what its cell held at that point, so a field or
 	// element read back out of a local aggregate is the resource itself.
-	return ssaflow.MayAlias(value, analysis.resource) ||
-		ssaflow.ValueDerivesFrom(value, analysis.resource, map[ssa.Value]bool{}) ||
-		ssaflow.NewStorage(analysis.budget(ssaflow.QueryBudget)).Same(value, analysis.resource).Proven()
+	return ssainfer.MayAlias(value, analysis.resource) ||
+		ssainfer.ValueDerivesFrom(value, analysis.resource, map[ssa.Value]bool{}) ||
+		ssainfer.NewStorage(analysis.budget(ssaflow.QueryBudget)).Same(value, analysis.resource).Proven()
 }
 
 // carriesWithin reports whether value is an aggregate that holds the resource
 // in one of its fields, so a callee receives the resource only nested inside a
 // parameter.
 func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
-	if ssaflow.MayContainValue(value, analysis.resource) {
+	if ssainfer.MayContainValue(value, analysis.resource) {
 		return true
 	}
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
@@ -550,8 +551,8 @@ func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
 		if _, ok := value.(*ssa.Alloc); !ok {
 			return false
 		}
-		for stored := range ssaflow.StoredInto(value) {
-			if ssaflow.ValueDerivesFrom(stored, analysis.resource, map[ssa.Value]bool{}) {
+		for stored := range ssainfer.StoredInto(value) {
+			if ssainfer.ValueDerivesFrom(stored, analysis.resource, map[ssa.Value]bool{}) {
 				return true
 			}
 		}
@@ -561,7 +562,7 @@ func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
 
 func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool {
 	for _, binding := range closure.Bindings {
-		if ssaflow.CapturedBindingMatches(binding, analysis.resource) || analysis.carries(binding) {
+		if ssainfer.CapturedBindingMatches(binding, analysis.resource) || analysis.carries(binding) {
 			return true
 		}
 	}
@@ -571,14 +572,14 @@ func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool 
 func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosure) bool {
 	for _, owner := range analysis.owners {
 		pointer, ok := owner.Type().Underlying().(*types.Pointer)
-		if !ok || ssaflow.MayAlias(owner, analysis.resource) {
+		if !ok || ssainfer.MayAlias(owner, analysis.resource) {
 			continue
 		}
 		if _, aggregate := pointer.Elem().Underlying().(*types.Struct); !aggregate {
 			continue
 		}
 		for _, binding := range closure.Bindings {
-			if ssaflow.CapturedBindingMatches(binding, owner) {
+			if ssainfer.CapturedBindingMatches(binding, owner) {
 				return true
 			}
 		}

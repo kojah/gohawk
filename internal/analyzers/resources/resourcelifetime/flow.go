@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -112,7 +113,7 @@ func evaluateResourceFlow(
 		// Tx, or Conn obligations, nor claim DB.Close is identical to Stmt.Close.
 		// https://go.dev/src/database/sql/sql.go (driverConn.finalClose, DB.prepareDC)
 		// https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go#L2809
-		if sqlDatabaseCall(call.Common(), "Prepare", "PrepareContext") && ssaflow.ProveEnclosingCompletion(ssaflow.EnclosingCompletionRequest{
+		if sqlDatabaseCall(call.Common(), "Prepare", "PrepareContext") && ssainfer.ProveEnclosingCompletion(ssainfer.EnclosingCompletionRequest{
 			Function: call.Parent(), Value: ssaflow.CallReceiver(call.Common()), Methods: []string{"Close"},
 			Budget: analysis.budget(10000),
 		}).Proven() {
@@ -175,7 +176,7 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 		}
 		if ok && state.active && !state.released && !state.unknown &&
 			!analysis.returnedResourceOwner(returned) &&
-			!ssaflow.ReturnedMayAliasAny(returned, analysis.owners) {
+			!ssainfer.ReturnedMayAliasAny(returned, analysis.owners) {
 			return state, true
 		}
 	}
@@ -208,7 +209,7 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 		// Optional-acquisition phis retain their own stricter cleanup policy.
 		released := state.released
 		if !released && !optionalAcquisition.Proven() {
-			released = analysis.evidence.CompletionOnEdge(state.block, successor, ssaflow.CompletionRequest{
+			released = analysis.evidence.CompletionOnEdge(state.block, successor, ssainfer.CompletionRequest{
 				Target: resource, Methods: analysis.contract.cleanup, Budget: analysis.budget(1000),
 			}).Proven()
 		}
@@ -239,11 +240,11 @@ func (analysis *resourceAnalysis) traceRepeatedGuard(block, successor *ssa.Basic
 // a summarized view, or a projection with no cleanup method.
 func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bool {
 	resource, cleanup := analysis.resource, analysis.contract.cleanup
-	if ssaflow.ReturnedValueOwnsValue(returned, resource) {
+	if ssainfer.ReturnedValueOwnsValue(returned, resource) {
 		return true
 	}
 	for _, result := range returned.Results {
-		if !ssaflow.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
+		if !ssainfer.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
 			continue
 		}
 		// Narrowing an interface preserves its dynamic object, including Close:
@@ -252,7 +253,7 @@ func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bo
 		// replacement body that merely occupies the original field.
 		// https://github.com/lich0821/ccNexus/blob/55887d232555f94ea4db621a5a7e65430eebf0d7/internal/transformer/tool_chain.go#L121-L135
 		if original, changed := ssaflow.UnwrapTransparentValue(result, ssaflow.TransparentChangeInterface); changed &&
-			ssaflow.NewStorage(analysis.budget(1000)).Projection(original, resource, returned).Proven() {
+			ssainfer.NewStorage(analysis.budget(1000)).Projection(original, resource, returned).Proven() {
 			result = original
 		}
 		// A returned view is summarized as releasing nothing, whatever its
@@ -317,14 +318,14 @@ func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 			common := ssaflow.InstructionCall(instruction)
 			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyErrorClaim) {
 				for _, argument := range common.Args {
-					if ssaflow.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
+					if ssainfer.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
 						errorAssertions = append(errorAssertions, instruction)
 					}
 				}
 			}
 			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyNilClaim) {
 				for _, argument := range common.Args {
-					if ssaflow.MayAlias(argument, resource) {
+					if ssainfer.MayAlias(argument, resource) {
 						nilAssertions = append(nilAssertions, instruction)
 					}
 				}
@@ -368,8 +369,8 @@ func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}
-	comparesResourceToNil := ssaflow.ValueDerivesFrom(comparison.X, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.Y) ||
-		ssaflow.ValueDerivesFrom(comparison.Y, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.X)
+	comparesResourceToNil := ssainfer.ValueDerivesFrom(comparison.X, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.Y) ||
+		ssainfer.ValueDerivesFrom(comparison.Y, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.X)
 	if !comparesResourceToNil {
 		return false, false
 	}
@@ -400,8 +401,8 @@ func assertedResource(condition, resource ssa.Value) bool {
 	// stored into, which other paths may have written too; possible
 	// derivation suffices, because the rule only ever removes an
 	// obligation from the arm where the assertion failed.
-	held := ssaflow.NewStorage(nil).Same(assertion.X, resource).Proven() ||
-		ssaflow.ValueDerivesFrom(assertion.X, resource, map[ssa.Value]bool{})
+	held := ssainfer.NewStorage(nil).Same(assertion.X, resource).Proven() ||
+		ssainfer.ValueDerivesFrom(assertion.X, resource, map[ssa.Value]bool{})
 	return held && types.AssignableTo(resource.Type(), assertion.AssertedType)
 }
 
@@ -423,11 +424,11 @@ func deferredBeforeAcquisitionMayRelease(
 		if !ssaflow.InstructionDominates(deferred, call) {
 			continue
 		}
-		completion := ssaflow.CompletionRequest{
+		completion := ssainfer.CompletionRequest{
 			Instruction: deferred,
 			Target:      resource,
 			Methods:     methods,
-			Coverage:    ssaflow.CoverageAnywhere,
+			Coverage:    ssainfer.CoverageAnywhere,
 			Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
 		}
 		if releaseSettled(evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion})) {

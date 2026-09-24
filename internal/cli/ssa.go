@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/heapmodel"
 
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
@@ -70,7 +70,7 @@ func renderSSA(patterns []string, functionFilter string, includeTests, regions b
 		fmt.Fprintf(&buffer, "// %s\n", fset.Position(function.Pos()))
 		ssa.WriteFunction(&buffer, function)
 		if regions {
-			buffer.WriteString(ssaflow.RenderRegions(function))
+			buffer.WriteString(heapmodel.RenderRegions(function))
 		}
 		buffer.WriteString("\n")
 	}

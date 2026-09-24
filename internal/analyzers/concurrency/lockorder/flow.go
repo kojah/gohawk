@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -34,7 +35,7 @@ type lockFlowContext struct {
 	pass            *analysis.Pass
 	function        *ssa.Function
 	exclusive       *exclusiveCallers
-	evidence        *ssaflow.LocalEvidence
+	evidence        *ssainfer.LocalEvidence
 	relations       *lockOrders
 	calleeLocks     *calleeLockSearch
 	lockValues      map[string][]ssa.Value
@@ -62,7 +63,7 @@ func walkLockOrderBounded(
 	function *ssa.Function,
 	relations *lockOrders,
 	calleeLocks *calleeLockSearch,
-	evidence *ssaflow.LocalEvidence,
+	evidence *ssainfer.LocalEvidence,
 	callers map[*ssa.Function]conditionalCallerSet,
 	exclusive *exclusiveCallers,
 	summaries map[ssa.Instruction][]mutexEffect,
@@ -260,7 +261,7 @@ func successfulReturn(function *ssa.Function, returned *ssa.Return) bool {
 	// libocr's transaction constructor holds a serialization lock for its
 	// caller while deferring another unlock:
 	// https://github.com/smartcontractkit/libocr/blob/618b5bf7f342075a81ca1273a04abce15529a101/offchainreporting2plus/ocrintegrationtesthelpers/in_memory_key_value_database.go#L196-L215
-	result := ssaflow.ReturnedResult(returned, len(returned.Results)-1)
+	result := ssainfer.ReturnedResult(returned, len(returned.Results)-1)
 	if types.Identical(last, types.Universe.Lookup("error").Type()) {
 		return ssaflow.DefinitelyNil(result) || nilGuardDominatesReturn(result, returned)
 	}
@@ -271,7 +272,7 @@ func successfulReturn(function *ssa.Function, returned *ssa.Return) bool {
 }
 
 func possiblyDeferredUnlock(
-	evidence *ssaflow.LocalEvidence,
+	evidence *ssainfer.LocalEvidence,
 	acquisition ssa.Instruction,
 	functionDefers []*ssa.Defer,
 	values []ssa.Value,
@@ -281,11 +282,11 @@ func possiblyDeferredUnlock(
 			continue
 		}
 		for _, value := range values {
-			proof := evidence.Completion(ssaflow.CompletionRequest{
+			proof := evidence.Completion(ssainfer.CompletionRequest{
 				Instruction: deferred,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Coverage:    ssaflow.CoverageAnywhere,
+				Coverage:    ssainfer.CoverageAnywhere,
 				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
 			})
 			if releaseSettled(proof, ssaflow.EvidenceDeferredCompletion) {
@@ -302,7 +303,7 @@ func possiblyDeferredUnlock(
 }
 
 func transferCalledUnlocks(
-	evidence *ssaflow.LocalEvidence,
+	evidence *ssainfer.LocalEvidence,
 	instruction ssa.Instruction,
 	held []string,
 	guards map[string]lockGuard,
@@ -312,7 +313,7 @@ func transferCalledUnlocks(
 ) []string {
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			proof := evidence.Completion(ssaflow.CompletionRequest{
+			proof := evidence.Completion(ssainfer.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
@@ -351,7 +352,7 @@ func transferCalledUnlocks(
 }
 
 func transferSpawnedUnlocks(
-	evidence *ssaflow.LocalEvidence,
+	evidence *ssainfer.LocalEvidence,
 	instruction ssa.Instruction,
 	held []string,
 	guards map[string]lockGuard,
@@ -363,7 +364,7 @@ func transferSpawnedUnlocks(
 	}
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
-			proof := evidence.Completion(ssaflow.CompletionRequest{
+			proof := evidence.Completion(ssainfer.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
@@ -385,7 +386,7 @@ func transferSpawnedUnlocks(
 }
 
 func recordDeferredUnlocks(
-	evidence *ssaflow.LocalEvidence,
+	evidence *ssainfer.LocalEvidence,
 	instruction ssa.Instruction,
 	held, deferred []string,
 	lockValues map[string][]ssa.Value,
@@ -400,11 +401,11 @@ func recordDeferredUnlocks(
 			// data-dependent, typically through an "already unlocked" flag.
 			// Missing-release diagnostics need the release to be impossible, so
 			// this asks only whether the defer may unlock.
-			proof := evidence.Completion(ssaflow.CompletionRequest{
+			proof := evidence.Completion(ssainfer.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
-				Coverage:    ssaflow.CoverageAnywhere,
+				Coverage:    ssainfer.CoverageAnywhere,
 				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
 			})
 			if releaseSettled(proof, ssaflow.EvidenceDeferredCompletion) {
@@ -528,12 +529,12 @@ func (flow lockFlowContext) applyMutexAction(
 // mayRelease reports whether the call releases the lock on at least one path.
 // It is the weaker companion to the proof transferCalledUnlocks requires, and
 // answers only whether the caller may still claim the lock is held.
-func mayRelease(evidence *ssaflow.LocalEvidence, instruction ssa.Instruction, value ssa.Value) bool {
-	proof := evidence.Completion(ssaflow.CompletionRequest{
+func mayRelease(evidence *ssainfer.LocalEvidence, instruction ssa.Instruction, value ssa.Value) bool {
+	proof := evidence.Completion(ssainfer.CompletionRequest{
 		Instruction: instruction,
 		Target:      value,
 		Methods:     []string{"Unlock", "RUnlock"},
-		Coverage:    ssaflow.CoverageAnywhere,
+		Coverage:    ssainfer.CoverageAnywhere,
 		Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
 	})
 	return proof.Proven() && proof.Reason == ssaflow.EvidenceCalledCompletion
@@ -595,7 +596,7 @@ func handedUnlockCallback(instruction ssa.Instruction, lock ssa.Value) bool {
 		if _, callback := value.Type().Underlying().(*types.Signature); !callback {
 			return false
 		}
-		return ssaflow.ValueCallsMethod(value, "Unlock", lock) || ssaflow.ValueCallsMethod(value, "RUnlock", lock)
+		return ssainfer.ValueCallsMethod(value, "Unlock", lock) || ssainfer.ValueCallsMethod(value, "RUnlock", lock)
 	})
 }
 
@@ -618,7 +619,7 @@ func opaqueCallee(common *ssa.CallCommon) bool {
 // value the lock derives from, such as the struct whose field it is.
 func lockHandedTo(common *ssa.CallCommon, lock ssa.Value) bool {
 	for _, argument := range common.Args {
-		if ssaflow.MayAlias(argument, lock) || ssaflow.ValueDerivesFrom(lock, argument, map[ssa.Value]bool{}) {
+		if ssainfer.MayAlias(argument, lock) || ssainfer.ValueDerivesFrom(lock, argument, map[ssa.Value]bool{}) {
 			return true
 		}
 	}

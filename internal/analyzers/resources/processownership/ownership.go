@@ -3,6 +3,7 @@ package processownership
 import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
@@ -61,7 +62,7 @@ func processOwnerDominatesStart(
 		}
 		for _, instruction := range block.Instrs[:limit] {
 			for _, owner := range owners {
-				completion := ssaflow.CompletionRequest{
+				completion := ssainfer.CompletionRequest{
 					Instruction: instruction,
 					Target:      owner,
 					Methods:     []string{"close", "Close", "kill", "Kill", "Wait", "wait"},
@@ -96,7 +97,7 @@ func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []
 				continue
 			}
 			for _, owner := range owners {
-				if ssaflow.MayContainValue(closure, owner) {
+				if ssainfer.MayContainValue(closure, owner) {
 					return true
 				}
 			}
@@ -134,16 +135,16 @@ func processOwnershipDominatesStart(
 			limit = startIndex
 		}
 		for _, instruction := range block.Instrs[:limit] {
-			completion := ssaflow.CompletionRequest{
+			completion := ssainfer.CompletionRequest{
 				Instruction: instruction,
 				Target:      command,
 				Methods:     []string{"Wait"},
 				Budget:      proof.budget(),
 			}
-			transfer := ssaflow.OwnershipTransferRequest{
+			transfer := ssainfer.OwnershipTransferRequest{
 				Instruction: instruction,
 				Value:       command,
-				Modes:       ssaflow.TransferCapturedByClosure,
+				Modes:       ssainfer.TransferCapturedByClosure,
 			}
 			result := proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
 				Instruction: instruction,
@@ -177,7 +178,7 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 				continue
 			}
 			for _, argument := range call.Common().Args {
-				if ssaflow.MayAlias(argument, command) {
+				if ssainfer.MayAlias(argument, command) {
 					owners = append(owners, call)
 					if call.Referrers() != nil {
 						for _, reference := range *call.Referrers() {
@@ -202,17 +203,17 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 		return deferred
 	}
 	common := ssaflow.InstructionCall(instruction)
-	completion := ssaflow.CompletionRequest{
+	completion := ssainfer.CompletionRequest{
 		Instruction: instruction,
 		Target:      command,
 		Methods:     []string{"Wait"},
 		Budget:      proof.budget(),
 	}
-	transfer := ssaflow.OwnershipTransferRequest{
+	transfer := ssainfer.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       command,
-		Modes: ssaflow.TransferStoredInField | ssaflow.TransferOwnerStoredInField |
-			ssaflow.TransferCapturedByClosure | ssaflow.TransferCallResultStoredInField,
+		Modes: ssainfer.TransferStoredInField | ssainfer.TransferOwnerStoredInField |
+			ssainfer.TransferCapturedByClosure | ssainfer.TransferCallResultStoredInField,
 	}
 	// A launched waiter owns reaping when every normal goroutine return waits,
 	// including a nested defer. feint uses both direct and deferred background
@@ -247,7 +248,7 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 	}
 	if waitsForCommand(instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
-			ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
+			ssainfer.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
 		owns() ||
 		storesProcessHandleInExternalField(instruction, command) ||
 		handles() ||
@@ -278,17 +279,17 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget 
 	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
 		receiver := ssaflow.CallReceiver(common)
 		_, merged := receiver.(*ssa.Phi)
-		return merged && ssaflow.MayAlias(receiver, command) &&
-			!ssaflow.NewStorage(nil).Same(receiver, command).Proven()
+		return merged && ssainfer.MayAlias(receiver, command) &&
+			!ssainfer.NewStorage(nil).Same(receiver, command).Proven()
 	}
 	if _, spawned := instruction.(*ssa.Go); spawned {
 		callee, _ := ssaflow.DirectCallee(common)
 		if callee == nil || len(callee.Blocks) == 0 || ssaflow.NormalReturnReachableFrom(callee.Blocks[0]) {
 			return false
 		}
-		return ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+		return ssainfer.ProveCompletion(ssainfer.CompletionRequest{
 			Instruction: instruction, Target: command, Methods: []string{"Wait"},
-			Coverage: ssaflow.CoverageAnywhere, Budget: budget,
+			Coverage: ssainfer.CoverageAnywhere, Budget: budget,
 		}).Proven()
 	}
 	callee, _ := ssaflow.DirectCallee(common)
@@ -296,7 +297,7 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget 
 		return false
 	}
 	for _, argument := range common.Args {
-		if _, callback := argument.(*ssa.MakeClosure); callback && ssaflow.MayContainValue(argument, command) {
+		if _, callback := argument.(*ssa.MakeClosure); callback && ssainfer.MayContainValue(argument, command) {
 			return true
 		}
 	}
@@ -333,23 +334,23 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 			}
 		}
 		for _, receiver := range receivers {
-			if ssaflow.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
+			if ssainfer.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
 				return waitsForCommand(candidate, local)
-			}, ssaflow.CoverageEveryReturn, receiver) {
+			}, ssainfer.CoverageEveryReturn, receiver) {
 				return ssaflow.EvidenceProven
 			}
 		}
 		return guardedDeferredWait(function, local)
 	}
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if ssaflow.CapturedBindingMatches(captured.Binding, command) {
+		if ssainfer.CapturedBindingMatches(captured.Binding, command) {
 			if proof := waitsOnEveryReturn(captured.Free); proof != ssaflow.EvidenceDisproven {
 				return proof
 			}
 		}
 	}
 	for index, parameter := range function.Params {
-		if index < len(common.Args) && ssaflow.MayAlias(common.Args[index], command) {
+		if index < len(common.Args) && ssainfer.MayAlias(common.Args[index], command) {
 			if proof := waitsOnEveryReturn(parameter); proof != ssaflow.EvidenceDisproven {
 				return proof
 			}
@@ -365,7 +366,7 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 // replacement defeats even this possible successful-Start contract.
 func guardedDeferredWait(function *ssa.Function, command ssa.Value) ssaflow.EvidenceState {
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](function) {
-		if ssaflow.ValueDerivesFrom(store.Addr, command, map[ssa.Value]bool{}) {
+		if ssainfer.ValueDerivesFrom(store.Addr, command, map[ssa.Value]bool{}) {
 			return ssaflow.EvidenceDisproven
 		}
 	}
@@ -373,9 +374,9 @@ func guardedDeferredWait(function *ssa.Function, command ssa.Value) ssaflow.Evid
 		if !osProcessDerivedFromCommand(load, command) {
 			continue
 		}
-		if ssaflow.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
+		if ssainfer.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
 			return waitsForCommand(candidate, command)
-		}, ssaflow.CoverageEveryReturn, load) {
+		}, ssainfer.CoverageEveryReturn, load) {
 			return ssaflow.EvidenceUnknown
 		}
 	}
@@ -405,7 +406,7 @@ func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instructi
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
 		}
-		completion := ssaflow.CompletionRequest{
+		completion := ssainfer.CompletionRequest{
 			Instruction: instruction,
 			Target:      argument,
 			Methods:     []string{"Wait"},

@@ -14,6 +14,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -130,7 +131,7 @@ func crossOwnerClassUncertain(held, acquired lockAcquisition) bool {
 		left.Root.Parent() == nil || left.Root.Parent() != right.Root.Parent() || !types.Identical(left.Root.Type(), right.Root.Type()) {
 		return false
 	}
-	return !ssaflow.NewStorage(nil).Same(left.Root, right.Root).Proven()
+	return !ssainfer.NewStorage(nil).Same(left.Root, right.Root).Proven()
 }
 
 // Only exact global exclusive guards enter this set. A declaration-class

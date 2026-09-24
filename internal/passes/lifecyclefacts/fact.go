@@ -9,8 +9,9 @@ import (
 
 	"github.com/kojah/gohawk/internal/factcodec"
 	"github.com/kojah/gohawk/internal/heapmodel"
-
 	"github.com/kojah/gohawk/internal/ssaflow"
+
+	"github.com/kojah/gohawk/internal/ssainfer"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -184,9 +185,9 @@ func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Val
 			continue
 		}
 		argument := common.Args[discharge.Parameter]
-		storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
+		storage := ssainfer.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
 		path := ssaflow.SplitAccessPath(discharge.Path)
-		if stored, ok := ssaflow.ValueAtPath(argument, path, instruction); ok && storage.Same(stored, target).Proven() {
+		if stored, ok := ssainfer.ValueAtPath(argument, path, instruction); ok && storage.Same(stored, target).Proven() {
 			return true
 		}
 		// A resource that is an owner, such as an http.Response, is released
@@ -534,7 +535,7 @@ func receiverCount(signature *types.Signature) int {
 // captured the target is not mistaken for it.
 func factOwnsExactArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
 	return factArgumentMatches(instruction, target, mask, func(value, target ssa.Value) bool {
-		return ssaflow.NewStorage(nil).Same(value, target).Proven()
+		return ssainfer.NewStorage(nil).Same(value, target).Proven()
 	})
 }
 
@@ -560,12 +561,12 @@ func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask Parame
 		if !mask.contains(index) {
 			continue
 		}
-		if ssaflow.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer)).Same(argument, target).Proven() {
+		if ssainfer.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer)).Same(argument, target).Proven() {
 			return true
 		}
 		// Containment must not turn an ambiguous phi or a storage-history
 		// match into a guarantee about this target.
-		if !ssaflow.MayAlias(argument, target) && ssaflow.MayContainValue(argument, target) {
+		if !ssainfer.MayAlias(argument, target) && ssainfer.MayContainValue(argument, target) {
 			return true
 		}
 	}
@@ -578,7 +579,7 @@ func factOwnsProjectedArgument(instruction ssa.Instruction, target ssa.Value, ma
 		return false
 	}
 	for index, argument := range common.Args {
-		storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
+		storage := ssainfer.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
 		if mask.contains(index) && storage.Projection(argument, target, instruction).Proven() {
 			return true
 		}

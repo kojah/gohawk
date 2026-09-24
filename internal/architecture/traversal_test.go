@@ -10,7 +10,7 @@ import (
 )
 
 // TestAnalyzersUseSharedTraversal keeps value-provenance mechanics in
-// ssaflow. An analyzer must not fan out over phi edges itself, and must not
+// ssainfer. An analyzer must not fan out over phi edges itself, and must not
 // thread its own visited set through a recursive walk: both belong to
 // ssaflow.ReachingWalk, ssaflow.WalkStates, and the phi helpers, so the
 // cycle guard and the edge bounds check exist once.

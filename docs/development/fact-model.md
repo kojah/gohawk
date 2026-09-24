@@ -393,15 +393,15 @@ way consumers are allowed to lean on it.
 
 ### Possible identity is not a guarantee
 
-`ssaflow.MayAlias` follows possible origins: one matching phi alternative or
+`ssainfer.MayAlias` follows possible origins: one matching phi alternative or
 a value previously stored in a cell can match. Use that evidence for possible
 consumption and conservative escape handling, not to establish a guaranteed
-action. `ssaflow.DefinitelySameValue` requires agreement across alternatives
+action. `ssainfer.DefinitelySameValue` requires agreement across alternatives
 and does not equate separate loads from potentially mutable storage. A failed
 definite match means unknown identity, not proven inequality.
 
 Imported exact-argument matching, callback-invocation summaries, and
-unchanged-return proofs use `ssaflow.Storage` to resolve local loads before
+unchanged-return proofs use `ssainfer.Storage` to resolve local loads before
 requiring definite identity. The query requires agreeing reaching writes, checks
 address escapes and competing writes, and preserves the time of aggregate
 copies and saved reads. `Content` observes before an instruction; `StableContent`
@@ -562,7 +562,7 @@ instruction and effect-expansion work to a shared search budget.
 
 ### Result-conditioned local completion
 
-`ssaflow.ProveCompletionOnEdge` connects a synchronous helper's Boolean or
+`ssainfer.ProveCompletionOnEdge` connects a synchronous helper's Boolean or
 nil-error result to cleanup of an exact caller value. The completion summary
 is keyed by the selected result and condition as well as its callback context
 and target. A direct forwarding return composes the same condition through
@@ -594,7 +594,7 @@ and independently returned worker handles remain outside this relation.
 
 ### Returned cleanup and completion handles
 
-`ssaflow.ProveReturnedCleanup` relates a callback result to an exact parameter
+`ssainfer.ProveReturnedCleanup` relates a callback result to an exact parameter
 or sibling result from the same factory invocation. Every return must supply
 a callback that performs the requested method or invokes the target callback.
 Forwarding factories compose this relation; the versioned `ReturnedCleanup`

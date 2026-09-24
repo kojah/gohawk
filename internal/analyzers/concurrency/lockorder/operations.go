@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -135,7 +136,7 @@ func conditionalCallerRelease(
 func heldResultPolarity(function *ssa.Function, heldAt map[*ssa.Return]bool, index int) (bool, bool) {
 	var held, unheld, sawHeld, sawUnheld bool
 	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](function) {
-		truth, known := lockBooleanValue(ssaflow.ReturnedResult(returned, index), nil)
+		truth, known := lockBooleanValue(ssainfer.ReturnedResult(returned, index), nil)
 		if !known {
 			return false, false
 		}
@@ -261,7 +262,7 @@ func appendUniqueString(values []string, candidate string) []string {
 func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
 	for _, result := range returned.Results {
 		for _, value := range values {
-			if ssaflow.ValueCallsMethod(result, "Unlock", value) || ssaflow.ValueCallsMethod(result, "RUnlock", value) {
+			if ssainfer.ValueCallsMethod(result, "Unlock", value) || ssainfer.ValueCallsMethod(result, "RUnlock", value) {
 				return true
 			}
 			// Returning the object containing a held mutex exposes its release to
@@ -436,7 +437,7 @@ func concreteMutexLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (ssa.Value, bool
 func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
 	candidateIdentity := lockIdentityOf(candidate)
 	for _, value := range values {
-		if ssaflow.MayAlias(value, candidate) || candidateIdentity != "" && lockIdentityOf(value) == candidateIdentity {
+		if ssainfer.MayAlias(value, candidate) || candidateIdentity != "" && lockIdentityOf(value) == candidateIdentity {
 			return values
 		}
 	}

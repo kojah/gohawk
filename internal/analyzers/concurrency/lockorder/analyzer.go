@@ -4,6 +4,7 @@ package lockorder
 import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 
 	"golang.org/x/tools/go/analysis"
@@ -77,7 +78,7 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	exclusive := newExclusiveCallers(pass, ssaResult.SrcFuncs)
 	concurrency, _ := summaryKnowledge.Provider(pass).Concurrency()
 	for _, function := range functions {
-		var evidence ssaflow.LocalEvidence
+		var evidence ssainfer.LocalEvidence
 		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers, exclusive)
 		if concurrency != nil {
 			reportSynchronizationCycles(pass, function, concurrency)
@@ -91,7 +92,7 @@ func walkLockOrder(
 	function *ssa.Function,
 	relations *lockOrders,
 	calleeLocks *calleeLockSearch,
-	evidence *ssaflow.LocalEvidence,
+	evidence *ssainfer.LocalEvidence,
 	callers map[*ssa.Function]conditionalCallerSet,
 	exclusive *exclusiveCallers,
 ) {

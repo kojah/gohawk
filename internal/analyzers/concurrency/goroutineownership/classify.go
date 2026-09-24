@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
@@ -158,7 +159,7 @@ func storedTerminationReceiver(common *ssa.CallCommon) bool {
 	if receiver == nil || len(common.Args) == 0 || common.Args[0] != receiver {
 		return false
 	}
-	resolved := ssaflow.NewStorage(nil).Resolve(receiver)
+	resolved := ssainfer.NewStorage(nil).Resolve(receiver)
 	if !resolved.Proven() || resolved.Value == receiver {
 		return false
 	}
@@ -185,7 +186,7 @@ func (analysis *spawnAnalysis) returnMayTransfer(returned *ssa.Return) bool {
 	return slices.ContainsFunc(returned.Results, func(result ssa.Value) bool {
 		root := aggregateRoot(result)
 		return slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
-			return !ssaflow.ChannelType(signal) && ssaflow.MayAlias(root, aggregateRoot(signal))
+			return !ssaflow.ChannelType(signal) && ssainfer.MayAlias(root, aggregateRoot(signal))
 		})
 	})
 }
@@ -266,7 +267,7 @@ func (analysis *spawnAnalysis) callJoinsDirectly(common *ssa.CallCommon) bool {
 	if receiver == nil {
 		return false
 	}
-	if ssaflow.CallMatchesSymbol(common, waitGroupWait) && ssaflow.MayAliasAny(receiver, analysis.groups) {
+	if ssaflow.CallMatchesSymbol(common, waitGroupWait) && ssainfer.MayAliasAny(receiver, analysis.groups) {
 		return true
 	}
 	return lifecycleMethod(ssaflow.CallName(common)) && ownerReceiver(receiver, analysis.owners)
@@ -281,7 +282,7 @@ var waitGroupGo = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", 
 // group escape, so they must not make the group opaque.
 func (analysis *spawnAnalysis) waitGroupBookkeeping(common *ssa.CallCommon) bool {
 	receiver := ssaflow.CallReceiver(common)
-	if receiver == nil || !ssaflow.MayAliasAny(receiver, analysis.groups) && !analysis.unsettledGroup(receiver) {
+	if receiver == nil || !ssainfer.MayAliasAny(receiver, analysis.groups) && !analysis.unsettledGroup(receiver) {
 		return false
 	}
 	return waitGroupMethod(common)
@@ -422,7 +423,7 @@ func (analysis *spawnAnalysis) selectSends(instruction ssa.Instruction) bool {
 // addresses are not distinguished by index, and the over-approximation can
 // only make a join unproven or accepted, never reported.
 func (analysis *spawnAnalysis) isSignal(value ssa.Value) bool {
-	if ssaflow.MayAliasAny(value, analysis.signals) {
+	if ssainfer.MayAliasAny(value, analysis.signals) {
 		return true
 	}
 	root := aggregateRoot(value)
@@ -431,10 +432,10 @@ func (analysis *spawnAnalysis) isSignal(value ssa.Value) bool {
 			// Captured slice cells and their loaded slice share an aggregate root.
 			// Index correlation stays unknown under countedJoin, not proven exact.
 			// https://github.com/bazel-contrib/buildtools/blob/933e9bbe17f7619afaca1dd58ce22810042f1c13/buildifier/buildifier.go#L241-L268
-			return ssaflow.MayAlias(ssaflow.CapturedBindingValue(root), ssaflow.CapturedBindingValue(aggregateRoot(signal)))
+			return ssainfer.MayAlias(ssaflow.CapturedBindingValue(root), ssaflow.CapturedBindingValue(aggregateRoot(signal)))
 		}
 		signalRoot := aggregateRoot(signal)
-		return signalRoot != signal && ssaflow.MayAlias(root, signalRoot)
+		return signalRoot != signal && ssainfer.MayAlias(root, signalRoot)
 	})
 }
 

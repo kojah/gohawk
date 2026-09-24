@@ -146,7 +146,7 @@ func unownedReturnFrom(
 	ownsEdge OwnershipEdge,
 ) bool {
 	flow := ObligationFlow{
-		NonNil: nonNil, Instruction: exactOrNone(owns), Return: exactOrNoneReturn(allowReturn), Edge: exactOrNoneEdge(ownsEdge),
+		NonNil: nonNil, Instruction: ExactOrNone(owns), Return: exactOrNoneReturn(allowReturn), Edge: exactOrNoneEdge(ownsEdge),
 	}
 	return obligationOutcome(initial, flow) == ObligationViolated
 }
@@ -206,7 +206,7 @@ func UnownedReturnFromEntryAssumingConcrete(function *ssa.Function, value ssa.Va
 		return false
 	}
 	return obligationOutcome([]obligationState{{block: function.Blocks[0]}}, ObligationFlow{
-		NonNil: value, NonNilType: concrete, Instruction: exactOrNone(owns),
+		NonNil: value, NonNilType: concrete, Instruction: ExactOrNone(owns),
 	}) == ObligationViolated
 }
 
@@ -280,13 +280,13 @@ func assertionHolds(condition, value ssa.Value, concrete types.Type) bool {
 		return false
 	}
 	assertion, ok := okResult.Tuple.(*ssa.TypeAssert)
-	return ok && assertion.CommaOk && structurallyIdentical(assertion.X, value) && types.AssignableTo(concrete, assertion.AssertedType)
+	return ok && assertion.CommaOk && StructurallyIdentical(assertion.X, value) && types.AssignableTo(concrete, assertion.AssertedType)
 }
 
 // assumedNonNil reports whether operand is the assumed value itself or a
 // field loaded directly from it.
 func assumedNonNil(operand, value ssa.Value) bool {
-	if structurallyIdentical(operand, value) {
+	if StructurallyIdentical(operand, value) {
 		return true
 	}
 	load, ok := operand.(*ssa.UnOp)
@@ -294,7 +294,7 @@ func assumedNonNil(operand, value ssa.Value) bool {
 		return false
 	}
 	field, ok := load.X.(*ssa.FieldAddr)
-	return ok && structurallyIdentical(field.X, value)
+	return ok && StructurallyIdentical(field.X, value)
 }
 
 // FeasibleSuccessors preserves constants selected by predecessor-sensitive
@@ -308,7 +308,7 @@ func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
 	if !ok {
 		return block.Succs
 	}
-	value, known := branchBool(branch.Cond, block, predecessor)
+	value, known := BranchBool(branch.Cond, block, predecessor)
 	if !known {
 		return block.Succs
 	}
@@ -318,7 +318,7 @@ func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
 	return block.Succs[1:]
 }
 
-func branchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool) {
+func BranchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool) {
 	if literal := branchLiteral(value, block, predecessor); literal != nil && literal.Value != nil && literal.Value.Kind() == constant.Bool {
 		return constant.BoolVal(literal.Value), true
 	}
@@ -335,7 +335,7 @@ func branchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool
 	}
 	for index, candidate := range block.Preds {
 		if candidate == predecessor && index < len(phi.Edges) {
-			return branchBool(phi.Edges[index], block, nil)
+			return BranchBool(phi.Edges[index], block, nil)
 		}
 	}
 	return false, false

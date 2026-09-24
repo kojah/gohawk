@@ -1,0 +1,117 @@
+package ssainfer
+
+import (
+	"testing"
+
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"golang.org/x/tools/go/ssa"
+)
+
+const projectionBoundaryFixture = `
+package ssaflowtest
+
+type closer struct{}
+func (*closer) Close() {}
+type owner struct { body *closer }
+
+func acquire() *owner { return nil }
+func cleanup(*closer) {}
+func mutateOwner(*owner)
+func mutateSlot(**closer)
+func inspectOwner(p *owner) *closer { return p.body }
+func inspectSlot(p **closer) bool { return *p != nil }
+var retained *owner
+func retainOwner(p *owner) { retained=p }
+
+func accepted() {
+	value := acquire()
+	cleanup(value.body)
+}
+func readOnlyRoot() {
+	value := acquire()
+	inspectOwner(value)
+	cleanup(value.body)
+}
+func readOnlySlot() {
+	value := acquire()
+	inspectSlot(&value.body)
+	cleanup(value.body)
+}
+func retainedRoot() {
+	value := acquire()
+	retainOwner(value)
+	cleanup(value.body)
+}
+func escapedLater() {
+	value := acquire()
+	cleanup(value.body)
+	mutateOwner(value)
+}
+func reassigned() {
+	value := acquire()
+	value.body = &closer{}
+	cleanup(value.body)
+}
+func escapedRoot() {
+	value := acquire()
+	mutateOwner(value)
+	cleanup(value.body)
+}
+func escapedAddress() {
+	value := acquire()
+	mutateSlot(&value.body)
+	cleanup(value.body)
+}
+func selectedOwner(choose bool) {
+	value := acquire()
+	other := acquire()
+	selected := other
+	if choose { selected = value }
+	cleanup(selected.body)
+}
+func sibling() {
+	value := acquire()
+	other := acquire()
+	_ = value
+	cleanup(other.body)
+}
+`
+
+func TestUnmodifiedNonEmptyAccessPathAtBoundaries(t *testing.T) {
+	pkg := buildTestSSA(t, projectionBoundaryFixture)
+	for _, test := range []struct {
+		name string
+		want bool
+	}{
+		{name: "accepted", want: true},
+		{name: "readOnlyRoot", want: true},
+		{name: "readOnlySlot", want: true},
+		{name: "retainedRoot"},
+		{name: "escapedLater", want: true},
+		{name: "reassigned"},
+		{name: "escapedRoot"},
+		{name: "escapedAddress"},
+		{name: "selectedOwner"},
+		{name: "sibling"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			function := pkg.Func(test.name)
+			var root ssa.Value
+			for _, block := range function.Blocks {
+				for _, instruction := range block.Instrs {
+					common := ssaflow.InstructionCall(instruction)
+					if common != nil && ssaflow.CallName(common) == "acquire" && root == nil {
+						root, _ = instruction.(ssa.Value)
+					}
+				}
+			}
+			cleanupCall := findSSAInstruction(t, function, func(instruction ssa.Instruction) bool {
+				return ssaflow.CallName(ssaflow.InstructionCall(instruction)) == "cleanup"
+			})
+			argument := ssaflow.InstructionCall(cleanupCall).Args[0]
+			if got := NewStorage(ssaflow.NewSearchBudget(1000)).Projection(argument, root, cleanupCall).Proven(); got != test.want {
+				t.Fatalf("UnmodifiedNonEmptyAccessPathAt() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}

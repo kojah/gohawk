@@ -44,7 +44,7 @@ func observeUnavailable(budget *SearchBudget, reason SummaryUnavailable, functio
 	} else if function != nil {
 		position = function.Pos()
 	}
-	budget.observe(reason.evidence(), position, func() map[string]string {
+	budget.Observe(reason.evidence(), position, func() map[string]string {
 		details := map[string]string{}
 		if function != nil {
 			details["function"] = function.String()

@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -80,7 +81,7 @@ func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, inde
 		if index >= len(call.Common().Args) {
 			return false
 		}
-		exclusive, ok := ssaflow.ObjectExclusiveAt(call.Common().Args[index], call)
+		exclusive, ok := ssainfer.ObjectExclusiveAt(call.Common().Args[index], call)
 		if !ok || !exclusive.Local {
 			return false
 		}
@@ -96,7 +97,7 @@ func (callers *exclusiveCallers) acquisitionExclusive(function *ssa.Function, in
 	if receiver == nil {
 		return false
 	}
-	exclusive, ok := ssaflow.ObjectExclusiveAt(receiver, instruction)
+	exclusive, ok := ssainfer.ObjectExclusiveAt(receiver, instruction)
 	if !ok {
 		return false
 	}

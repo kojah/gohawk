@@ -5,6 +5,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -22,7 +23,7 @@ type ReturnedCleanupSummary struct {
 
 // ReturnedCleanupEffect associates a factory relation with one completion verb.
 type ReturnedCleanupEffect struct {
-	Relation ssaflow.ReturnedCleanupRelation
+	Relation ssainfer.ReturnedCleanupRelation
 	Method   string
 	Invoke   bool
 }
@@ -44,7 +45,7 @@ func summarizeReturnedCleanup(pass *analysis.Pass, function *ssa.Function) *Retu
 				if !budget.Spend() {
 					return summary
 				}
-				request := ssaflow.CompletionRequest{
+				request := ssainfer.CompletionRequest{
 					Budget: budget, InvokeTarget: method == "",
 					ReturnedSummaries: returnedCleanupLookup(func(callee *ssa.Function) (Fact, bool) { return factForFunction(pass, callee) }),
 					Summarized:        conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) { return importFact(pass, instruction) }, budget),
@@ -52,7 +53,7 @@ func summarizeReturnedCleanup(pass *analysis.Pass, function *ssa.Function) *Retu
 				if !request.InvokeTarget {
 					request.Methods = []string{method}
 				}
-				if ssaflow.ProveReturnedCleanup(function, relation, request).Proven() {
+				if ssainfer.ProveReturnedCleanup(function, relation, request).Proven() {
 					summary.Effects = append(summary.Effects, ReturnedCleanupEffect{Relation: relation, Method: method, Invoke: request.InvokeTarget})
 				}
 			}
@@ -64,8 +65,8 @@ func summarizeReturnedCleanup(pass *analysis.Pass, function *ssa.Function) *Retu
 	return summary
 }
 
-func returnedCleanupTarget(function *ssa.Function, callback, target int) (ssaflow.ReturnedCleanupRelation, types.Type) {
-	relation := ssaflow.ReturnedCleanupRelation{CallbackResult: callback, Target: target}
+func returnedCleanupTarget(function *ssa.Function, callback, target int) (ssainfer.ReturnedCleanupRelation, types.Type) {
+	relation := ssainfer.ReturnedCleanupRelation{CallbackResult: callback, Target: target}
 	if target < len(function.Params) {
 		return relation, function.Params[target].Type()
 	}
@@ -74,13 +75,13 @@ func returnedCleanupTarget(function *ssa.Function, callback, target int) (ssaflo
 	return relation, function.Signature.Results().At(relation.Target).Type()
 }
 
-func returnedCleanupLookup(lookup func(*ssa.Function) (Fact, bool)) ssaflow.ReturnedCleanupLookup {
-	return func(function *ssa.Function, method string, invoke bool) []ssaflow.ReturnedCleanupRelation {
+func returnedCleanupLookup(lookup func(*ssa.Function) (Fact, bool)) ssainfer.ReturnedCleanupLookup {
+	return func(function *ssa.Function, method string, invoke bool) []ssainfer.ReturnedCleanupRelation {
 		fact, ok := lookup(function)
 		if !ok || fact.ReturnedCleanup == nil || fact.ReturnedCleanup.Version != returnedCleanupVersion {
 			return nil
 		}
-		var relations []ssaflow.ReturnedCleanupRelation
+		var relations []ssainfer.ReturnedCleanupRelation
 		for _, effect := range fact.ReturnedCleanup.Effects {
 			if effect.Method == method && effect.Invoke == invoke {
 				relations = append(relations, effect.Relation)
@@ -90,7 +91,7 @@ func returnedCleanupLookup(lookup func(*ssa.Function) (Fact, bool)) ssaflow.Retu
 	}
 }
 
-func (evidence *LifecycleEvidence) returnedCleanupLookup() ssaflow.ReturnedCleanupLookup {
+func (evidence *LifecycleEvidence) returnedCleanupLookup() ssainfer.ReturnedCleanupLookup {
 	return returnedCleanupLookup(func(function *ssa.Function) (Fact, bool) {
 		if evidence.pass == nil {
 			return Fact{}, false

@@ -5,8 +5,10 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -118,7 +120,7 @@ func iteratorSuccessorStatus(
 func conditionCall(block *ssa.BasicBlock, condition ssa.Value) *ssa.Call {
 	for _, instruction := range block.Instrs {
 		call, ok := instruction.(*ssa.Call)
-		if ok && ssaflow.MayAlias(condition, call) {
+		if ok && ssainfer.MayAlias(condition, call) {
 			return call
 		}
 	}
@@ -194,12 +196,12 @@ func transfersResource(
 	instruction ssa.Instruction,
 	target ssa.Value,
 ) bool {
-	if ssaflow.StoresValueInGlobal(instruction, target) ||
-		ssaflow.StoresValueInEscapingField(instruction, target) ||
-		ssaflow.SendsValue(instruction, target) ||
-		ssaflow.CallTransfersArgumentToReturnedOwner(instruction, target) ||
-		ssaflow.CallTransfersArgumentToReceiver(instruction, target) ||
-		ssaflow.CallTransfersArgumentToLifecycleOwner(instruction, target) {
+	if ssainfer.StoresValueInGlobal(instruction, target) ||
+		ssainfer.StoresValueInEscapingField(instruction, target) ||
+		ssainfer.SendsValue(instruction, target) ||
+		ssainfer.CallTransfersArgumentToReturnedOwner(instruction, target) ||
+		ssainfer.CallTransfersArgumentToReceiver(instruction, target) ||
+		ssainfer.CallTransfersArgumentToLifecycleOwner(instruction, target) {
 		return true
 	}
 	return evidence.ArgumentRetainedByCallee(instruction, target)
@@ -220,8 +222,8 @@ func resourceUseStatus(
 	}
 	used := false
 	for index, argument := range common.Args {
-		alias := ssaflow.ProveMayAlias(argument, target)
-		contains := !alias.Aliases && ssaflow.MayContainValue(argument, target)
+		alias := ssainfer.ProveMayAlias(argument, target)
+		contains := !alias.Aliases && ssainfer.MayContainValue(argument, target)
 		probe.Evidence(analysisTrace.Step{
 			Reason: "argument-carries-resource", Outcome: analysisTrace.OutcomeObserved, Pos: instruction.Pos(),
 			Details: map[string]string{
@@ -241,7 +243,7 @@ func resourceUseStatus(
 		if !alias.Aliases {
 			if pointer, ok := argument.Type().Underlying().(*types.Pointer); ok {
 				if _, aggregate := pointer.Elem().Underlying().(*types.Struct); aggregate &&
-					ssaflow.ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) {
+					ssainfer.ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) {
 					return resourceUnknown, "wrapper-passed-to-callee"
 				}
 			}
@@ -269,10 +271,10 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 			// A local aggregate whose address never leaves the function
 			// lives no longer than this iteration, so a resource stored in
 			// it, and closed through it, is still iteration-local.
-			if ssaflow.AddressIsUnescapedLocal(store.Addr) {
+			if heapmodel.AddressIsUnescapedLocal(store.Addr) {
 				return false
 			}
-			return ssaflow.MayAlias(store.Val, target) || ssaflow.MayContainValue(store.Val, target)
+			return ssainfer.MayAlias(store.Val, target) || ssainfer.MayContainValue(store.Val, target)
 		}
 	}
 	closure, ok := instruction.(*ssa.MakeClosure)
@@ -280,7 +282,7 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 		return false
 	}
 	for _, binding := range closure.Bindings {
-		if ssaflow.MayAlias(binding, target) || ssaflow.MayContainValue(binding, target) {
+		if ssainfer.MayAlias(binding, target) || ssainfer.MayContainValue(binding, target) {
 			return true
 		}
 	}

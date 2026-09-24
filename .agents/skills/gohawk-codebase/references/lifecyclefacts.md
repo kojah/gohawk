@@ -142,7 +142,7 @@ func (fact *CleanupFact) String() string
 
 ```go
 type ConditionalEffect struct {
-	Predicate	ssaflow.CompletionPredicate
+	Predicate	ssainfer.CompletionPredicate
 	Method		string
 	Invoke		bool
 	Parameters	ParameterMask
@@ -190,8 +190,8 @@ path, empty for the parameter itself.
 type EvidenceRequest struct {
 	Instruction	ssa.Instruction
 	Target		ssa.Value
-	Completion	*ssaflow.CompletionRequest
-	Transfer	*ssaflow.OwnershipTransferRequest
+	Completion	*ssainfer.CompletionRequest
+	Transfer	*ssainfer.OwnershipTransferRequest
 	Local		*ssaflow.Proof
 	SelectMask	func(Fact) ParameterMask
 	// StrictImportedProjection lets one analyzer map a summary parameter to an
@@ -568,7 +568,7 @@ read says yes for the same reason.
 [Source](../../../../internal/passes/lifecyclefacts/conditional.go)
 
 ```go
-func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request ssaflow.CompletionRequest) ssaflow.CompletionProof
+func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request ssainfer.CompletionRequest) ssaflow.CompletionProof
 ```
 
 CompletionOnEdge combines local and imported result-conditioned guarantees.
@@ -679,7 +679,7 @@ when the type carries no obligation this vocabulary knows.
 
 ```go
 type ReturnedCleanupEffect struct {
-	Relation	ssaflow.ReturnedCleanupRelation
+	Relation	ssainfer.ReturnedCleanupRelation
 	Method		string
 	Invoke		bool
 }

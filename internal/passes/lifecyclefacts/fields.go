@@ -4,6 +4,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/analysis"
@@ -108,8 +109,8 @@ func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 func retainedOutsideResult(function *ssa.Function, resource ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			if ssaflow.StoresValueInOwnedMap(instruction, resource) ||
-				ssaflow.StoresOwnerOfValueInExternalField(instruction, resource) {
+			if ssainfer.StoresValueInOwnedMap(instruction, resource) ||
+				ssainfer.StoresOwnerOfValueInExternalField(instruction, resource) {
 				return true
 			}
 		}
@@ -182,7 +183,7 @@ func parameterMayBeReleased(function *ssa.Function, parameter ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if assertion, ok := instruction.(*ssa.TypeAssert); ok &&
-				ssaflow.ValueDerivesFrom(assertion.X, parameter, map[ssa.Value]bool{}) &&
+				ssainfer.ValueDerivesFrom(assertion.X, parameter, map[ssa.Value]bool{}) &&
 				typeCanRelease(assertion.AssertedType) {
 				return true
 			}
@@ -339,9 +340,9 @@ func releasedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 		// A panic-only placeholder cannot define the owner's cleanup contract:
 		// lack of a normal return does not witness release of any field.
 		// https://github.com/talostrading/sonic/blob/fa70f8c39b9eea68e782c4c7f3604fe232d4301c/multicast/peer.go#L262-L264
-		if ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
+		if ssainfer.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
 			return releasesField(pass, instruction, receiver, index, cleanup)
-		}, ssaflow.CoverageEveryReturn, nil) {
+		}, ssainfer.CoverageEveryReturn, nil) {
 			released |= parameterMaskFor(index)
 		}
 	}
@@ -358,11 +359,11 @@ func releasesField(pass *analysis.Pass, instruction ssa.Instruction, receiver ss
 	}
 	for _, load := range fieldLoads(receiver, index) {
 		for _, method := range cleanup {
-			if ssaflow.CallName(common) == method && ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), load, map[ssa.Value]bool{}) {
+			if ssaflow.CallName(common) == method && ssainfer.ValueDerivesFrom(ssaflow.CallReceiver(common), load, map[ssa.Value]bool{}) {
 				return true
 			}
 		}
-		proof := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+		proof := ssainfer.ProveCompletion(ssainfer.CompletionRequest{
 			Instruction: instruction, Target: load, Methods: cleanup, Budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget),
 		})
 		// An abandoned search counts as a release here, because both readers
@@ -606,7 +607,7 @@ func parameterIsView(
 
 func parameterReturnedUnchangedOnEveryReturn(function *ssa.Function, parameter ssa.Value) bool {
 	for index := range function.Signature.Results().Len() {
-		if ssaflow.ReturnsParameterUnchanged(function, parameter, index) {
+		if ssainfer.ReturnsParameterUnchanged(function, parameter, index) {
 			return true
 		}
 	}
@@ -664,7 +665,7 @@ func (evidence *LifecycleEvidence) visibleCalleeRetains(instruction ssa.Instruct
 	}
 	retentions := evidence.retentionQueries()
 	for _, binding := range ssaflow.CallBindings(common, function, closure) {
-		if !ssaflow.NewStorage(nil).Same(binding.Supplied, target).Proven() ||
+		if !ssainfer.NewStorage(nil).Same(binding.Supplied, target).Proven() ||
 			!retentions.storedEveryReturn(evidence.pass, function, binding.Local) {
 			continue
 		}

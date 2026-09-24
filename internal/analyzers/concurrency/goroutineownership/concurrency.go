@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/ssa"
@@ -48,7 +49,7 @@ func (analysis *spawnAnalysis) returnedGroupJoin(instruction ssa.Instruction, ta
 	if common == nil || common.StaticCallee() != nil || common.IsInvoke() {
 		return false
 	}
-	request := ssaflow.CompletionRequest{
+	request := ssainfer.CompletionRequest{
 		Instruction: instruction, Target: target, Methods: []string{"Wait"}, ExactTarget: true, Budget: budget,
 	}
 	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(analysis.checkID))
@@ -77,7 +78,7 @@ func proveSummaryJoin(
 	if kind == trackedGroup {
 		want = concurrencyfacts.GroupWait
 	}
-	storage := ssaflow.NewStorage(budget)
+	storage := ssainfer.NewStorage(budget)
 	for _, operation := range summary.Operations {
 		if !budget.Spend() {
 			return summaryJoinProof{reason: "concurrency-join-budget-exhausted"}

@@ -88,7 +88,7 @@ func use(s *flow.FunctionSummaries[int], m *flow.CallGraphMemo[int,int], budget 
 
 func testSummaryRuleScopes(t *testing.T) {
 	for _, path := range []string{
-		"internal/analyzers/example/proof.go", "internal/ssaflow/completion_search.go", "internal/passes/lifecyclefacts/fields.go",
+		"internal/analyzers/example/proof.go", "internal/ssainfer/completion_search.go", "internal/passes/lifecyclefacts/fields.go",
 	} {
 		if !summaryRuleApplies(path, "raw guard operation") || !summaryRuleApplies(path, "cache field access") {
 			t.Errorf("%s escaped shared infrastructure enforcement", path)
@@ -100,7 +100,7 @@ func testSummaryRuleScopes(t *testing.T) {
 		}
 	}
 	if !summaryRuleApplies("internal/analyzers/example/proof.go", summaryNilBudget) ||
-		summaryRuleApplies("internal/ssaflow/completion_search.go", summaryNilBudget) {
+		summaryRuleApplies("internal/ssainfer/completion_search.go", summaryNilBudget) {
 		t.Error("analyzer budget requirement must not silently redefine optional-budget shared APIs")
 	}
 }

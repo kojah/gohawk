@@ -65,15 +65,15 @@ func TestInterproceduralSearchesNameABudget(t *testing.T) {
 }
 
 // isCompletionRequestType reports whether the composite literal builds an
-// ssaflow.CompletionRequest, named either through the package or directly from
-// inside ssaflow.
+// ssainfer.CompletionRequest, named either through the package or directly from
+// inside ssainfer.
 func isCompletionRequestType(expression ast.Expr) bool {
 	switch typed := expression.(type) {
 	case *ast.Ident:
 		return typed.Name == "CompletionRequest"
 	case *ast.SelectorExpr:
 		package_, ok := typed.X.(*ast.Ident)
-		return ok && package_.Name == "ssaflow" && typed.Sel.Name == "CompletionRequest"
+		return ok && package_.Name == "ssainfer" && typed.Sel.Name == "CompletionRequest"
 	}
 	return false
 }
@@ -106,8 +106,8 @@ func TestSearchBudgetsAreNamed(t *testing.T) {
 			}
 			if _, literal := call.Args[0].(*ast.BasicLit); literal {
 				position := source.fileSet.Position(call.Pos())
-				t.Errorf("%s:%d constructs a SearchBudget from a bare number; use ssaflow.QueryBudget, "+
-					"ssaflow.SummaryBudget, or a named constant beside the proof that explains the bound",
+				t.Errorf("%s:%d constructs a SearchBudget from a bare number; use ssainfer.QueryBudget, "+
+					"ssainfer.SummaryBudget, or a named constant beside the proof that explains the bound",
 					source.repositoryPath, position.Line)
 			}
 			return true

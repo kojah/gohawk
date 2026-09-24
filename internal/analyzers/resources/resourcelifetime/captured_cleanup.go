@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -100,14 +101,14 @@ func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) ssafl
 	if closure, ok := deferred.Common().Value.(*ssa.MakeClosure); ok {
 		function, _ := closure.Fn.(*ssa.Function)
 		for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
-			if !ssaflow.CapturedBindingMatches(pair.Binding, analysis.resource) {
+			if !ssainfer.CapturedBindingMatches(pair.Binding, analysis.resource) {
 				continue
 			}
-			mayClean := ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
+			mayClean := ssainfer.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
 				common := ssaflow.InstructionCall(instruction)
 				return common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
 					ssaflow.ValueIsAccessPathFrom(ssaflow.CallReceiver(common), pair.Free)
-			}, ssaflow.CoverageAnywhere, nil)
+			}, ssainfer.CoverageAnywhere, nil)
 			if mayClean {
 				return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: "captured-cell-may-cleanup"}
 			}
@@ -133,7 +134,7 @@ func (analysis *resourceAnalysis) guardedCapturedBodyCleanup(instruction ssa.Ins
 		if !budget.Spend() {
 			return missing
 		}
-		stored := ssaflow.NewStorage(budget).StableContent(binding.Binding, instruction)
+		stored := ssainfer.NewStorage(budget).StableContent(binding.Binding, instruction)
 		if !stored.Proven() || stored.Value != analysis.resource {
 			continue
 		}
@@ -153,11 +154,11 @@ func guardedBodyCoverage(function *ssa.Function, captured ssa.Value, budget *ssa
 		if !budget.Spend() || !capturedResponseBody(load, captured) {
 			continue
 		}
-		covered := ssaflow.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
+		covered := ssainfer.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
 			common := ssaflow.InstructionCall(instruction)
 			return budget.Spend() && common != nil && ssaflow.CallName(common) == "Close" &&
 				capturedResponseBody(ssaflow.CallReceiver(common), captured)
-		}, ssaflow.CoverageEveryReturn, load)
+		}, ssainfer.CoverageEveryReturn, load)
 		if covered && !budget.Exhausted() {
 			return true
 		}
@@ -218,7 +219,7 @@ func responsePointerUse(value, resource, cell ssa.Value) bool {
 		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
 	).Any(value, func(_ ssaflow.ReachingWalk, value ssa.Value) bool {
 		_, pointer := value.Type().Underlying().(*types.Pointer)
-		return pointer && (ssaflow.ValueDerivesFrom(value, resource, map[ssa.Value]bool{}) ||
-			ssaflow.ValueDerivesFrom(value, cell, map[ssa.Value]bool{}))
+		return pointer && (ssainfer.ValueDerivesFrom(value, resource, map[ssa.Value]bool{}) ||
+			ssainfer.ValueDerivesFrom(value, cell, map[ssa.Value]bool{}))
 	})
 }

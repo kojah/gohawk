@@ -2,11 +2,11 @@ package ssaflow
 
 import "golang.org/x/tools/go/ssa"
 
-// structurallyIdentical proves value identity from the value graph alone:
+// StructurallyIdentical proves value identity from the value graph alone:
 // one SSA value seen through wrappers, a phi whose alternatives all agree,
 // or equal address selections. Distinct loads stay unknown here, even from
 // the same address.
-func structurallyIdentical(left, right ssa.Value) bool {
+func StructurallyIdentical(left, right ssa.Value) bool {
 	if left == nil || right == nil {
 		return false
 	}
@@ -22,14 +22,14 @@ func structurallyIdentical(left, right ssa.Value) bool {
 			switch left := left.(type) {
 			case *ssa.FieldAddr:
 				other, ok := right.(*ssa.FieldAddr)
-				return ok && left.Field == other.Field && structurallyIdentical(left.X, other.X)
+				return ok && left.Field == other.Field && StructurallyIdentical(left.X, other.X)
 			case *ssa.IndexAddr:
 				other, ok := right.(*ssa.IndexAddr)
-				if !ok || !structurallyIdentical(left.X, other.X) {
+				if !ok || !StructurallyIdentical(left.X, other.X) {
 					return false
 				}
-				a, aOK := constantIndex(left.Index)
-				b, bOK := constantIndex(other.Index)
+				a, aOK := ConstantIndex(left.Index)
+				b, bOK := ConstantIndex(other.Index)
 				return aOK && bOK && a == b || left.Index == other.Index
 			}
 			return false
@@ -45,11 +45,11 @@ func ProveIdentity(left, right AccessPath) IdentityProof {
 	if left.Value == nil || right.Value == nil {
 		return IdentityProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}
-	if structurallyIdentical(left.Value, right.Value) {
+	if StructurallyIdentical(left.Value, right.Value) {
 		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}}
 	}
-	leftPath, leftOK := accessPath(left.Value, left.Root, map[ssa.Value]bool{})
-	rightPath, rightOK := accessPath(right.Value, right.Root, map[ssa.Value]bool{})
+	leftPath, leftOK := AccessPathSteps(left.Value, left.Root, map[ssa.Value]bool{})
+	rightPath, rightOK := AccessPathSteps(right.Value, right.Root, map[ssa.Value]bool{})
 	if !leftOK || !rightOK {
 		return IdentityProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}

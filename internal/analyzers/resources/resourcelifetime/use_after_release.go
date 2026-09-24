@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -75,7 +76,7 @@ func reportUsesAfterRelease(
 	}
 	evidence, _ := knowledge.LifecycleEvidence("resourcelifetime", string(check.ResourceUseAfterRelease))
 	query := releasedResource{
-		resource: resource, contract: contract, methods: methods, storage: ssaflow.NewStorage(nil), knowledge: knowledge, evidence: evidence,
+		resource: resource, contract: contract, methods: methods, storage: ssainfer.NewStorage(nil), knowledge: knowledge, evidence: evidence,
 	}
 	reported := map[*ssa.Call]bool{}
 	for _, release := range directReleases(function, &query) {
@@ -154,7 +155,7 @@ type releasedResource struct {
 	resource  ssa.Value
 	contract  resourceContract
 	methods   []string
-	storage   *ssaflow.Storage
+	storage   *ssainfer.Storage
 	knowledge *summaries.Provider
 	evidence  *lifecyclefacts.LifecycleEvidence
 }
@@ -231,11 +232,11 @@ func (query *releasedResource) interferes(instruction ssa.Instruction, effects *
 		(query.storage.Same(store.Addr, query.resource).Proven() || ssaflow.ValueIsAccessPathFrom(store.Addr, query.resource)) {
 		return true // Overwriting the resource object can reopen the same pointer.
 	}
-	if update, ok := instruction.(*ssa.MapUpdate); ok && ssaflow.MayContainValue(update.Value, query.resource) {
+	if update, ok := instruction.(*ssa.MapUpdate); ok && ssainfer.MayContainValue(update.Value, query.resource) {
 		return true // Collection ownership and later mutation are not modeled.
 	}
-	return ssaflow.ClosureCapturesValue(instruction, query.resource) || ssaflow.SendsValue(instruction, query.resource) ||
-		ssaflow.StoresValueInGlobal(instruction, query.resource) || ssaflow.StoresValueInEscapingField(instruction, query.resource)
+	return ssainfer.ClosureCapturesValue(instruction, query.resource) || ssainfer.SendsValue(instruction, query.resource) ||
+		ssainfer.StoresValueInGlobal(instruction, query.resource) || ssainfer.StoresValueInEscapingField(instruction, query.resource)
 }
 
 // callInterferes reports whether a call may change the resource's lifecycle
@@ -249,7 +250,7 @@ func (query *releasedResource) callInterferes(instruction ssa.Instruction, commo
 		return false // Handing the resource back unchanged is not a lifecycle change.
 	}
 	for _, argument := range append([]ssa.Value{common.Value}, common.Args...) {
-		if ssaflow.MayContainValue(argument, query.resource) &&
+		if ssainfer.MayContainValue(argument, query.resource) &&
 			(!query.storage.Same(argument, query.resource).Proven() || !effects.Call(instruction, argument).PreservesStorage()) {
 			return true
 		}

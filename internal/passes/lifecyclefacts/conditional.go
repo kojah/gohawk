@@ -5,6 +5,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -29,7 +30,7 @@ type ConditionalSummary struct {
 // ConditionalEffect records a method or synchronous callback invocation on
 // Parameters whenever Predicate holds at a normal return.
 type ConditionalEffect struct {
-	Predicate  ssaflow.CompletionPredicate
+	Predicate  ssainfer.CompletionPredicate
 	Method     string
 	Invoke     bool
 	Parameters ParameterMask
@@ -49,12 +50,12 @@ func summarizeConditional(pass *analysis.Pass, function *ssa.Function) *Conditio
 				if !budget.Spend() {
 					return summary
 				}
-				request := ssaflow.CompletionRequest{Target: parameter, Budget: budget, Summarized: lookup}
+				request := ssainfer.CompletionRequest{Target: parameter, Budget: budget, Summarized: lookup}
 				request.InvokeTarget = method == ""
 				if !request.InvokeTarget {
 					request.Methods = []string{method}
 				}
-				if ssaflow.ProveCompletionForResult(function, predicate, request).Proven() {
+				if ssainfer.ProveCompletionForResult(function, predicate, request).Proven() {
 					summary.Effects = append(summary.Effects, ConditionalEffect{
 						Predicate: predicate, Method: method, Invoke: request.InvokeTarget, Parameters: parameterMaskFor(index),
 					})
@@ -65,20 +66,20 @@ func summarizeConditional(pass *analysis.Pass, function *ssa.Function) *Conditio
 	return summary
 }
 
-func conditionalPredicates(signature *types.Signature) []ssaflow.CompletionPredicate {
-	var predicates []ssaflow.CompletionPredicate
+func conditionalPredicates(signature *types.Signature) []ssainfer.CompletionPredicate {
+	var predicates []ssainfer.CompletionPredicate
 	// This exported model covers at most four result slots. Other results are
 	// opaque rather than adding unbounded combinations to dependency analysis.
 	for index := range min(signature.Results().Len(), 4) {
 		result := signature.Results().At(index).Type()
-		var outcomes []ssaflow.CompletionOutcome
+		var outcomes []ssainfer.CompletionOutcome
 		if basic, ok := result.Underlying().(*types.Basic); ok && basic.Kind() == types.Bool {
-			outcomes = []ssaflow.CompletionOutcome{ssaflow.CompletionWhenTrue, ssaflow.CompletionWhenFalse}
+			outcomes = []ssainfer.CompletionOutcome{ssainfer.CompletionWhenTrue, ssainfer.CompletionWhenFalse}
 		} else if syntax.IsErrorType(result) {
-			outcomes = []ssaflow.CompletionOutcome{ssaflow.CompletionWhenNil, ssaflow.CompletionWhenNonNil}
+			outcomes = []ssainfer.CompletionOutcome{ssainfer.CompletionWhenNil, ssainfer.CompletionWhenNonNil}
 		}
 		for _, outcome := range outcomes {
-			predicates = append(predicates, ssaflow.CompletionPredicate{Result: index, Outcome: outcome})
+			predicates = append(predicates, ssainfer.CompletionPredicate{Result: index, Outcome: outcome})
 		}
 	}
 	return predicates
@@ -100,21 +101,21 @@ func conditionalMethods(value types.Type) []string {
 	return methods
 }
 
-func conditionalLookup(lookup func(ssa.Instruction) (Fact, bool), budget *ssaflow.SearchBudget) ssaflow.CompletionSummaryLookup {
-	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssaflow.CompletionPredicate) bool {
+func conditionalLookup(lookup func(ssa.Instruction) (Fact, bool), budget *ssaflow.SearchBudget) ssainfer.CompletionSummaryLookup {
+	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssainfer.CompletionPredicate) bool {
 		fact, ok := lookup(instruction)
 		if !ok || !budget.Spend() {
 			return false
 		}
 		mask := conditionalMask(fact, method, invoke, predicate)
 		return factArgumentMatches(instruction, target, mask, func(argument, target ssa.Value) bool {
-			return ssaflow.NewStorage(budget).Same(argument, target).Proven()
+			return ssainfer.NewStorage(budget).Same(argument, target).Proven()
 		})
 	}
 }
 
-func conditionalMask(fact Fact, method string, invoke bool, predicate ssaflow.CompletionPredicate) ParameterMask {
-	if predicate.Outcome == ssaflow.CompletionAlways {
+func conditionalMask(fact Fact, method string, invoke bool, predicate ssainfer.CompletionPredicate) ParameterMask {
+	if predicate.Outcome == ssainfer.CompletionAlways {
 		if invoke {
 			return fact.SynchronouslyInvoked
 		}
@@ -134,17 +135,17 @@ func conditionalMask(fact Fact, method string, invoke bool, predicate ssaflow.Co
 
 // CompletionOnEdge combines local and imported result-conditioned guarantees.
 // Absence remains unknown; only exact parameter binding can settle the target.
-func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request ssaflow.CompletionRequest) ssaflow.CompletionProof {
+func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, request ssainfer.CompletionRequest) ssaflow.CompletionProof {
 	lookup := conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) {
 		return factFor(evidence.pass, instruction)
 	}, request.Budget)
 	usedImported := false
-	request.Summarized = func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssaflow.CompletionPredicate) bool {
+	request.Summarized = func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssainfer.CompletionPredicate) bool {
 		proven := lookup(instruction, target, method, invoke, predicate)
 		usedImported = usedImported || proven
 		return proven
 	}
-	proof := ssaflow.ProveCompletionOnEdge(from, to, request)
+	proof := ssainfer.ProveCompletionOnEdge(from, to, request)
 	if proof.Proven() && usedImported {
 		proof.Provenance = ssaflow.EvidenceFromImportedFact
 		proof.Reason = "conditional-lifecycle-summary"

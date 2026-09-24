@@ -10,8 +10,8 @@ import (
 	"reflect"
 
 	"github.com/kojah/gohawk/internal/factcodec"
-
 	"github.com/kojah/gohawk/internal/ssaflow"
+
 	"github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"

@@ -19,7 +19,7 @@ func TestHelperReferencesCoverContractsAndDetectDrift(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, name := range []string{"heapmodel", "syntax", "ssaflow", "summaries", "syncgraph", "passes/newfacts"} {
+	for _, name := range []string{"heapmodel", "ssaflow", "ssainfer", "syntax", "summaries", "syncgraph", "passes/newfacts"} {
 		write("internal/"+name+"/api.go", "package "+filepath.Base(name)+`;
 // State is a proof outcome.
 type State int

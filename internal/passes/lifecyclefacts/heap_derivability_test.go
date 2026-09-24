@@ -4,7 +4,7 @@ import (
 	"go/types"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -76,20 +76,20 @@ func deriveClaim(fact Fact, name string) bool {
 	return ok && query(fact.Heap)
 }
 
-func parameterSlot(index int, path string) ssaflow.HeapSlot {
-	return ssaflow.HeapSlot{Root: ssaflow.HeapRoot{Kind: ssaflow.HeapParameter, Index: index}, Path: path}
+func parameterSlot(index int, path string) heapmodel.HeapSlot {
+	return heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: index}, Path: path}
 }
 
-func edgeTo(heap *ssaflow.HeapSummary, slot ssaflow.HeapSlot, fromKind ssaflow.HeapRootKind, must bool) bool {
+func edgeTo(heap *heapmodel.HeapSummary, slot heapmodel.HeapSlot, fromKind heapmodel.HeapRootKind, must bool) bool {
 	for _, edge := range heap.Edges {
-		if edge.From.Root.Kind == fromKind && edge.To.Kind == ssaflow.HeapTargetSlot && edge.To.Slot == slot && (edge.Must || !must) {
+		if edge.From.Root.Kind == fromKind && edge.To.Kind == heapmodel.HeapTargetSlot && edge.To.Slot == slot && (edge.Must || !must) {
 			return true
 		}
 	}
 	return false
 }
 
-func escaped(heap *ssaflow.HeapSummary, slot ssaflow.HeapSlot, kinds ssaflow.HeapEscape) bool {
+func escaped(heap *heapmodel.HeapSummary, slot heapmodel.HeapSlot, kinds heapmodel.HeapEscape) bool {
 	for _, effect := range heap.Effects {
 		if effect.Slot == slot && effect.Escape&kinds != 0 {
 			return true
@@ -98,7 +98,7 @@ func escaped(heap *ssaflow.HeapSummary, slot ssaflow.HeapSlot, kinds ssaflow.Hea
 	return false
 }
 
-func released(heap *ssaflow.HeapSummary, slot ssaflow.HeapSlot, method string) bool {
+func released(heap *heapmodel.HeapSummary, slot heapmodel.HeapSlot, method string) bool {
 	for _, effect := range heap.Effects {
 		if effect.Slot == slot && effect.Release == method && effect.Every {
 			return true
@@ -108,8 +108,8 @@ func released(heap *ssaflow.HeapSummary, slot ssaflow.HeapSlot, method string) b
 }
 
 // heapQueries expresses each mask claim over the projection.
-var heapQueries = map[string]func(*ssaflow.HeapSummary) bool{
-	"returned-owner P0": func(heap *ssaflow.HeapSummary) bool {
+var heapQueries = map[string]func(*heapmodel.HeapSummary) bool{
+	"returned-owner P0": func(heap *heapmodel.HeapSummary) bool {
 		for _, hold := range heap.Holds {
 			if hold.Parameter == 0 && hold.Must {
 				return true
@@ -117,24 +117,24 @@ var heapQueries = map[string]func(*ssaflow.HeapSummary) bool{
 		}
 		return false
 	},
-	"receiver-store P1": func(heap *ssaflow.HeapSummary) bool {
-		return edgeTo(heap, parameterSlot(1, ""), ssaflow.HeapParameter, true)
+	"receiver-store P1": func(heap *heapmodel.HeapSummary) bool {
+		return edgeTo(heap, parameterSlot(1, ""), heapmodel.HeapParameter, true)
 	},
-	"retained P0": func(heap *ssaflow.HeapSummary) bool {
-		return escaped(heap, parameterSlot(0, ""), ^ssaflow.HeapEscape(0)) ||
-			edgeTo(heap, parameterSlot(0, ""), ssaflow.HeapGlobal, false) ||
-			edgeTo(heap, parameterSlot(0, ""), ssaflow.HeapResult, false)
+	"retained P0": func(heap *heapmodel.HeapSummary) bool {
+		return escaped(heap, parameterSlot(0, ""), ^heapmodel.HeapEscape(0)) ||
+			edgeTo(heap, parameterSlot(0, ""), heapmodel.HeapGlobal, false) ||
+			edgeTo(heap, parameterSlot(0, ""), heapmodel.HeapResult, false)
 	},
-	"stored P0": func(heap *ssaflow.HeapSummary) bool {
-		return escaped(heap, parameterSlot(0, ""), ssaflow.HeapEscapedGlobal|ssaflow.HeapEscapedField)
+	"stored P0": func(heap *heapmodel.HeapSummary) bool {
+		return escaped(heap, parameterSlot(0, ""), heapmodel.HeapEscapedGlobal|heapmodel.HeapEscapedField)
 	},
-	"kept P0/field:0": func(heap *ssaflow.HeapSummary) bool {
-		return escaped(heap, parameterSlot(0, "field:0"), ^ssaflow.HeapEscape(0)) ||
-			edgeTo(heap, parameterSlot(0, "field:0"), ssaflow.HeapGlobal, false)
+	"kept P0/field:0": func(heap *heapmodel.HeapSummary) bool {
+		return escaped(heap, parameterSlot(0, "field:0"), ^heapmodel.HeapEscape(0)) ||
+			edgeTo(heap, parameterSlot(0, "field:0"), heapmodel.HeapGlobal, false)
 	},
-	"released P0 Close":         func(heap *ssaflow.HeapSummary) bool { return released(heap, parameterSlot(0, ""), "Close") },
-	"released P0/field:1 Close": func(heap *ssaflow.HeapSummary) bool { return released(heap, parameterSlot(0, "field:1"), "Close") },
-	"nothing": func(heap *ssaflow.HeapSummary) bool {
+	"released P0 Close":         func(heap *heapmodel.HeapSummary) bool { return released(heap, parameterSlot(0, ""), "Close") },
+	"released P0/field:1 Close": func(heap *heapmodel.HeapSummary) bool { return released(heap, parameterSlot(0, "field:1"), "Close") },
+	"nothing": func(heap *heapmodel.HeapSummary) bool {
 		return len(heap.Edges) == 0 && len(heap.Effects) == 0 && len(heap.Truncated) == 0
 	},
 }

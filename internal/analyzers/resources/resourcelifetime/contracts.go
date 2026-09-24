@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -87,7 +88,7 @@ func sqlRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.Value)
 	next, ok := branch.Cond.(*ssa.Call)
 	return ok && ssaflow.CallMatchesSymbol(next.Common(), syntax.PackageMethod(syntax.MethodSymbol{
 		PackagePath: "database/sql", Receiver: "Rows", Name: "Next",
-	})) && ssaflow.NewStorage(nil).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
+	})) && ssainfer.NewStorage(nil).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
 }
 
 func resourceFunction(family, packagePath, name string, result int, cleanup ...string) resourceContract {
@@ -160,7 +161,7 @@ func rowsTransaction(acquisition *ssa.Call) ssa.Value {
 	}
 	// Require the statement's exact constructor result. A different statement,
 	// unresolved merge, or replaced receiver must retain its own obligation.
-	statement := ssaflow.NewStorage(nil).Resolve(ssaflow.CallReceiver(common))
+	statement := ssainfer.NewStorage(nil).Resolve(ssaflow.CallReceiver(common))
 	extract, ok := statement.Value.(*ssa.Extract)
 	if !statement.Proven() || !ok || extract.Index != 0 {
 		return nil
@@ -177,7 +178,7 @@ func rowsTransaction(acquisition *ssa.Call) ssa.Value {
 // provably agree. Do not equate arbitrary
 // loads from the same address: that would accept a reassigned DB.
 func statementParentIdentity(left, right ssa.Value) bool {
-	return ssaflow.NewStorage(nil).Same(left, right).Proven()
+	return ssainfer.NewStorage(nil).Same(left, right).Proven()
 }
 
 func sqlDatabaseCall(common *ssa.CallCommon, names ...string) bool {
@@ -243,7 +244,7 @@ func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettin
 func releasesResource(
 	evidence *lifecyclefacts.LifecycleEvidence,
 	knowledge *summaries.Provider,
-	storage *ssaflow.Storage,
+	storage *ssainfer.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -283,7 +284,7 @@ func cleanupReceiver(knowledge *summaries.Provider, budget *ssaflow.SearchBudget
 func releasesOrdinaryResource(
 	evidence *lifecyclefacts.LifecycleEvidence,
 	knowledge *summaries.Provider,
-	storage *ssaflow.Storage,
+	storage *ssainfer.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	owners []ssa.Value,
@@ -304,7 +305,7 @@ func releasesOrdinaryResource(
 			storage.Projection(ssaflow.CallReceiver(common), resource, instruction).Proven()) {
 		return settled()
 	}
-	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssaflow.MayAliasAny(ssaflow.CallReceiver(common), owners) {
+	if common != nil && resourceLifecycleMethod(ssaflow.CallName(common)) && ssainfer.MayAliasAny(ssaflow.CallReceiver(common), owners) {
 		return settled()
 	}
 	for _, method := range methods {
@@ -324,7 +325,7 @@ func releasesOrdinaryResource(
 		// https://github.com/Kampe/Herdforge/blob/198b704aed6a18b68e7eeb50ba8e97d37855f6b2/pkg/provider/github.go#L356
 		// ccLoad closes through an immediately invoked literal on an error path:
 		// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/bridge_install.go#L264-L289
-		completion := ssaflow.CompletionRequest{
+		completion := ssainfer.CompletionRequest{
 			Instruction: instruction,
 			Target:      resource,
 			Methods:     []string{method},
@@ -401,7 +402,7 @@ func registersCleanupCallback(evidence *lifecyclefacts.LifecycleEvidence, instru
 			continue
 		}
 		for _, method := range methods {
-			if ssaflow.ValueCallsMethod(argument, method, resource) {
+			if ssainfer.ValueCallsMethod(argument, method, resource) {
 				return true
 			}
 		}
@@ -415,11 +416,11 @@ func registersCleanupCallback(evidence *lifecyclefacts.LifecycleEvidence, instru
 // be proven; a called or launched callee must still release on every return.
 // pad applies migrations this way:
 // https://github.com/PerpetualSoftware/pad/blob/ebd1886ada1eca1f0c5ed39f9dc3ad629d0a0cd7/internal/store/store.go#L862-L871
-func deferredReleaseCoverage(instruction ssa.Instruction) ssaflow.CompletionCoverage {
+func deferredReleaseCoverage(instruction ssa.Instruction) ssainfer.CompletionCoverage {
 	if _, ok := instruction.(*ssa.Defer); ok {
-		return ssaflow.CoverageAnywhere
+		return ssainfer.CoverageAnywhere
 	}
-	return ssaflow.CoverageEveryReturn
+	return ssainfer.CoverageEveryReturn
 }
 
 // releaseMask selects the imported summaries that release the resource: the
@@ -444,7 +445,7 @@ func invokesBoundCleanup(instruction ssa.Instruction, resource ssa.Value, method
 		return false
 	}
 	for _, argument := range common.Args {
-		if ssaflow.ValueCallsMethod(argument, method, resource) {
+		if ssainfer.ValueCallsMethod(argument, method, resource) {
 			return true
 		}
 	}
@@ -456,12 +457,12 @@ func instructionSettlesResourceOwnership(
 	instruction ssa.Instruction,
 	resource ssa.Value,
 ) bool {
-	transfer := ssaflow.OwnershipTransferRequest{
+	transfer := ssainfer.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,
-		Modes: ssaflow.TransferStoredInGlobal | ssaflow.TransferStoredInEnclosingScope |
-			ssaflow.TransferOwnerStoredInExternalField | ssaflow.TransferStoredInOwnedMap |
-			ssaflow.TransferSentToReceiver | ssaflow.TransferCapturedByClosure,
+		Modes: ssainfer.TransferStoredInGlobal | ssainfer.TransferStoredInEnclosingScope |
+			ssainfer.TransferOwnerStoredInExternalField | ssainfer.TransferStoredInOwnedMap |
+			ssainfer.TransferSentToReceiver | ssainfer.TransferCapturedByClosure,
 	}
 	return resourceTransferredToExternalField(instruction, resource) ||
 		evidence.Prove(lifecyclefacts.EvidenceRequest{
@@ -486,7 +487,7 @@ func resourceReleaseMayFollow(instruction ssa.Instruction, resource ssa.Value, m
 			if common == nil || !slices.Contains(methods, ssaflow.CallName(common)) || !ssaflow.InstructionMayFollow(instruction, candidate) {
 				continue
 			}
-			if ssaflow.ValueDerivesFrom(ssaflow.CallReceiver(common), resource, map[ssa.Value]bool{}) {
+			if ssainfer.ValueDerivesFrom(ssaflow.CallReceiver(common), resource, map[ssa.Value]bool{}) {
 				return true
 			}
 		}
@@ -496,7 +497,7 @@ func resourceReleaseMayFollow(instruction ssa.Instruction, resource ssa.Value, m
 
 func callTakesResourceOwnership(
 	evidence *lifecyclefacts.LifecycleEvidence,
-	storage *ssaflow.Storage,
+	storage *ssainfer.Storage,
 	instruction ssa.Instruction,
 	resource ssa.Value,
 	methods []string,
@@ -529,11 +530,11 @@ func callTakesResourceOwnership(
 		!resourceReleaseMayFollow(instruction, resource, methods) {
 		return true
 	}
-	transfer := ssaflow.OwnershipTransferRequest{
+	transfer := ssainfer.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       resource,
-		Modes: ssaflow.TransferCallResultStoredInField | ssaflow.TransferToReceiver |
-			ssaflow.TransferToLifecycleOwner | ssaflow.TransferToReturnedOwner,
+		Modes: ssainfer.TransferCallResultStoredInField | ssainfer.TransferToReceiver |
+			ssainfer.TransferToLifecycleOwner | ssainfer.TransferToReturnedOwner,
 	}
 	return evidence.Prove(lifecyclefacts.EvidenceRequest{
 		Instruction: instruction,

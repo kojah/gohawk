@@ -1,6 +1,6 @@
-// Package heapmodel defines the externally visible heap-summary contract.
-// SSA graph construction and call-site substitution migrate here behind a
-// lower-level SSA boundary; the contract itself depends on no SSA machinery.
+// Package heapmodel owns the bounded per-function points-to graph, its heap
+// summaries, and call-site substitution. It uses lower-level SSA mechanics
+// from ssaflow; analyzers decide what graph evidence proves for a check.
 package heapmodel
 
 import (

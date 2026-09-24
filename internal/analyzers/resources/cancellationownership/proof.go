@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -125,10 +126,10 @@ func (classifier *cancellationClassifier) returnObligation(returned *ssa.Return)
 }
 
 func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
-	request := ssaflow.CompletionRequest{
+	request := ssainfer.CompletionRequest{
 		Target: classifier.cancel, InvokeTarget: true, Budget: classifier.budget(),
 	}
-	prove := ssaflow.ProveCompletionOnEdge
+	prove := ssainfer.ProveCompletionOnEdge
 	if classifier.evidence != nil {
 		prove = classifier.evidence.CompletionOnEdge
 	}
@@ -183,7 +184,7 @@ func parentCancellationClassifier(call *ssa.Call, observer ssaflow.Observer) *ca
 	// same source variable may subsequently hold the child instead of its parent.
 	// https://github.com/werf/nelm/blob/6393382d695e65d8d8f744cf590337fe62a83eef/pkg/action/release_install.go#L179-L190
 	parentValue := call.Common().Args[0]
-	if resolved := ssaflow.NewStorage(ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Resolve(parentValue); resolved.Proven() {
+	if resolved := ssainfer.NewStorage(ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Resolve(parentValue); resolved.Proven() {
 		parentValue = resolved.Value
 	}
 	parent, ok := parentValue.(*ssa.Extract)
@@ -254,8 +255,8 @@ func (classifier *cancellationClassifier) recognizedDirectAction(
 	// Captured callbacks and helper chains are deliberately ambiguous here.
 	// These broad closure traversals are safe for finding a possible handoff,
 	// but not exact enough to prove which callback executes on every path.
-	if ssaflow.DeferredClosureCallsValue(instruction, classifier.cancel) ||
-		ssaflow.DeferredClosureInvokesArgumentOnEveryReturn(instruction, classifier.cancel) ||
+	if ssainfer.DeferredClosureCallsValue(instruction, classifier.cancel) ||
+		ssainfer.DeferredClosureInvokesArgumentOnEveryReturn(instruction, classifier.cancel) ||
 		deferredClosureCaptures(instruction, classifier.cancel) {
 		return cancellationActionUnknown, true
 	}
@@ -293,7 +294,7 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 			// https://github.com/infercrane/infercrane/blob/93a43cebe36e01c68c1517d5f1eb97417d01588d/internal/asyncinference/service_lease_test.go#L43-L54
 			return cancellationActionUnknown, true
 		}
-		completion := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+		completion := ssainfer.ProveCompletion(ssainfer.CompletionRequest{
 			Instruction: instruction, Target: classifier.cancel, InvokeTarget: true,
 			Budget: classifier.budget(),
 		})
@@ -306,16 +307,16 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 		}
 		// The older may-alias invocation query can still identify an ambiguous
 		// handoff outside exact completion's boundary, but cannot prove release.
-		if ssaflow.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel) {
+		if ssainfer.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel) {
 			return cancellationActionUnknown, true
 		}
-		if ssaflow.CallReturnsDeferredCleanup(instruction, classifier.cancel) {
+		if ssainfer.CallReturnsDeferredCleanup(instruction, classifier.cancel) {
 			return cancellationActionUnknown, true
 		}
 	}
 	if common != nil && slices.ContainsFunc(common.Args, func(argument ssa.Value) bool {
 		_, closure := argument.(*ssa.MakeClosure)
-		return closure && ssaflow.MayContainValue(argument, classifier.cancel)
+		return closure && ssainfer.MayContainValue(argument, classifier.cancel)
 	}) {
 		// A callback which captures cancel may be invoked, retained, or discarded
 		// by the callee. Without an exact callback contract, none of those
@@ -337,7 +338,7 @@ func deferredClosureCaptures(instruction ssa.Instruction, target ssa.Value) bool
 	}
 	closure, ok := common.Value.(*ssa.MakeClosure)
 	return ok && slices.ContainsFunc(closure.Bindings, func(binding ssa.Value) bool {
-		return ssaflow.CapturedBindingMatches(binding, target)
+		return ssainfer.CapturedBindingMatches(binding, target)
 	})
 }
 
@@ -346,7 +347,7 @@ func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) can
 		classifier.transfers = true
 		return cancellationActionTransfer
 	}
-	if ssaflow.ReturnedValueOwnsValue(returned, classifier.cancel) {
+	if ssainfer.ReturnedValueOwnsValue(returned, classifier.cancel) {
 		return cancellationActionUnknown
 	}
 	if classifier.parent != nil && classifier.parent.returnAction(returned) != cancellationActionNone {
@@ -386,7 +387,7 @@ func instructionReferencesCancellation(instruction ssa.Instruction, cancel ssa.V
 		if operand == nil || *operand == nil {
 			continue
 		}
-		if *operand == cancel || ssaflow.MayAlias(*operand, cancel) || ssaflow.MayContainValue(*operand, cancel) ||
+		if *operand == cancel || ssainfer.MayAlias(*operand, cancel) || ssainfer.MayContainValue(*operand, cancel) ||
 			addressStoresCancellation(*operand, cancel) {
 			return true
 		}
@@ -419,7 +420,7 @@ func addressStoresCancellationLeaf(walk ssaflow.ReachingWalk, value, cancel ssa.
 	}
 	for _, reference := range *value.Referrers() {
 		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == value && (store.Val == cancel || ssaflow.MayAlias(store.Val, cancel)) {
+		if ok && store.Addr == value && (store.Val == cancel || ssainfer.MayAlias(store.Val, cancel)) {
 			return true
 		}
 	}
@@ -444,7 +445,7 @@ func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa
 	}
 	found := false
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !ssaflow.CapturedBindingMatches(captured.Binding, cancel) {
+		if !ssainfer.CapturedBindingMatches(captured.Binding, cancel) {
 			continue
 		}
 		found = true
@@ -471,7 +472,7 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value, observ
 		argument := binding.Supplied
 		closureContainsCancel := false
 		if _, ok := argument.(*ssa.MakeClosure); ok {
-			closureContainsCancel = ssaflow.MayContainValue(argument, cancel)
+			closureContainsCancel = ssainfer.MayContainValue(argument, cancel)
 		}
 		if argument != cancel && !closureContainsCancel {
 			continue
@@ -589,7 +590,7 @@ func localStorageOnly(instruction ssa.Instruction) bool {
 		return false
 	}
 	local, ok := store.Addr.(*ssa.Alloc)
-	return ok && !ssaflow.ValueEscapes(local) && !capturedByClosure(local)
+	return ok && !ssainfer.ValueEscapes(local) && !capturedByClosure(local)
 }
 
 func capturedByClosure(local *ssa.Alloc) bool {

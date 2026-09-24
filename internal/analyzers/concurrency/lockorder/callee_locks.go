@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -174,7 +175,7 @@ func possibleFreshBoundMutex(path ssaflow.EmbeddedFieldPath) freshMutexFieldProo
 		return unknown
 	}
 	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
-	storage := ssaflow.NewStorage(budget)
+	storage := ssainfer.NewStorage(budget)
 	fresh := false
 	for _, block := range load.Parent().Blocks {
 		for _, instruction := range block.Instrs {
@@ -250,7 +251,7 @@ func freshOwnerResult(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 			if !ok {
 				continue
 			}
-			allocation, fresh := ssaflow.ReturnedResult(result, 0).(*ssa.Alloc)
+			allocation, fresh := ssainfer.ReturnedResult(result, 0).(*ssa.Alloc)
 			if !fresh || allocation.Parent() != callee {
 				return false
 			}
@@ -260,7 +261,7 @@ func freshOwnerResult(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 	return returned
 }
 
-func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storage *ssaflow.Storage, budget *ssaflow.SearchBudget) bool {
+func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storage *ssainfer.Storage, budget *ssaflow.SearchBudget) bool {
 	call, ok := instruction.(*ssa.Call)
 	if !ok {
 		return false
@@ -279,7 +280,7 @@ func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storag
 	return false
 }
 
-func sameBoundSlot(value ssa.Value, field *ssa.FieldAddr, storage *ssaflow.Storage) bool {
+func sameBoundSlot(value ssa.Value, field *ssa.FieldAddr, storage *ssainfer.Storage) bool {
 	target, ok := value.(*ssa.FieldAddr)
 	return ok && target.Field == field.Field && storage.Same(target.X, field.X).Proven()
 }
@@ -296,7 +297,7 @@ func localMutexPathIdentity(path ssaflow.EmbeddedFieldPath) string {
 }
 
 func mutexPathInstanceIdentity(path ssaflow.EmbeddedFieldPath) string {
-	root := ssaflow.NewStorage(nil).Resolve(path.Root)
+	root := ssainfer.NewStorage(nil).Resolve(path.Root)
 	if !root.Proven() {
 		return ""
 	}

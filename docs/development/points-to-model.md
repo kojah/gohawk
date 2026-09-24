@@ -3,7 +3,7 @@ title: Local points-to model
 description: The per-function region graph that answers identity, containment, and storage questions.
 ---
 
-`ssaflow` answers "could these two values be the same object?", "what does
+`heapmodel` answers "could these two values be the same object?", "what does
 this cell hold here?", and "is this value stored somewhere inside that one?"
 from one structure: a bounded, flow-sensitive points-to graph built once per
 function. The graph replaces the separate walks that used to answer each of

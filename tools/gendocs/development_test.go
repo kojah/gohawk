@@ -28,10 +28,21 @@ func TestDevelopmentBlocksRenderFromSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Functions, constructors, methods, types, and constants are all searchable.
-	for _, want := range []string{"## WalkStates", "## NewReachingWalk", "## ReachingWalk.Any", "## TransparentValueForm", "```go", "[Source]("} {
+	for _, want := range []string{"## WalkStates", "## NewReachingWalk", "## TransparentValueForm", "```go", "[Source]("} {
 		if !strings.Contains(helpers, want) {
 			t.Errorf("helper index lacks %q", want)
 		}
+	}
+	core, err := parsePackageDoc(root, "internal/ssaflow")
+	if err != nil {
+		t.Fatal(err)
+	}
+	coreHelpers, err := helperReference(root, "internal/ssaflow", core)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(coreHelpers, "## ReachingWalk.Any") {
+		t.Error("core helper index lacks ReachingWalk.Any")
 	}
 	example, err := ssaExampleBlock(root)
 	if err != nil {

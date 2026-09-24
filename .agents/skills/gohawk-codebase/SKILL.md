@@ -1,5 +1,5 @@
 ---
-description: Use when orienting in the gohawk codebase, deciding where new code belongs, or checking whether ssaflow or lifecyclefacts already has a helper before writing SSA traversal, provenance, or ownership code.
+description: Use when orienting in the gohawk codebase, deciding where new code belongs, or checking whether ssaflow, ssainfer, or lifecyclefacts already has a helper before writing SSA traversal, provenance, or ownership code.
 metadata:
     source: project
 name: gohawk-codebase
@@ -30,9 +30,10 @@ Walk the decision in order and stop at the first fit.
 1. **Analyzer-local.** Precision policy — what counts as a join, a transfer,
    an obligation — always stays beside the analyzer that owns it, even when the
    implementation looks reusable.
-2. **`internal/ssaflow`** for SSA mechanics a second analyzer needs: value
-   provenance, control flow, storage and escape checks, symbol matching. Share
-   *how to walk*, never *whether evidence is sufficient*.
+2. **`internal/ssaflow`** for shared value provenance, calls, budgets, and
+   control flow; **`internal/ssainfer`** for storage, completion, and transfer
+   proofs using those mechanics and `heapmodel`. Share *how to prove*, never
+   an analyzer's reporting policy.
 3. **`internal/syntax`** for source-level helpers and well-known symbol
    identity.
 4. **`internal/summaries`** for brokered access to function-summary components.

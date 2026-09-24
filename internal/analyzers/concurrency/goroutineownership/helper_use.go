@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -60,7 +61,7 @@ func (search *helperSearch) use(function *ssa.Function, local ssa.Value, kind tr
 
 func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {
 	derives := func(value ssa.Value) bool {
-		return ssaflow.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
+		return ssainfer.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
 	}
 	joins := func(instruction ssa.Instruction) bool {
 		proof := proveSummaryJoin(search.concurrency, instruction, local, kind, search.budget)
@@ -177,7 +178,7 @@ func (search *helperSearch) instructionEscapes(
 		// handle. The accessor itself is not a join, but its caller may drain
 		// the stream; losing that relationship cannot prove an unjoined worker.
 		// https://github.com/raviqqe/muffet/blob/ea33f85e5644c609a114b00e1f4dfc757b15c8ee/page_checker_test.go#L39-L46
-		return ssaflow.ReturnedValueOwnsValue(typed, local) || slices.ContainsFunc(typed.Results, func(value ssa.Value) bool {
+		return ssainfer.ReturnedValueOwnsValue(typed, local) || slices.ContainsFunc(typed.Results, func(value ssa.Value) bool {
 			return ssaflow.ChannelType(value) && derives(value)
 		})
 	case *ssa.Call, *ssa.Defer, *ssa.Go:

@@ -17,6 +17,8 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 		t,
 		"internal/syntax",
 		"internal/ssaflow",
+		"internal/heapmodel",
+		"internal/ssainfer",
 		"internal/passes",
 		"internal/summaries",
 		"internal/check",
@@ -44,7 +46,7 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 func internalLayer(packagePath string) string {
 	component, _, _ := strings.Cut(packagePath, "/")
 	switch component {
-	case "syntax", "ssaflow", "passes", "summaries", "check", "analyzers", "trace":
+	case "syntax", "ssaflow", "heapmodel", "ssainfer", "passes", "summaries", "check", "analyzers", "trace":
 		return component
 	default:
 		return "other"
@@ -54,15 +56,19 @@ func internalLayer(packagePath string) string {
 func forbiddenLayerDependency(from, to string) bool {
 	switch from {
 	case "syntax":
-		return slices.Contains([]string{"ssaflow", "passes", "summaries", "check", "analyzers"}, to)
+		return slices.Contains([]string{"ssaflow", "heapmodel", "ssainfer", "passes", "summaries", "check", "analyzers"}, to)
 	case "ssaflow":
+		return slices.Contains([]string{"heapmodel", "ssainfer", "passes", "summaries", "check", "analyzers", "trace"}, to)
+	case "heapmodel":
+		return slices.Contains([]string{"ssainfer", "passes", "summaries", "check", "analyzers", "trace"}, to)
+	case "ssainfer":
 		return slices.Contains([]string{"passes", "summaries", "check", "analyzers", "trace"}, to)
 	case "passes":
 		return slices.Contains([]string{"summaries", "check", "analyzers"}, to)
 	case "summaries":
 		return to == "check" || to == "analyzers"
 	case "check":
-		return slices.Contains([]string{"ssaflow", "passes", "summaries", "analyzers"}, to)
+		return slices.Contains([]string{"ssaflow", "heapmodel", "ssainfer", "passes", "summaries", "analyzers"}, to)
 	default:
 		return false
 	}

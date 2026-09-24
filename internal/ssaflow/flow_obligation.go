@@ -97,6 +97,15 @@ func EvaluateObligation(flow ObligationFlow) ObligationOutcome {
 	return obligationOutcome([]obligationState{{block: flow.Start.Block(), index: index + 1, guards: GuardsDominating(flow.Start)}}, flow)
 }
 
+// EvaluateObligationFromEntry applies the same coverage walk from a function's
+// first instruction, including actions in its entry block.
+func EvaluateObligationFromEntry(function *ssa.Function, flow ObligationFlow) ObligationOutcome {
+	if function == nil || len(function.Blocks) == 0 {
+		return ObligationHonored
+	}
+	return obligationOutcome([]obligationState{{block: function.Blocks[0]}}, flow)
+}
+
 // obligationState is one path's position, the strongest action seen on it,
 // and the branch outcomes it has established.
 type obligationState struct {
@@ -189,9 +198,9 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) Obligatio
 	return outcome
 }
 
-// exactOrNone lifts a Boolean ownership predicate to the two-level lattice the
+// ExactOrNone lifts a Boolean ownership predicate to the two-level lattice the
 // UnownedReturn family needs: an owning action is exact, anything else none.
-func exactOrNone(owns func(ssa.Instruction) bool) func(ssa.Instruction) ObligationAction {
+func ExactOrNone(owns func(ssa.Instruction) bool) func(ssa.Instruction) ObligationAction {
 	return func(instruction ssa.Instruction) ObligationAction {
 		if owns(instruction) {
 			return ObligationExact

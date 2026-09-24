@@ -3,7 +3,7 @@ title: Local storage model
 description: Observation-time storage evidence shared by gohawk analyzers.
 ---
 
-`ssaflow.Storage` answers a bounded question: what value occupies this local
+`ssainfer.Storage` answers a bounded question: what value occupies this local
 location at this instruction? It is a demand-driven store query, not a
 whole-program points-to solver or a second lifecycle engine.
 

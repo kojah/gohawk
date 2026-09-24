@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
-	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -22,7 +21,7 @@ import (
 // projectHeap projects the function's heap, truncated at every parameter
 // and result when the graph could not.
 func projectHeap(function *ssa.Function) *heapmodel.HeapSummary {
-	summary, ok := ssaflow.ProjectHeap(function)
+	summary, ok := heapmodel.ProjectHeap(function)
 	if !ok {
 		for index := range function.Params {
 			summary.Truncated = append(summary.Truncated, heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: index}})

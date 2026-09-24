@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
@@ -145,9 +146,9 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int) []ssa.Value {
 		if !lifecycleOwner(target) {
 			continue
 		}
-		if ssaflow.ProveReturnedCleanup(function, ssaflow.ReturnedCleanupRelation{
+		if ssainfer.ProveReturnedCleanup(function, ssainfer.ReturnedCleanupRelation{
 			CallbackResult: callbackIndex, Target: index, TargetIsResult: true,
-		}, ssaflow.CompletionRequest{Methods: []string{"Close", "Stop", "Shutdown"}, Budget: budget}).Proven() {
+		}, ssainfer.CompletionRequest{Methods: []string{"Close", "Stop", "Shutdown"}, Budget: budget}).Proven() {
 			targets = append(targets, target)
 		}
 	}
@@ -164,13 +165,13 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int) []ssa.Value {
 			if !ok {
 				continue
 			}
-			closure, ok := ssaflow.ReturnedResult(returned, callbackIndex).(*ssa.MakeClosure)
+			closure, ok := ssainfer.ReturnedResult(returned, callbackIndex).(*ssa.MakeClosure)
 			if !ok {
 				continue
 			}
 			for index := range returned.Results {
 				target := ssaflow.CallResult(factory, index)
-				if lifecycleOwner(target) && callbackClosesSibling(closure, ssaflow.ReturnedResult(returned, index), budget) {
+				if lifecycleOwner(target) && callbackClosesSibling(closure, ssainfer.ReturnedResult(returned, index), budget) {
 					targets = append(targets, target)
 				}
 			}
@@ -188,7 +189,7 @@ func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *
 		if !budget.Spend() {
 			return false
 		}
-		if !ssaflow.DefinitelySameValue(ssaflow.CapturedBindingValue(pair.Supplied), sibling) {
+		if !ssainfer.DefinitelySameValue(ssaflow.CapturedBindingValue(pair.Supplied), sibling) {
 			continue
 		}
 		search := newHelperSearch()
@@ -204,7 +205,7 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaf
 	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
 	budget := analysis.budget()
-	storage := ssaflow.NewStorage(budget)
+	storage := ssainfer.NewStorage(budget)
 	identity := receiver
 	// A nested worker captures an interface cell while its parent's deferred
 	// close invokes the loaded interface. Peeling that load is identity only.
@@ -217,7 +218,7 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaf
 		if !budget.Spend() {
 			return false
 		}
-		if ssaflow.MayAlias(value, identity) || ssaflow.CapturedBindingMatches(value, receiver) {
+		if ssainfer.MayAlias(value, identity) || ssainfer.CapturedBindingMatches(value, receiver) {
 			return true
 		}
 		if content := storage.Resolve(value); content.Proven() && content.Value != value {
@@ -271,7 +272,7 @@ func (analysis *spawnAnalysis) spawnedPipePeers() []trackedValue {
 	}
 	var peers []trackedValue
 	budget := analysis.budget()
-	storage := ssaflow.NewStorage(budget)
+	storage := ssainfer.NewStorage(budget)
 	var find func(ssaflow.ReachingWalk, ssa.Value) bool
 	find = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 		if !budget.Spend() {

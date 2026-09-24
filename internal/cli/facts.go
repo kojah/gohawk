@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"
@@ -182,14 +182,14 @@ func writeRegions(buffer *bytes.Buffer, action *checker.Action, filter string) {
 	})
 	for _, function := range functions {
 		fmt.Fprintf(buffer, "// %s\n", function.String())
-		if summary, ok := ssaflow.RegisteredHeapSummary(function); ok {
+		if summary, ok := heapmodel.RegisteredHeapSummary(function); ok {
 			for line := range strings.SplitSeq(strings.TrimSpace(summary.String()), "\n") {
 				if line != "" {
 					fmt.Fprintf(buffer, "//   %s\n", line)
 				}
 			}
 		}
-		buffer.WriteString(ssaflow.RenderRegions(function))
+		buffer.WriteString(heapmodel.RenderRegions(function))
 	}
 }
 

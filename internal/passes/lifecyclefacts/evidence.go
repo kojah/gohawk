@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -32,7 +33,7 @@ type LifecycleEvidence struct {
 	// probe attributes each traced proof step to the candidate being judged.
 	// It starts unattributed so an analyzer that never scopes still traces.
 	probe analysisTrace.Probe
-	local ssaflow.LocalEvidence
+	local ssainfer.LocalEvidence
 	// retentions answers retention questions about function literals, which
 	// carry no summary of their own. It is built on first use because most
 	// analyzers never ask.
@@ -54,8 +55,8 @@ func (evidence *LifecycleEvidence) ClosureRetainsValue(closure *ssa.MakeClosure,
 	}
 	retentions := evidence.retentionQueries()
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !ssaflow.CapturedBindingMatches(captured.Binding, target) &&
-			!ssaflow.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
+		if !ssainfer.CapturedBindingMatches(captured.Binding, target) &&
+			!ssainfer.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
 			continue
 		}
 		for _, held := range capturedUses(captured.Free) {
@@ -99,8 +100,8 @@ func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCallee(
 		return true
 	}
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !ssaflow.CapturedBindingMatches(captured.Binding, target) &&
-			!ssaflow.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
+		if !ssainfer.CapturedBindingMatches(captured.Binding, target) &&
+			!ssainfer.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
 			continue
 		}
 		held := capturedUses(captured.Free)
@@ -130,7 +131,7 @@ func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Va
 	}
 	for _, argument := range common.Args {
 		for _, value := range held {
-			if ssaflow.MayAlias(argument, value) {
+			if ssainfer.MayAlias(argument, value) {
 				return true
 			}
 		}
@@ -182,7 +183,7 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 				}
 				for index, argument := range common.Args {
 					if mask.contains(index) && slices.ContainsFunc(capturedUses(captured.Free), func(held ssa.Value) bool {
-						return ssaflow.DefinitelySameValue(argument, held)
+						return ssainfer.DefinitelySameValue(argument, held)
 					}) {
 						return true
 					}
@@ -194,7 +195,7 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 }
 
 func immutableCapturedTarget(binding, target ssa.Value, observation ssa.Instruction, observer ssaflow.Observer) bool {
-	storage := ssaflow.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
+	storage := ssainfer.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
 	if storage.Same(binding, target).Proven() {
 		return true
 	}
@@ -222,7 +223,7 @@ func (evidence *LifecycleEvidence) capturedImportedCompletion(request EvidenceRe
 		fact, summarized := factFor(evidence.pass, instruction)
 		return summarized && factOwnsImmutableCapturedArgument(instruction, request.Target, request.SelectMask(fact), evidence.probe.Observer())
 	}
-	if !ssaflow.MethodCallCoverage(function, completes, request.Completion.Coverage, nil) {
+	if !ssainfer.MethodCallCoverage(function, completes, request.Completion.Coverage, nil) {
 		return ssaflow.Proof{}
 	}
 	return importedProof(reasonLifecycleSummaryCapturedArgument, requestedMethod(request))
@@ -235,7 +236,7 @@ func NewLifecycleEvidence(pass *analysis.Pass, analyzer, check string) *Lifecycl
 		pass: pass, analyzer: analyzer, check: check,
 		probe: analysisTrace.ForPackage(pass, analyzer, check),
 	}
-	evidence.local = ssaflow.NewLocalEvidenceWithReturnedCleanup(evidence.returnedCleanupLookup())
+	evidence.local = ssainfer.NewLocalEvidenceWithReturnedCleanup(evidence.returnedCleanupLookup())
 	return evidence
 }
 
@@ -260,8 +261,8 @@ func (evidence *LifecycleEvidence) ArgumentRetained(instruction ssa.Instruction,
 type EvidenceRequest struct {
 	Instruction ssa.Instruction
 	Target      ssa.Value
-	Completion  *ssaflow.CompletionRequest
-	Transfer    *ssaflow.OwnershipTransferRequest
+	Completion  *ssainfer.CompletionRequest
+	Transfer    *ssainfer.OwnershipTransferRequest
 	Local       *ssaflow.Proof
 	SelectMask  func(Fact) ParameterMask
 	// StrictImportedProjection lets one analyzer map a summary parameter to an
@@ -312,7 +313,7 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (ssafl
 	}
 	if request.ReceiverStore && summarized && factOwnsArgument(request.Instruction, request.Target, fact.ReceiverStore, evidence.probe.Observer()) {
 		receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(request.Instruction))
-		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || ssaflow.ValueEscapes(receiver)) {
+		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || ssainfer.ValueEscapes(receiver)) {
 			return importedProof(reasonReceiverStoreTransfer, requestedMethod(request)), true
 		}
 		return ssaflow.Proof{
@@ -356,7 +357,7 @@ func (evidence *LifecycleEvidence) selectedMaskProof(request EvidenceRequest, fa
 	if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
 		return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
 	}
-	if factArgumentMatches(request.Instruction, request.Target, mask, ssaflow.MayAlias) {
+	if factArgumentMatches(request.Instruction, request.Target, mask, ssainfer.MayAlias) {
 		// The summary is known, but which value receives its guarantee is
 		// not. This is neither completion nor evidence of missing cleanup.
 		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, true

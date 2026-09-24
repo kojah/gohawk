@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
@@ -145,7 +146,7 @@ func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.Ma
 		if callback == nil || len(callback.Params) != 0 {
 			continue
 		}
-		invoked := ssaflow.SpawnInvokesArgumentOnEveryReturn(spawn, argument)
+		invoked := ssainfer.SpawnInvokesArgumentOnEveryReturn(spawn, argument)
 		if !invoked {
 			invoked, _ = evidence.CalleeClaims(spawn, index, lifecyclefacts.ClaimSynchronouslyInvokes)
 		}
@@ -220,10 +221,10 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 				return false
 			}
 			if ssaflow.CallMatchesSymbol(deferred.Common(), waitGroupDone) &&
-				ssaflow.DefinitelySameValue(ssaflow.CallReceiver(deferred.Common()), pair.Local) {
+				ssainfer.DefinitelySameValue(ssaflow.CallReceiver(deferred.Common()), pair.Local) {
 				return true
 			}
-			proof := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+			proof := ssainfer.ProveCompletion(ssainfer.CompletionRequest{
 				Instruction: deferred, Target: pair.Local, Methods: []string{"Done"},
 				Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
 			})
@@ -304,7 +305,7 @@ func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value) boo
 		if source, ok := ssaflow.IdentitySource(notified); ok {
 			notified = source
 		}
-		return ssaflow.DefinitelySameValue(notified, identity)
+		return ssainfer.DefinitelySameValue(notified, identity)
 	})
 }
 
@@ -429,7 +430,7 @@ func waitGroupCompletionValues(
 			}
 			receiver := ssaflow.CallReceiver(common)
 			group := ssaflow.SpawnedValueAtCall(spawn, function, closure, receiver)
-			if group == nil || ssaflow.MayAliasAny(group, groups) {
+			if group == nil || ssainfer.MayAliasAny(group, groups) {
 				continue
 			}
 			if !waitGroupSettlesFunction(function, receiver) {

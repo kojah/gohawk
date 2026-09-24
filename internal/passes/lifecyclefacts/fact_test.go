@@ -5,9 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
-
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"

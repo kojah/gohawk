@@ -11,6 +11,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -277,11 +278,11 @@ func (flow lockFlowContext) loadedLoopRelease(instruction ssa.Instruction, recei
 	}
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](instruction.Parent()) {
 		operation, _, released, direct := mutexAction(call)
-		if !direct || operation != mutexRelease || !ssaflow.MayAlias(receiver, released) {
+		if !direct || operation != mutexRelease || !ssainfer.MayAlias(receiver, released) {
 			continue
 		}
 		other, otherTruth := loadedBooleanBranch(call)
-		if other != nil && truth == otherTruth && ssaflow.MayAlias(guard, other) &&
+		if other != nil && truth == otherTruth && ssainfer.MayAlias(guard, other) &&
 			ssaflow.InstructionMayFollow(instruction, call) && ssaflow.InstructionMayFollow(call, instruction) {
 			proof := guardedReleaseProof{possible: true, reason: "loaded-loop-release-unknown"}
 			analysisTrace.For(flow.pass, "lockorder", string(check.LockRecursiveAcquire), instruction.Pos()).Decision(analysisTrace.Step{

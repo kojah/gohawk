@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -65,7 +66,7 @@ func reportFollowingSends(
 			}
 			probe := analysisTrace.For(pass, "channelsafety", string(check.ChannelSendAfterClose), candidate.Pos())
 			probe.Candidate(analysisTrace.Step{Reason: "send-reachable-after-close", Outcome: analysisTrace.OutcomeObserved})
-			identity := ssaflow.NewStorage(nil).Same(sent.Resource.Value, closed.Resource.Value)
+			identity := ssainfer.NewStorage(nil).Same(sent.Resource.Value, closed.Resource.Value)
 			emitChannelIdentityDecision(pass, function, probe, instruction, candidate, identity)
 			if !identity.Proven() {
 				continue

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
@@ -16,7 +17,7 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			owner := resourceFieldOwner(instruction, resource)
-			if owner != nil && !ssaflow.ExternallyOwnedValue(owner) && !ssaflow.MayAliasAny(owner, owners) {
+			if owner != nil && !ssaflow.ExternallyOwnedValue(owner) && !ssainfer.MayAliasAny(owner, owners) {
 				owners = append(owners, owner)
 			}
 		}
@@ -41,11 +42,11 @@ func (analysis *resourceAnalysis) pairedErrorHelperCleanup(instruction ssa.Instr
 		!slices.ContainsFunc(common.Args, func(argument ssa.Value) bool { return analysis.correlatedError(instruction, argument) }) {
 		return false
 	}
-	return ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+	return ssainfer.ProveCompletion(ssainfer.CompletionRequest{
 		Instruction: instruction,
 		Target:      analysis.resource,
 		Methods:     analysis.contract.cleanup,
-		Coverage:    ssaflow.CoverageAnywhere,
+		Coverage:    ssainfer.CoverageAnywhere,
 		Budget:      analysis.budget(releaseSearchBudget),
 	}).Proven()
 }
@@ -99,7 +100,7 @@ func resourceTransferredToExternalField(instruction ssa.Instruction, resource ss
 
 func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Value { //nolint:ireturn // Owners retain their concrete SSA value forms.
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !ssaflow.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) && !ssaflow.MayContainValue(store.Val, resource) {
+	if !ok || !ssainfer.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) && !ssainfer.MayContainValue(store.Val, resource) {
 		return nil
 	}
 	if field, ok := store.Addr.(*ssa.FieldAddr); ok {

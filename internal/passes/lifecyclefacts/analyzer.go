@@ -14,6 +14,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssainfer"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -62,7 +63,7 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		object := function.Object()
 		if len(function.Blocks) != 0 && (object == nil || !object.Exported() || len(function.Params) > 64) {
-			ssaflow.RegisterHeapSummary(function, *projectHeap(function))
+			heapmodel.RegisterHeapSummary(function, *projectHeap(function))
 		}
 		// Only exported functions can be called from a package that imports this
 		// fact. Skipping private dependency helpers keeps the prerequisite linear
@@ -85,7 +86,7 @@ func run(pass *analysis.Pass) (any, error) {
 		summaries[function] = fact
 		local = append(local, function)
 		if fact.Heap != nil {
-			ssaflow.RegisterHeapSummary(function, *fact.Heap)
+			heapmodel.RegisterHeapSummary(function, *fact.Heap)
 		}
 		details := fact.traceDetails()
 		if probe.Enabled() {
@@ -116,7 +117,7 @@ func run(pass *analysis.Pass) (any, error) {
 			pass.ExportObjectFact(function.Object(), &fact)
 		}
 		if fact.Heap != nil {
-			ssaflow.RegisterHeapSummary(function, *fact.Heap)
+			heapmodel.RegisterHeapSummary(function, *fact.Heap)
 		}
 	}
 	// A type's contract needs its constructor and its methods, so it is joined
@@ -173,7 +174,7 @@ func importCalleeSummaries(pass *analysis.Pass, functions []*ssa.Function, summa
 				if fact, ok := importFact(pass, instruction); ok {
 					summaries[common.StaticCallee()] = fact
 					if fact.Heap != nil {
-						ssaflow.RegisterHeapSummary(common.StaticCallee(), *fact.Heap)
+						heapmodel.RegisterHeapSummary(common.StaticCallee(), *fact.Heap)
 					}
 					// A callee that returns an owned struct is only useful together
 					// with the summaries of that struct's methods, which no sibling
@@ -217,7 +218,7 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 		bit := parameterMaskFor(index)
 		invokes := func(instruction ssa.Instruction) bool {
 			common := ssaflow.InstructionCall(instruction)
-			if common != nil && ssaflow.NewStorage(nil).Same(common.Value, parameter).Proven() {
+			if common != nil && ssainfer.NewStorage(nil).Same(common.Value, parameter).Proven() {
 				return true
 			}
 			imported, ok := importFact(pass, instruction)
@@ -302,7 +303,7 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 func deferredCompletions(function *ssa.Function, parameter ssa.Value, method string) map[ssa.Instruction]string {
 	completions := map[ssa.Instruction]string{}
 	for _, instruction := range ssaflow.InstructionsOf[*ssa.Defer](function) {
-		proof := ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+		proof := ssainfer.ProveCompletion(ssainfer.CompletionRequest{
 			Instruction: instruction, Target: parameter, Methods: []string{method},
 			Budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget),
 		})
@@ -332,7 +333,7 @@ func cleanupPaths(function *ssa.Function, parameter ssa.Value, method string, de
 			if common == nil || ssaflow.CallName(common) != method {
 				continue
 			}
-			path, ok := ssaflow.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
+			path, ok := ssainfer.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
 			if !ok || len(path) == 0 {
 				continue
 			}
@@ -353,7 +354,7 @@ func cleanupAtPath(instruction ssa.Instruction, parameter ssa.Value, method, pat
 	if common == nil || ssaflow.CallName(common) != method {
 		return false
 	}
-	actual, ok := ssaflow.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
+	actual, ok := ssainfer.AccessPathFromParameter(ssaflow.CallReceiver(common), parameter)
 	return ok && ssaflow.JoinAccessPath(actual) == path
 }
 
@@ -377,10 +378,10 @@ func invokesMethodCallback(instruction ssa.Instruction, target ssa.Value, method
 		// candidate to that small body instead of searching arbitrary literals
 		// once per parameter and lifecycle method during summary construction.
 		function, ok := closure.Fn.(*ssa.Function)
-		if !ok || !strings.HasPrefix(function.Synthetic, "bound method wrapper for ") || !ssaflow.ValueCallsMethod(closure, method, target) {
+		if !ok || !strings.HasPrefix(function.Synthetic, "bound method wrapper for ") || !ssainfer.ValueCallsMethod(closure, method, target) {
 			continue
 		}
-		if ssaflow.ProveCompletion(ssaflow.CompletionRequest{
+		if ssainfer.ProveCompletion(ssainfer.CompletionRequest{
 			Instruction: instruction, Target: closure, InvokeTarget: true, Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
 		}).Proven() {
 			return true
@@ -394,7 +395,7 @@ func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruct
 		return false
 	}
 	common := ssaflow.InstructionCall(instruction)
-	if common != nil && ssaflow.NewStorage(nil).Same(common.Value, parameter).Proven() {
+	if common != nil && ssainfer.NewStorage(nil).Same(common.Value, parameter).Proven() {
 		return true
 	}
 	imported, ok := importFact(pass, instruction)
@@ -440,7 +441,7 @@ func ownsOnEveryReturn(function *ssa.Function, parameter ssa.Value, owns func(ss
 	// The absence of an unowned return is vacuous for panic-only or infinite
 	// bodies. Use the shared completion coverage, which also requires an action
 	// witness, before advertising a lifecycle action to another package.
-	return ssaflow.MethodCallCoverage(function, owns, ssaflow.CoverageEveryReturn, parameter)
+	return ssainfer.MethodCallCoverage(function, owns, ssainfer.CoverageEveryReturn, parameter)
 }
 
 func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
@@ -454,7 +455,7 @@ func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, par
 		return ok && imported.Claim(ClaimReturnsOwner).contains(index)
 	}
 	return !ssaflow.UnownedReturnFromEntryAllow(function, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
-		return ssaflow.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)
+		return ssainfer.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)
 	})
 }
 
@@ -511,8 +512,8 @@ func heapTraceDetails(function *ssa.Function, heap *heapmodel.HeapSummary) map[s
 	}
 	var calls, self []string
 	applied := 0
-	for _, record := range ssaflow.CallApplications(function) {
-		if record.Reason == ssaflow.CallSummaryApplied {
+	for _, record := range heapmodel.CallApplications(function) {
+		if record.Reason == heapmodel.CallSummaryApplied {
 			applied++
 			if record.Callee == function && len(self) < tracedCallLimit {
 				self = append(self, fmt.Sprintf("%d effects/%d truncated", record.Effects, record.Truncated))
