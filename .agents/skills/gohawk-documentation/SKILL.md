@@ -7,76 +7,82 @@ name: gohawk-documentation
 
 # Writing gohawk documentation
 
-gohawk has two documentation audiences, and they live in two places.
+gohawk has two kinds of documentation.
 
-| Audience | Location | Published |
+| | User docs | Dev docs |
 |---|---|---|
-| Users deciding whether to trust a diagnostic | `docs/` except `docs/development/` | on the website |
-| Contributors changing an analyzer | `docs/development/` | no, read in the repository |
+| Where | `docs/`, except `docs/development/` | `docs/development/` |
+| Published | on the website | no, read in the repository |
+| Reader | a Go programmer using gohawk | someone changing gohawk |
+| Written from | the user's point of view | the implementation's point of view |
+| Length | short | as long as it needs to be |
 
-Most documentation damage comes from writing for the wrong audience: proof
-mechanics written onto a public page because that is where the analyzer is
-described. The public page then grows by one precision boundary per change
-until no user reads it. Decide the audience before writing a sentence.
+## The rules
 
-## Where each kind of content goes
+1. **User docs use simple English and stay short.** Say what gohawk does for
+   the reader's code. Don't ramble, hedge, or explain how the analyzer works
+   inside.
+2. **If you feel the need to ramble, write it in the dev docs.** Edge cases,
+   proof details, evidence, measurements, and the reasons behind a rule all
+   belong there. Dev docs are allowed to be long and detailed.
+3. **User docs talk about the user's code, not gohawk's internals.** Write
+   "a file you open and never close", not "an acquisition whose obligation is
+   unowned on a return path". Dev docs may name SSA forms, facts, classifiers,
+   budgets, and any other implementation detail.
 
-| Content | Destination |
+Before writing a sentence, decide who reads it. Most bad documentation here
+came from implementation detail written onto a user page because that is where
+the analyzer happened to be described.
+
+## Where things go
+
+| Content | Where |
 |---|---|
 | What a check reports, why it matters, how to fix it, its options | the analyzer page, `docs/analyzers/<group>/<name>.mdx` |
-| A case deliberately not reported, in one plain sentence | the analyzer page |
-| Why a boundary holds, what evidence it needs, which shapes it declines | `docs/development/analyzers/<name>.md` |
-| Commit-pinned links to dogfooded repositories | the design note, next to the boundary they justify, and the rationale comment in code |
-| Proof engines, fact encodings, measurements | `docs/development/*.md` |
+| A case gohawk deliberately doesn't report, in one plain sentence | the analyzer page |
+| Why that case is left alone, what evidence decides it, which fixtures pin it | the design note, `docs/development/analyzers/<name>.md` |
+| Links to the real projects that motivated a rule | the design note, and the rationale comment in code |
+| How the engine, facts, or models work; measurements | `docs/development/*.md` |
 | Why a policy exists and what it rules out | `docs/development/decisions/<date>-<slug>.md` |
 
-An analyzer change updates its design note together with its fixtures. It
-touches the public page only when what a user sees changes: a new check, a new
-message, a new option, or a case that is now reported or now left alone.
+An analyzer change updates its design note together with its fixtures. Change
+the user page only when what a user sees changes: a new check, message, or
+option, or a case that is now reported or now left alone.
 
-## Writing the public page
+## Rewriting for users
 
-Write the contract, not the proof. For each behavior, say what is reported or
-what is deliberately left alone, in terms a Go programmer uses about their own
-code.
-
-| Venting (design note) | Contract (public page) |
+| Too much for a user page (move to the dev docs) | User page |
 |---|---|
 | "The summary path declines branching or opaque helper bodies and uncertain identities." | "Closes and sends inside helpers count too." |
 | "Parent cancellation makes child cleanup uncertain rather than proving a leak." | "Canceling a parent context can stand in for the child's own cancel." |
 | "Commands built by helpers have uncertain ownership and are not reported." | "Commands built by helpers are not checked." |
 
-Words that signal a proof boundary written for the author: *uncertain*,
-*opaque*, *boundary*, *declines*, *conservative*, *does not prove*, *is not
-proof*, *does not establish*. When you reach for one, the sentence belongs in
-the design note. The architecture tests reject these words on analyzer pages.
+Words like *uncertain*, *opaque*, *boundary*, *declines*, *conservative*,
+*does not prove*, *is not proof*, and *does not establish* mean you are
+explaining the analyzer, not the user's code. Move that sentence to the dev
+docs.
 
-End each trimmed analyzer page's detection section with the link to its design
-note, as the existing pages do. Never add a commit-pinned repository link to a
-public page.
+End a trimmed analyzer page's detection section with a link to its design
+note, as the existing pages do.
 
-## Writing a design note
+## Writing dev docs
 
-Design notes are where precision reasoning is kept, so be complete rather than
-short. For each boundary, state the accepted and reported shapes, the evidence
-that separates them, the fixture file that pins it, and a commit-pinned link to
-the real-world pattern when one motivated it. Remove a boundary's text in the
-same change that removes the boundary.
+Be complete. For each boundary, say which shapes are accepted and which are
+reported, the evidence that tells them apart, the fixture file that pins it,
+and a commit-pinned link to the real-world code that motivated it. Remove the
+text in the same change that removes the boundary.
 
 ## Checks
 
-The architecture tests enforce the public side deterministically, in CI and in
-`make verify`:
+The architecture tests check user docs in CI and in `make verify`:
 
-- analyzer pages: at most 130 lines, 40 lines of hand-written prose outside
-  generated blocks, 8 lines per paragraph, and none of the words above;
-- other public pages: at most 200 lines, with a baseline for pages already
-  over;
-- no public page links pinned source.
+- analyzer pages: at most 130 lines, at most 40 lines of hand-written prose
+  outside generated blocks, at most 8 lines per paragraph, and none of the
+  words above;
+- other user pages: at most 200 lines, with a baseline for pages already over;
+- no user page links to pinned source.
 
-Run them directly with
-`go test ./internal/architecture -run 'PublicDocumentation|AnalyzerProse'`.
-`make site-check`, `make site-build`, and `make site-links` validate the site,
-and `make site-review` serves it for review. A failure means the text belongs
-in `docs/development/`; do not raise a budget or extend a baseline to make it
-pass.
+Run them with `go test ./internal/architecture -run 'PublicDocumentation|AnalyzerProse'`.
+Use `make site-check`, `make site-build`, and `make site-links` to check the
+site, and `make site-review` to look at it. If a check fails, move the text to
+the dev docs. Don't raise a budget or add to a baseline to make it pass.
