@@ -62,7 +62,7 @@ func TestResourceLifetimeReasonCodes(t *testing.T) {
 		resourceReasonRepeatedGuardEdgeUnknown:                 "repeated-guard-edge-unknown",
 		resourceReasonResourceReturnPath:                       "resource-return-path",
 		resourceReasonReturnedCleanupProjection:                "returned-cleanup-projection",
-		resourceReasonReturnedLoggerRetainsWriter:              "returned-logger-retains-writer",
+		resourceReasonReturnedWrapperRetains:                   "returned-wrapper-retains-resource",
 		resourceReasonReturnedProjectionLacksCleanup:           "returned-projection-lacks-cleanup",
 		resourceReasonReturnedViewCannotRelease:                "returned-view-cannot-release",
 		resourceReasonRowsTransactionFinished:                  "rows-transaction-finished",
@@ -80,6 +80,8 @@ func TestResourceLifetimeReasonCodes(t *testing.T) {
 		resourceReasonOSIsExist:                                "os-isexist",
 		resourceReasonOSIsPermission:                           "os-ispermission",
 		resourceReasonOSIsTimeout:                              "os-istimeout",
+		resourceReasonProcessExitReclaims:                      "process-exit-reclaims",
+		resourceReasonReturnedRetainingWrapper:                 "returned-retaining-wrapper",
 	}
 	if len(want) != int(resourceReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

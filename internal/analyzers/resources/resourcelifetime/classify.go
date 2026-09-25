@@ -218,7 +218,7 @@ func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Ins
 func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction) (resourceLifetimeReason, bool) {
 	switch typed := instruction.(type) {
 	case *ssa.Return:
-		return resourceReasonReturnedLoggerRetainsWriter, analysis.returnsRetainedLogger(typed)
+		return resourceReasonReturnedWrapperRetains, analysis.returnedMayCarryWrapper(typed)
 	case *ssa.Store:
 		// An owner selected from a collection may already be retained elsewhere.
 		// The local collection is not evidence that its elements are local owners.
@@ -397,23 +397,59 @@ func (analysis *resourceAnalysis) pathWithin(aggregate ssa.Value, observation ss
 	return ssaflow.JoinAccessPath(relation.Relation.Path())
 }
 
-// log.New retains its writer and exposes it again through Logger.Writer.
-// A returned logger therefore retains a reachable resource even though Logger
-// has no Close method. Classify the actual return, not construction: a later
-// error return that discards the logger still abandons its writer. Ordinary
-// buffered readers and similarly named application factories do not qualify.
-// https://github.com/ivaaaan/smug/blob/8320fb4c24d10c6303d2d1254f7eee201a4e6b9f/main.go#L64-L71
-func (analysis *resourceAnalysis) returnsRetainedLogger(returned *ssa.Return) bool {
+// returnedWrapperPosition reports the result position at which a return hands
+// back a chain of wrappers over the resource, each proven by its summary to
+// hold its argument on every return, as slog.New(slog.NewTextHandler(file,
+// nil)) holds the file. The result has no method that releases the resource,
+// but the caller receives it and can keep it for as long as it needs the
+// wrapper. When the constructor's own summary claims that result as a
+// retaining result, the caller owes the obligation and the return is a
+// handover; otherwise the chain is only an uncertain boundary. A later error
+// return that discards the wrapper still abandons the resource. A may-hold
+// wrapper, such as bufio.NewWriter, is not a chain step and stays reported.
+// https://github.com/datolabs-io/opsy/blob/8c588e1c17da76db92351ccaf9b1fdd5793ab5f5/internal/config/config.go#L186-L209
+func (analysis *resourceAnalysis) returnedWrapperPosition(returned *ssa.Return) int {
+	for position, result := range returned.Results {
+		if analysis.provenWrapperOf(result, maxWrapperChain) {
+			return position
+		}
+	}
+	return -1
+}
+
+// returnedMayCarryWrapper widens the handover to a wrapper returned inside an
+// aggregate, such as a struct with a Logger field. The caller receives it, but
+// no summary claims the aggregate as a retaining result, so this return is
+// only an uncertain boundary.
+func (analysis *resourceAnalysis) returnedMayCarryWrapper(returned *ssa.Return) bool {
+	if analysis.returnedWrapperPosition(returned) >= 0 {
+		return true
+	}
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
-		if !ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageFunction("log", "New")) ||
-			len(call.Common().Args) == 0 || !heapmodel.MayAlias(call.Common().Args[0], analysis.resource) ||
-			!ssaflow.InstructionDominates(call, returned) {
+		if !ssaflow.InstructionDominates(call, returned) || !analysis.provenWrapperOf(call, maxWrapperChain) {
 			continue
 		}
 		for _, result := range returned.Results {
 			if lifecycle.MayContainValue(result, call) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func (analysis *resourceAnalysis) provenWrapperOf(value ssa.Value, depth int) bool {
+	call, ok := unwrapWrapper(value).(*ssa.Call)
+	if !ok || depth == 0 {
+		return false
+	}
+	for index, argument := range call.Common().Args {
+		inner := unwrapWrapper(argument)
+		if !heapmodel.MayAlias(inner, analysis.resource) && !analysis.provenWrapperOf(inner, depth-1) {
+			continue
+		}
+		if owner, _ := analysis.evidence.CalleeClaims(call, index, lifecyclefacts.ClaimReturnsOwner); owner {
+			return true
 		}
 	}
 	return false

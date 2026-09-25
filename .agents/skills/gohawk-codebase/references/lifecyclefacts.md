@@ -234,6 +234,10 @@ type Fact struct {
 	// fresh resource it acquired itself, and the caller owes its cleanup.
 	// See owned_results.go for the freshness the proof requires.
 	OwnedResults	ParameterMask
+	// RetainingResults is indexed by result position: the function hands
+	// back a wrapper that holds a fresh resource it acquired, and the caller
+	// must keep, hand over, or return that wrapper. See retaining_results.go.
+	RetainingResults	ParameterMask
 	// Discharges are the exact cleanup claims: which method is called, on
 	// which parameter, at which access path beneath it, on every normal
 	// return. The method masks above are the empty-path discharges; a
@@ -582,6 +586,32 @@ func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) Proof
 Prove returns one lifecycle proof with explicit provenance. Missing imported
 summaries produce Unknown rather than being conflated with a disproved local
 relationship.
+
+## LifecycleEvidence.RetainingResult
+
+[Source](../../../../internal/passes/lifecyclefacts/retaining_results.go)
+
+```go
+func (evidence *LifecycleEvidence) RetainingResult(call *ssa.Call) (int, bool)
+```
+
+RetainingResult reports whether the call's static callee is summarized as
+returning a wrapper that holds a fresh resource, and at which result. No
+cleanup method is returned: the caller cannot release the resource through
+the wrapper, only keep, hand over, or drop it.
+
+## LifecycleEvidence.RetainingResultClaimed
+
+[Source](../../../../internal/passes/lifecyclefacts/retaining_results.go)
+
+```go
+func (evidence *LifecycleEvidence) RetainingResultClaimed(function *ssa.Function, index int) bool
+```
+
+RetainingResultClaimed reports whether the function's own summary claims
+the result at index as a retaining result. The constructor asks this at a
+return that hands a wrapper over the resource to that result, so its
+handover and the caller's obligation come from the same claim.
 
 ## NewLifecycleEvidence
 

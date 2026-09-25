@@ -28,6 +28,7 @@ func TestGoroutineOwnershipReasonCodes(t *testing.T) {
 		reasonSelectedReceiveEdge:     "selected-receive-edge",
 		reasonSelectedContextEdge:     "selected-context-edge",
 		reasonCountedDrainEdge:        "counted-drain-edge",
+		reasonProcessExitStopsWorker:  "process-exit-stops-worker",
 	}
 	if len(want) != int(goroutineOwnershipReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

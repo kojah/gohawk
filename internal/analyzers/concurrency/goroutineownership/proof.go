@@ -123,6 +123,15 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonBufferedSignal}
 	}
 	analysis.ruledOut(reasonBufferedSignal)
+	if ssaflow.RunsOnceInProgramEntry(analysis.spawn) {
+		// A worker launched at most once by main.main cannot accumulate, and
+		// every way out of main ends the process and stops the worker. This
+		// settles the join obligation only; it is unknown rather than
+		// honored, so no other analyzer may read it as proof that the worker
+		// finished before a later instruction.
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonProcessExitStopsWorker}
+	}
+	analysis.ruledOut(reasonProcessExitStopsWorker)
 	return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonUnownedReturn}
 }
 

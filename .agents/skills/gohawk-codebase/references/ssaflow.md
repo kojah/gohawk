@@ -1834,6 +1834,27 @@ func ResolvedFunction(function *ssa.Function) *ssa.Function
 ResolvedFunction answers an instantiation with its origin for a function the
 caller already holds, such as the literal a launch names.
 
+## RunsOnceInProgramEntry
+
+[Source](../../../../internal/ssaflow/process_entry.go)
+
+```go
+func RunsOnceInProgramEntry(instruction ssa.Instruction) bool
+```
+
+RunsOnceInProgramEntry reports whether instruction executes at most once
+per process because it sits in the program's entry function outside any
+loop. The Go specification makes main.main of package main the entry, and
+the program exits when it returns, so this is a language contract rather
+than a naming guess: a function called main in any other package, a method,
+or a closure declared inside main does not qualify, because each can run
+more than once. A package that calls or refers to its own main could run it
+again, so any such reference also declines.
+
+This is only the "at most once, until exit" half of a process-lifetime
+argument. Whether exit actually settles an obligation, rather than losing a
+flush or a commit, is the calling analyzer's decision.
+
 ## SameAccessPath
 
 [Source](../../../../internal/ssaflow/value_forms.go)

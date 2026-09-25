@@ -110,6 +110,21 @@ not establish a leak. This check does not infer legacy main-module or
 `GODEBUG=asynctimerchan=1` settings, nor claim that retained workers or
 `AfterFunc` callbacks are harmless.
 
+An exported constructor that returns a wrapper proven to hold the resource it
+opened, such as a `*slog.Logger` over a log file, hands the resource to its
+caller. The wrapper cannot release it, so the caller must keep the wrapper,
+hand it on, or return it; a caller that drops it is reported with "resource
+held by the result of ... is dropped on some return path". A wrapper that only
+may hold its input, such as `bufio.NewWriter`, is not treated this way.
+
+A resource that program exit reclaims is not reported. The acquisition must be
+in `main.main` of package `main`, outside any loop or closure, in a package
+that never calls its own `main`. It then runs at most once, and every way out
+of `main` ends the process, which closes the file, response body, rows, or
+statement. Cleanups with an effect that exit would lose are still reported:
+compressors must flush, transactions must commit, and an inferred owner's
+`Close` is not assumed to be effect-free.
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}

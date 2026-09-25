@@ -207,6 +207,10 @@ type Fact struct {
 	// fresh resource it acquired itself, and the caller owes its cleanup.
 	// See owned_results.go for the freshness the proof requires.
 	OwnedResults	ParameterMask
+	// RetainingResults is indexed by result position: the function hands
+	// back a wrapper that holds a fresh resource it acquired, and the caller
+	// must keep, hand over, or return that wrapper. See retaining_results.go.
+	RetainingResults	ParameterMask
 	// Discharges are the exact cleanup claims: which method is called, on
 	// which parameter, at which access path beneath it, on every normal
 	// return. The method masks above are the empty-path discharges; a
@@ -276,6 +280,20 @@ turns the claim into an acquisition whose cleanup is the result type's, but
 only for packages the catalog does not model: the catalog's decision about
 a standard-library API, such as leaving `database/sql` statements to their
 transaction, is not reopened by an inferred owner.
+
+`RetainingResults` extends `OwnedResults` through wrappers, indexed by result
+position: the function acquired a concrete resource and returns a wrapper that
+holds it, such as `slog.New(slog.NewTextHandler(file, nil))`. Every step from
+the resource to the result must be a call whose imported summary proves
+`ReturnedOwner` for that argument, so a may-hold wrapper such as
+`bufio.NewWriter` or a same-package helper does not qualify; the freshness
+rules above apply to the resource and to each wrapper. No method of the
+wrapper releases the resource, so `resourcelifetime` gives the caller an
+obligation without a cleanup method: keeping, handing over, or returning the
+wrapper settles it, and dropping it is reported at the call. In the
+constructor, returning that wrapper is a handover only when the constructor's
+own summary makes the claim; a proven chain without the claim, including every
+unexported constructor, is an uncertain boundary.
 
 A constructor storing the acquired value in an already external map or owner
 also leaves fresh-result ownership unknown. A returned wrapper can share its

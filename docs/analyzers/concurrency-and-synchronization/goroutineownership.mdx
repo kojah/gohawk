@@ -104,6 +104,17 @@ result publication stops, even when the channel is buffered. Receive-only
 arguments do not establish this output hazard. Strict join mode does not
 accept the context boundary.
 
+A worker that `main.main` of package `main` launches at most once, outside any
+loop or closure, is not reported as unjoined: every way out of `main` ends the
+process and stops it. This settles only the join obligation, and says nothing
+about whether the worker finished its work first.
+
+A counted loop that runs a blocking, receive-only `select` exactly N times
+joins the workers whose channels it drains when there are at most N such
+channels and each has at most one send per call. Receives cannot outnumber
+sends, so leaving the loop proves that every worker sent. A `default` arm, a
+`break`, a timeout arm, a dynamic bound, or a second sender voids the count.
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}

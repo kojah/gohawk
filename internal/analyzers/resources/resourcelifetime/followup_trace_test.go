@@ -94,7 +94,7 @@ func assertCleanupBoundaryTrace(t *testing.T, events []followupTraceEvent) {
 	t.Helper()
 	want := map[string]string{
 		"stored-by-callee":                    "private_retention.go:",
-		"returned-logger-retains-writer":      "returned_loggers.go:",
+		"returned-wrapper-retains-resource":   "returned_loggers.go:",
 		"prior-defer-may-clean-captured-cell": "prior_captured_cleanup.go:",
 		"paired-error-helper-cleanup":         "paired_error_cleanup.go:",
 		"rows-transaction-finished":           "sql_row_parents.go:",

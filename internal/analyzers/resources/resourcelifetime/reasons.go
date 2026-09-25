@@ -65,7 +65,7 @@ const (
 	resourceReasonRepeatedGuardEdgeUnknown
 	resourceReasonResourceReturnPath
 	resourceReasonReturnedCleanupProjection
-	resourceReasonReturnedLoggerRetainsWriter
+	resourceReasonReturnedWrapperRetains
 	resourceReasonReturnedProjectionLacksCleanup
 	resourceReasonReturnedViewCannotRelease
 	resourceReasonRowsTransactionFinished
@@ -83,6 +83,8 @@ const (
 	resourceReasonOSIsExist
 	resourceReasonOSIsPermission
 	resourceReasonOSIsTimeout
+	resourceReasonProcessExitReclaims
+	resourceReasonReturnedRetainingWrapper
 	resourceReasonCount
 )
 
@@ -148,7 +150,7 @@ var resourceReasonCodes = [...]string{
 	resourceReasonRepeatedGuardEdgeUnknown:                 "repeated-guard-edge-unknown",
 	resourceReasonResourceReturnPath:                       "resource-return-path",
 	resourceReasonReturnedCleanupProjection:                "returned-cleanup-projection",
-	resourceReasonReturnedLoggerRetainsWriter:              "returned-logger-retains-writer",
+	resourceReasonReturnedWrapperRetains:                   "returned-wrapper-retains-resource",
 	resourceReasonReturnedProjectionLacksCleanup:           "returned-projection-lacks-cleanup",
 	resourceReasonReturnedViewCannotRelease:                "returned-view-cannot-release",
 	resourceReasonRowsTransactionFinished:                  "rows-transaction-finished",
@@ -166,6 +168,8 @@ var resourceReasonCodes = [...]string{
 	resourceReasonOSIsExist:                                "os-isexist",
 	resourceReasonOSIsPermission:                           "os-ispermission",
 	resourceReasonOSIsTimeout:                              "os-istimeout",
+	resourceReasonProcessExitReclaims:                      "process-exit-reclaims",
+	resourceReasonReturnedRetainingWrapper:                 "returned-retaining-wrapper",
 }
 
 func (reason resourceLifetimeReason) String() string {

@@ -28,6 +28,7 @@ const (
 	reasonSelectedReceiveEdge
 	reasonSelectedContextEdge
 	reasonCountedDrainEdge
+	reasonProcessExitStopsWorker
 	goroutineOwnershipReasonCount
 )
 
@@ -56,6 +57,7 @@ var ownershipReasonCodes = [...]string{
 	reasonSelectedReceiveEdge:     "selected-receive-edge",
 	reasonSelectedContextEdge:     "selected-context-edge",
 	reasonCountedDrainEdge:        "counted-drain-edge",
+	reasonProcessExitStopsWorker:  "process-exit-stops-worker",
 }
 
 func (reason goroutineOwnershipReason) String() string {

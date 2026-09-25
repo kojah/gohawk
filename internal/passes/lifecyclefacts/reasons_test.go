@@ -16,6 +16,7 @@ func TestReasonCodes(t *testing.T) {
 		reasonReceiverDoesNotEscape:             "receiver-does-not-escape",
 		reasonOwnedResultContract:               "owned-result-contract",
 		reasonOwnedResultUnreleasable:           "owned-result-unreleasable",
+		reasonRetainingResultContract:           "retaining-result-contract",
 		reasonStoredByCallee:                    "stored-by-callee",
 		reasonConditionalSummary:                "conditional-lifecycle-summary",
 		reasonRetentionBudget:                   "retention-budget-exhausted",

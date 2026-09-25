@@ -25,6 +25,9 @@ type resourceContract struct {
 	name        string
 	cleanup     []string
 	result      int
+	// retained marks a wrapper result that holds a resource no method of
+	// the wrapper can release; the diagnostic says so.
+	retained bool
 }
 
 func resourceContracts() []resourceContract {
@@ -604,6 +607,14 @@ func ownedResultContract(evidence *lifecyclefacts.LifecycleEvidence, call *ssa.C
 		// not reopen that decision.
 		cleanup, index, ok = evidence.OwnedDirectResult(call)
 	}
+	retained := false
+	if !ok && !catalogCoversPackage(settings, callee) {
+		// A constructor may instead return a wrapper that holds the resource
+		// it acquired. No method releases it, so the caller settles the
+		// obligation only by keeping, handing over, or returning the wrapper.
+		index, ok = evidence.RetainingResult(call)
+		retained = ok
+	}
 	if !ok {
 		return resourceContract{}, false
 	}
@@ -615,6 +626,7 @@ func ownedResultContract(evidence *lifecyclefacts.LifecycleEvidence, call *ssa.C
 		name:        callee.Name(),
 		cleanup:     cleanup,
 		result:      index,
+		retained:    retained,
 	}, true
 }
 

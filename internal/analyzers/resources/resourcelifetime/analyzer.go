@@ -98,14 +98,11 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				result := evaluateResourceFlow(pass, evidence, call, resource, contract)
 				emitResourceDecision(pass, function, call, resource, contract, result)
 				if result.report {
-					check.Reportf(
-						pass,
-						check.ResourceRelease,
-						call.Pos(),
-						"owned resource from %s.%s is not released on every return path",
-						syntax.ShortPackageName(contract.packagePath),
-						contract.name,
-					)
+					message := "owned resource from %s.%s is not released on every return path"
+					if contract.retained {
+						message = "resource held by the result of %s.%s is dropped on some return path"
+					}
+					check.Reportf(pass, check.ResourceRelease, call.Pos(), message, syntax.ShortPackageName(contract.packagePath), contract.name)
 				}
 			}
 		}

@@ -118,6 +118,9 @@ func evaluateResourceFlow(
 		}).Proven() {
 			return acceptedResourceLifetime(resourceReasonParentCleanup)
 		}
+		if processExitReclaims(call, contract) {
+			return acceptedResourceLifetime(resourceReasonProcessExitReclaims)
+		}
 		return reportedResourceLifetime(resourceReasonUnownedReturn)
 	}
 	if opaque {
@@ -245,6 +248,11 @@ func (analysis *resourceAnalysis) traceRepeatedGuard(block, successor *ssa.Basic
 func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bool {
 	resource, cleanup := analysis.resource, analysis.contract.cleanup
 	if lifecycle.ReturnedValueOwnsValue(returned, resource) {
+		return true
+	}
+	if position := analysis.returnedWrapperPosition(returned); position >= 0 &&
+		analysis.evidence.RetainingResultClaimed(analysis.function, position) {
+		analysis.traceReturnedResult(returned, returned.Results[position], resourceReasonReturnedRetainingWrapper, analysisTrace.OutcomeAccepted)
 		return true
 	}
 	for _, result := range returned.Results {
@@ -440,4 +448,25 @@ func deferredBeforeAcquisitionMayRelease(
 		}
 	}
 	return false
+}
+
+// processExitReclaims accepts a resource that program exit genuinely cleans
+// up. A leak does harm when it accumulates or when its cleanup has an effect
+// that exit would lose. An acquisition that runs at most once in main.main
+// cannot accumulate, and every path that leaves main ends the process, which
+// closes descriptors and connections. Only contracts whose cleanup merely
+// reclaims qualify: a compressor's Close flushes buffered data, a transaction
+// must commit, and an inferred owner's Close is not known to be free of such
+// effects, so all of those are still reported.
+func processExitReclaims(call *ssa.Call, contract resourceContract) bool {
+	switch contract.family {
+	case "os", "http":
+	case "sql":
+		if slices.Contains(contract.cleanup, "Commit") {
+			return false
+		}
+	default:
+		return false
+	}
+	return ssaflow.RunsOnceInProgramEntry(call)
 }

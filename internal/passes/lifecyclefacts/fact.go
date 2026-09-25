@@ -58,6 +58,10 @@ type Fact struct {
 	// fresh resource it acquired itself, and the caller owes its cleanup.
 	// See owned_results.go for the freshness the proof requires.
 	OwnedResults ParameterMask
+	// RetainingResults is indexed by result position: the function hands
+	// back a wrapper that holds a fresh resource it acquired, and the caller
+	// must keep, hand over, or return that wrapper. See retaining_results.go.
+	RetainingResults ParameterMask
 	// Discharges are the exact cleanup claims: which method is called, on
 	// which parameter, at which access path beneath it, on every normal
 	// return. The method masks above are the empty-path discharges; a
@@ -82,6 +86,9 @@ type Fact struct {
 // traceDetails names the claims a summary makes, so a trace shows what a
 // function was summarized as without printing every mask.
 func (fact *Fact) traceDetails() map[string]string {
+	// The trace lists claim names rather than bits: a reader compares which
+	// claims a summary makes across runs, and the index spaces differ between
+	// parameter, field, and result masks, so raw bits would mislead.
 	named := []struct {
 		name string
 		mask ParameterMask
@@ -106,8 +113,11 @@ func (fact *Fact) traceDetails() map[string]string {
 		{"owned-fields", fact.OwnedFields},
 		{"released-fields", fact.ReleasedFields},
 		{"owned-results", fact.OwnedResults},
+		{"retaining-results", fact.RetainingResults},
 		{"receiver-store", fact.ReceiverStore},
 	}
+	// Structured claims have no mask; they are named only when they carry
+	// an effect, so an empty summary still reads "none".
 	claims := make([]string, 0, len(named))
 	for _, claim := range named {
 		if claim.mask != 0 {
@@ -296,6 +306,10 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 	for parameter := range signature.Params().Variables() {
 		names = append(names, parameter.Name())
 	}
+	// Each mask family is indexed differently: parameters by position,
+	// field masks by struct field, and result masks by result position. The
+	// dump names each index in its own space so a field bit is never read as
+	// a parameter.
 	var lines []string
 	for index, name := range names {
 		if masks := fact.parameterMasks(index); len(masks) > 0 {
@@ -309,6 +323,9 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 	}
 	if fact.OwnedResults != 0 {
 		lines = append(lines, "OwnedResults: "+fact.resultNames(fact.OwnedResults, signature))
+	}
+	if fact.RetainingResults != 0 {
+		lines = append(lines, "RetainingResults: "+fact.resultNames(fact.RetainingResults, signature))
 	}
 	for _, discharge := range fact.Discharges {
 		if discharge.Path != "" && discharge.Parameter < len(names) {
@@ -414,7 +431,7 @@ func (fact *Fact) empty() bool {
 	masks := fact.Invoked | fact.SynchronouslyInvoked | fact.Closed | fact.Finalized | fact.Released | fact.Shutdown |
 		fact.Stopped | fact.Waited | fact.Committed | fact.RolledBack | fact.ReturnedOwner | fact.ReturnedView |
 		fact.Retained | fact.Stored | fact.LoopReleased | fact.OwnedFields | fact.ReleasedFields | fact.OwnedResults |
-		fact.ReceiverStore
+		fact.RetainingResults | fact.ReceiverStore
 	return masks == 0 && len(fact.Kept) == 0 && len(fact.Discharges) == 0 &&
 		(fact.Conditional == nil || len(fact.Conditional.Effects) == 0) &&
 		(fact.ReturnedCleanup == nil || len(fact.ReturnedCleanup.Effects) == 0) &&
