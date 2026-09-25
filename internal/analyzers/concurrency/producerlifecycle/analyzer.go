@@ -130,13 +130,15 @@ func abandonedProducerSend(
 	// zero or one matching entry, or a state flag may permit only one send.
 	// Decline the whole channel count when any contributing send is repeated;
 	// otherwise a later send could inherit the same unproven excess count.
+	// A go statement inside a loop repeats its sends in the same way, however
+	// many times the goroutine body itself sends.
 	// https://github.com/hashicorp/go-metrics/blob/5a9e5caa3d2779bca6a8ae2218b8f884194855e7/inmem_endpoint_test.go#L157-L177
 	sendCount := 0
 	for _, candidate := range sends {
 		if !heapmodel.MayAlias(candidate.channel, send.channel) {
 			continue
 		}
-		if candidate.repeated {
+		if candidate.repeated || ssaflow.BlockInCycle(candidate.spawn.Block()) {
 			return producerProof{Reason: reasonProducerCountUnknown}
 		}
 		if producerSendMayPrecede(candidate, send) {

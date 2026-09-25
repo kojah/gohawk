@@ -38,3 +38,13 @@ func processTerminatesAfterFirstResult() {
 	go func() { results <- nil }()
 	log.Fatal(<-results)
 }
+
+// A go statement in a loop starts as many producers as the loop runs, which
+// may be zero or one. One receive is too few only when the loop runs twice.
+func producerPerItem(items []string) string {
+	results := make(chan string)
+	for _, item := range items {
+		go func() { results <- item }() // producer started per item
+	}
+	return <-results
+}

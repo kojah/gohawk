@@ -19,6 +19,11 @@ externally supplied channels remain outside this proof.
 Loop-based send counts remain unknown: a repeated statement does not prove
 multiple sends are feasible. This deliberately misses unbounded producer loops
 until their excess production can be established without a cardinality guess.
+A `go` statement inside a loop counts the same way: it starts as many
+producers as the loop runs, which may be none or one, so its sends are an
+unknown count even when the goroutine body sends once. Before this rule such a
+producer was counted once and traced as within the receive count
+(`producerPerItem` in `uncertain_counts.go`).
 Callers that terminate the process instead of returning do not establish an
 abandoned receiver lifecycle.
 
