@@ -14,17 +14,11 @@ and concurrency issues in Go code. It has been used to find and fix bugs in
 [Kubernetes](https://github.com/kubernetes/kubernetes/pull/142429), and
 [Caddy](https://github.com/caddyserver/caddy/pull/7968).
 
-It finds problems such as:
-
-- a file, HTTP response body, or SQL rows value that is not closed on every
-  return path;
-- a `context` cancel function that is not called on every return path;
-- a goroutine that is not waited for before its function returns;
-- two locks taken in opposite orders, which can deadlock.
-
-Each finding points at the exact code and shows the evidence for it, such as
-the return that leaks a file. gohawk reports only what it can prove, so a
-finding is worth acting on.
+gohawk is heavily inspired by Meta's [Infer](https://fbinfer.com/) and its
+compositional summary model. It writes a summary of what each function does
+with its arguments and results, such as closing a file or waiting for a
+goroutine, and callers read that summary instead of analyzing the function
+again. This lets gohawk follow a resource through helpers and across packages.
 
 [Read the documentation](https://gohawk.dev/)
 
@@ -64,16 +58,6 @@ gohawk -disable-groups=concurrency ./...
 gohawk -enable-all ./...
 ```
 
-## How gohawk works
-
-gohawk is heavily inspired by Meta's [Infer](https://fbinfer.com/) and its
-compositional summary model. gohawk writes a summary of each function: what
-the function does with its arguments and results, such as closing a file or
-waiting for a goroutine. When one function calls another, gohawk reads the
-callee's summary instead of analyzing the callee again. This lets gohawk
-follow a resource through helper functions and across packages, and keeps
-analysis fast on large code bases.
-
 ## How gohawk compares to other analyzers
 
 gohawk aims to complement other Go analyzers, not replace them. Each tool
@@ -86,9 +70,6 @@ Deep, flow-based analysis of Go already covers several domains well.
 analysis, and [Staticcheck](https://staticcheck.dev/) covers a broad range of
 general bugs. Resource management and concurrency are among the last big
 gaps, and that is the domain gohawk focuses on.
-
-gohawk also runs inside [golangci-lint](https://golangci-lint.run/), next to
-the linters you already use.
 
 ## golangci-lint integration
 
