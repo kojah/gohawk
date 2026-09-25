@@ -6,22 +6,24 @@ description: "Acquire locks consistently."
 
 import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
-
 ## What it detects
 
 Acquire locks consistently and release them on every return path. A missing
 unlock is reported only when another path demonstrates that the function owns
 the corresponding release policy.
 
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [lockorder design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/lockorder.md).
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | Tier | What it detects |
+| Check | Tier | Kind | What it detects |
 | --- | --- | --- | --- |
-| <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports return paths that leave an owned lock held. |
-| <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
-| <CheckIdentity name="contradictory-order" tier="core" /> | hazard | core | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
-| <CheckIdentity name="read-lock-write" tier="core" /> | hazard | core | Reports writes to an object while only its read lock is held. |
+| <CheckIdentity name="missing-release" tier="core" /> | core | defect | Reports return paths that leave an owned lock held. |
+| <CheckIdentity name="recursive-acquire" tier="core" /> | core | defect | Reports attempts to acquire a lock that is already held. |
+| <CheckIdentity name="contradictory-order" tier="core" /> | core | hazard | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
+| <CheckIdentity name="read-lock-write" tier="core" /> | core | hazard | Reports writes to an object while only its read lock is held. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
@@ -36,9 +38,6 @@ the read lock races with every other reader.
 Locks are compared by declaration, such as a field of a type or a package
 variable, and an ordering cycle is reported only with an acquisition witness
 for each edge.
-
-The full list of precision boundaries, with the fixtures that pin each one, is
-in the [lockorder design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/lockorder.md).
 
 ## How to fix it
 

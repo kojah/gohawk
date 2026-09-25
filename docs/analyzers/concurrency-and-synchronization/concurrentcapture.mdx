@@ -6,19 +6,21 @@ description: "Keep repeatedly launched goroutines from mutating the same local."
 
 import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
-
 ## What it detects
 
 Goroutines launched from a loop should not mutate the same captured local
 without synchronization. Prefer returning results through a channel or keeping
 the value local to each goroutine.
 
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [concurrentcapture design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/concurrentcapture.md).
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | Tier | What it detects |
+| Check | Tier | Kind | What it detects |
 | --- | --- | --- | --- |
-| <CheckIdentity name="shared-capture" tier="core" /> | hazard | core | Reports repeatedly launched goroutines that mutate the same captured local. |
+| <CheckIdentity name="shared-capture" tier="core" /> | core | hazard | Reports repeatedly launched goroutines that mutate the same captured local. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
@@ -30,9 +32,6 @@ run to run and may only fail under load.
 A mutex held around the write suppresses the report only when the lock is
 held at the write itself. This is a focused hazard check, not a race detector:
 a capture it accepts is not thereby proven race-free.
-
-The full list of precision boundaries, with the fixtures that pin each one, is
-in the [concurrentcapture design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/concurrentcapture.md).
 
 Further reading: [Data race detector](https://go.dev/doc/articles/race_detector),
 [The Go memory model](https://go.dev/ref/mem).

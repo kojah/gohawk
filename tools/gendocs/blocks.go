@@ -61,12 +61,12 @@ func synchronizeAnalyzerComponents(contents []byte) ([]byte, error) {
 	return result, nil
 }
 
-// checksBlock renders stable check identifiers, kinds, tiers, and summaries
+// checksBlock renders stable check identifiers, tiers, kinds, and summaries
 // as a standard Markdown table. The MDX component provides shared styling
 // while preserving Starlight's native table rendering.
 func checksBlock(analyzerName string, checks []check) (string, error) {
 	var output strings.Builder
-	output.WriteString("| Check | Kind | Tier | What it detects |\n")
+	output.WriteString("| Check | Tier | Kind | What it detects |\n")
 	output.WriteString("| --- | --- | --- | --- |\n")
 	for _, item := range checks {
 		localID, ok := strings.CutPrefix(item.ID, analyzerName+"/")
@@ -78,8 +78,8 @@ func checksBlock(analyzerName string, checks []check) (string, error) {
 			"| <CheckIdentity name=\"%s\" tier=\"%s\" /> | %s | %s | %s |\n",
 			html.EscapeString(localID),
 			item.Tier,
-			item.Kind,
 			item.Tier,
+			item.Kind,
 			markdownTableCell(item.Summary),
 		)
 	}

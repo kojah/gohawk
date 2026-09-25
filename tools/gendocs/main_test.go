@@ -254,8 +254,8 @@ func TestChecksBlockIncludesIDsDescriptionsAndTier(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"| Check | Kind | Tier | What it detects |",
-		"| <CheckIdentity name=\"problem\" tier=\"experimental\" /> | hazard | experimental |",
+		"| Check | Tier | Kind | What it detects |",
+		"| <CheckIdentity name=\"problem\" tier=\"experimental\" /> | experimental | hazard |",
 		"Reports the example problem.",
 	} {
 		if !strings.Contains(block, want) {

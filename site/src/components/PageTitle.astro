@@ -18,6 +18,11 @@ const tierOrder = ['core', 'experimental'];
 const tiers = analyzer
 	? tierOrder.filter((tier) => analyzer.checks.some((check) => check.tier === tier))
 	: [];
+// Kinds are listed the same way: the distinct set, defects before hazards.
+const kindOrder = ['defect', 'hazard', 'policy'];
+const kinds = analyzer
+	? kindOrder.filter((kind) => analyzer.checks.some((check) => check.kind === kind))
+	: [];
 ---
 
 {
@@ -30,6 +35,10 @@ const tiers = analyzer
 				<div>
 					<span class="rule-meta-label">{tiers.length > 1 ? 'Tiers' : 'Tier'}</span>
 					<strong>{tiers.join(', ')}</strong>
+				</div>
+				<div>
+					<span class="rule-meta-label">{kinds.length > 1 ? 'Kinds' : 'Kind'}</span>
+					<strong>{kinds.join(', ')}</strong>
 				</div>
 			</div>
 		</div>

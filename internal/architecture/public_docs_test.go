@@ -92,6 +92,9 @@ func checkAnalyzerProse(t *testing.T, relative, text string) {
 	}
 }
 
+// designNoteLink opens the paragraph that links an analyzer's design note.
+const designNoteLink = "The full list of precision boundaries"
+
 // detectsSection is the What it detects text up to its first subheading.
 var detectsSection = regexp.MustCompile(`(?s)\n## What it detects\n(.*?)\n#{2,3} `)
 
@@ -112,7 +115,7 @@ func detectsSectionProblem(text string) string {
 	var blocks [][]string
 	for _, block := range regexp.MustCompile(`\n\s*\n`).Split(strings.TrimSpace(section[1]), -1) {
 		lines := strings.Split(strings.TrimSpace(block), "\n")
-		if strings.HasPrefix(lines[0], "The full list of precision boundaries") {
+		if strings.HasPrefix(lines[0], designNoteLink) {
 			continue
 		}
 		blocks = append(blocks, lines)
@@ -191,6 +194,9 @@ func TestPublicDocumentationStaysConcise(t *testing.T) {
 			checkAnalyzerProse(t, relative, text)
 			if problem := detectsSectionProblem(text); problem != "" {
 				t.Errorf("%s What it detects: %s; move detail to its design note", relative, problem)
+			}
+			if strings.Contains(text, designNoteLink) && !strings.Contains(detectsSection.FindString(text), designNoteLink) {
+				t.Errorf("%s links its design note outside What it detects; end that section with the link", relative)
 			}
 			if extra := checksSectionExtra(text); extra != "" {
 				t.Errorf("%s has text in its Checks section besides the generated table; move it to What it detects: %q", relative, extra)

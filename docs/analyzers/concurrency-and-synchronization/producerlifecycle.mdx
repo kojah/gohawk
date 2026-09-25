@@ -21,11 +21,11 @@ in the [producerlifecycle design notes](https://github.com/kojah/gohawk/blob/mai
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | Tier | What it detects |
+| Check | Tier | Kind | What it detects |
 | --- | --- | --- | --- |
-| <CheckIdentity name="abandoned-send" tier="core" /> | hazard | core | Reports producer goroutines that can block after their receiver stops waiting. |
-| <CheckIdentity name="stopped-loop-send" tier="experimental" /> | hazard | experimental | Reports sends that can block forever after the service loop receiving them returns. |
-| <CheckIdentity name="unclosed-range" tier="experimental" /> | hazard | experimental | Reports range loops that wait forever when their producer returns an error without closing the channel. |
+| <CheckIdentity name="abandoned-send" tier="core" /> | core | hazard | Reports producer goroutines that can block after their receiver stops waiting. |
+| <CheckIdentity name="stopped-loop-send" tier="experimental" /> | experimental | hazard | Reports sends that can block forever after the service loop receiving them returns. |
+| <CheckIdentity name="unclosed-range" tier="experimental" /> | experimental | hazard | Reports range loops that wait forever when their producer returns an error without closing the channel. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

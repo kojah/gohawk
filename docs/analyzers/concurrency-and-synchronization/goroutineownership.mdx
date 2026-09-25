@@ -23,9 +23,9 @@ in the [goroutineownership design notes](https://github.com/kojah/gohawk/blob/ma
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | Tier | What it detects |
+| Check | Tier | Kind | What it detects |
 | --- | --- | --- | --- |
-| <CheckIdentity name="unjoined" tier="core" /> | hazard | core | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. |
+| <CheckIdentity name="unjoined" tier="core" /> | core | hazard | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

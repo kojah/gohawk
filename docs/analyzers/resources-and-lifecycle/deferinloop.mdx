@@ -6,19 +6,21 @@ description: "Release each iteration's resources before starting the next one."
 
 import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
-
 ## What it detects
 
 A defer inside a loop runs when the surrounding function returns, not when the
 iteration ends. Put cleanup-sensitive work in a helper function so files,
 locks, timers, and similar resources are released after each iteration.
 
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [deferinloop design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/deferinloop.md).
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | Tier | What it detects |
+| Check | Tier | Kind | What it detects |
 | --- | --- | --- | --- |
-| <CheckIdentity name="cleanup-lifetime" tier="core" /> | hazard | core | Reports cleanup defers whose lifetime extends across loop iterations. |
+| <CheckIdentity name="cleanup-lifetime" tier="core" /> | core | hazard | Reports cleanup defers whose lifetime extends across loop iterations. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
@@ -29,9 +31,6 @@ hold locks too long, or keep timers and connections alive unnecessarily.
 
 A resource stored in a collection that outlives the loop is not reported,
 because the collection may keep it on purpose.
-
-The full list of precision boundaries, with the fixtures that pin each one, is
-in the [deferinloop design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/deferinloop.md).
 
 Further reading: [Effective Go: Defer](https://go.dev/doc/effective_go#defer).
 

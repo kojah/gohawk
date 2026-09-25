@@ -144,8 +144,6 @@ main:has(.landing),
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: 1rem;
 	margin-top: 3rem;
-	padding-top: 2rem;
-	border-top: 1px solid var(--sl-color-hairline-light);
 }
 
 .landing-orders > .order {
@@ -189,9 +187,7 @@ main:has(.landing),
 	align-items: center;
 	justify-content: space-between;
 	gap: 1rem 2rem;
-	margin-top: 2rem;
-	padding-top: 1.25rem;
-	border-top: 1px solid var(--sl-color-hairline-light);
+	margin-top: 2.5rem;
 	font-size: 0.9rem;
 }
 

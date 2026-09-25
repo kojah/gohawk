@@ -27,10 +27,10 @@ in the [resourcelifetime design notes](https://github.com/kojah/gohawk/blob/main
 ### Checks
 
 {/* gohawk:generated-checks:start */}
-| Check | Kind | Tier | What it detects |
+| Check | Tier | Kind | What it detects |
 | --- | --- | --- | --- |
-| <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports owned resources that are not released on every return path. |
-| <CheckIdentity name="use-after-release" tier="core" /> | hazard | core | Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects. |
+| <CheckIdentity name="missing-release" tier="core" /> | core | defect | Reports owned resources that are not released on every return path. |
+| <CheckIdentity name="use-after-release" tier="core" /> | core | hazard | Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
