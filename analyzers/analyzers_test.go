@@ -163,7 +163,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"resourcelifetime/use-after-release":  CheckTierCore,
 		"lockorder/contradictory-order":       CheckTierCore,
 		"lockorder/read-lock-write":           CheckTierCore,
-		"lockorder/mismatched-release":        CheckTierExperimental,
 		"producerlifecycle/stopped-loop-send": CheckTierExperimental,
 		"producerlifecycle/unclosed-range":    CheckTierExperimental,
 	}
@@ -183,7 +182,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/recursive-acquire":         CheckKindDefect,
 		"lockorder/contradictory-order":       CheckKindHazard,
 		"lockorder/read-lock-write":           CheckKindHazard,
-		"lockorder/mismatched-release":        CheckKindDefect,
 	}
 	for _, name := range expectedAnalyzerNames() {
 		info, ok := metadata[name]

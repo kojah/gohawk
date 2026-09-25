@@ -48,10 +48,6 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				ID: check.LockReadLockWrite, Doc: "Reports writes to an object while only its read lock is held.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
 			},
-			{
-				ID: check.LockMismatchedRelease, Doc: "Reports a lock released with the wrong method for how it was acquired.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
 		}},
 		{Analyzer: producerlifecycle.Analyzer(), Checks: []catalog.CheckInfo{
 			{

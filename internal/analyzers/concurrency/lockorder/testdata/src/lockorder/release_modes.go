@@ -2,26 +2,19 @@ package lockorder
 
 import "sync"
 
-// Release modes: sync.RWMutex keeps separate reader and writer state, so
-// releasing with the method that does not match the acquisition is fatal at
-// run time rather than merely untidy.
+// Release modes: the lock walk tracks whether each held lock was taken with
+// Lock or RLock, which read-lock-write depends on. These accepted cases pin
+// that mode tracking and keep missing-release quiet on matched pairs.
 //
-// The acquisition has to be visible on the path for the mode to be known, so a
-// lock a function did not take is left alone.
+// Known gap: releasing with the method that does not match the acquisition,
+// such as RLock followed by Unlock, is fatal at run time but no longer
+// reported. The experimental mismatched-release check was retired: the crash
+// happens on the first run of that path, so the bug rarely ships, and it found
+// one true positive in about 1,000 audited repositories.
 
 type releaseModes struct {
 	rw    sync.RWMutex
 	plain sync.Mutex
-}
-
-func (r *releaseModes) writeReleasedAsRead() {
-	r.rw.Lock()
-	defer r.rw.RUnlock() // want "lock \\(\\*lockorder.releaseModes\\).writeReleasedAsRead.r.rw is acquired with Lock and released with RUnlock"
-}
-
-func (r *releaseModes) readReleasedAsWrite() {
-	r.rw.RLock()
-	defer r.rw.Unlock() // want "lock \\(\\*lockorder.releaseModes\\).readReleasedAsWrite.r.rw is acquired with RLock and released with Unlock"
 }
 
 // Accepted: matching pairs.
@@ -62,7 +55,7 @@ func (r *releaseModes) byBranch(writing bool) {
 }
 
 // Accepted: a helper releasing a lock its caller took has no acquisition here,
-// so the mode is unknown rather than mismatched.
+// so it is a borrowed lock, not a missing or mismatched release.
 func (r *releaseModes) releaseBorrowed() {
 	r.rw.Unlock()
 }

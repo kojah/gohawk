@@ -344,30 +344,30 @@ func TestCheckSelectionTiers(t *testing.T) {
 			t.Fatalf("selected analyzers = %v", selection.normallySelected)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["lockorder/mismatched-release"] {
+		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["producerlifecycle/stopped-loop-send"] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 	})
 
 	t.Run("naming an analyzer admits extended but not experimental checks", func(t *testing.T) {
 		requested := checkSelection{enabled: map[string]bool{}, disabled: map[string]bool{}}
-		arguments := []string{"gohawk", "-enable=goroutineownership,processownership,lockorder", "./..."}
+		arguments := []string{"gohawk", "-enable=goroutineownership,processownership,lockorder,producerlifecycle", "./..."}
 		selection, err := withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, false)
 		if err != nil {
 			t.Fatal(err)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || !disabled["lockorder/mismatched-release"] || disabled["goroutineownership/unjoined"] {
+		if disabled["lockorder/contradictory-order"] || !disabled["producerlifecycle/stopped-loop-send"] || disabled["goroutineownership/unjoined"] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 
-		arguments = []string{"gohawk", "-tier=experimental", "-enable=lockorder", "./..."}
+		arguments = []string{"gohawk", "-tier=experimental", "-enable=producerlifecycle", "./..."}
 		selection, err = withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["lockorder/mismatched-release"] {
-			t.Fatalf("experimental ceiling did not admit mismatched-release: %v", disabled)
+		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["producerlifecycle/stopped-loop-send"] {
+			t.Fatalf("experimental ceiling did not admit stopped-loop-send: %v", disabled)
 		}
 	})
 

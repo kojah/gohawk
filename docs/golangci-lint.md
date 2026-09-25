@@ -54,7 +54,7 @@ linters:
           disable:
             - lockorder
           enable-checks:
-            - lockorder/mismatched-release
+            - producerlifecycle/stopped-loop-send
           disable-checks:
             - deferinloop/cleanup-lifetime
 ```

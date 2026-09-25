@@ -114,6 +114,15 @@ true-positive replay label was removed as an accepted coverage gap, not changed
 to a false positive. Independent terminal or deferred completion obligations
 remain checked; the historical finding and audit review are preserved.
 
+The experimental `lockorder/mismatched-release` check is retired. Releasing a
+lock with the method that does not match its acquisition is fatal on the first
+run of that path, so the bug rarely ships: the check found one true positive
+in about 1,000 audited repositories. Its one executable label, the round-58
+refraction-networking/utls false positive at `common.go:1104:2`, was removed;
+the round-58 count drops from 95 to 94. The mode tracking it relied on remains
+for `lockorder/read-lock-write`, and the lock walk still ignores deferred
+acquisitions, the fix that label guarded.
+
 Labels named analyzers the project has since withdrawn:
 channelownership (10), errorownership (7), determinism (7),
 closedomain (6), apishape (5), contextpolicy (5),

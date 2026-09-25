@@ -20,5 +20,4 @@ const (
 	LockRecursiveAcquire         ID = "lockorder/recursive-acquire"
 	LockContradictoryOrder       ID = "lockorder/contradictory-order"
 	LockReadLockWrite            ID = "lockorder/read-lock-write"
-	LockMismatchedRelease        ID = "lockorder/mismatched-release"
 )

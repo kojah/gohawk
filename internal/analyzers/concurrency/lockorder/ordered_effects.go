@@ -12,11 +12,10 @@ import (
 // Complete effects use the same lock-state transfer as direct operations.
 // Unknown calls retain the older completion/witness path; absence is not purity.
 type mutexEffect struct {
-	operation   mutexOperation
-	identity    string
-	receiver    ssa.Value
-	acquired    lockAcquisition
-	readRelease bool
+	operation mutexOperation
+	identity  string
+	receiver  ssa.Value
+	acquired  lockAcquisition
 }
 
 func directMutexEffect(instruction ssa.Instruction) (mutexEffect, bool) {
@@ -26,8 +25,7 @@ func directMutexEffect(instruction ssa.Instruction) (mutexEffect, bool) {
 	}
 	return mutexEffect{
 		operation: operation, identity: identity, receiver: receiver,
-		acquired:    acquisitionAt(instruction, lockComparisonKey(identity, receiver)),
-		readRelease: readModeRelease(instruction),
+		acquired: acquisitionAt(instruction, lockComparisonKey(identity, receiver)),
 	}, ok
 }
 

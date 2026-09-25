@@ -59,7 +59,6 @@ onllm-dev/onWatch,processownership,processownership/missing-wait,tools/perf-moni
 pion/turn,producerlifecycle,producerlifecycle/abandoned-send,internal/allocation/allocation_test.go:276:4,false_positive,5a56fb4,2026-09-22
 protomaps/go-pmtiles,deferinloop,deferinloop/cleanup-lifetime,pmtiles/merge.go:212:3,false_positive,5a56fb4,2026-09-22
 quackduck/devzat,resourcelifetime,resourcelifetime/missing-release,config.go:114:18,false_positive,5a56fb4,2026-09-22
-refraction-networking/utls,lockorder,lockorder/mismatched-release,common.go:1104:2,false_positive,5a56fb4,2026-09-22
 refraction-networking/utls,lockorder,lockorder/missing-release,common.go:1075:4,true_positive,5a56fb4,2026-09-22
 refraction-networking/utls,lockorder,lockorder/read-lock-write,common.go:1119:5,false_positive,5a56fb4,2026-09-22
 regclient/regclient,resourcelifetime,resourcelifetime/missing-release,cmd/regctl/image.go:725:16,false_positive,5a56fb4,2026-09-22

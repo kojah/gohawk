@@ -445,7 +445,6 @@ func (flow lockFlowContext) applyMutexAction(
 ) lockFlowState {
 	operation, identity, receiver := effect.operation, effect.identity, effect.receiver
 	if operation == mutexRelease {
-		reportMismatchedRelease(flow.pass, instruction, identity, state, effect.readRelease)
 		flow.released[identity] = true
 		if _, deferredRelease := instruction.(*ssa.Defer); deferredRelease {
 			// A deferred unlock remains effective on every later trip around a

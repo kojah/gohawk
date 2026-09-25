@@ -22,7 +22,6 @@ the corresponding release policy.
 | <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
 | <CheckIdentity name="contradictory-order" tier="core" /> | hazard | core | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
 | <CheckIdentity name="read-lock-write" tier="core" /> | hazard | core | Reports writes to an object while only its read lock is held. |
-| <CheckIdentity name="mismatched-release" tier="experimental" /> | defect | experimental | Reports a lock released with the wrong method for how it was acquired. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
@@ -198,16 +197,6 @@ The same uncertainty applies to an opaque imported wrapper call followed by a
 dominating deferred standard exclusive unlock on that wrapper's mutex. This is
 not a proved acquisition or a guard-to-field relation. Unrelated receivers,
 known-empty wrappers, and explicit intervening releases do not qualify.
-
-### Releasing with the wrong method
-
-A `sync.RWMutex` keeps separate reader and writer state, so a lock taken with
-`Lock` must be released with `Unlock`, and one taken with `RLock` with
-`RUnlock`. Mixing them is not untidy but fatal: the runtime reports an unlock
-of an unlocked mutex and stops the process.
-
-The acquisition has to be visible on the same path for the mode to be known, so
-a helper that releases a lock its caller took is left alone.
 
 ## How to fix it
 
