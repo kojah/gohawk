@@ -58,3 +58,21 @@ func TestDecodeDiagnosticsDeduplicatesTestVariants(t *testing.T) {
 		t.Fatalf("got %d diagnostics and %d errors", len(diagnostics), len(analysisErrors))
 	}
 }
+
+func TestDocumentationFooterLinksEachAnalyzerOnce(t *testing.T) {
+	var output strings.Builder
+	renderDocumentationFooter(&output, []positionedDiagnostic{
+		{Analyzer: "lockorder"}, {Analyzer: "resourcelifetime"}, {Analyzer: "lockorder"}, {Analyzer: "unknown"},
+	})
+	want := "\nLearn more about these findings:\n" +
+		"  lockorder: https://gohawk.dev/analyzers/concurrency-and-synchronization/lockorder/\n" +
+		"  resourcelifetime: https://gohawk.dev/analyzers/resources-and-lifecycle/resourcelifetime/\n"
+	if output.String() != want {
+		t.Fatalf("footer = %q, want %q", output.String(), want)
+	}
+	output.Reset()
+	renderDocumentationFooter(&output, nil)
+	if output.Len() != 0 {
+		t.Fatalf("footer without diagnostics = %q, want nothing", output.String())
+	}
+}

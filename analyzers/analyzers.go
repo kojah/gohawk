@@ -98,8 +98,23 @@ func AnalyzerGroups() []AnalyzerGroup {
 	return result
 }
 
+// DocumentationBaseURL is where analyzer pages are published.
+const DocumentationBaseURL = "https://gohawk.dev/analyzers/"
+
+// AnalyzerDocumentationURL returns the page for an analyzer in group.
+func AnalyzerDocumentationURL(group AnalyzerGroup, analyzer string) string {
+	return documentationURL(group.DocPath, analyzer)
+}
+
+func documentationURL(docPath, analyzer string) string {
+	if docPath == "" {
+		return ""
+	}
+	return DocumentationBaseURL + docPath + "/" + analyzer + "/"
+}
+
 func withSuppressions(spec catalog.AnalyzerSpec) *analysis.Analyzer {
-	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, nil)
+	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, nil, documentationURL(spec.DocPath, spec.Analyzer.Name))
 }
 
 func withDefaultSuppressions(spec catalog.AnalyzerSpec) *analysis.Analyzer {
@@ -109,7 +124,7 @@ func withDefaultSuppressions(spec catalog.AnalyzerSpec) *analysis.Analyzer {
 			disabled[string(declaredCheck.ID)] = true
 		}
 	}
-	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, disabled)
+	return withCheckFilter(spec.Analyzer, spec.Checks, spec.Withdrawn, disabled, documentationURL(spec.DocPath, spec.Analyzer.Name))
 }
 
 func withCheckFilter(
@@ -117,6 +132,7 @@ func withCheckFilter(
 	declared []catalog.CheckInfo,
 	withdrawn []check.ID,
 	disabled map[string]bool,
+	documentation string,
 ) *analysis.Analyzer {
 	checks := make(map[string]bool, len(declared))
 	for _, declaredCheck := range declared {
@@ -171,6 +187,10 @@ func withCheckFilter(
 					Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
 				})
 				return
+			}
+			// Editors show this as a link on the diagnostic's code.
+			if diagnostic.URL == "" {
+				diagnostic.URL = documentation
 			}
 			report(diagnostic)
 		}

@@ -13,6 +13,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	gohawk "github.com/kojah/gohawk/analyzers"
 )
 
 type jsonDiagnostic struct {
@@ -160,7 +162,38 @@ func renderDelegatedDiagnostics(data []byte, contextLines int, output io.Writer)
 		}
 		renderDiagnostic(output, diagnostic, contextLines, colors)
 	}
+	renderDocumentationFooter(output, diagnostics)
 	return diagnosticExitCode(diagnostics, analysisErrors)
+}
+
+// renderDocumentationFooter links each analyzer that reported, once, after
+// every diagnostic. A link under each warning would repeat the same page for
+// every finding of a run.
+func renderDocumentationFooter(output io.Writer, diagnostics []positionedDiagnostic) {
+	pages := make(map[string]string)
+	for _, group := range gohawk.AnalyzerGroups() {
+		for _, analyzer := range group.Analyzers {
+			pages[analyzer.Name] = gohawk.AnalyzerDocumentationURL(group, analyzer.Name)
+		}
+	}
+	var links []string
+	listed := make(map[string]bool)
+	for _, diagnostic := range diagnostics {
+		page, known := pages[diagnostic.Analyzer]
+		if !known || listed[diagnostic.Analyzer] {
+			continue
+		}
+		listed[diagnostic.Analyzer] = true
+		links = append(links, fmt.Sprintf("  %s: %s", diagnostic.Analyzer, page))
+	}
+	if len(links) == 0 {
+		return
+	}
+	writeLine(output)
+	writeLine(output, "Learn more about these findings:")
+	for _, link := range links {
+		writeLine(output, link)
+	}
 }
 
 func diagnosticExitCode(diagnostics []positionedDiagnostic, analysisErrors []string) int {

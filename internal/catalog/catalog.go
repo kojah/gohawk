@@ -117,6 +117,9 @@ type AnalyzerSpec struct {
 	Withdrawn []check.ID
 	// Group is the catalog group the analyzer was declared in.
 	Group GroupID
+	// DocPath is the group's path on the documentation site, where the
+	// analyzer's page lives.
+	DocPath string
 }
 
 // Tier is the most trusted tier among the analyzer's checks: the analyzer
@@ -207,6 +210,7 @@ func (catalog *Catalog) addGroup(index int, seenGroups map[GroupID]bool, seenPat
 	listed := make([]AnalyzerSpec, 0, len(group.Analyzers))
 	for analyzerIndex := range group.Analyzers {
 		spec := group.Analyzers[analyzerIndex]
+		spec.DocPath = group.DocPath
 		added, err := catalog.addAnalyzer(group.ID, &spec)
 		if err != nil {
 			return err

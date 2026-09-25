@@ -267,3 +267,28 @@ func TestTestFileDiagnosticsSkippedByDefault(t *testing.T) {
 		t.Fatalf("reported %d diagnostics, want 1", reported)
 	}
 }
+
+func TestReportedDiagnosticsLinkTheirAnalyzerPage(t *testing.T) {
+	analyzer := withSuppressions(catalog.AnalyzerSpec{
+		Analyzer: &analysis.Analyzer{
+			Name: "example",
+			Run: func(pass *analysis.Pass) (any, error) {
+				pass.Report(analysis.Diagnostic{Category: "example/problem"})
+				pass.Report(analysis.Diagnostic{Category: "example/problem", URL: "https://example.com/own"})
+				return nil, nil
+			},
+		},
+		Checks:  []catalog.CheckInfo{{ID: "example/problem", Kind: catalog.KindDefect, Tier: catalog.TierCore}},
+		DocPath: "resources-and-lifecycle",
+	})
+	var urls []string
+	if _, err := analyzer.Run(&analysis.Pass{Report: func(diagnostic analysis.Diagnostic) {
+		urls = append(urls, diagnostic.URL)
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"https://gohawk.dev/analyzers/resources-and-lifecycle/example/", "https://example.com/own"}
+	if !slices.Equal(urls, want) {
+		t.Fatalf("diagnostic URLs = %v, want %v", urls, want)
+	}
+}

@@ -152,8 +152,6 @@ func tierName(name string, tier gohawk.CheckTier) string {
 	return name
 }
 
-const analyzerDocumentationBaseURL = "https://gohawk.dev/analyzers/"
-
 func printDocumentation(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("doc", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
@@ -235,7 +233,7 @@ func printAnalyzerOptions(output io.Writer, analyzer *analysis.Analyzer) {
 }
 
 func analyzerDocumentationURL(group gohawk.AnalyzerGroup, analyzer string) string {
-	return analyzerDocumentationBaseURL + group.DocPath + "/" + analyzer + "/"
+	return gohawk.AnalyzerDocumentationURL(group, analyzer)
 }
 
 func humanVersionRequested(arguments []string) bool {
