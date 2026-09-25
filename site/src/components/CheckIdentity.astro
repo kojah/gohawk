@@ -30,10 +30,13 @@ const selected = tier !== 'core';
 		gap: 0.2rem;
 	}
 
+	/* A check name is an identifier: never split it mid-word. A long name may
+	   still wrap at its hyphen when the column is narrow. */
 	code {
 		max-width: 100%;
 		font-size: var(--sl-text-xs);
-		overflow-wrap: anywhere;
+		overflow-wrap: normal;
+		word-break: normal;
 	}
 
 </style>

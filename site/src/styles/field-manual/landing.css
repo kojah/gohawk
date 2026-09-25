@@ -38,19 +38,6 @@
 }
 
 @media (max-width: 40rem) {
-	.rule-meta {
-		grid-template-columns: 1fr;
-	}
-
-	.rule-meta > div {
-		border-inline-end: 0;
-		border-bottom: 1px solid var(--sl-color-hairline-light);
-	}
-
-	.rule-meta > div:last-child {
-		border-bottom: 0;
-	}
-
 	.signal-grid {
 		grid-template-columns: 1fr;
 	}

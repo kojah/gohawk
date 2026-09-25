@@ -81,9 +81,12 @@
 	text-wrap: pretty;
 }
 
+/* The header facts sit side by side and take only the width they need; a
+   single tier should not stretch across the page. */
 .rule-meta {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	display: inline-flex;
+	flex-wrap: wrap;
+	max-width: 100%;
 	margin: 0;
 	border: 1px solid var(--sl-color-hairline);
 	border-radius: var(--gh-radius);
@@ -162,6 +165,54 @@
 
 .sl-markdown-content h3#checks + table :is(th, td) {
 	vertical-align: top;
+}
+
+/* On a phone the four columns leave the identifier a sliver, so each check
+   becomes a small card: its name, then kind and tier, then the description.
+   The values explain themselves, so the column headings are dropped. */
+@media (max-width: 50rem) {
+	.sl-markdown-content h3#checks + table,
+	.sl-markdown-content h3#checks + table tbody,
+	.sl-markdown-content h3#checks + table tr {
+		display: block;
+	}
+
+	.sl-markdown-content h3#checks + table thead {
+		display: none;
+	}
+
+	.sl-markdown-content h3#checks + table tr {
+		padding: 0.625rem 1rem;
+		border-bottom: 1px solid var(--sl-color-hairline);
+	}
+
+	.sl-markdown-content h3#checks + table tbody tr:last-child {
+		border-bottom: 0;
+	}
+
+	.sl-markdown-content h3#checks + table td {
+		display: inline;
+		padding: 0;
+		border: 0;
+	}
+
+	.sl-markdown-content h3#checks + table td:first-child {
+		display: block;
+		margin-bottom: 0.25rem;
+	}
+
+	.sl-markdown-content h3#checks + table td:is(:nth-child(2), :nth-child(3)) {
+		color: var(--sl-color-gray-3);
+	}
+
+	.sl-markdown-content h3#checks + table td:nth-child(3)::before {
+		content: ' · ';
+	}
+
+	.sl-markdown-content h3#checks + table td:nth-child(4) {
+		display: block;
+		margin-top: 0.25rem;
+	}
 }
 
 @media (min-width: 50rem) {
