@@ -225,7 +225,10 @@ func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction)
 		// https://github.com/cloudflare/artifact-fs/blob/2b87a48691ef4ae82d391b7bbe4976c06c7fadf7/internal/fusefs/fuse_unix.go#L256-L287
 		owner := resourceFieldOwner(typed, analysis.resource)
 		_, field := typed.Addr.(*ssa.FieldAddr)
-		return resourceReasonStoredOnCollectionOwner, field && owner != nil && ssaflow.ElementOfAggregate(owner)
+		if field && owner != nil && ssaflow.ElementOfAggregate(owner) {
+			return resourceReasonStoredOnCollectionOwner, true
+		}
+		return resourceReasonWrapperStoredOnForeignOwner, analysis.wrapperStoredOnForeignOwner(typed)
 	case *ssa.Send:
 		return resourceReasonSentToChannel, analysis.carries(typed.X)
 	case *ssa.MapUpdate:
@@ -283,6 +286,12 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	if callee == nil {
 		// A function value: the callee is decided at run time.
 		return resourceReasonDynamicCallee, carried
+	}
+	// A callee proven to store a constructor chain over the resource takes it,
+	// whether the chain derives from the resource directly or holds it inside
+	// an aggregate; see keptThroughChain.
+	if analysis.chainKept(instruction, common) {
+		return resourceReasonAggregateOwnerMayEscape, true
 	}
 	if !carried {
 		return resourceReasonNone, false
@@ -506,20 +515,91 @@ func (analysis *resourceAnalysis) carries(value ssa.Value) bool {
 }
 
 func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool {
-	// A wrapper may receive the resource inside a variadic aggregate instead
-	// of as a direct operand. Keep that possible containment when its result
-	// is handed to another callee. This is only an opaque-consumption query;
-	// it never establishes exact identity or that the wrapper owns cleanup.
-	// https://github.com/Mmx233/BitSrunLoginGo/blob/a744f312b3835f329eb98e45c8d19bc2a5b7d4c0/internal/config/log.go#L58-L59
-	call, ok := value.(*ssa.Call)
+	return analysis.wrapsResource(value, 0, false)
+}
+
+// chainKept reports whether some argument reaches a callee proven to keep it
+// through a chain of constructors over the resource; see keptThroughChain.
+func (analysis *resourceAnalysis) chainKept(instruction ssa.Instruction, common *ssa.CallCommon) bool {
+	for index, argument := range common.Args {
+		if analysis.keptThroughChain(instruction, index, argument) {
+			return true
+		}
+	}
+	return false
+}
+
+// wrapperStoredOnForeignOwner reports whether a store hands a constructor chain
+// over the resource to an object this function did not allocate: a field or
+// element of a parameter, a global, or an object a call returned. The resource
+// then lives as long as that object, so its release is no longer this
+// function's to prove. A logger routed into a server's error log is the
+// common case. A chain stored into a local allocation stays owed here.
+// https://github.com/1parado/grok-build-switch/blob/c1ee703bf6000abd92d8d29ca94a4ed59cb510f2/main.go#L173-L176
+func (analysis *resourceAnalysis) wrapperStoredOnForeignOwner(store *ssa.Store) bool {
+	if heapmodel.MayAlias(store.Val, analysis.resource) || !analysis.wrapsResource(store.Val, maxWrapperChain, true) {
+		return false
+	}
+	root := store.Addr
+	for {
+		switch address := root.(type) {
+		case *ssa.FieldAddr:
+			root = address.X
+		case *ssa.IndexAddr:
+			root = address.X
+		case *ssa.Alloc:
+			return false
+		default:
+			return true
+		}
+	}
+}
+
+// keptThroughChain reports whether a callee proven to store its argument
+// receives a chain of constructors that holds the resource. A logger over a
+// file is the common case: slog.SetDefault stores the logger that keeps the
+// handler that keeps the MultiWriter that keeps the file, so the file now
+// belongs to the process. Unlike a single wrapper, a chain counts only at a
+// callee proven to store it: a method call on the logger with unknown effects,
+// such as Info, does not publish the file, and a chain the function merely
+// uses still leaves it owed.
+func (analysis *resourceAnalysis) keptThroughChain(instruction ssa.Instruction, index int, argument ssa.Value) bool {
+	if !analysis.wrapsResource(argument, maxWrapperChain, false) {
+		return false
+	}
+	// Only the strict stored claim proves the callee keeps the argument; the
+	// may-retain claim and retain effects also cover an opaque interface
+	// call, which Logger.Info makes with the handler it loads.
+	stored, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimStores)
+	return stored
+}
+
+// maxWrapperChain bounds how many constructors a wrapper chain may nest.
+const maxWrapperChain = 4
+
+// wrapsResource reports whether value is a call result that may keep the
+// resource: an argument holds it inside an aggregate, or, below the outermost
+// call when depth allows a chain, the argument is the resource itself or
+// another such wrapper. Every step needs its own callee to keep the argument,
+// or to be unknown. A wrapper may receive the resource inside a variadic
+// aggregate instead of as a direct operand. This is only an
+// opaque-consumption query; it never establishes exact identity or that the
+// wrapper owns cleanup.
+// https://github.com/Mmx233/BitSrunLoginGo/blob/a744f312b3835f329eb98e45c8d19bc2a5b7d4c0/internal/config/log.go#L58-L59
+// https://github.com/inkdust2021/VibeGuard/blob/12a46784a7ebca95f7765178edd8344a974da849/internal/log/log.go#L42-L47
+func (analysis *resourceAnalysis) wrapsResource(value ssa.Value, depth int, direct bool) bool {
+	call, ok := unwrapWrapper(value).(*ssa.Call)
 	if !ok {
 		return false
 	}
-	if _, scalar := value.Type().Underlying().(*types.Basic); scalar || syntax.IsErrorType(value.Type()) {
+	if _, scalar := call.Type().Underlying().(*types.Basic); scalar || syntax.IsErrorType(call.Type()) {
 		return false
 	}
 	for _, argument := range call.Common().Args {
-		if heapmodel.MayAlias(argument, analysis.resource) || !analysis.carriesWithin(argument) {
+		exact := heapmodel.MayAlias(argument, analysis.resource)
+		held := !exact && analysis.carriesWithin(argument) || direct && exact ||
+			depth > 0 && analysis.wrapsResource(argument, depth-1, true)
+		if !held {
 			continue
 		}
 		// A visible transformation that does not retain its input is not a
@@ -530,6 +610,19 @@ func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool
 		}
 	}
 	return false
+}
+
+// unwrapWrapper peels the interface conversions a wrapper passes through on
+// its way to the next constructor, such as a handler boxed as slog.Handler.
+func unwrapWrapper(value ssa.Value) ssa.Value {
+	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentMakeInterface
+	for {
+		inner, ok := ssaflow.UnwrapTransparentValue(value, forms)
+		if !ok {
+			return value
+		}
+		value = inner
+	}
 }
 
 // carriesDirectly reports whether value is the resource itself or is produced

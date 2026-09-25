@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -308,8 +309,7 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 	if value, ok := instruction.(ssa.Value); ok {
 		graph.setValue(value, pointees{{region: graph.opaque(value)}: false})
 	}
-	if builtin, ok := common.Value.(*ssa.Builtin); ok {
-		graph.builtin(state, builtin, common, instruction)
+	if graph.definedCall(state, common, instruction, started) {
 		return
 	}
 	if started {
@@ -452,4 +452,51 @@ func (graph *regionGraph) lookup(state *regionState, lookup *ssa.Lookup) {
 		}
 	}
 	graph.setValue(lookup, result)
+}
+
+var (
+	atomicStores = []syntax.Symbol{
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Pointer", Name: "Store"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Pointer", Name: "Swap"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Value", Name: "Store"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Value", Name: "Swap"}),
+	}
+	atomicCompareAndSwaps = []syntax.Symbol{
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Pointer", Name: "CompareAndSwap"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Value", Name: "CompareAndSwap"}),
+	}
+)
+
+// definedCall applies a call whose effect the language or a documented
+// contract fixes: a builtin, or a sync/atomic store. It reports whether it
+// applied one.
+func (graph *regionGraph) definedCall(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction, started bool) bool {
+	if builtin, ok := common.Value.(*ssa.Builtin); ok {
+		graph.builtin(state, builtin, common, instruction)
+		return true
+	}
+	cell, written, ok := atomicStore(common)
+	if !ok || started {
+		return false
+	}
+	// sync/atomic documents Store, Swap, and CompareAndSwap as writing the
+	// new value into the receiver's cell. atomic.Pointer's own body converts
+	// the value to unsafe.Pointer for an intrinsic, which loses what it points
+	// to, so apply the documented store instead: a package atomic.Pointer,
+	// such as slog.SetDefault's, keeps it.
+	graph.storeInto(state, cell, written, instruction)
+	return true
+}
+
+// atomicStore returns the cell an atomic store method writes and the value it
+// writes there.
+func atomicStore(common *ssa.CallCommon) (ssa.Value, ssa.Value, bool) {
+	switch {
+	case ssaflow.CallMatchesAnySymbol(common, atomicStores...) && len(common.Args) == 2:
+		return common.Args[0], common.Args[1], true
+	case ssaflow.CallMatchesAnySymbol(common, atomicCompareAndSwaps...) && len(common.Args) == 3:
+		return common.Args[0], common.Args[2], true
+	default:
+		return nil, nil, false
+	}
 }

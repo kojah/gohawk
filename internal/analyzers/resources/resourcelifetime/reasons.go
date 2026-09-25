@@ -74,6 +74,7 @@ const (
 	resourceReasonStatementParentClosed
 	resourceReasonStoredInMap
 	resourceReasonStoredOnCollectionOwner
+	resourceReasonWrapperStoredOnForeignOwner
 	resourceReasonTestifyNoErrorGuard
 	resourceReasonUnownedReturn
 	resourceReasonUnsummarizedCallee
@@ -155,6 +156,7 @@ var resourceReasonCodes = [...]string{
 	resourceReasonStatementParentClosed:                    "statement-parent-closed",
 	resourceReasonStoredInMap:                              "stored-in-map",
 	resourceReasonStoredOnCollectionOwner:                  "stored-on-collection-owner",
+	resourceReasonWrapperStoredOnForeignOwner:              "wrapper-stored-on-foreign-owner",
 	resourceReasonTestifyNoErrorGuard:                      "testify-no-error-guard",
 	resourceReasonUnownedReturn:                            "unowned-return",
 	resourceReasonUnsummarizedCallee:                       "unsummarized-callee",

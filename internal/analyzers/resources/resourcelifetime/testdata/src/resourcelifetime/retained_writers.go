@@ -1,10 +1,10 @@
 package resourcelifetime
 
 // Accepted gap: the pre-existing global-transfer model can mistake a stored
-// scalar observation for retention. This boundary only handles one wrapper
-// around a positively contained aggregate. Longer chains, such as slog handler
-// and logger construction, remain unsupported rather than treating arbitrary
-// data dependence as ownership.
+// scalar observation for retention. This boundary handles one wrapper around
+// a positively contained aggregate; longer constructor chains count only at a
+// callee proven to store them (see logger_chains.go), rather than treating
+// arbitrary data dependence as ownership.
 
 import (
 	"bufio"

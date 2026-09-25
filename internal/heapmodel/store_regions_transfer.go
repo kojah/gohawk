@@ -305,8 +305,13 @@ func isAggregate(typ types.Type) bool {
 
 // store writes the value into the addressed slots.
 func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
-	targets := graph.pointees(stored.Addr)
-	value := graph.pointees(stored.Val)
+	graph.storeInto(state, stored.Addr, stored.Val, stored)
+}
+
+// storeInto writes written through address, as the instruction at does.
+func (graph *regionGraph) storeInto(state *regionState, address, written ssa.Value, at ssa.Instruction) {
+	targets := graph.pointees(address)
+	value := graph.pointees(written)
 	strong := len(targets) == 1
 	for target, stale := range targets {
 		if stale || target.region.kind == regionUnknown || lastStep(target.path) == pathStar {
@@ -315,8 +320,8 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 	}
 	if targets.unknown() {
 		state.opaque = true
-		graph.invalidateForeign(state, "", graph.id(stored), reachAny)
-		graph.escape(state, value, HeapEscapedField, stored)
+		graph.invalidateForeign(state, "", graph.id(at), reachAny)
+		graph.escape(state, value, HeapEscapedField, at)
 		return
 	}
 	// A write through a pointer that may reach an object the function did
@@ -332,21 +337,21 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 			continue
 		}
 		if target.region.kind != regionSite || state.escaped[target.region] {
-			graph.escape(state, value, escapeInto(target.region)|graph.reachOf(state, target.region), stored)
+			graph.escape(state, value, escapeInto(target.region)|graph.reachOf(state, target.region), at)
 		}
 		if target.region.kind != regionSite {
 			steps[stepKey(target.path)] = true
 		}
 	}
 	for _, step := range slices.Sorted(maps.Keys(steps)) {
-		graph.invalidateForeign(state, step, graph.id(stored), reachAny)
+		graph.invalidateForeign(state, step, graph.id(at), reachAny)
 	}
 	for target := range targets {
 		if target.region.kind == regionNil {
 			continue
 		}
-		if isAggregate(stored.Val.Type()) {
-			graph.storeAggregate(state, target, value, strong, graph.id(stored))
+		if isAggregate(written.Type()) {
+			graph.storeAggregate(state, target, value, strong, graph.id(at))
 			continue
 		}
 		if lastStep(target.path) == pathStar {
@@ -367,7 +372,7 @@ func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
 			state.contents[target] = existing
 		}
 		existing.union(value)
-		graph.bound(state, target, stored)
+		graph.bound(state, target, at)
 	}
 }
 

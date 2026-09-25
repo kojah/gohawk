@@ -70,8 +70,17 @@ callee that may retain it can make ownership uncertain, not prove cleanup.
 This includes `io.MultiWriter` installed as logging output. The wrapper must
 itself potentially retain the aggregate; an ignored input or read-only
 transformation does not establish this boundary. Discarding the wrapper does
-not by itself transfer ownership. Longer handler/logger construction chains
-remain outside this bounded model.
+not by itself transfer ownership.
+
+A longer chain of constructors that each keep their argument, such as
+`slog.New(slog.NewTextHandler(io.MultiWriter(os.Stderr, file), nil))`, hands the
+resource over only where a callee is proven to store it: `slog.SetDefault`
+installing the logger as the process default, for example. Storing such a
+chain into a field or element of an object the function did not allocate, or
+into a package variable, such as routing a logger into a server's `ErrorLog`,
+hands it to that object. A chain the function only uses, such as a logger
+whose `Info` it calls, or one stored into a local allocation, leaves the
+resource owed. Up to four constructors are followed.
 
 DB acquisitions through `PrepareContext`, `QueryContext`, and `BeginTx` are
 known to fail when the exact context from `WithCancel` or `WithCancelCause`
