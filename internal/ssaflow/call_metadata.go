@@ -17,8 +17,9 @@ func SourceSSAFunctions(pass *analysis.Pass) ([]*ssa.Function, error) {
 	if !ok {
 		return nil, errors.New("buildssa prerequisite returned unexpected result")
 	}
-	functions := make([]*ssa.Function, 0, len(result.SrcFuncs))
-	for _, function := range result.SrcFuncs {
+	sources := sourceFunctions(result)
+	functions := make([]*ssa.Function, 0, len(sources))
+	for _, function := range sources {
 		file := FunctionFile(pass, function)
 		if function.Syntax() == nil || file == nil || !syntax.AnalyzeFile(pass, file) {
 			continue
@@ -26,6 +27,31 @@ func SourceSSAFunctions(pass *analysis.Pass) ([]*ssa.Function, error) {
 		functions = append(functions, function)
 	}
 	return functions, nil
+}
+
+// sourceFunctions is buildssa's SrcFuncs plus the closures written in
+// package-level variable initializers. SrcFuncs walks only function
+// declarations, and such a closure belongs to the synthetic package
+// initializer instead, so without this every command body declared as
+// var cmd = &cli.Command{Action: func(...) {...}} would go unanalyzed.
+// The synthetic initializer itself has no source to analyze.
+func sourceFunctions(result *buildssa.SSA) []*ssa.Function {
+	functions := append([]*ssa.Function(nil), result.SrcFuncs...)
+	if result.Pkg == nil {
+		return functions
+	}
+	return appendClosures(functions, result.Pkg.Func("init"))
+}
+
+// appendClosures appends function's closures, nested ones included.
+func appendClosures(functions []*ssa.Function, function *ssa.Function) []*ssa.Function {
+	if function == nil {
+		return functions
+	}
+	for _, closure := range function.AnonFuncs {
+		functions = appendClosures(append(functions, closure), closure)
+	}
+	return functions
 }
 
 // PackageFunctions returns every source function of the package outside
@@ -36,8 +62,9 @@ func PackageFunctions(pass *analysis.Pass) []*ssa.Function {
 	if !ok {
 		return nil
 	}
-	functions := make([]*ssa.Function, 0, len(result.SrcFuncs))
-	for _, function := range result.SrcFuncs {
+	sources := sourceFunctions(result)
+	functions := make([]*ssa.Function, 0, len(sources))
+	for _, function := range sources {
 		if file := FunctionFile(pass, function); file != nil && syntax.ExcludedTestFile(pass, file) {
 			continue
 		}
@@ -62,6 +89,9 @@ func DeclaredFunctions(pkg *ssa.Package) []*ssa.Function {
 			add(closure)
 		}
 	}
+	// Closures in package-level variable initializers belong to the
+	// synthetic initializer; see sourceFunctions.
+	functions = appendClosures(functions, pkg.Func("init"))
 	scope := pkg.Pkg.Scope()
 	for _, name := range scope.Names() {
 		switch object := scope.Lookup(name).(type) {
