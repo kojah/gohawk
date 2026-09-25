@@ -366,6 +366,12 @@ func renderDiagnostic(output io.Writer, diagnostic positionedDiagnostic, context
 		if err != nil {
 			end = start
 		}
+		// Evidence that covers exactly the reported code labels the primary
+		// marker instead of drawing a second marker under it.
+		if start == spans[0].start && end == spans[0].end && spans[0].label == "" {
+			spans[0].label = related.Message
+			continue
+		}
 		spans = append(spans, labeledSpan{start: start, end: end, label: related.Message})
 	}
 	if contextLines < 0 || !renderSnippet(output, spans, contextLines, colors) {
@@ -415,7 +421,12 @@ func renderSnippet(output io.Writer, spans []labeledSpan, contextLines int, colo
 		if span.end.Filename != span.start.Filename || span.end.Line < span.start.Line {
 			span.end = span.start
 		}
-		span.end.Line = min(span.end.Line, len(lines))
+		// A span over several lines, such as a whole go statement, is marked
+		// on its first line only; underlining every line of a block buries
+		// the evidence around it.
+		if span.end.Line > span.start.Line {
+			span.end = sourcePosition{Filename: span.start.Filename, Line: span.start.Line, Column: len(lines[span.start.Line-1]) + 1}
+		}
 		valid = append(valid, span)
 	}
 	if len(valid) == 0 {
