@@ -30,9 +30,9 @@ head:
   <div class="landing-copy">
     <h1 class="landing-title">gohawk</h1>
     <p class="landing-tagline">Watch for bugs like a hawk!</p>
-    <p class="landing-body">gohawk is a correctness-oriented suite of Go analyzers. It uses SSA-backed
-    static analysis to catch bugs based on deep understanding of a program's control flow and
-    resource lifecycles.</p>
+    <p class="landing-body">gohawk is an industrial-grade static analyzer that finds resource
+    management and concurrency issues in Go code. It has been used to find and fix bugs in
+    <a href="https://github.com/moby/moby/pull/53517">Docker</a>, <a href="https://github.com/kubernetes/kubernetes/pull/142429">Kubernetes</a>, and <a href="https://github.com/caddyserver/caddy/pull/7968">Caddy</a>.</p>
     <p class="landing-get-started-row"><a class="landing-get-started" href="installation/">Get started <span aria-hidden="true">&rarr;</span></a></p>
   </div>
 </div>
