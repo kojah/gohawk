@@ -62,6 +62,14 @@ func OpenLeaky(ok bool) (*box, error) {
 	return &box{}, nil
 }
 func OpenUnknown(value *box, err error) (*box, error) { return value, err }
+func OpenAfterCall(produce func() (*box, error)) (*box, error) {
+	value, err := produce()
+	if err != nil {
+		return nil, err
+	}
+	_ = value
+	return &box{}, nil
+}
 
 // Identity.
 func Same(value *box) *box { return value }
@@ -96,6 +104,7 @@ func TestResultRelations(t *testing.T) {
 		"OpenMaybeNil":         {{0, NilWhenResultNonNil, 1}},
 		"OpenLeaky":            {{0, NonNilWhenResultNil, 1}},
 		"OpenUnknown":          {{0, ReturnsParameter, 0}, {1, ReturnsParameter, 1}},
+		"OpenAfterCall":        {{0, NilWhenResultNonNil, 1}},
 		"Same":                 {{0, ReturnsParameter, 0}},
 		"Chosen":               nil,
 		"Erased":               nil,

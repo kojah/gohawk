@@ -75,6 +75,7 @@ const (
 	resourceReasonStoredInMap
 	resourceReasonStoredOnCollectionOwner
 	resourceReasonWrapperStoredOnForeignOwner
+	resourceReasonAcquisitionUnreachable
 	resourceReasonTestifyNoErrorGuard
 	resourceReasonUnownedReturn
 	resourceReasonUnsummarizedCallee
@@ -157,6 +158,7 @@ var resourceReasonCodes = [...]string{
 	resourceReasonStoredInMap:                              "stored-in-map",
 	resourceReasonStoredOnCollectionOwner:                  "stored-on-collection-owner",
 	resourceReasonWrapperStoredOnForeignOwner:              "wrapper-stored-on-foreign-owner",
+	resourceReasonAcquisitionUnreachable:                   "acquisition-unreachable",
 	resourceReasonTestifyNoErrorGuard:                      "testify-no-error-guard",
 	resourceReasonUnownedReturn:                            "unowned-return",
 	resourceReasonUnsummarizedCallee:                       "unsummarized-callee",

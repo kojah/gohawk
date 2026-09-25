@@ -221,32 +221,52 @@ func (engine *Engine) resultRelation(function *ssa.Function, result, operand int
 			if !ok || result >= len(returned.Results) || operand >= len(returned.Results) {
 				continue
 			}
-			errorValue, resultValue := returned.Results[operand], returned.Results[result]
-			switch engine.value(errorValue, budget) {
-			case AlwaysNil:
-				if kind == NonNilWhenResultNil {
-					if engine.value(resultValue, budget) != AlwaysNonNil {
-						return false
-					}
-					witness = true
-				}
-			case AlwaysNonNil:
-				if kind == NilWhenResultNonNil {
-					if engine.value(resultValue, budget) != AlwaysNil {
-						return false
-					}
-					witness = true
-				}
-			default:
-				callee, resultIndex, operandIndex, forwarded := forwardedPair(resultValue, errorValue)
-				if !forwarded || !engine.function(callee, budget).Holds(kind, resultIndex, operandIndex) {
-					return false
-				}
-				witness = true
+			holds, witnessed := engine.returnHolds(returned.Results[result], returned.Results[operand], kind, budget)
+			if !holds {
+				return false
 			}
+			witness = witness || witnessed
 		}
 	}
 	return witness && !budget.Exhausted()
+}
+
+// returnHolds judges one return: whether it keeps the relation, and whether it
+// witnesses it rather than holding only vacuously, as a return whose error is
+// nil does for a claim about non-nil errors.
+func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind RelationKind, budget *ssaflow.SearchBudget) (bool, bool) {
+	switch engine.value(errorValue, budget) {
+	case AlwaysNil:
+		if kind == NonNilWhenResultNil {
+			return engine.value(resultValue, budget) == AlwaysNonNil, true
+		}
+		return true, false
+	case AlwaysNonNil:
+		if kind == NilWhenResultNonNil {
+			return engine.value(resultValue, budget) == AlwaysNil, true
+		}
+		return true, false
+	case Unknown, AlwaysTrue, AlwaysFalse:
+		// An error of unknown nilness is decided below by the result alone
+		// or by a forwarded pair.
+	}
+	// A return whose result already has the implied nilness holds the
+	// implication whatever its error: return nil, err after a failed call is
+	// nil where the error is non-nil.
+	if resultSatisfies(engine.value(resultValue, budget), kind) {
+		return true, true
+	}
+	callee, resultIndex, operandIndex, forwarded := forwardedPair(resultValue, errorValue)
+	if !forwarded || !engine.function(callee, budget).Holds(kind, resultIndex, operandIndex) {
+		return false, false
+	}
+	return true, true
+}
+
+// resultSatisfies reports whether a result of this guarantee meets the
+// relation's consequent on its own.
+func resultSatisfies(guarantee Guarantee, kind RelationKind) bool {
+	return kind == NilWhenResultNonNil && guarantee == AlwaysNil || kind == NonNilWhenResultNil && guarantee == AlwaysNonNil
 }
 
 // forwardedPair resolves a return that passes two results of one call

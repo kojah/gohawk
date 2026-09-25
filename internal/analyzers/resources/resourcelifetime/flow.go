@@ -88,6 +88,9 @@ func evaluateResourceFlow(
 	if analysis.cleanupRegisteredBefore(call) {
 		return acceptedResourceLifetime(resourceReasonOpaqueConsumption)
 	}
+	if !analysis.acquisitionReachable() {
+		return acceptedResourceLifetime(resourceReasonAcquisitionUnreachable)
+	}
 	// The walk starts on the instruction after the acquisition and keys its
 	// states by block, predecessor, and release status, so the same block is
 	// revisited only when a different path reaches it with a different

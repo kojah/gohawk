@@ -72,6 +72,7 @@ func TestResourceLifetimeReasonCodes(t *testing.T) {
 		resourceReasonStoredInMap:                              "stored-in-map",
 		resourceReasonStoredOnCollectionOwner:                  "stored-on-collection-owner",
 		resourceReasonWrapperStoredOnForeignOwner:              "wrapper-stored-on-foreign-owner",
+		resourceReasonAcquisitionUnreachable:                   "acquisition-unreachable",
 		resourceReasonTestifyNoErrorGuard:                      "testify-no-error-guard",
 		resourceReasonUnownedReturn:                            "unowned-return",
 		resourceReasonUnsummarizedCallee:                       "unsummarized-callee",
