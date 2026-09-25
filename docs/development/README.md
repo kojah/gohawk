@@ -16,6 +16,9 @@ Start with [Understanding SSA](../understanding-ssa.md) and the public
 
 ## Models
 
+- [Techniques and related work](techniques.md) — the analysis techniques
+  gohawk combines, where each lives in the code, and what it borrows from
+  Infer, Pulse, and the literature.
 - [Architecture in detail](architecture.md) — the shared engine, how a run is
   driven, and the invariants the architecture tests enforce.
 - [Fact model](fact-model.md) — modular function summaries, their
