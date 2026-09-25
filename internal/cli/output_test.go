@@ -98,7 +98,7 @@ func TestRenderDiagnosticDrawsLabeledEvidence(t *testing.T) {
 	}, 0, colorPalette{})
 	for _, want := range []string{
 		"warning: leaked [example/leak]",
-		filename + ":5:2",
+		"4 | \topen()",
 		"5 | \treturn",
 		"| \t^~~~~~ returns here without releasing it",
 		"= note: a location with no readable source",

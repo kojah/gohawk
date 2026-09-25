@@ -336,8 +336,9 @@ func terminalColors(output io.Writer) colorPalette {
 }
 
 // renderDiagnostic prints the message first and the stable check ID at the
-// end of the line, then the primary span and each piece of evidence as its
-// own labeled span.
+// end of the line, then the primary span. Evidence in the same file joins the
+// primary span in one snippet, in line order with "..." over the gaps, the way
+// rustc shows secondary spans; evidence elsewhere gets its own snippet.
 func renderDiagnostic(output io.Writer, diagnostic positionedDiagnostic, contextLines int, colors colorPalette) {
 	check := diagnostic.Check
 	if check == "" {
@@ -349,16 +350,91 @@ func renderDiagnostic(output io.Writer, diagnostic positionedDiagnostic, context
 		colors.dim, check, colors.reset)
 	writeFormattedf(output, "  %s-->%s %s:%d:%d\n", colors.cyan, colors.reset,
 		diagnostic.Start.Filename, diagnostic.Start.Line, diagnostic.Start.Column)
-	if contextLines >= 0 {
-		renderSource(output, diagnostic.Start, diagnostic.End, contextLines, colors, "")
-	}
+	spans := []labeledSpan{{start: diagnostic.Start, end: diagnostic.End}}
+	var elsewhere []jsonRelated
 	for _, related := range diagnostic.Related {
+		start, err := parsePosition(related.Posn)
+		if err != nil || start.Filename != diagnostic.Start.Filename {
+			elsewhere = append(elsewhere, related)
+			continue
+		}
+		end, err := parsePosition(related.End)
+		if err != nil {
+			end = start
+		}
+		spans = append(spans, labeledSpan{start: start, end: end, label: related.Message})
+	}
+	if contextLines < 0 || !renderSnippet(output, spans, contextLines, colors) {
+		for _, span := range spans[1:] {
+			writeFormattedf(output, "  = note: %s:%d:%d: %s\n", span.start.Filename, span.start.Line, span.start.Column, span.label)
+		}
+	}
+	for _, related := range elsewhere {
 		renderRelated(output, related, contextLines, colors)
 	}
 }
 
-// renderRelated draws one piece of evidence as a source span labeled with its
-// message. Without a readable source line it falls back to a note.
+// labeledSpan is a source range with an optional label drawn after its marker.
+type labeledSpan struct {
+	start, end sourcePosition
+	label      string
+}
+
+// renderSnippet draws spans from one file in line order, sharing one gutter,
+// with "..." where lines between them are skipped. It reports whether the
+// source could be read.
+func renderSnippet(output io.Writer, spans []labeledSpan, contextLines int, colors colorPalette) bool {
+	data, err := os.ReadFile(spans[0].start.Filename)
+	if err != nil {
+		return false
+	}
+	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
+	valid := spans[:0:0]
+	for _, span := range spans {
+		if span.start.Line < 1 || span.start.Line > len(lines) {
+			continue
+		}
+		if span.end.Filename != span.start.Filename || span.end.Line < span.start.Line {
+			span.end = span.start
+		}
+		span.end.Line = min(span.end.Line, len(lines))
+		valid = append(valid, span)
+	}
+	if len(valid) == 0 {
+		return false
+	}
+	sort.SliceStable(valid, func(i, j int) bool { return valid[i].start.Line < valid[j].start.Line })
+	last := min(len(lines), valid[len(valid)-1].end.Line+contextLines)
+	width := len(strconv.Itoa(last))
+	writeFormattedf(output, "%*s %s|%s\n", width, "", colors.cyan, colors.reset)
+	printed := 0
+	for _, span := range valid {
+		first := max(1, span.start.Line-contextLines, printed+1)
+		if printed > 0 && first > printed+1 {
+			writeFormattedf(output, "%s...%s\n", colors.cyan, colors.reset)
+		}
+		stop := min(len(lines), span.end.Line+contextLines)
+		for lineNumber := first; lineNumber <= stop; lineNumber++ {
+			line := lines[lineNumber-1]
+			writeFormattedf(output, "%s%*d |%s %s\n", colors.cyan, width, lineNumber, colors.reset, line)
+			if lineNumber < span.start.Line || lineNumber > span.end.Line {
+				continue
+			}
+			column, length := markerRange(line, lineNumber, span.start, span.end)
+			suffix := ""
+			if span.label != "" && lineNumber == span.end.Line {
+				suffix = " " + colors.bold + span.label + colors.reset
+			}
+			writeFormattedf(output, "%*s %s|%s %s%s%s%s%s\n", width, "", colors.cyan, colors.reset,
+				markerIndent(line, column), colors.red, "^"+strings.Repeat("~", length-1), colors.reset, suffix)
+		}
+		printed = max(printed, stop)
+	}
+	return true
+}
+
+// renderRelated draws evidence from another file as its own snippet, falling
+// back to a note when the source cannot be read.
 func renderRelated(output io.Writer, related jsonRelated, contextLines int, colors colorPalette) {
 	start, err := parsePosition(related.Posn)
 	if err != nil || contextLines < 0 {
@@ -370,48 +446,9 @@ func renderRelated(output io.Writer, related jsonRelated, contextLines int, colo
 		end = start
 	}
 	writeFormattedf(output, "  %s-->%s %s:%d:%d\n", colors.cyan, colors.reset, start.Filename, start.Line, start.Column)
-	if !renderSource(output, start, end, 0, colors, related.Message) {
+	if !renderSnippet(output, []labeledSpan{{start: start, end: end, label: related.Message}}, 0, colors) {
 		writeFormattedf(output, "  = note: %s\n", related.Message)
 	}
-}
-
-// renderSource prints the lines of a span with a marker under it, and label
-// after the marker on the span's last line. It reports whether it could read
-// the source.
-func renderSource(output io.Writer, start, end sourcePosition, contextLines int, colors colorPalette, label string) bool {
-	data, err := os.ReadFile(start.Filename)
-	if err != nil {
-		return false
-	}
-	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
-	if start.Line < 1 || start.Line > len(lines) {
-		return false
-	}
-	if end.Filename != start.Filename || end.Line < start.Line {
-		end = start
-	}
-	if end.Line > len(lines) {
-		end.Line = len(lines)
-	}
-	first := max(1, start.Line-contextLines)
-	last := min(len(lines), end.Line+contextLines)
-	width := len(strconv.Itoa(last))
-	writeFormattedf(output, "%*s %s|%s\n", width, "", colors.cyan, colors.reset)
-	for lineNumber := first; lineNumber <= last; lineNumber++ {
-		line := lines[lineNumber-1]
-		writeFormattedf(output, "%s%*d |%s %s\n", colors.cyan, width, lineNumber, colors.reset, line)
-		if lineNumber < start.Line || lineNumber > end.Line {
-			continue
-		}
-		column, length := markerRange(line, lineNumber, start, end)
-		suffix := ""
-		if label != "" && lineNumber == end.Line {
-			suffix = " " + colors.bold + label + colors.reset
-		}
-		writeFormattedf(output, "%*s %s|%s %s%s%s%s%s\n", width, "", colors.cyan, colors.reset,
-			markerIndent(line, column), colors.red, "^"+strings.Repeat("~", length-1), colors.reset, suffix)
-	}
-	return true
 }
 
 func markerRange(line string, lineNumber int, start, end sourcePosition) (int, int) {
