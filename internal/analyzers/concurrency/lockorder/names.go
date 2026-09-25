@@ -1,11 +1,5 @@
 package lockorder
 
-// How a diagnostic names a lock. The analysis keys locks by identities and
-// classes built from SSA, such as "(*pkg.Cache).Put.c.mu", which are exact
-// but unreadable. A reader knows the lock by the receiver written at its Lock
-// call, so diagnostics use that text when the call is in this package and
-// fall back to the identity otherwise. Naming never affects what is reported.
-
 import (
 	"go/token"
 	"strings"
@@ -14,6 +8,12 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
+
+// How a diagnostic names a lock. The analysis keys locks by identities and
+// classes built from SSA, such as "(*pkg.Cache).Put.c.mu", which are exact
+// but unreadable. A reader knows the lock by the receiver written at its Lock
+// call, so diagnostics use that text when the call is in this package and
+// fall back to the identity otherwise. Naming never affects what is reported.
 
 func (acquired lockAcquisition) verb() string {
 	if acquired.read {
