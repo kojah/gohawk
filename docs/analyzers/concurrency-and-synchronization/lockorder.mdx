@@ -20,7 +20,7 @@ the corresponding release policy.
 | --- | --- | --- | --- |
 | <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports return paths that leave an owned lock held. |
 | <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
-| <CheckIdentity name="contradictory-order" tier="extended" /> | hazard | extended | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
+| <CheckIdentity name="contradictory-order" tier="core" /> | hazard | core | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
 | <CheckIdentity name="lock-and-join" tier="experimental" /> | defect | experimental | Reports a wait while holding a mutex that every possible completion worker must acquire. |
 | <CheckIdentity name="channel-lock-cycle" tier="experimental" /> | defect | experimental | Reports a receive on a fresh unbuffered channel whose possible senders first need the receiver's held mutex. |
 | <CheckIdentity name="waitgroup-lock-cycle" tier="experimental" /> | defect | experimental | Reports a WaitGroup wait whose counted workers all need the caller's held mutex before Done. |
@@ -108,7 +108,7 @@ This avoids amplifying pooled-instance uncertainty or repeating an existing
 warning as several larger cycles.
 
 The graph still compares declaration classes, not runtime object aliases.
-A cycle is an extended hazard, not proof that those calls run concurrently
+A cycle is a hazard, not proof that those calls run concurrently
 on the same objects. Same-class pairs and unclassified locks do not form edges.
 Opaque calls, asynchronous calls, and dynamic indexed locks do not contribute
 guessed helper acquisitions.

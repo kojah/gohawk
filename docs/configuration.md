@@ -68,9 +68,6 @@ To select one check rather than its whole analyzer, use the stable ID shown by
 `gohawk list -checks`:
 
 ```sh
-# Run one extended check, whatever the tier ceiling.
-gohawk -enable-checks=lockorder/contradictory-order ./...
-
 # Run one experimental audit alongside the core checks.
 gohawk -enable-checks=lockorder/read-lock-write ./...
 

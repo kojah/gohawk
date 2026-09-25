@@ -46,7 +46,7 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 			},
 			{
 				ID: check.LockContradictoryOrder, Doc: "Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence.",
-				Kind: catalog.KindHazard, Tier: catalog.TierExtended,
+				Kind: catalog.KindHazard, Tier: catalog.TierCore,
 			},
 			{
 				ID: check.LockAndJoin, Doc: "Reports a wait while holding a mutex that every possible completion worker must acquire.",

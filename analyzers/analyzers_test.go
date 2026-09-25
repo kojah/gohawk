@@ -161,7 +161,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"resourcelifetime/use-after-release":  CheckTierCore,
-		"lockorder/contradictory-order":       CheckTierExtended,
+		"lockorder/contradictory-order":       CheckTierCore,
 		"lockorder/lock-and-join":             CheckTierExperimental,
 		"lockorder/channel-lock-cycle":        CheckTierExperimental,
 		"lockorder/waitgroup-lock-cycle":      CheckTierExperimental,

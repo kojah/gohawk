@@ -2,18 +2,14 @@ package suppressedoptin
 
 import "sync"
 
-var first, second sync.Mutex
-
-func forward() {
-	first.Lock()
-	defer first.Unlock()
-	second.Lock()
-	defer second.Unlock()
+// read-lock-write is experimental, so the default profile must not report it.
+type cache struct {
+	mu   sync.RWMutex
+	hits int
 }
 
-func reverse() {
-	second.Lock()
-	defer second.Unlock()
-	first.Lock()
-	defer first.Unlock()
+func (c *cache) record() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	c.hits++
 }

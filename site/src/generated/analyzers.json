@@ -84,7 +84,7 @@
               "id": "lockorder/contradictory-order",
               "summary": "Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence.",
               "kind": "hazard",
-              "tier": "extended"
+              "tier": "core"
             },
             {
               "id": "lockorder/lock-and-join",
