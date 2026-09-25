@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
 )
@@ -199,6 +200,8 @@ func renderDocumentationFooter(output io.Writer, diagnostics []positionedDiagnos
 	for _, link := range links {
 		writeLine(output, link)
 	}
+	writeLine(output, "To see the full reasoning behind a finding, rerun with")
+	writeLine(output, "  -gohawk-trace=<analyzer> -gohawk-trace-candidate=<file:line>")
 }
 
 func diagnosticExitCode(diagnostics []positionedDiagnostic, analysisErrors []string) int {
@@ -373,7 +376,21 @@ func renderDiagnostic(output io.Writer, diagnostic positionedDiagnostic, context
 	for _, related := range elsewhere {
 		renderRelated(output, related, contextLines, colors)
 	}
+	if help := checkHelp()[diagnostic.Check]; help != "" {
+		writeFormattedf(output, "  %s=%s %shelp:%s %s\n", colors.cyan, colors.reset, colors.bold, colors.reset, help)
+	}
 }
+
+// checkHelp maps each check ID to its one-sentence fix, from the catalog.
+var checkHelp = sync.OnceValue(func() map[string]string {
+	help := make(map[string]string)
+	for _, info := range gohawk.AnalyzerMetadata() {
+		for _, check := range info.Checks {
+			help[string(check.ID)] = check.Help
+		}
+	}
+	return help
+})
 
 // labeledSpan is a source range with an optional label drawn after its marker.
 type labeledSpan struct {

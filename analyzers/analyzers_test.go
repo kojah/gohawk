@@ -292,3 +292,13 @@ func TestReportedDiagnosticsLinkTheirAnalyzerPage(t *testing.T) {
 		t.Fatalf("diagnostic URLs = %v, want %v", urls, want)
 	}
 }
+
+func TestEveryCheckHasHelp(t *testing.T) {
+	for name, info := range AnalyzerMetadata() {
+		for _, check := range info.Checks {
+			if strings.TrimSpace(check.Help) == "" {
+				t.Errorf("%s: check %q has no help text for its diagnostics", name, check.ID)
+			}
+		}
+	}
+}

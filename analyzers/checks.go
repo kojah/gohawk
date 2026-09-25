@@ -42,8 +42,10 @@ func (tier CheckTier) Within(ceiling CheckTier) bool {
 
 // AnalyzerCheckInfo describes a specific diagnostic rule.
 type AnalyzerCheckInfo struct {
-	ID   AnalyzerCheck
-	Doc  string
+	ID  AnalyzerCheck
+	Doc string
+	// Help is one sentence on the usual fix for a diagnostic from this check.
+	Help string
 	Kind CheckKind
 	Tier CheckTier
 }

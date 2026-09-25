@@ -76,8 +76,10 @@ func tierRank(tier CheckTier) int {
 
 // CheckInfo describes one independently configurable diagnostic rule.
 type CheckInfo struct {
-	ID   check.ID
-	Doc  string
+	ID  check.ID
+	Doc string
+	// Help is one sentence on the usual fix, printed under each diagnostic.
+	Help string
 	Kind CheckKind
 	Tier CheckTier
 	// Delisted withdraws the check from the catalog while leaving its

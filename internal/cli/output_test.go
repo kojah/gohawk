@@ -66,7 +66,9 @@ func TestDocumentationFooterLinksEachAnalyzerOnce(t *testing.T) {
 	})
 	want := "\nLearn more about these findings:\n" +
 		"  lockorder: https://gohawk.dev/analyzers/concurrency-and-synchronization/lockorder/\n" +
-		"  resourcelifetime: https://gohawk.dev/analyzers/resources-and-lifecycle/resourcelifetime/\n"
+		"  resourcelifetime: https://gohawk.dev/analyzers/resources-and-lifecycle/resourcelifetime/\n" +
+		"To see the full reasoning behind a finding, rerun with\n" +
+		"  -gohawk-trace=<analyzer> -gohawk-trace-candidate=<file:line>\n"
 	if output.String() != want {
 		t.Fatalf("footer = %q, want %q", output.String(), want)
 	}
@@ -132,5 +134,18 @@ func TestRenderDiagnosticKeepsOverlappingMarkers(t *testing.T) {
 	}
 	if !strings.Contains(text, "| \t\t^~~~~~~~~\n") || !strings.Contains(text, "the whole loop") {
 		t.Errorf("both the primary marker and the evidence label should appear:\n%s", text)
+	}
+}
+
+func TestRenderDiagnosticPrintsCheckHelp(t *testing.T) {
+	var output bytes.Buffer
+	renderDiagnostic(&output, positionedDiagnostic{
+		Analyzer: "resourcelifetime",
+		Check:    "resourcelifetime/missing-release",
+		Start:    sourcePosition{Filename: "missing.go", Line: 1, Column: 1},
+		Message:  "leaked",
+	}, 0, colorPalette{})
+	if !strings.Contains(output.String(), "= help: release it on every return path") {
+		t.Errorf("help line missing:\n%s", output.String())
 	}
 }
