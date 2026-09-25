@@ -16,7 +16,9 @@ const blog = defineCollection({
 export const collections = {
 	blog,
 	docs: defineCollection({
-		loader: glob({ pattern: '**/*.{md,mdx}', base: '../docs' }),
+		// docs/development holds maintained contributor references that are read
+		// in the repository, not published on the site.
+		loader: glob({ pattern: ['**/*.{md,mdx}', '!development/**'], base: '../docs' }),
 		schema: docsSchema({
 			extend: z.object({
 				seoTitle: z.string().optional(),

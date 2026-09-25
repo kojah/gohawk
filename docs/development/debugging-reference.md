@@ -32,7 +32,7 @@ parameter, each with its heap projection as `heap …` lines, including the
 `requires` lines that name the methods it calls on what it was handed. Only summarized
 functions appear: a function that is missing has no fact and is `unknown`
 to every consumer, which is different from a function whose fact shows a
-clear bit. See [Inferred facts](../fact-model/).
+clear bit. See [Inferred facts](fact-model.md).
 
 `-regions` prints every function of the package, private helpers and
 literals included, with the summary the registry holds for it and the

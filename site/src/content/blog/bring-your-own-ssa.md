@@ -51,4 +51,4 @@ Finish with the question of what happens when the wait moves into another functi
 
 - [Go SSA package](https://pkg.go.dev/golang.org/x/tools/go/ssa)
 - [The process-start contract](https://pkg.go.dev/os/exec#Cmd.Start)
-- [Reading SSA in gohawk](/development/understanding-ssa/)
+- [Reading SSA in gohawk](/understanding-ssa/)

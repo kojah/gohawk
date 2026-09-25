@@ -241,11 +241,13 @@ func documentationPages(t *testing.T, root string) []documentationPage {
 		filepath.Join(root, "docs", "architecture.md"),
 		filepath.Join(root, "docs", "contributing.md"),
 	}
-	development, err := filepath.Glob(filepath.Join(root, "docs", "development", "*.md"))
-	if err != nil {
-		t.Fatal(err)
+	for _, pattern := range []string{"*.md", "*/*.md"} {
+		development, err := filepath.Glob(filepath.Join(root, "docs", "development", pattern))
+		if err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, development...)
 	}
-	paths = append(paths, development...)
 	skills, err := filepath.Glob(filepath.Join(root, ".agents", "skills", "*", "SKILL.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -367,16 +369,16 @@ func checkInventoryCoverage(t *testing.T, root string, symbols *documentedSymbol
 			t.Errorf("docs/development/fact-model.md does not document the Fact field %s", field)
 		}
 	}
-	architecture := readFile(t, filepath.Join(root, "docs", "architecture.md"))
+	architecture := readFile(t, filepath.Join(root, "docs", "development", "architecture.md"))
 	for _, test := range slices.Sorted(maps.Keys(tests)) {
 		if !mentionsIdentifier(architecture, test) {
-			t.Errorf("docs/architecture.md invariants table does not list %s", test)
+			t.Errorf("docs/development/architecture.md invariants table does not list %s", test)
 		}
 	}
-	ssaPage := readFile(t, filepath.Join(root, "docs", "development", "understanding-ssa.md"))
+	ssaPage := readFile(t, filepath.Join(root, "docs", "understanding-ssa.md"))
 	for _, form := range ssaFormsHandled(t) {
 		if !mentionsIdentifier(ssaPage, form) {
-			t.Errorf("docs/development/understanding-ssa.md does not describe the SSA form %s", form)
+			t.Errorf("docs/understanding-ssa.md does not describe the SSA form %s", form)
 		}
 	}
 }

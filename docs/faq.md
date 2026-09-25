@@ -159,7 +159,7 @@ origin of each value easy to follow.
 gohawk uses it to answer questions like "is this file closed on every way out
 of the function?" and "was this value handed off to someone else?"
 
-[Understanding SSA](/development/understanding-ssa/) explains it visually, with
+[Understanding SSA](/understanding-ssa/) explains it visually, with
 Go examples.
 
 ## What is gohawk's reasoning model?

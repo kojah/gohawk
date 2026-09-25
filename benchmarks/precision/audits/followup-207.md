@@ -1,7 +1,7 @@
 # Continued review of the 207 remaining false positives
 
 This follow-up was stopped at the user's request for a Claude handoff, not
-completed. See [the handoff](../../../CLAUDE_HANDOFF.md) for the checkpoint,
+completed. See [the handoff](../../../docs/development/handoffs/2026-09-22-precision-followup.md) for the checkpoint,
 remaining work, and archived unvalidated experiments. The
 [frozen input](followup-207-input.tsv) contains all 207 reviewed false positives:
 140 resource, 23 lock, 17 goroutine, 9 process/cancellation, and 18 other findings.

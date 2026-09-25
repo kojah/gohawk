@@ -378,7 +378,7 @@ says the function calls `Read` on the object it was handed at `P0` on
 every normal return, directly or through a summarized callee. A consumer
 reads them through `ArgumentMethodsRequired`; the use-after-release check
 treats a helper call whose requirement names an invalidating method of
-the released resource as the use. See [Preconditions](../preconditions/).
+the released resource as the use. See [Preconditions](preconditions.md).
 
 An escape is recorded per slot, not per object: the address of a field
 handed to a callee escapes what that field holds and everything beneath it,
@@ -484,7 +484,7 @@ visible for the same reason.
 and traces its read, mutation, retention, async, and invocation evidence. A
 clear `Retained` bit is not a read-only guarantee. This query requires a visible
 body and does not synthesize effects from missing lifecycle-summary bits; see
-[Local storage model](../storage-model/).
+[Local storage model](storage-model.md).
 
 ## What the model can express
 

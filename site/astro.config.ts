@@ -102,26 +102,10 @@ export default defineConfig({
 					label: 'Contributing',
 					items: [
 						{ slug: 'contributing' },
-						// The development references are contributor material, so they sit
-						// inside Contributing rather than beside it. This is the same
-						// group-within-a-section shape the analyzer groups use.
-						{
-							label: 'Development',
-							items: [
-								// What the analysis is built out of comes first: the layers a run
-								// moves through, then what a cross-package fact may claim. The
-								// pages below answer questions that arise while writing a check.
-								{
-									label: 'Architecture',
-									items: [
-										{ slug: 'architecture' },
-										{ slug: 'development/understanding-ssa' },
-										{ slug: 'development/fact-model' },
-									],
-								},
-								{ slug: 'development/debugging-reference' },
-							],
-						},
+						// The detailed development references live in docs/development and
+						// are read in the repository; the site keeps the two overviews.
+						{ slug: 'architecture' },
+						{ slug: 'understanding-ssa' },
 						// Policy for contributors, so it closes the section rather than
 						// sitting among the development references.
 						{ slug: 'ai-policy' },

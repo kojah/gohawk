@@ -8,7 +8,7 @@ sidebar:
 Every gohawk analyzer that reasons about ownership, lifecycle, or control flow
 works on the SSA form of a function, not on its syntax tree. This page
 explains what that form is, why it makes the analyses possible, and how to
-read the dump `gohawk ssa` prints. The [debugging reference](../debugging-reference/)
+read the dump `gohawk ssa` prints. The [debugging reference](https://github.com/kojah/gohawk/blob/main/docs/development/debugging-reference.md)
 covers the dump commands themselves.
 
 An `ssa.Program` owns packages, method sets, and compiler-generated method

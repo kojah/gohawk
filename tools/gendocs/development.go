@@ -52,7 +52,7 @@ type developmentBlock struct {
 const helperIndexPage = ".agents/skills/gohawk-codebase/references/shared-helpers.md"
 
 var developmentBlocks = []developmentBlock{
-	{page: "docs/development/understanding-ssa.md", start: generatedSSAStart, end: generatedSSAEnd, render: ssaExampleBlock},
+	{page: "docs/understanding-ssa.md", start: generatedSSAStart, end: generatedSSAEnd, render: ssaExampleBlock},
 	{page: "docs/development/fact-model.md", start: generatedFactFieldsStart, end: generatedFactFieldsEnd, render: factFieldsBlock},
 	{
 		page: "docs/development/debugging-reference.md", start: generatedTraceFlagsStart, end: generatedTraceFlagsEnd,

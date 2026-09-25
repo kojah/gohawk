@@ -144,7 +144,7 @@ test sees.
 A summary also carries requirements, the precondition half: the methods
 the function calls on the object at a named slot on every normal return,
 which a caller checks against what it has already done to that object.
-See [Preconditions](../preconditions/).
+See [Preconditions](preconditions.md).
 
 ## Boundaries
 
