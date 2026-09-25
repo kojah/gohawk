@@ -26,7 +26,7 @@ const (
 // budget was introduced. They may shrink but not grow.
 var publicPageBaseline = map[string]int{
 	"docs/index.md":             242,
-	"docs/understanding-ssa.md": 263,
+	"docs/understanding-ssa.md": 206,
 }
 
 // A commit-pinned link to a dogfooded repository is evidence for a precision

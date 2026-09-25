@@ -375,16 +375,16 @@ func checkInventoryCoverage(t *testing.T, root string, symbols *documentedSymbol
 			t.Errorf("docs/development/architecture.md invariants table does not list %s", test)
 		}
 	}
-	ssaPage := readFile(t, filepath.Join(root, "docs", "understanding-ssa.md"))
+	ssaPage := readFile(t, filepath.Join(root, "docs", "development", "ssa-in-gohawk.md"))
 	for _, form := range ssaFormsHandled(t) {
 		if !mentionsIdentifier(ssaPage, form) {
-			t.Errorf("docs/understanding-ssa.md does not describe the SSA form %s", form)
+			t.Errorf("docs/development/ssa-in-gohawk.md does not describe the SSA form %s", form)
 		}
 	}
 }
 
 // ssaFormsHandled returns every golang.org/x/tools/go/ssa type the analyzer
-// production code names as `*ssa.Name`, so the Understanding SSA page must
+// production code names as `*ssa.Name`, so the SSA development note must
 // describe each form the analyses actually handle.
 func ssaFormsHandled(t *testing.T) []string {
 	t.Helper()
