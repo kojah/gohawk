@@ -131,13 +131,6 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		}
 	})
 
-	t.Run("removed analyzer option", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-resourcelifetime.contracts=os", "./...")
-		if exitCode != 2 || !strings.Contains(output, `analyzer option "resourcelifetime.contracts" was removed`) {
-			t.Fatalf("exit code = %d, want 2 with removal error\n%s", exitCode, output)
-		}
-	})
-
 	t.Run("JSON output", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-json", "-enable=channelsafety", "./...")
 		if exitCode != 3 {

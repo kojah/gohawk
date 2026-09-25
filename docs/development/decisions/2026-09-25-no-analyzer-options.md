@@ -7,8 +7,7 @@ Decided 2026-09-25.
 gohawk analyzers declare no flags. Users choose what runs with the selection
 flags (`-enable`, `-disable`, `-enable-checks`, `-disable-checks`, groups, and
 `-tier`), and every selected check behaves the same way in every project.
-A test in `analyzers/analyzers_test.go` enforces this,
-and the CLI rejects a former `-ANALYZER.option` flag with a message naming it.
+A test in `analyzers/analyzers_test.go` enforces this.
 
 ## Why
 
