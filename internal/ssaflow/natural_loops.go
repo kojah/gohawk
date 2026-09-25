@@ -51,6 +51,12 @@ func OutermostLoops(function *ssa.Function, budget *SearchBudget) ([]NaturalLoop
 	return outermost, true
 }
 
+// NaturalLoopAt returns the natural loop whose header is header, nested loops
+// included, or false when no back edge enters header.
+func NaturalLoopAt(header *ssa.BasicBlock, budget *SearchBudget) (NaturalLoop, bool) {
+	return naturalLoop(header, budget)
+}
+
 // naturalLoop collects the loop whose back edges enter header: edges from
 // blocks that header dominates.
 func naturalLoop(header *ssa.BasicBlock, budget *SearchBudget) (NaturalLoop, bool) {

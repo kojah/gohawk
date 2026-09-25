@@ -13,21 +13,31 @@ import (
 
 // An unexported field of a struct declared in this package can only be read or
 // written by this package, so scanning every function the package builds
-// yields every use of a channel stored there. That closed world is the only
-// evidence this file produces: which functions send on, receive from, and
-// close the channel, and how it was made. Reflection and unsafe can reach the
-// field anyway; this analysis does not model them. Any use it cannot classify
-// makes the whole field unknown rather than guessing at the missing partner.
+// yields every use of a channel stored there. In a main package every field
+// is closed this way, since the go command never lets another package import
+// main. That closed world is the only evidence this file produces: which
+// functions send on, receive from, and close the channel, and how it was
+// made. Each check decides which of those facts it accepts. Reflection and
+// unsafe can reach the field anyway; this analysis does not model them. A use
+// it cannot classify at all makes the whole field unknown rather than
+// guessing at the missing partner.
 
 // ownedChannel is the package-wide inventory of one unexported channel field.
 type ownedChannel struct {
 	field *types.Var
-	// unknown is the first use the inventory cannot classify: a plain
-	// receive, a buffered make, a store of anything but a fresh channel, a
-	// by-value copy, or the channel or its address escaping into other code.
+	// unknown is the first use the inventory cannot classify: a store of
+	// anything but a fresh channel, a by-value copy, or the channel or its
+	// address escaping into other code.
 	unknown  loopReason
 	sends    []*ssa.Send
 	receives []*ssa.Select
+	// plainReceives are receives outside a select, including the receive
+	// that drives a range loop.
+	plainReceives []*ssa.UnOp
+	// buffered records a fresh channel made with a nonzero or unknown size.
+	buffered bool
+	// closes lists every close, called or deferred.
+	closes []ssa.CallInstruction
 	// signalled records a send or close, in any form, so a stop arm that
 	// receives from this field can actually fire.
 	signalled bool
@@ -121,7 +131,7 @@ func ownedField(pkg *types.Package, address *ssa.FieldAddr) *types.Var {
 		return nil
 	}
 	field := structure.Field(address.Field)
-	if field.Exported() {
+	if field.Exported() && pkg.Name() != "main" {
 		return nil
 	}
 	return field
@@ -164,7 +174,7 @@ func (inventory *channelInventory) recordValueCopy(pkg *types.Package, instructi
 		return
 	}
 	for field := range structure.Fields() {
-		if _, channel := field.Type().Underlying().(*types.Chan); channel && !field.Exported() {
+		if _, channel := field.Type().Underlying().(*types.Chan); channel && (!field.Exported() || pkg.Name() == "main") {
 			inventory.channel(field).mark(loopReasonChannelCopied)
 		}
 	}
@@ -189,9 +199,8 @@ func (owned *ownedChannel) recordAddress(address *ssa.FieldAddr) {
 	}
 }
 
-// Only a fresh unbuffered channel keeps the inventory closed: a supplied
-// channel may have receivers elsewhere, and a buffer absorbs a number of
-// sends after the loop stops that this check does not guess.
+// Only a fresh channel keeps the inventory closed: a supplied channel may have
+// partners elsewhere. Whether it is buffered is recorded for each check.
 func (owned *ownedChannel) recordStore(address *ssa.FieldAddr, store *ssa.Store) {
 	made, ok := store.Val.(*ssa.MakeChan)
 	if store.Addr != address {
@@ -204,7 +213,7 @@ func (owned *ownedChannel) recordStore(address *ssa.FieldAddr, store *ssa.Store)
 	}
 	size, constant := made.Size.(*ssa.Const)
 	if !constant || size.Int64() != 0 {
-		owned.mark(loopReasonChannelBuffered)
+		owned.buffered = true
 	}
 }
 
@@ -221,16 +230,17 @@ func (owned *ownedChannel) recordLoad(load *ssa.UnOp) {
 			owned.sends = append(owned.sends, use)
 			owned.signals = append(owned.signals, use)
 		case *ssa.UnOp:
-			// A plain receive is not a select arm, so it has no stop arm.
-			owned.mark(loopReasonPlainReceive)
+			owned.plainReceives = append(owned.plainReceives, use)
 		case *ssa.Select:
 			owned.recordSelect(load, use)
-		case *ssa.Call:
-			if !ssaflow.CallMatchesSymbol(use.Common(), syntax.Builtin("close")) {
+		case *ssa.Call, *ssa.Defer:
+			call := use.(ssa.CallInstruction)
+			if !ssaflow.CallMatchesSymbol(call.Common(), syntax.Builtin("close")) {
 				owned.mark(loopReasonChannelEscapes)
 				continue
 			}
 			owned.closed, owned.signalled = true, true
+			owned.closes = append(owned.closes, call)
 			owned.signals = append(owned.signals, use)
 		case *ssa.BinOp:
 			// Comparing against nil neither transfers nor uses the channel.

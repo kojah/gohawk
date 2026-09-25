@@ -37,6 +37,7 @@ func runProducerLifecycle(pass *analysis.Pass) (any, error) {
 		reportAbandonedProducerSends(pass, function)
 	}
 	reportStoppedLoopSends(pass, functions)
+	reportUnclosedRanges(pass, functions)
 	return nil, nil
 }
 

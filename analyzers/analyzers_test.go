@@ -169,6 +169,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/read-lock-write":           CheckTierExperimental,
 		"lockorder/mismatched-release":        CheckTierExperimental,
 		"producerlifecycle/stopped-loop-send": CheckTierExperimental,
+		"producerlifecycle/unclosed-range":    CheckTierExperimental,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
 		"cancellationownership/release":       CheckKindDefect,
@@ -178,6 +179,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"goroutineownership/unjoined":         CheckKindHazard,
 		"producerlifecycle/abandoned-send":    CheckKindHazard,
 		"producerlifecycle/stopped-loop-send": CheckKindHazard,
+		"producerlifecycle/unclosed-range":    CheckKindHazard,
 		"processownership/missing-wait":       CheckKindDefect,
 		"resourcelifetime/missing-release":    CheckKindDefect,
 		"resourcelifetime/use-after-release":  CheckKindHazard,

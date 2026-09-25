@@ -84,64 +84,14 @@ func spilledParameter(value ssa.Value) (*ssa.Parameter, bool) {
 }
 
 // onlyStoredParameter returns the parameter when the spill is the cell's only
-// write anywhere: the function and every closure that captures the cell only
-// read it. Then every read yields the parameter, even in a goroutine and
-// whatever the timing, which the heap model's per-point proof cannot show
-// once the cell reaches an asynchronous participant.
+// write anywhere, which ssaflow.WrittenOnceCell proves structurally. Then every
+// read yields the parameter, even in a goroutine and whatever the timing,
+// which the heap model's per-point proof cannot show once the cell reaches an
+// asynchronous participant.
 func onlyStoredParameter(cell *ssa.Alloc) (*ssa.Parameter, bool) {
-	var parameter *ssa.Parameter
-	for _, use := range *cell.Referrers() {
-		switch use := use.(type) {
-		case *ssa.Store:
-			stored, ok := use.Val.(*ssa.Parameter)
-			if !ok || use.Addr != cell || parameter != nil {
-				return nil, false
-			}
-			parameter = stored
-		case *ssa.UnOp:
-			if use.Op != token.MUL {
-				return nil, false
-			}
-		case *ssa.MakeClosure:
-			if !capturesReadOnly(use, cell) {
-				return nil, false
-			}
-		case *ssa.DebugRef:
-		default:
-			return nil, false
-		}
-	}
-	return parameter, parameter != nil
-}
-
-// capturesReadOnly reports whether every capture of cell by closure, and by
-// closures nested in it, only reads the cell.
-func capturesReadOnly(closure *ssa.MakeClosure, cell ssa.Value) bool {
-	function, ok := closure.Fn.(*ssa.Function)
-	if !ok {
-		return false
-	}
-	for index, binding := range closure.Bindings {
-		if binding != cell || index >= len(function.FreeVars) {
-			continue
-		}
-		for _, use := range *function.FreeVars[index].Referrers() {
-			switch use := use.(type) {
-			case *ssa.UnOp:
-				if use.Op != token.MUL {
-					return false
-				}
-			case *ssa.MakeClosure:
-				if !capturesReadOnly(use, function.FreeVars[index]) {
-					return false
-				}
-			case *ssa.DebugRef:
-			default:
-				return false
-			}
-		}
-	}
-	return true
+	stored, ok := ssaflow.WrittenOnceCell(cell)
+	parameter, isParameter := stored.(*ssa.Parameter)
+	return parameter, ok && isParameter
 }
 
 func (engine *Engine) fieldAddress(function *ssa.Function, path ssaflow.EmbeddedFieldPath) (ssa.Value, bool) {

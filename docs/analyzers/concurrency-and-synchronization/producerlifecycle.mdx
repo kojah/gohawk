@@ -33,6 +33,7 @@ abandoned receiver lifecycle.
 | --- | --- | --- | --- |
 | <CheckIdentity name="abandoned-send" tier="core" /> | hazard | core | Reports producer goroutines that can block after their receiver stops waiting. |
 | <CheckIdentity name="stopped-loop-send" tier="experimental" /> | hazard | experimental | Reports sends that can block forever after the service loop receiving them returns. |
+| <CheckIdentity name="unclosed-range" tier="experimental" /> | hazard | experimental | Reports range loops that wait forever when their producer returns an error without closing the channel. |
 {/* gohawk:generated-checks:end */}
 
 ### Sends after a service loop stops
@@ -65,6 +66,34 @@ The check only reports when the package proves every part of that shape:
 
 Buffered channels, unexported helpers reached through guarded entry points,
 and loops that never return are not reported.
+
+### Ranges that wait on a failed producer
+
+The experimental `unclosed-range` check covers the receive side. A range over
+a channel ends only when the channel is closed. When the method that closes it
+does so only on success and returns an error without closing, a goroutine
+ranging over the channel while that method runs waits forever after a failure.
+
+The check only reports when the package proves every part of that shape:
+
+- The channel is a field of a struct declared in the package that no other code
+  can reach: an unexported field, or any field in a `main` package, which no
+  other package can import. It is made in the package and never handed out;
+  it may be buffered, since a range waits for the close either way.
+- The range has no other way out: no `break` or `return` leaves it.
+- Exactly one method closes the channel, on its own receiver, and none of its
+  closes is deferred. The method returns an error, and every return it can
+  reach without closing yields an error proven non-nil: an `errors.New` or
+  `fmt.Errorf` result, a boxed value, an error the path tested against nil,
+  or a context's `Err` or `Cause` after its `Done` channel fired. A return of
+  nil without closing is a step that a later call may finish, so it is not
+  reported.
+- The method is never called inside a loop, where a retry could close the
+  channel, and one goroutine calls it on the same object that is ranged over
+  concurrently, reached through a variable written once.
+
+A select with other arms, a closer reached through an interface or function
+value, and a producer in another package are not reported.
 
 ## Why this is flagged
 

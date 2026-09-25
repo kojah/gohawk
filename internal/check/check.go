@@ -12,6 +12,7 @@ const (
 	GoroutineJoin                ID = "goroutineownership/unjoined"
 	ProducerLifecycleSend        ID = "producerlifecycle/abandoned-send"
 	ProducerLifecycleStoppedLoop ID = "producerlifecycle/stopped-loop-send"
+	ProducerLifecycleUnclosed    ID = "producerlifecycle/unclosed-range"
 	ProcessWait                  ID = "processownership/missing-wait"
 	ResourceRelease              ID = "resourcelifetime/missing-release"
 	ResourceUseAfterRelease      ID = "resourcelifetime/use-after-release"

@@ -147,6 +147,13 @@ func proveStoppedLoopSend(inventory *channelInventory, field *types.Var, send *s
 		return loopProof{reason: loopReasonChannelEscapes}
 	case owned.unknown != loopReasonNone:
 		return loopProof{reason: owned.unknown}
+	case owned.buffered:
+		// A buffer absorbs a number of sends after the loop stops that this
+		// check does not guess.
+		return loopProof{reason: loopReasonChannelBuffered}
+	case len(owned.plainReceives) != 0:
+		// A plain receive is not a select arm, so it has no stop arm.
+		return loopProof{reason: loopReasonPlainReceive}
 	case owned.closed:
 		// A send after close panics rather than blocks; that is another defect.
 		return loopProof{reason: loopReasonChannelClosed}

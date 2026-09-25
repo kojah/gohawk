@@ -38,6 +38,52 @@ func (s *scheduler) Stop() { close(s.stop) }
 
 //gohawk:example end
 
+//gohawk:example flagged Range waits on a failed producer
+type exporter struct{ rows chan string }
+
+func (e *exporter) run(fail bool) error {
+	if fail {
+		return errors.New("export failed")
+	}
+	e.rows <- "row"
+	close(e.rows)
+	return nil
+}
+
+func printRows(e *exporter, fail bool) {
+	go func() { _ = e.run(fail) }()
+	for row := range e.rows { // want "range can wait forever: run returns an error without closing the channel"
+		println(row)
+	}
+}
+
+//gohawk:example end
+
+func newExporter() *exporter { return &exporter{rows: make(chan string)} }
+
+//gohawk:example ok
+type closingExporter struct{ rows chan string }
+
+func (e *closingExporter) run(fail bool) error {
+	defer close(e.rows)
+	if fail {
+		return errors.New("export failed")
+	}
+	e.rows <- "row"
+	return nil
+}
+
+func printClosedRows(e *closingExporter, fail bool) {
+	go func() { _ = e.run(fail) }()
+	for row := range e.rows {
+		println(row)
+	}
+}
+
+//gohawk:example end
+
+func newClosingExporter() *closingExporter { return &closingExporter{rows: make(chan string)} }
+
 func newScheduler() *scheduler {
 	s := &scheduler{add: make(chan int), stop: make(chan struct{})}
 	go s.run()

@@ -136,6 +136,12 @@
               "summary": "Reports sends that can block forever after the service loop receiving them returns.",
               "kind": "hazard",
               "tier": "experimental"
+            },
+            {
+              "id": "producerlifecycle/unclosed-range",
+              "summary": "Reports range loops that wait forever when their producer returns an error without closing the channel.",
+              "kind": "hazard",
+              "tier": "experimental"
             }
           ],
           "options": []
