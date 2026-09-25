@@ -62,3 +62,44 @@ func looped(n int) int {
 		}
 	}
 }
+
+// A guard on a call's result holds until that call runs again, as the next
+// iteration of a loop does; an unrelated call keeps it.
+func TestPathGuardsAfterRerunCall(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "reruns", `package reruns
+type response struct{ status int }
+func fetch() *response { return &response{} }
+func other() {}
+func loop(n int) int {
+	count := 0
+	for i := 0; i < n; i++ {
+		r := fetch()
+		other()
+		if r.status == 200 {
+			count++
+		}
+	}
+	return count
+}
+`)
+	var fetchCall, otherCall *ssa.Call
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](pkg.Func("loop")) {
+		switch call.Common().StaticCallee().Name() {
+		case "fetch":
+			fetchCall = call
+		case "other":
+			otherCall = call
+		}
+	}
+	result, ok := ssaflow.GuardAddressIdentity(fetchCall)
+	if !ok {
+		t.Fatal("a call result has no guard identity")
+	}
+	guards := ssaflow.PathGuards{{Identity: "eq(load(field(" + result + ",0)),200)", Value: true}}
+	if kept := guards.After(otherCall); len(kept) != 1 {
+		t.Errorf("an unrelated call dropped the guard: %v", kept)
+	}
+	if kept := guards.After(fetchCall); len(kept) != 0 {
+		t.Errorf("rerunning the call kept a guard on its old result: %v", kept)
+	}
+}

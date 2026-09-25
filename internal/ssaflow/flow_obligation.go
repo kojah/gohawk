@@ -152,9 +152,7 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) Obligatio
 			return nil, false
 		}
 		for _, instruction := range state.block.Instrs[state.index:] {
-			if store, ok := instruction.(*ssa.Store); ok {
-				state.guards = state.guards.Forget(store)
-			}
+			state.guards = state.guards.After(instruction)
 			state.covered = max(state.covered, flow.Instruction(instruction))
 			if InstructionTerminatesWith(instruction, flow.Terminates) {
 				return nil, true

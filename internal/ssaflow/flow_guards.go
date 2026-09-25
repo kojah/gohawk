@@ -126,8 +126,9 @@ func loadedGuard(condition ssa.Value) (string, bool, bool) {
 }
 
 // GuardAddressIdentity names a cell by the path that reaches it: a local
-// allocation, a parameter, a captured variable, a package variable, or a
-// field selected from one of those, possibly through a loaded pointer.
+// allocation, a parameter, a captured variable, a package variable, a pointer
+// a call returned, or a field selected from one of those, possibly through a
+// loaded pointer.
 func GuardAddressIdentity(address ssa.Value) (string, bool) {
 	switch typed := address.(type) {
 	case *ssa.Alloc:
@@ -146,6 +147,12 @@ func GuardAddressIdentity(address ssa.Value) (string, bool) {
 			inner, ok := GuardAddressIdentity(typed.X)
 			return "load(" + inner + ")", ok
 		}
+	case *ssa.Call, *ssa.Extract:
+		// A pointer a call returned is one object until the call runs again,
+		// so two reads of the same field of it read the same slot, as two
+		// reads of a parameter's field do: a response's status checked
+		// twice. A walker forgets the guard when the call reruns; see After.
+		return guardOperandIdentity(typed), true
 	}
 	return "", false
 }
@@ -240,6 +247,27 @@ func (guards PathGuards) Forget(store *ssa.Store) PathGuards {
 		}
 	}
 	return kept
+}
+
+// After returns the guards that still hold once instruction has run. A store
+// forgets the guards on its cell. Running a call again, as the next iteration
+// of a loop does, replaces its result, so the guards on the old result no
+// longer describe the new one.
+func (guards PathGuards) After(instruction ssa.Instruction) PathGuards {
+	switch typed := instruction.(type) {
+	case *ssa.Store:
+		return guards.Forget(typed)
+	case *ssa.Call, *ssa.Extract:
+		identity := guardOperandIdentity(typed.(ssa.Value))
+		var kept PathGuards
+		for _, guard := range guards {
+			if !strings.Contains(guard.Identity, identity) {
+				kept = append(kept, guard)
+			}
+		}
+		return kept
+	}
+	return guards
 }
 
 // Key renders the guards for a walk's state key.

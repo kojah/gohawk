@@ -142,9 +142,7 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 	// opaque consumption does not settle it but removes the proof: the
 	// return is then neither owned nor a defect.
 	for _, instruction := range state.block.Instrs[state.index:] {
-		if store, ok := instruction.(*ssa.Store); ok {
-			state.guards = state.guards.Forget(store)
-		}
+		state.guards = state.guards.After(instruction)
 		switch analysis.action(instruction) {
 		case actionSettled:
 			state.obligation = state.obligation.Discharged()

@@ -979,8 +979,9 @@ func GuardAddressIdentity(address ssa.Value) (string, bool)
 ```
 
 GuardAddressIdentity names a cell by the path that reaches it: a local
-allocation, a parameter, a captured variable, a package variable, or a
-field selected from one of those, possibly through a loaded pointer.
+allocation, a parameter, a captured variable, a package variable, a pointer
+a call returned, or a field selected from one of those, possibly through a
+loaded pointer.
 
 ## GuardCondition
 
@@ -1539,6 +1540,19 @@ type PathGuards []PathGuard
 ```
 
 PathGuards is the sorted, bounded set of guards a path carries.
+
+## PathGuards.After
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func (guards PathGuards) After(instruction ssa.Instruction) PathGuards
+```
+
+After returns the guards that still hold once instruction has run. A store
+forgets the guards on its cell. Running a call again, as the next iteration
+of a loop does, replaces its result, so the guards on the old result no
+longer describe the new one.
 
 ## PathGuards.Extend
 
