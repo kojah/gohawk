@@ -80,13 +80,11 @@ gohawk aims to complement other Go analyzers, not replace them. Each tool
 looks for a different kind of problem, so running several together catches
 more than any one alone.
 
-| Tool | What it focuses on | How gohawk fits in |
-| --- | --- | --- |
-| [`go vet`](https://pkg.go.dev/cmd/vet) | A small set of suspicious code patterns, shipped with Go | gohawk can run as a `go vet` tool |
-| [Staticcheck](https://staticcheck.dev/) | A large, mature set of bug, style, and simplification checks | gohawk goes deeper on one topic: who owns a value and who cleans it up |
-| [NilAway](https://github.com/uber-go/nilaway) | Possible nil pointer panics | gohawk does not look for nil panics |
-| [gosec](https://github.com/securego/gosec) | Security problems | gohawk looks for correctness bugs, not security issues |
-| [go-critic](https://github.com/go-critic/go-critic) | Many quick style and code-quality checks | gohawk follows how values move through your program |
+For example, [Staticcheck](https://staticcheck.dev/) covers a broad set of
+bugs and style issues, [NilAway](https://github.com/uber-go/nilaway) finds
+possible nil panics, and [gosec](https://github.com/securego/gosec) finds
+security problems. gohawk goes deeper on one topic: who owns a
+resource or goroutine, and whether it is cleaned up on every path.
 
 gohawk also runs inside [golangci-lint](https://golangci-lint.run/), next to
 the linters you already use.
