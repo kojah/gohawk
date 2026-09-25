@@ -175,13 +175,21 @@ def loadable_packages(module: Path, environment: dict[str, str]) -> list[str]:
     return [line for line in listed.stdout.split("\n") if line.strip()]
 
 
+def profile_flags(include_tests: bool) -> list[str]:
+    """Return the analyzer flags of a scan profile."""
+    flags = ["-enable-all"]
+    if include_tests:
+        flags.append("-gohawk-include-tests")
+    return flags + ["-json"]
+
+
 def retry_scan(
-    gohawk: Path, module: Path, environment: dict[str, str], packages: list[str]
+    gohawk: Path, module: Path, environment: dict[str, str], packages: list[str], include_tests: bool = True
 ) -> subprocess.CompletedProcess[str]:
     """Re-run the scan over an explicit package list."""
     try:
         return run(
-            ["go", "vet", f"-vettool={gohawk}", "-enable-all", "-gohawk-include-tests", "-json", *packages],
+            ["go", "vet", f"-vettool={gohawk}", *profile_flags(include_tests), *packages],
             cwd=module,
             env=environment,
             capture_output=True,
@@ -192,7 +200,7 @@ def retry_scan(
 
 
 def scan(
-    gohawk: Path, repository: str, checkout: Path
+    gohawk: Path, repository: str, checkout: Path, include_tests: bool = True
 ) -> tuple[set[tuple[str, str, str]], dict[tuple[str, str, str], set[str]], list[str]]:
     """Return the findings, and the reasons any module could not be analysed.
 
@@ -217,11 +225,12 @@ def scan(
         try:
             result = run(
                 # Reviewed labels include findings in _test.go files, which the
-                # default policy skips; replay them so the labels stay meaningful.
-                # Running through go vet analyzes one package at a time from
-                # export data, so a module with a large dependency graph does not
-                # need every dependency type-checked from source at once.
-                ["go", "vet", f"-vettool={gohawk}", "-enable-all", "-gohawk-include-tests", "-json", "./..."],
+                # default policy skips, so the replay includes them by default to
+                # keep those labels meaningful; a fresh audit can use the product
+                # default instead. Running through go vet analyzes one package at
+                # a time from export data, so a module with a large dependency
+                # graph does not need every dependency type-checked from source.
+                ["go", "vet", f"-vettool={gohawk}", *profile_flags(include_tests), "./..."],
                 cwd=module,
                 env=environment,
                 capture_output=True,
@@ -254,7 +263,7 @@ def scan(
                     f"partial package recovery in {module.relative_to(checkout)}: "
                     f"{result.stderr.strip()[:160]}"
                 )
-            result = retry_scan(gohawk, module, environment, loadable) if loadable else result
+            result = retry_scan(gohawk, module, environment, loadable, include_tests) if loadable else result
         if not result.stdout.strip() and result.returncode:
             incomplete.append(
                 f"no output from {module.relative_to(checkout)} "

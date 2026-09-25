@@ -194,7 +194,7 @@ def resume_metadata(previous, current, accepted_runner, output, accepted_cache_p
     return current
 
 
-def analyze(entry, binary, checkouts, output):
+def analyze(entry, binary, checkouts, output, include_tests=True):
     repo, sha = entry
     destination = output / (repo.replace("/", "__") + ".json")
     if destination.exists():
@@ -207,7 +207,7 @@ def analyze(entry, binary, checkouts, output):
     try:
         checkout = REPLAY.checkout_repository(checkouts, repo, sha)
         report["modules"] = [str(p.relative_to(checkout)) for p in REPLAY.module_directories(checkout)]
-        findings, checks, errors = REPLAY.scan(binary, repo, checkout)
+        findings, checks, errors = REPLAY.scan(binary, repo, checkout, include_tests)
         report["findings"] = [
             {"analyzer": item[1], "position": item[2], "checks": sorted(checks.get(item, []))}
             for item in sorted(findings)
@@ -406,6 +406,9 @@ def main():
     parser.add_argument("--min-root-free-gib", type=positive, default=8)
     parser.add_argument("--accept-prior-runner-sha256")
     parser.add_argument("--accept-prior-cache-policy-sha256")
+    # Earlier frozen batches reviewed test-file findings; gohawk now skips test
+    # files by default, and a fresh batch audits that default.
+    parser.add_argument("--include-tests", action="store_true")
     args = parser.parse_args()
     if args.cleanup_reviewed_checkouts:
         if not args.sealed_selection or not args.sealed_findings:
@@ -439,7 +442,7 @@ def main():
         "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "replay_sha256": hashlib.sha256((ROOT / "scripts/precision-regression.py").read_bytes()).hexdigest(),
         "go_version": REPLAY.run(["go", "version"], capture_output=True).stdout.strip(),
-        "profile": "-enable-all -gohawk-include-tests -json",
+        "profile": " ".join(REPLAY.profile_flags(args.include_tests)),
         "cache_policy": (
             {"kind": "isolated-window", "window_size": args.isolated_go_cache_window,
              "minimum_root_free_gib": args.min_root_free_gib}
@@ -461,7 +464,7 @@ def main():
     os.environ["GOMAXPROCS"] = "2"
     checkouts = output / "checkouts"
     def analyze_one(entry):
-        return analyze(entry, binary, checkouts, output)
+        return analyze(entry, binary, checkouts, output, args.include_tests)
 
     if args.isolated_go_cache_window:
         reports = analyze_with_isolated_cache(
