@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -404,19 +405,24 @@ func renderSnippet(output io.Writer, spans []labeledSpan, contextLines int, colo
 		return false
 	}
 	sort.SliceStable(valid, func(i, j int) bool { return valid[i].start.Line < valid[j].start.Line })
-	last := min(len(lines), valid[len(valid)-1].end.Line+contextLines)
-	width := len(strconv.Itoa(last))
-	writeFormattedf(output, "%*s %s|%s\n", width, "", colors.cyan, colors.reset)
-	printed := 0
+	// Print each source line once, then the marker of every span covering it,
+	// so overlapping spans never hide one another.
+	shown := make(map[int]bool)
 	for _, span := range valid {
-		first := max(1, span.start.Line-contextLines, printed+1)
-		if printed > 0 && first > printed+1 {
+		for lineNumber := max(1, span.start.Line-contextLines); lineNumber <= min(len(lines), span.end.Line+contextLines); lineNumber++ {
+			shown[lineNumber] = true
+		}
+	}
+	numbers := slices.Sorted(maps.Keys(shown))
+	width := len(strconv.Itoa(numbers[len(numbers)-1]))
+	writeFormattedf(output, "%*s %s|%s\n", width, "", colors.cyan, colors.reset)
+	for index, lineNumber := range numbers {
+		if index > 0 && lineNumber > numbers[index-1]+1 {
 			writeFormattedf(output, "%s...%s\n", colors.cyan, colors.reset)
 		}
-		stop := min(len(lines), span.end.Line+contextLines)
-		for lineNumber := first; lineNumber <= stop; lineNumber++ {
-			line := lines[lineNumber-1]
-			writeFormattedf(output, "%s%*d |%s %s\n", colors.cyan, width, lineNumber, colors.reset, line)
+		line := lines[lineNumber-1]
+		writeFormattedf(output, "%s%*d |%s %s\n", colors.cyan, width, lineNumber, colors.reset, line)
+		for _, span := range valid {
 			if lineNumber < span.start.Line || lineNumber > span.end.Line {
 				continue
 			}
@@ -428,7 +434,6 @@ func renderSnippet(output io.Writer, spans []labeledSpan, contextLines int, colo
 			writeFormattedf(output, "%*s %s|%s %s%s%s%s%s\n", width, "", colors.cyan, colors.reset,
 				markerIndent(line, column), colors.red, "^"+strings.Repeat("~", length-1), colors.reset, suffix)
 		}
-		printed = max(printed, stop)
 	}
 	return true
 }

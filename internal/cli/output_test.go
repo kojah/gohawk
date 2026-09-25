@@ -108,3 +108,29 @@ func TestRenderDiagnosticDrawsLabeledEvidence(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderDiagnosticKeepsOverlappingMarkers(t *testing.T) {
+	directory := t.TempDir()
+	filename := filepath.Join(directory, "sample.go")
+	source := "package sample\n\nfunc f() {\n\tfor {\n\t\tdefer g()\n\t}\n}\n"
+	if err := os.WriteFile(filename, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	renderDiagnostic(&output, positionedDiagnostic{
+		Analyzer: "example",
+		Start:    sourcePosition{Filename: filename, Line: 5, Column: 3},
+		End:      sourcePosition{Filename: filename, Line: 5, Column: 12},
+		Message:  "deferred in a loop",
+		Related: []jsonRelated{
+			{Posn: filename + ":4:2", End: filename + ":6:3", Message: "the whole loop"},
+		},
+	}, 0, colorPalette{})
+	text := output.String()
+	if strings.Count(text, "5 | \t\tdefer g()") != 1 {
+		t.Errorf("line 5 should print once:\n%s", text)
+	}
+	if !strings.Contains(text, "| \t\t^~~~~~~~~\n") || !strings.Contains(text, "the whole loop") {
+		t.Errorf("both the primary marker and the evidence label should appear:\n%s", text)
+	}
+}

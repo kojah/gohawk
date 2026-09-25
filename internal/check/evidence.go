@@ -18,6 +18,12 @@ func Evidence(pass *analysis.Pass, position token.Pos, label string) analysis.Re
 	return analysis.RelatedInformation{Pos: source.Pos(), End: source.End(), Message: label}
 }
 
+// KeywordEvidence cites only the keyword that opens a statement, such as the
+// for of a loop, so a label names the statement without underlining its body.
+func KeywordEvidence(position token.Pos, keyword, label string) analysis.RelatedInformation {
+	return analysis.RelatedInformation{Pos: position, End: position + token.Pos(len(keyword)), Message: label}
+}
+
 // ReturnEvidence cites the normal return a proof reached with an obligation
 // still open, labeled "returns here without <missing>". A function that falls
 // off its end has no return statement, so its closing brace is cited
@@ -31,6 +37,15 @@ func ReturnEvidence(pass *analysis.Pass, returned *ssa.Return, missing string) [
 	}
 	if end := functionEnd(returned.Parent()); end.IsValid() {
 		return []analysis.RelatedInformation{{Pos: end, End: end + 1, Message: "reaches the end of the function without " + missing}}
+	}
+	return nil
+}
+
+// FunctionEndEvidence cites the closing brace of function, where its deferred
+// calls run, or returns nothing when the function has no body.
+func FunctionEndEvidence(function *ssa.Function, label string) []analysis.RelatedInformation {
+	if end := functionEnd(function); end.IsValid() {
+		return []analysis.RelatedInformation{{Pos: end, End: end + 1, Message: label}}
 	}
 	return nil
 }

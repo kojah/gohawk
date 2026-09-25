@@ -70,6 +70,18 @@ packagePath. It answers the package-level question a contract catalog
 asks, "is this API one of the package's I model?", without a caller
 reconstructing identity from raw package paths.
 
+## EnclosingLoop
+
+[Source](../../../../internal/syntax/assigned.go)
+
+```go
+func EnclosingLoop(pass *analysis.Pass, position token.Pos) ast.Node
+```
+
+EnclosingLoop returns the innermost for or range statement around
+position within its function, or nil when there is none. A loop outside
+the enclosing function literal does not count.
+
 ## ExcludedTestFile
 
 [Source](../../../../internal/syntax/source.go)

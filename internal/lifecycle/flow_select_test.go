@@ -122,7 +122,7 @@ func defaultArm(done, work <-chan int, flag bool) {
 			if got := ssaflow.UnownedReturnFromEntryWithEdges(function, exact, edge); got != test.unowned {
 				t.Errorf("from entry = %v, want %v", got, test.unowned)
 			}
-			if got := ssaflow.UnownedReturnAssumingNonNilWithEdges(start, function.Params[0], uncertain, nil, edge); got != test.uncertainUnowned {
+			if got := ssaflow.UnownedReturnAssumingNonNilWitness(start, function.Params[0], uncertain, nil, edge) != nil; got != test.uncertainUnowned {
 				t.Errorf("uncertain/non-nil = %v, want %v", got, test.uncertainUnowned)
 			}
 			if !ssaflow.UnownedReturn(start, uncertain, nil) {

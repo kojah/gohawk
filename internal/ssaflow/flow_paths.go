@@ -115,20 +115,12 @@ func UnownedReturnWithEdges(
 	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, nil, ownsEdge) != nil
 }
 
-// UnownedReturnAfterCallSuccess is UnownedReturn restricted to the branch on
-// which call succeeded. This matters for obligations created by successful
-// calls such as exec.Cmd.Start: a handled failure may rejoin a later return,
-// but no ownership obligation exists on that path.
-func UnownedReturnAfterCallSuccess(
-	call *ssa.Call,
-	owns func(ssa.Instruction) bool,
-	allowReturn func(*ssa.Return) bool,
-) bool {
-	return UnownedReturnAfterCallSuccessWitness(call, owns, allowReturn) != nil
-}
-
-// UnownedReturnAfterCallSuccessWitness is UnownedReturnAfterCallSuccess that
-// returns the unowned return itself, for a diagnostic to cite, or nil.
+// UnownedReturnAfterCallSuccessWitness finds an unowned return, like
+// UnownedReturn, on the branch on which call succeeded. This matters for
+// obligations created by successful calls such as exec.Cmd.Start: a handled
+// failure may rejoin a later return, but no ownership obligation exists on
+// that path. It returns that return, for a diagnostic to cite, or nil when
+// every return is owned.
 func UnownedReturnAfterCallSuccessWitness(
 	call *ssa.Call,
 	owns func(ssa.Instruction) bool,
@@ -170,48 +162,25 @@ func unownedReturnFrom(
 	return witness
 }
 
-// UnownedReturnAssumingNonNil is UnownedReturn with the additional fact that
-// value is non-nil after start. Constructors such as context.WithTimeout
-// guarantee a callable cleanup even when it flows through an optional local.
+// UnownedReturnAssumingNonNilWitness finds an unowned return, like
+// UnownedReturn, with the additional fact that value is non-nil after start.
+// Constructors such as context.WithTimeout guarantee a callable cleanup even
+// when it flows through an optional local. ownsEdge, when set, adds
+// edge-local ownership actions under the same assumption. It returns the
+// unowned return, for a diagnostic to cite, or nil when every return is owned.
 // https://github.com/agenticenv/agent-sdk-go/blob/63f0452159d674d529a6fea91b8d532bed9b774e/internal/runtime/local/agent_loop.go#L828-L841
-func UnownedReturnAssumingNonNil(
-	start ssa.Instruction,
-	value ssa.Value,
-	owns func(ssa.Instruction) bool,
-	allowReturn func(*ssa.Return) bool,
-) bool {
-	return UnownedReturnAssumingNonNilWithEdges(start, value, owns, allowReturn, nil)
-}
-
-// UnownedReturnAssumingNonNilWitness is UnownedReturnAssumingNonNil that
-// returns the unowned return itself, for a diagnostic to cite, or nil.
 func UnownedReturnAssumingNonNilWitness(
 	start ssa.Instruction,
 	value ssa.Value,
 	owns func(ssa.Instruction) bool,
 	allowReturn func(*ssa.Return) bool,
+	ownsEdge OwnershipEdge,
 ) *ssa.Return {
 	index := InstructionIndex(start)
 	if index < 0 {
 		return nil
 	}
-	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, value, nil)
-}
-
-// UnownedReturnAssumingNonNilWithEdges adds edge-local ownership actions while
-// preserving the same non-nil assumption and feasible-successor policy.
-func UnownedReturnAssumingNonNilWithEdges(
-	start ssa.Instruction,
-	value ssa.Value,
-	owns func(ssa.Instruction) bool,
-	allowReturn func(*ssa.Return) bool,
-	ownsEdge OwnershipEdge,
-) bool {
-	index := InstructionIndex(start)
-	if index < 0 {
-		return false
-	}
-	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, value, ownsEdge) != nil
+	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, value, ownsEdge)
 }
 
 // UnownedReturnFromEntryWithEdges adds edge-local ownership actions to the

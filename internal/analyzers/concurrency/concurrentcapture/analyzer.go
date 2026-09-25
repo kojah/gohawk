@@ -2,6 +2,7 @@
 package concurrentcapture
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -157,7 +158,7 @@ func reportCapturedMutations(
 			}
 			reported[object] = true
 			probe.Decision(analysisTrace.Step{Reason: reasonUnguardedWrite.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: identifier.Pos()})
-			check.Reportf(pass, check.ConcurrentCapture, identifier.Pos(), "captured local %s is mutated by goroutines launched repeatedly", identifier.Name)
+			reportSharedCapture(pass, identifier, object, loop)
 		}
 		return true
 	})
@@ -348,4 +349,20 @@ func loopJoinsEachIteration(body *ast.BlockStmt) bool {
 		return !joined
 	})
 	return joined
+}
+
+// reportSharedCapture reports a write to a captured local, citing where the
+// local is declared, once, outside the loop, and the loop that launches a
+// goroutine writing it on every iteration.
+func reportSharedCapture(pass *analysis.Pass, identifier *ast.Ident, object *types.Var, loop ast.Node) {
+	source := syntax.SourceRange(pass, identifier.Pos())
+	check.Report(pass, check.ConcurrentCapture, analysis.Diagnostic{
+		Pos:     source.Pos(),
+		End:     source.End(),
+		Message: fmt.Sprintf("captured local %s is mutated by goroutines launched repeatedly", identifier.Name),
+		Related: []analysis.RelatedInformation{
+			{Pos: object.Pos(), End: object.Pos() + token.Pos(len(object.Name())), Message: "`" + object.Name() + "` is declared once, before the loop"},
+			check.KeywordEvidence(loop.Pos(), "for", "each iteration starts another goroutine that writes it"),
+		},
+	})
 }

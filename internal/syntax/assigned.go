@@ -50,3 +50,24 @@ func assignedName(parent ast.Node, index int) string {
 	}
 	return ""
 }
+
+// EnclosingLoop returns the innermost for or range statement around
+// position within its function, or nil when there is none. A loop outside
+// the enclosing function literal does not count.
+func EnclosingLoop(pass *analysis.Pass, position token.Pos) ast.Node {
+	for _, file := range pass.Files {
+		if position < file.Pos() || position >= file.End() {
+			continue
+		}
+		path, _ := astutil.PathEnclosingInterval(file, position, position)
+		for _, node := range path {
+			switch node.(type) {
+			case *ast.ForStmt, *ast.RangeStmt:
+				return node
+			case *ast.FuncLit, *ast.FuncDecl:
+				return nil
+			}
+		}
+	}
+	return nil
+}

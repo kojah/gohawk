@@ -52,9 +52,10 @@ that only need to know whether some return is uncovered.
 | helper | answers |
 |---|---|
 | `EvaluateObligation(ObligationFlow)` | honored when exact actions cover every return, uncertain when some return is reached only through an opaque action, violated when a return has no action at all |
+| `EvaluateObligationWitness(ObligationFlow)` | the same, plus the violating return for a diagnostic to cite |
 | `UnownedReturn`, `UnownedReturnFromEntryWithEdges`, `UnownedReturnFromEntryAllow` | is there a reachable normal return with no owning action before it? |
-| `UnownedReturnAssumingNonNil`, `UnownedReturnFromEntryAssumingNonNil` | the same, on paths feasible when a value is non-nil |
-| `UnownedReturnAfterCallSuccess` | the same, after a call's success branch |
+| `UnownedReturnAssumingNonNilWitness`, `UnownedReturnFromEntryAssumingNonNil` | the same, on paths feasible when a value is non-nil; the witness form returns the unowned return |
+| `UnownedReturnAfterCallSuccessWitness` | the unowned return after a call's success branch, or nil |
 | `NormalReturnReachableFrom` | can a normal return be reached from here? |
 | `FeasibleSuccessors`, `SuccessBranch`, `BlockReachable`, `BlockInCycle` | control-flow feasibility primitives |
 | `InstructionDominates`, `InstructionMayFollow`, `InstructionIndex` | ordering between instructions |

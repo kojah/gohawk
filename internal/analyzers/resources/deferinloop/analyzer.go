@@ -5,6 +5,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
+	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -43,9 +44,27 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 				Details: map[string]string{"target": obligation.target.String()},
 			})
 			if resourceLiveAtNextIteration(evidence, knowledge, probe, deferred, obligation) {
-				check.Reportf(pass, check.DeferCleanupInLoop, deferred.Pos(), "deferred cleanup runs after the loop instead of after this iteration")
+				reportDeferInLoop(pass, deferred)
 			}
 		}
 	}
 	return nil, nil
+}
+
+// reportDeferInLoop reports a cleanup deferred inside a loop, citing the loop
+// that registers it again each iteration and the end of the function, where
+// every one of those cleanups finally runs.
+func reportDeferInLoop(pass *analysis.Pass, deferred *ssa.Defer) {
+	var related []analysis.RelatedInformation
+	if loop := syntax.EnclosingLoop(pass, deferred.Pos()); loop != nil {
+		related = append(related, check.KeywordEvidence(loop.Pos(), "for", "each iteration of this loop defers another cleanup"))
+	}
+	related = append(related, check.FunctionEndEvidence(deferred.Parent(), "the deferred cleanups all run here, when the function returns")...)
+	source := syntax.SourceRange(pass, deferred.Pos())
+	check.Report(pass, check.DeferCleanupInLoop, analysis.Diagnostic{
+		Pos:     source.Pos(),
+		End:     source.End(),
+		Message: "deferred cleanup runs after the loop instead of after this iteration",
+		Related: related,
+	})
 }

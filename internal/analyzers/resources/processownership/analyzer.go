@@ -158,7 +158,7 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 	}
 	var witness *ssa.Return
 	if merged != nil {
-		witness = ssaflow.UnownedReturnAssumingNonNilWitness(merged, merged, owns, allowReturn)
+		witness = ssaflow.UnownedReturnAssumingNonNilWitness(merged, merged, owns, allowReturn, nil)
 	} else {
 		witness = ssaflow.UnownedReturnAfterCallSuccessWitness(start, owns, allowReturn)
 	}
