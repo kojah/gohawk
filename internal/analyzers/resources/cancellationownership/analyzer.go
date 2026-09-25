@@ -49,6 +49,8 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				evidence.ForCandidate(call.Pos())
 				proof := proveCancellation(call, cancel, probe.Observer(), evidence, summaryKnowledge.Provider(pass))
 				emitCancellationDecision(pass, function, call, contract, proof)
+				// A lost cancel is reported at the call that created it, citing
+				// the return the proof reached without calling it.
 				if proof.Outcome == CancellationLost {
 					source := syntax.SourceRange(pass, call.Pos())
 					check.Report(pass, check.CancellationRelease, analysis.Diagnostic{
@@ -57,6 +59,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 						Message: "cancel function from " + syntax.ShortPackageName(
 							contract.packagePath,
 						) + "." + contract.name + " is not called on every return path",
+						Related: check.ReturnEvidence(pass, proof.Witness, "calling "+cancelSubject(pass, call, contract.result)),
 					})
 				}
 			}
@@ -126,4 +129,13 @@ func cancellationContractFor(common *ssa.CallCommon) (cancellationContract, bool
 		}
 	}
 	return cancellationContract{}, false
+}
+
+// cancelSubject names the cancel function by the variable it was assigned to,
+// such as `cancel`, when there is one.
+func cancelSubject(pass *analysis.Pass, call *ssa.Call, result int) string {
+	if name := syntax.AssignedName(pass, call.Pos(), result); name != "" {
+		return "`" + name + "`"
+	}
+	return "the cancel function"
 }

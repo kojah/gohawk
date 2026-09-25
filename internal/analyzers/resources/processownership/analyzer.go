@@ -2,6 +2,7 @@
 package processownership
 
 import (
+	"go/token"
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -155,12 +156,13 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 		}
 		return false
 	}
-	var leaks bool
+	var witness *ssa.Return
 	if merged != nil {
-		leaks = ssaflow.UnownedReturnAssumingNonNil(merged, merged, owns, allowReturn)
+		witness = ssaflow.UnownedReturnAssumingNonNilWitness(merged, merged, owns, allowReturn)
 	} else {
-		leaks = ssaflow.UnownedReturnAfterCallSuccess(start, owns, allowReturn)
+		witness = ssaflow.UnownedReturnAfterCallSuccessWitness(start, owns, allowReturn)
 	}
+	leaks := witness != nil
 	emitProcessDecision(pass, function, start, command, leaks, unknown)
 	if !leaks {
 		return
@@ -171,7 +173,17 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 	if commandUnusedAfterStart(start, command) {
 		return
 	}
-	check.Reportf(pass, check.ProcessWait, start.Pos(), "started command is not waited on every successful return path")
+	subject := "the command"
+	if name := commandName(pass, command); name != "" {
+		subject = "`" + name + "`"
+	}
+	source := syntax.SourceRange(pass, start.Pos())
+	check.Report(pass, check.ProcessWait, analysis.Diagnostic{
+		Pos:     source.Pos(),
+		End:     source.End(),
+		Message: "started command is not waited on every successful return path",
+		Related: check.ReturnEvidence(pass, witness, "waiting for "+subject),
+	})
 }
 
 func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa.Call, command ssa.Value, leaks, unknown bool) {
@@ -313,4 +325,20 @@ func handleCarried(value, command ssa.Value) bool {
 		return false
 	}
 	return ssaflow.NewReachingWalk(forms).Any(value, leaf)
+}
+
+// commandName names the command by its variable: the one exec.Command's
+// result was assigned to, or the local a load reads it from.
+func commandName(pass *analysis.Pass, command ssa.Value) string {
+	switch value := command.(type) {
+	case *ssa.Call:
+		return syntax.AssignedName(pass, value.Pos(), 0)
+	case *ssa.UnOp:
+		if cell, ok := value.X.(*ssa.Alloc); ok && value.Op == token.MUL {
+			return cell.Comment
+		}
+	case *ssa.Alloc:
+		return value.Comment
+	}
+	return ""
 }

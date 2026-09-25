@@ -112,7 +112,7 @@ func UnownedReturnWithEdges(
 	if index < 0 {
 		return false
 	}
-	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, nil, ownsEdge)
+	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, nil, ownsEdge) != nil
 }
 
 // UnownedReturnAfterCallSuccess is UnownedReturn restricted to the branch on
@@ -124,31 +124,50 @@ func UnownedReturnAfterCallSuccess(
 	owns func(ssa.Instruction) bool,
 	allowReturn func(*ssa.Return) bool,
 ) bool {
+	return UnownedReturnAfterCallSuccessWitness(call, owns, allowReturn) != nil
+}
+
+// UnownedReturnAfterCallSuccessWitness is UnownedReturnAfterCallSuccess that
+// returns the unowned return itself, for a diagnostic to cite, or nil.
+func UnownedReturnAfterCallSuccessWitness(
+	call *ssa.Call,
+	owns func(ssa.Instruction) bool,
+	allowReturn func(*ssa.Return) bool,
+) *ssa.Return {
 	if call == nil {
-		return false
+		return nil
 	}
 	for _, successor := range call.Block().Succs {
 		if success, known := SuccessBranch(call.Block(), successor, call); known && success {
 			return unownedReturnFrom([]obligationState{{block: successor, predecessor: call.Block()}}, owns, allowReturn, nil, nil)
 		}
 	}
-	return UnownedReturn(call, owns, allowReturn)
+	index := InstructionIndex(call)
+	if index < 0 {
+		return nil
+	}
+	return unownedReturnFrom([]obligationState{{block: call.Block(), index: index + 1}}, owns, allowReturn, nil, nil)
 }
 
-// unownedReturnFrom is the Boolean view of the shared obligation walk: an
+// unownedReturnFrom is the two-level view of the shared obligation walk: an
 // owning action is exact coverage and everything else is none, so the only
-// outcomes are honored and violated.
+// outcomes are honored and violated. It returns the return that violated the
+// obligation, or nil when every return is owned.
 func unownedReturnFrom(
 	initial []obligationState,
 	owns func(ssa.Instruction) bool,
 	allowReturn func(*ssa.Return) bool,
 	nonNil ssa.Value,
 	ownsEdge OwnershipEdge,
-) bool {
+) *ssa.Return {
 	flow := ObligationFlow{
 		NonNil: nonNil, Instruction: ExactOrNone(owns), Return: exactOrNoneReturn(allowReturn), Edge: exactOrNoneEdge(ownsEdge),
 	}
-	return obligationOutcome(initial, flow) == ObligationViolated
+	outcome, witness := obligationOutcome(initial, flow)
+	if outcome != ObligationViolated {
+		return nil
+	}
+	return witness
 }
 
 // UnownedReturnAssumingNonNil is UnownedReturn with the additional fact that
@@ -164,6 +183,21 @@ func UnownedReturnAssumingNonNil(
 	return UnownedReturnAssumingNonNilWithEdges(start, value, owns, allowReturn, nil)
 }
 
+// UnownedReturnAssumingNonNilWitness is UnownedReturnAssumingNonNil that
+// returns the unowned return itself, for a diagnostic to cite, or nil.
+func UnownedReturnAssumingNonNilWitness(
+	start ssa.Instruction,
+	value ssa.Value,
+	owns func(ssa.Instruction) bool,
+	allowReturn func(*ssa.Return) bool,
+) *ssa.Return {
+	index := InstructionIndex(start)
+	if index < 0 {
+		return nil
+	}
+	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, value, nil)
+}
+
 // UnownedReturnAssumingNonNilWithEdges adds edge-local ownership actions while
 // preserving the same non-nil assumption and feasible-successor policy.
 func UnownedReturnAssumingNonNilWithEdges(
@@ -177,7 +211,7 @@ func UnownedReturnAssumingNonNilWithEdges(
 	if index < 0 {
 		return false
 	}
-	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, value, ownsEdge)
+	return unownedReturnFrom([]obligationState{{block: start.Block(), index: index + 1}}, owns, allowReturn, value, ownsEdge) != nil
 }
 
 // UnownedReturnFromEntryWithEdges adds edge-local ownership actions to the
@@ -205,9 +239,10 @@ func UnownedReturnFromEntryAssumingConcrete(function *ssa.Function, value ssa.Va
 	if len(function.Blocks) == 0 {
 		return false
 	}
-	return obligationOutcome([]obligationState{{block: function.Blocks[0]}}, ObligationFlow{
+	outcome, _ := obligationOutcome([]obligationState{{block: function.Blocks[0]}}, ObligationFlow{
 		NonNil: value, NonNilType: concrete, Instruction: ExactOrNone(owns),
-	}) == ObligationViolated
+	})
+	return outcome == ObligationViolated
 }
 
 func unownedReturnFromEntry(
@@ -216,7 +251,7 @@ func unownedReturnFromEntry(
 	if len(function.Blocks) == 0 {
 		return false
 	}
-	return unownedReturnFrom([]obligationState{{block: function.Blocks[0]}}, owns, allowReturn, nonNil, ownsEdge)
+	return unownedReturnFrom([]obligationState{{block: function.Blocks[0]}}, owns, allowReturn, nonNil, ownsEdge) != nil
 }
 
 // assumedSuccessors narrows already-feasible successors by the assumption

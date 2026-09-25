@@ -90,9 +90,17 @@ func (flow ObligationFlow) feasibleSuccessors(block, predecessor *ssa.BasicBlock
 // path after the obligation and returns the weakest return coverage found. A
 // Start outside any block yields Honored: there are no paths to judge.
 func EvaluateObligation(flow ObligationFlow) ObligationOutcome {
+	outcome, _ := EvaluateObligationWitness(flow)
+	return outcome
+}
+
+// EvaluateObligationWitness is EvaluateObligation that also returns, for a
+// violated outcome, the normal return the walk reached with no action before
+// it. That return is the proof's witness, which a diagnostic can cite.
+func EvaluateObligationWitness(flow ObligationFlow) (ObligationOutcome, *ssa.Return) {
 	index := InstructionIndex(flow.Start)
 	if index < 0 {
-		return ObligationHonored
+		return ObligationHonored, nil
 	}
 	return obligationOutcome([]obligationState{{block: flow.Start.Block(), index: index + 1, guards: GuardsDominating(flow.Start)}}, flow)
 }
@@ -103,7 +111,8 @@ func EvaluateObligationFromEntry(function *ssa.Function, flow ObligationFlow) Ob
 	if function == nil || len(function.Blocks) == 0 {
 		return ObligationHonored
 	}
-	return obligationOutcome([]obligationState{{block: function.Blocks[0]}}, flow)
+	outcome, _ := obligationOutcome([]obligationState{{block: function.Blocks[0]}}, flow)
+	return outcome
 }
 
 // obligationState is one path's position, the strongest action seen on it,
@@ -144,8 +153,9 @@ func (state obligationState) key() obligationKey {
 // early return behind it cannot be a violation. An edge that contradicts a
 // loaded guard is walked as an opaque action, because a store the analysis
 // does not see could explain it; it hides a diagnostic, never proves one.
-func obligationOutcome(initial []obligationState, flow ObligationFlow) ObligationOutcome {
+func obligationOutcome(initial []obligationState, flow ObligationFlow) (ObligationOutcome, *ssa.Return) {
 	outcome := ObligationHonored
+	var witness *ssa.Return
 	WalkStates(initial, obligationState.key, func(state obligationState) ([]obligationState, bool) {
 		if flow.Budget != nil && !flow.Budget.Spend() {
 			outcome = ObligationUncertain
@@ -167,7 +177,7 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) Obligatio
 			}
 			switch covered {
 			case ObligationNone:
-				outcome = ObligationViolated
+				outcome, witness = ObligationViolated, returned
 				return nil, false
 			case ObligationUnknown:
 				outcome = ObligationUncertain
@@ -193,7 +203,7 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) Obligatio
 		}
 		return next, true
 	})
-	return outcome
+	return outcome, witness
 }
 
 // ExactOrNone lifts a Boolean ownership predicate to the two-level lattice the

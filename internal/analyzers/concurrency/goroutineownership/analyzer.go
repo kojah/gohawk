@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/flagvalue"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
+	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
@@ -66,12 +67,24 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				proof := analysis.prove()
 				analysis.emitTrace(pass, proof)
 				if proof.Outcome == GoroutineLifecycleViolated {
-					check.Reportf(pass, analysis.checkID, spawn.Pos(), "goroutine is not joined on every return path")
+					reportUnjoined(pass, analysis.checkID, spawn, proof)
 				}
 			}
 		}
 	}
 	return nil, nil
+}
+
+// reportUnjoined reports a goroutine whose join is missing on some return,
+// citing the return the proof reached without one.
+func reportUnjoined(pass *analysis.Pass, id check.ID, spawn *ssa.Go, proof GoroutineProof) {
+	source := syntax.SourceRange(pass, spawn.Pos())
+	check.Report(pass, id, analysis.Diagnostic{
+		Pos:     source.Pos(),
+		End:     source.End(),
+		Message: "goroutine is not joined on every return path",
+		Related: check.ReturnEvidence(pass, proof.Witness, "waiting for the goroutine"),
+	})
 }
 
 func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutineProof) {

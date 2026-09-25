@@ -31,6 +31,8 @@ const (
 type GoroutineProof struct {
 	Outcome GoroutineOutcome
 	Reason  goroutineOwnershipReason
+	// Witness is the return a violated proof reached without a join.
+	Witness *ssa.Return
 }
 
 // ruledOut records a proof step that was evaluated and did not hold. The
@@ -77,7 +79,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	// reached only through an opaque handoff, violated when a return is
 	// reached with no action at all. Opacity on one path never excuses an
 	// unrelated early return.
-	outcome := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
+	outcome, witness := ssaflow.EvaluateObligationWitness(ssaflow.ObligationFlow{
 		Start: analysis.spawn, Instruction: analysis.obligation, Return: analysis.returnObligation, Edge: analysis.edgeObligation,
 		Successors: summaryKnowledge.Provider(analysis.pass).Successors(), Terminates: summaryKnowledge.Provider(analysis.pass).Terminates(),
 	})
@@ -132,7 +134,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonProcessExitStopsWorker}
 	}
 	analysis.ruledOut(reasonProcessExitStopsWorker)
-	return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonUnownedReturn}
+	return GoroutineProof{Outcome: GoroutineLifecycleViolated, Reason: reasonUnownedReturn, Witness: witness}
 }
 
 // otherWorkerConsumesSignal reports whether a worker other than the spawn

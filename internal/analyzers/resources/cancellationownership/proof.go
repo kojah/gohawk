@@ -29,6 +29,8 @@ const (
 type CancellationProof struct {
 	Outcome CancellationOutcome
 	Reason  cancellationReason
+	// Witness is the return a lost proof reached without a cancel.
+	Witness *ssa.Return
 }
 
 type cancellationAction uint8
@@ -88,12 +90,13 @@ func proveCancellation(
 	// One walk carries the classifier's labels to every feasible return. A
 	// return no action reaches is loss; a return only an opaque handoff reaches
 	// is unknown, and that opacity excuses no other path's early return.
-	switch ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
+	outcome, witness := ssaflow.EvaluateObligationWitness(ssaflow.ObligationFlow{
 		Start: call, NonNil: cancel, Successors: knowledge.Successors(), Terminates: knowledge.Terminates(),
 		Instruction: classifier.obligation, Return: classifier.returnObligation, Edge: classifier.edgeObligation,
-	}) {
+	})
+	switch outcome {
 	case ssaflow.ObligationViolated:
-		return CancellationProof{Outcome: CancellationLost, Reason: reasonCancellationLost}
+		return CancellationProof{Outcome: CancellationLost, Reason: reasonCancellationLost, Witness: witness}
 	case ssaflow.ObligationUncertain:
 		return CancellationProof{Outcome: CancellationUnknown, Reason: reasonCancellationUnknown}
 	case ssaflow.ObligationHonored:
