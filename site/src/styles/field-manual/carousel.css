@@ -56,13 +56,32 @@
 }
 
 .source-window-bar {
+	position: relative;
 	display: flex;
 	align-items: center;
+	justify-content: center;
 	height: 36px;
 	flex-shrink: 0;
 	padding-inline: 14px;
 	background: #1e2b37;
 	border-bottom: 1px solid var(--sl-color-hairline);
+}
+
+/* The close, minimize, and zoom buttons of a macOS window, drawn as one dot
+   and two shadows so the four slides need no extra markup. */
+.source-window-bar::before {
+	content: '';
+	position: absolute;
+	left: 14px;
+	top: 50%;
+	width: 11px;
+	height: 11px;
+	margin-top: -5.5px;
+	border-radius: 50%;
+	background: #ff5f57;
+	box-shadow:
+		18px 0 0 #febc2e,
+		36px 0 0 #28c840;
 }
 
 .source-window-file {
