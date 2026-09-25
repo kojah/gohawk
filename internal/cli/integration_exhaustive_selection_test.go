@@ -94,7 +94,7 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("default analyzer did not run:\n%s", output)
 		}
-		for _, value := range []string{"warning[channelsafety]", "-->", "sample.go:", "^"} {
+		for _, value := range []string{"warning: ", "[channelsafety/send-after-close]", "-->", "sample.go:", "^"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("rich diagnostic does not contain %q:\n%s", value, output)
 			}

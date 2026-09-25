@@ -18,23 +18,27 @@ import (
 )
 
 type jsonDiagnostic struct {
-	Posn    string        `json:"posn"`
-	End     string        `json:"end"`
-	Message string        `json:"message"`
-	Related []jsonRelated `json:"related"`
+	Category string        `json:"category"`
+	Posn     string        `json:"posn"`
+	End      string        `json:"end"`
+	Message  string        `json:"message"`
+	Related  []jsonRelated `json:"related"`
 }
 
 type jsonRelated struct {
 	Posn    string `json:"posn"`
+	End     string `json:"end"`
 	Message string `json:"message"`
 }
 
 type positionedDiagnostic struct {
 	Analyzer string
-	Start    sourcePosition
-	End      sourcePosition
-	Message  string
-	Related  []jsonRelated
+	// Check is the stable check ID, such as resourcelifetime/missing-release.
+	Check   string
+	Start   sourcePosition
+	End     sourcePosition
+	Message string
+	Related []jsonRelated
 }
 
 type sourcePosition struct {
@@ -249,6 +253,7 @@ func decodeDiagnostics(data []byte) ([]positionedDiagnostic, []string, error) {
 				seen[key] = true
 				diagnostics = append(diagnostics, positionedDiagnostic{
 					Analyzer: analyzer,
+					Check:    item.Category,
 					Start:    start,
 					End:      end,
 					Message:  item.Message,
@@ -308,7 +313,7 @@ func requestedContext(arguments []string) int {
 }
 
 type colorPalette struct {
-	bold, yellow, cyan, red, reset string
+	bold, dim, yellow, cyan, red, reset string
 }
 
 func terminalColors(output io.Writer) colorPalette {
@@ -322,6 +327,7 @@ func terminalColors(output io.Writer) colorPalette {
 	}
 	return colorPalette{
 		bold:   "\x1b[1m",
+		dim:    "\x1b[2m",
 		yellow: "\x1b[33m",
 		cyan:   "\x1b[36m",
 		red:    "\x1b[31m",
@@ -329,30 +335,57 @@ func terminalColors(output io.Writer) colorPalette {
 	}
 }
 
+// renderDiagnostic prints the message first and the stable check ID at the
+// end of the line, then the primary span and each piece of evidence as its
+// own labeled span.
 func renderDiagnostic(output io.Writer, diagnostic positionedDiagnostic, contextLines int, colors colorPalette) {
-	writeFormattedf(output, "%s%swarning%s[%s%s%s]: %s%s%s\n",
+	check := diagnostic.Check
+	if check == "" {
+		check = diagnostic.Analyzer
+	}
+	writeFormattedf(output, "%s%swarning%s: %s%s%s %s[%s]%s\n",
 		colors.bold, colors.yellow, colors.reset,
-		colors.bold, diagnostic.Analyzer, colors.reset,
-		colors.bold, diagnostic.Message, colors.reset)
+		colors.bold, diagnostic.Message, colors.reset,
+		colors.dim, check, colors.reset)
 	writeFormattedf(output, "  %s-->%s %s:%d:%d\n", colors.cyan, colors.reset,
 		diagnostic.Start.Filename, diagnostic.Start.Line, diagnostic.Start.Column)
-
 	if contextLines >= 0 {
-		renderSource(output, diagnostic.Start, diagnostic.End, contextLines, colors)
+		renderSource(output, diagnostic.Start, diagnostic.End, contextLines, colors, "")
 	}
 	for _, related := range diagnostic.Related {
-		writeFormattedf(output, "  = note: %s: %s\n", related.Posn, related.Message)
+		renderRelated(output, related, contextLines, colors)
 	}
 }
 
-func renderSource(output io.Writer, start, end sourcePosition, contextLines int, colors colorPalette) {
+// renderRelated draws one piece of evidence as a source span labeled with its
+// message. Without a readable source line it falls back to a note.
+func renderRelated(output io.Writer, related jsonRelated, contextLines int, colors colorPalette) {
+	start, err := parsePosition(related.Posn)
+	if err != nil || contextLines < 0 {
+		writeFormattedf(output, "  = note: %s: %s\n", related.Posn, related.Message)
+		return
+	}
+	end, err := parsePosition(related.End)
+	if err != nil {
+		end = start
+	}
+	writeFormattedf(output, "  %s-->%s %s:%d:%d\n", colors.cyan, colors.reset, start.Filename, start.Line, start.Column)
+	if !renderSource(output, start, end, 0, colors, related.Message) {
+		writeFormattedf(output, "  = note: %s\n", related.Message)
+	}
+}
+
+// renderSource prints the lines of a span with a marker under it, and label
+// after the marker on the span's last line. It reports whether it could read
+// the source.
+func renderSource(output io.Writer, start, end sourcePosition, contextLines int, colors colorPalette, label string) bool {
 	data, err := os.ReadFile(start.Filename)
 	if err != nil {
-		return
+		return false
 	}
 	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
 	if start.Line < 1 || start.Line > len(lines) {
-		return
+		return false
 	}
 	if end.Filename != start.Filename || end.Line < start.Line {
 		end = start
@@ -371,9 +404,14 @@ func renderSource(output io.Writer, start, end sourcePosition, contextLines int,
 			continue
 		}
 		column, length := markerRange(line, lineNumber, start, end)
-		writeFormattedf(output, "%*s %s|%s %s%s%s%s\n", width, "", colors.cyan, colors.reset,
-			markerIndent(line, column), colors.red, "^"+strings.Repeat("~", length-1), colors.reset)
+		suffix := ""
+		if label != "" && lineNumber == end.Line {
+			suffix = " " + colors.bold + label + colors.reset
+		}
+		writeFormattedf(output, "%*s %s|%s %s%s%s%s%s\n", width, "", colors.cyan, colors.reset,
+			markerIndent(line, column), colors.red, "^"+strings.Repeat("~", length-1), colors.reset, suffix)
 	}
+	return true
 }
 
 func markerRange(line string, lineNumber int, start, end sourcePosition) (int, int) {

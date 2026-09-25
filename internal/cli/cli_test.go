@@ -287,11 +287,12 @@ func TestRunViaGoVet(t *testing.T) {
 	}{
 		{name: "no diagnostics", render: renderRich, result: processOutput{stdout: []byte(`{}`)}, wantCode: 0},
 		{
-			name:       "diagnostic",
-			render:     renderRich,
-			result:     processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":[{"posn":"missing.go:1:1","message":"problem"}]}}`)},
+			name:   "diagnostic",
+			render: renderRich,
+			result: processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":[` +
+				`{"category":"channelsafety/send-after-close","posn":"missing.go:1:1","message":"problem"}]}}`)},
 			wantCode:   3,
-			wantOutput: "warning[channelsafety]: problem",
+			wantOutput: "warning: problem [channelsafety/send-after-close]",
 		},
 		{
 			// go vet prints one object per package; a pattern matching several
@@ -303,7 +304,7 @@ func TestRunViaGoVet(t *testing.T) {
 {"example.com/q":{"channelsafety":[{"posn":"q.go:1:1","message":"second"}]}}
 `)},
 			wantCode:   3,
-			wantOutput: "warning[channelsafety]: second",
+			wantOutput: "warning: second [channelsafety]",
 		},
 		{
 			name:       "analysis error",

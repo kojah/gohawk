@@ -23,7 +23,7 @@ func TestCLIIntegration(t *testing.T) {
 		if exitCode != 3 {
 			t.Fatalf("default run: exit code = %d, want 3\n%s", exitCode, output)
 		}
-		for _, value := range []string{"warning[channelsafety]", "-->", "sample.go:", "^", "send follows close of channel"} {
+		for _, value := range []string{"warning: ", "[channelsafety/send-after-close]", "-->", "sample.go:", "^", "send follows close of channel"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("rich diagnostic does not contain %q:\n%s", value, output)
 			}

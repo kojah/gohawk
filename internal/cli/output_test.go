@@ -34,7 +34,7 @@ func TestRenderDiagnosticUsesFullRange(t *testing.T) {
 	}, 0, colorPalette{})
 
 	for _, want := range []string{
-		"warning[example]: problem found",
+		"warning: problem found [example]",
 		filename + ":4:2",
 		"4 | \tproblem()",
 		"| \t^~~~~~~~~",
@@ -74,5 +74,37 @@ func TestDocumentationFooterLinksEachAnalyzerOnce(t *testing.T) {
 	renderDocumentationFooter(&output, nil)
 	if output.Len() != 0 {
 		t.Fatalf("footer without diagnostics = %q, want nothing", output.String())
+	}
+}
+
+func TestRenderDiagnosticDrawsLabeledEvidence(t *testing.T) {
+	directory := t.TempDir()
+	filename := filepath.Join(directory, "sample.go")
+	source := "package sample\n\nfunc f() {\n\topen()\n\treturn\n}\n"
+	if err := os.WriteFile(filename, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	renderDiagnostic(&output, positionedDiagnostic{
+		Analyzer: "example",
+		Check:    "example/leak",
+		Start:    sourcePosition{Filename: filename, Line: 4, Column: 2},
+		End:      sourcePosition{Filename: filename, Line: 4, Column: 8},
+		Message:  "leaked",
+		Related: []jsonRelated{
+			{Posn: filename + ":5:2", End: filename + ":5:8", Message: "returns here without releasing it"},
+			{Posn: "elsewhere.go:9:1", Message: "a location with no readable source"},
+		},
+	}, 0, colorPalette{})
+	for _, want := range []string{
+		"warning: leaked [example/leak]",
+		filename + ":5:2",
+		"5 | \treturn",
+		"| \t^~~~~~ returns here without releasing it",
+		"= note: a location with no readable source",
+	} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("output does not contain %q:\n%s", want, output.String())
+		}
 	}
 }
