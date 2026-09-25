@@ -13,25 +13,12 @@ Tracks cancel functions returned by context and signal helpers and reports any
 successful return path that neither calls the cancel function nor transfers it
 to the caller.
 
-For a standard context derived directly from a fresh local cancelable context,
-the classifier also considers use of the exact parent's cancel function after
-the child is created. Parent cancellation or ownership handoff makes child
-cleanup uncertain rather than proving a leak. This reuses the existing
-path-sensitive classification; an unrelated or only conditionally canceled
-parent does not cover an otherwise unowned return. A parent held in a local
-cell is resolved at the child-creation instruction, including when that cell
-later holds the child. Ambiguous or detached parents remain outside this
-boundary. Signal registrations still need their own stop
-function even when their parent is canceled.
+Canceling a parent context, or receiving from the child's `Done` channel, can
+stand in for the child's own cancel on the paths it covers. Signal
+registrations from `signal.NotifyContext` still need their stop function.
 
-Receiving the exact standard context child's `Done` channel declines a loss
-claim on that path. In a `select`, this applies only to returns dominated by
-the selected receive arm; other cases and default arms still need cleanup.
-This is uncertainty about outstanding cleanup, not proof of a synchronous
-cancel call. Signal contexts still require unregistration after a signal.
-
-Elapsed sleep durations and command-wide process lifetimes remain known
-precision gaps, not blanket exemptions for timers or command entry points.
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [cancellationownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/cancellationownership.md).
 
 ### Checks
 

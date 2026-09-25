@@ -10,18 +10,13 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 Reports sends reachable after the same channel has been closed.
 
-Complete concurrency summaries expose closes and sends inside synchronous
-helpers, including imported helpers. A close in one call can therefore be
-matched to a later direct send or helper call on the exact same channel.
-Diagnostics point to the caller's send (or sending call), with a related
-location for the close (or closing call).
+Closes and sends inside helpers count too, including helpers in other
+packages, so a close in one call is matched to a later send on the same
+channel. The diagnostic points at the send, with the close as a related
+location.
 
-This supplements the existing local flow proof; it does not require the
-caller itself to be straight-line. The summary path declines branching or
-opaque helper bodies and uncertain identities. Deferred and asynchronous
-calls are not treated as executing at their registration or launch site.
-Send-after-close comparisons do not cross loop backedges or compare events
-within one call.
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [channelsafety design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/channelsafety.md).
 
 ### Checks
 

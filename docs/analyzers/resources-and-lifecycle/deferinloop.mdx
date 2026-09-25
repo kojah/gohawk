@@ -27,10 +27,11 @@ Deferring cleanup until the whole function returns lets resources accumulate
 across iterations. A large or long-running loop can then exhaust file handles,
 hold locks too long, or keep timers and connections alive unnecessarily.
 
-Storing the resource in a containing aggregate makes its iteration-local
-lifetime unknown, including a collection populated before the defer. Such
-collections may deliberately keep resources for use after the loop. This
-boundary does not prove the collection is eventually closed.
+A resource stored in a collection that outlives the loop is not reported,
+because the collection may keep it on purpose.
+
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [deferinloop design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/deferinloop.md).
 
 Further reading: [Effective Go: Defer](https://go.dev/doc/effective_go#defer).
 

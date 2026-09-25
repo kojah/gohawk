@@ -52,6 +52,9 @@ task rather than re-deriving the procedure:
   and evidence traces to explain a diagnostic.
 - `.agents/skills/gohawk-analyzer-tracing/SKILL.md` — adding or reviewing
   structured evidence traces without changing analyzer behavior or JSON output.
+- `.agents/skills/gohawk-documentation/SKILL.md` — writing or editing any
+  documentation: what belongs on the website and what goes in
+  `docs/development/`.
 
 References: `docs/development/README.md` (the development reference index),
 `docs/development/architecture.md` (layers and enforced invariants),
@@ -363,7 +366,8 @@ maintained development reference read in the repository.
   `docs/development/decisions/`. An analyzer change updates its design note
   together with its fixtures.
 - Public pages carry no commit-pinned dogfood links and stay within the size
-  budget the architecture tests enforce.
+  budget the architecture tests enforce. A failing budget or vocabulary check
+  means the text belongs in `docs/development/`; do not raise the budget.
 
 Use `make site-review` when testing the documentation website. It starts the
 Astro development server together with the Agentation services, so annotations

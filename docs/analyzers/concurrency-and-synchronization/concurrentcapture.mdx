@@ -27,19 +27,12 @@ Those goroutines run at unpredictable times and may read or write the captured
 value simultaneously. The result is a data race whose output can change from
 run to run and may only fail under load.
 
-For a straight-line worker, the check now requests ordered synchronization
-effects through the shared summary broker and uses the synchronization
-region's exact lock state at each mutation. A lock acquired only after the
-write, or released before it, no longer suppresses that write. Lock effects
-inside a complete helper summary participate in the same order.
+A mutex held around the write suppresses the report only when the lock is
+held at the write itself. This is a focused hazard check, not a race detector:
+a capture it accepts is not thereby proven race-free.
 
-This is still a bounded hazard check, not a general race detector. Branching
-workers, opaque helper effects, and unsupported mutation sites retain the
-older conservative syntax boundary; they are not interpreted as proof of an
-unguarded write. Worker-specific guards and channel semaphore shapes are
-still handled separately. A lock local to each worker may also suppress a
-report even though it does not serialize workers, so the check does not claim
-that every accepted capture is race-free.
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [concurrentcapture design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/concurrentcapture.md).
 
 Further reading: [Data race detector](https://go.dev/doc/articles/race_detector),
 [The Go memory model](https://go.dev/ref/mem).

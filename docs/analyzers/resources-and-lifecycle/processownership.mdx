@@ -24,8 +24,7 @@ waiting for it.
 Launching a process without waiting is not reported on its own: opening a
 browser or relaunching a daemon may intentionally outlive the caller. The
 check reports a command that is waited on or handed on along some return paths
-but not others. Commands built by helpers or reached through callbacks have
-uncertain ownership and are not reported.
+but not others. Commands built by helpers or reached through callbacks are not checked.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [processownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/processownership.md).
