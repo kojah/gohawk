@@ -2,6 +2,7 @@
 package catalog
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -31,17 +32,14 @@ const (
 
 // CheckTier records how much trust a check has earned and therefore whether
 // it runs without being asked for. Tiers are ordered: core is enabled by
-// default, extended must be selected, and experimental must be selected under
-// an explicit experimental ceiling or by check ID.
+// default, and experimental must be selected under an explicit experimental
+// ceiling or by check ID.
 type CheckTier string
 
 const (
 	// TierCore identifies checks whose precision is demonstrated on the
 	// repository audit and guarded by the precision replay; they run by default.
 	TierCore CheckTier = "core"
-	// TierExtended identifies stable checks that encode a house rule a team
-	// may reasonably decline; they run only when selected.
-	TierExtended CheckTier = "extended"
 	// TierExperimental identifies heuristic audits that may change or be
 	// retired; they run only under an experimental ceiling or by check ID.
 	TierExperimental CheckTier = "experimental"
@@ -49,7 +47,7 @@ const (
 
 // Tiers lists the tiers from most to least trusted.
 func Tiers() []CheckTier {
-	return []CheckTier{TierCore, TierExtended, TierExperimental}
+	return []CheckTier{TierCore, TierExperimental}
 }
 
 // ParseTier returns the tier named by value.
@@ -59,11 +57,15 @@ func ParseTier(value string) (CheckTier, error) {
 			return tier, nil
 		}
 	}
-	return "", fmt.Errorf("unknown tier %q (expected core, extended, or experimental)", value)
+	if value == "extended" {
+		// The extended tier was removed on 2026-09-25 while it held no checks.
+		return "", errors.New("the extended tier was removed; use core or experimental")
+	}
+	return "", fmt.Errorf("unknown tier %q (expected core or experimental)", value)
 }
 
 // Within reports whether tier is at or above the trust of ceiling, so a
-// ceiling of extended admits core and extended checks.
+// ceiling of experimental admits core and experimental checks.
 func (tier CheckTier) Within(ceiling CheckTier) bool {
 	return tierRank(tier) <= tierRank(ceiling)
 }

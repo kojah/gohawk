@@ -14,7 +14,6 @@ Every check carries a tier that records how much trust it has earned:
 | Tier | Runs by default | Meaning |
 | --- | --- | --- |
 | core | yes | precision demonstrated on the repository audit and guarded by the precision replay |
-| extended | no | stable checks that encode a house rule a team may reasonably decline |
 | experimental | no | heuristic audits that may change or be retired |
 
 Use `gohawk list` to see every analyzer with its tier, and `gohawk list
@@ -26,12 +25,9 @@ gohawk list
 gohawk list -checks
 ```
 
-Raise the tier ceiling to run every check at or below a tier:
+Raise the tier ceiling to run experimental checks too:
 
 ```sh
-# Run core and extended checks.
-gohawk -tier=extended ./...
-
 # Run everything, including experimental audits.
 gohawk -tier=experimental ./...
 ```
@@ -51,8 +47,8 @@ gohawk -disable=channelsafety ./...
 gohawk -enable-all ./...
 ```
 
-Naming an analyzer admits its core and extended checks. Its experimental
-checks join only under `-tier=experimental` or when named by check ID.
+Naming an analyzer runs its core checks. Its experimental checks join only
+under `-tier=experimental` or when named by check ID.
 
 You can also select a whole group:
 

@@ -213,9 +213,9 @@ func structField(value types.Type, index int) *types.Var {
 // no consistent acquisition order; that is a defect in the locking discipline
 // even where today's callers happen to pass different objects, because nothing
 // stops a later caller from passing the same one. This is the ordering model
-// Linux lockdep reports on, and it is why contradictory-order is a hazard in
-// the extended tier rather than a core defect: it proves an inconsistent
-// order, not a reachable interleaving.
+// Linux lockdep reports on, and it is why contradictory-order is a hazard
+// rather than a defect: it proves an inconsistent order, not a reachable
+// interleaving.
 // Field classes of the same owner type with both roots bound in one caller
 // additionally require a same-owner relation at the ordering edge. Unproved
 // cross-instance relationships retain only local instance ordering.

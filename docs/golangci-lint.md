@@ -59,8 +59,8 @@ linters:
             - deferinloop/cleanup-lifetime
 ```
 
-The plugin runs gohawk's core checks; extended and experimental checks are
-suppressed unless explicitly enabled. Its
+The plugin runs gohawk's core checks; experimental checks are suppressed
+unless explicitly enabled. Its
 settings accept `enable` and `disable` analyzer lists, `enable-checks` and
 `disable-checks` lists of stable check IDs, or `enable-all: true` to start with
 every analyzer and check. Explicitly enabling a check also enables its owning

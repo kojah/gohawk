@@ -108,8 +108,7 @@ func effectiveDisabledChecks(
 				disabled[id] = true
 				continue
 			}
-			admitted := selection.enableAll || check.EnabledAt(selection.ceiling) ||
-				selection.named[analyzer] && check.EnabledAt(gohawk.CheckTierExtended)
+			admitted := selection.enableAll || check.EnabledAt(selection.ceiling)
 			if !admitted {
 				disabled[id] = true
 			}

@@ -76,7 +76,7 @@ func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error
 	flags := flag.NewFlagSet("list", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
 	defaultsOnly := flags.Bool("defaults", false, "show only core entries, which run without selection")
-	optInOnly := flags.Bool("opt-in", false, "show only extended and experimental entries, which require selection")
+	optInOnly := flags.Bool("opt-in", false, "show only experimental entries, which require selection")
 	showChecks := flags.Bool("checks", false, "show stable check IDs instead of analyzer names")
 	flags.Usage = func() {
 		writeLine(errorsOutput, "usage: gohawk list [-checks] [-defaults | -opt-in]")
@@ -108,7 +108,7 @@ func printAnalyzerList(arguments []string, output, errorsOutput io.Writer) error
 	if err := table.Flush(); err != nil {
 		return err
 	}
-	writeLine(output, "\ncore runs by default; extended and experimental require selection (see -tier)")
+	writeLine(output, "\ncore runs by default; experimental requires selection (see -tier)")
 	return nil
 }
 
@@ -141,12 +141,9 @@ func listEntryFiltered(isDefault bool, options analyzerListOptions) bool {
 	return options.defaultsOnly && !isDefault || options.optInOnly && isDefault
 }
 
-// tierName marks an analyzer that does not run by default: + for extended,
-// ~ for experimental.
+// tierName marks an analyzer that does not run by default with ~.
 func tierName(name string, tier gohawk.CheckTier) string {
 	switch tier {
-	case gohawk.CheckTierExtended:
-		return name + "+"
 	case gohawk.CheckTierExperimental:
 		return name + "~"
 	case gohawk.CheckTierCore:
@@ -299,7 +296,7 @@ func printGeneralHelp(output io.Writer) {
 		}
 		writeFormattedf(output, "  %s (%s): %s\n", group.Name, group.Doc, strings.Join(names, ", "))
 	}
-	writeLine(output, "\nTiers: core runs by default; extended (+) and experimental (~) require selection or -tier.")
+	writeLine(output, "\nTiers: core runs by default; experimental (~) requires selection or -tier.")
 	writeLine(output, "Run 'gohawk list' for the full catalog.")
 	writeLine(output)
 }

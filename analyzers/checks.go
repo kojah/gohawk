@@ -18,16 +18,13 @@ const (
 )
 
 // CheckTier records how much trust a check has earned and whether it runs
-// without being asked for: core runs by default, extended must be selected,
-// and experimental must be selected under an explicit experimental ceiling or
-// by check ID.
+// without being asked for: core runs by default, and experimental must be
+// selected under an explicit experimental ceiling or by check ID.
 type CheckTier string
 
 const (
 	// CheckTierCore identifies checks whose precision is demonstrated on the repository audit; they run by default.
 	CheckTierCore CheckTier = "core"
-	// CheckTierExtended identifies stable checks that encode a house rule a team may reasonably decline.
-	CheckTierExtended CheckTier = "extended"
 	// CheckTierExperimental identifies heuristic audits that may change or be retired.
 	CheckTierExperimental CheckTier = "experimental"
 )

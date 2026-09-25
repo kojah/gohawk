@@ -65,9 +65,9 @@ as a threshold or ownership policy. Define them on the analyzer's `Flags` set.
 
 Add a `catalog.AnalyzerSpec` for the analyzer to the matching group in
 `analyzers/catalog_specs.go`, including its checks and each check's tier.
-A new check starts experimental; it moves to extended
-once it has fixtures, a doc page, and an audit batch without a false-positive
-class, and to core after consecutive clean batches with a bounded proof model. Then add its analyzer ID to the stable order in
+A new check starts experimental. It moves to core once it has fixtures, a doc
+page, and consecutive audit batches without a false-positive class, with a
+bounded proof model. Then add its analyzer ID to the stable order in
 `analyzers/analyzers.go`.
 
 Define each stable check identity alongside the existing check constants in

@@ -1,7 +1,7 @@
 ---
 interface Props {
 	name: string;
-	tier?: 'core' | 'extended' | 'experimental';
+	tier?: 'core' | 'experimental';
 }
 
 const { name, tier = 'core' } = Astro.props;

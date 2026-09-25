@@ -180,8 +180,8 @@ Keep default proof systems deliberately bounded:
   not sufficient reason to expand the model.
 - Keep heuristic audits in the experimental tier. Do not make a heuristic
   increasingly elaborate in an attempt to support a core correctness claim.
-  A check earns extended with fixtures, a doc page, and one clean audit
-  batch, and core with consecutive clean batches and a bounded proof model.
+  A check earns core with fixtures, a doc page, consecutive clean audit
+  batches, and a bounded proof model.
 
 Prefer stable false negatives over an analyzer whose precision depends on an
 open-ended catalog of framework and naming conventions.

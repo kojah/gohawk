@@ -332,24 +332,15 @@ func TestCheckSelectionTiers(t *testing.T) {
 	analyzers := gohawk.Analyzers()
 	groups := gohawk.AnalyzerGroups()
 	metadata := gohawk.AnalyzerMetadata()
-	nilContext := "lockorder/missing-release"
 
-	t.Run("tier ceiling admits extended checks", func(t *testing.T) {
-		requested := checkSelection{enabled: map[string]bool{}, disabled: map[string]bool{}}
-		selection, err := withAnalyzerCheckSelection([]string{"gohawk", "-tier=extended", "./..."}, analyzers, groups, metadata, nil, false)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !selection.normallySelected["channelsafety"] {
-			t.Fatalf("selected analyzers = %v", selection.normallySelected)
-		}
-		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["producerlifecycle/stopped-loop-send"] {
-			t.Fatalf("disabled checks = %v", disabled)
+	t.Run("the removed extended tier is rejected with a hint", func(t *testing.T) {
+		_, err := withAnalyzerCheckSelection([]string{"gohawk", "-tier=extended", "./..."}, analyzers, groups, metadata, nil, false)
+		if err == nil || !strings.Contains(err.Error(), "extended tier was removed") {
+			t.Fatalf("error = %v, want the removed-tier hint", err)
 		}
 	})
 
-	t.Run("naming an analyzer admits extended but not experimental checks", func(t *testing.T) {
+	t.Run("naming an analyzer admits core but not experimental checks", func(t *testing.T) {
 		requested := checkSelection{enabled: map[string]bool{}, disabled: map[string]bool{}}
 		arguments := []string{"gohawk", "-enable=goroutineownership,processownership,lockorder,producerlifecycle", "./..."}
 		selection, err := withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, false)

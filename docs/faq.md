@@ -64,8 +64,7 @@ func reverse() {
 }
 ```
 
-This lock-order check is off by default. Turn it on with
-`gohawk -tier=extended ./...`.
+This lock-order check runs by default.
 
 A goroutine that should be waited for, but one path returns early:
 
@@ -120,9 +119,9 @@ We work hard to keep it quiet. gohawk reports a problem only when it can see
 both that something needs cleaning up and that it doesn't get cleaned up. When
 it can't tell, it says nothing.
 
-Checks come in three tiers: core, extended, and experimental. Only core checks
-run by default, because they're the ones we trust most. See
-[Configuration](/configuration/) to turn on the others.
+Checks come in two tiers: core and experimental. Only core checks run by
+default, because they're the ones we trust most. See
+[Configuration](/configuration/) to turn on the experimental ones.
 
 No analyzer is perfect, though. If gohawk flags something that isn't a real
 problem, please [open an issue](https://github.com/kojah/gohawk/issues) with

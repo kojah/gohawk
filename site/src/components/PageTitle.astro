@@ -14,7 +14,7 @@ const isLanding = entry.id === 'index' || entry.id === '';
 // A tier belongs to a check, not the analyzer, and an analyzer's checks can
 // span tiers. Show the distinct set its checks use, most trusted first, so the
 // header states them exactly instead of collapsing them to a single tier.
-const tierOrder = ['core', 'extended', 'experimental'];
+const tierOrder = ['core', 'experimental'];
 const tiers = analyzer
 	? tierOrder.filter((tier) => analyzer.checks.some((check) => check.tier === tier))
 	: [];

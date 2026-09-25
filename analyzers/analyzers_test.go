@@ -48,12 +48,9 @@ func TestUnknownDiagnosticReturnsError(t *testing.T) {
 	}
 }
 
-func analyzerTier(name string, extended, experimental map[string]bool) CheckTier {
-	switch {
-	case experimental[name]:
+func analyzerTier(name string, experimental map[string]bool) CheckTier {
+	if experimental[name] {
 		return CheckTierExperimental
-	case extended[name]:
-		return CheckTierExtended
 	}
 	return CheckTierCore
 }
@@ -70,7 +67,7 @@ func TestDefaultSuppressionsExcludeSelectedTierChecks(t *testing.T) {
 		},
 		Checks: []catalog.CheckInfo{
 			{ID: "example/default", Kind: catalog.KindDefect, Tier: catalog.TierCore},
-			{ID: "example/optional", Kind: catalog.KindHazard, Tier: catalog.TierExtended},
+			{ID: "example/optional", Kind: catalog.KindHazard, Tier: catalog.TierExperimental},
 		},
 	})
 	var categories []string
@@ -156,7 +153,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 	if len(metadata) != len(expectedAnalyzerNames()) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
-	extended := map[string]bool{}
 	experimental := map[string]bool{}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
@@ -187,7 +183,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		info, ok := metadata[name]
 		if !ok {
 			t.Errorf("metadata missing analyzer %q", name)
-		} else if want := analyzerTier(name, extended, experimental); info.Tier() != want {
+		} else if want := analyzerTier(name, experimental); info.Tier() != want {
 			t.Errorf("analyzer %q tier = %q, want %q", name, info.Tier(), want)
 		}
 		if len(info.Checks) == 0 {
@@ -202,7 +198,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 			}
 			wantTier, named := checkTiers[check.ID]
 			if !named {
-				wantTier = analyzerTier(name, extended, experimental)
+				wantTier = analyzerTier(name, experimental)
 			}
 			if check.Tier != wantTier {
 				t.Errorf("check %q tier = %q, want %q", check.ID, check.Tier, wantTier)

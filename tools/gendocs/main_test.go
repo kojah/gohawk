@@ -248,14 +248,14 @@ func TestChecksBlockIncludesIDsDescriptionsAndTier(t *testing.T) {
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
 		Kind:    "hazard",
-		Tier:    gohawk.CheckTierExtended,
+		Tier:    gohawk.CheckTierExperimental,
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
 		"| Check | Kind | Tier | What it detects |",
-		"| <CheckIdentity name=\"problem\" tier=\"extended\" /> | hazard | extended |",
+		"| <CheckIdentity name=\"problem\" tier=\"experimental\" /> | hazard | experimental |",
 		"Reports the example problem.",
 	} {
 		if !strings.Contains(block, want) {

@@ -48,7 +48,6 @@ func TestPrintAnalyzerList(t *testing.T) {
 				"TIER",
 				"GROUP",
 				"hazard",
-				"extended",
 				"channelsafety/send-after-close",
 				"defect",
 				"core",

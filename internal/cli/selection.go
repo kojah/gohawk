@@ -62,12 +62,12 @@ func buildExecutionPlan(
 
 func registerSelectionFlags() {
 	flag.Bool("enable-all", false, "enable every analyzer and check at every tier")
-	flag.String("tier", string(gohawk.CheckTierCore), "most permissive tier to run without naming a check: core, extended, or experimental")
+	flag.String("tier", string(gohawk.CheckTierCore), "most permissive tier to run without naming a check: core or experimental")
 	flag.String("enable", "", "enable comma-separated analyzers")
 	flag.String("disable", "", "disable comma-separated analyzers")
 	flag.String("enable-checks", "", "enable comma-separated checks by stable ID")
 	flag.String("disable-checks", "", "disable comma-separated checks by stable ID")
-	flag.String("enable-groups", "", "enable comma-separated analyzer groups, including their extended checks")
+	flag.String("enable-groups", "", "enable comma-separated analyzer groups")
 	flag.String("disable-groups", "", "disable comma-separated analyzer groups")
 	analysisTrace.RegisterFlags(flag.CommandLine)
 	check.RegisterFlags(flag.CommandLine)
@@ -76,11 +76,8 @@ func registerSelectionFlags() {
 type analyzerCheckSelection struct {
 	arguments        []string
 	normallySelected map[string]bool
-	// named holds analyzers the user asked for by name or group; naming an
-	// analyzer admits its extended checks even under the default ceiling.
-	named     map[string]bool
-	enableAll bool
-	ceiling   gohawk.CheckTier
+	enableAll        bool
+	ceiling          gohawk.CheckTier
 }
 
 func withAnalyzerSelection(
@@ -186,11 +183,10 @@ func resolveAnalyzerSelection(
 	explicit := request.explicit
 	checkOwners := request.owners
 	hasExplicitEnabled := anyEnabled(explicit)
-	named := namedAnalyzers(request, groups)
 	if nativeSelectionSuffices(request, hasExplicitEnabled) {
 		normallySelected := nativeAnalyzerSelection(analyzers, explicit, enableAll)
 		return analyzerCheckSelection{
-			arguments: remaining, normallySelected: normallySelected, named: named, enableAll: enableAll, ceiling: request.ceiling,
+			arguments: remaining, normallySelected: normallySelected, enableAll: enableAll, ceiling: request.ceiling,
 		}
 	}
 	selected := baseAnalyzerSelection(analyzers, groups, metadata, request, hasExplicitEnabled)
@@ -203,30 +199,6 @@ func resolveAnalyzerSelection(
 	result = append(result, remaining[0])
 	result = append(result, enabledFlags...)
 	return analyzerCheckSelection{
-		arguments: append(result, remaining[1:]...), normallySelected: normallySelected, named: named, enableAll: enableAll, ceiling: request.ceiling,
+		arguments: append(result, remaining[1:]...), normallySelected: normallySelected, enableAll: enableAll, ceiling: request.ceiling,
 	}
-}
-
-// namedAnalyzers collects the analyzers a user asked for explicitly, by name
-// or by group. Asking for an analyzer admits its extended checks; only an
-// experimental ceiling or a check ID admits experimental ones.
-func namedAnalyzers(request selectionRequest, groups []gohawk.AnalyzerGroup) map[string]bool {
-	named := make(map[string]bool)
-	for name := range request.analyzers.enabled {
-		named[name] = true
-	}
-	for name, enabled := range request.explicit {
-		if enabled {
-			named[name] = true
-		}
-	}
-	for _, group := range groups {
-		if !request.groups.enabled[group.Name] {
-			continue
-		}
-		for _, analyzer := range group.Analyzers {
-			named[analyzer.Name] = true
-		}
-	}
-	return named
 }
