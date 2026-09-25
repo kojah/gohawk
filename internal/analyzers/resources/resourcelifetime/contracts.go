@@ -62,6 +62,13 @@ func resourceContracts() []resourceContract {
 		resourceFunction("http", "net/http", "Post", 0, "Close"),
 		resourceFunction("http", "net/http", "PostForm", 0, "Close"),
 		resourceMethod("http", "net/http", "Client", "Do", "Close"),
+		// net/http documents the same obligation for these Client methods as
+		// for the package functions above: "Caller should close resp.Body when
+		// done reading from it." Head carries no such sentence, and a HEAD
+		// response usually has http.NoBody, so neither Head form is listed.
+		resourceMethod("http", "net/http", "Client", "Get", "Close"),
+		resourceMethod("http", "net/http", "Client", "Post", "Close"),
+		resourceMethod("http", "net/http", "Client", "PostForm", "Close"),
 
 		// Compression readers do not own their inputs or require finalization.
 		// Close neither closes the underlying reader nor validates a checksum;

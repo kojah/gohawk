@@ -15,6 +15,13 @@ HTTP response bodies, and gzip/zlib writers. Compression readers do not own
 their inputs, and their Close does not finalize or validate the input stream,
 so they are not cleanup obligations. The underlying file still needs closing.
 
+HTTP bodies come from `http.Get`, `http.Post`, `http.PostForm`, and the
+`Client` methods `Do`, `Get`, `Post`, and `PostForm`: net/http documents
+"Caller should close resp.Body" for each. `Head` in either form carries no
+such sentence and usually returns `http.NoBody`, so it is not an acquisition.
+A project type named `Client` with a `Get` method is matched by package path,
+not name, and is not an acquisition (`http_client_methods.go`).
+
 A direct `http.NewRequest("HEAD", ...)` used only by `Client.Do`, with a
 fresh zero-value client also used only by `Do`, has an uncertain body
 acquisition. The usual transport returns `http.NoBody`; the replaceable global
@@ -26,7 +33,10 @@ An exact `http.Get` targeting an unchanged local `httptest.NewServer` can also
 have uncertain body acquisition when its handler and visible helpers only set
 non-framing headers, cookies, or a non-redirect status. Writer escapes, body
 writes, dynamic or framing headers, and visible default-client or transport
-overrides exclude this boundary. Mutations of global HTTP defaults hidden in
+overrides exclude this boundary. `server.Client().Get(...)` on the same
+server qualifies too: httptest gives that client a transport to the server
+and no timeout. Any other use of that client, such as setting `Timeout`,
+and any other client, exclude it (`http_servers.go`). Mutations of global HTTP defaults hidden in
 other packages remain an accepted coverage gap; this is not proof that a body
 can never need closing.
 

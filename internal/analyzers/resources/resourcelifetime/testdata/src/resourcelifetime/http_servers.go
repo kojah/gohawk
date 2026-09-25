@@ -144,3 +144,31 @@ func localTrailerResponse() {
 	defer server.Close()
 	_, _ = http.Get(server.URL) // want "owned resource from http.Get is not released"
 }
+
+func localServerClientHeaderOnlyResponse() {
+	server := httptest.NewServer(http.HandlerFunc(headersOnly))
+	defer server.Close()
+	_, _ = server.Client().Get(server.URL + "/cookies")
+}
+
+func localServerClientBodyResponse() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("body"))
+	}))
+	defer server.Close()
+	_, _ = server.Client().Get(server.URL) // want "owned resource from http.Get is not released"
+}
+
+func localServerClientWithTimeoutResponse() {
+	server := httptest.NewServer(http.HandlerFunc(headersOnly))
+	defer server.Close()
+	client := server.Client()
+	client.Timeout = time.Second
+	_, _ = client.Get(server.URL) // want "owned resource from http.Get is not released"
+}
+
+func localOtherClientResponse(client *http.Client) {
+	server := httptest.NewServer(http.HandlerFunc(headersOnly))
+	defer server.Close()
+	_, _ = client.Get(server.URL) // want "owned resource from http.Get is not released"
+}
