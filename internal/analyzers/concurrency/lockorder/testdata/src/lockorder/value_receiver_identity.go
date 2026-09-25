@@ -43,7 +43,7 @@ func (action valueReceiverAction) missingAfterSwitch(kind int, fail bool) {
 		return
 	}
 	if fail {
-		return // want "lock .*valuesLock is not released on this return path"
+		return // want "lock `stable\\.valuesLock` is not released on this return path"
 	}
 	stable.valuesLock.Unlock()
 }

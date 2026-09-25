@@ -33,7 +33,7 @@ func callbackLiteralUnlock(owner *struct{ ready func() }) {
 func callbackOtherMutex(owner *struct{ ready func() }, mu, other *sync.Mutex) {
 	mu.Lock()
 	owner.ready = other.Unlock
-	mu.Lock() // want "lock .*mu is acquired while already held"
+	mu.Lock() // want "lock `mu` is acquired while already held"
 	mu.Unlock()
 }
 
@@ -41,6 +41,6 @@ func callbackNotHandedOff(mu *sync.Mutex) {
 	mu.Lock()
 	callback := mu.Unlock
 	_ = callback
-	mu.Lock() // want "lock .*mu is acquired while already held"
+	mu.Lock() // want "lock `mu` is acquired while already held"
 	mu.Unlock()
 }

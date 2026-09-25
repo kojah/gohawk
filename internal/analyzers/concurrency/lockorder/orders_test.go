@@ -39,7 +39,7 @@ func TestOrderCycleEvidence(t *testing.T) {
 			if strings.Contains(related.Message, "calls ordercycles.") {
 				helpers++
 			}
-			if strings.Contains(related.Message, "with RLock") {
+			if strings.Contains(related.Message, "read-locked") {
 				readers++
 			}
 		}

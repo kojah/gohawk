@@ -162,7 +162,7 @@ func walkLockOrderBounded(
 			effect, ok := directMutexEffect(instruction)
 			if !ok {
 				flow.recordCalledOrder(instruction, held, origins)
-				reportReadLockWrites(pass, instruction, held, readHeld, lockValues, possibleWriters)
+				reportReadLockWrites(flow, instruction, held, readHeld, lockValues, possibleWriters)
 				continue
 			}
 			actionState := lockFlowState{

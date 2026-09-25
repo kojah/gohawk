@@ -85,7 +85,7 @@ func (p *classPair) forward() {
 func (p *classPair) reverse() {
 	p.second.Lock()
 	defer p.second.Unlock()
-	p.first.Lock() // want "contradictory lock order: \\*lockorder.classPair.first and \\*lockorder.classPair.second"
+	p.first.Lock() // want "contradictory lock order: classPair\\.first and classPair\\.second"
 	defer p.first.Unlock()
 }
 
@@ -120,7 +120,7 @@ func (c *classCache) remove() {
 func (c *classCache) lookup(lease *classLease) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	lease.mu.Lock() // want "contradictory lock order: \\*lockorder.classLease.mu and \\*lockorder.classCache.mu"
+	lease.mu.Lock() // want "contradictory lock order: classLease\\.mu and classCache\\.mu"
 	defer lease.mu.Unlock()
 }
 

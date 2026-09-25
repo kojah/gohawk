@@ -3,6 +3,7 @@ package syntax
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ast/astutil"
@@ -70,4 +71,27 @@ func EnclosingLoop(pass *analysis.Pass, position token.Pos) ast.Node {
 		}
 	}
 	return nil
+}
+
+// CallReceiverText returns the source text of the receiver of the method
+// call at position, such as `l.mu` in `l.mu.Lock()`, or "" when position is
+// not inside a method call in this package's files.
+func CallReceiverText(pass *analysis.Pass, position token.Pos) string {
+	for _, file := range pass.Files {
+		if position < file.Pos() || position >= file.End() {
+			continue
+		}
+		path, _ := astutil.PathEnclosingInterval(file, position, position)
+		for _, node := range path {
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				continue
+			}
+			if selector, ok := Unparen(call.Fun).(*ast.SelectorExpr); ok {
+				return types.ExprString(selector.X)
+			}
+			return ""
+		}
+	}
+	return ""
 }

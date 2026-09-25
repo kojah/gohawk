@@ -34,13 +34,13 @@ type readCache struct {
 func (c *readCache) touch(k string) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	c.routes[k] = &readEntry{} // want "write while only the read lock \\(\\*lockorder.readCache\\).touch.c.mu is held"
+	c.routes[k] = &readEntry{} // want "write while only the read lock `c\\.mu` is held"
 }
 
 func (c *readCache) record() {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	c.hits++ // want "write while only the read lock \\(\\*lockorder.readCache\\).record.c.mu is held"
+	c.hits++ // want "write while only the read lock `c\\.mu` is held"
 }
 
 // Accepted: the write lock grants write access.
@@ -138,7 +138,7 @@ type readEmbedded struct {
 func (e *readEmbedded) touch(k string) {
 	e.RLock()
 	defer e.RUnlock()
-	e.routes[k] = 1 // want "write while only the read lock \\(\\*lockorder.readEmbedded\\).touch.e.RWMutex is held"
+	e.routes[k] = 1 // want "write while only the read lock `e` is held"
 }
 
 // The owner is whichever value holds the lock, which need not be the receiver.
@@ -152,7 +152,7 @@ type readOuter struct{ in readInner }
 func (o *readOuter) record() {
 	o.in.mu.RLock()
 	defer o.in.mu.RUnlock()
-	o.in.count++ // want "write while only the read lock \\(\\*lockorder.readOuter\\).record.o.in.mu is held"
+	o.in.count++ // want "write while only the read lock `o\\.in\\.mu` is held"
 }
 
 // A slice header loaded out of the owner shares the owner's backing array, so
@@ -168,7 +168,7 @@ type readSliced struct {
 func (s *readSliced) first() {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	s.list[0] = 1 // want "write while only the read lock \\(\\*lockorder.readSliced\\).first.s.mu is held"
+	s.list[0] = 1 // want "write while only the read lock `s\\.mu` is held"
 }
 
 // Replacing the slice writes the header field itself, which is one cell every
@@ -176,7 +176,7 @@ func (s *readSliced) first() {
 func (s *readSliced) grow() {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	s.list = append(s.list, 1) // want "write while only the read lock \\(\\*lockorder.readSliced\\).grow.s.mu is held"
+	s.list = append(s.list, 1) // want "write while only the read lock `s\\.mu` is held"
 }
 
 // Accepted: an element at a caller-supplied index. Distinct elements are
@@ -218,19 +218,19 @@ type builtinCache struct {
 func (c *builtinCache) drop(k string) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	delete(c.items, k) // want "write while only the read lock \\(\\*lockorder.builtinCache\\).drop.c.mu is held"
+	delete(c.items, k) // want "write while only the read lock `c\\.mu` is held"
 }
 
 func (c *builtinCache) empty() {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	clear(c.items) // want "write while only the read lock \\(\\*lockorder.builtinCache\\).empty.c.mu is held"
+	clear(c.items) // want "write while only the read lock `c\\.mu` is held"
 }
 
 func (c *builtinCache) overwrite(src []byte) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	copy(c.buf, src) // want "write while only the read lock \\(\\*lockorder.builtinCache\\).overwrite.c.mu is held"
+	copy(c.buf, src) // want "write while only the read lock `c\\.mu` is held"
 }
 
 // copy takes its destination first, so reading the owner's slice into a

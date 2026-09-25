@@ -1,12 +1,14 @@
 package lockorder
 
 import (
+	"fmt"
 	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -36,7 +38,7 @@ import (
 // reportReadLockWrites reports a write to an object whose read lock is the only
 // one held at this instruction.
 func reportReadLockWrites(
-	pass *analysis.Pass, instruction ssa.Instruction, held, readHeld []string,
+	flow lockFlowContext, instruction ssa.Instruction, held, readHeld []string,
 	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer,
 ) {
 	for _, identity := range readHeld {
@@ -58,13 +60,17 @@ func reportReadLockWrites(
 				continue
 			}
 			if slices.ContainsFunc(possibleWriters, func(deferred *ssa.Defer) bool { return possibleWriterAt(deferred, instruction) }) {
-				analysisTrace.For(pass, "lockorder", string(check.LockReadLockWrite), instruction.Pos()).Decision(analysisTrace.Step{
+				analysisTrace.For(flow.pass, "lockorder", string(check.LockReadLockWrite), instruction.Pos()).Decision(analysisTrace.Step{
 					Reason: lockReasonImportedWriterGuardUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
 				})
 				continue
 			}
-			check.Reportf(pass, check.LockReadLockWrite, instruction.Pos(),
-				"write while only the read lock %s is held", identity)
+			source := syntax.SourceRange(flow.pass, instruction.Pos())
+			check.Report(flow.pass, check.LockReadLockWrite, analysis.Diagnostic{
+				Pos: source.Pos(), End: source.End(),
+				Message: fmt.Sprintf("write while only the read lock %s is held", flow.lockName(identity)),
+				Related: flow.acquisitionEvidence(identity),
+			})
 			return
 		}
 	}

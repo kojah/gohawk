@@ -42,7 +42,7 @@ func regressionReverse() {
 func missingUnlock(skip bool) {
 	regressionFirst.Lock()
 	if skip {
-		return // want "lock regressionFirst is not released on this return path"
+		return // want "lock `regressionFirst` is not released on this return path"
 	}
 	regressionFirst.Unlock()
 }
@@ -50,7 +50,7 @@ func missingUnlock(skip bool) {
 func missingReadUnlock(skip bool) {
 	readLock.RLock()
 	if skip {
-		return // want "lock readLock is not released on this return path"
+		return // want "lock `readLock` is not released on this return path"
 	}
 	readLock.RUnlock()
 }
@@ -87,7 +87,7 @@ func discardedDeferredCallback(skip bool) {
 	regressionFirst.Lock()
 	defer discardUnlockCallback(func() { regressionFirst.Unlock() })()
 	if skip {
-		return // want "lock regressionFirst is not released on this return path"
+		return // want "lock `regressionFirst` is not released on this return path"
 	}
 	regressionFirst.Unlock()
 }
@@ -97,7 +97,7 @@ func wrongDeferredCallback(skip bool) {
 	release := func() { regressionSecond.Unlock() }
 	defer release()
 	if skip {
-		return // want "lock regressionFirst is not released on this return path"
+		return // want "lock `regressionFirst` is not released on this return path"
 	}
 	regressionFirst.Unlock()
 }
@@ -126,7 +126,7 @@ func earlierDeferUnlocksDifferentLock(skip bool) {
 	regressionFirst.Lock()
 	locked = true
 	if skip {
-		return // want "lock regressionFirst is not released on this return path"
+		return // want "lock `regressionFirst` is not released on this return path"
 	}
 	regressionFirst.Unlock()
 }
@@ -143,14 +143,14 @@ func conditionallyRegisteredEarlierDefer(install, skip bool) {
 	regressionFirst.Lock()
 	locked = true
 	if skip {
-		return // want "lock regressionFirst is not released on this return path"
+		return // want "lock `regressionFirst` is not released on this return path"
 	}
 	regressionFirst.Unlock()
 }
 
 func deferredUnlockInLoop(lock *sync.Mutex, values []int) {
 	for range values {
-		lock.Lock() // want "lock lockorder.deferredUnlockInLoop.lock is acquired while already held"
+		lock.Lock() // want "lock `lock` is acquired while already held"
 		defer lock.Unlock()
 	}
 }
@@ -179,7 +179,7 @@ func claimOrRelease(claimed bool) (int, bool) {
 func claimForgetsUnlock(claimed, other bool) (int, bool) {
 	regressionFirst.Lock()
 	if claimed {
-		return 1, true // want "lock .*regressionFirst is not released on this return path"
+		return 1, true // want "lock `regressionFirst` is not released on this return path"
 	}
 	if other {
 		regressionFirst.Unlock()
@@ -239,7 +239,7 @@ func conditionallyAcquiredByBareBool(lock bool) {
 
 func conditionallyAcquiredByDifferentBools(acquire, release bool) {
 	if acquire {
-		regressionFirst.Lock() // want "lock regressionFirst is not released on this return path"
+		regressionFirst.Lock() // want "lock `regressionFirst` is not released on this return path"
 	}
 	if release {
 		regressionFirst.Unlock()
@@ -248,7 +248,7 @@ func conditionallyAcquiredByDifferentBools(acquire, release bool) {
 
 func conditionallyAcquiredByOppositeGuard(lock bool) {
 	if lock {
-		regressionFirst.Lock() // want "lock regressionFirst is not released on this return path"
+		regressionFirst.Lock() // want "lock `regressionFirst` is not released on this return path"
 	}
 	if !lock {
 		regressionFirst.Unlock()
@@ -370,7 +370,7 @@ func calledClosureConditionallyUnlocks(fail, release bool) {
 	}
 	if fail {
 		conditionalRelease()
-		return // want "lock lockorder.calledClosureConditionallyUnlocks:local:mutex:t1 is not released on this return path"
+		return // want "lock `mutex` is not released on this return path"
 	}
 	mutex.Unlock()
 }
@@ -430,7 +430,7 @@ func conditionalGoroutineUnlock(release, fail bool) {
 		}
 	}()
 	if fail {
-		return // want "lock lockorder.conditionalGoroutineUnlock:local:mutex:t1 is not released on this return path"
+		return // want "lock `mutex` is not released on this return path"
 	}
 	mutex.Unlock()
 }
@@ -499,7 +499,7 @@ func localFieldMissingUnlock(skip bool) {
 	state := new(guardedState)
 	state.mutex.Lock()
 	if skip {
-		return // want "lock lockorder.localFieldMissingUnlock:local:new:t0.mutex is not released on this return path"
+		return // want "lock `state\\.mutex` is not released on this return path"
 	}
 	state.mutex.Unlock()
 }
@@ -639,7 +639,7 @@ func knownInterfaceMissingUnlock(skip bool) {
 	var lock sync.Locker = &interfaceFirst
 	lock.Lock()
 	if skip {
-		return // want "lock interfaceFirst is not released on this return path"
+		return // want "lock `lock` is not released on this return path"
 	}
 	lock.Unlock()
 }
@@ -668,7 +668,7 @@ func convertedInterfaceMissingUnlock(skip bool) {
 	var lock sync.Locker = extended
 	lock.Lock()
 	if skip {
-		return // want "lock interfaceFirst is not released on this return path"
+		return // want "lock `lock` is not released on this return path"
 	}
 	lock.Unlock()
 }
@@ -682,7 +682,7 @@ func sameOriginInterfaceLock(branch, skip bool) {
 	}
 	lock.Lock()
 	if skip {
-		return // want "lock interfaceFirst is not released on this return path"
+		return // want "lock `lock` is not released on this return path"
 	}
 	lock.Unlock()
 }
@@ -707,7 +707,7 @@ func closureLocksDistinctCaptures(capA, capB *capture, run func(func())) {
 func closureLocksSameCaptureTwice(capA *capture, run func(func())) {
 	run(func() {
 		capA.mu.Lock()
-		capA.mu.Lock() // want "lock lockorder.closureLocksSameCaptureTwice\\$1:free:capA.mu is acquired while already held"
+		capA.mu.Lock() // want "lock `capA\\.mu` is acquired while already held"
 		capA.mu.Unlock()
 		capA.mu.Unlock()
 	})
@@ -749,7 +749,7 @@ func (c *operationClient) endOperation() {
 func (c *operationClient) forgetsUnlockOnOnePath(skip bool) error {
 	c.operationMu.Lock()
 	if skip {
-		return nil // want "lock .*operationMu is not released on this return path"
+		return nil // want "lock `c\\.operationMu` is not released on this return path"
 	}
 	c.operationMu.Unlock()
 	return nil
@@ -819,7 +819,7 @@ func repeatedPointerThroughQueue() {
 // The same receiver field locked on every iteration is recursive.
 func (l *loopedLocker) locksSameMutexInLoop(items []int) {
 	for range items {
-		l.mu.Lock() // want "lock .*mu is acquired while already held"
+		l.mu.Lock() // want "lock `l\\.mu` is acquired while already held"
 	}
 	l.mu.Unlock()
 }
@@ -861,7 +861,7 @@ func (c *guardedConn) handOffLocked(early bool) {
 
 // An unrelated value handed off does not settle the lock.
 func (c *guardedConn) handOffOther(other *guardedConn, early bool) {
-	c.mu.Lock() // want "lock .*mu is not released on this return path"
+	c.mu.Lock() // want "lock `c\\.mu` is not released on this return path"
 	if early {
 		c.mu.Unlock()
 		return

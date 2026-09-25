@@ -44,6 +44,18 @@ func Builtin(name string) Symbol
 
 Builtin identifies a Go builtin, including unsafe's compiler intrinsics.
 
+## CallReceiverText
+
+[Source](../../../../internal/syntax/assigned.go)
+
+```go
+func CallReceiverText(pass *analysis.Pass, position token.Pos) string
+```
+
+CallReceiverText returns the source text of the receiver of the method
+call at position, such as `l.mu` in `l.mu.Lock()`, or "" when position is
+not inside a method call in this package's files.
+
 ## CanonicalTestVariant
 
 [Source](../../../../internal/syntax/source.go)

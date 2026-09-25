@@ -1,6 +1,7 @@
 package lockorder
 
 import (
+	"fmt"
 	"go/token"
 	"slices"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -53,7 +55,12 @@ func (flow lockFlowContext) reportMissingReleases(
 			if returned == token.NoPos {
 				returned = position
 			}
-			check.Reportf(flow.pass, check.LockMissingRelease, returned, "lock %s is not released on this return path", identity)
+			source := syntax.SourceRange(flow.pass, returned)
+			check.Report(flow.pass, check.LockMissingRelease, analysis.Diagnostic{
+				Pos: source.Pos(), End: source.End(),
+				Message: fmt.Sprintf("lock %s is not released on this return path", flow.lockName(identity)),
+				Related: flow.acquisitionEvidence(identity),
+			})
 		}
 	}
 }
@@ -237,7 +244,7 @@ func (flow lockFlowContext) acquireLock(
 			// Retain those states, but report their shared acquisition only once.
 			if !flow.recursiveReports[site] {
 				flow.recursiveReports[site] = true
-				check.Reportf(flow.pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", identity)
+				check.Reportf(flow.pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", flow.lockName(identity))
 			}
 		}
 		return held

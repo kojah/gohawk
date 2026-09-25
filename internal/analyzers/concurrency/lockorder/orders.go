@@ -214,21 +214,17 @@ func (orders *lockOrders) path(from, to string) []orderEdge {
 func reportOrderCycle(pass *analysis.Pass, cycle []orderEdge) {
 	position := cycle[0].acquired.site()
 	source := syntax.SourceRange(pass, position)
-	names := []string{cycle[0].held.class}
+	names := []string{displayClass(pass, cycle[0].held.class)}
 	var related []analysis.RelatedInformation
 	probe := analysisTrace.For(pass, "lockorder", string(check.LockContradictoryOrder), position)
 	for index, edge := range cycle {
-		names = append(names, edge.acquired.class)
-		related = append(related, edge.held.calls...)
-		related = append(related, analysis.RelatedInformation{
-			Pos:     edge.held.position,
-			Message: fmt.Sprintf("%s acquired with %s; held before %s", edge.held.class, edge.held.mode(), edge.acquired.class),
-		})
-		related = append(related, edge.acquired.calls...)
-		related = append(related, analysis.RelatedInformation{
-			Pos:     edge.acquired.position,
-			Message: fmt.Sprintf("%s acquired with %s while %s is held", edge.acquired.class, edge.acquired.mode(), edge.held.class),
-		})
+		names = append(names, displayClass(pass, edge.acquired.class))
+		related = append(related, callEvidence(pass, edge.held.calls)...)
+		held, acquired := edge.held.displayName(pass), edge.acquired.displayName(pass)
+		related = append(related, lockEvidence(pass, edge.held.position, fmt.Sprintf("%s is %s here", held, edge.held.verb())))
+		related = append(related, callEvidence(pass, edge.acquired.calls)...)
+		then := fmt.Sprintf("then %s is %s while %s is held", acquired, edge.acquired.verb(), held)
+		related = append(related, lockEvidence(pass, edge.acquired.position, then))
 		if probe.Enabled() {
 			reason := lockReasonCycleOrderRecorded
 			if len(cycle) == 2 && index != 0 {
@@ -245,7 +241,7 @@ func reportOrderCycle(pass *analysis.Pass, cycle []orderEdge) {
 	}
 	message := "contradictory lock order: " + strings.Join(names, " -> ")
 	if len(cycle) == 2 {
-		message = fmt.Sprintf("contradictory lock order: %s and %s", cycle[0].acquired.class, cycle[0].held.class)
+		message = fmt.Sprintf("contradictory lock order: %s and %s", displayClass(pass, cycle[0].acquired.class), displayClass(pass, cycle[0].held.class))
 	}
 	check.Report(pass, check.LockContradictoryOrder, analysis.Diagnostic{Pos: source.Pos(), End: source.End(), Message: message, Related: related})
 }
