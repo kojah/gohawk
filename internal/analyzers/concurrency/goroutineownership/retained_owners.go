@@ -28,12 +28,7 @@ func (analysis *spawnAnalysis) selectedOwnershipEdge(from, to *ssa.BasicBlock) b
 	if !selected || !analysis.observesOpaqueWorkerContext(channel) {
 		return false
 	}
-	if analysis.tracing {
-		if analysis.edgeActions == nil {
-			analysis.edgeActions = make(map[[2]int]ownershipAction)
-		}
-		analysis.edgeActions[[2]int{from.Index, to.Index}] = actionUnknown
-	}
+	analysis.recordEdge(from, to, reasonSelectedContextEdge)
 	return true
 }
 

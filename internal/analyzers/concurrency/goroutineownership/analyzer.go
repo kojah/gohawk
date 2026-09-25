@@ -101,10 +101,10 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 			Details:  map[string]string{"instruction": instruction.String()},
 		})
 	}
-	for edge, action := range analysis.edgeActions {
-		reason, edgeOutcome := reasonSelectedReceiveEdge, analysisTrace.OutcomeAccepted
-		if action == actionUnknown {
-			reason, edgeOutcome = reasonSelectedContextEdge, analysisTrace.OutcomeUnknown
+	for edge, reason := range analysis.edgeReasons {
+		edgeOutcome := analysisTrace.OutcomeAccepted
+		if reason == reasonSelectedContextEdge {
+			edgeOutcome = analysisTrace.OutcomeUnknown
 		}
 		probe.Evidence(analysisTrace.Step{
 			Reason: reason.String(), Outcome: edgeOutcome,

@@ -58,7 +58,7 @@ type spawnAnalysis struct {
 	tracked       []trackedValue
 	unsettledDone ssa.Instruction
 	actions       map[ssa.Instruction]ownershipAction
-	edgeActions   map[[2]int]ownershipAction
+	edgeReasons   map[[2]int]goroutineOwnershipReason
 	// tracing gates the record of ruled-out steps, which is worth keeping only
 	// when a reader will see it.
 	tracing    bool

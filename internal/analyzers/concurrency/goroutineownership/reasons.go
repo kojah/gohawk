@@ -27,6 +27,7 @@ const (
 	reasonDoneBeforeCompletion
 	reasonSelectedReceiveEdge
 	reasonSelectedContextEdge
+	reasonCountedDrainEdge
 	goroutineOwnershipReasonCount
 )
 
@@ -54,6 +55,7 @@ var ownershipReasonCodes = [...]string{
 	reasonDoneBeforeCompletion:    "waitgroup-done-before-completion",
 	reasonSelectedReceiveEdge:     "selected-receive-edge",
 	reasonSelectedContextEdge:     "selected-context-edge",
+	reasonCountedDrainEdge:        "counted-drain-edge",
 }
 
 func (reason goroutineOwnershipReason) String() string {

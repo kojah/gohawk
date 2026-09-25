@@ -98,8 +98,9 @@ in this order and stop at the first step that holds:
 3. Add one structural predicate at an existing decision point, with a fixture
    and a commit-pinned link to the real-world pattern.
 
-Never add a new proof file, a loop-count argument, a name, or a framework
-guess. A default diagnostic needs positive structural evidence of both an
+Never add a new proof file, a name, or a framework guess. A loop count is
+allowed only as an exact count from `ssaflow.ProveCountedLoop` or
+`ssaflow.ProveCountedRegion`, compared with proven obligations. A default diagnostic needs positive structural evidence of both an
 obligation and its violation; the absence of a recognized cleanup proves
 nothing.
 

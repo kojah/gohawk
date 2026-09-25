@@ -74,9 +74,10 @@ func (analysis *spawnAnalysis) returnObligation(returned *ssa.Return) ssaflow.Ob
 
 // edgeObligation credits a selected receive of a tracked signal as an exact
 // join on that arm alone, and a selected receive of an opaque worker's
-// context as an opaque observation on that arm alone.
+// context as an opaque observation on that arm alone. The exit of a counted
+// select drain is an exact join on that edge alone.
 func (analysis *spawnAnalysis) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
-	if analysis.selectedJoinEdge(from, to) {
+	if analysis.selectedJoinEdge(from, to) || analysis.countedDrainEdge(from, to) {
 		return ssaflow.ObligationExact
 	}
 	if analysis.selectedOwnershipEdge(from, to) {
@@ -395,13 +396,21 @@ func selectedReceiveAtEntry(instruction ssa.Instruction, matches func(ssa.Value)
 func (analysis *spawnAnalysis) selectedJoinEdge(from, to *ssa.BasicBlock) bool {
 	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
 	joined := selected && analysis.isSignal(channel)
-	if joined && analysis.tracing {
-		if analysis.edgeActions == nil {
-			analysis.edgeActions = make(map[[2]int]ownershipAction)
-		}
-		analysis.edgeActions[[2]int{from.Index, to.Index}] = actionJoin
+	if joined {
+		analysis.recordEdge(from, to, reasonSelectedReceiveEdge)
 	}
 	return joined
+}
+
+// recordEdge keeps the reason an edge was credited, for the trace only.
+func (analysis *spawnAnalysis) recordEdge(from, to *ssa.BasicBlock, reason goroutineOwnershipReason) {
+	if !analysis.tracing {
+		return
+	}
+	if analysis.edgeReasons == nil {
+		analysis.edgeReasons = make(map[[2]int]goroutineOwnershipReason)
+	}
+	analysis.edgeReasons[[2]int{from.Index, to.Index}] = reason
 }
 
 // selectSends reports whether a select statement offers a tracked value on a

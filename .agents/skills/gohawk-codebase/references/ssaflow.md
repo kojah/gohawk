@@ -1660,6 +1660,22 @@ block and no alternate entry or exit. The consumer supplies its expansion
 limit and decides whether body effects and iteration-local objects are safe
 to repeat. This query does not unroll SSA or choose an analysis policy.
 
+## ProveCountedRegion
+
+[Source](../../../../internal/ssaflow/counted_loop.go)
+
+```go
+func ProveCountedRegion(header *ssa.BasicBlock, limit int, budget *SearchBudget) CountedLoop
+```
+
+ProveCountedRegion recognizes the same counted header, but lets the body
+branch and rejoin. Every iteration enters Body exactly once, and the body
+may leave only by returning to the header through the increment or by
+panicking: a break, return, or goto out of the loop is unsupported. Count is
+therefore the number of times Body ran on any path that takes Exit. Unlike
+ProveCountedLoop, the body cannot be replayed as straight-line code, so a
+consumer may use the count but must reason about the body's paths itself.
+
 ## ProveIdentity
 
 [Source](../../../../internal/ssaflow/value_identity.go)

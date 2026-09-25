@@ -200,7 +200,10 @@ When a reviewed precision label fails, respond in this order and stop at the
 first step that holds: widen `unknown` at the classifier; accept the false
 negative and delete the fixture; add one structural predicate at an existing
 decision point with a fixture and a commit-pinned link. Do not add a new
-proof file, a loop-count argument, a name, or a framework guess. A fixture
+proof file, a name, or a framework guess. Do not guess how often a loop runs:
+the only permitted loop-count argument takes an exact count from
+`ssaflow.ProveCountedLoop` or `ssaflow.ProveCountedRegion` and compares it
+with proven obligations, such as receives against single sends. A fixture
 whose diagnostic becomes an accepted false negative must be deleted, with the
 gap recorded in the fixture file's header comment, rather than left as an
 accepted case.

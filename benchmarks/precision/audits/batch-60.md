@@ -85,8 +85,13 @@ original verdicts above are unchanged.
 The remaining false positives stay open. The returned `slog` and charm
 loggers (opsy, contrabass) are structurally a returned writer wrapper, which
 is reported deliberately, and need a policy decision; depot rests on the open
-process-exit decision; go-quests and 115driver need a loop-count argument the
-analyzer policy does not make; maxigo and caam are single shapes that do not
+process-exit decision; 115driver carries its constant loop bound through a
+struct field, which is value provenance rather than a loop count; maxigo and caam are single shapes that do not
 yet justify a new proof. The l3afd verdict is disputed: its failure paths kill
 the relaunched child without waiting on it inside a server that keeps
 running, which leaves a zombie, so the finding is likely a true positive.
+
+A later change clears the five go-quests findings with a counted select
+drain: a loop that runs a blocking, receive-only select exactly N times over
+N channels that each have at most one send must have drained every sender
+before it exits. The pinned `select_timeout.go` no longer reports.
