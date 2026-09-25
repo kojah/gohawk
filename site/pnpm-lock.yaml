@@ -39,6 +39,9 @@ importers:
       agentation-review:
         specifier: github:kojah/agentation-review#4516211546b8aabdad84a4285c14a7f4ff39fcb5
         version: https://codeload.github.com/kojah/agentation-review/tar.gz/4516211546b8aabdad84a4285c14a7f4ff39fcb5
+      puppeteer-core:
+        specifier: 25.11.0
+        version: 25.11.0(yauzl@2.10.0)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

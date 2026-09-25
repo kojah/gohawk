@@ -1,42 +1,24 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { createServer } from 'node:net';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { siteDirectory, startPreview } from './preview-server.mjs';
 
-const siteDirectory = fileURLToPath(new URL('../', import.meta.url));
 const distDirectory = path.join(siteDirectory, 'dist');
-const host = '127.0.0.1';
 const production = process.argv.includes('--production');
-const port = production ? undefined : await availablePort(host);
-const origin = production ? 'https://gohawk.dev' : `http://${host}:${port}`;
 const outputDirectory = path.join(
 	siteDirectory,
 	production ? '.unlighthouse-production' : '.unlighthouse',
 );
 
-const paths = production ? await productionSitemapPaths(origin) : localSitemapPaths();
+const paths = production ? await productionSitemapPaths('https://gohawk.dev') : localSitemapPaths();
 if (paths.length === 0) throw new Error('The sitemap contains no auditable pages.');
 if (paths.some((pathname) => pathname.includes(',')))
 	throw new Error('Unlighthouse cannot receive sitemap paths containing commas.');
 
-const preview = production
-	? undefined
-	: spawn(
-			process.execPath,
-			[
-				path.join(siteDirectory, 'node_modules/astro/bin/astro.mjs'),
-				'preview',
-				'--host',
-				host,
-				'--port',
-				`${port}`,
-			],
-			{ cwd: siteDirectory, stdio: 'inherit' },
-		);
+const preview = production ? undefined : await startPreview();
+const origin = production ? 'https://gohawk.dev' : preview.origin;
 
 try {
-	if (preview) await waitForServer(origin, preview);
 	console.log(`Auditing ${paths.length} sitemap pages at ${origin}.`);
 	const exitCode = await run(
 		process.execPath,
@@ -56,7 +38,7 @@ try {
 	if (exitCode !== 0) process.exitCode = exitCode;
 	else validateReport(outputDirectory, paths);
 } finally {
-	if (preview) await stop(preview);
+	if (preview) await preview.stop();
 }
 
 function localSitemapPaths() {
@@ -139,40 +121,6 @@ function decodeXML(value) {
 		.replaceAll('&apos;', "'");
 }
 
-async function waitForServer(url, child) {
-	for (let attempt = 0; attempt < 60; attempt++) {
-		if (child.exitCode !== null)
-			throw new Error(`Astro preview exited before it became ready (code ${child.exitCode}).`);
-		try {
-			const response = await fetch(url);
-			if (response.ok) return;
-		} catch {
-			// The preview server has not bound its socket yet.
-		}
-		await new Promise((resolve) => setTimeout(resolve, 500));
-	}
-	throw new Error(`Timed out waiting for Astro preview at ${url}.`);
-}
-
-function availablePort(hostname) {
-	return new Promise((resolve, reject) => {
-		const server = createServer();
-		server.once('error', reject);
-		server.listen(0, hostname, () => {
-			const address = server.address();
-			if (typeof address === 'string' || address === null) {
-				server.close();
-				reject(new Error('Failed to allocate a local port for Astro preview.'));
-				return;
-			}
-			server.close((error) => {
-				if (error) reject(error);
-				else resolve(address.port);
-			});
-		});
-	});
-}
-
 function run(command, args, cwd) {
 	return new Promise((resolve, reject) => {
 		const child = spawn(command, args, { cwd, stdio: 'inherit' });
@@ -182,14 +130,4 @@ function run(command, args, cwd) {
 			else resolve(code ?? 1);
 		});
 	});
-}
-
-async function stop(child) {
-	if (child.exitCode !== null) return;
-	child.kill('SIGTERM');
-	await Promise.race([
-		new Promise((resolve) => child.once('close', resolve)),
-		new Promise((resolve) => setTimeout(resolve, 5_000)),
-	]);
-	if (child.exitCode === null) child.kill('SIGKILL');
 }

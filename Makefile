@@ -35,7 +35,7 @@ verify_targets = $(if $(filter 1,$(VERIFY_TIMINGS)),$(addprefix verify-timed-,$(
 
 .PHONY: help build fmt fmt-check generate generate-examples generated-check mod-verify lint deadcode vuln test \
 	test-exhaustive test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
-	precision-regression site-check site-build site-audit site-audit-production site-links site-links-external site-review generated-sync
+	precision-regression site-check site-build site-audit site-audit-production site-shot site-links site-links-external site-review generated-sync
 
 help:
 	@printf '%s\n' \
@@ -61,6 +61,8 @@ help:
 		'  make site-build      Build the documentation website' \
 		'  make site-audit      Audit every sitemap page with Lighthouse' \
 		'  make site-links      Check internal links in the built website' \
+		'  make site-shot       Screenshot built pages at phone and desktop widths and report layout problems' \
+		'                       (PAGES=/faq/,/ WIDTHS=390,1280 SELECTOR=css; shots go to .build/site-shots)' \
 		'  make site-review     Start the documentation review server'
 
 build:
@@ -207,6 +209,9 @@ site-audit: site-build
 
 site-audit-production:
 	$(PNPM) --dir site lighthouse:production
+
+site-shot: site-build
+	$(PNPM) --dir site shot $(if $(PAGES),--pages=$(PAGES)) $(if $(WIDTHS),--widths=$(WIDTHS)) $(if $(SELECTOR),--selector='$(SELECTOR)')
 
 site-links: site-build
 	$(LYCHEE) --offline --include-fragments --index-files index.html \

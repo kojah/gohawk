@@ -83,6 +83,14 @@ The architecture tests check user docs in CI and in `make verify`:
 - no user page links to pinned source.
 
 Run them with `go test ./internal/architecture -run 'PublicDocumentation|AnalyzerProse'`.
+
+After changing the site's layout or styles, run `make site-shot` before
+publishing. It builds the site, screenshots pages at phone (390px) and desktop
+(1280px) widths into `.build/site-shots`, and reports content wider than the
+screen and identifiers split mid-word. Narrow it with `PAGES=/faq/,/`,
+`WIDTHS=390`, or `SELECTOR='h3#checks + table'`. Look at the screenshots, not
+only the report. Without system fonts the screenshots show layout but no text,
+and the tool says so.
 Use `make site-check`, `make site-build`, and `make site-links` to check the
 site, and `make site-review` to look at it. If a check fails, move the text to
 the dev docs. Don't raise a budget or add to a baseline to make it pass.
