@@ -223,8 +223,8 @@ head:
   </div>
   <div class="order">
     <h3>Rich diagnostics</h3>
-    <p>Each finding pinpoints the offending code with a precise source span and includes a suggested
-    fix when gohawk can provide one safely.</p>
+    <p>Each finding pinpoints the offending code with a precise source span, shows the evidence
+    behind it, such as the return that leaks a file, and says how to fix it.</p>
   </div>
 </div>
 
