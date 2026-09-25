@@ -152,6 +152,28 @@ func (s *scheduler) Schedule(v int) {
 func (s *scheduler) Stop() { close(s.stop) }
 ```
 
+#### Range waits on a failed producer
+
+```go gohawk="W3siY2hlY2siOiJwcm9kdWNlcmxpZmVjeWNsZS91bmNsb3NlZC1yYW5nZSIsIm1lc3NhZ2UiOiJyYW5nZSBjYW4gd2FpdCBmb3JldmVyOiBydW4gcmV0dXJucyBhbiBlcnJvciB3aXRob3V0IGNsb3NpbmcgdGhlIGNoYW5uZWwiLCJzdGFydExpbmUiOjEzLCJzdGFydENvbHVtbiI6MiwiZW5kTGluZSI6MTUsImVuZENvbHVtbiI6M31d"
+type exporter struct{ rows chan string }
+
+func (e *exporter) run(fail bool) error {
+  if fail {
+    return errors.New("export failed")
+  }
+  e.rows <- "row"
+  close(e.rows)
+  return nil
+}
+
+func printRows(e *exporter, fail bool) {
+  go func() { _ = e.run(fail) }()
+  for row := range e.rows {
+    println(row)
+  }
+}
+```
+
 ### Accepted code
 
 ```go

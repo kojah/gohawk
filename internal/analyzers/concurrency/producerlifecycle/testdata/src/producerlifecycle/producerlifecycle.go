@@ -61,7 +61,7 @@ func printRows(e *exporter, fail bool) {
 
 func newExporter() *exporter { return &exporter{rows: make(chan string)} }
 
-//gohawk:example ok
+// A deferred close covers the failed run too.
 type closingExporter struct{ rows chan string }
 
 func (e *closingExporter) run(fail bool) error {
@@ -79,8 +79,6 @@ func printClosedRows(e *closingExporter, fail bool) {
 		println(row)
 	}
 }
-
-//gohawk:example end
 
 func newClosingExporter() *closingExporter { return &closingExporter{rows: make(chan string)} }
 
