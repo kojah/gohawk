@@ -38,6 +38,9 @@ Some cases are deliberately not reported:
 value, such as a write to a closed file or a scan of closed rows, when the
 release dominates the use. Double-close is not checked.
 
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [resourcelifetime design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/resourcelifetime.md).
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}
@@ -46,9 +49,6 @@ release dominates the use. Double-close is not checked.
 | <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports owned resources that are not released on every return path. |
 | <CheckIdentity name="use-after-release" tier="core" /> | hazard | core | Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects. |
 {/* gohawk:generated-checks:end */}
-
-The full list of precision boundaries, with the fixtures that pin each one, is
-in the [resourcelifetime design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/resourcelifetime.md).
 
 ## Why this is flagged
 

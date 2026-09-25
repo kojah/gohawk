@@ -77,8 +77,9 @@ text in the same change that removes the boundary.
 The architecture tests check user docs in CI and in `make verify`:
 
 - analyzer pages: at most 130 lines, at most 40 lines of hand-written prose
-  outside generated blocks, at most 8 lines per paragraph, and none of the
-  words above;
+  outside generated blocks, at most 8 lines per paragraph, none of the words
+  above, and nothing in the Checks section but its generated table (put prose,
+  including the design-note link, at the end of What it detects);
 - other user pages: at most 200 lines, with a baseline for pages already over;
 - no user page links to pinned source.
 

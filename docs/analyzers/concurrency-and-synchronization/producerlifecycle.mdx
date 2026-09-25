@@ -15,6 +15,9 @@ stops after a known number of receives, and more sends than that. Buffered and
 externally supplied channels, send counts that depend on a loop, and channels
 that code the analyzer cannot see may also drain are left unreported.
 
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [producerlifecycle design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/producerlifecycle.md).
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}
@@ -24,9 +27,6 @@ that code the analyzer cannot see may also drain are left unreported.
 | <CheckIdentity name="stopped-loop-send" tier="experimental" /> | hazard | experimental | Reports sends that can block forever after the service loop receiving them returns. |
 | <CheckIdentity name="unclosed-range" tier="experimental" /> | hazard | experimental | Reports range loops that wait forever when their producer returns an error without closing the channel. |
 {/* gohawk:generated-checks:end */}
-
-The full list of precision boundaries, with the fixtures that pin each one, is
-in the [producerlifecycle design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/producerlifecycle.md).
 
 ## Why this is flagged
 

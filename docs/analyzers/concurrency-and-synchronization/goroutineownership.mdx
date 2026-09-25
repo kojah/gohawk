@@ -21,6 +21,9 @@ worker. When the completion signal reaches code the analyzer cannot see
 through, nothing is reported. A worker launched once by `main.main` of package
 `main` is not reported, because program exit stops it.
 
+The full list of precision boundaries, with the fixtures that pin each one, is
+in the [goroutineownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/goroutineownership.md).
+
 ### Checks
 
 {/* gohawk:generated-checks:start */}
@@ -28,9 +31,6 @@ through, nothing is reported. A worker launched once by `main.main` of package
 | --- | --- | --- | --- |
 | <CheckIdentity name="unjoined" tier="core" /> | hazard | core | Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path. |
 {/* gohawk:generated-checks:end */}
-
-The full list of precision boundaries, with the fixtures that pin each one, is
-in the [goroutineownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/goroutineownership.md).
 
 ## Why this is flagged
 

@@ -13,14 +13,6 @@ Tracks commands successfully started with `os/exec` and reports return paths
 that neither wait for the process nor transfer the command to code that owns
 waiting for it.
 
-### Checks
-
-{/* gohawk:generated-checks:start */}
-| Check | Kind | Tier | What it detects |
-| --- | --- | --- | --- |
-| <CheckIdentity name="missing-wait" tier="core" /> | defect | core | Reports successfully started commands that are neither waited on nor transferred. |
-{/* gohawk:generated-checks:end */}
-
 Launching a process without waiting is not reported on its own: opening a
 browser or relaunching a daemon may intentionally outlive the caller. The
 check reports a command that is waited on or handed on along some return paths
@@ -28,6 +20,14 @@ but not others. Commands built by helpers or reached through callbacks are not c
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [processownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/processownership.md).
+
+### Checks
+
+{/* gohawk:generated-checks:start */}
+| Check | Kind | Tier | What it detects |
+| --- | --- | --- | --- |
+| <CheckIdentity name="missing-wait" tier="core" /> | defect | core | Reports successfully started commands that are neither waited on nor transferred. |
+{/* gohawk:generated-checks:end */}
 
 ## Why this is flagged
 

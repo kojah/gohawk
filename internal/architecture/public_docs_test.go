@@ -91,6 +91,25 @@ func checkAnalyzerProse(t *testing.T, relative, text string) {
 	}
 }
 
+// checksSection is the text from the Checks heading to the next heading.
+var checksSection = regexp.MustCompile(`(?s)\n### Checks\n(.*?)(\n#{2,3} |\z)`)
+
+// checksSectionExtra returns the first line of any text in the Checks section
+// besides its generated table. Prose about what an analyzer reports belongs
+// in What it detects, so every page reads the same way.
+func checksSectionExtra(text string) string {
+	section := checksSection.FindStringSubmatch(text)
+	if section == nil {
+		return ""
+	}
+	return firstLine(strings.TrimSpace(generatedBlock.ReplaceAllString(section[1], "")))
+}
+
+func firstLine(text string) string {
+	line, _, _ := strings.Cut(text, "\n")
+	return line
+}
+
 func TestPublicDocumentationStaysConcise(t *testing.T) {
 	t.Parallel()
 	root := newRepositorySourceInventory(t).root
@@ -124,6 +143,9 @@ func TestPublicDocumentationStaysConcise(t *testing.T) {
 		}
 		if strings.HasPrefix(relative, "docs/analyzers/") && filepath.Ext(path) == ".mdx" {
 			checkAnalyzerProse(t, relative, text)
+			if extra := checksSectionExtra(text); extra != "" {
+				t.Errorf("%s has text in its Checks section besides the generated table; move it to What it detects: %q", relative, extra)
+			}
 		}
 		if link := pinnedSourceLink.FindString(text); link != "" {
 			t.Errorf("%s links pinned source %s; dogfood evidence belongs in docs/development/", relative, link)
@@ -155,6 +177,24 @@ func TestAnalyzerProseRulesSeparateVentingFromContracts(t *testing.T) {
 			got = got || hedgingVocabulary.MatchString(prose)
 		}
 		if got != test.want {
+			t.Errorf("%s: flagged = %v, want %v", test.name, got, test.want)
+		}
+	}
+}
+
+func TestChecksSectionRuleAcceptsOnlyTheTable(t *testing.T) {
+	t.Parallel()
+	table := "{/* gohawk:generated-checks:start */}\n| a |\n{/* gohawk:generated-checks:end */}"
+	for _, test := range []struct {
+		name string
+		text string
+		want bool
+	}{
+		{"table only", "## What it detects\n\nIntro.\n\n### Checks\n\n" + table + "\n\n## Why this is flagged\n", false},
+		{"prose after the table", "\n### Checks\n\n" + table + "\n\nA stray note.\n\n## Why this is flagged\n", true},
+		{"prose before the table", "\n### Checks\n\nA stray note.\n\n" + table + "\n## Why\n", true},
+	} {
+		if got := checksSectionExtra(test.text) != ""; got != test.want {
 			t.Errorf("%s: flagged = %v, want %v", test.name, got, test.want)
 		}
 	}
