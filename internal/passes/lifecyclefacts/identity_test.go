@@ -4,6 +4,7 @@ import (
 	"go/types"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/analysis"
@@ -97,5 +98,36 @@ func escaped(a *int, mutate func(**int)) *int {
 		if got := parameterReturnedUnchangedOnEveryReturn(fn, fn.Params[0]); got != test.want {
 			t.Errorf("%s returned unchanged = %t, want %t", test.name, got, test.want)
 		}
+	}
+}
+
+// A completion search that runs out of budget has decided nothing, so a
+// transfer check that finds no handoff must not turn it into a disproof.
+func TestAbandonedCompletionStaysUndecided(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+type command struct{ done bool }
+func (c *command) Wait() { c.done = true }
+func helper(c *command, n int) {
+	for i := 0; i < n; i++ {
+		if i%2 == 0 { continue }
+	}
+	c.Wait()
+}
+func run(c *command, n int) { helper(c, n) }
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	fn := pkg.Func("run")
+	call := findLifecycleCall(t, fn, "helper")
+	target := fn.Params[0]
+	proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
+		Instruction: call, Target: target,
+		Completion: &lifecycle.CompletionRequest{
+			Instruction: call, Target: target, Methods: []string{"Wait"}, Budget: ssaflow.NewSearchBudget(1),
+		},
+		Transfer: &lifecycle.OwnershipTransferRequest{Instruction: call, Value: target, Modes: lifecycle.TransferStoredInGlobal},
+	})
+	if proof.State == ssaflow.EvidenceDisproven || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+		t.Errorf("abandoned completion = %#v, want an undecided budget-exhausted proof", proof)
 	}
 }

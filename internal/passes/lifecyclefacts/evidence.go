@@ -272,7 +272,7 @@ func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) Proof {
 		return local
 	}
 
-	if local.Reason == ssaflow.EvidenceBudgetExhausted || local.Reason == ssaflow.EvidenceCompletionInCycle {
+	if abandonedSearch(local) {
 		// The local walk was abandoned before it could decide, or found its
 		// only completion inside a loop, so an imported summary that disproves
 		// the release would turn a boundary the analysis gave up on into a
@@ -377,6 +377,12 @@ func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) Proof {
 		if transfer.Proven() {
 			return Proof{Proof: transfer.Proof}
 		}
+		// A completion search abandoned before it could decide stays the
+		// answer: finding no transfer does not turn it into a disproof. Prove
+		// applies the same rule to imported summaries.
+		if abandonedSearch(proof) {
+			return proof
+		}
 		if !transfer.Known() {
 			return Proof{Proof: transfer.Proof}
 		}
@@ -385,6 +391,12 @@ func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) Proof {
 		}
 	}
 	return proof
+}
+
+// abandonedSearch reports whether a local walk gave up before deciding: it ran
+// out of budget, or found its only completion inside a loop.
+func abandonedSearch(proof Proof) bool {
+	return proof.Reason == ssaflow.EvidenceBudgetExhausted || proof.Reason == ssaflow.EvidenceCompletionInCycle
 }
 
 func importedProof(reason Reason, method string) Proof {
