@@ -21,7 +21,7 @@ These analyzers check goroutine lifecycles, channel use, and synchronization.
 <div class="analyzer-grid">
   <a class="analyzer-card" href="concurrency-and-synchronization/channelsafety/">
     <span class="analyzer-name">channelsafety</span>
-    <span class="analyzer-detects">Checks channel operations for use after close and bounded dependency cycles.</span>
+    <span class="analyzer-detects">Checks channel operations for use after close.</span>
   </a>
   <a class="analyzer-card" href="concurrency-and-synchronization/concurrentcapture/">
     <span class="analyzer-name">concurrentcapture</span>

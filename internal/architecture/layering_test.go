@@ -20,7 +20,6 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 		"internal/heapmodel",
 		"internal/lifecycle",
 		"internal/resourcemodel",
-		"internal/syncmodel",
 		"internal/passes",
 		"internal/summaries",
 		"internal/check",
@@ -48,7 +47,7 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 func internalLayer(packagePath string) string {
 	component, _, _ := strings.Cut(packagePath, "/")
 	switch component {
-	case "syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "syncmodel", "passes", "summaries", "check", "analyzers", "trace":
+	case "syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace":
 		return component
 	default:
 		return "other"
@@ -56,9 +55,6 @@ func internalLayer(packagePath string) string {
 }
 
 func forbiddenLayerDependency(from, to string) bool {
-	if to == "syncmodel" {
-		return slices.Contains([]string{"syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "check"}, from)
-	}
 	switch from {
 	case "syntax":
 		return slices.Contains([]string{"ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers"}, to)
@@ -74,8 +70,6 @@ func forbiddenLayerDependency(from, to string) bool {
 		return slices.Contains([]string{"summaries", "check", "analyzers"}, to)
 	case "summaries":
 		return to == "check" || to == "analyzers"
-	case "syncmodel":
-		return slices.Contains([]string{"summaries", "check", "analyzers", "trace"}, to)
 	case "check":
 		return slices.Contains([]string{"ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "analyzers"}, to)
 	default:
@@ -90,12 +84,6 @@ func TestSemanticModelDependencyBoundaries(t *testing.T) {
 	}{
 		{"lifecycle", "heapmodel", false},
 		{"heapmodel", "lifecycle", true},
-		{"syncmodel", "passes", false},
-		{"passes", "syncmodel", true},
-		{"syncmodel", "ssaflow", false},
-		{"lifecycle", "syncmodel", true},
-		{"syncmodel", "analyzers", true},
-		{"syncmodel", "summaries", true},
 	} {
 		t.Run(test.from+"/"+test.to, func(t *testing.T) {
 			if internalLayer(test.from) != test.from || internalLayer(test.to) != test.to {

@@ -21,10 +21,6 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed.",
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
 			},
-			{
-				ID: check.ChannelDependencyCycle, Doc: "Reports two exact unbuffered channel operations that mutually wait on later matching operations.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
 		}},
 		{Analyzer: concurrentcapture.Analyzer(), Checks: []catalog.CheckInfo{
 			{
@@ -47,18 +43,6 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.LockContradictoryOrder, Doc: "Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence.",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-			{
-				ID: check.LockAndJoin, Doc: "Reports a wait while holding a mutex that every possible completion worker must acquire.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
-			{
-				ID: check.LockChannelCycle, Doc: "Reports a receive on a fresh unbuffered channel whose possible senders first need the receiver's held mutex.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
-			{
-				ID: check.LockWaitGroupCycle, Doc: "Reports a WaitGroup wait whose counted workers all need the caller's held mutex before Done.",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 			{
 				ID: check.LockReadLockWrite, Doc: "Reports writes to an object while only its read lock is held.",

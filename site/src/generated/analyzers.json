@@ -7,7 +7,7 @@
       "analyzers": [
         {
           "name": "channelsafety",
-          "summary": "Checks channel operations for use after close and bounded dependency cycles.",
+          "summary": "Checks channel operations for use after close.",
           "path": "analyzers/concurrency-and-synchronization/channelsafety",
           "tier": "core",
           "checks": [
@@ -16,12 +16,6 @@
               "summary": "Reports sends reachable after a channel has been closed.",
               "kind": "defect",
               "tier": "core"
-            },
-            {
-              "id": "channelsafety/dependency-cycle",
-              "summary": "Reports two exact unbuffered channel operations that mutually wait on later matching operations.",
-              "kind": "defect",
-              "tier": "experimental"
             }
           ],
           "options": []
@@ -85,24 +79,6 @@
               "summary": "Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence.",
               "kind": "hazard",
               "tier": "core"
-            },
-            {
-              "id": "lockorder/lock-and-join",
-              "summary": "Reports a wait while holding a mutex that every possible completion worker must acquire.",
-              "kind": "defect",
-              "tier": "experimental"
-            },
-            {
-              "id": "lockorder/channel-lock-cycle",
-              "summary": "Reports a receive on a fresh unbuffered channel whose possible senders first need the receiver's held mutex.",
-              "kind": "defect",
-              "tier": "experimental"
-            },
-            {
-              "id": "lockorder/waitgroup-lock-cycle",
-              "summary": "Reports a WaitGroup wait whose counted workers all need the caller's held mutex before Done.",
-              "kind": "defect",
-              "tier": "experimental"
             },
             {
               "id": "lockorder/read-lock-write",

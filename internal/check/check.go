@@ -7,7 +7,6 @@ type ID string
 const (
 	CancellationRelease          ID = "cancellationownership/release"
 	ChannelSendAfterClose        ID = "channelsafety/send-after-close"
-	ChannelDependencyCycle       ID = "channelsafety/dependency-cycle"
 	DeferCleanupInLoop           ID = "deferinloop/cleanup-lifetime"
 	GoroutineJoin                ID = "goroutineownership/unjoined"
 	ProducerLifecycleSend        ID = "producerlifecycle/abandoned-send"
@@ -20,9 +19,6 @@ const (
 	LockMissingRelease           ID = "lockorder/missing-release"
 	LockRecursiveAcquire         ID = "lockorder/recursive-acquire"
 	LockContradictoryOrder       ID = "lockorder/contradictory-order"
-	LockAndJoin                  ID = "lockorder/lock-and-join"
-	LockChannelCycle             ID = "lockorder/channel-lock-cycle"
-	LockWaitGroupCycle           ID = "lockorder/waitgroup-lock-cycle"
 	LockReadLockWrite            ID = "lockorder/read-lock-write"
 	LockMismatchedRelease        ID = "lockorder/mismatched-release"
 )

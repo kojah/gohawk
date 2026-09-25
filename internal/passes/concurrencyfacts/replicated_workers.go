@@ -15,9 +15,8 @@ import (
 // The number of copies is unknown, so the summary replays one iteration and
 // marks the workers it launches Replicated: each stands for one or more
 // identical copies. That reading is sound only for a property that more
-// identical copies cannot break. A copy stuck on a lock its parent holds
-// cannot be released by another copy stuck on the same lock, so lock-and-join
-// and lock/WaitGroup cycles keep holding with any number of copies. Copies
+// identical copies cannot break, such as a copy stuck on a lock its parent
+// holds, which no other copy stuck on the same lock can release. Copies
 // can partner each other on a channel, though, and change any count of sends
 // and receives. So a replicated worker makes a summary incomplete, and only
 // a consumer that proves such a property opts in through Representatives.

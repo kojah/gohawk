@@ -5,7 +5,6 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
-	"github.com/kojah/gohawk/internal/syncmodel"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -16,7 +15,7 @@ type lockGuardProof struct {
 }
 
 // lockGuard asks the broker for complete effects along one worker's ordered
-// prefix, then lets the shared region fold exact lock ownership. It never
+// prefix, then folds exact lock ownership over it. It never
 // treats an unknown helper or conditional execution as proof of no guard.
 // Unsupported shapes fall back to the analyzer's conservative syntax policy.
 func (evidence captureEvidence) lockGuard(closure *ast.FuncLit, mutation ast.Node) lockGuardProof {
@@ -29,7 +28,7 @@ func (evidence captureEvidence) lockGuard(closure *ast.FuncLit, mutation ast.Nod
 	if !ok {
 		return lockGuardProof{reason: reasonMutationSiteUnknown}
 	}
-	var region syncmodel.LockRegion
+	var region lockRegion
 	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
 	for _, instruction := range block.Instrs[:target] {
 		switch instruction := instruction.(type) {
@@ -41,14 +40,14 @@ func (evidence captureEvidence) lockGuard(closure *ast.FuncLit, mutation ast.Nod
 				// effects as proof that the mutation is unguarded.
 				return lockGuardProof{reason: reasonHelperEffectsUnknown}
 			}
-			region.Apply(summary.Operations)
+			region.apply(summary.Operations)
 		case *ssa.Defer:
 			// Registration does not execute the deferred release here.
 		case *ssa.Go, *ssa.Select, *ssa.RunDefers:
 			return lockGuardProof{reason: reasonWorkerOrderUnknown}
 		}
 	}
-	held, certain := region.Held()
+	held, certain := region.heldState()
 	if !certain {
 		return lockGuardProof{guarded: true, known: true, reason: reasonLockIdentityUnknown}
 	}

@@ -1,15 +1,14 @@
 ---
 title: channelsafety
-seoTitle: "channelsafety: Detect channel misuse and bounded deadlocks in Go"
-description: "Check channel use after close and exact channel dependency cycles."
+seoTitle: "channelsafety: Detect sends on closed channels in Go"
+description: "Check channel use after close."
 ---
 
 import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 ## What it detects
 
-Reports sends reachable after the same channel has been closed, and a narrow
-class of channel-only deadlocks.
+Reports sends reachable after the same channel has been closed.
 
 Complete concurrency summaries expose closes and sends inside synchronous
 helpers, including imported helpers. A close in one call can therefore be
@@ -24,35 +23,12 @@ calls are not treated as executing at their registration or launch site.
 Send-after-close comparisons do not cross loop backedges or compare events
 within one call.
 
-The experimental dependency-cycle check uses complete ordered summaries for
-one caller and at most four children. It requires two distinct fresh,
-unbuffered channels. If the caller and a worker each try to send first, or
-each try to receive first, and each needs the other's later operation to
-complete, neither first action can finish. A complete event graph proves both
-blocking dependencies before reporting a cycle.
-
-An extra sender or closer, a buffered or externally supplied channel, an
-opaque participant, an unmodeled branch, or an unknown effect makes that proof
-inconclusive. The check does not model general channel protocols or infer a
-deadlock from a graph cycle alone.
-
-For one bounded, acyclic worker `select`, the summary follows each arm through
-its continuation and constructs a separate graph per outcome. The check
-reports only if every outcome proves the same cycle. A cancellation or default
-arm that can escape therefore defeats the proof. Ordinary branches are
-different: a cycle on one feasible choice of branch paths is enough, as long
-as that choice's conditions can hold together. Conditions that might be
-related, such as two reads of one field, leave the result inconclusive.
-Multiple selects and too many alternatives remain inconclusive; select arms
-are never flattened into unconditional events.
-
 ### Checks
 
 {/* gohawk:generated-checks:start */}
 | Check | Kind | Tier | What it detects |
 | --- | --- | --- | --- |
 | <CheckIdentity name="send-after-close" tier="core" /> | defect | core | Reports sends reachable after a channel has been closed. |
-| <CheckIdentity name="dependency-cycle" tier="experimental" /> | defect | experimental | Reports two exact unbuffered channel operations that mutually wait on later matching operations. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

@@ -162,10 +162,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"resourcelifetime/use-after-release":  CheckTierCore,
 		"lockorder/contradictory-order":       CheckTierCore,
-		"lockorder/lock-and-join":             CheckTierExperimental,
-		"lockorder/channel-lock-cycle":        CheckTierExperimental,
-		"lockorder/waitgroup-lock-cycle":      CheckTierExperimental,
-		"channelsafety/dependency-cycle":      CheckTierExperimental,
 		"lockorder/read-lock-write":           CheckTierCore,
 		"lockorder/mismatched-release":        CheckTierExperimental,
 		"producerlifecycle/stopped-loop-send": CheckTierExperimental,
@@ -174,7 +170,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 	kinds := map[AnalyzerCheck]CheckKind{
 		"cancellationownership/release":       CheckKindDefect,
 		"channelsafety/send-after-close":      CheckKindDefect,
-		"channelsafety/dependency-cycle":      CheckKindDefect,
 		"deferinloop/cleanup-lifetime":        CheckKindHazard,
 		"goroutineownership/unjoined":         CheckKindHazard,
 		"producerlifecycle/abandoned-send":    CheckKindHazard,
@@ -187,9 +182,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/missing-release":           CheckKindDefect,
 		"lockorder/recursive-acquire":         CheckKindDefect,
 		"lockorder/contradictory-order":       CheckKindHazard,
-		"lockorder/lock-and-join":             CheckKindDefect,
-		"lockorder/channel-lock-cycle":        CheckKindDefect,
-		"lockorder/waitgroup-lock-cycle":      CheckKindDefect,
 		"lockorder/read-lock-write":           CheckKindHazard,
 		"lockorder/mismatched-release":        CheckKindDefect,
 	}

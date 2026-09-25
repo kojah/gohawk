@@ -121,10 +121,6 @@ itself does not change.
   those relationships; the consuming analyzer still decides whether to report.
   Lifecycle summaries can carry conditional transitions through helpers and
   across package boundaries.
-- `internal/syncmodel` owns synchronization event graphs, bounded alternatives,
-  and structured ordering and signal queries. It consumes complete effects from
-  prerequisite passes and stays independent of analyzer reporting policy. Lower
-  storage and lifecycle layers must not depend on it.
 - Every interprocedural question spends a `ssaflow.SearchBudget`, named
   `QueryBudget` or `SummaryBudget` unless a proof has a reason of its own, and
   a lifecycle analyzer draws each question's budget from one pool per
@@ -154,9 +150,6 @@ itself does not change.
   retain independent inference and fact passes. The broker selects ordinary
   prerequisites and exposes declaration summaries separately from bound
   call-site evidence; it is not another scheduler or a universal proof model.
-- The [synchronization graph](../development/synchronization-graph/) grows from
-  complete concurrency effects into on-demand event-order fragments. Analyzers
-  retain their own blocking proofs; graph cycles alone are not diagnostics.
 - `internal/check` and `internal/trace` provide reporting and evidence
   tracing. Every diagnostic flows through `check.Report`, which is what lets
   the tracer record whether a candidate was reported, suppressed, or removed.

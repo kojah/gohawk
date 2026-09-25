@@ -21,9 +21,6 @@ the corresponding release policy.
 | <CheckIdentity name="missing-release" tier="core" /> | defect | core | Reports return paths that leave an owned lock held. |
 | <CheckIdentity name="recursive-acquire" tier="core" /> | defect | core | Reports attempts to acquire a lock that is already held. |
 | <CheckIdentity name="contradictory-order" tier="core" /> | hazard | core | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
-| <CheckIdentity name="lock-and-join" tier="experimental" /> | defect | experimental | Reports a wait while holding a mutex that every possible completion worker must acquire. |
-| <CheckIdentity name="channel-lock-cycle" tier="experimental" /> | defect | experimental | Reports a receive on a fresh unbuffered channel whose possible senders first need the receiver's held mutex. |
-| <CheckIdentity name="waitgroup-lock-cycle" tier="experimental" /> | defect | experimental | Reports a WaitGroup wait whose counted workers all need the caller's held mutex before Done. |
 | <CheckIdentity name="read-lock-write" tier="core" /> | hazard | core | Reports writes to an object while only its read lock is held. |
 | <CheckIdentity name="mismatched-release" tier="experimental" /> | defect | experimental | Reports a lock released with the wrong method for how it was acquired. |
 {/* gohawk:generated-checks:end */}
@@ -112,88 +109,6 @@ A cycle is a hazard, not proof that those calls run concurrently
 on the same objects. Same-class pairs and unclassified locks do not form edges.
 Opaque calls, asynchronous calls, and dynamic indexed locks do not contribute
 guessed helper acquisitions.
-
-### Waiting while holding a worker's mutex
-
-The experimental `lock-and-join` check handles one narrower, stronger
-dependency: a function holds a `sync.Mutex` or `sync.RWMutex` while receiving from a
-fresh completion channel, and every child that could close it must acquire
-that exact mutex in a conflicting mode first. Two readers do not conflict.
-The mutex may belong to the caller, a receiver field, or a package variable,
-as long as the function locks and later unlocks that one exact identity.
-Another goroutine could release a mutex it did not lock, but doing so during
-the wait would make the function's own later unlock fatal on the path where
-the wait returns. A mutex pointer loaded from a field is not an exact identity,
-and two parameters that might name the same mutex are not treated as one.
-The receive cannot finish until a signal;
-the close cannot happen until the parent releases the mutex; and the parent
-releases it only after the receive. Related locations show the parent lock,
-the worker lock, and the completion signal.
-
-This check consumes the shared complete ordered concurrency summary, including
-effects inside a local or imported worker helper. It does not infer missing
-operations from an incomplete summary. A channel supplied by a caller,
-more than four launches, an unproven alternative, an opaque participant, or a
-budget cut is inconclusive. It does not attempt general cycles, buffered
-protocols, or arbitrary scheduling and path constraints.
-All tracked children must launch after the parent acquires the mutex and
-before it waits; other launch orders remain inconclusive.
-Exact embedded fields of fresh local owners are supported through local
-worker-launch helpers. Channel fields can also connect launch and wait helpers
-when the shared heap model proves the fresh owner's slot remains unchanged.
-Mutation, opaque owner handoffs, and external owners still defeat that binding.
-Scoping tolerates synchronization on proven-disjoint
-resources while retaining every participant. Up to eight acyclic branch or
-worker-select variants may be checked. A deadlock needs one feasible
-execution, not every one: each choice of branch paths is checked separately,
-and a report needs one whose branch conditions can hold together. Two tests
-of the same condition that disagree cannot, and conditions that might be
-related, such as two reads of one field or two calls to one function, leave
-the result inconclusive. Within one choice, the variants differ only in which
-select arm fires, and every arm must be stuck, so a cancellation escape still
-defeats the proof. Opaque whole-function summaries remain inconclusive even if a
-reader could identify an apparently unrelated fragment.
-
-### Channel/lock cycles
-
-The experimental `channel-lock-cycle` check proves the same dependency when
-the worker sends on a fresh unbuffered channel instead of closing it. It
-requires that every possible sender first acquire the exact mutex held
-by the receiver, and that its first signal on the waited-for channel be a
-send. A buffered or unknown-capacity channel, an outside
-participant, or an unproven helper alternative is inconclusive. A later close
-does not establish a separate lock-and-join finding if a send occurs first.
-
-### Mutex/WaitGroup cycles
-
-The experimental `waitgroup-lock-cycle` check handles a parent that adds one
-count per known child, holds a mutex while calling `Wait`, and
-unlocks only afterward. As with `lock-and-join`, the mutex may belong to the
-caller, but the group must be fresh. Each child must acquire that exact mutex before its
-single `Done`. The parent's held lock blocks every decrement that could bring
-the fresh group's counter to zero. Related locations identify the parent lock,
-one blocked child lock, and its `Done`.
-
-The proof requires one exact `Add(1)` per child, all launches after the parent
-locks and before it waits, and the required complete child effects in every
-bounded variant. Exact zero-based unit-step loops of at most four iterations
-can supply distinct children; each child must be counted before its launch.
-A worker pool with an unknown count, such as `for range items { wg.Add(1); go
-worker() }`, is read as one representative child: every copy needs the same
-held mutex, so no copy can release another, and one blocked child proves the
-cycle for any number of them. The loop must be a range or counted loop, its
-every-iteration body may only add to the group and launch children, and the
-children must use the same resources on every iteration. Registration can
-interleave with launches under the held lock. Counter captures,
-per-iteration resources, and unsupported control flow remain unknown. A
-different count, another decrement, early `Done`, unknown participant, or
-different launch order is inconclusive. It does not infer the counter from
-method names, or treat an arbitrary `Wait` and lock as a deadlock.
-
-These checks use the bounded synchronization graph to distinguish program order
-from independently proven blocking dependencies. They report only after those
-dependencies form an unavoidable cycle; an arbitrary graph cycle does not
-become a diagnostic.
 
 For complete ordered mutex helpers, shared concurrency summaries bind
 parameter locks to caller values and retain acquisition/release order. This

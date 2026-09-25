@@ -1,22 +1,22 @@
-package syncmodel
+package concurrentcapture
 
 import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"golang.org/x/tools/go/ssa"
 )
 
-// LockRegion folds a complete ordered prefix of synchronization effects.
+// lockRegion folds a complete ordered prefix of synchronization effects.
 // It answers whether any exact mutex is held at a point; callers decide what
 // that evidence means for their own diagnostic. Indirect locks, unmatched
 // unlocks, and condition waits make the result unknown.
-type LockRegion struct {
+type lockRegion struct {
 	held    map[ssa.Value]bool
 	unknown bool
 }
 
-// Apply consumes effects in execution order. It never infers a missing effect
+// apply consumes effects in execution order. It never infers a missing effect
 // from an empty sequence: the caller must have established prefix completeness.
-func (region *LockRegion) Apply(operations []concurrencyfacts.Operation) {
+func (region *lockRegion) apply(operations []concurrencyfacts.Operation) {
 	for _, operation := range operations {
 		if operation.Resource.Projection.Depth != 0 {
 			region.unknown = true
@@ -48,8 +48,8 @@ func (region *LockRegion) Apply(operations []concurrencyfacts.Operation) {
 	}
 }
 
-// Held reports whether an exact mutex is held and whether the prefix was
+// heldState reports whether an exact mutex is held and whether the prefix was
 // sufficiently modeled to decide that. Unknown is not evidence of no lock.
-func (region *LockRegion) Held() (held bool, known bool) {
+func (region *lockRegion) heldState() (held bool, known bool) {
 	return len(region.held) != 0, !region.unknown
 }

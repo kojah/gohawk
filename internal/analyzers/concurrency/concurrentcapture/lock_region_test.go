@@ -1,4 +1,4 @@
-package syncmodel
+package concurrentcapture
 
 import (
 	"testing"
@@ -13,17 +13,17 @@ func TestLockRegionTracksExactHeldMutexes(t *testing.T) {
 	operation := func(kind concurrencyfacts.Kind, resource ssa.Value) concurrencyfacts.Operation {
 		return concurrencyfacts.Operation{Kind: kind, Resource: concurrencyfacts.Reference{Value: resource}}
 	}
-	var region LockRegion
-	region.Apply([]concurrencyfacts.Operation{operation(concurrencyfacts.Lock, mutex), operation(concurrencyfacts.Lock, other)})
-	if held, known := region.Held(); !held || !known {
+	var region lockRegion
+	region.apply([]concurrencyfacts.Operation{operation(concurrencyfacts.Lock, mutex), operation(concurrencyfacts.Lock, other)})
+	if held, known := region.heldState(); !held || !known {
 		t.Fatalf("two held locks = (%v, %v)", held, known)
 	}
-	region.Apply([]concurrencyfacts.Operation{operation(concurrencyfacts.Unlock, mutex)})
-	if held, known := region.Held(); !held || !known {
+	region.apply([]concurrencyfacts.Operation{operation(concurrencyfacts.Unlock, mutex)})
+	if held, known := region.heldState(); !held || !known {
 		t.Fatalf("one held lock = (%v, %v)", held, known)
 	}
-	region.Apply([]concurrencyfacts.Operation{operation(concurrencyfacts.Unlock, other)})
-	if held, known := region.Held(); held || !known {
+	region.apply([]concurrencyfacts.Operation{operation(concurrencyfacts.Unlock, other)})
+	if held, known := region.heldState(); held || !known {
 		t.Fatalf("released locks = (%v, %v)", held, known)
 	}
 }
@@ -34,9 +34,9 @@ func TestLockRegionDeclinesUncertainRelease(t *testing.T) {
 		{Kind: concurrencyfacts.Lock, Resource: concurrencyfacts.Reference{Value: new(ssa.Alloc), Indirect: true}},
 		{Kind: concurrencyfacts.CondWait},
 	} {
-		var region LockRegion
-		region.Apply([]concurrencyfacts.Operation{operation})
-		if _, known := region.Held(); known {
+		var region lockRegion
+		region.apply([]concurrencyfacts.Operation{operation})
+		if _, known := region.heldState(); known {
 			t.Errorf("uncertain operation %+v produced a known region", operation)
 		}
 	}

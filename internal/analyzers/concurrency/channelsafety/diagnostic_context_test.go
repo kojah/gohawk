@@ -26,43 +26,6 @@ func TestSendAfterCloseDiagnosticContext(t *testing.T) {
 	assertChannelIdentityTrace(t, data)
 }
 
-func TestChannelCycleTraceReasons(t *testing.T) {
-	tracePath := enableChannelSafetyTrace(t)
-	analysistest.Run(t, analysistest.TestData(), Analyzer(), "channelcycle")
-
-	data, err := os.ReadFile(tracePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := map[string]string{
-		"channel-cycle-proven":                 "accepted",
-		"channel-cycle-launch-unknown":         "unknown",
-		"channel-cycle-fresh-channels-unknown": "unknown",
-	}
-	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
-		var event struct {
-			Reason    string `json:"reason"`
-			Phase     string `json:"phase"`
-			Outcome   string `json:"outcome"`
-			Candidate string `json:"candidate"`
-		}
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			t.Fatal(err)
-		}
-		outcome, ok := want[event.Reason]
-		if !ok {
-			continue
-		}
-		if event.Phase != "decision" || event.Outcome != outcome || event.Candidate == "" {
-			t.Errorf("unexpected channel cycle decision: %+v", event)
-		}
-		delete(want, event.Reason)
-	}
-	if len(want) != 0 {
-		t.Errorf("missing channel cycle decisions: %v", want)
-	}
-}
-
 func assertSummaryDiagnosticContext(t *testing.T, results []*analysistest.Result) {
 	t.Helper()
 	count := 0

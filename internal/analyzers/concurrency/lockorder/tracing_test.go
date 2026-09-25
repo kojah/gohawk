@@ -42,9 +42,6 @@ func TestLockTraceBoundaries(t *testing.T) {
 	set("gohawk-trace-file", path)
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockorder")
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "ordercycles")
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockjoin")
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "channellock")
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "waitgrouplock")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -59,12 +56,6 @@ func TestLockTraceBoundaries(t *testing.T) {
 	checkDecisionTrace(t, data, "lock-state-budget-exhausted", "state_budget.go:", "unknown")
 	checkDecisionTrace(t, data, "fresh-field-identity-unknown", "escaped_fresh_field.go:", "unknown")
 	checkDecisionTrace(t, data, "cross-owner-class-unknown", "cross_owner_orders.go:", "unknown")
-	checkDecisionTrace(t, data, "lock-join-deadlock-proven", "lockjoin.go:", "accepted")
-	checkDecisionTrace(t, data, "lock-join-parent-order-not-matched", "lockjoin.go:", "rejected")
-	checkDecisionTrace(t, data, "lock-join-identity-unknown", "lockjoin.go:", "unknown")
-	checkDecisionTrace(t, data, "channel-lock-cycle-proven", "channellock.go:", "accepted")
-	checkDecisionTrace(t, data, "waitgroup-lock-cycle-proven", "waitgrouplock.go:", "accepted")
-	checkDecisionTrace(t, data, "waitgroup-lock-worker-order-not-matched", "waitgrouplock.go:", "rejected")
 	found := false
 	foundUnknown := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {

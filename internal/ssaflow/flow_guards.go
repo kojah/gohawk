@@ -90,21 +90,6 @@ func GuardCondition(condition ssa.Value) (identity string, negated, stable, ok b
 	return "", false, false, false
 }
 
-// GuardComparison is the guard identity of subject == compared, the same
-// identity GuardCondition gives that comparison written as an instruction.
-// It lets a consumer that stores a comparison apart from its instruction,
-// such as a condition bound into a caller, keep relating it to other guards.
-func GuardComparison(subject ssa.Value, compared *ssa.Const) (identity string, stable, ok bool) {
-	if load, loaded := subject.(*ssa.UnOp); loaded && load.Op == token.MUL {
-		address, ok := GuardAddressIdentity(load.X)
-		return "eq(load(" + address + ")," + guardOperandIdentity(compared) + ")", false, ok
-	}
-	if !stableOperand(subject) {
-		return "", false, false
-	}
-	return stableEquality(subject, compared), true, true
-}
-
 func stableEquality(left, right ssa.Value) string {
 	first, second := guardOperandIdentity(left), guardOperandIdentity(right)
 	if second < first {
