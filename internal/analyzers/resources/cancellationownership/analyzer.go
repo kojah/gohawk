@@ -59,7 +59,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 						Message: "cancel function from " + syntax.ShortPackageName(
 							contract.packagePath,
 						) + "." + contract.name + " is not called on every return path",
-						Related: check.ReturnEvidence(pass, proof.Witness, "calling "+cancelSubject(pass, call, contract.result)),
+						Related: check.ReturnEvidence(pass, call, proof.Witness, "calling "+cancelSubject(pass, call, contract.result)),
 					})
 				}
 			}

@@ -2,7 +2,9 @@ package resourcelifetime
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -78,13 +80,15 @@ func assertOpaqueUseAfterReleaseTrace(t *testing.T, data []byte) {
 }
 
 // assertMissingReleaseEvidence checks that a missing-release diagnostic cites
-// the leaking return, labeled with the resource's variable, and that a
-// function without a return cites its closing brace.
+// the leaking return, labeled with the resource's variable, and the condition
+// that decides the path, and that a function without a return cites its
+// closing brace.
 func assertMissingReleaseEvidence(t *testing.T, results []*analysistest.Result) {
 	t.Helper()
-	want := map[int][2]any{
-		13: {"returns here without releasing `config`", 18},
-		24: {"reaches the end of the function without releasing the resource", 25},
+	want := map[int][]string{
+		13: {"17:when this is true", "18:returns here without releasing `config`"},
+		24: {"25:reaches the end of the function without releasing the resource"},
+		30: {"35:returns here without releasing `config`"},
 	}
 	for _, result := range results {
 		if result.Pass == nil {
@@ -97,14 +101,12 @@ func assertMissingReleaseEvidence(t *testing.T, results []*analysistest.Result) 
 				continue
 			}
 			delete(want, position.Line)
-			if len(diagnostic.Related) != 1 {
-				t.Errorf("line %d: related = %v, want one piece of evidence", position.Line, diagnostic.Related)
-				continue
+			var got []string
+			for _, related := range diagnostic.Related {
+				got = append(got, fmt.Sprintf("%d:%s", result.Pass.Fset.Position(related.Pos).Line, related.Message))
 			}
-			related := diagnostic.Related[0]
-			if related.Message != expected[0] || result.Pass.Fset.Position(related.Pos).Line != expected[1] {
-				t.Errorf("line %d: evidence %q at line %d, want %q at line %d", position.Line,
-					related.Message, result.Pass.Fset.Position(related.Pos).Line, expected[0], expected[1])
+			if !slices.Equal(got, expected) {
+				t.Errorf("line %d: evidence = %q, want %q", position.Line, got, expected)
 			}
 		}
 	}

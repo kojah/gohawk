@@ -83,7 +83,7 @@ func reportUnjoined(pass *analysis.Pass, id check.ID, spawn *ssa.Go, proof Gorou
 		Pos:     source.Pos(),
 		End:     source.End(),
 		Message: "goroutine is not joined on every return path",
-		Related: check.ReturnEvidence(pass, proof.Witness, "waiting for the goroutine"),
+		Related: check.ReturnEvidence(pass, spawn, proof.Witness, "waiting for the goroutine"),
 	})
 }
 

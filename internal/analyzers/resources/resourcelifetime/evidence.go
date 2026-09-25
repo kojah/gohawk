@@ -15,5 +15,5 @@ func missingReleaseEvidence(pass *analysis.Pass, call *ssa.Call, result int, lea
 	if name := syntax.AssignedName(pass, call.Pos(), result); name != "" {
 		subject = "`" + name + "`"
 	}
-	return check.ReturnEvidence(pass, leak, "releasing "+subject)
+	return check.ReturnEvidence(pass, call, leak, "releasing "+subject)
 }

@@ -182,7 +182,7 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 		Pos:     source.Pos(),
 		End:     source.End(),
 		Message: "started command is not waited on every successful return path",
-		Related: check.ReturnEvidence(pass, witness, "waiting for "+subject),
+		Related: check.ReturnEvidence(pass, start, witness, "waiting for "+subject),
 	})
 }
 
