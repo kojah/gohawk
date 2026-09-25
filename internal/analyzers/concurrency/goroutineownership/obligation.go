@@ -48,7 +48,6 @@ type spawnAnalysis struct {
 	pass          *analysis.Pass
 	function      *ssa.Function
 	spawn         *ssa.Go
-	config        goroutineOwnershipConfig
 	checkID       check.ID
 	signals       []ssa.Value
 	groups        []ssa.Value
@@ -93,17 +92,11 @@ func (analysis *spawnAnalysis) budget() *ssaflow.SearchBudget {
 	return analysis.pool.Within(spawnQueryBudget)
 }
 
-func newSpawnAnalysis(
-	pass *analysis.Pass,
-	function *ssa.Function,
-	spawn *ssa.Go,
-	config goroutineOwnershipConfig,
-) *spawnAnalysis {
+func newSpawnAnalysis(pass *analysis.Pass, function *ssa.Function, spawn *ssa.Go) *spawnAnalysis {
 	analysis := &spawnAnalysis{
 		pass:     pass,
 		function: function,
 		spawn:    spawn,
-		config:   config,
 		actions:  make(map[ssa.Instruction]ownershipAction),
 	}
 	analysis.signals, analysis.groups, analysis.unsettledDone = spawnedCompletionValues(pass, spawn)
@@ -111,10 +104,8 @@ func newSpawnAnalysis(
 	if analysis.relayGroup != nil {
 		analysis.groups = append(analysis.groups, analysis.relayGroup)
 	}
-	if config.mode != goroutineModeJoin {
-		analysis.owners = spawnedLifecycleOwners(pass, spawn)
-		analysis.pipePeers = analysis.spawnedPipePeers()
-	}
+	analysis.owners = spawnedLifecycleOwners(pass, spawn)
+	analysis.pipePeers = analysis.spawnedPipePeers()
 	for _, signal := range analysis.signals {
 		analysis.tracked = append(analysis.tracked, trackedValue{value: signal, kind: trackedSignal})
 	}

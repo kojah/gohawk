@@ -117,13 +117,6 @@ func runCLI(arguments []string, runtime cliRuntime) cliResult {
 	if vetToolHandshake(originalArguments) {
 		return cliResult{invocation: &analysisInvocation{arguments: plan.arguments, analyzers: plan.analyzers}}
 	}
-	// go vet relays an analyzer option flag to every package, so a bad value
-	// would be reported once per package with a usage banner. Validate it here
-	// so a typo fails once, cleanly, before any delegation.
-	if err := validateAnalyzerOptionFlags(analyzers, originalArguments); err != nil {
-		writeLine(runtime.errorsOutput, "gohawk:", err)
-		return cliResult{exitCode: 2}
-	}
 	return cliResult{invocation: &analysisInvocation{
 		delegate:     true,
 		arguments:    forwardedArguments(originalArguments),
@@ -229,29 +222,4 @@ func hasFlag(arguments []string, name string) bool {
 		}
 	}
 	return false
-}
-
-// validateAnalyzerOptionFlags parses the analyzer option flags (named
-// analyzer.flag) the user passed, using each analyzer's own flag value, so an
-// invalid value is rejected with the same message the analysis driver would
-// give. Other flags are ignored here; go vet validates them against the tool's
-// advertised flag set.
-func validateAnalyzerOptionFlags(analyzers []*analysis.Analyzer, arguments []string) error {
-	set := flag.NewFlagSet("gohawk", flag.ContinueOnError)
-	set.SetOutput(io.Discard)
-	known := map[string]bool{}
-	for _, analyzer := range analyzers {
-		analyzer.Flags.VisitAll(func(option *flag.Flag) {
-			name := analyzer.Name + "." + option.Name
-			set.Var(option.Value, name, option.Usage)
-			known[name] = true
-		})
-	}
-	var relevant []string
-	for _, argument := range arguments[1:] {
-		if name, ok := flagName(argument); ok && known[name] {
-			relevant = append(relevant, argument)
-		}
-	}
-	return set.Parse(relevant)
 }

@@ -23,9 +23,6 @@ import (
 // handle; extra calls, sends, defers, or control flow make that inference opaque.
 // https://github.com/ConduitIO/conduit/blob/9946a19b9fff997675f78bbc5ff437e760d39f4f/pkg/lifecycle/stream/parallel.go#L94-L103
 func (analysis *spawnAnalysis) relayCompletionGroup() ssa.Value { //nolint:ireturn // Retains the caller's exact group identity.
-	if analysis.config.mode == goroutineModeJoin {
-		return nil
-	}
 	function, closure := spawnedFunction(analysis.pass, analysis.spawn)
 	if len(analysis.signals) == 0 || function == nil || len(function.Blocks) != 1 || len(function.Blocks[0].Instrs) > 64 {
 		return nil
@@ -69,7 +66,7 @@ func (analysis *spawnAnalysis) relayCompletionGroup() ssa.Value { //nolint:iretu
 // https://github.com/buchgr/bazel-remote/blob/a69b6b5ed933234d93b489ffd216bee5bb74aa06/cache/disk/findmissing.go#L122-L143
 // https://github.com/HM2899/grokcli-2api/blob/33a106d902d7627d1cdbc3359768a029112ea808/internal/proxy/chat.go#L445-L565
 func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
-	if analysis.relayGroup == nil || analysis.config.mode == goroutineModeJoin {
+	if analysis.relayGroup == nil {
 		return false
 	}
 	budget := analysis.budget()
@@ -85,7 +82,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
 				return true
 			}
 			worker, ok := instruction.(*ssa.Go)
-			if !ok || analysis.config.mode != goroutineModeContext {
+			if !ok {
 				continue
 			}
 			function, closure := spawnedFunction(analysis.pass, worker)

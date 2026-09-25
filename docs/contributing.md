@@ -151,7 +151,7 @@ Explain what the rule catches and why it matters.
 ## Examples
 ```
 
-Run `go generate ./...`. This fills in the examples, options table, analyzer
+Run `go generate ./...`. This fills in the examples, analyzer
 indexes, and website data. Edit the fixture when an example needs to change;
 do not edit generated example blocks by hand.
 

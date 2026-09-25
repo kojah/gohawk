@@ -198,7 +198,6 @@ func printAnalyzerDocumentation(output io.Writer, group gohawk.AnalyzerGroup, an
 		writeFormattedf(output, "    Tier: %s\n", check.Tier)
 		writeFormattedf(output, "    %s\n", check.Doc)
 	}
-	printAnalyzerOptions(output, analyzer)
 }
 
 func printCheckDocumentation(
@@ -215,21 +214,6 @@ func printCheckDocumentation(
 	writeFormattedf(output, "Tier: %s\n", check.Tier)
 	writeFormattedf(output, "Group: %s (%s)\n", group.Name, group.Doc)
 	writeFormattedf(output, "Documentation: %s\n", analyzerDocumentationURL(group, analyzer.Name))
-}
-
-func printAnalyzerOptions(output io.Writer, analyzer *analysis.Analyzer) {
-	var options []*flag.Flag
-	analyzer.Flags.VisitAll(func(option *flag.Flag) {
-		options = append(options, option)
-	})
-	if len(options) == 0 {
-		return
-	}
-	writeLine(output, "\nOptions:")
-	for _, option := range options {
-		writeFormattedf(output, "  -%s.%s (default %s)\n", analyzer.Name, option.Name, option.DefValue)
-		writeFormattedf(output, "    %s\n", option.Usage)
-	}
 }
 
 func analyzerDocumentationURL(group gohawk.AnalyzerGroup, analyzer string) string {
@@ -282,7 +266,6 @@ func printGeneralHelp(output io.Writer) {
 	writeLine(output, "Test files: -gohawk-include-tests analyzes and reports _test.go files")
 	writeLine(output, "Evidence tracing: -gohawk-trace=ANALYZER[,CHECK...] [-gohawk-trace-file=PATH]")
 	writeLine(output, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
-	writeLine(output, "Run 'gohawk help ANALYZER' for an analyzer's configuration flags.")
 	writeLine(output, "Run 'gohawk ssa [-func NAME] PACKAGE' to print the SSA form the analyzers see.")
 	writeLine(output, "Run 'gohawk facts [-func NAME] PACKAGE' to print the lifecycle summaries the analyzers import.")
 	writeLine(output, "\nAnalyzer groups:")

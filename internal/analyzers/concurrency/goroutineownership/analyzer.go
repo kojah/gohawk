@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/flagvalue"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -17,41 +16,17 @@ import (
 
 var summaryKnowledge = summaries.Select(summaries.Requirements{Results: true, Lifecycle: true, Concurrency: true})
 
-// Analyzer returns this package's configured Go analysis pass.
+// Analyzer returns this package's Go analysis pass.
 func Analyzer() *analysis.Analyzer {
-	config := goroutineOwnershipConfig{mode: goroutineModeContext}
-	analyzer := &analysis.Analyzer{
+	return &analysis.Analyzer{
 		Name:     "goroutineownership",
 		Doc:      "checks that proven goroutine completion obligations are honored",
 		Requires: summaryKnowledge.Requires(),
+		Run:      runGoroutineOwnership,
 	}
-	analyzer.Flags.Var(
-		flagvalue.NewChoice(&config.mode, goroutineModeContext, goroutineModeLifecycle, goroutineModeJoin),
-		"mode",
-		"ownership policy: context, lifecycle, or join",
-	)
-	analyzer.Run = func(pass *analysis.Pass) (any, error) {
-		return runGoroutineOwnership(pass, config)
-	}
-	return analyzer
 }
 
-type goroutineOwnershipConfig struct {
-	mode string
-}
-
-const (
-	// goroutineModeContext also accepts workers bounded by a caller-owned
-	// context or stop channel and workers whose lifecycle owner is settled.
-	goroutineModeContext = "context"
-	// goroutineModeLifecycle accepts settled lifecycle owners but not
-	// context or stop-channel boundaries.
-	goroutineModeLifecycle = "lifecycle"
-	// goroutineModeJoin accepts only an observed completion signal or wait group.
-	goroutineModeJoin = "join"
-)
-
-func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig) (any, error) {
+func runGoroutineOwnership(pass *analysis.Pass) (any, error) {
 	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
@@ -63,7 +38,7 @@ func runGoroutineOwnership(pass *analysis.Pass, config goroutineOwnershipConfig)
 				if !ok {
 					continue
 				}
-				analysis := newSpawnAnalysis(pass, function, spawn, config)
+				analysis := newSpawnAnalysis(pass, function, spawn)
 				proof := analysis.prove()
 				analysis.emitTrace(pass, proof)
 				if proof.Outcome == GoroutineLifecycleViolated {

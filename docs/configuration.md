@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Choose checks, set options, and handle intentional findings.
+description: Choose checks and handle intentional findings.
 ---
 
 Running gohawk without selection flags runs its core checks:
@@ -100,17 +100,10 @@ gohawk -gohawk-include-tests ./...
 The reviewed precision cohorts replay with this flag so labels inside test
 files stay meaningful.
 
-## Set analyzer options
+## No analyzer options
 
-Options are prefixed with the analyzer name:
-
-```sh
-gohawk -enable=goroutineownership -goroutineownership.mode=join ./...
-gohawk -enable=resourcelifetime -resourcelifetime.require-memory-writer-close=true ./...
-```
-
-Each configurable analyzer lists its options in the
-[analyzer reference](../analyzers/).
+Analyzers have no options: each check reports the same things in every
+project. Choose what runs with the selection flags above.
 
 ## Diagnostic-only analysis
 

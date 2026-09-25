@@ -15,8 +15,8 @@ import (
 )
 
 // Resource contracts are the authoritative acquisition, cleanup, and transfer
-// vocabulary for this analyzer. Exact symbols and configured contract families
-// are required so similarly named application methods do not imply ownership.
+// vocabulary for this analyzer. Exact symbols are required so similarly named
+// application methods do not imply ownership.
 
 type resourceContract struct {
 	symbol      syntax.Symbol
@@ -237,9 +237,6 @@ func acquisitionContextCanceled(acquisition *ssa.Call) bool {
 
 func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {
 	for _, contract := range settings.catalog {
-		if !settings.contracts[contract.family] {
-			continue
-		}
 		if ssaflow.CallMatchesSymbol(common, contract.symbol) {
 			return contract, true
 		}
@@ -599,9 +596,6 @@ func callTakesResourceOwnership(
 // stores a caller's resource, or a type whose methods never release the
 // field, produces no contract.
 func ownedResultContract(evidence *lifecyclefacts.LifecycleEvidence, call *ssa.Call, settings resourceLifetimeSettings) (resourceContract, bool) {
-	if !settings.contracts["owned"] {
-		return resourceContract{}, false
-	}
 	callee := call.Common().StaticCallee()
 	cleanup, index, ok := evidence.OwnedResult(call)
 	if !ok && !catalogCoversPackage(settings, callee) {
@@ -653,12 +647,12 @@ func catalogCoversPackage(settings resourceLifetimeSettings, callee *ssa.Functio
 }
 
 // memoryWriterExempt reports whether a compression writer wraps a local
-// in-memory buffer and the caller has not asked for those to be checked.
-// Leaving such a writer unclosed on an error path loses nothing outside the
-// function, so the finding is correct by contract but rarely actionable;
-// it is opt-in through -require-memory-writer-close.
-func memoryWriterExempt(call *ssa.Call, contract resourceContract, settings resourceLifetimeSettings) bool {
-	if settings.requireMemoryWriterClose || contract.family != "compress" || len(call.Common().Args) == 0 {
+// in-memory buffer. Leaving such a writer unclosed on an error path holds no
+// resource outside the function. A writer never closed before its buffer is
+// read produces truncated output, which is a data defect rather than a leak
+// and is not this check's claim.
+func memoryWriterExempt(call *ssa.Call, contract resourceContract) bool {
+	if contract.family != "compress" || len(call.Common().Args) == 0 {
 		return false
 	}
 	writerMethods := contract.cleanup
@@ -675,7 +669,7 @@ func memoryWriterExempt(call *ssa.Call, contract resourceContract, settings reso
 	// Standard constructors create the same memory-only buffer as a local
 	// allocation. The input slice may be borrowed, but carries no descriptor
 	// cleanup obligation. Dynamic factories and mixed external writers remain
-	// outside this opt-out; strict mode above still requires finalization.
+	// outside this exemption.
 	// https://github.com/apache/pulsar-client-go/blob/1a6d7ac818c9daae9df5c37cb24c0695fabc9eec/pulsar/internal/compression/zlib.go#L39-L52
 	if constructor, ok := underlying.(*ssa.Call); ok && constructor.Parent() == call.Parent() {
 		return ssaflow.CallMatchesAnySymbol(constructor.Common(),

@@ -289,16 +289,6 @@ func TestChecksBlockRejectsMismatchedAnalyzerPrefix(t *testing.T) {
 	}
 }
 
-func TestSynchronizeOptionsAddsSection(t *testing.T) {
-	got, err := synchronizeOptions([]byte("# Rule\n"), "| Knob |\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(got), "## Options\n\n"+generatedOptionsStart+"\n| Knob |\n"+generatedOptionsEnd) {
-		t.Fatalf("generated options section missing from %q", got)
-	}
-}
-
 func TestReplaceGeneratedBlock(t *testing.T) {
 	contents := []byte("before\nSTART\nold\nEND\nafter\n")
 	got, err := replaceGeneratedBlock(contents, "START", "END", "new")

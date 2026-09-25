@@ -17,8 +17,7 @@
               "kind": "defect",
               "tier": "core"
             }
-          ],
-          "options": []
+          ]
         },
         {
           "name": "concurrentcapture",
@@ -32,8 +31,7 @@
               "kind": "hazard",
               "tier": "core"
             }
-          ],
-          "options": []
+          ]
         },
         {
           "name": "goroutineownership",
@@ -46,13 +44,6 @@
               "summary": "Reports goroutines with a recognizable join or lifecycle mechanism that is not honored on every return path.",
               "kind": "hazard",
               "tier": "core"
-            }
-          ],
-          "options": [
-            {
-              "name": "mode",
-              "default": "context",
-              "usage": "Ownership policy: context, lifecycle, or join."
             }
           ]
         },
@@ -86,8 +77,7 @@
               "kind": "hazard",
               "tier": "core"
             }
-          ],
-          "options": []
+          ]
         },
         {
           "name": "producerlifecycle",
@@ -113,8 +103,7 @@
               "kind": "hazard",
               "tier": "experimental"
             }
-          ],
-          "options": []
+          ]
         }
       ]
     },
@@ -135,8 +124,7 @@
               "kind": "defect",
               "tier": "core"
             }
-          ],
-          "options": []
+          ]
         },
         {
           "name": "deferinloop",
@@ -150,8 +138,7 @@
               "kind": "hazard",
               "tier": "core"
             }
-          ],
-          "options": []
+          ]
         },
         {
           "name": "processownership",
@@ -165,8 +152,7 @@
               "kind": "defect",
               "tier": "core"
             }
-          ],
-          "options": []
+          ]
         },
         {
           "name": "resourcelifetime",
@@ -185,18 +171,6 @@
               "summary": "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
               "kind": "hazard",
               "tier": "core"
-            }
-          ],
-          "options": [
-            {
-              "name": "contracts",
-              "default": "os,http,sql,compress,owned",
-              "usage": "Comma-separated resource contract families: os,http,sql,compress,owned."
-            },
-            {
-              "name": "require-memory-writer-close",
-              "default": "false",
-              "usage": "Report gzip and zlib writers over an in-memory buffer that are not closed on every path."
             }
           ]
         }

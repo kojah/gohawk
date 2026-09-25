@@ -160,19 +160,6 @@ func replaceGeneratedBlock(contents []byte, start, end, body string) ([]byte, er
 	return result, nil
 }
 
-func synchronizeOptions(contents []byte, table string) ([]byte, error) {
-	table = strings.TrimSpace(table)
-	if bytes.Contains(contents, []byte(generatedOptionsStart)) {
-		return replaceGeneratedBlock(contents, generatedOptionsStart, generatedOptionsEnd, table)
-	}
-	if bytes.Contains(contents, []byte("\n## Options\n")) {
-		return nil, errors.New("options section exists without generated block markers")
-	}
-	contents = bytes.TrimRight(contents, "\n")
-	contents = append(contents, []byte("\n\n## Options\n\n"+generatedOptionsStart+"\n"+table+"\n"+generatedOptionsEnd+"\n")...)
-	return contents, nil
-}
-
 func validateAnalyzerFrontmatter(contents []byte, analyzerName string) error {
 	title, ok, err := frontmatterValue(contents, "title")
 	if err != nil {

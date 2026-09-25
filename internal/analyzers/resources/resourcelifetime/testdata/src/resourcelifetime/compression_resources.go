@@ -96,8 +96,8 @@ func successfullyClosedPipe(output *io.PipeWriter) {
 	_ = output.CloseWithError(nil)
 }
 
-// A writer over a local in-memory buffer is exempt unless
-// -require-memory-writer-close is set; nothing outside the function is held.
+// A writer over a local in-memory buffer holds nothing outside the function,
+// so leaving it unclosed is not reported.
 func gzipWriterOverLocalBuffer(data []byte) ([]byte, error) {
 	var buffer bytes.Buffer
 	writer := gzip.NewWriter(&buffer)

@@ -16,8 +16,6 @@ import (
 const (
 	generatedAnalyzersStart  = "<!-- gohawk:generated-analyzers:start -->"
 	generatedAnalyzersEnd    = "<!-- gohawk:generated-analyzers:end -->"
-	generatedOptionsStart    = "{/* gohawk:generated-options:start */}"
-	generatedOptionsEnd      = "{/* gohawk:generated-options:end */}"
 	generatedExamplesStart   = "{/* gohawk:generated-examples:start */}"
 	generatedExamplesEnd     = "{/* gohawk:generated-examples:end */}"
 	generatedChecksStart     = "{/* gohawk:generated-checks:start */}"
@@ -42,7 +40,6 @@ type analyzer struct {
 	Path     string           `json:"path"`
 	Tier     gohawk.CheckTier `json:"tier"`
 	Checks   []check          `json:"checks"`
-	Options  []optionFlag     `json:"options"`
 	Examples docexamples.Set  `json:"-"`
 }
 
@@ -51,12 +48,6 @@ type check struct {
 	Summary string           `json:"summary"`
 	Kind    gohawk.CheckKind `json:"kind"`
 	Tier    gohawk.CheckTier `json:"tier"`
-}
-
-type optionFlag struct {
-	Name    string `json:"name"`
-	Default string `json:"default"`
-	Usage   string `json:"usage"`
 }
 
 func main() {

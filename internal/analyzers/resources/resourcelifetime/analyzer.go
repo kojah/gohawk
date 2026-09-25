@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/flagvalue"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -19,50 +18,24 @@ import (
 var resourceSummaries = summaries.Select(summaries.Requirements{Results: true, Lifecycle: true})
 
 func Analyzer() *analysis.Analyzer {
-	config := resourceLifetimeConfig{contracts: "os,http,sql,compress,owned"}
-	analyzer := &analysis.Analyzer{
+	return &analysis.Analyzer{
 		Name:     "resourcelifetime",
 		Doc:      "checks owned files, SQL handles, HTTP responses, and compressors are released on every path",
 		Requires: resourceSummaries.Requires(),
+		Run:      runResourceLifetime,
 	}
-	analyzer.Flags.Var(
-		flagvalue.NewCommaSeparatedChoice(&config.contracts, "os", "http", "sql", "compress", "owned"),
-		"contracts",
-		"comma-separated resource contract families: os,http,sql,compress,owned",
-	)
-	analyzer.Flags.BoolVar(
-		&config.requireMemoryWriterClose,
-		"require-memory-writer-close",
-		false,
-		"report gzip and zlib writers over an in-memory buffer that are not closed on every path",
-	)
-	analyzer.Run = func(pass *analysis.Pass) (any, error) {
-		return runResourceLifetime(pass, config)
-	}
-	return analyzer
-}
-
-type resourceLifetimeConfig struct {
-	contracts                string
-	requireMemoryWriterClose bool
 }
 
 type resourceLifetimeSettings struct {
-	contracts                map[string]bool
-	catalog                  []resourceContract
-	requireMemoryWriterClose bool
+	catalog []resourceContract
 }
 
-func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (any, error) {
+func runResourceLifetime(pass *analysis.Pass) (any, error) {
 	functions, err := ssaflow.SourceSSAFunctions(pass)
 	if err != nil {
 		return nil, err
 	}
-	settings := resourceLifetimeSettings{
-		contracts:                flagvalue.CommaSeparatedSet(config.contracts),
-		catalog:                  resourceContracts(),
-		requireMemoryWriterClose: config.requireMemoryWriterClose,
-	}
+	settings := resourceLifetimeSettings{catalog: resourceContracts()}
 	provider := resourceSummaries.Provider(pass)
 	// Acquisition contracts identify both the owned result and its required
 	// cleanup action. Reporting is deferred until path analysis proves that the
@@ -92,7 +65,7 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 				// Exemption from leak cleanup does not make a closed in-memory
 				// writer usable again. Invalidation has its own API contract.
 				reportUsesAfterRelease(pass, resourceSummaries.Provider(pass), function, call, resource, contract)
-				if memoryWriterExempt(call, contract, settings) {
+				if memoryWriterExempt(call, contract) {
 					continue
 				}
 				evidence.ForCandidate(call.Pos())

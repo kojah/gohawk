@@ -2,6 +2,10 @@ package goroutineownership
 
 import "context"
 
+// Gap: a worker that waits on a context the caller cancels on return is not
+// reported, even when nothing receives its completion signal. Cancellation
+// bounds the worker's lifetime without joining it.
+
 // The exact canceled context crosses an opaque helper boundary. It may bound
 // the worker, so the analyzer declines a lifecycle diagnostic without proving
 // a join. A helper that ignores cancellation is an intentional coverage gap.

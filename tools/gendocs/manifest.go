@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -65,16 +64,8 @@ func collectManifest(root string, includeExamples bool, metrics *docexamples.Met
 				Path:     "analyzers/" + group.Slug + "/" + registered.Name,
 				Tier:     info.Tier(),
 				Checks:   checkManifest(info.Checks),
-				Options:  []optionFlag{},
 				Examples: examples[registered.Name],
 			}
-			registered.Flags.VisitAll(func(value *flag.Flag) {
-				item.Options = append(item.Options, optionFlag{
-					Name:    value.Name,
-					Default: value.DefValue,
-					Usage:   sentence(value.Usage),
-				})
-			})
 			group.Analyzers = append(group.Analyzers, item)
 		}
 		result.Groups = append(result.Groups, group)

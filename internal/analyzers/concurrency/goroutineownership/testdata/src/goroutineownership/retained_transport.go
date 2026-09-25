@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// Gap: a worker writing to an io.Pipe whose reader the caller drains is not
+// reported. Draining the peer may end the worker, so its completion is unknown.
+
 // Closing a resource retained by the captured reader creates uncertain worker
 // shutdown, not a join. A helper may retain its argument outside its result;
 // this conservative boundary can miss an independently blocked worker.

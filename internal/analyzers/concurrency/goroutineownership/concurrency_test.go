@@ -46,7 +46,7 @@ func TestConcurrencyJoinProofs(t *testing.T) {
 			for _, spawn := range ssaflow.InstructionsOf[*ssa.Go](function) {
 				// The first launch owns the completion signal; a later waiter is
 				// deliberately not a join by the launching goroutine itself.
-				analysis := newSpawnAnalysis(result.Pass, function, spawn, goroutineOwnershipConfig{mode: goroutineModeJoin})
+				analysis := newSpawnAnalysis(result.Pass, function, spawn)
 				proof := analysis.prove()
 				if proof.Outcome != expected {
 					t.Errorf("%s: got %+v, want outcome %v", function.Name(), proof, expected)

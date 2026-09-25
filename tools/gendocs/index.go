@@ -65,18 +65,3 @@ func inlineCode(text string) string {
 	}
 	return output.String()
 }
-
-func optionsTable(options []optionFlag) string {
-	var output strings.Builder
-	output.WriteString("| Knob | Default | Effect |\n| --- | --- | --- |\n")
-	for _, option := range options {
-		defaultValue := option.Default
-		if defaultValue == "" {
-			defaultValue = "empty"
-		} else {
-			defaultValue = "`" + strings.ReplaceAll(defaultValue, "`", "\\`") + "`"
-		}
-		fmt.Fprintf(&output, "| `%s` | %s | %s |\n", option.Name, defaultValue, option.Usage)
-	}
-	return strings.TrimSuffix(output.String(), "\n")
-}

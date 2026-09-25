@@ -148,16 +148,6 @@ func assertSQLBoundaryTrace(t *testing.T, data []byte) {
 	}
 }
 
-func TestConfiguration(t *testing.T) {
-	analyzer := Analyzer()
-	for name, value := range map[string]string{"contracts": "http,compress", "require-memory-writer-close": "true"} {
-		if err := analyzer.Flags.Set(name, value); err != nil {
-			t.Fatalf("set %s=%s: %v", name, value, err)
-		}
-	}
-	analyzertest.Run(t, analysistest.TestData(), analyzer, "resourcelifetime/config")
-}
-
 // boundedSearchDeadline bounds the analyzer action, not package loading or
 // prerequisite fact inference. Those costs vary independently of the release
 // search, especially under race instrumentation. The formerly unbounded search

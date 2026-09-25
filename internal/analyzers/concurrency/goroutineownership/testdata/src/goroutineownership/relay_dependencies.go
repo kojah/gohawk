@@ -5,6 +5,10 @@ import (
 	"sync"
 )
 
+// Gap: a worker that relays a wait group the caller also hands to a queue is
+// not reported when the caller stops waiting on a timeout. The queued
+// participant may settle the group, so the relay's completion is unknown.
+
 type relayJob struct{ group *sync.WaitGroup }
 
 func relayQueueParticipant(queue chan<- relayJob, timeout <-chan struct{}) {

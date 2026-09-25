@@ -15,30 +15,11 @@ import (
 func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 	t.Helper()
 
-	t.Run("analyzer configuration", func(t *testing.T) {
+	t.Run("context-bound goroutine", func(t *testing.T) {
 		goroutineModule := writeGoroutineTestModule(t)
 		output, exitCode := runCommand(t, goroutineModule, binary, "-enable=goroutineownership", "./...")
 		if exitCode != 0 || output != "" {
-			t.Fatalf("default policy: exit code = %d, output = %q", exitCode, output)
-		}
-
-		output, exitCode = runCommand(t, goroutineModule, binary, "-enable=goroutineownership", "-goroutineownership.mode=join", "./...")
-		if exitCode != 3 || !strings.Contains(output, "goroutine is not joined") {
-			t.Fatalf("join policy: exit code = %d\n%s", exitCode, output)
-		}
-
-		output, exitCode = runCommand(
-			t,
-			goroutineModule,
-			"go",
-			"vet",
-			"-vettool="+binary,
-			"-enable=goroutineownership",
-			"-goroutineownership.mode=join",
-			"./...",
-		)
-		if exitCode != 1 || !strings.Contains(output, "goroutine is not joined") {
-			t.Fatalf("vettool join policy: exit code = %d\n%s", exitCode, output)
+			t.Fatalf("exit code = %d, output = %q", exitCode, output)
 		}
 	})
 
@@ -124,9 +105,6 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			"enable",
 			"enable-checks",
 			"enable-groups",
-			"goroutineownership.mode",
-			"resourcelifetime.contracts",
-			"resourcelifetime.require-memory-writer-close",
 		} {
 			if !strings.Contains(output, `"Name": "`+name+`"`) {
 				t.Fatalf("-flags output does not contain %q:\n%s", name, output)
@@ -153,17 +131,10 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		}
 	})
 
-	t.Run("invalid analyzer option", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable=goroutineownership", "-goroutineownership.mode=database", "./...")
-		if exitCode != 2 || !strings.Contains(output, `unknown value "database"`) {
-			t.Fatalf("exit code = %d, want 2 with option error\n%s", exitCode, output)
-		}
-	})
-
-	t.Run("invalid goroutine ownership mode", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable=goroutineownership", "-goroutineownership.mode=strict", "./...")
-		if exitCode != 2 || !strings.Contains(output, `unknown value "strict"`) {
-			t.Fatalf("exit code = %d, want 2 with option error\n%s", exitCode, output)
+	t.Run("removed analyzer option", func(t *testing.T) {
+		output, exitCode := runCommand(t, module, binary, "-resourcelifetime.contracts=os", "./...")
+		if exitCode != 2 || !strings.Contains(output, `analyzer option "resourcelifetime.contracts" was removed`) {
+			t.Fatalf("exit code = %d, want 2 with removal error\n%s", exitCode, output)
 		}
 	})
 

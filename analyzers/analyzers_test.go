@@ -1,6 +1,7 @@
 package analyzers
 
 import (
+	"flag"
 	"go/token"
 	"slices"
 	"strings"
@@ -300,5 +301,16 @@ func TestEveryCheckHasHelp(t *testing.T) {
 				t.Errorf("%s: check %q has no help text for its diagnostics", name, check.ID)
 			}
 		}
+	}
+}
+
+// Analyzers have no options. Each check has one decision path, the one the
+// precision replay audits; a mode would add a second, unaudited one. Offer a
+// new behavior as a separate check that can be selected instead.
+func TestAnalyzersHaveNoOptions(t *testing.T) {
+	for _, analyzer := range Analyzers() {
+		analyzer.Flags.VisitAll(func(option *flag.Flag) {
+			t.Errorf("%s declares option -%s.%s; add a separate check instead", analyzer.Name, analyzer.Name, option.Name)
+		})
 	}
 }

@@ -8,7 +8,7 @@ why. Update it with the fixtures when a boundary changes.
 
 Reports goroutines whose proven completion obligation is not honored on every return path.
 Launching background work without a recognizable completion obligation is not
-itself a diagnostic, including in `join` mode and with `-enable-all`.
+itself a diagnostic, including with `-enable-all`.
 
 For an already-proven worker completion obligation, complete concurrency
 summaries can establish that a synchronous or deferred helper receives from
@@ -55,12 +55,11 @@ worker completion.
 
 A straight-line relay that only waits on one exact WaitGroup and closes its
 completion channel can use that group as an alternative completion handle.
-Additional work, sends, defers, or control flow do not qualify. In default
-context mode, an existing cancellation proof for a worker settling that exact
+Additional work, sends, defers, or control flow do not qualify. An existing
+cancellation proof for a worker settling that exact
 group makes relay shutdown uncertain. Sending that exact group in a queue item
 likewise establishes possible external participation, not guaranteed completion.
-This is one-hop evidence, not WaitGroup-count or scheduling analysis; strict
-join mode does not use these relay rules.
+This is one-hop evidence, not WaitGroup-count or scheduling analysis.
 
 A lifecycle call on a resource retained by a captured reader can also make
 shutdown uncertain. For example, closing the connection used to construct a
@@ -68,7 +67,7 @@ buffered reader may release its worker's read. This requires positive helper
 retention evidence and cleanup covering every return; an unrelated connection,
 an ignored constructor argument, or a close before launch does not qualify.
 Nested captures preserve the identity of an interface cell and its loaded
-connection. These are not join proofs and do not apply in `join` mode.
+connection. These are not join proofs.
 An invoked or deferred cleanup callback returned beside a resource can supply
 the same evidence, but only when a visible returned literal captures that
 exact resource and performs its lifecycle operation. Unrelated sibling
@@ -84,10 +83,10 @@ with a visible channel send or send-select: releasing I/O cannot settle a
 subsequent publication to an abandoned receiver. Sends hidden inside helpers
 remain outside this bounded exclusion.
 
-In default context mode, a worker receiving from a locally created `WithCancel`
+A worker receiving from a locally created `WithCancel`
 context is also uncertain when the exact sibling cancel function is already
 deferred before launch or called on every later return path. Captured context storage must remain stable. This is a
-cancellation boundary, not a join, and does not suppress join-mode diagnostics.
+cancellation boundary, not a join.
 The same uncertainty applies when a literal worker passes that exact canceled
 context to an imported or dynamic helper whose body is unavailable. Such a
 helper may ignore cancellation; this is an intentional coverage loss, not a
@@ -99,8 +98,7 @@ unrelated contexts do not qualify. Visible worker sends still require their
 own completion handling. An opaque helper also receiving a send-capable
 channel cannot use this exemption: cancellation does not prove that its
 result publication stops, even when the channel is buffered. Receive-only
-arguments do not establish this output hazard. Strict join mode does not
-accept the context boundary.
+arguments do not establish this output hazard.
 
 A worker that `main.main` of package `main` launches at most once, outside any
 loop or closure, is not reported as unjoined: every way out of `main` ends the
@@ -120,7 +118,7 @@ return path. A worker makes the promise when it signals that it finished: it
 closes or sends on a channel, or calls `Done` on a `sync.WaitGroup`. The
 launching function must then receive, wait, or hand the channel or group to
 code that does. Launching background work with no such promise is not a
-diagnostic, in any mode.
+diagnostic.
 
 Joins are recognized through helpers in this or other packages, through
 `select` arms, and through a counted loop that receives one message from each

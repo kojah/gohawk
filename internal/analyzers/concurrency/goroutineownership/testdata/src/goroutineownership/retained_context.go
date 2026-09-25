@@ -2,6 +2,10 @@ package goroutineownership
 
 import "context"
 
+// Gap: a worker whose request retains the caller's context is not reported
+// when the caller stops waiting on that context. The context may bound the
+// worker, so its completion is unknown rather than violated.
+
 type contextEnvelope struct{ ctx context.Context }
 type envelopeHandler interface{ Handle(*contextEnvelope) }
 type envelopeProducer interface {

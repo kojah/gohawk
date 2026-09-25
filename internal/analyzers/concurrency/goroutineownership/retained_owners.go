@@ -34,7 +34,7 @@ func (analysis *spawnAnalysis) selectedOwnershipEdge(from, to *ssa.BasicBlock) b
 
 func (analysis *spawnAnalysis) observesOpaqueWorkerContext(channel ssa.Value) bool {
 	call, ok := channel.(*ssa.Call)
-	if analysis.config.mode != goroutineModeContext || !ok || !ssaflow.CallMatchesSymbol(call.Common(),
+	if !ok || !ssaflow.CallMatchesSymbol(call.Common(),
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "context", Receiver: "Context", Name: "Done"})) {
 		return false
 	}
@@ -84,9 +84,6 @@ func workerHandsOffOutputChannel(function *ssa.Function) bool {
 // Requiring a positive summary avoids treating an ignored argument as an owner.
 // https://github.com/abshkbh/arrakis/blob/877231496acbf3b3091ab33340d2d126a251c4d5/cmd/vsockclient/main.go#L30-L76
 func (analysis *spawnAnalysis) closesRetainedWorkerOwner(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	if analysis.config.mode == goroutineModeJoin {
-		return false
-	}
 	receivers := cleanupTargets(common)
 	if len(receivers) == 0 {
 		return false

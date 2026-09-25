@@ -216,9 +216,11 @@ acquisitions feed the cell. This does not prove which value is closed and can
 miss leaks caused by overwriting the cell. Read-only captures, unrelated
 cleanup, and deferred arguments evaluated by value do not establish this boundary.
 
-Compression writers over a local in-memory buffer are exempt by default,
-including exact `bytes.NewBuffer` and `bytes.NewBufferString` results;
-`-require-memory-writer-close=true` reports them like any other writer.
+Compression writers over a local in-memory buffer are exempt, including
+exact `bytes.NewBuffer` and `bytes.NewBufferString` results. Leaving one
+unclosed holds nothing outside the function. Never closing it before the
+buffer is read truncates the output, which is a data defect rather than a
+leak and is not this check's claim.
 
 The core `use-after-release` check is the dual of the leak check. After a
 plain (not deferred) release of the acquired value, it reports an operation
@@ -272,8 +274,7 @@ summary, nothing is reported.
 Some cases are deliberately not reported:
 
 - channel timers and tickers, which the garbage collector reclaims since Go 1.23;
-- compression writers over an in-memory buffer, unless
-  `-require-memory-writer-close` is set;
+- compression writers over an in-memory buffer;
 - a file, response body, or rows value acquired once in `main.main` of package
   `main`, which program exit closes. Compressors and transactions there are
   still reported, because exit would lose their flush or commit.

@@ -150,15 +150,6 @@ func answer() int { return identity{}.value(42) }
 		})
 	}
 
-	t.Run("analyzer option through vettool", func(t *testing.T) {
-		t.Parallel()
-		module := writeGoroutineTestModule(t)
-		output, exitCode := runCommand(t, module, "go", "vet", "-vettool="+binary, "-enable=goroutineownership", "-goroutineownership.mode=join", "./...")
-		if exitCode != 1 || !strings.Contains(output, "goroutine is not joined") {
-			t.Fatalf("vettool analyzer option: exit code = %d\n%s", exitCode, output)
-		}
-	})
-
 	t.Run("check filtering", func(t *testing.T) {
 		t.Parallel()
 		module := writeCheckFilterModule(t)
@@ -180,12 +171,12 @@ func answer() int { return identity{}.value(42) }
 		})
 	}
 
-	t.Run("invalid analyzer option", func(t *testing.T) {
+	t.Run("removed analyzer option", func(t *testing.T) {
 		t.Parallel()
 		module := writeTestModule(t)
-		output, exitCode := runCommand(t, module, binary, "-enable=goroutineownership", "-goroutineownership.mode=database", "./...")
-		if exitCode != 2 || !strings.Contains(output, `unknown value "database"`) {
-			t.Fatalf("invalid option: exit code = %d, want 2\n%s", exitCode, output)
+		output, exitCode := runCommand(t, module, binary, "-enable=goroutineownership", "-goroutineownership.mode=join", "./...")
+		if exitCode != 2 || !strings.Contains(output, `analyzer option "goroutineownership.mode" was removed`) {
+			t.Fatalf("removed option: exit code = %d, want 2\n%s", exitCode, output)
 		}
 	})
 

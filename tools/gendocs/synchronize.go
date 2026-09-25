@@ -101,13 +101,9 @@ func analyzerPage(root, page string, analyzer analyzer, includeExamples bool) ([
 			return nil, fmt.Errorf("update examples for %s: %w", analyzer.Name, err)
 		}
 	}
-	if len(analyzer.Options) > 0 {
-		contents, err = synchronizeOptions(contents, optionsTable(analyzer.Options))
-		if err != nil {
-			return nil, fmt.Errorf("update options for %s: %w", analyzer.Name, err)
-		}
-	} else if bytes.Contains(contents, []byte(generatedOptionsStart)) || bytes.Contains(contents, []byte("\n## Options\n")) {
-		return nil, fmt.Errorf("%s documents options, but analyzer %q has no flags", relativePath(root, page), analyzer.Name)
+	// Analyzers have no options: each check has one mode of operation.
+	if bytes.Contains(contents, []byte("\n## Options\n")) {
+		return nil, fmt.Errorf("%s documents options, but analyzers have none", relativePath(root, page))
 	}
 	return contents, nil
 }

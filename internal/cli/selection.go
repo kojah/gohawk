@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"maps"
+	"strings"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/check"
@@ -142,6 +143,10 @@ func parseSelectionRequest(
 	enableAll := enableAllRequested(remaining)
 	explicit := make(map[string]bool)
 	for _, argument := range remaining[1:] {
+		if option, ok := removedAnalyzerOption(argument, names); ok && !allowAnalyzerFlags {
+			return selectionRequest{}, fmt.Errorf(
+				"analyzer option %q was removed; analyzers have no options, so select checks with -enable-checks or -disable-checks", option)
+		}
 		name, enabled, ok := analyzerSelection(argument, names)
 		if !ok {
 			continue
@@ -165,6 +170,19 @@ func parseSelectionRequest(
 		owners:    checkOwners(checks.enabled, metadata),
 		ceiling:   ceiling,
 	}, nil
+}
+
+// removedAnalyzerOption returns the flag name when argument sets an analyzer
+// option, such as -goroutineownership.mode=join. Analyzers once took options;
+// naming the flag in an error is clearer than go vet's "flag provided but not
+// defined".
+func removedAnalyzerOption(argument string, analyzers map[string]bool) (string, bool) {
+	name, ok := flagName(argument)
+	if !ok {
+		return "", false
+	}
+	analyzer, _, found := strings.Cut(name, ".")
+	return name, found && analyzers[analyzer]
 }
 
 func resolveAnalyzerSelection(

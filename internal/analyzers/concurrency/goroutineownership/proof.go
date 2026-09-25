@@ -177,19 +177,17 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 	if analysis.relayDependencyUncertain() {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonRelayDependency}, true
 	}
-	if analysis.config.mode == goroutineModeContext {
-		if goroutineReceivesCallerSignal(analysis.pass, analysis.spawn) {
-			return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonStopLifecycle}, true
-		}
-		if goroutineReceivesCallerContext(analysis.pass, analysis.spawn) {
-			return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonContextLifecycle}, true
-		}
-		if goroutineReceivesLocallyCanceledContext(analysis.pass, analysis.spawn) {
-			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLocallyCanceledContext}, true
-		}
-		if goroutineReceivesReceiverContext(analysis.pass, analysis.spawn) {
-			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonReceiverContext}, true
-		}
+	if goroutineReceivesCallerSignal(analysis.pass, analysis.spawn) {
+		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonStopLifecycle}, true
+	}
+	if goroutineReceivesCallerContext(analysis.pass, analysis.spawn) {
+		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonContextLifecycle}, true
+	}
+	if goroutineReceivesLocallyCanceledContext(analysis.pass, analysis.spawn) {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLocallyCanceledContext}, true
+	}
+	if goroutineReceivesReceiverContext(analysis.pass, analysis.spawn) {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonReceiverContext}, true
 	}
 	// A goroutine that completes through a caller-owned channel or wait group
 	// transfers its join obligation across the call boundary.
