@@ -174,20 +174,16 @@ For lifecycle checks, gohawk works in three steps:
 
 When a value goes somewhere gohawk can't see, it stays quiet rather than guess.
 
+To see through calls, gohawk writes a summary of each function: what it needs
+from its arguments (its precondition) and what it has done to them by the time
+it returns (its postcondition), including where each value ends up, such as a
+field, a global, or a returned object. A caller uses the summary instead of
+reading the helper again, even across packages. The idea comes from Meta's
+[Infer](https://fbinfer.com/) and its
+[Pulse](https://fbinfer.com/docs/checker-pulse) engine.
+
 The [architecture guide](/architecture/#how-a-lifecycle-analyzer-is-shaped)
 goes into more detail.
-
-## How does gohawk see through function calls?
-
-gohawk writes a summary of each function: what it needs from its arguments
-(its precondition) and what it has done to them by the time it returns (its
-postcondition), including where each value ends up, such as a field, a global,
-or a returned object. A caller uses the summary instead of reading the helper
-again, even across packages. That is how gohawk tells a file handed to a new
-owner from one that is simply lost.
-
-The idea comes from Meta's [Infer](https://fbinfer.com/) and its
-[Pulse](https://fbinfer.com/docs/checker-pulse) engine.
 
 ## How do I contribute to gohawk?
 
