@@ -92,12 +92,17 @@ After changing the site's layout or styles, run `make site-shot` before
 publishing. It builds the site, screenshots pages at phone (390px), tablet (768px),
 and desktop (1280px) widths, at 2x pixel density, into `.build/site-shots`, and reports content wider than the
 screen and identifiers split mid-word. Narrow it with `PAGES=/faq/,/`,
-`WIDTHS=390`, `SCALE=1`, or `SELECTOR='h3#checks + table'`. Look at the screenshots, not
-only the report. The tool substitutes static builds of the site's fonts, cached
-in `.build/site-shots/fonts`, because the headless browser does not draw
-Newsreader's variable font; the result is faithful apart from a few symbols the
-static subsets lack. If the fonts cannot be downloaded, it says whether text
-rendered.
+`WIDTHS=390`, `SCALE=1`, or `SELECTOR='h3#checks + table'`. Look at the
+screenshots, not only the report.
+
+The tool substitutes static builds of the site's fonts, cached in
+`.build/site-shots/fonts`, and blocks Google Fonts, because the headless
+browser cannot rely on the remote fonts. Tablet and desktop captures render
+faithfully apart from a few symbols the static subsets lack. Captures at phone
+width sometimes come out without text; then judge the layout from the boxes
+and the report, and ask for a screenshot from a real phone before trusting
+typography there.
+
 Use `make site-check`, `make site-build`, and `make site-links` to check the
 site, and `make site-review` to look at it. If a check fails, move the text to
 the dev docs. Don't raise a budget or add to a baseline to make it pass.
