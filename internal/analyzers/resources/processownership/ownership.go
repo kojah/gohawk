@@ -209,11 +209,16 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 		Methods:     []string{"Wait"},
 		Budget:      proof.budget(),
 	}
+	// A command stored into a package variable, or into a map this function
+	// does not own, belongs to that registry: another function looks it up and
+	// waits on it, as resourcelifetime already treats a stored resource.
+	// https://github.com/alphagov/router/blob/7cfa97b4548fdf02836ab9c01c7df853899af6cd/integration_tests/router_support.go#L119-L127
 	transfer := lifecycle.OwnershipTransferRequest{
 		Instruction: instruction,
 		Value:       command,
 		Modes: lifecycle.TransferStoredInField | lifecycle.TransferOwnerStoredInField |
-			lifecycle.TransferCapturedByClosure | lifecycle.TransferCallResultStoredInField,
+			lifecycle.TransferCapturedByClosure | lifecycle.TransferCallResultStoredInField |
+			lifecycle.TransferStoredInGlobal | lifecycle.TransferStoredInOwnedMap,
 	}
 	// A launched waiter owns reaping when every normal goroutine return waits,
 	// including a nested defer. feint uses both direct and deferred background
