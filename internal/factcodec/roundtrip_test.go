@@ -96,8 +96,8 @@ func (fact *exposedJSONFact) GobDecode(data []byte) error {
 
 func benchmarkSummary() lifecyclefacts.Fact {
 	return lifecyclefacts.Fact{
-		Closed: 1, Retained: 2,
-		Discharges: []lifecyclefacts.Discharge{{Parameter: 0, Method: "Close", Path: "field:1"}},
+		Retained:   2,
+		Discharges: []lifecyclefacts.Discharge{{Parameter: 0, Method: "Close"}, {Parameter: 0, Method: "Close", Path: "field:1"}},
 		Heap: &heapmodel.HeapSummary{
 			Version: heapmodel.SummaryVersion,
 			Edges: []heapmodel.HeapEdge{{

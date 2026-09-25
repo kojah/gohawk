@@ -2,6 +2,7 @@ package lifecyclefacts
 
 import (
 	"go/types"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
@@ -238,10 +239,8 @@ func typeCanRelease(value types.Type) bool {
 		if name == "Cancel" {
 			return true
 		}
-		for _, mask := range lifecycleMasks {
-			if mask.method != "" && mask.method == name {
-				return true
-			}
+		if slices.Contains(cleanupMethods, name) {
+			return true
 		}
 	}
 	return false

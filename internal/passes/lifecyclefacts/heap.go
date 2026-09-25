@@ -36,6 +36,10 @@ func projectHeap(function *ssa.Function) *heapmodel.HeapSummary {
 // withReleases adds the release effects the discharge proofs established.
 func withReleases(summary *heapmodel.HeapSummary, fact *Fact) *heapmodel.HeapSummary {
 	for _, discharge := range fact.Discharges {
+		// Calling a function parameter releases nothing the heap tracks.
+		if discharge.Method == InvokeMethod {
+			continue
+		}
 		summary.Effects = append(summary.Effects, heapmodel.HeapEffect{
 			Slot:    heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: discharge.Parameter}, Path: discharge.Path},
 			Release: discharge.Method,

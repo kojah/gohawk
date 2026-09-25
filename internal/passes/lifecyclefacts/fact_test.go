@@ -44,13 +44,13 @@ func caller(value *closer) { helper(value) }
 	instruction := findLifecycleCall(t, caller, "helper")
 	callee := instruction.Common().StaticCallee()
 	pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
-		Analyzer: Summaries{callee: {Closed: parameterMaskFor(0)}},
+		Analyzer: Summaries{callee: {Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}},
 	}}
 	request := EvidenceRequest{
 		Instruction: instruction,
 		Target:      caller.Params[0],
 		SelectMask: func(fact Fact) ParameterMask {
-			return fact.Closed
+			return fact.MethodMask("Close")
 		},
 	}
 	proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
@@ -97,14 +97,14 @@ func reassigned() {
 		acquisition := findLifecycleCall(t, function, "acquire")
 		instruction := findLifecycleCall(t, function, "helper")
 		pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
-			Analyzer: Summaries{instruction.Common().StaticCallee(): {Closed: parameterMaskFor(0)}},
+			Analyzer: Summaries{instruction.Common().StaticCallee(): {Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}},
 		}}
 		return NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
 			Instruction:              instruction,
 			Target:                   acquisition,
 			StrictImportedProjection: enabled,
 			SelectMask: func(fact Fact) ParameterMask {
-				return fact.Closed
+				return fact.MethodMask("Close")
 			},
 		})
 	}
@@ -198,7 +198,7 @@ func BoundOwnerSelected(value, other *closer, enabled bool) {
 		// A close of the parameter itself, through a deferred literal or a
 		// bound callback, is the whole-parameter claim; a guarded direct
 		// close of its field is claimed at that field's path.
-		got := fact.Closed.contains(0) || slices.Contains(fact.Discharges, Discharge{Parameter: 0, Method: "Close", Path: "field:0"})
+		got := fact.MethodMask("Close").contains(0) || slices.Contains(fact.Discharges, Discharge{Parameter: 0, Method: "Close", Path: "field:0"})
 		if got != test.want {
 			t.Errorf("%s Closed parameter = %t, want %t (%+v)", test.name, got, test.want, fact.Discharges)
 		}
@@ -227,12 +227,13 @@ func Save(tx *transaction, ok bool) error {
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	finish := summarize(pass, pkg.Func("Finish"))
-	if !finish.RolledBack.contains(0) || finish.Committed.contains(0) {
-		t.Errorf("Finish masks = committed %t rolled back %t, want rolled back only", finish.Committed.contains(0), finish.RolledBack.contains(0))
+	if !finish.MethodMask("Rollback").contains(0) || finish.MethodMask("Commit").contains(0) {
+		t.Errorf("Finish masks = committed %t rolled back %t, want rolled back only",
+			finish.MethodMask("Commit").contains(0), finish.MethodMask("Rollback").contains(0))
 	}
 	save := summarize(pass, pkg.Func("Save"))
-	if save.RolledBack.contains(0) || save.Committed.contains(0) {
-		t.Errorf("Save masks = committed %t rolled back %t, want neither", save.Committed.contains(0), save.RolledBack.contains(0))
+	if save.MethodMask("Rollback").contains(0) || save.MethodMask("Commit").contains(0) {
+		t.Errorf("Save masks = committed %t rolled back %t, want neither", save.MethodMask("Commit").contains(0), save.MethodMask("Rollback").contains(0))
 	}
 }
 

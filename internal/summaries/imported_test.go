@@ -56,7 +56,7 @@ func assertBrokerDeclaration(t *testing.T, view Function, name string) {
 	switch name {
 	case "Close":
 		fact, available := view.Lifecycle()
-		if available != Available || fact.Closed != 1 {
+		if available != Available || fact.MethodMask("Close") != 1 {
 			t.Fatalf("lifecycle declaration: %+v (%v)", fact, available)
 		}
 	case "Lock":

@@ -196,16 +196,10 @@ prove the obligation.
 
 ```go
 type Fact struct {
-	Invoked			ParameterMask
+	// SynchronouslyInvoked marks function parameters the callee calls before
+	// it returns. Calling one at all, possibly later, is the InvokeMethod
+	// discharge instead.
 	SynchronouslyInvoked	ParameterMask
-	Closed			ParameterMask
-	Finalized		ParameterMask
-	Released		ParameterMask
-	Shutdown		ParameterMask
-	Stopped			ParameterMask
-	Waited			ParameterMask
-	Committed		ParameterMask
-	RolledBack		ParameterMask
 	ReturnedOwner		ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
@@ -240,10 +234,11 @@ type Fact struct {
 	RetainingResults	ParameterMask
 	// Discharges are the exact cleanup claims: which method is called, on
 	// which parameter, at which access path beneath it, on every normal
-	// return. The method masks above are the empty-path discharges; a
-	// cleanup of a field or element is recorded here and nowhere else, so a
-	// caller matches the resource it stored at that path rather than any
-	// resource the argument contains.
+	// return. They are the only record of these claims: an empty path means
+	// the parameter itself (MethodMask), InvokeMethod means calling a
+	// function parameter, and a field or element path lets a caller match
+	// the resource it stored there rather than any resource the argument
+	// contains.
 	Discharges	[]Discharge
 	ReceiverStore	ParameterMask
 	// Conditional holds positive, result-specific guarantees. It never widens
@@ -298,6 +293,17 @@ DischargedParameters returns the parameters with any discharge, at any
 path, for a consumer that only asks whether the callee releases part of
 what it was handed.
 
+## Fact.InvokedParameters
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+func (fact *Fact) InvokedParameters() ParameterMask
+```
+
+InvokedParameters returns the function parameters the callee calls on
+every normal return, whether before it returns or later.
+
 ## Fact.KeptParameters
 
 [Source](../../../../internal/passes/lifecyclefacts/fact.go)
@@ -317,7 +323,9 @@ path.
 func (fact *Fact) MethodMask(method string) ParameterMask
 ```
 
-MethodMask selects the parameter mask for a lifecycle method.
+MethodMask returns the parameters on which the callee calls method on the
+parameter itself on every normal return: the empty-path discharges. A
+cleanup of something beneath the parameter is not included.
 
 ## Fact.ReturnsView
 
@@ -340,6 +348,17 @@ func (fact *Fact) String() string
 
 String decodes the masks by parameter position so the fact is readable in
 analysis debug output.
+
+## InvokeMethod
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+const InvokeMethod = "()"
+```
+
+InvokeMethod is the discharge method for calling a function parameter
+itself. It is not a valid Go identifier, so no real method matches it.
 
 ## Kept
 

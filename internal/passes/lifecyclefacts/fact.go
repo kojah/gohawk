@@ -20,16 +20,10 @@ import (
 // function. Each bit identifies an SSA parameter position. This package is
 // internal analysis infrastructure, not a public extension API.
 type Fact struct {
-	Invoked              ParameterMask
+	// SynchronouslyInvoked marks function parameters the callee calls before
+	// it returns. Calling one at all, possibly later, is the InvokeMethod
+	// discharge instead.
 	SynchronouslyInvoked ParameterMask
-	Closed               ParameterMask
-	Finalized            ParameterMask
-	Released             ParameterMask
-	Shutdown             ParameterMask
-	Stopped              ParameterMask
-	Waited               ParameterMask
-	Committed            ParameterMask
-	RolledBack           ParameterMask
 	ReturnedOwner        ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
@@ -64,10 +58,11 @@ type Fact struct {
 	RetainingResults ParameterMask
 	// Discharges are the exact cleanup claims: which method is called, on
 	// which parameter, at which access path beneath it, on every normal
-	// return. The method masks above are the empty-path discharges; a
-	// cleanup of a field or element is recorded here and nowhere else, so a
-	// caller matches the resource it stored at that path rather than any
-	// resource the argument contains.
+	// return. They are the only record of these claims: an empty path means
+	// the parameter itself (MethodMask), InvokeMethod means calling a
+	// function parameter, and a field or element path lets a caller match
+	// the resource it stored there rather than any resource the argument
+	// contains.
 	Discharges    []Discharge
 	ReceiverStore ParameterMask
 	// Conditional holds positive, result-specific guarantees. It never widens
@@ -93,16 +88,16 @@ func (fact *Fact) traceDetails() map[string]string {
 		name string
 		mask ParameterMask
 	}{
-		{"invoked", fact.Invoked},
+		{"invoked", fact.InvokedParameters()},
 		{"synchronously-invoked", fact.SynchronouslyInvoked},
-		{"closed", fact.Closed},
-		{"finalized", fact.Finalized},
-		{"released", fact.Released},
-		{"shutdown", fact.Shutdown},
-		{"stopped", fact.Stopped},
-		{"waited", fact.Waited},
-		{"committed", fact.Committed},
-		{"rolled-back", fact.RolledBack},
+		{"closed", fact.MethodMask("Close")},
+		{"finalized", fact.MethodMask("Finalize")},
+		{"released", fact.MethodMask("Release")},
+		{"shutdown", fact.MethodMask("Shutdown")},
+		{"stopped", fact.MethodMask("Stop")},
+		{"waited", fact.MethodMask("Wait")},
+		{"committed", fact.MethodMask("Commit")},
+		{"rolled-back", fact.MethodMask("Rollback")},
 		{"returned-owner", fact.ReturnedOwner},
 		{"returned-view", fact.ReturnedView},
 		{"retained", fact.Retained},
@@ -151,9 +146,34 @@ type Discharge struct {
 func (fact *Fact) DischargedParameters() ParameterMask {
 	var mask ParameterMask
 	for _, discharge := range fact.Discharges {
-		mask |= parameterMaskFor(discharge.Parameter)
+		if discharge.Method != InvokeMethod {
+			mask |= parameterMaskFor(discharge.Parameter)
+		}
 	}
 	return mask
+}
+
+// InvokeMethod is the discharge method for calling a function parameter
+// itself. It is not a valid Go identifier, so no real method matches it.
+const InvokeMethod = "()"
+
+// MethodMask returns the parameters on which the callee calls method on the
+// parameter itself on every normal return: the empty-path discharges. A
+// cleanup of something beneath the parameter is not included.
+func (fact *Fact) MethodMask(method string) ParameterMask {
+	var mask ParameterMask
+	for _, discharge := range fact.Discharges {
+		if discharge.Method == method && discharge.Path == "" {
+			mask |= parameterMaskFor(discharge.Parameter)
+		}
+	}
+	return mask
+}
+
+// InvokedParameters returns the function parameters the callee calls on
+// every normal return, whether before it returns or later.
+func (fact *Fact) InvokedParameters() ParameterMask {
+	return fact.MethodMask(InvokeMethod)
 }
 
 // KeptParameters returns the parameters with a kept-contents claim at any
@@ -259,8 +279,7 @@ func (fact *Fact) Claim(claim Claim) ParameterMask {
 	case ClaimStores:
 		return fact.Stored
 	case ClaimReleases:
-		return fact.Closed | fact.Finalized | fact.Released | fact.Shutdown | fact.Stopped |
-			fact.Committed | fact.RolledBack | fact.DischargedParameters()
+		return fact.DischargedParameters()
 	case ClaimSynchronouslyInvokes:
 		return fact.SynchronouslyInvoked
 	case ClaimReleasesInLoop:
@@ -407,6 +426,11 @@ func structBehind(value types.Type) *types.Struct {
 
 func (fact *Fact) parameterMasks(index int) []string {
 	var names []string
+	for _, discharge := range dischargeNames {
+		if fact.MethodMask(discharge.method).contains(index) {
+			names = append(names, discharge.name)
+		}
+	}
 	for _, mask := range lifecycleMasks {
 		if mask.field(fact).contains(index) {
 			names = append(names, mask.name)
@@ -428,8 +452,7 @@ type SummarizedPackage struct {
 
 // empty reports whether the summary claims nothing.
 func (fact *Fact) empty() bool {
-	masks := fact.Invoked | fact.SynchronouslyInvoked | fact.Closed | fact.Finalized | fact.Released | fact.Shutdown |
-		fact.Stopped | fact.Waited | fact.Committed | fact.RolledBack | fact.ReturnedOwner | fact.ReturnedView |
+	masks := fact.SynchronouslyInvoked | fact.ReturnedOwner | fact.ReturnedView |
 		fact.Retained | fact.Stored | fact.LoopReleased | fact.OwnedFields | fact.ReleasedFields | fact.OwnedResults |
 		fact.RetainingResults | fact.ReceiverStore
 	return masks == 0 && len(fact.Kept) == 0 && len(fact.Discharges) == 0 &&
@@ -593,26 +616,15 @@ func factOwnsProjectedArgument(instruction ssa.Instruction, target ssa.Value, ma
 	return false
 }
 
-// lifecycleMask names one mask and, for method masks, the lifecycle method
-// whose call on every return sets it. This table is the one catalog shared by
-// summarization, imported-mask selection, and the fact dump.
+// lifecycleMask names one parameter mask for summarization, imported-mask
+// selection, and the fact dump.
 type lifecycleMask struct {
-	name   string
-	method string
-	field  func(*Fact) *ParameterMask
+	name  string
+	field func(*Fact) *ParameterMask
 }
 
 var lifecycleMasks = []lifecycleMask{
-	{name: "Invoked", field: func(fact *Fact) *ParameterMask { return &fact.Invoked }},
 	{name: "SynchronouslyInvoked", field: func(fact *Fact) *ParameterMask { return &fact.SynchronouslyInvoked }},
-	{name: "Closed", method: "Close", field: func(fact *Fact) *ParameterMask { return &fact.Closed }},
-	{name: "Finalized", method: "Finalize", field: func(fact *Fact) *ParameterMask { return &fact.Finalized }},
-	{name: "Released", method: "Release", field: func(fact *Fact) *ParameterMask { return &fact.Released }},
-	{name: "Shutdown", method: "Shutdown", field: func(fact *Fact) *ParameterMask { return &fact.Shutdown }},
-	{name: "Stopped", method: "Stop", field: func(fact *Fact) *ParameterMask { return &fact.Stopped }},
-	{name: "Waited", method: "Wait", field: func(fact *Fact) *ParameterMask { return &fact.Waited }},
-	{name: "Committed", method: "Commit", field: func(fact *Fact) *ParameterMask { return &fact.Committed }},
-	{name: "RolledBack", method: "Rollback", field: func(fact *Fact) *ParameterMask { return &fact.RolledBack }},
 	{name: "ReturnedOwner", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedOwner }},
 	{name: "ReturnedView", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedView }},
 	{name: "ReceiverStore", field: func(fact *Fact) *ParameterMask { return &fact.ReceiverStore }},
@@ -621,18 +633,28 @@ var lifecycleMasks = []lifecycleMask{
 	{name: "LoopReleased", field: func(fact *Fact) *ParameterMask { return &fact.LoopReleased }},
 }
 
+// cleanupMethods is the lifecycle method vocabulary: a call of one of them
+// on a parameter, on every return, is recorded as a discharge. It is the one
+// catalog shared by summarization, loop releases, conditional effects, and
+// the question of whether a type can release what it holds.
+var cleanupMethods = []string{"Close", "Finalize", "Release", "Shutdown", "Stop", "Wait", "Commit", "Rollback"}
+
+// dischargeNames labels empty-path discharges in the fact dump, in the order
+// the dump has always listed them.
+var dischargeNames = []struct{ name, method string }{
+	{"Invoked", InvokeMethod},
+	{"Closed", "Close"},
+	{"Finalized", "Finalize"},
+	{"Released", "Release"},
+	{"Shutdown", "Shutdown"},
+	{"Stopped", "Stop"},
+	{"Waited", "Wait"},
+	{"Committed", "Commit"},
+	{"RolledBack", "Rollback"},
+}
+
 // fieldMasks are indexed by struct field of the result or receiver type.
 var fieldMasks = []lifecycleMask{
 	{name: "OwnedFields", field: func(fact *Fact) *ParameterMask { return &fact.OwnedFields }},
 	{name: "ReleasedFields", field: func(fact *Fact) *ParameterMask { return &fact.ReleasedFields }},
-}
-
-// MethodMask selects the parameter mask for a lifecycle method.
-func (fact *Fact) MethodMask(method string) ParameterMask {
-	for _, mask := range lifecycleMasks {
-		if mask.method == method && mask.method != "" {
-			return *mask.field(fact)
-		}
-	}
-	return 0
 }

@@ -53,8 +53,8 @@ func CloseOthers(files [2]*os.File, others []*os.File) {
 				t.Errorf("%s: LoopReleased parameter %d = %t, want %t", name, index, got, expected)
 			}
 		}
-		if fact.Closed != 0 {
-			t.Errorf("%s: a loop or flag must not claim Closed, got %v", name, fact.Closed)
+		if fact.MethodMask("Close") != 0 {
+			t.Errorf("%s: a loop or flag must not claim Closed, got %v", name, fact.MethodMask("Close"))
 		}
 	}
 }

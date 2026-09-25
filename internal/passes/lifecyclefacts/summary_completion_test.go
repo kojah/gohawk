@@ -65,7 +65,7 @@ func closeNormally(c closer) { c.Close() }
 		t.Errorf("panic-only receiver method invented receiver-store mask %#x", fact.ReceiverStore)
 	}
 	fact := summarize(pass, pkg.Func("closeNormally"))
-	if !fact.Closed.contains(0) {
+	if !fact.MethodMask("Close").contains(0) {
 		t.Error("real Close witness did not produce Closed fact")
 	}
 }

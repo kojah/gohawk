@@ -36,7 +36,7 @@ func blockReleasesDerivedValue(block *ssa.BasicBlock, parameter ssa.Value) bool 
 			continue
 		}
 		name := ssaflow.CallName(common)
-		if slices.ContainsFunc(lifecycleMasks, func(mask lifecycleMask) bool { return mask.method != "" && mask.method == name }) &&
+		if slices.Contains(cleanupMethods, name) &&
 			heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), parameter, map[ssa.Value]bool{}) {
 			return true
 		}

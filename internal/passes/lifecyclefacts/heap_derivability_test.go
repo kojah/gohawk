@@ -158,7 +158,7 @@ func factClaims(fact Fact, name string) bool {
 		}
 		return false
 	case "released P0 Close":
-		return fact.Closed.contains(0)
+		return fact.MethodMask("Close").contains(0)
 	case "released P0/field:1 Close":
 		for _, discharge := range fact.Discharges {
 			if discharge.Parameter == 0 && discharge.Method == "Close" && discharge.Path == "field:1" {

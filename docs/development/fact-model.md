@@ -169,16 +169,10 @@ list is always the one the code has; do not edit it by hand.
 // function. Each bit identifies an SSA parameter position. This package is
 // internal analysis infrastructure, not a public extension API.
 type Fact struct {
-	Invoked			ParameterMask
+	// SynchronouslyInvoked marks function parameters the callee calls before
+	// it returns. Calling one at all, possibly later, is the InvokeMethod
+	// discharge instead.
 	SynchronouslyInvoked	ParameterMask
-	Closed			ParameterMask
-	Finalized		ParameterMask
-	Released		ParameterMask
-	Shutdown		ParameterMask
-	Stopped			ParameterMask
-	Waited			ParameterMask
-	Committed		ParameterMask
-	RolledBack		ParameterMask
 	ReturnedOwner		ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
@@ -213,10 +207,11 @@ type Fact struct {
 	RetainingResults	ParameterMask
 	// Discharges are the exact cleanup claims: which method is called, on
 	// which parameter, at which access path beneath it, on every normal
-	// return. The method masks above are the empty-path discharges; a
-	// cleanup of a field or element is recorded here and nowhere else, so a
-	// caller matches the resource it stored at that path rather than any
-	// resource the argument contains.
+	// return. They are the only record of these claims: an empty path means
+	// the parameter itself (MethodMask), InvokeMethod means calling a
+	// function parameter, and a field or element path lets a caller match
+	// the resource it stored there rather than any resource the argument
+	// contains.
 	Discharges	[]Discharge
 	ReceiverStore	ParameterMask
 	// Conditional holds positive, result-specific guarantees. It never widens
@@ -249,7 +244,7 @@ cell is only ever written whole.
 
 | mask | guarantee | what it means for the caller |
 |---|---|---|
-| a discharge verb (`Closed`, `Waited`, …) | always | the obligation is finished — a join |
+| a discharge (`Close`, `Wait`, … on the parameter) | always | the obligation is finished — a join |
 | `ReturnedOwner` | always | the obligation moved onto the result; keep tracking it |
 | `ReturnedView` | always | the result is a window onto the parameter; the caller still owns it |
 | `Stored` | always | firm evidence the callee keeps it; safe to treat as a transfer |
@@ -311,13 +306,14 @@ object-fact namespace.
 
 ## Discharge paths
 
-A discharge verb on a parameter is exact about the parameter itself: `Closed`
-on `file` means `file.Close()`. A cleanup of a field or element of the
-parameter is not the same claim, and it is not recorded on the mask. It is
-recorded in `Discharges` as the method, the parameter, and the access path
-beneath it, such as `field:0` for `j.out.Close()` or `index:1` for
-`files[1].Close()`, including through the cell a by-value parameter is
-spilled into. Each path is proved on every normal return on its own.
+Every discharge is one entry in `Discharges`: the method, the parameter, and
+the access path beneath it. An empty path is exact about the parameter
+itself: `Close` on `file` means `file.Close()`, and `MethodMask("Close")`
+reads those entries. Calling a function parameter is recorded with the
+method `InvokeMethod`. A cleanup of a field or element of the parameter is
+not the same claim; its entry carries the access path beneath it, such as
+`field:0` for `j.out.Close()` or `index:1` for `files[1].Close()`, including
+through the cell a by-value parameter is spilled into. Each path is proved on every normal return on its own.
 
 A caller is credited only for the resource it stored at that path beneath
 its argument, resolved from the caller's own stores; a helper that closes
@@ -485,7 +481,7 @@ body and does not synthesize effects from missing lifecycle-summary bits; see
 - A lifecycle action guaranteed on every normal return of the callee.
 - Ownership transfer to the result or to an escaping receiver, and its
   opposite, a returned view.
-- Invocation of a func parameter (`Invoked`), and the stricter guarantee that
+- Invocation of a func parameter (an `InvokeMethod` discharge), and the stricter guarantee that
   it is invoked in the same goroutine before return (`SynchronouslyInvoked`).
 - Cleanup that happens deeper in a chain of exported calls, because one
   summary is allowed to read the summaries of the functions it calls.
@@ -631,7 +627,7 @@ The lifecycle prerequisite exports these positive relations separately in the
 versioned `Conditional` portion of its fact. Each record names a result slot,
 Boolean/error outcome, exact parameter mask, and method or synchronous callback
 invocation. Forwarding wrappers can compose imported records. The ordinary
-`Closed`, `SynchronouslyInvoked`, and other unconditional masks never inherit a
+Discharges, `SynchronouslyInvoked`, and other unconditional claims never inherit a
 conditional guarantee. Missing records are unknown, not absence of effects.
 
 An exact external resource-state contract can seed the same relation. For

@@ -240,7 +240,7 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 			Completion:  &completion,
 			Transfer:    &transfer,
 			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
-				return fact.ReturnedOwner | fact.Waited
+				return fact.ReturnedOwner | fact.MethodMask("Wait")
 			},
 			ReceiverStore: true,
 		})
@@ -422,7 +422,7 @@ func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instructi
 			Target:      argument,
 			Completion:  &completion,
 			SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
-				return fact.ReturnedOwner | fact.Waited
+				return fact.ReturnedOwner | fact.MethodMask("Wait")
 			},
 		})
 		if result.Proven() {

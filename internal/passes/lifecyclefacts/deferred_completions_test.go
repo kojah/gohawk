@@ -59,8 +59,8 @@ func Picked(value *owner) { defer func() { value.pick().Close() }() }
 				paths = append(paths, discharge.Path)
 			}
 		}
-		if fact.Closed.contains(0) != want.closed || !slices.Equal(paths, want.paths) {
-			t.Errorf("%s Closed = %t, discharge paths = %q; want %t, %q", name, fact.Closed.contains(0), paths, want.closed, want.paths)
+		if fact.MethodMask("Close").contains(0) != want.closed || !slices.Equal(paths, want.paths) {
+			t.Errorf("%s Closed = %t, discharge paths = %q; want %t, %q", name, fact.MethodMask("Close").contains(0), paths, want.closed, want.paths)
 		}
 	}
 }

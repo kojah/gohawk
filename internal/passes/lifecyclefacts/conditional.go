@@ -94,12 +94,9 @@ func conditionalMethods(value types.Type) []string {
 		return []string{""}
 	}
 	var methods []string
-	for _, mask := range lifecycleMasks {
-		if mask.method == "" {
-			continue
-		}
-		if object, _, _ := types.LookupFieldOrMethod(value, false, nil, mask.method); object != nil {
-			methods = append(methods, mask.method)
+	for _, method := range cleanupMethods {
+		if object, _, _ := types.LookupFieldOrMethod(value, false, nil, method); object != nil {
+			methods = append(methods, method)
 		}
 	}
 	return methods

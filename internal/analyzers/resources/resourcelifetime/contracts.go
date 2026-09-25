@@ -464,7 +464,7 @@ func releaseMask(instruction ssa.Instruction, resource ssa.Value, method string)
 	return func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
 		mask := fact.MethodMask(method)
 		if invokesBoundCleanup(instruction, resource, method) {
-			mask |= fact.Invoked
+			mask |= fact.InvokedParameters()
 		}
 		return mask
 	}

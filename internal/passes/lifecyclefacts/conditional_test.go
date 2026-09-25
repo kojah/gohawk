@@ -25,7 +25,7 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	base := summarize(pass, pkg.Func("Base"))
 	predicate := lifecycle.CompletionPredicate{Outcome: lifecycle.CompletionWhenTrue}
-	if base.Closed != 0 || conditionalMask(base, "Close", false, predicate) != parameterMaskFor(0) {
+	if base.MethodMask("Close") != 0 || conditionalMask(base, "Close", false, predicate) != parameterMaskFor(0) {
 		t.Fatalf("base = %+v, conditional = %+v", base, base.Conditional)
 	}
 	// Erase dependency SSA to require the serialized fact rather than a local
@@ -52,8 +52,8 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 		{"Async", 0},
 	} {
 		fact := summarize(pass, pkg.Func(test.name))
-		if got := conditionalMask(fact, "Close", false, predicate); got != test.mask || fact.Closed != 0 {
-			t.Errorf("%s: conditional %x, unconditional %x, want %x / 0", test.name, got, fact.Closed, test.mask)
+		if got := conditionalMask(fact, "Close", false, predicate); got != test.mask || fact.MethodMask("Close") != 0 {
+			t.Errorf("%s: conditional %x, unconditional %x, want %x / 0", test.name, got, fact.MethodMask("Close"), test.mask)
 		}
 	}
 	forward := pkg.Func("Forward")
@@ -103,8 +103,8 @@ func Fake(rows *fakeRows) bool { return rows.NextResultSet() }
 		{"Fake", 0},
 	} {
 		fact := summarize(pass, pkg.Func(test.name))
-		if got := conditionalMask(fact, "Close", false, falseResult); got != test.mask || fact.Closed != 0 {
-			t.Errorf("%s: false-edge mask %x, unconditional mask %x, want %x / 0", test.name, got, fact.Closed, test.mask)
+		if got := conditionalMask(fact, "Close", false, falseResult); got != test.mask || fact.MethodMask("Close") != 0 {
+			t.Errorf("%s: false-edge mask %x, unconditional mask %x, want %x / 0", test.name, got, fact.MethodMask("Close"), test.mask)
 		}
 		if got := conditionalMask(fact, "Close", false, trueResult); got != 0 {
 			t.Errorf("%s: true-edge mask %x, want 0", test.name, got)

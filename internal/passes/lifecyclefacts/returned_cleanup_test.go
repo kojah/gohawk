@@ -21,7 +21,7 @@ func Wrong(r, other *resource) { defer Forward(other)() }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	base := summarize(pass, pkg.Func("Base"))
-	if base.ReturnedCleanup == nil || len(base.ReturnedCleanup.Effects) != 1 || base.Closed != 0 {
+	if base.ReturnedCleanup == nil || len(base.ReturnedCleanup.Effects) != 1 || base.MethodMask("Close") != 0 {
 		t.Fatalf("factory fact: %+v", base)
 	}
 	baseFunction := pkg.Func("Base")
@@ -37,7 +37,7 @@ func Wrong(r, other *resource) { defer Forward(other)() }
 	}
 	forward := pkg.Func("Forward")
 	fact := summarize(pass, forward)
-	if fact.ReturnedCleanup == nil || len(fact.ReturnedCleanup.Effects) != 1 || fact.Closed != 0 {
+	if fact.ReturnedCleanup == nil || len(fact.ReturnedCleanup.Effects) != 1 || fact.MethodMask("Close") != 0 {
 		t.Fatalf("forwarding factory fact: %+v", fact)
 	}
 	forward.Blocks = nil

@@ -60,7 +60,7 @@ func Nested(b batch) error { return b.files[0].Close() }
 		if got != test.want {
 			t.Errorf("%s: discharge of Close at %q = %t, want %t (fact %+v)", name, test.path, got, test.want, fact.Discharges)
 		}
-		if fact.Closed != 0 {
+		if fact.MethodMask("Close") != 0 {
 			t.Errorf("%s: a field cleanup must not claim the whole parameter", name)
 		}
 	}

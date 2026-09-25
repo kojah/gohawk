@@ -223,10 +223,10 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 				return true
 			}
 			imported, ok := importFact(pass, instruction)
-			return ok && factOwnsExactArgument(instruction, parameter, imported.Invoked)
+			return ok && factOwnsExactArgument(instruction, parameter, imported.InvokedParameters())
 		}
 		if ownsOnEveryReturn(function, parameter, invokes) {
-			fact.Invoked |= bit
+			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: InvokeMethod})
 		}
 		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
 			return synchronouslyInvokesParameter(pass, instruction, parameter)
@@ -246,15 +246,10 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 }
 
 // summarizeDischarges records, for each lifecycle method, the paths beneath
-// the parameter it cleans up on every return and, for the parameter itself,
-// the method's mask.
+// the parameter it cleans up on every return, and the empty path when it
+// cleans up the parameter itself.
 func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) {
-	bit := parameterMaskFor(index)
-	for _, mask := range lifecycleMasks {
-		if mask.method == "" {
-			continue
-		}
-		method, target := mask.method, mask.field(fact)
+	for _, method := range cleanupMethods {
 		deferred := deferredCompletions(function, parameter, method)
 		// A cleanup of a field or element is claimed at its own path,
 		// never as a cleanup of the parameter: closing j.out is not
@@ -281,7 +276,6 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 			imported, ok := importFact(pass, instruction)
 			return ok && imported.dischargesArgument(instruction, parameter, method, nil)
 		}) {
-			*target |= bit
 			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: method})
 		}
 	}
