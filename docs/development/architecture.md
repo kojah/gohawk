@@ -105,6 +105,7 @@ the code cannot drift apart silently.
 | `TestAnalyzersUseSharedTraversal` | value-provenance recursion — phi fan-out and visited sets — lives only in `ssaflow` |
 | `TestLifecycleFamiliesLayerDownward` | `lifecycle` files are named by family — store, completion, evidence — and a file references declarations only from its own family or a lower one |
 | `TestSemanticModelDependencyBoundaries` | Lifecycle proofs depend on heap evidence; synchronization queries consume prerequisite effects without depending on analyzers or the summary broker |
+| `TestPublicDocumentationStaysConcise` | public pages stay within their line budget and carry no commit-pinned dogfood links; detail belongs in `docs/development/` |
 | `TestDocumentationReferencesResolve` | the development docs and project skills cite only code that exists, and their helper, `Fact` field, and test inventories are complete |
 | `TestSharedHelperReferencesStayCurrent` | package-specific shared API references match current signatures, comments, source links, and every prerequisite pass package |
 
@@ -139,3 +140,17 @@ reason transport. These are output boundaries, not inference APIs. Syntax checks
 cannot infer every string's purpose: review unnamed helper return values and
 dynamically synthesized codes too. Keep golden trace tests and enum-to-code
 tests so representation refactors preserve external output.
+
+## Why analyzers are organized this way
+
+This follows Staticcheck's grouped one-package-per-pass layout while retaining
+gosec's practice of splitting a substantial analyzer into focused files within
+its package. Analyzer groups are catalog metadata mirrored by container
+directories, not Go package boundaries.
+
+Shared source-level helpers live under `internal/syntax`, while SSA traversal
+mechanics live under `internal/ssaflow`, storage queries under `internal/heapmodel`,
+and completion and transfer proofs under `internal/lifecycle`; they are implementation
+details rather than an external integration API. Cross-cutting
+diagnostic, catalog, flag, and trace infrastructure lives in its own focused
+internal package instead of being folded into analysis utilities.

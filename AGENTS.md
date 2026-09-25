@@ -53,7 +53,8 @@ task rather than re-deriving the procedure:
 - `.agents/skills/gohawk-analyzer-tracing/SKILL.md` — adding or reviewing
   structured evidence traces without changing analyzer behavior or JSON output.
 
-References: `docs/architecture.md` (layers and enforced invariants),
+References: `docs/development/README.md` (the development reference index),
+`docs/development/architecture.md` (layers and enforced invariants),
 `.agents/skills/gohawk-codebase/references/shared-helpers.md` (the shared
 helpers by the question each answers, plus the generated index of every
 exported helper), `docs/development/fact-model.md`, and
@@ -306,19 +307,6 @@ special-casing a project, package, or function name.
 
 ## Analyzer organization
 
-### Well-known symbol identity
-
-Match known package functions, receiver-qualified methods, builtins, and
-package variables through `syntax.Symbol` and the AST or SSA symbol
-matchers. Do not reconstruct declaration identity from package paths and raw
-names. Keep analyzer-specific symbol declarations beside the contract that
-uses them; the shared package owns identity mechanics, not a global catalog.
-
-Name-only matching remains appropriate for documented structural contracts,
-such as cleanup or ownership methods on an already-proven receiver. Package-
-wide API families and user-configured qualified names may use package metadata,
-but each such escape is an explicit architecture-test review point.
-
 Follow the layering common in mature Go analyzer projects: keep analyzer
 registration and top-level traversal easy to find, and isolate substantial
 evidence engines behind focused implementation files.
@@ -344,23 +332,38 @@ evidence engines behind focused implementation files.
 - Keep each analyzer's minimized accepted and diagnostic cases under its local
   `testdata` tree. Place fixture-only dependency stubs there as well.
 
-This follows Staticcheck's grouped one-package-per-pass layout while retaining
-gosec's practice of splitting a substantial analyzer into focused files within
-its package. Analyzer groups are catalog metadata mirrored by container
-directories, not Go package boundaries.
-
-Shared source-level helpers live under `internal/syntax`, while SSA traversal
-mechanics live under `internal/ssaflow`, storage queries under `internal/heapmodel`,
-and completion and transfer proofs under `internal/lifecycle`; they are implementation
-details rather than an external integration API. Cross-cutting
-diagnostic, catalog, flag, and trace infrastructure lives in its own focused
-internal package instead of being folded into analysis utilities.
-
 Repository-wide source conformance tests live under `internal/architecture`.
 Keep behavioral tests for the facilities they enforce, such as symbol matching,
 beside the implementation in its owning package.
 
-## Documentation website
+### Well-known symbol identity
+
+Match known package functions, receiver-qualified methods, builtins, and
+package variables through `syntax.Symbol` and the AST or SSA symbol
+matchers. Do not reconstruct declaration identity from package paths and raw
+names. Keep analyzer-specific symbol declarations beside the contract that
+uses them; the shared package owns identity mechanics, not a global catalog.
+
+Name-only matching remains appropriate for documented structural contracts,
+such as cleanup or ownership methods on an already-proven receiver. Package-
+wide API families and user-configured qualified names may use package metadata,
+but each such escape is an explicit architecture-test review point.
+
+## Documentation
+
+The site publishes `docs/` except `docs/development/`, which is the
+maintained development reference read in the repository.
+
+- Keep public pages to what a user can rely on: what a check reports, why it
+  matters, how to fix it, and its options. Touch them only when user-visible
+  behavior changes, such as a new check, message, or option.
+- Put precision boundaries, proof mechanics, dogfood links, and measurements
+  in `docs/development/`: an analyzer's boundaries in
+  `docs/development/analyzers/<name>.md`, a policy decision in
+  `docs/development/decisions/`. An analyzer change updates its design note
+  together with its fixtures.
+- Public pages carry no commit-pinned dogfood links and stay within the size
+  budget the architecture tests enforce.
 
 Use `make site-review` when testing the documentation website. It starts the
 Astro development server together with the Agentation services, so annotations

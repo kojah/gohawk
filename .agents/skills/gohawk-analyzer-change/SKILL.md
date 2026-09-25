@@ -144,6 +144,9 @@ upstream and expose each guarantee in the layer that owns its semantics.
   accepted.
 - Put the commit-pinned link in the rationale comment at the decision point,
   once, not in every helper.
+- Record the boundary in `docs/development/analyzers/<name>.md` beside the
+  others. Change the public page under `docs/analyzers/` only when what a user
+  sees changes: a new check, message, or option.
 
 ## 6. Validate
 

@@ -14,8 +14,11 @@ already provides. Read this before writing any traversal or ownership code.
 
 ## Read the map first
 
-- [Codebase layout](../../../docs/architecture.md): the layers, how
-  a run works, and the architectural invariants that tests enforce.
+- [Codebase layout](../../../docs/architecture.md): the layers and how a run
+  works; [Architecture in detail](../../../docs/development/architecture.md)
+  adds the shared engine and the invariants the architecture tests enforce.
+- [Development reference](../../../docs/development/README.md): the index of
+  design notes, models, and decisions, including one note per analyzer.
 - [Shared helpers](references/shared-helpers.md): a short question-to-API map.
   Follow its package links only as needed: `syntax` for source identity,
   `ssaflow` for traversal, `summaries` for analyzer access to selected knowledge,
