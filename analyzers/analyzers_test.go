@@ -166,7 +166,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 		"lockorder/channel-lock-cycle":        CheckTierExperimental,
 		"lockorder/waitgroup-lock-cycle":      CheckTierExperimental,
 		"channelsafety/dependency-cycle":      CheckTierExperimental,
-		"lockorder/read-lock-write":           CheckTierExperimental,
+		"lockorder/read-lock-write":           CheckTierCore,
 		"lockorder/mismatched-release":        CheckTierExperimental,
 		"producerlifecycle/stopped-loop-send": CheckTierExperimental,
 		"producerlifecycle/unclosed-range":    CheckTierExperimental,

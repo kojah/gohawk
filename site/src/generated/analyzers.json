@@ -108,7 +108,7 @@
               "id": "lockorder/read-lock-write",
               "summary": "Reports writes to an object while only its read lock is held.",
               "kind": "hazard",
-              "tier": "experimental"
+              "tier": "core"
             },
             {
               "id": "lockorder/mismatched-release",

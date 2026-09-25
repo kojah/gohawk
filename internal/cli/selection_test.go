@@ -344,7 +344,7 @@ func TestCheckSelectionTiers(t *testing.T) {
 			t.Fatalf("selected analyzers = %v", selection.normallySelected)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["lockorder/read-lock-write"] {
+		if disabled["lockorder/contradictory-order"] || disabled[nilContext] || !disabled["lockorder/mismatched-release"] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 	})
@@ -357,7 +357,7 @@ func TestCheckSelectionTiers(t *testing.T) {
 			t.Fatal(err)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || !disabled["lockorder/read-lock-write"] || disabled["goroutineownership/unjoined"] {
+		if disabled["lockorder/contradictory-order"] || !disabled["lockorder/mismatched-release"] || disabled["goroutineownership/unjoined"] {
 			t.Fatalf("disabled checks = %v", disabled)
 		}
 
@@ -366,8 +366,8 @@ func TestCheckSelectionTiers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["lockorder/read-lock-write"] {
-			t.Fatalf("experimental ceiling did not admit read-lock-write: %v", disabled)
+		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["lockorder/mismatched-release"] {
+			t.Fatalf("experimental ceiling did not admit mismatched-release: %v", disabled)
 		}
 	})
 
