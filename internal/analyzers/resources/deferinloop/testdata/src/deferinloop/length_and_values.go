@@ -34,3 +34,19 @@ func deferredEntryCloses(archives []string) error {
 	}
 	return nil
 }
+
+// Ranging over the archive's files takes their length, which neither
+// releases nor retains the archive.
+func deferredArchivePerResource(resources map[string]string) error {
+	for _, name := range resources {
+		archive, err := zip.OpenReader(name)
+		if err != nil {
+			return err
+		}
+		defer archive.Close() // want "deferred cleanup runs after the loop instead of after this iteration"
+		for _, entry := range archive.File {
+			println(entry.Name)
+		}
+	}
+	return nil
+}

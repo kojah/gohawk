@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
+	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/ssa"
@@ -217,7 +218,11 @@ func resourceUseStatus(
 	target ssa.Value,
 ) (resourceStatus, deferReason) {
 	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
+	if common == nil || ssaflow.CallMatchesAnySymbol(common, lengthBuiltins...) {
+		// len and cap only read a length: a wrapper passed to them is neither
+		// released nor kept. A range over a slice in the owner takes its
+		// length on every iteration.
+		// https://github.com/ForceCLI/force/blob/662af739b980a568fa55e3a4d7efe65cf2ec15b1/command/fetch.go#L317-L322
 		return resourceLive, reasonNone
 	}
 	used := false
@@ -290,3 +295,5 @@ func opaqueResourceUse(instruction ssa.Instruction, target ssa.Value) bool {
 	}
 	return false
 }
+
+var lengthBuiltins = []syntax.Symbol{syntax.Builtin("len"), syntax.Builtin("cap")}
