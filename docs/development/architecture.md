@@ -106,6 +106,7 @@ the code cannot drift apart silently.
 | `TestLifecycleFamiliesLayerDownward` | `lifecycle` files are named by family — store, completion, evidence — and a file references declarations only from its own family or a lower one |
 | `TestSemanticModelDependencyBoundaries` | Lifecycle proofs depend on heap evidence; synchronization queries consume prerequisite effects without depending on analyzers or the summary broker |
 | `TestAnalyzerProseRulesSeparateVentingFromContracts` | the analyzer page vocabulary rule flags proof-boundary language and accepts contracts, inline code, and the design note link |
+| `TestDetectsSectionShape` | the What it detects rule accepts a short lead plus one paragraph or list, and flags a long lead or extra blocks |
 | `TestChecksSectionRuleAcceptsOnlyTheTable` | the rule that an analyzer page's Checks section holds only its generated table flags stray prose and accepts the table |
 | `TestPublicDocumentationStaysConcise` | public pages stay within their line budget and carry no commit-pinned dogfood links; detail belongs in `docs/development/` |
 | `TestDocumentationReferencesResolve` | the development docs and project skills cite only code that exists, and their helper, `Fact` field, and test inventories are complete |

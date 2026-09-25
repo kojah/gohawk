@@ -8,18 +8,14 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 ## What it detects
 
-Reports goroutines whose completion is promised but not awaited on every
-return path. A worker makes the promise when it signals that it finished: it
-closes or sends on a channel, or calls `Done` on a `sync.WaitGroup`. The
-launching function must then receive, wait, or hand the channel or group to
-code that does. Launching background work with no such promise is not a
-diagnostic, in any mode.
+Reports goroutines that signal when they finish, by closing or sending on a
+channel or calling `Done` on a `sync.WaitGroup`, when the launching function
+does not wait for that signal on every return path.
 
-Joins are recognized through helpers in this or other packages, through
-`select` arms, and through a counted loop that receives one message from each
-worker. When the completion signal reaches code the analyzer cannot see
-through, nothing is reported. A worker launched once by `main.main` of package
-`main` is not reported, because program exit stops it.
+Waiting counts in a helper, in a `select` arm, or in a counted loop that
+receives once from each worker. Work launched without such a signal is not
+reported, and neither is a worker launched once by `main.main`, since program
+exit stops it.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [goroutineownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/goroutineownership.md).

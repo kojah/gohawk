@@ -112,3 +112,18 @@ joins the workers whose channels it drains when there are at most N such
 channels and each has at most one send per call. Receives cannot outnumber
 sends, so leaving the loop proves that every worker sent. A `default` arm, a
 `break`, a timeout arm, a dynamic bound, or a second sender voids the count.
+
+## Former public summary
+
+Reports goroutines whose completion is promised but not awaited on every
+return path. A worker makes the promise when it signals that it finished: it
+closes or sends on a channel, or calls `Done` on a `sync.WaitGroup`. The
+launching function must then receive, wait, or hand the channel or group to
+code that does. Launching background work with no such promise is not a
+diagnostic, in any mode.
+
+Joins are recognized through helpers in this or other packages, through
+`select` arms, and through a counted loop that receives one message from each
+worker. When the completion signal reaches code the analyzer cannot see
+through, nothing is reported. A worker launched once by `main.main` of package
+`main` is not reported, because program exit stops it.

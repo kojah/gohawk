@@ -240,3 +240,34 @@ Compression writers over in-memory buffers are checked for use after release
 even when they are exempt from the missing-cleanup check.
 For transactions, Commit must have succeeded on the path to the later use;
 an unsuccessful commit attempt alone does not establish invalidation.
+
+## Former public summary
+
+Reports resources that are not released on every return path, and operations
+on a resource after it has been released.
+
+The built-in contracts cover files, transactions, SQL rows and statements,
+HTTP response bodies, and gzip/zlib writers. A constructor in another package
+that acquires one of these and returns it, or returns a struct with a method
+that releases it, is inferred as an owner, so its callers owe the same cleanup.
+
+A resource's obligation ends when it is released, returned, stored somewhere
+that outlives the function, or handed to a callee proven to keep it. An
+exported constructor that returns a wrapper holding the resource, such as a
+`*slog.Logger` over a log file, hands the resource to its caller, which must
+keep or pass on the wrapper. When the resource reaches code the analyzer
+cannot see through, such as an interface method or a callee without a
+summary, nothing is reported.
+
+Some cases are deliberately not reported:
+
+- channel timers and tickers, which the garbage collector reclaims since Go 1.23;
+- compression writers over an in-memory buffer, unless
+  `-require-memory-writer-close` is set;
+- a file, response body, or rows value acquired once in `main.main` of package
+  `main`, which program exit closes. Compressors and transactions there are
+  still reported, because exit would lose their flush or commit.
+
+`use-after-release` reports an operation documented to fail on a released
+value, such as a write to a closed file or a scan of closed rows, when the
+release dominates the use. Double-close is not checked.

@@ -1,6 +1,7 @@
 package architecture
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -91,6 +92,51 @@ func checkAnalyzerProse(t *testing.T, relative, text string) {
 	}
 }
 
+// detectsSection is the What it detects text up to its first subheading.
+var detectsSection = regexp.MustCompile(`(?s)\n## What it detects\n(.*?)\n#{2,3} `)
+
+const (
+	detectsLeadBudget = 3
+	detectsRestBudget = 8
+)
+
+// detectsSectionProblem enforces the shape of What it detects: a short lead
+// that says what is reported, then at most one more block for what is left
+// alone, either a paragraph or a list with a one-line introduction. The link
+// to the design note does not count.
+func detectsSectionProblem(text string) string {
+	section := detectsSection.FindStringSubmatch(text)
+	if section == nil {
+		return ""
+	}
+	var blocks [][]string
+	for _, block := range regexp.MustCompile(`\n\s*\n`).Split(strings.TrimSpace(section[1]), -1) {
+		lines := strings.Split(strings.TrimSpace(block), "\n")
+		if strings.HasPrefix(lines[0], "The full list of precision boundaries") {
+			continue
+		}
+		blocks = append(blocks, lines)
+	}
+	if len(blocks) == 0 {
+		return "What it detects is empty"
+	}
+	if len(blocks[0]) > detectsLeadBudget {
+		return fmt.Sprintf("the lead paragraph has %d lines, over %d", len(blocks[0]), detectsLeadBudget)
+	}
+	rest := blocks[1:]
+	// A list and the one-line sentence introducing it are one block.
+	if len(rest) == 2 && len(rest[0]) == 1 && strings.HasSuffix(rest[0][0], ":") && strings.HasPrefix(rest[1][0], "- ") {
+		rest = [][]string{append(rest[0], rest[1]...)}
+	}
+	if len(rest) > 1 {
+		return fmt.Sprintf("%d blocks follow the lead; keep one paragraph or list for what is left alone", len(rest))
+	}
+	if len(rest) == 1 && len(rest[0]) > detectsRestBudget {
+		return fmt.Sprintf("the block after the lead has %d lines, over %d", len(rest[0]), detectsRestBudget)
+	}
+	return ""
+}
+
 // checksSection is the text from the Checks heading to the next heading.
 var checksSection = regexp.MustCompile(`(?s)\n### Checks\n(.*?)(\n#{2,3} |\z)`)
 
@@ -143,6 +189,9 @@ func TestPublicDocumentationStaysConcise(t *testing.T) {
 		}
 		if strings.HasPrefix(relative, "docs/analyzers/") && filepath.Ext(path) == ".mdx" {
 			checkAnalyzerProse(t, relative, text)
+			if problem := detectsSectionProblem(text); problem != "" {
+				t.Errorf("%s What it detects: %s; move detail to its design note", relative, problem)
+			}
 			if extra := checksSectionExtra(text); extra != "" {
 				t.Errorf("%s has text in its Checks section besides the generated table; move it to What it detects: %q", relative, extra)
 			}
@@ -196,6 +245,28 @@ func TestChecksSectionRuleAcceptsOnlyTheTable(t *testing.T) {
 	} {
 		if got := checksSectionExtra(test.text) != ""; got != test.want {
 			t.Errorf("%s: flagged = %v, want %v", test.name, got, test.want)
+		}
+	}
+}
+
+func TestDetectsSectionShape(t *testing.T) {
+	t.Parallel()
+	link := "The full list of precision boundaries is\nin the design notes."
+	for _, test := range []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"lead only", "Reports a thing.", false},
+		{"lead and exceptions", "Reports a thing.\n\nLeaves another alone.\n\n" + link, false},
+		{"lead and a list", "Reports a thing.\n\nNot reported:\n\n- one\n- two", false},
+		{"long lead", "a\nb\nc\nd", true},
+		{"two exception paragraphs", "Reports a thing.\n\nOne.\n\nTwo.", true},
+		{"long exceptions", "Reports.\n\n1\n2\n3\n4\n5\n6\n7\n8\n9", true},
+	} {
+		text := "\n## What it detects\n\n" + test.body + "\n\n### Checks\n"
+		if got := detectsSectionProblem(text) != ""; got != test.want {
+			t.Errorf("%s: flagged = %v, want %v (%s)", test.name, got, test.want, detectsSectionProblem(text))
 		}
 	}
 }

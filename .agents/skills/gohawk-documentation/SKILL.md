@@ -80,6 +80,9 @@ The architecture tests check user docs in CI and in `make verify`:
   outside generated blocks, at most 8 lines per paragraph, none of the words
   above, and nothing in the Checks section but its generated table (put prose,
   including the design-note link, at the end of What it detects);
+- What it detects on an analyzer page: a lead of at most 3 lines saying what
+  is reported, then at most one paragraph or one introduced list, of at most 8
+  lines, saying what is deliberately left alone, then the design-note link;
 - other user pages: at most 200 lines, with a baseline for pages already over;
 - no user page links to pinned source.
 
