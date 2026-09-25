@@ -35,13 +35,13 @@ const maxRetainingChain = 4
 
 // retainingResults returns the mask of result positions that hold, through
 // a chain of proven wrappers, a fresh resource acquired in this function.
-func retainingResults(pass *analysis.Pass, function *ssa.Function) ParameterMask {
-	var retaining ParameterMask
+func retainingResults(pass *analysis.Pass, function *ssa.Function) ResultMask {
+	var retaining ResultMask
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if acquired, ok := instruction.(ssa.Value); ok {
 				if index, ok := retainingResultOf(pass, function, acquired); ok {
-					retaining |= parameterMaskFor(index)
+					retaining |= resultMaskFor(index)
 				}
 			}
 		}

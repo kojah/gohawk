@@ -53,8 +53,8 @@ func (evidence *LifecycleEvidence) OwnedDirectResult(call *ssa.Call) ([]string, 
 
 // ownedResults returns the mask of result positions that hold, on every
 // successful return, a fresh resource acquired in this function.
-func ownedResults(pass *analysis.Pass, function *ssa.Function) ParameterMask {
-	var owned ParameterMask
+func ownedResults(pass *analysis.Pass, function *ssa.Function) ResultMask {
+	var owned ResultMask
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			acquired, ok := instruction.(ssa.Value)
@@ -63,7 +63,7 @@ func ownedResults(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 			}
 			index, fresh := freshResultIndex(function, acquired)
 			if fresh && returnedOwnerOnEveryReturn(pass, function, acquired) {
-				owned |= parameterMaskFor(index)
+				owned |= resultMaskFor(index)
 			}
 		}
 	}

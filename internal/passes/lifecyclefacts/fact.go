@@ -46,16 +46,16 @@ type Fact struct {
 	LoopReleased ParameterMask
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
-	OwnedFields    ParameterMask
-	ReleasedFields ParameterMask
+	OwnedFields    FieldMask
+	ReleasedFields FieldMask
 	// OwnedResults is indexed by result position: the function hands back a
 	// fresh resource it acquired itself, and the caller owes its cleanup.
 	// See owned_results.go for the freshness the proof requires.
-	OwnedResults ParameterMask
+	OwnedResults ResultMask
 	// RetainingResults is indexed by result position: the function hands
 	// back a wrapper that holds a fresh resource it acquired, and the caller
 	// must keep, hand over, or return that wrapper. See retaining_results.go.
-	RetainingResults ParameterMask
+	RetainingResults ResultMask
 	// Discharges are the exact cleanup claims: which method is called, on
 	// which parameter, at which access path beneath it, on every normal
 	// return. They are the only record of these claims: an empty path means
@@ -105,10 +105,10 @@ func (fact *Fact) traceDetails() map[string]string {
 		{"kept", fact.KeptParameters()},
 		{"loop-released", fact.LoopReleased},
 		{"discharges", fact.DischargedParameters()},
-		{"owned-fields", fact.OwnedFields},
-		{"released-fields", fact.ReleasedFields},
-		{"owned-results", fact.OwnedResults},
-		{"retaining-results", fact.RetainingResults},
+		{"owned-fields", ParameterMask(fact.OwnedFields)},
+		{"released-fields", ParameterMask(fact.ReleasedFields)},
+		{"owned-results", ParameterMask(fact.OwnedResults)},
+		{"retaining-results", ParameterMask(fact.RetainingResults)},
 		{"receiver-store", fact.ReceiverStore},
 	}
 	// Structured claims have no mask; they are named only when they carry
@@ -305,6 +305,21 @@ func (mask ParameterMask) contains(index int) bool {
 	return mask&parameterMaskFor(index) != 0
 }
 
+// FieldMask is a set of struct field indices of a result or receiver type.
+// It is a separate type so a field bit is never tested as a parameter.
+type FieldMask uint64
+
+func fieldMaskFor(index int) FieldMask { return FieldMask(parameterMaskFor(index)) }
+
+func (mask FieldMask) contains(index int) bool { return mask&fieldMaskFor(index) != 0 }
+
+// ResultMask is a set of result positions of a function signature.
+type ResultMask uint64
+
+func resultMaskFor(index int) ResultMask { return ResultMask(parameterMaskFor(index)) }
+
+func (mask ResultMask) contains(index int) bool { return mask&resultMaskFor(index) != 0 }
+
 // Summaries is the pass result: the summary of every exported source function
 // in the package plus the imported summary of every static callee.
 type Summaries map[*ssa.Function]Fact
@@ -377,7 +392,7 @@ func (fact *Fact) heapDescriptions() []string {
 }
 
 // resultNames renders a result mask as result positions with their types.
-func (fact *Fact) resultNames(mask ParameterMask, signature *types.Signature) string {
+func (fact *Fact) resultNames(mask ResultMask, signature *types.Signature) string {
 	var names []string
 	for index := range signature.Results().Len() {
 		if mask.contains(index) {
@@ -389,7 +404,7 @@ func (fact *Fact) resultNames(mask ParameterMask, signature *types.Signature) st
 
 // fieldNames renders a field mask against the method's receiver struct or,
 // for a function, the struct behind its first pointer result.
-func (fact *Fact) fieldNames(mask ParameterMask, signature *types.Signature) []string {
+func (fact *Fact) fieldNames(mask FieldMask, signature *types.Signature) []string {
 	if mask == 0 {
 		return nil
 	}
@@ -453,9 +468,9 @@ type SummarizedPackage struct {
 // empty reports whether the summary claims nothing.
 func (fact *Fact) empty() bool {
 	masks := fact.SynchronouslyInvoked | fact.ReturnedOwner | fact.ReturnedView |
-		fact.Retained | fact.Stored | fact.LoopReleased | fact.OwnedFields | fact.ReleasedFields | fact.OwnedResults |
-		fact.RetainingResults | fact.ReceiverStore
-	return masks == 0 && len(fact.Kept) == 0 && len(fact.Discharges) == 0 &&
+		fact.Retained | fact.Stored | fact.LoopReleased | fact.ReceiverStore
+	indexed := uint64(fact.OwnedFields) | uint64(fact.ReleasedFields) | uint64(fact.OwnedResults) | uint64(fact.RetainingResults)
+	return masks == 0 && indexed == 0 && len(fact.Kept) == 0 && len(fact.Discharges) == 0 &&
 		(fact.Conditional == nil || len(fact.Conditional.Effects) == 0) &&
 		(fact.ReturnedCleanup == nil || len(fact.ReturnedCleanup.Effects) == 0) &&
 		fact.heapEmpty()
@@ -654,7 +669,10 @@ var dischargeNames = []struct{ name, method string }{
 }
 
 // fieldMasks are indexed by struct field of the result or receiver type.
-var fieldMasks = []lifecycleMask{
-	{name: "OwnedFields", field: func(fact *Fact) *ParameterMask { return &fact.OwnedFields }},
-	{name: "ReleasedFields", field: func(fact *Fact) *ParameterMask { return &fact.ReleasedFields }},
+var fieldMasks = []struct {
+	name  string
+	field func(*Fact) *FieldMask
+}{
+	{name: "OwnedFields", field: func(fact *Fact) *FieldMask { return &fact.OwnedFields }},
+	{name: "ReleasedFields", field: func(fact *Fact) *FieldMask { return &fact.ReleasedFields }},
 }

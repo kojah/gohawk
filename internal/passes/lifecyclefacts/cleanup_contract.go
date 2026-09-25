@@ -40,10 +40,10 @@ type CleanupFact struct {
 	// releasing them, never by being called Stop or Shutdown.
 	Methods []string
 	// Owned is the field mask a constructor of this type took ownership of.
-	Owned ParameterMask
+	Owned FieldMask
 	// Released is what Methods cover together. The contract holds only when
 	// Released covers Owned.
-	Released ParameterMask
+	Released FieldMask
 }
 
 func (fact *CleanupFact) String() string {
@@ -130,16 +130,16 @@ func constructedTypeName(function *ssa.Function) (*types.TypeName, bool) {
 // constructors, which is how the method lookup reaches the SSA program without
 // threading it through every call.
 type constructed struct {
-	fields      ParameterMask
+	fields      FieldMask
 	constructor *ssa.Function
 }
 
 // releasingMethods returns what the type's own methods release together, and
 // the names of the methods that release anything. A method with no summary
 // contributes nothing rather than counting as releasing nothing.
-func releasingMethods(name *types.TypeName, constructor *ssa.Function, summaries Summaries) (ParameterMask, []string) {
+func releasingMethods(name *types.TypeName, constructor *ssa.Function, summaries Summaries) (FieldMask, []string) {
 	pointer := types.NewPointer(name.Type())
-	var released ParameterMask
+	var released FieldMask
 	var methods []string
 	for selection := range types.NewMethodSet(pointer).Methods() {
 		function, ok := selection.Obj().(*types.Func)

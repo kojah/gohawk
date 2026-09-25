@@ -195,16 +195,16 @@ type Fact struct {
 	LoopReleased	ParameterMask
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
-	OwnedFields	ParameterMask
-	ReleasedFields	ParameterMask
+	OwnedFields	FieldMask
+	ReleasedFields	FieldMask
 	// OwnedResults is indexed by result position: the function hands back a
 	// fresh resource it acquired itself, and the caller owes its cleanup.
 	// See owned_results.go for the freshness the proof requires.
-	OwnedResults	ParameterMask
+	OwnedResults	ResultMask
 	// RetainingResults is indexed by result position: the function hands
 	// back a wrapper that holds a fresh resource it acquired, and the caller
 	// must keep, hand over, or return that wrapper. See retaining_results.go.
-	RetainingResults	ParameterMask
+	RetainingResults	ResultMask
 	// Discharges are the exact cleanup claims: which method is called, on
 	// which parameter, at which access path beneath it, on every normal
 	// return. They are the only record of these claims: an empty path means

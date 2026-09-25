@@ -79,12 +79,12 @@ func returnedStruct(function *ssa.Function) (*types.Struct, int, bool) {
 
 // ownedFields returns the mask of returned struct fields that hold, on every
 // successful return, a resource value acquired in this function.
-func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
+func ownedFields(pass *analysis.Pass, function *ssa.Function) FieldMask {
 	structure, _, ok := returnedStruct(function)
 	if !ok {
 		return 0
 	}
-	var owned ParameterMask
+	var owned FieldMask
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			acquired, ok := instruction.(ssa.Value)
@@ -93,7 +93,7 @@ func ownedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 			}
 			for _, index := range storedFieldIndices(acquired, structure) {
 				if returnedOwnerOnEveryReturn(pass, function, acquired) {
-					owned |= parameterMaskFor(index)
+					owned |= fieldMaskFor(index)
 				}
 			}
 		}
@@ -317,7 +317,7 @@ func delegatedFieldIndices(
 // releasedFields returns the mask of receiver fields whose resource cleanup
 // the method calls on every return, directly or through a completion the
 // engine can prove for the loaded field.
-func releasedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
+func releasedFields(pass *analysis.Pass, function *ssa.Function) FieldMask {
 	if function.Signature.Recv() == nil || len(function.Params) == 0 {
 		return 0
 	}
@@ -330,7 +330,7 @@ func releasedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 	if !ok {
 		return 0
 	}
-	var released ParameterMask
+	var released FieldMask
 	for index := range structure.NumFields() {
 		cleanup, ok := typeCleanup(structure.Field(index).Type())
 		if !ok {
@@ -342,7 +342,7 @@ func releasedFields(pass *analysis.Pass, function *ssa.Function) ParameterMask {
 		if lifecycle.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
 			return releasesField(pass, instruction, receiver, index, cleanup)
 		}, lifecycle.CoverageEveryReturn, nil) {
-			released |= parameterMaskFor(index)
+			released |= fieldMaskFor(index)
 		}
 	}
 	return released
@@ -523,7 +523,7 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 		return viewsFromResultsAlone(function, fact)
 	}
 	result := function.Signature.Results().At(resultIndex).Type()
-	var released ParameterMask
+	var released FieldMask
 	for _, method := range resultMethods(function) {
 		summary, ok := summaries[method]
 		if !ok {
@@ -567,7 +567,7 @@ func parameterIsView(
 	parameter ssa.Value,
 	result types.Type,
 	structure *types.Struct,
-	released ParameterMask,
+	released FieldMask,
 ) bool {
 	// Returning the same value under the same static type preserves the
 	// caller-visible owner rather than hiding it behind a view. This is the

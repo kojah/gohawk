@@ -76,10 +76,10 @@ type CleanupFact struct {
 	// releasing them, never by being called Stop or Shutdown.
 	Methods	[]string
 	// Owned is the field mask a constructor of this type took ownership of.
-	Owned	ParameterMask
+	Owned	FieldMask
 	// Released is what Methods cover together. The contract holds only when
 	// Released covers Owned.
-	Released	ParameterMask
+	Released	FieldMask
 }
 ```
 
@@ -222,16 +222,16 @@ type Fact struct {
 	LoopReleased	ParameterMask
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
-	OwnedFields	ParameterMask
-	ReleasedFields	ParameterMask
+	OwnedFields	FieldMask
+	ReleasedFields	FieldMask
 	// OwnedResults is indexed by result position: the function hands back a
 	// fresh resource it acquired itself, and the caller owes its cleanup.
 	// See owned_results.go for the freshness the proof requires.
-	OwnedResults	ParameterMask
+	OwnedResults	ResultMask
 	// RetainingResults is indexed by result position: the function hands
 	// back a wrapper that holds a fresh resource it acquired, and the caller
 	// must keep, hand over, or return that wrapper. See retaining_results.go.
-	RetainingResults	ParameterMask
+	RetainingResults	ResultMask
 	// Discharges are the exact cleanup claims: which method is called, on
 	// which parameter, at which access path beneath it, on every normal
 	// return. They are the only record of these claims: an empty path means
@@ -348,6 +348,17 @@ func (fact *Fact) String() string
 
 String decodes the masks by parameter position so the fact is readable in
 analysis debug output.
+
+## FieldMask
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+type FieldMask uint64
+```
+
+FieldMask is a set of struct field indices of a result or receiver type.
+It is a separate type so a field bit is never tested as a parameter.
 
 ## InvokeMethod
 
@@ -697,6 +708,16 @@ func ResourceCleanup(value types.Type) ([]string, bool)
 
 ResourceCleanup returns the cleanup methods of a resource type, or false
 when the type carries no obligation this vocabulary knows.
+
+## ResultMask
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+type ResultMask uint64
+```
+
+ResultMask is a set of result positions of a function signature.
 
 ## ReturnedCleanupEffect
 

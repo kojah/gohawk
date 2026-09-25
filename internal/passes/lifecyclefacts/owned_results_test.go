@@ -83,18 +83,18 @@ func OpenForwarded(path string) (*os.File, error) { return openIndirectly(path) 
 func OpenFromFD(fd uintptr) *os.File { return os.NewFile(fd, "fd") }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	for name, want := range map[string]ParameterMask{
-		"OpenFresh":           parameterMaskFor(0),
-		"OpenReader":          parameterMaskFor(0),
-		"OpenClosedOnFailure": parameterMaskFor(0),
+	for name, want := range map[string]ResultMask{
+		"OpenFresh":           resultMaskFor(0),
+		"OpenReader":          resultMaskFor(0),
+		"OpenClosedOnFailure": resultMaskFor(0),
 		"OpenRegistered":      0,
 		"OpenSeeked":          0,
 		"OpenWithCleanup":     0,
 		"OpenMaybeClosed":     0,
 		"OpenView":            0,
-		"OpenPlain":           parameterMaskFor(0),
+		"OpenPlain":           resultMaskFor(0),
 		"OpenForwarded":       0,
-		"OpenFromFD":          parameterMaskFor(0),
+		"OpenFromFD":          resultMaskFor(0),
 	} {
 		fact := summarize(pass, pkg.Func(name))
 		if fact.OwnedResults != want {
