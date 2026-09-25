@@ -93,8 +93,11 @@ publishing. It builds the site, screenshots pages at phone (390px) and desktop
 (1280px) widths into `.build/site-shots`, and reports content wider than the
 screen and identifiers split mid-word. Narrow it with `PAGES=/faq/,/`,
 `WIDTHS=390`, or `SELECTOR='h3#checks + table'`. Look at the screenshots, not
-only the report. Without system fonts the screenshots show layout but no text,
-and the tool says so.
+only the report. The tool substitutes static builds of the site's fonts, cached
+in `.build/site-shots/fonts`, because the headless browser does not draw
+Newsreader's variable font; the result is faithful apart from a few symbols the
+static subsets lack. If the fonts cannot be downloaded, it says whether text
+rendered.
 Use `make site-check`, `make site-build`, and `make site-links` to check the
 site, and `make site-review` to look at it. If a check fails, move the text to
 the dev docs. Don't raise a budget or add to a baseline to make it pass.

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -19,6 +19,18 @@ const defaultPages = [
 	'/analyzers/concurrency-and-synchronization/lockorder/',
 ];
 
+// The site loads Fraunces, Newsreader, and IBM Plex Mono from Google Fonts as
+// variable fonts, which the headless shell does not draw, and a machine
+// without system fonts has no fallback either. Substitute static builds of the
+// same families from Fontsource, cached under the output directory, so the
+// screenshots show the real typography. If they cannot be fetched, the page
+// keeps its own fonts and the report says whether text rendered.
+const staticFonts = [
+	['--gh-shot-display', 'fraunces', [600, 700]],
+	['--gh-shot-serif', 'newsreader', [400, 600]],
+	['--gh-shot-mono', 'ibm-plex-mono', [400, 600]],
+];
+
 const { values } = parseArgs({
 	options: {
 		pages: { type: 'string' },
@@ -31,6 +43,7 @@ const pages = values.pages ? values.pages.split(',').filter(Boolean) : defaultPa
 const widths = values.widths.split(',').map(Number);
 mkdirSync(values.out, { recursive: true });
 
+const fontStyles = await staticFontStyles(path.join(values.out, 'fonts'));
 const executablePath = findBrowser();
 const preview = await startPreview({ quiet: true });
 const browser = await puppeteer.launch({
@@ -46,6 +59,12 @@ try {
 		await page.setViewport({ width, height: 900 });
 		for (const pathname of pages) {
 			await page.goto(preview.origin + pathname, { waitUntil: 'networkidle0' });
+			if (fontStyles) await page.addStyleTag({ content: fontStyles });
+			// Web fonts load only once text uses them, so load every face now;
+			// otherwise the render probe below can run before its font arrives.
+			await page.evaluate(() =>
+				Promise.all([...document.fonts].map((face) => face.load().catch(() => undefined))),
+			);
 			await page.evaluate(() => document.fonts.ready);
 			const name = `${slug(pathname)}-${width}.png`;
 			await screenshot(page, path.join(values.out, name), values.selector);
@@ -72,6 +91,39 @@ if (!textRendered) {
 }
 console.log(`\n${problems} layout problem${problems === 1 ? '' : 's'}. Screenshots: ${values.out}`);
 if (problems > 0) process.exitCode = 1;
+
+async function staticFontStyles(cache) {
+	mkdirSync(cache, { recursive: true });
+	const faces = [];
+	try {
+		for (const [variable, family, weights] of staticFonts) {
+			for (const weight of weights) {
+				for (const style of ['normal', 'italic']) {
+					const file = path.join(cache, `${family}-${weight}-${style}.woff2`);
+					if (!existsSync(file)) {
+						const url = `https://cdn.jsdelivr.net/npm/@fontsource/${family}/files/${family}-latin-${weight}-${style}.woff2`;
+						const response = await fetch(url);
+						if (!response.ok) continue;
+						writeFileSync(file, Buffer.from(await response.arrayBuffer()));
+					}
+					const data = readFileSync(file).toString('base64');
+					faces.push(
+						`@font-face{font-family:"${variable}";font-weight:${weight};font-style:${style};` +
+							`src:url(data:font/woff2;base64,${data}) format("woff2")}`,
+					);
+				}
+			}
+		}
+	} catch (error) {
+		console.log(`Static fonts unavailable (${error.message}); using the page's own fonts.`);
+		return undefined;
+	}
+	return (
+		faces.join('') +
+		':root{--sl-font:"--gh-shot-serif",serif;--sl-font-mono:"--gh-shot-mono",monospace;' +
+		'--gh-font-display:"--gh-shot-display",serif}'
+	);
+}
 
 async function screenshot(page, file, selector) {
 	if (!selector) {
