@@ -47,7 +47,7 @@ const widths = values.widths.split(',').map(Number);
 mkdirSync(values.out, { recursive: true });
 
 const fontStyles = await staticFontStyles(path.join(values.out, 'fonts'));
-const executablePath = findBrowser();
+const chrome = findBrowser();
 const preview = await startPreview({ quiet: true });
 // With static fonts in hand, make Google's font hosts unreachable so the
 // site's font stylesheet never loads. Whether it loaded before a capture
@@ -56,8 +56,9 @@ const blockGoogleFonts = fontStyles
 	? ['--host-resolver-rules=MAP fonts.googleapis.com ~NOTFOUND, MAP fonts.gstatic.com ~NOTFOUND']
 	: [];
 const browser = await puppeteer.launch({
-	executablePath,
-	headless: 'shell',
+	executablePath: chrome.executablePath,
+	headless: chrome.headless,
+	env: chrome.env,
 	args: ['--no-sandbox', ...blockGoogleFonts],
 });
 let problems = 0;
@@ -109,7 +110,7 @@ try {
 if (!textRendered) {
 	console.log(
 		'\nText did not render, so screenshots show layout only and the split-word check was skipped.' +
-			'\nInstall fontconfig and a font package (for example fonts-dejavu-core) for readable screenshots.',
+			'\nRun scripts/site-shot-deps.sh, or install fontconfig and a font package, for readable screenshots.',
 	);
 }
 console.log(`\n${problems} layout problem${problems === 1 ? '' : 's'}. Screenshots: ${values.out}`);
@@ -228,25 +229,47 @@ function slug(pathname) {
 	return pathname.replace(/^\/|\/$/g, '').replaceAll('/', '-') || 'index';
 }
 
-// findBrowser prefers an explicit path, then a headless shell or Chrome that
-// Puppeteer or Playwright already downloaded, then a system Chrome.
+// findBrowser prefers an explicit path, then the full Chrome build with the
+// libraries and fonts scripts/site-shot-deps.sh unpacks, then a headless
+// shell that Puppeteer or Playwright already downloaded, then a system
+// Chrome. Without fontconfig and a system font, Chrome may not draw text, so
+// the headless shell alone can produce text-less captures at some widths.
 function findBrowser() {
 	const explicit = process.env.GOHAWK_SHOT_BROWSER || process.env.PUPPETEER_EXECUTABLE_PATH;
-	if (explicit) return explicit;
-	const caches = [
-		[path.join(homedir(), '.cache', 'puppeteer', 'chrome-headless-shell'), 'chrome-headless-shell'],
-		[path.join(homedir(), '.cache', 'ms-playwright'), 'chrome-headless-shell'],
-	];
-	for (const [root, binary] of caches) {
-		const found = findFile(root, binary, 4);
-		if (found) return found;
+	if (explicit) return { executablePath: explicit, headless: 'shell', env: process.env };
+	const deps = path.join(siteDirectory, '..', '.build', 'chrome-deps', 'root');
+	const fullChrome = [
+		path.join(homedir(), '.cache', 'puppeteer', 'chrome'),
+		path.join(homedir(), '.cache', 'ms-playwright'),
+	]
+		.map((root) => findFile(root, 'chrome', 4))
+		.find(Boolean);
+	if (fullChrome && existsSync(path.join(deps, 'fonts.conf'))) {
+		const libraries = path.join(deps, 'usr', 'lib', 'x86_64-linux-gnu');
+		return {
+			executablePath: fullChrome,
+			headless: true,
+			env: {
+				...process.env,
+				LD_LIBRARY_PATH: [libraries, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':'),
+				FONTCONFIG_FILE: path.join(deps, 'fonts.conf'),
+			},
+		};
 	}
+	const shell = [
+		path.join(homedir(), '.cache', 'puppeteer', 'chrome-headless-shell'),
+		path.join(homedir(), '.cache', 'ms-playwright'),
+	]
+		.map((root) => findFile(root, 'chrome-headless-shell', 4))
+		.find(Boolean);
+	if (shell) return { executablePath: shell, headless: 'shell', env: process.env };
 	for (const candidate of [
 		'/usr/bin/chromium',
 		'/usr/bin/chromium-browser',
 		'/usr/bin/google-chrome',
 	]) {
-		if (existsSync(candidate)) return candidate;
+		if (existsSync(candidate))
+			return { executablePath: candidate, headless: true, env: process.env };
 	}
 	throw new Error(
 		'No headless Chrome found. Install one with ' +

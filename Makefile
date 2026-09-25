@@ -211,6 +211,7 @@ site-audit-production:
 	$(PNPM) --dir site lighthouse:production
 
 site-shot: site-build
+	scripts/site-shot-deps.sh
 	$(PNPM) --dir site shot $(if $(PAGES),--pages=$(PAGES)) $(if $(WIDTHS),--widths=$(WIDTHS)) $(if $(SELECTOR),--selector='$(SELECTOR)') $(if $(SCALE),--scale=$(SCALE))
 
 site-links: site-build

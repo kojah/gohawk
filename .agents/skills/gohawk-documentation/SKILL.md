@@ -95,13 +95,13 @@ screen and identifiers split mid-word. Narrow it with `PAGES=/faq/,/`,
 `WIDTHS=390`, `SCALE=1`, or `SELECTOR='h3#checks + table'`. Look at the
 screenshots, not only the report.
 
-The tool substitutes static builds of the site's fonts, cached in
-`.build/site-shots/fonts`, and blocks Google Fonts, because the headless
-browser cannot rely on the remote fonts. Tablet and desktop captures render
-faithfully apart from a few symbols the static subsets lack. Captures at phone
-width sometimes come out without text; then judge the layout from the boxes
-and the report, and ask for a screenshot from a real phone before trusting
-typography there.
+Chrome needs fontconfig and a system font to draw text. On Debian-based
+machines, `make site-shot` first runs `scripts/site-shot-deps.sh`, which
+downloads those and the full Chrome build's libraries with `apt-get download`
+and unpacks them under `.build/chrome-deps`, without root. The tool also uses
+static builds of the site's fonts and blocks Google Fonts, so every run uses
+the same typography. If a capture still says text did not render, the setup
+could not run; judge that capture from its layout only.
 
 Use `make site-check`, `make site-build`, and `make site-links` to check the
 site, and `make site-review` to look at it. If a check fails, move the text to
