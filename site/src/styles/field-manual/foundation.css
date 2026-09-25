@@ -129,9 +129,16 @@ body:has(.landing) header.header :is(.site-title, site-search) {
 		padding-top: 0;
 	}
 
-	starlight-menu-button button {
+	/* Just the icon: no filled circle or shadow behind the menu button, in
+	   either theme or menu state. */
+	starlight-menu-button button,
+	starlight-menu-button[aria-expanded='true'] button,
+	:root[data-theme='light'] starlight-menu-button button {
 		inset-inline-start: var(--sl-nav-pad-x);
 		inset-inline-end: auto;
+		background-color: transparent;
+		box-shadow: none;
+		color: var(--sl-color-white);
 	}
 
 	[data-has-sidebar] header.header {
