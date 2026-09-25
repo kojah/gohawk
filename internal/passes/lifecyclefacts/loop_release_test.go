@@ -49,7 +49,7 @@ func CloseOthers(files [2]*os.File, others []*os.File) {
 	} {
 		fact := summarize(pass, pkg.Func(name))
 		for index, expected := range want {
-			if got := fact.LoopReleased.contains(index); got != expected {
+			if got := fact.May.LoopReleased.contains(index); got != expected {
 				t.Errorf("%s: LoopReleased parameter %d = %t, want %t", name, index, got, expected)
 			}
 		}

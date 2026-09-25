@@ -82,13 +82,13 @@ func NotAggregate(c *closer)         { saved = c }
 	} {
 		fact := summarize(pass, pkg.Func(name))
 		var got []string
-		for _, kept := range fact.Kept {
+		for _, kept := range fact.Kept() {
 			if kept.Parameter == 0 {
 				got = append(got, kept.Path)
 			}
 		}
 		if !slices.Equal(got, want) {
-			t.Errorf("%s Kept paths = %q, want %q (retained %t)", name, got, want, fact.Retained.contains(0))
+			t.Errorf("%s Kept paths = %q, want %q (retained %t)", name, got, want, fact.Retained().contains(0))
 		}
 	}
 }

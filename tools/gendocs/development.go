@@ -121,19 +121,29 @@ func factFieldsBlock(root string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for _, declaration := range file.Decls {
-		general, ok := declaration.(*ast.GenDecl)
-		if !ok || general.Tok != token.TYPE || !declaresType(general, "Fact") {
-			continue
+	// The fact and its two polarity groups are rendered together, because a
+	// reader needs the group types to see which claims the fact stores.
+	var blocks []string
+	for _, name := range []string{"Fact", "MustClaims", "MayClaims"} {
+		found := false
+		for _, declaration := range file.Decls {
+			general, ok := declaration.(*ast.GenDecl)
+			if !ok || general.Tok != token.TYPE || !declaresType(general, name) {
+				continue
+			}
+			var buffer bytes.Buffer
+			node := &printer.CommentedNode{Node: general, Comments: file.Comments}
+			if err := printer.Fprint(&buffer, fset, node); err != nil {
+				return "", err
+			}
+			blocks = append(blocks, buffer.String())
+			found = true
 		}
-		var buffer bytes.Buffer
-		node := &printer.CommentedNode{Node: general, Comments: file.Comments}
-		if err := printer.Fprint(&buffer, fset, node); err != nil {
-			return "", err
+		if !found {
+			return "", fmt.Errorf("%s does not declare type %s", relativePath(root, path), name)
 		}
-		return "```go\n" + buffer.String() + "\n```", nil
 	}
-	return "", fmt.Errorf("%s does not declare type Fact", relativePath(root, path))
+	return "```go\n" + strings.Join(blocks, "\n\n") + "\n```", nil
 }
 
 func declaresType(general *ast.GenDecl, name string) bool {

@@ -111,7 +111,7 @@ func run(pass *analysis.Pass) (any, error) {
 	pass.ExportPackageFact(&publishedPackage{factcodec.Wrap(*marker)})
 	for _, function := range local {
 		fact := summaries[function]
-		fact.ReturnedView = returnedViews(pass, function, fact, summaries)
+		fact.Must.ReturnedView = returnedViews(pass, function, fact, summaries)
 		summaries[function] = fact
 		if !fact.empty() {
 			pass.ExportObjectFact(function.Object(), publish(fact))
@@ -179,7 +179,7 @@ func importCalleeSummaries(pass *analysis.Pass, functions []*ssa.Function, summa
 					// A callee that returns an owned struct is only useful together
 					// with the summaries of that struct's methods, which no sibling
 					// analyzer can import itself.
-					if fact.OwnedFields != 0 {
+					if fact.Must.OwnedFields != 0 {
 						importResultMethods(pass, common.StaticCallee(), summaries)
 					}
 				}
@@ -203,12 +203,14 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 }
 
 func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
-	var fact Fact
+	// The transfer and retention claims are read from the projection, so it
+	// and the signature are attached before any proof below reads them.
 	heap := projectHeap(function)
-	fact.OwnedFields = ownedFields(pass, function)
-	fact.ReleasedFields = releasedFields(pass, function)
-	fact.OwnedResults = ownedResults(pass, function)
-	fact.RetainingResults = retainingResults(pass, function)
+	fact := Fact{Heap: heap, signature: function.Signature}
+	fact.Must.OwnedFields = ownedFields(pass, function)
+	fact.Must.ReleasedFields = releasedFields(pass, function)
+	fact.Must.OwnedResults = ownedResults(pass, function)
+	fact.Must.RetainingResults = retainingResults(pass, function)
 	// A fact is exported only when the action is unavoidable on every normal
 	// return. Each mask is therefore proved independently; evidence for Close,
 	// for example, must never make an unrelated Wait or return-transfer claim true.
@@ -226,18 +228,17 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 			return ok && factOwnsExactArgument(instruction, parameter, imported.InvokedParameters())
 		}
 		if ownsOnEveryReturn(function, parameter, invokes) {
-			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: InvokeMethod})
+			fact.Must.Discharges = append(fact.Must.Discharges, Discharge{Parameter: index, Method: InvokeMethod})
 		}
 		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
 			return synchronouslyInvokesParameter(pass, instruction, parameter)
 		}) {
-			fact.SynchronouslyInvoked |= bit
+			fact.Must.SynchronouslyInvoked |= bit
 		}
 		summarizeDischarges(pass, function, index, parameter, &fact)
 		if releasesDerivedValueInLoop(function, parameter) {
-			fact.LoopReleased |= bit
+			fact.May.LoopReleased |= bit
 		}
-		summarizeTransfers(heap, function, index, parameter, &fact)
 	}
 	fact.Conditional = summarizeConditional(pass, function)
 	fact.ReturnedCleanup = summarizeReturnedCleanup(pass, function)
@@ -260,7 +261,7 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 				settled, ok := deferred[instruction]
 				return ok && settled == path || cleanupAtPath(instruction, parameter, method, path)
 			}) {
-				fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: method, Path: path})
+				fact.Must.Discharges = append(fact.Must.Discharges, Discharge{Parameter: index, Method: method, Path: path})
 			}
 		}
 		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
@@ -276,7 +277,7 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 			imported, ok := importFact(pass, instruction)
 			return ok && imported.dischargesArgument(instruction, parameter, method, nil)
 		}) {
-			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: method})
+			fact.Must.Discharges = append(fact.Must.Discharges, Discharge{Parameter: index, Method: method})
 		}
 	}
 }
@@ -394,32 +395,7 @@ func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruct
 		return true
 	}
 	imported, ok := importFact(pass, instruction)
-	return ok && factOwnsExactArgument(instruction, parameter, imported.SynchronouslyInvoked)
-}
-
-// summarizeTransfers records where a parameter goes: into the returned
-// owner, into the receiver, or kept somewhere by the callee.
-func summarizeTransfers(heap *heapmodel.HeapSummary, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) {
-	bit := parameterMaskFor(index)
-	// Every transfer claim is a query over the heap projection, so the
-	// masks a consumer reads and the summary a caller's graph applies can
-	// never disagree about what the function does with the parameter.
-	if canReturnOwner(function.Signature.Results()) && returnsOwner(heap, index) {
-		fact.ReturnedOwner |= bit
-	}
-	if index > 0 && receiverStores(heap, index) {
-		fact.ReceiverStore |= bit
-	}
-	if retained(heap, index) {
-		fact.Retained |= bit
-	} else if structShaped(parameter.Type()) {
-		// Only an aggregate has contents, and a retained parameter already
-		// keeps all of them.
-		fact.Kept = append(fact.Kept, kept(heap, index)...)
-	}
-	if stored(heap, index) {
-		fact.Stored |= bit
-	}
+	return ok && factOwnsExactArgument(instruction, parameter, imported.Must.SynchronouslyInvoked)
 }
 
 // structShaped reports whether a parameter of this type is a struct or a

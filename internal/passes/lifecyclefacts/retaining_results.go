@@ -137,11 +137,11 @@ func (walk *retentionWalk) wrapperHolds(call *ssa.Call, value ssa.Value) bool {
 // the wrapper, only keep, hand over, or drop it.
 func (evidence *LifecycleEvidence) RetainingResult(call *ssa.Call) (int, bool) {
 	fact, ok := factFor(evidence.pass, call)
-	if !ok || fact.RetainingResults == 0 {
+	if !ok || fact.Must.RetainingResults == 0 {
 		return -1, false
 	}
 	for index := range call.Common().Signature().Results().Len() {
-		if fact.RetainingResults.contains(index) {
+		if fact.Must.RetainingResults.contains(index) {
 			evidence.emit(EvidenceRequest{Instruction: call, Target: call}, Proof{Proof: ssaflow.Proof{
 				State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromImportedFact,
 			}, SummaryReason: reasonRetainingResultContract})
@@ -158,5 +158,5 @@ func (evidence *LifecycleEvidence) RetainingResult(call *ssa.Call) (int, bool) {
 func (evidence *LifecycleEvidence) RetainingResultClaimed(function *ssa.Function, index int) bool {
 	summaries, _ := evidence.pass.ResultOf[Analyzer].(Summaries)
 	fact, ok := summaries[function]
-	return ok && fact.RetainingResults.contains(index)
+	return ok && fact.Must.RetainingResults.contains(index)
 }

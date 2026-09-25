@@ -8,10 +8,10 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// Each mask claim should be a query over the heap projection. This table
-// records, function by function, which claims the projection expresses
-// today and which it does not yet, so the switch from separate summarizers
-// to projection queries can proceed claim by claim with the gaps visible.
+// The transfer and retention claims are read from the heap projection, and
+// the discharges are mirrored into it as release effects. This table pins,
+// function by function, that each claim the fact answers is also visible in
+// the raw projection a caller's graph applies.
 func TestLifecycleSummaryClaimsDerivableFromHeap(t *testing.T) {
 	pkg := buildLifecycleTestSSA(t, `
 package lifecyclefactstest
@@ -143,15 +143,15 @@ var heapQueries = map[string]func(*heapmodel.HeapSummary) bool{
 func factClaims(fact Fact, name string) bool {
 	switch name {
 	case "returned-owner P0":
-		return fact.ReturnedOwner.contains(0)
+		return fact.ReturnedOwner().contains(0)
 	case "receiver-store P1":
-		return fact.ReceiverStore.contains(1)
+		return fact.ReceiverStore().contains(1)
 	case "retained P0":
-		return fact.Retained.contains(0)
+		return fact.Retained().contains(0)
 	case "stored P0":
-		return fact.Stored.contains(0)
+		return fact.Stored().contains(0)
 	case "kept P0/field:0":
-		for _, kept := range fact.Kept {
+		for _, kept := range fact.Kept() {
 			if kept.Parameter == 0 && kept.Path == "field:0" {
 				return true
 			}
@@ -160,7 +160,7 @@ func factClaims(fact Fact, name string) bool {
 	case "released P0 Close":
 		return fact.MethodMask("Close").contains(0)
 	case "released P0/field:1 Close":
-		for _, discharge := range fact.Discharges {
+		for _, discharge := range fact.Must.Discharges {
 			if discharge.Parameter == 0 && discharge.Method == "Close" && discharge.Path == "field:1" {
 				return true
 			}

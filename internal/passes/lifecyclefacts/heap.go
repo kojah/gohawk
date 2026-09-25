@@ -1,6 +1,7 @@
 package lifecyclefacts
 
 import (
+	"go/types"
 	"slices"
 	"strings"
 
@@ -35,7 +36,7 @@ func projectHeap(function *ssa.Function) *heapmodel.HeapSummary {
 
 // withReleases adds the release effects the discharge proofs established.
 func withReleases(summary *heapmodel.HeapSummary, fact *Fact) *heapmodel.HeapSummary {
-	for _, discharge := range fact.Discharges {
+	for _, discharge := range fact.Must.Discharges {
 		// Calling a function parameter releases nothing the heap tracks.
 		if discharge.Method == InvokeMethod {
 			continue
@@ -178,4 +179,80 @@ func (evidence *LifecycleEvidence) ArgumentMethodsRequired(instruction ssa.Instr
 		}
 	}
 	return methods
+}
+
+// The transfer and retention claims are read from the heap projection rather
+// than stored beside it, so the claims a consumer reads and the summary a
+// caller's graph applies are one record. The projection does not know the
+// signature, so each claim applies the type gates here: only a parameter
+// that can hold an object has a claim, an error result never owns one, and
+// only a struct-shaped parameter has kept contents. A fact read without its
+// function, such as a hand-built one, claims none of them.
+
+// ReturnedOwner marks parameters that some non-error result holds on every
+// normal return with a non-nil result.
+func (fact *Fact) ReturnedOwner() ParameterMask {
+	if fact.signature == nil || !canReturnOwner(fact.signature.Results()) {
+		return 0
+	}
+	return fact.heapClaim(func(index int) bool { return returnsOwner(fact.Heap, index) })
+}
+
+// ReceiverStore marks parameters kept in a slot beneath the receiver.
+func (fact *Fact) ReceiverStore() ParameterMask {
+	return fact.heapClaim(func(index int) bool { return index > 0 && receiverStores(fact.Heap, index) })
+}
+
+// Retained marks parameters the callee may keep beyond the call. It is a
+// may-claim; see retention.go for the over-approximation it makes.
+func (fact *Fact) Retained() ParameterMask {
+	return fact.heapClaim(func(index int) bool { return retained(fact.Heap, index) })
+}
+
+// Stored is positive structural evidence that the callee keeps the
+// parameter, safe to treat as an ownership transfer.
+func (fact *Fact) Stored() ParameterMask {
+	return fact.heapClaim(func(index int) bool { return stored(fact.Heap, index) })
+}
+
+// Kept widens Retained to what is loaded out of a struct-shaped parameter,
+// by access path, so a caller can ask whether the resource it stored at one
+// path may outlive the call. A retained parameter already keeps all of it.
+func (fact *Fact) Kept() []Kept {
+	var claims []Kept
+	for index, parameter := range fact.parameterTypes() {
+		if ownershipCapableType(parameter) && structShaped(parameter) && !retained(fact.Heap, index) {
+			claims = append(claims, kept(fact.Heap, index)...)
+		}
+	}
+	return claims
+}
+
+func (fact *Fact) heapClaim(holds func(int) bool) ParameterMask {
+	var mask ParameterMask
+	for index, parameter := range fact.parameterTypes() {
+		if ownershipCapableType(parameter) && holds(index) {
+			mask |= parameterMaskFor(index)
+		}
+	}
+	return mask
+}
+
+// parameterTypes lists the types at SSA parameter positions, the receiver
+// first, or nothing when the fact has no heap or no signature to read.
+func (fact *Fact) parameterTypes() []types.Type {
+	if fact.Heap == nil || fact.signature == nil {
+		return nil
+	}
+	var parameters []types.Type
+	if receiver := fact.signature.Recv(); receiver != nil {
+		parameters = append(parameters, receiver.Type())
+	}
+	for parameter := range fact.signature.Params().Variables() {
+		parameters = append(parameters, parameter.Type())
+	}
+	if len(parameters) > 64 {
+		return nil
+	}
+	return parameters
 }

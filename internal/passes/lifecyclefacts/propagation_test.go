@@ -44,7 +44,7 @@ func sibling(value, other *closer) {
 		deferred := findDefer(t, function)
 		helper := findAnonymousCall(t, function, "helper")
 		pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
-			Analyzer: Summaries{helper.Common().StaticCallee(): {Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}},
+			Analyzer: Summaries{helper.Common().StaticCallee(): {Must: MustClaims{Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}}},
 		}}
 		completion := lifecycle.CompletionRequest{Instruction: deferred, Target: function.Params[0], Methods: []string{"Close"}}
 		proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{

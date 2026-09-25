@@ -60,7 +60,7 @@ func TestDevelopmentBlocksRenderFromSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"```go", "type Fact struct", "Retained", "ParameterMask"} {
+	for _, want := range []string{"```go", "type Fact struct", "type MayClaims struct", "LoopReleased", "ParameterMask"} {
 		if !strings.Contains(fields, want) {
 			t.Errorf("fact fields block lacks %q:\n%s", want, fields)
 		}

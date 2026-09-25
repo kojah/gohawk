@@ -17,33 +17,51 @@ import (
 )
 
 // Fact is the compact cross-package ownership summary exported for a
-// function. Each bit identifies an SSA parameter position. This package is
+// function. Its claims are grouped by polarity, so every use site states
+// which kind it reads: a Must claim holds on every normal return and a
+// consumer may settle on it, while a May claim over-approximates and a
+// consumer may only treat it as unknown, never as settled. This package is
 // internal analysis infrastructure, not a public extension API.
 type Fact struct {
+	Must MustClaims
+	May  MayClaims
+	// Conditional holds positive, result-specific guarantees. It never widens
+	// an unconditional claim, and missing entries do not establish no effect.
+	Conditional *ConditionalSummary
+	// Heap is the projection of the function's points-to graph onto what a
+	// caller can name: where each parameter, result, and global slot may
+	// point at exit, how each object escaped or was released, what was
+	// read, and where the projection was cut. See heap.go.
+	Heap *heapmodel.HeapSummary
+	// ReturnedCleanup relates an invoked callback result to an exact factory
+	// parameter or sibling result. Merely returning the callback does not clean up.
+	ReturnedCleanup *ReturnedCleanupSummary
+	// signature is the summarized function's signature. It is attached
+	// whenever a fact is produced or read for a known function and is never
+	// serialized. It supplies the type gates the heap projection cannot see
+	// when the transfer claims are read from Heap; see heap.go.
+	signature *types.Signature
+}
+
+// MustClaims hold on every normal return of the function. The transfer
+// claims of the same polarity, ReturnedOwner, Stored, and ReceiverStore, are
+// read from Heap rather than stored; see heap.go.
+type MustClaims struct {
 	// SynchronouslyInvoked marks function parameters the callee calls before
 	// it returns. Calling one at all, possibly later, is the InvokeMethod
 	// discharge instead.
 	SynchronouslyInvoked ParameterMask
-	ReturnedOwner        ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
 	// caller keeps the obligation. See fields.go.
 	ReturnedView ParameterMask
-	// Retained marks parameters the callee may keep beyond the call; see
-	// retention.go for the over-approximation it deliberately makes.
-	Retained ParameterMask
-	// Stored is the strict form of Retained: positive structural evidence that
-	// the callee keeps the parameter, safe to treat as an ownership transfer.
-	Stored ParameterMask
-	// Kept widens Retained to what is loaded out of a struct-shaped
-	// parameter, by access path, so a caller can ask whether the resource it
-	// stored at one path may outlive the call. See contents.go.
-	Kept []Kept
-	// LoopReleased marks parameters whose derived values the callee releases
-	// inside a loop, as a variadic close helper does to each of its files. It
-	// is a may-claim: which element an iteration releases is decided by
-	// iteration, so a consumer treats the call as unknown, never as settled.
-	LoopReleased ParameterMask
+	// Discharges are the exact cleanup claims: which method is called, on
+	// which parameter, at which access path beneath it. They are the only
+	// record of these claims: an empty path means the parameter itself
+	// (MethodMask), InvokeMethod means calling a function parameter, and a
+	// field or element path lets a caller match the resource it stored there
+	// rather than any resource the argument contains.
+	Discharges []Discharge
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields    FieldMask
@@ -56,26 +74,18 @@ type Fact struct {
 	// back a wrapper that holds a fresh resource it acquired, and the caller
 	// must keep, hand over, or return that wrapper. See retaining_results.go.
 	RetainingResults ResultMask
-	// Discharges are the exact cleanup claims: which method is called, on
-	// which parameter, at which access path beneath it, on every normal
-	// return. They are the only record of these claims: an empty path means
-	// the parameter itself (MethodMask), InvokeMethod means calling a
-	// function parameter, and a field or element path lets a caller match
-	// the resource it stored there rather than any resource the argument
-	// contains.
-	Discharges    []Discharge
-	ReceiverStore ParameterMask
-	// Conditional holds positive, result-specific guarantees. It never widens
-	// an unconditional mask, and missing entries do not establish no effect.
-	Conditional *ConditionalSummary
-	// Heap is the projection of the function's points-to graph onto what a
-	// caller can name: where each parameter, result, and global slot may
-	// point at exit, how each object escaped or was released, what was
-	// read, and where the projection was cut. See heap.go.
-	Heap *heapmodel.HeapSummary
-	// ReturnedCleanup relates an invoked callback result to an exact factory
-	// parameter or sibling result. Merely returning the callback does not clean up.
-	ReturnedCleanup *ReturnedCleanupSummary
+}
+
+// MayClaims over-approximate what the function might do. A set bit never
+// proves an effect happened, and a clear bit never proves it did not. The
+// retention claims of the same polarity, Retained and Kept, are read from
+// Heap rather than stored; see heap.go.
+type MayClaims struct {
+	// LoopReleased marks parameters whose derived values the callee releases
+	// inside a loop, as a variadic close helper does to each of its files.
+	// Which element an iteration releases is decided by iteration, so a
+	// consumer treats the call as unknown, never as settled.
+	LoopReleased ParameterMask
 }
 
 // traceDetails names the claims a summary makes, so a trace shows what a
@@ -89,7 +99,7 @@ func (fact *Fact) traceDetails() map[string]string {
 		mask ParameterMask
 	}{
 		{"invoked", fact.InvokedParameters()},
-		{"synchronously-invoked", fact.SynchronouslyInvoked},
+		{"synchronously-invoked", fact.Must.SynchronouslyInvoked},
 		{"closed", fact.MethodMask("Close")},
 		{"finalized", fact.MethodMask("Finalize")},
 		{"released", fact.MethodMask("Release")},
@@ -98,18 +108,18 @@ func (fact *Fact) traceDetails() map[string]string {
 		{"waited", fact.MethodMask("Wait")},
 		{"committed", fact.MethodMask("Commit")},
 		{"rolled-back", fact.MethodMask("Rollback")},
-		{"returned-owner", fact.ReturnedOwner},
-		{"returned-view", fact.ReturnedView},
-		{"retained", fact.Retained},
-		{"stored", fact.Stored},
+		{"returned-owner", fact.ReturnedOwner()},
+		{"returned-view", fact.Must.ReturnedView},
+		{"retained", fact.Retained()},
+		{"stored", fact.Stored()},
 		{"kept", fact.KeptParameters()},
-		{"loop-released", fact.LoopReleased},
+		{"loop-released", fact.May.LoopReleased},
 		{"discharges", fact.DischargedParameters()},
-		{"owned-fields", ParameterMask(fact.OwnedFields)},
-		{"released-fields", ParameterMask(fact.ReleasedFields)},
-		{"owned-results", ParameterMask(fact.OwnedResults)},
-		{"retaining-results", ParameterMask(fact.RetainingResults)},
-		{"receiver-store", fact.ReceiverStore},
+		{"owned-fields", ParameterMask(fact.Must.OwnedFields)},
+		{"released-fields", ParameterMask(fact.Must.ReleasedFields)},
+		{"owned-results", ParameterMask(fact.Must.OwnedResults)},
+		{"retaining-results", ParameterMask(fact.Must.RetainingResults)},
+		{"receiver-store", fact.ReceiverStore()},
 	}
 	// Structured claims have no mask; they are named only when they carry
 	// an effect, so an empty summary still reads "none".
@@ -145,7 +155,7 @@ type Discharge struct {
 // what it was handed.
 func (fact *Fact) DischargedParameters() ParameterMask {
 	var mask ParameterMask
-	for _, discharge := range fact.Discharges {
+	for _, discharge := range fact.Must.Discharges {
 		if discharge.Method != InvokeMethod {
 			mask |= parameterMaskFor(discharge.Parameter)
 		}
@@ -162,7 +172,7 @@ const InvokeMethod = "()"
 // cleanup of something beneath the parameter is not included.
 func (fact *Fact) MethodMask(method string) ParameterMask {
 	var mask ParameterMask
-	for _, discharge := range fact.Discharges {
+	for _, discharge := range fact.Must.Discharges {
 		if discharge.Method == method && discharge.Path == "" {
 			mask |= parameterMaskFor(discharge.Parameter)
 		}
@@ -180,7 +190,7 @@ func (fact *Fact) InvokedParameters() ParameterMask {
 // path.
 func (fact *Fact) KeptParameters() ParameterMask {
 	var mask ParameterMask
-	for _, kept := range fact.Kept {
+	for _, kept := range fact.Kept() {
 		mask |= parameterMaskFor(kept.Parameter)
 	}
 	return mask
@@ -191,7 +201,7 @@ func (fact *Fact) KeptParameters() ParameterMask {
 // empty path asks about the whole parameter.
 func (fact *Fact) keepsContentsAt(index int, path string) bool {
 	var kept []string
-	for _, claim := range fact.Kept {
+	for _, claim := range fact.Kept() {
 		if claim.Parameter == index {
 			kept = append(kept, claim.Path)
 		}
@@ -209,7 +219,7 @@ func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Val
 	if common == nil {
 		return false
 	}
-	for _, discharge := range fact.Discharges {
+	for _, discharge := range fact.Must.Discharges {
 		if discharge.Method != method || discharge.Parameter >= len(common.Args) {
 			continue
 		}
@@ -271,19 +281,19 @@ const (
 func (fact *Fact) Claim(claim Claim) ParameterMask {
 	switch claim {
 	case ClaimReturnsOwner:
-		return fact.ReturnedOwner
+		return fact.ReturnedOwner()
 	case ClaimReturnsView:
-		return fact.ReturnedView
+		return fact.Must.ReturnedView
 	case ClaimRetains:
-		return fact.Retained
+		return fact.Retained()
 	case ClaimStores:
-		return fact.Stored
+		return fact.Stored()
 	case ClaimReleases:
 		return fact.DischargedParameters()
 	case ClaimSynchronouslyInvokes:
-		return fact.SynchronouslyInvoked
+		return fact.Must.SynchronouslyInvoked
 	case ClaimReleasesInLoop:
-		return fact.LoopReleased
+		return fact.May.LoopReleased
 	}
 	return 0
 }
@@ -332,6 +342,11 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 	if !ok {
 		return nil
 	}
+	// A decoded fact carries no signature; the dump supplies it so the
+	// claims read from the heap projection are listed too.
+	if fact.signature == nil {
+		fact.signature = function.Signature()
+	}
 	var names []string
 	signature := function.Signature()
 	if signature.Recv() != nil {
@@ -355,13 +370,13 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 			lines = append(lines, fmt.Sprintf("%s: %s", mask.name, strings.Join(fields, ", ")))
 		}
 	}
-	if fact.OwnedResults != 0 {
-		lines = append(lines, "OwnedResults: "+fact.resultNames(fact.OwnedResults, signature))
+	if fact.Must.OwnedResults != 0 {
+		lines = append(lines, "OwnedResults: "+fact.resultNames(fact.Must.OwnedResults, signature))
 	}
-	if fact.RetainingResults != 0 {
-		lines = append(lines, "RetainingResults: "+fact.resultNames(fact.RetainingResults, signature))
+	if fact.Must.RetainingResults != 0 {
+		lines = append(lines, "RetainingResults: "+fact.resultNames(fact.Must.RetainingResults, signature))
 	}
-	for _, discharge := range fact.Discharges {
+	for _, discharge := range fact.Must.Discharges {
 		if discharge.Path != "" && discharge.Parameter < len(names) {
 			lines = append(lines, fmt.Sprintf("%d %s: %s at %s", discharge.Parameter, names[discharge.Parameter], discharge.Method, discharge.Path))
 		}
@@ -447,7 +462,7 @@ func (fact *Fact) parameterMasks(index int) []string {
 		}
 	}
 	for _, mask := range lifecycleMasks {
-		if mask.field(fact).contains(index) {
+		if mask.mask(fact).contains(index) {
 			names = append(names, mask.name)
 		}
 	}
@@ -467,10 +482,10 @@ type SummarizedPackage struct {
 
 // empty reports whether the summary claims nothing.
 func (fact *Fact) empty() bool {
-	masks := fact.SynchronouslyInvoked | fact.ReturnedOwner | fact.ReturnedView |
-		fact.Retained | fact.Stored | fact.LoopReleased | fact.ReceiverStore
-	indexed := uint64(fact.OwnedFields) | uint64(fact.ReleasedFields) | uint64(fact.OwnedResults) | uint64(fact.RetainingResults)
-	return masks == 0 && indexed == 0 && len(fact.Kept) == 0 && len(fact.Discharges) == 0 &&
+	masks := fact.Must.SynchronouslyInvoked | fact.ReturnedOwner() | fact.Must.ReturnedView |
+		fact.Retained() | fact.Stored() | fact.May.LoopReleased | fact.ReceiverStore()
+	indexed := uint64(fact.Must.OwnedFields) | uint64(fact.Must.ReleasedFields) | uint64(fact.Must.OwnedResults) | uint64(fact.Must.RetainingResults)
+	return masks == 0 && indexed == 0 && len(fact.Kept()) == 0 && len(fact.Must.Discharges) == 0 &&
 		(fact.Conditional == nil || len(fact.Conditional.Effects) == 0) &&
 		(fact.ReturnedCleanup == nil || len(fact.ReturnedCleanup.Effects) == 0) &&
 		fact.heapEmpty()
@@ -547,6 +562,7 @@ func factForFunction(pass *analysis.Pass, function *ssa.Function) (Fact, bool) {
 		if fact.Heap != nil && fact.Heap.Version != heapmodel.SummaryVersion {
 			return Fact{}, false
 		}
+		fact.signature = resolved.Signature
 		return fact, true
 	}
 	// No summary of its own: proven to do nothing if its package was
@@ -631,21 +647,20 @@ func factOwnsProjectedArgument(instruction ssa.Instruction, target ssa.Value, ma
 	return false
 }
 
-// lifecycleMask names one parameter mask for summarization, imported-mask
-// selection, and the fact dump.
+// lifecycleMask names one parameter claim for the fact dump and the trace.
 type lifecycleMask struct {
-	name  string
-	field func(*Fact) *ParameterMask
+	name string
+	mask func(*Fact) ParameterMask
 }
 
 var lifecycleMasks = []lifecycleMask{
-	{name: "SynchronouslyInvoked", field: func(fact *Fact) *ParameterMask { return &fact.SynchronouslyInvoked }},
-	{name: "ReturnedOwner", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedOwner }},
-	{name: "ReturnedView", field: func(fact *Fact) *ParameterMask { return &fact.ReturnedView }},
-	{name: "ReceiverStore", field: func(fact *Fact) *ParameterMask { return &fact.ReceiverStore }},
-	{name: "Retained", field: func(fact *Fact) *ParameterMask { return &fact.Retained }},
-	{name: "Stored", field: func(fact *Fact) *ParameterMask { return &fact.Stored }},
-	{name: "LoopReleased", field: func(fact *Fact) *ParameterMask { return &fact.LoopReleased }},
+	{name: "SynchronouslyInvoked", mask: func(fact *Fact) ParameterMask { return fact.Must.SynchronouslyInvoked }},
+	{name: "ReturnedOwner", mask: (*Fact).ReturnedOwner},
+	{name: "ReturnedView", mask: func(fact *Fact) ParameterMask { return fact.Must.ReturnedView }},
+	{name: "ReceiverStore", mask: (*Fact).ReceiverStore},
+	{name: "Retained", mask: (*Fact).Retained},
+	{name: "Stored", mask: (*Fact).Stored},
+	{name: "LoopReleased", mask: func(fact *Fact) ParameterMask { return fact.May.LoopReleased }},
 }
 
 // cleanupMethods is the lifecycle method vocabulary: a call of one of them
@@ -673,6 +688,6 @@ var fieldMasks = []struct {
 	name  string
 	field func(*Fact) *FieldMask
 }{
-	{name: "OwnedFields", field: func(fact *Fact) *FieldMask { return &fact.OwnedFields }},
-	{name: "ReleasedFields", field: func(fact *Fact) *FieldMask { return &fact.ReleasedFields }},
+	{name: "OwnedFields", field: func(fact *Fact) *FieldMask { return &fact.Must.OwnedFields }},
+	{name: "ReleasedFields", field: func(fact *Fact) *FieldMask { return &fact.Must.ReleasedFields }},
 }

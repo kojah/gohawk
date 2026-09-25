@@ -4,6 +4,7 @@ import (
 	"go/types"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -45,10 +46,20 @@ func exercise(file *os.File, fail bool) {
 	callerCell(file, &dst)
 }
 `)
+	// wrap stands in for a log.New-style constructor: its result holds the
+	// file on every return and it also stores the file into a field.
+	parameter := heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter}}
+	wrap := Fact{
+		Must: MustClaims{ReturnedView: 1},
+		Heap: &heapmodel.HeapSummary{
+			Version: heapmodel.SummaryVersion,
+			Holds:   []heapmodel.HeapHold{{Result: 0, Parameter: 0, Must: true}},
+			Effects: []heapmodel.HeapEffect{{Slot: parameter, Escape: heapmodel.HeapEscapedField, Every: true}},
+		},
+		signature: pkg.Func("wrap").Signature,
+	}
 	pass := &analysis.Pass{
-		ResultOf: map[*analysis.Analyzer]any{Analyzer: Summaries{
-			pkg.Func("wrap"): {ReturnedOwner: 1, ReturnedView: 1, Stored: 1, Retained: 1},
-		}},
+		ResultOf: map[*analysis.Analyzer]any{Analyzer: Summaries{pkg.Func("wrap"): wrap}},
 		ImportObjectFact: func(types.Object, analysis.Fact) bool {
 			t.Error("consumer retention must use prerequisite summaries")
 			return false

@@ -166,33 +166,51 @@ list is always the one the code has; do not edit it by hand.
 <!-- gohawk:generated-fact-fields:start -->
 ```go
 // Fact is the compact cross-package ownership summary exported for a
-// function. Each bit identifies an SSA parameter position. This package is
+// function. Its claims are grouped by polarity, so every use site states
+// which kind it reads: a Must claim holds on every normal return and a
+// consumer may settle on it, while a May claim over-approximates and a
+// consumer may only treat it as unknown, never as settled. This package is
 // internal analysis infrastructure, not a public extension API.
 type Fact struct {
+	Must	MustClaims
+	May	MayClaims
+	// Conditional holds positive, result-specific guarantees. It never widens
+	// an unconditional claim, and missing entries do not establish no effect.
+	Conditional	*ConditionalSummary
+	// Heap is the projection of the function's points-to graph onto what a
+	// caller can name: where each parameter, result, and global slot may
+	// point at exit, how each object escaped or was released, what was
+	// read, and where the projection was cut. See heap.go.
+	Heap	*heapmodel.HeapSummary
+	// ReturnedCleanup relates an invoked callback result to an exact factory
+	// parameter or sibling result. Merely returning the callback does not clean up.
+	ReturnedCleanup	*ReturnedCleanupSummary
+	// signature is the summarized function's signature. It is attached
+	// whenever a fact is produced or read for a known function and is never
+	// serialized. It supplies the type gates the heap projection cannot see
+	// when the transfer claims are read from Heap; see heap.go.
+	signature	*types.Signature
+}
+
+// MustClaims hold on every normal return of the function. The transfer
+// claims of the same polarity, ReturnedOwner, Stored, and ReceiverStore, are
+// read from Heap rather than stored; see heap.go.
+type MustClaims struct {
 	// SynchronouslyInvoked marks function parameters the callee calls before
 	// it returns. Calling one at all, possibly later, is the InvokeMethod
 	// discharge instead.
 	SynchronouslyInvoked	ParameterMask
-	ReturnedOwner		ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
 	// caller keeps the obligation. See fields.go.
 	ReturnedView	ParameterMask
-	// Retained marks parameters the callee may keep beyond the call; see
-	// retention.go for the over-approximation it deliberately makes.
-	Retained	ParameterMask
-	// Stored is the strict form of Retained: positive structural evidence that
-	// the callee keeps the parameter, safe to treat as an ownership transfer.
-	Stored	ParameterMask
-	// Kept widens Retained to what is loaded out of a struct-shaped
-	// parameter, by access path, so a caller can ask whether the resource it
-	// stored at one path may outlive the call. See contents.go.
-	Kept	[]Kept
-	// LoopReleased marks parameters whose derived values the callee releases
-	// inside a loop, as a variadic close helper does to each of its files. It
-	// is a may-claim: which element an iteration releases is decided by
-	// iteration, so a consumer treats the call as unknown, never as settled.
-	LoopReleased	ParameterMask
+	// Discharges are the exact cleanup claims: which method is called, on
+	// which parameter, at which access path beneath it. They are the only
+	// record of these claims: an empty path means the parameter itself
+	// (MethodMask), InvokeMethod means calling a function parameter, and a
+	// field or element path lets a caller match the resource it stored there
+	// rather than any resource the argument contains.
+	Discharges	[]Discharge
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields	FieldMask
@@ -205,26 +223,18 @@ type Fact struct {
 	// back a wrapper that holds a fresh resource it acquired, and the caller
 	// must keep, hand over, or return that wrapper. See retaining_results.go.
 	RetainingResults	ResultMask
-	// Discharges are the exact cleanup claims: which method is called, on
-	// which parameter, at which access path beneath it, on every normal
-	// return. They are the only record of these claims: an empty path means
-	// the parameter itself (MethodMask), InvokeMethod means calling a
-	// function parameter, and a field or element path lets a caller match
-	// the resource it stored there rather than any resource the argument
-	// contains.
-	Discharges	[]Discharge
-	ReceiverStore	ParameterMask
-	// Conditional holds positive, result-specific guarantees. It never widens
-	// an unconditional mask, and missing entries do not establish no effect.
-	Conditional	*ConditionalSummary
-	// Heap is the projection of the function's points-to graph onto what a
-	// caller can name: where each parameter, result, and global slot may
-	// point at exit, how each object escaped or was released, what was
-	// read, and where the projection was cut. See heap.go.
-	Heap	*heapmodel.HeapSummary
-	// ReturnedCleanup relates an invoked callback result to an exact factory
-	// parameter or sibling result. Merely returning the callback does not clean up.
-	ReturnedCleanup	*ReturnedCleanupSummary
+}
+
+// MayClaims over-approximate what the function might do. A set bit never
+// proves an effect happened, and a clear bit never proves it did not. The
+// retention claims of the same polarity, Retained and Kept, are read from
+// Heap rather than stored; see heap.go.
+type MayClaims struct {
+	// LoopReleased marks parameters whose derived values the callee releases
+	// inside a loop, as a variadic close helper does to each of its files.
+	// Which element an iteration releases is decided by iteration, so a
+	// consumer treats the call as unknown, never as settled.
+	LoopReleased ParameterMask
 }
 ```
 <!-- gohawk:generated-fact-fields:end -->

@@ -578,7 +578,7 @@ func callTakesResourceOwnership(
 		// it only when that struct's type can release it; a returned view such
 		// as a buffered reader leaves the obligation with the caller.
 		SelectMask: func(fact lifecyclefacts.Fact) lifecyclefacts.ParameterMask {
-			return fact.ReturnedOwner &^ fact.ReturnedView
+			return fact.ReturnedOwner() &^ fact.Must.ReturnedView
 		},
 		ReceiverStore: true,
 	}).Proven()

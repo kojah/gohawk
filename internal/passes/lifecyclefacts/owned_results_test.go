@@ -97,8 +97,8 @@ func OpenFromFD(fd uintptr) *os.File { return os.NewFile(fd, "fd") }
 		"OpenFromFD":          resultMaskFor(0),
 	} {
 		fact := summarize(pass, pkg.Func(name))
-		if fact.OwnedResults != want {
-			t.Errorf("%s: OwnedResults = %v, want %v", name, fact.OwnedResults, want)
+		if fact.Must.OwnedResults != want {
+			t.Errorf("%s: OwnedResults = %v, want %v", name, fact.Must.OwnedResults, want)
 		}
 	}
 }

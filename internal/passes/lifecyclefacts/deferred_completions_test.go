@@ -54,7 +54,7 @@ func Picked(value *owner) { defer func() { value.pick().Close() }() }
 	} {
 		fact := summarize(pass, pkg.Func(name))
 		var paths []string
-		for _, discharge := range fact.Discharges {
+		for _, discharge := range fact.Must.Discharges {
 			if discharge.Parameter == 0 && discharge.Method == "Close" {
 				paths = append(paths, discharge.Path)
 			}

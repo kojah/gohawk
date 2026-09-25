@@ -52,17 +52,17 @@ func closeNormally(c closer) { c.Close() }
 	for _, name := range []string{"panicOnly", "loopOnly", "panicUnlessNil", "panicOwner"} {
 		fact := summarize(pass, pkg.Func(name))
 		for _, mask := range lifecycleMasks {
-			if got := *mask.field(&fact); got != 0 {
+			if got := mask.mask(&fact); got != 0 {
 				t.Errorf("%s invented %s mask %#x", name, mask.name, got)
 			}
 		}
-		if fact.SynchronouslyInvoked != 0 {
+		if fact.Must.SynchronouslyInvoked != 0 {
 			t.Errorf("%s invented synchronous invocation", name)
 		}
 	}
 	method := pkg.Prog.LookupMethod(types.NewPointer(pkg.Type("holder").Type()), pkg.Pkg, "PanicStore")
-	if fact := summarize(pass, method); fact.ReceiverStore != 0 {
-		t.Errorf("panic-only receiver method invented receiver-store mask %#x", fact.ReceiverStore)
+	if fact := summarize(pass, method); fact.ReceiverStore() != 0 {
+		t.Errorf("panic-only receiver method invented receiver-store mask %#x", fact.ReceiverStore())
 	}
 	fact := summarize(pass, pkg.Func("closeNormally"))
 	if !fact.MethodMask("Close").contains(0) {

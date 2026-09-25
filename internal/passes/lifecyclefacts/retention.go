@@ -302,7 +302,7 @@ func (search *retention) callRetains(common *ssa.CallCommon, instruction ssa.Ins
 			if search.everyReturn {
 				// Construction alone does not retain a wrapper beyond this
 				// helper. Its actual escaping store must cover each return.
-				mask &^= imported.ReturnedOwner
+				mask &^= imported.ReturnedOwner()
 			}
 		}
 		return argumentInMask(common, mask, derives)
@@ -333,7 +333,7 @@ func (search *retention) returnedWrapperContains(value ssa.Value, derives func(s
 		return false
 	}
 	fact, known := search.fact(call)
-	return known && argumentInMask(call.Common(), fact.ReturnedOwner&fact.Stored, derives)
+	return known && argumentInMask(call.Common(), fact.ReturnedOwner()&fact.Stored(), derives)
 }
 
 // During prerequisite construction facts are imported directly; a consumer's

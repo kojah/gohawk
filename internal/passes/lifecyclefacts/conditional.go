@@ -124,7 +124,7 @@ func conditionalLookup(
 func conditionalMask(fact Fact, method string, invoke bool, predicate lifecycle.CompletionPredicate) ParameterMask {
 	if predicate.Outcome == lifecycle.CompletionAlways {
 		if invoke {
-			return fact.SynchronouslyInvoked
+			return fact.Must.SynchronouslyInvoked
 		}
 		return fact.MethodMask(method)
 	}

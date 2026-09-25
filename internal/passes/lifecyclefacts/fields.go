@@ -158,7 +158,7 @@ func returnsExistingResource(pass *analysis.Pass, call *ssa.Call) bool {
 		if _, cleanup := typeCleanup(argument.Type()); !cleanup {
 			continue
 		}
-		if imported && fact.ReturnedOwner.contains(index) {
+		if imported && fact.ReturnedOwner().contains(index) {
 			return true
 		}
 		if len(callee.Blocks) > 0 && index < len(callee.Params) &&
@@ -444,7 +444,7 @@ func resultMethods(callee *ssa.Function) []*ssa.Function {
 // caller cannot be asked for a cleanup that does not exist.
 func (evidence *LifecycleEvidence) OwnedResult(call *ssa.Call) ([]string, int, bool) {
 	fact, ok := factFor(evidence.pass, call)
-	if !ok || fact.OwnedFields == 0 {
+	if !ok || fact.Must.OwnedFields == 0 {
 		return nil, 0, false
 	}
 	callee := call.Common().StaticCallee()
@@ -455,7 +455,7 @@ func (evidence *LifecycleEvidence) OwnedResult(call *ssa.Call) ([]string, int, b
 	summaries, _ := evidence.pass.ResultOf[Analyzer].(Summaries)
 	var cleanup []string
 	for _, method := range resultMethods(callee) {
-		if summary, ok := summaries[method]; ok && summary.ReleasedFields&fact.OwnedFields == fact.OwnedFields {
+		if summary, ok := summaries[method]; ok && summary.Must.ReleasedFields&fact.Must.OwnedFields == fact.Must.OwnedFields {
 			cleanup = append(cleanup, method.Name())
 		}
 	}
@@ -494,7 +494,7 @@ func viewsFromResultsAlone(function *ssa.Function, fact Fact) ParameterMask {
 	}
 	var views ParameterMask
 	for index, parameter := range function.Params {
-		if !fact.ReturnedOwner.contains(index) {
+		if !fact.ReturnedOwner().contains(index) {
 			continue
 		}
 		// A constructor that released the argument itself leaves the caller
@@ -508,7 +508,7 @@ func viewsFromResultsAlone(function *ssa.Function, fact Fact) ParameterMask {
 }
 
 func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summaries Summaries) ParameterMask {
-	if fact.ReturnedOwner == 0 {
+	if fact.ReturnedOwner() == 0 {
 		return 0
 	}
 	structure, resultIndex, ok := returnedStruct(function)
@@ -533,11 +533,11 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 			}
 			summary = imported
 		}
-		released |= summary.ReleasedFields
+		released |= summary.Must.ReleasedFields
 	}
 	var views ParameterMask
 	for index, parameter := range function.Params {
-		if !fact.ReturnedOwner.contains(index) {
+		if !fact.ReturnedOwner().contains(index) {
 			continue
 		}
 		if parameterIsView(function, parameter, result, structure, released) {
@@ -631,7 +631,7 @@ func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ss
 // ReturnsView binds this declaration's returned-view mask to the supplied
 // call and target using the same argument policy as lifecycle evidence.
 func (fact *Fact) ReturnsView(instruction ssa.Instruction, target ssa.Value) bool {
-	return factOwnsArgument(instruction, target, fact.ReturnedView, nil)
+	return factOwnsArgument(instruction, target, fact.Must.ReturnedView, nil)
 }
 
 // ArgumentRetainedByCallee reports whether the call's static callee is
@@ -644,7 +644,7 @@ func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Inst
 	if !ok {
 		return evidence.visibleCalleeRetains(instruction, target)
 	}
-	if !factOwnsExactArgument(instruction, target, fact.Stored&^fact.ReturnedOwner) {
+	if !factOwnsExactArgument(instruction, target, fact.Stored()&^fact.ReturnedOwner()) {
 		return false
 	}
 	evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, Proof{Proof: ssaflow.Proof{
@@ -703,7 +703,7 @@ func (evidence *LifecycleEvidence) ContentsKeptAt(instruction ssa.Instruction, i
 	if !ok {
 		return false, false
 	}
-	return fact.Retained.contains(index) || fact.keepsContentsAt(index, path), true
+	return fact.Retained().contains(index) || fact.keepsContentsAt(index, path), true
 }
 
 // CalleeSummarized reports whether the call's static callee carries a

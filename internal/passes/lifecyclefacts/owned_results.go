@@ -31,12 +31,12 @@ import (
 // way to perform.
 func (evidence *LifecycleEvidence) OwnedDirectResult(call *ssa.Call) ([]string, int, bool) {
 	fact, ok := factFor(evidence.pass, call)
-	if !ok || fact.OwnedResults == 0 {
+	if !ok || fact.Must.OwnedResults == 0 {
 		return nil, 0, false
 	}
 	results := call.Common().Signature().Results()
 	for index := range results.Len() {
-		if !fact.OwnedResults.contains(index) {
+		if !fact.Must.OwnedResults.contains(index) {
 			continue
 		}
 		cleanup, ok := typeCleanup(results.At(index).Type())
@@ -96,7 +96,7 @@ func freshlyAcquired(pass *analysis.Pass, acquired ssa.Value) bool {
 	// are still being built while this proof runs, and a claim must not
 	// depend on the order in which its functions were summarized.
 	fact, summarized := importFact(pass, call)
-	return summarized && fact.OwnedResults.contains(index)
+	return summarized && fact.Must.OwnedResults.contains(index)
 }
 
 // resourcePackage returns the package that defines the value's resource type.

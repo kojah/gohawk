@@ -72,7 +72,7 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 		t.Fatalf("imported false edge: %+v", proof)
 	}
 	invoke := summarize(pass, pkg.Func("Invoke"))
-	if invoke.SynchronouslyInvoked != 0 || conditionalMask(invoke, "", true, predicate) != parameterMaskFor(0) {
+	if invoke.Must.SynchronouslyInvoked != 0 || conditionalMask(invoke, "", true, predicate) != parameterMaskFor(0) {
 		t.Fatalf("invocation: %+v", invoke)
 	}
 }

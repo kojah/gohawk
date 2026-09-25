@@ -55,8 +55,11 @@ func populateWireFields(t *testing.T, value reflect.Value, depth int) {
 	}
 	switch value.Kind() {
 	case reflect.Struct:
-		for _, field := range value.Fields() {
-			populateWireFields(t, field, depth+1)
+		for info, field := range value.Fields() {
+			// Unexported fields are not on the wire.
+			if info.IsExported() {
+				populateWireFields(t, field, depth+1)
+			}
 		}
 	case reflect.Pointer:
 		value.Set(reflect.New(value.Type().Elem()))
@@ -96,8 +99,9 @@ func (fact *exposedJSONFact) GobDecode(data []byte) error {
 
 func benchmarkSummary() lifecyclefacts.Fact {
 	return lifecyclefacts.Fact{
-		Retained:   2,
-		Discharges: []lifecyclefacts.Discharge{{Parameter: 0, Method: "Close"}, {Parameter: 0, Method: "Close", Path: "field:1"}},
+		Must: lifecyclefacts.MustClaims{
+			Discharges: []lifecyclefacts.Discharge{{Parameter: 0, Method: "Close"}, {Parameter: 0, Method: "Close", Path: "field:1"}},
+		},
 		Heap: &heapmodel.HeapSummary{
 			Version: heapmodel.SummaryVersion,
 			Edges: []heapmodel.HeapEdge{{

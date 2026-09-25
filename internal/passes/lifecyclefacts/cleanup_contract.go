@@ -80,7 +80,7 @@ func (fact *CleanupFact) DescribeFact(object types.Object) []string {
 func exportCleanupContracts(pass *analysis.Pass, summaries Summaries) {
 	owned := map[*types.TypeName]constructed{}
 	for function, fact := range summaries {
-		if fact.OwnedFields == 0 {
+		if fact.Must.OwnedFields == 0 {
 			continue
 		}
 		// A constructor in another package cannot be the place this contract
@@ -90,7 +90,7 @@ func exportCleanupContracts(pass *analysis.Pass, summaries Summaries) {
 			continue
 		}
 		entry := owned[name]
-		entry.fields |= fact.OwnedFields
+		entry.fields |= fact.Must.OwnedFields
 		entry.constructor = function
 		owned[name] = entry
 	}
@@ -151,10 +151,10 @@ func releasingMethods(name *types.TypeName, constructor *ssa.Function, summaries
 			continue
 		}
 		summary, found := summaries[method]
-		if !found || summary.ReleasedFields == 0 {
+		if !found || summary.Must.ReleasedFields == 0 {
 			continue
 		}
-		released |= summary.ReleasedFields
+		released |= summary.Must.ReleasedFields
 		methods = append(methods, function.Name())
 	}
 	slices.Sort(methods)
