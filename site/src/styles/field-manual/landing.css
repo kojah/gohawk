@@ -182,12 +182,12 @@ main:has(.landing),
 
 .landing-links {
 	display: flex;
+	flex-direction: column;
 	align-self: end;
 	grid-column: 1 / -1;
-	align-items: center;
-	justify-content: space-between;
-	gap: 1rem 2rem;
-	margin-top: 2.5rem;
+	align-items: flex-start;
+	gap: 0.75rem;
+	margin-top: 5rem;
 	font-size: 0.9rem;
 }
 
@@ -202,7 +202,6 @@ main:has(.landing),
 .landing-links nav {
 	display: flex;
 	flex-wrap: wrap;
-	justify-content: flex-end;
 	gap: 0.6rem 1.25rem;
 }
 
@@ -248,14 +247,5 @@ main:has(.landing),
 
 	.landing-orders {
 		grid-template-columns: 1fr;
-	}
-
-	.landing-links {
-		align-items: flex-start;
-		flex-direction: column;
-	}
-
-	.landing-links nav {
-		justify-content: flex-start;
 	}
 }
