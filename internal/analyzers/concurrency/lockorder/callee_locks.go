@@ -1,6 +1,8 @@
 package lockorder
 
 import (
+	"fmt"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"strings"
@@ -55,6 +57,158 @@ func newCalleeLockSearch() *calleeLockSearch {
 // calls it makes.
 func (search *calleeLockSearch) locks(function *ssa.Function) calleeLocks {
 	return search.summaries.Function(function, ssaflow.NewSearchBudget(calleeLockSummaryBudget))
+}
+
+// locksAt reports the locks call's callee may take, given the constant Boolean
+// arguments the call passes. A constant decides a branch that tests the
+// parameter directly or negated, so an acquisition only on the arm the
+// constant rules out is not taken by this call: libovsdb's monitor locks
+// rpcMutex only when reconnecting is false, and connect passes true.
+// Nested calls keep their ordinary summaries.
+// https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L933-L941
+func (search *calleeLockSearch) locksAt(call *ssa.Call) calleeLocks {
+	callee := call.Common().StaticCallee()
+	constants := constantBooleanParameters(call, callee, nil)
+	if len(constants) == 0 {
+		return search.locks(callee)
+	}
+	context := &constantContext{budget: ssaflow.NewSearchBudget(calleeLockSummaryBudget), visiting: map[string]bool{}}
+	result, complete := search.locksUnder(callee, constants, context)
+	if !complete {
+		return search.locks(callee)
+	}
+	return result
+}
+
+// constantContext bounds a context-sensitive lock search. A call forwarding a
+// constant parameter, as a recursive retry does, keeps its constant; a
+// context already being searched adds nothing new to a may-acquire set.
+type constantContext struct {
+	budget   *ssaflow.SearchBudget
+	visiting map[string]bool
+	depth    int
+}
+
+func (search *calleeLockSearch) locksUnder(
+	function *ssa.Function, constants map[*ssa.Parameter]bool, context *constantContext,
+) (calleeLocks, bool) {
+	key := contextKey(function, constants)
+	if context.visiting[key] {
+		return calleeLocks{}, true
+	}
+	if context.depth >= maxOrderDepth {
+		return calleeLocks{}, false
+	}
+	context.visiting[key] = true
+	context.depth++
+	defer func() { context.depth-- }()
+	var result calleeLocks
+	for _, block := range blocksReachableUnder(function, constants) {
+		for _, instruction := range block.Instrs {
+			if !context.budget.Spend() {
+				return calleeLocks{}, false
+			}
+			var nested map[*ssa.Parameter]bool
+			call, ok := instruction.(*ssa.Call)
+			if ok {
+				nested = constantBooleanParameters(call, call.Common().StaticCallee(), constants)
+			}
+			if len(nested) == 0 {
+				result.observe(search, instruction, context.budget)
+				continue
+			}
+			locks, complete := search.locksUnder(call.Common().StaticCallee(), nested, context)
+			if !complete {
+				return calleeLocks{}, false
+			}
+			for _, acquired := range locks.acquires {
+				result.add(acquired.through(call))
+			}
+		}
+	}
+	return result, true
+}
+
+func contextKey(function *ssa.Function, constants map[*ssa.Parameter]bool) string {
+	parts := []string{fmt.Sprintf("%p", function)}
+	for index, parameter := range function.Params {
+		if value, ok := constants[parameter]; ok {
+			parts = append(parts, fmt.Sprintf("%d=%t", index, value))
+		}
+	}
+	return strings.Join(parts, ";")
+}
+
+// constantBooleanParameters maps the callee's parameters to the constant
+// Boolean arguments call passes for them: a literal, or a parameter of the
+// caller whose value the caller's own context fixes.
+func constantBooleanParameters(call *ssa.Call, callee *ssa.Function, known map[*ssa.Parameter]bool) map[*ssa.Parameter]bool {
+	if call == nil || callee == nil || len(callee.Blocks) == 0 || len(call.Common().Args) != len(callee.Params) {
+		return nil
+	}
+	constants := map[*ssa.Parameter]bool{}
+	for index, argument := range call.Common().Args {
+		switch argument := argument.(type) {
+		case *ssa.Const:
+			if argument.Value != nil && argument.Value.Kind() == constant.Bool {
+				constants[callee.Params[index]] = constant.BoolVal(argument.Value)
+			}
+		case *ssa.Parameter:
+			if value, ok := known[argument]; ok {
+				constants[callee.Params[index]] = value
+			}
+		}
+	}
+	return constants
+}
+
+// blocksReachableUnder returns the callee's blocks some path reaches when
+// each parameter in constants holds its value.
+func blocksReachableUnder(callee *ssa.Function, constants map[*ssa.Parameter]bool) []*ssa.BasicBlock {
+	seen := map[*ssa.BasicBlock]bool{callee.Blocks[0]: true}
+	order := []*ssa.BasicBlock{callee.Blocks[0]}
+	for index := 0; index < len(order); index++ {
+		block := order[index]
+		successors := block.Succs
+		if taken, decided := decidedBranch(block, constants); decided {
+			successors = []*ssa.BasicBlock{taken}
+		}
+		for _, next := range successors {
+			if !seen[next] {
+				seen[next] = true
+				order = append(order, next)
+			}
+		}
+	}
+	return order
+}
+
+// decidedBranch returns the successor a block's branch takes when its
+// condition is a constant parameter, possibly negated.
+func decidedBranch(block *ssa.BasicBlock, constants map[*ssa.Parameter]bool) (*ssa.BasicBlock, bool) {
+	if len(block.Instrs) == 0 || len(block.Succs) != 2 {
+		return nil, false
+	}
+	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
+	if !ok {
+		return nil, false
+	}
+	condition, negated := branch.Cond, false
+	if not, ok := condition.(*ssa.UnOp); ok && not.Op == token.NOT {
+		condition, negated = not.X, true
+	}
+	parameter, ok := condition.(*ssa.Parameter)
+	if !ok {
+		return nil, false
+	}
+	value, known := constants[parameter]
+	if !known {
+		return nil, false
+	}
+	if value != negated {
+		return block.Succs[0], true
+	}
+	return block.Succs[1], true
 }
 
 func (search *calleeLockSearch) searchLocks(function *ssa.Function, budget *ssaflow.SearchBudget) calleeLocks {

@@ -430,7 +430,7 @@ func (flow lockFlowContext) recordCalledOrder(instruction ssa.Instruction, held 
 	if !ok {
 		return
 	}
-	locks := flow.calleeLocks.locks(call.Common().StaticCallee())
+	locks := flow.calleeLocks.locksAt(call)
 	for _, owner := range held {
 		for _, acquired := range locks.acquires {
 			flow.relations.record(flow.pass, origins[owner], acquired.through(call))
