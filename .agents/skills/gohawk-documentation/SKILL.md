@@ -89,10 +89,10 @@ The architecture tests check user docs in CI and in `make verify`:
 Run them with `go test ./internal/architecture -run 'PublicDocumentation|AnalyzerProse'`.
 
 After changing the site's layout or styles, run `make site-shot` before
-publishing. It builds the site, screenshots pages at phone (390px) and desktop
-(1280px) widths into `.build/site-shots`, and reports content wider than the
+publishing. It builds the site, screenshots pages at phone (390px), tablet (768px),
+and desktop (1280px) widths, at 2x pixel density, into `.build/site-shots`, and reports content wider than the
 screen and identifiers split mid-word. Narrow it with `PAGES=/faq/,/`,
-`WIDTHS=390`, or `SELECTOR='h3#checks + table'`. Look at the screenshots, not
+`WIDTHS=390`, `SCALE=1`, or `SELECTOR='h3#checks + table'`. Look at the screenshots, not
 only the report. The tool substitutes static builds of the site's fonts, cached
 in `.build/site-shots/fonts`, because the headless browser does not draw
 Newsreader's variable font; the result is faithful apart from a few symbols the

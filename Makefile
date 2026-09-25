@@ -61,8 +61,8 @@ help:
 		'  make site-build      Build the documentation website' \
 		'  make site-audit      Audit every sitemap page with Lighthouse' \
 		'  make site-links      Check internal links in the built website' \
-		'  make site-shot       Screenshot built pages at phone and desktop widths and report layout problems' \
-		'                       (PAGES=/faq/,/ WIDTHS=390,1280 SELECTOR=css; shots go to .build/site-shots)' \
+		'  make site-shot       Screenshot built pages at phone, tablet, and desktop widths and report layout problems' \
+		'                       (PAGES=/faq/,/ WIDTHS=390,768,1280 SCALE=2 SELECTOR=css; shots go to .build/site-shots)' \
 		'  make site-review     Start the documentation review server'
 
 build:
@@ -211,7 +211,7 @@ site-audit-production:
 	$(PNPM) --dir site lighthouse:production
 
 site-shot: site-build
-	$(PNPM) --dir site shot $(if $(PAGES),--pages=$(PAGES)) $(if $(WIDTHS),--widths=$(WIDTHS)) $(if $(SELECTOR),--selector='$(SELECTOR)')
+	$(PNPM) --dir site shot $(if $(PAGES),--pages=$(PAGES)) $(if $(WIDTHS),--widths=$(WIDTHS)) $(if $(SELECTOR),--selector='$(SELECTOR)') $(if $(SCALE),--scale=$(SCALE))
 
 site-links: site-build
 	$(LYCHEE) --offline --include-fragments --index-files index.html \

@@ -5,7 +5,7 @@ import { parseArgs } from 'node:util';
 import puppeteer from 'puppeteer-core';
 import { siteDirectory, startPreview } from './preview-server.mjs';
 
-// Screenshots built pages at phone and desktop widths and reports layout
+// Screenshots built pages at phone, tablet, and desktop widths and reports layout
 // problems a reviewer would otherwise need to eyeball: content wider than the
 // screen, identifiers split mid-word, and text that failed to render.
 // Run it after `make site-build`, usually through `make site-shot`.
@@ -19,22 +19,25 @@ const defaultPages = [
 	'/analyzers/concurrency-and-synchronization/lockorder/',
 ];
 
-// The site loads Fraunces, Newsreader, and IBM Plex Mono from Google Fonts as
-// variable fonts, which the headless shell does not draw, and a machine
-// without system fonts has no fallback either. Substitute static builds of the
-// same families from Fontsource, cached under the output directory, so the
-// screenshots show the real typography. If they cannot be fetched, the page
-// keeps its own fonts and the report says whether text rendered.
+// The site loads Fraunces, Newsreader, and IBM Plex Mono from Google Fonts.
+// The headless shell does not draw Newsreader's variable font, and may not
+// reach Google at all, and a machine without system fonts has no fallback, so
+// text vanishes. Register static builds of the same families from Fontsource,
+// cached under the output directory, under the site's own family names, and
+// remove the Google Fonts stylesheet so they replace the remote faces; the
+// site's CSS is used unchanged. If they cannot be fetched, the page keeps its remote fonts
+// and the report says whether text rendered.
 const staticFonts = [
-	['--gh-shot-display', 'fraunces', [600, 700]],
-	['--gh-shot-serif', 'newsreader', [400, 600]],
-	['--gh-shot-mono', 'ibm-plex-mono', [400, 600]],
+	['Fraunces', 'fraunces', [600, 700]],
+	['Newsreader', 'newsreader', [400, 600]],
+	['IBM Plex Mono', 'ibm-plex-mono', [400, 600]],
 ];
 
 const { values } = parseArgs({
 	options: {
 		pages: { type: 'string' },
-		widths: { type: 'string', default: '390,1280' },
+		widths: { type: 'string', default: '390,768,1280' },
+		scale: { type: 'string', default: '2' },
 		selector: { type: 'string' },
 		out: { type: 'string', default: path.join(siteDirectory, '..', '.build', 'site-shots') },
 	},
@@ -46,26 +49,46 @@ mkdirSync(values.out, { recursive: true });
 const fontStyles = await staticFontStyles(path.join(values.out, 'fonts'));
 const executablePath = findBrowser();
 const preview = await startPreview({ quiet: true });
+// With static fonts in hand, make Google's font hosts unreachable so the
+// site's font stylesheet never loads. Whether it loaded before a capture
+// otherwise decides which faces the page uses, and text vanishes at random.
+const blockGoogleFonts = fontStyles
+	? ['--host-resolver-rules=MAP fonts.googleapis.com ~NOTFOUND, MAP fonts.gstatic.com ~NOTFOUND']
+	: [];
 const browser = await puppeteer.launch({
 	executablePath,
 	headless: 'shell',
-	args: ['--no-sandbox'],
+	args: ['--no-sandbox', ...blockGoogleFonts],
 });
 let problems = 0;
 let textRendered = true;
 try {
 	const page = await browser.newPage();
+
 	for (const width of widths) {
-		await page.setViewport({ width, height: 900 });
+		await page.setViewport({ width, height: 900, deviceScaleFactor: Number(values.scale) });
 		for (const pathname of pages) {
 			await page.goto(preview.origin + pathname, { waitUntil: 'networkidle0' });
-			if (fontStyles) await page.addStyleTag({ content: fontStyles });
+			if (fontStyles) {
+				// Drop the Google Fonts stylesheet so only the static faces remain.
+				await page.evaluate(() => {
+					for (const link of document.querySelectorAll('link[href*="fonts.googleapis.com"]'))
+						link.remove();
+				});
+				await page.addStyleTag({ content: fontStyles });
+			}
 			// Web fonts load only once text uses them, so load every face now;
 			// otherwise the render probe below can run before its font arrives.
 			await page.evaluate(() =>
 				Promise.all([...document.fonts].map((face) => face.load().catch(() => undefined))),
 			);
 			await page.evaluate(() => document.fonts.ready);
+			if (fontStyles) await waitForStaticFonts(page);
+			// Let the page repaint with the fonts it just loaded before capturing.
+			await page.evaluate(
+				() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+			);
+			await new Promise((resolve) => setTimeout(resolve, 300));
 			const name = `${slug(pathname)}-${width}.png`;
 			await screenshot(page, path.join(values.out, name), values.selector);
 			const report = await page.evaluate(measureLayout);
@@ -92,11 +115,31 @@ if (!textRendered) {
 console.log(`\n${problems} layout problem${problems === 1 ? '' : 's'}. Screenshots: ${values.out}`);
 if (problems > 0) process.exitCode = 1;
 
+// waitForStaticFonts loads every substituted face and polls until the browser
+// reports each one usable, so a capture never catches text mid-load.
+async function waitForStaticFonts(page) {
+	const descriptors = staticFonts.flatMap(([familyName, , weights]) =>
+		weights.flatMap((weight) => [
+			`${weight} 16px "${familyName}"`,
+			`italic ${weight} 16px "${familyName}"`,
+		]),
+	);
+	const ready = await page.evaluate(async (fonts) => {
+		for (let attempt = 0; attempt < 50; attempt++) {
+			await Promise.all(fonts.map((font) => document.fonts.load(font).catch(() => [])));
+			if (fonts.every((font) => document.fonts.check(font))) return true;
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
+		return false;
+	}, descriptors);
+	if (!ready) console.log('  static fonts did not finish loading; text may be missing');
+}
+
 async function staticFontStyles(cache) {
 	mkdirSync(cache, { recursive: true });
 	const faces = [];
 	try {
-		for (const [variable, family, weights] of staticFonts) {
+		for (const [familyName, family, weights] of staticFonts) {
 			for (const weight of weights) {
 				for (const style of ['normal', 'italic']) {
 					const file = path.join(cache, `${family}-${weight}-${style}.woff2`);
@@ -108,7 +151,7 @@ async function staticFontStyles(cache) {
 					}
 					const data = readFileSync(file).toString('base64');
 					faces.push(
-						`@font-face{font-family:"${variable}";font-weight:${weight};font-style:${style};` +
+						`@font-face{font-family:"${familyName}";font-weight:${weight};font-style:${style};` +
 							`src:url(data:font/woff2;base64,${data}) format("woff2")}`,
 					);
 				}
@@ -118,11 +161,7 @@ async function staticFontStyles(cache) {
 		console.log(`Static fonts unavailable (${error.message}); using the page's own fonts.`);
 		return undefined;
 	}
-	return (
-		faces.join('') +
-		':root{--sl-font:"--gh-shot-serif",serif;--sl-font-mono:"--gh-shot-mono",monospace;' +
-		'--gh-font-display:"--gh-shot-display",serif}'
-	);
+	return faces.join('');
 }
 
 async function screenshot(page, file, selector) {
