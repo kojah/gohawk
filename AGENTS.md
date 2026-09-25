@@ -46,6 +46,8 @@ task rather than re-deriving the procedure:
   fixing a false positive or negative, responding to a failed precision label.
 - `.agents/skills/gohawk-precision-audit/SKILL.md` — running a precision
   round, labelling findings, recording a batch audit.
+- `.agents/skills/gohawk-recall-audit/SKILL.md` — measuring where a check
+  loses real bugs: decline-reason census, sampled labels, fix-commit replay.
 - `.agents/skills/gohawk-debugging/SKILL.md` — reading SSA dumps, fact dumps,
   and evidence traces to explain a diagnostic.
 - `.agents/skills/gohawk-analyzer-tracing/SKILL.md` — adding or reviewing
