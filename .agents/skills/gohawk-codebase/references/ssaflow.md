@@ -711,6 +711,18 @@ func EvaluateObligationFromEntry(function *ssa.Function, flow ObligationFlow) Ob
 EvaluateObligationFromEntry applies the same coverage walk from a function's
 first instruction, including actions in its entry block.
 
+## EvaluateObligationWitness
+
+[Source](../../../../internal/ssaflow/flow_obligation.go)
+
+```go
+func EvaluateObligationWitness(flow ObligationFlow) (ObligationOutcome, *ssa.Return)
+```
+
+EvaluateObligationWitness is EvaluateObligation that also returns, for a
+violated outcome, the normal return the walk reached with no action before
+it. That return is the proof's witness, which a diagnostic can cite.
+
 ## EvidenceFromLocalSSA, EvidenceFromImportedFact
 
 [Source](../../../../internal/ssaflow/proof_types.go)
@@ -2174,6 +2186,21 @@ which call succeeded. This matters for obligations created by successful
 calls such as exec.Cmd.Start: a handled failure may rejoin a later return,
 but no ownership obligation exists on that path.
 
+## UnownedReturnAfterCallSuccessWitness
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func UnownedReturnAfterCallSuccessWitness(
+	call *ssa.Call,
+	owns func(ssa.Instruction) bool,
+	allowReturn func(*ssa.Return) bool,
+) *ssa.Return
+```
+
+UnownedReturnAfterCallSuccessWitness is UnownedReturnAfterCallSuccess that
+returns the unowned return itself, for a diagnostic to cite, or nil.
+
 ## UnownedReturnAssumingNonNil
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
@@ -2208,6 +2235,22 @@ func UnownedReturnAssumingNonNilWithEdges(
 
 UnownedReturnAssumingNonNilWithEdges adds edge-local ownership actions while
 preserving the same non-nil assumption and feasible-successor policy.
+
+## UnownedReturnAssumingNonNilWitness
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func UnownedReturnAssumingNonNilWitness(
+	start ssa.Instruction,
+	value ssa.Value,
+	owns func(ssa.Instruction) bool,
+	allowReturn func(*ssa.Return) bool,
+) *ssa.Return
+```
+
+UnownedReturnAssumingNonNilWitness is UnownedReturnAssumingNonNil that
+returns the unowned return itself, for a diagnostic to cite, or nil.
 
 ## UnownedReturnFromEntryAllow
 

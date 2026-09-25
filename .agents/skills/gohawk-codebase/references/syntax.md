@@ -21,6 +21,19 @@ a test variant. Other drivers expose the augmented test variant as their only
 pass, so every file in that pass is canonical. Test files are analyzed only
 when the test-file option is set.
 
+## AssignedName
+
+[Source](../../../../internal/syntax/assigned.go)
+
+```go
+func AssignedName(pass *analysis.Pass, position token.Pos, index int) string
+```
+
+AssignedName returns the variable an assignment or declaration stores the
+result at index of the call at position into, such as f in
+`f, err := os.Open(path)`, or "" when the result is not assigned to a
+named variable. Diagnostics use it to name the value they report on.
+
 ## Builtin
 
 [Source](../../../../internal/syntax/symbols.go)
