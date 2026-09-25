@@ -76,3 +76,39 @@ func assertOpaqueUseAfterReleaseTrace(t *testing.T, data []byte) {
 		t.Error("missing use-after-release opaque-effect decision")
 	}
 }
+
+// assertMissingReleaseEvidence checks that a missing-release diagnostic cites
+// the leaking return, labeled with the resource's variable, and that a
+// function without a return cites its closing brace.
+func assertMissingReleaseEvidence(t *testing.T, results []*analysistest.Result) {
+	t.Helper()
+	want := map[int][2]any{
+		13: {"returns here without releasing `config`", 18},
+		24: {"reaches the end of the function without releasing the resource", 25},
+	}
+	for _, result := range results {
+		if result.Pass == nil {
+			continue
+		}
+		for _, diagnostic := range result.Diagnostics {
+			position := result.Pass.Fset.Position(diagnostic.Pos)
+			expected, ok := want[position.Line]
+			if filepath.Base(position.Filename) != "missing_release_evidence.go" || !ok {
+				continue
+			}
+			delete(want, position.Line)
+			if len(diagnostic.Related) != 1 {
+				t.Errorf("line %d: related = %v, want one piece of evidence", position.Line, diagnostic.Related)
+				continue
+			}
+			related := diagnostic.Related[0]
+			if related.Message != expected[0] || result.Pass.Fset.Position(related.Pos).Line != expected[1] {
+				t.Errorf("line %d: evidence %q at line %d, want %q at line %d", position.Line,
+					related.Message, result.Pass.Fset.Position(related.Pos).Line, expected[0], expected[1])
+			}
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("missing evidence diagnostics at lines %v", want)
+	}
+}

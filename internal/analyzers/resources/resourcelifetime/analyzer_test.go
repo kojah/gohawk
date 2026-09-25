@@ -42,6 +42,7 @@ func TestAnalyzer(t *testing.T) {
 	results := analyzertest.Run(t, analysistest.TestData(), Analyzer(),
 		"resourcelifetime", "resourcelifetime/useafter", "processexit", "processexitlib", "processexitrecursive")
 	assertUseAfterReleaseRelatedLocations(t, results)
+	assertMissingReleaseEvidence(t, results)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

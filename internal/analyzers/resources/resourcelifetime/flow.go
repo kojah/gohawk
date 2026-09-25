@@ -121,7 +121,9 @@ func evaluateResourceFlow(
 		if processExitReclaims(call, contract) {
 			return acceptedResourceLifetime(resourceReasonProcessExitReclaims)
 		}
-		return reportedResourceLifetime(resourceReasonUnownedReturn)
+		result := reportedResourceLifetime(resourceReasonUnownedReturn)
+		result.leak = analysis.leak
+		return result
 	}
 	if opaque {
 		return acceptedResourceLifetime(resourceReasonOpaqueConsumption)
@@ -177,6 +179,7 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 		if ok && state.obligation.Unsettled() &&
 			!analysis.returnedResourceOwner(returned) &&
 			!heapmodel.ReturnedMayAliasAny(returned, analysis.owners) {
+			analysis.leak = returned
 			return state, true
 		}
 	}

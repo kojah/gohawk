@@ -21,6 +21,15 @@ func Reportf(pass *analysis.Pass, id ID, position token.Pos, format string, args
 	})
 }
 
+// Evidence describes one location that supports a diagnostic, such as the
+// return that leaks a resource, spanning the whole source node there. The
+// terminal output draws it as a labeled span and editors list it as related
+// information.
+func Evidence(pass *analysis.Pass, position token.Pos, label string) analysis.RelatedInformation {
+	source := syntax.SourceRange(pass, position)
+	return analysis.RelatedInformation{Pos: source.Pos(), End: source.End(), Message: label}
+}
+
 // Report associates diagnostic with id before reporting it.
 func Report(pass *analysis.Pass, id ID, diagnostic analysis.Diagnostic) {
 	diagnostic.Category = string(id)

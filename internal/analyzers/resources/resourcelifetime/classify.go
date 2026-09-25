@@ -60,6 +60,8 @@ type resourceAnalysis struct {
 	// pool is this acquisition's total across every query its proof asks;
 	// see budget.
 	pool *ssaflow.SearchBudget
+	// leak is the return at which the flow walk found the resource owed.
+	leak *ssa.Return
 }
 
 // resourcePoolBudget bounds a whole acquisition proof. The largest single

@@ -3,6 +3,7 @@ package resourcelifetime
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/flagvalue"
@@ -102,7 +103,13 @@ func runResourceLifetime(pass *analysis.Pass, config resourceLifetimeConfig) (an
 					if contract.retained {
 						message = "resource held by the result of %s.%s is dropped on some return path"
 					}
-					check.Reportf(pass, check.ResourceRelease, call.Pos(), message, syntax.ShortPackageName(contract.packagePath), contract.name)
+					source := syntax.SourceRange(pass, call.Pos())
+					check.Report(pass, check.ResourceRelease, analysis.Diagnostic{
+						Pos:     source.Pos(),
+						End:     source.End(),
+						Message: fmt.Sprintf(message, syntax.ShortPackageName(contract.packagePath), contract.name),
+						Related: missingReleaseEvidence(pass, call, contract.result, result.leak),
+					})
 				}
 			}
 		}
