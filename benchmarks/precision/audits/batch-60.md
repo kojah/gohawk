@@ -65,3 +65,28 @@ analyzer policy does not argue; the process-exit family rests on the open
 process-exit policy decision. Retired and removed checks are absent from
 this batch, so its totals are not directly comparable with batches 56 to 59.
 Original verdicts are not rewritten by later replays.
+
+## Follow-up fixes
+
+A corrected binary built from `da6624a` was replayed on the 58 repositories
+with findings, under the same profile. Exactly the nine false positives below
+disappeared; every true positive remained, and no new finding appeared. The
+original verdicts above are unchanged.
+
+| Fix | Findings |
+| --- | --- |
+| `003656a`: a constructor chain over a resource is handed over where a callee is proven to store it, such as `slog.SetDefault`, or when stored on an object the function did not allocate; the heap graph applies `sync/atomic` stores as stores | VibeGuard ×2, grok-build-switch |
+| `ee11ebd`: two checks of the same field of a call's result relate, until the call runs again | woodpecker ×2 |
+| `28b56ae`: an acquisition no feasible path reaches is skipped; `return nil, err` satisfies the result-nil-when-error relation | get-sauce |
+| `fa1736e`: a started command stored into a package variable or registry map is handed over | router |
+| `43a641b`: an abandoned completion search stays undecided | kilroy |
+| `da6624a`: a callee's locks are read under the constant Boolean arguments a call passes | libovsdb |
+
+The remaining false positives stay open. The returned `slog` and charm
+loggers (opsy, contrabass) are structurally a returned writer wrapper, which
+is reported deliberately, and need a policy decision; depot rests on the open
+process-exit decision; go-quests and 115driver need a loop-count argument the
+analyzer policy does not make; maxigo and caam are single shapes that do not
+yet justify a new proof. The l3afd verdict is disputed: its failure paths kill
+the relaunched child without waiting on it inside a server that keeps
+running, which leaves a zombie, so the finding is likely a true positive.
