@@ -80,11 +80,12 @@ gohawk aims to complement other Go analyzers, not replace them. Each tool
 looks for a different kind of problem, so running several together catches
 more than any one alone.
 
-For example, [Staticcheck](https://staticcheck.dev/) covers a broad set of
-bugs and style issues, [NilAway](https://github.com/uber-go/nilaway) finds
-possible nil panics, and [gosec](https://github.com/securego/gosec) finds
-security problems. gohawk goes deeper on one topic: who owns a
-resource or goroutine, and whether it is cleaned up on every path.
+Deep, flow-based analysis of Go already covers several domains well.
+[NilAway](https://github.com/uber-go/nilaway) covers nil safety,
+[gosec](https://github.com/securego/gosec) covers security and taint
+analysis, and [Staticcheck](https://staticcheck.dev/) covers a broad range of
+general bugs. Resource management and concurrency are among the last big
+gaps, and that is the domain gohawk focuses on.
 
 gohawk also runs inside [golangci-lint](https://golangci-lint.run/), next to
 the linters you already use.
