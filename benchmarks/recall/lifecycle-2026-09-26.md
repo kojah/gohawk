@@ -173,6 +173,12 @@ Why each in-class miss was silent:
   and one returns on a timeout before its signal
   ([m2node](https://github.com/clavin-dev/m2node/commit/edbd6d6ef0deac3099a9ce03d6ace69b18c0db35)).
 
+The goroutine-leak commits were also replayed with every `producerlifecycle`
+check (`abandoned-send`, `unclosed-range`, `stopped-loop-send`), which target
+producers blocked on a send. It was silent on all 35 real leaks: its count
+proof compares sends with receive sites, so a receiver that returns early on
+one path, as the timeout `select` does, is within the count.
+
 Prevalence: most real goroutine leaks fixed in this sample are not the
 unjoined-return shape. Of 35 real goroutine leaks, 29 are goroutines blocked
 forever on a channel or a long-lived owner's lifetime, which
