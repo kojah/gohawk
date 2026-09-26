@@ -1,6 +1,8 @@
 package resourcelifetime
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"os"
 
@@ -202,5 +204,86 @@ func misleadingFlagName(path string) error {
 		return err
 	}
 	resourcedep.TouchUnlessQuiet(file, true)
+	return nil
+}
+
+// Nil arguments select cases too. A nil literal is nil; an allocation is
+// not; and an interface holding a typed nil pointer is not a nil interface.
+
+type fileOptions struct{ keep bool }
+
+func closeWithoutOptions(file *os.File, options *fileOptions) {
+	if options == nil {
+		file.Close()
+	}
+}
+
+func nilOptionsClose(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	closeWithoutOptions(file, nil)
+	return nil
+}
+
+func allocatedOptionsKeep(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	closeWithoutOptions(file, &fileOptions{keep: true})
+	return nil
+}
+
+func variableOptionsKeep(path string, options *fileOptions) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	closeWithoutOptions(file, options)
+	return nil
+}
+
+func nilOptionsCloseImported(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	resourcedep.CloseWithoutOptions(file, nil)
+	return nil
+}
+
+func allocatedOptionsKeepImported(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	resourcedep.CloseWithoutOptions(file, &resourcedep.Options{})
+	return nil
+}
+
+func closeWithoutWriter(file *os.File, writer io.Writer) {
+	if writer == nil {
+		file.Close()
+	}
+}
+
+func nilWriterCloses(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	closeWithoutWriter(file, nil)
+	return nil
+}
+
+func typedNilWriterKeeps(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released on every return path"
+	if err != nil {
+		return err
+	}
+	var buffer *bytes.Buffer
+	closeWithoutWriter(file, buffer)
 	return nil
 }

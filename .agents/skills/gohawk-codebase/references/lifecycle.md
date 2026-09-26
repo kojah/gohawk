@@ -161,7 +161,7 @@ type CompletionRequest struct {
 	// Constants, when set, fixes Boolean parameters of the body containing
 	// Instruction, as when that body is itself proved under one of its own
 	// cases; a helper then sees the constants its call forwards.
-	Constants	ssaflow.BooleanConstants
+	Constants	ssaflow.FixedValues
 	// contains filtered or unexported fields
 }
 ```

@@ -208,7 +208,7 @@ func UnownedReturnFromEntryAssumingNonNil(function *ssa.Function, value ssa.Valu
 type EntryAssumptions struct {
 	NonNil     ssa.Value
 	NonNilType types.Type
-	Constants  BooleanConstants
+	Constants  FixedValues
 }
 
 // UnownedReturnFromEntryAssuming reports whether some normal return that is
@@ -226,7 +226,7 @@ func UnownedReturnFromEntryAssuming(function *ssa.Function, assumptions EntryAss
 // InstructionDominatesAssuming reports whether every path to after that the
 // bound constants allow executes before first. With no constants it agrees
 // with InstructionDominates on reachable code.
-func InstructionDominatesAssuming(before, after ssa.Instruction, constants BooleanConstants) bool {
+func InstructionDominatesAssuming(before, after ssa.Instruction, constants FixedValues) bool {
 	if before == nil || after == nil || before.Parent() != after.Parent() || len(before.Parent().Blocks) == 0 {
 		return false
 	}
@@ -256,7 +256,7 @@ func InstructionDominatesAssuming(before, after ssa.Instruction, constants Boole
 
 // ReachableBlocksAssuming returns the blocks some path from entry reaches
 // when the bound constants hold, in discovery order.
-func ReachableBlocksAssuming(function *ssa.Function, constants BooleanConstants) []*ssa.BasicBlock {
+func ReachableBlocksAssuming(function *ssa.Function, constants FixedValues) []*ssa.BasicBlock {
 	if function == nil || len(function.Blocks) == 0 {
 		return nil
 	}

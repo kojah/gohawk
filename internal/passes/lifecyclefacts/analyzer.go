@@ -240,7 +240,7 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 			fact.May.LoopReleased |= bit
 		}
 	}
-	fact.Discharges = append(fact.Discharges, summarizeConditional(pass, function)...)
+	fact.Discharges = append(fact.Discharges, withoutUnconditional(summarizeConditional(pass, function), fact.Discharges)...)
 	fact.ReleasedUses = releasedUses(newReleasedUseSearch(func(instruction ssa.Instruction) (Fact, bool) {
 		return importFact(pass, instruction)
 	}).releasedUseProofs(function))

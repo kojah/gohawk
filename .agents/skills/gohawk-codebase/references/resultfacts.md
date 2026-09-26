@@ -130,7 +130,7 @@ const (
 type ResultCase struct {
 	Condition	ssaflow.CallCondition
 	Result		int
-	Outcome		ssaflow.ResultOutcome
+	Outcome		ssaflow.Outcome
 }
 ```
 
@@ -183,7 +183,7 @@ Cases returns every proven result case.
 [Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
-func (summary Summary) Implies(query ssaflow.CallCondition, result int, outcome ssaflow.ResultOutcome) bool
+func (summary Summary) Implies(query ssaflow.CallCondition, result int, outcome ssaflow.Outcome) bool
 ```
 
 Implies reports whether some proven case answers query: result has

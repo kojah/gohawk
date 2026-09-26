@@ -44,7 +44,7 @@ type CompletionRequest struct {
 	// Constants, when set, fixes Boolean parameters of the body containing
 	// Instruction, as when that body is itself proved under one of its own
 	// cases; a helper then sees the constants its call forwards.
-	Constants ssaflow.BooleanConstants
+	Constants ssaflow.FixedValues
 	// condition is set only by the edge query after resolving an exact call
 	// result. It never changes an ordinary completion request's contract.
 	condition ssaflow.CallCondition

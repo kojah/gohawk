@@ -96,6 +96,23 @@ func provenCasePath(function *ssa.Function, condition ssaflow.CallCondition, req
 	return "", false
 }
 
+// withoutUnconditional drops the cases an unconditional discharge already
+// states: a case whose claim holds on every return anyway adds nothing a
+// caller could select.
+func withoutUnconditional(cases, unconditional []Discharge) []Discharge {
+	var kept []Discharge
+	for _, candidate := range cases {
+		stated := slices.ContainsFunc(unconditional, func(discharge Discharge) bool {
+			return discharge.Condition.Unconditional() && discharge.Parameter == candidate.Parameter &&
+				discharge.Method == candidate.Method && discharge.Path == candidate.Path
+		})
+		if !stated {
+			kept = append(kept, candidate)
+		}
+	}
+	return kept
+}
+
 // impliedByProven reports whether a proven case with the same result
 // condition and fewer assumed arguments already covers condition, so the
 // narrower case would add nothing a caller could use.
@@ -115,41 +132,52 @@ func impliedByProven(condition ssaflow.CallCondition, proven []ssaflow.CallCondi
 func caseConditions(function *ssa.Function) []ssaflow.CallCondition {
 	results := resultConditions(function.Signature)
 	conditions := slices.Clone(results)
-	guarding := guardingParameters(function)
-	for _, assignment := range argumentAssignments(guarding) {
-		conditions = append(conditions, ssaflow.CallCondition{Arguments: assignment})
+	for _, assignment := range argumentAssignments(guardingParameters(function)) {
+		conditions = append(conditions, assignment)
 		for _, result := range results {
-			result.Arguments = assignment
+			result.Arguments, result.Nilness = assignment.Arguments, assignment.Nilness
 			conditions = append(conditions, result)
 		}
 	}
 	return conditions
 }
 
-// guardingParameters returns the positions of up to maxCaseParameters
-// Boolean parameters that can decide a branch: the parameter is a branch
-// condition, possibly negated, or it flows into a closure or a call whose
-// body may branch on it. A Boolean used only as data decides nothing.
-func guardingParameters(function *ssa.Function) []int {
-	var guarding []int
+// guard is a parameter that can decide a branch: a Boolean, or a nilable
+// value compared with nil.
+type guard struct {
+	index   int
+	nilable bool
+}
+
+// guardingParameters returns up to maxCaseParameters parameters that can
+// decide a branch: a Boolean that is a branch condition, possibly negated,
+// or that flows into a closure or a call whose body may test it; or a
+// nilable value the body compares with nil, directly or in a closure that
+// captures it. A nilable value merely passed on is not a guard: most pointer
+// parameters are, and counting them would crowd out the flags that decide.
+func guardingParameters(function *ssa.Function) []guard {
+	var guarding []guard
 	for index, parameter := range function.Params {
 		if index >= 64 || len(guarding) == maxCaseParameters {
 			break
 		}
-		if basic, ok := parameter.Type().Underlying().(*types.Basic); !ok || basic.Kind() != types.Bool {
+		if basic, ok := parameter.Type().Underlying().(*types.Basic); ok && basic.Kind() == types.Bool {
+			if slices.ContainsFunc(*parameter.Referrers(), booleanDecides) {
+				guarding = append(guarding, guard{index: index})
+			}
 			continue
 		}
-		if slices.ContainsFunc(*parameter.Referrers(), decidesBranch) {
-			guarding = append(guarding, index)
+		if ssaflow.Nilable(parameter.Type()) && slices.ContainsFunc(*parameter.Referrers(), ssaflow.ComparesWithNil) {
+			guarding = append(guarding, guard{index: index, nilable: true})
 		}
 	}
 	return guarding
 }
 
-// decidesBranch reports whether a use of a Boolean parameter can reach a
+// booleanDecides reports whether a use of a Boolean parameter can reach a
 // branch: a branch or negation, an argument to a call, or a store into the
 // cell a closure captures it by.
-func decidesBranch(user ssa.Instruction) bool {
+func booleanDecides(user ssa.Instruction) bool {
 	switch typed := user.(type) {
 	case *ssa.If, *ssa.MakeClosure, *ssa.Call, *ssa.Defer, *ssa.Go:
 		return true
@@ -162,22 +190,42 @@ func decidesBranch(user ssa.Instruction) bool {
 	return false
 }
 
-// argumentAssignments lists every assignment of true and false to one of the
-// positions, then to both, most general first.
-func argumentAssignments(positions []int) []ssaflow.ArgumentConstants {
-	var assignments []ssaflow.ArgumentConstants
-	for _, position := range positions {
-		bit := uint64(1) << position
-		assignments = append(assignments,
-			ssaflow.ArgumentConstants{Bound: bit, Values: bit}, ssaflow.ArgumentConstants{Bound: bit})
+// argumentAssignments lists every assignment of the two outcomes to one of
+// the guards, then to both, most general first: true and false for a
+// Boolean, nil and non-nil for a nilable value.
+func argumentAssignments(guards []guard) []ssaflow.CallCondition {
+	var assignments []ssaflow.CallCondition
+	for _, one := range guards {
+		assignments = append(assignments, one.assign(true), one.assign(false))
 	}
-	if len(positions) == 2 {
-		first, second := uint64(1)<<positions[0], uint64(1)<<positions[1]
-		for _, values := range []uint64{first | second, first, second, 0} {
-			assignments = append(assignments, ssaflow.ArgumentConstants{Bound: first | second, Values: values})
+	if len(guards) == 2 {
+		for _, first := range []bool{true, false} {
+			for _, second := range []bool{true, false} {
+				assignment := guards[0].assign(first)
+				other := guards[1].assign(second)
+				assignment.Arguments.Bound |= other.Arguments.Bound
+				assignment.Arguments.Values |= other.Arguments.Values
+				assignment.Nilness.Bound |= other.Nilness.Bound
+				assignment.Nilness.Values |= other.Nilness.Values
+				assignments = append(assignments, assignment)
+			}
 		}
 	}
 	return assignments
+}
+
+// assign is the condition fixing the guard to one of its two outcomes: true,
+// or nil for a nilable guard, when set.
+func (one guard) assign(set bool) ssaflow.CallCondition {
+	bit := uint64(1) << one.index
+	values := uint64(0)
+	if set {
+		values = bit
+	}
+	if one.nilable {
+		return ssaflow.CallCondition{Nilness: ssaflow.ArgumentConstants{Bound: bit, Values: values}}
+	}
+	return ssaflow.CallCondition{Arguments: ssaflow.ArgumentConstants{Bound: bit, Values: values}}
 }
 
 func resultConditions(signature *types.Signature) []ssaflow.CallCondition {
@@ -186,11 +234,11 @@ func resultConditions(signature *types.Signature) []ssaflow.CallCondition {
 	// opaque rather than adding unbounded combinations to dependency analysis.
 	for index := range min(signature.Results().Len(), 4) {
 		result := signature.Results().At(index).Type()
-		var outcomes []ssaflow.ResultOutcome
+		var outcomes []ssaflow.Outcome
 		if basic, ok := result.Underlying().(*types.Basic); ok && basic.Kind() == types.Bool {
-			outcomes = []ssaflow.ResultOutcome{ssaflow.OutcomeTrue, ssaflow.OutcomeFalse}
+			outcomes = []ssaflow.Outcome{ssaflow.OutcomeTrue, ssaflow.OutcomeFalse}
 		} else if syntax.IsErrorType(result) {
-			outcomes = []ssaflow.ResultOutcome{ssaflow.OutcomeNil, ssaflow.OutcomeNonNil}
+			outcomes = []ssaflow.Outcome{ssaflow.OutcomeNil, ssaflow.OutcomeNonNil}
 		}
 		for _, outcome := range outcomes {
 			conditions = append(conditions, ssaflow.CallCondition{Result: index, Outcome: outcome})
@@ -225,7 +273,7 @@ func conditionalLookup(
 			return heapmodel.NewStorage(budget).Same(argument, target).Proven()
 		})
 		if !proven && !invoke && condition.Outcome == ssaflow.OutcomeAny {
-			proven = dischargesMatch(fact.casesSelectedBy(method, condition.Arguments), instruction, target, method, nil)
+			proven = dischargesMatch(fact.casesSelectedBy(method, condition), instruction, target, method, nil)
 		}
 		if proven && onFact != nil {
 			onFact()
@@ -256,13 +304,13 @@ func conditionalMask(fact Fact, method string, invoke bool, query ssaflow.CallCo
 }
 
 // casesSelectedBy returns the cases of method with no result condition whose
-// assumed arguments the supplied constants satisfy, so they are matched to
+// assumed arguments the supplied condition satisfies, so they are matched to
 // the caller's values exactly as the unconditional discharges are.
-func (fact *Fact) casesSelectedBy(method string, supplied ssaflow.ArgumentConstants) []Discharge {
-	if method == "" || supplied.Bound == 0 {
+func (fact *Fact) casesSelectedBy(method string, supplied ssaflow.CallCondition) []Discharge {
+	if method == "" || supplied.Arguments.Bound == 0 && supplied.Nilness.Bound == 0 {
 		return nil
 	}
-	query := ssaflow.CallCondition{Arguments: supplied}
+	query := ssaflow.CallCondition{Arguments: supplied.Arguments, Nilness: supplied.Nilness}
 	var selected []Discharge
 	for _, discharge := range fact.caseDischarges() {
 		if discharge.Method == method && discharge.Condition.Matches(query) {
@@ -272,11 +320,11 @@ func (fact *Fact) casesSelectedBy(method string, supplied ssaflow.ArgumentConsta
 	return selected
 }
 
-// suppliedConstants reports the Boolean constants a call passes, with known
-// fixing the caller's own parameters when the call sits in a body searched
-// under constants.
-func suppliedConstants(instruction ssa.Instruction, known ssaflow.BooleanConstants) ssaflow.ArgumentConstants {
-	return ssaflow.SuppliedConstants(ssaflow.InstructionCall(instruction), known)
+// suppliedCondition reports what a call's arguments fix, with known fixing
+// the caller's own parameters when the call sits in a body searched under
+// fixed values.
+func suppliedCondition(instruction ssa.Instruction, known ssaflow.FixedValues) ssaflow.CallCondition {
+	return ssaflow.SuppliedCondition(ssaflow.InstructionCall(instruction), known)
 }
 
 // CompletionOnEdge combines local and imported result-conditioned guarantees.

@@ -67,7 +67,7 @@ func (search *calleeLockSearch) locks(function *ssa.Function) calleeLocks {
 // https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L933-L941
 func (search *calleeLockSearch) locksAt(call *ssa.Call) calleeLocks {
 	callee := call.Common().StaticCallee()
-	constants := ssaflow.ConstantBooleanArguments(call.Common(), nil, callee, nil)
+	constants := ssaflow.FixedArguments(call.Common(), nil, callee, nil)
 	if len(constants) == 0 {
 		return search.locks(callee)
 	}
@@ -89,7 +89,7 @@ type constantContext struct {
 }
 
 func (search *calleeLockSearch) locksUnder(
-	function *ssa.Function, constants ssaflow.BooleanConstants, context *constantContext,
+	function *ssa.Function, constants ssaflow.FixedValues, context *constantContext,
 ) (calleeLocks, bool) {
 	key := fmt.Sprintf("%p;%s", function, constants.Key(function))
 	if context.visiting[key] {
@@ -107,10 +107,10 @@ func (search *calleeLockSearch) locksUnder(
 			if !context.budget.Spend() {
 				return calleeLocks{}, false
 			}
-			var nested ssaflow.BooleanConstants
+			var nested ssaflow.FixedValues
 			call, ok := instruction.(*ssa.Call)
 			if ok {
-				nested = ssaflow.ConstantBooleanArguments(call.Common(), nil, call.Common().StaticCallee(), constants)
+				nested = ssaflow.FixedArguments(call.Common(), nil, call.Common().StaticCallee(), constants)
 			}
 			if len(nested) == 0 {
 				result.observe(search, instruction, context.budget)

@@ -33,7 +33,10 @@ defect is reported at the call that finally fixes the flag; a callee's latent
 use that the call's literals trigger alone is that call's defect and is not
 composed.
 
-Still excluded: conditions on anything but Boolean parameters. A nil
-condition needs a walk that assumes a parameter is nil; an integer, string,
-or enum condition needs equality in the shared vocabulary and multiplies the
-cases a function exports, which waits for a real-world pattern to justify it.
+A released use may also be conditioned on a nilable parameter being nil or
+non-nil, as `if options == nil { f.Close() }` before a read is, and a call
+passing nil triggers it.
+
+Still excluded: integer, string, or enum conditions. They need equality in
+the shared vocabulary and multiply the cases a function exports, which waits
+for a real-world pattern to justify it.

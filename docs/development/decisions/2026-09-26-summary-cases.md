@@ -56,6 +56,11 @@ would load opaque branch identities into the shared claim condition. The heap
 projection's must-hold flag is judged on every return with a non-nil result
 for every hold alike, so it is not a condition a caller selects.
 
-Still excluded: predicates on non-Boolean arguments, relations between
-arguments, and negative cases, which a use-after-release or latent-bug report
-would need. Those are the next two phases and get their own decision.
+Argument conditions also fix a nilable parameter to nil or non-nil: a nil
+literal, or a value never nil by construction, decides the callee's nil
+comparisons of that parameter. Nilness is bound only for a parameter the
+callee compares with nil or captures, so the bindings, and the memo keys that
+name them, stay few.
+
+Still excluded: comparisons with integer, string, or other constants, and
+relations between arguments.

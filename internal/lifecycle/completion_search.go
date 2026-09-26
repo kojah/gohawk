@@ -305,7 +305,7 @@ type completionSearch struct {
 	// constants fixes Boolean parameters and captures of the body being
 	// searched, bound from the constant arguments of the call that reached it.
 	// Like bindings, they are scoped to one invocation.
-	constants ssaflow.BooleanConstants
+	constants ssaflow.FixedValues
 }
 
 // forCallback returns a nested search for a callback value that shares the
@@ -348,7 +348,7 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	// a helper that closes only behind a flag completes the target at a call
 	// fixing the flag to the closing arm, and at no call fixing it otherwise.
 	outer := search.constants
-	search.constants = ssaflow.ConstantBooleanArguments(callee.common, callee.closure, callee.function, outer)
+	search.constants = ssaflow.FixedArguments(callee.common, callee.closure, callee.function, outer)
 	defer func() { search.constants = outer }()
 	var nonNil ssa.Value
 	var concrete types.Type

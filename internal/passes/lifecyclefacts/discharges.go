@@ -114,9 +114,9 @@ func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Val
 // that the call's constant arguments select, with known fixing the caller's
 // own parameters when the call sits in a body searched under constants.
 func (fact *Fact) caseDischargesArgument(
-	instruction ssa.Instruction, target ssa.Value, method string, known ssaflow.BooleanConstants, observer ssaflow.Observer,
+	instruction ssa.Instruction, target ssa.Value, method string, known ssaflow.FixedValues, observer ssaflow.Observer,
 ) bool {
-	return dischargesMatch(fact.casesSelectedBy(method, suppliedConstants(instruction, known)), instruction, target, method, observer)
+	return dischargesMatch(fact.casesSelectedBy(method, suppliedCondition(instruction, known)), instruction, target, method, observer)
 }
 
 func dischargesMatch(discharges []Discharge, instruction ssa.Instruction, target ssa.Value, method string, observer ssaflow.Observer) bool {

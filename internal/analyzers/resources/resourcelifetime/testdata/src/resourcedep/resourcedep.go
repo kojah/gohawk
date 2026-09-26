@@ -410,3 +410,22 @@ func ReadAfterMaybeClose(file *os.File, closeFirst bool) {
 func ForwardReadAfterMaybeClose(file *os.File, closeFirst bool) {
 	ReadAfterMaybeClose(file, closeFirst)
 }
+
+// Options configures the helpers below; a nil *Options means defaults.
+type Options struct{ Keep bool }
+
+// CloseWithoutOptions closes the file when no options are given.
+func CloseWithoutOptions(file *os.File, options *Options) {
+	if options == nil {
+		_ = file.Close()
+	}
+}
+
+// ReadAfterCloseWithoutOptions closes the file first when no options are
+// given, then reads it either way.
+func ReadAfterCloseWithoutOptions(file *os.File, options *Options) {
+	if options == nil {
+		_ = file.Close()
+	}
+	_, _ = file.Read(make([]byte, 1))
+}

@@ -684,24 +684,31 @@ relation across packages yet. A true result, a different receiver, and
 
 #### Argument conditions
 
-A call that passes a Boolean literal, or a caller parameter the caller's own
-call already fixed, decides every branch in the callee that tests that
-parameter directly or negated. `ssaflow.ConstantBooleanArguments` binds the
-callee's parameters at each call the completion search enters, and the
-obligation walk's `Constants` narrows a decided branch to its arm, so a
-helper that closes only under `!keep` completes the target at `finish(f,
-false)` and at no call passing `true`. The binding reaches a flag a deferred
-closure captures: Go captures by reference, so the closure's free variable is
-a cell, bound only when `ssaflow.WrittenOnceCell` proves it is written once
-before capture and only read after. A comparison of the flag, a phi, or any
-derived value decides nothing. The memo keys every body by the constants
-fixing its parameters, because the same call can complete under one binding
-and not another.
+A call that passes a Boolean literal, nil, a value that is never nil (an
+allocation, a made map, slice, channel, or closure, a function, or an
+interface box, which is non-nil even around a nil pointer), or a caller
+value the caller's own call already fixed, decides every branch in the
+callee that tests that parameter: a Boolean directly or negated, a nilable
+value compared with nil. `ssaflow.FixedArguments` binds the callee's
+parameters at each call the completion search enters, as `ssaflow.FixedValues`,
+and the obligation walk's `Constants` narrows a decided branch to its arm, so
+a helper that closes only under `!keep` completes the target at `finish(f,
+false)`, and one that closes only when `options == nil` completes it at
+`close(f, nil)`. Nilness is bound only for a parameter the callee compares
+with nil or captures, so an untested pointer argument adds no binding. The
+binding reaches a value a deferred closure captures: Go captures by reference,
+so the closure's free variable is a cell, bound only when
+`ssaflow.WrittenOnceCell` proves it is written once before capture and only
+read after. Any other comparison, a phi, or a derived value decides nothing.
+The memo keys every body by the values fixing its parameters, because the
+same call can complete under one binding and not another. The result facts'
+parameter-nil cases are proved by the same binding.
 
 For callers in other packages, export proves each case with its parameters
-bound. Only guarding parameters are considered, Boolean parameters that reach
-a branch, a call, or a captured cell, and at most two of them, so a function
-has at most eight assignments. A case implied by a proven case with fewer
+bound. Only guarding parameters are considered: Boolean parameters that reach
+a branch, a call, or a captured cell, and nilable parameters the body compares
+with nil, directly or in a closure; at most two of them, so a function has at
+most eight assignments. A case implied by a proven case with fewer
 assumptions is not repeated, and a case with no result condition answers any
 result condition. An importing call selects every case whose assumed
 constants it supplies, including constants its own enclosing search fixed,
@@ -716,9 +723,9 @@ exhaustion; an interrupted proof never becomes a guarantee.
 `LifecycleEvidence.CompletionOnEdge` binds local and imported evidence to the
 caller's tested branch with exact identity.
 
-This is not a general conditional effect language: predicates on non-Boolean
-arguments, relations between arguments, and independently returned worker
-handles remain outside it.
+This is not a general conditional effect language: comparisons with integer,
+string, or other constants, relations between arguments, and independently
+returned worker handles remain outside it.
 
 ### Released uses
 

@@ -47,7 +47,7 @@ func completionEdgeCondition(from, to *ssa.BasicBlock) (*ssa.Call, ssaflow.CallC
 	return call, ssaflow.CallCondition{Result: index, Outcome: outcome}, true
 }
 
-func completionTest(value ssa.Value, truth bool) (ssa.Value, ssaflow.ResultOutcome) {
+func completionTest(value ssa.Value, truth bool) (ssa.Value, ssaflow.Outcome) {
 	if not, ok := value.(*ssa.UnOp); ok && not.Op == token.NOT {
 		return completionTest(not.X, !truth)
 	}
@@ -60,7 +60,7 @@ func completionTest(value ssa.Value, truth bool) (ssa.Value, ssaflow.ResultOutco
 	return value, ssaflow.OutcomeFalse
 }
 
-func completionComparison(comparison *ssa.BinOp, truth bool) (ssa.Value, ssaflow.ResultOutcome) {
+func completionComparison(comparison *ssa.BinOp, truth bool) (ssa.Value, ssaflow.Outcome) {
 	if comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return nil, ssaflow.OutcomeAny
 	}

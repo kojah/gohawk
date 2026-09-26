@@ -137,3 +137,37 @@ func callsManifestHelper(path string) {
 	}
 	closeThenRead(file)
 }
+
+type readOptions struct{ keep bool }
+
+func readAfterCloseWithoutOptions(file *os.File, options *readOptions) {
+	if options == nil {
+		_ = file.Close()
+	}
+	_, _ = file.Read(make([]byte, 1))
+}
+
+func nilOptionsTriggerLatentUse(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	readAfterCloseWithoutOptions(file, nil) // want "readAfterCloseWithoutOptions calls Read after Close on this argument"
+}
+
+func allocatedOptionsDoNotTrigger(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	readAfterCloseWithoutOptions(file, &readOptions{})
+	_ = file.Close()
+}
+
+func nilOptionsTriggerImportedLatentUse(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	resourcedep.ReadAfterCloseWithoutOptions(file, nil) // want "ReadAfterCloseWithoutOptions calls Read after Close on this argument"
+}

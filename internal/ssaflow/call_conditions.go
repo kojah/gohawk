@@ -14,24 +14,25 @@ import (
 // arguments known to be nil or non-nil, or any combination. It is the
 // serializable, positional condition of a summary case, so a claim proven in
 // one package is selected at a call in another;
-// BooleanConstants is the same argument condition bound to one body's SSA
+// FixedValues is the same argument condition bound to one body's SSA
 // values for a proof. Every summary that holds under a condition names it
 // with this type, so there is one vocabulary to prove, export, and match.
 
-// ResultOutcome names a value a call's result can be tested for. OutcomeAny
+// Outcome names a value a call's result can be tested for. OutcomeAny
 // places no condition on any result.
-type ResultOutcome uint8
+type Outcome uint8
 
 const (
-	OutcomeAny ResultOutcome = iota
+	OutcomeAny Outcome = iota
 	OutcomeTrue
 	OutcomeFalse
 	OutcomeNil
 	OutcomeNonNil
 )
 
-// ArgumentConstants names Boolean parameters by position, receiver first,
-// and the constant each holds. In a summarized case it is what the case
+// ArgumentConstants names parameters by position, receiver first, and one
+// bit of what each holds: its Boolean value in a condition's Arguments, or
+// whether it is nil in its Nilness. In a summarized case it is what the case
 // assumes; in a query it is what the call supplies. Positions past 63 are
 // never bound.
 type ArgumentConstants struct {
@@ -45,10 +46,12 @@ func (supplied ArgumentConstants) Satisfies(assumed ArgumentConstants) bool {
 	return assumed.Bound&^supplied.Bound == 0 && (assumed.Values^supplied.Values)&assumed.Bound == 0
 }
 
-// SuppliedConstants reports the Boolean constants a call passes: literals,
-// and caller values that known already fixes.
-func SuppliedConstants(common *ssa.CallCommon, known BooleanConstants) ArgumentConstants {
-	var supplied ArgumentConstants
+// SuppliedCondition reports what a call's arguments fix, as a condition a
+// summarized case can be matched against: the Boolean constants it passes,
+// and the arguments it passes as nil or as values that are never nil,
+// including caller values that known already fixes.
+func SuppliedCondition(common *ssa.CallCommon, known FixedValues) CallCondition {
+	var supplied CallCondition
 	if common == nil || common.IsInvoke() {
 		return supplied
 	}
@@ -56,33 +59,60 @@ func SuppliedConstants(common *ssa.CallCommon, known BooleanConstants) ArgumentC
 		if index >= 64 {
 			break
 		}
-		if value, ok := constantBoolean(argument, known); ok {
-			supplied.Bound |= 1 << index
-			if value {
-				supplied.Values |= 1 << index
+		outcome, ok := fixedOutcome(argument, known)
+		if !ok {
+			continue
+		}
+		switch outcome {
+		case OutcomeTrue, OutcomeFalse:
+			supplied.Arguments.Bound |= 1 << index
+			if outcome == OutcomeTrue {
+				supplied.Arguments.Values |= 1 << index
 			}
+		case OutcomeNil, OutcomeNonNil:
+			supplied.Nilness.Bound |= 1 << index
+			if outcome == OutcomeNil {
+				supplied.Nilness.Values |= 1 << index
+			}
+		case OutcomeAny:
 		}
 	}
 	return supplied
 }
 
-// Bindings maps the assumed constants onto function's Boolean parameters. It
-// reports false when a bound position is not a Boolean parameter.
-func (assumed ArgumentConstants) Bindings(function *ssa.Function) (BooleanConstants, bool) {
-	if assumed.Bound == 0 {
+// Bindings maps the condition's argument assumptions onto function's
+// parameters: the Boolean constants onto Boolean parameters, the nilness onto
+// nilable ones. It reports false when a position does not fit its kind.
+func (condition CallCondition) Bindings(function *ssa.Function) (FixedValues, bool) {
+	if condition.Arguments.Bound == 0 && condition.Nilness.Bound == 0 {
 		return nil, true
 	}
-	constants := BooleanConstants{}
+	fixed := FixedValues{}
 	for index, parameter := range function.Params {
-		if index >= 64 || assumed.Bound&(1<<index) == 0 {
-			continue
+		if index >= 64 {
+			break
 		}
-		if basic, ok := parameter.Type().Underlying().(*types.Basic); !ok || basic.Kind() != types.Bool {
-			return nil, false
+		bit := uint64(1) << index
+		if condition.Arguments.Bound&bit != 0 {
+			if basic, ok := parameter.Type().Underlying().(*types.Basic); !ok || basic.Kind() != types.Bool {
+				return nil, false
+			}
+			fixed[parameter] = OutcomeFalse
+			if condition.Arguments.Values&bit != 0 {
+				fixed[parameter] = OutcomeTrue
+			}
 		}
-		constants[parameter] = assumed.Values&(1<<index) != 0
+		if condition.Nilness.Bound&bit != 0 {
+			if !Nilable(parameter.Type()) || condition.Arguments.Bound&bit != 0 {
+				return nil, false
+			}
+			fixed[parameter] = OutcomeNonNil
+			if condition.Nilness.Values&bit != 0 {
+				fixed[parameter] = OutcomeNil
+			}
+		}
 	}
-	return constants, len(constants) == bits.OnesCount64(assumed.Bound)
+	return fixed, len(fixed) == bits.OnesCount64(condition.Arguments.Bound|condition.Nilness.Bound)
 }
 
 // CallCondition is one summary case's condition: result Result has Outcome,
@@ -91,7 +121,7 @@ func (assumed ArgumentConstants) Bindings(function *ssa.Function) (BooleanConsta
 // where it is clear. The zero value is unconditional.
 type CallCondition struct {
 	Result    int
-	Outcome   ResultOutcome
+	Outcome   Outcome
 	Arguments ArgumentConstants
 	Nilness   ArgumentConstants
 }
@@ -146,7 +176,7 @@ func (condition CallCondition) ValidFor(signature *types.Signature) bool {
 // OutcomeOf decides whether value, returned in a result slot, has outcome.
 // Only constants and interface boxes decide it: even a boxed nil pointer has
 // a dynamic type and is not a nil interface.
-func OutcomeOf(outcome ResultOutcome, value ssa.Value) (holds, known bool) {
+func OutcomeOf(outcome Outcome, value ssa.Value) (holds, known bool) {
 	if _, boxed := value.(*ssa.MakeInterface); boxed && (outcome == OutcomeNil || outcome == OutcomeNonNil) {
 		return outcome == OutcomeNonNil, true
 	}

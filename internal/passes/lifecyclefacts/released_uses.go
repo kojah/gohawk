@@ -2,6 +2,7 @@ package lifecyclefacts
 
 import (
 	"fmt"
+	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
@@ -62,8 +63,11 @@ type ReleasedUseProof struct {
 // for helpers that forward to each other.
 type releasedUseSearch struct {
 	facts func(ssa.Instruction) (Fact, bool)
-	memo  *ssaflow.CallGraphMemo[*ssa.Function, []ReleasedUse]
-	heaps map[*ssa.Function]*heapmodel.HeapSummary
+	// budget bounds the helper proofs of the body being proved; a body that
+	// exhausts it claims only what it proved before.
+	budget *ssaflow.SearchBudget
+	memo   *ssaflow.CallGraphMemo[*ssa.Function, []ReleasedUse]
+	heaps  map[*ssa.Function]*heapmodel.HeapSummary
 }
 
 func newReleasedUseSearch(facts func(ssa.Instruction) (Fact, bool)) *releasedUseSearch {
@@ -78,23 +82,29 @@ func newReleasedUseSearch(facts func(ssa.Instruction) (Fact, bool)) *releasedUse
 // condition first; a use implied by a proven one under fewer assumptions is
 // not repeated.
 func (search *releasedUseSearch) releasedUseProofs(function *ssa.Function) []ReleasedUseProof {
-	if function == nil || len(function.Blocks) == 0 {
+	// Only a parameter whose type has a cleanup method can be released, so a
+	// body without one has nothing to prove and costs nothing.
+	if function == nil || len(function.Blocks) == 0 || !slices.ContainsFunc(function.Params, releasable) {
 		return nil
 	}
-	assignments := append([]ssaflow.ArgumentConstants{{}}, argumentAssignments(guardingParameters(function))...)
+	outer := search.budget
+	search.budget = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	defer func() { search.budget = outer }()
+	assignments := append([]ssaflow.CallCondition{{}}, argumentAssignments(guardingParameters(function))...)
 	var proofs []ReleasedUseProof
-	for _, assignment := range assignments {
-		constants, ok := assignment.Bindings(function)
+	for _, condition := range assignments {
+		constants, ok := condition.Bindings(function)
 		if !ok {
 			continue
 		}
-		condition := ssaflow.CallCondition{Arguments: assignment}
 		blocks := ssaflow.ReachableBlocksAssuming(function, constants)
 		for index, parameter := range function.Params {
 			if index >= 64 || len(proofs) >= maxReleasedUses {
 				break
 			}
-			proofs = search.parameterReleasedUses(proofs, parameter, index, condition, blocks, constants)
+			if releasable(parameter) {
+				proofs = search.parameterReleasedUses(proofs, parameter, index, condition, blocks, constants)
+			}
 		}
 		if !condition.Unconditional() {
 			proofs = search.forwardedReleasedUses(proofs, function, condition, blocks, constants)
@@ -107,7 +117,7 @@ func (search *releasedUseSearch) releasedUseProofs(function *ssa.Function) []Rel
 // condition to proofs, up to the export bound.
 func (search *releasedUseSearch) parameterReleasedUses(
 	proofs []ReleasedUseProof, parameter *ssa.Parameter, index int, condition ssaflow.CallCondition,
-	blocks []*ssa.BasicBlock, constants ssaflow.BooleanConstants,
+	blocks []*ssa.BasicBlock, constants ssaflow.FixedValues,
 ) []ReleasedUseProof {
 	releases, uses := search.parameterCalls(blocks, parameter, constants)
 	for _, use := range uses {
@@ -130,6 +140,19 @@ func (search *releasedUseSearch) parameterReleasedUses(
 	return proofs
 }
 
+// releasable reports whether the parameter's type has a cleanup method.
+func releasable(parameter *ssa.Parameter) bool {
+	return len(releaseMethods(parameter.Type())) != 0
+}
+
+// releaseMethods lists the cleanup methods the type has; a callback has none.
+func releaseMethods(value types.Type) []string {
+	if _, callback := value.Underlying().(*types.Signature); callback {
+		return nil
+	}
+	return conditionalMethods(value)
+}
+
 // parameterCall is a call that releases or uses the parameter, with the
 // method it calls on it, directly or inside a helper.
 type parameterCall struct {
@@ -142,7 +165,7 @@ type parameterCall struct {
 // releases; other methods called on it, or required of a helper, as uses.
 // Deferred calls run at return and precede nothing.
 func (search *releasedUseSearch) parameterCalls(
-	blocks []*ssa.BasicBlock, parameter *ssa.Parameter, constants ssaflow.BooleanConstants,
+	blocks []*ssa.BasicBlock, parameter *ssa.Parameter, constants ssaflow.FixedValues,
 ) (releases, uses []parameterCall) {
 	for _, block := range blocks {
 		for _, instruction := range block.Instrs {
@@ -180,14 +203,16 @@ func (search *releasedUseSearch) parameterCalls(
 // helperReleases reports the cleanup method the helper call is proven to call
 // on the exact parameter on every normal return, under the constants bound in
 // the calling body.
-func (search *releasedUseSearch) helperReleases(call *ssa.Call, parameter *ssa.Parameter, constants ssaflow.BooleanConstants) (string, bool) {
-	for _, method := range cleanupMethods {
-		budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+func (search *releasedUseSearch) helperReleases(call *ssa.Call, parameter *ssa.Parameter, constants ssaflow.FixedValues) (string, bool) {
+	for _, method := range releaseMethods(parameter.Type()) {
+		if search.budget.Exhausted() {
+			return "", false
+		}
 		proof := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
-			Instruction: call, Target: parameter, Methods: []string{method}, ExactTarget: true, Constants: constants, Budget: budget,
-			Summarized: conditionalLookup(search.facts, budget, nil), CallContract: resourcemodel.ConditionalReleases(budget),
+			Instruction: call, Target: parameter, Methods: []string{method}, ExactTarget: true, Constants: constants, Budget: search.budget,
+			Summarized: conditionalLookup(search.facts, search.budget, nil), CallContract: resourcemodel.ConditionalReleases(search.budget),
 		})
-		if proof.Proven() {
+		if proof.Proven() && !search.budget.Exhausted() {
 			return method, true
 		}
 	}
@@ -226,7 +251,7 @@ func (search *releasedUseSearch) helperRequires(call *ssa.Call, index int) []str
 // passes the function's own parameter where the callee uses it.
 func (search *releasedUseSearch) forwardedReleasedUses(
 	proofs []ReleasedUseProof, function *ssa.Function, condition ssaflow.CallCondition,
-	blocks []*ssa.BasicBlock, constants ssaflow.BooleanConstants,
+	blocks []*ssa.BasicBlock, constants ssaflow.FixedValues,
 ) []ReleasedUseProof {
 	for _, block := range blocks {
 		for _, instruction := range block.Instrs {
@@ -234,8 +259,8 @@ func (search *releasedUseSearch) forwardedReleasedUses(
 			if !ok {
 				continue
 			}
-			bound := ssaflow.CallCondition{Arguments: ssaflow.SuppliedConstants(call.Common(), constants)}
-			literal := ssaflow.CallCondition{Arguments: ssaflow.SuppliedConstants(call.Common(), nil)}
+			bound := ssaflow.SuppliedCondition(call.Common(), constants)
+			literal := ssaflow.SuppliedCondition(call.Common(), nil)
 			for _, latent := range search.calleeReleasedUses(call) {
 				if latent.Condition.Unconditional() || !latent.Condition.Matches(bound) || latent.Condition.Matches(literal) ||
 					latent.Parameter >= len(call.Common().Args) {
@@ -287,7 +312,7 @@ func releasedUseImplied(candidate ReleasedUse, proven []ReleasedUseProof) bool {
 // uses the parameter on an allowed path from the release to the use. The
 // walk stops at the use, so work after it, such as the rest of a loop body,
 // is not between them.
-func touchedBetween(parameter *ssa.Parameter, release, use *ssa.Call, constants ssaflow.BooleanConstants) bool {
+func touchedBetween(parameter *ssa.Parameter, release, use *ssa.Call, constants ssaflow.FixedValues) bool {
 	type position struct {
 		block *ssa.BasicBlock
 		index int
@@ -373,8 +398,8 @@ func (evidence *LifecycleEvidence) ManifestReleasedUses(function *ssa.Function) 
 // An unconditional released use is the callee's own defect and is not
 // returned here.
 func (evidence *LifecycleEvidence) ReleasedUsesAt(instruction ssa.Instruction) []ReleasedUse {
-	query := ssaflow.CallCondition{Arguments: suppliedConstants(instruction, nil)}
-	if query.Arguments.Bound == 0 {
+	query := suppliedCondition(instruction, nil)
+	if query.Unconditional() {
 		return nil
 	}
 	var triggered []ReleasedUse

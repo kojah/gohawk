@@ -174,7 +174,11 @@ keeps only its unconditional claims, so a constant call through it stays
 diagnostic. A deferred call is bound too, so `defer finish(file, true)` is
 reported rather than accepted as a release somewhere in the helper. A
 variable flag, a flag merged from two branches, or a comparison of the flag
-decides nothing. Fixtures: `resourcelifetime/argument_cases.go`.
+decides nothing. A nilable parameter the helper compares with nil is decided
+the same way: `closeWithoutOptions(file, nil)` releases when the helper closes
+under `options == nil`, and an allocated options value, a variable, or an
+interface holding a typed nil pointer, which is not a nil interface, leaves
+the file open. Fixtures: `resourcelifetime/argument_cases.go`.
 
 A helper that acquires a resource and hands it straight back as a result,
 such as `OpenConfig(path) (*os.File, error)` or one returning an

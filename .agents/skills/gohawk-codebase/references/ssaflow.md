@@ -60,21 +60,11 @@ type ArgumentConstants struct {
 }
 ```
 
-ArgumentConstants names Boolean parameters by position, receiver first,
-and the constant each holds. In a summarized case it is what the case
+ArgumentConstants names parameters by position, receiver first, and one
+bit of what each holds: its Boolean value in a condition's Arguments, or
+whether it is nil in its Nilness. In a summarized case it is what the case
 assumes; in a query it is what the call supplies. Positions past 63 are
 never bound.
-
-## ArgumentConstants.Bindings
-
-[Source](../../../../internal/ssaflow/call_conditions.go)
-
-```go
-func (assumed ArgumentConstants) Bindings(function *ssa.Function) (BooleanConstants, bool)
-```
-
-Bindings maps the assumed constants onto function's Boolean parameters. It
-reports false when a bound position is not a Boolean parameter.
 
 ## ArgumentConstants.Satisfies
 
@@ -107,55 +97,6 @@ func BlockReachable(from, target *ssa.BasicBlock) bool
 
 BlockReachable reports whether target is reachable from within their
 shared function.
-
-## BooleanConstants
-
-[Source](../../../../internal/ssaflow/call_constants.go)
-
-```go
-type BooleanConstants map[ssa.Value]bool
-```
-
-BooleanConstants fixes Boolean parameters and captured variables of the
-bodies being searched to constant values. A *ssa.Parameter key holds the
-value itself. A *ssa.FreeVar key is a captured cell, as Go captures every
-variable by reference, and holds the value every load of the cell reads;
-it is bound only when the cell is written once before capture and every
-closure only reads it.
-
-## BooleanConstants.DecidedSuccessor
-
-[Source](../../../../internal/ssaflow/call_constants.go)
-
-```go
-func (constants BooleanConstants) DecidedSuccessor(block *ssa.BasicBlock) (*ssa.BasicBlock, bool)
-```
-
-DecidedSuccessor returns the successor a block's branch takes when its
-condition is a bound value, possibly negated.
-
-## BooleanConstants.Key
-
-[Source](../../../../internal/ssaflow/call_constants.go)
-
-```go
-func (constants BooleanConstants) Key(function *ssa.Function) string
-```
-
-Key renders the bindings of function's own parameters and captured
-variables in a stable order, so a memo can tell apart the same body
-searched under different constants.
-
-## BooleanConstants.Narrow
-
-[Source](../../../../internal/ssaflow/call_constants.go)
-
-```go
-func (constants BooleanConstants) Narrow(successors []*ssa.BasicBlock, block *ssa.BasicBlock) []*ssa.BasicBlock
-```
-
-Narrow keeps only the decided successor of block, if the bindings decide
-its branch and it is among successors.
 
 ## BoundedLoop
 
@@ -214,7 +155,7 @@ what their uses mean remain the consumer's responsibility.
 ```go
 type CallCondition struct {
 	Result		int
-	Outcome		ResultOutcome
+	Outcome		Outcome
 	Arguments	ArgumentConstants
 	Nilness		ArgumentConstants
 }
@@ -224,6 +165,18 @@ CallCondition is one summary case's condition: result Result has Outcome,
 unless Outcome is OutcomeAny, the call supplies the Boolean Arguments, and
 the arguments Nilness names are nil where its value bit is set and non-nil
 where it is clear. The zero value is unconditional.
+
+## CallCondition.Bindings
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func (condition CallCondition) Bindings(function *ssa.Function) (FixedValues, bool)
+```
+
+Bindings maps the condition's argument assumptions onto function's
+parameters: the Boolean constants onto Boolean parameters, the nilness onto
+nilable ones. It reports false when a position does not fit its kind.
 
 ## CallCondition.Matches
 
@@ -607,6 +560,18 @@ ChannelType reports whether value has channel type.
 func ClosureBindingPairs(function *ssa.Function, closure *ssa.MakeClosure) []CapturedBinding
 ```
 
+## ComparesWithNil
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func ComparesWithNil(user ssa.Instruction) bool
+```
+
+ComparesWithNil reports whether a use of a nilable value can decide a
+branch on its nilness: a comparison with nil, or a store into the cell a
+closure captures it by.
+
 ## CompletionProof
 
 [Source](../../../../internal/ssaflow/proof_types.go)
@@ -630,19 +595,6 @@ type CompletionProof struct {
 
 CompletionProof records evidence that a lifecycle method runs under the
 path guarantees selected by an analyzer.
-
-## ConstantBooleanArguments
-
-[Source](../../../../internal/ssaflow/call_constants.go)
-
-```go
-func ConstantBooleanArguments(common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known BooleanConstants) BooleanConstants
-```
-
-ConstantBooleanArguments binds the callee's parameters, and the captured
-variables of closure when the callee is its body, to the Boolean constants
-the call supplies: literals, or caller values that known already fixes.
-It returns nil when nothing is fixed.
 
 ## ConstantIndex
 
@@ -849,7 +801,7 @@ projections; callers append only field indexes established from their IR.
 type EntryAssumptions struct {
 	NonNil		ssa.Value
 	NonNilType	types.Type
-	Constants	BooleanConstants
+	Constants	FixedValues
 }
 ```
 
@@ -1069,6 +1021,80 @@ func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
 FeasibleSuccessors preserves constants selected by predecessor-sensitive
 phis and literal results of bounded, source-visible helpers. This prevents
 impossible loop exits and helper-error paths from faking leaks.
+
+## FixedArguments
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func FixedArguments(common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues) FixedValues
+```
+
+FixedArguments binds the callee's parameters, and the captured variables
+of closure when the callee is its body, to the outcomes the call's
+arguments fix: literals, values that cannot be nil, and caller values that
+known already fixes. It returns nil when nothing is fixed.
+
+## FixedValues
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+type FixedValues map[ssa.Value]Outcome
+```
+
+FixedValues fixes parameters and captured variables of the bodies being
+searched to an outcome: true or false for a Boolean, nil or non-nil for a
+nilable value. A *ssa.Parameter key holds the value itself. A *ssa.FreeVar
+key is a captured cell, as Go captures every variable by reference, and
+holds the outcome of every load of the cell; it is bound only when the
+cell is written once before capture and every closure only reads it.
+
+## FixedValues.DecidedSuccessor
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func (fixed FixedValues) DecidedSuccessor(block *ssa.BasicBlock) (*ssa.BasicBlock, bool)
+```
+
+DecidedSuccessor returns the successor a block's branch takes when its
+condition is a bound Boolean value, possibly negated, or a comparison of a
+bound nilable value with nil.
+
+## FixedValues.Holds
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func (fixed FixedValues) Holds(condition ssa.Value) (holds, decided bool)
+```
+
+Holds decides a Boolean value from the bindings: a bound Boolean, possibly
+negated, or a bound nilable value compared with nil.
+
+## FixedValues.Key
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func (fixed FixedValues) Key(function *ssa.Function) string
+```
+
+Key renders the bindings of function's own parameters and captured
+variables in a stable order, so a memo can tell apart the same body
+searched under different bindings.
+
+## FixedValues.Narrow
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func (fixed FixedValues) Narrow(successors []*ssa.BasicBlock, block *ssa.BasicBlock) []*ssa.BasicBlock
+```
+
+Narrow keeps only the decided successor of block, if the bindings decide
+its branch and it is among successors.
 
 ## ForwardedValue
 
@@ -1291,7 +1317,7 @@ Instruction order is respected when both values belong to one block.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func InstructionDominatesAssuming(before, after ssa.Instruction, constants BooleanConstants) bool
+func InstructionDominatesAssuming(before, after ssa.Instruction, constants FixedValues) bool
 ```
 
 InstructionDominatesAssuming reports whether every path to after that the
@@ -1606,7 +1632,7 @@ type ObligationFlow struct {
 	Terminates	Terminator
 	// Constants, when set, fixes Boolean parameters or captures of the body
 	// being walked, so a branch on one of them follows only its decided arm.
-	Constants	BooleanConstants
+	Constants	FixedValues
 }
 ```
 
@@ -1676,13 +1702,24 @@ decided, so it changes no answer. The type uses primitives so a tracer can
 satisfy it by method value without an import cycle; a budget carries it to
 every query that spends that budget, the scope of one candidate's proof.
 
+## Outcome
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+type Outcome uint8
+```
+
+Outcome names a value a call's result can be tested for. OutcomeAny
+places no condition on any result.
+
 ## OutcomeAny, OutcomeTrue, OutcomeFalse, OutcomeNil, OutcomeNonNil
 
 [Source](../../../../internal/ssaflow/call_conditions.go)
 
 ```go
 const (
-	OutcomeAny	ResultOutcome	= iota
+	OutcomeAny	Outcome	= iota
 	OutcomeTrue
 	OutcomeFalse
 	OutcomeNil
@@ -1695,7 +1732,7 @@ const (
 [Source](../../../../internal/ssaflow/call_conditions.go)
 
 ```go
-func OutcomeOf(outcome ResultOutcome, value ssa.Value) (holds, known bool)
+func OutcomeOf(outcome Outcome, value ssa.Value) (holds, known bool)
 ```
 
 OutcomeOf decides whether value, returned in a result slot, has outcome.
@@ -1959,7 +1996,7 @@ construction site is not a decision, so the architecture tests reject it.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func ReachableBlocksAssuming(function *ssa.Function, constants BooleanConstants) []*ssa.BasicBlock
+func ReachableBlocksAssuming(function *ssa.Function, constants FixedValues) []*ssa.BasicBlock
 ```
 
 ReachableBlocksAssuming returns the blocks some path from entry reaches
@@ -2088,17 +2125,6 @@ func ResolvedFunction(function *ssa.Function) *ssa.Function
 
 ResolvedFunction answers an instantiation with its origin for a function the
 caller already holds, such as the literal a launch names.
-
-## ResultOutcome
-
-[Source](../../../../internal/ssaflow/call_conditions.go)
-
-```go
-type ResultOutcome uint8
-```
-
-ResultOutcome names a value a call's result can be tested for. OutcomeAny
-places no condition on any result.
 
 ## RunsOnceInProgramEntry
 
@@ -2351,16 +2377,18 @@ type SummaryUnavailable uint8
 
 SummaryUnavailable identifies why a function summary could not be computed.
 
-## SuppliedConstants
+## SuppliedCondition
 
 [Source](../../../../internal/ssaflow/call_conditions.go)
 
 ```go
-func SuppliedConstants(common *ssa.CallCommon, known BooleanConstants) ArgumentConstants
+func SuppliedCondition(common *ssa.CallCommon, known FixedValues) CallCondition
 ```
 
-SuppliedConstants reports the Boolean constants a call passes: literals,
-and caller values that known already fixes.
+SuppliedCondition reports what a call's arguments fix, as a condition a
+summarized case can be matched against: the Boolean constants it passes,
+and the arguments it passes as nil or as values that are never nil,
+including caller values that known already fixes.
 
 ## Terminator
 

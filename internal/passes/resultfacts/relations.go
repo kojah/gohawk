@@ -1,7 +1,6 @@
 package resultfacts
 
 import (
-	"go/token"
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
@@ -24,7 +23,7 @@ import (
 type ResultCase struct {
 	Condition ssaflow.CallCondition
 	Result    int
-	Outcome   ssaflow.ResultOutcome
+	Outcome   ssaflow.Outcome
 }
 
 // ReturnedParameter records that result Result is parameter Parameter itself,
@@ -38,7 +37,7 @@ type ReturnedParameter struct {
 
 // Implies reports whether some proven case answers query: result has
 // outcome wherever the query's condition holds.
-func (summary Summary) Implies(query ssaflow.CallCondition, result int, outcome ssaflow.ResultOutcome) bool {
+func (summary Summary) Implies(query ssaflow.CallCondition, result int, outcome ssaflow.Outcome) bool {
 	for _, proven := range summary.cases {
 		if proven.Result == result && proven.Outcome == outcome && proven.Condition.Matches(query) {
 			return true
@@ -63,7 +62,7 @@ func (summary Summary) ReturnedParameter(result int) (int, bool) {
 }
 
 // errorOutcome is the condition that the error result at index has outcome.
-func errorOutcome(index int, outcome ssaflow.ResultOutcome) ssaflow.CallCondition {
+func errorOutcome(index int, outcome ssaflow.Outcome) ssaflow.CallCondition {
 	return ssaflow.CallCondition{Result: index, Outcome: outcome}
 }
 
@@ -108,8 +107,8 @@ func (engine *Engine) relations(function *ssa.Function, budget *ssaflow.SearchBu
 // pairedCase is one implication between a nilable result and its paired
 // error: where the error has errorOutcome, the result has resultOutcome.
 type pairedCase struct {
-	errorOutcome  ssaflow.ResultOutcome
-	resultOutcome ssaflow.ResultOutcome
+	errorOutcome  ssaflow.Outcome
+	resultOutcome ssaflow.Outcome
 }
 
 var pairedNilness = []pairedCase{
@@ -126,6 +125,10 @@ var pairedNilness = []pairedCase{
 func (engine *Engine) parameterRelation(
 	function *ssa.Function, result int, parameter *ssa.Parameter, assumeNil bool, expected Guarantee, budget *ssaflow.SearchBudget,
 ) bool {
+	assumed := ssaflow.FixedValues{parameter: ssaflow.OutcomeNonNil}
+	if assumeNil {
+		assumed[parameter] = ssaflow.OutcomeNil
+	}
 	valid, witness := true, false
 	ssaflow.WalkStates([]*ssa.BasicBlock{function.Blocks[0]}, func(block *ssa.BasicBlock) *ssa.BasicBlock { return block },
 		func(block *ssa.BasicBlock) ([]*ssa.BasicBlock, bool) {
@@ -139,12 +142,12 @@ func (engine *Engine) parameterRelation(
 					continue
 				}
 				witness = true
-				if result >= len(returned.Results) || engine.assumedValue(returned.Results[result], parameter, assumeNil, budget) != expected {
+				if result >= len(returned.Results) || engine.assumedValue(returned.Results[result], assumed, budget) != expected {
 					valid = false
 					return nil, false
 				}
 			}
-			return assumedNilnessSuccessors(block, parameter, assumeNil), true
+			return assumed.Narrow(block.Succs, block), true
 		})
 	return valid && witness && !budget.Exhausted()
 }
@@ -152,12 +155,15 @@ func (engine *Engine) parameterRelation(
 // assumedValue resolves a Boolean result under the assumed nilness of the
 // exact parameter: a comparison of that parameter with nil is decided by the
 // assumption, and anything else falls back to the unconditional guarantee.
-func (engine *Engine) assumedValue(value ssa.Value, parameter *ssa.Parameter, assumeNil bool, budget *ssaflow.SearchBudget) Guarantee {
+func (engine *Engine) assumedValue(value ssa.Value, assumed ssaflow.FixedValues, budget *ssaflow.SearchBudget) Guarantee {
 	result, ok := ssaflow.ResolveReachingValue(
 		ssaflow.NewReachingWalk(ssaflow.TransparentChangeType), value,
 		func(_ ssaflow.ReachingWalk, leaf ssa.Value) (Guarantee, bool) {
-			if guarantee, decided := comparisonUnderAssumption(leaf, parameter, assumeNil); decided {
-				return guarantee, true
+			if holds, decided := assumed.Holds(leaf); decided {
+				if holds {
+					return AlwaysTrue, true
+				}
+				return AlwaysFalse, true
 			}
 			guarantee := engine.leaf(leaf, budget)
 			return guarantee, guarantee != Unknown
@@ -168,48 +174,6 @@ func (engine *Engine) assumedValue(value ssa.Value, parameter *ssa.Parameter, as
 		return Unknown
 	}
 	return result
-}
-
-func comparisonUnderAssumption(value ssa.Value, parameter *ssa.Parameter, assumeNil bool) (Guarantee, bool) {
-	comparison, ok := value.(*ssa.BinOp)
-	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
-		return Unknown, false
-	}
-	comparesNil := comparison.X == parameter && ssaflow.DefinitelyNil(comparison.Y) ||
-		comparison.Y == parameter && ssaflow.DefinitelyNil(comparison.X)
-	if !comparesNil {
-		return Unknown, false
-	}
-	equal := assumeNil
-	if comparison.Op == token.NEQ {
-		equal = !equal
-	}
-	if equal {
-		return AlwaysTrue, true
-	}
-	return AlwaysFalse, true
-}
-
-// assumedNilnessSuccessors keeps only the successor consistent with the
-// assumed nilness of the exact parameter, when the block branches on it.
-func assumedNilnessSuccessors(block *ssa.BasicBlock, parameter *ssa.Parameter, assumeNil bool) []*ssa.BasicBlock {
-	if len(block.Instrs) == 0 || len(block.Succs) != 2 {
-		return block.Succs
-	}
-	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
-	if !ok {
-		return block.Succs
-	}
-	comparison, ok := branch.Cond.(*ssa.BinOp)
-	if !ok || comparison.X != parameter && comparison.Y != parameter {
-		return block.Succs
-	}
-	for _, successor := range block.Succs {
-		if isNil, known := ssaflow.SuccessBranch(block, successor, parameter); known && isNil == assumeNil {
-			return []*ssa.BasicBlock{successor}
-		}
-	}
-	return block.Succs
 }
 
 // resultRelation checks every normal return: where the error operand is

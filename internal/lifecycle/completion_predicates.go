@@ -15,8 +15,9 @@ type CompletionSummaryLookup func(ssa.Instruction, ssa.Value, string, bool, ssaf
 // queryAt is the question a summary lookup answers for one call: this
 // search's result condition, with the constants the call supplies.
 func (search *completionSearch) queryAt(instruction ssa.Instruction) ssaflow.CallCondition {
+	supplied := ssaflow.SuppliedCondition(ssaflow.InstructionCall(instruction), search.constants)
 	query := search.condition
-	query.Arguments = ssaflow.SuppliedConstants(ssaflow.InstructionCall(instruction), search.constants)
+	query.Arguments, query.Nilness = supplied.Arguments, supplied.Nilness
 	return query
 }
 
@@ -35,10 +36,8 @@ func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondit
 		!condition.ValidFor(function.Signature) || request.InvokeTarget && len(request.Methods) != 0 {
 		return unknown
 	}
-	// A completion case binds Boolean arguments only; a nilness condition
-	// belongs to result cases, and this proof has no binding for it.
-	constants, ok := condition.Arguments.Bindings(function)
-	if !ok || condition.Unconditional() || condition.Nilness.Bound != 0 {
+	constants, ok := condition.Bindings(function)
+	if !ok || condition.Unconditional() {
 		return unknown
 	}
 	methods := request.Methods

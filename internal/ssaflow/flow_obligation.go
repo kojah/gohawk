@@ -76,7 +76,7 @@ type ObligationFlow struct {
 	Terminates Terminator
 	// Constants, when set, fixes Boolean parameters or captures of the body
 	// being walked, so a branch on one of them follows only its decided arm.
-	Constants BooleanConstants
+	Constants FixedValues
 }
 
 // feasibleSuccessors applies the caller's feasibility view, or the default

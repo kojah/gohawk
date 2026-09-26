@@ -102,7 +102,7 @@ func TestConditionalCompletionMemoIsolation(t *testing.T) {
 	search := newCompletionSearch("Close", CoverageEveryReturn, ssaflow.NewSearchBudget(1000))
 	search.exactTarget = true
 	for _, test := range []struct {
-		kind ssaflow.ResultOutcome
+		kind ssaflow.Outcome
 		want bool
 	}{
 		{ssaflow.OutcomeTrue, true},

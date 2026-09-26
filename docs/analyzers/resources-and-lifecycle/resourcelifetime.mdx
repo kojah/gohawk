@@ -20,8 +20,8 @@ Some cases are deliberately not reported:
 - channel timers and tickers, which the garbage collector reclaims;
 - a file, response body, or rows value opened once in `main.main`, which
   program exit closes;
-- a resource passed to a helper that closes it only when a flag is set, when
-  you pass that flag as a constant, such as `finish(file, false)`.
+- a resource passed to a helper that closes it only for some flag or `nil`
+  option, when you pass that value as a constant, such as `finish(file, nil)`.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [resourcelifetime design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/resourcelifetime.md).
