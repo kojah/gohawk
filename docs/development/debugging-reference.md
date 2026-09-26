@@ -70,8 +70,12 @@ claim that looks wrong is read backwards from here: the `heap effect` or
 that produced it, then the callee's own section.
 
 `-ssa` prints each function's SSA before its graph, so the `tN` values can be
-read in place. `-bare` builds every graph without any callee summary, which
-is what a unit test of the points-to model sees.
+read in place. `-bare` skips the lifecycle pass, so no summary imported from
+a dependency's facts is registered and a call to one reads `unsummarized …
+no-summary`; a callee whose body is in the loaded packages, a closure
+included, is still projected on demand. That is what a unit test of the
+points-to model sees, and comparing the two runs shows what the imported
+summaries contributed.
 
 ## Evidence trace
 

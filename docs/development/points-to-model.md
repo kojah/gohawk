@@ -137,8 +137,10 @@ claims, for the package's own functions and the callees it imports, and
 `gohawk heap` prints every local function's registered summary and graph as
 the analysis saw it, private helpers included, with an `applied` line for
 every call a summary was applied at and an `escaped` line for the first
-instruction that escaped each slot in each way. `gohawk heap -bare` prints
-the graph without any summaries, which is what a unit test sees.
+instruction that escaped each slot in each way. `gohawk heap -bare` skips
+the lifecycle pass, so dependencies' summaries are missing while callees with
+bodies in the loaded packages are still projected on demand, which is what a
+unit test sees.
 
 A summary also carries requirements, the precondition half: the methods
 the function calls on the object at a named slot on every normal return,

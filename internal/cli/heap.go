@@ -25,8 +25,11 @@ import (
 // only what is published across packages; this one prints the working graph
 // behind it. By default the graphs are the ones the analysis built, with
 // every callee summary applied, so an applied, unsummarized, widened, or
-// escaped line explains a surprising claim. -bare builds each graph without
-// any summary, which is what a unit test of the points-to model sees.
+// escaped line explains a surprising claim. -bare skips the lifecycle pass:
+// no summary imported from a dependency's facts is registered, so a call to
+// one is unsummarized, while a callee whose body is in the loaded packages,
+// a closure included, is still projected on demand. That is what a unit test
+// of the points-to model sees.
 
 func printHeap(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("heap", flag.ContinueOnError)
@@ -34,7 +37,7 @@ func printHeap(arguments []string, output, errorsOutput io.Writer) error {
 	functionFilter := flags.String("func", "", "print only functions whose name or enclosing function name matches")
 	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	withSSA := flags.Bool("ssa", false, "print each function's SSA before its graph")
-	bare := flags.Bool("bare", false, "build each graph without callee summaries, as a unit test sees it")
+	bare := flags.Bool("bare", false, "skip the lifecycle pass: no dependency summaries, as a unit test sees the graph")
 	flags.Usage = func() {
 		writeLine(errorsOutput, "usage: gohawk heap [-func NAME] [-tests] [-ssa] [-bare] package...")
 		flags.PrintDefaults()
