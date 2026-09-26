@@ -39,6 +39,7 @@ func TestResourceLifetimeReasonCodes(t *testing.T) {
 		resourceReasonImportedHelperCleanupInLoop:              "imported-helper-cleanup-in-loop",
 		resourceReasonInterfaceMethod:                          "interface-method",
 		resourceReasonKnownResourceDirectRelease:               "known-resource-direct-release",
+		resourceReasonKnownResourceHelperRelease:               "known-resource-helper-release",
 		resourceReasonHeaderOnlyAcquisition:                    "local-header-only-body-uncertain",
 		resourceReasonLocalServerClientOverrideUnresolved:      "local-server-client-override-unresolved",
 		resourceReasonLocalServerHandlerUnavailable:            "local-server-handler-unavailable",

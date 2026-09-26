@@ -245,6 +245,20 @@ acquired value counts. Local fields, constant array and slice elements, saved
 aliases, and agreeing branch assignments preserve that identity. Replaced
 values, mixed branch assignments, and mutated response bodies do not.
 
+A helper that releases counts as the release: a plain call to a helper
+proven, for the exact acquired value, to call its cleanup method on every
+normal return is a release point, and the diagnostic names the helper. The
+proof is the leak check's completion evidence with the exact target, so an
+unconditional helper, or the argument case a constant call selects, such as
+`finish(file, false)`, releases the file, locally or through an imported
+summary. The leak check settles on weaker evidence than this, an exhausted
+search or an aggregate holding the resource, because settling only
+suppresses a report; a release point starts one. A helper handed a holder of
+the resource, a helper that may leave it open, a variable or keeping flag,
+and a deferred helper are not release points. A helper `Commit` is not
+either: only the success branch of a direct `Commit` invalidates a
+transaction. Fixtures: `resourcelifetime/useafter/helper_releases.go`.
+
 A helper that performs the operation counts as the operation: a call that
 hands the released value to a function whose summary says it calls `Read`
 on that argument on every path is a read of it, and the diagnostic names
@@ -255,8 +269,8 @@ use.
 The proof stops at opaque effects, resource mutation, escaping ownership,
 asynchronous exposure, or its search budget. A writer reset after Close is
 therefore not mistaken for continued use of the closed stream. The check does
-not cross goroutine or loop-iteration boundaries, infer releases inside helpers,
-or infer invalidation from arbitrary methods named Close. Compression reader
+not cross goroutine or loop-iteration boundaries, infer a release from a helper
+without an exact proof, or infer invalidation from arbitrary methods named Close. Compression reader
 cleanup alone does not prove that a subsequent read fails.
 
 Harmless idioms such as `rows.Err()` after `rows.Close()` or `Rollback` after a

@@ -11,7 +11,7 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 Reports files, SQL rows, statements and transactions, HTTP response bodies,
 and gzip/zlib writers that are not released on every return path, and
-operations on them after release.
+operations on them after release, including after a helper that closes them.
 
 Some cases are deliberately not reported:
 

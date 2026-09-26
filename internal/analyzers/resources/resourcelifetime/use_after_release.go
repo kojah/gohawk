@@ -17,11 +17,12 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// The use-after-release check is the dual of the leak check: after a direct
-// release of an acquired resource, an operation the API documents as failing
-// on a released value is reported. It is deliberately narrow. The
-// release must be a plain call on the exact acquired value, not a deferred
-// one, and it must dominate the use, so every path to the use has released
+// The use-after-release check is the dual of the leak check: after a release
+// of an acquired resource, an operation the API documents as failing on a
+// released value is reported. It is deliberately narrow. The release must be
+// a plain call, not a deferred one: a cleanup call on the exact acquired
+// value, or a helper proven to release that exact value on every normal
+// return. It must dominate the use, so every path to the use has released
 // first; a release on one branch and a use after the merge is not claimed.
 // Only operations documented to fail on a released value count. Idioms that
 // touch a released value harmlessly, such as rows.Err after rows.Close, a
@@ -80,9 +81,10 @@ func reportUsesAfterRelease(
 		resource: resource, contract: contract, methods: methods, storage: heapmodel.NewStorage(nil), knowledge: knowledge, evidence: evidence,
 	}
 	reported := map[*ssa.Call]bool{}
-	for _, release := range directReleases(function, &query) {
+	for _, point := range releasePoints(function, &query) {
+		release := point.call
 		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceUseAfterRelease), release.Pos()).Evidence(analysisTrace.Step{
-			Reason: resourceReasonKnownResourceDirectRelease.String(), Outcome: analysisTrace.OutcomeAccepted,
+			Reason: point.reason().String(), Outcome: analysisTrace.OutcomeAccepted,
 		})
 		for _, instruction := range ssaflow.InstructionsReachableAfter(release) {
 			call, ok := instruction.(*ssa.Call)
@@ -107,7 +109,7 @@ func reportUsesAfterRelease(
 				continue
 			}
 			emitUseAfterRelease(pass, function, acquisition, release, call)
-			reportUseAfterRelease(pass, acquisition, release, call, contract, operation)
+			reportUseAfterRelease(pass, acquisition, point, call, contract, operation)
 			reported[call] = true
 		}
 	}
@@ -276,19 +278,74 @@ func (query *releasedResource) passesResourceThrough(call *ssa.Call, effects *ss
 	return proof.Proven() && proof.Effects&^(ssaflow.EffectRead|ssaflow.EffectRetain) == 0
 }
 
-// directReleases returns the plain calls of a cleanup method on the exact
-// resource. Deferred releases run at return and cannot precede a use.
-func directReleases(function *ssa.Function, query *releasedResource) []*ssa.Call {
-	var releases []*ssa.Call
+// releasePoint is a plain call after which the exact resource is released:
+// a cleanup method called on it, or a helper proven to call one on it.
+type releasePoint struct {
+	call   *ssa.Call
+	method string
+	helper *ssa.Function
+}
+
+func (point releasePoint) reason() resourceLifetimeReason {
+	if point.helper != nil {
+		return resourceReasonKnownResourceHelperRelease
+	}
+	return resourceReasonKnownResourceDirectRelease
+}
+
+// releasePoints returns the plain calls that release the exact resource.
+// Deferred releases run at return and cannot precede a use.
+func releasePoints(function *ssa.Function, query *releasedResource) []releasePoint {
+	var points []releasePoint
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			call, ok := instruction.(*ssa.Call)
-			if ok && slices.Contains(query.contract.cleanup, ssaflow.CallName(call.Common())) && query.operatesOn(call) {
-				releases = append(releases, call)
+			if !ok {
+				continue
+			}
+			if name := ssaflow.CallName(call.Common()); slices.Contains(query.contract.cleanup, name) && query.operatesOn(call) {
+				points = append(points, releasePoint{call: call, method: name})
+				continue
+			}
+			if method, ok := query.helperRelease(call); ok {
+				points = append(points, releasePoint{call: call, method: method, helper: call.Common().StaticCallee()})
 			}
 		}
 	}
-	return releases
+	return points
+}
+
+// helperRelease reports the cleanup method a helper call is proven to call on
+// the exact resource on every normal return: unconditionally, or in the case
+// the call's constant arguments select. The leak check settles on weaker
+// evidence, an exhausted search or an aggregate the resource sits in, because
+// settling only suppresses a report; a release point starts one, so it needs
+// the positive proof for the value itself. A helper Commit is not a release
+// point: only the success branch of a direct Commit invalidates a transaction.
+func (query *releasedResource) helperRelease(call *ssa.Call) (string, bool) {
+	common := call.Common()
+	if query.evidence == nil || common.IsInvoke() || common.StaticCallee() == nil {
+		return "", false
+	}
+	if !slices.ContainsFunc(common.Args, func(argument ssa.Value) bool { return query.storage.Same(argument, query.resource).Proven() }) {
+		return "", false
+	}
+	for _, method := range query.contract.cleanup {
+		if method == "Commit" {
+			continue
+		}
+		completion := lifecycle.CompletionRequest{
+			Instruction: call, Target: query.resource, Methods: []string{method}, ExactTarget: true,
+			Budget: ssaflow.NewSearchBudget(releaseSearchBudget),
+		}
+		proof := query.evidence.Prove(lifecyclefacts.EvidenceRequest{
+			Instruction: call, Target: query.resource, Completion: &completion, SelectMask: releaseMask(call, query.resource, method),
+		})
+		if proof.State == ssaflow.EvidenceProven {
+			return method, true
+		}
+	}
+	return "", false
 }
 
 // Point-in-time storage identity preserves saved aliases while rejecting
@@ -350,17 +407,23 @@ func emitUnknownUseAfterRelease(
 func reportUseAfterRelease(
 	pass *analysis.Pass,
 	acquisition *ssa.Call,
-	release *ssa.Call,
+	release releasePoint,
 	use *ssa.Call,
 	contract resourceContract,
 	operation releasedOperation,
 ) {
 	useSource := syntax.SourceRange(pass, use.Pos())
 	acquisitionSource := syntax.SourceRange(pass, acquisition.Pos())
-	releaseSource := syntax.SourceRange(pass, release.Pos())
+	releaseSource := syntax.SourceRange(pass, release.call.Pos())
 	related := []analysis.RelatedInformation{
 		{Pos: acquisitionSource.Pos(), End: acquisitionSource.End(), Message: "resource acquired here"},
 		{Pos: releaseSource.Pos(), End: releaseSource.End(), Message: "resource released here"},
+	}
+	if release.helper != nil {
+		related = append(related, analysis.RelatedInformation{
+			Pos: releaseSource.Pos(), End: releaseSource.End(),
+			Message: fmt.Sprintf("%s calls %s on the resource on every path", release.helper.RelString(nil), release.method),
+		})
 	}
 	if operation.helper != nil {
 		related = append(related, analysis.RelatedInformation{
@@ -371,7 +434,7 @@ func reportUseAfterRelease(
 	check.Report(pass, check.ResourceUseAfterRelease, analysis.Diagnostic{
 		Pos: useSource.Pos(), End: useSource.End(),
 		Message: fmt.Sprintf("resource from %s.%s is used after %s",
-			syntax.ShortPackageName(contract.packagePath), contract.name, ssaflow.CallName(release.Common())),
+			syntax.ShortPackageName(contract.packagePath), contract.name, release.method),
 		Related: related,
 	})
 }
