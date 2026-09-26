@@ -22,7 +22,7 @@ func TestReceiverTrace(t *testing.T) {
 	}
 	candidates := map[string]bool{}
 	for _, event := range events {
-		if event.Phase == "candidate" && event.Reason == "producer-send" {
+		if event.Phase == "candidate" && (event.Reason == "producer-send" || event.Reason == "one-shot-worker" || event.Reason == "local-channel") {
 			candidates[event.Candidate] = true
 		}
 		if event.Phase != "decision" || strings.HasPrefix(event.Reason, "diagnostic-") {

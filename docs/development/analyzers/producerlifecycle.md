@@ -85,3 +85,43 @@ The check only reports when the package proves every part of that shape:
 
 A select with other arms, a closer reached through an interface or function
 value, and a producer in another package are not reported.
+
+### Workers left behind by a return
+
+The experimental `unreceived-return` and `unsignalled-receiver` checks follow
+paths where `abandoned-send` counts. The count proof accepts a receive that
+exists on some paths and not others, which is the classic goroutine leak: a
+worker sends its result on an unbuffered channel and the function returns on
+a timeout or an error without receiving it, or a worker waits for a stop
+signal the function closes on success but skips on an error return.
+
+The proof reports only when it has seen every use of the channel:
+
+- The channel is made in the function, and the census of
+  `ssaflow.ChannelValues` (the make, a written-once variable cell and the
+  closure copies that load it, direction conversions, and the parameter of a
+  named worker it is passed to) ends at channel operations in the function
+  and in one goroutine it launches, once and outside any loop. Any other use,
+  a channel handed to another function, stored, returned, or used by a second
+  goroutine or closure, declines with `channel-escapes`.
+- The worker performs exactly one operation on the channel, reached on every
+  path to its returns and outside any select: a send, a single receive, or a
+  range, a comma-ok receive in a loop, which ends only on a close. A select
+  that can give up, a conditional operation, or a receive repeated in a loop
+  declines with `worker-operation-unsupported`.
+- A send needs an unbuffered channel; a buffer takes the value
+  (`channel-buffered`). The function's operations must fit: only receives for
+  a sending worker, since a close would panic the worker rather than block it,
+  and only sends and closes for a receiving one (`caller-operations-mixed`).
+
+One flow query over the function's paths after the launch then decides. A
+receive completes a send, including the select arm that receives it; a send
+or a close completes a single receive; only a close, direct or deferred,
+completes a range. A deferred close registered before the launch completes
+every return. A feasible normal return with no completing operation before it
+leaves the worker blocked forever, and the diagnostic cites that return.
+Process exit and calls the summaries prove never return end a path, and a
+function that never returns reports nothing. Fixtures:
+`producerlifecycle/unreceived_returns.go`,
+`producerlifecycle/unsignalled_receivers.go`, and
+`producerlifecycle/channel_escapes.go`.

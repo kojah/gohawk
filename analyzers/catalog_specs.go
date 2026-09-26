@@ -76,6 +76,18 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				Help: "close the channel on every return of the producer, including error returns, usually with `defer close(ch)`",
 				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
 			},
+			{
+				ID:   check.ProducerLifecycleUnreceivedReturn,
+				Doc:  "Reports goroutines left blocked on a send when the function that launched them returns without receiving.",
+				Help: "receive the result on every return path, or give the channel a buffer of one so the send completes without a receiver",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
+			{
+				ID:   check.ProducerLifecycleUnsignalledReceiver,
+				Doc:  "Reports goroutines left waiting on a channel that the function launching them returns without sending on or closing.",
+				Help: "close the channel on every return path, usually with `defer close(ch)` right after making it",
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
+			},
 		}},
 	}
 }

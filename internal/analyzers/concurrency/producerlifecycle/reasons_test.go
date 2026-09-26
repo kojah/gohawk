@@ -19,6 +19,15 @@ func TestProducerReasonCodes(t *testing.T) {
 		reasonReceiverHelperUnknown:      "receiver-helper-unknown",
 		reasonReceiverHelperComplete:     "receiver-helper-complete",
 		reasonAsynchronousReceiver:       "asynchronous-receiver",
+		reasonOneShotWorker:              "one-shot-worker",
+		reasonChannelEscapes:             "channel-escapes",
+		reasonWorkerOperationUnsupported: "worker-operation-unsupported",
+		reasonWorkerLaunchedRepeatedly:   "worker-launched-repeatedly",
+		reasonChannelBuffered:            "channel-buffered",
+		reasonCallerOperationsMixed:      "caller-operations-mixed",
+		reasonCallerCompletesEveryReturn: "caller-completes-every-return",
+		reasonReturnWithoutCounterpart:   "return-without-counterpart",
+		reasonLocalChannel:               "local-channel",
 	}
 	if len(want) != int(producerReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

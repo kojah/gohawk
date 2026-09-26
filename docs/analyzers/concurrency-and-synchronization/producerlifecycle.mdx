@@ -14,6 +14,9 @@ The core check proves the count: a local unbuffered channel, a receiver that
 stops after a known number of receives, and more sends than that. Buffered and
 externally supplied channels, send counts that depend on a loop, and channels
 that code the analyzer cannot see may also drain are left unreported.
+Two experimental checks follow paths instead: a goroutine launched once that
+sends or waits once on a local channel, where the function can return without
+the receive, send, or close that would release it.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [producerlifecycle design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/producerlifecycle.md).
@@ -26,6 +29,8 @@ in the [producerlifecycle design notes](https://github.com/kojah/gohawk/blob/mai
 | <CheckIdentity name="abandoned-send" tier="core" /> | core | hazard | Reports producer goroutines that can block after their receiver stops waiting. |
 | <CheckIdentity name="stopped-loop-send" tier="experimental" /> | experimental | hazard | Reports sends that can block forever after the service loop receiving them returns. |
 | <CheckIdentity name="unclosed-range" tier="experimental" /> | experimental | hazard | Reports range loops that wait forever when their producer returns an error without closing the channel. |
+| <CheckIdentity name="unreceived-return" tier="experimental" /> | experimental | defect | Reports goroutines left blocked on a send when the function that launched them returns without receiving. |
+| <CheckIdentity name="unsignalled-receiver" tier="experimental" /> | experimental | defect | Reports goroutines left waiting on a channel that the function launching them returns without sending on or closing. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

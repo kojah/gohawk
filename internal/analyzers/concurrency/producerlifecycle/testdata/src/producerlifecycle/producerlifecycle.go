@@ -88,6 +88,35 @@ func newScheduler() *scheduler {
 	return s
 }
 
+//gohawk:example flagged Worker left behind by a timeout
+func resultOrTimeout(ready <-chan struct{}) (int, error) {
+	result := make(chan int)
+	go func() { result <- 42 }() // want "goroutine blocks forever sending on result: the function can return without receiving"
+	select {
+	case value := <-result:
+		return value, nil
+	case <-ready:
+		return 0, errors.New("gave up")
+	}
+}
+
+//gohawk:example end
+
+//gohawk:example flagged Stop signal skipped on an error return
+func watchUntilDone(fail bool) error {
+	done := make(chan struct{})
+	go func() { // want "goroutine blocks forever receiving from done: the function can return without sending on or closing it"
+		<-done
+	}()
+	if fail {
+		return errors.New("setup failed")
+	}
+	close(done)
+	return nil
+}
+
+//gohawk:example end
+
 //gohawk:example ok
 func drainResults() {
 	results := make(chan error)

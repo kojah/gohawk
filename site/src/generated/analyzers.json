@@ -102,6 +102,18 @@
               "summary": "Reports range loops that wait forever when their producer returns an error without closing the channel.",
               "kind": "hazard",
               "tier": "experimental"
+            },
+            {
+              "id": "producerlifecycle/unreceived-return",
+              "summary": "Reports goroutines left blocked on a send when the function that launched them returns without receiving.",
+              "kind": "defect",
+              "tier": "experimental"
+            },
+            {
+              "id": "producerlifecycle/unsignalled-receiver",
+              "summary": "Reports goroutines left waiting on a channel that the function launching them returns without sending on or closing.",
+              "kind": "defect",
+              "tier": "experimental"
             }
           ]
         }

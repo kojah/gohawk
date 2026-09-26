@@ -22,44 +22,50 @@ const (
 	reasonReceiverHelperUnknown
 	reasonReceiverHelperComplete
 	reasonAsynchronousReceiver
+	reasonOneShotWorker
+	reasonChannelEscapes
+	reasonWorkerOperationUnsupported
+	reasonWorkerLaunchedRepeatedly
+	reasonChannelBuffered
+	reasonCallerOperationsMixed
+	reasonCallerCompletesEveryReturn
+	reasonReturnWithoutCounterpart
+	reasonLocalChannel
 	producerReasonCount
 )
 
+var producerReasonCodes = [...]string{
+	reasonNone:                       "",
+	reasonProducerSend:               "producer-send",
+	reasonReceiverDoesNotReturn:      "receiver-does-not-return",
+	reasonProducerCountUnknown:       "producer-count-unknown",
+	reasonReceiverObligationUnknown:  "receiver-obligation-unknown",
+	reasonProducerExceedsReceives:    "producer-exceeds-receives",
+	reasonProducerWithinReceiveCount: "producer-within-receive-count",
+	reasonReceiverMayDrain:           "receiver-may-drain",
+	reasonWorkerChannelUsesUnknown:   "worker-channel-uses-unknown",
+	reasonWorkerChannelUsesComplete:  "worker-channel-uses-complete",
+	reasonProducerLaunch:             "producer-launch",
+	reasonBuiltinNotReceive:          "builtin-not-receive",
+	reasonReceiverHelperUnknown:      "receiver-helper-unknown",
+	reasonReceiverHelperComplete:     "receiver-helper-complete",
+	reasonAsynchronousReceiver:       "asynchronous-receiver",
+	reasonOneShotWorker:              "one-shot-worker",
+	reasonChannelEscapes:             "channel-escapes",
+	reasonWorkerOperationUnsupported: "worker-operation-unsupported",
+	reasonWorkerLaunchedRepeatedly:   "worker-launched-repeatedly",
+	reasonChannelBuffered:            "channel-buffered",
+	reasonCallerOperationsMixed:      "caller-operations-mixed",
+	reasonCallerCompletesEveryReturn: "caller-completes-every-return",
+	reasonReturnWithoutCounterpart:   "return-without-counterpart",
+	reasonLocalChannel:               "local-channel",
+}
+
 func (reason producerReason) String() string {
-	switch reason {
-	case reasonNone:
-		return ""
-	case reasonProducerSend:
-		return "producer-send"
-	case reasonReceiverDoesNotReturn:
-		return "receiver-does-not-return"
-	case reasonProducerCountUnknown:
-		return "producer-count-unknown"
-	case reasonReceiverObligationUnknown:
-		return "receiver-obligation-unknown"
-	case reasonProducerExceedsReceives:
-		return "producer-exceeds-receives"
-	case reasonProducerWithinReceiveCount:
-		return "producer-within-receive-count"
-	case reasonReceiverMayDrain:
-		return "receiver-may-drain"
-	case reasonWorkerChannelUsesUnknown:
-		return "worker-channel-uses-unknown"
-	case reasonWorkerChannelUsesComplete:
-		return "worker-channel-uses-complete"
-	case reasonProducerLaunch:
-		return "producer-launch"
-	case reasonBuiltinNotReceive:
-		return "builtin-not-receive"
-	case reasonReceiverHelperUnknown:
-		return "receiver-helper-unknown"
-	case reasonReceiverHelperComplete:
-		return "receiver-helper-complete"
-	case reasonAsynchronousReceiver:
-		return "asynchronous-receiver"
-	default:
+	if int(reason) >= len(producerReasonCodes) {
 		return "invalid-producer-reason"
 	}
+	return producerReasonCodes[reason]
 }
 
 type producerProof struct {

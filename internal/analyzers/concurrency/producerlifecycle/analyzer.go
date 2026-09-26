@@ -16,7 +16,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-var summaryKnowledge = summaries.Select(summaries.Requirements{Concurrency: true})
+var summaryKnowledge = summaries.Select(summaries.Requirements{Results: true, Concurrency: true})
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
@@ -35,6 +35,7 @@ func runProducerLifecycle(pass *analysis.Pass) (any, error) {
 	}
 	for _, function := range functions {
 		reportAbandonedProducerSends(pass, function)
+		reportReturnedWorkers(pass, function)
 	}
 	reportStoppedLoopSends(pass, functions)
 	reportUnclosedRanges(pass, functions)

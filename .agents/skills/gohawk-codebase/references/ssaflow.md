@@ -575,6 +575,35 @@ func ChannelType(value ssa.Value) bool
 
 ChannelType reports whether value has channel type.
 
+## ChannelUse
+
+[Source](../../../../internal/ssaflow/channel_aliases.go)
+
+```go
+type ChannelUse struct {
+	Value		ssa.Value
+	Instruction	ssa.Instruction
+}
+```
+
+ChannelUse is one instruction that uses a value of the channel other than
+to move it between the values ChannelValues follows.
+
+## ChannelValues
+
+[Source](../../../../internal/ssaflow/channel_aliases.go)
+
+```go
+func ChannelValues(made *ssa.MakeChan) ([]ssa.Value, []ChannelUse)
+```
+
+ChannelValues returns the values that are the channel made by made within
+its function and within the static callees and closures it is passed to
+or captured by, and every use of those values that is not one of the moves
+followed: a store into a written-once cell, a load of it, a closure
+binding of it, a direction conversion, or a static call argument. A call
+that passes the channel to a callee without a body is returned as a use.
+
 ## ClosureBindingPairs
 
 [Source](../../../../internal/ssaflow/value_instructions.go)
