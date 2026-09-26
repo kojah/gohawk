@@ -354,11 +354,7 @@ func usesValue(instruction ssa.Instruction, value ssa.Value) bool {
 func (fact *Fact) releasedUseDescriptions() []string {
 	var lines []string
 	for _, use := range fact.ReleasedUses {
-		line := fmt.Sprintf("released use: parameter %d calls %s after %s", use.Parameter, use.Use, use.Release)
-		if arguments := use.Condition.Arguments; arguments.Bound != 0 {
-			line += fmt.Sprintf(" when arguments %#x are %#x", arguments.Bound, arguments.Values)
-		}
-		lines = append(lines, line)
+		lines = append(lines, fmt.Sprintf("parameter %d calls %s after %s when %s", use.Parameter, use.Use, use.Release, use.Condition))
 	}
 	return lines
 }

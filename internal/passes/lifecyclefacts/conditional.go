@@ -357,12 +357,7 @@ func (fact *Fact) conditionalDescriptions() []string {
 		if discharge.Path != "" {
 			verb += " at " + discharge.Path
 		}
-		line := fmt.Sprintf("conditional result %d outcome %d: %s parameter %d",
-			discharge.Condition.Result, discharge.Condition.Outcome, verb, discharge.Parameter)
-		if arguments := discharge.Condition.Arguments; arguments.Bound != 0 {
-			line += fmt.Sprintf(" when arguments %#x are %#x", arguments.Bound, arguments.Values)
-		}
-		lines = append(lines, line)
+		lines = append(lines, fmt.Sprintf("%s parameter %d when %s", verb, discharge.Parameter, discharge.Condition))
 	}
 	return lines
 }

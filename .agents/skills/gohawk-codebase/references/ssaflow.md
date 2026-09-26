@@ -191,6 +191,17 @@ query's call supplies, and the same result condition. A case with no result
 condition holds on every normal return, so it answers any result condition
 too.
 
+## CallCondition.String
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func (condition CallCondition) String() string
+```
+
+String renders the condition for fact dumps and traces: each result test
+and argument assumption by position, receiver first, or "always".
+
 ## CallCondition.Unconditional
 
 [Source](../../../../internal/ssaflow/call_conditions.go)
@@ -1712,6 +1723,16 @@ type Outcome uint8
 
 Outcome names a value a call's result can be tested for. OutcomeAny
 places no condition on any result.
+
+## Outcome.String
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func (outcome Outcome) String() string
+```
+
+String names the outcome.
 
 ## OutcomeAny, OutcomeTrue, OutcomeFalse, OutcomeNil, OutcomeNonNil
 

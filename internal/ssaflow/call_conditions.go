@@ -1,9 +1,11 @@
 package ssaflow
 
 import (
+	"fmt"
 	"go/constant"
 	"go/types"
 	"math/bits"
+	"strings"
 
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -226,4 +228,46 @@ func Nilable(value types.Type) bool {
 		return true
 	}
 	return false
+}
+
+// String renders the condition for fact dumps and traces: each result test
+// and argument assumption by position, receiver first, or "always".
+func (condition CallCondition) String() string {
+	var parts []string
+	if condition.Outcome != OutcomeAny {
+		parts = append(parts, fmt.Sprintf("result %d is %s", condition.Result, condition.Outcome))
+	}
+	for index := range 64 {
+		bit := uint64(1) << index
+		if condition.Arguments.Bound&bit != 0 {
+			parts = append(parts, fmt.Sprintf("argument %d is %t", index, condition.Arguments.Values&bit != 0))
+		}
+		if condition.Nilness.Bound&bit != 0 {
+			state := "non-nil"
+			if condition.Nilness.Values&bit != 0 {
+				state = "nil"
+			}
+			parts = append(parts, fmt.Sprintf("argument %d is %s", index, state))
+		}
+	}
+	if len(parts) == 0 {
+		return "always"
+	}
+	return strings.Join(parts, " and ")
+}
+
+// String names the outcome.
+func (outcome Outcome) String() string {
+	switch outcome {
+	case OutcomeTrue:
+		return "true"
+	case OutcomeFalse:
+		return "false"
+	case OutcomeNil:
+		return "nil"
+	case OutcomeNonNil:
+		return "non-nil"
+	case OutcomeAny:
+	}
+	return "any"
 }

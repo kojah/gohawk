@@ -46,3 +46,22 @@ func TestCallConditionNilnessNeedsANilableParameter(t *testing.T) {
 		t.Error("nilness of an int parameter should be invalid")
 	}
 }
+
+func TestCallConditionString(t *testing.T) {
+	for _, test := range []struct {
+		condition ssaflow.CallCondition
+		want      string
+	}{
+		{ssaflow.CallCondition{}, "always"},
+		{ssaflow.CallCondition{Result: 1, Outcome: ssaflow.OutcomeNonNil}, "result 1 is non-nil"},
+		{ssaflow.ParameterNil(2), "argument 2 is nil"},
+		{
+			ssaflow.CallCondition{Arguments: ssaflow.ArgumentConstants{Bound: 0b110, Values: 0b010}},
+			"argument 1 is true and argument 2 is false",
+		},
+	} {
+		if got := test.condition.String(); got != test.want {
+			t.Errorf("String() = %q, want %q", got, test.want)
+		}
+	}
+}
