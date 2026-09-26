@@ -120,12 +120,12 @@ func writeRunTimes(buffer *bytes.Buffer, graph *checker.Graph, roots map[string]
 	slices.SortFunc(runs, func(left, right *checker.Action) int {
 		return cmp.Or(cmp.Compare(right.Duration, left.Duration), cmp.Compare(left.String(), right.String()))
 	})
-	buffer.WriteString("// slowest runs:\n")
+	buffer.WriteString("slowest runs:\n")
 	for _, action := range runs[:min(top, len(runs))] {
-		fmt.Fprintf(buffer, "//   %9s  %s on %s\n", action.Duration.Round(time.Millisecond), action.Analyzer.Name, action.Package.PkgPath)
+		fmt.Fprintf(buffer, "  %9s  %s on %s\n", action.Duration.Round(time.Millisecond), action.Analyzer.Name, action.Package.PkgPath)
 	}
 	if len(dependencies) != 0 {
-		buffer.WriteString("// dependencies:\n")
+		buffer.WriteString("dependencies:\n")
 		names := slices.SortedFunc(maps.Keys(dependencies), func(left, right string) int {
 			return cmp.Or(cmp.Compare(dependencies[right], dependencies[left]), cmp.Compare(left, right))
 		})
@@ -133,7 +133,7 @@ func writeRunTimes(buffer *bytes.Buffer, graph *checker.Graph, roots map[string]
 			if dependencies[name] < time.Millisecond {
 				continue
 			}
-			fmt.Fprintf(buffer, "//   %9s  %s over %d packages\n", dependencies[name].Round(time.Millisecond), name, dependencyPackages[name])
+			fmt.Fprintf(buffer, "  %9s  %s over %d packages\n", dependencies[name].Round(time.Millisecond), name, dependencyPackages[name])
 		}
 	}
 }
@@ -150,9 +150,9 @@ func writeExhaustions(buffer *bytes.Buffer, exhaustions map[exhaustionKey]int, r
 		}
 	}
 	if len(exhaustions) == 0 {
-		buffer.WriteString("// budgets: no search ran out\n")
+		buffer.WriteString("budgets: no search ran out\n")
 	} else {
-		buffer.WriteString("// budgets exhausted:\n")
+		buffer.WriteString("budgets exhausted:\n")
 	}
 	keys := slices.SortedFunc(maps.Keys(exhaustions), func(left, right exhaustionKey) int {
 		return cmp.Or(cmp.Compare(left.pkg, right.pkg), cmp.Compare(left.analyzer, right.analyzer), cmp.Compare(exhaustions[right], exhaustions[left]),
@@ -162,16 +162,16 @@ func writeExhaustions(buffer *bytes.Buffer, exhaustions map[exhaustionKey]int, r
 	for _, key := range keys {
 		if label := key.analyzer + " on " + key.pkg; label != run {
 			run = label
-			fmt.Fprintf(buffer, "//   %s\n", run)
+			fmt.Fprintf(buffer, "  %s\n", run)
 		}
 		cause := fmt.Sprintf("limit %d", key.Limit)
 		if key.Pool {
 			cause = fmt.Sprintf("pool ran out (own limit %d)", key.Limit)
 		}
-		fmt.Fprintf(buffer, "//     %5d× %s, %s\n", exhaustions[key], key.Site, cause)
+		fmt.Fprintf(buffer, "    %5d× %s, %s\n", exhaustions[key], key.Site, cause)
 	}
 	if hidden != 0 {
-		fmt.Fprintf(buffer, "// %d more while summarizing dependencies; -deps lists them\n", hidden)
+		fmt.Fprintf(buffer, "%d more while summarizing dependencies; -deps lists them\n", hidden)
 	}
 }
 

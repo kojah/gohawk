@@ -130,9 +130,9 @@ func functionMatches(name, filter string) bool {
 func writeProofs(buffer *bytes.Buffer, functions []*tracedFunction) {
 	directory, _ := os.Getwd()
 	for _, function := range functions {
-		fmt.Fprintf(buffer, "// %s\n", function.name)
+		fmt.Fprintf(buffer, "%s\n", function.name)
 		for _, proof := range function.proofs {
-			header := "//   " + proof.check
+			header := "  " + proof.check
 			if proof.candidate != "" {
 				header += " at " + relativePosition(directory, proof.candidate)
 			}
@@ -159,7 +159,7 @@ func writeSteps(buffer *bytes.Buffer, directory string, proof *tracedProof) {
 	}
 	for _, step := range foldUnanswered(proof.steps) {
 		var text strings.Builder
-		fmt.Fprintf(&text, "//     %-10s %-8s %s", step.phase, step.outcome, step.title)
+		fmt.Fprintf(&text, "    %-10s %-8s %s", step.phase, step.outcome, step.title)
 		if step.position != "" && step.position != proof.candidate {
 			text.WriteString(" at " + relativePosition(directory, step.position))
 		}

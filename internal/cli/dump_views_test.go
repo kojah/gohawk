@@ -60,7 +60,7 @@ func TestDumpViewsOverALockCycle(t *testing.T) {
 		without   []string
 	}{
 		{"trace", viewPrinter(printTrace), []string{"-analyzer", "lockorder", "-func", "backward", "."}, []string{
-			"// dumpviews.backward", "lockorder/contradictory-order at lib.go:17:12",
+			"dumpviews.backward", "lockorder/contradictory-order at lib.go:17:12",
 			"evidence   rejected cycle-order-recorded acquired=first", "diagnostic-candidate",
 		}, []string{"dumpviews.forward"}},
 		{
@@ -70,7 +70,7 @@ func TestDumpViewsOverALockCycle(t *testing.T) {
 			[]string{"evidence "},
 		},
 		{"locks", viewPrinter(printLocks), []string{"."}, []string{
-			"// example.com/dumpviews", "first -> second: held at lib.go:8:12, acquired at lib.go:10:13", "cycles reported:", "second -> first -> second",
+			"example.com/dumpviews", "first -> second: held at lib.go:8:12, acquired at lib.go:10:13", "cycles reported:", "second -> first -> second",
 		}, nil},
 		{
 			"locks dot", viewPrinter(printLocks),
@@ -79,7 +79,7 @@ func TestDumpViewsOverALockCycle(t *testing.T) {
 			nil,
 		},
 		{"budget", viewPrinter(printBudget), []string{"-analyzer", "lockorder", "."}, []string{
-			"// slowest runs:", "lockorder on example.com/dumpviews", "// dependencies:",
+			"slowest runs:", "lockorder on example.com/dumpviews", "dependencies:",
 		}, nil},
 	} {
 		var output, errorsOutput bytes.Buffer

@@ -67,10 +67,10 @@ func writeLockOrders(buffer *bytes.Buffer, action *checker.Action, orders *locko
 	position := func(pos token.Pos) string {
 		return relativePosition(directory, action.Package.Fset.Position(pos).String())
 	}
-	fmt.Fprintf(buffer, "// %s\n", action.Package.PkgPath)
-	buffer.WriteString("//   order edges (held -> acquired):\n")
+	fmt.Fprintf(buffer, "%s\n", action.Package.PkgPath)
+	buffer.WriteString("  order edges (held -> acquired):\n")
 	for _, edge := range orders.Edges {
-		fmt.Fprintf(buffer, "//     %s -> %s: held at %s, acquired at %s", modeName(edge.Held, edge.HeldMode), modeName(edge.Acquired, edge.AcquiredMode),
+		fmt.Fprintf(buffer, "    %s -> %s: held at %s, acquired at %s", modeName(edge.Held, edge.HeldMode), modeName(edge.Acquired, edge.AcquiredMode),
 			position(edge.HeldAt), position(edge.AcquiredAt))
 		for _, call := range edge.Via {
 			fmt.Fprintf(buffer, ", via %s at %s", strings.TrimPrefix(call.Message, "calls "), position(call.Pos))
@@ -84,19 +84,19 @@ func writeLockOrders(buffer *bytes.Buffer, action *checker.Action, orders *locko
 		buffer.WriteString("\n")
 	}
 	if orders.Full {
-		buffer.WriteString("//   edge cap reached: later orders were not recorded\n")
+		buffer.WriteString("  edge cap reached: later orders were not recorded\n")
 	}
 	if len(orders.Cycles) == 0 {
-		buffer.WriteString("//   no cycle reported\n")
+		buffer.WriteString("  no cycle reported\n")
 		return
 	}
-	buffer.WriteString("//   cycles reported:\n")
+	buffer.WriteString("  cycles reported:\n")
 	for _, cycle := range orders.Cycles {
 		names := []string{orders.Edges[cycle[0]].Held}
 		for _, index := range cycle {
 			names = append(names, orders.Edges[index].Acquired)
 		}
-		buffer.WriteString("//     " + strings.Join(names, " -> ") + "\n")
+		buffer.WriteString("    " + strings.Join(names, " -> ") + "\n")
 	}
 }
 
