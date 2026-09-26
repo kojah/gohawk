@@ -44,7 +44,7 @@ func caller(value *closer) { helper(value) }
 	instruction := findLifecycleCall(t, caller, "helper")
 	callee := instruction.Common().StaticCallee()
 	pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
-		Analyzer: Summaries{callee: {Must: MustClaims{Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}}},
+		Analyzer: Summaries{callee: {Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}},
 	}}
 	request := EvidenceRequest{
 		Instruction: instruction,
@@ -97,7 +97,7 @@ func reassigned() {
 		acquisition := findLifecycleCall(t, function, "acquire")
 		instruction := findLifecycleCall(t, function, "helper")
 		pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
-			Analyzer: Summaries{instruction.Common().StaticCallee(): {Must: MustClaims{Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}}},
+			Analyzer: Summaries{instruction.Common().StaticCallee(): {Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}},
 		}}
 		return NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
 			Instruction:              instruction,
@@ -198,9 +198,9 @@ func BoundOwnerSelected(value, other *closer, enabled bool) {
 		// A close of the parameter itself, through a deferred literal or a
 		// bound callback, is the whole-parameter claim; a guarded direct
 		// close of its field is claimed at that field's path.
-		got := fact.MethodMask("Close").contains(0) || slices.Contains(fact.Must.Discharges, Discharge{Parameter: 0, Method: "Close", Path: "field:0"})
+		got := fact.MethodMask("Close").contains(0) || slices.Contains(fact.Discharges, Discharge{Parameter: 0, Method: "Close", Path: "field:0"})
 		if got != test.want {
-			t.Errorf("%s Closed parameter = %t, want %t (%+v)", test.name, got, test.want, fact.Must.Discharges)
+			t.Errorf("%s Closed parameter = %t, want %t (%+v)", test.name, got, test.want, fact.Discharges)
 		}
 	}
 }

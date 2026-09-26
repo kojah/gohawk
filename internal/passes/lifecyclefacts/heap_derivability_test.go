@@ -160,7 +160,7 @@ func factClaims(fact Fact, name string) bool {
 	case "released P0 Close":
 		return fact.MethodMask("Close").contains(0)
 	case "released P0/field:1 Close":
-		for _, discharge := range fact.Must.Discharges {
+		for _, discharge := range fact.Discharges {
 			if discharge.Parameter == 0 && discharge.Method == "Close" && discharge.Path == "field:1" {
 				return true
 			}

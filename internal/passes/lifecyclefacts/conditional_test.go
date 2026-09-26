@@ -26,7 +26,7 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 	base := summarize(pass, pkg.Func("Base"))
 	predicate := ssaflow.CallCondition{Outcome: ssaflow.OutcomeTrue}
 	if base.MethodMask("Close") != 0 || conditionalMask(base, "Close", false, predicate) != parameterMaskFor(0) {
-		t.Fatalf("base = %+v, conditional = %+v", base, base.Conditional)
+		t.Fatalf("base = %+v", base)
 	}
 	// Erase dependency SSA to require the serialized fact rather than a local
 	// body walk. Forwarding must export the relation in its own parameter space.
@@ -72,7 +72,7 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 		t.Fatalf("imported false edge: %+v", proof)
 	}
 	invoke := summarize(pass, pkg.Func("Invoke"))
-	if invoke.Must.SynchronouslyInvoked != 0 || conditionalMask(invoke, "", true, predicate) != parameterMaskFor(0) {
+	if invoke.SynchronouslyInvoked() != 0 || conditionalMask(invoke, "", true, predicate) != parameterMaskFor(0) {
 		t.Fatalf("invocation: %+v", invoke)
 	}
 }

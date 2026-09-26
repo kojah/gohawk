@@ -174,9 +174,19 @@ list is always the one the code has; do not edit it by hand.
 type Fact struct {
 	Must	MustClaims
 	May	MayClaims
-	// Conditional holds positive, result-specific guarantees. It never widens
-	// an unconditional claim, and missing entries do not establish no effect.
-	Conditional	*ConditionalSummary
+	// Discharges are the exact cleanup claims, unconditional and conditional
+	// in one list: which method is called, on which parameter, at which
+	// access path beneath it, on every normal return of the case Condition
+	// names. A discharge with an empty condition is a Must claim; any other
+	// is a summary case, a positive guarantee a caller selects only when it
+	// can check the condition, so it never widens an unconditional claim and
+	// a missing case does not establish no effect. An empty path means the
+	// parameter itself (MethodMask); InvokeMethod means calling a function
+	// parameter at all, and SynchronousInvokeMethod calling it in the same
+	// goroutine before returning; a field or element path lets a caller match
+	// the resource it stored there rather than any resource the argument
+	// contains. See conditional.go for the cases.
+	Discharges	[]Discharge
 	// Heap is the projection of the function's points-to graph onto what a
 	// caller can name: where each parameter, result, and global slot may
 	// point at exit, how each object escaped or was released, what was
@@ -196,21 +206,10 @@ type Fact struct {
 // claims of the same polarity, ReturnedOwner, Stored, and ReceiverStore, are
 // read from Heap rather than stored; see heap.go.
 type MustClaims struct {
-	// SynchronouslyInvoked marks function parameters the callee calls before
-	// it returns. Calling one at all, possibly later, is the InvokeMethod
-	// discharge instead.
-	SynchronouslyInvoked	ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
 	// caller keeps the obligation. See fields.go.
 	ReturnedView	ParameterMask
-	// Discharges are the exact cleanup claims: which method is called, on
-	// which parameter, at which access path beneath it. They are the only
-	// record of these claims: an empty path means the parameter itself
-	// (MethodMask), InvokeMethod means calling a function parameter, and a
-	// field or element path lets a caller match the resource it stored there
-	// rather than any resource the argument contains.
-	Discharges	[]Discharge
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields	FieldMask
@@ -316,11 +315,15 @@ object-fact namespace.
 
 ## Discharge paths
 
-Every discharge is one entry in `Discharges`: the method, the parameter, and
-the access path beneath it. An empty path is exact about the parameter
-itself: `Close` on `file` means `file.Close()`, and `MethodMask("Close")`
-reads those entries. Calling a function parameter is recorded with the
-method `InvokeMethod`. A cleanup of a field or element of the parameter is
+Every discharge is one entry in `Discharges`: the method, the parameter, the
+access path beneath it, and the condition it holds under. An empty condition
+is the unconditional claim, and every mask accessor such as `MethodMask`
+reads only those entries; any other condition is a summary case (see
+"Summary cases"). An empty path is exact about the parameter itself: `Close`
+on `file` means `file.Close()`, and `MethodMask("Close")` reads those
+entries. Calling a function parameter is recorded with the method
+`InvokeMethod`, and calling it in the same goroutine before returning with
+`SynchronousInvokeMethod`. A cleanup of a field or element of the parameter is
 not the same claim; its entry carries the access path beneath it, such as
 `field:0` for `j.out.Close()` or `index:1` for `files[1].Close()`, including
 through the cell a by-value parameter is spilled into. Each path is proved on every normal return on its own.
@@ -493,7 +496,8 @@ body and does not synthesize effects from missing lifecycle-summary bits; see
 - Ownership transfer to the result or to an escaping receiver, and its
   opposite, a returned view.
 - Invocation of a func parameter (an `InvokeMethod` discharge), and the stricter guarantee that
-  it is invoked in the same goroutine before return (`SynchronouslyInvoked`).
+  it is invoked in the same goroutine before return (a `SynchronousInvokeMethod`
+  discharge, read by `SynchronouslyInvoked`).
 - Cleanup that happens deeper in a chain of exported calls, because one
   summary is allowed to read the summaries of the functions it calls.
 - Facts on things other than function parameters: `CleanupFact` attaches a
@@ -625,17 +629,18 @@ instruction and effect-expansion work to a shared search budget.
 ### Summary cases
 
 A summary case is a positive cleanup guarantee under a condition a caller can
-check. There is one list of cases, the versioned `Conditional` portion of the
-lifecycle fact, and one proof for each, `lifecycle.ProveCompletionForCase`.
+check. Cases are the discharges with a non-empty condition, in the same
+`Discharges` list as the unconditional claims, and each is proved by
+`lifecycle.ProveCompletionForCase`.
 The condition is an `ssaflow.CallCondition`, the one serializable condition
 type every conditional summary uses, and `Matches` is the one rule selecting a
 case at a call. A
 case names a result condition (a Boolean result true or false, or an error
 result nil or non-nil), Boolean parameters fixed to constants, or both, and
 records the method or synchronous callback invocation it guarantees on the
-exact parameter mask, with the path beneath the parameter when the cleanup
-settles a field. The ordinary Discharges, `SynchronouslyInvoked`, and other
-unconditional claims never inherit a conditional guarantee. Missing cases are
+exact parameter, with the path beneath it when the cleanup settles a field.
+The unconditional discharges and every other Must claim never inherit a
+conditional guarantee. Missing cases are
 unknown, not absence of effects: a case says what happens under its
 condition, never what does not.
 

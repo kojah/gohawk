@@ -228,19 +228,19 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 			return ok && factOwnsExactArgument(instruction, parameter, imported.InvokedParameters())
 		}
 		if ownsOnEveryReturn(function, parameter, invokes) {
-			fact.Must.Discharges = append(fact.Must.Discharges, Discharge{Parameter: index, Method: InvokeMethod})
+			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: InvokeMethod})
 		}
 		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
 			return synchronouslyInvokesParameter(pass, instruction, parameter)
 		}) {
-			fact.Must.SynchronouslyInvoked |= bit
+			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: SynchronousInvokeMethod})
 		}
 		summarizeDischarges(pass, function, index, parameter, &fact)
 		if releasesDerivedValueInLoop(function, parameter) {
 			fact.May.LoopReleased |= bit
 		}
 	}
-	fact.Conditional = summarizeConditional(pass, function)
+	fact.Discharges = append(fact.Discharges, summarizeConditional(pass, function)...)
 	fact.ReturnedCleanup = summarizeReturnedCleanup(pass, function)
 	fact.Heap = withReleases(heap, &fact)
 	return fact
@@ -261,7 +261,7 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 				settled, ok := deferred[instruction]
 				return ok && settled == path || cleanupAtPath(instruction, parameter, method, path)
 			}) {
-				fact.Must.Discharges = append(fact.Must.Discharges, Discharge{Parameter: index, Method: method, Path: path})
+				fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: method, Path: path})
 			}
 		}
 		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
@@ -280,7 +280,7 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 			return ok && (imported.dischargesArgument(instruction, parameter, method, nil) ||
 				imported.caseDischargesArgument(instruction, parameter, method, nil, nil))
 		}) {
-			fact.Must.Discharges = append(fact.Must.Discharges, Discharge{Parameter: index, Method: method})
+			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: method})
 		}
 	}
 }
@@ -398,7 +398,7 @@ func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruct
 		return true
 	}
 	imported, ok := importFact(pass, instruction)
-	return ok && factOwnsExactArgument(instruction, parameter, imported.Must.SynchronouslyInvoked)
+	return ok && factOwnsExactArgument(instruction, parameter, imported.SynchronouslyInvoked())
 }
 
 // structShaped reports whether a parameter of this type is a struct or a

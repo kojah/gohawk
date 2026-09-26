@@ -29,38 +29,21 @@ import (
 // function outside that bound keeps only its unconditional and result cases,
 // which is exactly the summary it had before argument cases existed.
 const (
-	conditionalVersion      = 3
 	conditionalExportBudget = 2000
 	maxCaseParameters       = 2
 )
 
-// ConditionalSummary is the versioned, serializable part of a lifecycle fact
-// containing its cases.
-type ConditionalSummary struct {
-	Version int
-	Effects []ConditionalEffect
-}
-
-// ConditionalEffect records a method or synchronous callback invocation on
-// Parameters on every normal return of the case Condition names.
-type ConditionalEffect struct {
-	Condition  ssaflow.CallCondition
-	Method     string
-	Invoke     bool
-	Parameters ParameterMask
-	// Path, when set, is where beneath the parameter the method settles,
-	// exactly as in a Discharge; closing resp.Body is not closing resp.
-	Path string
-}
-
-func summarizeConditional(pass *analysis.Pass, function *ssa.Function) *ConditionalSummary {
+// summarizeConditional proves the function's cases as discharges with a
+// condition: a cleanup method, or SynchronousInvokeMethod for a callback
+// parameter, on every normal return of the case, at the path it settles.
+func summarizeConditional(pass *analysis.Pass, function *ssa.Function) []Discharge {
 	conditions := caseConditions(function)
 	if len(conditions) == 0 {
 		return nil
 	}
 	budget := ssaflow.NewSearchBudget(conditionalExportBudget)
 	lookup := conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) { return importFact(pass, instruction) }, budget, nil)
-	summary := &ConditionalSummary{Version: conditionalVersion}
+	var summary []Discharge
 	for index, parameter := range function.Params {
 		for _, method := range conditionalMethods(parameter.Type()) {
 			var proven []ssaflow.CallCondition
@@ -82,9 +65,11 @@ func summarizeConditional(pass *analysis.Pass, function *ssa.Function) *Conditio
 				path, ok := provenCasePath(function, condition, request)
 				if ok {
 					proven = append(proven, condition)
-					summary.Effects = append(summary.Effects, ConditionalEffect{
-						Condition: condition, Method: method, Invoke: request.InvokeTarget, Parameters: parameterMaskFor(index), Path: path,
-					})
+					discharged := method
+					if request.InvokeTarget {
+						discharged = SynchronousInvokeMethod
+					}
+					summary = append(summary, Discharge{Condition: condition, Parameter: index, Method: discharged, Path: path})
 				}
 			}
 		}
@@ -240,7 +225,7 @@ func conditionalLookup(
 			return heapmodel.NewStorage(budget).Same(argument, target).Proven()
 		})
 		if !proven && !invoke && condition.Outcome == ssaflow.OutcomeAny {
-			proven = dischargesMatch(fact.caseDischarges(method, condition.Arguments), instruction, target, method, nil)
+			proven = dischargesMatch(fact.casesSelectedBy(method, condition.Arguments), instruction, target, method, nil)
 		}
 		if proven && onFact != nil {
 			onFact()
@@ -249,53 +234,42 @@ func conditionalLookup(
 	}
 }
 
-// conditionalMask returns the parameters a fact's cases guarantee for query:
-// the unconditional Must claims when the query has no result condition, and
-// every case whose result condition matches and whose assumed arguments the
-// query's call supplies.
+// conditionalMask returns the parameters a fact guarantees for query: the
+// unconditional claims when the query has no result condition, and every
+// case whose condition matches the query. A case that settles a path beneath
+// a parameter is matched by path through casesSelectedBy, never as a claim on
+// the parameter itself.
 func conditionalMask(fact Fact, method string, invoke bool, query ssaflow.CallCondition) ParameterMask {
+	if invoke {
+		method = SynchronousInvokeMethod
+	}
 	var mask ParameterMask
 	if query.Outcome == ssaflow.OutcomeAny {
-		if invoke {
-			mask = fact.Must.SynchronouslyInvoked
-		} else {
-			mask = fact.MethodMask(method)
-		}
+		mask = fact.MethodMask(method)
 	}
-	if fact.Conditional == nil || fact.Conditional.Version != conditionalVersion {
-		return mask
-	}
-	for _, effect := range fact.Conditional.Effects {
-		// A case that settles a path beneath a parameter is matched by path
-		// through caseDischarges, never as a claim on the parameter itself.
-		if effect.Path == "" && effect.Method == method && effect.Invoke == invoke && effect.Condition.Matches(query) {
-			mask |= effect.Parameters
+	for _, discharge := range fact.caseDischarges() {
+		if discharge.Path == "" && discharge.Method == method && discharge.Condition.Matches(query) {
+			mask |= parameterMaskFor(discharge.Parameter)
 		}
 	}
 	return mask
 }
 
-// caseDischarges projects the unconditional cases whose assumed arguments
-// the supplied constants satisfy onto discharges of method, with their
-// paths, so they are matched to the caller's values exactly as the fact's
-// Must discharges are.
-func (fact *Fact) caseDischarges(method string, supplied ssaflow.ArgumentConstants) []Discharge {
-	if fact.Conditional == nil || fact.Conditional.Version != conditionalVersion || method == "" || supplied.Bound == 0 {
+// casesSelectedBy returns the cases of method with no result condition whose
+// assumed arguments the supplied constants satisfy, so they are matched to
+// the caller's values exactly as the unconditional discharges are.
+func (fact *Fact) casesSelectedBy(method string, supplied ssaflow.ArgumentConstants) []Discharge {
+	if method == "" || supplied.Bound == 0 {
 		return nil
 	}
 	query := ssaflow.CallCondition{Arguments: supplied}
-	var discharges []Discharge
-	for _, effect := range fact.Conditional.Effects {
-		if effect.Invoke || effect.Method != method || !effect.Condition.Matches(query) {
-			continue
-		}
-		for index := range 64 {
-			if effect.Parameters&parameterMaskFor(index) != 0 {
-				discharges = append(discharges, Discharge{Parameter: index, Method: method, Path: effect.Path})
-			}
+	var selected []Discharge
+	for _, discharge := range fact.caseDischarges() {
+		if discharge.Method == method && discharge.Condition.Matches(query) {
+			selected = append(selected, discharge)
 		}
 	}
-	return discharges
+	return selected
 }
 
 // suppliedConstants reports the Boolean constants a call passes, with known
@@ -329,18 +303,15 @@ func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, re
 }
 
 func (fact *Fact) conditionalDescriptions() []string {
-	if fact.Conditional == nil {
-		return nil
-	}
 	var lines []string
-	for _, effect := range fact.Conditional.Effects {
-		verb := effect.Method
-		if effect.Invoke {
-			verb = "invoke"
+	for _, discharge := range fact.caseDischarges() {
+		verb := discharge.Method
+		if discharge.Path != "" {
+			verb += " at " + discharge.Path
 		}
-		line := fmt.Sprintf("conditional result %d outcome %d: %s parameters %#x",
-			effect.Condition.Result, effect.Condition.Outcome, verb, uint64(effect.Parameters))
-		if arguments := effect.Condition.Arguments; arguments.Bound != 0 {
+		line := fmt.Sprintf("conditional result %d outcome %d: %s parameter %d",
+			discharge.Condition.Result, discharge.Condition.Outcome, verb, discharge.Parameter)
+		if arguments := discharge.Condition.Arguments; arguments.Bound != 0 {
 			line += fmt.Sprintf(" when arguments %#x are %#x", arguments.Bound, arguments.Values)
 		}
 		lines = append(lines, line)

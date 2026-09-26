@@ -56,9 +56,9 @@ func Nested(b batch) error { return b.files[0].Close() }
 	}
 	for name, test := range cases {
 		fact := summarize(pass, test.function)
-		got := slices.Contains(fact.Must.Discharges, Discharge{Parameter: 0, Method: "Close", Path: test.path})
+		got := slices.Contains(fact.Discharges, Discharge{Parameter: 0, Method: "Close", Path: test.path})
 		if got != test.want {
-			t.Errorf("%s: discharge of Close at %q = %t, want %t (fact %+v)", name, test.path, got, test.want, fact.Must.Discharges)
+			t.Errorf("%s: discharge of Close at %q = %t, want %t (fact %+v)", name, test.path, got, test.want, fact.Discharges)
 		}
 		if fact.MethodMask("Close") != 0 {
 			t.Errorf("%s: a field cleanup must not claim the whole parameter", name)

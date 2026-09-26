@@ -362,7 +362,7 @@ func (evidence *LifecycleEvidence) selectedMaskProof(request EvidenceRequest, fa
 // the exact target on every normal return. Only the requested completion is
 // matched; an argument case never answers a transfer or retention question.
 func (evidence *LifecycleEvidence) argumentCaseCompletes(request EvidenceRequest, fact Fact) bool {
-	if request.Completion == nil || fact.Conditional == nil {
+	if request.Completion == nil || len(fact.caseDischarges()) == 0 {
 		return false
 	}
 	switch request.Instruction.(type) {

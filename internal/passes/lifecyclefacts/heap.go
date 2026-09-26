@@ -36,9 +36,9 @@ func projectHeap(function *ssa.Function) *heapmodel.HeapSummary {
 
 // withReleases adds the release effects the discharge proofs established.
 func withReleases(summary *heapmodel.HeapSummary, fact *Fact) *heapmodel.HeapSummary {
-	for _, discharge := range fact.Must.Discharges {
+	for _, discharge := range fact.unconditionalDischarges() {
 		// Calling a function parameter releases nothing the heap tracks.
-		if discharge.Method == InvokeMethod {
+		if discharge.Method == InvokeMethod || discharge.Method == SynchronousInvokeMethod {
 			continue
 		}
 		summary.Effects = append(summary.Effects, heapmodel.HeapEffect{

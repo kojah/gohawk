@@ -35,7 +35,7 @@ func forward(a, b func(), pick bool) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fact := summarize(pass, pkg.Func(test.name))
-			if fact.InvokedParameters().contains(0) != test.want || fact.Must.SynchronouslyInvoked.contains(0) != test.want {
+			if fact.InvokedParameters().contains(0) != test.want || fact.SynchronouslyInvoked().contains(0) != test.want {
 				t.Errorf("summary = %#v, want invocation of parameter 0: %t", fact, test.want)
 			}
 		})
@@ -46,7 +46,7 @@ func forward(a, b func(), pick bool) {
 		t.Fatal("a summary for the selected argument must not prove action on either possible argument")
 	}
 	pass.ResultOf = map[*analysis.Analyzer]any{
-		Analyzer: Summaries{call.Common().StaticCallee(): {Must: MustClaims{Discharges: []Discharge{{Parameter: 0, Method: InvokeMethod}}}}},
+		Analyzer: Summaries{call.Common().StaticCallee(): {Discharges: []Discharge{{Parameter: 0, Method: InvokeMethod}}}},
 	}
 	proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
 		Instruction: call, Target: fn.Params[0], SelectMask: func(fact Fact) ParameterMask { return fact.InvokedParameters() },

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/types"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
@@ -25,9 +24,19 @@ import (
 type Fact struct {
 	Must MustClaims
 	May  MayClaims
-	// Conditional holds positive, result-specific guarantees. It never widens
-	// an unconditional claim, and missing entries do not establish no effect.
-	Conditional *ConditionalSummary
+	// Discharges are the exact cleanup claims, unconditional and conditional
+	// in one list: which method is called, on which parameter, at which
+	// access path beneath it, on every normal return of the case Condition
+	// names. A discharge with an empty condition is a Must claim; any other
+	// is a summary case, a positive guarantee a caller selects only when it
+	// can check the condition, so it never widens an unconditional claim and
+	// a missing case does not establish no effect. An empty path means the
+	// parameter itself (MethodMask); InvokeMethod means calling a function
+	// parameter at all, and SynchronousInvokeMethod calling it in the same
+	// goroutine before returning; a field or element path lets a caller match
+	// the resource it stored there rather than any resource the argument
+	// contains. See conditional.go for the cases.
+	Discharges []Discharge
 	// Heap is the projection of the function's points-to graph onto what a
 	// caller can name: where each parameter, result, and global slot may
 	// point at exit, how each object escaped or was released, what was
@@ -47,21 +56,10 @@ type Fact struct {
 // claims of the same polarity, ReturnedOwner, Stored, and ReceiverStore, are
 // read from Heap rather than stored; see heap.go.
 type MustClaims struct {
-	// SynchronouslyInvoked marks function parameters the callee calls before
-	// it returns. Calling one at all, possibly later, is the InvokeMethod
-	// discharge instead.
-	SynchronouslyInvoked ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
 	// caller keeps the obligation. See fields.go.
 	ReturnedView ParameterMask
-	// Discharges are the exact cleanup claims: which method is called, on
-	// which parameter, at which access path beneath it. They are the only
-	// record of these claims: an empty path means the parameter itself
-	// (MethodMask), InvokeMethod means calling a function parameter, and a
-	// field or element path lets a caller match the resource it stored there
-	// rather than any resource the argument contains.
-	Discharges []Discharge
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields    FieldMask
@@ -99,7 +97,7 @@ func (fact *Fact) traceDetails() map[string]string {
 		mask ParameterMask
 	}{
 		{"invoked", fact.InvokedParameters()},
-		{"synchronously-invoked", fact.Must.SynchronouslyInvoked},
+		{"synchronously-invoked", fact.SynchronouslyInvoked()},
 		{"closed", fact.MethodMask("Close")},
 		{"finalized", fact.MethodMask("Finalize")},
 		{"released", fact.MethodMask("Release")},
@@ -129,7 +127,7 @@ func (fact *Fact) traceDetails() map[string]string {
 			claims = append(claims, claim.name)
 		}
 	}
-	if fact.Conditional != nil && len(fact.Conditional.Effects) != 0 {
+	if len(fact.caseDischarges()) != 0 {
 		claims = append(claims, "conditional")
 	}
 	if fact.ReturnedCleanup != nil && len(fact.ReturnedCleanup.Effects) != 0 {
@@ -139,51 +137,6 @@ func (fact *Fact) traceDetails() map[string]string {
 		return map[string]string{"claims": "none"}
 	}
 	return map[string]string{"claims": strings.Join(claims, ",")}
-}
-
-// Discharge is one exact cleanup claim: Method is called on the value at
-// Path beneath Parameter on every normal return. Path is a joined access
-// path, empty for the parameter itself.
-type Discharge struct {
-	Parameter int
-	Method    string
-	Path      string
-}
-
-// DischargedParameters returns the parameters with any discharge, at any
-// path, for a consumer that only asks whether the callee releases part of
-// what it was handed.
-func (fact *Fact) DischargedParameters() ParameterMask {
-	var mask ParameterMask
-	for _, discharge := range fact.Must.Discharges {
-		if discharge.Method != InvokeMethod {
-			mask |= parameterMaskFor(discharge.Parameter)
-		}
-	}
-	return mask
-}
-
-// InvokeMethod is the discharge method for calling a function parameter
-// itself. It is not a valid Go identifier, so no real method matches it.
-const InvokeMethod = "()"
-
-// MethodMask returns the parameters on which the callee calls method on the
-// parameter itself on every normal return: the empty-path discharges. A
-// cleanup of something beneath the parameter is not included.
-func (fact *Fact) MethodMask(method string) ParameterMask {
-	var mask ParameterMask
-	for _, discharge := range fact.Must.Discharges {
-		if discharge.Method == method && discharge.Path == "" {
-			mask |= parameterMaskFor(discharge.Parameter)
-		}
-	}
-	return mask
-}
-
-// InvokedParameters returns the function parameters the callee calls on
-// every normal return, whether before it returns or later.
-func (fact *Fact) InvokedParameters() ParameterMask {
-	return fact.MethodMask(InvokeMethod)
 }
 
 // KeptParameters returns the parameters with a kept-contents claim at any
@@ -207,70 +160,6 @@ func (fact *Fact) keepsContentsAt(index int, path string) bool {
 		}
 	}
 	return keepsContentsAt(kept, path)
-}
-
-// dischargesArgument reports whether the call's static callee is summarized
-// as calling method on exactly the target: the target is the argument
-// itself for an empty-path discharge, or the value the caller stored at the
-// discharge's path beneath the argument. Containment alone proves nothing
-// here; that is the whole point of the path.
-func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Value, method string, observer ssaflow.Observer) bool {
-	return dischargesMatch(fact.Must.Discharges, instruction, target, method, observer)
-}
-
-// caseDischargesArgument is dischargesArgument for the fact's argument cases
-// that the call's constant arguments select, with known fixing the caller's
-// own parameters when the call sits in a body searched under constants.
-func (fact *Fact) caseDischargesArgument(
-	instruction ssa.Instruction, target ssa.Value, method string, known ssaflow.BooleanConstants, observer ssaflow.Observer,
-) bool {
-	return dischargesMatch(fact.caseDischarges(method, suppliedConstants(instruction, known)), instruction, target, method, observer)
-}
-
-func dischargesMatch(discharges []Discharge, instruction ssa.Instruction, target ssa.Value, method string, observer ssaflow.Observer) bool {
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	for _, discharge := range discharges {
-		if discharge.Method != method || discharge.Parameter >= len(common.Args) {
-			continue
-		}
-		argument := common.Args[discharge.Parameter]
-		storage := heapmodel.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
-		path := ssaflow.SplitAccessPath(discharge.Path)
-		if stored, ok := heapmodel.ValueAtPath(argument, path, instruction); ok && storage.Same(stored, target).Proven() {
-			return true
-		}
-		// A resource that is an owner, such as an http.Response, is released
-		// through its cleanup-bearing field: a helper closing resp.Body has
-		// released resp. Only a direct resource-typed field qualifies; a
-		// deeper path or an ordinary field is not the owner's cleanup.
-		if len(path) == 1 && storage.Same(argument, target).Proven() && cleanupFieldPath(target.Type(), path[0]) {
-			return true
-		}
-	}
-	return false
-}
-
-// cleanupFieldPath reports whether step selects a field of owner whose type
-// carries a cleanup obligation of its own.
-func cleanupFieldPath(owner types.Type, step string) bool {
-	index, ok := strings.CutPrefix(step, "field:")
-	if !ok {
-		return false
-	}
-	structure := structBehind(owner)
-	if structure == nil {
-		return false
-	}
-	for field := range structure.NumFields() {
-		if strconv.Itoa(field) == index {
-			_, cleanup := typeCleanup(structure.Field(field).Type())
-			return cleanup
-		}
-	}
-	return false
 }
 
 // Claim names what a summary can say about one parameter. The masks it
@@ -304,7 +193,7 @@ func (fact *Fact) Claim(claim Claim) ParameterMask {
 	case ClaimReleases:
 		return fact.DischargedParameters()
 	case ClaimSynchronouslyInvokes:
-		return fact.Must.SynchronouslyInvoked
+		return fact.SynchronouslyInvoked()
 	case ClaimReleasesInLoop:
 		return fact.May.LoopReleased
 	}
@@ -389,7 +278,7 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 	if fact.Must.RetainingResults != 0 {
 		lines = append(lines, "RetainingResults: "+fact.resultNames(fact.Must.RetainingResults, signature))
 	}
-	for _, discharge := range fact.Must.Discharges {
+	for _, discharge := range fact.unconditionalDischarges() {
 		if discharge.Path != "" && discharge.Parameter < len(names) {
 			lines = append(lines, fmt.Sprintf("%d %s: %s at %s", discharge.Parameter, names[discharge.Parameter], discharge.Method, discharge.Path))
 		}
@@ -495,11 +384,10 @@ type SummarizedPackage struct {
 
 // empty reports whether the summary claims nothing.
 func (fact *Fact) empty() bool {
-	masks := fact.Must.SynchronouslyInvoked | fact.ReturnedOwner() | fact.Must.ReturnedView |
+	masks := fact.ReturnedOwner() | fact.Must.ReturnedView |
 		fact.Retained() | fact.Stored() | fact.May.LoopReleased | fact.ReceiverStore()
 	indexed := uint64(fact.Must.OwnedFields) | uint64(fact.Must.ReleasedFields) | uint64(fact.Must.OwnedResults) | uint64(fact.Must.RetainingResults)
-	return masks == 0 && indexed == 0 && len(fact.Kept()) == 0 && len(fact.Must.Discharges) == 0 &&
-		(fact.Conditional == nil || len(fact.Conditional.Effects) == 0) &&
+	return masks == 0 && indexed == 0 && len(fact.Kept()) == 0 && len(fact.Discharges) == 0 &&
 		(fact.ReturnedCleanup == nil || len(fact.ReturnedCleanup.Effects) == 0) &&
 		fact.heapEmpty()
 }
@@ -667,7 +555,7 @@ type lifecycleMask struct {
 }
 
 var lifecycleMasks = []lifecycleMask{
-	{name: "SynchronouslyInvoked", mask: func(fact *Fact) ParameterMask { return fact.Must.SynchronouslyInvoked }},
+	{name: "SynchronouslyInvoked", mask: (*Fact).SynchronouslyInvoked},
 	{name: "ReturnedOwner", mask: (*Fact).ReturnedOwner},
 	{name: "ReturnedView", mask: func(fact *Fact) ParameterMask { return fact.Must.ReturnedView }},
 	{name: "ReceiverStore", mask: (*Fact).ReceiverStore},

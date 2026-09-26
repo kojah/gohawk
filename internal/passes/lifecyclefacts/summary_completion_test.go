@@ -56,7 +56,7 @@ func closeNormally(c closer) { c.Close() }
 				t.Errorf("%s invented %s mask %#x", name, mask.name, got)
 			}
 		}
-		if fact.Must.SynchronouslyInvoked != 0 {
+		if fact.SynchronouslyInvoked() != 0 {
 			t.Errorf("%s invented synchronous invocation", name)
 		}
 	}

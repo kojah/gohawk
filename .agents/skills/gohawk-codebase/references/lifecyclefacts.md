@@ -119,45 +119,13 @@ type CompletionProof struct {
 
 CompletionProof retains path coverage along with its summary explanation.
 
-## ConditionalEffect
-
-[Source](../../../../internal/passes/lifecyclefacts/conditional.go)
-
-```go
-type ConditionalEffect struct {
-	Condition	ssaflow.CallCondition
-	Method		string
-	Invoke		bool
-	Parameters	ParameterMask
-	// Path, when set, is where beneath the parameter the method settles,
-	// exactly as in a Discharge; closing resp.Body is not closing resp.
-	Path	string
-}
-```
-
-ConditionalEffect records a method or synchronous callback invocation on
-Parameters on every normal return of the case Condition names.
-
-## ConditionalSummary
-
-[Source](../../../../internal/passes/lifecyclefacts/conditional.go)
-
-```go
-type ConditionalSummary struct {
-	Version	int
-	Effects	[]ConditionalEffect
-}
-```
-
-ConditionalSummary is the versioned, serializable part of a lifecycle fact
-containing its cases.
-
 ## Discharge
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+[Source](../../../../internal/passes/lifecyclefacts/discharges.go)
 
 ```go
 type Discharge struct {
+	Condition	ssaflow.CallCondition
 	Parameter	int
 	Method		string
 	Path		string
@@ -165,7 +133,8 @@ type Discharge struct {
 ```
 
 Discharge is one exact cleanup claim: Method is called on the value at
-Path beneath Parameter on every normal return. Path is a joined access
+Path beneath Parameter on every normal return of the case Condition names,
+or every normal return when Condition is empty. Path is a joined access
 path, empty for the parameter itself.
 
 ## EvidenceRequest
@@ -201,9 +170,19 @@ prove the obligation.
 type Fact struct {
 	Must	MustClaims
 	May	MayClaims
-	// Conditional holds positive, result-specific guarantees. It never widens
-	// an unconditional claim, and missing entries do not establish no effect.
-	Conditional	*ConditionalSummary
+	// Discharges are the exact cleanup claims, unconditional and conditional
+	// in one list: which method is called, on which parameter, at which
+	// access path beneath it, on every normal return of the case Condition
+	// names. A discharge with an empty condition is a Must claim; any other
+	// is a summary case, a positive guarantee a caller selects only when it
+	// can check the condition, so it never widens an unconditional claim and
+	// a missing case does not establish no effect. An empty path means the
+	// parameter itself (MethodMask); InvokeMethod means calling a function
+	// parameter at all, and SynchronousInvokeMethod calling it in the same
+	// goroutine before returning; a field or element path lets a caller match
+	// the resource it stored there rather than any resource the argument
+	// contains. See conditional.go for the cases.
+	Discharges	[]Discharge
 	// Heap is the projection of the function's points-to graph onto what a
 	// caller can name: where each parameter, result, and global slot may
 	// point at exit, how each object escaped or was released, what was
@@ -247,7 +226,7 @@ follow SSA parameters, so a method's receiver is position zero.
 
 ## Fact.DischargedParameters
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+[Source](../../../../internal/passes/lifecyclefacts/discharges.go)
 
 ```go
 func (fact *Fact) DischargedParameters() ParameterMask
@@ -259,7 +238,7 @@ what it was handed.
 
 ## Fact.InvokedParameters
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+[Source](../../../../internal/passes/lifecyclefacts/discharges.go)
 
 ```go
 func (fact *Fact) InvokedParameters() ParameterMask
@@ -293,7 +272,7 @@ path.
 
 ## Fact.MethodMask
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+[Source](../../../../internal/passes/lifecyclefacts/discharges.go)
 
 ```go
 func (fact *Fact) MethodMask(method string) ParameterMask
@@ -368,6 +347,18 @@ func (fact *Fact) String() string
 String decodes the masks by parameter position so the fact is readable in
 analysis debug output.
 
+## Fact.SynchronouslyInvoked
+
+[Source](../../../../internal/passes/lifecyclefacts/discharges.go)
+
+```go
+func (fact *Fact) SynchronouslyInvoked() ParameterMask
+```
+
+SynchronouslyInvoked returns the function parameters the callee calls in
+the same goroutine before it returns, on every normal return. Calling one
+at all, possibly later, is InvokedParameters instead.
+
 ## FieldMask
 
 [Source](../../../../internal/passes/lifecyclefacts/fact.go)
@@ -379,16 +370,21 @@ type FieldMask uint64
 FieldMask is a set of struct field indices of a result or receiver type.
 It is a separate type so a field bit is never tested as a parameter.
 
-## InvokeMethod
+## InvokeMethod, SynchronousInvokeMethod
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+[Source](../../../../internal/passes/lifecyclefacts/discharges.go)
 
 ```go
-const InvokeMethod = "()"
+const (
+	InvokeMethod		= "()"
+	SynchronousInvokeMethod	= "(sync)"
+)
 ```
 
 InvokeMethod is the discharge method for calling a function parameter
-itself. It is not a valid Go identifier, so no real method matches it.
+itself, now or later. SynchronousInvokeMethod is calling it in the same
+goroutine before returning. Neither is a valid Go identifier, so no real
+method matches them.
 
 ## Kept
 
@@ -687,21 +683,10 @@ Heap rather than stored; see heap.go.
 
 ```go
 type MustClaims struct {
-	// SynchronouslyInvoked marks function parameters the callee calls before
-	// it returns. Calling one at all, possibly later, is the InvokeMethod
-	// discharge instead.
-	SynchronouslyInvoked	ParameterMask
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
 	// caller keeps the obligation. See fields.go.
 	ReturnedView	ParameterMask
-	// Discharges are the exact cleanup claims: which method is called, on
-	// which parameter, at which access path beneath it. They are the only
-	// record of these claims: an empty path means the parameter itself
-	// (MethodMask), InvokeMethod means calling a function parameter, and a
-	// field or element path lets a caller match the resource it stored there
-	// rather than any resource the argument contains.
-	Discharges	[]Discharge
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.
 	OwnedFields	FieldMask
