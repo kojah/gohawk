@@ -158,6 +158,10 @@ type CompletionRequest struct {
 	// ReturnedSummaries supplies exact callback-to-parameter/result relations
 	// for factories whose bodies are unavailable.
 	ReturnedSummaries	ReturnedCleanupLookup
+	// Constants, when set, fixes Boolean parameters of the body containing
+	// Instruction, as when that body is itself proved under one of its own
+	// cases; a helper then sees the constants its call forwards.
+	Constants	ssaflow.BooleanConstants
 	// contains filtered or unexported fields
 }
 ```

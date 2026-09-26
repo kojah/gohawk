@@ -737,10 +737,16 @@ without instructions, `LifecycleEvidence.ManifestReleasedUses` returns it
 with the calls for this package's own functions, and `ReleasedUsesAt` reads
 the callee's summary, or runs the proof on an unexported helper of this
 package, which has no summary. A release on a branch the function decides by
-its own data does not dominate the use and is not claimed; a helper that
-releases or uses the parameter is not followed. At most eight released uses
-are exported per function, with the same two guarding parameters as summary
-cases.
+its own data does not dominate the use and is not claimed. A helper counts as
+the release when the completion engine proves, under the case's constants,
+that it closes the exact parameter on every return, and as the use when its
+summary, or an unexported helper's heap projection, requires a method on the
+parameter on every path; any other call receiving the parameter cancels the
+claim. A function passing its own Boolean parameter to a callee whose latent
+released use that parameter triggers exports the same use under its own
+condition; a use the call's literals trigger alone stays the call's defect.
+At most eight released uses are exported per function, with the same two
+guarding parameters as summary cases.
 
 ### Returned cleanup and completion handles
 

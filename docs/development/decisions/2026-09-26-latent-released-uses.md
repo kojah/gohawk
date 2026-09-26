@@ -23,6 +23,17 @@ own data does not dominate the use, and the use is not claimed. That keeps a
 reported use wrong on every path that reaches it, at the cost of the bugs that
 depend on data the analysis cannot decide.
 
-Still excluded: a helper that releases or uses the parameter, a released use
-reached through a chain of calls that forward the constant, and conditions on
-anything but Boolean parameters.
+A helper counts on either side: the completion engine's exact proof that it
+closes the parameter on every return, under the constants the case binds,
+makes it the release, and a summary requiring a method of the parameter on
+every path makes it the use. Any other call that receives the parameter still
+cancels the claim. A function that forwards its own flag to a callee with a
+latent released use has the same latent use under its own condition, so the
+defect is reported at the call that finally fixes the flag; a callee's latent
+use that the call's literals trigger alone is that call's defect and is not
+composed.
+
+Still excluded: conditions on anything but Boolean parameters. A nil
+condition needs a walk that assumes a parameter is nil; an integer, string,
+or enum condition needs equality in the shared vocabulary and multiplies the
+cases a function exports, which waits for a real-world pattern to justify it.

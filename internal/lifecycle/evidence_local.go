@@ -43,7 +43,7 @@ type transferEvidenceKey struct {
 func (evidence *LocalEvidence) Completion(request CompletionRequest) ssaflow.CompletionProof {
 	// Lookup policies may differ between requests. Their identities are not
 	// comparable; retain only the per-query summary cache in this case.
-	if request.Summarized != nil || request.ReturnedSummaries != nil {
+	if request.Summarized != nil || request.ReturnedSummaries != nil || len(request.Constants) != 0 {
 		if request.ReturnedSummaries == nil {
 			request.ReturnedSummaries = evidence.returned
 		}

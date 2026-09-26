@@ -265,11 +265,15 @@ reported at the operation, whoever calls it: `f.Close()` followed by
 happens only under the function's own Boolean parameters, as in
 `if closeFirst { f.Close() }` before the read, the function is right for some
 callers, so it is not reported; a call passing the constant that triggers the
-release is, locally or through an imported summary. The release must be a
-direct `Close`, or `Rollback` for a transaction, on the exact parameter,
-dominating the use on the paths the constants allow, with nothing else
-touching the parameter in between; the use must be an operation this table
-lists. A release on a branch the function decides by its own data, a
+release is, locally or through an imported summary, and so is a call to a
+function that forwards its own flag there. The release must be a `Close`, or
+`Rollback` for a transaction, on the exact parameter, directly or by a helper
+proven to close it on every return, dominating the use on the paths the
+constants allow, with nothing else touching the parameter in between; the use
+must be an operation this table lists, directly or by a helper whose summary
+requires it. A function that passes the triggering literal itself is reported
+at that call and not again at its own callers. Fixtures also in
+`resourcelifetime/useafter/helper_released_uses.go`. A release on a branch the function decides by its own data, a
 reassigned parameter, `Err` after `Close`, a second `Close`, a deferred
 `Close`, and a use on a sibling parameter are not reported. The released
 value is the parameter, so a use after a `Commit` is not claimed. Fixtures:

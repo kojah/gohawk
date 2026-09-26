@@ -405,3 +405,8 @@ func ReadAfterMaybeClose(file *os.File, closeFirst bool) {
 	}
 	_, _ = file.Read(make([]byte, 1))
 }
+
+// ForwardReadAfterMaybeClose forwards its flag to ReadAfterMaybeClose.
+func ForwardReadAfterMaybeClose(file *os.File, closeFirst bool) {
+	ReadAfterMaybeClose(file, closeFirst)
+}

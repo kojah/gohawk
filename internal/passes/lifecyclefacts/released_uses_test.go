@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"golang.org/x/tools/go/ssa"
 )
 
 func TestReleasedUseProofs(t *testing.T) {
@@ -44,6 +45,8 @@ func Before(r *rows) {
 	r.Next()
 	r.Close()
 }
+func pingA(r *rows, flag bool) { pingB(r, flag) }
+func pingB(r *rows, flag bool) { pingA(r, flag) }
 `)
 	unconditional := ssaflow.CallCondition{}
 	both := ssaflow.CallCondition{Arguments: ssaflow.ArgumentConstants{Bound: 0b110, Values: 0b110}}
@@ -60,8 +63,11 @@ func Before(r *rows) {
 		{"Both", []ReleasedUse{{Condition: both, Release: "Close", Use: "Next"}}},
 		{"Touched", nil},
 		{"Before", nil},
+		// Helpers that forward to each other end at the recursion guard.
+		{"pingA", nil},
 	} {
-		got := releasedUses(releasedUseProofs(pkg.Func(test.name)))
+		search := newReleasedUseSearch(func(ssa.Instruction) (Fact, bool) { return Fact{}, false })
+		got := releasedUses(search.releasedUseProofs(pkg.Func(test.name)))
 		if len(got) != len(test.want) {
 			t.Errorf("%s: released uses = %+v, want %+v", test.name, got, test.want)
 			continue

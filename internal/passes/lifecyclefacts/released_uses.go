@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/lifecycle"
+	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -18,11 +21,20 @@ import (
 // such a call is. The claim is structural. Which uses fail on a released
 // value is the consuming analyzer's contract, not this package's.
 //
-// The proof is deliberately narrow: the release and the use are direct calls
-// on the exact parameter, the release dominates the use on the allowed
-// paths, and a release on a branch the function decides by its own data
-// does not count, because the use is then not wrong on every path. A helper
-// that releases or uses the parameter is not followed yet.
+// The proof is deliberately narrow: the release dominates the use on the
+// allowed paths, and a release on a branch the function decides by its own
+// data does not count, because the use is then not wrong on every path. A
+// release is a cleanup call on the exact parameter, or a helper the completion
+// engine proves calls one on it on every return, under the constants the
+// case fixes. A use is any other method called on it, or a helper whose
+// summary requires one on it on every path. Any other call that receives the
+// parameter could reopen, reset, or replace it, so it cancels the claim.
+//
+// A function that forwards its own Boolean parameter to a callee with a
+// latent released use has that use too, under its own condition, so the
+// defect surfaces at the call that finally fixes the flag. A callee's latent
+// use that the call's literals trigger by themselves is that call's own
+// defect, reported there, and is not composed.
 
 // maxReleasedUses bounds the released uses one function exports.
 const maxReleasedUses = 8
@@ -44,10 +56,28 @@ type ReleasedUseProof struct {
 	UseCall     *ssa.Call
 }
 
+// releasedUseSearch carries what the proof reads beyond the body: callee
+// facts, and the released uses and heap requirements of this package's
+// unexported helpers, which have no fact. The memo owns the recursion guard
+// for helpers that forward to each other.
+type releasedUseSearch struct {
+	facts func(ssa.Instruction) (Fact, bool)
+	memo  *ssaflow.CallGraphMemo[*ssa.Function, []ReleasedUse]
+	heaps map[*ssa.Function]*heapmodel.HeapSummary
+}
+
+func newReleasedUseSearch(facts func(ssa.Instruction) (Fact, bool)) *releasedUseSearch {
+	return &releasedUseSearch{
+		facts: facts,
+		memo:  ssaflow.NewCallGraphMemo[*ssa.Function, []ReleasedUse](),
+		heaps: map[*ssa.Function]*heapmodel.HeapSummary{},
+	}
+}
+
 // releasedUseProofs proves the function's released uses, most general
 // condition first; a use implied by a proven one under fewer assumptions is
 // not repeated.
-func releasedUseProofs(function *ssa.Function) []ReleasedUseProof {
+func (search *releasedUseSearch) releasedUseProofs(function *ssa.Function) []ReleasedUseProof {
 	if function == nil || len(function.Blocks) == 0 {
 		return nil
 	}
@@ -64,7 +94,10 @@ func releasedUseProofs(function *ssa.Function) []ReleasedUseProof {
 			if index >= 64 || len(proofs) >= maxReleasedUses {
 				break
 			}
-			proofs = parameterReleasedUses(proofs, parameter, index, condition, blocks, constants)
+			proofs = search.parameterReleasedUses(proofs, parameter, index, condition, blocks, constants)
+		}
+		if !condition.Unconditional() {
+			proofs = search.forwardedReleasedUses(proofs, function, condition, blocks, constants)
 		}
 	}
 	return proofs
@@ -72,20 +105,21 @@ func releasedUseProofs(function *ssa.Function) []ReleasedUseProof {
 
 // parameterReleasedUses appends the released uses of one parameter under one
 // condition to proofs, up to the export bound.
-func parameterReleasedUses(
+func (search *releasedUseSearch) parameterReleasedUses(
 	proofs []ReleasedUseProof, parameter *ssa.Parameter, index int, condition ssaflow.CallCondition,
 	blocks []*ssa.BasicBlock, constants ssaflow.BooleanConstants,
 ) []ReleasedUseProof {
-	releases, uses := parameterCalls(blocks, parameter)
+	releases, uses := search.parameterCalls(blocks, parameter, constants)
 	for _, use := range uses {
 		for _, release := range releases {
 			if len(proofs) == maxReleasedUses {
 				return proofs
 			}
-			candidate := ReleasedUse{
-				Condition: condition, Parameter: index,
-				Release: ssaflow.CallName(release.Common()), Use: ssaflow.CallName(use.Common()),
+			if release.call == use.call {
+				continue
 			}
+			candidate := ReleasedUse{Condition: condition, Parameter: index, Release: release.method, Use: use.method}
+			release, use := release.call, use.call
 			if releasedUseImplied(candidate, proofs) || !ssaflow.InstructionDominatesAssuming(release, use, constants) ||
 				touchedBetween(parameter, release, use, constants) {
 				continue
@@ -96,24 +130,147 @@ func parameterReleasedUses(
 	return proofs
 }
 
-// parameterCalls returns the plain calls in blocks made on the exact
-// parameter: cleanup methods as releases, every other method as a use.
+// parameterCall is a call that releases or uses the parameter, with the
+// method it calls on it, directly or inside a helper.
+type parameterCall struct {
+	call   *ssa.Call
+	method string
+}
+
+// parameterCalls classifies the plain calls in blocks that receive the exact
+// parameter: cleanup methods called on it, or proven of a helper, as
+// releases; other methods called on it, or required of a helper, as uses.
 // Deferred calls run at return and precede nothing.
-func parameterCalls(blocks []*ssa.BasicBlock, parameter *ssa.Parameter) (releases, uses []*ssa.Call) {
+func (search *releasedUseSearch) parameterCalls(
+	blocks []*ssa.BasicBlock, parameter *ssa.Parameter, constants ssaflow.BooleanConstants,
+) (releases, uses []parameterCall) {
 	for _, block := range blocks {
 		for _, instruction := range block.Instrs {
 			call, ok := instruction.(*ssa.Call)
-			if !ok || ssaflow.CallReceiver(call.Common()) != parameter {
+			if !ok {
 				continue
 			}
-			if slices.Contains(cleanupMethods, ssaflow.CallName(call.Common())) {
-				releases = append(releases, call)
-			} else {
-				uses = append(uses, call)
+			if ssaflow.CallReceiver(call.Common()) == parameter {
+				name := ssaflow.CallName(call.Common())
+				if slices.Contains(cleanupMethods, name) {
+					releases = append(releases, parameterCall{call: call, method: name})
+				} else {
+					uses = append(uses, parameterCall{call: call, method: name})
+				}
+				continue
+			}
+			index := slices.Index(call.Common().Args, ssa.Value(parameter))
+			if index < 0 || call.Common().IsInvoke() || call.Common().StaticCallee() == nil {
+				continue
+			}
+			if method, ok := search.helperReleases(call, parameter, constants); ok {
+				releases = append(releases, parameterCall{call: call, method: method})
+				continue
+			}
+			for _, method := range search.helperRequires(call, index) {
+				if !slices.Contains(cleanupMethods, method) {
+					uses = append(uses, parameterCall{call: call, method: method})
+				}
 			}
 		}
 	}
 	return releases, uses
+}
+
+// helperReleases reports the cleanup method the helper call is proven to call
+// on the exact parameter on every normal return, under the constants bound in
+// the calling body.
+func (search *releasedUseSearch) helperReleases(call *ssa.Call, parameter *ssa.Parameter, constants ssaflow.BooleanConstants) (string, bool) {
+	for _, method := range cleanupMethods {
+		budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+		proof := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
+			Instruction: call, Target: parameter, Methods: []string{method}, ExactTarget: true, Constants: constants, Budget: budget,
+			Summarized: conditionalLookup(search.facts, budget, nil), CallContract: resourcemodel.ConditionalReleases(budget),
+		})
+		if proof.Proven() {
+			return method, true
+		}
+	}
+	return "", false
+}
+
+// helperRequires lists the methods the helper's summary requires on the
+// argument at index on every path, read from its fact, or from its heap
+// projection when it is an unexported helper of this package.
+func (search *releasedUseSearch) helperRequires(call *ssa.Call, index int) []string {
+	var heap *heapmodel.HeapSummary
+	if fact, ok := search.facts(call); ok {
+		heap = fact.Heap
+	} else if callee := call.Common().StaticCallee(); len(callee.Blocks) != 0 && callee.Pkg == call.Parent().Pkg {
+		if _, ok := search.heaps[callee]; !ok {
+			search.heaps[callee] = projectHeap(callee)
+		}
+		heap = search.heaps[callee]
+	}
+	if heap == nil {
+		return nil
+	}
+	var methods []string
+	for _, requirement := range heap.Requires {
+		if requirement.Kind == heapmodel.HeapRequiresMethod && requirement.Slot.Root.Kind == heapmodel.HeapParameter &&
+			requirement.Slot.Root.Index == index && requirement.Slot.Path == "" {
+			methods = append(methods, requirement.Method)
+		}
+	}
+	return methods
+}
+
+// forwardedReleasedUses composes the callees' latent released uses that the
+// function's own condition triggers: the call supplies constants that match
+// the callee's condition only with the function's bound parameters, and it
+// passes the function's own parameter where the callee uses it.
+func (search *releasedUseSearch) forwardedReleasedUses(
+	proofs []ReleasedUseProof, function *ssa.Function, condition ssaflow.CallCondition,
+	blocks []*ssa.BasicBlock, constants ssaflow.BooleanConstants,
+) []ReleasedUseProof {
+	for _, block := range blocks {
+		for _, instruction := range block.Instrs {
+			call, ok := instruction.(*ssa.Call)
+			if !ok {
+				continue
+			}
+			bound := ssaflow.CallCondition{Arguments: ssaflow.SuppliedConstants(call.Common(), constants)}
+			literal := ssaflow.CallCondition{Arguments: ssaflow.SuppliedConstants(call.Common(), nil)}
+			for _, latent := range search.calleeReleasedUses(call) {
+				if latent.Condition.Unconditional() || !latent.Condition.Matches(bound) || latent.Condition.Matches(literal) ||
+					latent.Parameter >= len(call.Common().Args) {
+					continue
+				}
+				parameter, ok := call.Common().Args[latent.Parameter].(*ssa.Parameter)
+				index := slices.Index(function.Params, parameter)
+				if !ok || index < 0 || index >= 64 || len(proofs) == maxReleasedUses {
+					continue
+				}
+				candidate := ReleasedUse{Condition: condition, Parameter: index, Release: latent.Release, Use: latent.Use}
+				if !releasedUseImplied(candidate, proofs) {
+					proofs = append(proofs, ReleasedUseProof{ReleasedUse: candidate, ReleaseCall: call, UseCall: call})
+				}
+			}
+		}
+	}
+	return proofs
+}
+
+// calleeReleasedUses returns the released uses of the call's static callee:
+// its summary's, or, for an unexported helper of this package, the same
+// proof run on its body. A helper already on the current path answers
+// nothing, which the memo does not retain.
+func (search *releasedUseSearch) calleeReleasedUses(call *ssa.Call) []ReleasedUse {
+	if fact, ok := search.facts(call); ok {
+		return fact.ReleasedUses
+	}
+	callee := call.Common().StaticCallee()
+	if call.Common().IsInvoke() || callee == nil || len(callee.Blocks) == 0 || callee.Pkg != call.Parent().Pkg {
+		return nil
+	}
+	return search.memo.Summarize(callee, callee, nil, func() []ReleasedUse {
+		return releasedUses(search.releasedUseProofs(callee))
+	}, func(ssaflow.SummaryUnavailable, []ReleasedUse) []ReleasedUse { return nil })
 }
 
 func releasedUseImplied(candidate ReleasedUse, proven []ReleasedUseProof) bool {
@@ -189,37 +346,21 @@ func releasedUses(proofs []ReleasedUseProof) []ReleasedUse {
 	return uses
 }
 
-// calleeReleasedUses returns the released uses of the call's callee: its
-// summary's, or, for a helper of this package that is not summarized, the
-// same proof run on its body.
-func (evidence *LifecycleEvidence) calleeReleasedUses(instruction ssa.Instruction) []ReleasedUse {
-	if fact, ok := factFor(evidence.pass, instruction); ok {
-		return fact.ReleasedUses
+// releasedUseSearch returns the evidence's search, built on first use.
+func (evidence *LifecycleEvidence) releasedUseSearch() *releasedUseSearch {
+	if evidence.releasedUses == nil {
+		evidence.releasedUses = newReleasedUseSearch(func(instruction ssa.Instruction) (Fact, bool) {
+			return factFor(evidence.pass, instruction)
+		})
 	}
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return nil
-	}
-	callee := common.StaticCallee()
-	if callee == nil || len(callee.Blocks) == 0 || callee.Pkg != instruction.Parent().Pkg {
-		return nil
-	}
-	if uses, ok := evidence.localReleasedUses[callee]; ok {
-		return uses
-	}
-	if evidence.localReleasedUses == nil {
-		evidence.localReleasedUses = map[*ssa.Function][]ReleasedUse{}
-	}
-	uses := releasedUses(releasedUseProofs(callee))
-	evidence.localReleasedUses[callee] = uses
-	return uses
+	return evidence.releasedUses
 }
 
 // ManifestReleasedUses returns the released uses of a function in this
 // package that hold with no condition, with the calls that establish them.
 func (evidence *LifecycleEvidence) ManifestReleasedUses(function *ssa.Function) []ReleasedUseProof {
 	var manifest []ReleasedUseProof
-	for _, proof := range releasedUseProofs(function) {
+	for _, proof := range evidence.releasedUseSearch().releasedUseProofs(function) {
 		if proof.Condition.Unconditional() {
 			manifest = append(manifest, proof)
 		}
@@ -237,7 +378,11 @@ func (evidence *LifecycleEvidence) ReleasedUsesAt(instruction ssa.Instruction) [
 		return nil
 	}
 	var triggered []ReleasedUse
-	for _, use := range evidence.calleeReleasedUses(instruction) {
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
+		return nil
+	}
+	for _, use := range evidence.releasedUseSearch().calleeReleasedUses(call) {
 		if !use.Condition.Unconditional() && use.Condition.Matches(query) {
 			triggered = append(triggered, use)
 		}
