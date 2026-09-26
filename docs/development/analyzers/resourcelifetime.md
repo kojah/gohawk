@@ -213,6 +213,11 @@ with neither body nor summary, to a launched or deferred literal without a
 proven release, or into a channel, map, or append the analyzer does not
 track. Past such a use the analyzer stays silent rather than guess.
 
+A call can own more than one result. Each end of `os.Pipe` is its own
+obligation, and a diagnostic names the end (`read end`, `write end`), since
+closing one end releases nothing of the other. The pipe's error result guards
+both. Fixtures: `resourcelifetime/pipes.go`.
+
 An append into a local collection is tracked. When the resource is appended
 to a slice the function made itself (nil, or `make`), and every use of every
 version of that slice is understood, the resource stays owned through the

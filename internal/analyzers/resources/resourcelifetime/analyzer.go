@@ -3,9 +3,9 @@ package resourcelifetime
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -52,43 +52,52 @@ func runResourceLifetime(pass *analysis.Pass) (any, error) {
 				if !ok {
 					continue
 				}
-				contract, ok := resourceContractFor(call.Common(), settings)
-				if !ok {
-					contract, ok = ownedResultContract(evidence, call, settings)
-				}
-				if !ok {
-					continue
-				}
-				resource := ssaflow.CallResult(call, contract.result)
-				if resource == nil {
-					continue
-				}
-				// Exemption from leak cleanup does not make a closed in-memory
-				// writer usable again. Invalidation has its own API contract.
-				reportUsesAfterRelease(pass, resourceSummaries.Provider(pass), function, call, resource, contract)
-				if memoryWriterExempt(call, contract) {
-					continue
-				}
-				evidence.ForCandidate(call.Pos())
-				result := evaluateResourceFlow(pass, evidence, call, resource, contract)
-				emitResourceDecision(pass, function, call, resource, contract, result)
-				if result.report {
-					message := "owned resource from %s.%s is not released on every return path"
-					if contract.retained {
-						message = "resource held by the result of %s.%s is dropped on some return path"
+				contracts := resourceContractsFor(call.Common(), settings)
+				if len(contracts) == 0 {
+					if contract, ok := ownedResultContract(evidence, call, settings); ok {
+						contracts = append(contracts, contract)
 					}
-					source := syntax.SourceRange(pass, call.Pos())
-					check.Report(pass, check.ResourceRelease, analysis.Diagnostic{
-						Pos:     source.Pos(),
-						End:     source.End(),
-						Message: fmt.Sprintf(message, syntax.ShortPackageName(contract.packagePath), contract.name),
-						Related: missingReleaseEvidence(pass, call, contract.result, result.leak),
-					})
+				}
+				for _, contract := range contracts {
+					checkAcquisition(pass, evidence, function, call, contract)
 				}
 			}
 		}
 	}
 	return nil, nil
+}
+
+// checkAcquisition proves or reports one owned result of an acquisition.
+func checkAcquisition(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, call *ssa.Call, contract resourceContract) {
+	resource := ssaflow.CallResult(call, contract.result)
+	if resource == nil {
+		return
+	}
+	// Exemption from leak cleanup does not make a closed in-memory
+	// writer usable again. Invalidation has its own API contract.
+	reportUsesAfterRelease(pass, resourceSummaries.Provider(pass), function, call, resource, contract)
+	if memoryWriterExempt(call, contract) {
+		return
+	}
+	evidence.ForCandidate(call.Pos())
+	result := evaluateResourceFlow(pass, evidence, call, resource, contract)
+	emitResourceDecision(pass, function, call, resource, contract, result)
+	if !result.report {
+		return
+	}
+	acquisition := syntax.ShortPackageName(contract.packagePath) + "." + contract.name
+	if contract.role != "" {
+		acquisition += " (" + contract.role + ")"
+	}
+	message := "owned resource from " + acquisition + " is not released on every return path"
+	if contract.retained {
+		message = "resource held by the result of " + acquisition + " is dropped on some return path"
+	}
+	source := syntax.SourceRange(pass, call.Pos())
+	check.Report(pass, check.ResourceRelease, analysis.Diagnostic{
+		Pos: source.Pos(), End: source.End(), Message: message,
+		Related: missingReleaseEvidence(pass, call, contract.result, result.leak),
+	})
 }
 
 func emitResourceDecision(

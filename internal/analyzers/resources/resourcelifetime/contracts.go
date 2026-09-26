@@ -28,6 +28,9 @@ type resourceContract struct {
 	// retained marks a wrapper result that holds a resource no method of
 	// the wrapper can release; the diagnostic says so.
 	retained bool
+	// role names which result this contract owns, when the call returns
+	// more than one resource, as os.Pipe returns a read end and a write end.
+	role string
 }
 
 func resourceContracts() []resourceContract {
@@ -36,6 +39,10 @@ func resourceContracts() []resourceContract {
 		resourceFunction("os", "os", "CreateTemp", 0, "Close"),
 		resourceFunction("os", "os", "Open", 0, "Close"),
 		resourceFunction("os", "os", "OpenFile", 0, "Close"),
+		// Each end of a pipe is its own descriptor: closing one releases
+		// nothing of the other.
+		resourceFunction("os", "os", "Pipe", 0, "Close").withRole("read end"),
+		resourceFunction("os", "os", "Pipe", 1, "Close").withRole("write end"),
 		// Channel timers are GC-managed since Go 1.23. Missing Stop alone
 		// proves no leak. Main-module/runtime overrides are not established by
 		// this package-local pass, so legacy timer behavior is not inferred.
@@ -105,6 +112,11 @@ func resourceFunction(family, packagePath, name string, result int, cleanup ...s
 	return resourceContract{
 		symbol: syntax.PackageFunction(packagePath, name), family: family, packagePath: packagePath, name: name, cleanup: cleanup, result: result,
 	}
+}
+
+func (contract resourceContract) withRole(role string) resourceContract {
+	contract.role = role
+	return contract
 }
 
 func resourceMethod(family, packagePath, receiver, name string, cleanup ...string) resourceContract {
@@ -235,13 +247,16 @@ func acquisitionContextCanceled(acquisition *ssa.Call) bool {
 	return false
 }
 
-func resourceContractFor(common *ssa.CallCommon, settings resourceLifetimeSettings) (resourceContract, bool) {
+// resourceContractsFor returns every contract the call matches: one for
+// each owned result.
+func resourceContractsFor(common *ssa.CallCommon, settings resourceLifetimeSettings) []resourceContract {
+	var contracts []resourceContract
 	for _, contract := range settings.catalog {
 		if ssaflow.CallMatchesSymbol(common, contract.symbol) {
-			return contract, true
+			contracts = append(contracts, contract)
 		}
 	}
-	return resourceContract{}, false
+	return contracts
 }
 
 // releasesResource classifies an instruction as settling the resource, as
