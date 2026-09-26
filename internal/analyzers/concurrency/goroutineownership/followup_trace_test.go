@@ -103,7 +103,8 @@ func assertFollowupBoundaryTrace(t *testing.T, path string) {
 }
 
 // assertLabelTrace checks that the classifier's labels are traced as label
-// steps: a join as accepted, an opaque use as unknown.
+// steps named by the rule that decided them: a join as accepted, an opaque
+// use as unknown with the boundary it met.
 func assertLabelTrace(t *testing.T, path string) {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -111,8 +112,8 @@ func assertLabelTrace(t *testing.T, path string) {
 		t.Fatal(err)
 	}
 	want := map[string][2]string{
-		"completion_tails.go:16:13": {"join", "accepted"},
-		"cleanup_results.go:21:2":   {"opaque-use", "unknown"},
+		"completion_tails.go:16:13": {"direct-join", "accepted"},
+		"cleanup_results.go:21:2":   {"closes-retained-owner", "unknown"},
 	}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event followupTraceEvent

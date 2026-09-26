@@ -208,12 +208,13 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 			}
 		}
 		guards, contradiction := state.guards.Extend(state.block, successor, nil)
-		contradicted := contradiction != ssaflow.GuardConsistent
-		if contradicted {
-			analysis.traceRepeatedGuard(state.block, successor)
-		}
-		if sqlRowsExhaustionEdge(state.block, successor, resource) || contradicted {
+		if contradiction != ssaflow.GuardConsistent {
 			obligation = obligation.Uncertain()
+			analysis.traceUncertainEdge(state.block, successor, resourceReasonRepeatedGuardEdgeUnknown)
+		}
+		if sqlRowsExhaustionEdge(state.block, successor, resource) {
+			obligation = obligation.Uncertain()
+			analysis.traceUncertainEdge(state.block, successor, resourceReasonRowsExhaustedEdgeUnknown)
 		}
 		if analysis.collection.releasedOnEdge(state.block, successor) {
 			obligation = obligation.Discharged()
@@ -291,15 +292,18 @@ func (analysis *resourceAnalysis) traceCollectionReleased(header, done *ssa.Basi
 	})
 }
 
-// traceRepeatedGuard records that an edge re-tested a guard the path had
-// already taken the other way, so the path became unknown there.
-func (analysis *resourceAnalysis) traceRepeatedGuard(block, successor *ssa.BasicBlock) {
+// traceUncertainEdge records an edge that made the obligation unknown: one
+// that re-tests a guard the path already took the other way, or the false
+// edge of Rows.Next, which may or may not have closed the rows. It is traced
+// as a label because, like an opaque instruction, it is where the proof gave
+// up on this path.
+func (analysis *resourceAnalysis) traceUncertainEdge(block, successor *ssa.BasicBlock, reason resourceLifetimeReason) {
 	if !analysis.probe.Enabled() {
 		return
 	}
 	branch := block.Instrs[len(block.Instrs)-1]
-	analysis.probe.Evidence(analysisTrace.Step{
-		Reason: resourceReasonRepeatedGuardEdgeUnknown.String(), Outcome: analysisTrace.OutcomeUnknown,
+	analysis.probe.Label(analysisTrace.Step{
+		Reason: reason.String(), Outcome: analysisTrace.OutcomeUnknown,
 		Pos: branch.Pos(), Function: block.Parent().String(),
 		Details: map[string]string{"branch": branch.String(), "successor": strconv.Itoa(successor.Index)},
 	})

@@ -57,11 +57,11 @@ func assertLabelTrace(t *testing.T, path string) {
 	}
 	want := map[string][2]string{
 		"cancellationownership.go:30:2":  {"release", "accepted"},
-		"cancellationownership.go:15:24": {"release", "accepted"},
-		"cancellationownership.go:20:29": {"opaque-cancellation-use", "unknown"},
-		"argument_cases.go:48:29":        {"release", "accepted"},
-		"argument_cases.go:53:29":        {"opaque-cancellation-use", "unknown"},
-		"argument_cases.go:59:29":        {"opaque-cancellation-use", "unknown"},
+		"cancellationownership.go:15:24": {"summary-release", "accepted"},
+		"cancellationownership.go:20:29": {"helper-completion-unknown", "unknown"},
+		"argument_cases.go:48:29":        {"summary-release", "accepted"},
+		"argument_cases.go:53:29":        {"helper-completion-unknown", "unknown"},
+		"argument_cases.go:59:29":        {"helper-completion-unknown", "unknown"},
 	}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event struct {

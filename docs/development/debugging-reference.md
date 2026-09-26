@@ -174,7 +174,7 @@ driver's cost and appear in the process time instead.
 | phase | meaning |
 |---|---|
 | `candidate` | a construct the analyzer might report — the obligation it found |
-| `label` | the label a lifecycle classifier gave one instruction on the path: `accepted` for a release, join, or transfer, `unknown` for a boundary it cannot see through; instructions labelled none are not traced. resourcelifetime gives the label's own reason code; goroutineownership names the label (`join`, `transfer`, `opaque-use`); cancellationownership names it too (`release`, `transfer`, `opaque-cancellation-use`, or `parent-context-use` for a use of the parent context). lockorder has no per-instruction labels: its release walk runs per lock state |
+| `label` | the label a lifecycle classifier gave one instruction on the path, named by the rule that decided it: `accepted` for a release, join, or transfer, `unknown` for a boundary it cannot see through, such as `launched-helper`, `dynamic-callee`, `stored`, or `helper-completion-unknown`; resourcelifetime also labels an edge that made the path unknown (`repeated-guard-edge-unknown`, `rows-exhausted-edge-unknown`). Instructions labelled none are not traced. lockorder has no per-instruction labels: its release walk runs per lock state |
 | `evidence` | a fact for or against reporting it; a shared lifecycle proof adds a `question` detail naming what it answered (`release`, `transfer`, `local`, `summary`, `receiver-store`, joined by `+`) |
 | `considered` | a proof step that was evaluated and did not hold |
 | `decision` | the outcome: reported, suppressed by an ignore comment, removed by check selection, or unknown |

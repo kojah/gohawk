@@ -139,33 +139,3 @@ func cancelSubject(pass *analysis.Pass, call *ssa.Call, result int) string {
 	}
 	return "the cancel function"
 }
-
-// labelReason names a label for the trace.
-func (action cancellationAction) labelReason() cancellationReason {
-	switch action {
-	case cancellationActionRelease:
-		return reasonLabelRelease
-	case cancellationActionTransfer:
-		return reasonLabelTransfer
-	case cancellationActionUnknown:
-		return reasonLabelOpaqueUse
-	case cancellationActionNone:
-	}
-	return reasonCancellationNone
-}
-
-// traceLabel records a release, transfer, or unknown label once, when the
-// instruction is first classified. An instruction labelled none is not traced.
-func (classifier *cancellationClassifier) traceLabel(instruction ssa.Instruction, action cancellationAction, reason cancellationReason) {
-	if action == cancellationActionNone || !classifier.probe.Enabled() {
-		return
-	}
-	outcome := analysisTrace.OutcomeAccepted
-	if action == cancellationActionUnknown {
-		outcome = analysisTrace.OutcomeUnknown
-	}
-	classifier.probe.Label(analysisTrace.Step{
-		Reason: reason.String(), Outcome: outcome, Pos: instruction.Pos(), Function: instruction.Parent().String(),
-		Details: map[string]string{"instruction": instruction.String()},
-	})
-}

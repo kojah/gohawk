@@ -12,33 +12,63 @@ const (
 	reasonCancellationLost
 	// The label reasons name why the classifier labelled one instruction.
 	reasonLabelRelease
-	reasonLabelTransfer
 	reasonLabelOpaqueUse
 	reasonLabelParentContextUse
+	reasonLabelLaunchedCancel
+	reasonLabelOwnDoneReceive
+	reasonLabelDeferredClosure
+	reasonLabelReturnedCallback
+	reasonLabelTestingCleanup
+	reasonLabelRegisteredCallback
+	reasonLabelLaunchedHelper
+	reasonLabelHelperRelease
+	reasonLabelSummaryRelease
+	reasonLabelHelperUndecided
+	reasonLabelHelperMayInvoke
+	reasonLabelReturnsDeferredCleanup
+	reasonLabelCapturedByCallback
+	reasonLabelStored
+	reasonLabelSent
+	reasonLabelStoredInMap
+	reasonLabelPassedToCallee
+	reasonLabelReturned
+	reasonLabelAliased
 	cancellationReasonCount
 )
 
+var cancellationReasonCodes = [...]string{
+	reasonCancellationNone:            "",
+	reasonCancellationUnknown:         "ambiguous-cancellation-use",
+	reasonCancellationReleased:        "exact-cancellation-release",
+	reasonCancellationTransferred:     "exact-cancellation-transfer",
+	reasonCancellationLost:            "unowned-return",
+	reasonLabelRelease:                "release",
+	reasonLabelOpaqueUse:              "opaque-cancellation-use",
+	reasonLabelParentContextUse:       "parent-context-use",
+	reasonLabelLaunchedCancel:         "launched-cancel",
+	reasonLabelOwnDoneReceive:         "own-done-receive",
+	reasonLabelDeferredClosure:        "deferred-closure-may-cancel",
+	reasonLabelReturnedCallback:       "returned-callback-release",
+	reasonLabelTestingCleanup:         "testing-cleanup",
+	reasonLabelRegisteredCallback:     "registered-callback",
+	reasonLabelLaunchedHelper:         "launched-helper",
+	reasonLabelHelperRelease:          "helper-release",
+	reasonLabelSummaryRelease:         "summary-release",
+	reasonLabelHelperUndecided:        "helper-completion-unknown",
+	reasonLabelHelperMayInvoke:        "helper-may-invoke",
+	reasonLabelReturnsDeferredCleanup: "returned-deferred-cleanup",
+	reasonLabelCapturedByCallback:     "captured-by-callback",
+	reasonLabelStored:                 "stored",
+	reasonLabelSent:                   "sent",
+	reasonLabelStoredInMap:            "stored-in-map",
+	reasonLabelPassedToCallee:         "passed-to-callee",
+	reasonLabelReturned:               "returned",
+	reasonLabelAliased:                "aliased",
+}
+
 func (reason cancellationReason) String() string {
-	switch reason {
-	case reasonCancellationNone:
-		return ""
-	case reasonCancellationUnknown:
-		return "ambiguous-cancellation-use"
-	case reasonCancellationReleased:
-		return "exact-cancellation-release"
-	case reasonCancellationTransferred:
-		return "exact-cancellation-transfer"
-	case reasonCancellationLost:
-		return "unowned-return"
-	case reasonLabelRelease:
-		return "release"
-	case reasonLabelTransfer:
-		return "transfer"
-	case reasonLabelOpaqueUse:
-		return "opaque-cancellation-use"
-	case reasonLabelParentContextUse:
-		return "parent-context-use"
-	default:
+	if int(reason) >= len(cancellationReasonCodes) {
 		return "invalid-cancellation-reason"
 	}
+	return cancellationReasonCodes[reason]
 }

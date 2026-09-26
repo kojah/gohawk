@@ -160,8 +160,8 @@ func (classifier *cancellationClassifier) action(instruction ssa.Instruction) ca
 	if action, ok := classifier.actions[instruction]; ok {
 		return action
 	}
-	action := classifier.classifyAction(instruction)
-	reason := action.labelReason()
+	label := classifier.classifyAction(instruction)
+	action, reason := label.action, label.reason
 	if action == cancellationActionNone && classifier.parent != nil && classifier.parent.action(instruction) != cancellationActionNone {
 		action, reason = cancellationActionUnknown, reasonLabelParentContextUse
 	}
@@ -211,35 +211,35 @@ func parentCancellationClassifier(call *ssa.Call, observer ssaflow.Observer) *ca
 	return &cancellationClassifier{cancel: cancel, actions: make(map[ssa.Instruction]cancellationAction), observer: observer}
 }
 
-func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruction) cancellationAction {
+func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruction) cancellationLabel {
 	// Creating a callback does not itself release or transfer cancellation. Its
 	// eventual defer, return, store, launch, or opaque call is classified at the
 	// instruction that establishes that lifecycle consequence.
 	if _, ok := instruction.(*ssa.MakeClosure); ok {
-		return cancellationActionNone
+		return cancellationLabel{}
 	}
 	common := ssaflow.InstructionCall(instruction)
-	if action, recognized := classifier.recognizedAction(instruction, common); recognized {
-		return action
+	if label, recognized := classifier.recognizedAction(instruction, common); recognized {
+		return label
 	}
 	if !instructionReferencesCancellation(instruction, classifier.cancel) {
-		return cancellationActionNone
+		return cancellationLabel{}
 	}
 	if localStorageOnly(instruction) {
-		return cancellationActionNone
+		return cancellationLabel{}
 	}
 	if localCallOnlyObserves(instruction, classifier.cancel, classifier.observer) {
-		return cancellationActionNone
+		return cancellationLabel{}
 	}
-	return cancellationActionUnknown
+	return labelled(cancellationActionUnknown, opaqueReference(instruction))
 }
 
 func (classifier *cancellationClassifier) recognizedAction(
 	instruction ssa.Instruction,
 	common *ssa.CallCommon,
-) (cancellationAction, bool) {
-	if action, recognized := classifier.recognizedDirectAction(instruction, common); recognized {
-		return action, true
+) (cancellationLabel, bool) {
+	if label, recognized := classifier.recognizedDirectAction(instruction, common); recognized {
+		return label, true
 	}
 	return classifier.recognizedCallAction(instruction, common)
 }
@@ -247,15 +247,15 @@ func (classifier *cancellationClassifier) recognizedAction(
 func (classifier *cancellationClassifier) recognizedDirectAction(
 	instruction ssa.Instruction,
 	common *ssa.CallCommon,
-) (cancellationAction, bool) {
+) (cancellationLabel, bool) {
 	if receive, ok := instruction.(*ssa.UnOp); ok && receive.Op == token.ARROW && classifier.ownDoneChannel(receive.X) {
-		return cancellationActionUnknown, true
+		return labelled(cancellationActionUnknown, reasonLabelOwnDoneReceive), true
 	}
 	if common != nil && common.Value == classifier.cancel {
 		if _, ok := instruction.(*ssa.Go); ok {
-			return cancellationActionTransfer, true
+			return labelled(cancellationActionTransfer, reasonLabelLaunchedCancel), true
 		}
-		return cancellationActionRelease, true
+		return labelled(cancellationActionRelease, reasonLabelRelease), true
 	}
 	// Captured callbacks and helper chains are deliberately ambiguous here.
 	// These broad closure traversals are safe for finding a possible handoff,
@@ -263,24 +263,24 @@ func (classifier *cancellationClassifier) recognizedDirectAction(
 	if lifecycle.DeferredClosureCallsValue(instruction, classifier.cancel) ||
 		lifecycle.DeferredClosureInvokesArgumentOnEveryReturn(instruction, classifier.cancel) ||
 		deferredClosureCaptures(instruction, classifier.cancel) {
-		return cancellationActionUnknown, true
+		return labelled(cancellationActionUnknown, reasonLabelDeferredClosure), true
 	}
 	if deferredClosureUseIsLocallyResolved(instruction, classifier.cancel, classifier.observer) {
-		return cancellationActionNone, true
+		return cancellationLabel{}, true
 	}
-	return cancellationActionNone, false
+	return cancellationLabel{}, false
 }
 
 func (classifier *cancellationClassifier) recognizedCallAction(
 	instruction ssa.Instruction,
 	common *ssa.CallCommon,
-) (cancellationAction, bool) {
+) (cancellationLabel, bool) {
 	if classifier.returnedCallbackCancels(instruction, common) {
-		return cancellationActionRelease, true
+		return labelled(cancellationActionRelease, reasonLabelReturnedCallback), true
 	}
 	if common != nil && ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) &&
 		commonHasExactArgument(common, classifier.cancel) {
-		return cancellationActionTransfer, true
+		return labelled(cancellationActionTransfer, reasonLabelTestingCleanup), true
 	}
 	// Timers and framework registrars do not guarantee that an installed
 	// callback runs. They are deliberately left to the Unknown branch even when
@@ -288,11 +288,11 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 	if common != nil && (ssaflow.HasLibraryContract(common, ssaflow.ContractAfterFunc) ||
 		ssaflow.HasLibraryContract(common, ssaflow.ContractDeferredCleanup)) &&
 		instructionReferencesCancellation(instruction, classifier.cancel) {
-		return cancellationActionUnknown, true
+		return labelled(cancellationActionUnknown, reasonLabelRegisteredCallback), true
 	}
 	if common != nil && commonHasExactArgument(common, classifier.cancel) {
-		if action, recognized := classifier.exactArgumentAction(instruction); recognized {
-			return action, true
+		if label, recognized := classifier.exactArgumentAction(instruction); recognized {
+			return label, true
 		}
 	}
 	if common != nil && slices.ContainsFunc(common.Args, func(argument ssa.Value) bool {
@@ -304,21 +304,21 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 		// possibilities establishes loss or release. Vekil passes cancellation
 		// through request callbacks whose execution is owned by the helper:
 		// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/cmd/menubar/portal_linux_test.go#L210-L230
-		return cancellationActionUnknown, true
+		return labelled(cancellationActionUnknown, reasonLabelCapturedByCallback), true
 	}
-	return cancellationActionNone, false
+	return cancellationLabel{}, false
 }
 
 // exactArgumentAction labels a call that passes the exact cancel function
 // as an argument: launched, proven called, or undecided.
-func (classifier *cancellationClassifier) exactArgumentAction(instruction ssa.Instruction) (cancellationAction, bool) {
+func (classifier *cancellationClassifier) exactArgumentAction(instruction ssa.Instruction) (cancellationLabel, bool) {
 	if _, launched := instruction.(*ssa.Go); launched {
 		// Passing the exact cancel function to a source-visible helper launched
 		// concurrently is an explicit handoff, but conditional invocation inside
 		// that worker is not proof of release. Treat it as Unknown so the default
 		// check does not turn an event-driven cancellation contract into a leak.
 		// https://github.com/infercrane/infercrane/blob/93a43cebe36e01c68c1517d5f1eb97417d01588d/internal/asyncinference/service_lease_test.go#L43-L54
-		return cancellationActionUnknown, true
+		return labelled(cancellationActionUnknown, reasonLabelLaunchedHelper), true
 	}
 	request := lifecycle.CompletionRequest{
 		Instruction: instruction, Target: classifier.cancel, InvokeTarget: true,
@@ -327,23 +327,23 @@ func (classifier *cancellationClassifier) exactArgumentAction(instruction ssa.In
 	completion := lifecycle.ProveCompletion(request)
 	switch completion.State {
 	case ssaflow.EvidenceProven:
-		return cancellationActionRelease, true
+		return labelled(cancellationActionRelease, reasonLabelHelperRelease), true
 	case ssaflow.EvidenceUnknown:
 		if classifier.summaryInvokes(instruction, request) {
-			return cancellationActionRelease, true
+			return labelled(cancellationActionRelease, reasonLabelSummaryRelease), true
 		}
-		return cancellationActionUnknown, true
+		return labelled(cancellationActionUnknown, reasonLabelHelperUndecided), true
 	case ssaflow.EvidenceDisproven:
 	}
 	// The older may-alias invocation query can still identify an ambiguous
 	// handoff outside exact completion's boundary, but cannot prove release.
 	if lifecycle.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel) {
-		return cancellationActionUnknown, true
+		return labelled(cancellationActionUnknown, reasonLabelHelperMayInvoke), true
 	}
 	if lifecycle.CallReturnsDeferredCleanup(instruction, classifier.cancel) {
-		return cancellationActionUnknown, true
+		return labelled(cancellationActionUnknown, reasonLabelReturnsDeferredCleanup), true
 	}
-	return cancellationActionNone, false
+	return cancellationLabel{}, false
 }
 
 func deferredClosureCaptures(instruction ssa.Instruction, target ssa.Value) bool {

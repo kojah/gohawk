@@ -14,6 +14,7 @@ var resourceReasonSpellings = map[resourceLifetimeReason]string{
 	resourceReasonCollectionReturned:                       "collection-returned",
 	resourceReasonCollectionReleased:                       "collection-released",
 	resourceReasonCollectionUseUnknown:                     "collection-use-unknown",
+	resourceReasonRowsExhaustedEdgeUnknown:                 "rows-exhausted-edge-unknown",
 	resourceReasonBudgetExhausted:                          "budget-exhausted",
 	resourceReasonCallEffectsAsynchronousExposure:          "call-effects-asynchronous-exposure",
 	resourceReasonParentCleanup:                            "caller-owned-database-cleanup",

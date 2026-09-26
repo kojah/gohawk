@@ -32,23 +32,25 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 	events := decodeFollowupTrace(t, data)
 	assertHTTPBoundaryTrace(t, events)
 	assertCleanupBoundaryTrace(t, events)
-	assertRepeatedGuardTrace(t, events)
+	assertUncertainEdgeTrace(t, events, "repeated-guard-edge-unknown", "guard_facts.go:")
+	assertUncertainEdgeTrace(t, events, "rows-exhausted-edge-unknown", "sql_")
 }
 
-// A path that re-tests a guard it already took the other way becomes unknown
-// on that edge, and the trace says so at the branch.
-func assertRepeatedGuardTrace(t *testing.T, events []followupTraceEvent) {
+// A path that re-tests a guard it already took the other way, or leaves a
+// Rows.Next loop on its false edge, becomes unknown on that edge, and the
+// trace labels the branch.
+func assertUncertainEdgeTrace(t *testing.T, events []followupTraceEvent, reason, file string) {
 	t.Helper()
 	for _, event := range events {
-		if event.Reason != "repeated-guard-edge-unknown" || !strings.Contains(event.Candidate, "guard_facts.go:") {
+		if event.Reason != reason || !strings.Contains(event.Candidate, file) {
 			continue
 		}
-		if event.Phase != "evidence" || event.Outcome != "unknown" || event.Details["branch"] == "" {
-			t.Errorf("unexpected repeated guard evidence: %+v", event)
+		if event.Phase != "label" || event.Outcome != "unknown" || event.Details["branch"] == "" {
+			t.Errorf("unexpected %s trace: %+v", reason, event)
 		}
 		return
 	}
-	t.Error("missing repeated guard edge evidence")
+	t.Errorf("missing %s label", reason)
 }
 
 // The HTTP acquisition boundaries decide as unknown on their own fixtures, and

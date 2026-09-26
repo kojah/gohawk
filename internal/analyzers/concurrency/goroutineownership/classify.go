@@ -107,16 +107,17 @@ func (analysis *spawnAnalysis) action(instruction ssa.Instruction) ownershipActi
 	if action, ok := analysis.actions[instruction]; ok {
 		return action
 	}
-	action := analysis.classify(instruction)
+	action, reason := analysis.classify(instruction)
 	analysis.actions[instruction] = action
-	analysis.traceLabel(instruction, action)
+	analysis.traceLabel(instruction, action, reason)
 	return action
 }
 
 // traceLabel records a join, transfer, or opaque-use label once, when the
 // instruction is first classified, so the trace lists labels in the order the
-// walk met them. An instruction labelled none is not traced.
-func (analysis *spawnAnalysis) traceLabel(instruction ssa.Instruction, action ownershipAction) {
+// walk met them, each with the rule that produced it. An instruction labelled
+// none is not traced.
+func (analysis *spawnAnalysis) traceLabel(instruction ssa.Instruction, action ownershipAction, reason goroutineOwnershipReason) {
 	if action == actionNone || !analysis.probe.Enabled() {
 		return
 	}
@@ -125,47 +126,49 @@ func (analysis *spawnAnalysis) traceLabel(instruction ssa.Instruction, action ow
 		outcome = analysisTrace.OutcomeUnknown
 	}
 	analysis.probe.Label(analysisTrace.Step{
-		Reason: action.String(), Outcome: outcome, Pos: instruction.Pos(), Function: analysis.function.String(),
-		Details: map[string]string{"instruction": instruction.String()},
+		Reason: reason.String(), Outcome: outcome, Pos: instruction.Pos(), Function: analysis.function.String(),
+		Details: map[string]string{"instruction": instruction.String(), "label": action.String()},
 	})
 }
 
-func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) ownershipAction {
+// classify labels the instruction and names the rule that decided it, so a
+// trace of an opaque use says which boundary it was.
+func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) (ownershipAction, goroutineOwnershipReason) {
 	if call, ok := instruction.(*ssa.Call); ok && storedTerminationReceiver(call.Common()) {
-		return actionUnknown
+		return actionUnknown, reasonLabelStoredTestingReceiver
 	}
 	if selectedReceiveAtEntry(instruction, analysis.isSignal) {
-		return actionJoin
+		return actionJoin, reasonLabelSignalReceived
 	}
 	switch typed := instruction.(type) {
 	case *ssa.MakeClosure:
 		// Capturing a value has no effect by itself. The closure's defer,
 		// return, store, launch, or opaque call is classified where it happens.
-		return actionNone
+		return actionNone, reasonNone
 	case *ssa.UnOp, *ssa.Select, *ssa.Range:
 		if guaranteedReceive(instruction, analysis.isSignal) {
-			return actionJoin
+			return actionJoin, reasonLabelSignalReceived
 		}
 		if receivesFrom(instruction, analysis.signalAggregateCarries) {
-			return actionUnknown
+			return actionUnknown, reasonLabelSignalAggregateReceive
 		}
 		if analysis.selectSends(instruction) {
-			return actionUnknown
+			return actionUnknown, reasonLabelSelectSends
 		}
 	case *ssa.Store:
-		return analysis.storeAction(typed)
+		return analysis.storeAction(typed), reasonLabelStoredOutside
 	case *ssa.Send:
 		if analysis.consumes(typed.X) {
-			return actionUnknown
+			return actionUnknown, reasonLabelSent
 		}
 	case *ssa.MapUpdate:
 		if analysis.consumes(typed.Value) {
-			return actionUnknown
+			return actionUnknown, reasonLabelStoredInMap
 		}
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
 		return analysis.callAction(instruction, ssaflow.InstructionCall(instruction))
 	}
-	return actionNone
+	return actionNone, reasonNone
 }
 
 // Capturing a strict testing object introduces a receiver load that the
@@ -228,41 +231,41 @@ func (analysis *spawnAnalysis) storeAction(store *ssa.Store) ownershipAction {
 	return actionNone
 }
 
-func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *ssa.CallCommon) ownershipAction {
+func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *ssa.CallCommon) (ownershipAction, goroutineOwnershipReason) {
 	if common == nil {
-		return actionNone
+		return actionNone, reasonNone
 	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
 		// append retains its arguments in a slice the caller keeps; the other
 		// builtins only observe a channel or its capacity.
 		if builtin.Name() == "append" && analysis.anyArgumentConsumes(common) {
-			return actionUnknown
+			return actionUnknown, reasonLabelAppended
 		}
-		return actionNone
+		return actionNone, reasonNone
 	}
 	if analysis.callJoinsDirectly(common) {
-		return actionJoin
+		return actionJoin, reasonLabelDirectJoin
 	}
 	if analysis.closesRetainedWorkerOwner(instruction, common) {
-		return actionUnknown
+		return actionUnknown, reasonLabelClosesRetainedOwner
 	}
 	if action := analysis.pipePeerAction(instruction, common); action != actionNone {
-		return action
+		return action, reasonLabelPipePeer
 	}
 	if analysis.summarizedJoin(instruction) {
-		return actionJoin
+		return actionJoin, reasonLabelSummaryJoin
 	}
 	if analysis.waitGroupBookkeeping(common) {
-		return actionNone
+		return actionNone, reasonNone
 	}
 	if ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) {
-		return analysis.testingCleanupAction(common)
+		return analysis.testingCleanupAction(common), reasonLabelTestingCleanup
 	}
 	if ssaflow.HasLibraryContract(common, ssaflow.ContractGoMockReturn) && analysis.anyArgumentConsumes(common) {
 		// gomock.Return publishes these values as the configured result of the
 		// mocked call, transferring a produced stream to the code under test.
 		// https://github.com/uber-go/mock/blob/539d81c0f42174d17e8f91abcb869bed37605a15/gomock/call.go#L185-L205
-		return actionTransfer
+		return actionTransfer, reasonLabelGoMockReturn
 	}
 	callee, closure := ssaflow.DirectCallee(common)
 	_, launched := instruction.(*ssa.Go)
@@ -270,12 +273,18 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 		// An opaque callee may retain the value. A launched helper may be a
 		// relay or waiter, but it observes completion on its own goroutine, so
 		// the parent has not joined anything here either.
-		if analysis.anyArgumentConsumes(common) || analysis.closureConsumes(closure) {
-			return actionUnknown
+		if !analysis.anyArgumentConsumes(common) && !analysis.closureConsumes(closure) {
+			return actionNone, reasonNone
 		}
-		return actionNone
+		switch {
+		case launched:
+			return actionUnknown, reasonLabelLaunchedHelper
+		case callee == nil:
+			return actionUnknown, reasonLabelDynamicCallee
+		}
+		return actionUnknown, reasonLabelCalleeWithoutBody
 	}
-	return analysis.helperAction(common, callee, closure, analysis.tracked)
+	return analysis.helperAction(common, callee, closure, analysis.tracked), reasonLabelHelper
 }
 
 // callJoinsDirectly recognizes Wait on a settling group or a lifecycle method
