@@ -371,3 +371,28 @@ func ScanAll(rows *sql.Rows) error {
 	}
 	return rows.Err()
 }
+
+// CloseUnlessKept returns early when keep is set and closes otherwise.
+func CloseUnlessKept(file *os.File, keep bool) {
+	if keep {
+		return
+	}
+	_ = file.Close()
+}
+
+// CloseWhenBoth closes only when both flags are set.
+func CloseWhenBoth(file *os.File, flush, final bool) {
+	if flush {
+		if final {
+			_ = file.Close()
+		}
+	}
+}
+
+// TouchUnlessQuiet never closes; its flag is named after closing but only
+// guards a read of the file's name.
+func TouchUnlessQuiet(file *os.File, close bool) {
+	if close {
+		_ = file.Name()
+	}
+}

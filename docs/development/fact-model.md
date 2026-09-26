@@ -388,12 +388,13 @@ hands them back.
 
 ## Serialization
 
-Every fact type encodes itself as JSON inside the gob stream go/analysis
-uses, through `internal/passes/factcodec`. gob compiles a decoding engine
-per type for every stream it opens, and the analysis test harness
-round-trips every inherited fact through a fresh stream, so a summary with
-many fields cost more to compile than to decode; a byte slice costs gob
-nothing. The lifecycle pass also exports no summary for a function proven
+Every fact type encodes itself as deterministic CBOR inside the gob stream
+go/analysis uses, through `internal/factcodec`, with a versioned header and
+no JSON fallback. Decoding rejects unknown fields and duplicate keys. gob
+compiles a decoding engine per type for every stream it opens, and the
+analysis test harness round-trips every inherited fact through a fresh
+stream, so a summary with many fields cost more to compile than to decode;
+a byte slice costs gob nothing. The lifecycle pass also exports no summary for a function proven
 to do nothing with its parameters. A `SummarizedPackage` fact on the package
 carries the distinction an importer needs: a function of a summarized
 package with no summary of its own was proven empty, while a function of a
@@ -510,9 +511,14 @@ Each limit traces straight back to one of the four things above.
   relation the summary does carry is *where* beneath a parameter a cleanup
   happened, as a discharge path; see below.
 - **Conditional or partial cleanup** ("closes only on the error path") —
-  *every return*. It collapses to a clear bit, which looks the same as never.
+  *every return*. In the Must claims it collapses to a clear bit, which looks
+  the same as never. The fact's cases carry the conditional part a caller
+  can select: cleanup on the returns matching a result condition, or on the
+  paths a constant Boolean argument allows; see "Summary cases" below.
 - **Per-call answers** — *once per function*. There is one fact, however
-  differently two call sites use the function.
+  differently two call sites use the function. Argument cases are the one
+  exception: a call that fixes a guarding Boolean parameter to a constant
+  selects the case for that value.
 - **Panics and other abnormal exits** — *normal returns only*. A callee that
   closes on every `return` but leaks when it panics still counts as `Closed`.
   A panic-only or non-returning body does not count as invoking, releasing, or
@@ -616,7 +622,21 @@ finite recursion guards alone do not
 guarantee cheap analysis: cut answers cannot be cached, so consumers charge
 instruction and effect-expansion work to a shared search budget.
 
-### Result-conditioned local completion
+### Summary cases
+
+A summary case is a positive cleanup guarantee under a condition a caller can
+check. There is one list of cases, the versioned `Conditional` portion of the
+lifecycle fact, and one proof for each, `lifecycle.ProveCompletionForCase`. A
+case names a result condition (a Boolean result true or false, or an error
+result nil or non-nil), Boolean parameters fixed to constants, or both, and
+records the method or synchronous callback invocation it guarantees on the
+exact parameter mask, with the path beneath the parameter when the cleanup
+settles a field. The ordinary Discharges, `SynchronouslyInvoked`, and other
+unconditional claims never inherit a conditional guarantee. Missing cases are
+unknown, not absence of effects: a case says what happens under its
+condition, never what does not.
+
+#### Result conditions
 
 `lifecycle.ProveCompletionOnEdge` connects a synchronous helper's Boolean or
 nil-error result to cleanup of an exact caller value. The completion summary
@@ -633,13 +653,6 @@ discarded to manufacture a proof. Compiler-spilled Boolean results can use the
 shared storage proof; error boxing is preserved so typed nil errors are not
 mistaken for nil interfaces.
 
-The lifecycle prerequisite exports these positive relations separately in the
-versioned `Conditional` portion of its fact. Each record names a result slot,
-Boolean/error outcome, exact parameter mask, and method or synchronous callback
-invocation. Forwarding wrappers can compose imported records. The ordinary
-Discharges, `SynchronouslyInvoked`, and other unconditional claims never inherit a
-conditional guarantee. Missing records are unknown, not absence of effects.
-
 An exact external resource-state contract can seed the same relation. For
 example, `database/sql.Rows.NextResultSet` closes its receiver before returning
 false. `resourcemodel` verifies that the receiver is the exact target; the
@@ -650,13 +663,43 @@ storage/heap identity proof. It does not publish an owner-field conditional
 relation across packages yet. A true result, a different receiver, and
 `Rows.Next` do not inherit the false-result guarantee.
 
-Export examines at most four result slots with one shared 2,000-step budget per
-function. Independently proved records may survive exhaustion; an interrupted
-proof never becomes a guarantee. `LifecycleEvidence.CompletionOnEdge` binds
-local and imported evidence to the caller's tested branch with exact identity.
+#### Argument conditions
 
-This is not a general conditional effect language: arbitrary argument predicates
-and independently returned worker handles remain outside this relation.
+A call that passes a Boolean literal, or a caller parameter the caller's own
+call already fixed, decides every branch in the callee that tests that
+parameter directly or negated. `ssaflow.ConstantBooleanArguments` binds the
+callee's parameters at each call the completion search enters, and the
+obligation walk's `Constants` narrows a decided branch to its arm, so a
+helper that closes only under `!keep` completes the target at `finish(f,
+false)` and at no call passing `true`. The binding reaches a flag a deferred
+closure captures: Go captures by reference, so the closure's free variable is
+a cell, bound only when `ssaflow.WrittenOnceCell` proves it is written once
+before capture and only read after. A comparison of the flag, a phi, or any
+derived value decides nothing. The memo keys every body by the constants
+fixing its parameters, because the same call can complete under one binding
+and not another.
+
+For callers in other packages, export proves each case with its parameters
+bound. Only guarding parameters are considered, Boolean parameters that reach
+a branch, a call, or a captured cell, and at most two of them, so a function
+has at most eight assignments. A case implied by a proven case with fewer
+assumptions is not repeated, and a case with no result condition answers any
+result condition. An importing call selects every case whose assumed
+constants it supplies, including constants its own enclosing search fixed,
+and matches cleanup paths exactly as it matches Must discharges. A function
+outside the bound keeps only its unconditional and result cases, which is
+the summary it had before argument cases existed, so a constant call through
+it stays as it was.
+
+Export examines at most four result slots and two guarding parameters with one
+shared 2,000-step budget per function. Independently proved cases may survive
+exhaustion; an interrupted proof never becomes a guarantee.
+`LifecycleEvidence.CompletionOnEdge` binds local and imported evidence to the
+caller's tested branch with exact identity.
+
+This is not a general conditional effect language: predicates on non-Boolean
+arguments, relations between arguments, and independently returned worker
+handles remain outside it.
 
 ### Returned cleanup and completion handles
 

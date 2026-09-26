@@ -151,6 +151,14 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: argument, kind: localCallback}, true
 	case heapmodel.StrictProjectionPath(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
+	case storageAddressFrom(target, argument):
+		// The target is storage inside the argument, such as a mutex held by
+		// value in a struct, not a value the argument stores. Settling it
+		// needs the same storage beneath the callee's local; settling a
+		// sibling field is not settling the target. libovsdb's monitor locks
+		// and unlocks rpc while its caller holds monitors in the same client:
+		// https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
+		return mappedLocal{local: parameter, supplied: argument, kind: localOwner}, true
 	case MayContainValue(argument, target):
 		path, _ := heapmodel.StoredPath(argument, target, invocation)
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact, path: path}, true
@@ -158,6 +166,16 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: argument, kind: localOwner}, true
 	}
 	return mappedLocal{}, false
+}
+
+// storageAddressFrom reports whether target is the address of a field or
+// element reached from argument by a static access path.
+func storageAddressFrom(target, argument ssa.Value) bool {
+	switch target.(type) {
+	case *ssa.FieldAddr, *ssa.IndexAddr:
+		return ssaflow.ValueIsAccessPathFrom(target, argument)
+	}
+	return false
 }
 
 // receives reports whether a call receiver inside the callee stands for the

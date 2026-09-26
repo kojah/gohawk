@@ -19,6 +19,7 @@ func TestReasonCodes(t *testing.T) {
 		reasonRetainingResultContract:           "retaining-result-contract",
 		reasonStoredByCallee:                    "stored-by-callee",
 		reasonConditionalSummary:                "conditional-lifecycle-summary",
+		reasonArgumentCase:                      "argument-case-summary",
 		reasonRetentionBudget:                   "retention-budget-exhausted",
 		reasonSummarizingFunction:               "summarizing-function",
 		reasonFunctionSummarized:                "function-summarized",

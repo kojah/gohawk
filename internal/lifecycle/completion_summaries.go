@@ -14,12 +14,15 @@ import (
 // while answering a different question, so invokeTarget belongs in the key.
 // Result conditions also belong in the key: true-edge completion must never
 // answer a false-edge or unconditional question about the same invocation.
+// So do the constants fixing the enclosing body's parameters: the same call
+// inside a helper can complete under one binding and not another.
 type completionKey struct {
 	bindings     *callbackBindings
 	instruction  ssa.Instruction
 	target       ssa.Value
 	invokeTarget bool
 	condition    completionCondition
+	constants    string
 }
 
 type completionAnswer struct {
@@ -37,6 +40,7 @@ type completionAnswer struct {
 func (search *completionSearch) completes(instruction ssa.Instruction, target ssa.Value) completionAnswer {
 	key := completionKey{
 		instruction: instruction, target: target, invokeTarget: search.invokeTarget, bindings: search.bindings, condition: search.condition,
+		constants: search.constants.Key(instruction.Parent()),
 	}
 	return search.memo.Compose(key, search.budget, func() completionAnswer {
 		return search.searchCompletes(instruction, target)
@@ -53,7 +57,7 @@ func (search *completionSearch) searchCompletes(instruction ssa.Instruction, tar
 		return completionAnswer{launch: kind, proven: true, available: true}
 	}
 	if _, synchronous := instruction.(*ssa.Call); synchronous && search.callContract != nil &&
-		search.callContract(instruction, target, search.method, search.invokeTarget, search.condition.predicate()) {
+		search.callContract(instruction, target, search.method, search.invokeTarget, search.queryAt(instruction)) {
 		return completionAnswer{launch: launchCalled, proven: true, available: true}
 	}
 	callees, ok := search.boundCallees(instruction)
@@ -69,7 +73,7 @@ func (search *completionSearch) searchCompletes(instruction ssa.Instruction, tar
 		}
 		if callee.function == nil || len(callee.function.Blocks) == 0 {
 			if _, synchronous := instruction.(*ssa.Call); synchronous && search.summarized != nil &&
-				search.summarized(instruction, target, search.method, search.invokeTarget, search.condition.predicate()) {
+				search.summarized(instruction, target, search.method, search.invokeTarget, search.queryAt(instruction)) {
 				// A summary settles the target as a whole; where it did so
 				// beneath the target is not part of its claim.
 				paths.record("", false)

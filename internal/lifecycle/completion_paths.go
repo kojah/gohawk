@@ -97,9 +97,16 @@ func (search *completionSearch) mappedPath(local mappedLocal, target ssa.Value, 
 		supplied, ok := heapmodel.AccessPathOf(local.supplied, target)
 		return ssaflow.JoinAccessPath(supplied), ok
 	case localOwner:
-		// The call was on the path beneath the local that mirrors the
-		// target's path beneath the supplied owner: the target itself.
-		return "", true
+		// A direct call was already matched to the path beneath the local
+		// that mirrors the target's path beneath the supplied owner, so it is
+		// on the target itself. A nested completion names the path it
+		// settled, which must be that mirrored path: settling c.rpc is not
+		// settling the caller's c.monitors.
+		if actual == nil {
+			return "", true
+		}
+		mirrored, ok := heapmodel.AccessPathOf(local.supplied, target)
+		return "", ok && ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(mirrored)
 	case localCallback:
 	}
 	return "", false

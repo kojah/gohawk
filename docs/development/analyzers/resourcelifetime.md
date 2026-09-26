@@ -161,7 +161,20 @@ uncertainty boundary rather than a missing release: the completion search
 reports that its only release lies inside a cycle, and the caller is not
 reported. An imported helper carries the same loop as a may-claim in its
 summary. A helper whose release depends on a flag has complete path
-information and stays diagnostic.
+information and stays diagnostic, unless the call fixes the flag. A call
+passing a constant Boolean, or a caller parameter that the caller's own
+call fixed, binds the helper's parameter, and the completion search follows
+only the branch that constant selects: `finish(file, false)` releases when
+the helper closes under `!keep`, and `finish(file, true)` proves the leak.
+The binding reaches a flag the helper tests inside a deferred closure through
+the captured cell, when that cell is written once before capture and only
+read after. An imported helper carries the same answer as argument cases in
+its summary, bounded to two guarding Boolean parameters; a helper with more
+keeps only its unconditional claims, so a constant call through it stays
+diagnostic. A deferred call is bound too, so `defer finish(file, true)` is
+reported rather than accepted as a release somewhere in the helper. A
+variable flag, a flag merged from two branches, or a comparison of the flag
+decides nothing. Fixtures: `resourcelifetime/argument_cases.go`.
 
 A helper that acquires a resource and hands it straight back as a result,
 such as `OpenConfig(path) (*os.File, error)` or one returning an

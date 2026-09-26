@@ -17,6 +17,7 @@ const (
 	reasonRetainingResultContract
 	reasonStoredByCallee
 	reasonConditionalSummary
+	reasonArgumentCase
 	reasonRetentionBudget
 	reasonSummarizingFunction
 	reasonFunctionSummarized
@@ -35,6 +36,7 @@ var reasonCodes = [...]string{
 	reasonRetainingResultContract:           "retaining-result-contract",
 	reasonStoredByCallee:                    "stored-by-callee",
 	reasonConditionalSummary:                "conditional-lifecycle-summary",
+	reasonArgumentCase:                      "argument-case-summary",
 	reasonRetentionBudget:                   "retention-budget-exhausted",
 	reasonSummarizingFunction:               "summarizing-function",
 	reasonFunctionSummarized:                "function-summarized",

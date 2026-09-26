@@ -19,7 +19,9 @@ Some cases are deliberately not reported:
   to code gohawk cannot see into;
 - channel timers and tickers, which the garbage collector reclaims;
 - a file, response body, or rows value opened once in `main.main`, which
-  program exit closes.
+  program exit closes;
+- a resource passed to a helper that closes it only when a flag is set, when
+  you pass that flag as a constant, such as `finish(file, false)`.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [resourcelifetime design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/resourcelifetime.md).

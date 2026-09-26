@@ -129,11 +129,14 @@ type ConditionalEffect struct {
 	Method		string
 	Invoke		bool
 	Parameters	ParameterMask
+	// Path, when set, is where beneath the parameter the method settles,
+	// exactly as in a Discharge; closing resp.Body is not closing resp.
+	Path	string
 }
 ```
 
 ConditionalEffect records a method or synchronous callback invocation on
-Parameters whenever Predicate holds at a normal return.
+Parameters on every normal return of the case Predicate names.
 
 ## ConditionalSummary
 
@@ -147,7 +150,7 @@ type ConditionalSummary struct {
 ```
 
 ConditionalSummary is the versioned, serializable part of a lifecycle fact
-containing result-conditioned cleanup guarantees.
+containing its cases.
 
 ## Discharge
 

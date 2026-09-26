@@ -150,7 +150,8 @@ func (search *completionSearch) conditionalCoverage(
 				}
 			}
 			var next []conditionalCompletionState
-			for _, successor := range ssaflow.FeasibleSuccessors(state.block, state.predecessor) {
+			successors := search.constants.Narrow(ssaflow.FeasibleSuccessors(state.block, state.predecessor), state.block)
+			for _, successor := range successors {
 				next = append(next, conditionalCompletionState{block: successor, predecessor: state.block, completed: state.completed})
 			}
 			return next, true

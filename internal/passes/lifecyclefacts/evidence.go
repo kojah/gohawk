@@ -346,12 +346,39 @@ func (evidence *LifecycleEvidence) selectedMaskProof(request EvidenceRequest, fa
 	if request.StrictImportedProjection && factOwnsProjectedArgument(request.Instruction, request.Target, mask, evidence.probe.Observer()) {
 		return importedProof(reasonLifecycleSummaryProjectedArgument, requestedMethod(request)), true
 	}
+	if evidence.argumentCaseCompletes(request, fact) {
+		return importedProof(reasonArgumentCase, requestedMethod(request)), true
+	}
 	if factArgumentMatches(request.Instruction, request.Target, mask, heapmodel.MayAlias) {
 		// The summary is known, but which value receives its guarantee is
 		// not. This is neither completion nor evidence of missing cleanup.
 		return Proof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}, true
 	}
 	return Proof{}, false
+}
+
+// argumentCaseCompletes reports whether a case of the callee's summary, one
+// whose assumed Boolean arguments this call supplies as constants, completes
+// the exact target on every normal return. Only the requested completion is
+// matched; an argument case never answers a transfer or retention question.
+func (evidence *LifecycleEvidence) argumentCaseCompletes(request EvidenceRequest, fact Fact) bool {
+	if request.Completion == nil || fact.Conditional == nil {
+		return false
+	}
+	switch request.Instruction.(type) {
+	case *ssa.Call, *ssa.Defer:
+	default:
+		return false
+	}
+	if request.Completion.InvokeTarget {
+		query := lifecycle.CompletionPredicate{Arguments: suppliedConstants(request.Instruction, nil)}
+		return query.Arguments.Bound != 0 && factArgumentMatches(request.Instruction, request.Target, conditionalMask(fact, "", true, query),
+			func(argument, target ssa.Value) bool {
+				return heapmodel.NewStorage(request.Completion.Budget).Same(argument, target).Proven()
+			})
+	}
+	method := requestedMethod(request)
+	return method != "" && fact.caseDischargesArgument(request.Instruction, request.Target, method, nil, evidence.probe.Observer())
 }
 
 func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) Proof {

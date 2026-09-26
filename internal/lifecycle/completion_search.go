@@ -41,13 +41,27 @@ const (
 // with the requested coverage. nonNil, when set, restricts every-return
 // analysis to paths feasible when that value is non-nil at entry.
 func MethodCallCoverage(function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, nonNil ssa.Value) bool {
+	return methodCallCoverageAssuming(function, calls, coverage, ssaflow.EntryAssumptions{NonNil: nonNil})
+}
+
+// methodCallCoverageAssuming is MethodCallCoverage restricted to the paths
+// feasible under the entry assumptions. Bound constants narrow both forms:
+// a call only on an arm the constants rule out covers nothing, whether the
+// question is every return or anywhere.
+func methodCallCoverageAssuming(
+	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, assumptions ssaflow.EntryAssumptions,
+) bool {
 	if function == nil || len(function.Blocks) == 0 {
 		return false
+	}
+	blocks := function.Blocks
+	if len(assumptions.Constants) != 0 {
+		blocks = ssaflow.ReachableBlocksAssuming(function, assumptions.Constants)
 	}
 	switch coverage {
 	case CoverageEveryReturn:
 		hasReturn, hasCall := false, false
-		for _, block := range function.Blocks {
+		for _, block := range blocks {
 			for _, candidate := range block.Instrs {
 				if _, ok := candidate.(*ssa.Return); ok {
 					hasReturn = true
@@ -55,10 +69,10 @@ func MethodCallCoverage(function *ssa.Function, calls func(ssa.Instruction) bool
 				hasCall = hasCall || calls(candidate)
 			}
 		}
-		return hasReturn && hasCall && !ssaflow.UnownedReturnFromEntryAssumingNonNil(function, nonNil, calls)
+		return hasReturn && hasCall && !ssaflow.UnownedReturnFromEntryAssuming(function, assumptions, calls)
 	case CoverageAnywhere:
 	}
-	return slices.ContainsFunc(function.Blocks, func(block *ssa.BasicBlock) bool {
+	return slices.ContainsFunc(blocks, func(block *ssa.BasicBlock) bool {
 		return slices.ContainsFunc(block.Instrs, calls)
 	})
 }
@@ -288,6 +302,10 @@ type completionSearch struct {
 	paths *completionPaths
 	// budget, when set, bounds this question; nil leaves the search unbounded.
 	budget *ssaflow.SearchBudget
+	// constants fixes Boolean parameters and captures of the body being
+	// searched, bound from the constant arguments of the call that reached it.
+	// Like bindings, they are scoped to one invocation.
+	constants ssaflow.BooleanConstants
 }
 
 // forCallback returns a nested search for a callback value that shares the
@@ -326,6 +344,12 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	previous := search.bindings
 	search.bindings = search.bindCallbackArguments(callee)
 	defer func() { search.bindings = previous }()
+	// A constant argument decides the callee's branches on that parameter, so
+	// a helper that closes only behind a flag completes the target at a call
+	// fixing the flag to the closing arm, and at no call fixing it otherwise.
+	outer := search.constants
+	search.constants = ssaflow.ConstantBooleanArguments(callee.common, callee.closure, callee.function, outer)
+	defer func() { search.constants = outer }()
 	var nonNil ssa.Value
 	var concrete types.Type
 	for _, local := range locals {
@@ -345,11 +369,13 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	if condition.kind != completionUnconditional {
 		return search.conditionalCoverage(callee.function, locals, target, condition)
 	}
+	assumptions := ssaflow.EntryAssumptions{NonNil: nonNil, Constants: search.constants}
 	if concrete != nil && search.coverage == CoverageEveryReturn {
-		return MethodCallCoverage(callee.function, calls, CoverageAnywhere, nil) &&
-			!ssaflow.UnownedReturnFromEntryAssumingConcrete(callee.function, nonNil, concrete, calls)
+		assumptions.NonNilType = concrete
+		return methodCallCoverageAssuming(callee.function, calls, CoverageAnywhere, ssaflow.EntryAssumptions{Constants: search.constants}) &&
+			!ssaflow.UnownedReturnFromEntryAssuming(callee.function, assumptions, calls)
 	}
-	return MethodCallCoverage(callee.function, calls, search.coverage, nonNil)
+	return methodCallCoverageAssuming(callee.function, calls, search.coverage, assumptions)
 }
 
 // instructionCompletes reports whether one callee instruction discharges the
@@ -400,7 +426,16 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 		if answer := search.completes(candidate, local.local); answer.proven {
 			// The nested answer's path is beneath the local; translate it
 			// onto the target through the local's mapping.
-			search.paths.record(search.mappedPath(local, target, ssaflow.SplitAccessPath(answer.paths.path), answer.paths.known()))
+			path, known := search.mappedPath(local, target, ssaflow.SplitAccessPath(answer.paths.path), answer.paths.known())
+			if local.kind == localOwner && !known {
+				// The local owns the target at a path, so completing the local
+				// is not completing the target unless the nested answer names
+				// that path. libovsdb's monitor locks and unlocks rpc while its
+				// caller holds monitors, beneath the same client:
+				// https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
+				continue
+			}
+			search.paths.record(path, known)
 			return true
 		}
 	}

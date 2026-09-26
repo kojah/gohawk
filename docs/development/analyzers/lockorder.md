@@ -173,3 +173,19 @@ The same uncertainty applies to an opaque imported wrapper call followed by a
 dominating deferred standard exclusive unlock on that wrapper's mutex. This is
 not a proved acquisition or a guard-to-field relation. Unrelated receivers,
 known-empty wrappers, and explicit intervening releases do not qualify.
+
+## Sibling mutexes of one owner
+
+A helper that releases a caller's held lock must release that exact mutex.
+When the held mutex is a field of the owner the helper receives, such as
+`&c.monitors` passed as `c`, the completion search maps the target as the
+mirrored field beneath the helper's parameter, so a helper that locks and
+unlocks `c.rpc` does not release the caller's `c.monitors`. Before this, the
+owner was treated as an aggregate storing the mutex, any unlock beneath it
+counted, and the caller's lock order was lost. A helper that unlocks the held
+mutex itself still hands it off. The same argument binding as
+`resourcelifetime` now also decides a callee's branches on a constant flag
+inside the completion search, which is what exposed the sibling unlock in the
+libovsdb fixture:
+https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
+Fixtures: `lockorder/sibling_mutexes.go` and `lockorder/constant_arguments.go`.

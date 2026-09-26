@@ -70,6 +70,55 @@ func BlockReachable(from, target *ssa.BasicBlock) bool
 BlockReachable reports whether target is reachable from within their
 shared function.
 
+## BooleanConstants
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+type BooleanConstants map[ssa.Value]bool
+```
+
+BooleanConstants fixes Boolean parameters and captured variables of the
+bodies being searched to constant values. A *ssa.Parameter key holds the
+value itself. A *ssa.FreeVar key is a captured cell, as Go captures every
+variable by reference, and holds the value every load of the cell reads;
+it is bound only when the cell is written once before capture and every
+closure only reads it.
+
+## BooleanConstants.DecidedSuccessor
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func (constants BooleanConstants) DecidedSuccessor(block *ssa.BasicBlock) (*ssa.BasicBlock, bool)
+```
+
+DecidedSuccessor returns the successor a block's branch takes when its
+condition is a bound value, possibly negated.
+
+## BooleanConstants.Key
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func (constants BooleanConstants) Key(function *ssa.Function) string
+```
+
+Key renders the bindings of function's own parameters and captured
+variables in a stable order, so a memo can tell apart the same body
+searched under different constants.
+
+## BooleanConstants.Narrow
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func (constants BooleanConstants) Narrow(successors []*ssa.BasicBlock, block *ssa.BasicBlock) []*ssa.BasicBlock
+```
+
+Narrow keeps only the decided successor of block, if the bindings decide
+its branch and it is among successors.
+
 ## BoundedLoop
 
 [Source](../../../../internal/ssaflow/natural_loops.go)
@@ -491,6 +540,32 @@ type CompletionProof struct {
 CompletionProof records evidence that a lifecycle method runs under the
 path guarantees selected by an analyzer.
 
+## ConstantBooleanArgumentBits
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func ConstantBooleanArgumentBits(common *ssa.CallCommon, known BooleanConstants) (bound, values uint64)
+```
+
+ConstantBooleanArgumentBits reports which of the call's arguments are
+Boolean constants and their values, as masks indexed by argument position
+with any receiver first. It serves summaries of bodies that are not
+available, whose parameters are known only by position.
+
+## ConstantBooleanArguments
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func ConstantBooleanArguments(common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known BooleanConstants) BooleanConstants
+```
+
+ConstantBooleanArguments binds the callee's parameters, and the captured
+variables of closure when the callee is its body, to the Boolean constants
+the call supplies: literals, or caller values that known already fixes.
+It returns nil when nothing is fixed.
+
 ## ConstantIndex
 
 [Source](../../../../internal/ssaflow/value_forms.go)
@@ -687,6 +762,23 @@ func (path EmbeddedFieldPath) Append(fields ...int) (EmbeddedFieldPath, bool)
 Append extends a path without changing its root, or declines an invalid or
 over-budget path. It does not construct an SSA field address or validate type
 projections; callers append only field indexes established from their IR.
+
+## EntryAssumptions
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+type EntryAssumptions struct {
+	NonNil		ssa.Value
+	NonNilType	types.Type
+	Constants	BooleanConstants
+}
+```
+
+EntryAssumptions restricts an entry-to-return walk to the paths feasible
+under facts the caller knows at entry: a non-nil value, its concrete type,
+so a comma-ok assertion of a type it satisfies is taken to succeed, and
+Boolean parameters or captures fixed by the call.
 
 ## EvaluateObligation
 
@@ -1412,6 +1504,9 @@ type ObligationFlow struct {
 	// with what the analyzer's summaries prove, such as a project's fatal
 	// wrapper; a path ends at such a call as it ends at os.Exit.
 	Terminates	Terminator
+	// Constants, when set, fixes Boolean parameters or captures of the body
+	// being walked, so a branch on one of them follows only its decided arm.
+	Constants	BooleanConstants
 }
 ```
 
@@ -1721,6 +1816,17 @@ defaults a caller reaches for when it has no reason of its own; a caller
 with one, such as a whole-package caller-set walk, declares a named
 constant beside the proof that explains it. A bare number at a
 construction site is not a decision, so the architecture tests reject it.
+
+## ReachableBlocksAssuming
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func ReachableBlocksAssuming(function *ssa.Function, constants BooleanConstants) []*ssa.BasicBlock
+```
+
+ReachableBlocksAssuming returns the blocks some path from entry reaches
+when the bound constants hold, in discovery order.
 
 ## ReachingWalk
 
@@ -2221,17 +2327,16 @@ func UnownedReturnFromEntryAllow(function *ssa.Function, owns func(ssa.Instructi
 UnownedReturnFromEntryAllow reports whether any normal return lacks an
 ownership action unless allowReturn proves that return needs none.
 
-## UnownedReturnFromEntryAssumingConcrete
+## UnownedReturnFromEntryAssuming
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func UnownedReturnFromEntryAssumingConcrete(function *ssa.Function, value ssa.Value, concrete types.Type, owns func(ssa.Instruction) bool) bool
+func UnownedReturnFromEntryAssuming(function *ssa.Function, assumptions EntryAssumptions, owns func(ssa.Instruction) bool) bool
 ```
 
-UnownedReturnFromEntryAssumingConcrete is UnownedReturnFromEntryAssumingNonNil
-with the value's concrete type known, so a comma-ok assertion of a type it
-satisfies is taken to succeed.
+UnownedReturnFromEntryAssuming reports whether some normal return that is
+feasible under the assumptions lacks an ownership action before it.
 
 ## UnownedReturnFromEntryAssumingNonNil
 

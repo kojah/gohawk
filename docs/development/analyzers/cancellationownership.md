@@ -23,5 +23,13 @@ the selected receive arm; other cases and default arms still need cleanup.
 This is uncertainty about outstanding cleanup, not proof of a synchronous
 cancel call. Signal contexts still require unregistration after a signal.
 
+A helper that calls the cancel function only behind a Boolean parameter
+settles it at a call whose constant argument selects the calling branch,
+through the same argument binding and summary cases as `resourcelifetime`.
+A local helper called with the constant that skips the call is reported. An
+imported one is not: summary cases carry only positive guarantees, and an
+imported helper that may cancel stays unknown here. Fixtures:
+`cancellationownership/argument_cases.go`.
+
 Elapsed sleep durations and command-wide process lifetimes remain known
 precision gaps, not blanket exemptions for timers or command entry points.

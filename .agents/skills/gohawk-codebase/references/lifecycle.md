@@ -23,6 +23,33 @@ evidence reads a call instruction but is named store because it rests on
 storage and control flow, and moving it to the call family would make it
 reach upward. A new file joins the family of the highest layer it needs.
 
+## ArgumentConstants
+
+[Source](../../../../internal/lifecycle/completion_predicates.go)
+
+```go
+type ArgumentConstants struct {
+	Bound	uint64
+	Values	uint64
+}
+```
+
+ArgumentConstants names Boolean parameters by position, receiver first,
+and the constant each holds. In a summarized case it is what the case
+assumes; in a query it is what the call supplies. Positions past 63 are
+never bound.
+
+## ArgumentConstants.Satisfies
+
+[Source](../../../../internal/lifecycle/completion_predicates.go)
+
+```go
+func (supplied ArgumentConstants) Satisfies(assumed ArgumentConstants) bool
+```
+
+Satisfies reports whether the supplied constants fix every argument the
+assumed constants name, to the same value.
+
 ## CallInvokesArgumentOnEveryReturn
 
 [Source](../../../../internal/lifecycle/completion_callbacks.go)
@@ -155,12 +182,28 @@ the corresponding Boolean or error-interface value.
 
 ```go
 type CompletionPredicate struct {
-	Result	int
-	Outcome	CompletionOutcome
+	Result		int
+	Outcome		CompletionOutcome
+	Arguments	ArgumentConstants
 }
 ```
 
-CompletionPredicate is a serializable condition on one function result.
+CompletionPredicate is a serializable case of a function's behavior: a
+condition on one result, on Boolean arguments fixed to constants, or both.
+A zero Outcome with no Arguments is the unconditional case.
+
+## CompletionPredicate.Matches
+
+[Source](../../../../internal/lifecycle/completion_predicates.go)
+
+```go
+func (summarized CompletionPredicate) Matches(query CompletionPredicate) bool
+```
+
+Matches reports whether a summarized case answers query: constants the
+query's call supplies, and the same result condition. A case with no result
+condition holds on every normal return, so it answers any result condition
+too.
 
 ## CompletionRequest
 
@@ -415,17 +458,22 @@ callback resolution was incomplete, so callers may consult imported
 summaries. A fully searched body that does not complete the target is
 Disproven.
 
-## ProveCompletionForResult
+## ProveCompletionForCase
 
 [Source](../../../../internal/lifecycle/completion_predicates.go)
 
 ```go
-func ProveCompletionForResult(function *ssa.Function, predicate CompletionPredicate, request CompletionRequest) ssaflow.CompletionProof
+func ProveCompletionForCase(function *ssa.Function, predicate CompletionPredicate, request CompletionRequest) ssaflow.CompletionProof
 ```
 
-ProveCompletionForResult summarizes exact parameter cleanup on normal returns
-matching predicate. It reuses the completion engine and its shared budget,
-callback bindings, and recursion guard; it does not invent a caller or SSA.
+ProveCompletionForCase summarizes exact parameter cleanup on the normal
+returns of one case: the returns matching the predicate's result condition,
+on the paths feasible when its assumed arguments hold. It reuses the
+completion engine and its shared budget, callback bindings, and recursion
+guard; it does not invent a caller or SSA. Without ExactTarget, a method
+completion may settle a field or element beneath the parameter; the proof
+then names that path, and a caller must not credit a claim whose path is
+not known.
 
 ## ProveCompletionOnEdge
 

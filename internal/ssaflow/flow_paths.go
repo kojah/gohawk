@@ -198,20 +198,49 @@ func UnownedReturnFromEntryAllow(function *ssa.Function, owns func(ssa.Instructi
 // UnownedReturnFromEntryAssumingNonNil analyzes only paths feasible when value
 // is non-nil at function entry.
 func UnownedReturnFromEntryAssumingNonNil(function *ssa.Function, value ssa.Value, owns func(ssa.Instruction) bool) bool {
-	return unownedReturnFromEntry(function, owns, nil, value, nil)
+	return UnownedReturnFromEntryAssuming(function, EntryAssumptions{NonNil: value}, owns)
 }
 
-// UnownedReturnFromEntryAssumingConcrete is UnownedReturnFromEntryAssumingNonNil
-// with the value's concrete type known, so a comma-ok assertion of a type it
-// satisfies is taken to succeed.
-func UnownedReturnFromEntryAssumingConcrete(function *ssa.Function, value ssa.Value, concrete types.Type, owns func(ssa.Instruction) bool) bool {
+// EntryAssumptions restricts an entry-to-return walk to the paths feasible
+// under facts the caller knows at entry: a non-nil value, its concrete type,
+// so a comma-ok assertion of a type it satisfies is taken to succeed, and
+// Boolean parameters or captures fixed by the call.
+type EntryAssumptions struct {
+	NonNil     ssa.Value
+	NonNilType types.Type
+	Constants  BooleanConstants
+}
+
+// UnownedReturnFromEntryAssuming reports whether some normal return that is
+// feasible under the assumptions lacks an ownership action before it.
+func UnownedReturnFromEntryAssuming(function *ssa.Function, assumptions EntryAssumptions, owns func(ssa.Instruction) bool) bool {
 	if len(function.Blocks) == 0 {
 		return false
 	}
 	outcome, _ := obligationOutcome([]obligationState{{block: function.Blocks[0]}}, ObligationFlow{
-		NonNil: value, NonNilType: concrete, Instruction: ExactOrNone(owns),
+		NonNil: assumptions.NonNil, NonNilType: assumptions.NonNilType, Constants: assumptions.Constants, Instruction: ExactOrNone(owns),
 	})
 	return outcome == ObligationViolated
+}
+
+// ReachableBlocksAssuming returns the blocks some path from entry reaches
+// when the bound constants hold, in discovery order.
+func ReachableBlocksAssuming(function *ssa.Function, constants BooleanConstants) []*ssa.BasicBlock {
+	if function == nil || len(function.Blocks) == 0 {
+		return nil
+	}
+	reached := map[*ssa.BasicBlock]bool{function.Blocks[0]: true}
+	order := []*ssa.BasicBlock{function.Blocks[0]}
+	for index := 0; index < len(order); index++ {
+		block := order[index]
+		for _, next := range constants.Narrow(block.Succs, block) {
+			if !reached[next] {
+				reached[next] = true
+				order = append(order, next)
+			}
+		}
+	}
+	return order
 }
 
 func unownedReturnFromEntry(

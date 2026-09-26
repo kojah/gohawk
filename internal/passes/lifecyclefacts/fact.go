@@ -215,11 +215,24 @@ func (fact *Fact) keepsContentsAt(index int, path string) bool {
 // discharge's path beneath the argument. Containment alone proves nothing
 // here; that is the whole point of the path.
 func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Value, method string, observer ssaflow.Observer) bool {
+	return dischargesMatch(fact.Must.Discharges, instruction, target, method, observer)
+}
+
+// caseDischargesArgument is dischargesArgument for the fact's argument cases
+// that the call's constant arguments select, with known fixing the caller's
+// own parameters when the call sits in a body searched under constants.
+func (fact *Fact) caseDischargesArgument(
+	instruction ssa.Instruction, target ssa.Value, method string, known ssaflow.BooleanConstants, observer ssaflow.Observer,
+) bool {
+	return dischargesMatch(fact.caseDischarges(method, suppliedConstants(instruction, known)), instruction, target, method, observer)
+}
+
+func dischargesMatch(discharges []Discharge, instruction ssa.Instruction, target ssa.Value, method string, observer ssaflow.Observer) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
 	}
-	for _, discharge := range fact.Must.Discharges {
+	for _, discharge := range discharges {
 		if discharge.Method != method || discharge.Parameter >= len(common.Args) {
 			continue
 		}

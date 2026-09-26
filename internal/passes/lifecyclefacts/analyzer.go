@@ -275,7 +275,10 @@ func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int,
 				return true
 			}
 			imported, ok := importFact(pass, instruction)
-			return ok && imported.dischargesArgument(instruction, parameter, method, nil)
+			// A nested helper whose case the call's constant arguments select
+			// settles the parameter as surely as one that always does.
+			return ok && (imported.dischargesArgument(instruction, parameter, method, nil) ||
+				imported.caseDischargesArgument(instruction, parameter, method, nil, nil))
 		}) {
 			fact.Must.Discharges = append(fact.Must.Discharges, Discharge{Parameter: index, Method: method})
 		}

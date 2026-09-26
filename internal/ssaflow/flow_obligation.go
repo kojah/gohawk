@@ -74,6 +74,9 @@ type ObligationFlow struct {
 	// with what the analyzer's summaries prove, such as a project's fatal
 	// wrapper; a path ends at such a call as it ends at os.Exit.
 	Terminates Terminator
+	// Constants, when set, fixes Boolean parameters or captures of the body
+	// being walked, so a branch on one of them follows only its decided arm.
+	Constants BooleanConstants
 }
 
 // feasibleSuccessors applies the caller's feasibility view, or the default
@@ -83,6 +86,7 @@ func (flow ObligationFlow) feasibleSuccessors(block, predecessor *ssa.BasicBlock
 	if flow.Successors != nil {
 		successors = flow.Successors(block, predecessor)
 	}
+	successors = flow.Constants.Narrow(successors, block)
 	return assumedSuccessors(successors, block, flow.NonNil, flow.NonNilType)
 }
 
