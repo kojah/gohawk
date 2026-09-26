@@ -12,6 +12,10 @@ import (
 // flag or a constant selecting the other branch leaves it uncalled on some
 // path.
 //
+// An imported helper is settled through its summary: an unconditional call,
+// or a case the constant argument selects. A helper that calls cancel on
+// another goroutine, or calls a different argument, settles nothing here.
+//
 // Gap: an imported helper called with the constant that skips the call is
 // not reported. Summary cases carry only positive guarantees, so nothing
 // says the skipping branch never cancels, and an imported helper that may
@@ -42,4 +46,15 @@ func variableFlagKeepsLocally(keep bool) {
 func constantFlagCancelsImported() {
 	_, cancel := context.WithCancel(context.Background())
 	cancellationdep.MaybeInvoke(cancel, true)
+}
+
+func importedCaseOnAnotherGoroutineIsUnknown() {
+	_, cancel := context.WithCancel(context.Background())
+	cancellationdep.InvokeLater(cancel, true)
+}
+
+func importedCaseCancelsOnlyTheOtherArgument() {
+	_, cancel := context.WithCancel(context.Background())
+	_, other := context.WithCancel(context.Background())
+	cancellationdep.InvokeOther(cancel, other, true)
 }

@@ -291,32 +291,8 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 		return cancellationActionUnknown, true
 	}
 	if common != nil && commonHasExactArgument(common, classifier.cancel) {
-		if _, launched := instruction.(*ssa.Go); launched {
-			// Passing the exact cancel function to a source-visible helper launched
-			// concurrently is an explicit handoff, but conditional invocation inside
-			// that worker is not proof of release. Treat it as Unknown so the default
-			// check does not turn an event-driven cancellation contract into a leak.
-			// https://github.com/infercrane/infercrane/blob/93a43cebe36e01c68c1517d5f1eb97417d01588d/internal/asyncinference/service_lease_test.go#L43-L54
-			return cancellationActionUnknown, true
-		}
-		completion := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
-			Instruction: instruction, Target: classifier.cancel, InvokeTarget: true,
-			Budget: classifier.budget(),
-		})
-		switch completion.State {
-		case ssaflow.EvidenceProven:
-			return cancellationActionRelease, true
-		case ssaflow.EvidenceUnknown:
-			return cancellationActionUnknown, true
-		case ssaflow.EvidenceDisproven:
-		}
-		// The older may-alias invocation query can still identify an ambiguous
-		// handoff outside exact completion's boundary, but cannot prove release.
-		if lifecycle.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel) {
-			return cancellationActionUnknown, true
-		}
-		if lifecycle.CallReturnsDeferredCleanup(instruction, classifier.cancel) {
-			return cancellationActionUnknown, true
+		if action, recognized := classifier.exactArgumentAction(instruction); recognized {
+			return action, true
 		}
 	}
 	if common != nil && slices.ContainsFunc(common.Args, func(argument ssa.Value) bool {
@@ -328,6 +304,43 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 		// possibilities establishes loss or release. Vekil passes cancellation
 		// through request callbacks whose execution is owned by the helper:
 		// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/cmd/menubar/portal_linux_test.go#L210-L230
+		return cancellationActionUnknown, true
+	}
+	return cancellationActionNone, false
+}
+
+// exactArgumentAction labels a call that passes the exact cancel function
+// as an argument: launched, proven called, or undecided.
+func (classifier *cancellationClassifier) exactArgumentAction(instruction ssa.Instruction) (cancellationAction, bool) {
+	if _, launched := instruction.(*ssa.Go); launched {
+		// Passing the exact cancel function to a source-visible helper launched
+		// concurrently is an explicit handoff, but conditional invocation inside
+		// that worker is not proof of release. Treat it as Unknown so the default
+		// check does not turn an event-driven cancellation contract into a leak.
+		// https://github.com/infercrane/infercrane/blob/93a43cebe36e01c68c1517d5f1eb97417d01588d/internal/asyncinference/service_lease_test.go#L43-L54
+		return cancellationActionUnknown, true
+	}
+	request := lifecycle.CompletionRequest{
+		Instruction: instruction, Target: classifier.cancel, InvokeTarget: true,
+		Budget: classifier.budget(),
+	}
+	completion := lifecycle.ProveCompletion(request)
+	switch completion.State {
+	case ssaflow.EvidenceProven:
+		return cancellationActionRelease, true
+	case ssaflow.EvidenceUnknown:
+		if classifier.summaryInvokes(instruction, request) {
+			return cancellationActionRelease, true
+		}
+		return cancellationActionUnknown, true
+	case ssaflow.EvidenceDisproven:
+	}
+	// The older may-alias invocation query can still identify an ambiguous
+	// handoff outside exact completion's boundary, but cannot prove release.
+	if lifecycle.CallInvokesArgumentOnEveryReturn(instruction, classifier.cancel) {
+		return cancellationActionUnknown, true
+	}
+	if lifecycle.CallReturnsDeferredCleanup(instruction, classifier.cancel) {
 		return cancellationActionUnknown, true
 	}
 	return cancellationActionNone, false

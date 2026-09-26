@@ -45,9 +45,10 @@ func enableTrace(t *testing.T) string {
 	return path
 }
 
-// assertLabelTrace checks that the classifier's labels are traced as label
-// steps: a deferred cancel as an accepted release, a hand-off to an imported
-// helper as unknown.
+// assertLabelTrace checks the classifier's labels: a deferred cancel and an
+// imported helper whose summary calls cancel, unconditionally or in the case
+// a constant selects, are releases; a variable flag, a call on another
+// goroutine, and a call of a different argument stay unknown.
 func assertLabelTrace(t *testing.T, path string) {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -56,7 +57,11 @@ func assertLabelTrace(t *testing.T, path string) {
 	}
 	want := map[string][2]string{
 		"cancellationownership.go:30:2":  {"release", "accepted"},
-		"cancellationownership.go:15:24": {"opaque-cancellation-use", "unknown"},
+		"cancellationownership.go:15:24": {"release", "accepted"},
+		"cancellationownership.go:20:29": {"opaque-cancellation-use", "unknown"},
+		"argument_cases.go:48:29":        {"release", "accepted"},
+		"argument_cases.go:53:29":        {"opaque-cancellation-use", "unknown"},
+		"argument_cases.go:59:29":        {"opaque-cancellation-use", "unknown"},
 	}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event struct {
