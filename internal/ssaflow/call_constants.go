@@ -24,7 +24,11 @@ import (
 // nilable value. A *ssa.Parameter key holds the value itself. A *ssa.FreeVar
 // key is a captured cell, as Go captures every variable by reference, and
 // holds the outcome of every load of the cell; it is bound only when the
-// cell is written once before capture and every closure only reads it.
+// cell is written once before capture and every closure only reads it. A
+// caller may also key the *ssa.Alloc cell it passes to a closure, to say
+// what every load of the captured copy reads when the closure runs, as a
+// named result does once a return has set it before the deferred calls; the
+// binding holds only when the closure never writes the cell.
 type FixedValues map[ssa.Value]Outcome
 
 // FixedArguments binds the callee's parameters, and the captured variables
@@ -51,8 +55,13 @@ func FixedArguments(common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ss
 	}
 	if closure != nil && closure.Fn == callee && len(closure.Bindings) == len(callee.FreeVars) {
 		for index, binding := range closure.Bindings {
-			if outcome, ok := capturedOutcome(binding, known); ok && decidableCell(callee.FreeVars[index], outcome) {
-				bind(callee.FreeVars[index], outcome)
+			cell := callee.FreeVars[index]
+			if outcome, ok := known[binding]; ok && onlyRead(cell) {
+				bind(cell, outcome)
+				continue
+			}
+			if outcome, ok := capturedOutcome(binding, known); ok && decidableCell(cell, outcome) {
+				bind(cell, outcome)
 			}
 		}
 	}
@@ -80,6 +89,25 @@ func decidableCell(cell *ssa.FreeVar, outcome Outcome) bool {
 		load, ok := user.(*ssa.UnOp)
 		return ok && load.Op == token.MUL && slices.ContainsFunc(*load.Referrers(), ComparesWithNil)
 	})
+}
+
+// onlyRead reports whether a closure only loads its captured cell, so a
+// caller's statement of what the cell holds stays true inside it.
+func onlyRead(cell *ssa.FreeVar) bool {
+	for _, user := range *cell.Referrers() {
+		load, ok := user.(*ssa.UnOp)
+		if !ok || load.Op != token.MUL {
+			return false
+		}
+	}
+	return true
+}
+
+// ValueOutcome reports what a value is known to be on its own: a Boolean
+// literal, nil, or a value that is never nil. An interface holding a typed
+// nil pointer is not nil.
+func ValueOutcome(value ssa.Value) (Outcome, bool) {
+	return fixedOutcome(value, nil)
 }
 
 // ComparesWithNil reports whether a use of a nilable value can decide a

@@ -213,6 +213,26 @@ with neither body nor summary, to a launched or deferred literal without a
 proven release, or into a channel, map, or append the analyzer does not
 track. Past such a use the analyzer stays silent rather than guess.
 
+A deferred literal whose release turns on a named result is judged per
+return, not at the defer. The close-on-error idiom,
+`defer func() { if err != nil { f.Close() } }()`, runs after the return
+statement has set `err`, so each return the defer dominates asks the shared
+completion search whether the literal releases given the value that return
+stores: a nil literal skips the cleanup and leaves the resource owned there, a
+value never nil (a literal, an allocation, or a result the summaries prove
+non-nil) runs it, and anything else makes that path unknown. A literal counts
+as result-guarded only when its release on every return is proven under one
+outcome of a captured named result and disproven under the other; a guard on
+any other variable, such as the transaction idiom's `committed` flag, keeps
+the data-dependent policy that credits a deferred literal which may release.
+Fixtures: `resourcelifetime/result_guarded_defers.go`.
+
+A nil comparison is a presence check of the resource only when the compared
+value can hold it: it derives from the resource and the resource's type is
+assignable to it. An error returned by a helper that was handed the file
+derives from the file, but no error value is the file, so `err != nil` after
+such a call says nothing about whether the file exists.
+
 A call can own more than one result. Each end of `os.Pipe` is its own
 obligation, and a diagnostic names the end (`read end`, `write end`), since
 closing one end releases nothing of the other. The pipe's error result guards

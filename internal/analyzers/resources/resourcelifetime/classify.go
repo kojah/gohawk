@@ -57,9 +57,12 @@ type resourceAnalysis struct {
 	// collection is the local slice the resource was appended to, when every
 	// use of it is understood; see local_collections.go.
 	collection *localCollection
-	contract   resourceContract
-	optional   optionalAcquisitionProof
-	actions    map[ssa.Instruction]resourceAction
+	// guardedDefers are the deferred literals whose release turns on a named
+	// result; see result_guarded_defers.go.
+	guardedDefers []resultGuardedDefer
+	contract      resourceContract
+	optional      optionalAcquisitionProof
+	actions       map[ssa.Instruction]resourceAction
 	// pool is this acquisition's total across every query its proof asks;
 	// see budget.
 	pool *ssaflow.SearchBudget
@@ -101,6 +104,9 @@ func (analysis *resourceAnalysis) action(instruction ssa.Instruction) resourceAc
 // callee with no body without rereading this code.
 func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourceAction, resourceLifetimeReason) {
 	if action, reason, ok := analysis.collection.label(instruction); ok {
+		return action, reason
+	}
+	if action, reason, ok := analysis.resultGuardedLabel(instruction); ok {
 		return action, reason
 	}
 	if analysis.compressionOutputAbandoned(instruction) {

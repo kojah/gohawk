@@ -93,6 +93,9 @@ const (
 	resourceReasonCollectionReleased
 	resourceReasonCollectionUseUnknown
 	resourceReasonRowsExhaustedEdgeUnknown
+	resourceReasonResultGuardedDefer
+	resourceReasonResultGuardedRelease
+	resourceReasonResultGuardedUnknown
 	resourceReasonCount
 )
 
@@ -111,6 +114,9 @@ var resourceReasonCodes = [...]string{
 	resourceReasonCollectionReleased:                       "collection-released",
 	resourceReasonCollectionUseUnknown:                     "collection-use-unknown",
 	resourceReasonRowsExhaustedEdgeUnknown:                 "rows-exhausted-edge-unknown",
+	resourceReasonResultGuardedDefer:                       "result-guarded-defer",
+	resourceReasonResultGuardedRelease:                     "result-guarded-release",
+	resourceReasonResultGuardedUnknown:                     "result-guarded-unknown",
 	resourceReasonBudgetExhausted:                          "budget-exhausted",
 	resourceReasonCallEffectsAsynchronousExposure:          "call-effects-asynchronous-exposure",
 	resourceReasonParentCleanup:                            "caller-owned-database-cleanup",

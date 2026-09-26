@@ -86,6 +86,7 @@ func evaluateResourceFlow(
 		probe: analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()),
 	}
 	analysis.collection = analysis.localCollection()
+	analysis.guardedDefers = analysis.findResultGuardedDefers()
 	if analysis.cleanupRegisteredBefore(call) {
 		return acceptedResourceLifetime(resourceReasonOpaqueConsumption)
 	}
@@ -429,6 +430,14 @@ func fatalErrorAssertion(instruction ssa.Instruction) bool {
 	return ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyFatalError)
 }
 
+// holdsResource reports whether a compared value may be the resource: it
+// derives from the resource and its type can hold it. An error returned by a
+// helper that was handed the file derives from the file, but no error value
+// is the file, so its nil check says nothing about whether the file exists.
+func holdsResource(value, resource ssa.Value) bool {
+	return types.AssignableTo(resource.Type(), value.Type()) && heapmodel.ValueDerivesFrom(value, resource, map[ssa.Value]bool{})
+}
+
 func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value) (bool, bool) {
 	if resource == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
 		return false, false
@@ -449,8 +458,8 @@ func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}
-	comparesResourceToNil := heapmodel.ValueDerivesFrom(comparison.X, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.Y) ||
-		heapmodel.ValueDerivesFrom(comparison.Y, resource, map[ssa.Value]bool{}) && ssaflow.DefinitelyNil(comparison.X)
+	comparesResourceToNil := holdsResource(comparison.X, resource) && ssaflow.DefinitelyNil(comparison.Y) ||
+		holdsResource(comparison.Y, resource) && ssaflow.DefinitelyNil(comparison.X)
 	if !comparesResourceToNil {
 		return false, false
 	}
