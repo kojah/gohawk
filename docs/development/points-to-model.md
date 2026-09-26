@@ -82,7 +82,7 @@ entry counts, so `true` there means "possibly, in some iteration". Only
 `must same` filters stale entries. A `false` from `may alias` is the one
 answer that can move a consumer from silence to a report, so it carries a
 reason, `disjoint-paths`, `disjoint-objects`, or `unescaped-local`, and
-`gohawk heap` prints every value's pointees so an answer can be
+`gohawk dump heap` prints every value's pointees so an answer can be
 checked against the graph that gave it.
 
 Exhaustion of the build budget, or a fixpoint that does not settle, makes
@@ -132,12 +132,12 @@ receiver. Applying a summary escapes what the arguments held as they were
 handed in, before the callee's truncation forgets any of it. A map key is
 stored as surely as a map value.
 
-`gohawk facts` prints every summary as `heap …` lines beneath the mask
+`gohawk dump facts` prints every summary as `heap …` lines beneath the mask
 claims, for the package's own functions and the callees it imports, and
-`gohawk heap` prints every local function's registered summary and graph as
+`gohawk dump heap` prints every local function's registered summary and graph as
 the analysis saw it, private helpers included, with an `applied` line for
 every call a summary was applied at and an `escaped` line for the first
-instruction that escaped each slot in each way. `gohawk heap -bare` skips
+instruction that escaped each slot in each way. `gohawk dump heap -bare` skips
 the lifecycle pass, so dependencies' summaries are missing while callees with
 bodies in the loaded packages are still projected on demand, which is what a
 unit test sees.

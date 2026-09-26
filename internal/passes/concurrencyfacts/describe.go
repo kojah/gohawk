@@ -11,7 +11,7 @@ import (
 // alternatives with the conditions that select each and what each returns,
 // positions counting the receiver first as the facts do.
 
-// DescribeFact renders the published fact for gohawk facts.
+// DescribeFact renders the published fact for gohawk dump facts.
 func (fact *publishedFact) DescribeFact(types.Object) []string {
 	return fact.Value().describe()
 }

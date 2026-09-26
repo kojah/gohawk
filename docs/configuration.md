@@ -152,7 +152,7 @@ surrounding SSA form, which is what the analyzers reason over, print it for a
 package or one function:
 
 ```sh
-gohawk ssa -func serveWorker ./internal/server
+gohawk dump ssa -func serveWorker ./internal/server
 ```
 
 The dump uses the same builder as the analyzers, includes the function
@@ -165,7 +165,7 @@ To see what a package's functions are proven to do with their parameters, and
 which imported summaries its calls resolve to, print the facts:
 
 ```sh
-gohawk facts -func CloseAll ./internal/server
+gohawk dump facts -func CloseAll ./internal/server
 ```
 
 Each line names a parameter and the masks proven for it on every return, such

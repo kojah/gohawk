@@ -492,7 +492,7 @@ returns one of three answers:
 
 Absence is never disproof. A callee with no fact is opaque, and an opaque
 consumption suppresses the diagnostic. Any tool that surfaces facts —
-including `gohawk facts` — must keep the summarized-versus-absent distinction
+including `gohawk dump facts` — must keep the summarized-versus-absent distinction
 visible for the same reason.
 
 `LifecycleEvidence.CallEffects` exposes the separate local call-effect proof

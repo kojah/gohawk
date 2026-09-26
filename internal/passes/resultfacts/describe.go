@@ -6,10 +6,10 @@ import (
 )
 
 // Fact dumps render each claim as one sentence, positions counting the
-// receiver first as the claims do, so gohawk facts shows what a caller can
+// receiver first as the claims do, so gohawk dump facts shows what a caller can
 // rely on rather than the serialized encoding.
 
-// DescribeFact renders the published fact for gohawk facts.
+// DescribeFact renders the published fact for gohawk dump facts.
 func (fact *publishedFact) DescribeFact(object types.Object) []string {
 	return fact.Value().describe(object)
 }

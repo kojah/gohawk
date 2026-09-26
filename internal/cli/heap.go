@@ -39,7 +39,7 @@ func printHeap(arguments []string, output, errorsOutput io.Writer) error {
 	withSSA := flags.Bool("ssa", false, "print each function's SSA before its graph")
 	bare := flags.Bool("bare", false, "skip the lifecycle pass: no dependency summaries, as a unit test sees the graph")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk heap [-func NAME] [-tests] [-ssa] [-bare] package...")
+		writeLine(errorsOutput, "usage: gohawk dump heap [-func NAME] [-tests] [-ssa] [-bare] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {

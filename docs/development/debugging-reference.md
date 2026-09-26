@@ -14,7 +14,7 @@ Dump it, then reason about what the analyzer actually sees.
 ## SSA dump
 
 ```text
-gohawk ssa [-func NAME] [-tests] package...
+gohawk dump ssa [-func NAME] [-tests] package...
 ```
 
 Prints the SSA of the matching functions in the given packages. Use `-func`
@@ -24,7 +24,7 @@ first thing to run when a classifier label is surprising.
 ## Fact dump
 
 ```text
-gohawk facts [-func NAME] [-kind KINDS] [-tests] package...
+gohawk dump facts [-func NAME] [-kind KINDS] [-tests] package...
 ```
 
 Prints the facts the given packages export, and those of the callees they
@@ -42,7 +42,7 @@ resolve, one family per header:
 
 `-kind` narrows the dump to a comma-separated list of `lifecycle`,
 `heap` (the lifecycle summaries' heap projection alone), `result`, and
-`concurrency`; the default prints them all. `gohawk facts -func Open -kind
+`concurrency`; the default prints them all. `gohawk dump facts -func Open -kind
 result,heap ./pkg` shows one function's result cases and heap projection.
 
 Positions count the receiver first, as the facts do. Only summarized
@@ -53,7 +53,7 @@ clear bit. See [Inferred facts](fact-model.md).
 ## Heap dump
 
 ```text
-gohawk heap [-func NAME] [-tests] [-ssa] [-bare] package...
+gohawk dump heap [-func NAME] [-tests] [-ssa] [-bare] package...
 ```
 
 Prints how the heap model was derived: every function of the package,
@@ -68,7 +68,7 @@ through instead, a `widened` line for every slot whose pointees outgrew the
 bound and became unknown, an `escaped` line naming the first instruction
 that escaped each slot in each way, and the disjointness answers given. A
 claim that looks wrong is read backwards from here: the `heap effect` or
-`heap edge` behind it in `gohawk facts`, then the `escaped` or `applied` line
+`heap edge` behind it in `gohawk dump facts`, then the `escaped` or `applied` line
 that produced it, then the callee's own section.
 
 `-ssa` prints each function's SSA before its graph, so the `tN` values can be
@@ -177,7 +177,7 @@ candidate, carrying a specific reason and the instruction that blocked it:
 | reason family | examples | what to look at |
 |---|---|---|
 | storage | `storage-address-escapes`, `storage-conflicting-writes`, `storage-write-after-observation`, `storage-not-local` | the named store, call, or merge; the cell was not proved to hold one value there |
-| alias | `disjoint-paths`, `disjoint-objects`, `unescaped-local`, `shared-slot`, `unknown-pointee`, `structural-walk` | the points-to graph's answer to a may-alias question; the first three are disjointness claims. `gohawk heap` prints each value's pointees, named by kind and origin, with entries carried around a back edge marked stale |
+| alias | `disjoint-paths`, `disjoint-objects`, `unescaped-local`, `shared-slot`, `unknown-pointee`, `structural-walk` | the points-to graph's answer to a may-alias question; the first three are disjointness claims. `gohawk dump heap` prints each value's pointees, named by kind and origin, with entries carried around a back edge marked stale |
 | summary | `summary-body-unavailable`, `summary-recursive` | the named callee; its body could not be summarized, so effects cannot be ruled out |
 | completion | `evidence-not-found`, `evidence-unavailable` at a launch site | the callee resolved from that launch never covered the target with the method sought |
 | budget | `budget-exhausted` | the query that spent the last unit; a cut answer is not a decision |

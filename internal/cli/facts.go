@@ -95,7 +95,7 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	kindList := flags.String("kind", "", "comma-separated fact kinds to print: "+strings.Join(factKinds, ", ")+" (default all)")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk facts [-func NAME] [-kind KINDS] [-tests] package...")
+		writeLine(errorsOutput, "usage: gohawk dump facts [-func NAME] [-kind KINDS] [-tests] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {

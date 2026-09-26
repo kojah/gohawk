@@ -135,12 +135,8 @@ func runInformationalCommand(arguments []string, runtime cliRuntime) (cliResult,
 		err = printAnalyzerList(arguments[2:], runtime.output, runtime.errorsOutput)
 	case "doc":
 		err = printDocumentation(arguments[2:], runtime.output, runtime.errorsOutput)
-	case "ssa":
-		err = printSSA(arguments[2:], runtime.output, runtime.errorsOutput)
-	case "facts":
-		err = printFacts(arguments[2:], runtime.output, runtime.errorsOutput)
-	case "heap":
-		err = printHeap(arguments[2:], runtime.output, runtime.errorsOutput)
+	case "dump":
+		err = runDump(arguments[2:], runtime.output, runtime.errorsOutput)
 	default:
 		return cliResult{}, false
 	}

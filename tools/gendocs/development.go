@@ -168,7 +168,7 @@ func traceFlagsBlock() string {
 }
 
 // ssaExampleBlock prints the SSA of the example function exactly as
-// `gohawk ssa` does, with the repository root stripped from positions so the
+// `gohawk dump ssa` does, with the repository root stripped from positions so the
 // page does not depend on where the checkout lives. The annotations on the
 // page describe this output, and -check fails when a builder change alters it.
 func ssaExampleBlock(root string) (string, error) {

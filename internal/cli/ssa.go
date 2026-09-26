@@ -26,7 +26,7 @@ func printSSA(arguments []string, output, errorsOutput io.Writer) error {
 	functionFilter := flags.String("func", "", "print only functions whose name or enclosing function name matches")
 	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk ssa [-func NAME] [-tests] package...")
+		writeLine(errorsOutput, "usage: gohawk dump ssa [-func NAME] [-tests] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {

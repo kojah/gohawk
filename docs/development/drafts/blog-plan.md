@@ -135,7 +135,7 @@ func CloseFile(file *os.File) error {
 The same example package contains this helper. Run:
 
 ```sh
-gohawk facts -func CloseFile ./...
+gohawk dump facts -func CloseFile ./...
 ```
 
 Below the function and source-location header, the dump contains this parameter row:

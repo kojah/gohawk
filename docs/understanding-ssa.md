@@ -7,7 +7,7 @@ sidebar:
 
 gohawk's analyzers read the SSA form of your functions, not their source text.
 This page explains what that form is, why it helps, and how to read the output
-of `gohawk ssa`.
+of `gohawk dump ssa`.
 
 ## What SSA is
 
@@ -64,7 +64,7 @@ exists to make that translation easy.
 
 ## Reading a dump
 
-The block below is the real output of `gohawk ssa -func CopyHeader` on this
+The block below is the real output of `gohawk dump ssa -func CopyHeader` on this
 small function, regenerated with the documentation so it cannot drift from
 what the tool prints:
 
