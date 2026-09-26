@@ -25,6 +25,13 @@ symlinked, or in-use trees; skipped trees require manual review and are never
 silently discarded. Pinned repositories can be checked out again from the
 retained selection ledger.
 
+New audit: [batch 61](batch-61.md) records 250 fresh pinned repositories
+scanned with `3e8b8ba` and tests included. All 398 findings have source
+verdicts (331 TP, 67 FP); 189 scans completed and 61 were incomplete. The
+new experimental `producerlifecycle/unreceived-return` check made eight
+reports, all true positives. `lockorder/read-lock-write` on locally built
+values is the largest false-positive family by rate.
+
 New overnight audit: [batch 58](batch-58.md) records the third 250 of the
 September 24 target of 1,000 fresh pinned repositories. All 467 original
 findings have source verdicts (317 TP, 150 FP); 174 scans completed and 76
