@@ -37,6 +37,10 @@ type Fact struct {
 	// the resource it stored there rather than any resource the argument
 	// contains. See conditional.go for the cases.
 	Discharges []Discharge
+	// ReleasedUses are methods the function calls on a parameter after it
+	// already released that parameter, each under the case its condition
+	// names. See released_uses.go.
+	ReleasedUses []ReleasedUse
 	// Heap is the projection of the function's points-to graph onto what a
 	// caller can name: where each parameter, result, and global slot may
 	// point at exit, how each object escaped or was released, what was
@@ -284,6 +288,7 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 		}
 	}
 	lines = append(lines, fact.conditionalDescriptions()...)
+	lines = append(lines, fact.releasedUseDescriptions()...)
 	lines = append(lines, fact.returnedCleanupDescriptions()...)
 	if len(lines) == 0 {
 		lines = []string{"no parameter is proven on every return"}
@@ -387,7 +392,7 @@ func (fact *Fact) empty() bool {
 	masks := fact.ReturnedOwner() | fact.Must.ReturnedView |
 		fact.Retained() | fact.Stored() | fact.May.LoopReleased | fact.ReceiverStore()
 	indexed := uint64(fact.Must.OwnedFields) | uint64(fact.Must.ReleasedFields) | uint64(fact.Must.OwnedResults) | uint64(fact.Must.RetainingResults)
-	return masks == 0 && indexed == 0 && len(fact.Kept()) == 0 && len(fact.Discharges) == 0 &&
+	return masks == 0 && indexed == 0 && len(fact.Kept()) == 0 && len(fact.Discharges) == 0 && len(fact.ReleasedUses) == 0 &&
 		(fact.ReturnedCleanup == nil || len(fact.ReturnedCleanup.Effects) == 0) &&
 		fact.heapEmpty()
 }
@@ -428,6 +433,7 @@ func (fact *Fact) String() string {
 		}
 	}
 	parts = append(parts, fact.conditionalDescriptions()...)
+	parts = append(parts, fact.releasedUseDescriptions()...)
 	parts = append(parts, fact.returnedCleanupDescriptions()...)
 	if len(parts) == 0 {
 		return "lifecycle summary: none"

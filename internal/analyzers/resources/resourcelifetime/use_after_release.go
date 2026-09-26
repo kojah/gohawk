@@ -33,40 +33,49 @@ type invalidatingOperation struct {
 	packagePath string
 	name        string
 	methods     []string
+	// releases are the methods on the value itself that release it. A value
+	// whose release is on a field, as a response's is on its Body, has none.
+	releases []string
 }
 
 // invalidatingOperations lists, per resource type, the methods whose
-// documented behavior on a released value is an error.
+// documented behavior on a released value is an error, and the methods that
+// release it.
 func invalidatingOperations() []invalidatingOperation {
 	return []invalidatingOperation{
 		{"os", "File", []string{
 			"Read", "ReadAt", "ReadFrom", "Write", "WriteAt", "WriteString", "Seek", "Sync", "Truncate", "Readdir", "ReadDir", "Readdirnames",
-		}},
+		}, []string{"Close"}},
 		// Next after Close is documented to return false, so a loop over
 		// closed rows silently sees no rows; a helper that iterates the rows
 		// it is handed therefore requires them unreleased, which its
 		// summary states as requiring Next.
-		{"database/sql", "Rows", []string{"Scan", "Columns", "ColumnTypes", "Next"}},
+		{"database/sql", "Rows", []string{"Scan", "Columns", "ColumnTypes", "Next"}, []string{"Close"}},
 		{"database/sql", "Tx", []string{
 			"Exec", "ExecContext", "Query", "QueryContext", "QueryRow", "QueryRowContext", "Prepare", "PrepareContext", "Stmt", "StmtContext",
-		}},
-		{"database/sql", "Stmt", []string{"Exec", "ExecContext", "Query", "QueryContext", "QueryRow", "QueryRowContext"}},
-		{"net/http", "Response", []string{"Read"}},
+		}, []string{"Rollback"}},
+		{"database/sql", "Stmt", []string{"Exec", "ExecContext", "Query", "QueryContext", "QueryRow", "QueryRowContext"}, []string{"Close"}},
+		{"net/http", "Response", []string{"Read"}, nil},
 		// Reader.Close does not guarantee that a later Read fails. In
 		// particular, gzip delegates to flate, whose Close need not invalidate
 		// the reader. A cleanup obligation alone is not an invalidation contract.
-		{"compress/gzip", "Writer", []string{"Write", "Flush"}},
-		{"compress/zlib", "Writer", []string{"Write", "Flush"}},
+		{"compress/gzip", "Writer", []string{"Write", "Flush"}, []string{"Close"}},
+		{"compress/zlib", "Writer", []string{"Write", "Flush"}, []string{"Close"}},
 	}
 }
 
 func invalidatingMethods(resource ssa.Value) []string {
+	entry, _ := invalidationContract(resource)
+	return entry.methods
+}
+
+func invalidationContract(resource ssa.Value) (invalidatingOperation, bool) {
 	for _, entry := range invalidatingOperations() {
 		if syntax.NamedType(resource.Type(), entry.packagePath, entry.name) {
-			return entry.methods
+			return entry, true
 		}
 	}
-	return nil
+	return invalidatingOperation{}, false
 }
 
 func reportUsesAfterRelease(

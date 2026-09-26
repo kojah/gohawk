@@ -45,6 +45,7 @@ func runResourceLifetime(pass *analysis.Pass) (any, error) {
 		if available != summaries.Available {
 			return nil, errors.New("resourcelifetime: lifecycle summary prerequisite unavailable")
 		}
+		reportReleasedUses(pass, evidence, function)
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)

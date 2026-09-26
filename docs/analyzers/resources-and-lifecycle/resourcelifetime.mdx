@@ -10,8 +10,8 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 ## What it detects
 
 Reports files, SQL rows, statements and transactions, HTTP response bodies,
-and gzip/zlib writers that are not released on every return path, and
-operations on them after release, including after a helper that closes them.
+and gzip/zlib writers not released on every return path, and uses after
+release, including after a helper closes them or inside a function handed one.
 
 Some cases are deliberately not reported:
 

@@ -259,6 +259,22 @@ and a deferred helper are not release points. A helper `Commit` is not
 either: only the success branch of a direct `Commit` invalidates a
 transaction. Fixtures: `resourcelifetime/useafter/helper_releases.go`.
 
+A function that releases its own parameter and then operates on it is
+reported at the operation, whoever calls it: `f.Close()` followed by
+`f.Read(buf)` on a parameter `f` is wrong for every caller. When the release
+happens only under the function's own Boolean parameters, as in
+`if closeFirst { f.Close() }` before the read, the function is right for some
+callers, so it is not reported; a call passing the constant that triggers the
+release is, locally or through an imported summary. The release must be a
+direct `Close`, or `Rollback` for a transaction, on the exact parameter,
+dominating the use on the paths the constants allow, with nothing else
+touching the parameter in between; the use must be an operation this table
+lists. A release on a branch the function decides by its own data, a
+reassigned parameter, `Err` after `Close`, a second `Close`, a deferred
+`Close`, and a use on a sibling parameter are not reported. The released
+value is the parameter, so a use after a `Commit` is not claimed. Fixtures:
+`resourcelifetime/useafter/latent_uses.go`.
+
 A helper that performs the operation counts as the operation: a call that
 hands the released value to a function whose summary says it calls `Read`
 on that argument on every path is a read of it, and the diagnostic names

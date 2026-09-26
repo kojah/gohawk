@@ -183,6 +183,10 @@ type Fact struct {
 	// the resource it stored there rather than any resource the argument
 	// contains. See conditional.go for the cases.
 	Discharges	[]Discharge
+	// ReleasedUses are methods the function calls on a parameter after it
+	// already released that parameter, each under the case its condition
+	// names. See released_uses.go.
+	ReleasedUses	[]ReleasedUse
 	// Heap is the projection of the function's points-to graph onto what a
 	// caller can name: where each parameter, result, and global slot may
 	// point at exit, how each object escaped or was released, what was
@@ -591,6 +595,17 @@ ForCandidate attributes the evidence traced from here on to candidate, so a
 trace selector retrieves the whole proof built for it. Analyzers call this
 once before judging each candidate.
 
+## LifecycleEvidence.ManifestReleasedUses
+
+[Source](../../../../internal/passes/lifecyclefacts/released_uses.go)
+
+```go
+func (evidence *LifecycleEvidence) ManifestReleasedUses(function *ssa.Function) []ReleasedUseProof
+```
+
+ManifestReleasedUses returns the released uses of a function in this
+package that hold with no condition, with the calls that establish them.
+
 ## LifecycleEvidence.OwnedDirectResult
 
 [Source](../../../../internal/passes/lifecyclefacts/owned_results.go)
@@ -631,6 +646,19 @@ func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) Proof
 Prove returns one lifecycle proof with explicit provenance. Missing imported
 summaries produce Unknown rather than being conflated with a disproved local
 relationship.
+
+## LifecycleEvidence.ReleasedUsesAt
+
+[Source](../../../../internal/passes/lifecyclefacts/released_uses.go)
+
+```go
+func (evidence *LifecycleEvidence) ReleasedUsesAt(instruction ssa.Instruction) []ReleasedUse
+```
+
+ReleasedUsesAt returns the latent released uses a call triggers: those of
+its callee's summary whose condition the call's constant arguments satisfy.
+An unconditional released use is the callee's own defect and is not
+returned here.
 
 ## LifecycleEvidence.RetainingResult
 
@@ -760,6 +788,37 @@ func (reason Reason) String() string
 ```
 
 String renders the stable trace code at the output boundary.
+
+## ReleasedUse
+
+[Source](../../../../internal/passes/lifecyclefacts/released_uses.go)
+
+```go
+type ReleasedUse struct {
+	Condition	ssaflow.CallCondition
+	Parameter	int
+	Release		string
+	Use		string
+}
+```
+
+ReleasedUse records that the function calls Use on parameter Parameter
+after calling Release on it, on every path to that use the case Condition
+allows.
+
+## ReleasedUseProof
+
+[Source](../../../../internal/passes/lifecyclefacts/released_uses.go)
+
+```go
+type ReleasedUseProof struct {
+	ReleasedUse
+	ReleaseCall	*ssa.Call
+	UseCall		*ssa.Call
+}
+```
+
+ReleasedUseProof is a released use with the calls that establish it.
 
 ## ResourceCleanup
 

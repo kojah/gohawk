@@ -241,6 +241,7 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 		}
 	}
 	fact.Discharges = append(fact.Discharges, summarizeConditional(pass, function)...)
+	fact.ReleasedUses = releasedUses(releasedUseProofs(function))
 	fact.ReturnedCleanup = summarizeReturnedCleanup(pass, function)
 	fact.Heap = withReleases(heap, &fact)
 	return fact

@@ -43,6 +43,8 @@ const (
 	resourceReasonInterfaceMethod
 	resourceReasonKnownResourceDirectRelease
 	resourceReasonKnownResourceHelperRelease
+	resourceReasonManifestReleasedUse
+	resourceReasonLatentReleasedUse
 	resourceReasonHeaderOnlyAcquisition
 	resourceReasonLocalServerClientOverrideUnresolved
 	resourceReasonLocalServerHandlerUnavailable
@@ -129,6 +131,8 @@ var resourceReasonCodes = [...]string{
 	resourceReasonInterfaceMethod:                          "interface-method",
 	resourceReasonKnownResourceDirectRelease:               "known-resource-direct-release",
 	resourceReasonKnownResourceHelperRelease:               "known-resource-helper-release",
+	resourceReasonManifestReleasedUse:                      "manifest-released-use",
+	resourceReasonLatentReleasedUse:                        "latent-released-use",
 	resourceReasonHeaderOnlyAcquisition:                    "local-header-only-body-uncertain",
 	resourceReasonLocalServerClientOverrideUnresolved:      "local-server-client-override-unresolved",
 	resourceReasonLocalServerHandlerUnavailable:            "local-server-handler-unavailable",

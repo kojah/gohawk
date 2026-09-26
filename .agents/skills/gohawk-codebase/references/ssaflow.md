@@ -1286,6 +1286,18 @@ func InstructionDominates(before, after ssa.Instruction) bool
 InstructionDominates reports whether every path to after executes before.
 Instruction order is respected when both values belong to one block.
 
+## InstructionDominatesAssuming
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func InstructionDominatesAssuming(before, after ssa.Instruction, constants BooleanConstants) bool
+```
+
+InstructionDominatesAssuming reports whether every path to after that the
+bound constants allow executes before first. With no constants it agrees
+with InstructionDominates on reachable code.
+
 ## InstructionIndex
 
 [Source](../../../../internal/ssaflow/flow_paths.go)

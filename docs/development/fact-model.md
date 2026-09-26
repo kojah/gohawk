@@ -194,6 +194,10 @@ type Fact struct {
 	// the resource it stored there rather than any resource the argument
 	// contains. See conditional.go for the cases.
 	Discharges	[]Discharge
+	// ReleasedUses are methods the function calls on a parameter after it
+	// already released that parameter, each under the case its condition
+	// names. See released_uses.go.
+	ReleasedUses	[]ReleasedUse
 	// Heap is the projection of the function's points-to graph onto what a
 	// caller can name: where each parameter, result, and global slot may
 	// point at exit, how each object escaped or was released, what was
@@ -715,6 +719,28 @@ caller's tested branch with exact identity.
 This is not a general conditional effect language: predicates on non-Boolean
 arguments, relations between arguments, and independently returned worker
 handles remain outside it.
+
+### Released uses
+
+`ReleasedUses` records a method a function calls on a parameter after it
+already released that parameter: on every path to the use that the case's
+condition allows, a direct cleanup call on the exact parameter came first,
+and nothing else touched the parameter in between. The claim is structural;
+which uses fail on a released value is the consuming analyzer's contract.
+With an empty condition the function misuses whatever it is handed, so
+`resourcelifetime` reports the use itself. With a condition on the function's
+Boolean parameters the claim is latent, in Infer Pulse's sense: only a call
+supplying those constants triggers it, so only such a call is reported.
+
+The proof is `releasedUseProofs`, run once per body: the export projects it
+without instructions, `LifecycleEvidence.ManifestReleasedUses` returns it
+with the calls for this package's own functions, and `ReleasedUsesAt` reads
+the callee's summary, or runs the proof on an unexported helper of this
+package, which has no summary. A release on a branch the function decides by
+its own data does not dominate the use and is not claimed; a helper that
+releases or uses the parameter is not followed. At most eight released uses
+are exported per function, with the same two guarding parameters as summary
+cases.
 
 ### Returned cleanup and completion handles
 

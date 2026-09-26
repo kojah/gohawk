@@ -223,6 +223,37 @@ func UnownedReturnFromEntryAssuming(function *ssa.Function, assumptions EntryAss
 	return outcome == ObligationViolated
 }
 
+// InstructionDominatesAssuming reports whether every path to after that the
+// bound constants allow executes before first. With no constants it agrees
+// with InstructionDominates on reachable code.
+func InstructionDominatesAssuming(before, after ssa.Instruction, constants BooleanConstants) bool {
+	if before == nil || after == nil || before.Parent() != after.Parent() || len(before.Parent().Blocks) == 0 {
+		return false
+	}
+	if before.Block() == after.Block() {
+		return InstructionIndex(before) < InstructionIndex(after)
+	}
+	entry := before.Parent().Blocks[0]
+	if entry == before.Block() {
+		return true
+	}
+	reached := map[*ssa.BasicBlock]bool{entry: true}
+	order := []*ssa.BasicBlock{entry}
+	for index := 0; index < len(order); index++ {
+		block := order[index]
+		if block == after.Block() {
+			return false
+		}
+		for _, next := range constants.Narrow(block.Succs, block) {
+			if next != before.Block() && !reached[next] {
+				reached[next] = true
+				order = append(order, next)
+			}
+		}
+	}
+	return true
+}
+
 // ReachableBlocksAssuming returns the blocks some path from entry reaches
 // when the bound constants hold, in discovery order.
 func ReachableBlocksAssuming(function *ssa.Function, constants BooleanConstants) []*ssa.BasicBlock {

@@ -396,3 +396,12 @@ func TouchUnlessQuiet(file *os.File, close bool) {
 		_ = file.Name()
 	}
 }
+
+// ReadAfterMaybeClose closes the file first when closeFirst is set, then
+// reads it either way.
+func ReadAfterMaybeClose(file *os.File, closeFirst bool) {
+	if closeFirst {
+		_ = file.Close()
+	}
+	_, _ = file.Read(make([]byte, 1))
+}

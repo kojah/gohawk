@@ -28,6 +28,9 @@ type LifecycleEvidence struct {
 	// carry no summary of their own. It is built on first use because most
 	// analyzers never ask.
 	retentions *retentionCache
+	// localReleasedUses memoizes the released uses of this package's
+	// unexported helpers, which have no exported summary.
+	localReleasedUses map[*ssa.Function][]ReleasedUse
 }
 
 // ClosureRetainsValue reports whether a function literal may keep the value it
