@@ -88,6 +88,10 @@ const (
 	resourceReasonOSIsTimeout
 	resourceReasonProcessExitReclaims
 	resourceReasonReturnedRetainingWrapper
+	resourceReasonAppendedToLocalCollection
+	resourceReasonCollectionReturned
+	resourceReasonCollectionReleased
+	resourceReasonCollectionUseUnknown
 	resourceReasonCount
 )
 
@@ -101,6 +105,10 @@ var resourceReasonCodes = [...]string{
 	resourceReasonAmbiguousCleanupValue:                    "ambiguous-cleanup-value",
 	resourceReasonAmbiguousHelperCleanupValue:              "ambiguous-helper-cleanup-value",
 	resourceReasonAppended:                                 "appended",
+	resourceReasonAppendedToLocalCollection:                "appended-to-local-collection",
+	resourceReasonCollectionReturned:                       "collection-returned",
+	resourceReasonCollectionReleased:                       "collection-released",
+	resourceReasonCollectionUseUnknown:                     "collection-use-unknown",
 	resourceReasonBudgetExhausted:                          "budget-exhausted",
 	resourceReasonCallEffectsAsynchronousExposure:          "call-effects-asynchronous-exposure",
 	resourceReasonParentCleanup:                            "caller-owned-database-cleanup",

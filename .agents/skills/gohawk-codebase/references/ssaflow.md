@@ -49,6 +49,18 @@ false answer is a claim of disjointness, and its reason says which rule
 made it: two paths of one object, an unescaped local against something it
 was never stored into, or two objects the function's flow never connects.
 
+## AppendedValues
+
+[Source](../../../../internal/ssaflow/slice_elements.go)
+
+```go
+func AppendedValues(call *ssa.Call) ([]ssa.Value, bool)
+```
+
+AppendedValues returns the values a call to append adds, when they are
+written as separate arguments, as append(s, a, b) is. SSA passes them in a
+fresh array; a spread slice, as in append(s, t...), is not followed.
+
 ## ArgumentConstants
 
 [Source](../../../../internal/ssaflow/call_conditions.go)
@@ -761,6 +773,36 @@ const (
 	EffectInvoke
 )
 ```
+
+## ElementLoop
+
+[Source](../../../../internal/ssaflow/slice_elements.go)
+
+```go
+type ElementLoop struct {
+	Loop	NaturalLoop
+	// Body is the header's successor while elements remain; Done is the
+	// successor once they run out, the loop's only exit.
+	Body, Done	*ssa.BasicBlock
+	// Slice is the value whose length bounds the loop, and Index the
+	// position of the element the current iteration reads.
+	Slice, Index	ssa.Value
+}
+```
+
+ElementLoop is a range loop over a slice that leaves only through its
+header's length test.
+
+## ElementLoop.ReadsElement
+
+[Source](../../../../internal/ssaflow/slice_elements.go)
+
+```go
+func (loop ElementLoop) ReadsElement(address *ssa.IndexAddr) bool
+```
+
+ReadsElement reports whether address is the address of the element the
+current iteration reads.
 
 ## ElementOfAggregate
 
@@ -2029,6 +2071,18 @@ with one, such as a whole-package caller-set walk, declares a named
 constant beside the proof that explains it. A bare number at a
 construction site is not a decision, so the architecture tests reject it.
 
+## RangeElementLoop
+
+[Source](../../../../internal/ssaflow/slice_elements.go)
+
+```go
+func RangeElementLoop(header *ssa.BasicBlock, budget *SearchBudget) (ElementLoop, bool)
+```
+
+RangeElementLoop recognizes the element loop whose header is header. It
+declines a loop with another exit, such as a break or a return in the
+body, and a bound that is not the length of one slice value.
+
 ## ReachableBlocksAssuming
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
@@ -2318,6 +2372,18 @@ func SelectedReceiveOnEdge(from, to *ssa.BasicBlock) (ssa.Value, bool)
 SelectedReceiveOnEdge returns the channel received from when the exact
 select-case edge is taken. Other predecessors of to may establish no receive;
 callers must keep this evidence on the edge, not on the shared destination.
+
+## SliceVersions
+
+[Source](../../../../internal/ssaflow/slice_elements.go)
+
+```go
+func SliceVersions(start ssa.Value) []ssa.Value
+```
+
+SliceVersions returns every SSA value that is the same growing slice as
+start: start, the phis it flows into, and the results of appending to any
+of them, closed under both. The values are in the order they were found.
 
 ## SourceSSAFunctions
 

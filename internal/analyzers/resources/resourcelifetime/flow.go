@@ -85,6 +85,7 @@ func evaluateResourceFlow(
 		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
 		probe: analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()),
 	}
+	analysis.collection = analysis.localCollection()
 	if analysis.cleanupRegisteredBefore(call) {
 		return acceptedResourceLifetime(resourceReasonOpaqueConsumption)
 	}
@@ -214,6 +215,10 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 		if sqlRowsExhaustionEdge(state.block, successor, resource) || contradicted {
 			obligation = obligation.Uncertain()
 		}
+		if analysis.collection.releasedOnEdge(state.block, successor) {
+			obligation = obligation.Discharged()
+			analysis.traceCollectionReleased(state.block, successor)
+		}
 		// A conditional helper settles only the edge selected by its result.
 		// Optional-acquisition phis retain their own stricter cleanup policy.
 		if !obligation.Settled() && !optionalAcquisition.Proven() {
@@ -247,6 +252,42 @@ func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action
 		Pos:      instruction.Pos(),
 		Function: analysis.function.String(),
 		Details:  map[string]string{"instruction": instruction.String(), "label": label},
+	})
+}
+
+// localCollection finds the local slice the resource was appended to, and
+// traces the decision: the collection, or the use of it that declined the
+// model and left the append unknown.
+func (analysis *resourceAnalysis) localCollection() *localCollection {
+	decision := findLocalCollection(analysis.resource, analysis.contract.cleanup, analysis.budget(ssaflow.QueryBudget))
+	if !analysis.probe.Enabled() || decision.collection == nil && decision.declinedAt == nil {
+		return decision.collection
+	}
+	step := analysisTrace.Step{
+		Reason: resourceReasonAppendedToLocalCollection.String(), Outcome: analysisTrace.OutcomeAccepted,
+		Function: analysis.function.String(), Details: map[string]string{},
+	}
+	if decision.collection == nil {
+		step.Reason, step.Outcome, step.Pos = resourceReasonCollectionUseUnknown.String(), analysisTrace.OutcomeUnknown, decision.declinedAt.Pos()
+		step.Details["instruction"] = decision.declinedAt.String()
+	} else {
+		step.Pos = decision.collection.appends[0].Pos()
+		step.Details["loops"] = strconv.Itoa(len(decision.collection.released))
+	}
+	analysis.probe.Evidence(step)
+	return decision.collection
+}
+
+// traceCollectionReleased records that the path left a loop that released
+// every element of the collection holding the resource.
+func (analysis *resourceAnalysis) traceCollectionReleased(header, done *ssa.BasicBlock) {
+	if !analysis.probe.Enabled() {
+		return
+	}
+	test := header.Instrs[len(header.Instrs)-1]
+	analysis.probe.Evidence(analysisTrace.Step{
+		Reason: resourceReasonCollectionReleased.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: test.Pos(),
+		Function: analysis.function.String(), Details: map[string]string{"loop": test.String(), "done": strconv.Itoa(done.Index)},
 	})
 }
 

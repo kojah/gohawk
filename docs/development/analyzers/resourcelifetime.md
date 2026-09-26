@@ -213,6 +213,27 @@ with neither body nor summary, to a launched or deferred literal without a
 proven release, or into a channel, map, or append the analyzer does not
 track. Past such a use the analyzer stays silent rather than guess.
 
+An append into a local collection is tracked. When the resource is appended
+to a slice the function made itself (nil, or `make`), and every use of every
+version of that slice is understood, the resource stays owned through the
+slice. The understood uses are further appends, the phis a loop merges them
+in, `len` and `cap`, returning the slice whole (a transfer to the caller),
+and reading elements only in a range loop that releases each one. That loop
+must leave only through its length test, and the cleanup call on the element
+must run on every iteration. It then settles the resource on its exit edge,
+whatever the length. Any other use of the slice declines the model as a
+whole and the append stays opaque: storing, passing, slicing, copying,
+sending, or capturing it, a spread append, or reading an element elsewhere.
+The decision is all or nothing because a loop that reads elements without
+provably releasing them may still release this one, and the path that skips
+it would otherwise read as a leak. A slice dropped still holding the
+resource is reported. A deferred literal that drains a captured slice is
+judged by the deferred-completion rule instead. Known gap: an acquisition
+loop that returns on a later iteration's error does not report the resources
+appended by earlier iterations, because the walk reads that error branch as
+the current acquisition's own. Fixtures: `resourcelifetime/collections.go`;
+the loop shape is `ssaflow.RangeElementLoop`.
+
 The same uncertainty applies when a retained aggregate argument contains the
 resource, or a helper's aggregate result is published through a global. An
 imported helper that receives the aggregate is judged by its summary's
