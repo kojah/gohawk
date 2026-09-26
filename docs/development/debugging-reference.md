@@ -14,7 +14,7 @@ Dump it, then reason about what the analyzer actually sees.
 ## SSA dump
 
 ```text
-gohawk ssa [-func NAME] [-tests] [-regions] package...
+gohawk ssa [-func NAME] [-tests] package...
 ```
 
 Prints the SSA of the matching functions in the given packages. Use `-func`
@@ -24,7 +24,7 @@ first thing to run when a classifier label is surprising.
 ## Fact dump
 
 ```text
-gohawk facts [-func NAME] [-kind KINDS] [-tests] [-regions] package...
+gohawk facts [-func NAME] [-kind KINDS] [-tests] package...
 ```
 
 Prints the facts the given packages export, and those of the callees they
@@ -50,18 +50,28 @@ functions appear: a function that is missing has no fact and is `unknown`
 to every consumer, which is different from a function whose fact shows a
 clear bit. See [Inferred facts](fact-model.md).
 
-`-regions` prints every function of the package, private helpers and
-literals included, with the summary the registry holds for it and the
-points-to graph the analysis built: each value's pointees, an `applied`
-line for every call a callee summary was substituted at, an `unsummarized`
-line with its reason (`no-summary`, `closure-callee`, `interface-call`,
-`dynamic-call`, `started`) for every call the graph forgot through instead,
-a `widened` line
-for every slot whose pointees outgrew the bound and became unknown, an
-`escaped` line naming the first instruction that escaped each slot in each
-way, and the disjointness answers given. A claim that looks wrong is read backwards from
-here: the `heap effect` or `heap edge` behind it, then the `escaped` or
-`applied` line that produced it, then the callee's own section.
+## Heap dump
+
+```text
+gohawk heap [-func NAME] [-tests] [-ssa] [-bare] package...
+```
+
+Prints how the heap model was derived: every function of the package,
+private helpers and literals included, with the summary it exports as
+`summary …` lines and the points-to graph the analysis built: each value's
+pointees, an `applied` line for every call a callee summary was substituted
+at, an `unsummarized` line with its reason (`no-summary`, `closure-callee`,
+`interface-call`, `dynamic-call`, `started`) for every call the graph forgot
+through instead, a `widened` line for every slot whose pointees outgrew the
+bound and became unknown, an `escaped` line naming the first instruction
+that escaped each slot in each way, and the disjointness answers given. A
+claim that looks wrong is read backwards from here: the `heap effect` or
+`heap edge` behind it in `gohawk facts`, then the `escaped` or `applied` line
+that produced it, then the callee's own section.
+
+`-ssa` prints each function's SSA before its graph, so the `tN` values can be
+read in place. `-bare` builds every graph without any callee summary, which
+is what a unit test of the points-to model sees.
 
 ## Evidence trace
 
@@ -161,7 +171,7 @@ candidate, carrying a specific reason and the instruction that blocked it:
 | reason family | examples | what to look at |
 |---|---|---|
 | storage | `storage-address-escapes`, `storage-conflicting-writes`, `storage-write-after-observation`, `storage-not-local` | the named store, call, or merge; the cell was not proved to hold one value there |
-| alias | `disjoint-paths`, `disjoint-objects`, `unescaped-local`, `shared-slot`, `unknown-pointee`, `structural-walk` | the points-to graph's answer to a may-alias question; the first three are disjointness claims. `gohawk ssa -regions` prints each value's pointees, named by kind and origin, with entries carried around a back edge marked stale |
+| alias | `disjoint-paths`, `disjoint-objects`, `unescaped-local`, `shared-slot`, `unknown-pointee`, `structural-walk` | the points-to graph's answer to a may-alias question; the first three are disjointness claims. `gohawk heap` prints each value's pointees, named by kind and origin, with entries carried around a back edge marked stale |
 | summary | `summary-body-unavailable`, `summary-recursive` | the named callee; its body could not be summarized, so effects cannot be ruled out |
 | completion | `evidence-not-found`, `evidence-unavailable` at a launch site | the callee resolved from that launch never covered the target with the method sought |
 | budget | `budget-exhausted` | the query that spent the last unit; a cut answer is not a decision |

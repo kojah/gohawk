@@ -82,7 +82,7 @@ entry counts, so `true` there means "possibly, in some iteration". Only
 `must same` filters stale entries. A `false` from `may alias` is the one
 answer that can move a consumer from silence to a report, so it carries a
 reason, `disjoint-paths`, `disjoint-objects`, or `unescaped-local`, and
-`gohawk ssa -regions` prints every value's pointees so an answer can be
+`gohawk heap` prints every value's pointees so an answer can be
 checked against the graph that gave it.
 
 Exhaustion of the build budget, or a fixpoint that does not settle, makes
@@ -134,12 +134,11 @@ stored as surely as a map value.
 
 `gohawk facts` prints every summary as `heap …` lines beneath the mask
 claims, for the package's own functions and the callees it imports, and
-`gohawk facts -regions` prints every local function's registered summary
-and graph as the analysis saw it, private helpers included, with an
-`applied` line for every call a summary was applied at and an `escaped`
-line for the first instruction that escaped each slot in each way. `gohawk
-ssa -regions` prints the graph without any summaries, which is what a unit
-test sees.
+`gohawk heap` prints every local function's registered summary and graph as
+the analysis saw it, private helpers included, with an `applied` line for
+every call a summary was applied at and an `escaped` line for the first
+instruction that escaped each slot in each way. `gohawk heap -bare` prints
+the graph without any summaries, which is what a unit test sees.
 
 A summary also carries requirements, the precondition half: the methods
 the function calls on the object at a named slot on every normal return,

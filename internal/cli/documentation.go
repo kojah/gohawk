@@ -267,7 +267,8 @@ func printGeneralHelp(output io.Writer) {
 	writeLine(output, "Evidence tracing: -gohawk-trace=ANALYZER[,CHECK...] [-gohawk-trace-file=PATH]")
 	writeLine(output, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
 	writeLine(output, "Run 'gohawk ssa [-func NAME] PACKAGE' to print the SSA form the analyzers see.")
-	writeLine(output, "Run 'gohawk facts [-func NAME] PACKAGE' to print the lifecycle summaries the analyzers import.")
+	writeLine(output, "Run 'gohawk facts [-func NAME] [-kind KINDS] PACKAGE' to print the facts the analyzers import.")
+	writeLine(output, "Run 'gohawk heap [-func NAME] PACKAGE' to print how the heap model was derived.")
 	writeLine(output, "\nAnalyzer groups:")
 	metadata := gohawk.AnalyzerMetadata()
 	for _, group := range gohawk.AnalyzerGroups() {

@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
-	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
@@ -22,7 +21,6 @@ import (
 	"golang.org/x/tools/go/analysis/checker"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 // The facts subcommand prints the facts a package exports and the imported
@@ -95,10 +93,9 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	flags.SetOutput(errorsOutput)
 	nameFilter := flags.String("func", "", "print only facts attached to the function with this name")
 	includeTests := flags.Bool("tests", false, "also load the package's test variant")
-	regions := flags.Bool("regions", false, "also print each local function's points-to graph as the analysis saw it")
 	kindList := flags.String("kind", "", "comma-separated fact kinds to print: "+strings.Join(factKinds, ", ")+" (default all)")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk facts [-func NAME] [-kind KINDS] [-tests] [-regions] package...")
+		writeLine(errorsOutput, "usage: gohawk facts [-func NAME] [-kind KINDS] [-tests] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -137,9 +134,6 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 			return action.Err
 		}
 		writeObjectFacts(&buffer, action, *nameFilter, referenced[action.Package.Types], kinds)
-		if *regions {
-			writeRegions(&buffer, action, *nameFilter)
-		}
 	}
 	if buffer.Len() == 0 {
 		return fmt.Errorf("no fact matched %q", *nameFilter)
@@ -215,53 +209,6 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 		}
 		fact := summaries[function]
 		writeFact(buffer, action, object, "exported here", &fact, kinds)
-	}
-}
-
-// writeRegions prints the points-to graph of each local function, from the
-// graphs the analysis built, so the regions reflect the callee summaries
-// that were applied. Every function of the package is printed, private
-// helpers and literals included, each with the heap summary the registry
-// holds for it: a private helper's projection is applied by its callers
-// even though no fact carries it.
-func writeRegions(buffer *bytes.Buffer, action *checker.Action, filter string) {
-	summaries, ok := action.Result.(lifecyclefacts.Summaries)
-	if !ok {
-		return
-	}
-	var program *ssa.Program
-	for function := range summaries {
-		if function.Pkg != nil && function.Pkg.Pkg == action.Package.Types {
-			program = function.Prog
-			break
-		}
-	}
-	if program == nil {
-		return
-	}
-	var functions []*ssa.Function
-	for function := range ssautil.AllFunctions(program) {
-		if function.Pkg != nil && function.Pkg.Pkg == action.Package.Types && len(function.Blocks) != 0 &&
-			(filter == "" || function.Name() == filter || function.Object() != nil && function.Object().Name() == filter) {
-			functions = append(functions, function)
-		}
-	}
-	slices.SortFunc(functions, func(left, right *ssa.Function) int {
-		if order := comparePositions(action, left.Pos(), right.Pos()); order != 0 {
-			return order
-		}
-		return strings.Compare(left.String(), right.String())
-	})
-	for _, function := range functions {
-		fmt.Fprintf(buffer, "// %s\n", function.String())
-		if summary, ok := heapmodel.RegisteredHeapSummary(function); ok {
-			for line := range strings.SplitSeq(strings.TrimSpace(summary.String()), "\n") {
-				if line != "" {
-					fmt.Fprintf(buffer, "//   %s\n", line)
-				}
-			}
-		}
-		buffer.WriteString(heapmodel.RenderRegions(function))
 	}
 }
 
