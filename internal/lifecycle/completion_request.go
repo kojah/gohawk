@@ -43,7 +43,7 @@ type CompletionRequest struct {
 	ReturnedSummaries ReturnedCleanupLookup
 	// condition is set only by the edge query after resolving an exact call
 	// result. It never changes an ordinary completion request's contract.
-	condition completionCondition
+	condition ssaflow.CallCondition
 }
 
 // ProveCompletion answers one completion request. Each call runs its own

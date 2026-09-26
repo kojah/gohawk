@@ -123,8 +123,8 @@ func TestConstantBooleanArgumentsBindCallsAndCells(t *testing.T) {
 	if constants := ssaflow.ConstantBooleanArguments(calls[1].Common(), nil, direct, known); constants[direct.Params[0]] != false || len(constants) != 1 {
 		t.Errorf("forwarded argument bindings = %v, want keep=false", constants)
 	}
-	if bound, values := ssaflow.ConstantBooleanArgumentBits(calls[0].Common(), nil); bound != 1 || values != 1 {
-		t.Errorf("argument bits = %#x, %#x; want 0x1, 0x1", bound, values)
+	if supplied := ssaflow.SuppliedConstants(calls[0].Common(), nil); supplied.Bound != 1 || supplied.Values != 1 {
+		t.Errorf("supplied constants = %+v, want bound 0x1 values 0x1", supplied)
 	}
 
 	for _, test := range []struct {

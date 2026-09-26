@@ -3,7 +3,6 @@ package resourcemodel
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -41,7 +40,7 @@ func Caller(rows, other *sql.Rows) bool {
 	if proof := ProveRelation(owner, caller.Params[0], call, nil); proof.Proven() {
 		t.Fatal("relation without a budget was treated as proven")
 	}
-	predicate := lifecycle.CompletionPredicate{Outcome: lifecycle.CompletionWhenFalse}
+	predicate := ssaflow.CallCondition{Outcome: ssaflow.OutcomeFalse}
 	if ConditionalRelease(call, caller.Params[0], "Close", false, predicate, nil) {
 		t.Fatal("conditional release without a budget was treated as proven")
 	}

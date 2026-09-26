@@ -102,15 +102,15 @@ func TestConditionalCompletionMemoIsolation(t *testing.T) {
 	search := newCompletionSearch("Close", CoverageEveryReturn, ssaflow.NewSearchBudget(1000))
 	search.exactTarget = true
 	for _, test := range []struct {
-		kind completionConditionKind
+		kind ssaflow.ResultOutcome
 		want bool
 	}{
-		{completionTrue, true},
-		{completionFalse, false},
-		{completionUnconditional, false},
-		{completionTrue, true},
+		{ssaflow.OutcomeTrue, true},
+		{ssaflow.OutcomeFalse, false},
+		{ssaflow.OutcomeAny, false},
+		{ssaflow.OutcomeTrue, true},
 	} {
-		search.condition = completionCondition{kind: test.kind}
+		search.condition = ssaflow.CallCondition{Outcome: test.kind}
 		if proven := search.completes(call, fn.Params[0]).proven; proven != test.want {
 			t.Errorf("condition %v: proven %v, want %v", test.kind, proven, test.want)
 		}

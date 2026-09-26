@@ -21,7 +21,10 @@ decided only when it tests the bound value itself or its negation.
 
 The result-conditioned records that existed before are cases with no argument
 condition. There is one list, one proof, `lifecycle.ProveCompletionForCase`,
-and one matching rule, `CompletionPredicate.Matches`.
+and one condition type, `ssaflow.CallCondition`, with one matching rule,
+`Matches`. Every other summary that holds under a condition moves onto the same
+type, so there is one vocabulary to prove, export, and match; the completion
+search's own result-test enum was the first duplicate removed.
 
 The first uses are `resourcelifetime` and `cancellationownership`: a helper
 that cleans up only behind a flag settles the resource at a call passing the

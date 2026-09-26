@@ -265,7 +265,7 @@ const (
 // stops recursion through helper cycles and keeps the search over the call
 // graph rather than over every call path through it.
 type completionSearch struct {
-	condition         completionCondition
+	condition         ssaflow.CallCondition
 	summarized        CompletionSummaryLookup
 	callContract      CompletionSummaryLookup
 	returnedSummaries ReturnedCleanupLookup
@@ -331,7 +331,7 @@ func newCompletionSearch(method string, coverage CompletionCoverage, budget *ssa
 
 func (search *completionSearch) calleeCoverage(callee completionCallee, target ssa.Value, invocation ssa.Instruction) bool {
 	condition := search.condition
-	search.condition = completionCondition{}
+	search.condition = ssaflow.CallCondition{}
 	defer func() { search.condition = condition }()
 	locals := search.mappedLocals(callee, target, invocation)
 	if len(locals) == 0 {
@@ -366,7 +366,7 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	calls := func(candidate ssa.Instruction) bool {
 		return search.instructionCompletes(candidate, locals, target)
 	}
-	if condition.kind != completionUnconditional {
+	if condition.Outcome != ssaflow.OutcomeAny {
 		return search.conditionalCoverage(callee.function, locals, target, condition)
 	}
 	assumptions := ssaflow.EntryAssumptions{NonNil: nonNil, Constants: search.constants}

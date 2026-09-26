@@ -23,33 +23,6 @@ evidence reads a call instruction but is named store because it rests on
 storage and control flow, and moving it to the call family would make it
 reach upward. A new file joins the family of the highest layer it needs.
 
-## ArgumentConstants
-
-[Source](../../../../internal/lifecycle/completion_predicates.go)
-
-```go
-type ArgumentConstants struct {
-	Bound	uint64
-	Values	uint64
-}
-```
-
-ArgumentConstants names Boolean parameters by position, receiver first,
-and the constant each holds. In a summarized case it is what the case
-assumes; in a query it is what the call supplies. Positions past 63 are
-never bound.
-
-## ArgumentConstants.Satisfies
-
-[Source](../../../../internal/lifecycle/completion_predicates.go)
-
-```go
-func (supplied ArgumentConstants) Satisfies(assumed ArgumentConstants) bool
-```
-
-Satisfies reports whether the supplied constants fix every argument the
-assumed constants name, to the same value.
-
 ## CallInvokesArgumentOnEveryReturn
 
 [Source](../../../../internal/lifecycle/completion_callbacks.go)
@@ -139,20 +112,6 @@ func ClosureCapturesValue(instruction ssa.Instruction, value ssa.Value) bool
 
 ClosureCapturesValue reports whether instruction creates a closure that owns value.
 
-## CompletionAlways, CompletionWhenTrue, CompletionWhenFalse, CompletionWhenNil, CompletionWhenNonNil
-
-[Source](../../../../internal/lifecycle/completion_predicates.go)
-
-```go
-const (
-	CompletionAlways	CompletionOutcome	= iota
-	CompletionWhenTrue
-	CompletionWhenFalse
-	CompletionWhenNil
-	CompletionWhenNonNil
-)
-```
-
 ## CompletionCoverage
 
 [Source](../../../../internal/lifecycle/completion_search.go)
@@ -163,47 +122,6 @@ type CompletionCoverage uint8
 
 CompletionCoverage selects how much of a callee's control flow a lifecycle
 call must cover before it counts as completion.
-
-## CompletionOutcome
-
-[Source](../../../../internal/lifecycle/completion_predicates.go)
-
-```go
-type CompletionOutcome uint8
-```
-
-CompletionOutcome names the observed result of a synchronous helper call.
-Zero means unconditional; the other values require the named result to have
-the corresponding Boolean or error-interface value.
-
-## CompletionPredicate
-
-[Source](../../../../internal/lifecycle/completion_predicates.go)
-
-```go
-type CompletionPredicate struct {
-	Result		int
-	Outcome		CompletionOutcome
-	Arguments	ArgumentConstants
-}
-```
-
-CompletionPredicate is a serializable case of a function's behavior: a
-condition on one result, on Boolean arguments fixed to constants, or both.
-A zero Outcome with no Arguments is the unconditional case.
-
-## CompletionPredicate.Matches
-
-[Source](../../../../internal/lifecycle/completion_predicates.go)
-
-```go
-func (summarized CompletionPredicate) Matches(query CompletionPredicate) bool
-```
-
-Matches reports whether a summarized case answers query: constants the
-query's call supplies, and the same result condition. A case with no result
-condition holds on every normal return, so it answers any result condition
-too.
 
 ## CompletionRequest
 
@@ -254,12 +172,13 @@ deferred releases, select the instructions they submit.
 [Source](../../../../internal/lifecycle/completion_predicates.go)
 
 ```go
-type CompletionSummaryLookup func(ssa.Instruction, ssa.Value, string, bool, CompletionPredicate) bool
+type CompletionSummaryLookup func(ssa.Instruction, ssa.Value, string, bool, ssaflow.CallCondition) bool
 ```
 
 CompletionSummaryLookup supplies positive guarantees for unavailable callees.
 The implementation must bind target to an exact argument, distinguish the
-requested method from callback invocation, and match the complete predicate.
+requested method from callback invocation, and match the query condition:
+the search's result condition, with the constants the call supplies.
 False means no guarantee, never proof that the callee has no effect.
 
 ## CoverageEveryReturn, CoverageAnywhere
@@ -463,12 +382,12 @@ Disproven.
 [Source](../../../../internal/lifecycle/completion_predicates.go)
 
 ```go
-func ProveCompletionForCase(function *ssa.Function, predicate CompletionPredicate, request CompletionRequest) ssaflow.CompletionProof
+func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondition, request CompletionRequest) ssaflow.CompletionProof
 ```
 
 ProveCompletionForCase summarizes exact parameter cleanup on the normal
-returns of one case: the returns matching the predicate's result condition,
-on the paths feasible when its assumed arguments hold. It reuses the
+returns of one case: the returns matching the condition's result test, on
+the paths feasible when its assumed arguments hold. It reuses the
 completion engine and its shared budget, callback bindings, and recursion
 guard; it does not invent a caller or SSA. Without ExactTarget, a method
 completion may settle a field or element beneath the parameter; the proof

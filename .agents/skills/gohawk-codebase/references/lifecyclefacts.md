@@ -125,7 +125,7 @@ CompletionProof retains path coverage along with its summary explanation.
 
 ```go
 type ConditionalEffect struct {
-	Predicate	lifecycle.CompletionPredicate
+	Condition	ssaflow.CallCondition
 	Method		string
 	Invoke		bool
 	Parameters	ParameterMask
@@ -136,7 +136,7 @@ type ConditionalEffect struct {
 ```
 
 ConditionalEffect records a method or synchronous callback invocation on
-Parameters on every normal return of the case Predicate names.
+Parameters on every normal return of the case Condition names.
 
 ## ConditionalSummary
 

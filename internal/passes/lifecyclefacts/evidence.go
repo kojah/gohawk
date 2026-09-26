@@ -371,7 +371,7 @@ func (evidence *LifecycleEvidence) argumentCaseCompletes(request EvidenceRequest
 		return false
 	}
 	if request.Completion.InvokeTarget {
-		query := lifecycle.CompletionPredicate{Arguments: suppliedConstants(request.Instruction, nil)}
+		query := ssaflow.CallCondition{Arguments: suppliedConstants(request.Instruction, nil)}
 		return query.Arguments.Bound != 0 && factArgumentMatches(request.Instruction, request.Target, conditionalMask(fact, "", true, query),
 			func(argument, target ssa.Value) bool {
 				return heapmodel.NewStorage(request.Completion.Budget).Same(argument, target).Proven()

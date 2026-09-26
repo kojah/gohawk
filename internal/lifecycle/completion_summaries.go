@@ -21,7 +21,7 @@ type completionKey struct {
 	instruction  ssa.Instruction
 	target       ssa.Value
 	invokeTarget bool
-	condition    completionCondition
+	condition    ssaflow.CallCondition
 	constants    string
 }
 

@@ -186,7 +186,7 @@ func (search *completionSearch) returnedCallbackCompletes(callback, target ssa.V
 		}
 		strict := *search
 		strict.exactTarget = true
-		strict.condition = completionCondition{}
+		strict.condition = ssaflow.CallCondition{}
 		return strict.calleeCompletes(completionCallee{
 			function: function, closure: closure, launch: launchCallback, invocation: returned,
 		}, target, returned).proven

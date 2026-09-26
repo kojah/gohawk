@@ -31,7 +31,7 @@ type completionEvidenceKey struct {
 	coverage     CompletionCoverage
 	invokeTarget bool
 	exactTarget  bool
-	condition    completionCondition
+	condition    ssaflow.CallCondition
 }
 
 type transferEvidenceKey struct {

@@ -79,28 +79,6 @@ func capturedBoolean(binding ssa.Value, known BooleanConstants) (bool, bool) {
 	return false, false
 }
 
-// ConstantBooleanArgumentBits reports which of the call's arguments are
-// Boolean constants and their values, as masks indexed by argument position
-// with any receiver first. It serves summaries of bodies that are not
-// available, whose parameters are known only by position.
-func ConstantBooleanArgumentBits(common *ssa.CallCommon, known BooleanConstants) (bound, values uint64) {
-	if common == nil || common.IsInvoke() {
-		return 0, 0
-	}
-	for index, argument := range common.Args {
-		if index >= 64 {
-			break
-		}
-		if value, ok := constantBoolean(argument, known); ok {
-			bound |= 1 << index
-			if value {
-				values |= 1 << index
-			}
-		}
-	}
-	return bound, values
-}
-
 func constantBoolean(value ssa.Value, known BooleanConstants) (bool, bool) {
 	if literal, ok := value.(*ssa.Const); ok {
 		if literal.Value != nil && literal.Value.Kind() == constant.Bool {

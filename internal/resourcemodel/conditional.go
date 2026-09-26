@@ -17,7 +17,7 @@ var rowsNextResultSet = syntax.PackageMethod(syntax.MethodSymbol{
 
 // ConditionalReleases binds one search budget to the external state contracts.
 func ConditionalReleases(budget *ssaflow.SearchBudget) lifecycle.CompletionSummaryLookup {
-	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate lifecycle.CompletionPredicate) bool {
+	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssaflow.CallCondition) bool {
 		return ConditionalRelease(instruction, target, method, invoke, predicate, budget)
 	}
 }
@@ -30,12 +30,12 @@ func ConditionalRelease(
 	target ssa.Value,
 	method string,
 	invoke bool,
-	predicate lifecycle.CompletionPredicate,
+	predicate ssaflow.CallCondition,
 	budget *ssaflow.SearchBudget,
 ) bool {
 	call, synchronous := instruction.(*ssa.Call)
 	if !synchronous || invoke || method != "Close" ||
-		predicate.Result != 0 || predicate.Outcome != lifecycle.CompletionWhenFalse {
+		predicate.Result != 0 || predicate.Outcome != ssaflow.OutcomeFalse {
 		return false
 	}
 	if budget == nil || !budget.Spend() {

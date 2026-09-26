@@ -24,7 +24,7 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	base := summarize(pass, pkg.Func("Base"))
-	predicate := lifecycle.CompletionPredicate{Outcome: lifecycle.CompletionWhenTrue}
+	predicate := ssaflow.CallCondition{Outcome: ssaflow.OutcomeTrue}
 	if base.MethodMask("Close") != 0 || conditionalMask(base, "Close", false, predicate) != parameterMaskFor(0) {
 		t.Fatalf("base = %+v, conditional = %+v", base, base.Conditional)
 	}
@@ -90,8 +90,8 @@ func (*fakeRows) Close() error { return nil }
 func Fake(rows *fakeRows) bool { return rows.NextResultSet() }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	falseResult := lifecycle.CompletionPredicate{Outcome: lifecycle.CompletionWhenFalse}
-	trueResult := lifecycle.CompletionPredicate{Outcome: lifecycle.CompletionWhenTrue}
+	falseResult := ssaflow.CallCondition{Outcome: ssaflow.OutcomeFalse}
+	trueResult := ssaflow.CallCondition{Outcome: ssaflow.OutcomeTrue}
 	for _, test := range []struct {
 		name string
 		mask ParameterMask

@@ -49,6 +49,44 @@ false answer is a claim of disjointness, and its reason says which rule
 made it: two paths of one object, an unescaped local against something it
 was never stored into, or two objects the function's flow never connects.
 
+## ArgumentConstants
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+type ArgumentConstants struct {
+	Bound	uint64
+	Values	uint64
+}
+```
+
+ArgumentConstants names Boolean parameters by position, receiver first,
+and the constant each holds. In a summarized case it is what the case
+assumes; in a query it is what the call supplies. Positions past 63 are
+never bound.
+
+## ArgumentConstants.Bindings
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func (assumed ArgumentConstants) Bindings(function *ssa.Function) (BooleanConstants, bool)
+```
+
+Bindings maps the assumed constants onto function's Boolean parameters. It
+reports false when a bound position is not a Boolean parameter.
+
+## ArgumentConstants.Satisfies
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func (supplied ArgumentConstants) Satisfies(assumed ArgumentConstants) bool
+```
+
+Satisfies reports whether the supplied constants fix every argument the
+assumed constants name, to the same value.
+
 ## BlockInCycle
 
 [Source](../../../../internal/ssaflow/call_goroutines.go)
@@ -168,6 +206,56 @@ func CallBindings(common *ssa.CallCommon, callee *ssa.Function, closure *ssa.Mak
 CallBindings maps arguments and captures onto a known callee. A nil common
 supports a closure examined before invocation. Matching values and deciding
 what their uses mean remain the consumer's responsibility.
+
+## CallCondition
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+type CallCondition struct {
+	Result		int
+	Outcome		ResultOutcome
+	Arguments	ArgumentConstants
+}
+```
+
+CallCondition is one summary case's condition: result Result has Outcome,
+unless Outcome is OutcomeAny, and the call supplies Arguments. The zero
+value is unconditional.
+
+## CallCondition.Matches
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func (summarized CallCondition) Matches(query CallCondition) bool
+```
+
+Matches reports whether a summarized case answers query: constants the
+query's call supplies, and the same result condition. A case with no result
+condition holds on every normal return, so it answers any result condition
+too.
+
+## CallCondition.Unconditional
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func (condition CallCondition) Unconditional() bool
+```
+
+Unconditional reports whether the condition constrains nothing.
+
+## CallCondition.ValidFor
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func (condition CallCondition) ValidFor(signature *types.Signature) bool
+```
+
+ValidFor reports whether the condition's result test fits signature: a
+Boolean outcome on a Boolean result, a nil outcome on an error result.
 
 ## CallEffect
 
@@ -539,19 +627,6 @@ type CompletionProof struct {
 
 CompletionProof records evidence that a lifecycle method runs under the
 path guarantees selected by an analyzer.
-
-## ConstantBooleanArgumentBits
-
-[Source](../../../../internal/ssaflow/call_constants.go)
-
-```go
-func ConstantBooleanArgumentBits(common *ssa.CallCommon, known BooleanConstants) (bound, values uint64)
-```
-
-ConstantBooleanArgumentBits reports which of the call's arguments are
-Boolean constants and their values, as masks indexed by argument position
-with any receiver first. It serves summaries of bodies that are not
-available, whose parameters are known only by position.
 
 ## ConstantBooleanArguments
 
@@ -1576,6 +1651,32 @@ decided, so it changes no answer. The type uses primitives so a tracer can
 satisfy it by method value without an import cycle; a budget carries it to
 every query that spends that budget, the scope of one candidate's proof.
 
+## OutcomeAny, OutcomeTrue, OutcomeFalse, OutcomeNil, OutcomeNonNil
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+const (
+	OutcomeAny	ResultOutcome	= iota
+	OutcomeTrue
+	OutcomeFalse
+	OutcomeNil
+	OutcomeNonNil
+)
+```
+
+## OutcomeOf
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func OutcomeOf(outcome ResultOutcome, value ssa.Value) (holds, known bool)
+```
+
+OutcomeOf decides whether value, returned in a result slot, has outcome.
+Only constants and interface boxes decide it: even a boxed nil pointer has
+a dynamic type and is not a nil interface.
+
 ## OutermostLoops
 
 [Source](../../../../internal/ssaflow/natural_loops.go)
@@ -1952,6 +2053,17 @@ func ResolvedFunction(function *ssa.Function) *ssa.Function
 ResolvedFunction answers an instantiation with its origin for a function the
 caller already holds, such as the literal a launch names.
 
+## ResultOutcome
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+type ResultOutcome uint8
+```
+
+ResultOutcome names a value a call's result can be tested for. OutcomeAny
+places no condition on any result.
+
 ## RunsOnceInProgramEntry
 
 [Source](../../../../internal/ssaflow/process_entry.go)
@@ -2202,6 +2314,17 @@ type SummaryUnavailable uint8
 ```
 
 SummaryUnavailable identifies why a function summary could not be computed.
+
+## SuppliedConstants
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func SuppliedConstants(common *ssa.CallCommon, known BooleanConstants) ArgumentConstants
+```
+
+SuppliedConstants reports the Boolean constants a call passes: literals,
+and caller values that known already fixes.
 
 ## Terminator
 

@@ -626,7 +626,10 @@ instruction and effect-expansion work to a shared search budget.
 
 A summary case is a positive cleanup guarantee under a condition a caller can
 check. There is one list of cases, the versioned `Conditional` portion of the
-lifecycle fact, and one proof for each, `lifecycle.ProveCompletionForCase`. A
+lifecycle fact, and one proof for each, `lifecycle.ProveCompletionForCase`.
+The condition is an `ssaflow.CallCondition`, the one serializable condition
+type every conditional summary uses, and `Matches` is the one rule selecting a
+case at a call. A
 case names a result condition (a Boolean result true or false, or an error
 result nil or non-nil), Boolean parameters fixed to constants, or both, and
 records the method or synchronous callback invocation it guarantees on the
