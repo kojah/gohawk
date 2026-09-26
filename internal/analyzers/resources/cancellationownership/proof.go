@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -51,6 +52,10 @@ type cancellationClassifier struct {
 	// observer hears where the shared storage, effect, and completion queries
 	// behind this proof gave up; nil when the candidate is not being traced.
 	observer ssaflow.Observer
+	// probe traces this classifier's labels. Only the candidate's own
+	// classifier has one; a parent context's classifier stays silent, since
+	// its labels reach the trace as the child's.
+	probe    analysisTrace.Probe
 	evidence *lifecyclefacts.LifecycleEvidence
 	// pool is this cancellation's total across every query its proof asks;
 	// see budget.
@@ -75,9 +80,11 @@ func (classifier *cancellationClassifier) budget() *ssaflow.SearchBudget {
 }
 
 func proveCancellation(
-	call *ssa.Call, cancel ssa.Value, observer ssaflow.Observer, evidence *lifecyclefacts.LifecycleEvidence, knowledge *summaries.Provider,
+	call *ssa.Call, cancel ssa.Value, probe analysisTrace.Probe, evidence *lifecyclefacts.LifecycleEvidence, knowledge *summaries.Provider,
 ) CancellationProof {
+	observer := probe.Observer()
 	classifier := &cancellationClassifier{
+		probe:    probe,
 		cancel:   cancel,
 		parent:   parentCancellationClassifier(call, observer),
 		actions:  make(map[ssa.Instruction]cancellationAction),
@@ -154,10 +161,12 @@ func (classifier *cancellationClassifier) action(instruction ssa.Instruction) ca
 		return action
 	}
 	action := classifier.classifyAction(instruction)
+	reason := action.labelReason()
 	if action == cancellationActionNone && classifier.parent != nil && classifier.parent.action(instruction) != cancellationActionNone {
-		action = cancellationActionUnknown
+		action, reason = cancellationActionUnknown, reasonLabelParentContextUse
 	}
 	classifier.actions[instruction] = action
+	classifier.traceLabel(instruction, action, reason)
 	if action == cancellationActionTransfer {
 		classifier.transfers = true
 	}

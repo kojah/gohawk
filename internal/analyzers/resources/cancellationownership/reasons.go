@@ -10,6 +10,11 @@ const (
 	reasonCancellationReleased
 	reasonCancellationTransferred
 	reasonCancellationLost
+	// The label reasons name why the classifier labelled one instruction.
+	reasonLabelRelease
+	reasonLabelTransfer
+	reasonLabelOpaqueUse
+	reasonLabelParentContextUse
 	cancellationReasonCount
 )
 
@@ -25,6 +30,14 @@ func (reason cancellationReason) String() string {
 		return "exact-cancellation-transfer"
 	case reasonCancellationLost:
 		return "unowned-return"
+	case reasonLabelRelease:
+		return "release"
+	case reasonLabelTransfer:
+		return "transfer"
+	case reasonLabelOpaqueUse:
+		return "opaque-cancellation-use"
+	case reasonLabelParentContextUse:
+		return "parent-context-use"
 	default:
 		return "invalid-cancellation-reason"
 	}

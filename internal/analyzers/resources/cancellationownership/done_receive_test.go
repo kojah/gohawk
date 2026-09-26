@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -43,7 +44,7 @@ func alternate(parent context.Context, work <-chan bool) {
 				if !ok {
 					continue
 				}
-				if proof := proveCancellation(call, value, nil, nil, nil); proof.Outcome != test.want {
+				if proof := proveCancellation(call, value, analysisTrace.Probe{}, nil, nil); proof.Outcome != test.want {
 					t.Fatalf("proof = %+v, want outcome %v", proof, test.want)
 				}
 				return

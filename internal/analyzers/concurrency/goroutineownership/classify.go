@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -108,7 +109,25 @@ func (analysis *spawnAnalysis) action(instruction ssa.Instruction) ownershipActi
 	}
 	action := analysis.classify(instruction)
 	analysis.actions[instruction] = action
+	analysis.traceLabel(instruction, action)
 	return action
+}
+
+// traceLabel records a join, transfer, or opaque-use label once, when the
+// instruction is first classified, so the trace lists labels in the order the
+// walk met them. An instruction labelled none is not traced.
+func (analysis *spawnAnalysis) traceLabel(instruction ssa.Instruction, action ownershipAction) {
+	if action == actionNone || !analysis.probe.Enabled() {
+		return
+	}
+	outcome := analysisTrace.OutcomeAccepted
+	if action == actionUnknown {
+		outcome = analysisTrace.OutcomeUnknown
+	}
+	analysis.probe.Label(analysisTrace.Step{
+		Reason: action.String(), Outcome: outcome, Pos: instruction.Pos(), Function: analysis.function.String(),
+		Details: map[string]string{"instruction": instruction.String()},
+	})
 }
 
 func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) ownershipAction {

@@ -157,14 +157,14 @@ func writeSteps(buffer *bytes.Buffer, directory string, proof *tracedProof) {
 		}
 		buffer.WriteString(previous + "\n")
 	}
-	for _, step := range proof.steps {
+	for _, step := range foldUnanswered(proof.steps) {
 		var text strings.Builder
-		fmt.Fprintf(&text, "//     %-10s %-8s %s", step.Phase, step.Outcome, step.Reason)
-		if step.Position != "" && step.Position != proof.candidate {
-			text.WriteString(" at " + relativePosition(directory, step.Position))
+		fmt.Fprintf(&text, "//     %-10s %-8s %s", step.phase, step.outcome, step.title)
+		if step.position != "" && step.position != proof.candidate {
+			text.WriteString(" at " + relativePosition(directory, step.position))
 		}
-		for _, key := range slices.Sorted(maps.Keys(step.Details)) {
-			text.WriteString(" " + key + "=" + detailValue(step.Details[key]))
+		for _, key := range slices.Sorted(maps.Keys(step.details)) {
+			text.WriteString(" " + key + "=" + detailValue(step.details[key]))
 		}
 		line := text.String()
 		if line == previous {
@@ -175,6 +175,71 @@ func writeSteps(buffer *bytes.Buffer, directory string, proof *tracedProof) {
 		previous, repeats = line, 1
 	}
 	flush()
+}
+
+// foldUnanswered folds the questions one instruction was asked and did not
+// settle into one step. A classifier asks each instruction several questions,
+// a release, a transfer, a summary, and the shared evidence names each, so an
+// instruction the resource passes by untouched would otherwise take a line per
+// question. The folded step lists every question with its reason; a proven
+// answer, or a question asked alone, is kept as it was traced.
+func foldUnanswered(steps []analysisTrace.Record) []traceRow {
+	folded := make([]traceRow, 0, len(steps))
+	for start := 0; start < len(steps); {
+		end := start + 1
+		for end < len(steps) && unanswered(steps[start]) && unanswered(steps[end]) && sameInstruction(steps[start], steps[end]) {
+			end++
+		}
+		if end-start == 1 {
+			step := steps[start]
+			folded = append(folded, traceRow{step.Phase, step.Outcome, step.Reason, step.Position, step.Details})
+		} else {
+			folded = append(folded, foldedStep(steps[start:end]))
+		}
+		start = end
+	}
+	return folded
+}
+
+// unanswered reports a step from the shared evidence that did not prove its
+// question.
+func unanswered(step analysisTrace.Record) bool {
+	return step.Phase == "evidence" && step.Details["question"] != "" &&
+		(step.Outcome == analysisTrace.OutcomeRejected || step.Outcome == analysisTrace.OutcomeUnknown)
+}
+
+func sameInstruction(left, right analysisTrace.Record) bool {
+	return left.Position == right.Position && left.Details["instruction"] == right.Details["instruction"] &&
+		left.Details["target"] == right.Details["target"]
+}
+
+// traceRow is one printed line of a proof: a traced step, titled by its
+// reason, or a fold of several, titled by what the fold means. A title is
+// display text, not a reason code: the dump classifies nothing.
+type traceRow struct {
+	phase    string
+	outcome  analysisTrace.Outcome
+	title    string
+	position string
+	details  map[string]string
+}
+
+func foldedStep(steps []analysisTrace.Record) traceRow {
+	answers := make([]string, 0, len(steps))
+	outcome := analysisTrace.OutcomeRejected
+	for _, step := range steps {
+		answers = append(answers, step.Details["question"]+":"+strings.TrimPrefix(step.Reason, "evidence-"))
+		if step.Outcome == analysisTrace.OutcomeUnknown {
+			outcome = analysisTrace.OutcomeUnknown
+		}
+	}
+	details := map[string]string{"answers": strings.Join(answers, ",")}
+	for _, key := range []string{"instruction", "target", "target_type", "callee"} {
+		if value, ok := steps[0].Details[key]; ok {
+			details[key] = value
+		}
+	}
+	return traceRow{phase: "evidence", outcome: outcome, title: "unanswered", position: steps[0].Position, details: details}
 }
 
 // detailValue quotes a detail only when it would not read as one word.

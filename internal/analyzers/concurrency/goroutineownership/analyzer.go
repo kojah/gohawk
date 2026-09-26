@@ -77,18 +77,6 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 		outcome = analysisTrace.OutcomeRejected
 	case GoroutineUnknown:
 	}
-	for instruction, action := range analysis.actions {
-		if action == actionNone {
-			continue
-		}
-		probe.Evidence(analysisTrace.Step{
-			Reason:   action.String(),
-			Outcome:  analysisTrace.OutcomeAccepted,
-			Pos:      instruction.Pos(),
-			Function: analysis.function.String(),
-			Details:  map[string]string{"instruction": instruction.String()},
-		})
-	}
 	for edge, reason := range analysis.edgeReasons {
 		edgeOutcome := analysisTrace.OutcomeAccepted
 		if reason == reasonSelectedContextEdge {

@@ -6,7 +6,8 @@ func TestCancellationReasonCodes(t *testing.T) {
 	want := map[cancellationReason]string{
 		reasonCancellationNone: "", reasonCancellationUnknown: "ambiguous-cancellation-use",
 		reasonCancellationReleased: "exact-cancellation-release", reasonCancellationTransferred: "exact-cancellation-transfer",
-		reasonCancellationLost: "unowned-return",
+		reasonCancellationLost: "unowned-return", reasonLabelRelease: "release", reasonLabelTransfer: "transfer",
+		reasonLabelOpaqueUse: "opaque-cancellation-use", reasonLabelParentContextUse: "parent-context-use",
 	}
 	if len(want) != int(cancellationReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

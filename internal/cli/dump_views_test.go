@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/lockorder"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -131,4 +132,31 @@ func TestLabelRunsRestoresEveryRun(t *testing.T) {
 // comparison Go allows between func values.
 func funcIdentity(function func(*analysis.Pass) (any, error)) string {
 	return fmt.Sprintf("%p", function)
+}
+
+func TestFoldUnansweredKeepsProofsAndLoneQuestions(t *testing.T) {
+	no := func(question, reason string, outcome analysisTrace.Outcome) analysisTrace.Record {
+		return analysisTrace.Record{
+			Phase: "evidence", Outcome: outcome, Reason: reason, Position: "a.go:4:2",
+			Details: map[string]string{"question": question, "instruction": "return nil", "target": "t1"},
+		}
+	}
+	proven := no("release", "lifecycle-summary", analysisTrace.OutcomeAccepted)
+	steps := []analysisTrace.Record{
+		no("transfer", "evidence-not-found", analysisTrace.OutcomeRejected),
+		no("release+summary", "evidence-unavailable", analysisTrace.OutcomeUnknown),
+		proven,
+		no("transfer", "evidence-not-found", analysisTrace.OutcomeRejected),
+	}
+	folded := foldUnanswered(steps)
+	if len(folded) != 3 {
+		t.Fatalf("folded into %d steps, want 3: %+v", len(folded), folded)
+	}
+	if folded[0].title != "unanswered" || folded[0].outcome != analysisTrace.OutcomeUnknown ||
+		folded[0].details["answers"] != "transfer:not-found,release+summary:unavailable" || folded[0].details["instruction"] != "return nil" {
+		t.Errorf("folded step = %+v", folded[0])
+	}
+	if folded[1].title != proven.Reason || folded[2].title != "evidence-not-found" {
+		t.Errorf("proven answer or lone question was folded: %+v", folded[1:])
+	}
 }

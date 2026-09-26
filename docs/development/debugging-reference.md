@@ -123,7 +123,10 @@ gohawk dump trace [-func NAME] [-analyzer NAMES] [-candidate PATH[:LINE]] [-deci
 Runs the analyzers in one process with the evidence tracer captured, and
 prints each proof together: per function, each candidate the analyzers
 weighed, and beneath it the steps in the order the proof emitted them, with
-runs of identical steps folded into one line with a count. A step is filed
+runs of identical steps folded into one line with a count. The questions
+one instruction was asked and did not settle fold into one `unanswered` step
+whose `answers` detail lists each `question:reason`; a proven answer, or a
+question asked alone, stays as traced. A step is filed
 under the function its candidate lies in, so steps judging a callee
 elsewhere stay with the proof they serve. `-decisions` drops the evidence
 steps and keeps candidates, labels, considered steps, and decisions: the
@@ -171,7 +174,7 @@ driver's cost and appear in the process time instead.
 | phase | meaning |
 |---|---|
 | `candidate` | a construct the analyzer might report — the obligation it found |
-| `label` | the label a lifecycle classifier gave one instruction on the path, with the reason: `accepted` for settled, `unknown` for a boundary it cannot see through; instructions labelled none are not traced |
+| `label` | the label a lifecycle classifier gave one instruction on the path: `accepted` for a release, join, or transfer, `unknown` for a boundary it cannot see through; instructions labelled none are not traced. resourcelifetime gives the label's own reason code; goroutineownership names the label (`join`, `transfer`, `opaque-use`); cancellationownership names it too (`release`, `transfer`, `opaque-cancellation-use`, or `parent-context-use` for a use of the parent context). lockorder has no per-instruction labels: its release walk runs per lock state |
 | `evidence` | a fact for or against reporting it; a shared lifecycle proof adds a `question` detail naming what it answered (`release`, `transfer`, `local`, `summary`, `receiver-store`, joined by `+`) |
 | `considered` | a proof step that was evaluated and did not hold |
 | `decision` | the outcome: reported, suppressed by an ignore comment, removed by check selection, or unknown |

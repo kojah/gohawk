@@ -101,3 +101,34 @@ func assertFollowupBoundaryTrace(t *testing.T, path string) {
 		t.Error("missing selected context edge evidence")
 	}
 }
+
+// assertLabelTrace checks that the classifier's labels are traced as label
+// steps: a join as accepted, an opaque use as unknown.
+func assertLabelTrace(t *testing.T, path string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string][2]string{
+		"completion_tails.go:16:13": {"join", "accepted"},
+		"cleanup_results.go:21:2":   {"opaque-use", "unknown"},
+	}
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+		var event followupTraceEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		if event.Phase != "label" {
+			continue
+		}
+		for position, expected := range want {
+			if strings.HasSuffix(event.Position, position) && event.Reason == expected[0] && event.Outcome == expected[1] {
+				delete(want, position)
+			}
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("missing label steps: %v", want)
+	}
+}

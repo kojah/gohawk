@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -66,7 +67,7 @@ func conditionalEarly(yes, early bool) {
 			if !ok {
 				t.Fatal("cancel did not come from a call")
 			}
-			if proof := proveCancellation(call, cancel, nil, nil, nil); proof.Outcome != test.want {
+			if proof := proveCancellation(call, cancel, analysisTrace.Probe{}, nil, nil); proof.Outcome != test.want {
 				t.Fatalf("proof = %+v, want outcome %v", proof, test.want)
 			}
 		})
