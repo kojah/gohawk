@@ -34,6 +34,28 @@ also exposed a completion-search mapping that credited an unlock of one mutex
 as releasing a sibling mutex of the same owner; the target now maps as the
 mirrored field, and `lockorder` reports the order that was lost.
 
+## One condition vocabulary
+
+Every claim of the form "X holds when Y" now names Y with
+`ssaflow.CallCondition`: cleanup cases and the unconditional discharges share
+one `Discharges` list whose empty condition is the Must claim; synchronous
+invocation is a discharge of its own method; result facts are result cases,
+an outcome of one result under a condition that may name a parameter's
+nilness or a paired error's outcome; and `lockorder` names the result a lock
+is held under the same way. The completion search's private result-test enum
+and the result facts' relation kinds are gone.
+
+Two conditional shapes stay separate on purpose. The concurrency facts' path
+alternatives carry a path-condition language over SSA values: comparisons with
+integer, string, nil, and Boolean constants, scoped by the call sites a path
+was bound through, and implied facts about what a helper returned. They select
+feasible effect sequences while summaries compose, rather than guaranteeing a
+claim, and only a small subset overlaps `CallCondition`; folding that subset
+would split one condition across two representations, and folding all of it
+would load opaque branch identities into the shared claim condition. The heap
+projection's must-hold flag is judged on every return with a non-nil result
+for every hold alike, so it is not a condition a caller selects.
+
 Still excluded: predicates on non-Boolean arguments, relations between
 arguments, and negative cases, which a use-after-release or latent-bug report
 would need. Those are the next two phases and get their own decision.

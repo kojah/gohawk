@@ -130,9 +130,9 @@ func conditionalCallerRelease(
 		return unknown
 	}
 	for index := range function.Signature.Results().Len() {
-		held, known := heldResultPolarity(function, heldAt, index)
+		heldWhen, known := heldResultPolarity(function, heldAt, index)
 		if known && !slices.ContainsFunc(callers.calls, func(call *ssa.Call) bool {
-			return !callerReleasesOnFlag(call, global, index, held)
+			return !callerReleasesOnFlag(call, global, heldWhen)
 		}) {
 			return callerReleaseProof{proven: true, reason: lockReasonConditionalCallerReleaseProven}
 		}
@@ -140,29 +140,40 @@ func conditionalCallerRelease(
 	return unknown
 }
 
-func heldResultPolarity(function *ssa.Function, heldAt map[*ssa.Return]bool, index int) (bool, bool) {
+// heldResultPolarity returns the result condition the lock is held under:
+// every return that holds it has one Boolean value in result index, and every
+// return that does not has the other.
+func heldResultPolarity(function *ssa.Function, heldAt map[*ssa.Return]bool, index int) (ssaflow.CallCondition, bool) {
 	var held, unheld, sawHeld, sawUnheld bool
 	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](function) {
 		truth, known := lockBooleanValue(lifecycle.ReturnedResult(returned, index), nil)
 		if !known {
-			return false, false
+			return ssaflow.CallCondition{}, false
 		}
 		if heldAt[returned] {
 			if sawHeld && held != truth {
-				return false, false
+				return ssaflow.CallCondition{}, false
 			}
 			held, sawHeld = truth, true
 		} else {
 			if sawUnheld && unheld != truth {
-				return false, false
+				return ssaflow.CallCondition{}, false
 			}
 			unheld, sawUnheld = truth, true
 		}
 	}
-	return held, sawHeld && sawUnheld && held != unheld
+	outcome := ssaflow.OutcomeFalse
+	if held {
+		outcome = ssaflow.OutcomeTrue
+	}
+	return ssaflow.CallCondition{Result: index, Outcome: outcome}, sawHeld && sawUnheld && held != unheld
 }
 
-func callerReleasesOnFlag(call *ssa.Call, mutex *ssa.Global, index int, held bool) bool {
+// callerReleasesOnFlag reports whether the caller branches on the result the
+// lock is held under and releases the mutex on the held arm before every
+// return, while the other arm owes nothing.
+func callerReleasesOnFlag(call *ssa.Call, mutex *ssa.Global, heldWhen ssaflow.CallCondition) bool {
+	index := heldWhen.Result
 	block := call.Block()
 	if ssaflow.BlockInCycle(block) || len(block.Succs) != 2 {
 		return false
@@ -175,7 +186,7 @@ func callerReleasesOnFlag(call *ssa.Call, mutex *ssa.Global, index int, held boo
 		return false
 	}
 	unheld := block.Succs[0]
-	if held {
+	if heldWhen.Outcome == ssaflow.OutcomeTrue {
 		unheld = block.Succs[1]
 	}
 	if len(unheld.Preds) != 1 {
