@@ -27,9 +27,20 @@ first thing to run when a classifier label is surprising.
 gohawk facts [-func NAME] [-tests] [-regions] package...
 ```
 
-Prints the exported lifecycle summaries for the given packages, decoded per
-parameter, each with its heap projection as `heap …` lines, including the
-`requires` lines that name the methods it calls on what it was handed. Only summarized
+Prints the facts the given packages export, and those of the callees they
+resolve, one family per header:
+
+- `gohawklifecyclefacts`: lifecycle summaries decoded per parameter, each
+  summary case and released use as a sentence ending in its condition, such
+  as `Close parameter 0 when argument 1 is nil`, and the heap projection as
+  `heap …` lines, including the `requires` lines that name the methods it
+  calls on what it was handed.
+- `gohawkresultfacts`: result guarantees, result cases such as
+  `result 0 (*File) is nil when result 1 is non-nil`, and returned parameters.
+- `gohawkconcurrencyfacts`: the ordered synchronization effects, or each path
+  alternative with the conditions that select it and what it returns.
+
+Positions count the receiver first, as the facts do. Only summarized
 functions appear: a function that is missing has no fact and is `unknown`
 to every consumer, which is different from a function whose fact shows a
 clear bit. See [Inferred facts](fact-model.md).

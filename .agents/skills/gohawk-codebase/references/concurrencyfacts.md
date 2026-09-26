@@ -234,6 +234,16 @@ type FactConstant struct {
 
 FactConstant is a constant in a form that round-trips exactly.
 
+## FactConstant.String
+
+[Source](../../../../internal/passes/concurrencyfacts/describe.go)
+
+```go
+func (constant FactConstant) String() string
+```
+
+String renders the constant as Go source would write it.
+
 ## FactConstantAbsent, FactConstantNil, FactConstantBool, FactConstantInt, FactConstantString
 
 [Source](../../../../internal/passes/concurrencyfacts/facts_alternatives.go)
@@ -299,6 +309,16 @@ type Kind uint8
 ```
 
 Kind identifies a synchronization event with an exact resource.
+
+## Kind.String
+
+[Source](../../../../internal/passes/concurrencyfacts/describe.go)
+
+```go
+func (kind Kind) String() string
+```
+
+String names the synchronization event.
 
 ## MutexPointer
 

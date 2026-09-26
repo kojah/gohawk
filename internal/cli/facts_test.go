@@ -30,6 +30,12 @@ func MaybeClose(file *os.File, enabled bool) {
 		_ = file.Close()
 	}
 }
+
+// Open forwards os.Open, so its file is nil whenever its error is not.
+func Open(path string) (*os.File, error) { return os.Open(path) }
+
+// Finish closes the channel it is handed.
+func Finish(done chan struct{}) { close(done) }
 `)
 	t.Chdir(directory)
 	var output, errorsOutput bytes.Buffer
@@ -37,7 +43,11 @@ func MaybeClose(file *os.File, enabled bool) {
 		t.Fatalf("printFacts() error = %v, stderr %s", err, errorsOutput.String())
 	}
 	text := output.String()
-	for _, want := range []string{"CloseFile (exported here", "0 file: Closed", "MaybeClose (exported here", "no parameter is proven"} {
+	for _, want := range []string{
+		"CloseFile (exported here", "0 file: Closed", "MaybeClose (exported here", "Close parameter 0 when argument 1 is true",
+		"gohawkresultfacts example.com/factsdump.Open", "result 0 (*os.File) is nil when result 1 is non-nil",
+		"gohawkconcurrencyfacts example.com/factsdump.Finish", "close parameter 0",
+	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("facts dump lacks %q:\n%s", want, text)
 		}

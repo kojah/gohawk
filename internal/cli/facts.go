@@ -14,7 +14,9 @@ import (
 
 	gohawk "github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/passes/resultfacts"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"
@@ -24,7 +26,8 @@ import (
 )
 
 // The facts subcommand prints the facts a package exports and the imported
-// facts its calls resolve to, as a lifecycle analyzer would see them.
+// facts its calls resolve to, as the analyzers would see them: lifecycle
+// summaries, result guarantees and cases, and concurrency effects.
 // Enumeration is generic over fact families; each family renders its own
 // facts through DescribeFact, and a family without a renderer falls back to
 // its String. A summarized function always carries a fact, even an empty one,
@@ -65,12 +68,20 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	if err != nil {
 		return err
 	}
+	// Every family lists the callees the lifecycle pass resolved for the
+	// same package, so each dump shows the same imported functions.
+	referenced := map[*types.Package]map[types.Object]bool{}
+	for _, action := range graph.Roots {
+		if action.Analyzer == lifecyclefacts.Analyzer {
+			referenced[action.Package.Types] = referencedCallees(action)
+		}
+	}
 	var buffer bytes.Buffer
 	for _, action := range graph.Roots {
 		if action.Err != nil {
 			return action.Err
 		}
-		writeObjectFacts(&buffer, action, *nameFilter)
+		writeObjectFacts(&buffer, action, *nameFilter, referenced[action.Package.Types])
 		if *regions {
 			writeRegions(&buffer, action, *nameFilter)
 		}
@@ -82,10 +93,10 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	return err
 }
 
-// factAnalyzers returns the lifecycle prerequisite and every catalog analyzer
-// that exports facts of its own.
+// factAnalyzers returns the fact-publishing prerequisites and every catalog
+// analyzer that exports facts of its own.
 func factAnalyzers() []*analysis.Analyzer {
-	analyzers := []*analysis.Analyzer{lifecyclefacts.Analyzer}
+	analyzers := []*analysis.Analyzer{lifecyclefacts.Analyzer, resultfacts.Analyzer, concurrencyfacts.Analyzer}
 	for _, analyzer := range gohawk.Analyzers() {
 		if len(analyzer.FactTypes) > 0 {
 			analyzers = append(analyzers, analyzer)
@@ -94,7 +105,7 @@ func factAnalyzers() []*analysis.Analyzer {
 	return analyzers
 }
 
-func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter string) {
+func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter string, referenced map[types.Object]bool) {
 	facts := action.AllObjectFacts()
 	// Positions are compared by file and offset, not by token.Pos: the
 	// fileset's bases depend on the order files were parsed in, which is
@@ -105,7 +116,6 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 		}
 		return strings.Compare(left.Object.Name(), right.Object.Name())
 	})
-	referenced := referencedCallees(action)
 	listed := map[types.Object]bool{}
 	for _, fact := range facts {
 		if filter != "" && fact.Object.Name() != filter {

@@ -38,7 +38,7 @@ Do not mentally compile Go to SSA or simulate the classifier. Dump what the
 analyzer actually sees, then reason about that:
 
 - `gohawk ssa -func NAME ./pkg` for the SSA of the function under study.
-- `gohawk facts ./pkg` for the exported lifecycle summaries.
+- `gohawk facts ./pkg` for the exported lifecycle, result, and concurrency facts.
 - `gohawk -gohawk-trace=ANALYZER ./pkg` for the evidence trace, with SSA text.
 
 Details in [debugging](../gohawk-debugging/SKILL.md).

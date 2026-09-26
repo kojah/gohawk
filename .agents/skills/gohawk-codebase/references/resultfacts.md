@@ -76,6 +76,16 @@ type Guarantee uint8
 Guarantee describes one result on every normal return. Unknown includes
 conflicting evidence, unsupported values, and absence of a return witness.
 
+## Guarantee.String
+
+[Source](../../../../internal/passes/resultfacts/describe.go)
+
+```go
+func (guarantee Guarantee) String() string
+```
+
+String names the guarantee.
+
 ## NewEngine
 
 [Source](../../../../internal/passes/resultfacts/results.go)
