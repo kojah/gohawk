@@ -99,20 +99,22 @@ func (provider *Provider) pairedNilness(value ssa.Value, block *ssa.BasicBlock, 
 	if available != Available {
 		return false, false
 	}
-	for _, relation := range summary.Relations() {
-		if relation.Result != index || relation.Kind != resultfacts.NonNilWhenResultNil && relation.Kind != resultfacts.NilWhenResultNonNil {
+	for _, proven := range summary.Cases() {
+		condition := proven.Condition
+		if proven.Result != index || condition.Arguments.Bound != 0 || condition.Nilness.Bound != 0 ||
+			condition.Outcome != ssaflow.OutcomeNil && condition.Outcome != ssaflow.OutcomeNonNil {
 			continue
 		}
-		errorValue := ssaflow.CallResult(call, relation.Operand)
-		errorNil, decided := errorNilnessOnPath(block, errorValue)
-		if !decided {
+		errorNil, decided := errorNilnessOnPath(block, ssaflow.CallResult(call, condition.Result))
+		if !decided || errorNil != (condition.Outcome == ssaflow.OutcomeNil) {
 			continue
 		}
-		if errorNil && relation.Kind == resultfacts.NonNilWhenResultNil {
-			return false, true
-		}
-		if !errorNil && relation.Kind == resultfacts.NilWhenResultNonNil {
+		switch proven.Outcome {
+		case ssaflow.OutcomeNil:
 			return true, true
+		case ssaflow.OutcomeNonNil:
+			return false, true
+		case ssaflow.OutcomeAny, ssaflow.OutcomeTrue, ssaflow.OutcomeFalse:
 		}
 	}
 	return false, false
@@ -164,10 +166,8 @@ func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *ssa
 	if available != Available {
 		return nil, false
 	}
-	for _, relation := range summary.Relations() {
-		if relation.Kind == resultfacts.ReturnsParameter && relation.Result == index && relation.Operand < len(call.Common().Args) {
-			return call.Common().Args[relation.Operand], true
-		}
+	if parameter, ok := summary.ReturnedParameter(index); ok && parameter < len(call.Common().Args) {
+		return call.Common().Args[parameter], true
 	}
 	return nil, false
 }

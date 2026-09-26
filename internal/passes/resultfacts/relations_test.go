@@ -91,38 +91,51 @@ func sentinelError() error     { return &failure{} }
 
 func TestResultRelations(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "results", relationFixture)
-	want := map[string][]Relation{
-		"Failed":               {{0, FalseWhenParameterNil, 0}, {0, TrueWhenParameterNonNil, 0}},
-		"Succeeded":            nil,
-		"FailedWithSideEffect": {{0, FalseWhenParameterNil, 0}, {0, TrueWhenParameterNonNil, 0}},
-		"Other":                {{0, FalseWhenParameterNil, 1}, {0, TrueWhenParameterNonNil, 1}},
-		"Wrapped":              nil,
-		"Forwarded":            nil,
-		"Sometimes":            {{0, TrueWhenParameterNonNil, 0}},
-		"Open":                 {{0, NonNilWhenResultNil, 1}, {0, NilWhenResultNonNil, 1}},
-		"OpenForwarded":        {{0, NonNilWhenResultNil, 1}, {0, NilWhenResultNonNil, 1}},
-		"OpenMaybeNil":         {{0, NilWhenResultNonNil, 1}},
-		"OpenLeaky":            {{0, NonNilWhenResultNil, 1}},
-		"OpenUnknown":          {{0, ReturnsParameter, 0}, {1, ReturnsParameter, 1}},
-		"OpenAfterCall":        {{0, NilWhenResultNonNil, 1}},
-		"Same":                 {{0, ReturnsParameter, 0}},
-		"Chosen":               nil,
-		"Erased":               nil,
-		"Rewrapped":            {{0, ReturnsParameter, 0}},
+	falseWhenNil := func(parameter int) ResultCase {
+		return ResultCase{Condition: ssaflow.ParameterNil(parameter), Outcome: ssaflow.OutcomeFalse}
+	}
+	nonNilWhenErrorNil := ResultCase{Condition: errorOutcome(1, ssaflow.OutcomeNil), Outcome: ssaflow.OutcomeNonNil}
+	nilWhenErrorNonNil := ResultCase{Condition: errorOutcome(1, ssaflow.OutcomeNonNil), Outcome: ssaflow.OutcomeNil}
+	want := map[string]struct {
+		cases    []ResultCase
+		returned []ReturnedParameter
+	}{
+		"Failed":               {cases: []ResultCase{falseWhenNil(0)}},
+		"Succeeded":            {},
+		"FailedWithSideEffect": {cases: []ResultCase{falseWhenNil(0)}},
+		"Other":                {cases: []ResultCase{falseWhenNil(1)}},
+		"Wrapped":              {},
+		"Forwarded":            {},
+		"Sometimes":            {},
+		"Open":                 {cases: []ResultCase{nonNilWhenErrorNil, nilWhenErrorNonNil}},
+		"OpenForwarded":        {cases: []ResultCase{nonNilWhenErrorNil, nilWhenErrorNonNil}},
+		"OpenMaybeNil":         {cases: []ResultCase{nilWhenErrorNonNil}},
+		"OpenLeaky":            {cases: []ResultCase{nonNilWhenErrorNil}},
+		"OpenUnknown":          {returned: []ReturnedParameter{{0, 0}, {1, 1}}},
+		"OpenAfterCall":        {cases: []ResultCase{nilWhenErrorNonNil}},
+		"Same":                 {returned: []ReturnedParameter{{0, 0}}},
+		"Chosen":               {},
+		"Erased":               {},
+		"Rewrapped":            {returned: []ReturnedParameter{{0, 0}}},
 	}
 	self := pkg.Prog.LookupMethod(types.NewPointer(pkg.Type("box").Type()), pkg.Pkg, "Self")
-	if got := NewEngine().Function(self, ssaflow.NewSearchBudget(4000)); !got.Holds(ReturnsParameter, 0, 0) {
-		t.Errorf("Self: a method returning its receiver: %+v", got.Relations())
+	if parameter, ok := NewEngine().Function(self, ssaflow.NewSearchBudget(4000)).ReturnedParameter(0); !ok || parameter != 0 {
+		t.Errorf("Self: a method returning its receiver: parameter %d, %t", parameter, ok)
 	}
 	for name, expected := range want {
 		t.Run(name, func(t *testing.T) {
 			got := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(4000))
-			if len(got.Relations()) != len(expected) {
-				t.Fatalf("relations = %+v, want %+v", got.Relations(), expected)
+			if len(got.Cases()) != len(expected.cases) || len(got.returned) != len(expected.returned) {
+				t.Fatalf("cases = %+v, returned = %+v; want %+v, %+v", got.Cases(), got.returned, expected.cases, expected.returned)
 			}
-			for _, relation := range expected {
-				if !got.Holds(relation.Kind, relation.Result, relation.Operand) {
-					t.Errorf("missing %+v in %+v", relation, got.Relations())
+			for _, proven := range expected.cases {
+				if !got.Implies(proven.Condition, proven.Result, proven.Outcome) {
+					t.Errorf("missing %+v in %+v", proven, got.Cases())
+				}
+			}
+			for _, returned := range expected.returned {
+				if parameter, ok := got.ReturnedParameter(returned.Result); !ok || parameter != returned.Parameter {
+					t.Errorf("result %d returns parameter %d, %t; want %d", returned.Result, parameter, ok, returned.Parameter)
 				}
 			}
 		})

@@ -35,8 +35,10 @@ func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondit
 		!condition.ValidFor(function.Signature) || request.InvokeTarget && len(request.Methods) != 0 {
 		return unknown
 	}
+	// A completion case binds Boolean arguments only; a nilness condition
+	// belongs to result cases, and this proof has no binding for it.
 	constants, ok := condition.Arguments.Bindings(function)
-	if !ok || condition.Unconditional() {
+	if !ok || condition.Unconditional() || condition.Nilness.Bound != 0 {
 		return unknown
 	}
 	methods := request.Methods

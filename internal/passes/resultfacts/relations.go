@@ -10,103 +10,111 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// Relations tie one result to a parameter or to another result. They carry
-// the two implications lifecycle proofs keep needing from a helper: a
-// Boolean predicate that reports an error's nilness, and a value that is
-// present exactly when its paired error is absent. Each relation is proven
-// over every normal return under its assumption and is exported beside the
-// unconditional guarantees. A missing relation says nothing; it never
-// establishes that the opposite implication holds.
+// Result cases tie one result's outcome to a condition a caller can check:
+// a Boolean predicate that reports an error's nilness is false whenever that
+// error is nil, and a value is present exactly when its paired error is
+// absent. Each case is proven over every normal return under its condition,
+// uses the shared ssaflow.CallCondition vocabulary, and is exported beside
+// the unconditional guarantees. A missing case says nothing; it never
+// establishes the opposite implication. A returned parameter is not a case:
+// it holds on every return and relates identities, not outcomes.
 
-// RelationKind names one implication. Parameter kinds constrain a Boolean
-// result by a nilable parameter; result kinds constrain a nilable result by
-// an error result of the same call.
-type RelationKind uint8
-
-const (
-	// FalseWhenParameterNil: the Boolean result is false on every return
-	// reachable when the parameter is nil. A predicate such as failed(err)
-	// then cannot take its true branch for a successful acquisition.
-	FalseWhenParameterNil RelationKind = iota + 1
-	// TrueWhenParameterNonNil: the Boolean result is true on every return
-	// reachable when the parameter is non-nil, so the false branch of the
-	// predicate is the branch where the parameter was nil.
-	TrueWhenParameterNonNil
-	// NonNilWhenResultNil: the result is non-nil on every return where the
-	// operand error result is nil.
-	NonNilWhenResultNil
-	// NilWhenResultNonNil: the result is nil on every return where the
-	// operand error result is non-nil.
-	NilWhenResultNonNil
-	// ReturnsParameter: the result is the operand parameter itself, under the
-	// same static type, on every normal return. A builder returning its
-	// receiver and a pass-through wrapper have this shape; a caller may then
-	// treat the result as the argument it passed.
-	ReturnsParameter
-)
-
-// Relation is one proven implication about Result. Operand is a parameter
-// index for the parameter kinds and a result index for the result kinds.
-type Relation struct {
-	Result  int
-	Kind    RelationKind
-	Operand int
+// ResultCase is one proven implication: result Result has Outcome on every
+// normal return where Condition holds.
+type ResultCase struct {
+	Condition ssaflow.CallCondition
+	Result    int
+	Outcome   ssaflow.ResultOutcome
 }
 
-// Holds reports whether the summary proved the relation.
-func (summary Summary) Holds(kind RelationKind, result, operand int) bool {
-	for _, relation := range summary.relations {
-		if relation.Kind == kind && relation.Result == result && relation.Operand == operand {
+// ReturnedParameter records that result Result is parameter Parameter itself,
+// under the same static type, on every normal return. A builder returning its
+// receiver and a pass-through wrapper have this shape; a caller may then
+// treat the result as the argument it passed.
+type ReturnedParameter struct {
+	Result    int
+	Parameter int
+}
+
+// Implies reports whether some proven case answers query: result has
+// outcome wherever the query's condition holds.
+func (summary Summary) Implies(query ssaflow.CallCondition, result int, outcome ssaflow.ResultOutcome) bool {
+	for _, proven := range summary.cases {
+		if proven.Result == result && proven.Outcome == outcome && proven.Condition.Matches(query) {
 			return true
 		}
 	}
 	return false
 }
 
-// Relations returns every proven relation.
-func (summary Summary) Relations() []Relation {
-	return summary.relations
+// Cases returns every proven result case.
+func (summary Summary) Cases() []ResultCase {
+	return summary.cases
 }
 
-func (engine *Engine) relations(function *ssa.Function, budget *ssaflow.SearchBudget) []Relation {
-	var relations []Relation
+// ReturnedParameter returns the parameter that result is proven to be.
+func (summary Summary) ReturnedParameter(result int) (int, bool) {
+	for _, returned := range summary.returned {
+		if returned.Result == result {
+			return returned.Parameter, true
+		}
+	}
+	return 0, false
+}
+
+// errorOutcome is the condition that the error result at index has outcome.
+func errorOutcome(index int, outcome ssaflow.ResultOutcome) ssaflow.CallCondition {
+	return ssaflow.CallCondition{Result: index, Outcome: outcome}
+}
+
+func (engine *Engine) relations(function *ssa.Function, budget *ssaflow.SearchBudget) ([]ResultCase, []ReturnedParameter) {
+	var cases []ResultCase
+	var returned []ReturnedParameter
 	results := function.Signature.Results()
 	for result := range results.Len() {
 		resultType := results.At(result).Type()
 		for index, parameter := range function.Params {
 			if budget.Spend() && types.Identical(parameter.Type(), resultType) && lifecycle.ReturnsParameterUnchanged(function, parameter, result) {
-				relations = append(relations, Relation{Result: result, Kind: ReturnsParameter, Operand: index})
+				returned = append(returned, ReturnedParameter{Result: result, Parameter: index})
 			}
 		}
 		if isBoolean(resultType) {
 			for index, parameter := range function.Params {
-				if !nilable(parameter.Type()) {
+				if index >= 64 || !ssaflow.Nilable(parameter.Type()) {
 					continue
 				}
 				if engine.parameterRelation(function, result, parameter, true, AlwaysFalse, budget) {
-					relations = append(relations, Relation{Result: result, Kind: FalseWhenParameterNil, Operand: index})
-				}
-				if engine.parameterRelation(function, result, parameter, false, AlwaysTrue, budget) {
-					relations = append(relations, Relation{Result: result, Kind: TrueWhenParameterNonNil, Operand: index})
+					cases = append(cases, ResultCase{Condition: ssaflow.ParameterNil(index), Result: result, Outcome: ssaflow.OutcomeFalse})
 				}
 			}
 		}
-		if !nilable(resultType) {
+		if !ssaflow.Nilable(resultType) {
 			continue
 		}
 		for operand := range results.Len() {
 			if operand == result || !types.Identical(results.At(operand).Type(), types.Universe.Lookup("error").Type()) {
 				continue
 			}
-			if engine.resultRelation(function, result, operand, NonNilWhenResultNil, budget) {
-				relations = append(relations, Relation{Result: result, Kind: NonNilWhenResultNil, Operand: operand})
-			}
-			if engine.resultRelation(function, result, operand, NilWhenResultNonNil, budget) {
-				relations = append(relations, Relation{Result: result, Kind: NilWhenResultNonNil, Operand: operand})
+			for _, paired := range pairedNilness {
+				if engine.resultRelation(function, result, operand, paired, budget) {
+					cases = append(cases, ResultCase{Condition: errorOutcome(operand, paired.errorOutcome), Result: result, Outcome: paired.resultOutcome})
+				}
 			}
 		}
 	}
-	return relations
+	return cases, returned
+}
+
+// pairedCase is one implication between a nilable result and its paired
+// error: where the error has errorOutcome, the result has resultOutcome.
+type pairedCase struct {
+	errorOutcome  ssaflow.ResultOutcome
+	resultOutcome ssaflow.ResultOutcome
+}
+
+var pairedNilness = []pairedCase{
+	{errorOutcome: ssaflow.OutcomeNil, resultOutcome: ssaflow.OutcomeNonNil},
+	{errorOutcome: ssaflow.OutcomeNonNil, resultOutcome: ssaflow.OutcomeNil},
 }
 
 // parameterRelation walks the body under the assumption that parameter is
@@ -210,7 +218,7 @@ func assumedNilnessSuccessors(block *ssa.BasicBlock, parameter *ssa.Parameter, a
 // both positions from one call inherits that callee's relation. A return
 // whose error nilness is unknown proves nothing, and at least one return
 // must witness the assumed side.
-func (engine *Engine) resultRelation(function *ssa.Function, result, operand int, kind RelationKind, budget *ssaflow.SearchBudget) bool {
+func (engine *Engine) resultRelation(function *ssa.Function, result, operand int, kind pairedCase, budget *ssaflow.SearchBudget) bool {
 	witness := false
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -234,15 +242,15 @@ func (engine *Engine) resultRelation(function *ssa.Function, result, operand int
 // returnHolds judges one return: whether it keeps the relation, and whether it
 // witnesses it rather than holding only vacuously, as a return whose error is
 // nil does for a claim about non-nil errors.
-func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind RelationKind, budget *ssaflow.SearchBudget) (bool, bool) {
+func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind pairedCase, budget *ssaflow.SearchBudget) (bool, bool) {
 	switch engine.value(errorValue, budget) {
 	case AlwaysNil:
-		if kind == NonNilWhenResultNil {
+		if kind.errorOutcome == ssaflow.OutcomeNil {
 			return engine.value(resultValue, budget) == AlwaysNonNil, true
 		}
 		return true, false
 	case AlwaysNonNil:
-		if kind == NilWhenResultNonNil {
+		if kind.errorOutcome == ssaflow.OutcomeNonNil {
 			return engine.value(resultValue, budget) == AlwaysNil, true
 		}
 		return true, false
@@ -257,7 +265,7 @@ func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind Relati
 		return true, true
 	}
 	callee, resultIndex, operandIndex, forwarded := forwardedPair(resultValue, errorValue)
-	if !forwarded || !engine.function(callee, budget).Holds(kind, resultIndex, operandIndex) {
+	if !forwarded || !engine.function(callee, budget).Implies(errorOutcome(operandIndex, kind.errorOutcome), resultIndex, kind.resultOutcome) {
 		return false, false
 	}
 	return true, true
@@ -265,8 +273,8 @@ func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind Relati
 
 // resultSatisfies reports whether a result of this guarantee meets the
 // relation's consequent on its own.
-func resultSatisfies(guarantee Guarantee, kind RelationKind) bool {
-	return kind == NilWhenResultNonNil && guarantee == AlwaysNil || kind == NonNilWhenResultNil && guarantee == AlwaysNonNil
+func resultSatisfies(guarantee Guarantee, kind pairedCase) bool {
+	return kind.resultOutcome == ssaflow.OutcomeNil && guarantee == AlwaysNil || kind.resultOutcome == ssaflow.OutcomeNonNil && guarantee == AlwaysNonNil
 }
 
 // forwardedPair resolves a return that passes two results of one call
@@ -287,12 +295,4 @@ func forwardedPair(resultValue, errorValue ssa.Value) (*ssa.Function, int, int, 
 func isBoolean(value types.Type) bool {
 	basic, ok := value.Underlying().(*types.Basic)
 	return ok && basic.Kind() == types.Bool
-}
-
-func nilable(value types.Type) bool {
-	switch value.Underlying().(type) {
-	case *types.Pointer, *types.Interface, *types.Map, *types.Slice, *types.Chan, *types.Signature:
-		return true
-	}
-	return false
 }

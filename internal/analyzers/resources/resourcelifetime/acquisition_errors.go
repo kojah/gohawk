@@ -6,7 +6,6 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
-	"github.com/kojah/gohawk/internal/passes/resultfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -146,7 +145,7 @@ func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorVal
 
 // A predicate may observe the error without changing its nil meaning. The
 // implication needed here, that the result is false whenever the exact error
-// is nil, is the FalseWhenParameterNil relation the result summary proves for
+// is nil, is the parameter-nil result case the result summary proves for
 // visible bodies and imports for other packages, so a local helper, a
 // captured callback, and an exported helper all answer through one proof.
 // Unknown other branches, rewritten errors, dynamic dispatch and deferred
@@ -165,7 +164,7 @@ func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, er
 		}
 		return unknown
 	}
-	// Relations index parameters by position, receiver included, which is the
+	// Result cases index parameters by position, receiver included, which is the
 	// argument position of a static call. An imported callee has no SSA
 	// parameters to bind, so the position is matched directly.
 	for index, argument := range call.Common().Args {
@@ -173,7 +172,7 @@ func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, er
 			continue
 		}
 		summary, available := knowledge.ForFunction(function).Results(ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
-		if available == summaries.Available && summary.Holds(resultfacts.FalseWhenParameterNil, 0, index) {
+		if available == summaries.Available && summary.Implies(ssaflow.ParameterNil(index), 0, ssaflow.OutcomeFalse) {
 			return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonErrorPredicateFalseForNil}
 		}
 	}

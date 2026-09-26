@@ -11,8 +11,9 @@ import (
 
 // A call condition is something a caller can check about one call: an
 // outcome of one of its results, Boolean arguments it passes as constants,
-// or both. It is the serializable, positional condition of a summary case,
-// so a claim proven in one package is selected at a call in another;
+// arguments known to be nil or non-nil, or any combination. It is the
+// serializable, positional condition of a summary case, so a claim proven in
+// one package is selected at a call in another;
 // BooleanConstants is the same argument condition bound to one body's SSA
 // values for a proof. Every summary that holds under a condition names it
 // with this type, so there is one vocabulary to prove, export, and match.
@@ -85,17 +86,25 @@ func (assumed ArgumentConstants) Bindings(function *ssa.Function) (BooleanConsta
 }
 
 // CallCondition is one summary case's condition: result Result has Outcome,
-// unless Outcome is OutcomeAny, and the call supplies Arguments. The zero
-// value is unconditional.
+// unless Outcome is OutcomeAny, the call supplies the Boolean Arguments, and
+// the arguments Nilness names are nil where its value bit is set and non-nil
+// where it is clear. The zero value is unconditional.
 type CallCondition struct {
 	Result    int
 	Outcome   ResultOutcome
 	Arguments ArgumentConstants
+	Nilness   ArgumentConstants
+}
+
+// ParameterNil is the condition that the parameter at index, receiver first,
+// is nil.
+func ParameterNil(index int) CallCondition {
+	return CallCondition{Nilness: ArgumentConstants{Bound: 1 << index, Values: 1 << index}}
 }
 
 // Unconditional reports whether the condition constrains nothing.
 func (condition CallCondition) Unconditional() bool {
-	return condition.Outcome == OutcomeAny && condition.Arguments.Bound == 0
+	return condition.Outcome == OutcomeAny && condition.Arguments.Bound == 0 && condition.Nilness.Bound == 0
 }
 
 // Matches reports whether a summarized case answers query: constants the
@@ -103,16 +112,17 @@ func (condition CallCondition) Unconditional() bool {
 // condition holds on every normal return, so it answers any result condition
 // too.
 func (summarized CallCondition) Matches(query CallCondition) bool {
-	if !query.Arguments.Satisfies(summarized.Arguments) {
+	if !query.Arguments.Satisfies(summarized.Arguments) || !query.Nilness.Satisfies(summarized.Nilness) {
 		return false
 	}
 	return summarized.Outcome == OutcomeAny || summarized.Result == query.Result && summarized.Outcome == query.Outcome
 }
 
-// ValidFor reports whether the condition's result test fits signature: a
-// Boolean outcome on a Boolean result, a nil outcome on an error result.
+// ValidFor reports whether the condition fits signature: a Boolean outcome on
+// a Boolean result, a nil outcome on an error result, and nilness only of
+// nilable parameters.
 func (condition CallCondition) ValidFor(signature *types.Signature) bool {
-	if signature == nil || condition.Result < 0 {
+	if signature == nil || condition.Result < 0 || !nilnessFits(condition.Nilness, signature) {
 		return false
 	}
 	if condition.Outcome == OutcomeAny {
@@ -156,4 +166,34 @@ func OutcomeOf(outcome ResultOutcome, value ssa.Value) (holds, known bool) {
 	case OutcomeAny:
 	}
 	return false, false
+}
+
+// nilnessFits reports whether every position the nilness condition names is
+// a nilable parameter, counting the receiver first as SSA does.
+func nilnessFits(nilness ArgumentConstants, signature *types.Signature) bool {
+	var parameters []types.Type
+	if signature.Recv() != nil {
+		parameters = append(parameters, signature.Recv().Type())
+	}
+	for parameter := range signature.Params().Variables() {
+		parameters = append(parameters, parameter.Type())
+	}
+	for index := range 64 {
+		if nilness.Bound&(1<<index) == 0 {
+			continue
+		}
+		if index >= len(parameters) || !Nilable(parameters[index]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Nilable reports whether a value of the type can be nil.
+func Nilable(value types.Type) bool {
+	switch value.Underlying().(type) {
+	case *types.Pointer, *types.Interface, *types.Map, *types.Slice, *types.Chan, *types.Signature:
+		return true
+	}
+	return false
 }

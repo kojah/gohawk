@@ -216,12 +216,14 @@ type CallCondition struct {
 	Result		int
 	Outcome		ResultOutcome
 	Arguments	ArgumentConstants
+	Nilness		ArgumentConstants
 }
 ```
 
 CallCondition is one summary case's condition: result Result has Outcome,
-unless Outcome is OutcomeAny, and the call supplies Arguments. The zero
-value is unconditional.
+unless Outcome is OutcomeAny, the call supplies the Boolean Arguments, and
+the arguments Nilness names are nil where its value bit is set and non-nil
+where it is clear. The zero value is unconditional.
 
 ## CallCondition.Matches
 
@@ -254,8 +256,9 @@ Unconditional reports whether the condition constrains nothing.
 func (condition CallCondition) ValidFor(signature *types.Signature) bool
 ```
 
-ValidFor reports whether the condition's result test fits signature: a
-Boolean outcome on a Boolean result, a nil outcome on an error result.
+ValidFor reports whether the condition fits signature: a Boolean outcome on
+a Boolean result, a nil outcome on an error result, and nilness only of
+nilable parameters.
 
 ## CallEffect
 
@@ -1519,6 +1522,16 @@ func NewSearchBudget(limit int) *SearchBudget
 
 NewSearchBudget returns a budget allowing limit instructions.
 
+## Nilable
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func Nilable(value types.Type) bool
+```
+
+Nilable reports whether a value of the type can be nil.
+
 ## NormalReturnReachableFrom
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
@@ -1722,6 +1735,17 @@ func PackageFunctions(pass *analysis.Pass) []*ssa.Function
 PackageFunctions returns every source function of the package outside
 excluded test files, for inventories that must see all of the package's
 code rather than only the canonical copy SourceSSAFunctions selects.
+
+## ParameterNil
+
+[Source](../../../../internal/ssaflow/call_conditions.go)
+
+```go
+func ParameterNil(index int) CallCondition
+```
+
+ParameterNil is the condition that the parameter at index, receiver first,
+is nil.
 
 ## PathGuard
 

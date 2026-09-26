@@ -32,7 +32,8 @@ type Summary struct {
 	Available bool
 	Reason    Reason
 	results   []Guarantee
-	relations []Relation
+	cases     []ResultCase
+	returned  []ReturnedParameter
 	// neverReturns records that no normal return is reachable from the
 	// entry: every path ends in a terminating call, a panic, or a loop that
 	// never exits. See NeverReturns.
@@ -86,7 +87,7 @@ func (engine *Engine) function(function *ssa.Function, budget *ssaflow.SearchBud
 	if len(function.Blocks) == 0 {
 		object, _ := function.Object().(*types.Func)
 		if fact, ok := engine.imported[object]; ok && fact.Version == factVersion {
-			return Summary{Available: true, results: fact.Results, relations: fact.Relations, neverReturns: fact.NeverReturns}
+			return Summary{Available: true, results: fact.Results, cases: fact.Cases, returned: fact.Returned, neverReturns: fact.NeverReturns}
 		}
 		return Summary{Reason: ReasonBodyUnavailable}
 	}
@@ -134,7 +135,7 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 		result.Reason = ReasonNoNormalReturnWitness
 		return result
 	}
-	result.relations = engine.relations(function, budget)
+	result.cases, result.returned = engine.relations(function, budget)
 	return result
 }
 

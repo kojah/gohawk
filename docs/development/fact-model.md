@@ -102,28 +102,35 @@ imply that its Boolean result is always true. Unknown never removes a branch.
 Existing literal/integer branch evidence remains in place where the result
 component does not replace its semantics.
 
-## Result relations
+## Result cases
 
-Beside the unconditional guarantees, the result component proves bounded
-relations between one result and a parameter or another result, and exports
-them with the fact:
+Beside the unconditional guarantees, the result component proves result
+cases, "result R has outcome O on every normal return where condition C
+holds", and exports them with the fact. C is an `ssaflow.CallCondition`, the
+same condition type summary cases of cleanup use, here naming a parameter's
+nilness or a paired error result's outcome:
 
-| relation | meaning | who uses it |
+| case | condition | who uses it |
 |---|---|---|
-| `FalseWhenParameterNil` | the Boolean result is false on every return reachable when the exact parameter is nil | `resourcelifetime` treats `if failed(err)` as an acquisition-error guard, for local, captured, and imported predicates alike |
-| `TrueWhenParameterNonNil` | the Boolean result is true on every return reachable when the parameter is non-nil | reserved for the symmetric guard |
-| `NonNilWhenResultNil` | the result is non-nil on every return where the paired error result is nil | the summaries provider prunes `result == nil` below the success arm of that error's check |
-| `NilWhenResultNonNil` | the result is nil on every return where the paired error result is non-nil | the provider prunes `result != nil` below the failure arm |
-| `ReturnsParameter` | the result is the exact parameter, under the same static type, on every normal return | `resourcelifetime` resolves a cleanup receiver through such a call, so `wrap(file).Close()` settles `file` and a later use of `file` is a use after release; `lifecyclefacts` uses the same mechanic to keep an unchanged return from becoming a view |
+| a Boolean result is false | the exact parameter is nil | `resourcelifetime` treats `if failed(err)` as an acquisition-error guard, for local, captured, and imported predicates alike |
+| a nilable result is non-nil | the paired error result is nil | the summaries provider prunes `result == nil` below the success arm of that error's check |
+| a nilable result is nil | the paired error result is non-nil | the provider prunes `result != nil` below the failure arm |
 
-`ReturnsParameter` is exact storage identity: a wrapper, an interface
-conversion, or a value chosen between the parameter and something else is not
-the parameter. A parameter relation walks the body under the assumption and requires the
+A parameter case walks the body under the assumed nilness and requires the
 expected literal, or a nil comparison of the exact formal decided by the
-assumption, on every reachable normal return. A result relation checks every
+assumption, on every reachable normal return. A paired case checks every
 normal return and lets a return that forwards both positions of one call
-inherit that callee's relation. Both need a return witness on the assumed
-side; a missing relation says nothing about the opposite implication.
+inherit that callee's case. Both need a return witness on the assumed side;
+a missing case says nothing about the opposite implication. The symmetric
+"true when the parameter is non-nil" case had no consumer and is not proved.
+
+A returned parameter is not a case: the result is the exact parameter, under
+the same static type, on every normal return. `resourcelifetime` resolves a
+cleanup receiver through such a call, so `wrap(file).Close()` settles `file`
+and a later use of `file` is a use after release; `lifecyclefacts` uses the
+same mechanic to keep an unchanged return from becoming a view. It is exact
+storage identity: a wrapper, an interface conversion, or a value chosen
+between the parameter and something else is not the parameter.
 
 Every analyzer that walks an obligation to its returns consumes these through
 `summaries.Provider.FeasibleSuccessors`, either directly or through the

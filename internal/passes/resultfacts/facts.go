@@ -12,16 +12,17 @@ import (
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 )
 
-const factVersion = 3
+const factVersion = 4
 
-// Fact publishes independent result guarantees and the proven relations
-// between a result and a parameter or another result. A relation is an
-// implication that held on every return under its assumption; its absence
-// is not the opposite implication.
+// Fact publishes independent result guarantees, the result cases that hold
+// under a condition, and the results proven to be a parameter. A case is an
+// implication that held on every return under its condition; its absence is
+// not the opposite implication.
 type Fact struct {
 	Version      int
 	Results      []Guarantee
-	Relations    []Relation
+	Cases        []ResultCase
+	Returned     []ReturnedParameter
 	NeverReturns bool
 }
 
@@ -66,7 +67,7 @@ func run(pass *analysis.Pass) (any, error) {
 		summary := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 		if summary.Available {
 			pass.ExportObjectFact(object, &publishedFact{factcodec.Wrap(Fact{
-				Version: factVersion, Results: slices.Clone(summary.results), Relations: slices.Clone(summary.relations),
+				Version: factVersion, Results: slices.Clone(summary.results), Cases: slices.Clone(summary.cases), Returned: slices.Clone(summary.returned),
 				NeverReturns: summary.neverReturns,
 			})})
 		}
@@ -83,9 +84,13 @@ func validFact(fact *Fact) bool {
 			return false
 		}
 	}
-	for _, relation := range fact.Relations {
-		if relation.Kind == 0 || relation.Kind > ReturnsParameter || relation.Result < 0 ||
-			relation.Result >= len(fact.Results) || relation.Operand < 0 || relation.Operand > maxResults {
+	for _, proven := range fact.Cases {
+		if proven.Result < 0 || proven.Result >= len(fact.Results) || proven.Outcome == ssaflow.OutcomeAny || proven.Outcome > ssaflow.OutcomeNonNil {
+			return false
+		}
+	}
+	for _, returned := range fact.Returned {
+		if returned.Result < 0 || returned.Result >= len(fact.Results) || returned.Parameter < 0 || returned.Parameter >= 64 {
 			return false
 		}
 	}

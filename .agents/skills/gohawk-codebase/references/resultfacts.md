@@ -54,43 +54,16 @@ Function returns local or imported, context-independent result guarantees.
 type Fact struct {
 	Version		int
 	Results		[]Guarantee
-	Relations	[]Relation
+	Cases		[]ResultCase
+	Returned	[]ReturnedParameter
 	NeverReturns	bool
 }
 ```
 
-Fact publishes independent result guarantees and the proven relations
-between a result and a parameter or another result. A relation is an
-implication that held on every return under its assumption; its absence
-is not the opposite implication.
-
-## FalseWhenParameterNil, TrueWhenParameterNonNil, NonNilWhenResultNil, NilWhenResultNonNil, ReturnsParameter
-
-[Source](../../../../internal/passes/resultfacts/relations.go)
-
-```go
-const (
-	// FalseWhenParameterNil: the Boolean result is false on every return
-	// reachable when the parameter is nil. A predicate such as failed(err)
-	// then cannot take its true branch for a successful acquisition.
-	FalseWhenParameterNil	RelationKind	= iota + 1
-	// TrueWhenParameterNonNil: the Boolean result is true on every return
-	// reachable when the parameter is non-nil, so the false branch of the
-	// predicate is the branch where the parameter was nil.
-	TrueWhenParameterNonNil
-	// NonNilWhenResultNil: the result is non-nil on every return where the
-	// operand error result is nil.
-	NonNilWhenResultNil
-	// NilWhenResultNonNil: the result is nil on every return where the
-	// operand error result is non-nil.
-	NilWhenResultNonNil
-	// ReturnsParameter: the result is the operand parameter itself, under the
-	// same static type, on every normal return. A builder returning its
-	// receiver and a pass-through wrapper have this shape; a caller may then
-	// treat the result as the argument it passed.
-	ReturnsParameter
-)
-```
+Fact publishes independent result guarantees, the result cases that hold
+under a condition, and the results proven to be a parameter. A case is an
+implication that held on every return under its condition; its absence is
+not the opposite implication.
 
 ## Guarantee
 
@@ -149,32 +122,36 @@ const (
 )
 ```
 
-## Relation
+## ResultCase
 
 [Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
-type Relation struct {
-	Result	int
-	Kind	RelationKind
-	Operand	int
+type ResultCase struct {
+	Condition	ssaflow.CallCondition
+	Result		int
+	Outcome		ssaflow.ResultOutcome
 }
 ```
 
-Relation is one proven implication about Result. Operand is a parameter
-index for the parameter kinds and a result index for the result kinds.
+ResultCase is one proven implication: result Result has Outcome on every
+normal return where Condition holds.
 
-## RelationKind
+## ReturnedParameter
 
 [Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
-type RelationKind uint8
+type ReturnedParameter struct {
+	Result		int
+	Parameter	int
+}
 ```
 
-RelationKind names one implication. Parameter kinds constrain a Boolean
-result by a nilable parameter; result kinds constrain a nilable result by
-an error result of the same call.
+ReturnedParameter records that result Result is parameter Parameter itself,
+under the same static type, on every normal return. A builder returning its
+receiver and a pass-through wrapper have this shape; a caller may then
+treat the result as the argument it passed.
 
 ## Summary
 
@@ -191,15 +168,26 @@ type Summary struct {
 Summary is immutable after publication. Available means inference could be
 consulted, not that all results are understood. Reason explains a boundary.
 
-## Summary.Holds
+## Summary.Cases
 
 [Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
-func (summary Summary) Holds(kind RelationKind, result, operand int) bool
+func (summary Summary) Cases() []ResultCase
 ```
 
-Holds reports whether the summary proved the relation.
+Cases returns every proven result case.
+
+## Summary.Implies
+
+[Source](../../../../internal/passes/resultfacts/relations.go)
+
+```go
+func (summary Summary) Implies(query ssaflow.CallCondition, result int, outcome ssaflow.ResultOutcome) bool
+```
+
+Implies reports whether some proven case answers query: result has
+outcome wherever the query's condition holds.
 
 ## Summary.NeverReturns
 
@@ -214,16 +202,6 @@ normally, so a call to it terminates the caller's path as os.Exit does.
 It is a claim about every path, proven from the body or imported; a
 function that merely may exit does not carry it.
 
-## Summary.Relations
-
-[Source](../../../../internal/passes/resultfacts/relations.go)
-
-```go
-func (summary Summary) Relations() []Relation
-```
-
-Relations returns every proven relation.
-
 ## Summary.Result
 
 [Source](../../../../internal/passes/resultfacts/results.go)
@@ -233,6 +211,16 @@ func (summary Summary) Result(index int) Guarantee
 ```
 
 Result returns the unconditional guarantee at index, or Unknown.
+
+## Summary.ReturnedParameter
+
+[Source](../../../../internal/passes/resultfacts/relations.go)
+
+```go
+func (summary Summary) ReturnedParameter(result int) (int, bool)
+```
+
+ReturnedParameter returns the parameter that result is proven to be.
 
 ## Unknown, AlwaysNil, AlwaysNonNil, AlwaysTrue, AlwaysFalse
 
