@@ -293,7 +293,13 @@ func (fact *Fact) DescribeFact(object types.Object) []string {
 	if len(lines) == 0 {
 		lines = []string{"no parameter is proven on every return"}
 	}
-	return append(lines, fact.heapDescriptions()...)
+	return lines
+}
+
+// DescribeHeap renders the heap projection for the fact dump, which prints it
+// after the claims or on its own.
+func (fact *Fact) DescribeHeap(types.Object) []string {
+	return fact.heapDescriptions()
 }
 
 // heapDescriptions renders the heap projection one entry per line, after

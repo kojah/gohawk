@@ -24,7 +24,7 @@ first thing to run when a classifier label is surprising.
 ## Fact dump
 
 ```text
-gohawk facts [-func NAME] [-tests] [-regions] package...
+gohawk facts [-func NAME] [-kind KINDS] [-tests] [-regions] package...
 ```
 
 Prints the facts the given packages export, and those of the callees they
@@ -39,6 +39,11 @@ resolve, one family per header:
   `result 0 (*File) is nil when result 1 is non-nil`, and returned parameters.
 - `gohawkconcurrencyfacts`: the ordered synchronization effects, or each path
   alternative with the conditions that select it and what it returns.
+
+`-kind` narrows the dump to a comma-separated list of `lifecycle`,
+`heap` (the lifecycle summaries' heap projection alone), `result`, and
+`concurrency`; the default prints them all. `gohawk facts -func Open -kind
+result,heap ./pkg` shows one function's result cases and heap projection.
 
 Positions count the receiver first, as the facts do. Only summarized
 functions appear: a function that is missing has no fact and is `unknown`

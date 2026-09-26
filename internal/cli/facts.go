@@ -40,14 +40,65 @@ type factDescriber interface {
 	DescribeFact(object types.Object) []string
 }
 
+// heapDescriber is implemented by a fact that carries a heap projection it
+// renders separately from its claims.
+type heapDescriber interface {
+	DescribeHeap(object types.Object) []string
+}
+
+// Fact kinds select what the dump prints: each fact family by name, and the
+// heap projection lifecycle summaries carry, on its own.
+const (
+	kindLifecycle   = "lifecycle"
+	kindHeap        = "heap"
+	kindResult      = "result"
+	kindConcurrency = "concurrency"
+)
+
+var factKinds = []string{kindLifecycle, kindHeap, kindResult, kindConcurrency}
+
+// parseFactKinds reads a comma-separated list of fact kinds; empty selects
+// every kind.
+func parseFactKinds(list string) (map[string]bool, error) {
+	selected := map[string]bool{}
+	if strings.TrimSpace(list) == "" {
+		for _, kind := range factKinds {
+			selected[kind] = true
+		}
+		return selected, nil
+	}
+	for kind := range strings.SplitSeq(list, ",") {
+		kind = strings.TrimSpace(kind)
+		if !slices.Contains(factKinds, kind) {
+			return nil, fmt.Errorf("unknown fact kind %q; choose from %s", kind, strings.Join(factKinds, ", "))
+		}
+		selected[kind] = true
+	}
+	return selected, nil
+}
+
+// actionKind names the fact kind an analyzer publishes.
+func actionKind(analyzer *analysis.Analyzer) string {
+	switch analyzer {
+	case lifecyclefacts.Analyzer:
+		return kindLifecycle
+	case resultfacts.Analyzer:
+		return kindResult
+	case concurrencyfacts.Analyzer:
+		return kindConcurrency
+	}
+	return analyzer.Name
+}
+
 func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("facts", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
 	nameFilter := flags.String("func", "", "print only facts attached to the function with this name")
 	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	regions := flags.Bool("regions", false, "also print each local function's points-to graph as the analysis saw it")
+	kindList := flags.String("kind", "", "comma-separated fact kinds to print: "+strings.Join(factKinds, ", ")+" (default all)")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk facts [-func NAME] [-tests] [-regions] package...")
+		writeLine(errorsOutput, "usage: gohawk facts [-func NAME] [-kind KINDS] [-tests] [-regions] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -55,6 +106,10 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	}
 	if len(flags.Args()) == 0 {
 		return errors.New("at least one package pattern is required")
+	}
+	kinds, err := parseFactKinds(*kindList)
+	if err != nil {
+		return err
 	}
 	config := &packages.Config{Mode: packages.LoadAllSyntax, Tests: *includeTests}
 	loaded, err := packages.Load(config, flags.Args()...)
@@ -64,7 +119,7 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	if packages.PrintErrors(loaded) > 0 {
 		return errors.New("packages have load errors")
 	}
-	graph, err := checker.Analyze(factAnalyzers(), loaded, &checker.Options{Sequential: true})
+	graph, err := checker.Analyze(factAnalyzers(kinds), loaded, &checker.Options{Sequential: true})
 	if err != nil {
 		return err
 	}
@@ -81,7 +136,7 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 		if action.Err != nil {
 			return action.Err
 		}
-		writeObjectFacts(&buffer, action, *nameFilter, referenced[action.Package.Types])
+		writeObjectFacts(&buffer, action, *nameFilter, referenced[action.Package.Types], kinds)
 		if *regions {
 			writeRegions(&buffer, action, *nameFilter)
 		}
@@ -93,10 +148,17 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	return err
 }
 
-// factAnalyzers returns the fact-publishing prerequisites and every catalog
-// analyzer that exports facts of its own.
-func factAnalyzers() []*analysis.Analyzer {
-	analyzers := []*analysis.Analyzer{lifecyclefacts.Analyzer, resultfacts.Analyzer, concurrencyfacts.Analyzer}
+// factAnalyzers returns the passes the selected kinds need, and every catalog
+// analyzer that exports facts of its own. The lifecycle pass always runs: it
+// resolves the callees every family lists.
+func factAnalyzers(kinds map[string]bool) []*analysis.Analyzer {
+	analyzers := []*analysis.Analyzer{lifecyclefacts.Analyzer}
+	if kinds[kindResult] {
+		analyzers = append(analyzers, resultfacts.Analyzer)
+	}
+	if kinds[kindConcurrency] {
+		analyzers = append(analyzers, concurrencyfacts.Analyzer)
+	}
 	for _, analyzer := range gohawk.Analyzers() {
 		if len(analyzer.FactTypes) > 0 {
 			analyzers = append(analyzers, analyzer)
@@ -105,7 +167,7 @@ func factAnalyzers() []*analysis.Analyzer {
 	return analyzers
 }
 
-func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter string, referenced map[types.Object]bool) {
+func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter string, referenced map[types.Object]bool, kinds map[string]bool) {
 	facts := action.AllObjectFacts()
 	// Positions are compared by file and offset, not by token.Pos: the
 	// fileset's bases depend on the order files were parsed in, which is
@@ -131,7 +193,7 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 			origin = "imported"
 		}
 		listed[fact.Object] = true
-		writeFact(buffer, action, fact.Object, origin, fact.Fact)
+		writeFact(buffer, action, fact.Object, origin, fact.Fact, kinds)
 	}
 	// The lifecycle pass exports no fact for a function proven to do nothing
 	// with its parameters; its in-memory summaries still list every function
@@ -152,7 +214,7 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 			continue
 		}
 		fact := summaries[function]
-		writeFact(buffer, action, object, "exported here", &fact)
+		writeFact(buffer, action, object, "exported here", &fact, kinds)
 	}
 }
 
@@ -203,15 +265,27 @@ func writeRegions(buffer *bytes.Buffer, action *checker.Action, filter string) {
 	}
 }
 
-func writeFact(buffer *bytes.Buffer, action *checker.Action, object types.Object, origin string, fact any) {
-	fmt.Fprintf(buffer, "%s %s (%s, %s)\n", action.Analyzer.Name, objectName(object), origin, position(action, object.Pos()))
-	lines := []string{fmt.Sprint(fact)}
-	if describer, ok := fact.(factDescriber); ok {
-		lines = describer.DescribeFact(object)
+// writeFact prints the selected kinds of one fact under a header naming the
+// publishing pass and the object; a fact with nothing selected prints nothing.
+func writeFact(buffer *bytes.Buffer, action *checker.Action, object types.Object, origin string, fact any, kinds map[string]bool) {
+	kind := actionKind(action.Analyzer)
+	var lines []string
+	if kinds[kind] || kind != kindLifecycle && kind != kindResult && kind != kindConcurrency {
+		lines = []string{fmt.Sprint(fact)}
+		if describer, ok := fact.(factDescriber); ok {
+			lines = describer.DescribeFact(object)
+		}
+		if len(lines) == 0 {
+			lines = []string{"no parameter is proven on every return"}
+		}
+	}
+	if describer, ok := fact.(heapDescriber); ok && kinds[kindHeap] {
+		lines = append(lines, describer.DescribeHeap(object)...)
 	}
 	if len(lines) == 0 {
-		lines = []string{"no parameter is proven on every return"}
+		return
 	}
+	fmt.Fprintf(buffer, "%s %s (%s, %s)\n", action.Analyzer.Name, objectName(object), origin, position(action, object.Pos()))
 	for _, line := range lines {
 		fmt.Fprintf(buffer, "  %s\n", line)
 	}

@@ -31,6 +31,12 @@ func (fact *publishedFact) DescribeFact(object types.Object) []string {
 	return value.DescribeFact(object)
 }
 
+// DescribeHeap renders the published summary's heap projection for the dump.
+func (fact *publishedFact) DescribeHeap(object types.Object) []string {
+	value := fact.Value()
+	return value.DescribeHeap(object)
+}
+
 func (fact *publishedCleanup) DescribeFact(object types.Object) []string {
 	value := fact.Value()
 	return value.DescribeFact(object)

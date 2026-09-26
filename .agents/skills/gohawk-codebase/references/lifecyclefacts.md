@@ -228,6 +228,17 @@ DescribeFact renders the summary for the fact dump: one line per parameter
 that some mask covers, named from the function's signature. Mask positions
 follow SSA parameters, so a method's receiver is position zero.
 
+## Fact.DescribeHeap
+
+[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+
+```go
+func (fact *Fact) DescribeHeap(types.Object) []string
+```
+
+DescribeHeap renders the heap projection for the fact dump, which prints it
+after the claims or on its own.
+
 ## Fact.DischargedParameters
 
 [Source](../../../../internal/passes/lifecyclefacts/discharges.go)
