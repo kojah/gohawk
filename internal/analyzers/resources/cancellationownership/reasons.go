@@ -33,6 +33,10 @@ const (
 	reasonLabelPassedToCallee
 	reasonLabelReturned
 	reasonLabelAliased
+	reasonLabelResultGuardedDefer
+	reasonLabelDeferredLiteralRelease
+	reasonLabelResultGuardedRelease
+	reasonLabelResultGuardedUnknown
 	cancellationReasonCount
 )
 
@@ -64,6 +68,10 @@ var cancellationReasonCodes = [...]string{
 	reasonLabelPassedToCallee:         "passed-to-callee",
 	reasonLabelReturned:               "returned",
 	reasonLabelAliased:                "aliased",
+	reasonLabelResultGuardedDefer:     "result-guarded-defer",
+	reasonLabelDeferredLiteralRelease: "deferred-literal-release",
+	reasonLabelResultGuardedRelease:   "result-guarded-release",
+	reasonLabelResultGuardedUnknown:   "result-guarded-unknown",
 }
 
 func (reason cancellationReason) String() string {

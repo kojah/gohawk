@@ -37,5 +37,20 @@ summary that does not claim the call is not proof that the helper never
 cancels, and the call stays unknown. Fixtures:
 `cancellationownership/argument_cases.go`.
 
+A deferred literal that captures the cancel function is judged exactly when
+the capture is simple: the cancel function is stored once into a cell that
+only directly deferred literals read, each deferred after the store. Such a
+literal that calls cancel on every return releases it where it is deferred.
+One whose call turns on a named result, as `defer func() { if err != nil {
+cancel() } }()` does, settles nothing at the defer; each return it dominates
+asks the shared completion search (`lifecycle.ResultGuards`) whether the
+literal calls cancel given the value that return stores, so a success path
+returning nil without cancelling is reported, as grpc-go's ALTS handshake
+was before its fix. Any other capture keeps the store an opaque use: a cell
+the function also reads (a call through the loaded variable is not
+recognized), a literal deferred before the store (the walk never meets it),
+or one launched or handed to a callee. Fixtures:
+`cancellationownership/result_guarded_defers.go`.
+
 Elapsed sleep durations and command-wide process lifetimes remain known
 precision gaps, not blanket exemptions for timers or command entry points.

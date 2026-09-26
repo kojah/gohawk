@@ -25,6 +25,8 @@ func TestCancellationReasonCodes(t *testing.T) {
 		reasonLabelSent:                   "sent",
 		reasonLabelStoredInMap:            "stored-in-map",
 		reasonLabelReturned:               "returned", reasonLabelAliased: "aliased",
+		reasonLabelResultGuardedDefer: "result-guarded-defer", reasonLabelDeferredLiteralRelease: "deferred-literal-release",
+		reasonLabelResultGuardedRelease: "result-guarded-release", reasonLabelResultGuardedUnknown: "result-guarded-unknown",
 		reasonLabelPassedToCallee: "passed-to-callee",
 	}
 	if len(want) != int(cancellationReasonCount) {

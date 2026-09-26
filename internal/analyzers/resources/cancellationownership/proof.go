@@ -57,6 +57,11 @@ type cancellationClassifier struct {
 	// its labels reach the trace as the child's.
 	probe    analysisTrace.Probe
 	evidence *lifecyclefacts.LifecycleEvidence
+	// knowledge supplies result guarantees; guards are the directly deferred
+	// literals whose call of cancel turns on a named result. See
+	// result_guards.go.
+	knowledge *summaries.Provider
+	guards    []lifecycle.ResultGuard
 	// pool is this cancellation's total across every query its proof asks;
 	// see budget.
 	pool *ssaflow.SearchBudget
@@ -90,6 +95,12 @@ func proveCancellation(
 		actions:  make(map[ssa.Instruction]cancellationAction),
 		observer: observer,
 		evidence: evidence,
+	}
+	classifier.knowledge = knowledge
+	for _, guard := range lifecycle.ResultGuards(call.Parent(), classifier.invokeRequest()) {
+		if closure, ok := guard.Defer.Call.Value.(*ssa.MakeClosure); ok && classifier.capturesThroughDeferredCell(closure) {
+			classifier.guards = append(classifier.guards, guard)
+		}
 	}
 	if contract, ok := cancellationContractFor(call.Common()); ok && contract.packagePath == "context" {
 		classifier.context = ssaflow.CallResult(call, 0)
@@ -173,49 +184,14 @@ func (classifier *cancellationClassifier) action(instruction ssa.Instruction) ca
 	return action
 }
 
-// A fresh standard context child also follows its exact parent's cancellation.
-// Reuse the existing classifier for that alternate owner, but only as unknown:
-// an opaque handoff of the parent is not proof of when its child is canceled.
-// Signal registrations still require their own stop function; cancellation of
-// their parent does not unregister them. Wrapped and merged parents stay opaque.
-// https://github.com/crazy-max/diun/blob/269cb27295944aeacfe549d24ab7ac483e600aa9/internal/notif/apprise/client.go#L91-L94
-func parentCancellationClassifier(call *ssa.Call, observer ssaflow.Observer) *cancellationClassifier {
-	contract, ok := cancellationContractFor(call.Common())
-	if !ok || contract.packagePath != "context" || len(call.Common().Args) == 0 {
-		return nil
-	}
-	// Contexts captured by workers are held in local cells. Resolve the load
-	// where this child is created, not at the later cancellation or return: the
-	// same source variable may subsequently hold the child instead of its parent.
-	// https://github.com/werf/nelm/blob/6393382d695e65d8d8f744cf590337fe62a83eef/pkg/action/release_install.go#L179-L190
-	parentValue := call.Common().Args[0]
-	if resolved := heapmodel.NewStorage(ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Resolve(parentValue); resolved.Proven() {
-		parentValue = resolved.Value
-	}
-	parent, ok := parentValue.(*ssa.Extract)
-	if !ok || parent.Index != 0 {
-		return nil
-	}
-	constructor, ok := parent.Tuple.(*ssa.Call)
-	if !ok || constructor.Parent() != call.Parent() {
-		return nil
-	}
-	parentContract, ok := cancellationContractFor(constructor.Common())
-	if !ok {
-		return nil
-	}
-	cancel := ssaflow.CallResult(constructor, parentContract.result)
-	if cancel == nil {
-		return nil
-	}
-	return &cancellationClassifier{cancel: cancel, actions: make(map[ssa.Instruction]cancellationAction), observer: observer}
-}
-
 func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruction) cancellationLabel {
 	// Creating a callback does not itself release or transfer cancellation. Its
 	// eventual defer, return, store, launch, or opaque call is classified at the
 	// instruction that establishes that lifecycle consequence.
 	if _, ok := instruction.(*ssa.MakeClosure); ok {
+		return cancellationLabel{}
+	}
+	if store, ok := instruction.(*ssa.Store); ok && classifier.deferredCaptureCell(store) {
 		return cancellationLabel{}
 	}
 	common := ssaflow.InstructionCall(instruction)
@@ -256,6 +232,11 @@ func (classifier *cancellationClassifier) recognizedDirectAction(
 			return labelled(cancellationActionTransfer, reasonLabelLaunchedCancel), true
 		}
 		return labelled(cancellationActionRelease, reasonLabelRelease), true
+	}
+	if deferred, ok := instruction.(*ssa.Defer); ok {
+		if label, decided := classifier.deferredLiteralLabel(deferred); decided {
+			return label, true
+		}
 	}
 	// Captured callbacks and helper chains are deliberately ambiguous here.
 	// These broad closure traversals are safe for finding a possible handoff,
@@ -361,6 +342,10 @@ func deferredClosureCaptures(instruction ssa.Instruction, target ssa.Value) bool
 }
 
 func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) cancellationAction {
+	if label, decided := classifier.resultGuardedReturn(returned); decided && !slices.Contains(returned.Results, classifier.cancel) {
+		classifier.traceLabel(returned, label.action, label.reason)
+		return label.action
+	}
 	if slices.Contains(returned.Results, classifier.cancel) {
 		classifier.transfers = true
 		return cancellationActionTransfer

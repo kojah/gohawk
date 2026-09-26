@@ -1,10 +1,7 @@
 package resourcelifetime
 
 import (
-	"go/types"
-
 	"github.com/kojah/gohawk/internal/lifecycle"
-	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
@@ -27,85 +24,36 @@ import (
 // flag of the transaction idiom, keeps the data-dependent policy.
 // https://github.com/grpc/grpc-go/commit/db35da8bc5e8dcfcb57b94e9be0fba306710cc77
 
-type resultGuardedDefer struct {
-	deferred *ssa.Defer
-	// cells are the named-result cells the literal captures.
-	cells []*ssa.Alloc
+// cleanupRequests is one completion question per cleanup method.
+func (analysis *resourceAnalysis) cleanupRequests() []lifecycle.CompletionRequest {
+	requests := make([]lifecycle.CompletionRequest, 0, len(analysis.contract.cleanup))
+	for _, method := range analysis.contract.cleanup {
+		requests = append(requests, lifecycle.CompletionRequest{
+			Target: analysis.resource, Methods: []string{method}, Budget: analysis.budget(releaseSearchBudget),
+		})
+	}
+	return requests
 }
 
-func (analysis *resourceAnalysis) findResultGuardedDefers() []resultGuardedDefer {
-	var guarded []resultGuardedDefer
-	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](analysis.function) {
-		closure, ok := deferred.Call.Value.(*ssa.MakeClosure)
-		if !ok {
-			continue
-		}
-		var cells []*ssa.Alloc
-		for _, binding := range closure.Bindings {
-			if cell, ok := binding.(*ssa.Alloc); ok {
-				if _, named := ssaflow.NamedResultCell(analysis.function, cell); named {
-					cells = append(cells, cell)
-				}
+func (analysis *resourceAnalysis) findResultGuardedDefers() []lifecycle.ResultGuard {
+	var guards []lifecycle.ResultGuard
+	for _, request := range analysis.cleanupRequests() {
+		for _, guard := range lifecycle.ResultGuards(analysis.function, request) {
+			if !analysis.resultGuarded(guard.Defer) {
+				guards = append(guards, guard)
 			}
 		}
-		if len(cells) != 0 && analysis.releaseTurnsOnResult(deferred, cells) {
-			guarded = append(guarded, resultGuardedDefer{deferred: deferred, cells: cells})
-		}
 	}
-	return guarded
+	return guards
 }
 
-// releaseTurnsOnResult reports whether fixing one named result to one
-// outcome makes the literal release on every return and fixing it to the
-// opposite outcome does not.
-func (analysis *resourceAnalysis) releaseTurnsOnResult(deferred *ssa.Defer, cells []*ssa.Alloc) bool {
-	for _, cell := range cells {
-		first, second := opposingOutcomes(cell)
-		if first == ssaflow.OutcomeAny {
-			continue
-		}
-		one := analysis.deferredRelease(deferred, ssaflow.FixedValues{cell: first})
-		other := analysis.deferredRelease(deferred, ssaflow.FixedValues{cell: second})
-		if one == ssaflow.EvidenceProven && other == ssaflow.EvidenceDisproven ||
-			one == ssaflow.EvidenceDisproven && other == ssaflow.EvidenceProven {
+func (analysis *resourceAnalysis) resultGuarded(deferred *ssa.Defer) bool {
+	for _, guard := range analysis.guardedDefers {
+		if guard.Defer == deferred {
 			return true
 		}
 	}
 	return false
-}
-
-func opposingOutcomes(cell *ssa.Alloc) (ssaflow.Outcome, ssaflow.Outcome) {
-	pointer, ok := cell.Type().Underlying().(*types.Pointer)
-	if !ok {
-		return ssaflow.OutcomeAny, ssaflow.OutcomeAny
-	}
-	if ssaflow.Nilable(pointer.Elem()) {
-		return ssaflow.OutcomeNil, ssaflow.OutcomeNonNil
-	}
-	if basic, ok := pointer.Elem().Underlying().(*types.Basic); ok && basic.Info()&types.IsBoolean != 0 {
-		return ssaflow.OutcomeTrue, ssaflow.OutcomeFalse
-	}
-	return ssaflow.OutcomeAny, ssaflow.OutcomeAny
-}
-
-// deferredRelease asks whether the deferred literal releases the resource on
-// every one of its returns, given what its captured named results hold.
-func (analysis *resourceAnalysis) deferredRelease(deferred *ssa.Defer, fixed ssaflow.FixedValues) ssaflow.EvidenceState {
-	state := ssaflow.EvidenceDisproven
-	for _, method := range analysis.contract.cleanup {
-		completion := lifecycle.CompletionRequest{
-			Instruction: deferred, Target: analysis.resource, Methods: []string{method},
-			Coverage: lifecycle.CoverageEveryReturn, Constants: fixed, Budget: analysis.budget(releaseSearchBudget),
-		}
-		proof := analysis.evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: analysis.resource, Completion: &completion})
-		switch {
-		case proof.Proven():
-			return ssaflow.EvidenceProven
-		case !proof.Known():
-			state = ssaflow.EvidenceUnknown
-		}
-	}
-	return state
 }
 
 // resultGuardedLabel labels a result-guarded defer, which settles nothing
@@ -122,40 +70,26 @@ func (analysis *resourceAnalysis) resultGuardedLabel(instruction ssa.Instruction
 	return actionNone, resourceReasonNone, false
 }
 
-func (analysis *resourceAnalysis) resultGuarded(deferred *ssa.Defer) bool {
-	for _, guarded := range analysis.guardedDefers {
-		if guarded.deferred == deferred {
-			return true
-		}
-	}
-	return false
-}
-
 // resultGuardedReturn labels a return by the result-guarded defers that
 // reach it: settled when one releases given the values this return stores,
-// unknown when a defer may or may not be registered on the way, or when a
-// stored value's outcome is not known. It declines when every such defer
-// provably skips the cleanup, so the return keeps its ordinary label.
+// unknown when a defer may or may not be registered on the way, or when the
+// answer is not known. It declines when every such defer provably skips the
+// cleanup, so the return keeps its ordinary label.
 func (analysis *resourceAnalysis) resultGuardedReturn(returned *ssa.Return) (resourceAction, resourceLifetimeReason, bool) {
 	uncertain := false
-	for _, guarded := range analysis.guardedDefers {
-		if !ssaflow.InstructionDominates(guarded.deferred, returned) {
-			if ssaflow.InstructionMayFollow(guarded.deferred, returned) {
+	for _, guard := range analysis.guardedDefers {
+		if !ssaflow.InstructionDominates(guard.Defer, returned) {
+			uncertain = uncertain || ssaflow.InstructionMayFollow(guard.Defer, returned)
+			continue
+		}
+		for _, request := range analysis.cleanupRequests() {
+			switch guard.CompletesAtReturn(request, returned, analysis.outcomeOf) {
+			case ssaflow.EvidenceProven:
+				return actionSettled, resourceReasonResultGuardedRelease, true
+			case ssaflow.EvidenceUnknown:
 				uncertain = true
+			case ssaflow.EvidenceDisproven:
 			}
-			continue
-		}
-		fixed, known := analysis.valuesAtReturn(returned, guarded.cells)
-		if !known {
-			uncertain = true
-			continue
-		}
-		switch analysis.deferredRelease(guarded.deferred, fixed) {
-		case ssaflow.EvidenceProven:
-			return actionSettled, resourceReasonResultGuardedRelease, true
-		case ssaflow.EvidenceUnknown:
-			uncertain = true
-		case ssaflow.EvidenceDisproven:
 		}
 	}
 	if uncertain {
@@ -164,25 +98,13 @@ func (analysis *resourceAnalysis) resultGuardedReturn(returned *ssa.Return) (res
 	return actionNone, resourceReasonNone, false
 }
 
-// valuesAtReturn fixes each named result to what the return stores into it:
-// a literal, a value never nil, or a call proven always nil or never nil.
-func (analysis *resourceAnalysis) valuesAtReturn(returned *ssa.Return, cells []*ssa.Alloc) (ssaflow.FixedValues, bool) {
-	fixed := ssaflow.FixedValues{}
-	for _, cell := range cells {
-		value, ok := ssaflow.ValueAtReturn(returned, cell)
-		if !ok {
-			return nil, false
-		}
-		outcome, ok := ssaflow.ValueOutcome(value)
-		if !ok {
-			outcome, ok = guaranteedOutcome(analysis.summaries.ResultOf(value, analysis.budget(releaseSearchBudget)))
-		}
-		if !ok {
-			return nil, false
-		}
-		fixed[cell] = outcome
+// outcomeOf says what a returned value is: a literal, a value never nil, or
+// a call whose summary proves it always nil, never nil, true, or false.
+func (analysis *resourceAnalysis) outcomeOf(value ssa.Value) (ssaflow.Outcome, bool) {
+	if outcome, ok := ssaflow.ValueOutcome(value); ok {
+		return outcome, true
 	}
-	return fixed, true
+	return guaranteedOutcome(analysis.summaries.ResultOf(value, analysis.budget(releaseSearchBudget)))
 }
 
 // guaranteedOutcome turns a callee's result guarantee into the outcome it

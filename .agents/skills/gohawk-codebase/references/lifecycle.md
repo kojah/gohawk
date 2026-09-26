@@ -435,6 +435,61 @@ ProveReturnedCleanup proves a factory relation using the completion request's
 methods or InvokeTarget mode, budget, and imported-summary policies. Target
 and Instruction are unused: relation identifies values inside the factory.
 
+## ResultGuard
+
+[Source](../../../../internal/lifecycle/completion_result_guards.go)
+
+```go
+type ResultGuard struct {
+	Defer	*ssa.Defer
+	// Cells are the named-result cells the literal captures.
+	Cells	[]*ssa.Alloc
+}
+```
+
+ResultGuard is a deferred literal whose completion of a target turns on
+named results of the function that defers it.
+
+## ResultGuard.Completes
+
+[Source](../../../../internal/lifecycle/completion_result_guards.go)
+
+```go
+func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.FixedValues) ssaflow.EvidenceState
+```
+
+Completes asks whether the deferred literal completes the target on every
+one of its returns, given what its captured named results hold.
+
+## ResultGuard.CompletesAtReturn
+
+[Source](../../../../internal/lifecycle/completion_result_guards.go)
+
+```go
+func (guard ResultGuard) CompletesAtReturn(
+	request CompletionRequest, returned *ssa.Return, outcomeOf func(ssa.Value) (ssaflow.Outcome, bool),
+) ssaflow.EvidenceState
+```
+
+CompletesAtReturn asks whether the deferred literal completes the target
+when the function leaves through returned, which it must dominate. Each
+named result is fixed to the outcome outcomeOf gives the value the return
+stores; a value with no known outcome, or a result the return does not set
+itself, leaves the answer unknown.
+
+## ResultGuards
+
+[Source](../../../../internal/lifecycle/completion_result_guards.go)
+
+```go
+func ResultGuards(function *ssa.Function, request CompletionRequest) []ResultGuard
+```
+
+ResultGuards returns the deferred literals of function whose completion,
+asked by request on every return of the literal, is proven under one
+outcome of a captured named result and disproven under the other.
+Instruction, Coverage, and Constants of request are set per question.
+
 ## ReturnedCleanupLookup
 
 [Source](../../../../internal/lifecycle/completion_returned.go)

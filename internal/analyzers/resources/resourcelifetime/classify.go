@@ -59,7 +59,7 @@ type resourceAnalysis struct {
 	collection *localCollection
 	// guardedDefers are the deferred literals whose release turns on a named
 	// result; see result_guarded_defers.go.
-	guardedDefers []resultGuardedDefer
+	guardedDefers []lifecycle.ResultGuard
 	contract      resourceContract
 	optional      optionalAcquisitionProof
 	actions       map[ssa.Instruction]resourceAction
