@@ -97,7 +97,7 @@ rather than exhaust.
 Stages 1 and 2 cannot see a bug the analyzer never registered as a candidate,
 because its obligation finder did not recognize it. Fix commits supply that
 ground truth: the revision before a fix is a labelled defect, and its message
-says what the defect was. `scripts/mine-race-fixes.py` gathers fix commits and
+says what the defect was. `scripts/mine-fix-commits.py` gathers fix commits and
 replays a check against the parent revision. Two rules keep the result honest:
 
 - **Seed on the symptom, never the mechanism.** Search for "fix fd leak" or

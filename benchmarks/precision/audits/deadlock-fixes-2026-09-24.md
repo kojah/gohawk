@@ -9,7 +9,7 @@ checks reported nothing on 100 pinned repositories.
 
 ## Method
 
-`scripts/mine-race-fixes.py --symptom deadlock` searched GitHub commit
+`scripts/mine-fix-commits.py --symptom deadlock` (then named `mine-race-fixes.py`) searched GitHub commit
 messages with symptom phrasings that never name a lock, channel, or group
 (for example "fix deadlock" and "all goroutines are asleep"), 25 hits per
 query. For each commit that changed Go files, it checked out the parent

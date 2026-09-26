@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Gather real concurrency-bug fixes and replay a check against the revision
-that still had the bug.
+"""Gather real bug fixes -- races, deadlocks, and resource, goroutine, and
+context leaks -- and replay a check against the revision that still had the
+bug.
 
 A precision audit labels findings the analyzer reported, so it can say how
 often a report is wrong and never how often the analyzer stayed silent when it
@@ -70,16 +71,46 @@ DEADLOCK_QUERIES = [
     "goroutine hang",
 ]
 
+# Leak fixes name what ran out or piled up, never the call that was missing:
+# "fd leak" and "too many open files", not "add Close" or "defer cancel".
+RESOURCE_LEAK_QUERIES = [
+    "fix fd leak",
+    "fix file descriptor leak",
+    "too many open files",
+    "fix resource leak",
+    "fix connection leak",
+    "fix socket leak",
+]
+
+GOROUTINE_LEAK_QUERIES = [
+    "fix goroutine leak",
+    "fixes goroutine leak",
+    "goroutine leak",
+    "leaking goroutine",
+    "leaked goroutines",
+]
+
+# "context leak" is the name of the symptom go vet reports; it does not say
+# how the leak was fixed.
+CONTEXT_LEAK_QUERIES = [
+    "fix context leak",
+    "context leak",
+    "leaked context",
+]
+
 SYMPTOMS = {
     "race": (SEED_QUERIES, "other-race", "not-a-race", "a race"),
     "deadlock": (DEADLOCK_QUERIES, "other-deadlock", "not-a-deadlock", "a deadlock"),
+    "resource-leak": (RESOURCE_LEAK_QUERIES, "other-leak", "not-a-leak", "a resource leak"),
+    "goroutine-leak": (GOROUTINE_LEAK_QUERIES, "other-leak", "not-a-leak", "a goroutine leak"),
+    "context-leak": (CONTEXT_LEAK_QUERIES, "other-leak", "not-a-leak", "a context leak"),
 }
 
 COMMIT_URL = re.compile(r"github\.com/([^/]+/[^/]+)/commit/([0-9a-f]{7,40})")
 
 
 def fail(message: str) -> None:
-    raise SystemExit(f"mine-race-fixes: {message}")
+    raise SystemExit(f"mine-fix-commits: {message}")
 
 
 def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -155,23 +186,46 @@ def changed_go_packages(checkout: Path, sha: str) -> list[str]:
     return sorted(packages)
 
 
-def replay(checkout: Path, sha: str, check: str, gohawk: Path, timeout: int, tests: bool) -> tuple[str, int]:
+def replay(checkout: Path, sha: str, check: str, gohawk: Path, timeout: int, tests: bool) -> tuple[str, int, str]:
     """Check out the parent of a fix and run one check over the packages it
-    touched. Returns an outcome and the number of findings."""
+    touched. Returns an outcome, the number of findings, and where the first
+    few are: a finding in a touched package is not necessarily the fixed
+    defect, and the reviewer has to see which it was."""
     packages = changed_go_packages(checkout, sha)
     if not packages:
-        return "no-go-files", 0
+        return "no-go-files", 0, ""
     if run(["git", "-C", str(checkout), "checkout", "--quiet", f"{sha}^"]).returncode != 0:
-        return "no-parent", 0
+        return "no-parent", 0, ""
     build = run(["go", "build", *packages], cwd=checkout, timeout=timeout)
     if build.returncode != 0:
         # An unanalysable revision is not a missed defect, and counting it as
         # one would understate the check.
-        return "unbuildable", 0
+        return "unbuildable", 0, ""
     flags = ["-enable-checks", check] + (["-gohawk-include-tests"] if tests else [])
-    analysis = run([str(gohawk), *flags, *packages], cwd=checkout, timeout=timeout)
-    findings = sum(1 for line in analysis.stdout.splitlines() if line.startswith("warning["))
-    return ("reported" if findings else "silent"), findings
+    analysis = run([str(gohawk), *flags, "-json", *packages], cwd=checkout, timeout=timeout)
+    positions = findings_in(analysis.stdout, checkout)
+    return ("reported" if positions else "silent"), len(positions), "; ".join(positions[:5])
+
+
+def findings_in(output: str, checkout: Path) -> list[str]:
+    """Read the positions of the findings from gohawk's JSON, one object per
+    package, relative to the checkout."""
+    decoder, index, positions = json.JSONDecoder(), 0, []
+    root = str(checkout.resolve()) + "/"
+    while index < len(output):
+        while index < len(output) and output[index].isspace():
+            index += 1
+        if index >= len(output):
+            break
+        try:
+            payload, index = decoder.raw_decode(output, index)
+        except json.JSONDecodeError:
+            break
+        for analyzers in payload.values():
+            for diagnostics in analyzers.values():
+                if isinstance(diagnostics, list):
+                    positions += [entry.get("posn", "").replace(root, "") for entry in diagnostics]
+    return sorted(positions)
 
 
 def main() -> int:
@@ -202,22 +256,22 @@ def main() -> int:
         time.sleep(arguments.pause)
 
     with arguments.out.open("w", newline="") as sheet:
-        sheet.write("repository\tsha\toutcome\tfindings\tlabel\tsubject\n")
+        sheet.write("repository\tsha\toutcome\tfindings\tpositions\tlabel\tsubject\n")
         for (repository, sha), subject in sorted(candidates.items()):
             if not commit_touches_go(repository, sha):
-                outcome, findings, checkout = "not-go", 0, None
+                outcome, findings, positions, checkout = "not-go", 0, "", None
             else:
                 checkout = clone(repository, arguments.work)
-                outcome, findings = ("clone-failed", 0) if checkout is None else ("", 0)
+                outcome, findings, positions = ("clone-failed", 0, "") if checkout is None else ("", 0, "")
             if checkout is not None:
                 try:
-                    outcome, findings = replay(
+                    outcome, findings, positions = replay(
                         checkout, sha, arguments.check, arguments.gohawk, arguments.timeout, arguments.include_tests,
                     )
                 except subprocess.TimeoutExpired:
-                    outcome, findings = "timeout", 0
+                    outcome, findings, positions = "timeout", 0, ""
             print(f"  {repository}@{sha[:9]}: {outcome}", file=sys.stderr)
-            sheet.write(f"{repository}\t{sha}\t{outcome}\t{findings}\t\t{subject}\n")
+            sheet.write(f"{repository}\t{sha}\t{outcome}\t{findings}\t{positions}\t\t{subject}\n")
             # Flush per row so a long run is readable, and survives being stopped.
             sheet.flush()
 
