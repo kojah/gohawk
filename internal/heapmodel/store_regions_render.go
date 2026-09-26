@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -36,6 +37,9 @@ func RenderRegions(function *ssa.Function) string {
 				graph.renderValue(&buffer, value)
 			}
 		}
+	}
+	if graph.available {
+		graph.renderStores(&buffer)
 	}
 	for _, entry := range graph.applied {
 		if entry.reason != CallSummaryApplied {
@@ -93,6 +97,61 @@ func (graph *regionGraph) renderValue(buffer *strings.Builder, value ssa.Value) 
 	}
 	sort.Strings(entries)
 	fmt.Fprintf(buffer, "//   %s -> %s\n", value.Name(), strings.Join(entries, ", "))
+}
+
+// renderStores prints what each slot holds when the function returns: the
+// object-to-object edges a value dump only shows once a later load reads
+// them back. Contents are unioned over every normal return, and a slot that
+// only some returns fill is marked, since a caller sees it only on those.
+func (graph *regionGraph) renderStores(buffer *strings.Builder) {
+	var states []*regionState
+	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](graph.function) {
+		if state := graph.stateAt(returned); state != nil {
+			states = append(states, state)
+		}
+	}
+	if len(states) == 0 {
+		buffer.WriteString("// stores at return: no normal return\n")
+		return
+	}
+	union := map[slot]pointees{}
+	filled := map[slot]int{}
+	for _, state := range states {
+		for target, set := range state.contents {
+			if len(set) == 0 {
+				continue
+			}
+			if union[target] == nil {
+				union[target] = pointees{}
+			}
+			for pointee, stale := range set {
+				union[target].add(pointee, stale)
+			}
+			filled[target]++
+		}
+	}
+	buffer.WriteString("// stores at return:\n")
+	lines := make([]string, 0, len(union))
+	for target, set := range union {
+		entries := make([]string, 0, len(set))
+		for pointee, stale := range set {
+			entry := slotName(pointee)
+			if stale {
+				entry += " (stale)"
+			}
+			entries = append(entries, entry)
+		}
+		sort.Strings(entries)
+		line := fmt.Sprintf("//   %s -> %s", slotName(target), strings.Join(entries, ", "))
+		if filled[target] < len(states) {
+			line += " (some returns)"
+		}
+		lines = append(lines, line)
+	}
+	sort.Strings(lines)
+	for _, line := range lines {
+		buffer.WriteString(line + "\n")
+	}
 }
 
 // slotName names a slot for the dump: its object, then its path.

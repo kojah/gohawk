@@ -32,7 +32,9 @@ func Wrap() *box { return &box{err: errors.New("wrapped")} }
 		want      []string
 		without   []string
 	}{
-		{[]string{"-func", "Wrap", "."}, []string{"// example.com/heapdump.Wrap", "// regions:", "applied errors.New", "summary "}, []string{"func Wrap"}},
+		{[]string{"-func", "Wrap", "."}, []string{
+			"// example.com/heapdump.Wrap", "// regions:", "// stores at return:", "local:t0 field:0 -> opaque:t2", "applied errors.New", "summary ",
+		}, []string{"func Wrap"}},
 		{[]string{"-bare", "-func", "Wrap", "."}, []string{"// regions:"}, []string{"applied errors.New", "summary "}},
 		{[]string{"-ssa", "-func", "Wrap", "."}, []string{"func Wrap() *box:", "// regions:"}, nil},
 	} {

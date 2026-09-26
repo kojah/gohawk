@@ -59,7 +59,9 @@ gohawk heap [-func NAME] [-tests] [-ssa] [-bare] package...
 Prints how the heap model was derived: every function of the package,
 private helpers and literals included, with the summary it exports as
 `summary …` lines and the points-to graph the analysis built: each value's
-pointees, an `applied` line for every call a callee summary was substituted
+pointees, a `stores at return` section with what each object's slots hold
+when the function returns (unioned over its returns, `(some returns)` when
+only some fill the slot), an `applied` line for every call a callee summary was substituted
 at, an `unsummarized` line with its reason (`no-summary`, `closure-callee`,
 `interface-call`, `dynamic-call`, `started`) for every call the graph forgot
 through instead, a `widened` line for every slot whose pointees outgrew the
