@@ -399,6 +399,11 @@ func (probe Probe) Evidence(step Step) { probe.emit("evidence", step) }
 // Decision records the outcome the proof reached for the candidate.
 func (probe Probe) Decision(step Step) { probe.emit("decision", step) }
 
+// Label records the label a lifecycle classifier gave one instruction on the
+// candidate's path, and why, so a reader sees what the flow query was asked
+// to combine without reading the evidence behind each label.
+func (probe Probe) Label(step Step) { probe.emit("label", step) }
+
 // Candidate records that a potentially reportable construct was observed.
 func (probe Probe) Candidate(step Step) { probe.emit("candidate", step) }
 

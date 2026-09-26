@@ -29,6 +29,9 @@ a second Boolean decision path purely for tracing.
   collecting trace-only metadata.
 - Emit `candidate` before a walk or proof phase that may dominate wall time, so
   a trace ending there localizes a stall.
+- Emit `label` once per instruction a lifecycle classifier labels settled,
+  transferred, or unknown, with the label's reason; leave instructions
+  labelled none untraced.
 - Emit `evidence` for a fact that materially supports or rejects the proof.
 - Emit `considered` when a meaningful suppression or alternative was tested
   and did not hold.

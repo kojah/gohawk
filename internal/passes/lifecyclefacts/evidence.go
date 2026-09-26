@@ -3,6 +3,7 @@ package lifecyclefacts
 import (
 	"go/token"
 	"slices"
+	"strings"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
@@ -436,6 +437,29 @@ func importedProof(reason Reason, method string) Proof {
 	}, SummaryReason: reason}
 }
 
+// question names what a request asked, so a trace tells apart the several
+// answers one instruction gets: a release, a transfer, a proof the caller
+// supplied, or a summary mask.
+func (request EvidenceRequest) question() string {
+	var parts []string
+	if request.Local != nil {
+		parts = append(parts, "local")
+	}
+	if request.Completion != nil {
+		parts = append(parts, "release")
+	}
+	if request.Transfer != nil {
+		parts = append(parts, "transfer")
+	}
+	if request.SelectMask != nil {
+		parts = append(parts, "summary")
+	}
+	if request.ReceiverStore {
+		parts = append(parts, "receiver-store")
+	}
+	return strings.Join(parts, "+")
+}
+
 func requestedMethod(request EvidenceRequest) string {
 	if request.Completion == nil || len(request.Completion.Methods) != 1 {
 		return ""
@@ -456,6 +480,7 @@ func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof Proof) {
 	case ssaflow.EvidenceUnknown:
 	}
 	details := evidenceDetails(request.Instruction, request.Target)
+	details["question"] = request.question()
 	if proof.Method != "" {
 		details["method"] = proof.Method
 	}

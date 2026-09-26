@@ -721,16 +721,3 @@ func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosur
 	}
 	return false
 }
-
-func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction, reason resourceLifetimeReason) {
-	if action == actionNone || !analysis.probe.Enabled() {
-		return
-	}
-	analysis.probe.Evidence(analysisTrace.Step{
-		Reason:   reason.String(),
-		Outcome:  analysisTrace.OutcomeAccepted,
-		Pos:      instruction.Pos(),
-		Function: analysis.function.String(),
-		Details:  map[string]string{"instruction": instruction.String()},
-	})
-}

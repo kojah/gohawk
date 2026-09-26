@@ -230,6 +230,26 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 	return result
 }
 
+// emitAction traces a settled or unknown label. An instruction labelled none
+// is not traced: every instruction after the acquisition would emit one, and
+// the flow's return-path steps already show where the obligation stood.
+func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action resourceAction, reason resourceLifetimeReason) {
+	if action == actionNone || !analysis.probe.Enabled() {
+		return
+	}
+	label, outcome := "settled", analysisTrace.OutcomeAccepted
+	if action == actionUnknown {
+		label, outcome = "unknown", analysisTrace.OutcomeUnknown
+	}
+	analysis.probe.Label(analysisTrace.Step{
+		Reason:   reason.String(),
+		Outcome:  outcome,
+		Pos:      instruction.Pos(),
+		Function: analysis.function.String(),
+		Details:  map[string]string{"instruction": instruction.String(), "label": label},
+	})
+}
+
 // traceRepeatedGuard records that an edge re-tested a guard the path had
 // already taken the other way, so the path became unknown there.
 func (analysis *resourceAnalysis) traceRepeatedGuard(block, successor *ssa.BasicBlock) {

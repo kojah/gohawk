@@ -126,7 +126,9 @@ weighed, and beneath it the steps in the order the proof emitted them, with
 runs of identical steps folded into one line with a count. A step is filed
 under the function its candidate lies in, so steps judging a callee
 elsewhere stay with the proof they serve. `-decisions` drops the evidence
-steps. The dump prints only what the analyzers traced; a proof that says
+steps and keeps candidates, labels, considered steps, and decisions: the
+classifier's labels and the flow's verdict, without the questions behind
+each label. The dump prints only what the analyzers traced; a proof that says
 little here is a tracing gap to fill in the analyzer (see the tracing skill),
 not a view to extend.
 
@@ -169,7 +171,8 @@ driver's cost and appear in the process time instead.
 | phase | meaning |
 |---|---|
 | `candidate` | a construct the analyzer might report — the obligation it found |
-| `evidence` | a fact for or against reporting it — typically one classifier label |
+| `label` | the label a lifecycle classifier gave one instruction on the path, with the reason: `accepted` for settled, `unknown` for a boundary it cannot see through; instructions labelled none are not traced |
+| `evidence` | a fact for or against reporting it; a shared lifecycle proof adds a `question` detail naming what it answered (`release`, `transfer`, `local`, `summary`, `receiver-store`, joined by `+`) |
 | `considered` | a proof step that was evaluated and did not hold |
 | `decision` | the outcome: reported, suppressed by an ignore comment, removed by check selection, or unknown |
 | `fix` | a suggested edit was offered or rejected |

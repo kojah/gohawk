@@ -48,7 +48,10 @@ contract.
 Every event carries a phase and a stable kebab-case reason code:
 
 - `candidate` — a construct the analyzer might report.
-- `evidence` — a fact that supports accepting or rejecting it.
+- `label` — the label a lifecycle classifier gave one instruction (settled
+  or unknown) and why.
+- `evidence` — a fact that supports accepting or rejecting it; shared
+  lifecycle proofs name the `question` they answered.
 - `considered` — a proof step that was tried and did not hold.
 - `decision` — the final outcome: reported, suppressed, or unknown.
 - `fix` — whether a suggested edit was offered or rejected.

@@ -44,7 +44,11 @@ type storageLocation struct {
 // Resolve follows loads at their own execution points, not at a later use.
 // This preserves a saved value when its original cell is subsequently changed.
 func (storage *Storage) Resolve(value ssa.Value) StoredValue {
-	if value == nil || !storage.budget.Spend() {
+	// No value is not a give-up: nothing was asked, so nothing is observed.
+	if value == nil {
+		return StoredValue{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+	}
+	if !storage.budget.Spend() {
 		return storage.unknown(ssaflow.EvidenceUnavailable, nil)
 	}
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType |

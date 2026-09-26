@@ -70,7 +70,7 @@ func TestAnalyzer(t *testing.T) {
 			continue
 		}
 		found = true
-		if event.Phase != "evidence" || event.Outcome != "accepted" ||
+		if event.Phase != "label" || event.Outcome != "unknown" ||
 			!strings.Contains(event.Candidate, "reassigned_cleanup.go:21:") || event.Function != "resourcelifetime.reassignedCleanup" {
 			t.Errorf("unexpected prior-cleanup evidence: %+v", event)
 		}
@@ -82,6 +82,7 @@ func TestAnalyzer(t *testing.T) {
 		t.Error("missing resource return-path evidence")
 	}
 	assertSQLBoundaryTrace(t, data)
+	assertLabelTrace(t, data)
 	assertFollowupBoundaryTrace(t, data)
 	assertUseAfterTrace(t, data)
 	assertOpaqueUseAfterReleaseTrace(t, data)
@@ -120,9 +121,11 @@ func assertUseAfterTrace(t *testing.T, data []byte) {
 
 func assertSQLBoundaryTrace(t *testing.T, data []byte) {
 	t.Helper()
-	want := map[string]string{
-		"statement-parent-closed":             "evidence",
-		"context-canceled-before-acquisition": "decision",
+	// A closed parent statement makes the rows unknown, a classifier label;
+	// a canceled context is the proof's decision.
+	want := map[string][2]string{
+		"statement-parent-closed":             {"label", "unknown"},
+		"context-canceled-before-acquisition": {"decision", "accepted"},
 	}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event struct {
@@ -134,11 +137,11 @@ func assertSQLBoundaryTrace(t *testing.T, data []byte) {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
-		phase, ok := want[event.Reason]
+		expected, ok := want[event.Reason]
 		if !ok || !strings.Contains(event.Candidate, "sql_boundaries.go:") {
 			continue
 		}
-		if event.Phase != phase || event.Outcome != "accepted" {
+		if event.Phase != expected[0] || event.Outcome != expected[1] {
 			t.Errorf("unexpected SQL boundary trace: %+v", event)
 		}
 		delete(want, event.Reason)
@@ -170,5 +173,36 @@ func TestRecursiveReleaseSearchStaysBounded(t *testing.T) {
 	if elapsed > boundedSearchDeadline {
 		t.Errorf("analyzing mutually recursive callees took %s, want under %s; the release search is not bounded",
 			elapsed, boundedSearchDeadline)
+	}
+}
+
+// assertLabelTrace checks that a proven release is traced as a settled label
+// on the instruction that settles it, and that the shared lifecycle evidence
+// names the question each answer served.
+func assertLabelTrace(t *testing.T, data []byte) {
+	t.Helper()
+	settled, questioned := false, false
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+		var event struct {
+			Phase    string            `json:"phase"`
+			Outcome  string            `json:"outcome"`
+			Position string            `json:"position"`
+			Details  map[string]string `json:"details"`
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		if event.Phase == "label" && strings.HasSuffix(event.Position, "argument_cases.go:107:2") {
+			settled = event.Outcome == "accepted" && event.Details["label"] == "settled"
+		}
+		if event.Phase == "evidence" && event.Details["question"] == "release+summary" {
+			questioned = true
+		}
+	}
+	if !settled {
+		t.Error("missing settled label for the deferred constant-argument release")
+	}
+	if !questioned {
+		t.Error("lifecycle evidence does not name the question it answered")
 	}
 }

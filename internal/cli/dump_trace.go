@@ -34,7 +34,7 @@ func printTrace(arguments []string, output, errorsOutput io.Writer) error {
 	functionFilter := flags.String("func", "", "print only proofs for candidates in the function with this name")
 	analyzerList := flags.String("analyzer", "", "comma-separated analyzers to run and trace (default all)")
 	candidate := flags.String("candidate", "", "print only proofs of candidates whose position contains this path[:line]")
-	decisions := flags.Bool("decisions", false, "print only candidates, considered suppressions, and decisions, not evidence")
+	decisions := flags.Bool("decisions", false, "print only candidates, labels, considered suppressions, and decisions, not evidence")
 	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	flags.Usage = func() {
 		writeLine(errorsOutput, "usage: gohawk dump trace [-func NAME] [-analyzer NAMES] [-candidate PATH[:LINE]] [-decisions] [-tests] package...")
