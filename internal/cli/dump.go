@@ -23,6 +23,9 @@ func dumpViews() []dumpView {
 		{"ssa", "the SSA form the analyzers see", printSSA},
 		{"facts", "the facts the analyzers import", printFacts},
 		{"heap", "how the heap model was derived", printHeap},
+		{"budget", "where the analysis spent its time and which searches ran out of budget", printBudget},
+		{"locks", "the lock order graph and the cycles lockorder reported", printLocks},
+		{"trace", "each proof the analyzers traced, grouped by function and candidate", printTrace},
 	}
 }
 

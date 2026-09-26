@@ -189,3 +189,11 @@ inside the completion search, which is what exposed the sibling unlock in the
 libovsdb fixture:
 https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
 Fixtures: `lockorder/sibling_mutexes.go` and `lockorder/constant_arguments.go`.
+
+## The order graph result
+
+The analyzer returns the package's order graph as its result, for
+`gohawk dump locks`: every recorded edge with one witness, and each reported
+cycle as the edges its diagnostic names. The result is a copy made after the
+walk; nothing decides from it, and it lists only cycles the analyzer
+reported, so it cannot drift from the diagnostics.

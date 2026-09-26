@@ -2,6 +2,8 @@
 package lockorder
 
 import (
+	"reflect"
+
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -57,10 +59,11 @@ var summaryKnowledge = summaries.Select(summaries.Requirements{Results: true, Co
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
 	return &analysis.Analyzer{
-		Name:     "lockorder",
-		Doc:      "checks contradictory mutex acquisition order and unreleased return paths",
-		Requires: summaryKnowledge.Requires(),
-		Run:      runLockOrder,
+		Name:       "lockorder",
+		Doc:        "checks contradictory mutex acquisition order and unreleased return paths",
+		Requires:   summaryKnowledge.Requires(),
+		Run:        runLockOrder,
+		ResultType: reflect.TypeFor[*Graph](),
 	}
 }
 
@@ -81,7 +84,7 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 		var evidence lifecycle.LocalEvidence
 		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers, exclusive)
 	}
-	return nil, nil
+	return relations.graph(pass), nil
 }
 
 func walkLockOrder(

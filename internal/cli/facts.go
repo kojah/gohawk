@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"go/token"
@@ -19,7 +18,6 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"
-	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -101,22 +99,11 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
-	if len(flags.Args()) == 0 {
-		return errors.New("at least one package pattern is required")
-	}
 	kinds, err := parseFactKinds(*kindList)
 	if err != nil {
 		return err
 	}
-	config := &packages.Config{Mode: packages.LoadAllSyntax, Tests: *includeTests}
-	loaded, err := packages.Load(config, flags.Args()...)
-	if err != nil {
-		return err
-	}
-	if packages.PrintErrors(loaded) > 0 {
-		return errors.New("packages have load errors")
-	}
-	graph, err := checker.Analyze(factAnalyzers(kinds), loaded, &checker.Options{Sequential: true})
+	graph, err := analyzeForDump(flags.Args(), *includeTests, factAnalyzers(kinds))
 	if err != nil {
 		return err
 	}

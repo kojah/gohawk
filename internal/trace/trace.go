@@ -46,7 +46,8 @@ type event struct {
 	Details   map[string]string
 }
 
-type record struct {
+// Record is one event as it is written: positions rendered as file:line:col.
+type Record struct {
 	Analyzer  string            `json:"analyzer"`
 	Check     string            `json:"check,omitempty"`
 	Phase     string            `json:"phase"`
@@ -64,6 +65,8 @@ type settings struct {
 	writer    io.Writer
 	file      *os.File
 	timing    *os.File
+	// sink, when set, receives each selected event instead of writer.
+	sink func(Record)
 }
 
 var global = struct {
@@ -152,6 +155,29 @@ func (value optionValue) Set(raw string) error {
 		return errors.New("unknown trace option")
 	}
 	return nil
+}
+
+// Capture hands every event the selectors choose to sink, in this process,
+// limited to candidates whose position contains candidate when it is set,
+// until the returned function restores the previous settings. It serves a
+// reader that treats the trace as data, such as gohawk dump trace, and is not
+// safe to use while another analysis in the process is tracing.
+func Capture(selectors []string, candidate string, sink func(Record)) (restore func()) {
+	global.Lock()
+	defer global.Unlock()
+	previous, wasActive := global.config, global.active.Load()
+	chosen := make(map[string]bool, len(selectors))
+	for _, selector := range selectors {
+		chosen[selector] = true
+	}
+	global.config.selectors, global.config.candidate, global.config.sink = chosen, candidate, sink
+	global.active.Store(len(chosen) > 0)
+	return func() {
+		global.Lock()
+		defer global.Unlock()
+		global.config = previous
+		global.active.Store(wasActive)
+	}
 }
 
 var timingActive atomic.Bool
@@ -274,7 +300,7 @@ func write(pass *analysis.Pass, entry event) {
 	if !selected(global.config, entry, candidate) {
 		return
 	}
-	encoded, err := json.Marshal(record{
+	captured := Record{
 		Analyzer:  entry.Analyzer,
 		Check:     entry.Check,
 		Phase:     entry.Phase,
@@ -284,7 +310,12 @@ func write(pass *analysis.Pass, entry event) {
 		Candidate: candidate,
 		Function:  entry.Function,
 		Details:   entry.Details,
-	})
+	}
+	if global.config.sink != nil {
+		global.config.sink(captured)
+		return
+	}
+	encoded, err := json.Marshal(captured)
 	if err != nil {
 		return
 	}

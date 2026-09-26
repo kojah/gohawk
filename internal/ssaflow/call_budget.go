@@ -1,6 +1,11 @@
 package ssaflow
 
-import "go/token"
+import (
+	"go/token"
+	"runtime"
+	"strings"
+	"sync/atomic"
+)
 
 // An interprocedural question can be asked of a call graph too large to walk.
 // Mutual recursion is the usual cause: the cycle guard keeps the walk finite,
@@ -36,8 +41,12 @@ const (
 // instructions it may examine.
 type SearchBudget struct {
 	remaining int
+	limit     int
 	exhausted bool
-	observer  Observer
+	// site names the code that asked the question, recorded only while an
+	// exhaustion recorder listens.
+	site     string
+	observer Observer
 	// parent, when set, is the candidate-wide pool this budget also charges;
 	// see Within.
 	parent *SearchBudget
@@ -45,7 +54,11 @@ type SearchBudget struct {
 
 // NewSearchBudget returns a budget allowing limit instructions.
 func NewSearchBudget(limit int) *SearchBudget {
-	return &SearchBudget{remaining: limit}
+	budget := &SearchBudget{remaining: limit, limit: limit}
+	if exhaustionRecording.Load() != nil {
+		budget.site = budgetSite()
+	}
+	return budget
 }
 
 // Spend charges one instruction and reports whether the walk may continue. A
@@ -55,11 +68,11 @@ func (budget *SearchBudget) Spend() bool {
 		return true
 	}
 	if budget.remaining <= 0 {
-		budget.exhausted = true
+		budget.exhaust(false)
 		return false
 	}
 	if budget.parent != nil && !budget.parent.Spend() {
-		budget.exhausted = true
+		budget.exhaust(true)
 		return false
 	}
 	budget.remaining--
@@ -94,4 +107,52 @@ func (budget *SearchBudget) Observe(reason EvidenceReason, at token.Pos, build f
 // bailout and decline to retain an answer that was cut short.
 func (budget *SearchBudget) Exhausted() bool {
 	return budget != nil && budget.exhausted
+}
+
+// exhaust marks the budget spent and, the first time, tells the recorder.
+func (budget *SearchBudget) exhaust(pool bool) {
+	if budget.exhausted {
+		return
+	}
+	budget.exhausted = true
+	if record := exhaustionRecording.Load(); record != nil {
+		(*record)(Exhaustion{Site: budget.site, Limit: budget.limit, Pool: pool})
+	}
+}
+
+// Exhaustion is one question that ran out of budget: the code that asked it,
+// its limit, and whether the candidate-wide pool ran out rather than the
+// question's own limit. gohawk dump budget collects them, because a question
+// cut short answers conservatively and says so nowhere else.
+type Exhaustion struct {
+	Site  string
+	Limit int
+	Pool  bool
+}
+
+var exhaustionRecording atomic.Pointer[func(Exhaustion)]
+
+// RecordExhaustions hands every budget exhaustion in this process to record
+// until the returned function stops it. While nothing records, a budget pays
+// one atomic load when it is made and one when it runs out.
+func RecordExhaustions(record func(Exhaustion)) (stop func()) {
+	exhaustionRecording.Store(&record)
+	return func() { exhaustionRecording.Store(nil) }
+}
+
+// budgetSite names the function that made the budget, skipping the budget's
+// own constructors.
+func budgetSite() string {
+	callers := make([]uintptr, 8)
+	frames := runtime.CallersFrames(callers[:runtime.Callers(3, callers)])
+	for {
+		frame, more := frames.Next()
+		name := frame.Function
+		if !strings.HasSuffix(name, "ssaflow.NewSearchBudget") && !strings.HasSuffix(name, "ssaflow.(*SearchBudget).Within") {
+			return strings.TrimPrefix(name, "github.com/kojah/gohawk/internal/")
+		}
+		if !more {
+			return ""
+		}
+	}
 }

@@ -1010,6 +1010,23 @@ func ExactOrNone(owns func(ssa.Instruction) bool) func(ssa.Instruction) Obligati
 ExactOrNone lifts a Boolean ownership predicate to the two-level lattice the
 UnownedReturn family needs: an owning action is exact, anything else none.
 
+## Exhaustion
+
+[Source](../../../../internal/ssaflow/call_budget.go)
+
+```go
+type Exhaustion struct {
+	Site	string
+	Limit	int
+	Pool	bool
+}
+```
+
+Exhaustion is one question that ran out of budget: the code that asked it,
+its limit, and whether the candidate-wide pool ran out rather than the
+question's own limit. gohawk dump budget collects them, because a question
+cut short answers conservatively and says so nowhere else.
+
 ## ExternallyOwnedValue
 
 [Source](../../../../internal/ssaflow/value_ownership.go)
@@ -2079,6 +2096,18 @@ func (walk ReachingWalk) Mark(value ssa.Value) bool
 Mark records value as visited and reports whether this was its first visit.
 Leaves use it for values they examine without folding over them, such as
 the sibling element addresses of one slice.
+
+## RecordExhaustions
+
+[Source](../../../../internal/ssaflow/call_budget.go)
+
+```go
+func RecordExhaustions(record func(Exhaustion)) (stop func())
+```
+
+RecordExhaustions hands every budget exhaustion in this process to record
+until the returned function stops it. While nothing records, a budget pays
+one atomic load when it is made and one when it runs out.
 
 ## ResolveEmbeddedFieldPath
 

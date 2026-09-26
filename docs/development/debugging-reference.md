@@ -79,6 +79,57 @@ included, is still projected on demand. That is what a unit test of the
 points-to model sees, and comparing the two runs shows what the imported
 summaries contributed.
 
+## Budget dump
+
+```text
+gohawk dump budget [-analyzer NAMES] [-top N] [-deps] [-tests] package...
+```
+
+Runs the analyzers in one process, one action at a time, and prints where
+the time went and which searches ran out of budget. `slowest runs` lists
+analyzer runs over the requested packages; `dependencies` totals each
+analyzer's time on imported packages, where the fact passes summarize the
+standard library. `budgets exhausted` groups every `ssaflow.SearchBudget`
+that ran out by the analyzer run it happened in and the function that made
+the budget, with its limit, and says `pool ran out` when the candidate-wide
+pool, not the question's own limit, stopped it. A search cut short answers
+conservatively, so an exhaustion over the package under study is a candidate
+explanation for a missed diagnostic. Exhaustions while summarizing
+dependencies are counted but listed only with `-deps`. A budget does not know
+which analyzed function its question was about; locate one with the trace
+dump or the `budget-exhausted` trace reasons.
+
+## Lock order dump
+
+```text
+gohawk dump locks [-dot] [-tests] package...
+```
+
+Prints the order graph `lockorder` recorded for each package: every pair of
+lock classes held together, as `held -> acquired` with one witness of each
+position, the helper calls on the route (`via`), the package-level mutexes
+held around it (`while holding`), and loop-variant locks, which never extend
+a longer cycle. `cycles reported` lists the cycles the analyzer reported, in
+the order its diagnostic names them; the dump does not search for cycles of
+its own, so a cycle the analyzer declined is not listed. `-dot` prints the
+same graph for Graphviz, cycle edges in red and read-lock edges dashed.
+
+## Trace dump
+
+```text
+gohawk dump trace [-func NAME] [-analyzer NAMES] [-candidate PATH[:LINE]] [-decisions] [-tests] package...
+```
+
+Runs the analyzers in one process with the evidence tracer captured, and
+prints each proof together: per function, each candidate the analyzers
+weighed, and beneath it the steps in the order the proof emitted them, with
+runs of identical steps folded into one line with a count. A step is filed
+under the function its candidate lies in, so steps judging a callee
+elsewhere stay with the proof they serve. `-decisions` drops the evidence
+steps. The dump prints only what the analyzers traced; a proof that says
+little here is a tracing gap to fill in the analyzer (see the tracing skill),
+not a view to extend.
+
 ## Evidence trace
 
 ```text

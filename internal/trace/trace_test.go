@@ -47,7 +47,7 @@ func TestEmitSelectsByCandidateNotEventPosition(t *testing.T) {
 	if lines := bytes.Count(output.Bytes(), []byte("\n")); lines != 1 {
 		t.Fatalf("expected one selected record, got %d: %s", lines, output.String())
 	}
-	var got record
+	var got Record
 	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &got); err != nil {
 		t.Fatalf("decode trace: %v\n%s", err, output.String())
 	}
@@ -128,7 +128,7 @@ func TestEmitDiagnosticResolvesEnclosingFunction(t *testing.T) {
 		},
 	)
 
-	var got record
+	var got Record
 	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &got); err != nil {
 		t.Fatalf("decode trace: %v\n%s", err, output.String())
 	}
@@ -184,7 +184,7 @@ func TestTimingFileRecordsOneLinePerRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	if first.Analyzer != "resourcelifetime" || first.DurationNS != 42 || first.AllocBytes != 1024 {
-		t.Fatalf("first record = %+v", first)
+		t.Fatalf("first Record = %+v", first)
 	}
 }
 
@@ -211,12 +211,38 @@ func TestObserveEmitsGiveUpAsUnknownEvidence(t *testing.T) {
 	}
 	observer("storage-address-escapes", file.Pos(20), map[string]string{"instruction": "sink(t0)"})
 
-	var got record
+	var got Record
 	if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &got); err != nil {
 		t.Fatalf("decode trace: %v\n%s", err, output.String())
 	}
 	if got.Phase != "evidence" || got.Outcome != OutcomeUnknown || got.Reason != "storage-address-escapes" ||
 		got.Candidate != "resource.go:2:1" || got.Position != "resource.go:3:1" || got.Details["instruction"] != "sink(t0)" {
 		t.Fatalf("trace = %+v", got)
+	}
+}
+
+func TestCaptureHandsRecordsToTheSinkAndRestores(t *testing.T) {
+	resetTrace(t)
+	var output bytes.Buffer
+	global.config.writer = &output
+
+	files := token.NewFileSet()
+	file := files.AddFile("resource.go", -1, 100)
+	file.SetLines([]int{0, 10, 20})
+	pass := &analysis.Pass{Fset: files}
+
+	var captured []Record
+	restore := Capture([]string{"lockorder"}, "resource.go:2", func(record Record) { captured = append(captured, record) })
+	For(pass, "lockorder", "", file.Pos(10)).Decision(Step{Reason: "kept"})
+	For(pass, "lockorder", "", file.Pos(20)).Decision(Step{Reason: "other-candidate"})
+	For(pass, "resourcelifetime", "", file.Pos(10)).Decision(Step{Reason: "other-analyzer"})
+	restore()
+	For(pass, "lockorder", "", file.Pos(10)).Decision(Step{Reason: "after-restore"})
+
+	if len(captured) != 1 || captured[0].Reason != "kept" || captured[0].Candidate != "resource.go:2:1" {
+		t.Fatalf("captured = %+v, want only the kept step", captured)
+	}
+	if output.Len() != 0 || global.active.Load() {
+		t.Fatalf("restore left tracing active or wrote %q", output.String())
 	}
 }

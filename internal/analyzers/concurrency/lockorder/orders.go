@@ -79,6 +79,8 @@ type lockOrders struct {
 	// Function walks stage edges until their feasibility search completes.
 	collectOnly bool
 	staged      []orderEdge
+	// cycles keeps each reported cycle's edges for the analyzer's result.
+	cycles [][]lockRelation
 }
 
 func newLockOrders() *lockOrders {
@@ -118,7 +120,9 @@ func (orders *lockOrders) record(pass *analysis.Pass, held, acquired lockAcquisi
 	}
 	path := orders.path(acquired.class, held.class)
 	if len(path) != 0 && !serializedCycle(edge, path) && (len(path) == 1 || orders.novelCycle(edge, path)) {
-		reportOrderCycle(pass, append([]orderEdge{edge}, path...))
+		cycle := append([]orderEdge{edge}, path...)
+		reportOrderCycle(pass, cycle)
+		orders.cycles = append(orders.cycles, relationsOf(cycle))
 	}
 	orders.edges[relation] = edge
 	orders.out[held.class] = append(orders.out[held.class], edge)
