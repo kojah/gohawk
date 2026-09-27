@@ -32,10 +32,24 @@ func sameCallCycle(function, callee *ssa.Function) bool {
 	if function == nil || callee == nil {
 		return false
 	}
+	// An instantiation wrapper only converts its arguments and calls its
+	// generic origin, which never calls back into the wrapper. Calling the
+	// origin from it is not recursion, and cutting it there left the
+	// wrapper's result a fresh object, so Must(os.Create(path)) lost the
+	// file it returns. A generic body that calls an instantiation of itself
+	// is still a cycle, below.
+	// https://github.com/koki-develop/gat/blob/f4ad44169fcf08177edf1eb604eab966b4b61b0a/docs/update.go#L56-L58
+	if instantiationWrapperCallsOrigin(function, callee) {
+		return false
+	}
 	if callee == function || ssaflow.ResolvedFunction(callee) == ssaflow.ResolvedFunction(function) {
 		return true
 	}
 	return reachableCallees(callee)[function] || reachableCallees(ssaflow.ResolvedFunction(callee))[ssaflow.ResolvedFunction(function)]
+}
+
+func instantiationWrapperCallsOrigin(function, callee *ssa.Function) bool {
+	return function.Synthetic != "" && function.Origin() != nil && callee == function.Origin()
 }
 
 // reachableCallees returns the functions of the same package the function

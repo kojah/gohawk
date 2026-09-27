@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
+	"golang.org/x/tools/go/ssa"
 )
 
 // The projection names only what a caller can name: a returned fresh object
@@ -61,5 +62,37 @@ func readOnly(p *Pair) bool { return p.First != nil }
 				t.Errorf("read-only function should project nothing but reads:\n%s", rendered)
 			}
 		})
+	}
+}
+
+// An instantiation wrapper calls its generic origin; that call is not
+// recursion, so the wrapper returns what the origin returns.
+func TestProjectHeapInstantiationWrapper(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "genericprobe", `package genericprobe
+type File struct{ fd int }
+func must[T any](value T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return value
+}
+func use(f *File) *File { return must(f, nil) }
+`)
+	var wrapper *ssa.Function
+	for _, block := range pkg.Func("use").Blocks {
+		for _, instruction := range block.Instrs {
+			if call, ok := instruction.(*ssa.Call); ok {
+				if callee := call.Call.StaticCallee(); callee != nil && callee.Origin() != nil {
+					wrapper = callee
+				}
+			}
+		}
+	}
+	if wrapper == nil {
+		t.Fatal("no instantiation of must")
+	}
+	summary, ok := ProjectHeap(wrapper)
+	if !ok || !strings.Contains(summary.String(), "edge R0 -> P0 must") {
+		t.Fatalf("wrapper summary = %v (ok %t), want the result to be its first parameter", summary.String(), ok)
 	}
 }

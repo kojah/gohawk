@@ -99,6 +99,11 @@ application and join. The dump prints each widening. Nothing here guesses.
 
 ## Heap summaries
 
+An instantiation of a generic function is usually a synthetic wrapper that
+converts its arguments and calls the generic body. That call is not
+recursion, so the wrapper applies the body's summary: `Must[*os.File]`
+returns its argument because `Must` does.
+
 A function's graph is projected onto what a caller can name: parameters,
 results, globals, and captured variables, each with a bounded set of paths
 beneath it. Every internal object collapses to `fresh`, numbered within the
