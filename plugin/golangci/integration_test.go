@@ -49,14 +49,23 @@ func deferredUnlockInLoop(mu *sync.Mutex, values []int) {
 	}
 }
 
-func sendAfterClose(ch chan int) {
-	close(ch)
-	ch <- 1
+func sharedTotal(items []int) int {
+	total := 0
+	var wg sync.WaitGroup
+	for range items {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			total++
+		}()
+	}
+	wg.Wait()
+	return total
 }
 
 func unjoined() {
 	done := make(chan struct{})
-	go func() { close(done) }()
+	go func() { done <- struct{}{} }()
 }
 `)
 	// Keep the test in the production package. golangci-lint analyzes this as an
@@ -97,11 +106,11 @@ func TestBackground(t *testing.T) {
 		{
 			name: "ordinary run",
 			config: pluginConfig(`          enable:
-            - channelsafety
+            - concurrentcapture
           disable:
             - lockorder`),
 			want: []string{
-				"channelsafety: send follows close of channel",
+				"concurrentcapture: captured local total is mutated by goroutines launched repeatedly",
 				"deferinloop: deferred cleanup runs after the loop",
 				"goroutineownership: goroutine is not joined on every return path",
 			},
@@ -110,7 +119,7 @@ func TestBackground(t *testing.T) {
 		{
 			name: "individual checks",
 			config: pluginConfig(`          enable:
-            - channelsafety
+            - concurrentcapture
           disable:
             - lockorder
           enable-checks:
@@ -118,7 +127,7 @@ func TestBackground(t *testing.T) {
           disable-checks:
             - deferinloop/cleanup-lifetime`),
 			want: []string{
-				"channelsafety: send follows close of channel",
+				"concurrentcapture: captured local total is mutated by goroutines launched repeatedly",
 				"goroutineownership: goroutine is not joined on every return path",
 			},
 			exclude: []string{"lockorder:", "deferinloop:"},

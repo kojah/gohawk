@@ -78,10 +78,10 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		}
 
 		output, exitCode = runCommand(t, module, binary,
-			"-enable=lockorder", "-enable-checks=channelsafety/send-after-close", "./...",
+			"-enable=lockorder", "-enable-checks=concurrentcapture/shared-capture", "./...",
 		)
 		if exitCode != 3 || !strings.Contains(output, "write while only the read lock") ||
-			!strings.Contains(output, "send follows close of channel") {
+			!strings.Contains(output, "is mutated by goroutines launched repeatedly") {
 			t.Fatalf("combined analyzer and check selection: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -110,7 +110,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 				t.Fatalf("-flags output does not contain %q:\n%s", name, output)
 			}
 		}
-		for _, name := range []string{"channelsafety", "goroutineownership", "lockorder"} {
+		for _, name := range []string{"concurrentcapture", "goroutineownership", "lockorder"} {
 			if strings.Contains(output, `"Name": "`+name+`"`) {
 				t.Fatalf("-flags output still advertises analyzer Boolean %q:\n%s", name, output)
 			}
@@ -118,8 +118,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 	})
 
 	t.Run("legacy analyzer Boolean selection", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-channelsafety=false", "./...")
-		if exitCode != 2 || !strings.Contains(output, "use -disable=channelsafety") {
+		output, exitCode := runCommand(t, module, binary, "-concurrentcapture=false", "./...")
+		if exitCode != 2 || !strings.Contains(output, "use -disable=concurrentcapture") {
 			t.Fatalf("exit code = %d, want 2 with migration error\n%s", exitCode, output)
 		}
 	})
@@ -132,7 +132,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 	})
 
 	t.Run("JSON output", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-json", "-enable=channelsafety", "./...")
+		output, exitCode := runCommand(t, module, binary, "-json", "-enable=concurrentcapture", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
@@ -145,10 +145,10 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		}
 		count := 0
 		for _, analyzers := range diagnostics {
-			count += len(analyzers["channelsafety"])
+			count += len(analyzers["concurrentcapture"])
 		}
 		if count != 1 {
-			t.Fatalf("channelsafety JSON diagnostic count = %d, want 1\n%s", count, output)
+			t.Fatalf("concurrentcapture JSON diagnostic count = %d, want 1\n%s", count, output)
 		}
 	})
 
@@ -161,8 +161,8 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("output does not contain default diagnostic:\n%s", output)
 		}
 
-		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-enable=channelsafety", "./...")
-		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") {
+		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-enable=concurrentcapture", "./...")
+		if exitCode != 1 || !strings.Contains(output, "is mutated by goroutines launched repeatedly") {
 			t.Fatalf("vettool selected analyzer: exit code = %d\n%s", exitCode, output)
 		}
 		if strings.Contains(output, "write while only the read lock") {
@@ -170,7 +170,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		}
 
 		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-disable=lockorder", "./...")
-		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "write while only the read lock") {
+		if exitCode != 1 || !strings.Contains(output, "is mutated by goroutines launched repeatedly") || strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("vettool disabled analyzer: exit code = %d\n%s", exitCode, output)
 		}
 	})

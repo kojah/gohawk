@@ -33,7 +33,7 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		}
 		for _, summary := range []string{
 			"resources (resources and lifecycle): cancellationownership, deferinloop, processownership, resourcelifetime",
-			"concurrency (concurrency and synchronization): channelsafety, concurrentcapture, " +
+			"concurrency (concurrency and synchronization): concurrentcapture, " +
 				"goroutineownership, lockorder, producerlifecycle",
 		} {
 			if !strings.Contains(output, summary) {
@@ -47,19 +47,19 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 0 {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
-		for _, value := range []string{"channelsafety", "core runs by default", "producerlifecycle"} {
+		for _, value := range []string{"concurrentcapture", "core runs by default", "producerlifecycle"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("list output does not contain %q:\n%s", value, output)
 			}
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-defaults")
-		if exitCode != 0 || !strings.Contains(output, "producerlifecycle") || !strings.Contains(output, "channelsafety") {
+		if exitCode != 0 || !strings.Contains(output, "producerlifecycle") || !strings.Contains(output, "concurrentcapture") {
 			t.Fatalf("default list: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, module, binary, "list", "-opt-in")
-		if exitCode != 0 || strings.Contains(output, "producerlifecycle") || strings.Contains(output, "channelsafety") {
+		if exitCode != 0 || strings.Contains(output, "producerlifecycle") || strings.Contains(output, "concurrentcapture") {
 			t.Fatalf("opt-in list: exit code = %d\n%s", exitCode, output)
 		}
 	})
@@ -91,10 +91,10 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "send follows close of channel") {
+		if !strings.Contains(output, "is mutated by goroutines launched repeatedly") {
 			t.Fatalf("default analyzer did not run:\n%s", output)
 		}
-		for _, value := range []string{"warning: ", "[channelsafety/send-after-close]", "-->", "sample.go:", "^"} {
+		for _, value := range []string{"warning: ", "[concurrentcapture/shared-capture]", "-->", "sample.go:", "^"} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("rich diagnostic does not contain %q:\n%s", value, output)
 			}
@@ -135,12 +135,12 @@ func answer() int { return identity{}.value(42) }
 	})
 
 	t.Run("selected analyzer", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-enable=channelsafety", "./...")
+		output, exitCode := runCommand(t, module, binary, "-enable=concurrentcapture", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "send follows close of channel") {
-			t.Fatalf("output does not contain channelsafety diagnostic:\n%s", output)
+		if !strings.Contains(output, "is mutated by goroutines launched repeatedly") {
+			t.Fatalf("output does not contain concurrentcapture diagnostic:\n%s", output)
 		}
 		if strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("selected analyzer unexpectedly ran lockorder:\n%s", output)
@@ -152,8 +152,8 @@ func answer() int { return identity{}.value(42) }
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "send follows close of channel") {
-			t.Fatalf("concurrency group did not run channelsafety:\n%s", output)
+		if !strings.Contains(output, "is mutated by goroutines launched repeatedly") {
+			t.Fatalf("concurrency group did not run concurrentcapture:\n%s", output)
 		}
 		if !strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("concurrency group did not run lockorder:\n%s", output)
@@ -165,8 +165,8 @@ func answer() int { return identity{}.value(42) }
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "send follows close of channel") {
-			t.Fatalf("enable-all minus resources did not run channelsafety:\n%s", output)
+		if !strings.Contains(output, "is mutated by goroutines launched repeatedly") {
+			t.Fatalf("enable-all minus resources did not run concurrentcapture:\n%s", output)
 		}
 		if !strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("enable-all minus resources did not run lockorder:\n%s", output)
@@ -180,7 +180,7 @@ func answer() int { return identity{}.value(42) }
 		}
 		for _, diagnostic := range []string{
 			"write while only the read lock",
-			"send follows close of channel",
+			"is mutated by goroutines launched repeatedly",
 		} {
 			if !strings.Contains(output, diagnostic) {
 				t.Fatalf("all-analyzer output does not contain %q:\n%s", diagnostic, output)
@@ -189,21 +189,21 @@ func answer() int { return identity{}.value(42) }
 	})
 
 	t.Run("disabling one default analyzer keeps the rest", func(t *testing.T) {
-		output, exitCode := runCommand(t, module, binary, "-disable=channelsafety", "./...")
+		output, exitCode := runCommand(t, module, binary, "-disable=concurrentcapture", "./...")
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if !strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("default analyzers did not run:\n%s", output)
 		}
-		if strings.Contains(output, "send follows close of channel") {
-			t.Fatalf("disabled channelsafety unexpectedly reported:\n%s", output)
+		if strings.Contains(output, "is mutated by goroutines launched repeatedly") {
+			t.Fatalf("disabled concurrentcapture unexpectedly reported:\n%s", output)
 		}
 	})
 
 	t.Run("disabled default analyzer", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-disable=lockorder", "./...")
-		if exitCode != 3 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "write while only the read lock") {
+		if exitCode != 3 || !strings.Contains(output, "is mutated by goroutines launched repeatedly") || strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("disabled analyzer run: exit code = %d\n%s", exitCode, output)
 		}
 	})

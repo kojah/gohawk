@@ -109,7 +109,7 @@ program in its two roles.
 ## Where to start
 
 For a compact concurrency analyzer, start with
-`internal/analyzers/concurrency/channelsafety`. For a lifecycle analyzer that follows
+`internal/analyzers/concurrency/concurrentcapture`. For a lifecycle analyzer that follows
 program flow, start with `internal/analyzers/resources/deferinloop`.
 
 Continue with [How to contribute](../contributing/) for the steps involved in

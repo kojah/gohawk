@@ -6,20 +6,6 @@
       "slug": "concurrency-and-synchronization",
       "analyzers": [
         {
-          "name": "channelsafety",
-          "summary": "Checks channel operations for use after close.",
-          "path": "analyzers/concurrency-and-synchronization/channelsafety",
-          "tier": "core",
-          "checks": [
-            {
-              "id": "channelsafety/send-after-close",
-              "summary": "Reports sends reachable after a channel has been closed.",
-              "kind": "defect",
-              "tier": "core"
-            }
-          ]
-        },
-        {
           "name": "concurrentcapture",
           "summary": "Checks locals mutated by goroutines launched repeatedly.",
           "path": "analyzers/concurrency-and-synchronization/concurrentcapture",

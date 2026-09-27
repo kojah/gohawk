@@ -13,7 +13,7 @@ import (
 
 func TestPartialVetFailurePreservesOutputAndFailure(t *testing.T) {
 	for _, render := range []renderMode{renderJSON, renderRich} {
-		for _, payload := range []string{`{}`, `{"good":{"channelsafety":[{"posn":"good.go:1:1","message":"retained finding"}]}}`} {
+		for _, payload := range []string{`{}`, `{"good":{"concurrentcapture":[{"posn":"good.go:1:1","message":"retained finding"}]}}`} {
 			var output, errorOutput bytes.Buffer
 			runtime := cliRuntime{
 				output: &output, errorsOutput: &errorOutput,
@@ -45,10 +45,11 @@ func TestCLIPartialPackageFailure(t *testing.T) {
 	for _, finding := range []bool{false, true} {
 		source := "package good\nfunc F() {}\n"
 		if finding {
-			source = "package good\nfunc F(c chan int) { close(c); c <- 1 }\n"
+			source = "package good\nimport \"sync\"\nfunc F(items []int) int {\n\ttotal := 0\n\tvar wg sync.WaitGroup\n" +
+				"\tfor range items {\n\t\twg.Add(1)\n\t\tgo func() { defer wg.Done(); total++ }()\n\t}\n\twg.Wait()\n\treturn total\n}\n"
 		}
 		writeTestFile(t, filepath.Join(directory, "good", "good.go"), source)
-		command := exec.CommandContext(t.Context(), binary, "-json", "-enable=channelsafety", "./...")
+		command := exec.CommandContext(t.Context(), binary, "-json", "-enable=concurrentcapture", "./...")
 		command.Dir = directory
 		command.Env = append(os.Environ(), "GOWORK=off")
 		var output, errorOutput bytes.Buffer
@@ -60,7 +61,7 @@ func TestCLIPartialPackageFailure(t *testing.T) {
 		if !json.Valid(output.Bytes()) || !strings.Contains(errorOutput.String(), "undefined: missing") {
 			t.Fatalf("finding=%t: invalid output: %s / %s", finding, output.String(), errorOutput.String())
 		}
-		if strings.Contains(output.String(), "send follows close") != finding {
+		if strings.Contains(output.String(), "is mutated by goroutines launched repeatedly") != finding {
 			t.Fatalf("finding=%t: diagnostics changed: %s", finding, output.String())
 		}
 	}

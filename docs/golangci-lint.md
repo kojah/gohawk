@@ -50,7 +50,7 @@ linters:
         description: Correctness-focused ownership, lifecycle, and concurrency checks.
         settings:
           enable:
-            - channelsafety
+            - concurrentcapture
           disable:
             - lockorder
           enable-checks:

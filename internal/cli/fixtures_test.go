@@ -66,9 +66,20 @@ type EventRow struct {
 
 var event = EventRow{"42", "created"}
 
-func sendAfterClose(ch chan int) {
-	close(ch)
-	ch <- 1
+// Goroutines launched in a loop all write total, which supplies the
+// concurrentcapture diagnostic.
+func sharedTotal(items []int) int {
+	total := 0
+	var wg sync.WaitGroup
+	for range items {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			total++
+		}()
+	}
+	wg.Wait()
+	return total
 }
 
 type counter struct {
@@ -142,29 +153,69 @@ func Start(ctx context.Context) {
 	return directory
 }
 
-func writeChannelSafetyTestModule(t *testing.T) string {
+func writeCaptureTestModule(t *testing.T) string {
 	t.Helper()
-	return writeSampleModule(t, "module example.com/channelsafetytest\n\ngo 1.25.0\n", `package sample
+	return writeSampleModule(t, "module example.com/capturetest\n\ngo 1.25.0\n", `package sample
 
-func staleProduction(ch chan int) {
-	close(ch)
-	ch <- 1
+import "sync"
+
+func sharedProduction(items []int) int {
+	total := 0
+	var wg sync.WaitGroup
+	for range items {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			total++
+		}()
+	}
+	wg.Wait()
+	return total
 }
 
-func orderedProduction(ch chan int) {
-	ch <- 1
-	close(ch)
+func separateProduction(items []int) []int {
+	counts := make([]int, len(items))
+	var wg sync.WaitGroup
+	for i := range items {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			counts[i]++
+		}()
+	}
+	wg.Wait()
+	return counts
 }
 `, `package sample
 
-func staleTestOnly(ch chan int) {
-	close(ch)
-	ch <- 1
+import "sync"
+
+func sharedTestOnly(items []int) int {
+	total := 0
+	var wg sync.WaitGroup
+	for range items {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			total++
+		}()
+	}
+	wg.Wait()
+	return total
 }
 
-func orderedTestOnly(ch chan int) {
-	ch <- 1
-	close(ch)
+func separateTestOnly(items []int) []int {
+	counts := make([]int, len(items))
+	var wg sync.WaitGroup
+	for i := range items {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			counts[i]++
+		}()
+	}
+	wg.Wait()
+	return counts
 }
 `)
 }

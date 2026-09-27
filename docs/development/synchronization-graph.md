@@ -46,7 +46,7 @@ unknown.
 
 - `internal/passes/concurrencyfacts` still composes complete, bounded ordered
   effects per function and binds them to caller values. `producerlifecycle`,
-  `goroutineownership`, `concurrentcapture`, `lockorder`, and `channelsafety`
+  `goroutineownership`, `concurrentcapture`, and `lockorder`
   consume its linear summaries.
 - The mutex region fold that `concurrentcapture` used moved into that
   analyzer as `lockRegion`.

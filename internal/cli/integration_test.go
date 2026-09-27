@@ -23,12 +23,14 @@ func TestCLIIntegration(t *testing.T) {
 		if exitCode != 3 {
 			t.Fatalf("default run: exit code = %d, want 3\n%s", exitCode, output)
 		}
-		for _, value := range []string{"warning: ", "[channelsafety/send-after-close]", "-->", "sample.go:", "^", "send follows close of channel"} {
+		for _, value := range []string{
+			"warning: ", "[concurrentcapture/shared-capture]", "-->", "sample.go:", "^", "is mutated by goroutines launched repeatedly",
+		} {
 			if !strings.Contains(output, value) {
 				t.Fatalf("rich diagnostic does not contain %q:\n%s", value, output)
 			}
 		}
-		output, exitCode = runCommand(t, module, binary, "-json", "-enable=channelsafety", "./...")
+		output, exitCode = runCommand(t, module, binary, "-json", "-enable=concurrentcapture", "./...")
 		if exitCode != 3 {
 			t.Fatalf("selected JSON run: exit code = %d, want 3\n%s", exitCode, output)
 		}
@@ -38,13 +40,13 @@ func TestCLIIntegration(t *testing.T) {
 		}
 		count := 0
 		for _, analyzers := range diagnostics {
-			count += len(analyzers["channelsafety"])
+			count += len(analyzers["concurrentcapture"])
 			if len(analyzers["lockorder"]) != 0 {
 				t.Fatalf("selected analyzer unexpectedly ran defaults:\n%s", output)
 			}
 		}
 		if count != 1 {
-			t.Fatalf("channelsafety JSON diagnostic count = %d, want 1\n%s", count, output)
+			t.Fatalf("concurrentcapture JSON diagnostic count = %d, want 1\n%s", count, output)
 		}
 
 		// Analyzer flags must reach the go analysis driver so its action cache
@@ -57,55 +59,55 @@ func TestCLIIntegration(t *testing.T) {
 		if err := json.Unmarshal([]byte(output), &diagnostics); err != nil {
 			t.Fatalf("decode enable-all JSON output: %v\n%s", err, output)
 		}
-		var lockOrder, channelSafety int
+		var lockOrder, capture int
 		for _, analyzers := range diagnostics {
 			lockOrder += len(analyzers["lockorder"])
-			channelSafety += len(analyzers["channelsafety"])
+			capture += len(analyzers["concurrentcapture"])
 		}
-		if lockOrder == 0 || channelSafety == 0 {
-			t.Fatalf("enable-all JSON diagnostics omit lockorder or channelsafety:\n%s", output)
+		if lockOrder == 0 || capture == 0 {
+			t.Fatalf("enable-all JSON diagnostics omit lockorder or concurrentcapture:\n%s", output)
 		}
 	})
 
 	t.Run("canonical production and test files", func(t *testing.T) {
 		t.Parallel()
-		module := writeChannelSafetyTestModule(t)
-		output, exitCode := runCommand(t, module, binary, "-json", "-enable=channelsafety", "-gohawk-include-tests", "./...")
+		module := writeCaptureTestModule(t)
+		output, exitCode := runCommand(t, module, binary, "-json", "-enable=concurrentcapture", "-gohawk-include-tests", "./...")
 		if exitCode != 3 {
-			t.Fatalf("channelsafety JSON run: exit code = %d, want 3\n%s", exitCode, output)
+			t.Fatalf("concurrentcapture JSON run: exit code = %d, want 3\n%s", exitCode, output)
 		}
 		var diagnostics map[string]map[string][]struct {
 			Posn string `json:"posn"`
 		}
 		if err := json.Unmarshal([]byte(output), &diagnostics); err != nil {
-			t.Fatalf("decode channelsafety JSON output: %v\n%s", err, output)
+			t.Fatalf("decode concurrentcapture JSON output: %v\n%s", err, output)
 		}
 		var productionCount, testCount int
 		for _, analyzers := range diagnostics {
-			for _, diagnostic := range analyzers["channelsafety"] {
+			for _, diagnostic := range analyzers["concurrentcapture"] {
 				switch {
 				case strings.Contains(diagnostic.Posn, "sample_test.go:"):
 					testCount++
 				case strings.Contains(diagnostic.Posn, "sample.go:"):
 					productionCount++
 				default:
-					t.Fatalf("unexpected channelsafety diagnostic at %q\n%s", diagnostic.Posn, output)
+					t.Fatalf("unexpected concurrentcapture diagnostic at %q\n%s", diagnostic.Posn, output)
 				}
 			}
 		}
 		// With -gohawk-include-tests both the production and the test-file
-		// send-after-close diagnostics are reported, each once.
+		// shared-capture diagnostics are reported, each once.
 		if productionCount != 1 || testCount != 1 {
-			t.Fatalf("channelsafety counts = production %d, test %d; want 1 each\n%s", productionCount, testCount, output)
+			t.Fatalf("concurrentcapture counts = production %d, test %d; want 1 each\n%s", productionCount, testCount, output)
 		}
 	})
 
 	t.Run("test files skipped by default", func(t *testing.T) {
 		t.Parallel()
-		module := writeChannelSafetyTestModule(t)
-		output, exitCode := runCommand(t, module, binary, "-json", "-enable=channelsafety", "./...")
+		module := writeCaptureTestModule(t)
+		output, exitCode := runCommand(t, module, binary, "-json", "-enable=concurrentcapture", "./...")
 		if exitCode != 3 {
-			t.Fatalf("channelsafety JSON run: exit code = %d, want 3\n%s", exitCode, output)
+			t.Fatalf("concurrentcapture JSON run: exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if strings.Contains(output, "sample_test.go:") {
 			t.Fatalf("test-file diagnostic reported without -gohawk-include-tests\n%s", output)

@@ -24,20 +24,20 @@ func TestPrintAnalyzerList(t *testing.T) {
 		{
 			name: "all",
 			contains: []string{
-				"ANALYZER", "TIER", "GROUP", "channelsafety", "lockorder", "core", "concurrency", "core runs by default",
+				"ANALYZER", "TIER", "GROUP", "concurrentcapture", "lockorder", "core", "concurrency", "core runs by default",
 			},
 			excludes: []string{"PROFILE", "TAGS", "CATEGORY", "API and data contracts", "*"},
 		},
 		{
 			name:      "defaults",
 			arguments: []string{"-defaults"},
-			contains:  []string{"lockorder", "channelsafety", "core"},
+			contains:  []string{"lockorder", "concurrentcapture", "core"},
 		},
 		{
 			name:      "opt-in",
 			arguments: []string{"-opt-in"},
 			contains:  []string{"ANALYZER"},
-			excludes:  []string{"channelsafety", "lockorder", "producerlifecycle"},
+			excludes:  []string{"concurrentcapture", "lockorder", "producerlifecycle"},
 		},
 		{
 			name:      "checks",
@@ -48,7 +48,7 @@ func TestPrintAnalyzerList(t *testing.T) {
 				"TIER",
 				"GROUP",
 				"hazard",
-				"channelsafety/send-after-close",
+				"concurrentcapture/shared-capture",
 				"defect",
 				"core",
 				"concurrency",
@@ -116,7 +116,10 @@ func TestRunCLIImmediateCommands(t *testing.T) {
 		{name: "documentation error", arguments: []string{"gohawk", "doc", "unknown"}, wantCode: 2, errorContains: "unknown analyzer or check"},
 		{name: "help", arguments: []string{"gohawk", "help"}, errorContains: "Analyzer selection:"},
 		{name: "invalid check", arguments: []string{"gohawk", "-disable-checks=unknown/check", "./..."}, wantCode: 2, errorContains: "unknown check"},
-		{name: "legacy selection", arguments: []string{"gohawk", "-channelsafety=false", "./..."}, wantCode: 2, errorContains: "use -disable=channelsafety"},
+		{
+			name: "legacy selection", arguments: []string{"gohawk", "-concurrentcapture=false", "./..."},
+			wantCode: 2, errorContains: "use -disable=concurrentcapture",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -208,7 +211,7 @@ func TestRunCLIProcessBoundaries(t *testing.T) {
 		// Selection is resolved into per-analyzer flags for the unit driver,
 		// which is how go vet forwards it to this same handshake: the other
 		// analyzers are enabled and the disabled one is left out.
-		if !strings.Contains(joined, "-channelsafety=true") || strings.Contains(joined, "-lockorder=true") {
+		if !strings.Contains(joined, "-concurrentcapture=true") || strings.Contains(joined, "-lockorder=true") {
 			t.Errorf("handshake did not disable lockorder for the unit driver: %v", invocation.arguments)
 		}
 	})
@@ -224,7 +227,7 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 			t.Errorf("environment = %v", environment)
 		}
 		return processOutput{stdout: []byte(`[
-			{"Name":"channelsafety","Bool":true,"Usage":"legacy selector"},
+			{"Name":"concurrentcapture","Bool":true,"Usage":"legacy selector"},
 			{"Name":"fix","Bool":true,"Usage":"apply edits"},
 			{"Name":"diff","Bool":true,"Usage":"preview edits"},
 			{"Name":"enable","Bool":false,"Usage":"enable analyzers"}
@@ -234,7 +237,7 @@ func TestPrintFilteredFlagsUsing(t *testing.T) {
 	if code := printFilteredFlagsUsing([]string{"gohawk", "-flags"}, analyzers, &output, &errorsOutput, execute); code != 0 {
 		t.Fatalf("exit code = %d\n%s", code, errorsOutput.String())
 	}
-	if strings.Contains(output.String(), `"Name": "channelsafety"`) || !strings.Contains(output.String(), `"Name": "enable"`) {
+	if strings.Contains(output.String(), `"Name": "concurrentcapture"`) || !strings.Contains(output.String(), `"Name": "enable"`) {
 		t.Fatalf("filtered output:\n%s", output.String())
 	}
 	for _, name := range []string{"fix", "diff"} {
@@ -285,10 +288,10 @@ func TestRunViaGoVet(t *testing.T) {
 		{
 			name:   "diagnostic",
 			render: renderRich,
-			result: processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":[` +
-				`{"category":"channelsafety/send-after-close","posn":"missing.go:1:1","message":"problem"}]}}`)},
+			result: processOutput{stdout: []byte(`{"example.com/p":{"concurrentcapture":[` +
+				`{"category":"concurrentcapture/shared-capture","posn":"missing.go:1:1","message":"problem"}]}}`)},
 			wantCode:   3,
-			wantOutput: "warning: problem [channelsafety/send-after-close]",
+			wantOutput: "warning: problem [concurrentcapture/shared-capture]",
 		},
 		{
 			// go vet prints one object per package; a pattern matching several
@@ -296,31 +299,31 @@ func TestRunViaGoVet(t *testing.T) {
 			// failure.
 			name:   "several packages",
 			render: renderRich,
-			result: processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":[{"posn":"p.go:1:1","message":"first"}]}}
-{"example.com/q":{"channelsafety":[{"posn":"q.go:1:1","message":"second"}]}}
+			result: processOutput{stdout: []byte(`{"example.com/p":{"concurrentcapture":[{"posn":"p.go:1:1","message":"first"}]}}
+{"example.com/q":{"concurrentcapture":[{"posn":"q.go:1:1","message":"second"}]}}
 `)},
 			wantCode:   3,
-			wantOutput: "warning: second [channelsafety]",
+			wantOutput: "warning: second [concurrentcapture]",
 		},
 		{
 			name:       "analysis error",
 			render:     renderRich,
-			result:     processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":{"error":"load failed"}}}`)},
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"concurrentcapture":{"error":"load failed"}}}`)},
 			wantCode:   1,
-			wantOutput: "channelsafety: load failed",
+			wantOutput: "concurrentcapture: load failed",
 		},
 		{
 			name:       "json passthrough",
 			render:     renderJSON,
-			result:     processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":[{"posn":"a.go:1:1","end":"a.go:1:2","message":"m"}]}}`)},
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"concurrentcapture":[{"posn":"a.go:1:1","end":"a.go:1:2","message":"m"}]}}`)},
 			wantCode:   3,
-			wantOutput: `"channelsafety"`,
+			wantOutput: `"concurrentcapture"`,
 		},
 		{name: "json without diagnostics", render: renderJSON, result: processOutput{stdout: []byte(`{}`)}, wantCode: 0, wantOutput: `{}`},
 		{
 			name:       "json analysis error",
 			render:     renderJSON,
-			result:     processOutput{stdout: []byte(`{"example.com/p":{"channelsafety":{"error":"load failed"}}}`)},
+			result:     processOutput{stdout: []byte(`{"example.com/p":{"concurrentcapture":{"error":"load failed"}}}`)},
 			wantCode:   1,
 			wantOutput: `"error"`,
 		},
@@ -396,7 +399,7 @@ func TestPrintDocumentation(t *testing.T) {
 				"lockorder/missing-release",
 				"https://gohawk.dev/analyzers/concurrency-and-synchronization/lockorder/",
 			},
-			excludes: []string{"channelsafety/send-after-close", "prefer-test-context"},
+			excludes: []string{"concurrentcapture/shared-capture", "prefer-test-context"},
 		},
 		{
 			name:      "check",
@@ -408,7 +411,7 @@ func TestPrintDocumentation(t *testing.T) {
 			excludes: []string{"Profile:", "Tags:", "Opt-in:", "\nChecks:", "\nOptions:"},
 		},
 		{name: "missing target", wantError: true},
-		{name: "extra target", arguments: []string{"lockorder", "channelsafety"}, wantError: true},
+		{name: "extra target", arguments: []string{"lockorder", "concurrentcapture"}, wantError: true},
 		{name: "unknown target", arguments: []string{"unknown"}, wantError: true},
 	}
 	for _, test := range tests {

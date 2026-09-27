@@ -6,7 +6,6 @@ type ID string
 
 const (
 	CancellationRelease    ID = "cancellationownership/release"
-	ChannelSendAfterClose  ID = "channelsafety/send-after-close"
 	DeferCleanupInLoop     ID = "deferinloop/cleanup-lifetime"
 	GoroutineJoin          ID = "goroutineownership/unjoined"
 	ProducerLifecycleSend  ID = "producerlifecycle/abandoned-send"

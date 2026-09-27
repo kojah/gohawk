@@ -107,7 +107,7 @@ func TestEmitDiagnosticResolvesEnclosingFunction(t *testing.T) {
 	resetTrace(t)
 	var output bytes.Buffer
 	global.config.writer = &output
-	global.config.selectors = map[string]bool{"channelsafety": true}
+	global.config.selectors = map[string]bool{"concurrentcapture": true}
 	global.active.Store(true)
 
 	files := token.NewFileSet()
@@ -120,11 +120,11 @@ func TestEmitDiagnosticResolvesEnclosingFunction(t *testing.T) {
 	EmitDiagnostic(
 		pass,
 		DiagnosticEvent{
-			Analyzer:   "channelsafety",
+			Analyzer:   "concurrentcapture",
 			Phase:      "candidate",
 			Reason:     "diagnostic-candidate",
 			Outcome:    OutcomeObserved,
-			Diagnostic: analysis.Diagnostic{Category: "channelsafety/send-after-close", Pos: function.Pos(), Message: "unsafe send"},
+			Diagnostic: analysis.Diagnostic{Category: "concurrentcapture/shared-capture", Pos: function.Pos(), Message: "unsafe send"},
 		},
 	)
 

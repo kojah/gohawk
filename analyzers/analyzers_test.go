@@ -15,7 +15,6 @@ func expectedAnalyzerNames() []string {
 	return []string{
 		"goroutineownership",
 		"producerlifecycle",
-		"channelsafety",
 		"processownership",
 		"lockorder",
 		"resourcelifetime",
@@ -95,7 +94,6 @@ func TestAnalyzerGroups(t *testing.T) {
 			doc:     "concurrency and synchronization",
 			docPath: "concurrency-and-synchronization",
 			analyzers: []string{
-				"channelsafety",
 				"concurrentcapture",
 				"goroutineownership",
 				"lockorder",
@@ -162,7 +160,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
 		"cancellationownership/release":    CheckKindDefect,
-		"channelsafety/send-after-close":   CheckKindDefect,
 		"deferinloop/cleanup-lifetime":     CheckKindHazard,
 		"goroutineownership/unjoined":      CheckKindHazard,
 		"producerlifecycle/abandoned-send": CheckKindHazard,
@@ -214,7 +211,6 @@ func TestAnalyzerMetadata(t *testing.T) {
 func TestDefaultAnalyzers(t *testing.T) {
 	want := []string{
 		"goroutineownership", "producerlifecycle",
-		"channelsafety",
 		"processownership", "lockorder", "resourcelifetime",
 		"deferinloop", "concurrentcapture",
 		"cancellationownership",

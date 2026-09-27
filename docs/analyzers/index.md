@@ -19,10 +19,6 @@ Kind is descriptive metadata and does not change whether a check is enabled by d
 These analyzers check goroutine lifecycles, channel use, and synchronization.
 
 <div class="analyzer-grid">
-  <a class="analyzer-card" href="concurrency-and-synchronization/channelsafety/">
-    <span class="analyzer-name">channelsafety</span>
-    <span class="analyzer-detects">Checks channel operations for use after close.</span>
-  </a>
   <a class="analyzer-card" href="concurrency-and-synchronization/concurrentcapture/">
     <span class="analyzer-name">concurrentcapture</span>
     <span class="analyzer-detects">Checks locals mutated by goroutines launched repeatedly.</span>

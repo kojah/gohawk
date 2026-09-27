@@ -55,7 +55,6 @@ func newCatalog() (*catalog.Catalog, error) {
 	}, []catalog.AnalyzerID{
 		"goroutineownership",
 		"producerlifecycle",
-		"channelsafety",
 		"processownership",
 		"lockorder",
 		"resourcelifetime",

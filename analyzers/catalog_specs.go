@@ -1,7 +1,6 @@
 package analyzers
 
 import (
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/channelsafety"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/concurrentcapture"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/goroutineownership"
 	"github.com/kojah/gohawk/internal/analyzers/concurrency/lockorder"
@@ -16,13 +15,6 @@ import (
 
 func concurrencySpecs() []catalog.AnalyzerSpec {
 	return []catalog.AnalyzerSpec{
-		{Analyzer: channelsafety.Analyzer(), Checks: []catalog.CheckInfo{
-			{
-				ID: check.ChannelSendAfterClose, Doc: "Reports sends reachable after a channel has been closed.",
-				Help: "close a channel only from its sender, after the last send",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-		}},
 		{Analyzer: concurrentcapture.Analyzer(), Checks: []catalog.CheckInfo{
 			{
 				ID: check.ConcurrentCapture, Doc: "Reports repeatedly launched goroutines that mutate the same captured local.",

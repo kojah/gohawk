@@ -748,7 +748,7 @@ not prove completion. Export considers four result slots and shares a
 
 `internal/passes/concurrencyfacts` shares the complete ordered-effect model
 used by the ordered helper path in `lockorder` and the helper-effect paths in
-`channelsafety`, `goroutineownership`, and `producerlifecycle`.
+`goroutineownership` and `producerlifecycle`.
 It records channel send/receive/close, `WaitGroup.Add(1)`/`Done`/`Wait`, and
 `sync.Mutex.Lock`/`Unlock` and distinct `sync.RWMutex` read/write events, including completion and unlock defers in
 execution order. The generic summary infrastructure still owns caching,
@@ -810,11 +810,10 @@ exported function and a 32-operation limit. Unknown summaries never become
 absence proofs, and budget-shortened answers never become completed cache
 entries. The mixed-dependency checks remain experimental.
 
-Consumers need not require a straight-line root function. `channelsafety`
-uses complete call effects as close/send witnesses in its existing reachability
-proof. `goroutineownership` uses exact receives and waits as positive joins for
+Consumers need not require a straight-line root function.
+`goroutineownership` uses exact receives and waits as positive joins for
 already-established obligations, including inside its branch-aware helper
-search. Neither replaces its existing proof with summary absence.
+search. It does not replace its existing proof with summary absence.
 `lockorder` carries complete helper lock state into subsequent instructions.
 `producerlifecycle` expands both sends and receiving helpers, and treats opaque
 channel consumers as unknown rather than as zero receives.
