@@ -60,7 +60,7 @@ func TestCanonicalTestVariantResult(t *testing.T) {
 	}
 }
 
-func TestAnalyzeFileSkipsTestFilesUnlessIncluded(t *testing.T) {
+func TestAnalyzeFileSkipsTestFiles(t *testing.T) {
 	files := token.NewFileSet()
 	production, err := parser.ParseFile(files, "p.go", "package p\n", 0)
 	if err != nil {
@@ -77,11 +77,6 @@ func TestAnalyzeFileSkipsTestFilesUnlessIncluded(t *testing.T) {
 		ResultOf: map[*analysis.Analyzer]any{marker: CanonicalTestVariant{}},
 	}
 	if !AnalyzeFile(pass, production) || AnalyzeFile(pass, test) {
-		t.Fatal("default analysis must keep production files and skip test files")
-	}
-	includeTestFiles = true
-	t.Cleanup(func() { includeTestFiles = false })
-	if !AnalyzeFile(pass, production) || !AnalyzeFile(pass, test) {
-		t.Fatal("the test-file option must analyze both files")
+		t.Fatal("analysis must keep production files and skip test files")
 	}
 }

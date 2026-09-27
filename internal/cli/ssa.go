@@ -25,9 +25,8 @@ func printSSA(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("ssa", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
 	functionFilter := flags.String("func", "", "print only functions whose name or enclosing function name matches")
-	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk dump ssa [-func NAME] [-tests] package...")
+		writeLine(errorsOutput, "usage: gohawk dump ssa [-func NAME] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -37,7 +36,7 @@ func printSSA(arguments []string, output, errorsOutput io.Writer) error {
 	if len(patterns) == 0 {
 		return errors.New("at least one package pattern is required")
 	}
-	rendered, err := RenderSSA(patterns, *functionFilter, *includeTests)
+	rendered, err := RenderSSA(patterns, *functionFilter)
 	if err != nil {
 		return err
 	}
@@ -49,8 +48,8 @@ func printSSA(arguments []string, output, errorsOutput io.Writer) error {
 // packages whose name matches functionFilter, exactly as the ssa subcommand
 // prints it. The documentation generator uses it so the dump on the
 // Understanding SSA page is the real output rather than a transcript.
-func RenderSSA(patterns []string, functionFilter string, includeTests bool) (string, error) {
-	functions, fset, err := loadSSAFunctions(patterns, includeTests)
+func RenderSSA(patterns []string, functionFilter string) (string, error) {
+	functions, fset, err := loadSSAFunctions(patterns)
 	if err != nil {
 		return "", err
 	}
@@ -71,8 +70,8 @@ func RenderSSA(patterns []string, functionFilter string, includeTests bool) (str
 
 // loadSSAFunctions builds SSA for the matched packages and returns their
 // source functions in position order, including function literals.
-func loadSSAFunctions(patterns []string, includeTests bool) ([]*ssa.Function, *token.FileSet, error) {
-	config := &packages.Config{Mode: packages.LoadAllSyntax, Tests: includeTests}
+func loadSSAFunctions(patterns []string) ([]*ssa.Function, *token.FileSet, error) {
+	config := &packages.Config{Mode: packages.LoadAllSyntax}
 	loaded, err := packages.Load(config, patterns...)
 	if err != nil {
 		return nil, nil, err

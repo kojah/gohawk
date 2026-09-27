@@ -263,7 +263,7 @@ func printGeneralHelp(output io.Writer) {
 	writeLine(output, "  -disable-groups=GROUP1,GROUP2 remove groups from the selected set")
 	writeLine(output, "  -enable-all                  run every analyzer and check")
 	writeLine(output, "\nCommon analysis flags: -json, -c=N, -V")
-	writeLine(output, "Test files: -gohawk-include-tests analyzes and reports _test.go files")
+	writeLine(output, "Test files: _test.go files are not analyzed")
 	writeLine(output, "Evidence tracing: -gohawk-trace=ANALYZER[,CHECK...] [-gohawk-trace-file=PATH]")
 	writeLine(output, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
 	writeLine(output, "Run 'gohawk dump VIEW [-func NAME] PACKAGE' to print what the analyzers derived; views:")

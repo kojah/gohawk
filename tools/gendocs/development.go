@@ -172,7 +172,7 @@ func traceFlagsBlock() string {
 // page does not depend on where the checkout lives. The annotations on the
 // page describe this output, and -check fails when a builder change alters it.
 func ssaExampleBlock(root string) (string, error) {
-	dump, err := cli.RenderSSA([]string{filepath.Join(root, "tools", "gendocs", "ssaexample")}, "CopyHeader", false)
+	dump, err := cli.RenderSSA([]string{filepath.Join(root, "tools", "gendocs", "ssaexample")}, "CopyHeader")
 	if err != nil {
 		return "", err
 	}

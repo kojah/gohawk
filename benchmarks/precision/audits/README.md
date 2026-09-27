@@ -8,11 +8,9 @@ verdicts (1,369 TP, 511 FP, three inconclusive). Incomplete and failed
 scans are not clean; the overview separates the unchanged baseline from
 follow-up analyzer work and records current priorities.
 
-Each batch record leads with production-file precision, which is what the
-default profile analyzes, and reports test files separately. The audit
-profile adds `-gohawk-include-tests` because test code exposes analyzer logic
-cheaply and keeps batches comparable; test-only false-positive families still
-count, but they do not describe what a default run reports.
+gohawk analyzes only production code. Batches up to 63 ran with the since-
+removed `-gohawk-include-tests` option and report test files separately; their
+production-file precision is the figure comparable with later batches.
 
 After a batch record is committed and every emitted finding has a source
 verdict, the audit runner can remove only its pinned, clean checkouts while

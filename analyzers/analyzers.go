@@ -179,8 +179,8 @@ func withCheckFilter(
 				})
 				return
 			}
-			if !check.IncludeTests() && check.TestFilePosition(pass, diagnostic.Pos) {
-				// Test files are skipped by default; see internal/check/testfiles.go.
+			if check.TestFilePosition(pass, diagnostic.Pos) {
+				// Test files are never reported; see internal/check/testfiles.go.
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
 					Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingTestFileSkipped.String(),
 					Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,

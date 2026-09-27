@@ -46,7 +46,7 @@ def scan_module(gohawk: Path, module: Path, analyzers: str, trace: Path, environ
     whole module."""
     trace.unlink(missing_ok=True)
     flags = [
-        f"-vettool={gohawk}", f"-enable={analyzers}", "-gohawk-include-tests", "-json",
+        f"-vettool={gohawk}", f"-enable={analyzers}", "-json",
         f"-gohawk-trace={analyzers}", f"-gohawk-trace-file={trace}",
     ]
     for patterns in (["./..."], None):

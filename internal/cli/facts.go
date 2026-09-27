@@ -90,10 +90,9 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("facts", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
 	nameFilter := flags.String("func", "", "print only facts attached to the function with this name")
-	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	kindList := flags.String("kind", "", "comma-separated fact kinds to print: "+strings.Join(factKinds, ", ")+" (default all)")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk dump facts [-func NAME] [-kind KINDS] [-tests] package...")
+		writeLine(errorsOutput, "usage: gohawk dump facts [-func NAME] [-kind KINDS] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -103,7 +102,7 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	if err != nil {
 		return err
 	}
-	graph, err := analyzeForDump(flags.Args(), *includeTests, factAnalyzers(kinds))
+	graph, err := analyzeForDump(flags.Args(), factAnalyzers(kinds))
 	if err != nil {
 		return err
 	}

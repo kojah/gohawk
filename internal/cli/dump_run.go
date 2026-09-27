@@ -15,11 +15,11 @@ import (
 // analyzeForDump loads the packages with their syntax and runs analyzers
 // over them in this process, one action at a time, so a view can read the
 // results, diagnostics, and timings the ordinary run would produce.
-func analyzeForDump(patterns []string, includeTests bool, analyzers []*analysis.Analyzer) (*checker.Graph, error) {
+func analyzeForDump(patterns []string, analyzers []*analysis.Analyzer) (*checker.Graph, error) {
 	if len(patterns) == 0 {
 		return nil, errors.New("at least one package pattern is required")
 	}
-	config := &packages.Config{Mode: packages.LoadAllSyntax, Tests: includeTests}
+	config := &packages.Config{Mode: packages.LoadAllSyntax}
 	loaded, err := packages.Load(config, patterns...)
 	if err != nil {
 		return nil, err

@@ -27,16 +27,15 @@ func printLocks(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("locks", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
 	dot := flags.Bool("dot", false, "print a Graphviz digraph with reported cycles in red")
-	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk dump locks [-dot] [-tests] package...")
+		writeLine(errorsOutput, "usage: gohawk dump locks [-dot] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
 	analyzer := lockorder.Analyzer()
-	graph, err := analyzeForDump(flags.Args(), *includeTests, []*analysis.Analyzer{analyzer})
+	graph, err := analyzeForDump(flags.Args(), []*analysis.Analyzer{analyzer})
 	if err != nil {
 		return err
 	}

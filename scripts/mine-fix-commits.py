@@ -186,7 +186,7 @@ def changed_go_packages(checkout: Path, sha: str) -> list[str]:
     return sorted(packages)
 
 
-def replay(checkout: Path, sha: str, check: str, gohawk: Path, timeout: int, tests: bool) -> tuple[str, int, str]:
+def replay(checkout: Path, sha: str, check: str, gohawk: Path, timeout: int) -> tuple[str, int, str]:
     """Check out the parent of a fix and run one check over the packages it
     touched. Returns an outcome, the number of findings, and where the first
     few are: a finding in a touched package is not necessarily the fixed
@@ -201,7 +201,7 @@ def replay(checkout: Path, sha: str, check: str, gohawk: Path, timeout: int, tes
         # An unanalysable revision is not a missed defect, and counting it as
         # one would understate the check.
         return "unbuildable", 0, ""
-    flags = ["-enable-checks", check] + (["-gohawk-include-tests"] if tests else [])
+    flags = ["-enable-checks", check]
     analysis = run([str(gohawk), *flags, "-json", *packages], cwd=checkout, timeout=timeout)
     positions = findings_in(analysis.stdout, checkout)
     return ("reported" if positions else "silent"), len(positions), "; ".join(positions[:5])
@@ -232,7 +232,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", default="lockorder/read-lock-write", help="check, or comma-separated checks, to replay")
     parser.add_argument("--symptom", choices=sorted(SYMPTOMS), default="race", help="kind of fixed defect to seed on")
-    parser.add_argument("--include-tests", action="store_true", help="also report findings in test files")
     parser.add_argument("--gohawk", type=Path, required=True, help="gohawk binary to replay with")
     parser.add_argument("--work", type=Path, required=True, help="directory for cached clones")
     parser.add_argument("--out", type=Path, required=True, help="worksheet to write")
@@ -266,7 +265,7 @@ def main() -> int:
             if checkout is not None:
                 try:
                     outcome, findings, positions = replay(
-                        checkout, sha, arguments.check, arguments.gohawk, arguments.timeout, arguments.include_tests,
+                        checkout, sha, arguments.check, arguments.gohawk, arguments.timeout,
                     )
                 except subprocess.TimeoutExpired:
                     outcome, findings, positions = "timeout", 0, ""

@@ -69,40 +69,7 @@ func TestCLIIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("canonical production and test files", func(t *testing.T) {
-		t.Parallel()
-		module := writeCaptureTestModule(t)
-		output, exitCode := runCommand(t, module, binary, "-json", "-enable=concurrentcapture", "-gohawk-include-tests", "./...")
-		if exitCode != 3 {
-			t.Fatalf("concurrentcapture JSON run: exit code = %d, want 3\n%s", exitCode, output)
-		}
-		var diagnostics map[string]map[string][]struct {
-			Posn string `json:"posn"`
-		}
-		if err := json.Unmarshal([]byte(output), &diagnostics); err != nil {
-			t.Fatalf("decode concurrentcapture JSON output: %v\n%s", err, output)
-		}
-		var productionCount, testCount int
-		for _, analyzers := range diagnostics {
-			for _, diagnostic := range analyzers["concurrentcapture"] {
-				switch {
-				case strings.Contains(diagnostic.Posn, "sample_test.go:"):
-					testCount++
-				case strings.Contains(diagnostic.Posn, "sample.go:"):
-					productionCount++
-				default:
-					t.Fatalf("unexpected concurrentcapture diagnostic at %q\n%s", diagnostic.Posn, output)
-				}
-			}
-		}
-		// With -gohawk-include-tests both the production and the test-file
-		// shared-capture diagnostics are reported, each once.
-		if productionCount != 1 || testCount != 1 {
-			t.Fatalf("concurrentcapture counts = production %d, test %d; want 1 each\n%s", productionCount, testCount, output)
-		}
-	})
-
-	t.Run("test files skipped by default", func(t *testing.T) {
+	t.Run("test files skipped", func(t *testing.T) {
 		t.Parallel()
 		module := writeCaptureTestModule(t)
 		output, exitCode := runCommand(t, module, binary, "-json", "-enable=concurrentcapture", "./...")
@@ -110,7 +77,7 @@ func TestCLIIntegration(t *testing.T) {
 			t.Fatalf("concurrentcapture JSON run: exit code = %d, want 3\n%s", exitCode, output)
 		}
 		if strings.Contains(output, "sample_test.go:") {
-			t.Fatalf("test-file diagnostic reported without -gohawk-include-tests\n%s", output)
+			t.Fatalf("test-file diagnostic reported\n%s", output)
 		}
 		if !strings.Contains(output, "sample.go:") {
 			t.Fatalf("production diagnostic missing\n%s", output)

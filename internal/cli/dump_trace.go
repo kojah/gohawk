@@ -35,9 +35,8 @@ func printTrace(arguments []string, output, errorsOutput io.Writer) error {
 	analyzerList := flags.String("analyzer", "", "comma-separated analyzers to run and trace (default all)")
 	candidate := flags.String("candidate", "", "print only proofs of candidates whose position contains this path[:line]")
 	decisions := flags.Bool("decisions", false, "print only candidates, labels, considered suppressions, and decisions, not evidence")
-	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk dump trace [-func NAME] [-analyzer NAMES] [-candidate PATH[:LINE]] [-decisions] [-tests] package...")
+		writeLine(errorsOutput, "usage: gohawk dump trace [-func NAME] [-analyzer NAMES] [-candidate PATH[:LINE]] [-decisions] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -56,7 +55,7 @@ func printTrace(arguments []string, output, errorsOutput io.Writer) error {
 	}
 	var records []analysisTrace.Record
 	restore := analysisTrace.Capture(selectors, *candidate, func(record analysisTrace.Record) { records = append(records, record) })
-	graph, err := analyzeForDump(flags.Args(), *includeTests, analyzers)
+	graph, err := analyzeForDump(flags.Args(), analyzers)
 	restore()
 	if err != nil {
 		return err

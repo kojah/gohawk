@@ -35,11 +35,10 @@ func printHeap(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("heap", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
 	functionFilter := flags.String("func", "", "print only functions whose name or enclosing function name matches")
-	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	withSSA := flags.Bool("ssa", false, "print each function's SSA before its graph")
 	bare := flags.Bool("bare", false, "skip the lifecycle pass: no dependency summaries, as a unit test sees the graph")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk dump heap [-func NAME] [-tests] [-ssa] [-bare] package...")
+		writeLine(errorsOutput, "usage: gohawk dump heap [-func NAME] [-ssa] [-bare] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -48,7 +47,7 @@ func printHeap(arguments []string, output, errorsOutput io.Writer) error {
 	if len(flags.Args()) == 0 {
 		return errors.New("at least one package pattern is required")
 	}
-	functions, err := heapFunctions(flags.Args(), *includeTests, *bare)
+	functions, err := heapFunctions(flags.Args(), *bare)
 	if err != nil {
 		return err
 	}
@@ -81,12 +80,12 @@ func printHeap(arguments []string, output, errorsOutput io.Writer) error {
 // heapFunctions returns the matched packages' functions with bodies, in
 // position order. Without bare, the lifecycle pass runs first, which builds
 // and registers every summary a graph applies, callees' included.
-func heapFunctions(patterns []string, includeTests, bare bool) ([]*ssa.Function, error) {
+func heapFunctions(patterns []string, bare bool) ([]*ssa.Function, error) {
 	if bare {
-		functions, _, err := loadSSAFunctions(patterns, includeTests)
+		functions, _, err := loadSSAFunctions(patterns)
 		return slices.DeleteFunc(functions, func(function *ssa.Function) bool { return len(function.Blocks) == 0 }), err
 	}
-	loaded, err := packages.Load(&packages.Config{Mode: packages.LoadAllSyntax, Tests: includeTests}, patterns...)
+	loaded, err := packages.Load(&packages.Config{Mode: packages.LoadAllSyntax}, patterns...)
 	if err != nil {
 		return nil, err
 	}

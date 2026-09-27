@@ -88,19 +88,9 @@ These selection flags also work when gohawk runs through `go vet -vettool`.
 
 ### Test files
 
-gohawk checks production code, so `_test.go` files are skipped by default:
-their functions are not analyzed, they do not count as callers or users of
-package state, and no findings are reported in them. Fixture files,
-table-driven tests, and intentionally orphaned helper processes are usually
-true by the letter of a policy and rarely worth acting on. To analyze and
-report them anyway:
-
-```sh
-gohawk -gohawk-include-tests ./...
-```
-
-The reviewed precision cohorts replay with this flag so labels inside test
-files stay meaningful.
+gohawk checks production code, so `_test.go` files are never analyzed: their
+functions are not checked, they do not count as callers or users of package
+state, and no findings are reported in them.
 
 ## No analyzer options
 

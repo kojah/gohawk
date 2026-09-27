@@ -29,9 +29,8 @@ func printBudget(arguments []string, output, errorsOutput io.Writer) error {
 	analyzerList := flags.String("analyzer", "", "comma-separated analyzers to run (default all)")
 	top := flags.Int("top", 15, "print the N slowest analyzer runs")
 	withDependencies := flags.Bool("deps", false, "also list exhaustions while summarizing dependencies")
-	includeTests := flags.Bool("tests", false, "also load the package's test variant")
 	flags.Usage = func() {
-		writeLine(errorsOutput, "usage: gohawk dump budget [-analyzer NAMES] [-top N] [-deps] [-tests] package...")
+		writeLine(errorsOutput, "usage: gohawk dump budget [-analyzer NAMES] [-top N] [-deps] package...")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(arguments); err != nil {
@@ -48,7 +47,7 @@ func printBudget(arguments []string, output, errorsOutput io.Writer) error {
 		running.Exhaustion = exhaustion
 		exhaustions[running]++
 	})
-	graph, err := analyzeForDump(flags.Args(), *includeTests, analyzers)
+	graph, err := analyzeForDump(flags.Args(), analyzers)
 	stop()
 	restore()
 	if err != nil {

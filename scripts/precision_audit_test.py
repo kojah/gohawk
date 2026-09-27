@@ -131,7 +131,7 @@ class PrecisionAuditTest(unittest.TestCase):
         current = {
             "repositories": [["owner/repo", SHA], ["other/repo", SHA]],
             "binary_sha256": "binary", "runner_sha256": "new", "replay_sha256": "replay",
-            "go_version": "go version", "profile": "-enable-all -gohawk-include-tests -json",
+            "go_version": "go version", "profile": "-enable-all -json",
             "cache_policy": {"kind": "isolated-window", "window_size": 4, "minimum_root_free_gib": 8},
         }
         previous = dict(current, runner_sha256="old")
@@ -161,7 +161,7 @@ class PrecisionAuditTest(unittest.TestCase):
         previous = {
             "repositories": [["owner/repo", SHA]], "binary_sha256": "binary",
             "runner_sha256": "same", "replay_sha256": "replay", "go_version": "go version",
-            "profile": "-enable-all -gohawk-include-tests -json",
+            "profile": "-enable-all -json",
             "cache_policy": {"kind": "isolated-window", "window_size": 2, "minimum_root_free_gib": 12},
         }
         current = dict(previous, cache_policy={"kind": "isolated-window", "window_size": 4,

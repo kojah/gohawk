@@ -54,7 +54,7 @@ decision and reason code, per check. This costs almost nothing when the scans
 already run.
 
 ```sh
-gohawk -json -gohawk-include-tests -enable-checks=CHECKS \
+gohawk -json -enable-checks=CHECKS \
   -gohawk-trace=ANALYZERS -gohawk-trace-file=TRACE ./...
 ```
 

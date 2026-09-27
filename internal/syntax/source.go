@@ -1,7 +1,6 @@
 package syntax
 
 import (
-	"flag"
 	"go/ast"
 	"go/token"
 	"os"
@@ -64,27 +63,11 @@ func GeneratedFile(file *ast.File) bool {
 	return ast.IsGenerated(file)
 }
 
-// includeTestFiles is the -gohawk-include-tests option. gohawk checks
-// production code, so test files are skipped entirely by default: their
-// functions are not analyzed, summarized as roots, or counted in a package's
-// closed-world inventories, and their diagnostics are not reported.
-var includeTestFiles bool
-
-// RegisterTestFlag adds the test-file option to the driver's flag set.
-func RegisterTestFlag(flags *flag.FlagSet) {
-	flags.BoolVar(&includeTestFiles, "gohawk-include-tests", false, "analyze and report _test.go files")
-}
-
-// IncludeTestFiles reports whether test files are analyzed.
-func IncludeTestFiles() bool {
-	return includeTestFiles
-}
-
 // AnalyzeFile reports whether file is the canonical copy to analyze. Package-
 // loading drivers commonly analyze production files once normally and again in
 // a test variant. Other drivers expose the augmented test variant as their only
-// pass, so every file in that pass is canonical. Test files are analyzed only
-// when the test-file option is set.
+// pass, so every file in that pass is canonical. Test files are never
+// analyzed: gohawk checks production code.
 func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 	if GeneratedFile(file) {
 		return false
@@ -100,11 +83,14 @@ func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 	return isTest
 }
 
-// ExcludedTestFile reports whether file is a test file the option leaves out.
-// Whole-package inventories, which read every file rather than only the
-// canonical copy, use it to skip test code.
+// ExcludedTestFile reports whether file is a _test.go file. gohawk checks
+// production code, so test files are skipped entirely: their functions are
+// not analyzed, summarized as roots, or counted in a package's closed-world
+// inventories, and their diagnostics are not reported. Whole-package
+// inventories, which read every file rather than only the canonical copy, use
+// it to skip test code.
 func ExcludedTestFile(pass *analysis.Pass, file *ast.File) bool {
-	return !includeTestFiles && testFile(pass, file)
+	return testFile(pass, file)
 }
 
 func testFile(pass *analysis.Pass, file *ast.File) bool {

@@ -14,17 +14,17 @@ Dump it, then reason about what the analyzer actually sees.
 ## SSA dump
 
 ```text
-gohawk dump ssa [-func NAME] [-tests] package...
+gohawk dump ssa [-func NAME] package...
 ```
 
 Prints the SSA of the matching functions in the given packages. Use `-func`
-to narrow to one function and `-tests` to include test files. This is the
+to narrow to one function. This is the
 first thing to run when a classifier label is surprising.
 
 ## Fact dump
 
 ```text
-gohawk dump facts [-func NAME] [-kind KINDS] [-tests] package...
+gohawk dump facts [-func NAME] [-kind KINDS] package...
 ```
 
 Prints the facts the given packages export, and those of the callees they
@@ -53,7 +53,7 @@ clear bit. See [Inferred facts](fact-model.md).
 ## Heap dump
 
 ```text
-gohawk dump heap [-func NAME] [-tests] [-ssa] [-bare] package...
+gohawk dump heap [-func NAME] [-ssa] [-bare] package...
 ```
 
 Prints how the heap model was derived: every function of the package,
@@ -82,7 +82,7 @@ summaries contributed.
 ## Budget dump
 
 ```text
-gohawk dump budget [-analyzer NAMES] [-top N] [-deps] [-tests] package...
+gohawk dump budget [-analyzer NAMES] [-top N] [-deps] package...
 ```
 
 Runs the analyzers in one process, one action at a time, and prints where
@@ -102,7 +102,7 @@ dump or the `budget-exhausted` trace reasons.
 ## Lock order dump
 
 ```text
-gohawk dump locks [-dot] [-tests] package...
+gohawk dump locks [-dot] package...
 ```
 
 Prints the order graph `lockorder` recorded for each package: every pair of
@@ -117,7 +117,7 @@ same graph for Graphviz, cycle edges in red and read-lock edges dashed.
 ## Trace dump
 
 ```text
-gohawk dump trace [-func NAME] [-analyzer NAMES] [-candidate PATH[:LINE]] [-decisions] [-tests] package...
+gohawk dump trace [-func NAME] [-analyzer NAMES] [-candidate PATH[:LINE]] [-decisions] package...
 ```
 
 Runs the analyzers in one process with the evidence tracer captured, and
