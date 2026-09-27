@@ -43,8 +43,10 @@ around them.
    removing, disabling, or demoting the check, as required by analyzer-change.
    For retained checks, follow that skill's failure ladder and minimize the
    pattern into a local fixture instead of copying the external repository.
-4. **Record the batch.** Append the batch to `audits/README.md` and commit it
-   as `record batch-N precision audit`, separately from any analyzer change it
+4. **Record the batch.** Lead the record with production-file precision,
+   which is what the default profile analyzes, and give test files
+   separately. Append the batch to `audits/README.md` and commit it as
+   `record batch-N precision audit`, separately from any analyzer change it
    motivated.
 
 ## Parallel large-batch audits

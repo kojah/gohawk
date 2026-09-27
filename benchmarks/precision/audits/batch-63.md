@@ -29,15 +29,20 @@ the 412 emitted findings was reviewed against pinned source: 350 true
 positives, 62 false positives. These are judgments of the reported
 policies, not runtime reproductions or a recall measurement.
 
-| Analyzer | TP | FP |
-| --- | ---: | ---: |
-| `resourcelifetime` | 278 | 44 |
-| `goroutineownership` | 46 | 8 |
-| `lockorder` | 11 | 7 |
-| `processownership` | 6 | 3 |
-| `concurrentcapture` | 2 | 0 |
-| `deferinloop` | 4 | 0 |
-| `producerlifecycle` | 1 | 0 |
-| `cancellationownership` | 2 | 0 |
+**Default profile (production files): 143 TP, 35 FP (80% precision).** Test
+files, reviewed because the audit profile adds `-gohawk-include-tests`: 207
+TP, 27 FP (88%). A default run does not analyze test files, so the
+production figures are what a user of the default profile sees.
+
+| Analyzer | Production TP | Production FP | Test TP | Test FP |
+| --- | ---: | ---: | ---: | ---: |
+| `resourcelifetime` | 96 | 18 | 182 | 26 |
+| `goroutineownership` | 23 | 7 | 23 | 1 |
+| `lockorder` | 11 | 7 | 0 | 0 |
+| `processownership` | 5 | 3 | 1 | 0 |
+| `concurrentcapture` | 2 | 0 | 0 | 0 |
+| `deferinloop` | 3 | 0 | 1 | 0 |
+| `producerlifecycle` | 1 | 0 | 0 | 0 |
+| `cancellationownership` | 2 | 0 | 0 | 0 |
 
 The round's false-positive families are listed with [batch 62](batch-62.md#false-positive-families-batches-62-and-63).

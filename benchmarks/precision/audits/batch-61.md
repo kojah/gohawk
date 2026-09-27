@@ -28,16 +28,21 @@ emitted findings was reviewed against pinned source: 331 true positives
 and 67 false positives. These are judgments of the reported policies, not
 runtime reproductions or a recall measurement.
 
-| Analyzer | TP | FP |
-| --- | ---: | ---: |
-| `resourcelifetime` | 219 | 36 |
-| `goroutineownership` | 53 | 10 |
-| `lockorder` | 16 | 18 |
-| `deferinloop` | 14 | 1 |
-| `processownership` | 9 | 1 |
-| `concurrentcapture` | 8 | 1 |
-| `producerlifecycle` | 8 | 0 |
-| `cancellationownership` | 4 | 0 |
+**Default profile (production files): 154 TP, 41 FP (79% precision).** Test
+files, reviewed because the audit profile adds `-gohawk-include-tests`: 177
+TP, 26 FP (87%). A default run does not analyze test files, so the
+production figures are what a user of the default profile sees.
+
+| Analyzer | Production TP | Production FP | Test TP | Test FP |
+| --- | ---: | ---: | ---: | ---: |
+| `resourcelifetime` | 78 | 17 | 141 | 19 |
+| `goroutineownership` | 35 | 4 | 18 | 6 |
+| `lockorder` | 15 | 18 | 1 | 0 |
+| `processownership` | 6 | 1 | 3 | 0 |
+| `concurrentcapture` | 2 | 0 | 6 | 1 |
+| `deferinloop` | 11 | 1 | 3 | 0 |
+| `producerlifecycle` | 6 | 0 | 2 | 0 |
+| `cancellationownership` | 1 | 0 | 3 | 0 |
 
 ## New producerlifecycle checks
 

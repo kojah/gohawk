@@ -8,6 +8,12 @@ verdicts (1,369 TP, 511 FP, three inconclusive). Incomplete and failed
 scans are not clean; the overview separates the unchanged baseline from
 follow-up analyzer work and records current priorities.
 
+Each batch record leads with production-file precision, which is what the
+default profile analyzes, and reports test files separately. The audit
+profile adds `-gohawk-include-tests` because test code exposes analyzer logic
+cheaply and keeps batches comparable; test-only false-positive families still
+count, but they do not describe what a default run reports.
+
 After a batch record is committed and every emitted finding has a source
 verdict, the audit runner can remove only its pinned, clean checkouts while
 retaining reports and ledgers. Preview first, then omit `--cleanup-dry-run`:
@@ -30,14 +36,16 @@ pinned repositories scanned with `f8c461f`. All 738 findings have source
 verdicts (612 TP, 123 FP, 3 inconclusive); 390 scans completed and
 110 were incomplete. Test requests that cannot succeed and in-memory or
 bodyless responses remain the largest false-positive families, and one
-report depends on Go cache state.
+report depends on Go cache state. In production files, which is what the
+default profile analyzes, the round has 245 TP and 55 FP (82%).
 
 New audit: [batch 61](batch-61.md) records 250 fresh pinned repositories
 scanned with `3e8b8ba` and tests included. All 398 findings have source
 verdicts (331 TP, 67 FP); 189 scans completed and 61 were incomplete. The
 new experimental `producerlifecycle/unreceived-return` check made eight
 reports, all true positives. `lockorder/read-lock-write` on locally built
-values is the largest false-positive family by rate.
+values is the largest false-positive family by rate. In production files it
+has 154 TP and 41 FP (79%).
 
 New overnight audit: [batch 58](batch-58.md) records the third 250 of the
 September 24 target of 1,000 fresh pinned repositories. All 467 original
