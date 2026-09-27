@@ -55,6 +55,7 @@ func (flow lockFlowContext) reportMissingReleases(
 			if returned == token.NoPos {
 				returned = position
 			}
+			flow.releaseAttempts.trace(flow.pass, identity, returned)
 			source := syntax.SourceRange(flow.pass, returned)
 			check.Report(flow.pass, check.LockMissingRelease, analysis.Diagnostic{
 				Pos: source.Pos(), End: source.End(),
