@@ -60,6 +60,15 @@ nil error, so the return at line 41 cannot execute; the same missing unlock is
 still reported at the reachable return on line 45. This is a position
 correction, not a retirement.
 
+gohawk no longer analyzes test files, and the `-gohawk-include-tests` option
+is removed. The 205 labels positioned in `_test.go` files, 94 true positives
+and 111 false positives across 32 rounds, were removed with it: a finding in a
+test file can never be reported again, so a true-positive label there fails
+every replay and a false-positive label passes without testing anything. Each
+round's recorded count drops by the labels it lost. Round 51 held only such
+labels and is removed. The findings and their reviews remain in the audit
+records.
+
 Labels named analyzers the project has since withdrawn:
 channelownership (10), errorownership (7), determinism (7),
 closedomain (6), apishape (5), contextpolicy (5),

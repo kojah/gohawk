@@ -12,5 +12,3 @@ stacklok/toolhive,evalorder,evalorder/operand-mutation,pkg/skills/skillsvc/insta
 stacklok/toolhive,evalorder,evalorder/operand-mutation,pkg/skills/skillsvc/install.go:97:41,false_positive,9613f2d,2026-09-06
 stacklok/toolhive,resourcelifetime,,pkg/oauthproto/dcr.go:200:15,false_positive,9613f2d,2026-09-06
 stacklok/toolhive,deferinloop,deferinloop/cleanup-lifetime,pkg/runner/runner.go:1155:5,true_positive,9613f2d,2026-09-06
-stacklok/toolhive,processownership,processownership/missing-wait,test/e2e/telemetry_middleware_e2e_test.go:337:8,true_positive,9613f2d,2026-09-06
-stacklok/toolhive,resourcelifetime,resourcelifetime/missing-release,pkg/client/discovery_test.go:97:11,true_positive,9613f2d,2026-09-06

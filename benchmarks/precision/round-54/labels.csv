@@ -3,7 +3,6 @@ alajmo/sake,concurrentcapture,concurrentcapture/shared-capture,core/run/table.go
 alajmo/sake,concurrentcapture,concurrentcapture/shared-capture,core/run/table.go:434:8,false_positive,,
 alajmo/sake,concurrentcapture,concurrentcapture/shared-capture,core/run/text.go:179:7,false_positive,,
 alajmo/sake,concurrentcapture,concurrentcapture/shared-capture,core/run/text.go:436:8,false_positive,,
-goshs-labs/goshs,resourcelifetime,resourcelifetime/missing-release,smbserver/session_test.go:108:12,false_positive,,
 metatube-community/metatube-sdk-go,concurrentcapture,concurrentcapture/shared-capture,provider/internal/imcmp/image.go:49:6,false_positive,,
 metatube-community/metatube-sdk-go,concurrentcapture,concurrentcapture/shared-capture,provider/internal/imcmp/image.go:51:6,false_positive,,
 alajmo/sake,lockorder,lockorder/missing-release,core/run/exec.go:1099:3,true_positive,,

@@ -5,7 +5,6 @@ mr-karan/doggo,resourcelifetime,resourcelifetime/missing-release,pkg/resolvers/d
 getgauge/gauge,resourcelifetime,resourcelifetime/missing-release,config/properties.go:191:12,false_positive,c9609c6,2026-09-22
 getgauge/gauge,resourcelifetime,resourcelifetime/missing-release,config/properties.go:196:12,false_positive,c9609c6,2026-09-22
 Telmate/terraform-provider-proxmox,resourcelifetime,resourcelifetime/missing-release,proxmox/util.go:95:12,false_positive,c9609c6,2026-09-22
-rusq/slackdump,resourcelifetime,resourcelifetime/missing-release,internal/convert/filecopy_test.go:92:21,false_positive,c9609c6,2026-09-22
 nadoo/glider,goroutineownership,goroutineownership/unjoined,dns/server.go:45:2,false_positive,c9609c6,2026-09-22
 nadoo/glider,goroutineownership,goroutineownership/unjoined,dns/server.go:46:2,false_positive,c9609c6,2026-09-22
 getgauge/gauge,resourcelifetime,resourcelifetime/missing-release,api/api.go:56:33,true_positive,c9609c6,2026-09-22
