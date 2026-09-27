@@ -261,7 +261,7 @@ func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action
 // traces the decision: the collection, or the use of it that declined the
 // model and left the append unknown.
 func (analysis *resourceAnalysis) localCollection() *localCollection {
-	decision := findLocalCollection(analysis.resource, analysis.contract.cleanup, analysis.budget(ssaflow.QueryBudget))
+	decision := findLocalCollection(analysis.evidence, analysis.resource, analysis.contract.cleanup, analysis.budget(ssaflow.QueryBudget))
 	if !analysis.probe.Enabled() || decision.collection == nil && decision.declinedAt == nil {
 		return decision.collection
 	}

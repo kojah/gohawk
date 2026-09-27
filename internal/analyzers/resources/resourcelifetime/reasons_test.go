@@ -12,6 +12,7 @@ var resourceReasonSpellings = map[resourceLifetimeReason]string{
 	resourceReasonAppended:                                 "appended",
 	resourceReasonAppendedToLocalCollection:                "appended-to-local-collection",
 	resourceReasonCollectionReturned:                       "collection-returned",
+	resourceReasonCollectionReleasedByHelper:               "collection-released-by-helper",
 	resourceReasonCollectionReleased:                       "collection-released",
 	resourceReasonCollectionUseUnknown:                     "collection-use-unknown",
 	resourceReasonRowsExhaustedEdgeUnknown:                 "rows-exhausted-edge-unknown",

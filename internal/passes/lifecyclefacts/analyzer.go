@@ -238,6 +238,9 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 // cleans up the parameter itself.
 func summarizeDischarges(pass *analysis.Pass, function *ssa.Function, index int, parameter ssa.Value, fact *Fact) {
 	for _, method := range cleanupMethods {
+		if releasesEachElement(function, parameter, method) {
+			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: method, Path: EachElementPath})
+		}
 		deferred := deferredCompletions(function, parameter, method)
 		// A cleanup of a field or element is claimed at its own path,
 		// never as a cleanup of the parameter: closing j.out is not

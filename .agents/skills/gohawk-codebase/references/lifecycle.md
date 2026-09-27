@@ -223,6 +223,21 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 DeferredClosureInvokesArgumentOnEveryReturn reports whether a deferred
 closure delegates target to a helper that invokes it on every normal path.
 
+## ElementLoopReleasesEach
+
+[Source](../../../../internal/lifecycle/completion_element_releases.go)
+
+```go
+func ElementLoopReleasesEach(loop ssaflow.ElementLoop, address *ssa.IndexAddr, methods []string) bool
+```
+
+ElementLoopReleasesEach reports whether the element a range loop reads at
+address is used only as the receiver of a call to one of methods that runs
+on every iteration: its block dominates every back edge to the header. Such
+a loop releases each element it reads, and together its iterations read
+them all, so leaving it has released the whole slice. Both a caller's local
+collection and a helper's parameter summary ask this one question.
+
 ## EnclosingCompletionRequest
 
 [Source](../../../../internal/lifecycle/completion_enclosing.go)

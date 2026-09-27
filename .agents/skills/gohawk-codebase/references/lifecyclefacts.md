@@ -137,6 +137,29 @@ Path beneath Parameter on every normal return of the case Condition names,
 or every normal return when Condition is empty. Path is a joined access
 path, empty for the parameter itself.
 
+## EachElementPath
+
+[Source](../../../../internal/passes/lifecyclefacts/element_discharges.go)
+
+```go
+const EachElementPath = "index:*"
+```
+
+EachElementPath is the discharge path meaning every element of a slice
+parameter. A helper such as closeAll(files) earns Discharge{Parameter: 0,
+Method: "Close", Path: EachElementPath} when it closes each element of the
+slice it is handed on every normal return, so a caller that passes its own
+collection whole has released every resource in it.
+
+The claim is narrow on purpose. The parameter's only uses are len and cap
+and range loops that release the element each iteration reads, as
+lifecycle.ElementLoopReleasesEach decides; and every normal return follows
+one of those loops running to completion. A loop that breaks or returns
+early, a release of only some elements, a release through a callback, or
+any other use of the slice, such as keeping, appending to, or returning
+it, earns nothing. Index loops, maps, and element paths deeper than one
+level are not modelled.
+
 ## EvidenceRequest
 
 [Source](../../../../internal/passes/lifecyclefacts/evidence.go)
@@ -642,6 +665,19 @@ func (evidence *LifecycleEvidence) Prove(request EvidenceRequest) Proof
 Prove returns one lifecycle proof with explicit provenance. Missing imported
 summaries produce Unknown rather than being conflated with a disproved local
 relationship.
+
+## LifecycleEvidence.ReleasesEachElement
+
+[Source](../../../../internal/passes/lifecyclefacts/element_discharges.go)
+
+```go
+func (evidence *LifecycleEvidence) ReleasesEachElement(instruction ssa.Instruction, index int, methods []string) bool
+```
+
+ReleasesEachElement reports whether the call's static callee releases,
+with one of methods, every element of the slice argument at index on every
+normal return: by its summary, or, for a callee of this package that has
+none because it is not exported, by the same proof over its body.
 
 ## LifecycleEvidence.RetainingResult
 

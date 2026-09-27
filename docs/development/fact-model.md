@@ -334,6 +334,11 @@ entries. Calling a function parameter is recorded with the method
 not the same claim; its entry carries the access path beneath it, such as
 `field:0` for `j.out.Close()` or `index:1` for `files[1].Close()`, including
 through the cell a by-value parameter is spilled into. Each path is proved on every normal return on its own.
+The path `index:*` (`EachElementPath`) means every element of a slice
+parameter: the parameter is used only by `len`, `cap`, and range loops that
+call the method on the element each iteration reads, and every normal return
+follows such a loop running to completion. A local collection handed whole
+to such a helper is released by the call.
 
 A caller is credited only for the resource it stored at that path beneath
 its argument, resolved from the caller's own stores; a helper that closes

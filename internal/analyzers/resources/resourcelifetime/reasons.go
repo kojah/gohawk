@@ -78,6 +78,7 @@ const (
 	resourceReasonReturnedRetainingWrapper
 	resourceReasonAppendedToLocalCollection
 	resourceReasonCollectionReturned
+	resourceReasonCollectionReleasedByHelper
 	resourceReasonCollectionReleased
 	resourceReasonCollectionUseUnknown
 	resourceReasonRowsExhaustedEdgeUnknown
@@ -99,6 +100,7 @@ var resourceReasonCodes = [...]string{
 	resourceReasonAppended:                                 "appended",
 	resourceReasonAppendedToLocalCollection:                "appended-to-local-collection",
 	resourceReasonCollectionReturned:                       "collection-returned",
+	resourceReasonCollectionReleasedByHelper:               "collection-released-by-helper",
 	resourceReasonCollectionReleased:                       "collection-released",
 	resourceReasonCollectionUseUnknown:                     "collection-use-unknown",
 	resourceReasonRowsExhaustedEdgeUnknown:                 "rows-exhausted-edge-unknown",

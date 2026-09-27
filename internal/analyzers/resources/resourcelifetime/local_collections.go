@@ -1,9 +1,10 @@
 package resourcelifetime
 
 import (
-	"go/token"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/lifecycle"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -31,6 +32,10 @@ type localCollection struct {
 	versions []ssa.Value
 	// released holds the exit edges of the loops that release every element.
 	released map[[2]*ssa.BasicBlock]bool
+	// releasingCalls are calls that hand the whole collection to a helper
+	// that releases every element of it on every normal return.
+	releasingCalls map[ssa.Instruction]bool
+	evidence       *lifecyclefacts.LifecycleEvidence
 }
 
 // collectionDecision is the model's answer for one resource: the collection
@@ -40,12 +45,17 @@ type collectionDecision struct {
 	declinedAt ssa.Instruction
 }
 
-func findLocalCollection(resource ssa.Value, cleanup []string, budget *ssaflow.SearchBudget) collectionDecision {
+func findLocalCollection(
+	evidence *lifecyclefacts.LifecycleEvidence, resource ssa.Value, cleanup []string, budget *ssaflow.SearchBudget,
+) collectionDecision {
 	appends := resourceAppends(resource)
 	if len(appends) == 0 {
 		return collectionDecision{}
 	}
-	collection := &localCollection{appends: appends, versions: ssaflow.SliceVersions(appends[0]), released: map[[2]*ssa.BasicBlock]bool{}}
+	collection := &localCollection{
+		appends: appends, versions: ssaflow.SliceVersions(appends[0]), released: map[[2]*ssa.BasicBlock]bool{},
+		releasingCalls: map[ssa.Instruction]bool{}, evidence: evidence,
+	}
 	// Every append of the resource must feed this one collection.
 	for _, call := range appends[1:] {
 		if !slices.Contains(collection.versions, ssa.Value(call)) {
@@ -139,8 +149,10 @@ func (collection *localCollection) understood(version ssa.Value, user ssa.Instru
 		if collection.member(typed) {
 			return true
 		}
-		builtin, ok := typed.Call.Value.(*ssa.Builtin)
-		return ok && (builtin.Name() == "len" || builtin.Name() == "cap")
+		if builtin, ok := typed.Call.Value.(*ssa.Builtin); ok {
+			return builtin.Name() == "len" || builtin.Name() == "cap"
+		}
+		return collection.releasedByHelper(typed, version, cleanup)
 	case *ssa.IndexAddr:
 		return typed.X == version && collection.releaseLoopReads(typed, cleanup, budget)
 	}
@@ -153,7 +165,7 @@ func (collection *localCollection) understood(version ssa.Value, user ssa.Instru
 func (collection *localCollection) releaseLoopReads(address *ssa.IndexAddr, cleanup []string, budget *ssaflow.SearchBudget) bool {
 	for _, header := range address.Parent().Blocks {
 		loop, ok := ssaflow.RangeElementLoop(header, budget)
-		if !ok || !loop.ReadsElement(address) || !releasesEachElement(loop, address, cleanup) {
+		if !ok || !loop.ReadsElement(address) || !lifecycle.ElementLoopReleasesEach(loop, address, cleanup) {
 			continue
 		}
 		collection.released[[2]*ssa.BasicBlock{loop.Loop.Header, loop.Done}] = true
@@ -162,40 +174,18 @@ func (collection *localCollection) releaseLoopReads(address *ssa.IndexAddr, clea
 	return false
 }
 
-// releasesEachElement reports whether the element read at address is used
-// only as the receiver of a cleanup call that runs on every iteration: its
-// block dominates every back edge to the header.
-func releasesEachElement(loop ssaflow.ElementLoop, address *ssa.IndexAddr, cleanup []string) bool {
-	released := false
-	for _, user := range *address.Referrers() {
-		if _, ok := user.(*ssa.DebugRef); ok {
-			continue
-		}
-		load, ok := user.(*ssa.UnOp)
-		if !ok || load.Op != token.MUL {
-			return false
-		}
-		for _, use := range *load.Referrers() {
-			if _, ok := use.(*ssa.DebugRef); ok {
-				continue
-			}
-			call, ok := use.(*ssa.Call)
-			if !ok || ssaflow.CallReceiver(call.Common()) != load || !slices.Contains(cleanup, ssaflow.CallName(call.Common())) ||
-				!runsEveryIteration(loop, call.Block()) {
-				return false
-			}
-			released = true
-		}
+// releasedByHelper reports whether the call hands this version of the
+// collection, whole and exactly once, to a helper that releases every element
+// of that argument on every normal return, and records the call as releasing
+// the collection. A sub-slice or a copy is another value and declines the
+// model before it reaches here.
+func (collection *localCollection) releasedByHelper(call *ssa.Call, version ssa.Value, cleanup []string) bool {
+	index := slices.Index(call.Call.Args, version)
+	if index < 0 || slices.Index(call.Call.Args[index+1:], version) >= 0 || collection.evidence == nil ||
+		!collection.evidence.ReleasesEachElement(call, index, cleanup) {
+		return false
 	}
-	return released
-}
-
-func runsEveryIteration(loop ssaflow.ElementLoop, block *ssa.BasicBlock) bool {
-	for _, predecessor := range loop.Loop.Header.Preds {
-		if loop.Loop.Contains(predecessor) && !block.Dominates(predecessor) {
-			return false
-		}
-	}
+	collection.releasingCalls[call] = true
 	return true
 }
 
@@ -210,6 +200,9 @@ func (collection *localCollection) label(instruction ssa.Instruction) (resourceA
 	case *ssa.Call:
 		if slices.Contains(collection.appends, typed) {
 			return actionNone, resourceReasonAppendedToLocalCollection, true
+		}
+		if collection.releasingCalls[typed] {
+			return actionSettled, resourceReasonCollectionReleasedByHelper, true
 		}
 	case *ssa.Return:
 		if slices.ContainsFunc(typed.Results, collection.member) {

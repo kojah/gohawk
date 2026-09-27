@@ -259,6 +259,19 @@ appended by earlier iterations, because the walk reads that error branch as
 the current acquisition's own. Fixtures: `resourcelifetime/collections.go`;
 the loop shape is `ssaflow.RangeElementLoop`.
 
+Passing the collection whole to a helper that releases every element of it on
+every normal return is also understood, and settles the resource at the call,
+as the loop's exit edge does. The helper's claim is the lifecycle discharge
+at path `index:*` (see the fact model), or the same proof over the body of an
+unexported helper in this package. A sub-slice or a copy is another value and
+declines the model, and so does a helper that releases only some elements,
+stops early, releases through a callback, keeps or appends to the slice, or
+has no summary. Because declining is all or nothing, a helper that releases
+every element on some returns but not others leaves the collection unknown
+rather than reported; what is reported is a caller that skips the helper on
+one of its own returns. Index loops, maps, and composite-literal roots are
+not modelled yet. Fixtures: `resourcelifetime/collection_helpers.go`.
+
 The same uncertainty applies when a retained aggregate argument contains the
 resource, or a helper's aggregate result is published through a global. An
 imported helper that receives the aggregate is judged by its summary's
