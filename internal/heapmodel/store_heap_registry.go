@@ -143,8 +143,13 @@ func registeredHeapSummary(function *ssa.Function) (HeapSummary, bool) {
 }
 
 // projectHeapOnDemand projects a callee whose body is in the program and
-// keeps the result. A callee already being projected, which only a call
-// cycle reaches again, has no summary, so the cycle is cut where it closes.
+// keeps the result. A graph never applies a summary from its own call cycle
+// (sameCallCycle), so a callee found mid-projection is being projected by
+// another analyzer, not reached again on this stack. Treating that as a cut
+// gave the caller no summary whenever two analyzers asked at once, and the
+// same package was reported differently from run to run; the callee is
+// projected privately instead, which yields the summary the other analyzer
+// is about to register.
 func projectHeapOnDemand(function *ssa.Function) (HeapSummary, bool) {
 	if function == nil || len(function.Blocks) == 0 {
 		return HeapSummary{}, false
@@ -152,6 +157,9 @@ func projectHeapOnDemand(function *ssa.Function) (HeapSummary, bool) {
 	heapSummaries.Lock()
 	if entry, ok := heapSummaries.entries[function]; ok {
 		heapSummaries.Unlock()
+		if entry.state == heapEntryProjecting {
+			return ProjectHeap(function)
+		}
 		return entry.summary, entry.state == heapEntryReady
 	}
 	heapSummaries.entries[function] = heapEntry{state: heapEntryProjecting}

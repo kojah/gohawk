@@ -47,6 +47,22 @@ type regionGraphEntry struct {
 	function *ssa.Function
 	graph    *regionGraph
 	stale    bool
+	// done is closed once the build that created the entry finishes, whether
+	// it was published or found stale.
+	done chan struct{}
+}
+
+// finishLocked marks the entry's build finished, waking every lookup that is
+// waiting for it. It runs under the cache lock.
+func (entry *regionGraphEntry) finishLocked() {
+	if entry.done == nil {
+		return
+	}
+	select {
+	case <-entry.done:
+	default:
+		close(entry.done)
+	}
 }
 
 // regionsOf returns the points-to graph of the function that owns value,
@@ -62,20 +78,34 @@ func regionsOfFunction(function *ssa.Function) *regionGraph {
 	if function == nil || len(function.Blocks) == 0 {
 		return &regionGraph{}
 	}
-	regionGraphs.Lock()
-	if element, ok := regionGraphs.entries[function]; ok {
+	for {
+		regionGraphs.Lock()
+		element, ok := regionGraphs.entries[function]
+		if !ok {
+			break
+		}
 		entry := element.Value.(*regionGraphEntry) //nolint:forcetypeassert // The list holds only entries.
 		// Publication and eviction both update graph under this lock. Copy
 		// the pointer before releasing it; reading entry.graph afterwards
 		// races with another pass finishing the same function's build.
-		graph := entry.graph
+		graph, done := entry.graph, entry.done
 		regionGraphs.Unlock()
-		if graph == nil {
+		if graph != nil {
+			return graph
+		}
+		// Another analyzer is building this graph. Answering from an
+		// unavailable placeholder meanwhile gave weaker, structural answers
+		// whose presence depended on scheduling, so the same package could be
+		// reported differently from run to run. Wait for that build instead:
+		// a build never asks for its own function's graph, so the builder is
+		// always another goroutine. A build found stale is not published, and
+		// the loop then builds the graph here.
+		if done == nil {
 			return &regionGraph{building: true}
 		}
-		return graph
+		<-done
 	}
-	entry := &regionGraphEntry{function: function}
+	entry := &regionGraphEntry{function: function, done: make(chan struct{})}
 	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
 	regionGraphs.Unlock()
 	graph := buildRegionGraph(function)
@@ -92,6 +122,7 @@ func regionsOfFunction(function *ssa.Function) *regionGraph {
 func cacheRegionGraph(entry *regionGraphEntry, graph *regionGraph) {
 	regionGraphs.Lock()
 	defer regionGraphs.Unlock()
+	defer entry.finishLocked()
 	if entry.stale || !consultedStillCurrent(graph) {
 		entry.stale = true
 		if element, ok := regionGraphs.entries[entry.function]; ok && element.Value == entry {

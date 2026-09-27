@@ -97,6 +97,21 @@ may-answers about it say yes, must-answers say no, and the graph stays
 small where it would otherwise multiply those sets through every summary
 application and join. The dump prints each widening. Nothing here guesses.
 
+## Determinism under concurrent analyzers
+
+The graph cache and the summary registry are shared by every analyzer that
+runs on a package, and those analyzers run concurrently. A result must not
+depend on which of them asks first. A graph lookup that finds another
+analyzer's build in progress waits for it rather than answering from an
+unavailable placeholder, and a summary requested while another analyzer is
+projecting the same callee is projected privately rather than treated as a
+call-cycle cut. Both used to give weaker answers whose presence depended on
+scheduling: a resourcelifetime false positive in batch 63 (Polaris), and a
+goroutineownership report in grpc-go that appeared in some runs of the same
+binary and not others. A build never needs its own function's graph, and a
+graph applies no summary from its own call cycle, so neither wait can be
+reached from the goroutine doing the work.
+
 ## Heap summaries
 
 An instantiation of a generic function is usually a synthetic wrapper that

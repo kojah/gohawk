@@ -96,3 +96,26 @@ func use(f *File) *File { return must(f, nil) }
 		t.Fatalf("wrapper summary = %v (ok %t), want the result to be its first parameter", summary.String(), ok)
 	}
 }
+
+// A callee another analyzer is projecting still yields its summary: the
+// caller projects it privately rather than treating the contention as a call
+// cycle and getting none.
+func TestOnDemandProjectionDuringAnotherProjection(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "contended", `package contended
+type File struct{ fd int }
+func keep(f *File) *File { return f }
+`)
+	function := pkg.Func("keep")
+	heapSummaries.Lock()
+	heapSummaries.entries[function] = heapEntry{state: heapEntryProjecting}
+	heapSummaries.Unlock()
+	t.Cleanup(func() {
+		heapSummaries.Lock()
+		delete(heapSummaries.entries, function)
+		heapSummaries.Unlock()
+	})
+	summary, ok := projectHeapOnDemand(function)
+	if !ok || !strings.Contains(summary.String(), "edge R0 -> P0 must") {
+		t.Fatalf("contended projection = %v (ok %t), want the callee's own summary", summary.String(), ok)
+	}
+}
