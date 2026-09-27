@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"go/token"
+	"go/types"
 	"io"
 	"slices"
 	"strings"
@@ -88,8 +89,8 @@ func loadSSAFunctions(patterns []string, includeTests bool) ([]*ssa.Function, *t
 		}
 	}
 	var functions []*ssa.Function
-	for function := range ssautil.AllFunctions(program) {
-		if function.Pkg == nil || !roots[function.Pkg] || function.Synthetic != "" && function.Parent() == nil {
+	for function := range packageSourceFunctions(program, func(pkg *ssa.Package) bool { return roots[pkg] }) {
+		if function.Synthetic != "" && function.Parent() == nil {
 			continue
 		}
 		functions = append(functions, function)
@@ -116,4 +117,44 @@ func ssaFunctionSelected(function *ssa.Function, filter string) bool {
 		}
 	}
 	return false
+}
+
+// packageSourceFunctions returns the functions of the selected packages,
+// including every declared method and function literal. ssautil.AllFunctions
+// alone is not enough: it finds methods only through the method sets of
+// runtime types, so a method of a type never converted to an interface --
+// the common case for a mutex-guarded server -- would silently be missing
+// from a dump.
+func packageSourceFunctions(program *ssa.Program, selected func(*ssa.Package) bool) map[*ssa.Function]bool {
+	functions := map[*ssa.Function]bool{}
+	var add func(*ssa.Function)
+	add = func(function *ssa.Function) {
+		if function == nil || function.Pkg == nil || !selected(function.Pkg) || functions[function] {
+			return
+		}
+		functions[function] = true
+		for _, literal := range function.AnonFuncs {
+			add(literal)
+		}
+	}
+	for function := range ssautil.AllFunctions(program) {
+		add(function)
+	}
+	for _, pkg := range program.AllPackages() {
+		if !selected(pkg) {
+			continue
+		}
+		for _, member := range pkg.Members {
+			named, ok := member.(*ssa.Type)
+			if !ok {
+				continue
+			}
+			for _, receiver := range []types.Type{named.Type(), types.NewPointer(named.Type())} {
+				for selection := range program.MethodSets.MethodSet(receiver).Methods() {
+					add(program.MethodValue(selection))
+				}
+			}
+		}
+	}
+	return functions
 }

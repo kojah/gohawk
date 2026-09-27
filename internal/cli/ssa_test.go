@@ -30,7 +30,13 @@ func run(path string) error {
 	return nil
 }
 
-func main() { _ = run("x") }
+type server struct{ open int }
+
+// serve is a method of a type never converted to an interface, which
+// ssautil.AllFunctions does not list.
+func (s *server) serve() { s.open++ }
+
+func main() { _ = run("x"); (&server{}).serve() }
 `)
 	t.Chdir(directory)
 
@@ -46,6 +52,13 @@ func main() { _ = run("x") }
 	}
 	if strings.Contains(text, "func main():") {
 		t.Errorf("SSA dump printed unselected function main:\n%s", text)
+	}
+	output.Reset()
+	if err := printSSA([]string{"-func", "serve", "."}, &output, &errorsOutput); err != nil {
+		t.Fatalf("printSSA() of a method error = %v, stderr %s", err, errorsOutput.String())
+	}
+	if !strings.Contains(output.String(), "func (s *server) serve():") {
+		t.Errorf("SSA dump lacks the method serve:\n%s", output.String())
 	}
 	if err := printSSA([]string{"-func", "missing", "."}, &output, &errorsOutput); err == nil {
 		t.Error("printSSA() with no matching function succeeded, want error")

@@ -14,9 +14,9 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"
+	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 // The heap subcommand prints how the heap model was derived: each local
@@ -93,7 +93,7 @@ func heapFunctions(patterns []string, includeTests, bare bool) ([]*ssa.Function,
 	if packages.PrintErrors(loaded) > 0 {
 		return nil, errors.New("packages have load errors")
 	}
-	graph, err := checker.Analyze([]*analysis.Analyzer{lifecyclefacts.Analyzer}, loaded, &checker.Options{Sequential: true})
+	graph, err := checker.Analyze([]*analysis.Analyzer{lifecyclefacts.Analyzer, buildssa.Analyzer}, loaded, &checker.Options{Sequential: true})
 	if err != nil {
 		return nil, err
 	}
@@ -107,26 +107,21 @@ func heapFunctions(patterns []string, includeTests, bare bool) ([]*ssa.Function,
 	return functions, nil
 }
 
-// packageFunctions returns the functions with bodies of the action's
-// package, found through the program the lifecycle pass summarized.
+// packageFunctions returns the functions with bodies of a buildssa root
+// action's package. The checker keeps results only for root actions, so
+// buildssa runs as a root beside the lifecycle pass rather than being read
+// through the summaries, which a package whose functions all summarize to
+// nothing does not export.
 func packageFunctions(action *checker.Action) []*ssa.Function {
-	summaries, ok := action.Result.(lifecyclefacts.Summaries)
-	if !ok {
+	built, ok := action.Result.(*buildssa.SSA)
+	if !ok || built.Pkg == nil {
 		return nil
 	}
-	var program *ssa.Program
-	for function := range summaries {
-		if function.Pkg != nil && function.Pkg.Pkg == action.Package.Types {
-			program = function.Prog
-			break
-		}
-	}
-	if program == nil {
-		return nil
-	}
+	program := built.Pkg.Prog
 	var functions []*ssa.Function
-	for function := range ssautil.AllFunctions(program) {
-		if function.Pkg != nil && function.Pkg.Pkg == action.Package.Types && len(function.Blocks) != 0 {
+	inPackage := func(pkg *ssa.Package) bool { return pkg.Pkg == action.Package.Types }
+	for function := range packageSourceFunctions(program, inPackage) {
+		if len(function.Blocks) != 0 {
 			functions = append(functions, function)
 		}
 	}

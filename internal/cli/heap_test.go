@@ -20,6 +20,10 @@ type box struct{ err error }
 
 // Wrap stores a fresh error in a fresh box.
 func Wrap() *box { return &box{err: errors.New("wrapped")} }
+
+// Reset is a method of a type never converted to an interface, which
+// ssautil.AllFunctions does not list.
+func (b *box) Reset() { b.err = nil }
 `,
 	} {
 		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o644); err != nil {
@@ -36,6 +40,8 @@ func Wrap() *box { return &box{err: errors.New("wrapped")} }
 			"// example.com/heapdump.Wrap", "// regions:", "// stores at return:", "local:t0 field:0 -> opaque:t2", "applied errors.New", "summary ",
 		}, []string{"func Wrap"}},
 		{[]string{"-bare", "-func", "Wrap", "."}, []string{"// regions:"}, []string{"applied errors.New", "summary "}},
+		{[]string{"-bare", "-func", "Reset", "."}, []string{"// (*example.com/heapdump.box).Reset"}, nil},
+		{[]string{"-func", "Reset", "."}, []string{"// (*example.com/heapdump.box).Reset"}, nil},
 		{[]string{"-ssa", "-func", "Wrap", "."}, []string{"func Wrap() *box:", "// regions:"}, nil},
 	} {
 		var output, errorsOutput bytes.Buffer
