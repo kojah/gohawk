@@ -10,8 +10,8 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 ## What it detects
 
 Reports files, SQL rows, statements and transactions, HTTP response bodies,
-and gzip/zlib writers not released on every return path, and uses after
-release, including after a helper closes them or inside a function handed one.
+and gzip/zlib writers not released on every return path, including when a
+helper is expected to close them.
 
 Some cases are deliberately not reported:
 
@@ -32,7 +32,6 @@ in the [resourcelifetime design notes](https://github.com/kojah/gohawk/blob/main
 | Check | Tier | Kind | What it detects |
 | --- | --- | --- | --- |
 | <CheckIdentity name="missing-release" tier="core" /> | core | defect | Reports owned resources that are not released on every return path. |
-| <CheckIdentity name="use-after-release" tier="core" /> | core | hazard | Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

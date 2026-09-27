@@ -33,16 +33,14 @@ about a slot the function never read.
 ## Requirements
 
 A requirement is a fact about one footprint slot that held on every path
-to a normal return. The first family is the one the use-after-release
-check can act on today:
+to a normal return. The first family is the one the leak check acts on
+today:
 
 - `requires P0 method Read every`: on every path, a method named `Read`
   is called with the object at `P0` as its receiver, directly or through a
-  summarized callee. The name is the callee's own; whether that method is
-  an invalidating operation is decided by the caller, from the concrete
-  type of the argument it passed, against the same documented table the
-  direct check uses. `io.Copy` requires `Read` of its source, and a caller
-  that passes an `*os.File` it has closed has used the file after `Close`.
+  summarized callee. The name is the callee's own; whether that method
+  releases the argument is decided by the caller, from the resource
+  contract of the value it passed.
 
 The second family was consumed by the `nilargument` analyzer, which has been
 removed. Heap summaries still record it, but no analyzer reads it today:
@@ -100,42 +98,13 @@ them.
 ## Applying a requirement
 
 At a call site the substitution already resolves each summary slot to the
-caller's slots. A requirement is checked against the caller's own proof of
-the contradicting state, never against the graph alone:
+caller's slots. A requirement is checked against the caller's own proof,
+never against the graph alone:
 
-- For `method M`, the use-after-release check treats the call as an
-  operation `M` on the argument. Its existing proof then applies
-  unchanged: a direct release of the exact resource must dominate the
-  call, nothing between may have reset or replaced the resource, and `M`
-  must be in the resource type's invalidation table. The call is reported
-  as the use, with the helper named.
+- For `method M`, `resourcelifetime` treats a call whose callee requires
+  the resource's cleanup method on the exact argument, on every path, as
+  the release of that resource.
 
-The check therefore gains reach, not a new proof: the same three things
-that make a direct `f.Read()` after `f.Close()` a finding make
-`io.Copy(dst, f)` one.
-
-## What could be wrong, and the accepted forms that pin it
-
-- The helper reads the resource on some path only. Requirement is not
-  `every`; nothing is reported. Fixture: a helper that reads only when a
-  flag is set.
-- The helper's method is not an invalidating one for the caller's type.
-  `rows.Err()` after `rows.Close()` through a helper stays silent, because
-  `Err` is not in the table. Fixture: a helper that calls `Err`.
-- The helper receives a different value that merely derives from the
-  resource, or a wrapper holding it. The argument must be the exact
-  released resource under the storage identity proof. Fixture: a helper
-  handed a struct holding the file.
-- The release does not dominate the call, or is deferred. Unchanged
-  proof; fixtures already exist for the direct form and are mirrored.
-- The helper reassigns or reopens the resource before using it. The
-  requirement is on the slot as read; a helper that stores into `P0`
-  before reading it does not read the caller's object, and the
-  projection's placeholder is not created for a slot written first.
-  Fixture: a helper that replaces the file it was handed and then reads.
-- The helper's body is unavailable or its graph was cut. No requirement
-  is exported; the call stays an opaque use. Fixture: a bodiless callee.
-- The method is invoked through an interface whose dynamic receiver is
-  not the argument. Only an invoke whose receiver's pointees are exactly
-  the parameter's object counts. Fixture: a helper that calls `Read` on a
-  reader it built around the argument.
+A `use-after-release` check once also read `method M` requirements as uses of
+a released resource; it was retired on 2026-09-27, as recorded in the
+resourcelifetime design note.

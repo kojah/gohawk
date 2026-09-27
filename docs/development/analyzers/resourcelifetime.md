@@ -136,7 +136,7 @@ statement. Cleanups with an effect that exit would lose are still reported:
 compressors must flush, transactions must commit, and an inferred owner's
 `Close` is not assumed to be effect-free.
 
-## Contracts, transfers, and use after release
+## Contracts and transfers
 
 The `owned` contract family is not a table. A constructor in another package
 whose returned struct holds a resource it acquired itself, and whose type has
@@ -285,75 +285,22 @@ unclosed holds nothing outside the function. Never closing it before the
 buffer is read truncates the output, which is a data defect rather than a
 leak and is not this check's claim.
 
-The core `use-after-release` check is the dual of the leak check. After a
-plain (not deferred) release of the acquired value, it reports an operation
-the API documents as failing on a released value, such as a write to a closed
-file, a scan of closed rows, a statement on a committed transaction, or a read
-of a closed response body. The release must dominate the use, so a release on
-one branch followed by a use after the merge is not claimed, and only the exact
-acquired value counts. Local fields, constant array and slice elements, saved
-aliases, and agreeing branch assignments preserve that identity. Replaced
-values, mixed branch assignments, and mutated response bodies do not.
+### Retired: use-after-release
 
-A helper that releases counts as the release: a plain call to a helper
-proven, for the exact acquired value, to call its cleanup method on every
-normal return is a release point, and the diagnostic names the helper. The
-proof is the leak check's completion evidence with the exact target, so an
-unconditional helper, or the argument case a constant call selects, such as
-`finish(file, false)`, releases the file, locally or through an imported
-summary. The leak check settles on weaker evidence than this, an exhausted
-search or an aggregate holding the resource, because settling only
-suppresses a report; a release point starts one. A helper handed a holder of
-the resource, a helper that may leave it open, a variable or keeping flag,
-and a deferred helper are not release points. A helper `Commit` is not
-either: only the success branch of a direct `Commit` invalidates a
-transaction. Fixtures: `resourcelifetime/useafter/helper_releases.go`.
-
-A function that releases its own parameter and then operates on it is
-reported at the operation, whoever calls it: `f.Close()` followed by
-`f.Read(buf)` on a parameter `f` is wrong for every caller. When the release
-happens only under the function's own Boolean parameters, as in
-`if closeFirst { f.Close() }` before the read, the function is right for some
-callers, so it is not reported; a call passing the constant that triggers the
-release is, locally or through an imported summary, and so is a call to a
-function that forwards its own flag there. The release must be a `Close`, or
-`Rollback` for a transaction, on the exact parameter, directly or by a helper
-proven to close it on every return, dominating the use on the paths the
-constants allow, with nothing else touching the parameter in between; the use
-must be an operation this table lists, directly or by a helper whose summary
-requires it. A function that passes the triggering literal itself is reported
-at that call and not again at its own callers. Fixtures also in
-`resourcelifetime/useafter/helper_released_uses.go`. A release on a branch the function decides by its own data, a
-reassigned parameter, `Err` after `Close`, a second `Close`, a deferred
-`Close`, and a use on a sibling parameter are not reported. The released
-value is the parameter, so a use after a `Commit` is not claimed. Fixtures:
-`resourcelifetime/useafter/latent_uses.go`.
-
-A helper that performs the operation counts as the operation: a call that
-hands the released value to a function whose summary says it calls `Read`
-on that argument on every path is a read of it, and the diagnostic names
-the helper. A helper that reads on some paths only, or that reads through
-a reader it built around the value, requires nothing and stays an opaque
-use.
-
-The proof stops at opaque effects, resource mutation, escaping ownership,
-asynchronous exposure, or its search budget. A writer reset after Close is
-therefore not mistaken for continued use of the closed stream. The check does
-not cross goroutine or loop-iteration boundaries, infer a release from a helper
-without an exact proof, or infer invalidation from arbitrary methods named Close. Compression reader
-cleanup alone does not prove that a subsequent read fails.
-
-Harmless idioms such as `rows.Err()` after `rows.Close()` or `Rollback` after a
-failed `Commit` are not reported. Double-close is deliberately not checked.
-Compression writers over in-memory buffers are checked for use after release
-even when they are exempt from the missing-cleanup check.
-For transactions, Commit must have succeeded on the path to the later use;
-an unsuccessful commit attempt alone does not establish invalidation.
+A `use-after-release` check reported an operation documented to fail on a
+released value, such as a write to a closed file, when a plain release on the
+exact acquired value dominated the use in the same function. It was removed on
+2026-09-27. Across the batch 56 to 61 audits, about 1,500 repositories, it made
+three reports, all intentional negative tests that close a value and assert
+the resulting error. The shape its proof required fails the first time the
+code runs, so it rarely survives into a commit; real use-after-close bugs
+cross goroutines, functions, or branch merges, which the proof deliberately
+excluded. The `ReleasedUses` lifecycle fact that served only this check was
+removed with it.
 
 ## Former public summary
 
-Reports resources that are not released on every return path, and operations
-on a resource after it has been released.
+Reports resources that are not released on every return path.
 
 The built-in contracts cover files, transactions, SQL rows and statements,
 HTTP response bodies, and gzip/zlib writers. A constructor in another package
@@ -375,7 +322,3 @@ Some cases are deliberately not reported:
 - a file, response body, or rows value acquired once in `main.main` of package
   `main`, which program exit closes. Compressors and transactions there are
   still reported, because exit would lose their flush or commit.
-
-`use-after-release` reports an operation documented to fail on a released
-value, such as a write to a closed file or a scan of closed rows, when the
-release dominates the use. Double-close is not checked.

@@ -45,7 +45,6 @@ func runResourceLifetime(pass *analysis.Pass) (any, error) {
 		if available != summaries.Available {
 			return nil, errors.New("resourcelifetime: lifecycle summary prerequisite unavailable")
 		}
-		reportReleasedUses(pass, evidence, function)
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				call, ok := instruction.(*ssa.Call)
@@ -73,9 +72,6 @@ func checkAcquisition(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvi
 	if resource == nil {
 		return
 	}
-	// Exemption from leak cleanup does not make a closed in-memory
-	// writer usable again. Invalidation has its own API contract.
-	reportUsesAfterRelease(pass, resourceSummaries.Provider(pass), function, call, resource, contract)
 	if memoryWriterExempt(call, contract) {
 		return
 	}

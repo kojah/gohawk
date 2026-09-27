@@ -127,7 +127,7 @@ a missing case says nothing about the opposite implication. The symmetric
 A returned parameter is not a case: the result is the exact parameter, under
 the same static type, on every normal return. `resourcelifetime` resolves a
 cleanup receiver through such a call, so `wrap(file).Close()` settles `file`
-and a later use of `file` is a use after release; `lifecyclefacts` uses the
+and a later close of `file` is not required; `lifecyclefacts` uses the
 same mechanic to keep an unchanged return from becoming a view. It is exact
 storage identity: a wrapper, an interface conversion, or a value chosen
 between the parameter and something else is not the parameter.
@@ -194,10 +194,6 @@ type Fact struct {
 	// the resource it stored there rather than any resource the argument
 	// contains. See conditional.go for the cases.
 	Discharges	[]Discharge
-	// ReleasedUses are methods the function calls on a parameter after it
-	// already released that parameter, each under the case its condition
-	// names. See released_uses.go.
-	ReleasedUses	[]ReleasedUse
 	// Heap is the projection of the function's points-to graph onto what a
 	// caller can name: where each parameter, result, and global slot may
 	// point at exit, how each object escaped or was released, what was
@@ -390,9 +386,9 @@ summaries with a different version are unavailable, never reinterpreted.
 The projection also carries requirements: `requires P0 method Read every`
 says the function calls `Read` on the object it was handed at `P0` on
 every normal return, directly or through a summarized callee. A consumer
-reads them through `ArgumentMethodsRequired`; the use-after-release check
-treats a helper call whose requirement names an invalidating method of
-the released resource as the use. See [Preconditions](preconditions.md).
+reads them through `ArgumentMethodsRequired`; the leak check treats a helper
+call whose requirement names the resource's cleanup method as its release.
+See [Preconditions](preconditions.md).
 
 An escape is recorded per slot, not per object: the address of a field
 handed to a callee escapes what that field holds and everything beneath it,
@@ -726,34 +722,6 @@ caller's tested branch with exact identity.
 This is not a general conditional effect language: comparisons with integer,
 string, or other constants, relations between arguments, and independently
 returned worker handles remain outside it.
-
-### Released uses
-
-`ReleasedUses` records a method a function calls on a parameter after it
-already released that parameter: on every path to the use that the case's
-condition allows, a direct cleanup call on the exact parameter came first,
-and nothing else touched the parameter in between. The claim is structural;
-which uses fail on a released value is the consuming analyzer's contract.
-With an empty condition the function misuses whatever it is handed, so
-`resourcelifetime` reports the use itself. With a condition on the function's
-Boolean parameters the claim is latent, in Infer Pulse's sense: only a call
-supplying those constants triggers it, so only such a call is reported.
-
-The proof is `releasedUseProofs`, run once per body: the export projects it
-without instructions, `LifecycleEvidence.ManifestReleasedUses` returns it
-with the calls for this package's own functions, and `ReleasedUsesAt` reads
-the callee's summary, or runs the proof on an unexported helper of this
-package, which has no summary. A release on a branch the function decides by
-its own data does not dominate the use and is not claimed. A helper counts as
-the release when the completion engine proves, under the case's constants,
-that it closes the exact parameter on every return, and as the use when its
-summary, or an unexported helper's heap projection, requires a method on the
-parameter on every path; any other call receiving the parameter cancels the
-claim. A function passing its own Boolean parameter to a callee whose latent
-released use that parameter triggers exports the same use under its own
-condition; a use the call's literals trigger alone stays the call's defect.
-At most eight released uses are exported per function, with the same two
-guarding parameters as summary cases.
 
 ### Returned cleanup and completion handles
 

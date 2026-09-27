@@ -40,8 +40,7 @@ func TestAnalyzer(t *testing.T) {
 	// Reuse this run for diagnostic context and trace checks: repeating the
 	// fixtures also repeats dependency loading and fact serialization checks.
 	results := analyzertest.Run(t, analysistest.TestData(), Analyzer(),
-		"resourcelifetime", "resourcelifetime/useafter", "processexit", "processexitlib", "processexitrecursive")
-	assertUseAfterReleaseRelatedLocations(t, results)
+		"resourcelifetime", "processexit", "processexitlib", "processexitrecursive")
 	assertMissingReleaseEvidence(t, results)
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -84,39 +83,6 @@ func TestAnalyzer(t *testing.T) {
 	assertSQLBoundaryTrace(t, data)
 	assertLabelTrace(t, data)
 	assertFollowupBoundaryTrace(t, data)
-	assertUseAfterTrace(t, data)
-	assertOpaqueUseAfterReleaseTrace(t, data)
-}
-
-func assertUseAfterTrace(t *testing.T, data []byte) {
-	t.Helper()
-	want := map[string]string{
-		"release-dominates-use":         "evidence",
-		"release-use-opaque-effect":     "decision",
-		"release-does-not-dominate-use": "decision",
-		"known-resource-direct-release": "evidence",
-	}
-	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
-		var event struct {
-			Reason    string `json:"reason"`
-			Phase     string `json:"phase"`
-			Candidate string `json:"candidate"`
-		}
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			t.Fatal(err)
-		}
-		phase, ok := want[event.Reason]
-		if !ok || !strings.Contains(event.Candidate, "useafter/") {
-			continue
-		}
-		if event.Phase != phase {
-			t.Errorf("unexpected use-after trace: %+v", event)
-		}
-		delete(want, event.Reason)
-	}
-	if len(want) != 0 {
-		t.Errorf("missing use-after traces: %v", want)
-	}
 }
 
 func assertSQLBoundaryTrace(t *testing.T, data []byte) {

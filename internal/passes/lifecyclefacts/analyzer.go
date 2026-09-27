@@ -241,9 +241,6 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 		}
 	}
 	fact.Discharges = append(fact.Discharges, withoutUnconditional(summarizeConditional(pass, function), fact.Discharges)...)
-	fact.ReleasedUses = releasedUses(newReleasedUseSearch(func(instruction ssa.Instruction) (Fact, bool) {
-		return importFact(pass, instruction)
-	}).releasedUseProofs(function))
 	fact.ReturnedCleanup = summarizeReturnedCleanup(pass, function)
 	fact.Heap = withReleases(heap, &fact)
 	return fact

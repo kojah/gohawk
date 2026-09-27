@@ -29,9 +29,6 @@ type LifecycleEvidence struct {
 	// carry no summary of their own. It is built on first use because most
 	// analyzers never ask.
 	retentions *retentionCache
-	// releasedUses proves released uses for this package's functions and
-	// unexported helpers, which have no exported summary. Built on first use.
-	releasedUses *releasedUseSearch
 }
 
 // ClosureRetainsValue reports whether a function literal may keep the value it

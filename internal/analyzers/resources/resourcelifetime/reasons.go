@@ -38,13 +38,8 @@ const (
 	resourceReasonHeadClientNotUnconfigured
 	resourceReasonHeadRequestModified
 	resourceReasonHelperCleanupInLoop
-	resourceReasonHelperRequiresOperation
 	resourceReasonImportedHelperCleanupInLoop
 	resourceReasonInterfaceMethod
-	resourceReasonKnownResourceDirectRelease
-	resourceReasonKnownResourceHelperRelease
-	resourceReasonManifestReleasedUse
-	resourceReasonLatentReleasedUse
 	resourceReasonHeaderOnlyAcquisition
 	resourceReasonLocalServerClientOverrideUnresolved
 	resourceReasonLocalServerHandlerUnavailable
@@ -54,17 +49,10 @@ const (
 	resourceReasonNestedInTransferredArgument
 	resourceReasonUntouched
 	resourceReasonOpaqueConsumption
-	resourceReasonOperationOnReleasedResource
 	optionalAcquisitionSuccessPhi
 	resourceReasonPairedErrorHelperCleanup
 	resourceReasonPriorDeferMayCleanCapturedCell
-	resourceReasonReleaseDoesNotDominateUse
-	resourceReasonReleaseDominatesUse
 	resourceReasonReleaseProven
-	resourceReasonReleaseSuccessNotProven
-	resourceReasonReleaseUseBudgetExhausted
-	resourceReasonReleaseUseOpaqueEffect
-	resourceReasonReleaseUseUnreachable
 	resourceReasonRepeatedGuardEdgeUnknown
 	resourceReasonResourceReturnPath
 	resourceReasonReturnedCleanupProjection
@@ -142,13 +130,8 @@ var resourceReasonCodes = [...]string{
 	resourceReasonHeadClientNotUnconfigured:                "head-client-not-unconfigured",
 	resourceReasonHeadRequestModified:                      "head-request-modified",
 	resourceReasonHelperCleanupInLoop:                      "helper-cleanup-in-loop",
-	resourceReasonHelperRequiresOperation:                  "helper-requires-operation",
 	resourceReasonImportedHelperCleanupInLoop:              "imported-helper-cleanup-in-loop",
 	resourceReasonInterfaceMethod:                          "interface-method",
-	resourceReasonKnownResourceDirectRelease:               "known-resource-direct-release",
-	resourceReasonKnownResourceHelperRelease:               "known-resource-helper-release",
-	resourceReasonManifestReleasedUse:                      "manifest-released-use",
-	resourceReasonLatentReleasedUse:                        "latent-released-use",
 	resourceReasonHeaderOnlyAcquisition:                    "local-header-only-body-uncertain",
 	resourceReasonLocalServerClientOverrideUnresolved:      "local-server-client-override-unresolved",
 	resourceReasonLocalServerHandlerUnavailable:            "local-server-handler-unavailable",
@@ -158,17 +141,10 @@ var resourceReasonCodes = [...]string{
 	resourceReasonNestedInTransferredArgument:              "nested-in-transferred-argument",
 	resourceReasonUntouched:                                "none",
 	resourceReasonOpaqueConsumption:                        "opaque-consumption",
-	resourceReasonOperationOnReleasedResource:              "operation-on-released-resource",
 	optionalAcquisitionSuccessPhi:                          "optional-acquisition-success-phi",
 	resourceReasonPairedErrorHelperCleanup:                 "paired-error-helper-cleanup",
 	resourceReasonPriorDeferMayCleanCapturedCell:           "prior-defer-may-clean-captured-cell",
-	resourceReasonReleaseDoesNotDominateUse:                "release-does-not-dominate-use",
-	resourceReasonReleaseDominatesUse:                      "release-dominates-use",
 	resourceReasonReleaseProven:                            "release-proven",
-	resourceReasonReleaseSuccessNotProven:                  "release-success-not-proven",
-	resourceReasonReleaseUseBudgetExhausted:                "release-use-budget-exhausted",
-	resourceReasonReleaseUseOpaqueEffect:                   "release-use-opaque-effect",
-	resourceReasonReleaseUseUnreachable:                    "release-use-unreachable",
 	resourceReasonRepeatedGuardEdgeUnknown:                 "repeated-guard-edge-unknown",
 	resourceReasonResourceReturnPath:                       "resource-return-path",
 	resourceReasonReturnedCleanupProjection:                "returned-cleanup-projection",
