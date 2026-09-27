@@ -25,6 +25,13 @@ symlinked, or in-use trees; skipped trees require manual review and are never
 silently discarded. Pinned repositories can be checked out again from the
 retained selection ledger.
 
+New audit: batches [62](batch-62.md) and [63](batch-63.md) record 500 fresh
+pinned repositories scanned with `f8c461f`. All 738 findings have source
+verdicts (612 TP, 123 FP, 3 inconclusive); 390 scans completed and
+110 were incomplete. Test requests that cannot succeed and in-memory or
+bodyless responses remain the largest false-positive families, and one
+report depends on Go cache state.
+
 New audit: [batch 61](batch-61.md) records 250 fresh pinned repositories
 scanned with `3e8b8ba` and tests included. All 398 findings have source
 verdicts (331 TP, 67 FP); 189 scans completed and 61 were incomplete. The
