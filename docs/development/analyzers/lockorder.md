@@ -212,6 +212,20 @@ libovsdb fixture:
 https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
 Fixtures: `lockorder/sibling_mutexes.go` and `lockorder/constant_arguments.go`.
 
+When a closure captures the receiver, the receiver is spilled to a cell and
+every use of it is a separate load, so the locked mutex and the argument handed
+to a releasing helper start from different SSA values. The completion search
+maps the mutex through the argument when the storage identity proof shows the
+two loads are one value, as it is for a cell written once. centrifuge-go locks
+`s.mu` and calls `moveToUnsubscribedLocked`, which unlocks it, in a function
+whose callback captures `s`:
+https://github.com/centrifugal/centrifuge-go/blob/080126041ccc71654718bd0601b920ff8b22a8bf/subscription.go#L1156-L1183
+The mapping is pinned by a unit test in `internal/lifecycle`, and
+`lockorder/captured_receiver_release.go` covers the shape with a helper that
+always unlocks and one that may not. A `Lock` with a deferred `Unlock` inside a
+callback closure, reported against the enclosing function in the same
+repository (`client.go`), is a separate open follow-up.
+
 ## The order graph result
 
 The analyzer returns the package's order graph as its result, for

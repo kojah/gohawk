@@ -159,6 +159,14 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		// and unlocks rpc while its caller holds monitors in the same client:
 		// https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
 		return mappedLocal{local: parameter, supplied: argument, kind: localOwner}, true
+	case sameValueStorageOwner(target, argument) != nil:
+		// The same storage beneath an owner proven to be the argument: a
+		// receiver captured by a closure is spilled to a cell written once,
+		// so the lock's owner and the helper's argument are two loads of
+		// one value. centrifuge-go locks s.mu and hands s to a helper that
+		// unlocks it, with s captured by the function's closures:
+		// https://github.com/centrifugal/centrifuge-go/blob/080126041ccc71654718bd0601b920ff8b22a8bf/subscription.go#L1156-L1183
+		return mappedLocal{local: parameter, supplied: sameValueStorageOwner(target, argument), kind: localOwner}, true
 	case MayContainValue(argument, target):
 		path, _ := heapmodel.StoredPath(argument, target, invocation)
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact, path: path}, true
@@ -176,6 +184,29 @@ func storageAddressFrom(target, argument ssa.Value) bool {
 		return ssaflow.ValueIsAccessPathFrom(target, argument)
 	}
 	return false
+}
+
+// sameValueStorageOwner returns the root of target's static field or element
+// path when that root is not argument itself but is proven to be the same
+// value, and nil otherwise.
+func sameValueStorageOwner(target, argument ssa.Value) ssa.Value { //nolint:ireturn // SSA values keep their concrete forms.
+	root := target
+	for {
+		switch address := root.(type) {
+		case *ssa.FieldAddr:
+			root = address.X
+			continue
+		case *ssa.IndexAddr:
+			root = address.X
+			continue
+		}
+		break
+	}
+	if root == target || root == argument || !ssaflow.ValueIsAccessPathFrom(target, root) ||
+		!heapmodel.DefinitelySameValue(root, argument) {
+		return nil
+	}
+	return root
 }
 
 // receives reports whether a call receiver inside the callee stands for the
