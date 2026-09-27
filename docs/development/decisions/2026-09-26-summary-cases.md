@@ -64,3 +64,38 @@ name them, stay few.
 
 Still excluded: comparisons with integer, string, or other constants, and
 relations between arguments.
+
+## Why not full disjunctive summaries
+
+A summary is one postcondition joined over every path, with must and may
+marks, plus the bounded cases above. Full per-path disjuncts, as Infer Pulse
+keeps them, were considered and not adopted, for these reasons.
+
+- Facts are read in both directions. A claim that a callee releases a value
+  suppresses a diagnostic in the caller. Pulse bounds its disjuncts by
+  dropping some, which only loses bugs when a disjunct serves to report one,
+  but a dropped disjunct that carried a release makes the caller report a
+  leak that is not there. gohawk therefore exports only guarantees proven on
+  every normal return under their condition, and past the bound it keeps the
+  unconditional summary rather than a truncated set.
+- A disjunct is useful only when the caller can tell which one applies.
+  Pulse selects them with path conditions and an arithmetic solver. gohawk
+  has no solver, so a case is keyed only by what a call site can see: a
+  result it tests, or a constant it passes. A disjunct keyed by the callee's
+  internal branch history could not be matched and would join back anyway.
+- Summaries cross packages as analysis facts, written for every function of
+  every dependency. Disjunct sets multiply fact size and the cost of applying
+  a summary at every call site, where the structural bound (four result slots,
+  two guarding Boolean parameters) keeps both small.
+- Choosing which disjuncts to drop is an order-sensitive policy, and results
+  must not depend on evaluation order.
+- The precision it leaves out is correlation the caller cannot observe, such
+  as a helper that closes a file on one internal branch and returns it on
+  another. That becomes may on both sides, and the caller's obligation is
+  unknown: a stable false negative rather than a guess.
+
+Real disjuncts would fit an analysis whose claims only report and never
+suppress, with a solver to select them, which is a different policy from the
+one gohawk's trusted claims follow. The concurrency facts' path alternatives
+are the one disjunction-like shape in the model, and they select feasible
+effect sequences rather than guaranteeing a claim, as described above.
