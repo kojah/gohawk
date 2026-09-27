@@ -810,7 +810,7 @@ String renders the stable trace code at the output boundary.
 
 ## ResourceCleanup
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+[Source](../../../../internal/passes/lifecyclefacts/resource_types.go)
 
 ```go
 func ResourceCleanup(value types.Type) ([]string, bool)
@@ -818,6 +818,20 @@ func ResourceCleanup(value types.Type) ([]string, bool)
 
 ResourceCleanup returns the cleanup methods of a resource type, or false
 when the type carries no obligation this vocabulary knows.
+
+## ResponseBodyField
+
+[Source](../../../../internal/passes/lifecyclefacts/resource_types.go)
+
+```go
+func ResponseBodyField(value ssa.Value) *ssa.FieldAddr
+```
+
+ResponseBodyField recognizes a direct load of the Body field of a
+net/http Response. The body is the resource a response carries: closing it
+is the response's cleanup, so the type identity, not the field name alone,
+is what makes the load evidence. Whether the response is the one a caller
+acquired, and whether its Body was replaced, is the caller's policy.
 
 ## ResultMask
 
