@@ -438,6 +438,21 @@ func holdsResource(value, resource ssa.Value) bool {
 	return types.AssignableTo(resource.Type(), value.Type()) && heapmodel.ValueDerivesFrom(value, resource, map[ssa.Value]bool{})
 }
 
+// presenceOperand reports whether a nil comparison of value decides whether
+// the resource holds anything to release: value is the resource itself, or
+// the Body of the net/http response that is the resource. A response whose
+// Body is nil has nothing to close, and net/http documents that a response
+// returned without error always has a non-nil Body, so a close guarded by
+// `resp != nil && resp.Body != nil` covers every feasible path:
+// https://github.com/Authula/authula/blob/87a880a2872fae95d749d7a250db0274524fafce/plugins/oauth2/services/base_provider.go#L63-L74
+func presenceOperand(value, resource ssa.Value) bool {
+	if holdsResource(value, resource) {
+		return true
+	}
+	field := httpResponseBodyField(value)
+	return field != nil && holdsResource(field.X, resource)
+}
+
 func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value) (bool, bool) {
 	if resource == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
 		return false, false
@@ -458,8 +473,8 @@ func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}
-	comparesResourceToNil := holdsResource(comparison.X, resource) && ssaflow.DefinitelyNil(comparison.Y) ||
-		holdsResource(comparison.Y, resource) && ssaflow.DefinitelyNil(comparison.X)
+	comparesResourceToNil := presenceOperand(comparison.X, resource) && ssaflow.DefinitelyNil(comparison.Y) ||
+		presenceOperand(comparison.Y, resource) && ssaflow.DefinitelyNil(comparison.X)
 	if !comparesResourceToNil {
 		return false, false
 	}
