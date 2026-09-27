@@ -70,7 +70,6 @@ func TestPluginRejectsUnknownAnalyzer(t *testing.T) {
 
 func TestPluginDefaultProfileSuppressesOptInChecks(t *testing.T) {
 	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, nil, "lockorder"), "defaultchecks")
-	analysistest.Run(t, analysistest.TestData(), pluginAnalyzer(t, nil, "producerlifecycle"), "suppressedoptin")
 }
 
 func TestPluginEnablesIndividualCheck(t *testing.T) {

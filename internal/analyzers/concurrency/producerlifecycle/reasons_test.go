@@ -19,15 +19,6 @@ func TestProducerReasonCodes(t *testing.T) {
 		reasonReceiverHelperUnknown:      "receiver-helper-unknown",
 		reasonReceiverHelperComplete:     "receiver-helper-complete",
 		reasonAsynchronousReceiver:       "asynchronous-receiver",
-		reasonOneShotWorker:              "one-shot-worker",
-		reasonChannelEscapes:             "channel-escapes",
-		reasonWorkerOperationUnsupported: "worker-operation-unsupported",
-		reasonWorkerLaunchedRepeatedly:   "worker-launched-repeatedly",
-		reasonChannelBuffered:            "channel-buffered",
-		reasonCallerOperationsMixed:      "caller-operations-mixed",
-		reasonCallerCompletesEveryReturn: "caller-completes-every-return",
-		reasonReturnWithoutCounterpart:   "return-without-counterpart",
-		reasonLocalChannel:               "local-channel",
 	}
 	if len(want) != int(producerReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")
@@ -42,22 +33,5 @@ func TestProducerReasonCodes(t *testing.T) {
 		if reason.String() != "invalid-producer-reason" {
 			t.Errorf("invalid reason %d: %q", reason, reason.String())
 		}
-	}
-}
-
-func TestServiceLoopReasonCodes(t *testing.T) {
-	if len(loopReasonCodes) != int(loopReasonCount) {
-		t.Fatal("every service-loop reason needs a boundary spelling")
-	}
-	seen := map[string]bool{}
-	for reason := range loopReasonCount {
-		code := reason.String()
-		if reason != loopReasonNone && (code == "" || seen[code]) {
-			t.Errorf("reason %d: missing or duplicate code %q", reason, code)
-		}
-		seen[code] = true
-	}
-	if loopReasonCount.String() != "invalid-service-loop-reason" {
-		t.Errorf("invalid reason: %q", loopReasonCount.String())
 	}
 }

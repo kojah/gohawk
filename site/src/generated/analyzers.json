@@ -60,12 +60,6 @@
               "tier": "core"
             },
             {
-              "id": "lockorder/recursive-acquire",
-              "summary": "Reports attempts to acquire a lock that is already held.",
-              "kind": "defect",
-              "tier": "core"
-            },
-            {
               "id": "lockorder/contradictory-order",
               "summary": "Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence.",
               "kind": "hazard",
@@ -90,30 +84,6 @@
               "summary": "Reports producer goroutines that can block after their receiver stops waiting.",
               "kind": "hazard",
               "tier": "core"
-            },
-            {
-              "id": "producerlifecycle/stopped-loop-send",
-              "summary": "Reports sends that can block forever after the service loop receiving them returns.",
-              "kind": "hazard",
-              "tier": "experimental"
-            },
-            {
-              "id": "producerlifecycle/unclosed-range",
-              "summary": "Reports range loops that wait forever when their producer returns an error without closing the channel.",
-              "kind": "hazard",
-              "tier": "experimental"
-            },
-            {
-              "id": "producerlifecycle/unreceived-return",
-              "summary": "Reports goroutines left blocked on a send when the function that launched them returns without receiving.",
-              "kind": "defect",
-              "tier": "experimental"
-            },
-            {
-              "id": "producerlifecycle/unsignalled-receiver",
-              "summary": "Reports goroutines left waiting on a channel that the function launching them returns without sending on or closing.",
-              "kind": "defect",
-              "tier": "experimental"
             }
           ]
         }
@@ -176,12 +146,6 @@
               "id": "resourcelifetime/missing-release",
               "summary": "Reports owned resources that are not released on every return path.",
               "kind": "defect",
-              "tier": "core"
-            },
-            {
-              "id": "resourcelifetime/use-after-release",
-              "summary": "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
-              "kind": "hazard",
               "tier": "core"
             }
           ]

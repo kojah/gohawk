@@ -16,6 +16,8 @@ Every check carries a tier that records how much trust it has earned:
 | core | yes | precision demonstrated on the repository audit and guarded by the precision replay |
 | experimental | no | heuristic audits that may change or be retired |
 
+No check is currently experimental; the tier is kept for future audits.
+
 Use `gohawk list` to see every analyzer with its tier, and `gohawk list
 -checks` for the checks themselves. An analyzer's tier is the most trusted
 tier among its checks; it runs whenever one of its checks is selected.
@@ -64,11 +66,11 @@ To select one check rather than its whole analyzer, use the stable ID shown by
 `gohawk list -checks`:
 
 ```sh
-# Run one experimental audit alongside the core checks.
-gohawk -enable-checks=producerlifecycle/stopped-loop-send ./...
+# Run one check by ID, which also enables its analyzer.
+gohawk -enable-checks=lockorder/read-lock-write ./...
 
 # Keep lockorder enabled, but omit one of its checks.
-gohawk -disable-checks=lockorder/recursive-acquire ./...
+gohawk -disable-checks=lockorder/read-lock-write ./...
 ```
 
 Selections combine. Individual analyzer choices take precedence over group

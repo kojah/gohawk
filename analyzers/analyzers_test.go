@@ -157,32 +157,21 @@ func TestAnalyzerMetadata(t *testing.T) {
 	experimental := map[string]bool{}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
-		"resourcelifetime/use-after-release":     CheckTierCore,
-		"lockorder/contradictory-order":          CheckTierCore,
-		"lockorder/read-lock-write":              CheckTierCore,
-		"producerlifecycle/stopped-loop-send":    CheckTierExperimental,
-		"producerlifecycle/unclosed-range":       CheckTierExperimental,
-		"producerlifecycle/unreceived-return":    CheckTierExperimental,
-		"producerlifecycle/unsignalled-receiver": CheckTierExperimental,
+		"lockorder/contradictory-order": CheckTierCore,
+		"lockorder/read-lock-write":     CheckTierCore,
 	}
 	kinds := map[AnalyzerCheck]CheckKind{
-		"cancellationownership/release":          CheckKindDefect,
-		"channelsafety/send-after-close":         CheckKindDefect,
-		"deferinloop/cleanup-lifetime":           CheckKindHazard,
-		"goroutineownership/unjoined":            CheckKindHazard,
-		"producerlifecycle/abandoned-send":       CheckKindHazard,
-		"producerlifecycle/stopped-loop-send":    CheckKindHazard,
-		"producerlifecycle/unclosed-range":       CheckKindHazard,
-		"producerlifecycle/unreceived-return":    CheckKindDefect,
-		"producerlifecycle/unsignalled-receiver": CheckKindDefect,
-		"processownership/missing-wait":          CheckKindDefect,
-		"resourcelifetime/missing-release":       CheckKindDefect,
-		"resourcelifetime/use-after-release":     CheckKindHazard,
-		"concurrentcapture/shared-capture":       CheckKindHazard,
-		"lockorder/missing-release":              CheckKindDefect,
-		"lockorder/recursive-acquire":            CheckKindDefect,
-		"lockorder/contradictory-order":          CheckKindHazard,
-		"lockorder/read-lock-write":              CheckKindHazard,
+		"cancellationownership/release":    CheckKindDefect,
+		"channelsafety/send-after-close":   CheckKindDefect,
+		"deferinloop/cleanup-lifetime":     CheckKindHazard,
+		"goroutineownership/unjoined":      CheckKindHazard,
+		"producerlifecycle/abandoned-send": CheckKindHazard,
+		"processownership/missing-wait":    CheckKindDefect,
+		"resourcelifetime/missing-release": CheckKindDefect,
+		"concurrentcapture/shared-capture": CheckKindHazard,
+		"lockorder/missing-release":        CheckKindDefect,
+		"lockorder/contradictory-order":    CheckKindHazard,
+		"lockorder/read-lock-write":        CheckKindHazard,
 	}
 	for _, name := range expectedAnalyzerNames() {
 		info, ok := metadata[name]

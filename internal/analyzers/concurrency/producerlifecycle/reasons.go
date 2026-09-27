@@ -22,15 +22,6 @@ const (
 	reasonReceiverHelperUnknown
 	reasonReceiverHelperComplete
 	reasonAsynchronousReceiver
-	reasonOneShotWorker
-	reasonChannelEscapes
-	reasonWorkerOperationUnsupported
-	reasonWorkerLaunchedRepeatedly
-	reasonChannelBuffered
-	reasonCallerOperationsMixed
-	reasonCallerCompletesEveryReturn
-	reasonReturnWithoutCounterpart
-	reasonLocalChannel
 	producerReasonCount
 )
 
@@ -50,15 +41,6 @@ var producerReasonCodes = [...]string{
 	reasonReceiverHelperUnknown:      "receiver-helper-unknown",
 	reasonReceiverHelperComplete:     "receiver-helper-complete",
 	reasonAsynchronousReceiver:       "asynchronous-receiver",
-	reasonOneShotWorker:              "one-shot-worker",
-	reasonChannelEscapes:             "channel-escapes",
-	reasonWorkerOperationUnsupported: "worker-operation-unsupported",
-	reasonWorkerLaunchedRepeatedly:   "worker-launched-repeatedly",
-	reasonChannelBuffered:            "channel-buffered",
-	reasonCallerOperationsMixed:      "caller-operations-mixed",
-	reasonCallerCompletesEveryReturn: "caller-completes-every-return",
-	reasonReturnWithoutCounterpart:   "return-without-counterpart",
-	reasonLocalChannel:               "local-channel",
 }
 
 func (reason producerReason) String() string {

@@ -54,7 +54,7 @@ linters:
           disable:
             - lockorder
           enable-checks:
-            - producerlifecycle/stopped-loop-send
+            - lockorder/read-lock-write
           disable-checks:
             - deferinloop/cleanup-lifetime
 ```

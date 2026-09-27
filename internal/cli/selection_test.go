@@ -210,13 +210,13 @@ func TestRequestedDisabledChecks(t *testing.T) {
 
 	disabled, remaining, err := requestedDisabledChecks([]string{
 		"gohawk",
-		"-disable-checks=lockorder/missing-release,lockorder/recursive-acquire",
+		"-disable-checks=lockorder/missing-release,lockorder/read-lock-write",
 		"./...",
 	}, metadata)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, check := range []string{"lockorder/missing-release", "lockorder/recursive-acquire"} {
+	for _, check := range []string{"lockorder/missing-release", "lockorder/read-lock-write"} {
 		if !disabled[check] {
 			t.Errorf("disabled checks do not contain %q: %v", check, disabled)
 		}
@@ -348,17 +348,8 @@ func TestCheckSelectionTiers(t *testing.T) {
 			t.Fatal(err)
 		}
 		disabled := effectiveDisabledChecks(metadata, selection, requested)
-		if disabled["lockorder/contradictory-order"] || !disabled["producerlifecycle/stopped-loop-send"] || disabled["goroutineownership/unjoined"] {
+		if disabled["lockorder/contradictory-order"] || disabled["goroutineownership/unjoined"] {
 			t.Fatalf("disabled checks = %v", disabled)
-		}
-
-		arguments = []string{"gohawk", "-tier=experimental", "-enable=producerlifecycle", "./..."}
-		selection, err = withAnalyzerCheckSelection(arguments, analyzers, groups, metadata, nil, false)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if disabled := effectiveDisabledChecks(metadata, selection, requested); disabled["producerlifecycle/stopped-loop-send"] {
-			t.Fatalf("experimental ceiling did not admit stopped-loop-send: %v", disabled)
 		}
 	})
 

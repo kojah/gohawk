@@ -44,11 +44,6 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
 			},
 			{
-				ID: check.LockRecursiveAcquire, Doc: "Reports attempts to acquire a lock that is already held.",
-				Help: "release the lock before calling code that locks it again, or give callers that hold it an unlocked helper",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-			{
 				ID: check.LockContradictoryOrder, Doc: "Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence.",
 				Help: "choose one order for acquiring these locks and use it everywhere",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
@@ -64,29 +59,6 @@ func concurrencySpecs() []catalog.AnalyzerSpec {
 				ID: check.ProducerLifecycleSend, Doc: "Reports producer goroutines that can block after their receiver stops waiting.",
 				Help: "let the producer stop when the receiver does, for example with a context or done channel, or buffer every send",
 				Kind: catalog.KindHazard, Tier: catalog.TierCore,
-			},
-			{
-				ID: check.ProducerLifecycleStoppedLoop, Doc: "Reports sends that can block forever after the service loop receiving them returns.",
-				Help: "stop the senders before the service loop returns, or have them also select on a done channel",
-				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
-			},
-			{
-				ID:   check.ProducerLifecycleUnclosed,
-				Doc:  "Reports range loops that wait forever when their producer returns an error without closing the channel.",
-				Help: "close the channel on every return of the producer, including error returns, usually with `defer close(ch)`",
-				Kind: catalog.KindHazard, Tier: catalog.TierExperimental,
-			},
-			{
-				ID:   check.ProducerLifecycleUnreceivedReturn,
-				Doc:  "Reports goroutines left blocked on a send when the function that launched them returns without receiving.",
-				Help: "receive the result on every return path, or give the channel a buffer of one so the send completes without a receiver",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
-			},
-			{
-				ID:   check.ProducerLifecycleUnsignalledReceiver,
-				Doc:  "Reports goroutines left waiting on a channel that the function launching them returns without sending on or closing.",
-				Help: "close the channel on every return path, usually with `defer close(ch)` right after making it",
-				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 		}},
 	}
@@ -120,13 +92,6 @@ func resourcesSpecs() []catalog.AnalyzerSpec {
 				ID: check.ResourceRelease, Doc: "Reports owned resources that are not released on every return path.",
 				Help: "release it on every return path, usually with `defer` right after the error check",
 				Kind: catalog.KindDefect, Tier: catalog.TierCore,
-			},
-			{
-				ID:   check.ResourceUseAfterRelease,
-				Doc:  "Reports an invalidating operation on the same resource after a dominating release, with no intervening unknown effects.",
-				Help: "finish using the resource before releasing it, or acquire a new one",
-				Kind: catalog.KindHazard,
-				Tier: catalog.TierCore,
 			},
 		}},
 	}

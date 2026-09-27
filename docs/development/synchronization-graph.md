@@ -34,7 +34,8 @@ shape fails on its first run and rarely ships. Shipped deadlocks are
 conditional: a partner that is missing on an error, shutdown, or configuration
 path. The study's recommendation became `producerlifecycle/stopped-loop-send`
 and `producerlifecycle/unclosed-range`, which need ordered summaries but no
-cross-goroutine graph.
+cross-goroutine graph. Both were retired on 2026-09-27 after making no report
+across about 1,500 audited repositories.
 
 The broader lesson is about absence claims. An unavoidable cycle says that no
 participant can ever unblock a wait, so every participant and every operation

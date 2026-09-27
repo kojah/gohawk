@@ -27,101 +27,20 @@ producer was counted once and traced as within the receive count
 Callers that terminate the process instead of returning do not establish an
 abandoned receiver lifecycle.
 
-### Sends after a service loop stops
+## Retired experimental checks
 
-The experimental `stopped-loop-send` check covers a long-lived variant. A
-struct owns an unbuffered channel, a background goroutine serves it from a
-`select` loop, and that loop returns when a stop channel or its context fires.
-After it returns, a plain send from an exported method has no receiver and
-blocks forever.
+Four experimental checks were removed on 2026-09-27; the last revision
+containing them is `73f25e27`. The experimental tier itself remains.
 
-The check only reports when the package proves every part of that shape:
+- `stopped-loop-send` reported a send to a struct-owned channel after the
+  service loop serving it had returned, and `unclosed-range` a range over a
+  channel whose producer could return an error without closing it. Neither
+  made a report across the batch 56 to 61 audits, about 1,500 repositories.
+- `unreceived-return` reported a one-shot worker blocked on an unbuffered send
+  the launching function could return without receiving, and
+  `unsignalled-receiver` a worker blocked on a receive the function could
+  return without satisfying. In batch 61 the first made eight reports, all
+  true positives, seven of them also reported by `goroutineownership/unjoined`;
+  the second made none.
 
-- The channel is an unexported field of a struct declared in the package, so
-  the package sees every use. It is made unbuffered, and it is never closed,
-  supplied from outside, copied, or handed to other code.
-- Every receive is a `select` arm in a loop of a function started only by `go`,
-  and the same `select` has another arm that returns. That stop arm must be
-  able to fire: the package sends on or closes the stop channel, or it is the
-  `Done` channel of a context that is not `context.Background` or
-  `context.TODO`.
-- The send is a plain send in an exported function or method. It is not in a
-  `select` with another way out, not inside the loop itself, and not in the
-  function that starts the loop.
-- A branch on the owner's own state before the send, such as a `running`
-  flag, protects it only when one owner mutex is held for the check and the
-  send, every write of the flag holds that mutex, and every stop signal does
-  too. A flag read or written without the lock, or a loop that can also stop
-  on its context, does not protect the send, so it is still reported. A guard
-  this package cannot read, such as a method call, is not reported.
-
-Buffered channels, unexported helpers reached through guarded entry points,
-and loops that never return are not reported.
-
-### Ranges that wait on a failed producer
-
-The experimental `unclosed-range` check covers the receive side. A range over
-a channel ends only when the channel is closed. When the method that closes it
-does so only on success and returns an error without closing, a goroutine
-ranging over the channel while that method runs waits forever after a failure.
-
-The check only reports when the package proves every part of that shape:
-
-- The channel is a field of a struct declared in the package that no other code
-  can reach: an unexported field, or any field in a `main` package, which no
-  other package can import. It is made in the package and never handed out;
-  it may be buffered, since a range waits for the close either way.
-- The range has no other way out: no `break` or `return` leaves it.
-- Exactly one method closes the channel, on its own receiver, and none of its
-  closes is deferred. The method returns an error, and every return it can
-  reach without closing yields an error proven non-nil: an `errors.New` or
-  `fmt.Errorf` result, a boxed value, an error the path tested against nil,
-  or a context's `Err` or `Cause` after its `Done` channel fired. A return of
-  nil without closing is a step that a later call may finish, so it is not
-  reported.
-- The method is never called inside a loop, where a retry could close the
-  channel, and one goroutine calls it on the same object that is ranged over
-  concurrently, reached through a variable written once.
-
-A select with other arms, a closer reached through an interface or function
-value, and a producer in another package are not reported.
-
-### Workers left behind by a return
-
-The experimental `unreceived-return` and `unsignalled-receiver` checks follow
-paths where `abandoned-send` counts. The count proof accepts a receive that
-exists on some paths and not others, which is the classic goroutine leak: a
-worker sends its result on an unbuffered channel and the function returns on
-a timeout or an error without receiving it, or a worker waits for a stop
-signal the function closes on success but skips on an error return.
-
-The proof reports only when it has seen every use of the channel:
-
-- The channel is made in the function, and the census of
-  `ssaflow.ChannelValues` (the make, a written-once variable cell and the
-  closure copies that load it, direction conversions, and the parameter of a
-  named worker it is passed to) ends at channel operations in the function
-  and in one goroutine it launches, once and outside any loop. Any other use,
-  a channel handed to another function, stored, returned, or used by a second
-  goroutine or closure, declines with `channel-escapes`.
-- The worker performs exactly one operation on the channel, reached on every
-  path to its returns and outside any select: a send, a single receive, or a
-  range, a comma-ok receive in a loop, which ends only on a close. A select
-  that can give up, a conditional operation, or a receive repeated in a loop
-  declines with `worker-operation-unsupported`.
-- A send needs an unbuffered channel; a buffer takes the value
-  (`channel-buffered`). The function's operations must fit: only receives for
-  a sending worker, since a close would panic the worker rather than block it,
-  and only sends and closes for a receiving one (`caller-operations-mixed`).
-
-One flow query over the function's paths after the launch then decides. A
-receive completes a send, including the select arm that receives it; a send
-or a close completes a single receive; only a close, direct or deferred,
-completes a range. A deferred close registered before the launch completes
-every return. A feasible normal return with no completing operation before it
-leaves the worker blocked forever, and the diagnostic cites that return.
-Process exit and calls the summaries prove never return end a path, and a
-function that never returns reports nothing. Fixtures:
-`producerlifecycle/unreceived_returns.go`,
-`producerlifecycle/unsignalled_receivers.go`, and
-`producerlifecycle/channel_escapes.go`.
+The channel census they shared was removed with them.
