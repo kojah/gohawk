@@ -13,6 +13,27 @@ import (
 type deferObligation struct {
 	target  ssa.Value
 	cleanup []string
+	// owner is the response whose Body the target is, or nil. The body's
+	// lifetime ends with its response's, so the response's own uses count too.
+	owner ssa.Value
+}
+
+// values returns the values whose uses decide the obligation.
+func (obligation deferObligation) values() []ssa.Value {
+	if obligation.owner == nil {
+		return []ssa.Value{obligation.target}
+	}
+	return []ssa.Value{obligation.target, obligation.owner}
+}
+
+// closedBy reports whether receiver is the value the obligation's cleanup
+// closes: the target itself, or another load of the owning response's Body.
+func (obligation deferObligation) closedBy(receiver ssa.Value) bool {
+	if sameObligationValue(receiver, obligation.target) {
+		return true
+	}
+	field := lifecyclefacts.ResponseBodyField(receiver)
+	return obligation.owner != nil && field != nil && sameObligationValue(field.X, obligation.owner)
 }
 
 type lockContract struct {
@@ -57,7 +78,11 @@ func deferredObligation(
 	}
 	cleanup, acquired := resourceAcquiredBeforeDefer(evidence, deferred, target)
 	if acquired && slices.Contains(cleanup, ssaflow.CallName(common)) {
-		return deferObligation{target: target, cleanup: cleanup}, true
+		obligation := deferObligation{target: target, cleanup: cleanup}
+		if field := lifecyclefacts.ResponseBodyField(target); field != nil {
+			obligation.owner = field.X
+		}
+		return obligation, true
 	}
 	return deferObligation{}, false
 }
@@ -79,12 +104,35 @@ func resourceAcquiredBeforeDefer(
 				return cleanup, true
 			}
 		}
+		if responseBodyAcquired(call, target) {
+			return []string{"Close"}, true
+		}
 		cleanup, result, owned := evidence.OwnedResult(call)
 		if owned && len(cleanup) > 0 && valueDerivesFrom(target, ssaflow.CallResult(call, result)) {
 			return cleanup, true
 		}
 	}
 	return nil, false
+}
+
+// A response's resource is its body: a deferred Body.Close is the cleanup of
+// the response this iteration acquired. The Body field must still hold what
+// the response arrived with; after a local store into it, the defer closes a
+// value the acquisition did not produce, so the obligation is not proven.
+// https://github.com/gatewayd-io/gatewayd/blob/bb731040d1f5cd848599024d768f2eea50389638/metrics/merger.go#L132-L138
+func responseBodyAcquired(call *ssa.Call, target ssa.Value) bool {
+	field := lifecyclefacts.ResponseBodyField(target)
+	return field != nil && resultDerivesToTarget(call, field.X) && !responseBodyReplaced(call.Parent(), field)
+}
+
+func responseBodyReplaced(function *ssa.Function, body *ssa.FieldAddr) bool {
+	for _, store := range ssaflow.InstructionsOf[*ssa.Store](function) {
+		field, ok := store.Addr.(*ssa.FieldAddr)
+		if ok && field.Field == body.Field && heapmodel.MayAlias(field.X, body.X) {
+			return true
+		}
+	}
+	return false
 }
 
 func resultDerivesToTarget(call *ssa.Call, target ssa.Value) bool {

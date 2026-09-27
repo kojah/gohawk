@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -168,7 +169,7 @@ func guardedBodyCoverage(function *ssa.Function, captured ssa.Value, budget *ssa
 }
 
 func capturedResponseBody(value, captured ssa.Value) bool {
-	field := httpResponseBodyField(value)
+	field := lifecyclefacts.ResponseBodyField(value)
 	if field == nil {
 		return false
 	}

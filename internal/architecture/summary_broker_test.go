@@ -89,7 +89,7 @@ func summaryBrokerObjectForbidden(object types.Object) bool {
 	// These helpers inspect type/value structure without obtaining summaries
 	// or reading pass-owned knowledge. New exceptions require explicit review.
 	path := function.Pkg().Path()
-	if path == internalImportPrefix+"passes/lifecyclefacts" && function.Name() == "ResourceCleanup" {
+	if path == internalImportPrefix+"passes/lifecyclefacts" && (function.Name() == "ResourceCleanup" || function.Name() == "ResponseBodyField") {
 		return false
 	}
 	if path == internalImportPrefix+"passes/concurrencyfacts" && function.Name() == "MutexPointer" {

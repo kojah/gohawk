@@ -452,7 +452,7 @@ func presenceOperand(value, resource ssa.Value) bool {
 	if holdsResource(value, resource) {
 		return true
 	}
-	field := httpResponseBodyField(value)
+	field := lifecyclefacts.ResponseBodyField(value)
 	return field != nil && holdsResource(field.X, resource)
 }
 

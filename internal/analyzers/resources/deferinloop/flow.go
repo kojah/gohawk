@@ -51,7 +51,8 @@ func resourceLiveAtNextIteration(
 	// before the append call; the containing collection may be consumed later.
 	// https://github.com/protomaps/go-pmtiles/blob/a3e4951ea6a0477b784c27c1dcbfd9c130878c5a/pmtiles/merge.go#L206-L215
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](deferred.Parent()) {
-		if ssaflow.InstructionDominates(store, deferred) && opaqueResourceUse(store, obligation.target) {
+		retains := func(value ssa.Value) bool { return opaqueResourceUse(store, value) }
+		if ssaflow.InstructionDominates(store, deferred) && slices.ContainsFunc(obligation.values(), retains) {
 			probe.Decision(analysisTrace.Step{Reason: reasonRetainedBeforeDefer.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: store.Pos()})
 			return false
 		}
@@ -172,6 +173,21 @@ func classifyResourceInstruction(
 	instruction ssa.Instruction,
 	obligation deferObligation,
 ) (resourceStatus, deferReason) {
+	status, reason := classifyValueUse(evidence, probe, instruction, obligation)
+	if status != resourceLive || obligation.owner == nil {
+		return status, reason
+	}
+	// The owning response is classified for escape and transfer only: none of
+	// its own methods is the body's cleanup.
+	return classifyValueUse(evidence, probe, instruction, deferObligation{target: obligation.owner})
+}
+
+func classifyValueUse(
+	evidence *lifecyclefacts.LifecycleEvidence,
+	probe analysisTrace.Probe,
+	instruction ssa.Instruction,
+	obligation deferObligation,
+) (resourceStatus, deferReason) {
 	if transfersResource(evidence, instruction, obligation.target) {
 		return resourceSettled, reasonResourceTransferred
 	}
@@ -183,7 +199,7 @@ func classifyResourceInstruction(
 		return resourceLive, reasonNone
 	}
 	receiver := ssaflow.CallReceiver(common)
-	if sameObligationValue(receiver, obligation.target) {
+	if obligation.closedBy(receiver) {
 		if slices.Contains(obligation.cleanup, ssaflow.CallName(common)) {
 			return resourceSettled, reasonExplicitCleanup
 		}

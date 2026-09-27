@@ -7,7 +7,6 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -23,43 +22,6 @@ import (
 // a wrapper that stores a caller's file is not an owner, and an owner whose
 // type never releases the field has no cleanup the caller could be asked for.
 // Positions are struct field indices, so the 64-position mask cap applies.
-
-// resourceType names a type whose values carry a lifecycle obligation and the
-// method that discharges it. This is a type vocabulary, distinct from the
-// acquisition contracts an analyzer matches at call sites.
-type resourceType struct {
-	packagePath string
-	name        string
-	cleanup     []string
-}
-
-func resourceTypes() []resourceType {
-	return []resourceType{
-		{"os", "File", []string{"Close"}},
-		{"database/sql", "Tx", []string{"Commit", "Rollback"}},
-		{"database/sql", "Rows", []string{"Close"}},
-		{"database/sql", "Stmt", []string{"Close"}},
-		{"net/http", "Response", []string{"Close"}},
-		{"compress/gzip", "Reader", []string{"Close"}},
-		{"compress/gzip", "Writer", []string{"Close"}},
-		{"compress/zlib", "Writer", []string{"Close"}},
-		// Channel timers are GC-managed under modern Go semantics. Treating
-		// their types as obligations would recreate missing-Stop reports via
-		// inferred timer-only owners after the acquisition contract declined
-		// them. A Timer type alone cannot prove an AfterFunc callback either.
-	}
-}
-
-// ResourceCleanup returns the cleanup methods of a resource type, or false
-// when the type carries no obligation this vocabulary knows.
-func ResourceCleanup(value types.Type) ([]string, bool) {
-	for _, entry := range resourceTypes() {
-		if syntax.NamedType(value, entry.packagePath, entry.name) {
-			return entry.cleanup, true
-		}
-	}
-	return nil, false
-}
 
 // returnedStruct returns the struct type behind the function's first
 // non-error pointer result, with that result's index.
