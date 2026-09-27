@@ -285,6 +285,27 @@ unclosed holds nothing outside the function. Never closing it before the
 buffer is read truncates the output, which is a data defect rather than a
 leak and is not this check's claim.
 
+A nil comparison of the resource settles the arm where it is nil, and the
+same holds for the `Body` of a `net/http` response that is the resource: a
+response whose `Body` is nil has nothing to close, and one returned without
+error always has a body. A close guarded by `resp != nil && resp.Body != nil`
+therefore covers every feasible path, and so does the negated `||` form that
+returns first. Short-circuit operators are separate branches in SSA, so each
+operand's edge is judged on its own. A guard computed into a variable first,
+`ok := resp != nil && resp.Body != nil; if ok { … }`, branches on a phi of
+Booleans instead, and that shape is still reported. Fixtures:
+`resourcelifetime/nil_guarded_bodies.go`.
+
+A cleanup that reaches the resource through a generic helper's result, such
+as `f := Must(os.Create(path))` closed from a deferred literal, is credited
+because the points-to model applies the generic body to its instantiation
+wrapper (see the points-to model note). A cleanup method value handed to a
+helper that forwards it to a sibling which calls it on every return, such as
+`defer decorate.LogFuncOnError(file.Close)`, is a release; a helper that may
+return without calling it is not. Fixtures:
+`resourcelifetime/generic_wrappers.go` and
+`resourcelifetime/forwarded_callbacks.go`.
+
 ### Retired: use-after-release
 
 A `use-after-release` check reported an operation documented to fail on a

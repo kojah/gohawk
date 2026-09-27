@@ -42,6 +42,7 @@ func run(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	summaries := make(Summaries, len(functions))
+	defer forgetLocalFacts(pass)
 	marker := &SummarizedPackage{}
 	// Import dependency summaries first, and hand their heap projections to
 	// the graph, so every graph built for this package applies a summarized
@@ -83,6 +84,7 @@ func run(pass *analysis.Pass) (any, error) {
 		})
 		fact := summarize(pass, function)
 		summaries[function] = fact
+		rememberLocalFact(pass, function, fact)
 		local = append(local, function)
 		if fact.Heap != nil {
 			heapmodel.RegisterHeapSummary(function, *fact.Heap)
@@ -219,22 +221,7 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 			continue
 		}
 		bit := parameterMaskFor(index)
-		invokes := func(instruction ssa.Instruction) bool {
-			common := ssaflow.InstructionCall(instruction)
-			if common != nil && heapmodel.NewStorage(nil).Same(common.Value, parameter).Proven() {
-				return true
-			}
-			imported, ok := importFact(pass, instruction)
-			return ok && factOwnsExactArgument(instruction, parameter, imported.InvokedParameters())
-		}
-		if ownsOnEveryReturn(function, parameter, invokes) {
-			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: InvokeMethod})
-		}
-		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
-			return synchronouslyInvokesParameter(pass, instruction, parameter)
-		}) {
-			fact.Discharges = append(fact.Discharges, Discharge{Parameter: index, Method: SynchronousInvokeMethod})
-		}
+		fact.Discharges = append(fact.Discharges, invocationDischarges(pass, function, index, parameter)...)
 		summarizeDischarges(pass, function, index, parameter, &fact)
 		if releasesDerivedValueInLoop(function, parameter) {
 			fact.May.LoopReleased |= bit
@@ -397,7 +384,7 @@ func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruct
 	if common != nil && heapmodel.NewStorage(nil).Same(common.Value, parameter).Proven() {
 		return true
 	}
-	imported, ok := importFact(pass, instruction)
+	imported, ok := callbackFact(pass, instruction)
 	return ok && factOwnsExactArgument(instruction, parameter, imported.SynchronouslyInvoked())
 }
 

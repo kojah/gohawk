@@ -504,7 +504,11 @@ body and does not synthesize effects from missing lifecycle-summary bits; see
   opposite, a returned view.
 - Invocation of a func parameter (an `InvokeMethod` discharge), and the stricter guarantee that
   it is invoked in the same goroutine before return (a `SynchronousInvokeMethod`
-  discharge, read by `SynchronouslyInvoked`).
+  discharge, read by `SynchronouslyInvoked`). A helper that forwards its
+  callback to a callee in the same package reads that callee's invocation
+  claims from the summaries this pass has already computed, or proves them
+  from an unexported callee's body, because facts are exported only after the
+  whole package is summarized.
 - Cleanup that happens deeper in a chain of exported calls, because one
   summary is allowed to read the summaries of the functions it calls.
 - Facts on things other than function parameters: `CleanupFact` attaches a
