@@ -54,3 +54,28 @@ or one launched or handed to a callee. Fixtures:
 
 Elapsed sleep durations and command-wide process lifetimes remain known
 precision gaps, not blanket exemptions for timers or command entry points.
+
+### Cancels owned by a returned struct
+
+A constructor commonly stores its cancel in a field of the struct it
+returns, directly or as a closure that calls it, and returns early with an
+error before that struct reaches the caller. When the struct is allocated in
+this function, the cancel reaches exactly one of its fields, and the struct is
+used only through field addresses and returns, the struct owns the cancel:
+returning it is a transfer, and a return that drops it leaves the cancel
+uncalled. A closure qualifies when it captures a cell written once with the
+cancel (`ssaflow.WrittenOnceCell`) and is stored straight into the field. Any
+other use of the struct, such as passing it to a function, publishing it, or
+capturing it, keeps the ordinary classification and the obligation unknown;
+so do a cell written twice, written after capture, or read before the store,
+and a closure handed to opaque code. Reading the cancel back out of the
+field is not an exact release. Fixtures:
+`cancellationownership/owner_structs.go`.
+
+Of the recall audit's captured-cell misses (stage 3), grpc-go's
+`ClientHandshake` is now reported through the result-guarded defer rule, not
+this one. go-test's `prepareTestRun` hands the cancel to goroutines that call
+it on failure, which cannot be ordered against the function's returns, so it
+stays unknown. hermesx drops its cancel on an error return before the owning
+struct exists, after passing the context to other components, which is also
+unknown.

@@ -62,6 +62,10 @@ type cancellationClassifier struct {
 	// result_guards.go.
 	knowledge *summaries.Provider
 	guards    []lifecycle.ResultGuard
+	// owner is the struct this function allocates and stores the cancel
+	// into, directly or through a capturing closure; see owner_structs.go.
+	owner       *cancellationOwner
+	ownerProved bool
 	// pool is this cancellation's total across every query its proof asks;
 	// see budget.
 	pool *ssaflow.SearchBudget
@@ -192,6 +196,9 @@ func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruc
 		return cancellationLabel{}
 	}
 	if store, ok := instruction.(*ssa.Store); ok && classifier.deferredCaptureCell(store) {
+		return cancellationLabel{}
+	}
+	if classifier.ownerHolds(instruction) {
 		return cancellationLabel{}
 	}
 	common := ssaflow.InstructionCall(instruction)
@@ -348,6 +355,11 @@ func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) can
 	}
 	if slices.Contains(returned.Results, classifier.cancel) {
 		classifier.transfers = true
+		return cancellationActionTransfer
+	}
+	if classifier.returnsOwner(returned) {
+		classifier.transfers = true
+		classifier.traceLabel(returned, cancellationActionTransfer, reasonLabelReturnedOwner)
 		return cancellationActionTransfer
 	}
 	if lifecycle.ReturnedValueOwnsValue(returned, classifier.cancel) {

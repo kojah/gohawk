@@ -37,6 +37,7 @@ const (
 	reasonLabelDeferredLiteralRelease
 	reasonLabelResultGuardedRelease
 	reasonLabelResultGuardedUnknown
+	reasonLabelReturnedOwner
 	cancellationReasonCount
 )
 
@@ -72,6 +73,7 @@ var cancellationReasonCodes = [...]string{
 	reasonLabelDeferredLiteralRelease: "deferred-literal-release",
 	reasonLabelResultGuardedRelease:   "result-guarded-release",
 	reasonLabelResultGuardedUnknown:   "result-guarded-unknown",
+	reasonLabelReturnedOwner:          "returned-owner",
 }
 
 func (reason cancellationReason) String() string {
