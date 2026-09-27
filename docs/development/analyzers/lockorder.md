@@ -174,6 +174,17 @@ dominating deferred standard exclusive unlock on that wrapper's mutex. This is
 not a proved acquisition or a guard-to-field relation. Unrelated receivers,
 known-empty wrappers, and explicit intervening releases do not qualify.
 
+A result the reader builds for itself is not the object. A slice appended
+from a nil start and then shuffled, reversed, or filled in under the read lock
+writes only the reader's own memory. Those writes were reported because a
+selection through the nil start widened the element address to `unknown`,
+which aliased the owner; the points-to model now drops the nil base instead
+(see the points-to model note). The walk from a written address to the owner
+still does not follow a phi, so a slice that is nil on one path and the
+owner's own storage on another is a recorded false negative. Seen in boxo:
+https://github.com/ipfs/boxo/blob/3d6ac39a0f76c824ffbb90e3a729e78f62bc2d12/routing/mock/centralized_server.go#L61-L77
+Fixtures: `lockorder/local_results.go`.
+
 ## Sibling mutexes of one owner
 
 A helper that releases a caller's held lock must release that exact mutex.

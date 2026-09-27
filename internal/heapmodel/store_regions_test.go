@@ -160,6 +160,11 @@ func TestRegionGraphMayAlias(t *testing.T) {
 		{"clobberedCellHeld", `x := box{value: a}; escapeBox(&x); observe(x.value, a)`, true},
 		{"clobberedCellOther", `x := box{value: a}; escapeBox(&x); observe(x.value, b)`, false},
 		{"phiOfParameters", `y := a; if pick { y = b }; observe(y, b)`, true},
+		// Selecting through nil faults, so a nil start names no slot and
+		// leaves the other base's element distinct from the parameter...
+		{"elementOfNilOrAppended", `var s []*int; if pick { s = append(s, a) }; observe(&s[idx], p)`, false},
+		// ...while the non-nil base still aliases what it selects from.
+		{"fieldOfNilOrParameter", `var x *box; if pick { x = p }; observe(&x.value, &p.value)`, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			pkg := ssaflowtest.BuildPackage(t, "regionprobe", `package regionprobe

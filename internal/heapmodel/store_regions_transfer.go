@@ -205,8 +205,12 @@ func (graph *regionGraph) selectStep(bases pointees, step string) pointees {
 		case regionUnknown:
 			result.add(base, stale)
 		case regionNil:
-			// Selecting through nil faults; the value never reaches a use.
-			result.add(slot{region: graph.unkR}, stale)
+			// Selecting through nil faults, so on the path where the base is
+			// nil the selected address never reaches a use and names no slot.
+			// Widening it to unknown instead would absorb the other bases'
+			// real slots: a slice built by append from a nil start would
+			// make every element alias every object in the function.
+			// https://github.com/ipfs/boxo/blob/3d6ac39a0f76c824ffbb90e3a729e78f62bc2d12/routing/mock/centralized_server.go#L61-L77
 		case regionSite, regionExternal, regionOpaque, regionPlaceholder, regionSnapshot, regionClosure:
 			result.add(slot{region: base.region, path: joinSlotPath(base.path, step)}, stale)
 		}

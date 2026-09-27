@@ -32,6 +32,10 @@ object:
 
 Two more slots close the lattice: `nil`, and `unknown`, which may be
 anything and never supports a must-answer.
+Selecting a field or element through `nil` faults, so a nil base contributes
+no slot to the selection rather than `unknown`. Because `unknown` absorbs a
+set, widening it would erase the other bases' real slots: every element of a
+slice appended from a nil start would alias every object in the function.
 
 ## What the graph tracks
 
