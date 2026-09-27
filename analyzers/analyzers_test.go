@@ -152,7 +152,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 	if len(metadata) != len(expectedAnalyzerNames()) {
 		t.Fatalf("metadata count = %d, want %d", len(metadata), len(expectedAnalyzerNames()))
 	}
-	experimental := map[string]bool{}
+	experimental := map[string]bool{"processownership": true}
 	seenChecks := make(map[AnalyzerCheck]string)
 	checkTiers := map[AnalyzerCheck]CheckTier{
 		"lockorder/contradictory-order": CheckTierCore,
@@ -211,7 +211,7 @@ func TestAnalyzerMetadata(t *testing.T) {
 func TestDefaultAnalyzers(t *testing.T) {
 	want := []string{
 		"goroutineownership", "producerlifecycle",
-		"processownership", "lockorder", "resourcelifetime",
+		"lockorder", "resourcelifetime",
 		"deferinloop", "concurrentcapture",
 		"cancellationownership",
 	}

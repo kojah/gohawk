@@ -59,10 +59,12 @@ func TestPrintAnalyzerList(t *testing.T) {
 			name:      "default checks",
 			arguments: []string{"-checks", "-defaults"},
 			contains:  []string{"lockorder/missing-release"},
+			excludes:  []string{"processownership/missing-wait"},
 		},
 		{
 			name:      "opt-in checks",
 			arguments: []string{"-checks", "-opt-in"},
+			contains:  []string{"processownership/missing-wait", "experimental"},
 			excludes:  []string{"lockorder/missing-release"},
 		},
 		{name: "conflicting filters", arguments: []string{"-defaults", "-opt-in"}, wantError: true},

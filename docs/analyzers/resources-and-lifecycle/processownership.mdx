@@ -9,9 +9,9 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 ## What it detects
 
-Tracks commands successfully started with `os/exec` and reports return paths
-that neither wait for the process nor transfer the command to code that owns
-waiting for it.
+Reports `os/exec` commands started successfully whose return paths neither
+wait for the process nor hand it to code that waits. This check is
+experimental and runs only with `-tier=experimental` or when named.
 
 Launching a process without waiting is not reported on its own: opening a
 browser or relaunching a daemon may intentionally outlive the caller. The
@@ -26,7 +26,7 @@ in the [processownership design notes](https://github.com/kojah/gohawk/blob/main
 {/* gohawk:generated-checks:start */}
 | Check | Tier | Kind | What it detects |
 | --- | --- | --- | --- |
-| <CheckIdentity name="missing-wait" tier="core" /> | core | defect | Reports successfully started commands that are neither waited on nor transferred. |
+| <CheckIdentity name="missing-wait" tier="experimental" /> | experimental | defect | Reports successfully started commands that are neither waited on nor transferred. |
 {/* gohawk:generated-checks:end */}
 
 ## Why this is flagged

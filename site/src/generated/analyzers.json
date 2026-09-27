@@ -112,13 +112,13 @@
           "name": "processownership",
           "summary": "Checks that started os/exec commands are waited on or transferred to a wait owner.",
           "path": "analyzers/resources-and-lifecycle/processownership",
-          "tier": "core",
+          "tier": "experimental",
           "checks": [
             {
               "id": "processownership/missing-wait",
               "summary": "Reports successfully started commands that are neither waited on nor transferred.",
               "kind": "defect",
-              "tier": "core"
+              "tier": "experimental"
             }
           ]
         },

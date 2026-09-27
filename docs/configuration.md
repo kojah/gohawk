@@ -16,7 +16,7 @@ Every check carries a tier that records how much trust it has earned:
 | core | yes | precision demonstrated on the repository audit and guarded by the precision replay |
 | experimental | no | heuristic audits that may change or be retired |
 
-No check is currently experimental; the tier is kept for future audits.
+`processownership/missing-wait` is currently the only experimental check.
 
 Use `gohawk list` to see every analyzer with its tier, and `gohawk list
 -checks` for the checks themselves. An analyzer's tier is the most trusted

@@ -41,3 +41,15 @@ A deferred wait guarded only by the captured command's `Process` field remains
 uncertain when distinct loads prevent an exact identity proof. Additional
 Boolean guards and visible field replacements inside the deferred waiter still
 require a wait.
+
+## Tier
+
+`missing-wait` moved from core to experimental on 2026-09-27. In batches 62
+and 63 it had 10 true positives and 9 false positives, and in production
+files, which is what a default run analyzes, 7 and 8. The false positives
+were children deliberately detached with `Process.Release` or `Setsid`,
+children started in `main` of example programs, whose exit ends the
+program, and a process stored in a returned container that waits on
+destroy. Whether a started child is meant to outlive its launcher is intent
+the code rarely states, so the check stays available but is not run by
+default.

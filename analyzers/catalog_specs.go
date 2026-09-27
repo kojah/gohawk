@@ -76,7 +76,7 @@ func resourcesSpecs() []catalog.AnalyzerSpec {
 			{
 				ID: check.ProcessWait, Doc: "Reports successfully started commands that are neither waited on nor transferred.",
 				Help: "call Wait on every return path after Start succeeds, or hand the command to code that waits for it",
-				Kind: catalog.KindDefect, Tier: catalog.TierCore,
+				Kind: catalog.KindDefect, Tier: catalog.TierExperimental,
 			},
 		}},
 		{Analyzer: resourcelifetime.Analyzer(), Checks: []catalog.CheckInfo{

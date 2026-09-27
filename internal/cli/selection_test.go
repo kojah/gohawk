@@ -38,12 +38,13 @@ func TestWithAnalyzerSelection(t *testing.T) {
 
 	got := selectArguments([]string{"gohawk", "-disable=lockorder", "./..."})
 	joined := strings.Join(got, " ")
-	for _, value := range []string{"-concurrentcapture=true", "-processownership=true"} {
+	for _, value := range []string{"-concurrentcapture=true", "-resourcelifetime=true"} {
 		if !strings.Contains(joined, value) {
 			t.Errorf("default arguments do not contain %q: %v", value, got)
 		}
 	}
-	for _, value := range []string{"-lockorder=true"} {
+	// processownership has only an experimental check, so defaults skip it.
+	for _, value := range []string{"-lockorder=true", "-processownership=true"} {
 		if strings.Contains(joined, value) {
 			t.Errorf("default arguments unexpectedly contain %q: %v", value, got)
 		}
@@ -92,7 +93,7 @@ func TestAnalyzerGroupSelection(t *testing.T) {
 
 	t.Run("disabled groups subtract from defaults and allow individual overrides", func(t *testing.T) {
 		got := strings.Join(selectArguments([]string{"gohawk", "-disable-groups=concurrency", "-enable=concurrentcapture", "./..."}), " ")
-		for _, value := range []string{"-cancellationownership=true", "-processownership=true", "-concurrentcapture=true"} {
+		for _, value := range []string{"-cancellationownership=true", "-resourcelifetime=true", "-concurrentcapture=true"} {
 			if !strings.Contains(got, value) {
 				t.Errorf("disabled-group arguments do not contain %q: %s", value, got)
 			}
