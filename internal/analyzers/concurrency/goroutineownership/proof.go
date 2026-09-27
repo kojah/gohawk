@@ -125,6 +125,16 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonBufferedSignal}
 	}
 	analysis.ruledOut(reasonBufferedSignal)
+	if analysis.unobservedSignals() {
+		// A channel the worker only closes, and that nothing in the function
+		// or its callees ever receives from, selects on, or hands away, is
+		// not a completion protocol: no code waits for it, and close never
+		// blocks the worker. Its presence proves no obligation the parent
+		// could skip. agentsh's test drain loops close such a channel:
+		// https://github.com/canyonroad/agentsh/blob/0ce9939b6ccead8b21b9ce16783b287d18012777/internal/db/proxy/postgres/upstreamread_test.go#L229-L237
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonUnobservedSignal}
+	}
+	analysis.ruledOut(reasonUnobservedSignal)
 	if ssaflow.RunsOnceInProgramEntry(analysis.spawn) {
 		// A worker launched at most once by main.main cannot accumulate, and
 		// every way out of main ends the process and stops the worker. This

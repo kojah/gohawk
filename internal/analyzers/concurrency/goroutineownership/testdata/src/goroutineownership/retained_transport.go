@@ -52,6 +52,9 @@ func differentConnectionCleanup(connection, other net.Conn) {
 		defer close(done)
 		_, _ = reader.ReadString('\n')
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func ignoredTransport(io.Reader) *bufio.Reader {
@@ -66,6 +69,9 @@ func ignoredWrapperArgumentDoesNotSettle(connection net.Conn) {
 		defer close(done)
 		_, _ = reader.ReadString('\n')
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func transportClosedOnlyConditionally(connection net.Conn, stop bool) {
@@ -75,6 +81,9 @@ func transportClosedOnlyConditionally(connection net.Conn, stop bool) {
 		defer close(done)
 		_, _ = reader.ReadString('\n')
 	}()
+	if waitForWorker {
+		<-done
+	}
 	if stop {
 		connection.Close()
 	}
@@ -88,6 +97,9 @@ func transportClosedBeforeLaunch(connection net.Conn) {
 		defer close(done)
 		_, _ = reader.ReadString('\n')
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func transportReleaseDoesNotSettleErrorSend(connection net.Conn) {

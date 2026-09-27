@@ -95,6 +95,9 @@ func (owner *lifecycleOwner) startWithUnobservedSignal() {
 		owner.run()
 		close(done)
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func startCallerOwned(owner *lifecycleOwner) {

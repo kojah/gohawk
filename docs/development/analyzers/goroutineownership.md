@@ -111,6 +111,20 @@ channels and each has at most one send per call. Receives cannot outnumber
 sends, so leaving the loop proves that every worker sent. A `default` arm, a
 `break`, a timeout arm, a dynamic bound, or a second sender voids the count.
 
+A channel the worker only closes, and that nothing in the function, its
+closures, or the static callees it is passed to ever receives from, selects
+on, sends on, or hands away, is not a completion obligation: no code waits
+for it, and close never blocks. Such a done channel is usually left over from
+a removed wait or copied from a sibling that does wait. The census is
+`ssaflow.ChannelValues`; any use it cannot follow keeps the obligation, and a
+send nobody receives is still reported, because it blocks the worker forever.
+Seen in agentsh's drain loops and dalec's progress display (batch 61):
+https://github.com/canyonroad/agentsh/blob/0ce9939b6ccead8b21b9ce16783b287d18012777/internal/db/proxy/postgres/upstreamread_test.go#L229-L237
+Fixtures: `goroutineownership/unobserved_signals.go`. Fixtures whose subject
+is another boundary wait on their done channel on one path
+(`if waitForWorker { <-done }`), so the obligation is real and the path that
+skips the wait is the one they judge.
+
 ## Former public summary
 
 Reports goroutines whose completion is promised but not awaited on every

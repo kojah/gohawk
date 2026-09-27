@@ -50,6 +50,9 @@ func canceledDifferentContextDoesNotBoundWorker() {
 		defer close(done)
 		<-ctx.Done()
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func conditionalContextCancelDoesNotBoundWorker(enabled bool) {
@@ -62,6 +65,9 @@ func conditionalContextCancelDoesNotBoundWorker(enabled bool) {
 		defer close(done)
 		<-ctx.Done()
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func ignoredCanceledContextDoesNotBoundWorker() {
@@ -72,6 +78,9 @@ func ignoredCanceledContextDoesNotBoundWorker() {
 		_ = ctx.Err()
 		close(done)
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func replacedCanceledContextDoesNotBoundWorker() {
@@ -83,6 +92,9 @@ func replacedCanceledContextDoesNotBoundWorker() {
 		defer close(done)
 		<-ctx.Done()
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func runUntilStopped(stop <-chan struct{}) {

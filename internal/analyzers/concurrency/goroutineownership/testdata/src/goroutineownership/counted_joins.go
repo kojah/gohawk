@@ -226,6 +226,9 @@ func unrelatedNestedWorkerDoesNotJoin() {
 	done := make(chan struct{})
 	unrelated := make(chan struct{})
 	go func() { close(done) }() // want "goroutine is not joined on every return path"
+	if waitForWorker {
+		<-done
+	}
 	run := func() {
 		task := barrierTask{run: func() { <-unrelated }}
 		task.run()

@@ -28,6 +28,9 @@ func opaqueWorkerGetsDifferentContext(run func(context.Context)) {
 		run(context.Background())
 		close(done)
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func opaqueWorkerWithConditionalCancellation(run func(context.Context), cancelNow bool) {
@@ -37,6 +40,9 @@ func opaqueWorkerWithConditionalCancellation(run func(context.Context), cancelNo
 		run(ctx)
 		close(done)
 	}()
+	if waitForWorker {
+		<-done
+	}
 	if cancelNow {
 		cancel()
 	}

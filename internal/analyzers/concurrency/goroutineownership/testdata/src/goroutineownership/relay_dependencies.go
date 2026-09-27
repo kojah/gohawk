@@ -81,6 +81,9 @@ func relayExtraWorkIsNotCovered() {
 		<-work
 		close(done)
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func relayPublicationIsNotCovered() {

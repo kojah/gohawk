@@ -52,6 +52,9 @@ func asynchronousReceive() {
 func differentSignal() {
 	done, other := make(chan struct{}), make(chan struct{})
 	go func() { defer close(done) }() // want "goroutine is not joined"
+	if waitForWorker {
+		<-done
+	}
 	synchelpers.Receive(other)
 }
 func differentArgument() {

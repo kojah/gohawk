@@ -11,12 +11,15 @@ func main() {
 
 	for range os.Args {
 		finished := make(chan struct{})
-		go func() { close(finished) }() // want "goroutine is not joined on every return path"
+		go func() { finished <- struct{}{} }() // want "goroutine is not joined on every return path"
 	}
 
 	start := func() {
 		stopped := make(chan struct{})
 		go func() { close(stopped) }() // want "goroutine is not joined on every return path"
+		if waitForWorker {
+			<-stopped
+		}
 	}
 	start()
 }

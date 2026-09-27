@@ -90,4 +90,7 @@ func optionalGroupDoesNotHideOtherSignal(wait bool, work func()) {
 		work()
 		close(done)
 	}()
+	if waitForWorker {
+		<-done
+	}
 }

@@ -22,6 +22,9 @@ func pipePeerClosedBeforeLaunch() {
 		defer close(done)
 		_, _ = writer.Write([]byte("data"))
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func ignoredPipePeer(io.Reader) {}
@@ -33,6 +36,9 @@ func ignoredPeerDoesNotSettle() {
 		defer close(done)
 		_, _ = writer.Write([]byte("data"))
 	}()
+	if waitForWorker {
+		<-done
+	}
 	ignoredPipePeer(reader)
 }
 
@@ -44,6 +50,9 @@ func unrelatedPipeDoesNotSettle() {
 		defer close(done)
 		_, _ = writer.Write([]byte("data"))
 	}()
+	if waitForWorker {
+		<-done
+	}
 	_, _ = io.ReadAll(other)
 }
 
@@ -55,6 +64,9 @@ func pipePeerOnlyStoredLocally() {
 		defer close(done)
 		_, _ = writer.Write([]byte("data"))
 	}()
+	if waitForWorker {
+		<-done
+	}
 	_ = request
 }
 

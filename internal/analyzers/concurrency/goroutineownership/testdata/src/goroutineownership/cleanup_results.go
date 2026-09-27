@@ -36,6 +36,9 @@ func unrelatedReturnedCleanupDoesNotSettle() {
 		defer close(done)
 		_, _ = reader.ReadString('\n')
 	}()
+	if waitForWorker {
+		<-done
+	}
 }
 
 func returnedCleanupMustBeInvoked() {
@@ -46,5 +49,8 @@ func returnedCleanupMustBeInvoked() {
 		defer close(done)
 		_, _ = reader.ReadString('\n')
 	}()
+	if waitForWorker {
+		<-done
+	}
 	_ = cleanup
 }

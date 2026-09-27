@@ -21,6 +21,7 @@ const (
 	reasonWorkerConsumesSignal
 	reasonFlagGuardedJoin
 	reasonBufferedSignal
+	reasonUnobservedSignal
 	reasonSharedStorageSignal
 	reasonNoObligation
 	reasonUnownedReturn
@@ -69,6 +70,7 @@ var ownershipReasonCodes = [...]string{
 	reasonWorkerConsumesSignal:        "signal-consumed-by-worker",
 	reasonFlagGuardedJoin:             "flag-guarded-join",
 	reasonBufferedSignal:              "buffered-completion-signal",
+	reasonUnobservedSignal:            "signal-never-observed",
 	reasonSharedStorageSignal:         "shared-storage-signal",
 	reasonNoObligation:                "no-completion-obligation",
 	reasonUnownedReturn:               "unowned-return",

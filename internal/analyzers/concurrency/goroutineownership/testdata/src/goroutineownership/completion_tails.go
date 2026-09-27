@@ -65,6 +65,9 @@ func bufferedResultDoesNotReplaceDeferredCompletion(finish bool) {
 			}
 		}
 	}()
+	if waitForWorker {
+		<-done
+	}
 	select {
 	case <-result:
 	default:

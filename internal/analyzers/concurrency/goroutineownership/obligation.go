@@ -574,16 +574,47 @@ func (analysis *spawnAnalysis) bufferedSignals() bool {
 	})
 }
 
-func bufferedLocalChannel(function *ssa.Function, signal ssa.Value) bool {
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			created, ok := instruction.(*ssa.MakeChan)
-			if !ok || !carries(ssaflow.NewReachingWalk(carryForms), signal, created) {
-				continue
-			}
-			size, constantSize := created.Size.(*ssa.Const)
-			return !constantSize || size.Value == nil || constant.Sign(size.Value) > 0
+// unobservedSignals reports whether every completion signal is a locally
+// created channel whose every use, in this function and in the closures and
+// static callees it reaches, is a close. A send, receive, select, range, or
+// any use the census cannot follow keeps the obligation.
+func (analysis *spawnAnalysis) unobservedSignals() bool {
+	if len(analysis.signals) == 0 || len(analysis.groups) > 0 {
+		return false
+	}
+	return !slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
+		made := localChannel(analysis.function, signal)
+		return made == nil || !onlyClosed(made)
+	})
+}
+
+func onlyClosed(made *ssa.MakeChan) bool {
+	_, uses := ssaflow.ChannelValues(made)
+	return !slices.ContainsFunc(uses, func(use ssaflow.ChannelUse) bool {
+		common := ssaflow.InstructionCall(use.Instruction)
+		if common == nil {
+			return true
+		}
+		builtin, ok := common.Value.(*ssa.Builtin)
+		return !ok || builtin.Name() != "close"
+	})
+}
+
+// localChannel returns the channel made in function that reaches signal.
+func localChannel(function *ssa.Function, signal ssa.Value) *ssa.MakeChan {
+	for _, created := range ssaflow.InstructionsOf[*ssa.MakeChan](function) {
+		if carries(ssaflow.NewReachingWalk(carryForms), signal, created) {
+			return created
 		}
 	}
-	return false
+	return nil
+}
+
+func bufferedLocalChannel(function *ssa.Function, signal ssa.Value) bool {
+	created := localChannel(function, signal)
+	if created == nil {
+		return false
+	}
+	size, constantSize := created.Size.(*ssa.Const)
+	return !constantSize || size.Value == nil || constant.Sign(size.Value) > 0
 }

@@ -26,6 +26,9 @@ func assertedOwnerCarriesDifferentSignal(run func(*producedSignal)) {
 	owner.done = make(chan struct{})
 	run(owner)
 	go func() { close(done) }() // want "goroutine is not joined on every return path"
+	if waitForWorker {
+		<-done
+	}
 }
 
 func assertedOwnerOnlyRead() {
