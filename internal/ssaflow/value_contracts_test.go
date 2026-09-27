@@ -1,0 +1,135 @@
+package ssaflow_test
+
+import (
+	"testing"
+
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
+	"golang.org/x/tools/go/ssa"
+)
+
+// WrittenOnceCell accepts a cell whose one store is its only write anywhere,
+// and rejects every other shape by the cause that could change what a read
+// returns.
+func TestWrittenOnceCellRejectionsByCause(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "cells", `package cells
+func escape(*int) {}
+func readOnly(n int) func() int {
+	v := n
+	return func() int { return v }
+}
+func storedTwice(n, m int) func() int {
+	v := n
+	v = m
+	return func() int { return v }
+}
+func writtenInClosure(n int) func() int {
+	v := n
+	return func() int { v++; return v }
+}
+type bump func()
+func writtenInNestedClosure(n int) func() bump {
+	v := n
+	return func() bump { return func() { v = v + 1 } }
+}
+func addressTaken(n int) func() int {
+	v := n
+	escape(&v)
+	return func() int { return v }
+}
+func neverStored() func() int {
+	var v int
+	return func() int { return v }
+}
+`)
+	for name, want := range map[string]bool{
+		"readOnly":               true,
+		"storedTwice":            false,
+		"writtenInClosure":       false,
+		"writtenInNestedClosure": false,
+		"addressTaken":           false,
+		"neverStored":            false,
+	} {
+		allocs := ssaflow.InstructionsOf[*ssa.Alloc](pkg.Func(name))
+		if len(allocs) != 1 {
+			t.Fatalf("%s: %d cells", name, len(allocs))
+		}
+		stored, once := ssaflow.WrittenOnceCell(allocs[0])
+		if once != want {
+			t.Errorf("%s: written once = %t, want %t", name, once, want)
+		}
+		if once && stored != pkg.Func(name).Params[0] {
+			t.Errorf("%s: stored value %v, want the parameter", name, stored)
+		}
+	}
+}
+
+// Each reaching fold looks through exactly the transparent forms it names:
+// one form reaches the wrapped value, no forms stops at the wrapper, and a
+// call that returns its argument is never a form.
+func TestReachingWalkTransparentForms(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "forms", `package forms
+type Named *int
+type I interface{ M(); N() }
+type J interface{ M() }
+type T int
+func (T) M() {}
+func (T) N() {}
+func identity(p *int) *int { return p }
+func sinkI(I)      {}
+func sinkJ(J)      {}
+func sinkNamed(Named) {}
+func sinkWide(int64)  {}
+func sinkT(T)      {}
+func sinkPointer(*int) {}
+func makeInterface(t T)     { var i I = t; sinkI(i) }
+func changeInterface(i I)   { var j J = i; sinkJ(j) }
+func changeType(p *int)     { sinkNamed(Named(p)) }
+func convert(n int)         { sinkWide(int64(n)) }
+func typeAssert(i I)        { sinkT(i.(T)) }
+func opaque(p *int)         { sinkPointer(identity(p)) }
+`)
+	for _, test := range []struct {
+		name string
+		form ssaflow.TransparentValueForm
+	}{
+		{"makeInterface", ssaflow.TransparentMakeInterface},
+		{"changeInterface", ssaflow.TransparentChangeInterface},
+		{"changeType", ssaflow.TransparentChangeType},
+		{"convert", ssaflow.TransparentConvert},
+		{"typeAssert", ssaflow.TransparentTypeAssert},
+		{"opaque", ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert |
+			ssaflow.TransparentMakeInterface | ssaflow.TransparentTypeAssert},
+	} {
+		function := pkg.Func(test.name)
+		parameter := function.Params[0]
+		wrapped := sunkValue(t, function)
+		isParameter := func(_ ssaflow.ReachingWalk, value ssa.Value) bool { return value == parameter }
+		want := test.name != "opaque"
+		if got := ssaflow.NewReachingWalk(test.form).Any(wrapped, isParameter); got != want {
+			t.Errorf("%s: Any through its form = %t, want %t", test.name, got, want)
+		}
+		if got := ssaflow.NewReachingWalk(test.form).Every(wrapped, isParameter); got != want {
+			t.Errorf("%s: Every through its form = %t, want %t", test.name, got, want)
+		}
+		if ssaflow.NewReachingWalk(ssaflow.TransparentNone).Any(wrapped, isParameter) {
+			t.Errorf("%s: a fold with no forms looked through the wrapper", test.name)
+		}
+		if test.name != "opaque" && test.form != ssaflow.TransparentMakeInterface &&
+			ssaflow.NewReachingWalk(ssaflow.TransparentMakeInterface).Any(wrapped, isParameter) {
+			t.Errorf("%s: a fold naming only another form looked through it", test.name)
+		}
+	}
+}
+
+// sunkValue returns the argument of the function's one call to a sink.
+func sunkValue(t *testing.T, function *ssa.Function) ssa.Value {
+	t.Helper()
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
+		if name := ssaflow.CallName(call.Common()); len(name) > 4 && name[:4] == "sink" {
+			return call.Common().Args[0]
+		}
+	}
+	t.Fatalf("%s: no call to a sink", function.Name())
+	return nil
+}
