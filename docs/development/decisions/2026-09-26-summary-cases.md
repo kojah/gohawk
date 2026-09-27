@@ -94,6 +94,19 @@ keeps them, were considered and not adopted, for these reasons.
   another. That becomes may on both sides, and the caller's obligation is
   unknown: a stable false negative rather than a guess.
 
+None of these costs Pulse precision, because Pulse reasons by
+under-approximation: each disjunct describes executions that can really
+happen, a report cites one of them, and no disjunct claims that something did
+not happen or happened on every path. Dropping a disjunct, or keeping a
+different set under another order, leaves every remaining disjunct a true
+path, so it can only lose bugs. A caller combined with a callee disjunct that
+did not release is on a real path, so the leak it reports is real, and
+Pulse's solver discards combinations whose path conditions contradict the
+caller. gohawk's reports also need positive evidence of a violation, but its
+suppressions rest on over-approximate guarantees about every return, and a
+guarantee cannot be kept in part. Each concern above is a recall cost for
+Pulse and a false-positive risk for gohawk.
+
 Real disjuncts would fit an analysis whose claims only report and never
 suppress, with a solver to select them, which is a different policy from the
 one gohawk's trusted claims follow. The concurrency facts' path alternatives
