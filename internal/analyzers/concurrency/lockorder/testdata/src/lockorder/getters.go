@@ -39,7 +39,7 @@ func getterDistinctFields(owner *getterOwner) {
 
 func getterRecursive(owner *getterOwner) {
 	owner.Mu().Lock()
-	owner.Mu().Lock() // want "is acquired while already held"
+	owner.Mu().Lock()
 	owner.Mu().Unlock()
 }
 

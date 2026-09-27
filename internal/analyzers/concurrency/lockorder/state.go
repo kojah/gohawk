@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -255,60 +254,6 @@ func traceFreshMutexIdentity(pass *analysis.Pass, instruction ssa.Instruction, r
 			Reason: proof.reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
 		})
 	}
-}
-
-// Matching loaded guards may release a lock before the same acquisition runs
-// again. Their distinct loads do not establish differing Boolean contents.
-// This is possible release only; neither stable fields nor loop counts are
-// inferred, and two acquisitions within one guarded region still conflict.
-// https://github.com/threatexpert/gonc/blob/e14bc6b97efc2150c4e0bbb2bdc89f8548e28fa6/netx/UDPConn.go#L116-L129
-type guardedReleaseProof struct {
-	possible bool
-	reason   lockReason
-}
-
-func (flow lockFlowContext) loadedLoopRelease(instruction ssa.Instruction, receiver ssa.Value, origin token.Pos) guardedReleaseProof {
-	missing := guardedReleaseProof{reason: lockReasonNoMatchingLoadedLoopRelease}
-	if origin != instruction.Pos() || !ssaflow.BlockInCycle(instruction.Block()) {
-		return missing
-	}
-	guard, truth := loadedBooleanBranch(instruction)
-	if guard == nil {
-		return missing
-	}
-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](instruction.Parent()) {
-		operation, _, released, direct := mutexAction(call)
-		if !direct || operation != mutexRelease || !heapmodel.MayAlias(receiver, released) {
-			continue
-		}
-		other, otherTruth := loadedBooleanBranch(call)
-		if other != nil && truth == otherTruth && heapmodel.MayAlias(guard, other) &&
-			ssaflow.InstructionMayFollow(instruction, call) && ssaflow.InstructionMayFollow(call, instruction) {
-			proof := guardedReleaseProof{possible: true, reason: lockReasonLoadedLoopReleaseUnknown}
-			analysisTrace.For(flow.pass, "lockorder", string(check.LockRecursiveAcquire), instruction.Pos()).Decision(analysisTrace.Step{
-				Reason: proof.reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
-			})
-			return proof
-		}
-	}
-	return missing
-}
-
-func loadedBooleanBranch(instruction ssa.Instruction) (ssa.Value, bool) { //nolint:ireturn // The guard is an SSA address.
-	block := instruction.Block()
-	if len(block.Preds) != 1 {
-		return nil, false
-	}
-	predecessor := block.Preds[0]
-	branch, ok := predecessor.Instrs[len(predecessor.Instrs)-1].(*ssa.If)
-	if !ok {
-		return nil, false
-	}
-	load, ok := branch.Cond.(*ssa.UnOp)
-	if !ok || load.Op != token.MUL {
-		return nil, false
-	}
-	return load.X, predecessor.Succs[0] == block
 }
 
 // A held-on-success helper can return the original checked error instead of a

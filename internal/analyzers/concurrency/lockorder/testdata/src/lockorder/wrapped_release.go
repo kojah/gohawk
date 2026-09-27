@@ -50,19 +50,3 @@ func (c *guardedCache) readOne(key string) int {
 	c.mu.Unlock()
 	return value
 }
-
-// plainCache uses a mutex whose release is provable, so the ordinary claims
-// still hold against it.
-type plainCache struct {
-	mu    sync.Mutex
-	items map[string]int
-}
-
-// A genuine second acquisition of a lock already held stays reportable.
-func (c *plainCache) lockTwice() {
-	c.mu.Lock()
-	c.mu.Lock() // want "lock .* is acquired while already held"
-	c.items["k"] = 1
-	c.mu.Unlock()
-	c.mu.Unlock()
-}

@@ -20,7 +20,7 @@ func callAfterRelease(mu *sync.Mutex, f func()) {
 
 func callbackRelocks() {
 	var mu sync.Mutex
-	holdWhileCalling(&mu, func() { // want "lock .*mu.* is acquired while already held"
+	holdWhileCalling(&mu, func() {
 		mu.Lock()
 		mu.Unlock()
 	})

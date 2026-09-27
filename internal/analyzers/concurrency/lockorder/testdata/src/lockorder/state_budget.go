@@ -6,7 +6,7 @@ type budgetPair struct {
 	first, second sync.Mutex
 }
 
-// Budget exhaustion deliberately loses even an early recursive-acquire
+// Budget exhaustion deliberately loses even an early lock-state
 // witness: incomplete all-return evidence must not publish partial decisions
 // or let this function contribute an order edge to another function's cycle.
 func stateBudgetUnknown(pair *budgetPair, a, b, c, d, e, f, g, h bool, noise func() bool) {

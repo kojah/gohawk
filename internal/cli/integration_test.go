@@ -155,7 +155,7 @@ func answer() int { return identity{}.value(42) }
 		module := writeCheckFilterModule(t)
 		output, exitCode := runCommand(t, module, binary, "-enable=lockorder", "-disable-checks=lockorder/missing-release", "./...")
 		if exitCode != 3 || strings.Contains(output, "is not released on this return path") ||
-			!strings.Contains(output, "is acquired while already held") {
+			!strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("filtered checks: exit code = %d\n%s", exitCode, output)
 		}
 	})

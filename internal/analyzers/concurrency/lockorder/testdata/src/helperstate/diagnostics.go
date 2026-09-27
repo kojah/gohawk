@@ -7,18 +7,18 @@ import (
 
 func recursive(mu *sync.Mutex) {
 	mutexstate.Acquire(mu)
-	mu.Lock() // want "acquired while already held"
+	mu.Lock()
 	mu.Unlock()
 }
 func helperRecursive(mu *sync.Mutex) {
 	mu.Lock()
-	mutexstate.Acquire(mu) // want "acquired while already held"
+	mutexstate.Acquire(mu)
 	mu.Unlock()
 }
 func restoredHeld(mu *sync.Mutex) {
 	mu.Lock()
 	mutexstate.Reacquire(mu)
-	mu.Lock() // want "acquired while already held"
+	mu.Lock()
 	mu.Unlock()
 }
 func missing(mu *sync.Mutex, early bool) {

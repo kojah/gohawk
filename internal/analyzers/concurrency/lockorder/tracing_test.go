@@ -52,7 +52,6 @@ func TestLockTraceBoundaries(t *testing.T) {
 	checkConstantTrace(t, data, "stable-parameter-branch-infeasible", "compound_parameter_guard.go:")
 	checkDecisionTrace(t, data, "imported-writer-guard-unknown", "opaque_writer.go:", "unknown")
 	checkDecisionTrace(t, data, "conditional-caller-release-proven", "caller_release.go:", "accepted")
-	checkDecisionTrace(t, data, "loaded-loop-release-unknown", "loaded_loop_guard.go:", "unknown")
 	checkDecisionTrace(t, data, "lock-state-budget-exhausted", "state_budget.go:", "unknown")
 	checkDecisionTrace(t, data, "fresh-field-identity-unknown", "escaped_fresh_field.go:", "unknown")
 	checkDecisionTrace(t, data, "cross-owner-class-unknown", "cross_owner_orders.go:", "unknown")

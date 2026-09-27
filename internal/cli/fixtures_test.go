@@ -71,11 +71,16 @@ func sendAfterClose(ch chan int) {
 	ch <- 1
 }
 
-func recursiveLock() {
-	var mu sync.Mutex
-	mu.Lock()
-	// Reacquiring this lock supplies the lockorder diagnostic.
-	mu.Lock()
+type counter struct {
+	mu sync.RWMutex
+	n  int
+}
+
+// Writing under the read lock supplies the lockorder diagnostic.
+func (c *counter) bump() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	c.n++
 }
 `)
 	return directory
@@ -170,10 +175,15 @@ func writeCheckFilterModule(t *testing.T) string {
 
 import "sync"
 
-func lockTwice(mu *sync.Mutex) {
-	lock := mu
-	lock.Lock()
-	mu.Lock()
+type counter struct {
+	mu sync.RWMutex
+	n  int
+}
+
+func (c *counter) bump() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	c.n++
 }
 
 func sometimesUnlock(mu *sync.Mutex, unlock bool) {

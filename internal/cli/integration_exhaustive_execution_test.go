@@ -32,7 +32,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		if strings.Contains(output, "is not released on this return path") {
 			t.Fatalf("disabled check still reported:\n%s", output)
 		}
-		if !strings.Contains(output, "is acquired while already held") {
+		if !strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("enabled sibling check did not report:\n%s", output)
 		}
 
@@ -47,13 +47,13 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 			"./...",
 		)
 		if exitCode != 1 || strings.Contains(output, "is not released on this return path") ||
-			!strings.Contains(output, "is acquired while already held") {
+			!strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("vettool disabled check: exit code = %d\n%s", exitCode, output)
 		}
 
 		output, exitCode = runCommand(t, checkModule, binary,
 			"-enable=lockorder",
-			"-disable-checks=lockorder/missing-release,lockorder/recursive-acquire",
+			"-disable-checks=lockorder/missing-release,lockorder/read-lock-write",
 			"./...",
 		)
 		if exitCode != 0 || output != "" {
@@ -63,16 +63,16 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 
 	t.Run("enabled check", func(t *testing.T) {
 		checkModule := writeCheckFilterModule(t)
-		output, exitCode := runCommand(t, checkModule, binary, "-enable-checks=lockorder/recursive-acquire", "./...")
-		if exitCode != 3 || !strings.Contains(output, "is acquired while already held") {
+		output, exitCode := runCommand(t, checkModule, binary, "-enable-checks=lockorder/read-lock-write", "./...")
+		if exitCode != 3 || !strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("exact check: exit code = %d\n%s", exitCode, output)
 		}
 		if strings.Contains(output, "is not released on this return path") {
 			t.Fatalf("exact check ran default sibling:\n%s", output)
 		}
 
-		output, exitCode = runCommand(t, checkModule, "go", "vet", "-vettool="+binary, "-enable-checks=lockorder/recursive-acquire", "./...")
-		if exitCode != 1 || !strings.Contains(output, "is acquired while already held") ||
+		output, exitCode = runCommand(t, checkModule, "go", "vet", "-vettool="+binary, "-enable-checks=lockorder/read-lock-write", "./...")
+		if exitCode != 1 || !strings.Contains(output, "write while only the read lock") ||
 			strings.Contains(output, "is not released on this return path") {
 			t.Fatalf("vettool exact check: exit code = %d\n%s", exitCode, output)
 		}
@@ -80,7 +80,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		output, exitCode = runCommand(t, module, binary,
 			"-enable=lockorder", "-enable-checks=channelsafety/send-after-close", "./...",
 		)
-		if exitCode != 3 || !strings.Contains(output, "is acquired while already held") ||
+		if exitCode != 3 || !strings.Contains(output, "write while only the read lock") ||
 			!strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("combined analyzer and check selection: exit code = %d\n%s", exitCode, output)
 		}
@@ -157,7 +157,7 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 1 {
 			t.Fatalf("exit code = %d, want 1\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "is acquired while already held") {
+		if !strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("output does not contain default diagnostic:\n%s", output)
 		}
 
@@ -165,12 +165,12 @@ func runExhaustiveExecutionScenarios(t *testing.T, binary, module string) {
 		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("vettool selected analyzer: exit code = %d\n%s", exitCode, output)
 		}
-		if strings.Contains(output, "is acquired while already held") {
+		if strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("vettool selected analyzer unexpectedly ran defaults:\n%s", output)
 		}
 
 		output, exitCode = runCommand(t, module, "go", "vet", "-vettool="+binary, "-disable=lockorder", "./...")
-		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "is acquired while already held") {
+		if exitCode != 1 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("vettool disabled analyzer: exit code = %d\n%s", exitCode, output)
 		}
 	})

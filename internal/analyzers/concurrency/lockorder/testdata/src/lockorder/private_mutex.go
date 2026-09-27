@@ -22,7 +22,7 @@ func sharedMutexReturn(mu *sync.Mutex, fail bool) {
 func privateMutexStillDeadlocks() {
 	var mu sync.Mutex
 	mu.Lock()
-	mu.Lock() // want "is acquired while already held"
+	mu.Lock()
 	mu.Unlock()
 }
 

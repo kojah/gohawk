@@ -150,7 +150,7 @@ func conditionallyRegisteredEarlierDefer(install, skip bool) {
 
 func deferredUnlockInLoop(lock *sync.Mutex, values []int) {
 	for range values {
-		lock.Lock() // want "lock `lock` is acquired while already held"
+		lock.Lock()
 		defer lock.Unlock()
 	}
 }
@@ -707,7 +707,7 @@ func closureLocksDistinctCaptures(capA, capB *capture, run func(func())) {
 func closureLocksSameCaptureTwice(capA *capture, run func(func())) {
 	run(func() {
 		capA.mu.Lock()
-		capA.mu.Lock() // want "lock `capA\\.mu` is acquired while already held"
+		capA.mu.Lock()
 		capA.mu.Unlock()
 		capA.mu.Unlock()
 	})
@@ -796,7 +796,7 @@ func locksSelectedMutexes(queue <-chan *sync.Mutex, stop <-chan struct{}) {
 func locksOneReceivedMutex(queue <-chan *sync.Mutex, items []int) {
 	mu := <-queue
 	for range items {
-		mu.Lock() // want "lock .* is acquired while already held"
+		mu.Lock()
 		defer mu.Unlock()
 	}
 }
@@ -819,7 +819,7 @@ func repeatedPointerThroughQueue() {
 // The same receiver field locked on every iteration is recursive.
 func (l *loopedLocker) locksSameMutexInLoop(items []int) {
 	for range items {
-		l.mu.Lock() // want "lock `l\\.mu` is acquired while already held"
+		l.mu.Lock()
 	}
 	l.mu.Unlock()
 }

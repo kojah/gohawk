@@ -90,8 +90,7 @@ parameter locks to caller values and retain acquisition/release order. This
 works across package boundaries as well as within a package: releasing A
 before acquiring B does not create an A-to-B edge. Acquiring B before releasing
 A does. Their final held-lock state continues through the caller's later
-instructions, supporting recursive-acquire, later ordering, and missing-release
-proofs. Direct operations and helper effects share the same state transfer.
+instructions, supporting later ordering and missing-release proofs. Direct operations and helper effects share the same state transfer.
 Incomplete sequences retain the existing conservative class-witness fallback.
 
 Passing an unlock callback to another consumer, or storing it in an owner's
@@ -184,6 +183,18 @@ still does not follow a phi, so a slice that is nil on one path and the
 owner's own storage on another is a recorded false negative. Seen in boxo:
 https://github.com/ipfs/boxo/blob/3d6ac39a0f76c824ffbb90e3a729e78f62bc2d12/routing/mock/centralized_server.go#L61-L77
 Fixtures: `lockorder/local_results.go`.
+
+### Retired: recursive-acquire
+
+A `recursive-acquire` check reported a `Lock` of a mutex this function already
+held. It was removed on 2026-09-27 after about three true positives against
+twenty false positives across the batch 56 to 61 audits. `sync.Mutex` is not
+owned by a goroutine, so a second `Lock` deadlocks only when nothing else can
+ever release the mutex, which a per-function proof cannot establish. Its false
+positives were per-iteration mutexes sharing one SSA value, correlated guard
+flags, a mutex used as a gate released by another goroutine, and helpers that
+unlock internally. Its true positives were paths that forget an unlock, which
+`missing-release` also covers.
 
 ## Sibling mutexes of one owner
 

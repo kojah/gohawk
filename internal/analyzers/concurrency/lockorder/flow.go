@@ -45,17 +45,11 @@ type lockFlowContext struct {
 	uncertainGuards map[string]bool
 	// unprovenRelease marks locks a callee may release without proving it does
 	// so on every path. The lock stays held, because a return that leaves it
-	// held is still worth reporting, but it is no longer proven held, which is
-	// what a recursive acquisition has to claim.
-	unprovenRelease  map[string]bool
-	callerOwned      map[string]bool
-	defers           []*ssa.Defer
-	recursiveReports map[lockReportSite]bool
-}
-
-type lockReportSite struct {
-	instruction ssa.Instruction
-	identity    string
+	// held is still worth reporting, but it is no longer proven held, so it
+	// cannot serve as an exclusive guard.
+	unprovenRelease map[string]bool
+	callerOwned     map[string]bool
+	defers          []*ssa.Defer
 }
 
 func walkLockOrderBounded(
@@ -96,10 +90,9 @@ func walkLockOrderBounded(
 		acquiredAt:   acquiredAt,
 		released:     released,
 		acquisitions: acquisitions, uncertainGuards: uncertainGuards,
-		unprovenRelease:  map[string]bool{},
-		callerOwned:      callerOwned,
-		defers:           functionDefers,
-		recursiveReports: make(map[lockReportSite]bool),
+		unprovenRelease: map[string]bool{},
+		callerOwned:     callerOwned,
+		defers:          functionDefers,
 	}
 	// Each predecessor selects its own phi values before any instruction runs.
 	// Clone the lock collections so one successor's release cannot discharge
@@ -474,7 +467,7 @@ func (flow lockFlowContext) applyMutexAction(
 	flow.lockValues[identity] = appendLockValue(flow.lockValues[identity], receiver)
 	// A mutex selected from a map, slice, or loop-carried value may represent a
 	// different runtime lock on every iteration. Collapsing those values into one
-	// SSA identity creates recursive-acquire and missing-release false positives:
+	// SSA identity creates missing-release and ordering false positives:
 	// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/cursorauth/sdk_runner.go#L410-L470
 	// https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/pkg/kubelet/images/pullmanager/locks.go#L56-L65
 	if dynamicIndexedMutex(receiver) {
@@ -516,12 +509,7 @@ func (flow lockFlowContext) applyMutexAction(
 		// mode forward. A fresh writer acquisition establishes the new mode.
 		state.readHeld = releaseLock(state.readHeld, identity)
 	}
-	possibleRelease := flow.unprovenRelease[identity]
-	if slices.Contains(state.held, identity) {
-		proof := flow.loadedLoopRelease(instruction, receiver, state.origins[identity].position)
-		possibleRelease = possibleRelease || proof.possible
-	}
-	state.held = flow.acquireLock(instruction, state.held, identity, possibleRelease, acquired.variant)
+	state.held = appendUniqueString(state.held, identity)
 	return state
 }
 

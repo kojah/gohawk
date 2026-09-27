@@ -21,7 +21,6 @@ in the [lockorder design notes](https://github.com/kojah/gohawk/blob/main/docs/d
 | Check | Tier | Kind | What it detects |
 | --- | --- | --- | --- |
 | <CheckIdentity name="missing-release" tier="core" /> | core | defect | Reports return paths that leave an owned lock held. |
-| <CheckIdentity name="recursive-acquire" tier="core" /> | core | defect | Reports attempts to acquire a lock that is already held. |
 | <CheckIdentity name="contradictory-order" tier="core" /> | core | hazard | Reports bounded cycles in mutex acquisition order, with acquisition and helper-call evidence. |
 | <CheckIdentity name="read-lock-write" tier="core" /> | core | hazard | Reports writes to an object while only its read lock is held. |
 {/* gohawk:generated-checks:end */}

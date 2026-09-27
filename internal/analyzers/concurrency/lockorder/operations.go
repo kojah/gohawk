@@ -234,35 +234,6 @@ func callerOwnedLocks(function *ssa.Function, summaries map[ssa.Instruction][]mu
 	return result
 }
 
-func (flow lockFlowContext) acquireLock(
-	instruction ssa.Instruction,
-	held []string,
-	identity string,
-	releaseUnproven bool,
-	variant bool,
-) []string {
-	if slices.Contains(held, identity) {
-		// A lock selected by a loop iteration may be a different mutex each
-		// time the same instruction runs, so its repeated SSA identity does
-		// not prove recursion. multigres locks every key mutex in a
-		// loop and defers the unlocks:
-		// https://github.com/multigres/multigres/blob/360b8f123dff8ad6bcc721acaec103c52081bebd/go/tools/viperutil/internal/sync/sync.go#L236-L240
-		// A lock a callee may already have released is not proven held, and a
-		// recursive acquisition has to claim that it is.
-		if !variant && !releaseUnproven {
-			site := lockReportSite{instruction: instruction, identity: identity}
-			// Distinct feasible proof states can witness the same reacquisition.
-			// Retain those states, but report their shared acquisition only once.
-			if !flow.recursiveReports[site] {
-				flow.recursiveReports[site] = true
-				check.Reportf(flow.pass, check.LockRecursiveAcquire, instruction.Pos(), "lock %s is acquired while already held", flow.lockName(identity))
-			}
-		}
-		return held
-	}
-	return append(held, identity)
-}
-
 func appendUniquePosition(positions []token.Pos, candidate token.Pos) []token.Pos {
 	if !slices.Contains(positions, candidate) {
 		return append(positions, candidate)

@@ -142,7 +142,7 @@ func answer() int { return identity{}.value(42) }
 		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("output does not contain channelsafety diagnostic:\n%s", output)
 		}
-		if strings.Contains(output, "is acquired while already held") {
+		if strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("selected analyzer unexpectedly ran lockorder:\n%s", output)
 		}
 	})
@@ -155,7 +155,7 @@ func answer() int { return identity{}.value(42) }
 		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("concurrency group did not run channelsafety:\n%s", output)
 		}
-		if !strings.Contains(output, "is acquired while already held") {
+		if !strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("concurrency group did not run lockorder:\n%s", output)
 		}
 	})
@@ -168,7 +168,7 @@ func answer() int { return identity{}.value(42) }
 		if !strings.Contains(output, "send follows close of channel") {
 			t.Fatalf("enable-all minus resources did not run channelsafety:\n%s", output)
 		}
-		if !strings.Contains(output, "is acquired while already held") {
+		if !strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("enable-all minus resources did not run lockorder:\n%s", output)
 		}
 	})
@@ -179,7 +179,7 @@ func answer() int { return identity{}.value(42) }
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
 		for _, diagnostic := range []string{
-			"is acquired while already held",
+			"write while only the read lock",
 			"send follows close of channel",
 		} {
 			if !strings.Contains(output, diagnostic) {
@@ -193,7 +193,7 @@ func answer() int { return identity{}.value(42) }
 		if exitCode != 3 {
 			t.Fatalf("exit code = %d, want 3\n%s", exitCode, output)
 		}
-		if !strings.Contains(output, "is acquired while already held") {
+		if !strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("default analyzers did not run:\n%s", output)
 		}
 		if strings.Contains(output, "send follows close of channel") {
@@ -203,7 +203,7 @@ func answer() int { return identity{}.value(42) }
 
 	t.Run("disabled default analyzer", func(t *testing.T) {
 		output, exitCode := runCommand(t, module, binary, "-disable=lockorder", "./...")
-		if exitCode != 3 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "is acquired while already held") {
+		if exitCode != 3 || !strings.Contains(output, "send follows close of channel") || strings.Contains(output, "write while only the read lock") {
 			t.Fatalf("disabled analyzer run: exit code = %d\n%s", exitCode, output)
 		}
 	})

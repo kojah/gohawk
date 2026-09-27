@@ -16,11 +16,9 @@ const (
 	lockReasonFreshFieldIdentityUnknown
 	lockReasonImportedWriterGuardUnknown
 	lockReasonLoadedAcquisitionGuardUnknown
-	lockReasonLoadedLoopReleaseUnknown
 	lockReasonLockStateBudgetExhausted
 	lockReasonNoFreshBoundOwner
 	lockReasonNoFreshFieldWitness
-	lockReasonNoMatchingLoadedLoopRelease
 	lockReasonOppositeOrderRecorded
 	lockReasonPredecessorConstantBranchInfeasible
 	lockReasonRepeatedConditionInfeasible
@@ -41,11 +39,9 @@ var lockReasonCodes = [...]string{
 	lockReasonFreshFieldIdentityUnknown:           "fresh-field-identity-unknown",
 	lockReasonImportedWriterGuardUnknown:          "imported-writer-guard-unknown",
 	lockReasonLoadedAcquisitionGuardUnknown:       "loaded-acquisition-guard-unknown",
-	lockReasonLoadedLoopReleaseUnknown:            "loaded-loop-release-unknown",
 	lockReasonLockStateBudgetExhausted:            "lock-state-budget-exhausted",
 	lockReasonNoFreshBoundOwner:                   "no-fresh-bound-owner",
 	lockReasonNoFreshFieldWitness:                 "no-fresh-field-witness",
-	lockReasonNoMatchingLoadedLoopRelease:         "no-matching-loaded-loop-release",
 	lockReasonOppositeOrderRecorded:               "opposite-order-recorded",
 	lockReasonPredecessorConstantBranchInfeasible: "predecessor-constant-branch-infeasible",
 	lockReasonRepeatedConditionInfeasible:         "repeated-condition-infeasible",
