@@ -39,4 +39,3 @@ avivsinai/agent-message-queue,processownership,,internal/cli/wake_unix_test.go:9
 avivsinai/agent-message-queue,processownership,,internal/cli/wake_unix_test.go:9426:12,false_positive,,
 avivsinai/agent-message-queue,processownership,,internal/cli/wake_unix_test.go:9461:12,false_positive,,
 avivsinai/agent-message-queue,processownership,,internal/cli/wake_unix_test.go:9497:12,false_positive,,
-avivsinai/agent-message-queue,processownership,,internal/update/update.go:637:9,true_positive,,

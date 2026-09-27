@@ -46,6 +46,20 @@ the round-58 count drops from 95 to 94. The mode tracking it relied on remains
 for `lockorder/read-lock-write`, and the lock walk still ignores deferred
 acquisitions, the fix that label guarded.
 
+The round-4 avivsinai/agent-message-queue `processownership` true-positive
+label at `internal/update/update.go:637:9` was removed; the round-4 count drops
+from 41 to 40. The command there is started and never used again, the shape
+the retired detached-launch audit covered, and it is a deliberate detached
+`cmd /C move` that must outlive the updater. `missing-wait` proves the
+unwaited return but declines a command unused after Start, so the label could
+never pass again.
+
+The round-39 Altinity/clickhouse-backup `lockorder/missing-release` label moved
+from `filesystemhelper.go:41:4` to `:45:4`. `GetDefaultPath` always returns a
+nil error, so the return at line 41 cannot execute; the same missing unlock is
+still reported at the reachable return on line 45. This is a position
+correction, not a retirement.
+
 Labels named analyzers the project has since withdrawn:
 channelownership (10), errorownership (7), determinism (7),
 closedomain (6), apishape (5), contextpolicy (5),
