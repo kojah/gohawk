@@ -69,7 +69,7 @@ func unrelated(b box, other *int) *int { var k box; k.value = other; return k.va
 		if !ok {
 			t.Fatal("expected returned load")
 		}
-		if got := heapmodel.ValueDerivesFrom(load, function.Params[0], map[ssa.Value]bool{}); got != want {
+		if got := heapmodel.ValueDerivesFrom(load, function.Params[0]); got != want {
 			t.Errorf("%s: ValueDerivesFrom(returned load, parameter) = %t, want %t", name, got, want)
 		}
 	}

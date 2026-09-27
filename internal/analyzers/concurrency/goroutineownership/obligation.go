@@ -209,7 +209,7 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 		// use the same flag to decide whether to wait. Require return coverage,
 		// not merely one deferred helper that would call Done if registered.
 		// https://github.com/hashicorp/vault-secrets-operator/blob/451a61fc0eda5b26e65dedb03e76fa8ec02b2984/vault/client_factory.go#L890-L909
-		unsettled := ssaflow.UnownedReturnFromEntryAssumingNonNil(function, pair.Local, func(instruction ssa.Instruction) bool {
+		unsettled := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: func(instruction ssa.Instruction) bool {
 			deferred, ok := instruction.(*ssa.Defer)
 			if !ok {
 				return false
@@ -223,7 +223,8 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 				Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
 			})
 			return proof.Proven()
-		})
+		}, Assume: ssaflow.EntryAssumptions{NonNil: pair.Local}}) != nil
+
 		if !unsettled {
 			groups = append(groups, group)
 		}
@@ -285,7 +286,7 @@ func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value) boo
 	if source, ok := ssaflow.IdentitySource(channel); ok {
 		identity = source
 	}
-	return !ssaflow.UnownedReturnFromEntryAssumingNonNil(function, channel, func(instruction ssa.Instruction) bool {
+	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: func(instruction ssa.Instruction) bool {
 		if _, launched := instruction.(*ssa.Go); launched {
 			return false
 		}
@@ -300,16 +301,18 @@ func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value) boo
 			notified = source
 		}
 		return heapmodel.DefinitelySameValue(notified, identity)
-	})
+	}, Assume:
+
+	// signalSuppliedAtCall maps a worker-side channel back to the parent's value.
+	// A channel selected from a captured aggregate, such as chans[index] in a
+	// per-shard snapshot, resolves to the aggregate itself: the parent then joins
+	// by receiving from any part of it and transfers it by handing the aggregate
+	// on. Matching any element over-approximates joins, which only widens what the
+	// analyzer accepts.
+	// https://github.com/nacos-group/nacos-sdk-go/blob/002486583df5ad370ab809cd19dfd97e71b2ef6d/clients/cache/concurrent_map.go#L199-L219
+	ssaflow.EntryAssumptions{NonNil: channel}}) == nil
 }
 
-// signalSuppliedAtCall maps a worker-side channel back to the parent's value.
-// A channel selected from a captured aggregate, such as chans[index] in a
-// per-shard snapshot, resolves to the aggregate itself: the parent then joins
-// by receiving from any part of it and transfers it by handing the aggregate
-// on. Matching any element over-approximates joins, which only widens what the
-// analyzer accepts.
-// https://github.com/nacos-group/nacos-sdk-go/blob/002486583df5ad370ab809cd19dfd97e71b2ef6d/clients/cache/concurrent_map.go#L199-L219
 func signalSuppliedAtCall(
 	spawn *ssa.Go,
 	function *ssa.Function,
@@ -472,7 +475,7 @@ func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value) bool {
 	// check on the group itself still settles every path that has a group.
 	// Vitess passes a group only on the shutdown path that waits for it:
 	// https://github.com/vitessio/vitess/blob/44321d8ca0e2b2689e869bc680b6ce6402bba977/go/vt/vttablet/tabletserver/state_manager.go#L605-L631
-	return !ssaflow.UnownedReturnFromEntryAssumingNonNil(function, receiver, func(instruction ssa.Instruction) bool {
+	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: func(instruction ssa.Instruction) bool {
 		common := ssaflow.InstructionCall(instruction)
 		if common == nil || !ssaflow.CallMatchesSymbol(common, waitGroupDone) ||
 			!ssaflow.MayAliasThroughLoads(ssaflow.CallReceiver(common), receiver) {
@@ -482,11 +485,13 @@ func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value) bool {
 			return true
 		}
 		return terminalCompletion(instruction)
-	})
+	}, Assume:
+
+	// terminalCompletion reports whether only returns can follow a completion
+	// operation. Later work cannot be joined by observing an earlier signal.
+	ssaflow.EntryAssumptions{NonNil: receiver}}) == nil
 }
 
-// terminalCompletion reports whether only returns can follow a completion
-// operation. Later work cannot be joined by observing an earlier signal.
 func terminalCompletion(done ssa.Instruction) bool {
 	index := ssaflow.InstructionIndex(done)
 	if index < 0 {

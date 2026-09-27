@@ -25,6 +25,6 @@ import (
 // one of its fields is not crossed: the field a later load returns may be the
 // replacement rather than a component of the stored aggregate, and the
 // analyzer must keep such a replaced resource reportable.
-func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool {
-	return ssaflow.DerivesFrom(value, source, seen, MayAlias)
+func ValueDerivesFrom(value, source ssa.Value) bool {
+	return ssaflow.DerivesFrom(value, source, MayAlias)
 }

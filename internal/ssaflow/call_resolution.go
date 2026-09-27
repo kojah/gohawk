@@ -34,3 +34,31 @@ func ResolvedFunction(function *ssa.Function) *ssa.Function {
 	}
 	return function
 }
+
+// CallResultSource identifies a direct call result and its zero-based slot.
+// It does not follow wrappers, loads, or aliases; consumers select that policy.
+func CallResultSource(value ssa.Value) (*ssa.Call, int, bool) {
+	if extract, ok := value.(*ssa.Extract); ok {
+		call, ok := extract.Tuple.(*ssa.Call)
+		return call, extract.Index, ok
+	}
+	call, ok := value.(*ssa.Call)
+	return call, 0, ok
+}
+
+// CallResult returns the selected SSA result of call. A negative index denotes
+// a single-result call represented by the call instruction itself.
+func CallResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // SSA call results have several concrete forms.
+	if index < 0 {
+		return call
+	}
+	if call.Referrers() == nil {
+		return nil
+	}
+	for _, reference := range *call.Referrers() {
+		if extract, ok := reference.(*ssa.Extract); ok && extract.Index == index {
+			return extract
+		}
+	}
+	return nil
+}

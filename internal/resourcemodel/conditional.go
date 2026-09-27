@@ -98,7 +98,7 @@ func forwardedConditionalRelease(
 		return false
 	}
 	receiver := ssaflow.CallReceiver(nested.Common())
-	path, ok := ssaflow.AccessPathSteps(receiver, callee.Params[0], map[ssa.Value]bool{})
+	path, ok := ssaflow.AccessPathSteps(receiver, callee.Params[0])
 	if !ok {
 		return false
 	}

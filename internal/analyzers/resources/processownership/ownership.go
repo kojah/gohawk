@@ -253,7 +253,7 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 	}
 	if waitsForCommand(instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
-			heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), command, map[ssa.Value]bool{}) ||
+			heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), command) ||
 		owns() ||
 		storesProcessHandleInExternalField(instruction, command) ||
 		handles() ||
@@ -371,7 +371,7 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 // replacement defeats even this possible successful-Start contract.
 func guardedDeferredWait(function *ssa.Function, command ssa.Value) ssaflow.EvidenceState {
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](function) {
-		if heapmodel.ValueDerivesFrom(store.Addr, command, map[ssa.Value]bool{}) {
+		if heapmodel.ValueDerivesFrom(store.Addr, command) {
 			return ssaflow.EvidenceDisproven
 		}
 	}

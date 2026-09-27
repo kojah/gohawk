@@ -48,8 +48,8 @@ func ProveIdentity(left, right AccessPath) IdentityProof {
 	if StructurallyIdentical(left.Value, right.Value) {
 		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}}
 	}
-	leftPath, leftOK := AccessPathSteps(left.Value, left.Root, map[ssa.Value]bool{})
-	rightPath, rightOK := AccessPathSteps(right.Value, right.Root, map[ssa.Value]bool{})
+	leftPath, leftOK := AccessPathSteps(left.Value, left.Root)
+	rightPath, rightOK := AccessPathSteps(right.Value, right.Root)
 	if !leftOK || !rightOK {
 		return IdentityProof{Proof{State: EvidenceUnknown, Reason: EvidenceUnavailable}}
 	}

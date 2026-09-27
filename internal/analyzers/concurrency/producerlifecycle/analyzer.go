@@ -121,7 +121,7 @@ func abandonedProducerSend(
 	// No normal caller return puts a continuing or terminated caller outside
 	// this finite consumer-count check (for example log.Fatal(<-results)).
 	// https://github.com/saljam/webwormhole/blob/abf852af0458ba79772d9c26ef01434165f217d8/cmd/ww/server.go#L458-L470
-	if !ssaflow.UnownedReturn(send.spawn, func(ssa.Instruction) bool { return false }, nil) {
+	if ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: send.spawn, Owns: func(ssa.Instruction) bool { return false }}) == nil {
 		return producerProof{Reason: reasonReceiverDoesNotReturn}
 	}
 	// A loop does not establish how many sends are feasible: a map may contain

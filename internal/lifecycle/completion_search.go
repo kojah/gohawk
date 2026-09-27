@@ -69,7 +69,7 @@ func methodCallCoverageAssuming(
 				hasCall = hasCall || calls(candidate)
 			}
 		}
-		return hasReturn && hasCall && !ssaflow.UnownedReturnFromEntryAssuming(function, assumptions, calls)
+		return hasReturn && hasCall && ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Assume: assumptions, Owns: calls}) == nil
 	case CoverageAnywhere:
 	}
 	return slices.ContainsFunc(blocks, func(block *ssa.BasicBlock) bool {
@@ -372,8 +372,12 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	assumptions := ssaflow.EntryAssumptions{NonNil: nonNil, Constants: search.constants}
 	if concrete != nil && search.coverage == CoverageEveryReturn {
 		assumptions.NonNilType = concrete
-		return methodCallCoverageAssuming(callee.function, calls, CoverageAnywhere, ssaflow.EntryAssumptions{Constants: search.constants}) &&
-			!ssaflow.UnownedReturnFromEntryAssuming(callee.function, assumptions, calls)
+		anywhere := methodCallCoverageAssuming(callee.function, calls, CoverageAnywhere, ssaflow.EntryAssumptions{Constants: search.constants})
+		return anywhere && ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+			Entry:  callee.function,
+			Assume: assumptions,
+			Owns:   calls,
+		}) == nil
 	}
 	return methodCallCoverageAssuming(callee.function, calls, search.coverage, assumptions)
 }

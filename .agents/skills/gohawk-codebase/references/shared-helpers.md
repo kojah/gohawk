@@ -53,10 +53,9 @@ that only need to know whether some return is uncovered.
 |---|---|
 | `EvaluateObligation(ObligationFlow)` | honored when exact actions cover every return, uncertain when some return is reached only through an opaque action, violated when a return has no action at all |
 | `EvaluateObligationWitness(ObligationFlow)` | the same, plus the violating return for a diagnostic to cite |
-| `UnownedReturn`, `UnownedReturnFromEntryWithEdges`, `UnownedReturnFromEntryAllow` | is there a reachable normal return with no owning action before it? |
-| `UnownedReturnAssumingNonNilWitness`, `UnownedReturnFromEntryAssumingNonNil` | the same, on paths feasible when a value is non-nil; the witness form returns the unowned return |
-| `UnownedReturnAfterCallSuccessWitness` | the unowned return after a call's success branch, or nil |
+| `UnownedReturn(UnownedReturnQuery)` | the reachable normal return with no owning action before it, or nil; the query starts after an instruction, on a call's success branch, or at entry, and may add edge actions, allowed returns, and `EntryAssumptions` |
 | `NormalReturnReachableFrom` | can a normal return be reached from here? |
+| `SuccessorPolicy` | the one successor-feasibility view: the literal or an analyzer's view, bound constants, and a non-nil assumption, with `Edges` extending path guards |
 | `FeasibleSuccessors`, `SuccessBranch`, `BlockReachable`, `BlockInCycle` | control-flow feasibility primitives |
 | `InstructionDominates`, `InstructionMayFollow`, `InstructionIndex` | ordering between instructions |
 | `ProveCountedLoop` | exact bounded induction count and whether body operands depend on the counter; not termination or an unrolling policy |

@@ -68,7 +68,7 @@ func TestEvaluateObligationKeepsUncertaintyOnItsPath(t *testing.T) {
 		// The Boolean family is the same walk on a two-level lattice, so it
 		// must agree about violation exactly.
 		owns := func(instruction ssa.Instruction) bool { return labelledCall(instruction) != ssaflow.ObligationNone }
-		if unowned := ssaflow.UnownedReturn(start, owns, nil); unowned != (expected == ssaflow.ObligationViolated) {
+		if unowned := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: start, Owns: owns}) != nil; unowned != (expected == ssaflow.ObligationViolated) {
 			t.Errorf("%s: UnownedReturn = %v disagrees with outcome %d", name, unowned, expected)
 		}
 	}

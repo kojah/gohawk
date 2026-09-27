@@ -31,7 +31,11 @@ func replaced(value *int, drop bool) {
 			function := pkg.Func(test.name)
 			calls := ssaflow.InstructionsOf[*ssa.Call](function)
 			owns := func(instruction ssa.Instruction) bool { return instruction == calls[1] }
-			if got := ssaflow.UnownedReturnAssumingNonNilWitness(calls[0], function.Params[0], owns, nil, nil) != nil; got != test.lost {
+			if got := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+				After:  calls[0],
+				Owns:   owns,
+				Assume: ssaflow.EntryAssumptions{NonNil: function.Params[0]},
+			}) != nil; got != test.lost {
 				t.Fatalf("unowned return = %t, want %t", got, test.lost)
 			}
 		})

@@ -185,9 +185,13 @@ func (search *ownershipSearch) functionReturnsOwner(function *ssa.Function, valu
 	if !hasOwner {
 		return false
 	}
-	return !ssaflow.UnownedReturnFromEntryAllow(function, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
-		return owners[returned] || returnHasOnlyNilValuesAndErrors(returned)
-	})
+	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+		Entry: function,
+		Owns:  func(ssa.Instruction) bool { return false },
+		AllowReturn: func(returned *ssa.Return) bool {
+			return owners[returned] || returnHasOnlyNilValuesAndErrors(returned)
+		},
+	}) == nil
 }
 
 func returnHasOnlyNilValuesAndErrors(returned *ssa.Return) bool {

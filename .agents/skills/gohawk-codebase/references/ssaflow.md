@@ -10,7 +10,7 @@ lifecycle. It does not depend on either higher-level package.
 
 ## AccessPath
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
 type AccessPath struct {
@@ -24,10 +24,10 @@ which its fields and indexes are selected.
 
 ## AccessPathSteps
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
-func AccessPathSteps(value, root ssa.Value, seen map[ssa.Value]bool) ([]string, bool)
+func AccessPathSteps(value, root ssa.Value) ([]string, bool)
 ```
 
 ## AliasProof
@@ -516,7 +516,7 @@ CallReceiver returns receiver value for method calls and invocations.
 
 ## CallResult
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/call_resolution.go)
 
 ```go
 func CallResult(call *ssa.Call, index int) ssa.Value
@@ -527,7 +527,7 @@ a single-result call represented by the call instruction itself.
 
 ## CallResultSource
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/call_resolution.go)
 
 ```go
 func CallResultSource(value ssa.Value) (*ssa.Call, int, bool)
@@ -567,7 +567,7 @@ func CapturedBindingValue(binding ssa.Value) ssa.Value
 
 ## ChannelType
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/channel_types.go)
 
 ```go
 func ChannelType(value ssa.Value) bool
@@ -650,7 +650,7 @@ path guarantees selected by an analyzer.
 
 ## ConstantIndex
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
 func ConstantIndex(value ssa.Value) (string, bool)
@@ -745,10 +745,10 @@ DefinitelyNil reports whether every represented SSA value is nil.
 
 ## DerivesFrom
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/value_derivation.go)
 
 ```go
-func DerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool, same func(ssa.Value, ssa.Value) bool) bool
+func DerivesFrom(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool) bool
 ```
 
 DerivesFrom is the walk behind ValueDerivesFrom, with the identity step
@@ -887,10 +887,10 @@ type EntryAssumptions struct {
 }
 ```
 
-EntryAssumptions restricts an entry-to-return walk to the paths feasible
-under facts the caller knows at entry: a non-nil value, its concrete type,
-so a comma-ok assertion of a type it satisfies is taken to succeed, and
-Boolean parameters or captures fixed by the call.
+EntryAssumptions restricts a walk to the paths feasible under facts the
+caller knows: a non-nil value, its concrete type, so a comma-ok assertion
+of a type it satisfies is taken to succeed, and Boolean parameters or
+captures fixed by the call.
 
 ## EvaluateObligation
 
@@ -1078,8 +1078,9 @@ const (
 func ExactOrNone(owns func(ssa.Instruction) bool) func(ssa.Instruction) ObligationAction
 ```
 
-ExactOrNone lifts a Boolean ownership predicate to the two-level lattice the
-UnownedReturn family needs: an owning action is exact, anything else none.
+ExactOrNone lifts a Boolean ownership predicate to the two-level lattice
+UnownedReturn needs: an owning action is exact, anything else none. A nil
+predicate owns nothing.
 
 ## Exhaustion
 
@@ -1221,7 +1222,7 @@ asking a different question.
 
 ## FunctionFile
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/function_source.go)
 
 ```go
 func FunctionFile(pass *analysis.Pass, function *ssa.Function) *ast.File
@@ -2285,7 +2286,7 @@ flush or a commit, is the calling analyzer's decision.
 
 ## SameAccessPath
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
 func SameAccessPath(left, right AccessPath) bool
@@ -2491,7 +2492,7 @@ polarity ends the walk at anything unknown.
 
 ## SuccessBranch
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool)
@@ -2499,6 +2500,60 @@ func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool
 
 SuccessBranch reports whether successor is the branch where errorValue is
 nil, when block ends in a recognizable nil comparison.
+
+## SuccessorEdge
+
+[Source](../../../../internal/ssaflow/flow_successors.go)
+
+```go
+type SuccessorEdge struct {
+	To		*ssa.BasicBlock
+	Guards		PathGuards
+	Contradiction	GuardContradiction
+}
+```
+
+SuccessorEdge is one feasible edge with the path guards extended across it
+and whether the branch contradicts a guard the path already carries.
+
+## SuccessorPolicy
+
+[Source](../../../../internal/ssaflow/flow_successors.go)
+
+```go
+type SuccessorPolicy struct {
+	// Feasible, when set, replaces the literal view; it must return a subset
+	// of the block's successors.
+	Feasible	func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
+	Constants	FixedValues
+	NonNil		ssa.Value
+	NonNilType	types.Type
+}
+```
+
+SuccessorPolicy chooses the feasible successors of a block.
+
+## SuccessorPolicy.Edges
+
+[Source](../../../../internal/ssaflow/flow_successors.go)
+
+```go
+func (policy SuccessorPolicy) Edges(block, predecessor *ssa.BasicBlock, guards PathGuards) []SuccessorEdge
+```
+
+Edges returns the feasible edges out of block for a path that arrived from
+predecessor carrying guards.
+
+## SuccessorPolicy.Successors
+
+[Source](../../../../internal/ssaflow/flow_successors.go)
+
+```go
+func (policy SuccessorPolicy) Successors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
+```
+
+Successors returns the successors of block a path arriving from
+predecessor may take.
 
 ## SummaryBodyUnavailable, SummaryRecursive, SummaryBudgetExhausted
 
@@ -2599,117 +2654,51 @@ opt-in because it may change a value's representation or meaning.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func UnownedReturn(
-	start ssa.Instruction,
-	owns func(ssa.Instruction) bool,
-	allowReturn func(*ssa.Return) bool,
-) bool
+func UnownedReturn(query UnownedReturnQuery) *ssa.Return
 ```
 
-UnownedReturn reports whether any normal return reachable after start lacks
-an ownership action. Tracking owned state through CFG makes conditional
-cleanup visible without pretending infeasible branches are impossible.
+UnownedReturn returns a normal return that some feasible path reaches from
+the query's start with no settling action before it, for a diagnostic to
+cite, or nil when every return is settled. It is the two-level view of the
+shared obligation walk: a settling action is exact coverage and everything
+else is none, so the only outcomes are honored and violated. Tracking the
+obligation through the CFG makes conditional cleanup visible without
+pretending infeasible branches are impossible.
 
-## UnownedReturnAfterCallSuccessWitness
+## UnownedReturnQuery
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func UnownedReturnAfterCallSuccessWitness(
-	call *ssa.Call,
-	owns func(ssa.Instruction) bool,
-	allowReturn func(*ssa.Return) bool,
-) *ssa.Return
+type UnownedReturnQuery struct {
+	// After starts the obligation just after this instruction.
+	After	ssa.Instruction
+	// AfterCallSuccess starts it on the branch on which the call succeeded,
+	// for obligations a successful call creates, such as exec.Cmd.Start: a
+	// handled failure may rejoin a later return, but no obligation exists on
+	// that path. Without a success branch it starts after the call.
+	AfterCallSuccess	*ssa.Call
+	// Entry starts it at the function's entry.
+	Entry	*ssa.Function
+	// Owns labels an instruction that settles the obligation exactly.
+	Owns	func(ssa.Instruction) bool
+	// OwnsEdge labels a CFG edge that settles it; the action is attached to
+	// that successor's state, never to sibling paths.
+	OwnsEdge	OwnershipEdge
+	// AllowReturn marks a return that needs no settling action.
+	AllowReturn	func(*ssa.Return) bool
+	// Assume restricts the walk to paths feasible under what the caller
+	// knows: a non-nil value, such as a cleanup context.WithTimeout
+	// guarantees even through an optional local, its concrete type, and
+	// fixed Boolean parameters or captures.
+	// https://github.com/agenticenv/agent-sdk-go/blob/63f0452159d674d529a6fea91b8d532bed9b774e/internal/runtime/local/agent_loop.go#L828-L841
+	Assume	EntryAssumptions
+}
 ```
 
-UnownedReturnAfterCallSuccessWitness finds an unowned return, like
-UnownedReturn, on the branch on which call succeeded. This matters for
-obligations created by successful calls such as exec.Cmd.Start: a handled
-failure may rejoin a later return, but no ownership obligation exists on
-that path. It returns that return, for a diagnostic to cite, or nil when
-every return is owned.
-
-## UnownedReturnAssumingNonNilWitness
-
-[Source](../../../../internal/ssaflow/flow_paths.go)
-
-```go
-func UnownedReturnAssumingNonNilWitness(
-	start ssa.Instruction,
-	value ssa.Value,
-	owns func(ssa.Instruction) bool,
-	allowReturn func(*ssa.Return) bool,
-	ownsEdge OwnershipEdge,
-) *ssa.Return
-```
-
-UnownedReturnAssumingNonNilWitness finds an unowned return, like
-UnownedReturn, with the additional fact that value is non-nil after start.
-Constructors such as context.WithTimeout guarantee a callable cleanup even
-when it flows through an optional local. ownsEdge, when set, adds
-edge-local ownership actions under the same assumption. It returns the
-unowned return, for a diagnostic to cite, or nil when every return is owned.
-https://github.com/agenticenv/agent-sdk-go/blob/63f0452159d674d529a6fea91b8d532bed9b774e/internal/runtime/local/agent_loop.go#L828-L841
-
-## UnownedReturnFromEntryAllow
-
-[Source](../../../../internal/ssaflow/flow_paths.go)
-
-```go
-func UnownedReturnFromEntryAllow(function *ssa.Function, owns func(ssa.Instruction) bool, allowReturn func(*ssa.Return) bool) bool
-```
-
-UnownedReturnFromEntryAllow reports whether any normal return lacks an
-ownership action unless allowReturn proves that return needs none.
-
-## UnownedReturnFromEntryAssuming
-
-[Source](../../../../internal/ssaflow/flow_paths.go)
-
-```go
-func UnownedReturnFromEntryAssuming(function *ssa.Function, assumptions EntryAssumptions, owns func(ssa.Instruction) bool) bool
-```
-
-UnownedReturnFromEntryAssuming reports whether some normal return that is
-feasible under the assumptions lacks an ownership action before it.
-
-## UnownedReturnFromEntryAssumingNonNil
-
-[Source](../../../../internal/ssaflow/flow_paths.go)
-
-```go
-func UnownedReturnFromEntryAssumingNonNil(function *ssa.Function, value ssa.Value, owns func(ssa.Instruction) bool) bool
-```
-
-UnownedReturnFromEntryAssumingNonNil analyzes only paths feasible when value
-is non-nil at function entry.
-
-## UnownedReturnFromEntryWithEdges
-
-[Source](../../../../internal/ssaflow/flow_paths.go)
-
-```go
-func UnownedReturnFromEntryWithEdges(function *ssa.Function, owns func(ssa.Instruction) bool, ownsEdge OwnershipEdge) bool
-```
-
-UnownedReturnFromEntryWithEdges adds edge-local ownership actions to the
-ordinary entry-to-return query, including edges into shared successors.
-
-## UnownedReturnWithEdges
-
-[Source](../../../../internal/ssaflow/flow_paths.go)
-
-```go
-func UnownedReturnWithEdges(
-	start ssa.Instruction,
-	owns func(ssa.Instruction) bool,
-	allowReturn func(*ssa.Return) bool,
-	ownsEdge OwnershipEdge,
-) bool
-```
-
-UnownedReturnWithEdges is UnownedReturn with edge-local ownership actions.
-The action is attached to that successor's state, never to sibling paths.
+UnownedReturnQuery names one obligation for UnownedReturn: where it begins,
+what settles it, and what the caller may assume. Exactly one of After,
+AfterCallSuccess, and Entry is set.
 
 ## UnwrapTransparentValue
 
@@ -2738,7 +2727,7 @@ as a bare return leaves it, is not followed.
 
 ## ValueIsAccessPathFrom
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
 func ValueIsAccessPathFrom(value, root ssa.Value) bool
@@ -2798,7 +2787,7 @@ therefore capture every part of the state that changes what step does.
 
 ## WholeWrittenCell
 
-[Source](../../../../internal/ssaflow/value_forms.go)
+[Source](../../../../internal/ssaflow/value_derivation.go)
 
 ```go
 func WholeWrittenCell(cell *ssa.Alloc) bool

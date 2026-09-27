@@ -8,11 +8,13 @@ import (
 // Unconditional result guarantees refine only feasible edges. They do not
 // create acquisition contracts, infer cleanup, or replace error/owner relations.
 // Unknown results retain the existing paths and their reporting policy.
-func (analysis *resourceAnalysis) feasibleSuccessors(state resourceFlowState) []*ssa.BasicBlock {
+func (analysis *resourceAnalysis) successorPolicy() ssaflow.SuccessorPolicy {
 	if analysis.summaries == nil {
-		return ssaflow.FeasibleSuccessors(state.block, state.predecessor)
+		return ssaflow.SuccessorPolicy{}
 	}
-	return analysis.summaries.FeasibleSuccessors(state.block, state.predecessor, analysis.budget(2000))
+	return ssaflow.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
+		return analysis.summaries.FeasibleSuccessors(block, predecessor, analysis.budget(2000))
+	}}
 }
 
 // acquisitionReachable reports whether some feasible path from the entry
@@ -42,7 +44,7 @@ func (analysis *resourceAnalysis) acquisitionReachable() bool {
 			return nil, false
 		}
 		var next []position
-		for _, successor := range analysis.feasibleSuccessors(resourceFlowState{block: at.block, predecessor: at.predecessor}) {
+		for _, successor := range analysis.successorPolicy().Successors(at.block, at.predecessor) {
 			next = append(next, position{block: successor, predecessor: at.block})
 		}
 		return next, true

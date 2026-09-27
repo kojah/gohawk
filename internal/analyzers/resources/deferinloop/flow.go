@@ -62,7 +62,9 @@ func resourceLiveAtNextIteration(
 		state = advanceDeferState(evidence, probe, state, obligation)
 		// A branch a callee's proven result rules out is not a path to the
 		// backedge; feasibility only removes successors, it never adds one.
-		feasible := knowledge.FeasibleSuccessors(state.block, state.predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		feasible := ssaflow.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
+			return knowledge.FeasibleSuccessors(block, predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		}}.Successors(state.block, state.predecessor)
 		successors := make([]deferFlowState, 0, len(feasible))
 		for _, successor := range feasible {
 			status := iteratorSuccessorStatus(state, successor, obligation)
@@ -248,7 +250,7 @@ func resourceUseStatus(
 		if !alias.Aliases {
 			if pointer, ok := argument.Type().Underlying().(*types.Pointer); ok {
 				if _, aggregate := pointer.Elem().Underlying().(*types.Struct); aggregate &&
-					heapmodel.ValueDerivesFrom(argument, target, map[ssa.Value]bool{}) {
+					heapmodel.ValueDerivesFrom(argument, target) {
 					return resourceUnknown, reasonWrapperPassedToCallee
 				}
 			}

@@ -61,7 +61,7 @@ func (search *helperSearch) use(function *ssa.Function, local ssa.Value, kind tr
 
 func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {
 	derives := func(value ssa.Value) bool {
-		return heapmodel.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
+		return heapmodel.ValueDerivesFrom(value, local)
 	}
 	joins := func(instruction ssa.Instruction) bool {
 		proof := proveSummaryJoin(search.concurrency, instruction, local, kind, search.budget)
@@ -92,7 +92,7 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 			joined = joinsEdge(block, successor) || joined
 		}
 	}
-	joinProven := joined && !ssaflow.UnownedReturnFromEntryWithEdges(function, joins, joinsEdge)
+	joinProven := joined && ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: joins, OwnsEdge: joinsEdge}) == nil
 	if search.budget.Exhausted() {
 		return actionUnknown
 	}

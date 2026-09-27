@@ -194,7 +194,7 @@ func callerReleasesOnFlag(call *ssa.Call, mutex *ssa.Global, heldWhen ssaflow.Ca
 		return false
 	}
 	witness := false
-	unowned := ssaflow.UnownedReturn(call, func(instruction ssa.Instruction) bool {
+	unowned := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: call, Owns: func(instruction ssa.Instruction) bool {
 		if instruction.Block() == unheld {
 			return true
 		}
@@ -204,7 +204,7 @@ func callerReleasesOnFlag(call *ssa.Call, mutex *ssa.Global, heldWhen ssaflow.Ca
 			return true
 		}
 		return false
-	}, nil)
+	}}) != nil
 	return witness && !unowned
 }
 

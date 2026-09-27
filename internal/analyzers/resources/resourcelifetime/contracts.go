@@ -540,7 +540,7 @@ func resourceReleaseMayFollow(instruction ssa.Instruction, resource ssa.Value, m
 			if common == nil || !slices.Contains(methods, ssaflow.CallName(common)) || !ssaflow.InstructionMayFollow(instruction, candidate) {
 				continue
 			}
-			if heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), resource, map[ssa.Value]bool{}) {
+			if heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), resource) {
 				return true
 			}
 		}

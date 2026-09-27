@@ -60,18 +60,22 @@ func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa
 		return false
 	}
 	for index, argument := range call.Common().Args {
-		if index >= len(callee.Params) || !heapmodel.ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !MayContainValue(argument, value) {
+		if index >= len(callee.Params) || !heapmodel.ValueDerivesFrom(argument, value) && !MayContainValue(argument, value) {
 			continue
 		}
 		parameter := callee.Params[index]
 		owned := false
-		unowned := ssaflow.UnownedReturnFromEntryAllow(callee, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
-			if ReturnedValueOwnsValue(returned, parameter) {
-				owned = true
-				return true
-			}
-			return false
-		})
+		unowned := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+			Entry: callee,
+			Owns:  func(ssa.Instruction) bool { return false },
+			AllowReturn: func(returned *ssa.Return) bool {
+				if ReturnedValueOwnsValue(returned, parameter) {
+					owned = true
+					return true
+				}
+				return false
+			},
+		}) != nil
 		if owned && !unowned {
 			return true
 		}
@@ -109,7 +113,7 @@ func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Valu
 		if index == 0 || index >= len(callee.Params) {
 			continue
 		}
-		if !heapmodel.ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) && !MayContainValue(argument, value) {
+		if !heapmodel.ValueDerivesFrom(argument, value) && !MayContainValue(argument, value) {
 			continue
 		}
 		parameter := callee.Params[index]
@@ -136,10 +140,10 @@ func storesParameterInReceiverField(candidate ssa.Instruction, receiver, paramet
 		return false
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
-	if !ok || !heapmodel.ValueDerivesFrom(field.X, receiver, map[ssa.Value]bool{}) {
+	if !ok || !heapmodel.ValueDerivesFrom(field.X, receiver) {
 		return false
 	}
-	return heapmodel.ValueDerivesFrom(store.Val, parameter, map[ssa.Value]bool{}) || MayContainValue(store.Val, parameter)
+	return heapmodel.ValueDerivesFrom(store.Val, parameter) || MayContainValue(store.Val, parameter)
 }
 
 // ValueHasTransferUse recognizes the structural return, field-store, or fluent
@@ -179,7 +183,7 @@ func callConsumesLifecycleValue(common *ssa.CallCommon, name string, value ssa.V
 		return false
 	}
 	for _, argument := range common.Args {
-		if hasLifecycleMethod(argument) && heapmodel.ValueDerivesFrom(argument, value, map[ssa.Value]bool{}) {
+		if hasLifecycleMethod(argument) && heapmodel.ValueDerivesFrom(argument, value) {
 			return true
 		}
 	}
@@ -220,7 +224,7 @@ func valueLifecycleUsed(value ssa.Value, after ssa.Instruction) bool {
 				continue
 			}
 			common := ssaflow.InstructionCall(instruction)
-			if common == nil || !heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), value, map[ssa.Value]bool{}) {
+			if common == nil || !heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), value) {
 				continue
 			}
 			switch ssaflow.CallName(common) {

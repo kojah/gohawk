@@ -158,9 +158,14 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 	}
 	var witness *ssa.Return
 	if merged != nil {
-		witness = ssaflow.UnownedReturnAssumingNonNilWitness(merged, merged, owns, allowReturn, nil)
+		witness = ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+			After:       merged,
+			Owns:        owns,
+			AllowReturn: allowReturn,
+			Assume:      ssaflow.EntryAssumptions{NonNil: merged},
+		})
 	} else {
-		witness = ssaflow.UnownedReturnAfterCallSuccessWitness(start, owns, allowReturn)
+		witness = ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{AfterCallSuccess: start, Owns: owns, AllowReturn: allowReturn})
 	}
 	leaks := witness != nil
 	emitProcessDecision(pass, function, start, command, leaks, unknown)
@@ -264,7 +269,7 @@ func commandUnusedAfterStart(start *ssa.Call, command ssa.Value) bool {
 				continue
 			}
 			for _, operand := range instruction.Operands(nil) {
-				if operand == nil || *operand == nil || heapmodel.ValueDerivesFrom(*operand, start, map[ssa.Value]bool{}) {
+				if operand == nil || *operand == nil || heapmodel.ValueDerivesFrom(*operand, start) {
 					// Start's own error result is not a use of the handle.
 					continue
 				}

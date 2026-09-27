@@ -104,7 +104,7 @@ func resultDerivesToTarget(call *ssa.Call, target ssa.Value) bool {
 // resource to its acquisition. Historical writes are not current contents.
 func valueDerivesFrom(value, source ssa.Value) bool {
 	resolved := heapmodel.NewStorage(nil).Resolve(value)
-	return resolved.Proven() && heapmodel.ValueDerivesFrom(resolved.Value, source, map[ssa.Value]bool{})
+	return resolved.Proven() && heapmodel.ValueDerivesFrom(resolved.Value, source)
 }
 
 // Reloading the same address only identifies the same obligation when its

@@ -18,10 +18,10 @@ func ReturnsParameterUnchanged(function *ssa.Function, parameter ssa.Value, inde
 	if function == nil || len(function.Blocks) == 0 || !ssaflow.NormalReturnReachableFrom(function.Blocks[0]) {
 		return false
 	}
-	return !ssaflow.UnownedReturnFromEntryAllow(
-		function,
-		func(ssa.Instruction) bool { return false },
-		func(returned *ssa.Return) bool {
+	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+		Entry: function,
+		Owns:  func(ssa.Instruction) bool { return false },
+		AllowReturn: func(returned *ssa.Return) bool {
 			if index < 0 || index >= len(returned.Results) {
 				return false
 			}
@@ -29,5 +29,5 @@ func ReturnsParameterUnchanged(function *ssa.Function, parameter ssa.Value, inde
 			return types.Identical(result.Type(), parameter.Type()) &&
 				heapmodel.NewStorage(nil).Same(result, parameter).Proven()
 		},
-	)
+	}) == nil
 }

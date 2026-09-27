@@ -108,7 +108,7 @@ func (analysis *spawnAnalysis) closureBlockJoins(block *ssa.BasicBlock, pairs []
 				continue
 			}
 			derives := func(value ssa.Value) bool {
-				return heapmodel.ValueDerivesFrom(value, pair.Local, map[ssa.Value]bool{})
+				return heapmodel.ValueDerivesFrom(value, pair.Local)
 			}
 			search := newHelperSearch()
 			for _, instruction := range block.Instrs {

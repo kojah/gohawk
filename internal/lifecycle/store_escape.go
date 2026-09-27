@@ -39,7 +39,7 @@ func StoresValueInGlobal(instruction ssa.Instruction, value ssa.Value) bool {
 // https://github.com/shini4i/argo-watcher/blob/283d6c6b618b3ade906728ee12a438fd22a328ef/internal/argocd/argo_api.go#L100-L119
 func StoresValueInEnclosingScope(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !heapmodel.ValueDerivesFrom(store.Val, value, map[ssa.Value]bool{}) {
+	if !ok || !heapmodel.ValueDerivesFrom(store.Val, value) {
 		return false
 	}
 	_, ok = store.Addr.(*ssa.FreeVar)

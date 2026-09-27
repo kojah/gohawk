@@ -184,7 +184,7 @@ func parameterMayBeReleased(function *ssa.Function, parameter ssa.Value) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			if assertion, ok := instruction.(*ssa.TypeAssert); ok &&
-				heapmodel.ValueDerivesFrom(assertion.X, parameter, map[ssa.Value]bool{}) &&
+				heapmodel.ValueDerivesFrom(assertion.X, parameter) &&
 				typeCanRelease(assertion.AssertedType) {
 				return true
 			}
@@ -358,7 +358,7 @@ func releasesField(pass *analysis.Pass, instruction ssa.Instruction, receiver ss
 	}
 	for _, load := range fieldLoads(receiver, index) {
 		for _, method := range cleanup {
-			if ssaflow.CallName(common) == method && heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), load, map[ssa.Value]bool{}) {
+			if ssaflow.CallName(common) == method && heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), load) {
 				return true
 			}
 		}

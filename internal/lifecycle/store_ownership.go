@@ -34,7 +34,7 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 				continue
 			}
 			for index, free := range function.FreeVars {
-				if heapmodel.ValueDerivesFrom(common.Value, free, map[ssa.Value]bool{}) && index < len(closure.Bindings) && owns(closure.Bindings[index]) {
+				if heapmodel.ValueDerivesFrom(common.Value, free) && index < len(closure.Bindings) && owns(closure.Bindings[index]) {
 					return true
 				}
 			}

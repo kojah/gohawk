@@ -15,7 +15,7 @@ func osProcessDerivedFromCommand(value, command ssa.Value) bool {
 		return false
 	}
 	pointer, ok := value.Type().Underlying().(*types.Pointer)
-	return ok && syntax.NamedType(pointer.Elem(), "os", "Process") && heapmodel.ValueDerivesFrom(value, command, map[ssa.Value]bool{})
+	return ok && syntax.NamedType(pointer.Elem(), "os", "Process") && heapmodel.ValueDerivesFrom(value, command)
 }
 
 // returnsProcessHandle reports whether a return hands the caller the exact
@@ -94,7 +94,7 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 		// A closure-local FreeVar is the mapped capture cell, not the command
 		// value. Its caller maps the captured command into this frame.
 		if _, captured := command.(*ssa.FreeVar); captured {
-			return heapmodel.ValueDerivesFrom(receiver, command, map[ssa.Value]bool{})
+			return heapmodel.ValueDerivesFrom(receiver, command)
 		}
 		return heapmodel.NewStorage(nil).Same(receiver, command).Proven()
 	}

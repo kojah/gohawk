@@ -615,7 +615,7 @@ func opaqueCallee(common *ssa.CallCommon) bool {
 // value the lock derives from, such as the struct whose field it is.
 func lockHandedTo(common *ssa.CallCommon, lock ssa.Value) bool {
 	for _, argument := range common.Args {
-		if heapmodel.MayAlias(argument, lock) || heapmodel.ValueDerivesFrom(lock, argument, map[ssa.Value]bool{}) {
+		if heapmodel.MayAlias(argument, lock) || heapmodel.ValueDerivesFrom(lock, argument) {
 			return true
 		}
 	}

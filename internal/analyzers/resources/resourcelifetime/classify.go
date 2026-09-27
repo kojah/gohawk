@@ -133,7 +133,7 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	// https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/auth/claude_api_key.go#L94-L99
 	common := ssaflow.InstructionCall(instruction)
 	if !analysis.optional.Proven() && common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
-		heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), analysis.resource, map[ssa.Value]bool{}) {
+		heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), analysis.resource) {
 		return actionUnknown, resourceReasonAmbiguousCleanupValue
 	}
 	if analysis.ambiguousHelperCleanup(instruction, common) {
@@ -161,7 +161,7 @@ func (analysis *resourceAnalysis) ambiguousHelperCleanup(instruction ssa.Instruc
 		return false
 	}
 	for _, argument := range common.Args {
-		if !mergedCleanupArgument(argument) || !heapmodel.ValueDerivesFrom(argument, analysis.resource, map[ssa.Value]bool{}) {
+		if !mergedCleanupArgument(argument) || !heapmodel.ValueDerivesFrom(argument, analysis.resource) {
 			continue
 		}
 		for _, method := range analysis.contract.cleanup {
@@ -536,7 +536,7 @@ func callResultMayTransfer(instruction ssa.Instruction) bool {
 			if types.Identical(value.Type(), errorType) {
 				continue
 			}
-			if heapmodel.ValueDerivesFrom(value, result, map[ssa.Value]bool{}) {
+			if heapmodel.ValueDerivesFrom(value, result) {
 				return true
 			}
 		}
@@ -548,7 +548,7 @@ func callResultMayTransfer(instruction ssa.Instruction) bool {
 		// Publishing a scalar observation or error does not retain its inputs.
 		_, scalar := store.Val.Type().Underlying().(*types.Basic)
 		if !scalar && !types.Identical(store.Val.Type(), errorType) &&
-			heapmodel.ValueDerivesFrom(store.Val, result, map[ssa.Value]bool{}) {
+			heapmodel.ValueDerivesFrom(store.Val, result) {
 			return true
 		}
 	}
@@ -682,7 +682,7 @@ func (analysis *resourceAnalysis) carriesDirectly(value ssa.Value) bool {
 	// A load resolves to what its cell held at that point, so a field or
 	// element read back out of a local aggregate is the resource itself.
 	return heapmodel.MayAlias(value, analysis.resource) ||
-		heapmodel.ValueDerivesFrom(value, analysis.resource, map[ssa.Value]bool{}) ||
+		heapmodel.ValueDerivesFrom(value, analysis.resource) ||
 		heapmodel.NewStorage(analysis.budget(ssaflow.QueryBudget)).Same(value, analysis.resource).Proven()
 }
 
@@ -699,7 +699,7 @@ func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
 			return false
 		}
 		for stored := range lifecycle.StoredInto(value) {
-			if heapmodel.ValueDerivesFrom(stored, analysis.resource, map[ssa.Value]bool{}) {
+			if heapmodel.ValueDerivesFrom(stored, analysis.resource) {
 				return true
 			}
 		}

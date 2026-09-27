@@ -68,7 +68,7 @@ func (search *completionSearch) capturedLocal(
 		return mappedLocal{local: free, supplied: value, kind: localExact}, true
 	case search.valueCallsMethod(value, target):
 		return mappedLocal{local: free, supplied: value, kind: localCallback}, true
-	case heapmodel.ValueDerivesFrom(value, target, map[ssa.Value]bool{}):
+	case heapmodel.ValueDerivesFrom(value, target):
 		// The closure captured a projection of the target, such as a body
 		// selected from a response before the literal was created.
 		return mappedLocal{local: free, supplied: value, kind: localExact}, true
@@ -226,7 +226,7 @@ func (local mappedLocal) receives(receiver, target ssa.Value) bool {
 				return ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(local.path)
 			}
 		}
-		return heapmodel.ValueDerivesFrom(receiver, local.local, map[ssa.Value]bool{})
+		return heapmodel.ValueDerivesFrom(receiver, local.local)
 	case localProjection:
 		return exactCleanupReceiver(receiver, local.local)
 	case localOwner:

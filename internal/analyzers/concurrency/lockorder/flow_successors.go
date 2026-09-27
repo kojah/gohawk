@@ -28,7 +28,9 @@ func lockSuccessorStates(
 	// exploring both values invents a still-held return on the released path.
 	// Carried constants and stable parameter constraints are applied separately.
 	// https://github.com/enetx/surf/blob/7da0502899af06f8318f95e632797cb2ac0c6c20/pkg/connectproxy/connectproxy.go#L256-L294
-	feasible := summaryKnowledge.Provider(pass).FeasibleSuccessors(block, state.predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	feasible := ssaflow.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
+		return summaryKnowledge.Provider(pass).FeasibleSuccessors(block, predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	}}.Successors(block, state.predecessor)
 	for index, successor := range block.Succs {
 		if !slices.Contains(feasible, successor) {
 			traceInfeasibleLockBranch(pass, block, lockReasonPredecessorConstantBranchInfeasible)

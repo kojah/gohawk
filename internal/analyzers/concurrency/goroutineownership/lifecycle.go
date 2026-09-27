@@ -180,7 +180,7 @@ func contextFieldReceivedAnywhere(function *ssa.Function, local ssa.Value, spawn
 	}
 	seen[function] = true
 	derives := func(value ssa.Value) bool {
-		return heapmodel.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
+		return heapmodel.ValueDerivesFrom(value, local)
 	}
 	receivesContextField := func(channel ssa.Value) bool {
 		done, ok := channel.(*ssa.Call)
@@ -301,7 +301,7 @@ func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Stora
 		_, deferred := instruction.(*ssa.Defer)
 		return (called || deferred) && storage.Same(common.Value, cancel).Proven()
 	}
-	if !ssaflow.UnownedReturn(spawn, cancels, nil) {
+	if ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: spawn, Owns: cancels}) == nil {
 		return true
 	}
 	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](spawn.Parent()) {
@@ -365,7 +365,7 @@ func receivesAnywhere(function *ssa.Function, local ssa.Value, seen map[*ssa.Fun
 	}
 	seen[function] = true
 	derives := func(value ssa.Value) bool {
-		return heapmodel.ValueDerivesFrom(value, local, map[ssa.Value]bool{})
+		return heapmodel.ValueDerivesFrom(value, local)
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {

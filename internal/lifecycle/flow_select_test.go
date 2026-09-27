@@ -116,16 +116,21 @@ func defaultArm(done, work <-chan int, flag bool) {
 				channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
 				return selected && channel == function.Params[0]
 			}
-			if got := ssaflow.UnownedReturnWithEdges(start, exact, nil, edge); got != test.unowned {
+			if got := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: start, Owns: exact, OwnsEdge: edge}) != nil; got != test.unowned {
 				t.Errorf("after start = %v, want %v", got, test.unowned)
 			}
-			if got := ssaflow.UnownedReturnFromEntryWithEdges(function, exact, edge); got != test.unowned {
+			if got := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: exact, OwnsEdge: edge}) != nil; got != test.unowned {
 				t.Errorf("from entry = %v, want %v", got, test.unowned)
 			}
-			if got := ssaflow.UnownedReturnAssumingNonNilWitness(start, function.Params[0], uncertain, nil, edge) != nil; got != test.uncertainUnowned {
+			if got := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+				After:    start,
+				Owns:     uncertain,
+				OwnsEdge: edge,
+				Assume:   ssaflow.EntryAssumptions{NonNil: function.Params[0]},
+			}) != nil; got != test.uncertainUnowned {
 				t.Errorf("uncertain/non-nil = %v, want %v", got, test.uncertainUnowned)
 			}
-			if !ssaflow.UnownedReturn(start, uncertain, nil) {
+			if ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: start, Owns: uncertain}) == nil {
 				t.Error("ordinary instruction-only query borrowed an edge action")
 			}
 		})

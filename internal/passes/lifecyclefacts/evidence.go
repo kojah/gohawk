@@ -47,7 +47,7 @@ func (evidence *LifecycleEvidence) ClosureRetainsValue(closure *ssa.MakeClosure,
 	retentions := evidence.retentionQueries()
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
 		if !heapmodel.CapturedBindingMatches(captured.Binding, target) &&
-			!heapmodel.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
+			!heapmodel.ValueDerivesFrom(captured.Binding, target) {
 			continue
 		}
 		for _, held := range capturedUses(captured.Free) {
@@ -92,7 +92,7 @@ func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCallee(
 	}
 	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
 		if !heapmodel.CapturedBindingMatches(captured.Binding, target) &&
-			!heapmodel.ValueDerivesFrom(captured.Binding, target, map[ssa.Value]bool{}) {
+			!heapmodel.ValueDerivesFrom(captured.Binding, target) {
 			continue
 		}
 		held := capturedUses(captured.Free)

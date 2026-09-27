@@ -100,7 +100,7 @@ func resourceTransferredToExternalField(instruction ssa.Instruction, resource ss
 
 func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Value { //nolint:ireturn // Owners retain their concrete SSA value forms.
 	store, ok := instruction.(*ssa.Store)
-	if !ok || !heapmodel.ValueDerivesFrom(store.Val, resource, map[ssa.Value]bool{}) && !lifecycle.MayContainValue(store.Val, resource) {
+	if !ok || !heapmodel.ValueDerivesFrom(store.Val, resource) && !lifecycle.MayContainValue(store.Val, resource) {
 		return nil
 	}
 	if field, ok := store.Addr.(*ssa.FieldAddr); ok {

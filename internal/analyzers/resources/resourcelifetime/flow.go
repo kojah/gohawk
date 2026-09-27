@@ -190,13 +190,16 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (
 
 func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState, errorValue ssa.Value) []resourceFlowState {
 	pass, resource, optionalAcquisition, candidate := analysis.pass, analysis.resource, analysis.optional, analysis.candidate
-	successors := analysis.feasibleSuccessors(state)
+	edges := analysis.successorPolicy().Edges(state.block, state.predecessor, state.guards)
 	if optionalAcquisition.Proven() && state.block == optionalAcquisition.merge && state.predecessor == optionalAcquisition.acquisitionBlock {
-		successors = []*ssa.BasicBlock{optionalAcquisition.acquiredSuccessor}
+		acquired := optionalAcquisition.acquiredSuccessor
+		guards, contradiction := state.guards.Extend(state.block, acquired, nil)
+		edges = []ssaflow.SuccessorEdge{{To: acquired, Guards: guards, Contradiction: contradiction}}
 		traceOptionalAcquisition(pass, optionalAcquisition, candidate)
 	}
-	result := make([]resourceFlowState, 0, len(successors))
-	for _, successor := range successors {
+	result := make([]resourceFlowState, 0, len(edges))
+	for _, edge := range edges {
+		successor := edge.To
 		obligation := state.obligation
 		if success, known := resourceSuccessBranch(pass, analysis.summaries, state.block, successor, errorValue, candidate); known {
 			if !success {
@@ -208,7 +211,7 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 				obligation = obligation.Absent()
 			}
 		}
-		guards, contradiction := state.guards.Extend(state.block, successor, nil)
+		guards, contradiction := edge.Guards, edge.Contradiction
 		if contradiction != ssaflow.GuardConsistent {
 			obligation = obligation.Uncertain()
 			analysis.traceUncertainEdge(state.block, successor, resourceReasonRepeatedGuardEdgeUnknown)
@@ -325,7 +328,7 @@ func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return) bo
 		return true
 	}
 	for _, result := range returned.Results {
-		if !heapmodel.ValueDerivesFrom(result, resource, map[ssa.Value]bool{}) {
+		if !heapmodel.ValueDerivesFrom(result, resource) {
 			continue
 		}
 		// Narrowing an interface preserves its dynamic object, including Close:
@@ -399,7 +402,7 @@ func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) 
 			common := ssaflow.InstructionCall(instruction)
 			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyErrorClaim) {
 				for _, argument := range common.Args {
-					if heapmodel.ValueDerivesFrom(argument, errorValue, map[ssa.Value]bool{}) {
+					if heapmodel.ValueDerivesFrom(argument, errorValue) {
 						errorAssertions = append(errorAssertions, instruction)
 					}
 				}
@@ -435,7 +438,7 @@ func fatalErrorAssertion(instruction ssa.Instruction) bool {
 // helper that was handed the file derives from the file, but no error value
 // is the file, so its nil check says nothing about whether the file exists.
 func holdsResource(value, resource ssa.Value) bool {
-	return types.AssignableTo(resource.Type(), value.Type()) && heapmodel.ValueDerivesFrom(value, resource, map[ssa.Value]bool{})
+	return types.AssignableTo(resource.Type(), value.Type()) && heapmodel.ValueDerivesFrom(value, resource)
 }
 
 // presenceOperand reports whether a nil comparison of value decides whether
@@ -506,7 +509,7 @@ func assertedResource(condition, resource ssa.Value) bool {
 	// derivation suffices, because the rule only ever removes an
 	// obligation from the arm where the assertion failed.
 	held := heapmodel.NewStorage(nil).Same(assertion.X, resource).Proven() ||
-		heapmodel.ValueDerivesFrom(assertion.X, resource, map[ssa.Value]bool{})
+		heapmodel.ValueDerivesFrom(assertion.X, resource)
 	return held && types.AssignableTo(resource.Type(), assertion.AssertedType)
 }
 

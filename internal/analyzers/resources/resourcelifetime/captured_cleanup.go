@@ -220,7 +220,7 @@ func responsePointerUse(value, resource, cell ssa.Value) bool {
 		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
 	).Any(value, func(_ ssaflow.ReachingWalk, value ssa.Value) bool {
 		_, pointer := value.Type().Underlying().(*types.Pointer)
-		return pointer && (heapmodel.ValueDerivesFrom(value, resource, map[ssa.Value]bool{}) ||
-			heapmodel.ValueDerivesFrom(value, cell, map[ssa.Value]bool{}))
+		return pointer && (heapmodel.ValueDerivesFrom(value, resource) ||
+			heapmodel.ValueDerivesFrom(value, cell))
 	})
 }

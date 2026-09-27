@@ -1192,7 +1192,7 @@ selected resolves to nothing.
 [Source](../../../../internal/heapmodel/store_derivation.go)
 
 ```go
-func ValueDerivesFrom(value, source ssa.Value, seen map[ssa.Value]bool) bool
+func ValueDerivesFrom(value, source ssa.Value) bool
 ```
 
 ValueDerivesFrom reports whether source contributes to value through SSA

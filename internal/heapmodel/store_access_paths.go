@@ -19,7 +19,7 @@ import (
 // selected beneath root, empty for root itself. A load through an address
 // beneath root has the address's path.
 func AccessPathOf(value, root ssa.Value) ([]string, bool) {
-	return ssaflow.AccessPathSteps(value, root, map[ssa.Value]bool{})
+	return ssaflow.AccessPathSteps(value, root)
 }
 
 // AccessPathFromParameter is AccessPathOf with the parameter's spill cells as
@@ -91,7 +91,7 @@ func SelectionsOf(root ssa.Value, path []string) []ssa.Value {
 				if !ok {
 					continue
 				}
-				if selection, ok := ssaflow.AccessPathSteps(selected, address, map[ssa.Value]bool{}); ok && len(selection) == 1 && selection[0] == step {
+				if selection, ok := ssaflow.AccessPathSteps(selected, address); ok && len(selection) == 1 && selection[0] == step {
 					next = append(next, selected)
 				}
 			}
@@ -123,7 +123,7 @@ func StoredPath(root, target ssa.Value, observation ssa.Instruction) ([]string, 
 			if !ok {
 				continue
 			}
-			step, ok := ssaflow.AccessPathSteps(selected, address, map[ssa.Value]bool{})
+			step, ok := ssaflow.AccessPathSteps(selected, address)
 			if !ok || len(step) != 1 {
 				continue
 			}

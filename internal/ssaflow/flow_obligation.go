@@ -79,15 +79,9 @@ type ObligationFlow struct {
 	Constants FixedValues
 }
 
-// feasibleSuccessors applies the caller's feasibility view, or the default
-// literal one, and then the non-nil assumption.
-func (flow ObligationFlow) feasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
-	successors := FeasibleSuccessors(block, predecessor)
-	if flow.Successors != nil {
-		successors = flow.Successors(block, predecessor)
-	}
-	successors = flow.Constants.Narrow(successors, block)
-	return assumedSuccessors(successors, block, flow.NonNil, flow.NonNilType)
+// successorPolicy is the flow's feasibility view as the shared policy.
+func (flow ObligationFlow) successorPolicy() SuccessorPolicy {
+	return SuccessorPolicy{Feasible: flow.Successors, Constants: flow.Constants, NonNil: flow.NonNil, NonNilType: flow.NonNilType}
 }
 
 // EvaluateObligation carries the classifier's labels along every feasible
@@ -160,6 +154,7 @@ func (state obligationState) key() obligationKey {
 func obligationOutcome(initial []obligationState, flow ObligationFlow) (ObligationOutcome, *ssa.Return) {
 	outcome := ObligationHonored
 	var witness *ssa.Return
+	policy := flow.successorPolicy()
 	WalkStates(initial, obligationState.key, func(state obligationState) ([]obligationState, bool) {
 		if flow.Budget != nil && !flow.Budget.Spend() {
 			outcome = ObligationUncertain
@@ -188,33 +183,33 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) (Obligati
 			case ObligationExact:
 			}
 		}
-		successors := flow.feasibleSuccessors(state.block, state.predecessor)
-		next := make([]obligationState, 0, len(successors))
-		for _, successor := range successors {
+		edges := policy.Edges(state.block, state.predecessor, state.guards)
+		next := make([]obligationState, 0, len(edges))
+		for _, edge := range edges {
 			covered := state.covered
 			if flow.Edge != nil {
-				covered = max(covered, flow.Edge(state.block, successor))
+				covered = max(covered, flow.Edge(state.block, edge.To))
 			}
-			guards, contradiction := state.guards.Extend(state.block, successor, nil)
-			switch contradiction {
+			switch edge.Contradiction {
 			case GuardStableContradiction:
 				continue
 			case GuardLoadedContradiction:
 				covered = max(covered, ObligationUnknown)
 			case GuardConsistent:
 			}
-			next = append(next, obligationState{block: successor, predecessor: state.block, covered: covered, guards: guards})
+			next = append(next, obligationState{block: edge.To, predecessor: state.block, covered: covered, guards: edge.Guards})
 		}
 		return next, true
 	})
 	return outcome, witness
 }
 
-// ExactOrNone lifts a Boolean ownership predicate to the two-level lattice the
-// UnownedReturn family needs: an owning action is exact, anything else none.
+// ExactOrNone lifts a Boolean ownership predicate to the two-level lattice
+// UnownedReturn needs: an owning action is exact, anything else none. A nil
+// predicate owns nothing.
 func ExactOrNone(owns func(ssa.Instruction) bool) func(ssa.Instruction) ObligationAction {
 	return func(instruction ssa.Instruction) ObligationAction {
-		if owns(instruction) {
+		if owns != nil && owns(instruction) {
 			return ObligationExact
 		}
 		return ObligationNone

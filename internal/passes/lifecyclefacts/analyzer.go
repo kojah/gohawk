@@ -418,9 +418,13 @@ func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, par
 		imported, ok := factForFunction(pass, callee)
 		return ok && imported.Claim(ClaimReturnsOwner).contains(index)
 	}
-	return !ssaflow.UnownedReturnFromEntryAllow(function, func(ssa.Instruction) bool { return false }, func(returned *ssa.Return) bool {
-		return lifecycle.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)
-	})
+	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+		Entry: function,
+		Owns:  func(ssa.Instruction) bool { return false },
+		AllowReturn: func(returned *ssa.Return) bool {
+			return lifecycle.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)
+		},
+	}) == nil
 }
 
 func canReturnOwner(results *types.Tuple) bool {
