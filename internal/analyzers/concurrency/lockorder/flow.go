@@ -50,6 +50,10 @@ type lockFlowContext struct {
 	unprovenRelease map[string]bool
 	callerOwned     map[string]bool
 	defers          []*ssa.Defer
+	// releaseAttempts records, only while tracing, each call the completion
+	// search could not prove releases a held lock, so a reported return can
+	// say which helpers were asked and why each did not count.
+	releaseAttempts *releaseAttempts
 }
 
 func walkLockOrderBounded(
@@ -93,6 +97,7 @@ func walkLockOrderBounded(
 		unprovenRelease: map[string]bool{},
 		callerOwned:     callerOwned,
 		defers:          functionDefers,
+		releaseAttempts: newReleaseAttempts(),
 	}
 	// Each predecessor selects its own phi values before any instruction runs.
 	// Clone the lock collections so one successor's release cannot discharge
@@ -136,10 +141,11 @@ func walkLockOrderBounded(
 				for _, effect := range effects {
 					actionState = flow.applyMutexAction(instruction, effect, actionState)
 				}
+				flow.releaseAttempts.recordSummarized(instruction, effects, held, actionState.held)
 				held, readHeld, deferred, guards = actionState.held, actionState.readHeld, actionState.deferred, actionState.guards
 				continue
 			}
-			held = transferCalledUnlocks(evidence, instruction, held, guards, lockValues, released, flow.unprovenRelease)
+			held = transferCalledUnlocks(evidence, instruction, held, guards, lockValues, released, flow.unprovenRelease, flow.releaseAttempts)
 			// An unconditional unlock at the start of a spawned closure transfers
 			// the held lock to that goroutine. Requiring it before any branch keeps
 			// conditional handoffs from hiding a genuinely unreleased return path.
@@ -303,6 +309,7 @@ func transferCalledUnlocks(
 	lockValues map[string][]ssa.Value,
 	released map[string]bool,
 	unproven map[string]bool,
+	attempts *releaseAttempts,
 ) []string {
 	for _, identity := range slices.Clone(held) {
 		for _, value := range lockValues[identity] {
@@ -313,6 +320,8 @@ func transferCalledUnlocks(
 				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
 			})
 			if !releaseSettled(proof, ssaflow.EvidenceCalledCompletion) {
+				possible := mayRelease(evidence, instruction, value)
+				attempts.record(identity, instruction, value, proof, possible)
 				// A callee that releases the lock on some paths and not others
 				// leaves it held but no longer proven held. A return that still
 				// holds it stays reportable, deliberately, so a conditional
@@ -323,7 +332,7 @@ func transferCalledUnlocks(
 				// Lock and Unlock paired inside a loop body reported as a
 				// recursive acquisition on the next iteration:
 				// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/proxy/route_executor.go#L697
-				if mayRelease(evidence, instruction, value) {
+				if possible {
 					unproven[identity] = true
 				}
 				continue

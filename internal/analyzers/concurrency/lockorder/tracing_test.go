@@ -55,6 +55,7 @@ func TestLockTraceBoundaries(t *testing.T) {
 	checkDecisionTrace(t, data, "lock-state-budget-exhausted", "state_budget.go:", "unknown")
 	checkDecisionTrace(t, data, "fresh-field-identity-unknown", "escaped_fresh_field.go:", "unknown")
 	checkDecisionTrace(t, data, "cross-owner-class-unknown", "cross_owner_orders.go:", "unknown")
+	checkHelperReleaseTrace(t, data)
 	found := false
 	foundUnknown := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
@@ -149,4 +150,25 @@ func checkLongerCycleTrace(t *testing.T, data []byte) {
 	if !found {
 		t.Error("missing longer-cycle evidence")
 	}
+}
+
+// A reported missing release replays the helper that may have released the
+// lock, bound to the reported return.
+func checkHelperReleaseTrace(t *testing.T, data []byte) {
+	t.Helper()
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+		var event lockTraceEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		if event.Reason != "helper-release-unproven" || !strings.Contains(event.Candidate, "captured_receiver_release.go:") {
+			continue
+		}
+		if event.Phase != "evidence" || event.Outcome != "rejected" || !strings.Contains(event.Details["instruction"], "maybeUnsubscribeLocked") ||
+			event.Details["source"] == "" || event.Details["completion"] == "" {
+			t.Fatalf("unexpected helper-release evidence: %+v", event)
+		}
+		return
+	}
+	t.Fatal("missing helper-release-unproven evidence for captured_receiver_release.go")
 }

@@ -17,6 +17,7 @@ func TestLockReasonCodes(t *testing.T) {
 		lockReasonImportedWriterGuardUnknown:          "imported-writer-guard-unknown",
 		lockReasonLoadedAcquisitionGuardUnknown:       "loaded-acquisition-guard-unknown",
 		lockReasonLockStateBudgetExhausted:            "lock-state-budget-exhausted",
+		lockReasonHelperReleaseUnproven:               "helper-release-unproven",
 		lockReasonNoFreshBoundOwner:                   "no-fresh-bound-owner",
 		lockReasonNoFreshFieldWitness:                 "no-fresh-field-witness",
 		lockReasonOppositeOrderRecorded:               "opposite-order-recorded",
