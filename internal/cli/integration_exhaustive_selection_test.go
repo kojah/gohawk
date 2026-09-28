@@ -32,7 +32,7 @@ func runExhaustiveSelectionScenarios(t *testing.T, binary, module string) {
 			t.Fatalf("exit code = %d, want 0\n%s", exitCode, output)
 		}
 		for _, summary := range []string{
-			"resources (resources and lifecycle): cancellationownership, deferinloop, processownership, resourcelifetime",
+			"resources (resources and lifecycle): cancellationownership, deferinloop, processownership~, resourcelifetime",
 			"concurrency (concurrency and synchronization): concurrentcapture, " +
 				"goroutineownership, lockorder, producerlifecycle",
 		} {

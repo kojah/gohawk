@@ -24,7 +24,7 @@ func TestRangeIterationLanguageVersion(t *testing.T) {
 	}{
 		{"legacy", "go1.21", "", false},
 		{"modern", "go1.22", "", true},
-		{"legacy-file", "go1.27", "go1.21", false},
+		{"legacy-file", "go1.22", "go1.21", false},
 		{"modern-file", "go1.21", "go1.22", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -6,7 +6,7 @@
 
 [![Go 1.26](https://img.shields.io/github/actions/workflow/status/kojah/gohawk/go-1.26.yml?branch=main&label=Go%201.26)](https://github.com/kojah/gohawk/actions/workflows/go-1.26.yml)
 [![Go 1.27](https://img.shields.io/github/actions/workflow/status/kojah/gohawk/ci.yml?branch=main&label=Go%201.27)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-90.3%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/Coverage-90.6%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 
 gohawk is an industrial-grade static analyzer that finds resource management
 and concurrency issues in Go code. It has been used to find and fix bugs in
