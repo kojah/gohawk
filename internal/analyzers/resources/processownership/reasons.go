@@ -8,7 +8,7 @@ const (
 	reasonNone processReason = iota
 	reasonHelperOwnershipUnknown
 	reasonStartFailureReturn
-	reasonImpossibleNilReturn
+	reasonSuccessfulStartProcessNonNil
 	reasonReturnedOwner
 	reasonReturnedHandle
 	reasonReturnedMergedOwner
@@ -26,8 +26,8 @@ func (reason processReason) String() string {
 		return "helper-command-ownership-unknown"
 	case reasonStartFailureReturn:
 		return "start-failure-return"
-	case reasonImpossibleNilReturn:
-		return "impossible-nil-process-return"
+	case reasonSuccessfulStartProcessNonNil:
+		return "successful-start-process-non-nil"
 	case reasonReturnedOwner:
 		return "returned-value-owns-command"
 	case reasonReturnedHandle:

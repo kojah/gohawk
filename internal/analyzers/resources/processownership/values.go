@@ -132,35 +132,41 @@ func successfulCommandMerge(start *ssa.Call, command ssa.Value) *ssa.Phi {
 	return nil
 }
 
-// impossibleStartedProcessNilReturn recognizes only the immediate defensive
-// guard after successful Start. Start guarantees Process is non-nil, but later
-// stores or opaque calls can invalidate that fact, so require mutation-free
-// adjacent blocks instead of assuming it throughout the function.
+type processGuardProof struct {
+	State  ssaflow.EvidenceState
+	Reason processReason
+	NonNil ssa.Value
+}
+
+// Successful Start guarantees Process is non-nil at an immediate defensive
+// guard. Later stores or opaque calls can invalidate that fact, so require
+// mutation-free adjacent blocks and fix only this load's value in the flow.
+// A return after the Release branch can merge with the impossible nil branch;
+// pruning that edge avoids a second, return-specific feasibility proof.
+// https://github.com/TencentCloud/tencentmeeting-cli/blob/e631b355da2b001d24b82f453b65d96f39c59865/internal/event/spawner/spawner.go#L113-L123
 // https://github.com/stacktower-io/stacktower/blob/69ff07430089898cc79af381f6e0c3a927a7d149/internal/cli/auth_device.go#L118-L124
-func impossibleStartedProcessNilReturn(returned *ssa.Return, start *ssa.Call, command ssa.Value) bool {
-	predecessors := returned.Block().Preds
-	if len(predecessors) != 1 || ssaflow.InstructionIndex(start) != len(start.Block().Instrs)-3 {
-		return false
+func proveImmediateProcessGuard(start *ssa.Call, command ssa.Value) processGuardProof {
+	if ssaflow.InstructionIndex(start) != len(start.Block().Instrs)-3 {
+		return processGuardProof{State: ssaflow.EvidenceDisproven}
 	}
-	guard := predecessors[0]
-	if len(guard.Preds) != 1 || guard.Preds[0] != start.Block() || len(guard.Instrs) != 4 {
-		return false
+	for _, guard := range start.Block().Succs {
+		if len(guard.Preds) != 1 || guard.Preds[0] != start.Block() || len(guard.Instrs) != 4 {
+			continue
+		}
+		if success, known := ssaflow.SuccessBranch(start.Block(), guard, start); !known || !success {
+			continue
+		}
+		comparison := immediateProcessNilComparison(guard, command)
+		if comparison == nil || comparison.Op != token.EQL && comparison.Op != token.NEQ {
+			continue
+		}
+		value := comparison.X
+		if ssaflow.DefinitelyNil(value) {
+			value = comparison.Y
+		}
+		return processGuardProof{State: ssaflow.EvidenceProven, Reason: reasonSuccessfulStartProcessNonNil, NonNil: value}
 	}
-	if success, known := ssaflow.SuccessBranch(start.Block(), guard, start); !known || !success {
-		return false
-	}
-	comparison := immediateProcessNilComparison(guard, command)
-	if comparison == nil {
-		return false
-	}
-	switch comparison.Op {
-	case token.EQL:
-		return guard.Succs[0] == returned.Block()
-	case token.NEQ:
-		return guard.Succs[1] == returned.Block()
-	default:
-		return false
-	}
+	return processGuardProof{State: ssaflow.EvidenceDisproven}
 }
 
 // immediateProcessNilComparison matches a block that only reads the command's
@@ -173,7 +179,7 @@ func immediateProcessNilComparison(guard *ssa.BasicBlock, command ssa.Value) *ss
 	if !fieldOK || !loadOK || !comparisonOK || !branchOK || len(guard.Succs) != 2 {
 		return nil
 	}
-	if !heapmodel.MayAlias(field.X, command) || load.X != field || load.Op != token.MUL ||
+	if !heapmodel.NewStorage(nil).Same(field.X, command).Proven() || load.X != field || load.Op != token.MUL ||
 		!osProcessDerivedFromCommand(load, command) || branch.Cond != comparison {
 		return nil
 	}

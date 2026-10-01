@@ -4,16 +4,16 @@ import "testing"
 
 func TestProcessReasonCodes(t *testing.T) {
 	want := map[processReason]string{
-		reasonNone:                   "",
-		reasonHelperOwnershipUnknown: "helper-command-ownership-unknown",
-		reasonStartFailureReturn:     "start-failure-return",
-		reasonImpossibleNilReturn:    "impossible-nil-process-return",
-		reasonReturnedOwner:          "returned-value-owns-command",
-		reasonReturnedHandle:         "returns-process-handle",
-		reasonReturnedMergedOwner:    "returned-value-owns-merged-command",
-		reasonWaitOwnershipProven:    "wait-ownership-proven",
-		reasonUnownedReturn:          "unowned-return",
-		reasonAmbiguousWaitOwnership: "ambiguous-wait-ownership",
+		reasonNone:                         "",
+		reasonHelperOwnershipUnknown:       "helper-command-ownership-unknown",
+		reasonStartFailureReturn:           "start-failure-return",
+		reasonSuccessfulStartProcessNonNil: "successful-start-process-non-nil",
+		reasonReturnedOwner:                "returned-value-owns-command",
+		reasonReturnedHandle:               "returns-process-handle",
+		reasonReturnedMergedOwner:          "returned-value-owns-merged-command",
+		reasonWaitOwnershipProven:          "wait-ownership-proven",
+		reasonUnownedReturn:                "unowned-return",
+		reasonAmbiguousWaitOwnership:       "ambiguous-wait-ownership",
 	}
 	if len(want) != int(processReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

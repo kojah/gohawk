@@ -142,7 +142,6 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 			holds  func() bool
 		}{
 			{reasonStartFailureReturn, func() bool { return startFailureReturn(returned, start) }},
-			{reasonImpossibleNilReturn, func() bool { return impossibleStartedProcessNilReturn(returned, start, command) }},
 			{reasonReturnedOwner, func() bool { return lifecycle.ReturnedValueOwnsValue(returned, command) }},
 			{reasonReturnedHandle, func() bool { return returnsProcessHandle(returned, command) }},
 			{reasonReturnedMergedOwner, func() bool {
@@ -157,15 +156,28 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 		return false
 	}
 	var witness *ssa.Return
+	// Fix only the immediate success-edge load. A later Process load may have
+	// changed, so this branch fact must not imply stable handle identity or
+	// excuse an additional Boolean condition around the wait or release.
+	assumptions := ssaflow.EntryAssumptions{}
+	if guard := proveImmediateProcessGuard(start, command); guard.State == ssaflow.EvidenceProven {
+		assumptions.Constants = ssaflow.FixedValues{guard.NonNil: ssaflow.OutcomeNonNil}
+		probe.Evidence(analysisTrace.Step{
+			Reason: guard.Reason.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: guard.NonNil.Pos(), Function: function.String(),
+		})
+	}
 	if merged != nil {
+		assumptions.NonNil = merged
 		witness = ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
 			After:       merged,
 			Owns:        owns,
 			AllowReturn: allowReturn,
-			Assume:      ssaflow.EntryAssumptions{NonNil: merged},
+			Assume:      assumptions,
 		})
 	} else {
-		witness = ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{AfterCallSuccess: start, Owns: owns, AllowReturn: allowReturn})
+		witness = ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+			AfterCallSuccess: start, Owns: owns, AllowReturn: allowReturn, Assume: assumptions,
+		})
 	}
 	leaks := witness != nil
 	emitProcessDecision(pass, function, start, command, leaks, unknown)

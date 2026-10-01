@@ -53,6 +53,18 @@ uncertain when distinct loads prevent an exact identity proof. Additional
 Boolean guards and visible field replacements inside the deferred waiter still
 require a wait.
 
+An immediate four-instruction guard after a checked successful `Start` reads
+the exact command's `Process` without an intervening call or write. That load
+is fixed non-nil in the shared flow's assumptions, so a conditional `Release`
+or `Wait` can join a merged return without inventing an unowned nil path.
+This replaces the separate immediate nil-return exception; the trace records
+`successful-start-process-non-nil` as evidence used by the flow.
+[Tencent's detached bus](https://github.com/TencentCloud/tencentmeeting-cli/blob/e631b355da2b001d24b82f453b65d96f39c59865/internal/event/spawner/spawner.go#L113-L123)
+uses this form. Only that load gets the assumption: later loads, field
+replacement, another command, and an additional Boolean guard remain outside
+the guarantee. `process_guards.go` pins both merged and direct returns beside
+these diagnostic controls.
+
 ## Tier
 
 `missing-wait` moved from core to experimental on 2026-09-27. In batches 62

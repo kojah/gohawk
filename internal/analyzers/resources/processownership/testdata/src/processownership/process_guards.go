@@ -15,6 +15,39 @@ func releaseImmediatelyGuardedProcess() error {
 	return nil
 }
 
+func releaseImmediatelyGuardedMergedReturn() error {
+	command := exec.Command("tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	if command.Process != nil {
+		_ = command.Process.Release()
+	}
+	return nil
+}
+
+func waitImmediatelyGuardedMergedReturn() error {
+	command := exec.Command("tool")
+	if err := command.Start(); err != nil {
+		return err
+	}
+	if nil != command.Process {
+		_ = command.Wait()
+	}
+	return nil
+}
+
+func conditionalGuardedRelease(enabled bool) error {
+	command := exec.Command("tool")
+	if err := command.Start(); err != nil { // want "started command is not waited on every successful return path"
+		return err
+	}
+	if command.Process != nil && enabled {
+		_ = command.Process.Release()
+	}
+	return nil
+}
+
 func waitAfterImpossibleNilProcessReturn() error {
 	command := exec.Command("tool")
 	if err := command.Start(); err != nil {
