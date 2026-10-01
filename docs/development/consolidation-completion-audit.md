@@ -12,7 +12,7 @@ consolidation tracked in `gohawk-dho.24`.
 | --- | --- | --- |
 | Shared responsibilities and downward dependencies | The architecture guide names the SSA, heap, lifecycle, resource and summary layers. Repository-wide architecture tests enforce imports, analyzer layout, fact ownership, summary access, traversal and reporting boundaries. | Structural conformance has passing canonical receipts. It does not prove every proof policy is cohesive; semantic review remains open. |
 | No duplicated proof mechanics | The value-walk and storage/summary reviews document concrete merges and distinct policies. The broader normalized-body scan below found five additional mechanical duplicate groups, now consolidated. | The identified groups are addressed. Partial blocks and equivalent logic written differently remain outside that scan; no repository-wide absence claim is made. |
-| One authoritative decision for each check | Reviewed lifecycle analyzers classify once and ask a shared flow query. The remaining normalized matches in classifier caches and state keys contain different domain state, rather than second acceptance rules. | The ten-check inventory below locates each reporting pipeline. Concurrent capture and process ownership now share their final decisions with tracing. Lock reporting still contains inline multi-rule policy; deeper classification review remains open. |
+| One authoritative decision for each check | Reviewed lifecycle analyzers classify once and ask a shared flow query. The remaining normalized matches in classifier caches and state keys contain different domain state, rather than second acceptance rules. | The ten-check inventory below locates each reporting pipeline. Concurrent capture and process ownership now share their final decisions with tracing. Lock release and mutation reporting also consume structured decisions after dho.27. Defer-loop outcomes and deeper classification review remain open. |
 | Remaining easy FPs fixed | Frozen batches 62/63 supplied 55 production FP locations. The queue refresh, successful 22-site replay and four subsequent corrections leave 18 unresolved production sites. The ten-family assessment states the missing evidence for each. Rune callback wait is separately corrected; fresh-lock publication remains open. | No target-resolution-only correction has been demonstrated. The remaining families need policy, identity, state or protocol evidence. Further current-source review must distinguish a newly available bounded fix from a genuinely larger model. |
 | Precision preserved by consolidation | Parent/current boundary comparisons, accepted and diagnostic fixtures, ordinary tests and local dogfood scans accompany focused changes. Existing facts retain must/may polarity, exact binding, observation time and bounded unknown outcomes. | Passing receipts prove their stated scopes. They do not certify every historical finding against the latest source. Use affected pinned cases when behavior changes; do not rewrite frozen labels or credit unscannable cases. |
 | Tight development cycle | Focused tests precede stable `make verify` gates. The local gate runs ordinary tests, formatting, vet, lint, dead-code and local dogfood; it does not invoke precision-regression. | Maintained. No full precision replay or local race run is part of these iterations. |
@@ -101,8 +101,8 @@ claim or a review of every transitive predicate.
 | Process wait | Pre-Start ownership gates select local obligations; the post-Start walk supplies a witness to `decideProcessReturn`. Reporting and tracing consume that final decision. | Pre-Start paths are not all traced. Their ownership rules and the flow's command/merged-command classification still require partial-duplication review. |
 | Deferred cleanup in loop | `resourceLiveAtNextIteration` owns retention-before-defer, instruction classification and live-backedge search. Its Boolean result alone controls the reporter. | The proof currently emits final reasons internally instead of returning a structured outcome. Settled and unknown completion paths share an accepted trace reason. |
 | Producer send lifetime | `abandonedProducerSend` returns `producerProof` after send attribution and `channelReceives`; the reporter and final trace consume Proven/Known. | Protocol counting and receive effects require the remaining classification review. Position deduplication is reporting mechanics, not a second proof. |
-| Lock missing release | A completed buffered `walkLockOrderBounded` supplies held-return witnesses to `lockFlowContext.reportMissingReleases`, which applies private-lock, witnessed-release and caller-release boundaries. | Final multi-rule policy remains inline in the reporter rather than a single structured decision. |
-| Read-lock write | `reportReadLockWrites` uses current held/read-held state, exact write/owner relation, exclusive-lock uncertainty and possible imported writers before reporting. | Final guard policy remains inline. The audited guard-to-field association gap is unresolved; common owner identity does not establish field protection. |
+| Lock missing release | A completed buffered `walkLockOrderBounded` supplies held-return witnesses to `lockFlowContext.reportMissingReleases`, which requests `proveMissingRelease` for private-lock, witnessed-release and caller-release boundaries. | dho.27 moves final multi-rule policy into one structured proof. Flow evidence and caller contracts retain their distinct owners. |
+| Read-lock write | `proveReadLockWrite` uses current held/read-held state, exact write/owner relation, exclusive-lock uncertainty and possible imported writers; the reporter consumes its result. | dho.27 consolidates final guard policy. The audited guard-to-field association gap is unresolved; common owner identity does not establish field protection. |
 | Contradictory lock order | Completed function walks stage order edges; `lockOrders.record` applies declaration/instance boundaries and bounded cycle search, then `reportOrderCycle` formats the selected cycle. | Class refinement, serialization and novelty policies remain in one graph pipeline; this inventory does not establish their full semantic cohesion. |
 
 Concurrent capture supplied a second concrete mismatch: the diagnostic path
@@ -124,11 +124,44 @@ old rationale; the collector now explains why only reported objects are
 deduplicated, and the focused commentary check passes. No full precision
 corpus or local race run was performed.
 
+## Lock reporting consolidation
+
+Beads `gohawk-dho.27` moves missing-release policy out of the reporting loop
+into `proveMissingRelease`, and read-lock-write policy into
+`proveReadLockWrite`. Both produce `lockDiagnosticProof`, whose state and
+reason drive reporting and the shared trace projection. The policy order,
+held-return witnesses, first reportable mutation owner and unknown-candidate
+owner queries are preserved. The old caller-release-only trace adapter is
+removed; accepted caller-transfer traces retain their reasons and positions.
+The order graph and diagnostic buffering are unchanged.
+
+The new trace assertions fail on the parent because those formerly silent
+boundaries and reportable witnesses had no final proof decision. Existing
+fixtures already cover private versus published mutexes, absent local release
+policy, caller transfer, explicit versus possible writers, and reported
+returns/writes. The production helper moves those policies rather than adding
+another traversal or field-to-guard model. The final missing-release concern
+is extracted from the existing 522-line operations file into its own focused
+file; caller-set inference and conditional-result binding remain in operations.
+This does not claim that all transitive lock helpers are consolidated.
+
+The parent/current `-enable-all -json` scans of `lockorder` and `ordercycles`
+fixtures both exit 3 with empty stderr and identical nonempty diagnostic JSON
+(129,170 bytes). The current traced invocation verifies rejected release/write
+witnesses, accepted private mutexes and unknown local-release/writer boundaries,
+alongside the existing caller-transfer and imported-writer assertions. Receipts
+use `.build/goal-lock-decisions-*`. Focused analyzer and architecture commentary
+checks pass. Canonical `make verify` passes all local gates
+(`.build/goal-lock-decisions-verify.log`), including ordinary tests, formatting,
+vet, lint, dead-code and local dogfood. No full precision corpus or local race
+run was performed. No precision label, FP count or exported fact schema changes.
+
+
 ## Next verification
 
-The catalog inventory identifies the remaining inline lock decisions
-(`gohawk-dho.27`) and defer-loop outcome boundary (`gohawk-dho.28`). The
-architecture audit must resolve those items and inspect partial duplication
+The catalog inventory identifies the defer-loop outcome boundary
+(`gohawk-dho.28`). After the lock reporting consolidation, the
+architecture audit must resolve that item and inspect partial duplication
 in resource-state and obligation classification, beyond complete-body matches. It must also compare the
 unresolved precision families with current helpers, rather than assuming
 the earlier assessment permanently excludes an easy correction.

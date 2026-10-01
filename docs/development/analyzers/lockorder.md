@@ -291,3 +291,31 @@ The analyzer returns the package's order graph as its result, for
 cycle as the edges its diagnostic names. The result is a copy made after the
 walk; nothing decides from it, and it lists only cycles the analyzer
 reported, so it cannot drift from the diagnostics.
+
+## Final release and write decisions
+
+The completed bounded function walk supplies held-return witnesses to
+`proveMissingRelease`. That proof owns loaded-guard uncertainty, private-mutex
+exclusion, the local release witness and the two caller-transfer contracts.
+The reporting loop consumes its state and reason without repeating those
+rules. Private mutexes remain outside the diagnostic, while a lock with no
+local release witness remains unknown ownership. Neither an unknown loaded
+guard nor a caller contract is replaced by a naming convention.
+
+`proveReadLockWrite` separately owns the owner/write relation and the current
+writer-state exclusions. It retains the existing owner-query order for unknown
+candidates and selects the same first reportable owner. An explicit exclusive
+lock or a possible imported writer is unknown field protection, not a release
+or a proof that the field is guarded. One proof result is traced per invocation;
+multiple paths in the lock walk may still examine the same instruction. The
+function walk still buffers diagnostics and discards them if its state budget
+is exhausted; this refactor does not widen that proof boundary.
+
+Both reporters use `lockDiagnosticProof`, and the shared trace adapter only maps
+its state and reason to an outcome. Reportable return and mutation witnesses
+now expose `unreleased-return` and `read-lock-write`; private mutex, unobserved
+release policy and explicit writer uncertainty also have stable trace reasons.
+The existing trace assertions for caller transfer, imported writers, loaded
+guards, state-budget exhaustion and release-attempt evidence remain alongside
+these boundaries. Parent/current fixture JSON is compared independently of
+trace events; no new guard-to-field inference or FP removal is claimed.

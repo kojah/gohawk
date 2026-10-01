@@ -1,18 +1,14 @@
 package lockorder
 
 import (
-	"fmt"
 	"go/token"
 	"slices"
 
-	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
-	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -24,49 +20,6 @@ type conditionalCallerSet struct {
 type callerReleaseProof struct {
 	proven bool
 	reason lockReason
-}
-
-// A lock is reported only when some path releases it and another returns with
-// it held. Without a witnessed release, ownership may belong to a caller.
-// Explicit successful-return and conditional caller-release contracts likewise
-// distinguish a transferred critical section from an abandoned acquisition.
-func (flow lockFlowContext) reportMissingReleases(
-	function *ssa.Function, unreleased map[string][]token.Pos,
-	heldAt map[*ssa.Return]lockReturnState, callers conditionalCallerSet,
-) {
-	for identity, returns := range unreleased {
-		position := flow.acquiredAt[identity]
-		if flow.uncertainGuards[identity] {
-			analysisTrace.For(flow.pass, "lockorder", string(check.LockMissingRelease), position).Decision(analysisTrace.Step{
-				Reason: lockReasonLoadedAcquisitionGuardUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: position,
-			})
-			continue
-		}
-		values := flow.lockValues[identity]
-		if slices.ContainsFunc(values, privateMutexOnly) || !flow.released[identity] {
-			continue
-		}
-		if proof := acquiresForCaller(function, flow.acquisitions[identity], heldAt, identity); proof.proven {
-			traceCallerRelease(flow.pass, position, proof.reason)
-			continue
-		}
-		if proof := conditionalCallerRelease(function, values, heldAt, identity, callers); proof.proven {
-			traceCallerRelease(flow.pass, position, proof.reason)
-			continue
-		}
-		for _, returned := range returns {
-			if returned == token.NoPos {
-				returned = position
-			}
-			flow.releaseAttempts.trace(flow.pass, identity, returned)
-			source := syntax.SourceRange(flow.pass, returned)
-			check.Report(flow.pass, check.LockMissingRelease, analysis.Diagnostic{
-				Pos: source.Pos(), End: source.End(),
-				Message: fmt.Sprintf("lock %s is not released on this return path", flow.lockName(identity)),
-				Related: flow.acquisitionEvidence(identity),
-			})
-		}
-	}
 }
 
 // callerSetBudget bounds the one walk over every instruction of the

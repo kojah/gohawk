@@ -250,12 +250,6 @@ func traceInfeasibleLockBranch(pass *analysis.Pass, block *ssa.BasicBlock, reaso
 	})
 }
 
-func traceCallerRelease(pass *analysis.Pass, position token.Pos, reason lockReason) {
-	analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), position).Decision(analysisTrace.Step{
-		Reason: reason.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: position,
-	})
-}
-
 func traceLockStateBudget(pass *analysis.Pass, function *ssa.Function) {
 	analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), function.Pos()).Decision(analysisTrace.Step{
 		Reason: lockReasonLockStateBudgetExhausted.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: function.Pos(),

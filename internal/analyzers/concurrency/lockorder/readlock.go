@@ -10,7 +10,6 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -30,7 +29,7 @@ import (
 //
 // Two exclusions follow from the same rule and keep the claim honest. A value
 // LOADED out of the owner is a different cell, so mutating it is not a write to
-// the owner -- the distinction lifecycle.IdentitySource states for identity
+// the owner -- the distinction ssaflow.IdentitySource states for identity
 // resolution. And an atomic update is a call rather than a store, so it never
 // reaches here at all, which is correct: such a field is protected by atomics
 // rather than by the lock.
@@ -41,6 +40,33 @@ func reportReadLockWrites(
 	flow lockFlowContext, instruction ssa.Instruction, held, readHeld []string,
 	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer,
 ) {
+	proof := proveReadLockWrite(instruction, held, readHeld, lockValues, possibleWriters)
+	traceLockDiagnostic(flow.pass, check.LockReadLockWrite, instruction.Pos(), proof.lockDiagnosticProof)
+	if proof.state != ssaflow.EvidenceProven {
+		return
+	}
+	source := syntax.SourceRange(flow.pass, instruction.Pos())
+	check.Report(flow.pass, check.LockReadLockWrite, analysis.Diagnostic{
+		Pos: source.Pos(), End: source.End(),
+		Message: fmt.Sprintf("write while only the read lock %s is held", flow.lockName(proof.identity)),
+		Related: flow.acquisitionEvidence(proof.identity),
+	})
+}
+
+type readLockWriteProof struct {
+	lockDiagnosticProof
+	identity string
+}
+
+// proveReadLockWrite selects the first reportable owner under current lock
+// state. An exclusive or possible imported writer leaves this mutation unknown;
+// neither is a field-protection contract. Unknown candidates retain the existing
+// full owner-query order, while a reportable candidate ends the search.
+func proveReadLockWrite(
+	instruction ssa.Instruction, held, readHeld []string,
+	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer,
+) readLockWriteProof {
+	proof := readLockWriteProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}}
 	for _, identity := range readHeld {
 		// A lock the flow already transferred or released is no longer held,
 		// even if it was taken for reading earlier on this path.
@@ -57,23 +83,17 @@ func reportReadLockWrites(
 			// readers serialize this write unknown, not proven safe.
 			// https://github.com/rfjakob/gocryptfs/blob/842af4463989ee6808d397433e9aba8517e49c89/internal/fusefrontend/file.go#L409-L430
 			if writeLockHeld(held, readHeld) {
+				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonExclusiveWriterUnknown}, identity}
 				continue
 			}
 			if slices.ContainsFunc(possibleWriters, func(deferred *ssa.Defer) bool { return possibleWriterAt(deferred, instruction) }) {
-				analysisTrace.For(flow.pass, "lockorder", string(check.LockReadLockWrite), instruction.Pos()).Decision(analysisTrace.Step{
-					Reason: lockReasonImportedWriterGuardUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
-				})
+				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonImportedWriterGuardUnknown}, identity}
 				continue
 			}
-			source := syntax.SourceRange(flow.pass, instruction.Pos())
-			check.Report(flow.pass, check.LockReadLockWrite, analysis.Diagnostic{
-				Pos: source.Pos(), End: source.End(),
-				Message: fmt.Sprintf("write while only the read lock %s is held", flow.lockName(identity)),
-				Related: flow.acquisitionEvidence(identity),
-			})
-			return
+			return readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceProven, lockReasonReadLockWrite}, identity}
 		}
 	}
+	return proof
 }
 
 func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction) bool {

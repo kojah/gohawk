@@ -29,11 +29,21 @@ const (
 	lockReasonPredecessorConstantBranchInfeasible
 	lockReasonRepeatedConditionInfeasible
 	lockReasonStableParameterBranchInfeasible
+	lockReasonPrivateMutexOnly
+	lockReasonReleaseOwnershipUnknown
+	lockReasonUnreleasedReturn
+	lockReasonReadLockWrite
+	lockReasonExclusiveWriterUnknown
 	lockReasonCount
 )
 
 var lockReasonCodes = [...]string{
-	lockReasonNone: "",
+	lockReasonPrivateMutexOnly:                    "private-mutex-only",
+	lockReasonReleaseOwnershipUnknown:             "release-ownership-unknown",
+	lockReasonUnreleasedReturn:                    "unreleased-return",
+	lockReasonReadLockWrite:                       "read-lock-write",
+	lockReasonExclusiveWriterUnknown:              "exclusive-writer-guard-unknown",
+	lockReasonNone:                                "",
 	lockReasonCarriedConstantBranchInfeasible:     "carried-constant-branch-infeasible",
 	lockReasonConditionalCallerReleaseProven:      "conditional-caller-release-proven",
 	lockReasonConditionalCallerReleaseUnknown:     "conditional-caller-release-unknown",
