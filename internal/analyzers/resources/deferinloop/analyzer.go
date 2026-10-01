@@ -2,6 +2,8 @@
 package deferinloop
 
 import (
+	"strconv"
+
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
@@ -43,7 +45,9 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 				Reason: reasonDeferredCleanup.String(), Outcome: analysisTrace.OutcomeObserved, Pos: deferred.Pos(), Function: function.String(),
 				Details: map[string]string{"target": obligation.target.String()},
 			})
-			if resourceLiveAtNextIteration(evidence, knowledge, probe, deferred, obligation) {
+			proof := proveDeferLifetime(evidence, knowledge, probe, deferred, obligation)
+			emitDeferLifetimeDecision(probe, proof)
+			if proof.state == ssaflow.EvidenceProven {
 				reportDeferInLoop(pass, deferred)
 			}
 		}
@@ -67,4 +71,26 @@ func reportDeferInLoop(pass *analysis.Pass, deferred *ssa.Defer) {
 		Message: "deferred cleanup runs after the loop instead of after this iteration",
 		Related: related,
 	})
+}
+
+func emitDeferLifetimeDecision(probe analysisTrace.Probe, proof deferLifetimeProof) {
+	if !probe.Enabled() {
+		return
+	}
+	outcome := analysisTrace.OutcomeUnknown
+	switch proof.state {
+	case ssaflow.EvidenceProven:
+		outcome = analysisTrace.OutcomeRejected
+	case ssaflow.EvidenceDisproven:
+		outcome = analysisTrace.OutcomeAccepted
+	case ssaflow.EvidenceUnknown:
+	}
+	step := analysisTrace.Step{Reason: proof.reason.String(), Outcome: outcome, Pos: proof.witness.Pos()}
+	if function := proof.witness.Parent(); function != nil {
+		step.Function = function.String()
+	}
+	if proof.backedge != nil {
+		step.Details = map[string]string{"block": strconv.Itoa(proof.backedge.Index)}
+	}
+	probe.Decision(step)
 }

@@ -10,7 +10,7 @@ const (
 	reasonRetainedBeforeDefer
 	reasonLiveAtBackedge
 	reasonIteratorExhausted
-	reasonSettledOrUnknown
+	reasonNoLiveBackedge
 	reasonArgumentCarriesResource
 	reasonResourceTransferred
 	reasonResourceCapturedOrStored
@@ -18,6 +18,8 @@ const (
 	reasonWrapperPassedToCallee
 	reasonCalleeReleasesArgument
 	reasonUnsummarizedCalleeUse
+	reasonLifetimeUnknownAtBackedge
+	reasonDeferLocationUnknown
 	deferReasonCount
 )
 
@@ -33,8 +35,8 @@ func (reason deferReason) String() string {
 		return "live-at-backedge"
 	case reasonIteratorExhausted:
 		return "iterator-exhausted"
-	case reasonSettledOrUnknown:
-		return "settled-or-unknown-before-backedge"
+	case reasonNoLiveBackedge:
+		return "no-live-backedge"
 	case reasonArgumentCarriesResource:
 		return "argument-carries-resource"
 	case reasonResourceTransferred:
@@ -49,6 +51,10 @@ func (reason deferReason) String() string {
 		return "callee-releases-argument"
 	case reasonUnsummarizedCalleeUse:
 		return "unsummarized-callee-uses-resource"
+	case reasonLifetimeUnknownAtBackedge:
+		return "lifetime-unknown-at-backedge"
+	case reasonDeferLocationUnknown:
+		return "defer-location-unknown"
 	default:
 		return "invalid-defer-reason"
 	}

@@ -30,20 +30,30 @@ type deferFlowState struct {
 	status      resourceStatus
 }
 
-// resourceLiveAtNextIteration asks the narrow reporting question directly:
+// deferLifetimeProof describes the live-backedge reporting question. Proven
+// means a definitely live resource reaches the next iteration; unknown never
+// claims cleanup. The witness retains the selected evidence position.
+type deferLifetimeProof struct {
+	state    ssaflow.EvidenceState
+	reason   deferReason
+	witness  ssa.Instruction
+	backedge *ssa.BasicBlock
+}
+
+// proveDeferLifetime asks the narrow reporting question directly:
 // can this exact acquired value reach a block dominating the defer's block
 // while still definitely live? Returning is safe because Go runs the defer;
 // settled and unknown paths stop at the backedge without producing a claim.
-func resourceLiveAtNextIteration(
+func proveDeferLifetime(
 	evidence *lifecyclefacts.LifecycleEvidence,
 	knowledge *summaries.Provider,
 	probe analysisTrace.Probe,
 	deferred *ssa.Defer,
 	obligation deferObligation,
-) bool {
+) deferLifetimeProof {
 	index := ssaflow.InstructionIndex(deferred)
 	if index < 0 {
-		return false
+		return deferLifetimeProof{state: ssaflow.EvidenceUnknown, reason: reasonDeferLocationUnknown, witness: deferred}
 	}
 	// A resource retained before its defer is no more iteration-local than one
 	// retained afterward. In particular append lowers to an indexed store
@@ -52,11 +62,11 @@ func resourceLiveAtNextIteration(
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](deferred.Parent()) {
 		retains := func(value ssa.Value) bool { return opaqueResourceUse(store, value) }
 		if ssaflow.InstructionDominates(store, deferred) && slices.ContainsFunc(obligation.values(), retains) {
-			probe.Decision(analysisTrace.Step{Reason: reasonRetainedBeforeDefer.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: store.Pos()})
-			return false
+			return deferLifetimeProof{state: ssaflow.EvidenceUnknown, reason: reasonRetainedBeforeDefer, witness: store}
 		}
 	}
-	liveAtBackedge := false
+	proof := deferLifetimeProof{state: ssaflow.EvidenceDisproven, reason: reasonNoLiveBackedge, witness: deferred}
+	unknownAtBackedge := false
 	initial := []deferFlowState{{block: deferred.Block(), index: index + 1, status: resourceLive}}
 	ssaflow.WalkStates(initial, func(state deferFlowState) deferFlowState { return state }, func(state deferFlowState) ([]deferFlowState, bool) {
 		state = advanceDeferState(evidence, probe, state, obligation)
@@ -70,13 +80,12 @@ func resourceLiveAtNextIteration(
 			status := iteratorSuccessorStatus(state, successor, obligation)
 			if successor.Dominates(deferred.Block()) {
 				if status == resourceLive {
-					liveAtBackedge = true
-					probe.Decision(analysisTrace.Step{
-						Reason: reasonLiveAtBackedge.String(), Outcome: analysisTrace.OutcomeRejected, Pos: deferred.Pos(),
-						Details: map[string]string{"block": strconv.Itoa(state.block.Index)},
-					})
+					proof = deferLifetimeProof{
+						state: ssaflow.EvidenceProven, reason: reasonLiveAtBackedge, witness: deferred, backedge: state.block,
+					}
 					return nil, false
 				}
+				unknownAtBackedge = unknownAtBackedge || status == resourceUnknown
 				if status != state.status {
 					probe.Evidence(analysisTrace.Step{
 						Reason: reasonIteratorExhausted.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: deferred.Pos(),
@@ -91,10 +100,12 @@ func resourceLiveAtNextIteration(
 		}
 		return successors, true
 	})
-	if !liveAtBackedge {
-		probe.Decision(analysisTrace.Step{Reason: reasonSettledOrUnknown.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: deferred.Pos()})
+	// An opaque path cannot erase a separate definitely-live witness. Only
+	// when no live path wins does unknown backedge evidence suppress the proof.
+	if proof.state != ssaflow.EvidenceProven && unknownAtBackedge {
+		proof.state, proof.reason = ssaflow.EvidenceUnknown, reasonLifetimeUnknownAtBackedge
 	}
-	return liveAtBackedge
+	return proof
 }
 
 // Without a general contract proving what Next does on exhaustion, its false

@@ -4,19 +4,21 @@ import "testing"
 
 func TestDeferReasonCodes(t *testing.T) {
 	want := map[deferReason]string{
-		reasonNone:                     "",
-		reasonDeferredCleanup:          "deferred-cleanup-in-loop",
-		reasonRetainedBeforeDefer:      "retained-before-defer",
-		reasonLiveAtBackedge:           "live-at-backedge",
-		reasonIteratorExhausted:        "iterator-exhausted",
-		reasonSettledOrUnknown:         "settled-or-unknown-before-backedge",
-		reasonArgumentCarriesResource:  "argument-carries-resource",
-		reasonResourceTransferred:      "resource-transferred",
-		reasonResourceCapturedOrStored: "resource-captured-or-stored",
-		reasonExplicitCleanup:          "explicit-cleanup",
-		reasonWrapperPassedToCallee:    "wrapper-passed-to-callee",
-		reasonCalleeReleasesArgument:   "callee-releases-argument",
-		reasonUnsummarizedCalleeUse:    "unsummarized-callee-uses-resource",
+		reasonLifetimeUnknownAtBackedge: "lifetime-unknown-at-backedge",
+		reasonDeferLocationUnknown:      "defer-location-unknown",
+		reasonNone:                      "",
+		reasonDeferredCleanup:           "deferred-cleanup-in-loop",
+		reasonRetainedBeforeDefer:       "retained-before-defer",
+		reasonLiveAtBackedge:            "live-at-backedge",
+		reasonIteratorExhausted:         "iterator-exhausted",
+		reasonNoLiveBackedge:            "no-live-backedge",
+		reasonArgumentCarriesResource:   "argument-carries-resource",
+		reasonResourceTransferred:       "resource-transferred",
+		reasonResourceCapturedOrStored:  "resource-captured-or-stored",
+		reasonExplicitCleanup:           "explicit-cleanup",
+		reasonWrapperPassedToCallee:     "wrapper-passed-to-callee",
+		reasonCalleeReleasesArgument:    "callee-releases-argument",
+		reasonUnsummarizedCalleeUse:     "unsummarized-callee-uses-resource",
 	}
 	if len(want) != int(deferReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")
