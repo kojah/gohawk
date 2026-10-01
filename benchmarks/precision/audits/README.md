@@ -1956,3 +1956,9 @@ corrects ACP’s aggregate channel-send report using existing projection and
 point-in-time containment queries. Parent/current package scans isolate the
 removal; a traced JSON run confirms unknown ownership without claiming cleanup.
 Complete Cute and Basecamp controls retain both reviewed production leaks.
+
+The [rune callback waiter follow-up](rune-callback-waiter-followup-2026-10-01.md)
+corrects an imported goroutine-runner handoff through the existing opaque
+callback rule. Scoped parent/current scans and an unknown trace isolate the
+removal; a complete OpenFaaS scan retains its reviewed process leak. Rune’s
+separate publication-order lock report remains unresolved.
