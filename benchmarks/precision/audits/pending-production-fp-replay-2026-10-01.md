@@ -66,3 +66,8 @@ assumptions do not justify blanket exemptions. Transport shutdown and
 registered callback lifecycles need exact participant identity and a documented
 contract. `gohawk-dho.4` remains active for those assessments and fixes; the
 overall consolidation objective is not complete.
+
+The subsequent [captured worker-field correction](opaque-worker-field-followup-2026-10-01.md)
+also verifies Lynx’s shutdown-path FP is absent. Three of this replay’s 22
+sites now have verified corrections, leaving 19 unresolved. The original
+replay snapshot above is unchanged.

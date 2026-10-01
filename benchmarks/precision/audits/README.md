@@ -1966,3 +1966,9 @@ separate publication-order lock report remains unresolved.
 The [rune local-lock rendering follow-up](rune-lock-source-names-2026-10-01.md)
 reuses acquisition source names in primary cycle messages for local allocations.
 The same rune diagnostic key remains reported; no FP removal is credited.
+
+The [captured worker-field follow-up](opaque-worker-field-followup-2026-10-01.md)
+corrects Lynx’s shutdown-path report through the existing retained-owner
+classifier and shared identity queries. Scoped parent/current scans and an
+unknown trace isolate the removal; a reviewed stargz abandoned-worker control
+remains detected. Nineteen sites in the bounded queue remain unresolved.
