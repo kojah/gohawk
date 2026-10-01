@@ -136,6 +136,23 @@ and then logs through an interface still tells its caller about the
 store. The lifecycle pass adds the release effects its every-return proofs
 established and exports the summary in its fact.
 
+Returned struct snapshots also project untouched reference fields through the
+graph's existing lazy content query. A scalar edit in a value receiver keeps
+the other fields related to the input; extracting a nested struct keeps its
+parameter-relative field paths. Replacing a reference field instead publishes
+the replacement. This fills a summary gap isolated by the
+[returned-logger assessment](../../benchmarks/precision/audits/returned-logger-assessment-2026-10-01.md),
+without adding struct-copy traversal to an analyzer. It does not establish
+ownership for a constructor that only possibly retains its argument.
+
+This projection follows by-value struct fields within `SummaryPaths` and
+`SummarySlots`, never through pointers. Arrays and exhausted bounds produce a
+cut. A lazy placeholder stamped by an opaque write becomes unknown because
+the summary cannot name that later version of the caller's slot. The existing
+graph can also lose an earlier copy across an opaque call; projection keeps
+that uncertainty. `store_heap_copy_test.go` pins preserved and replaced fields,
+nested extraction, snapshots, opaque writes, and both bounds.
+
 Applying a summary at a call site is substitution. The callee's parameter
 becomes the argument's slots, a global the same variable looked up in the
 program, a result the call's own value, and `fresh` a new object owned by

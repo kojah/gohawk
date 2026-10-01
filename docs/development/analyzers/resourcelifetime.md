@@ -103,13 +103,15 @@ resources remains an accepted false-negative gap: the earlier append can become
 opaque consumption, so this publication query is not a local collection proof.
 `resourcelifetime/published_wrapper.go` pins these distinctions.
 
-An unresolved returned-wrapper gap is recorded in the
+The returned-wrapper gap was isolated in the
 [urunc assessment](../../../benchmarks/precision/audits/returned-logger-assessment-2026-10-01.md).
-Imported value-receiver summaries do not currently preserve the writer-field
-relationship through unrelated field updates and nested value returns. A
-dependency-free probe reproduces the missing relation; increasing the wrapper
-bound from four to eight does not remove the pinned FP. This needs shared
-field/result evidence rather than analyzer-local copy traversal or logging names.
+The shared heap projection now preserves untouched reference fields in returned
+struct snapshots through scalar updates and nested extraction. It uses the
+existing content model within the existing field and slot bounds. Replaced
+fields, opaque writes, arrays, and exhausted bounds keep their distinct or
+unknown evidence. The wrapper-chain bound remains four, and the analyzer adds
+no copy traversal or logging contract. `returned_value_copies.go` pins the
+returned handoff beside discarded and replaced-writer diagnostics.
 
 For `DB.BeginTx` and `Conn.BeginTx`, cancellation of the exact acquisition
 context triggers database/sql's rollback watcher. A direct or deferred call

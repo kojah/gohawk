@@ -485,9 +485,9 @@ func (projection *heapProjection) projectResults(state *regionState, returned *s
 		if _, named := projection.roots[object.region]; named {
 			continue
 		}
+		contents := projection.resultContents(state, object, result.Type(), root)
 		count := 0
-		for _, target := range orderedSlots(state.contents) {
-			contents := state.contents[target]
+		for _, target := range orderedSlots(contents) {
 			if target.region != object.region || target.path == "" || len(ssaflow.SplitAccessPath(target.path)) > SummaryPaths {
 				continue
 			}
@@ -496,7 +496,7 @@ func (projection *heapProjection) projectResults(state *regionState, returned *s
 				projection.truncate(HeapSlot{Root: root})
 				break
 			}
-			record(HeapSlot{Root: root, Path: target.path}, contents)
+			record(HeapSlot{Root: root, Path: target.path}, contents[target])
 		}
 	}
 }
