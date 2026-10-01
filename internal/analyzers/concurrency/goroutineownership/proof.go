@@ -264,6 +264,12 @@ func opaqueGroupOrigin(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 			return walk.Any(resolved.Value, leaf)
 		}
 		switch typed := current.(type) {
+		case *ssa.FieldAddr:
+			// An embedded group retains its aggregate's possible registry owner.
+			// Resolve loads first: a fresh pointer stored into an owner's group
+			// field must not borrow the owner's opaque factory provenance.
+			// https://github.com/FDio/govpp/blob/c71484d8c74da940abbd70407b53894fa4c56f01/extras/gomemif/examples/bridge/bridge.go#L50-L100
+			return walk.Any(typed.X, leaf)
 		case *ssa.Extract:
 			return walk.Any(typed.Tuple, leaf)
 		case *ssa.Call:

@@ -28,6 +28,13 @@ func assertEdgeEvent(t *testing.T, event followupTraceEvent, outcome string) {
 func assertFollowupBoundaryTrace(t *testing.T, path string) {
 	t.Helper()
 	want := map[string][2]string{
+		"embeddedRegistryWorker":                                                {"opaque-ownership-transfer", "unknown"},
+		"nestedRegistryWorker":                                                  {"opaque-ownership-transfer", "unknown"},
+		"mixedRegistryWorker":                                                   {"opaque-ownership-transfer", "unknown"},
+		"freshEmbeddedWorker":                                                   {"unowned-return", "rejected"},
+		"visibleFreshEmbeddedWorker":                                            {"unowned-return", "rejected"},
+		"unrelatedRegistryOwner":                                                {"unowned-return", "rejected"},
+		"replacedRegistryGroup":                                                 {"unowned-return", "rejected"},
 		"receiverBoundThroughSecondBinding":                                     {"receiver-context-lifecycle", "unknown"},
 		"cleanupOpaqueWorkerField":                                              {"opaque-ownership-transfer", "unknown"},
 		"opaqueOutputNeedsJoin":                                                 {"unowned-return", "rejected"},

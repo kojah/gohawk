@@ -65,6 +65,24 @@ uncertainty. Passing the aggregate from which a completion channel was loaded
 to a helper with lifecycle activity is likewise uncertain, not an exact join;
 the helper may act on a different field. Merely inspecting that aggregate does
 not suppress the diagnostic.
+
+The same existing opaque-group boundary covers an embedded WaitGroup selected
+through fields of an unreadable factory or getter result. Storage loads are
+resolved before field provenance: a fresh pointer installed into a returned
+owner's group field remains a local completion obligation, as do local owners
+and visible fresh constructors. Nested fields and mixed local/registry owner
+alternatives are possible external ownership and remain unknown. This adds no
+callback registration, private-data identity, or completion guarantee.
+`registry_group_fields.go` covers these boundaries alongside unrelated factory
+calls and captured-owner forms. It deliberately misses a fresh owner returned
+by an unreadable factory; unresolved pointer loads, dynamic indexes, and other
+unsupported projection forms are not expanded by this field-address rule.
+The FDio callbacks obtain private data from another package and settle its
+embedded group, while a separately registered disconnect callback waits:
+https://github.com/FDio/govpp/blob/c71484d8c74da940abbd70407b53894fa4c56f01/extras/gomemif/examples/bridge/bridge.go#L33-L100
+The correction abstains because that owner may already be registered; it does
+not prove the disconnected callback runs or waits for this worker.
+
 Stores through a type-asserted owner remain visible when that same owner is
 later handed to a helper. The assertion is not an ownership guarantee, and
 constructing or filling an owner without handing it off still does not settle

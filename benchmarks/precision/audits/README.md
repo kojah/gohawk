@@ -1,9 +1,15 @@
 # Precision audits
 
+The [registry-group follow-up](registry-group-followup-2026-10-02.md) removes
+the two FDio registered-worker false positives through existing opaque-owner
+provenance. Scoped before/after scans retain the stargz true-positive control.
+The remaining production FP queue has 16 unresolved sites; frozen verdicts and
+audit totals are unchanged.
+
 The [nil boxing follow-up](nil-boxing-followup-2026-10-02.md) corrects shared
 definite-nil proofs and two minimized compression-writer false positives.
 Scoped production controls retain stargz's known TP and Openase's unresolved
-findings; the 18-site production queue and frozen audit totals are unchanged.
+findings; that follow-up leaves the production queue and frozen totals unchanged.
 
 The [September 24 frozen 1,000-repository audit](overnight-2026-09-24-1000.md)
 is complete across batches [56](batch-56.md), [57](batch-57.md),

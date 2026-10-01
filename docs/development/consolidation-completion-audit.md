@@ -13,7 +13,7 @@ consolidation tracked in `gohawk-dho.24`.
 | Shared responsibilities and downward dependencies | The architecture guide names the SSA, heap, lifecycle, resource and summary layers. Repository-wide architecture tests enforce imports, analyzer layout, fact ownership, summary access, traversal and reporting boundaries. | Structural conformance has passing canonical receipts. It does not prove every proof policy is cohesive; semantic review remains open. |
 | No duplicated proof mechanics | The value-walk and storage/summary reviews document concrete merges and distinct policies. The broader normalized-body scan below found five additional mechanical duplicate groups, now consolidated. | The identified groups are addressed. Partial blocks and equivalent logic written differently remain outside that scan; no repository-wide absence claim is made. |
 | One authoritative decision for each check | Reviewed lifecycle analyzers classify once and ask a shared flow query. The remaining normalized matches in classifier caches and state keys contain different domain state, rather than second acceptance rules. | The ten-check inventory below locates each reporting pipeline. Concurrent capture and process ownership now share their final decisions with tracing. Lock release and mutation reporting also consume structured decisions after dho.27. Defer-loop outcomes use a structured proof after dho.28; resource lifetime now also owns its state and pre-flow policy exclusion after dho.30. Deeper classification and precision-family review remain open. |
-| Remaining easy FPs fixed | Frozen batches 62/63 supplied 55 production FP locations. The queue refresh, successful 22-site replay and four subsequent corrections leave 18 unresolved production sites. The ten-family assessment states the missing evidence for each. Rune callback wait is separately corrected; fresh-lock publication remains open. | No target-resolution-only correction has been demonstrated. The remaining families need policy, identity, state or protocol evidence. Further current-source review must distinguish a newly available bounded fix from a genuinely larger model. |
+| Remaining easy FPs fixed | Frozen batches 62/63 supplied 55 production FP locations. The queue refresh, successful 22-site replay and four subsequent corrections left 18 unresolved production sites. The later opaque registry-owner correction removes two FDio sites, leaving 16 unresolved. The ten-family assessment states the missing evidence for each. Rune callback wait is separately corrected; fresh-lock publication remains open. | No target-resolution-only correction has been demonstrated. The remaining families need policy, identity, state or protocol evidence. The current-helper reassessment found the FDio field-origin gap fixed in dho.31. Further source review must distinguish a newly available bounded fix from a genuinely larger model. |
 | Precision preserved by consolidation | Parent/current boundary comparisons, accepted and diagnostic fixtures, ordinary tests and local dogfood scans accompany focused changes. Existing facts retain must/may polarity, exact binding, observation time and bounded unknown outcomes. | Passing receipts prove their stated scopes. They do not certify every historical finding against the latest source. Use affected pinned cases when behavior changes; do not rewrite frozen labels or credit unscannable cases. |
 | Tight development cycle | Focused tests precede stable `make verify` gates. The local gate runs ordinary tests, formatting, vet, lint, dead-code and local dogfood; it does not invoke precision-regression. | Maintained. No full precision replay or local race run is part of these iterations. |
 | Work tracked and own changes published | Beads children record corrections, reviews and unresolved questions. Implementation commits contain exact task paths; unrelated staged deletion and working-tree artifacts remain separate. | Verify commit, upstream synchronization and child closure after each implementation. The epic and this completion audit remain active. |
@@ -276,6 +276,34 @@ initial run passed ordinary tests and the other gates but found structurally
 similar assertion tables through the duplication linter; the new final-decision
 assertions use a case table instead. No full precision replay or local race run
 was performed.
+
+## Current-helper FP reassessment: embedded registry groups
+
+Beads `gohawk-dho.31` revisits the remaining families after consolidation.
+Skywalking's two same-owner cursor writes still require field-to-guard or
+participant evidence; ordinary field ownership and the existing exclusive-lock
+uncertainty do not establish that relation. FDio supplies a bounded correction:
+its completion group is a field address below a stable captured load of a
+comma-ok assertion of `GetPrivateData`'s imported result. The existing
+`opaqueGroupOrigin` boundary recognized an unreadable returned group but stopped
+at this field address. It now folds the field's base with the same
+`ReachingWalk`, retaining the storage resolution step first.
+
+This widens the existing unknown ownership boundary rather than proving
+registration identity, callback ordering or completion. Fresh local owners,
+visible fresh constructors, unrelated factory calls and a fresh pointer stored
+into a returned owner's group field retain missing-join diagnostics. The new
+fixture covers nested fields, mixed local/registry origins and captured forms;
+its parent overlay fails three accepted cases and their unknown trace
+expectations. Current focused tests pass. The scoped
+[registry-group receipt](../../benchmarks/precision/audits/registry-group-followup-2026-10-02.md)
+credits two FP removals and leaves 16 unresolved sites. Canonical local
+validation passes all checks (`.build/goal-registry-group-final-verify.log`).
+An imported-fresh-owner probe confirmed the accepted recall loss; its
+false-negative fixture was removed and the gap recorded in the retained header,
+following the project policy. The broader classifier review and the other
+FP-family reassessments remain open; this correction does not establish goal
+completion.
 
 ## Next verification
 

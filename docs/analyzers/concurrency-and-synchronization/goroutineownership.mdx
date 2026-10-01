@@ -16,7 +16,8 @@ Waiting counts in a helper, in a `select` arm, or in a counted loop that
 receives once from each worker. Work launched without such a signal is not
 reported, and neither is a worker launched once by `main.main`, since program
 exit stops it. Cleaning up a captured resource or its field can replace the
-join when the worker has no later blocking work.
+join when the worker has no later blocking work. Workers using helper-supplied
+groups are left alone when their ownership cannot be determined.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [goroutineownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/goroutineownership.md).

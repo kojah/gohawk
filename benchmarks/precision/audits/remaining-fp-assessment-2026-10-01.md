@@ -8,6 +8,12 @@ credits no further removals and performs no new scans. Source inspection uses
 the pinned checkouts identified by that ledger. Beads `gohawk-dho.10` owns this
 assessment; `gohawk-dho.4` retains implementation and unresolved assessments.
 
+The later [registry-group follow-up](registry-group-followup-2026-10-02.md)
+corrects both FDio sites using the existing opaque-group origin boundary,
+without proving the callback lifecycle. That leaves 16 unresolved sites. The
+18-site table below remains the historical assessment that motivated this
+reassessment; its counts are not a latest-binary corpus replay.
+
 ## Remaining families
 
 Counts refer to diagnostic locations, not repositories or independent defects.
