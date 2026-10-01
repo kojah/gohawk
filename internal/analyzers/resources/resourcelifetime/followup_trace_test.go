@@ -117,6 +117,7 @@ func assertCleanupBoundaryTrace(t *testing.T, events []followupTraceEvent) {
 		"stored-by-callee":                    {"private_retention.go:", "evidence", "accepted"},
 		"returned-wrapper-retains-resource":   {"returned_loggers.go:", "label", "unknown"},
 		"prior-defer-may-clean-captured-cell": {"prior_captured_cleanup.go:", "label", "unknown"},
+		"captured-cell-may-cleanup":           {"deferred_reassigned_response.go:", "label", "unknown"},
 		"paired-error-helper-cleanup":         {"paired_error_cleanup.go:", "label", "unknown"},
 		"rows-transaction-finished":           {"sql_row_parents.go:", "label", "unknown"},
 		"captured-body-guarded-cleanup":       {"http_guarded_capture.go:", "label", "unknown"},

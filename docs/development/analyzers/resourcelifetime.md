@@ -295,12 +295,18 @@ acquisition it released. These boundaries do not establish ownership or cleanup.
 Read-only helpers, overwritten response bodies, and cleanup of unrelated values
 do not qualify for this merged-value boundary.
 
-A deferred closure registered before acquisition may close a captured variable
-assigned later. When that defer dominates the acquisition and its body contains
-cleanup derived from the captured cell, the result is unknown even if several
-acquisitions feed the cell. This does not prove which value is closed and can
-miss leaks caused by overwriting the cell. Read-only captures, unrelated
-cleanup, and deferred arguments evaluated by value do not establish this boundary.
+A deferred closure may close a captured variable assigned several acquisitions.
+Its body must contain cleanup derived from that cell. A registration preceding
+the acquisition must dominate it; a later registration is classified by the
+ordinary path walk. Both use `capturedCellCleanup` to make the result unknown:
+neither proves which value is closed, and either can miss overwritten-cell leaks.
+Read-only captures, unrelated cleanup, and deferred arguments evaluated by value
+do not establish this boundary. `deferred_reassigned_response.go` covers later
+registrations, cleanup of another response, and a read-only deferred literal.
+The [speedtest fallback request](https://github.com/anton48/vk-turn-proxy-ios/blob/001caf2ae24ecd07b021d7ca7b14a98a006bff65/third_party/speedtest-go/speedtest/server.go#L262-L285)
+closes its first response before replacement; the defer closes whichever
+response remains. Exact completion loses that path relation, so the shared
+captured-cell uncertainty avoids a false leak claim without a second proof.
 
 Compression writers over a local in-memory buffer are exempt, including
 exact `bytes.NewBuffer` and `bytes.NewBufferString` results. Leaving one

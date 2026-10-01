@@ -13,11 +13,18 @@ import (
 )
 
 // Captured cleanup classifies lifetime evidence where a closure observes an
-// addressable cell. Prior registrations may observe later acquisitions; called
-// closures need an exact current capture. Neither uncertain path proves release.
+// addressable cell. Deferred closures observe cells at return; called closures
+// need an exact current capture. Neither uncertain path proves release.
 // These are classifier inputs to the ordinary resource flow, not another flow.
 
 func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction, closure *ssa.MakeClosure, carried bool) (resourceLifetimeReason, bool) {
+	// A deferred literal observes the cell at return, which can differ from
+	// its registration-time value. Reuse the prior-registration uncertainty
+	// boundary rather than treating an unresolved release as a transparent call.
+	// https://github.com/anton48/vk-turn-proxy-ios/blob/001caf2ae24ecd07b021d7ca7b14a98a006bff65/third_party/speedtest-go/speedtest/server.go#L262-L285
+	if deferred, ok := instruction.(*ssa.Defer); ok && analysis.capturedCellCleanup(deferred).Proven() {
+		return resourceReasonCapturedCellMayCleanup, true
+	}
 	if proof := analysis.guardedCapturedBodyCleanup(instruction, closure); proof.State == ssaflow.EvidenceUnknown {
 		return proof.Reason, true
 	}
@@ -93,7 +100,7 @@ func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call)
 	return false
 }
 
-// A prior defer observes the captured cell at return, not at registration.
+// A defer observes the captured cell at return, not at registration.
 // When several acquisitions feed that cell, exact value completion may fail.
 // A positive cleanup witness for the cell makes ownership unknown; it does
 // not prove which stored value will be closed. Read-only captures and by-value
