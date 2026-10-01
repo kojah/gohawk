@@ -1,0 +1,2 @@
+repository	revision	analyzer	position	check	evidence_family	status	source_review
+urunc-dev/urunc	ef1dc96a6bf0c188fc7714200d66d95557ae8af3	resourcelifetime	internal/metrics/metrics.go:61:16	resourcelifetime/missing-release	returned-value-copy-wrapper	unresolved	Pinned metrics-package scans retain the FP at wrapper depths four and eight; imported value-receiver facts and a dependency-free probe omit the preserved parameter/result writer-field relationship. Conditional writer adaptation also blocks a strict constructor claim. No production change or FP-removal credit.

@@ -12,6 +12,11 @@ gohawk analyzes only production code. Batches up to 63 ran with the since-
 removed `-gohawk-include-tests` option and report test files separately; their
 production-file precision is the figure comparable with later batches.
 
+The [returned-logger assessment](returned-logger-assessment-2026-10-01.md)
+replays urunc's production handoff and isolates missing value-copy field
+relationships in imported facts. The FP remains unresolved; a depth-eight
+counterfactual does not remove it, and no correction is credited.
+
 After a batch record is committed and every emitted finding has a source
 verdict, the audit runner can remove only its pinned, clean checkouts while
 retaining reports and ledgers. Preview first, then omit `--cleanup-dry-run`:
