@@ -45,6 +45,58 @@ func returnUnlessResponseAndBody(url string) error {
 	return nil
 }
 
+// Accepted: saving the conjunction preserves the selected Body comparison.
+func deferUnderComputedBodyGuard(client *http.Client, req *http.Request) error {
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	present := resp != nil && resp.Body != nil
+	if present {
+		defer resp.Body.Close()
+	}
+	return nil
+}
+
+// Accepted: the computed disjunction's nil arms carry no release obligation.
+func returnUnderComputedNilGuard(url string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	absent := resp == nil || resp.Body == nil
+	if absent {
+		return nil
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+// A saved guard with an unrelated flag can still skip the close of a live body.
+func deferUnderComputedBodyAndFlag(url string, keep bool) error {
+	resp, err := http.Get(url) // want "owned resource from http.Get is not released"
+	if err != nil {
+		return err
+	}
+	present := resp.Body != nil && !keep
+	if present {
+		defer resp.Body.Close()
+	}
+	return nil
+}
+
+func deferUnderComputedOtherBodyGuard(url string, other *http.Response) error {
+	resp, err := http.Get(url) // want "owned resource from http.Get is not released"
+	if err != nil {
+		return err
+	}
+	present := other != nil && other.Body != nil
+	if present {
+		defer resp.Body.Close()
+	}
+	return nil
+}
+
 // A guard that also requires an unrelated flag leaves the body open when the
 // flag is false.
 func deferUnderBodyAndFlag(url string, keep bool) error {

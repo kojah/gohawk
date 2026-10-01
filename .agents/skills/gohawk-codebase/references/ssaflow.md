@@ -133,6 +133,19 @@ the calls in the body return; the caller decides that separately.
 func BranchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool)
 ```
 
+## BranchValue
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func BranchValue(value ssa.Value, block, predecessor *ssa.BasicBlock) ssa.Value
+```
+
+BranchValue selects a phi's incoming value only when it belongs to block
+and predecessor identifies the edge the current path took into that block.
+Other values, missing predecessors, and phis from earlier blocks are returned
+unchanged. It neither enumerates alternatives nor infers their truth values.
+
 ## CallBinding
 
 [Source](../../../../internal/ssaflow/call_bindings.go)

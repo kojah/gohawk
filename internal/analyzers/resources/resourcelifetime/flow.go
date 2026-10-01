@@ -206,7 +206,7 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 				obligation = obligation.Absent()
 			}
 		}
-		if present, known := resourcePresenceBranch(state.block, successor, resource); known {
+		if present, known := resourcePresenceBranch(state.block, state.predecessor, successor, resource); known {
 			if !present {
 				obligation = obligation.Absent()
 			}
@@ -456,7 +456,7 @@ func presenceOperand(value, resource ssa.Value) bool {
 	return field != nil && holdsResource(field.X, resource)
 }
 
-func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value) (bool, bool) {
+func resourcePresenceBranch(block, predecessor, successor *ssa.BasicBlock, resource ssa.Value) (bool, bool) {
 	if resource == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
 		return false, false
 	}
@@ -469,10 +469,14 @@ func resourcePresenceBranch(block, successor *ssa.BasicBlock, resource ssa.Value
 	// resource: the false arm has no owned value to release. moby keeps an
 	// io.Reader that may be a file and defers Close under the assertion:
 	// https://github.com/moby/moby/blob/3f6733064ea2ea9c00a4a2a9c5c9c5fbd7b7b1d5/daemon/builder/remotecontext/internal/tarsum/tarsum_test.go#L347-L349
-	if asserted := assertedResource(branch.Cond, resource); asserted {
+	// Saving a short-circuit condition introduces a phi. Only the incoming
+	// comparison on this path supplies evidence: an unrelated flag or a phi
+	// from an earlier block cannot establish that this resource is absent.
+	condition := ssaflow.BranchValue(branch.Cond, block, predecessor)
+	if asserted := assertedResource(condition, resource); asserted {
 		return successor == block.Succs[0], true
 	}
-	comparison, ok := branch.Cond.(*ssa.BinOp)
+	comparison, ok := condition.(*ssa.BinOp)
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}

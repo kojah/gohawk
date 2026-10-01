@@ -298,7 +298,27 @@ func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
 	return block.Succs[1:]
 }
 
+// BranchValue selects a phi's incoming value only when it belongs to block
+// and predecessor identifies the edge the current path took into that block.
+// Other values, missing predecessors, and phis from earlier blocks are returned
+// unchanged. It neither enumerates alternatives nor infers their truth values.
+func BranchValue(value ssa.Value, block, predecessor *ssa.BasicBlock) ssa.Value {
+	phi, ok := value.(*ssa.Phi)
+	if !ok || phi.Block() != block || predecessor == nil {
+		return value
+	}
+	for incoming, operand := range PhiIncoming(phi) {
+		if incoming == predecessor {
+			return operand
+		}
+	}
+	return value
+}
+
 func BranchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool) {
+	if incoming := BranchValue(value, block, predecessor); incoming != value {
+		value, predecessor = incoming, nil
+	}
 	if literal := branchLiteral(value, block, predecessor); literal != nil && literal.Value != nil && literal.Value.Kind() == constant.Bool {
 		return constant.BoolVal(literal.Value), true
 	}
@@ -308,15 +328,6 @@ func BranchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool
 	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/internal/cri/store/stats/timed_store_test.go#L190-L222
 	if comparison, ok := value.(*ssa.BinOp); ok {
 		return compareBranchLiterals(comparison, block, predecessor)
-	}
-	phi, ok := value.(*ssa.Phi)
-	if !ok || phi.Block() != block || predecessor == nil {
-		return false, false
-	}
-	for index, candidate := range block.Preds {
-		if candidate == predecessor && index < len(phi.Edges) {
-			return BranchBool(phi.Edges[index], block, nil)
-		}
 	}
 	return false, false
 }
@@ -342,20 +353,12 @@ func compareBranchLiterals(comparison *ssa.BinOp, block, predecessor *ssa.BasicB
 }
 
 func branchLiteral(value ssa.Value, block, predecessor *ssa.BasicBlock) *ssa.Const {
+	value = BranchValue(value, block, predecessor)
 	if literal, ok := value.(*ssa.Const); ok {
 		return literal
 	}
 	if literal := callResultLiteral(value); literal != nil {
 		return literal
-	}
-	phi, ok := value.(*ssa.Phi)
-	if !ok || phi.Block() != block || predecessor == nil {
-		return nil
-	}
-	for index, candidate := range block.Preds {
-		if candidate == predecessor && index < len(phi.Edges) {
-			return branchLiteral(phi.Edges[index], block, nil)
-		}
 	}
 	return nil
 }

@@ -306,7 +306,10 @@ therefore covers every feasible path, and so does the negated `||` form that
 returns first. Short-circuit operators are separate branches in SSA, so each
 operand's edge is judged on its own. A guard computed into a variable first,
 `ok := resp != nil && resp.Body != nil; if ok { … }`, branches on a phi of
-Booleans instead, and that shape is still reported. Fixtures:
+Booleans. `ssaflow.BranchValue` selects only the incoming operand belonging to
+the flow state's predecessor, so the same presence proof applies to that exact
+comparison. A missing predecessor, a phi from an earlier block, an unrelated
+flag, or another response's body supplies no absence evidence. Fixtures:
 `resourcelifetime/nil_guarded_bodies.go`.
 
 A cleanup that reaches the resource through a generic helper's result, such
