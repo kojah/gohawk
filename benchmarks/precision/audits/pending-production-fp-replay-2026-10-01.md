@@ -71,3 +71,8 @@ The subsequent [captured worker-field correction](opaque-worker-field-followup-2
 also verifies Lynx’s shutdown-path FP is absent. Three of this replay’s 22
 sites now have verified corrections, leaving 19 unresolved. The original
 replay snapshot above is unchanged.
+
+The subsequent [imported async correction](imported-async-followup-2026-10-01.md)
+also verifies Viewcore’s profiling-writer FP is absent. Four of the original
+22 sites now have verified corrections, leaving 18 unresolved. The original
+replay snapshot and earlier follow-up counts remain historical evidence.

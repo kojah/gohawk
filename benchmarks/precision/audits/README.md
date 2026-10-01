@@ -1972,3 +1972,9 @@ corrects Lynx’s shutdown-path report through the existing retained-owner
 classifier and shared identity queries. Scoped parent/current scans and an
 unknown trace isolate the removal; a reviewed stargz abandoned-worker control
 remains detected. Nineteen sites in the bounded queue remain unresolved.
+
+The [imported async follow-up](imported-async-followup-2026-10-01.md) corrects
+Viewcore’s profiling-writer report by consuming an async effect already in its
+imported heap fact. The traced scoped replay isolates unknown ownership and a
+complete Cute control scan retains its reviewed resource leak. Eighteen sites
+in the bounded queue remain unresolved.

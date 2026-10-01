@@ -1,0 +1,4 @@
+repository	revision	analyzer	position	check	original_verdict	phase	replay_status	scope	scan_exit	binary_sha256	receipt
+golang/debug	ac862fd6552b739f50ba812382eed75745a129b1	resourcelifetime	cmd/viewcore/main.go:822:13	resourcelifetime/missing-release	false-positive	parent	present	./cmd/viewcore	0	e0d9a9b99e4d4455fd21f96582ffcbb0fd3d225ac0805a84dbc35529cf095432	.build/goal-profile-writer-parent.json
+golang/debug	ac862fd6552b739f50ba812382eed75745a129b1	resourcelifetime	cmd/viewcore/main.go:822:13	resourcelifetime/missing-release	false-positive	corrected-traced	absent	./cmd/viewcore	0	e7e7de54c62afda766d42c5624e7b203d0b1de2561b1a063d44fb1c16578b5a6	.build/goal-profile-writer-corrected.json
+ozontech/cute	9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3	resourcelifetime	test.go:614:13	resourcelifetime/missing-release	true-positive	corrected-control	present	./...	0	e7e7de54c62afda766d42c5624e7b203d0b1de2561b1a063d44fb1c16578b5a6	.build/goal-imported-async-cute-control.json
