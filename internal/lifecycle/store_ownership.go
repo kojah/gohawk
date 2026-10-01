@@ -17,11 +17,12 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 	if !ok {
 		return false
 	}
+	bindings := ssaflow.ClosureBindingPairs(function, closure)
 	for _, block := range function.Blocks {
 		for _, candidate := range block.Instrs {
 			if nested, ok := candidate.(*ssa.MakeClosure); ok && closureCallsCapturedValue(nested, func(binding ssa.Value) bool {
-				for index, free := range function.FreeVars {
-					if index < len(closure.Bindings) && heapmodel.CapturedBindingMatches(binding, free) && owns(closure.Bindings[index]) {
+				for _, pair := range bindings {
+					if heapmodel.CapturedBindingMatches(binding, pair.Free) && owns(pair.Binding) {
 						return true
 					}
 				}
@@ -33,8 +34,8 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 			if common == nil {
 				continue
 			}
-			for index, free := range function.FreeVars {
-				if heapmodel.ValueDerivesFrom(common.Value, free) && index < len(closure.Bindings) && owns(closure.Bindings[index]) {
+			for _, pair := range bindings {
+				if heapmodel.ValueDerivesFrom(common.Value, pair.Free) && owns(pair.Binding) {
 					return true
 				}
 			}

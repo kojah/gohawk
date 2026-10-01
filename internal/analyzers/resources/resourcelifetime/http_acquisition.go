@@ -180,11 +180,11 @@ func closureLoadsCellForDo(closure *ssa.MakeClosure, cell *ssa.Alloc) bool {
 	if !ok {
 		return false
 	}
-	for index, binding := range closure.Bindings {
-		if binding != cell || index >= len(function.FreeVars) {
+	for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
+		if pair.Binding != cell {
 			continue
 		}
-		free := function.FreeVars[index]
+		free := pair.Free
 		if free.Referrers() == nil {
 			return false
 		}

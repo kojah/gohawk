@@ -83,11 +83,12 @@ func cellCopies(cell *ssa.Alloc) []ssa.Value {
 		case *ssa.UnOp:
 			copies = append(copies, typed)
 		case *ssa.MakeClosure:
-			for index, binding := range typed.Bindings {
-				if binding != cell {
+			function := typed.Fn.(*ssa.Function)
+			for _, pair := range ClosureBindingPairs(function, typed) {
+				if pair.Binding != cell {
 					continue
 				}
-				captured := typed.Fn.(*ssa.Function).FreeVars[index]
+				captured := pair.Free
 				for _, load := range *captured.Referrers() {
 					if unop, ok := load.(*ssa.UnOp); ok {
 						copies = append(copies, unop)

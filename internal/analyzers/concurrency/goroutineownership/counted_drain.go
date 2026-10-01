@@ -234,9 +234,9 @@ func (counter *sendCounter) countClosureSends(closure *ssa.MakeClosure, cell *ss
 		launches++
 	}
 	counter.exact = counter.exact && launches == 1
-	for index, binding := range closure.Bindings {
-		if binding == cell && index < len(worker.FreeVars) {
-			counter.countWorkerSends(worker.FreeVars[index], true)
+	for _, pair := range ssaflow.ClosureBindingPairs(worker, closure) {
+		if pair.Binding == cell {
+			counter.countWorkerSends(pair.Free, true)
 		}
 	}
 }

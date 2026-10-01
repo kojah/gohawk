@@ -15,23 +15,24 @@ func SpawnedValueAtCall(
 	closure *ssa.MakeClosure,
 	value ssa.Value,
 ) ssa.Value { //nolint:ireturn // SSA values retain their concrete representations.
-	if closure != nil {
-		for index, free := range function.FreeVars {
-			if MayAliasThroughLoads(value, free) && index < len(closure.Bindings) {
-				captured := CapturedBindingValue(closure.Bindings[index])
-				// Keep the address when the first observed value is nil. The value
-				// may be assigned only after an owner closure is created, as in
-				// Kubernetes test-server teardown paths.
-				if DefinitelyNil(captured) {
-					return closure.Bindings[index]
-				}
-				return captured
+	bindings := CallBindings(spawn.Common(), function, closure)
+	// Captures are considered before arguments, preserving the candidate
+	// selection order when possible identity matches more than one binding.
+	for _, binding := range bindings {
+		if binding.Captured && MayAliasThroughLoads(value, binding.Local) {
+			captured := CapturedBindingValue(binding.Supplied)
+			// Keep the address when the first observed value is nil. The value
+			// may be assigned only after an owner closure is created, as in
+			// Kubernetes test-server teardown paths.
+			if DefinitelyNil(captured) {
+				return binding.Supplied
 			}
+			return captured
 		}
 	}
-	for index, parameter := range function.Params {
-		if MayAliasThroughLoads(value, parameter) && index < len(spawn.Common().Args) {
-			return spawn.Common().Args[index]
+	for _, binding := range bindings {
+		if !binding.Captured && MayAliasThroughLoads(value, binding.Local) {
+			return binding.Supplied
 		}
 	}
 	return nil

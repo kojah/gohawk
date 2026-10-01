@@ -48,11 +48,11 @@ func capturedReadOnly(closure *ssa.MakeClosure, cell ssa.Value) bool {
 	if !ok {
 		return false
 	}
-	for index, binding := range closure.Bindings {
-		if binding != cell || index >= len(function.FreeVars) {
+	for _, pair := range ClosureBindingPairs(function, closure) {
+		if pair.Binding != cell {
 			continue
 		}
-		capture := function.FreeVars[index]
+		capture := pair.Free
 		if capture.Referrers() == nil {
 			continue
 		}

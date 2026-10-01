@@ -54,13 +54,13 @@ func FixedArguments(common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ss
 		}
 	}
 	if closure != nil && closure.Fn == callee && len(closure.Bindings) == len(callee.FreeVars) {
-		for index, binding := range closure.Bindings {
-			cell := callee.FreeVars[index]
-			if outcome, ok := known[binding]; ok && onlyRead(cell) {
+		for _, pair := range ClosureBindingPairs(callee, closure) {
+			cell := pair.Free
+			if outcome, ok := known[pair.Binding]; ok && onlyRead(cell) {
 				bind(cell, outcome)
 				continue
 			}
-			if outcome, ok := capturedOutcome(binding, known); ok && decidableCell(cell, outcome) {
+			if outcome, ok := capturedOutcome(pair.Binding, known); ok && decidableCell(cell, outcome) {
 				bind(cell, outcome)
 			}
 		}

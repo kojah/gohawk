@@ -32,6 +32,12 @@ for each; these times include each check's prerequisite passes.
   interpret captured cells through one local predicate; ordinary arguments
   retain their evaluated values. Process waiter evidence preserves its
   capture-before-argument order, including unknown answers.
+  Positional capture pairing also uses `ClosureBindingPairs` in written-once
+  cell checks, channel aliases, fixed arguments, captured callback calls,
+  HTTP client cells and counted sends. Each consumer retains its own use
+  whitelist and identity rules; fixed arguments still require exact arity.
+  Spawned-value mapping uses `CallBindings` and checks captures before
+  arguments, preserving the captured address when its initial value is nil.
   Callback invocation also uses the structured completion engine. The
   synchronous-call adapter submits an exact invocation request; the spawned
   wrapper adapter examines the callee body independently of its launch.
