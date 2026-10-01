@@ -38,6 +38,8 @@ Locks are compared by declaration, such as a field of a type or a package
 variable, and an ordering cycle is reported only with an acquisition witness
 for each edge.
 
+Local mutexes are named by the receiver written at their lock call.
+
 ## How to fix it
 
 Choose one order for acquiring multiple locks and use it everywhere. Arrange

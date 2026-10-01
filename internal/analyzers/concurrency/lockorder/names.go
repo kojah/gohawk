@@ -32,6 +32,16 @@ func (acquired lockAcquisition) displayName(pass *analysis.Pass) string {
 	return displayClass(pass, acquired.class)
 }
 
+// cycleName preserves declaration names across functions, but names a local
+// allocation by its acquisition receiver instead of exposing its SSA key.
+// The local marker belongs to lockIdentityOf; it is only a display convention.
+func (acquired lockAcquisition) cycleName(pass *analysis.Pass) string {
+	if strings.Contains(acquired.class, ":local:") {
+		return acquired.displayName(pass)
+	}
+	return displayClass(pass, acquired.class)
+}
+
 // displayClass drops the current package's path from a lock class, so
 // "*example.com/shop.Ledger.mu" reads "Ledger.mu" inside package shop.
 func displayClass(pass *analysis.Pass, class string) string {

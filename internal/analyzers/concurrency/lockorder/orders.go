@@ -218,11 +218,11 @@ func (orders *lockOrders) path(from, to string) []orderEdge {
 func reportOrderCycle(pass *analysis.Pass, cycle []orderEdge) {
 	position := cycle[0].acquired.site()
 	source := syntax.SourceRange(pass, position)
-	names := []string{displayClass(pass, cycle[0].held.class)}
+	names := []string{cycle[0].held.cycleName(pass)}
 	var related []analysis.RelatedInformation
 	probe := analysisTrace.For(pass, "lockorder", string(check.LockContradictoryOrder), position)
 	for index, edge := range cycle {
-		names = append(names, displayClass(pass, edge.acquired.class))
+		names = append(names, edge.acquired.cycleName(pass))
 		related = append(related, callEvidence(pass, edge.held.calls)...)
 		held, acquired := edge.held.displayName(pass), edge.acquired.displayName(pass)
 		related = append(related, lockEvidence(pass, edge.held.position, fmt.Sprintf("%s is %s here", held, edge.held.verb())))
@@ -245,7 +245,7 @@ func reportOrderCycle(pass *analysis.Pass, cycle []orderEdge) {
 	}
 	message := "contradictory lock order: " + strings.Join(names, " -> ")
 	if len(cycle) == 2 {
-		message = fmt.Sprintf("contradictory lock order: %s and %s", displayClass(pass, cycle[0].acquired.class), displayClass(pass, cycle[0].held.class))
+		message = fmt.Sprintf("contradictory lock order: %s and %s", cycle[0].acquired.cycleName(pass), cycle[0].held.cycleName(pass))
 	}
 	check.Report(pass, check.LockContradictoryOrder, analysis.Diagnostic{Pos: source.Pos(), End: source.End(), Message: message, Related: related})
 }

@@ -89,6 +89,14 @@ locations show both acquisitions on each edge, their `Lock` or `RLock` mode,
 and a representative chain of visible synchronous helper calls. These notes
 are available in ordinary output and JSON.
 
+Primary cycle messages keep declaration names for fields and globals. Local
+allocation identities instead reuse the acquisition's source receiver text,
+as the related evidence already does; unavailable source retains the identity
+fallback. This affects rendering only, not graph keys or cycle detection.
+`gate_mutex.go` pins a published local gate displayed as `gate` rather than its
+SSA allocation name, matching [rune's installation gate](https://github.com/unstablebuild/rune/blob/3e2165f8983280542c985947378dfa740a397d03/internal/ide/idepkg/manager.go#L419-L422).
+The publication-order precision question at that site remains unresolved.
+
 Longer witnesses exclude iteration-dependent lock identities and are omitted
 when a reversed pair within the witness already explains a shorter conflict.
 This avoids amplifying pooled-instance uncertainty or repeating an existing

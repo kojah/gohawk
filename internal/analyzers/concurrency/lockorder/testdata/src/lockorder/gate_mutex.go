@@ -17,7 +17,7 @@ func (registry *gateRegistry) begin(key string) {
 	registry.gates[key] = gate
 	gate.Lock()
 	registry.Unlock()
-	registry.download(key) // want "contradictory lock order: .*gateRegistry.* and .*local:new:"
+	registry.download(key) // want "contradictory lock order: .*gateRegistry.* and `gate`"
 }
 
 func (registry *gateRegistry) download(key string) {
