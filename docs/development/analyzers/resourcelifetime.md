@@ -93,6 +93,16 @@ hands it to that object. A chain the function only uses, such as a logger
 whose `Info` it calls, or one stored into a local allocation, leaves the
 resource owed. Up to four constructors are followed.
 
+The same bounded chain proof follows explicitly appended wrapper values through
+the compiler's variadic array when the resulting slice is stored on a foreign
+owner. It reuses `ssaflow.AppendedValues`; spread slices remain outside this
+query. This covers [KCL's logger options](https://github.com/twmb/kcl/blob/5290cb05bcc421a239e327ba11408bc4e27bd2dd/client/client.go#L1445-L1456)
+without inferring ownership from logging names or process lifetime. An unrelated
+wrapper leaves the obligation live. A discarded local slice containing wrapped
+resources remains an accepted false-negative gap: the earlier append can become
+opaque consumption, so this publication query is not a local collection proof.
+`resourcelifetime/published_wrapper.go` pins these distinctions.
+
 For `DB.BeginTx` and `Conn.BeginTx`, cancellation of the exact acquisition
 context triggers database/sql's rollback watcher. A direct or deferred call
 of its paired cancel is therefore unknown cleanup, not synchronous rollback

@@ -122,6 +122,7 @@ func assertCleanupBoundaryTrace(t *testing.T, events []followupTraceEvent) {
 		"rows-transaction-finished":           {"sql_row_parents.go:", "label", "unknown"},
 		"transaction-context-canceled":        {"transaction_cancellation.go:", "label", "unknown"},
 		"captured-body-guarded-cleanup":       {"http_guarded_capture.go:", "label", "unknown"},
+		"wrapper-stored-on-foreign-owner":     {"published_wrapper.go:", "label", "unknown"},
 	}
 	proofFiles := map[string]string{
 		"exact-error-equals-non-nil-filesystem-sentinel": "error_guards.go:",
