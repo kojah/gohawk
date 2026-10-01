@@ -26,6 +26,10 @@ The subsequent [caller-owned destination correction](indirect-destination-follow
 verifies ferro’s statement-storage FP is absent. The 22-site replay above remains
 a snapshot taken before that correction.
 
+The subsequent [HTTP Body handoff correction](response-body-handoff-followup-2026-10-01.md)
+also verifies ACP’s reviewed FP is absent. Both follow-ups preserve this earlier
+replay snapshot and leave 20 of its sites unresolved.
+
 ## Bounded next work
 
 Ferro's

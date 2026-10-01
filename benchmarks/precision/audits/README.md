@@ -1950,3 +1950,9 @@ corrects ferro’s statement-storage report using shared bounded aggregate-copy
 evidence. Its affected-package scan removes only that FP, while complete Cute
 and Basecamp scans retain reviewed production leak controls. The remaining
 production queue is still active.
+
+The [HTTP Body handoff follow-up](response-body-handoff-followup-2026-10-01.md)
+corrects ACP’s aggregate channel-send report using existing projection and
+point-in-time containment queries. Parent/current package scans isolate the
+removal; a traced JSON run confirms unknown ownership without claiming cleanup.
+Complete Cute and Basecamp controls retain both reviewed production leaks.
