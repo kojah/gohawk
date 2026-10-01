@@ -1,0 +1,4 @@
+repository,analyzer,check,position,verdict
+pion/sctp,lockorder,lockorder/missing-release,stream.go:350:2,false_positive
+majestrate/XD,lockorder,lockorder/missing-release,lib/configparser/configparser.go:115:4,true_positive
+majestrate/XD,lockorder,lockorder/missing-release,lib/configparser/configparser.go:121:3,true_positive

@@ -82,6 +82,11 @@ recorded in [retired precision labels](../../docs/development/decisions/retired-
 
 ## Which check a label names
 
+[Round 66](round-66/README.md) preserves the conditional write-lock correction
+in SCTP and two genuine lock-leak controls. It reuses loaded-guard uncertainty
+for exact Boolean field getters; the note separately records pre-existing
+drift in four older SCTP goroutine labels.
+
 [Round 65](round-65/README.md) preserves a review correction from batch 63:
 promu's upload file can leak when go-github rejects the request before handing
 it to the HTTP transport. The original FP verdict remains in the frozen ledger;
