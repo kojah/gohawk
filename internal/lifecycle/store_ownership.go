@@ -51,7 +51,7 @@ func MayContainValue(owner, value ssa.Value) bool {
 	if !heapmodel.CanHoldReference(owner.Type()) {
 		return false
 	}
-	if valueOwnsValue(owner, value, map[ssa.Value]bool{}) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
+	if valueOwnsValue(owner, value) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
 		return true
 	}
 	// The graph follows containment through copies, merges, and captured
@@ -68,32 +68,41 @@ func MayContainValueAt(owner, value ssa.Value, at ssa.Instruction) bool {
 	if !heapmodel.CanHoldReference(owner.Type()) {
 		return false
 	}
-	if valueOwnsValue(owner, value, map[ssa.Value]bool{}) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
+	if valueOwnsValue(owner, value) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
 		return true
 	}
 	contained, known := heapmodel.ContainsAt(owner, value, at)
 	return known && contained
 }
 
-func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
-	if owner == nil || seen[owner] {
-		return false
-	}
-	if heapmodel.MayAlias(owner, value) {
-		return true
-	}
-	seen[owner] = true
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		owner, ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return valueOwnsValue(inner, value, seen)
-	}
-	if typed, ok := owner.(*ssa.MakeClosure); ok {
-		return closureBindingsOwnValue(typed, value, func(binding ssa.Value) bool {
-			return valueOwnsValue(binding, value, seen)
-		})
-	}
-	return false
+func valueOwnsValue(owner, value ssa.Value) bool {
+	found := false
+	ssaflow.WalkStates([]ssa.Value{owner}, func(owner ssa.Value) ssa.Value { return owner }, func(owner ssa.Value) ([]ssa.Value, bool) {
+		if owner == nil {
+			return nil, true
+		}
+		// A possible alias is evidence before wrappers are peeled. Only
+		// wrappers and closure captures extend this narrow ownership query;
+		// it does not independently fan out phi alternatives or call results.
+		if heapmodel.MayAlias(owner, value) {
+			found = true
+			return nil, false
+		}
+		if inner, ok := ssaflow.UnwrapTransparentValue(
+			owner, ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
+		); ok {
+			return []ssa.Value{inner}, true
+		}
+		var successors []ssa.Value
+		if closure, ok := owner.(*ssa.MakeClosure); ok {
+			found = closureBindingsOwnValue(closure, value, func(binding ssa.Value) bool {
+				successors = append(successors, binding)
+				return false
+			})
+		}
+		return successors, !found
+	})
+	return found
 }
 
 // Capture identity and cell contents are shared mechanics. The caller chooses

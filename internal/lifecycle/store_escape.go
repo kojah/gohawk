@@ -64,7 +64,7 @@ func StoresOwnerOfValueInField(instruction ssa.Instruction, value ssa.Value) boo
 	if _, ok := store.Addr.(*ssa.FieldAddr); !ok {
 		return false
 	}
-	return valueOwnsValue(store.Val, value, map[ssa.Value]bool{})
+	return valueOwnsValue(store.Val, value)
 }
 
 // StoresOwnerOfValueInExternalField reports whether an aggregate containing

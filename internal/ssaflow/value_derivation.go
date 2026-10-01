@@ -15,49 +15,54 @@ import (
 // chosen by the caller: the points-to graph's may-alias for the store
 // family, the structural walk for a family beneath it.
 func DerivesFrom(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool) bool {
-	return derivesFrom(value, source, map[ssa.Value]bool{}, same)
-}
-
-func derivesFrom(value, source ssa.Value, seen map[ssa.Value]bool, same func(ssa.Value, ssa.Value) bool) bool {
-	if value == nil || source == nil || seen[value] {
+	if source == nil {
 		return false
 	}
-	if same(value, source) {
-		return true
-	}
-	seen[value] = true
+	found := false
+	WalkStates([]ssa.Value{value}, func(value ssa.Value) ssa.Value { return value }, func(value ssa.Value) ([]ssa.Value, bool) {
+		if value == nil {
+			return nil, true
+		}
+		// Identity comes before operand expansion, including for a phi.
+		// ReachingWalk would expand that phi before asking its leaf predicate.
+		if same(value, source) {
+			found = true
+			return nil, false
+		}
+		return derivationSources(value), true
+	})
+	return found
+}
+
+// derivationSources includes arbitrary computation operands and exact stores
+// feeding a load. This is deliberately broader than transparent identity.
+func derivationSources(value ssa.Value) []ssa.Value {
+	var sources []ssa.Value
 	if load, ok := value.(*ssa.UnOp); ok && load.Op == token.MUL {
 		for address := load.X; address != nil; address = enclosingAggregateAddress(address) {
-			if storedValueDerivesFrom(address, source, seen, same) {
-				return true
+			sources = appendStoredDerivationSources(sources, address)
+		}
+	}
+	if instruction, ok := value.(ssa.Instruction); ok {
+		for _, operand := range instruction.Operands(nil) {
+			if operand != nil {
+				sources = append(sources, *operand)
 			}
 		}
 	}
-	instruction, ok := value.(ssa.Instruction)
-	if !ok {
-		return false
-	}
-	var operands []*ssa.Value
-	for _, operand := range instruction.Operands(operands) {
-		if operand != nil && derivesFrom(*operand, source, seen, same) {
-			return true
-		}
-	}
-	return false
+	return sources
 }
 
-// storedValueDerivesFrom reports whether any store into address stores a value
-// that derives from source.
-func storedValueDerivesFrom(address, source ssa.Value, seen map[ssa.Value]bool, same func(ssa.Value, ssa.Value) bool) bool {
+func appendStoredDerivationSources(sources []ssa.Value, address ssa.Value) []ssa.Value {
 	if address.Referrers() == nil {
-		return false
+		return sources
 	}
 	for _, reference := range *address.Referrers() {
-		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && derivesFrom(store.Val, source, seen, same) {
-			return true
+		if store, ok := reference.(*ssa.Store); ok && store.Addr == address {
+			sources = append(sources, store.Val)
 		}
 	}
-	return false
+	return sources
 }
 
 // derivesStructurally is ValueDerivesFrom with the structural identity step,

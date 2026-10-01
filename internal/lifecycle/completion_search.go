@@ -159,7 +159,7 @@ func calleesOf(common *ssa.CallCommon, launch launchKind, invocation ssa.Instruc
 	if function := common.StaticCallee(); function != nil {
 		return []completionCallee{{launch: launch, common: common, function: function}}, true
 	}
-	closures, ok := exactCallbacks(common.Value, invocation, allowOnceFunc, map[ssa.Value]bool{})
+	closures, ok := exactCallbacks(common.Value, invocation, allowOnceFunc)
 	if !ok {
 		return nil, false
 	}
@@ -186,44 +186,35 @@ func closureCallees(value ssa.Value, launch launchKind) ([]completionCallee, boo
 // exactCallbacks resolves a callback value to the function literals it may
 // hold. Loads require one dominating store, phi edges must all resolve, and
 // other call results are opaque.
-func exactCallbacks(value ssa.Value, invocation ssa.Instruction, allowOnceFunc bool, seen map[ssa.Value]bool) ([]*ssa.MakeClosure, bool) {
-	if value == nil || seen[value] {
+func exactCallbacks(value ssa.Value, invocation ssa.Instruction, allowOnceFunc bool) ([]*ssa.MakeClosure, bool) {
+	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+	var result []*ssa.MakeClosure
+	var resolve func(ssaflow.ReachingWalk, ssa.Value) bool
+	resolve = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+		switch typed := value.(type) {
+		case *ssa.MakeClosure:
+			result = append(result, typed)
+			return true
+		case *ssa.Call:
+			common := typed.Common()
+			if allowOnceFunc && ssaflow.CallMatchesSymbol(common, syncOnceFunc) && len(common.Args) == 1 {
+				return walk.Every(common.Args[0], resolve)
+			}
+		case *ssa.UnOp:
+			if stored := heapmodel.NewStorage(nil).StableContent(typed.X, invocation); stored.Proven() {
+				return walk.Every(stored.Value, resolve)
+			}
+		case *ssa.Alloc:
+			if stored := heapmodel.NewStorage(nil).StableContent(typed, invocation); stored.Proven() {
+				return walk.Every(stored.Value, resolve)
+			}
+		}
+		return false
+	}
+	if !ssaflow.NewReachingWalk(forms).Every(value, resolve) {
 		return nil, false
 	}
-	seen[value] = true
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value, ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return exactCallbacks(inner, invocation, allowOnceFunc, seen)
-	}
-	switch typed := value.(type) {
-	case *ssa.MakeClosure:
-		return []*ssa.MakeClosure{typed}, true
-	case *ssa.Call:
-		common := typed.Common()
-		if allowOnceFunc && ssaflow.CallMatchesSymbol(common, syncOnceFunc) && len(common.Args) == 1 {
-			return exactCallbacks(common.Args[0], invocation, allowOnceFunc, seen)
-		}
-	case *ssa.UnOp:
-		if stored := heapmodel.NewStorage(nil).StableContent(typed.X, invocation); stored.Proven() {
-			return exactCallbacks(stored.Value, invocation, allowOnceFunc, seen)
-		}
-	case *ssa.Alloc:
-		if stored := heapmodel.NewStorage(nil).StableContent(typed, invocation); stored.Proven() {
-			return exactCallbacks(stored.Value, invocation, allowOnceFunc, seen)
-		}
-	case *ssa.Phi:
-		var result []*ssa.MakeClosure
-		for _, edge := range typed.Edges {
-			closures, ok := exactCallbacks(edge, invocation, allowOnceFunc, cloneValueSet(seen))
-			if !ok {
-				return nil, false
-			}
-			result = append(result, closures...)
-		}
-		return result, len(result) > 0
-	}
-	return nil, false
+	return result, len(result) > 0
 }
 
 // mappedLocal is one callee parameter or captured variable that stands for

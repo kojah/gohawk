@@ -1,8 +1,6 @@
 package lifecycle
 
 import (
-	"maps"
-
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -82,10 +80,4 @@ func targetStoredOnPath(address, target ssa.Value, observation ssa.Instruction) 
 		}
 	}
 	return false
-}
-
-func cloneValueSet(source map[ssa.Value]bool) map[ssa.Value]bool {
-	result := make(map[ssa.Value]bool, len(source))
-	maps.Copy(result, source)
-	return result
 }

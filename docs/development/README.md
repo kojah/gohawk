@@ -29,6 +29,8 @@ Start with [Understanding SSA](../understanding-ssa.md) and the public
   answers identity, containment, and storage questions.
 - [Storage model](storage-model.md) — observation-time storage evidence
   shared by the analyzers.
+- [Shared value-walk review](value-walk-review.md) — consolidated traversal
+  mechanics and the distinct state, ordering and cycle policies retained.
 - [Preconditions](preconditions.md) — what a summarized function requires of
   the objects it is handed, and how a caller's state is checked against it.
 
