@@ -1,0 +1,7 @@
+repository,analyzer,check,position,verdict
+centrifugal/centrifuge-go,lockorder,lockorder/missing-release,client.go:1762:2,false_positive
+centrifugal/centrifuge-go,lockorder,lockorder/contradictory-order,subscription.go:1173:5,false_positive
+centrifugal/centrifuge-go,lockorder,lockorder/missing-release,subscription.go:1174:5,false_positive
+centrifugal/centrifuge-go,lockorder,lockorder/missing-release,subscription.go:1183:4,false_positive
+majestrate/XD,lockorder,lockorder/missing-release,lib/configparser/configparser.go:115:4,true_positive
+majestrate/XD,lockorder,lockorder/missing-release,lib/configparser/configparser.go:121:3,true_positive

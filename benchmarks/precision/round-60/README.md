@@ -23,3 +23,6 @@ A separate four-label replay of `centrifugal/centrifuge-go` found three older
 false positives already absent, but `client.go:1762:2` remains reported.
 That unresolved site is not included in this passing cohort and its original
 false-positive verdict remains unchanged.
+
+The remaining Centrifuge site was subsequently corrected and verified with
+two genuine missing-unlock controls in [round 61](../round-61/README.md).
