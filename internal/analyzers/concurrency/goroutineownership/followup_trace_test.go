@@ -28,6 +28,7 @@ func assertEdgeEvent(t *testing.T, event followupTraceEvent, outcome string) {
 func assertFollowupBoundaryTrace(t *testing.T, path string) {
 	t.Helper()
 	want := map[string][2]string{
+		"cleanupOpaqueWorkerField":                                              {"opaque-ownership-transfer", "unknown"},
 		"opaqueOutputNeedsJoin":                                                 {"unowned-return", "rejected"},
 		"receiveOnlyOpaqueInput":                                                {"opaque-ownership-transfer", "unknown"},
 		"relayQueueParticipant":                                                 {"relay-dependency-lifecycle", "unknown"},
@@ -112,8 +113,9 @@ func assertLabelTrace(t *testing.T, path string) {
 		t.Fatal(err)
 	}
 	want := map[string][2]string{
-		"completion_tails.go:16:13": {"direct-join", "accepted"},
-		"cleanup_results.go:21:2":   {"closes-retained-owner", "unknown"},
+		"opaque_worker_fields.go:19:20": {"closes-retained-owner", "unknown"},
+		"completion_tails.go:16:13":     {"direct-join", "accepted"},
+		"cleanup_results.go:21:2":       {"closes-retained-owner", "unknown"},
 	}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event followupTraceEvent

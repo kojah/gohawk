@@ -68,6 +68,24 @@ retention evidence and cleanup covering every return; an unrelated connection,
 an ignored constructor argument, or a close before launch does not qualify.
 Nested captures preserve the identity of an interface cell and its loaded
 connection. These are not join proofs.
+
+An opaque method can instead consume the exact field of a captured owner that
+the parent later cleans up. The retained-owner classifier maps that field with
+`ssaflow.ProveIdentity` through `CallBindings`, requiring stable captured cells.
+It credits only unknown ownership on the cleanup path, never a join. The opaque
+call must be followed only by a nonblocking completion tail; a send, receive,
+second call, loop or arbitrary deferred work declines this additional mapping.
+`opaque_worker_fields.go` pins same-field cleanup, different fields and owners,
+blocking publication and receive tails, a return bypassing cleanup, a visible
+no-op method, and a reassigned capture.
+[Lynx's gRPC shutdown](https://github.com/lynxbase/lynxdb/blob/7c4bf0432b0cef2807f0ddcd2cd2000ce7ffb8c1/pkg/ingest/receiver/otlpgrpc/server.go#L106-L121)
+is the representative field shape. The rule does not infer shutdown semantics
+from `GracefulStop` or `Stop`, and it does not track worker scheduling or hidden
+field mutation. Some genuine missing joins after opaque operations are therefore
+missed. The identity and tail predicates remain beside retained-owner evidence
+despite taking that cohesive file just above the 400-line review trigger; they
+extend the same classifier boundary rather than creating another proof path.
+
 An invoked or deferred cleanup callback returned beside a resource can supply
 the same evidence, but only when a visible returned literal captures that
 exact resource and performs its lifecycle operation. Unrelated sibling

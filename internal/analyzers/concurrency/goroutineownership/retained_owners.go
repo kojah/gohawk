@@ -1,6 +1,7 @@
 package goroutineownership
 
 import (
+	"go/token"
 	"go/types"
 	"slices"
 
@@ -103,8 +104,77 @@ func (analysis *spawnAnalysis) closesRetainedWorkerOwner(instruction ssa.Instruc
 				return true
 			}
 		}
+		if analysis.opaqueWorkerUsesOwner(function, closure, receiver) {
+			return true
+		}
 	}
 	return false
+}
+
+// A worker can consume a field of its captured owner rather than the capture
+// itself. Match that projection through the shared identity query, without
+// widening a wrapper's constructor arguments into ownership. Possible opaque
+// use makes cleanup uncertain, never a proven worker join.
+// https://github.com/lynxbase/lynxdb/blob/7c4bf0432b0cef2807f0ddcd2cd2000ce7ffb8c1/pkg/ingest/receiver/otlpgrpc/server.go#L106-L121
+func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(function *ssa.Function, closure *ssa.MakeClosure, receiver ssa.Value) bool {
+	budget := analysis.budget()
+	storage := heapmodel.NewStorage(budget)
+	bindings := ssaflow.CallBindings(analysis.spawn.Common(), function, closure)
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
+		if !budget.Spend() {
+			return false
+		}
+		common := call.Common()
+		callee, _ := ssaflow.DirectCallee(common)
+		used := ssaflow.CallReceiver(common)
+		if used == nil || callee != nil && len(callee.Blocks) != 0 || !opaqueCallEndsWorkerWork(call, budget) {
+			continue
+		}
+		for _, pair := range bindings {
+			if !ssaflow.ValueIsAccessPathFrom(receiver, pair.Supplied) {
+				continue
+			}
+			if cell, ok := pair.Supplied.(*ssa.Alloc); ok && !storage.StableContent(cell, analysis.spawn).Proven() {
+				continue
+			}
+			if ssaflow.ProveIdentity(
+				ssaflow.AccessPath{Value: used, Root: pair.Local},
+				ssaflow.AccessPath{Value: receiver, Root: pair.Supplied},
+			).Proven() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Cleanup of the opaque call's receiver cannot release later independent work.
+// Admit only the worker's nonblocking completion tail, not a second call, send,
+// receive, or loop. This narrows the new field mapping, not existing retention.
+func opaqueCallEndsWorkerWork(call *ssa.Call, budget *ssaflow.SearchBudget) bool {
+	for _, instruction := range ssaflow.InstructionsReachableAfter(call) {
+		if !budget.Spend() || ssaflow.BlockInCycle(instruction.Block()) {
+			return false
+		}
+		switch typed := instruction.(type) {
+		case *ssa.Return, *ssa.Jump, *ssa.DebugRef:
+		case *ssa.UnOp:
+			if typed.Op != token.MUL {
+				return false
+			}
+		case *ssa.Call:
+			if !ssaflow.CallMatchesSymbol(typed.Common(), syntax.Builtin("close")) {
+				return false
+			}
+		case *ssa.RunDefers:
+			if !completionOnlyDefers(call.Parent()) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // A factory's returned callback is cleanup evidence only when a returned
