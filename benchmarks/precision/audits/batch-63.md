@@ -46,3 +46,13 @@ production figures are what a user of the default profile sees.
 | `cancellationownership` | 2 | 0 | 0 | 0 |
 
 The round's false-positive families are listed with [batch 62](batch-62.md#false-positive-families-batches-62-and-63).
+
+## Later review correction
+
+The [review-correction ledger](batch-63-review-corrections.tsv) reclassifies
+promu's `cmd/release.go:191:14` report as a true positive. Its pinned upload
+client can reject the request before transport takes the file; the error path
+leaves it open. [Round 65](../round-65/README.md) records the source-backed
+feasible path and retained diagnostic. The original finding ledger and totals
+above remain the frozen review; this is a corrected judgment, not an analyzer
+fix or another removed false-positive report.

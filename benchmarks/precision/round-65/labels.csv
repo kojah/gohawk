@@ -1,0 +1,2 @@
+repository,analyzer,check,position,verdict
+prometheus/promu,resourcelifetime,resourcelifetime/missing-release,cmd/release.go:191:14,true_positive

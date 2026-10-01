@@ -1,0 +1,2 @@
+# repository	revision	analyzer	position	check	original_verdict	reviewed_verdict	reason
+prometheus/promu	304b60c9fb862b9fa5d897e93901740da729c13b	resourcelifetime	cmd/release.go:191:14	resourcelifetime/missing-release	false-positive	true-positive	go-github v25.1.3 Client.Do can reject the upload from cached rate limits before invoking net/http; that path does not close the request body, and promu returns or retries without closing the opened file.

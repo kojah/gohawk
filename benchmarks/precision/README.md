@@ -82,6 +82,11 @@ recorded in [retired precision labels](../../docs/development/decisions/retired-
 
 ## Which check a label names
 
+[Round 65](round-65/README.md) preserves a review correction from batch 63:
+promu's upload file can leak when go-github rejects the request before handing
+it to the HTTP transport. The original FP verdict remains in the frozen ledger;
+the corrected true-positive label requires the diagnostic to remain reported.
+
 [Round 64](round-64/README.md) preserves batch 62's two context-canceled
 transaction corrections and two production HTTP-body leak controls. All four
 labels pass in Odysee without exclusions. The exact context/cancel pairing
