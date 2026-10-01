@@ -1944,3 +1944,9 @@ three bounded corrections between them, each a structural predicate at an
 existing decision point with a fixture and a pinned link, and no correction
 in three of the five. The remaining known gap is a conditional-release
 method summarized as releasing nothing, recorded under batch 45.
+
+The [caller-owned destination follow-up](indirect-destination-followup-2026-10-01.md)
+corrects ferro’s statement-storage report using shared bounded aggregate-copy
+evidence. Its affected-package scan removes only that FP, while complete Cute
+and Basecamp scans retain reviewed production leak controls. The remaining
+production queue is still active.

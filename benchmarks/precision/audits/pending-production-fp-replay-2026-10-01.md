@@ -22,6 +22,10 @@ of `./examples/bridge ./examples/icmp_responder_poll` exited zero and reproduced
 both reports. Those successful receipts supersede the root-module attempts;
 neither report is excluded as unscannable.
 
+The subsequent [caller-owned destination correction](indirect-destination-followup-2026-10-01.md)
+verifies ferro’s statement-storage FP is absent. The 22-site replay above remains
+a snapshot taken before that correction.
+
 ## Bounded next work
 
 Ferro's

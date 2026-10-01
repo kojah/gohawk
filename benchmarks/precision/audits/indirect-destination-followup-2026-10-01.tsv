@@ -1,0 +1,4 @@
+repository	revision	analyzer	position	check	original_verdict	replay_status	scope	scan_exit	receipt
+ferro-labs/ai-gateway	d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4	resourcelifetime	internal/admin/repository/sql_store.go:92:16	resourcelifetime/missing-release	false-positive	absent	./internal/admin/repository ./mcp	0	.build/goal-selected-ferro.json
+ozontech/cute	9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3	resourcelifetime	test.go:614:13	resourcelifetime/missing-release	true-positive	present	./...	0	.build/goal-selected-cute.json
+basecamp/basecamp-cli	d91fc7b3ae5ee3c54a7fea389f59e791173e647b	resourcelifetime	internal/commands/connect_worker_mcp_unix.go:19:22	resourcelifetime/missing-release	true-positive	present	./...	0	.build/goal-selected-basecamp.json
