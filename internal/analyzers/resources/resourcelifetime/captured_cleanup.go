@@ -86,6 +86,10 @@ func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call)
 			analysis.emitAction(deferred, actionUnknown, resourceReasonRowsTransactionFinished)
 			return true
 		}
+		if cancelsTransactionContext(acquisition, deferred) {
+			analysis.emitAction(deferred, actionUnknown, resourceReasonTransactionContextCanceled)
+			return true
+		}
 	}
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
 		if !ssaflow.InstructionDominates(call, acquisition) ||

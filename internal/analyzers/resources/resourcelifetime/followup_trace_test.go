@@ -120,6 +120,7 @@ func assertCleanupBoundaryTrace(t *testing.T, events []followupTraceEvent) {
 		"captured-cell-may-cleanup":           {"deferred_reassigned_response.go:", "label", "unknown"},
 		"paired-error-helper-cleanup":         {"paired_error_cleanup.go:", "label", "unknown"},
 		"rows-transaction-finished":           {"sql_row_parents.go:", "label", "unknown"},
+		"transaction-context-canceled":        {"transaction_cancellation.go:", "label", "unknown"},
 		"captured-body-guarded-cleanup":       {"http_guarded_capture.go:", "label", "unknown"},
 	}
 	proofFiles := map[string]string{

@@ -61,6 +61,7 @@ const (
 	resourceReasonReturnedProjectionLacksCleanup
 	resourceReasonReturnedViewCannotRelease
 	resourceReasonRowsTransactionFinished
+	resourceReasonTransactionContextCanceled
 	resourceReasonSentToChannel
 	resourceReasonSettled
 	resourceReasonStatementParentClosed
@@ -156,6 +157,7 @@ var resourceReasonCodes = [...]string{
 	resourceReasonReturnedProjectionLacksCleanup:           "returned-projection-lacks-cleanup",
 	resourceReasonReturnedViewCannotRelease:                "returned-view-cannot-release",
 	resourceReasonRowsTransactionFinished:                  "rows-transaction-finished",
+	resourceReasonTransactionContextCanceled:               "transaction-context-canceled",
 	resourceReasonSentToChannel:                            "sent-to-channel",
 	resourceReasonSettled:                                  "settled",
 	resourceReasonStatementParentClosed:                    "statement-parent-closed",

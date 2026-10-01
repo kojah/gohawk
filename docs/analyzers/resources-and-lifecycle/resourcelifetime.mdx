@@ -15,13 +15,11 @@ helper is expected to close them.
 
 Some cases are deliberately not reported:
 
-- a resource returned, stored somewhere that outlives the function, or handed
-  to code gohawk cannot see into;
+- a resource returned, stored beyond the function, or passed to code gohawk cannot see into;
 - channel timers and tickers, which the garbage collector reclaims;
-- a file, response body, or rows value opened once in `main.main`, which
-  program exit closes;
-- a resource passed to a helper that closes it only for some flag or `nil`
-  option, when you pass that value as a constant, such as `finish(file, nil)`.
+- a file, response body, or rows value opened once in `main.main`, which program exit closes;
+- helper cleanup selected by a constant flag or `nil` option, such as `finish(file, nil)`;
+- a `BeginTx` transaction whose context's cancel is called or deferred on every path.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [resourcelifetime design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/resourcelifetime.md).

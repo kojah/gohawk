@@ -118,6 +118,9 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if finishesRowsTransaction(analysis.acquisition, instruction) {
 		return actionUnknown, resourceReasonRowsTransactionFinished
 	}
+	if cancelsTransactionContext(analysis.acquisition, instruction) {
+		return actionUnknown, resourceReasonTransactionContextCanceled
+	}
 	// The storage identity queries behind a release draw from this
 	// candidate's pool, so their give-ups reach the trace like every other.
 	if action, reason := releasesResource(

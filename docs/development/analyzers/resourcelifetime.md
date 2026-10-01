@@ -93,8 +93,24 @@ hands it to that object. A chain the function only uses, such as a logger
 whose `Info` it calls, or one stored into a local allocation, leaves the
 resource owed. Up to four constructors are followed.
 
+For `DB.BeginTx` and `Conn.BeginTx`, cancellation of the exact acquisition
+context triggers database/sql's rollback watcher. A direct or deferred call
+of its paired cancel is therefore unknown cleanup, not synchronous rollback
+or successful commit. A defer before acquisition must dominate it; later
+actions use the ordinary obligation walk. This covers the [Odysee transactions](https://github.com/OdyseeTeam/odysee-api/blob/6cb1fd36ef7d25a038e3ddf572e3ddb3bbbb3d79/apps/watchman/olapdb/olapdb.go#L112-L139)
+under the documented [BeginTx contract](https://pkg.go.dev/database/sql#DB.BeginTx).
+The same structural context/cancel pairing serves pre-acquisition cancellation:
+results zero and one from one standard `WithCancel`, `WithCancelCause`,
+`WithDeadline`, `WithDeadlineCause`, `WithTimeout`, or `WithTimeoutCause` call.
+Factory identity must agree; no alias traversal or deadline timing is inferred.
+`transaction_cancellation.go` covers all six constructors, both receiver types,
+prior and later actions, another context, replacement, conditional cancellation,
+and `Begin` ignoring the context. The trace labels the action
+`transaction-context-canceled` with outcome `unknown`. Cancellation can hide
+an unintended rollback; this check proves resource loss, not transaction intent.
+
 DB acquisitions through `PrepareContext`, `QueryContext`, and `BeginTx` are
-known to fail when the exact context from `WithCancel` or `WithCancelCause`
+known to fail when the exact context from one of those standard constructors
 was synchronously canceled before the call. Conditional, deferred, or concurrent
 cancellation does not establish this, nor do timing or test assertions.
 
