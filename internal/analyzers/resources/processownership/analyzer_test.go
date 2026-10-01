@@ -41,6 +41,7 @@ func TestAnalyzer(t *testing.T) {
 	}
 	for _, outcome := range []string{
 		"accepted", "rejected", "unknown", "merged-wait-proven", "helper-result", "returned-handle-owner", "immediate-process-guard",
+		"opaque-spawned-callback", "imported-spawned-callback",
 	} {
 		if !found[outcome] {
 			t.Errorf("missing process trace outcome %s", outcome)
@@ -55,6 +56,14 @@ func assertProcessTraceBoundary(t *testing.T, event processTraceEvent, found map
 	}{
 		{"helper-result", "decision", "helper-command-ownership-unknown", "unknown", "helper_results.go:", ""},
 		{"merged-wait-proven", "decision", "wait-ownership-proven", "accepted", "merged_waiters.go:", ""},
+		{
+			"opaque-spawned-callback", "decision", "ambiguous-wait-ownership", "unknown",
+			"opaque_waiters.go:", ".opaqueSpawnedCallbackMayWait",
+		},
+		{
+			"imported-spawned-callback", "decision", "ambiguous-wait-ownership", "unknown",
+			"opaque_waiters.go:", ".importedSpawnedCallbackMayWait",
+		},
 		{"returned-handle-owner", "decision", "ambiguous-wait-ownership", "unknown", "returned_handles.go:", ""},
 		{
 			"immediate-process-guard", "evidence", "successful-start-process-non-nil", "accepted",

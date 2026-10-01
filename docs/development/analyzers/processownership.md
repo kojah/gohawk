@@ -14,7 +14,14 @@ count as handing it on. The `missing-wait` check reports handles that are
 waited on or released on some paths but not all.
 
 A command captured by a callback passed to an opaque runner is an uncertain
-handoff, not a proven leak or a guaranteed wait. A launched waiter with an
+handoff, not a proven leak or a guaranteed wait. The same rule applies when
+that runner is launched with `go`, including an imported panic-reporting
+wrapper whose invocation guarantee is unavailable. A visible runner that
+drops the callback, a callback holding another command, and a return before
+the handoff retain the diagnostic (`opaque_waiters.go`). Both ordinary and
+launched calls use one opaque-callback decision. The
+[rune waiter](https://github.com/unstablebuild/rune/blob/3e2165f8983280542c985947378dfa740a397d03/internal/workspace/file_scheme.go#L458-L467)
+is the representative imported-wrapper shape. A launched waiter with an
 explicit `Wait` followed by process termination is also outside the normal-return
 completion proof. Locally stored command fields are resolved at acquisition when
 checking whether a returned value owner contains the command.

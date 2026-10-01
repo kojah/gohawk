@@ -10,3 +10,14 @@ func MaybeWait(command *exec.Cmd, enabled bool) error {
 	}
 	return nil
 }
+
+// InvokeWithPanicRecovery has a recovery return in SSA even though the panic
+// path rethrows. A must-invoke summary can conservatively remain unavailable.
+func InvokeWithPanicRecovery(fn func() error) {
+	defer func() {
+		if value := recover(); value != nil {
+			panic(value)
+		}
+	}()
+	_ = fn()
+}

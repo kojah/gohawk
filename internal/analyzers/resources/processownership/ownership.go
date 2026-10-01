@@ -287,9 +287,9 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget 
 		return merged && heapmodel.MayAlias(receiver, command) &&
 			!heapmodel.NewStorage(nil).Same(receiver, command).Proven()
 	}
-	if _, spawned := instruction.(*ssa.Go); spawned {
-		callee, _ := ssaflow.DirectCallee(common)
-		if callee == nil || len(callee.Blocks) == 0 || ssaflow.NormalReturnReachableFrom(callee.Blocks[0]) {
+	callee, _ := ssaflow.DirectCallee(common)
+	if _, spawned := instruction.(*ssa.Go); spawned && callee != nil && len(callee.Blocks) != 0 {
+		if ssaflow.NormalReturnReachableFrom(callee.Blocks[0]) {
 			return false
 		}
 		return lifecycle.ProveCompletion(lifecycle.CompletionRequest{
@@ -297,10 +297,13 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget 
 			Coverage: lifecycle.CoverageAnywhere, Budget: budget,
 		}).Proven()
 	}
-	callee, _ := ssaflow.DirectCallee(common)
 	if callee != nil && len(callee.Blocks) != 0 {
 		return false
 	}
+	// Imported and unresolved runners can retain the same callback whether
+	// called synchronously or launched. The launch does not make their missing
+	// invocation guarantee evidence that the captured command stays local.
+	// https://github.com/unstablebuild/rune/blob/3e2165f8983280542c985947378dfa740a397d03/internal/workspace/file_scheme.go#L458-L467
 	for _, argument := range common.Args {
 		if _, callback := argument.(*ssa.MakeClosure); callback && lifecycle.MayContainValue(argument, command) {
 			return true
