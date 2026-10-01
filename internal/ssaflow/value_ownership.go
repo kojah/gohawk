@@ -16,22 +16,13 @@ import (
 // ExternallyOwnedValue reports whether value comes from storage that outlives
 // the current function invocation.
 func ExternallyOwnedValue(value ssa.Value) bool {
-	return externallyOwnedValue(value, map[ssa.Value]bool{})
+	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
+	return NewReachingWalk(forms).Any(value, externalOwnershipLeaf)
 }
 
-func externallyOwnedValue(value ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
-	if inner, ok := UnwrapTransparentValue(
-		value,
-		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
-	); ok {
-		return externallyOwnedValue(inner, seen)
-	}
+func externalOwnershipLeaf(walk ReachingWalk, value ssa.Value) bool {
 	if source, ok := ownershipSource(value); ok {
-		return externallyOwnedValue(source, seen)
+		return walk.Any(source, externalOwnershipLeaf)
 	}
 	switch typed := value.(type) {
 	case *ssa.Parameter, *ssa.FreeVar, *ssa.Global:
@@ -39,15 +30,9 @@ func externallyOwnedValue(value ssa.Value, seen map[ssa.Value]bool) bool {
 	case *ssa.Alloc:
 		if typed.Referrers() != nil {
 			for _, reference := range *typed.Referrers() {
-				if store, ok := reference.(*ssa.Store); ok && store.Addr == typed && externallyOwnedValue(store.Val, seen) {
+				if store, ok := reference.(*ssa.Store); ok && store.Addr == typed && walk.Any(store.Val, externalOwnershipLeaf) {
 					return true
 				}
-			}
-		}
-	case *ssa.Phi:
-		for _, edge := range typed.Edges {
-			if externallyOwnedValue(edge, seen) {
-				return true
 			}
 		}
 	}

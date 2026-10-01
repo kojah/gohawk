@@ -81,6 +81,10 @@ for each; these times include each check's prerequisite passes.
   The engine reports which kind a contradiction is and each walk chooses:
   the obligation walk and lock order prune the other arm of a stable guard,
   resource lifetime and every walk treat a loaded contradiction as unknown.
+- External ownership provenance uses `ReachingWalk.Any` for transparent forms,
+  phi alternatives and cycle handling. Its leaves follow storage sources and
+  exact stores into local cells. A possible external source supplies uncertain
+  ownership, never cleanup coverage; opaque call results remain unresolved.
 - `heapmodel.Storage` is the shared, bounded query for local contents and stable
   owner projections. It resolves loads at their own execution points, including
   fields, constant array elements, and aggregate-copy snapshots. Completion,
