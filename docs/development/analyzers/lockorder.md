@@ -160,6 +160,15 @@ mutable field is unchanged: changed-field bugs remain a documented coverage
 gap. Distinct guards and repeated acquisitions inside one guarded region still
 need their own release evidence.
 
+A conditional acquisition guarded by a direct Boolean load remains unknown
+for missing-release. The same boundary applies to an exact three-instruction
+getter: select a direct parameter field, load it, and return it. Separate calls
+do not prove the field unchanged, so this declines a suspected leak rather
+than establishing an unlock. Constant-returning getters, computed predicates,
+and unconditional acquisitions retain their existing behavior.
+`lockorder/loaded_getter_guards.go` pins these distinctions. The case is
+[SCTP's optional write lock](https://github.com/pion/sctp/blob/a09fb03516289d7cd89bc589ac49ee84ac331c62/stream.go#L324-L350).
+
 A cycle is suppressed when every edge has the same exact package-global
 exclusive mutex held as a guard. This is intentionally narrower than matching
 field names, receiver types, or read locks. Local object and parameter-relative

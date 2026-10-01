@@ -55,6 +55,7 @@ func TestLockTraceBoundaries(t *testing.T) {
 	checkDecisionTrace(t, data, "lock-state-budget-exhausted", "state_budget.go:", "unknown")
 	checkDecisionTrace(t, data, "fresh-field-identity-unknown", "escaped_fresh_field.go:", "unknown")
 	checkDecisionTrace(t, data, "cross-owner-class-unknown", "cross_owner_orders.go:", "unknown")
+	checkDecisionTrace(t, data, "loaded-acquisition-guard-unknown", "loaded_getter_guards.go:", "unknown")
 	checkHelperReleaseTrace(t, data)
 	checkInstructionEvidence(t, data, "deferred-release-proven", "captured_owner_handoff.go:", "accepted")
 	checkMutexActionTrace(t, data)

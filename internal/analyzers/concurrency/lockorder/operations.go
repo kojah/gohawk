@@ -297,6 +297,14 @@ func optionalLoadedGuard(instruction ssa.Instruction, identity string) bool {
 	if loaded, ok := branch.Cond.(*ssa.UnOp); ok && loaded.Op == token.MUL {
 		return true // An SSA If condition is necessarily Boolean.
 	}
+	// A trivial Boolean field getter has the same uncertainty as a direct
+	// load. Its body supplies no promise that separate calls agree. This
+	// deliberately also declines changed-field bugs rather than proving a
+	// release from a construction-time convention.
+	// https://github.com/pion/sctp/blob/a09fb03516289d7cd89bc589ac49ee84ac331c62/stream.go#L324-L350
+	if call, ok := branch.Cond.(*ssa.Call); ok && booleanFieldGetter(call) {
+		return true
+	}
 	comparison, ok := branch.Cond.(*ssa.BinOp)
 	if !ok || (comparison.Op != token.EQL && comparison.Op != token.NEQ) {
 		return false
@@ -308,6 +316,27 @@ func optionalLoadedGuard(instruction ssa.Instruction, identity string) bool {
 		}
 	}
 	return false
+}
+
+func booleanFieldGetter(call *ssa.Call) bool {
+	callee := call.Common().StaticCallee()
+	if callee == nil || len(callee.Params) != 1 || len(call.Common().Args) != 1 || len(callee.Blocks) != 1 {
+		return false
+	}
+	instructions := callee.Blocks[0].Instrs
+	if len(instructions) != 3 {
+		return false
+	}
+	field, ok := instructions[0].(*ssa.FieldAddr)
+	if !ok || field.X != callee.Params[0] {
+		return false
+	}
+	loaded, ok := instructions[1].(*ssa.UnOp)
+	if !ok || loaded.Op != token.MUL || loaded.X != field {
+		return false
+	}
+	returned, ok := instructions[2].(*ssa.Return)
+	return ok && len(returned.Results) == 1 && returned.Results[0] == loaded
 }
 
 // mutexForms are the wrappers a mutex keeps its origin through.
