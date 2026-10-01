@@ -15,6 +15,7 @@ const (
 	reasonWaitOwnershipProven
 	reasonUnownedReturn
 	reasonAmbiguousWaitOwnership
+	reasonUnusedCommandOwnershipUnknown
 	processReasonCount
 )
 
@@ -40,6 +41,8 @@ func (reason processReason) String() string {
 		return "unowned-return"
 	case reasonAmbiguousWaitOwnership:
 		return "ambiguous-wait-ownership"
+	case reasonUnusedCommandOwnershipUnknown:
+		return "unused-command-ownership-unknown"
 	default:
 		return "invalid-process-reason"
 	}

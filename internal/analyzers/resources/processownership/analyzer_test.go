@@ -29,6 +29,7 @@ func TestAnalyzer(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := map[string]bool{}
+	unusedDecisions := 0
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event processTraceEvent
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
@@ -37,7 +38,17 @@ func TestAnalyzer(t *testing.T) {
 		if event.Phase == "decision" {
 			found[event.Outcome] = true
 		}
+		if event.Phase == "decision" && strings.HasSuffix(event.Function, ".launchBrowser") {
+			unusedDecisions++
+			if event.Outcome != "unknown" || event.Reason != "unused-command-ownership-unknown" ||
+				!strings.Contains(event.Candidate, "processownership.go:") {
+				t.Errorf("unused command must retain uncertain ownership: %+v", event)
+			}
+		}
 		assertProcessTraceBoundary(t, event, found)
+	}
+	if unusedDecisions != 1 {
+		t.Errorf("unused command: want one final decision, got %d", unusedDecisions)
 	}
 	for _, outcome := range []string{
 		"accepted", "rejected", "unknown", "merged-wait-proven", "helper-result", "returned-handle-owner", "immediate-process-guard",

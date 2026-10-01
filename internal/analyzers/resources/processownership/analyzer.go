@@ -179,15 +179,9 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 			AfterCallSuccess: start, Owns: owns, AllowReturn: allowReturn, Assume: assumptions,
 		})
 	}
-	leaks := witness != nil
-	emitProcessDecision(pass, function, start, command, leaks, unknown)
-	if !leaks {
-		return
-	}
-	// Fire-and-forget alone cannot distinguish an intentional browser or
-	// daemon launch from a defect. Retiring the detached audit must not
-	// broaden missing-wait to report those same uncertain launches.
-	if commandUnusedAfterStart(start, command) {
+	decision := decideProcessReturn(start, command, witness, unknown)
+	emitProcessDecision(pass, function, start, command, decision)
+	if decision.state != ssaflow.EvidenceProven {
 		return
 	}
 	subject := "the command"
@@ -200,30 +194,6 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 		End:     source.End(),
 		Message: "started command is not waited on every successful return path",
 		Related: check.ReturnEvidence(pass, start, witness, "waiting for "+subject),
-	})
-}
-
-func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa.Call, command ssa.Value, leaks, unknown bool) {
-	checkID := string(check.ProcessWait)
-	if !analysisTrace.Enabled("processownership", checkID) {
-		return
-	}
-	outcome, reason := analysisTrace.OutcomeAccepted, reasonWaitOwnershipProven
-	if leaks {
-		outcome, reason = analysisTrace.OutcomeRejected, reasonUnownedReturn
-	} else if unknown {
-		outcome, reason = analysisTrace.OutcomeUnknown, reasonAmbiguousWaitOwnership
-	}
-	details := map[string]string{}
-	if command != nil && command.Type() != nil {
-		details["command_type"] = command.Type().String()
-	}
-	analysisTrace.For(pass, "processownership", checkID, start.Pos()).Decision(analysisTrace.Step{
-		Reason:   reason.String(),
-		Outcome:  outcome,
-		Pos:      start.Pos(),
-		Function: function.String(),
-		Details:  details,
 	})
 }
 

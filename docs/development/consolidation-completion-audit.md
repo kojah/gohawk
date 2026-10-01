@@ -51,6 +51,37 @@ five justified domain-adapter groups above. This proves only the disposition
 of this candidate set. It does not find partial duplication, differently
 structured equivalent predicates, small bodies, or code outside `internal/`.
 
+## Final-decision mismatch found during catalog review
+
+At `015bc08`, `processownership.reportStartedCommand` emitted its final trace
+before its existing `commandUnusedAfterStart` suppression. The browser-launch
+fixture was correctly silent but traced `unowned-return` as rejected. A focused
+trace regression reproduced this mismatch on the parent.
+
+Beads `gohawk-dho.25` moves that final suppression into `decideProcessReturn`.
+Its structured state and reason are consumed by reporting and tracing: an
+uncovered unused command is unknown, a reportable unowned return is proven,
+and a fully covered flow retains its accepted/ambiguous outcome. The command
+use query still runs only after an uncovered return is found, preserving the
+existing query order and diagnostic boundary. Earlier pre-Start suppression
+paths remain separate; this does not claim complete tracing coverage.
+
+The focused analyzer tests cover exactly one unknown browser-launch decision
+and retain the accepted/rejected/opaque-handoff assertions. Parent/current
+fixture JSON and the traced invocation are recorded under
+`.build/goal-process-decision-*`; they compare diagnostic output independently
+of the corrected trace. Both `-enable-all -json` fixture invocations exit 3
+with empty stderr and identical nonempty diagnostic JSON (31,707 bytes).
+The final traced receipt is `.build/goal-process-decision-all.trace.jsonl`;
+the earlier invocations without all checks produced empty output and are not
+used as equivalence evidence. Canonical `make verify` passes, including the
+ordinary suite (54 seconds), formatting, vet, lint, dead-code and local
+dogfood (`.build/goal-process-decision-verify.log`). No full precision corpus
+or local race run was performed. No audited FP removal is credited.
+
+This finding confirms why a complete decision-owner review is still required
+even after duplicate-body consolidation.
+
 ## Next verification
 
 The remaining architecture audit must trace decision ownership across the

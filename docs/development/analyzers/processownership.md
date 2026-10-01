@@ -13,6 +13,14 @@ Reading a field of the handle, such as logging the child's PID, does not
 count as handing it on. The `missing-wait` check reports handles that are
 waited on or released on some paths but not all.
 
+The post-Start reporting decision includes that unused-handle boundary before
+emitting its final trace. An uncovered return whose command is unused produces
+`unused-command-ownership-unknown`, rather than a rejected `unowned-return`
+decision followed by silent suppression. Reporting and tracing consume the
+same structured decision; this changes trace accuracy, not diagnostics.
+The browser-launch fixture and trace assertion pin this distinction alongside
+accepted waits, opaque handoffs and reported partial waits.
+
 A command captured by a callback passed to an opaque runner is an uncertain
 handoff, not a proven leak or a guaranteed wait. The same rule applies when
 that runner is launched with `go`, including an imported panic-reporting
