@@ -102,6 +102,16 @@ A successful `errors.As` match on the exact acquisition error also establishes
 failure. Matching an unrelated or joined error, or failing to match a type,
 does not prove that the resource was never acquired.
 
+`errors.Is` establishes the same failure on its true arm when the first
+argument is the exact acquisition error and the target is a documented non-nil
+filesystem sentinel, `context.Canceled`, or `context.DeadlineExceeded`. The
+filesystem and context contracts share the sentinel lookup but retain distinct
+trace reasons. An unrelated error, a joined error containing an independent
+matching member, a possibly nil target, or a false match leaves acquisition
+possible. Fixtures: `resourcelifetime/context_error_guards.go` and
+`resourcelifetime/error_guards.go`. The context boundary is exercised by
+[cute's timeout handling](https://github.com/ozontech/cute/blob/9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3/roundtripper.go#L76-L91).
+
 A visible boolean error helper can establish the same failed-acquisition
 branch when every normal return for the exact nil error is literally false.
 This includes callbacks passed through immutable lexical captures. All capture

@@ -133,3 +133,17 @@ func sentinelInequalityCanSucceed(path string) error {
 	defer file.Close()
 	return nil
 }
+
+// Including the acquisition error in a joined error does not make a match
+// evidence of acquisition failure: the sentinel is a separate joined member.
+func joinedFilesystemErrorCanSucceed(path string) error {
+	file, err := os.Open(path) // want "owned resource from os.Open is not released"
+	if errors.Is(errors.Join(err, os.ErrNotExist), os.ErrNotExist) {
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return nil
+}

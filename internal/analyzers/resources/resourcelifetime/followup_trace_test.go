@@ -32,8 +32,24 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 	events := decodeFollowupTrace(t, data)
 	assertHTTPBoundaryTrace(t, events)
 	assertCleanupBoundaryTrace(t, events)
+	assertContextErrorGuardTrace(t, events)
 	assertUncertainEdgeTrace(t, events, "repeated-guard-edge-unknown", "guard_facts.go:")
 	assertUncertainEdgeTrace(t, events, "rows-exhausted-edge-unknown", "sql_")
+}
+
+func assertContextErrorGuardTrace(t *testing.T, events []followupTraceEvent) {
+	t.Helper()
+	for _, event := range events {
+		if event.Details["proof"] != "errors-is-non-nil-context-sentinel" {
+			continue
+		}
+		if event.Reason != "acquisition-error-proven" || event.Phase != "evidence" || event.Outcome != "accepted" ||
+			!strings.Contains(event.Candidate, "context_error_guards.go:") {
+			t.Errorf("unexpected context error guard trace: %+v", event)
+		}
+		return
+	}
+	t.Error("missing context sentinel acquisition-error proof")
 }
 
 // A path that re-tests a guard it already took the other way, or leaves a

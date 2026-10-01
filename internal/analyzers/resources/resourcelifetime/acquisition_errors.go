@@ -99,8 +99,8 @@ func resourceAbsentErrorCheck(knowledge *summaries.Provider, condition, errorVal
 	if errorTypeAssertionSucceeded(condition, errorValue) {
 		return resourceReasonErrorTypeAssertionSucceeded, true
 	}
-	if errorsIsNonNilFilesystemSentinel(condition, errorValue) {
-		return resourceReasonErrorsIsNonNilFilesystemSentinel, true
+	if reason, proven := errorsIsNonNilSentinel(condition, errorValue); proven {
+		return reason, true
 	}
 	call, ok := condition.(*ssa.Call)
 	if !ok {
@@ -265,22 +265,33 @@ func errorTypeAssertionSucceeded(condition, errorValue ssa.Value) bool {
 	return ok && assertion.CommaOk && heapmodel.ValueDerivesFrom(assertion.X, errorValue)
 }
 
-func errorsIsNonNilFilesystemSentinel(condition, errorValue ssa.Value) bool {
+// errors.Is(nil, target) is false for a documented non-nil target. Require
+// the acquisition's exact error: errors.Join may include that error yet match
+// another member when the acquisition succeeded. cute handles its HTTP timeout
+// before the general error check:
+// https://github.com/ozontech/cute/blob/9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3/roundtripper.go#L76-L91
+func errorsIsNonNilSentinel(condition, errorValue ssa.Value) (resourceLifetimeReason, bool) {
 	call, ok := condition.(*ssa.Call)
 	if !ok {
-		return false
+		return resourceReasonNone, false
 	}
 	common := call.Common()
-	if !ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("errors", "Is")) || len(common.Args) != 2 {
-		return false
+	if !ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("errors", "Is")) || len(common.Args) != 2 || common.Args[0] != errorValue {
+		return resourceReasonNone, false
 	}
-	if !heapmodel.ValueDerivesFrom(common.Args[0], errorValue) {
-		return false
-	}
-	return isNonNilFilesystemSentinel(common.Args[1])
+	reason := nonNilErrorSentinelReason(common.Args[1])
+	return reason, reason != resourceReasonNone
 }
 
 func isNonNilFilesystemSentinel(value ssa.Value) bool {
+	return nonNilErrorSentinelReason(value) == resourceReasonErrorsIsNonNilFilesystemSentinel
+}
+
+// nonNilErrorSentinelReason recognizes documented standard-library sentinel
+// contracts. A custom error variable, its initializer, and merged targets do
+// not establish non-nilness. Keep the filesystem trace reason stable while
+// giving the context contract its own reason.
+func nonNilErrorSentinelReason(value ssa.Value) resourceLifetimeReason {
 	for {
 		if inner, ok := ssaflow.UnwrapTransparentValue(
 			value,
@@ -292,19 +303,27 @@ func isNonNilFilesystemSentinel(value ssa.Value) bool {
 		switch typed := value.(type) {
 		case *ssa.UnOp:
 			if typed.Op != token.MUL {
-				return false
+				return resourceReasonNone
 			}
 			value = typed.X
 		case *ssa.Global:
-			return ssaflow.ValueMatchesAnySymbol(
+			if ssaflow.ValueMatchesAnySymbol(
 				typed,
 				syntax.PackageVariable("os", "ErrNotExist"),
 				syntax.PackageVariable("os", "ErrExist"),
 				syntax.PackageVariable("io/fs", "ErrNotExist"),
 				syntax.PackageVariable("io/fs", "ErrExist"),
-			)
+			) {
+				return resourceReasonErrorsIsNonNilFilesystemSentinel
+			}
+			if ssaflow.ValueMatchesAnySymbol(typed,
+				syntax.PackageVariable("context", "Canceled"), syntax.PackageVariable("context", "DeadlineExceeded"),
+			) {
+				return resourceReasonErrorsIsNonNilContextSentinel
+			}
+			return resourceReasonNone
 		default:
-			return false
+			return resourceReasonNone
 		}
 	}
 }

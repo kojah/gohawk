@@ -36,6 +36,7 @@ var resourceReasonSpellings = map[resourceLifetimeReason]string{
 	resourceReasonErrorPredicateFalseForNil:                "error-predicate-false-for-nil",
 	resourceReasonErrorTypeAssertionSucceeded:              "error-type-assertion-succeeded",
 	resourceReasonErrorsAsExactAcquisitionError:            "errors-as-exact-acquisition-error",
+	resourceReasonErrorsIsNonNilContextSentinel:            "errors-is-non-nil-context-sentinel",
 	resourceReasonErrorsIsNonNilFilesystemSentinel:         "errors-is-non-nil-filesystem-sentinel",
 	resourceReasonEvidenceNotFound:                         "evidence-not-found",
 	resourceReasonEvidenceUnavailable:                      "evidence-unavailable",
