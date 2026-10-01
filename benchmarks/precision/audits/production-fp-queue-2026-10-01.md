@@ -1,5 +1,9 @@
 # Production false-positive queue refresh
 
+The subsequent [22-site scoped replay](pending-production-fp-replay-2026-10-01.md)
+has completed: every pending location remains reported in a successful package
+scan. The counts below preserve this earlier refresh's evidence snapshot.
+
 This refresh covers the **55 production locations** originally labelled false
 positive in frozen batches 62 and 63. The [per-site queue](production-fp-queue-2026-10-01.tsv)
 keeps every original key, pin, reason, and verdict beside subsequent evidence

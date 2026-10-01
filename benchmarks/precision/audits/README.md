@@ -22,8 +22,9 @@ while the full urunc scan remains incomplete under the CGO-disabled profile.
 The [production FP queue refresh](production-fp-queue-2026-10-01.md) reconciles
 all 55 original production FP locations from batches 62/63 with current scoped
 observations, earlier correction receipts, and the corrected promu judgment.
-It leaves 22 locations needing current replay and keeps historical test labels
-outside the correction counts.
+It kept historical test labels outside correction counts. The subsequent
+[22-site scoped replay](pending-production-fp-replay-2026-10-01.md) successfully
+reproduces every remaining report and isolates the next shared evidence gaps.
 
 After a batch record is committed and every emitted finding has a source
 verdict, the audit runner can remove only its pinned, clean checkouts while
