@@ -76,3 +76,8 @@ The subsequent [imported async correction](imported-async-followup-2026-10-01.md
 also verifies Viewcore’s profiling-writer FP is absent. Four of the original
 22 sites now have verified corrections, leaving 18 unresolved. The original
 replay snapshot and earlier follow-up counts remain historical evidence.
+
+The [remaining-family assessment](remaining-fp-assessment-2026-10-01.md)
+accounts for all 18 unresolved sites, separates policy and identity/order
+requirements from call-target resolution, and preserves the original labels.
+It credits no additional fixes or scans.
