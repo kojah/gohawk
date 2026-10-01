@@ -95,10 +95,10 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 		// A returned callback that captured the value keeps it alive and is the
 		// only thing that can still release it, so the caller receives the
 		// obligation with the callback.
-		for _, binding := range typed.Bindings {
-			if heapmodel.CapturedBindingMatches(binding, value) || search.aggregateStoresValue(ssaflow.CapturedBindingValue(binding), value) {
-				return true
-			}
+		if closureBindingsOwnValue(typed, value, func(binding ssa.Value) bool {
+			return search.aggregateStoresValue(binding, value)
+		}) {
+			return true
 		}
 	case *ssa.UnOp:
 		if search.loadStoresValue(typed, value) {

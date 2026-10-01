@@ -23,6 +23,10 @@ for each; these times include each check's prerequisite passes.
 - `internal/lifecycle` builds completion and ownership-transfer
   proofs from `ssaflow` and `heapmodel`. Analyzers import the layer that owns
   the query they need; neither package forwards the other's API.
+  Callback transfer and aggregate containment keep their distinct policies,
+  while sharing capture-binding identity and cell-content checks. A callback
+  capturing an aggregate can contain a resource without establishing the
+  narrower callback-transfer claim; `store_capture_policy_test.go` pins this.
 - `internal/heapmodel` owns demand-driven storage queries, the per-function
   points-to graph and its cache, heap-summary projection and registration,
   and application at call sites. `heapmodel.Storage` combines reaching-write

@@ -13,6 +13,8 @@ import (
 // returned owner, receiver, deferred cleanup, or escaping container. A call is
 // considered consuming only when its value flow and lifecycle use are visible.
 
+// CallReturnsDeferredCleanup reports whether a call consumes value and one of
+// its function results is subsequently deferred by the caller.
 func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bool {
 	call, ok := instruction.(*ssa.Call)
 	if !ok {

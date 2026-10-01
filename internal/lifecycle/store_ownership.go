@@ -43,8 +43,6 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 	return false
 }
 
-// StoresValueInField reports whether instruction transfers value into a struct field.
-
 // MayContainValue reports whether owner may be an aggregate or closure that
 // transitively contains value. Possible containment only: it can hide a
 // diagnostic behind an opaque owner, never prove that the owner settles it.
@@ -90,14 +88,20 @@ func valueOwnsValue(owner, value ssa.Value, seen map[ssa.Value]bool) bool {
 		return valueOwnsValue(inner, value, seen)
 	}
 	if typed, ok := owner.(*ssa.MakeClosure); ok {
-		for _, binding := range typed.Bindings {
-			if heapmodel.CapturedBindingMatches(binding, value) || valueOwnsValue(ssaflow.CapturedBindingValue(binding), value, seen) {
-				return true
-			}
-		}
+		return closureBindingsOwnValue(typed, value, func(binding ssa.Value) bool {
+			return valueOwnsValue(binding, value, seen)
+		})
 	}
 	return false
 }
 
-// CallReturnsDeferredCleanup reports whether a call consumes value and one of
-// its function results is subsequently deferred by the caller.
+// Capture identity and cell contents are shared mechanics. The caller chooses
+// whether to follow only nested callbacks or also owning aggregates.
+func closureBindingsOwnValue(closure *ssa.MakeClosure, value ssa.Value, owns func(ssa.Value) bool) bool {
+	for _, binding := range closure.Bindings {
+		if heapmodel.CapturedBindingMatches(binding, value) || owns(ssaflow.CapturedBindingValue(binding)) {
+			return true
+		}
+	}
+	return false
+}

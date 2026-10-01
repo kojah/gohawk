@@ -39,6 +39,9 @@ func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Va
 func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bool
 ```
 
+CallReturnsDeferredCleanup reports whether a call consumes value and one of
+its function results is subsequently deferred by the caller.
+
 ## CallTransfersArgumentToLifecycleOwner
 
 [Source](../../../../internal/lifecycle/store_transfers.go)
@@ -649,8 +652,9 @@ value is installed on a receiver or caller-owned struct.
 func StoresOwnerOfValueInField(instruction ssa.Instruction, value ssa.Value) bool
 ```
 
-StoresOwnerOfValueInField reports whether instruction stores a callback or
-aggregate that transitively captures value into a struct field.
+StoresOwnerOfValueInField reports whether instruction stores value or a
+callback that transitively captures it into a struct field. General aggregate
+containment belongs to MayContainValue and does not establish this transfer.
 
 ## StoresValueInEnclosingScope
 
@@ -683,6 +687,8 @@ an owner that already outlives the function or is subsequently transferred.
 ```go
 func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool
 ```
+
+StoresValueInField reports whether instruction transfers value into a struct field.
 
 ## StoresValueInGlobal
 

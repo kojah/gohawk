@@ -13,6 +13,7 @@ import (
 // callers, receivers, closures, globals, and escaping aggregates. The helpers
 // require a traceable stored value or owner so ambiguous aliases remain local.
 
+// StoresValueInField reports whether instruction transfers value into a struct field.
 func StoresValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
 	if !ok || !heapmodel.MayAlias(store.Val, value) {
@@ -52,8 +53,9 @@ func SendsValue(instruction ssa.Instruction, value ssa.Value) bool {
 	return ok && heapmodel.MayAlias(send.X, value)
 }
 
-// StoresOwnerOfValueInField reports whether instruction stores a callback or
-// aggregate that transitively captures value into a struct field.
+// StoresOwnerOfValueInField reports whether instruction stores value or a
+// callback that transitively captures it into a struct field. General aggregate
+// containment belongs to MayContainValue and does not establish this transfer.
 func StoresOwnerOfValueInField(instruction ssa.Instruction, value ssa.Value) bool {
 	store, ok := instruction.(*ssa.Store)
 	if !ok {
