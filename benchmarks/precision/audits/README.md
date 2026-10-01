@@ -1978,3 +1978,8 @@ Viewcore’s profiling-writer report by consuming an async effect already in its
 imported heap fact. The traced scoped replay isolates unknown ownership and a
 complete Cute control scan retains its reviewed resource leak. Eighteen sites
 in the bounded queue remain unresolved.
+
+The [callback engine consolidation](callback-engine-consolidation-2026-10-01.md)
+shares invocation proofs between ordinary calls and spawned wrapper bodies.
+Scoped controls retain the stargz worker report and Lynx's corrected absence.
+No additional FP removals or full repository scans are credited.
