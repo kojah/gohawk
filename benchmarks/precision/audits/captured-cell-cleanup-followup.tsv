@@ -1,0 +1,4 @@
+# repository	revision	analyzer	position	check	original_verdict	scoped_result
+anton48/vk-turn-proxy-ios	001caf2ae24ecd07b021d7ca7b14a98a006bff65	resourcelifetime	third_party/speedtest-go/speedtest/server.go:262:15	resourcelifetime/missing-release	false-positive	absent
+ozontech/cute	9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3	resourcelifetime	test.go:614:13	resourcelifetime/missing-release	true-positive	retained
+basecamp/basecamp-cli	d91fc7b3ae5ee3c54a7fea389f59e791173e647b	resourcelifetime	internal/commands/connect_worker_mcp_unix.go:19:22	resourcelifetime/missing-release	true-positive	retained

@@ -1916,6 +1916,12 @@ site in the kubernetes run.
 
 ## Historical 500-repository audit summary
 
+The [captured-cell cleanup follow-up](captured-cell-cleanup-followup.md)
+corrects batch 63's speedtest fallback-request report by reusing the existing
+deferred-cell uncertainty boundary. Package-scoped scans establish the FP's
+absence and retain two production leak controls; the proxy root module remains
+incompletely loadable. This is a scoped correction, not a new repository batch.
+
 Five hundred repositories were reviewed across forty-six batches. The
 recorded rounds pin every corrected false positive and a sample of true
 positives, and `make precision-regression` replays them all. The last five
