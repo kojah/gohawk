@@ -7,26 +7,6 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-func callbackCaptureReadOnly(closure *ssa.MakeClosure, cell ssa.Value, budget *ssaflow.SearchBudget) bool {
-	function, ok := closure.Fn.(*ssa.Function)
-	if !ok {
-		return false
-	}
-	query := ssaflow.NewCallEffects(budget)
-	for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !budget.Spend() {
-			return false
-		}
-		if pair.Binding != cell {
-			continue
-		}
-		if !query.Value(pair.Free).PreservesStorage() {
-			return false
-		}
-	}
-	return true
-}
-
 // Projection stability proves that an exact field or constant-index path still
 // names storage owned by its original root at one observation. Assigning or
 // exposing either the root or selected address before that observation stops

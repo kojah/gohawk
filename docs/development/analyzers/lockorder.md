@@ -6,6 +6,21 @@ why. Update it with the fixtures when a boundary changes.
 
 ## Rationale in detail
 
+### Deferred cleanup through a captured owner
+
+A deferred closure may release an embedded mutex through its captured owner
+pointer. The shared lifecycle mapping first proves the captured cell's contents
+remain stable through cleanup, then matches the mutex's exact field path beneath
+that owner. Writing another owner field does not replace the captured pointer;
+unlocking a sibling mutex does not settle the obligation. Reassignment and
+opaque mutation of the captured cell establish no cleanup guarantee.
+
+`captured_owner_handoff.go` pins an unchanged owner handed to a callback,
+a real missing unlock after that handoff, and a deferred unlock around a loop
+that temporarily releases and reacquires the mutex. Shared completion tests
+cover sibling fields and owner-cell mutation. The deferred loop is minimized
+from [Basecamp's queue drain](https://github.com/basecamp/basecamp-cli/blob/d91fc7b3ae5ee3c54a7fea389f59e791173e647b/internal/connector/queue.go#L264-L290).
+
 ### Which locks are compared
 
 Two mutexes held in a package variable are compared as the individual locks

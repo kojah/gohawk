@@ -108,6 +108,16 @@ func (search *completionSearch) capturedLocal(
 // cannot read, is not mapped; a later reassignment is exactly the case a
 // store-time reading would get wrong.
 func (search *completionSearch) deferredCellLocal(free ssa.Value, cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction) (mappedLocal, bool) {
+	// A captured owner cell holds the object, not its embedded mutex.
+	// Prove the cell remains stable, then bind the exact storage path as
+	// argumentLocal does. Reassignment keeps this mapping unavailable.
+	// https://github.com/basecamp/basecamp-cli/blob/d91fc7b3ae5ee3c54a7fea389f59e791173e647b/internal/connector/queue.go#L264-L290
+	stored := heapmodel.NewStorage(search.budget).StableContent(cell, invocation)
+	if stored.Proven() {
+		if owner := sameValueStorageOwner(target, stored.Value); owner != nil {
+			return mappedLocal{local: free, supplied: owner, kind: localOwner}, true
+		}
+	}
 	relation, known := heapmodel.DeferredCellRelation(cell, target, invocation)
 	if !known {
 		return mappedLocal{}, false
@@ -151,14 +161,6 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: argument, kind: localCallback}, true
 	case heapmodel.StrictProjectionPath(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
-	case storageAddressFrom(target, argument):
-		// The target is storage inside the argument, such as a mutex held by
-		// value in a struct, not a value the argument stores. Settling it
-		// needs the same storage beneath the callee's local; settling a
-		// sibling field is not settling the target. libovsdb's monitor locks
-		// and unlocks rpc while its caller holds monitors in the same client:
-		// https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
-		return mappedLocal{local: parameter, supplied: argument, kind: localOwner}, true
 	case sameValueStorageOwner(target, argument) != nil:
 		// The same storage beneath an owner proven to be the argument: a
 		// receiver captured by a closure is spilled to a cell written once,
@@ -176,20 +178,20 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 	return mappedLocal{}, false
 }
 
-// storageAddressFrom reports whether target is the address of a field or
-// element reached from argument by a static access path.
-func storageAddressFrom(target, argument ssa.Value) bool {
+// sameValueStorageOwner returns the root of target's static field or element
+// path when that root is argument or proven to be the same value, and nil
+// otherwise. The target is storage beneath the owner, not its stored value;
+// a matching cleanup must select the same path, never a sibling field.
+// https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
+func sameValueStorageOwner(target, argument ssa.Value) ssa.Value { //nolint:ireturn // SSA values keep their concrete forms.
 	switch target.(type) {
 	case *ssa.FieldAddr, *ssa.IndexAddr:
-		return ssaflow.ValueIsAccessPathFrom(target, argument)
+		if ssaflow.ValueIsAccessPathFrom(target, argument) {
+			return argument
+		}
+	default:
+		return nil
 	}
-	return false
-}
-
-// sameValueStorageOwner returns the root of target's static field or element
-// path when that root is not argument itself but is proven to be the same
-// value, and nil otherwise.
-func sameValueStorageOwner(target, argument ssa.Value) ssa.Value { //nolint:ireturn // SSA values keep their concrete forms.
 	root := target
 	for {
 		switch address := root.(type) {
@@ -202,8 +204,8 @@ func sameValueStorageOwner(target, argument ssa.Value) ssa.Value { //nolint:iret
 		}
 		break
 	}
-	if root == target || root == argument || !ssaflow.ValueIsAccessPathFrom(target, root) ||
-		!heapmodel.DefinitelySameValue(root, argument) {
+	if root == target || !ssaflow.ValueIsAccessPathFrom(target, root) ||
+		root != argument && !heapmodel.DefinitelySameValue(root, argument) {
 		return nil
 	}
 	return root

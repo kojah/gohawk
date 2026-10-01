@@ -261,7 +261,7 @@ func (storage *Storage) collectUse(address ssa.Value, use, observation ssa.Instr
 		*stores = append(*stores, typed)
 		return nil, true
 	case *ssa.MakeClosure:
-		return use, callbackCaptureReadOnly(typed, address, storage.budget)
+		return use, ssaflow.CallbackCaptureReadOnly(typed, address, storage.budget)
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
 		return use, storage.effects.Call(use, address).PreservesStorage()
 	case *ssa.Slice:

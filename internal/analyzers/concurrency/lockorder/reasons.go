@@ -9,6 +9,7 @@ const (
 	lockReasonConditionalCallerReleaseProven
 	lockReasonConditionalCallerReleaseUnknown
 	lockReasonCrossOwnerClassUnknown
+	lockReasonDeferredReleaseProven
 	lockReasonCycleOrderRecorded
 	lockReasonExclusiveObjectBeforePublication
 	lockReasonExclusiveParameterFromFreshCallers
@@ -33,6 +34,7 @@ var lockReasonCodes = [...]string{
 	lockReasonConditionalCallerReleaseProven:      "conditional-caller-release-proven",
 	lockReasonConditionalCallerReleaseUnknown:     "conditional-caller-release-unknown",
 	lockReasonCrossOwnerClassUnknown:              "cross-owner-class-unknown",
+	lockReasonDeferredReleaseProven:               "deferred-release-proven",
 	lockReasonCycleOrderRecorded:                  "cycle-order-recorded",
 	lockReasonExclusiveObjectBeforePublication:    "exclusive-object-before-publication",
 	lockReasonExclusiveParameterFromFreshCallers:  "exclusive-parameter-from-fresh-callers",

@@ -6,9 +6,11 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -157,7 +159,7 @@ func walkLockOrderBounded(
 			// when guarded by state. This supports early-unlock patterns where the
 			// defer handles only earlier returns:
 			// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/integration/nri_test.go#L1287-L1300
-			deferred = recordDeferredUnlocks(evidence, instruction, held, deferred, lockValues, released)
+			deferred = flow.recordDeferredUnlocks(instruction, held, deferred)
 			effect, ok := directMutexEffect(instruction)
 			if !ok {
 				flow.recordCalledOrder(instruction, held, origins)
@@ -387,31 +389,34 @@ func transferSpawnedUnlocks(
 	return held
 }
 
-func recordDeferredUnlocks(
-	evidence *lifecycle.LocalEvidence,
+func (flow lockFlowContext) recordDeferredUnlocks(
 	instruction ssa.Instruction,
 	held, deferred []string,
-	lockValues map[string][]ssa.Value,
-	released map[string]bool,
 ) []string {
 	if _, ok := instruction.(*ssa.Defer); !ok {
 		return deferred
 	}
 	for _, identity := range slices.Clone(held) {
-		for _, value := range lockValues[identity] {
+		probe := analysisTrace.For(flow.pass, "lockorder", string(check.LockMissingRelease), flow.acquiredAt[identity])
+		for _, value := range flow.lockValues[identity] {
 			// A deferred literal that releases on some path makes the release
 			// data-dependent, typically through an "already unlocked" flag.
 			// Missing-release diagnostics need the release to be impossible, so
 			// this asks only whether the defer may unlock.
-			proof := evidence.Completion(lifecycle.CompletionRequest{
+			proof := flow.evidence.Completion(lifecycle.CompletionRequest{
 				Instruction: instruction,
 				Target:      value,
 				Methods:     []string{"Unlock", "RUnlock"},
 				Coverage:    lifecycle.CoverageAnywhere,
-				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
+				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget).Observed(probe.Observer()),
 			})
 			if releaseSettled(proof, ssaflow.EvidenceDeferredCompletion) {
-				released[identity] = true
+				if proof.Proven() && !slices.Contains(deferred, identity) {
+					probe.Evidence(analysisTrace.Step{
+						Reason: lockReasonDeferredReleaseProven.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
+					})
+				}
+				flow.released[identity] = true
 				deferred = appendUniqueString(deferred, identity)
 				break
 			}

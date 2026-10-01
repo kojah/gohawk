@@ -56,6 +56,7 @@ func TestLockTraceBoundaries(t *testing.T) {
 	checkDecisionTrace(t, data, "fresh-field-identity-unknown", "escaped_fresh_field.go:", "unknown")
 	checkDecisionTrace(t, data, "cross-owner-class-unknown", "cross_owner_orders.go:", "unknown")
 	checkHelperReleaseTrace(t, data)
+	checkDeferredOwnerReleaseTrace(t, data)
 	found := false
 	foundUnknown := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
@@ -86,6 +87,24 @@ func TestLockTraceBoundaries(t *testing.T) {
 	if !foundUnknown {
 		t.Error("missing optional mutex uncertainty")
 	}
+}
+
+func checkDeferredOwnerReleaseTrace(t *testing.T, data []byte) {
+	t.Helper()
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+		var event lockTraceEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		if event.Reason != "deferred-release-proven" || !strings.Contains(event.Candidate, "captured_owner_handoff.go:") {
+			continue
+		}
+		if event.Phase != "evidence" || event.Outcome != "accepted" || event.Position == "" || event.Position == event.Candidate {
+			t.Fatalf("unexpected deferred owner cleanup evidence: %+v", event)
+		}
+		return
+	}
+	t.Fatal("missing deferred owner cleanup evidence")
 }
 
 func checkDecisionTrace(t *testing.T, data []byte, reason, file, outcome string) {
