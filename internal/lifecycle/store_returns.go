@@ -11,6 +11,8 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// ReturnedValueOwnsValue reports whether any returned value carries value,
+// directly or inside an aggregate or callback.
 func ReturnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
 	return newOwnershipSearch(nil).returnedValueOwnsValue(returned, value)
 }

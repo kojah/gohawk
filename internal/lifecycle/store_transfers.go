@@ -58,7 +58,7 @@ func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa
 		return false
 	}
 	callee := staticCalleeBody(call.Common())
-	if callee == nil || !valueTransferred(call, map[ssa.Value]bool{}) {
+	if callee == nil || !valueTransferred(call) {
 		return false
 	}
 	for index, argument := range call.Common().Args {
@@ -108,7 +108,7 @@ func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Valu
 	}
 	common, callee := call.Common(), call.Common().StaticCallee()
 	receiver := ssaflow.CallReceiver(common)
-	if receiver == nil || len(callee.Params) == 0 || !ssaflow.ExternallyOwnedValue(receiver) && !valueTransferred(receiver, map[ssa.Value]bool{}) {
+	if receiver == nil || len(callee.Params) == 0 || !ssaflow.ExternallyOwnedValue(receiver) && !valueTransferred(receiver) {
 		return false
 	}
 	for index, argument := range common.Args {
@@ -153,7 +153,7 @@ func storesParameterInReceiverField(candidate ssa.Instruction, receiver, paramet
 // confinement proof: false says nothing about opaque retention or other escapes.
 // Use heapmodel.QueryEscape when the question is whether an object stays local.
 func ValueHasTransferUse(value ssa.Value) bool {
-	return valueTransferred(value, map[ssa.Value]bool{})
+	return valueTransferred(value)
 }
 
 // CallTransfersArgumentToLifecycleOwner recognizes a consumed value only when
@@ -198,7 +198,7 @@ func callReturnsLifecycleOwner(call *ssa.Call, instruction ssa.Instruction) bool
 
 func lifecycleOwnerEscapes(owner ssa.Value, instruction ssa.Instruction) bool {
 	return ssaflow.ExternallyOwnedValue(owner) ||
-		valueTransferred(owner, map[ssa.Value]bool{}) ||
+		valueTransferred(owner) ||
 		valueLifecycleUsed(owner, instruction)
 }
 
@@ -237,7 +237,3 @@ func valueLifecycleUsed(value ssa.Value, after ssa.Instruction) bool {
 	}
 	return false
 }
-
-// ReturnedValueOwnsValue reports whether a returned aggregate contains value
-// in one of its fields. This recognizes constructors that transfer cleanup to
-// a newly returned owner instead of returning the resource itself.

@@ -86,7 +86,7 @@ func StoresValueInEscapingField(instruction ssa.Instruction, value ssa.Value) bo
 		return false
 	}
 	field, ok := store.Addr.(*ssa.FieldAddr)
-	return ok && (ssaflow.ExternallyOwnedValue(field.X) || valueTransferred(field.X, map[ssa.Value]bool{}))
+	return ok && (ssaflow.ExternallyOwnedValue(field.X) || valueTransferred(field.X))
 }
 
 func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool {
@@ -100,7 +100,7 @@ func StoresValueInOwnedMap(instruction ssa.Instruction, value ssa.Value) bool {
 // ClosureCapturesValue reports whether instruction creates a closure that owns value.
 func ClosureCapturesValue(instruction ssa.Instruction, value ssa.Value) bool {
 	closure, ok := instruction.(*ssa.MakeClosure)
-	if !ok || !valueTransferred(closure, map[ssa.Value]bool{}) {
+	if !ok || !valueTransferred(closure) {
 		return false
 	}
 	for _, binding := range closure.Bindings {
@@ -111,54 +111,43 @@ func ClosureCapturesValue(instruction ssa.Instruction, value ssa.Value) bool {
 	return false
 }
 
-func valueTransferred(value ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] || value.Referrers() == nil {
-		return false
-	}
-	seen[value] = true
-	for _, reference := range *value.Referrers() {
-		if referenceTransfersValue(reference, value, seen) {
-			return true
-		}
-	}
-	return false
+func valueTransferred(value ssa.Value) bool {
+	return valueHasForwardUse(value, referenceTransfersValue)
 }
 
-func referenceTransfersValue(reference ssa.Instruction, value ssa.Value, seen map[ssa.Value]bool) bool {
+func referenceTransfersValue(value ssa.Value, reference ssa.Instruction) ([]ssa.Value, bool) {
 	switch typed := reference.(type) {
 	case *ssa.Return:
-		return true
+		return nil, true
 	case *ssa.Call:
 		// Fluent builders preserve an escaping owner through same-typed links.
 		// https://github.com/erpc/erpc/blob/2b7e807d7d147422cf47c473153eaf9979afdcc9/clients/http_json_rpc_client.go#L755-L771
 		receiver := ssaflow.CallReceiver(typed.Common())
-		return receiver != nil && heapmodel.MayAlias(receiver, value) &&
-			types.Identical(typed.Type(), value.Type()) && valueTransferred(typed, seen)
+		if receiver != nil && heapmodel.MayAlias(receiver, value) && types.Identical(typed.Type(), value.Type()) {
+			return []ssa.Value{typed}, false
+		}
 	case *ssa.Store:
-		return storeTransfersValue(typed, seen)
+		return storeTransferUses(typed)
 	}
-	forwarded, ok := ssaflow.ForwardedValue(reference)
-	return ok && valueTransferred(forwarded, seen)
+	return nil, false
 }
 
-func storeTransfersValue(store *ssa.Store, seen map[ssa.Value]bool) bool {
+func storeTransferUses(store *ssa.Store) ([]ssa.Value, bool) {
 	if _, ok := store.Addr.(*ssa.FieldAddr); ok {
-		return true
+		return nil, true
 	}
 	if _, ok := store.Addr.(*ssa.Alloc); !ok || store.Addr.Referrers() == nil {
-		return false
+		return nil, false
 	}
+	var loads []ssa.Value
 	for _, use := range *store.Addr.Referrers() {
 		load, ok := use.(*ssa.UnOp)
-		if ok && load.Op == token.MUL && valueTransferred(load, seen) {
-			return true
+		if ok && load.Op == token.MUL {
+			loads = append(loads, load)
 		}
 	}
-	return false
+	return loads, false
 }
-
-// CallTransfersArgumentToReturnedOwner reports whether a source-visible
-// constructor stores an argument in an aggregate it returns.
 
 // CallTransfersValueToField reports whether a call consumes value and stores
 // its result in a struct field, transferring cleanup to the receiving owner.
@@ -171,24 +160,41 @@ func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) boo
 	for _, argument := range call.Common().Args {
 		usesValue = usesValue || heapmodel.MayAlias(argument, value)
 	}
-	return usesValue && valueStoredInField(call, map[ssa.Value]bool{})
+	return usesValue && valueStoredInField(call)
 }
 
-func valueStoredInField(value ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] || value.Referrers() == nil {
-		return false
-	}
-	seen[value] = true
-	for _, reference := range *value.Referrers() {
+func valueStoredInField(value ssa.Value) bool {
+	return valueHasForwardUse(value, func(_ ssa.Value, reference ssa.Instruction) ([]ssa.Value, bool) {
 		if store, isStore := reference.(*ssa.Store); isStore {
-			if _, isField := store.Addr.(*ssa.FieldAddr); isField {
-				return true
+			_, isField := store.Addr.(*ssa.FieldAddr)
+			return nil, isField
+		}
+		return nil, false
+	})
+}
+
+// valueHasForwardUse shares referrer enumeration, ForwardedValue transitions
+// and cycle handling. Its caller adds query-specific transitions and positive
+// witnesses; finding a use says nothing about cleanup coverage or other uses.
+func valueHasForwardUse(value ssa.Value, step func(ssa.Value, ssa.Instruction) ([]ssa.Value, bool)) bool {
+	found := false
+	ssaflow.WalkStates([]ssa.Value{value}, func(value ssa.Value) ssa.Value { return value }, func(value ssa.Value) ([]ssa.Value, bool) {
+		if value == nil || value.Referrers() == nil {
+			return nil, true
+		}
+		var successors []ssa.Value
+		for _, reference := range *value.Referrers() {
+			next, matched := step(value, reference)
+			if matched {
+				found = true
+				return nil, false
 			}
-			continue
+			if forwarded, ok := ssaflow.ForwardedValue(reference); ok {
+				successors = append(successors, forwarded)
+			}
+			successors = append(successors, next...)
 		}
-		if forwarded, ok := ssaflow.ForwardedValue(reference); ok && valueStoredInField(forwarded, seen) {
-			return true
-		}
-	}
-	return false
+		return successors, true
+	})
+	return found
 }

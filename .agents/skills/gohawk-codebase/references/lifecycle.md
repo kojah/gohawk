@@ -559,6 +559,9 @@ it through the shared observation-time storage model.
 func ReturnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool
 ```
 
+ReturnedValueOwnsValue reports whether any returned value carries value,
+directly or inside an aggregate or callback.
+
 ## ReturnedValueOwnsValueSummarized
 
 [Source](../../../../internal/lifecycle/store_returns.go)
