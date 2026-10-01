@@ -82,6 +82,11 @@ recorded in [retired precision labels](../../docs/development/decisions/retired-
 
 ## Which check a label names
 
+[Round 63](round-63/README.md) preserves batch 63's three returned-slice file
+corrections and two production resource-leak controls. All five labels pass
+across three fully scannable repositories. The correction reuses the shared
+returned-owner traversal for stores through the slice's element addresses.
+
 [Round 62](round-62/README.md) preserves batch 63's returned process-handle
 owner correction and one genuine missing-wait control. Both labels pass across
 two fully scannable repositories; the returned owner is uncertain ownership,
