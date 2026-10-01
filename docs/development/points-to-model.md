@@ -59,22 +59,28 @@ honest: an entry carried around a back edge whose object was created inside
 the loop is marked *stale*, because the pointer then denotes an earlier
 iteration's object. A stale entry supports may-answers only.
 
-A dynamically indexed whole-aggregate load currently creates a clobbered
-snapshot. Consequently, ranging over a local table of structs containing
-caller field addresses loses the destination evidence; the same happens for
-local field addresses. `ExclusiveAt` cannot distinguish these cases. Its
-failure is unknown evidence, not proof that the destination is local. A single
-struct copy preserves the address, and replacing its pointer with a local
-address changes the ownership answer. `store_destination_exclusivity_test.go`
-covers these boundaries, including nil, opaque, and mixed destinations.
+A dynamically indexed struct copy preserves bounded reference fields when its
+array or slice window is known and has at most 16 elements. Each copied field
+contains the union of destinations from every possible element; an unwritten,
+nil, opaque, or stale alternative cannot become a must-answer. Nested struct
+fields use the same depth and slot limits as summary projection. Pointers stay
+leaves and nested arrays remain unknown. A snapshot remains clobbered outside
+its materialized fields. Dynamic writes beneath the source's elements retain
+unknown evidence until descendant wildcard writes have a complete content
+model; fixed writes and replaced pointers are read at the copy point.
 
-The outstanding [ferro statement-storage finding](https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/internal/admin/repository/sql_store.go#L73-L99)
-(`gohawk-dho.5`) needs bounded
-content evidence for dynamically selected aggregate copies before exclusivity
-can help. Relaxing the one-slot identity requirement alone is insufficient:
-the destination load already denotes a placeholder, not several known fields
-of one caller object. Preserve the exact-slot requirement for identity queries
-and the unknown result for unresolved copies.
+`ExclusiveAt` accepts different field addresses only when every non-stale
+alternative belongs to the same unescaped object. Exact identity queries still
+require one exact slot. This distinguishes caller-owned and local destination
+tables without conflating their local holders with the destination. Mixed
+objects, nil, opaque pointers, unknown or oversized windows, and dynamic
+replacement stay unknown. `store_destination_exclusivity_test.go` covers these
+boundaries, including slice offsets and nested fields.
+
+The motivating [ferro statement storage](https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/internal/admin/repository/sql_store.go#L73-L99)
+uses copied structs containing addresses of receiver-owned statement fields.
+The graph supplies destination evidence; the resource classifier owns whether
+a store transfers or opaquely consumes an obligation.
 
 ## Answers
 

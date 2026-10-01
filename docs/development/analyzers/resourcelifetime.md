@@ -184,6 +184,20 @@ compressors must flush, transactions must commit, and an inferred owner's
 
 ## Contracts and transfers
 
+A resource stored through a loaded destination pointer is a handoff when the
+heap model proves that every destination belongs to the same caller parameter.
+A local struct or range table holding those addresses is not their owner.
+A proven local destination keeps the obligation; replacement with a local
+address therefore still reports. An unresolved loaded destination is opaque
+consumption, never proof of cleanup. Mixed ownership, nil or opaque addresses,
+and table windows or dynamic writes beyond the shared copy model keep unknown
+ownership. This accepts coverage loss for unresolved local destinations rather
+than asserting a leak through ambiguous storage. `indirect_destinations.go`
+pins the accepted, reported, and opaque forms. The motivating
+[ferro receiver storage](https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/internal/admin/repository/sql_store.go#L73-L99)
+needs destination provenance, not a SQL-specific lifecycle exemption.
+
+
 The `owned` contract family is not a table. A constructor in another package
 whose returned struct holds a resource it acquired itself, and whose type has
 a method that releases that field on every return, is summarized by the

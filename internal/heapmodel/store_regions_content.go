@@ -154,6 +154,7 @@ func (graph *regionGraph) backingOf(state *regionState, target slot) (*region, s
 // snapshot region for the loaded value.
 func (graph *regionGraph) snapshotOf(state *regionState, addresses pointees, loaded ssa.Value) pointees {
 	snapshot := graph.snapshot(loaded)
+	graph.clearSubtree(state, slot{region: snapshot})
 	stamp := 0
 	if instruction, ok := loaded.(ssa.Instruction); ok {
 		stamp = graph.id(instruction)
@@ -165,6 +166,7 @@ func (graph *regionGraph) snapshotOf(state *regionState, addresses pointees, loa
 	for address, stale := range addresses {
 		if lastStep(address.path) == pathStar {
 			state.clobbered[slot{region: snapshot}] = stamp
+			graph.selectedSnapshot(state, address, stale, loaded, snapshot)
 			return pointees{{region: snapshot}: stale}
 		}
 		graph.copySubtree(state, address, slot{region: snapshot})

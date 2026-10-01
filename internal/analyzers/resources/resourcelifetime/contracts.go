@@ -556,7 +556,7 @@ func instructionSettlesResourceOwnership(
 			lifecycle.TransferOwnerStoredInExternalField | lifecycle.TransferStoredInOwnedMap |
 			lifecycle.TransferSentToReceiver | lifecycle.TransferCapturedByClosure,
 	}
-	return resourceTransferredToExternalField(instruction, resource) ||
+	return resourceExternalStorageProof(instruction, resource).Proven() ||
 		evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,
 			Target:      resource,

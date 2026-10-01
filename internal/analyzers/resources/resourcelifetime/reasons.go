@@ -67,6 +67,7 @@ const (
 	resourceReasonStatementParentClosed
 	resourceReasonStoredInMap
 	resourceReasonStoredOnCollectionOwner
+	resourceReasonIndirectDestinationUnknown
 	resourceReasonWrapperStoredOnForeignOwner
 	resourceReasonAcquisitionUnreachable
 	resourceReasonTestifyNoErrorGuard
@@ -162,6 +163,7 @@ var resourceReasonCodes = [...]string{
 	resourceReasonSettled:                                  "settled",
 	resourceReasonStatementParentClosed:                    "statement-parent-closed",
 	resourceReasonStoredInMap:                              "stored-in-map",
+	resourceReasonIndirectDestinationUnknown:               "indirect-destination-unknown",
 	resourceReasonStoredOnCollectionOwner:                  "stored-on-collection-owner",
 	resourceReasonWrapperStoredOnForeignOwner:              "wrapper-stored-on-foreign-owner",
 	resourceReasonAcquisitionUnreachable:                   "acquisition-unreachable",

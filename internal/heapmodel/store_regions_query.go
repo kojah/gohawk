@@ -320,7 +320,7 @@ func (graph *regionGraph) exclusiveAt(value ssa.Value, at ssa.Instruction) (Excl
 	if !ok {
 		return ExclusiveObject{}, false
 	}
-	target, ok := singleSlot(set)
+	target, ok := singleObjectSlot(set)
 	if !ok {
 		return ExclusiveObject{}, false
 	}
@@ -513,4 +513,18 @@ func (graph *regionGraph) pointsTo(value ssa.Value) (pointees, bool) {
 func (graph *regionGraph) everContained(object slot, target pointees) bool {
 	defer graph.lock()()
 	return graph.everContainedUnlocked(object, target)
+}
+
+// singleObjectSlot permits different fields of the same object, while retaining
+// singleSlot's stale and wildcard boundaries. Exclusivity concerns the object;
+// storage identity still requires one exact slot.
+func singleObjectSlot(set pointees) (slot, bool) {
+	var object slot
+	for target, stale := range set {
+		if _, known := singleSlot(pointees{target: stale}); !known || object.region != nil && object.region != target.region {
+			return slot{}, false
+		}
+		object = slot{region: target.region}
+	}
+	return object, object.region != nil
 }

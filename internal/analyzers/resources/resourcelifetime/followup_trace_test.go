@@ -32,6 +32,7 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 	events := decodeFollowupTrace(t, data)
 	assertHTTPBoundaryTrace(t, events)
 	assertCleanupBoundaryTrace(t, events)
+	assertIndirectDestinationTrace(t, events)
 	assertContextErrorGuardTrace(t, events)
 	assertUncertainEdgeTrace(t, events, "repeated-guard-edge-unknown", "guard_facts.go:")
 	assertUncertainEdgeTrace(t, events, "rows-exhausted-edge-unknown", "sql_")
@@ -147,4 +148,18 @@ func assertCleanupBoundaryTrace(t *testing.T, events []followupTraceEvent) {
 	if len(proofFiles) != 0 || len(want) != 0 {
 		t.Errorf("missing followup evidence: proofs=%v missing=%v", proofFiles, want)
 	}
+}
+
+func assertIndirectDestinationTrace(t *testing.T, events []followupTraceEvent) {
+	t.Helper()
+	for _, event := range events {
+		if event.Reason != "indirect-destination-unknown" {
+			continue
+		}
+		if event.Phase != "label" || event.Outcome != "unknown" || !strings.Contains(event.Candidate, "indirect_destinations.go:") {
+			t.Errorf("unexpected indirect destination trace: %+v", event)
+		}
+		return
+	}
+	t.Error("missing indirect destination ownership boundary")
 }

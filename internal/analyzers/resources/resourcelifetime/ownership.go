@@ -23,7 +23,7 @@ func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			owner := resourceFieldOwner(instruction, resource)
-			if owner != nil && !ssaflow.ExternallyOwnedValue(owner) && !heapmodel.MayAliasAny(owner, owners) {
+			if owner != nil && !resourceExternalStorageProof(instruction, resource).Proven() && !heapmodel.MayAliasAny(owner, owners) {
 				owners = append(owners, owner)
 			}
 		}
@@ -99,9 +99,34 @@ func (analysis *resourceAnalysis) importedLoopRelease(instruction ssa.Instructio
 	return false
 }
 
-func resourceTransferredToExternalField(instruction ssa.Instruction, resource ssa.Value) bool {
+// resourceExternalStorageProof distinguishes the destination from the local
+// aggregate that holds its address. An unresolved pointer load consumes the
+// resource opaquely; it is neither a local owner nor guaranteed cleanup.
+// https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/internal/admin/repository/sql_store.go#L73-L99
+func resourceExternalStorageProof(instruction ssa.Instruction, resource ssa.Value) resourceProof {
 	owner := resourceFieldOwner(instruction, resource)
-	return owner != nil && ssaflow.ExternallyOwnedValue(owner)
+	if owner == nil {
+		return resourceProof{State: ssaflow.EvidenceDisproven}
+	}
+	if ssaflow.ExternallyOwnedValue(owner) {
+		return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonSettled}
+	}
+	store, stored := instruction.(*ssa.Store)
+	if !stored {
+		return resourceProof{State: ssaflow.EvidenceDisproven}
+	}
+	load, indirect := store.Addr.(*ssa.UnOp)
+	if !indirect || load.Op != token.MUL {
+		return resourceProof{State: ssaflow.EvidenceDisproven}
+	}
+	object, known := heapmodel.ExclusiveAt(store.Addr, store)
+	if !known {
+		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonIndirectDestinationUnknown}
+	}
+	if object.Local {
+		return resourceProof{State: ssaflow.EvidenceDisproven}
+	}
+	return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonSettled}
 }
 
 func resourceFieldOwner(instruction ssa.Instruction, resource ssa.Value) ssa.Value { //nolint:ireturn // Owners retain their concrete SSA value forms.

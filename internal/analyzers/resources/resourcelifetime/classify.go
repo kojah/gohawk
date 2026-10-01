@@ -237,6 +237,9 @@ func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction)
 	case *ssa.Return:
 		return resourceReasonReturnedWrapperRetains, analysis.returnedMayCarryWrapper(typed)
 	case *ssa.Store:
+		if proof := resourceExternalStorageProof(typed, analysis.resource); proof.State == ssaflow.EvidenceUnknown {
+			return proof.Reason, true
+		}
 		// An owner selected from a collection may already be retained elsewhere.
 		// The local collection is not evidence that its elements are local owners.
 		// https://github.com/cloudflare/artifact-fs/blob/2b87a48691ef4ae82d391b7bbe4976c06c7fadf7/internal/fusefs/fuse_unix.go#L256-L287
