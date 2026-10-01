@@ -260,3 +260,31 @@ func unwrapWrapper(value ssa.Value) ssa.Value {
 		value = inner
 	}
 }
+
+// responseBodyAggregateHandoff recognizes the exact acquired Body inside an
+// aggregate at the handoff. Projection stability is checked at the Body load,
+// so a saved original survives a later replacement, but a replacement itself
+// is not an owner. Current containment excludes overwritten aggregate fields
+// and later stores. A send is uncertain ownership, never a cleanup guarantee.
+// https://github.com/Contextualist/acp/blob/579b477d0281df41ab8753a7cbcb8f7807e52e2c/pkg/pnet/p2p.go#L79-L91
+func (analysis *resourceAnalysis) responseBodyAggregateHandoff(value ssa.Value, at ssa.Instruction) resourceProof {
+	missing := resourceProof{State: ssaflow.EvidenceDisproven}
+	if analysis.contract.family != "http" || !heapmodel.CanHoldReference(value.Type()) {
+		return missing
+	}
+	budget := analysis.budget(ssaflow.QueryBudget)
+	storage := heapmodel.NewStorage(budget)
+	for _, load := range ssaflow.InstructionsOf[*ssa.UnOp](analysis.function) {
+		if !budget.Spend() {
+			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		}
+		if lifecyclefacts.ResponseBodyField(load) == nil || !storage.Projection(load, analysis.resource, load).Proven() {
+			continue
+		}
+		contained, known := heapmodel.ContainsAt(value, load, at)
+		if known && contained {
+			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonResponseBodyAggregateHandoff}
+		}
+	}
+	return missing
+}

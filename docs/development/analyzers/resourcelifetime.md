@@ -184,6 +184,22 @@ compressors must flush, transactions must commit, and an inferred owner's
 
 ## Contracts and transfers
 
+Sending an aggregate that holds the exact acquired HTTP response Body is an
+uncertain ownership handoff. A Body load must select that response's unmodified
+field at the load point; current heap containment must then find that reference
+in the aggregate before the send or select. This reuses projection stability
+and point-in-time containment instead of walking historical stores. A saved
+Body or aggregate copy may retain the original after later replacement.
+Loading a replaced Body, sending an overwritten aggregate or another response's
+Body, and passing response metadata or bytes do not establish this boundary.
+`body_handoff_test.go` isolates these distinctions because broader rules can
+already decline mutated responses. `body_handoffs.go` pins send/select forms
+and keeps discarded aggregates, metadata and byte handoffs diagnostic.
+The [ACP HTTP worker](https://github.com/Contextualist/acp/blob/579b477d0281df41ab8753a7cbcb8f7807e52e2c/pkg/pnet/p2p.go#L79-L91)
+is the motivating value-copy shape. A send never proves cleanup; receiver
+behavior and request cancellation are not assumed.
+
+
 A resource stored through a loaded destination pointer is a handoff when the
 heap model proves that every destination belongs to the same caller parameter.
 A local struct or range table holding those addresses is not their owner.

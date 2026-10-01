@@ -250,11 +250,19 @@ func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction)
 		}
 		return resourceReasonWrapperStoredOnForeignOwner, analysis.wrapperStoredOnForeignOwner(typed)
 	case *ssa.Send:
+		if proof := analysis.responseBodyAggregateHandoff(typed.X, typed); proof.State == ssaflow.EvidenceUnknown {
+			return proof.Reason, true
+		}
 		return resourceReasonSentToChannel, analysis.carries(typed.X)
 	case *ssa.MapUpdate:
 		return resourceReasonStoredInMap, analysis.carries(typed.Value)
 	case *ssa.Select:
 		for _, state := range typed.States {
+			if state.Send != nil {
+				if proof := analysis.responseBodyAggregateHandoff(state.Send, typed); proof.State == ssaflow.EvidenceUnknown {
+					return proof.Reason, true
+				}
+			}
 			if state.Send != nil && analysis.carries(state.Send) {
 				return resourceReasonSentToChannel, true
 			}

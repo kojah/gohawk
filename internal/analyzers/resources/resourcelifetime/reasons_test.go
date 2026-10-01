@@ -68,6 +68,7 @@ var resourceReasonSpellings = map[resourceLifetimeReason]string{
 	resourceReasonReturnedViewCannotRelease:                "returned-view-cannot-release",
 	resourceReasonRowsTransactionFinished:                  "rows-transaction-finished",
 	resourceReasonTransactionContextCanceled:               "transaction-context-canceled",
+	resourceReasonResponseBodyAggregateHandoff:             "response-body-aggregate-handoff",
 	resourceReasonSentToChannel:                            "sent-to-channel",
 	resourceReasonSettled:                                  "settled",
 	resourceReasonStatementParentClosed:                    "statement-parent-closed",
