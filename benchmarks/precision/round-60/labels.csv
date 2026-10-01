@@ -1,0 +1,4 @@
+repository,analyzer,check,position,verdict
+basecamp/basecamp-cli,lockorder,lockorder/missing-release,internal/connector/queue.go:265:2,false_positive
+basecamp/basecamp-cli,resourcelifetime,resourcelifetime/missing-release,internal/auth/agent.go:289:15,false_positive
+basecamp/basecamp-cli,resourcelifetime,resourcelifetime/missing-release,internal/commands/connect_worker_mcp_unix.go:19:22,true_positive
