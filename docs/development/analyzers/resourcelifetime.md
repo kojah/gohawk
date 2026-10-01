@@ -66,6 +66,10 @@ large classifier file; policy and tracing continue through its single label.
 For compression writers, error returns and explicit pipe aborts can abandon
 the output rather than publish it. Those paths are uncertain, not proven
 finalization; successful returns still require Close where the contract applies.
+An error interface holding a typed nil pointer is nonnil, so it also supplies
+uncertain abandonment on an error return or `PipeWriter.CloseWithError`.
+`compression_error_boxing.go` pairs those forms with an unfinished successful
+return whose nil error still leaves the finalization obligation uncovered.
 
 The false edge of the tracked `database/sql.Rows.Next` call is also uncertain:
 the final result set closes automatically, but another result set may remain.

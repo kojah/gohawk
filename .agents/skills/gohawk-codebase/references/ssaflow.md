@@ -755,6 +755,7 @@ func DefinitelyNil(value ssa.Value) bool
 ```
 
 DefinitelyNil reports whether every represented SSA value is nil.
+Interface boxing remains opaque: an interface holding a typed nil is nonnil.
 
 ## DerivesFrom
 

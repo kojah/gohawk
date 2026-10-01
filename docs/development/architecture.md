@@ -85,6 +85,10 @@ for each; these times include each check's prerequisite passes.
   phi alternatives and cycle handling. Its leaves follow storage sources and
   exact stores into local cells. A possible external source supplies uncertain
   ownership, never cleanup coverage; opaque call results remain unresolved.
+- Definite nilness uses `ReachingWalk.Every`, preserving independent phi
+  alternatives and rejecting circular or empty evidence. Interface boxing
+  remains opaque: a typed nil boxed into an interface is nonnil, including an
+  error interface. Nilness and ownership choose their own transparent forms.
 - `heapmodel.Storage` is the shared, bounded query for local contents and stable
   owner projections. It resolves loads at their own execution points, including
   fields, constant array elements, and aggregate-copy snapshots. Completion,

@@ -38,39 +38,14 @@ func StructurallySame(value, target ssa.Value) bool {
 }
 
 // DefinitelyNil reports whether every represented SSA value is nil.
+// Interface boxing remains opaque: an interface holding a typed nil is nonnil.
 func DefinitelyNil(value ssa.Value) bool {
-	return definitelyNil(value, map[ssa.Value]bool{})
+	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert
+	return NewReachingWalk(forms).Every(value, func(_ ReachingWalk, value ssa.Value) bool {
+		literal, ok := value.(*ssa.Const)
+		return ok && literal.IsNil()
+	})
 }
-
-func definitelyNil(value ssa.Value, seen map[ssa.Value]bool) bool {
-	if value == nil || seen[value] {
-		return false
-	}
-	seen[value] = true
-	if literal, ok := value.(*ssa.Const); ok {
-		return literal.IsNil()
-	}
-	if inner, ok := UnwrapTransparentValue(
-		value,
-		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
-	); ok {
-		return definitelyNil(inner, seen)
-	}
-	if typed, ok := value.(*ssa.Phi); ok {
-		if len(typed.Edges) == 0 {
-			return false
-		}
-		for _, edge := range typed.Edges {
-			if !definitelyNil(edge, seen) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
-
-// DeferredClosureCalls reports whether deferred closure calls method on target.
 
 func sameValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
 	if value == nil || target == nil {

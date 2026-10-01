@@ -1,5 +1,10 @@
 # Precision audits
 
+The [nil boxing follow-up](nil-boxing-followup-2026-10-02.md) corrects shared
+definite-nil proofs and two minimized compression-writer false positives.
+Scoped production controls retain stargz's known TP and Openase's unresolved
+findings; the 18-site production queue and frozen audit totals are unchanged.
+
 The [September 24 frozen 1,000-repository audit](overnight-2026-09-24-1000.md)
 is complete across batches [56](batch-56.md), [57](batch-57.md),
 [58](batch-58.md), and [59](batch-59.md): 769 complete, 230 incomplete,
