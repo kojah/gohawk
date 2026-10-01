@@ -2,7 +2,6 @@ package lifecycle
 
 import (
 	"go/token"
-	"go/types"
 	"iter"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
@@ -197,22 +196,9 @@ func (search *ownershipSearch) functionReturnsOwner(function *ssa.Function, valu
 		Entry: function,
 		Owns:  func(ssa.Instruction) bool { return false },
 		AllowReturn: func(returned *ssa.Return) bool {
-			return owners[returned] || returnHasOnlyNilValuesAndErrors(returned)
+			return owners[returned] || ssaflow.ReturnsOnlyNilOrErrors(returned)
 		},
 	}) == nil
-}
-
-func returnHasOnlyNilValuesAndErrors(returned *ssa.Return) bool {
-	if len(returned.Results) == 0 {
-		return false
-	}
-	errorType := types.Universe.Lookup("error").Type()
-	for _, result := range returned.Results {
-		if !ssaflow.DefinitelyNil(result) && !types.Identical(result.Type(), errorType) {
-			return false
-		}
-	}
-	return true
 }
 
 func (search *ownershipSearch) aggregateReferrersStoreValue(aggregate, value ssa.Value) bool {

@@ -411,7 +411,7 @@ func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, par
 		Entry: function,
 		Owns:  func(ssa.Instruction) bool { return false },
 		AllowReturn: func(returned *ssa.Return) bool {
-			return lifecycle.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || allResultsNil(returned)
+			return lifecycle.ReturnedValueOwnsValueSummarized(returned, parameter, summarized) || ssaflow.ReturnsOnlyNilOrErrors(returned)
 		},
 	}) == nil
 }
@@ -435,16 +435,4 @@ func ownershipCapableType(value types.Type) bool {
 	default:
 		return false
 	}
-}
-
-func allResultsNil(returned *ssa.Return) bool {
-	if len(returned.Results) == 0 {
-		return false
-	}
-	for _, result := range returned.Results {
-		if !ssaflow.DefinitelyNil(result) && result.Type().String() != "error" {
-			return false
-		}
-	}
-	return true
 }

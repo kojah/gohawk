@@ -94,6 +94,11 @@ for each; these times include each check's prerequisite passes.
   alternatives and rejecting circular or empty evidence. Interface boxing
   remains opaque: a typed nil boxed into an interface is nonnil, including an
   error interface. Nilness and ownership choose their own transparent forms.
+- Local returned-owner inference and fact publication share
+  `ssaflow.ReturnsOnlyNilOrErrors` for the unsuccessful-construction exception.
+  It checks exact builtin error identity, including aliases, and does not
+  excuse a nonnil owner result. The predicate describes result shape only;
+  each caller retains its return witness and coverage requirements.
 - `heapmodel.Storage` is the shared, bounded query for local contents and stable
   owner projections. It resolves loads at their own execution points, including
   fields, constant array elements, and aggregate-copy snapshots. Completion,

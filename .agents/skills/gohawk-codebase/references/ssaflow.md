@@ -2277,6 +2277,18 @@ func ResolvedFunction(function *ssa.Function) *ssa.Function
 ResolvedFunction answers an instantiation with its origin for a function the
 caller already holds, such as the literal a launch names.
 
+## ReturnsOnlyNilOrErrors
+
+[Source](../../../../internal/ssaflow/return_values.go)
+
+```go
+func ReturnsOnlyNilOrErrors(returned *ssa.Return) bool
+```
+
+ReturnsOnlyNilOrErrors reports whether a nonempty return contains only
+definitely nil values or values of the builtin error type, including aliases.
+This describes the result shape, not failure, ownership or cleanup coverage.
+
 ## RunsOnceInProgramEntry
 
 [Source](../../../../internal/ssaflow/process_entry.go)

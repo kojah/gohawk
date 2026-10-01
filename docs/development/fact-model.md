@@ -560,6 +560,12 @@ Each limit traces straight back to one of the four things above.
   masks require a positive action witness and a normal return; returned-owner
   claims also require a reachable normal return. In particular, an unimplemented
   panicking method cannot become a type's cleanup contract.
+  Body-based returned-owner searches share `ssaflow.ReturnsOnlyNilOrErrors`
+  for unsuccessful-construction return shapes. Exact builtin error identity
+  includes aliases; an unrelated nonnil owner result or a separately declared
+  error-like type does not satisfy this exception. The shape alone proves
+  neither failure nor cleanup. `returned_owner_errors_test.go` pins the alias
+  case and the existing boundary for delegated tuple results.
 - **Interface calls** — *named callee only*. A call through an interface has no
   fact and is `unknown`, unless the method name matches a documented cleanup
   contract such as `Close`.
