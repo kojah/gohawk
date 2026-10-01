@@ -37,14 +37,7 @@ func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa
 	if !analysisTrace.Enabled("processownership", checkID) {
 		return
 	}
-	outcome := analysisTrace.OutcomeUnknown
-	switch decision.state {
-	case ssaflow.EvidenceProven:
-		outcome = analysisTrace.OutcomeRejected
-	case ssaflow.EvidenceDisproven:
-		outcome = analysisTrace.OutcomeAccepted
-	case ssaflow.EvidenceUnknown:
-	}
+	outcome := analysisTrace.DiagnosticOutcome(decision.state)
 	details := map[string]string{}
 	if command != nil && command.Type() != nil {
 		details["command_type"] = command.Type().String()

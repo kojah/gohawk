@@ -187,6 +187,13 @@ where its steps run inside a callee body in another file. Events include the
 SSA text they concern, so a trace for one candidate reads as an annotated SSA
 walk.
 
+When presenting an `ssaflow.EvidenceState` whose proposition is permission to
+report a diagnostic, use `trace.DiagnosticOutcome`: proven maps to rejected,
+disproven to accepted, and unknown or invalid states to unknown. The helper
+only presents an already selected proof outcome. Cleanup and transfer evidence
+has a different polarity and must retain its own interpretation; proving a
+cleanup is not a rejected diagnostic decision.
+
 ### Reading one candidate
 
 1. Start at its `candidate` event: that is the obligation and its exact SSA

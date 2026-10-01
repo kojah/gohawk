@@ -77,14 +77,7 @@ func emitDeferLifetimeDecision(probe analysisTrace.Probe, proof deferLifetimePro
 	if !probe.Enabled() {
 		return
 	}
-	outcome := analysisTrace.OutcomeUnknown
-	switch proof.state {
-	case ssaflow.EvidenceProven:
-		outcome = analysisTrace.OutcomeRejected
-	case ssaflow.EvidenceDisproven:
-		outcome = analysisTrace.OutcomeAccepted
-	case ssaflow.EvidenceUnknown:
-	}
+	outcome := analysisTrace.DiagnosticOutcome(proof.state)
 	step := analysisTrace.Step{Reason: proof.reason.String(), Outcome: outcome, Pos: proof.witness.Pos()}
 	if function := proof.witness.Parent(); function != nil {
 		step.Function = function.String()

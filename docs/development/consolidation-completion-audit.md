@@ -188,8 +188,35 @@ are empty. The final canonical local gate passes all targets
 (`.build/goal-defer-proof-final-verify.log`); initial formatter and helper/tag
 lint issues were corrected. No full precision corpus or local race run was
 performed. The identical diagnostic-state trace switches in process, lock and
-defer reporting are separately tracked in `gohawk-dho.29`; this decision-owner
-review does not claim that presentation mechanics have no duplication.
+defer reporting are consolidated in `gohawk-dho.29` as described below; this
+decision-owner review does not establish the absence of other duplication.
+
+## Diagnostic trace outcome projection
+
+Beads `gohawk-dho.29` consolidates the identical final state-to-outcome switches
+in process, lock and defer reporting into `trace.DiagnosticOutcome`. The
+adapter's contract is explicitly about evidence permitting a diagnostic:
+proven maps to rejected, disproven to accepted, and unknown or invalid states
+remain unknown. It does not decide reporting or consume reasons, witnesses,
+cleanup contracts or path evidence. Ordinary cleanup/transfer proofs retain
+their opposite interpretation and are not routed through this adapter.
+
+A contract test covers the complete uint8 state domain so unspecified values
+cannot silently become acceptance or a proven diagnostic. Existing trace
+regressions in all three consumers retain their phase, reason, outcome and
+candidate assertions. The source-layering gate permits trace to depend on SSA
+evidence types; SSA, heap and lifecycle engines still cannot import tracing.
+The generic observer signature remains unchanged.
+
+Focused trace and all three consumer package tests pass, as do the source
+layering, trace and commentary checks. Parent/current `-enable-all -json`
+process fixture scans both exit 3 with empty stderr and identical nonempty
+diagnostic JSON (31,707 bytes). The traced current fixture retains accepted,
+rejected and unknown proof decisions. Receipts use `.build/goal-trace-outcomes-*`.
+The final canonical local gate passes (`goal-trace-outcomes-final-verify.log`);
+the initial test-style lint finding was corrected. No full precision corpus,
+local race, FP removal or exported summary change is credited.
+
 
 ## Next verification
 

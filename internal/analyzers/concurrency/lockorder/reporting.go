@@ -23,14 +23,7 @@ func traceLockDiagnostic(pass *analysis.Pass, id check.ID, position token.Pos, p
 	if proof.reason == lockReasonNone {
 		return
 	}
-	outcome := analysisTrace.OutcomeUnknown
-	switch proof.state {
-	case ssaflow.EvidenceProven:
-		outcome = analysisTrace.OutcomeRejected
-	case ssaflow.EvidenceDisproven:
-		outcome = analysisTrace.OutcomeAccepted
-	case ssaflow.EvidenceUnknown:
-	}
+	outcome := analysisTrace.DiagnosticOutcome(proof.state)
 	analysisTrace.For(pass, "lockorder", string(id), position).Decision(analysisTrace.Step{
 		Reason: proof.reason.String(), Outcome: outcome, Pos: position,
 	})
