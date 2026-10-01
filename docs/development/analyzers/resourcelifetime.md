@@ -269,6 +269,17 @@ appended by earlier iterations, because the walk reads that error branch as
 the current acquisition's own. Fixtures: `resourcelifetime/collections.go`;
 the loop shape is `ssaflow.RangeElementLoop`.
 
+Returning an indexed slice uses the ordinary shared returned-owner query,
+independently of the append-collection model. Stores through the slice's own
+element addresses are checked as well as stores through its backing owner.
+This repairs the [sandbox file preparation](https://github.com/criyle/go-sandbox/blob/6a60e40be9d0cefb656c4ae12415c5fd040df954/cmd/runprog/fileutil.go#L6-L32):
+success returns the populated slice, while a loop helper makes cleanup on the
+error path unknown. It does not require an indexed-collection flow engine or
+prove which element a cleanup loop releases. `returned_slice_elements.go`
+retains diagnostics for another returned collection and a return that drops
+the populated slice. Shared tests cover fixed and dynamic element stores and
+unrelated values. Containment remains possible ownership, not exact release.
+
 Passing the collection whole to a helper that releases every element of it on
 every normal return is also understood, and settles the resource at the call,
 as the loop's exit edge does. The helper's claim is the lifecycle discharge

@@ -84,7 +84,13 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 			return true
 		}
 	case *ssa.Slice:
-		return search.aggregateStoresValue(typed.X, value)
+		// Stores can select an element through this slice rather than its
+		// backing array. Inspect those uses too when the backing owner does not
+		// account for the value; this remains possible containment, not release.
+		// https://github.com/criyle/go-sandbox/blob/6a60e40be9d0cefb656c4ae12415c5fd040df954/cmd/runprog/fileutil.go#L6-L32
+		if search.aggregateStoresValue(typed.X, value) {
+			return true
+		}
 	case *ssa.MakeClosure:
 		// A returned callback that captured the value keeps it alive and is the
 		// only thing that can still release it, so the caller receives the
