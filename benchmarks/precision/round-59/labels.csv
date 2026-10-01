@@ -1,0 +1,3 @@
+repository,analyzer,check,position,verdict
+ozontech/cute,resourcelifetime,resourcelifetime/missing-release,roundtripper.go:76:19,false_positive
+ozontech/cute,resourcelifetime,resourcelifetime/missing-release,test.go:614:13,true_positive
