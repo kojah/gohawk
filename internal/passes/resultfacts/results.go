@@ -1,6 +1,6 @@
-// Package resultfacts proves bounded unconditional guarantees about individual
-// function results. Guarantees concern every normal return, not ownership,
-// termination, or relationships between different result positions.
+// Package resultfacts proves bounded declaration guarantees about results and
+// normal termination. Result cases relate outcomes to exact parameters or
+// sibling results; these guarantees establish no ownership or cleanup.
 package resultfacts
 
 import (

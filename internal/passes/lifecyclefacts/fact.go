@@ -500,8 +500,6 @@ func receiverCount(signature *types.Signature) int {
 	return 0
 }
 
-// factOwnsArgument reports whether mask covers the argument which contains
-// target at this callsite.
 // factOwnsExactArgument is factOwnsArgument without containment: only the
 // target itself passed as the masked argument counts, so a literal that
 // captured the target is not mistaken for it.
@@ -524,6 +522,8 @@ func factArgumentMatches(instruction ssa.Instruction, target ssa.Value, mask Par
 	return false
 }
 
+// factOwnsArgument reports whether mask covers the argument which contains
+// target at this callsite.
 func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, observer ssaflow.Observer) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {

@@ -1,6 +1,7 @@
 package heapmodel
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -14,6 +15,8 @@ package ssaflowtest
 type closer struct{}
 func (*closer) Close() {}
 type owner struct { body *closer }
+type ownerView owner
+type slotView **closer
 
 func acquire() *owner { return nil }
 func cleanup(*closer) {}
@@ -21,6 +24,9 @@ func mutateOwner(*owner)
 func mutateSlot(**closer)
 func inspectOwner(p *owner) *closer { return p.body }
 func inspectSlot(p **closer) bool { return *p != nil }
+func inspectView(p *ownerView) *closer { return p.body }
+func mutateView(*ownerView)
+func mutateSlotView(slotView)
 var retained *owner
 func retainOwner(p *owner) { retained=p }
 
@@ -36,6 +42,21 @@ func readOnlyRoot() {
 func readOnlySlot() {
 	value := acquire()
 	inspectSlot(&value.body)
+	cleanup(value.body)
+}
+func convertedReadOnlyRoot() {
+	value := acquire()
+	inspectView((*ownerView)(value))
+	cleanup(value.body)
+}
+func convertedEscapedRoot() {
+	value := acquire()
+	mutateView((*ownerView)(value))
+	cleanup(value.body)
+}
+func convertedEscapedSlot() {
+	value := acquire()
+	mutateSlotView(slotView(&value.body))
 	cleanup(value.body)
 }
 func retainedRoot() {
@@ -87,6 +108,9 @@ func TestUnmodifiedNonEmptyAccessPathAtBoundaries(t *testing.T) {
 		{name: "accepted", want: true},
 		{name: "readOnlyRoot", want: true},
 		{name: "readOnlySlot", want: true},
+		{name: "convertedReadOnlyRoot", want: true},
+		{name: "convertedEscapedRoot"},
+		{name: "convertedEscapedSlot"},
 		{name: "retainedRoot"},
 		{name: "escapedLater", want: true},
 		{name: "reassigned"},
@@ -97,6 +121,9 @@ func TestUnmodifiedNonEmptyAccessPathAtBoundaries(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
+			if strings.HasPrefix(test.name, "converted") && len(ssaflow.InstructionsOf[*ssa.ChangeType](function)) == 0 {
+				t.Fatal("fixture did not retain a conversion wrapper")
+			}
 			var root ssa.Value
 			for _, block := range function.Blocks {
 				for _, instruction := range block.Instrs {

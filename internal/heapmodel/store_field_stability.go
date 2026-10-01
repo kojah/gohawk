@@ -2,7 +2,6 @@ package heapmodel
 
 import (
 	"go/token"
-	"strings"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
@@ -26,7 +25,7 @@ func (storage *Storage) StableFieldContent(address ssa.Value, observation ssa.In
 	}
 	for _, store := range stores {
 		written, exact := storage.location(store.Addr)
-		if !exact || written.path != location.path && !strings.HasPrefix(location.path, written.path+"/") {
+		if !exact || !slotBeneath(location.path, written.path) {
 			return storage.unknown(ssaflow.EvidenceStoragePartialWrite, store)
 		}
 		if store == observation || StoreMayFollow(location.root, observation, store) || ssaflow.BlockInCycle(store.Block()) {

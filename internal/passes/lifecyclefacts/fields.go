@@ -431,12 +431,6 @@ func (evidence *LifecycleEvidence) OwnedResult(call *ssa.Call) ([]string, int, b
 	return cleanup, index, len(cleanup) > 0
 }
 
-// returnedViews narrows the function's ReturnedOwner mask to the parameters
-// that are stored in the returned struct but that no method of the result
-// type releases: the result is a view over the caller's resource, and the
-// caller keeps the obligation. A parameter of a type this vocabulary does not
-// know is never a view, because there is no obligation to keep. Method
-// summaries come from this package's own summaries or from imported facts.
 // viewsFromResultsAlone narrows every returned owner to a view when no result
 // of the function can release anything. It is the answer for a result that is
 // not a struct, such as an interface, where there is no field to attribute the
@@ -469,6 +463,12 @@ func viewsFromResultsAlone(function *ssa.Function, fact Fact) ParameterMask {
 	return views
 }
 
+// returnedViews narrows the function's ReturnedOwner mask to the parameters
+// that are stored in the returned struct but that no method of the result
+// type releases: the result is a view over the caller's resource, and the
+// caller keeps the obligation. A parameter of a type this vocabulary does not
+// know is never a view, because there is no obligation to keep. Method
+// summaries come from this package's own summaries or from imported facts.
 func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summaries Summaries) ParameterMask {
 	if fact.ReturnedOwner() == 0 {
 		return 0

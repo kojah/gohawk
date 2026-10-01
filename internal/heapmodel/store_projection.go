@@ -90,31 +90,33 @@ func addressValue(value ssa.Value) bool {
 }
 
 func (storage *Storage) addressDoesNotEscapeBetween(address ssa.Value, origin, observation ssa.Instruction, seen map[ssa.Value]bool) bool {
-	if address == nil || address.Referrers() == nil || seen[address] {
+	return storage.projectionUsesPreserveStorage(address, origin, observation, seen, storage.addressProjectionUse)
+}
+
+func (storage *Storage) rootDoesNotEscapeBetween(root ssa.Value, origin, observation ssa.Instruction, seen map[ssa.Value]bool) bool {
+	return storage.projectionUsesPreserveStorage(root, origin, observation, seen, storage.rootProjectionUse)
+}
+
+// Both projection boundaries use the same observation window and wrapper
+// traversal. Keep depth-first visits and reject repeats: changing either can
+// change which query spends the shared budget or accepts a circular proof.
+func (storage *Storage) projectionUsesPreserveStorage(
+	value ssa.Value, origin, observation ssa.Instruction, seen map[ssa.Value]bool,
+	accept func(ssa.Value, ssa.Instruction) bool,
+) bool {
+	if value == nil || value.Referrers() == nil || seen[value] {
 		return false
 	}
-	seen[address] = true
-	for _, reference := range *address.Referrers() {
+	seen[value] = true
+	for _, reference := range *value.Referrers() {
 		if !storage.budget.Spend() {
 			return false
 		}
-		if !instructionWithinObservation(reference, origin, observation) {
+		if !instructionWithinObservation(reference, origin, observation) || accept(value, reference) {
 			continue
 		}
-		switch typed := reference.(type) {
-		case *ssa.DebugRef:
-			continue
-		case *ssa.Call, *ssa.Defer, *ssa.Go:
-			if storage.effects.Call(reference, address).PreservesStorage() {
-				continue
-			}
-		case *ssa.UnOp:
-			if typed.Op == token.MUL && typed.X == address {
-				continue
-			}
-		}
-		if wrapper, ok := outwardProjectionWrapper(reference, address); ok &&
-			storage.addressDoesNotEscapeBetween(wrapper, origin, observation, seen) {
+		if wrapper, ok := outwardProjectionWrapper(reference, value); ok &&
+			storage.projectionUsesPreserveStorage(wrapper, origin, observation, seen, accept) {
 			continue
 		}
 		return false
@@ -122,36 +124,28 @@ func (storage *Storage) addressDoesNotEscapeBetween(address ssa.Value, origin, o
 	return true
 }
 
-func (storage *Storage) rootDoesNotEscapeBetween(root ssa.Value, origin, observation ssa.Instruction, seen map[ssa.Value]bool) bool {
-	if root == nil || root.Referrers() == nil || seen[root] {
-		return false
+func (storage *Storage) addressProjectionUse(address ssa.Value, reference ssa.Instruction) bool {
+	switch typed := reference.(type) {
+	case *ssa.DebugRef:
+		return true
+	case *ssa.Call, *ssa.Defer, *ssa.Go:
+		return storage.effects.Call(reference, address).PreservesStorage()
+	case *ssa.UnOp:
+		return typed.Op == token.MUL && typed.X == address
 	}
-	seen[root] = true
-	for _, reference := range *root.Referrers() {
-		if !storage.budget.Spend() {
-			return false
-		}
-		if !instructionWithinObservation(reference, origin, observation) {
-			continue
-		}
-		switch typed := reference.(type) {
-		case *ssa.DebugRef, *ssa.FieldAddr, *ssa.IndexAddr:
-			continue
-		case *ssa.Call, *ssa.Defer, *ssa.Go:
-			if storage.effects.Call(reference, root).PreservesStorage() {
-				continue
-			}
-		case *ssa.BinOp:
-			if (typed.Op == token.EQL || typed.Op == token.NEQ) && (ssaflow.DefinitelyNil(typed.X) || ssaflow.DefinitelyNil(typed.Y)) {
-				continue
-			}
-		}
-		if wrapper, ok := outwardProjectionWrapper(reference, root); ok && storage.rootDoesNotEscapeBetween(wrapper, origin, observation, seen) {
-			continue
-		}
-		return false
+	return false
+}
+
+func (storage *Storage) rootProjectionUse(root ssa.Value, reference ssa.Instruction) bool {
+	switch typed := reference.(type) {
+	case *ssa.DebugRef, *ssa.FieldAddr, *ssa.IndexAddr:
+		return true
+	case *ssa.Call, *ssa.Defer, *ssa.Go:
+		return storage.effects.Call(reference, root).PreservesStorage()
+	case *ssa.BinOp:
+		return (typed.Op == token.EQL || typed.Op == token.NEQ) && (ssaflow.DefinitelyNil(typed.X) || ssaflow.DefinitelyNil(typed.Y))
 	}
-	return true
+	return false
 }
 
 func outwardProjectionWrapper(reference ssa.Instruction, inner ssa.Value) (ssa.Value, bool) { //nolint:ireturn // Preserve the concrete SSA wrapper.

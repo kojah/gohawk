@@ -17,9 +17,9 @@ func (storage *Storage) reachingContent(location storageLocation, observation ss
 		if !ok || written.root != location.root {
 			return storage.unknown(ssaflow.EvidenceStorageWriteThroughAlias, store)
 		}
-		if written.path == location.path || strings.HasPrefix(location.path, written.path+"/") {
+		if slotBeneath(location.path, written.path) {
 			writes[store] = storageWrite{suffix: strings.TrimPrefix(location.path, written.path)}
-		} else if strings.HasPrefix(written.path, location.path+"/") {
+		} else if slotBeneath(written.path, location.path) {
 			writes[store] = storageWrite{partial: true}
 		}
 	}

@@ -1,8 +1,6 @@
 package heapmodel
 
 import (
-	"strings"
-
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -32,8 +30,7 @@ func (storage *Storage) StableContent(address ssa.Value, observation ssa.Instruc
 		if !ok {
 			return storage.unknown(ssaflow.EvidenceStorageWriteThroughAlias, store)
 		}
-		if written.path != location.path && !strings.HasPrefix(location.path, written.path+"/") &&
-			!strings.HasPrefix(written.path, location.path+"/") {
+		if !slotBeneath(location.path, written.path) && !slotBeneath(written.path, location.path) {
 			continue
 		}
 		if StoreMayFollow(location.root, observation, store) || ssaflow.BlockInCycle(store.Block()) && store.Block() != location.root.Block() {

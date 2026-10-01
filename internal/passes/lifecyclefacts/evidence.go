@@ -2,6 +2,7 @@ package lifecyclefacts
 
 import (
 	"go/token"
+	"iter"
 	"slices"
 	"strings"
 
@@ -45,12 +46,8 @@ func (evidence *LifecycleEvidence) ClosureRetainsValue(closure *ssa.MakeClosure,
 		return true
 	}
 	retentions := evidence.retentionQueries()
-	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !heapmodel.CapturedBindingMatches(captured.Binding, target) &&
-			!heapmodel.ValueDerivesFrom(captured.Binding, target) {
-			continue
-		}
-		for _, held := range capturedUses(captured.Free) {
+	for uses := range capturedTargetUses(function, closure, target) {
+		for _, held := range uses {
 			if retentions.retainedAnywhere(evidence.pass, function, held) {
 				return true
 			}
@@ -90,12 +87,7 @@ func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCallee(
 	if !ok || len(function.Blocks) == 0 {
 		return true
 	}
-	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !heapmodel.CapturedBindingMatches(captured.Binding, target) &&
-			!heapmodel.ValueDerivesFrom(captured.Binding, target) {
-			continue
-		}
-		held := capturedUses(captured.Free)
+	for held := range capturedTargetUses(function, closure, target) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				if callHandsValueToUnreadableCallee(instruction, held) {
@@ -128,6 +120,23 @@ func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Va
 		}
 	}
 	return false
+}
+
+// Select the same possible capture provenance for retention and unreadable
+// handoff queries. Keep each capture's uses together and stop when the caller
+// has its witness; neither query needs to inspect unrelated later captures.
+func capturedTargetUses(function *ssa.Function, closure *ssa.MakeClosure, target ssa.Value) iter.Seq[[]ssa.Value] {
+	return func(yield func([]ssa.Value) bool) {
+		for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
+			if !heapmodel.CapturedBindingMatches(captured.Binding, target) &&
+				!heapmodel.ValueDerivesFrom(captured.Binding, target) {
+				continue
+			}
+			if !yield(capturedUses(captured.Free)) {
+				return
+			}
+		}
+	}
 }
 
 // capturedUses returns the values a literal's body actually handles for a
