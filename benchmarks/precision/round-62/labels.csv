@@ -1,0 +1,3 @@
+repository,analyzer,check,position,verdict
+criyle/go-sandbox,processownership,processownership/missing-wait,container/environment_linux.go:266:11,false_positive
+openfaas/of-watchdog,processownership,processownership/missing-wait,executor/serializing_fork_runner.go:105:12,true_positive

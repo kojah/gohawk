@@ -82,6 +82,11 @@ recorded in [retired precision labels](../../docs/development/decisions/retired-
 
 ## Which check a label names
 
+[Round 62](round-62/README.md) preserves batch 63's returned process-handle
+owner correction and one genuine missing-wait control. Both labels pass across
+two fully scannable repositories; the returned owner is uncertain ownership,
+not proof that its cleanup method eventually runs.
+
 Round 58 preserves the [337-site follow-up](audits/followup-337.md): 85 absent
 false-positive sites and ten known-bug controls. Its canonical replay checks
 70 labels successfully; 25 are excluded by incomplete repository loading and
