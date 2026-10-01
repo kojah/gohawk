@@ -1,0 +1,4 @@
+repository	position	verdict	scope	result
+urunc-dev/urunc	internal/metrics/metrics.go:61:16	false_positive	./internal/metrics	absent; scan exits 0
+ozontech/cute	test.go:614:13	true_positive	complete module scan	present; no scan exclusions
+basecamp/basecamp-cli	internal/commands/connect_worker_mcp_unix.go:19:22	true_positive	complete module scan	present; no scan exclusions

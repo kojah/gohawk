@@ -1,0 +1,3 @@
+basecamp/basecamp-cli	resourcelifetime	internal/commands/connect_worker_mcp_unix.go:19:22
+ozontech/cute	resourcelifetime	test.go:614:13
+urunc-dev/urunc	resourcelifetime	tests/e2e/utils.go:244:15

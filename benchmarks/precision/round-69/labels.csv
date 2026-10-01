@@ -1,0 +1,4 @@
+repository,analyzer,check,position,verdict
+urunc-dev/urunc,resourcelifetime,resourcelifetime/missing-release,internal/metrics/metrics.go:61:16,false_positive
+ozontech/cute,resourcelifetime,resourcelifetime/missing-release,test.go:614:13,true_positive
+basecamp/basecamp-cli,resourcelifetime,resourcelifetime/missing-release,internal/commands/connect_worker_mcp_unix.go:19:22,true_positive

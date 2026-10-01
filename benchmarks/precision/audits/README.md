@@ -14,8 +14,10 @@ production-file precision is the figure comparable with later batches.
 
 The [returned-logger assessment](returned-logger-assessment-2026-10-01.md)
 replays urunc's production handoff and isolates missing value-copy field
-relationships in imported facts. The FP remains unresolved; a depth-eight
-counterfactual does not remove it, and no correction is credited.
+relationships in imported facts; a depth-eight counterfactual did not remove it.
+The subsequent shared projection correction is recorded in
+[round 69](../round-69/README.md): the affected package no longer reports the FP,
+while the full urunc scan remains incomplete under the CGO-disabled profile.
 
 After a batch record is committed and every emitted finding has a source
 verdict, the audit runner can remove only its pinned, clean checkouts while

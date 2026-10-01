@@ -1,5 +1,9 @@
 # Returned logger: value-copy summary gap
 
+This is the pre-correction assessment at `3649a40`. The subsequent shared
+heap correction and successful affected-package replay are recorded in
+[round 69](../round-69/README.md); the original assessment ledger stays frozen.
+
 The batch 63 production FP in `urunc-dev/urunc`, revision
 `ef1dc96a6bf0c188fc7714200d66d95557ae8af3`, remains reported at
 `internal/metrics/metrics.go:61:16`. The [assessment ledger](returned-logger-assessment-2026-10-01.tsv)

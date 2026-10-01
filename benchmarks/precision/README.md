@@ -82,6 +82,11 @@ recorded in [retired precision labels](../../docs/development/decisions/retired-
 
 ## Which check a label names
 
+[Round 69](round-69/README.md) verifies urunc's returned value-copy handoff in
+the affected package and retains two production resource-leak controls.
+The shared heap projection preserves untouched fields; the full urunc scan
+still has a documented CGO build constraint.
+
 [Round 68](round-68/README.md) preserves KCL's logger-option publication
 correction and two production resource-leak controls. The existing wrapper
 chain follows explicit appended values through the shared SSA slice helper.
