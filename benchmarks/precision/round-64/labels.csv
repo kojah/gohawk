@@ -1,0 +1,5 @@
+repository,analyzer,check,position,verdict
+OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,apps/watchman/olapdb/batch.go:96:13,false_positive
+OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,apps/watchman/olapdb/olapdb.go:115:13,false_positive
+OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,apps/forklift/retriever.go:115:15,true_positive
+OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,internal/test/static_assets.go:18:12,true_positive
