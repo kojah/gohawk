@@ -513,7 +513,13 @@ body and does not synthesize effects from missing lifecycle-summary bits; see
   callback to a callee in the same package reads that callee's invocation
   claims from the summaries this pass has already computed, or proves them
   from an unexported callee's body, because facts are exported only after the
-  whole package is summarized.
+  whole package is summarized. Invocation inference owns its state within the
+  package pass and uses `ssaflow.FunctionSummaries` for recursion, memoization,
+  and a shared `SummaryBudget`. Both invocation modes use one instruction
+  classifier. Recursive or exhausted queries advertise no invocation guarantee
+  and do not cache an incomplete answer; a later query with sufficient budget
+  can retry. `callback_facts_test.go` pins forwarding, asynchronous invocation,
+  conditional and replacement callbacks, cycles, and budget recovery.
 - Cleanup that happens deeper in a chain of exported calls, because one
   summary is allowed to read the summaries of the functions it calls.
 - Facts on things other than function parameters: `CleanupFact` attaches a

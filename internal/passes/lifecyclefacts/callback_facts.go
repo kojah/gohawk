@@ -1,8 +1,6 @@
 package lifecyclefacts
 
 import (
-	"sync"
-
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
@@ -21,89 +19,82 @@ import (
 // Only the invocation claims read these summaries. Every other claim keeps
 // importing exported facts, because some are completed after the package is
 // summarized. An unexported sibling is never summarized, so its invocation
-// claims are proved from its body when first asked; a callee already being
-// proved, which only a call cycle reaches again, claims nothing.
+// claims are proved from its body when first asked. Recursion and budget cuts
+// claim nothing and never become cached declaration guarantees.
 
-var localFacts = struct {
-	sync.Mutex
-	byPass map[*analysis.Pass]map[*ssa.Function]Fact
-}{byPass: map[*analysis.Pass]map[*ssa.Function]Fact{}}
-
-func rememberLocalFact(pass *analysis.Pass, function *ssa.Function, fact Fact) {
-	localFacts.Lock()
-	defer localFacts.Unlock()
-	facts := localFacts.byPass[pass]
-	if facts == nil {
-		facts = map[*ssa.Function]Fact{}
-		localFacts.byPass[pass] = facts
-	}
-	fact.signature = function.Signature
-	facts[function] = fact
+// callbackInference owns invocation evidence for one package pass. Completed
+// declaration summaries and bounded invocation-only summaries stay local to
+// that pass; the shared summary engine owns recursion and incomplete answers.
+type callbackInference struct {
+	pass        *analysis.Pass
+	completed   Summaries
+	invocations *ssaflow.FunctionSummaries[Fact]
 }
 
-func forgetLocalFacts(pass *analysis.Pass) {
-	localFacts.Lock()
-	defer localFacts.Unlock()
-	delete(localFacts.byPass, pass)
+func newCallbackInference(pass *analysis.Pass, completed Summaries) *callbackInference {
+	callbacks := &callbackInference{pass: pass, completed: completed}
+	callbacks.invocations = ssaflow.NewFunctionSummaries(callbacks.computeInvocations, func(ssaflow.SummaryUnavailable) Fact {
+		return Fact{}
+	})
+	return callbacks
 }
 
-// invocationDischarges proves whether the function invokes its parameter on
-// every normal return, and whether it does so synchronously: directly, or by
-// handing it to a callee whose summary invokes that argument.
-func invocationDischarges(pass *analysis.Pass, function *ssa.Function, index int, parameter ssa.Value) []Discharge {
-	var discharges []Discharge
-	invokes := func(instruction ssa.Instruction) bool {
-		common := ssaflow.InstructionCall(instruction)
-		if common != nil && heapmodel.NewStorage(nil).Same(common.Value, parameter).Proven() {
-			return true
+func (callbacks *callbackInference) computeInvocations(function *ssa.Function, budget *ssaflow.SearchBudget) Fact {
+	fact := Fact{signature: function.Signature}
+	for index, parameter := range function.Params {
+		if index < 64 && ownershipCapableType(parameter.Type()) {
+			fact.Discharges = append(fact.Discharges, callbacks.invocationDischarges(function, index, parameter, budget)...)
 		}
-		imported, ok := callbackFact(pass, instruction)
-		return ok && factOwnsExactArgument(instruction, parameter, imported.InvokedParameters())
 	}
-	if ownsOnEveryReturn(function, parameter, invokes) {
-		discharges = append(discharges, Discharge{Parameter: index, Method: InvokeMethod})
-	}
-	if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
-		return synchronouslyInvokesParameter(pass, instruction, parameter)
-	}) {
-		discharges = append(discharges, Discharge{Parameter: index, Method: SynchronousInvokeMethod})
+	return fact
+}
+
+// invocationDischarges proves invocation on every normal return separately
+// from synchronous invocation. An asynchronous call supports only the former.
+func (callbacks *callbackInference) invocationDischarges(
+	function *ssa.Function, index int, parameter ssa.Value, budget *ssaflow.SearchBudget,
+) []Discharge {
+	var discharges []Discharge
+	for _, method := range []string{InvokeMethod, SynchronousInvokeMethod} {
+		if ownsOnEveryReturn(function, parameter, func(instruction ssa.Instruction) bool {
+			return callbacks.invokesParameter(instruction, parameter, method, budget)
+		}) {
+			discharges = append(discharges, Discharge{Parameter: index, Method: method})
+		}
 	}
 	return discharges
 }
 
-// callbackFact returns the callee's summary for questions about which
-// callbacks it invokes: its exported fact, the summary this pass already
-// computed for a callee in the same package, or, for a same-package callee
-// that is not summarized, its invocation claims proved from its body.
-func callbackFact(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
-	if fact, ok := importFact(pass, instruction); ok {
+func (callbacks *callbackInference) invokesParameter(
+	instruction ssa.Instruction, parameter ssa.Value, method string, budget *ssaflow.SearchBudget,
+) bool {
+	if !budget.Spend() {
+		return false
+	}
+	if _, asynchronous := instruction.(*ssa.Go); asynchronous && method == SynchronousInvokeMethod {
+		return false
+	}
+	common := ssaflow.InstructionCall(instruction)
+	if common != nil && heapmodel.NewStorage(budget).Same(common.Value, parameter).Proven() {
+		return true
+	}
+	fact, ok := callbacks.fact(instruction, budget)
+	return ok && factOwnsExactArgument(instruction, parameter, fact.MethodMask(method))
+}
+
+// fact reads imported or completed declaration evidence before asking the
+// shared engine for a visible sibling's invocation-only summary. Recursive or
+// exhausted queries make no claim and cannot leave a partial cached fact.
+func (callbacks *callbackInference) fact(instruction ssa.Instruction, budget *ssaflow.SearchBudget) (Fact, bool) {
+	if fact, ok := importFact(callbacks.pass, instruction); ok {
 		return fact, true
 	}
 	callee := ssaflow.ResolvedCallee(ssaflow.InstructionCall(instruction))
-	if callee == nil || pass == nil || callee.Pkg == nil || callee.Pkg.Pkg != pass.Pkg || len(callee.Blocks) == 0 {
+	if callee == nil || callbacks.pass == nil || callee.Pkg == nil || callee.Pkg.Pkg != callbacks.pass.Pkg || len(callee.Blocks) == 0 {
 		return Fact{}, false
 	}
-	localFacts.Lock()
-	facts := localFacts.byPass[pass]
-	if facts == nil {
-		facts = map[*ssa.Function]Fact{}
-		localFacts.byPass[pass] = facts
-	}
-	if fact, ok := facts[callee]; ok {
-		localFacts.Unlock()
+	if fact, ok := callbacks.completed[callee]; ok {
 		return fact, true
 	}
-	// A placeholder with no claims answers a call cycle back into this callee.
-	facts[callee] = Fact{signature: callee.Signature}
-	localFacts.Unlock()
-	fact := Fact{signature: callee.Signature}
-	for index, parameter := range callee.Params {
-		if index < 64 && ownershipCapableType(parameter.Type()) {
-			fact.Discharges = append(fact.Discharges, invocationDischarges(pass, callee, index, parameter)...)
-		}
-	}
-	localFacts.Lock()
-	facts[callee] = fact
-	localFacts.Unlock()
-	return fact, true
+	return callbacks.invocations.Function(callee, budget), true
 }

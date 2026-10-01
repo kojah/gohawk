@@ -42,7 +42,7 @@ func run(pass *analysis.Pass) (any, error) {
 		return nil, err
 	}
 	summaries := make(Summaries, len(functions))
-	defer forgetLocalFacts(pass)
+	callbacks := newCallbackInference(pass, summaries)
 	marker := &SummarizedPackage{}
 	// Import dependency summaries first, and hand their heap projections to
 	// the graph, so every graph built for this package applies a summarized
@@ -82,9 +82,8 @@ func run(pass *analysis.Pass) (any, error) {
 			Pos:      function.Pos(),
 			Function: function.String(),
 		})
-		fact := summarize(pass, function)
+		fact := callbacks.summarize(function)
 		summaries[function] = fact
-		rememberLocalFact(pass, function, fact)
 		local = append(local, function)
 		if fact.Heap != nil {
 			heapmodel.RegisterHeapSummary(function, *fact.Heap)
@@ -204,7 +203,8 @@ func factFor(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 	return Fact{}, false
 }
 
-func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
+func (callbacks *callbackInference) summarize(function *ssa.Function) Fact {
+	pass := callbacks.pass
 	// The transfer and retention claims are read from the projection, so it
 	// and the signature are attached before any proof below reads them.
 	heap := projectHeap(function)
@@ -213,6 +213,8 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 	fact.Must.ReleasedFields = releasedFields(pass, function)
 	fact.Must.OwnedResults = ownedResults(pass, function)
 	fact.Must.RetainingResults = retainingResults(pass, function)
+	invocation := callbacks.invocations.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	fact.Discharges = append(fact.Discharges, invocation.Discharges...)
 	// A fact is exported only when the action is unavoidable on every normal
 	// return. Each mask is therefore proved independently; evidence for Close,
 	// for example, must never make an unrelated Wait or return-transfer claim true.
@@ -221,7 +223,6 @@ func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 			continue
 		}
 		bit := parameterMaskFor(index)
-		fact.Discharges = append(fact.Discharges, invocationDischarges(pass, function, index, parameter)...)
 		summarizeDischarges(pass, function, index, parameter, &fact)
 		if releasesDerivedValueInLoop(function, parameter) {
 			fact.May.LoopReleased |= bit
@@ -377,18 +378,6 @@ func invokesMethodCallback(instruction ssa.Instruction, target ssa.Value, method
 		}
 	}
 	return false
-}
-
-func synchronouslyInvokesParameter(pass *analysis.Pass, instruction ssa.Instruction, parameter ssa.Value) bool {
-	if _, asynchronous := instruction.(*ssa.Go); asynchronous {
-		return false
-	}
-	common := ssaflow.InstructionCall(instruction)
-	if common != nil && heapmodel.NewStorage(nil).Same(common.Value, parameter).Proven() {
-		return true
-	}
-	imported, ok := callbackFact(pass, instruction)
-	return ok && factOwnsExactArgument(instruction, parameter, imported.SynchronouslyInvoked())
 }
 
 // structShaped reports whether a parameter of this type is a struct or a

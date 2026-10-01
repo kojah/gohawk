@@ -610,3 +610,8 @@ func AddClosing(w io.Writer) closerSyncer { return closingWrapper{w} }
 		t.Errorf("IdentityWriter ReturnedView = %#x, want parameter 0: its unchanged interface cannot close the resource", uint64(got))
 	}
 }
+
+// summarize gives body-level tests an independent package inference context.
+func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
+	return newCallbackInference(pass, nil).summarize(function)
+}
