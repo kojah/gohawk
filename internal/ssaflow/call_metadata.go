@@ -141,13 +141,6 @@ func CallName(common *ssa.CallCommon) string {
 	return ""
 }
 
-// CallInvokesArgumentOnEveryReturn reports whether a statically known helper
-// invokes target on every normal path through the helper.
-
-// strictNonEmptyAccessPath reports whether value is a field or constant-index
-// path strictly beneath root whose selected storage was not replaced before
-// the load that observes it.
-
 // CallReceiver returns receiver value for method calls and invocations.
 func CallReceiver(common *ssa.CallCommon) ssa.Value { //nolint:ireturn // Call receivers have several concrete SSA value forms.
 	if common == nil {

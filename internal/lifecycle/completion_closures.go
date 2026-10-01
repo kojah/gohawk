@@ -10,18 +10,6 @@ import (
 // and helper calls. These helpers accept only concrete SSA relationships and
 // stop at cycles or unmodeled indirection so callers can treat a match as proof.
 
-// CapturedBinding pairs a closure's free variable with the value bound to it
-// where the closure is made.
-
-// ClosureBindingPairs pairs the free variables of function with the bindings
-// of closure. Callers pass the function whose body they will search, which
-// may be the origin of an instantiated closure; the origin declares the same
-// free variables in the same order. A binding list shorter than the free
-// variables yields only the pairs that exist, and a nil closure yields none.
-
-// InstructionsOf returns every instruction of one concrete type in function,
-// in block order.
-
 // DeferredClosureCallsValue reports whether a deferred closure calls target.
 func DeferredClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
 	if _, ok := instruction.(*ssa.Defer); !ok {
@@ -36,20 +24,23 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 	if _, ok := instruction.(*ssa.Defer); !ok {
 		return false
 	}
-	common, closure, function := calledFunction(instruction)
+	common := ssaflow.InstructionCall(instruction)
+	function, closure := ssaflow.DirectCallee(common)
 	if function == nil {
 		return false
 	}
+	bindings := ssaflow.CallBindings(common, function, closure)
 	for _, block := range function.Blocks {
 		for _, candidate := range block.Instrs {
-			for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-				if heapmodel.CapturedBindingMatches(captured.Binding, target) && CallInvokesArgumentOnEveryReturn(candidate, captured.Free) {
-					return true
+			for _, binding := range bindings {
+				// Captures name cells read by the deferred body; arguments
+				// are values evaluated when the defer is registered. Keep
+				// their matching policies distinct after pairing them once.
+				matches := heapmodel.MayAlias(binding.Supplied, target)
+				if binding.Captured {
+					matches = heapmodel.CapturedBindingMatches(binding.Supplied, target)
 				}
-			}
-			for index, parameter := range function.Params {
-				if common != nil && index < len(common.Args) && heapmodel.MayAlias(common.Args[index], target) &&
-					CallInvokesArgumentOnEveryReturn(candidate, parameter) {
+				if matches && CallInvokesArgumentOnEveryReturn(candidate, binding.Local) {
 					return true
 				}
 			}
@@ -73,19 +64,4 @@ func ClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool {
 		return false
 	}
 	return closureCallsValue(closure, target)
-}
-
-// calledFunction returns the call, the function literal when the callee is
-// one, and the callee body of a call-like instruction.
-func calledFunction(instruction ssa.Instruction) (*ssa.CallCommon, *ssa.MakeClosure, *ssa.Function) {
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return nil, nil, nil
-	}
-	closure, _ := common.Value.(*ssa.MakeClosure)
-	function := common.StaticCallee()
-	if closure != nil {
-		function, _ = closure.Fn.(*ssa.Function)
-	}
-	return common, closure, function
 }

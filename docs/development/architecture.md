@@ -23,6 +23,10 @@ for each; these times include each check's prerequisite passes.
 - `internal/lifecycle` builds completion and ownership-transfer
   proofs from `ssaflow` and `heapmodel`. Analyzers import the layer that owns
   the query they need; neither package forwards the other's API.
+  Direct callee resolution and positional argument/capture pairing use
+  `ssaflow.DirectCallee` and `CallBindings`, including the broad deferred
+  callback handoff query. Pairing supplies no identity guarantee: lifecycle
+  keeps captured-cell matching distinct from eagerly evaluated arguments.
   Callback transfer and aggregate containment keep their distinct policies,
   while sharing capture-binding identity and cell-content checks. A callback
   capturing an aggregate can contain a resource without establishing the
