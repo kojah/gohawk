@@ -59,6 +59,23 @@ honest: an entry carried around a back edge whose object was created inside
 the loop is marked *stale*, because the pointer then denotes an earlier
 iteration's object. A stale entry supports may-answers only.
 
+A dynamically indexed whole-aggregate load currently creates a clobbered
+snapshot. Consequently, ranging over a local table of structs containing
+caller field addresses loses the destination evidence; the same happens for
+local field addresses. `ExclusiveAt` cannot distinguish these cases. Its
+failure is unknown evidence, not proof that the destination is local. A single
+struct copy preserves the address, and replacing its pointer with a local
+address changes the ownership answer. `store_destination_exclusivity_test.go`
+covers these boundaries, including nil, opaque, and mixed destinations.
+
+The outstanding [ferro statement-storage finding](https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/internal/admin/repository/sql_store.go#L73-L99)
+(`gohawk-dho.5`) needs bounded
+content evidence for dynamically selected aggregate copies before exclusivity
+can help. Relaxing the one-slot identity requirement alone is insufficient:
+the destination load already denotes a placeholder, not several known fields
+of one caller object. Preserve the exact-slot requirement for identity queries
+and the unknown result for unresolved copies.
+
 ## Answers
 
 Every answer keeps the *structural* contract the analyzers were built on:
