@@ -32,7 +32,7 @@ type callerReleaseProof struct {
 // distinguish a transferred critical section from an abandoned acquisition.
 func (flow lockFlowContext) reportMissingReleases(
 	function *ssa.Function, unreleased map[string][]token.Pos,
-	heldAt map[string]map[*ssa.Return]bool, callers conditionalCallerSet,
+	heldAt map[*ssa.Return]lockReturnState, callers conditionalCallerSet,
 ) {
 	for identity, returns := range unreleased {
 		position := flow.acquiredAt[identity]
@@ -43,11 +43,14 @@ func (flow lockFlowContext) reportMissingReleases(
 			continue
 		}
 		values := flow.lockValues[identity]
-		if slices.ContainsFunc(values, privateMutexOnly) || !flow.released[identity] ||
-			acquiresForCaller(function, flow.acquisitions[identity], heldAt[identity]) {
+		if slices.ContainsFunc(values, privateMutexOnly) || !flow.released[identity] {
 			continue
 		}
-		if proof := conditionalCallerRelease(function, values, heldAt[identity], callers); proof.proven {
+		if proof := acquiresForCaller(function, flow.acquisitions[identity], heldAt, identity); proof.proven {
+			traceCallerRelease(flow.pass, position, proof.reason)
+			continue
+		}
+		if proof := conditionalCallerRelease(function, values, heldAt, identity, callers); proof.proven {
 			traceCallerRelease(flow.pass, position, proof.reason)
 			continue
 		}
@@ -120,7 +123,7 @@ func conditionalCallerSets(functions []*ssa.Function) map[*ssa.Function]conditio
 // on that polarity. Opaque/escaping callers leave this contract unknown.
 // https://github.com/fortio/fortio/blob/5c19725ff61c9f7ad944b91ec32d96a399341d87/fnet/network.go#L328-L393
 func conditionalCallerRelease(
-	function *ssa.Function, values []ssa.Value, heldAt map[*ssa.Return]bool, callers conditionalCallerSet,
+	function *ssa.Function, values []ssa.Value, heldAt map[*ssa.Return]lockReturnState, identity string, callers conditionalCallerSet,
 ) callerReleaseProof {
 	unknown := callerReleaseProof{reason: lockReasonConditionalCallerReleaseUnknown}
 	if len(values) != 1 || callers.escaped || len(callers.calls) == 0 {
@@ -131,7 +134,7 @@ func conditionalCallerRelease(
 		return unknown
 	}
 	for index := range function.Signature.Results().Len() {
-		heldWhen, known := heldResultPolarity(function, heldAt, index)
+		heldWhen, known := heldResultPolarity(function, heldAt, identity, index)
 		if known && !slices.ContainsFunc(callers.calls, func(call *ssa.Call) bool {
 			return !callerReleasesOnFlag(call, global, heldWhen)
 		}) {
@@ -144,14 +147,19 @@ func conditionalCallerRelease(
 // heldResultPolarity returns the result condition the lock is held under:
 // every return that holds it has one Boolean value in result index, and every
 // return that does not has the other.
-func heldResultPolarity(function *ssa.Function, heldAt map[*ssa.Return]bool, index int) (ssaflow.CallCondition, bool) {
+func heldResultPolarity(function *ssa.Function, heldAt map[*ssa.Return]lockReturnState, identity string, index int) (ssaflow.CallCondition, bool) {
 	var held, unheld, sawHeld, sawUnheld bool
 	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](function) {
 		truth, known := lockBooleanValue(lifecycle.ReturnedResult(returned, index), nil)
 		if !known {
 			return ssaflow.CallCondition{}, false
 		}
-		if heldAt[returned] {
+		state, observed := heldAt[returned]
+		definite := slices.Contains(state.definite, identity)
+		if !observed || definite != slices.Contains(state.possible, identity) {
+			return ssaflow.CallCondition{}, false
+		}
+		if definite {
 			if sawHeld && held != truth {
 				return ssaflow.CallCondition{}, false
 			}

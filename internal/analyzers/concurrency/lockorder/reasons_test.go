@@ -19,6 +19,8 @@ func TestLockReasonCodes(t *testing.T) {
 		lockReasonLoadedAcquisitionGuardUnknown:       "loaded-acquisition-guard-unknown",
 		lockReasonLockStateBudgetExhausted:            "lock-state-budget-exhausted",
 		lockReasonHelperReleaseUnproven:               "helper-release-unproven",
+		lockReasonHeldForCallerProven:                 "held-for-caller-proven",
+		lockReasonHeldForCallerUnknown:                "held-for-caller-unknown",
 		lockReasonMutexActionObserved:                 "mutex-action-observed",
 		lockReasonReleaseIdentityUnknown:              "release-identity-unknown",
 		lockReasonNoFreshBoundOwner:                   "no-fresh-bound-owner",

@@ -143,6 +143,16 @@ and computed loop values are not treated as stable parameters. A checked error
 returned unchanged also counts as successful when its exact nil branch dominates
 that return, preserving held-for-caller contracts without guessing from names.
 
+Return evidence distinguishes possible retention from retention on every
+visited path to the same SSA return. A held-for-caller contract requires definite
+retention, so merged held and released paths cannot establish it. A helper that
+retains the exact lock on every normal return hands the critical section to its
+caller even when its error result is opaque. This covers
+[go-diameter's read-lock handoff](https://github.com/fiorix/go-diameter/blob/c7794c55a5412a3d91b17165971be4c6bc6b3ced/examples/s6a_proxy/service/util.go#L51-L87).
+It does not prove the caller eventually releases the lock. Fixtures in
+`lockorder/return_handoff.go` pair the handoff with mixed-state returns that must
+remain reported. Boolean held-result contracts likewise decline mixed states.
+
 Functions without a recognized direct or summarized mutex acquisition do not
 need lock-state exploration. Each remaining function is limited to 4,096
 distinct states. Exhaustion makes the whole function inconclusive: its buffered

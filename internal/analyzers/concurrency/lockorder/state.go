@@ -21,6 +21,25 @@ import (
 // release witnesses. Mutable loaded guards can justify uncertainty, never a
 // stable value or a guaranteed unlock on a later path.
 
+// A return can merge paths that retained a lock with paths that released it.
+// Possible retention identifies violations; only definite retention can
+// establish a held-for-caller contract. Both come from the same flow states.
+type lockReturnState struct {
+	possible []string
+	definite []string
+}
+
+func mergeLockReturnState(previous lockReturnState, held []string, seen bool) lockReturnState {
+	if !seen {
+		return lockReturnState{possible: slices.Clone(held), definite: slices.Clone(held)}
+	}
+	for _, identity := range held {
+		previous.possible = appendUniqueString(previous.possible, identity)
+	}
+	previous.definite = slices.DeleteFunc(previous.definite, func(identity string) bool { return !slices.Contains(held, identity) })
+	return previous
+}
+
 func lockStateKey(state lockFlowState) string {
 	predecessor := -1
 	if state.predecessor != nil {

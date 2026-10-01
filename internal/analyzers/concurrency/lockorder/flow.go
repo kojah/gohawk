@@ -79,7 +79,7 @@ func walkLockOrderBounded(
 	acquiredAt := map[string]token.Pos{}
 	lockValues := map[string][]ssa.Value{}
 	unreleasedReturns := map[string][]token.Pos{}
-	heldAtReturn := map[string]map[*ssa.Return]bool{}
+	heldAtReturn := map[*ssa.Return]lockReturnState{}
 	acquisitions := map[string][]ssa.Instruction{}
 	uncertainGuards := map[string]bool{}
 	possibleWriters := possibleDeferredWriters(function, summaries)
@@ -188,37 +188,49 @@ func recordUnreleasedLocks(
 	held, deferred []string,
 	lockValues map[string][]ssa.Value,
 	unreleased map[string][]token.Pos,
-	heldAtReturn map[string]map[*ssa.Return]bool,
+	heldAtReturn map[*ssa.Return]lockReturnState,
 ) {
 	returned, ok := instruction.(*ssa.Return)
 	if !ok {
 		return
 	}
+	retained := make([]string, 0, len(held))
 	for _, identity := range held {
 		if !slices.Contains(deferred, identity) && !returnedUnlockOwner(returned, lockValues[identity]) {
 			unreleased[identity] = appendUniquePosition(unreleased[identity], returned.Pos())
-			if heldAtReturn[identity] == nil {
-				heldAtReturn[identity] = map[*ssa.Return]bool{}
-			}
-			heldAtReturn[identity][returned] = true
+			retained = append(retained, identity)
 		}
 	}
+	previous, seen := heldAtReturn[returned]
+	heldAtReturn[returned] = mergeLockReturnState(previous, retained, seen)
 }
 
 // acquiresForCaller reports whether the function's contract is to return with
 // the lock held: every successful return that an acquisition dominates, one
 // that returns no error or a nil error, still holds it, and at least one such
-// return exists. A helper that begins a critical section for its caller, with
+// return exists. Retention on every normal path also establishes this contract,
+// including error returns. A helper that begins a critical section for its caller, with
 // a matching helper that ends it, has this shape; a function that forgets an
 // unlock on one successful path, or acquires only conditionally, does not.
 // crabbox pairs beginOperation with endOperation:
 // https://github.com/openclaw/crabbox/blob/3ef3f98cbe27e6ddc814c11fde15b89c1639bcbe/internal/providers/incus/client.go#L161-L185
-func acquiresForCaller(function *ssa.Function, acquisitions []ssa.Instruction, heldAt map[*ssa.Return]bool) bool {
+// https://github.com/fiorix/go-diameter/blob/c7794c55a5412a3d91b17165971be4c6bc6b3ced/examples/s6a_proxy/service/util.go#L51-L87
+func acquiresForCaller(
+	function *ssa.Function, acquisitions []ssa.Instruction, heldAt map[*ssa.Return]lockReturnState, identity string,
+) callerReleaseProof {
 	successful := 0
+	allHeld := true
+	returns := 0
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
 			returned, ok := instruction.(*ssa.Return)
-			if !ok || !successfulReturn(function, returned) {
+			if !ok {
+				continue
+			}
+			returns++
+			definite := slices.Contains(heldAt[returned].definite, identity)
+			allHeld = allHeld && definite
+			if !successfulReturn(function, returned) {
 				continue
 			}
 			dominated := slices.ContainsFunc(acquisitions, func(acquisition ssa.Instruction) bool {
@@ -228,12 +240,15 @@ func acquiresForCaller(function *ssa.Function, acquisitions []ssa.Instruction, h
 				continue
 			}
 			successful++
-			if !heldAt[returned] {
-				return false
+			if !definite {
+				return callerReleaseProof{reason: lockReasonHeldForCallerUnknown}
 			}
 		}
 	}
-	return successful > 0
+	if successful > 0 || returns > 0 && allHeld {
+		return callerReleaseProof{proven: true, reason: lockReasonHeldForCallerProven}
+	}
+	return callerReleaseProof{reason: lockReasonHeldForCallerUnknown}
 }
 
 func appendUniqueInstruction(instructions []ssa.Instruction, instruction ssa.Instruction) []ssa.Instruction {
